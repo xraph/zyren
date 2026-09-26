@@ -118,8 +118,8 @@ Shared native surface registration remains plan 02 work.
 
 ## API milestone: scoped work and executable examples
 
-The final task passed 42 core/geospatial Dart tests, 33 facade widget tests and
-three executable-example widget tests. The native package passed six tests:
+The final review fixes passed 49 core/geospatial Dart tests, 34 facade widget
+tests and three executable-example widget tests. The native package passed six tests:
 three worker protocol tests and three real GPU tests, including a worker killed
 without a dispose request returning its native handle count to baseline. Run
 native tests from `packages/gpu3d_native`, with `RUN_NATIVE_GPU=1` and
@@ -131,9 +131,30 @@ The latter verifies independent cameras sharing one scene, hot-reload reassembly
 390-pixel layout, closing/reopening a controller and continued native rendering
 in the surviving view. Rust formatting, Clippy and all three Rust tests (GPU test
 explicitly included), Dart formatting, package boundaries and analyzer passed.
-No new iOS, Android, Windows or Linux runtime claim is made by this checkpoint.
+The post-extraction iOS simulator debug build and Android ARM64 debug APK also
+passed at 1102442. Those builds establish compilation, not a new device runtime
+claim. Windows and Linux builds remain unverified locally.
 
 Load cancellation primitives are implemented; built-in asset source resolution
 and decoders are not. Native finalization is verified for worker isolate exit on
 macOS. Whole Flutter-engine hot restart and OS process teardown on every platform
 still belong to platform qualification. Presentation remains explicit readback.
+
+## Final branch review
+
+An independent reviewer found three cleanup/pacing defects. All three were
+reproduced before repair: asynchronous stream cancellation escaped engine
+cleanup; closing a supplied lifetime left rendering active; rounded vsync times
+dropped valid frames. The fix tracks asynchronous cancellation, makes lifetime
+closure stop and dispose the engine, and keeps fractional frame deadlines.
+
+The final suites above and both native macOS integrations passed after the fixes.
+Scheduling tests submit 600 frames over ten seconds of synthetic 60, 90 and
+120 Hz ticks with a 60 FPS limit. This checks pacing logic, not measured GPU frame
+rate. Additional regressions cover cancellation errors and lifetime closure
+during a pending frame. The reviewer reported no separate minor findings.
+
+The implementation decisions and remaining limits are recorded in
+[API implementation decisions](api-implementation-decisions.md). The release
+builds passed; a final desktop visual launch was blocked because the Mac was
+locked. Automated macOS integrations still ran and rendered successfully.

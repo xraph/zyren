@@ -275,10 +275,13 @@ if (input != null) {
 ```
 
 `scope.close()` is synchronous and idempotent. It disposes registrations in
-reverse order, attempts every cleanup and reports `ScopeCleanupException` if
-any fail. Late registrations are disposed immediately and rejected. An engine
-accepts an optional `lifetime: AttachmentScope()` to cancel attachment; the
-Flutter controller supplies this automatically. Plugin `attach` methods must
+reverse order, attempts every cleanup and reports synchronous failures with
+`ScopeCleanupException`. Await `scope.whenClosed` to include asynchronous stream
+cancellation and its errors. Engine teardown awaits this before plugin detach. Late registrations are disposed immediately and rejected. An engine
+accepts an optional `lifetime: AttachmentScope()`. Closing it cancels pending
+attachment or stops a running engine and starts disposal. Await `engine.dispose()`
+for completion and cleanup errors. The Flutter controller supplies this lifetime
+automatically. Plugin `attach` methods must
 finish their own asynchronous work, including after cancellation, for teardown
 to finish. Use the scope for any registrations created after an await.
 
@@ -296,3 +299,8 @@ loaders, source resolution and `assets.load(...)` are still plan 03 work.
 Run the managed, borrowed and shared-scene examples in `examples/multiple_views`.
 Their widget tests import the example libraries, so their public API usage is
 checked by both the analyzer and the test runner.
+
+The current `PerspectiveCamera` uses world-space `position`, `target` and `up`.
+Its inherited quaternion and parent transforms do not affect the view matrix in
+this milestone. Use those three camera properties for navigation until camera
+hierarchy support lands with plan 03.

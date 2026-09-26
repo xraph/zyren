@@ -2,6 +2,24 @@ import 'package:gpu3d/rendering.dart';
 import 'package:test/test.dart';
 
 void main() {
+  for (final displayHz in [60, 90, 120]) {
+    test('60 FPS pacing survives rounded timestamps at $displayHz Hz', () {
+      final scheduler = FrameScheduler(maxFramesPerSecond: 60);
+      final demand = scheduler.acquireDemand();
+      var submitted = 0;
+      for (var tick = 0; tick < displayHz * 10; tick++) {
+        if (scheduler.tick(
+              Duration(microseconds: (tick * 1000000 / displayHz).round()),
+            ) !=
+            null) {
+          submitted++;
+        }
+      }
+      expect(submitted, 600);
+      demand.dispose();
+    });
+  }
+
   test('idle, coalesced requests and demand have one clock', () {
     final scheduler = FrameScheduler(maxFramesPerSecond: 60);
     expect(scheduler.tick(Duration.zero)!.delta, Duration.zero);

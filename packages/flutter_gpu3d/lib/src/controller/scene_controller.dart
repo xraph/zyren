@@ -442,6 +442,8 @@ class SceneController {
   Future<void> _close() async {
     final errors = List<Object>.of(_cleanupErrors);
     for (final close in <Future<void>? Function()>[
+      () => _registrations.whenClosed,
+      () => _lifetime.whenClosed,
       () => _assetDisposal,
       () => _retrying,
       () => _initialization,

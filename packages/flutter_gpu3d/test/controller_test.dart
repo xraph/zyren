@@ -24,6 +24,49 @@ SceneRuntime runtime(FakeBackend backend) => SceneRuntime(
 
 void main() {
   testWidgets(
+    'asynchronous plugin cancellation remains observable through whenDisposed',
+    (tester) async {
+      final cancellation = Completer<void>();
+      final stream = StreamController<int>(onCancel: () => cancellation.future);
+      final backend = FakeBackend();
+      final controller = SceneController(
+        options: readback,
+        runtime: runtime(backend),
+      );
+      controller.use(
+        TestPlugin(
+          'listener',
+          [],
+          onAttach: (context) {
+            context.scope.listen(stream.stream, (_) {});
+          },
+        ),
+      );
+      await tester.pumpWidget(host(SceneView(controller: controller)));
+      await frames(tester);
+      controller.dispose();
+      final closed = expectLater(
+        controller.whenDisposed,
+        throwsA(
+          isA<SceneException>().having(
+            (error) => error.issue.code,
+            'code',
+            SceneIssueCodes.cleanupFailed,
+          ),
+        ),
+      );
+      await frames(tester);
+      expect(backend.closeCount, 0);
+      cancellation.completeError(StateError('subscription cleanup failed'));
+      await frames(tester);
+      await closed;
+      expect(backend.closeCount, 1);
+      await tester.pumpWidget(const SizedBox());
+      addTearDown(stream.close);
+    },
+  );
+
+  testWidgets(
     'dispose cancels scoped plugin and update registrations during attach',
     (tester) async {
       final finish = Completer<void>();

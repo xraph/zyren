@@ -6,6 +6,134 @@ import 'support/fakes.dart';
 
 void main() {
   test(
+    'asynchronous cancellation errors join cleanup failures without skipping owners',
+    () async {
+      final gate = Completer<void>();
+      final stream = StreamController<int>(onCancel: () => gate.future);
+      final events = <String>[];
+      final renderer = TestRenderer(events);
+      final engine = await SceneEngine.create(
+        scene: Scene(),
+        camera: PerspectiveCamera(),
+        rendererFactory: () async => renderer,
+        plugins: [
+          TestPlugin(
+            'listener',
+            events,
+            onAttach: (context) {
+              context.scope.listen(stream.stream, (_) {});
+            },
+            onDetach: (_) => throw StateError('detach failed'),
+          ),
+        ],
+      );
+      final closed = expectLater(
+        engine.dispose(),
+        throwsA(
+          isA<EngineCleanupException>().having(
+            (error) => error.errors.length,
+            'failures',
+            2,
+          ),
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(renderer.disposals, 0);
+      gate.completeError(StateError('cancel failed'));
+      await closed;
+      expect(renderer.disposals, 1);
+      await stream.close();
+    },
+  );
+  test(
+    'lifetime closure waits for the current frame before plugin resource teardown',
+    () async {
+      final lifetime = AttachmentScope();
+      final gate = Completer<void>();
+      final events = <String>[];
+      final renderer = TestRenderer(events, gate: gate);
+      final engine = await SceneEngine.create(
+        scene: Scene(),
+        camera: PerspectiveCamera(),
+        rendererFactory: () async => renderer,
+        lifetime: lifetime,
+        plugins: [TestPlugin('resource', events)],
+      );
+      final frame = engine.render(elapsed: Duration.zero, width: 4, height: 4);
+      await Future<void>.delayed(Duration.zero);
+      lifetime.close();
+      await expectLater(
+        engine.render(elapsed: Duration.zero, width: 4, height: 4),
+        throwsStateError,
+      );
+      expect(events, isNot(contains('resource.detach')));
+      gate.complete();
+      await frame;
+      await engine.dispose();
+      expect(events, contains('resource.detach'));
+      expect(renderer.disposals, 1);
+    },
+  );
+
+  test(
+    'engine awaits asynchronous subscription cancellation before detaching resources',
+    () async {
+      final gate = Completer<void>();
+      final stream = StreamController<int>(onCancel: () => gate.future);
+      final events = <String>[];
+      final renderer = TestRenderer(events);
+      final engine = await SceneEngine.create(
+        scene: Scene(),
+        camera: PerspectiveCamera(),
+        rendererFactory: () async => renderer,
+        plugins: [
+          TestPlugin(
+            'listener',
+            events,
+            onAttach: (context) {
+              context.scope.listen(stream.stream, (_) {});
+            },
+          ),
+        ],
+      );
+      var done = false;
+      final closing = engine.dispose().then((_) {
+        done = true;
+      });
+      await Future<void>.delayed(Duration.zero);
+      final completedEarly = done;
+      final detachedEarly = events.contains('listener.detach');
+      gate.complete();
+      await closing;
+      await stream.close();
+      expect(completedEarly, isFalse);
+      expect(detachedEarly, isFalse);
+      expect(renderer.disposals, 1);
+    },
+  );
+  test(
+    'closing a live engine lifetime stops new rendering and disposes it',
+    () async {
+      final lifetime = AttachmentScope();
+      final renderer = TestRenderer([]);
+      final engine = await SceneEngine.create(
+        scene: Scene(),
+        camera: PerspectiveCamera(),
+        rendererFactory: () async => renderer,
+        lifetime: lifetime,
+      );
+      lifetime.close();
+      await expectLater(
+        engine.render(elapsed: Duration.zero, width: 4, height: 4),
+        throwsStateError,
+      );
+      await engine.dispose();
+      expect(renderer.renders, 0);
+      expect(renderer.disposals, 1);
+    },
+  );
+
+  test(
     'a lifetime does not mask a genuine attach failure as cancellation',
     () async {
       final error = StateError('attach failed');

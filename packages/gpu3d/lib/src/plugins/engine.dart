@@ -182,6 +182,7 @@ class SceneEngine {
     var cancelled = false;
     var attaching = false;
     var acceptCancellation = true;
+    var initialized = false;
     Registration? cancellation;
     try {
       cancellation = lifetime?.keep(
@@ -197,6 +198,14 @@ class SceneEngine {
             } catch (error) {
               errors.add(error);
             }
+          }
+          if (initialized) {
+            // Lifetime close stops new submissions now. Callers can await the
+            // same disposal future to observe asynchronous cleanup failures.
+            engine!.dispose().then<void>(
+              (_) {},
+              onError: (Object _, StackTrace _) {},
+            );
           }
           if (errors.isNotEmpty) throw ScopeCleanupException(errors);
         }),
@@ -242,6 +251,7 @@ class SceneEngine {
         }
       }
       engine._cancellation = cancellation;
+      initialized = true;
       return engine;
     } catch (error, stack) {
       acceptCancellation = false;
@@ -365,6 +375,13 @@ class SceneEngine {
   Future<void> _dispose() async {
     _closed = true;
     final errors = <Object>[];
+    for (final (_, context) in _attached.reversed) {
+      try {
+        context.scope.close();
+      } catch (_) {
+        // whenClosed reports synchronous and asynchronous cleanup together.
+      }
+    }
     try {
       await _frame;
     } catch (_) {
@@ -372,7 +389,7 @@ class SceneEngine {
     }
     for (final (plugin, context) in _attached.reversed) {
       try {
-        context.scope.close();
+        await context.scope.whenClosed;
       } catch (error) {
         errors.add(error);
       }
