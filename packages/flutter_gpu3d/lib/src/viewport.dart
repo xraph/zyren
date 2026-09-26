@@ -2,11 +2,10 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
+import 'package:gpu3d/gpu3d.dart' hide SceneEngine;
+import 'package:gpu3d_native/gpu3d_native.dart';
 import 'engine.dart';
-import 'native_renderer.dart';
 import 'presentation.dart';
-import 'renderer.dart';
-import 'scene.dart';
 
 typedef FrameCallback = void Function(Duration elapsed);
 

@@ -1,5 +1,5 @@
 import 'dart:math' as math;
-import 'package:flutter_gpu3d/flutter_gpu3d.dart';
+import 'package:gpu3d/gpu3d.dart';
 import 'geodesy.dart';
 import 'geospatial_plugin.dart';
 

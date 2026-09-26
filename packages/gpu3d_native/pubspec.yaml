@@ -1,5 +1,5 @@
-name: flutter_geospatial
-description: Optional geospatial plugin, coordinates and globe controls for the native Flutter 3D core.
+name: gpu3d_native
+description: Native Metal, Vulkan and Direct3D 12 backend for gpu3d, powered by Rust.
 version: 0.1.0
 publish_to: none
 resolution: workspace
@@ -8,5 +8,8 @@ environment:
 dependencies:
   gpu3d:
     path: ../gpu3d
+  ffi: ^2.1.4
+  hooks: ^2.1.0
+  native_toolchain_rust: ^1.0.7
 dev_dependencies:
   test: ^1.29.0

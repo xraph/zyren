@@ -39,7 +39,12 @@ presentation, geodetic maths and a procedural globe. macOS debug/release and an
 iOS simulator have run; Android ARM64 has built. Windows/Linux runtime support,
 physical mobile device behavior and production performance remain unverified.
 
-The current `RenderedFrame` requires RGBA bytes, Rust has one opaque pipeline,
+Plan 01 task 1 has now extracted `gpu3d` and `gpu3d_native`, made geospatial
+Dart-only and added immutable backend submissions with explicit readback output.
+The existing Flutter API is preserved through the facade. M0 still needs the
+controller, observable values, typed input and scoped-work tasks.
+
+The legacy `RenderedFrame` requires RGBA bytes, Rust has one opaque pipeline,
 scene snapshots serialize geometry as JSON and geometry has no textures/UVs.
 Changing only the Flutter image widget cannot deliver shared native textures.
 These limitations determine the first milestones.
@@ -175,10 +180,9 @@ already working.
 
 ## First implementation checkpoint
 
-Start with plan 01 task 1. You should still be able to launch the current planet
-after the extraction, with the same pixels and plugin behavior. The difference
-is a Dart-only core that the Flutter facade and geospatial package both consume.
-That gives the controller and native texture work a stable boundary to build on.
+Plan 01 task 1 is implemented. The planet integration and headless GPU tests
+passed with the extracted packages. Continue with task 2's observable values and
+frame scheduling, then the controller and native texture work.
 
 The four subsystem plans contain 25 task groups and explicit verification steps.
 Advanced material/loader extensions remain a named capability backlog until

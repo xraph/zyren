@@ -20,6 +20,17 @@ sets out the remaining work, tests and platform gates. Read the
 plugin design. Those documents describe the target; the examples below use the
 current alpha API.
 
+## Packages
+
+- `gpu3d` contains the Dart scene graph, geometry, engine and plugin contracts.
+- `gpu3d_native` supplies the Rust/wgpu backend and native build hook.
+- `flutter_gpu3d` adds Flutter views and re-exports the common scene API.
+- `flutter_geospatial` is a Dart-only plugin depending on `gpu3d`.
+
+Flutter callers keep the existing import and native default. Dart-only callers
+can import `gpu3d` and supply a renderer to `SceneEngine.create`. For native
+headless output, use `gpu3d_native`; see [backend submissions](docs/extensions.md#captured-backend-submissions).
+
 ## Run the example
 
 You'll need Rust through rustup and the Flutter SDK pinned in `.fvmrc`. The
@@ -120,24 +131,26 @@ geodetic inverse.
 
 ```sh
 fvm flutter analyze
-cargo test --manifest-path packages/flutter_gpu3d/native/Cargo.toml
-cargo clippy --manifest-path packages/flutter_gpu3d/native/Cargo.toml --all-targets -- -D warnings
-fvm flutter test packages/flutter_gpu3d/test packages/flutter_geospatial/test
+cargo test --manifest-path packages/gpu3d_native/native/Cargo.toml
+cargo clippy --manifest-path packages/gpu3d_native/native/Cargo.toml --all-targets -- -D warnings
+fvm dart test packages/gpu3d/test packages/flutter_geospatial/test
+fvm flutter test packages/flutter_gpu3d/test
 ```
 
 On a host with a Metal, Vulkan or DX12 device, run the GPU checks too. A missing
 device fails these checks; it does not silently switch to a browser renderer.
 
 ```sh
-cargo test --manifest-path packages/flutter_gpu3d/native/Cargo.toml -- --include-ignored
-cd packages/flutter_gpu3d
-fvm flutter test --dart-define=RUN_NATIVE_GPU=true
+cargo test --manifest-path packages/gpu3d_native/native/Cargo.toml -- --include-ignored
+cd packages/gpu3d_native
+RUN_NATIVE_GPU=1 fvm dart test
 cd ../../examples/planet
 fvm flutter test integration_test/planet_test.dart -d macos
 ```
 
-Run the FFI test from its package directory so Flutter includes that package's
-native asset hook. The repository root is a workspace, not a Flutter app.
+The FFI tests now run in the Dart VM. Set `RUN_NATIVE_GPU=1` in your shell to
+enable them; the normal CPU suite keeps them opt-in. The native package's build
+hook compiles and bundles Rust for both Dart and Flutter consumers.
 
 See [verification](docs/verification.md) for the checks actually run on each
 platform, [architecture](docs/architecture.md) for ownership and presentation

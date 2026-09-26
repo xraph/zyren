@@ -38,6 +38,29 @@ pushed. A simulator pass does not establish physical mobile GPU performance.
   selection changes the camera through the orbit plugin and produces a new image.
 - Flutter analysis, Dart formatting, Rust formatting and Clippy passed.
 
+## Core extraction checkpoint
+
+The core now lives in `gpu3d`, the native hook and renderer in `gpu3d_native`,
+and Flutter presentation in `flutter_gpu3d`. Geospatial depends on `gpu3d` only.
+The native crate and Cargo lockfile were compared byte-for-byte with the previous
+commit after relocation; their contents did not change.
+
+The extraction passed 25 Dart VM tests, 10 Flutter widget tests, two opt-in
+Dart/native GPU tests, three Rust tests including real GPU pixels, analysis,
+formatting and Clippy. The macOS integration passed rendering, city selection,
+narrow layout and teardown from the new package layout. Its test runner reported
+an inability to foreground the app; the rendering assertions still passed.
+The headless Dart example also rendered the expected red centre pixel without a
+Flutter engine. The rebuilt macOS release app launched independently and its
+native globe was inspected visibly after the extraction.
+
+`FrameSubmission` captures immutable scene/camera data. `NativeBackend` exposes
+explicit readback output and rejects unsupported shared-surface requests. The
+current Flutter view retains the original native default and readback behavior.
+Physical mobile and Windows/Linux runtime qualification remain outstanding.
+Earlier iOS simulator and Android build results above describe the pre-extraction
+layout; they have not yet been repeated for the new packages.
+
 ## Known limits
 
 Presentation copies RGBA data from the GPU to Dart and back into Flutter. No

@@ -1,5 +1,7 @@
-import 'package:flutter_gpu3d/flutter_gpu3d.dart';
-import 'package:flutter_test/flutter_test.dart';
+import 'dart:io';
+import 'package:gpu3d/gpu3d.dart';
+import 'package:gpu3d_native/gpu3d_native.dart';
+import 'package:test/test.dart';
 
 void main() {
   test(
@@ -68,6 +70,8 @@ void main() {
         throwsStateError,
       );
     },
-    skip: !const bool.fromEnvironment('RUN_NATIVE_GPU'),
+    skip:
+        Platform.environment['RUN_NATIVE_GPU'] != '1' &&
+        !const bool.fromEnvironment('RUN_NATIVE_GPU'),
   );
 }

@@ -1,5 +1,5 @@
 import 'dart:typed_data';
-import 'scene.dart';
+import '../scene/scene.dart';
 
 /// Tightly packed, top-down RGBA8 pixels. The consumer owns this buffer.
 class RenderedFrame {

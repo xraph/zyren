@@ -1,7 +1,7 @@
 import 'dart:typed_data';
-import 'package:flutter_gpu3d/flutter_gpu3d.dart';
+import 'package:gpu3d/gpu3d.dart';
 import 'package:flutter_geospatial/flutter_geospatial.dart';
-import 'package:flutter_test/flutter_test.dart';
+import 'package:test/test.dart';
 
 class _Renderer implements SceneRenderer {
   @override

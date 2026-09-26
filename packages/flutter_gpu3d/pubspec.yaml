@@ -1,5 +1,5 @@
 name: flutter_gpu3d
-description: Native Metal, Vulkan and Direct3D 12 rendering for Flutter, powered by Rust.
+description: Flutter views for the native Dart 3D engine.
 version: 0.1.0
 publish_to: none
 resolution: workspace
@@ -9,10 +9,10 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  ffi: ^2.1.4
-  vector_math: ^2.2.0
-  hooks: ^2.1.0
-  native_toolchain_rust: ^1.0.7
+  gpu3d:
+    path: ../gpu3d
+  gpu3d_native:
+    path: ../gpu3d_native
 dev_dependencies:
   flutter_test:
     sdk: flutter

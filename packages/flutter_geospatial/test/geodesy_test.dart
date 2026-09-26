@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter_geospatial/flutter_geospatial.dart';
-import 'package:flutter_gpu3d/flutter_gpu3d.dart';
-import 'package:flutter_test/flutter_test.dart';
+import 'package:gpu3d/gpu3d.dart';
+import 'package:test/test.dart';
 
 void main() {
   test('WGS84 anchors match equator, prime meridian and pole', () {

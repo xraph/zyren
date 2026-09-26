@@ -1,5 +1,5 @@
 import 'dart:math' as math;
-import 'package:flutter_gpu3d/flutter_gpu3d.dart';
+import 'package:gpu3d/gpu3d.dart';
 import 'geodesy.dart';
 
 /// Z-up ECEF mesh. Normals follow the ellipsoid gradient, including flattening.

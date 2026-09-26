@@ -4,8 +4,10 @@ import 'dart:ffi';
 import 'dart:isolate';
 import 'package:ffi/ffi.dart';
 import 'bindings.dart' as native;
-import 'renderer.dart';
-import 'scene.dart';
+import 'package:gpu3d/gpu3d.dart';
+import 'package:gpu3d/rendering.dart';
+
+part 'backend.dart';
 
 /// One native GPU device, owned by a persistent worker isolate.
 /// Await [dispose] when you no longer need it.
@@ -116,10 +118,34 @@ class NativeRenderer implements SceneRenderer {
         ArgumentError('Render dimensions must be in [1, 4096].'),
       );
     }
+    try {
+      return _renderPacket(
+        scene.snapshot(camera, width / height, uploaded: _uploaded),
+        width,
+        height,
+      );
+    } catch (error, stack) {
+      return Future.error(error, stack);
+    }
+  }
+
+  Future<RenderedFrame> _renderPacket(
+    Map<String, Object> frame,
+    int width,
+    int height,
+  ) {
+    if (_closed) return Future.error(StateError('Renderer has been disposed.'));
+    if (_frame != null) {
+      return Future.error(StateError('Only one frame may be in flight.'));
+    }
+    if (width < 1 || height < 1 || width > 4096 || height > 4096) {
+      return Future.error(
+        ArgumentError('Render dimensions must be in [1, 4096].'),
+      );
+    }
     Future<RenderedFrame> submit() async {
-      final frame = scene.snapshot(camera, width / height, uploaded: _uploaded);
-      final active = (frame['meshes'] as List<Map<String, Object>>)
-          .map((m) => m['geometry'] as int)
+      final active = (frame['meshes'] as List)
+          .map((m) => (m as Map)['geometry'] as int)
           .toSet();
       final bytes =
           await _request('render', [jsonEncode(frame), width, height])

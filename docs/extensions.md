@@ -1,7 +1,7 @@
 # Extend the engine
 
-Use `flutter_gpu3d` for general 3D work. Add `flutter_geospatial` when you need
-Earth coordinates or globe controls. The dependency points one way: the
+Use `gpu3d` for Dart scene and plugin code, or `flutter_gpu3d` for the Flutter
+facade. Add `flutter_geospatial` when you need Earth coordinates or globe controls. The dependency points one way: the
 geospatial package imports the core, and the core never imports geospatial.
 
 ## Choose an extension point
@@ -17,8 +17,8 @@ geospatial package imports the core, and the core never imports geospatial.
 These contracts are implemented and tested. They do not yet expose native shader
 registration, render passes or texture handles. Those require a resource API and
 render graph in the core. Replacing the presenter alone cannot remove the current
-GPU readback. Shared texture presentation also needs a backend output contract and
-platform synchronization.
+GPU readback. The new backend output contract separates readback from presented
+frames; shared texture presentation still needs native platform synchronization.
 
 ## Write a plugin
 
@@ -88,8 +88,9 @@ stops when the application is hidden, paused or detached. Flutter calls visible
 unfocused windows `inactive`; see its [lifecycle contract](https://api.flutter.dev/flutter/dart-ui/AppLifecycleState.html).
 
 `SceneEngine` also works without a viewport. You can create it, call `render` and
-await `dispose` from an offscreen workflow. The default backend is always native
-wgpu. No browser runtime or fallback is installed.
+await `dispose` from an offscreen workflow. In the Dart core you supply
+`rendererFactory` explicitly. The Flutter facade keeps `NativeRenderer.create`
+as its default. Both use the same plugin host and ownership rules.
 
 ## Install geospatial
 
@@ -128,3 +129,47 @@ Its distance limits are 1.05 to 20 times the largest ellipsoid radius.
 
 The planet example uses both plugins. An ordinary model viewer can use the core
 with an empty plugin list.
+
+## Captured backend submissions
+
+Use the advanced import when you need a backend without a Flutter view:
+
+```dart
+import 'package:gpu3d/gpu3d.dart';
+import 'package:gpu3d/rendering.dart';
+import 'package:gpu3d_native/gpu3d_native.dart';
+
+final backend = await NativeBackend.create();
+try {
+  final scene = Scene()..add(Mesh(BoxGeometry(), MeshMaterial()));
+  final submission = FrameSubmission.capture(
+    scene: scene,
+    camera: PerspectiveCamera(),
+    size: PhysicalSize(256, 256),
+  );
+  final output = await backend.render(submission);
+  switch (output) {
+    case ReadbackOutput(:final image):
+      print('${image.size.width} x ${image.size.height}, ${image.rowStride} bytes per row');
+    case PresentedOutput():
+      throw StateError('The current native backend only implements readback.');
+  }
+} finally {
+  await backend.close();
+}
+```
+
+Capture freezes the scene and camera before asynchronous work. Subsequent scene
+changes affect later submissions. Geometry upload caching still belongs to each
+native renderer. The temporary encoder uses ABI v1; binary resources remain a
+later milestone.
+
+The current output is top-down RGBA8 in sRGB space with straight alpha and an
+explicit row stride. Readback transfers pixel ownership to `ImageData`; consumers
+receive a read-only view. Unsupported output formats and surface presentation
+produce typed `SceneException` issues. They cannot select a readback fallback
+implicitly. Total GPU residency and GPU timing remain null until native counters
+exist; upload statistics count logical geometry bytes, not serialized JSON size.
+
+Run the headless example with `fvm dart run example/offscreen.dart` from
+`packages/gpu3d_native`. It requires a native Metal, Vulkan or DX12 device.

@@ -1,6 +1,6 @@
 import 'dart:async';
-import 'package:flutter_gpu3d/flutter_gpu3d.dart';
-import 'package:flutter_test/flutter_test.dart';
+import 'package:gpu3d/gpu3d.dart';
+import 'package:test/test.dart';
 import 'support/fakes.dart';
 
 void main() {

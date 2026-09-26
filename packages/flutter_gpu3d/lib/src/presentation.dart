@@ -1,6 +1,6 @@
 import 'dart:ui' as ui;
 import 'package:flutter/widgets.dart';
-import 'renderer.dart';
+import 'package:gpu3d/gpu3d.dart';
 
 typedef PresenterFactory = FramePresenter Function();
 

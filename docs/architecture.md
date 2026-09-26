@@ -6,9 +6,12 @@ WebGL backend or OpenGL fallback.
 
 ## Package boundaries
 
-- `flutter_gpu3d`: the general Dart 3D core, plugin host, Flutter viewport and
-  native Rust renderer. Its target is Three.js-level capability across native
-  platforms.
+- `gpu3d`: Dart scene graph, geometry, engine, plugins and backend contracts.
+  It has no Flutter, native backend or geospatial dependency.
+- `gpu3d_native`: Rust renderer, worker isolate, FFI bindings and build hook.
+  It depends on `gpu3d` and runs without a Flutter engine.
+- `flutter_gpu3d`: Flutter viewport and presentation, plus a compatibility
+  engine facade that supplies the native renderer by default.
 - `flutter_geospatial`: an optional `ScenePlugin` package with geodetic
   coordinates, ellipsoids, local frames, globe geometry and orbit controls.
   Geospatial features must use public core extension points.
@@ -48,6 +51,12 @@ manage scenes, controls and services today. Native shader registration, render
 passes, texture resources and loader contracts remain core milestones. See the
 [extension guide](extensions.md) for the implemented contracts.
 
+The advanced `RenderBackend` contract takes an immutable `FrameSubmission` and
+returns `FrameOutput`. `NativeBackend` currently returns only `ReadbackOutput`;
+a surface target reports `presentationUnavailable`. The output distinction is
+implemented, while native shared-texture adapters remain planned. The legacy
+`SceneRenderer`/`RenderedFrame` path stays available for the current viewport.
+
 ## Renderer
 
 The first renderer uses indexed triangle meshes, a depth buffer, perspective
@@ -66,7 +75,7 @@ The initial presentation path reads native GPU pixels into an RGBA buffer and
 uploads that buffer into a Flutter image. This is real native GPU rendering, but
 the extra copy limits throughput. You should use it to validate scenes and the
 bridge, not as evidence of production frame rates. Shared GPU textures are the
-next presentation milestone: IOSurface/CVPixelBuffer on Apple, hardware buffers
+next presentation milestone: IOSurface/CVPixelBuffer on Apple, SurfaceProducer
 on Android and shared D3D textures on Windows. That work needs platform-specific
 synchronization, resize and lifecycle tests.
 

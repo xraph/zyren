@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 import 'package:vector_math/vector_math_64.dart';
-import 'geometry.dart';
+import '../geometry/geometry.dart';
 
 /// Linear RGB channels in [0, 1].
 class Color3 {

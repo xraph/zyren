@@ -1,4 +1,4 @@
-import 'package:flutter_gpu3d/flutter_gpu3d.dart';
+import 'package:gpu3d/gpu3d.dart';
 import 'ellipsoid_geometry.dart';
 import 'geodesy.dart';
 

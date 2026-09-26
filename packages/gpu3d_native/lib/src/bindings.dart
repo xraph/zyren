@@ -1,6 +1,6 @@
 import 'dart:ffi';
 
-const _asset = 'package:flutter_gpu3d/src/bindings.dart';
+const _asset = 'package:gpu3d_native/src/bindings.dart';
 
 @Native<Uint32 Function()>(symbol: 'fg_abi_version', assetId: _asset)
 external int abiVersion();
