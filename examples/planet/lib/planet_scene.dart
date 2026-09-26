@@ -14,15 +14,15 @@ Scene createPlanet(GeospatialReference reference) {
   final scene = Scene()
     ..background = Color3.hex(0x080e19)
     ..ambient = .35;
-  scene.lightDirection = Vector3(2, -3, 4);
-  scene.add(
-    Mesh(reference.globeGeometry(), MeshMaterial(color: Color3.hex(0x164651))),
-  );
+  scene.lightDirection = Vec3(2, -3, 4);
   scene.add(
     Mesh(
-      _graticule(reference),
-      MeshMaterial(color: Color3.hex(0x36818b), unlit: true),
+      reference.globeGeometry(),
+      DiffuseMaterial(color: Color3.hex(0x164651)),
     ),
+  );
+  scene.add(
+    Mesh(_graticule(reference), UnlitMaterial(color: Color3.hex(0x36818b))),
   );
   final marker = SphereGeometry(
     radius: 65000,
@@ -31,11 +31,9 @@ Scene createPlanet(GeospatialReference reference) {
   );
   for (final coordinate in locations.values) {
     scene.add(
-      Mesh(marker, MeshMaterial(color: Color3.hex(0xf2bd65), unlit: true))
-        ..position.setFrom(
-          reference.toEcef(
-            Geodetic.degrees(coordinate.$1, coordinate.$2, 70000),
-          ),
+      Mesh(marker, UnlitMaterial(color: Color3.hex(0xf2bd65)))
+        ..position = reference.toEcef(
+          Geodetic.degrees(coordinate.$1, coordinate.$2, 70000),
         ),
     );
   }

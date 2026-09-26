@@ -8,7 +8,7 @@ void main() {
     'submission freezes transforms, camera and geometry for async rendering',
     () {
       final scene = Scene();
-      final mesh = Mesh(BoxGeometry(), MeshMaterial(unlit: true));
+      final mesh = Mesh(BoxGeometry(), UnlitMaterial());
       scene.add(mesh);
       final camera = PerspectiveCamera();
       final submission = FrameSubmission.capture(
@@ -16,8 +16,8 @@ void main() {
         camera: camera,
         size: PhysicalSize(64, 64),
       );
-      mesh.position.x = 10;
-      camera.position.x = 20;
+      mesh.position = const Vec3(10, 0, 0);
+      camera.position = const Vec3(20, 0, 5);
       scene.background = const Color3(1, 1, 1);
       final packet = submission.toNativePacket();
       final model = ((packet['meshes'] as List).single as Map)['model'] as List;

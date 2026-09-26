@@ -11,10 +11,7 @@ void main() {
       try {
         final scene = Scene()..background = const Color3(0, 0, 0);
         scene.add(
-          Mesh(
-            BoxGeometry(),
-            MeshMaterial(color: const Color3(1, 0, 0), unlit: true),
-          ),
+          Mesh(BoxGeometry(), UnlitMaterial(color: const Color3(1, 0, 0))),
         );
         final camera = PerspectiveCamera();
         final frame = await renderer.render(

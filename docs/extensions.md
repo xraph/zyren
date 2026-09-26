@@ -37,7 +37,7 @@ class SpinPlugin extends ScenePlugin {
   @override
   void beforeRender(PluginContext context, FrameInfo frame) {
     angle += frame.delta.inMicroseconds / 1000000;
-    object.quaternion.setAxisAngle(Vector3(0, 1, 0), angle);
+    object.quaternion = Quat.axisAngle(const Vec3(0, 1, 0), angle);
   }
 }
 
@@ -98,7 +98,7 @@ as its default. Both use the same plugin host and ownership rules.
 final geo = GeospatialPlugin();
 final orbit = GlobeOrbitPlugin();
 final scene = Scene()
-  ..add(Mesh(geo.reference.globeGeometry(), MeshMaterial()));
+  ..add(Mesh(geo.reference.globeGeometry(), DiffuseMaterial()));
 final camera = PerspectiveCamera(near: 100000, far: 200000000);
 
 final viewport = SceneView(
@@ -141,7 +141,7 @@ import 'package:gpu3d_native/gpu3d_native.dart';
 
 final backend = await NativeBackend.create();
 try {
-  final scene = Scene()..add(Mesh(BoxGeometry(), MeshMaterial()));
+  final scene = Scene()..add(Mesh(BoxGeometry(), DiffuseMaterial()));
   final submission = FrameSubmission.capture(
     scene: scene,
     camera: PerspectiveCamera(),
@@ -173,3 +173,28 @@ exist; upload statistics count logical geometry bytes, not serialized JSON size.
 
 Run the headless example with `fvm dart run example/offscreen.dart` from
 `packages/gpu3d_native`. It requires a native Metal, Vulkan or DX12 device.
+
+## Scene value migration
+
+Assign immutable values when you edit a transform:
+
+```dart
+final mesh = scene.add(Mesh(BoxGeometry(), UnlitMaterial()));
+scene.batch(() {
+  mesh.position = const Vec3(1, 2, 3);
+  mesh.rotateY(Angle.degrees(90));
+  mesh.material = UnlitMaterial(color: Color3.hex(0xf2bd65));
+});
+```
+
+`Scene.changes` coalesces synchronous edits. A failed batch keeps its changes and
+publishes the final revision. `Vec3`, `Quat` and `Mat4` expose read-only values;
+`toVectorMath()` returns a separate copy for interoperability. Camera field of
+view now takes radians, so use `Angle.degrees(42)` for the old 42-degree view.
+Geodetic methods return `Vec3` and still preserve double precision in metres.
+
+`FrameScheduler` is available from `package:gpu3d/rendering.dart`. Call `tick`
+with a monotonic time only when you can submit a frame. It returns null while
+idle or hidden. A request remains pending across the FPS limit; a removable
+demand registration produces continuous frames. The controller milestone wires
+this clock into Flutter. The legacy viewport still renders continuously.

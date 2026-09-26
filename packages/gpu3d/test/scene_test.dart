@@ -1,3 +1,4 @@
+import 'package:vector_math/vector_math_64.dart' show Vector4;
 import 'dart:math' as math;
 import 'package:gpu3d/gpu3d.dart';
 import 'package:test/test.dart';
@@ -15,13 +16,15 @@ void main() {
     expect(b.parent, isNull);
   });
   test('composes parent transforms before subtracting the camera origin', () {
-    final scene = Scene(), parent = Object3D()..position.x = 6378137;
-    final mesh = Mesh(BoxGeometry(), MeshMaterial())..position.x = .001;
+    final scene = Scene(),
+        parent = Object3D()..position = const Vec3(6378137, 0, 0);
+    final mesh = Mesh(BoxGeometry(), DiffuseMaterial())
+      ..position = const Vec3(.001, 0, 0);
     scene.add(parent);
     parent.add(mesh);
     final camera = PerspectiveCamera(
-      position: Vector3(6378137, 0, 5),
-      target: Vector3(6378137, 0, 0),
+      position: Vec3(6378137, 0, 5),
+      target: Vec3(6378137, 0, 0),
     );
     final frame = scene.snapshot(camera, 1);
     final model =
@@ -38,23 +41,23 @@ void main() {
   });
   test('native perspective maps near and far to zero and one', () {
     final camera = PerspectiveCamera(
-      position: Vector3.zero(),
-      target: Vector3(0, 0, -1),
+      position: Vec3.zero,
+      target: Vec3(0, 0, -1),
       near: 1,
       far: 100,
     );
-    final vp = camera.viewProjection(1);
+    final vp = camera.viewProjection(1).toVectorMath();
     final near = vp * Vector4(0, 0, -1, 1), far = vp * Vector4(0, 0, -100, 1);
     expect(near.z / near.w, closeTo(0, 1e-12));
     expect(far.z / far.w, closeTo(1, 1e-12));
-    camera.target.setZero();
+    camera.target = Vec3.zero;
     expect(() => camera.viewProjection(1), throwsArgumentError);
   });
   test('sphere indices have outward winding and immutable storage', () {
     final sphere = SphereGeometry(widthSegments: 12, heightSegments: 6);
     for (var i = 0; i < sphere.indices.length; i += 3) {
-      Vector3 vertex(int index) =>
-          Vector3.array(sphere.positions, sphere.indices[index] * 3);
+      Vec3 vertex(int index) =>
+          Vec3.array(sphere.positions, sphere.indices[index] * 3);
       final a = vertex(i), b = vertex(i + 1), c = vertex(i + 2);
       expect((b - a).cross(c - a).dot(a), greaterThan(0));
     }

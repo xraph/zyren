@@ -6,11 +6,11 @@ import 'package:test/test.dart';
 void main() {
   test('WGS84 anchors match equator, prime meridian and pole', () {
     expect(
-      Geodetic.degrees(0, 0).toEcef().distanceTo(Vector3(6378137, 0, 0)),
+      Geodetic.degrees(0, 0).toEcef().distanceTo(Vec3(6378137, 0, 0)),
       lessThan(1e-8),
     );
     expect(
-      Geodetic.degrees(90, 0).toEcef().distanceTo(Vector3(0, 6378137, 0)),
+      Geodetic.degrees(90, 0).toEcef().distanceTo(Vec3(0, 6378137, 0)),
       lessThan(1e-8),
     );
     expect(
@@ -50,7 +50,7 @@ void main() {
         frame.east.cross(frame.north).distanceTo(frame.up),
         lessThan(1e-12),
       );
-      final local = Vector3(.001, 25, -3);
+      final local = Vec3(.001, 25, -3);
       expect(
         frame.toLocal(frame.toEcef(local)).distanceTo(local),
         lessThan(1e-8),
@@ -60,21 +60,18 @@ void main() {
   test('ray intersection handles outside, inside, tangent and miss', () {
     final sphere = Ellipsoid(2, 2, 2);
     expect(
-      sphere.intersectRay(Vector3(5, 0, 0), Vector3(-2, 0, 0))!.x,
+      sphere.intersectRay(Vec3(5, 0, 0), Vec3(-2, 0, 0))!.x,
       closeTo(2, 1e-12),
     );
-    expect(
-      sphere.intersectRay(Vector3.zero(), Vector3(3, 0, 0))!.x,
-      closeTo(2, 1e-12),
-    );
+    expect(sphere.intersectRay(Vec3.zero, Vec3(3, 0, 0))!.x, closeTo(2, 1e-12));
     expect(
       sphere
-          .intersectRay(Vector3(2, -4, 0), Vector3(0, 1, 0))!
-          .distanceTo(Vector3(2, 0, 0)),
+          .intersectRay(Vec3(2, -4, 0), Vec3(0, 1, 0))!
+          .distanceTo(Vec3(2, 0, 0)),
       lessThan(1e-12),
     );
-    expect(sphere.intersectRay(Vector3(3, 0, 0), Vector3(1, 0, 0)), isNull);
-    expect(() => sphere.fromEcef(Vector3.zero()), throwsArgumentError);
+    expect(sphere.intersectRay(Vec3(3, 0, 0), Vec3(1, 0, 0)), isNull);
+    expect(() => sphere.fromEcef(Vec3.zero), throwsArgumentError);
     expect(() => Geodetic(0, math.pi), throwsArgumentError);
   });
   test('flattened ellipsoid normals match its gradient', () {
@@ -85,13 +82,12 @@ void main() {
       latitudeSegments: 6,
     );
     for (var i = 0; i < mesh.positions.length; i += 3) {
-      final p = Vector3.array(mesh.positions, i),
-          n = Vector3.array(mesh.normals, i);
+      final p = Vec3.array(mesh.positions, i), n = Vec3.array(mesh.normals, i);
       expect(n.distanceTo(ellipsoid.surfaceNormal(p)), lessThan(1e-12));
     }
     for (var i = 0; i < mesh.indices.length; i += 3) {
-      Vector3 vertex(int index) =>
-          Vector3.array(mesh.positions, mesh.indices[index] * 3);
+      Vec3 vertex(int index) =>
+          Vec3.array(mesh.positions, mesh.indices[index] * 3);
       final a = vertex(i), b = vertex(i + 1), c = vertex(i + 2);
       expect((b - a).cross(c - a).dot(a), greaterThan(0));
     }

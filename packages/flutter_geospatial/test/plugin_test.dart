@@ -27,8 +27,7 @@ void main() {
       // Inputs can arrive while native initialization is pending.
       orbit.focus(Geodetic.degrees(90, 0));
       final camera = PerspectiveCamera();
-      final originalPosition = camera.position.clone(),
-          originalUp = camera.up.clone();
+      final originalPosition = camera.position, originalUp = camera.up;
       final engine = await SceneEngine.create(
         scene: Scene(),
         camera: camera,
@@ -39,10 +38,10 @@ void main() {
       await engine.render(elapsed: Duration.zero, width: 1, height: 1);
       expect(camera.position.x, closeTo(0, 1e-12));
       expect(camera.position.y, closeTo(40, 1e-12));
-      expect(camera.up, Vector3(0, 0, 1));
+      expect(camera.up, Vec3(0, 0, 1));
       expect(
         geospatial.reference.toEcef(Geodetic.degrees(0, 0)),
-        Vector3(10, 0, 0),
+        Vec3(10, 0, 0),
       );
       orbit.setDistance(1);
       expect(orbit.distance, 10.5);
@@ -101,7 +100,7 @@ void main() {
       expect(earthOrbit.distance, greaterThan(moonOrbit.distance * 3));
       moonOrbit.rotating = false;
       await second.render(elapsed: Duration.zero, width: 1, height: 1);
-      final before = moonCamera.position.clone();
+      final before = moonCamera.position;
       await first.dispose();
       await second.render(
         elapsed: const Duration(seconds: 2),

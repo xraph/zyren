@@ -63,10 +63,10 @@ import 'package:flutter_gpu3d/flutter_gpu3d.dart';
 final scene = Scene();
 final cube = Mesh(
   BoxGeometry(),
-  MeshMaterial(color: Color3.hex(0x48bdb2)),
+  DiffuseMaterial(color: Color3.hex(0x48bdb2)),
 );
 scene.add(cube);
-final camera = PerspectiveCamera(position: Vector3(3, 2, 5));
+final camera = PerspectiveCamera(position: Vec3(3, 2, 5));
 
 // Put this inside a SizedBox or an Expanded with bounded dimensions.
 final viewport = SceneView(scene: scene, camera: camera);
@@ -95,7 +95,7 @@ contracts with injectable factories. Keep their instances scoped to one viewport
 final geospatial = GeospatialPlugin();
 final orbit = GlobeOrbitPlugin();
 final globeScene = Scene()
-  ..add(Mesh(geospatial.reference.globeGeometry(), MeshMaterial()));
+  ..add(Mesh(geospatial.reference.globeGeometry(), DiffuseMaterial()));
 final globeCamera = PerspectiveCamera(near: 100000, far: 200000000);
 final viewport = SceneView(
   scene: globeScene,
@@ -117,12 +117,12 @@ import 'package:flutter_gpu3d/flutter_gpu3d.dart';
 final location = Geodetic.degrees(3.3792, 6.5244, 25);
 final ecef = location.toEcef();
 final frame = EastNorthUpFrame(location);
-final tenMetresEast = frame.toEcef(Vector3(10, 0, 0));
-final globe = Mesh(EllipsoidGeometry(), MeshMaterial());
+final tenMetresEast = frame.toEcef(Vec3(10, 0, 0));
+final globe = Mesh(EllipsoidGeometry(), DiffuseMaterial());
 ```
 
 Angles in the `Geodetic` constructor are radians. Heights and ECEF coordinates
-are metres. ECEF uses Z up; use `Vector3(0, 0, 1)` for your globe camera's up vector.
+are metres. ECEF uses Z up; use `Vec3(0, 0, 1)` for your globe camera's up vector.
 The default generic 3D camera uses Y up. The inverse ellipsoid projection rejects
 points near the centre, where this implementation does not provide a reliable
 geodetic inverse.

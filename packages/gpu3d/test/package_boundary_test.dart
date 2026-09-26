@@ -3,7 +3,7 @@ import 'package:test/test.dart';
 
 void main() {
   test('a Dart VM builds a renderable scene without a Flutter engine', () {
-    final scene = Scene()..add(Mesh(BoxGeometry(), MeshMaterial()));
+    final scene = Scene()..add(Mesh(BoxGeometry(), DiffuseMaterial()));
     final frame = scene.snapshot(PerspectiveCamera(), 1);
     expect(frame['meshes'], hasLength(1));
     expect(frame['geometries'], hasLength(1));

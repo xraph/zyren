@@ -15,7 +15,7 @@ void main() {
         final scene = Scene()..background = const Color3(0, 0, 0);
         final mesh = Mesh(
           BoxGeometry(),
-          MeshMaterial(color: const Color3(1, 0, 0), unlit: true),
+          UnlitMaterial(color: const Color3(1, 0, 0)),
         );
         scene.add(mesh);
         final camera = PerspectiveCamera();

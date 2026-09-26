@@ -20,7 +20,7 @@ class EllipsoidGeometry extends BufferGeometry {
       final phi = y * math.pi / latitudeSegments;
       for (var x = 0; x <= longitudeSegments; x++) {
         final theta = (x / longitudeSegments - .5) * 2 * math.pi;
-        final p = Vector3(
+        final p = Vec3(
           ellipsoid.x * math.cos(theta) * math.sin(phi),
           ellipsoid.y * math.sin(theta) * math.sin(phi),
           ellipsoid.z * math.cos(phi),

@@ -5,7 +5,7 @@ Build scenes, geometry and plugins in Dart without a Flutter engine or GPU.
 ```dart
 import 'package:gpu3d/gpu3d.dart';
 
-final scene = Scene()..add(Mesh(BoxGeometry(), MeshMaterial()));
+final scene = Scene()..add(Mesh(BoxGeometry(), DiffuseMaterial()));
 final camera = PerspectiveCamera();
 final snapshot = scene.snapshot(camera, 1);
 ```

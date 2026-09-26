@@ -6,3 +6,4 @@ export 'src/rendering/frame_output.dart';
 export 'src/rendering/frame_submission.dart';
 export 'src/rendering/render_backend.dart';
 export 'src/rendering/scene_issue.dart';
+export 'src/rendering/frame_scheduler.dart';

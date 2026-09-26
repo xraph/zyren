@@ -33,7 +33,7 @@ void main() {
           .widget<RawImage>(find.byType(RawImage))
           .image;
       await tester.tap(find.widgetWithText(ChoiceChip, 'Tokyo'));
-      final tokyo = Geodetic.degrees(139.6917, 35.6895).toEcef()..normalize();
+      final tokyo = Geodetic.degrees(139.6917, 35.6895).toEcef().normalized();
       for (var attempt = 0; attempt < 60; attempt++) {
         await tester.pump(const Duration(milliseconds: 100));
         final direction = viewport.camera.position.normalized();

@@ -17,7 +17,7 @@ class GlobeOrbitPlugin extends ScenePlugin {
   final double rotationSpeed;
   GeospatialReference? _reference;
   Geodetic? _focusLocation;
-  (Vector3, Vector3, Vector3)? _previousCamera;
+  (Vec3, Vec3, Vec3)? _previousCamera;
 
   GlobeOrbitPlugin({
     double longitudeDegrees = -25,
@@ -108,11 +108,7 @@ class GlobeOrbitPlugin extends ScenePlugin {
     final location = _focusLocation;
     if (location != null) focus(location);
     final camera = context.camera;
-    _previousCamera = (
-      camera.position.clone(),
-      camera.target.clone(),
-      camera.up.clone(),
-    );
+    _previousCamera = (camera.position, camera.target, camera.up);
     _apply(camera);
   }
 
@@ -126,9 +122,9 @@ class GlobeOrbitPlugin extends ScenePlugin {
 
   void _apply(PerspectiveCamera camera) {
     final lon = _longitude * math.pi / 180, lat = _latitude * math.pi / 180;
-    camera.up.setValues(0, 0, 1);
-    camera.target.setZero();
-    camera.position.setValues(
+    camera.up = const Vec3(0, 0, 1);
+    camera.target = Vec3.zero;
+    camera.position = Vec3(
       _distance * math.cos(lat) * math.cos(lon),
       _distance * math.cos(lat) * math.sin(lon),
       _distance * math.sin(lat),
@@ -139,9 +135,9 @@ class GlobeOrbitPlugin extends ScenePlugin {
   void detach(PluginContext context) {
     final previous = _previousCamera;
     if (previous != null) {
-      context.camera.position.setFrom(previous.$1);
-      context.camera.target.setFrom(previous.$2);
-      context.camera.up.setFrom(previous.$3);
+      context.camera.position = previous.$1;
+      context.camera.target = previous.$2;
+      context.camera.up = previous.$3;
     }
     _previousCamera = null;
     _reference = null;

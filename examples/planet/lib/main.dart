@@ -34,10 +34,11 @@ class _PlanetPageState extends State<PlanetPage> {
   final orbit = GlobeOrbitPlugin();
   late final scene = createPlanet(geospatial.reference);
   final camera = PerspectiveCamera(
-    up: Vector3(0, 0, 1),
+    position: const Vec3(22000000, 0, 0),
+    up: Vec3(0, 0, 1),
     near: 100000,
     far: 200000000,
-    fieldOfView: 42,
+    fieldOfView: Angle.degrees(42),
   );
   String selected = 'Lagos';
   int generation = 0;

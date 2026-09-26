@@ -79,3 +79,14 @@ The build disables Rust's release debuginfo stripping because it produced a
 misaligned Mach-O string table rejected by this macOS 27 host. The issue and
 workaround are recorded in [rust-lang/rust#157750](https://github.com/rust-lang/rust/issues/157750).
 The FFI test verifies that the resulting library actually loads.
+
+## Observable values checkpoint
+
+The scene and geospatial APIs now use immutable double-precision values. Core
+revision/scheduler regressions and existing geodesy fixtures passed together
+(35 Dart tests). The 10 legacy viewport tests, 2 native pixel tests, workspace
+analyzer and macOS planet integration passed. The planet fixture uses a valid
+ECEF starting camera before orbit attachment; field of view is now in radians.
+
+The scheduler is tested in the core. Flutter controller integration is the next
+checkpoint, so this does not yet establish idle rendering for the legacy view.

@@ -6,12 +6,7 @@ Future<void> main() async {
   final backend = await NativeBackend.create();
   try {
     final scene = Scene()
-      ..add(
-        Mesh(
-          BoxGeometry(),
-          MeshMaterial(color: const Color3(1, 0, 0), unlit: true),
-        ),
-      );
+      ..add(Mesh(BoxGeometry(), UnlitMaterial(color: const Color3(1, 0, 0))));
     final output = await backend.render(
       FrameSubmission.capture(
         scene: scene,

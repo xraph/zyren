@@ -10,8 +10,8 @@ const geospatialReference = ServiceKey<GeospatialReference>(
 class GeospatialReference {
   final Ellipsoid ellipsoid;
   const GeospatialReference({this.ellipsoid = Ellipsoid.wgs84});
-  Vector3 toEcef(Geodetic coordinate) => ellipsoid.toEcef(coordinate);
-  Geodetic fromEcef(Vector3 position) => ellipsoid.fromEcef(position);
+  Vec3 toEcef(Geodetic coordinate) => ellipsoid.toEcef(coordinate);
+  Geodetic fromEcef(Vec3 position) => ellipsoid.fromEcef(position);
   EastNorthUpFrame localFrame(Geodetic origin) =>
       EastNorthUpFrame(origin, ellipsoid: ellipsoid);
   EllipsoidGeometry globeGeometry({
