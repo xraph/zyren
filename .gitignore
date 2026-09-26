@@ -1,0 +1,17 @@
+.dart_tool/
+.fvm/
+.DS_Store
+build/
+target/
+**/ephemeral/
+**/Flutter/Generated.xcconfig
+**/Flutter/flutter_export_environment.sh
+**/Flutter/ephemeral/
+**/local.properties
+**/Pods/
+**/.symlinks/
+**/xcuserdata/
+*.iml
+.idea/
+coverage/
+artifacts/
