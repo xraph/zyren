@@ -6,9 +6,12 @@ WebGL backend or OpenGL fallback.
 
 ## Package boundaries
 
-- `flutter_gpu3d`: a general 3D API, Flutter viewport and native Rust renderer.
-- `flutter_geospatial`: geodetic coordinates, ellipsoids, local frames and globe
-  geometry built on the same scene API.
+- `flutter_gpu3d`: the general Dart 3D core, plugin host, Flutter viewport and
+  native Rust renderer. Its target is Three.js-level capability across native
+  platforms.
+- `flutter_geospatial`: an optional `ScenePlugin` package with geodetic
+  coordinates, ellipsoids, local frames, globe geometry and orbit controls.
+  Geospatial features must use public core extension points.
 - `examples/planet`: a runnable native Flutter application.
 
 Keep the geospatial package optional. A model viewer should not need an Earth
@@ -27,6 +30,23 @@ flowchart LR
   G --> H
   H --> I[Flutter image]
 ```
+
+## Extension boundaries
+
+`SceneEngine` resolves plugin dependencies, checks renderer capabilities and owns
+initialization, frame hooks and teardown. Plugins exchange typed services within
+one engine. There is no global service registry. A failed attach rolls back even
+partially initialized plugins, and cleanup continues after a detach error.
+
+`SceneRenderer` defines native rendering independently of Flutter widgets.
+`FramePresenter` handles the RGBA-to-widget conversion, and `PresentedFrame` owns
+resources for one displayed result. `SceneView` accepts factories for both. It
+serializes configuration changes with pending work and discards stale frames.
+
+The native implementation still has one opaque mesh pipeline. Dart plugins can
+manage scenes, controls and services today. Native shader registration, render
+passes, texture resources and loader contracts remain core milestones. See the
+[extension guide](extensions.md) for the implemented contracts.
 
 ## Renderer
 

@@ -10,7 +10,7 @@ architecture can be dropped directly into a native Rust renderer.
 | Geodetic, Ellipsoid, ENU frames | Double precision Dart maths with numerical tests | First slice |
 | EllipsoidGeometry | Indexed native mesh | First slice |
 | Rectangle, TileCoordinate, TilingScheme | Geographic tiling, preserve south-origin Y convention | After coordinate core |
-| PointOfView and globe controls | Dart controls with ECEF-aware camera | After coordinate core |
+| PointOfView and globe controls | Plugin-based Z-up orbit, city focus and zoom; full PointOfView parity pending | Basic controls implemented |
 | Texture loaders and shader utilities | Native texture resources, mipmaps and asset loading | Renderer resources |
 | Precomputed atmospheric scattering | WGSL compute/render passes and native 3D textures | After HDR/render graph |
 | Sun, moon and sky lighting | Port astronomy calculations with reference fixtures | Atmosphere |
@@ -19,7 +19,11 @@ architecture can be dropped directly into a native Rust renderer.
 | React Three Fiber wrappers | Flutter widgets and controllers | Per native feature |
 | External 3D tiles integration | Separate streaming/LOD loader | Separate milestone |
 
-Start with a generic 3D engine, then port the geospatial algorithms in this
+`flutter_geospatial` is an optional plugin package on the generic Dart 3D core.
+Keep astronomy, planetary coordinates and globe-specific behavior in that plugin;
+keep textures, shaders, render passes, animation and asset loading in the core.
+
+Port the remaining geospatial algorithms in this
 order. Atmospheric scattering depends on float textures, depth reconstruction,
 HDR lighting and render passes. Cloud rendering adds temporal accumulation and
 history invalidation. Those dependencies need tests before visual comparison can

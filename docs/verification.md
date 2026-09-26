@@ -24,11 +24,17 @@ pushed. A simulator pass does not establish physical mobile GPU performance.
 - Dart: four scene/geometry tests and five geodesy tests. The geodetic round-trip
   test covers 200 combinations across WGS84 and a triaxial ellipsoid, including
   poles, the date line, negative heights and orbital altitudes.
+- Plugins and viewports: 21 tests cover dependency ordering, typed services,
+  unsupported capabilities, partial attach rollback, exclusive ownership, frame
+  timing, injected renderer/presenter implementations, pending-frame replacement,
+  initialization cancellation, retries, error-observer and frame-cleanup failures,
+  background/resume and separate world models. The core imports no geospatial package.
 - Dart/native: one FFI test covers actual pixels from a worker isolate, geometry
   eviction/re-upload, resizing, concurrent-frame rejection and disposal while a
   frame is in flight.
 - Flutter integration: desktop and 390-pixel layouts, city selection, a non-null
-  rendered GPU image and viewport removal, on macOS and the iOS simulator.
+  rendered GPU image and viewport removal. The plugin test also checks that city
+  selection changes the camera through the orbit plugin and produces a new image.
 - Flutter analysis, Dart formatting, Rust formatting and Clippy passed.
 
 ## Known limits
@@ -36,8 +42,9 @@ pushed. A simulator pass does not establish physical mobile GPU performance.
 Presentation copies RGBA data from the GPU to Dart and back into Flutter. No
 frame-rate target or zero-copy claim has been verified. The renderer supports
 opaque indexed meshes, diffuse directional lighting and an unlit material.
-Texture loading, glTF, PBR, shadows, animation, picking, terrain streaming,
-atmosphere and clouds are not implemented.
+Custom native shader/pass registration, texture loading, glTF, PBR, shadows,
+animation clips, picking, terrain streaming, atmosphere and clouds are not
+implemented.
 
 Geometry uploads are limited to one million vertices and three million indices
 per frame. Resident geometry has a 64 MiB budget; frames support 1 to 4096 pixels

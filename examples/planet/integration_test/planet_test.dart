@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_gpu3d/flutter_gpu3d.dart';
+import 'package:flutter_geospatial/flutter_geospatial.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:planet/main.dart';
 
@@ -24,8 +26,31 @@ void main() {
       await waitForFrame();
       expect(find.text('The native renderer could not start'), findsNothing);
       expect(tester.takeException(), isNull);
+      final viewport = tester.widget<SceneView>(find.byType(SceneView));
+      expect(viewport.plugins.whereType<GeospatialPlugin>(), hasLength(1));
+      expect(viewport.plugins.whereType<GlobeOrbitPlugin>(), hasLength(1));
+      final previousImage = tester
+          .widget<RawImage>(find.byType(RawImage))
+          .image;
       await tester.tap(find.widgetWithText(ChoiceChip, 'Tokyo'));
-      await tester.pump(const Duration(milliseconds: 200));
+      final tokyo = Geodetic.degrees(139.6917, 35.6895).toEcef()..normalize();
+      for (var attempt = 0; attempt < 60; attempt++) {
+        await tester.pump(const Duration(milliseconds: 100));
+        final direction = viewport.camera.position.normalized();
+        final image = tester.widget<RawImage>(find.byType(RawImage)).image;
+        if (direction.dot(tokyo) > .999999 &&
+            !identical(image, previousImage)) {
+          break;
+        }
+      }
+      expect(
+        viewport.camera.position.normalized().dot(tokyo),
+        greaterThan(.999999),
+      );
+      expect(
+        tester.widget<RawImage>(find.byType(RawImage)).image,
+        isNot(same(previousImage)),
+      );
       expect(
         tester
             .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Tokyo'))

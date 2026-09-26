@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_geospatial/flutter_geospatial.dart';
 import 'package:flutter_gpu3d/flutter_gpu3d.dart';
 import 'planet_scene.dart';
 
@@ -29,51 +30,29 @@ class PlanetPage extends StatefulWidget {
 }
 
 class _PlanetPageState extends State<PlanetPage> {
-  final scene = createPlanet();
+  final geospatial = GeospatialPlugin();
+  final orbit = GlobeOrbitPlugin();
+  late final scene = createPlanet(geospatial.reference);
   final camera = PerspectiveCamera(
     up: Vector3(0, 0, 1),
     near: 100000,
-    far: 60000000,
+    far: 200000000,
     fieldOfView: 42,
   );
-  double longitude = -25, latitude = 22, distance = 22000000;
-  bool rotating = true;
-  Duration lastTime = Duration.zero;
   String selected = 'Lagos';
   int generation = 0;
   double pinchDistance = 0;
-
-  void updateCamera() {
-    final lon = longitude * math.pi / 180, lat = latitude * math.pi / 180;
-    camera.position.setValues(
-      distance * math.cos(lat) * math.cos(lon),
-      distance * math.cos(lat) * math.sin(lon),
-      distance * math.sin(lat),
-    );
-  }
-
-  void onFrame(Duration elapsed) {
-    final delta = lastTime == Duration.zero
-        ? 0.0
-        : (elapsed - lastTime).inMicroseconds / 1000000;
-    lastTime = elapsed;
-    if (rotating) longitude += math.min(delta, .1) * 4;
-    updateCamera();
-  }
 
   void focus(String name) {
     final point = locations[name]!;
     setState(() {
       selected = name;
-      longitude = point.$1;
-      latitude = point.$2;
-      rotating = false;
+      orbit.focus(Geodetic.degrees(point.$1, point.$2));
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    updateCamera();
     return Scaffold(
       body: SafeArea(
         child: Column(
@@ -106,17 +85,14 @@ class _PlanetPageState extends State<PlanetPage> {
                     ),
                   ),
                   IconButton(
-                    tooltip: rotating ? 'Pause rotation' : 'Rotate globe',
-                    onPressed: () => setState(() => rotating = !rotating),
-                    icon: Icon(rotating ? Icons.pause : Icons.play_arrow),
+                    tooltip: orbit.rotating ? 'Pause rotation' : 'Rotate globe',
+                    onPressed: () =>
+                        setState(() => orbit.rotating = !orbit.rotating),
+                    icon: Icon(orbit.rotating ? Icons.pause : Icons.play_arrow),
                   ),
                   IconButton(
                     tooltip: 'Reset camera',
-                    onPressed: () => setState(() {
-                      longitude = -25;
-                      latitude = 22;
-                      distance = 22000000;
-                    }),
+                    onPressed: () => setState(orbit.reset),
                     icon: const Icon(Icons.restart_alt),
                   ),
                 ],
@@ -130,37 +106,35 @@ class _PlanetPageState extends State<PlanetPage> {
                       onPointerSignal: (event) {
                         if (event is PointerScrollEvent) {
                           setState(
-                            () => distance =
-                                (distance *
-                                        math.exp(event.scrollDelta.dy * .001))
-                                    .clamp(8000000, 40000000),
+                            () => orbit.zoom(
+                              math.exp(
+                                event.scrollDelta.dy.clamp(-1000, 1000) * .001,
+                              ),
+                            ),
                           );
                         }
                       },
                       child: GestureDetector(
                         onScaleStart: (_) {
-                          pinchDistance = distance;
-                          setState(() => rotating = false);
+                          pinchDistance = orbit.distance;
+                          setState(() => orbit.rotating = false);
                         },
                         onScaleUpdate: (details) => setState(() {
-                          longitude -= details.focalPointDelta.dx * .25;
-                          latitude =
-                              (latitude + details.focalPointDelta.dy * .25)
-                                  .clamp(-85, 85);
-                          distance = (pinchDistance / details.scale).clamp(
-                            8000000,
-                            40000000,
+                          orbit.rotateBy(
+                            -details.focalPointDelta.dx * .25,
+                            details.focalPointDelta.dy * .25,
                           );
+                          orbit.setDistance(pinchDistance / details.scale);
                         }),
                         child: SceneView(
-                          key: ValueKey(generation),
+                          restartToken: generation,
                           scene: scene,
                           camera: camera,
                           pixelRatio: math.min(
                             MediaQuery.devicePixelRatioOf(context),
                             2,
                           ),
-                          onFrame: onFrame,
+                          plugins: [geospatial, orbit],
                           errorBuilder: (context, error) => ZeroState(
                             error: error,
                             onRetry: () => setState(() => generation++),

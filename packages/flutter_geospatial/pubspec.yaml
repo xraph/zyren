@@ -1,5 +1,5 @@
 name: flutter_geospatial
-description: Double precision geospatial maths and globe geometry for native Flutter 3D.
+description: Optional geospatial plugin, coordinates and globe controls for the native Flutter 3D core.
 version: 0.1.0
 publish_to: none
 resolution: workspace

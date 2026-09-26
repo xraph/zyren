@@ -4,6 +4,10 @@ Build a 3D scene in Dart and render it through Rust and wgpu. The native backend
 are Metal on Apple platforms, Vulkan on Android/Linux and Direct3D 12 on Windows.
 WebGL, OpenGL and browser backends are disabled.
 
+The core is a general-purpose Dart 3D library. `flutter_geospatial` is an optional
+plugin built on that core. Three.js-level rendering and scene capabilities are
+the target for the core.
+
 This is an early implementation. You can render opaque meshes, compose a scene
 graph, move a perspective camera and build an ECEF globe. The viewport currently
 copies GPU pixels into a Flutter image, so you should expect lower throughput
@@ -51,8 +55,9 @@ final camera = PerspectiveCamera(position: Vector3(3, 2, 5));
 final viewport = SceneView(scene: scene, camera: camera);
 ```
 
-`SceneView` owns its renderer and releases it when the widget is removed. You can
-also create a `NativeRenderer` directly, await `render`, then await `dispose`.
+`SceneView` owns its engine, plugins and presentation resources and releases them
+when the widget is removed. You can also create a `NativeRenderer` directly,
+await `render`, then await `dispose`.
 Only one frame may be in flight per renderer. Geometry is immutable, shared by
 meshes and released from the GPU when no visible mesh references it. Construct
 a new geometry when its contents change.
@@ -61,6 +66,30 @@ Colours use linear RGB; `Color3.hex` converts an sRGB hex colour for you. Positi
 use double precision until the camera origin has been subtracted. The current
 material supports opaque diffuse lighting and an unlit mode. There are no texture,
 transparency, shadow or PBR APIs yet.
+
+## Plugins and backends
+
+Use `ScenePlugin` for lifecycle hooks and typed services. Dependencies determine
+initialization and frame order; teardown runs in reverse and also handles partial
+initialization failures. `SceneRenderer` and `FramePresenter` are independent
+contracts with injectable factories. Keep their instances scoped to one viewport.
+
+```dart
+final geospatial = GeospatialPlugin();
+final orbit = GlobeOrbitPlugin();
+final globeScene = Scene()
+  ..add(Mesh(geospatial.reference.globeGeometry(), MeshMaterial()));
+final globeCamera = PerspectiveCamera(near: 100000, far: 200000000);
+final viewport = SceneView(
+  scene: globeScene,
+  camera: globeCamera,
+  plugins: [geospatial, orbit],
+);
+```
+
+Import `flutter_geospatial` for those two plugins. You can use the core without
+that dependency. See [extensions](docs/extensions.md) for custom plugins,
+services, renderer factories, presentation and ownership rules.
 
 ## Geospatial coordinates
 
@@ -87,7 +116,7 @@ geodetic inverse.
 fvm flutter analyze
 cargo test --manifest-path packages/flutter_gpu3d/native/Cargo.toml
 cargo clippy --manifest-path packages/flutter_gpu3d/native/Cargo.toml --all-targets -- -D warnings
-fvm flutter test packages/flutter_gpu3d/test/scene_test.dart packages/flutter_geospatial/test
+fvm flutter test packages/flutter_gpu3d/test packages/flutter_geospatial/test
 ```
 
 On a host with a Metal, Vulkan or DX12 device, run the GPU checks too. A missing

@@ -10,16 +10,19 @@ const locations = <String, (double, double)>{
   'Sydney': (151.2093, -33.8688),
 };
 
-Scene createPlanet() {
+Scene createPlanet(GeospatialReference reference) {
   final scene = Scene()
     ..background = Color3.hex(0x080e19)
     ..ambient = .35;
   scene.lightDirection = Vector3(2, -3, 4);
   scene.add(
-    Mesh(EllipsoidGeometry(), MeshMaterial(color: Color3.hex(0x164651))),
+    Mesh(reference.globeGeometry(), MeshMaterial(color: Color3.hex(0x164651))),
   );
   scene.add(
-    Mesh(_graticule(), MeshMaterial(color: Color3.hex(0x36818b), unlit: true)),
+    Mesh(
+      _graticule(reference),
+      MeshMaterial(color: Color3.hex(0x36818b), unlit: true),
+    ),
   );
   final marker = SphereGeometry(
     radius: 65000,
@@ -30,14 +33,16 @@ Scene createPlanet() {
     scene.add(
       Mesh(marker, MeshMaterial(color: Color3.hex(0xf2bd65), unlit: true))
         ..position.setFrom(
-          Geodetic.degrees(coordinate.$1, coordinate.$2, 70000).toEcef(),
+          reference.toEcef(
+            Geodetic.degrees(coordinate.$1, coordinate.$2, 70000),
+          ),
         ),
     );
   }
   return scene;
 }
 
-BufferGeometry _graticule() {
+BufferGeometry _graticule(GeospatialReference reference) {
   final positions = <double>[], normals = <double>[], indices = <int>[];
   void band(bool latitude, double angle) {
     const segments = 144;
@@ -49,9 +54,9 @@ BufferGeometry _graticule() {
       for (final side in [-1, 1]) {
         final lon = latitude ? along : angle + side * .0025;
         final lat = latitude ? angle + side * .0025 : along;
-        final p = Geodetic(lon, lat, 12000).toEcef();
+        final p = reference.toEcef(Geodetic(lon, lat, 12000));
         positions.addAll(p.storage);
-        normals.addAll(Ellipsoid.wgs84.surfaceNormal(p).storage);
+        normals.addAll(reference.ellipsoid.surfaceNormal(p).storage);
       }
       if (i < segments) {
         final a = offset + i * 2;
