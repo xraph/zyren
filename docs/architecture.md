@@ -14,6 +14,20 @@ WebGL backend or OpenGL fallback.
 Keep the geospatial package optional. A model viewer should not need an Earth
 model, and a coordinate conversion should not need to initialize a GPU.
 
+```mermaid
+flowchart LR
+  A[Dart scene API] --> B[FFI worker isolate]
+  B --> C[Rust renderer and GPU resources]
+  C --> D[wgpu]
+  D --> E[Metal]
+  D --> F[Vulkan]
+  D --> G[Direct3D 12]
+  E --> H[RGBA readback]
+  F --> H
+  G --> H
+  H --> I[Flutter image]
+```
+
 ## Renderer
 
 The first renderer uses indexed triangle meshes, a depth buffer, perspective

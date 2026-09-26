@@ -1,0 +1,55 @@
+name: Native checks
+on:
+  push:
+  pull_request:
+jobs:
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            platform: macos
+          - os: windows-latest
+            platform: windows
+          - os: ubuntu-latest
+            platform: linux
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.5'
+          cache: true
+      - name: Linux build dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
+      - name: Rust toolchain
+        run: rustup toolchain install 1.97.1 --profile minimal --component clippy,rustfmt
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: dart format --output=none --set-exit-if-changed packages examples/planet/lib examples/planet/integration_test
+      - run: cargo +1.97.1 fmt --manifest-path packages/flutter_gpu3d/native/Cargo.toml --check
+      - run: cargo +1.97.1 clippy --manifest-path packages/flutter_gpu3d/native/Cargo.toml --all-targets --locked -- -D warnings
+      - run: cargo +1.97.1 test --manifest-path packages/flutter_gpu3d/native/Cargo.toml --locked
+      - run: flutter test packages/flutter_gpu3d/test/scene_test.dart packages/flutter_geospatial/test
+      - run: flutter build ${{ matrix.platform }} --debug
+        working-directory: examples/planet
+  mobile:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.5'
+          cache: true
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - run: rustup toolchain install 1.97.1 --profile minimal
+      - run: flutter pub get
+      - run: flutter build ios --simulator --debug --no-codesign
+        working-directory: examples/planet
+      - run: flutter build apk --debug --target-platform android-arm64
+        working-directory: examples/planet
