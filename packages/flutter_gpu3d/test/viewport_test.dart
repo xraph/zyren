@@ -275,7 +275,7 @@ void main() {
     expect(presenter.disposals, 1);
   });
 
-  testWidgets('pauses native work while backgrounded and resumes', (
+  testWidgets('renders visible inactive windows and pauses only while hidden', (
     tester,
   ) async {
     final events = <String>[];
@@ -291,7 +291,11 @@ void main() {
       ),
     );
     await frames(tester);
+    final focusedCount = renderer.renders;
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await frames(tester);
+    expect(renderer.renders, greaterThan(focusedCount));
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
     await tester.pump();
     final count = renderer.renders;
     await frames(tester);
@@ -301,6 +305,31 @@ void main() {
     expect(renderer.renders, greaterThan(count));
     await tester.pumpWidget(const SizedBox());
     await frames(tester);
+  });
+
+  testWidgets('initializes and renders when launched without input focus', (
+    tester,
+  ) async {
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    final events = <String>[];
+    final renderer = TestRenderer(events);
+    await tester.pumpWidget(
+      host(
+        SceneView(
+          scene: Scene(),
+          camera: PerspectiveCamera(),
+          rendererFactory: () async => renderer,
+          presenterFactory: () =>
+              TestPresenter('first unfocused frame', events),
+        ),
+      ),
+    );
+    await frames(tester);
+    expect(find.text('first unfocused frame'), findsOneWidget);
+    expect(renderer.renders, greaterThan(0));
+    await tester.pumpWidget(const SizedBox());
+    await frames(tester);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
   });
 
   testWidgets(

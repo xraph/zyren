@@ -5,7 +5,7 @@ Rust 1.97.1 and Xcode 27.0.
 
 | Target | Build | Runtime evidence |
 | --- | --- | --- |
-| macOS ARM64 | Debug app passed | Apple M3 Max / Metal pixel tests, Dart FFI tests and Flutter integration test passed; globe and wrapping controls inspected in desktop and narrow native windows |
+| macOS ARM64 | Debug and release apps passed | Apple M3 Max / Metal pixel tests, Dart FFI tests and Flutter integration test passed; globe and wrapping controls inspected in desktop and narrow native windows; standalone release launch rendered without a development runner |
 | iOS ARM64 simulator | Debug app passed | iPhone 17 Pro simulator on iOS 26.0 passed the Flutter integration test with a rendered native image |
 | Android ARM64 | Debug APK passed | No device run yet |
 | iOS physical device | Build target configured | Signing, device deployment and GPU behaviour not verified |
@@ -24,11 +24,12 @@ pushed. A simulator pass does not establish physical mobile GPU performance.
 - Dart: four scene/geometry tests and five geodesy tests. The geodetic round-trip
   test covers 200 combinations across WGS84 and a triaxial ellipsoid, including
   poles, the date line, negative heights and orbital altitudes.
-- Plugins and viewports: 21 tests cover dependency ordering, typed services,
+- Plugins and viewports: 22 tests cover dependency ordering, typed services,
   unsupported capabilities, partial attach rollback, exclusive ownership, frame
   timing, injected renderer/presenter implementations, pending-frame replacement,
   initialization cancellation, retries, error-observer and frame-cleanup failures,
-  background/resume and separate world models. The core imports no geospatial package.
+  hidden/resume transitions, unfocused startup and separate world models. The
+  core imports no geospatial package.
 - Dart/native: one FFI test covers actual pixels from a worker isolate, geometry
   eviction/re-upload, resizing, concurrent-frame rejection and disposal while a
   frame is in flight.

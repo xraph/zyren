@@ -83,6 +83,10 @@ the frame. Treat the returned pixel buffer as read-only in observation hooks.
 Do not wait for engine disposal from inside a frame hook: disposal waits for that
 frame to finish.
 
+The viewport continues rendering while a window is visible but unfocused. It
+stops when the application is hidden, paused or detached. Flutter calls visible
+unfocused windows `inactive`; see its [lifecycle contract](https://api.flutter.dev/flutter/dart-ui/AppLifecycleState.html).
+
 `SceneEngine` also works without a viewport. You can create it, call `render` and
 await `dispose` from an offscreen workflow. The default backend is always native
 wgpu. No browser runtime or fallback is installed.

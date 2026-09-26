@@ -147,7 +147,7 @@ class _SceneViewState extends State<SceneView>
             return;
           }
           _session = session;
-          if (_resumed) _ticker.start();
+          if (_visible(WidgetsBinding.instance.lifecycleState)) _ticker.start();
         })
         .catchError((Object error, StackTrace stack) {
           if (_current(generation)) {
@@ -182,9 +182,11 @@ class _SceneViewState extends State<SceneView>
     );
   }
 
-  bool get _resumed =>
-      WidgetsBinding.instance.lifecycleState == null ||
-      WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
+  // An inactive desktop window is still visible and must produce frames.
+  static bool _visible(AppLifecycleState? state) =>
+      state == null ||
+      state == AppLifecycleState.resumed ||
+      state == AppLifecycleState.inactive;
 
   void _fail(Object error) {
     if (!mounted) return;
@@ -208,9 +210,7 @@ class _SceneViewState extends State<SceneView>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed &&
-        _session != null &&
-        _error == null) {
+    if (_visible(state) && _session != null && _error == null) {
       _last = Duration.zero;
       if (!_ticker.isActive) _ticker.start();
     } else {
