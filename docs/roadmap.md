@@ -9,6 +9,12 @@ The initial native renderer and plugin host establish the API and build path.
 You can use the example to evaluate those decisions. Production use needs the
 remaining renderer and platform work below.
 
+The detailed [implementation program](superpowers/plans/2026-09-26-native-3d-program.md)
+breaks this work into API/DX, native presentation, general rendering, and
+geospatial/release plans. It includes exact file responsibilities, interfaces,
+failure tests and commit boundaries. The [proposed public API](design/native-3d-api.md)
+defines ownership and application workflows before those changes land.
+
 ## Core capability target
 
 | Area | Implemented now | Required for the target |
@@ -28,7 +34,9 @@ Do not add a geospatial-only rendering path to bypass missing core features.
 
 ## Delivery order
 
-1. Native presentation: replace RGBA readback with shared GPU textures. Verify
+1. API and native presentation: extract the pure Dart core, establish controller
+   ownership and observable scene updates, then replace RGBA readback with shared
+   GPU textures. Verify
    resizing, background/resume, Flutter engine detach, device loss and multiple
    viewports on physical iOS/Android devices, macOS and Windows. Measure frame
    latency, CPU copies and GPU memory with representative scenes.

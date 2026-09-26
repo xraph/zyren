@@ -14,6 +14,12 @@ copies GPU pixels into a Flutter image, so you should expect lower throughput
 than a shared GPU texture implementation. Full Three.js and three-geospatial
 parity is still ahead.
 
+The [implementation plan](docs/superpowers/plans/2026-09-26-native-3d-program.md)
+sets out the remaining work, tests and platform gates. Read the
+[proposed Dart API](docs/design/native-3d-api.md) for the controller, loading and
+plugin design. Those documents describe the target; the examples below use the
+current alpha API.
+
 ## Run the example
 
 You'll need Rust through rustup and the Flutter SDK pinned in `.fvmrc`. The
