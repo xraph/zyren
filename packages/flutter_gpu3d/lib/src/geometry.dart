@@ -90,7 +90,7 @@ class BoxGeometry extends BufferGeometry {
     : super(positions: p, normals: n, indices: i);
 }
 
-/// Y-up sphere. Use EllipsoidGeometry for an ECEF globe.
+/// A Y-up sphere with indexed triangle geometry.
 class SphereGeometry extends BufferGeometry {
   factory SphereGeometry({
     double radius = 1,

@@ -32,7 +32,7 @@ jobs:
       - run: cargo +1.97.1 fmt --manifest-path packages/flutter_gpu3d/native/Cargo.toml --check
       - run: cargo +1.97.1 clippy --manifest-path packages/flutter_gpu3d/native/Cargo.toml --all-targets --locked -- -D warnings
       - run: cargo +1.97.1 test --manifest-path packages/flutter_gpu3d/native/Cargo.toml --locked
-      - run: flutter test packages/flutter_gpu3d/test/scene_test.dart packages/flutter_geospatial/test
+      - run: flutter test packages/flutter_gpu3d/test packages/flutter_geospatial/test
       - run: flutter build ${{ matrix.platform }} --debug
         working-directory: examples/planet
   mobile:

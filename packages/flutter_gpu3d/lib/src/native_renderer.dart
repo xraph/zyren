@@ -2,20 +2,27 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:ffi';
 import 'dart:isolate';
-import 'dart:typed_data';
 import 'package:ffi/ffi.dart';
 import 'bindings.dart' as native;
+import 'renderer.dart';
 import 'scene.dart';
-
-class RenderedFrame {
-  final Uint8List pixels;
-  final int width, height;
-  const RenderedFrame(this.pixels, this.width, this.height);
-}
 
 /// One native GPU device, owned by a persistent worker isolate.
 /// Await [dispose] when you no longer need it.
-class NativeRenderer {
+class NativeRenderer implements SceneRenderer {
+  static final _capabilities = RendererCapabilities(
+    name: 'wgpu-native',
+    features: {
+      RenderFeatures.indexedMeshes,
+      RenderFeatures.diffuseLighting,
+      RenderFeatures.unlitMaterials,
+      RenderFeatures.rgbaReadback,
+    },
+    maxDimension: 4096,
+  );
+  @override
+  RendererCapabilities get capabilities => _capabilities;
+
   final Isolate _isolate;
   final SendPort _commands;
   final ReceivePort _exits;
@@ -93,6 +100,7 @@ class NativeRenderer {
     return completion.future;
   }
 
+  @override
   Future<RenderedFrame> render(
     Scene scene,
     PerspectiveCamera camera, {
@@ -127,6 +135,7 @@ class NativeRenderer {
     });
   }
 
+  @override
   Future<void> dispose() => _disposal ??= _dispose();
   Future<void> _dispose() async {
     _closed = true;
