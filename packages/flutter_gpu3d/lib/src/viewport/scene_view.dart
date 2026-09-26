@@ -81,7 +81,8 @@ class _SceneViewState extends State<SceneView>
   late final Ticker _ticker;
   final Object _token = Object();
   SceneController? _controller;
-  FramePresenter? _presenter;
+  OutputPresenter? _presenter;
+  bool? _presentationSuspended;
   PresentedFrame? _frame;
   SceneIssue? _localIssue;
   SceneIssue? _notifiedIssue;
@@ -233,6 +234,17 @@ class _SceneViewState extends State<SceneView>
         _visible(WidgetsBinding.instance.lifecycleState) &&
         TickerMode.valuesOf(context).enabled;
     controller._setVisible(visible);
+    if (_presenter != null && _presentationSuspended != !visible) {
+      _presentationSuspended = !visible;
+      _presenter!.setSuspended(!visible).catchError((
+        Object error,
+        StackTrace stack,
+      ) {
+        if (mounted && !controller.isDisposed) {
+          controller._fail(error, stack, 'surface');
+        }
+      });
+    }
     if (!visible) {
       _stopTicker();
       return;
@@ -300,8 +312,10 @@ class _SceneViewState extends State<SceneView>
     int version,
   ) async {
     try {
-      _presenter ??= controller.runtime.presenterFactory();
-      final (frame, stats) = await controller._render(time, size);
+      _presenter ??= controller._createPresenter();
+      final target = await _presenter!.prepare(size);
+      if (!mounted || version != _version || controller.isDisposed) return;
+      final frame = await controller._render(time, size, target);
       if (!mounted || version != _version || controller.isDisposed) return;
       final next = await _presenter!.present(frame);
       if (!mounted || version != _version || controller.isDisposed) {
@@ -313,7 +327,7 @@ class _SceneViewState extends State<SceneView>
       if (previous != null) {
         WidgetsBinding.instance.addPostFrameCallback((_) => _release(previous));
       }
-      controller._presented(stats, time);
+      controller._presented(frame.stats, time);
     } catch (error, stack) {
       if (mounted && version == _version && !controller.isDisposed) {
         controller._fail(error, stack, 'render');
@@ -341,6 +355,7 @@ class _SceneViewState extends State<SceneView>
         _release(frame);
         final presenter = _presenter;
         _presenter = null;
+        _presentationSuspended = null;
         await presenter?.dispose();
       });
   Future<void> _unbind() async {

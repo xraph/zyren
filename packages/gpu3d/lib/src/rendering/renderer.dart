@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 import 'capabilities.dart';
+import 'frame_output.dart';
 import '../scene/scene.dart';
 
 /// Tightly packed, top-down RGBA8 pixels. The consumer owns this buffer.
@@ -7,6 +8,25 @@ class RenderedFrame {
   final Uint8List pixels;
   final int width, height;
   const RenderedFrame(this.pixels, this.width, this.height);
+  factory RenderedFrame.fromImage(ImageData image) {
+    if (image.format != PixelFormat.rgba8 ||
+        image.colorSpace != ColorSpace.srgb) {
+      throw ArgumentError('RGBA8 sRGB image required.');
+    }
+    if (image.rowStride == image.size.width * 4) {
+      return RenderedFrame(image.pixels, image.size.width, image.size.height);
+    }
+    final packed = Uint8List(image.size.width * image.size.height * 4);
+    for (var y = 0; y < image.size.height; y++) {
+      packed.setRange(
+        y * image.size.width * 4,
+        (y + 1) * image.size.width * 4,
+        image.pixels,
+        y * image.rowStride,
+      );
+    }
+    return RenderedFrame(packed, image.size.width, image.size.height);
+  }
 }
 
 /// Stable feature identifiers that plugins can require before allocating work.

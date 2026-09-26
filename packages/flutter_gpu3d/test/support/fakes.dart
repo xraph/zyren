@@ -85,7 +85,7 @@ class TestPlugin extends ScenePlugin {
   }
 
   @override
-  void afterRender(PluginContext context, FrameInfo info, RenderedFrame frame) {
+  void afterRender(PluginContext context, FrameInfo info, FrameStats stats) {
     events.add('$id.after');
   }
 

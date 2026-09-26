@@ -55,7 +55,10 @@ The advanced `RenderBackend` contract takes an immutable `FrameSubmission` and
 returns `FrameOutput`. `NativeBackend` currently returns only `ReadbackOutput`;
 a surface target reports `presentationUnavailable`. The output distinction is
 implemented, while native shared-texture adapters remain planned. The legacy
-`SceneRenderer`/`RenderedFrame` path stays available for the current viewport.
+`SceneRenderer`/`RenderedFrame` path remains an explicit readback compatibility
+API. `SceneEngine.renderFrame` and the Flutter controller preserve `FrameOutput`
+through plugin hooks and presentation. Platform presenters prepare their own
+output targets and own registration for one view attachment.
 
 ## Renderer
 

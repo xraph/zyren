@@ -11,3 +11,4 @@ export 'src/diagnostics/renderer_info.dart';
 export 'package:gpu3d/rendering.dart'
     show SceneIssue, SceneIssueCodes, SceneException, FrameStats;
 export 'src/input/flutter_input_adapter.dart' show ScenePointerCallback;
+export 'src/presentation/output_presenter.dart';

@@ -6,6 +6,8 @@ import '../rendering/capabilities.dart';
 import '../rendering/scene_issue.dart';
 import '../rendering/renderer.dart';
 import '../rendering/frame_submission.dart';
+import '../rendering/frame_output.dart';
+import '../rendering/render_backend.dart';
 import '../scene/scene.dart';
 
 /// Share one exported key instance between a provider and its dependents.
@@ -39,7 +41,7 @@ abstract class ScenePlugin {
   FutureOr<void> afterRender(
     PluginContext context,
     FrameInfo info,
-    RenderedFrame frame,
+    FrameStats stats,
   ) {}
 
   /// Also called after a failed attach, so tolerate partial initialization.
@@ -133,12 +135,13 @@ class SceneEngine {
     }
   }
 
-  final SceneRenderer _renderer;
+  final SceneRenderer? _renderer;
+  final RenderBackend? _backend;
   final List<ScenePlugin> _plugins;
   final Object _owner;
   final Map<Object, Object> _services = {};
   final List<(ScenePlugin, PluginContext)> _attached = [];
-  Future<RenderedFrame>? _frame;
+  Future<FrameOutput>? _frame;
   Future<void>? _disposal;
   Registration? _cancellation;
   Duration? _lastElapsed;
@@ -149,22 +152,30 @@ class SceneEngine {
     this.scene,
     this._camera,
     this._renderer,
+    this._backend,
     this._plugins,
     this._owner,
   );
-  RendererCapabilities get capabilities => _renderer.capabilities;
+  DeviceCapabilities get capabilities =>
+      _backend?.capabilities ?? _renderer!.capabilities;
   List<String> get pluginIds => List.unmodifiable(_plugins.map((p) => p.id));
 
   static Future<SceneEngine> create({
     required Scene scene,
     required Camera camera,
-    required RendererFactory rendererFactory,
+    RendererFactory? rendererFactory,
+    Future<RenderBackend> Function()? backendFactory,
     List<ScenePlugin> plugins = const [],
     InputSource? input,
     AttachmentScope? lifetime,
     void Function()? onInvalidate,
     Registration Function()? acquireFrameDemand,
   }) async {
+    if ((rendererFactory == null) == (backendFactory == null)) {
+      throw ArgumentError(
+        'Provide exactly one rendererFactory or backendFactory.',
+      );
+    }
     if (lifetime?.isClosed ?? false) throw _cancelled();
     final ordered = _resolve(plugins);
     for (final plugin in ordered) {
@@ -210,12 +221,13 @@ class SceneEngine {
           if (errors.isNotEmpty) throw ScopeCleanupException(errors);
         }),
       );
-      final renderer = await rendererFactory();
-      engine = SceneEngine._(scene, camera, renderer, ordered, owner);
+      final renderer = await rendererFactory?.call();
+      final backend = await backendFactory?.call();
+      engine = SceneEngine._(scene, camera, renderer, backend, ordered, owner);
       if (cancelled) throw _cancelled();
       for (final plugin in ordered) {
         final missing = plugin.requiredFeatures.difference(
-          renderer.capabilities.features,
+          engine.capabilities.features,
         );
         if (missing.isNotEmpty) {
           throw SceneException(
@@ -224,7 +236,7 @@ class SceneEngine {
               operation: 'attach',
               pluginId: plugin.id,
               requiredFeatures: Set.unmodifiable(missing),
-              limits: renderer.capabilities.limits,
+              limits: engine.capabilities.limits,
               message:
                   'Plugin ${plugin.id} requires unsupported features: ${missing.map((feature) => feature.name).join(', ')}.',
             ),
@@ -235,7 +247,7 @@ class SceneEngine {
         final context = PluginContext._(
           scene,
           camera,
-          renderer.capabilities,
+          engine.capabilities,
           engine._services,
           onInvalidate,
           acquireFrameDemand,
@@ -319,7 +331,27 @@ class SceneEngine {
     return List.unmodifiable(ordered);
   }
 
+  /// Explicit readback compatibility entry point. Use [renderFrame] for surfaces.
   Future<RenderedFrame> render({
+    required Duration elapsed,
+    FrameTime? time,
+    required int width,
+    required int height,
+  }) async {
+    final output = await renderFrame(
+      elapsed: elapsed,
+      time: time,
+      width: width,
+      height: height,
+    );
+    if (output is! ReadbackOutput) {
+      throw StateError('Readback rendering requires an image output.');
+    }
+    return RenderedFrame.fromImage(output.image);
+  }
+
+  Future<FrameOutput> renderFrame({
+    OutputTarget target = const ReadbackTarget(),
     required Duration elapsed,
     FrameTime? time,
     required int width,
@@ -332,8 +364,8 @@ class SceneEngine {
     if (elapsed.isNegative ||
         width < 1 ||
         height < 1 ||
-        width > capabilities.maxDimension ||
-        height > capabilities.maxDimension) {
+        width > capabilities.limits.maxTextureDimension2D ||
+        height > capabilities.limits.maxTextureDimension2D) {
       return Future.error(ArgumentError('Invalid frame time or dimensions.'));
     }
     final last = _lastElapsed;
@@ -350,18 +382,53 @@ class SceneEngine {
       height: height,
     );
     _lastElapsed = elapsed;
-    final future = Future<RenderedFrame>.microtask(() async {
+    final future = Future<FrameOutput>.microtask(() async {
       for (final (plugin, context) in _attached) {
         await plugin.beforeRender(context, info);
       }
-      final result = await _renderer.render(
-        scene,
-        camera,
-        width: width,
-        height: height,
-      );
+      final FrameOutput result;
+      if (_backend case final backend?) {
+        result = await backend.render(
+          FrameSubmission.capture(
+            scene: scene,
+            camera: camera,
+            size: PhysicalSize(width, height),
+            time: time ?? FrameTime(elapsed: elapsed, delta: delta),
+            target: target,
+          ),
+        );
+      } else {
+        if (target is! ReadbackTarget) {
+          throw StateError(
+            'The legacy renderer supports explicit readback only.',
+          );
+        }
+        final frame = await _renderer!.render(
+          scene,
+          camera,
+          width: width,
+          height: height,
+        );
+        result = ReadbackOutput(
+          image: ImageData(
+            pixels: frame.pixels,
+            size: PhysicalSize(frame.width, frame.height),
+          ),
+          stats: FrameStats(
+            frameId: info.number,
+            physicalSize: PhysicalSize(width, height),
+            presentationPath: PresentationPath.readback,
+            cpuBuildTime: Duration.zero,
+            cpuSubmitTime: Duration.zero,
+            drawCalls: 0,
+            triangles: 0,
+            uploadedBytes: 0,
+            readbackBytes: frame.pixels.length,
+          ),
+        );
+      }
       for (final (plugin, context) in _attached) {
-        await plugin.afterRender(context, info, result);
+        await plugin.afterRender(context, info, result.stats);
       }
       return result;
     });
@@ -402,7 +469,8 @@ class SceneEngine {
       }
     }
     try {
-      await _renderer.dispose();
+      await _backend?.close();
+      await _renderer?.dispose();
     } catch (error) {
       errors.add(error);
     } finally {

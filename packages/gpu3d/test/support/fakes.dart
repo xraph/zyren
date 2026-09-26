@@ -1,3 +1,4 @@
+import 'package:gpu3d/rendering.dart';
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:gpu3d/gpu3d.dart';
@@ -71,7 +72,7 @@ class TestPlugin extends ScenePlugin {
   }
 
   @override
-  void afterRender(PluginContext context, FrameInfo info, RenderedFrame frame) {
+  void afterRender(PluginContext context, FrameInfo info, FrameStats stats) {
     events.add('$id.after');
   }
 

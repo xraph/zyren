@@ -82,13 +82,13 @@ reports all cleanup failures.
 
 For each frame, the controller calls its registered `onUpdate` callbacks, then the
 engine runs `beforeRender` hooks in dependency order. The renderer produces a
-frame. The engine runs `afterRender` hooks in the same order, and the presenter
-converts the output for Flutter.
+frame output. The engine passes its `FrameStats` to `afterRender` hooks in the
+same order, and the presenter displays the image or shared texture in Flutter.
 
 Only one frame can be in flight. `FrameInfo.delta` starts at zero and is capped
 at 100 milliseconds to avoid large jumps after a pause. A reset elapsed clock
 also produces a zero delta. Frame hooks may be asynchronous, but slow hooks delay
-the frame. Treat the returned pixel buffer as read-only in observation hooks.
+the frame. Hooks receive statistics without forcing pixel readback.
 Do not wait for engine disposal from inside a frame hook: disposal waits for that
 frame to finish.
 

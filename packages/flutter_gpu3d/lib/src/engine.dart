@@ -23,7 +23,7 @@ class SceneEngine {
 
   core.Scene get scene => _engine.scene;
   core.Camera get camera => _engine.camera;
-  core.RendererCapabilities get capabilities => _engine.capabilities;
+  core.DeviceCapabilities get capabilities => _engine.capabilities;
   List<String> get pluginIds => _engine.pluginIds;
 
   Future<core.RenderedFrame> render({

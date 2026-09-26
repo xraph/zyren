@@ -8,7 +8,7 @@ import 'package:gpu3d/rendering.dart';
 import '../presentation.dart';
 import '../input/flutter_input_adapter.dart';
 import '../diagnostics/renderer_info.dart';
-import 'backend_renderer.dart';
+import '../presentation/output_presenter.dart';
 import 'scene_runtime.dart';
 import 'scene_status.dart';
 part '../viewport/scene_view.dart';
@@ -38,7 +38,11 @@ class SceneController {
   late final StreamSubscription<int> _sceneSubscription;
   late StreamSubscription<int> _cameraSubscription;
   SceneEngine? _engine;
-  BackendRenderer? _renderer;
+  RenderBackend? _backend;
+  OutputPresenter _createPresenter() =>
+      _info!.presentationPath == PresentationPath.sharedTexture
+      ? runtime.surfacePresenterFactory!.create(_backend!)
+      : ReadbackPresenter(runtime.presenterFactory());
   RendererInfo? _info;
   Future<void>? _initialization, _drawing, _failureCleanup, _retrying;
   Object? _viewToken;
@@ -233,7 +237,7 @@ class SceneController {
         lifetime: _lifetime,
         onInvalidate: _scheduler.request,
         acquireFrameDemand: _scheduler.acquireDemand,
-        rendererFactory: () async {
+        backendFactory: () async {
           final backend = await runtime.backendFactory();
           if (_closed || generation != _generation) {
             await backend.close();
@@ -243,8 +247,12 @@ class SceneController {
               'initialize',
             );
           }
-          // No native shared-surface adapter is installed yet. Never hide readback.
-          if (options.presentation == PresentationPolicy.requireSharedTexture) {
+          final shared =
+              options.presentation != PresentationPolicy.readbackOnly &&
+              backend.capabilities.supports(RenderFeature.sharedTexture) &&
+              (runtime.surfacePresenterFactory?.supports(backend) ?? false);
+          if (!shared &&
+              options.presentation == PresentationPolicy.requireSharedTexture) {
             await backend.close();
             throw _exception(
               SceneIssueCodes.presentationUnavailable,
@@ -252,7 +260,8 @@ class SceneController {
               'initialize',
             );
           }
-          if (!backend.capabilities.supports(RenderFeature.rgbaReadback)) {
+          if (!shared &&
+              !backend.capabilities.supports(RenderFeature.rgbaReadback)) {
             await backend.close();
             throw _exception(
               SceneIssueCodes.unsupportedFeature,
@@ -260,15 +269,17 @@ class SceneController {
               'initialize',
             );
           }
-          _renderer = BackendRenderer(backend);
+          _backend = backend;
           _info = RendererInfo(
             backend: backend.capabilities.backend ?? backend.capabilities.name,
             adapterName: backend.capabilities.adapterName,
             driverDescription: backend.capabilities.driverDescription,
             capabilities: backend.capabilities,
-            presentationPath: PresentationPath.readback,
+            presentationPath: shared
+                ? PresentationPath.sharedTexture
+                : PresentationPath.readback,
           );
-          return _renderer!;
+          return backend;
         },
       );
       if (_closed || generation != _generation) {
@@ -320,6 +331,7 @@ class SceneController {
     if (failedEngine != null) {
       _failureCleanup = Future<void>.microtask(() async {
         await _drawing;
+        await _closePresentation?.call();
         await failedEngine.dispose();
       });
       _failureCleanup!.then<void>((_) {}, onError: (Object _, StackTrace _) {});
@@ -334,11 +346,12 @@ class SceneController {
     }
   }
 
-  Future<(RenderedFrame, FrameStats)> _render(
+  Future<FrameOutput> _render(
     FrameTime time,
     PhysicalSize size,
+    OutputTarget target,
   ) {
-    final completer = Completer<(RenderedFrame, FrameStats)>();
+    final completer = Completer<FrameOutput>();
     _drawing = Future<void>.microtask(() async {
       try {
         _checkOpen();
@@ -347,14 +360,14 @@ class SceneController {
           if (_updates.containsKey(entry.key)) entry.value(time);
         }
         _checkOpen();
-        _renderer!.time = time;
-        final frame = await _engine!.render(
+        final frame = await _engine!.renderFrame(
+          target: target,
           elapsed: time.elapsed,
           time: time,
           width: size.width,
           height: size.height,
         );
-        completer.complete((frame, _renderer!.stats!));
+        completer.complete(frame);
       } catch (error, stack) {
         completer.completeError(error, stack);
       }
@@ -395,7 +408,7 @@ class SceneController {
       await _retiring;
       final old = _engine;
       _engine = null;
-      _renderer = null;
+      _backend = null;
       await old?.dispose();
     } catch (error, stack) {
       if (!_closed) _fail(error, stack, 'cleanup');
@@ -460,7 +473,7 @@ class SceneController {
       }
     }
     _engine = null;
-    _renderer = null;
+    _backend = null;
     if (errors.isEmpty) {
       _disposed.complete();
     } else {
