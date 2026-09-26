@@ -152,6 +152,10 @@ version = "0.1.0"
 dependencies = [
  "bytemuck",
  "glam",
+ "objc2",
+ "objc2-core-foundation",
+ "objc2-io-surface",
+ "objc2-metal",
  "pollster",
  "serde",
  "serde_json",
@@ -434,6 +438,7 @@ dependencies = [
  "block2",
  "objc2",
  "objc2-foundation",
+ "objc2-io-surface",
 ]
 
 [[package]]

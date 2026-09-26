@@ -1,5 +1,7 @@
 pub mod abi;
 mod leases;
+#[cfg(target_vendor = "apple")]
+pub mod metal;
 mod session;
 pub use leases::{LeaseId, LeaseLedger};
 pub use session::{SurfaceConfig, SurfaceKey, SurfaceRegistry, SurfaceSession, SurfaceState};

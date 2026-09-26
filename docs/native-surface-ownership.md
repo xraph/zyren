@@ -49,9 +49,11 @@ creates a new session.
 A native timeout stops publication, clears pending work and records `timedOut`.
 It does not fabricate GPU completion. Outstanding leases keep the registry slot
 alive until actual producer and consumer callbacks arrive. Platform adapters
-must enforce a bounded wait, report the failure, and retain ownership that cannot
-yet be released safely. The current v1 readback renderer's wait has not changed
-in this checkpoint.
+must report the failure and retain ownership that cannot yet be released safely.
+The renderer waits up to two seconds for a submission. A timeout makes the
+renderer reject further work and keeps its imported texture owned. Readback
+uses the same bounded GPU wait and allows one additional second for its mapping
+callback. Native device teardown remains responsible for resources still in use.
 
 ## Verification
 

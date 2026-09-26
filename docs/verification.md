@@ -171,3 +171,30 @@ The existing two-view macOS integration still renders and closes both native
 sessions. Its runner could not foreground the window. Surface metadata and tests
 do not enable shared presentation: the examples continue to use explicit readback,
 and debug/release plugin-to-FFI runtime identity remains an adapter integration check.
+
+## Rust Metal target checkpoint
+
+The Rust renderer can draw directly into an IOSurface-backed BGRA8 sRGB texture
+created on its Metal device. The native fixture renders an opaque red triangle
+over blue at 63 by 47 pixels, checks the resulting BGRA pixels after completion,
+and verifies zero renderer readback bytes for that submission. An explicit RGBA
+capture then checks the existing readback path. Capture reads in the fixture are
+separate from renderer counters.
+
+A second GPU test blocks the renderer's Metal queue for three seconds. The
+two-second wait returns an error, retains the imported texture and rejects new
+submissions. The test releases the queue and waits for actual completion before
+teardown. The same bounded wait protects the existing readback renderer.
+
+The current suite passes 17 Rust tests with GPU cases explicitly enabled, eight
+native Dart tests and 41 Flutter facade tests. Clippy, formatting and analyzer
+pass. The existing two-view macOS integration also passes after the renderer
+refactor; the runner still cannot foreground its window.
+
+You can reproduce the separate compositor ownership experiment using
+[the Apple probe](../experiments/apple_presentation/README.md). Its pixel-buffer
+pool reused storage while a consumer still held the Metal texture. A fresh
+IOSurface with a lifetime guard stayed owned through blocked GPU work and
+released once afterward. The production bridge must prove that ownership path
+inside Flutter before shared presentation is enabled. This checkpoint does not
+qualify Flutter composition, physical iOS, Android or Windows presentation.

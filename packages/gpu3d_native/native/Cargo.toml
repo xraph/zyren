@@ -16,6 +16,15 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 wgpu = { version = "30.0.1", default-features = false, features = ["std", "parking_lot", "metal", "vulkan", "dx12", "wgsl"] }
 
+[target.'cfg(target_vendor = "apple")'.dependencies]
+objc2 = "0.6.4"
+objc2-metal = { version = "0.3.2", default-features = false, features = ["std", "MTLDevice", "MTLResource", "MTLTexture", "MTLPixelFormat", "MTLTypes", "MTLAllocation"] }
+
+[target.'cfg(target_vendor = "apple")'.dev-dependencies]
+objc2-core-foundation = { version = "0.3.2", default-features = false, features = ["std", "CFDictionary", "CFNumber", "CFString"] }
+objc2-io-surface = { version = "0.3.2", default-features = false, features = ["std", "IOSurfaceRef", "objc2-core-foundation"] }
+objc2-metal = { version = "0.3.2", default-features = false, features = ["objc2-io-surface", "MTLEvent", "MTLCommandBuffer", "MTLCommandQueue"] }
+
 # Rust's debuginfo stripping can misalign Mach-O string tables on macOS 27.
 # See https://github.com/rust-lang/rust/issues/157750.
 [profile.release]

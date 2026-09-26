@@ -1,6 +1,7 @@
 use std::{
     collections::{HashMap, HashSet},
     sync::mpsc,
+    time::Duration,
 };
 
 use bytemuck::{Pod, Zeroable};
@@ -42,10 +43,31 @@ struct Targets {
     readback: wgpu::Buffer,
 }
 
+#[derive(Clone, Copy, Debug, Default)]
+pub struct RenderCounters {
+    pub submitted_frames: u64,
+    pub readback_bytes: u64,
+}
+#[cfg(target_vendor = "apple")]
+struct DepthTarget {
+    width: u32,
+    height: u32,
+    _texture: wgpu::Texture,
+    view: wgpu::TextureView,
+}
+
 pub struct Renderer {
-    device: wgpu::Device,
+    pub(crate) device: wgpu::Device,
     queue: wgpu::Queue,
     pipeline: wgpu::RenderPipeline,
+    #[cfg(target_vendor = "apple")]
+    surface_pipeline: wgpu::RenderPipeline,
+    #[cfg(target_vendor = "apple")]
+    surface_depth: Option<DepthTarget>,
+    #[cfg(target_vendor = "apple")]
+    failed_surface: Option<wgpu::Texture>,
+    failure: Option<String>,
+    counters: RenderCounters,
     layout: wgpu::BindGroupLayout,
     geometries: HashMap<u32, GpuGeometry>,
     targets: Option<Targets>,
@@ -102,48 +124,61 @@ impl Renderer {
             bind_group_layouts: &[Some(&layout)],
             ..Default::default()
         });
-        let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("opaque meshes"),
-            layout: Some(&pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &shader,
-                entry_point: Some("vs_main"),
-                compilation_options: Default::default(),
-                buffers: &[Some(wgpu::VertexBufferLayout {
-                    array_stride: 24,
-                    step_mode: wgpu::VertexStepMode::Vertex,
-                    attributes: &wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3],
-                })],
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: Some("fs_main"),
-                compilation_options: Default::default(),
-                targets: &[Some(wgpu::ColorTargetState {
-                    format: wgpu::TextureFormat::Rgba8UnormSrgb,
-                    blend: None,
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
-            }),
-            primitive: wgpu::PrimitiveState {
-                cull_mode: None,
-                ..Default::default()
-            },
-            depth_stencil: Some(wgpu::DepthStencilState {
-                format: wgpu::TextureFormat::Depth32Float,
-                depth_write_enabled: Some(true),
-                depth_compare: Some(wgpu::CompareFunction::Less),
-                stencil: Default::default(),
-                bias: Default::default(),
-            }),
-            multisample: Default::default(),
-            multiview_mask: None,
-            cache: None,
-        });
+        let create_pipeline = |format| {
+            device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: Some("opaque meshes"),
+                layout: Some(&pipeline_layout),
+                vertex: wgpu::VertexState {
+                    module: &shader,
+                    entry_point: Some("vs_main"),
+                    compilation_options: Default::default(),
+                    buffers: &[Some(wgpu::VertexBufferLayout {
+                        array_stride: 24,
+                        step_mode: wgpu::VertexStepMode::Vertex,
+                        attributes: &wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3],
+                    })],
+                },
+                fragment: Some(wgpu::FragmentState {
+                    module: &shader,
+                    entry_point: Some("fs_main"),
+                    compilation_options: Default::default(),
+                    targets: &[Some(wgpu::ColorTargetState {
+                        format,
+                        blend: None,
+                        write_mask: wgpu::ColorWrites::ALL,
+                    })],
+                }),
+                primitive: wgpu::PrimitiveState {
+                    cull_mode: None,
+                    ..Default::default()
+                },
+                depth_stencil: Some(wgpu::DepthStencilState {
+                    format: wgpu::TextureFormat::Depth32Float,
+                    depth_write_enabled: Some(true),
+                    depth_compare: Some(wgpu::CompareFunction::Less),
+                    stencil: Default::default(),
+                    bias: Default::default(),
+                }),
+                multisample: Default::default(),
+                multiview_mask: None,
+                cache: None,
+            })
+        };
+        let pipeline = create_pipeline(wgpu::TextureFormat::Rgba8UnormSrgb);
+        #[cfg(target_vendor = "apple")]
+        let surface_pipeline = create_pipeline(wgpu::TextureFormat::Bgra8UnormSrgb);
         Ok(Self {
             device,
             queue,
             pipeline,
+            #[cfg(target_vendor = "apple")]
+            surface_pipeline,
+            #[cfg(target_vendor = "apple")]
+            surface_depth: None,
+            #[cfg(target_vendor = "apple")]
+            failed_surface: None,
+            failure: None,
+            counters: RenderCounters::default(),
             layout,
             geometries: HashMap::new(),
             targets: None,
@@ -205,8 +240,14 @@ impl Renderer {
         });
     }
 
-    pub fn render(&mut self, frame: &Frame, width: u32, height: u32) -> Result<Vec<u8>, String> {
-        let len = pixel_len(width, height)?;
+    pub fn counters(&self) -> RenderCounters {
+        self.counters
+    }
+
+    fn prepare_scene(&mut self, frame: &Frame) -> Result<(), String> {
+        if let Some(failure) = &self.failure {
+            return Err(failure.clone());
+        }
         frame.validate(&self.geometries.keys().copied().collect())?;
         let used: HashSet<_> = frame.meshes.iter().map(|m| m.geometry).collect();
         let bytes = self
@@ -255,8 +296,16 @@ impl Renderer {
                 },
             );
         }
-        self.resize(width, height);
-        let target = self.targets.as_ref().unwrap();
+        Ok(())
+    }
+
+    fn encode_scene(
+        &self,
+        frame: &Frame,
+        color_view: &wgpu::TextureView,
+        depth_view: &wgpu::TextureView,
+        pipeline: &wgpu::RenderPipeline,
+    ) -> wgpu::CommandEncoder {
         let vp = Mat4::from_cols_array(&frame.view_projection);
         let bindings: Vec<_> = frame
             .meshes
@@ -301,7 +350,7 @@ impl Renderer {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("native frame"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &target.color_view,
+                    view: color_view,
                     resolve_target: None,
                     depth_slice: None,
                     ops: wgpu::Operations {
@@ -315,7 +364,7 @@ impl Renderer {
                     },
                 })],
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                    view: &target.depth_view,
+                    view: depth_view,
                     depth_ops: Some(wgpu::Operations {
                         load: wgpu::LoadOp::Clear(1.0),
                         store: wgpu::StoreOp::Discard,
@@ -324,7 +373,7 @@ impl Renderer {
                 }),
                 ..Default::default()
             });
-            pass.set_pipeline(&self.pipeline);
+            pass.set_pipeline(pipeline);
             for (mesh, binding) in frame.meshes.iter().zip(&bindings) {
                 let geometry = &self.geometries[&mesh.geometry];
                 pass.set_bind_group(0, binding, &[]);
@@ -333,6 +382,86 @@ impl Renderer {
                 pass.draw_indexed(0..geometry.count, 0, 0..1);
             }
         }
+        encoder
+    }
+
+    fn wait_for_submission(&mut self, submission: wgpu::SubmissionIndex) -> Result<(), String> {
+        self.device
+            .poll(wgpu::PollType::Wait {
+                submission_index: Some(submission),
+                timeout: Some(Duration::from_secs(2)),
+            })
+            .map(|_| ())
+            .map_err(|error| {
+                let message = format!("GPU completion failed; recreate this renderer: {error}");
+                self.failure = Some(message.clone());
+                message
+            })
+    }
+
+    #[cfg(target_vendor = "apple")]
+    pub(crate) fn render_to_surface(
+        &mut self,
+        frame: &Frame,
+        texture: wgpu::Texture,
+        width: u32,
+        height: u32,
+    ) -> Result<(), String> {
+        pixel_len(width, height)?;
+        self.prepare_scene(frame)?;
+        if self
+            .surface_depth
+            .as_ref()
+            .is_none_or(|target| target.width != width || target.height != height)
+        {
+            let depth = self.device.create_texture(&wgpu::TextureDescriptor {
+                label: Some("shared frame depth"),
+                size: wgpu::Extent3d {
+                    width,
+                    height,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Depth32Float,
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                view_formats: &[],
+            });
+            self.surface_depth = Some(DepthTarget {
+                width,
+                height,
+                view: depth.create_view(&Default::default()),
+                _texture: depth,
+            });
+        }
+        let encoder = self.encode_scene(
+            frame,
+            &texture.create_view(&Default::default()),
+            &self.surface_depth.as_ref().unwrap().view,
+            &self.surface_pipeline,
+        );
+        let submission = self.queue.submit([encoder.finish()]);
+        self.counters.submitted_frames += 1;
+        if let Err(error) = self.wait_for_submission(submission) {
+            // Stop future submissions and keep the imported resource owned.
+            self.failed_surface = Some(texture);
+            return Err(error);
+        }
+        Ok(())
+    }
+
+    pub fn render(&mut self, frame: &Frame, width: u32, height: u32) -> Result<Vec<u8>, String> {
+        let len = pixel_len(width, height)?;
+        self.prepare_scene(frame)?;
+        self.resize(width, height);
+        let target = self.targets.as_ref().unwrap();
+        let mut encoder = self.encode_scene(
+            frame,
+            &target.color_view,
+            &target.depth_view,
+            &self.pipeline,
+        );
         encoder.copy_texture_to_buffer(
             target.color.as_image_copy(),
             wgpu::TexelCopyBufferInfo {
@@ -349,26 +478,95 @@ impl Renderer {
                 depth_or_array_layers: 1,
             },
         );
-        self.queue.submit([encoder.finish()]);
-        let slice = target.readback.slice(..);
+        let readback = target.readback.clone();
+        let stride = target.stride;
+        let submission = self.queue.submit([encoder.finish()]);
+        self.counters.submitted_frames += 1;
+        let slice = readback.slice(..);
         let (sender, receiver) = mpsc::sync_channel(1);
         slice.map_async(wgpu::MapMode::Read, move |result| {
             let _ = sender.send(result);
         });
-        self.device
-            .poll(wgpu::PollType::wait_indefinitely())
-            .map_err(|e| format!("GPU poll failed: {e}"))?;
-        receiver
-            .recv()
-            .map_err(|e| e.to_string())?
-            .map_err(|e| format!("readback failed: {e}"))?;
+        self.wait_for_submission(submission)?;
+        let mapped_result = receiver
+            .recv_timeout(Duration::from_secs(1))
+            .map_err(|error| format!("readback callback failed: {error}"))
+            .and_then(|result| result.map_err(|error| format!("readback failed: {error}")));
+        if let Err(error) = mapped_result {
+            self.failure = Some(error.clone());
+            return Err(error);
+        }
         let mapped = slice.get_mapped_range().map_err(|e| e.to_string())?;
         let mut pixels = Vec::with_capacity(len);
-        for row in mapped.chunks_exact(target.stride as usize) {
+        for row in mapped.chunks_exact(stride as usize) {
             pixels.extend_from_slice(&row[..width as usize * 4]);
         }
         drop(mapped);
-        target.readback.unmap();
+        readback.unmap();
+        self.counters.readback_bytes += pixels.len() as u64;
         Ok(pixels)
+    }
+}
+
+#[cfg(all(test, target_vendor = "apple"))]
+mod metal_timeout_tests {
+    use super::*;
+    use objc2::runtime::ProtocolObject;
+    use objc2_metal::{
+        MTLCommandBuffer, MTLCommandQueue, MTLDevice, MTLPixelFormat, MTLSharedEvent,
+        MTLStorageMode, MTLTextureDescriptor, MTLTextureUsage,
+    };
+
+    #[test]
+    #[ignore = "requires a native Metal device; blocks a private queue for three seconds"]
+    fn gpu_timeout_retains_imported_texture_and_stops_new_submissions() {
+        let mut renderer = pollster::block_on(Renderer::new()).unwrap();
+        let device = renderer.metal_device().unwrap();
+        let descriptor = MTLTextureDescriptor::new();
+        unsafe {
+            descriptor.setWidth(16);
+            descriptor.setHeight(16);
+        }
+        descriptor.setPixelFormat(MTLPixelFormat::BGRA8Unorm_sRGB);
+        descriptor.setUsage(MTLTextureUsage::RenderTarget);
+        descriptor.setStorageMode(MTLStorageMode::Shared);
+        let texture = device.newTextureWithDescriptor(&descriptor).unwrap();
+        let gate = device.newSharedEvent().unwrap();
+        {
+            // Exclusive renderer access: no wgpu submissions race this native wait.
+            let queue = unsafe { renderer.queue.as_hal::<wgpu::hal::api::Metal>() }.unwrap();
+            let blocker = queue.as_raw().commandBuffer().unwrap();
+            blocker.encodeWaitForEvent_value(ProtocolObject::from_ref(&*gate), 1);
+            blocker.commit();
+        }
+        let signal = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_secs(3));
+            gate.setSignaledValue(1);
+        });
+        let frame: Frame = serde_json::from_value(serde_json::json!({
+            "version": 1, "view_projection": glam::Mat4::IDENTITY.to_cols_array(),
+            "background": [0,0,0], "light_direction": [0,0,1], "ambient": 0.2,
+            "geometries": [], "meshes": []
+        }))
+        .unwrap();
+        let result = unsafe { renderer.render_to_metal(&frame, texture) };
+        assert!(
+            result.is_err(),
+            "GPU wait must expire before the timer releases it"
+        );
+        assert!(
+            renderer.failed_surface.is_some(),
+            "active imported storage stays owned"
+        );
+        assert!(renderer.render(&frame, 16, 16).is_err());
+        assert_eq!(renderer.counters().submitted_frames, 1);
+        signal.join().unwrap();
+        renderer
+            .device
+            .poll(wgpu::PollType::Wait {
+                submission_index: None,
+                timeout: Some(Duration::from_secs(2)),
+            })
+            .unwrap();
     }
 }
