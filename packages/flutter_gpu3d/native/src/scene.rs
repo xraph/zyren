@@ -1,0 +1,140 @@
+use std::collections::HashSet;
+
+use serde::Deserialize;
+
+pub const MAX_DIMENSION: u32 = 4096;
+pub const MAX_VERTICES: usize = 1_000_000;
+pub const MAX_INDICES: usize = 3_000_000;
+pub const MAX_MESHES: usize = 4096;
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Geometry {
+    pub id: u32,
+    pub positions: Vec<[f32; 3]>,
+    pub normals: Vec<[f32; 3]>,
+    pub indices: Vec<u32>,
+}
+
+impl Geometry {
+    pub fn validate(&self) -> Result<(), String> {
+        if self.positions.is_empty() || self.positions.len() > MAX_VERTICES {
+            return Err("geometry vertex count is outside the supported range".into());
+        }
+        if self.normals.len() != self.positions.len()
+            || self.indices.is_empty()
+            || self.indices.len() > MAX_INDICES
+            || !self.indices.len().is_multiple_of(3)
+        {
+            return Err("geometry requires one normal per vertex and indexed triangles".into());
+        }
+        if self
+            .positions
+            .iter()
+            .chain(&self.normals)
+            .flatten()
+            .any(|v| !v.is_finite())
+            || self
+                .normals
+                .iter()
+                .any(|v| glam::Vec3::from_array(*v).length_squared() < 1e-12)
+            || self
+                .indices
+                .iter()
+                .any(|i| *i as usize >= self.positions.len())
+        {
+            return Err("geometry contains invalid coordinates, normals or indices".into());
+        }
+        Ok(())
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Mesh {
+    pub geometry: u32,
+    pub model: [f32; 16],
+    pub color: [f32; 3],
+    pub unlit: bool,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Frame {
+    pub version: u32,
+    pub view_projection: [f32; 16],
+    pub background: [f64; 3],
+    pub light_direction: [f32; 3],
+    pub ambient: f32,
+    pub geometries: Vec<Geometry>,
+    pub meshes: Vec<Mesh>,
+}
+
+impl Frame {
+    pub fn validate(&self, cached: &HashSet<u32>) -> Result<(), String> {
+        if self.version != 1 {
+            return Err("unsupported scene protocol version".into());
+        }
+        if self.meshes.len() > MAX_MESHES || self.geometries.len() > MAX_MESHES {
+            return Err("scene exceeds the mesh limit".into());
+        }
+        if self.view_projection.iter().any(|v| !v.is_finite())
+            || self
+                .background
+                .iter()
+                .any(|v| !v.is_finite() || !(0.0..=1.0).contains(v))
+            || self.light_direction.iter().any(|v| !v.is_finite())
+            || glam::Vec3::from_array(self.light_direction).length_squared() < 1e-12
+            || !self.ambient.is_finite()
+            || !(0.0..=1.0).contains(&self.ambient)
+        {
+            return Err("invalid camera, background or light".into());
+        }
+        let mut added = HashSet::new();
+        let mut vertices = 0;
+        let mut indices = 0;
+        for geometry in &self.geometries {
+            geometry.validate()?;
+            if cached.contains(&geometry.id) || !added.insert(geometry.id) {
+                return Err("geometry identifiers are immutable and must be unique".into());
+            }
+            vertices += geometry.positions.len();
+            indices += geometry.indices.len();
+        }
+        if vertices > MAX_VERTICES || indices > MAX_INDICES {
+            return Err("geometry upload exceeds the per-frame budget".into());
+        }
+        for mesh in &self.meshes {
+            if !cached.contains(&mesh.geometry) && !added.contains(&mesh.geometry) {
+                return Err("mesh refers to a missing geometry".into());
+            }
+            let model = glam::Mat4::from_cols_array(&mesh.model);
+            if mesh.model.iter().any(|v| !v.is_finite())
+                || !model.determinant().is_finite()
+                || model.determinant().abs() < 1e-20
+                || mesh
+                    .color
+                    .iter()
+                    .any(|v| !v.is_finite() || !(0.0..=1.0).contains(v))
+            {
+                return Err("mesh requires a finite invertible transform and an RGB color".into());
+            }
+        }
+        if added
+            .iter()
+            .any(|id| !self.meshes.iter().any(|mesh| mesh.geometry == *id))
+        {
+            return Err("uploaded geometry must be referenced by a mesh".into());
+        }
+        Ok(())
+    }
+}
+
+pub fn pixel_len(width: u32, height: u32) -> Result<usize, String> {
+    if width == 0 || height == 0 || width > MAX_DIMENSION || height > MAX_DIMENSION {
+        return Err(format!(
+            "frame size must be between 1 and {MAX_DIMENSION} pixels per axis"
+        ));
+    }
+    Ok(width as usize * height as usize * 4)
+}
