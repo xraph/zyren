@@ -72,7 +72,10 @@ impl Renderer {
         let (device, queue) = adapter
             .request_device(&wgpu::DeviceDescriptor {
                 label: Some("flutter_gpu3d"),
-                required_limits: wgpu::Limits::downlevel_defaults(),
+                required_limits: wgpu::Limits {
+                    max_texture_dimension_2d: crate::scene::MAX_DIMENSION,
+                    ..wgpu::Limits::downlevel_defaults()
+                },
                 ..Default::default()
             })
             .await

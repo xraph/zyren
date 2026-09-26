@@ -11,6 +11,8 @@ uint32_t fg_abi_version(void);
 uint64_t fg_create(void);
 /* Returns one on success, zero on failure. */
 uint32_t fg_destroy(uint64_t handle);
+/* Fallback cleanup for Dart isolate teardown. Token encodes a handle. */
+void fg_finalize(void *token);
 /* UTF-8 bytes, no terminator. Returns full length and copies up to capacity. */
 size_t fg_last_error(uint8_t *buffer, size_t capacity);
 /* All pointers remain caller-owned. Pixels are tightly packed opaque RGBA8 sRGB.

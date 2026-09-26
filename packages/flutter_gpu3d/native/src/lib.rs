@@ -46,7 +46,11 @@ pub extern "C" fn fg_abi_version() -> u32 {
 pub extern "C" fn fg_create() -> u64 {
     guard(|| {
         let renderer = pollster::block_on(Renderer::new())?;
-        let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
+        let id = NEXT_ID
+            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |id| {
+                id.checked_add(1).filter(|next| *next <= usize::MAX as u64)
+            })
+            .map_err(|_| "renderer handle space exhausted")?;
         registry()
             .lock()
             .map_err(|_| "renderer registry is poisoned")?
@@ -65,6 +69,12 @@ pub extern "C" fn fg_destroy(handle: u64) -> u32 {
         removed.ok_or("invalid or disposed renderer handle")?;
         Ok(1)
     })
+}
+
+/// NativeFinalizer callback. The token is an opaque integer, never dereferenced.
+#[unsafe(no_mangle)]
+pub extern "C" fn fg_finalize(token: *mut std::ffi::c_void) {
+    fg_destroy(token as usize as u64);
 }
 
 /// Returns the UTF-8 error length, excluding a terminator. Truncates to capacity.

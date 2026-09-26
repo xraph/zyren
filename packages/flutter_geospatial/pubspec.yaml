@@ -1,0 +1,13 @@
+name: flutter_geospatial
+description: Double precision geospatial maths and globe geometry for native Flutter 3D.
+version: 0.1.0
+publish_to: none
+resolution: workspace
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+dependencies:
+  flutter_gpu3d:
+    path: ../flutter_gpu3d
+dev_dependencies:
+  flutter_test:
+    sdk: flutter

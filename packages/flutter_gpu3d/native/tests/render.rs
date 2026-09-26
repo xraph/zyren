@@ -86,6 +86,11 @@ fn native_gpu_pixels_depth_resize_and_cache() {
             .chunks_exact(4)
             .all(|p| p == [0, 0, 0, 255])
     );
+    assert_eq!(renderer.render(&empty, 4096, 1).unwrap().len(), 4096 * 4);
+    let handle = flutter_gpu3d::fg_create();
+    assert_ne!(handle, 0);
+    flutter_gpu3d::fg_finalize(handle as usize as *mut std::ffi::c_void);
+    assert_eq!(flutter_gpu3d::fg_destroy(handle), 0);
     assert!(
         renderer.render(&frame, 9, 7).is_err(),
         "unused geometry must be released"
