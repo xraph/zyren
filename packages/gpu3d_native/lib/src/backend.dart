@@ -105,6 +105,8 @@ class NativeBackend implements RenderBackend {
           readbackBytes: frame.pixels.length,
         ),
       );
+    } on SceneException {
+      rethrow;
     } on ArgumentError {
       rethrow;
     } catch (error) {

@@ -246,7 +246,7 @@ and device pixel ratio do not change those coordinates. Use `point.toNdc` with
 the logical viewport size when you need normalized coordinates.
 
 Plugins can listen to `context.input?.events` and register `SceneGesture.tap`,
-`scale` or `scroll`. Keep each returned registration for teardown. Interests
+`scale` or `scroll`. Own each returned registration with `context.scope.keep(...)`. Interests
 participate in Flutter's gesture arena; an overlay button receives its own tap,
 and a scroll view keeps wheel input unless a scene control registers for it.
 The geospatial orbit plugin uses this path by default.
@@ -258,3 +258,41 @@ Adapter and driver names remain null when the backend cannot report them.
 most five times per second. A static view stops its Flutter ticker too.
 `RecoveryPolicy.automaticOnce` retries one typed device loss, then exposes any
 further failure for manual recovery.
+
+## Scoped work and cancellation
+
+Plugin contexts own an `AttachmentScope`. Keep registrations in that scope so
+cancellation stops input and frame callbacks before plugin resources detach:
+
+```dart
+final input = context.input;
+if (input != null) {
+  context.scope.keep(input.registerGesture(SceneGesture.tap));
+  context.scope.listen(input.events, (event) {
+    if (event.phase == ScenePointerPhase.tap) context.invalidate();
+  });
+}
+```
+
+`scope.close()` is synchronous and idempotent. It disposes registrations in
+reverse order, attempts every cleanup and reports `ScopeCleanupException` if
+any fail. Late registrations are disposed immediately and rejected. An engine
+accepts an optional `lifetime: AttachmentScope()` to cancel attachment; the
+Flutter controller supplies this automatically. Plugin `attach` methods must
+finish their own asynchronous work, including after cancellation, for teardown
+to finish. Use the scope for any registrations created after an await.
+
+`controller.onUpdate` registrations belong to the controller. Dispose one to stop
+that animation early, or let controller disposal release it. Borrowed unmounting
+suspends rendering without disposing the controller's work.
+
+`controller.assets` is an `AssetScope`. Its `keep(LoadTask<T>)` method tracks a
+loader's result, retains the resulting CPU asset and cancels pending work when
+the scope closes. `release(asset)` drops the scope's retained reference.
+`LoadTask<T>` exposes `result`, `progress` and idempotent `cancel()`. Cancellation
+wins until the result is published and fails it with `LoadCancelled`. Format
+loaders, source resolution and `assets.load(...)` are still plan 03 work.
+
+Run the managed, borrowed and shared-scene examples in `examples/multiple_views`.
+Their widget tests import the example libraries, so their public API usage is
+checked by both the analyzer and the test runner.

@@ -115,3 +115,25 @@ gestures, including a drag through the native view.
 The pure Dart and native pixel suites passed after capability migration. Flutter
 checks use 3.47.5; the declared 3.38 floor has not been rerun for this checkpoint.
 Shared native surface registration remains plan 02 work.
+
+## API milestone: scoped work and executable examples
+
+The final task passed 42 core/geospatial Dart tests, 33 facade widget tests and
+three executable-example widget tests. The native package passed six tests:
+three worker protocol tests and three real GPU tests, including a worker killed
+without a dispose request returning its native handle count to baseline. Run
+native tests from `packages/gpu3d_native`, with `RUN_NATIVE_GPU=1` and
+`--concurrency=1`, so build hooks refresh the correct library and handle-count
+checks run in isolation.
+
+Both macOS integration suites passed: planet controls and the two-view example.
+The latter verifies independent cameras sharing one scene, hot-reload reassembly,
+390-pixel layout, closing/reopening a controller and continued native rendering
+in the surviving view. Rust formatting, Clippy and all three Rust tests (GPU test
+explicitly included), Dart formatting, package boundaries and analyzer passed.
+No new iOS, Android, Windows or Linux runtime claim is made by this checkpoint.
+
+Load cancellation primitives are implemented; built-in asset source resolution
+and decoders are not. Native finalization is verified for worker isolate exit on
+macOS. Whole Flutter-engine hot restart and OS process teardown on every platform
+still belong to platform qualification. Presentation remains explicit readback.

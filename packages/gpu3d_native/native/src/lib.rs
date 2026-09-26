@@ -42,6 +42,17 @@ pub extern "C" fn fg_abi_version() -> u32 {
     1
 }
 
+/// Process-local diagnostic for verifying handle cleanup.
+#[unsafe(no_mangle)]
+pub extern "C" fn fg_live_renderer_count() -> usize {
+    guard(|| {
+        Ok(registry()
+            .lock()
+            .map_err(|_| "renderer registry is poisoned")?
+            .len())
+    })
+}
+
 #[unsafe(no_mangle)]
 pub extern "C" fn fg_create() -> u64 {
     guard(|| {

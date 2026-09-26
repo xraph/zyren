@@ -20,6 +20,11 @@ class SceneController {
   final EngineOptions options;
   final SceneRuntime runtime;
   final _input = FlutterInputAdapter();
+  final assets = AssetScope();
+  final _registrations = AttachmentScope();
+  AttachmentScope _lifetime = AttachmentScope();
+  final _cleanupErrors = <Object>[];
+  Future<void>? _assetDisposal;
   InputSource get input => _input;
   final List<ScenePlugin> _plugins = [];
   final Map<Object, void Function(FrameTime)> _updates = {};
@@ -111,10 +116,12 @@ class SceneController {
     final key = Object();
     _updates[key] = callback;
     final demand = _scheduler.acquireDemand();
-    return Registration(() {
-      _updates.remove(key);
-      demand.dispose();
-    });
+    return _registrations.keep(
+      Registration(() {
+        _updates.remove(key);
+        demand.dispose();
+      }),
+    );
   }
 
   T use<T extends ScenePlugin>(T plugin) {
@@ -223,6 +230,7 @@ class SceneController {
         camera: camera,
         plugins: List.of(_plugins),
         input: _input,
+        lifetime: _lifetime,
         onInvalidate: _scheduler.request,
         acquireFrameDemand: _scheduler.acquireDemand,
         rendererFactory: () async {
@@ -394,6 +402,7 @@ class SceneController {
       return;
     }
     if (_closed) return;
+    _lifetime = AttachmentScope();
     _failureCleanup = null;
     _initialization = null;
     _status.value = SceneDetached(_generation);
@@ -405,7 +414,16 @@ class SceneController {
     if (_closed) return;
     _closed = true;
     _scheduler.setVisible(false);
+    for (final scope in [_registrations, _lifetime]) {
+      try {
+        scope.close();
+      } catch (error) {
+        _cleanupErrors.add(error);
+      }
+    }
     _updates.clear();
+    _assetDisposal = assets.close();
+    _assetDisposal!.then<void>((_) {}, onError: (Object _, StackTrace _) {});
     _input.close();
     unawaited(_sceneSubscription.cancel());
     unawaited(_cameraSubscription.cancel());
@@ -422,8 +440,9 @@ class SceneController {
   }
 
   Future<void> _close() async {
-    final errors = <Object>[];
+    final errors = List<Object>.of(_cleanupErrors);
     for (final close in <Future<void>? Function()>[
+      () => _assetDisposal,
       () => _retrying,
       () => _initialization,
       () => _drawing,

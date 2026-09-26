@@ -16,3 +16,6 @@ export 'src/input/viewport_point.dart';
 export 'src/input/pointer_event.dart';
 export 'src/rendering/capabilities.dart';
 export 'src/rendering/scene_issue.dart';
+export 'src/plugins/attachment_scope.dart';
+export 'src/assets/load_task.dart';
+export 'src/assets/asset_scope.dart';

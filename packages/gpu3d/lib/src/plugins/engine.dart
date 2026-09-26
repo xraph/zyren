@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'registration.dart';
+import 'attachment_scope.dart';
 import '../input/pointer_event.dart';
 import '../rendering/capabilities.dart';
 import '../rendering/scene_issue.dart';
@@ -51,6 +52,7 @@ class PluginContext {
   Camera camera;
   final DeviceCapabilities capabilities;
   final InputSource? input;
+  final scope = AttachmentScope();
   final Map<Object, Object> _services;
   final void Function()? _invalidate;
   final Registration Function()? _demand;
@@ -73,11 +75,11 @@ class PluginContext {
 
   Registration acquireFrameDemand() {
     if (!_active) throw StateError('Plugin context has been detached.');
-    return _demand?.call() ?? Registration(() {});
+    return scope.keep(_demand?.call() ?? Registration(() {}));
   }
 
   void provide<T extends Object>(ServiceKey<T> key, T service) {
-    if (!_active || !_registering) {
+    if (!_active || !_registering || scope.isClosed) {
       throw StateError('Register services during attach.');
     }
     if (_services.containsKey(key)) {
@@ -138,6 +140,7 @@ class SceneEngine {
   final List<(ScenePlugin, PluginContext)> _attached = [];
   Future<RenderedFrame>? _frame;
   Future<void>? _disposal;
+  Registration? _cancellation;
   Duration? _lastElapsed;
   int _frameNumber = 0;
   bool _closed = false;
@@ -158,9 +161,11 @@ class SceneEngine {
     required RendererFactory rendererFactory,
     List<ScenePlugin> plugins = const [],
     InputSource? input,
+    AttachmentScope? lifetime,
     void Function()? onInvalidate,
     Registration Function()? acquireFrameDemand,
   }) async {
+    if (lifetime?.isClosed ?? false) throw _cancelled();
     final ordered = _resolve(plugins);
     for (final plugin in ordered) {
       if (_owners[plugin] != null) {
@@ -174,9 +179,31 @@ class SceneEngine {
       _owners[plugin] = owner;
     }
     SceneEngine? engine;
+    var cancelled = false;
+    var attaching = false;
+    var acceptCancellation = true;
+    Registration? cancellation;
     try {
+      cancellation = lifetime?.keep(
+        Registration(() {
+          if (!acceptCancellation || (engine?._closed ?? false)) return;
+          cancelled = true;
+          final errors = <Object>[];
+          for (final (_, context)
+              in engine?._attached.reversed ??
+                  <(ScenePlugin, PluginContext)>[]) {
+            try {
+              context.scope.close();
+            } catch (error) {
+              errors.add(error);
+            }
+          }
+          if (errors.isNotEmpty) throw ScopeCleanupException(errors);
+        }),
+      );
       final renderer = await rendererFactory();
       engine = SceneEngine._(scene, camera, renderer, ordered, owner);
+      if (cancelled) throw _cancelled();
       for (final plugin in ordered) {
         final missing = plugin.requiredFeatures.difference(
           renderer.capabilities.features,
@@ -207,13 +234,18 @@ class SceneEngine {
         );
         engine._attached.add((plugin, context));
         try {
+          attaching = true;
           await plugin.attach(context);
+          if (cancelled) throw _cancelled();
         } finally {
           context._registering = false;
         }
       }
+      engine._cancellation = cancellation;
       return engine;
     } catch (error, stack) {
+      acceptCancellation = false;
+      cancellation?.dispose();
       try {
         await engine?.dispose();
       } catch (cleanupError) {
@@ -223,6 +255,7 @@ class SceneEngine {
           if (identical(_owners[plugin], owner)) _owners[plugin] = null;
         }
       }
+      if (cancelled && attaching) throw _cancelled(error);
       Error.throwWithStackTrace(error, stack);
     }
   }
@@ -339,6 +372,11 @@ class SceneEngine {
     }
     for (final (plugin, context) in _attached.reversed) {
       try {
+        context.scope.close();
+      } catch (error) {
+        errors.add(error);
+      }
+      try {
         await plugin.detach(context);
       } catch (error) {
         errors.add(error);
@@ -355,6 +393,16 @@ class SceneEngine {
         if (identical(_owners[plugin], _owner)) _owners[plugin] = null;
       }
     }
+    _cancellation?.dispose();
     if (errors.isNotEmpty) throw EngineCleanupException(errors);
   }
 }
+
+SceneException _cancelled([Object? cause]) => SceneException(
+  SceneIssue(
+    code: SceneIssueCodes.disposed,
+    operation: 'attach',
+    message: 'Engine attachment was cancelled.',
+    cause: cause,
+  ),
+);

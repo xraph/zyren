@@ -1,9 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:ffi';
 import 'dart:isolate';
-import 'package:ffi/ffi.dart';
-import 'bindings.dart' as native;
+import 'worker.dart';
+import 'worker_session.dart';
 import 'package:gpu3d/gpu3d.dart';
 import 'package:gpu3d/rendering.dart';
 
@@ -25,82 +24,21 @@ class NativeRenderer implements SceneRenderer {
   @override
   RendererCapabilities get capabilities => _capabilities;
 
-  final Isolate _isolate;
-  final SendPort _commands;
-  final ReceivePort _exits;
-  final Map<int, Completer<Object?>> _pending = {};
-  final ReceivePort _responses;
+  static final _finalizer = Finalizer<WorkerSession>(
+    (worker) => worker.abort(),
+  );
+  final WorkerSession _worker;
   Set<int> _uploaded = {};
-  int _nextRequest = 1;
   Future<RenderedFrame>? _frame;
   Future<void>? _disposal;
   bool _closed = false;
-  bool _dead = false;
 
-  NativeRenderer._(
-    this._isolate,
-    this._commands,
-    this._exits,
-    this._responses,
-  ) {
-    _responses.listen((dynamic message) {
-      final data = message as List;
-      final completion = _pending.remove(data[0]);
-      if (data[1] == true) {
-        completion?.complete(data[2]);
-      } else {
-        completion?.completeError(StateError(data[2] as String));
-      }
-    });
-    _exits.listen((dynamic message) {
-      _dead = true;
-      for (final completion in _pending.values) {
-        completion.completeError(
-          StateError('Native renderer worker exited: $message'),
-        );
-      }
-      _pending.clear();
-    });
+  NativeRenderer._(this._worker) {
+    _finalizer.attach(this, _worker, detach: this);
   }
 
-  static Future<NativeRenderer> create() async {
-    final ready = ReceivePort(),
-        exits = ReceivePort(),
-        responses = ReceivePort();
-    Isolate? isolate;
-    try {
-      isolate = await Isolate.spawn(
-        _renderWorker,
-        ready.sendPort,
-        onError: ready.sendPort,
-        onExit: exits.sendPort,
-        errorsAreFatal: true,
-      );
-      final result = await ready.first;
-      if (result is! SendPort) {
-        throw StateError('Native renderer initialization failed: $result');
-      }
-      return NativeRenderer._(isolate, result, exits, responses);
-    } catch (_) {
-      isolate?.kill();
-      exits.close();
-      responses.close();
-      rethrow;
-    } finally {
-      ready.close();
-    }
-  }
-
-  Future<Object?> _request(String operation, List<Object> arguments) {
-    if (_dead) {
-      return Future.error(StateError('Native renderer worker is unavailable.'));
-    }
-    final id = _nextRequest++;
-    final completion = Completer<Object?>();
-    _pending[id] = completion;
-    _commands.send([id, _responses.sendPort, operation, ...arguments]);
-    return completion.future;
-  }
+  static Future<NativeRenderer> create() async =>
+      NativeRenderer._(await WorkerSession.start(renderWorker));
 
   @override
   Future<RenderedFrame> render(
@@ -148,7 +86,7 @@ class NativeRenderer implements SceneRenderer {
           .map((m) => (m as Map)['geometry'] as int)
           .toSet();
       final bytes =
-          await _request('render', [jsonEncode(frame), width, height])
+          await _worker.request('render', [jsonEncode(frame), width, height])
               as TransferableTypedData;
       _uploaded = active;
       return RenderedFrame(bytes.materialize().asUint8List(), width, height);
@@ -171,97 +109,10 @@ class NativeRenderer implements SceneRenderer {
       } catch (_) {
         /* Cleanup still owns the device. */
       }
-      if (!_dead) await _request('dispose', []);
+      await _worker.close();
     } finally {
-      _isolate.kill();
-      _responses.close();
-      _exits.close();
+      _finalizer.detach(this);
+      _worker.abort();
     }
   }
-}
-
-String _lastError() {
-  final length = native.lastError(nullptr, 0);
-  if (length == 0) return 'Unknown native renderer error.';
-  final buffer = calloc<Uint8>(length);
-  try {
-    native.lastError(buffer, length);
-    return utf8.decode(buffer.asTypedList(length), allowMalformed: true);
-  } finally {
-    calloc.free(buffer);
-  }
-}
-
-final class _NativeOwner implements Finalizable {
-  static final _finalizer = NativeFinalizer(Native.addressOf(native.finalize));
-  final int handle;
-  _NativeOwner(this.handle) {
-    _finalizer.attach(this, Pointer<Void>.fromAddress(handle), detach: this);
-  }
-  void close() {
-    if (native.destroy(handle) != 1) throw StateError(_lastError());
-    _finalizer.detach(this);
-  }
-}
-
-void _renderWorker(SendPort ready) {
-  var handle = 0;
-  late final _NativeOwner owner;
-  final commands = ReceivePort();
-  try {
-    if (native.abiVersion() != 1) {
-      throw StateError('Unsupported native ABI version.');
-    }
-    handle = native.create();
-    if (handle == 0) throw StateError(_lastError());
-    owner = _NativeOwner(handle);
-    ready.send(commands.sendPort);
-  } catch (error) {
-    if (handle != 0) native.destroy(handle);
-    ready.send(error.toString());
-    commands.close();
-    return;
-  }
-  commands.listen((dynamic message) {
-    final data = message as List;
-    final id = data[0] as int, reply = data[1] as SendPort;
-    try {
-      if (data[2] == 'dispose') {
-        owner.close();
-        reply.send([id, true, null]);
-        return;
-      }
-      final json = utf8.encode(data[3] as String);
-      final width = data[4] as int, height = data[5] as int;
-      final input = calloc<Uint8>(json.length),
-          pixels = calloc<Uint8>(width * height * 4);
-      try {
-        input.asTypedList(json.length).setAll(0, json);
-        if (native.render(
-              owner.handle,
-              input,
-              json.length,
-              width,
-              height,
-              pixels,
-              width * height * 4,
-            ) !=
-            1) {
-          throw StateError(_lastError());
-        }
-        reply.send([
-          id,
-          true,
-          TransferableTypedData.fromList([
-            pixels.asTypedList(width * height * 4),
-          ]),
-        ]);
-      } finally {
-        calloc.free(input);
-        calloc.free(pixels);
-      }
-    } catch (error) {
-      reply.send([id, false, error.toString()]);
-    }
-  });
 }

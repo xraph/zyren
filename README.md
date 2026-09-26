@@ -53,6 +53,11 @@ Drag the globe to orbit. Scroll or pinch to zoom, and choose a city to centre
 its geodetic marker. The grid is procedural geometry. No map service, imagery
 download or API key is required.
 
+For a general 3D example, run the app in `examples/multiple_views`. It shares one
+scene across two native renderers. Camera edits stay local to each view; scene
+edits wake both. You can close and reopen the left view while the right stays
+active. The same folder contains small managed and borrowed view examples.
+
 ## Use the 3D package
 
 Add a path dependency on `packages/flutter_gpu3d` while working in this checkout.
@@ -141,7 +146,7 @@ fvm flutter analyze
 cargo test --manifest-path packages/gpu3d_native/native/Cargo.toml
 cargo clippy --manifest-path packages/gpu3d_native/native/Cargo.toml --all-targets -- -D warnings
 fvm dart test packages/gpu3d/test packages/flutter_geospatial/test
-fvm flutter test packages/flutter_gpu3d/test
+fvm flutter test packages/flutter_gpu3d/test examples/multiple_views/test
 ```
 
 On a host with a Metal, Vulkan or DX12 device, run the GPU checks too. A missing
@@ -150,7 +155,7 @@ device fails these checks; it does not silently switch to a browser renderer.
 ```sh
 cargo test --manifest-path packages/gpu3d_native/native/Cargo.toml -- --include-ignored
 cd packages/gpu3d_native
-RUN_NATIVE_GPU=1 fvm dart test
+RUN_NATIVE_GPU=1 fvm dart test --concurrency=1
 cd ../../examples/planet
 fvm flutter test integration_test/planet_test.dart -d macos
 ```

@@ -8,5 +8,6 @@ workspace:
   - packages/flutter_gpu3d
   - packages/flutter_geospatial
   - examples/planet
+  - examples/multiple_views
 dev_dependencies:
   lints: ^6.0.0

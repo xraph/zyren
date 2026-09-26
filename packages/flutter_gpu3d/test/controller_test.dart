@@ -24,6 +24,41 @@ SceneRuntime runtime(FakeBackend backend) => SceneRuntime(
 
 void main() {
   testWidgets(
+    'dispose cancels scoped plugin and update registrations during attach',
+    (tester) async {
+      final finish = Completer<void>();
+      var releases = 0;
+      final backend = FakeBackend();
+      final controller = SceneController(
+        options: readback,
+        runtime: runtime(backend),
+      );
+      final update = controller.onUpdate((_) {});
+      controller.use(
+        TestPlugin(
+          'pending',
+          [],
+          onAttach: (context) async {
+            context.scope.keep(Registration(() => releases++));
+            await finish.future;
+          },
+        ),
+      );
+      await tester.pumpWidget(host(SceneView(controller: controller)));
+      await frames(tester);
+      controller.dispose();
+      expect(releases, 1);
+      expect(update.isDisposed, isTrue);
+      expect(controller.assets.isClosed, isTrue);
+      finish.complete();
+      await frames(tester);
+      await controller.whenDisposed;
+      expect(backend.closeCount, 1);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
     'late backend cleanup failures settle disposal with a typed issue',
     (tester) async {
       final pending = Completer<RenderBackend>();

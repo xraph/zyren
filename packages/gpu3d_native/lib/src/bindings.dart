@@ -6,6 +6,8 @@ const _asset = 'package:gpu3d_native/src/bindings.dart';
 external int abiVersion();
 @Native<Uint64 Function()>(symbol: 'fg_create', assetId: _asset)
 external int create();
+@Native<Size Function()>(symbol: 'fg_live_renderer_count', assetId: _asset)
+external int liveRendererCount();
 @Native<Uint32 Function(Uint64)>(symbol: 'fg_destroy', assetId: _asset)
 external int destroy(int handle);
 @Native<Void Function(Pointer<Void>)>(symbol: 'fg_finalize', assetId: _asset)

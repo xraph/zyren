@@ -178,12 +178,13 @@ already working.
 | Executable examples, platform evidence and packaging | Plan 04 tasks 5/6 |
 | Alpha migration and compatibility | Each API-changing task; plan 04 task 6 |
 
-## First implementation checkpoint
+## API implementation checkpoint
 
-Plan 01 tasks 1 through 3 are implemented: package extraction, observable values
-and the managed/borrowed controller. The planet and headless GPU tests passed.
-Continue with typed input, scoped work and executable examples before the native
-texture milestone. M0 remains open until those contracts are verified.
+Plan 01 tasks 1 through 5 are implemented: independent Dart core, observable
+values, managed/borrowed controllers, typed input and policies, scoped work,
+worker failure handling and executable examples. M0 passes the local macOS gate.
+The native texture milestone (M1) is next; cross-platform runtime qualification
+and the later resource/rendering/geospatial milestones remain open.
 
 The four subsystem plans contain 25 task groups and explicit verification steps.
 Advanced material/loader extensions remain a named capability backlog until

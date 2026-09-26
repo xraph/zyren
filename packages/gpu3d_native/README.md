@@ -9,8 +9,11 @@ use the same native worker and ABI; neither requires a Flutter engine.
 
 ```sh
 fvm dart run example/offscreen.dart
-RUN_NATIVE_GPU=1 fvm dart test
+RUN_NATIVE_GPU=1 fvm dart test --concurrency=1
 ```
+
+Run these commands from `packages/gpu3d_native` so the native build hook refreshes
+the library. The root workspace has no runtime dependencies of its own.
 
 The example renders a red box and prints the centre pixel. GPU tests require a
 compatible device. In PowerShell, set `$env:RUN_NATIVE_GPU = '1'` before running
@@ -20,3 +23,9 @@ Shared-texture adapters are not implemented yet. Surface requests fail with
 `presentationUnavailable`; the implemented path returns explicit RGBA8 sRGB
 readback. Close the backend when you finish so its worker and GPU resources are
 released.
+
+Worker requests carry a generation and a monotonic request ID. Worker exit or
+error settles every pending request. Stale and duplicate replies are ignored.
+Explicit close remains the normal path; native finalization also releases the
+handle if the worker exits before it receives a dispose request. The opt-in
+finalization test checks the process-local handle count with a real GPU device.

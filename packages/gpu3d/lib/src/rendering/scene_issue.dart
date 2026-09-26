@@ -40,6 +40,7 @@ abstract final class SceneIssueCodes {
   static const cleanupFailed = 'cleanupFailed';
   static const pluginDependencyMissing = 'pluginDependencyMissing';
   static const pluginDependencyCycle = 'pluginDependencyCycle';
+  static const loadCancelled = 'loadCancelled';
   static const deviceLost = 'deviceLost';
   static const renderFailed = 'renderFailed';
 }

@@ -9,6 +9,8 @@ extern "C" {
 uint32_t fg_abi_version(void);
 /* Returns zero on failure. Handles are opaque, process-local and never reused. */
 uint64_t fg_create(void);
+/* Process-local diagnostic. Does not expose handles or GPU pointers. */
+size_t fg_live_renderer_count(void);
 /* Returns one on success, zero on failure. */
 uint32_t fg_destroy(uint64_t handle);
 /* Fallback cleanup for Dart isolate teardown. Token encodes a handle. */
