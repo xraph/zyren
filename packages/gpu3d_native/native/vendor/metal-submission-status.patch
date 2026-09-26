@@ -1,0 +1,94 @@
+--- a/src/metal/mod.rs
++++ b/src/metal/mod.rs
+@@ -483,6 +483,7 @@
+                 command_buffer_created_not_submitted: atomic::AtomicUsize::new(0),
+                 pending_waits: Mutex::new(Vec::new()),
+                 pending_signals: Mutex::new(Vec::new()),
++                submitted_commands: Mutex::new(SubmittedCommands(Vec::new())),
+                 relay: OnceLock::new(),
+             }),
+             timestamp_period,
+@@ -491,6 +492,18 @@
+ 
+     pub fn as_raw(&self) -> &ProtocolObject<dyn MTLCommandQueue> {
+         &self.shared.raw
++    }
++
++    /// Take retained command buffers from the most recent submission.
++    ///
++    /// Serialize this call with submission. Inspect status after GPU completion;
++    /// a fence alone does not distinguish successful and failed Metal commands.
++    /// Callers must not encode into, commit, or otherwise mutate these buffers.
++    ///
++    /// # Safety
++    /// The returned command buffers must only be inspected, never mutated.
++    pub unsafe fn take_submitted_commands(&self) -> Vec<Retained<ProtocolObject<dyn MTLCommandBuffer>>> {
++        core::mem::take(&mut self.shared.submitted_commands.lock().0)
+     }
+ 
+     /// Enable strict GPU-side ordering for [`Self::add_wait_event`].
+@@ -616,6 +629,13 @@
+ }
+ 
+ #[derive(Debug)]
++struct SubmittedCommands(Vec<Retained<ProtocolObject<dyn MTLCommandBuffer>>>);
++// SAFETY: the queue holds the mutex through commit. Other threads can only
++// take committed buffers, whose status/error and retained ownership are safe
++// to inspect across threads. The unsafe accessor prohibits further mutation.
++unsafe impl Send for SubmittedCommands {}
++
++#[derive(Debug)]
+ pub struct QueueShared {
+     raw: Retained<ProtocolObject<dyn MTLCommandQueue>>,
+     // Tracks command buffers created via `CommandEncoder::begin_encoding` that
+@@ -628,6 +648,7 @@
+     command_buffer_created_not_submitted: atomic::AtomicUsize,
+     pending_waits: PendingEvents,
+     pending_signals: PendingEvents,
++    submitted_commands: Mutex<SubmittedCommands>,
+     relay: OnceLock<Relay>,
+ }
+ 
+@@ -685,6 +706,8 @@
+         (signal_fence, signal_value): (&Fence, crate::FenceValue),
+     ) -> Result<(), crate::DeviceError> {
+         autoreleasepool(|_| {
++            let mut submitted = self.shared.submitted_commands.lock();
++            submitted.0.clear();
+             // Drain caller-staged waits onto a dedicated command buffer
+             // committed before the user CBs.
+             //
+@@ -730,6 +753,7 @@
+                             .fetch_add(1, atomic::Ordering::AcqRel);
+                         wait_cb.encodeSignalEvent_value(relay.event.as_ref(), release);
+                     }
++                    submitted.0.push(wait_cb.clone());
+                     wait_cb.commit();
+                 }
+             }
+@@ -782,6 +806,7 @@
+             };
+ 
+             for cmd_buffer in command_buffers {
++                submitted.0.push(cmd_buffer.raw.clone());
+                 cmd_buffer.raw.commit();
+                 // One command buffer per `end_encoding` call moves from the
+                 // "created but not yet submitted" bucket into the submitted
+@@ -794,6 +819,7 @@
+             }
+ 
+             if let Some(raw) = extra_command_buffer {
++                submitted.0.push(raw.clone());
+                 raw.commit();
+             }
+             Ok(())
+--- a/src/metal/adapter.rs
++++ b/src/metal/adapter.rs
+@@ -117,6 +117,7 @@
+                         command_buffer_created_not_submitted: atomic::AtomicUsize::new(0),
+                         pending_waits: Mutex::new(Vec::new()),
+                         pending_signals: Mutex::new(Vec::new()),
++                        submitted_commands: Mutex::new(super::SubmittedCommands(Vec::new())),
+                         relay: OnceLock::new(),
+                     }),
+                     timestamp_period,

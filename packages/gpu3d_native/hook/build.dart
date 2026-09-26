@@ -6,6 +6,7 @@ void main(List<String> args) async {
     output.dependencies.addAll([
       input.packageRoot.resolve('native/Cargo.toml'),
       input.packageRoot.resolve('native/Cargo.lock'),
+      input.packageRoot.resolve('native/vendor/wgpu-hal/Cargo.toml'),
       input.packageRoot.resolve('native/rust-toolchain.toml'),
     ]);
     await RustBuilder(

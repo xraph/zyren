@@ -1,8 +1,46 @@
 use crate::{renderer::Renderer, scene::Frame};
 use objc2::{rc::Retained, runtime::ProtocolObject};
 use objc2_metal::{
-    MTLDevice, MTLPixelFormat, MTLResource, MTLTexture, MTLTextureType, MTLTextureUsage,
+    MTLCommandBuffer, MTLCommandBufferStatus, MTLDevice, MTLPixelFormat, MTLResource, MTLTexture,
+    MTLTextureType, MTLTextureUsage,
 };
+
+pub(crate) struct MetalCompletion(Vec<Retained<ProtocolObject<dyn MTLCommandBuffer>>>);
+impl MetalCompletion {
+    pub(crate) fn capture(queue: &wgpu::Queue) -> Result<Self, String> {
+        // SAFETY: the renderer serializes submission and capture. Only retained
+        // command handles cross this borrow; none are encoded into or committed.
+        let queue = unsafe { queue.as_hal::<wgpu::hal::api::Metal>() }
+            .ok_or("Metal queue is unavailable")?;
+        // SAFETY: handles are used only to inspect execution status.
+        let commands = unsafe { queue.take_submitted_commands() };
+        if commands.is_empty() {
+            return Err("Metal submission has no observable commands".into());
+        }
+        Ok(Self(commands))
+    }
+    pub(crate) fn check(&self) -> Result<(), String> {
+        for command in &self.0 {
+            completion_result(
+                command.status(),
+                command
+                    .error()
+                    .map(|error| error.localizedDescription().to_string()),
+            )?;
+        }
+        Ok(())
+    }
+}
+
+fn completion_result(status: MTLCommandBufferStatus, error: Option<String>) -> Result<(), String> {
+    if status == MTLCommandBufferStatus::Completed && error.is_none() {
+        return Ok(());
+    }
+    Err(format!(
+        "Metal execution did not succeed ({status:?}): {}",
+        error.unwrap_or_else(|| "command is not completed".into())
+    ))
+}
 
 impl Renderer {
     pub fn metal_device(&self) -> Result<Retained<ProtocolObject<dyn MTLDevice>>, String> {
@@ -81,5 +119,28 @@ impl Renderer {
                 )
         };
         self.render_to_surface(frame, imported, width, height)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use objc2_metal::MTLCommandBufferStatus;
+
+    #[test]
+    fn completed_fence_does_not_accept_failed_or_pending_metal_execution() {
+        for status in [
+            MTLCommandBufferStatus::Error,
+            MTLCommandBufferStatus::Scheduled,
+            MTLCommandBufferStatus::Committed,
+            MTLCommandBufferStatus::NotEnqueued,
+        ] {
+            assert!(completion_result(status, None).is_err());
+        }
+        assert!(completion_result(MTLCommandBufferStatus::Completed, None).is_ok());
+        assert!(
+            completion_result(MTLCommandBufferStatus::Completed, Some("GPU failed".into()))
+                .is_err()
+        );
     }
 }

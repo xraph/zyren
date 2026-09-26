@@ -1,5 +1,6 @@
 pub mod interop;
 pub mod renderer;
+mod retirement;
 pub mod scene;
 
 use std::{
@@ -52,6 +53,12 @@ pub extern "C" fn fg_live_renderer_count() -> usize {
             .map_err(|_| "renderer registry is poisoned")?
             .len())
     })
+}
+
+/// GPU sessions whose native ownership outlives logical disposal.
+#[unsafe(no_mangle)]
+pub extern "C" fn fg_retiring_renderer_count() -> usize {
+    retirement::retiring_count()
 }
 
 #[unsafe(no_mangle)]

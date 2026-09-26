@@ -75,7 +75,7 @@ Define internal Rust `LeaseLedger::new(buffer_limit: usize)`,
 uses a platform pointer as a slot. A ledger entry is reusable only when retired
 and both completion conditions hold.
 
-- [ ] Write the production-ledger regression, including the opposite completion order:
+- [x] Write the production-ledger regression, including the opposite completion order:
 
 ```rust
 #[test]
@@ -90,8 +90,8 @@ fn a_gpu_completion_does_not_release_a_consumer_lease() {
 }
 ```
 
-- [ ] Run `cargo test --test surface_lifetime`; expect missing ledger/ABI behavior. Add stale-generation callbacks, resize while all buffers are held, close-before-create completes, duplicate release, out-of-order frame completion and 10,000 coalesced requests. Resident allocation and pending request counts must remain bounded.
-- [ ] Implement the registry, lease state machine and one latest-pending-frame slot. Validate keys before touching resources. Keep obsolete epochs alive only for retirement. Separate request completion from consumer release. Use platform ownership primitives to determine consumer release, never synthetic Dart acknowledgments. For WSI swapchains, map acquire/present ownership to the same guarantees and report the actual negotiated image count.
+- [x] Run `cargo test --test surface_lifetime`; expect missing ledger/ABI behavior. Add stale-generation callbacks, resize while all buffers are held, close-before-create completes, duplicate release, out-of-order frame completion and 10,000 coalesced requests. Resident allocation and pending request counts must remain bounded.
+- [x] Implement the registry, lease state machine and one latest-pending-frame slot. Validate keys before touching resources. Keep obsolete epochs alive only for retirement. Separate request completion from consumer release. Use platform ownership primitives to determine consumer release, never synthetic Dart acknowledgments. For WSI swapchains, map acquire/present ownership to the same guarantees and report the actual negotiated image count.
 
 ```text
 publish(frame):
@@ -104,7 +104,7 @@ close():
 ```
 
 - [ ] Add a native test proving platform registration and Dart FFI share the same runtime registry, including release packaging. Document bounded GPU-wait timeout handling: fail the session, retain unsafe-to-free native ownership until device/consumer release, report it; do not free active buffers to meet a timeout.
-- [ ] Run Rust unit tests, clippy and Dart surface-state tests; commit `feat: define versioned native surface ownership`.
+- [x] Run Rust unit tests, clippy and Dart surface-state tests; commit `feat: define versioned native surface ownership`.
 
 ## Task 2: Shared Metal presentation on macOS and iOS
 
@@ -115,7 +115,7 @@ Modify podspec/plugin declarations and native linkage, keeping one Rust runtime.
 
 **Interfaces:** An Objective-C++ `Gpu3dTexture` implements `FlutterTexture` and
 returns the latest retained completed `CVPixelBufferRef`. A native registry owns
-the pixel-buffer pool and `CVMetalTextureCache`. Rust uses the same `MTLDevice`;
+fresh IOSurface allocations and `CVMetalTextureCache`. Rust uses the same `MTLDevice`;
 all unsafe HAL imports remain inside `interop/metal.rs` with explicit retained
 object, usage, device and destruction invariants.
 
@@ -131,13 +131,13 @@ expect(after.liveSurfaces, before.liveSurfaces);
 ```
 
 - [ ] Run the new integration on macOS before implementation; `requireSharedTexture` must fail visibly, not pass through RGBA fallback. Add native tests retaining one returned buffer through several subsequent frames, then releasing it, plus route removal during allocation.
-- [ ] Allocate IOSurface-backed buffers with a bounded `CVPixelBufferPool`. Produce completed Metal content, initially via a GPU copy if necessary. Publish only after producer completion, take/release references under a short lock and notify on the permitted embedding thread. `copyPixelBuffer` must not wait, render or call Dart. Let pool ownership govern reuse; do not inspect retain counts.
+- [ ] Allocate fresh IOSurface-backed buffers within the session's lease and byte budgets. The pinned Flutter importer releases CVMetalTexture before its retained MTLTexture, so pixel-buffer pool availability cannot signal consumer release. The native probe supports an IOSurface lifetime guard; prove it with Flutter before enabling presentation. Publish only after successful producer completion, take/release references under a short lock and notify on the permitted embedding thread. `copyPixelBuffer` must not wait, render or call Dart. Do not inspect retain counts.
 
 ```text
-render worker: acquire pool buffer -> create Metal view -> encode -> submit
-completion: validate epoch -> publish retained completed pixel buffer -> notify
+render worker: reserve lease -> allocate IOSurface -> create Metal view -> encode -> submit
+completion: check Metal success and epoch -> publish retained pixel buffer -> notify
 raster callback: retain published pixel buffer -> return ownership per Flutter API
-detach: stop notifications -> unregister -> retire pool/cache after outstanding use
+detach: stop notifications -> unregister -> retire allocations/cache after outstanding use
 ```
 
 - [ ] Verify resizing, odd physical sizes, opacity, rotation, clipping, two views, inactive visible macOS windows and 100 route transitions. Run macOS debug and standalone release plus iOS simulator. Run the same workload on a physical iOS device before marking iOS shared presentation qualified.

@@ -53,7 +53,18 @@ must report the failure and retain ownership that cannot yet be released safely.
 The renderer waits up to two seconds for a submission. A timeout makes the
 renderer reject further work and keeps its imported texture owned. Readback
 uses the same bounded GPU wait and allows one additional second for its mapping
-callback. Native device teardown remains responsible for resources still in use.
+callback. A failed renderer transfers its complete GPU ownership to a retirement
+thread so disposal can return while the driver is still busy. Its device permit
+remains charged until native destruction finishes. The process admits at most
+32 active or retiring devices; exhausted capacity rejects new renderers. If a
+retirement thread cannot start, ownership stays retained and charged until
+process exit.
+
+On Metal, fence completion alone does not prove successful execution. The
+[pinned HAL patch](../packages/gpu3d_native/native/vendor/README.md) exposes the
+submitted command buffers. Every buffer must report successful completion before
+the renderer returns success. The GPU timeout test disposes the renderer while
+the queue is still blocked, then verifies retirement drains after the gate opens.
 
 ## Verification
 

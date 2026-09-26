@@ -1,0 +1,2 @@
+wgpu-hal/** -text whitespace=cr-at-eol
+*.patch whitespace=-blank-at-eol

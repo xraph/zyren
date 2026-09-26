@@ -183,13 +183,27 @@ separate from renderer counters.
 
 A second GPU test blocks the renderer's Metal queue for three seconds. The
 two-second wait returns an error, retains the imported texture and rejects new
-submissions. The test releases the queue and waits for actual completion before
-teardown. The same bounded wait protects the existing readback renderer.
+submissions. It then disposes the renderer in under 250 ms while the GPU is still
+blocked. Native retirement keeps its device permit charged until the gate opens
+and destruction completes. The same bounded wait protects explicit readback.
 
-The current suite passes 17 Rust tests with GPU cases explicitly enabled, eight
-native Dart tests and 41 Flutter facade tests. Clippy, formatting and analyzer
-pass. The existing two-view macOS integration also passes after the renderer
-refactor; the runner still cannot foreground its window.
+The current suite passes 19 Rust tests with GPU cases explicitly enabled, eight
+native Dart tests, 49 core/geospatial tests and 42 Flutter facade tests. Clippy,
+formatting, analyzer and package boundary checks pass. The rebuilt macOS release
+app and existing two-view macOS integration pass with the pinned HAL patch.
+The iOS simulator debug app also builds successfully. The macOS runner cannot
+foreground its window on the locked Mac. Rust checks pass for Android ARM64 and
+the iOS ARM64 simulator; these are compile checks, not device qualification.
+
+The checkpoint review found three defects: Metal fence completion accepted failed
+commands, native destruction could still block after a GPU timeout, and a Flutter
+resize requested during a completion microtask could be lost. Regression tests
+reproduced each failure. The renderer now checks retained Metal command statuses
+through a small [pinned HAL patch](../packages/gpu3d_native/native/vendor/README.md),
+retires failed device ownership off the caller's thread, and drains newer Flutter
+requests before completing their shared operation. The process limits active and
+retiring devices to 32; permanently blocked devices remain charged. All three
+review fixes pass their relevant checks.
 
 You can reproduce the separate compositor ownership experiment using
 [the Apple probe](../experiments/apple_presentation/README.md). Its pixel-buffer

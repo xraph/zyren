@@ -56,7 +56,20 @@ struct DepthTarget {
     view: wgpu::TextureView,
 }
 
+struct Submission {
+    index: wgpu::SubmissionIndex,
+    #[cfg(target_vendor = "apple")]
+    metal: Option<crate::interop::metal::MetalCompletion>,
+}
+
 pub struct Renderer {
+    state: Option<Box<RendererState>>,
+}
+
+// Fields remain private; dereferencing keeps the renderer implementation local
+// while allowing its complete GPU ownership to move during retirement.
+#[doc(hidden)]
+pub struct RendererState {
     pub(crate) device: wgpu::Device,
     queue: wgpu::Queue,
     pipeline: wgpu::RenderPipeline,
@@ -73,10 +86,34 @@ pub struct Renderer {
     targets: Option<Targets>,
     pub adapter_name: String,
     pub backend: wgpu::Backend,
+    _permit: crate::retirement::DevicePermit,
+}
+impl std::ops::Deref for Renderer {
+    type Target = RendererState;
+    fn deref(&self) -> &Self::Target {
+        self.state.as_deref().expect("renderer owns its state")
+    }
+}
+impl std::ops::DerefMut for Renderer {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.state.as_deref_mut().expect("renderer owns its state")
+    }
+}
+impl Drop for Renderer {
+    fn drop(&mut self) {
+        if let Some(state) = self.state.take() {
+            if state.failure.is_some() {
+                crate::retirement::retire(state);
+            } else {
+                drop(state);
+            }
+        }
+    }
 }
 
 impl Renderer {
     pub async fn new() -> Result<Self, String> {
+        let permit = crate::retirement::reserve_device()?;
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: wgpu::Backends::METAL | wgpu::Backends::VULKAN | wgpu::Backends::DX12,
             ..wgpu::InstanceDescriptor::new_without_display_handle()
@@ -168,22 +205,25 @@ impl Renderer {
         #[cfg(target_vendor = "apple")]
         let surface_pipeline = create_pipeline(wgpu::TextureFormat::Bgra8UnormSrgb);
         Ok(Self {
-            device,
-            queue,
-            pipeline,
-            #[cfg(target_vendor = "apple")]
-            surface_pipeline,
-            #[cfg(target_vendor = "apple")]
-            surface_depth: None,
-            #[cfg(target_vendor = "apple")]
-            failed_surface: None,
-            failure: None,
-            counters: RenderCounters::default(),
-            layout,
-            geometries: HashMap::new(),
-            targets: None,
-            adapter_name: info.name,
-            backend: info.backend,
+            state: Some(Box::new(RendererState {
+                device,
+                queue,
+                pipeline,
+                #[cfg(target_vendor = "apple")]
+                surface_pipeline,
+                #[cfg(target_vendor = "apple")]
+                surface_depth: None,
+                #[cfg(target_vendor = "apple")]
+                failed_surface: None,
+                failure: None,
+                counters: RenderCounters::default(),
+                layout,
+                geometries: HashMap::new(),
+                targets: None,
+                adapter_name: info.name,
+                backend: info.backend,
+                _permit: permit,
+            })),
         })
     }
 
@@ -385,18 +425,47 @@ impl Renderer {
         encoder
     }
 
-    fn wait_for_submission(&mut self, submission: wgpu::SubmissionIndex) -> Result<(), String> {
-        self.device
+    fn submit(&mut self, encoder: wgpu::CommandEncoder) -> Result<Submission, String> {
+        let index = self.queue.submit([encoder.finish()]);
+        self.counters.submitted_frames += 1;
+        #[cfg(target_vendor = "apple")]
+        let metal = if self.backend == wgpu::Backend::Metal {
+            match crate::interop::metal::MetalCompletion::capture(&self.queue) {
+                Ok(completion) => Some(completion),
+                Err(error) => {
+                    self.failure = Some(error.clone());
+                    return Err(error);
+                }
+            }
+        } else {
+            None
+        };
+        Ok(Submission {
+            index,
+            #[cfg(target_vendor = "apple")]
+            metal,
+        })
+    }
+
+    fn wait_for_submission(&mut self, submission: Submission) -> Result<(), String> {
+        let result = self
+            .device
             .poll(wgpu::PollType::Wait {
-                submission_index: Some(submission),
+                submission_index: Some(submission.index),
                 timeout: Some(Duration::from_secs(2)),
             })
             .map(|_| ())
-            .map_err(|error| {
-                let message = format!("GPU completion failed; recreate this renderer: {error}");
-                self.failure = Some(message.clone());
-                message
-            })
+            .map_err(|error| error.to_string());
+        #[cfg(target_vendor = "apple")]
+        let result = result.and_then(|()| match submission.metal {
+            Some(completion) => completion.check(),
+            None => Ok(()),
+        });
+        result.map_err(|error| {
+            let message = format!("GPU completion failed; recreate this renderer: {error}");
+            self.failure = Some(message.clone());
+            message
+        })
     }
 
     #[cfg(target_vendor = "apple")]
@@ -441,9 +510,10 @@ impl Renderer {
             &self.surface_depth.as_ref().unwrap().view,
             &self.surface_pipeline,
         );
-        let submission = self.queue.submit([encoder.finish()]);
-        self.counters.submitted_frames += 1;
-        if let Err(error) = self.wait_for_submission(submission) {
+        let result = self
+            .submit(encoder)
+            .and_then(|submission| self.wait_for_submission(submission));
+        if let Err(error) = result {
             // Stop future submissions and keep the imported resource owned.
             self.failed_surface = Some(texture);
             return Err(error);
@@ -480,8 +550,7 @@ impl Renderer {
         );
         let readback = target.readback.clone();
         let stride = target.stride;
-        let submission = self.queue.submit([encoder.finish()]);
-        self.counters.submitted_frames += 1;
+        let submission = self.submit(encoder)?;
         let slice = readback.slice(..);
         let (sender, receiver) = mpsc::sync_channel(1);
         slice.map_async(wgpu::MapMode::Read, move |result| {
@@ -560,13 +629,18 @@ mod metal_timeout_tests {
         );
         assert!(renderer.render(&frame, 16, 16).is_err());
         assert_eq!(renderer.counters().submitted_frames, 1);
+        let closing = std::time::Instant::now();
+        drop(renderer);
+        assert!(
+            closing.elapsed() < Duration::from_millis(250),
+            "disposal must not wait for the blocked GPU queue"
+        );
+        assert_eq!(crate::fg_retiring_renderer_count(), 1);
         signal.join().unwrap();
-        renderer
-            .device
-            .poll(wgpu::PollType::Wait {
-                submission_index: None,
-                timeout: Some(Duration::from_secs(2)),
-            })
-            .unwrap();
+        let deadline = std::time::Instant::now() + Duration::from_secs(2);
+        while crate::fg_retiring_renderer_count() != 0 && std::time::Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        assert_eq!(crate::fg_retiring_renderer_count(), 0);
     }
 }
