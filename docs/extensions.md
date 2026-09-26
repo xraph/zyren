@@ -117,7 +117,7 @@ final viewport = SceneView.scene(
   options: const EngineOptions(presentation: PresentationPolicy.readbackOnly),
 );
 
-// Wire these to Flutter input handlers.
+// Application commands can also control the orbit.
 orbit.focus(Geodetic.degrees(3.3792, 6.5244));
 orbit.rotateBy(10, 5);
 orbit.zoom(1.1);
@@ -130,8 +130,9 @@ planet. Pure coordinate functions remain usable without starting a renderer.
 
 `GlobeOrbitPlugin` depends on the geospatial plugin. It owns a Z-up, centre-facing
 camera while attached and restores the previous position, target and up vector
-when detached. Drag, pinch and scroll handling stay in Flutter, so the plugin
-also works with keyboard input or a different gesture adapter. Focusing is safe
+when detached. The plugin registers pinch and scroll interests through the Flutter input
+adapter. You can also call its control methods from keyboard commands or a
+different host. Focusing is safe
 before initialization finishes. Latitude stops at 85 degrees to keep this initial
 orbit controller away from a singular pole view. Set camera clipping planes to
 cover your world model and zoom range; the orbit plugin leaves them unchanged.
@@ -237,3 +238,23 @@ The default presentation policy requires a shared texture. That adapter is not
 implemented yet. Select `readbackOnly` or `allowReadback` explicitly for the current
 native renderer. This affects presentation to Flutter; 3D rendering remains on
 the native GPU. `ready` reports the selected path through `RendererInfo`.
+
+## Typed input and diagnostics
+
+`SceneView(onPointer: ...)` reports logical `ViewportPoint` values. Render scale
+and device pixel ratio do not change those coordinates. Use `point.toNdc` with
+the logical viewport size when you need normalized coordinates.
+
+Plugins can listen to `context.input?.events` and register `SceneGesture.tap`,
+`scale` or `scroll`. Keep each returned registration for teardown. Interests
+participate in Flutter's gesture arena; an overlay button receives its own tap,
+and a scroll view keeps wheel input unless a scene control registers for it.
+The geospatial orbit plugin uses this path by default.
+
+`RenderFeature` requirements are typed. Unsupported plugins report a
+`SceneException` with a stable code, plugin ID, missing features and device limits.
+Adapter and driver names remain null when the backend cannot report them.
+`SceneStatus` changes for lifecycle events; `frameStats` samples diagnostics at
+most five times per second. A static view stops its Flutter ticker too.
+`RecoveryPolicy.automaticOnce` retries one typed device loss, then exposes any
+further failure for manual recovery.

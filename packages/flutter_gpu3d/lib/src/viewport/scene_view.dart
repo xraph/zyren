@@ -19,6 +19,7 @@ class SceneView extends StatefulWidget {
   final SceneErrorBuilder? errorBuilder;
   final void Function(SceneIssue)? onError;
   final double resolutionScale;
+  final ScenePointerCallback? onPointer;
   const SceneView({
     super.key,
     required SceneController controller,
@@ -26,6 +27,7 @@ class SceneView extends StatefulWidget {
     this.errorBuilder,
     this.resolutionScale = 1,
     this.onError,
+    this.onPointer,
   }) : _scene = null,
        _camera = null,
        controller = controller,
@@ -43,6 +45,7 @@ class SceneView extends StatefulWidget {
     this.errorBuilder,
     this.resolutionScale = 1,
     this.onError,
+    this.onPointer,
   }) : _scene = null,
        _camera = null,
        controller = null,
@@ -59,6 +62,7 @@ class SceneView extends StatefulWidget {
     this.errorBuilder,
     this.resolutionScale = 1,
     this.onError,
+    this.onPointer,
   }) : _scene = scene,
        _camera = camera,
        controller = null,
@@ -142,6 +146,8 @@ class _SceneViewState extends State<SceneView>
             if (_owns) nextWidget.onCreate!(controller);
             controller._attach(_token, 'SceneView#${identityHashCode(this)}');
             _attached = true;
+            controller._wakeView = _sync;
+            controller._input.onInterestsChanged = _onInterestsChanged;
             controller._closePresentation = _closePresentation;
             controller._status.addListener(_onStatus);
             _sync();
@@ -171,6 +177,10 @@ class _SceneViewState extends State<SceneView>
           operation: operation,
           cause: error,
         );
+  void _onInterestsChanged() {
+    if (mounted) setState(() {});
+  }
+
   void _onStatus() {
     final controller = _controller;
     if (!mounted || controller == null) return;
@@ -228,8 +238,10 @@ class _SceneViewState extends State<SceneView>
       return;
     }
     controller._start();
-    if (controller._engine != null && !_ticker.isActive) {
-      _ticker.start();
+    if (controller._engine != null && controller._scheduler.needsFrame) {
+      if (!_ticker.isActive) _ticker.start();
+    } else {
+      _stopTicker();
     }
   }
 
@@ -278,6 +290,7 @@ class _SceneViewState extends State<SceneView>
     );
     _busy = true;
     _drawing = _draw(controller, time, size, _version);
+    if (!controller._scheduler.needsFrame) _stopTicker();
   }
 
   Future<void> _draw(
@@ -307,6 +320,7 @@ class _SceneViewState extends State<SceneView>
       }
     } finally {
       _busy = false;
+      if (mounted && version == _version) _sync();
     }
   }
 
@@ -335,6 +349,9 @@ class _SceneViewState extends State<SceneView>
     if (_attached) {
       _attached = false;
       previous._status.removeListener(_onStatus);
+      if (previous._input.onInterestsChanged == _onInterestsChanged) {
+        previous._input.onInterestsChanged = null;
+      }
       previous._detach(_token);
       if (_owns) previous.dispose();
       await _closePresentation();
@@ -391,9 +408,11 @@ class _SceneViewState extends State<SceneView>
             Center(child: Text(issue.message));
       }
       if (status is SceneDisposed) return const SizedBox.expand();
-      return _frame?.build(context) ??
+      final content =
+          _frame?.build(context) ??
           widget.loadingBuilder?.call(context) ??
           const SizedBox.expand();
+      return _controller?._input.wrap(content, widget.onPointer) ?? content;
     },
   );
   Future<void> _retry() async {

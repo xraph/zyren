@@ -5,15 +5,25 @@ import 'frame_submission.dart';
 /// Call tick only when the consumer has capacity to accept another frame.
 class FrameScheduler {
   final Duration _interval;
+  final void Function()? onChanged;
+  bool get needsFrame => _visible && (_dirty || _demands > 0);
   bool _dirty = true, _visible = true, _resuming = true;
   int _demands = 0, _index = 0;
   Duration? _start, _lastFrame, _lastTick;
-  FrameScheduler({int maxFramesPerSecond = 60})
+  FrameScheduler({int maxFramesPerSecond = 60, this.onChanged})
     : _interval = Duration(microseconds: _intervalMicros(maxFramesPerSecond));
-  void request() => _dirty = true;
+  void request() {
+    _dirty = true;
+    onChanged?.call();
+  }
+
   Registration acquireDemand() {
     _demands++;
-    return Registration(() => _demands--);
+    onChanged?.call();
+    return Registration(() {
+      _demands--;
+      onChanged?.call();
+    });
   }
 
   void setVisible(bool visible) {

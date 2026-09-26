@@ -64,6 +64,16 @@ void main() {
             .selected,
         isTrue,
       );
+      final beforeDrag = controller.camera.position;
+      await tester.drag(find.byType(SceneView), const Offset(80, 20));
+      for (
+        var attempt = 0;
+        attempt < 30 && controller.camera.position == beforeDrag;
+        attempt++
+      ) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(controller.camera.position, isNot(beforeDrag));
       await tester.binding.setSurfaceSize(const Size(390, 700));
       await tester.pump(const Duration(milliseconds: 300));
       expect(tester.takeException(), isNull);

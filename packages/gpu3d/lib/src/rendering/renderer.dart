@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'capabilities.dart';
 import '../scene/scene.dart';
 
 /// Tightly packed, top-down RGBA8 pixels. The consumer owns this buffer.
@@ -10,25 +11,26 @@ class RenderedFrame {
 
 /// Stable feature identifiers that plugins can require before allocating work.
 abstract final class RenderFeatures {
-  static const indexedMeshes = 'indexed-meshes';
-  static const diffuseLighting = 'diffuse-lighting';
-  static const unlitMaterials = 'unlit-materials';
-  static const rgbaReadback = 'rgba-readback';
+  static const indexedMeshes = RenderFeature.indexedMeshes;
+  static const diffuseLighting = RenderFeature.diffuseLighting;
+  static const unlitMaterials = RenderFeature.unlitMaterials;
+  static const rgbaReadback = RenderFeature.rgbaReadback;
 }
 
-class RendererCapabilities {
-  final String name;
-  final Set<String> features;
-  final int maxDimension;
+/// Compatibility capabilities for the explicit RGBA renderer interface.
+class RendererCapabilities extends DeviceCapabilities {
+  int get maxDimension => limits.maxTextureDimension2D;
   RendererCapabilities({
-    required this.name,
-    required Set<String> features,
-    required this.maxDimension,
-  }) : features = Set.unmodifiable(features) {
-    if (maxDimension < 1) {
-      throw ArgumentError.value(maxDimension, 'maxDimension');
-    }
-  }
+    required super.name,
+    required super.features,
+    required int maxDimension,
+    int maxGeometryBytes = 64 * 1024 * 1024,
+  }) : super(
+         limits: DeviceLimits(
+           maxTextureDimension2D: maxDimension,
+           maxGeometryBytes: maxGeometryBytes,
+         ),
+       );
 }
 
 typedef RendererFactory = Future<SceneRenderer> Function();

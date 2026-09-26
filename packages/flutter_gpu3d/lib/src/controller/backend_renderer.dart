@@ -12,16 +12,8 @@ class BackendRenderer implements SceneRenderer {
   RendererCapabilities get capabilities => RendererCapabilities(
     name: backend.capabilities.name,
     maxDimension: backend.capabilities.limits.maxTextureDimension2D,
-    features: {
-      for (final feature in backend.capabilities.features)
-        switch (feature) {
-          RenderFeature.indexedMeshes => RenderFeatures.indexedMeshes,
-          RenderFeature.diffuseLighting => RenderFeatures.diffuseLighting,
-          RenderFeature.unlitMaterials => RenderFeatures.unlitMaterials,
-          RenderFeature.rgbaReadback => RenderFeatures.rgbaReadback,
-          _ => feature.name,
-        },
-    },
+    maxGeometryBytes: backend.capabilities.limits.maxGeometryBytes,
+    features: backend.capabilities.features,
   );
   @override
   Future<RenderedFrame> render(

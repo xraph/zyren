@@ -1,5 +1,8 @@
 import 'dart:async';
 import 'registration.dart';
+import '../input/pointer_event.dart';
+import '../rendering/capabilities.dart';
+import '../rendering/scene_issue.dart';
 import '../rendering/renderer.dart';
 import '../rendering/frame_submission.dart';
 import '../scene/scene.dart';
@@ -29,7 +32,7 @@ class FrameInfo {
 abstract class ScenePlugin {
   String get id;
   Set<String> get dependencies => const {};
-  Set<String> get requiredFeatures => const {};
+  Set<RenderFeature> get requiredFeatures => const {};
   FutureOr<void> attach(PluginContext context) {}
   FutureOr<void> beforeRender(PluginContext context, FrameInfo frame) {}
   FutureOr<void> afterRender(
@@ -46,7 +49,8 @@ abstract class ScenePlugin {
 class PluginContext {
   final Scene scene;
   Camera camera;
-  final RendererCapabilities capabilities;
+  final DeviceCapabilities capabilities;
+  final InputSource? input;
   final Map<Object, Object> _services;
   final void Function()? _invalidate;
   final Registration Function()? _demand;
@@ -60,6 +64,7 @@ class PluginContext {
     this._services,
     this._invalidate,
     this._demand,
+    this.input,
   );
   void invalidate() {
     if (!_active) throw StateError('Plugin context has been detached.');
@@ -152,6 +157,7 @@ class SceneEngine {
     required Camera camera,
     required RendererFactory rendererFactory,
     List<ScenePlugin> plugins = const [],
+    InputSource? input,
     void Function()? onInvalidate,
     Registration Function()? acquireFrameDemand,
   }) async {
@@ -176,8 +182,16 @@ class SceneEngine {
           renderer.capabilities.features,
         );
         if (missing.isNotEmpty) {
-          throw StateError(
-            'Plugin ${plugin.id} requires unsupported features: ${missing.join(', ')}.',
+          throw SceneException(
+            SceneIssue(
+              code: SceneIssueCodes.unsupportedFeature,
+              operation: 'attach',
+              pluginId: plugin.id,
+              requiredFeatures: Set.unmodifiable(missing),
+              limits: renderer.capabilities.limits,
+              message:
+                  'Plugin ${plugin.id} requires unsupported features: ${missing.map((feature) => feature.name).join(', ')}.',
+            ),
           );
         }
       }
@@ -189,6 +203,7 @@ class SceneEngine {
           engine._services,
           onInvalidate,
           acquireFrameDemand,
+          input,
         );
         engine._attached.add((plugin, context));
         try {
@@ -228,10 +243,24 @@ class SceneEngine {
       if (visited.contains(id)) return;
       final plugin = byId[id];
       if (plugin == null) {
-        throw ArgumentError('Missing plugin dependency: $id.');
+        throw SceneException(
+          SceneIssue(
+            code: SceneIssueCodes.pluginDependencyMissing,
+            operation: 'compose',
+            pluginId: id,
+            message: 'Missing plugin dependency: $id.',
+          ),
+        );
       }
       if (!visiting.add(id)) {
-        throw ArgumentError('Plugin dependency cycle at $id.');
+        throw SceneException(
+          SceneIssue(
+            code: SceneIssueCodes.pluginDependencyCycle,
+            operation: 'compose',
+            pluginId: id,
+            message: 'Plugin dependency cycle at $id.',
+          ),
+        );
       }
       for (final dependency in plugin.dependencies) {
         visit(dependency);

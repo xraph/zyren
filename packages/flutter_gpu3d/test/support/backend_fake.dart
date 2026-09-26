@@ -7,18 +7,29 @@ class FakeBackend implements RenderBackend {
   final submissions = <FrameSubmission>[];
   Completer<void>? frameGate, closeGate;
   bool failClose = false;
+  Object? renderError;
+  Set<RenderFeature> additionalFeatures = {};
   final List<String> events;
   FakeBackend([List<String>? events]) : events = events ?? [];
+  int maxDimension = 64;
   @override
-  final capabilities = DeviceCapabilities(
+  DeviceCapabilities get capabilities => DeviceCapabilities(
     name: 'test-native',
-    features: {RenderFeature.rgbaReadback, RenderFeature.indexedMeshes},
-    limits: DeviceLimits(maxTextureDimension2D: 64, maxGeometryBytes: 1000000),
+    features: {
+      RenderFeature.rgbaReadback,
+      RenderFeature.indexedMeshes,
+      ...additionalFeatures,
+    },
+    limits: DeviceLimits(
+      maxTextureDimension2D: maxDimension,
+      maxGeometryBytes: 1000000,
+    ),
   );
   @override
   Future<FrameOutput> render(FrameSubmission submission) async {
     submissions.add(submission);
     await frameGate?.future;
+    if (renderError != null) throw renderError!;
     final size = submission.size;
     return ReadbackOutput(
       image: ImageData(

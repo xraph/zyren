@@ -70,7 +70,26 @@ void main() {
       ],
       [TestPlugin('', events)],
     ];
-    for (final plugins in graphs) {
+    final expected = [
+      throwsArgumentError,
+      throwsA(
+        isA<SceneException>().having(
+          (e) => e.issue.code,
+          'code',
+          SceneIssueCodes.pluginDependencyMissing,
+        ),
+      ),
+      throwsA(
+        isA<SceneException>().having(
+          (e) => e.issue.code,
+          'code',
+          SceneIssueCodes.pluginDependencyCycle,
+        ),
+      ),
+      throwsArgumentError,
+    ];
+    for (var i = 0; i < graphs.length; i++) {
+      final plugins = graphs[i];
       await expectLater(
         SceneEngine.create(
           scene: Scene(),
@@ -81,7 +100,7 @@ void main() {
           },
           plugins: plugins,
         ),
-        throwsArgumentError,
+        expected[i],
       );
     }
     expect(creates, 0);
@@ -97,10 +116,20 @@ void main() {
         rendererFactory: () async => renderer,
         plugins: [
           TestPlugin('plain', events),
-          TestPlugin('pbr', events, requiredFeatures: {'pbr'}),
+          TestPlugin(
+            'compute',
+            events,
+            requiredFeatures: {RenderFeature.compute},
+          ),
         ],
       ),
-      throwsStateError,
+      throwsA(
+        isA<SceneException>().having(
+          (e) => e.issue.code,
+          'code',
+          SceneIssueCodes.unsupportedFeature,
+        ),
+      ),
     );
     expect(events, ['test.dispose']);
   });

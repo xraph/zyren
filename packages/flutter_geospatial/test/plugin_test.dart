@@ -66,7 +66,13 @@ void main() {
         rendererFactory: () async => _Renderer(),
         plugins: [GlobeOrbitPlugin()],
       ),
-      throwsArgumentError,
+      throwsA(
+        isA<SceneException>().having(
+          (e) => e.issue.code,
+          'code',
+          SceneIssueCodes.pluginDependencyMissing,
+        ),
+      ),
     );
     final orbit = GlobeOrbitPlugin();
     expect(() => orbit.zoom(0), throwsArgumentError);

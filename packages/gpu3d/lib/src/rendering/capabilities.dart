@@ -31,10 +31,14 @@ class DeviceLimits {
 
 class DeviceCapabilities {
   final String name;
+  final String? backend, adapterName, driverDescription;
   final Set<RenderFeature> features;
   final DeviceLimits limits;
   DeviceCapabilities({
     required this.name,
+    this.backend,
+    this.adapterName,
+    this.driverDescription,
     required Set<RenderFeature> features,
     required this.limits,
   }) : features = Set.unmodifiable(features);

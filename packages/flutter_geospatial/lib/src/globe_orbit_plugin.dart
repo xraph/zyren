@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:gpu3d/gpu3d.dart';
 import 'geodesy.dart';
@@ -16,6 +17,9 @@ class GlobeOrbitPlugin extends ScenePlugin {
   bool _rotating;
   PluginContext? _context;
   Registration? _demand;
+  final _gestures = <Registration>[];
+  StreamSubscription<ScenePointerEvent>? _inputSubscription;
+  double _pinchDistance = 0;
   bool get rotating => _rotating;
   set rotating(bool value) {
     if (_rotating == value) return;
@@ -135,6 +139,25 @@ class GlobeOrbitPlugin extends ScenePlugin {
     final camera = context.camera;
     _previousCamera = (camera.position, camera.target, camera.up);
     _apply(camera);
+    final input = context.input;
+    if (input != null) {
+      _gestures.add(input.registerGesture(SceneGesture.scale));
+      _gestures.add(input.registerGesture(SceneGesture.scroll));
+      _inputSubscription = input.events.listen((event) {
+        switch (event.phase) {
+          case ScenePointerPhase.scaleStart:
+            _pinchDistance = _distance;
+            rotating = false;
+          case ScenePointerPhase.scaleUpdate:
+            rotateBy(-event.delta.x * .25, event.delta.y * .25);
+            if (event.scale > 0) setDistance(_pinchDistance / event.scale);
+          case ScenePointerPhase.scroll:
+            zoom(math.exp(event.delta.y.clamp(-1000, 1000) * .001));
+          default:
+            break;
+        }
+      });
+    }
   }
 
   @override
@@ -158,6 +181,12 @@ class GlobeOrbitPlugin extends ScenePlugin {
 
   @override
   void detach(PluginContext context) {
+    unawaited(_inputSubscription?.cancel());
+    _inputSubscription = null;
+    for (final gesture in _gestures.reversed) {
+      gesture.dispose();
+    }
+    _gestures.clear();
     _demand?.dispose();
     _demand = null;
     _context = null;

@@ -6,6 +6,7 @@ import 'package:flutter/widgets.dart';
 import 'package:gpu3d/gpu3d.dart';
 import 'package:gpu3d/rendering.dart';
 import '../presentation.dart';
+import '../input/flutter_input_adapter.dart';
 import '../diagnostics/renderer_info.dart';
 import 'backend_renderer.dart';
 import 'scene_runtime.dart';
@@ -18,6 +19,8 @@ class SceneController {
   Camera _camera;
   final EngineOptions options;
   final SceneRuntime runtime;
+  final _input = FlutterInputAdapter();
+  InputSource get input => _input;
   final List<ScenePlugin> _plugins = [];
   final Map<Object, void Function(FrameTime)> _updates = {};
   late final FrameScheduler _scheduler;
@@ -40,6 +43,16 @@ class SceneController {
   Future<void> Function()? _closePresentation;
   Future<void>? _presentationDisposal, _retiring;
   Duration? _lastStats;
+  void Function()? _wakeView;
+  bool _wakeScheduled = false, _automaticRecoveryUsed = false;
+  void _scheduleWake() {
+    if (_wakeScheduled || _closed) return;
+    _wakeScheduled = true;
+    scheduleMicrotask(() {
+      _wakeScheduled = false;
+      if (!_closed) _wakeView?.call();
+    });
+  }
 
   SceneController({
     Scene? scene,
@@ -50,8 +63,10 @@ class SceneController {
        _camera = camera ?? PerspectiveCamera(),
        runtime = runtime ?? const SceneRuntime() {
     options.validate();
-    _scheduler = FrameScheduler(maxFramesPerSecond: options.maxFramesPerSecond)
-      ..setVisible(false);
+    _scheduler = FrameScheduler(
+      maxFramesPerSecond: options.maxFramesPerSecond,
+      onChanged: _scheduleWake,
+    )..setVisible(false);
     if (options.renderMode == RenderMode.continuous) _scheduler.acquireDemand();
     _sceneSubscription = this.scene.changes.listen((_) => _scheduler.request());
     _cameraSubscription = _camera.changes.listen((_) => _scheduler.request());
@@ -151,6 +166,7 @@ class SceneController {
     if (!identical(_viewToken, token)) return;
     _viewToken = null;
     _viewLabel = null;
+    _wakeView = null;
     _visible = false;
     _scheduler.setVisible(false);
     final closePresentation = _closePresentation;
@@ -206,6 +222,7 @@ class SceneController {
         scene: scene,
         camera: camera,
         plugins: List.of(_plugins),
+        input: _input,
         onInvalidate: _scheduler.request,
         acquireFrameDemand: _scheduler.acquireDemand,
         rendererFactory: () async {
@@ -237,8 +254,9 @@ class SceneController {
           }
           _renderer = BackendRenderer(backend);
           _info = RendererInfo(
-            backend: backend.capabilities.name,
-            adapterName: backend.capabilities.name,
+            backend: backend.capabilities.backend ?? backend.capabilities.name,
+            adapterName: backend.capabilities.adapterName,
+            driverDescription: backend.capabilities.driverDescription,
             capabilities: backend.capabilities,
             presentationPath: PresentationPath.readback,
           );
@@ -297,6 +315,14 @@ class SceneController {
         await failedEngine.dispose();
       });
       _failureCleanup!.then<void>((_) {}, onError: (Object _, StackTrace _) {});
+    }
+    if (exception.issue.code == SceneIssueCodes.deviceLost &&
+        options.recovery == RecoveryPolicy.automaticOnce &&
+        !_automaticRecoveryUsed) {
+      _automaticRecoveryUsed = true;
+      scheduleMicrotask(() {
+        if (!_closed && _status.value is SceneFailed) unawaited(retry());
+      });
     }
   }
 
@@ -380,6 +406,7 @@ class SceneController {
     _closed = true;
     _scheduler.setVisible(false);
     _updates.clear();
+    _input.close();
     unawaited(_sceneSubscription.cancel());
     unawaited(_cameraSubscription.cancel());
     final error = _exception(

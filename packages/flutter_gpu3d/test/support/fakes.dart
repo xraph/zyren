@@ -57,7 +57,7 @@ class TestPlugin extends ScenePlugin {
   @override
   final Set<String> dependencies;
   @override
-  final Set<String> requiredFeatures;
+  final Set<RenderFeature> requiredFeatures;
   final List<String> events;
   final FutureOr<void> Function(PluginContext)? onAttach, onDetach;
   final FutureOr<void> Function(PluginContext, FrameInfo)? onBefore;

@@ -1,5 +1,4 @@
 import 'dart:math' as math;
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_geospatial/flutter_geospatial.dart';
 import 'package:flutter_gpu3d/flutter_gpu3d.dart';
@@ -62,8 +61,6 @@ class _PlanetPageState extends State<PlanetPage> {
     super.dispose();
   }
 
-  double pinchDistance = 0;
-
   void focus(String name) {
     final point = locations[name]!;
     setState(() {
@@ -123,40 +120,19 @@ class _PlanetPageState extends State<PlanetPage> {
               child: Stack(
                 children: [
                   Positioned.fill(
-                    child: Listener(
-                      onPointerSignal: (event) {
-                        if (event is PointerScrollEvent) {
-                          setState(
-                            () => orbit.zoom(
-                              math.exp(
-                                event.scrollDelta.dy.clamp(-1000, 1000) * .001,
-                              ),
-                            ),
-                          );
+                    child: SceneView(
+                      controller: controller,
+                      resolutionScale: math.min(
+                        1,
+                        2 / MediaQuery.devicePixelRatioOf(context),
+                      ),
+                      onPointer: (event) {
+                        if (event.phase == ScenePointerPhase.scaleStart) {
+                          setState(() => orbit.rotating = false);
                         }
                       },
-                      child: GestureDetector(
-                        onScaleStart: (_) {
-                          pinchDistance = orbit.distance;
-                          setState(() => orbit.rotating = false);
-                        },
-                        onScaleUpdate: (details) => setState(() {
-                          orbit.rotateBy(
-                            -details.focalPointDelta.dx * .25,
-                            details.focalPointDelta.dy * .25,
-                          );
-                          orbit.setDistance(pinchDistance / details.scale);
-                        }),
-                        child: SceneView(
-                          controller: controller,
-                          resolutionScale: math.min(
-                            1,
-                            2 / MediaQuery.devicePixelRatioOf(context),
-                          ),
-                          errorBuilder: (context, issue, retry) =>
-                              ZeroState(error: issue, onRetry: retry),
-                        ),
-                      ),
+                      errorBuilder: (context, issue, retry) =>
+                          ZeroState(error: issue, onRetry: retry),
                     ),
                   ),
                   const Positioned(

@@ -42,7 +42,7 @@ class NativeBackend implements RenderBackend {
   @override
   Future<FrameOutput> render(FrameSubmission submission) async {
     if (_closed) {
-      throw const SceneException(
+      throw SceneException(
         SceneIssue(
           code: SceneIssueCodes.disposed,
           message: 'The native backend has been closed.',
@@ -52,7 +52,7 @@ class NativeBackend implements RenderBackend {
     }
     switch (submission.target) {
       case SurfaceTarget():
-        throw const SceneException(
+        throw SceneException(
           SceneIssue(
             code: SceneIssueCodes.presentationUnavailable,
             message: 'This backend has no shared-texture presentation adapter.',
@@ -61,7 +61,7 @@ class NativeBackend implements RenderBackend {
         );
       case ReadbackTarget(:final format, :final colorSpace):
         if (format != PixelFormat.rgba8 || colorSpace != ColorSpace.srgb) {
-          throw const SceneException(
+          throw SceneException(
             SceneIssue(
               code: SceneIssueCodes.unsupportedFeature,
               message: 'Native readback currently supports RGBA8 sRGB only.',

@@ -1,7 +1,8 @@
 import 'package:gpu3d/rendering.dart';
 
 class RendererInfo {
-  final String backend, adapterName;
+  final String backend;
+  final String? adapterName;
   final String? driverDescription;
   final DeviceCapabilities capabilities;
   final PresentationPath presentationPath;

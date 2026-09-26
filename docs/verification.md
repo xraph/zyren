@@ -102,3 +102,16 @@ The macOS globe integration passed with the borrowed controller, public plugin
 frame demand, hot-reload reassembly, city selection and narrow layout. Native
 pixel tests and the 35 pure Dart tests passed after the camera contract change.
 This checkpoint still presents native GPU frames through explicit RGBA readback.
+
+## Input and policy checkpoint
+
+Typed input fixtures cover transformed viewports at DPR 1.5, render scales 0.5
+and 1, overlay taps and keyboard entry, pinch recognition, and wheel ownership
+inside a Flutter scroll view. Policy fixtures cover unavailable shared textures,
+explicit readback, plugin capability errors, sampled diagnostics and one automatic
+device-loss recovery attempt. The macOS globe integration passed with plugin-owned
+gestures, including a drag through the native view.
+
+The pure Dart and native pixel suites passed after capability migration. Flutter
+checks use 3.47.5; the declared 3.38 floor has not been rerun for this checkpoint.
+Shared native surface registration remains plan 02 work.
