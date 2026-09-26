@@ -158,3 +158,16 @@ The implementation decisions and remaining limits are recorded in
 [API implementation decisions](api-implementation-decisions.md). The release
 builds passed; a final desktop visual launch was blocked because the Mac was
 locked. Automated macOS integrations still ran and rendered successfully.
+
+## Native surface ownership checkpoint
+
+The versioned surface registry and generated Dart ABI are implemented. The Rust
+ownership tests cover GPU and consumer completion independently, stale identities,
+resize epochs, timeouts and bounded frame requests. Flutter attachment tests cover
+close during creation or resize, suspension, runtime mismatch and failed mutations.
+See [native surface ownership](native-surface-ownership.md) for the contracts.
+
+The existing two-view macOS integration still renders and closes both native
+sessions. Its runner could not foreground the window. Surface metadata and tests
+do not enable shared presentation: the examples continue to use explicit readback,
+and debug/release plugin-to-FFI runtime identity remains an adapter integration check.

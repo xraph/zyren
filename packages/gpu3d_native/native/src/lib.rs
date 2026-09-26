@@ -1,3 +1,4 @@
+pub mod interop;
 pub mod renderer;
 pub mod scene;
 
