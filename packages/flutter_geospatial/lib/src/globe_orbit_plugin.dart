@@ -13,7 +13,26 @@ class GlobeOrbitPlugin extends ScenePlugin {
   final double _initialLongitude, _initialLatitude, _initialDistance;
   double _longitude, _latitude, _distance;
   double _minDistance = 0, _maxDistance = double.infinity;
-  bool rotating;
+  bool _rotating;
+  PluginContext? _context;
+  Registration? _demand;
+  bool get rotating => _rotating;
+  set rotating(bool value) {
+    if (_rotating == value) return;
+    _rotating = value;
+    _syncDemand();
+    _context?.invalidate();
+  }
+
+  void _syncDemand() {
+    if (_rotating && _context != null) {
+      _demand ??= _context!.acquireFrameDemand();
+    } else {
+      _demand?.dispose();
+      _demand = null;
+    }
+  }
+
   final double rotationSpeed;
   GeospatialReference? _reference;
   Geodetic? _focusLocation;
@@ -23,9 +42,10 @@ class GlobeOrbitPlugin extends ScenePlugin {
     double longitudeDegrees = -25,
     double latitudeDegrees = 22,
     double distance = 22000000,
-    this.rotating = true,
+    bool rotating = true,
     this.rotationSpeed = 4,
-  }) : _initialLongitude = longitudeDegrees,
+  }) : _rotating = rotating,
+       _initialLongitude = longitudeDegrees,
        _longitude = longitudeDegrees,
        _initialLatitude = latitudeDegrees,
        _latitude = latitudeDegrees,
@@ -56,6 +76,7 @@ class GlobeOrbitPlugin extends ScenePlugin {
     _focusLocation = null;
     _longitude = (_longitude + longitudeDegrees + 180) % 360 - 180;
     _latitude = (_latitude + latitudeDegrees).clamp(-85, 85);
+    _context?.invalidate();
   }
 
   void setDistance(double value) {
@@ -63,6 +84,7 @@ class GlobeOrbitPlugin extends ScenePlugin {
       throw ArgumentError.value(value, 'distance');
     }
     _distance = value.clamp(_minDistance, _maxDistance);
+    _context?.invalidate();
   }
 
   /// Positive factors above one move the camera away from the globe.
@@ -74,6 +96,7 @@ class GlobeOrbitPlugin extends ScenePlugin {
   }
 
   void focus(Geodetic location) {
+    _context?.invalidate();
     _focusLocation = location;
     rotating = false;
     final reference = _reference;
@@ -99,6 +122,8 @@ class GlobeOrbitPlugin extends ScenePlugin {
 
   @override
   void attach(PluginContext context) {
+    _context = context;
+    _syncDemand();
     _reference = context.service(geospatialReference);
     final ellipsoid = _reference!.ellipsoid;
     final radius = math.max(ellipsoid.x, math.max(ellipsoid.y, ellipsoid.z));
@@ -120,7 +145,7 @@ class GlobeOrbitPlugin extends ScenePlugin {
     _apply(context.camera);
   }
 
-  void _apply(PerspectiveCamera camera) {
+  void _apply(Camera camera) {
     final lon = _longitude * math.pi / 180, lat = _latitude * math.pi / 180;
     camera.up = const Vec3(0, 0, 1);
     camera.target = Vec3.zero;
@@ -133,6 +158,9 @@ class GlobeOrbitPlugin extends ScenePlugin {
 
   @override
   void detach(PluginContext context) {
+    _demand?.dispose();
+    _demand = null;
+    _context = null;
     final previous = _previousCamera;
     if (previous != null) {
       context.camera.position = previous.$1;

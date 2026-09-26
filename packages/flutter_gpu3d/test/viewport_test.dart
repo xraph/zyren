@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_gpu3d/flutter_gpu3d.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'support/fakes.dart';
+import 'package:gpu3d/rendering.dart';
 
 void main() {
   Future<void> frames(WidgetTester tester) async {
@@ -25,10 +26,10 @@ void main() {
       final presenter = TestPresenter('custom presentation', events);
       final plugin = TestPlugin('plugin', events);
       final scene = Scene(), camera = PerspectiveCamera();
-      Future<SceneRenderer> createRenderer() async => renderer;
+      Future<RenderBackend> createRenderer() async => renderer;
       FramePresenter createPresenter() => presenter;
       Widget view() => host(
-        SceneView(
+        sceneView(
           scene: scene,
           camera: camera,
           plugins: [plugin],
@@ -67,7 +68,7 @@ void main() {
       final scene = Scene(), camera = PerspectiveCamera();
       await tester.pumpWidget(
         host(
-          SceneView(
+          sceneView(
             scene: scene,
             camera: camera,
             plugins: [plugin],
@@ -80,7 +81,7 @@ void main() {
       expect(events, contains('old.present'));
       await tester.pumpWidget(
         host(
-          SceneView(
+          sceneView(
             scene: scene,
             camera: camera,
             plugins: [plugin],
@@ -115,12 +116,12 @@ void main() {
     'removal during initialization cleans up a late device and plugins',
     (tester) async {
       final events = <String>[];
-      final gate = Completer<SceneRenderer>();
+      final gate = Completer<RenderBackend>();
       final renderer = TestRenderer(events);
       final presenter = TestPresenter('late', events);
       await tester.pumpWidget(
         host(
-          SceneView(
+          sceneView(
             scene: Scene(),
             camera: PerspectiveCamera(),
             plugins: [TestPlugin('late-plugin', events)],
@@ -133,15 +134,8 @@ void main() {
       gate.complete(renderer);
       await frames(tester);
       expect(renderer.disposals, 1);
-      expect(presenter.disposals, 1);
-      expect(
-        events,
-        containsAllInOrder([
-          'late-plugin.attach',
-          'late-plugin.detach',
-          'test.dispose',
-        ]),
-      );
+      expect(presenter.disposals, 0);
+      expect(events, ['test.dispose']);
       expect(tester.takeException(), isNull);
     },
   );
@@ -160,7 +154,7 @@ void main() {
         },
       );
       final renderers = <TestRenderer>[];
-      Future<SceneRenderer> createRenderer() async {
+      Future<RenderBackend> createRenderer() async {
         final renderer = TestRenderer(events);
         renderers.add(renderer);
         return renderer;
@@ -168,7 +162,7 @@ void main() {
 
       FramePresenter createPresenter() => TestPresenter('recovered', events);
       Widget view(int revision) => host(
-        SceneView(
+        sceneView(
           scene: scene,
           camera: camera,
           rendererFactory: createRenderer,
@@ -201,7 +195,7 @@ void main() {
     final renderer = TestRenderer(events);
     await tester.pumpWidget(
       host(
-        SceneView(
+        sceneView(
           scene: Scene(),
           camera: PerspectiveCamera(),
           rendererFactory: () async => renderer,
@@ -230,7 +224,7 @@ void main() {
     );
     await tester.pumpWidget(
       host(
-        SceneView(
+        sceneView(
           scene: Scene(),
           camera: PerspectiveCamera(),
           rendererFactory: () async => renderer,
@@ -258,7 +252,7 @@ void main() {
     final presenter = TestPresenter('frame', events);
     await tester.pumpWidget(
       host(
-        SceneView(
+        sceneView(
           scene: Scene(),
           camera: PerspectiveCamera(),
           rendererFactory: () async => renderer,
@@ -282,7 +276,7 @@ void main() {
     final renderer = TestRenderer(events);
     await tester.pumpWidget(
       host(
-        SceneView(
+        sceneView(
           scene: Scene(),
           camera: PerspectiveCamera(),
           rendererFactory: () async => renderer,
@@ -315,7 +309,7 @@ void main() {
     final renderer = TestRenderer(events);
     await tester.pumpWidget(
       host(
-        SceneView(
+        sceneView(
           scene: Scene(),
           camera: PerspectiveCamera(),
           rendererFactory: () async => renderer,
@@ -358,3 +352,31 @@ void main() {
     },
   );
 }
+
+Widget sceneView({
+  required Scene scene,
+  required Camera camera,
+  required Future<RenderBackend> Function() rendererFactory,
+  PresenterFactory presenterFactory = ImageFramePresenter.create,
+  List<ScenePlugin> plugins = const [],
+  Object? restartToken,
+  void Function(Object)? onError,
+  Widget Function(BuildContext, Object)? errorBuilder,
+}) => SceneView.scene(
+  scene: scene,
+  camera: camera,
+  plugins: plugins,
+  sceneKey: (scene, camera, rendererFactory, presenterFactory, restartToken),
+  options: const EngineOptions(
+    renderMode: RenderMode.continuous,
+    presentation: PresentationPolicy.readbackOnly,
+  ),
+  runtime: SceneRuntime(
+    backendFactory: rendererFactory,
+    presenterFactory: presenterFactory,
+  ),
+  onError: onError,
+  errorBuilder: errorBuilder == null
+      ? null
+      : (context, issue, retry) => errorBuilder(context, issue),
+);

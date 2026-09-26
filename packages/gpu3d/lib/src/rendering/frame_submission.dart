@@ -65,7 +65,7 @@ class FrameSubmission {
   /// later submissions. This does not allocate a GPU or require Flutter.
   factory FrameSubmission.capture({
     required Scene scene,
-    required PerspectiveCamera camera,
+    required Camera camera,
     required PhysicalSize size,
     OutputTarget target = const ReadbackTarget(),
     FrameTime time = const FrameTime(),

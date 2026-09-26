@@ -18,7 +18,7 @@ class TestRenderer implements SceneRenderer {
   @override
   Future<RenderedFrame> render(
     Scene scene,
-    PerspectiveCamera camera, {
+    Camera camera, {
     required int width,
     required int height,
   }) async {

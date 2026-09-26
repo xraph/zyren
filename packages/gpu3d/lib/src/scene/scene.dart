@@ -185,6 +185,10 @@ class Mesh extends Object3D {
 }
 
 abstract class Camera extends Object3D {
+  Vec3 get target;
+  set target(Vec3 value);
+  Vec3 get up;
+  set up(Vec3 value);
   Mat4 viewProjection(double aspect);
 }
 
@@ -206,7 +210,9 @@ class PerspectiveCamera extends Camera {
     this.position = position;
     viewProjection(1);
   }
+  @override
   Vec3 get target => _target;
+  @override
   set target(Vec3 value) {
     _finite(value, 'target');
     if (value == _target) return;
@@ -214,7 +220,9 @@ class PerspectiveCamera extends Camera {
     _changed();
   }
 
+  @override
   Vec3 get up => _up;
+  @override
   set up(Vec3 value) {
     _finite(value, 'up');
     if (value.length2 == 0) throw ArgumentError('Camera up must be nonzero.');

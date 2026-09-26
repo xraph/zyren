@@ -9,7 +9,7 @@ geospatial package imports the core, and the core never imports geospatial.
 | Contract | You supply | Ownership |
 | --- | --- | --- |
 | `ScenePlugin` | Controls, scene updates, domain services or asynchronous setup | One instance per engine; attach and detach belong to the engine |
-| `SceneRenderer` | A native renderer with explicit capabilities and RGBA output | A fresh instance from `rendererFactory`; disposed by the engine |
+| `RenderBackend` | Native submission with typed capabilities and output | A fresh instance from `SceneRuntime.backendFactory`; closed by the controller |
 | `FramePresenter` | Conversion from RGBA output to a Flutter display | A fresh instance from `presenterFactory`; disposed by the viewport |
 | `PresentedFrame` | A widget and resources for one displayed frame | Retired by the viewport after the replacement paints |
 | `BufferGeometry` / `Object3D` | Custom mesh geometry and scene composition | Your scene owns these Dart objects; the native renderer caches visible geometry |
@@ -29,10 +29,17 @@ the lifetime of the instance. You can mutate scene objects through the context.
 class SpinPlugin extends ScenePlugin {
   final Object3D object;
   double angle = 0;
+  Registration? demand;
   SpinPlugin(this.object);
 
   @override
   String get id => 'example.spin';
+
+  @override
+  void attach(PluginContext context) => demand = context.acquireFrameDemand();
+
+  @override
+  void detach(PluginContext context) => demand?.dispose();
 
   @override
   void beforeRender(PluginContext context, FrameInfo frame) {
@@ -42,15 +49,17 @@ class SpinPlugin extends ScenePlugin {
 }
 
 final spin = SpinPlugin(cube);
-final viewport = SceneView(scene: scene, camera: camera, plugins: [spin]);
+final viewport = SceneView.scene(
+  scene: scene, camera: camera, plugins: [spin],
+  options: const EngineOptions(presentation: PresentationPolicy.readbackOnly),
+);
 ```
 
-Create plugins and factory functions outside `build`. Rebuilding a list with the
-same plugin instances is safe. Changing a plugin instance, factory, scene or
-camera waits for pending work, disposes the old session, then creates a new one.
-Change `restartToken` to retry the same configuration after a failure. Reuse a
-plugin only after its previous engine has finished disposal. Simultaneous use in
-two engines is rejected.
+Register plugins once in `SceneView.builder`'s `onCreate`, or on a borrowed
+controller before its first attachment. Rebuilds preserve that configuration.
+Change `sceneKey` for a managed replacement; use `controller.retry()` or the
+error builder's retry callback after a failure. Retry retains CPU scene state and
+does not replay setup. A plugin instance belongs to one engine at a time.
 
 ## Share a typed service
 
@@ -71,7 +80,7 @@ reports all cleanup failures.
 
 ## Frame lifecycle
 
-For each frame, the viewport calls its optional `onFrame` callback, then the
+For each frame, the controller calls its registered `onUpdate` callbacks, then the
 engine runs `beforeRender` hooks in dependency order. The renderer produces a
 frame. The engine runs `afterRender` hooks in the same order, and the presenter
 converts the output for Flutter.
@@ -101,10 +110,11 @@ final scene = Scene()
   ..add(Mesh(geo.reference.globeGeometry(), DiffuseMaterial()));
 final camera = PerspectiveCamera(near: 100000, far: 200000000);
 
-final viewport = SceneView(
+final viewport = SceneView.scene(
   scene: scene,
   camera: camera,
   plugins: [geo, orbit],
+  options: const EngineOptions(presentation: PresentationPolicy.readbackOnly),
 );
 
 // Wire these to Flutter input handlers.
@@ -196,5 +206,34 @@ Geodetic methods return `Vec3` and still preserve double precision in metres.
 `FrameScheduler` is available from `package:gpu3d/rendering.dart`. Call `tick`
 with a monotonic time only when you can submit a frame. It returns null while
 idle or hidden. A request remains pending across the FPS limit; a removable
-demand registration produces continuous frames. The controller milestone wires
-this clock into Flutter. The legacy viewport still renders continuously.
+demand registration produces continuous frames. The Flutter controller uses this clock. `onUpdate` acquires continuous demand
+until you dispose its registration. Plugins use `context.invalidate()` for one
+frame and `context.acquireFrameDemand()` while animating or damping.
+
+## Managed and borrowed views
+
+Use one import for ordinary Flutter scenes:
+
+```dart
+import 'package:flutter_gpu3d/flutter_gpu3d.dart';
+
+final viewport = SceneView.builder(
+  sceneKey: 'preview',
+  options: const EngineOptions(presentation: PresentationPolicy.readbackOnly),
+  onCreate: (view) {
+    final cube = view.scene.add(Mesh(BoxGeometry(), UnlitMaterial()));
+    view.onUpdate((time) => cube.rotateY(time.deltaSeconds));
+  },
+);
+```
+
+Use a borrowed controller when other widgets need access to the scene. It can
+mount on one view at a time. `ready` settles after backend and plugin setup;
+`firstFrame` settles after presentation. `dispose()` rejects new work immediately,
+and `whenDisposed` waits for pending work and native cleanup. Readiness fails with
+`disposed` if removal wins backend creation. Cleanup failures remain observable.
+
+The default presentation policy requires a shared texture. That adapter is not
+implemented yet. Select `readbackOnly` or `allowReadback` explicitly for the current
+native renderer. This affects presentation to Flutter; 3D rendering remains on
+the native GPU. `ready` reports the selected path through `RendererInfo`.

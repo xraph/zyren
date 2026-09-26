@@ -69,11 +69,18 @@ scene.add(cube);
 final camera = PerspectiveCamera(position: Vec3(3, 2, 5));
 
 // Put this inside a SizedBox or an Expanded with bounded dimensions.
-final viewport = SceneView(scene: scene, camera: camera);
+final viewport = SceneView.scene(
+  scene: scene,
+  camera: camera,
+  options: const EngineOptions(presentation: PresentationPolicy.readbackOnly),
+);
 ```
 
-`SceneView` owns its engine, plugins and presentation resources and releases them
-when the widget is removed. You can also create a `NativeRenderer` directly,
+`SceneView.builder` and `SceneView.scene` own their controllers. A rebuild keeps
+the scene; changing `sceneKey` replaces it after cleanup. For external controls,
+you can create a `SceneController`, pass it to `SceneView(controller: controller)`
+and call `controller.dispose()` from your State. Borrowed views retain their
+scene and session across unmounts. Static scenes render only after an edit. You can also create a `NativeRenderer` directly,
 await `render`, then await `dispose`.
 Only one frame may be in flight per renderer. Geometry is immutable, shared by
 meshes and released from the GPU when no visible mesh references it. Construct
@@ -88,8 +95,7 @@ transparency, shadow or PBR APIs yet.
 
 Use `ScenePlugin` for lifecycle hooks and typed services. Dependencies determine
 initialization and frame order; teardown runs in reverse and also handles partial
-initialization failures. `SceneRenderer` and `FramePresenter` are independent
-contracts with injectable factories. Keep their instances scoped to one viewport.
+initialization failures. `SceneRuntime` injects `RenderBackend` and `FramePresenter` factories. Keep their instances scoped to one viewport.
 
 ```dart
 final geospatial = GeospatialPlugin();
@@ -97,10 +103,11 @@ final orbit = GlobeOrbitPlugin();
 final globeScene = Scene()
   ..add(Mesh(geospatial.reference.globeGeometry(), DiffuseMaterial()));
 final globeCamera = PerspectiveCamera(near: 100000, far: 200000000);
-final viewport = SceneView(
+final viewport = SceneView.scene(
   scene: globeScene,
   camera: globeCamera,
   plugins: [geospatial, orbit],
+  options: const EngineOptions(presentation: PresentationPolicy.readbackOnly),
 );
 ```
 

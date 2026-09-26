@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'registration.dart';
 import '../rendering/renderer.dart';
+import '../rendering/frame_submission.dart';
 import '../scene/scene.dart';
 
 /// Share one exported key instance between a provider and its dependents.
@@ -43,13 +45,31 @@ abstract class ScenePlugin {
 /// Services belong to this engine, never to a process-wide registry.
 class PluginContext {
   final Scene scene;
-  final PerspectiveCamera camera;
+  Camera camera;
   final RendererCapabilities capabilities;
   final Map<Object, Object> _services;
+  final void Function()? _invalidate;
+  final Registration Function()? _demand;
   final Set<Object> _provided = {};
   bool _registering = true;
   bool _active = true;
-  PluginContext._(this.scene, this.camera, this.capabilities, this._services);
+  PluginContext._(
+    this.scene,
+    this.camera,
+    this.capabilities,
+    this._services,
+    this._invalidate,
+    this._demand,
+  );
+  void invalidate() {
+    if (!_active) throw StateError('Plugin context has been detached.');
+    _invalidate?.call();
+  }
+
+  Registration acquireFrameDemand() {
+    if (!_active) throw StateError('Plugin context has been detached.');
+    return _demand?.call() ?? Registration(() {});
+  }
 
   void provide<T extends Object>(ServiceKey<T> key, T service) {
     if (!_active || !_registering) {
@@ -96,7 +116,16 @@ class EngineInitializationException implements Exception {
 class SceneEngine {
   static final _owners = Expando<Object>('ScenePlugin owner');
   final Scene scene;
-  final PerspectiveCamera camera;
+  Camera _camera;
+  Camera get camera => _camera;
+  set camera(Camera value) {
+    if (_closed) throw StateError('Engine has been disposed.');
+    _camera = value;
+    for (final (_, context) in _attached) {
+      context.camera = value;
+    }
+  }
+
   final SceneRenderer _renderer;
   final List<ScenePlugin> _plugins;
   final Object _owner;
@@ -110,7 +139,7 @@ class SceneEngine {
 
   SceneEngine._(
     this.scene,
-    this.camera,
+    this._camera,
     this._renderer,
     this._plugins,
     this._owner,
@@ -120,9 +149,11 @@ class SceneEngine {
 
   static Future<SceneEngine> create({
     required Scene scene,
-    required PerspectiveCamera camera,
+    required Camera camera,
     required RendererFactory rendererFactory,
     List<ScenePlugin> plugins = const [],
+    void Function()? onInvalidate,
+    Registration Function()? acquireFrameDemand,
   }) async {
     final ordered = _resolve(plugins);
     for (final plugin in ordered) {
@@ -156,6 +187,8 @@ class SceneEngine {
           camera,
           renderer.capabilities,
           engine._services,
+          onInvalidate,
+          acquireFrameDemand,
         );
         engine._attached.add((plugin, context));
         try {
@@ -216,6 +249,7 @@ class SceneEngine {
 
   Future<RenderedFrame> render({
     required Duration elapsed,
+    FrameTime? time,
     required int width,
     required int height,
   }) {
@@ -238,7 +272,7 @@ class SceneEngine {
           );
     final info = FrameInfo(
       elapsed: elapsed,
-      delta: delta,
+      delta: time?.delta ?? delta,
       number: _frameNumber++,
       width: width,
       height: height,

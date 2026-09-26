@@ -9,7 +9,7 @@ class SceneEngine {
 
   static Future<SceneEngine> create({
     required core.Scene scene,
-    required core.PerspectiveCamera camera,
+    required core.Camera camera,
     core.RendererFactory rendererFactory = NativeRenderer.create,
     List<core.ScenePlugin> plugins = const [],
   }) async => SceneEngine._(
@@ -22,7 +22,7 @@ class SceneEngine {
   );
 
   core.Scene get scene => _engine.scene;
-  core.PerspectiveCamera get camera => _engine.camera;
+  core.Camera get camera => _engine.camera;
   core.RendererCapabilities get capabilities => _engine.capabilities;
   List<String> get pluginIds => _engine.pluginIds;
 

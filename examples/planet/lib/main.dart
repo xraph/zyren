@@ -41,7 +41,27 @@ class _PlanetPageState extends State<PlanetPage> {
     fieldOfView: Angle.degrees(42),
   );
   String selected = 'Lagos';
-  int generation = 0;
+  late final SceneController controller;
+  @override
+  void initState() {
+    super.initState();
+    controller = SceneController(
+      scene: scene,
+      camera: camera,
+      options: const EngineOptions(
+        presentation: PresentationPolicy.readbackOnly,
+      ),
+    );
+    controller.use(geospatial);
+    controller.use(orbit);
+  }
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
   double pinchDistance = 0;
 
   void focus(String name) {
@@ -128,18 +148,13 @@ class _PlanetPageState extends State<PlanetPage> {
                           orbit.setDistance(pinchDistance / details.scale);
                         }),
                         child: SceneView(
-                          restartToken: generation,
-                          scene: scene,
-                          camera: camera,
-                          pixelRatio: math.min(
-                            MediaQuery.devicePixelRatioOf(context),
-                            2,
+                          controller: controller,
+                          resolutionScale: math.min(
+                            1,
+                            2 / MediaQuery.devicePixelRatioOf(context),
                           ),
-                          plugins: [geospatial, orbit],
-                          errorBuilder: (context, error) => ZeroState(
-                            error: error,
-                            onRetry: () => setState(() => generation++),
-                          ),
+                          errorBuilder: (context, issue, retry) =>
+                              ZeroState(error: issue, onRetry: retry),
                         ),
                       ),
                     ),

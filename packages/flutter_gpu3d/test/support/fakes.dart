@@ -2,8 +2,9 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_gpu3d/flutter_gpu3d.dart';
+import 'package:gpu3d/rendering.dart';
 
-class TestRenderer implements SceneRenderer {
+class TestRenderer implements RenderBackend {
   final String name;
   final List<String> events;
   final Completer<void>? gate;
@@ -11,28 +12,40 @@ class TestRenderer implements SceneRenderer {
   final List<(int, int)> sizes = [];
   TestRenderer(this.events, {this.name = 'test', this.gate});
   @override
-  RendererCapabilities get capabilities => RendererCapabilities(
+  DeviceCapabilities get capabilities => DeviceCapabilities(
     name: name,
-    features: {RenderFeatures.indexedMeshes, RenderFeatures.rgbaReadback},
-    maxDimension: 64,
+    features: {RenderFeature.indexedMeshes, RenderFeature.rgbaReadback},
+    limits: DeviceLimits(maxTextureDimension2D: 64, maxGeometryBytes: 1000000),
   );
   @override
-  Future<RenderedFrame> render(
-    Scene scene,
-    PerspectiveCamera camera, {
-    required int width,
-    required int height,
-  }) async {
+  Future<FrameOutput> render(FrameSubmission submission) async {
     if (disposals != 0) throw StateError('Rendering after disposal.');
+    final size = submission.size;
     renders++;
-    sizes.add((width, height));
+    sizes.add((size.width, size.height));
     events.add('$name.render');
     await gate?.future;
-    return RenderedFrame(Uint8List(width * height * 4), width, height);
+    return ReadbackOutput(
+      image: ImageData(
+        pixels: Uint8List(size.width * size.height * 4),
+        size: size,
+      ),
+      stats: FrameStats(
+        frameId: renders,
+        physicalSize: size,
+        presentationPath: PresentationPath.readback,
+        cpuBuildTime: Duration.zero,
+        cpuSubmitTime: Duration.zero,
+        drawCalls: submission.scene.drawCalls,
+        triangles: submission.scene.triangles,
+        readbackBytes: size.width * size.height * 4,
+        uploadedBytes: 0,
+      ),
+    );
   }
 
   @override
-  Future<void> dispose() async {
+  Future<void> close() async {
     disposals++;
     events.add('$name.dispose');
   }

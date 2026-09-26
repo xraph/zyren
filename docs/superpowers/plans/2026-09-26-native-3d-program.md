@@ -180,9 +180,10 @@ already working.
 
 ## First implementation checkpoint
 
-Plan 01 task 1 is implemented. The planet integration and headless GPU tests
-passed with the extracted packages. Continue with task 2's observable values and
-frame scheduling, then the controller and native texture work.
+Plan 01 tasks 1 through 3 are implemented: package extraction, observable values
+and the managed/borrowed controller. The planet and headless GPU tests passed.
+Continue with typed input, scoped work and executable examples before the native
+texture milestone. M0 remains open until those contracts are verified.
 
 The four subsystem plans contain 25 task groups and explicit verification steps.
 Advanced material/loader extensions remain a named capability backlog until

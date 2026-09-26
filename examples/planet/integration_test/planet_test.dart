@@ -27,8 +27,15 @@ void main() {
       expect(find.text('The native renderer could not start'), findsNothing);
       expect(tester.takeException(), isNull);
       final viewport = tester.widget<SceneView>(find.byType(SceneView));
-      expect(viewport.plugins.whereType<GeospatialPlugin>(), hasLength(1));
-      expect(viewport.plugins.whereType<GlobeOrbitPlugin>(), hasLength(1));
+      expect(viewport.controller!.pluginIds, contains('geospatial'));
+      expect(viewport.controller!.pluginIds, contains('geospatial.orbit'));
+      final controller = viewport.controller!;
+      await tester.binding.reassembleApplication();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(
+        tester.widget<SceneView>(find.byType(SceneView)).controller,
+        same(controller),
+      );
       final previousImage = tester
           .widget<RawImage>(find.byType(RawImage))
           .image;
@@ -36,7 +43,7 @@ void main() {
       final tokyo = Geodetic.degrees(139.6917, 35.6895).toEcef().normalized();
       for (var attempt = 0; attempt < 60; attempt++) {
         await tester.pump(const Duration(milliseconds: 100));
-        final direction = viewport.camera.position.normalized();
+        final direction = viewport.controller!.camera.position.normalized();
         final image = tester.widget<RawImage>(find.byType(RawImage)).image;
         if (direction.dot(tokyo) > .999999 &&
             !identical(image, previousImage)) {
@@ -44,7 +51,7 @@ void main() {
         }
       }
       expect(
-        viewport.camera.position.normalized().dot(tokyo),
+        viewport.controller!.camera.position.normalized().dot(tokyo),
         greaterThan(.999999),
       );
       expect(

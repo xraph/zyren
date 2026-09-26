@@ -11,3 +11,4 @@ export 'src/math/mat4.dart';
 export 'src/math/angle.dart';
 export 'src/plugins/registration.dart';
 export 'src/rendering/frame_submission.dart' show FrameTime;
+export 'src/rendering/engine_options.dart';

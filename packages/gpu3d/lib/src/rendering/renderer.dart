@@ -38,7 +38,7 @@ abstract interface class SceneRenderer {
   RendererCapabilities get capabilities;
   Future<RenderedFrame> render(
     Scene scene,
-    PerspectiveCamera camera, {
+    Camera camera, {
     required int width,
     required int height,
   });

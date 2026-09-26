@@ -90,3 +90,15 @@ ECEF starting camera before orbit attachment; field of view is now in radians.
 
 The scheduler is tested in the core. Flutter controller integration is the next
 checkpoint, so this does not yet establish idle rendering for the legacy view.
+
+## Controller checkpoint
+
+Managed and borrowed views now use one controller and frame scheduler. Coverage
+includes rebuilds, replacement order, cancellation during initialization, typed
+late cleanup failures, retry without duplicate setup, idle scenes, zero-size
+layout, visible inactive windows, and remounting during an in-flight frame.
+
+The macOS globe integration passed with the borrowed controller, public plugin
+frame demand, hot-reload reassembly, city selection and narrow layout. Native
+pixel tests and the 35 pure Dart tests passed after the camera contract change.
+This checkpoint still presents native GPU frames through explicit RGBA readback.
