@@ -172,6 +172,31 @@ void main() {
       expect(bridge.closed.length, 1);
     },
   );
+  test(
+    'a request in the completion microtask still reaches native state',
+    () async {
+      final bridge = DelayedBridge()..created.complete(attachment());
+      final session = SurfaceSession(
+        bridge: bridge,
+        runtimeToken: 7,
+        size: PhysicalSize(63, 47),
+      );
+      await session.ready;
+      final first = session.resize(PhysicalSize(63, 47));
+      late Future<void> lateResize;
+      scheduleMicrotask(() {
+        lateResize = session.resize(PhysicalSize(81, 59));
+      });
+      await first;
+      await lateResize;
+      expect(
+        (session.attachment!.size.width, session.attachment!.size.height),
+        (81, 59),
+      );
+      expect(bridge.operations, ['resize:81x59@1']);
+      await session.close();
+    },
+  );
 }
 
 Matcher issue(String code) =>

@@ -40,6 +40,7 @@ final class SurfaceSession {
   SurfaceSessionState _state = SurfaceSessionState.creating;
   SurfaceAttachment? _attached;
   Object? _failure;
+  int _requestRevision = 0;
   Future<void>? _operation, _closeFuture;
   late final Future<void> ready;
 
@@ -91,6 +92,7 @@ final class SurfaceSession {
     if (_closing) return Future.error(_disposed());
     if (_failure != null) return Future.error(_failure!);
     _desiredSize = size;
+    _requestRevision++;
     return _schedule();
   }
 
@@ -98,6 +100,7 @@ final class SurfaceSession {
     if (_closing) return Future.error(_disposed());
     if (_failure != null) return Future.error(_failure!);
     _desiredSuspended = suspended;
+    _requestRevision++;
     return _schedule();
   }
 
@@ -105,7 +108,11 @@ final class SurfaceSession {
   Future<void> _apply() async {
     try {
       await ready;
-      await _reconcile();
+      while (!_closing) {
+        final revision = _requestRevision;
+        await _reconcile();
+        if (revision == _requestRevision) break;
+      }
     } catch (error) {
       _failure = error;
       if (!_closing) _state = SurfaceSessionState.failed;
