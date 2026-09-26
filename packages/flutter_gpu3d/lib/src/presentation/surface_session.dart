@@ -79,6 +79,7 @@ final class SurfaceSession {
       _attached = await _bridge.create(_desiredSize);
       if (_closing) throw _disposed();
       await _reconcile();
+      if (_closing) throw _disposed();
     } catch (error) {
       _failure = error;
       if (!_closing) _state = SurfaceSessionState.failed;

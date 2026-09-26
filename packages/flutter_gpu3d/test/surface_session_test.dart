@@ -145,6 +145,33 @@ void main() {
       expect(bridge.closed.length, 1);
     },
   );
+  test(
+    'close during initial resize cannot complete readiness successfully',
+    () async {
+      final bridge = DelayedBridge()..resizeGate = Completer<void>();
+      final session = SurfaceSession(
+        bridge: bridge,
+        runtimeToken: 7,
+        size: PhysicalSize(63, 47),
+      );
+      final ready = expectLater(
+        session.ready,
+        throwsA(issue(SceneIssueCodes.disposed)),
+      );
+      await bridge.started.future;
+      final resize = expectLater(
+        session.resize(PhysicalSize(81, 59)),
+        throwsA(issue(SceneIssueCodes.disposed)),
+      );
+      bridge.created.complete(attachment());
+      await bridge.resizing.future;
+      final close = session.close();
+      bridge.resizeGate!.complete();
+      await Future.wait([ready, resize, close]);
+      expect(session.state, SurfaceSessionState.closed);
+      expect(bridge.closed.length, 1);
+    },
+  );
 }
 
 Matcher issue(String code) =>
