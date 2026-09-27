@@ -16,6 +16,8 @@ dependencies:
     path: ../../packages/flutter_geospatial
 
 dev_dependencies:
+  gpu3d:
+    path: ../../packages/gpu3d
   flutter_test:
     sdk: flutter
   integration_test:

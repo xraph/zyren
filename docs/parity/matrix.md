@@ -76,15 +76,15 @@ it experimental or uses a browser-specific mechanism.
 
 ## Core prerequisites and ownership
 
-This checkout starts at `734fbb9` on `dart-core-api`, which includes `99eb6a1`.
-The active SceneRuntime/native Metal integration worktree is read-only to this
-port. Hosted presentation and its later adapter must be reused after they are
-committed; do not create another bridge or put Earth-specific code into Rust's
-generic renderer.
+This checkout started at `734fbb9` on `dart-core-api`, which includes `99eb6a1`,
+then rebased onto the committed adapter at `748641b` (implementation `29e21e9`).
+The separate core worktree remains untouched. The camera lab uses its public
+`SceneRuntime.nativeMetal()` adapter; no additional presentation bridge or
+Earth-specific Rust rendering path was introduced.
 
 | Gate | Core work | Consumers | Exit evidence |
 | --- | --- | --- | --- |
-| R1 | Completed hosted SceneView adapter, input and lifecycle | All visual slices | Native frames, pointer routing, resize/suspend/dispose, multiple views |
+| R1 | Hosted SceneView adapter available at 29e21e9 | All visual slices | Camera lab passes macOS and iOS simulator Metal pose/resize/cleanup; wider core qualification remains in its checkpoint |
 | R2 | Orthographic camera, rays, bounds, picking, viewport dimensions, key input | Controls, tiles, camera transition | Numerical projections and hit fixtures, widget event replay |
 | R3 | Resource handles, samplers, UVs/tangents, 2D/3D/array/float textures, upload and cancellation | Loaders, PBR, atmosphere/clouds | Validation and actual GPU upload/readback, disposal under failure |
 | R4 | Extensible materials and WGSL pipelines, typed bindings, depth/normal targets, HDR and color management | Atmosphere/effects | Custom plugin pipeline through public APIs, native pixel comparisons |
@@ -137,3 +137,8 @@ headless algorithm tests, native offscreen GPU tests, Flutter presentation,
 simulator execution and physical-device execution are separate gates. The
 existing core's earlier platform results are documented in its checkpoint;
 they are not new evidence for this port.
+
+The [native camera lab](native-camera-lab.md) now verifies the numerical slice
+through real Metal on macOS/iOS simulator and native Vulkan readback on a physical
+Android device. Its calibration scene is not a replacement for any upstream
+story, and the 74 full story comparisons remain unrun.
