@@ -128,9 +128,11 @@ and physical Pixel Vulkan checks pass. Alpha modes, opacity, cutoffs, explicit
 depth policies and render ordering now use native pipeline state with stable
 object sorting. Portable lines/points now use bounded native triangle expansion,
 pixel/world sizes and shared versioned recipes. Native surfaces reuse those
-buffers across camera and size edits. Built-in box/sphere UVs and the final Task 2
-audit remain open. Transparent canvas composition, joined/dashed strokes and
-order-independent transparency remain later renderer work. See
+buffers across camera and size edits. Box faces and sphere seams/poles now have
+UV0 mappings verified with native texture probes. The Task 2 audit leaves the
+premultiplied transparent compositor boundary open, pending the output-pass work
+in Task 4. Joined/dashed strokes and order-independent transparency remain later
+renderer work. See
 [color textures](../../design/gpu-resources.md#color-textures) for the API.
 
 **Files:** Add core `geometry/{vertex_attribute,vertex_layout}.dart`, resource
@@ -151,7 +153,7 @@ JPEG decoding uses pinned zune-jpeg 0.5.15 directly because image's adapter
 disables strict mode and ignores allocation limits. Engine admission accounts
 for its coefficient and row buffers. Retain that audit when changing the pins.
 
-- [ ] Add an indexed quad with a 2x2 corner texture, repeat/clamp samplers and a second UV set. Probe known linear/sRGB values and alpha conversion independently. Add a dirty-range test:
+- [x] Add an indexed quad with a 2x2 corner texture, repeat/clamp samplers and a second UV set. Probe known linear/sRGB values and alpha conversion independently. Add a dirty-range test:
 
 ```dart
 final geometry = BoxGeometry(dynamic: true);
@@ -163,7 +165,7 @@ expect(() => geometry.updateAttribute(VertexSemantic.position,
     Float32List(3), firstVertex: geometry.vertexCount), throwsRangeError);
 ```
 
-- [ ] Run `fvm dart test test/geometry_update_test.dart` and `cargo test --test texture_render --test image_limits`; new format/layout behavior must fail initially. Add compressed-byte limits, truncated PNG/JPEG, malicious dimensions, overflow, unsupported channel formats, mip and row-alignment cases.
+- [x] Run `fvm dart test test/geometry_update_test.dart` and `cargo test --test texture_render --test image_limits`; new format/layout behavior must fail initially. Add compressed-byte limits, truncated PNG/JPEG, malicious dimensions, overflow, unsupported channel formats, mip and row-alignment cases.
 - [ ] Implement attribute validation, index widths, tangent handedness and dirty-range merging. Decode images with strict extent checks plus an engine budget around decoding and output allocation. Decoder limits alone are insufficient because some allocation limits are best effort. [Image limits contract](https://docs.rs/image/0.25.10/image/struct.Limits.html).
 
 ```text
@@ -173,8 +175,26 @@ color: sRGB decode for color images -> linear shading -> output conversion once
 alpha: straight input -> blend semantics -> premultiplied compositor boundary
 ```
 
-- [ ] Add opaque/mask/blend modes, explicit render ordering and transparent depth-write defaults. Test lines and points with portable geometry expansion where wide native primitives are unavailable, including pixel/world size units. Unsupported format/usage returns a typed error.
-- [ ] Run texture/geometry/FFI tests on Metal and available Vulkan/D3D12 hosts, add a textured native example and commit `feat: render textured and dynamic geometry with explicit color rules`.
+- [x] Add opaque/mask/blend modes, explicit render ordering and transparent depth-write defaults. Test lines and points with portable geometry expansion where wide native primitives are unavailable, including pixel/world size units. Unsupported format/usage returns a typed error.
+- [x] Run texture/geometry/FFI tests on Metal and available Vulkan/D3D12 hosts, add a textured native example and commit `feat: render textured and dynamic geometry with explicit color rules`.
+
+### Task 2 audit
+
+| Requirement | Current evidence |
+| --- | --- |
+| Texture corners, wrap/filter, UV0/UV1 and linear/sRGB probes | `texture_render_test.dart`, native `texture_render.rs` and the textured SceneView integration |
+| Dynamic attribute validation, journal merging, shared captures and index widths | Core geometry/index tests, native geometry update tests, malformed packet tests and Metal/Pixel integrations |
+| Bounded PNG/JPEG decode and typed errors | `image_decoder_test.dart`, native `image_limits.rs`/`image_abi.rs`, Flutter decoder integration |
+| Native mipmaps and ownership | Native mip fixtures, explicit scope regeneration, odd extents, alpha-weighted filtering and Metal/Pixel integrations |
+| Alpha modes, depth, ordering and portable primitives | Material and primitive pixel fixtures plus direct native presentation on Metal/Pixel |
+| Built-in UVs | Six box-face corner probes and four sphere quadrants on Metal/Pixel; seam/pole and dynamic UV tests |
+| Transparent premultiplied compositor boundary | Open. Current presentation is opaque; implement and qualify transparent output during Task 4 |
+
+The implementation arrived in focused local commits listed in Git history and
+`docs/verification.md`. The native test hosts available here are Metal and the
+Pixel's Vulkan backend. D3D12 qualification remains open. Task 3 can proceed with
+the existing textured material path while the compositor requirement stays
+tracked above.
 
 ## Task 3: Typed asset loading and glTF models
 

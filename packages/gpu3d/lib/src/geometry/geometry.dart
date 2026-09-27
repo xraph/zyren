@@ -240,7 +240,7 @@ class BoxGeometry extends BufferGeometry {
     if ([width, height, depth].any((v) => !v.isFinite || v <= 0)) {
       throw ArgumentError('Box dimensions must be finite and positive.');
     }
-    final p = <double>[], n = <double>[];
+    final p = <double>[], n = <double>[], uv = <double>[];
     final indices = <int>[];
     final corners = [
       [1.0, -1.0, -1.0, 1.0, 1.0, -1.0, 1.0, 1.0, 1.0, 1.0, -1.0, 1.0],
@@ -267,20 +267,27 @@ class BoxGeometry extends BufferGeometry {
         ]);
         n.addAll(faceNormals[f]);
       }
+      uv.addAll(switch (f) {
+        0 || 1 => [1, 1, 1, 0, 0, 0, 0, 1],
+        2 || 3 => [0, 0, 0, 1, 1, 1, 1, 0],
+        _ => [0, 1, 1, 1, 1, 0, 0, 0],
+      });
       final o = f * 4;
       indices.addAll([o, o + 1, o + 2, o, o + 2, o + 3]);
     }
-    return BoxGeometry._(p, n, indices, dynamic, indexFormat);
+    return BoxGeometry._(p, n, uv, indices, dynamic, indexFormat);
   }
   BoxGeometry._(
     List<double> p,
     List<double> n,
+    List<double> uv,
     List<int> i,
     bool dynamic,
     IndexFormat indexFormat,
   ) : super(
         positions: p,
         normals: n,
+        uv0: uv,
         indices: i,
         dynamic: dynamic,
         indexFormat: indexFormat,
@@ -303,19 +310,29 @@ class SphereGeometry extends BufferGeometry {
         (widthSegments + 1) * (heightSegments + 1) > 1000000) {
       throw ArgumentError('Invalid sphere radius or segment count.');
     }
-    final p = <double>[], n = <double>[];
+    final p = <double>[], n = <double>[], uv = <double>[];
     final indices = <int>[];
     for (var y = 0; y <= heightSegments; y++) {
       final phi = math.pi * y / heightSegments;
       for (var x = 0; x <= widthSegments; x++) {
-        final theta = 2 * math.pi * x / widthSegments;
+        final theta = x == widthSegments
+            ? 0.0
+            : 2 * math.pi * x / widthSegments;
+        final atPole = y == 0 || y == heightSegments;
         final normal = [
-          math.sin(phi) * math.cos(theta),
+          atPole ? 0.0 : math.sin(phi) * math.cos(theta),
           math.cos(phi),
-          math.sin(phi) * math.sin(theta),
+          atPole ? 0.0 : math.sin(phi) * math.sin(theta),
         ];
         n.addAll(normal);
         p.addAll(normal.map((v) => v * radius));
+        // Each used pole vertex takes the midpoint U of its cap triangle.
+        final u = y == 0 && x > 0
+            ? (x - .5) / widthSegments
+            : y == heightSegments && x < widthSegments
+            ? (x + .5) / widthSegments
+            : x / widthSegments;
+        uv.addAll([u, y / heightSegments]);
       }
     }
     for (var y = 0; y < heightSegments; y++) {
@@ -325,17 +342,19 @@ class SphereGeometry extends BufferGeometry {
         if (y < heightSegments - 1) indices.addAll([a + 1, b + 1, b]);
       }
     }
-    return SphereGeometry._(p, n, indices, dynamic, indexFormat);
+    return SphereGeometry._(p, n, uv, indices, dynamic, indexFormat);
   }
   SphereGeometry._(
     List<double> p,
     List<double> n,
+    List<double> uv,
     List<int> i,
     bool dynamic,
     IndexFormat indexFormat,
   ) : super(
         positions: p,
         normals: n,
+        uv0: uv,
         indices: i,
         dynamic: dynamic,
         indexFormat: indexFormat,

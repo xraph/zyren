@@ -12,7 +12,7 @@ void main() {
     size: PhysicalSize(31, 31),
   );
   final first = encoder.encode(capture());
-  if (first.uploadedBytes != 720 || first.changedMeshes != 1) {
+  if (first.uploadedBytes != 1104 || first.changedMeshes != 1) {
     throw StateError('First frame did not include the box.');
   }
   encoder.accept(first);

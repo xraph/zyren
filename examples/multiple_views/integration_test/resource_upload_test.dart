@@ -96,14 +96,14 @@ void main() {
         ]);
         expect(
           frames.fold(0, (sum, frame) => sum + frame.stats.uploadedBytes),
-          720,
+          1104,
         );
         mesh.position = const Vec3(.1, 0, 0);
         expect((await second.render(capture())).stats.uploadedBytes, 0);
         mesh.visible = false;
         await second.render(capture());
         await first.close();
-        expect((await second.resourceStats()).residentBytes, 720);
+        expect((await second.resourceStats()).residentBytes, 1104);
         mesh.visible = true;
         final restored = await second.render(capture()) as ReadbackOutput;
         final center = (15 * 31 + 15) * 4;

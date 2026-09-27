@@ -96,10 +96,10 @@ void main() {
         ]);
         expect(
           (await backend.resourceStats()).uploadedBytes,
-          stats.uploadedBytes + 720,
+          stats.uploadedBytes + 1104,
         );
         await second.close();
-        expect((await backend.resourceStats()).residentBytes, 720);
+        expect((await backend.resourceStats()).residentBytes, 1104);
       } on SceneException catch (error) {
         fail('${error.issue}: ${error.issue.cause}');
       } finally {

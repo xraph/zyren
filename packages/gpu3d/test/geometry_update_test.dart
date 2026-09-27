@@ -210,7 +210,7 @@ void main() {
     }
     expect(geometry.capture().history, hasLength(64));
     final latest = encoder.encode(capture());
-    expect(latest.uploadedBytes, 720);
+    expect(latest.uploadedBytes, 1104);
     encoder.accept(latest);
     expect(encoder.encode(capture()).uploadedBytes, 0);
     final revision = geometry.revision;

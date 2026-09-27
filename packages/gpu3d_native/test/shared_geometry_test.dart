@@ -27,15 +27,15 @@ void main() {
         ]);
         expect(
           outputs.map((o) => o.stats.uploadedBytes).reduce((a, b) => a + b),
-          720,
+          1104,
         );
-        expect((await first.resourceStats()).residentBytes, 720);
+        expect((await first.resourceStats()).residentBytes, 1104);
         mesh.position = const Vec3(.1, 0, 0);
         expect((await second.render(frame())).stats.uploadedBytes, 0);
         mesh.visible = false;
         await second.render(frame());
         await first.close();
-        expect((await second.resourceStats()).residentBytes, 720);
+        expect((await second.resourceStats()).residentBytes, 1104);
         mesh.visible = true;
         final restored = await second.render(frame()) as ReadbackOutput;
         expect(restored.stats.uploadedBytes, 0);

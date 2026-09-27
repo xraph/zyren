@@ -315,6 +315,23 @@ meshes when you need a reliable order; order-independent transparency remains
 future renderer work. The canvas is currently opaque. Transparent Flutter
 composition still needs a separate output color-conversion path.
 
+## Built-in texture coordinates
+
+`PlaneGeometry`, `BoxGeometry` and `SphereGeometry` include UV0, so you can attach
+a `TextureMap` without supplying coordinates. Box faces each use the full image.
+Side faces keep world +Y at the image top; the +Y and -Y faces use -Z and +Z as
+their image-up directions.
+
+The Y-up sphere uses longitude for U and north-to-south latitude for V. Its seam
+is at +X, with U increasing toward +Z. Seam vertices share exact positions but
+retain U=0 and U=1 separately. Each pole triangle has its own pole vertex with U
+at the midpoint of its two non-pole vertices.
+
+UVs remain available when you create a geometry with `dynamic: true`. Captures
+retain their previous coordinates after edits. A uint32 box now occupies 1,104
+native geometry bytes, including the packed UV buffer, even with an untextured
+material; switching to a textured material can reuse that same geometry.
+
 ## Lines and points
 
 You can draw connected paths, independent segment pairs and camera-facing markers:

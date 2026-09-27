@@ -593,3 +593,23 @@ caps, dashes, textured sprites and antialiased edge coverage remain open. Object
 alpha sorting does not reorder individual points or segments. Built-in box/sphere
 UVs are next, before the final Task 2 audit and asset loading. This checkpoint adds
 no iOS, Windows, Linux or Adreno qualification.
+
+## Built-in texture coordinates
+
+Box and sphere UVs pass 75 core, 8 geospatial and 28 native Dart GPU tests.
+The same texture fixture passes through Flutter on Metal and the physical
+Pixel's Vulkan backend. Six box faces preserve their expected image orientation;
+four sphere quadrants sample the expected north/south colors. CPU tests cover
+exact seam positions, pole UV midpoints and dynamic UV edits. Analysis,
+formatting and package/header boundary checks pass.
+
+The three existing resource integrations also pass on both devices. A uint32
+box now uploads 1,104 geometry bytes, including its UV buffer. The native
+shared-view example confirms that another view and device restoration reuse
+the allocation, then final removal returns geometry residency to zero. Camera
+changes in the new texture fixture upload no additional bytes.
+
+This checkpoint changes geometry recipes and their allocation accounting. It
+adds no renderer backend or platform qualification. Task 2's opaque native
+presentation is unchanged; transparent Flutter composition remains tracked in
+Task 4. Typed asset loading and glTF are next.

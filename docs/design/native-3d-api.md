@@ -421,7 +421,7 @@ that controller again. Instantiation from a released template fails explicitly.
 The common path is `StandardMaterial`: linear `baseColor`, optional base-color,
 normal, metallic/roughness, occlusion and emissive textures; metallic, roughness,
 emissive intensity, alpha mode, cutoff, sidedness and depth settings. Also provide
-`UnlitMaterial`, `LineMaterial`, `PointMaterial` and advanced `ShaderMaterial`.
+`UnlitMaterial`, `LineMaterial`, `PointsMaterial` and advanced `ShaderMaterial`.
 The current `MeshMaterial` migrates to `DiffuseMaterial` or `UnlitMaterial`.
 
 Texture descriptions declare dimension, format, color space, usage, mip levels
