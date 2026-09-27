@@ -69,6 +69,13 @@ Use an iOS device ID for the simulator. This runtime is opt-in while physical
 devices, OS input and composition are being qualified. See the
 [Apple checkpoint](docs/apple-presentation-checkpoint.md) for evidence and limits.
 
+For the Android Vulkan surface fixture, run
+`flutter run --release -d <device-id> -t lib/android_surface_demo.dart` from the
+same example folder. It draws native GPU textures through SurfaceProducer and
+has passed physical-device lifecycle checks on a Pixel 9 Pro. The public Android
+SceneView adapter remains planned. See the
+[Android checkpoint](docs/android-presentation-checkpoint.md).
+
 ## Use the 3D package
 
 Add a path dependency on `packages/flutter_gpu3d` while working in this checkout.

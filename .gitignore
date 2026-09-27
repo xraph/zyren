@@ -3,6 +3,7 @@
 .DS_Store
 build/
 target/
+.cxx/
 **/ephemeral/
 **/Flutter/Generated.xcconfig
 **/Flutter/flutter_export_environment.sh

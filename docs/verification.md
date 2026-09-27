@@ -7,7 +7,7 @@ Rust 1.97.1 and Xcode 27.0.
 | --- | --- | --- |
 | macOS ARM64 | Debug and release apps passed | Apple M3 Max / Metal pixel tests, Dart FFI tests and Flutter integration test passed; globe and wrapping controls inspected in desktop and narrow native windows; standalone release launch rendered without a development runner |
 | iOS ARM64 simulator | Debug app passed | iPhone 17 Pro simulator on iOS 26.0 passed the Flutter integration test with a rendered native image |
-| Android ARM64 | Debug APK passed | No device run yet |
+| Android ARM64 | Debug and release APKs passed | Pixel 9 Pro / Mali-G715 Vulkan surface fixture passes 100 resizes and 100 create/remove cycles with zero presentation readback; public SceneView and visible composition remain open |
 | iOS physical device | Build target configured | Signing, device deployment and GPU behaviour not verified |
 | Windows | Build hook and CI job configured | No Windows host build or runtime verification yet |
 | Linux | Build hook and CI job configured | No Linux host build or runtime verification yet |
@@ -324,3 +324,18 @@ both cameras render, mesh edits update the display, and the left view closes and
 reopens while the right remains active. The app is left running. The iOS
 simulator demo was relaunched and its narrow layout was inspected in
 `artifacts/ios-native-scene.png`. That local screenshot is a run artifact.
+
+## Native lifecycle and Android surface follow-up
+
+Four deterministic Apple race scenarios now pass on macOS and iOS simulator:
+close during creation, dispose before attachment, delayed attachment across
+remount and dispose during native frame completion. Ownership returns to zero;
+stale work cannot publish. These gates are absent from the macOS release binary.
+
+The Android native surface fixture passes on the physical Pixel 9 Pro, with
+100 resizes, portrait/landscape requests, replacement, suspension and 100
+create/remove cycles. Two release surfaces each exceed 2,940 submitted frames with zero
+readback. The phone's keyguard currently prevents visible composition checks.
+The 21 Rust GPU/ownership tests and 51 Flutter/example tests pass, as do analyzer
+and package boundaries. See the [Android checkpoint](android-presentation-checkpoint.md)
+for commands, toolchain details and remaining platform gates.

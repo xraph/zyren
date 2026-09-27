@@ -48,7 +48,7 @@ pub struct RenderCounters {
     pub submitted_frames: u64,
     pub readback_bytes: u64,
 }
-#[cfg(target_vendor = "apple")]
+#[cfg(any(target_vendor = "apple", target_os = "android"))]
 struct DepthTarget {
     width: u32,
     height: u32,
@@ -71,13 +71,21 @@ pub struct Renderer {
 #[doc(hidden)]
 pub struct RendererState {
     pub(crate) device: wgpu::Device,
-    queue: wgpu::Queue,
+    pub(crate) queue: wgpu::Queue,
+    #[cfg(target_os = "android")]
+    pub(crate) instance: wgpu::Instance,
+    #[cfg(target_os = "android")]
+    pub(crate) adapter: wgpu::Adapter,
+    #[cfg(target_os = "android")]
+    pub(crate) android: Option<crate::interop::android::AndroidTarget>,
+    #[cfg(target_os = "android")]
+    pub(crate) android_generation: u64,
     pipeline: wgpu::RenderPipeline,
-    #[cfg(target_vendor = "apple")]
+    #[cfg(any(target_vendor = "apple", target_os = "android"))]
     surface_pipeline: wgpu::RenderPipeline,
-    #[cfg(target_vendor = "apple")]
+    #[cfg(any(target_vendor = "apple", target_os = "android"))]
     surface_depth: Option<DepthTarget>,
-    #[cfg(target_vendor = "apple")]
+    #[cfg(any(target_vendor = "apple", target_os = "android"))]
     failed_surface: Option<wgpu::Texture>,
     #[cfg(target_vendor = "apple")]
     pub(crate) drawable_owner: Option<crate::interop::metal::DrawableOwner>,
@@ -89,6 +97,17 @@ pub struct RendererState {
     pub adapter_name: String,
     pub backend: wgpu::Backend,
     _permit: crate::retirement::DevicePermit,
+}
+#[cfg(target_os = "android")]
+impl Drop for RendererState {
+    fn drop(&mut self) {
+        // Failed sessions reach this on the bounded retirement worker. Keep the
+        // acquired image, swapchain and native window alive until GPU idle/loss.
+        let _ = self.device.poll(wgpu::PollType::Wait {
+            submission_index: None,
+            timeout: None,
+        });
+    }
 }
 impl std::ops::Deref for Renderer {
     type Target = RendererState;
@@ -204,18 +223,26 @@ impl Renderer {
             })
         };
         let pipeline = create_pipeline(wgpu::TextureFormat::Rgba8UnormSrgb);
-        #[cfg(target_vendor = "apple")]
+        #[cfg(any(target_vendor = "apple", target_os = "android"))]
         let surface_pipeline = create_pipeline(wgpu::TextureFormat::Bgra8UnormSrgb);
         Ok(Self {
             state: Some(Box::new(RendererState {
                 device,
                 queue,
+                #[cfg(target_os = "android")]
+                instance,
+                #[cfg(target_os = "android")]
+                adapter,
+                #[cfg(target_os = "android")]
+                android: None,
+                #[cfg(target_os = "android")]
+                android_generation: 0,
                 pipeline,
-                #[cfg(target_vendor = "apple")]
+                #[cfg(any(target_vendor = "apple", target_os = "android"))]
                 surface_pipeline,
-                #[cfg(target_vendor = "apple")]
+                #[cfg(any(target_vendor = "apple", target_os = "android"))]
                 surface_depth: None,
-                #[cfg(target_vendor = "apple")]
+                #[cfg(any(target_vendor = "apple", target_os = "android"))]
                 failed_surface: None,
                 #[cfg(target_vendor = "apple")]
                 drawable_owner: None,
@@ -472,7 +499,7 @@ impl Renderer {
         })
     }
 
-    #[cfg(target_vendor = "apple")]
+    #[cfg(any(target_vendor = "apple", target_os = "android"))]
     pub(crate) fn render_to_surface(
         &mut self,
         frame: &Frame,
@@ -512,7 +539,11 @@ impl Renderer {
             frame,
             &texture.create_view(&Default::default()),
             &self.surface_depth.as_ref().unwrap().view,
-            &self.surface_pipeline,
+            if texture.format() == wgpu::TextureFormat::Rgba8UnormSrgb {
+                &self.pipeline
+            } else {
+                &self.surface_pipeline
+            },
         );
         let result = self
             .submit(encoder)

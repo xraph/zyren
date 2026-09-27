@@ -1,4 +1,6 @@
 pub mod abi;
+#[cfg(target_os = "android")]
+pub mod android;
 pub mod apple;
 mod leases;
 #[cfg(target_vendor = "apple")]

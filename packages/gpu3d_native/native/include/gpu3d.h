@@ -79,6 +79,17 @@ uint32_t fg2_surface_snapshot(Fg2SurfaceKey key, Fg2SurfaceSnapshot *output,
                              Fg2Error *error);
 /* This is an identity token, not a pointer or an authorization credential. */
 uint64_t fg2_runtime_token(void);
+#ifdef __ANDROID__
+/* Experimental native-only Vulkan surface bridge. ANativeWindow stays native.
+ * Render returns 1 on completion, 2 to retry acquisition, or 0 with fg_last_error.
+ * Callers serialize attach/render/present/detach per renderer.
+ */
+uint32_t fg_android_attach(uint64_t renderer, void *window, uint32_t width, uint32_t height);
+uint32_t fg_android_render(uint64_t renderer, const uint8_t *json, size_t length);
+uint32_t fg_android_present(uint64_t renderer);
+uint32_t fg_android_detach(uint64_t renderer);
+size_t fg_android_info(uint64_t renderer, uint8_t *buffer, size_t capacity);
+#endif
 /* Reserves metadata only. Platform adapters activate it after GPU setup. */
 uint32_t fg2_surface_create(const Fg2SurfaceDescriptor *descriptor,
                            Fg2SurfaceSnapshot *output, Fg2Error *error);
