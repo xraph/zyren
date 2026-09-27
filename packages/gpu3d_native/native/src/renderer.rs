@@ -79,7 +79,9 @@ pub struct RendererState {
     surface_depth: Option<DepthTarget>,
     #[cfg(target_vendor = "apple")]
     failed_surface: Option<wgpu::Texture>,
-    failure: Option<String>,
+    #[cfg(target_vendor = "apple")]
+    pub(crate) drawable_owner: Option<crate::interop::metal::DrawableOwner>,
+    pub(crate) failure: Option<String>,
     counters: RenderCounters,
     layout: wgpu::BindGroupLayout,
     geometries: HashMap<u32, GpuGeometry>,
@@ -215,6 +217,8 @@ impl Renderer {
                 surface_depth: None,
                 #[cfg(target_vendor = "apple")]
                 failed_surface: None,
+                #[cfg(target_vendor = "apple")]
+                drawable_owner: None,
                 failure: None,
                 counters: RenderCounters::default(),
                 layout,

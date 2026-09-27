@@ -13,8 +13,8 @@ Pod::Spec.new do |s|
   s.osx.dependency 'FlutterMacOS'
   s.ios.deployment_target = '13.0'
   s.osx.deployment_target = '10.15'
-  s.ios.frameworks = 'CoreVideo', 'Flutter'
-  s.osx.frameworks = 'CoreVideo', 'FlutterMacOS'
+  s.ios.frameworks = 'CoreVideo', 'Metal', 'QuartzCore', 'Flutter'
+  s.osx.frameworks = 'CoreVideo', 'Metal', 'QuartzCore', 'FlutterMacOS'
   s.requires_arc = true
   s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES', 'CLANG_CXX_LANGUAGE_STANDARD' => 'c++17' }
 end

@@ -1,6 +1,11 @@
 # Apple presentation checkpoint
 
-The experimental bridge can render Metal content into a Flutter `Texture`
+The CAMetalLayer platform-view prototype sustains native rendering on macOS and
+the iOS simulator, passes repeated cleanup and matches a Flutter composition
+reference on iOS. It remains a development fixture; the next step is connecting
+it to the public scene controller and qualifying platform input and devices.
+
+The earlier experimental texture bridge can render Metal content into a Flutter `Texture`
 without sending frame pixels through Dart. It is disabled by default. Flutter's
 Core Video texture cache retains old IOSurfaces and blocks the three-buffer
 budget after a few frames, so this is an interoperability proof, not a qualified
@@ -80,26 +85,87 @@ result does not pass the continued-rendering or cleanup qualification gates.
 The [standalone probe](../experiments/apple_presentation/README.md) records the
 cache and GPU lifetime behavior independently.
 
-## Next proof
+## Native Metal view proof
+
+A separate `gpu3d/metal-proof` platform view drives a CAMetalLayer through the
+existing Rust renderer. You can run it from `examples/multiple_views`:
+
+```sh
+flutter run -d macos -t lib/metal_view_demo.dart
+flutter test integration_test/metal_view_test.dart -d macos
+```
+
+Use your iOS device ID in place of `macos` for the simulator. The proof uses public
+AppKitView/UiKitView embedding APIs and the same loaded Rust runtime. It does not
+pass rendered pixels through Dart. Metal owns a three-drawable pool; one producer
+per view acquires and renders on a serial native queue. Publication runs on the
+platform thread after successful GPU completion, where resize, suspension and
+close can reject an old frame. A failed submission retains the entire drawable
+with the renderer until GPU retirement, so its storage cannot return to the
+display pool while work still owns it.
+
+Both macOS and the iOS 26.0 simulator pass independent two-view rendering beyond
+the buffer count, exact physical resize, suspension of one view while the other
+continues, and 100 create/remove cycles. Every cycle returns to zero live and
+retiring renderers, zero native view sessions and zero adapter-held drawables. A rejected scene exposes its
+error and releases ownership. Readback diagnostics query the renderer itself;
+a native regression verifies that an explicit 512-byte capture changes that
+counter instead of accepting a constant zero.
+
+The demo compares a native four-corner scene and gray patch with Flutter widgets,
+then applies the same opacity, rotation and rounded clipping to both columns.
+Use an OS screenshot for this comparison. Flutter widget raster captures do not
+include the native platform view hierarchy. The fixture only has opaque native
+materials; Flutter layer opacity does not establish native material-alpha support.
+
+The iPhone 17 Pro simulator screenshot passes
+`python3 tool/verify_metal_composition.py artifacts/ios-metal-view-proof.png`
+from the repository root (Python with Pillow). The five plain interior samples
+match exactly. For the transformed view, 99% of pixels differ from the reference
+by at most one channel value, and 0.87% differ by more than two, primarily along
+rasterized edges. The comparison permits less than 1% of those edge differences;
+it does not claim bit-identical rasterization.
+
+A standalone macOS release smoke run rendered 884 frames across two views, with
+zero renderer readback bytes, then closed at zero live/retiring renderers and
+zero native view sessions and held drawables. You can reproduce it from `examples/multiple_views`:
+
+```sh
+flutter build macos --release -t lib/metal_view_demo.dart --dart-define=METAL_PROOF_SMOKE=true
+build/macos/Build/Products/Release/multiple_views.app/Contents/MacOS/multiple_views
+```
+
+The smoke mode exits after checking rendering and removal. Omit the Dart define
+when running the interactive demo. The locked desktop prevents foreground visual
+inspection on macOS, so its composition still needs a visible OS capture.
+
+This is an ownership and composition experiment. It is not yet a SceneView
+presenter: scene updates, render hooks, pointer routing, visibility policy and
+capability selection still need a controller adapter. The native-only FFI
+functions accept retained Metal objects from the platform plugin; pointers never
+cross the Dart channel. The default backend remains unchanged.
+
+## Next implementation
 
 Keep the public scene API and optional geospatial plugin unchanged. Prove a
 supported presentation contract that permits prompt consumer retirement. The
-next candidate is a native CAMetalLayer platform view whose drawable lifecycle
-is owned by Metal. Verify Flutter opacity, clipping, transforms, input, resize
-and removal before selecting it. Any texture alternative must establish an
+CAMetalLayer proof now covers continuous ownership and removal. Complete the
+composition checks, then connect it through an explicit native-view presentation
+path with the existing scene controller. Verify input and visibility before
+selecting it automatically. Any texture alternative must establish an
 explicit consumer lifetime guarantee; private engine selectors are not part of
 the library design.
 
-Then repeat continuous rendering, 100 route transitions, two views, release
-runtime identity, four-corner color and alpha composition fixtures, and physical
-iOS testing. Android SurfaceProducer/Vulkan and Windows DXGI remain independent
+Then qualify native alpha composition, platform input, physical iOS and
+visible macOS composition. The proof already covers sustained rendering, 100
+create/remove cycles, two views and macOS release runtime identity. Android SurfaceProducer/Vulkan and Windows DXGI remain independent
 plan tasks. Three.js feature parity, assets/materials/animation and the full
 geospatial port remain later milestones.
 
 ## Checks run
 
 The checkpoint passes 50 core/geospatial tests, 46 Flutter and executable-example
-tests, 11 native Dart tests, and 20 Rust tests with real GPU cases enabled.
+tests, 11 native Dart tests, and 21 Rust tests with real GPU cases enabled.
 Analyzer, Clippy, formatting and the package/header boundary check pass.
 The existing macOS two-view integration passes through explicit readback.
 The experimental texture characterization passes on macOS and iPhone 17 Pro

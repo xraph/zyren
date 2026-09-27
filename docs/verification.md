@@ -256,3 +256,33 @@ The two-camera demo was launched in the iPhone simulator and its rendered views
 were inspected in a simulator capture. That app uses explicit native RGBA
 readback presentation. A macOS foreground launch remains blocked by the locked
 desktop; automated native macOS integrations still run.
+
+
+## Native Metal platform view proof
+
+The experimental AppKitView/UiKitView adapter renders a static core scene into
+CAMetalLayer drawables through Rust. Both macOS and the iOS 26.0 simulator pass
+three integrations: two simultaneous views with resize and independent
+suspension; 100 create/remove cycles returning to the ownership baseline; and a
+rejected scene with an observable error and complete renderer cleanup.
+Presentation reports zero renderer readback bytes. The 21 Rust tests include an
+explicit capture that changes the adapter's readback diagnostic by 512 bytes,
+which guards against a hardcoded zero.
+
+The iOS OS screenshot compares actual native pixels against Flutter reference
+widgets. Four corner colors and gray match exactly. With 50% Flutter opacity,
+rotation and rounded clipping, 99% of pixels differ by at most one channel value.
+The screenshot checker permits fewer than 1% of pixels to differ by more than
+two for rasterized edges; the capture measured 0.87%. Native material alpha is
+not implemented by this fixture.
+
+The standalone macOS release smoke rendered 884 frames across two views and
+returned to zero live/retiring renderers and held drawables after removal. It
+uses the loaded Rust native asset's runtime identity. The simulator demo is
+running for visual inspection. macOS foreground inspection remains unavailable
+on the locked desktop. See the [commands and limits](apple-presentation-checkpoint.md).
+
+This proof does not yet implement SceneView presentation, scene updates, plugin
+hooks, pointer delivery or complete visibility/recovery policy. Default backend
+capabilities stay unchanged. Physical iOS qualification, Android and Windows
+presentation, and Swift Package Manager packaging remain open.

@@ -1,9 +1,110 @@
 use crate::{renderer::Renderer, scene::Frame};
-use objc2::{rc::Retained, runtime::ProtocolObject};
+use objc2::{
+    rc::Retained,
+    runtime::{AnyObject, ProtocolObject},
+};
 use objc2_metal::{
     MTLCommandBuffer, MTLCommandBufferStatus, MTLDevice, MTLPixelFormat, MTLResource, MTLTexture,
     MTLTextureType, MTLTextureUsage,
 };
+
+/// Keeps the display pool's lease alive through failed GPU retirement.
+pub(crate) struct DrawableOwner(#[allow(dead_code)] Retained<AnyObject>);
+// SAFETY: callers pass a Metal drawable whose retain/release is thread safe.
+// The object is never messaged here; Renderer serializes all GPU access.
+unsafe impl Send for DrawableOwner {}
+
+/// Native adapter only. The caller releases the returned +1 MTLDevice reference.
+#[unsafe(no_mangle)]
+pub extern "C" fn fg_metal_copy_device(handle: u64) -> *mut std::ffi::c_void {
+    crate::guard(|| {
+        let renderer = crate::registry()
+            .lock()
+            .map_err(|_| "registry poisoned")?
+            .get(&handle)
+            .cloned()
+            .ok_or("invalid renderer")?;
+        let renderer = renderer.lock().map_err(|_| "renderer poisoned")?;
+        Ok(Retained::into_raw(renderer.metal_device()?).cast())
+    })
+}
+
+/// CPU pixel transfer bytes for a native adapter's renderer.
+#[unsafe(no_mangle)]
+pub extern "C" fn fg_metal_readback_bytes(handle: u64) -> u64 {
+    crate::guard(|| {
+        let renderer = crate::registry()
+            .lock()
+            .map_err(|_| "registry poisoned")?
+            .get(&handle)
+            .cloned()
+            .ok_or("invalid renderer")?;
+        let renderer = renderer.lock().map_err(|_| "renderer poisoned")?;
+        Ok(renderer.counters().readback_bytes)
+    })
+}
+
+/// Renders into a native adapter's drawable without reading pixels on the CPU.
+/// Returns 1 on success; otherwise use fg_last_error on this thread and dispose.
+///
+/// # Safety
+/// `json` addresses `length` readable bytes. `texture` is a live MTLTexture and
+/// `owner` is its live CAMetalDrawable. Both support retain/release on any thread.
+/// The caller grants exclusive texture access until success. On failure, Rust
+/// retains the drawable until renderer retirement has released GPU ownership.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn fg_metal_render_texture(
+    handle: u64,
+    json: *const u8,
+    length: usize,
+    texture: *mut std::ffi::c_void,
+    owner: *mut std::ffi::c_void,
+) -> u32 {
+    crate::guard(|| {
+        if json.is_null()
+            || texture.is_null()
+            || owner.is_null()
+            || length == 0
+            || length > 128 * 1024 * 1024
+        {
+            return Err("invalid native drawable input".into());
+        }
+        let renderer = crate::registry()
+            .lock()
+            .map_err(|_| "registry poisoned")?
+            .get(&handle)
+            .cloned()
+            .ok_or("invalid renderer")?;
+        let frame: Frame =
+            serde_json::from_slice(unsafe { std::slice::from_raw_parts(json, length) })
+                .map_err(|error| format!("invalid scene: {error}"))?;
+        let mut renderer = renderer.lock().map_err(|_| "renderer poisoned")?;
+        if let Some(error) = &renderer.failure {
+            return Err(error.clone());
+        }
+        // SAFETY: the caller owns both objects throughout this call. Retain an
+        // independent drawable lease before any work can reach the GPU.
+        renderer.drawable_owner = Some(DrawableOwner(
+            unsafe { Retained::retain(owner.cast::<AnyObject>()) }.unwrap(),
+        ));
+        let texture =
+            unsafe { Retained::retain(texture.cast::<ProtocolObject<dyn MTLTexture>>()) }.unwrap();
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| unsafe {
+            renderer.render_to_metal(&frame, texture)
+        }))
+        .unwrap_or_else(|_| Err("Metal drawable rendering panicked".into()));
+        match result {
+            Ok(()) => {
+                renderer.drawable_owner = None;
+                Ok(1)
+            }
+            Err(error) => {
+                renderer.failure = Some(error.clone());
+                Err(error)
+            }
+        }
+    })
+}
 
 pub(crate) struct MetalCompletion(Vec<Retained<ProtocolObject<dyn MTLCommandBuffer>>>);
 impl MetalCompletion {

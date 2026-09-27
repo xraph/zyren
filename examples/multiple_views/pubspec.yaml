@@ -8,6 +8,8 @@ environment:
 dependencies:
   gpu3d:
     path: ../../packages/gpu3d
+  gpu3d_native:
+    path: ../../packages/gpu3d_native
   flutter:
     sdk: flutter
   flutter_gpu3d:

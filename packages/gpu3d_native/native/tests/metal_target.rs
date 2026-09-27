@@ -88,3 +88,46 @@ fn renders_into_consumer_texture_without_readback() {
     assert_eq!(&readback[center..center + 4], &[255, 0, 0, 255]);
     assert_eq!(renderer.counters().readback_bytes, 11844);
 }
+
+#[test]
+#[ignore = "requires a native Metal device"]
+fn adapter_counter_observes_actual_renderer_readback() {
+    use gpu3d_runtime::{
+        fg_create, fg_destroy, fg_render,
+        interop::metal::{fg_metal_copy_device, fg_metal_readback_bytes},
+    };
+    use objc2::{rc::Retained, runtime::ProtocolObject};
+    let handle = fg_create();
+    assert_ne!(handle, 0);
+    let device = unsafe {
+        Retained::from_raw(fg_metal_copy_device(handle).cast::<ProtocolObject<dyn MTLDevice>>())
+    }
+    .unwrap();
+    assert!(fg_metal_copy_device(u64::MAX).is_null());
+    assert_eq!(fg_metal_readback_bytes(handle), 0);
+    let frame = serde_json::to_vec(&json!({
+        "version": 1, "view_projection": glam::Mat4::IDENTITY.to_cols_array(),
+        "background": [1, 0, 0], "light_direction": [0, 0, 1], "ambient": 1,
+        "geometries": [], "meshes": []
+    }))
+    .unwrap();
+    let mut pixels = vec![0; 16 * 8 * 4];
+    assert_eq!(
+        unsafe {
+            fg_render(
+                handle,
+                frame.as_ptr(),
+                frame.len(),
+                16,
+                8,
+                pixels.as_mut_ptr(),
+                pixels.len(),
+            )
+        },
+        1
+    );
+    assert_eq!(&pixels[..4], &[255, 0, 0, 255]);
+    assert_eq!(fg_metal_readback_bytes(handle), 512);
+    assert_eq!(fg_destroy(handle), 1);
+    drop(device);
+}

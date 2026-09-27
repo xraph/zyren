@@ -15,7 +15,7 @@ EXTERNAL SOURCES:
     :path: Flutter/ephemeral
 
 SPEC CHECKSUMS:
-  flutter_gpu3d: 6f4304fa243084ee6d31424bd38563459d40c92e
+  flutter_gpu3d: c2e4461ab0f8adaaadd1c8a39d73b095f5282bf0
   FlutterMacOS: c232990155153907050900a2e175c7773903ba4e
 
 PODFILE CHECKSUM: 1e95c36afbfd1cb6423ceca4de7a8e1b256fb6ac
