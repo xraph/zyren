@@ -93,6 +93,7 @@ pub struct RendererState {
     counters: RenderCounters,
     layout: wgpu::BindGroupLayout,
     geometries: HashMap<u32, GpuGeometry>,
+    resources: crate::resources::ResourceStore,
     targets: Option<Targets>,
     pub adapter_name: String,
     pub backend: wgpu::Backend,
@@ -250,12 +251,42 @@ impl Renderer {
                 counters: RenderCounters::default(),
                 layout,
                 geometries: HashMap::new(),
+                resources: crate::resources::ResourceStore::default(),
                 targets: None,
                 adapter_name: info.name,
                 backend: info.backend,
                 _permit: permit,
             })),
         })
+    }
+
+    pub fn resource_command(
+        &mut self,
+        bytes: &[u8],
+        capacity: usize,
+    ) -> Result<Vec<u8>, crate::resources::ResourceError> {
+        use crate::resources::ResourceError;
+        if self.failure.is_some() {
+            return Err(ResourceError::DeviceFailed);
+        }
+        let state = self.state.as_mut().unwrap();
+        let validation = state.device.push_error_scope(wgpu::ErrorFilter::Validation);
+        let memory = state
+            .device
+            .push_error_scope(wgpu::ErrorFilter::OutOfMemory);
+        let internal = state.device.push_error_scope(wgpu::ErrorFilter::Internal);
+        let mut result = state
+            .resources
+            .execute(&state.device, &state.queue, bytes, capacity);
+        for scope in [internal, memory, validation] {
+            if pollster::block_on(scope.pop()).is_some() {
+                result = Err(ResourceError::DeviceFailed);
+            }
+        }
+        if result == Err(ResourceError::DeviceFailed) {
+            state.failure = Some("GPU resource command failed; recreate this renderer".into());
+        }
+        result
     }
 
     fn resize(&mut self, width: u32, height: u32) {

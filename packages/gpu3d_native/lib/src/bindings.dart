@@ -37,3 +37,22 @@ external int render(
   Pointer<Uint8> pixels,
   int capacity,
 );
+
+@Native<
+  Uint32 Function(
+    Uint64,
+    Pointer<Uint8>,
+    Size,
+    Pointer<Uint8>,
+    Size,
+    Pointer<Size>,
+  )
+>(symbol: 'fg2_resource_command', assetId: _asset)
+external int resourceCommand(
+  int handle,
+  Pointer<Uint8> input,
+  int length,
+  Pointer<Uint8> output,
+  int capacity,
+  Pointer<Size> written,
+);

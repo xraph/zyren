@@ -57,6 +57,13 @@ one universal byte-identical golden across unrelated GPU implementations.
 
 ## Task 1: Versioned resources and binary uploads
 
+Checkpoint, 2026-09-27: explicit resource scopes, typed buffer/texture descriptors,
+binary transfers, shared references and native retirement are implemented. The
+round-trip tests pass on macOS Metal and a physical Pixel Vulkan device. See
+[the implemented API and protocol](../../design/gpu-resources.md). Scene geometry
+migration, transform deltas, render bindings and shared-device view integration
+remain open, so this task is not complete.
+
 **Files:** Create resource modules in the map, native `tests/resource_lifetime.rs`,
 `tests/upload_validation.rs` and Dart `test/resource_scope_test.dart`. Modify
 native ABI/worker serialization and scene snapshots.
@@ -70,7 +77,7 @@ Rust `ResourceRegistry::resolve(key) -> Result<&Resource, ResourceError>` valida
 all four. Binary command headers contain ABI version, opcode, request ID and
 byte lengths; every table/range uses checked arithmetic.
 
-- [ ] Add Rust tests resolving a valid key, then rejecting another renderer's key, a reused slot and an old device generation. Pin arithmetic independently:
+- [x] Add Rust tests resolving a valid key, then rejecting another renderer's key, a reused slot and an old device generation. Pin arithmetic independently:
 
 ```rust
 #[test]

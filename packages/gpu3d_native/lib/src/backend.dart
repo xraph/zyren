@@ -2,14 +2,30 @@ part of 'native_renderer.dart';
 
 /// Native rendering from a captured submission, without Flutter dependencies.
 /// Apple surfaces use the same worker and GPU device as explicit capture.
-class NativeBackend implements RenderBackend {
+class NativeBackend implements ResourceBackend {
   final NativeRenderer _renderer;
   final bool _experimentalAppleSurfaces;
   bool _closed = false;
   Future<void>? _closing;
   int _nextFrame = 0;
   final _surfaces = <NativeSurfaceSnapshot>{};
-  NativeBackend._(this._renderer, this._experimentalAppleSurfaces);
+  final _resourceScopes = <ResourceScope>{};
+  final _NativeResourceDevice _resources;
+  NativeBackend._(this._renderer, this._experimentalAppleSurfaces)
+    : _resources = _NativeResourceDevice(_renderer);
+
+  @override
+  ResourceScope createResourceScope({String label = ''}) {
+    if (_closed) throw StateError('Backend has closed.');
+    final scope = ResourceScope(_resources, label: label);
+    _resourceScopes.add(scope);
+    scope.whenClosed.then((_) {
+      _resourceScopes.remove(scope);
+    });
+    return scope;
+  }
+
+  Future<ResourceStats> resourceStats() => _resources.stats();
 
   /// Apple texture registration remains experimental while Flutter's texture
   /// cache prevents prompt buffer retirement. Keep it out of default selection.
@@ -40,6 +56,7 @@ class NativeBackend implements RenderBackend {
       RenderFeature.diffuseLighting,
       RenderFeature.unlitMaterials,
       RenderFeature.rgbaReadback,
+      RenderFeature.scopedResources,
       if (_experimentalAppleSurfaces && NativeSurfaces().appleAvailable)
         RenderFeature.sharedTexture,
     },
@@ -224,6 +241,16 @@ class NativeBackend implements RenderBackend {
     _closed = true;
     Object? failure;
     StackTrace? failureStack;
+    final resourceClosures = [
+      for (final scope in _resourceScopes.toList())
+        scope.close().then<void>(
+          (_) {},
+          onError: (Object error, StackTrace stack) {
+            failure ??= error;
+            failureStack ??= stack;
+          },
+        ),
+    ];
     for (final surface in _surfaces.toList()) {
       try {
         closeSurface(surface);
@@ -232,7 +259,8 @@ class NativeBackend implements RenderBackend {
         failureStack ??= stack;
       }
     }
+    await Future.wait(resourceClosures);
     await _renderer.dispose();
-    if (failure != null) Error.throwWithStackTrace(failure, failureStack!);
+    if (failure != null) Error.throwWithStackTrace(failure!, failureStack!);
   }
 }

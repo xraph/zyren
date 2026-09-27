@@ -52,6 +52,44 @@ void renderWorker(WorkerBootstrap start) {
         commands.close();
         return;
       }
+      if (request.operation == 'resource') {
+        final bytes = (request.arguments[0] as TransferableTypedData)
+            .materialize()
+            .asUint8List();
+        final capacity = request.arguments[1] as int;
+        if (bytes.length > 64 * 1024 * 1024 + 2048 ||
+            capacity < 24 ||
+            capacity > 64 * 1024 * 1024 + 24) {
+          throw ArgumentError('Resource transfer exceeds the native limit.');
+        }
+        final input = calloc<Uint8>(bytes.length),
+            output = calloc<Uint8>(capacity);
+        final written = calloc<Size>();
+        try {
+          input.asTypedList(bytes.length).setAll(0, bytes);
+          final status = native.resourceCommand(
+            owner.handle,
+            input,
+            bytes.length,
+            output,
+            capacity,
+            written,
+          );
+          reply(true, <Object>[
+            status,
+            status == 0
+                ? TransferableTypedData.fromList([
+                    output.asTypedList(written.value),
+                  ])
+                : _lastError(),
+          ]);
+        } finally {
+          calloc.free(input);
+          calloc.free(output);
+          calloc.free(written);
+        }
+        return;
+      }
       if (request.operation == 'surfaceAttach') {
         NativeSurfaces().attachRenderer(
           owner.handle,

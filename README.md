@@ -34,6 +34,11 @@ Flutter callers keep the existing import and native default. Dart-only callers
 can import `gpu3d` and supply a renderer to `SceneEngine.create`. For native
 headless output, use `gpu3d_native`; see [backend submissions](docs/extensions.md#captured-backend-submissions).
 
+`NativeBackend` also provides scoped buffers and textures with binary uploads,
+shared ownership and explicit readback. The [resource API](docs/design/gpu-resources.md)
+documents the implemented operations and limits. Scene geometry and material
+bindings have not yet migrated to these resources.
+
 ## Run the example
 
 You'll need Rust through rustup and the Flutter SDK pinned in `.fvmrc`. The

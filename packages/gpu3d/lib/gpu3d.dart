@@ -19,3 +19,7 @@ export 'src/rendering/scene_issue.dart';
 export 'src/plugins/attachment_scope.dart';
 export 'src/assets/load_task.dart';
 export 'src/assets/asset_scope.dart';
+
+export 'src/resources/buffer.dart';
+export 'src/resources/texture.dart';
+export 'src/resources/resource_scope.dart' hide ResourceDevice;

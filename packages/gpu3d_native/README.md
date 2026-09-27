@@ -9,6 +9,7 @@ use the same native worker and ABI; neither requires a Flutter engine.
 
 ```sh
 fvm dart run example/offscreen.dart
+fvm dart run example/resources.dart
 RUN_NATIVE_GPU=1 fvm dart test --concurrency=1
 ```
 
@@ -19,10 +20,17 @@ The example renders a red box and prints the centre pixel. GPU tests require a
 compatible device. In PowerShell, set `$env:RUN_NATIVE_GPU = '1'` before running
 `fvm dart test`.
 
-Shared-texture adapters are not implemented yet. Surface requests fail with
-`presentationUnavailable`; the implemented path returns explicit RGBA8 sRGB
-readback. Close the backend when you finish so its worker and GPU resources are
-released.
+The default backend returns explicit RGBA8 sRGB readback. Apple shared textures
+require `experimentalAppleSurfaces: true`; they remain experimental because
+Flutter's texture cache delays buffer retirement. Flutter's opt-in native view
+presenters are documented in the workspace README.
+
+Use `createResourceScope()` for typed buffer and texture allocations on this
+backend's device. Scopes support shared references, binary uploads, explicit
+readback and deterministic close. See [the resource API and protocol](../../docs/design/gpu-resources.md)
+for limits and ownership. Scene material bindings and migration of legacy geometry
+uploads remain separate work. Close the backend when you finish to release its
+worker and all owned scopes.
 
 Worker requests carry a generation and a monotonic request ID. Worker exit or
 error settles every pending request. Stale and duplicate replies are ignored.

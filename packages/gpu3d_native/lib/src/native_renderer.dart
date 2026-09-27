@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:isolate';
+import 'dart:typed_data';
 import 'worker.dart';
 import 'surface.dart';
 import 'worker_session.dart';
@@ -8,6 +9,7 @@ import 'package:gpu3d/gpu3d.dart';
 import 'package:gpu3d/rendering.dart';
 
 part 'backend.dart';
+part 'resources.dart';
 
 /// One native GPU device, owned by a persistent worker isolate.
 /// Await [dispose] when you no longer need it.

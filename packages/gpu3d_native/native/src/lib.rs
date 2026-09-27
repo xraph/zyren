@@ -1,5 +1,6 @@
 pub mod interop;
 pub mod renderer;
+pub mod resources;
 mod retirement;
 pub mod scene;
 
@@ -154,4 +155,56 @@ pub unsafe extern "C" fn fg_render(
         }
         Ok(1)
     })
+}
+
+/// Executes a bounded little-endian resource command on the renderer's device.
+///
+/// # Safety
+/// Input and output buffers must be valid for their supplied lengths. `written`
+/// must point to writable storage. The buffers must not overlap.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn fg2_resource_command(
+    handle: u64,
+    input: *const u8,
+    length: usize,
+    output: *mut u8,
+    capacity: usize,
+    written: *mut usize,
+) -> u32 {
+    let mut code = resources::ResourceError::InvalidCommand as u32;
+    let ok: u32 = guard(|| {
+        if input.is_null()
+            || output.is_null()
+            || written.is_null()
+            || length > resources::upload::MAX_COMMAND_BYTES
+            || capacity > resources::upload::MAX_BYTES as usize + 24
+        {
+            return Err("invalid resource command buffers".into());
+        }
+        // SAFETY: the caller guarantees valid buffers; lengths are bounded above.
+        unsafe {
+            *written = 0;
+        }
+        let renderer = registry()
+            .lock()
+            .map_err(|_| "registry lock failed")?
+            .get(&handle)
+            .cloned()
+            .ok_or("renderer disposed")?;
+        let bytes = unsafe { std::slice::from_raw_parts(input, length) };
+        let result = renderer
+            .lock()
+            .map_err(|_| "renderer lock failed")?
+            .resource_command(bytes, capacity)
+            .map_err(|error| {
+                code = error as u32;
+                error.to_string()
+            })?;
+        unsafe {
+            std::ptr::copy_nonoverlapping(result.as_ptr(), output, result.len());
+            *written = result.len();
+        }
+        Ok(1)
+    });
+    if ok == 1 { 0 } else { code }
 }
