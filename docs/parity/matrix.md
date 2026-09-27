@@ -37,9 +37,9 @@ fixture does not pass a GPU or device gate.
 
 | ID | Source capability | Native state | Required implementation and evidence |
 | --- | --- | --- | --- |
-| G01 | Geodetic, Ellipsoid, surface projection/intersection, ENU/NUE, osculating sphere, horizon normal | Partial: conversion, ray intersection and ENU | Numeric fixtures for every operation, triaxial ellipsoids, poles, subterranean points, center behavior and normalization |
-| G02 | Rectangle, TileCoordinate, TilingScheme | Missing | Radian extents, south-origin tile Y, parent/descendant order, dateline behavior, documented upstream quirks |
-| G03 | PointOfView, Camera story | Missing | Heading/pitch/roll, clamps, camera extraction and no-hit behavior, round trips at Earth scale |
+| G01 | Geodetic, Ellipsoid, surface projection/intersection, ENU/NUE, osculating sphere, horizon normal | Algorithms implemented; 200 upstream coordinate fixtures plus derived operations | See [numerical evidence and API differences](numerical.md); geometry story comparison remains unrun |
+| G02 | Rectangle, TileCoordinate, TilingScheme | Algorithms implemented; 60 upstream lookup fixtures and descendant order | See [numerical evidence](numerical.md); explicit native validation and integer-overflow differences |
+| G03 | PointOfView, Camera story | Partial: decomposition and world-space camera extraction, 24 upstream poses | See [numerical evidence](numerical.md); parented/local-up and orthographic reconstruction, native story comparison remain |
 | G04 | EllipsoidGeometry, QuadGeometry | Partial: indexed ellipsoid without source UV contract | Segments, winding, UVs, normals and native geometry comparisons |
 | C01 | OrbitControls in drei/three-stdlib and Three.js addons | Missing: GlobeOrbitPlugin is a different control | Full event replay and camera traces; see [controls](controls.md) |
 | C02 | EnvironmentControls, GlobeControls, CameraTransition | Missing | Surface picking, near/far control transitions, inertia, height clearance, projection transitions and touch arbitration |
