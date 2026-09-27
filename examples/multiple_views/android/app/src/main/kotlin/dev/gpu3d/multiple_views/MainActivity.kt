@@ -1,4 +1,4 @@
-package dev.zyren.multiple_views
+package dev.gpu3d.multiple_views
 
 import io.flutter.embedding.android.FlutterActivity
 import android.os.Bundle

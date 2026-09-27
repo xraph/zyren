@@ -491,3 +491,27 @@ macOS and iOS builds regenerated the renamed podspec checksum; all four example
 Pod lockfiles use that checksum. This checkpoint does not establish physical
 iOS, Windows or Linux runtime compatibility. The packages retain
 `publish_to: none` and have not been published to pub.dev.
+
+## Zyren integration with main
+
+The merge includes the committed workbench and engineering-review changes
+through `95129f7`. The additional packages are `zyren_tools`, `zyren_devtools`,
+`zyren_timeline` and `zyren_engineering`. Their imports, examples, CI commands
+and package-boundary checks use the new names.
+
+The multiple-view example retains its original application IDs and the
+`gpu3d-workbench/pump-review-v1.json` location so existing reviews remain
+available. Package and native-plugin names use Zyren. The generated Android
+manifest and APK metadata confirm the original application ID.
+
+Integration checks passed: 263 core tests, 47 plugin tests, 76 Flutter/example
+tests, workspace analysis, formatting and package boundaries. The native
+workbench test passed on macOS. Engineering-review integrations passed on
+macOS Metal and the physical Pixel 9 Pro through Vulkan, including annotation
+rendering, application-support storage and reload onto a fresh scene with zero
+presentation readback.
+
+The Android runner emitted a cleanup warning for the earlier
+`dev.zyren.multiple_views` test identity. Device inspection confirmed that this
+obsolete package was absent and the original `dev.gpu3d.multiple_views`
+application remained installed. No further uninstall was needed.

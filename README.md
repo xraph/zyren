@@ -34,6 +34,7 @@ current alpha API.
 - [`zyren_tools`](packages/zyren_tools/README.md) adds selection, reversible transforms and measurements.
 - [`zyren_devtools`](packages/zyren_devtools/README.md) inspects scene objects and reported frame statistics.
 - [`zyren_timeline`](packages/zyren_timeline/README.md) plays and scrubs transform and camera tracks.
+- [`zyren_engineering`](packages/zyren_engineering/README.md) binds stable IDs, metadata and review notes to scene objects, with temporary isolation and host-owned storage.
 
 ## Moving from the original package names
 
@@ -54,6 +55,8 @@ Use the matching folders under `packages/` for path dependencies, then run
 `fvm flutter pub get` and fully restart your app so Flutter registers the renamed
 native plugin. Scene types and the versioned C ABI keep their existing names.
 These packages are still local development packages with `publish_to: none`.
+The multiple-view example keeps its application IDs and review-file location,
+so you can continue using saved reviews after updating your checkout.
 
 ## Choosing a package
 
@@ -132,12 +135,13 @@ For native texture filtering and wrapping, run
 `examples/multiple_views`. Use your Android device ID in place of `macos` on
 Android. You can change the sampler without uploading the image again.
 
-For selection, transform history and assembly playback, run
+For selection, transform history, engineering review and assembly playback, run
 `fvm flutter run -d macos -t lib/scene_workbench.dart` from
 `examples/multiple_views`. Use an Android device ID for Vulkan presentation.
 You can select a part, move or rotate it, undo the edit, measure two surface
-points and scrub an exploded view. The inspector and controls wrap at narrow
-widths. Read the [workbench checkpoint](docs/scene-workbench-checkpoint.md)
+points and scrub an exploded view. Open Review to edit metadata, isolate parts,
+attach surface notes and save them locally. The inspector and controls wrap at
+narrow widths. Read the [workbench checkpoint](docs/scene-workbench-checkpoint.md)
 for the implemented scope and platform checks.
 
 ## Use the 3D package

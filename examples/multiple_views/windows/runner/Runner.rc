@@ -89,11 +89,11 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "dev.zyren" "\0"
+            VALUE "CompanyName", "dev.gpu3d" "\0"
             VALUE "FileDescription", "multiple_views" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "multiple_views" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 dev.zyren. All rights reserved." "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 dev.gpu3d. All rights reserved." "\0"
             VALUE "OriginalFilename", "multiple_views.exe" "\0"
             VALUE "ProductName", "multiple_views" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"

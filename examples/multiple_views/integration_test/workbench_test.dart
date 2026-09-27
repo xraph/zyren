@@ -113,6 +113,8 @@ void main() {
       expect(housing.position, original + const Vec3(.25, 0, 0));
       await tester.tap(find.byTooltip('Undo'));
       await until(() => housing.position == original);
+      await tester.ensureVisible(find.byKey(const ValueKey('part-Cover')));
+      await tester.pump(const Duration(milliseconds: 100));
       await tester.tap(find.byKey(const ValueKey('part-Cover')));
       final cover =
           controller.scene.children.single.children.firstWhere(
