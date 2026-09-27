@@ -98,5 +98,5 @@ block the UI on complex geometry. Review covered the core integration seams,
 not every imported native-resource code path; hardware evidence came from the
 implementation runs. This is not an exhaustive independent native audit.
 
-The work remains on the local `geospatial-parity` branch. The separate core
-checkout and the primary checkout do not automatically receive these commits.
+This checkpoint is integrated into `main` in the primary checkout, where port
+development continues. The separate core checkout remains independent.
