@@ -4,6 +4,7 @@
 build/
 target/
 .cxx/
+.kotlin/
 **/ephemeral/
 **/Flutter/Generated.xcconfig
 **/Flutter/flutter_export_environment.sh

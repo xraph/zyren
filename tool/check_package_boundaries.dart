@@ -6,6 +6,10 @@ void main(List<String> args) {
   final allowed = <String, Set<String>>{
     'zyren': {'vector_math'},
     'zyren_geospatial': {'zyren'},
+    'zyren_tools': {'zyren'},
+    'zyren_devtools': {'zyren'},
+    'zyren_timeline': {'zyren'},
+    'zyren_engineering': {'zyren'},
   };
   final directive = RegExp(
     r'''^\s*(?:import|export)\s+['"]([^'"]+)['"]''',

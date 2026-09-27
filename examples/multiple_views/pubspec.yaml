@@ -6,6 +6,14 @@ resolution: workspace
 environment:
   sdk: '>=3.10.0 <4.0.0'
 dependencies:
+  zyren_engineering:
+    path: ../../packages/zyren_engineering
+  zyren_tools:
+    path: ../../packages/zyren_tools
+  zyren_devtools:
+    path: ../../packages/zyren_devtools
+  zyren_timeline:
+    path: ../../packages/zyren_timeline
   zyren:
     path: ../../packages/zyren
   zyren_native:
@@ -14,6 +22,7 @@ dependencies:
     sdk: flutter
   flutter_zyren:
     path: ../../packages/flutter_zyren
+  path_provider: ^2.1.6
 dev_dependencies:
   flutter_test:
     sdk: flutter

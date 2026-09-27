@@ -4,6 +4,10 @@ environment:
   sdk: '>=3.10.0 <4.0.0'
 workspace:
   - packages/zyren
+  - packages/zyren_tools
+  - packages/zyren_devtools
+  - packages/zyren_timeline
+  - packages/zyren_engineering
   - packages/zyren_native
   - packages/flutter_zyren
   - packages/zyren_geospatial

@@ -31,6 +31,9 @@ current alpha API.
 - `zyren_native` supplies the Rust/wgpu backend and native build hook.
 - `flutter_zyren` adds Flutter views and re-exports the common scene API.
 - `zyren_geospatial` is a Dart-only plugin depending on `zyren`.
+- [`zyren_tools`](packages/zyren_tools/README.md) adds selection, reversible transforms and measurements.
+- [`zyren_devtools`](packages/zyren_devtools/README.md) inspects scene objects and reported frame statistics.
+- [`zyren_timeline`](packages/zyren_timeline/README.md) plays and scrubs transform and camera tracks.
 
 ## Moving from the original package names
 
@@ -42,6 +45,10 @@ If you use an earlier checkout, update your dependencies and imports:
 | `gpu3d_native` | `zyren_native` | `package:zyren_native/zyren_native.dart` |
 | `flutter_gpu3d` | `flutter_zyren` | `package:flutter_zyren/flutter_zyren.dart` |
 | `flutter_geospatial` | `zyren_geospatial` | `package:zyren_geospatial/zyren_geospatial.dart` |
+| `gpu3d_tools` | `zyren_tools` | `package:zyren_tools/zyren_tools.dart` |
+| `gpu3d_devtools` | `zyren_devtools` | `package:zyren_devtools/zyren_devtools.dart` |
+| `gpu3d_timeline` | `zyren_timeline` | `package:zyren_timeline/zyren_timeline.dart` |
+| `gpu3d_engineering` | `zyren_engineering` | `package:zyren_engineering/zyren_engineering.dart` |
 
 Use the matching folders under `packages/` for path dependencies, then run
 `fvm flutter pub get` and fully restart your app so Flutter registers the renamed
@@ -124,6 +131,14 @@ For native texture filtering and wrapping, run
 `fvm flutter run -d macos -t lib/textured_scene_demo.dart` from
 `examples/multiple_views`. Use your Android device ID in place of `macos` on
 Android. You can change the sampler without uploading the image again.
+
+For selection, transform history and assembly playback, run
+`fvm flutter run -d macos -t lib/scene_workbench.dart` from
+`examples/multiple_views`. Use an Android device ID for Vulkan presentation.
+You can select a part, move or rotate it, undo the edit, measure two surface
+points and scrub an exploded view. The inspector and controls wrap at narrow
+widths. Read the [workbench checkpoint](docs/scene-workbench-checkpoint.md)
+for the implemented scope and platform checks.
 
 ## Use the 3D package
 

@@ -37,6 +37,7 @@ jobs:
         working-directory: packages/zyren
       - run: dart test
         working-directory: packages/zyren_geospatial
+      - run: dart test packages/zyren_tools/test packages/zyren_devtools/test packages/zyren_timeline/test packages/zyren_engineering/test
       - run: flutter test packages/flutter_zyren/test examples/multiple_views/test
       - run: dart test test/worker_failure_test.dart
         working-directory: packages/zyren_native

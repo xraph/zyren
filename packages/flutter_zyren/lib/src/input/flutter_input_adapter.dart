@@ -13,6 +13,7 @@ class FlutterInputAdapter implements ViewportInputSource, KeyboardInputSource {
   final _keyInterests = <SceneKey, int>{};
   final _pressedKeys = <SceneKey>{};
   final _activePointers = <int, ScenePointerEvent>{};
+  PointerDownEvent? _dragTap;
   @override
   ViewportMetrics viewport = const ViewportMetrics(0, 0);
   @override
@@ -120,6 +121,7 @@ class FlutterInputAdapter implements ViewportInputSource, KeyboardInputSource {
   }
 
   void suspend() {
+    _dragTap = null;
     cancelKeys();
     for (final event in _activePointers.values.toList()) {
       emit(
@@ -170,8 +172,32 @@ class FlutterInputAdapter implements ViewportInputSource, KeyboardInputSource {
         modifiers: modifiers,
       );
   Widget wrap(Widget child, ScenePointerCallback? callback) {
-    void pointer(PointerEvent event, ScenePointerPhase phase) =>
-        emit(convert(event, phase), callback);
+    void pointer(PointerEvent event, ScenePointerPhase phase) {
+      // The eager drag recognizer owns the arena, so Flutter's tap recognizer
+      // cannot win there. Recognize a single stationary primary pointer here.
+      final rawTap = wants(SceneGesture.pointerDrag) && wants(SceneGesture.tap);
+      var tapped = false;
+      if (event is PointerDownEvent) {
+        _dragTap =
+            rawTap && _activePointers.isEmpty && event.buttons == kPrimaryButton
+            ? event
+            : null;
+      } else if (_dragTap case final start?) {
+        if (!rawTap ||
+            event.pointer != start.pointer ||
+            phase == ScenePointerPhase.cancel ||
+            (event.localPosition - start.localPosition).distance >
+                computeHitSlop(event.kind, null)) {
+          _dragTap = null;
+        } else if (phase == ScenePointerPhase.up) {
+          tapped = true;
+          _dragTap = null;
+        }
+      }
+      emit(convert(event, phase), callback);
+      if (tapped) emit(convert(event, ScenePointerPhase.tap), callback);
+    }
+
     void gesture(
       ScenePointerPhase phase,
       Offset point, {
@@ -243,7 +269,8 @@ class FlutterInputAdapter implements ViewportInputSource, KeyboardInputSource {
             },
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onTapUp: wants(SceneGesture.tap)
+              onTapUp:
+                  wants(SceneGesture.tap) && !wants(SceneGesture.pointerDrag)
                   ? (event) =>
                         gesture(ScenePointerPhase.tap, event.localPosition)
                   : null,
