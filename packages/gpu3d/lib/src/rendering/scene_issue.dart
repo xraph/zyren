@@ -43,6 +43,7 @@ abstract final class SceneIssueCodes {
   static const loadCancelled = 'loadCancelled';
   static const deviceLost = 'deviceLost';
   static const renderFailed = 'renderFailed';
+  static const frameDeferred = 'frameDeferred';
 }
 
 class SceneException implements Exception {

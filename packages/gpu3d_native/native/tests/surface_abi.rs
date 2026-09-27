@@ -1,4 +1,4 @@
-use flutter_gpu3d::interop::abi::*;
+use gpu3d_runtime::interop::abi::*;
 use std::mem::size_of;
 
 fn error() -> Fg2Error {

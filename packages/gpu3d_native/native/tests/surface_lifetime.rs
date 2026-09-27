@@ -1,4 +1,4 @@
-use flutter_gpu3d::interop::{LeaseLedger, SurfaceConfig, SurfaceError, SurfaceRegistry};
+use gpu3d_runtime::interop::{LeaseLedger, SurfaceConfig, SurfaceError, SurfaceRegistry};
 
 fn config() -> SurfaceConfig {
     SurfaceConfig {

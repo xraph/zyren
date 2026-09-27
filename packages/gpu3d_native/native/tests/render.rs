@@ -1,4 +1,4 @@
-use flutter_gpu3d::{renderer::Renderer, scene::Frame};
+use gpu3d_runtime::{renderer::Renderer, scene::Frame};
 use serde_json::{Value, json};
 
 fn frame_json() -> Value {
@@ -26,18 +26,18 @@ fn rejects_invalid_scenes_before_upload() {
     value["version"] = json!(2);
     let frame: Frame = serde_json::from_value(value).unwrap();
     assert!(frame.validate(&Default::default()).is_err());
-    assert!(flutter_gpu3d::scene::pixel_len(0, 64).is_err());
-    assert!(flutter_gpu3d::scene::pixel_len(4097, 64).is_err());
+    assert!(gpu3d_runtime::scene::pixel_len(0, 64).is_err());
+    assert!(gpu3d_runtime::scene::pixel_len(4097, 64).is_err());
 }
 
 #[test]
 fn ffi_rejects_disposed_handles_and_null_buffers() {
-    assert_eq!(flutter_gpu3d::fg_destroy(u64::MAX), 0);
-    let len = unsafe { flutter_gpu3d::fg_last_error(std::ptr::null_mut(), 0) };
+    assert_eq!(gpu3d_runtime::fg_destroy(u64::MAX), 0);
+    let len = unsafe { gpu3d_runtime::fg_last_error(std::ptr::null_mut(), 0) };
     assert!(len > 0);
     assert_eq!(
         unsafe {
-            flutter_gpu3d::fg_render(0, std::ptr::null(), 0, 32, 32, std::ptr::null_mut(), 0)
+            gpu3d_runtime::fg_render(0, std::ptr::null(), 0, 32, 32, std::ptr::null_mut(), 0)
         },
         0
     );
@@ -87,10 +87,10 @@ fn native_gpu_pixels_depth_resize_and_cache() {
             .all(|p| p == [0, 0, 0, 255])
     );
     assert_eq!(renderer.render(&empty, 4096, 1).unwrap().len(), 4096 * 4);
-    let handle = flutter_gpu3d::fg_create();
+    let handle = gpu3d_runtime::fg_create();
     assert_ne!(handle, 0);
-    flutter_gpu3d::fg_finalize(handle as usize as *mut std::ffi::c_void);
-    assert_eq!(flutter_gpu3d::fg_destroy(handle), 0);
+    gpu3d_runtime::fg_finalize(handle as usize as *mut std::ffi::c_void);
+    assert_eq!(gpu3d_runtime::fg_destroy(handle), 0);
     assert!(
         renderer.render(&frame, 9, 7).is_err(),
         "unused geometry must be released"

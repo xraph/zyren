@@ -1,5 +1,5 @@
 #![cfg(target_vendor = "apple")]
-use flutter_gpu3d::{renderer::Renderer, scene::Frame};
+use gpu3d_runtime::{renderer::Renderer, scene::Frame};
 use objc2_core_foundation::{CFDictionary, CFNumber};
 use objc2_io_surface::{
     IOSurfaceRef, kIOSurfaceBytesPerElement, kIOSurfaceBytesPerRow, kIOSurfaceHeight,

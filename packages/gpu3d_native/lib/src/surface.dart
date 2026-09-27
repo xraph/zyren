@@ -10,6 +10,18 @@ enum NativeSurfaceState { creating, ready, suspended, closing, closed }
 final class NativeSurfaceKey implements SurfaceKey {
   final int _runtime, _slot, _generation;
   const NativeSurfaceKey._(this._runtime, this._slot, this._generation);
+
+  /// Fixed-width identities for the native platform bridge, never pointers.
+  List<int> toMessage() => [_runtime, _slot, _generation];
+  factory NativeSurfaceKey.fromMessage(List<int> fields) {
+    if (fields.length != 3 ||
+        fields[0] == 0 ||
+        fields[1] < 1 ||
+        fields[2] < 1) {
+      throw ArgumentError('Invalid native surface identity.');
+    }
+    return NativeSurfaceKey._(fields[0], fields[1], fields[2]);
+  }
   @override
   bool operator ==(Object other) =>
       other is NativeSurfaceKey &&
@@ -66,6 +78,54 @@ final class NativeSurfaceException implements Exception {
 /// Reserves metadata for a platform adapter. Reservation alone cannot present.
 final class NativeSurfaces {
   int get runtimeToken => abi.fg2_runtime_token();
+  bool get appleAvailable => abi.fg2_apple_available() != 0;
+  NativeSurfaceSnapshot read(NativeSurfaceKey key) => _call(
+    (arena, output, error) =>
+        abi.fg2_surface_snapshot(key._record(arena), output, error),
+  );
+  NativeSurfaceSnapshot attachRenderer(int renderer, NativeSurfaceKey key) =>
+      _call(
+        (arena, output, error) =>
+            abi.fg2_apple_attach(renderer, key._record(arena), output, error),
+      );
+  List<int> renderApple(
+    int renderer,
+    NativeSurfaceKey key,
+    int epoch,
+    int frameId,
+    String json,
+  ) => using((arena) {
+    final bytes = utf8.encode(json);
+    final input = arena<Uint8>(bytes.length)
+      ..asTypedList(bytes.length).setAll(0, bytes);
+    final output = arena<abi.Fg2FrameReceipt>();
+    output.ref.struct_size = sizeOf<abi.Fg2FrameReceipt>();
+    output.ref.abi_version = abi.FG2_ABI_VERSION;
+    final error = arena<abi.Fg2Error>();
+    error.ref.struct_size = sizeOf<abi.Fg2Error>();
+    error.ref.abi_version = abi.FG2_ABI_VERSION;
+    final status = abi.fg2_apple_render(
+      renderer,
+      key._record(arena),
+      epoch,
+      frameId,
+      input,
+      bytes.length,
+      output,
+      error,
+    );
+    if (status != 0) throw NativeSurfaceException(status, _message(error.ref));
+    return [
+      output.ref.epoch,
+      output.ref.frame_id,
+      output.ref.resident_bytes,
+      output.ref.readback_bytes,
+    ];
+  });
+  static String _message(abi.Fg2Error error) => utf8.decode([
+    for (var i = 0; i < error.message_length.clamp(0, 240); i++)
+      error.message[i],
+  ], allowMalformed: true);
 
   NativeSurfaceSnapshot reserve({
     required int width,

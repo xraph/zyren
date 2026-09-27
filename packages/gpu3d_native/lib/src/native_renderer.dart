@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:isolate';
 import 'worker.dart';
+import 'surface.dart';
 import 'worker_session.dart';
 import 'package:gpu3d/gpu3d.dart';
 import 'package:gpu3d/rendering.dart';
@@ -29,7 +30,7 @@ class NativeRenderer implements SceneRenderer {
   );
   final WorkerSession _worker;
   Set<int> _uploaded = {};
-  Future<RenderedFrame>? _frame;
+  Future<Object?>? _frame;
   Future<void>? _disposal;
   bool _closed = false;
 
@@ -93,6 +94,43 @@ class NativeRenderer implements SceneRenderer {
     }
 
     final future = submit();
+    _frame = future;
+    return future.whenComplete(() {
+      _frame = null;
+    });
+  }
+
+  Future<List<int>> _renderSurfacePacket(
+    Map<String, Object> packet,
+    SurfaceTarget target,
+    int frameId,
+  ) {
+    if (_closed) return Future.error(StateError('Renderer has been disposed.'));
+    if (_frame != null) {
+      return Future.error(StateError('Only one frame may be in flight.'));
+    }
+    final future = _worker
+        .request('surfaceRender', [
+          jsonEncode(packet),
+          (target.surface as NativeSurfaceKey).toMessage(),
+          target.epoch,
+          frameId,
+        ])
+        .then((value) {
+          final receipt = value as List<int>;
+          if (receipt.first == 0 || receipt.first == 14) {
+            _uploaded = (packet['meshes'] as List)
+                .map((mesh) => (mesh as Map)['geometry'] as int)
+                .toSet();
+          }
+          if (receipt.first != 0) {
+            throw NativeSurfaceException(
+              receipt.first,
+              'Surface submission was not published.',
+            );
+          }
+          return receipt.sublist(1);
+        });
     _frame = future;
     return future.whenComplete(() {
       _frame = null;

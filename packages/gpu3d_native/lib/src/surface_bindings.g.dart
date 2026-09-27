@@ -9,6 +9,59 @@ library;
 
 import 'dart:ffi' as ffi;
 
+@ffi.Native<
+  ffi.Uint32 Function(
+    ffi.Uint64,
+    Fg2SurfaceKey,
+    ffi.Pointer<Fg2SurfaceSnapshot>,
+    ffi.Pointer<Fg2Error>,
+  )
+>()
+external int fg2_apple_attach(
+  int renderer,
+  Fg2SurfaceKey key,
+  ffi.Pointer<Fg2SurfaceSnapshot> output,
+  ffi.Pointer<Fg2Error> error,
+);
+
+@ffi.Native<ffi.Uint32 Function()>()
+external int fg2_apple_available();
+
+@ffi.Native<ffi.Pointer<ffi.Void> Function(Fg2SurfaceKey)>()
+external ffi.Pointer<ffi.Void> fg2_apple_copy_pixel_buffer(Fg2SurfaceKey key);
+
+@ffi.Native<ffi.Uint64 Function()>()
+external int fg2_apple_live_buffers();
+
+@ffi.Native<ffi.Uint64 Function()>()
+external int fg2_apple_presented_frames();
+
+@ffi.Native<ffi.Uint64 Function()>()
+external int fg2_apple_readback_bytes();
+
+@ffi.Native<
+  ffi.Uint32 Function(
+    ffi.Uint64,
+    Fg2SurfaceKey,
+    ffi.Uint64,
+    ffi.Uint64,
+    ffi.Pointer<ffi.Uint8>,
+    ffi.Uint64,
+    ffi.Pointer<Fg2FrameReceipt>,
+    ffi.Pointer<Fg2Error>,
+  )
+>()
+external int fg2_apple_render(
+  int renderer,
+  Fg2SurfaceKey key,
+  int epoch,
+  int frame_id,
+  ffi.Pointer<ffi.Uint8> json,
+  int length,
+  ffi.Pointer<Fg2FrameReceipt> output,
+  ffi.Pointer<Fg2Error> error,
+);
+
 @ffi.Native<ffi.Uint64 Function()>()
 external int fg2_runtime_token();
 
@@ -60,6 +113,19 @@ external int fg2_surface_resize(
 @ffi.Native<
   ffi.Uint32 Function(
     Fg2SurfaceKey,
+    ffi.Pointer<Fg2SurfaceSnapshot>,
+    ffi.Pointer<Fg2Error>,
+  )
+>()
+external int fg2_surface_snapshot(
+  Fg2SurfaceKey key,
+  ffi.Pointer<Fg2SurfaceSnapshot> output,
+  ffi.Pointer<Fg2Error> error,
+);
+
+@ffi.Native<
+  ffi.Uint32 Function(
+    Fg2SurfaceKey,
     ffi.Uint64,
     ffi.Uint32,
     ffi.Pointer<Fg2SurfaceSnapshot>,
@@ -93,6 +159,42 @@ final class Fg2Error extends ffi.Struct {
   external ffi.Array<ffi.Uint8> message;
 }
 
+final class Fg2FrameReceipt extends ffi.Struct {
+  @ffi.Uint32()
+  external int struct_size;
+
+  @ffi.Uint32()
+  external int abi_version;
+
+  @ffi.Uint64()
+  external int epoch;
+
+  @ffi.Uint64()
+  external int frame_id;
+
+  @ffi.Uint64()
+  external int resident_bytes;
+
+  @ffi.Uint64()
+  external int readback_bytes;
+
+  static ffi.Pointer<Fg2FrameReceipt> $allocate(
+    ffi.Allocator $allocator, {
+    required int struct_size,
+    required int abi_version,
+    required int epoch,
+    required int frame_id,
+    required int resident_bytes,
+    required int readback_bytes,
+  }) => $allocator<Fg2FrameReceipt>()
+    ..ref.struct_size = struct_size
+    ..ref.abi_version = abi_version
+    ..ref.epoch = epoch
+    ..ref.frame_id = frame_id
+    ..ref.resident_bytes = resident_bytes
+    ..ref.readback_bytes = readback_bytes;
+}
+
 enum Fg2Status {
   FG2_OK(0),
   FG2_INVALID_ARGUMENT(1),
@@ -107,7 +209,8 @@ enum Fg2Status {
   FG2_BUDGET_EXCEEDED(10),
   FG2_EXHAUSTED(11),
   FG2_INTERNAL(12),
-  FG2_TIMED_OUT(13);
+  FG2_TIMED_OUT(13),
+  FG2_FRAME_SUPERSEDED(14);
 
   final int value;
   const Fg2Status(this.value);
@@ -127,6 +230,7 @@ enum Fg2Status {
     11 => FG2_EXHAUSTED,
     12 => FG2_INTERNAL,
     13 => FG2_TIMED_OUT,
+    14 => FG2_FRAME_SUPERSEDED,
     _ => throw ArgumentError('Unknown value for Fg2Status: $value'),
   };
 }

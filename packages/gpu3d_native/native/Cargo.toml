@@ -1,5 +1,5 @@
 [package]
-name = "flutter_gpu3d"
+name = "gpu3d_runtime"
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.97"
@@ -7,6 +7,9 @@ publish = false
 
 [lib]
 crate-type = ["cdylib", "staticlib", "rlib"]
+
+[build-dependencies]
+cc = "1.2"
 
 [dependencies]
 bytemuck = { version = "1.25", features = ["derive"] }

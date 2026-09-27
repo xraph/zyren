@@ -19,7 +19,11 @@ typedef enum {
   FG2_BUDGET_EXCEEDED = 10,
   FG2_EXHAUSTED = 11,
   FG2_INTERNAL = 12,
-  FG2_TIMED_OUT = 13
+  FG2_TIMED_OUT = 13,
+  /* GPU work and geometry residency changes completed, but the frame's epoch
+   * was revoked before publication. Unlike STALE_EPOCH, scene data was applied.
+   */
+  FG2_FRAME_SUPERSEDED = 14
 } Fg2Status;
 typedef enum {
   FG2_SURFACE_CREATING = 0,
@@ -56,6 +60,23 @@ typedef struct {
   uint32_t struct_size, abi_version, code, message_length;
   uint8_t message[240];
 } Fg2Error;
+typedef struct {
+  uint32_t struct_size, abi_version;
+  uint64_t epoch, frame_id, resident_bytes, readback_bytes;
+} Fg2FrameReceipt;
+uint32_t fg2_apple_available(void);
+uint64_t fg2_apple_live_buffers(void);
+uint64_t fg2_apple_presented_frames(void);
+uint64_t fg2_apple_readback_bytes(void);
+uint32_t fg2_apple_attach(uint64_t renderer, Fg2SurfaceKey key,
+                        Fg2SurfaceSnapshot *output, Fg2Error *error);
+uint32_t fg2_apple_render(uint64_t renderer, Fg2SurfaceKey key, uint64_t epoch,
+                        uint64_t frame_id, const uint8_t *json, uint64_t length,
+                        Fg2FrameReceipt *output, Fg2Error *error);
+/* Native-only Flutter callback. Returns a retained CVPixelBufferRef. */
+void *fg2_apple_copy_pixel_buffer(Fg2SurfaceKey key);
+uint32_t fg2_surface_snapshot(Fg2SurfaceKey key, Fg2SurfaceSnapshot *output,
+                             Fg2Error *error);
 /* This is an identity token, not a pointer or an authorization credential. */
 uint64_t fg2_runtime_token(void);
 /* Reserves metadata only. Platform adapters activate it after GPU setup. */

@@ -247,6 +247,29 @@ impl SurfaceSession {
         self.check_drained();
         Ok(())
     }
+    /// The platform allocation is gone, so no producer or consumer can use it.
+    pub fn allocation_released(&mut self, lease: LeaseId) -> Result<(), SurfaceError> {
+        let entry = self.ledger.get(lease)?;
+        let (gpu_done, consumer_done) = (entry.gpu_done, entry.consumer_done);
+        if !gpu_done {
+            self.ledger.gpu_completed(lease)?;
+        }
+        if !consumer_done {
+            self.ledger.consumer_released(lease)?;
+        }
+        self.ledger.retire(lease)?;
+        if self.published == Some(lease) {
+            self.published = None;
+        }
+        self.check_drained();
+        Ok(())
+    }
+    pub fn resident_bytes(&self) -> u64 {
+        self.ledger
+            .active_ids()
+            .map(|lease| self.frames[lease.slot as usize].bytes)
+            .sum()
+    }
     pub fn published(&self) -> Option<LeaseId> {
         self.published
     }

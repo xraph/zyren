@@ -3,6 +3,7 @@ import 'dart:ffi';
 import 'dart:isolate';
 import 'package:ffi/ffi.dart';
 import 'bindings.dart' as native;
+import 'surface.dart';
 import 'worker_session.dart';
 
 String _lastError() {
@@ -49,6 +50,29 @@ void renderWorker(WorkerBootstrap start) {
         owner.close();
         reply(true, null);
         commands.close();
+        return;
+      }
+      if (request.operation == 'surfaceAttach') {
+        NativeSurfaces().attachRenderer(
+          owner.handle,
+          NativeSurfaceKey.fromMessage(request.arguments[0] as List<int>),
+        );
+        reply(true, null);
+        return;
+      }
+      if (request.operation == 'surfaceRender') {
+        try {
+          final receipt = NativeSurfaces().renderApple(
+            owner.handle,
+            NativeSurfaceKey.fromMessage(request.arguments[1] as List<int>),
+            request.arguments[2] as int,
+            request.arguments[3] as int,
+            request.arguments[0] as String,
+          );
+          reply(true, <int>[0, ...receipt]);
+        } on NativeSurfaceException catch (error) {
+          reply(true, <int>[error.code]);
+        }
         return;
       }
       if (request.operation != 'render') {

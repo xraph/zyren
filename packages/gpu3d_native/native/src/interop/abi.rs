@@ -25,7 +25,7 @@ pub struct Fg2SurfaceKey {
     pub generation: u64,
 }
 impl Fg2SurfaceKey {
-    fn checked(self) -> Result<SurfaceKey, SurfaceError> {
+    pub(crate) fn checked(self) -> Result<SurfaceKey, SurfaceError> {
         if self.struct_size != size_of::<Self>() as u32 || self.abi_version != VERSION {
             return Err(SurfaceError::InvalidArgument);
         }
@@ -108,7 +108,7 @@ unsafe fn valid<T>(pointer: *const T) -> bool {
     let header = unsafe { pointer.cast::<Header>().read_unaligned() };
     header.size == size_of::<T>() as u32 && header.version == VERSION
 }
-fn snapshot(key: SurfaceKey, session: &SurfaceSession) -> Fg2SurfaceSnapshot {
+pub(crate) fn snapshot(key: SurfaceKey, session: &SurfaceSession) -> Fg2SurfaceSnapshot {
     let (width, height) = session.size();
     Fg2SurfaceSnapshot {
         key: Fg2SurfaceKey {
@@ -131,10 +131,10 @@ fn snapshot(key: SurfaceKey, session: &SurfaceSession) -> Fg2SurfaceSnapshot {
         ..Default::default()
     }
 }
-unsafe fn call(
-    output: *mut Fg2SurfaceSnapshot,
+pub(crate) unsafe fn call<T>(
+    output: *mut T,
     error: *mut Fg2Error,
-    operation: impl FnOnce() -> Result<Fg2SurfaceSnapshot, SurfaceError>,
+    operation: impl FnOnce() -> Result<T, SurfaceError>,
 ) -> u32 {
     // SAFETY: each exported entry point documents the caller's buffer capacities.
     if !unsafe { valid(error) } {
@@ -268,13 +268,34 @@ pub unsafe extern "C" fn fg2_surface_close(
     output: *mut Fg2SurfaceSnapshot,
     error: *mut Fg2Error,
 ) -> u32 {
-    unsafe {
+    let status = unsafe {
         call(output, error, || {
             let key = key.checked()?;
             let mut registry = registry().lock().map_err(|_| SurfaceError::Internal)?;
             let surface = registry.get_mut(key)?;
             surface.close()?;
             Ok(snapshot(key, surface))
+        })
+    };
+    if status == 0 {
+        super::apple::detach(key);
+    }
+    status
+}
+
+/// # Safety
+/// Output/error records have valid headers and declared writable capacities.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn fg2_surface_snapshot(
+    key: Fg2SurfaceKey,
+    output: *mut Fg2SurfaceSnapshot,
+    error: *mut Fg2Error,
+) -> u32 {
+    unsafe {
+        call(output, error, || {
+            let key = key.checked()?;
+            let mut registry = registry().lock().map_err(|_| SurfaceError::Internal)?;
+            Ok(snapshot(key, registry.get_mut(key)?))
         })
     }
 }

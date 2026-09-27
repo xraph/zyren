@@ -80,6 +80,7 @@ pub extern "C" fn fg_create() -> u64 {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn fg_destroy(handle: u64) -> u32 {
+    interop::apple::close_renderer_surfaces(handle);
     guard(|| {
         let removed = registry()
             .lock()

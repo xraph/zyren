@@ -1,4 +1,5 @@
 pub mod abi;
+pub mod apple;
 mod leases;
 #[cfg(target_vendor = "apple")]
 pub mod metal;
@@ -22,6 +23,7 @@ pub enum SurfaceError {
     Exhausted = 11,
     Internal = 12,
     TimedOut = 13,
+    FrameSuperseded = 14,
 }
 impl std::fmt::Display for SurfaceError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -42,6 +44,8 @@ impl std::fmt::Display for SurfaceError {
                 Self::Exhausted => "Surface generation or registry capacity exhausted.",
                 Self::Internal => "Native surface operation failed.",
                 Self::TimedOut => "GPU completion timed out; ownership is retained.",
+                Self::FrameSuperseded =>
+                    "Scene was applied, but its surface epoch changed before publication.",
             }
         )
     }
