@@ -77,6 +77,12 @@ class SceneSnapshot {
                   'model': relative.storage.toList(),
                   'color': node.material.color.toList(),
                   'unlit': node.material.unlit,
+                  'alpha_mode': node.material.alphaMode.index,
+                  'opacity': node.material.opacity,
+                  'alpha_cutoff': node.material.alphaCutoff,
+                  'depth_test': node.material.depthTest,
+                  'depth_write': node.material.writesDepth,
+                  'render_order': node.renderOrder,
                   'colorMap': map?.toPacket() ?? <int>[],
                 })
                 as Map<String, Object>,

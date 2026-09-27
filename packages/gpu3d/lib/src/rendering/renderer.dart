@@ -43,6 +43,7 @@ abstract final class RenderFeatures {
   static const unlitMaterials = RenderFeature.unlitMaterials;
   static const rgbaReadback = RenderFeature.rgbaReadback;
   static const colorTextures = RenderFeature.colorTextures;
+  static const alphaMaterials = RenderFeature.alphaMaterials;
 }
 
 /// Compatibility capabilities for the explicit RGBA renderer interface.

@@ -32,17 +32,21 @@ struct VertexOutput {
     return output;
 }
 
-@fragment fn fs_textured(input: VertexOutput) -> @location(0) vec4<f32> {
-    let diffuse = max(dot(normalize(input.normal), normalize(uniforms.light_ambient.xyz)), 0.0);
+fn shade(normal: vec3<f32>, sample_color: vec4<f32>) -> vec4<f32> {
+    let diffuse = max(dot(normalize(normal), normalize(uniforms.light_ambient.xyz)), 0.0);
     let lighting = uniforms.light_ambient.w + (1.0 - uniforms.light_ambient.w) * diffuse;
     let strength = mix(lighting, 1.0, uniforms.color_unlit.w);
-    let color = textureSample(color_map, color_sampler, input.uv);
-    return vec4<f32>(color.rgb * uniforms.color_unlit.rgb * strength, 1.0);
+    let alpha = sample_color.a * uniforms.map_params.y;
+    let mode = uniforms.map_params.w;
+    if mode > 0.5 && mode < 1.5 && alpha < uniforms.map_params.z { discard; }
+    return vec4<f32>(sample_color.rgb * uniforms.color_unlit.rgb * strength,
+        select(1.0, alpha, mode > 1.5));
+}
+
+@fragment fn fs_textured(input: VertexOutput) -> @location(0) vec4<f32> {
+    return shade(input.normal, textureSample(color_map, color_sampler, input.uv));
 }
 
 @fragment fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
-    let diffuse = max(dot(normalize(input.normal), normalize(uniforms.light_ambient.xyz)), 0.0);
-    let lighting = uniforms.light_ambient.w + (1.0 - uniforms.light_ambient.w) * diffuse;
-    let strength = mix(lighting, 1.0, uniforms.color_unlit.w);
-    return vec4<f32>(uniforms.color_unlit.rgb * strength, 1.0);
+    return shade(input.normal, vec4<f32>(1.0));
 }

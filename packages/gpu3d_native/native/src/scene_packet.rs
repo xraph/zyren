@@ -70,7 +70,7 @@ impl ScenePacket {
             return Err("unsupported scene packet".into());
         }
         let opcode = r.u32()?;
-        if !(10..=14).contains(&opcode) {
+        if !(10..=15).contains(&opcode) {
             return Err("unsupported scene packet".into());
         }
         let textured = opcode >= 11;
@@ -313,16 +313,29 @@ impl ScenePacket {
             } else {
                 None
             };
-            updates.push((
-                index,
-                Mesh {
-                    geometry,
-                    model,
-                    color,
-                    unlit: unlit == 1,
-                    color_map,
-                },
-            ));
+            let mut mesh = Mesh {
+                geometry,
+                model,
+                color,
+                unlit: unlit == 1,
+                color_map,
+                ..Default::default()
+            };
+            if opcode >= 15 {
+                mesh.alpha_mode = r.u32()?;
+                mesh.opacity = r.floats::<1>()?[0];
+                mesh.alpha_cutoff = r.floats::<1>()?[0];
+                let depth_test = r.u32()?;
+                let depth_write = r.u32()?;
+                if depth_test > 1 || depth_write > 1 {
+                    return Err("invalid depth flags".into());
+                }
+                mesh.depth_test = depth_test == 1;
+                mesh.depth_write = Some(depth_write == 1);
+                mesh.render_order = r.u32()? as i32;
+                mesh.validate_material()?;
+            }
+            updates.push((index, mesh));
         }
         if r.offset != data.len() {
             return Err("trailing scene bytes".into());
@@ -352,16 +365,7 @@ impl ScenePacket {
             return Err("stale scene revision".into());
         }
         let mut meshes = if self.base == 0 {
-            vec![
-                Mesh {
-                    geometry: 0,
-                    model: [0.; 16],
-                    color: [0.; 3],
-                    unlit: false,
-                    color_map: None
-                };
-                self.mesh_count
-            ]
+            vec![Mesh::default(); self.mesh_count]
         } else {
             let old = previous
                 .filter(|p| p.revision == self.base && p.meshes.len() == self.mesh_count)

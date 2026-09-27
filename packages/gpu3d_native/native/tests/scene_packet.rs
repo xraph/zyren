@@ -333,3 +333,92 @@ fn compact_indices_preserve_unaligned_fields_and_reject_truncation() {
         let _ = ScenePacket::decode(&data);
     }
 }
+
+fn alpha_packet() -> (Vec<u8>, usize) {
+    let mut data = triangle_packet(1, 1, 0, true, true, 1.);
+    data[4..8].copy_from_slice(&15_u32.to_le_bytes());
+    data.splice(148..148, [0_u8; 12]); // Texture counts and geometry patch count.
+    data.splice(176..176, 0_u32.to_le_bytes()); // UV/index flags.
+    data.extend(0_u32.to_le_bytes()); // No color map.
+    let material = data.len();
+    for value in [
+        2_u32,
+        0.5_f32.to_bits(),
+        0.5_f32.to_bits(),
+        1,
+        0,
+        (-4_i32) as u32,
+    ] {
+        data.extend(value.to_le_bytes());
+    }
+    let length = (data.len() - 24) as u64;
+    data[16..24].copy_from_slice(&length.to_le_bytes());
+    (data, material)
+}
+
+#[test]
+fn alpha_packet_validates_policy_ranges_flags_and_truncations() {
+    let (valid, material) = alpha_packet();
+    let frame = ScenePacket::decode(&valid).unwrap().resolve(None).unwrap();
+    frame.validate(&Default::default()).unwrap();
+    assert_eq!(frame.meshes[0].alpha_mode, 2);
+    assert_eq!(frame.meshes[0].render_order, -4);
+    assert!(!frame.meshes[0].writes_depth());
+    for (offset, value) in [
+        (0, 3_u32),
+        (4, f32::NAN.to_bits()),
+        (4, (-0.1_f32).to_bits()),
+        (8, 1.1_f32.to_bits()),
+        (12, 2),
+        (16, 2),
+    ] {
+        let mut invalid = valid.clone();
+        invalid[material + offset..material + offset + 4].copy_from_slice(&value.to_le_bytes());
+        assert!(ScenePacket::decode(&invalid).is_err());
+    }
+    for end in 0..valid.len() {
+        let mut data = valid[..end].to_vec();
+        if end >= 24 {
+            data[16..24].copy_from_slice(&((end - 24) as u64).to_le_bytes());
+        }
+        assert!(ScenePacket::decode(&data).is_err());
+    }
+    let mut seed = 0x834f_2348_u64;
+    for _ in 0..2048 {
+        seed ^= seed << 13;
+        seed ^= seed >> 7;
+        seed ^= seed << 17;
+        let mut data = valid.clone();
+        data[material + seed as usize % 24] ^= (seed >> 32) as u8;
+        if let Ok(packet) = ScenePacket::decode(&data)
+            && let Ok(frame) = packet.resolve(None)
+        {
+            let _ = frame.validate(&Default::default());
+        }
+    }
+}
+
+#[test]
+#[ignore = "requires a native Metal, Vulkan or DX12 device"]
+fn rejected_materials_preserve_revision_and_legacy_opaque_defaults() {
+    use gpu3d_runtime::renderer::Renderer;
+    let mut renderer = pollster::block_on(Renderer::new()).unwrap();
+    let (mut packet, material) = alpha_packet();
+    let first = renderer.decode_scene(&packet).unwrap();
+    let pixels = renderer.render(&first, 31, 31).unwrap();
+    assert!(pixels[(15 * 31 + 15) * 4].abs_diff(188) <= 1);
+    packet[8..16].copy_from_slice(&2_u64.to_le_bytes());
+    packet[material..material + 4].copy_from_slice(&3_u32.to_le_bytes());
+    assert!(renderer.decode_scene(&packet).is_err());
+    let restored = renderer
+        .decode_scene(&triangle_packet(1, 2, 1, false, true, 1.))
+        .unwrap();
+    assert_eq!(restored.meshes[0].opacity, 1.);
+    assert!(restored.meshes[0].writes_depth());
+    let pixels = renderer.render(&restored, 31, 31).unwrap();
+    assert_eq!(
+        &pixels[(15 * 31 + 15) * 4..(15 * 31 + 15) * 4 + 4],
+        &[255, 0, 0, 255]
+    );
+    assert_eq!(renderer.scene_resource_stats(), (84, 84));
+}

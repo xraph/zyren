@@ -43,7 +43,11 @@ void main() {
   final plane = scene.add(
     Mesh(
       PlaneGeometry(dynamic: true, indexFormat: IndexFormat.uint16),
-      UnlitMaterial(colorMap: TextureMap(image: image)),
+      UnlitMaterial(
+        colorMap: TextureMap(image: image),
+        alphaMode: MaterialAlphaMode.blend,
+        opacity: .5,
+      ),
     ),
   );
   final textureEncoder = ScenePacketEncoder(viewId: 2);

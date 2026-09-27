@@ -33,7 +33,7 @@ for limits and ownership. Scene geometry uses the same registry with binary
 uploads and changed mesh records. `createView()` returns an independent readback
 view sharing the device, geometry revisions and material images. Closing a view
 releases its scopes and scene references; the last view closes the worker.
-Use `TextureImage.rgba` and `TextureMap` for opaque color textures, UV selection,
+Use `TextureImage.rgba` and `TextureMap` for color textures, UV selection,
 wrap/filter settings and supplied or native-generated mip levels. Set
 `generateMipmaps: true` to build a full chain in linear light on the GPU. `NativeImageDecoder` decodes PNG
 and JPEG on a CPU isolate with bounded admission. Dynamic geometry uploads
@@ -44,3 +44,9 @@ error settles every pending request. Stale and duplicate replies are ignored.
 Explicit close remains the normal path; native finalization also releases the
 handle if the worker exits before it receives a dispose request. The opt-in
 finalization test checks the process-local handle count with a real GPU device.
+
+Use `MaterialAlphaMode.mask` for cutouts or `MaterialAlphaMode.blend` for
+source-over transparency. Blended materials sort back to front and leave depth
+writes off by default. `Mesh.renderOrder`, `DepthWrite` and `depthTest` let you
+override those choices. Run `lib/material_alpha_demo.dart` from
+`examples/multiple_views` on macOS or Android to try the native material controls.

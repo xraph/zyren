@@ -1,12 +1,13 @@
 import 'dart:async';
 import 'dart:typed_data';
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_gpu3d/flutter_gpu3d.dart';
 import 'package:multiple_views/managed_mesh.dart';
 import 'package:multiple_views/borrowed_viewer.dart';
 import 'package:multiple_views/main.dart';
 import 'package:multiple_views/textured_scene_demo.dart';
+import 'package:multiple_views/material_alpha_demo.dart';
 import '../../../packages/flutter_gpu3d/test/support/backend_fake.dart';
 import '../../../packages/flutter_gpu3d/test/support/fakes.dart';
 
@@ -35,6 +36,46 @@ class TestImageDecoder implements ImageDecoder {
 }
 
 void main() {
+  testWidgets('material controls redraw and retain a useful narrow canvas', (
+    tester,
+  ) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final backend = FakeBackend();
+    await tester.pumpWidget(
+      MaterialAlphaApp(
+        runtime: runtime(backend),
+        presentation: PresentationPolicy.readbackOnly,
+      ),
+    );
+    await frames(tester);
+    final controller = tester
+        .widget<SceneView>(find.byType(SceneView))
+        .controller!;
+    final front = controller.scene.children.first as Mesh;
+    expect(front.material.alphaMode, MaterialAlphaMode.blend);
+    await tester.tap(find.text('Mask'));
+    await frames(tester);
+    expect(front.material.alphaMode, MaterialAlphaMode.mask);
+    expect(front.material.writesDepth, isTrue);
+    await tester.binding.setSurfaceSize(const Size(320, 640));
+    await frames(tester);
+    await tester.tap(find.text('Blend'));
+    await tester.tap(find.text('Depth order'));
+    await frames(tester);
+    expect(front.renderOrder, -1);
+    expect(front.material.writesDepth, isFalse);
+    await tester.tap(find.text('Auto depth'));
+    await tester.drag(find.byType(Slider), const Offset(-30, 0));
+    await frames(tester);
+    expect(front.material.writesDepth, isTrue);
+    expect(front.material.opacity, lessThan(.65));
+    expect(tester.getSize(find.byType(SceneView)).height, greaterThan(300));
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await frames(tester);
+    await controller.whenDisposed;
+    expect(backend.closeCount, 1);
+  });
   testWidgets('geometry controls redraw on demand and fit narrow screens', (
     tester,
   ) async {

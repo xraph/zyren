@@ -533,3 +533,30 @@ This checkpoint generates RGBA8 linear and sRGB mip chains. Materials still
 render opaquely; mask/blend modes, alpha coverage preservation, ordering and
 portable lines/points remain open. It adds no iOS, Windows, Linux or Adreno
 qualification and does not establish Three.js or Takram parity.
+
+## Material alpha and draw ordering
+
+Opaque, mask and blend modes pass 71 core, 8 geospatial, 26 native Dart GPU,
+60 Flutter/example and 58 Rust tests including GPU cases. AOT encoding exercises
+alpha state together with generated mipmaps and compact indices. Analysis,
+strict Clippy, formatting and package/header boundary checks pass.
+
+The same material fixture passes through Flutter on Metal and the physical
+Pixel's Vulkan backend. Pixel probes cover source-over blending in linear light,
+texture alpha multiplied by opacity, cutoff equality, opaque alpha, lit
+materials, automatic depth writes and explicit depth overrides. Camera movement,
+render order and dynamic geometry centers change draw order without reuploading
+unchanged resources. Final removal releases all resident bytes. Invalid material
+records, every packet truncation and seeded mutations preserve the prior scene;
+older packet formats restore their opaque defaults.
+
+The material demo builds for macOS (49.5 MB) and Android ARM64 (21.9 MB). Native
+Metal inspection confirms that Mask, Blend and Depth order change the overlapping
+planes at desktop and narrow widths. The 320-pixel layout test keeps more than
+300 pixels of canvas height. The Android release launches on the Pixel; sustained
+manual interaction with that release remains unverified.
+
+The canvas remains opaque. Transparent Flutter composition needs its own output
+color-conversion path, and object sorting cannot resolve intersecting transparent
+triangles. Portable lines/points are the next Task 2 work. This checkpoint adds no
+iOS, Windows, Linux or Adreno qualification and makes no parity claim.

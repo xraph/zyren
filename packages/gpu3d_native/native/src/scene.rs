@@ -108,6 +108,60 @@ pub struct Mesh {
     pub unlit: bool,
     #[serde(default)]
     pub color_map: Option<ColorMap>,
+    #[serde(default)]
+    pub alpha_mode: u32,
+    #[serde(default = "one")]
+    pub opacity: f32,
+    #[serde(default = "half")]
+    pub alpha_cutoff: f32,
+    #[serde(default = "enabled")]
+    pub depth_test: bool,
+    #[serde(default)]
+    pub depth_write: Option<bool>,
+    #[serde(default)]
+    pub render_order: i32,
+}
+fn one() -> f32 {
+    1.
+}
+fn half() -> f32 {
+    0.5
+}
+fn enabled() -> bool {
+    true
+}
+impl Default for Mesh {
+    fn default() -> Self {
+        Self {
+            geometry: 0,
+            model: glam::Mat4::IDENTITY.to_cols_array(),
+            color: [1.; 3],
+            unlit: false,
+            color_map: None,
+            alpha_mode: 0,
+            opacity: 1.,
+            alpha_cutoff: 0.5,
+            depth_test: true,
+            depth_write: None,
+            render_order: 0,
+        }
+    }
+}
+impl Mesh {
+    pub fn writes_depth(&self) -> bool {
+        self.depth_write.unwrap_or(self.alpha_mode != 2)
+    }
+    pub fn validate_material(&self) -> Result<(), String> {
+        if self.alpha_mode > 2
+            || !self.opacity.is_finite()
+            || !(0.0..=1.0).contains(&self.opacity)
+            || !self.alpha_cutoff.is_finite()
+            || !(0.0..=1.0).contains(&self.alpha_cutoff)
+        {
+            return Err("invalid alpha mode, opacity or cutoff".into());
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, PartialEq, Deserialize)]
@@ -235,6 +289,7 @@ impl Frame {
             return Err("geometry upload exceeds the per-frame budget".into());
         }
         for mesh in &self.meshes {
+            mesh.validate_material()?;
             if !cached.contains(&mesh.geometry) && !added.contains(&mesh.geometry) {
                 return Err("mesh refers to a missing geometry".into());
             }

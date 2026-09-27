@@ -212,7 +212,8 @@ Rows and UVs start at the top left. Color images default to `rgba8UnormSrgb`:
 sampling decodes sRGB before linear shading, then the output target encodes sRGB
 once. Use `rgba8Unorm` when your input already contains linear channel values.
 The material's color multiplies the sample; mapped materials default to white.
-Alpha is currently opaque, so the shader ignores the image's alpha channel.
+The material's `alphaMode` controls whether the image alpha is ignored, tested
+against a cutoff, or used for blending.
 
 Use `SamplerDescriptor` for clamp, repeat or mirrored repeat on each axis and
 nearest or linear minification, magnification and mip filtering. You can supply
@@ -234,8 +235,8 @@ support. Legacy Dart JSON encoders reject texture materials explicitly.
 You can run `lib/textured_scene_demo.dart` in `examples/multiple_views` on macOS
 or Android to compare filtering and wrapping through the native presenter.
 Use Deform, Shift UV and Reset to edit the same geometry. Dense UV increases
-texture repetition; toggle Mips on/off to compare minification. Transparent
-materials remain task 2 work.
+texture repetition; toggle Mips on/off to compare minification. Use
+`lib/material_alpha_demo.dart` to compare opaque, masked and blended layers.
 
 ### Native mip generation
 
@@ -266,6 +267,53 @@ For a plugin-owned texture, allocate the desired `mipLevels` with `sampled` and
 Generation replaces all allocated lower levels. Call it again after changing
 level zero. A one-level allocation is a no-op, and closing the scope drains an
 accepted generation before releasing its resources.
+
+## Material opacity and draw order
+
+```dart
+final glass = Mesh(
+  PlaneGeometry(width: 2, height: 2),
+  UnlitMaterial(
+    color: const Color3(.2, .7, 1),
+    alphaMode: MaterialAlphaMode.blend,
+    opacity: .4,
+  ),
+);
+scene.add(glass);
+```
+
+You can use the same settings with `DiffuseMaterial`. Materials are immutable;
+replace a mesh's material or use its `copyWith` method to schedule a new frame.
+Opacity, cutoff, ordering and depth edits retain existing geometry and images.
+`RenderFeature.alphaMaterials` identifies this native capability.
+
+| Mode | Fragment behavior | Automatic depth writes |
+| --- | --- | --- |
+| `opaque` | Ignore opacity and texture alpha; write opaque color | Enabled |
+| `mask` | Discard when opacity times texture alpha is below `alphaCutoff`; surviving fragments are opaque | Enabled |
+| `blend` | Source-over blending with opacity times texture alpha | Disabled |
+
+Opacity defaults to 1 and cutoff to .5. Both accept finite values in [0, 1].
+A fragment exactly at the cutoff survives. Colors blend in linear light before
+sRGB output encoding. Raw image `AlphaMode` describes pixel storage and remains
+separate from `MaterialAlphaMode`.
+
+Set `depthWrite: DepthWrite.enabled` or `DepthWrite.disabled` when you need an
+explicit override. `DepthWrite.automatic` restores the mode-dependent default,
+including through `copyWith`. With `depthTest: false`, depth comparison always
+passes; the depth-write policy still applies independently.
+
+Opaque and masked meshes draw before blended meshes. Within each queue,
+`mesh.renderOrder` sorts ascending; it defaults to zero and accepts signed 32-bit
+integers. Blended meshes with the same order draw back to front using projected
+geometry centers, including their current transforms. Scene traversal order
+breaks depth ties. Camera movement and position edits update the order without
+rearranging captured mesh records or uploading unchanged geometry.
+
+Object sorting does not solve intersecting transparent triangles. Split those
+meshes when you need a reliable order; order-independent transparency remains
+future renderer work. The canvas is currently opaque. Transparent Flutter
+composition still needs a separate output color-conversion path.
 
 ## Binary resource protocol, version 2
 
@@ -310,7 +358,8 @@ RGBA8 unorm and RGBA8 unorm sRGB. Empty or unknown usage bits are rejected.
 
 ## Binary scene protocol, version 2
 
-The render entrypoints accept opcode 14 for generated mips, opcode 13 for
+The render entrypoints accept opcode 15 for alpha/depth/order state, opcode 14
+for generated mips, opcode 13 for
 compact indices, opcode 12 for
 geometry patches, opcode 11 for textures and opcode 10 for older untextured
 callers. Their header uses a monotonic per-view revision in the
@@ -359,6 +408,14 @@ RGBA levels, and two generates alpha-weighted levels. Generated textures must
 supply exactly one level. Native admission computes the full chain from the
 extent and checks resident bytes before copying the source payload. Older opcodes
 keep their existing layout.
+
+Opcode 15 extends opcode 14 with material state after each updated mesh's color
+map fields: alpha mode u32, opacity f32, cutoff f32, depth-test u32, depth-write
+u32 and render order i32. Modes 0/1/2 mean opaque/mask/blend; depth flags are 0/1.
+Dart resolves the depth-write policy before encoding. Invalid modes, flags or
+scalar ranges are rejected. Earlier opcodes retain opaque mode, opacity 1, cutoff
+.5, depth testing/writes enabled and order zero. Native v1 JSON accepts the same
+named fields and resolves an omitted depth-write value from alpha mode.
 
 View IDs and revisions are positive. Base zero replaces the complete draw list;
 otherwise it must match the last applied revision and mesh count. Matrices use
@@ -427,7 +484,8 @@ progressive JPEG are supported. The JPEG profile accepts at most 64 scans.
 16-bit PNG, animated PNG and other image formats are rejected. The decoder
 preserves encoded row orientation and channel values; EXIF rotation and ICC
 color conversion are not applied. Normalize those assets before loading them.
-Texture alpha is retained in CPU data, but materials still render opaquely.
+Texture alpha is retained in CPU data. Set the material's `alphaMode` to mask or
+blend when you want rendering to use it.
 
 The default ceilings are 16 MiB of encoded input, 64 MiB of RGBA output and 4096
 pixels on either axis. You can lower each limit. `maxWorkingBytes` defaults to

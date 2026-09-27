@@ -2,79 +2,14 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:vector_math/vector_math_64.dart' as vm;
 import '../geometry/geometry.dart';
-import '../resources/texture_image.dart';
+import '../materials/material.dart';
+import '../math/color3.dart';
+export '../materials/material.dart';
+export '../math/color3.dart';
 import '../math/vec3.dart';
 import '../math/quat.dart';
 import '../math/mat4.dart';
 part 'revision.dart';
-
-/// Linear RGB channels in [0, 1].
-final class Color3 {
-  final double r, g, b;
-  const Color3(this.r, this.g, this.b);
-  factory Color3.hex(int rgb) {
-    double linear(int channel) {
-      final c = channel / 255;
-      return c <= .04045
-          ? c / 12.92
-          : math.pow((c + .055) / 1.055, 2.4).toDouble();
-    }
-
-    return Color3(
-      linear((rgb >> 16) & 255),
-      linear((rgb >> 8) & 255),
-      linear(rgb & 255),
-    );
-  }
-  @override
-  bool operator ==(Object other) =>
-      other is Color3 && r == other.r && g == other.g && b == other.b;
-  @override
-  int get hashCode => Object.hash(r, g, b);
-  List<double> toList() {
-    final values = [r, g, b];
-    if (values.any((v) => !v.isFinite || v < 0 || v > 1)) {
-      throw ArgumentError('RGB channels must be in [0, 1].');
-    }
-    return values;
-  }
-}
-
-sealed class MeshMaterial {
-  final Color3 color;
-  final TextureMap? colorMap;
-  MeshMaterial({Color3? color, this.colorMap})
-    : color =
-          color ??
-          (colorMap == null
-              ? const Color3(.4, .6, .9)
-              : const Color3(1, 1, 1)) {
-    this.color.toList();
-  }
-  bool get unlit;
-}
-
-final class DiffuseMaterial extends MeshMaterial {
-  DiffuseMaterial({super.color, super.colorMap});
-  @override
-  bool get unlit => false;
-  DiffuseMaterial copyWith({Color3? color, TextureMap? colorMap}) =>
-      DiffuseMaterial(
-        color: color ?? this.color,
-        colorMap: colorMap ?? this.colorMap,
-      );
-}
-
-final class UnlitMaterial extends MeshMaterial {
-  UnlitMaterial({super.color, super.colorMap});
-  @override
-  bool get unlit => true;
-  UnlitMaterial copyWith({Color3? color, TextureMap? colorMap}) =>
-      UnlitMaterial(
-        color: color ?? this.color,
-        colorMap: colorMap ?? this.colorMap,
-      );
-}
 
 class Object3D with _Revisioned {
   final String? name;
@@ -187,10 +122,27 @@ class Group extends Object3D {
 class Mesh extends Object3D {
   final BufferGeometry geometry;
   MeshMaterial _material;
-  Mesh(this.geometry, MeshMaterial material, {super.name})
+  int _renderOrder = 0;
+  Mesh(this.geometry, MeshMaterial material, {super.name, int renderOrder = 0})
     : _material = material {
+    this.renderOrder = renderOrder;
     watchGeometry(geometry, this, _geometryChanged);
   }
+
+  /// Draw order within the opaque/mask or blended queue. Lower values draw first.
+  int get renderOrder => _renderOrder;
+  set renderOrder(int value) {
+    RangeError.checkValueInInterval(
+      value,
+      -0x80000000,
+      0x7fffffff,
+      'renderOrder',
+    );
+    if (_renderOrder == value) return;
+    _renderOrder = value;
+    _changed();
+  }
+
   static void _geometryChanged(Object owner) => (owner as Mesh)._changed();
   MeshMaterial get material => _material;
   set material(MeshMaterial value) {
@@ -393,6 +345,12 @@ class Scene extends Object3D {
           'model': relative.storage.toList(),
           'color': node.material.color.toList(),
           'unlit': node.material.unlit,
+          'alpha_mode': node.material.alphaMode.index,
+          'opacity': node.material.opacity,
+          'alpha_cutoff': node.material.alphaCutoff,
+          'depth_test': node.material.depthTest,
+          'depth_write': node.material.writesDepth,
+          'render_order': node.renderOrder,
         });
         final geometry = node.geometry.capture();
         geometries[geometry.id] = geometry;

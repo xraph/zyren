@@ -9,14 +9,9 @@ use glam::Mat4;
 use wgpu::util::DeviceExt;
 
 use crate::scene::{Frame, pixel_len};
+mod draw_order;
+mod pipelines;
 mod textures;
-
-#[repr(C)]
-#[derive(Clone, Copy, Pod, Zeroable)]
-struct Vertex {
-    position: [f32; 3],
-    normal: [f32; 3],
-}
 
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
@@ -31,6 +26,7 @@ struct Uniforms {
 struct GpuGeometry {
     key: crate::resources::registry::ResourceKey,
     recipe: std::sync::Arc<crate::scene::Geometry>,
+    center: glam::Vec3,
 }
 struct Targets {
     width: u32,
@@ -80,14 +76,9 @@ pub struct RendererState {
     pub(crate) android: Option<crate::interop::android::AndroidTarget>,
     #[cfg(target_os = "android")]
     pub(crate) android_generation: u64,
-    pipeline: wgpu::RenderPipeline,
-    textured_pipeline: wgpu::RenderPipeline,
+    pipelines: pipelines::MeshPipelines,
     texture_layout: wgpu::BindGroupLayout,
     textures: HashMap<u32, textures::GpuSceneTexture>,
-    #[cfg(any(target_vendor = "apple", target_os = "android"))]
-    surface_pipeline: wgpu::RenderPipeline,
-    #[cfg(any(target_vendor = "apple", target_os = "android"))]
-    textured_surface_pipeline: wgpu::RenderPipeline,
     #[cfg(any(target_vendor = "apple", target_os = "android"))]
     surface_depth: Option<DepthTarget>,
     #[cfg(any(target_vendor = "apple", target_os = "android"))]
@@ -167,10 +158,6 @@ impl Renderer {
             })
             .await
             .map_err(|e| format!("device creation failed: {e}"))?;
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("native opaque mesh"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("mesh.wgsl").into()),
-        });
         let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: None,
             entries: &[wgpu::BindGroupLayoutEntry {
@@ -184,77 +171,8 @@ impl Renderer {
                 count: None,
             }],
         });
-        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: None,
-            bind_group_layouts: &[Some(&layout)],
-            ..Default::default()
-        });
         let texture_layout = textures::layout(&device);
-        let textured_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("textured meshes"),
-            bind_group_layouts: &[Some(&layout), Some(&texture_layout)],
-            ..Default::default()
-        });
-        let create_pipeline = |format, textured| {
-            let attributes = wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3];
-            let uv_attributes = wgpu::vertex_attr_array![2 => Float32x2, 3 => Float32x2];
-            let mut buffers = vec![Some(wgpu::VertexBufferLayout {
-                array_stride: 24,
-                step_mode: wgpu::VertexStepMode::Vertex,
-                attributes: &attributes,
-            })];
-            if textured {
-                buffers.push(Some(wgpu::VertexBufferLayout {
-                    array_stride: 16,
-                    step_mode: wgpu::VertexStepMode::Vertex,
-                    attributes: &uv_attributes,
-                }));
-            }
-            device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-                label: Some("opaque meshes"),
-                layout: Some(if textured {
-                    &textured_layout
-                } else {
-                    &pipeline_layout
-                }),
-                vertex: wgpu::VertexState {
-                    module: &shader,
-                    entry_point: Some(if textured { "vs_textured" } else { "vs_main" }),
-                    compilation_options: Default::default(),
-                    buffers: &buffers,
-                },
-                fragment: Some(wgpu::FragmentState {
-                    module: &shader,
-                    entry_point: Some(if textured { "fs_textured" } else { "fs_main" }),
-                    compilation_options: Default::default(),
-                    targets: &[Some(wgpu::ColorTargetState {
-                        format,
-                        blend: None,
-                        write_mask: wgpu::ColorWrites::ALL,
-                    })],
-                }),
-                primitive: wgpu::PrimitiveState {
-                    cull_mode: None,
-                    ..Default::default()
-                },
-                depth_stencil: Some(wgpu::DepthStencilState {
-                    format: wgpu::TextureFormat::Depth32Float,
-                    depth_write_enabled: Some(true),
-                    depth_compare: Some(wgpu::CompareFunction::Less),
-                    stencil: Default::default(),
-                    bias: Default::default(),
-                }),
-                multisample: Default::default(),
-                multiview_mask: None,
-                cache: None,
-            })
-        };
-        let pipeline = create_pipeline(wgpu::TextureFormat::Rgba8UnormSrgb, false);
-        let textured_pipeline = create_pipeline(wgpu::TextureFormat::Rgba8UnormSrgb, true);
-        #[cfg(any(target_vendor = "apple", target_os = "android"))]
-        let surface_pipeline = create_pipeline(wgpu::TextureFormat::Bgra8UnormSrgb, false);
-        #[cfg(any(target_vendor = "apple", target_os = "android"))]
-        let textured_surface_pipeline = create_pipeline(wgpu::TextureFormat::Bgra8UnormSrgb, true);
+        let pipelines = pipelines::MeshPipelines::new(&device, &layout, &texture_layout);
         Ok(Self {
             state: Some(Box::new(RendererState {
                 device,
@@ -267,14 +185,9 @@ impl Renderer {
                 android: None,
                 #[cfg(target_os = "android")]
                 android_generation: 0,
-                pipeline,
-                textured_pipeline,
+                pipelines,
                 texture_layout,
                 textures: HashMap::new(),
-                #[cfg(any(target_vendor = "apple", target_os = "android"))]
-                surface_pipeline,
-                #[cfg(any(target_vendor = "apple", target_os = "android"))]
-                textured_surface_pipeline,
                 #[cfg(any(target_vendor = "apple", target_os = "android"))]
                 surface_depth: None,
                 #[cfg(any(target_vendor = "apple", target_os = "android"))]
@@ -543,6 +456,7 @@ impl Renderer {
                     GpuGeometry {
                         key,
                         recipe: std::sync::Arc::new(geometry.clone()),
+                        center: draw_order::geometry_center(geometry),
                     },
                 );
             }
@@ -566,13 +480,26 @@ impl Renderer {
         self.evict_geometry()
     }
 
+    fn prepare_pipelines(
+        &mut self,
+        frame: &Frame,
+        format: wgpu::TextureFormat,
+    ) -> Result<(), String> {
+        let state = self.state.as_mut().unwrap();
+        state
+            .pipelines
+            .prepare(&state.device, frame, format)
+            .inspect_err(|error| {
+                state.failure = Some(error.clone());
+            })
+    }
+
     fn encode_scene(
         &self,
         frame: &Frame,
         color_view: &wgpu::TextureView,
         depth_view: &wgpu::TextureView,
-        pipeline: &wgpu::RenderPipeline,
-        textured_pipeline: &wgpu::RenderPipeline,
+        format: wgpu::TextureFormat,
     ) -> wgpu::CommandEncoder {
         let vp = Mat4::from_cols_array(&frame.view_projection);
         let bindings: Vec<_> = frame
@@ -597,9 +524,9 @@ impl Renderer {
                     ],
                     map_params: [
                         mesh.color_map.as_ref().map_or(0., |map| map.uv_set as f32),
-                        0.,
-                        0.,
-                        0.,
+                        mesh.opacity,
+                        mesh.alpha_cutoff,
+                        mesh.alpha_mode as f32,
                     ],
                 };
                 let buffer = self
@@ -652,15 +579,15 @@ impl Renderer {
                 }),
                 ..Default::default()
             });
-            for ((mesh, binding), texture_binding) in
-                frame.meshes.iter().zip(&bindings).zip(&texture_bindings)
-            {
+            for index in draw_order::sorted(frame, |id| self.geometries[&id].center) {
+                let mesh = &frame.meshes[index];
+                let binding = &bindings[index];
+                let texture_binding = &texture_bindings[index];
                 let geometry = &self.geometries[&mesh.geometry];
-                pass.set_pipeline(if texture_binding.is_some() {
-                    textured_pipeline
-                } else {
-                    pipeline
-                });
+                pass.set_pipeline(
+                    self.pipelines
+                        .get(pipelines::PipelineKey::new(format, mesh)),
+                );
                 pass.set_bind_group(0, binding, &[]);
                 let (vertices, indices, count, uv, index_format) =
                     self.resources.geometry(geometry.key);
@@ -768,20 +695,12 @@ impl Renderer {
                 _texture: depth,
             });
         }
+        self.prepare_pipelines(frame, texture.format())?;
         let encoder = self.encode_scene(
             frame,
             &texture.create_view(&Default::default()),
             &self.surface_depth.as_ref().unwrap().view,
-            if texture.format() == wgpu::TextureFormat::Rgba8UnormSrgb {
-                &self.pipeline
-            } else {
-                &self.surface_pipeline
-            },
-            if texture.format() == wgpu::TextureFormat::Rgba8UnormSrgb {
-                &self.textured_pipeline
-            } else {
-                &self.textured_surface_pipeline
-            },
+            texture.format(),
         );
         let result = self
             .submit(encoder)
@@ -798,13 +717,13 @@ impl Renderer {
         let len = pixel_len(width, height)?;
         self.prepare_scene(frame)?;
         self.resize(width, height);
+        self.prepare_pipelines(frame, wgpu::TextureFormat::Rgba8UnormSrgb)?;
         let target = self.targets.as_ref().unwrap();
         let mut encoder = self.encode_scene(
             frame,
             &target.color_view,
             &target.depth_view,
-            &self.pipeline,
-            &self.textured_pipeline,
+            wgpu::TextureFormat::Rgba8UnormSrgb,
         );
         encoder.copy_texture_to_buffer(
             target.color.as_image_copy(),

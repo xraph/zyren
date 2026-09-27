@@ -131,7 +131,18 @@ final class ScenePacketEncoder {
         uploadBytes > 64 * 1024 * 1024) {
       throw ArgumentError('Scene resource upload exceeds the frame budget.');
     }
-    final opcode = textures.any((image) => image.generatesMipmaps)
+    final opcode =
+        scene._meshes.any(
+          (m) =>
+              m['alpha_mode'] != 0 ||
+              m['opacity'] != 1.0 ||
+              m['alpha_cutoff'] != .5 ||
+              m['depth_test'] != true ||
+              m['depth_write'] != true ||
+              m['render_order'] != 0,
+        )
+        ? 15
+        : textures.any((image) => image.generatesMipmaps)
         ? 14
         : uploads.any((g) => g.indexFormat == IndexFormat.uint16)
         ? 13
@@ -219,6 +230,16 @@ final class ScenePacketEncoder {
       final map = (mesh['colorMap'] as List).cast<int>();
       body.u32(map.isEmpty ? 0 : 1);
       body.integers(map);
+      if (opcode >= 15) {
+        body.u32(mesh['alpha_mode'] as int);
+        body.floats([
+          mesh['opacity'] as double,
+          mesh['alpha_cutoff'] as double,
+        ]);
+        body.u32(mesh['depth_test'] == true ? 1 : 0);
+        body.u32(mesh['depth_write'] == true ? 1 : 0);
+        body.i32(mesh['render_order'] as int);
+      }
     }
     final payload = body.finish();
     if (payload.length > 66 * 1024 * 1024 - 24) {
@@ -281,7 +302,18 @@ final class _GeometryPatch {
 }
 
 bool _sameMesh(Map<String, Object> a, Map<String, Object> b) {
-  if (a['geometry'] != b['geometry'] || a['unlit'] != b['unlit']) return false;
+  for (final field in [
+    'geometry',
+    'unlit',
+    'alpha_mode',
+    'opacity',
+    'alpha_cutoff',
+    'depth_test',
+    'depth_write',
+    'render_order',
+  ]) {
+    if (a[field] != b[field]) return false;
+  }
   for (final field in ['model', 'color', 'colorMap']) {
     final left = a[field] as List, right = b[field] as List;
     if (left.length != right.length) return false;
@@ -301,6 +333,10 @@ final class _SceneWriter {
     }
     add((ByteData(4)..setUint32(0, value, Endian.little)).buffer.asUint8List());
   }
+
+  void i32(int value) => add(
+    (ByteData(4)..setInt32(0, value, Endian.little)).buffer.asUint8List(),
+  );
 
   void u64(int value) => add(
     (ByteData(8)..setUint64(0, value, Endian.little)).buffer.asUint8List(),
