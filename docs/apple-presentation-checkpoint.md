@@ -205,8 +205,16 @@ The integration suite checks updates and plugin hooks, an idle scene waking
 after edits, two cameras, borrowed remount without re-upload, physical resize,
 TickerMode suspension, 100 managed create/remove cycles and explicit pixel
 capture. Injected Flutter taps test routing within Flutter; they do not establish
-OS mouse, touch or keyboard delivery. Disposal while native creation or rendering
-is pending still needs a dedicated native race fixture.
+OS mouse, touch or keyboard delivery.
+
+You can run `integration_test/native_scene_race_test.dart` to check cancellation
+while renderer creation, view attachment or frame completion is pending. It also
+delays an old attachment across a borrowed-controller remount. All four scenarios
+pass on macOS and the iOS simulator, returning native ownership counters to zero
+and preventing stale publication. The completion gate pauses the native reply
+after GPU work finishes; the Rust timeout fixture separately blocks a GPU queue.
+These gates compile only into Debug builds. The macOS release binary contains
+none of their channel method names.
 
 ## Earlier proof checks
 
