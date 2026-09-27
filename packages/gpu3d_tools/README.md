@@ -24,6 +24,14 @@ intervening pose changes, removal and reparenting; call `clearHistory()` when yo
 deliberately hand control to animation or another editor. History is bounded by
 `historyLimit`, which defaults to 100 edits. Position snapping uses local units.
 
+For a drag, call `beginTransform(object)` and send preview poses to the returned
+session's `update` method. `commit()` records the whole gesture as one edit.
+`cancel()` restores the starting pose while the session still owns it. A changed
+parent transform, reparenting or an external pose edit ends that ownership, so
+cancellation leaves the other writer's values intact. Selection changes, history
+clearing and teardown cancel any active preview. Finish a session before issuing
+another transform command or using undo and redo.
+
 Measurements retain fixed world anchors in scene units. They do not follow a
 moving mesh or convert to metres. Your host supplies labels and drawing.
 The package does not yet draw transform gizmos or selection outlines.

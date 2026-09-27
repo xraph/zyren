@@ -179,4 +179,68 @@ void main() {
       expect(tools.redo(), isTrue);
     }
   });
+
+  test('a multi-update gesture commits one undo entry', () {
+    final gesture = tools.beginTransform(mesh);
+    for (var i = 1; i <= 20; i++) {
+      gesture.update(position: Vec3(i / 10, 0, 0));
+    }
+    expect(tools.canUndo, isFalse);
+    expect(tools.undo, throwsStateError);
+    expect(() => tools.transform(mesh, scale: Vec3.one), throwsStateError);
+    gesture.commit();
+    expect(mesh.position, const Vec3(2, 0, 0));
+    expect(tools.undo(), isTrue);
+    expect(mesh.position, Vec3.zero);
+    expect(tools.undo(), isFalse);
+    expect(tools.redo(), isTrue);
+    expect(mesh.position, const Vec3(2, 0, 0));
+    expect(gesture.commit, throwsStateError);
+  });
+
+  test('cancel and no-op gestures preserve redo and restore exact pose', () {
+    tools.transform(mesh, position: Vec3.one);
+    tools.undo();
+    final gesture = tools.beginTransform(mesh);
+    gesture.update(position: const Vec3(3, 4, 5));
+    expect(gesture.cancel(), isTrue);
+    expect(mesh.position, Vec3.zero);
+    expect(tools.canRedo, isTrue);
+    tools.beginTransform(mesh).commit();
+    expect(tools.canUndo, isFalse);
+    expect(tools.canRedo, isTrue);
+  });
+
+  test(
+    'external edits and changed ancestors end sessions without overwriting',
+    () {
+      final gesture = tools.beginTransform(mesh);
+      gesture.update(position: Vec3.one);
+      mesh.position = const Vec3(2, 3, 4);
+      expect(gesture.commit, throwsStateError);
+      expect(mesh.position, const Vec3(2, 3, 4));
+      expect(gesture.isActive, isFalse);
+      final parent = scene.add(Group());
+      parent.add(mesh);
+      final next = tools.beginTransform(mesh);
+      next.update(position: Vec3.one);
+      parent.position = Vec3.one;
+      expect(next.cancel(), isFalse);
+      expect(mesh.position, Vec3.one);
+      expect(tools.canUndo, isFalse);
+    },
+  );
+
+  test('selection, history handoff and detach cancel previews', () async {
+    tools.select(mesh);
+    tools.beginTransform(mesh).update(position: Vec3.one);
+    tools.select(null);
+    expect(mesh.position, Vec3.zero);
+    tools.beginTransform(mesh).update(position: Vec3.one);
+    tools.clearHistory();
+    expect(mesh.position, Vec3.zero);
+    tools.beginTransform(mesh).update(position: Vec3.one);
+    await engine.dispose();
+    expect(mesh.position, Vec3.zero);
+  });
 }

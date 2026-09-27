@@ -29,6 +29,7 @@ class SceneToolsPlugin extends ScenePlugin {
   final _measurements = <SceneMeasurement>[];
   PluginContext? _context;
   Object3D? _selected;
+  TransformSession? _session;
   MeshMaterial? _original, _highlight;
 
   SceneToolsPlugin({
@@ -113,6 +114,7 @@ class SceneToolsPlugin extends ScenePlugin {
     _attached;
     if (object != null) _requireMember(object);
     if (identical(object, _selected)) return;
+    _session?.cancel();
     _restoreHighlight();
     _selected = object;
     if (object is Mesh) {
@@ -142,7 +144,22 @@ class SceneToolsPlugin extends ScenePlugin {
     Vec3? scale,
     double? grid,
   }) {
+    _requireIdle();
     _requireMember(object);
+    final next = _nextPose(object, position, rotation, scale, grid);
+    final before = _Pose.capture(object);
+    if (before == next) return;
+    _attached.scene.batch(() => next.apply(object));
+    _record(object, before, _Pose.capture(object));
+  }
+
+  _Pose _nextPose(
+    Object3D object,
+    Vec3? position,
+    Quat? rotation,
+    Vec3? scale,
+    double? grid,
+  ) {
     if (grid != null && (!grid.isFinite || grid <= 0)) {
       throw ArgumentError('Grid spacing must be finite and positive.');
     }
@@ -157,20 +174,33 @@ class SceneToolsPlugin extends ScenePlugin {
         (position.z / grid).roundToDouble() * grid,
       );
     }
-    final next = _Pose(
+    return _Pose(
       nextPosition,
       rotation ?? object.quaternion,
       scale ?? object.scale,
     );
-    final before = _Pose.capture(object);
-    if (before == next) return;
-    _attached.scene.batch(() => next.apply(object));
-    _undo.add(
-      _TransformEdit(object, object.parent, before, _Pose.capture(object)),
-    );
+  }
+
+  void _record(Object3D object, _Pose before, _Pose after) {
+    if (before == after) return;
+    _undo.add(_TransformEdit(object, object.parent, before, after));
     if (_undo.length > historyLimit) _undo.removeAt(0);
     _redo.clear();
     _notify();
+  }
+
+  /// Previews a gesture and records a single edit when you commit it.
+  /// Only one session can own transforms at a time.
+  TransformSession beginTransform(Object3D object) {
+    _requireIdle();
+    _requireMember(object);
+    return _session = TransformSession._(this, object);
+  }
+
+  void _requireIdle() {
+    _attached;
+    if (_session != null)
+      throw StateError('Finish the active transform first.');
   }
 
   bool undo() => _move(_undo, _redo, undo: true);
@@ -180,7 +210,7 @@ class SceneToolsPlugin extends ScenePlugin {
     List<_TransformEdit> target, {
     required bool undo,
   }) {
-    _attached;
+    _requireIdle();
     if (source.isEmpty) return false;
     final edit = source.last;
     final expected = undo ? edit.after : edit.before;
@@ -201,6 +231,7 @@ class SceneToolsPlugin extends ScenePlugin {
   }
 
   void clearHistory() {
+    _session?.cancel();
     _undo.clear();
     _redo.clear();
     _notify();
@@ -226,6 +257,7 @@ class SceneToolsPlugin extends ScenePlugin {
 
   @override
   void detach(PluginContext context) {
+    _session?.cancel();
     _restoreHighlight();
     _selected = null;
     _undo.clear();
@@ -233,6 +265,82 @@ class SceneToolsPlugin extends ScenePlugin {
     _measurements.clear();
     _context = null;
     _changes.add(null);
+  }
+}
+
+/// A local transform gesture. Failed ownership checks leave external edits intact.
+final class TransformSession {
+  final SceneToolsPlugin _tools;
+  final Object3D object;
+  final _Pose _before;
+  late _Pose _expected = _before;
+  final List<(Object3D, Mat4)> _ancestors;
+  bool _active = true;
+  TransformSession._(this._tools, this.object)
+    : _before = _Pose.capture(object),
+      _ancestors = _parents(object);
+
+  bool get isActive => _active;
+  bool get _ownsPose {
+    if (!_active ||
+        !_tools._contains(object) ||
+        _Pose.capture(object) != _expected)
+      return false;
+    final parents = _parents(object);
+    return parents.length == _ancestors.length &&
+        Iterable<int>.generate(parents.length).every(
+          (i) =>
+              identical(parents[i].$1, _ancestors[i].$1) &&
+              parents[i].$2 == _ancestors[i].$2,
+        );
+  }
+
+  static List<(Object3D, Mat4)> _parents(Object3D object) => [
+    for (
+      Object3D? parent = object.parent;
+      parent != null;
+      parent = parent.parent
+    )
+      (parent, parent.localMatrix),
+  ];
+
+  void _check() {
+    if (!_active) throw StateError('The transform session has ended.');
+    if (!_ownsPose) {
+      _finish();
+      throw StateError(
+        'The object or its ancestors changed outside this gesture.',
+      );
+    }
+  }
+
+  void update({Vec3? position, Quat? rotation, Vec3? scale, double? grid}) {
+    _check();
+    final next = _tools._nextPose(object, position, rotation, scale, grid);
+    _tools._attached.scene.batch(() => next.apply(object));
+    _expected = _Pose.capture(object);
+    _tools._notify();
+  }
+
+  void commit() {
+    _check();
+    _finish();
+    _tools._record(object, _before, _expected);
+  }
+
+  /// Returns false if another writer took ownership. Nothing is overwritten.
+  bool cancel() {
+    if (!_active) return false;
+    final restore = _ownsPose;
+    if (restore) _tools._attached.scene.batch(() => _before.apply(object));
+    _finish();
+    _tools._notify();
+    return restore;
+  }
+
+  void _finish() {
+    _active = false;
+    _tools._session = null;
   }
 }
 
