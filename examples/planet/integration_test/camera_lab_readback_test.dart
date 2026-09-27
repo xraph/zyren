@@ -44,13 +44,34 @@ void main() {
       expect(red, greaterThan(5));
       expect(green, greaterThan(5));
       expect(blue, greaterThan(5));
+      await tester.tap(find.text('Orthographic'));
+      final orthographic = await waitForImage(image);
+      expect(controller.camera, isA<OrthographicCamera>());
+      final orthographicBytes = (await orthographic.toByteData())!.buffer
+          .asUint8List();
+      var orthoRed = 0, orthoGreen = 0, orthoBlue = 0;
+      for (var i = 0; i < orthographicBytes.length; i += 4) {
+        final r = orthographicBytes[i],
+            g = orthographicBytes[i + 1],
+            b = orthographicBytes[i + 2];
+        if (r > g * 1.5 && r > b * 1.5 && r > 100) orthoRed++;
+        if (g > r * 1.5 && g > b * 1.5 && g > 100) orthoGreen++;
+        if (b > r * 1.5 && b > g * 1.5 && b > 100) orthoBlue++;
+      }
+      expect(orthoRed, greaterThan(5));
+      expect(orthoGreen, greaterThan(5));
+      expect(orthoBlue, greaterThan(5));
+      expect(orthographicBytes, isNot(orderedEquals(bytes)));
       await tester.tap(find.text('Fuji pose'));
-      await waitForImage(image);
+      await waitForImage(orthographic);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
       await controller.whenDisposed;
       debugPrint(
         'Native calibration pixel counts: red=$red green=$green blue=$blue',
+      );
+      debugPrint(
+        'Orthographic pixels: red=$orthoRed green=$orthoGreen blue=$orthoBlue',
       );
     },
   );

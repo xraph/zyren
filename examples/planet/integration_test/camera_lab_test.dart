@@ -65,11 +65,30 @@ void main() {
       await tester.drag(find.byType(Slider).last, const Offset(40, 0));
       await tester.pump();
       expect(controller.camera.up, isNot(beforeRoll));
+      final beforeProjection = frames;
+      final position = controller.camera.position;
+      await tester.pump(const Duration(milliseconds: 250));
+      await tester.tap(find.text('Orthographic'));
+      await waitFor(() => frames > beforeProjection);
+      expect(controller.camera, isA<OrthographicCamera>());
+      expect(controller.camera.position, position);
+      final wideCamera = controller.camera as OrthographicCamera;
+      final wideWidth = wideCamera.right - wideCamera.left;
       await tester.binding.setSurfaceSize(const Size(390, 700));
       await tester.pump(const Duration(milliseconds: 250));
       expect(tester.takeException(), isNull);
       expect(find.text('Heading'), findsOneWidget);
       expect(find.text('Roll'), findsOneWidget);
+      expect(wideCamera.right - wideCamera.left, lessThan(wideWidth));
+      final viewport = tester.getSize(find.byType(SceneView));
+      expect(
+        (wideCamera.right - wideCamera.left) /
+            (wideCamera.top - wideCamera.bottom),
+        closeTo(viewport.width / viewport.height, 1e-12),
+      );
+      await tester.tap(find.text('Orthographic'));
+      await tester.pump(const Duration(milliseconds: 250));
+      expect(controller.camera, isA<PerspectiveCamera>());
       await tester.pumpWidget(const SizedBox());
       await controller.whenDisposed;
       await stats.cancel();

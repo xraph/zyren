@@ -3,7 +3,10 @@
 Run the upstream Manhattan and Fuji camera poses over a local ECEF calibration
 scene. You can change heading, pitch and roll without losing the geographic
 target. Colored axes show east, north and up. The example uses the shared
-SceneView and optional geospatial plugin.
+SceneView and optional geospatial plugin. The Orthographic toggle preserves
+the current pose and matches perspective scale at the target. Its bounds follow
+viewport resizing. This is an instant switch, not the upstream CameraTransition
+animation.
 
 From `examples/planet`:
 
@@ -25,17 +28,19 @@ atmosphere, clouds or upstream Orbit/GlobeControls in this example.
 
 | Platform | Build | Runtime evidence | Presentation |
 | --- | --- | --- | --- |
-| macOS 27, Apple Silicon | Debug passed | Pose changes, roll input, 1100x760 and 390x700 logical layouts, cleanup; actual app window visually inspected | Metal platform view, zero readback bytes |
-| iPhone 17 Pro simulator, iOS 26.0 | Debug passed | Same pose/layout test, zero live sessions/renderers/held drawables after disposal | Metal platform view, zero readback bytes |
-| Physical Pixel 9 Pro, Android 17/API 37 | Debug APK built and installed | Rendered pixels contain all three calibration axes; switching to Fuji produces a new image; controller disposal completes | Native Vulkan, explicit RGBA readback |
+| macOS 27, Apple Silicon | Debug passed | Pose changes, roll input, perspective/orthographic switching, 1100x760 and 390x700 logical layouts, bounds on resize, cleanup; actual app window visually inspected | Metal platform view, zero readback bytes |
+| iPhone 17 Pro simulator, iOS 26.0 | Debug passed | Same pose/projection/layout test, zero live sessions/renderers/held drawables after disposal | Metal platform view, zero readback bytes |
+| Physical Pixel 9 Pro, Android 17/API 37 | Debug APK built and installed | Both projections contain all three calibration axes; orthographic output differs from perspective; switching to Fuji produces a new image; controller disposal completes | Native Vulkan, explicit RGBA readback |
 | Physical iOS | Not run | Unverified | Unverified |
 | Windows | Not built here | Unverified | Unverified |
 
 The Android pixel test counted 6,653 red, 7,999 green and 7,010 blue pixels in
 the initial rendered frame. These counts prove the calibration geometry reached
 the output image. They do not compare the image against an upstream screenshot.
+The orthographic frame contained 5,177 red, 7,140 green and 5,927 blue pixels.
 
-The Metal test observed three diagnostic frame samples on each platform.
+The updated Metal test observed five diagnostic frame samples on macOS and
+five on the iOS simulator.
 Native counters returned to zero renderers, sessions and held drawables. Frame
 diagnostics are sampled, so those samples are not an FPS measurement.
 

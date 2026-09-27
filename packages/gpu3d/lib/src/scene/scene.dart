@@ -6,6 +6,7 @@ import '../math/vec3.dart';
 import '../math/quat.dart';
 import '../math/mat4.dart';
 part 'revision.dart';
+part 'camera_projection.dart';
 
 /// Linear RGB channels in [0, 1].
 final class Color3 {
@@ -190,11 +191,32 @@ abstract class Camera extends Object3D {
   Vec3 get up;
   set up(Vec3 value);
   Mat4 viewProjection(double aspect);
+
+  /// Projects a world point to normalized coordinates, with native depth 0..1.
+  Vec3 projectPoint(Vec3 world, double aspect) {
+    _finite(world, 'world');
+    return _transformPoint(viewProjection(aspect), world - position);
+  }
+
+  /// Converts normalized coordinates with native depth 0..1 into world space.
+  Vec3 unprojectPoint(Vec3 normalized, double aspect) {
+    _finite(normalized, 'normalized');
+    return position +
+        _transformPoint(viewProjection(aspect).inverted(), normalized);
+  }
+
+  /// Returns a world ray through NDC X/Y. Custom projections start at near.
+  CameraRay rayFromNdc(double x, double y, double aspect) {
+    final inverse = viewProjection(aspect).inverted();
+    final near = _transformPoint(inverse, Vec3(x, y, 0));
+    final far = _transformPoint(inverse, Vec3(x, y, 1));
+    return CameraRay(position + near, far - near);
+  }
 }
 
 class PerspectiveCamera extends Camera {
   Vec3 _target, _up;
-  double _fieldOfView, _near, _far;
+  double _fieldOfView, _near, _far, _zoom;
   PerspectiveCamera({
     Vec3 position = const Vec3(0, 0, 5),
     Vec3 target = Vec3.zero,
@@ -202,11 +224,13 @@ class PerspectiveCamera extends Camera {
     double fieldOfView = 50 * math.pi / 180,
     double near = .1,
     double far = 1000,
+    double zoom = 1,
   }) : _target = target,
        _up = up,
        _fieldOfView = fieldOfView,
        _near = near,
-       _far = far {
+       _far = far,
+       _zoom = zoom {
     this.position = position;
     viewProjection(1);
   }
@@ -262,6 +286,33 @@ class PerspectiveCamera extends Camera {
     _changed();
   }
 
+  double get zoom => _zoom;
+  set zoom(double value) {
+    if (!value.isFinite || value <= 0) throw ArgumentError.value(value, 'zoom');
+    if (_zoom == value) return;
+    _zoom = value;
+    _changed();
+  }
+
+  /// Changes both clipping planes atomically, including disjoint ranges.
+  void setClippingRange(double near, double far) {
+    _validateClipping(near, far, allowZeroNear: false);
+    if (_near == near && _far == far) return;
+    _near = near;
+    _far = far;
+    _changed();
+  }
+
+  @override
+  CameraRay rayFromNdc(double x, double y, double aspect) {
+    viewProjection(aspect);
+    final axes = _cameraAxes(this), tangent = math.tan(fieldOfView / 2) / zoom;
+    return CameraRay(
+      position,
+      axes.right * (x * tangent * aspect) + axes.up * (y * tangent) - axes.back,
+    );
+  }
+
   @override
   PerspectiveCamera lookAt(Vec3 target) {
     this.target = target;
@@ -277,6 +328,8 @@ class PerspectiveCamera extends Camera {
         fieldOfView >= math.pi ||
         !near.isFinite ||
         !far.isFinite ||
+        !zoom.isFinite ||
+        zoom <= 0 ||
         near <= 0 ||
         far <= near ||
         !position.isFinite ||
@@ -301,7 +354,7 @@ class PerspectiveCamera extends Camera {
       ..setRow(0, vm.Vector4(x.x, x.y, x.z, 0))
       ..setRow(1, vm.Vector4(y.x, y.y, y.z, 0))
       ..setRow(2, vm.Vector4(z.x, z.y, z.z, 0));
-    final f = 1 / math.tan(fieldOfView / 2);
+    final f = zoom / math.tan(fieldOfView / 2);
     final projection = vm.Matrix4.zero()
       ..setEntry(0, 0, f / aspect)
       ..setEntry(1, 1, f)

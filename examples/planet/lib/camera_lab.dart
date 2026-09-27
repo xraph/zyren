@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_geospatial/flutter_geospatial.dart';
@@ -28,6 +29,7 @@ class _CameraLabState extends State<CameraLab> {
   double heading = -155, pitch = -35, roll = 0, distance = 3000;
   Group? calibration;
   late Geodetic coordinate;
+  double viewportAspect = 1;
   bool get metal =>
       defaultTargetPlatform == TargetPlatform.macOS ||
       defaultTargetPlatform == TargetPlatform.iOS;
@@ -69,6 +71,39 @@ class _CameraLabState extends State<CameraLab> {
     pitch: Angle.degrees(pitch),
     roll: Angle.degrees(roll),
   ).decompose(coordinate.toEcef()).applyTo(controller.camera);
+
+  void _projection(bool orthographic) {
+    final previous = controller.camera;
+    controller.camera = orthographic
+        ? OrthographicCamera(
+            position: previous.position,
+            target: previous.target,
+            up: previous.up,
+            near: 1,
+            far: 1e8,
+          )
+        : PerspectiveCamera(
+            position: previous.position,
+            target: previous.target,
+            up: previous.up,
+            near: 1,
+            far: 1e8,
+          );
+    _resizeProjection();
+  }
+
+  void _resizeProjection() {
+    if (controller.camera case final OrthographicCamera camera) {
+      final halfHeight = distance * math.tan(25 * math.pi / 180);
+      final halfWidth = halfHeight * viewportAspect;
+      camera.setFrustum(
+        left: -halfWidth,
+        right: halfWidth,
+        bottom: -halfHeight,
+        top: halfHeight,
+      );
+    }
+  }
 
   @override
   void dispose() {
@@ -130,6 +165,12 @@ class _CameraLabState extends State<CameraLab> {
                     onSelected: (_) => setState(() => _select(name)),
                     visualDensity: VisualDensity.compact,
                   ),
+                FilterChip(
+                  label: const Text('Orthographic'),
+                  selected: controller.camera is OrthographicCamera,
+                  onSelected: (value) => setState(() => _projection(value)),
+                  visualDensity: VisualDensity.compact,
+                ),
                 Text(
                   '${distance.round()} m · ${metal ? 'Metal native view' : 'Native GPU readback'}',
                   style: const TextStyle(fontSize: 12),
@@ -145,10 +186,18 @@ class _CameraLabState extends State<CameraLab> {
             ),
           ),
           Expanded(
-            child: SceneView(
-              controller: controller,
-              errorBuilder: (context, issue, retry) =>
-                  ZeroState(error: issue, onRetry: retry),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                if (constraints.maxWidth > 0 && constraints.maxHeight > 0) {
+                  viewportAspect = constraints.maxWidth / constraints.maxHeight;
+                  _resizeProjection();
+                }
+                return SceneView(
+                  controller: controller,
+                  errorBuilder: (context, issue, retry) =>
+                      ZeroState(error: issue, onRetry: retry),
+                );
+              },
             ),
           ),
           Padding(
