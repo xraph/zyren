@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_gpu3d/flutter_gpu3d.dart';
-import 'package:flutter_geospatial/flutter_geospatial.dart';
-import 'package:gpu3d/rendering.dart';
+import 'package:flutter_zyren/flutter_zyren.dart';
+import 'package:zyren_geospatial/zyren_geospatial.dart';
+import 'package:zyren/rendering.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:planet/camera_lab.dart';
 
@@ -12,7 +12,7 @@ void main() {
   testWidgets(
     'reference poses render through native Metal and fit narrow views',
     (tester) async {
-      const channel = MethodChannel('gpu3d/scene-views');
+      const channel = MethodChannel('zyren/scene-views');
       await tester.binding.setSurfaceSize(const Size(1100, 760));
       await tester.pumpWidget(const CameraLabApp());
       final controller = tester

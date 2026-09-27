@@ -1,5 +1,5 @@
 import 'package:flutter/widgets.dart';
-import 'package:flutter_gpu3d/flutter_gpu3d.dart';
+import 'package:flutter_zyren/flutter_zyren.dart';
 
 /// The view creates and disposes its controller. Rebuilds retain this scene.
 class ManagedMesh extends StatelessWidget {

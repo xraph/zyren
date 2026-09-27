@@ -39,7 +39,7 @@ presentation, geodetic maths and a procedural globe. macOS debug/release and an
 iOS simulator have run; Android ARM64 has built. Windows/Linux runtime support,
 physical mobile device behavior and production performance remain unverified.
 
-Plan 01 task 1 has now extracted `gpu3d` and `gpu3d_native`, made geospatial
+Plan 01 task 1 has now extracted `zyren` and `zyren_native`, made geospatial
 Dart-only and added immutable backend submissions with explicit readback output.
 The existing Flutter API is preserved through the facade. M0 still needs the
 controller, observable values, typed input and scoped-work tasks.
@@ -77,15 +77,15 @@ to the linked subsystem plan, not to a single unreviewable engine rewrite.
 
 | Area | Main target paths |
 | --- | --- |
-| Dart core | `packages/gpu3d/lib/src/{math,scene,geometry,materials,resources,assets,animation,rendering,plugins}` |
-| Native facade and ABI | `packages/gpu3d_native/lib/src/{backend,bindings,worker}.dart`, `hook/build.dart`, `native/include/gpu3d.h` |
-| Rust renderer | `packages/gpu3d_native/native/src/{device,resources,scene,render_graph,passes,interop,diagnostics}` |
-| Flutter lifecycle/input | `packages/flutter_gpu3d/lib/src/{controller,viewport,input,presentation,diagnostics}` |
-| Apple presentation | `packages/flutter_gpu3d/darwin/Classes`, thin `ios`/`macos` registration |
-| Android presentation | `packages/flutter_gpu3d/android/src/main/{kotlin/dev/twinos/gpu3d,cpp}` |
-| Windows/Linux presentation | `packages/flutter_gpu3d/windows`, `packages/flutter_gpu3d/linux` |
-| Optional glTF loader | `packages/gpu3d_gltf/lib/src/{request,decoder,extensions}` |
-| Geospatial plugin | `packages/flutter_geospatial/lib/src/{geodesy,tiling,streaming,terrain,atmosphere,clouds}` |
+| Dart core | `packages/zyren/lib/src/{math,scene,geometry,materials,resources,assets,animation,rendering,plugins}` |
+| Native facade and ABI | `packages/zyren_native/lib/src/{backend,bindings,worker}.dart`, `hook/build.dart`, `native/include/zyren.h` |
+| Rust renderer | `packages/zyren_native/native/src/{device,resources,scene,render_graph,passes,interop,diagnostics}` |
+| Flutter lifecycle/input | `packages/flutter_zyren/lib/src/{controller,viewport,input,presentation,diagnostics}` |
+| Apple presentation | `packages/flutter_zyren/darwin/Classes`, thin `ios`/`macos` registration |
+| Android presentation | `packages/flutter_zyren/android/src/main/{kotlin/dev/twinos/zyren,cpp}` |
+| Windows/Linux presentation | `packages/flutter_zyren/windows`, `packages/flutter_zyren/linux` |
+| Optional glTF loader | `packages/zyren_gltf/lib/src/{request,decoder,extensions}` |
+| Geospatial plugin | `packages/zyren_geospatial/lib/src/{geodesy,tiling,streaming,terrain,atmosphere,clouds}` |
 | Runnable examples | `examples/{planet,model_viewer,shader_lab,multiple_views}` |
 | Qualification | `benchmarks`, `test_assets`, `.github/workflows`, `docs/verification.md` |
 

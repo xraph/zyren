@@ -1,10 +1,12 @@
-# Native Flutter 3D and geospatial
+# Zyren
+
+Native 3D for Dart and Flutter.
 
 Build a 3D scene in Dart and render it through Rust and wgpu. The native backends
 are Metal on Apple platforms, Vulkan on Android/Linux and Direct3D 12 on Windows.
 WebGL, OpenGL and browser backends are disabled.
 
-The core is a general-purpose Dart 3D library. `flutter_geospatial` is an optional
+The core is a general-purpose Dart 3D library. `zyren_geospatial` is an optional
 plugin built on that core. Three.js-level rendering and scene capabilities are
 the target for the core.
 
@@ -25,14 +27,32 @@ current alpha API.
 
 ## Packages
 
-- `gpu3d` contains the Dart scene graph, geometry, engine and plugin contracts.
-- `gpu3d_native` supplies the Rust/wgpu backend and native build hook.
-- `flutter_gpu3d` adds Flutter views and re-exports the common scene API.
-- `flutter_geospatial` is a Dart-only plugin depending on `gpu3d`.
+- `zyren` contains the Dart scene graph, geometry, engine and plugin contracts.
+- `zyren_native` supplies the Rust/wgpu backend and native build hook.
+- `flutter_zyren` adds Flutter views and re-exports the common scene API.
+- `zyren_geospatial` is a Dart-only plugin depending on `zyren`.
 
-Flutter callers keep the existing import and native default. Dart-only callers
-can import `gpu3d` and supply a renderer to `SceneEngine.create`. For native
-headless output, use `gpu3d_native`; see [backend submissions](docs/extensions.md#captured-backend-submissions).
+## Moving from the original package names
+
+If you use an earlier checkout, update your dependencies and imports:
+
+| Previous package | Zyren package | Main import |
+| --- | --- | --- |
+| `gpu3d` | `zyren` | `package:zyren/zyren.dart` |
+| `gpu3d_native` | `zyren_native` | `package:zyren_native/zyren_native.dart` |
+| `flutter_gpu3d` | `flutter_zyren` | `package:flutter_zyren/flutter_zyren.dart` |
+| `flutter_geospatial` | `zyren_geospatial` | `package:zyren_geospatial/zyren_geospatial.dart` |
+
+Use the matching folders under `packages/` for path dependencies, then run
+`fvm flutter pub get` and fully restart your app so Flutter registers the renamed
+native plugin. Scene types and the versioned C ABI keep their existing names.
+These packages are still local development packages with `publish_to: none`.
+
+## Choosing a package
+
+Flutter callers import `flutter_zyren` for views and the native default. Dart-only
+callers can import `zyren` and supply a renderer to `SceneEngine.create`. For native
+headless output, use `zyren_native`; see [backend submissions](docs/extensions.md#captured-backend-submissions).
 
 `NativeBackend` also provides scoped buffers and textures with binary uploads,
 shared ownership and explicit readback. The [resource API](docs/design/gpu-resources.md)
@@ -107,10 +127,10 @@ Android. You can change the sampler without uploading the image again.
 
 ## Use the 3D package
 
-Add a path dependency on `packages/flutter_gpu3d` while working in this checkout.
+Add a path dependency on `packages/flutter_zyren` while working in this checkout.
 
 ```dart
-import 'package:flutter_gpu3d/flutter_gpu3d.dart';
+import 'package:flutter_zyren/flutter_zyren.dart';
 
 final scene = Scene();
 final cube = Mesh(
@@ -175,15 +195,15 @@ final viewport = SceneView.scene(
 );
 ```
 
-Import `flutter_geospatial` for those two plugins. You can use the core without
+Import `zyren_geospatial` for those two plugins. You can use the core without
 that dependency. See [extensions](docs/extensions.md) for custom plugins,
 services, renderer factories, presentation and ownership rules.
 
 ## Geospatial coordinates
 
 ```dart
-import 'package:flutter_geospatial/flutter_geospatial.dart';
-import 'package:flutter_gpu3d/flutter_gpu3d.dart';
+import 'package:zyren_geospatial/zyren_geospatial.dart';
+import 'package:flutter_zyren/flutter_zyren.dart';
 
 final location = Geodetic.degrees(3.3792, 6.5244, 25);
 final ecef = location.toEcef();
@@ -202,18 +222,19 @@ geodetic inverse.
 
 ```sh
 fvm flutter analyze
-cargo test --manifest-path packages/gpu3d_native/native/Cargo.toml
-cargo clippy --manifest-path packages/gpu3d_native/native/Cargo.toml --all-targets -- -D warnings
-fvm dart test packages/gpu3d/test packages/flutter_geospatial/test
-fvm flutter test packages/flutter_gpu3d/test examples/multiple_views/test
+cargo test --manifest-path packages/zyren_native/native/Cargo.toml
+cargo clippy --manifest-path packages/zyren_native/native/Cargo.toml --all-targets -- -D warnings
+(cd packages/zyren && fvm dart test)
+(cd packages/zyren_geospatial && fvm dart test)
+fvm flutter test packages/flutter_zyren/test examples/multiple_views/test
 ```
 
 On a host with a Metal, Vulkan or DX12 device, run the GPU checks too. A missing
 device fails these checks; it does not silently switch to a browser renderer.
 
 ```sh
-cargo test --manifest-path packages/gpu3d_native/native/Cargo.toml -- --include-ignored
-cd packages/gpu3d_native
+cargo test --manifest-path packages/zyren_native/native/Cargo.toml -- --include-ignored
+cd packages/zyren_native
 RUN_NATIVE_GPU=1 fvm dart test --concurrency=1
 cd ../../examples/planet
 fvm flutter test integration_test/planet_test.dart -d macos

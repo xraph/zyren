@@ -1,0 +1,12 @@
+name: SurfaceBindings
+description: Versioned native surface ownership ABI.
+output: lib/src/surface_bindings.g.dart
+headers:
+  entry-points:
+    - native/include/zyren.h
+  include-directives:
+    - native/include/zyren.h
+ffi-native:
+  asset-id: package:zyren_native/src/bindings.dart
+preamble: |
+  // Generated from native/include/zyren.h. Run dart run ffigen --config ffigen.yaml.

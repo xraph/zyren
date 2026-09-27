@@ -1,7 +1,7 @@
 # Native camera projection
 
 You can now use perspective zoom, orthographic bounds, world-point projection,
-unprojection and picking rays through the public `gpu3d` camera API. These
+unprojection and picking rays through the public `zyren` camera API. These
 operations stay in the general core. They do not depend on an ellipsoid or the
 geospatial plugin.
 
@@ -47,15 +47,15 @@ zoom, revision notifications, atomic updates and invalid inputs.
 
 ```sh
 node tool/camera_reference.mjs /tmp/geospatial-reference \
-  packages/gpu3d/test/fixtures/three_cameras.json
-cd packages/gpu3d
+  packages/zyren/test/fixtures/three_cameras.json
+cd packages/zyren
 dart test test/camera_projection_test.dart
 ```
 
 The reference workspace uses the exact dependencies in [numerical.md](numerical.md).
 Node remains a development tool; it is not part of the native application.
 
-Camera pose still follows gpu3d's existing world-space position, target and up
+Camera pose still follows zyren's existing world-space position, target and up
 contract. Parented cameras, view offsets and custom asymmetric perspective
 frusta are not covered. OrbitControls, GlobeControls and projection transition
 animation are separate work. The [camera lab](native-camera-lab.md) exercises

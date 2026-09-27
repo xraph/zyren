@@ -1,0 +1,12 @@
+name: zyren_geospatial
+description: Optional geospatial plugin, coordinates and globe controls for Zyren.
+version: 0.1.0
+publish_to: none
+resolution: workspace
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+dependencies:
+  zyren:
+    path: ../zyren
+dev_dependencies:
+  test: ^1.29.0

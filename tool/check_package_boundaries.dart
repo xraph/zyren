@@ -4,8 +4,8 @@ import 'dart:io';
 void main(List<String> args) {
   final root = Directory(args.isEmpty ? '.' : args.single);
   final allowed = <String, Set<String>>{
-    'gpu3d': {'vector_math'},
-    'flutter_geospatial': {'gpu3d'},
+    'zyren': {'vector_math'},
+    'zyren_geospatial': {'zyren'},
   };
   final directive = RegExp(
     r'''^\s*(?:import|export)\s+['"]([^'"]+)['"]''',
@@ -31,10 +31,10 @@ void main(List<String> args) {
     }
   }
   final canonical = File(
-    '${root.path}/packages/gpu3d_native/native/include/gpu3d.h',
+    '${root.path}/packages/zyren_native/native/include/zyren.h',
   );
   final apple = File(
-    '${root.path}/packages/flutter_gpu3d/darwin/Classes/gpu3d.h',
+    '${root.path}/packages/flutter_zyren/darwin/Classes/zyren.h',
   );
   if (canonical.readAsStringSync() != apple.readAsStringSync()) {
     failures.add(

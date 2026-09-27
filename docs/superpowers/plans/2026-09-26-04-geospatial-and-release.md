@@ -35,12 +35,12 @@
 
 | Files | Responsibility |
 | --- | --- |
-| `packages/flutter_geospatial/lib/src/{geodesy,tiling,controls}` | Double-precision maths and world controls |
-| `packages/flutter_geospatial/lib/src/{streaming,terrain}` | Source contracts, LOD, request/cache budgets |
-| `packages/flutter_geospatial/lib/src/{astronomy,atmosphere,clouds}` | Planetary algorithms and public GPU pass composition |
-| `packages/flutter_geospatial/assets/shaders` | WGSL sources with retained provenance |
-| `packages/flutter_geospatial/test/{fixtures,tiling,streaming,atmosphere,clouds}` | Numeric, lifecycle and shader fixtures |
-| `packages/gpu3d/lib/src/rendering/depth_strategy.dart` | General depth/projection capability used by any large scene |
+| `packages/zyren_geospatial/lib/src/{geodesy,tiling,controls}` | Double-precision maths and world controls |
+| `packages/zyren_geospatial/lib/src/{streaming,terrain}` | Source contracts, LOD, request/cache budgets |
+| `packages/zyren_geospatial/lib/src/{astronomy,atmosphere,clouds}` | Planetary algorithms and public GPU pass composition |
+| `packages/zyren_geospatial/assets/shaders` | WGSL sources with retained provenance |
+| `packages/zyren_geospatial/test/{fixtures,tiling,streaming,atmosphere,clouds}` | Numeric, lifecycle and shader fixtures |
+| `packages/zyren/lib/src/rendering/depth_strategy.dart` | General depth/projection capability used by any large scene |
 | `examples/planet` | Public geospatial API, deterministic offline scenes and optional sources |
 | `tool/qualification`, `benchmarks`, `.github/workflows` | Repeatable host/device checks |
 | `docs/{geospatial-port,verification,renderer-capabilities}.md` | Actual parity and support claims |
@@ -70,7 +70,7 @@ service and globe controls only through core public values/input APIs.
 `TileCoordinate(level, x, y)` is immutable; `TilingScheme` exposes tile counts,
 coordinate validation and `rectangleFor(TileCoordinate) -> GeoRectangle`.
 `PointOfView` describes geodetic focus, heading, pitch and range in metres.
-Geospatial stays Dart-only and depends on `gpu3d`, not the Flutter facade.
+Geospatial stays Dart-only and depends on `zyren`, not the Flutter facade.
 
 - [ ] Extract numeric cases from reference `packages/core/src/{TileCoordinate,TilingScheme,Rectangle,PointOfView}.ts` and their existing tests. Include empty/whole-world bounds, wrapping, both poles, negative height, custom ellipsoid, centre singularity and integer level limits. Check explicit units:
 
@@ -82,7 +82,7 @@ expect(ecef.y.abs(), lessThan(1e-6));
 expect(ecef.z.abs(), lessThan(1e-6));
 ```
 
-- [ ] Run `fvm dart test test/tiling_test.dart test/point_of_view_test.dart` in `flutter_geospatial`; missing tiling/viewpoint behavior must fail. Use reference-generated expected outputs rather than comparing the new implementation with itself. Preserve the supplied south-origin Y convention; name any XYZ/TMS conversion explicitly at a source boundary.
+- [ ] Run `fvm dart test test/tiling_test.dart test/point_of_view_test.dart` in `zyren_geospatial`; missing tiling/viewpoint behavior must fail. Use reference-generated expected outputs rather than comparing the new implementation with itself. Preserve the supplied south-origin Y convention; name any XYZ/TMS conversion explicitly at a source boundary.
 - [ ] Implement normalized angular rectangles, checked integer tile ranges, reference-compatible bounds and viewpoint-to-camera conversion. Keep core Y-up defaults unchanged; the plugin owns its Z-up frame. Globe controls consume logical input and frame demand through public core services.
 
 ```text
@@ -165,7 +165,7 @@ frame -> reconstruct world ray/depth -> evaluate scattering -> linear HDR compos
 parameter/profile change -> build new set -> swap after completion -> retire old set
 ```
 
-- [ ] Verify the plugin imports only `gpu3d` public libraries. Exercise unsupported storage/float formats, cancelled precomputation, extreme validated parameters, resize and device recovery. Choose explicitly documented quality profiles with independently measured errors, or reject unsupported features.
+- [ ] Verify the plugin imports only `zyren` public libraries. Exercise unsupported storage/float formats, cancelled precomputation, extreme validated parameters, resize and device recovery. Choose explicitly documented quality profiles with independently measured errors, or reject unsupported features.
 - [ ] Compare LUT samples and rendered horizon/day/night fixtures on qualified GPUs, update the source parity matrix and commit `feat: port atmospheric scattering as a core API plugin`.
 
 ## Task 4: Volumetric clouds, weather and temporal history

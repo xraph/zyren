@@ -19,7 +19,7 @@ viewport backend.
 - Rust allocates an aligned, bounded IOSurface, imports its Metal texture into
   the renderer's device and waits for successful producer completion before
   publication. Normal shared rendering reports zero renderer readback bytes.
-- The Apple plugin finds the existing `gpu3d_runtime` image with `RTLD_NOLOAD`
+- The Apple plugin finds the existing `zyren_runtime` image with `RTLD_NOLOAD`
   and compares runtime tokens before accepting a surface. Flutter texture IDs
   stay separate from native surface identities.
 - The macOS and iOS simulator integrations capture the actual texture and check its red center
@@ -29,7 +29,7 @@ viewport backend.
   teardown after release and recovery when an epoch changes during GPU work.
 
 The Rust framework has a distinct name because CocoaPods creates a
-`flutter_gpu3d.framework` for the platform plugin. Both still use one native
+`flutter_zyren.framework` for the platform plugin. Both still use one native
 registry. iOS uses its supported IOSurfaceRef header, and the native helper has
 an explicit deployment floor instead of inheriting the installed SDK version.
 
@@ -87,7 +87,7 @@ cache and GPU lifetime behavior independently.
 
 ## Native Metal view proof
 
-A separate `gpu3d/metal-proof` platform view drives a CAMetalLayer through the
+A separate `zyren/metal-proof` platform view drives a CAMetalLayer through the
 existing Rust renderer. You can run it from `examples/multiple_views`:
 
 ```sh

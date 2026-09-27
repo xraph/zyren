@@ -1,13 +1,13 @@
 # Native surface ownership
 
-You can reserve surface metadata through `gpu3d_native/surfaces.dart`. A reserved
+You can reserve surface metadata through `zyren_native/surfaces.dart`. A reserved
 surface stays in `creating` until a platform adapter attaches its GPU output.
 Reservation does not advertise shared-texture support. The examples still use
 explicit readback while native presentation is being implemented.
 
-The v2 C header is `packages/gpu3d_native/native/include/gpu3d.h`. You can regenerate
+The v2 C header is `packages/zyren_native/native/include/zyren.h`. You can regenerate
 its Dart bindings by running `dart run ffigen --config ffigen.yaml` from
-`packages/gpu3d_native`. Existing renderer symbols keep their v1 behavior.
+`packages/zyren_native`. Existing renderer symbols keep their v1 behavior.
 
 ## Identity and epochs
 
@@ -19,9 +19,9 @@ completion can retire its resources but cannot publish into a newer epoch.
 Both the Flutter plugin and Dart FFI must load the same Rust library instance.
 `SurfaceSession` compares their runtime tokens before registration. The packaged
 Apple debug integration verifies this before texture registration. The plugin
-uses RTLD_NOLOAD and checks the token from the already loaded gpu3d_runtime
+uses RTLD_NOLOAD and checks the token from the already loaded zyren_runtime
 library. It does not load a second native registry. The Rust library name differs
-from the flutter_gpu3d CocoaPods module to avoid a framework-name collision.
+from the flutter_zyren CocoaPods module to avoid a framework-name collision.
 Release runtime identity remains a qualification check.
 
 ## Buffer lifetime
@@ -64,7 +64,7 @@ retirement thread cannot start, ownership stays retained and charged until
 process exit.
 
 On Metal, fence completion alone does not prove successful execution. The
-[pinned HAL patch](../packages/gpu3d_native/native/vendor/README.md) exposes the
+[pinned HAL patch](../packages/zyren_native/native/vendor/README.md) exposes the
 submitted command buffers. Every buffer must report successful completion before
 the renderer returns success. The GPU timeout test disposes the renderer while
 the queue is still blocked, then verifies retirement drains after the gate opens.

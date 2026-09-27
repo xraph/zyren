@@ -3,10 +3,10 @@
 You can build selection, inspection and playback on the public Dart scene API.
 This milestone stays on `main` and adds three optional packages:
 
-- `gpu3d_tools`: selection and material highlighting, reversible local transforms,
+- `zyren_tools`: selection and material highlighting, reversible local transforms,
   grid snapping and point-to-point measurements in scene units.
-- `gpu3d_devtools`: immutable scene inspection snapshots and bounded frame history.
-- `gpu3d_timeline`: transform and camera tracks with play, pause, seek and looping.
+- `zyren_devtools`: immutable scene inspection snapshots and bounded frame history.
+- `zyren_timeline`: transform and camera tracks with play, pause, seek and looping.
 
 The Flutter workbench example combines them in a compact assembly inspector.
 You can select a part, edit it, undo the edit and scrub an assembly sequence.

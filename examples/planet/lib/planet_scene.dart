@@ -1,6 +1,6 @@
 import 'dart:math' as math;
-import 'package:flutter_geospatial/flutter_geospatial.dart';
-import 'package:flutter_gpu3d/flutter_gpu3d.dart';
+import 'package:zyren_geospatial/zyren_geospatial.dart';
+import 'package:flutter_zyren/flutter_zyren.dart';
 
 const locations = <String, (double, double)>{
   'Lagos': (3.3792, 6.5244),

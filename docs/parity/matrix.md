@@ -107,7 +107,7 @@ scoped resources, shared binary geometry and opaque color textures. See the
 3. Reuse the committed SceneView adapter. Implement R2 with general camera/input
    contracts, then C01 and C02 in separate focused slices. Prove pointer, wheel,
    touch, cancellation and damping traces before claiming either control matches.
-4. Implement R3-R6 as general gpu3d resources and renderer capabilities. Each
+4. Implement R3-R6 as general zyren resources and renderer capabilities. Each
    slice needs a non-geospatial example as well as its plugin consumer. Keep
    browser/node shader APIs as reference algorithms, with native WGSL execution.
 5. Port loaders, astronomy and LUTs; then sky, stars, lighting and aerial

@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:gpu3d_native/surfaces.dart';
+import 'package:zyren_native/surfaces.dart';
 
 import 'experimental/metal_proof_view.dart' show cornerPackets;
 
-const androidProofChannel = MethodChannel('gpu3d/android-proof');
+const androidProofChannel = MethodChannel('zyren/android-proof');
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();

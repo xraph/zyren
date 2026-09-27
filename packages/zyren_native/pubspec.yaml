@@ -1,0 +1,16 @@
+name: zyren_native
+description: Native Metal, Vulkan and Direct3D 12 backend for Zyren, powered by Rust.
+version: 0.1.0
+publish_to: none
+resolution: workspace
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+dependencies:
+  zyren:
+    path: ../zyren
+  ffi: ^2.1.4
+  hooks: ^2.1.0
+  native_toolchain_rust: ^1.0.7
+dev_dependencies:
+  ffigen: ^22.0.0
+  test: ^1.29.0

@@ -24,7 +24,7 @@ try {
 }
 ```
 
-Import `gpu3d.dart` for descriptors and scopes, `rendering.dart` for the optional
+Import `zyren.dart` for descriptors and scopes, `rendering.dart` for the optional
 `ResourceBackend` adapter contract. `RenderFeature.scopedResources` reports this
 capability. Flutter's facade exports `GpuTexture` as the alias for the core
 `Texture` type, leaving Flutter's widget name available without an import prefix.
@@ -248,7 +248,7 @@ can retry without losing its geometry uploads.
 
 `fg2_scene_close` releases a view. The scene byte-counter functions include all
 resources on its device; they are not total GPU-memory measurements. These
-functions are declared in `gpu3d_resources.h`. Legacy v1 JSON remains an adapter
+functions are declared in `zyren_resources.h`. Legacy v1 JSON remains an adapter
 at the native boundary, backed by the same registry. It keeps its earlier
 visibility-based cache behavior and does not support shared view IDs.
 
@@ -264,7 +264,7 @@ Opaque material texture sampling uses immutable `TextureImage` recipes. Explicit
 scope texture handles cannot yet be bound to materials. Dynamic vertex attributes,
 device recovery and render graph bindings remain planned work.
 
-Run `fvm dart run example/resources.dart` from `packages/gpu3d_native` for a native
+Run `fvm dart run example/resources.dart` from `packages/zyren_native` for a native
 buffer round trip that retains data after its first scope closes. The GPU suite
 also tests partial updates, texture mip readback, budget rejection and cleanup.
 Run `fvm dart run example/shared_views.dart` from the same package for the shared

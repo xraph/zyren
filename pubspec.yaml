@@ -1,12 +1,12 @@
-name: native_geospatial_workspace
+name: zyren_workspace
 publish_to: none
 environment:
   sdk: '>=3.10.0 <4.0.0'
 workspace:
-  - packages/gpu3d
-  - packages/gpu3d_native
-  - packages/flutter_gpu3d
-  - packages/flutter_geospatial
+  - packages/zyren
+  - packages/zyren_native
+  - packages/flutter_zyren
+  - packages/zyren_geospatial
   - examples/planet
   - examples/multiple_views
 dev_dependencies:

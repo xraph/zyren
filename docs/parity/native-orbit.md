@@ -60,8 +60,8 @@ stop, camera replacement retires the old controls, and disposal releases input.
 npm install --prefix /tmp/geospatial-reference --save-exact --ignore-scripts --no-audit --no-fund \
   typescript@5.9.2 three@0.184.0 tiny-invariant@1.3.3 three-stdlib@2.36.1
 node tool/orbit_reference.mjs /tmp/geospatial-reference \
-  packages/gpu3d/test/fixtures/stdlib_orbit.json
-cd packages/gpu3d
+  packages/zyren/test/fixtures/stdlib_orbit.json
+cd packages/zyren
 dart test test/orbit_controls_test.dart test/orbit_plugin_test.dart
 ```
 

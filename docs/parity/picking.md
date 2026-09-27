@@ -46,7 +46,7 @@ Object, triangle, distance, point, face normal and UV agree within `1e-8`.
 Regenerate the fixture with the development-only reference dependency directory:
 
 ```sh
-node tool/picking_reference.mjs /tmp/geospatial-reference packages/gpu3d/test/fixtures/picking.json
+node tool/picking_reference.mjs /tmp/geospatial-reference packages/zyren/test/fixtures/picking.json
 ```
 
 The fixture includes source hashes. Regeneration was byte-for-byte identical.

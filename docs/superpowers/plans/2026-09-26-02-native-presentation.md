@@ -34,22 +34,22 @@
 ## File map and prerequisites
 
 Start after plan 01's backend/output types. The Rust crate has moved to
-`packages/gpu3d_native/native`. Do not create a second copy in the Flutter plugin.
+`packages/zyren_native/native`. Do not create a second copy in the Flutter plugin.
 
 | Files | Responsibility |
 | --- | --- |
-| `native/src/interop/{mod,session,leases,metal,android,dx12}.rs` under `gpu3d_native` | Native surface registry and isolated backend interop |
-| `packages/gpu3d_native/native/include/gpu3d.h` | Versioned surface ABI |
-| `packages/flutter_gpu3d/lib/src/presentation/{surface_session,native_presenter}.dart` | Flutter surface attachment and stable texture widget |
-| `packages/flutter_gpu3d/darwin/Classes/{Gpu3dTexture,Gpu3dSurfaceRegistry}.{h,mm}` | Shared Apple implementation |
-| `packages/flutter_gpu3d/{ios,macos}` | Thin plugin registration/build declarations |
-| `packages/flutter_gpu3d/android/src/main/kotlin/dev/twinos/gpu3d/Gpu3dPlugin.kt` | Android embedder lifecycle |
-| `packages/flutter_gpu3d/android/src/main/cpp/gpu3d_surface.cpp` | JNI and native window ownership |
-| `packages/flutter_gpu3d/windows/{gpu3d_plugin.cpp,gpu3d_surface.cpp}` | DXGI registration and handle lifetime |
+| `native/src/interop/{mod,session,leases,metal,android,dx12}.rs` under `zyren_native` | Native surface registry and isolated backend interop |
+| `packages/zyren_native/native/include/zyren.h` | Versioned surface ABI |
+| `packages/flutter_zyren/lib/src/presentation/{surface_session,native_presenter}.dart` | Flutter surface attachment and stable texture widget |
+| `packages/flutter_zyren/darwin/Classes/{ZyrenTexture,ZyrenSurfaceRegistry}.{h,mm}` | Shared Apple implementation |
+| `packages/flutter_zyren/{ios,macos}` | Thin plugin registration/build declarations |
+| `packages/flutter_zyren/android/src/main/kotlin/dev/twinos/zyren/ZyrenPlugin.kt` | Android embedder lifecycle |
+| `packages/flutter_zyren/android/src/main/cpp/zyren_surface.cpp` | JNI and native window ownership |
+| `packages/flutter_zyren/windows/{zyren_plugin.cpp,zyren_surface.cpp}` | DXGI registration and handle lifetime |
 | `examples/multiple_views/integration_test/presentation_test.dart` | Cross-platform composition/lifecycle workload |
 | `benchmarks/presentation`, `docs/verification.md` | Measurements and actual qualification evidence |
 
-For Rust commands below, run in `packages/gpu3d_native/native`. Surface tests use
+For Rust commands below, run in `packages/zyren_native/native`. Surface tests use
 the production lease state machine with deterministic completion events; platform
 tests additionally use real Flutter/native consumers. A fake callback alone
 cannot qualify native synchronization. GPU-to-GPU copies are permitted and counted.
@@ -57,8 +57,8 @@ cannot qualify native synchronization. GPU-to-GPU copies are permitted and count
 ## Task 1: Surface ABI, bounded leases and cancellation
 
 **Files:** Create native `src/interop/{session,leases}.rs`,
-`tests/surface_lifetime.rs`; extend `include/gpu3d.h`, Dart bindings and
-`packages/flutter_gpu3d/lib/src/presentation/surface_session.dart`.
+`tests/surface_lifetime.rs`; extend `include/zyren.h`, Dart bindings and
+`packages/flutter_zyren/lib/src/presentation/surface_session.dart`.
 
 **Interfaces:** Implement `SurfaceSession`/`SurfaceKey` from the spec. Use v2 C
 symbols with `fg2_` prefix and `struct_size`/`abi_version` fields. Native exports
@@ -124,11 +124,11 @@ current budget, and do not bypass it or use private engine selectors.
 
 
 **Files:** Create native `src/interop/metal.rs`, Apple files in the file map,
-`packages/flutter_gpu3d/test/apple_surface_contract_test.dart` and
+`packages/flutter_zyren/test/apple_surface_contract_test.dart` and
 `examples/multiple_views/integration_test/apple_presentation_test.dart`.
 Modify podspec/plugin declarations and native linkage, keeping one Rust runtime.
 
-**Interfaces:** An Objective-C++ `Gpu3dTexture` implements `FlutterTexture` and
+**Interfaces:** An Objective-C++ `ZyrenTexture` implements `FlutterTexture` and
 returns the latest retained completed `CVPixelBufferRef`. A native registry owns
 fresh IOSurface allocations and `CVMetalTextureCache`. Rust uses the same `MTLDevice`;
 all unsafe HAL imports remain inside `interop/metal.rs` with explicit retained
@@ -195,7 +195,7 @@ frame: acquire Vulkan surface image -> render -> present -> account submission
 ## Task 4: Windows DXGI sharing and synchronization proof
 
 **Files:** Create Windows files from the map, native `src/interop/dx12.rs`,
-`packages/flutter_gpu3d/windows/CMakeLists.txt`,
+`packages/flutter_zyren/windows/CMakeLists.txt`,
 `examples/multiple_views/integration_test/windows_presentation_test.dart` and
 `docs/verification/windows-interop.md`.
 
@@ -231,8 +231,8 @@ incompatibility: report presentationUnavailable with adapter/format reason
 
 **Files:** Create `docs/verification/linux-presentation.md`, a Vulkan embedder
 proof under `experiments/linux_presentation`, and only if qualified, native/plugin
-adapter files under `packages/flutter_gpu3d/linux` and `native/src/interop/linux.rs`.
-Add Linux cases to `packages/flutter_gpu3d/test/presentation_policy_test.dart`.
+adapter files under `packages/flutter_zyren/linux` and `native/src/interop/linux.rs`.
+Add Linux cases to `packages/flutter_zyren/test/presentation_policy_test.dart`.
 
 **Interfaces:** Retain the same `SurfaceSession` API. No new OpenGL 3D backend or
 public OS-specific application API. `requireSharedTexture` fails if no compatible
@@ -256,7 +256,7 @@ readbackOnly -> readback in RendererInfo even if a GPU bridge is installed
 
 **Files:** Modify facade presenter/controller and native diagnostics; create
 `examples/multiple_views/integration_test/presentation_test.dart`,
-`packages/flutter_gpu3d/test/capture_lifetime_test.dart`,
+`packages/flutter_zyren/test/capture_lifetime_test.dart`,
 `benchmarks/presentation/{README.md,lib/main.dart}` and
 `docs/verification/presentation-results.md`.
 

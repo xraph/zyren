@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_gpu3d/flutter_gpu3d.dart';
-import 'package:gpu3d/rendering.dart';
+import 'package:flutter_zyren/flutter_zyren.dart';
+import 'package:zyren/rendering.dart';
 import 'package:integration_test/integration_test.dart';
 
 void main() {
@@ -13,7 +13,7 @@ void main() {
   testWidgets(
     'experimental Apple texture pixels and retained-cache characterization',
     (tester) async {
-      const bridge = MethodChannel('gpu3d/surfaces');
+      const bridge = MethodChannel('zyren/surfaces');
       Future<Map<Object?, Object?>> diagnostics() async =>
           (await bridge.invokeMapMethod<Object?, Object?>('diagnostics'))!;
       final captureKey = GlobalKey();

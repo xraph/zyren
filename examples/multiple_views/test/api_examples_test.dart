@@ -1,12 +1,12 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_gpu3d/flutter_gpu3d.dart';
+import 'package:flutter_zyren/flutter_zyren.dart';
 import 'package:multiple_views/managed_mesh.dart';
 import 'package:multiple_views/borrowed_viewer.dart';
 import 'package:multiple_views/main.dart';
 import 'package:multiple_views/textured_scene_demo.dart';
-import '../../../packages/flutter_gpu3d/test/support/backend_fake.dart';
-import '../../../packages/flutter_gpu3d/test/support/fakes.dart';
+import '../../../packages/flutter_zyren/test/support/backend_fake.dart';
+import '../../../packages/flutter_zyren/test/support/fakes.dart';
 
 Future<void> frames(WidgetTester tester) async {
   for (var i = 0; i < 8; i++) {

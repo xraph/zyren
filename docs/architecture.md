@@ -1,4 +1,4 @@
-# Native Flutter 3D
+# Zyren architecture
 
 You build scenes in Dart. Rust owns GPU resources and submits work directly to
 Metal, Vulkan or Direct3D 12 through wgpu. There is no WebView, JavaScript runtime,
@@ -6,13 +6,13 @@ WebGL backend or OpenGL fallback.
 
 ## Package boundaries
 
-- `gpu3d`: Dart scene graph, geometry, engine, plugins and backend contracts.
+- `zyren`: Dart scene graph, geometry, engine, plugins and backend contracts.
   It has no Flutter, native backend or geospatial dependency.
-- `gpu3d_native`: Rust renderer, worker isolate, FFI bindings and build hook.
-  It depends on `gpu3d` and runs without a Flutter engine.
-- `flutter_gpu3d`: Flutter viewport and presentation, plus a compatibility
+- `zyren_native`: Rust renderer, worker isolate, FFI bindings and build hook.
+  It depends on `zyren` and runs without a Flutter engine.
+- `flutter_zyren`: Flutter viewport and presentation, plus a compatibility
   engine facade that supplies the native renderer by default.
-- `flutter_geospatial`: an optional `ScenePlugin` package with geodetic
+- `zyren_geospatial`: an optional `ScenePlugin` package with geodetic
   coordinates, ellipsoids, local frames, globe geometry and orbit controls.
   Geospatial features must use public core extension points.
 - `examples/planet`: a runnable native Flutter application.

@@ -6,14 +6,14 @@ resolution: workspace
 environment:
   sdk: '>=3.10.0 <4.0.0'
 dependencies:
-  gpu3d:
-    path: ../../packages/gpu3d
-  gpu3d_native:
-    path: ../../packages/gpu3d_native
+  zyren:
+    path: ../../packages/zyren
+  zyren_native:
+    path: ../../packages/zyren_native
   flutter:
     sdk: flutter
-  flutter_gpu3d:
-    path: ../../packages/flutter_gpu3d
+  flutter_zyren:
+    path: ../../packages/flutter_zyren
 dev_dependencies:
   flutter_test:
     sdk: flutter

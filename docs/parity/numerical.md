@@ -1,7 +1,7 @@
 # Geodesy, tiling and camera fixtures
 
 You can run this slice without Flutter or a GPU. The geospatial package imports
-only public `gpu3d` APIs. The native renderer still has no atmosphere or cloud
+only public `zyren` APIs. The native renderer still has no atmosphere or cloud
 pipeline, and these numerical tests do not establish rendered story parity.
 
 The fixture generator loads the actual pinned TypeScript modules, checks their
@@ -19,8 +19,8 @@ mkdir -p /tmp/geospatial-reference
 npm install --prefix /tmp/geospatial-reference --save-exact --ignore-scripts --no-audit --no-fund \
   typescript@5.9.2 three@0.184.0 tiny-invariant@1.3.3
 node tool/geospatial_reference.mjs /path/to/three-geospatial-main \
-  /tmp/geospatial-reference packages/flutter_geospatial/test/fixtures/upstream_core.json
-cd packages/flutter_geospatial
+  /tmp/geospatial-reference packages/zyren_geospatial/test/fixtures/upstream_core.json
+cd packages/zyren_geospatial
 dart test
 ```
 
@@ -65,7 +65,7 @@ is part of the native application.
 The pole difference comes from upstream's `asin(normal.z)` and native
 `atan2(z, horizontalLength)`. Native retains the existing stable inverse.
 Upstream camera extraction unprojects a point and subtracts the ECEF eye;
-gpu3d uses its explicit target direction. That subtraction accounts for the
+zyren uses its explicit target direction. That subtraction accounts for the
 micrometer difference. Quaternion sign is ignored because q and -q represent
 the same rotation.
 
@@ -84,7 +84,7 @@ integer multiplication for levels 0 through 30, without JavaScript's signed
 32-bit shift overflow. Negative levels remain possible as the parent of level
 zero, but cannot be passed to `getSize`.
 
-gpu3d's camera `up` is a world-space vector used with `target`. The source has
+zyren's camera `up` is a world-space vector used with `target`. The source has
 a local up vector and quaternion. Fixtures construct an ordinary Y-up Three
 camera and compare its transformed world up with the native pose. Arbitrary
 local-up conventions, parented camera extraction and orthographic reconstruction

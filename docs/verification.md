@@ -40,8 +40,8 @@ pushed. A simulator pass does not establish physical mobile GPU performance.
 
 ## Core extraction checkpoint
 
-The core now lives in `gpu3d`, the native hook and renderer in `gpu3d_native`,
-and Flutter presentation in `flutter_gpu3d`. Geospatial depends on `gpu3d` only.
+The core now lives in `zyren`, the native hook and renderer in `zyren_native`,
+and Flutter presentation in `flutter_zyren`. Geospatial depends on `zyren` only.
 The native crate and Cargo lockfile were compared byte-for-byte with the previous
 commit after relocation; their contents did not change.
 
@@ -125,7 +125,7 @@ The final review fixes passed 49 core/geospatial Dart tests, 34 facade widget
 tests and three executable-example widget tests. The native package passed six tests:
 three worker protocol tests and three real GPU tests, including a worker killed
 without a dispose request returning its native handle count to baseline. Run
-native tests from `packages/gpu3d_native`, with `RUN_NATIVE_GPU=1` and
+native tests from `packages/zyren_native`, with `RUN_NATIVE_GPU=1` and
 `--concurrency=1`, so build hooks refresh the correct library and handle-count
 checks run in isolation.
 
@@ -202,7 +202,7 @@ The checkpoint review found three defects: Metal fence completion accepted faile
 commands, native destruction could still block after a GPU timeout, and a Flutter
 resize requested during a completion microtask could be lost. Regression tests
 reproduced each failure. The renderer now checks retained Metal command statuses
-through a small [pinned HAL patch](../packages/gpu3d_native/native/vendor/README.md),
+through a small [pinned HAL patch](../packages/zyren_native/native/vendor/README.md),
 retires failed device ownership off the caller's thread, and drains newer Flutter
 requests before completing their shared operation. The process limits active and
 retiring devices to 32; permanently blocked devices remain charged. All three
@@ -452,3 +452,42 @@ Task 2 remains open. PNG/JPEG decoding, automatic mip generation, dynamic
 attributes, alpha modes, render ordering and portable lines/points are pending.
 Box and sphere UV generation is pending too. Public native view presenters still
 own separate devices. No new iOS, Windows, Linux or Adreno qualification was run.
+
+## Zyren package rename
+
+Checked on 27 September 2026 in the isolated `zyren-package-rename` branch.
+You can use `zyren`, `zyren_native`, `flutter_zyren` and `zyren_geospatial`
+through their renamed package folders and Dart entrypoints. The migration table
+in the root README lists the original imports.
+
+The native crate is `zyren_runtime`. Flutter registers `ZyrenPlugin`, and the
+Android JNI names, method channels, CocoaPods module and Dart native asset IDs
+use the same package family. The versioned `fg_` and `fg2_` C functions and
+rendering protocol are unchanged. All 87 vendored files moved without content
+changes.
+
+The following checks passed after the rename:
+
+- 263 core Dart tests, 17 geospatial tests, 72 Flutter/widget example tests and
+  16 native Dart tests with `RUN_NATIVE_GPU=1`.
+- 36 Rust tests with native GPU checks enabled, strict Clippy, Dart and Rust
+  formatting, workspace analysis, C-header syntax and package boundaries.
+- All six native SceneView integrations on macOS Metal, including explicit
+  capture and 100 create/remove cycles. The runner could not foreground the
+  application; its rendering and lifecycle assertions passed.
+- Five supported native SceneView integrations on the physical Pixel 9 Pro
+  through Vulkan. The Android platform-presenter capture test remains skipped
+  because that presenter does not support capture. Both native presentation
+  paths reported zero ordinary frame readback and released their renderer
+  ownership after teardown.
+- The planet example's debug iOS simulator build, without code signing.
+
+Run core and geospatial tests from their package directories. Their reference
+fixtures use package-relative paths; invoking both suites from the workspace
+root fails to locate those fixtures. The README commands use the correct
+directories.
+
+macOS and iOS builds regenerated the renamed podspec checksum; all four example
+Pod lockfiles use that checksum. This checkpoint does not establish physical
+iOS, Windows or Linux runtime compatibility. The packages retain
+`publish_to: none` and have not been published to pub.dev.

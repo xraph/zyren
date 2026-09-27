@@ -77,8 +77,8 @@ to avoid a spurious event difference at a distance clamp.
 
 ```sh
 node tool/orbit_reference.mjs /tmp/geospatial-reference \
-  packages/gpu3d/test/fixtures/three_orbit.json three184
-cd packages/gpu3d
+  packages/zyren/test/fixtures/three_orbit.json three184
+cd packages/zyren
 dart test test/orbit_controls_test.dart test/orbit_plugin_test.dart
 ```
 
