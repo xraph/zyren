@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 import 'texture.dart';
+import '../rendering/frame_output.dart';
 
 enum TextureWrap { clampToEdge, repeat, mirroredRepeat }
 
@@ -32,6 +33,35 @@ final class TextureImage {
   final int id = _nextId++;
   final TextureDescriptor descriptor;
   final List<Uint8List> levels;
+  factory TextureImage.fromImage(ImageData image) {
+    if (image.format != PixelFormat.rgba8 ||
+        image.alphaMode == AlphaMode.premultiplied) {
+      throw UnsupportedError(
+        'Color textures require straight or opaque RGBA8 pixels.',
+      );
+    }
+    final descriptor = TextureDescriptor(
+      width: image.size.width,
+      height: image.size.height,
+      format: image.colorSpace == ColorSpace.srgb
+          ? TextureFormat.rgba8UnormSrgb
+          : TextureFormat.rgba8Unorm,
+    );
+    final pixels = Uint8List(descriptor.byteLength);
+    final rowBytes = image.size.width * 4;
+    for (var y = 0; y < image.size.height; y++) {
+      pixels.setRange(
+        y * rowBytes,
+        (y + 1) * rowBytes,
+        image.pixels,
+        y * image.rowStride,
+      );
+    }
+    return TextureImage._(
+      descriptor,
+      List.unmodifiable([pixels.asUnmodifiableView()]),
+    );
+  }
   factory TextureImage.rgba({
     required int width,
     required int height,

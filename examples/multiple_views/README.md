@@ -23,6 +23,10 @@ fvm flutter run -d macos -t lib/textured_scene_demo.dart
 ```
 
 Use your Android device ID in place of `macos` to select the Vulkan presenter.
-The demo uses one immutable 2x2 color image and updates its material sampler when
-you select Nearest, Linear, Repeat, Clamp or Mirror. It renders opaque pixels;
-image decoding and transparency are still pending.
+The demo starts with a 2x2 color image. Select Nearest, Linear, Repeat, Clamp or
+Mirror to update its sampler. Tap PNG or JPEG to decode a bundled file on a CPU
+isolate and replace the native texture. Failures keep the current image visible
+and let you retry. Materials still render opaquely; transparency remains pending.
+
+See [image decoding](../../docs/design/gpu-resources.md#decode-image-files) for
+the public API, supported formats and memory limits.

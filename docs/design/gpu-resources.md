@@ -269,3 +269,68 @@ buffer round trip that retains data after its first scope closes. The GPU suite
 also tests partial updates, texture mip readback, budget rejection and cleanup.
 Run `fvm dart run example/shared_views.dart` from the same package for the shared
 geometry and independent view lifetime example.
+
+## Decode image files
+
+You can decode a file before creating a scene or GPU device:
+
+```dart
+import 'dart:io';
+import 'package:gpu3d/gpu3d.dart';
+import 'package:gpu3d_native/gpu3d_native.dart';
+
+final pixels = await const NativeImageDecoder().decode(
+  await File('albedo.png').readAsBytes(),
+  limits: const ImageDecodeLimits(maxDimension: 2048),
+);
+final material = UnlitMaterial(
+  colorMap: TextureMap(image: TextureImage.fromImage(pixels)),
+);
+```
+
+In Flutter, pass `Uint8List.sublistView(await rootBundle.load(assetPath))` to
+`decode`. The decoder snapshots your bytes before yielding and runs on a CPU
+isolate. You receive immutable, top-down RGBA8 pixels with straight alpha and
+an sRGB tag. `TextureImage.fromImage` copies those pixels, strips row padding
+and preserves linear or sRGB encoding. It rejects premultiplied input.
+
+Static PNG, including palette and grayscale images, and 8-bit baseline or
+progressive JPEG are supported. The JPEG profile accepts at most 64 scans.
+16-bit PNG, animated PNG and other image formats are rejected. The decoder
+preserves encoded row orientation and channel values; EXIF rotation and ICC
+color conversion are not applied. Normalize those assets before loading them.
+Texture alpha is retained in CPU data, but materials still render opaquely.
+
+The default ceilings are 16 MiB of encoded input, 64 MiB of RGBA output and 4096
+pixels on either axis. You can lower each limit. `maxWorkingBytes` defaults to
+128 MiB per native job, with 256 MiB reserved across active native decodes.
+The reservation includes two encoded-input lengths, output/conversion buffers
+and decoder workspace. PNG uses the library allocation limit; JPEG uses a
+conservative estimate for coefficient and row buffers, so some images below
+the dimension ceiling will still exceed their working budget.
+
+This admission budget is not a process-memory cap. Decoder allocator overhead,
+Dart isolate transfers, the returned image and later GPU uploads have separate
+lifetimes. The native reservation ends when decoding returns. Retain only the
+images you need, and choose smaller limits when you process untrusted assets.
+The [image allocation limit](https://docs.rs/image/0.25.10/image/struct.Limits.html)
+is best effort. Explicit extent, format, CRC and owned-buffer checks supplement
+it. JPEG framing is checked before strict decoding, using pinned zune-jpeg
+0.5.15 and zune-core 0.5.3. Re-audit workspace accounting when updating them.
+
+At most two decodes may run from one Dart isolate. Excess calls fail with
+`ImageDecodeException` and `ImageDecodeError.busy`, without queuing another
+copy of the input. Retry when an active decode completes. Malformed data,
+unsupported formats/colors and limit failures have distinct error codes;
+invalid limit options throw `RangeError` before native work begins.
+
+The C entrypoints in `gpu3d_images.h` require no renderer handle. On success,
+`fg2_image_decode` transfers its pixel allocation to the caller. Call
+`fg2_image_free` exactly once on that descriptor; it clears the fields and also
+accepts a cleared descriptor. The Dart wrapper copies the result into owned
+Dart storage and frees native pixels in `finally`, including failure paths.
+
+Run `fvm flutter run -d macos -t lib/textured_scene_demo.dart` from
+`examples/multiple_views`, or replace `macos` with your Android device ID.
+Tap PNG or JPEG to decode the bundled fixtures and update the native material.
+Asset resolution, shared request caching and cancellation remain task 3 work.

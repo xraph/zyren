@@ -1,3 +1,4 @@
+pub mod image_decode;
 pub mod registry;
 mod runtime;
 pub mod upload;

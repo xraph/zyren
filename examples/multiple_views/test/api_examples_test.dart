@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:typed_data';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_gpu3d/flutter_gpu3d.dart';
@@ -23,7 +25,59 @@ SceneRuntime runtime(FakeBackend backend) => SceneRuntime(
   presenterFactory: () => TestPresenter('frame', backend.events),
 );
 
+class TestImageDecoder implements ImageDecoder {
+  Completer<ImageData> next = Completer<ImageData>();
+  @override
+  Future<ImageData> decode(
+    Uint8List bytes, {
+    ImageDecodeLimits limits = const ImageDecodeLimits(),
+  }) => next.future;
+}
+
 void main() {
+  testWidgets('image demo keeps its texture on decode failure and retries', (
+    tester,
+  ) async {
+    final backend = FakeBackend();
+    final decoder = TestImageDecoder();
+    await tester.pumpWidget(
+      TexturedSceneApp(
+        runtime: runtime(backend),
+        presentation: PresentationPolicy.readbackOnly,
+        decoder: decoder,
+      ),
+    );
+    await frames(tester);
+    final controller = tester
+        .widget<SceneView>(find.byType(SceneView))
+        .controller!;
+    final mesh = controller.scene.children.single as Mesh;
+    final original = mesh.material.colorMap!.image;
+    await tester.tap(find.text('PNG'));
+    await frames(tester);
+    expect(find.text('Decoding PNG…'), findsOneWidget);
+    decoder.next.completeError(
+      const ImageDecodeException(ImageDecodeError.invalidData, 'Test failure'),
+    );
+    await frames(tester);
+    expect(find.textContaining('Tap PNG to retry'), findsOneWidget);
+    expect(mesh.material.colorMap!.image, same(original));
+    decoder.next = Completer<ImageData>();
+    await tester.tap(find.text('PNG'));
+    await frames(tester);
+    decoder.next.complete(
+      ImageData(
+        pixels: Uint8List.fromList([255, 0, 0, 255]),
+        size: PhysicalSize(1, 1),
+      ),
+    );
+    await frames(tester);
+    expect(find.textContaining('PNG · 1 × 1'), findsOneWidget);
+    expect(mesh.material.colorMap!.image, isNot(same(original)));
+    await tester.pumpWidget(const SizedBox());
+    await frames(tester);
+    await controller.whenDisposed;
+  });
   testWidgets(
     'texture controls retain image identity at desktop and narrow widths',
     (tester) async {

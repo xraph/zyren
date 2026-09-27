@@ -19,6 +19,9 @@ export 'src/rendering/scene_issue.dart';
 export 'src/plugins/attachment_scope.dart';
 export 'src/assets/load_task.dart';
 export 'src/assets/asset_scope.dart';
+export 'src/assets/image_decoder.dart';
+export 'src/rendering/frame_output.dart'
+    show ImageData, PhysicalSize, PixelFormat, ColorSpace, AlphaMode;
 
 export 'src/resources/buffer.dart';
 export 'src/resources/texture.dart';

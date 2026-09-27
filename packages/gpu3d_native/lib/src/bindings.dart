@@ -2,6 +2,49 @@ import 'dart:ffi';
 
 const _asset = 'package:gpu3d_native/src/bindings.dart';
 
+final class NativeImageLimits extends Struct {
+  @Uint32()
+  external int version;
+  @Uint32()
+  external int maxDimension;
+  @Uint64()
+  external int maxEncodedBytes;
+  @Uint64()
+  external int maxDecodedBytes;
+  @Uint64()
+  external int maxWorkingBytes;
+}
+
+final class NativeImagePixels extends Struct {
+  @Uint32()
+  external int width;
+  @Uint32()
+  external int height;
+  external Pointer<Uint8> pixels;
+  @Size()
+  external int length;
+}
+
+@Native<
+  Uint32 Function(
+    Pointer<Uint8>,
+    Size,
+    Pointer<NativeImageLimits>,
+    Pointer<NativeImagePixels>,
+  )
+>(symbol: 'fg2_image_decode', assetId: _asset)
+external int imageDecode(
+  Pointer<Uint8> input,
+  int length,
+  Pointer<NativeImageLimits> limits,
+  Pointer<NativeImagePixels> output,
+);
+@Native<Void Function(Pointer<NativeImagePixels>)>(
+  symbol: 'fg2_image_free',
+  assetId: _asset,
+)
+external void imageFree(Pointer<NativeImagePixels> output);
+
 @Native<Uint32 Function()>(symbol: 'fg_abi_version', assetId: _asset)
 external int abiVersion();
 @Native<Uint64 Function()>(symbol: 'fg_create', assetId: _asset)

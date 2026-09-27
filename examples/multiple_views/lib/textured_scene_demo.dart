@@ -1,6 +1,6 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_gpu3d/flutter_gpu3d.dart';
 
 void main() => runApp(
@@ -14,9 +14,11 @@ void main() => runApp(
 class TexturedSceneApp extends StatelessWidget {
   final SceneRuntime runtime;
   final PresentationPolicy presentation;
+  final ImageDecoder decoder;
   const TexturedSceneApp({
     super.key,
     required this.runtime,
+    this.decoder = const NativeImageDecoder(),
     this.presentation = PresentationPolicy.requireNative,
   });
   @override
@@ -26,14 +28,23 @@ class TexturedSceneApp extends StatelessWidget {
       scaffoldBackgroundColor: const Color(0xff111823),
       visualDensity: VisualDensity.compact,
     ),
-    home: _TextureScene(runtime: runtime, presentation: presentation),
+    home: _TextureScene(
+      runtime: runtime,
+      presentation: presentation,
+      decoder: decoder,
+    ),
   );
 }
 
 class _TextureScene extends StatefulWidget {
   final SceneRuntime runtime;
   final PresentationPolicy presentation;
-  const _TextureScene({required this.runtime, required this.presentation});
+  final ImageDecoder decoder;
+  const _TextureScene({
+    required this.runtime,
+    required this.presentation,
+    required this.decoder,
+  });
   @override
   State<_TextureScene> createState() => _TextureSceneState();
 }
@@ -41,7 +52,7 @@ class _TextureScene extends StatefulWidget {
 class _TextureSceneState extends State<_TextureScene> {
   late final SceneController controller;
   late final Mesh mesh;
-  final image = TextureImage.rgba(
+  var image = TextureImage.rgba(
     width: 2,
     height: 2,
     pixels: Uint8List.fromList([
@@ -63,6 +74,39 @@ class _TextureSceneState extends State<_TextureScene> {
       255,
     ]),
   );
+  String source = 'RGBA';
+  String? loading, error;
+
+  Future<void> load(String format) async {
+    if (loading != null) return;
+    setState(() {
+      loading = format;
+      error = null;
+    });
+    try {
+      final asset = format == 'PNG' ? 'corners.png' : 'gray.jpg';
+      final bytes = await rootBundle.load('assets/images/$asset');
+      final decoded = await widget.decoder.decode(Uint8List.sublistView(bytes));
+      if (!mounted) return;
+      setState(() {
+        image = TextureImage.fromImage(decoded);
+        source = format;
+        mesh.material = material();
+      });
+    } catch (failure) {
+      if (!mounted) return;
+      setState(() {
+        error = '$format failed: $failure. Tap $format to retry.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          loading = null;
+        });
+      }
+    }
+  }
+
   var filter = TextureFilter.nearest;
   var wrap = TextureWrap.repeat;
 
@@ -115,7 +159,9 @@ class _TextureSceneState extends State<_TextureScene> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const Text('Native textures', style: TextStyle(fontSize: 22)),
-            const Text('2 × 2 sRGB image · UV repeat × 2 · opaque color'),
+            Text(
+              '$source · ${image.descriptor.width} × ${image.descriptor.height} sRGB · opaque color',
+            ),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -166,7 +212,19 @@ class _TextureSceneState extends State<_TextureScene> {
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            Row(
+              children: [
+                for (final format in ['PNG', 'JPEG'])
+                  TextButton(
+                    onPressed: loading == null ? () => load(format) : null,
+                    child: Text(format),
+                  ),
+                if (loading != null) Text('Decoding $loading…'),
+              ],
+            ),
+            if (error != null)
+              Text(error!, style: const TextStyle(color: Colors.orange)),
+            const SizedBox(height: 4),
             Expanded(child: SceneView(controller: controller)),
           ],
         ),

@@ -111,8 +111,13 @@ device loss: invalidate generation -> retain CPU recipes -> fail old GPU handles
 Opaque color texture checkpoint: `TextureImage`, `TextureMap`, independent
 samplers, UV0/UV1 and supplied mip levels use binary scene opcode 11 and the
 shared resource registry. The native demo exercises filtering and wrapping.
-Task 2 remains open for dynamic attributes, bounded PNG/JPEG decoding, automatic
-mips, alpha modes, render ordering and portable lines/points. See
+Image decode checkpoint: `NativeImageDecoder` runs bounded PNG/JPEG work on a
+CPU isolate and returns core `ImageData`. `TextureImage.fromImage` strips row
+padding and owns its pixels. Strict framing, CRC, extent checks and typed errors
+cover malformed input; admission uses decoder workspace estimates. See
+[image decoding](../../design/gpu-resources.md#decode-image-files).
+Task 2 remains open for dynamic attributes, automatic mips, alpha modes, render
+ordering and portable lines/points. See
 [color textures](../../design/gpu-resources.md#color-textures) for the API.
 
 **Files:** Add core `geometry/{vertex_attribute,vertex_layout}.dart`, resource
@@ -128,6 +133,10 @@ declares dimension, extent, format, usage, mip count and color space.
 limits) -> Future<ImageData>` is a core service implemented by the native package.
 Pin Rust `image` 0.25.10 with default features disabled and PNG/JPEG enabled in
 this task's lockfile update; verify its declared Rust floor and licenses.
+The pinned crate declares Rust 1.88.0, below this repository's 1.97 floor.
+JPEG decoding uses pinned zune-jpeg 0.5.15 directly because image's adapter
+disables strict mode and ignores allocation limits. Engine admission accounts
+for its coefficient and row buffers. Retain that audit when changing the pins.
 
 - [ ] Add an indexed quad with a 2x2 corner texture, repeat/clamp samplers and a second UV set. Probe known linear/sRGB values and alpha conversion independently. Add a dirty-range test:
 
