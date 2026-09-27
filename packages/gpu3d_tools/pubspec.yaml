@@ -1,0 +1,12 @@
+name: gpu3d_tools
+description: Selection, transform history and measurement tools for Dart 3D scenes.
+version: 0.1.0
+publish_to: none
+resolution: workspace
+environment:
+  sdk: ">=3.10.0 <4.0.0"
+dependencies:
+  gpu3d:
+    path: ../gpu3d
+dev_dependencies:
+  test: ^1.29.0

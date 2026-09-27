@@ -4,6 +4,9 @@ environment:
   sdk: '>=3.10.0 <4.0.0'
 workspace:
   - packages/gpu3d
+  - packages/gpu3d_tools
+  - packages/gpu3d_devtools
+  - packages/gpu3d_timeline
   - packages/gpu3d_native
   - packages/flutter_gpu3d
   - packages/flutter_geospatial
