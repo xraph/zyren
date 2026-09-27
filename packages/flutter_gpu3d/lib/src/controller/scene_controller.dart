@@ -150,9 +150,29 @@ class SceneController {
       if (ndc.x < -1 || ndc.x > 1 || ndc.y < -1 || ndc.y > 1) return null;
       final camera = _camera;
       final ray = camera.rayFromNdc(ndc.x, ndc.y, viewport.aspect);
+      final projection = camera.viewProjection(viewport.aspect).storage;
+      final cameraPosition = camera.position;
       for (final hit in _raycaster.intersectScene(scene, ray)) {
-        final depth = camera.projectPoint(hit.point, viewport.aspect).z;
-        if (depth >= 0 && depth <= 1) return hit;
+        final p = hit.point - cameraPosition;
+        final z =
+            projection[2] * p.x +
+            projection[6] * p.y +
+            projection[10] * p.z +
+            projection[14];
+        final w =
+            projection[3] * p.x +
+            projection[7] * p.y +
+            projection[11] * p.z +
+            projection[15];
+        if (!z.isFinite || !w.isFinite) {
+          throw ArgumentError('Intersection exceeds projection range.');
+        }
+        // Reject the perspective eye before division. Roundoff at either
+        // inclusive clip plane must not hide a surface on that boundary.
+        if (w <= 0) continue;
+        final depth = z / w;
+        const tolerance = 1e-14;
+        if (depth >= -tolerance && depth <= 1 + tolerance) return hit;
       }
       return null;
     } on ArgumentError catch (error) {

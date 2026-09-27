@@ -141,6 +141,58 @@ void main() {
   });
 
   testWidgets(
+    'skips a surface at the perspective eye and picks visible geometry',
+    (tester) async {
+      final controller = create(
+        PerspectiveCamera(position: const Vec3(0, 0, 5)),
+      );
+      final eye = plane(5), visible = plane(0);
+      controller.scene.add(eye);
+      controller.scene.add(visible);
+      await tester.pumpWidget(host(controller));
+      await frames(tester);
+      expect(
+        (await controller.pick(const ViewportPoint(100, 50)))!.object,
+        same(visible),
+      );
+      visible.visible = false;
+      expect(await controller.pick(const ViewportPoint(100, 50)), isNull);
+      controller.camera = OrthographicCamera(position: const Vec3(0, 0, 5));
+      expect(
+        (await controller.pick(const ViewportPoint(100, 50)))!.object,
+        same(eye),
+      );
+      await close(tester, controller);
+    },
+  );
+
+  testWidgets(
+    'includes clip boundaries and excludes meaningfully outside planes',
+    (tester) async {
+      final camera = PerspectiveCamera(position: const Vec3(0, 0, 5));
+      final controller = create(camera);
+      final mesh = plane(5 - camera.near);
+      controller.scene.add(mesh);
+      await tester.pumpWidget(host(controller));
+      await frames(tester);
+      expect(
+        (await controller.pick(const ViewportPoint(100, 50)))!.object,
+        same(mesh),
+      );
+      mesh.position = Vec3(0, 0, 5 - camera.near + 1e-8);
+      expect(await controller.pick(const ViewportPoint(100, 50)), isNull);
+      mesh.position = Vec3(0, 0, 5 - camera.far);
+      expect(
+        (await controller.pick(const ViewportPoint(100, 50)))!.object,
+        same(mesh),
+      );
+      mesh.position = Vec3(0, 0, 5 - camera.far - 1e-4);
+      expect(await controller.pick(const ViewportPoint(100, 50)), isNull);
+      await close(tester, controller);
+    },
+  );
+
+  testWidgets(
     'misses outside and rejects invalid, detached and disposed queries',
     (tester) async {
       final controller = create(

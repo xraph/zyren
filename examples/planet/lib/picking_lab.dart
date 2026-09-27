@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_gpu3d/flutter_gpu3d.dart';
@@ -23,6 +24,7 @@ class PickingLab extends StatefulWidget {
 
 class _PickingLabState extends State<PickingLab> {
   late final SceneController controller;
+  late final StreamSubscription<ScenePointerEvent> pointerSubscription;
   final pointers = <int, ViewportPoint>{};
   int? clickPointer;
   late final OrbitControlsPlugin orbit;
@@ -89,6 +91,7 @@ class _PickingLabState extends State<PickingLab> {
     orbit = controller.use(
       OrbitControlsPlugin(behavior: OrbitBehavior.three184),
     );
+    pointerSubscription = controller.input.events.listen(_pointer);
   }
 
   // Orbit owns the gesture arena. Observe the same raw stream and reject
@@ -178,7 +181,7 @@ class _PickingLabState extends State<PickingLab> {
   @override
   void dispose() {
     request++;
-
+    unawaited(pointerSubscription.cancel());
     controller.dispose();
     super.dispose();
   }
@@ -242,7 +245,6 @@ class _PickingLabState extends State<PickingLab> {
                 }
                 return SceneView(
                   controller: controller,
-                  onPointer: _pointer,
                   errorBuilder: (context, issue, retry) =>
                       ZeroState(error: issue, onRetry: retry),
                 );

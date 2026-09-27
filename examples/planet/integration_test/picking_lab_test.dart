@@ -112,6 +112,16 @@ void main() {
       await tester.pump();
       expect(meshes[2].material, same(originalMaterials[2]));
       expect(tester.takeException(), isNull);
+      // Suspending a held pointer delivers a synthetic cancel through input.
+      // No physical up event arrives before the next independent click.
+      final interrupted = await tester.startGesture(rect.center, pointer: 42);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+      await tester.pump();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      final beforeResume = frames;
+      await waitFrame(beforeResume);
+      await select(0, 'Box');
+      await interrupted.cancel();
       await tester.pumpWidget(const SizedBox());
       await controller.whenDisposed;
       await stats.cancel();
