@@ -22,7 +22,8 @@ pub struct GeometryPatch {
 }
 impl GeometryPatch {
     pub fn apply(&self, base: &Geometry) -> Result<Geometry, String> {
-        if self.id == self.base
+        if base.topology != 0
+            || self.id == self.base
             || base.id != self.base
             || self.ranges.is_empty()
             || self.ranges.len() > 64

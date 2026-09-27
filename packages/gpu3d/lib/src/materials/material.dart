@@ -1,5 +1,7 @@
+import 'dart:typed_data';
 import '../math/color3.dart';
 import '../resources/texture_image.dart';
+part 'primitives.dart';
 
 /// Opaque ignores alpha; mask discards below the cutoff; blend uses source-over.
 enum MaterialAlphaMode { opaque, mask, blend }
@@ -40,6 +42,10 @@ sealed class MeshMaterial {
     }
   }
   bool get unlit;
+  int get primitiveKind => 0;
+  double get primitiveSize => 1;
+  SizeUnits get sizeUnits => SizeUnits.pixels;
+  PointShape get pointShape => PointShape.square;
   bool get writesDepth => switch (depthWrite) {
     DepthWrite.automatic => alphaMode != MaterialAlphaMode.blend,
     DepthWrite.enabled => true,

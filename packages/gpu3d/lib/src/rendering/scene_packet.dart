@@ -60,9 +60,18 @@ final class ScenePacketEncoder {
           'This material renderer supports position, normal and UV attributes.',
         );
       }
+      if (geometry.topology != GeometryTopology.triangles &&
+          (geometry.uv0 != null || geometry.uv1 != null)) {
+        throw UnsupportedError(
+          'Expanded primitives do not support UV attributes.',
+        );
+      }
       final base = uploaded[geometry.logicalId];
       if (base?.id == geometry.id) continue;
-      final ranges = base == null ? null : geometry.changesSince(base);
+      final ranges =
+          base == null || geometry.topology != GeometryTopology.triangles
+          ? null
+          : geometry.changesSince(base);
       if (base == null || ranges == null) {
         uploads.add(geometry);
       } else {
@@ -110,12 +119,7 @@ final class ScenePacketEncoder {
     for (final geometry in uploads) {
       vertices += geometry.positions.length ~/ 3;
       indices += geometry.indices.length;
-      uploadBytes +=
-          geometry.positions.length * 8 +
-          geometry.indices.length * geometry.indexFormat.bytesPerIndex;
-      if (geometry.uv0 != null || geometry.uv1 != null) {
-        uploadBytes += geometry.positions.length ~/ 3 * 16;
-      }
+      uploadBytes += geometry.gpuByteLength;
     }
     for (final patch in patches) {
       uploadBytes += patch.uploadedBytes;
@@ -131,16 +135,17 @@ final class ScenePacketEncoder {
         uploadBytes > 64 * 1024 * 1024) {
       throw ArgumentError('Scene resource upload exceeds the frame budget.');
     }
-    final opcode =
-        scene._meshes.any(
-          (m) =>
-              m['alpha_mode'] != 0 ||
-              m['opacity'] != 1.0 ||
-              m['alpha_cutoff'] != .5 ||
-              m['depth_test'] != true ||
-              m['depth_write'] != true ||
-              m['render_order'] != 0,
-        )
+    final opcode = scene._meshes.any((m) => m['primitive_kind'] != 0)
+        ? 16
+        : scene._meshes.any(
+            (m) =>
+                m['alpha_mode'] != 0 ||
+                m['opacity'] != 1.0 ||
+                m['alpha_cutoff'] != .5 ||
+                m['depth_test'] != true ||
+                m['depth_write'] != true ||
+                m['render_order'] != 0,
+          )
         ? 15
         : textures.any((image) => image.generatesMipmaps)
         ? 14
@@ -195,6 +200,7 @@ final class ScenePacketEncoder {
             (geometry.uv1 == null ? 0 : 2) |
             (geometry.indexFormat == IndexFormat.uint16 ? 4 : 0),
       );
+      if (opcode >= 16) body.u32(geometry.topology.index);
       body.floats(geometry.positions);
       body.floats(geometry.normals);
       body.indices(geometry.indices, geometry.indexFormat);
@@ -239,6 +245,12 @@ final class ScenePacketEncoder {
         body.u32(mesh['depth_test'] == true ? 1 : 0);
         body.u32(mesh['depth_write'] == true ? 1 : 0);
         body.i32(mesh['render_order'] as int);
+        if (opcode >= 16) {
+          body.u32(mesh['primitive_kind'] as int);
+          body.floats([mesh['primitive_size'] as double]);
+          body.u32(mesh['size_units'] as int);
+          body.u32(mesh['point_shape'] as int);
+        }
       }
     }
     final payload = body.finish();
@@ -311,6 +323,10 @@ bool _sameMesh(Map<String, Object> a, Map<String, Object> b) {
     'depth_test',
     'depth_write',
     'render_order',
+    'primitive_kind',
+    'primitive_size',
+    'size_units',
+    'point_shape',
   ]) {
     if (a[field] != b[field]) return false;
   }

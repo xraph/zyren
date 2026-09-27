@@ -50,3 +50,10 @@ source-over transparency. Blended materials sort back to front and leave depth
 writes off by default. `Mesh.renderOrder`, `DepthWrite` and `depthTest` let you
 override those choices. Run `lib/material_alpha_demo.dart` from
 `examples/multiple_views` on macOS or Android to try the native material controls.
+
+Use `Line` with `LineGeometry` for paths, `LineGeometry.segments` for independent
+pairs, and `Points` with `PointGeometry` for circle or square markers. Their
+materials let you choose physical pixel or world sizes. Native triangle expansion
+keeps widths portable across backends, and camera or size edits reuse geometry.
+Run `lib/primitives_demo.dart` to try both size modes. Current lines have butt
+ends; joins, configurable caps, dashes and textured sprites remain open.

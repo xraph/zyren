@@ -44,6 +44,7 @@ abstract final class RenderFeatures {
   static const rgbaReadback = RenderFeature.rgbaReadback;
   static const colorTextures = RenderFeature.colorTextures;
   static const alphaMaterials = RenderFeature.alphaMaterials;
+  static const portablePrimitives = RenderFeature.portablePrimitives;
 }
 
 /// Compatibility capabilities for the explicit RGBA renderer interface.

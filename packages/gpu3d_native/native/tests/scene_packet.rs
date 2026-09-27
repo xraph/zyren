@@ -422,3 +422,78 @@ fn rejected_materials_preserve_revision_and_legacy_opaque_defaults() {
     );
     assert_eq!(renderer.scene_resource_stats(), (84, 84));
 }
+
+fn primitive_packet() -> Vec<u8> {
+    let (mut data, _) = alpha_packet();
+    data[4..8].copy_from_slice(&16_u32.to_le_bytes());
+    data.splice(180..180, 3_u32.to_le_bytes()); // Three point markers.
+    for value in [2_u32, 12_f32.to_bits(), 0, 1] {
+        data.extend(value.to_le_bytes());
+    }
+    let length = (data.len() - 24) as u64;
+    data[16..24].copy_from_slice(&length.to_le_bytes());
+    data
+}
+#[test]
+fn primitive_packets_bound_topology_size_and_expansion() {
+    let valid = primitive_packet();
+    let frame = ScenePacket::decode(&valid).unwrap().resolve(None).unwrap();
+    frame.validate(&Default::default()).unwrap();
+    assert_eq!(frame.geometries[0].byte_length(), 360);
+    assert_eq!(frame.meshes[0].primitive_size, 12.);
+    let material = valid.len() - 16;
+    for (offset, value) in [
+        (180, 4_u32),
+        (180, 1),
+        (material, 3),
+        (material + 4, f32::NAN.to_bits()),
+        (material + 4, 0_f32.to_bits()),
+        (material + 4, 4097_f32.to_bits()),
+        (material + 8, 2),
+        (material + 12, 2),
+    ] {
+        let mut data = valid.clone();
+        data[offset..offset + 4].copy_from_slice(&value.to_le_bytes());
+        assert!(ScenePacket::decode(&data).is_err(), "offset {offset}");
+    }
+    for end in 0..valid.len() {
+        let mut data = valid[..end].to_vec();
+        if end >= 24 {
+            data[16..24].copy_from_slice(&((end - 24) as u64).to_le_bytes());
+        }
+        assert!(ScenePacket::decode(&data).is_err(), "end {end}");
+    }
+    let mut seed = 0xe170_2239_u64;
+    for _ in 0..2048 {
+        seed ^= seed << 13;
+        seed ^= seed >> 7;
+        seed ^= seed << 17;
+        let mut data = valid.clone();
+        data[seed as usize % valid.len()] ^= (seed >> 32) as u8;
+        if let Ok(packet) = ScenePacket::decode(&data)
+            && let Ok(frame) = packet.resolve(None)
+        {
+            let _ = frame.validate(&Default::default());
+        }
+    }
+    let mut geometry = frame.geometries[0].clone();
+    geometry.indices = vec![0; 250001];
+    assert!(geometry.validate().is_err());
+    geometry.indices = vec![0; 250000];
+    assert!(geometry.validate().is_ok());
+    assert_eq!(geometry.byte_length(), 30_000_000);
+}
+#[test]
+#[ignore = "requires a native Metal, Vulkan or DX12 device"]
+fn incompatible_primitive_material_preserves_pixels_and_residency() {
+    use gpu3d_runtime::renderer::Renderer;
+    let mut renderer = pollster::block_on(Renderer::new()).unwrap();
+    let first = renderer.decode_scene(&primitive_packet()).unwrap();
+    let pixels = renderer.render(&first, 64, 64).unwrap();
+    assert!(pixels.chunks_exact(4).any(|p| p[0] > 0));
+    let mut invalid = first.clone();
+    invalid.meshes[0].primitive_kind = 0;
+    assert!(renderer.render(&invalid, 64, 64).is_err());
+    assert_eq!(renderer.render(&first, 64, 64).unwrap(), pixels);
+    assert_eq!(renderer.scene_resource_stats(), (360, 360));
+}

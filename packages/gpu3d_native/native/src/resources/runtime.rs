@@ -101,13 +101,46 @@ impl ResourceStore {
         use wgpu::util::DeviceExt;
         let bytes = geometry.byte_length() as u64;
         self.registry.check_capacity(bytes)?;
-        let vertices: Vec<[f32; 6]> = geometry
+        let mut vertices: Vec<[f32; 6]> = geometry
             .positions
             .iter()
             .zip(&geometry.normals)
             .map(|(p, n)| [p[0], p[1], p[2], n[0], n[1], n[2]])
             .collect();
-        let compact = if geometry.index_format == crate::scene::IndexFormat::Uint16 {
+        let mut expanded_indices = Vec::new();
+        if geometry.topology != 0 {
+            vertices.clear();
+            for primitive in 0..geometry.primitive_count() {
+                let (start, end) = match geometry.topology {
+                    1 => (primitive * 2, primitive * 2 + 1),
+                    2 => (primitive, primitive + 1),
+                    _ => (primitive, primitive),
+                };
+                let a = geometry.positions[geometry.indices[start] as usize];
+                let b = geometry.positions[geometry.indices[end] as usize];
+                let offset = vertices.len() as u32;
+                vertices.extend_from_slice(&[[a[0], a[1], a[2], b[0], b[1], b[2]]; 4]);
+                expanded_indices.extend_from_slice(&[
+                    offset,
+                    offset + 1,
+                    offset + 2,
+                    offset,
+                    offset + 2,
+                    offset + 3,
+                ]);
+            }
+        }
+        let draw_indices = if geometry.topology == 0 {
+            &geometry.indices
+        } else {
+            &expanded_indices
+        };
+        let index_format = if geometry.topology == 0 {
+            geometry.index_format
+        } else {
+            crate::scene::IndexFormat::Uint32
+        };
+        let compact = if index_format == crate::scene::IndexFormat::Uint16 {
             Some(
                 geometry
                     .indices
@@ -121,7 +154,7 @@ impl ResourceStore {
         };
         let index_bytes = match &compact {
             Some(values) => bytemuck::cast_slice(values),
-            None => bytemuck::cast_slice(&geometry.indices),
+            None => bytemuck::cast_slice(draw_indices),
         };
         let validation = device.push_error_scope(wgpu::ErrorFilter::Validation);
         let memory = device.push_error_scope(wgpu::ErrorFilter::OutOfMemory);
@@ -164,8 +197,8 @@ impl ResourceStore {
             Resource::Geometry {
                 vertices,
                 indices,
-                count: geometry.indices.len() as u32,
-                index_format: geometry.index_format.native(),
+                count: draw_indices.len() as u32,
+                index_format: index_format.native(),
                 uv,
             },
             bytes,

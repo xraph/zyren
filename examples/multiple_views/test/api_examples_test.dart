@@ -8,6 +8,7 @@ import 'package:multiple_views/borrowed_viewer.dart';
 import 'package:multiple_views/main.dart';
 import 'package:multiple_views/textured_scene_demo.dart';
 import 'package:multiple_views/material_alpha_demo.dart';
+import 'package:multiple_views/primitives_demo.dart';
 import '../../../packages/flutter_gpu3d/test/support/backend_fake.dart';
 import '../../../packages/flutter_gpu3d/test/support/fakes.dart';
 
@@ -36,6 +37,47 @@ class TestImageDecoder implements ImageDecoder {
 }
 
 void main() {
+  testWidgets(
+    'primitive sizing controls preserve resources and fit a narrow canvas',
+    (tester) async {
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final backend = FakeBackend();
+      await tester.pumpWidget(
+        PrimitivesApp(
+          runtime: runtime(backend),
+          presentation: PresentationPolicy.readbackOnly,
+        ),
+      );
+      await frames(tester);
+      final controller = tester
+          .widget<SceneView>(find.byType(SceneView))
+          .controller!;
+      final line = controller.scene.children.whereType<Line>().single;
+      final points = controller.scene.children.whereType<Points>().single;
+      final geometry = line.geometry;
+      await tester.tap(find.text('World'));
+      await tester.tap(find.text('Circles'));
+      await tester.tap(find.text('Move away'));
+      await frames(tester);
+      expect(line.material.widthUnits, SizeUnits.world);
+      expect(points.material.shape, PointShape.square);
+      expect(controller.camera.position, const Vec3(6, 4, 10));
+      expect(line.geometry, same(geometry));
+      await tester.binding.setSurfaceSize(const Size(320, 640));
+      await frames(tester);
+      await tester.tap(find.text('Pixels'));
+      await tester.drag(find.byType(Slider), const Offset(25, 0));
+      await frames(tester);
+      expect(line.material.widthUnits, SizeUnits.pixels);
+      expect(line.material.width, greaterThan(6));
+      expect(tester.getSize(find.byType(SceneView)).height, greaterThan(300));
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      await frames(tester);
+      await controller.whenDisposed;
+      expect(backend.closeCount, 1);
+    },
+  );
   testWidgets('material controls redraw and retain a useful narrow canvas', (
     tester,
   ) async {

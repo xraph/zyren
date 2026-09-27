@@ -2,6 +2,7 @@ use gpu3d_runtime::scene::{AttributeRange, Geometry, GeometryPatch};
 fn triangle() -> Geometry {
     Geometry {
         id: 7,
+        topology: 0,
         positions: vec![[0., 0., 0.], [1., 0., 0.], [0., 1., 0.]],
         normals: vec![[0., 0., 1.]; 3],
         indices: vec![0, 1, 2],
@@ -85,4 +86,22 @@ fn index_width_cannot_truncate_and_keeps_cpu_admission_separate() {
     assert!(geometry.validate().is_err());
     geometry.index_format = IndexFormat::Uint32;
     assert!(geometry.validate().is_ok());
+}
+
+#[test]
+fn expanded_geometry_requires_a_full_recipe_update() {
+    let mut base = triangle();
+    base.topology = 3;
+    base.uv0.clear();
+    let patch = GeometryPatch {
+        id: 8,
+        base: 7,
+        ranges: vec![AttributeRange {
+            semantic: 0,
+            first: 0,
+            values: vec![1., 2., 3.],
+        }],
+    };
+    assert!(patch.apply(&base).is_err());
+    assert_eq!(base.positions[0], [0., 0., 0.]);
 }

@@ -560,3 +560,36 @@ The canvas remains opaque. Transparent Flutter composition needs its own output
 color-conversion path, and object sorting cannot resolve intersecting transparent
 triangles. Portable lines/points are the next Task 2 work. This checkpoint adds no
 iOS, Windows, Linux or Adreno qualification and makes no parity claim.
+
+## Portable lines and points
+
+Line strips, independent segment pairs and point markers pass 73 core,
+8 geospatial, 27 native Dart GPU, 61 Flutter/example and 61 Rust tests including
+GPU cases. AOT encoding combines primitive and triangle records, then changes
+point size without a geometry upload. Analysis, strict Clippy, formatting and
+package/header boundaries pass.
+
+Flutter integration passes two checks on each of Metal and the physical Pixel's
+Vulkan backend: deterministic pixel tests and direct native presentation. The
+pixel tests cover constant physical widths at different distances and aspect
+ratios, world-size attenuation, point shapes, blending, segment pairs, degenerate
+segments and near-plane clipping. Native views report zero readback bytes, and
+camera, shape and size edits report zero uploaded geometry bytes.
+
+Shared views retain one allocation until a dynamic position edit creates a new
+recipe. The older capture keeps its pixels, closing its owner releases that
+version, and final removal returns resident bytes to zero. Protocol tests cover
+topology and size validation, expanded allocation limits, truncation and seeded
+mutations. Invalid material/geometry pairs preserve prior pixels and ownership.
+
+The release demo builds for macOS (49.5 MB) and Android ARM64 (21.9 MB). Native
+Metal inspection checks Pixels/World, camera distance and circle/square markers
+at desktop and narrow widths. The 320-pixel widget test retains more than 300
+pixels of canvas height. Android release launch is checked separately; sustained
+manual interaction remains unverified.
+
+Lines currently use independent segment quads with butt ends. Joins, configurable
+caps, dashes, textured sprites and antialiased edge coverage remain open. Object
+alpha sorting does not reorder individual points or segments. Built-in box/sphere
+UVs are next, before the final Task 2 audit and asset loading. This checkpoint adds
+no iOS, Windows, Linux or Adreno qualification.

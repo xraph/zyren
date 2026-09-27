@@ -23,6 +23,7 @@ class NativeRenderer implements SceneRenderer {
       RenderFeatures.rgbaReadback,
       RenderFeatures.colorTextures,
       RenderFeatures.alphaMaterials,
+      RenderFeatures.portablePrimitives,
     },
     maxDimension: 4096,
   );

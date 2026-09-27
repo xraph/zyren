@@ -126,8 +126,11 @@ linear-light area reduction, optional alpha-weighted RGB and full-chain admissio
 Scene images and explicit resource scopes share the same GPU generator. Metal
 and physical Pixel Vulkan checks pass. Alpha modes, opacity, cutoffs, explicit
 depth policies and render ordering now use native pipeline state with stable
-object sorting. Task 2 remains open for portable lines/points. Transparent canvas
-composition and order-independent transparency remain later renderer work. See
+object sorting. Portable lines/points now use bounded native triangle expansion,
+pixel/world sizes and shared versioned recipes. Native surfaces reuse those
+buffers across camera and size edits. Built-in box/sphere UVs and the final Task 2
+audit remain open. Transparent canvas composition, joined/dashed strokes and
+order-independent transparency remain later renderer work. See
 [color textures](../../design/gpu-resources.md#color-textures) for the API.
 
 **Files:** Add core `geometry/{vertex_attribute,vertex_layout}.dart`, resource

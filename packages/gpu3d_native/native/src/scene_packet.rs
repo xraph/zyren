@@ -70,7 +70,7 @@ impl ScenePacket {
             return Err("unsupported scene packet".into());
         }
         let opcode = r.u32()?;
-        if !(10..=15).contains(&opcode) {
+        if !(10..=16).contains(&opcode) {
             return Err("unsupported scene packet".into());
         }
         let textured = opcode >= 11;
@@ -178,6 +178,10 @@ impl ScenePacket {
             let vertex_count = r.u32()? as usize;
             let index_count = r.u32()? as usize;
             let uv_flags = if textured { r.u32()? } else { 0 };
+            let topology = if opcode >= 16 { r.u32()? } else { 0 };
+            if topology > 3 {
+                return Err("unsupported geometry topology".into());
+            }
             let index_format = if opcode >= 13 && uv_flags & 4 != 0 {
                 IndexFormat::Uint16
             } else {
@@ -201,6 +205,7 @@ impl ScenePacket {
             }
             let mut geometry = Geometry {
                 id,
+                topology,
                 positions: Vec::with_capacity(vertex_count),
                 normals: Vec::with_capacity(vertex_count),
                 indices: Vec::with_capacity(index_count),
@@ -333,6 +338,12 @@ impl ScenePacket {
                 mesh.depth_test = depth_test == 1;
                 mesh.depth_write = Some(depth_write == 1);
                 mesh.render_order = r.u32()? as i32;
+                if opcode >= 16 {
+                    mesh.primitive_kind = r.u32()?;
+                    mesh.primitive_size = r.floats::<1>()?[0];
+                    mesh.size_units = r.u32()?;
+                    mesh.point_shape = r.u32()?;
+                }
                 mesh.validate_material()?;
             }
             updates.push((index, mesh));

@@ -315,6 +315,48 @@ meshes when you need a reliable order; order-independent transparency remains
 future renderer work. The canvas is currently opaque. Transparent Flutter
 composition still needs a separate output color-conversion path.
 
+## Lines and points
+
+You can draw connected paths, independent segment pairs and camera-facing markers:
+
+```dart
+final path = scene.add(Line(
+  LineGeometry(points: [Vec3.zero, const Vec3(1, 0, 0), const Vec3(1, 1, 0)]),
+  LineMaterial(color: Color3.hex(0x2299ff), width: 4),
+));
+scene.add(Points(
+  PointGeometry(points: [Vec3.zero, const Vec3(1, 1, 0)]),
+  PointsMaterial(size: .15, sizeUnits: SizeUnits.world),
+));
+path.material = path.material.copyWith(width: 8);
+```
+
+Use `LineGeometry.segments` for independent pairs or `closed: true` on a connected
+path to connect its last point to its first. Point markers default to four-pixel circles;
+`PointShape.square` gives you square markers. Both materials support the same
+alpha, depth and render-order policies as meshes. They are unlit.
+
+`SizeUnits.pixels` means physical target pixels. World sizes use a camera-facing
+plane and shrink with distance. Object transforms move the positions, but object
+scale does not multiply stroke width or marker size. Lines clip against the near
+plane before expansion. Zero-length projected segments and markers behind the
+near plane produce no fragments.
+
+The renderer expands each segment or marker into four vertices and six uint32
+indices. Each quad consumes 120 resident bytes; admission checks the expanded size
+before allocation and limits a geometry to 250,000 quads. Camera, size and shape
+edits reuse that allocation. With `dynamic: true`, position edits create a fresh
+expanded buffer and retain old versions needed by sibling views. Triangle geometry
+continues to use its smaller dirty-range updates.
+
+Lines currently have butt ends and independent segment quads. Configurable joins,
+caps, dashes, textured sprites and antialiased edge coverage remain open. Alpha
+sorting orders each `Line` or `Points` object as a whole, so split an object when
+you need its individual primitives to draw in a particular order.
+
+Run `lib/primitives_demo.dart` from `examples/multiple_views` on macOS or Android
+to compare pixel and world sizes while you move the camera.
+
 ## Binary resource protocol, version 2
 
 `fg2_resource_command` uses the renderer handle from the existing native session.
@@ -358,7 +400,8 @@ RGBA8 unorm and RGBA8 unorm sRGB. Empty or unknown usage bits are rejected.
 
 ## Binary scene protocol, version 2
 
-The render entrypoints accept opcode 15 for alpha/depth/order state, opcode 14
+The render entrypoints accept opcode 16 for portable primitives, opcode 15 for
+alpha/depth/order state, opcode 14
 for generated mips, opcode 13 for
 compact indices, opcode 12 for
 geometry patches, opcode 11 for textures and opcode 10 for older untextured
@@ -416,6 +459,15 @@ Dart resolves the depth-write policy before encoding. Invalid modes, flags or
 scalar ranges are rejected. Earlier opcodes retain opaque mode, opacity 1, cutoff
 .5, depth testing/writes enabled and order zero. Native v1 JSON accepts the same
 named fields and resolves an omitted depth-write value from alpha mode.
+
+Opcode 16 adds a topology u32 after each uploaded geometry's UV/index flags:
+0 triangles, 1 independent line segments, 2 line strip, 3 points. Each updated
+mesh appends primitive kind u32 (0 mesh, 1 line, 2 points), size f32, size units
+u32 (0 physical pixels, 1 world) and point shape u32 (0 square, 1 circle) after
+its opcode 15 state. Material kind must match geometry topology. Sizes must be
+finite and positive, at most 4096 pixels or 1e12 world units. Primitive materials
+reject textures and lighting; expanded geometry rejects UVs and patch records.
+Dynamic primitives send a complete new recipe. Older opcodes default to triangles.
 
 View IDs and revisions are positive. Base zero replaces the complete draw list;
 otherwise it must match the last applied revision and mesh count. Matrices use

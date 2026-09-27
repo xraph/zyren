@@ -10,6 +10,7 @@ import '../math/vec3.dart';
 import '../math/quat.dart';
 import '../math/mat4.dart';
 part 'revision.dart';
+part 'primitives.dart';
 
 class Object3D with _Revisioned {
   final String? name;
@@ -125,6 +126,7 @@ class Mesh extends Object3D {
   int _renderOrder = 0;
   Mesh(this.geometry, MeshMaterial material, {super.name, int renderOrder = 0})
     : _material = material {
+    _validateMaterial(material);
     this.renderOrder = renderOrder;
     watchGeometry(geometry, this, _geometryChanged);
   }
@@ -143,9 +145,21 @@ class Mesh extends Object3D {
     _changed();
   }
 
+  void _validateMaterial(MeshMaterial material) {
+    final kind = switch (geometry.topology) {
+      GeometryTopology.triangles => 0,
+      GeometryTopology.lineSegments || GeometryTopology.lineStrip => 1,
+      GeometryTopology.points => 2,
+    };
+    if (material.primitiveKind != kind) {
+      throw ArgumentError('Material must match the geometry topology.');
+    }
+  }
+
   static void _geometryChanged(Object owner) => (owner as Mesh)._changed();
   MeshMaterial get material => _material;
   set material(MeshMaterial value) {
+    _validateMaterial(value);
     if (identical(_material, value)) return;
     _material = value;
     _changed();
@@ -351,6 +365,10 @@ class Scene extends Object3D {
           'depth_test': node.material.depthTest,
           'depth_write': node.material.writesDepth,
           'render_order': node.renderOrder,
+          'primitive_kind': node.material.primitiveKind,
+          'primitive_size': node.material.primitiveSize,
+          'size_units': node.material.sizeUnits.index,
+          'point_shape': node.material.pointShape.index,
         });
         final geometry = node.geometry.capture();
         geometries[geometry.id] = geometry;

@@ -37,10 +37,12 @@ class SceneSnapshot {
   final List<double> _background, _light;
   final double _ambient;
   int get drawCalls => _meshes.length;
-  int get triangles => _meshes.fold(
-    0,
-    (sum, mesh) => sum + _geometries[mesh['geometry']]!.indices.length ~/ 3,
-  );
+  int get triangles => _meshes.fold(0, (sum, mesh) {
+    final geometry = _geometries[mesh['geometry']]!;
+    return sum +
+        geometry.primitiveCount *
+            (geometry.topology == GeometryTopology.triangles ? 1 : 2);
+  });
   SceneSnapshot._(
     this._meshes,
     this._geometries,
@@ -83,6 +85,10 @@ class SceneSnapshot {
                   'depth_test': node.material.depthTest,
                   'depth_write': node.material.writesDepth,
                   'render_order': node.renderOrder,
+                  'primitive_kind': node.material.primitiveKind,
+                  'primitive_size': node.material.primitiveSize,
+                  'size_units': node.material.sizeUnits.index,
+                  'point_shape': node.material.pointShape.index,
                   'colorMap': map?.toPacket() ?? <int>[],
                 })
                 as Map<String, Object>,

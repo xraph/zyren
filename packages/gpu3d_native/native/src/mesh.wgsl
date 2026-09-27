@@ -4,6 +4,10 @@ struct Uniforms {
     color_unlit: vec4<f32>,
     light_ambient: vec4<f32>,
     map_params: vec4<f32>,
+    view_projection: mat4x4<f32>,
+    model: mat4x4<f32>,
+    primitive: vec4<f32>,
+    viewport: vec4<f32>,
 };
 @group(0) @binding(0) var<uniform> uniforms: Uniforms;
 @group(1) @binding(0) var color_map: texture_2d<f32>;

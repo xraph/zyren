@@ -79,5 +79,20 @@ void main() {
   if (textureEncoder.encode(capture()).uploadedBytes != 0) {
     throw StateError('Dynamic geometry repeated an accepted upload.');
   }
+  final points = scene.add(
+    Points(PointGeometry(points: [Vec3.zero]), PointsMaterial(size: 12)),
+  );
+  final primitive = textureEncoder.encode(capture());
+  if (primitive.uploadedBytes != 120 || primitive.changedMeshes != 2) {
+    throw StateError(
+      'Point expansion did not preserve the triangle resources.',
+    );
+  }
+  textureEncoder.accept(primitive);
+  points.material = points.material.copyWith(size: 20);
+  final sizeEdit = textureEncoder.encode(capture());
+  if (sizeEdit.uploadedBytes != 0 || sizeEdit.changedMeshes != 1) {
+    throw StateError('Point size edit reuploaded geometry.');
+  }
   print('AOT scene encoding passed.');
 }

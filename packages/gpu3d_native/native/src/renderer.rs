@@ -21,6 +21,10 @@ struct Uniforms {
     color_unlit: [f32; 4],
     light_ambient: [f32; 4],
     map_params: [f32; 4],
+    view_projection: [f32; 16],
+    model: [f32; 16],
+    primitive: [f32; 4],
+    viewport: [f32; 4],
 }
 
 struct GpuGeometry {
@@ -384,6 +388,26 @@ impl Renderer {
             }
         }
         frame.validate(&cached)?;
+        for mesh in &frame.meshes {
+            let geometry = frame
+                .geometries
+                .iter()
+                .find(|g| g.id == mesh.geometry)
+                .or_else(|| {
+                    self.geometries
+                        .get(&mesh.geometry)
+                        .map(|g| g.recipe.as_ref())
+                })
+                .ok_or("missing primitive geometry")?;
+            let kind = match geometry.topology {
+                0 => 0,
+                1 | 2 => 1,
+                _ => 2,
+            };
+            if kind != mesh.primitive_kind {
+                return Err("material and geometry topology mismatch".into());
+            }
+        }
         let (texture_bytes, texture_count) = self.validate_textures(frame)?;
         let reusable: HashMap<u32, u32> = frame
             .geometry_patches
@@ -500,6 +524,7 @@ impl Renderer {
         color_view: &wgpu::TextureView,
         depth_view: &wgpu::TextureView,
         format: wgpu::TextureFormat,
+        size: [u32; 2],
     ) -> wgpu::CommandEncoder {
         let vp = Mat4::from_cols_array(&frame.view_projection);
         let bindings: Vec<_> = frame
@@ -522,6 +547,15 @@ impl Renderer {
                         frame.light_direction[2],
                         frame.ambient,
                     ],
+                    view_projection: frame.view_projection,
+                    model: mesh.model,
+                    primitive: [
+                        mesh.primitive_size,
+                        mesh.size_units as f32,
+                        mesh.point_shape as f32,
+                        0.,
+                    ],
+                    viewport: [size[0] as f32, size[1] as f32, 0., 0.],
                     map_params: [
                         mesh.color_map.as_ref().map_or(0., |map| map.uv_set as f32),
                         mesh.opacity,
@@ -701,6 +735,7 @@ impl Renderer {
             &texture.create_view(&Default::default()),
             &self.surface_depth.as_ref().unwrap().view,
             texture.format(),
+            [texture.width(), texture.height()],
         );
         let result = self
             .submit(encoder)
@@ -724,6 +759,7 @@ impl Renderer {
             &target.color_view,
             &target.depth_view,
             wgpu::TextureFormat::Rgba8UnormSrgb,
+            [width, height],
         );
         encoder.copy_texture_to_buffer(
             target.color.as_image_copy(),

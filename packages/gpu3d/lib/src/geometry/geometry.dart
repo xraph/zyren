@@ -1,8 +1,12 @@
 import 'dart:math' as math;
 import 'dart:typed_data';
+import '../math/vec3.dart';
 import 'vertex_attribute.dart';
 import 'vertex_layout.dart';
 part 'geometry_snapshot.dart';
+part 'primitives.dart';
+
+enum GeometryTopology { triangles, lineSegments, lineStrip, points }
 
 enum IndexFormat {
   uint16,
@@ -11,13 +15,14 @@ enum IndexFormat {
   int get bytesPerIndex => this == uint16 ? 2 : 4;
 }
 
-/// Indexed triangle geometry with an optional fixed-layout update path.
+/// Indexed geometry with an optional fixed-layout update path.
 class BufferGeometry {
   static int _nextId = 1;
   final int id = _nextId++;
   final bool isDynamic;
   late GeometrySnapshot _snapshot;
   final _dependents = <(WeakReference<Object>, void Function(Object))>[];
+  GeometryTopology get topology => _snapshot.topology;
   IndexFormat get indexFormat => _snapshot.indexFormat;
   int get revision => _snapshot.revision;
   int get vertexCount => _snapshot.layout.vertexCount;
@@ -35,6 +40,7 @@ class BufferGeometry {
     required List<double> normals,
     required List<int> indices,
     IndexFormat indexFormat = IndexFormat.uint32,
+    GeometryTopology topology = GeometryTopology.triangles,
     List<double>? uv0,
     List<double>? uv1,
     bool dynamic = false,
@@ -60,6 +66,7 @@ class BufferGeometry {
              ),
          },
          indices: indices,
+         topology: topology,
          indexFormat: indexFormat,
          dynamic: dynamic,
        );
@@ -68,12 +75,16 @@ class BufferGeometry {
     required Map<VertexSemantic, VertexAttribute> attributes,
     required List<int> indices,
     IndexFormat indexFormat = IndexFormat.uint32,
+    GeometryTopology topology = GeometryTopology.triangles,
     bool dynamic = false,
   }) : isDynamic = dynamic {
     final layout = VertexLayout(attributes);
     if (indices.isEmpty ||
         indices.length > 3000000 ||
-        indices.length % 3 != 0 ||
+        (topology == GeometryTopology.triangles && indices.length % 3 != 0) ||
+        (topology == GeometryTopology.lineSegments &&
+            indices.length % 2 != 0) ||
+        (topology == GeometryTopology.lineStrip && indices.length < 2) ||
         indices.any(
           (i) =>
               i < 0 ||
@@ -81,14 +92,24 @@ class BufferGeometry {
               (indexFormat == IndexFormat.uint16 && i > 65535),
         )) {
       throw ArgumentError(
-        'Triangle indices must fit the vertex count and ${indexFormat.name} range.',
+        'Indices must fit the topology, vertex count and ${indexFormat.name} range.',
       );
+    }
+    final primitiveCount = switch (topology) {
+      GeometryTopology.triangles => indices.length ~/ 3,
+      GeometryTopology.lineSegments => indices.length ~/ 2,
+      GeometryTopology.lineStrip => indices.length - 1,
+      GeometryTopology.points => indices.length,
+    };
+    if (topology != GeometryTopology.triangles && primitiveCount > 250000) {
+      throw ArgumentError('Expanded primitives support at most 250000 quads.');
     }
     _snapshot = GeometrySnapshot._(
       id: id,
       logicalId: id,
       revision: 0,
       layout: layout,
+      topology: topology,
       attributes: attributes,
       indexFormat: indexFormat,
       indices: indexFormat == IndexFormat.uint16
@@ -148,6 +169,7 @@ class BufferGeometry {
       logicalId: id,
       revision: next,
       layout: layout,
+      topology: topology,
       attributes: {
         ...attributes,
         semantic: VertexAttribute(data, format: old.format),

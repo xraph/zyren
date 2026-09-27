@@ -12,6 +12,7 @@ enum RenderFeature {
   scopedResources,
   colorTextures,
   alphaMaterials,
+  portablePrimitives,
 }
 
 /// Limits enforced by the backend, even if the adapter can allocate more.

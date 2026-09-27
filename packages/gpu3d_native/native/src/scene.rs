@@ -34,6 +34,8 @@ impl IndexFormat {
 #[serde(deny_unknown_fields)]
 pub struct Geometry {
     pub id: u32,
+    #[serde(default)]
+    pub topology: u32,
     pub positions: Vec<[f32; 3]>,
     pub normals: Vec<[f32; 3]>,
     pub indices: Vec<u32>,
@@ -46,7 +48,18 @@ pub struct Geometry {
 }
 
 impl Geometry {
+    pub fn primitive_count(&self) -> usize {
+        match self.topology {
+            0 => self.indices.len() / 3,
+            1 => self.indices.len() / 2,
+            2 => self.indices.len().saturating_sub(1),
+            _ => self.indices.len(),
+        }
+    }
     pub fn byte_length(&self) -> usize {
+        if self.topology != 0 {
+            return self.primitive_count() * 120;
+        }
         self.positions.len()
             * (if self.uv0.is_empty() && self.uv1.is_empty() {
                 24
@@ -61,6 +74,14 @@ impl Geometry {
             + self.indices.len() * 4
     }
     pub fn validate(&self) -> Result<(), String> {
+        if self.topology > 3
+            || (self.topology != 0
+                && (self.primitive_count() > 250_000
+                    || !self.uv0.is_empty()
+                    || !self.uv1.is_empty()))
+        {
+            return Err("unsupported primitive topology, attributes or expanded budget".into());
+        }
         for uv in [&self.uv0, &self.uv1] {
             if !uv.is_empty()
                 && (uv.len() != self.positions.len() || uv.iter().flatten().any(|v| !v.is_finite()))
@@ -74,9 +95,13 @@ impl Geometry {
         if self.normals.len() != self.positions.len()
             || self.indices.is_empty()
             || self.indices.len() > MAX_INDICES
-            || !self.indices.len().is_multiple_of(3)
+            || (self.topology == 0 && !self.indices.len().is_multiple_of(3))
+            || (self.topology == 1 && !self.indices.len().is_multiple_of(2))
+            || (self.topology == 2 && self.indices.len() < 2)
         {
-            return Err("geometry requires one normal per vertex and indexed triangles".into());
+            return Err(
+                "geometry needs one normal per vertex and indices matching its topology".into(),
+            );
         }
         if self
             .positions
@@ -120,6 +145,14 @@ pub struct Mesh {
     pub depth_write: Option<bool>,
     #[serde(default)]
     pub render_order: i32,
+    #[serde(default)]
+    pub primitive_kind: u32,
+    #[serde(default = "one")]
+    pub primitive_size: f32,
+    #[serde(default)]
+    pub size_units: u32,
+    #[serde(default)]
+    pub point_shape: u32,
 }
 fn one() -> f32 {
     1.
@@ -144,6 +177,10 @@ impl Default for Mesh {
             depth_test: true,
             depth_write: None,
             render_order: 0,
+            primitive_kind: 0,
+            primitive_size: 1.,
+            size_units: 0,
+            point_shape: 0,
         }
     }
 }
@@ -152,6 +189,16 @@ impl Mesh {
         self.depth_write.unwrap_or(self.alpha_mode != 2)
     }
     pub fn validate_material(&self) -> Result<(), String> {
+        if self.primitive_kind > 2
+            || self.size_units > 1
+            || self.point_shape > 1
+            || !self.primitive_size.is_finite()
+            || self.primitive_size <= 0.
+            || self.primitive_size > if self.size_units == 0 { 4096. } else { 1e12 }
+            || (self.primitive_kind != 0 && (self.color_map.is_some() || !self.unlit))
+        {
+            return Err("invalid primitive material".into());
+        }
         if self.alpha_mode > 2
             || !self.opacity.is_finite()
             || !(0.0..=1.0).contains(&self.opacity)

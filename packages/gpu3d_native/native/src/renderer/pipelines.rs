@@ -6,6 +6,7 @@ pub(super) struct PipelineKey {
     format: wgpu::TextureFormat,
     textured: bool,
     blend: bool,
+    primitive_kind: u32,
     depth_test: bool,
     depth_write: bool,
 }
@@ -15,6 +16,7 @@ impl PipelineKey {
             format,
             textured: mesh.color_map.is_some(),
             blend: mesh.alpha_mode == 2,
+            primitive_kind: mesh.primitive_kind,
             depth_test: mesh.depth_test,
             depth_write: mesh.writes_depth(),
         }
@@ -35,7 +37,14 @@ impl MeshPipelines {
         Self {
             shader: device.create_shader_module(wgpu::ShaderModuleDescriptor {
                 label: Some("native mesh materials"),
-                source: wgpu::ShaderSource::Wgsl(include_str!("../mesh.wgsl").into()),
+                source: wgpu::ShaderSource::Wgsl(
+                    concat!(
+                        include_str!("../mesh.wgsl"),
+                        "\n",
+                        include_str!("primitives.wgsl")
+                    )
+                    .into(),
+                ),
             }),
             plain: device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: None,
@@ -111,7 +120,11 @@ impl MeshPipelines {
             }),
             vertex: wgpu::VertexState {
                 module: &self.shader,
-                entry_point: Some(if key.textured {
+                entry_point: Some(if key.primitive_kind == 1 {
+                    "vs_line"
+                } else if key.primitive_kind == 2 {
+                    "vs_point"
+                } else if key.textured {
                     "vs_textured"
                 } else {
                     "vs_main"
@@ -121,7 +134,9 @@ impl MeshPipelines {
             },
             fragment: Some(wgpu::FragmentState {
                 module: &self.shader,
-                entry_point: Some(if key.textured {
+                entry_point: Some(if key.primitive_kind != 0 {
+                    "fs_primitive"
+                } else if key.textured {
                     "fs_textured"
                 } else {
                     "fs_main"
