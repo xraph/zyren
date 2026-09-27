@@ -29,6 +29,9 @@ current alpha API.
 - `gpu3d_native` supplies the Rust/wgpu backend and native build hook.
 - `flutter_gpu3d` adds Flutter views and re-exports the common scene API.
 - `flutter_geospatial` is a Dart-only plugin depending on `gpu3d`.
+- [`gpu3d_tools`](packages/gpu3d_tools/README.md) adds selection, reversible transforms and measurements.
+- [`gpu3d_devtools`](packages/gpu3d_devtools/README.md) inspects scene objects and reported frame statistics.
+- [`gpu3d_timeline`](packages/gpu3d_timeline/README.md) plays and scrubs transform and camera tracks.
 
 Flutter callers keep the existing import and native default. Dart-only callers
 can import `gpu3d` and supply a renderer to `SceneEngine.create`. For native
@@ -104,6 +107,14 @@ For native texture filtering and wrapping, run
 `fvm flutter run -d macos -t lib/textured_scene_demo.dart` from
 `examples/multiple_views`. Use your Android device ID in place of `macos` on
 Android. You can change the sampler without uploading the image again.
+
+For selection, transform history and assembly playback, run
+`fvm flutter run -d macos -t lib/scene_workbench.dart` from
+`examples/multiple_views`. Use an Android device ID for Vulkan presentation.
+You can select a part, move or rotate it, undo the edit, measure two surface
+points and scrub an exploded view. The inspector and controls wrap at narrow
+widths. Read the [workbench checkpoint](docs/scene-workbench-checkpoint.md)
+for the implemented scope and platform checks.
 
 ## Use the 3D package
 

@@ -6,6 +6,12 @@ resolution: workspace
 environment:
   sdk: '>=3.10.0 <4.0.0'
 dependencies:
+  gpu3d_tools:
+    path: ../../packages/gpu3d_tools
+  gpu3d_devtools:
+    path: ../../packages/gpu3d_devtools
+  gpu3d_timeline:
+    path: ../../packages/gpu3d_timeline
   gpu3d:
     path: ../../packages/gpu3d
   gpu3d_native:
