@@ -96,7 +96,7 @@ resource cleanup.
 | --- | --- |
 | macOS 27, Apple Silicon | Both modes passed; 16 presented frames per mode, zero readback bytes and zero live native resources after each teardown |
 | iPhone 17 Pro simulator, iOS 26 | Both modes passed; 17 stdlib and 19 r184 presented frames, zero readback bytes and zero live native resources after each teardown |
-| Physical iPhone, iOS 27 | Signed build passed. Installation was rejected because all three free-development app slots were occupied. No hardware test result yet |
+| Physical iPhone, iOS 27 | Signed build and installation passed after freeing a development app slot. iOS rejected launch with a signing-or-trust error. No hardware test result yet |
 | Physical Pixel 9 Pro, Android 17/API 37 | Both modes passed through native Vulkan readback, including rendered pixel checks; nine stdlib and eight r184 diagnostic samples |
 | Windows | Not run for this change |
 
@@ -125,13 +125,18 @@ flutter drive --driver test_driver/integration_test.dart \
   --target integration_test/orbit_lab_test.dart -d YOUR_DEVICE_ID --publish-port
 ```
 
-The physical iPhone retry used Flutter 3.47.5 with Xcode 27. The device installer
-reported the free-development app limit before Flutter fell back to Xcode,
-whose automation failed with `Failed to find project Runner: Error: Can't get
-object.` A verbose retry with the command-scoped `FLUTTER_LLDB_DEBUGGING=true`
-setting exposed the installation error. If you hit this limit, free a development
-app slot before retrying. Removing an app also removes its local data. No existing
-iPhone apps were removed for this check.
+The physical iPhone retry used Flutter 3.47.5 with Xcode 27 and the command-scoped
+`FLUTTER_LLDB_DEBUGGING=true` setting. Installation passed after one development
+app was removed with the owner's approval. If you hit the free-development app
+limit, you'll need to free a slot before retrying. Removing an app also removes
+its local data.
+
+iOS then rejected launch with a security error naming an invalid signature,
+inadequate entitlements or an untrusted profile. Local signature verification
+passes, the profile includes the phone and expires on 2026-10-04, and the signed
+application ID, team ID and debugging entitlement match the profile. On-device
+trust verification remains pending. Flutter's Xcode fallback also fails with
+`Failed to find project Runner: Error: Can't get object.`
 
 ## Native input boundary
 
