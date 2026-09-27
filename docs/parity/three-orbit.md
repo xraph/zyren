@@ -96,13 +96,18 @@ resource cleanup.
 | --- | --- |
 | macOS 27, Apple Silicon | Both modes passed; 16 presented frames per mode, zero readback bytes and zero live native resources after each teardown |
 | iPhone 17 Pro simulator, iOS 26 | Both modes passed; 17 stdlib and 19 r184 presented frames, zero readback bytes and zero live native resources after each teardown |
-| Physical iPhone, iOS 27 | Signed build and installation passed after freeing a development app slot. iOS rejected launch with a signing-or-trust error. No hardware test result yet |
+| Physical iPhone 16 Pro, iOS 27 | Both modes passed; 16 stdlib and 18 r184 presented frames, zero readback bytes and zero live native resources after each teardown |
 | Physical Pixel 9 Pro, Android 17/API 37 | Both modes passed through native Vulkan readback, including rendered pixel checks; nine stdlib and eight r184 diagnostic samples |
 | Windows | Not run for this change |
 
 Each mode produced eight throttled diagnostic samples on macOS and the
 simulator. These counts are not frame-rate measurements. The macOS r184 app was
 also inspected visually, and a native mouse drag changed its rendered view.
+
+The physical iPhone produced nine stdlib and eight r184 diagnostic samples. Its
+native presentation counter is cumulative: 16 after stdlib and 34 after r184.
+Both teardowns reported zero sessions, renderers, retiring resources and held
+drawables, with zero readback bytes.
 
 The Pixel's final stdlib frame contains 66,823 red, 87,504 green and 28,229 blue
 box pixels. The r184 frame contains 55,437 red, 61,686 green and 13,366 blue box
@@ -121,22 +126,19 @@ For a wireless iOS device, use the driver runner. This Flutter SDK's test comman
 rejects wireless devices and does not expose its suggested `--publish-port` flag.
 
 ```sh
-flutter drive --driver test_driver/integration_test.dart \
+FLUTTER_LLDB_DEBUGGING=true flutter drive --driver test_driver/integration_test.dart \
   --target integration_test/orbit_lab_test.dart -d YOUR_DEVICE_ID --publish-port
 ```
 
-The physical iPhone retry used Flutter 3.47.5 with Xcode 27 and the command-scoped
-`FLUTTER_LLDB_DEBUGGING=true` setting. Installation passed after one development
-app was removed with the owner's approval. If you hit the free-development app
-limit, you'll need to free a slot before retrying. Removing an app also removes
-its local data.
+The physical run passed with Flutter 3.47.5 and Xcode 27 over Wi-Fi after freeing
+a development app slot and trusting the developer on the phone. The command
+above selects the SDK's LLDB launcher for this run. If you hit the
+free-development app limit, you'll need to free a slot before retrying. Removing
+an app also removes its local data.
 
-iOS then rejected launch with a security error naming an invalid signature,
-inadequate entitlements or an untrusted profile. Local signature verification
-passes, the profile includes the phone and expires on 2026-10-04, and the signed
-application ID, team ID and debugging entitlement match the profile. On-device
-trust verification remains pending. Flutter's Xcode fallback also fails with
-`Failed to find project Runner: Error: Can't get object.`
+The driver exited with code 0 and removed Planet during cleanup. A final SDK
+shutdown hook tried to terminate the already stopped process and logged
+`No such process`; both tests and native resource cleanup had already passed.
 
 ## Native input boundary
 
