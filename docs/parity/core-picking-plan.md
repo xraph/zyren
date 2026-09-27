@@ -41,7 +41,7 @@ unchanged and preserve the separate core checkout.
 - [x] Add a compact picking lab that highlights the selected mesh and displays
   its hit position. Exercise perspective and orthographic projection through the
   public controller API on native Metal and Vulkan.
-- [ ] Run affected suites, native integration and package guards. Record actual
+- [x] Run affected suites, native integration and package guards. Record actual
   evidence and remaining gaps, then commit and obtain one fresh final review.
 
 ## Limits

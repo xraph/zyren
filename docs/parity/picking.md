@@ -22,7 +22,8 @@ is subtracted before applying the inverse linear transform.
 Use `await controller.pick(ViewportPoint(x, y))` with coordinates local to the
 SceneView, in logical pixels. The controller captures the result before returning
 its Future. Later camera, scene and view-size changes do not alter that result.
-The nearest hit inside the camera clip planes wins. Points outside the viewport
+The nearest hit inside the camera clip planes wins. Boundary comparison allows
+`1e-14` in normalized depth for floating-point roundoff. Points outside the viewport
 return null. A detached or zero-size viewport and nonfinite input return a
 SceneException with `invalidPickRequest`; a disposed controller returns `disposed`.
 Picking does not wait for GPU presentation or read pixels back.
@@ -30,8 +31,9 @@ Picking does not wait for GPU presentation or read pixels back.
 The picking lab uses the raw viewport pointer stream alongside OrbitControls.
 A primary pointer release selects only if it stayed within six logical pixels
 of its start. Movement, cancellation, secondary buttons and multiple pointers
-cancel selection. Orbit's eager drag recognizer owns the gesture arena, so a
-separate Flutter tap recognizer cannot receive those same clicks.
+cancel selection. The subscription includes synthetic cancellation on viewport
+suspension and is closed on disposal. Orbit's eager drag recognizer owns the
+gesture arena, so a separate Flutter tap recognizer cannot receive those clicks.
 
 ## Evidence
 
@@ -52,20 +54,23 @@ Additional behavior tests cover hidden ancestors, removal, shared geometry,
 degenerate triangles, edge ties, UV1, finite ranges and invalid transforms.
 Analyzer and formatting pass.
 
-The host suite passes 65 tests, including 11 viewport-picking cases across DPR
+The host suite passes 67 tests, including 13 viewport-picking cases across DPR
 1 and 2.5, render scales 0.5 and 1, both projections, clipping, resize, captured
-results, misses and invalid lifecycle states. The five multiple-view example
-tests also pass.
+results, misses, invalid lifecycle states, geometry at the perspective eye and
+clip-plane boundaries. The five multiple-view example tests also pass.
 
 The native selection integration passes on macOS Metal and the physical Pixel
 9 Pro Vulkan surface. It selects all three meshes in both projections, checks
 panel UVs and world coordinates, restores materials on misses, changes to a
 390 by 700 logical viewport, and distinguishes orbit dragging from selection.
-The runs presented 24 and 25 frames respectively, each with nine diagnostic
-samples, zero readback and zero live native resources after teardown. These are
-functional checks, not timing measurements. Desktop visual inspection also
+It also suspends a held pointer and verifies selection after resume.
+The final macOS and Pixel runs presented 30 and 31 frames respectively, each
+with eleven diagnostic samples, zero readback and zero live native resources
+after teardown. These are functional checks, not timing measurements. Desktop visual inspection also
 confirmed the selected sphere changes from green to yellow on the native canvas.
-The physical iPhone selection run is still in progress.
+The final physical iPhone 16 Pro run also passes, including the interrupted
+pointer regression: 27 presented Metal frames, eleven diagnostic samples, zero
+readback and zero live native resources. The driver keeps Planet installed.
 
 ## Limits
 
@@ -73,3 +78,25 @@ This is CPU picking for immutable indexed static meshes. Instancing, deformed
 geometry and layers follow their rendering contracts. The first query builds
 the geometry tree synchronously; large-scene latency has not been qualified.
 EnvironmentControls and GlobeControls remain separate work.
+
+## Review and scope decisions
+
+The final review found a camera-origin projection failure, lost pointer
+cancellation on suspension, and rejection of exact clip-plane boundaries.
+Each has a regression that failed before its fix. The boundary issue was
+promoted to a correctness fix because the API includes both clip planes.
+The tiny depth allowance can include sub-precision overlap at a boundary.
+
+The imported core is pinned to `4b619c0`; later core changes need separate
+integration checks. Picking stays scoped to the rendering contracts that exist
+today. Extending those contracts requires corresponding instancing, deformation,
+layer and culling work. Surface navigation through EnvironmentControls and
+GlobeControls follows this slice.
+
+Large-scene latency and Windows/DX12 remain unqualified. The first BVH build can
+block the UI on complex geometry. Review covered the core integration seams,
+not every imported native-resource code path; hardware evidence came from the
+implementation runs. This is not an exhaustive independent native audit.
+
+The work remains on the local `geospatial-parity` branch. The separate core
+checkout and the primary checkout do not automatically receive these commits.
