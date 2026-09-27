@@ -96,12 +96,18 @@ resource cleanup.
 | --- | --- |
 | macOS 27, Apple Silicon | Both modes passed; 16 presented frames per mode, zero readback bytes and zero live native resources after each teardown |
 | iPhone 17 Pro simulator, iOS 26 | Both modes passed; 17 stdlib and 19 r184 presented frames, zero readback bytes and zero live native resources after each teardown |
-| Physical iPhone, iOS 27 | Signed build and initial device-symbol setup completed. Xcode debug launch stalled; the Mac was locked, preventing UI inspection. No hardware test result yet |
-| Android and Windows | Not run for this change; the previously used Pixel was disconnected |
+| Physical iPhone, iOS 27 | Signed build passed. Installation was rejected because all three free-development app slots were occupied. No hardware test result yet |
+| Physical Pixel 9 Pro, Android 17/API 37 | Both modes passed through native Vulkan readback, including rendered pixel checks; nine stdlib and eight r184 diagnostic samples |
+| Windows | Not run for this change |
 
 Each mode produced eight throttled diagnostic samples on macOS and the
 simulator. These counts are not frame-rate measurements. The macOS r184 app was
 also inspected visually, and a native mouse drag changed its rendered view.
+
+The Pixel's final stdlib frame contains 66,823 red, 87,504 green and 28,229 blue
+box pixels. The r184 frame contains 55,437 red, 61,686 green and 13,366 blue box
+pixels. Android uses this checkout's explicit readback presenter; this run does
+not qualify a zero-copy Android presentation path.
 
 The full core suite passes 226 tests; the Flutter host suite passes 50. Static
 analysis, formatting, fixture regeneration and the package-boundary guard pass.
@@ -118,6 +124,14 @@ rejects wireless devices and does not expose its suggested `--publish-port` flag
 flutter drive --driver test_driver/integration_test.dart \
   --target integration_test/orbit_lab_test.dart -d YOUR_DEVICE_ID --publish-port
 ```
+
+The physical iPhone retry used Flutter 3.47.5 with Xcode 27. The device installer
+reported the free-development app limit before Flutter fell back to Xcode,
+whose automation failed with `Failed to find project Runner: Error: Can't get
+object.` A verbose retry with the command-scoped `FLUTTER_LLDB_DEBUGGING=true`
+setting exposed the installation error. If you hit this limit, free a development
+app slot before retrying. Removing an app also removes its local data. No existing
+iPhone apps were removed for this check.
 
 ## Native input boundary
 
