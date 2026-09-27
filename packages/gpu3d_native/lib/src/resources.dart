@@ -157,6 +157,19 @@ final class _NativeResourceDevice implements ResourceDevice {
   }
 
   @override
+  Future<void> generateMipmaps(
+    Object key,
+    MipmapAlphaFilter alphaFilter,
+  ) async {
+    await _command(
+      10,
+      _ResourcePacket()
+        ..key(key)
+        ..u32(alphaFilter.index),
+    );
+  }
+
+  @override
   Future<Uint8List> readBuffer(Object key, int offset, int length) => _command(
     7,
     _ResourcePacket()

@@ -50,6 +50,7 @@ pub enum Operation<'a> {
     ReadBuffer(ResourceKey, u64, u64),
     Stats,
     ReadTexture(ResourceKey, u32),
+    GenerateMipmaps(ResourceKey, u32),
 }
 #[derive(Debug)]
 pub struct Command<'a> {
@@ -160,6 +161,14 @@ impl<'a> Command<'a> {
             7 => Operation::ReadBuffer(r.key()?, r.u64()?, r.u64()?),
             8 => Operation::Stats,
             9 => Operation::ReadTexture(r.key()?, r.u32()?),
+            10 => {
+                let key = r.key()?;
+                let alpha_filter = r.u32()?;
+                if alpha_filter > 1 {
+                    return Err(ResourceError::InvalidCommand);
+                }
+                Operation::GenerateMipmaps(key, alpha_filter)
+            }
             _ => return Err(ResourceError::InvalidCommand),
         };
         if r.cursor != bytes.len() {

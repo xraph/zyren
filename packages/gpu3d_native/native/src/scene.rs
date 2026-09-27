@@ -136,9 +136,23 @@ pub struct SceneTexture {
     pub height: u32,
     pub format: u32,
     pub levels: Vec<Vec<u8>>,
+    #[serde(default)]
+    pub mip_generation: u32,
 }
 impl SceneTexture {
+    pub fn mip_count(&self) -> u32 {
+        if self.mip_generation == 0 {
+            self.levels.len() as u32
+        } else {
+            32 - self.width.max(self.height).leading_zeros()
+        }
+    }
     pub fn byte_length(&self) -> usize {
+        (0..self.mip_count())
+            .map(|m| (self.width >> m).max(1) as usize * (self.height >> m).max(1) as usize * 4)
+            .sum()
+    }
+    pub fn upload_byte_length(&self) -> usize {
         self.levels.iter().map(Vec::len).sum()
     }
     pub fn validate(&self) -> Result<(), String> {
@@ -147,6 +161,8 @@ impl SceneTexture {
             || self.width > 4096
             || self.height > 4096
             || self.format > 1
+            || self.mip_generation > 2
+            || (self.mip_generation != 0 && self.levels.len() != 1)
             || self.levels.is_empty()
             || self.levels.len() > (32 - self.width.max(self.height).leading_zeros()) as usize
         {

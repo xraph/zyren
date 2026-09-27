@@ -36,6 +36,7 @@ pub struct ResourceStore {
     serial: u64,
     uploaded: u64,
     pending: Option<wgpu::SubmissionIndex>,
+    mipmaps: super::mipmap::MipmapGenerator,
 }
 impl Default for ResourceStore {
     fn default() -> Self {
@@ -47,6 +48,7 @@ impl Default for ResourceStore {
             serial: 0,
             uploaded: 0,
             pending: None,
+            mipmaps: Default::default(),
         }
     }
 }
@@ -221,7 +223,7 @@ impl ResourceStore {
                 height: image.height,
                 depth_or_array_layers: 1,
             },
-            mip_level_count: image.levels.len() as u32,
+            mip_level_count: image.mip_count(),
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: if image.format == 0 {
@@ -229,7 +231,13 @@ impl ResourceStore {
             } else {
                 wgpu::TextureFormat::Rgba8UnormSrgb
             },
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING
+                | wgpu::TextureUsages::COPY_DST
+                | if image.mip_generation != 0 {
+                    wgpu::TextureUsages::RENDER_ATTACHMENT
+                } else {
+                    wgpu::TextureUsages::empty()
+                },
             view_formats: &[],
         });
         for (mip, pixels) in image.levels.iter().enumerate() {
@@ -255,16 +263,14 @@ impl ResourceStore {
                 },
             );
         }
-        let key = self.registry.insert(
-            Resource::Texture {
-                texture,
-                width: image.width,
-                height: image.height,
-                mips: image.levels.len() as u32,
-                usage: 9,
-            },
-            bytes,
-        )?;
+        let generated = if image.mip_generation != 0 && image.mip_count() > 1 {
+            Some(
+                self.mipmaps
+                    .encode(device, &texture, image.mip_generation == 2),
+            )
+        } else {
+            None
+        };
         let mut failed = false;
         for scope in [internal, memory, validation] {
             failed |= pollster::block_on(scope.pop()).is_some();
@@ -272,7 +278,23 @@ impl ResourceStore {
         if failed {
             return Err(ResourceError::DeviceFailed);
         }
-        self.uploaded = self.uploaded.saturating_add(bytes);
+        if let Some(commands) = generated {
+            self.submit(device, queue, [commands])?;
+        }
+        let key = self.registry.insert(
+            Resource::Texture {
+                texture,
+                width: image.width,
+                height: image.height,
+                mips: image.mip_count(),
+                usage: if image.mip_generation != 0 { 11 } else { 9 },
+            },
+            bytes,
+        )?;
+        self.registry.mark_used(key, self.serial)?;
+        self.uploaded = self
+            .uploaded
+            .saturating_add(image.upload_byte_length() as u64);
         Ok(key)
     }
     pub(crate) fn scene_texture(&self, key: ResourceKey) -> &wgpu::Texture {
@@ -545,6 +567,21 @@ impl ResourceStore {
                 self.submit(device, queue, [])?;
                 self.registry.mark_used(key, self.serial)?;
                 self.uploaded = self.uploaded.saturating_add(data.len() as u64);
+                Vec::new()
+            }
+            Operation::GenerateMipmaps(key, alpha_filter) => {
+                let Resource::Texture { texture, usage, .. } = self.registry.resolve(key)? else {
+                    return Err(ResourceError::InvalidUsage);
+                };
+                if usage & 3 != 3 {
+                    return Err(ResourceError::InvalidUsage);
+                }
+                if texture.mip_level_count() > 1 {
+                    let texture = texture.clone();
+                    let commands = self.mipmaps.encode(device, &texture, alpha_filter == 1);
+                    self.submit(device, queue, [commands])?;
+                    self.registry.mark_used(key, self.serial)?;
+                }
                 Vec::new()
             }
             Operation::Retain(key) => {

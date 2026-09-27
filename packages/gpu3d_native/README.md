@@ -34,7 +34,8 @@ uploads and changed mesh records. `createView()` returns an independent readback
 view sharing the device, geometry revisions and material images. Closing a view
 releases its scopes and scene references; the last view closes the worker.
 Use `TextureImage.rgba` and `TextureMap` for opaque color textures, UV selection,
-wrap/filter settings and supplied mip levels. `NativeImageDecoder` decodes PNG
+wrap/filter settings and supplied or native-generated mip levels. Set
+`generateMipmaps: true` to build a full chain in linear light on the GPU. `NativeImageDecoder` decodes PNG
 and JPEG on a CPU isolate with bounded admission. Dynamic geometry uploads
 merged attribute ranges while preserving captures held by other views.
 

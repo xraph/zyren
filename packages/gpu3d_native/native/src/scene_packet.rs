@@ -70,7 +70,7 @@ impl ScenePacket {
             return Err("unsupported scene packet".into());
         }
         let opcode = r.u32()?;
-        if !(10..=13).contains(&opcode) {
+        if !(10..=14).contains(&opcode) {
             return Err("unsupported scene packet".into());
         }
         let textured = opcode >= 11;
@@ -128,15 +128,29 @@ impl ScenePacket {
             let height = r.u32()?;
             let format = r.u32()?;
             let mips = r.u32()?;
+            let mip_generation = if opcode >= 14 { r.u32()? } else { 0 };
             if width == 0
                 || height == 0
                 || width > 4096
                 || height > 4096
                 || format > 1
+                || mip_generation > 2
+                || (mip_generation != 0 && mips != 1)
                 || mips == 0
                 || mips > 32 - width.max(height).leading_zeros()
             {
                 return Err("invalid texture descriptor".into());
+            }
+            let target_mips = if mip_generation == 0 {
+                mips
+            } else {
+                32 - width.max(height).leading_zeros()
+            };
+            texture_bytes += (0..target_mips)
+                .map(|m| (width >> m).max(1) as usize * (height >> m).max(1) as usize * 4)
+                .sum::<usize>();
+            if texture_bytes > 64 * 1024 * 1024 {
+                return Err("texture residency budget exceeded".into());
             }
             let mut levels = Vec::new();
             for mip in 0..mips {
@@ -144,10 +158,6 @@ impl ScenePacket {
                 let expected = (width >> mip).max(1) as usize * (height >> mip).max(1) as usize * 4;
                 if length != expected {
                     return Err("texture mip length mismatch".into());
-                }
-                texture_bytes += length;
-                if texture_bytes > 64 * 1024 * 1024 {
-                    return Err("texture upload budget exceeded".into());
                 }
                 levels.push(r.bytes(length)?.to_vec());
             }
@@ -157,6 +167,7 @@ impl ScenePacket {
                 height,
                 format,
                 levels,
+                mip_generation,
             });
         }
         let mut geometries = Vec::new();

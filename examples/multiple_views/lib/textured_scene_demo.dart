@@ -30,7 +30,8 @@ class TexturedSceneApp extends StatelessWidget {
       visualDensity: VisualDensity.compact,
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          minimumSize: const Size(0, 36),
+          padding: const EdgeInsets.symmetric(horizontal: 8),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
@@ -64,11 +65,12 @@ class _TextureSceneState extends State<_TextureScene> {
   late final SceneController controller;
   late final Mesh mesh;
   late final GeometrySnapshot original;
-  bool deformed = false;
+  bool deformed = false, mipmaps = true, denseUv = false;
   double uvOffset = 0;
   var image = TextureImage.rgba(
     width: 2,
     height: 2,
+    generateMipmaps: true,
     pixels: Uint8List.fromList([
       255,
       64,
@@ -103,7 +105,7 @@ class _TextureSceneState extends State<_TextureScene> {
       final decoded = await widget.decoder.decode(Uint8List.sublistView(bytes));
       if (!mounted) return;
       setState(() {
-        image = TextureImage.fromImage(decoded);
+        image = TextureImage.fromImage(decoded, generateMipmaps: mipmaps);
         source = format;
         mesh.material = material();
       });
@@ -170,19 +172,36 @@ class _TextureSceneState extends State<_TextureScene> {
     );
   });
 
+  void toggleMipmaps() => setState(() {
+    mipmaps = !mipmaps;
+    image = TextureImage.rgba(
+      width: image.descriptor.width,
+      height: image.descriptor.height,
+      pixels: image.levels.first,
+      format: image.descriptor.format,
+      generateMipmaps: mipmaps,
+    );
+    mesh.material = material();
+  });
+
   void shiftUv() => setState(() {
     uvOffset = (uvOffset + .25) % 2;
+    updateUv();
+  });
+
+  void updateUv() {
     mesh.geometry.updateAttribute(
       VertexSemantic.uv0,
       Float32List.fromList([
         for (var i = 0; i < original.uv0!.length; i++)
-          original.uv0![i] + (i.isEven ? uvOffset : 0),
+          original.uv0![i] * (denseUv ? 128 : 1) + (i.isEven ? uvOffset : 0),
       ]),
     );
-  });
+  }
 
   void reset() => setState(() {
     deformed = false;
+    denseUv = false;
     uvOffset = 0;
     mesh.geometry.updateAttribute(
       VertexSemantic.position,
@@ -210,7 +229,7 @@ class _TextureSceneState extends State<_TextureScene> {
           children: [
             const Text('Native mesh', style: TextStyle(fontSize: 22)),
             Text(
-              '$source ${image.descriptor.width}×${image.descriptor.height} sRGB · r${mesh.geometry.revision}',
+              '$source ${image.descriptor.width}×${image.descriptor.height} · ${image.descriptor.mipLevels} mips',
             ),
             const SizedBox(height: 8),
             Wrap(
@@ -263,8 +282,19 @@ class _TextureSceneState extends State<_TextureScene> {
                   child: const Text('Turn'),
                 ),
                 TextButton(onPressed: deform, child: const Text('Deform')),
-                TextButton(onPressed: shiftUv, child: const Text('Shift UV')),
                 TextButton(onPressed: reset, child: const Text('Reset')),
+                TextButton(onPressed: shiftUv, child: const Text('Shift UV')),
+                TextButton(
+                  onPressed: toggleMipmaps,
+                  child: Text(mipmaps ? 'Mips on' : 'Mips off'),
+                ),
+                TextButton(
+                  onPressed: () => setState(() {
+                    denseUv = !denseUv;
+                    updateUv();
+                  }),
+                  child: Text(denseUv ? 'Wide UV' : 'Dense UV'),
+                ),
                 for (final format in ['PNG', 'JPEG'])
                   TextButton(
                     onPressed: loading == null ? () => load(format) : null,

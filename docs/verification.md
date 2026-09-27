@@ -505,3 +505,31 @@ The compact-index release demo builds for macOS (49.1 MB) and Android ARM64
 its deformed, UV-shifted version at narrow width. The new binaries use the same
 public entrypoint. Android release launches successfully; sustained visual
 interaction remains unverified. Its focused Vulkan GPU tests passed.
+
+
+## Generated mipmaps
+
+Automatic scene mipmaps and explicit `ResourceScope.generateMipmaps` pass 69 core,
+8 geospatial, 25 native Dart GPU, 59 Flutter/example and 55 Rust tests including
+GPU cases. AOT scene encoding combines generated levels with uint16 indices.
+Analysis, strict Clippy, formatting and package/header boundary checks pass.
+
+The same GPU fixtures run on macOS Metal and the physical Pixel's Vulkan backend.
+A black/white sRGB image reduces to approximately 188, independent RGBA preserves
+hidden colors, alpha-weighted RGB excludes them, and odd extents retain the last
+row and column. Tests cover 1-by-N and single-level textures, regeneration,
+shared ownership, cleanup and byte accounting. Invalid policies, usage, stale
+keys, packet truncation and oversized generated chains are rejected before
+mutation. Generated pixels do not count as uploaded bytes.
+
+The native demo builds for macOS (49.2 MB) and Android ARM64 (21.7 MB). Metal UI
+inspection confirms the Dense UV and Mips controls change the rendered texture.
+Desktop and narrow layouts were checked; the 320-pixel widget test retains more
+than 320 pixels of canvas height. Android GPU integration passed and the release
+app launches on the Pixel. Sustained manual interaction with its release
+presentation remains unverified.
+
+This checkpoint generates RGBA8 linear and sRGB mip chains. Materials still
+render opaquely; mask/blend modes, alpha coverage preservation, ordering and
+portable lines/points remain open. It adds no iOS, Windows, Linux or Adreno
+qualification and does not establish Three.js or Takram parity.

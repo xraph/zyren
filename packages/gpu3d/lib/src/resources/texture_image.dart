@@ -32,8 +32,18 @@ final class TextureImage {
   static int _nextId = 1;
   final int id = _nextId++;
   final TextureDescriptor descriptor;
+
+  /// CPU-provided levels. Generated lower levels stay on the GPU.
   final List<Uint8List> levels;
-  factory TextureImage.fromImage(ImageData image) {
+
+  /// Whether the native device generates the full chain from level zero.
+  final bool generatesMipmaps;
+  final MipmapAlphaFilter mipmapAlphaFilter;
+  factory TextureImage.fromImage(
+    ImageData image, {
+    bool generateMipmaps = false,
+    MipmapAlphaFilter mipmapAlphaFilter = MipmapAlphaFilter.independent,
+  }) {
     if (image.format != PixelFormat.rgba8 ||
         image.alphaMode == AlphaMode.premultiplied) {
       throw UnsupportedError(
@@ -43,11 +53,17 @@ final class TextureImage {
     final descriptor = TextureDescriptor(
       width: image.size.width,
       height: image.size.height,
+      mipLevels: generateMipmaps
+          ? (image.size.width > image.size.height
+                    ? image.size.width
+                    : image.size.height)
+                .bitLength
+          : 1,
       format: image.colorSpace == ColorSpace.srgb
           ? TextureFormat.rgba8UnormSrgb
           : TextureFormat.rgba8Unorm,
     );
-    final pixels = Uint8List(descriptor.byteLength);
+    final pixels = Uint8List(descriptor.mipByteLength(0));
     final rowBytes = image.size.width * 4;
     for (var y = 0; y < image.size.height; y++) {
       pixels.setRange(
@@ -60,6 +76,8 @@ final class TextureImage {
     return TextureImage._(
       descriptor,
       List.unmodifiable([pixels.asUnmodifiableView()]),
+      generateMipmaps,
+      mipmapAlphaFilter,
     );
   }
   factory TextureImage.rgba({
@@ -67,12 +85,19 @@ final class TextureImage {
     required int height,
     required Uint8List pixels,
     List<Uint8List> mipmaps = const [],
+    bool generateMipmaps = false,
+    MipmapAlphaFilter mipmapAlphaFilter = MipmapAlphaFilter.independent,
     TextureFormat format = TextureFormat.rgba8UnormSrgb,
   }) {
+    if (generateMipmaps && mipmaps.isNotEmpty) {
+      throw ArgumentError('Choose supplied mipmaps or native generation.');
+    }
     final descriptor = TextureDescriptor(
       width: width,
       height: height,
-      mipLevels: mipmaps.length + 1,
+      mipLevels: generateMipmaps
+          ? (width > height ? width : height).bitLength
+          : mipmaps.length + 1,
       format: format,
     );
     final sources = [pixels, ...mipmaps];
@@ -87,9 +112,16 @@ final class TextureImage {
         for (final source in sources)
           Uint8List.fromList(source).asUnmodifiableView(),
       ]),
+      generateMipmaps,
+      mipmapAlphaFilter,
     );
   }
-  TextureImage._(this.descriptor, this.levels);
+  TextureImage._(
+    this.descriptor,
+    this.levels,
+    this.generatesMipmaps,
+    this.mipmapAlphaFilter,
+  );
 }
 
 /// Color image binding. UV (0, 0) addresses the image's top-left corner.

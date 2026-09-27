@@ -148,6 +148,15 @@ void main() {
       expect(mesh.material.colorMap!.sampler.wrapU, TextureWrap.mirroredRepeat);
       expect(tester.takeException(), isNull);
       expect(tester.getSize(find.byType(SceneView)).height, greaterThan(320));
+      expect(mesh.material.colorMap!.image.generatesMipmaps, isTrue);
+      await tester.tap(find.text('Dense UV'));
+      await frames(tester);
+      expect(mesh.geometry.uv0![1], 256);
+      await tester.tap(find.text('Mips on'));
+      await frames(tester);
+      expect(mesh.material.colorMap!.image.generatesMipmaps, isFalse);
+      expect(mesh.material.colorMap!.image.levels.single, image.levels.single);
+      expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
       await frames(tester);
       await controller.whenDisposed;

@@ -121,14 +121,19 @@ final class ScenePacketEncoder {
       uploadBytes += patch.uploadedBytes;
     }
     for (final texture in textures) {
-      uploadBytes += texture.descriptor.byteLength;
+      uploadBytes += texture.levels.fold<int>(
+        0,
+        (sum, level) => sum + level.length,
+      );
     }
     if (vertices > 1000000 ||
         indices > 3000000 ||
         uploadBytes > 64 * 1024 * 1024) {
       throw ArgumentError('Scene resource upload exceeds the frame budget.');
     }
-    final opcode = uploads.any((g) => g.indexFormat == IndexFormat.uint16)
+    final opcode = textures.any((image) => image.generatesMipmaps)
+        ? 14
+        : uploads.any((g) => g.indexFormat == IndexFormat.uint16)
         ? 13
         : patches.isNotEmpty
         ? 12
@@ -159,6 +164,11 @@ final class ScenePacketEncoder {
       body.u32(image.descriptor.height);
       body.u32(image.descriptor.format.index);
       body.u32(image.levels.length);
+      if (opcode >= 14) {
+        body.u32(
+          image.generatesMipmaps ? image.mipmapAlphaFilter.index + 1 : 0,
+        );
+      }
       for (final level in image.levels) {
         body.u32(level.length);
         body.add(level);

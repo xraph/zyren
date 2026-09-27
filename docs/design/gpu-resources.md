@@ -216,23 +216,56 @@ Alpha is currently opaque, so the shader ignores the image's alpha channel.
 
 Use `SamplerDescriptor` for clamp, repeat or mirrored repeat on each axis and
 nearest or linear minification, magnification and mip filtering. You can supply
-successive complete mip levels with `mipmaps`. Missing lower levels are not
-generated. Changing a sampler or tint does not upload the image again.
+successive complete mip levels with `mipmaps`, or set `generateMipmaps: true`
+on `TextureImage.rgba` or `TextureImage.fromImage` to generate the full chain on
+the native GPU. Choose one source. Changing a sampler or tint does not upload
+the image again.
 
 `BufferGeometry` accepts optional `uv0` and `uv1` arrays, with two finite values
 per vertex. `TextureMap.uvSet` selects 0 or 1 and capture rejects a missing set.
-`PlaneGeometry` supplies UV0. Box and sphere UV generation is still pending.
+`PlaneGeometry`, `BoxGeometry` and `SphereGeometry` supply UV0.
 
 Scene images use the resource registry and share geometry's view ownership rules.
 Hiding a mapped mesh retains its image; removing the last owner releases it after
-submitted work completes. Supplied mip levels count toward the shared 64 MiB
+submitted work completes. Supplied and generated mip levels count toward the shared 64 MiB
 budget. Each view can own up to 4096 images. `RenderFeature.colorTextures` reports
 support. Legacy Dart JSON encoders reject texture materials explicitly.
 
 You can run `lib/textured_scene_demo.dart` in `examples/multiple_views` on macOS
 or Android to compare filtering and wrapping through the native presenter.
-Use Deform, Shift UV and Reset to edit the same geometry. Automatic mips and
-transparent materials remain task 2 work.
+Use Deform, Shift UV and Reset to edit the same geometry. Dense UV increases
+texture repetition; toggle Mips on/off to compare minification. Transparent
+materials remain task 2 work.
+
+### Native mip generation
+
+```dart
+final image = TextureImage.fromImage(
+  decoded,
+  generateMipmaps: true,
+  mipmapAlphaFilter: MipmapAlphaFilter.weighted,
+);
+```
+
+You upload only level zero. Generated levels stay on the GPU, and every level
+counts toward the allocation budget before upload begins. `levels` contains the
+CPU sources; `descriptor.mipLevels` includes the generated chain. Upload counters
+exclude pixels produced by the GPU.
+
+Both formats filter in linear light. sRGB textures decode during reads and encode
+when each level is written. The area filter includes the last row and column of
+odd extents, including 1-by-N images. `MipmapAlphaFilter.independent`, the default,
+averages RGBA channels separately. Choose `weighted` for straight-alpha images
+whose invisible texels contain colors you want excluded from smaller levels.
+It weights RGB by alpha and returns straight RGBA; fully transparent results have
+zero RGB. Alpha coverage preservation for cutout materials is separate work.
+
+For a plugin-owned texture, allocate the desired `mipLevels` with `sampled` and
+`renderAttachment` usage, write level zero, then call
+`await scope.generateMipmaps(texture, alphaFilter: MipmapAlphaFilter.weighted)`.
+Generation replaces all allocated lower levels. Call it again after changing
+level zero. A one-level allocation is a no-op, and closing the scope drains an
+accepted generation before releasing its resources.
 
 ## Binary resource protocol, version 2
 
@@ -268,6 +301,7 @@ byte count followed by exactly that many bytes. Trailing bytes are rejected.
 | 7, read buffer | key, offset u64, length u64 | raw bytes |
 | 8, statistics | empty | resident bytes u64, uploaded bytes u64, live allocations u64 |
 | 9, read texture | key, mip u32 | tightly packed raw bytes |
+| 10, generate mips | key, alpha filter u32 (0 independent, 1 weighted) | empty |
 
 Buffer usage bits 0 through 5 are vertex, index buffer, uniform, storage, copy
 source and copy destination. Texture usage bits 0 through 3 are sampled, render
@@ -276,7 +310,8 @@ RGBA8 unorm and RGBA8 unorm sRGB. Empty or unknown usage bits are rejected.
 
 ## Binary scene protocol, version 2
 
-The render entrypoints accept opcode 13 for compact indices, opcode 12 for
+The render entrypoints accept opcode 14 for generated mips, opcode 13 for
+compact indices, opcode 12 for
 geometry patches, opcode 11 for textures and opcode 10 for older untextured
 callers. Their header uses a monotonic per-view revision in the
 request-ID field. Opcode 11 has this body:
@@ -317,6 +352,13 @@ may therefore start at an offset that is not divisible by four. Native decoding
 reads checked byte slices and never casts the packet to an aligned structure.
 Older opcodes reject the compact-index flag. CPU admission counts expanded
 native index recipes separately from compact GPU descriptor bytes.
+
+Opcode 14 extends opcode 13 with a generation mode u32 after each uploaded
+texture's source mip count. Zero uses supplied levels, one generates independent
+RGBA levels, and two generates alpha-weighted levels. Generated textures must
+supply exactly one level. Native admission computes the full chain from the
+extent and checks resident bytes before copying the source payload. Older opcodes
+keep their existing layout.
 
 View IDs and revisions are positive. Base zero replaces the complete draw list;
 otherwise it must match the last applied revision and mesh count. Matrices use

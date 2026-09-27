@@ -32,9 +32,12 @@ void main() {
     throw StateError('Hidden geometry was uploaded again.');
   }
   final image = TextureImage.rgba(
-    width: 1,
-    height: 1,
-    pixels: Uint8List.fromList([255, 0, 0, 255]),
+    width: 2,
+    height: 2,
+    generateMipmaps: true,
+    pixels: Uint8List.fromList([
+      for (var i = 0; i < 4; i++) ...[255, 0, 0, 255],
+    ]),
   );
   scene.remove(mesh);
   final plane = scene.add(
@@ -45,7 +48,7 @@ void main() {
   );
   final textureEncoder = ScenePacketEncoder(viewId: 2);
   final textureFrame = textureEncoder.encode(capture());
-  if (textureFrame.uploadedBytes != 176) {
+  if (textureFrame.uploadedBytes != 188) {
     throw StateError('First textured frame lost its image or UV buffer.');
   }
   textureEncoder.accept(textureFrame);

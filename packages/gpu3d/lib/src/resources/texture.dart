@@ -10,6 +10,10 @@ typedef GpuTexture = Texture;
 
 enum TextureFormat { rgba8Unorm, rgba8UnormSrgb }
 
+/// Independent channels preserve hidden RGB. Weighted RGB uses alpha coverage
+/// to prevent transparent colors from bleeding into smaller levels.
+enum MipmapAlphaFilter { independent, weighted }
+
 enum TextureUsage { sampled, renderAttachment, copySource, copyDestination }
 
 /// A two-dimensional RGBA8 texture. The format determines its color encoding.

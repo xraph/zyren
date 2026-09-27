@@ -137,3 +137,68 @@ fn resource_ffi_rejects_null_and_oversized_buffers() {
     }
     assert_eq!(written, 0);
 }
+
+#[test]
+#[ignore = "requires a native Metal, Vulkan or DX12 device"]
+fn mip_generation_rejects_invalid_usage_policy_and_keys_without_mutation() {
+    let mut renderer = pollster::block_on(Renderer::new()).unwrap();
+    for usage in [1_u32, 2, 3] {
+        let descriptor: Vec<u8> = [2_u32, 2, 2, 0, usage, 0]
+            .into_iter()
+            .flat_map(u32::to_le_bytes)
+            .collect();
+        let reply = renderer
+            .resource_command(&packet(3, &descriptor), 56)
+            .unwrap();
+        let key = &reply[24..];
+        let body = [key, &0_u32.to_le_bytes()].concat();
+        assert_eq!(
+            renderer.resource_command(&packet(10, &body), 23),
+            Err(ResourceError::InvalidRange)
+        );
+        let invalid = [key, &2_u32.to_le_bytes()].concat();
+        assert_eq!(
+            renderer.resource_command(&packet(10, &invalid), 24),
+            Err(ResourceError::InvalidCommand)
+        );
+        if usage == 3 {
+            renderer.resource_command(&packet(10, &body), 24).unwrap();
+        } else {
+            assert_eq!(
+                renderer.resource_command(&packet(10, &body), 24),
+                Err(ResourceError::InvalidUsage)
+            );
+        }
+        assert_eq!(stats(&mut renderer), [20, 0, 1]);
+        renderer.resource_command(&packet(6, key), 24).unwrap();
+        assert_eq!(stats(&mut renderer), [0, 0, 0]);
+        assert_eq!(
+            renderer.resource_command(&packet(10, &body), 24),
+            Err(ResourceError::StaleKey)
+        );
+    }
+}
+
+#[test]
+fn mip_command_checks_every_field_and_truncation() {
+    use gpu3d_runtime::resources::upload::Command;
+    let body = [vec![0_u8; 32], 1_u32.to_le_bytes().to_vec()].concat();
+    let valid = packet(10, &body);
+    assert!(Command::decode(&valid).is_ok());
+    for end in 0..valid.len() {
+        let mut truncated = valid[..end].to_vec();
+        if end >= 24 {
+            truncated[16..24].copy_from_slice(&((end - 24) as u64).to_le_bytes());
+        }
+        assert!(Command::decode(&truncated).is_err());
+    }
+    let mut invalid = body.clone();
+    invalid[32..36].copy_from_slice(&2_u32.to_le_bytes());
+    assert!(matches!(
+        Command::decode(&packet(10, &invalid)),
+        Err(ResourceError::InvalidCommand)
+    ));
+    let mut trailing = body;
+    trailing.push(0);
+    assert!(Command::decode(&packet(10, &trailing)).is_err());
+}
