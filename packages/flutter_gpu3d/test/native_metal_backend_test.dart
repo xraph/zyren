@@ -1,7 +1,7 @@
 @TestOn('mac-os')
 library;
 
-import 'dart:convert';
+import 'dart:typed_data';
 import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -15,7 +15,7 @@ void main() {
   test(
     'superseded applied frames update geometry residency and capture shares it',
     () async {
-      final packets = <Map>[];
+      final packets = <ByteData>[];
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(channel, (call) async {
             switch (call.method) {
@@ -28,7 +28,7 @@ void main() {
               case 'render':
               case 'capture':
                 final args = call.arguments as Map;
-                packets.add(jsonDecode(args['json'] as String) as Map);
+                packets.add(ByteData.sublistView(args['json'] as Uint8List));
                 return {
                   'applied': true,
                   'ready': packets.length != 1,
@@ -64,9 +64,9 @@ void main() {
           ),
         ),
       );
-      expect(packets.first['geometries'], hasLength(1));
+      expect(packets.first.getUint32(44, Endian.little), 1);
       final output = await backend.render(frame());
-      expect(packets.last['geometries'], isEmpty);
+      expect(packets.last.getUint32(44, Endian.little), 0);
       expect(output.stats.presentationPath, PresentationPath.nativeView);
       expect(output.stats.readbackBytes, 0);
       final capture = await backend.render(
@@ -78,14 +78,14 @@ void main() {
       );
       expect(capture, isA<ReadbackOutput>());
       expect(capture.stats.readbackBytes, 1024);
-      expect(packets.last['geometries'], isEmpty);
+      expect(packets.last.getUint32(44, Endian.little), 0);
       final mesh = scene.children.single as Mesh;
       scene.remove(mesh);
       await backend.render(frame());
-      expect(packets.last['meshes'], isEmpty);
+      expect(packets.last.getUint32(48, Endian.little), 0);
       scene.add(mesh);
       await backend.render(frame());
-      expect(packets.last['geometries'], hasLength(1));
+      expect(packets.last.getUint32(44, Endian.little), 1);
       await backend.close();
     },
   );

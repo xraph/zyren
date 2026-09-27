@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -18,7 +17,7 @@ void main() {
     messenger.setMockMethodCallHandler(channel, null);
   });
   test('applied superseded frames retain geometry through remount', () async {
-    final packets = <Map>[];
+    final packets = <ByteData>[];
     final detached = <int>[];
     messenger.setMockMethodCallHandler(channel, (call) async {
       final args = call.arguments as Map?;
@@ -34,7 +33,7 @@ void main() {
         case 'prepare':
           return {'epoch': args!['attachment'], 'texture': args['attachment']};
         case 'render':
-          packets.add(jsonDecode(args!['scene'] as String) as Map);
+          packets.add(ByteData.sublistView(args!['scene'] as Uint8List));
           return {
             'applied': true,
             'presented': packets.length != 1,
@@ -78,14 +77,14 @@ void main() {
     await presenter.present(output);
     expect(output.stats.presentationPath, PresentationPath.sharedTexture);
     expect(output.stats.readbackBytes, 0);
-    expect(packets.first['geometries'], hasLength(1));
-    expect(packets.last['geometries'], isEmpty);
+    expect(packets.first.getUint32(44, Endian.little), 1);
+    expect(packets.last.getUint32(44, Endian.little), 0);
     await presenter.dispose();
     final remounted = factory.create(backend);
     final next = await remounted.prepare(PhysicalSize(16, 16));
     final nextOutput = await draw(next);
     await remounted.present(nextOutput);
-    expect(packets.last['geometries'], isEmpty);
+    expect(packets.last.getUint32(44, Endian.little), 0);
     expect(nextOutput.stats.surfaceEpoch, 2);
     await expectLater(
       presenter.present(nextOutput),

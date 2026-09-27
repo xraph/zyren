@@ -10,6 +10,11 @@ use std::{
 static NEXT_DEVICE: AtomicU64 = AtomicU64::new(1);
 
 enum Resource {
+    Geometry {
+        vertices: wgpu::Buffer,
+        indices: wgpu::Buffer,
+        count: u32,
+    },
     Buffer {
         buffer: wgpu::Buffer,
         size: u64,
@@ -76,6 +81,100 @@ fn mip_extent(
     })
 }
 impl ResourceStore {
+    pub(crate) fn check_scene_capacity(
+        &self,
+        bytes: u64,
+        count: usize,
+    ) -> Result<(), ResourceError> {
+        self.registry.check_batch(bytes, count)
+    }
+    pub(crate) fn insert_geometry(
+        &mut self,
+        device: &wgpu::Device,
+        geometry: &crate::scene::Geometry,
+    ) -> Result<ResourceKey, ResourceError> {
+        use wgpu::util::DeviceExt;
+        let bytes = (geometry.positions.len() * 24 + geometry.indices.len() * 4) as u64;
+        self.registry.check_capacity(bytes)?;
+        let vertices: Vec<[f32; 6]> = geometry
+            .positions
+            .iter()
+            .zip(&geometry.normals)
+            .map(|(p, n)| [p[0], p[1], p[2], n[0], n[1], n[2]])
+            .collect();
+        let validation = device.push_error_scope(wgpu::ErrorFilter::Validation);
+        let memory = device.push_error_scope(wgpu::ErrorFilter::OutOfMemory);
+        let internal = device.push_error_scope(wgpu::ErrorFilter::Internal);
+        let vertices = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("scene vertices"),
+            contents: bytemuck::cast_slice(&vertices),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+        let indices = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("scene indices"),
+            contents: bytemuck::cast_slice(&geometry.indices),
+            usage: wgpu::BufferUsages::INDEX,
+        });
+        let key = self.registry.insert(
+            Resource::Geometry {
+                vertices,
+                indices,
+                count: geometry.indices.len() as u32,
+            },
+            bytes,
+        )?;
+        let mut failed = false;
+        for scope in [internal, memory, validation] {
+            failed |= pollster::block_on(scope.pop()).is_some();
+        }
+        if failed {
+            return Err(ResourceError::DeviceFailed);
+        }
+        self.uploaded = self.uploaded.saturating_add(bytes);
+        Ok(key)
+    }
+    pub(crate) fn geometry(&self, key: ResourceKey) -> (&wgpu::Buffer, &wgpu::Buffer, u32) {
+        let Resource::Geometry {
+            vertices,
+            indices,
+            count,
+        } = self
+            .registry
+            .resolve(key)
+            .expect("validated scene geometry")
+        else {
+            unreachable!()
+        };
+        (vertices, indices, *count)
+    }
+    pub(crate) fn release_geometry(&mut self, key: ResourceKey) -> Result<(), ResourceError> {
+        self.registry.release(key)
+    }
+    pub(crate) fn scene_submitted(
+        &mut self,
+        index: wgpu::SubmissionIndex,
+        keys: &[ResourceKey],
+    ) -> Result<(), ResourceError> {
+        self.serial = self
+            .serial
+            .checked_add(1)
+            .ok_or(ResourceError::DeviceFailed)?;
+        self.pending = Some(index);
+        for key in keys {
+            self.registry.mark_used(*key, self.serial)?;
+        }
+        Ok(())
+    }
+    pub(crate) fn scene_completed(&mut self) {
+        self.pending = None;
+        self.registry.retire_completed(self.serial);
+    }
+    pub(crate) fn collect(&mut self, device: &wgpu::Device) -> Result<(), ResourceError> {
+        self.wait(device)
+    }
+    pub(crate) fn stats(&self) -> (u64, u64) {
+        (self.registry.resident_bytes(), self.uploaded)
+    }
     fn submit(
         &mut self,
         device: &wgpu::Device,

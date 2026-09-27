@@ -27,10 +27,8 @@ struct Uniforms {
 }
 
 struct GpuGeometry {
-    vertices: wgpu::Buffer,
-    indices: wgpu::Buffer,
-    count: u32,
-    bytes: usize,
+    key: crate::resources::registry::ResourceKey,
+    recipe: std::sync::Arc<crate::scene::Geometry>,
 }
 struct Targets {
     width: u32,
@@ -94,6 +92,7 @@ pub struct RendererState {
     layout: wgpu::BindGroupLayout,
     geometries: HashMap<u32, GpuGeometry>,
     resources: crate::resources::ResourceStore,
+    views: HashMap<u64, crate::scene_packet::ViewState>,
     targets: Option<Targets>,
     pub adapter_name: String,
     pub backend: wgpu::Backend,
@@ -252,6 +251,7 @@ impl Renderer {
                 layout,
                 geometries: HashMap::new(),
                 resources: crate::resources::ResourceStore::default(),
+                views: HashMap::new(),
                 targets: None,
                 adapter_name: info.name,
                 backend: info.backend,
@@ -346,59 +346,129 @@ impl Renderer {
         self.counters
     }
 
+    pub fn decode_scene(&self, bytes: &[u8]) -> Result<Frame, String> {
+        if bytes.starts_with(&2_u32.to_le_bytes()) {
+            let packet = crate::scene_packet::ScenePacket::decode(bytes)?;
+            let previous = self.views.get(&packet.view());
+            packet.resolve(previous)
+        } else {
+            serde_json::from_slice(bytes).map_err(|error| format!("invalid scene: {error}"))
+        }
+    }
+    pub fn scene_resource_stats(&self) -> (u64, u64) {
+        self.resources.stats()
+    }
+    pub fn close_scene_view(&mut self, view: u64) -> Result<(), String> {
+        self.views.remove(&view);
+        self.evict_geometry()
+    }
+    fn evict_geometry(&mut self) -> Result<(), String> {
+        let retained: HashSet<u32> = self
+            .views
+            .values()
+            .flat_map(|view| view.retained.iter().copied())
+            .collect();
+        let removed: Vec<_> = self
+            .geometries
+            .keys()
+            .copied()
+            .filter(|id| !retained.contains(id))
+            .collect();
+        for id in removed {
+            let geometry = self.geometries.remove(&id).unwrap();
+            self.resources
+                .release_geometry(geometry.key)
+                .map_err(|e| e.to_string())?;
+        }
+        let state = self.state.as_mut().unwrap();
+        state.resources.collect(&state.device).map_err(|e| {
+            state.failure = Some(e.to_string());
+            e.to_string()
+        })
+    }
     fn prepare_scene(&mut self, frame: &Frame) -> Result<(), String> {
         if let Some(failure) = &self.failure {
             return Err(failure.clone());
         }
-        frame.validate(&self.geometries.keys().copied().collect())?;
-        let used: HashSet<_> = frame.meshes.iter().map(|m| m.geometry).collect();
-        let bytes = self
+        let view = frame.binary.as_ref().map_or(0, |view| view.view);
+        if !self.views.contains_key(&view) && self.views.len() >= 64 {
+            return Err("native device view limit exceeded".into());
+        }
+        if self
+            .views
+            .iter()
+            .filter(|(id, _)| **id != view)
+            .map(|(_, v)| v.meshes.len())
+            .sum::<usize>()
+            + frame.meshes.len()
+            > 16384
+        {
+            return Err("native device draw-state budget exceeded".into());
+        }
+        let mut cached: HashSet<_> = self.geometries.keys().copied().collect();
+        for geometry in &frame.geometries {
+            if let Some(old) = self.geometries.get(&geometry.id) {
+                if old.recipe.as_ref() != geometry {
+                    return Err("geometry ID refers to different immutable data".into());
+                }
+                if frame.binary.is_some()
+                    || !self
+                        .views
+                        .get(&0)
+                        .is_some_and(|v| v.retained.contains(&geometry.id))
+                {
+                    cached.remove(&geometry.id);
+                }
+            }
+        }
+        frame.validate(&cached)?;
+        let bytes: usize = frame
             .geometries
             .iter()
-            .filter(|(id, _)| used.contains(id))
-            .map(|(_, g)| g.bytes)
-            .sum::<usize>()
-            + frame
-                .geometries
-                .iter()
-                .map(|g| g.positions.len() * 24 + g.indices.len() * 4)
-                .sum::<usize>();
-        if bytes > 64 * 1024 * 1024 {
-            return Err("scene exceeds the 64 MiB geometry budget".into());
-        }
-        self.geometries.retain(|id, _| used.contains(id));
+            .filter(|g| !self.geometries.contains_key(&g.id))
+            .map(|g| g.positions.len() * 24 + g.indices.len() * 4)
+            .sum();
+        self.resources
+            .check_scene_capacity(
+                bytes as u64,
+                frame
+                    .geometries
+                    .iter()
+                    .filter(|g| !self.geometries.contains_key(&g.id))
+                    .count(),
+            )
+            .map_err(|e| e.to_string())?;
+        // Preflight all CPU validation before any existing ownership changes.
         for geometry in &frame.geometries {
-            let vertices: Vec<Vertex> = geometry
-                .positions
-                .iter()
-                .zip(&geometry.normals)
-                .map(|(&position, &normal)| Vertex { position, normal })
-                .collect();
-            let vertices = self
-                .device
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: None,
-                    contents: bytemuck::cast_slice(&vertices),
-                    usage: wgpu::BufferUsages::VERTEX,
-                });
-            let indices = self
-                .device
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: None,
-                    contents: bytemuck::cast_slice(&geometry.indices),
-                    usage: wgpu::BufferUsages::INDEX,
-                });
-            self.geometries.insert(
-                geometry.id,
-                GpuGeometry {
-                    vertices,
-                    indices,
-                    count: geometry.indices.len() as u32,
-                    bytes: geometry.positions.len() * 24 + geometry.indices.len() * 4,
-                },
-            );
+            if !self.geometries.contains_key(&geometry.id) {
+                let state = self.state.as_mut().unwrap();
+                let key = state
+                    .resources
+                    .insert_geometry(&state.device, geometry)
+                    .map_err(|e| {
+                        state.failure = Some(e.to_string());
+                        e.to_string()
+                    })?;
+                state.geometries.insert(
+                    geometry.id,
+                    GpuGeometry {
+                        key,
+                        recipe: std::sync::Arc::new(geometry.clone()),
+                    },
+                );
+            }
         }
-        Ok(())
+        let state = frame
+            .binary
+            .clone()
+            .unwrap_or_else(|| crate::scene_packet::ViewState {
+                view: 0,
+                revision: 0,
+                retained: frame.meshes.iter().map(|m| m.geometry).collect(),
+                meshes: Vec::new(),
+            });
+        self.views.insert(view, state);
+        self.evict_geometry()
     }
 
     fn encode_scene(
@@ -479,9 +549,10 @@ impl Renderer {
             for (mesh, binding) in frame.meshes.iter().zip(&bindings) {
                 let geometry = &self.geometries[&mesh.geometry];
                 pass.set_bind_group(0, binding, &[]);
-                pass.set_vertex_buffer(0, geometry.vertices.slice(..));
-                pass.set_index_buffer(geometry.indices.slice(..), wgpu::IndexFormat::Uint32);
-                pass.draw_indexed(0..geometry.count, 0, 0..1);
+                let (vertices, indices, count) = self.resources.geometry(geometry.key);
+                pass.set_vertex_buffer(0, vertices.slice(..));
+                pass.set_index_buffer(indices.slice(..), wgpu::IndexFormat::Uint32);
+                pass.draw_indexed(0..count, 0, 0..1);
             }
         }
         encoder
@@ -489,6 +560,11 @@ impl Renderer {
 
     fn submit(&mut self, encoder: wgpu::CommandEncoder) -> Result<Submission, String> {
         let index = self.queue.submit([encoder.finish()]);
+        let keys: Vec<_> = self.geometries.values().map(|g| g.key).collect();
+        if let Err(error) = self.resources.scene_submitted(index.clone(), &keys) {
+            self.failure = Some(error.to_string());
+            return Err(error.to_string());
+        }
         self.counters.submitted_frames += 1;
         #[cfg(target_vendor = "apple")]
         let metal = if self.backend == wgpu::Backend::Metal {
@@ -523,6 +599,9 @@ impl Renderer {
             Some(completion) => completion.check(),
             None => Ok(()),
         });
+        if result.is_ok() {
+            self.resources.scene_completed();
+        }
         result.map_err(|error| {
             let message = format!("GPU completion failed; recreate this renderer: {error}");
             self.failure = Some(message.clone());

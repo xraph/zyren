@@ -311,7 +311,11 @@ class Gpu3dPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         if (requestedEpoch != null && requestedEpoch != session.epoch) {
             result.success(mapOf("presented" to false, "applied" to false)); return
         }
-        val packet = call.argument<String>("scene")!!.toByteArray(Charsets.UTF_8)
+        val packet = when (val value = call.argument<Any>("scene")) {
+            is ByteArray -> value
+            is String -> value.toByteArray(Charsets.UTF_8)
+            else -> throw IllegalArgumentException("A binary scene packet is required.")
+        }
         require(packet.size <= 128 * 1024 * 1024) { "Scene packet exceeds the native limit." }
         val generation = session.generation.get()
         val epoch = generation.epoch

@@ -301,9 +301,10 @@ bool matches(const std::shared_ptr<Session> &s, NSDictionary *args) {
   const bool capture = [call.method isEqualToString:@"capture"];
   if (!capture && ![call.method isEqualToString:@"render"]) { result(FlutterMethodNotImplemented); return; }
   if (s->busy || s->pending) { result(deferred()); return; }
-  if (![args[@"json"] isKindOfClass:NSString.class] || !number(args[@"width"]) || !number(args[@"height"]) || !number(args[@"frame"])) { result(error(@"invalidFrame", @"A scene packet, dimensions and frame ID are required.")); return; }
+  id scene = args[@"json"];
+  if ((! [scene isKindOfClass:NSString.class] && ![scene isKindOfClass:FlutterStandardTypedData.class]) || !number(args[@"width"]) || !number(args[@"height"]) || !number(args[@"frame"])) { result(error(@"invalidFrame", @"A scene packet, dimensions and frame ID are required.")); return; }
   int64_t width = [args[@"width"] longLongValue], height = [args[@"height"] longLongValue];
-  NSData *packet = [args[@"json"] dataUsingEncoding:NSUTF8StringEncoding];
+  NSData *packet = [scene isKindOfClass:NSString.class] ? [scene dataUsingEncoding:NSUTF8StringEncoding] : ((FlutterStandardTypedData *)scene).data;
   if (width < 1 || height < 1 || width > 4096 || height > 4096 || packet.length == 0 || packet.length > 128 * 1024 * 1024) { result(error(@"invalidFrame", @"Scene packet or physical size exceeds its limit.")); return; }
   const uint64_t epoch = s->epoch.load(), frame = [args[@"frame"] unsignedLongLongValue];
   if (!capture && (!matches(s, args) || !number(args[@"epoch"]) || epoch != [args[@"epoch"] unsignedLongLongValue] || s->suspended || !s->visible)) { result(deferred()); return; }

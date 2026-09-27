@@ -36,8 +36,10 @@ headless output, use `gpu3d_native`; see [backend submissions](docs/extensions.m
 
 `NativeBackend` also provides scoped buffers and textures with binary uploads,
 shared ownership and explicit readback. The [resource API](docs/design/gpu-resources.md)
-documents the implemented operations and limits. Scene geometry and material
-bindings have not yet migrated to these resources.
+documents the implemented operations and limits. Scene geometry now uses the same
+registry and binary packets. Use `NativeBackend.createView()` for independent
+readback views sharing one device and its geometry. Material texture bindings
+remain planned work.
 
 ## Run the example
 
@@ -123,9 +125,10 @@ you can create a `SceneController`, pass it to `SceneView(controller: controller
 and call `controller.dispose()` from your State. Borrowed views retain their
 scene and session across unmounts. Static scenes render only after an edit. You can also create a `NativeRenderer` directly,
 await `render`, then await `dispose`.
-Only one frame may be in flight per renderer. Geometry is immutable, shared by
-meshes and released from the GPU when no visible mesh references it. Construct
-a new geometry when its contents change.
+Only one frame may be in flight per view. Geometry is immutable and shared by
+meshes. Hiding a mesh retains its allocation; removing it from every owning view
+releases it after submitted work completes. Construct a new geometry when its
+contents change. Flutter's native view presenters still own separate devices.
 
 Colours use linear RGB; `Color3.hex` converts an sRGB hex colour for you. Positions
 use double precision until the camera origin has been subtracted. The current

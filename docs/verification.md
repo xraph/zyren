@@ -373,3 +373,42 @@ All 56 Flutter/example tests and the five macOS native SceneView tests pass.
 Analyzer, formatting and package boundaries pass. Explicit Android capture,
 physical iOS, Windows, broader mobile GPU qualification and device-loss testing
 remain open.
+
+## Binary scene resources, 2026-09-27
+
+Scene snapshots now retain immutable CPU geometry recipes. Dart sends typed
+binary geometry and changed mesh records; Rust resolves the resulting buffers
+through the resource registry. Two explicit readback views can share one worker
+and device. The GPU test renders both, verifies one 720-byte box upload, moves
+and hides it without another upload, closes the first view, restores the second
+view's red pixels, then removes the final owner and verifies zero resident bytes.
+
+The Metal host passes 61 core/geospatial tests, 14 native Dart tests with serial
+execution, 56 Flutter/example tests and 33 Rust tests including every ignored GPU
+test. Protocol coverage includes every truncation of empty and populated frames,
+bad counts/indices/flags, nonfinite transforms, stale revisions and seeded byte
+mutations. A rejected delta leaves the previous native scene usable. Analyzer,
+strict Clippy, formatting, C resource-header syntax and package boundaries pass.
+
+Release validation caught a first-frame crash in Dart 3.13.4's compiled encoder
+that did not occur under the JIT. A standalone executable reproduced it without
+Flutter or GPU calls. Selecting full replacement before entering the delta loop
+avoids the nullable baseline access. The core suite now compiles and runs this
+scenario with first-frame, transform, unchanged-frame and visibility checks.
+
+Five native SceneView integrations and two resource integrations pass on macOS.
+The view run includes 100 mount/close cycles with zero remaining renderers and
+drawables, plus explicit capture. Flutter failed to launch the resource test
+after the first integration app; rerunning that file alone passed both tests.
+The standalone `shared_views.dart` example also passed its upload, pixel and
+cleanup checks.
+
+The Android ARM64 release build passes (21.2 MB). The Pixel is disconnected, so
+the new binary scene integration could not run on Vulkan in this checkpoint.
+Earlier Pixel resource/view evidence above does not qualify this new packet
+path. Flutter platform views still own separate devices; shared-device rendering
+is currently an explicit readback backend capability. This checkpoint adds no
+new iOS, Windows or Linux runtime qualification.
+
+The fixed macOS release app builds (48.1 MB), starts and remains running. Visual
+inspection of that release is pending because the Mac locked before the check.

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter/rendering.dart' show PlatformViewHitTestBehavior;
@@ -26,7 +25,7 @@ SceneException _deferred() => _issue(
 class NativeMetalBackend implements RenderBackend {
   final int session;
   final String adapter;
-  Set<int> _uploaded = {};
+  final _encoder = ScenePacketEncoder(viewId: 1);
   bool _closed = false;
   int _nextFrame = 0, _nextAttachment = 0;
   Future<FrameOutput>? _drawing;
@@ -174,21 +173,11 @@ class NativeMetalBackend implements RenderBackend {
       );
     }
     final clock = Stopwatch()..start();
-    final packet = submission.toNativePacket(uploaded: _uploaded);
-    final active = {
-      for (final mesh in packet['meshes'] as List)
-        (mesh as Map)['geometry'] as int,
-    };
-    var uploadedBytes = 0;
-    for (final geometry in packet['geometries'] as List) {
-      uploadedBytes +=
-          ((geometry as Map)['positions'] as List).length * 24 +
-          (geometry['indices'] as List).length * 4;
-    }
+    final packet = _encoder.encode(submission);
     final frame = ++_nextFrame;
     final key = target is SurfaceTarget ? target.surface as _MetalKey : null;
     final pending = request<Map>(key == null ? 'capture' : 'render', {
-      'json': jsonEncode(packet),
+      'json': packet.bytes,
       'frame': frame,
       'width': submission.size.width,
       'height': submission.size.height,
@@ -200,7 +189,7 @@ class NativeMetalBackend implements RenderBackend {
     });
     clock.stop();
     final result = (await pending)!;
-    if (result['applied'] == true) _uploaded = active;
+    if (result['applied'] == true) _encoder.accept(packet);
     if (result['ready'] != true) throw _deferred();
     final stats = FrameStats(
       frameId: frame,
@@ -214,7 +203,7 @@ class NativeMetalBackend implements RenderBackend {
       drawCalls: submission.scene.drawCalls,
       triangles: submission.scene.triangles,
       readbackBytes: result['readbackBytes'] as int,
-      uploadedBytes: uploadedBytes,
+      uploadedBytes: packet.uploadedBytes,
     );
     if (key == null) {
       return ReadbackOutput(

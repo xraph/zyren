@@ -52,6 +52,13 @@ void renderWorker(WorkerBootstrap start) {
         commands.close();
         return;
       }
+      if (request.operation == 'sceneClose') {
+        if (native.closeScene(owner.handle, request.arguments[0] as int) != 1) {
+          throw StateError(_lastError());
+        }
+        reply(true, null);
+        return;
+      }
       if (request.operation == 'resource') {
         final bytes = (request.arguments[0] as TransferableTypedData)
             .materialize()
@@ -100,12 +107,14 @@ void renderWorker(WorkerBootstrap start) {
       }
       if (request.operation == 'surfaceRender') {
         try {
-          final receipt = NativeSurfaces().renderApple(
+          final receipt = NativeSurfaces().renderAppleBytes(
             owner.handle,
             NativeSurfaceKey.fromMessage(request.arguments[1] as List<int>),
             request.arguments[2] as int,
             request.arguments[3] as int,
-            request.arguments[0] as String,
+            (request.arguments[0] as TransferableTypedData)
+                .materialize()
+                .asUint8List(),
           );
           reply(true, <int>[0, ...receipt]);
         } on NativeSurfaceException catch (error) {
@@ -116,13 +125,17 @@ void renderWorker(WorkerBootstrap start) {
       if (request.operation != 'render') {
         throw ArgumentError('Unknown worker operation.');
       }
-      final json = utf8.encode(request.arguments[0] as String);
+      final value = request.arguments[0];
+      final json = value is String
+          ? utf8.encode(value)
+          : (value as TransferableTypedData).materialize().asUint8List();
       final width = request.arguments[1] as int,
           height = request.arguments[2] as int;
       final input = calloc<Uint8>(json.length),
           pixels = calloc<Uint8>(width * height * 4);
       try {
         input.asTypedList(json.length).setAll(0, json);
+        final before = native.sceneUploadedBytes(owner.handle);
         if (native.render(
               owner.handle,
               input,
@@ -135,12 +148,13 @@ void renderWorker(WorkerBootstrap start) {
             1) {
           throw StateError(_lastError());
         }
-        reply(
-          true,
+        reply(true, <Object>[
           TransferableTypedData.fromList([
             pixels.asTypedList(width * height * 4),
           ]),
-        );
+          native.sceneUploadedBytes(owner.handle) - before,
+          native.sceneResidentBytes(owner.handle),
+        ]);
       } finally {
         calloc.free(input);
         calloc.free(pixels);

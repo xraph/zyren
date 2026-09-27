@@ -3,6 +3,7 @@ pub mod renderer;
 pub mod resources;
 mod retirement;
 pub mod scene;
+pub mod scene_packet;
 
 use std::{
     cell::RefCell,
@@ -143,12 +144,10 @@ pub unsafe extern "C" fn fg_render(
             .get(&handle)
             .cloned()
             .ok_or("invalid or disposed renderer handle")?;
-        let frame: scene::Frame =
-            serde_json::from_slice(unsafe { std::slice::from_raw_parts(json, json_len) })
-                .map_err(|e| format!("invalid scene: {e}"))?;
         let mut renderer = renderer
             .lock()
             .map_err(|_| "renderer is poisoned; recreate it")?;
+        let frame = renderer.decode_scene(unsafe { std::slice::from_raw_parts(json, json_len) })?;
         let image = renderer.render(&frame, width, height)?;
         unsafe {
             std::ptr::copy_nonoverlapping(image.as_ptr(), pixels, len);
@@ -207,4 +206,53 @@ pub unsafe extern "C" fn fg2_resource_command(
         Ok(1)
     });
     if ok == 1 { 0 } else { code }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn fg2_scene_close(handle: u64, view: u64) -> u32 {
+    guard(|| {
+        let renderer = registry()
+            .lock()
+            .map_err(|_| "registry lock failed")?
+            .get(&handle)
+            .cloned()
+            .ok_or("renderer disposed")?;
+        renderer
+            .lock()
+            .map_err(|_| "renderer lock failed")?
+            .close_scene_view(view)?;
+        Ok(1)
+    })
+}
+#[unsafe(no_mangle)]
+pub extern "C" fn fg2_scene_resident_bytes(handle: u64) -> u64 {
+    guard(|| {
+        let renderer = registry()
+            .lock()
+            .map_err(|_| "registry lock failed")?
+            .get(&handle)
+            .cloned()
+            .ok_or("renderer disposed")?;
+        Ok(renderer
+            .lock()
+            .map_err(|_| "renderer lock failed")?
+            .scene_resource_stats()
+            .0)
+    })
+}
+#[unsafe(no_mangle)]
+pub extern "C" fn fg2_scene_uploaded_bytes(handle: u64) -> u64 {
+    guard(|| {
+        let renderer = registry()
+            .lock()
+            .map_err(|_| "registry lock failed")?
+            .get(&handle)
+            .cloned()
+            .ok_or("renderer disposed")?;
+        Ok(renderer
+            .lock()
+            .map_err(|_| "renderer lock failed")?
+            .scene_resource_stats()
+            .1)
+    })
 }

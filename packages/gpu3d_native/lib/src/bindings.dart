@@ -56,3 +56,19 @@ external int resourceCommand(
   int capacity,
   Pointer<Size> written,
 );
+
+@Native<Uint32 Function(Uint64, Uint64)>(
+  symbol: 'fg2_scene_close',
+  assetId: _asset,
+)
+external int closeScene(int renderer, int view);
+@Native<Uint64 Function(Uint64)>(
+  symbol: 'fg2_scene_resident_bytes',
+  assetId: _asset,
+)
+external int sceneResidentBytes(int renderer);
+@Native<Uint64 Function(Uint64)>(
+  symbol: 'fg2_scene_uploaded_bytes',
+  assetId: _asset,
+)
+external int sceneUploadedBytes(int renderer);

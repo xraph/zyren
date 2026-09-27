@@ -1,6 +1,6 @@
 use std::{ffi::c_void, ptr::NonNull};
 
-use crate::{renderer::Renderer, scene::Frame};
+use crate::renderer::Renderer;
 use wgpu::rwh::{AndroidDisplayHandle, AndroidNdkWindowHandle, RawDisplayHandle, RawWindowHandle};
 
 #[link(name = "android")]
@@ -160,9 +160,7 @@ pub unsafe extern "C" fn fg_android_render(handle: u64, json: *const u8, length:
         if json.is_null() || length == 0 || length > 128 * 1024 * 1024 {
             return Err("invalid scene buffer".into());
         }
-        let frame: Frame =
-            serde_json::from_slice(unsafe { std::slice::from_raw_parts(json, length) })
-                .map_err(|e| format!("invalid scene: {e}"))?;
+        let frame = renderer.decode_scene(unsafe { std::slice::from_raw_parts(json, length) })?;
         let target = renderer.android.as_mut().ok_or("surface is detached")?;
         if target.pending.is_some() {
             return Err("a frame is already pending publication".into());

@@ -7,7 +7,14 @@ import '../scene/scene.dart';
 class RenderedFrame {
   final Uint8List pixels;
   final int width, height;
-  const RenderedFrame(this.pixels, this.width, this.height);
+  final int uploadedBytes, residentBytes;
+  const RenderedFrame(
+    this.pixels,
+    this.width,
+    this.height, {
+    this.uploadedBytes = 0,
+    this.residentBytes = 0,
+  });
   factory RenderedFrame.fromImage(ImageData image) {
     if (image.format != PixelFormat.rgba8 ||
         image.colorSpace != ColorSpace.srgb) {

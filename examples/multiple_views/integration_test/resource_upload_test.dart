@@ -2,10 +2,61 @@ import 'dart:typed_data';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_gpu3d/flutter_gpu3d.dart';
+import 'package:gpu3d/rendering.dart';
 import 'package:integration_test/integration_test.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  testWidgets(
+    'two views share native geometry through hide, close and restore',
+    (tester) async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      final first = await NativeBackend.create();
+      final second = first.createView();
+      final mesh = Mesh(
+        BoxGeometry(),
+        UnlitMaterial(color: const Color3(1, 0, 0)),
+      );
+      final scene = Scene()..add(mesh);
+      FrameSubmission capture() => FrameSubmission.capture(
+        scene: scene,
+        camera: PerspectiveCamera(),
+        size: PhysicalSize(31, 31),
+      );
+      try {
+        final frames = await Future.wait([
+          first.render(capture()),
+          second.render(capture()),
+        ]);
+        expect(
+          frames.fold(0, (sum, frame) => sum + frame.stats.uploadedBytes),
+          720,
+        );
+        mesh.position = const Vec3(.1, 0, 0);
+        expect((await second.render(capture())).stats.uploadedBytes, 0);
+        mesh.visible = false;
+        await second.render(capture());
+        await first.close();
+        expect((await second.resourceStats()).residentBytes, 720);
+        mesh.visible = true;
+        final restored = await second.render(capture()) as ReadbackOutput;
+        final center = (15 * 31 + 15) * 4;
+        expect(restored.image.pixels.sublist(center, center + 4), [
+          255,
+          0,
+          0,
+          255,
+        ]);
+        expect(restored.stats.uploadedBytes, 0);
+        scene.remove(mesh);
+        await second.render(capture());
+        expect((await second.resourceStats()).residentBytes, 0);
+      } finally {
+        await first.close();
+        await second.close();
+      }
+    },
+  );
   testWidgets(
     'native device retains shared buffers and transfers texture mips',
     (tester) async {

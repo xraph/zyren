@@ -10,6 +10,7 @@ use the same native worker and ABI; neither requires a Flutter engine.
 ```sh
 fvm dart run example/offscreen.dart
 fvm dart run example/resources.dart
+fvm dart run example/shared_views.dart
 RUN_NATIVE_GPU=1 fvm dart test --concurrency=1
 ```
 
@@ -28,9 +29,11 @@ presenters are documented in the workspace README.
 Use `createResourceScope()` for typed buffer and texture allocations on this
 backend's device. Scopes support shared references, binary uploads, explicit
 readback and deterministic close. See [the resource API and protocol](../../docs/design/gpu-resources.md)
-for limits and ownership. Scene material bindings and migration of legacy geometry
-uploads remain separate work. Close the backend when you finish to release its
-worker and all owned scopes.
+for limits and ownership. Scene geometry uses the same registry with binary
+uploads and changed mesh records. `createView()` returns an independent readback
+view sharing the device and immutable geometry. Closing a view releases its
+scopes and geometry references; the last view closes the worker. Material texture
+bindings remain separate work.
 
 Worker requests carry a generation and a monotonic request ID. Worker exit or
 error settles every pending request. Stale and duplicate replies are ignored.

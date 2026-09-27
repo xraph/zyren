@@ -94,8 +94,15 @@ final class NativeSurfaces {
     int epoch,
     int frameId,
     String json,
+  ) => renderAppleBytes(renderer, key, epoch, frameId, utf8.encode(json));
+
+  List<int> renderAppleBytes(
+    int renderer,
+    NativeSurfaceKey key,
+    int epoch,
+    int frameId,
+    List<int> bytes,
   ) => using((arena) {
-    final bytes = utf8.encode(json);
     final input = arena<Uint8>(bytes.length)
       ..asTypedList(bytes.length).setAll(0, bytes);
     final output = arena<abi.Fg2FrameReceipt>();

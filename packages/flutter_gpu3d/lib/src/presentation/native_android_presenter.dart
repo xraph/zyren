@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
@@ -24,7 +23,7 @@ class NativeAndroidBackend implements RenderBackend {
   final int session;
   final String adapter;
   final String? driver;
-  Set<int> _uploaded = {};
+  final _encoder = ScenePacketEncoder(viewId: 1);
   bool _closed = false;
   int _nextFrame = 0, _nextAttachment = 0;
   Future<FrameOutput>? _drawing;
@@ -158,20 +157,10 @@ class NativeAndroidBackend implements RenderBackend {
       throw ArgumentError('Render dimensions exceed 4096.');
     }
     final clock = Stopwatch()..start();
-    final packet = submission.toNativePacket(uploaded: _uploaded);
-    final active = {
-      for (final mesh in packet['meshes'] as List)
-        (mesh as Map)['geometry'] as int,
-    };
-    var uploadedBytes = 0;
-    for (final geometry in packet['geometries'] as List) {
-      uploadedBytes +=
-          ((geometry as Map)['positions'] as List).length * 24 +
-          (geometry['indices'] as List).length * 4;
-    }
+    final packet = _encoder.encode(submission);
     final frame = ++_nextFrame;
     final pending = request<Map>('render', {
-      'scene': jsonEncode(packet),
+      'scene': packet.bytes,
       'frame': frame,
       'attachment': key.attachment,
       'epoch': target.epoch,
@@ -180,7 +169,7 @@ class NativeAndroidBackend implements RenderBackend {
     });
     clock.stop();
     final result = (await pending)!;
-    if (result['applied'] == true) _uploaded = active;
+    if (result['applied'] == true) _encoder.accept(packet);
     if (_closed || result['presented'] != true) throw _deferred();
     return PresentedOutput(
       surface: key,
@@ -196,7 +185,7 @@ class NativeAndroidBackend implements RenderBackend {
         drawCalls: submission.scene.drawCalls,
         triangles: submission.scene.triangles,
         readbackBytes: result['readbackBytes'] as int,
-        uploadedBytes: uploadedBytes,
+        uploadedBytes: packet.uploadedBytes,
       ),
     );
   }

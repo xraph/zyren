@@ -1,5 +1,9 @@
+import 'dart:typed_data';
+import 'package:vector_math/vector_math_64.dart' as vm;
+import '../geometry/geometry.dart';
 import '../scene/scene.dart';
 import 'frame_output.dart';
+part 'scene_packet.dart';
 
 class FrameTime {
   final Duration elapsed, delta, rawDelta;
@@ -23,24 +27,60 @@ class CameraSnapshot {
       viewProjection = List.unmodifiable(viewProjection);
 }
 
-/// Immutable ABI v1 data until binary resources replace the legacy packet.
+/// Captured transforms with shared immutable CPU geometry recipes.
 class SceneSnapshot {
-  final Map<String, Object> _packet;
-  final int drawCalls, triangles;
-  SceneSnapshot._(Map<String, Object> packet)
-    : _packet = _freeze(packet) as Map<String, Object>,
-      drawCalls = (packet['meshes'] as List).length,
-      triangles = _triangleCount(packet);
+  final List<Map<String, Object>> _meshes;
+  final Map<int, BufferGeometry> _geometries;
+  final List<double> _background, _light;
+  final double _ambient;
+  int get drawCalls => _meshes.length;
+  int get triangles => _meshes.fold(
+    0,
+    (sum, mesh) => sum + _geometries[mesh['geometry']]!.indices.length ~/ 3,
+  );
+  SceneSnapshot._(
+    this._meshes,
+    this._geometries,
+    this._background,
+    this._light,
+    this._ambient,
+  );
+  static SceneSnapshot _capture(Scene scene, Camera camera) {
+    final meshes = <Map<String, Object>>[],
+        geometries = <int, BufferGeometry>{};
+    void visit(Object3D node, vm.Matrix4 parent, bool parentVisible) {
+      final visible = parentVisible && node.visible;
+      final world = parent * node.localMatrix.toVectorMath();
+      if (node is Mesh) {
+        geometries[node.geometry.id] = node.geometry;
+        if (visible) {
+          final relative = world.clone()
+            ..setTranslation(
+              world.getTranslation() - camera.position.toVectorMath(),
+            );
+          meshes.add(
+            _freeze(<String, Object>{
+                  'geometry': node.geometry.id,
+                  'model': relative.storage.toList(),
+                  'color': node.material.color.toList(),
+                  'unlit': node.material.unlit,
+                })
+                as Map<String, Object>,
+          );
+        }
+      }
+      for (final child in node.children) {
+        visit(child, world, visible);
+      }
+    }
 
-  static int _triangleCount(Map<String, Object> packet) {
-    final counts = <int, int>{
-      for (final geometry in packet['geometries'] as List)
-        (geometry as Map)['id'] as int:
-            (geometry['indices'] as List).length ~/ 3,
-    };
-    return (packet['meshes'] as List).fold<int>(
-      0,
-      (count, mesh) => count + counts[(mesh as Map)['geometry']]!,
+    visit(scene, vm.Matrix4.identity(), true);
+    return SceneSnapshot._(
+      List.unmodifiable(meshes),
+      Map.unmodifiable(geometries),
+      List.unmodifiable(scene.background.toList()),
+      List.unmodifiable(scene.lightDirection.storage),
+      scene.ambient,
     );
   }
 }
@@ -71,12 +111,12 @@ class FrameSubmission {
     FrameTime time = const FrameTime(),
   }) {
     final clock = Stopwatch()..start();
-    final packet = scene.snapshot(camera, size.width / size.height);
+
     final cameraSnapshot = CameraSnapshot._(
       camera.position.storage,
-      (packet['view_projection'] as List<double>),
+      camera.viewProjection(size.width / size.height).storage,
     );
-    final sceneSnapshot = SceneSnapshot._(packet);
+    final sceneSnapshot = SceneSnapshot._capture(scene, camera);
     return FrameSubmission._(
       sceneSnapshot,
       cameraSnapshot,
@@ -87,15 +127,23 @@ class FrameSubmission {
     );
   }
 
-  /// Temporary ABI v1 encoder. Returned collections cannot modify the snapshot.
+  /// Compatibility encoder for native v1 adapters. Geometry conversion is lazy.
   Map<String, Object> toNativePacket({Set<int> uploaded = const {}}) =>
-      Map.unmodifiable({
-        ...scene._packet,
-        'geometries': List.unmodifiable([
-          for (final geometry in scene._packet['geometries'] as List)
-            if (!uploaded.contains((geometry as Map)['id'])) geometry,
-        ]),
-      });
+      _freeze(<String, Object>{
+            'version': 1,
+            'view_projection': camera.viewProjection,
+            'background': scene._background,
+            'light_direction': scene._light,
+            'ambient': scene._ambient,
+            'geometries': [
+              for (final id in {
+                for (final mesh in scene._meshes) mesh['geometry'] as int,
+              })
+                if (!uploaded.contains(id)) scene._geometries[id]!.toNative(),
+            ],
+            'meshes': scene._meshes,
+          })
+          as Map<String, Object>;
 }
 
 Object _freeze(Object value) => switch (value) {

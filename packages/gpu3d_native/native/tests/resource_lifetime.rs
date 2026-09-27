@@ -39,3 +39,17 @@ fn scope_references_and_submission_fences_both_protect_allocations() {
     assert_eq!(registry.resident_bytes(), 0);
     assert!(registry.insert(43, 32).is_ok());
 }
+
+#[test]
+fn allocation_batches_preflight_all_bytes_and_slots() {
+    let registry = ResourceRegistry::<()>::new(1, 1, 128);
+    assert_eq!(
+        registry.check_batch(129, 2),
+        Err(ResourceError::BudgetExceeded)
+    );
+    assert_eq!(
+        registry.check_batch(4, 65537),
+        Err(ResourceError::BudgetExceeded)
+    );
+    assert!(registry.check_batch(128, 65536).is_ok());
+}

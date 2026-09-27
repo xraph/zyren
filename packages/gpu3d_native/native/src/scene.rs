@@ -7,7 +7,7 @@ pub const MAX_VERTICES: usize = 1_000_000;
 pub const MAX_INDICES: usize = 3_000_000;
 pub const MAX_MESHES: usize = 4096;
 
-#[derive(Deserialize)]
+#[derive(Clone, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Geometry {
     pub id: u32,
@@ -49,7 +49,7 @@ impl Geometry {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Mesh {
     pub geometry: u32,
@@ -58,7 +58,7 @@ pub struct Mesh {
     pub unlit: bool,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Frame {
     pub version: u32,
@@ -68,6 +68,8 @@ pub struct Frame {
     pub ambient: f32,
     pub geometries: Vec<Geometry>,
     pub meshes: Vec<Mesh>,
+    #[serde(skip)]
+    pub binary: Option<crate::scene_packet::ViewState>,
 }
 
 impl Frame {

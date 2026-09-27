@@ -23,6 +23,16 @@ typedef enum {
  */
 uint32_t fg2_resource_command(uint64_t renderer, const uint8_t *input,
     size_t length, uint8_t *output, size_t capacity, size_t *written);
+/* fg_render and native presentation entrypoints also accept binary scene
+ * packets (version 2, opcode 10). Each positive view ID owns a revision stream.
+ * Close releases that view's geometry references after its work completes.
+ * Returns 1 on success, 0 on error; read fg_last_error for details.
+ * Statistics include explicit resources and scene geometry. Invalid renderer
+ * handles return zero and set fg_last_error.
+ */
+uint32_t fg2_scene_close(uint64_t renderer, uint64_t view);
+uint64_t fg2_scene_resident_bytes(uint64_t renderer);
+uint64_t fg2_scene_uploaded_bytes(uint64_t renderer);
 #ifdef __cplusplus
 }
 #endif

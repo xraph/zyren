@@ -35,14 +35,19 @@ impl<T> ResourceRegistry<T> {
         }
     }
     pub fn check_capacity(&self, bytes: u64) -> Result<(), ResourceError> {
-        if bytes == 0
-            || bytes > self.limit.saturating_sub(self.resident)
-            || (self.slots.len() >= 65536
-                && !self
-                    .slots
-                    .iter()
-                    .any(|s| s.entry.is_none() && s.generation < u64::MAX))
-        {
+        if bytes == 0 {
+            return Err(ResourceError::BudgetExceeded);
+        }
+        self.check_batch(bytes, 1)
+    }
+    pub fn check_batch(&self, bytes: u64, count: usize) -> Result<(), ResourceError> {
+        let available = 65536 - self.slots.len()
+            + self
+                .slots
+                .iter()
+                .filter(|s| s.entry.is_none() && s.generation < u64::MAX)
+                .count();
+        if bytes > self.limit.saturating_sub(self.resident) || count > available {
             return Err(ResourceError::BudgetExceeded);
         }
         Ok(())

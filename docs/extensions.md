@@ -12,7 +12,7 @@ geospatial package imports the core, and the core never imports geospatial.
 | `RenderBackend` | Native submission with typed capabilities and output | A fresh instance from `SceneRuntime.backendFactory`; closed by the controller |
 | `FramePresenter` | Conversion from RGBA output to a Flutter display | A fresh instance from `presenterFactory`; disposed by the viewport |
 | `PresentedFrame` | A widget and resources for one displayed frame | Retired by the viewport after the replacement paints |
-| `BufferGeometry` / `Object3D` | Custom mesh geometry and scene composition | Your scene owns these Dart objects; the native renderer caches visible geometry |
+| `BufferGeometry` / `Object3D` | Custom mesh geometry and scene composition | Your scene owns these Dart objects; applied views retain native geometry until removal or close |
 
 These contracts are implemented and tested. They do not yet expose native shader
 registration, render passes or texture handles. Those require a resource API and
@@ -171,16 +171,19 @@ try {
 ```
 
 Capture freezes the scene and camera before asynchronous work. Subsequent scene
-changes affect later submissions. Geometry upload caching still belongs to each
-native renderer. The temporary encoder uses ABI v1; binary resources remain a
-later milestone.
+changes affect later submissions. Binary scene packets carry geometry recipes
+and changed mesh records. Geometry residency belongs to the native device;
+`NativeBackend.createView()` shares it across independent readback views.
+See [GPU resources](design/gpu-resources.md) for ownership and packet details.
 
 The current output is top-down RGBA8 in sRGB space with straight alpha and an
 explicit row stride. Readback transfers pixel ownership to `ImageData`; consumers
 receive a read-only view. Unsupported output formats and surface presentation
 produce typed `SceneException` issues. They cannot select a readback fallback
-implicitly. Total GPU residency and GPU timing remain null until native counters
-exist; upload statistics count logical geometry bytes, not serialized JSON size.
+implicitly. Readback frame statistics report uploaded and resident resource
+payload bytes. Frame targets, driver padding and transfer staging are outside
+those counters, so they do not measure total GPU residency. GPU timing remains
+unavailable.
 
 Run the headless example with `fvm dart run example/offscreen.dart` from
 `packages/gpu3d_native`. It requires a native Metal, Vulkan or DX12 device.

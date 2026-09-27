@@ -75,10 +75,8 @@ pub unsafe extern "C" fn fg_metal_render_texture(
             .get(&handle)
             .cloned()
             .ok_or("invalid renderer")?;
-        let frame: Frame =
-            serde_json::from_slice(unsafe { std::slice::from_raw_parts(json, length) })
-                .map_err(|error| format!("invalid scene: {error}"))?;
         let mut renderer = renderer.lock().map_err(|_| "renderer poisoned")?;
+        let frame = renderer.decode_scene(unsafe { std::slice::from_raw_parts(json, length) })?;
         if let Some(error) = &renderer.failure {
             return Err(error.clone());
         }

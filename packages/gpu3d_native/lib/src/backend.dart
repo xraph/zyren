@@ -4,6 +4,8 @@ part of 'native_renderer.dart';
 /// Apple surfaces use the same worker and GPU device as explicit capture.
 class NativeBackend implements ResourceBackend {
   final NativeRenderer _renderer;
+  final ScenePacketEncoder _encoder;
+  Future<FrameOutput>? _drawing;
   final bool _experimentalAppleSurfaces;
   bool _closed = false;
   Future<void>? _closing;
@@ -11,8 +13,34 @@ class NativeBackend implements ResourceBackend {
   final _surfaces = <NativeSurfaceSnapshot>{};
   final _resourceScopes = <ResourceScope>{};
   final _NativeResourceDevice _resources;
-  NativeBackend._(this._renderer, this._experimentalAppleSurfaces)
-    : _resources = _NativeResourceDevice(_renderer);
+  NativeBackend._(
+    this._renderer,
+    this._experimentalAppleSurfaces, {
+    int viewId = 1,
+    _NativeResourceDevice? resources,
+  }) : _resources = resources ?? _NativeResourceDevice(_renderer),
+       _encoder = ScenePacketEncoder(viewId: viewId);
+
+  /// An independent view that shares this device and its immutable geometry.
+  /// Closing either view preserves the other view's scenes and resource scopes.
+  NativeBackend createView() {
+    if (_closed) throw StateError('Backend has closed.');
+    if (_experimentalAppleSurfaces) {
+      throw UnsupportedError(
+        'Shared views currently support explicit readback only.',
+      );
+    }
+    if (_renderer._owners >= 64) {
+      throw StateError('Native device view limit reached.');
+    }
+    _renderer._owners++;
+    return NativeBackend._(
+      _renderer,
+      false,
+      viewId: ++_renderer._nextView,
+      resources: _resources,
+    );
+  }
 
   @override
   ResourceScope createResourceScope({String label = ''}) {
@@ -69,7 +97,20 @@ class NativeBackend implements ResourceBackend {
   DeviceCapabilities get capabilities => _capabilities;
 
   @override
-  Future<FrameOutput> render(FrameSubmission submission) async {
+  Future<FrameOutput> render(FrameSubmission submission) {
+    if (_drawing != null) {
+      return Future.error(
+        StateError('Only one frame may be in flight per view.'),
+      );
+    }
+    final future = _render(submission);
+    _drawing = future;
+    return future.whenComplete(() {
+      _drawing = null;
+    });
+  }
+
+  Future<FrameOutput> _render(FrameSubmission submission) async {
     if (_closed) {
       throw SceneException(
         SceneIssue(
@@ -107,18 +148,12 @@ class NativeBackend implements ResourceBackend {
       throw ArgumentError('Render dimensions exceed the backend limit.');
     }
     final clock = Stopwatch()..start();
-    final packet = submission.toNativePacket(uploaded: _renderer._uploaded);
-    var uploadedBytes = 0;
-    for (final geometry in packet['geometries'] as List) {
-      final data = geometry as Map;
-      uploadedBytes +=
-          (data['positions'] as List).length * 24 +
-          (data['indices'] as List).length * 4;
-    }
     try {
       if (submission.target case final SurfaceTarget target) {
+        final packet = _encoder.encode(submission);
         final pending = _renderer._renderSurfacePacket(
           packet,
+          _encoder,
           target,
           ++_nextFrame,
         );
@@ -137,17 +172,13 @@ class NativeBackend implements ResourceBackend {
             cpuSubmitTime: clock.elapsed,
             drawCalls: submission.scene.drawCalls,
             triangles: submission.scene.triangles,
-            uploadedBytes: uploadedBytes,
+            uploadedBytes: packet.uploadedBytes,
             residentBytes: receipt[2],
             readbackBytes: receipt[3],
           ),
         );
       }
-      final pending = _renderer._renderPacket(
-        packet,
-        submission.size.width,
-        submission.size.height,
-      );
+      final pending = _renderer._renderBinary(submission, _encoder);
       clock.stop();
       final frame = await pending;
       return ReadbackOutput(
@@ -160,7 +191,8 @@ class NativeBackend implements ResourceBackend {
           cpuSubmitTime: clock.elapsed,
           drawCalls: submission.scene.drawCalls,
           triangles: submission.scene.triangles,
-          uploadedBytes: uploadedBytes,
+          uploadedBytes: frame.uploadedBytes,
+          residentBytes: frame.residentBytes,
           readbackBytes: frame.pixels.length,
         ),
       );
@@ -260,7 +292,12 @@ class NativeBackend implements ResourceBackend {
       }
     }
     await Future.wait(resourceClosures);
-    await _renderer.dispose();
+    try {
+      await _drawing;
+    } catch (_) {
+      /* The native owner still needs cleanup. */
+    }
+    await _renderer._releaseView(_encoder.viewId);
     if (failure != null) Error.throwWithStackTrace(failure!, failureStack!);
   }
 }
