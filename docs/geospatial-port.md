@@ -1,5 +1,9 @@
 # three-geospatial port inventory
 
+The [pinned parity matrix](parity/matrix.md), [complete source catalog](parity/catalog.md)
+and [camera comparison](parity/controls.md) define the full port scope. They
+supersede the delivery summary below when assessing feature completeness.
+
 The supplied snapshot contains `@takram/three-geospatial` 0.9.1, atmosphere
 0.19.1, clouds 0.7.6 and effects 0.6.4. Its README also describes an ongoing
 transition from GLSL shader chunks to Three.js WebGPU nodes. Neither shader
