@@ -67,8 +67,9 @@ Default example presentation copies RGBA data from the GPU to Dart and back
 into Flutter. The experimental Apple texture bridge avoids this transfer but fails its
 compositor-retention gate. The newer native Metal view path also avoids readback;
 its integrated checks are recorded below. No frame-rate target has been verified. The renderer supports
-opaque indexed meshes, diffuse directional lighting and an unlit material.
-Custom native shader/pass registration, texture loading, glTF, PBR, shadows,
+opaque indexed meshes, diffuse directional lighting, an unlit material and RGBA
+color textures with supplied mip levels.
+Custom native shader/pass registration, image decoding, glTF, PBR, shadows,
 animation clips, picking, terrain streaming, atmosphere and clouds are not
 implemented.
 
@@ -412,3 +413,42 @@ new iOS, Windows or Linux runtime qualification.
 
 The fixed macOS release app builds (48.1 MB), starts and remains running. Visual
 inspection of that release is pending because the Mac locked before the check.
+
+## Opaque color textures, 2026-09-27
+
+You can map an immutable RGBA image onto UV0 or UV1 with an independent sampler.
+Metal pixel tests check the four corners, nearest/linear filtering, repeat,
+clamp and mirrored repeat, supplied mip sampling and linear/sRGB conversion.
+They also check mixed textured/untextured draw order, hidden-image retention,
+shared-view teardown and zero resident bytes after removing the final owner.
+Alpha stays opaque, including when the source alpha is zero.
+
+Checks pass: 63 core/geospatial tests, 16 native Dart tests, 57 Flutter/example
+tests and 36 Rust tests including real GPU tests. The Rust count includes the
+new populated texture-packet test run after the full suite. Bounds checks cover
+truncation, image extents/mips, UV flags, nonfinite UVs, sampler values, image
+ownership and seeded mutations. Invalid image edits leave the prior frame usable.
+The standalone AOT regression also exercises a first textured frame and a sampler
+edit. Analyzer, strict Clippy, formatters, C-header syntax and package boundaries
+pass.
+
+All six macOS native SceneView integrations pass. On the physical Pixel 9 Pro,
+eight Vulkan integrations pass with the unsupported platform-presenter capture
+case skipped. Those checks cover the new texture view, the earlier binary scene
+migration, 100 view cycles, shared scene images and explicit resource transfers.
+The separate readback backend verifies sRGB gray 128 and linear gray near 188,
+one upload across two owners, retention through hide/close/restore and final
+release. Ordinary native presentation reports zero readback bytes on both hosts.
+
+The previous two-camera macOS release was visibly checked after the Mac unlocked.
+The textured macOS release builds at 48.4 MB and runs independently. Its nearest,
+linear and mirrored-repeat controls visibly change the textured plane. The
+Flutter layout test checks working controls at 320 pixels wide.
+The Android ARM64 release builds at 21.4 MB and launches on the Pixel through
+Flutter's release runner. Its automated Vulkan checks above provide the pixel
+and lifecycle evidence; the manual visual check was on macOS.
+
+Task 2 remains open. PNG/JPEG decoding, automatic mip generation, dynamic
+attributes, alpha modes, render ordering and portable lines/points are pending.
+Box and sphere UV generation is pending too. Public native view presenters still
+own separate devices. No new iOS, Windows, Linux or Adreno qualification was run.

@@ -38,8 +38,8 @@ headless output, use `gpu3d_native`; see [backend submissions](docs/extensions.m
 shared ownership and explicit readback. The [resource API](docs/design/gpu-resources.md)
 documents the implemented operations and limits. Scene geometry now uses the same
 registry and binary packets. Use `NativeBackend.createView()` for independent
-readback views sharing one device and its geometry. Material texture bindings
-remain planned work.
+readback views sharing one device, geometry and material images. `TextureImage`
+and `TextureMap` provide opaque color textures with independent sampler settings.
 
 ## Run the example
 
@@ -87,6 +87,11 @@ Android presentation is opt-in while broader device qualification continues.
 See the
 [Android checkpoint](docs/android-presentation-checkpoint.md).
 
+For native texture filtering and wrapping, run
+`fvm flutter run -d macos -t lib/textured_scene_demo.dart` from
+`examples/multiple_views`. Use your Android device ID in place of `macos` on
+Android. You can change the sampler without uploading the image again.
+
 ## Use the 3D package
 
 Add a path dependency on `packages/flutter_gpu3d` while working in this checkout.
@@ -132,8 +137,10 @@ contents change. Flutter's native view presenters still own separate devices.
 
 Colours use linear RGB; `Color3.hex` converts an sRGB hex colour for you. Positions
 use double precision until the camera origin has been subtracted. The current
-material supports opaque diffuse lighting and an unlit mode. There are no texture,
-transparency, shadow or PBR APIs yet.
+materials support opaque diffuse lighting, unlit shading and RGBA color textures.
+See [color textures](docs/design/gpu-resources.md#color-textures) for UVs, samplers
+and supplied mip levels. Image decoding, transparency, shadows and PBR remain
+planned work.
 
 ## Plugins and backends
 

@@ -4,6 +4,7 @@ import 'package:flutter_gpu3d/flutter_gpu3d.dart';
 import 'package:multiple_views/managed_mesh.dart';
 import 'package:multiple_views/borrowed_viewer.dart';
 import 'package:multiple_views/main.dart';
+import 'package:multiple_views/textured_scene_demo.dart';
 import '../../../packages/flutter_gpu3d/test/support/backend_fake.dart';
 import '../../../packages/flutter_gpu3d/test/support/fakes.dart';
 
@@ -23,6 +24,40 @@ SceneRuntime runtime(FakeBackend backend) => SceneRuntime(
 );
 
 void main() {
+  testWidgets(
+    'texture controls retain image identity at desktop and narrow widths',
+    (tester) async {
+      final backend = FakeBackend();
+      await tester.pumpWidget(
+        TexturedSceneApp(
+          runtime: runtime(backend),
+          presentation: PresentationPolicy.readbackOnly,
+        ),
+      );
+      await frames(tester);
+      final controller = tester
+          .widget<SceneView>(find.byType(SceneView))
+          .controller!;
+      final mesh = controller.scene.children.single as Mesh;
+      final image = mesh.material.colorMap!.image;
+      await tester.tap(find.text('Linear'));
+      await frames(tester);
+      expect(mesh.material.colorMap!.sampler.magFilter, TextureFilter.linear);
+      expect(mesh.material.colorMap!.image, same(image));
+      await tester.binding.setSurfaceSize(const Size(320, 640));
+      await frames(tester);
+      await tester.tap(find.text('Mirror'));
+      await frames(tester);
+      expect(mesh.material.colorMap!.sampler.wrapU, TextureWrap.mirroredRepeat);
+      expect(tester.takeException(), isNull);
+      expect(tester.getSize(find.byType(SceneView)).height, greaterThan(320));
+      await tester.pumpWidget(const SizedBox());
+      await frames(tester);
+      await controller.whenDisposed;
+      expect(backend.closeCount, 1);
+      await tester.binding.setSurfaceSize(null);
+    },
+  );
   testWidgets(
     'managed example owns one session through rebuilds and teardown',
     (tester) async {

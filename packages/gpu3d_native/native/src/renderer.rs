@@ -9,6 +9,7 @@ use glam::Mat4;
 use wgpu::util::DeviceExt;
 
 use crate::scene::{Frame, pixel_len};
+mod textures;
 
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
@@ -24,6 +25,7 @@ struct Uniforms {
     normal_matrix: [f32; 16],
     color_unlit: [f32; 4],
     light_ambient: [f32; 4],
+    map_params: [f32; 4],
 }
 
 struct GpuGeometry {
@@ -79,8 +81,13 @@ pub struct RendererState {
     #[cfg(target_os = "android")]
     pub(crate) android_generation: u64,
     pipeline: wgpu::RenderPipeline,
+    textured_pipeline: wgpu::RenderPipeline,
+    texture_layout: wgpu::BindGroupLayout,
+    textures: HashMap<u32, textures::GpuSceneTexture>,
     #[cfg(any(target_vendor = "apple", target_os = "android"))]
     surface_pipeline: wgpu::RenderPipeline,
+    #[cfg(any(target_vendor = "apple", target_os = "android"))]
+    textured_surface_pipeline: wgpu::RenderPipeline,
     #[cfg(any(target_vendor = "apple", target_os = "android"))]
     surface_depth: Option<DepthTarget>,
     #[cfg(any(target_vendor = "apple", target_os = "android"))]
@@ -182,23 +189,43 @@ impl Renderer {
             bind_group_layouts: &[Some(&layout)],
             ..Default::default()
         });
-        let create_pipeline = |format| {
+        let texture_layout = textures::layout(&device);
+        let textured_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("textured meshes"),
+            bind_group_layouts: &[Some(&layout), Some(&texture_layout)],
+            ..Default::default()
+        });
+        let create_pipeline = |format, textured| {
+            let attributes = wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3];
+            let uv_attributes = wgpu::vertex_attr_array![2 => Float32x2, 3 => Float32x2];
+            let mut buffers = vec![Some(wgpu::VertexBufferLayout {
+                array_stride: 24,
+                step_mode: wgpu::VertexStepMode::Vertex,
+                attributes: &attributes,
+            })];
+            if textured {
+                buffers.push(Some(wgpu::VertexBufferLayout {
+                    array_stride: 16,
+                    step_mode: wgpu::VertexStepMode::Vertex,
+                    attributes: &uv_attributes,
+                }));
+            }
             device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
                 label: Some("opaque meshes"),
-                layout: Some(&pipeline_layout),
+                layout: Some(if textured {
+                    &textured_layout
+                } else {
+                    &pipeline_layout
+                }),
                 vertex: wgpu::VertexState {
                     module: &shader,
-                    entry_point: Some("vs_main"),
+                    entry_point: Some(if textured { "vs_textured" } else { "vs_main" }),
                     compilation_options: Default::default(),
-                    buffers: &[Some(wgpu::VertexBufferLayout {
-                        array_stride: 24,
-                        step_mode: wgpu::VertexStepMode::Vertex,
-                        attributes: &wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3],
-                    })],
+                    buffers: &buffers,
                 },
                 fragment: Some(wgpu::FragmentState {
                     module: &shader,
-                    entry_point: Some("fs_main"),
+                    entry_point: Some(if textured { "fs_textured" } else { "fs_main" }),
                     compilation_options: Default::default(),
                     targets: &[Some(wgpu::ColorTargetState {
                         format,
@@ -222,9 +249,12 @@ impl Renderer {
                 cache: None,
             })
         };
-        let pipeline = create_pipeline(wgpu::TextureFormat::Rgba8UnormSrgb);
+        let pipeline = create_pipeline(wgpu::TextureFormat::Rgba8UnormSrgb, false);
+        let textured_pipeline = create_pipeline(wgpu::TextureFormat::Rgba8UnormSrgb, true);
         #[cfg(any(target_vendor = "apple", target_os = "android"))]
-        let surface_pipeline = create_pipeline(wgpu::TextureFormat::Bgra8UnormSrgb);
+        let surface_pipeline = create_pipeline(wgpu::TextureFormat::Bgra8UnormSrgb, false);
+        #[cfg(any(target_vendor = "apple", target_os = "android"))]
+        let textured_surface_pipeline = create_pipeline(wgpu::TextureFormat::Bgra8UnormSrgb, true);
         Ok(Self {
             state: Some(Box::new(RendererState {
                 device,
@@ -238,8 +268,13 @@ impl Renderer {
                 #[cfg(target_os = "android")]
                 android_generation: 0,
                 pipeline,
+                textured_pipeline,
+                texture_layout,
+                textures: HashMap::new(),
                 #[cfg(any(target_vendor = "apple", target_os = "android"))]
                 surface_pipeline,
+                #[cfg(any(target_vendor = "apple", target_os = "android"))]
+                textured_surface_pipeline,
                 #[cfg(any(target_vendor = "apple", target_os = "android"))]
                 surface_depth: None,
                 #[cfg(any(target_vendor = "apple", target_os = "android"))]
@@ -377,9 +412,10 @@ impl Renderer {
         for id in removed {
             let geometry = self.geometries.remove(&id).unwrap();
             self.resources
-                .release_geometry(geometry.key)
+                .release_scene_resource(geometry.key)
                 .map_err(|e| e.to_string())?;
         }
+        self.evict_textures()?;
         let state = self.state.as_mut().unwrap();
         state.resources.collect(&state.device).map_err(|e| {
             state.failure = Some(e.to_string());
@@ -422,20 +458,22 @@ impl Renderer {
             }
         }
         frame.validate(&cached)?;
+        let (texture_bytes, texture_count) = self.validate_textures(frame)?;
         let bytes: usize = frame
             .geometries
             .iter()
             .filter(|g| !self.geometries.contains_key(&g.id))
-            .map(|g| g.positions.len() * 24 + g.indices.len() * 4)
+            .map(|g| g.byte_length())
             .sum();
         self.resources
             .check_scene_capacity(
-                bytes as u64,
+                (bytes + texture_bytes) as u64,
                 frame
                     .geometries
                     .iter()
                     .filter(|g| !self.geometries.contains_key(&g.id))
-                    .count(),
+                    .count()
+                    + texture_count,
             )
             .map_err(|e| e.to_string())?;
         // Preflight all CPU validation before any existing ownership changes.
@@ -458,6 +496,7 @@ impl Renderer {
                 );
             }
         }
+        self.upload_textures(frame)?;
         let state = frame
             .binary
             .clone()
@@ -466,6 +505,11 @@ impl Renderer {
                 revision: 0,
                 retained: frame.meshes.iter().map(|m| m.geometry).collect(),
                 meshes: Vec::new(),
+                retained_textures: frame
+                    .meshes
+                    .iter()
+                    .filter_map(|m| m.color_map.as_ref().map(|map| map.texture))
+                    .collect(),
             });
         self.views.insert(view, state);
         self.evict_geometry()
@@ -477,6 +521,7 @@ impl Renderer {
         color_view: &wgpu::TextureView,
         depth_view: &wgpu::TextureView,
         pipeline: &wgpu::RenderPipeline,
+        textured_pipeline: &wgpu::RenderPipeline,
     ) -> wgpu::CommandEncoder {
         let vp = Mat4::from_cols_array(&frame.view_projection);
         let bindings: Vec<_> = frame
@@ -499,6 +544,12 @@ impl Renderer {
                         frame.light_direction[2],
                         frame.ambient,
                     ],
+                    map_params: [
+                        mesh.color_map.as_ref().map_or(0., |map| map.uv_set as f32),
+                        0.,
+                        0.,
+                        0.,
+                    ],
                 };
                 let buffer = self
                     .device
@@ -516,6 +567,11 @@ impl Renderer {
                     }],
                 })
             })
+            .collect();
+        let texture_bindings: Vec<_> = frame
+            .meshes
+            .iter()
+            .map(|mesh| mesh.color_map.as_ref().map(|map| self.texture_binding(map)))
             .collect();
         let mut encoder = self.device.create_command_encoder(&Default::default());
         {
@@ -545,12 +601,22 @@ impl Renderer {
                 }),
                 ..Default::default()
             });
-            pass.set_pipeline(pipeline);
-            for (mesh, binding) in frame.meshes.iter().zip(&bindings) {
+            for ((mesh, binding), texture_binding) in
+                frame.meshes.iter().zip(&bindings).zip(&texture_bindings)
+            {
                 let geometry = &self.geometries[&mesh.geometry];
+                pass.set_pipeline(if texture_binding.is_some() {
+                    textured_pipeline
+                } else {
+                    pipeline
+                });
                 pass.set_bind_group(0, binding, &[]);
-                let (vertices, indices, count) = self.resources.geometry(geometry.key);
+                let (vertices, indices, count, uv) = self.resources.geometry(geometry.key);
                 pass.set_vertex_buffer(0, vertices.slice(..));
+                if let Some(binding) = texture_binding {
+                    pass.set_vertex_buffer(1, uv.expect("validated UV buffer").slice(..));
+                    pass.set_bind_group(1, binding, &[]);
+                }
                 pass.set_index_buffer(indices.slice(..), wgpu::IndexFormat::Uint32);
                 pass.draw_indexed(0..count, 0, 0..1);
             }
@@ -560,7 +626,12 @@ impl Renderer {
 
     fn submit(&mut self, encoder: wgpu::CommandEncoder) -> Result<Submission, String> {
         let index = self.queue.submit([encoder.finish()]);
-        let keys: Vec<_> = self.geometries.values().map(|g| g.key).collect();
+        let keys: Vec<_> = self
+            .geometries
+            .values()
+            .map(|g| g.key)
+            .chain(self.textures.values().map(|t| t.key))
+            .collect();
         if let Err(error) = self.resources.scene_submitted(index.clone(), &keys) {
             self.failure = Some(error.to_string());
             return Err(error.to_string());
@@ -654,6 +725,11 @@ impl Renderer {
             } else {
                 &self.surface_pipeline
             },
+            if texture.format() == wgpu::TextureFormat::Rgba8UnormSrgb {
+                &self.textured_pipeline
+            } else {
+                &self.textured_surface_pipeline
+            },
         );
         let result = self
             .submit(encoder)
@@ -676,6 +752,7 @@ impl Renderer {
             &target.color_view,
             &target.depth_view,
             &self.pipeline,
+            &self.textured_pipeline,
         );
         encoder.copy_texture_to_buffer(
             target.color.as_image_copy(),

@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:vector_math/vector_math_64.dart' as vm;
 import '../geometry/geometry.dart';
+import '../resources/texture_image.dart';
 import '../scene/scene.dart';
 import 'frame_output.dart';
 part 'scene_packet.dart';
@@ -31,6 +32,7 @@ class CameraSnapshot {
 class SceneSnapshot {
   final List<Map<String, Object>> _meshes;
   final Map<int, BufferGeometry> _geometries;
+  final Map<int, TextureImage> _textures;
   final List<double> _background, _light;
   final double _ambient;
   int get drawCalls => _meshes.length;
@@ -41,6 +43,7 @@ class SceneSnapshot {
   SceneSnapshot._(
     this._meshes,
     this._geometries,
+    this._textures,
     this._background,
     this._light,
     this._ambient,
@@ -48,12 +51,20 @@ class SceneSnapshot {
   static SceneSnapshot _capture(Scene scene, Camera camera) {
     final meshes = <Map<String, Object>>[],
         geometries = <int, BufferGeometry>{};
+    final textures = <int, TextureImage>{};
     void visit(Object3D node, vm.Matrix4 parent, bool parentVisible) {
       final visible = parentVisible && node.visible;
       final world = parent * node.localMatrix.toVectorMath();
       if (node is Mesh) {
         geometries[node.geometry.id] = node.geometry;
+        final map = node.material.colorMap;
+        if (map != null) textures[map.image.id] = map.image;
         if (visible) {
+          if (map != null &&
+              (map.uvSet == 0 ? node.geometry.uv0 : node.geometry.uv1) ==
+                  null) {
+            throw ArgumentError('The color map requires UV set ${map.uvSet}.');
+          }
           final relative = world.clone()
             ..setTranslation(
               world.getTranslation() - camera.position.toVectorMath(),
@@ -64,6 +75,7 @@ class SceneSnapshot {
                   'model': relative.storage.toList(),
                   'color': node.material.color.toList(),
                   'unlit': node.material.unlit,
+                  'colorMap': map?.toPacket() ?? <int>[],
                 })
                 as Map<String, Object>,
           );
@@ -78,6 +90,7 @@ class SceneSnapshot {
     return SceneSnapshot._(
       List.unmodifiable(meshes),
       Map.unmodifiable(geometries),
+      Map.unmodifiable(textures),
       List.unmodifiable(scene.background.toList()),
       List.unmodifiable(scene.lightDirection.storage),
       scene.ambient,
@@ -128,22 +141,31 @@ class FrameSubmission {
   }
 
   /// Compatibility encoder for native v1 adapters. Geometry conversion is lazy.
-  Map<String, Object> toNativePacket({Set<int> uploaded = const {}}) =>
-      _freeze(<String, Object>{
-            'version': 1,
-            'view_projection': camera.viewProjection,
-            'background': scene._background,
-            'light_direction': scene._light,
-            'ambient': scene._ambient,
-            'geometries': [
-              for (final id in {
-                for (final mesh in scene._meshes) mesh['geometry'] as int,
-              })
-                if (!uploaded.contains(id)) scene._geometries[id]!.toNative(),
-            ],
-            'meshes': scene._meshes,
-          })
-          as Map<String, Object>;
+  Map<String, Object> toNativePacket({Set<int> uploaded = const {}}) {
+    if (scene._textures.isNotEmpty) {
+      throw UnsupportedError(
+        'Texture materials require binary scene submissions.',
+      );
+    }
+    return _freeze(<String, Object>{
+          'version': 1,
+          'view_projection': camera.viewProjection,
+          'background': scene._background,
+          'light_direction': scene._light,
+          'ambient': scene._ambient,
+          'geometries': [
+            for (final id in {
+              for (final mesh in scene._meshes) mesh['geometry'] as int,
+            })
+              if (!uploaded.contains(id)) scene._geometries[id]!.toNative(),
+          ],
+          'meshes': [
+            for (final mesh in scene._meshes)
+              Map<String, Object>.from(mesh)..remove('colorMap'),
+          ],
+        })
+        as Map<String, Object>;
+  }
 }
 
 Object _freeze(Object value) => switch (value) {

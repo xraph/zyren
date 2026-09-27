@@ -9,6 +9,7 @@ final class EncodedScenePacket {
   final int _revision;
   final SceneSnapshot _scene;
   final Set<int> _uploaded;
+  final Set<int> _uploadedTextures;
   EncodedScenePacket._(
     this.bytes,
     this.uploadedBytes,
@@ -17,6 +18,7 @@ final class EncodedScenePacket {
     this._revision,
     this._scene,
     this._uploaded,
+    this._uploadedTextures,
   );
 }
 
@@ -27,6 +29,7 @@ final class ScenePacketEncoder {
   int _next = 0, _accepted = 0;
   SceneSnapshot? _previous;
   Set<int> _uploaded = {};
+  Set<int> _uploadedTextures = {};
   ScenePacketEncoder({required this.viewId}) {
     if (viewId <= 0) throw ArgumentError.value(viewId, 'viewId');
   }
@@ -46,6 +49,18 @@ final class ScenePacketEncoder {
       for (final id in visible)
         if (!uploaded.contains(id)) scene._geometries[id]!,
     ];
+    final uploadedTextures = _uploadedTextures.intersection(
+      scene._textures.keys.toSet(),
+    );
+    final visibleTextures = {
+      for (final mesh in scene._meshes)
+        if ((mesh['colorMap'] as List).isNotEmpty)
+          (mesh['colorMap'] as List).first as int,
+    };
+    final textures = [
+      for (final id in visibleTextures)
+        if (!uploadedTextures.contains(id)) scene._textures[id]!,
+    ];
     final updates = <int>[];
     // Choose full replacement before accessing the nullable baseline. Keep this
     // guard explicit for AOT compilation as well as first-frame ownership.
@@ -58,22 +73,30 @@ final class ScenePacketEncoder {
         }
       }
     }
-    if (scene._geometries.length > 4096 || scene._meshes.length > 4096) {
+    if (scene._geometries.length > 4096 ||
+        scene._meshes.length > 4096 ||
+        scene._textures.length > 4096) {
       throw ArgumentError(
-        'A scene view supports at most 4096 meshes and geometries.',
+        'A scene view supports at most 4096 meshes, geometries and images each.',
       );
     }
-    var geometryBytes = 0, vertices = 0, indices = 0;
+    var uploadBytes = 0, vertices = 0, indices = 0;
     for (final geometry in uploads) {
       vertices += geometry.positions.length ~/ 3;
       indices += geometry.indices.length;
-      geometryBytes +=
+      uploadBytes +=
           geometry.positions.length * 8 + geometry.indices.length * 4;
+      if (geometry.uv0 != null || geometry.uv1 != null) {
+        uploadBytes += geometry.positions.length ~/ 3 * 16;
+      }
+    }
+    for (final texture in textures) {
+      uploadBytes += texture.descriptor.byteLength;
     }
     if (vertices > 1000000 ||
         indices > 3000000 ||
-        geometryBytes > 64 * 1024 * 1024) {
-      throw ArgumentError('Geometry upload exceeds the frame budget.');
+        uploadBytes > 64 * 1024 * 1024) {
+      throw ArgumentError('Scene resource upload exceeds the frame budget.');
     }
     final body = _SceneWriter();
     body.u64(viewId);
@@ -86,16 +109,36 @@ final class ScenePacketEncoder {
     body.floats(scene._background);
     body.floats(scene._light);
     body.floats([scene._ambient]);
+    body.u32(scene._textures.length);
+    body.u32(textures.length);
     for (final id in scene._geometries.keys) {
       body.u32(id);
+    }
+    for (final id in scene._textures.keys) {
+      body.u32(id);
+    }
+    for (final image in textures) {
+      body.u32(image.id);
+      body.u32(image.descriptor.width);
+      body.u32(image.descriptor.height);
+      body.u32(image.descriptor.format.index);
+      body.u32(image.levels.length);
+      for (final level in image.levels) {
+        body.u32(level.length);
+        body.add(level);
+      }
+      uploadedTextures.add(image.id);
     }
     for (final geometry in uploads) {
       body.u32(geometry.id);
       body.u32(geometry.positions.length ~/ 3);
       body.u32(geometry.indices.length);
+      body.u32((geometry.uv0 == null ? 0 : 1) | (geometry.uv1 == null ? 0 : 2));
       body.floats(geometry.positions);
       body.floats(geometry.normals);
       body.integers(geometry.indices);
+      if (geometry.uv0 != null) body.floats(geometry.uv0!);
+      if (geometry.uv1 != null) body.floats(geometry.uv1!);
       uploaded.add(geometry.id);
     }
     for (final i in updates) {
@@ -105,23 +148,27 @@ final class ScenePacketEncoder {
       body.floats((mesh['model'] as List).cast<double>());
       body.floats((mesh['color'] as List).cast<double>());
       body.u32(mesh['unlit'] == true ? 1 : 0);
+      final map = (mesh['colorMap'] as List).cast<int>();
+      body.u32(map.isEmpty ? 0 : 1);
+      body.integers(map);
     }
     final payload = body.finish();
     final revision = ++_next;
     final header = _SceneWriter()
       ..u32(2)
-      ..u32(10)
+      ..u32(11)
       ..u64(revision)
       ..u64(payload.length);
     header.add(payload);
     return EncodedScenePacket._(
       header.finish().asUnmodifiableView(),
-      geometryBytes,
+      uploadBytes,
       updates.length,
       this,
       revision,
       scene,
       uploaded,
+      uploadedTextures,
     );
   }
 
@@ -133,14 +180,16 @@ final class ScenePacketEncoder {
     }
     _previous = packet._scene;
     _uploaded = packet._uploaded;
+    _uploadedTextures = packet._uploadedTextures;
     _accepted = packet._revision;
   }
 }
 
 bool _sameMesh(Map<String, Object> a, Map<String, Object> b) {
   if (a['geometry'] != b['geometry'] || a['unlit'] != b['unlit']) return false;
-  for (final field in ['model', 'color']) {
+  for (final field in ['model', 'color', 'colorMap']) {
     final left = a[field] as List, right = b[field] as List;
+    if (left.length != right.length) return false;
     for (var i = 0; i < left.length; i++) {
       if (left[i] != right[i]) return false;
     }

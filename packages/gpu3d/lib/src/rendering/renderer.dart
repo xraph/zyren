@@ -42,6 +42,7 @@ abstract final class RenderFeatures {
   static const diffuseLighting = RenderFeature.diffuseLighting;
   static const unlitMaterials = RenderFeature.unlitMaterials;
   static const rgbaReadback = RenderFeature.rgbaReadback;
+  static const colorTextures = RenderFeature.colorTextures;
 }
 
 /// Compatibility capabilities for the explicit RGBA renderer interface.

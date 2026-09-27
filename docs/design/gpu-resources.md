@@ -76,7 +76,8 @@ cumulative successfully submitted upload bytes. Retaining a resource changes non
 of these values. Readback doesn't count as upload. Driver padding, frame targets,
 and temporary transfer buffers are outside these counters. Scene geometry counts
 as one allocation containing vertex and index buffers: 24 bytes per vertex and
-four bytes per index. Resident descriptor bytes are not a measurement of total
+four bytes per index, plus 16 bytes per vertex when either UV set is present.
+Resident descriptor bytes are not a measurement of total
 device memory. Command packets and readback buffers have separate fixed size
 limits, and the worker executes commands serially.
 
@@ -124,6 +125,50 @@ The first submission from each view still transfers its CPU geometry recipe to
 the worker. Native validation compares immutable data before reusing an existing
 GPU allocation. This saves GPU uploads, not every cross-isolate transfer.
 
+## Color textures
+
+Give an unlit or diffuse material a `TextureMap`. You can share one image between
+materials with different samplers, and reuse the scene on independent devices.
+
+```dart
+final image = TextureImage.rgba(
+  width: 1,
+  height: 1,
+  pixels: Uint8List.fromList([255, 128, 0, 255]),
+);
+final plane = Mesh(
+  PlaneGeometry(width: 2, height: 2),
+  UnlitMaterial(colorMap: TextureMap(image: image)),
+);
+scene.add(plane);
+```
+
+`TextureImage.rgba` copies tightly packed RGBA bytes into immutable CPU storage.
+Rows and UVs start at the top left. Color images default to `rgba8UnormSrgb`:
+sampling decodes sRGB before linear shading, then the output target encodes sRGB
+once. Use `rgba8Unorm` when your input already contains linear channel values.
+The material's color multiplies the sample; mapped materials default to white.
+Alpha is currently opaque, so the shader ignores the image's alpha channel.
+
+Use `SamplerDescriptor` for clamp, repeat or mirrored repeat on each axis and
+nearest or linear minification, magnification and mip filtering. You can supply
+successive complete mip levels with `mipmaps`. Missing lower levels are not
+generated. Changing a sampler or tint does not upload the image again.
+
+`BufferGeometry` accepts optional `uv0` and `uv1` arrays, with two finite values
+per vertex. `TextureMap.uvSet` selects 0 or 1 and capture rejects a missing set.
+`PlaneGeometry` supplies UV0. Box and sphere UV generation is still pending.
+
+Scene images use the resource registry and share geometry's view ownership rules.
+Hiding a mapped mesh retains its image; removing the last owner releases it after
+submitted work completes. Supplied mip levels count toward the shared 64 MiB
+budget. Each view can own up to 4096 images. `RenderFeature.colorTextures` reports
+support. Legacy Dart JSON encoders reject texture materials explicitly.
+
+You can run `lib/textured_scene_demo.dart` in `examples/multiple_views` on macOS
+or Android to compare filtering and wrapping through the native presenter.
+PNG/JPEG decoding, automatic mips and transparent materials remain task 2 work.
+
 ## Binary resource protocol, version 2
 
 `fg2_resource_command` uses the renderer handle from the existing native session.
@@ -166,17 +211,26 @@ RGBA8 unorm and RGBA8 unorm sRGB. Empty or unknown usage bits are rejected.
 
 ## Binary scene protocol, version 2
 
-The existing render entrypoints accept opcode 10 packets. Their header uses a
-monotonic per-view revision in the request-ID field. The body is:
+The render entrypoints accept opcode 11 packets and retain opcode 10 for older
+untextured callers. Their header uses a monotonic per-view revision in the
+request-ID field. Opcode 11 has this body:
 
 | Order | Value |
 | --- | --- |
 | 1 | view ID u64, base revision u64 |
 | 2 | owned geometry count u32, upload count u32, mesh count u32, update count u32 |
 | 3 | view-projection matrix 16 f32, background 3 f32, light direction 3 f32, ambient f32 |
-| 4 | owned geometry IDs, u32 per entry |
-| 5 | uploads: ID u32, vertex count u32, index count u32, position float3 array, normal float3 array, u32 index array |
-| 6 | updates: mesh index u32, geometry ID u32, model matrix 16 f32, color 3 f32, unlit u32 (0 or 1) |
+| 4 | owned texture count u32, texture upload count u32 |
+| 5 | owned geometry IDs, then owned texture IDs, u32 per entry |
+| 6 | texture uploads: ID, width, height, format, mip count, all u32; then each mip's byte length u32 and RGBA bytes |
+| 7 | geometry uploads: ID, vertex count, index count, UV flags, all u32; position float3 array, normal float3 array, u32 index array, optional UV0 then UV1 float2 arrays |
+| 8 | updates: mesh index u32, geometry ID u32, model matrix 16 f32, color 3 f32, unlit u32, color map flag u32 |
+
+UV flag bits 0 and 1 indicate UV0 and UV1. Material flags are 0 or 1. A color map
+flag of 1 appends seven u32 values: texture ID, UV set, wrap U, wrap V, min filter,
+mag filter and mip filter. Wrap values 0/1/2 mean clamp/repeat/mirrored repeat;
+filter values 0/1 mean nearest/linear. Texture formats match resource commands.
+Opcode 10 omits texture counts, IDs, uploads, UV flags/arrays and color map fields.
 
 View IDs and revisions are positive. Base zero replaces the complete draw list;
 otherwise it must match the last applied revision and mesh count. Matrices use
@@ -206,9 +260,9 @@ scene protocol and registry, but each presenter still owns a separate device.
 They do not yet expose resource scopes or device sharing. Experimental Apple
 shared textures also reject `createView()`.
 
-Material texture sampling, dynamic vertex attributes, device recovery and render
-graph bindings remain planned work. Allocating a texture does not yet make it
-usable by a scene material.
+Opaque material texture sampling uses immutable `TextureImage` recipes. Explicit
+scope texture handles cannot yet be bound to materials. Dynamic vertex attributes,
+device recovery and render graph bindings remain planned work.
 
 Run `fvm dart run example/resources.dart` from `packages/gpu3d_native` for a native
 buffer round trip that retains data after its first scope closes. The GPU suite

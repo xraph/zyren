@@ -6,6 +6,7 @@ import 'package:flutter_gpu3d/flutter_gpu3d.dart';
 import 'package:gpu3d/rendering.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:multiple_views/main.dart';
+import 'package:multiple_views/textured_scene_demo.dart';
 
 class Probe extends ScenePlugin {
   @override
@@ -280,6 +281,53 @@ void main() {
     }
     debugPrint('100 managed native SceneView cycles: ${await stats()}');
   });
+
+  testWidgets(
+    'textured native SceneView updates samplers without image upload',
+    (tester) async {
+      await tester.pumpWidget(TexturedSceneApp(runtime: runtime));
+      final controller = tester
+          .widget<SceneView>(find.byType(SceneView))
+          .controller!;
+      final frames = <FrameStats>[];
+      final subscription = controller.frameStats.listen(frames.add);
+      await until(
+        tester,
+        () => frames.isNotEmpty || controller.status.value is SceneFailed,
+      );
+      expect(controller.status.value, isA<SceneReady>());
+      expect(
+        (await controller.ready).capabilities.supports(
+          RenderFeature.colorTextures,
+        ),
+        isTrue,
+      );
+      expect(frames.first.uploadedBytes, 200);
+      expect(frames.first.readbackBytes, 0);
+      expect(frames.first.presentationPath, path);
+      // Public frame statistics are sampled at most once every 200 ms.
+      await tester.pump(const Duration(milliseconds: 250));
+      var count = frames.length;
+      await tester.tap(find.text('Linear'));
+      await until(tester, () => frames.length > count);
+      expect(frames.last.uploadedBytes, 0);
+      await tester.pump(const Duration(milliseconds: 250));
+      count = frames.length;
+      await tester.tap(find.text('Clamp'));
+      await until(tester, () => frames.length > count);
+      expect(frames.last.uploadedBytes, 0);
+      expect(find.byType(RawImage), findsNothing);
+      expect(frames.map((frame) => frame.readbackBytes), everyElement(0));
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(milliseconds: 25));
+      await controller.whenDisposed;
+      await subscription.cancel();
+      final closed = await stats();
+      expect(closed['sessions'], 0);
+      expect(closed['renderers'], 0);
+      expect(closed[ownership], 0);
+    },
+  );
 
   testWidgets(
     'explicit capture returns real RGBA pixels and measured readback',

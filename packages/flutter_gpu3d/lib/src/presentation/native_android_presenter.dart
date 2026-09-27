@@ -77,6 +77,7 @@ class NativeAndroidBackend implements RenderBackend {
       RenderFeature.indexedMeshes,
       RenderFeature.diffuseLighting,
       RenderFeature.unlitMaterials,
+      RenderFeature.colorTextures,
     },
     limits: DeviceLimits(
       maxTextureDimension2D: 4096,

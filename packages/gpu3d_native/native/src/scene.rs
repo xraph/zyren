@@ -14,10 +14,30 @@ pub struct Geometry {
     pub positions: Vec<[f32; 3]>,
     pub normals: Vec<[f32; 3]>,
     pub indices: Vec<u32>,
+    #[serde(default)]
+    pub uv0: Vec<[f32; 2]>,
+    #[serde(default)]
+    pub uv1: Vec<[f32; 2]>,
 }
 
 impl Geometry {
+    pub fn byte_length(&self) -> usize {
+        self.positions.len()
+            * (if self.uv0.is_empty() && self.uv1.is_empty() {
+                24
+            } else {
+                40
+            })
+            + self.indices.len() * 4
+    }
     pub fn validate(&self) -> Result<(), String> {
+        for uv in [&self.uv0, &self.uv1] {
+            if !uv.is_empty()
+                && (uv.len() != self.positions.len() || uv.iter().flatten().any(|v| !v.is_finite()))
+            {
+                return Err("UV attributes need two finite values per vertex".into());
+            }
+        }
         if self.positions.is_empty() || self.positions.len() > MAX_VERTICES {
             return Err("geometry vertex count is outside the supported range".into());
         }
@@ -56,6 +76,64 @@ pub struct Mesh {
     pub model: [f32; 16],
     pub color: [f32; 3],
     pub unlit: bool,
+    #[serde(default)]
+    pub color_map: Option<ColorMap>,
+}
+
+#[derive(Clone, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ColorMap {
+    pub texture: u32,
+    pub uv_set: u32,
+    pub sampler: [u32; 5],
+}
+impl ColorMap {
+    pub fn validate(&self) -> Result<(), String> {
+        if self.uv_set > 1
+            || self.sampler[..2].iter().any(|v| *v > 2)
+            || self.sampler[2..].iter().any(|v| *v > 1)
+        {
+            return Err("unsupported UV set or sampler".into());
+        }
+        Ok(())
+    }
+}
+#[derive(Clone, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SceneTexture {
+    pub id: u32,
+    pub width: u32,
+    pub height: u32,
+    pub format: u32,
+    pub levels: Vec<Vec<u8>>,
+}
+impl SceneTexture {
+    pub fn byte_length(&self) -> usize {
+        self.levels.iter().map(Vec::len).sum()
+    }
+    pub fn validate(&self) -> Result<(), String> {
+        if self.width == 0
+            || self.height == 0
+            || self.width > 4096
+            || self.height > 4096
+            || self.format > 1
+            || self.levels.is_empty()
+            || self.levels.len() > (32 - self.width.max(self.height).leading_zeros()) as usize
+        {
+            return Err("invalid texture extent, format or mip count".into());
+        }
+        for (mip, level) in self.levels.iter().enumerate() {
+            let size =
+                (self.width >> mip).max(1) as usize * (self.height >> mip).max(1) as usize * 4;
+            if level.len() != size {
+                return Err("texture mip length does not match its extent".into());
+            }
+        }
+        if self.byte_length() > 64 * 1024 * 1024 {
+            return Err("texture exceeds byte budget".into());
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, PartialEq, Deserialize)]
@@ -68,6 +146,8 @@ pub struct Frame {
     pub ambient: f32,
     pub geometries: Vec<Geometry>,
     pub meshes: Vec<Mesh>,
+    #[serde(default)]
+    pub textures: Vec<SceneTexture>,
     #[serde(skip)]
     pub binary: Option<crate::scene_packet::ViewState>,
 }

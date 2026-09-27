@@ -22,4 +22,5 @@ export 'src/assets/asset_scope.dart';
 
 export 'src/resources/buffer.dart';
 export 'src/resources/texture.dart';
+export 'src/resources/texture_image.dart';
 export 'src/resources/resource_scope.dart' hide ResourceDevice;

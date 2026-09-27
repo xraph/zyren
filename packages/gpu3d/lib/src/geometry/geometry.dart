@@ -7,14 +7,19 @@ class BufferGeometry {
   final List<double> positions;
   final List<double> normals;
   final List<int> indices;
+  final List<double>? uv0, uv1;
 
   BufferGeometry({
     required List<double> positions,
     required List<double> normals,
     required List<int> indices,
+    List<double>? uv0,
+    List<double>? uv1,
   }) : positions = List.unmodifiable(positions),
        normals = List.unmodifiable(normals),
-       indices = List.unmodifiable(indices) {
+       indices = List.unmodifiable(indices),
+       uv0 = uv0 == null ? null : List.unmodifiable(uv0),
+       uv1 = uv1 == null ? null : List.unmodifiable(uv1) {
     if (positions.isEmpty ||
         positions.length % 3 != 0 ||
         positions.length != normals.length ||
@@ -26,6 +31,15 @@ class BufferGeometry {
       throw ArgumentError(
         'Geometry requires finite positions, matching normals and valid triangle indices.',
       );
+    }
+    for (final uv in [uv0, uv1]) {
+      if (uv != null &&
+          (uv.length != positions.length ~/ 3 * 2 ||
+              uv.any((v) => !v.isFinite))) {
+        throw ArgumentError(
+          'UV attributes need two finite components per vertex.',
+        );
+      }
     }
     for (var i = 0; i < normals.length; i += 3) {
       if (normals[i] * normals[i] +
@@ -47,6 +61,23 @@ class BufferGeometry {
     ],
     'indices': indices,
   };
+}
+
+/// An XY plane facing +Z with top-left-origin UVs.
+class PlaneGeometry extends BufferGeometry {
+  factory PlaneGeometry({double width = 1, double height = 1}) {
+    if (!width.isFinite || !height.isFinite || width <= 0 || height <= 0) {
+      throw ArgumentError('Plane dimensions must be finite and positive.');
+    }
+    return PlaneGeometry._(width / 2, height / 2);
+  }
+  PlaneGeometry._(double x, double y)
+    : super(
+        positions: [-x, -y, 0, x, -y, 0, x, y, 0, -x, y, 0],
+        normals: [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1],
+        indices: [0, 1, 2, 0, 2, 3],
+        uv0: [0, 1, 1, 1, 1, 0, 0, 0],
+      );
 }
 
 class BoxGeometry extends BufferGeometry {

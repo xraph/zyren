@@ -8,6 +8,72 @@ import 'package:integration_test/integration_test.dart';
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   testWidgets(
+    'shared native images preserve color and release the final owner',
+    (tester) async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      final first = await NativeBackend.create();
+      final second = first.createView();
+      final image = TextureImage.rgba(
+        width: 1,
+        height: 1,
+        pixels: Uint8List.fromList([128, 128, 128, 0]),
+      );
+      final mesh = Mesh(
+        PlaneGeometry(),
+        UnlitMaterial(colorMap: TextureMap(image: image)),
+      );
+      final scene = Scene()..add(mesh);
+      FrameSubmission capture() => FrameSubmission.capture(
+        scene: scene,
+        camera: PerspectiveCamera(),
+        size: PhysicalSize(31, 31),
+      );
+      List<int> center(ReadbackOutput frame) => frame.image.pixels.sublist(
+        (15 * 31 + 15) * 4,
+        (15 * 31 + 15) * 4 + 4,
+      );
+      try {
+        final frames = await Future.wait([
+          first.render(capture()),
+          second.render(capture()),
+        ]);
+        expect(
+          frames.fold(0, (sum, frame) => sum + frame.stats.uploadedBytes),
+          188,
+        );
+        expect(center(frames.first as ReadbackOutput), [128, 128, 128, 255]);
+        mesh.visible = false;
+        await second.render(capture());
+        await first.close();
+        expect((await second.resourceStats()).residentBytes, 188);
+        mesh.visible = true;
+        final restored = await second.render(capture()) as ReadbackOutput;
+        expect(restored.stats.uploadedBytes, 0);
+        expect(center(restored), [128, 128, 128, 255]);
+        mesh.material = UnlitMaterial(
+          colorMap: TextureMap(
+            image: TextureImage.rgba(
+              width: 1,
+              height: 1,
+              format: TextureFormat.rgba8Unorm,
+              pixels: Uint8List.fromList([128, 128, 128, 255]),
+            ),
+          ),
+        );
+        final linear = await second.render(capture()) as ReadbackOutput;
+        expect(center(linear)[0], closeTo(188, 1));
+        expect(linear.stats.uploadedBytes, 4);
+        expect((await second.resourceStats()).residentBytes, 188);
+        scene.remove(mesh);
+        await second.render(capture());
+        expect((await second.resourceStats()).residentBytes, 0);
+      } finally {
+        await first.close();
+        await second.close();
+      }
+    },
+  );
+  testWidgets(
     'two views share native geometry through hide, close and restore',
     (tester) async {
       await tester.pumpWidget(const SizedBox.shrink());

@@ -14,6 +14,7 @@ enum Resource {
         vertices: wgpu::Buffer,
         indices: wgpu::Buffer,
         count: u32,
+        uv: Option<wgpu::Buffer>,
     },
     Buffer {
         buffer: wgpu::Buffer,
@@ -94,7 +95,7 @@ impl ResourceStore {
         geometry: &crate::scene::Geometry,
     ) -> Result<ResourceKey, ResourceError> {
         use wgpu::util::DeviceExt;
-        let bytes = (geometry.positions.len() * 24 + geometry.indices.len() * 4) as u64;
+        let bytes = geometry.byte_length() as u64;
         self.registry.check_capacity(bytes)?;
         let vertices: Vec<[f32; 6]> = geometry
             .positions
@@ -115,11 +116,30 @@ impl ResourceStore {
             contents: bytemuck::cast_slice(&geometry.indices),
             usage: wgpu::BufferUsages::INDEX,
         });
+        let uv = if geometry.uv0.is_empty() && geometry.uv1.is_empty() {
+            None
+        } else {
+            let values: Vec<[f32; 4]> = (0..geometry.positions.len())
+                .map(|i| {
+                    let a = geometry.uv0.get(i).copied().unwrap_or([0.; 2]);
+                    let b = geometry.uv1.get(i).copied().unwrap_or([0.; 2]);
+                    [a[0], a[1], b[0], b[1]]
+                })
+                .collect();
+            Some(
+                device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("scene UVs"),
+                    contents: bytemuck::cast_slice(&values),
+                    usage: wgpu::BufferUsages::VERTEX,
+                }),
+            )
+        };
         let key = self.registry.insert(
             Resource::Geometry {
                 vertices,
                 indices,
                 count: geometry.indices.len() as u32,
+                uv,
             },
             bytes,
         )?;
@@ -133,11 +153,15 @@ impl ResourceStore {
         self.uploaded = self.uploaded.saturating_add(bytes);
         Ok(key)
     }
-    pub(crate) fn geometry(&self, key: ResourceKey) -> (&wgpu::Buffer, &wgpu::Buffer, u32) {
+    pub(crate) fn geometry(
+        &self,
+        key: ResourceKey,
+    ) -> (&wgpu::Buffer, &wgpu::Buffer, u32, Option<&wgpu::Buffer>) {
         let Resource::Geometry {
             vertices,
             indices,
             count,
+            uv,
         } = self
             .registry
             .resolve(key)
@@ -145,9 +169,89 @@ impl ResourceStore {
         else {
             unreachable!()
         };
-        (vertices, indices, *count)
+        (vertices, indices, *count, uv.as_ref())
     }
-    pub(crate) fn release_geometry(&mut self, key: ResourceKey) -> Result<(), ResourceError> {
+    pub(crate) fn insert_scene_texture(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        image: &crate::scene::SceneTexture,
+    ) -> Result<ResourceKey, ResourceError> {
+        let bytes = image.byte_length() as u64;
+        self.registry.check_capacity(bytes)?;
+        let validation = device.push_error_scope(wgpu::ErrorFilter::Validation);
+        let memory = device.push_error_scope(wgpu::ErrorFilter::OutOfMemory);
+        let internal = device.push_error_scope(wgpu::ErrorFilter::Internal);
+        let texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("scene color image"),
+            size: wgpu::Extent3d {
+                width: image.width,
+                height: image.height,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: image.levels.len() as u32,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: if image.format == 0 {
+                wgpu::TextureFormat::Rgba8Unorm
+            } else {
+                wgpu::TextureFormat::Rgba8UnormSrgb
+            },
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            view_formats: &[],
+        });
+        for (mip, pixels) in image.levels.iter().enumerate() {
+            let width = (image.width >> mip).max(1);
+            let height = (image.height >> mip).max(1);
+            queue.write_texture(
+                wgpu::TexelCopyTextureInfo {
+                    texture: &texture,
+                    mip_level: mip as u32,
+                    origin: wgpu::Origin3d::ZERO,
+                    aspect: wgpu::TextureAspect::All,
+                },
+                pixels,
+                wgpu::TexelCopyBufferLayout {
+                    offset: 0,
+                    bytes_per_row: Some(width * 4),
+                    rows_per_image: Some(height),
+                },
+                wgpu::Extent3d {
+                    width,
+                    height,
+                    depth_or_array_layers: 1,
+                },
+            );
+        }
+        let key = self.registry.insert(
+            Resource::Texture {
+                texture,
+                width: image.width,
+                height: image.height,
+                mips: image.levels.len() as u32,
+                usage: 9,
+            },
+            bytes,
+        )?;
+        let mut failed = false;
+        for scope in [internal, memory, validation] {
+            failed |= pollster::block_on(scope.pop()).is_some();
+        }
+        if failed {
+            return Err(ResourceError::DeviceFailed);
+        }
+        self.uploaded = self.uploaded.saturating_add(bytes);
+        Ok(key)
+    }
+    pub(crate) fn scene_texture(&self, key: ResourceKey) -> &wgpu::Texture {
+        let Resource::Texture { texture, .. } =
+            self.registry.resolve(key).expect("validated scene texture")
+        else {
+            unreachable!()
+        };
+        texture
+    }
+    pub(crate) fn release_scene_resource(&mut self, key: ResourceKey) -> Result<(), ResourceError> {
         self.registry.release(key)
     }
     pub(crate) fn scene_submitted(

@@ -12,5 +12,17 @@ view, then turn the mesh again to verify the right renderer remains active.
 shows a controller that survives unmounting its viewport. All three examples
 import their 3D API from `package:flutter_gpu3d/flutter_gpu3d.dart`.
 
-Rendering uses the native GPU. These examples explicitly select RGBA readback for
-Flutter presentation while shared GPU textures are being implemented.
+Rendering uses the native GPU. The default entrypoint selects RGBA readback for
+Flutter presentation. Use `lib/native_scene_demo.dart` for direct Metal views
+on Apple platforms or Vulkan surfaces on Android.
+
+You can compare texture filtering and wrapping with:
+
+```sh
+fvm flutter run -d macos -t lib/textured_scene_demo.dart
+```
+
+Use your Android device ID in place of `macos` to select the Vulkan presenter.
+The demo uses one immutable 2x2 color image and updates its material sampler when
+you select Nearest, Linear, Repeat, Clamp or Mirror. It renders opaque pixels;
+image decoding and transparency are still pending.

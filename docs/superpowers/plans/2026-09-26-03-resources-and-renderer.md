@@ -60,10 +60,10 @@ one universal byte-identical golden across unrelated GPU implementations.
 Checkpoint, 2026-09-27: explicit resource scopes, typed buffer/texture descriptors,
 binary scene transfers, changed mesh records and shared readback views are
 implemented. Scene geometry uses the generation-checked registry and survives
-visibility changes and sibling view teardown. The new native GPU and Flutter
-integration tests pass on macOS Metal. Earlier explicit resource tests passed on
-the physical Pixel; the new scene migration still needs its Vulkan rerun because
-the device disconnected. See [the API and protocol](../../design/gpu-resources.md).
+visibility changes and sibling view teardown. Native GPU and Flutter integration
+tests pass on macOS Metal. The physical Pixel's Vulkan scene/resource rerun also
+passes with the task 2 texture checkpoint. See
+[the API and protocol](../../design/gpu-resources.md).
 Public Flutter platform views still own separate devices. Material/render-graph
 bindings and device recovery belong to later tasks.
 
@@ -107,6 +107,13 @@ device loss: invalidate generation -> retain CPU recipes -> fail old GPU handles
 - [x] Document transfer ownership and byte accounting; commit `feat: add scoped GPU resources and binary uploads`.
 
 ## Task 2: Textures, dynamic geometry and color correctness
+
+Opaque color texture checkpoint: `TextureImage`, `TextureMap`, independent
+samplers, UV0/UV1 and supplied mip levels use binary scene opcode 11 and the
+shared resource registry. The native demo exercises filtering and wrapping.
+Task 2 remains open for dynamic attributes, bounded PNG/JPEG decoding, automatic
+mips, alpha modes, render ordering and portable lines/points. See
+[color textures](../../design/gpu-resources.md#color-textures) for the API.
 
 **Files:** Add core `geometry/{vertex_attribute,vertex_layout}.dart`, resource
 texture/sampler modules and native `src/resources/{image_decode,mipmap}.rs`.

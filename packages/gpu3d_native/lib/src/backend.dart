@@ -85,6 +85,7 @@ class NativeBackend implements ResourceBackend {
       RenderFeature.unlitMaterials,
       RenderFeature.rgbaReadback,
       RenderFeature.scopedResources,
+      RenderFeature.colorTextures,
       if (_experimentalAppleSurfaces && NativeSurfaces().appleAvailable)
         RenderFeature.sharedTexture,
     },
