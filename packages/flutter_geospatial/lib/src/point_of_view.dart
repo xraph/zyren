@@ -90,8 +90,12 @@ final class PointOfView {
     final basis = ellipsoid.eastNorthUpVectors(target);
     final projectedCameraUp = (camera.up - direction * camera.up.dot(direction))
         .normalized();
-    final projectedSurfaceUp = (basis.up - direction * basis.up.dot(direction))
-        .normalized();
+    final surfaceProjection = basis.up - direction * basis.up.dot(direction);
+    // A vertical view has no projected horizon from which to measure roll.
+    // Three's zero-vector normalization leaves zero; atan2 then returns zero.
+    final projectedSurfaceUp = surfaceProjection.length2 == 0
+        ? Vec3.zero
+        : surfaceProjection.normalized();
     return (
       view: PointOfView(
         distance: camera.position.distanceTo(target),

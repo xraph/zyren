@@ -90,5 +90,5 @@ camera and compare its transformed world up with the native pose. Arbitrary
 local-up conventions, parented camera extraction and orthographic reconstruction
 remain unverified. Do not mark G03 complete until those contracts are resolved.
 
-This slice passes 16 package tests, analyzer and the package-boundary guard.
+This slice passes 17 package tests, analyzer and the package-boundary guard.
 No native visual or physical-device comparison is implied by that result.

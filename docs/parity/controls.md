@@ -23,7 +23,7 @@ imports its CameraControls. It is not one of the two demonstrated systems.
 | Two touches | Simultaneous dolly/pan by default; configurable dolly/rotate | WAITING state chooses pinch zoom or parallel rotation after movement exceeds 2 times device pixel ratio; selected mode persists |
 | More pointers | Orbit's pointer state machine | More than two touch pointers reset the state |
 | Keys | Arrow pan after explicit key-listener attachment | Story `useKeyboardControl` adds motion; it is not built into EnvironmentControls |
-| Damping | Default false in implementation, factor .05; residual angles/pan multiplied by .95 per update. Drei wrapper defaults must also be reproduced | Default false, factor .15; decay is `2^(-deltaTime / dampingFactor)` with a quarter-pixel stop threshold and stable-frame checks; stories enable it |
+| Damping | Default false in implementation, factor .05; residual angles/pan multiplied by .95 per update. Drei 10.7.7 enables damping by default and updates before scene frames | Default false, factor .15; decay is `2^(-deltaTime / dampingFactor)` with a quarter-pixel stop threshold and stable-frame checks; stories enable it |
 | Distance limits | Default 0..infinity, polar 0..pi, azimuth unbounded; zoom 0..infinity | Environment minDistance 10, max infinity; altitude 0..0.45pi; cameraRadius 5; Globe maxZoom .01 and view-dependent distance/zoom bounds |
 | Up direction | Arbitrary camera up transformed into spherical Y-up frame | Local surface normal; globe aligns camera up and north as zoom moves toward space |
 | Collision | No terrain-height correction | Raycast height clearance, fallback plane in Environment, ellipsoid in Globe; scene wrapper delays adjustHeight until first interaction |
@@ -33,6 +33,7 @@ Inspect executable implementations at these pinned sources:
 
 - [Three OrbitControls](https://github.com/mrdoob/three.js/blob/r184/examples/jsm/controls/OrbitControls.js)
 - [three-stdlib OrbitControls](https://github.com/pmndrs/three-stdlib/blob/v2.36.1/src/controls/OrbitControls.ts)
+- [Drei lifecycle and damping defaults](https://github.com/pmndrs/drei/blob/v10.7.7/src/core/OrbitControls.tsx)
 - [EnvironmentControls](https://github.com/NASA-AMMOS/3DTilesRendererJS/blob/v0.4.24/src/three/renderer/controls/EnvironmentControls.js)
 - [GlobeControls](https://github.com/NASA-AMMOS/3DTilesRendererJS/blob/v0.4.24/src/three/renderer/controls/GlobeControls.js)
 - [Story wrapper and delayed height adjustment](https://github.com/takram-design-engineering/three-geospatial/blob/b012ad06d858fc035d88aacfd73f092f93c994e4/storybook-webgpu/src/components/GlobeControls.tsx)

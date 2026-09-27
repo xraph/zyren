@@ -238,4 +238,18 @@ void main() {
     expect(PointOfView.fromCamera(camera), isNull);
     expect(() => PointOfView(heading: double.nan), throwsArgumentError);
   });
+
+  test(
+    'vertical camera extraction has a defined zero roll at the horizon singularity',
+    () {
+      final camera = PerspectiveCamera(
+        position: Vec3(6379137, 0, 0),
+        target: Vec3(6378137, 0, 0),
+      );
+      final result = PointOfView.fromCamera(camera)!;
+      expect(result.view.distance, closeTo(1000, 1e-8));
+      expect(result.view.pitch, -math.pi / 2 + PointOfView.epsilon);
+      expect(result.view.roll, 0);
+    },
+  );
 }
