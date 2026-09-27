@@ -1,7 +1,10 @@
 library;
 
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:gpu3d/gpu3d.dart';
+
+part 'src/transform_gizmo.dart';
 
 const sceneTools = ServiceKey<SceneToolsPlugin>('gpu3d.tools');
 
@@ -30,6 +33,8 @@ class SceneToolsPlugin extends ScenePlugin {
   PluginContext? _context;
   Object3D? _selected;
   TransformSession? _session;
+  final _pickExclusions = <Object3D>{};
+  bool _suppressTap = false;
   MeshMaterial? _original, _highlight;
 
   SceneToolsPlugin({
@@ -61,7 +66,10 @@ class SceneToolsPlugin extends ScenePlugin {
     if (selectOnTap && input is ViewportInputSource) {
       context.scope.keep(input.registerGesture(SceneGesture.tap));
       context.scope.listen(input.events, (event) {
-        if (event.phase == ScenePointerPhase.tap) {
+        if (event.phase == ScenePointerPhase.down) _suppressTap = false;
+        if (event.phase == ScenePointerPhase.tap &&
+            !_suppressTap &&
+            _session == null) {
           select(pick(event.point, input.viewport)?.object);
         }
       });
@@ -104,10 +112,18 @@ class SceneToolsPlugin extends ScenePlugin {
     final camera = context.camera;
     final ray = camera.rayFromNdc(ndc.x, ndc.y, viewport.aspect);
     for (final hit in _raycaster.intersectScene(context.scene, ray)) {
+      if (_excluded(hit.object)) continue;
       final projected = camera.projectPoint(hit.point, viewport.aspect);
       if (projected.z >= 0 && projected.z <= 1) return hit;
     }
     return null;
+  }
+
+  bool _excluded(Object3D object) {
+    for (Object3D? node = object; node != null; node = node.parent) {
+      if (_pickExclusions.contains(node)) return true;
+    }
+    return false;
   }
 
   void select(Object3D? object) {
@@ -199,8 +215,9 @@ class SceneToolsPlugin extends ScenePlugin {
 
   void _requireIdle() {
     _attached;
-    if (_session != null)
+    if (_session != null) {
       throw StateError('Finish the active transform first.');
+    }
   }
 
   bool undo() => _move(_undo, _redo, undo: true);
@@ -263,6 +280,8 @@ class SceneToolsPlugin extends ScenePlugin {
     _undo.clear();
     _redo.clear();
     _measurements.clear();
+    _pickExclusions.clear();
+    _suppressTap = false;
     _context = null;
     _changes.add(null);
   }
@@ -284,8 +303,9 @@ final class TransformSession {
   bool get _ownsPose {
     if (!_active ||
         !_tools._contains(object) ||
-        _Pose.capture(object) != _expected)
+        _Pose.capture(object) != _expected) {
       return false;
+    }
     final parents = _parents(object);
     return parents.length == _ancestors.length &&
         Iterable<int>.generate(parents.length).every(
