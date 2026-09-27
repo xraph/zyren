@@ -1,6 +1,11 @@
 enum RenderMode { onDemand, continuous }
 
-enum PresentationPolicy { requireSharedTexture, allowReadback, readbackOnly }
+enum PresentationPolicy {
+  requireNative,
+  requireSharedTexture,
+  allowReadback,
+  readbackOnly,
+}
 
 enum RecoveryPolicy { manual, automaticOnce }
 
@@ -11,7 +16,7 @@ class EngineOptions {
   final int maxFramesPerSecond, maxFramesInFlight;
   const EngineOptions({
     this.renderMode = RenderMode.onDemand,
-    this.presentation = PresentationPolicy.requireSharedTexture,
+    this.presentation = PresentationPolicy.requireNative,
     this.recovery = RecoveryPolicy.manual,
     this.maxFramesPerSecond = 60,
     this.maxFramesInFlight = 2,

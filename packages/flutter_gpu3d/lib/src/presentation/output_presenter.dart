@@ -1,4 +1,5 @@
 import 'package:gpu3d/gpu3d.dart';
+import 'package:flutter/widgets.dart';
 import 'package:gpu3d/rendering.dart';
 import '../presentation.dart';
 
@@ -34,4 +35,13 @@ class ReadbackPresenter implements OutputPresenter {
   Future<void> setSuspended(bool value) async {}
   @override
   Future<void> dispose() => presenter.dispose();
+}
+
+/// A platform view must mount before its first output target can become ready.
+abstract interface class HostedOutputPresenter implements OutputPresenter {
+  Widget build(BuildContext context);
+
+  /// Stop new work and settle pending attachment futures before awaiting draws.
+  /// GPU ownership is released by dispose after any submitted work completes.
+  void cancelPending();
 }

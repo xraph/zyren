@@ -15,7 +15,7 @@ enum ColorSpace { srgb, linear }
 
 enum AlphaMode { straight, premultiplied, opaque }
 
-enum PresentationPath { readback, sharedTexture }
+enum PresentationPath { readback, sharedTexture, nativeView }
 
 /// An opaque identity issued and validated by the owning backend.
 /// Custom backends may implement this interface; it is never a native pointer.

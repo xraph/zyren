@@ -312,7 +312,10 @@ class _SceneViewState extends State<SceneView>
     int version,
   ) async {
     try {
-      _presenter ??= controller._createPresenter();
+      if (_presenter == null) {
+        _presenter = controller._createPresenter();
+        if (_presenter is HostedOutputPresenter) setState(() {});
+      }
       final target = await _presenter!.prepare(size);
       if (!mounted || version != _version || controller.isDisposed) return;
       final frame = await controller._render(time, size, target);
@@ -354,6 +357,8 @@ class _SceneViewState extends State<SceneView>
   Future<void> _closePresentation() =>
       _closingPresentation ??= Future<void>.microtask(() async {
         _stopTicker();
+        final pending = _presenter;
+        if (pending is HostedOutputPresenter) pending.cancelPending();
         await _drawing;
         final frame = _frame;
         _frame = null;
@@ -428,8 +433,11 @@ class _SceneViewState extends State<SceneView>
             Center(child: Text(issue.message));
       }
       if (status is SceneDisposed) return const SizedBox.expand();
+      final presenter = _presenter;
       final content =
-          _frame?.build(context) ??
+          (presenter is HostedOutputPresenter
+              ? presenter.build(context)
+              : _frame?.build(context)) ??
           widget.loadingBuilder?.call(context) ??
           const SizedBox.expand();
       return _controller?._input.wrap(content, widget.onPointer) ?? content;

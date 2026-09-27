@@ -39,10 +39,15 @@ class SceneController {
   late StreamSubscription<int> _cameraSubscription;
   SceneEngine? _engine;
   RenderBackend? _backend;
-  OutputPresenter _createPresenter() =>
-      _info!.presentationPath == PresentationPath.sharedTexture
-      ? runtime.surfacePresenterFactory!.create(_backend!)
-      : ReadbackPresenter(runtime.presenterFactory());
+  OutputPresenter _createPresenter() => switch (_info!.presentationPath) {
+    PresentationPath.sharedTexture => runtime.surfacePresenterFactory!.create(
+      _backend!,
+    ),
+    PresentationPath.nativeView => runtime.nativeViewPresenterFactory!.create(
+      _backend!,
+    ),
+    PresentationPath.readback => ReadbackPresenter(runtime.presenterFactory()),
+  };
   RendererInfo? _info;
   Future<void>? _initialization, _drawing, _failureCleanup, _retrying;
   Object? _viewToken;
@@ -251,16 +256,25 @@ class SceneController {
               options.presentation != PresentationPolicy.readbackOnly &&
               backend.capabilities.supports(RenderFeature.sharedTexture) &&
               (runtime.surfacePresenterFactory?.supports(backend) ?? false);
+          final nativeView =
+              options.presentation != PresentationPolicy.readbackOnly &&
+              options.presentation != PresentationPolicy.requireSharedTexture &&
+              backend.capabilities.supports(RenderFeature.nativeView) &&
+              (runtime.nativeViewPresenterFactory?.supports(backend) ?? false);
           if (!shared &&
-              options.presentation == PresentationPolicy.requireSharedTexture) {
+              !nativeView &&
+              (options.presentation ==
+                      PresentationPolicy.requireSharedTexture ||
+                  options.presentation == PresentationPolicy.requireNative)) {
             await backend.close();
             throw _exception(
               SceneIssueCodes.presentationUnavailable,
-              'Shared texture presentation is unavailable. Select readbackOnly or allowReadback explicitly.',
+              'The required native presentation path is unavailable. Select a supported runtime or enable readback explicitly.',
               'initialize',
             );
           }
           if (!shared &&
+              !nativeView &&
               !backend.capabilities.supports(RenderFeature.rgbaReadback)) {
             await backend.close();
             throw _exception(
@@ -275,7 +289,9 @@ class SceneController {
             adapterName: backend.capabilities.adapterName,
             driverDescription: backend.capabilities.driverDescription,
             capabilities: backend.capabilities,
-            presentationPath: shared
+            presentationPath: nativeView
+                ? PresentationPath.nativeView
+                : shared
                 ? PresentationPath.sharedTexture
                 : PresentationPath.readback,
           );

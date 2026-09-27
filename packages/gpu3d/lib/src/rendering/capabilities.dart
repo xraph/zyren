@@ -4,6 +4,7 @@ enum RenderFeature {
   unlitMaterials,
   rgbaReadback,
   sharedTexture,
+  nativeView,
   compute,
   storageTextures,
   indirectDraws,

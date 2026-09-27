@@ -9,7 +9,9 @@ class SceneRuntime {
   final Future<RenderBackend> Function() backendFactory;
   final PresenterFactory presenterFactory;
   final SurfacePresenterFactory? surfacePresenterFactory;
+  final SurfacePresenterFactory? nativeViewPresenterFactory;
   const SceneRuntime({
+    this.nativeViewPresenterFactory,
     this.surfacePresenterFactory = const NativeTexturePresenterFactory(),
     this.backendFactory = NativeBackend.create,
     this.presenterFactory = ImageFramePresenter.create,
