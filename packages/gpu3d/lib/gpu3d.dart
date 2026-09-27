@@ -15,6 +15,8 @@ export 'src/rendering/engine_options.dart';
 export 'src/input/viewport_point.dart';
 export 'src/input/pointer_event.dart';
 export 'src/input/viewport_input.dart';
+export 'src/controls/orbit_controls.dart';
+export 'src/controls/orbit_controls_plugin.dart';
 export 'src/rendering/capabilities.dart';
 export 'src/rendering/scene_issue.dart';
 export 'src/plugins/attachment_scope.dart';

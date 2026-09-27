@@ -73,8 +73,10 @@ ground clearance, translated/rotated ellipsoid groups and low-LOD replacement.
 Touch tests must distinguish two-finger pan/orbit from pinch selection; a generic
 Flutter scale callback alone loses the pointer information this requires.
 
-No control replay gate has passed yet. Exact input traces and native screen
-comparison remain required even after the camera maths is ported.
+The three-stdlib replay gate now passes for the cases listed in
+[the native orbit evidence](native-orbit.md). Three's r184 addon and the
+Environment/Globe family still need their own implementation and replay gates.
+Full story screenshot comparison remains unrun.
 
 ## Native input contract
 

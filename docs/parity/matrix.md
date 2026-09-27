@@ -41,7 +41,7 @@ fixture does not pass a GPU or device gate.
 | G02 | Rectangle, TileCoordinate, TilingScheme | Algorithms implemented; 60 upstream lookup fixtures and descendant order | See [numerical evidence](numerical.md); explicit native validation and integer-overflow differences |
 | G03 | PointOfView, Camera story | Partial: decomposition and world-space camera extraction, 24 upstream poses | See [numerical evidence](numerical.md); parented/local-up and orthographic reconstruction, native story comparison remain |
 | G04 | EllipsoidGeometry, QuadGeometry | Partial: indexed ellipsoid without source UV contract | Segments, winding, UVs, normals and native geometry comparisons |
-| C01 | OrbitControls in drei/three-stdlib and Three.js addons | Missing: GlobeOrbitPlugin is a different control | Full event replay and camera traces; see [controls](controls.md) |
+| C01 | OrbitControls in drei/three-stdlib and Three.js addons | Partial: three-stdlib behavior ported to core OrbitControls with a native viewport plugin; r184 addon differences remain | [48 traces and 3,072 reference steps](native-orbit.md), native interaction checks; full story images remain |
 | C02 | EnvironmentControls, GlobeControls, CameraTransition | Missing | Surface picking, near/far control transitions, inertia, height clearance, projection transitions and touch arbitration |
 | C03 | Story keyboard control, location/POV, first-drag height policy, pivot indicator | Missing | Keyboard routing, geographic placement, initial low-LOD stability and screen-sized pivot rendering |
 | L01 | ArrayBuffer, TypedArray, DataTexture, EXR/EXR3D and STBN loaders; typed parsers | Missing | Native async transport, cancellation, parser fixtures, dimensional/format checks, typed ownership and failure propagation |

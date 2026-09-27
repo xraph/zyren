@@ -53,6 +53,12 @@ Drag the globe to orbit. Scroll or pinch to zoom, and choose a city to centre
 its geodetic marker. The grid is procedural geometry. No map service, imagery
 download or API key is required.
 
+For the ported OrbitControls, run `fvm flutter run -d macos -t lib/orbit_lab.dart`
+from `examples/planet`. You can switch projection, pan, use cursor zoom and test
+keyboard/touch input in a general 3D scene. See [native orbit evidence](docs/parity/native-orbit.md)
+for the pinned source, device results and remaining differences. The separate
+[camera lab](docs/parity/native-camera-lab.md) uses the upstream geographic poses.
+
 For a general 3D example, run the app in `examples/multiple_views`. It shares one
 scene across two native renderers. Camera edits stay local to each view; scene
 edits wake both. You can close and reopen the left view while the right stays
