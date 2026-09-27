@@ -180,6 +180,8 @@ class SceneController {
 
   void _detach(Object token) {
     if (!identical(_viewToken, token)) return;
+    _input.suspend();
+    _input.viewport = const ViewportMetrics(0, 0);
     _viewToken = null;
     _viewLabel = null;
     _wakeView = null;

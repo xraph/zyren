@@ -75,3 +75,22 @@ Flutter scale callback alone loses the pointer information this requires.
 
 No control replay gate has passed yet. Exact input traces and native screen
 comparison remain required even after the camera maths is ported.
+
+## Native input contract
+
+The host now exposes optional `ViewportInputSource` and `KeyboardInputSource`
+capabilities over the existing input stream. Viewport dimensions use logical
+units, independently of device pixel ratio and render resolution. Keys require
+an explicit registration and scene focus. Clicking a text field transfers key
+ownership away from the scene; held keys receive cancellation on focus loss,
+unregistration, suspension and detachment.
+
+Controls can register `SceneGesture.pointerDrag` to claim raw pointer gestures.
+Flutter then gives those drags to the scene instead of an ancestor scroll view.
+Pointer IDs and individual positions remain available for upstream touch state
+machines. Suspension and detachment cancel active pointers. Wheel ownership
+still requires a separate scroll registration.
+
+Widget tests cover transformed viewports at DPR 1.5 with two render scales,
+text-field focus, key repeat/cancellation, claimed drags, detachment and both
+claimed/unclaimed wheel input. These are host input checks, not control parity.

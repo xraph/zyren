@@ -85,7 +85,7 @@ Earth-specific Rust rendering path was introduced.
 | Gate | Core work | Consumers | Exit evidence |
 | --- | --- | --- | --- |
 | R1 | Hosted SceneView adapter available at 29e21e9 | All visual slices | Camera lab passes macOS and iOS simulator Metal pose/resize/cleanup; wider core qualification remains in its checkpoint |
-| R2 | Partial: orthographic camera, perspective zoom, projection/unprojection and rays implemented; mesh picking, viewport input dimensions and key input remain | Controls, tiles, camera transition | [36 camera configurations and 108 reference rays](cameras.md); full control event replay remains |
+| R2 | Partial: orthographic camera, perspective zoom, projection/unprojection, rays, logical viewport input and focused key routing implemented; mesh picking remains | Controls, tiles, camera transition | [36 camera configurations and 108 reference rays](cameras.md), [host input tests](controls.md); full control event replay remains |
 | R3 | Resource handles, samplers, UVs/tangents, 2D/3D/array/float textures, upload and cancellation | Loaders, PBR, atmosphere/clouds | Validation and actual GPU upload/readback, disposal under failure |
 | R4 | Extensible materials and WGSL pipelines, typed bindings, depth/normal targets, HDR and color management | Atmosphere/effects | Custom plugin pipeline through public APIs, native pixel comparisons |
 | R5 | Render graph, compute, MRT, barriers, mipmaps, temporal history | LUT generation, clouds, effects | Dependency validation, read/write hazards and device capability failures |

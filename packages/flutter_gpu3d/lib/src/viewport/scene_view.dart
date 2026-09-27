@@ -246,6 +246,7 @@ class _SceneViewState extends State<SceneView>
       });
     }
     if (!visible) {
+      controller._input.suspend();
       _stopTicker();
       return;
     }
@@ -424,6 +425,11 @@ class _SceneViewState extends State<SceneView>
         });
       }
       final status = _controller?.status.value;
+      _controller?._input.viewport = ViewportMetrics(
+        _size.width,
+        _size.height,
+        devicePixelRatio: _dpr,
+      );
       final issue =
           _localIssue ?? (status is SceneFailed ? status.issue : null);
       if (issue != null) {
