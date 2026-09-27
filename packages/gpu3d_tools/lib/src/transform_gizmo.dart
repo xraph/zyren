@@ -89,7 +89,7 @@ class TransformGizmoPlugin extends ScenePlugin {
   void attach(PluginContext context) {
     _context = context;
     _tools = context.service(sceneTools);
-    _tools!._pickExclusions.add(_root);
+    context.scope.keep(_tools!.excludeFromPicking(_root));
     context.scope.listen(_tools!.changes, (_) => _sync());
     context.scope.listen(context.scene.changes, (_) => _sync());
     final input = context.input;
@@ -316,7 +316,6 @@ class TransformGizmoPlugin extends ScenePlugin {
       cancel();
     } finally {
       _root.parent?.remove(_root);
-      _tools?._pickExclusions.remove(_root);
       _tools = null;
       _context = null;
     }

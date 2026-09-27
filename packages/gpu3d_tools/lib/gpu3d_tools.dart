@@ -33,7 +33,7 @@ class SceneToolsPlugin extends ScenePlugin {
   PluginContext? _context;
   Object3D? _selected;
   TransformSession? _session;
-  final _pickExclusions = <Object3D>{};
+  final _pickExclusions = <Object3D, int>{};
   bool _suppressTap = false;
   MeshMaterial? _original, _highlight;
 
@@ -121,9 +121,27 @@ class SceneToolsPlugin extends ScenePlugin {
 
   bool _excluded(Object3D object) {
     for (Object3D? node = object; node != null; node = node.parent) {
-      if (_pickExclusions.contains(node)) return true;
+      if (_pickExclusions.containsKey(node)) return true;
     }
     return false;
+  }
+
+  /// Excludes a helper subtree from surface picking until the lease is released.
+  Registration excludeFromPicking(Object3D root) {
+    final context = _attached;
+    _pickExclusions.update(root, (count) => count + 1, ifAbsent: () => 1);
+    return context.scope.keep(
+      Registration(() {
+        if (!identical(_context, context)) return;
+        final count = _pickExclusions[root];
+        if (count == null) return;
+        if (count == 1) {
+          _pickExclusions.remove(root);
+        } else {
+          _pickExclusions[root] = count - 1;
+        }
+      }),
+    );
   }
 
   void select(Object3D? object) {

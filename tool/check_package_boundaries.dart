@@ -9,6 +9,7 @@ void main(List<String> args) {
     'gpu3d_tools': {'gpu3d'},
     'gpu3d_devtools': {'gpu3d'},
     'gpu3d_timeline': {'gpu3d'},
+    'gpu3d_engineering': {'gpu3d'},
   };
   final directive = RegExp(
     r'''^\s*(?:import|export)\s+['"]([^'"]+)['"]''',

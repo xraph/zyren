@@ -6,6 +6,8 @@ resolution: workspace
 environment:
   sdk: '>=3.10.0 <4.0.0'
 dependencies:
+  gpu3d_engineering:
+    path: ../../packages/gpu3d_engineering
   gpu3d_tools:
     path: ../../packages/gpu3d_tools
   gpu3d_devtools:
@@ -20,6 +22,7 @@ dependencies:
     sdk: flutter
   flutter_gpu3d:
     path: ../../packages/flutter_gpu3d
+  path_provider: ^2.1.6
 dev_dependencies:
   flutter_test:
     sdk: flutter

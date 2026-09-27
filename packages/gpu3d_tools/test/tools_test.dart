@@ -243,4 +243,17 @@ void main() {
     await engine.dispose();
     expect(mesh.position, Vec3.zero);
   });
+
+  test('helper picking leases compose and release independently', () {
+    final first = tools.excludeFromPicking(mesh);
+    final second = tools.excludeFromPicking(mesh);
+    expect(tools.pick(const ViewportPoint(100, 100), input.viewport), isNull);
+    first.dispose();
+    expect(tools.pick(const ViewportPoint(100, 100), input.viewport), isNull);
+    second.dispose();
+    expect(
+      tools.pick(const ViewportPoint(100, 100), input.viewport)!.object,
+      same(mesh),
+    );
+  });
 }
