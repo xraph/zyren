@@ -76,7 +76,8 @@ cumulative successfully submitted upload bytes. Retaining a resource changes non
 of these values. Readback doesn't count as upload. Driver padding, frame targets,
 and temporary transfer buffers are outside these counters. Scene geometry counts
 as one allocation containing vertex and index buffers: 24 bytes per vertex and
-four bytes per index, plus 16 bytes per vertex when either UV set is present.
+two or four bytes per index, plus 16 bytes per vertex when either UV set is
+present. Index-buffer alignment padding is outside descriptor byte counts.
 Resident descriptor bytes are not a measurement of total
 device memory. Command packets and readback buffers have separate fixed size
 limits, and the worker executes commands serially.
@@ -150,8 +151,24 @@ identical bytes does nothing. Static geometry rejects edits.
 
 The core also validates tangent handedness, normalized colors, joint indices and
 weights for future material and animation consumers. The current native material
-renderer rejects those attributes explicitly. Indices still use uint32 and
-cannot be edited. Create another geometry to change its layout or topology.
+renderer rejects those attributes explicitly. Indices cannot be edited. Create
+another geometry to change its layout or topology.
+
+Choose `indexFormat: IndexFormat.uint16` to use two bytes per index, or keep the
+`IndexFormat.uint32` default for four bytes. Buffer, plane, box and sphere
+constructors accept the same option. Indices are copied into owned immutable
+typed storage and must fit both the selected width and the vertex count.
+Selecting uint16 rejects values above 65,535 before conversion; it never truncates
+them. The format stays fixed across attribute updates and shared GPU copies.
+
+```dart
+final compact = PlaneGeometry(
+  width: 2,
+  height: 2,
+  dynamic: true,
+  indexFormat: IndexFormat.uint16,
+);
+```
 
 `geometry.id` stays stable through edits; `revision` advances when bytes change.
 A capture keeps immutable CPU data for its own revision. Older captures remain
@@ -259,8 +276,9 @@ RGBA8 unorm and RGBA8 unorm sRGB. Empty or unknown usage bits are rejected.
 
 ## Binary scene protocol, version 2
 
-The render entrypoints accept opcode 12 for geometry patches, opcode 11 for
-textures and opcode 10 for older untextured callers. Their header uses a monotonic per-view revision in the
+The render entrypoints accept opcode 13 for compact indices, opcode 12 for
+geometry patches, opcode 11 for textures and opcode 10 for older untextured
+callers. Their header uses a monotonic per-view revision in the
 request-ID field. Opcode 11 has this body:
 
 | Order | Value |
@@ -290,6 +308,15 @@ ordered and disjoint within each semantic. Repeated targets, patch chains,
 overflow and missing UV sets are rejected. The renderer bounds resolved CPU
 geometry to 64 MiB before cloning it. Full scene validation also applies to the
 resolved candidate. A failed patch leaves the accepted view revision unchanged.
+
+Opcode 13 uses the opcode 12 layout, with a patch count that may be zero. Bit 2
+of a geometry upload's flags selects uint16 indices; a clear bit selects uint32.
+UV flags remain bits 0 and 1. Index values follow the normal array with exactly
+the selected width and no alignment padding. Later UV arrays and mesh records
+may therefore start at an offset that is not divisible by four. Native decoding
+reads checked byte slices and never casts the packet to an aligned structure.
+Older opcodes reject the compact-index flag. CPU admission counts expanded
+native index recipes separately from compact GPU descriptor bytes.
 
 View IDs and revisions are positive. Base zero replaces the complete draw list;
 otherwise it must match the last applied revision and mesh count. Matrices use

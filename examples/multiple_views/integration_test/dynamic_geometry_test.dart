@@ -15,6 +15,7 @@ void main() {
     final first = await NativeBackend.create(), second = first.createView();
     final geometry = BufferGeometry(
       dynamic: true,
+      indexFormat: IndexFormat.uint16,
       positions: [-1, -1, 0, 1, -1, 0, 1, 1, 0, -1, 1, 0],
       normals: [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1],
       indices: [0, 1, 2, 0, 2, 3],
@@ -50,9 +51,9 @@ void main() {
       expect(changed.stats.uploadedBytes, 64);
       expect(center(changed), [0, 255, 0, 255]);
       expect(center(await second.render(old)), [255, 0, 0, 255]);
-      expect((await first.resourceStats()).residentBytes, 376);
+      expect((await first.resourceStats()).residentBytes, 352);
       await second.close();
-      expect((await first.resourceStats()).residentBytes, 192);
+      expect((await first.resourceStats()).residentBytes, 180);
       geometry.updateAttribute(
         VertexSemantic.position,
         Float32List.fromList([1.2, 1, 0]),
@@ -66,7 +67,7 @@ void main() {
       final merged = await first.render(capture());
       expect(merged.stats.uploadedBytes, 24);
       expect(center(merged), [0, 255, 0, 255]);
-      expect((await first.resourceStats()).residentBytes, 192);
+      expect((await first.resourceStats()).residentBytes, 180);
       expect((await first.render(capture())).stats.uploadedBytes, 0);
       scene.remove(mesh);
       await first.render(capture());

@@ -39,13 +39,13 @@ void main() {
   scene.remove(mesh);
   final plane = scene.add(
     Mesh(
-      PlaneGeometry(dynamic: true),
+      PlaneGeometry(dynamic: true, indexFormat: IndexFormat.uint16),
       UnlitMaterial(colorMap: TextureMap(image: image)),
     ),
   );
   final textureEncoder = ScenePacketEncoder(viewId: 2);
   final textureFrame = textureEncoder.encode(capture());
-  if (textureFrame.uploadedBytes != 188) {
+  if (textureFrame.uploadedBytes != 176) {
     throw StateError('First textured frame lost its image or UV buffer.');
   }
   textureEncoder.accept(textureFrame);

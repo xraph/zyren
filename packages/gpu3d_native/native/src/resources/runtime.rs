@@ -15,6 +15,7 @@ enum Resource {
         vertices: wgpu::Buffer,
         indices: wgpu::Buffer,
         count: u32,
+        index_format: wgpu::IndexFormat,
         uv: Option<wgpu::Buffer>,
     },
     Buffer {
@@ -104,6 +105,22 @@ impl ResourceStore {
             .zip(&geometry.normals)
             .map(|(p, n)| [p[0], p[1], p[2], n[0], n[1], n[2]])
             .collect();
+        let compact = if geometry.index_format == crate::scene::IndexFormat::Uint16 {
+            Some(
+                geometry
+                    .indices
+                    .iter()
+                    .map(|i| u16::try_from(*i))
+                    .collect::<Result<Vec<_>, _>>()
+                    .map_err(|_| ResourceError::InvalidRange)?,
+            )
+        } else {
+            None
+        };
+        let index_bytes = match &compact {
+            Some(values) => bytemuck::cast_slice(values),
+            None => bytemuck::cast_slice(&geometry.indices),
+        };
         let validation = device.push_error_scope(wgpu::ErrorFilter::Validation);
         let memory = device.push_error_scope(wgpu::ErrorFilter::OutOfMemory);
         let internal = device.push_error_scope(wgpu::ErrorFilter::Internal);
@@ -116,7 +133,7 @@ impl ResourceStore {
         });
         let indices = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("scene indices"),
-            contents: bytemuck::cast_slice(&geometry.indices),
+            contents: index_bytes,
             usage: wgpu::BufferUsages::INDEX
                 | wgpu::BufferUsages::COPY_SRC
                 | wgpu::BufferUsages::COPY_DST,
@@ -146,6 +163,7 @@ impl ResourceStore {
                 vertices,
                 indices,
                 count: geometry.indices.len() as u32,
+                index_format: geometry.index_format.native(),
                 uv,
             },
             bytes,
@@ -163,12 +181,19 @@ impl ResourceStore {
     pub(crate) fn geometry(
         &self,
         key: ResourceKey,
-    ) -> (&wgpu::Buffer, &wgpu::Buffer, u32, Option<&wgpu::Buffer>) {
+    ) -> (
+        &wgpu::Buffer,
+        &wgpu::Buffer,
+        u32,
+        Option<&wgpu::Buffer>,
+        wgpu::IndexFormat,
+    ) {
         let Resource::Geometry {
             vertices,
             indices,
             count,
             uv,
+            index_format,
         } = self
             .registry
             .resolve(key)
@@ -176,7 +201,7 @@ impl ResourceStore {
         else {
             unreachable!()
         };
-        (vertices, indices, *count, uv.as_ref())
+        (vertices, indices, *count, uv.as_ref(), *index_format)
     }
     pub(crate) fn insert_scene_texture(
         &mut self,

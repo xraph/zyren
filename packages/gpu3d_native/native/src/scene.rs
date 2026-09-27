@@ -8,6 +8,28 @@ pub const MAX_VERTICES: usize = 1_000_000;
 pub const MAX_INDICES: usize = 3_000_000;
 pub const MAX_MESHES: usize = 4096;
 
+#[derive(Clone, Copy, Default, PartialEq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum IndexFormat {
+    Uint16,
+    #[default]
+    Uint32,
+}
+impl IndexFormat {
+    pub fn bytes(self) -> usize {
+        match self {
+            Self::Uint16 => 2,
+            Self::Uint32 => 4,
+        }
+    }
+    pub fn native(self) -> wgpu::IndexFormat {
+        match self {
+            Self::Uint16 => wgpu::IndexFormat::Uint16,
+            Self::Uint32 => wgpu::IndexFormat::Uint32,
+        }
+    }
+}
+
 #[derive(Clone, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Geometry {
@@ -15,6 +37,8 @@ pub struct Geometry {
     pub positions: Vec<[f32; 3]>,
     pub normals: Vec<[f32; 3]>,
     pub indices: Vec<u32>,
+    #[serde(default)]
+    pub index_format: IndexFormat,
     #[serde(default)]
     pub uv0: Vec<[f32; 2]>,
     #[serde(default)]
@@ -29,6 +53,11 @@ impl Geometry {
             } else {
                 40
             })
+            + self.indices.len() * self.index_format.bytes()
+    }
+    pub fn cpu_byte_length(&self) -> usize {
+        (self.positions.len() + self.normals.len()) * 12
+            + (self.uv0.len() + self.uv1.len()) * 8
             + self.indices.len() * 4
     }
     pub fn validate(&self) -> Result<(), String> {
@@ -59,10 +88,10 @@ impl Geometry {
                 .normals
                 .iter()
                 .any(|v| glam::Vec3::from_array(*v).length_squared() < 1e-12)
-            || self
-                .indices
-                .iter()
-                .any(|i| *i as usize >= self.positions.len())
+            || self.indices.iter().any(|i| {
+                *i as usize >= self.positions.len()
+                    || (self.index_format == IndexFormat::Uint16 && *i > u16::MAX as u32)
+            })
         {
             return Err("geometry contains invalid coordinates, normals or indices".into());
         }

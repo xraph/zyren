@@ -483,3 +483,25 @@ macOS release (49.1 MB) and Android ARM64 release (21.7 MB) builds pass. Task 2 
 ordering and portable lines/points. Native material shaders still reject tangent,
 color, joints and weights. This checkpoint adds no iOS, Windows, Linux or Adreno
 qualification and makes no Three.js or Takram parity claim.
+
+## Compact index buffers
+
+Explicit uint16/uint32 geometry passes 66 core tests, 8 geospatial tests, 23 native
+Dart tests with GPU execution, 59 Flutter/example tests and 52 Rust tests including
+GPU cases. The compact triangle regression places the next record after six
+index bytes, checks actual pixel output and keeps an older shared version alive
+after a dynamic edit. Input above 65,535 is rejected for uint16 and preserved for
+uint32. No index conversion truncates values.
+
+The compact plane passes the same Metal and physical Pixel Vulkan integration:
+shared copies preserve pixels, merged dirty rows upload 24 bytes and final removal
+releases all descriptor bytes. AOT encoding, malformed packets, truncation,
+seeded mutations, analysis, Clippy, formatting and package/header boundaries pass.
+The demo opts into uint16; existing callers retain the uint32 default. CPU patch
+admission uses expanded recipe bytes independently of GPU index width.
+
+The compact-index release demo builds for macOS (49.1 MB) and Android ARM64
+(21.7 MB). Native macOS inspection confirms both the initial textured plane and
+its deformed, UV-shifted version at narrow width. The new binaries use the same
+public entrypoint. Android release launches successfully; sustained visual
+interaction remains unverified. Its focused Vulkan GPU tests passed.

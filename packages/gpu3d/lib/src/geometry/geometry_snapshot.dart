@@ -18,6 +18,7 @@ final class GeometrySnapshot {
   final VertexLayout layout;
   final Map<VertexSemantic, VertexAttribute> attributes;
   final List<int> indices;
+  final IndexFormat indexFormat;
   final List<GeometryChange> history;
   GeometrySnapshot._({
     required this.id,
@@ -26,6 +27,7 @@ final class GeometrySnapshot {
     required this.layout,
     required Map<VertexSemantic, VertexAttribute> attributes,
     required this.indices,
+    required this.indexFormat,
     required List<GeometryChange> history,
   }) : attributes = Map.unmodifiable(attributes),
        history = List.unmodifiable(history);
@@ -86,5 +88,6 @@ final class GeometrySnapshot {
       for (var i = 0; i < normals.length; i += 3) normals.sublist(i, i + 3),
     ],
     'indices': indices,
+    'index_format': indexFormat.name,
   };
 }

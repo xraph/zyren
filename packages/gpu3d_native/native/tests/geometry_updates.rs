@@ -5,6 +5,7 @@ fn triangle() -> Geometry {
         positions: vec![[0., 0., 0.], [1., 0., 0.], [0., 1., 0.]],
         normals: vec![[0., 0., 1.]; 3],
         indices: vec![0, 1, 2],
+        index_format: Default::default(),
         uv0: vec![[0., 0.]; 3],
         uv1: vec![],
     }
@@ -68,4 +69,20 @@ fn overlapping_semantics_merge_gpu_rows_but_duplicate_attribute_ranges_fail() {
     assert_eq!(patch.gpu_ranges(), vec![(0, 0, 2), (1, 2, 3)]);
     patch.ranges.insert(1, patch.ranges[0].clone());
     assert!(patch.apply(&triangle()).is_err());
+}
+
+#[test]
+fn index_width_cannot_truncate_and_keeps_cpu_admission_separate() {
+    use gpu3d_runtime::scene::IndexFormat;
+    let mut geometry = triangle();
+    geometry.index_format = IndexFormat::Uint16;
+    assert_eq!(geometry.byte_length(), 126);
+    assert_eq!(geometry.cpu_byte_length(), 108);
+    geometry.positions.resize(65537, [0.; 3]);
+    geometry.normals.resize(65537, [0., 0., 1.]);
+    geometry.uv0.resize(65537, [0.; 2]);
+    geometry.indices[1] = 65536;
+    assert!(geometry.validate().is_err());
+    geometry.index_format = IndexFormat::Uint32;
+    assert!(geometry.validate().is_ok());
 }

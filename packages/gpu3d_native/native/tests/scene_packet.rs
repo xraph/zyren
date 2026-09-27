@@ -285,3 +285,51 @@ fn failed_geometry_patches_preserve_pixels_ownership_and_revisions() {
     renderer.close_scene_view(1).unwrap();
     assert_eq!(renderer.scene_resource_stats(), (0, 108));
 }
+
+fn compact_triangle_packet() -> Vec<u8> {
+    let mut data = triangle_packet(1, 1, 0, true, true, 1.);
+    data[4..8].copy_from_slice(&13_u32.to_le_bytes());
+    data.splice(
+        236..248,
+        [0_u16, 1, 2].into_iter().flat_map(u16::to_le_bytes),
+    );
+    data.splice(164..164, 4_u32.to_le_bytes()); // uint16, no UVs
+    data.splice(148..148, [0_u32; 3].into_iter().flat_map(u32::to_le_bytes));
+    data.extend(0_u32.to_le_bytes()); // no color map
+    let length = data.len() as u64 - 24;
+    data[16..24].copy_from_slice(&length.to_le_bytes());
+    data
+}
+
+#[test]
+fn compact_indices_preserve_unaligned_fields_and_reject_truncation() {
+    let valid = compact_triangle_packet();
+    let frame = ScenePacket::decode(&valid).unwrap().resolve(None).unwrap();
+    assert_eq!(frame.geometries[0].indices, [0, 1, 2]);
+    assert_eq!(frame.geometries[0].byte_length(), 78);
+    assert_eq!(frame.meshes[0].geometry, 7);
+    for end in 0..valid.len() {
+        let mut data = valid[..end].to_vec();
+        if end >= 24 {
+            data[16..24].copy_from_slice(&((end - 24) as u64).to_le_bytes());
+        }
+        assert!(ScenePacket::decode(&data).is_err(), "end {end}");
+    }
+    for (offset, value) in [(4, 12_u32), (176, 8), (176, 0)] {
+        let mut data = valid.clone();
+        data[offset..offset + 4].copy_from_slice(&value.to_le_bytes());
+        assert!(ScenePacket::decode(&data).is_err());
+    }
+    let mut data = valid.clone();
+    data[254..256].copy_from_slice(&3_u16.to_le_bytes());
+    assert!(ScenePacket::decode(&data).is_err());
+    let mut seed = 0x3159_b223_u64;
+    for _ in 0..1024 {
+        seed ^= seed << 13;
+        seed ^= seed >> 7;
+        seed ^= seed << 17;
+        let mut data = valid.clone();
+        data[seed as usize % valid.len()] ^= (seed >> 32) as u8;
+        let _ = ScenePacket::decode(&data);
+    }
+}

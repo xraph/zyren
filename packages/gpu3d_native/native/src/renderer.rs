@@ -386,14 +386,14 @@ impl Renderer {
             let packet = crate::scene_packet::ScenePacket::decode(bytes)?;
             let previous = self.views.get(&packet.view());
             let mut frame = packet.resolve(previous)?;
-            let mut bytes: usize = frame.geometries.iter().map(|g| g.byte_length()).sum();
+            let mut bytes: usize = frame.geometries.iter().map(|g| g.cpu_byte_length()).sum();
             for patch in &frame.geometry_patches {
                 let base = self
                     .geometries
                     .get(&patch.base)
                     .ok_or("geometry patch base is not resident")?;
                 bytes = bytes
-                    .checked_add(base.recipe.byte_length())
+                    .checked_add(base.recipe.cpu_byte_length())
                     .filter(|n| *n <= 64 * 1024 * 1024)
                     .ok_or("geometry patch CPU budget exceeded")?;
                 frame.geometries.push(patch.apply(&base.recipe)?);
@@ -662,13 +662,14 @@ impl Renderer {
                     pipeline
                 });
                 pass.set_bind_group(0, binding, &[]);
-                let (vertices, indices, count, uv) = self.resources.geometry(geometry.key);
+                let (vertices, indices, count, uv, index_format) =
+                    self.resources.geometry(geometry.key);
                 pass.set_vertex_buffer(0, vertices.slice(..));
                 if let Some(binding) = texture_binding {
                     pass.set_vertex_buffer(1, uv.expect("validated UV buffer").slice(..));
                     pass.set_bind_group(1, binding, &[]);
                 }
-                pass.set_index_buffer(indices.slice(..), wgpu::IndexFormat::Uint32);
+                pass.set_index_buffer(indices.slice(..), index_format);
                 pass.draw_indexed(0..count, 0, 0..1);
             }
         }

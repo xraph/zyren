@@ -4,6 +4,13 @@ import 'vertex_attribute.dart';
 import 'vertex_layout.dart';
 part 'geometry_snapshot.dart';
 
+enum IndexFormat {
+  uint16,
+  uint32;
+
+  int get bytesPerIndex => this == uint16 ? 2 : 4;
+}
+
 /// Indexed triangle geometry with an optional fixed-layout update path.
 class BufferGeometry {
   static int _nextId = 1;
@@ -11,6 +18,7 @@ class BufferGeometry {
   final bool isDynamic;
   late GeometrySnapshot _snapshot;
   final _dependents = <(WeakReference<Object>, void Function(Object))>[];
+  IndexFormat get indexFormat => _snapshot.indexFormat;
   int get revision => _snapshot.revision;
   int get vertexCount => _snapshot.layout.vertexCount;
   VertexLayout get layout => _snapshot.layout;
@@ -26,6 +34,7 @@ class BufferGeometry {
     required List<double> positions,
     required List<double> normals,
     required List<int> indices,
+    IndexFormat indexFormat = IndexFormat.uint32,
     List<double>? uv0,
     List<double>? uv1,
     bool dynamic = false,
@@ -51,20 +60,29 @@ class BufferGeometry {
              ),
          },
          indices: indices,
+         indexFormat: indexFormat,
          dynamic: dynamic,
        );
 
   BufferGeometry.fromAttributes({
     required Map<VertexSemantic, VertexAttribute> attributes,
     required List<int> indices,
+    IndexFormat indexFormat = IndexFormat.uint32,
     bool dynamic = false,
   }) : isDynamic = dynamic {
     final layout = VertexLayout(attributes);
     if (indices.isEmpty ||
         indices.length > 3000000 ||
         indices.length % 3 != 0 ||
-        indices.any((i) => i < 0 || i >= layout.vertexCount)) {
-      throw ArgumentError('Geometry needs valid triangle indices.');
+        indices.any(
+          (i) =>
+              i < 0 ||
+              i >= layout.vertexCount ||
+              (indexFormat == IndexFormat.uint16 && i > 65535),
+        )) {
+      throw ArgumentError(
+        'Triangle indices must fit the vertex count and ${indexFormat.name} range.',
+      );
     }
     _snapshot = GeometrySnapshot._(
       id: id,
@@ -72,7 +90,10 @@ class BufferGeometry {
       revision: 0,
       layout: layout,
       attributes: attributes,
-      indices: Uint32List.fromList(indices).asUnmodifiableView(),
+      indexFormat: indexFormat,
+      indices: indexFormat == IndexFormat.uint16
+          ? Uint16List.fromList(indices).asUnmodifiableView()
+          : Uint32List.fromList(indices).asUnmodifiableView(),
       history: const [],
     );
   }
@@ -132,6 +153,7 @@ class BufferGeometry {
         semantic: VertexAttribute(data, format: old.format),
       },
       indices: indices,
+      indexFormat: indexFormat,
       history: [
         ..._snapshot.history.skip(_snapshot.history.length >= 64 ? 1 : 0),
         GeometryChange(
@@ -167,15 +189,17 @@ class PlaneGeometry extends BufferGeometry {
     double width = 1,
     double height = 1,
     bool dynamic = false,
+    IndexFormat indexFormat = IndexFormat.uint32,
   }) {
     if (!width.isFinite || !height.isFinite || width <= 0 || height <= 0) {
       throw ArgumentError('Plane dimensions must be finite and positive.');
     }
-    return PlaneGeometry._(width / 2, height / 2, dynamic);
+    return PlaneGeometry._(width / 2, height / 2, dynamic, indexFormat);
   }
-  PlaneGeometry._(double x, double y, bool dynamic)
+  PlaneGeometry._(double x, double y, bool dynamic, IndexFormat indexFormat)
     : super(
         dynamic: dynamic,
+        indexFormat: indexFormat,
         positions: [-x, -y, 0, x, -y, 0, x, y, 0, -x, y, 0],
         normals: [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1],
         indices: [0, 1, 2, 0, 2, 3],
@@ -189,6 +213,7 @@ class BoxGeometry extends BufferGeometry {
     double height = 1,
     double depth = 1,
     bool dynamic = false,
+    IndexFormat indexFormat = IndexFormat.uint32,
   }) {
     if ([width, height, depth].any((v) => !v.isFinite || v <= 0)) {
       throw ArgumentError('Box dimensions must be finite and positive.');
@@ -223,10 +248,21 @@ class BoxGeometry extends BufferGeometry {
       final o = f * 4;
       indices.addAll([o, o + 1, o + 2, o, o + 2, o + 3]);
     }
-    return BoxGeometry._(p, n, indices, dynamic);
+    return BoxGeometry._(p, n, indices, dynamic, indexFormat);
   }
-  BoxGeometry._(List<double> p, List<double> n, List<int> i, bool dynamic)
-    : super(positions: p, normals: n, indices: i, dynamic: dynamic);
+  BoxGeometry._(
+    List<double> p,
+    List<double> n,
+    List<int> i,
+    bool dynamic,
+    IndexFormat indexFormat,
+  ) : super(
+        positions: p,
+        normals: n,
+        indices: i,
+        dynamic: dynamic,
+        indexFormat: indexFormat,
+      );
 }
 
 /// A Y-up sphere with indexed triangle geometry.
@@ -236,6 +272,7 @@ class SphereGeometry extends BufferGeometry {
     int widthSegments = 64,
     int heightSegments = 32,
     bool dynamic = false,
+    IndexFormat indexFormat = IndexFormat.uint32,
   }) {
     if (!radius.isFinite ||
         radius <= 0 ||
@@ -266,8 +303,19 @@ class SphereGeometry extends BufferGeometry {
         if (y < heightSegments - 1) indices.addAll([a + 1, b + 1, b]);
       }
     }
-    return SphereGeometry._(p, n, indices, dynamic);
+    return SphereGeometry._(p, n, indices, dynamic, indexFormat);
   }
-  SphereGeometry._(List<double> p, List<double> n, List<int> i, bool dynamic)
-    : super(positions: p, normals: n, indices: i, dynamic: dynamic);
+  SphereGeometry._(
+    List<double> p,
+    List<double> n,
+    List<int> i,
+    bool dynamic,
+    IndexFormat indexFormat,
+  ) : super(
+        positions: p,
+        normals: n,
+        indices: i,
+        dynamic: dynamic,
+        indexFormat: indexFormat,
+      );
 }

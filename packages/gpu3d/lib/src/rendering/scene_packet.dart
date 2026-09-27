@@ -111,7 +111,8 @@ final class ScenePacketEncoder {
       vertices += geometry.positions.length ~/ 3;
       indices += geometry.indices.length;
       uploadBytes +=
-          geometry.positions.length * 8 + geometry.indices.length * 4;
+          geometry.positions.length * 8 +
+          geometry.indices.length * geometry.indexFormat.bytesPerIndex;
       if (geometry.uv0 != null || geometry.uv1 != null) {
         uploadBytes += geometry.positions.length ~/ 3 * 16;
       }
@@ -127,6 +128,11 @@ final class ScenePacketEncoder {
         uploadBytes > 64 * 1024 * 1024) {
       throw ArgumentError('Scene resource upload exceeds the frame budget.');
     }
+    final opcode = uploads.any((g) => g.indexFormat == IndexFormat.uint16)
+        ? 13
+        : patches.isNotEmpty
+        ? 12
+        : 11;
     final body = _SceneWriter();
     body.u64(viewId);
     body.u64(topology ? 0 : _accepted);
@@ -140,7 +146,7 @@ final class ScenePacketEncoder {
     body.floats([scene._ambient]);
     body.u32(scene._textures.length);
     body.u32(textures.length);
-    if (patches.isNotEmpty) body.u32(patches.length);
+    if (opcode >= 12) body.u32(patches.length);
     for (final id in owned) {
       body.u32(id);
     }
@@ -163,10 +169,14 @@ final class ScenePacketEncoder {
       body.u32(geometry.id);
       body.u32(geometry.positions.length ~/ 3);
       body.u32(geometry.indices.length);
-      body.u32((geometry.uv0 == null ? 0 : 1) | (geometry.uv1 == null ? 0 : 2));
+      body.u32(
+        (geometry.uv0 == null ? 0 : 1) |
+            (geometry.uv1 == null ? 0 : 2) |
+            (geometry.indexFormat == IndexFormat.uint16 ? 4 : 0),
+      );
       body.floats(geometry.positions);
       body.floats(geometry.normals);
-      body.integers(geometry.indices);
+      body.indices(geometry.indices, geometry.indexFormat);
       if (geometry.uv0 != null) body.floats(geometry.uv0!);
       if (geometry.uv1 != null) body.floats(geometry.uv1!);
     }
@@ -207,7 +217,7 @@ final class ScenePacketEncoder {
     final revision = ++_next;
     final header = _SceneWriter()
       ..u32(2)
-      ..u32(patches.isEmpty ? 11 : 12)
+      ..u32(opcode)
       ..u64(revision)
       ..u64(payload.length);
     header.add(payload);
@@ -285,6 +295,18 @@ final class _SceneWriter {
   void u64(int value) => add(
     (ByteData(8)..setUint64(0, value, Endian.little)).buffer.asUint8List(),
   );
+  void indices(List<int> values, IndexFormat format) {
+    if (format == IndexFormat.uint32) {
+      integers(values);
+      return;
+    }
+    final buffer = ByteData(values.length * 2);
+    for (var i = 0; i < values.length; i++) {
+      buffer.setUint16(i * 2, values[i], Endian.little);
+    }
+    add(buffer.buffer.asUint8List());
+  }
+
   void integers(List<int> values) {
     final buffer = ByteData(values.length * 4);
     for (var i = 0; i < values.length; i++) {

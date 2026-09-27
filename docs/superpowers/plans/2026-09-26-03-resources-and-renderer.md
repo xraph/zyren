@@ -120,8 +120,9 @@ Dynamic geometry checkpoint: fixed typed layouts, immutable captures and bounded
 range journals reach native GPU buffers. Exclusive versions reuse storage;
 shared views retain older versions until their owners advance. The core checks
 tangent handedness and other typed attributes, but native materials currently
-accept position, normal and UV0/UV1 only. Task 2 remains open for index widths,
-automatic mips, alpha modes, render ordering and portable lines/points. See
+accept position, normal and UV0/UV1 only. Explicit uint16/uint32 index formats
+preserve their width through native draws and dynamic copies. Task 2 remains
+open for automatic mips, alpha modes, render ordering and portable lines/points. See
 [color textures](../../design/gpu-resources.md#color-textures) for the API.
 
 **Files:** Add core `geometry/{vertex_attribute,vertex_layout}.dart`, resource

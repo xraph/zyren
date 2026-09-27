@@ -149,6 +149,7 @@ class _TextureSceneState extends State<_TextureScene> {
       Mesh(
         BufferGeometry(
           dynamic: true,
+          indexFormat: IndexFormat.uint16,
           positions: [-1, -1, 0, 1, -1, 0, 1, 1, 0, -1, 1, 0],
           normals: [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1],
           indices: [0, 1, 2, 0, 2, 3],

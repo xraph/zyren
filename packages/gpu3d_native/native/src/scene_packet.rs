@@ -1,5 +1,5 @@
 use crate::scene::{
-    AttributeRange, ColorMap, Frame, Geometry, GeometryPatch, MAX_INDICES, MAX_MESHES,
+    AttributeRange, ColorMap, Frame, Geometry, GeometryPatch, IndexFormat, MAX_INDICES, MAX_MESHES,
     MAX_VERTICES, Mesh, SceneTexture,
 };
 use std::collections::HashSet;
@@ -70,7 +70,7 @@ impl ScenePacket {
             return Err("unsupported scene packet".into());
         }
         let opcode = r.u32()?;
-        if !(10..=12).contains(&opcode) {
+        if !(10..=13).contains(&opcode) {
             return Err("unsupported scene packet".into());
         }
         let textured = opcode >= 11;
@@ -104,7 +104,7 @@ impl ScenePacket {
         if owned_texture_count > MAX_MESHES || texture_count > MAX_MESHES {
             return Err("texture table count exceeds limit".into());
         }
-        let patch_count = if opcode == 12 { r.u32()? as usize } else { 0 };
+        let patch_count = if opcode >= 12 { r.u32()? as usize } else { 0 };
         if patch_count > MAX_MESHES {
             return Err("geometry patch count exceeds limit".into());
         }
@@ -167,7 +167,12 @@ impl ScenePacket {
             let vertex_count = r.u32()? as usize;
             let index_count = r.u32()? as usize;
             let uv_flags = if textured { r.u32()? } else { 0 };
-            if uv_flags > 3 {
+            let index_format = if opcode >= 13 && uv_flags & 4 != 0 {
+                IndexFormat::Uint16
+            } else {
+                IndexFormat::Uint32
+            };
+            if uv_flags > if opcode >= 13 { 7 } else { 3 } {
                 return Err("unknown UV attributes".into());
             }
             if vertex_count > MAX_VERTICES || index_count > MAX_INDICES {
@@ -178,7 +183,8 @@ impl ScenePacket {
             if vertices > MAX_VERTICES || indices > MAX_INDICES {
                 return Err("geometry upload exceeds budget".into());
             }
-            let needed = vertex_count * (24 + uv_flags.count_ones() as usize * 8) + index_count * 4;
+            let needed = vertex_count * (24 + (uv_flags & 3).count_ones() as usize * 8)
+                + index_count * index_format.bytes();
             if needed > data.len() - r.offset {
                 return Err("truncated geometry payload".into());
             }
@@ -187,6 +193,7 @@ impl ScenePacket {
                 positions: Vec::with_capacity(vertex_count),
                 normals: Vec::with_capacity(vertex_count),
                 indices: Vec::with_capacity(index_count),
+                index_format,
                 uv0: Vec::new(),
                 uv1: Vec::new(),
             };
@@ -197,7 +204,12 @@ impl ScenePacket {
                 geometry.normals.push(r.floats()?);
             }
             for _ in 0..index_count {
-                geometry.indices.push(r.u32()?);
+                geometry.indices.push(match index_format {
+                    IndexFormat::Uint16 => {
+                        u16::from_le_bytes(r.bytes(2)?.try_into().unwrap()) as u32
+                    }
+                    IndexFormat::Uint32 => r.u32()?,
+                });
             }
             if uv_flags & 1 != 0 {
                 for _ in 0..vertex_count {

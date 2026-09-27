@@ -22,6 +22,7 @@ impl ResourceStore {
             indices,
             count,
             uv,
+            index_format,
         } = self.registry.resolve(base)?
         else {
             return Err(ResourceError::InvalidRange);
@@ -29,6 +30,7 @@ impl ResourceStore {
         if uv.is_none() && patch.gpu_ranges().iter().any(|range| range.0 == 1) {
             return Err(ResourceError::InvalidRange);
         }
+        let index_format = *index_format;
         let (old_vertices, old_indices, old_count, old_uv) =
             (vertices.clone(), indices.clone(), *count, uv.clone());
         let validation = device.push_error_scope(wgpu::ErrorFilter::Validation);
@@ -124,6 +126,7 @@ impl ResourceStore {
                     indices,
                     count: old_count,
                     uv,
+                    index_format,
                 },
                 geometry.byte_length() as u64,
             )?
