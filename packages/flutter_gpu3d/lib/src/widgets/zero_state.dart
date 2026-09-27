@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 /// Shared, left-aligned explanation and next action for an empty scene workflow.
 class ZeroState extends StatelessWidget {
   final String title, message, actionLabel;
-  final VoidCallback onAction;
+  final VoidCallback? onAction;
   final IconData icon;
   const ZeroState({
     super.key,

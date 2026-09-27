@@ -6,11 +6,15 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter_gpu3d/flutter_gpu3d.dart';
 import 'package:flutter_gpu3d/widgets.dart';
 import 'package:gpu3d_devtools/gpu3d_devtools.dart';
+import 'package:gpu3d_engineering/gpu3d_engineering.dart';
 import 'package:gpu3d_timeline/gpu3d_timeline.dart';
 import 'package:gpu3d_tools/gpu3d_tools.dart';
+import 'workbench_review_store.dart';
+import 'review_dialogs.dart';
 
 void main() => runApp(
   SceneWorkbenchApp(
+    reviewStore: WorkbenchReviewStore(),
     runtime: Platform.isAndroid
         ? const SceneRuntime.nativeAndroid()
         : const SceneRuntime.nativeMetal(),
@@ -20,10 +24,12 @@ void main() => runApp(
 class SceneWorkbenchApp extends StatelessWidget {
   final SceneRuntime runtime;
   final PresentationPolicy presentation;
+  final EngineeringStore? reviewStore;
   const SceneWorkbenchApp({
     super.key,
     required this.runtime,
     this.presentation = PresentationPolicy.requireNative,
+    this.reviewStore,
   });
   @override
   Widget build(BuildContext context) => MaterialApp(
@@ -36,14 +42,23 @@ class SceneWorkbenchApp extends StatelessWidget {
       visualDensity: VisualDensity.compact,
       useMaterial3: true,
     ),
-    home: _Workbench(runtime: runtime, presentation: presentation),
+    home: _Workbench(
+      runtime: runtime,
+      presentation: presentation,
+      reviewStore: reviewStore,
+    ),
   );
 }
 
 class _Workbench extends StatefulWidget {
   final SceneRuntime runtime;
   final PresentationPolicy presentation;
-  const _Workbench({required this.runtime, required this.presentation});
+  final EngineeringStore? reviewStore;
+  const _Workbench({
+    required this.runtime,
+    required this.presentation,
+    this.reviewStore,
+  });
   @override
   State<_Workbench> createState() => _WorkbenchState();
 }
@@ -57,10 +72,18 @@ class _WorkbenchState extends State<_Workbench> {
   late final TransformGizmoPlugin _gizmo;
   final _inspector = SceneDevtoolsPlugin();
   late final SceneTimelinePlugin _timeline;
+  late final SceneEngineeringPlugin _engineering;
+  final _sourceObjects = <String, Object3D>{};
+  final _pins = <String, Mesh>{};
+  final _pinLeases = <String, Registration>{};
+  final _pinGeometry = SphereGeometry(radius: .065);
+  bool _reviewTab = false, _annotating = false;
+  int? _boundGeneration;
   final _subscriptions = <StreamSubscription<dynamic>>[];
   late final List<Mesh> _parts;
   FrameStats? _stats;
   String? _notice;
+  bool _noticeIsError = false;
   Vec3? _anchor;
   bool _measuring = false;
   ViewportMetrics _viewport = const ViewportMetrics(1, 1);
@@ -97,6 +120,12 @@ class _WorkbenchState extends State<_Workbench> {
     for (final part in _parts) {
       assembly.add(part);
     }
+    _sourceObjects.addAll({
+      'pump': assembly,
+      'housing': _parts[0],
+      'shaft': _parts[1],
+      'cover': _parts[2],
+    });
     _timeline = SceneTimelinePlugin(
       duration: const Duration(seconds: 3),
       tracks: [
@@ -122,15 +151,48 @@ class _WorkbenchState extends State<_Workbench> {
         _refresh();
       },
     );
+    _engineering = SceneEngineeringPlugin(
+      document: EngineeringDocument(
+        id: 'demo-pump-v1',
+        objects: [
+          EngineeringObject(
+            id: 'pump',
+            label: 'Pump assembly',
+            properties: {'tag': 'DEMO-P-001'},
+          ),
+          EngineeringObject(
+            id: 'housing',
+            label: 'Housing',
+            properties: {'tag': 'DEMO-HSG-01', 'material': 'Cast iron'},
+          ),
+          EngineeringObject(
+            id: 'shaft',
+            label: 'Shaft',
+            properties: {'tag': 'DEMO-SFT-01', 'material': 'Steel'},
+          ),
+          EngineeringObject(
+            id: 'cover',
+            label: 'Cover',
+            properties: {'tag': 'DEMO-CVR-01', 'material': 'Steel'},
+          ),
+        ],
+      ),
+      excludeFromIsolation: _gizmo.owns,
+    );
     _controller.use(_tools);
     _controller.use(_gizmo);
     _controller.use(_orbit);
     _controller.use(_timeline);
+    _controller.use(_engineering);
     _controller.use(_inspector);
     _subscriptions.addAll([
       _tools.changes.listen((_) => _refresh()),
       _timeline.changes.listen((_) {
-        _gizmo.enabled = !_timeline.isPlaying && !_measuring;
+        _gizmo.enabled = !_timeline.isPlaying && !_measuring && !_annotating;
+        _refresh();
+      }),
+      _engineering.changes.listen((_) {
+        _syncPins();
         _refresh();
       }),
       _controller.frameStats.listen((stats) {
@@ -139,22 +201,34 @@ class _WorkbenchState extends State<_Workbench> {
       }),
       _controller.issues.listen((issue) {
         _notice = issue.message;
+        _noticeIsError = true;
         _refresh();
       }),
     ]);
-    _controller.status.addListener(_refresh);
-    _controller.ready.then(
-      (_) {
-        if (mounted) {
-          _tools.select(_parts.first);
-          _refresh();
-        }
-      },
-      onError: (Object error) {
-        _notice = '$error';
-        _refresh();
-      },
-    );
+    _controller.status.addListener(_statusChanged);
+  }
+
+  void _statusChanged() {
+    final status = _controller.status.value;
+    if (status is SceneReady && status.generation != _boundGeneration) {
+      final initial = _boundGeneration == null;
+      _boundGeneration = status.generation;
+      // A recovered engine has new attachment scopes and picking leases.
+      for (final pin in _pins.values) {
+        pin.parent?.remove(pin);
+      }
+      for (final lease in _pinLeases.values) {
+        lease.dispose();
+      }
+      _pins.clear();
+      _pinLeases.clear();
+      _tools.select(_parts.first);
+      _bindReview();
+      if (initial && widget.reviewStore != null) {
+        unawaited(_loadReview(initial: true));
+      }
+    }
+    _refresh();
   }
 
   void _refresh() {
@@ -180,6 +254,7 @@ class _WorkbenchState extends State<_Workbench> {
       _notice = null;
     } catch (error) {
       _notice = '$error';
+      _noticeIsError = true;
     }
     _refresh();
   }
@@ -194,9 +269,31 @@ class _WorkbenchState extends State<_Workbench> {
   });
 
   void _pointer(ScenePointerEvent event) {
-    if (!_ready || !_measuring || event.phase != ScenePointerPhase.tap) return;
+    if (!_ready ||
+        (!_measuring && !_annotating) ||
+        event.phase != ScenePointerPhase.tap) {
+      return;
+    }
     final hit = _tools.pick(event.point, _viewport);
     if (hit == null) return;
+    if (_annotating) {
+      final id = _engineering.idFor(hit.object);
+      if (id == null) {
+        _notice = 'Add metadata for this part before attaching a note.';
+        _noticeIsError = false;
+        _refresh();
+        return;
+      }
+      _annotating = false;
+      _gizmo.enabled = true;
+      unawaited(
+        _noteDialog(
+          objectId: id,
+          anchor: _engineering.localAnchor(id, hit.point),
+        ),
+      );
+      return;
+    }
     if (_anchor == null) {
       _anchor = hit.point;
     } else {
@@ -206,6 +303,274 @@ class _WorkbenchState extends State<_Workbench> {
       _gizmo.enabled = true;
     }
     _refresh();
+  }
+
+  void _bindReview() {
+    for (final entry in _sourceObjects.entries) {
+      if (_engineering.document.objects.containsKey(entry.key)) {
+        _engineering.bind(entry.key, entry.value);
+      }
+    }
+    _syncPins();
+  }
+
+  void _syncPins() {
+    if (!_engineering.isAttached || _controller.isDisposed) return;
+    for (final id in _pins.keys.toList()) {
+      final note = _engineering.document.annotations[id];
+      if (note == null || _engineering.objectFor(note.objectId) == null) {
+        final pin = _pins.remove(id)!;
+        pin.parent?.remove(pin);
+        _pinLeases.remove(id)?.dispose();
+      }
+    }
+    for (final note in _engineering.document.annotations.values) {
+      final object = _engineering.objectFor(note.objectId);
+      if (object == null) continue;
+      final pin = _pins.putIfAbsent(note.id, () {
+        final pin = Mesh(
+          _pinGeometry,
+          UnlitMaterial(color: Color3.hex(0xff8ec3)),
+          name: 'Review pin',
+        );
+        _pinLeases[note.id] = _tools.excludeFromPicking(pin);
+        return pin;
+      });
+      object.add(pin);
+      pin.position = note.anchor;
+    }
+  }
+
+  Future<void> _saveReview() async {
+    try {
+      await _engineering.save(widget.reviewStore!);
+      if (!mounted) return;
+      _notice = _engineering.hasUnsavedChanges
+          ? 'Saved. Newer edits are still unsaved.'
+          : 'Review saved.';
+      _noticeIsError = false;
+    } catch (error) {
+      if (!mounted) return;
+      _notice = 'Could not save review: $error';
+      _noticeIsError = true;
+    }
+    _refresh();
+  }
+
+  Future<void> _loadReview({bool initial = false}) async {
+    if (!initial && _engineering.hasUnsavedChanges) {
+      final discard = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Reload saved review?'),
+          content: const Text('This discards unsaved metadata and notes.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Reload'),
+            ),
+          ],
+        ),
+      );
+      if (discard != true || !mounted) return;
+    }
+    try {
+      final found = await _engineering.load(widget.reviewStore!);
+      if (!mounted) return;
+      _bindReview();
+      _notice = initial
+          ? null
+          : found
+          ? 'Review reloaded.'
+          : 'No saved review yet. Current edits were kept.';
+      _noticeIsError = false;
+    } catch (error) {
+      if (!mounted) return;
+      _notice = 'Could not load review: $error';
+      _noticeIsError = true;
+    }
+    _refresh();
+  }
+
+  Future<void> _metadataDialog() async {
+    final selected = _tools.selected;
+    if (selected == null) return;
+    final source = _sourceObjects.entries
+        .where((entry) => identical(entry.value, selected))
+        .firstOrNull;
+    if (source == null) return;
+    final before =
+        _engineering.document.objects[source.key] ??
+        EngineeringObject(id: source.key, label: selected.name ?? source.key);
+    final record = await showDialog<EngineeringObject>(
+      context: context,
+      builder: (_) => ReviewMetadataDialog(record: before),
+    );
+    if (record == null || !mounted) return;
+    _edit(() {
+      _engineering.putObject(record);
+      _engineering.bind(record.id, selected);
+    });
+  }
+
+  void _startNote() {
+    _edit(() {
+      _annotating = !_annotating;
+      _measuring = false;
+      _anchor = null;
+      _gizmo.enabled = !_annotating;
+    });
+  }
+
+  Future<void> _noteDialog({
+    EngineeringAnnotation? note,
+    String? objectId,
+    Vec3? anchor,
+  }) async {
+    final text = await showDialog<String>(
+      context: context,
+      builder: (_) => ReviewNoteDialog(text: note?.text ?? ''),
+    );
+    if (text == null || !mounted) return;
+    var id = note?.id;
+    if (id == null) {
+      var next = 1;
+      while (_engineering.document.annotations.containsKey('note-$next')) {
+        next++;
+      }
+      id = 'note-$next';
+    }
+    _edit(
+      () => _engineering.putAnnotation(
+        EngineeringAnnotation(
+          id: id!,
+          objectId: note?.objectId ?? objectId!,
+          text: text,
+          anchor: note?.anchor ?? anchor!,
+        ),
+      ),
+    );
+    _reviewTab = true;
+    _refresh();
+  }
+
+  Widget _reviewPanel() {
+    final selected = _tools.selected;
+    final id = selected == null ? null : _engineering.idFor(selected);
+    final record = _engineering.document.objects[id];
+    final available = !_engineering.isBusy;
+    final notes = _engineering.document.annotations.values;
+    return ListView(
+      key: const ValueKey('review-list'),
+      padding: const EdgeInsets.all(8),
+      children: [
+        Wrap(
+          spacing: 2,
+          children: [
+            _button(
+              'Edit metadata',
+              Icons.edit_note,
+              available && selected != null
+                  ? () => unawaited(_metadataDialog())
+                  : null,
+            ),
+            _button(
+              _annotating ? 'Cancel note' : 'Add surface note',
+              Icons.add_comment_outlined,
+              available ? _startNote : null,
+            ),
+            _button(
+              'Isolate selected',
+              Icons.filter_center_focus,
+              available && id != null
+                  ? () => _edit(() => _engineering.isolate({id}))
+                  : null,
+            ),
+            _button(
+              'Restore visibility',
+              Icons.layers_outlined,
+              _engineering.isolatedIds.isNotEmpty
+                  ? () => _edit(_engineering.restoreVisibility)
+                  : null,
+            ),
+          ],
+        ),
+        if (record == null)
+          ZeroState(
+            title: selected == null ? 'Select a part' : 'No metadata',
+            message: 'Choose a part and add its engineering record.',
+            actionLabel: selected == null ? 'Select housing' : 'Add metadata',
+            onAction: () => selected == null
+                ? _tools.select(_parts.first)
+                : unawaited(_metadataDialog()),
+          )
+        else ...[
+          Text(
+            record.label,
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+          SelectableText(
+            'ID: ${record.id}',
+            style: const TextStyle(fontSize: 12),
+          ),
+          for (final property in record.properties.entries)
+            Text(
+              '${property.key}: ${property.value ?? '-'}',
+              style: const TextStyle(fontSize: 12),
+            ),
+        ],
+        if (_engineering.isolatedIds.isNotEmpty)
+          const Padding(
+            padding: EdgeInsets.only(top: 6),
+            child: Text('Isolation active', style: TextStyle(fontSize: 12)),
+          ),
+        const Divider(height: 16),
+        Text(
+          'Notes (${notes.length})',
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+        if (notes.isEmpty)
+          ZeroState(
+            title: 'No review notes',
+            message: 'Pick a surface to attach a note to that part.',
+            actionLabel: 'Add surface note',
+            onAction: available ? _startNote : null,
+          ),
+        for (final note in notes)
+          ListTile(
+            key: ValueKey('annotation-${note.id}'),
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            title: Text(
+              note.text,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
+            subtitle: Text(
+              '${_engineering.document.objects[note.objectId]!.label}${_engineering.objectFor(note.objectId) == null ? ' (not in this scene)' : ''}',
+            ),
+            onTap: available ? () => unawaited(_noteDialog(note: note)) : null,
+            leading: IconButton(
+              tooltip: 'Select annotated part',
+              icon: const Icon(Icons.location_on_outlined, size: 18),
+              onPressed: _engineering.objectFor(note.objectId) == null
+                  ? null
+                  : () => _tools.select(_engineering.objectFor(note.objectId)),
+            ),
+            trailing: IconButton(
+              tooltip: 'Delete note ${note.id}',
+              icon: const Icon(Icons.delete_outline, size: 18),
+              onPressed: available
+                  ? () => _engineering.removeAnnotation(note.id)
+                  : null,
+            ),
+          ),
+      ],
+    );
   }
 
   Widget _button(String label, IconData icon, VoidCallback? action) =>
@@ -309,6 +674,7 @@ class _WorkbenchState extends State<_Workbench> {
               ? () {
                   _timeline.pause();
                   _measuring = !_measuring;
+                  _annotating = false;
                   _gizmo.enabled = !_measuring;
                   _anchor = null;
                   _refresh();
@@ -336,6 +702,7 @@ class _WorkbenchState extends State<_Workbench> {
                 if (_timeline.isPlaying) {
                   _timeline.pause();
                 } else {
+                  _annotating = _measuring = false;
                   _gizmo.enabled = false;
                   _tools.clearHistory();
                   _timeline.play();
@@ -393,7 +760,9 @@ class _WorkbenchState extends State<_Workbench> {
             top: 8,
             child: IgnorePointer(
               child: Text(
-                _measuring
+                _annotating
+                    ? 'Pick a surface for the review note'
+                    : _measuring
                     ? (_anchor == null
                           ? 'Pick the first surface point'
                           : 'Pick the second surface point')
@@ -412,7 +781,47 @@ class _WorkbenchState extends State<_Workbench> {
   String _vector(Vec3 value) =>
       '${value.x.toStringAsFixed(2)}, ${value.y.toStringAsFixed(2)}, ${value.z.toStringAsFixed(2)}';
 
-  Widget _inspectorPanel() {
+  Widget _inspectorPanel() => Column(
+    children: [
+      SizedBox(
+        height: 44,
+        child: Row(
+          children: [
+            Expanded(
+              child: TextButton(
+                onPressed: () => setState(() => _reviewTab = false),
+                child: Text(
+                  'Assembly',
+                  style: TextStyle(color: _reviewTab ? Colors.white60 : null),
+                ),
+              ),
+            ),
+            Expanded(
+              child: TextButton(
+                key: const ValueKey('review-tab'),
+                onPressed: () => setState(() => _reviewTab = true),
+                child: Text(
+                  'Review',
+                  style: TextStyle(color: _reviewTab ? null : Colors.white60),
+                ),
+              ),
+            ),
+            if (_ready)
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Text(
+                  '${_parts.length} parts',
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ),
+          ],
+        ),
+      ),
+      Expanded(child: _reviewTab && _ready ? _reviewPanel() : _assemblyPanel()),
+    ],
+  );
+
+  Widget _assemblyPanel() {
     final status = _controller.status.value;
     if (status is SceneFailed) {
       return ZeroState(
@@ -425,23 +834,14 @@ class _WorkbenchState extends State<_Workbench> {
     if (!_ready) return const Center(child: CircularProgressIndicator());
     final snapshot = _inspector.snapshot();
     final nodes = snapshot.nodes.where(
-      (node) => !_gizmo.owns(_inspector.objectFor(node.id)!),
+      (node) =>
+          !_gizmo.owns(_inspector.objectFor(node.id)!) &&
+          !_pins.containsValue(_inspector.objectFor(node.id)),
     );
     final selected = _tools.selected;
     return ListView(
       padding: const EdgeInsets.all(8),
       children: [
-        Row(
-          children: [
-            const Expanded(
-              child: Text(
-                'Assembly',
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
-            ),
-            Text('${nodes.where((node) => node.isMesh).length} parts'),
-          ],
-        ),
         for (final node in nodes)
           ListTile(
             key: ValueKey('part-${node.name}'),
@@ -456,7 +856,14 @@ class _WorkbenchState extends State<_Workbench> {
               size: 18,
             ),
             title: Text(
-              node.name ?? 'Object ${node.id}',
+              _engineering
+                      .document
+                      .objects[_engineering.idFor(
+                        _inspector.objectFor(node.id)!,
+                      )]
+                      ?.label ??
+                  node.name ??
+                  'Object ${node.id}',
               overflow: TextOverflow.ellipsis,
             ),
             selected: identical(_inspector.objectFor(node.id), selected),
@@ -532,7 +939,40 @@ class _WorkbenchState extends State<_Workbench> {
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
       toolbarHeight: 44,
-      title: const Text('Scene workbench', style: TextStyle(fontSize: 16)),
+      title: const Text(
+        'Scene workbench',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(fontSize: 16),
+      ),
+      actions: [
+        Center(
+          child: Text(
+            widget.reviewStore == null
+                ? 'Session'
+                : _engineering.isBusy
+                ? 'Working'
+                : _engineering.hasUnsavedChanges
+                ? 'Unsaved'
+                : 'Saved',
+            style: const TextStyle(fontSize: 11),
+          ),
+        ),
+        _button(
+          'Save review',
+          Icons.save_outlined,
+          _ready && widget.reviewStore != null && !_engineering.isBusy
+              ? () => unawaited(_saveReview())
+              : null,
+        ),
+        _button(
+          'Reload review',
+          Icons.folder_open,
+          _ready && widget.reviewStore != null && !_engineering.isBusy
+              ? () => unawaited(_loadReview())
+              : null,
+        ),
+      ],
     ),
     body: SafeArea(
       child: Column(
@@ -546,7 +986,13 @@ class _WorkbenchState extends State<_Workbench> {
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Text(
                 _notice!,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: _noticeIsError
+                      ? Theme.of(context).colorScheme.error
+                      : Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
           Expanded(
@@ -577,7 +1023,7 @@ class _WorkbenchState extends State<_Workbench> {
 
   @override
   void dispose() {
-    _controller.status.removeListener(_refresh);
+    _controller.status.removeListener(_statusChanged);
     for (final subscription in _subscriptions) {
       unawaited(subscription.cancel());
     }
