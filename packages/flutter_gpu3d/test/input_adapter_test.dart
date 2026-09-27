@@ -7,6 +7,61 @@ import 'support/backend_fake.dart';
 import 'controller_test.dart' show frames, readback, runtime;
 
 void main() {
+  testWidgets('claimed drags preserve taps without selecting after gestures', (
+    tester,
+  ) async {
+    final controller = SceneController(
+      options: readback,
+      runtime: runtime(FakeBackend()),
+    );
+    final events = <ScenePointerEvent>[];
+    final drag = controller.input.registerGesture(SceneGesture.pointerDrag);
+    final tap = controller.input.registerGesture(SceneGesture.tap);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SceneView(controller: controller, onPointer: events.add),
+      ),
+    );
+    await frames(tester);
+    const point = Offset(100, 100);
+    int taps() => events.where((e) => e.phase == ScenePointerPhase.tap).length;
+    for (final kind in [PointerDeviceKind.touch, PointerDeviceKind.mouse]) {
+      final click = await tester.startGesture(point, kind: kind);
+      await click.up();
+    }
+    expect(taps(), 2);
+    final moved = await tester.startGesture(point);
+    await moved.moveBy(const Offset(50, 0));
+    await moved.moveTo(point);
+    await moved.up();
+    final first = await tester.startGesture(point, pointer: 21);
+    final second = await tester.startGesture(
+      point + const Offset(20, 0),
+      pointer: 22,
+    );
+    await second.up();
+    await first.up();
+    final cancelled = await tester.startGesture(point);
+    await cancelled.cancel();
+    final secondary = await tester.startGesture(
+      point,
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryButton,
+    );
+    await secondary.up();
+    expect(taps(), 2);
+    // Returning to Flutter's recognizer must produce exactly one tap too.
+    drag.dispose();
+    await tester.pump();
+    await tester.tapAt(point);
+    expect(taps(), 3);
+    tap.dispose();
+    controller.dispose();
+    await frames(tester);
+    await controller.whenDisposed;
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets(
     'registered pinch wins its arena and overlay text keeps keyboard focus',
     (tester) async {
