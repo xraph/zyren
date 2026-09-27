@@ -12,16 +12,16 @@ Future<void> main() async {
   await androidProofChannel.invokeMethod<void>('connect', {
     'runtime': NativeSurfaces().runtimeToken,
   });
-  runApp(const MaterialApp(home: _Demo()));
+  runApp(const MaterialApp(home: AndroidSurfaceDemo()));
 }
 
-class _Demo extends StatefulWidget {
-  const _Demo();
+class AndroidSurfaceDemo extends StatefulWidget {
+  const AndroidSurfaceDemo({super.key});
   @override
-  State<_Demo> createState() => _DemoState();
+  State<AndroidSurfaceDemo> createState() => _DemoState();
 }
 
-class _DemoState extends State<_Demo> {
+class _DemoState extends State<AndroidSurfaceDemo> {
   bool paused = false;
   bool compact = false;
   bool left = true;
@@ -56,10 +56,12 @@ class _DemoState extends State<_Demo> {
           ),
           if (left)
             SizedBox(
+              key: const ValueKey('first-slot'),
               height: compact ? 127 : 211,
               child: _Surface(key: const ValueKey('first'), paused: paused),
             ),
           SizedBox(
+            key: const ValueKey('second-slot'),
             height: compact ? 151 : 211,
             child: _Surface(key: const ValueKey('second'), paused: paused),
           ),

@@ -56,24 +56,43 @@ suspension/resumption and 100 create/remove cycles. Every cycle returns to zero
 sessions, live renderers and retirements. Presentation readback remains zero.
 The fixture first failed with a missing native adapter before implementation.
 
-ARM64 debug and release builds pass. The release demo runs two surfaces, each
-past 2,940 submitted frames with zero readback. At this checkpoint the device's
-keyguard hides OS composition, so visible corner order, gray values and user
-interaction remain unverified.
+ARM64 debug and release builds pass. With the device unlocked, OS screenshots
+show both opaque Vulkan surfaces with the correct corner order. Interior samples
+match red, green, blue, white and sRGB gray `(128, 128, 128)` exactly, including
+after resize and background/resume. The final capture records 4,470 and 6,600
+submitted frames with zero readback.
 
-The 21 Rust host tests, including real Metal GPU cases, and 51 Flutter/example
-tests pass. Analyzer, Rust formatting, host Clippy and package/header boundaries
-pass. Android target checking passes. Android Clippy passes with
+You can pause, resume, resize, close and reopen the first surface using the demo
+controls. Android input delivered through ADB exercised these actions. Closing
+the first surface exposed a widget identity bug that recreated the second
+renderer. Stable keys on the outer layout children fix it; the regression fails
+without the keys, and the rebuilt release keeps the second renderer's frame
+count advancing across close/reopen.
+
+Pressing Android Home stops frame reports. Returning to the activity resumes
+both surfaces with new native generations and zero readback. This checks normal
+background/resume; pending GPU work and device loss remain separate gates.
+
+The updated example passes all 52 Flutter/example tests, analyzer and Dart
+formatting. The earlier native checkpoint passed 21 Rust host tests, including
+real Metal GPU cases, Rust formatting, host Clippy and package/header boundaries.
+Android target checking passed. Android Clippy passed with
 `missing_const_for_thread_local` allowed on the command line: Rust 1.97 reports
 it from `thread_local!` although the existing initializer is already `const`.
 No source suppression was added.
+
+Local evidence is saved under `artifacts/`: `android-vulkan-release-final.png`,
+`android-vulkan-pixel-check.json` and `android-vulkan-background-resume.json`.
+These run artifacts are ignored by Git. The color checks sample opaque fixture
+interiors; they don't qualify alpha, edge blending or general color management.
 
 ## Remaining gates
 
 - Wire this path into the public backend, presenter and `SceneView` lifecycle.
 - Measure actual swapchain image count and resident bytes. The requested frame
   latency is two; that is a hint, not proof of the negotiated image count.
-- Verify alpha, clipping, transformed composition, color and OS input.
+- Verify alpha, clipping, transformed composition, broader color handling,
+  viewport gestures and physical touch input.
 - Exercise replacement and close during a deliberately pending GPU submission,
   engine detach, low-memory callbacks and device-loss recovery.
 - Test a physical Adreno device, broader Android versions and release packaging

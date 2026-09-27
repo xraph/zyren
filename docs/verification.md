@@ -7,7 +7,7 @@ Rust 1.97.1 and Xcode 27.0.
 | --- | --- | --- |
 | macOS ARM64 | Debug and release apps passed | Apple M3 Max / Metal pixel tests, Dart FFI tests and Flutter integration test passed; globe and wrapping controls inspected in desktop and narrow native windows; standalone release launch rendered without a development runner |
 | iOS ARM64 simulator | Debug app passed | iPhone 17 Pro simulator on iOS 26.0 passed the Flutter integration test with a rendered native image |
-| Android ARM64 | Debug and release APKs passed | Pixel 9 Pro / Mali-G715 Vulkan surface fixture passes 100 resizes and 100 create/remove cycles with zero presentation readback; public SceneView and visible composition remain open |
+| Android ARM64 | Debug and release APKs passed | Pixel 9 Pro / Mali-G715 Vulkan fixture passes 100 resizes and 100 create/remove cycles with zero presentation readback; opaque color samples, ADB controls and background/resume verified; public SceneView and broader composition remain open |
 | iOS physical device | Build target configured | Signing, device deployment and GPU behaviour not verified |
 | Windows | Build hook and CI job configured | No Windows host build or runtime verification yet |
 | Linux | Build hook and CI job configured | No Linux host build or runtime verification yet |
@@ -334,8 +334,16 @@ stale work cannot publish. These gates are absent from the macOS release binary.
 
 The Android native surface fixture passes on the physical Pixel 9 Pro, with
 100 resizes, portrait/landscape requests, replacement, suspension and 100
-create/remove cycles. Two release surfaces each exceed 2,940 submitted frames with zero
-readback. The phone's keyguard currently prevents visible composition checks.
-The 21 Rust GPU/ownership tests and 51 Flutter/example tests pass, as do analyzer
-and package boundaries. See the [Android checkpoint](android-presentation-checkpoint.md)
-for commands, toolchain details and remaining platform gates.
+create/remove cycles. After unlocking the phone, OS screenshots confirm correct
+corner order and exact opaque RGB/gray samples. ADB input exercises pause/resume,
+resize and close/reopen. Stable keys on the demo's layout children fix the second
+renderer restarting when the first closes. The regression reproduces that extra
+creation before the fix, and the rebuilt release preserves the surviving session.
+
+Android Home stops frame reports; returning resumes both native surfaces with
+new generations and zero readback. The final release capture records 4,470 and
+6,600 submitted frames. All 52 Flutter/example tests, analyzer and Dart formatting
+pass after the demo fix. The preceding native checkpoint passed 21 Rust
+GPU/ownership tests and package boundaries. See the
+[Android checkpoint](android-presentation-checkpoint.md) for commands, evidence
+files and remaining platform gates.
