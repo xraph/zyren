@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:vector_math/vector_math_64.dart' as vm;
 import '../geometry/geometry.dart';
+import '../geometry/vertex_attribute.dart';
 import '../resources/texture_image.dart';
 import '../scene/scene.dart';
 import 'frame_output.dart';
@@ -31,7 +32,7 @@ class CameraSnapshot {
 /// Captured transforms with shared immutable CPU geometry recipes.
 class SceneSnapshot {
   final List<Map<String, Object>> _meshes;
-  final Map<int, BufferGeometry> _geometries;
+  final Map<int, GeometrySnapshot> _geometries;
   final Map<int, TextureImage> _textures;
   final List<double> _background, _light;
   final double _ambient;
@@ -50,13 +51,14 @@ class SceneSnapshot {
   );
   static SceneSnapshot _capture(Scene scene, Camera camera) {
     final meshes = <Map<String, Object>>[],
-        geometries = <int, BufferGeometry>{};
+        geometries = <int, GeometrySnapshot>{};
     final textures = <int, TextureImage>{};
     void visit(Object3D node, vm.Matrix4 parent, bool parentVisible) {
       final visible = parentVisible && node.visible;
       final world = parent * node.localMatrix.toVectorMath();
       if (node is Mesh) {
-        geometries[node.geometry.id] = node.geometry;
+        final geometry = node.geometry.capture();
+        geometries[geometry.id] = geometry;
         final map = node.material.colorMap;
         if (map != null) textures[map.image.id] = map.image;
         if (visible) {
@@ -71,7 +73,7 @@ class SceneSnapshot {
             );
           meshes.add(
             _freeze(<String, Object>{
-                  'geometry': node.geometry.id,
+                  'geometry': geometry.id,
                   'model': relative.storage.toList(),
                   'color': node.material.color.toList(),
                   'unlit': node.material.unlit,

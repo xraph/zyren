@@ -31,10 +31,12 @@ backend's device. Scopes support shared references, binary uploads, explicit
 readback and deterministic close. See [the resource API and protocol](../../docs/design/gpu-resources.md)
 for limits and ownership. Scene geometry uses the same registry with binary
 uploads and changed mesh records. `createView()` returns an independent readback
-view sharing the device, immutable geometry and material images. Closing a view
+view sharing the device, geometry revisions and material images. Closing a view
 releases its scopes and scene references; the last view closes the worker.
 Use `TextureImage.rgba` and `TextureMap` for opaque color textures, UV selection,
-wrap/filter settings and supplied mip levels. PNG/JPEG decoding is still pending.
+wrap/filter settings and supplied mip levels. `NativeImageDecoder` decodes PNG
+and JPEG on a CPU isolate with bounded admission. Dynamic geometry uploads
+merged attribute ranges while preserving captures held by other views.
 
 Worker requests carry a generation and a monotonic request ID. Worker exit or
 error settles every pending request. Stale and duplicate replies are ignored.

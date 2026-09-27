@@ -1,5 +1,6 @@
 use crate::scene::{
-    ColorMap, Frame, Geometry, MAX_INDICES, MAX_MESHES, MAX_VERTICES, Mesh, SceneTexture,
+    AttributeRange, ColorMap, Frame, Geometry, GeometryPatch, MAX_INDICES, MAX_MESHES,
+    MAX_VERTICES, Mesh, SceneTexture,
 };
 use std::collections::HashSet;
 
@@ -25,6 +26,7 @@ pub struct ScenePacket {
     ambient: f32,
     retained_textures: HashSet<u32>,
     textures: Vec<SceneTexture>,
+    geometry_patches: Vec<GeometryPatch>,
 }
 struct Reader<'a> {
     data: &'a [u8],
@@ -68,10 +70,10 @@ impl ScenePacket {
             return Err("unsupported scene packet".into());
         }
         let opcode = r.u32()?;
-        if opcode != 10 && opcode != 11 {
+        if !(10..=12).contains(&opcode) {
             return Err("unsupported scene packet".into());
         }
-        let textured = opcode == 11;
+        let textured = opcode >= 11;
         let revision = r.u64()?;
         if r.u64()? != (data.len() - r.offset) as u64 {
             return Err("scene body length mismatch".into());
@@ -101,6 +103,10 @@ impl ScenePacket {
         let texture_count = if textured { r.u32()? as usize } else { 0 };
         if owned_texture_count > MAX_MESHES || texture_count > MAX_MESHES {
             return Err("texture table count exceeds limit".into());
+        }
+        let patch_count = if opcode == 12 { r.u32()? as usize } else { 0 };
+        if patch_count > MAX_MESHES {
+            return Err("geometry patch count exceeds limit".into());
         }
         let mut retained = HashSet::new();
         for _ in 0..retained_count {
@@ -206,6 +212,49 @@ impl ScenePacket {
             geometry.validate()?;
             geometries.push(geometry);
         }
+        let mut geometry_patches = Vec::new();
+        let mut patch_ids = HashSet::new();
+        for _ in 0..patch_count {
+            let id = r.u32()?;
+            let base = r.u32()?;
+            let count = r.u32()? as usize;
+            if id == base || count == 0 || count > 64 || !patch_ids.insert(id) {
+                return Err("invalid geometry patch descriptor".into());
+            }
+            let mut ranges = Vec::new();
+            for _ in 0..count {
+                let semantic = r.u32()?;
+                let first = r.u32()?;
+                let count = r.u32()?;
+                if semantic > 3
+                    || count == 0
+                    || first
+                        .checked_add(count)
+                        .is_none_or(|end| end as usize > MAX_VERTICES)
+                {
+                    return Err("invalid geometry patch range".into());
+                }
+                let values_count = count as usize * if semantic < 2 { 3 } else { 2 };
+                if values_count * 4 > data.len() - r.offset {
+                    return Err("truncated geometry patch".into());
+                }
+                let mut values = Vec::with_capacity(values_count);
+                for _ in 0..values_count {
+                    values.push(r.floats::<1>()?[0]);
+                }
+                ranges.push(AttributeRange {
+                    semantic,
+                    first,
+                    values,
+                });
+            }
+            geometry_patches.push(GeometryPatch { id, base, ranges });
+        }
+        if geometry_patches.iter().any(|p| patch_ids.contains(&p.base))
+            || geometries.iter().any(|g| patch_ids.contains(&g.id))
+        {
+            return Err("geometry patch chains or repeated targets are unsupported".into());
+        }
         let mut updates = Vec::new();
         let mut changed = HashSet::new();
         for _ in 0..update_count {
@@ -269,6 +318,7 @@ impl ScenePacket {
             ambient,
             retained_textures,
             textures,
+            geometry_patches,
         })
     }
     pub fn view(&self) -> u64 {
@@ -328,6 +378,7 @@ impl ScenePacket {
             meshes,
             binary,
             textures: self.textures,
+            geometry_patches: self.geometry_patches,
         })
     }
 }

@@ -1,6 +1,8 @@
 library;
 
-export 'src/geometry/geometry.dart';
+export 'src/geometry/geometry.dart' hide watchGeometry;
+export 'src/geometry/vertex_attribute.dart';
+export 'src/geometry/vertex_layout.dart';
 export 'src/scene/scene.dart';
 export 'src/plugins/engine.dart';
 export 'src/rendering/renderer.dart';

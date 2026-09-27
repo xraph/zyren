@@ -385,7 +385,20 @@ impl Renderer {
         if bytes.starts_with(&2_u32.to_le_bytes()) {
             let packet = crate::scene_packet::ScenePacket::decode(bytes)?;
             let previous = self.views.get(&packet.view());
-            packet.resolve(previous)
+            let mut frame = packet.resolve(previous)?;
+            let mut bytes: usize = frame.geometries.iter().map(|g| g.byte_length()).sum();
+            for patch in &frame.geometry_patches {
+                let base = self
+                    .geometries
+                    .get(&patch.base)
+                    .ok_or("geometry patch base is not resident")?;
+                bytes = bytes
+                    .checked_add(base.recipe.byte_length())
+                    .filter(|n| *n <= 64 * 1024 * 1024)
+                    .ok_or("geometry patch CPU budget exceeded")?;
+                frame.geometries.push(patch.apply(&base.recipe)?);
+            }
+            Ok(frame)
         } else {
             serde_json::from_slice(bytes).map_err(|error| format!("invalid scene: {error}"))
         }
@@ -459,10 +472,32 @@ impl Renderer {
         }
         frame.validate(&cached)?;
         let (texture_bytes, texture_count) = self.validate_textures(frame)?;
+        let reusable: HashMap<u32, u32> = frame
+            .geometry_patches
+            .iter()
+            .filter(|patch| {
+                !self.geometries.contains_key(&patch.id)
+                    && frame
+                        .geometry_patches
+                        .iter()
+                        .filter(|p| p.base == patch.base)
+                        .count()
+                        == 1
+                    && frame
+                        .binary
+                        .as_ref()
+                        .is_some_and(|v| !v.retained.contains(&patch.base))
+                    && !self
+                        .views
+                        .iter()
+                        .any(|(id, v)| *id != view && v.retained.contains(&patch.base))
+            })
+            .map(|p| (p.id, p.base))
+            .collect();
         let bytes: usize = frame
             .geometries
             .iter()
-            .filter(|g| !self.geometries.contains_key(&g.id))
+            .filter(|g| !self.geometries.contains_key(&g.id) && !reusable.contains_key(&g.id))
             .map(|g| g.byte_length())
             .sum();
         self.resources
@@ -471,7 +506,9 @@ impl Renderer {
                 frame
                     .geometries
                     .iter()
-                    .filter(|g| !self.geometries.contains_key(&g.id))
+                    .filter(|g| {
+                        !self.geometries.contains_key(&g.id) && !reusable.contains_key(&g.id)
+                    })
                     .count()
                     + texture_count,
             )
@@ -480,13 +517,27 @@ impl Renderer {
         for geometry in &frame.geometries {
             if !self.geometries.contains_key(&geometry.id) {
                 let state = self.state.as_mut().unwrap();
-                let key = state
-                    .resources
-                    .insert_geometry(&state.device, geometry)
-                    .map_err(|e| {
-                        state.failure = Some(e.to_string());
-                        e.to_string()
-                    })?;
+                let patch = frame.geometry_patches.iter().find(|p| p.id == geometry.id);
+                let result = if let Some(patch) = patch {
+                    let base_key = state.geometries[&patch.base].key;
+                    state.resources.patch_geometry(
+                        &state.device,
+                        &state.queue,
+                        base_key,
+                        geometry,
+                        patch,
+                        reusable.contains_key(&geometry.id),
+                    )
+                } else {
+                    state.resources.insert_geometry(&state.device, geometry)
+                };
+                let key = result.map_err(|e| {
+                    state.failure = Some(e.to_string());
+                    e.to_string()
+                })?;
+                if let Some(base) = reusable.get(&geometry.id) {
+                    state.geometries.remove(base);
+                }
                 state.geometries.insert(
                     geometry.id,
                     GpuGeometry {

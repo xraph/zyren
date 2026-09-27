@@ -193,3 +193,95 @@ fn rejected_deltas_preserve_the_last_valid_scene_and_shared_geometry() {
     renderer.close_scene_view(1).unwrap();
     assert_eq!(renderer.scene_resource_stats(), (0, 84));
 }
+
+fn patch_packet() -> Vec<u8> {
+    let mut data = triangle_packet(1, 2, 0, false, true, 1.);
+    data[4..8].copy_from_slice(&12_u32.to_le_bytes());
+    data[148..152].copy_from_slice(&8_u32.to_le_bytes()); // retained target
+    data[156..160].copy_from_slice(&8_u32.to_le_bytes()); // mesh target
+    let mut patch = Vec::new();
+    for value in [8_u32, 7, 1, 0, 1, 1] {
+        patch.extend(value.to_le_bytes());
+    }
+    for value in [0.7_f32, -0.8, 0.4] {
+        patch.extend(value.to_le_bytes());
+    }
+    data.splice(152..152, patch);
+    data.splice(
+        148..148,
+        [0_u32, 0, 1].into_iter().flat_map(u32::to_le_bytes),
+    );
+    data.extend(0_u32.to_le_bytes()); // no color map
+    let length = data.len() as u64 - 24;
+    data[16..24].copy_from_slice(&length.to_le_bytes());
+    data
+}
+
+#[test]
+fn geometry_patch_packets_bound_ranges_and_reject_every_truncation() {
+    let valid = patch_packet();
+    assert!(ScenePacket::decode(&valid).is_ok());
+    for end in 0..valid.len() {
+        let mut truncated = valid[..end].to_vec();
+        if end >= 24 {
+            truncated[16..24].copy_from_slice(&((end - 24) as u64).to_le_bytes());
+        }
+        assert!(ScenePacket::decode(&truncated).is_err(), "end {end}");
+    }
+    for (offset, value) in [
+        (164, 7_u32),
+        (172, 0),
+        (172, 65),
+        (176, 4),
+        (180, u32::MAX),
+        (184, 0),
+        (184, u32::MAX),
+        (188, f32::NAN.to_bits()),
+    ] {
+        let mut invalid = valid.clone();
+        invalid[offset..offset + 4].copy_from_slice(&value.to_le_bytes());
+        assert!(ScenePacket::decode(&invalid).is_err(), "offset {offset}");
+    }
+    let mut seed = 0x5091_a431_u32;
+    for _ in 0..1024 {
+        seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
+        let mut data = valid.clone();
+        let offset = seed as usize % data.len();
+        data[offset] ^= (seed >> 24) as u8 | 1;
+        let _ = ScenePacket::decode(&data);
+    }
+}
+
+#[test]
+#[ignore = "requires a native Metal, Vulkan or DX12 device"]
+fn failed_geometry_patches_preserve_pixels_ownership_and_revisions() {
+    use gpu3d_runtime::renderer::Renderer;
+    let mut renderer = pollster::block_on(Renderer::new()).unwrap();
+    let first = renderer
+        .decode_scene(&triangle_packet(1, 1, 0, true, true, 1.))
+        .unwrap();
+    let pixels = renderer.render(&first, 31, 31).unwrap();
+    let valid = patch_packet();
+    let mut missing = valid.clone();
+    missing[168..172].copy_from_slice(&99_u32.to_le_bytes());
+    assert!(renderer.decode_scene(&missing).is_err());
+    let mut bad_normal = valid.clone();
+    bad_normal[176..180].copy_from_slice(&1_u32.to_le_bytes());
+    bad_normal[188..200].fill(0);
+    assert!(renderer.decode_scene(&bad_normal).is_err());
+    let mut bad_mesh = valid.clone();
+    bad_mesh[208..212].fill(0);
+    let invalid = renderer.decode_scene(&bad_mesh).unwrap();
+    assert!(renderer.render(&invalid, 31, 31).is_err());
+    assert_eq!(renderer.scene_resource_stats(), (84, 84));
+    // Same revision still applies after the rejected request.
+    let patch = renderer.decode_scene(&valid).unwrap();
+    let changed = renderer.render(&patch, 31, 31).unwrap();
+    assert_eq!(
+        &changed[(15 * 31 + 15) * 4..(15 * 31 + 15) * 4 + 4],
+        &pixels[(15 * 31 + 15) * 4..(15 * 31 + 15) * 4 + 4]
+    );
+    assert_eq!(renderer.scene_resource_stats(), (84, 108));
+    renderer.close_scene_view(1).unwrap();
+    assert_eq!(renderer.scene_resource_stats(), (0, 108));
+}

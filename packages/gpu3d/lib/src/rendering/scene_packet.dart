@@ -8,7 +8,7 @@ final class EncodedScenePacket {
   final ScenePacketEncoder _owner;
   final int _revision;
   final SceneSnapshot _scene;
-  final Set<int> _uploaded;
+  final Map<int, GeometrySnapshot> _uploaded;
   final Set<int> _uploadedTextures;
   EncodedScenePacket._(
     this.bytes,
@@ -28,7 +28,7 @@ final class ScenePacketEncoder {
   final int viewId;
   int _next = 0, _accepted = 0;
   SceneSnapshot? _previous;
-  Set<int> _uploaded = {};
+  Map<int, GeometrySnapshot> _uploaded = {};
   Set<int> _uploadedTextures = {};
   ScenePacketEncoder({required this.viewId}) {
     if (viewId <= 0) throw ArgumentError.value(viewId, 'viewId');
@@ -43,12 +43,38 @@ final class ScenePacketEncoder {
           (i) =>
               previous._meshes[i]['geometry'] != scene._meshes[i]['geometry'],
         );
-    final uploaded = _uploaded.intersection(scene._geometries.keys.toSet());
+    final logicalIds = {
+      for (final geometry in scene._geometries.values) geometry.logicalId,
+    };
+    final uploaded = Map<int, GeometrySnapshot>.of(_uploaded)
+      ..removeWhere((id, _) => !logicalIds.contains(id));
     final visible = {for (final mesh in scene._meshes) mesh['geometry'] as int};
-    final uploads = [
-      for (final id in visible)
-        if (!uploaded.contains(id)) scene._geometries[id]!,
-    ];
+    final uploads = <GeometrySnapshot>[];
+    final patches = <_GeometryPatch>[];
+    for (final geometry in scene._geometries.values) {
+      if (!visible.contains(geometry.id)) continue;
+      if (geometry.attributes.keys.any(
+        (s) => s.index > VertexSemantic.uv1.index,
+      )) {
+        throw UnsupportedError(
+          'This material renderer supports position, normal and UV attributes.',
+        );
+      }
+      final base = uploaded[geometry.logicalId];
+      if (base?.id == geometry.id) continue;
+      final ranges = base == null ? null : geometry.changesSince(base);
+      if (base == null || ranges == null) {
+        uploads.add(geometry);
+      } else {
+        patches.add(_GeometryPatch(base.id, geometry, ranges));
+      }
+      uploaded[geometry.logicalId] = geometry;
+    }
+    // Hidden edits keep the last uploaded version until this view needs pixels.
+    final owned = {
+      for (final geometry in scene._geometries.values)
+        uploaded[geometry.logicalId]?.id ?? geometry.id,
+    };
     final uploadedTextures = _uploadedTextures.intersection(
       scene._textures.keys.toSet(),
     );
@@ -90,6 +116,9 @@ final class ScenePacketEncoder {
         uploadBytes += geometry.positions.length ~/ 3 * 16;
       }
     }
+    for (final patch in patches) {
+      uploadBytes += patch.uploadedBytes;
+    }
     for (final texture in textures) {
       uploadBytes += texture.descriptor.byteLength;
     }
@@ -101,7 +130,7 @@ final class ScenePacketEncoder {
     final body = _SceneWriter();
     body.u64(viewId);
     body.u64(topology ? 0 : _accepted);
-    body.u32(scene._geometries.length);
+    body.u32(owned.length);
     body.u32(uploads.length);
     body.u32(scene._meshes.length);
     body.u32(updates.length);
@@ -111,7 +140,8 @@ final class ScenePacketEncoder {
     body.floats([scene._ambient]);
     body.u32(scene._textures.length);
     body.u32(textures.length);
-    for (final id in scene._geometries.keys) {
+    if (patches.isNotEmpty) body.u32(patches.length);
+    for (final id in owned) {
       body.u32(id);
     }
     for (final id in scene._textures.keys) {
@@ -139,7 +169,25 @@ final class ScenePacketEncoder {
       body.integers(geometry.indices);
       if (geometry.uv0 != null) body.floats(geometry.uv0!);
       if (geometry.uv1 != null) body.floats(geometry.uv1!);
-      uploaded.add(geometry.id);
+    }
+    for (final patch in patches) {
+      body.u32(patch.geometry.id);
+      body.u32(patch.baseId);
+      body.u32(patch.ranges.length);
+      for (final range in patch.ranges) {
+        body.u32(range.semantic.index);
+        body.u32(range.firstVertex);
+        body.u32(range.vertexCount);
+        final attribute = patch.geometry.attributes[range.semantic]!;
+        final values = attribute.data as Float32List;
+        final components = attribute.format.components;
+        body.floats(
+          values.sublist(
+            range.firstVertex * components,
+            (range.firstVertex + range.vertexCount) * components,
+          ),
+        );
+      }
     }
     for (final i in updates) {
       final mesh = scene._meshes[i];
@@ -153,10 +201,13 @@ final class ScenePacketEncoder {
       body.integers(map);
     }
     final payload = body.finish();
+    if (payload.length > 66 * 1024 * 1024 - 24) {
+      throw ArgumentError('Scene packet exceeds the byte budget.');
+    }
     final revision = ++_next;
     final header = _SceneWriter()
       ..u32(2)
-      ..u32(11)
+      ..u32(patches.isEmpty ? 11 : 12)
       ..u64(revision)
       ..u64(payload.length);
     header.add(payload);
@@ -182,6 +233,30 @@ final class ScenePacketEncoder {
     _uploaded = packet._uploaded;
     _uploadedTextures = packet._uploadedTextures;
     _accepted = packet._revision;
+  }
+}
+
+final class _GeometryPatch {
+  final int baseId;
+  final GeometrySnapshot geometry;
+  final List<GeometryRange> ranges;
+  _GeometryPatch(this.baseId, this.geometry, this.ranges);
+  int get uploadedBytes {
+    var bytes = 0;
+    for (var buffer = 0; buffer < 2; buffer++) {
+      final selected = [
+        for (final range in ranges)
+          if ((range.semantic.index < 2 ? 0 : 1) == buffer) range,
+      ]..sort((a, b) => a.firstVertex.compareTo(b.firstVertex));
+      var end = 0;
+      for (final range in selected) {
+        final first = range.firstVertex < end ? end : range.firstVertex;
+        final next = range.firstVertex + range.vertexCount;
+        if (next > first) bytes += (next - first) * (buffer == 0 ? 24 : 16);
+        if (next > end) end = next;
+      }
+    }
+    return bytes;
   }
 }
 

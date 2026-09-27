@@ -452,3 +452,34 @@ Task 2 remains open. PNG/JPEG decoding, automatic mip generation, dynamic
 attributes, alpha modes, render ordering and portable lines/points are pending.
 Box and sphere UV generation is pending too. Public native view presenters still
 own separate devices. No new iOS, Windows, Linux or Adreno qualification was run.
+
+
+## Dynamic geometry checkpoint
+
+Fixed typed layouts and position, normal and UV range updates pass 63 core tests,
+8 geospatial tests, 21 native Dart tests with GPU execution, 59 Flutter/example
+tests and 50 Rust tests including GPU cases. The AOT encoder regression covers
+an accepted dynamic update followed by a frame with no geometry upload. Analysis,
+strict Clippy, formatting and package/header boundary checks pass.
+
+Native integration passes on macOS Metal and the physical Pixel 9 Pro's Vulkan
+backend. Two views retain different captures of one geometry; closing the old
+owner retires its version. An exclusive position/normal edit to the same vertex
+uploads 24 bytes and retains one allocation. Changed UV rows produce the expected
+red-to-green pixels. Removing the final mesh returns resident bytes to zero.
+Malformed patch ranges, every packet truncation and reproducible packet mutations
+are rejected. Rejected patches preserve prior pixels, ownership and revisions.
+
+The float32 vertex contract required a 1e-7 ellipsoid normal tolerance. Geodetic
+round-trip and local-frame precision tests still use their stricter float64
+bounds. Example tests run from their owning package so Flutter bundles the image
+fixtures; CI uses the same commands.
+
+The macOS release demo was rebuilt and inspected through its native controls.
+Deform changes the visible shape, Shift UV moves its texture coordinates, and
+PNG and JPEG decode into that same edited mesh. Desktop and narrow native
+windows were inspected. The demo uses direct native Metal presentation.
+macOS release (49.1 MB) and Android ARM64 release (21.7 MB) builds pass. Task 2 remains open for index widths, automatic mips, alpha modes,
+ordering and portable lines/points. Native material shaders still reject tangent,
+color, joints and weights. This checkpoint adds no iOS, Windows, Linux or Adreno
+qualification and makes no Three.js or Takram parity claim.

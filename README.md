@@ -130,17 +130,21 @@ you can create a `SceneController`, pass it to `SceneView(controller: controller
 and call `controller.dispose()` from your State. Borrowed views retain their
 scene and session across unmounts. Static scenes render only after an edit. You can also create a `NativeRenderer` directly,
 await `render`, then await `dispose`.
-Only one frame may be in flight per view. Geometry is immutable and shared by
-meshes. Hiding a mesh retains its allocation; removing it from every owning view
-releases it after submitted work completes. Construct a new geometry when its
-contents change. Flutter's native view presenters still own separate devices.
+Only one frame may be in flight per view. Meshes can share geometry. Create it
+with `dynamic: true` to update position, normal or UV ranges while preserving
+captured frames. Hiding a mesh retains its allocation; removing it from every
+owning view releases it after submitted work completes. Flutter's native view
+presenters still own separate devices. See
+[dynamic geometry](docs/design/gpu-resources.md#dynamic-geometry) for ownership
+and upload rules.
 
-Colours use linear RGB; `Color3.hex` converts an sRGB hex colour for you. Positions
-use double precision until the camera origin has been subtracted. The current
+Colours use linear RGB; `Color3.hex` converts an sRGB hex colour for you. Object
+positions use double precision until the camera origin has been subtracted.
+Local vertex attributes use float32 storage. The current
 materials support opaque diffuse lighting, unlit shading and RGBA color textures.
 See [color textures](docs/design/gpu-resources.md#color-textures) for UVs, samplers
-and supplied mip levels. Image decoding, transparency, shadows and PBR remain
-planned work.
+and supplied mip levels. `NativeImageDecoder` decodes bounded PNG/JPEG inputs.
+Automatic mips, transparency, shadows and PBR remain planned work.
 
 ## Plugins and backends
 

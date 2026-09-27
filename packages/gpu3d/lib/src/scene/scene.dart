@@ -188,7 +188,10 @@ class Mesh extends Object3D {
   final BufferGeometry geometry;
   MeshMaterial _material;
   Mesh(this.geometry, MeshMaterial material, {super.name})
-    : _material = material;
+    : _material = material {
+    watchGeometry(geometry, this, _geometryChanged);
+  }
+  static void _geometryChanged(Object owner) => (owner as Mesh)._changed();
   MeshMaterial get material => _material;
   set material(MeshMaterial value) {
     if (identical(_material, value)) return;
@@ -371,7 +374,7 @@ class Scene extends Object3D {
     Set<int> uploaded = const {},
   }) {
     final meshes = <Map<String, Object>>[];
-    final geometries = <int, BufferGeometry>{};
+    final geometries = <int, GeometrySnapshot>{};
     void visit(Object3D node, vm.Matrix4 parent) {
       if (!node.visible) return;
       final world = parent * node.localMatrix.toVectorMath();
@@ -386,12 +389,13 @@ class Scene extends Object3D {
           world.getTranslation() - camera.position.toVectorMath(),
         );
         meshes.add({
-          'geometry': node.geometry.id,
+          'geometry': node.geometry.capture().id,
           'model': relative.storage.toList(),
           'color': node.material.color.toList(),
           'unlit': node.material.unlit,
         });
-        geometries[node.geometry.id] = node.geometry;
+        final geometry = node.geometry.capture();
+        geometries[geometry.id] = geometry;
       }
       for (final child in node._children) {
         visit(child, world);

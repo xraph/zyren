@@ -35,6 +35,49 @@ class TestImageDecoder implements ImageDecoder {
 }
 
 void main() {
+  testWidgets('geometry controls redraw on demand and fit narrow screens', (
+    tester,
+  ) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final backend = FakeBackend();
+    await tester.pumpWidget(
+      TexturedSceneApp(
+        runtime: runtime(backend),
+        presentation: PresentationPolicy.readbackOnly,
+      ),
+    );
+    await frames(tester);
+    final controller = tester
+        .widget<SceneView>(find.byType(SceneView))
+        .controller!;
+    final mesh = controller.scene.children.single as Mesh;
+    final geometry = mesh.geometry;
+    final original = geometry.capture();
+    final count = backend.submissions.length;
+    await tester.tap(find.text('Deform'));
+    await frames(tester);
+    expect(geometry.revision, 1);
+    expect(geometry.positions[6], closeTo(.4, 1e-6));
+    expect(original.positions[6], 1);
+    expect(backend.submissions.length, greaterThan(count));
+    await tester.binding.setSurfaceSize(const Size(320, 640));
+    await frames(tester);
+    await tester.tap(find.text('Shift UV'));
+    await frames(tester);
+    expect(geometry.revision, 2);
+    expect(geometry.uv0![0], .25);
+    expect(tester.takeException(), isNull);
+    expect(tester.getSize(find.byType(SceneView)).height, greaterThan(300));
+    await tester.tap(find.text('Reset'));
+    await frames(tester);
+    expect(mesh.geometry, same(geometry));
+    expect(geometry.positions, original.positions);
+    expect(geometry.uv0, original.uv0);
+    await tester.pumpWidget(const SizedBox());
+    await frames(tester);
+    await controller.whenDisposed;
+    await tester.binding.setSurfaceSize(null);
+  });
   testWidgets('image demo keeps its texture on decode failure and retries', (
     tester,
   ) async {
@@ -72,7 +115,7 @@ void main() {
       ),
     );
     await frames(tester);
-    expect(find.textContaining('PNG · 1 × 1'), findsOneWidget);
+    expect(find.textContaining('PNG 1×1'), findsOneWidget);
     expect(mesh.material.colorMap!.image, isNot(same(original)));
     await tester.pumpWidget(const SizedBox());
     await frames(tester);

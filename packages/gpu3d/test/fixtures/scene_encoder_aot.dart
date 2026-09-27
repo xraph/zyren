@@ -38,7 +38,10 @@ void main() {
   );
   scene.remove(mesh);
   final plane = scene.add(
-    Mesh(PlaneGeometry(), UnlitMaterial(colorMap: TextureMap(image: image))),
+    Mesh(
+      PlaneGeometry(dynamic: true),
+      UnlitMaterial(colorMap: TextureMap(image: image)),
+    ),
   );
   final textureEncoder = ScenePacketEncoder(viewId: 2);
   final textureFrame = textureEncoder.encode(capture());
@@ -55,6 +58,19 @@ void main() {
   final samplerEdit = textureEncoder.encode(capture());
   if (samplerEdit.uploadedBytes != 0 || samplerEdit.changedMeshes != 1) {
     throw StateError('Sampler edit did not retain the image.');
+  }
+  textureEncoder.accept(samplerEdit);
+  plane.geometry.updateAttribute(
+    VertexSemantic.position,
+    Float32List.fromList([-1, -1, 0]),
+  );
+  final geometryEdit = textureEncoder.encode(capture());
+  if (geometryEdit.uploadedBytes != 24) {
+    throw StateError('Dynamic geometry lost its dirty range.');
+  }
+  textureEncoder.accept(geometryEdit);
+  if (textureEncoder.encode(capture()).uploadedBytes != 0) {
+    throw StateError('Dynamic geometry repeated an accepted upload.');
   }
   print('AOT scene encoding passed.');
 }

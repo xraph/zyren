@@ -7,6 +7,7 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
     time::Duration,
 };
+mod scene_updates;
 static NEXT_DEVICE: AtomicU64 = AtomicU64::new(1);
 
 enum Resource {
@@ -109,12 +110,16 @@ impl ResourceStore {
         let vertices = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("scene vertices"),
             contents: bytemuck::cast_slice(&vertices),
-            usage: wgpu::BufferUsages::VERTEX,
+            usage: wgpu::BufferUsages::VERTEX
+                | wgpu::BufferUsages::COPY_SRC
+                | wgpu::BufferUsages::COPY_DST,
         });
         let indices = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("scene indices"),
             contents: bytemuck::cast_slice(&geometry.indices),
-            usage: wgpu::BufferUsages::INDEX,
+            usage: wgpu::BufferUsages::INDEX
+                | wgpu::BufferUsages::COPY_SRC
+                | wgpu::BufferUsages::COPY_DST,
         });
         let uv = if geometry.uv0.is_empty() && geometry.uv1.is_empty() {
             None
@@ -130,7 +135,9 @@ impl ResourceStore {
                 device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                     label: Some("scene UVs"),
                     contents: bytemuck::cast_slice(&values),
-                    usage: wgpu::BufferUsages::VERTEX,
+                    usage: wgpu::BufferUsages::VERTEX
+                        | wgpu::BufferUsages::COPY_SRC
+                        | wgpu::BufferUsages::COPY_DST,
                 }),
             )
         };

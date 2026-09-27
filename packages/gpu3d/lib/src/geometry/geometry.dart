@@ -1,13 +1,26 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
+import 'vertex_attribute.dart';
+import 'vertex_layout.dart';
+part 'geometry_snapshot.dart';
 
-/// Immutable indexed triangle geometry. Positions are local to the mesh.
+/// Indexed triangle geometry with an optional fixed-layout update path.
 class BufferGeometry {
   static int _nextId = 1;
   final int id = _nextId++;
-  final List<double> positions;
-  final List<double> normals;
-  final List<int> indices;
-  final List<double>? uv0, uv1;
+  final bool isDynamic;
+  late GeometrySnapshot _snapshot;
+  final _dependents = <(WeakReference<Object>, void Function(Object))>[];
+  int get revision => _snapshot.revision;
+  int get vertexCount => _snapshot.layout.vertexCount;
+  VertexLayout get layout => _snapshot.layout;
+  Map<VertexSemantic, VertexAttribute> get attributes => _snapshot.attributes;
+  List<double> get positions => _snapshot.positions;
+  List<double> get normals => _snapshot.normals;
+  List<int> get indices => _snapshot.indices;
+  List<double>? get uv0 => _snapshot.uv0;
+  List<double>? get uv1 => _snapshot.uv1;
+  GeometrySnapshot capture() => _snapshot;
 
   BufferGeometry({
     required List<double> positions,
@@ -15,64 +28,154 @@ class BufferGeometry {
     required List<int> indices,
     List<double>? uv0,
     List<double>? uv1,
-  }) : positions = List.unmodifiable(positions),
-       normals = List.unmodifiable(normals),
-       indices = List.unmodifiable(indices),
-       uv0 = uv0 == null ? null : List.unmodifiable(uv0),
-       uv1 = uv1 == null ? null : List.unmodifiable(uv1) {
-    if (positions.isEmpty ||
-        positions.length % 3 != 0 ||
-        positions.length != normals.length ||
-        indices.isEmpty ||
+    bool dynamic = false,
+  }) : this.fromAttributes(
+         attributes: {
+           VertexSemantic.position: VertexAttribute(
+             Float32List.fromList(positions),
+             format: VertexFormat.float32x3,
+           ),
+           VertexSemantic.normal: VertexAttribute(
+             Float32List.fromList(normals),
+             format: VertexFormat.float32x3,
+           ),
+           if (uv0 != null)
+             VertexSemantic.uv0: VertexAttribute(
+               Float32List.fromList(uv0),
+               format: VertexFormat.float32x2,
+             ),
+           if (uv1 != null)
+             VertexSemantic.uv1: VertexAttribute(
+               Float32List.fromList(uv1),
+               format: VertexFormat.float32x2,
+             ),
+         },
+         indices: indices,
+         dynamic: dynamic,
+       );
+
+  BufferGeometry.fromAttributes({
+    required Map<VertexSemantic, VertexAttribute> attributes,
+    required List<int> indices,
+    bool dynamic = false,
+  }) : isDynamic = dynamic {
+    final layout = VertexLayout(attributes);
+    if (indices.isEmpty ||
+        indices.length > 3000000 ||
         indices.length % 3 != 0 ||
-        positions.any((v) => !v.isFinite) ||
-        normals.any((v) => !v.isFinite) ||
-        indices.any((i) => i < 0 || i >= positions.length ~/ 3)) {
-      throw ArgumentError(
-        'Geometry requires finite positions, matching normals and valid triangle indices.',
+        indices.any((i) => i < 0 || i >= layout.vertexCount)) {
+      throw ArgumentError('Geometry needs valid triangle indices.');
+    }
+    _snapshot = GeometrySnapshot._(
+      id: id,
+      logicalId: id,
+      revision: 0,
+      layout: layout,
+      attributes: attributes,
+      indices: Uint32List.fromList(indices).asUnmodifiableView(),
+      history: const [],
+    );
+  }
+
+  /// Replaces complete vertices in an existing attribute, without changing layout.
+  /// Input is copied. Invalid edits leave data, revision and scene state intact.
+  void updateAttribute(
+    VertexSemantic semantic,
+    TypedData values, {
+    int firstVertex = 0,
+  }) {
+    if (!isDynamic) {
+      throw StateError(
+        'Create geometry with dynamic: true to update attributes.',
       );
     }
-    for (final uv in [uv0, uv1]) {
-      if (uv != null &&
-          (uv.length != positions.length ~/ 3 * 2 ||
-              uv.any((v) => !v.isFinite))) {
-        throw ArgumentError(
-          'UV attributes need two finite components per vertex.',
-        );
-      }
+    final old = attributes[semantic];
+    if (old == null) {
+      throw ArgumentError('Geometry has no ${semantic.name} attribute.');
     }
-    for (var i = 0; i < normals.length; i += 3) {
-      if (normals[i] * normals[i] +
-              normals[i + 1] * normals[i + 1] +
-              normals[i + 2] * normals[i + 2] <
-          1e-12) {
-        throw ArgumentError('Vertex normals must be nonzero.');
-      }
+    final update = VertexAttribute(values, format: old.format);
+    VertexLayout.validate(semantic, update);
+    RangeError.checkValueInInterval(firstVertex, 0, vertexCount, 'firstVertex');
+    if (update.count > vertexCount - firstVertex) {
+      throw RangeError('Attribute update exceeds vertex count.');
+    }
+    final bytes = old.data.buffer.asUint8List(
+      old.data.offsetInBytes,
+      old.data.lengthInBytes,
+    );
+    final changed = update.data.buffer.asUint8List(
+      update.data.offsetInBytes,
+      update.data.lengthInBytes,
+    );
+    final offset = firstVertex * old.format.stride;
+    var different = false;
+    for (var i = 0; i < changed.length; i++) {
+      different |= bytes[offset + i] != changed[i];
+    }
+    if (!different) return;
+    final copy = Uint8List.fromList(bytes)
+      ..setRange(offset, offset + changed.length, changed);
+    final TypedData data = switch (old.format) {
+      VertexFormat.uint16x4 => copy.buffer.asUint16List(),
+      VertexFormat.uint32x4 => copy.buffer.asUint32List(),
+      VertexFormat.unorm8x4 => copy,
+      _ => copy.buffer.asFloat32List(),
+    };
+    final next = revision + 1;
+    _snapshot = GeometrySnapshot._(
+      id: _nextId++,
+      logicalId: id,
+      revision: next,
+      layout: layout,
+      attributes: {
+        ...attributes,
+        semantic: VertexAttribute(data, format: old.format),
+      },
+      indices: indices,
+      history: [
+        ..._snapshot.history.skip(_snapshot.history.length >= 64 ? 1 : 0),
+        GeometryChange(
+          next,
+          GeometryRange(semantic, firstVertex, update.count),
+        ),
+      ],
+    );
+    _dependents.removeWhere((entry) => entry.$1.target == null);
+    for (final (reference, notify) in List.of(_dependents)) {
+      final target = reference.target;
+      if (target != null) notify(target);
     }
   }
 
-  Map<String, Object> toNative() => {
-    'id': id,
-    'positions': [
-      for (var i = 0; i < positions.length; i += 3) positions.sublist(i, i + 3),
-    ],
-    'normals': [
-      for (var i = 0; i < normals.length; i += 3) normals.sublist(i, i + 3),
-    ],
-    'indices': indices,
-  };
+  Map<String, Object> toNative() => _snapshot.toNative();
+}
+
+/// Internal scene invalidation without keeping removed meshes alive.
+void watchGeometry(
+  BufferGeometry geometry,
+  Object dependent,
+  void Function(Object) notify,
+) {
+  if (geometry.isDynamic) {
+    geometry._dependents.add((WeakReference(dependent), notify));
+  }
 }
 
 /// An XY plane facing +Z with top-left-origin UVs.
 class PlaneGeometry extends BufferGeometry {
-  factory PlaneGeometry({double width = 1, double height = 1}) {
+  factory PlaneGeometry({
+    double width = 1,
+    double height = 1,
+    bool dynamic = false,
+  }) {
     if (!width.isFinite || !height.isFinite || width <= 0 || height <= 0) {
       throw ArgumentError('Plane dimensions must be finite and positive.');
     }
-    return PlaneGeometry._(width / 2, height / 2);
+    return PlaneGeometry._(width / 2, height / 2, dynamic);
   }
-  PlaneGeometry._(double x, double y)
+  PlaneGeometry._(double x, double y, bool dynamic)
     : super(
+        dynamic: dynamic,
         positions: [-x, -y, 0, x, -y, 0, x, y, 0, -x, y, 0],
         normals: [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1],
         indices: [0, 1, 2, 0, 2, 3],
@@ -81,7 +184,12 @@ class PlaneGeometry extends BufferGeometry {
 }
 
 class BoxGeometry extends BufferGeometry {
-  factory BoxGeometry({double width = 1, double height = 1, double depth = 1}) {
+  factory BoxGeometry({
+    double width = 1,
+    double height = 1,
+    double depth = 1,
+    bool dynamic = false,
+  }) {
     if ([width, height, depth].any((v) => !v.isFinite || v <= 0)) {
       throw ArgumentError('Box dimensions must be finite and positive.');
     }
@@ -115,10 +223,10 @@ class BoxGeometry extends BufferGeometry {
       final o = f * 4;
       indices.addAll([o, o + 1, o + 2, o, o + 2, o + 3]);
     }
-    return BoxGeometry._(p, n, indices);
+    return BoxGeometry._(p, n, indices, dynamic);
   }
-  BoxGeometry._(List<double> p, List<double> n, List<int> i)
-    : super(positions: p, normals: n, indices: i);
+  BoxGeometry._(List<double> p, List<double> n, List<int> i, bool dynamic)
+    : super(positions: p, normals: n, indices: i, dynamic: dynamic);
 }
 
 /// A Y-up sphere with indexed triangle geometry.
@@ -127,6 +235,7 @@ class SphereGeometry extends BufferGeometry {
     double radius = 1,
     int widthSegments = 64,
     int heightSegments = 32,
+    bool dynamic = false,
   }) {
     if (!radius.isFinite ||
         radius <= 0 ||
@@ -157,8 +266,8 @@ class SphereGeometry extends BufferGeometry {
         if (y < heightSegments - 1) indices.addAll([a + 1, b + 1, b]);
       }
     }
-    return SphereGeometry._(p, n, indices);
+    return SphereGeometry._(p, n, indices, dynamic);
   }
-  SphereGeometry._(List<double> p, List<double> n, List<int> i)
-    : super(positions: p, normals: n, indices: i);
+  SphereGeometry._(List<double> p, List<double> n, List<int> i, bool dynamic)
+    : super(positions: p, normals: n, indices: i, dynamic: dynamic);
 }

@@ -304,7 +304,11 @@ Use immutable material descriptions. `mesh.material = material.copyWith(...)`
 invalidates its bindings. Geometry has immutable layouts with explicit
 `updateAttribute(VertexSemantic, TypedData, {int firstVertex = 0})` for dynamic
 buffers. Mutations validate counts/ranges and enqueue dirty byte ranges.
-Static geometry can be shared. No scene mutation calls FFI immediately.
+Static and dynamic geometry can be shared. Captures retain immutable revisions,
+and native buffers reuse exclusive storage or preserve versions held by another
+view. No scene mutation calls FFI immediately. See
+[dynamic geometry](gpu-resources.md#dynamic-geometry) for current formats and
+range-upload behavior.
 
 An outermost `controller.update` batches notifications into one invalidation.
 It does not roll back Dart changes if the callback throws; it publishes the final

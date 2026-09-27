@@ -110,8 +110,8 @@ existing allocations, including objects beneath a hidden parent. Removing an
 object from every owning view, or closing its last view, releases the allocation
 after submitted work finishes. A newly added hidden object uploads only when
 first visible. Captures retain CPU recipes without constructing JSON arrays.
-Changing geometry requires a new `BufferGeometry`; transforms and material
-values use changed mesh records.
+Transforms and material values use changed mesh records. Dynamic geometry edits
+use the versioned range updates described below.
 
 Each view permits one in-flight frame, 4096 meshes and 4096 owned geometry IDs.
 A device permits 64 views and 16,384 cached mesh records. Scene allocations share
@@ -124,6 +124,53 @@ resident geometry received from another view.
 The first submission from each view still transfers its CPU geometry recipe to
 the worker. Native validation compares immutable data before reusing an existing
 GPU allocation. This saves GPU uploads, not every cross-isolate transfer.
+
+## Dynamic geometry
+
+Create a dynamic geometry when you need to edit its attributes. An update copies
+your input, validates complete vertices, then schedules every scene using the
+geometry to render. You do not need to set an upload flag or call the renderer.
+
+```dart
+final geometry = PlaneGeometry(width: 2, height: 2, dynamic: true);
+scene.add(Mesh(geometry, UnlitMaterial()));
+geometry.updateAttribute(
+  VertexSemantic.position,
+  Float32List.fromList([.4, 1, 0]),
+  firstVertex: 2,
+);
+```
+
+The layout and vertex count stay fixed. Position and normal attributes use
+`float32x3`; UV0 and UV1 use `float32x2`. `BufferGeometry.fromAttributes` accepts
+owned `VertexAttribute` values with an explicit `VertexFormat`. All attributes
+must have the same vertex count. Float components must be finite, and normals
+must be nonzero. Invalid updates preserve the current revision. An update with
+identical bytes does nothing. Static geometry rejects edits.
+
+The core also validates tangent handedness, normalized colors, joint indices and
+weights for future material and animation consumers. The current native material
+renderer rejects those attributes explicitly. Indices still use uint32 and
+cannot be edited. Create another geometry to change its layout or topology.
+
+`geometry.id` stays stable through edits; `revision` advances when bytes change.
+A capture keeps immutable CPU data for its own revision. Older captures remain
+renderable after edits, including when two views render different revisions of
+one geometry. Capturing alone allocates no GPU memory.
+
+Each view tracks the last geometry revision that native rendering accepted.
+Edits to hidden meshes wait until the mesh becomes visible. The geometry keeps
+64 edits in its change journal, merges overlapping or adjacent ranges, and
+uploads a complete version when a view falls behind that journal. Application
+code can release older captures to release their CPU arrays.
+
+The native renderer merges dirty rows by GPU buffer: position and normal share
+24 bytes per vertex; UV0 and UV1 share 16 bytes per vertex. An exclusive version
+reuses its buffers. If another view still owns the base version, the renderer
+copies its buffers on the GPU before applying the dirty rows. Resident bytes
+then include both versions until the last view advances or closes. Upload
+statistics count the dirty CPU-to-GPU rows, excluding GPU-to-GPU copies. All
+packet, range and capacity validation completes before existing data changes.
 
 ## Color textures
 
@@ -167,7 +214,8 @@ support. Legacy Dart JSON encoders reject texture materials explicitly.
 
 You can run `lib/textured_scene_demo.dart` in `examples/multiple_views` on macOS
 or Android to compare filtering and wrapping through the native presenter.
-PNG/JPEG decoding, automatic mips and transparent materials remain task 2 work.
+Use Deform, Shift UV and Reset to edit the same geometry. Automatic mips and
+transparent materials remain task 2 work.
 
 ## Binary resource protocol, version 2
 
@@ -211,8 +259,8 @@ RGBA8 unorm and RGBA8 unorm sRGB. Empty or unknown usage bits are rejected.
 
 ## Binary scene protocol, version 2
 
-The render entrypoints accept opcode 11 packets and retain opcode 10 for older
-untextured callers. Their header uses a monotonic per-view revision in the
+The render entrypoints accept opcode 12 for geometry patches, opcode 11 for
+textures and opcode 10 for older untextured callers. Their header uses a monotonic per-view revision in the
 request-ID field. Opcode 11 has this body:
 
 | Order | Value |
@@ -231,6 +279,17 @@ flag of 1 appends seven u32 values: texture ID, UV set, wrap U, wrap V, min filt
 mag filter and mip filter. Wrap values 0/1/2 mean clamp/repeat/mirrored repeat;
 filter values 0/1 mean nearest/linear. Texture formats match resource commands.
 Opcode 10 omits texture counts, IDs, uploads, UV flags/arrays and color map fields.
+
+Opcode 12 adds a patch count u32 after the texture counts. After full geometry
+uploads and before mesh updates, each patch contains target ID, base ID and range
+count (all u32). Each range contains semantic, first vertex and vertex count
+(all u32), followed by packed f32 values. Semantics 0/1 mean position/normal with
+three components; 2/3 mean UV0/UV1 with two components. The base must be resident
+and the target ID must differ. Each patch permits 1 to 64 nonempty ranges,
+ordered and disjoint within each semantic. Repeated targets, patch chains,
+overflow and missing UV sets are rejected. The renderer bounds resolved CPU
+geometry to 64 MiB before cloning it. Full scene validation also applies to the
+resolved candidate. A failed patch leaves the accepted view revision unchanged.
 
 View IDs and revisions are positive. Base zero replaces the complete draw list;
 otherwise it must match the last applied revision and mesh count. Matrices use

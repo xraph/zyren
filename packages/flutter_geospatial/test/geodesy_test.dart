@@ -83,7 +83,8 @@ void main() {
     );
     for (var i = 0; i < mesh.positions.length; i += 3) {
       final p = Vec3.array(mesh.positions, i), n = Vec3.array(mesh.normals, i);
-      expect(n.distanceTo(ellipsoid.surfaceNormal(p)), lessThan(1e-12));
+      // Vertex storage is float32. Geodetic calculations above remain float64.
+      expect(n.distanceTo(ellipsoid.surfaceNormal(p)), lessThan(1e-7));
     }
     for (var i = 0; i < mesh.indices.length; i += 3) {
       Vec3 vertex(int index) =>

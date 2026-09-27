@@ -1,3 +1,4 @@
+pub use crate::geometry_update::{AttributeRange, GeometryPatch};
 use std::collections::HashSet;
 
 use serde::Deserialize;
@@ -150,6 +151,8 @@ pub struct Frame {
     pub textures: Vec<SceneTexture>,
     #[serde(skip)]
     pub binary: Option<crate::scene_packet::ViewState>,
+    #[serde(skip)]
+    pub geometry_patches: Vec<GeometryPatch>,
 }
 
 impl Frame {

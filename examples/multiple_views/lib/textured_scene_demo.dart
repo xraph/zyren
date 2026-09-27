@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_gpu3d/flutter_gpu3d.dart';
@@ -27,6 +28,16 @@ class TexturedSceneApp extends StatelessWidget {
     theme: ThemeData.dark(useMaterial3: true).copyWith(
       scaffoldBackgroundColor: const Color(0xff111823),
       visualDensity: VisualDensity.compact,
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+        ),
+      ),
     ),
     home: _TextureScene(
       runtime: runtime,
@@ -52,6 +63,9 @@ class _TextureScene extends StatefulWidget {
 class _TextureSceneState extends State<_TextureScene> {
   late final SceneController controller;
   late final Mesh mesh;
+  late final GeometrySnapshot original;
+  bool deformed = false;
+  double uvOffset = 0;
   var image = TextureImage.rgba(
     width: 2,
     height: 2,
@@ -134,6 +148,7 @@ class _TextureSceneState extends State<_TextureScene> {
     mesh = controller.scene.add(
       Mesh(
         BufferGeometry(
+          dynamic: true,
           positions: [-1, -1, 0, 1, -1, 0, 1, 1, 0, -1, 1, 0],
           normals: [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1],
           indices: [0, 1, 2, 0, 2, 3],
@@ -142,7 +157,41 @@ class _TextureSceneState extends State<_TextureScene> {
         material(),
       ),
     )..rotateY(.25);
+    original = mesh.geometry.capture();
   }
+
+  void deform() => setState(() {
+    deformed = !deformed;
+    mesh.geometry.updateAttribute(
+      VertexSemantic.position,
+      Float32List.fromList([deformed ? .4 : 1, 1, 0]),
+      firstVertex: 2,
+    );
+  });
+
+  void shiftUv() => setState(() {
+    uvOffset = (uvOffset + .25) % 2;
+    mesh.geometry.updateAttribute(
+      VertexSemantic.uv0,
+      Float32List.fromList([
+        for (var i = 0; i < original.uv0!.length; i++)
+          original.uv0![i] + (i.isEven ? uvOffset : 0),
+      ]),
+    );
+  });
+
+  void reset() => setState(() {
+    deformed = false;
+    uvOffset = 0;
+    mesh.geometry.updateAttribute(
+      VertexSemantic.position,
+      Float32List.fromList(original.positions),
+    );
+    mesh.geometry.updateAttribute(
+      VertexSemantic.uv0,
+      Float32List.fromList(original.uv0!),
+    );
+  });
 
   @override
   void dispose() {
@@ -158,9 +207,9 @@ class _TextureSceneState extends State<_TextureScene> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text('Native textures', style: TextStyle(fontSize: 22)),
+            const Text('Native mesh', style: TextStyle(fontSize: 22)),
             Text(
-              '$source · ${image.descriptor.width} × ${image.descriptor.height} sRGB · opaque color',
+              '$source ${image.descriptor.width}×${image.descriptor.height} sRGB · r${mesh.geometry.revision}',
             ),
             const SizedBox(height: 8),
             Wrap(
@@ -169,6 +218,7 @@ class _TextureSceneState extends State<_TextureScene> {
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 SegmentedButton<TextureFilter>(
+                  showSelectedIcon: false,
                   segments: const [
                     ButtonSegment(
                       value: TextureFilter.nearest,
@@ -186,6 +236,7 @@ class _TextureSceneState extends State<_TextureScene> {
                   }),
                 ),
                 SegmentedButton<TextureWrap>(
+                  showSelectedIcon: false,
                   segments: const [
                     ButtonSegment(
                       value: TextureWrap.repeat,
@@ -208,12 +259,11 @@ class _TextureSceneState extends State<_TextureScene> {
                 ),
                 OutlinedButton(
                   onPressed: () => mesh.rotateY(.2),
-                  child: const Text('Turn plane'),
+                  child: const Text('Turn'),
                 ),
-              ],
-            ),
-            Row(
-              children: [
+                TextButton(onPressed: deform, child: const Text('Deform')),
+                TextButton(onPressed: shiftUv, child: const Text('Shift UV')),
+                TextButton(onPressed: reset, child: const Text('Reset')),
                 for (final format in ['PNG', 'JPEG'])
                   TextButton(
                     onPressed: loading == null ? () => load(format) : null,

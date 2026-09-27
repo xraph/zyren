@@ -1,3 +1,4 @@
+pub mod geometry_update;
 pub mod interop;
 pub mod renderer;
 pub mod resources;
