@@ -73,9 +73,13 @@ pub unsafe extern "C" fn fg2_apple_render(
             if json.is_null() || length == 0 || length > 128 * 1024 * 1024 {
                 return Err(SurfaceError::InvalidArgument);
             }
-            let frame = serde_json::from_slice(std::slice::from_raw_parts(json, length as usize))
-                .map_err(|_| SurfaceError::InvalidArgument)?;
-            platform::render(handle, key, epoch, frame_id, &frame)
+            platform::render(
+                handle,
+                key,
+                epoch,
+                frame_id,
+                std::slice::from_raw_parts(json, length as usize),
+            )
         })
     }
 }
@@ -207,7 +211,7 @@ mod platform {
         key: Fg2SurfaceKey,
         epoch: u64,
         frame_id: u64,
-        frame: &crate::scene::Frame,
+        bytes: &[u8],
     ) -> Result<Fg2FrameReceipt, SurfaceError> {
         let checked = key.checked()?;
         let renderer = crate::registry()
@@ -217,6 +221,9 @@ mod platform {
             .cloned()
             .ok_or(SurfaceError::StaleKey)?;
         let mut renderer = renderer.lock().map_err(|_| SurfaceError::Internal)?;
+        let frame = renderer
+            .decode_scene(bytes)
+            .map_err(|_| SurfaceError::InvalidArgument)?;
         let device = renderer
             .metal_device()
             .map_err(|_| SurfaceError::Internal)?;
@@ -260,7 +267,7 @@ mod platform {
         let before = renderer.counters().readback_bytes;
         // SAFETY: this fresh buffer has no consumer and is owned until submission
         // completes. Failed producer resources remain owned by renderer retirement.
-        if unsafe { renderer.render_to_metal(frame, texture) }.is_err() {
+        if unsafe { renderer.render_to_metal(&frame, texture) }.is_err() {
             registry()
                 .lock()
                 .map_err(|_| SurfaceError::Internal)?
@@ -384,7 +391,7 @@ mod platform {
         _: Fg2SurfaceKey,
         _: u64,
         _: u64,
-        _: &crate::scene::Frame,
+        _: &[u8],
     ) -> Result<Fg2FrameReceipt, SurfaceError> {
         Err(SurfaceError::NotReady)
     }

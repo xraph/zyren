@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:isolate';
+import 'dart:typed_data';
 import 'worker.dart';
 import 'surface.dart';
 import 'worker_session.dart';
@@ -8,6 +9,7 @@ import 'package:gpu3d/gpu3d.dart';
 import 'package:gpu3d/rendering.dart';
 
 part 'backend.dart';
+part 'resources.dart';
 
 /// One native GPU device, owned by a persistent worker isolate.
 /// Await [dispose] when you no longer need it.
@@ -19,6 +21,7 @@ class NativeRenderer implements SceneRenderer {
       RenderFeatures.diffuseLighting,
       RenderFeatures.unlitMaterials,
       RenderFeatures.rgbaReadback,
+      RenderFeatures.colorTextures,
     },
     maxDimension: 4096,
   );
@@ -29,7 +32,8 @@ class NativeRenderer implements SceneRenderer {
     (worker) => worker.abort(),
   );
   final WorkerSession _worker;
-  Set<int> _uploaded = {};
+  final _sceneEncoder = ScenePacketEncoder(viewId: 1);
+  int _nextView = 1, _owners = 1;
   Future<Object?>? _frame;
   Future<void>? _disposal;
   bool _closed = false;
@@ -58,50 +62,60 @@ class NativeRenderer implements SceneRenderer {
       );
     }
     try {
-      return _renderPacket(
-        scene.snapshot(camera, width / height, uploaded: _uploaded),
-        width,
-        height,
+      final future = _renderBinary(
+        FrameSubmission.capture(
+          scene: scene,
+          camera: camera,
+          size: PhysicalSize(width, height),
+        ),
+        _sceneEncoder,
       );
+      _frame = future;
+      return future.whenComplete(() {
+        _frame = null;
+      });
     } catch (error, stack) {
       return Future.error(error, stack);
     }
   }
 
-  Future<RenderedFrame> _renderPacket(
-    Map<String, Object> frame,
-    int width,
-    int height,
-  ) {
-    if (_closed) return Future.error(StateError('Renderer has been disposed.'));
-    if (_frame != null) {
-      return Future.error(StateError('Only one frame may be in flight.'));
-    }
-    if (width < 1 || height < 1 || width > 4096 || height > 4096) {
-      return Future.error(
-        ArgumentError('Render dimensions must be in [1, 4096].'),
-      );
-    }
-    Future<RenderedFrame> submit() async {
-      final active = (frame['meshes'] as List)
-          .map((m) => (m as Map)['geometry'] as int)
-          .toSet();
-      final bytes =
-          await _worker.request('render', [jsonEncode(frame), width, height])
-              as TransferableTypedData;
-      _uploaded = active;
-      return RenderedFrame(bytes.materialize().asUint8List(), width, height);
-    }
+  Future<RenderedFrame> _renderBinary(
+    FrameSubmission submission,
+    ScenePacketEncoder encoder,
+  ) async {
+    if (_closed) throw StateError('Renderer has been disposed.');
+    final packet = encoder.encode(submission);
+    final reply =
+        await _worker.request('render', [
+              TransferableTypedData.fromList([packet.bytes]),
+              submission.size.width,
+              submission.size.height,
+            ])
+            as List<Object>;
+    encoder.accept(packet);
+    final bytes = (reply[0] as TransferableTypedData)
+        .materialize()
+        .asUint8List();
+    return RenderedFrame(
+      bytes,
+      submission.size.width,
+      submission.size.height,
+      uploadedBytes: reply[1] as int,
+      residentBytes: reply[2] as int,
+    );
+  }
 
-    final future = submit();
-    _frame = future;
-    return future.whenComplete(() {
-      _frame = null;
-    });
+  Future<void> _releaseView(int id) async {
+    try {
+      await _worker.request('sceneClose', [id]);
+    } finally {
+      if (--_owners == 0) await dispose();
+    }
   }
 
   Future<List<int>> _renderSurfacePacket(
-    Map<String, Object> packet,
+    EncodedScenePacket packet,
+    ScenePacketEncoder encoder,
     SurfaceTarget target,
     int frameId,
   ) {
@@ -111,7 +125,7 @@ class NativeRenderer implements SceneRenderer {
     }
     final future = _worker
         .request('surfaceRender', [
-          jsonEncode(packet),
+          TransferableTypedData.fromList([packet.bytes]),
           (target.surface as NativeSurfaceKey).toMessage(),
           target.epoch,
           frameId,
@@ -119,9 +133,7 @@ class NativeRenderer implements SceneRenderer {
         .then((value) {
           final receipt = value as List<int>;
           if (receipt.first == 0 || receipt.first == 14) {
-            _uploaded = (packet['meshes'] as List)
-                .map((mesh) => (mesh as Map)['geometry'] as int)
-                .toSet();
+            encoder.accept(packet);
           }
           if (receipt.first != 0) {
             throw NativeSurfaceException(

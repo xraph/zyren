@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:vector_math/vector_math_64.dart' as vm;
 import '../geometry/geometry.dart';
+import '../resources/texture_image.dart';
 import '../math/vec3.dart';
 import '../math/quat.dart';
 import '../math/mat4.dart';
@@ -42,26 +43,38 @@ final class Color3 {
 
 sealed class MeshMaterial {
   final Color3 color;
-  MeshMaterial({this.color = const Color3(.4, .6, .9)}) {
-    color.toList();
+  final TextureMap? colorMap;
+  MeshMaterial({Color3? color, this.colorMap})
+    : color =
+          color ??
+          (colorMap == null
+              ? const Color3(.4, .6, .9)
+              : const Color3(1, 1, 1)) {
+    this.color.toList();
   }
   bool get unlit;
 }
 
 final class DiffuseMaterial extends MeshMaterial {
-  DiffuseMaterial({super.color});
+  DiffuseMaterial({super.color, super.colorMap});
   @override
   bool get unlit => false;
-  DiffuseMaterial copyWith({Color3? color}) =>
-      DiffuseMaterial(color: color ?? this.color);
+  DiffuseMaterial copyWith({Color3? color, TextureMap? colorMap}) =>
+      DiffuseMaterial(
+        color: color ?? this.color,
+        colorMap: colorMap ?? this.colorMap,
+      );
 }
 
 final class UnlitMaterial extends MeshMaterial {
-  UnlitMaterial({super.color});
+  UnlitMaterial({super.color, super.colorMap});
   @override
   bool get unlit => true;
-  UnlitMaterial copyWith({Color3? color}) =>
-      UnlitMaterial(color: color ?? this.color);
+  UnlitMaterial copyWith({Color3? color, TextureMap? colorMap}) =>
+      UnlitMaterial(
+        color: color ?? this.color,
+        colorMap: colorMap ?? this.colorMap,
+      );
 }
 
 class Object3D with _Revisioned {
@@ -416,6 +429,11 @@ class Scene extends Object3D {
       if (!node.visible) return;
       final world = parent * node.localMatrix.toVectorMath();
       if (node is Mesh) {
+        if (node.material.colorMap != null) {
+          throw UnsupportedError(
+            'Texture materials require binary scene submissions.',
+          );
+        }
         final relative = world.clone();
         relative.setTranslation(
           world.getTranslation() - camera.position.toVectorMath(),

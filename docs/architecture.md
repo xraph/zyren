@@ -68,7 +68,8 @@ output targets and own registration for one view attachment.
 
 The first renderer uses indexed triangle meshes, a depth buffer, perspective
 cameras, scene transforms, opaque materials and directional diffuse lighting.
-Geometry is uploaded once per renderer and shared between meshes. Rust validates
+Geometry is uploaded once per native device and shared between meshes and
+explicit shared readback views. Rust validates
 the scene before changing GPU state. Invalid handles and malformed requests return
 errors through the C ABI.
 
@@ -116,8 +117,8 @@ strategies belong in the later planetary renderer.
 wgpu provides the native backend portability we need while Rust handles GPU
 resource ownership. Dart stays responsible for the public API and Flutter
 lifecycle. A small versioned C ABI keeps the boundary independent of a bridge
-generator. JSON scene snapshots make the first protocol inspectable; a binary
-command stream can replace them after profiling.
+generator. Binary scene packets carry typed geometry and changed mesh records.
+The v1 JSON adapter remains for existing native callers.
 
 Three.js provides an API reference, not a runtime dependency. We are not promising
 source compatibility with its materials, loaders, shaders or extensions.

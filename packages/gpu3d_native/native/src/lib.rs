@@ -1,7 +1,9 @@
 pub mod interop;
 pub mod renderer;
+pub mod resources;
 mod retirement;
 pub mod scene;
+pub mod scene_packet;
 
 use std::{
     cell::RefCell,
@@ -142,16 +144,115 @@ pub unsafe extern "C" fn fg_render(
             .get(&handle)
             .cloned()
             .ok_or("invalid or disposed renderer handle")?;
-        let frame: scene::Frame =
-            serde_json::from_slice(unsafe { std::slice::from_raw_parts(json, json_len) })
-                .map_err(|e| format!("invalid scene: {e}"))?;
         let mut renderer = renderer
             .lock()
             .map_err(|_| "renderer is poisoned; recreate it")?;
+        let frame = renderer.decode_scene(unsafe { std::slice::from_raw_parts(json, json_len) })?;
         let image = renderer.render(&frame, width, height)?;
         unsafe {
             std::ptr::copy_nonoverlapping(image.as_ptr(), pixels, len);
         }
         Ok(1)
+    })
+}
+
+/// Executes a bounded little-endian resource command on the renderer's device.
+///
+/// # Safety
+/// Input and output buffers must be valid for their supplied lengths. `written`
+/// must point to writable storage. The buffers must not overlap.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn fg2_resource_command(
+    handle: u64,
+    input: *const u8,
+    length: usize,
+    output: *mut u8,
+    capacity: usize,
+    written: *mut usize,
+) -> u32 {
+    let mut code = resources::ResourceError::InvalidCommand as u32;
+    let ok: u32 = guard(|| {
+        if input.is_null()
+            || output.is_null()
+            || written.is_null()
+            || length > resources::upload::MAX_COMMAND_BYTES
+            || capacity > resources::upload::MAX_BYTES as usize + 24
+        {
+            return Err("invalid resource command buffers".into());
+        }
+        // SAFETY: the caller guarantees valid buffers; lengths are bounded above.
+        unsafe {
+            *written = 0;
+        }
+        let renderer = registry()
+            .lock()
+            .map_err(|_| "registry lock failed")?
+            .get(&handle)
+            .cloned()
+            .ok_or("renderer disposed")?;
+        let bytes = unsafe { std::slice::from_raw_parts(input, length) };
+        let result = renderer
+            .lock()
+            .map_err(|_| "renderer lock failed")?
+            .resource_command(bytes, capacity)
+            .map_err(|error| {
+                code = error as u32;
+                error.to_string()
+            })?;
+        unsafe {
+            std::ptr::copy_nonoverlapping(result.as_ptr(), output, result.len());
+            *written = result.len();
+        }
+        Ok(1)
+    });
+    if ok == 1 { 0 } else { code }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn fg2_scene_close(handle: u64, view: u64) -> u32 {
+    guard(|| {
+        let renderer = registry()
+            .lock()
+            .map_err(|_| "registry lock failed")?
+            .get(&handle)
+            .cloned()
+            .ok_or("renderer disposed")?;
+        renderer
+            .lock()
+            .map_err(|_| "renderer lock failed")?
+            .close_scene_view(view)?;
+        Ok(1)
+    })
+}
+#[unsafe(no_mangle)]
+pub extern "C" fn fg2_scene_resident_bytes(handle: u64) -> u64 {
+    guard(|| {
+        let renderer = registry()
+            .lock()
+            .map_err(|_| "registry lock failed")?
+            .get(&handle)
+            .cloned()
+            .ok_or("renderer disposed")?;
+        Ok(renderer
+            .lock()
+            .map_err(|_| "renderer lock failed")?
+            .scene_resource_stats()
+            .0)
+    })
+}
+#[unsafe(no_mangle)]
+pub extern "C" fn fg2_scene_uploaded_bytes(handle: u64) -> u64 {
+    guard(|| {
+        let renderer = registry()
+            .lock()
+            .map_err(|_| "registry lock failed")?
+            .get(&handle)
+            .cloned()
+            .ok_or("renderer disposed")?;
+        Ok(renderer
+            .lock()
+            .map_err(|_| "renderer lock failed")?
+            .scene_resource_stats()
+            .1)
     })
 }

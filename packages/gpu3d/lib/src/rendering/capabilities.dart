@@ -9,6 +9,8 @@ enum RenderFeature {
   storageTextures,
   indirectDraws,
   timestampQueries,
+  scopedResources,
+  colorTextures,
 }
 
 /// Limits enforced by the backend, even if the adapter can allocate more.

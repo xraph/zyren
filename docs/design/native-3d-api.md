@@ -222,6 +222,15 @@ Flutter texture. `requireNative` accepts either qualified native presentation
 path, while `requireSharedTexture` rejects platform views. The default runtime
 does not yet choose the Metal view automatically.
 
+Android API 29 or newer has an explicit `const SceneRuntime.nativeAndroid()`.
+It reports `PresentationPath.sharedTexture` and supports `requireNative` and
+`requireSharedTexture`. Each controller owns a Vulkan renderer. Each view
+attachment owns a Flutter SurfaceProducer, released on detach while the renderer
+and uploaded geometry survive a borrowed controller's remount. Stale attachment
+IDs and epochs cannot publish into the next view. This runtime does not advertise
+RGBA capture. Default runtime selection and broader Android qualification remain
+open.
+
 Construction creates CPU state with `SceneDetached` status. First attachment
 starts the backend after plugin composition is complete. Creating a controller
 in `initState` therefore does not allocate a GPU before it has a view. Asset CPU

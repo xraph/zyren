@@ -19,6 +19,9 @@ dev_dependencies:
 flutter:
   plugin:
     platforms:
+      android:
+        package: dev.twinos.gpu3d
+        pluginClass: Gpu3dPlugin
       ios:
         pluginClass: Gpu3dPlugin
         sharedDarwinSource: true

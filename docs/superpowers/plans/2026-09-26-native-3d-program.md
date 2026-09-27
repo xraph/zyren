@@ -183,8 +183,15 @@ already working.
 Plan 01 tasks 1 through 5 are implemented: independent Dart core, observable
 values, managed/borrowed controllers, typed input and policies, scoped work,
 worker failure handling and executable examples. M0 passes the local macOS gate.
-The native texture milestone (M1) is next; cross-platform runtime qualification
-and the later resource/rendering/geospatial milestones remain open.
+M1 has opt-in Metal and Android Vulkan view presentation, with broader platform
+qualification still open. M2 now has explicit scoped buffer/texture allocation
+and binary transfers, tested on macOS Metal and physical Android Vulkan. Scene
+geometry now uses the same registry with binary transfers and changed mesh
+records. Shared readback views pass lifetime and upload-reuse checks on Metal;
+the Vulkan scene rerun needs the disconnected Pixel. Public native presenters
+still own separate devices. Material bindings, glTF and the graph/shader API
+remain open.
+See the [resource checkpoint](../../design/gpu-resources.md) for its limits.
 
 The four subsystem plans contain 25 task groups and explicit verification steps.
 Advanced material/loader extensions remain a named capability backlog until

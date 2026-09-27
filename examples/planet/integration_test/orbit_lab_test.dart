@@ -25,9 +25,13 @@ void main() {
         final metal =
             defaultTargetPlatform == TargetPlatform.macOS ||
             defaultTargetPlatform == TargetPlatform.iOS;
+        final android = defaultTargetPlatform == TargetPlatform.android;
         final stats = controller.frameStats.listen((value) {
           if (metal) {
             expectSync(value.presentationPath, PresentationPath.nativeView);
+            expectSync(value.readbackBytes, 0);
+          } else if (android) {
+            expectSync(value.presentationPath, PresentationPath.sharedTexture);
             expectSync(value.readbackBytes, 0);
           } else {
             expectSync(value.presentationPath, PresentationPath.readback);
@@ -183,7 +187,7 @@ void main() {
           closeTo(viewport.width / viewport.height, 1e-12),
         );
         expect(tester.takeException(), isNull);
-        if (!metal) {
+        if (!metal && !android) {
           final image = tester
               .widgetList<RawImage>(find.byType(RawImage))
               .firstWhere((w) => w.image != null)
@@ -204,13 +208,15 @@ void main() {
         await tester.pumpWidget(const SizedBox());
         await controller.whenDisposed;
         await stats.cancel();
-        if (metal) {
-          final diagnostics = await const MethodChannel(
-            'gpu3d/scene-views',
+        if (metal || android) {
+          final diagnostics = await MethodChannel(
+            android ? 'gpu3d/android-surfaces' : 'gpu3d/scene-views',
           ).invokeMapMethod<Object?, Object?>('diagnostics');
           expect(diagnostics!['sessions'], 0);
           expect(diagnostics['renderers'], 0);
-          expect(diagnostics['heldDrawables'], 0);
+          expect(diagnostics[android ? 'surfaces' : 'heldDrawables'], 0);
+          expect(diagnostics['retiring'], 0);
+          expect(diagnostics['readbackBytes'], 0);
           debugPrint('Orbit lab native cleanup: $diagnostics');
         }
         debugPrint('Orbit lab rendered $frames diagnostic frames');

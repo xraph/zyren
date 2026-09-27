@@ -87,6 +87,10 @@ The generator also accepts `stdlib236`, its default.
 
 ## Native verification
 
+The [combined core checkpoint](core-integration.md) records subsequent runs
+through the binary renderer and native Android surface. The table below records
+the original orbit-port runs, before that integration.
+
 The integration test runs both modes at desktop and narrow viewport sizes. It
 checks mouse orbit, pan, proportional wheel zoom, focused keys, modified-key
 rotation, orthographic pinch zoom, single-touch continuation, damping and native

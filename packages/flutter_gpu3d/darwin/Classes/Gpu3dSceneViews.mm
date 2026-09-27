@@ -38,6 +38,31 @@ FlutterError *deferred() { return error(@"frameDeferred", @"The native view chan
 bool number(id value) { return [value isKindOfClass:NSNumber.class]; }
 std::atomic<uint64_t> sessions{0}, held{0}, submitted{0}, presented{0}, readbackBytes{0};
 
+#if DEBUG
+// Debug-only, one-shot gates make asynchronous lifetime tests deterministic.
+// Worker waits are bounded and never run on the platform thread.
+struct TestGate {
+  NSString *phase;
+  const dispatch_semaphore_t signal = dispatch_semaphore_create(0);
+  std::atomic<bool> entered{false}, timedOut{false};
+  bool claimed = false; // Platform thread only.
+  uint64_t identity = 0; // Written on the platform thread before dispatch.
+  dispatch_block_t attachment;
+  explicit TestGate(NSString *phase) : phase(phase) {}
+  void wait() {
+    entered.store(true);
+    timedOut.store(dispatch_semaphore_wait(signal,
+      dispatch_time(DISPATCH_TIME_NOW, 10 * NSEC_PER_SEC)) != 0);
+  }
+  void release() {
+    dispatch_semaphore_signal(signal);
+    dispatch_block_t work = attachment;
+    attachment = nil;
+    if (work) work();
+  }
+};
+#endif
+
 struct Session {
   const Api api;
   const dispatch_queue_t queue;
@@ -117,6 +142,9 @@ bool matches(const std::shared_ptr<Session> &s, NSDictionary *args) {
   void *(^_connect)(uint64_t);
   FlutterMethodChannel *_channel;
   std::map<uint64_t, std::shared_ptr<Session>> _sessions;
+#if DEBUG
+  std::shared_ptr<TestGate> _testGate;
+#endif
 }
 - (instancetype)initWithRegistrar:(NSObject<FlutterPluginRegistrar> *)registrar connect:(void *(^)(uint64_t))connect {
   self = [super init];
@@ -142,18 +170,34 @@ bool matches(const std::shared_ptr<Session> &s, NSDictionary *args) {
   Gpu3dSceneHost *host = [[Gpu3dSceneHost alloc] initWithFrame:frame];
   host.userInteractionEnabled = NO;
 #endif
-  if (![args isKindOfClass:NSDictionary.class] || !number(args[@"session"]) || !number(args[@"attachment"])) return host;
+#if DEBUG
+  auto gate = _testGate;
+  if (gate && [gate->phase isEqualToString:@"attach"] && !gate->claimed) {
+    gate->claimed = true;
+    gate->entered.store(true);
+    if ([args isKindOfClass:NSDictionary.class] && number(args[@"session"])) {
+      gate->identity = [args[@"session"] unsignedLongLongValue];
+    }
+    __weak Gpu3dSceneViews *weak = self;
+    gate->attachment = [^{ [weak attachHost:host view:viewId arguments:args]; } copy];
+    return host;
+  }
+#endif
+  [self attachHost:host view:viewId arguments:args];
+  return host;
+}
+- (void)attachHost:(Gpu3dSceneHost *)host view:(int64_t)viewId arguments:(id)args {
+  if (![args isKindOfClass:NSDictionary.class] || !number(args[@"session"]) || !number(args[@"attachment"])) return;
   auto found = _sessions.find([args[@"session"] unsignedLongLongValue]);
-  if (found == _sessions.end()) return host;
+  if (found == _sessions.end()) return;
   auto s = found->second; uint64_t generation = [args[@"attachment"] unsignedLongLongValue];
-  if (s->closed.load() || !s->device || generation <= s->revokedThrough || generation <= s->generation || s->layer) return host;
+  if (s->closed.load() || !s->device || generation <= s->revokedThrough || generation <= s->generation || s->layer) return;
   CAMetalLayer *layer = (CAMetalLayer *)host.layer;
   layer.device = s->device; layer.pixelFormat = MTLPixelFormatBGRA8Unorm_sRGB;
   layer.framebufferOnly = YES; layer.maximumDrawableCount = 3; layer.allowsNextDrawableTimeout = YES; layer.opaque = YES;
   CGColorSpaceRef color = CGColorSpaceCreateWithName(kCGColorSpaceSRGB); layer.colorspace = color; CGColorSpaceRelease(color);
   s->revoke(); s->generation = generation; s->view = viewId; s->layer = layer; s->logical = CGSizeZero;
   host->session = s; host->generation = generation;
-  return host;
 }
 - (void)handle:(FlutterMethodCall *)call result:(FlutterResult)result {
   NSDictionary *args = [call.arguments isKindOfClass:NSDictionary.class] ? call.arguments : @{};
@@ -163,6 +207,26 @@ bool matches(const std::shared_ptr<Session> &s, NSDictionary *args) {
     _api = api; _connected = true; result(nil); return;
   }
   if (!_connected) { result(error(@"notConnected", @"Connect the loaded Rust runtime first.")); return; }
+#if DEBUG
+  if ([call.method isEqualToString:@"debugArm"]) {
+    NSString *phase = args[@"phase"];
+    if (_testGate || ![phase isKindOfClass:NSString.class] ||
+        ![@[@"create", @"attach", @"render"] containsObject:phase]) {
+      result(error(@"invalidGate", @"A single valid race gate may be armed.")); return;
+    }
+    _testGate = std::make_shared<TestGate>(phase); result(nil); return;
+  }
+  if ([call.method isEqualToString:@"debugState"]) {
+    auto gate = _testGate;
+    result(@{@"entered": @(gate && gate->entered.load()), @"timedOut": @(gate && gate->timedOut.load()),
+      @"session": @(gate ? gate->identity : 0)}); return;
+  }
+  if ([call.method isEqualToString:@"debugRelease"]) {
+    auto gate = std::move(_testGate);
+    if (gate) gate->release();
+    result(gate && gate->timedOut.load() ? error(@"gateTimeout", @"The test did not release its native gate in time.") : nil); return;
+  }
+#endif
   if ([call.method isEqualToString:@"diagnostics"]) {
     result(@{@"sessions": @(sessions.load()), @"renderers": @(_api.live()), @"retiring": @(_api.retiring()),
       @"heldDrawables": @(held.load()), @"submitted": @(submitted.load()), @"presented": @(presented.load()), @"readbackBytes": @(readbackBytes.load())}); return;
@@ -171,6 +235,13 @@ bool matches(const std::shared_ptr<Session> &s, NSDictionary *args) {
     if (_sessions.size() >= 32 || _nextSession >= INT64_MAX) { result(error(@"capacity", @"Native scene capacity is exhausted.")); return; }
     uint64_t identity = _nextSession++;
     auto s = std::make_shared<Session>(_api); _sessions[identity] = s;
+#if DEBUG
+    auto gate = _testGate;
+    if (gate && [gate->phase isEqualToString:@"create"] && !gate->claimed) {
+      gate->claimed = true; gate->identity = identity;
+    }
+    else gate.reset();
+#endif
     __weak Gpu3dSceneViews *weak = self;
     dispatch_async(s->queue, ^{
       @autoreleasepool {
@@ -178,6 +249,9 @@ bool matches(const std::shared_ptr<Session> &s, NSDictionary *args) {
         id<MTLDevice> device = s->renderer ? CFBridgingRelease(s->api.device(s->renderer)) : nil;
         NSString *failure = device ? nil : s->api.error();
         if (failure && s->renderer) { s->api.destroy(s->renderer); s->renderer = 0; }
+#if DEBUG
+        if (gate) gate->wait();
+#endif
         dispatch_async(dispatch_get_main_queue(), ^{
           Gpu3dSceneViews *owner = weak;
           if (!owner || s->closed.load()) { result(error(@"disposed", @"Scene closed during creation.")); return; }
@@ -227,13 +301,21 @@ bool matches(const std::shared_ptr<Session> &s, NSDictionary *args) {
   const bool capture = [call.method isEqualToString:@"capture"];
   if (!capture && ![call.method isEqualToString:@"render"]) { result(FlutterMethodNotImplemented); return; }
   if (s->busy || s->pending) { result(deferred()); return; }
-  if (![args[@"json"] isKindOfClass:NSString.class] || !number(args[@"width"]) || !number(args[@"height"]) || !number(args[@"frame"])) { result(error(@"invalidFrame", @"A scene packet, dimensions and frame ID are required.")); return; }
+  id scene = args[@"json"];
+  if ((! [scene isKindOfClass:NSString.class] && ![scene isKindOfClass:FlutterStandardTypedData.class]) || !number(args[@"width"]) || !number(args[@"height"]) || !number(args[@"frame"])) { result(error(@"invalidFrame", @"A scene packet, dimensions and frame ID are required.")); return; }
   int64_t width = [args[@"width"] longLongValue], height = [args[@"height"] longLongValue];
-  NSData *packet = [args[@"json"] dataUsingEncoding:NSUTF8StringEncoding];
+  NSData *packet = [scene isKindOfClass:NSString.class] ? [scene dataUsingEncoding:NSUTF8StringEncoding] : ((FlutterStandardTypedData *)scene).data;
   if (width < 1 || height < 1 || width > 4096 || height > 4096 || packet.length == 0 || packet.length > 128 * 1024 * 1024) { result(error(@"invalidFrame", @"Scene packet or physical size exceeds its limit.")); return; }
   const uint64_t epoch = s->epoch.load(), frame = [args[@"frame"] unsignedLongLongValue];
   if (!capture && (!matches(s, args) || !number(args[@"epoch"]) || epoch != [args[@"epoch"] unsignedLongLongValue] || s->suspended || !s->visible)) { result(deferred()); return; }
   CAMetalLayer *layer = s->layer; s->busy = true;
+#if DEBUG
+  auto gate = _testGate;
+  if (gate && [gate->phase isEqualToString:@"render"] && !gate->claimed) {
+    gate->claimed = true;
+    gate->identity = [args[@"session"] unsignedLongLongValue];
+  } else gate.reset();
+#endif
   dispatch_async(s->queue, ^{
     @autoreleasepool {
       if (s->closed.load() || (!capture && s->epoch.load() != epoch)) {
@@ -251,6 +333,9 @@ bool matches(const std::shared_ptr<Session> &s, NSDictionary *args) {
       NSString *failure = ok ? nil : s->api.error();
       const uint64_t bytes = ok ? s->api.readback(s->renderer) - before : 0;
       if (ok) { submitted.fetch_add(1); readbackBytes.fetch_add(bytes); }
+#if DEBUG
+      if (gate) gate->wait();
+#endif
       dispatch_async(dispatch_get_main_queue(), ^{
         s->busy = false;
         const bool ready = ok && !s->closed.load() && (capture || s->epoch.load() == epoch);
@@ -263,6 +348,13 @@ bool matches(const std::shared_ptr<Session> &s, NSDictionary *args) {
     }
   });
 }
-- (void)closeAll { for (auto &entry : _sessions) close(entry.second, nil); _sessions.clear(); }
+- (void)closeAll {
+  for (auto &entry : _sessions) close(entry.second, nil);
+  _sessions.clear();
+#if DEBUG
+  auto gate = std::move(_testGate);
+  if (gate) gate->release();
+#endif
+}
 - (void)dealloc { [self closeAll]; [_channel setMethodCallHandler:nil]; }
 @end

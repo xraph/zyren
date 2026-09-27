@@ -82,11 +82,15 @@ The separate core worktree remains untouched. The camera lab uses its public
 `SceneRuntime.nativeMetal()` adapter; no additional presentation bridge or
 Earth-specific Rust rendering path was introduced.
 
+The port now includes core commit `4b619c0`, including native Android surfaces,
+scoped resources, shared binary geometry and opaque color textures. See the
+[combined verification](core-integration.md). Later core work remains separate.
+
 | Gate | Core work | Consumers | Exit evidence |
 | --- | --- | --- | --- |
-| R1 | Hosted SceneView adapter available at 29e21e9 | All visual slices | Camera lab passes macOS and iOS simulator Metal pose/resize/cleanup; wider core qualification remains in its checkpoint |
+| R1 | Hosted Metal and Android Vulkan SceneView adapters available | All visual slices | Combined orbit lab passes macOS Metal and physical Pixel Vulkan with zero readback; wider composition/recovery qualification remains in the platform checkpoints |
 | R2 | Partial: orthographic camera, perspective zoom, projection/unprojection, rays, logical viewport input and focused key routing implemented; mesh picking remains | Controls, tiles, camera transition | [36 camera configurations and 108 reference rays](cameras.md), [host input tests](controls.md); full control event replay remains |
-| R3 | Resource handles, samplers, UVs/tangents, 2D/3D/array/float textures, upload and cancellation | Loaders, PBR, atmosphere/clouds | Validation and actual GPU upload/readback, disposal under failure |
+| R3 | Partial: scoped handles, shared geometry, UV0/UV1, samplers and RGBA8 2D textures implemented; tangents, dynamic geometry, float/3D/array formats remain | Loaders, PBR, atmosphere/clouds | [Resource ownership and limits](../design/gpu-resources.md), native upload/readback and scene texture checks pass; broader formats and material bindings remain |
 | R4 | Extensible materials and WGSL pipelines, typed bindings, depth/normal targets, HDR and color management | Atmosphere/effects | Custom plugin pipeline through public APIs, native pixel comparisons |
 | R5 | Render graph, compute, MRT, barriers, mipmaps, temporal history | LUT generation, clouds, effects | Dependency validation, read/write hazards and device capability failures |
 | R6 | PBR, multiple lights, shadows, environment lighting, alpha, instancing and glTF extension points | Tile cities and full stories | glTF corpus, lighting fixtures, actual asset rendering |

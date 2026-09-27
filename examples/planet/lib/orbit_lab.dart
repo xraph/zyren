@@ -31,6 +31,7 @@ class _OrbitLabState extends State<OrbitLab> {
   bool get metal =>
       defaultTargetPlatform == TargetPlatform.macOS ||
       defaultTargetPlatform == TargetPlatform.iOS;
+  bool get android => defaultTargetPlatform == TargetPlatform.android;
 
   @override
   void initState() {
@@ -63,9 +64,13 @@ class _OrbitLabState extends State<OrbitLab> {
         near: .1,
         far: 1000,
       ),
-      runtime: metal ? const SceneRuntime.nativeMetal() : const SceneRuntime(),
+      runtime: metal
+          ? const SceneRuntime.nativeMetal()
+          : android
+          ? const SceneRuntime.nativeAndroid()
+          : const SceneRuntime(),
       options: EngineOptions(
-        presentation: metal
+        presentation: metal || android
             ? PresentationPolicy.requireNative
             : PresentationPolicy.readbackOnly,
       ),
@@ -190,7 +195,11 @@ class _OrbitLabState extends State<OrbitLab> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Text(
-              'Drag: orbit · Right drag or Shift-drag: pan · Wheel or pinch: zoom · Click the scene, then use arrow keys to pan\n${metal ? 'Metal native view' : 'Native GPU readback'} · Perspective and orthographic · Y-up',
+              'Drag: orbit · Right drag or Shift-drag: pan · Wheel or pinch: zoom · Click the scene, then use arrow keys to pan\n${metal
+                  ? 'Metal native view'
+                  : android
+                  ? 'Vulkan native surface'
+                  : 'Native GPU readback'} · Perspective and orthographic · Y-up',
               style: const TextStyle(fontSize: 12),
             ),
           ),

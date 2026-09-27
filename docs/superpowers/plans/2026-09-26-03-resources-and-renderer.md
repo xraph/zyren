@@ -57,6 +57,16 @@ one universal byte-identical golden across unrelated GPU implementations.
 
 ## Task 1: Versioned resources and binary uploads
 
+Checkpoint, 2026-09-27: explicit resource scopes, typed buffer/texture descriptors,
+binary scene transfers, changed mesh records and shared readback views are
+implemented. Scene geometry uses the generation-checked registry and survives
+visibility changes and sibling view teardown. Native GPU and Flutter integration
+tests pass on macOS Metal. The physical Pixel's Vulkan scene/resource rerun also
+passes with the task 2 texture checkpoint. See
+[the API and protocol](../../design/gpu-resources.md).
+Public Flutter platform views still own separate devices. Material/render-graph
+bindings and device recovery belong to later tasks.
+
 **Files:** Create resource modules in the map, native `tests/resource_lifetime.rs`,
 `tests/upload_validation.rs` and Dart `test/resource_scope_test.dart`. Modify
 native ABI/worker serialization and scene snapshots.
@@ -70,7 +80,7 @@ Rust `ResourceRegistry::resolve(key) -> Result<&Resource, ResourceError>` valida
 all four. Binary command headers contain ABI version, opcode, request ID and
 byte lengths; every table/range uses checked arithmetic.
 
-- [ ] Add Rust tests resolving a valid key, then rejecting another renderer's key, a reused slot and an old device generation. Pin arithmetic independently:
+- [x] Add Rust tests resolving a valid key, then rejecting another renderer's key, a reused slot and an old device generation. Pin arithmetic independently:
 
 ```rust
 #[test]
@@ -83,8 +93,8 @@ fn overflowing_upload_range_is_rejected() {
 `checked_upload_range(offset: u64, length: u64, capacity: u64)` is the production
 validator returning `Result<Range<u64>, ResourceError>` in `resources/upload.rs`.
 
-- [ ] Run `cargo test --test resource_lifetime --test upload_validation`; initially expect missing registry/validator. Add truncated headers, unsupported version/opcode, invalid usage, nonfinite transforms, over-budget allocation and scope close with submitted GPU references.
-- [ ] Implement a renderer-local registry with scope references and fence retirement. Separate CPU cache descriptions from GPU allocation. Use binary typed arrays for geometry/texture payloads and compact changed-transform commands. Retain v1 only through the migration wrapper. Never reinterpret an unvalidated byte slice as a native structure.
+- [x] Run `cargo test --test resource_lifetime --test upload_validation`; initially expect missing registry/validator. Add truncated headers, unsupported version/opcode, invalid usage, nonfinite transforms, over-budget allocation and scope close with submitted GPU references.
+- [x] Implement a renderer-local registry with scope references and fence retirement. Separate CPU cache descriptions from GPU allocation. Use binary typed arrays for geometry/texture payloads and compact changed-transform commands. Retain v1 only through the migration wrapper. Never reinterpret an unvalidated byte slice as a native structure.
 
 ```text
 upload: validate command framing -> check extent/range/budget -> reserve -> transfer
@@ -93,10 +103,17 @@ scope close: reject allocations -> drop scope references -> retire after submiss
 device loss: invalidate generation -> retain CPU recipes -> fail old GPU handles
 ```
 
-- [ ] Verify shared geometry is uploaded once per native device, survives one of two views closing, and evicts only after references/fences permit. Assert one transform edit does not upload geometry again. Run protocol fuzz/property tests with reproducible seeds plus Dart/FFI/Rust suites.
-- [ ] Document transfer ownership and byte accounting; commit `feat: add scoped GPU resources and binary uploads`.
+- [x] Verify shared geometry is uploaded once per native device, survives one of two views closing, and evicts only after references/fences permit. Assert one transform edit does not upload geometry again. Run protocol fuzz/property tests with reproducible seeds plus Dart/FFI/Rust suites.
+- [x] Document transfer ownership and byte accounting; commit `feat: add scoped GPU resources and binary uploads`.
 
 ## Task 2: Textures, dynamic geometry and color correctness
+
+Opaque color texture checkpoint: `TextureImage`, `TextureMap`, independent
+samplers, UV0/UV1 and supplied mip levels use binary scene opcode 11 and the
+shared resource registry. The native demo exercises filtering and wrapping.
+Task 2 remains open for dynamic attributes, bounded PNG/JPEG decoding, automatic
+mips, alpha modes, render ordering and portable lines/points. See
+[color textures](../../design/gpu-resources.md#color-textures) for the API.
 
 **Files:** Add core `geometry/{vertex_attribute,vertex_layout}.dart`, resource
 texture/sampler modules and native `src/resources/{image_decode,mipmap}.rs`.

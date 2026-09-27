@@ -2,14 +2,58 @@ part of 'native_renderer.dart';
 
 /// Native rendering from a captured submission, without Flutter dependencies.
 /// Apple surfaces use the same worker and GPU device as explicit capture.
-class NativeBackend implements RenderBackend {
+class NativeBackend implements ResourceBackend {
   final NativeRenderer _renderer;
+  final ScenePacketEncoder _encoder;
+  Future<FrameOutput>? _drawing;
   final bool _experimentalAppleSurfaces;
   bool _closed = false;
   Future<void>? _closing;
   int _nextFrame = 0;
   final _surfaces = <NativeSurfaceSnapshot>{};
-  NativeBackend._(this._renderer, this._experimentalAppleSurfaces);
+  final _resourceScopes = <ResourceScope>{};
+  final _NativeResourceDevice _resources;
+  NativeBackend._(
+    this._renderer,
+    this._experimentalAppleSurfaces, {
+    int viewId = 1,
+    _NativeResourceDevice? resources,
+  }) : _resources = resources ?? _NativeResourceDevice(_renderer),
+       _encoder = ScenePacketEncoder(viewId: viewId);
+
+  /// An independent view that shares this device and its immutable geometry.
+  /// Closing either view preserves the other view's scenes and resource scopes.
+  NativeBackend createView() {
+    if (_closed) throw StateError('Backend has closed.');
+    if (_experimentalAppleSurfaces) {
+      throw UnsupportedError(
+        'Shared views currently support explicit readback only.',
+      );
+    }
+    if (_renderer._owners >= 64) {
+      throw StateError('Native device view limit reached.');
+    }
+    _renderer._owners++;
+    return NativeBackend._(
+      _renderer,
+      false,
+      viewId: ++_renderer._nextView,
+      resources: _resources,
+    );
+  }
+
+  @override
+  ResourceScope createResourceScope({String label = ''}) {
+    if (_closed) throw StateError('Backend has closed.');
+    final scope = ResourceScope(_resources, label: label);
+    _resourceScopes.add(scope);
+    scope.whenClosed.then((_) {
+      _resourceScopes.remove(scope);
+    });
+    return scope;
+  }
+
+  Future<ResourceStats> resourceStats() => _resources.stats();
 
   /// Apple texture registration remains experimental while Flutter's texture
   /// cache prevents prompt buffer retirement. Keep it out of default selection.
@@ -40,6 +84,8 @@ class NativeBackend implements RenderBackend {
       RenderFeature.diffuseLighting,
       RenderFeature.unlitMaterials,
       RenderFeature.rgbaReadback,
+      RenderFeature.scopedResources,
+      RenderFeature.colorTextures,
       if (_experimentalAppleSurfaces && NativeSurfaces().appleAvailable)
         RenderFeature.sharedTexture,
     },
@@ -52,7 +98,20 @@ class NativeBackend implements RenderBackend {
   DeviceCapabilities get capabilities => _capabilities;
 
   @override
-  Future<FrameOutput> render(FrameSubmission submission) async {
+  Future<FrameOutput> render(FrameSubmission submission) {
+    if (_drawing != null) {
+      return Future.error(
+        StateError('Only one frame may be in flight per view.'),
+      );
+    }
+    final future = _render(submission);
+    _drawing = future;
+    return future.whenComplete(() {
+      _drawing = null;
+    });
+  }
+
+  Future<FrameOutput> _render(FrameSubmission submission) async {
     if (_closed) {
       throw SceneException(
         SceneIssue(
@@ -90,18 +149,12 @@ class NativeBackend implements RenderBackend {
       throw ArgumentError('Render dimensions exceed the backend limit.');
     }
     final clock = Stopwatch()..start();
-    final packet = submission.toNativePacket(uploaded: _renderer._uploaded);
-    var uploadedBytes = 0;
-    for (final geometry in packet['geometries'] as List) {
-      final data = geometry as Map;
-      uploadedBytes +=
-          (data['positions'] as List).length * 24 +
-          (data['indices'] as List).length * 4;
-    }
     try {
       if (submission.target case final SurfaceTarget target) {
+        final packet = _encoder.encode(submission);
         final pending = _renderer._renderSurfacePacket(
           packet,
+          _encoder,
           target,
           ++_nextFrame,
         );
@@ -120,17 +173,13 @@ class NativeBackend implements RenderBackend {
             cpuSubmitTime: clock.elapsed,
             drawCalls: submission.scene.drawCalls,
             triangles: submission.scene.triangles,
-            uploadedBytes: uploadedBytes,
+            uploadedBytes: packet.uploadedBytes,
             residentBytes: receipt[2],
             readbackBytes: receipt[3],
           ),
         );
       }
-      final pending = _renderer._renderPacket(
-        packet,
-        submission.size.width,
-        submission.size.height,
-      );
+      final pending = _renderer._renderBinary(submission, _encoder);
       clock.stop();
       final frame = await pending;
       return ReadbackOutput(
@@ -143,7 +192,8 @@ class NativeBackend implements RenderBackend {
           cpuSubmitTime: clock.elapsed,
           drawCalls: submission.scene.drawCalls,
           triangles: submission.scene.triangles,
-          uploadedBytes: uploadedBytes,
+          uploadedBytes: frame.uploadedBytes,
+          residentBytes: frame.residentBytes,
           readbackBytes: frame.pixels.length,
         ),
       );
@@ -224,6 +274,16 @@ class NativeBackend implements RenderBackend {
     _closed = true;
     Object? failure;
     StackTrace? failureStack;
+    final resourceClosures = [
+      for (final scope in _resourceScopes.toList())
+        scope.close().then<void>(
+          (_) {},
+          onError: (Object error, StackTrace stack) {
+            failure ??= error;
+            failureStack ??= stack;
+          },
+        ),
+    ];
     for (final surface in _surfaces.toList()) {
       try {
         closeSurface(surface);
@@ -232,7 +292,13 @@ class NativeBackend implements RenderBackend {
         failureStack ??= stack;
       }
     }
-    await _renderer.dispose();
-    if (failure != null) Error.throwWithStackTrace(failure, failureStack!);
+    await Future.wait(resourceClosures);
+    try {
+      await _drawing;
+    } catch (_) {
+      /* The native owner still needs cleanup. */
+    }
+    await _renderer._releaseView(_encoder.viewId);
+    if (failure != null) Error.throwWithStackTrace(failure!, failureStack!);
   }
 }

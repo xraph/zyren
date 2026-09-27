@@ -7,7 +7,7 @@ Rust 1.97.1 and Xcode 27.0.
 | --- | --- | --- |
 | macOS ARM64 | Debug and release apps passed | Apple M3 Max / Metal pixel tests, Dart FFI tests and Flutter integration test passed; globe and wrapping controls inspected in desktop and narrow native windows; standalone release launch rendered without a development runner |
 | iOS ARM64 simulator | Debug app passed | iPhone 17 Pro simulator on iOS 26.0 passed the Flutter integration test with a rendered native image |
-| Android ARM64 | Debug APK passed | No device run yet |
+| Android ARM64 | Debug and release APKs passed | Pixel 9 Pro / Mali-G715 public Vulkan SceneView passes updates, remount, independent cameras, resize/visibility and 100 create/remove cycles with zero presentation readback; broader composition and device qualification remain open |
 | iOS physical device | Build target configured | Signing, device deployment and GPU behaviour not verified |
 | Windows | Build hook and CI job configured | No Windows host build or runtime verification yet |
 | Linux | Build hook and CI job configured | No Linux host build or runtime verification yet |
@@ -67,8 +67,9 @@ Default example presentation copies RGBA data from the GPU to Dart and back
 into Flutter. The experimental Apple texture bridge avoids this transfer but fails its
 compositor-retention gate. The newer native Metal view path also avoids readback;
 its integrated checks are recorded below. No frame-rate target has been verified. The renderer supports
-opaque indexed meshes, diffuse directional lighting and an unlit material.
-Custom native shader/pass registration, texture loading, glTF, PBR, shadows,
+opaque indexed meshes, diffuse directional lighting, an unlit material and RGBA
+color textures with supplied mip levels.
+Custom native shader/pass registration, image decoding, glTF, PBR, shadows,
 animation clips, picking, terrain streaming, atmosphere and clouds are not
 implemented.
 
@@ -324,3 +325,130 @@ both cameras render, mesh edits update the display, and the left view closes and
 reopens while the right remains active. The app is left running. The iOS
 simulator demo was relaunched and its narrow layout was inspected in
 `artifacts/ios-native-scene.png`. That local screenshot is a run artifact.
+
+## Native lifecycle and Android surface follow-up
+
+Four deterministic Apple race scenarios now pass on macOS and iOS simulator:
+close during creation, dispose before attachment, delayed attachment across
+remount and dispose during native frame completion. Ownership returns to zero;
+stale work cannot publish. These gates are absent from the macOS release binary.
+
+The Android native surface fixture passes on the physical Pixel 9 Pro, with
+100 resizes, portrait/landscape requests, replacement, suspension and 100
+create/remove cycles. After unlocking the phone, OS screenshots confirm correct
+corner order and exact opaque RGB/gray samples. ADB input exercises pause/resume,
+resize and close/reopen. Stable keys on the demo's layout children fix the second
+renderer restarting when the first closes. The regression reproduces that extra
+creation before the fix, and the rebuilt release preserves the surviving session.
+
+Android Home stops frame reports; returning resumes both native surfaces with
+new generations and zero readback. The final release capture records 4,470 and
+6,600 submitted frames. All 52 Flutter/example tests, analyzer and Dart formatting
+pass after the demo fix. The preceding native checkpoint passed 21 Rust
+GPU/ownership tests and package boundaries. See the
+[Android checkpoint](android-presentation-checkpoint.md) for commands, evidence
+files and remaining platform gates.
+
+## Public Android SceneView
+
+`SceneRuntime.nativeAndroid()` selects Vulkan presentation through Flutter's
+SurfaceProducer on Android API 29 or newer. A controller owns its renderer and
+geometry residency; a view attachment owns its replaceable Flutter texture.
+Detach releases that texture while a borrowed controller remains reusable.
+The runtime supports native/shared-texture policies and explicitly reports no
+RGBA capture support.
+
+The Pixel passes all four supported public SceneView tests, including 100
+managed cycles with zero resources left over. The separate attachment test
+checks stale IDs and geometry reuse. Review found a race between epoch checking
+and publication; a deterministic worker gate reproduced it as an extra native
+presentation after revocation. Publication now claims its generation atomically.
+
+The final combined Android run passes six integrations with capture skipped.
+The race gates are absent from the release DEX. The ARM64 release demo was
+inspected on the Pixel: camera edits remain independent, shared mesh edits update
+both views, close/reopen works and rendering resumes after Android Home. The
+final screenshot is `artifacts/android-native-scene-release-final.png`.
+
+All 56 Flutter/example tests and the five macOS native SceneView tests pass.
+Analyzer, formatting and package boundaries pass. Explicit Android capture,
+physical iOS, Windows, broader mobile GPU qualification and device-loss testing
+remain open.
+
+## Binary scene resources, 2026-09-27
+
+Scene snapshots now retain immutable CPU geometry recipes. Dart sends typed
+binary geometry and changed mesh records; Rust resolves the resulting buffers
+through the resource registry. Two explicit readback views can share one worker
+and device. The GPU test renders both, verifies one 720-byte box upload, moves
+and hides it without another upload, closes the first view, restores the second
+view's red pixels, then removes the final owner and verifies zero resident bytes.
+
+The Metal host passes 61 core/geospatial tests, 14 native Dart tests with serial
+execution, 56 Flutter/example tests and 33 Rust tests including every ignored GPU
+test. Protocol coverage includes every truncation of empty and populated frames,
+bad counts/indices/flags, nonfinite transforms, stale revisions and seeded byte
+mutations. A rejected delta leaves the previous native scene usable. Analyzer,
+strict Clippy, formatting, C resource-header syntax and package boundaries pass.
+
+Release validation caught a first-frame crash in Dart 3.13.4's compiled encoder
+that did not occur under the JIT. A standalone executable reproduced it without
+Flutter or GPU calls. Selecting full replacement before entering the delta loop
+avoids the nullable baseline access. The core suite now compiles and runs this
+scenario with first-frame, transform, unchanged-frame and visibility checks.
+
+Five native SceneView integrations and two resource integrations pass on macOS.
+The view run includes 100 mount/close cycles with zero remaining renderers and
+drawables, plus explicit capture. Flutter failed to launch the resource test
+after the first integration app; rerunning that file alone passed both tests.
+The standalone `shared_views.dart` example also passed its upload, pixel and
+cleanup checks.
+
+The Android ARM64 release build passes (21.2 MB). The Pixel is disconnected, so
+the new binary scene integration could not run on Vulkan in this checkpoint.
+Earlier Pixel resource/view evidence above does not qualify this new packet
+path. Flutter platform views still own separate devices; shared-device rendering
+is currently an explicit readback backend capability. This checkpoint adds no
+new iOS, Windows or Linux runtime qualification.
+
+The fixed macOS release app builds (48.1 MB), starts and remains running. Visual
+inspection of that release is pending because the Mac locked before the check.
+
+## Opaque color textures, 2026-09-27
+
+You can map an immutable RGBA image onto UV0 or UV1 with an independent sampler.
+Metal pixel tests check the four corners, nearest/linear filtering, repeat,
+clamp and mirrored repeat, supplied mip sampling and linear/sRGB conversion.
+They also check mixed textured/untextured draw order, hidden-image retention,
+shared-view teardown and zero resident bytes after removing the final owner.
+Alpha stays opaque, including when the source alpha is zero.
+
+Checks pass: 63 core/geospatial tests, 16 native Dart tests, 57 Flutter/example
+tests and 36 Rust tests including real GPU tests. The Rust count includes the
+new populated texture-packet test run after the full suite. Bounds checks cover
+truncation, image extents/mips, UV flags, nonfinite UVs, sampler values, image
+ownership and seeded mutations. Invalid image edits leave the prior frame usable.
+The standalone AOT regression also exercises a first textured frame and a sampler
+edit. Analyzer, strict Clippy, formatters, C-header syntax and package boundaries
+pass.
+
+All six macOS native SceneView integrations pass. On the physical Pixel 9 Pro,
+eight Vulkan integrations pass with the unsupported platform-presenter capture
+case skipped. Those checks cover the new texture view, the earlier binary scene
+migration, 100 view cycles, shared scene images and explicit resource transfers.
+The separate readback backend verifies sRGB gray 128 and linear gray near 188,
+one upload across two owners, retention through hide/close/restore and final
+release. Ordinary native presentation reports zero readback bytes on both hosts.
+
+The previous two-camera macOS release was visibly checked after the Mac unlocked.
+The textured macOS release builds at 48.4 MB and runs independently. Its nearest,
+linear and mirrored-repeat controls visibly change the textured plane. The
+Flutter layout test checks working controls at 320 pixels wide.
+The Android ARM64 release builds at 21.4 MB and launches on the Pixel through
+Flutter's release runner. Its automated Vulkan checks above provide the pixel
+and lifecycle evidence; the manual visual check was on macOS.
+
+Task 2 remains open. PNG/JPEG decoding, automatic mip generation, dynamic
+attributes, alpha modes, render ordering and portable lines/points are pending.
+Box and sphere UV generation is pending too. Public native view presenters still
+own separate devices. No new iOS, Windows, Linux or Adreno qualification was run.
