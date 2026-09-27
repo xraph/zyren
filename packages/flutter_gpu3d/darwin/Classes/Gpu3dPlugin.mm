@@ -1,6 +1,7 @@
 #import "Gpu3dPlugin.h"
 #import "gpu3d.h"
 #import "Gpu3dMetalViews.h"
+#import "Gpu3dSceneViews.h"
 #import <CoreVideo/CoreVideo.h>
 #include <dlfcn.h>
 #include <mach-o/dyld.h>
@@ -34,6 +35,7 @@ static std::atomic<uint64_t> rasterCopies{0};
   Snapshot _snapshot;
   Snapshot _closeSurface;
   Gpu3dMetalViews *_metalViews;
+  Gpu3dSceneViews *_sceneViews;
 }
 + (void)registerWithRegistrar:(NSObject<FlutterPluginRegistrar> *)registrar {
   Gpu3dPlugin *plugin = [Gpu3dPlugin new];
@@ -44,6 +46,10 @@ static std::atomic<uint64_t> rasterCopies{0};
   [registrar addMethodCallDelegate:plugin channel:channel];
   __weak Gpu3dPlugin *weak = plugin;
   plugin->_metalViews = [[Gpu3dMetalViews alloc] initWithRegistrar:registrar connect:^void *(uint64_t token) {
+    Gpu3dPlugin *owner = weak;
+    return owner && [owner connect:token] ? owner->_runtime : nullptr;
+  }];
+  plugin->_sceneViews = [[Gpu3dSceneViews alloc] initWithRegistrar:registrar connect:^void *(uint64_t token) {
     Gpu3dPlugin *owner = weak;
     return owner && [owner connect:token] ? owner->_runtime : nullptr;
   }];
@@ -72,6 +78,7 @@ static std::atomic<uint64_t> rasterCopies{0};
 }
 - (void)closeViews {
   [_metalViews closeAll];
+  [_sceneViews closeAll];
   for (NSNumber *identity in _views.allKeys) {
     Gpu3dFlutterTexture *view = _views[identity];
     Fg2SurfaceSnapshot output = {sizeof(output), FG2_ABI_VERSION};

@@ -1,9 +1,9 @@
 # Apple presentation checkpoint
 
-The CAMetalLayer platform-view prototype sustains native rendering on macOS and
-the iOS simulator, passes repeated cleanup and matches a Flutter composition
-reference on iOS. It remains a development fixture; the next step is connecting
-it to the public scene controller and qualifying platform input and devices.
+You can now use the CAMetalLayer presenter through the public scene controller.
+Select `const SceneRuntime.nativeMetal()` on macOS or iOS. The same core engine
+runs your updates, plugins and snapshots; normal presentation carries no frame
+pixels through Dart. Physical-device and platform-input qualification remain open.
 
 The earlier experimental texture bridge can render Metal content into a Flutter `Texture`
 without sending frame pixels through Dart. It is disabled by default. Flutter's
@@ -69,7 +69,7 @@ final controller = SceneController(
 ```
 
 The default backend does not advertise shared textures, and `requireSharedTexture`
-continues to report `presentationUnavailable`. Existing runnable examples select
+continues to report `presentationUnavailable`. The portable examples select
 `readbackOnly` explicitly. They still render through native Metal; they do not
 use WebGL or a browser.
 
@@ -139,20 +139,16 @@ The smoke mode exits after checking rendering and removal. Omit the Dart define
 when running the interactive demo. The locked desktop prevents foreground visual
 inspection on macOS, so its composition still needs a visible OS capture.
 
-This is an ownership and composition experiment. It is not yet a SceneView
-presenter: scene updates, render hooks, pointer routing, visibility policy and
-capability selection still need a controller adapter. The native-only FFI
+This fixture isolates ownership and composition. The integrated SceneView path
+below now covers updates, render hooks, Flutter pointer routing, visibility and
+capability selection. The native-only FFI
 functions accept retained Metal objects from the platform plugin; pointers never
 cross the Dart channel. The default backend remains unchanged.
 
 ## Next implementation
 
-Keep the public scene API and optional geospatial plugin unchanged. Prove a
-supported presentation contract that permits prompt consumer retirement. The
-CAMetalLayer proof now covers continuous ownership and removal. Complete the
-composition checks, then connect it through an explicit native-view presentation
-path with the existing scene controller. Verify input and visibility before
-selecting it automatically. Any texture alternative must establish an
+Keep the Apple runtime opt-in until platform input, physical devices and
+composition are qualified. Any texture alternative must establish an
 explicit consumer lifetime guarantee; private engine selectors are not part of
 the library design.
 
@@ -162,7 +158,57 @@ create/remove cycles, two views and macOS release runtime identity. Android Surf
 plan tasks. Three.js feature parity, assets/materials/animation and the full
 geospatial port remain later milestones.
 
-## Checks run
+## Integrated SceneView runtime
+
+```dart
+SceneView.builder(
+  runtime: const SceneRuntime.nativeMetal(),
+  onCreate: (view) {
+    final cube = view.scene.add(Mesh(BoxGeometry(), UnlitMaterial()));
+    view.onUpdate((time) => cube.rotateY(time.deltaSeconds));
+  },
+)
+```
+
+The view owns this controller and closes it on removal. For external controls,
+pass a controller to `SceneView(controller: controller)` and dispose it yourself.
+A borrowed controller keeps its GPU and geometry cache across view remounts.
+Each mounted view gets a new attachment generation, so an old view cannot publish
+into or detach its replacement.
+
+The default `requireNative` policy accepts native views or shared textures.
+`requireSharedTexture` remains strict and rejects this runtime's native-view
+path. The opt-in runtime reports `PresentationPath.nativeView`; it does not
+change the default runtime's capabilities.
+
+Native work runs on a serial queue. A rendered drawable stays owned until the
+presenter publishes it after the core render hooks. Resize, suspension and
+removal revoke pending receipts. Async cleanup retains the session by value
+until renderer destruction completes. Capturing through a backend
+`ReadbackTarget` returns RGBA8 sRGB pixels and updates the measured readback
+counter; the controller-level capture convenience API remains planned.
+
+From `examples/multiple_views`, run:
+
+```sh
+flutter run -d macos -t lib/native_scene_demo.dart
+flutter test integration_test/native_scene_test.dart -d macos
+flutter build macos --release -t lib/native_scene_demo.dart --dart-define=METAL_SCENE_SMOKE=true
+build/macos/Build/Products/Release/multiple_views.app/Contents/MacOS/multiple_views
+```
+
+The interactive example shares one scene across two controllers. Its buttons edit
+the shared mesh, move each camera and close or reopen one view. Use an iOS
+simulator ID instead of `macos` for the first two commands.
+
+The integration suite checks updates and plugin hooks, an idle scene waking
+after edits, two cameras, borrowed remount without re-upload, physical resize,
+TickerMode suspension, 100 managed create/remove cycles and explicit pixel
+capture. Injected Flutter taps test routing within Flutter; they do not establish
+OS mouse, touch or keyboard delivery. Disposal while native creation or rendering
+is pending still needs a dedicated native race fixture.
+
+## Earlier proof checks
 
 The checkpoint passes 50 core/geospatial tests, 46 Flutter and executable-example
 tests, 11 native Dart tests, and 21 Rust tests with real GPU cases enabled.
@@ -181,3 +227,21 @@ The shared Darwin plugin currently uses CocoaPods. Flutter 3.47.5 accepts this
 and warns that Swift Package Manager support will become mandatory in a future
 release. Add that packaging path before distribution. A build on the simulator
 or a source-level Android check does not qualify physical-device presentation.
+
+## Integrated runtime checks
+
+The five SceneView integrations pass on macOS and the iPhone 17 Pro simulator
+with iOS 26.0. Each platform presents 142 frames with zero readback, including
+100 managed view cycles that return to zero sessions, renderers, retirements and
+held drawables. The separate capture returns the expected red RGBA pixel and
+adds exactly 11,844 bytes to the readback counter.
+
+The integration caught a teardown crash in the native close helper: an async
+block captured a C++ reference parameter whose owner had already returned.
+Retaining the session by value fixes the reproduced crash and passes both full
+lifecycle suites. Core/geospatial tests pass 50 cases; Flutter and executable
+examples pass 51. Analyzer, formatting and package/header boundaries pass.
+
+The standalone macOS release smoke presents 937 frames across two controllers
+with zero readback. Removal returns all ownership counters to zero. This run
+uses the public SceneView adapter and the loaded Rust asset's runtime identity.

@@ -5,7 +5,12 @@ void main() => runApp(const MultipleViewsApp());
 
 class MultipleViewsApp extends StatelessWidget {
   final SceneRuntime? runtime;
-  const MultipleViewsApp({super.key, this.runtime});
+  final PresentationPolicy presentation;
+  const MultipleViewsApp({
+    super.key,
+    this.runtime,
+    this.presentation = PresentationPolicy.readbackOnly,
+  });
   @override
   Widget build(BuildContext context) => MaterialApp(
     debugShowCheckedModeBanner: false,
@@ -13,13 +18,18 @@ class MultipleViewsApp extends StatelessWidget {
       scaffoldBackgroundColor: const Color(0xff111823),
       visualDensity: VisualDensity.compact,
     ),
-    home: SharedSceneViews(runtime: runtime),
+    home: SharedSceneViews(runtime: runtime, presentation: presentation),
   );
 }
 
 class SharedSceneViews extends StatefulWidget {
   final SceneRuntime? runtime;
-  const SharedSceneViews({super.key, this.runtime});
+  final PresentationPolicy presentation;
+  const SharedSceneViews({
+    super.key,
+    this.runtime,
+    this.presentation = PresentationPolicy.readbackOnly,
+  });
   @override
   State<SharedSceneViews> createState() => _SharedSceneViewsState();
 }
@@ -32,7 +42,7 @@ class _SharedSceneViewsState extends State<SharedSceneViews> {
   SceneController controller(Vec3 position) => SceneController(
     scene: scene,
     camera: PerspectiveCamera(position: position),
-    options: const EngineOptions(presentation: PresentationPolicy.readbackOnly),
+    options: EngineOptions(presentation: widget.presentation),
     runtime: widget.runtime,
   );
 
@@ -100,7 +110,11 @@ class _SharedSceneViewsState extends State<SharedSceneViews> {
               style: TextStyle(fontSize: 24),
             ),
             const SizedBox(height: 4),
-            const Text('Native GPU · RGBA readback presentation'),
+            Text(
+              widget.presentation == PresentationPolicy.readbackOnly
+                  ? 'Native GPU · RGBA readback presentation'
+                  : 'Native Metal · Direct view presentation',
+            ),
             const SizedBox(height: 12),
             Wrap(
               spacing: 8,

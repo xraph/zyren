@@ -64,8 +64,9 @@ layout; they have not yet been repeated for the new packages.
 ## Known limits
 
 Default example presentation copies RGBA data from the GPU to Dart and back
-into Flutter. The opt-in Apple prototype avoids this transfer but fails its
-compositor-retention gate. No frame-rate target has been verified. The renderer supports
+into Flutter. The experimental Apple texture bridge avoids this transfer but fails its
+compositor-retention gate. The newer native Metal view path also avoids readback;
+its integrated checks are recorded below. No frame-rate target has been verified. The renderer supports
 opaque indexed meshes, diffuse directional lighting and an unlit material.
 Custom native shader/pass registration, texture loading, glTF, PBR, shadows,
 animation clips, picking, terrain streaming, atmosphere and clouds are not
@@ -286,3 +287,34 @@ This proof does not yet implement SceneView presentation, scene updates, plugin
 hooks, pointer delivery or complete visibility/recovery policy. Default backend
 capabilities stay unchanged. Physical iOS qualification, Android and Windows
 presentation, and Swift Package Manager packaging remain open.
+
+## Native Metal SceneView integration
+
+`SceneRuntime.nativeMetal()` now connects native Metal views to the core engine.
+Both macOS and iOS 26.0 simulator pass five integration tests: updates and hooks
+with borrowed remount, independent cameras and teardown, physical resize and
+visibility, 100 managed create/remove cycles, and explicit pixel capture.
+Normal presentation reads back zero bytes. Capture returns the expected red
+RGBA pixel and reports 11,844 bytes for a 63 by 47 image.
+
+The lifecycle suite reproduced a native cleanup crash caused by capturing a
+shared_ptr reference parameter in an async block. The helper now receives an
+owning value. All 100 cycles on each platform return sessions, live and retiring
+renderers, and held drawables to zero after the fix.
+
+The 50 core/geospatial tests and 51 Flutter/example tests pass. Analyzer, Dart
+formatting and package/header boundaries pass. The Apple backend uses the existing
+Rust renderer without changing its implementation in this checkpoint. The
+native view capability is explicit; strict shared-texture requests still fail.
+
+The independent static review found no correctness defects. It recommends a
+dedicated native regression for disposal while view creation or rendering is
+pending. Existing widget cancellation tests cover that contract at the Flutter
+boundary, but completed-frame native cycles do not prove those races. Physical
+devices, OS-delivered input, native alpha and automatic device-loss recovery
+remain open qualification work.
+
+The standalone macOS release SceneView smoke passed: 937 frames presented across
+two controllers, zero readback, then zero sessions, live/retiring renderers and
+held drawables after removal. Its statistics subscriptions receive sampled
+diagnostics, so native presentation counters provide the total frame count.

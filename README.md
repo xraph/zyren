@@ -9,10 +9,10 @@ plugin built on that core. Three.js-level rendering and scene capabilities are
 the target for the core.
 
 This is an early implementation. You can render opaque meshes, compose a scene
-graph, move a perspective camera and build an ECEF globe. The viewport currently
-copies GPU pixels into a Flutter image, so you should expect lower throughput
-than a shared GPU texture implementation. Full Three.js and three-geospatial
-parity is still ahead.
+graph, move a perspective camera and build an ECEF globe. On macOS and iOS, you
+can opt into direct Metal view presentation through `SceneRuntime.nativeMetal()`.
+The portable examples still select explicit RGBA readback. Full Three.js and
+three-geospatial parity is still ahead.
 
 The [implementation plan](docs/superpowers/plans/2026-09-26-native-3d-program.md)
 sets out the remaining work, tests and platform gates. Read the
@@ -58,6 +58,17 @@ scene across two native renderers. Camera edits stay local to each view; scene
 edits wake both. You can close and reopen the left view while the right stays
 active. The same folder contains small managed and borrowed view examples.
 
+To run those two cameras through native Metal views on Apple platforms:
+
+```sh
+cd examples/multiple_views
+fvm flutter run -d macos -t lib/native_scene_demo.dart
+```
+
+Use an iOS device ID for the simulator. This runtime is opt-in while physical
+devices, OS input and composition are being qualified. See the
+[Apple checkpoint](docs/apple-presentation-checkpoint.md) for evidence and limits.
+
 ## Use the 3D package
 
 Add a path dependency on `packages/flutter_gpu3d` while working in this checkout.
@@ -77,9 +88,15 @@ final camera = PerspectiveCamera(position: Vec3(3, 2, 5));
 final viewport = SceneView.scene(
   scene: scene,
   camera: camera,
-  options: const EngineOptions(presentation: PresentationPolicy.readbackOnly),
+  runtime: const SceneRuntime.nativeMetal(),
 );
 ```
+
+This snippet uses the Apple runtime. The default presentation policy is
+`requireNative`, which accepts native views or qualified shared textures.
+`requireSharedTexture` remains strict. On other platforms, explicit
+`readbackOnly` with the default runtime is available for development while the
+direct presentation adapters are built.
 
 `SceneView.builder` and `SceneView.scene` own their controllers. A rebuild keeps
 the scene; changing `sceneKey` replaces it after cleanup. For external controls,

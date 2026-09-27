@@ -150,13 +150,13 @@ interface notation; fields shown on value types are constructor parameters.
 
 ```dart
 enum RenderMode { onDemand, continuous }
-enum PresentationPolicy { requireSharedTexture, allowReadback, readbackOnly }
+enum PresentationPolicy { requireNative, requireSharedTexture, allowReadback, readbackOnly }
 enum RecoveryPolicy { manual, automaticOnce }
 
 class EngineOptions {
   const EngineOptions({
     RenderMode renderMode = RenderMode.onDemand,
-    PresentationPolicy presentation = PresentationPolicy.requireSharedTexture,
+    PresentationPolicy presentation = PresentationPolicy.requireNative,
     RecoveryPolicy recovery = RecoveryPolicy.manual,
     int maxFramesPerSecond = 60,
     int maxFramesInFlight = 2,
@@ -215,6 +215,12 @@ controller, input or presentation state machines.
 facade provides native/bundle defaults. Hosts can substitute a deterministic test
 backend or authenticated resolver without subclassing the viewport. Export the
 advanced backend contracts through `rendering.dart`; FFI remains private.
+
+The implemented Apple opt-in is `const SceneRuntime.nativeMetal()`. Its platform
+view reports `PresentationPath.nativeView`; it never claims to be a shared
+Flutter texture. `requireNative` accepts either qualified native presentation
+path, while `requireSharedTexture` rejects platform views. The default runtime
+does not yet choose the Metal view automatically.
 
 Construction creates CPU state with `SceneDetached` status. First attachment
 starts the backend after plugin composition is complete. Creating a controller

@@ -22,13 +22,14 @@ model, and a coordinate conversion should not need to initialize a GPU.
 
 ```mermaid
 flowchart LR
-  A[Dart scene API] --> B[FFI worker isolate]
+  A[Dart scene API] --> B[Backend submission]
   B --> C[Rust renderer and GPU resources]
   C --> D[wgpu]
   D --> E[Metal]
   D --> F[Vulkan]
   D --> G[Direct3D 12]
-  E --> H[RGBA readback]
+  E --> J[CAMetalLayer native view]
+  E --> H[Explicit RGBA readback]
   F --> H
   G --> H
   H --> I[Flutter image]
@@ -52,9 +53,12 @@ passes, texture resources and loader contracts remain core milestones. See the
 [extension guide](extensions.md) for the implemented contracts.
 
 The advanced `RenderBackend` contract takes an immutable `FrameSubmission` and
-returns `FrameOutput`. `NativeBackend` currently returns only `ReadbackOutput`;
-a surface target reports `presentationUnavailable`. The output distinction is
-implemented, while native shared-texture adapters remain planned. The legacy
+returns `FrameOutput`. The default `NativeBackend` advertises readback only.
+`SceneRuntime.nativeMetal()` supplies a controller-owned renderer and a hosted
+presenter that mounts an AppKitView or UiKitView before preparing its target.
+Each attachment has a generation; resize, suspension and removal revoke old
+frame receipts. Rendering and capture share the renderer's geometry cache.
+The legacy
 `SceneRenderer`/`RenderedFrame` path remains an explicit readback compatibility
 API. `SceneEngine.renderFrame` and the Flutter controller preserve `FrameOutput`
 through plugin hooks and presentation. Platform presenters prepare their own
@@ -71,16 +75,19 @@ errors through the C ABI.
 Dart keeps the scene graph. It composes transforms in double precision, subtracts
 the camera position before converting matrices to float32, and sends one scene
 snapshot per frame. Rust owns its device, pipelines, buffers and render targets.
-The bridge runs in a persistent Dart isolate so GPU waits cannot block Flutter's
-UI isolate. Each viewport allows one frame in flight.
+The readback bridge runs in a persistent Dart isolate. The Metal view adapter
+uses a serial native queue and async channel replies so GPU waits cannot block
+Flutter's UI isolate or the platform thread. Each viewport allows one frame in flight.
 
 The initial presentation path reads native GPU pixels into an RGBA buffer and
 uploads that buffer into a Flutter image. This is real native GPU rendering, but
-the extra copy limits throughput. You should use it to validate scenes and the
-bridge, not as evidence of production frame rates. Shared GPU textures are the
-next presentation milestone: IOSurface/CVPixelBuffer on Apple, SurfaceProducer
-on Android and shared D3D textures on Windows. That work needs platform-specific
-synchronization, resize and lifecycle tests.
+the extra copy limits throughput. The opt-in Apple runtime renders directly into
+Metal drawables and publishes after the core engine's render hooks complete.
+Ordinary frames carry receipts and statistics through Dart, with no pixel
+readback. Explicit capture still returns pixels. The earlier IOSurface Flutter
+texture experiment remains gated because of compositor cache retention.
+SurfaceProducer on Android and shared D3D textures on Windows remain separate
+presentation milestones.
 
 ## Build integration
 
