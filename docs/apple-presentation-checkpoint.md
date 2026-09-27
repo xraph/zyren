@@ -136,8 +136,8 @@ build/macos/Build/Products/Release/multiple_views.app/Contents/MacOS/multiple_vi
 ```
 
 The smoke mode exits after checking rendering and removal. Omit the Dart define
-when running the interactive demo. The locked desktop prevents foreground visual
-inspection on macOS, so its composition still needs a visible OS capture.
+when running the interactive demo. That proof run used a locked desktop, so its
+reference composition still needs a visible macOS comparison.
 
 This fixture isolates ownership and composition. The integrated SceneView path
 below now covers updates, render hooks, Flutter pointer routing, visibility and
@@ -245,3 +245,10 @@ examples pass 51. Analyzer, formatting and package/header boundaries pass.
 The standalone macOS release smoke presents 937 frames across two controllers
 with zero readback. Removal returns all ownership counters to zero. This run
 uses the public SceneView adapter and the loaded Rust asset's runtime identity.
+
+The interactive release demo was also inspected on the macOS desktop. Both
+native views render, the mesh button changes their geometry, and closing and
+reopening the left view leaves the right view active. The iOS simulator capture
+shows the same scene in the narrow layout. These checks establish the simple
+demo's visible output; transformed composition and viewport pointer gestures
+still need their own macOS qualification.

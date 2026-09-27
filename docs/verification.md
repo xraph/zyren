@@ -318,3 +318,9 @@ The standalone macOS release SceneView smoke passed: 937 frames presented across
 two controllers, zero readback, then zero sessions, live/retiring renderers and
 held drawables after removal. Its statistics subscriptions receive sampled
 diagnostics, so native presentation counters provide the total frame count.
+
+The final macOS release demo was inspected visibly through native app controls:
+both cameras render, mesh edits update the display, and the left view closes and
+reopens while the right remains active. The app is left running. The iOS
+simulator demo was relaunched and its narrow layout was inspected in
+`artifacts/ios-native-scene.png`. That local screenshot is a run artifact.
