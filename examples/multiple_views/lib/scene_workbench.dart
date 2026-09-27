@@ -53,6 +53,8 @@ class _WorkbenchState extends State<_Workbench> {
   bool _refreshQueued = false;
   late final SceneController _controller;
   final _tools = SceneToolsPlugin();
+  final _orbit = OrbitControlsPlugin();
+  late final TransformGizmoPlugin _gizmo;
   final _inspector = SceneDevtoolsPlugin();
   late final SceneTimelinePlugin _timeline;
   final _subscriptions = <StreamSubscription<dynamic>>[];
@@ -112,13 +114,25 @@ class _WorkbenchState extends State<_Workbench> {
           ]),
       ],
     );
-    _controller.use(OrbitControlsPlugin());
+    _gizmo = TransformGizmoPlugin(
+      size: 2,
+      onDragChanged: (dragging) {
+        _orbit.controls?.enabled = !dragging;
+        if (dragging) _timeline.pause();
+        _refresh();
+      },
+    );
     _controller.use(_tools);
+    _controller.use(_gizmo);
+    _controller.use(_orbit);
     _controller.use(_timeline);
     _controller.use(_inspector);
     _subscriptions.addAll([
       _tools.changes.listen((_) => _refresh()),
-      _timeline.changes.listen((_) => _refresh()),
+      _timeline.changes.listen((_) {
+        _gizmo.enabled = !_timeline.isPlaying && !_measuring;
+        _refresh();
+      }),
       _controller.frameStats.listen((stats) {
         _stats = stats;
         _refresh();
@@ -159,6 +173,7 @@ class _WorkbenchState extends State<_Workbench> {
   }
 
   void _edit(void Function() action) {
+    _gizmo.cancel();
     _timeline.pause();
     try {
       action();
@@ -188,6 +203,7 @@ class _WorkbenchState extends State<_Workbench> {
       _tools.measure(_anchor!, hit.point);
       _anchor = null;
       _measuring = false;
+      _gizmo.enabled = true;
     }
     _refresh();
   }
@@ -207,6 +223,26 @@ class _WorkbenchState extends State<_Workbench> {
       crossAxisAlignment: WrapCrossAlignment.center,
       spacing: 2,
       children: [
+        DropdownButton<GizmoMode>(
+          key: const ValueKey('gizmo-mode'),
+          value: _gizmo.mode,
+          underline: const SizedBox(),
+          items: const [
+            DropdownMenuItem(value: GizmoMode.translate, child: Text('Move')),
+            DropdownMenuItem(value: GizmoMode.rotate, child: Text('Rotate')),
+            DropdownMenuItem(value: GizmoMode.scale, child: Text('Scale')),
+          ],
+          onChanged: _ready ? (mode) => _edit(() => _gizmo.mode = mode!) : null,
+        ),
+        IconButton(
+          tooltip: 'Snap: 0.25 units / 15° / 10%',
+          isSelected: _gizmo.snapEnabled,
+          icon: const Icon(Icons.grid_4x4, size: 20),
+          onPressed: _ready
+              ? () => setState(() => _gizmo.snapEnabled = !_gizmo.snapEnabled)
+              : null,
+          constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+        ),
         _button(
           'Move -X',
           Icons.arrow_back,
@@ -273,6 +309,7 @@ class _WorkbenchState extends State<_Workbench> {
               ? () {
                   _timeline.pause();
                   _measuring = !_measuring;
+                  _gizmo.enabled = !_measuring;
                   _anchor = null;
                   _refresh();
                 }
@@ -299,6 +336,7 @@ class _WorkbenchState extends State<_Workbench> {
                 if (_timeline.isPlaying) {
                   _timeline.pause();
                 } else {
+                  _gizmo.enabled = false;
                   _tools.clearHistory();
                   _timeline.play();
                 }
@@ -359,7 +397,9 @@ class _WorkbenchState extends State<_Workbench> {
                     ? (_anchor == null
                           ? 'Pick the first surface point'
                           : 'Pick the second surface point')
-                    : 'Drag to orbit · Scroll to zoom · Tap to select',
+                    : (_gizmo.isDragging
+                          ? 'Drag ${_gizmo.activeAxis!.name.toUpperCase()} · Esc cancels'
+                          : 'Drag handles to edit · Drag space to orbit'),
                 style: const TextStyle(fontSize: 12, color: Colors.white70),
               ),
             ),
@@ -384,6 +424,9 @@ class _WorkbenchState extends State<_Workbench> {
     }
     if (!_ready) return const Center(child: CircularProgressIndicator());
     final snapshot = _inspector.snapshot();
+    final nodes = snapshot.nodes.where(
+      (node) => !_gizmo.owns(_inspector.objectFor(node.id)!),
+    );
     final selected = _tools.selected;
     return ListView(
       padding: const EdgeInsets.all(8),
@@ -396,10 +439,10 @@ class _WorkbenchState extends State<_Workbench> {
                 style: TextStyle(fontWeight: FontWeight.w600),
               ),
             ),
-            Text('${snapshot.nodes.where((node) => node.isMesh).length} parts'),
+            Text('${nodes.where((node) => node.isMesh).length} parts'),
           ],
         ),
-        for (final node in snapshot.nodes)
+        for (final node in nodes)
           ListTile(
             key: ValueKey('part-${node.name}'),
             dense: true,

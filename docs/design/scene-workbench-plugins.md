@@ -30,6 +30,27 @@ Inspector snapshots copy transforms and hierarchy information. Frame history is
 bounded; unavailable GPU timings and residency stay unavailable. The inspector
 does not claim to expose the native allocation registry.
 
+## Canvas transform gestures
+
+The tools package also provides `TransformGizmoPlugin`. Its local X/Y/Z arrows,
+rotation rings and scale boxes use unlit triangle meshes through the public scene
+API. You can grab the frontmost visible handle. Hidden handles do not intercept
+clicks, and ordinary tools picking skips all gizmo geometry.
+
+A transform session previews pointer movement and records one undo entry on
+release. Cancellation restores the starting pose only while the session still
+owns it. External edits, reparenting and changed ancestor transforms take
+precedence. Mode, selection, camera and viewport changes cancel active gestures.
+Rotation accumulates across the angle seam; scale preserves the component's sign
+and clamps the gesture factor above zero.
+
+The host pauses camera input through the gizmo's drag callback and disables
+handles during playback and measurement. Register the gizmo before orbit controls
+so it receives the pointer first. The workbench keeps toolbar edits as an
+alternative to dragging. Handles have a fixed radius in parent units; screen-size
+scaling, world-axis handles, plane handles and always-visible rendering are outside
+this milestone.
+
 ## Scope and verification
 
 This first version does not include render-pass effects, section clipping, native
