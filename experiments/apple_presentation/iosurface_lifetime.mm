@@ -141,10 +141,38 @@ static void commandRetainsSurface(id<MTLDevice> device) {
   require(destroyed.load() == 1, "owner released once after GPU use");
   std::printf("direct: owner released once after GPU completion\n");
 }
+static void cacheRetention(id<MTLDevice> device) {
+  destroyed.store(0);
+  CVMetalTextureCacheRef cache = nullptr;
+  CVMetalTextureCacheCreate(nullptr, nullptr, device, nullptr, &cache);
+  for (int i = 0; i < 3; ++i) {
+    @autoreleasepool {
+      CVPixelBufferRef buffer = nullptr;
+      CVPixelBufferCreate(nullptr, 63, 47, kCVPixelFormatType_32BGRA,
+        (__bridge CFDictionaryRef)attributes(), &buffer);
+      objc_setAssociatedObject((__bridge id)CVPixelBufferGetIOSurface(buffer),
+        &ownerKey, [SurfaceOwner new], OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+      CVMetalTextureRef wrapper = nullptr;
+      CVMetalTextureCacheCreateTextureFromImage(nullptr, cache, buffer, nullptr,
+        MTLPixelFormatBGRA8Unorm, 63, 47, 0, &wrapper);
+      CFRelease(wrapper);
+      CFRelease(buffer);
+    }
+  }
+  require(destroyed.load() == 0, "cache retains imported IOSurfaces");
+  std::printf("cache: retains three buffers after import\n");
+  [NSThread sleepForTimeInterval:2];
+  require(destroyed.load() == 0, "idle cache does not evict old buffers");
+  CVMetalTextureCacheFlush(cache, 0);
+  require(destroyed.load() == 3, "explicit cache flush releases all buffers");
+  std::printf("cache: releases retained buffers only after flush\n");
+  CFRelease(cache);
+}
 int main() {
   @autoreleasepool {
     id<MTLDevice> device = MTLCreateSystemDefaultDevice();
     require(device != nil, "Metal device available");
+    cacheRetention(device);
     poolCannotEstablishConsumerRelease(device);
     commandRetainsSurface(device);
   }

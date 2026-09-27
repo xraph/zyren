@@ -10,7 +10,7 @@ xcrun clang++ -std=c++17 -fobjc-arc -Wall -Wextra -Werror \
 /tmp/gpu3d-iosurface-lifetime
 ```
 
-The executable checks two ownership assumptions. A one-buffer Core Video pool
+The executable checks three ownership assumptions. A one-buffer Core Video pool
 recycles its IOSurface after the pixel buffer and CVMetalTexture wrapper are
 released, even while another owner holds the MTLTexture. You cannot use pool
 availability alone to establish that Flutter has finished sampling a frame.
@@ -40,3 +40,13 @@ when changing Flutter, and verify the actual compositor before enabling an adapt
 The current candidate uses fresh buffers with native lease limits. Pooling may
 be added only after consumer completion is proven independently of pool reuse.
 This can cost one allocation per presented frame; measurements must include it.
+
+## Cache retention
+
+The additional probe imports three fresh buffers through a Core Video texture
+cache and releases their wrappers. All three IOSurfaces remain owned after two
+seconds of idle time; an explicit cache flush releases them. Flutter owns its
+cache, so the plugin cannot perform that flush through its public texture API.
+The packaged Flutter fixture now reproduces the resulting bounded-allocation
+stall and macOS teardown retention. See the
+[Apple checkpoint](../../docs/apple-presentation-checkpoint.md).

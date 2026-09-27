@@ -18,8 +18,11 @@ completion can retire its resources but cannot publish into a newer epoch.
 
 Both the Flutter plugin and Dart FFI must load the same Rust library instance.
 `SurfaceSession` compares their runtime tokens before registration. The packaged
-Apple adapter must still prove this in debug and release builds; the current
-FFI test verifies the generated records against Rust without a platform plugin.
+Apple debug integration verifies this before texture registration. The plugin
+uses RTLD_NOLOAD and checks the token from the already loaded gpu3d_runtime
+library. It does not load a second native registry. The Rust library name differs
+from the flutter_gpu3d CocoaPods module to avoid a framework-name collision.
+Release runtime identity remains a qualification check.
 
 ## Buffer lifetime
 
@@ -77,3 +80,26 @@ suspension and failed mutations through an injected platform boundary.
 
 These checks establish the ownership machinery. They do not qualify a native
 presentation adapter or physical-device behavior.
+
+## Experimental Apple bridge
+
+The bridge uses fresh IOSurfaces with at most three live allocations per surface.
+Each allocation is charged at its actual aligned size and retains a native lease
+until its final native owner releases it. The Rust producer test cycles twenty
+frames, holds a consumer through backpressure, and closes only after release.
+Flutter's Core Video cache keeps the allocations alive longer. The macOS fixture
+records the resulting stall and three retained buffers after unregister, so this
+adapter is disabled by default. Read the [checkpoint](apple-presentation-checkpoint.md)
+before enabling the experimental constructor option.
+
+A submission rejected before scene preparation leaves geometry residency alone.
+If a frame finishes GPU work after its epoch was revoked, status
+`FG2_FRAME_SUPERSEDED` tells Dart that scene changes were applied even though
+publication was cancelled. This preserves upload/eviction state across retries
+without resending immutable geometry IDs. The native race regression submits
+1,000 meshes and revokes the epoch while its allocation is live, then restores
+an evicted geometry successfully.
+
+After changing the canonical C header, regenerate Dart bindings as above and
+run `dart tool/sync_apple_header.dart` from the workspace root. The package
+boundary check rejects a stale Apple header copy.

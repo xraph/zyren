@@ -330,7 +330,12 @@ class _SceneViewState extends State<SceneView>
       controller._presented(frame.stats, time);
     } catch (error, stack) {
       if (mounted && version == _version && !controller.isDisposed) {
-        controller._fail(error, stack, 'render');
+        if (error is SceneException &&
+            error.issue.code == SceneIssueCodes.frameDeferred) {
+          controller._scheduler.request();
+        } else {
+          controller._fail(error, stack, 'render');
+        }
       }
     } finally {
       _busy = false;

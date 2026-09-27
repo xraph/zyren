@@ -63,8 +63,9 @@ layout; they have not yet been repeated for the new packages.
 
 ## Known limits
 
-Presentation copies RGBA data from the GPU to Dart and back into Flutter. No
-frame-rate target or zero-copy claim has been verified. The renderer supports
+Default example presentation copies RGBA data from the GPU to Dart and back
+into Flutter. The opt-in Apple prototype avoids this transfer but fails its
+compositor-retention gate. No frame-rate target has been verified. The renderer supports
 opaque indexed meshes, diffuse directional lighting and an unlit material.
 Custom native shader/pass registration, texture loading, glTF, PBR, shadows,
 animation clips, picking, terrain streaming, atmosphere and clouds are not
@@ -212,3 +213,46 @@ IOSurface with a lifetime guard stayed owned through blocked GPU work and
 released once afterward. The production bridge must prove that ownership path
 inside Flutter before shared presentation is enabled. This checkpoint does not
 qualify Flutter composition, physical iOS, Android or Windows presentation.
+
+## Experimental Apple Flutter bridge checkpoint
+
+The Apple plugin and Dart worker now share one native runtime and render real
+Metal content into a Flutter Texture. The macOS test reads the composed texture's
+red pixel and checks native raster-consumption counters with zero producer
+readback. The stronger continuous-rendering and cleanup checks failed because
+Flutter's Core Video cache retains the IOSurfaces. Three allocations remain
+after macOS texture unregister; the three-buffer limit stops further publication.
+
+The adapter therefore requires `experimentalAppleSurfaces: true` and is excluded
+from default capability selection. The checked-in integration is a
+characterization of that limitation. It is not a production qualification pass.
+See the [checkpoint and reproduction](apple-presentation-checkpoint.md).
+
+Review also found an epoch-race recovery defect: a discarded frame could evict
+geometry in Rust while Dart still treated it as resident. The regression changes
+epoch during an actual 1,000-mesh submission, then renders an evicted geometry.
+`FG2_FRAME_SUPERSEDED` now records that scene changes were applied before
+publication was cancelled. Early stale-epoch and backpressure errors leave the
+upload cache unchanged. This preserves the immutable geometry ID contract.
+
+A separate cleanup regression closes a surface, reuses its slot, and verifies
+backend disposal still releases its worker without closing the replacement.
+The native registration path rejects a detached texture registry and macOS's
+zero failure result while preserving valid iOS texture ID zero.
+
+The checkpoint passes 20 Rust tests including native GPU cases, 11 native Dart
+tests, 50 core/geospatial tests and 46 Flutter/example tests. The existing macOS
+two-view integration and experimental macOS/iOS simulator characterization pass.
+The iPhone 17 Pro simulator on iOS 26.0 also reaches the cache bound while
+rendering, but releases its three buffers when the texture is unregistered.
+Neither platform passes the sustained shared-presentation gate.
+
+macOS release and iOS simulator debug builds pass. Android ARM64 and iOS ARM64
+simulator Rust checks pass. Analyzer, Clippy, formatting and the package/header
+boundary guard pass. CocoaPods packaging is verified; Swift Package Manager,
+release shared-runtime identity and physical platform qualification remain open.
+
+The two-camera demo was launched in the iPhone simulator and its rendered views
+were inspected in a simulator capture. That app uses explicit native RGBA
+readback presentation. A macOS foreground launch remains blocked by the locked
+desktop; automated native macOS integrations still run.

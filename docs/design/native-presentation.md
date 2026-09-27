@@ -1,8 +1,10 @@
 # Native presentation and resource contract
 
-Status: design to implement, checked against the current pinned wgpu source and
-Flutter embedding contracts on 26 September 2026. Shared-texture presentation
-has not been implemented or verified in this repository.
+Status: in progress, checked on 26 September 2026. The experimental Apple bridge
+renders real Flutter texture pixels with zero renderer readback, but Flutter's
+Core Video cache retains buffers and fails the bounded turnover/cleanup gate.
+Default shared presentation remains disabled. See the
+[Apple checkpoint](../apple-presentation-checkpoint.md) for evidence and next steps.
 
 Read [the public API design](native-3d-api.md) first. This document fixes the
 boundary between the native renderer and Flutter so platform work can proceed
@@ -120,7 +122,7 @@ transform/opacity/clip composition must agree with a reference `Image` widget.
 
 | Target | Proposed path | Evidence required before enabling it |
 | --- | --- | --- |
-| macOS/iOS | IOSurface-backed CVPixelBuffer pool, Metal texture views, FlutterTexture registration | GPU completion before publication; pool reuse only after all consumers release; zero CPU image reads; engine detach and resize |
+| macOS/iOS | Fresh IOSurface-backed CVPixelBuffers, direct Metal targets, FlutterTexture registration (experimental) | Cache retention currently blocks turnover and teardown; prove bounded ownership before default enablement |
 | Android | Flutter SurfaceProducer, current Surface to ANativeWindow, wgpu Vulkan surface presentation | Actual device Vulkan path, replacement surfaces, rotation/crop, queue backpressure and cleanup callbacks |
 | Windows | D3D12 producer and Flutter GPU-surface registration through a compatible shared DXGI resource | Adapter identity, permitted resource format, producer/consumer fence protocol, handle ownership and compositor import |
 | Linux | Qualification spike against the pinned Flutter Linux embedder | GPU-only Vulkan presentation with an acceptable compositor path and complete lifetime tests |
@@ -140,11 +142,20 @@ or access Dart. Follow the API's ownership convention for the returned buffer.
 [Flutter registry contract](https://api.flutter.dev/ios-embedder/protocol_flutter_texture_registry-p.html),
 [Flutter texture contract](https://api.flutter.dev/ios-embedder/protocol_flutter_texture-p.html).
 
-Create the CVMetalTextureCache with the same Metal device used by wgpu. The first
-proof can render into an owned wgpu target and perform a GPU copy into a shared
-buffer. Importing the shared target directly is an optimization after the proof.
-Use pool allocation ownership, not manual retain-count polling, to avoid reusing
-a buffer retained by Flutter. Validate color/alpha conversion at the final pass.
+The prototype creates fresh IOSurfaces and imports their Metal views directly
+into the renderer's device. An allocation guard follows each surface through
+native ownership; no retain-count or pool-reuse heuristic signals completion.
+This proved producer ownership, but the actual Flutter importer retains old
+surfaces in its private Core Video cache. The three-buffer bound then stops
+new allocations. Unregistering the macOS texture does not flush that shared
+cache, so the prototype cannot meet the cleanup gate.
+
+Do not enable this adapter by default or increase the budget to conceal the
+problem. The next proof must establish prompt consumer retirement using a
+supported embedding contract. A CAMetalLayer platform view is a candidate;
+its Flutter composition and lifecycle behavior must be measured before the
+presentation policy changes. Engine-private selectors or unsafe storage reuse
+are outside the chosen design.
 
 Isolate any unsafe wgpu HAL import in `interop/metal.rs`, with an explicit safety
 comment covering device identity, texture usage/format, retained Objective-C

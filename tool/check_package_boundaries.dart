@@ -30,10 +30,22 @@ void main(List<String> args) {
       }
     }
   }
+  final canonical = File(
+    '${root.path}/packages/gpu3d_native/native/include/gpu3d.h',
+  );
+  final apple = File(
+    '${root.path}/packages/flutter_gpu3d/darwin/Classes/gpu3d.h',
+  );
+  if (canonical.readAsStringSync() != apple.readAsStringSync()) {
+    failures.add(
+      'Apple ABI header differs from the native canonical header. '
+      'Run dart tool/sync_apple_header.dart.',
+    );
+  }
   if (failures.isNotEmpty) {
     stderr.writeln(failures.join('\n'));
     exitCode = 1;
   } else {
-    stdout.writeln('Dart core and geospatial import boundaries passed.');
+    stdout.writeln('Package boundaries and Apple ABI header passed.');
   }
 }

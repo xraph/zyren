@@ -16,3 +16,12 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+flutter:
+  plugin:
+    platforms:
+      ios:
+        pluginClass: Gpu3dPlugin
+        sharedDarwinSource: true
+      macos:
+        pluginClass: Gpu3dPlugin
+        sharedDarwinSource: true

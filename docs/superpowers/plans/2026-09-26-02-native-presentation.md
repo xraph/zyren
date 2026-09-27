@@ -108,6 +108,21 @@ close():
 
 ## Task 2: Shared Metal presentation on macOS and iOS
 
+Current checkpoint: the opt-in Apple bridge, runtime identity, direct Metal
+output and actual Flutter pixel checks are implemented. Continuous rendering
+fails when Flutter's Core Video cache retains all three buffers. macOS also
+retains them after unregister; the iOS simulator releases them on teardown.
+The adapter stays disabled by default. See the
+[checkpoint](../../apple-presentation-checkpoint.md).
+
+The original pool-based steps below are historical plan detail. Ownership probes
+rejected pool availability as a completion signal; fresh allocations then exposed
+the compositor-cache limit. Before proceeding with qualification, prove a
+supported consumer-retirement contract. The next candidate is a CAMetalLayer
+platform view with measured Flutter composition and lifecycle behavior. Keep the
+current budget, and do not bypass it or use private engine selectors.
+
+
 **Files:** Create native `src/interop/metal.rs`, Apple files in the file map,
 `packages/flutter_gpu3d/test/apple_surface_contract_test.dart` and
 `examples/multiple_views/integration_test/apple_presentation_test.dart`.
