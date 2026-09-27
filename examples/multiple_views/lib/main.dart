@@ -113,7 +113,7 @@ class _SharedSceneViewsState extends State<SharedSceneViews> {
             Text(
               widget.presentation == PresentationPolicy.readbackOnly
                   ? 'Native GPU · RGBA readback presentation'
-                  : 'Native Metal · Direct view presentation',
+                  : 'Native GPU · Direct presentation',
             ),
             const SizedBox(height: 12),
             Wrap(

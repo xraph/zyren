@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -29,7 +30,17 @@ class Probe extends ScenePlugin {
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
-  const channel = MethodChannel('gpu3d/scene-views');
+  final android = Platform.isAndroid;
+  final runtime = android
+      ? const SceneRuntime.nativeAndroid()
+      : const SceneRuntime.nativeMetal();
+  final path = android
+      ? PresentationPath.sharedTexture
+      : PresentationPath.nativeView;
+  final ownership = android ? 'surfaces' : 'heldDrawables';
+  final channel = MethodChannel(
+    android ? 'gpu3d/android-surfaces' : 'gpu3d/scene-views',
+  );
   Future<Map<Object?, Object?>> stats() async =>
       (await channel.invokeMapMethod<Object?, Object?>('diagnostics'))!;
   Future<void> until(WidgetTester tester, bool Function() ready) async {
@@ -41,11 +52,9 @@ void main() {
   }
 
   testWidgets(
-    'SceneView uses native Metal with core updates, hooks, input and remount',
+    'SceneView uses native GPU with core updates, hooks, input and remount',
     (tester) async {
-      final controller = SceneController(
-        runtime: const SceneRuntime.nativeMetal(),
-      );
+      final controller = SceneController(runtime: runtime);
       final mesh = controller.scene.add(Mesh(BoxGeometry(), UnlitMaterial()));
       final probe = controller.use(Probe());
       final update = controller.onUpdate(
@@ -71,20 +80,14 @@ void main() {
             probe.frames.length >= 30 || controller.status.value is SceneFailed,
       );
       expect(controller.status.value, isA<SceneReady>());
-      expect(
-        (await controller.ready).presentationPath,
-        PresentationPath.nativeView,
-      );
-      expect(
-        probe.frames.map((f) => f.presentationPath),
-        everyElement(PresentationPath.nativeView),
-      );
+      expect((await controller.ready).presentationPath, path);
+      expect(probe.frames.map((f) => f.presentationPath), everyElement(path));
       expect(probe.frames.map((f) => f.readbackBytes), everyElement(0));
       expect(probe.frames.first.uploadedBytes, greaterThan(0));
       expect(probe.frames.last.uploadedBytes, 0);
       expect(probe.before, greaterThanOrEqualTo(probe.frames.length));
       expect(find.byType(RawImage), findsNothing);
-      expect(find.byType(Texture), findsNothing);
+      expect(find.byType(Texture), android ? findsOneWidget : findsNothing);
       await tester.tap(find.byType(SceneView));
       await tester.pump();
       expect(pointers, greaterThan(0));
@@ -106,7 +109,7 @@ void main() {
       }
       expect(controller.isDisposed, isFalse);
       expect((await stats())['renderers'], 1);
-      expect((await stats())['heldDrawables'], 0);
+      expect((await stats())[ownership], 0);
       final detachedCount = probe.frames.length;
       await tester.pumpWidget(host());
       await until(
@@ -127,7 +130,7 @@ void main() {
       final closed = await stats();
       expect(closed['sessions'], 0);
       expect(closed['renderers'], 0);
-      expect(closed['heldDrawables'], 0);
+      expect(closed[ownership], 0);
       expect(closed['readbackBytes'], 0);
       debugPrint('Integrated native SceneView: $closed');
     },
@@ -136,8 +139,8 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      const MultipleViewsApp(
-        runtime: SceneRuntime.nativeMetal(),
+      MultipleViewsApp(
+        runtime: runtime,
         presentation: PresentationPolicy.requireNative,
       ),
     );
@@ -175,9 +178,7 @@ void main() {
   testWidgets('native SceneView follows physical size and visibility', (
     tester,
   ) async {
-    final controller = SceneController(
-      runtime: const SceneRuntime.nativeMetal(),
-    );
+    final controller = SceneController(runtime: runtime);
     final mesh = controller.scene.add(Mesh(BoxGeometry(), UnlitMaterial()));
     final frames = <FrameStats>[];
     final subscription = controller.frameStats.listen(frames.add);
@@ -220,7 +221,8 @@ void main() {
       await tester.pump(const Duration(milliseconds: 25));
     }
     expect(frames.length, paused);
-    expect((await stats())['heldDrawables'], 0);
+    // Android retains the registered texture while its viewport is suspended.
+    expect((await stats())[ownership], android ? 1 : 0);
     enabled = true;
     await tester.pumpWidget(host());
     await until(tester, () => frames.length > paused);
@@ -246,7 +248,7 @@ void main() {
               height: 49,
               child: SceneView.builder(
                 key: ValueKey(cycle),
-                runtime: const SceneRuntime.nativeMetal(),
+                runtime: runtime,
                 onCreate: (value) {
                   controller = value;
                   value.scene.add(Mesh(BoxGeometry(), UnlitMaterial()));
@@ -273,7 +275,7 @@ void main() {
       expect(closed['sessions'], 0, reason: 'cycle $cycle');
       expect(closed['renderers'], 0, reason: 'cycle $cycle');
       expect(closed['retiring'], 0, reason: 'cycle $cycle');
-      expect(closed['heldDrawables'], 0, reason: 'cycle $cycle');
+      expect(closed[ownership], 0, reason: 'cycle $cycle');
       expect(closed['readbackBytes'], 0, reason: 'cycle $cycle');
     }
     debugPrint('100 managed native SceneView cycles: ${await stats()}');
@@ -299,9 +301,10 @@ void main() {
       final closed = await stats();
       expect(closed['sessions'], 0);
       expect(closed['renderers'], 0);
-      expect(closed['heldDrawables'], 0);
+      expect(closed[ownership], 0);
       expect(closed['readbackBytes'], 63 * 47 * 4);
       debugPrint('Explicit native capture: $closed');
     },
+    skip: Platform.isAndroid,
   );
 }

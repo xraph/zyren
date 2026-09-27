@@ -7,7 +7,7 @@ Rust 1.97.1 and Xcode 27.0.
 | --- | --- | --- |
 | macOS ARM64 | Debug and release apps passed | Apple M3 Max / Metal pixel tests, Dart FFI tests and Flutter integration test passed; globe and wrapping controls inspected in desktop and narrow native windows; standalone release launch rendered without a development runner |
 | iOS ARM64 simulator | Debug app passed | iPhone 17 Pro simulator on iOS 26.0 passed the Flutter integration test with a rendered native image |
-| Android ARM64 | Debug and release APKs passed | Pixel 9 Pro / Mali-G715 Vulkan fixture passes 100 resizes and 100 create/remove cycles with zero presentation readback; opaque color samples, ADB controls and background/resume verified; public SceneView and broader composition remain open |
+| Android ARM64 | Debug and release APKs passed | Pixel 9 Pro / Mali-G715 public Vulkan SceneView passes updates, remount, independent cameras, resize/visibility and 100 create/remove cycles with zero presentation readback; broader composition and device qualification remain open |
 | iOS physical device | Build target configured | Signing, device deployment and GPU behaviour not verified |
 | Windows | Build hook and CI job configured | No Windows host build or runtime verification yet |
 | Linux | Build hook and CI job configured | No Linux host build or runtime verification yet |
@@ -347,3 +347,29 @@ pass after the demo fix. The preceding native checkpoint passed 21 Rust
 GPU/ownership tests and package boundaries. See the
 [Android checkpoint](android-presentation-checkpoint.md) for commands, evidence
 files and remaining platform gates.
+
+## Public Android SceneView
+
+`SceneRuntime.nativeAndroid()` selects Vulkan presentation through Flutter's
+SurfaceProducer on Android API 29 or newer. A controller owns its renderer and
+geometry residency; a view attachment owns its replaceable Flutter texture.
+Detach releases that texture while a borrowed controller remains reusable.
+The runtime supports native/shared-texture policies and explicitly reports no
+RGBA capture support.
+
+The Pixel passes all four supported public SceneView tests, including 100
+managed cycles with zero resources left over. The separate attachment test
+checks stale IDs and geometry reuse. Review found a race between epoch checking
+and publication; a deterministic worker gate reproduced it as an extra native
+presentation after revocation. Publication now claims its generation atomically.
+
+The final combined Android run passes six integrations with capture skipped.
+The race gates are absent from the release DEX. The ARM64 release demo was
+inspected on the Pixel: camera edits remain independent, shared mesh edits update
+both views, close/reopen works and rendering resumes after Android Home. The
+final screenshot is `artifacts/android-native-scene-release-final.png`.
+
+All 56 Flutter/example tests and the five macOS native SceneView tests pass.
+Analyzer, formatting and package boundaries pass. Explicit Android capture,
+physical iOS, Windows, broader mobile GPU qualification and device-loss testing
+remain open.

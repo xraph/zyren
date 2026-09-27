@@ -11,6 +11,9 @@ the target for the core.
 This is an early implementation. You can render opaque meshes, compose a scene
 graph, move a perspective camera and build an ECEF globe. On macOS and iOS, you
 can opt into direct Metal view presentation through `SceneRuntime.nativeMetal()`.
+On Android API 29 or newer, use `SceneRuntime.nativeAndroid()` for Vulkan
+presentation through Flutter textures. Neither path reads pixels back to the CPU
+during ordinary presentation.
 The portable examples still select explicit RGBA readback. Full Three.js and
 three-geospatial parity is still ahead.
 
@@ -69,11 +72,12 @@ Use an iOS device ID for the simulator. This runtime is opt-in while physical
 devices, OS input and composition are being qualified. See the
 [Apple checkpoint](docs/apple-presentation-checkpoint.md) for evidence and limits.
 
-For the Android Vulkan surface fixture, run
-`flutter run --release -d <device-id> -t lib/android_surface_demo.dart` from the
-same example folder. It draws native GPU textures through SurfaceProducer and
-has passed physical-device lifecycle checks on a Pixel 9 Pro. The public Android
-SceneView adapter remains planned. See the
+For the Android Vulkan `SceneView` demo, run
+`flutter run --release -d <device-id> -t lib/native_scene_demo.dart` from the same
+example folder. It uses the same controllers, scene and camera API as the Apple
+demo. `lib/android_surface_demo.dart` remains the lower-level color fixture.
+Android presentation is opt-in while broader device qualification continues.
+See the
 [Android checkpoint](docs/android-presentation-checkpoint.md).
 
 ## Use the 3D package
@@ -99,9 +103,12 @@ final viewport = SceneView.scene(
 );
 ```
 
-This snippet uses the Apple runtime. The default presentation policy is
+This snippet uses the Apple runtime. Select `const SceneRuntime.nativeAndroid()`
+on Android. The default presentation policy is
 `requireNative`, which accepts native views or qualified shared textures.
-`requireSharedTexture` remains strict. On other platforms, explicit
+`requireSharedTexture` accepts the Android surface path and rejects Metal platform
+views. Android's surface runtime does not yet support explicit pixel capture;
+its capabilities report that limit. On other platforms, explicit
 `readbackOnly` with the default runtime is available for development while the
 direct presentation adapters are built.
 

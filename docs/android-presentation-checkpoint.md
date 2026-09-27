@@ -1,21 +1,27 @@
 # Android Vulkan presentation checkpoint
 
-You can run the native surface fixture on an Android device with API 29 or newer:
+You can run the public SceneView demo on an Android device with API 29 or newer:
 
 ```sh
 cd examples/multiple_views
-flutter run --release -d <device-id> -t lib/android_surface_demo.dart
-flutter test integration_test/android_presentation_test.dart -d <device-id>
+flutter run --release -d <device-id> -t lib/native_scene_demo.dart
+flutter test integration_test/native_scene_test.dart -d <device-id>
 ```
 
-The example draws two four-color fixtures through Vulkan. Pause, resize or close
+Select `const SceneRuntime.nativeAndroid()` in your SceneController or managed
+SceneView. It implements the shared-texture output contract through Vulkan and
+SurfaceProducer. Both `requireNative` and `requireSharedTexture` accept it.
+Explicit capture is unsupported and is absent from its reported capabilities.
+
+The lower-level `lib/android_surface_demo.dart` draws two four-color fixtures
+through Vulkan. Pause, resize or close
 the first view using the controls above them. The status line reports submitted
 frames and CPU readback bytes. The example keeps its own window awake while it
 is in the foreground; it doesn't change your device's sleep settings.
 
-This is an internal qualification bridge. Android `SceneView` integration is
-next, and the default runtime still has its earlier capabilities. The fixture
-doesn't establish full renderer, Three.js or geospatial feature parity.
+The Android runtime remains opt-in while broader platform qualification continues.
+The default runtime still has its earlier capabilities. These examples don't
+establish full renderer, Three.js or geospatial feature parity.
 
 ## Ownership and presentation
 
@@ -32,6 +38,19 @@ replacement, suspension and surface callbacks revoke the attachment epoch.
 Publication checks that epoch after rendering. Geometries remain resident
 across surface replacement, with separate scene-applied and frame-presented
 results so callers know when an upload has reached the renderer.
+
+The public runtime creates a renderer before allocating a view attachment.
+Detaching a borrowed controller releases its SurfaceProducer after queued native
+work finishes, while keeping the renderer and uploaded geometry for remount.
+Attachment IDs increase monotonically. A detached ID cannot recreate a surface
+or close a newer attachment.
+
+Publication claims the captured generation atomically. If revocation wins, the
+completed image is discarded. If publication wins, it owns the old window until
+the serial worker finishes presenting and processes detach or close. This gives
+revocation and publication one ordering point without making the platform thread
+wait for a Vulkan present call. The Dart receipt is also checked against the
+current attachment and epoch.
 
 GPU completion has the existing two-second wait limit. Failed renderer ownership
 moves to bounded retirement, retaining the acquired image and window until GPU
@@ -86,9 +105,36 @@ Local evidence is saved under `artifacts/`: `android-vulkan-release-final.png`,
 These run artifacts are ignored by Git. The color checks sample opaque fixture
 interiors; they don't qualify alpha, edge blending or general color management.
 
+## Public SceneView checkpoint
+
+The physical Pixel passes four public SceneView integrations: scene updates,
+plugin hooks, pointer input and borrowed remount; independent cameras; physical
+resize and visibility; and 100 managed create/remove cycles. The suite records
+142 presentations, zero ordinary readback and zero sessions, registered surfaces,
+live renderers or retirements after removal. Android explicit capture is skipped
+because this runtime does not implement it.
+
+The shared suite also passes all five macOS tests, including explicit capture.
+The 56 Flutter/example tests cover geometry residency after superseded frames,
+late prepare replies, close during rendering and cross-renderer surface rejection.
+Analyzer, Dart formatting and package boundaries pass.
+
+The final combined Android run passes six integrations, with explicit capture
+skipped. The attachment regression pauses the worker after its old pre-publication
+check, revokes the epoch and verifies that the native presentation count does
+not advance. It failed before the atomic claim was added. Those bounded test
+gates are absent from the release DEX.
+
+The rebuilt ARM64 release demo was inspected on the Pixel. Moving the left camera
+changes only its image; editing the shared mesh changes both. Closing/reopening
+the left view and Android Home/resume work. Both viewport regions match their
+pre-background pixels after resume, and a subsequent mesh edit redraws both.
+Evidence: `artifacts/android-native-scene-release-final.png`,
+`android-native-scene-camera-check.json` and `android-native-scene-resume-check.json`.
+
 ## Remaining gates
 
-- Wire this path into the public backend, presenter and `SceneView` lifecycle.
+- Add explicit capture to the Android surface runtime.
 - Measure actual swapchain image count and resident bytes. The requested frame
   latency is two; that is a hint, not proof of the negotiated image count.
 - Verify alpha, clipping, transformed composition, broader color handling,
@@ -98,4 +144,4 @@ interiors; they don't qualify alpha, edge blending or general color management.
 - Test a physical Adreno device, broader Android versions and release packaging
   beyond the pinned Flutter 3.47.5, AGP 9.1 and NDK 27.2 setup.
 
-Keep the bridge experimental until these checks and the public adapter pass.
+Keep default selection disabled until the remaining qualification checks pass.

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_gpu3d/flutter_gpu3d.dart';
 import 'main.dart';
@@ -9,8 +10,10 @@ void main() {
     return;
   }
   runApp(
-    const MultipleViewsApp(
-      runtime: SceneRuntime.nativeMetal(),
+    MultipleViewsApp(
+      runtime: Platform.isAndroid
+          ? const SceneRuntime.nativeAndroid()
+          : const SceneRuntime.nativeMetal(),
       presentation: PresentationPolicy.requireNative,
     ),
   );
