@@ -28,7 +28,7 @@ The standalone controller retains stdlib's default of no damping. The example
 enables it, as Drei does. Both damping and auto-rotation advance per update in
 this source version. At 120 updates per second, default auto-rotation moves twice
 as far in one second as at 60. The port preserves this behavior. Three's newer
-addon accepts delta time and needs a separate compatibility implementation.
+addon accepts delta time through the separate [three184 mode](three-orbit.md).
 
 ## Reference traces
 
@@ -107,11 +107,11 @@ throw. Damping stops requesting
 frames once angle residuals fall below 1e-12 and pan residual length falls below
 1e-12 scene units; the upstream wrapper keeps calling update on every frame.
 
-The r184 addon adds behavior that this controller does not claim: delta-time
-auto-rotation, wheel-delta scaling, cursor target-radius limits, modified-key
-rotation and different touch continuation rules. Native trackpad pan/zoom gesture
-events are not wired yet; wheel events are supported. Cameras follow the existing
-world-space target/up contract, without parent transforms. Full upstream story
-image comparison remains unrun. GlobeControls surface picking, terrain clearance,
+The [three184 mode](three-orbit.md) provides delta-time auto-rotation, wheel-delta
+scaling, cursor target-radius limits, modified-key rotation and different touch
+continuation rules. This page covers the default stdlib mode. Native trackpad
+pan/zoom gesture events are not wired yet; wheel events are supported. Cameras
+follow the existing world-space target/up contract, without parent transforms.
+Full upstream story image comparison remains unrun. GlobeControls surface picking, terrain clearance,
 near/far globe modes, dynamic clipping and camera transition animation remain
 separate work.

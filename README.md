@@ -58,6 +58,8 @@ from `examples/planet`. You can switch projection, pan, use cursor zoom and test
 keyboard/touch input in a general 3D scene. See [native orbit evidence](docs/parity/native-orbit.md)
 for the pinned source, device results and remaining differences. The separate
 [camera lab](docs/parity/native-camera-lab.md) uses the upstream geographic poses.
+You can run the [Three r184 mode](docs/parity/three-orbit.md) with
+`fvm flutter run -d macos -t lib/three_orbit_lab.dart` from the same directory.
 
 For a general 3D example, run the app in `examples/multiple_views`. It shares one
 scene across two native renderers. Camera edits stay local to each view; scene

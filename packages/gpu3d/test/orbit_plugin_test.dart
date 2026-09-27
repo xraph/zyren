@@ -29,6 +29,60 @@ class _Input implements ViewportInputSource, KeyboardInputSource {
 
 void main() {
   test(
+    'r184 plugin auto-rotation follows frame time at 30, 60 and 120 Hz',
+    () async {
+      final results = <Vec3>[];
+      for (final rate in [30, 60, 120]) {
+        final plugin = OrbitControlsPlugin(
+          behavior: OrbitBehavior.three184,
+          configure: (controls) => controls.autoRotate = true,
+        );
+        final engine = await SceneEngine.create(
+          scene: Scene(),
+          camera: PerspectiveCamera(position: const Vec3(4, 6, 10)),
+          rendererFactory: () async => TestRenderer([]),
+          plugins: [plugin],
+        );
+        final initialAngle = plugin.controls!.azimuthalAngle;
+        for (var frame = 0; frame <= rate; frame++) {
+          await engine.render(
+            elapsed: Duration(microseconds: (frame * 1000000 / rate).round()),
+            width: 8,
+            height: 6,
+          );
+        }
+        expect(
+          plugin.controls!.azimuthalAngle - initialAngle,
+          closeTo(-.20943951023931953, 1e-12),
+        );
+        results.add(engine.camera.position);
+        await engine.dispose();
+      }
+      for (final result in results.skip(1)) {
+        expect(result.distanceTo(results.first), lessThan(1e-10));
+      }
+    },
+  );
+
+  test('r184 target limits and invalid time are explicit', () {
+    final controls = OrbitControls(
+      PerspectiveCamera(),
+      behavior: OrbitBehavior.three184,
+    );
+    controls.cursor = const Vec3(2, 0, 0);
+    controls.minTargetRadius = 1;
+    controls.maxTargetRadius = 1.5;
+    expect(controls.needsUpdate, isTrue);
+    controls.update(0);
+    expect(controls.target.distanceTo(controls.cursor), closeTo(1.5, 1e-12));
+    expect(() => controls.update(-1), throwsArgumentError);
+    expect(() => controls.update(double.nan), throwsArgumentError);
+    controls.maxTargetRadius = .5;
+    expect(() => controls.update(), throwsArgumentError);
+    controls.dispose();
+  });
+
+  test(
     'plugin settles damping, replaces camera and releases input on disposal',
     () async {
       final input = _Input();

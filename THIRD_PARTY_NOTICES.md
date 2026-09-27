@@ -29,7 +29,8 @@ THE SOFTWARE.
 
 ## Three.js
 
-Camera reference fixtures execute Three.js 0.184.0. Its MIT license follows.
+Camera reference fixtures execute Three.js 0.184.0, and the three184 orbit mode
+ports its OrbitControls implementation. Its MIT license follows.
 
 Source: https://github.com/mrdoob/three.js
 

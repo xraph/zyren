@@ -6,17 +6,19 @@ import 'zero_state.dart';
 void main() => runApp(const OrbitLabApp());
 
 class OrbitLabApp extends StatelessWidget {
-  const OrbitLabApp({super.key});
+  final OrbitBehavior behavior;
+  const OrbitLabApp({super.key, this.behavior = OrbitBehavior.stdlib236});
   @override
   Widget build(BuildContext context) => MaterialApp(
     debugShowCheckedModeBanner: false,
     theme: ThemeData.dark(useMaterial3: true),
-    home: const OrbitLab(),
+    home: OrbitLab(behavior: behavior),
   );
 }
 
 class OrbitLab extends StatefulWidget {
-  const OrbitLab({super.key});
+  final OrbitBehavior behavior;
+  const OrbitLab({super.key, this.behavior = OrbitBehavior.stdlib236});
   @override
   State<OrbitLab> createState() => _OrbitLabState();
 }
@@ -70,6 +72,7 @@ class _OrbitLabState extends State<OrbitLab> {
     );
     orbit = controller.use(
       OrbitControlsPlugin(
+        behavior: widget.behavior,
         keyboard: true,
         configure: (controls) {
           controls.enableDamping = damping;
@@ -133,9 +136,9 @@ class _OrbitLabState extends State<OrbitLab> {
               runSpacing: 4,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                const Text(
-                  'Native orbit controls',
-                  style: TextStyle(fontSize: 18),
+                Text(
+                  'Native orbit: ${widget.behavior == OrbitBehavior.three184 ? 'Three r184' : 'stdlib'}',
+                  style: const TextStyle(fontSize: 18),
                 ),
                 FilterChip(
                   label: const Text('Orthographic'),

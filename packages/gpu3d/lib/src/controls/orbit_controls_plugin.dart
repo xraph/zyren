@@ -4,14 +4,19 @@ import '../plugins/engine.dart';
 import '../plugins/registration.dart';
 import 'orbit_controls.dart';
 
-/// Attaches one stdlib-compatible orbit controller to a scene viewport.
+/// Attaches one versioned orbit controller to a scene viewport.
 /// Replacing the camera creates fresh controls and reapplies [configure].
 class OrbitControlsPlugin extends ScenePlugin {
   @override
   String get id => 'gpu3d.orbit-controls';
   final void Function(OrbitControls)? configure;
   final bool keyboard;
-  OrbitControlsPlugin({this.configure, this.keyboard = false});
+  final OrbitBehavior behavior;
+  OrbitControlsPlugin({
+    this.configure,
+    this.keyboard = false,
+    this.behavior = OrbitBehavior.stdlib236,
+  });
   OrbitControls? _controls;
   OrbitControls? get controls => _controls;
   PluginContext? _context;
@@ -26,6 +31,7 @@ class OrbitControlsPlugin extends ScenePlugin {
     final input = context.input;
     final controls = OrbitControls(
       context.camera,
+      behavior: behavior,
       target: context.camera.target,
       viewport: input is ViewportInputSource
           ? input.viewport
@@ -80,7 +86,11 @@ class OrbitControlsPlugin extends ScenePlugin {
     _syncViewport();
     final controls = _controls!;
     if (controls.needsUpdate || _seenRevision != context.camera.revision) {
-      controls.update();
+      controls.update(
+        behavior == OrbitBehavior.three184
+            ? frame.delta.inMicroseconds / Duration.microsecondsPerSecond
+            : null,
+      );
     }
     _seenRevision = context.camera.revision;
     if (controls.needsUpdate) context.invalidate();

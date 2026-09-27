@@ -12,12 +12,18 @@ enum OrbitAction { none, rotate, dolly, pan, dollyPan, dollyRotate }
 
 enum OrbitEvent { start, change, end }
 
-/// Native port of three-stdlib 2.36.1 OrbitControls, as used by Drei 10.7.7.
-/// Damping and auto-rotation advance once per update, matching that version.
+enum OrbitBehavior { stdlib236, three184 }
+
+/// Native OrbitControls with an explicit upstream compatibility version.
+/// The default preserves three-stdlib 2.36.1, as used by Drei 10.7.7.
 class OrbitControls {
   final Camera camera;
+  final OrbitBehavior behavior;
+  bool get _three => behavior == OrbitBehavior.three184;
   ViewportMetrics viewport;
   Vec3 target;
+  Vec3 cursor = Vec3.zero;
+  double minTargetRadius = 0, maxTargetRadius = double.infinity;
   bool enabled = true, enableZoom = true, enableRotate = true, enablePan = true;
   bool enableDamping = false, screenSpacePanning = true, zoomToCursor = false;
   bool reverseOrbit = false,
@@ -29,7 +35,7 @@ class OrbitControls {
   double minAzimuthAngle = double.negativeInfinity,
       maxAzimuthAngle = double.infinity;
   double dampingFactor = .05, zoomSpeed = 1, rotateSpeed = 1, panSpeed = 1;
-  double keyPanSpeed = 7, autoRotateSpeed = 2;
+  double keyPanSpeed = 7, keyRotateSpeed = 1, autoRotateSpeed = 2;
   OrbitAction primary = OrbitAction.rotate,
       middle = OrbitAction.dolly,
       secondary = OrbitAction.pan;
@@ -59,6 +65,8 @@ class OrbitControls {
   double _theta = 0, _phi = 0;
   Vec3 _pan = Vec3.zero, _dollyDirection = Vec3.zero, _lastPosition = Vec3.zero;
   Quat _lastQuaternion = Quat.identity;
+  Vec3 _lastTarget = Vec3.zero;
+  late final Quat _initialUpRotation;
   bool _cursorZoom = false, _touchInteraction = false;
   Object? _lastViewState;
   Object get _viewState => (
@@ -77,6 +85,9 @@ class OrbitControls {
     maxAzimuthAngle,
     enableDamping,
     dampingFactor,
+    cursor,
+    minTargetRadius,
+    maxTargetRadius,
   );
   late Vec3 _savedTarget, _savedPosition;
   late double _savedZoom;
@@ -84,6 +95,7 @@ class OrbitControls {
   OrbitControls(
     this.camera, {
     Vec3? target,
+    this.behavior = OrbitBehavior.stdlib236,
     this.viewport = const ViewportMetrics(1, 1),
     this.requestFrame,
   }) : target = target ?? Vec3.zero {
@@ -92,6 +104,7 @@ class OrbitControls {
         'Orbit controls require a perspective or orthographic camera.',
       );
     }
+    _initialUpRotation = _upToY(camera.up.normalized());
     saveState();
     update();
   }
@@ -141,7 +154,8 @@ class OrbitControls {
     requestFrame?.call();
   }
 
-  double getZoomScale() => math.pow(.95, zoomSpeed).toDouble();
+  double getZoomScale([double delta = 100]) =>
+      math.pow(.95, zoomSpeed * (_three ? (delta * .01).abs() : 1)).toDouble();
   void dollyIn([double? factor]) =>
       setScale(_scale * (factor ?? getZoomScale()));
   void dollyOut([double? factor]) =>
@@ -169,6 +183,33 @@ class OrbitControls {
     requestFrame?.call();
   }
 
+  void pan(double deltaX, double deltaY) {
+    _checkOpen();
+    if (!deltaX.isFinite || !deltaY.isFinite) {
+      throw ArgumentError('Pan delta must be finite.');
+    }
+    if (!viewport.isUsable) return;
+    _panBy(deltaX, deltaY);
+    update();
+    requestFrame?.call();
+  }
+
+  void rotateLeft(double angle) {
+    _checkOpen();
+    if (!angle.isFinite) throw ArgumentError.value(angle, 'angle');
+    _thetaDelta -= angle;
+    update();
+    requestFrame?.call();
+  }
+
+  void rotateUp(double angle) {
+    _checkOpen();
+    if (!angle.isFinite) throw ArgumentError.value(angle, 'angle');
+    _phiDelta -= angle;
+    update();
+    requestFrame?.call();
+  }
+
   double _angleDelta(double value, double current) {
     if (!value.isFinite) throw ArgumentError.value(value, 'angle');
     var next = value % (2 * math.pi), previous = current;
@@ -192,6 +233,10 @@ class OrbitControls {
       if (!_pointers.containsKey(event.pointer)) return;
       _pointers.remove(event.pointer);
       _starts.remove(event.pointer);
+      if (_three && _touchInteraction && _pointers.isNotEmpty) {
+        if (_pointers.length == 1) _startTouch();
+        return;
+      }
       _action = OrbitAction.none;
       _events.add(OrbitEvent.end);
       return;
@@ -202,6 +247,7 @@ class OrbitControls {
     final touch = event.kind == ScenePointerKind.touch;
     switch (event.phase) {
       case ScenePointerPhase.down:
+        if (_three && _pointers.containsKey(event.pointer)) return;
         _touchInteraction = touch;
         _pointers[event.pointer] = point;
         _starts[event.pointer] = point;
@@ -211,8 +257,8 @@ class OrbitControls {
             2 => twoTouch,
             _ => OrbitAction.none,
           };
-          _start = _touchCenter(_starts);
-          _pinch = _touchDistance(_starts);
+          _start = _touchCenter(_three ? _pointers : _starts);
+          _pinch = _touchDistance(_three ? _pointers : _starts);
         } else {
           _action = switch (event.buttons) {
             1 => primary,
@@ -234,7 +280,10 @@ class OrbitControls {
             }
           }
           _start = point;
-          if (_action == OrbitAction.dolly) _mouseParameters(point);
+          if (_action == OrbitAction.dolly) {
+            // r184 uses clientX for both coordinates on middle-button down.
+            _mouseParameters(_three ? ViewportPoint(point.x, point.x) : point);
+          }
         }
         if (!_actionEnabled()) _action = OrbitAction.none;
         if (isInteracting) _events.add(OrbitEvent.start);
@@ -253,6 +302,7 @@ class OrbitControls {
           final next = _touchDistance(_pointers);
           if (enableZoom && _pinch > 0 && next > 0) {
             _scale /= math.pow(next / _pinch, zoomSpeed);
+            if (_three) _mouseParameters(current);
           }
           _pinch = next;
         }
@@ -266,7 +316,7 @@ class OrbitControls {
           _panBy(dx * panSpeed, dy * panSpeed);
         }
         if (enableZoom && _action == OrbitAction.dolly && dy != 0) {
-          _scale *= dy < 0 ? getZoomScale() : 1 / getZoomScale();
+          _scale *= dy < 0 ? getZoomScale(dy) : 1 / getZoomScale(dy);
         }
         _start = current;
         update();
@@ -274,14 +324,17 @@ class OrbitControls {
       case ScenePointerPhase.scroll:
         if (!enableZoom ||
             (isInteracting &&
-                (_action != OrbitAction.rotate || _touchInteraction)) ||
+                (_three ||
+                    _action != OrbitAction.rotate ||
+                    _touchInteraction)) ||
             !event.delta.y.isFinite) {
           return;
         }
         _events.add(OrbitEvent.start);
         _mouseParameters(point);
         if (event.delta.y != 0) {
-          _scale *= event.delta.y < 0 ? getZoomScale() : 1 / getZoomScale();
+          final scale = getZoomScale(event.delta.y);
+          _scale *= event.delta.y < 0 ? scale : 1 / scale;
         }
         update();
         requestFrame?.call();
@@ -289,6 +342,18 @@ class OrbitControls {
       default:
         break;
     }
+  }
+
+  void _startTouch() {
+    _action = oneTouch;
+    if (!_actionEnabled()) {
+      // r184 retains the two-touch state here and can dereference a missing
+      // second pointer on the next move. Native cancellation remains safe.
+      _action = OrbitAction.none;
+      return;
+    }
+    _start = _pointers.values.first;
+    _events.add(OrbitEvent.start);
   }
 
   bool _actionEnabled() => switch (_action) {
@@ -302,7 +367,7 @@ class OrbitControls {
   void handleKey(SceneKeyEvent event) {
     _checkOpen();
     if (!enabled ||
-        !enablePan ||
+        (!_three && !enablePan) ||
         !viewport.isUsable ||
         (event.phase != SceneKeyPhase.down &&
             event.phase != SceneKeyPhase.repeat)) {
@@ -310,7 +375,19 @@ class OrbitControls {
     }
     final direction = keys[event.key];
     if (direction == null) return;
-    _panBy(direction.x * keyPanSpeed, direction.y * keyPanSpeed);
+    final modified = event.modifiers.any(
+      {SceneModifier.control, SceneModifier.meta, SceneModifier.shift}.contains,
+    );
+    if (_three && modified) {
+      if (enableRotate) {
+        _thetaDelta -=
+            2 * math.pi * keyRotateSpeed * direction.x / viewport.height;
+        _phiDelta -=
+            2 * math.pi * keyRotateSpeed * direction.y / viewport.height;
+      }
+    } else if (enablePan) {
+      _panBy(direction.x * keyPanSpeed, direction.y * keyPanSpeed);
+    }
     update();
     requestFrame?.call();
   }
@@ -360,13 +437,16 @@ class OrbitControls {
         .direction;
   }
 
-  bool update() {
+  bool update([double? deltaTime]) {
     _checkOpen();
     _validate();
+    if (deltaTime != null && (!deltaTime.isFinite || deltaTime < 0)) {
+      throw ArgumentError.value(deltaTime, 'deltaTime');
+    }
     final orientationBeforeUpdate = camera.quaternion;
-    final quat = _upToY(camera.up.normalized());
+    final quat = _three ? _initialUpRotation : _upToY(camera.up.normalized());
     final inverse = Quat(-quat.x, -quat.y, -quat.z, quat.w);
-    var offset = quat.rotate(camera.position - target);
+    var offset = _rotateOffset(quat, camera.position - target);
     var radius = offset.length;
     if (radius == 0) {
       throw ArgumentError('Orbit position must differ from target.');
@@ -379,6 +459,7 @@ class OrbitControls {
           math.pi /
           60 /
           60 *
+          (_three && deltaTime != null ? deltaTime * 60 : 1) *
           autoRotateSpeed *
           (reverseOrbit || reverseHorizontalOrbit ? 1 : -1);
     }
@@ -405,6 +486,16 @@ class OrbitControls {
     }
     _phi = _phi.clamp(minPolarAngle, maxPolarAngle).clamp(1e-6, math.pi - 1e-6);
     target += _pan * factor;
+    if (_three) {
+      final offset = target - cursor;
+      final length = offset.length;
+      target =
+          cursor +
+          offset *
+              (1 / (length == 0 ? 1 : length)) *
+              length.clamp(minTargetRadius, maxTargetRadius);
+    }
+    final previousRadius = radius;
     radius = _clampDistance(
       radius *
           ((zoomToCursor && _cursorZoom) || camera is OrthographicCamera
@@ -412,7 +503,8 @@ class OrbitControls {
               : _scale),
     );
     final sinPhiRadius = math.sin(_phi) * radius;
-    offset = inverse.rotate(
+    offset = _rotateOffset(
+      inverse,
       Vec3(
         sinPhiRadius * math.sin(_theta),
         math.cos(_phi) * radius,
@@ -424,18 +516,19 @@ class OrbitControls {
     _thetaDelta *= 1 - factor;
     _phiDelta *= 1 - factor;
     _pan *= 1 - factor;
-    var zoomChanged = false;
+    var zoomChanged = _three && previousRadius != radius;
     if (zoomToCursor && _cursorZoom) {
       final forward = (camera.target - camera.position).normalized();
       double newRadius;
       if (camera is PerspectiveCamera) {
         newRadius = _clampDistance(offset.length * _scale);
         camera.position += _dollyDirection * (offset.length - newRadius);
+        if (_three) zoomChanged = offset.length != newRadius;
       } else {
         final orthographic = camera as OrthographicCamera;
         final previousZoom = zoom;
         _setZoom(_clampZoom(zoom / _scale));
-        zoomChanged = true;
+        zoomChanged = !_three || previousZoom != zoom;
         // stdlib unprojects with the world matrix cached before lookAt updates
         // its quaternion. Retain that orientation during damped cursor zoom.
         final deltaZoom = 1 / previousZoom - 1 / zoom;
@@ -456,9 +549,10 @@ class OrbitControls {
         if (t >= 0) target = camera.position + forward * t;
       }
       _lookAt();
-    } else if (camera is OrthographicCamera && _scale != 1) {
-      zoomChanged = true;
+    } else if (camera is OrthographicCamera && (_three || _scale != 1)) {
+      final previousZoom = zoom;
       _setZoom(_clampZoom(zoom / _scale));
+      zoomChanged = !_three || previousZoom != zoom;
     }
     _scale = 1;
     _cursorZoom = false;
@@ -467,13 +561,28 @@ class OrbitControls {
     final dot = q.x * last.x + q.y * last.y + q.z * last.z + q.w * last.w;
     if (zoomChanged ||
         (camera.position - _lastPosition).length2 > 1e-6 ||
-        8 * (1 - dot) > 1e-6) {
+        8 * (1 - dot) > 1e-6 ||
+        (_three && (target - _lastTarget).length2 > 1e-6)) {
       _lastPosition = camera.position;
       _lastQuaternion = q;
+      _lastTarget = target;
       _events.add(OrbitEvent.change);
       return true;
     }
     return false;
+  }
+
+  Vec3 _rotateOffset(Quat q, Vec3 v) {
+    if (!_three) return q.rotate(v);
+    // Retain Three's operation order without converting through a matrix.
+    final tx = 2 * (q.y * v.z - q.z * v.y);
+    final ty = 2 * (q.z * v.x - q.x * v.z);
+    final tz = 2 * (q.x * v.y - q.y * v.x);
+    return Vec3(
+      v.x + q.w * tx + q.y * tz - q.z * ty,
+      v.y + q.w * ty + q.z * tx - q.x * tz,
+      v.z + q.w * tz + q.x * ty - q.y * tx,
+    );
   }
 
   double _clampDistance(double value) =>
@@ -493,6 +602,12 @@ class OrbitControls {
 
   void _validate() {
     if (!target.isFinite ||
+        (_three &&
+            (!cursor.isFinite ||
+                !minTargetRadius.isFinite ||
+                minTargetRadius < 0 ||
+                maxTargetRadius.isNaN ||
+                maxTargetRadius < minTargetRadius)) ||
         !dampingFactor.isFinite ||
         dampingFactor < 0 ||
         dampingFactor > 1 ||
@@ -516,6 +631,7 @@ class OrbitControls {
           rotateSpeed,
           panSpeed,
           keyPanSpeed,
+          keyRotateSpeed,
           autoRotateSpeed,
         ].any((v) => !v.isFinite)) {
       throw ArgumentError('Invalid orbit configuration.');
