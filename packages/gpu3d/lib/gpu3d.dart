@@ -2,6 +2,7 @@ library;
 
 export 'src/geometry/geometry.dart';
 export 'src/scene/scene.dart';
+export 'src/spatial/raycaster.dart';
 export 'src/plugins/engine.dart';
 export 'src/rendering/renderer.dart';
 

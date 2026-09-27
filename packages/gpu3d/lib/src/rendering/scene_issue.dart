@@ -44,6 +44,7 @@ abstract final class SceneIssueCodes {
   static const deviceLost = 'deviceLost';
   static const renderFailed = 'renderFailed';
   static const frameDeferred = 'frameDeferred';
+  static const invalidPickRequest = 'invalidPickRequest';
 }
 
 class SceneException implements Exception {

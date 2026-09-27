@@ -26,9 +26,10 @@ presented 15 and 17. Each mode produced eight diagnostic samples. Both platforms
 reported zero ordinary readback bytes and zero live native resources after each
 teardown. These counters are not frame-rate measurements.
 
-The combined build installs on the iPhone, but its new run is waiting for
-on-device developer trust after the previous runner removed Planet. The earlier
-iPhone orbit result predates this core integration. Windows remains unrun.
+The combined build also passes on the physical iPhone 16 Pro over Metal: 16
+stdlib and 18 r184 frames, with nine and eight diagnostic samples. Both modes
+report zero readback and clean resource teardown. Planet stays installed after
+the driver run to preserve device trust. Windows remains unrun.
 
 The Android test first failed because the lab still selected readback. It passes
 after selecting the public native runtime. Its earlier readback pixel results
