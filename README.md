@@ -71,6 +71,11 @@ for the pinned source, device results and remaining differences. The separate
 You can run the [Three r184 mode](docs/parity/three-orbit.md) with
 `fvm flutter run -d macos -t lib/three_orbit_lab.dart` from the same directory.
 
+For surface selection, run `fvm flutter run -d macos -t lib/picking_lab.dart`
+from `examples/planet`, or use your Android/iOS device ID. Tap a mesh to highlight
+it and inspect its world position. The [picking API and evidence](docs/parity/picking.md)
+cover CPU triangle queries and logical viewport coordinates.
+
 For a general 3D example, run the app in `examples/multiple_views`. It shares one
 scene across two native renderers. Camera edits stay local to each view; scene
 edits wake both. You can close and reopen the left view while the right stays

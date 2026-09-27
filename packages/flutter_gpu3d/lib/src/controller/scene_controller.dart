@@ -20,6 +20,7 @@ class SceneController {
   final EngineOptions options;
   final SceneRuntime runtime;
   final _input = FlutterInputAdapter();
+  final _raycaster = Raycaster();
   final assets = AssetScope();
   final _registrations = AttachmentScope();
   AttachmentScope _lifetime = AttachmentScope();
@@ -118,6 +119,50 @@ class SceneController {
   void invalidate() {
     _checkOpen();
     _scheduler.request();
+  }
+
+  /// Finds the nearest visible static mesh at a logical viewport point.
+  ///
+  /// Captures the hit synchronously at call time, independent of render scale
+  /// and device pixels. Camera clip planes apply. Outside points return null.
+  /// Throws [SceneException] for disposed, detached or invalid requests.
+  Future<PickResult?> pick(ViewportPoint point) async {
+    if (_closed) {
+      throw _exception(
+        SceneIssueCodes.disposed,
+        'Controller is disposed.',
+        'pick',
+      );
+    }
+    final viewport = _input.viewport;
+    if (_viewToken == null || !viewport.isUsable) {
+      throw _exception(
+        SceneIssueCodes.invalidPickRequest,
+        'Picking requires an attached viewport with nonzero dimensions.',
+        'pick',
+      );
+    }
+    try {
+      final ndc = point.toNdc(
+        logicalWidth: viewport.width,
+        logicalHeight: viewport.height,
+      );
+      if (ndc.x < -1 || ndc.x > 1 || ndc.y < -1 || ndc.y > 1) return null;
+      final camera = _camera;
+      final ray = camera.rayFromNdc(ndc.x, ndc.y, viewport.aspect);
+      for (final hit in _raycaster.intersectScene(scene, ray)) {
+        final depth = camera.projectPoint(hit.point, viewport.aspect).z;
+        if (depth >= 0 && depth <= 1) return hit;
+      }
+      return null;
+    } on ArgumentError catch (error) {
+      throw _exception(
+        SceneIssueCodes.invalidPickRequest,
+        'Point or camera cannot be used for picking.',
+        'pick',
+        error,
+      );
+    }
   }
 
   Registration onUpdate(void Function(FrameTime) callback) {
