@@ -44,7 +44,8 @@ The app could not be foregrounded during this run because the display was asleep
 a manual visual check remains open.
 
 The core already includes scene hierarchies, camera projection and framing,
-orbit controls, bounds/culling/picking/BVH, dynamic geometry, instancing,
+orbit controls, bounds/culling/picking/BVH, dynamic and procedural geometry,
+Bézier/Catmull-Rom paths, swept tubes, instancing,
 skinning/morphs, animation blending, standard PBR, shadows, environment lighting,
 custom WGSL materials, compute/render graphs, scoped assets and glTF loading.
 These are implemented feature families, not a claim of complete Three.js parity.
@@ -53,7 +54,7 @@ The remaining breadth has concrete acceptance work:
 
 | Family | Owner | Required evidence before claiming parity |
 | --- | --- | --- |
-| Procedural geometry and curves | Core geometry/math | Analytic bounds, winding, seams, UVs, ray picks and native pixels |
+| Further geometry utilities | Core geometry/math | Shapes with holes, beveled extrusion, text, subdivision and CSG fixtures |
 | Advanced physical materials | Core materials/native shaders | Clearcoat, transmission, volume, IOR, sheen and anisotropy reference scenes |
 | Area lighting and additional shadows | Core lighting/native renderer | Photometric references, occlusion and bounded atlas behavior |
 | Compressed assets | Asset plugins/native decoders | KTX2/Basis, Draco and meshopt fixtures, malformed input, cancellation and budgets |

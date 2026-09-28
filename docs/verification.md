@@ -2323,3 +2323,19 @@ resource residency stays stable and returns to zero after each view. Timings and
 accounting boundaries are recorded in `benchmarks/renderer`. GPU timestamps stay
 unknown. Windows, Android and iOS device qualification remain open, as does manual
 visual inspection because the app could not foreground on the sleeping display.
+
+## 28 September: procedural geometry and curves
+
+Eight additional surface factories pass analytic bounds, winding, unit normal,
+UV layout, cap and seam checks. Line, quadratic/cubic Bézier and Catmull-Rom
+curves pass endpoint, tangent and arc-length cases; 24 interior Catmull-Rom
+samples match Three.js 0.184.0 across all parameterizations and closure modes.
+The full core suite passes 362 tests. A native Metal fixture compares front-face
+pixels with CPU ray hits for every new surface, including a swept Bézier tube.
+Android device discovery found no connected target for this checkpoint.
+
+The geometry gallery also passes both macOS surface cases through MSAA/effect
+toggles and viewport resize. Capsule normals now match the analytic hemispheres
+and cylinder, including their join. Android's release APK builds at 66.4 MB and
+the unsigned iOS simulator app builds successfully. These build results do not
+substitute for physical-device rendering or Windows qualification.

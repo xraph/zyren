@@ -13,12 +13,14 @@ class PbrLabApp extends StatelessWidget {
   final PresentationPolicy presentation;
   final bool environmentLighting;
   final bool postProcessing;
+  final bool proceduralGeometry;
   const PbrLabApp({
     super.key,
     this.runtime,
     this.presentation = PresentationPolicy.requireNative,
     this.environmentLighting = true,
     this.postProcessing = false,
+    this.proceduralGeometry = false,
   });
   @override
   Widget build(BuildContext context) => MaterialApp(
@@ -35,6 +37,7 @@ class PbrLabApp extends StatelessWidget {
       presentation: presentation,
       environmentLighting: environmentLighting,
       postProcessing: postProcessing,
+      proceduralGeometry: proceduralGeometry,
     ),
   );
 }
@@ -44,11 +47,13 @@ class _PbrLab extends StatefulWidget {
   final PresentationPolicy presentation;
   final bool environmentLighting;
   final bool postProcessing;
+  final bool proceduralGeometry;
   const _PbrLab({
     this.runtime,
     required this.presentation,
     required this.environmentLighting,
     this.postProcessing = false,
+    this.proceduralGeometry = false,
   });
   @override
   State<_PbrLab> createState() => _PbrLabState();
@@ -96,11 +101,36 @@ class _PbrLabState extends State<_PbrLab> {
       widthSegments: 40,
       heightSegments: 24,
     );
+    final shapes = widget.proceduralGeometry
+        ? <BufferGeometry>[
+            TorusGeometry(radius: .36, tube: .14),
+            CapsuleGeometry(radius: .25, length: .5),
+            CylinderGeometry(radiusTop: .35, radiusBottom: .45, height: .8),
+            ConeGeometry(radius: .45, height: 1),
+            LatheGeometry([
+              const Vec2(.2, -.5),
+              const Vec2(.4, -.2),
+              const Vec2(.25, .2),
+              const Vec2(.35, .5),
+            ]),
+            TubeGeometry(
+              CubicBezierCurve3(
+                const Vec3(-.4, -.4, 0),
+                const Vec3(.4, -.4, 0),
+                const Vec3(-.4, .4, 0),
+                const Vec3(.4, .4, 0),
+              ),
+              radius: .1,
+            ),
+            CircleGeometry(radius: .5),
+            RingGeometry(innerRadius: .25, outerRadius: .5),
+          ]
+        : [sphere];
     for (var row = 0; row < 3; row++) {
       for (var column = 0; column < 4; column++) {
         grid.add(
           Mesh(
-              sphere,
+              shapes[(row * 4 + column) % shapes.length],
               StandardMaterial(
                 baseColor: const Color3(.85, .5, .12),
                 metallic: row * .5,
@@ -242,8 +272,12 @@ class _PbrLabState extends State<_PbrLab> {
             padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
             child: Row(
               children: [
-                const Text('PBR', style: TextStyle(fontSize: 18)),
-                const Spacer(),
+                Expanded(
+                  child: Text(
+                    widget.proceduralGeometry ? 'Core geometry' : 'PBR',
+                    style: const TextStyle(fontSize: 18),
+                  ),
+                ),
                 IconButton(
                   key: const ValueKey('Shadows'),
                   tooltip: shadows ? 'Disable shadows' : 'Enable shadows',

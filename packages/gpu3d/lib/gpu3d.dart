@@ -72,3 +72,7 @@ export 'src/spatial/ray.dart';
 export 'src/spatial/raycaster.dart';
 
 export 'src/effects/post_processing.dart';
+
+export 'src/math/vec2.dart';
+export 'src/geometry/procedural.dart';
+export 'src/math/curve3.dart';
