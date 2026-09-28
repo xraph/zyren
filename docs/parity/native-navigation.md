@@ -7,8 +7,9 @@ cd examples/planet
 flutter run -t lib/navigation_lab.dart -d macos
 ```
 
-The viewport supports surface dragging, pinch zoom, secondary-button rotation,
-location picking and animated perspective/orthographic transitions. The globe
+The viewport supports surface dragging, two-finger trackpad scrolling, pinch
+zoom, secondary-button rotation, location picking and animated
+perspective/orthographic transitions. The globe
 plugin uses the shared ellipsoid service and public core camera/input APIs.
 
 ## Reference evidence
@@ -46,3 +47,31 @@ preserve device trust. This checkpoint adds no Windows or Linux qualification.
 The macOS run was repeated after renderer, atmosphere and orthographic sensitivity
 changes. See the [combined qualification](navigation-renderer-atmosphere-checkpoint.md)
 for the implemented renderer/atmosphere profiles and separate device results.
+
+## Trackpad zoom
+
+You can scroll with two fingers or pinch over the viewport to zoom in and out.
+Keep zooming out to leave the surface and see Earth from orbit. The shared
+Flutter adapter claims native pan/zoom events when the controls register scroll
+input, preserving the existing touch gestures and the parent page's scrolling
+outside the scene. [Input normalization](controls.md#native-input-contract)
+describes the cursor anchor and cancellation behavior.
+
+`integration_test/trackpad_zoom_test.dart` passes on macOS Metal. It injects
+Flutter native trackpad events into the atmosphere demo, starts 1,500 metres
+above Earth in both ground-facing and horizon-facing views, and reaches
+20,977,781 metres altitude through repeated two-finger scrolling. Pinching zooms
+in and out near the ground and returns toward Earth from orbit. Camera positions
+remain finite, clipping stays valid and the far view faces the planet. Reversing
+scroll direction from orbit also keeps the camera above the surface.
+
+Inward zoom now refreshes the cursor ray after far navigation has turned the
+camera toward Earth. Previously, a cached ray could still point toward the old
+horizon, miss the planet and let a large inward delta cross the surface. Three
+regressions cover that reversal at 400, 800 and 1,600 wheel-equivalent pixels.
+
+The run also checks a 390 by 700 layout. It reports 530 presentations, 138 stats
+samples, zero ordinary readback bytes and no remaining sessions, renderers,
+held drawables or retiring resources. All 79 Flutter tests and 86 geospatial
+tests pass, as do analysis and package-boundary checks. These are injected
+gesture tests; physical trackpad pinch feel has not been manually qualified.

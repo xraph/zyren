@@ -81,6 +81,10 @@ dragging, pivot rotation, wheel units, resize, touch arbitration and idle frames
 Additional tests cover terrain clearance, interrupted input and plugin disposal.
 Native wheel events refresh their target even without a preceding pointer move;
 this intentionally avoids a stale pointer jump in upstream orthographic zoom.
+Globe inward zoom also refreshes its ray when returning from far navigation,
+where camera tilting can leave the old ray pointing away from Earth. This avoids
+crossing the surface after a large scroll reversal from orbit. The pinned
+trajectory tests still pass.
 CameraTransitionManager passes 12 upstream traces and a fixed-point projection
 check. GlobeControls passes 24 traces at 30/60/120 Hz with both camera types,
 near/far modes, damping, horizon misses and translated/rotated Earth frames.
@@ -114,6 +118,16 @@ Pointer IDs and individual positions remain available for upstream touch state
 machines. Suspension and detachment cancel active pointers. Wheel ownership
 still requires a separate scroll registration.
 
+That scroll registration also claims native trackpad pan/zoom gestures. You can
+use two-finger scrolling or pinching to zoom. Pan deltas use local logical pixels
+with the wheel direction; incremental pinch ratios become `-200 * log(ratio)`
+wheel pixels. The cursor stays at the gesture's starting location. This path
+does not also emit touch-scale updates. Suspension, detachment and removal of
+the last scroll registration cancel pending trackpad motion.
+
 Widget tests cover transformed viewports at DPR 1.5 with two render scales,
 text-field focus, key repeat/cancellation, claimed drags, detachment and both
 claimed/unclaimed wheel input. These are host input checks, not control parity.
+Trackpad tests also cover parent scroll ownership, cumulative pinch ratios,
+transformed viewports at DPR 2, interrupted gestures and ordinary touch pinch
+while trackpad zoom is registered.

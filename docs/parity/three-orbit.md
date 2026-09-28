@@ -152,7 +152,9 @@ pinch deltas by 10 before sending them to the native controller. These are
 browser event conversions, not native key modifiers. Holding Control on a real
 keyboard does not multiply native wheel input.
 
-Native trackpad pan/zoom events, parented cameras and full story image comparison
+Native trackpad scrolling and pinching now feed the shared scroll input path,
+including this mode's magnitude-sensitive dolly. The [host contract](controls.md#native-input-contract)
+records normalization and cancellation checks. Parented cameras and full story image comparison
 remain unverified or unsupported as listed in [the parity matrix](matrix.md).
 EnvironmentControls, GlobeControls and camera transition animation remain
 separate work. Neither orbit mode performs terrain picking or height correction.

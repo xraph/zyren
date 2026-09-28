@@ -110,7 +110,8 @@ frames once angle residuals fall below 1e-12 and pan residual length falls below
 The [three184 mode](three-orbit.md) provides delta-time auto-rotation, wheel-delta
 scaling, cursor target-radius limits, modified-key rotation and different touch
 continuation rules. This page covers the default stdlib mode. Native trackpad
-pan/zoom gesture events are not wired yet; wheel events are supported. Cameras
+scrolling and pinching now use the shared [scroll input path](controls.md#native-input-contract).
+The pinned stdlib mode retains its fixed dolly step per event. Cameras
 follow the existing world-space target/up contract, without parent transforms.
 Full upstream story image comparison remains unrun. GlobeControls surface picking, terrain clearance,
 near/far globe modes, dynamic clipping and camera transition animation remain

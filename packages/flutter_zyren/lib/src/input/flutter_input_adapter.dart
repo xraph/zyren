@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
@@ -13,6 +14,7 @@ class FlutterInputAdapter implements ViewportInputSource, KeyboardInputSource {
   final _keyInterests = <SceneKey, int>{};
   final _pressedKeys = <SceneKey>{};
   final _activePointers = <int, ScenePointerEvent>{};
+  final _trackpads = <int, ({PointerEvent event, double scale})>{};
   PointerDownEvent? _dragTap;
   @override
   ViewportMetrics viewport = const ViewportMetrics(0, 0);
@@ -97,6 +99,9 @@ class FlutterInputAdapter implements ViewportInputSource, KeyboardInputSource {
     return Registration(() {
       if (_closed) return;
       _interests.update(gesture, (count) => count - 1);
+      if (gesture == SceneGesture.scroll && !wants(SceneGesture.scroll)) {
+        _cancelTrackpads();
+      }
       onInterestsChanged?.call();
     });
   }
@@ -123,6 +128,7 @@ class FlutterInputAdapter implements ViewportInputSource, KeyboardInputSource {
   void suspend() {
     _dragTap = null;
     cancelKeys();
+    _cancelTrackpads();
     for (final event in _activePointers.values.toList()) {
       emit(
         ScenePointerEvent(
@@ -132,6 +138,48 @@ class FlutterInputAdapter implements ViewportInputSource, KeyboardInputSource {
           phase: ScenePointerPhase.cancel,
         ),
         null,
+      );
+    }
+  }
+
+  void _cancelTrackpad(int pointer, ScenePointerCallback? callback) {
+    final previous = _trackpads.remove(pointer);
+    if (previous == null) return;
+    emit(convert(previous.event, ScenePointerPhase.cancel), callback);
+  }
+
+  void _cancelTrackpads() {
+    for (final pointer in _trackpads.keys.toList()) {
+      _cancelTrackpad(pointer, null);
+    }
+  }
+
+  void _trackpad(PointerEvent event, ScenePointerCallback? callback) {
+    if (_closed || !wants(SceneGesture.scroll)) return;
+    if (event is PointerPanZoomStartEvent) {
+      _trackpads[event.pointer] = (event: event, scale: 1);
+    } else if (event is PointerPanZoomEndEvent) {
+      _trackpads.remove(event.pointer);
+    } else if (event is PointerPanZoomUpdateEvent) {
+      final previous = _trackpads[event.pointer];
+      if (previous == null || !event.scale.isFinite || event.scale <= 0) return;
+      _trackpads[event.pointer] = (event: event, scale: event.scale);
+      // Native scale is cumulative. Convert each ratio to wheel-equivalent
+      // logical pixels, inverse to Flutter's default scroll-to-scale factor.
+      final pinch = -200 * (math.log(event.scale) - math.log(previous.scale));
+      final delta = -event.localPanDelta + Offset(0, pinch);
+      if (delta == Offset.zero) return;
+      emit(
+        ScenePointerEvent(
+          point: ViewportPoint(event.localPosition.dx, event.localPosition.dy),
+          delta: ViewportPoint(delta.dx, delta.dy),
+          phase: ScenePointerPhase.scroll,
+          pointer: event.pointer,
+          kind: ScenePointerKind.trackpad,
+          time: event.timeStamp,
+          modifiers: modifiers,
+        ),
+        callback,
       );
     }
   }
@@ -261,6 +309,16 @@ class FlutterInputAdapter implements ViewportInputSource, KeyboardInputSource {
           },
           child: RawGestureDetector(
             gestures: {
+              if (wants(SceneGesture.scroll))
+                _TrackpadZoomRecognizer:
+                    GestureRecognizerFactoryWithHandlers<
+                      _TrackpadZoomRecognizer
+                    >(_TrackpadZoomRecognizer.new, (recognizer) {
+                      recognizer.onEvent = (event) =>
+                          _trackpad(event, callback);
+                      recognizer.onCancel = (pointer) =>
+                          _cancelTrackpad(pointer, callback);
+                    }),
               if (wants(SceneGesture.pointerDrag))
                 EagerGestureRecognizer:
                     GestureRecognizerFactoryWithHandlers<
@@ -298,5 +356,75 @@ class FlutterInputAdapter implements ViewportInputSource, KeyboardInputSource {
         ),
       ),
     );
+  }
+}
+
+// Claim only native pan/zoom sequences. Touch keeps its individual pointer
+// stream, and scrollable ancestors retain trackpad input outside this scene.
+class _TrackpadZoomRecognizer extends OneSequenceGestureRecognizer {
+  _TrackpadZoomRecognizer()
+    : super(supportedDevices: {PointerDeviceKind.trackpad});
+
+  final _starts = <int, PointerPanZoomStartEvent>{};
+  final _accepted = <int>{};
+  void Function(PointerEvent event)? onEvent;
+  void Function(int pointer)? onCancel;
+
+  @override
+  bool isPointerAllowed(PointerDownEvent event) => false;
+
+  @override
+  void handleNonAllowedPointer(PointerDownEvent event) {}
+
+  @override
+  void addAllowedPointerPanZoom(PointerPanZoomStartEvent event) {
+    _starts[event.pointer] = event;
+    startTrackingPointer(event.pointer, event.transform);
+    resolvePointer(event.pointer, GestureDisposition.accepted);
+  }
+
+  @override
+  void acceptGesture(int pointer) {
+    final start = _starts.remove(pointer);
+    if (start == null) return;
+    _accepted.add(pointer);
+    onEvent?.call(start);
+  }
+
+  @override
+  void rejectGesture(int pointer) {
+    _starts.remove(pointer);
+    if (_accepted.remove(pointer)) onCancel?.call(pointer);
+    stopTrackingPointer(pointer);
+  }
+
+  @override
+  void handleEvent(PointerEvent event) {
+    if (_accepted.contains(event.pointer) &&
+        (event is PointerPanZoomUpdateEvent ||
+            event is PointerPanZoomEndEvent)) {
+      onEvent?.call(event);
+    }
+    if (event is PointerPanZoomEndEvent) {
+      _starts.remove(event.pointer);
+      _accepted.remove(event.pointer);
+      stopTrackingPointer(event.pointer);
+    }
+  }
+
+  @override
+  void didStopTrackingLastPointer(int pointer) {}
+
+  @override
+  String get debugDescription => 'scene trackpad zoom';
+
+  @override
+  void dispose() {
+    for (final pointer in _accepted.toList()) {
+      onCancel?.call(pointer);
+    }
+    _accepted.clear();
+    _starts.clear();
+    super.dispose();
   }
 }

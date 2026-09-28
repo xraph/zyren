@@ -340,6 +340,9 @@ class GlobeControls extends EnvironmentControls {
     final deltaAlpha = (zoomDelta.abs() / 20).clamp(0.0, 1.0);
     final c = camera;
     if (isNearControls || zoomDelta > 0) {
+      // Far zoom-out tilts the camera without a surface pivot. Its cached ray
+      // can still point at the old horizon when inward zoom resumes.
+      if (!isNearControls && zoomDelta > 0) zoomDirectionSet = false;
       updateZoomDirection();
       if (zoomDelta < 0 && (zoomPointSet || updateZoomPoint())) {
         final toCenter = -up;

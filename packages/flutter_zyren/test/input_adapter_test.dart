@@ -107,7 +107,7 @@ void main() {
   });
 
   testWidgets(
-    'registered pinch wins its arena and overlay text keeps keyboard focus',
+    'touch pinch survives trackpad registration and overlay text keeps focus',
     (tester) async {
       final backend = FakeBackend();
       final controller = SceneController(
@@ -116,6 +116,7 @@ void main() {
       );
       final events = <ScenePointerEvent>[];
       final interest = controller.input.registerGesture(SceneGesture.scale);
+      final trackpad = controller.input.registerGesture(SceneGesture.scroll);
       await tester.pumpWidget(
         MaterialApp(
           home: Center(
@@ -170,6 +171,7 @@ void main() {
       await first.up();
       await second.up();
       interest.dispose();
+      trackpad.dispose();
       controller.dispose();
       await frames(tester);
       await controller.whenDisposed;

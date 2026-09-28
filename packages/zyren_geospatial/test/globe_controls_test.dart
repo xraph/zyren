@@ -9,6 +9,44 @@ List<double> numbers(Object? value) =>
     (value as List).cast<num>().map((v) => v.toDouble()).toList();
 Vec3 vector(Object? value) => Vec3.array(numbers(value));
 void main() {
+  for (final inwardDelta in [400.0, 800.0, 1600.0]) {
+    test(
+      'inward zoom refreshes a horizon ray after reaching orbit: $inwardDelta',
+      () {
+        final camera = PerspectiveCamera(
+          position: const Vec3(6379637, 0, 0),
+          target: const Vec3(6379637, 0, 10000),
+          up: const Vec3(1, 0, 0),
+          near: 1,
+          far: 1e9,
+        );
+        final controls = GlobeControls(
+          camera,
+          viewport: const ViewportMetrics(800, 524),
+        );
+        addTearDown(controls.dispose);
+        controls.update(1 / 60);
+        const cursor = ViewportPoint(400, 245);
+        for (var i = 0; i < 64; i++) {
+          controls.handleWheel(cursor, 400);
+          controls.update(1 / 60);
+        }
+        expect(controls.isNearControls, isFalse);
+        final altitude = Ellipsoid.wgs84.fromEcef(camera.position).height;
+        controls.handleWheel(cursor, -inwardDelta);
+        controls.update(1 / 60);
+        final closer = Ellipsoid.wgs84.fromEcef(camera.position).height;
+        expect(closer, greaterThan(0));
+        expect(closer, lessThan(altitude));
+        expect(
+          controls.forward.dot(-camera.position.normalized()),
+          greaterThan(0),
+        );
+        expect(camera.near, greaterThan(0));
+        expect(camera.far, greaterThan(camera.near));
+      },
+    );
+  }
   for (final near in [true, false]) {
     for (final speed in [.5, 1.0, 2.0]) {
       for (final input in ['wheel', 'pinch']) {

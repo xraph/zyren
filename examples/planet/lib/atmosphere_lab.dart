@@ -223,7 +223,7 @@ class _AtmosphereLabState extends State<AtmosphereLab> {
           const Padding(
             padding: EdgeInsets.all(6),
             child: Text(
-              '20 March 2026 · UTC · Drag to navigate',
+              '20 March 2026 · UTC · Drag to navigate · Scroll or pinch to zoom',
               style: TextStyle(fontSize: 12),
             ),
           ),
