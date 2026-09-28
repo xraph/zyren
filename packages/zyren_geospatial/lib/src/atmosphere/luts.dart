@@ -4,6 +4,7 @@ import 'quality.dart';
 import 'bruneton_wgsl.dart';
 import 'precompute_wgsl.dart';
 import 'runtime_wgsl.dart';
+import 'specialize_textures.dart';
 
 /// Complete immutable RGB lookup set. All outputs use linear RGBA32 float.
 /// The supplied scopes own the result and precomputation workspace. Publish the
@@ -57,7 +58,10 @@ final class AtmosphereLuts {
       bindings.add(TextureBinding.sampled(index++, entry.value, group: group));
     }
     source.write(atmosphereRuntimeWgsl);
-    return AtmosphereShader._(source.toString(), ShaderBindings(bindings));
+    return AtmosphereShader._(
+      specializeAtmosphereTextures(source.toString()),
+      ShaderBindings(bindings),
+    );
   }
 
   static Future<AtmosphereLuts> generate({
@@ -179,7 +183,10 @@ final class AtmosphereLuts {
           '@compute @workgroup_size(4,4,1) fn main(@builtin(global_invocation_id) id:vec3<u32>){'
           'if(any($bound>=textureDimensions(${writes.keys.first}))){return;}\n$body\n}';
       final program = await shaders.compile(
-        ShaderSource.wgsl(code, label: 'atmosphere $name'),
+        ShaderSource.wgsl(
+          specializeAtmosphereTextures(code),
+          label: 'atmosphere $name',
+        ),
       );
       check();
       final graph = await graphs.compile(

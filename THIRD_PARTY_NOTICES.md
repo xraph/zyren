@@ -15,8 +15,10 @@ The full license is in [licenses/3d-tiles-renderer.txt](licenses/3d-tiles-render
 
 ## three-geospatial
 
-The geospatial maths and port inventory reference Takram's three-geospatial
-project. Its MIT license is reproduced below.
+The geospatial maths, atmosphere and celestial shader equations, star catalogue
+and port inventory reference Takram's three-geospatial project. Its MIT license
+is reproduced below. The catalogue object and regeneration command are pinned
+in [Atmosphere parity](docs/parity/atmosphere.md).
 
 Source: https://github.com/takram-design-engineering/three-geospatial
 

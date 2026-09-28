@@ -14,3 +14,6 @@ export 'src/atmosphere/parameters.dart';
 export 'src/atmosphere/quality.dart';
 export 'src/atmosphere/luts.dart';
 export 'src/atmosphere/lut_cache.dart';
+export 'src/atmosphere/star_catalog.dart';
+export 'src/atmosphere/appearance.dart';
+export 'src/atmosphere/plugin.dart';

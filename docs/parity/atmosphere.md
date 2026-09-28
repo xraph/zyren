@@ -80,5 +80,84 @@ reject rays that miss the outer sphere. These are intentional numerical repairs.
 `AtmosphereLuts.shader()` provides readonly bindings and the WGSL sky, segment,
 direct-irradiance and indirect-irradiance functions. Runtime fixtures check day,
 twilight, night, upper-atmosphere and space views, ground clipping, zero paths
-and atmosphere misses. Rendered sky/celestial integration and mobile atmosphere
-qualification remain separate gates.
+and atmosphere misses. Scene integration and device evidence are recorded below.
+
+## Scene plugin
+
+Add `AtmospherePlugin(date: DateTime.utc(...))` to your native scene. Positions
+are ECEF metres by default. For a local scene, supply a proper rigid
+`worldToEcef` matrix. Scaling, reflection and shear are rejected. The default
+altitude correction subtracts the ellipsoid's osculating-sphere centre, matching
+the source. Set `correctAltitude: false` when your world already uses the
+atmosphere's spherical radii.
+
+The plugin publishes the typed `atmosphere` controller service. You can change
+`date` and `appearance` without rebuilding tables. Await `setParameters` for a
+transactional table and effect replacement. A cancellation or allocation failure
+keeps the previous effect usable. Replacements preserve their slot in the effect
+chain, including when all eight slots are occupied.
+
+Call `acquireLighting()` if your material needs the current tables. Its lease
+provides `luts.shader()` with sky, segment, direct irradiance and indirect
+irradiance functions. Keep the lease until your material retires. Existing
+leases remain valid across parameter updates; they also count against the
+bounded cache. The plugin does not automatically replace your scene's PBR lights
+or environment map. Those remain separate consumers of the lighting functions.
+
+The sky compositor reconstructs camera-relative rays and scene depth, converts
+metres to shader kilometres, then applies transmittance and in-scattered light.
+It supports perspective and orthographic cameras. An effect-owned transparent
+clear preserves premultiplied foreground coverage without changing your saved
+background settings. The final sky is opaque. With `appearance.sky: false`,
+you get the scene over a transparent background, with optional haze.
+
+Opaque and masked depth receives finite-distance haze. Blended surfaces without
+depth writes remain visible over the sky, but their own distance cannot be
+recovered from the shared depth buffer. Haze at those pixels uses the nearest
+written depth, if one exists. There is no per-layer transparent haze or shadow
+length integration in this slice. Disks and stars are hidden in orthographic
+views, matching the source celestial convention.
+
+The sun uses the atmosphere's angular radius and solar radiance. The moon uses
+the source Oren-Nayar diffuse response, a default 0.0045 radian angular radius,
+2.5e-6 relative solar brightness, topocentric direction and Moon-fixed
+orientation. An optional `MoonMap` supplies an owned equirectangular sRGB RGBA8
+albedo image, with the north pole in the first row. White albedo is the default.
+Lunar displacement and moonlight atmospheric scattering are not enabled.
+
+Stars use the original 9,096-record Yale catalogue, J2000 directions, source RGB
+values and apparent magnitudes. Their intensity follows the pinned WebGPU
+surface-brightness formula, including projected pixel solid angle. Overlapping
+stars accumulate in a linear RGBA16 float target. Its longest edge is bounded
+by `maxStarResolution` (default 1024, maximum 2048), with preserved aspect ratio.
+The default target costs at most 8 MiB. Resizing builds a replacement and retires
+the old target; ordinary frames upload uniforms and draw without readback.
+
+The source asset comes from revision
+`eac103980f20c0956f2d3215833e73514be08462`. Its SHA256 is
+`2fa0fd8318c85e9b0c8e318d84278d00e0610784e57a20e06b5715763bf4d5d6`.
+`tool/embed_star_catalog.py` verifies that object before embedding it for pure
+Dart use. No Flutter asset loader or runtime download is required.
+
+## Rendered qualification
+
+Nine original runtime fixtures pass through the actual sky compositor and scene
+geometry with a three-byte-per-channel sRGB tolerance. Both perspective and
+orthographic centre rays are checked. Separate native fixtures cover stellar
+photometry and overlap, UTC rotation, sun and lunar radiance, lunar albedo and
+orientation, opaque occlusion, translucent foregrounds, day/night changes,
+resize, memory pressure, cancellation and disposal during replacement.
+
+The Planet atmosphere lab uses only public package APIs. On macOS Metal and
+Pixel 9 Pro Vulkan, day/dusk/night changes, horizon/orbit views, navigation, haze
+and 320/390/1000 pixel layouts passed. Each run observed 11 test frames, zero
+presentation readbacks and zero native owners after disposal. Foreground window
+activation failed on the locked Mac, so this is presentation-counter evidence
+plus separately inspected native render images, not a manual window review.
+iPhone Metal and Windows DX12 atmosphere qualification remain unverified.
+
+The Pixel initially crashed inside the Mali Vulkan compiler while compiling the
+direct-irradiance pass with texture arguments passed through helper functions.
+Atmosphere templates now generate a helper per global texture binding. Numerical
+bodies are unchanged. The complete Metal numerical suite and the Pixel native
+presentation fixture pass with that specialization. No backend fallback is used.
