@@ -131,6 +131,7 @@ fn shade(input: PbrVertex, front: bool, sampleColor: vec4<f32>) -> vec4<f32> {
  let duv1=dpdx(normalUv); let duv2=dpdy(normalUv);
  let determinant=duv1.x*duv2.y-duv1.y*duv2.x;
  section_clip(input.point);
+ fragment_coverage(input.position.xy, uniforms.clipping.yz);
  let base=uniforms.color_unlit.rgb*sampleColor.rgb;
  let alpha=uniforms.map_params.y*sampleColor.a;
  if uniforms.map_params.w > .5 && uniforms.map_params.w < 1.5 && alpha < uniforms.map_params.z { discard; }

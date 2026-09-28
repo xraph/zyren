@@ -47,7 +47,8 @@ struct VertexOutput {
     return output;
 }
 
-fn shade(normal: vec3<f32>, sample_color: vec4<f32>, point: vec3<f32>) -> vec4<f32> {
+fn shade(normal: vec3<f32>, sample_color: vec4<f32>, point: vec3<f32>, screen: vec2<f32>) -> vec4<f32> {
+    fragment_coverage(screen, uniforms.clipping.yz);
     section_clip(point);
     let diffuse = max(dot(normalize(normal), normalize(uniforms.light_ambient.xyz)), 0.0);
     let lighting = uniforms.light_ambient.w + (1.0 - uniforms.light_ambient.w) * diffuse;
@@ -60,11 +61,11 @@ fn shade(normal: vec3<f32>, sample_color: vec4<f32>, point: vec3<f32>) -> vec4<f
 }
 
 @fragment fn fs_textured(input: VertexOutput, @builtin(front_facing) front: bool) -> @location(0) vec4<f32> {
-    return shade(select(-input.normal, input.normal, front), textureSample(color_map, color_sampler, input.uv), input.point);
+    return shade(select(-input.normal, input.normal, front), textureSample(color_map, color_sampler, input.uv), input.point, input.position.xy);
 }
 
 @fragment fn fs_main(input: VertexOutput, @builtin(front_facing) front: bool) -> @location(0) vec4<f32> {
-    return shade(select(-input.normal, input.normal, front), vec4<f32>(1.0), input.point);
+    return shade(select(-input.normal, input.normal, front), vec4<f32>(1.0), input.point, input.position.xy);
 }
 
 @vertex fn vs_main_instanced(@location(0) position:vec3<f32>, @location(1) normal:vec3<f32>, i:InstanceTransform)->VertexOutput {

@@ -105,6 +105,7 @@ final class Raycaster {
       final clipping = parentClipping && node.clippingEnabled;
       final world = parent * node.localMatrix;
       if (node is Mesh &&
+          !node.fragmentCoverage.isEmpty &&
           node.geometry.topology == GeometryTopology.triangles) {
         objectOrder[node] = objectOrder.length;
         for (

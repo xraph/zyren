@@ -173,7 +173,14 @@ final class ScenePacketEncoder {
       throw ArgumentError('A view supports at most 65536 instances.');
     }
     final hasTangents = scene._geometries.values.any((g) => g.tangents != null);
-    final opcode = scene.hasOutline
+    final opcode =
+        scene._meshes.any(
+          (m) =>
+              (m['coverage'] as List)[0] != 0 ||
+              (m['coverage'] as List)[1] != 1,
+        )
+        ? 31
+        : scene.hasOutline
         ? 30
         : submission.camera.depthStrategy == DepthStrategy.reversed
         ? 29
@@ -287,9 +294,12 @@ final class ScenePacketEncoder {
     if (opcode >= 28) body.u32(scene._settings.enabled ? 1 : 0);
     if (opcode >= 29) body.u32(submission.camera.depthStrategy.index);
     if (opcode >= 30) {
-      final outline = scene._outline!;
-      body.floats([...outline.color.toList(), outline.opacity]);
-      body.u32(outline.width);
+      final outline = scene._outline;
+      if (opcode >= 31) body.u32(outline == null ? 0 : 1);
+      if (outline != null) {
+        body.floats([...outline.color.toList(), outline.opacity]);
+        body.u32(outline.width);
+      }
     }
     for (final id in owned) {
       body.u32(id);
@@ -412,6 +422,7 @@ final class ScenePacketEncoder {
         body.floats(planes);
       }
       if (opcode >= 30) body.u32(mesh['outlined'] == true ? 1 : 0);
+      if (opcode >= 31) body.floats((mesh['coverage'] as List).cast<double>());
     }
     final payload = body.finish();
     if (payload.length > 66 * 1024 * 1024 - 24) {
@@ -509,6 +520,7 @@ bool _sameMesh(Map<String, Object> a, Map<String, Object> b) {
     'pbrScales',
     'instances',
     'clippingPlanes',
+    'coverage',
   ]) {
     final left = a[field] as List, right = b[field] as List;
     if (left.length != right.length) return false;

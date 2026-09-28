@@ -263,6 +263,10 @@ class SceneSnapshot {
                   'alpha_mode': node.material.alphaMode.index,
                   'opacity': node.material.opacity,
                   'alpha_cutoff': node.material.alphaCutoff,
+                  'coverage': [
+                    node.fragmentCoverage.lower,
+                    node.fragmentCoverage.upper,
+                  ],
                   'depth_test': node.material.depthTest,
                   'depth_write': node.material.writesDepth,
                   'render_order': node.renderOrder,

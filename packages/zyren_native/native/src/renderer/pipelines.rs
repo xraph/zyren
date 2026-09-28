@@ -96,6 +96,8 @@ impl MeshPipelines {
                 label: Some("PBR instances"),
                 source: wgpu::ShaderSource::Wgsl(
                     concat!(
+                        include_str!("coverage.wgsl"),
+                        "\n",
                         include_str!("instance.wgsl"),
                         "\n",
                         include_str!("pbr.wgsl")
@@ -127,6 +129,8 @@ impl MeshPipelines {
                 label: Some("native mesh materials"),
                 source: wgpu::ShaderSource::Wgsl(
                     concat!(
+                        include_str!("coverage.wgsl"),
+                        "\n",
                         include_str!("instance.wgsl"),
                         "\n",
                         include_str!("../mesh.wgsl"),

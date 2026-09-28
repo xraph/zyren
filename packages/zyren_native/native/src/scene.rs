@@ -143,6 +143,8 @@ impl Geometry {
 #[derive(Clone, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Mesh {
+    #[serde(default = "full_coverage")]
+    pub coverage: [f32; 2],
     #[serde(default)]
     pub instances: Vec<[f32; 16]>,
     pub geometry: u32,
@@ -203,9 +205,14 @@ fn half() -> f32 {
 fn enabled() -> bool {
     true
 }
+fn full_coverage() -> [f32; 2] {
+    [0., 1.]
+}
+
 impl Default for Mesh {
     fn default() -> Self {
         Self {
+            coverage: full_coverage(),
             geometry: 0,
             instances: Vec::new(),
             model: glam::Mat4::IDENTITY.to_cols_array(),
@@ -316,6 +323,14 @@ impl Mesh {
             || (self.primitive_kind != 0 && (self.color_map.is_some() || !self.unlit))
         {
             return Err("invalid primitive material".into());
+        }
+        if self.coverage.iter().any(|v| !v.is_finite())
+            || self.coverage[0] < 0.
+            || self.coverage[1] > 1.
+            || self.coverage[0] > self.coverage[1]
+            || (self.shader.is_some() && self.coverage != [0., 1.])
+        {
+            return Err("invalid or unsupported fragment coverage".into());
         }
         if self.alpha_mode > 2
             || !self.opacity.is_finite()

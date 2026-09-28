@@ -81,5 +81,5 @@ fn hidden_primitive() -> PrimitiveOutput {
 }
 @fragment fn fs_primitive(input: PrimitiveOutput) -> @location(0) vec4<f32> {
     if input.circle == 1u && dot(input.corner, input.corner) > 1.0 { discard; }
-    return shade(vec3<f32>(0.0, 0.0, 1.0), vec4<f32>(1.0), input.point);
+    return shade(vec3<f32>(0.0, 0.0, 1.0), vec4<f32>(1.0), input.point, input.position.xy);
 }

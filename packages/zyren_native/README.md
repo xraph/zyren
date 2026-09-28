@@ -74,6 +74,13 @@ writes off by default. `Mesh.renderOrder`, `DepthWrite` and `depthTest` let you
 override those choices. Run `lib/material_alpha_demo.dart` from
 `examples/multiple_views` on macOS or Android to try the native material controls.
 
+For opaque transitions, set `Mesh.fragmentCoverage` to `FragmentCoverage(lower:
+0, upper: progress)` and give the outgoing mesh the complementary interval.
+Built-in color, PBR and shadow passes use the same deterministic pixel pattern.
+Coverage edits preserve material alpha and reuse uploaded geometry. Reset with
+`const FragmentCoverage.full()`. Custom shaders do not yet expose this hook;
+geometric picking excludes empty intervals but does not sample the pixel pattern.
+
 Use `Line` with `LineGeometry` for paths, `LineGeometry.segments` for independent
 pairs, and `Points` with `PointGeometry` for circle or square markers. Their
 materials let you choose physical pixel or world sizes. Native triangle expansion

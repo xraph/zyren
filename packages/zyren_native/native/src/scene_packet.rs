@@ -72,7 +72,7 @@ impl ScenePacket {
             return Err("unsupported scene packet".into());
         }
         let opcode = r.u32()?;
-        if !(10..=30).contains(&opcode) {
+        if !(10..=31).contains(&opcode) {
             return Err("unsupported scene packet".into());
         }
         let textured = opcode >= 11;
@@ -206,10 +206,16 @@ impl ScenePacket {
             settings.validate()?;
         }
         if opcode >= 30 {
-            settings.outline = Some(crate::scene::OutlineSettings {
-                color: r.floats()?,
-                width: r.u32()?,
-            });
+            let has_outline = if opcode >= 31 { r.u32()? } else { 1 };
+            if has_outline > 1 {
+                return Err("Invalid outline presence flag".into());
+            }
+            if has_outline == 1 {
+                settings.outline = Some(crate::scene::OutlineSettings {
+                    color: r.floats()?,
+                    width: r.u32()?,
+                });
+            }
             settings.validate()?;
         }
         crate::scene::validate_shadows(&settings, &lights)?;
@@ -537,6 +543,10 @@ impl ScenePacket {
                     1 => true,
                     _ => return Err("Invalid outline flag".into()),
                 };
+            }
+            if opcode >= 31 {
+                mesh.coverage = r.floats()?;
+                mesh.validate_material()?;
             }
             updates.push((index, mesh));
         }

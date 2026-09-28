@@ -22,6 +22,7 @@ part 'primitives.dart';
 part 'instanced_mesh.dart';
 part 'clipping_plane.dart';
 part 'scene_outline.dart';
+part 'fragment_coverage.dart';
 
 class Object3D with _Revisioned {
   final String? name;
@@ -153,6 +154,19 @@ class Group extends Object3D {
 class Mesh extends Object3D {
   final BufferGeometry geometry;
   MeshMaterial _material;
+  FragmentCoverage _fragmentCoverage = const FragmentCoverage.full();
+  FragmentCoverage get fragmentCoverage => _fragmentCoverage;
+  set fragmentCoverage(FragmentCoverage value) {
+    if (!value.isFull && _material is ShaderMaterial) {
+      throw UnsupportedError(
+        'Custom shaders do not provide a fragment coverage hook.',
+      );
+    }
+    if (_fragmentCoverage == value) return;
+    _fragmentCoverage = value;
+    _changed();
+  }
+
   int _renderOrder = 0;
   bool _castShadow = false, _receiveShadow = true;
   bool get castShadow => _castShadow;
@@ -193,6 +207,11 @@ class Mesh extends Object3D {
   }
 
   void _validateMaterial(MeshMaterial material) {
+    if (material is ShaderMaterial && !_fragmentCoverage.isFull) {
+      throw UnsupportedError(
+        'Custom shaders do not provide a fragment coverage hook.',
+      );
+    }
     final kind = switch (geometry.topology) {
       GeometryTopology.triangles => 0,
       GeometryTopology.lineSegments || GeometryTopology.lineStrip => 1,
@@ -603,6 +622,10 @@ class Scene extends Object3D {
           'alpha_mode': node.material.alphaMode.index,
           'opacity': node.material.opacity,
           'alpha_cutoff': node.material.alphaCutoff,
+          'coverage': [
+            node.fragmentCoverage.lower,
+            node.fragmentCoverage.upper,
+          ],
           'depth_test': node.material.depthTest,
           'depth_write': node.material.writesDepth,
           'render_order': node.renderOrder,

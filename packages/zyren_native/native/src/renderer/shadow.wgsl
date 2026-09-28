@@ -11,6 +11,7 @@ struct Vertex { @builtin(position) position:vec4<f32>, @location(0) uv:vec2<f32>
 }
 @fragment fn fragment(v:Vertex) {
  let alpha=textureSample(color,colorSampler,v.uv).a*uniforms.params.y;
+ fragment_coverage(v.position.xy, uniforms.clipping.yz);
  for(var i=0u;i<u32(uniforms.clipping.x);i++) {
    if dot(uniforms.clipping_planes[i],vec4<f32>(v.point,1.))<0. {discard;}
  }

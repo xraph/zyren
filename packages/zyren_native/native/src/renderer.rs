@@ -666,7 +666,12 @@ impl Renderer {
                 let uniforms = Uniforms {
                     inverse_view_projection: vp.inverse().to_cols_array(),
                     clipping_planes: section_planes(mesh),
-                    clipping: [mesh.clipping_planes.len() as f32, 0., 0., 0.],
+                    clipping: [
+                        mesh.clipping_planes.len() as f32,
+                        mesh.coverage[0],
+                        mesh.coverage[1],
+                        0.,
+                    ],
                     mvp: (vp * model).to_cols_array(),
                     normal_matrix: model.inverse().transpose().to_cols_array(),
                     color_unlit: [

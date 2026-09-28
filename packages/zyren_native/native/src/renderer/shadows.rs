@@ -76,6 +76,8 @@ impl Shadows {
                 label: Some("instance shadows"),
                 source: wgpu::ShaderSource::Wgsl(
                     concat!(
+                        include_str!("coverage.wgsl"),
+                        "\n",
                         include_str!("instance.wgsl"),
                         "\n",
                         include_str!("shadow.wgsl")
@@ -434,7 +436,12 @@ impl Renderer {
                         ]);
                         values.extend(mesh.model);
                         values.extend(section_planes(mesh).into_iter().flatten());
-                        values.extend([mesh.clipping_planes.len() as f32, 0., 0., 0.]);
+                        values.extend([
+                            mesh.clipping_planes.len() as f32,
+                            mesh.coverage[0],
+                            mesh.coverage[1],
+                            0.,
+                        ]);
                         let buffer =
                             self.device
                                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
