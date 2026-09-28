@@ -11,6 +11,7 @@ void main(List<String> args) {
     'zyren_timeline': {'zyren'},
     'zyren_engineering': {'zyren'},
     'zyren_gltf': {'zyren'},
+    'zyren_3d_tiles': {'zyren', 'zyren_gltf', 'zyren_geospatial'},
   };
   final directive = RegExp(
     r'''^\s*(?:import|export)\s+['"]([^'"]+)['"]''',

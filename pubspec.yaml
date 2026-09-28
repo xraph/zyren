@@ -12,6 +12,7 @@ workspace:
   - packages/flutter_zyren
   - packages/zyren_geospatial
   - packages/zyren_gltf
+  - packages/zyren_3d_tiles
   - examples/planet
   - examples/multiple_views
   - examples/model_viewer
