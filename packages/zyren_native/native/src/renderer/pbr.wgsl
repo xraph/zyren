@@ -26,6 +26,16 @@ struct Lights { count: vec4<f32>, view: vec4<f32>, values: array<Light,16> };
 @group(2) @binding(7) var aoSampler: sampler;
 @group(2) @binding(8) var emissiveMap: texture_2d<f32>;
 @group(2) @binding(9) var emissiveSampler: sampler;
+@group(3) @binding(0) var irradianceMap: texture_2d<f32>;
+@group(3) @binding(1) var specularMap: texture_3d<f32>;
+@group(3) @binding(2) var brdfMap: texture_2d<f32>;
+@group(3) @binding(3) var environmentSampler: sampler;
+@group(3) @binding(4) var<uniform> environment: vec4<f32>;
+fn environmentUv(direction:vec3<f32>)->vec2<f32> {
+ let c=cos(environment.y);let s=sin(environment.y);
+ let d=vec3<f32>(c*direction.x-s*direction.z,direction.y,s*direction.x+c*direction.z);
+ return vec2<f32>(atan2(d.z,d.x)/6.28318530718+.5,acos(clamp(d.y,-1.,1.))/3.14159265359);
+}
 struct PbrVertex { @builtin(position) position: vec4<f32>, @location(0) normal: vec3<f32>, @location(1) point: vec3<f32>, @location(2) uv: vec2<f32>, @location(3) uv1: vec2<f32>, @location(4) tangent: vec4<f32> };
 fn transform(position: vec3<f32>, normal: vec3<f32>) -> PbrVertex {
  var v: PbrVertex;
@@ -96,6 +106,13 @@ fn shade(input: PbrVertex, front: bool, sampleColor: vec4<f32>) -> vec4<f32> {
  let rough=max(material.factors.y*select(1.,mr.g,(flags&4u)!=0u),.0525);
  let occlusion=select(1.,mix(1.,ao,material.scales.z),(flags&8u)!=0u);
  var color=material.emissive.rgb * material.factors.z * select(vec3<f32>(1.),em,(flags&16u)!=0u);
+ let irradiance=textureSampleLevel(irradianceMap,environmentSampler,environmentUv(n),0.).rgb;
+ let slices=f32(textureDimensions(specularMap).z);
+ let radiance=textureSampleLevel(specularMap,environmentSampler,vec3<f32>(environmentUv(reflect(-view,n)),(clamp(rough,0.,1.)*(slices-1.)+.5)/slices),0.).rgb;
+ let lutSize=vec2<f32>(textureDimensions(brdfMap));
+ let lutUv=clamp(vec2<f32>(max(dot(n,view),0.),rough),vec2<f32>(.5)/lutSize,vec2<f32>(1.)-vec2<f32>(.5)/lutSize);
+ let lut=textureSampleLevel(brdfMap,environmentSampler,lutUv,0.).rg;
+ color+=environment.x*occlusion*(irradiance*base*(1.-metal)/3.14159265359+radiance*(mix(vec3<f32>(.04),base,metal)*lut.x+lut.y));
  for(var i=0u; i<min(u32(lights.count.x),16u); i++) {
    let light=lights.values[i];
    let intensity=light.colorIntensity.rgb*light.colorIntensity.w;

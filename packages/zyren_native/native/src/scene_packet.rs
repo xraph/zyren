@@ -72,7 +72,7 @@ impl ScenePacket {
             return Err("unsupported scene packet".into());
         }
         let opcode = r.u32()?;
-        if !(10..=22).contains(&opcode) {
+        if !(10..=23).contains(&opcode) {
             return Err("unsupported scene packet".into());
         }
         let textured = opcode >= 11;
@@ -140,6 +140,26 @@ impl ScenePacket {
             for _ in 0..count {
                 lights.push(r.floats()?);
             }
+        }
+        if opcode >= 23 {
+            match r.u32()? {
+                0 => {}
+                1 => {
+                    let mut keys = [[0; 4]; 3];
+                    for key in &mut keys {
+                        for word in key {
+                            *word = r.u64()?;
+                        }
+                    }
+                    settings.environment = Some(crate::scene::EnvironmentMap {
+                        keys,
+                        intensity: r.floats::<1>()?[0],
+                        rotation: r.floats::<1>()?[0],
+                    });
+                }
+                _ => return Err("Invalid environment flag".into()),
+            }
+            settings.validate()?;
         }
         let mut retained = HashSet::new();
         for _ in 0..retained_count {

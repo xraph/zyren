@@ -568,3 +568,45 @@ fn screen_settings_reject_truncation_nonfinite_origins_and_excess_effects() {
     invalid[count + 8..count + 12].copy_from_slice(&f32::INFINITY.to_le_bytes());
     assert!(ScenePacket::decode(&invalid).is_err());
 }
+
+#[test]
+fn environment_packet_bounds_and_resource_tokens_are_checked() {
+    let mut valid = packet();
+    valid[4..8].copy_from_slice(&23_u32.to_le_bytes());
+    for v in [0_u32, 0, 0, 0, 0, 1_f32.to_bits(), 1_f32.to_bits(), 0] {
+        valid.extend(v.to_le_bytes());
+    }
+    for v in [0_f64; 3] {
+        valid.extend(v.to_le_bytes());
+    }
+    valid.extend(0_u32.to_le_bytes()); // lights
+    let flag = valid.len();
+    valid.extend(1_u32.to_le_bytes());
+    for _ in 0..3 {
+        for v in [1_u64, 1, 2, 1] {
+            valid.extend(v.to_le_bytes());
+        }
+    }
+    valid.extend(1_f32.to_le_bytes());
+    valid.extend(0_f32.to_le_bytes());
+    let length = valid.len() as u64 - 24;
+    valid[16..24].copy_from_slice(&length.to_le_bytes());
+    let frame = ScenePacket::decode(&valid).unwrap().resolve(None).unwrap();
+    assert!(frame.settings.environment.is_some());
+    for end in 0..valid.len() {
+        let mut truncated = valid[..end].to_vec();
+        if end >= 24 {
+            truncated[16..24].copy_from_slice(&((end - 24) as u64).to_le_bytes());
+        }
+        assert!(ScenePacket::decode(&truncated).is_err());
+    }
+    for (offset, value) in [
+        (flag, 2_u32),
+        (valid.len() - 8, f32::NAN.to_bits()),
+        (valid.len() - 4, f32::INFINITY.to_bits()),
+    ] {
+        let mut invalid = valid.clone();
+        invalid[offset..offset + 4].copy_from_slice(&value.to_le_bytes());
+        assert!(ScenePacket::decode(&invalid).is_err());
+    }
+}

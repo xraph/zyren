@@ -16,6 +16,8 @@ part '../rendering/graph_compiler.dart';
 part '../rendering/graph_validation.dart';
 part '../rendering/material_compiler.dart';
 part '../rendering/postprocess.dart';
+part '../rendering/environment_map.dart';
+part '../rendering/environment_shaders.dart';
 
 /// Adapter contract for a single device generation. Keys remain backend-private.
 /// A successful allocation owns one reference. Release waits for GPU retirement.

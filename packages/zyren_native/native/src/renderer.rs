@@ -11,6 +11,7 @@ use wgpu::util::DeviceExt;
 use crate::scene::{Frame, pixel_len};
 mod draw_order;
 pub(crate) mod effects;
+mod environment;
 mod lighting;
 pub(crate) mod pipelines;
 mod textures;
@@ -88,6 +89,8 @@ pub struct RendererState {
     pbr_layout: wgpu::BindGroupLayout,
     pbr_texture_layout: wgpu::BindGroupLayout,
     pbr_white: wgpu::Texture,
+    environment: environment::Environment,
+    environment_keys: Vec<crate::resources::registry::ResourceKey>,
     textures: HashMap<u32, textures::GpuSceneTexture>,
     #[cfg(any(target_vendor = "apple", target_os = "android"))]
     surface_depth: Option<DepthTarget>,
@@ -187,12 +190,14 @@ impl Renderer {
         let pbr_layout = lighting::layout(&device);
         let pbr_texture_layout = textures::pbr_layout(&device);
         let pbr_white = textures::white(&device, &queue);
+        let environment = environment::Environment::new(&device);
         let pipelines = pipelines::MeshPipelines::new(
             &device,
             &layout,
             &texture_layout,
             &pbr_layout,
             &pbr_texture_layout,
+            &environment.layout,
         );
         Ok(Self {
             state: Some(Box::new(RendererState {
@@ -212,6 +217,8 @@ impl Renderer {
                 pbr_layout,
                 pbr_texture_layout,
                 pbr_white,
+                environment,
+                environment_keys: vec![],
                 textures: HashMap::new(),
                 #[cfg(any(target_vendor = "apple", target_os = "android"))]
                 surface_depth: None,
@@ -438,6 +445,12 @@ impl Renderer {
             }
         }
         frame.validate(&cached)?;
+        self.environment.textures(frame, &self.resources)?;
+        self.environment_keys = frame
+            .settings
+            .environment
+            .as_ref()
+            .map_or(vec![], |e| e.keys.map(environment::key).to_vec());
         for mesh in &frame.meshes {
             let geometry = frame
                 .geometries
@@ -656,6 +669,10 @@ impl Renderer {
                 }
             })
             .collect();
+        let environment_binding = frame.meshes.iter().any(|m| m.pbr.is_some()).then(|| {
+            self.environment
+                .binding(&self.device, frame, &self.resources)
+        });
         let mut encoder = self.device.create_command_encoder(&Default::default());
         {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -712,6 +729,13 @@ impl Renderer {
                 }
                 if let Some(binding) = &lighting[index] {
                     pass.set_bind_group(1, binding, &[]);
+                    pass.set_bind_group(
+                        3,
+                        environment_binding
+                            .as_ref()
+                            .expect("standard environment binding"),
+                        &[],
+                    );
                 }
                 if let Some(key) = mesh.shader {
                     let material = self
@@ -743,6 +767,7 @@ impl Renderer {
             .values()
             .map(|g| g.key)
             .chain(self.textures.values().map(|t| t.key))
+            .chain(self.environment_keys.iter().copied())
             .collect();
         if let Err(error) = self.resources.scene_submitted(index.clone(), &keys) {
             self.failure = Some(error.to_string());

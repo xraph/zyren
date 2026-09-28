@@ -348,6 +348,14 @@ impl SceneTexture {
 }
 
 #[derive(Clone, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EnvironmentMap {
+    pub keys: [[u64; 4]; 3],
+    pub intensity: f32,
+    pub rotation: f32,
+}
+
+#[derive(Clone, PartialEq, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct RenderSettings {
     pub enabled: bool,
@@ -357,6 +365,7 @@ pub struct RenderSettings {
     pub background_alpha: f32,
     pub history_epoch: u32,
     pub camera_origin: [f64; 3],
+    pub environment: Option<EnvironmentMap>,
 }
 impl Default for RenderSettings {
     fn default() -> Self {
@@ -368,11 +377,19 @@ impl Default for RenderSettings {
             background_alpha: 1.,
             history_epoch: 0,
             camera_origin: [0.; 3],
+            environment: None,
         }
     }
 }
 impl RenderSettings {
     pub fn validate(&self) -> Result<(), String> {
+        if self.environment.as_ref().is_some_and(|e| {
+            !e.intensity.is_finite()
+                || !(0.0..=65504.).contains(&e.intensity)
+                || !e.rotation.is_finite()
+        }) {
+            return Err("Invalid environment parameters".into());
+        }
         if self.camera_origin.iter().any(|v| !v.is_finite())
             || self.effects.len() > 8
             || self.tone_mapping > 2

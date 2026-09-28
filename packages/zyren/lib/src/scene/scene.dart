@@ -2,7 +2,8 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:vector_math/vector_math_64.dart' as vm;
 import '../geometry/geometry.dart';
-import '../resources/resource_scope.dart' show RenderSettings, ScreenEffect;
+import '../resources/resource_scope.dart'
+    show RenderSettings, ScreenEffect, EnvironmentMap;
 import '../plugins/registration.dart';
 export '../resources/resource_scope.dart' show RenderSettings, ToneMapping;
 import '../materials/material.dart';
@@ -360,6 +361,26 @@ void _finite(Vec3 value, String name) {
 class Scene extends Object3D {
   RenderSettings _renderSettings = RenderSettings();
   final _effects = <Object, ScreenEffect>{};
+  EnvironmentMap? _environment;
+  EnvironmentMap? get environment =>
+      _environment ?? _renderSettings.environment;
+  Registration addEnvironment(EnvironmentMap map) {
+    if (map.isClosed) {
+      throw StateError('Environment resource owner has closed.');
+    }
+    if (_environment != null) {
+      throw StateError(
+        'A lighting plugin already owns this scene environment.',
+      );
+    }
+    _environment = map;
+    _changed();
+    return Registration(() {
+      _environment = null;
+      _changed();
+    });
+  }
+
   RenderSettings get renderSettings => _renderSettings;
   List<ScreenEffect> get effects =>
       List.unmodifiable([..._renderSettings.effects, ..._effects.values]);
@@ -425,7 +446,7 @@ class Scene extends Object3D {
     double aspect, {
     Set<int> uploaded = const {},
   }) {
-    if (renderSettings.enabled || _effects.isNotEmpty) {
+    if (renderSettings.enabled || _effects.isNotEmpty || environment != null) {
       throw UnsupportedError(
         'Postprocessing requires binary scene submissions.',
       );

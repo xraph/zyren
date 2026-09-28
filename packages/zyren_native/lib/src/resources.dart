@@ -51,7 +51,10 @@ final class _ResourcePacket {
 
 final class _NativeResourceDevice
     with _NativeShaders, _NativeGraphs
-    implements MaterialDevice {
+    implements MaterialDevice, EnvironmentDevice {
+  @override
+  Uint8List encodeResourceKey(Object key) =>
+      Uint8List.fromList((key as _ResourceKey).bytes);
   final NativeGpuTransport _transport;
   @override
   Future<NativeGpuReply> _requestNative(

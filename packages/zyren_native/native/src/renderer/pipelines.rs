@@ -50,17 +50,28 @@ impl MeshPipelines {
         texture_layout: &wgpu::BindGroupLayout,
         pbr_layout: &wgpu::BindGroupLayout,
         pbr_texture_layout: &wgpu::BindGroupLayout,
+        environment_layout: &wgpu::BindGroupLayout,
     ) -> Self {
         Self {
             standard_shader: device.create_shader_module(wgpu::include_wgsl!("pbr.wgsl")),
             standard_plain: device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("standard"),
-                bind_group_layouts: &[Some(layout), Some(pbr_layout), Some(pbr_texture_layout)],
+                bind_group_layouts: &[
+                    Some(layout),
+                    Some(pbr_layout),
+                    Some(pbr_texture_layout),
+                    Some(environment_layout),
+                ],
                 ..Default::default()
             }),
             standard_textured: device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("standard textured"),
-                bind_group_layouts: &[Some(layout), Some(pbr_layout), Some(pbr_texture_layout)],
+                bind_group_layouts: &[
+                    Some(layout),
+                    Some(pbr_layout),
+                    Some(pbr_texture_layout),
+                    Some(environment_layout),
+                ],
                 ..Default::default()
             }),
             shader: device.create_shader_module(wgpu::ShaderModuleDescriptor {

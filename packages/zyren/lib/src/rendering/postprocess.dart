@@ -52,6 +52,7 @@ final class RenderSettings {
   final double exposure, backgroundAlpha;
   final int historyEpoch;
   final bool hdr;
+  final EnvironmentMap? environment;
   RenderSettings({
     Iterable<ScreenEffect> effects = const [],
     this.toneMapping = ToneMapping.none,
@@ -59,6 +60,7 @@ final class RenderSettings {
     this.backgroundAlpha = 1,
     this.historyEpoch = 0,
     this.hdr = false,
+    this.environment,
   }) : effects = List.unmodifiable(effects) {
     if (!exposure.isFinite ||
         exposure < 0 ||
@@ -81,6 +83,7 @@ final class RenderSettings {
     double? backgroundAlpha,
     int? historyEpoch,
     bool? hdr,
+    EnvironmentMap? environment,
   }) => RenderSettings(
     effects: effects ?? this.effects,
     toneMapping: toneMapping ?? this.toneMapping,
@@ -88,8 +91,10 @@ final class RenderSettings {
     backgroundAlpha: backgroundAlpha ?? this.backgroundAlpha,
     historyEpoch: historyEpoch ?? this.historyEpoch,
     hdr: hdr ?? this.hdr,
+    environment: environment ?? this.environment,
   );
   bool get enabled =>
+      environment != null ||
       hdr ||
       effects.isNotEmpty ||
       toneMapping != ToneMapping.none ||

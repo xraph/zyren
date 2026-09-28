@@ -21,3 +21,5 @@ for(const roughness of [.1,.2,.5,1]) for(const metallic of [0,.5,1]) {
 }
 fs.mkdirSync('test_assets/rendering/pbr',{recursive:true});
 fs.writeFileSync('test_assets/rendering/pbr/direct.json',JSON.stringify({reference:'three@0.184.0 scalar GGX, correlated Smith and Schlick functions; single scattering, normal incidence',samples},null,2)+'\n');
+
+export {D,V,F};

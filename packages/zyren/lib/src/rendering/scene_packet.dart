@@ -56,6 +56,14 @@ final class ScenePacketEncoder {
               )),
         ),
     ];
+    final environment = scene._settings.environment;
+    final environmentKeys = environment?.encodeForDevice(
+      materialDevice is EnvironmentDevice
+          ? materialDevice as EnvironmentDevice
+          : throw UnsupportedError(
+              'Environment lighting requires a resource-capable backend.',
+            ),
+    );
     final previous = _previous;
     final topology =
         previous == null ||
@@ -158,7 +166,9 @@ final class ScenePacketEncoder {
       throw ArgumentError('Scene resource upload exceeds the frame budget.');
     }
     final hasTangents = scene._geometries.values.any((g) => g.tangents != null);
-    final opcode = hasTangents
+    final opcode = environment != null
+        ? 23
+        : hasTangents
         ? 22
         : (scene._lights.isNotEmpty ||
               scene._meshes.any((m) => (m['pbr'] as List).isNotEmpty))
@@ -218,6 +228,15 @@ final class ScenePacketEncoder {
       body.u32(scene._lights.length);
       for (final light in scene._lights) {
         body.floats(light);
+      }
+    }
+    if (opcode >= 23) {
+      body.u32(environmentKeys == null ? 0 : 1);
+      if (environmentKeys != null) {
+        for (final key in environmentKeys) {
+          body.add(key);
+        }
+        body.floats([environment!.intensity, environment.rotation]);
       }
     }
     for (final id in owned) {

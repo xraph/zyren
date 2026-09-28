@@ -4,7 +4,8 @@ import 'package:vector_math/vector_math_64.dart' as vm;
 import '../geometry/geometry.dart';
 import '../geometry/vertex_attribute.dart';
 import '../resources/texture_image.dart';
-import '../resources/resource_scope.dart' show MaterialDevice, MeshShader;
+import '../resources/resource_scope.dart'
+    show MaterialDevice, MeshShader, EnvironmentDevice;
 import '../scene/scene.dart';
 import '../math/vec3.dart';
 import 'frame_output.dart';
@@ -212,6 +213,7 @@ class SceneSnapshot {
       scene.ambient,
       scene.renderSettings.copyWith(
         effects: scene.effects,
+        environment: scene.environment,
         hdr:
             scene.renderSettings.hdr ||
             meshes.any((m) => (m['pbr'] as List).isNotEmpty) ||

@@ -45,4 +45,7 @@ export 'src/resources/resource_scope.dart'
         ShaderBuild,
         GraphDevice,
         GraphDeviceDescription,
-        MaterialDevice;
+        MaterialDevice,
+        EnvironmentDevice;
+
+export 'src/lights/environment_lighting_plugin.dart';
