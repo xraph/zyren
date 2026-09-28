@@ -4,7 +4,6 @@ import 'package:flutter_gpu3d/flutter_gpu3d.dart';
 import 'package:flutter_gpu3d/src/presentation/native_metal_presenter.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:gpu3d/rendering.dart' show PresentationPath;
 import 'package:shader_lab/pbr.dart';
 import '../../../packages/gpu3d_native/test/support/pbr_checks.dart';
 import '../../../packages/gpu3d_native/test/support/standard_maps_checks.dart';

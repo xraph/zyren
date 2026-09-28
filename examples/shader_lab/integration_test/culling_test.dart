@@ -108,6 +108,36 @@ void main() {
           (frame) => frame.readbackBytes == 0,
         );
         expect(controller.camera.position, beforeOrbit);
+        await advance(30);
+        final idleFrame = controller.latestFrameStats!.frameId;
+        await tester.tap(find.byTooltip('Inspect scene'));
+        await tester.pumpAndSettle();
+        expect(find.text('Scene inspector'), findsOneWidget);
+        expect(find.text('Last frame $idleFrame'), findsOneWidget);
+        expect(find.textContaining('readback 0 B'), findsOneWidget);
+        await tester.enterText(find.byType(TextField), 'Box 30');
+        await tester.pump();
+        await tester.tap(
+          find.descendant(
+            of: find.byType(ListTile),
+            matching: find.text('Box 30'),
+          ),
+        );
+        await tester.pump();
+        expect(
+          find.textContaining('pixel visibility unverified'),
+          findsOneWidget,
+        );
+        await advance(30);
+        expect(
+          controller.latestFrameStats!.frameId,
+          idleFrame,
+          reason: 'Inspection must not request rendering.',
+        );
+        await tester.tap(find.byTooltip('Close inspector'));
+        await tester.pumpAndSettle();
+        expect(controller.isDisposed, isFalse);
+        expect(controller.latestFrameStats!.frameId, idleFrame);
         expect(tester.takeException(), isNull);
       } finally {
         await subscription.cancel();

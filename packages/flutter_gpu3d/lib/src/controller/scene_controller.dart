@@ -75,6 +75,7 @@ class SceneController {
   Future<void>? _presentationDisposal, _retiring;
   Timer? _statsTimer;
   FrameStats? _pendingStats;
+  FrameStats? _latestFrameStats;
   void Function()? _wakeView;
   bool _wakeScheduled = false, _automaticRecoveryUsed = false;
   void _scheduleWake() {
@@ -125,6 +126,10 @@ class SceneController {
   /// Samples at most every 200 ms and publishes the last pending frame even
   /// when demand rendering stops. The first presented frame emits immediately.
   Stream<FrameStats> get frameStats => _stats.stream;
+
+  /// Most recently presented frame, including one awaiting the sampled stream.
+  /// Remains available while idle or suspended. Failure and disposal clear it.
+  FrameStats? get latestFrameStats => _latestFrameStats;
   Future<RendererInfo> get ready => _ready.future;
   Future<FrameStats> get firstFrame => _firstFrame.future;
   Future<void> get whenDisposed => _disposed.future;
@@ -409,8 +414,8 @@ class SceneController {
     if (!_ready.isCompleted) _ready.completeError(exception, stack);
     if (!_firstFrame.isCompleted) _firstFrame.completeError(exception, stack);
     _scheduler.setVisible(false);
-    _status.value = SceneFailed(_generation, exception.issue);
     _clearStats();
+    _status.value = SceneFailed(_generation, exception.issue);
     _issues.add(exception.issue);
     final failedEngine = _engine;
     _engine = null;
@@ -466,6 +471,7 @@ class SceneController {
 
   void _presented(FrameStats stats) {
     if (_closed) return;
+    _latestFrameStats = stats;
     if (!_firstFrame.isCompleted) _firstFrame.complete(stats);
     _pendingStats = stats;
     if (_statsTimer == null) _publishStats();
@@ -484,6 +490,7 @@ class SceneController {
     _statsTimer?.cancel();
     _statsTimer = null;
     _pendingStats = null;
+    _latestFrameStats = null;
   }
 
   Future<void> retry() {

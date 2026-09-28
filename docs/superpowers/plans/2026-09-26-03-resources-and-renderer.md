@@ -675,8 +675,8 @@ filter visible/layer bounds -> intersect matching geometry -> sort world distanc
 return nearest object/instance/triangle/UV and sceneRevision
 ```
 
-- [ ] Add compact selection/framing/orbit controls, projection switching and independent multi-view cameras. Put the reusable inspector and throttled statistics overlay in the optional inspector package; test its subscription cleanup and desktop/narrow layouts. Verify orbit settling, pointer cancellation and focus without global event interception.
-- [ ] Run unit/integration/GPU culling fixtures; commit `feat: add scene picking cameras and orbit controls`.
+- [x] Add compact selection/framing/orbit controls, projection switching and independent multi-view cameras. Put the reusable inspector and throttled statistics overlay in the optional inspector package; test its subscription cleanup and desktop/narrow layouts. Verify orbit settling, pointer cancellation and focus without global event interception.
+- [x] Run unit/integration/GPU culling fixtures and commit cameras, picking, controls and inspection in focused checkpoints.
 
 Picking checkpoint (2026-09-28): core rays, immutable scene queries, layer
 masks, and orthographic projection are implemented. The facade captures logical
@@ -716,6 +716,24 @@ Shared-scene views retain independent controls. The culling lab combines this
 with selection, framing and projection switching. See
 [orbit controls](../../design/orbit-controls.md). The optional inspector and
 final acceptance audit remain open.
+
+Inspector checkpoint (2026-09-28): the optional `gpu3d_inspector` package now
+exports `SceneInspector` and `SceneStatsOverlay`. Both use public facade APIs
+and borrow their controller. Tests cover hierarchy search and selection, scene
+updates, empty/failure states, sampled trailing statistics, pointer passthrough,
+controller replacement and subscription/timer cleanup. The shared `ZeroState`
+widget now lives in the Flutter facade; the model viewer retains a thin export.
+
+Task 7 acceptance is covered by the picking, BVH, culling, framing and orbit
+commits above and this inspector checkpoint. The current check passes 100 Flutter
+and demo cases, four serial Metal pixel fixtures and the native culling/controls/
+inspector integration. The integration confirms that opening, searching and
+closing inspection leaves an idle view's presented frame ID unchanged. The
+spatial fixtures check offscreen shadows, residency-preserving culling,
+projection/aspect framing and deformed/instanced picks. The previous orbit
+checkpoint covers 459 core/glTF/geospatial cases, independent cameras, gesture
+competition and cancellation. These task gates do not qualify untested devices
+or establish full Three.js/Takram parity.
 
 ## Task 8: HDR effects, history and renderer profiles
 

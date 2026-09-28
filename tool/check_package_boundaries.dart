@@ -7,6 +7,7 @@ void main(List<String> args) {
     'packages/gpu3d': {'gpu3d', 'vector_math'},
     'packages/gpu3d_gltf': {'gpu3d_gltf', 'gpu3d'},
     'packages/flutter_geospatial': {'flutter_geospatial', 'gpu3d'},
+    'packages/gpu3d_inspector': {'gpu3d_inspector', 'flutter', 'flutter_gpu3d'},
     'examples/shader_lab/effects_plugin': {'shader_lab_effects', 'gpu3d'},
   };
   final directive = RegExp(
@@ -26,8 +27,10 @@ void main(List<String> args) {
                 !package.value.contains(uri.substring(8).split('/').first)) {
           failures.add('${file.path}: unexpected dependency $uri');
         }
-        if (package.key == 'examples/shader_lab/effects_plugin' &&
+        if ((package.key == 'examples/shader_lab/effects_plugin' ||
+                package.key == 'packages/gpu3d_inspector') &&
             (uri.startsWith('package:gpu3d/src/') ||
+                uri.startsWith('package:flutter_gpu3d/src/') ||
                 !uri.contains(':') &&
                     !file.absolute.uri
                         .resolve(uri)
@@ -37,7 +40,7 @@ void main(List<String> args) {
                           directory.absolute.uri.normalizePath().path,
                         ))) {
           failures.add(
-            '${file.path}: effects must use public package imports: $uri',
+            '${file.path}: extensions must use public package imports: $uri',
           );
         }
       }

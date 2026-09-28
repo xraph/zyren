@@ -10,6 +10,8 @@ dependencies:
     sdk: flutter
   flutter_gpu3d:
     path: ../../packages/flutter_gpu3d
+  gpu3d_inspector:
+    path: ../../packages/gpu3d_inspector
   gpu3d:
     path: ../../packages/gpu3d
   gpu3d_native:

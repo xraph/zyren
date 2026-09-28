@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_gpu3d/flutter_gpu3d.dart';
 import 'package:gpu3d_gltf/gpu3d_gltf.dart';
 import 'model_bounds.dart';
-import 'widgets/zero_state.dart';
 
 void main() => runApp(
   ModelViewerApp(

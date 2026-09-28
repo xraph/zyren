@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_gpu3d/flutter_gpu3d.dart';
+import 'package:gpu3d_inspector/gpu3d_inspector.dart';
 
 void main() => runApp(const CullingLabApp());
 
@@ -133,6 +134,44 @@ class _CullingLabState extends State<_CullingLab> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
+    endDrawer: Drawer(
+      width: MediaQuery.sizeOf(context).width.clamp(0, 380),
+      child: SafeArea(
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                IconButton(
+                  tooltip: 'Frame inspected box',
+                  icon: const Icon(Icons.center_focus_strong),
+                  onPressed: selected == null
+                      ? null
+                      : () => setState(() => frame(boundsOf(selected!))),
+                ),
+                Builder(
+                  builder: (context) => IconButton(
+                    tooltip: 'Close inspector',
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ),
+              ],
+            ),
+            Expanded(
+              child: SceneInspector(
+                controller: controller,
+                selectedObject: selected,
+                onSelectionChanged: (object) => setState(() {
+                  selected = object is Mesh ? object : null;
+                  selectionError = null;
+                }),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
     body: SafeArea(
       child: Column(
         children: [
@@ -258,6 +297,13 @@ class _CullingLabState extends State<_CullingLab> {
                 SizedBox(
                   width: 38,
                   child: Text(pan.toStringAsFixed(1), textAlign: TextAlign.end),
+                ),
+                Builder(
+                  builder: (context) => IconButton(
+                    tooltip: 'Inspect scene',
+                    icon: const Icon(Icons.account_tree_outlined),
+                    onPressed: () => Scaffold.of(context).openEndDrawer(),
+                  ),
                 ),
               ],
             ),

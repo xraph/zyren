@@ -110,6 +110,11 @@ Drag to orbit, use a secondary/Shift drag to pan, and scroll or pinch to zoom.
 The reset button beside the pan slider restores the controls' saved view.
 Damping settles back to demand rendering after you finish a gesture. See
 [orbit controls](../../docs/design/orbit-controls.md) for bindings and limits.
+Open **Inspect scene** beside the pan slider to search the hierarchy, select a
+box and inspect its transform, renderer status and last presented frame. The
+drawer uses the optional [inspector package](../../packages/gpu3d_inspector/README.md).
+Opening or closing it does not request rendering. **Frame inspected box** moves
+the camera to the selected object when you want to inspect its geometry.
 
 ```sh
 fvm flutter run --release -d macos -t lib/culling.dart

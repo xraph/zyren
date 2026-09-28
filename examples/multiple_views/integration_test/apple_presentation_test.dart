@@ -5,7 +5,6 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_gpu3d/flutter_gpu3d.dart';
-import 'package:gpu3d/rendering.dart';
 import 'package:integration_test/integration_test.dart';
 
 void main() {

@@ -77,6 +77,26 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.getSize(find.byType(SceneView)).height, greaterThan(450));
       expect(tester.takeException(), isNull);
+      await tester.tap(find.byTooltip('Inspect scene'));
+      await tester.pumpAndSettle();
+      expect(find.text('Scene inspector'), findsOneWidget);
+      await tester.enterText(find.byType(TextField), 'Box 30');
+      await tester.pump();
+      await tester.tap(
+        find.descendant(
+          of: find.byType(ListTile),
+          matching: find.text('Box 30'),
+        ),
+      );
+      await tester.pump();
+      expect(
+        find.textContaining('pixel visibility unverified'),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+      await tester.tap(find.byTooltip('Close inspector'));
+      await tester.pumpAndSettle();
+      expect(controller.isDisposed, isFalse);
     }
     tester.widget<Slider>(find.byKey(const ValueKey('Camera pan'))).onChanged!(
       20,

@@ -2214,3 +2214,51 @@ Clip planes remain caller-owned during navigation. Zoom-to-cursor, keyboard
 navigation, the optional inspector, full core/Takram parity and remaining platform
 qualification stay open. The [controls API](design/orbit-controls.md) documents
 the current input and lifecycle contract.
+
+## Optional scene inspector, 28 September 2026
+
+You can add `SceneInspector(controller:)` or `SceneStatsOverlay(controller:)`
+from the optional `gpu3d_inspector` package. The inspector searches object names,
+retains matching ancestors, shows mesh/transform details and reports controller
+status and the latest observed issue. It borrows the controller and uses public
+facade imports. Package checks reject private core/facade imports and native or
+geospatial dependencies in the inspector.
+
+The overlay samples statistics without acquiring frame demand or intercepting
+pointers. `SceneController.latestFrameStats` supplies the last presented frame
+when inspection opens on an idle scene. Failure and disposal clear that snapshot
+before status listeners run. Unknown GPU timing and residency remain unavailable,
+and the UI makes no pixel-visibility or FPS claim. The model viewer and inspector
+use the same `ZeroState` widget from the Flutter facade.
+
+Five inspector cases cover late attachment, trailing samples, pointer passthrough,
+hierarchy search/collapse, read-only selection, scene changes, controller
+replacement, pending timer cancellation and listener cleanup. A facade regression
+checks real controller snapshot retention while idle and clearing on failure.
+The demo tests open, search and close inspection at desktop and narrow widths.
+All 100 facade, inspector, Shader Lab and model-viewer cases pass. The first
+model-viewer run used the wrong working directory for its asset fixtures; the
+correct example directory passes. Analysis, formatting, public package boundaries,
+Apple ABI headers and diff checks pass.
+
+The native macOS integration verifies unchanged frame IDs while opening,
+searching and closing inspection, with zero presentation readback. Four serial
+Metal pixel fixtures also pass for offscreen shadows, resource-preserving
+culling, camera framing and deformed/instanced selection. No Rust implementation
+changed in this checkpoint.
+
+The 56.2 MB macOS release app runs on Metal. Live inspection identified the
+Apple M3 Max, five draws, 60 triangles, zero upload/readback bytes and unavailable
+GPU/residency measurements. Search and selection retained frame 2. The expanded
+desktop window remained usable and displayed 13 draws; framing the inspected
+Box 30 reduced that to five. The app remains running with that box selected.
+
+The Android arm64 release APK builds at 24.5 MB. A first build with `--no-pub`
+retained the integration-test plugin registrant and failed Java compilation;
+normal release preparation regenerated it and passed. Physical Android inspector
+interaction, Windows, Linux and physical iOS remain unverified. Swift Package
+Manager adoption for the Apple plugin also remains open.
+
+This closes task 7's camera, picking, controls and inspector acceptance gates.
+HDR effects/antialiasing, remaining asset and core breadth, full Takram plugin
+parity, platform qualification and release packaging remain in scope.

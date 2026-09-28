@@ -29,6 +29,7 @@ current alpha API.
 - `gpu3d` contains the Dart scene graph, geometry, engine and plugin contracts.
 - `gpu3d_native` supplies the Rust/wgpu backend and native build hook.
 - `flutter_gpu3d` adds Flutter views and re-exports the common scene API.
+- [`gpu3d_inspector`](packages/gpu3d_inspector/README.md) adds optional scene inspection and sampled statistics widgets.
 - `flutter_geospatial` is a Dart-only plugin depending on `gpu3d`.
 
 Flutter callers keep the existing import and native default. Dart-only callers

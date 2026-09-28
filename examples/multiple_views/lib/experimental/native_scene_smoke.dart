@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_gpu3d/flutter_gpu3d.dart';
-import 'package:gpu3d/rendering.dart';
 
 /// Standalone release check, selected by METAL_SCENE_SMOKE.
 Future<void> runNativeSceneSmoke() async {

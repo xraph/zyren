@@ -1,7 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_gpu3d/flutter_gpu3d.dart';
-import 'package:gpu3d/rendering.dart';
 import 'support/backend_fake.dart';
 import 'support/fakes.dart';
 import 'controller_test.dart' show frames, host, runtime, readback;

@@ -592,7 +592,10 @@ orthographic projection, layer masks, and frozen asynchronous selections.
 Queries now use revision-safe BVHs, and [frustum culling](frustum-culling.md)
 skips offscreen color draws while retaining shadow participation and resource
 ownership. [Orbit controls](orbit-controls.md) provide local pan/zoom/orbit input,
-time-based damping and per-view frame demand. The optional inspector remains open.
+time-based damping and per-view frame demand. The optional
+[`gpu3d_inspector`](../../packages/gpu3d_inspector/README.md) package provides a
+searchable scene tree, object details and sampled statistics through public
+Flutter contracts. Its widgets borrow the controller and own their listeners.
 
 Texture presentation must compose with Flutter clipping, transforms, opacity,
 scrolling, overlays and hit testing. Flutter rebuilds do not recreate the GPU.
