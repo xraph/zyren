@@ -314,6 +314,9 @@ final class QuantizedMeshTerrainSource implements TerrainSource {
       rethrow;
     } on AssetLoadException catch (error) {
       throw _sanitized(error.code);
+    } catch (_) {
+      context.cancellation.throwIfCancelled();
+      throw _sanitized(AssetLoadError.sourceFailed);
     }
   }
 }

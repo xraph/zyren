@@ -57,6 +57,46 @@ Future<QuantizedMeshTerrainSource> openFixture(
 
 void main() {
   test(
+    'custom policy failures cannot expose signed URLs or credentials',
+    () async {
+      final policy = FailingPolicy();
+      final source = await QuantizedMeshTerrainSource.open(
+        uri: Uri.parse('https://terrain.test/layer.json'),
+        datasetId: 'fixture',
+        resolver: FixtureResolver(),
+        cancellation: TestCancellation(),
+        policy: policy,
+      );
+      policy.fail = true;
+      await expectLater(
+        source.load(const TileCoordinate(0, 0, 0), contextFor(source)),
+        throwsA(
+          isA<AssetLoadException>().having(
+            (e) => e.toString(),
+            'message',
+            isNot(contains('secret')),
+          ),
+        ),
+      );
+    },
+  );
+
+  test('bounds contain polar and dateline meshes including skirts', () async {
+    final source = await openFixture(FixtureResolver());
+    for (final coord in [
+      const TileCoordinate(0, 0, 2),
+      const TileCoordinate(7, 3, 2),
+    ]) {
+      final meta = source.describe(coord),
+          tile = await source.load(coord, contextFor(source));
+      for (var i = 0; i < tile.geometry.positions.length; i += 3) {
+        final world = tile.origin + Vec3.array(tile.geometry.positions, i);
+        expect(world.isFinite, isTrue);
+        expect((world - meta.center).length, lessThanOrEqualTo(meta.radius));
+      }
+    }
+  });
+  test(
     'opens metadata, resolves templates and requests advertised oct normals',
     () async {
       final resolver = FixtureResolver();
@@ -285,3 +325,12 @@ void main() {
 }
 
 Never failTest(String message) => throw TestFailure(message);
+
+class FailingPolicy extends SourcePolicy {
+  bool fail = false;
+  @override
+  void validate(Uri from, Uri to, {String? fieldPath}) {
+    if (fail) throw StateError('secret signed URI: $to');
+    super.validate(from, to, fieldPath: fieldPath);
+  }
+}

@@ -66,7 +66,7 @@ fixture does not pass a GPU or device gate.
 | T01 | TilesRenderer integration and CameraTransition | Missing | Tileset hierarchy, bounding volumes, transforms, SSE/LOD, ADD/REPLACE, loading queues, caches, cancellation, errors and attribution |
 | T02 | GoogleCloudAuth/CesiumIonAuth, GLTFExtensions/Draco, tile compression | Missing | Caller-owned credentials, token refresh, native glTF and compressed meshes/textures, network failures and recovery |
 | T03 | Fade, creased normals, material replacement, update-on-change/bundles | Missing | Native fade/material/geometry updates, invalidation and bounded caches; no stale tile resources |
-| T04 | Terrain/images, shared tiles, water-area vector overlays, worker helpers | Partial: offline terrain/imagery, bounded streaming and native Metal consumer implemented | [Terrain source, native selection and lifecycle evidence](terrain-streaming.md); remote formats, provider imagery filtering, overlays and worker decoding remain |
+| T04 | Terrain/images, shared tiles, water-area vector overlays, worker helpers | Partial: offline terrain/imagery, static remote quantized mesh, bounded streaming and native Metal consumer implemented | [Terrain streaming](terrain-streaming.md), [remote source evidence](remote-terrain.md); dynamic availability, provider imagery, overlays and worker decoding remain |
 | X01 | R3F helpers, examples, Earth, Moon and procedural scene assets | Missing except basic planet | Flutter controllers/widgets and executable native versions of all 74 story cases, compact desktop/mobile controls |
 
 The complete file and declaration inventory is the catch-all scope for helpers

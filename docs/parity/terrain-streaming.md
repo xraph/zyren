@@ -15,8 +15,8 @@ explicitly when a patch crosses the antimeridian.
 The source stories delegate terrain streaming to `3d-tiles-renderer` through
 `storybook/src/plugins/CesiumIonTerrainPlugin.ts` and its WebGPU counterpart.
 The offline source is our deterministic fixture for that native prerequisite.
-It does not implement Cesium quantized mesh, Cesium Ion authentication or the
-3D Tiles format.
+The follow-on [remote source](remote-terrain.md) adds static quantized-mesh terrain.
+Cesium Ion authentication and the 3D Tiles format remain separate work.
 
 ## Selection and ownership
 
