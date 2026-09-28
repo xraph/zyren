@@ -49,7 +49,7 @@ fixture does not pass a GPU or device gate.
 | A01 | AtmosphereParameters, density profiles, constants and color matching | Missing | Both legacy and WebGPU defaults/units, parameter updates, spectral integration fixtures |
 | A02 | PrecomputedTexturesGenerator/Loader, AtmosphereLUT nodes/textures, Bruneton precompute/runtime | Missing | Native float 2D/3D textures, transmittance/irradiance/scattering/single-Mie/higher-order LUT generation and loading; numeric LUT comparison |
 | A03 | SkyMaterial/SkyNode, SunNode, MoonNode, Stars geometry/material/nodes | Missing | Sun/moon disks, lunar orientation and radiance, star data, sky background/backdrop, ground and space views |
-| A04 | Celestial directions and ECI/ECEF/moon-fixed transforms | Missing | Astronomy Engine 2.1.19 behavior, UTC/time conventions, sun/moon positions across reference dates |
+| A04 | Celestial directions and ECI/ECEF/moon-fixed transforms | Dart sun/moon vectors, Earth and lunar frames implemented | [55 upstream celestial cases and 31 time-scale cases](celestial.md); renderer integration belongs to A03/A07 |
 | A05 | AerialPerspectiveEffect/Node, atmosphere overlays/shadows/masks | Missing | Depth/normal reconstruction, altitude/geometric correction, transmittance and inscatter toggles, backdrop transmission and shadow length |
 | A06 | SunDirectionalLight, SkyLightProbe, getSunLightColor, AtmosphereLight/Node, SkyEnvironment | Missing | Direct and indirect lighting, probes/environment, light-source and postprocess paths, object/background consistency |
 | A07 | Atmosphere context, runtime/accessors, R3F Atmosphere/Sky/Stars/lights | Missing | Scoped Dart configuration, Flutter lifecycle, date updates, resource replacement and disposal |

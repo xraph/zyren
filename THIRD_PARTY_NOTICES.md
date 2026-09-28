@@ -106,3 +106,16 @@ SOFTWARE.
 PNG/JPEG decoding also uses the pinned Rust crates listed in
 [image decoder dependency licenses](docs/image-decoder-licenses.md). That file
 contains their license and copyright notices for redistribution.
+
+
+## Astronomy Engine
+
+The optional geospatial plugin ports the Earth VSOP series, lunar series,
+Espenak-Meeus Delta T, precession, nutation, sidereal time and Moon rotation from
+Astronomy Engine 2.1.19. Only the sun and moon APIs needed by the atmosphere are
+included. The port runs in Dart; JavaScript is used to generate reference fixtures.
+
+Source: https://github.com/cosinekitty/astronomy
+
+Copyright (c) 2019-2023 Don Cross. The complete MIT license is in
+[licenses/astronomy-engine.txt](licenses/astronomy-engine.txt).
