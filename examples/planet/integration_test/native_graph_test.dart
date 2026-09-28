@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_zyren/flutter_zyren.dart';
 import 'package:integration_test/integration_test.dart';
+import 'package:shader_lab/shader_lab.dart';
 
 class VolumeFixture extends ScenePlugin {
   @override
@@ -126,6 +127,10 @@ void main() {
             : SceneRuntime.nativeMetal(),
       );
       controller.use(fixture);
+      controller.use(ShaderLabPlugin());
+      controller.scene.renderSettings = RenderSettings(
+        toneMapping: ToneMapping.aces,
+      );
       var frames = 0;
       final listener = controller.frameStats.listen((stats) {
         expectSync(stats.readbackBytes, 0);

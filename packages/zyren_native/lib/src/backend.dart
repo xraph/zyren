@@ -137,6 +137,8 @@ class NativeBackend implements MaterialBackend {
       RenderFeature.floatTextures,
       RenderFeature.volumeTextures,
       RenderFeature.shaderMaterials,
+      RenderFeature.postprocessing,
+      RenderFeature.hdr,
       if (_experimentalAppleSurfaces && NativeSurfaces().appleAvailable)
         RenderFeature.sharedTexture,
     },
@@ -235,7 +237,11 @@ class NativeBackend implements MaterialBackend {
       clock.stop();
       final frame = await pending;
       return ReadbackOutput(
-        image: ImageData(pixels: frame.pixels, size: submission.size),
+        image: ImageData(
+          pixels: frame.pixels,
+          size: submission.size,
+          alphaMode: AlphaMode.premultiplied,
+        ),
         stats: FrameStats(
           frameId: ++_nextFrame,
           physicalSize: submission.size,

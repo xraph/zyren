@@ -37,6 +37,7 @@ class SceneSnapshot {
   final Map<int, TextureImage> _textures;
   final List<double> _background, _light;
   final double _ambient;
+  final RenderSettings _settings;
   int get drawCalls => _meshes.length;
   int get triangles => _meshes.fold(0, (sum, mesh) {
     final geometry = _geometries[mesh['geometry']]!;
@@ -51,6 +52,7 @@ class SceneSnapshot {
     this._background,
     this._light,
     this._ambient,
+    this._settings,
   );
   static SceneSnapshot _capture(Scene scene, Camera camera) {
     final meshes = <Map<String, Object>>[],
@@ -120,6 +122,7 @@ class SceneSnapshot {
       List.unmodifiable(scene.background.toList()),
       List.unmodifiable(scene.lightDirection.storage),
       scene.ambient,
+      scene.renderSettings.copyWith(effects: scene.effects),
     );
   }
 }
@@ -168,7 +171,8 @@ class FrameSubmission {
 
   /// Compatibility encoder for native v1 adapters. Geometry conversion is lazy.
   Map<String, Object> toNativePacket({Set<int> uploaded = const {}}) {
-    if (scene._textures.isNotEmpty ||
+    if (scene._settings.enabled ||
+        scene._textures.isNotEmpty ||
         scene._meshes.any((m) => m.containsKey('shader'))) {
       throw UnsupportedError(
         'Texture materials require binary scene submissions.',

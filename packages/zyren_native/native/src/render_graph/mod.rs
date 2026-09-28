@@ -170,6 +170,7 @@ pub(crate) struct GraphContext<'a> {
     pub shaders: &'a mut ShaderStore,
     pub failure: &'a mut Option<String>,
     pub engine_layout: &'a wgpu::BindGroupLayout,
+    pub target_bytes: u64,
 }
 
 impl GraphStore {
@@ -186,6 +187,7 @@ impl GraphStore {
             shaders,
             failure,
             engine_layout,
+            target_bytes,
         } = context;
         if bytes.len() > MAX_COMMAND_BYTES || capacity != RESPONSE_CAPACITY {
             return Err("Invalid graph command capacity".into());
@@ -228,7 +230,7 @@ impl GraphStore {
                     .release(device, resources, shaders, key(value))
                     .map(|()| json!({})),
                 Command::Stats {} => Ok(
-                    json!({"liveMaterials": self.materials.live(), "liveGraphs": self.registry.live_allocations(), "descriptionBytes": self.registry.resident_bytes(),
+                    json!({"targetBytes": target_bytes, "liveMaterials": self.materials.live(), "liveGraphs": self.registry.live_allocations(), "descriptionBytes": self.registry.resident_bytes(),
                 "cachedPipelines": self.cache.len(), "pipelineCompilations": self.compilation_count, "cacheHits": self.cache_hits}),
                 ),
             }

@@ -89,6 +89,8 @@ class NativeMetalBackend with NativeGpuOwner implements MaterialBackend {
       RenderFeature.floatTextures,
       RenderFeature.volumeTextures,
       RenderFeature.shaderMaterials,
+      RenderFeature.postprocessing,
+      RenderFeature.hdr,
     },
     limits: DeviceLimits(
       maxTextureDimension2D: 4096,
@@ -228,6 +230,7 @@ class NativeMetalBackend with NativeGpuOwner implements MaterialBackend {
       return ReadbackOutput(
         image: ImageData(
           pixels: result['pixels'] as Uint8List,
+          alphaMode: AlphaMode.premultiplied,
           size: submission.size,
         ),
         stats: stats,

@@ -15,6 +15,7 @@ pub(crate) struct PreparedMaterial {
     pub vertex: String,
     pub fragment: String,
     pub requires_uv: bool,
+    pub screen_pipeline: Option<wgpu::RenderPipeline>,
     resources: Vec<ResourceKey>,
     program: ResourceKey,
 }
@@ -127,7 +128,18 @@ impl MaterialStore {
                     "Mesh bindings must match their resource declarations",
                 ));
             }
-            let mut layouts = vec![engine_layout.clone()];
+            let screen = pass.screen_space.unwrap_or(false);
+            if screen && pass.requires_uv.unwrap_or(false) {
+                return Err(GraphError::new(
+                    "invalidDescriptor",
+                    "Screen effects have no mesh attributes",
+                ));
+            }
+            let mut layouts = vec![if screen {
+                crate::renderer::effects::layout(device)
+            } else {
+                engine_layout.clone()
+            }];
             for entries in bindings.layouts.iter().skip(1) {
                 layouts.push(
                     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -162,23 +174,35 @@ impl MaterialStore {
                 bind_group_layouts: &layout_refs,
                 ..Default::default()
             });
-            let material = PreparedMaterial {
+            let mut material = PreparedMaterial {
                 shader: shader.module.clone(),
                 layout,
                 groups,
                 vertex: vertex.clone(),
                 fragment: fragment.clone(),
                 requires_uv: pass.requires_uv.unwrap_or(false),
+                screen_pipeline: None,
                 resources: declared.into_iter().map(key).collect(),
                 program: key(pass.program),
             };
             // Validate the complete mesh interface before publishing any ownership.
-            crate::renderer::pipelines::material_pipeline(
-                device,
-                &material,
-                wgpu::TextureFormat::Rgba8UnormSrgb,
-                &Default::default(),
-            );
+            if screen {
+                material.screen_pipeline = Some(crate::renderer::effects::pipeline(
+                    device,
+                    &material.shader,
+                    &material.layout,
+                    &material.vertex,
+                    &material.fragment,
+                    wgpu::TextureFormat::Rgba16Float,
+                ));
+            } else {
+                crate::renderer::pipelines::material_pipeline(
+                    device,
+                    &material,
+                    wgpu::TextureFormat::Rgba8UnormSrgb,
+                    &Default::default(),
+                );
+            }
             Ok(material)
         })?;
         let owned = prepared.resources.clone();

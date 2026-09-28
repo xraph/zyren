@@ -1,0 +1,14 @@
+name: shader_lab
+publish_to: none
+description: A separately packaged native HDR effect plugin using public Zyren APIs.
+version: 0.1.0
+resolution: workspace
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+dependencies:
+  zyren:
+    path: ../../packages/zyren
+dev_dependencies:
+  zyren_native:
+    path: ../../packages/zyren_native
+  test: ^1.25.0

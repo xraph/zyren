@@ -298,9 +298,51 @@ impl SceneTexture {
 }
 
 #[derive(Clone, PartialEq, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct RenderSettings {
+    pub enabled: bool,
+    pub effects: Vec<[u64; 4]>,
+    pub tone_mapping: u32,
+    pub exposure: f32,
+    pub background_alpha: f32,
+    pub history_epoch: u32,
+    pub camera_origin: [f64; 3],
+}
+impl Default for RenderSettings {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            effects: vec![],
+            tone_mapping: 0,
+            exposure: 1.,
+            background_alpha: 1.,
+            history_epoch: 0,
+            camera_origin: [0.; 3],
+        }
+    }
+}
+impl RenderSettings {
+    pub fn validate(&self) -> Result<(), String> {
+        if self.camera_origin.iter().any(|v| !v.is_finite())
+            || self.effects.len() > 8
+            || self.tone_mapping > 2
+            || !self.exposure.is_finite()
+            || !(0.0..=65504.).contains(&self.exposure)
+            || !self.background_alpha.is_finite()
+            || !(0.0..=1.).contains(&self.background_alpha)
+        {
+            return Err("Invalid render settings".into());
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Frame {
     pub version: u32,
+    #[serde(default)]
+    pub settings: RenderSettings,
     pub view_projection: [f32; 16],
     pub background: [f64; 3],
     pub light_direction: [f32; 3],
@@ -317,6 +359,7 @@ pub struct Frame {
 
 impl Frame {
     pub fn validate(&self, cached: &HashSet<u32>) -> Result<(), String> {
+        self.settings.validate()?;
         if self.version != 1 {
             return Err("unsupported scene protocol version".into());
         }

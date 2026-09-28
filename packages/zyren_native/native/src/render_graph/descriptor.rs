@@ -41,6 +41,7 @@ pub struct Pass {
     pub sample_count: Option<u32>,
     pub color: Option<Color>,
     pub requires_uv: Option<bool>,
+    pub screen_space: Option<bool>,
 }
 #[derive(Deserialize, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[serde(rename_all = "camelCase")]

@@ -2,6 +2,9 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:vector_math/vector_math_64.dart' as vm;
 import '../geometry/geometry.dart';
+import '../resources/resource_scope.dart' show RenderSettings, ScreenEffect;
+import '../plugins/registration.dart';
+export '../resources/resource_scope.dart' show RenderSettings, ToneMapping;
 import '../materials/material.dart';
 import '../math/color3.dart';
 export '../materials/material.dart';
@@ -354,6 +357,35 @@ void _finite(Vec3 value, String name) {
 }
 
 class Scene extends Object3D {
+  RenderSettings _renderSettings = RenderSettings();
+  final _effects = <Object, ScreenEffect>{};
+  RenderSettings get renderSettings => _renderSettings;
+  List<ScreenEffect> get effects =>
+      List.unmodifiable([..._renderSettings.effects, ..._effects.values]);
+
+  Registration addEffect(ScreenEffect effect) {
+    if (effect.isClosed) throw StateError('Effect owner has closed.');
+    if (effects.length >= 8) {
+      throw StateError('At most eight effects are supported.');
+    }
+    final key = Object();
+    _effects[key] = effect;
+    _changed();
+    return Registration(() {
+      _effects.remove(key);
+      _changed();
+    });
+  }
+
+  set renderSettings(RenderSettings value) {
+    if (value.effects.length + _effects.length > 8) {
+      throw StateError('At most eight effects are supported.');
+    }
+    if (identical(value, _renderSettings)) return;
+    _renderSettings = value;
+    _changed();
+  }
+
   Color3 _background = Color3.hex(0x101722);
   Vec3 _lightDirection = const Vec3(1, -1, 2);
   double _ambient = .18;
@@ -392,6 +424,11 @@ class Scene extends Object3D {
     double aspect, {
     Set<int> uploaded = const {},
   }) {
+    if (renderSettings.enabled || _effects.isNotEmpty) {
+      throw UnsupportedError(
+        'Postprocessing requires binary scene submissions.',
+      );
+    }
     final meshes = <Map<String, Object>>[];
     final geometries = <int, GeometrySnapshot>{};
     void visit(Object3D node, vm.Matrix4 parent) {

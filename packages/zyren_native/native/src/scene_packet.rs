@@ -27,6 +27,7 @@ pub struct ScenePacket {
     retained_textures: HashSet<u32>,
     textures: Vec<SceneTexture>,
     geometry_patches: Vec<GeometryPatch>,
+    settings: crate::scene::RenderSettings,
 }
 struct Reader<'a> {
     data: &'a [u8],
@@ -70,7 +71,7 @@ impl ScenePacket {
             return Err("unsupported scene packet".into());
         }
         let opcode = r.u32()?;
-        if !(10..=18).contains(&opcode) {
+        if !(10..=19).contains(&opcode) {
             return Err("unsupported scene packet".into());
         }
         let textured = opcode >= 11;
@@ -107,6 +108,27 @@ impl ScenePacket {
         let patch_count = if opcode >= 12 { r.u32()? as usize } else { 0 };
         if patch_count > MAX_MESHES {
             return Err("geometry patch count exceeds limit".into());
+        }
+        let mut settings = crate::scene::RenderSettings::default();
+        if opcode >= 19 {
+            settings.enabled = true;
+            let count = r.u32()?;
+            if count > 8 {
+                return Err("Too many screen effects".into());
+            }
+            settings.tone_mapping = r.u32()?;
+            settings.exposure = r.floats::<1>()?[0];
+            settings.background_alpha = r.floats::<1>()?[0];
+            settings.history_epoch = r.u32()?;
+            for value in &mut settings.camera_origin {
+                *value = f64::from_bits(r.u64()?);
+            }
+            for _ in 0..count {
+                settings
+                    .effects
+                    .push([r.u64()?, r.u64()?, r.u64()?, r.u64()?]);
+            }
+            settings.validate()?;
         }
         let mut retained = HashSet::new();
         for _ in 0..retained_count {
@@ -376,6 +398,7 @@ impl ScenePacket {
             retained_textures,
             textures,
             geometry_patches,
+            settings,
         })
     }
     pub fn view(&self) -> u64 {
@@ -418,6 +441,7 @@ impl ScenePacket {
         });
         Ok(Frame {
             version: 1,
+            settings: self.settings,
             view_projection: self.view_projection,
             background: self.background,
             light_direction: self.light_direction,

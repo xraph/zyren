@@ -95,6 +95,8 @@ class NativeAndroidBackend with NativeGpuOwner implements MaterialBackend {
       RenderFeature.floatTextures,
       RenderFeature.volumeTextures,
       RenderFeature.shaderMaterials,
+      RenderFeature.postprocessing,
+      RenderFeature.hdr,
     },
     limits: DeviceLimits(
       maxTextureDimension2D: 4096,

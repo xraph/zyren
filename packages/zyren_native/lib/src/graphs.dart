@@ -1,7 +1,7 @@
 part of 'native_renderer.dart';
 
 final class GraphCacheStats {
-  final int liveMaterials;
+  final int liveMaterials, targetBytes;
   final int liveGraphs,
       descriptionBytes,
       cachedPipelines,
@@ -9,6 +9,7 @@ final class GraphCacheStats {
       cacheHits;
   const GraphCacheStats({
     this.liveMaterials = 0,
+    this.targetBytes = 0,
     required this.liveGraphs,
     required this.descriptionBytes,
     required this.cachedPipelines,
@@ -140,6 +141,7 @@ mixin _NativeGraphs {
     final result = await _graphCommand({'operation': 'stats'});
     return GraphCacheStats(
       liveMaterials: result['liveMaterials'] as int,
+      targetBytes: result['targetBytes'] as int,
       liveGraphs: result['liveGraphs'] as int,
       descriptionBytes: result['descriptionBytes'] as int,
       cachedPipelines: result['cachedPipelines'] as int,

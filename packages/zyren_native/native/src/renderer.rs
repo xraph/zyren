@@ -10,6 +10,7 @@ use wgpu::util::DeviceExt;
 
 use crate::scene::{Frame, pixel_len};
 mod draw_order;
+pub(crate) mod effects;
 pub(crate) mod pipelines;
 mod textures;
 
@@ -81,6 +82,7 @@ pub struct RendererState {
     #[cfg(target_os = "android")]
     pub(crate) android_generation: u64,
     pipelines: pipelines::MeshPipelines,
+    effects: effects::Effects,
     texture_layout: wgpu::BindGroupLayout,
     textures: HashMap<u32, textures::GpuSceneTexture>,
     #[cfg(any(target_vendor = "apple", target_os = "android"))]
@@ -192,6 +194,7 @@ impl Renderer {
                 #[cfg(target_os = "android")]
                 android_generation: 0,
                 pipelines,
+                effects: effects::Effects::default(),
                 texture_layout,
                 textures: HashMap::new(),
                 #[cfg(any(target_vendor = "apple", target_os = "android"))]
@@ -262,6 +265,7 @@ impl Renderer {
                 shaders: &mut state.shaders,
                 failure: &mut state.failure,
                 engine_layout: &state.layout,
+                target_bytes: state.effects.bytes(),
             },
             bytes,
             capacity,
@@ -354,6 +358,7 @@ impl Renderer {
     }
     pub fn close_scene_view(&mut self, view: u64) -> Result<(), String> {
         self.views.remove(&view);
+        self.effects.remove(view);
         self.evict_geometry()
     }
     fn evict_geometry(&mut self) -> Result<(), String> {
@@ -442,6 +447,9 @@ impl Renderer {
                     .materials
                     .resolve(key)
                     .map_err(|e| e.to_string())?;
+                if material.screen_pipeline.is_some() {
+                    return Err("Mesh cannot use a screen shader".into());
+                }
                 if material.requires_uv && geometry.uv0.is_empty() && geometry.uv1.is_empty() {
                     return Err("Material shader requires UV attributes".into());
                 }
@@ -631,10 +639,10 @@ impl Renderer {
                     depth_slice: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: frame.background[0],
-                            g: frame.background[1],
-                            b: frame.background[2],
-                            a: 1.0,
+                            r: frame.background[0] * frame.settings.background_alpha as f64,
+                            g: frame.background[1] * frame.settings.background_alpha as f64,
+                            b: frame.background[2] * frame.settings.background_alpha as f64,
+                            a: frame.settings.background_alpha as f64,
                         }),
                         store: wgpu::StoreOp::Store,
                     },
@@ -643,7 +651,7 @@ impl Renderer {
                     view: depth_view,
                     depth_ops: Some(wgpu::Operations {
                         load: wgpu::LoadOp::Clear(1.0),
-                        store: wgpu::StoreOp::Discard,
+                        store: wgpu::StoreOp::Store,
                     }),
                     stencil_ops: None,
                 }),
@@ -754,6 +762,7 @@ impl Renderer {
         height: u32,
     ) -> Result<(), String> {
         pixel_len(width, height)?;
+        self.prepare_output(frame, [width, height], texture.format())?;
         self.prepare_scene(frame)?;
         if self
             .surface_depth
@@ -781,8 +790,15 @@ impl Renderer {
                 _texture: depth,
             });
         }
-        self.prepare_pipelines(frame, texture.format())?;
-        let encoder = self.encode_scene(
+        self.prepare_pipelines(
+            frame,
+            if frame.settings.enabled {
+                effects::HDR
+            } else {
+                texture.format()
+            },
+        )?;
+        let encoder = self.encode_frame(
             frame,
             &texture.create_view(&Default::default()),
             &self.surface_depth.as_ref().unwrap().view,
@@ -797,16 +813,25 @@ impl Renderer {
             self.failed_surface = Some(texture);
             return Err(error);
         }
+        self.accept_history(frame);
         Ok(())
     }
 
     pub fn render(&mut self, frame: &Frame, width: u32, height: u32) -> Result<Vec<u8>, String> {
         let len = pixel_len(width, height)?;
+        self.prepare_output(frame, [width, height], wgpu::TextureFormat::Rgba8UnormSrgb)?;
         self.prepare_scene(frame)?;
         self.resize(width, height);
-        self.prepare_pipelines(frame, wgpu::TextureFormat::Rgba8UnormSrgb)?;
+        self.prepare_pipelines(
+            frame,
+            if frame.settings.enabled {
+                effects::HDR
+            } else {
+                wgpu::TextureFormat::Rgba8UnormSrgb
+            },
+        )?;
         let target = self.targets.as_ref().unwrap();
-        let mut encoder = self.encode_scene(
+        let mut encoder = self.encode_frame(
             frame,
             &target.color_view,
             &target.depth_view,
@@ -838,6 +863,7 @@ impl Renderer {
             let _ = sender.send(result);
         });
         self.wait_for_submission(submission)?;
+        self.accept_history(frame);
         let mapped_result = receiver
             .recv_timeout(Duration::from_secs(1))
             .map_err(|error| format!("readback callback failed: {error}"))

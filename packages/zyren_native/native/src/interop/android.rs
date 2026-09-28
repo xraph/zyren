@@ -123,14 +123,14 @@ pub unsafe extern "C" fn fg_android_attach(
             height,
             present_mode: wgpu::PresentMode::Fifo,
             desired_maximum_frame_latency: 2,
-            alpha_mode: if capabilities
-                .alpha_modes
-                .contains(&wgpu::CompositeAlphaMode::Opaque)
-            {
-                wgpu::CompositeAlphaMode::Opaque
-            } else {
-                wgpu::CompositeAlphaMode::Inherit
-            },
+            alpha_mode: [
+                wgpu::CompositeAlphaMode::PreMultiplied,
+                wgpu::CompositeAlphaMode::Inherit,
+                wgpu::CompositeAlphaMode::Opaque,
+            ]
+            .into_iter()
+            .find(|mode| capabilities.alpha_modes.contains(mode))
+            .ok_or("Vulkan surface lacks a supported alpha convention")?,
             view_formats: vec![],
         };
         // Retain the target before configure, including its panic path.
@@ -225,6 +225,7 @@ pub unsafe extern "C" fn fg_android_info(handle: u64, buffer: *mut u8, capacity:
         let bytes = serde_json::to_vec(&serde_json::json!({
             "backend": format!("{:?}", info.backend), "adapter": info.name,
             "driver": info.driver, "driverInfo": info.driver_info,
+            "alphaMode": target.map(|t| format!("{:?}", t.config.alpha_mode)),
             "format": target.map(|t| format!("{:?}", t.config.format)),
             "requestedFrameLatency": target.map(|t| t.config.desired_maximum_frame_latency),
             "readbackBytes": renderer.counters().readback_bytes,

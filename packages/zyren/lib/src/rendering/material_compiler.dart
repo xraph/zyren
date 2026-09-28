@@ -9,7 +9,7 @@ abstract interface class MaterialDevice implements GraphDevice {
 }
 
 /// Group 0 belongs to the renderer. Readonly user bindings occupy groups 1 to 3.
-final class MeshShaderDescriptor {
+class MeshShaderDescriptor {
   final ShaderProgram program;
   final ShaderBindings bindings;
   final String label, vertexEntryPoint, fragmentEntryPoint;
@@ -48,6 +48,12 @@ final class MaterialCompiler {
   MaterialCompiler(this._device, {this.label = ''});
   bool get isClosed => _closed;
   Future<void> get whenClosed => _closedSignal.future;
+
+  Future<ScreenEffect> compileEffect(PostProcessDescriptor descriptor) async =>
+      ScreenEffect._(await compile(descriptor));
+
+  Future<ScreenEffect> retainEffect(ScreenEffect effect) async =>
+      ScreenEffect._(await retain(effect._shader));
 
   Future<MeshShader> compile(MeshShaderDescriptor descriptor) {
     return _run(() async {

@@ -163,6 +163,7 @@ culling and two views with independent material ownership. The macOS Planet
 fixture displays a computed float volume through a custom mesh shader on the
 presentation device. Ordinary presentation performs no CPU image readback.
 
-Direct scene postprocessing and resize/history resources remain in plan 03. Graph execution is verified on
+For scene color/depth composition and per-view history, use
+[screen effects](scene-effects.md). Graph execution is verified on
 macOS Metal and Pixel Vulkan; see [verification](../verification.md). Other
 platforms have no graph qualification yet.

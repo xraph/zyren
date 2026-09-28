@@ -536,3 +536,35 @@ fn sided_packets_validate_flags_and_preserve_legacy_defaults() {
         .unwrap();
     assert_eq!(legacy.meshes[0].side, 0);
 }
+
+#[test]
+fn screen_settings_reject_truncation_nonfinite_origins_and_excess_effects() {
+    let mut valid = packet();
+    valid[4..8].copy_from_slice(&19_u32.to_le_bytes());
+    // No textures or geometry patches, no screen effects, ACES, exposure, alpha, epoch.
+    for v in [0_u32, 0, 0, 0, 2, 1_f32.to_bits(), 0.5_f32.to_bits(), 1] {
+        valid.extend(v.to_le_bytes());
+    }
+    for v in [6378137_f64, 0., 0.] {
+        valid.extend(v.to_le_bytes());
+    }
+    let length = valid.len() as u64 - 24;
+    valid[16..24].copy_from_slice(&length.to_le_bytes());
+    let frame = ScenePacket::decode(&valid).unwrap().resolve(None).unwrap();
+    assert_eq!(frame.settings.camera_origin[0], 6378137.);
+    assert_eq!(frame.settings.background_alpha, 0.5);
+    for end in 0..valid.len() {
+        assert!(ScenePacket::decode(&valid[..end]).is_err());
+    }
+    let mut invalid = valid.clone();
+    let origin = invalid.len() - 24;
+    invalid[origin..origin + 8].copy_from_slice(&f64::NAN.to_le_bytes());
+    assert!(ScenePacket::decode(&invalid).is_err());
+    let count = packet().len() + 12;
+    let mut invalid = valid.clone();
+    invalid[count..count + 4].copy_from_slice(&9_u32.to_le_bytes());
+    assert!(ScenePacket::decode(&invalid).is_err());
+    let mut invalid = valid;
+    invalid[count + 8..count + 12].copy_from_slice(&f32::INFINITY.to_le_bytes());
+    assert!(ScenePacket::decode(&invalid).is_err());
+}

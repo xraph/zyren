@@ -15,5 +15,6 @@ workspace:
   - examples/planet
   - examples/multiple_views
   - examples/model_viewer
+  - examples/shader_lab
 dev_dependencies:
   lints: ^6.0.0

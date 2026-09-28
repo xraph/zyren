@@ -47,6 +47,15 @@ final class ScenePacketEncoder {
         shader.encodeForDevice(device);
       }
     }
+    final effects = [
+      for (final effect in scene._settings.effects)
+        effect.encodeForDevice(
+          materialDevice ??
+              (throw UnsupportedError(
+                'Effects require a material-capable backend.',
+              )),
+        ),
+    ];
     final previous = _previous;
     final topology =
         previous == null ||
@@ -147,7 +156,9 @@ final class ScenePacketEncoder {
         uploadBytes > 64 * 1024 * 1024) {
       throw ArgumentError('Scene resource upload exceeds the frame budget.');
     }
-    final opcode = scene._meshes.any((m) => m.containsKey('shader'))
+    final opcode = scene._settings.enabled
+        ? 19
+        : scene._meshes.any((m) => m.containsKey('shader'))
         ? 18
         : scene._meshes.any((m) => m['side'] != 0)
         ? 17
@@ -184,6 +195,18 @@ final class ScenePacketEncoder {
     body.u32(scene._textures.length);
     body.u32(textures.length);
     if (opcode >= 12) body.u32(patches.length);
+    if (opcode >= 19) {
+      body.u32(effects.length);
+      body.u32(scene._settings.toneMapping.index);
+      body.floats([scene._settings.exposure, scene._settings.backgroundAlpha]);
+      body.u32(scene._settings.historyEpoch);
+      for (final component in submission.camera.origin) {
+        body.f64(component);
+      }
+      for (final key in effects) {
+        body.add(key);
+      }
+    }
     for (final id in owned) {
       body.u32(id);
     }
@@ -407,6 +430,11 @@ final class _SceneWriter {
       buffer.setUint32(i * 4, values[i], Endian.little);
     }
     add(buffer.buffer.asUint8List());
+  }
+
+  void f64(double value) {
+    final bytes = ByteData(8)..setFloat64(0, value, Endian.little);
+    add(bytes.buffer.asUint8List());
   }
 
   void floats(List<double> values) {

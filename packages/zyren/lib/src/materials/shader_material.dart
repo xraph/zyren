@@ -52,7 +52,11 @@ ${uv ? ', @location(2) uv0: vec2<f32>, @location(3) uv1: vec2<f32>' : ''}) -> Me
     super.alphaCutoff,
     super.depthTest,
     super.depthWrite,
-  }) : super(color: color);
+  }) : super(color: color) {
+    if (shader.descriptor is PostProcessDescriptor) {
+      throw ArgumentError('A fullscreen effect cannot be used on a mesh.');
+    }
+  }
   @override
   bool get unlit => true;
   ShaderMaterial copyWith({
