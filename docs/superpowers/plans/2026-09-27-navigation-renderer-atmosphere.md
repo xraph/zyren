@@ -21,10 +21,10 @@ Port the perspective/orthographic transition manager to the general core.
 Preserve the fixed point, camera synchronization, duration, reversal and event
 ordering from 3d-tiles-renderer 0.4.24. Validate invalid time and disposed use.
 
-- [ ] Generate deterministic upstream fixtures for both directions, interruption,
+- [x] Generate deterministic upstream fixtures for both directions, interruption,
   positional zoom, off-axis targets and rotated camera bases.
-- [ ] Run reference and lifecycle tests red, implement, then run them green.
-- [ ] Run core analysis and the complete core test suite; commit the result.
+- [x] Run reference and lifecycle tests red, implement, then run them green.
+- [x] Run core analysis and the complete core test suite; commit the result.
 
 Expected: reference camera poses and projection parameters agree within declared
 double precision tolerances, and listeners see one ordered transition lifecycle.
@@ -35,11 +35,11 @@ Implement surface dragging, pivot rotation, wheel/pinch zoom, height clearance,
 touch gesture arbitration, inertia and globe near/far management. Wire a plugin
 through the public input and camera interfaces. Keep existing orbit APIs intact.
 
-- [ ] Add upstream replay fixtures before implementation.
-- [ ] Cover 30/60/120 Hz, modifiers, cancellation, resize, Y/Z up, horizon misses,
+- [x] Add upstream replay fixtures before implementation.
+- [x] Cover 30/60/120 Hz, modifiers, cancellation, resize, Y/Z up, horizon misses,
   transformed ellipsoids, touch transitions and disposal.
-- [ ] Exercise native navigation and selection together in Planet.
-- [ ] Run affected core, geospatial, host and native integration checks; commit.
+- [x] Exercise native navigation and selection together in Planet.
+- [x] Run affected core, geospatial, host and native integration checks; commit.
 
 Expected: recorded input produces matching camera trajectories and terrain
 clearance without losing surface taps or leaving frame demand active after idle.
@@ -50,9 +50,9 @@ Inspect the pinned core checkpoint, renamed packages and picking contracts.
 Integrate checked resources, texture decoding/mips, transparency, material sides,
 glTF and WGSL support. Resolve mutable geometry BVH and sidedness implications.
 
-- [ ] Inspect committed scope and concurrent changes before integration.
-- [ ] Add failing regressions for integration conflicts, then resolve them.
-- [ ] Run core/native suites, analysis, boundaries and native model fixtures.
+- [x] Inspect committed scope and concurrent changes before integration.
+- [x] Add failing regressions for integration conflicts, then resolve them.
+- [x] Run core/native suites, analysis, boundaries and native model fixtures.
 
 Expected: the new renderer capabilities work through Zyren public imports while
 existing picking, workbench and presentation contracts remain intact.
@@ -63,10 +63,10 @@ Complete plan 03 task 4, using committed graph work when available. Add explicit
 float and 3D texture capabilities needed by atmosphere. Validate graph hazards,
 transactional replacement, shader diagnostics and scope/fence retirement.
 
-- [ ] Run descriptor and graph validation tests red before filling gaps.
-- [ ] Run a real GPU compute-to-render fixture and a public ShaderMaterial.
-- [ ] Verify malformed graphs, unsupported formats, cancellation and disposal.
-- [ ] Run affected suites and native resource counts; commit.
+- [x] Run descriptor and graph validation tests red before filling gaps.
+- [x] Run a real GPU compute-to-render fixture and a public ShaderMaterial.
+- [x] Verify malformed graphs, unsupported formats, cancellation and disposal.
+- [x] Run affected suites and native resource counts; commit.
 
 Expected: a plugin computes into a texture and renders it without private native
 imports, ordinary CPU readback or a partially published failed graph.
@@ -77,10 +77,10 @@ Complete the requested capabilities from plan 03 tasks 5, 6 and 8. Use linear
 HDR intermediates, one output tone mapping stage, standard metal/rough shading,
 punctual lights, bounded shadow maps and instances with stable picking identity.
 
-- [ ] Add numerical and rendered fixtures for each capability before changes.
-- [ ] Verify alpha/depth ordering, mirrored transforms, roughness/metalness,
+- [x] Add numerical and rendered fixtures for each capability before changes.
+- [x] Verify alpha/depth ordering, mirrored transforms, roughness/metalness,
   normals, emissive/occlusion, light and shadow behavior and instance picking.
-- [ ] Exercise public consumers on available native backends; commit stages.
+- [x] Exercise public consumers on available native backends; commit stages.
 
 Expected: deterministic render fixtures show the intended physical/material
 behavior, with explicit capability failures and resource cleanup.
@@ -90,23 +90,27 @@ behavior, with explicit capability failures and resource cleanup.
 Complete plan 04 task 3 through public core APIs. Port parameters, celestial time
 and directions, scattering tables, sky, sun, moon, stars and aerial perspective.
 
-- [ ] Pin astronomical and atmospheric reference fixtures and tolerances.
-- [ ] Test zero density/path, finite radiance, bounded transmittance and UTC.
-- [ ] Implement transactional LUT caching, compute and sky/haze rendering.
-- [ ] Compare LUT samples and day/night/horizon/space render fixtures.
-- [ ] Verify parameter changes, resize, cancellation and disposal; commit.
+- [x] Pin astronomical and atmospheric reference fixtures and tolerances.
+- [x] Test zero density/path, finite radiance, bounded transmittance and UTC.
+- [x] Implement transactional LUT caching, compute and sky/haze rendering.
+- [x] Compare LUT samples and day/night/horizon/space render fixtures.
+- [x] Verify parameter changes, resize, cancellation and disposal; commit.
 
 Expected: the atmosphere is a usable optional plugin with numerical and rendered
 evidence, rather than a sky-color approximation or a declared API without work.
 
 ## Task 7: Qualification and review
 
-- [ ] Run full affected Dart/Rust suites, analysis and package boundaries.
-- [ ] Exercise Planet navigation and atmosphere on macOS Metal, Pixel Vulkan
+- [x] Run full affected Dart/Rust suites, analysis and package boundaries.
+- [x] Exercise Planet navigation and atmosphere on macOS Metal, Pixel Vulkan
   and iPhone Metal where available, recording readbacks and cleanup counts.
-- [ ] Update feature/platform evidence without implying untested DX12 support.
-- [ ] Obtain one fresh review of the full change set, repair material findings
+- [x] Update feature/platform evidence without implying untested DX12 support.
+- [x] Obtain one fresh review of the full change set, repair material findings
   with regressions and commit the verified result.
 
 Expected: the requested three items have evidence and documented limits. Any
 remaining requirement stays visible in the execution ledger and parity matrix.
+
+Qualification completed with explicit device-access limits. See the
+[final report](../../parity/navigation-renderer-atmosphere-checkpoint.md) for
+checks, review findings and the remaining platform evidence.

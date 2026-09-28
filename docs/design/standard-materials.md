@@ -58,7 +58,9 @@ Without supplied normals, it generates flat normals and ignores tangents as the
 glTF specification requires. `KHR_lights_punctual` creates ordinary core lights
 under the model node hierarchy. A model instance owns independent lights; its
 geometry, material and image data remain shared. Standard materials need physical
-lights or environment lighting in the scene. Mobile PBR qualification is pending.
+lights or environment lighting in the scene. The combined renderer fixture passes
+on macOS Metal and Pixel Vulkan. iPhone qualification remains open; see the
+[renderer profiles](../renderer-capabilities.md).
 
 
 ## Environment lighting

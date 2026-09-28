@@ -32,14 +32,16 @@ The deliberate upstream differences are recorded in [controls.md](controls.md).
 
 The macOS Metal integration passed selection, surface dragging, both animated
 projection transitions, a 390 by 700 layout, suspend/resume and reset. It reported
-76 presented frames, 16 stats samples, zero ordinary readback bytes and zero
+73 presented frames, 17 stats samples, zero ordinary readback bytes and zero
 sessions, renderers, held drawables or retiring resources after disposal.
 The app could not be foregrounded, so this is native integration evidence rather
 than a manual inspection of its window.
 
 Pixel Vulkan and iPhone Metal runs are pending device access. The Pixel has its
-lock screen showing; the iPhone app launched but the wireless test connection
-has not completed. This checkpoint adds no Windows or Linux qualification.
+lock screen showing, and the iPhone requires its passcode. Earlier iPhone launch
+attempts also failed in Xcode automation. No completed navigation result is
+claimed for either phone. This checkpoint adds no Windows or Linux qualification.
 
-These results cover navigation. Renderer integration and atmosphere still have
-their own implementation and qualification gates in the execution plan.
+The macOS run was repeated after renderer, atmosphere and orthographic sensitivity
+changes. See the [combined qualification](navigation-renderer-atmosphere-checkpoint.md)
+for the implemented renderer/atmosphere profiles and separate device results.

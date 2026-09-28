@@ -89,5 +89,5 @@ fixtures before a backend advertises support.
 | KTX2/Basis, BC/ETC/ASTC and further HDR image decoders | Asset decoder / texture resource modules | Exact format admission, transcoding, mip/alpha/color fixtures and device support |
 | Motion vectors, temporal AA and denoising | Core effect inputs / native history modules | Reprojection, disocclusion, moving/deforming objects, camera cuts and view isolation |
 | GPU timestamps and indirect draws | Native device capability and graph modules | Adapter negotiation, valid query lifetimes, deterministic indirect bounds and cleanup |
-| Spectral atmosphere and celestial scene | Optional geospatial plugin | Pinned scattering/celestial references, day/night/horizon/space images and LUT lifecycle |
+| Spectral atmosphere and remaining source variants | Optional geospatial plugin | RGB sky/celestial/haze already has [numerical and rendered evidence](parity/atmosphere.md); spectral integration and further lighting/overlay variants need separate fixtures |
 | Volumetric clouds and streamed terrain/tiles | Optional geospatial plugins | Source parameter parity, streaming/decode budgets, cancellation, geographic error and native story comparisons |

@@ -52,17 +52,17 @@ fixture does not pass a GPU or device gate.
 | A04 | Celestial directions and ECI/ECEF/moon-fixed transforms | Dart sun/moon vectors, Earth and lunar frames implemented | [55 upstream celestial cases and 31 time-scale cases](celestial.md); renderer integration belongs to A03/A07 |
 | A05 | AerialPerspectiveEffect/Node, atmosphere overlays/shadows/masks | Native depth haze and sky effect checked on Metal/Vulkan; overlay, normal correction and shadow-length variants remain open | Depth/normal reconstruction, altitude/geometric correction, transmittance and inscatter toggles, backdrop transmission and shadow length |
 | A06 | SunDirectionalLight, SkyLightProbe, getSunLightColor, AtmosphereLight/Node, SkyEnvironment | Shader irradiance functions and leased lighting service implemented; automatic PBR lights/probes/environment adapters remain open | Direct and indirect lighting, probes/environment, light-source and postprocess paths, object/background consistency |
-| A07 | Atmosphere context, runtime/accessors, R3F Atmosphere/Sky/Stars/lights | Missing | Scoped Dart configuration, Flutter lifecycle, date updates, resource replacement and disposal |
+| A07 | Atmosphere context, runtime/accessors, R3F Atmosphere/Sky/Stars/lights | Native plugin, typed controller, UTC/appearance updates and transactional lifecycle implemented; automatic light adapters remain open | Scoped Dart configuration, Flutter lifecycle, date updates, resource replacement and disposal |
 | V01 | CloudLayer(s), DensityProfile, quality presets | Missing | Layer channels, heights, density curves, weather coverage, low/medium/high/ultra exact defaults |
 | V02 | ProceduralTexture/3DTexture, LocalWeather, CloudShape/Detail, Turbulence | Missing | Native generators, tiling/noise distributions, seed/texture comparisons and supplied assets |
 | V03 | CloudsEffect, cloud/shadow passes/materials, cascaded shadow maps | Missing | Primary/secondary ray marches, multiscattering, haze, light shafts, detail/turbulence, cloud/ground/sun lighting, shadow cascades |
 | V04 | Cloud temporal resolve/upscale, reprojection, STBN, R3F Clouds | Missing | Motion history, disocclusion, camera cuts, resize, weather changes, frame demand and memory bounds |
 | E01 | GeometryPass/Effect, setupMaterials, DepthEffect, NormalEffect | Missing | G-buffer formats, normal/depth debug outputs, material setup and native render-pass integration |
 | E02 | LensFlare effects/nodes, downsample thresholds, blur chain | Missing | Ghosts, halo, chromatic effects, occlusion and pixel comparisons |
-| E03 | DitheringEffect, createHaldLookupTexture, story color grading/tone mapping/SMAA | Missing | Ordered postprocessing, LUT layout, AgX/Reinhard/Cineon/ACES/linear, exposure and AA |
+| E03 | DitheringEffect, createHaldLookupTexture, story color grading/tone mapping/SMAA | Core HDR chain, Reinhard/ACES/exposure, MSAA/FXAA and bloom implemented; source dithering, grading LUTs and SMAA remain open | Ordered postprocessing, LUT layout, AgX/Reinhard/Cineon/ACES/linear, exposure and AA |
 | E04 | Gaussian/Kawase/mipmap/surface blur, filters | Missing | Kernel/LOD/edge fixtures and native image comparisons |
 | E05 | TemporalAntialias, HighpVelocity, ScreenSpaceShadow, CascadedShadowMaps | Missing | Jitter/motion vectors/history, edge cases, cascade stabilization and shadow-length sampling |
-| E06 | RenderTarget/Output/Storage texture nodes, sampling/generators/transforms | Missing | General native render graph, compute, texture arrays/3D, typed bindings, hazards and resource retirement |
+| E06 | RenderTarget/Output/Storage texture nodes, sampling/generators/transforms | Public scoped WGSL graphs, typed bindings and 2D/3D compute textures implemented; source node-library parity and arrays remain open | General native render graph, compute, texture arrays/3D, typed bindings, hazards and resource retirement |
 | T01 | TilesRenderer integration and CameraTransition | Missing | Tileset hierarchy, bounding volumes, transforms, SSE/LOD, ADD/REPLACE, loading queues, caches, cancellation, errors and attribution |
 | T02 | GoogleCloudAuth/CesiumIonAuth, GLTFExtensions/Draco, tile compression | Missing | Caller-owned credentials, token refresh, native glTF and compressed meshes/textures, network failures and recovery |
 | T03 | Fade, creased normals, material replacement, update-on-change/bundles | Missing | Native fade/material/geometry updates, invalidation and bounded caches; no stale tile resources |
@@ -82,18 +82,20 @@ The separate core worktree remains untouched. The camera lab uses its public
 `SceneRuntime.nativeMetal()` adapter; no additional presentation bridge or
 Earth-specific Rust rendering path was introduced.
 
-The port now includes core commit `4b619c0`, including native Android surfaces,
-scoped resources, shared binary geometry and opaque color textures. See the
-[combined verification](core-integration.md). Later core work remains separate.
+The port includes the committed renderer foundations through `49bd4db` and the
+subsequent native renderer and atmosphere work on `main`. See the
+[current qualification](navigation-renderer-atmosphere-checkpoint.md) and the
+[earlier integration checkpoint](core-integration.md). The sibling checkout
+remains separate.
 
 | Gate | Core work | Consumers | Exit evidence |
 | --- | --- | --- | --- |
 | R1 | Hosted Metal and Android Vulkan SceneView adapters available | All visual slices | Combined orbit lab passes macOS Metal and physical Pixel Vulkan with zero readback; wider composition/recovery qualification remains in the platform checkpoints |
-| R2 | Partial: cameras, projection/rays, logical input, focused keys and static mesh picking implemented; instanced/deformed picking and layers remain | Controls, tiles, camera transition | [36 camera configurations and 108 reference rays](cameras.md), [host input tests](controls.md), [300 picking reference rays](picking.md); complete story comparisons remain |
-| R3 | Partial: scoped handles, shared geometry, UV0/UV1, samplers and RGBA8 2D textures implemented; tangents, dynamic geometry, float/3D/array formats remain | Loaders, PBR, atmosphere/clouds | [Resource ownership and limits](../design/gpu-resources.md), native upload/readback and scene texture checks pass; broader formats and material bindings remain |
-| R4 | Extensible materials and WGSL pipelines, typed bindings, depth/normal targets, HDR and color management | Atmosphere/effects | Custom plugin pipeline through public APIs, native pixel comparisons |
-| R5 | Render graph, compute, MRT, barriers, mipmaps, temporal history | LUT generation, clouds, effects | Dependency validation, read/write hazards and device capability failures |
-| R6 | PBR, multiple lights, shadows, environment lighting, alpha, instancing and glTF extension points | Tile cities and full stories | glTF corpus, lighting fixtures, actual asset rendering |
+| R2 | Cameras/transitions, logical input, focused keys and mesh/instance picking implemented; deformed picking remains | Controls, tiles, camera transition | [36 camera configurations and 108 reference rays](cameras.md), [host input tests](controls.md), [300 picking reference rays](picking.md); complete story comparisons remain |
+| R3 | Scoped handles, shared/dynamic geometry, tangents, UV0/UV1, samplers, RGBA8/float 2D/3D textures implemented; array formats remain | Loaders, PBR, atmosphere/clouds | [Resource ownership and limits](../design/gpu-resources.md), native upload/readback, volume compute and material binding checks pass |
+| R4 | WGSL mesh/fullscreen pipelines, typed bindings, depth targets and HDR implemented; dedicated normal targets remain | Atmosphere/effects | Custom plugin pipeline through public APIs, native pixel comparisons |
+| R5 | Render graphs, compute, hazard validation, mipmaps and per-view history implemented; MRT and motion reprojection remain | LUT generation, clouds, effects | Dependency validation, read/write hazards and device capability failures |
+| R6 | Standard PBR/maps, punctual lights, bounded shadows, environment lighting, alpha, instancing, standard glTF, MSAA/FXAA/bloom implemented | Tile cities and full stories | glTF corpus, lighting fixtures, actual asset rendering |
 | R7 | Camera-relative transforms, planetary depth strategy, streaming budgets/culling | Ground-to-space movement | Millimeter local detail, horizon/depth stress cases, stable LOD |
 | R8 | Native mobile/desktop packaging and backend presentation | Release | Separate physical iOS/Android, macOS and Windows runtime qualification |
 
@@ -126,7 +128,8 @@ scoped resources, shared binary geometry and opaque color textures. See the
 ## Data and verification limits
 
 The source contains atmosphere LUTs, stars and cloud assets. Their hashes are
-in the inventory, but native loading has not been implemented. Story helpers
+in the inventory. The star catalogue is embedded and verified; atmosphere LUTs
+are generated natively. Binary atmosphere/cloud asset loading remains open. Story helpers
 also reference remote models, environment maps, film LUTs and noise/terrain
 data; the recorded imports and source files must be followed when each story
 is implemented.

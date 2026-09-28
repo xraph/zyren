@@ -154,7 +154,11 @@ and 320/390/1000 pixel layouts passed. Each run observed 11 test frames, zero
 presentation readbacks and zero native owners after disposal. Foreground window
 activation failed on the locked Mac, so this is presentation-counter evidence
 plus separately inspected native render images, not a manual window review.
-iPhone Metal and Windows DX12 atmosphere qualification remain unverified.
+The iPhone profile run rendered and exercised the scene, then failed the narrow
+layout assertion because its safe areas reduced the canvas to 453 pixels. The
+assertion now measures usable height. The corrected rerun built but Xcode could
+not locate Runner for launch, and a later lock-state check required a passcode.
+There is no completed iPhone atmosphere result. Windows DX12 remains unverified.
 
 The Pixel initially crashed inside the Mali Vulkan compiler while compiling the
 direct-irradiance pass with texture arguments passed through helper functions.

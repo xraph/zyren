@@ -169,9 +169,9 @@ Only resource identity assignment happens on the caller. Scene selection default
 to the declared scene, then the first scene; scene-free documents cannot be
 instantiated. Names and source diagnostics remain available on the template.
 
-The first material profile covers a subset of static `KHR_materials_unlit`.
-PBR requires `GltfMaterialMode.unlitDiagnostic`, which records an approximation
-warning. Animations, skins, morphs, vertex colors and unsupported required
-extensions fail explicitly. See the [fixture-backed support matrix](../../packages/zyren_gltf/README.md)
-for the exact limits. The broader renderer and full glTF feature set remain work
-in the resource and renderer plan.
+The default material profile loads static metal/rough PBR, all five supported
+texture maps, authored tangents, `KHR_materials_unlit` and `KHR_lights_punctual`.
+You can choose `GltfMaterialMode.unlitDiagnostic` for a marked approximation.
+Animations, skins, morphs, vertex colors and unsupported required extensions fail
+explicitly. See the [fixture-backed support matrix](../../packages/zyren_gltf/README.md)
+for the exact limits. Animated models and broader glTF extensions remain open.

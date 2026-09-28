@@ -1,5 +1,8 @@
 # Core integration checkpoint
 
+This is the historical `4b619c0` checkpoint. For the current capabilities and
+device results, use the [navigation, renderer and atmosphere report](navigation-renderer-atmosphere-checkpoint.md).
+
 The port includes the core work through `4b619c0`: native Android presentation,
 scoped GPU resources, binary scene submissions, shared geometry and opaque color
 textures. The `dart-core-api` checkout remains separate. Its later commits need
@@ -35,7 +38,7 @@ The Android test first failed because the lab still selected readback. It passes
 after selecting the public native runtime. Its earlier readback pixel results
 remain in [the orbit notes](three-orbit.md); that run used a different presenter.
 
-## Remaining renderer work
+## Work remaining at that checkpoint
 
 The merged texture path supports immutable RGBA8 images and supplied mip levels
 on opaque materials. PNG/JPEG decoding, automatic mips, transparent materials,

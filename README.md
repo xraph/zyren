@@ -10,8 +10,10 @@ The core is a general-purpose Dart 3D library. `zyren_geospatial` is an optional
 plugin built on that core. Three.js-level rendering and scene capabilities are
 the target for the core.
 
-This is an early implementation. You can render opaque meshes, compose a scene
-graph, move a perspective camera and build an ECEF globe. On macOS and iOS, you
+You can render standard metal/rough materials, textures, lights, shadows and
+instances, compose custom WGSL effects, and navigate with perspective or
+orthographic cameras. The optional geospatial plugin adds globe controls and a
+native atmosphere with sky, sun, moon, stars and depth haze. On macOS and iOS, you
 can opt into direct Metal view presentation through `SceneRuntime.nativeMetal()`.
 On Android API 29 or newer, use `SceneRuntime.nativeAndroid()` for Vulkan
 presentation through Flutter textures. Neither path reads pixels back to the CPU
@@ -74,7 +76,9 @@ and `TextureMap` provide opaque color textures with independent sampler settings
 You can also run custom WGSL compute and procedural render passes through
 `NativeBackend.createGraphCompiler()`. The [render graph guide](docs/design/render-graphs.md)
 includes a native heatmap example, typed bindings and graph replacement rules.
-Scene material and platform-view graph integration remain in progress.
+The same scoped resources and graphs work in native platform views and custom
+mesh materials. Screen effects receive linear HDR colour and depth; output tone
+mapping, exposure, bloom and spatial antialiasing use the shared renderer.
 
 ## Run the example
 
@@ -105,6 +109,21 @@ for the pinned source, device results and remaining differences. The separate
 [camera lab](docs/parity/native-camera-lab.md) uses the upstream geographic poses.
 You can run the [Three r184 mode](docs/parity/three-orbit.md) with
 `fvm flutter run -d macos -t lib/three_orbit_lab.dart` from the same directory.
+
+For the three ported feature groups, run these targets from `examples/planet`:
+
+```sh
+fvm flutter run -d macos -t lib/navigation_lab.dart
+fvm flutter run -d macos -t lib/renderer_lab.dart
+fvm flutter run -d macos -t lib/atmosphere_lab.dart
+```
+
+Use your Pixel or iPhone device ID in place of `macos`. These labs require native
+presentation. The atmosphere view has UTC day/dusk/night controls, haze, a ground
+horizon and an orbital view. Its [numerical and device evidence](docs/parity/atmosphere.md)
+records the bounded scattering profile, celestial data, rendering checks and
+remaining upstream variants. The [combined qualification report](docs/parity/navigation-renderer-atmosphere-checkpoint.md)
+separates completed checks from device access limits and follow-on features.
 
 For surface selection, run `fvm flutter run -d macos -t lib/picking_lab.dart`
 from `examples/planet`, or use your Android/iOS device ID. Tap a mesh to highlight
