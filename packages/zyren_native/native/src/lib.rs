@@ -1,4 +1,5 @@
 pub mod geometry_update;
+pub mod compression;
 pub mod interop;
 pub mod render_graph;
 pub mod renderer;

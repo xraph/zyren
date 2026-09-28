@@ -2,6 +2,29 @@ import 'dart:ffi';
 
 const _asset = 'package:zyren_native/src/bindings.dart';
 
+@Native<
+  Uint32 Function(
+    Pointer<Uint8>,
+    Size,
+    Size,
+    Size,
+    Uint32,
+    Uint32,
+    Pointer<Uint8>,
+    Size,
+  )
+>(symbol: 'fg2_meshopt_decode', assetId: _asset)
+external int meshoptDecode(
+  Pointer<Uint8> input,
+  int length,
+  int count,
+  int stride,
+  int mode,
+  int filter,
+  Pointer<Uint8> output,
+  int outputLength,
+);
+
 final class NativeImageLimits extends Struct {
   @Uint32()
   external int version;
