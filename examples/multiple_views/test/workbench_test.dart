@@ -54,11 +54,47 @@ void main() {
       await frames(tester);
       expect(housing.position, start);
       expect(find.text('3 parts'), findsOneWidget);
+      housing.quaternion = Quat.axisAngle(const Vec3(1, 0, 0), .35);
+      await tester.tap(find.byKey(const ValueKey('gizmo-space')));
+      await frames(tester);
+      await tester.tap(find.text('World').last);
+      await frames(tester);
+      final plane = await tester.startGesture(project(const Vec3(1.3, 1.3, 0)));
+      await frames(tester);
+      expect(find.text('Drag XY · Esc cancels'), findsOneWidget);
+      await plane.moveTo(project(const Vec3(1.8, 1.55, 0)));
+      await frames(tester);
+      await plane.up();
+      await frames(tester);
+      expect(
+        housing.position.distanceTo(const Vec3(.5, .25, 0)),
+        lessThan(1e-6),
+      );
+      expect(controller.camera.position, cameraPosition);
+      await tester.tap(find.byTooltip('Undo'));
+      await frames(tester);
+      expect(housing.position, start);
+      housing.quaternion = Quat.identity;
       final mode = tester.widget<DropdownButton<GizmoMode>>(
         find.byKey(const ValueKey('gizmo-mode')),
       );
+      housing.parent!.scale = const Vec3(2, 1, 1);
+      mode.onChanged!(GizmoMode.rotate);
+      await frames(tester);
+      expect(
+        find.text(
+          'World rotation requires uniform parent scale. Choose Local.',
+        ),
+        findsOneWidget,
+      );
+      housing.parent!.scale = Vec3.one;
       mode.onChanged!(GizmoMode.scale);
       await frames(tester);
+      final scaleSpace = tester.widget<DropdownButton<GizmoSpace>>(
+        find.byKey(const ValueKey('gizmo-space')),
+      );
+      expect(scaleSpace.value, GizmoSpace.local);
+      expect(scaleSpace.onChanged, isNull);
       final scaleGesture = await tester.startGesture(
         project(const Vec3(0, 2, 0)),
       );
@@ -72,6 +108,14 @@ void main() {
       await frames(tester);
       mode.onChanged!(GizmoMode.translate);
       await frames(tester);
+      expect(
+        tester
+            .widget<DropdownButton<GizmoSpace>>(
+              find.byKey(const ValueKey('gizmo-space')),
+            )
+            .value,
+        GizmoSpace.world,
+      );
       await tester.tap(find.byTooltip('Move +X'));
       await frames(tester);
       expect(housing.position, start + const Vec3(.25, 0, 0));

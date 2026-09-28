@@ -32,24 +32,27 @@ does not claim to expose the native allocation registry.
 
 ## Canvas transform gestures
 
-The tools package also provides `TransformGizmoPlugin`. Its local X/Y/Z arrows,
-rotation rings and scale boxes use unlit triangle meshes through the public scene
-API. You can grab the frontmost visible handle. Hidden handles do not intercept
-clicks, and ordinary tools picking skips all gizmo geometry.
+The tools package also provides `TransformGizmoPlugin`. Its X/Y/Z arrows,
+rotation rings, scale boxes and translation planes use unlit triangle meshes
+through the public scene API. You can grab the frontmost visible handle. Hidden
+handles do not intercept clicks, and ordinary tools picking skips all gizmo
+geometry.
 
 A transform session previews pointer movement and records one undo entry on
 release. Cancellation restores the starting pose only while the session still
 owns it. External edits, reparenting and changed ancestor transforms take
 precedence. Mode, selection, camera and viewport changes cancel active gestures.
 Rotation accumulates across the angle seam; scale preserves the component's sign
-and clamps the gesture factor above zero.
+and clamps the gesture factor above zero. Movement and rotation support local
+and world axes. Scaling stays local. See [gizmo spaces](gizmo-spaces.md) for
+transformed-parent behavior and the world-rotation restriction.
 
 The host pauses camera input through the gizmo's drag callback and disables
 handles during playback and measurement. Register the gizmo before orbit controls
 so it receives the pointer first. The workbench keeps toolbar edits as an
-alternative to dragging. Handles have a fixed radius in parent units; screen-size
-scaling, world-axis handles, plane handles and always-visible rendering are outside
-this milestone.
+alternative to dragging. Handles have a fixed radius in parent units for local
+axes and world units for world axes. Screen-size scaling and always-visible
+rendering remain outside this milestone.
 
 ## Scope and verification
 

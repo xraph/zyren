@@ -599,6 +599,23 @@ class _WorkbenchState extends State<_Workbench> {
           ],
           onChanged: _ready ? (mode) => _edit(() => _gizmo.mode = mode!) : null,
         ),
+        Tooltip(
+          message: _gizmo.mode == GizmoMode.scale
+              ? 'Scaling uses local axes'
+              : 'Transform coordinate space',
+          child: DropdownButton<GizmoSpace>(
+            key: const ValueKey('gizmo-space'),
+            value: _gizmo.effectiveSpace,
+            underline: const SizedBox(),
+            items: const [
+              DropdownMenuItem(value: GizmoSpace.local, child: Text('Local')),
+              DropdownMenuItem(value: GizmoSpace.world, child: Text('World')),
+            ],
+            onChanged: _ready && _gizmo.mode != GizmoMode.scale
+                ? (space) => _edit(() => _gizmo.space = space!)
+                : null,
+          ),
+        ),
         IconButton(
           tooltip: 'Snap: 0.25 units / 15° / 10%',
           isSelected: _gizmo.snapEnabled,
@@ -766,9 +783,14 @@ class _WorkbenchState extends State<_Workbench> {
                     ? (_anchor == null
                           ? 'Pick the first surface point'
                           : 'Pick the second surface point')
-                    : (_gizmo.isDragging
-                          ? 'Drag ${_gizmo.activeAxis!.name.toUpperCase()} · Esc cancels'
-                          : 'Drag handles to edit · Drag space to orbit'),
+                    : _gizmo.unavailableReason ??
+                          (_gizmo.isDragging
+                              ? 'Drag ${_gizmo.activeHandle!.label} · Esc cancels'
+                              : _gizmo.mode == GizmoMode.translate
+                              ? 'Drag an axis or plane · Drag space to orbit'
+                              : 'Drag an axis · Drag space to orbit'),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontSize: 12, color: Colors.white70),
               ),
             ),

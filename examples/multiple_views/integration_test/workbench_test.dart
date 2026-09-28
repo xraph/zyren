@@ -108,6 +108,66 @@ void main() {
       await cancelled.cancel();
       await until(() => housing.position == original);
       expect(controller.camera.position, cameraPosition);
+      // A rotated part distinguishes world coordinates from its local frame.
+      final tilted = Quat.axisAngle(const Vec3(1, 0, 0), .35);
+      housing.quaternion = tilted;
+      await tester.tap(find.byKey(const ValueKey('gizmo-space')));
+      await tester.pump(const Duration(milliseconds: 250));
+      await tester.tap(find.text('World').last);
+      await tester.pump(const Duration(milliseconds: 250));
+      final worldAxis = await tester.startGesture(project(const Vec3(0, 2, 0)));
+      await tester.pump(const Duration(milliseconds: 100));
+      await worldAxis.moveTo(project(const Vec3(0, 2.5, 0)));
+      await until(() => housing.position.y > .4);
+      await worldAxis.up();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(housing.position.distanceTo(const Vec3(0, .5, 0)), lessThan(1e-5));
+      await tester.tap(find.byTooltip('Undo'));
+      await until(() => housing.position == original);
+      await tester.tap(find.byTooltip('Snap: 0.25 units / 15° / 10%'));
+      await tester.pump(const Duration(milliseconds: 100));
+      final plane = await tester.startGesture(project(const Vec3(1.3, 1.3, 0)));
+      await until(
+        () => find.text('Drag XY · Esc cancels').evaluate().isNotEmpty,
+      );
+      await plane.moveTo(project(const Vec3(1.61, 1.86, 0)));
+      await until(() => housing.position.x > .2);
+      await plane.up();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(
+        housing.position.distanceTo(const Vec3(.25, .5, 0)),
+        lessThan(1e-5),
+      );
+      expect(controller.camera.position, cameraPosition);
+      await tester.tap(find.byTooltip('Undo'));
+      await until(() => housing.position == original);
+      await tester.tap(find.byTooltip('Snap: 0.25 units / 15° / 10%'));
+      await mode('Rotate');
+      final worldRing = await tester.startGesture(
+        project(ringPoint(math.pi / 4)),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+      await worldRing.moveTo(project(ringPoint(math.pi / 4 + .3)));
+      await until(() => housing.quaternion.z.abs() > .1);
+      await worldRing.up();
+      await tester.pump(const Duration(milliseconds: 100));
+      final expectedRotation = Quat.axisAngle(const Vec3(0, 0, 1), .3) * tilted;
+      expect(
+        housing.quaternion
+            .rotate(Vec3.one)
+            .distanceTo(expectedRotation.rotate(Vec3.one)),
+        lessThan(1e-5),
+      );
+      await tester.tap(find.byTooltip('Undo'));
+      await until(
+        () =>
+            housing.quaternion
+                .rotate(Vec3.one)
+                .distanceTo(tilted.rotate(Vec3.one)) <
+            1e-9,
+      );
+      housing.quaternion = Quat.identity;
+      await mode('Move');
       await tester.tap(find.byTooltip('Move +X'));
       await until(() => housing.position != original);
       expect(housing.position, original + const Vec3(.25, 0, 0));
@@ -133,9 +193,9 @@ void main() {
       // that interval; a paused scene otherwise has no reason to draw again.
       await tester.pump(const Duration(milliseconds: 250));
       controller.invalidate();
-      await until(() => frames.last.drawCalls == 9);
+      await until(() => frames.last.drawCalls == 12);
       expect(frames.map((frame) => frame.readbackBytes), everyElement(0));
-      expect(frames.last.drawCalls, 9);
+      expect(frames.last.drawCalls, 12);
       expect(find.byType(RawImage), findsNothing);
       debugPrint(
         'Workbench native evidence: ${frames.length} samples, ${frames.last.drawCalls} draws, zero readback bytes.',
