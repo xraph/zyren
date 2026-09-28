@@ -2387,3 +2387,8 @@ and 1.814 ms P99 including explicit readback. The earlier 20-frame result is
 retained. Different warm-up and system conditions prevent treating this timing
 difference as a renderer optimization; GPU time, power and thermal state remain
 unknown in the recorded results.
+
+The final macOS release gallery builds at 54.9 MB and launches with native Metal.
+Computer-use inspection reports that the Mac is locked, so final manual visual
+verification remains pending. The release runner is left active for viewing
+after unlock. All changes are committed locally; no push or merge was performed.
