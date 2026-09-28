@@ -4,6 +4,8 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:zyren/zyren.dart';
 
+part 'src/timeline_events.dart';
+
 const sceneTimeline = ServiceKey<SceneTimelinePlugin>('zyren.timeline');
 
 /// A custom track validates and samples without mutation before returning its edit.
@@ -130,20 +132,43 @@ class SceneTimelinePlugin extends ScenePlugin {
   String get id => 'zyren.timeline';
   final Duration duration;
   final List<TimelineTrack> tracks;
+  final List<TimelineMarker> markers;
+  final int maxEventsPerAdvance;
   bool loop;
   final _changes = StreamController<void>.broadcast();
+  final _events = StreamController<TimelineEvent>.broadcast();
   final _parents = Map<Object3D, Object3D?>.identity();
   PluginContext? _context;
   Registration? _demand;
   Duration _position = Duration.zero;
   bool _playing = false, _firstTick = true;
+  bool _startPending = true;
+  int _loopIndex = 0;
   SceneTimelinePlugin({
     required this.duration,
     required Iterable<TimelineTrack> tracks,
+    Iterable<TimelineMarker> markers = const [],
+    this.maxEventsPerAdvance = 1024,
     this.loop = false,
-  }) : tracks = List.unmodifiable(tracks) {
+  }) : tracks = List.unmodifiable(tracks),
+       markers = List.unmodifiable(markers) {
     if (duration <= Duration.zero) {
       throw ArgumentError('Timeline duration must be positive.');
+    }
+    if (maxEventsPerAdvance < 1) {
+      throw ArgumentError('The event limit must be positive.');
+    }
+    final ids = <String>{};
+    var previous = Duration.zero;
+    for (final marker in this.markers) {
+      if (marker.time < previous ||
+          marker.time > duration ||
+          !ids.add(marker.id)) {
+        throw ArgumentError(
+          'Markers must have unique IDs and fit the clip in time order.',
+        );
+      }
+      previous = marker.time;
     }
     final targets = Set<Object3D>.identity();
     for (final track in this.tracks) {
@@ -157,6 +182,9 @@ class SceneTimelinePlugin extends ScenePlugin {
   Duration get position => _position;
   bool get isPlaying => _playing;
   Stream<void> get changes => _changes.stream;
+
+  /// Playback notifications delivered asynchronously after a successful pose.
+  Stream<TimelineEvent> get events => _events.stream;
   PluginContext get _attached =>
       _context ?? (throw StateError('Attach the timeline before playback.'));
 
@@ -182,12 +210,18 @@ class SceneTimelinePlugin extends ScenePlugin {
     throw StateError('Track target is outside the active scene or camera.');
   }
 
-  /// Clamps to the clip range. Seeking preserves the current playback state.
+  /// Clamps to the clip range without emitting events. Preserves playback state.
   void seek(Duration time) {
-    final context = _attached;
     final next = Duration(
       microseconds: time.inMicroseconds.clamp(0, duration.inMicroseconds),
     );
+    _applyPose(next);
+    _loopIndex = 0;
+    _startPending = next == Duration.zero;
+  }
+
+  void _applyPose(Duration next) {
+    final context = _attached;
     try {
       final edits = <void Function()>[];
       for (final track in tracks) {
@@ -213,11 +247,29 @@ class SceneTimelinePlugin extends ScenePlugin {
   void play() {
     final context = _attached;
     if (_playing) return;
-    seek(_position >= duration ? Duration.zero : _position);
-    _firstTick = true;
-    _demand = context.acquireFrameDemand();
-    _playing = true;
-    _notify();
+    try {
+      final restart = _position >= duration;
+      final next = restart ? Duration.zero : _position;
+      final cycle = restart ? 0 : _loopIndex;
+      final pending = _crossedEvents(
+        next,
+        next,
+        0,
+        cycle,
+        includeStart: restart || _startPending,
+      );
+      _applyPose(next);
+      _firstTick = true;
+      _demand = context.acquireFrameDemand();
+      _playing = true;
+      _loopIndex = cycle;
+      _startPending = false;
+      _notify();
+      pending.forEach(_events.add);
+    } catch (_) {
+      pause();
+      rethrow;
+    }
   }
 
   void pause() {
@@ -239,14 +291,43 @@ class SceneTimelinePlugin extends ScenePlugin {
       _firstTick = false;
       return;
     }
-    final next = _position + frame.delta;
-    if (loop) {
-      seek(
-        Duration(microseconds: next.inMicroseconds % duration.inMicroseconds),
+    try {
+      if (frame.delta.isNegative) {
+        throw ArgumentError('Playback delta must be nonnegative.');
+      }
+      final length = duration.inMicroseconds;
+      final remaining = length - _position.inMicroseconds;
+      final delta = frame.delta.inMicroseconds;
+      // Divide before adding so even a large explicit delta cannot overflow.
+      var wraps = 0;
+      final Duration next;
+      if (loop) {
+        wraps = delta ~/ length;
+        final remainder = delta % length;
+        if (remainder >= remaining) {
+          wraps++;
+          next = Duration(microseconds: remainder - remaining);
+        } else {
+          next = _position + Duration(microseconds: remainder);
+        }
+      } else {
+        next = _position + Duration(microseconds: math.min(delta, remaining));
+      }
+      final pending = _crossedEvents(
+        _position,
+        next,
+        wraps,
+        _loopIndex,
+        includeStart: _startPending,
       );
-    } else {
-      seek(next);
-      if (_position >= duration) pause();
+      _applyPose(next);
+      _loopIndex += wraps;
+      _startPending = false;
+      pending.forEach(_events.add);
+      if (!loop && _position >= duration) pause();
+    } catch (_) {
+      pause();
+      rethrow;
     }
   }
 

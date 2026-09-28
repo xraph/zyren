@@ -21,7 +21,8 @@ position and marker time are therefore separate fields.
 Forward playback emits markers in `(previous, next]`. Starting at zero emits
 zero-time markers once. Pausing and resuming at zero does not repeat them.
 Calling `seek` emits nothing and resets the loop index; seeking to zero arms the
-start markers for the next `play`. Playing a finished clip restarts it at zero.
+start markers for the next playback advance. Playing a finished clip restarts it
+at zero.
 
 At a loop boundary, markers at the duration fire for the ending loop before
 zero-time markers fire for the next loop. One advance may cross several loops.
