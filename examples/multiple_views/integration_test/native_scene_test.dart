@@ -302,7 +302,8 @@ void main() {
         ),
         isTrue,
       );
-      expect(frames.first.uploadedBytes, 200);
+      // Four position/normal + UV0/UV1 vertices, six uint16 indices and RGBA.
+      expect(frames.first.uploadedBytes, 4 * (24 + 16) + 6 * 2 + 16);
       expect(frames.first.readbackBytes, 0);
       expect(frames.first.presentationPath, path);
       // Public frame statistics are sampled at most once every 200 ms.
@@ -322,7 +323,10 @@ void main() {
         await tester.tap(find.text(format));
         await until(tester, () => frames.length > count);
         expect(frames.last.uploadedBytes, bytes);
-        expect(find.textContaining('$format ·'), findsOneWidget);
+        expect(
+          find.textContaining(RegExp('^$format [0-9]+×[0-9]+ ·')),
+          findsOneWidget,
+        );
         expect(find.textContaining('failed:'), findsNothing);
       }
       expect(find.byType(RawImage), findsNothing);

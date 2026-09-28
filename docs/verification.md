@@ -2339,3 +2339,51 @@ toggles and viewport resize. Capsule normals now match the analytic hemispheres
 and cylinder, including their join. Android's release APK builds at 66.4 MB and
 the unsigned iOS simulator app builds successfully. These build results do not
 substitute for physical-device rendering or Windows qualification.
+
+## 28 September: frame rejection, history and phone layout
+
+Native attachment admission now precedes scene revision changes and dynamic
+geometry uploads. A review reproduced a failed large frame leaving Dart and Rust
+on different revisions. Four binary regressions cover rejected HDR/MSAA edits,
+old and new capture retries, shared ownership and unchanged resource residency.
+All ten focused Dart native cases pass, along with seven Rust postprocess cases
+and three shadow packet/admission cases. Strict Clippy and analysis pass.
+
+Lathe pole normals follow the profile slope. Both cone directions now have
+normals perpendicular to their straight flanks; capsule normals keep their
+analytic implementation. The full core suite passes 363 tests. The ordinary Rust
+suite passes 88 cases, with 36 GPU/platform cases ignored in that command.
+
+The first iOS simulator run rendered successfully but failed the narrow canvas
+height assertion. Two-column sliders, compact effect chips and a canvas legend
+preserve working space with phone safe areas. The widget regression checks a
+320×640 view with 62/34-pixel top/bottom insets. Both gallery integrations now
+pass on the iPhone 17 Pro simulator (iOS 26) and macOS Metal, with effect toggles,
+resize and zero presentation readback.
+
+Four history/effects qualification cases pass on native Metal, including combined
+HDR/MSAA/bloom/spatial effects, independent history for shared scenes and clean
+reattachment of the same plugins to a replacement device. Exposure changes retain
+linear history; projection changes, explicit cuts and resize seed fresh history.
+All graph resources and programs retire. This verifies application reconstruction,
+not injected GPU/driver loss or temporal antialiasing.
+
+The existing Metal effects/history surface integration and bundled/HTTP glTF
+viewer integration pass. Running both Shader Lab entrypoints in one Flutter test
+command failed to launch the second app; its separate invocation passed. The
+sleeping display still prevents foregrounding and manual visual inspection.
+
+All six native multi-view cases pass, including independent cameras/teardown,
+physical resize/visibility, texture sampler edits, image decoding, explicit
+capture and 100 managed-view cycles. The cycle test returns sessions, renderers,
+retiring resources and held drawables to zero, without presentation readback.
+Two stale texture-demo assertions were corrected: six uint16 indices use 12
+bytes, and the loaded-image label includes dimensions before its mip count.
+
+The extended AOT benchmark warms 30 frames and measures 300 per profile. Across
+all ten profiles, resource residency stays constant and disposal returns it to
+zero. At 1280×720, bloom plus spatial AA measures 1.057 ms median, 1.258 ms P95
+and 1.814 ms P99 including explicit readback. The earlier 20-frame result is
+retained. Different warm-up and system conditions prevent treating this timing
+difference as a renderer optimization; GPU time, power and thermal state remain
+unknown in the recorded results.

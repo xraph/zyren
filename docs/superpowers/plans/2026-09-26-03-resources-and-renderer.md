@@ -737,21 +737,23 @@ or establish full Three.js/Takram parity.
 
 ## Task 8: HDR effects, history and renderer profiles
 
-Task 5 now supplies HDR scene targets and terminal tone mapping. The existing
-history API inherits HDR color and resets on precision changes. Bloom, MSAA,
-spatial/temporal antialiasing, profile publication and the remaining task 8
-fixtures are still open.
+Task 5 supplies HDR scene targets and terminal tone mapping. Task 8's initial
+spatial profile is implemented and passes the local checks below. The existing
+`TextureHistory` API handles HDR color and invalidation. Temporal AA remains
+gated on motion/depth rejection fixtures; the demo temporal blend is not TAA.
 
-**Files:** Create core `rendering/history_texture.dart`, native
-`passes/{tone_map,antialias,bloom}.rs`, WGSL and `native/tests/postprocess_render.rs`.
-Extend shader lab/viewer; create `docs/renderer-capabilities.md`, `benchmarks/renderer`.
+**Files:** Core `effects/{post_processing,shaders}.dart`,
+`rendering/color_pipeline.dart`, native `renderer/composition.rs` and
+`native/tests/postprocess_render.rs`. Shader Lab supplies surface and combined
+history fixtures. Profiles and measurements live in `docs/renderer-capabilities.md`
+and `benchmarks/renderer`.
 
-**Interfaces:** `HistoryTexture` owns per-view ping-pong resources and validity
+**Interfaces:** `TextureHistory` owns per-view ping-pong resources and validity
 generation. Effects declare features/dependencies. Core provides multisample
 resolve, tone mapping, antialiasing and bloom primitives. Stats expose nullable
 timestamps. Profiles list formats/sample counts/features rather than OS names.
 
-- [ ] Add HDR bright-patch, MSAA edge, bloom impulse and camera-history fixtures:
+- [x] Add HDR bright-patch, MSAA edge, bloom impulse and camera-history fixtures:
 
 ```text
 resize / camera cut / projection change / device recovery
@@ -760,17 +762,22 @@ two controllers share a scene -> independent history textures and indices
 unsupported HDR format -> documented alternate profile or unsupportedFeature
 ```
 
-- [ ] Run `cargo test --test postprocess_render -- --include-ignored` and shader-lab integration; absent history/conversion must fail. Test fractional-alpha edges and ensure output conversion happens once.
-- [ ] Implement graph dependencies, negotiated floating formats, resolve ordering and budgeted history. Start with tone mapping/spatial antialiasing; enable temporal accumulation only after motion/depth/history tests pass. Capture and viewport share final output color/alpha semantics.
+- [x] Run `cargo test --test postprocess_render -- --include-ignored` and shader-lab integration; absent history/conversion must fail. Test fractional-alpha edges and ensure output conversion happens once.
+- [x] Implement graph dependencies, negotiated floating formats, resolve ordering and budgeted history. Start with tone mapping/spatial antialiasing; enable temporal accumulation only after motion/depth/history tests pass. Capture and viewport share final output color/alpha semantics.
 
 ```text
-HDR scene -> selected effects -> antialias/resolve -> tone map -> output transfer
+HDR scene -> MSAA resolve -> straight alpha -> effects/spatial AA -> tone map -> output transfer
+```
+
+Temporal AA stays gated on these additional semantics:
+
+```text
 history invalid -> seed current frame without sampling stale history
 history valid -> accumulate using declared motion/depth rejection
 ```
 
-- [ ] Publish implemented profiles and an extension backlog for advanced physical materials, area lighting, compressed textures, further formats and effects. Give each item a required fixture and owning module/plugin. Untested entries remain outside the qualified feature claim; Three.js breadth remains the overall target.
-- [ ] Run viewer, shader lab, multi-view and representative GPU benchmarks. Verify plugins use public imports only; commit `feat: add HDR effects and qualify renderer capability profiles`.
+- [x] Publish implemented profiles and an extension backlog for advanced physical materials, area lighting, compressed textures, further formats and effects. Give each item a required fixture and owning module/plugin. Untested entries remain outside the qualified feature claim; Three.js breadth remains the overall target.
+- [x] Run viewer, shader lab, multi-view and representative GPU benchmarks. Verify plugins use public imports only; commit `feat: add HDR effects and qualify renderer capability profiles`.
 
 ## Exit gate
 
@@ -789,3 +796,17 @@ integration passes effect toggles and desktop/narrow layouts with zero readback.
 See [profiles](../../renderer-capabilities.md) and
 [post-processing](../../design/post-processing.md). Temporal rejection and broad
 Three.js parity remain open; the profile table lists their acceptance fixtures.
+
+Task 8 local acceptance (28 September): 363 core tests, 88 ordinary Rust tests,
+serial Metal pixel/resource fixtures, Shader Lab, the glTF viewer and six native
+multi-view cases pass. The multi-view suite includes 100 mount/unmount cycles.
+The iOS simulator passes both gallery surface cases. A 300-frame-per-profile
+AOT benchmark follows 30 warm-up frames and records P95/P99, stable residency
+and zero steady uploads. Combined HDR/MSAA/effects history tests include two
+views sharing a scene and plugin reattachment to a replacement device.
+
+The checked gates cover this spatial profile and application reconstruction on
+the recorded hosts. Physical GPU loss, physical iOS/Android effects, Windows,
+manual visual inspection and release qualification remain separate gates.
+Broader Three.js materials, assets and advanced effects remain in the capability
+backlog. No full-core or full-Takram parity claim follows from these checkboxes.

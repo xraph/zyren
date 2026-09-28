@@ -21,7 +21,7 @@ The current native limits are explicit:
 | Single resource allocation or transfer | 64 MiB |
 | Scene and scoped resources per device | 256 MiB, including replacement candidates |
 | HDR or multisample color attachment | 64 MiB per attachment |
-| PostProcessing intermediates | 64 MiB per graph by default; configurable downward |
+| PostProcessing intermediates | 64 MiB per graph by default; configurable within device limits |
 | Punctual / hemisphere lights | 16 / 4 |
 | Instances / joints / morph targets | 100000 / 256 / 64 |
 
@@ -37,9 +37,11 @@ failure recovery. The Flutter surface fixture covers MSAA/effect toggles and
 AOT CLI bundle. [Measured results](../benchmarks/renderer/README.md) include the
 readback cost and preserve unknown GPU timestamps as null.
 
-macOS Metal is the qualified host for these new effects. Android Vulkan, iOS
-Metal and Windows DX12 remain separate device qualification gates. Compiling a
-platform package does not qualify its presentation, driver behavior or timing.
+macOS Metal passes native pixel and surface checks for these effects. The iPhone
+17 Pro simulator on iOS 26 passes both gallery surface cases, including effect
+toggles, resize and zero presentation readback. Physical iOS, Android Vulkan and
+Windows DX12 remain separate device qualification gates. Compiling a platform
+package does not qualify its presentation, driver behavior or timing.
 The app could not be foregrounded during this run because the display was asleep;
 a manual visual check remains open.
 
@@ -67,3 +69,8 @@ Bloom here is a single-scale Gaussian effect. Spatial AA is a local edge-aware
 filter. Neither establishes parity with UnrealBloomPass, SMAA or TAA. The existing
 history API supplies lifetime and invalidation mechanics; it is not a temporal
 antialiasing algorithm.
+
+Combined HDR/MSAA/bloom/spatial/history fixtures verify independent histories on
+shared-scene views, exposure changes, camera cuts, projection changes, resize and
+reattachment to a replacement native device. These checks exercise application
+recovery. They do not inject a physical GPU or driver loss.

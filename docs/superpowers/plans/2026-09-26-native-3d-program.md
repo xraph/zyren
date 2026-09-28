@@ -31,7 +31,7 @@
 
 ---
 
-## Current baseline
+## Starting baseline, 26 September
 
 The repository is an unpublished 0.1.0 alpha. It has native opaque mesh rendering,
 a perspective camera, scene transforms, a plugin dependency/service host, RGBA
@@ -178,7 +178,7 @@ already working.
 | Executable examples, platform evidence and packaging | Plan 04 tasks 5/6 |
 | Alpha migration and compatibility | Each API-changing task; plan 04 task 6 |
 
-## API implementation checkpoint
+## API implementation checkpoint, 28 September
 
 Plan 01 tasks 1 through 5 are implemented: independent Dart core, observable
 values, managed/borrowed controllers, typed input and policies, scoped work,
@@ -191,9 +191,14 @@ records. Shared readback views pass lifetime and upload-reuse checks on Metal
 and the physical Pixel's Vulkan backend. Textures, bounded PNG/JPEG decoding,
 generated mips, dynamic geometry, alpha/depth state and object ordering now use
 the native registry. Portable lines/points add physical pixel and world sizes.
-Public native presenters still own separate devices. glTF, PBR and the public
-graph/shader API remain open, along with the rest of the program's later tasks.
-See the [resource checkpoint](../../design/gpu-resources.md) for its limits.
+Public native presenters still own separate devices. Plan 03 now implements
+glTF loading, standard PBR, lights/shadows/environment, public shader and graph
+plugins, instancing, skinning/morphs, animation, camera interaction, picking,
+inspection, HDR tone mapping, bloom and spatial/MSAA antialiasing. Procedural
+surfaces and sampled Bézier/Catmull-Rom paths extend the general-purpose core.
+The [renderer profiles](../../renderer-capabilities.md) list tested behavior and
+the remaining Three.js breadth. Geospatial parity and release qualification stay
+in plan 04; neither is implied by the core implementation checkpoint.
 
 The four subsystem plans contain 25 task groups and explicit verification steps.
 Advanced material/loader extensions remain a named capability backlog until

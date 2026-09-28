@@ -53,4 +53,5 @@ flutter run -d macos -t lib/post_processing.dart
 The demo uses half the display pixel density to leave room for graph replacement.
 Its controls switch bloom, spatial AA and four-sample MSAA without restarting the
 view. The native Metal integration covers toggles and 320/960 logical-pixel
-layouts, with zero presentation readback. Vulkan and DX12 still need device runs.
+layouts, with zero presentation readback. The iOS simulator passes those surface
+checks too. Physical iOS, Vulkan and DX12 still need device runs.

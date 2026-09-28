@@ -5,6 +5,9 @@ import 'package:gpu3d/rendering.dart';
 import 'package:gpu3d_native/gpu3d_native.dart';
 
 Future<void> main() async {
+  const warmupFrames = 30, measuredFrames = 300;
+  double percentile(List<int> sorted, double fraction) =>
+      sorted[(sorted.length * fraction).ceil() - 1] / 1000;
   final backend = await NativeBackend.create();
   final results = <Map<String, Object?>>[];
   try {
@@ -63,7 +66,7 @@ Future<void> main() async {
           final resident = await backend.resourceStats();
           final times = <int>[], builds = <int>[];
           FrameStats? last;
-          for (var i = 0; i < 25; i++) {
+          for (var i = 0; i < warmupFrames + measuredFrames; i++) {
             camera.position = Vec3(i * .0001, 0, 8);
             final timer = Stopwatch()..start();
             final output = await frame();
@@ -76,7 +79,7 @@ Future<void> main() async {
                 'Frame upload/readback/timestamp invariant changed.',
               );
             }
-            if (i >= 5) {
+            if (i >= warmupFrames) {
               times.add(timer.elapsedMicroseconds);
               builds.add(last.cpuBuildTime.inMicroseconds);
             }
@@ -95,10 +98,13 @@ Future<void> main() async {
             'width': width,
             'height': height,
             'copies': 400,
-            'samples': 20,
-            'p50Ms': times[10] / 1000,
-            'p95Ms': times[18] / 1000,
-            'p50CaptureMs': builds[10] / 1000,
+            'samples': measuredFrames,
+            'warmupFrames': warmupFrames,
+            'p50Ms': percentile(times, .5),
+            'p95Ms': percentile(times, .95),
+            'p99Ms': percentile(times, .99),
+            'maxMs': times.last / 1000,
+            'p50CaptureMs': percentile(builds, .5),
             'drawCalls': last!.drawCalls,
             'residentResourceBytes': after.residentBytes,
             'resourceAllocations': after.liveAllocations,
@@ -121,6 +127,8 @@ Future<void> main() async {
     const JsonEncoder.withIndent('  ').convert({
       'platform': Platform.operatingSystem,
       'runtime': Platform.version,
+      'thermalState': null,
+      'powerState': null,
       'timing':
           'End-to-end explicit readback; no presentation FPS or GPU timestamp claim.',
       'results': results,
