@@ -12,7 +12,7 @@ const version=JSON.parse(fs.readFileSync(path.join(referenceRoot,'node_modules/a
 if(version!=='2.1.19'||three.REVISION!=='184') throw new Error('Reference dependencies changed');
 const file='packages/atmosphere/src/celestialDirections.ts';
 const source=fs.readFileSync(path.join(sourceRoot,file),'utf8');
-const inventory=JSON.parse(fs.readFileSync('docs/parity/inventory.json'));
+const inventory=JSON.parse(fs.readFileSync(new URL('./reference/inventory.json', import.meta.url)));
 const hash=crypto.createHash('sha1').update(`blob ${Buffer.byteLength(source)}\0`).update(source).digest('hex');
 if(inventory.files.find(f=>f.path===file).gitBlob!==hash) throw new Error('Source snapshot changed');
 const code=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;

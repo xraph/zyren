@@ -73,7 +73,12 @@ const inventory = { schema: 1, repository: 'takram-design-engineering/three-geos
   verification: 'All supplied files match the Git blob hashes in the pinned upstream tree.',
   entrypoints, files: hashes, modules, stories, imports };
 fs.mkdirSync(outputRoot, { recursive: true });
-fs.writeFileSync(path.join(outputRoot, 'inventory.json'), JSON.stringify(inventory, null, 2) + '\n');
+const inventoryJson = JSON.stringify(inventory, null, 2) + '\n';
+// Fixture generators need this tracked input even when local docs are absent.
+const referenceDir = new URL('./reference/', import.meta.url);
+fs.mkdirSync(referenceDir, { recursive: true });
+fs.writeFileSync(new URL('inventory.json', referenceDir), inventoryJson);
+fs.writeFileSync(path.join(outputRoot, 'inventory.json'), inventoryJson);
 const link = (file, line) => `https://github.com/takram-design-engineering/three-geospatial/blob/${revision}/${file}${line ? '#L' + line : ''}`;
 const text = ['# Upstream export and story catalog', '',
   `Source revision: \`${revision}\`. All ${files.length} supplied files match.`, '',

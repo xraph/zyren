@@ -14,7 +14,7 @@ if (ts.version !== '5.9.2' || three.REVISION !== '184' ||
   throw new Error('Reference dependency versions differ from the pinned fixture environment');
 }
 const root = path.resolve(sourceRoot);
-const inventory = JSON.parse(fs.readFileSync(new URL('../docs/parity/inventory.json', import.meta.url)));
+const inventory = JSON.parse(fs.readFileSync(new URL('./reference/inventory.json', import.meta.url)));
 const hashes = new Map(inventory.files.map(file => [file.path, file.gitBlob]));
 const loaded = new Map();
 function load(relative) {

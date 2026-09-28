@@ -5,7 +5,7 @@ import argparse, hashlib, json, re, subprocess, tempfile
 root=Path(__file__).resolve().parents[2]
 source=Path('/Users/rexraphael/Work/TwinOS/three-geospatial-main')
 shader=source/'packages/atmosphere/src/shaders/bruneton'
-inventory=json.loads((root/'docs/parity/inventory.json').read_text())
+inventory=json.loads((root/'tool/reference/inventory.json').read_text())
 parser=argparse.ArgumentParser();parser.add_argument('--profile',choices=['balanced','reference'],default='balanced');args=parser.parse_args()
 sizes=dict(TRANSMITTANCE_TEXTURE_WIDTH=256,TRANSMITTANCE_TEXTURE_HEIGHT=64,SCATTERING_TEXTURE_R_SIZE=24,SCATTERING_TEXTURE_MU_SIZE=64,SCATTERING_TEXTURE_MU_S_SIZE=24,SCATTERING_TEXTURE_NU_SIZE=8,IRRADIANCE_TEXTURE_WIDTH=64,IRRADIANCE_TEXTURE_HEIGHT=16)
 if args.profile=='reference':
