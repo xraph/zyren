@@ -2,7 +2,9 @@ part of 'clip.dart';
 
 enum KeyframeInterpolation { step, linear, cubicSpline }
 
-enum TransformProperty { position, rotation, scale }
+enum AnimationProperty { position, rotation, scale, morphWeights }
+
+typedef TransformProperty = AnimationProperty;
 
 /// A channel targets a stable ID resolved by the mixer's node map, never a name
 /// search or a reference to an object in a different model instance.
@@ -243,4 +245,72 @@ Quat _slerp(Quat a, Quat b, double t) {
     a.z * x + b.z * y,
     a.w * x + b.w * y,
   ).normalized();
+}
+
+/// Animates all morph weights on a mesh or an explicit primitive binding.
+final class MorphWeightKeyframeTrack extends KeyframeTrack<List<double>> {
+  int get targetCount => values.first.length;
+  MorphWeightKeyframeTrack({
+    required super.target,
+    required super.times,
+    required List<List<double>> values,
+    super.interpolation = KeyframeInterpolation.linear,
+    List<List<double>>? inTangents,
+    List<List<double>>? outTangents,
+  }) : super._(
+         property: AnimationProperty.morphWeights,
+         values: _weightKeys(values, bounded: true),
+         inTangents: inTangents == null ? null : _weightKeys(inTangents),
+         outTangents: outTangents == null ? null : _weightKeys(outTangents),
+       ) {
+    if (this.values
+        .followedBy(this.inTangents ?? const [])
+        .followedBy(this.outTangents ?? const [])
+        .any((value) => value.length != targetCount)) {
+      throw ArgumentError('Morph keys and tangents must have matching widths.');
+    }
+  }
+  @override
+  List<double> _linear(List<double> a, List<double> b, double t) =>
+      List.unmodifiable([
+        for (var i = 0; i < a.length; i++) a[i] * (1 - t) + b[i] * t,
+      ]);
+  @override
+  List<double> _cubic(
+    List<double> a,
+    List<double> outgoing,
+    List<double> b,
+    List<double> incoming,
+    double t,
+    double duration,
+  ) {
+    final t2 = t * t, t3 = t2 * t;
+    return List.unmodifiable([
+      for (var i = 0; i < a.length; i++)
+        a[i] * (2 * t3 - 3 * t2 + 1) +
+            outgoing[i] * (duration * (t3 - 2 * t2 + t)) +
+            b[i] * (-2 * t3 + 3 * t2) +
+            incoming[i] * (duration * (t3 - t2)),
+    ]);
+  }
+}
+
+List<List<double>> _weightKeys(
+  List<List<double>> keys, {
+  bool bounded = false,
+}) {
+  var count = 0;
+  if (keys.length > 1000000) throw ArgumentError('Too many morph keys.');
+  for (final key in keys) {
+    count += key.length;
+    if (key.isEmpty ||
+        key.length > 64 ||
+        count > 1000000 ||
+        key.any((v) => !v.isFinite || (bounded && v.abs() > 1e6))) {
+      throw ArgumentError(
+        'Morph tracks require 1..64 finite weights per key, up to one million components; key magnitudes cannot exceed 1e6.',
+      );
+    }
+  }
+  return List.unmodifiable(keys.map((key) => List<double>.unmodifiable(key)));
 }

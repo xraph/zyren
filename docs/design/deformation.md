@@ -128,3 +128,16 @@ dart run example/deformation.dart ../../artifacts/native-deformation.png
 RUN_NATIVE_GPU=1 dart test test/deformation_test.dart --concurrency=1
 cargo test --manifest-path native/Cargo.toml --test deformation_render -- --include-ignored
 ```
+
+## Animated weights
+
+Use `MorphWeightKeyframeTrack` to animate a mesh's complete weight vector with
+step, linear or cubic spline interpolation. The track copies keys and tangents,
+so you can share a clip between model instances. `AnimationProperty.morphWeights`
+identifies this channel; `TransformProperty` remains an alias for existing code.
+
+A mixer binds a mesh directly when you include it in `nodes`. For a model node
+with several primitives, pass `morphTargets: {'node:0': [first, second]}` alongside
+that node's entry. Each primitive retains its own rest weights. Stopping the
+last action restores them, and weighted actions blend against those rest values.
+The mixer checks every sampled transform and weight before publishing a pose.

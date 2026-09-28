@@ -7,15 +7,20 @@ final class AnimationMixer extends ScenePlugin {
   @override
   final String id;
   final Map<String, Object3D> nodes;
+  final Map<String, List<Mesh>> morphTargets;
   List<AnimationAction> _actions = [];
   Map<(String, TransformProperty), Object> _rest = {};
   PluginContext? _context;
   Registration? _demand;
   Registration? _attachment;
   AnimationSystem? _system;
-  AnimationMixer({required Map<String, Object3D> nodes, String? id})
-    : id = id ?? 'gpu3d.animation.${_nextId++}',
-      nodes = Map.unmodifiable(nodes) {
+  AnimationMixer({
+    required Map<String, Object3D> nodes,
+    Map<String, List<Mesh>> morphTargets = const {},
+    String? id,
+  }) : id = id ?? 'gpu3d.animation.${_nextId++}',
+       nodes = Map.unmodifiable(nodes),
+       morphTargets = _morphBindings(nodes, morphTargets) {
     if (nodes.length > 32768 ||
         nodes.keys.any((key) => key.isEmpty) ||
         (Set<Object3D>.identity()..addAll(nodes.values)).length !=
@@ -45,6 +50,15 @@ final class AnimationMixer extends ScenePlugin {
       throw StateError('A mixer supports at most 32768 active track bindings.');
     }
     for (final track in clip.tracks) {
+      if (track is MorphWeightKeyframeTrack &&
+          (morphTargets[track.target] == null ||
+              morphTargets[track.target]!.any(
+                (mesh) => mesh.morphWeights.length != track.targetCount,
+              ))) {
+        throw ArgumentError(
+          'Morph track width must match every bound primitive.',
+        );
+      }
       if (!nodes.containsKey(track.target)) {
         throw ArgumentError('Unknown animation target: ${track.target}');
       }
@@ -109,7 +123,7 @@ final class AnimationMixer extends ScenePlugin {
       for (final track in action.clip.tracks) {
         final key = (track.target, track.property);
         retained.add(key);
-        rest.putIfAbsent(key, () => _read(nodes[key.$1]!, key.$2));
+        rest.putIfAbsent(key, () => _read(key.$1, key.$2));
         if (state.weight == 0) continue;
         final value = track.sample(state.time(action.clip.durationSeconds));
         final previous = mixed[key];
@@ -128,13 +142,24 @@ final class AnimationMixer extends ScenePlugin {
     final poses = <(String, TransformProperty), Object>{};
     for (final entry in rest.entries) {
       final sample = mixed[entry.key];
-      final value = sample == null
-          ? entry.value
+      Object blendRest(Object rest) => sample == null
+          ? rest
           : sample.$2 < 1
-          ? _blend(sample.$1, entry.value, 1 - sample.$2)
+          ? _blend(sample.$1, rest, 1 - sample.$2)
           : sample.$1;
-      _validate(entry.key.$2, value);
-      poses[entry.key] = value;
+      if (entry.value is Map<Mesh, List<double>>) {
+        final weights = <Mesh, List<double>>{};
+        for (final rest in (entry.value as Map<Mesh, List<double>>).entries) {
+          final value = blendRest(rest.value) as List<double>;
+          _validate(entry.key.$2, value);
+          weights[rest.key] = value;
+        }
+        poses[entry.key] = weights;
+      } else {
+        final value = blendRest(entry.value);
+        _validate(entry.key.$2, value);
+        poses[entry.key] = value;
+      }
     }
     // Validate every result before publishing any transform or playback state.
     for (final entry in poses.entries) {
@@ -146,6 +171,10 @@ final class AnimationMixer extends ScenePlugin {
           node.quaternion = entry.value as Quat;
         case TransformProperty.scale:
           node.scale = entry.value as Vec3;
+        case TransformProperty.morphWeights:
+          for (final pose in (entry.value as Map<Mesh, List<double>>).entries) {
+            pose.key.morphWeights = pose.value;
+          }
       }
     }
     _rest = {for (final key in retained) key: rest[key]!};
@@ -157,16 +186,29 @@ final class AnimationMixer extends ScenePlugin {
     if (invalidate) _context?.invalidate();
   }
 
-  static Object _read(Object3D node, TransformProperty property) =>
-      switch (property) {
-        TransformProperty.position => node.position,
-        TransformProperty.rotation => node.quaternion,
-        TransformProperty.scale => node.scale,
-      };
+  Object _read(String target, TransformProperty property) => switch (property) {
+    TransformProperty.position => nodes[target]!.position,
+    TransformProperty.rotation => nodes[target]!.quaternion,
+    TransformProperty.scale => nodes[target]!.scale,
+    TransformProperty.morphWeights => <Mesh, List<double>>{
+      for (final mesh in morphTargets[target]!) mesh: mesh.morphWeights,
+    },
+  };
   static Object _blend(Object a, Object b, double weight) => a is Quat
       ? _slerp(a, b as Quat, weight)
+      : a is List<double>
+      ? List<double>.unmodifiable([
+          for (var i = 0; i < a.length; i++)
+            a[i] * (1 - weight) + (b as List<double>)[i] * weight,
+        ])
       : (a as Vec3) * (1 - weight) + (b as Vec3) * weight;
   static void _validate(TransformProperty property, Object value) {
+    if (value is List<double>) {
+      if (value.any((v) => !v.isFinite || v.abs() > 1e6)) {
+        throw ArgumentError('Animation produced invalid morph weights.');
+      }
+      return;
+    }
     if (value is Quat) {
       value.normalized();
       return;
@@ -225,4 +267,34 @@ final class AnimationMixer extends ScenePlugin {
   void detach(PluginContext context) {
     if (identical(_context, context)) _attachment?.dispose();
   }
+}
+
+Map<String, List<Mesh>> _morphBindings(
+  Map<String, Object3D> nodes,
+  Map<String, List<Mesh>> explicit,
+) {
+  final bindings = <String, List<Mesh>>{
+    for (final entry in nodes.entries)
+      if (entry.value is Mesh && (entry.value as Mesh).morphWeights.isNotEmpty)
+        entry.key: [entry.value as Mesh],
+    ...explicit,
+  };
+  final seen = Set<Mesh>.identity();
+  for (final entry in bindings.entries) {
+    if (!nodes.containsKey(entry.key) ||
+        entry.value.isEmpty ||
+        entry.value.length > 32768 ||
+        entry.value.any(
+          (mesh) => mesh.morphWeights.isEmpty || !seen.add(mesh),
+        ) ||
+        seen.length > 32768) {
+      throw ArgumentError(
+        'Morph bindings require known node IDs and distinct morph meshes, up to 32768 primitives.',
+      );
+    }
+  }
+  return Map.unmodifiable({
+    for (final entry in bindings.entries)
+      entry.key: List<Mesh>.unmodifiable(entry.value),
+  });
 }
