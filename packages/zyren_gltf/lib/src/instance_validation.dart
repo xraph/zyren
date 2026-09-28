@@ -8,15 +8,18 @@ void validateInstances(
   List<NodeRecipe> nodes,
   List<SceneRecipe> scenes,
   List<Object?> meshes,
-  int limit,
-) {
-  final primitiveCounts = [
-    for (var i = 0; i < meshes.length; i++)
-      array(
-        object(meshes[i], 'meshes[$i]')['primitives'],
-        'meshes[$i].primitives',
-      ).length,
-  ];
+  int limit, {
+  List<int>? decodedPrimitiveCounts,
+}) {
+  final primitiveCounts =
+      decodedPrimitiveCounts ??
+      [
+        for (var i = 0; i < meshes.length; i++)
+          array(
+            object(meshes[i], 'meshes[$i]')['primitives'],
+            'meshes[$i].primitives',
+          ).length,
+      ];
   final counts = List<int?>.filled(nodes.length, null);
   int count(int node) => counts[node] ??=
       ((nodes[node].mesh == null ? 0 : primitiveCounts[nodes[node].mesh!]) +

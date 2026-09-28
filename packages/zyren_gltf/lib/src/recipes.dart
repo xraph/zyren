@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 import 'package:zyren/zyren.dart';
+import 'features.dart';
 
 final class PreparedModel {
   final List<NodeRecipe> nodes;
@@ -48,7 +49,13 @@ final class PrimitiveRecipe {
   final GeometryData geometry;
   final MaterialRecipe material;
   final String? name;
-  const PrimitiveRecipe(this.geometry, this.material, this.name);
+  final List<ModelFeature> features;
+  const PrimitiveRecipe(
+    this.geometry,
+    this.material,
+    this.name, {
+    this.features = const [],
+  });
 }
 
 final class MaterialRecipe {

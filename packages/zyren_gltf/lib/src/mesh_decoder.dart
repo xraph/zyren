@@ -8,6 +8,7 @@ import 'material_decoder.dart';
 import 'node_decoder.dart';
 import 'options.dart';
 import 'recipes.dart';
+import 'feature_decoder.dart';
 
 PreparedModel prepareModel(
   Map<String, Object?> root,
@@ -132,7 +133,9 @@ PreparedModel prepareModel(
           }
         }
         decoded[semantic] = a;
-        if (semantic.startsWith('_')) {
+        if (semantic.startsWith('_') &&
+            semantic != '_BATCHID' &&
+            !semantic.startsWith('_FEATURE_ID_')) {
           issues.add(
             SceneIssue(
               code: 'gltf.unusedAttribute',
@@ -310,6 +313,7 @@ PreparedModel prepareModel(
           }
         }
       }
+      final originalIndices = indices;
       if (flat) {
         budget.reserve(vertexCount * 4, path);
         indices = Uint32List(vertexCount);
@@ -335,7 +339,11 @@ PreparedModel prepareModel(
           );
         }
       }
-      primitives.add(
+      final partitions = partitionFeatures(
+        root,
+        primitive,
+        decoded,
+        originalIndices,
         PrimitiveRecipe(
           GeometryData(
             attributes: output,
@@ -346,10 +354,22 @@ PreparedModel prepareModel(
           material,
           name,
         ),
+        budget,
+        options.limits.maxPrimitives - primitiveCount + 1,
+        path,
       );
+      primitiveCount += partitions.length - 1;
+      primitives.addAll(partitions);
     }
     meshes.add(List.unmodifiable(primitives));
   }
+  validateInstances(
+    nodes,
+    scenes,
+    rawMeshes,
+    options.limits.maxPrimitives,
+    decodedPrimitiveCounts: [for (final mesh in meshes) mesh.length],
+  );
   return PreparedModel(
     nodes,
     scenes,

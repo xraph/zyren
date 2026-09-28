@@ -80,6 +80,20 @@ unknown optional extensions produce warnings and use the core fallback data.
 | `KHR_texture_basisu` | KTX2 ETC1S/UASTC through `TextureDecoder`, including Zstd, authored mips and PNG/JPEG fallback when optional |
 | Sparse overrides on Draco accessors and other required extensions | Explicit unsupported-feature error |
 
+## Feature identity
+
+You can inspect `ModelMesh.features` after instantiation or picking. Each
+`ModelFeature` retains its ID, set index, label and property-table reference.
+Legacy `_BATCHID` attributes are marked with `legacyBatch`. Null features retain
+a null ID. Identity and geometry are shared safely across model instances.
+
+Attribute features on triangles must have the same ID at all three vertices.
+Points also support implicit IDs. The loader partitions geometry on its worker
+and counts the resulting draw calls against `maxPrimitives`, including repeated
+instances. Feature textures, lines and mixed IDs within a triangle return an
+explicit unsupported-feature error. Property values and styling are separate
+from this identity API.
+
 ## Limits and workers
 
 `GltfLimits` bounds JSON metadata, accessors, nodes, depth and primitives. The

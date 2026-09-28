@@ -10,6 +10,8 @@ import 'worker.dart';
 import 'meshopt.dart';
 import 'draco.dart';
 import 'basis.dart';
+import 'features.dart';
+import 'feature_decoder.dart' show meshFeaturesExtension;
 part 'model_asset.dart';
 
 abstract final class Gltf {
@@ -71,6 +73,7 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
         supportedExtensions: {
           'KHR_materials_unlit',
           'KHR_lights_punctual',
+          meshFeaturesExtension,
           if (context.supportsTextureEncoding(TextureEncoding.ktx2Basis))
             basisExtension,
           if (context.supportsMeshEncoding(MeshEncoding.draco)) dracoExtension,
@@ -276,7 +279,14 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
               alphaCutoff: m.cutoff,
             ),
           };
-          primitives.add(_ModelPrimitive(geometry, material, primitive.name));
+          primitives.add(
+            _ModelPrimitive(
+              geometry,
+              material,
+              primitive.name,
+              primitive.features,
+            ),
+          );
           if (++published % 64 == 0) await Future<void>.delayed(Duration.zero);
         }
         meshes.add(List.unmodifiable(primitives));

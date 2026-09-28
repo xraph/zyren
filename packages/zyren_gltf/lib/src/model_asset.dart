@@ -56,7 +56,12 @@ final class ModelAsset {
       if (data.mesh case final mesh?) {
         for (final primitive in shared.meshes[mesh]) {
           object.add(
-            Mesh(primitive.geometry, primitive.material, name: primitive.name),
+            ModelMesh(
+              primitive.geometry,
+              primitive.material,
+              name: primitive.name,
+              features: primitive.features,
+            ),
           );
         }
       }
@@ -101,5 +106,6 @@ final class _ModelPrimitive {
   final BufferGeometry geometry;
   final MeshMaterial material;
   final String? name;
-  const _ModelPrimitive(this.geometry, this.material, this.name);
+  final List<ModelFeature> features;
+  const _ModelPrimitive(this.geometry, this.material, this.name, this.features);
 }
