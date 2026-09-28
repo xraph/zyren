@@ -89,7 +89,7 @@ class SpotLight extends PointLight with _ShadowLight {
   static void _checkCone(double angle, double penumbra) {
     if (!angle.isFinite ||
         angle <= 0 ||
-        angle >= math.pi / 2 ||
+        angle > math.pi / 2 ||
         !penumbra.isFinite ||
         penumbra < 0 ||
         penumbra > 1) {
@@ -106,6 +106,9 @@ class SpotLight extends PointLight with _ShadowLight {
   double get angle => _angle;
   set angle(double value) {
     _checkCone(value, penumbra);
+    if (shadow != null && value >= math.pi / 2) {
+      throw ArgumentError('A spot shadow needs an angle below pi/2.');
+    }
     _angle = value;
     _changed();
   }

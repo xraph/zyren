@@ -559,9 +559,10 @@ pub(crate) fn validate_shadows(
         {
             return Err("Invalid shadow descriptor".into());
         }
-        let kind = light_values[s[0] as usize][3];
+        let light = &light_values[s[0] as usize];
+        let kind = light[3];
         if (kind != 0. && kind != 2.)
-            || (kind == 2. && s[2] != 1.)
+            || (kind == 2. && (s[2] != 1. || light[13] <= 0. || light[13] >= 1.))
             || (kind == 0. && s[4].min(clip[1]) <= clip[0].max(0.001))
         {
             return Err("Unsupported shadow light or camera range".into());

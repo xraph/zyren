@@ -2,6 +2,7 @@ import 'package:zyren/zyren.dart';
 import 'checked.dart';
 import 'limits.dart';
 import 'recipes.dart';
+import 'light_decoder.dart';
 
 (List<NodeRecipe>, List<SceneRecipe>, int?) decodeNodes(
   Map<String, Object?> root,
@@ -9,6 +10,7 @@ import 'recipes.dart';
   int meshCount,
 ) {
   final rawNodes = array(field(root, 'nodes', const []), 'nodes');
+  final lights = decodeLights(root, limits.maxNodes);
   if (rawNodes.length > limits.maxNodes) {
     fail(
       'nodes',
@@ -35,6 +37,17 @@ import 'recipes.dart';
     final mesh = node.containsKey('mesh')
         ? index(node['mesh'], meshCount, '$path.mesh')
         : null;
+    LightRecipe? light;
+    final extensions = object(
+      field(node, 'extensions', <String, Object?>{}),
+      '$path.extensions',
+    );
+    if (extensions.containsKey('KHR_lights_punctual')) {
+      final fieldPath = '$path.extensions.KHR_lights_punctual';
+      requireLightExtension(root, fieldPath);
+      final ref = object(extensions['KHR_lights_punctual'], fieldPath);
+      light = lights[index(ref['light'], lights.length, '$fieldPath.light')];
+    }
     final children = <int>[];
     if (node.containsKey('children')) {
       final raw = array(node['children'], '$path.children');
@@ -129,6 +142,7 @@ import 'recipes.dart';
         scale,
         mesh,
         List.unmodifiable(children),
+        light,
       ),
     );
   }
@@ -181,6 +195,25 @@ import 'recipes.dart';
         List.unmodifiable(roots),
       ),
     );
+  }
+  for (var i = 0; i < scenes.length; i++) {
+    var count = 0;
+    void countLights(int node) {
+      if (nodes[node].light != null && ++count > 16) {
+        fail(
+          'scenes[$i]',
+          'A native scene supports at most sixteen punctual lights.',
+          AssetLoadError.limitExceeded,
+        );
+      }
+      for (final child in nodes[node].children) {
+        countLights(child);
+      }
+    }
+
+    for (final root in scenes[i].roots) {
+      countLights(root);
+    }
   }
   final selected = root.containsKey('scene')
       ? index(root['scene'], scenes.length, 'scene')

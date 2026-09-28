@@ -110,6 +110,7 @@ Uint8List triangleModel({bool unlit = true, Map<String, Object?>? changes}) {
 Uint8List primitiveModel({
   List<double> positions = const [-1, -1, 0, 1, -1, 0, 1, 1, 0, -1, 1, 0],
   List<double>? normals,
+  List<double>? tangents,
   List<int>? indices,
   int mode = 4,
   bool byteUvs = false,
@@ -157,6 +158,7 @@ Uint8List primitiveModel({
 
   attribute('POSITION', positions, 3);
   if (normals != null) attribute('NORMAL', normals, 3);
+  if (tangents != null) attribute('TANGENT', tangents, 4);
   if (byteUvs) {
     final view = views.length, count = positions.length ~/ 3;
     views.add({

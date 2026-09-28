@@ -42,8 +42,12 @@ mixin _ShadowLight on Light {
   ShadowSettings? _shadow;
   ShadowSettings? get shadow => _shadow;
   set shadow(ShadowSettings? value) {
-    if (this is SpotLight && value != null && value.cascades != 1) {
-      throw ArgumentError('Spot shadows have one projection.');
+    if (this is SpotLight &&
+        value != null &&
+        (value.cascades != 1 || (this as SpotLight).angle >= math.pi / 2)) {
+      throw ArgumentError(
+        'Spot shadows need one projection and an angle below pi/2.',
+      );
     }
     _shadow = value;
     _changed();

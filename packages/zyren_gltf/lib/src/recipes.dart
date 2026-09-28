@@ -26,6 +26,7 @@ final class NodeRecipe {
   final Quat rotation;
   final int? mesh;
   final List<int> children;
+  final LightRecipe? light;
   const NodeRecipe(
     this.name,
     this.position,
@@ -33,6 +34,7 @@ final class NodeRecipe {
     this.scale,
     this.mesh,
     this.children,
+    this.light,
   );
 }
 
@@ -55,25 +57,92 @@ final class MaterialRecipe {
   final MaterialAlphaMode alphaMode;
   final MaterialSide side;
   final ImageBindingRecipe? colorMap;
+  final bool standard;
+  final double metallic, roughness, normalScale, occlusionStrength;
+  final Color3 emissive;
+  final ImageBindingRecipe? normalMap,
+      metallicRoughnessMap,
+      occlusionMap,
+      emissiveMap;
+  Iterable<ImageBindingRecipe> get maps => [
+    colorMap,
+    normalMap,
+    metallicRoughnessMap,
+    occlusionMap,
+    emissiveMap,
+  ].nonNulls;
   const MaterialRecipe(
     this.color,
     this.opacity,
     this.cutoff,
     this.alphaMode,
     this.side,
-    this.colorMap,
-  );
+    this.colorMap, {
+    this.standard = false,
+    this.metallic = 1,
+    this.roughness = 1,
+    this.normalScale = 1,
+    this.occlusionStrength = 1,
+    this.emissive = const Color3(0, 0, 0),
+    this.normalMap,
+    this.metallicRoughnessMap,
+    this.occlusionMap,
+    this.emissiveMap,
+  });
 }
 
 final class ImageBindingRecipe {
   final int source, uvSet;
-  final bool mipmaps;
+  final bool mipmaps, linear;
   final SamplerDescriptor sampler;
-  const ImageBindingRecipe(this.source, this.uvSet, this.mipmaps, this.sampler);
+  const ImageBindingRecipe(
+    this.source,
+    this.uvSet,
+    this.mipmaps,
+    this.sampler, {
+    this.linear = false,
+  });
 }
 
 final class ImageRecipe {
   final String? uri, mediaType;
   final Uint8List? bytes;
   const ImageRecipe(this.uri, this.mediaType, this.bytes);
+}
+
+final class LightRecipe {
+  final String kind;
+  final String? name;
+  final Color3 color;
+  final double intensity, range, inner, outer;
+  const LightRecipe(
+    this.kind,
+    this.name,
+    this.color,
+    this.intensity,
+    this.range,
+    this.inner,
+    this.outer,
+  );
+  Light instantiate() => switch (kind) {
+    'directional' => DirectionalLight(
+      name: name,
+      color: color,
+      intensity: intensity,
+    ),
+    'point' => PointLight(
+      name: name,
+      color: color,
+      intensity: intensity,
+      range: range,
+    ),
+    _ => SpotLight(
+      name: name,
+      color: color,
+      intensity: intensity,
+      range: range,
+      angle: outer,
+      penumbra: 1 - inner / outer,
+    ),
+  };
 }

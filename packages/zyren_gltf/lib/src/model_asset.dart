@@ -48,6 +48,9 @@ final class ModelAsset {
         ..position = data.position
         ..quaternion = data.rotation
         ..scale = data.scale;
+      if (data.light case final light?) {
+        object.add(light.instantiate());
+      }
       if (data.mesh case final mesh?) {
         for (final primitive in shared.meshes[mesh]) {
           object.add(

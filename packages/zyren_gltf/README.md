@@ -44,8 +44,12 @@ A document without scenes can load as metadata but cannot be instantiated.
 
 ## Material profile
 
-The current renderer accepts the supported subset of `KHR_materials_unlit` below.
-Standard metallic/roughness materials require an explicit diagnostic preview:
+Standard mode loads metallic/roughness materials with base-color, normal,
+metallic/roughness, occlusion and emissive maps. Color maps use sRGB storage;
+data maps use linear storage. Add physical lights or environment lighting to
+your scene, or supply `KHR_lights_punctual` lights in the model.
+
+You can still choose an unlit diagnostic preview:
 
 ```dart
 final request = Gltf.uri(uri, options: const GltfOptions(
@@ -67,9 +71,10 @@ unknown optional extensions produce warnings and use the core fallback data.
 | Unlit base color, opacity, mask/blend, front or double-sided faces | `material_model_test`; native alpha and side fixtures |
 | PNG/JPEG sources, image buffer views, data URIs, UV0/UV1 and samplers | `image_model_test`; native glTF texture/lifetime fixture |
 | `KHR_materials_unlit` | Partial: the listed static features; vertex colors still unsupported |
-| PBR materials | Explicit unlit diagnostic approximation only |
+| PBR triangle materials, authored tangents, scalar factors and five maps | `standard_model_test`; native PBR and loaded light fixtures |
+| `KHR_lights_punctual` | Directional, point and spot lights, up to sixteen per scene; independent node instances |
 | Animations, skins, morphs, vertex colors and imported cameras | Explicit unsupported-feature error |
-| Textured lines/points, UV sets above one, singular or out-of-range native transforms | Explicit unsupported-feature error |
+| PBR or textured lines/points, UV sets above one, singular or out-of-range native transforms | Explicit unsupported-feature error |
 | Draco, meshopt, Basis/KTX2 and other required extensions | Explicit unsupported-feature error |
 
 ## Limits and workers

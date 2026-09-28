@@ -202,7 +202,14 @@ PreparedModel prepareModel(
         '$path.material',
         present: primitive.containsKey('material'),
       );
-      if (material.colorMap case final binding?) {
+      if (material.standard && topology != GeometryTopology.triangles) {
+        fail(
+          '$path.material',
+          'PBR points and lines are outside the native model profile.',
+          AssetLoadError.unsupportedFeature,
+        );
+      }
+      for (final binding in material.maps) {
         if (topology != GeometryTopology.triangles) {
           fail(
             '$path.material',
@@ -287,6 +294,13 @@ PreparedModel prepareModel(
         attribute(VertexSemantic.normal, normals, VertexFormat.float32x3);
       }
       if (topology == GeometryTopology.triangles) {
+        if (tangent != null && suppliedNormals != null) {
+          attribute(
+            VertexSemantic.tangent,
+            expanded(tangent),
+            VertexFormat.float32x4,
+          );
+        }
         for (final (name, semantic) in [
           ('TEXCOORD_0', VertexSemantic.uv0),
           ('TEXCOORD_1', VertexSemantic.uv1),

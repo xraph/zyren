@@ -53,9 +53,12 @@ Normal mapping uses authored float4 tangent attributes when supplied. Their
 handedness follows mirrored transforms; dynamic updates preserve earlier captured
 geometry in other views. Without tangents, the shader derives its frame from
 position and UV screen derivatives. Degenerate UVs keep the surface normal.
-Standard glTF material loading remains the next renderer stage.
-Standard glTF mode continues to reject unsupported PBR profiles until those
-fixtures pass. Mobile PBR qualification is also pending.
+Standard glTF mode preserves all five maps, their factors and supplied tangents.
+Without supplied normals, it generates flat normals and ignores tangents as the
+glTF specification requires. `KHR_lights_punctual` creates ordinary core lights
+under the model node hierarchy. A model instance owns independent lights; its
+geometry, material and image data remain shared. Standard materials need physical
+lights or environment lighting in the scene. Mobile PBR qualification is pending.
 
 
 ## Environment lighting
@@ -105,7 +108,9 @@ Directional lights support one to four cascades. `maxDistance` limits their came
 coverage, and `splitLambda` blends uniform and logarithmic distance splits. The
 projection includes caster depth bounds and snaps its origin to the texel grid
 using the double precision camera origin. Spot lights use one perspective map;
-`near` and `maxDistance` bound its light-space depth. `bias` is normalized depth,
+`near` and `maxDistance` bound its light-space depth. An unshadowed spot accepts
+the glTF maximum half-angle of pi/2. Shadow maps require a smaller cone with a
+cosine representable strictly between zero and one in float32. `bias` is normalized depth,
 and `normalBias` offsets the receiver in world units along its shaded normal.
 
 The native renderer packs up to eight projections per view into a depth atlas.

@@ -119,16 +119,14 @@ void main() {
     },
   );
   test(
-    'PBR requires explicit diagnostic mode and reports the approximation',
+    'standard PBR and explicit diagnostic mode retain distinct materials',
     () async {
-      await expectLater(
-        load(triangleModel(unlit: false)),
-        throwsA(
-          isA<AssetLoadException>()
-              .having((e) => e.code, 'code', AssetLoadError.unsupportedFeature)
-              .having((e) => e.fieldPath, 'path', 'materials[0]'),
-        ),
+      final standard = await load(triangleModel(unlit: false));
+      expect(
+        triangleIn(standard.instantiate()).material,
+        isA<StandardMaterial>(),
       );
+      expect(standard.issues, isEmpty);
       final model = await load(
         triangleModel(unlit: false),
         options: const GltfOptions(

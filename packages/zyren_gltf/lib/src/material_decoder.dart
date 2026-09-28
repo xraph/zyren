@@ -44,14 +44,9 @@ final class MaterialDecoder {
         );
       }
     }
-    if (!unlit) {
-      if (options.materialMode == GltfMaterialMode.standard) {
-        fail(
-          path,
-          'PBR materials need a qualified PBR renderer. Choose unlitDiagnostic explicitly to preview base color.',
-          AssetLoadError.unsupportedFeature,
-        );
-      }
+    final standard =
+        !unlit && options.materialMode == GltfMaterialMode.standard;
+    if (!unlit && !standard) {
       issues.add(
         SceneIssue(
           code: 'gltf.unlitDiagnostic',
@@ -130,6 +125,61 @@ final class MaterialDecoder {
             '$path.pbrMetallicRoughness.baseColorTexture',
           )
         : null;
+    ImageBindingRecipe? extra(String key, {bool linear = true}) =>
+        standard && material.containsKey(key)
+        ? _texture(material[key], '$path.$key', linear: linear)
+        : null;
+    final normal = extra('normalTexture'),
+        occlusion = extra('occlusionTexture'),
+        emission = extra('emissiveTexture', linear: false);
+    final mr = standard && pbr.containsKey('metallicRoughnessTexture')
+        ? _texture(
+            pbr['metallicRoughnessTexture'],
+            '$path.pbrMetallicRoughness.metallicRoughnessTexture',
+            linear: true,
+          )
+        : null;
+    final emissive = numbers(
+      field(material, 'emissiveFactor', [0, 0, 0]),
+      3,
+      '$path.emissiveFactor',
+    );
+    if (emissive.any((v) => v < 0 || v > 1)) {
+      fail('$path.emissiveFactor', 'Emission must be in [0, 1].');
+    }
+    final normalScale = normal == null
+        ? 1.0
+        : number(
+            field(
+              object(material['normalTexture'], '$path.normalTexture'),
+              'scale',
+              1,
+            ),
+            '$path.normalTexture.scale',
+          );
+    final strength = occlusion == null
+        ? 1.0
+        : number(
+            field(
+              object(material['occlusionTexture'], '$path.occlusionTexture'),
+              'strength',
+              1,
+            ),
+            '$path.occlusionTexture.strength',
+          );
+    if (normalScale.abs() > 1e6) {
+      fail(
+        '$path.normalTexture.scale',
+        'Normal scale exceeds the native limit.',
+        AssetLoadError.unsupportedFeature,
+      );
+    }
+    if (strength < 0 || strength > 1) {
+      fail(
+        '$path.occlusionTexture.strength',
+        'Occlusion strength must be in [0, 1].',
+      );
+    }
     return _materials[i] = MaterialRecipe(
       Color3(factor[0], factor[1], factor[2]),
       factor[3],
@@ -137,10 +187,30 @@ final class MaterialDecoder {
       mode,
       doubleSided ? MaterialSide.doubleSided : MaterialSide.front,
       binding,
+      standard: standard,
+      metallic: number(
+        field(pbr, 'metallicFactor', 1),
+        '$path.pbrMetallicRoughness.metallicFactor',
+      ),
+      roughness: number(
+        field(pbr, 'roughnessFactor', 1),
+        '$path.pbrMetallicRoughness.roughnessFactor',
+      ),
+      normalMap: normal,
+      metallicRoughnessMap: mr,
+      occlusionMap: occlusion,
+      emissiveMap: emission,
+      normalScale: normalScale,
+      occlusionStrength: strength,
+      emissive: Color3(emissive[0], emissive[1], emissive[2]),
     );
   }
 
-  ImageBindingRecipe _texture(Object? reference, String path) {
+  ImageBindingRecipe _texture(
+    Object? reference,
+    String path, {
+    bool linear = false,
+  }) {
     final info = object(reference, path);
     final textures = array(field(root, 'textures', const []), 'textures');
     final i = index(info['index'], textures.length, '$path.index');
@@ -251,6 +321,7 @@ final class MaterialDecoder {
             ? TextureFilter.nearest
             : TextureFilter.linear,
       ),
+      linear: linear,
     );
   }
 }

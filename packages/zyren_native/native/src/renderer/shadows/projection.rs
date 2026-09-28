@@ -29,7 +29,7 @@ pub(super) fn projections(
             };
             let matrix = if light[3] == 2. {
                 let position = Vec3::new(light[0], light[1], light[2]);
-                glam::camera::rh::proj::directx::perspective(2. * light[13].acos(), 1., s[3], s[4])
+                spot_projection(light[13], s[3], s[4])
                     * glam::camera::rh::view::look_to_mat4(position, direction, up(direction))
             } else {
                 let mut min = Vec3::splat(f32::INFINITY);
@@ -100,4 +100,43 @@ pub(super) fn projections(
         }
     }
     Ok((maps, camera))
+}
+
+fn spot_projection(cos_angle: f32, near: f32, far: f32) -> Mat4 {
+    // Recover cot(angle) directly. acos followed by tan loses the sign near pi/2.
+    let cotangent = cos_angle / (1. - cos_angle * cos_angle).sqrt();
+    let depth = far / (near - far);
+    Mat4::from_cols_array(&[
+        cotangent,
+        0.,
+        0.,
+        0.,
+        0.,
+        cotangent,
+        0.,
+        0.,
+        0.,
+        0.,
+        depth,
+        -1.,
+        0.,
+        0.,
+        near * depth,
+        0.,
+    ])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn wide_spot_projection_preserves_positive_scale_and_depth() {
+        for cosine in [0.8, 0.01, 1e-12] {
+            let matrix = spot_projection(cosine, 0.1, 10.);
+            assert!(matrix.is_finite());
+            assert!(matrix.x_axis.x > 0.);
+            assert!((matrix.project_point3(Vec3::new(0., 0., -0.1)).z).abs() < 1e-6);
+            assert!((matrix.project_point3(Vec3::new(0., 0., -10.)).z - 1.).abs() < 1e-6);
+        }
+    }
 }

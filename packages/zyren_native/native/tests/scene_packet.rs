@@ -640,6 +640,16 @@ fn shadow_packets_reject_invalid_ranges_counts_and_light_kinds() {
     valid[16..24].copy_from_slice(&length.to_le_bytes());
     let frame = ScenePacket::decode(&valid).unwrap().resolve(None).unwrap();
     assert_eq!(frame.settings.shadows[0][2], 2.);
+    let mut spot = valid.clone();
+    spot[light + 12..light + 16].copy_from_slice(&2_f32.to_le_bytes());
+    spot[settings + 8..settings + 12].copy_from_slice(&1_f32.to_le_bytes());
+    spot[light + 14 * 4..light + 15 * 4].copy_from_slice(&1_f32.to_le_bytes());
+    for cosine in [0_f32, 1.] {
+        spot[light + 13 * 4..light + 14 * 4].copy_from_slice(&cosine.to_le_bytes());
+        assert!(ScenePacket::decode(&spot).is_err());
+    }
+    spot[light + 13 * 4..light + 14 * 4].copy_from_slice(&1e-12_f32.to_le_bytes());
+    assert!(ScenePacket::decode(&spot).is_ok());
     for (offset, value) in [
         (light + 12, 1_f32),
         (light + 12, 2.),

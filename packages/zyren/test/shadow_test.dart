@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:test/test.dart';
 import 'package:zyren/zyren.dart';
 import 'package:zyren/rendering.dart';
@@ -38,6 +39,13 @@ void main() {
     expect(capture().toNativePacket()['meshes'], hasLength(1));
   });
   test('shadow settings bound work and reject unsupported light profiles', () {
+    final wide = SpotLight(angle: math.pi / 2);
+    expect(wide.angle, math.pi / 2);
+    expect(() => wide.shadow = ShadowSettings(), throwsArgumentError);
+    wide.angle = math.pi / 4;
+    wide.shadow = ShadowSettings();
+    expect(() => wide.angle = math.pi / 2, throwsArgumentError);
+    expect(wide.angle, math.pi / 4);
     expect(() => ShadowSettings(cascades: 5), throwsArgumentError);
     expect(() => ShadowSettings(resolution: 8192), throwsArgumentError);
     expect(() => ShadowSettings(near: 1, maxDistance: 1), throwsArgumentError);
