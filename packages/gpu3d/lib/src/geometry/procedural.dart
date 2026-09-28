@@ -395,10 +395,7 @@ _Surface _lathe(
         ? p - points[j - 1]
         : points[j + 1] - points[j - 1];
     final n =
-        normalForPoint?.call(p) ??
-        (p.x == 0
-            ? Vec2(0, j == 0 ? -1 : 1)
-            : Vec2(tangent.y, -tangent.x).normalized());
+        normalForPoint?.call(p) ?? Vec2(tangent.y, -tangent.x).normalized();
     for (var i = 0; i <= columns; i++) {
       final u = i / columns,
           t = start + arc * u,

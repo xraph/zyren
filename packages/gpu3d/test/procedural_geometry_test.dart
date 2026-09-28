@@ -26,6 +26,27 @@ void checkSurface(BufferGeometry mesh) {
 }
 
 void main() {
+  test('lathe poles follow the slope of their straight flank', () {
+    for (final points in [
+      [const Vec2(0, -1), const Vec2(1, 1)],
+      [const Vec2(1, -1), const Vec2(0, 1)],
+    ]) {
+      final cone = LatheGeometry(points, segments: 8);
+      checkSurface(cone);
+      for (var i = 0; i <= 8; i++) {
+        final bottom = Vec3.array(cone.normals, i * 3);
+        final top = Vec3.array(cone.normals, (9 + i) * 3);
+        final t = math.pi * 2 * i / 8;
+        final tangent = Vec3(
+          math.cos(t) * (points[1].x - points[0].x),
+          2,
+          math.sin(t) * (points[1].x - points[0].x),
+        );
+        expect(bottom.distanceTo(top), lessThan(1e-6));
+        expect(bottom.dot(tangent), closeTo(0, 1e-6));
+      }
+    }
+  });
   test(
     'procedural surfaces have outward winding, unit normals and UV seams',
     () {
