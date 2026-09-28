@@ -51,21 +51,38 @@ controller.use(tools);
 controller.use(gizmo);
 controller.use(orbit);
 gizmo.mode = GizmoMode.rotate; // translate, rotate or scale
+gizmo.space = GizmoSpace.world; // local by default; scaling stays local
 gizmo.snapEnabled = true;
 ```
 
-Drag a colored axis to edit it. Hold Shift or enable snapping for quarter-unit
+Drag a colored axis to edit it, or use an XY, XZ or YZ pad to move in that plane.
+Hold Shift or enable snapping for quarter-unit
 translation, 15-degree rotation and 10-percent scale increments. You can set the
 increments in the constructor. Release to commit one undo entry. Escape, pointer
-cancellation, changing modes or hiding the selected object cancels the preview.
+cancellation, changing modes or spaces, or hiding the selected object cancels the preview.
 Camera, viewport and external transform changes also end a gesture safely.
 
-The axes follow the object's local rotation. `size` defaults to 1.5 parent units;
-the object's own scale does not stretch its handles. Rotated and nonuniformly
-scaled parents work through the public scene matrices. Scaling changes one local
-component and preserves its sign, with a minimum factor of 0.05 per gesture.
-An axis aimed directly at the camera cannot provide a stable drag direction;
-orbit the view before dragging it.
+Local axes follow the object's rotation. `size` defaults to 1.5 parent units in
+local space and 1.5 world units in world space; the object's own scale does not
+stretch its handles. Plane snapping rounds both displacement coordinates in the
+chosen space, leaving the perpendicular coordinate unchanged.
+
+World movement works through rotated, reflected, nonuniformly scaled and sheared
+parent hierarchies. World rotation needs a uniformly scaled parent transform
+with orthogonal axes, since the object's local pose cannot store shear. Check
+`unavailableReason` for that restriction; handles hide until you choose local
+rotation or change the parent transform. Reflected uniform parents are supported.
+
+Scaling changes one local component and preserves its sign, with a minimum
+factor of 0.05 per gesture. `effectiveSpace` reports local while scaling and
+returns to your configured `space` in Move or Rotate mode. An axis aimed directly
+at the camera or a plane seen edge-on cannot provide a stable drag direction.
+Orbit the view before dragging it. Handle size remains in scene units, so it
+changes on screen as you zoom.
+
+`hitTest` retains its axis-only result. Use `hitTestHandle` for a `GizmoAxis` or
+`GizmoPlane`, and `activeHandle.label` for drag feedback. `activeAxis` is null
+during a plane drag; `activePlane` identifies that plane.
 
 Your host pauses camera input through `onDragChanged`. Disable auto-rotation and
 damping during editing, and cancel any earlier camera gesture before handing a

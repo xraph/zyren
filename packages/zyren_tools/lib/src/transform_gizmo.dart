@@ -2,17 +2,40 @@ part of '../zyren_tools.dart';
 
 enum GizmoMode { translate, rotate, scale }
 
-enum GizmoAxis {
+enum GizmoSpace { local, world }
+
+sealed class GizmoHandle {
+  String get label;
+  int get color;
+}
+
+enum GizmoAxis implements GizmoHandle {
   x(Vec3(1, 0, 0), 0xf06b64),
   y(Vec3(0, 1, 0), 0x68d391),
   z(Vec3(0, 0, 1), 0x78aaff);
 
   final Vec3 direction;
+  @override
   final int color;
   const GizmoAxis(this.direction, this.color);
+  @override
+  String get label => name.toUpperCase();
 }
 
-/// Native mesh handles for local-axis transforms. Register before camera controls
+enum GizmoPlane implements GizmoHandle {
+  xy(GizmoAxis.x, GizmoAxis.y, GizmoAxis.z),
+  xz(GizmoAxis.x, GizmoAxis.z, GizmoAxis.y),
+  yz(GizmoAxis.y, GizmoAxis.z, GizmoAxis.x);
+
+  final GizmoAxis first, second, perpendicular;
+  const GizmoPlane(this.first, this.second, this.perpendicular);
+  @override
+  int get color => perpendicular.color;
+  @override
+  String get label => name.toUpperCase();
+}
+
+/// Native mesh handles for local and world transforms. Register before camera controls
 /// and pause those controls in [onDragChanged] while a gesture owns the pointer.
 class TransformGizmoPlugin extends ScenePlugin {
   @override
@@ -20,17 +43,20 @@ class TransformGizmoPlugin extends ScenePlugin {
   @override
   Set<String> get dependencies => const {'zyren.tools'};
 
-  /// Handle radius in the selected object's parent units, before its own scale.
+  /// Radius in parent units for local axes, or world units for world axes.
   final double size;
   final double translationSnap, rotationSnap, scaleSnap;
   final void Function(bool dragging)? onDragChanged;
   bool snapEnabled = false;
   bool _enabled = true;
   GizmoMode _mode = GizmoMode.translate;
+  GizmoSpace _space = GizmoSpace.local;
   final _root = Group(name: 'Transform gizmo');
+  final _frame = Group(name: 'Handle frame');
+  Mat4? _compensatedParent;
   final _groups = <GizmoMode, Group>{};
-  final _handles = <Mesh, GizmoAxis>{};
-  final _materials = <GizmoAxis, UnlitMaterial>{};
+  final _handles = <Mesh, GizmoHandle>{};
+  final _materials = <GizmoHandle, UnlitMaterial>{};
   final _activeMaterial = UnlitMaterial(color: Color3.hex(0xffdf85));
   final _raycaster = Raycaster();
   PluginContext? _context;
@@ -60,7 +86,36 @@ class TransformGizmoPlugin extends ScenePlugin {
   }
 
   bool get isDragging => _drag != null;
-  GizmoAxis? get activeAxis => _drag?.axis;
+  GizmoHandle? get activeHandle => _drag?.handle;
+  GizmoAxis? get activeAxis =>
+      activeHandle is GizmoAxis ? activeHandle as GizmoAxis : null;
+  GizmoPlane? get activePlane =>
+      activeHandle is GizmoPlane ? activeHandle as GizmoPlane : null;
+  GizmoSpace get space => _space;
+  set space(GizmoSpace value) {
+    if (_space == value) return;
+    cancel();
+    _space = value;
+    _sync();
+  }
+
+  /// Scale edits always use the object's local axes.
+  GizmoSpace get effectiveSpace =>
+      _mode == GizmoMode.scale ? GizmoSpace.local : _space;
+
+  /// World rotation cannot introduce shear into a local TRS pose.
+  String? get unavailableReason {
+    final selected = _tools?.selected;
+    if (selected != null &&
+        selected.parent != null &&
+        _mode == GizmoMode.rotate &&
+        effectiveSpace == GizmoSpace.world &&
+        !_similarity(_world(selected.parent!))) {
+      return 'World rotation requires uniform parent scale. Choose Local.';
+    }
+    return null;
+  }
+
   bool get enabled => _enabled;
   set enabled(bool value) {
     if (_enabled == value) return;
@@ -125,7 +180,11 @@ class TransformGizmoPlugin extends ScenePlugin {
     try {
       final selected = _tools!.selected;
       final visible =
-          _enabled && selected != null && _visible(selected) && !owns(selected);
+          _enabled &&
+          selected != null &&
+          _visible(selected) &&
+          !owns(selected) &&
+          unavailableReason == null;
       if (_drag != null &&
           (!visible ||
               !identical(selected, _drag!.session.object) ||
@@ -137,18 +196,14 @@ class TransformGizmoPlugin extends ScenePlugin {
       context.scene.batch(() {
         if (visible) {
           selected.parent!.add(_root);
-          _root.position = selected.position;
-          if (_shownRotation != selected.quaternion) {
-            _root.quaternion = selected.quaternion;
-            _shownRotation = selected.quaternion;
-          }
+          _placeFrame(selected);
         }
         _root.visible = visible;
         for (final entry in _groups.entries) {
           entry.value.visible = entry.key == _mode;
         }
         for (final entry in _handles.entries) {
-          final material = entry.value == activeAxis
+          final material = entry.value == activeHandle
               ? _activeMaterial
               : _materials[entry.value]!;
           if (!identical(entry.key.material, material)) {
@@ -158,6 +213,51 @@ class TransformGizmoPlugin extends ScenePlugin {
       });
     } finally {
       _syncing = false;
+    }
+  }
+
+  void _placeFrame(Object3D selected) {
+    final world = effectiveSpace == GizmoSpace.world;
+    final rotation = world ? Quat.identity : selected.quaternion;
+    _root.position = world ? Vec3.zero : selected.position;
+    if (_shownRotation != rotation) {
+      _root.quaternion = rotation;
+      _shownRotation = rotation;
+    }
+    if (world) {
+      final parentMatrix = _world(selected.parent!);
+      if (_compensatedParent != parentMatrix) {
+        _frame.parent?.remove(_frame);
+        for (final child in _root.children) {
+          _root.remove(child);
+        }
+        var node = _root;
+        // Keep inverse scale, rotation and translation separate. Their product
+        // cancels even a sheared ancestor chain without decomposing its matrix.
+        for (
+          Object3D? parent = selected.parent;
+          parent != null;
+          parent = parent.parent
+        ) {
+          final s = parent.scale, q = parent.quaternion;
+          node = node.add(Group()..scale = Vec3(1 / s.x, 1 / s.y, 1 / s.z));
+          node = node.add(Group()..quaternion = Quat(-q.x, -q.y, -q.z, q.w));
+          node = node.add(Group()..position = -parent.position);
+        }
+        node.add(_frame);
+        _compensatedParent = parentMatrix;
+      }
+      _frame.position = _point(_world(selected), Vec3.zero);
+    } else {
+      if (_compensatedParent != null) {
+        _frame.parent?.remove(_frame);
+        for (final child in _root.children) {
+          _root.remove(child);
+        }
+        _compensatedParent = null;
+      }
+      _root.add(_frame);
+      _frame.position = Vec3.zero;
     }
   }
 
@@ -172,8 +272,14 @@ class TransformGizmoPlugin extends ScenePlugin {
     return _context!.camera.rayFromNdc(ndc.x, ndc.y, viewport.aspect);
   }
 
-  /// Returns only a visible handle at the frontmost clipped surface.
+  /// Axis-only compatibility query. Use [hitTestHandle] to include plane pads.
   GizmoAxis? hitTest(ViewportPoint point, ViewportMetrics viewport) {
+    final handle = hitTestHandle(point, viewport);
+    return handle is GizmoAxis ? handle : null;
+  }
+
+  /// Returns only a visible handle at the frontmost clipped surface.
+  GizmoHandle? hitTestHandle(ViewportPoint point, ViewportMetrics viewport) {
     if (_context == null ||
         !viewport.isUsable ||
         !point.x.isFinite ||
@@ -221,37 +327,56 @@ class TransformGizmoPlugin extends ScenePlugin {
         final ray = _localRay(_ray(event.point, viewport), drag.inverse);
         final snap =
             snapEnabled || event.modifiers.contains(SceneModifier.shift);
-        final amount = _amount(ray, drag.axis, drag.mode);
+        final amount = _sample(ray, drag.handle, drag.mode);
         if (amount != null) {
-          var delta = amount - drag.start;
           switch (drag.mode) {
             case GizmoMode.translate:
-              if (snap) delta = _snap(delta, translationSnap);
+              final delta = amount - drag.start;
+              Vec3 movement;
+              if (drag.handle case final GizmoPlane plane) {
+                double component(GizmoAxis axis) => snap
+                    ? _snap(delta.dot(axis.direction), translationSnap)
+                    : delta.dot(axis.direction);
+                movement =
+                    plane.first.direction * component(plane.first) +
+                    plane.second.direction * component(plane.second);
+              } else {
+                movement =
+                    (drag.handle as GizmoAxis).direction *
+                    (snap ? _snap(delta.x, translationSnap) : delta.x);
+              }
               drag.session.update(
                 position:
                     drag.pose.position +
-                    drag.pose.rotation.rotate(drag.axis.direction) * delta,
+                    (drag.space == GizmoSpace.world
+                        ? _point(drag.parentInverse, movement, w: 0)
+                        : drag.pose.rotation.rotate(movement)),
               );
             case GizmoMode.rotate:
               // Accumulate wrapped increments so a drag can cross the +/- pi seam.
-              var step = amount - drag.previous;
+              var step = amount.x - drag.previous;
               if (step > math.pi) step -= math.pi * 2;
               if (step < -math.pi) step += math.pi * 2;
               drag.angle += step;
-              drag.previous = amount;
+              drag.previous = amount.x;
               final angle = snap ? _snap(drag.angle, rotationSnap) : drag.angle;
+              final axis = (drag.handle as GizmoAxis).direction;
               drag.session.update(
-                rotation:
-                    drag.pose.rotation *
-                    Quat.axisAngle(drag.axis.direction, angle),
+                rotation: drag.space == GizmoSpace.world
+                    ? Quat.axisAngle(
+                            _point(drag.parentInverse, axis, w: 0),
+                            angle * drag.handedness,
+                          ) *
+                          drag.pose.rotation
+                    : drag.pose.rotation * Quat.axisAngle(axis, angle),
               );
             case GizmoMode.scale:
-              var factor = 1 + delta / size;
+              var factor = 1 + (amount.x - drag.start.x) / size;
               if (snap) factor = _snap(factor, scaleSnap);
               factor = math.max(.05, factor);
               final scale = drag.pose.scale;
               drag.session.update(
-                scale: switch (drag.axis) {
+                scale: switch (drag.handle as GizmoAxis) {
                   GizmoAxis.x => Vec3(scale.x * factor, scale.y, scale.z),
                   GizmoAxis.y => Vec3(scale.x, scale.y * factor, scale.z),
                   GizmoAxis.z => Vec3(scale.x, scale.y, scale.z * factor),
@@ -271,22 +396,23 @@ class TransformGizmoPlugin extends ScenePlugin {
         (event.kind != ScenePointerKind.touch && event.buttons != 1)) {
       return;
     }
-    final axis = hitTest(event.point, viewport);
-    if (axis == null) return;
+    final handle = hitTestHandle(event.point, viewport);
+    if (handle == null) return;
     final selected = _tools!.selected!;
-    final inverse = _world(_root).inverted();
-    final amount = _amount(
+    final inverse = _world(_frame).inverted();
+    final amount = _sample(
       _localRay(_ray(event.point, viewport), inverse),
-      axis,
+      handle,
       _mode,
     );
-    // An axis aimed at the camera has no stable screen-space drag direction.
+    // End-on axes and edge-on planes have no stable screen-space drag direction.
     if (amount == null || _tools!._session != null) return;
     _tools!._suppressTap = true;
     _drag = _GizmoDrag(
       _tools!.beginTransform(selected),
-      axis,
+      handle,
       _mode,
+      effectiveSpace,
       event.pointer,
       inverse,
       viewport,
@@ -338,7 +464,7 @@ class TransformGizmoPlugin extends ScenePlugin {
       _materials[axis] = UnlitMaterial(color: Color3.hex(axis.color));
     }
     for (final mode in GizmoMode.values) {
-      final group = _root.add(Group(name: mode.name));
+      final group = _frame.add(Group(name: mode.name));
       _groups[mode] = group;
       for (final axis in GizmoAxis.values) {
         final rotation = switch (axis) {
@@ -369,6 +495,26 @@ class TransformGizmoPlugin extends ScenePlugin {
           );
         }
       }
+      if (mode == GizmoMode.translate) {
+        for (final plane in GizmoPlane.values) {
+          _materials[plane] = UnlitMaterial(color: Color3.hex(plane.color));
+          final normal = plane.perpendicular.direction;
+          final pad = group.add(
+            Mesh(
+              BoxGeometry(
+                width: size * (normal.x == 1 ? .025 : .22),
+                height: size * (normal.y == 1 ? .025 : .22),
+                depth: size * (normal.z == 1 ? .025 : .22),
+              ),
+              _materials[plane]!,
+              name: 'translate ${plane.name}',
+            ),
+          );
+          pad.position =
+              (plane.first.direction + plane.second.direction) * (size * .65);
+          _handles[pad] = plane;
+        }
+      }
     }
     _root.visible = false;
   }
@@ -376,27 +522,65 @@ class TransformGizmoPlugin extends ScenePlugin {
 
 final class _GizmoDrag {
   final TransformSession session;
-  final GizmoAxis axis;
+  final GizmoHandle handle;
   final GizmoMode mode;
+  final GizmoSpace space;
   final int pointer, cameraRevision;
   final Camera camera;
-  final Mat4 inverse;
+  final Mat4 inverse, parentInverse;
+  final double handedness;
   final ViewportMetrics viewport;
-  final double start;
+  final Vec3 start;
   final _Pose pose;
   double previous, angle = 0;
   _GizmoDrag(
     this.session,
-    this.axis,
+    this.handle,
     this.mode,
+    this.space,
     this.pointer,
     this.inverse,
     this.viewport,
     this.camera,
     this.start,
   ) : cameraRevision = camera.revision,
+      parentInverse = _world(session.object.parent!).inverted(),
+      handedness = _handedness(_world(session.object.parent!)),
       pose = _Pose.capture(session.object),
-      previous = start;
+      previous = start.x;
+}
+
+List<Vec3> _basis(Mat4 matrix) => [
+  Vec3.array(matrix.storage, 0),
+  Vec3.array(matrix.storage, 4),
+  Vec3.array(matrix.storage, 8),
+];
+double _handedness(Mat4 matrix) {
+  final b = _basis(matrix);
+  return b[0].cross(b[1]).dot(b[2]) < 0 ? -1 : 1;
+}
+
+bool _similarity(Mat4 matrix) {
+  final b = _basis(matrix);
+  final length = b[0].length;
+  if (!length.isFinite || length == 0) return false;
+  final unit = b.map((v) => v / length).toList();
+  return unit.every((v) => (v.length2 - 1).abs() < 1e-8) &&
+      unit[0].dot(unit[1]).abs() < 1e-8 &&
+      unit[1].dot(unit[2]).abs() < 1e-8 &&
+      unit[0].dot(unit[2]).abs() < 1e-8;
+}
+
+Vec3? _sample(CameraRay ray, GizmoHandle handle, GizmoMode mode) {
+  if (handle is GizmoAxis) {
+    final amount = _amount(ray, handle, mode);
+    return amount == null ? null : Vec3(amount, 0, 0);
+  }
+  final normal = (handle as GizmoPlane).perpendicular.direction;
+  final denominator = ray.direction.dot(normal);
+  if (denominator.abs() < .025) return null;
+  final t = -ray.origin.dot(normal) / denominator;
+  return t < 0 ? null : ray.at(t);
 }
 
 double _snap(double value, double step) =>

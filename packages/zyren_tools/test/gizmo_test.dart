@@ -94,6 +94,231 @@ void main() {
     await input.keys.close();
   });
 
+  test('world movement cancels parent rotation and nonuniform scale', () async {
+    parent.position = const Vec3(1, -1, .5);
+    parent.quaternion = Quat.axisAngle(const Vec3(0, 0, 1), math.pi / 2);
+    parent.scale = const Vec3(2, 3, 1);
+    mesh.position = const Vec3(.2, .1, 0);
+    mesh.quaternion = Quat.axisAngle(const Vec3(0, 1, 0), .4);
+    gizmo.space = GizmoSpace.world;
+    await flush();
+    const origin = Vec3(.7, -.6, .5);
+    final start = origin + const Vec3(1.45, 0, 0);
+    expect(gizmo.hitTest(project(start), input.viewport), GizmoAxis.x);
+    await pointer(ScenePointerPhase.down, start);
+    await pointer(ScenePointerPhase.up, start + const Vec3(.4, 0, 0));
+    expect(
+      mesh.position.distanceTo(const Vec3(.2, .1 - .4 / 3, 0)),
+      lessThan(1e-9),
+    );
+    expect(tools.undo(), isTrue);
+    expect(mesh.position, const Vec3(.2, .1, 0));
+    expect(tools.redo(), isTrue);
+    expect(mesh.position.y, closeTo(.1 - .4 / 3, 1e-9));
+  });
+
+  for (final plane in GizmoPlane.values) {
+    test(
+      '${plane.name} translation constrains and snaps both coordinates',
+      () async {
+        final start =
+            (plane.first.direction + plane.second.direction) *
+            (.65 * gizmo.size);
+        expect(gizmo.hitTestHandle(project(start), input.viewport), plane);
+        expect(gizmo.hitTest(project(start), input.viewport), isNull);
+        expect(tools.pick(project(start), input.viewport), isNull);
+        await pointer(ScenePointerPhase.down, start);
+        expect(gizmo.activePlane, plane);
+        expect(gizmo.activeAxis, isNull);
+        final end =
+            start + plane.first.direction * .31 - plane.second.direction * .56;
+        await pointer(
+          ScenePointerPhase.up,
+          end,
+          modifiers: {SceneModifier.shift},
+        );
+        final expected =
+            plane.first.direction * .25 - plane.second.direction * .5;
+        expect(mesh.position.distanceTo(expected), lessThan(1e-9));
+        expect(tools.undo(), isTrue);
+        expect(mesh.position, Vec3.zero);
+        expect(tools.undo(), isFalse);
+        expect(tools.redo(), isTrue);
+        expect(mesh.position.distanceTo(expected), lessThan(1e-9));
+      },
+    );
+  }
+
+  test(
+    'world plane movement uses world increments under a transformed parent',
+    () async {
+      parent.scale = const Vec3(2, 3, 4);
+      parent.quaternion = Quat.axisAngle(const Vec3(0, 0, 1), math.pi / 2);
+      gizmo.space = GizmoSpace.world;
+      const start = Vec3(.975, .975, 0);
+      await pointer(ScenePointerPhase.down, start);
+      expect(gizmo.activePlane, GizmoPlane.xy);
+      await pointer(
+        ScenePointerPhase.up,
+        start + const Vec3(.26, .51, 0),
+        modifiers: {SceneModifier.shift},
+      );
+      expect(
+        mesh.position.distanceTo(const Vec3(.25, -1 / 12, 0)),
+        lessThan(1e-9),
+      );
+    },
+  );
+
+  test(
+    'world handles cancel a nested sheared hierarchy and a transformed scene',
+    () async {
+      scene.scale = const Vec3(1, 2, 1);
+      scene.quaternion = Quat.axisAngle(const Vec3(0, 0, 1), .2);
+      final outer = scene.add(
+        Group()..quaternion = Quat.axisAngle(const Vec3(0, 1, 0), .3),
+      );
+      outer.add(parent);
+      parent.scale = const Vec3(-2, 3, 1);
+      parent.quaternion = Quat.axisAngle(const Vec3(0, 0, 1), .4);
+      mesh.scale = const Vec3(.1, .1, .1);
+      gizmo.space = GizmoSpace.world;
+      await pointer(ScenePointerPhase.down, const Vec3(1.45, 0, 0));
+      expect(gizmo.activeAxis, GizmoAxis.x);
+      await pointer(ScenePointerPhase.up, const Vec3(1.95, 0, 0));
+      final world =
+          scene.localMatrix *
+          outer.localMatrix *
+          parent.localMatrix *
+          mesh.localMatrix;
+      expect(
+        Vec3.array(world.storage, 12).distanceTo(const Vec3(.5, 0, 0)),
+        lessThan(1e-9),
+      );
+      expect(mesh.scale, const Vec3(.1, .1, .1));
+      gizmo.mode = GizmoMode.rotate;
+      expect(gizmo.unavailableReason, isNotNull);
+    },
+  );
+
+  test(
+    'local planes follow rotated axes and preserve parent-unit snapping',
+    () async {
+      parent.scale = const Vec3(2, 3, 1);
+      mesh.quaternion = Quat.axisAngle(const Vec3(0, 0, 1), math.pi / 2);
+      Vec3 world(Vec3 p) {
+        final v = mesh.quaternion.rotate(p);
+        return Vec3(v.x * 2, v.y * 3, v.z);
+      }
+
+      const start = Vec3(.975, .975, 0);
+      await pointer(ScenePointerPhase.down, world(start));
+      expect(gizmo.activePlane, GizmoPlane.xy);
+      await pointer(
+        ScenePointerPhase.up,
+        world(start + const Vec3(.31, .56, 0)),
+        modifiers: {SceneModifier.shift},
+      );
+      expect(mesh.position.distanceTo(const Vec3(-.5, .25, 0)), lessThan(1e-9));
+    },
+  );
+
+  test('an edge-on plane cannot capture an unstable drag', () async {
+    camera = OrthographicCamera(
+      position: const Vec3(0, 6, 0),
+      up: const Vec3(0, 0, 1),
+      left: -4,
+      right: 4,
+      top: 3,
+      bottom: -3,
+    );
+    engine.camera = camera;
+    const point = Vec3(.975, .975, 0);
+    expect(gizmo.hitTestHandle(project(point), input.viewport), GizmoPlane.xy);
+    await pointer(ScenePointerPhase.down, point);
+    expect(gizmo.isDragging, isFalse);
+    await pointer(ScenePointerPhase.up, point);
+    expect(tools.canUndo, isFalse);
+  });
+
+  for (final reflected in [false, true]) {
+    test(
+      'world rotation respects the parent frame, reflection $reflected',
+      () async {
+        parent.quaternion = Quat.axisAngle(const Vec3(0, 1, 0), .5);
+        parent.scale = Vec3(reflected ? -2 : 2, 2, 2);
+        mesh.quaternion = Quat.axisAngle(const Vec3(1, 0, 0), .3);
+        Vec3 worldVector() {
+          final p = mesh.quaternion.rotate(const Vec3(1, 1, 0));
+          return parent.quaternion.rotate(
+            Vec3(p.x * parent.scale.x, p.y * 2, p.z * 2),
+          );
+        }
+
+        final before = worldVector();
+        gizmo.space = GizmoSpace.world;
+        gizmo.mode = GizmoMode.rotate;
+        Vec3 point(double angle) =>
+            Vec3(1.275 * math.cos(angle), 1.275 * math.sin(angle), 0);
+        await pointer(ScenePointerPhase.down, point(math.pi / 4));
+        expect(gizmo.activeAxis, GizmoAxis.z);
+        await pointer(ScenePointerPhase.up, point(math.pi / 4 + .3));
+        expect(
+          worldVector().distanceTo(
+            Quat.axisAngle(const Vec3(0, 0, 1), .3).rotate(before),
+          ),
+          lessThan(1e-9),
+        );
+        expect(tools.undo(), isTrue);
+        expect(worldVector().distanceTo(before), lessThan(1e-9));
+      },
+    );
+  }
+
+  test(
+    'world rotation explains incompatible parent scale and local rotation remains usable',
+    () async {
+      parent.scale = const Vec3(2, 3, 1);
+      gizmo.space = GizmoSpace.world;
+      gizmo.mode = GizmoMode.rotate;
+      expect(gizmo.unavailableReason, isNotNull);
+      expect(
+        gizmo.hitTest(project(const Vec3(1.275, 0, 0)), input.viewport),
+        isNull,
+      );
+      gizmo.space = GizmoSpace.local;
+      expect(gizmo.unavailableReason, isNull);
+      gizmo.space = GizmoSpace.world;
+      gizmo.mode = GizmoMode.scale;
+      expect(gizmo.effectiveSpace, GizmoSpace.local);
+      expect(gizmo.unavailableReason, isNull);
+      gizmo.mode = GizmoMode.translate;
+      expect(gizmo.effectiveSpace, GizmoSpace.world);
+      expect(gizmo.unavailableReason, isNull);
+    },
+  );
+
+  test(
+    'space changes and plane cancellation restore an owned preview',
+    () async {
+      const start = Vec3(.975, .975, 0);
+      for (final changeSpace in [true, false]) {
+        gizmo.space = GizmoSpace.local;
+        await pointer(ScenePointerPhase.down, start);
+        await pointer(ScenePointerPhase.move, start + const Vec3(.2, .3, 0));
+        expect(mesh.position.length, greaterThan(.3));
+        if (changeSpace) {
+          gizmo.space = GizmoSpace.world;
+        } else {
+          await pointer(ScenePointerPhase.cancel, start);
+        }
+        expect(mesh.position, Vec3.zero);
+        expect(tools.canUndo, isFalse);
+        expect(orbit.controls!.enabled, isTrue);
+      }
+    },
+  );
+
   test(
     'native move handles capture the pointer and commit a single undo',
     () async {
