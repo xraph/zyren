@@ -257,6 +257,14 @@ scope.release(template): stop future instantiation; retain live instance resourc
 
 ## Task 4: Public render graph and shader plugin API
 
+Compiler checkpoint, 2026-09-27: `ShaderSource`, `ShaderCompiler`, opaque
+`ShaderProgram`, typed UTF-16 diagnostics and lazy `context.shaders` ownership
+are implemented. The native worker validates WGSL modules, bounds admission and
+shares live modules across compilers on one device. Compiler errors preserve
+the device. Render graph execution, bindings, custom materials, platform-view
+integration and the independent effects example remain open. See
+[shader compilation](../../design/shader-compilation.md).
+
 **Files:** Create graph/shader modules from the map, native
 `src/render_graph/{compile,execute}.rs`, Dart `test/render_graph_test.dart`,
 native `tests/shader_diagnostics.rs`, `examples/shader_lab` and a separate

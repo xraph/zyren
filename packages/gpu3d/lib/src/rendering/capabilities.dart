@@ -14,6 +14,7 @@ enum RenderFeature {
   alphaMaterials,
   portablePrimitives,
   materialSidedness,
+  shaderCompilation,
 }
 
 /// Limits enforced by the backend, even if the adapter can allocate more.

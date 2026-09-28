@@ -14,3 +14,8 @@ abstract interface class RenderBackend {
 abstract interface class ResourceBackend implements RenderBackend {
   ResourceScope createResourceScope({String label = ''});
 }
+
+/// Optional native module compiler. Executable passes require graph support too.
+abstract interface class ShaderBackend implements ResourceBackend {
+  ShaderCompiler createShaderCompiler({String label = ''});
+}

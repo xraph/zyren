@@ -9,6 +9,7 @@ import '../rendering/frame_submission.dart';
 import '../rendering/frame_output.dart';
 import '../rendering/render_backend.dart';
 import '../scene/scene.dart';
+import '../resources/resource_scope.dart';
 
 /// Share one exported key instance between a provider and its dependents.
 class ServiceKey<T extends Object> {
@@ -50,6 +51,9 @@ abstract class ScenePlugin {
 
 /// Services belong to this engine, never to a process-wide registry.
 class PluginContext {
+  final String _pluginId;
+  final RenderBackend? _backend;
+  ShaderCompiler? _shaders;
   final Scene scene;
   Camera camera;
   final DeviceCapabilities capabilities;
@@ -62,6 +66,8 @@ class PluginContext {
   bool _registering = true;
   bool _active = true;
   PluginContext._(
+    this._pluginId,
+    this._backend,
     this.scene,
     this.camera,
     this.capabilities,
@@ -70,6 +76,31 @@ class PluginContext {
     this._demand,
     this.input,
   );
+
+  /// Lazily owns shader programs for this attachment. Closing [scope] stops
+  /// compilation and releases its programs after accepted work settles.
+  ShaderCompiler get shaders {
+    if (!_active || scope.isClosed) {
+      throw StateError('Plugin context has been detached.');
+    }
+    if (_shaders case final compiler?) return compiler;
+    final backend = _backend;
+    if (backend is! ShaderBackend) {
+      throw SceneException(
+        SceneIssue(
+          code: SceneIssueCodes.unsupportedFeature,
+          message: 'This backend cannot compile custom shaders.',
+          operation: 'compile',
+          pluginId: _pluginId,
+          requiredFeatures: {RenderFeature.shaderCompilation},
+        ),
+      );
+    }
+    final compiler = backend.createShaderCompiler(label: _pluginId);
+    scope.onClose(compiler.close);
+    return _shaders = compiler;
+  }
+
   void invalidate() {
     if (!_active) throw StateError('Plugin context has been detached.');
     _invalidate?.call();
@@ -245,6 +276,8 @@ class SceneEngine {
       }
       for (final plugin in ordered) {
         final context = PluginContext._(
+          plugin.id,
+          backend,
           scene,
           camera,
           engine.capabilities,

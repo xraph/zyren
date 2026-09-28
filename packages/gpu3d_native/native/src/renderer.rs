@@ -94,6 +94,7 @@ pub struct RendererState {
     layout: wgpu::BindGroupLayout,
     geometries: HashMap<u32, GpuGeometry>,
     resources: crate::resources::ResourceStore,
+    shaders: crate::shaders::ShaderStore,
     views: HashMap<u64, crate::scene_packet::ViewState>,
     targets: Option<Targets>,
     pub adapter_name: String,
@@ -203,6 +204,7 @@ impl Renderer {
                 layout,
                 geometries: HashMap::new(),
                 resources: crate::resources::ResourceStore::default(),
+                shaders: crate::shaders::ShaderStore::default(),
                 views: HashMap::new(),
                 targets: None,
                 adapter_name: info.name,
@@ -239,6 +241,13 @@ impl Renderer {
             state.failure = Some("GPU resource command failed; recreate this renderer".into());
         }
         result
+    }
+
+    pub fn shader_command(&mut self, bytes: &[u8], capacity: usize) -> Result<Vec<u8>, String> {
+        let state = self.state.as_mut().unwrap();
+        state
+            .shaders
+            .execute(&state.device, bytes, capacity, &mut state.failure)
     }
 
     fn resize(&mut self, width: u32, height: u32) {

@@ -100,6 +100,25 @@ external int resourceCommand(
   Pointer<Size> written,
 );
 
+@Native<
+  Uint32 Function(
+    Uint64,
+    Pointer<Uint8>,
+    Size,
+    Pointer<Uint8>,
+    Size,
+    Pointer<Size>,
+  )
+>(symbol: 'fg2_shader_command', assetId: _asset)
+external int shaderCommand(
+  int handle,
+  Pointer<Uint8> input,
+  int length,
+  Pointer<Uint8> output,
+  int capacity,
+  Pointer<Size> written,
+);
+
 @Native<Uint32 Function(Uint64, Uint64)>(
   symbol: 'fg2_scene_close',
   assetId: _asset,

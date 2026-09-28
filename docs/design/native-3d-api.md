@@ -479,8 +479,11 @@ class HeatmapPlugin extends ScenePlugin {
 }
 ```
 
-`heatmapWgsl`, `heatmapBindings` and `heatmapTexture` are application inputs, defined and compiled
-in the executable shader example delivered by plan 03. `ShaderSource`,
+`context.shaders`, `ShaderSource` and `ShaderProgram` are implemented in the
+[compiler checkpoint](shader-compilation.md). The graph code above is the target
+API for the remaining task 4 work. `heatmapWgsl`, `heatmapBindings` and
+`heatmapTexture` will be application inputs in the independent effects example.
+`ShaderSource`,
 `ComputePassDescriptor`, `Workgroups` and `ShaderBindings` are advanced core
 contracts. A shader program comes from compilation; callers cannot fabricate one
 by casting an integer. `context.scope.keep(Registration)` guarantees deregistration

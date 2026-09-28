@@ -49,8 +49,11 @@ final class _ResourcePacket {
   Uint8List finish() => _bytes.takeBytes();
 }
 
-final class _NativeResourceDevice implements ResourceDevice {
+final class _NativeResourceDevice
+    with _NativeShaders
+    implements ResourceDevice, ShaderDevice {
   final NativeRenderer _renderer;
+  @override
   WorkerSession get _worker => _renderer._worker;
   int _nextRequest = 0;
   _NativeResourceDevice(this._renderer);

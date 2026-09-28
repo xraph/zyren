@@ -745,3 +745,33 @@ at verification. No Flutter or AndroidRuntime error was reported for that
 process. The device's screensaver covered the app during the final inspection,
 so a manual release-screen check is still pending. The integration tests and
 standalone native PNG are the visual/rendering evidence for this checkpoint.
+
+## Scoped WGSL compiler
+
+Native WGSL module validation passes through the Dart worker on macOS Metal and
+the physical Pixel's Vulkan device. Tests cover syntax and type errors, UTF-16
+locations around emoji, duplicate-source caching, independent shared-view
+ownership, foreign handles and close during pending compilation. Each fixture
+renders an existing red mesh after a failed compile to verify that the device
+remains usable, then checks that closing shader owners clears their cache.
+
+The Rust tests also cover the 256-program and 16 MiB source budgets, response
+capacity before mutation, strict command fields, cross-type handle rejection,
+entry point stages and workgroup overrides. The complete Rust suite passes all
+68 tests, including GPU tests. Clippy reports no warnings. Dart coverage passes
+169 core/geospatial/glTF tests, 39 native tests and 57 Flutter facade tests;
+workspace analysis, formatting and package/header boundaries also pass.
+A scope regression also confirms that synchronous closure during stream
+subscription still cancels the rejected listener.
+
+The standalone `example/shader_compiler.dart` ran on Metal and reported a validated
+compute entry point, a labeled error at line 1, column 45, and zero programs or
+cached modules after close. This is module-validation evidence. Custom shader
+dispatch, render graph execution and native platform-view bindings remain open.
+The macOS integration passed even though the app could not be foregrounded;
+the locked desktop's manual window inspection remains unverified. These checks
+add no iOS, Windows, Linux or Adreno qualification.
+
+The wider Rust run found an obsolete JSON-material test that rejected mask
+cutoffs above one. Its regression now accepts finite float32 values through
+`f32::MAX` and rejects negative cutoffs, matching the existing glTF/binary contract.

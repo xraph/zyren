@@ -1,8 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 import '../plugins/attachment_scope.dart';
+import '../rendering/scene_issue.dart';
 import 'buffer.dart';
 import 'texture.dart';
+part '../rendering/shader.dart';
+part '../rendering/shader_compiler.dart';
 
 /// Adapter contract for a single device generation. Keys remain backend-private.
 /// A successful allocation owns one reference. Release waits for GPU retirement.

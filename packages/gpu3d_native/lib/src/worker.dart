@@ -59,22 +59,28 @@ void renderWorker(WorkerBootstrap start) {
         reply(true, null);
         return;
       }
-      if (request.operation == 'resource') {
+      if (request.operation == 'resource' || request.operation == 'shader') {
         final bytes = (request.arguments[0] as TransferableTypedData)
             .materialize()
             .asUint8List();
         final capacity = request.arguments[1] as int;
-        if (bytes.length > 64 * 1024 * 1024 + 2048 ||
-            capacity < 24 ||
-            capacity > 64 * 1024 * 1024 + 24) {
-          throw ArgumentError('Resource transfer exceeds the native limit.');
+        final shader = request.operation == 'shader';
+        if (shader
+            ? (bytes.length > 8 * 1024 * 1024 || capacity != 256 * 1024)
+            : (bytes.length > 64 * 1024 * 1024 + 2048 ||
+                  capacity < 24 ||
+                  capacity > 64 * 1024 * 1024 + 24)) {
+          throw ArgumentError('Native command transfer exceeds the limit.');
         }
         final input = calloc<Uint8>(bytes.length),
             output = calloc<Uint8>(capacity);
         final written = calloc<Size>();
         try {
           input.asTypedList(bytes.length).setAll(0, bytes);
-          final status = native.resourceCommand(
+          final command = shader
+              ? native.shaderCommand
+              : native.resourceCommand;
+          final status = command(
             owner.handle,
             input,
             bytes.length,
@@ -82,6 +88,9 @@ void renderWorker(WorkerBootstrap start) {
             capacity,
             written,
           );
+          if (written.value > capacity) {
+            throw StateError('Native command exceeded response capacity.');
+          }
           reply(true, <Object>[
             status,
             status == 0

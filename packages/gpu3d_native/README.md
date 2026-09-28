@@ -11,6 +11,7 @@ use the same native worker and ABI; neither requires a Flutter engine.
 fvm dart run example/offscreen.dart
 fvm dart run example/resources.dart
 fvm dart run example/shared_views.dart
+fvm dart run example/shader_compiler.dart
 RUN_NATIVE_GPU=1 fvm dart test --concurrency=1
 ```
 
@@ -57,3 +58,10 @@ materials let you choose physical pixel or world sizes. Native triangle expansio
 keeps widths portable across backends, and camera or size edits reuse geometry.
 Run `lib/primitives_demo.dart` to try both size modes. Current lines have butt
 ends; joins, configurable caps, dashes and textured sprites remain open.
+
+Use `createShaderCompiler()` or a plugin's `context.shaders` to validate WGSL
+modules on the native worker. Source errors include Dart string locations and
+leave the device usable. Compilers own their programs, and shared views can
+retain them independently. See [shader compilation](../../docs/design/shader-compilation.md)
+for the API and limits. Dispatch, custom materials and render graph execution
+remain in progress.

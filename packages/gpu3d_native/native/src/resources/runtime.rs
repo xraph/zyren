@@ -1,14 +1,10 @@
 use super::{
     ResourceError,
-    registry::{ResourceKey, ResourceRegistry},
+    registry::{ResourceKey, ResourceRegistry, next_registry_id},
     upload::{Command, MAX_BYTES, Operation, checked_upload_range},
 };
-use std::{
-    sync::atomic::{AtomicU64, Ordering},
-    time::Duration,
-};
+use std::time::Duration;
 mod scene_updates;
-static NEXT_DEVICE: AtomicU64 = AtomicU64::new(1);
 
 enum Resource {
     Geometry {
@@ -40,9 +36,7 @@ pub struct ResourceStore {
 }
 impl Default for ResourceStore {
     fn default() -> Self {
-        let renderer = NEXT_DEVICE
-            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |id| id.checked_add(1))
-            .expect("resource device IDs exhausted");
+        let renderer = next_registry_id();
         Self {
             registry: ResourceRegistry::new(renderer, 1, MAX_BYTES),
             serial: 0,

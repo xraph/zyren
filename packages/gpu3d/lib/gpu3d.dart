@@ -31,4 +31,5 @@ export 'src/rendering/frame_output.dart'
 export 'src/resources/buffer.dart';
 export 'src/resources/texture.dart';
 export 'src/resources/texture_image.dart';
-export 'src/resources/resource_scope.dart' hide ResourceDevice;
+export 'src/resources/resource_scope.dart'
+    hide ResourceDevice, ShaderDevice, ShaderBuild;

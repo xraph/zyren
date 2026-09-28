@@ -1,9 +1,16 @@
 #ifndef GPU3D_H
 #define GPU3D_H
 #include <stdint.h>
+#include <stddef.h>
 #ifdef __cplusplus
 extern "C" {
 #endif
+/* Bounded UTF-8 JSON shader commands, version 1. Output capacity must be
+ * 262144 bytes. Zero means a response, including compile diagnostics.
+ * A nonzero return is a transport failure; read fg_last_error.
+ */
+uint32_t fg2_shader_command(uint64_t renderer, const uint8_t *input, size_t length,
+                            uint8_t *output, size_t capacity, size_t *written);
 #define FG2_ABI_VERSION 2
 typedef enum {
   FG2_OK = 0,
