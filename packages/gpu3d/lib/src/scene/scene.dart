@@ -13,6 +13,7 @@ part 'revision.dart';
 part 'primitives.dart';
 part '../lights/punctual_light.dart';
 part '../lights/hemisphere_light.dart';
+part '../lights/shadow_settings.dart';
 
 class Object3D with _Revisioned {
   final String? name;
@@ -123,6 +124,21 @@ class Group extends Object3D {
 }
 
 class Mesh extends Object3D {
+  bool _castShadow = false, _receiveShadow = false;
+  bool get castShadow => _castShadow;
+  set castShadow(bool value) {
+    if (_castShadow == value) return;
+    _castShadow = value;
+    _changed();
+  }
+
+  bool get receiveShadow => _receiveShadow;
+  set receiveShadow(bool value) {
+    if (_receiveShadow == value) return;
+    _receiveShadow = value;
+    _changed();
+  }
+
   final BufferGeometry geometry;
   MeshMaterial _material;
   int _renderOrder = 0;
@@ -374,6 +390,9 @@ class Scene extends Object3D {
       }
       final world = parent * node.localMatrix.toVectorMath();
       if (node is Mesh) {
+        if (node.castShadow || node.receiveShadow) {
+          throw UnsupportedError('Shadows require binary scene submissions.');
+        }
         if (node.material.colorMap != null) {
           throw UnsupportedError(
             'Texture materials require binary scene submissions.',

@@ -88,6 +88,9 @@ class NativeBackend implements NativeGpuBackend {
   @override
   Future<GraphCacheStats> graphStats() => _resources.graphStats();
 
+  @override
+  Future<ShadowStats> shadowStats() => _resources.shadowStats();
+
   /// Apple texture registration remains experimental while Flutter's texture
   /// cache prevents prompt buffer retirement. Keep it out of default selection.
   static Future<NativeBackend> create({
@@ -129,6 +132,7 @@ class NativeBackend implements NativeGpuBackend {
       RenderFeature.standardMaterials,
       RenderFeature.hdrColor,
       RenderFeature.environmentLighting,
+      RenderFeature.shadows,
       RenderFeature.compute,
       RenderFeature.storageTextures,
       if (_experimentalAppleSurfaces && NativeSurfaces().appleAvailable)

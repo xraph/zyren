@@ -141,7 +141,9 @@ final class ScenePacketEncoder {
         uploadBytes > 64 * 1024 * 1024) {
       throw ArgumentError('Scene resource upload exceeds the frame budget.');
     }
-    final opcode = submission.colorPipeline != null
+    final opcode = scene.hasShadows
+        ? 22
+        : submission.colorPipeline != null
         ? 21
         : scene.hasStandardMaterials ||
               scene.hemisphereLightCount > 0 ||
@@ -208,9 +210,33 @@ final class ScenePacketEncoder {
         body.floats([light['intensity'] as double]);
       }
     }
-    if (opcode >= 21) {
+    if (opcode >= 22) body.u32(submission.colorPipeline == null ? 0 : 1);
+    if (opcode >= 21 && submission.colorPipeline != null) {
       body.u32(submission.colorPipeline!.toneMapping.index);
       body.floats([submission.colorPipeline!.exposure]);
+    }
+    if (opcode >= 22) {
+      body.u32(submission.shadows.views.length);
+      body.floats(submission.shadows.forward);
+      for (final view in submission.shadows.views) {
+        body.integers([
+          view.lightIndex,
+          view.kind,
+          view.resolution,
+          view.revision,
+        ]);
+        body.floats(view.viewProjection);
+        body.floats([
+          view.near,
+          view.far,
+          view.blend,
+          view.settings.strength,
+          view.settings.bias,
+          view.settings.normalBias,
+          view.settings.slopeBias,
+          view.settings.filterRadius,
+        ]);
+      }
     }
     body.u32(scene._textures.length);
     body.u32(textures.length);
@@ -323,6 +349,10 @@ final class ScenePacketEncoder {
             }
           }
         }
+      }
+      if (opcode >= 22) {
+        body.u32(mesh['cast_shadow'] == true ? 1 : 0);
+        body.u32(mesh['receive_shadow'] == true ? 1 : 0);
       }
     }
     final payload = body.finish();
@@ -438,6 +468,8 @@ bool _sameMesh(Map<String, Object> a, Map<String, Object> b) {
     'primitive_size',
     'size_units',
     'point_shape',
+    'cast_shadow',
+    'receive_shadow',
   ]) {
     if (a[field] != b[field]) return false;
   }

@@ -53,6 +53,9 @@ class NativeAndroidBackend implements NativeGpuBackend {
   @override
   Future<GraphCacheStats> graphStats() => _gpu.graphStats();
 
+  @override
+  Future<ShadowStats> shadowStats() => _gpu.shadowStats();
+
   static Future<NativeAndroidBackend> create({int? runtimeToken}) async {
     if (defaultTargetPlatform != TargetPlatform.android) {
       throw _issue(
@@ -112,6 +115,7 @@ class NativeAndroidBackend implements NativeGpuBackend {
       RenderFeature.standardMaterials,
       RenderFeature.hdrColor,
       RenderFeature.environmentLighting,
+      RenderFeature.shadows,
       RenderFeature.compute,
       RenderFeature.storageTextures,
     },

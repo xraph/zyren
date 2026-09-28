@@ -669,6 +669,17 @@ class SceneEngine {
           ),
         );
       }
+      if (_hasVisibleShadows(scene) &&
+          !capabilities.supports(RenderFeature.shadows)) {
+        throw SceneException(
+          SceneIssue(
+            code: SceneIssueCodes.unsupportedFeature,
+            message: 'This backend does not support shadows.',
+            operation: 'render',
+            requiredFeatures: {RenderFeature.shadows},
+          ),
+        );
+      }
       if (_visibleLightCount(scene) > capabilities.limits.maxPunctualLights ||
           _visibleHemisphereLightCount(scene) >
               capabilities.limits.maxHemisphereLights) {
@@ -832,3 +843,9 @@ int _visibleHemisphereLightCount(Object3D node) => !node.visible
             0,
             (sum, child) => sum + _visibleHemisphereLightCount(child),
           );
+
+bool _hasVisibleShadows(Object3D node) =>
+    node.visible &&
+    ((node is PunctualLight && node.shadow != null) ||
+        (node is Mesh && (node.castShadow || node.receiveShadow)) ||
+        node.children.any(_hasVisibleShadows));

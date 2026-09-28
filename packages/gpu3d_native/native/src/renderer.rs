@@ -14,7 +14,9 @@ mod composition;
 mod draw_order;
 mod materials;
 mod pipelines;
+mod shadows;
 mod textures;
+pub use shadows::ShadowStats;
 
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
@@ -103,6 +105,7 @@ pub struct RendererState {
     layout: wgpu::BindGroupLayout,
     pbr_layout: wgpu::BindGroupLayout,
     environment_defaults: environment::Defaults,
+    shadows: shadows::ShadowSystem,
     geometries: HashMap<u32, GpuGeometry>,
     resources: crate::resources::ResourceStore,
     shaders: crate::shaders::ShaderStore,
@@ -219,12 +222,14 @@ impl Renderer {
                     },
                 ],
                 environment::layout_entries(),
+                shadows::layout_entries(),
             ]
             .concat(),
         });
         let environment_defaults = environment::Defaults::new(&device);
         let texture_layout = textures::layout(&device, 1);
         let standard_texture_layout = textures::layout(&device, 5);
+        let shadows = shadows::ShadowSystem::new(&device, &texture_layout);
         let pipelines = pipelines::MeshPipelines::new(
             &device,
             &layout,
@@ -250,6 +255,7 @@ impl Renderer {
                 standard_texture_layout,
                 pbr_layout,
                 environment_defaults,
+                shadows,
                 textures: HashMap::new(),
                 #[cfg(any(target_vendor = "apple", target_os = "android"))]
                 surface_depth: None,
@@ -310,9 +316,11 @@ impl Renderer {
     }
 
     pub fn graph_command(&mut self, bytes: &[u8], capacity: usize) -> Result<Vec<u8>, String> {
+        let shadow_stats = self.shadow_stats();
         let state = self.state.as_mut().unwrap();
         state.graphs.command(
             crate::render_graph::GraphContext {
+                shadow_stats,
                 mesh_layout: &state.layout,
                 device: &state.device,
                 queue: &state.queue,
@@ -424,6 +432,7 @@ impl Renderer {
     }
     pub fn close_scene_view(&mut self, view: u64) -> Result<(), String> {
         self.views.remove(&view);
+        self.shadows.remove(view);
         self.evict_geometry()
     }
     fn evict_geometry(&mut self) -> Result<(), String> {
@@ -631,9 +640,10 @@ impl Renderer {
             &[Option<crate::render_graph::PreparedMaterial>],
             Option<&crate::render_graph::FrameGraph>,
             &environment::PreparedEnvironment,
+            &shadows::PreparedShadows,
         ),
     ) -> wgpu::CommandEncoder {
-        let (materials, graph, environment) = composition;
+        let (materials, graph, environment, shadows) = composition;
         let vp = Mat4::from_cols_array(&frame.view_projection);
         let lighting = frame.meshes.iter().any(|m| m.pbr.is_some()).then(|| {
             self.device
@@ -679,10 +689,14 @@ impl Renderer {
                             0.,
                         ]
                     }),
-                    pbr_params: mesh
-                        .pbr
-                        .as_ref()
-                        .map_or([0.; 4], |p| [p.metallic, p.roughness, 0., 0.]),
+                    pbr_params: mesh.pbr.as_ref().map_or([0.; 4], |p| {
+                        [
+                            p.metallic,
+                            p.roughness,
+                            if mesh.receive_shadow { 1. } else { 0. },
+                            0.,
+                        ]
+                    }),
                     emissive: mesh.pbr.as_ref().map_or([0.; 4], |p| {
                         [p.emissive[0], p.emissive[1], p.emissive[2], 0.]
                     }),
@@ -733,6 +747,7 @@ impl Renderer {
                         resource: lighting.as_ref().unwrap().as_entire_binding(),
                     });
                     entries.extend(environment.entries(&self.environment_defaults));
+                    entries.extend(shadows.entries(&self.shadows));
                 }
                 self.device.create_bind_group(&wgpu::BindGroupDescriptor {
                     label: None,
@@ -754,6 +769,7 @@ impl Renderer {
         if let Some(graph) = graph {
             graph.encode_before(&mut encoder);
         }
+        shadows.encode(self, frame, &mut encoder);
         {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("native frame"),
@@ -904,10 +920,12 @@ impl Renderer {
         height: u32,
     ) -> Result<(), String> {
         pixel_len(width, height)?;
+        self.check_shadows(frame)?;
         let graph = self.resolve_frame_graph(frame, width, height)?;
         let environment = self.prepare_environment(frame, graph.as_ref())?;
         let materials = self.prepare_materials(frame, texture.format(), graph.as_ref())?;
         self.prepare_scene(frame)?;
+        let shadows = self.prepare_shadows(frame)?;
         if self
             .surface_depth
             .as_ref()
@@ -947,7 +965,7 @@ impl Renderer {
             &self.surface_depth.as_ref().unwrap().view,
             texture.format(),
             [texture.width(), texture.height()],
-            (graph.as_ref(), &materials, true, &environment),
+            (graph.as_ref(), &materials, true, &environment, &shadows),
         );
         let result = self
             .submit(encoder, graph.as_ref(), &materials, &environment)
@@ -957,16 +975,19 @@ impl Renderer {
             self.failed_surface = Some(texture);
             return Err(error);
         }
+        self.accept_shadows(shadows);
         Ok(())
     }
 
     pub fn render(&mut self, frame: &Frame, width: u32, height: u32) -> Result<Vec<u8>, String> {
         let len = pixel_len(width, height)?;
+        self.check_shadows(frame)?;
         let graph = self.resolve_frame_graph(frame, width, height)?;
         let environment = self.prepare_environment(frame, graph.as_ref())?;
         let materials =
             self.prepare_materials(frame, wgpu::TextureFormat::Rgba8UnormSrgb, graph.as_ref())?;
         self.prepare_scene(frame)?;
+        let shadows = self.prepare_shadows(frame)?;
         self.resize(width, height);
         self.prepare_frame_pipelines(
             frame,
@@ -982,7 +1003,7 @@ impl Renderer {
             &target.depth_view,
             wgpu::TextureFormat::Rgba8UnormSrgb,
             [width, height],
-            (graph.as_ref(), &materials, false, &environment),
+            (graph.as_ref(), &materials, false, &environment, &shadows),
         );
         encoder.copy_texture_to_buffer(
             target.color.as_image_copy(),
@@ -1009,6 +1030,7 @@ impl Renderer {
             let _ = sender.send(result);
         });
         self.wait_for_submission(submission)?;
+        self.accept_shadows(shadows);
         let mapped_result = receiver
             .recv_timeout(Duration::from_secs(1))
             .map_err(|error| format!("readback callback failed: {error}"))

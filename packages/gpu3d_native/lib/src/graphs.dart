@@ -1,5 +1,16 @@
 part of 'native_renderer.dart';
 
+/// Internal depth atlases, separate from application-owned resource scopes.
+final class ShadowStats {
+  final int atlasCount, residentBytes, renderedViews, reusedFrames;
+  const ShadowStats({
+    required this.atlasCount,
+    required this.residentBytes,
+    required this.renderedViews,
+    required this.reusedFrames,
+  });
+}
+
 final class GraphCacheStats {
   final int liveGraphs,
       descriptionBytes,
@@ -120,6 +131,16 @@ mixin _NativeGraphs {
 
   Future<void> releaseGraph(Object key) async {
     await _graphCommand({'operation': 'release', 'key': key as _GraphKey});
+  }
+
+  Future<ShadowStats> shadowStats() async {
+    final result = await _graphCommand({'operation': 'shadowStats'});
+    return ShadowStats(
+      atlasCount: result['atlasCount'] as int,
+      residentBytes: result['residentBytes'] as int,
+      renderedViews: result['renderedViews'] as int,
+      reusedFrames: result['reusedFrames'] as int,
+    );
   }
 
   Future<GraphCacheStats> graphStats() async {

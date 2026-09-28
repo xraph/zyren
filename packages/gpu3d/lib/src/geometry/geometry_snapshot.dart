@@ -1,5 +1,29 @@
 part of 'geometry.dart';
 
+/// Immutable local bounds of one geometry revision, shared by its instances.
+final class GeometryBounds {
+  final Vec3 minimum, maximum;
+  GeometryBounds._(this.minimum, this.maximum);
+  factory GeometryBounds._capture(List<double> values) {
+    var minX = values[0], minY = values[1], minZ = values[2];
+    var maxX = minX, maxY = minY, maxZ = minZ;
+    for (var i = 3; i < values.length; i += 3) {
+      minX = math.min(minX, values[i]);
+      maxX = math.max(maxX, values[i]);
+      minY = math.min(minY, values[i + 1]);
+      maxY = math.max(maxY, values[i + 1]);
+      minZ = math.min(minZ, values[i + 2]);
+      maxZ = math.max(maxZ, values[i + 2]);
+    }
+    return GeometryBounds._(Vec3(minX, minY, minZ), Vec3(maxX, maxY, maxZ));
+  }
+  List<Vec3> get corners => List.unmodifiable([
+    for (final x in [minimum.x, maximum.x])
+      for (final y in [minimum.y, maximum.y])
+        for (final z in [minimum.z, maximum.z]) Vec3(x, y, z),
+  ]);
+}
+
 final class GeometryRange {
   final VertexSemantic semantic;
   final int firstVertex, vertexCount;
@@ -14,6 +38,7 @@ final class GeometryChange {
 
 /// Immutable CPU data for one geometry revision. Transfer IDs identify versions.
 final class GeometrySnapshot {
+  late final GeometryBounds bounds = GeometryBounds._capture(positions);
   final int id, logicalId, revision;
   final VertexLayout layout;
   final Map<VertexSemantic, VertexAttribute> attributes;

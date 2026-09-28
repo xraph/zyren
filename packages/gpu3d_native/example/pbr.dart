@@ -87,21 +87,32 @@ Future<void> main(List<String> args) async {
     for (var column = 0; column < 4; column++) {
       scene.add(
         Mesh(
-          geometry,
-          StandardMaterial(
-            baseColor: const Color3(.85, .5, .12),
-            normalMap: normal,
-            metallicRoughnessMap: packed,
-            occlusionMap: packed,
-            emissiveMap: emission,
-            emissive: const Color3(.03, .03, .03),
-            metallic: row * .5,
-            roughness: const [.1, .35, .65, 1.0][column],
-          ),
-        )..position = Vec3((column - 1.5) * 1.35, (1 - row) * 1.35, 0),
+            geometry,
+            StandardMaterial(
+              baseColor: const Color3(.85, .5, .12),
+              normalMap: normal,
+              metallicRoughnessMap: packed,
+              occlusionMap: packed,
+              emissiveMap: emission,
+              emissive: const Color3(.03, .03, .03),
+              metallic: row * .5,
+              roughness: const [.1, .35, .65, 1.0][column],
+            ),
+          )
+          ..position = Vec3((column - 1.5) * 1.35, (1 - row) * 1.35, 0)
+          ..castShadow = true
+          ..receiveShadow = true,
       );
     }
   }
+  scene.add(
+    Mesh(
+        PlaneGeometry(width: 9, height: 7),
+        StandardMaterial(baseColor: const Color3(.08, .1, .14), roughness: .9),
+      )
+      ..position = const Vec3(0, 0, -1)
+      ..receiveShadow = true,
+  );
   scene.add(
     HemisphereLight(
       skyColor: const Color3(.5, .65, 1),
@@ -109,7 +120,7 @@ Future<void> main(List<String> args) async {
     ),
   );
   scene.add(
-    DirectionalLight(intensity: 3)
+    DirectionalLight(intensity: 3, shadow: DirectionalShadow(distance: 20))
       ..rotateY(.5)
       ..rotateX(-.4),
   );

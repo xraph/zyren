@@ -13,6 +13,7 @@ pub struct ViewState {
     pub retained_textures: HashSet<u32>,
 }
 pub struct ScenePacket {
+    shadows: crate::shadows::ShadowFrame,
     view: u64,
     revision: u64,
     base: u64,
@@ -74,7 +75,7 @@ impl ScenePacket {
             return Err("unsupported scene packet".into());
         }
         let opcode = r.u32()?;
-        if !(10..=21).contains(&opcode) {
+        if !(10..=22).contains(&opcode) {
             return Err("unsupported scene packet".into());
         }
         let textured = opcode >= 11;
@@ -149,7 +150,16 @@ impl ScenePacket {
                 hemispheres.push(light);
             }
         }
-        let color_pipeline = if opcode >= 21 {
+        let has_color_pipeline = if opcode >= 22 {
+            match r.u32()? {
+                0 => false,
+                1 => true,
+                _ => return Err("Invalid HDR presence flag".into()),
+            }
+        } else {
+            opcode >= 21
+        };
+        let color_pipeline = if has_color_pipeline {
             let pipeline = crate::scene::ColorPipeline {
                 tone_mapping: r.u32()?,
                 exposure: r.floats::<1>()?[0],
@@ -159,6 +169,38 @@ impl ScenePacket {
         } else {
             None
         };
+        let mut shadows = crate::shadows::ShadowFrame::default();
+        if opcode >= 22 {
+            let count = r.u32()? as usize;
+            if count > crate::shadows::MAX_VIEWS {
+                return Err("Excessive shadow view count".into());
+            }
+            shadows.forward = r.floats()?;
+            for _ in 0..count {
+                let light_index = r.u32()?;
+                let kind = r.u32()?;
+                let resolution = r.u32()?;
+                let revision = r.u32()?;
+                let view_projection = r.floats()?;
+                let values = r.floats::<8>()?;
+                shadows.views.push(crate::shadows::ShadowView {
+                    light_index,
+                    kind,
+                    resolution,
+                    revision,
+                    view_projection,
+                    near: values[0],
+                    far: values[1],
+                    blend: values[2],
+                    strength: values[3],
+                    bias: values[4],
+                    normal_bias: values[5],
+                    slope_bias: values[6],
+                    filter_radius: values[7],
+                });
+            }
+            shadows.validate(&lights)?;
+        }
         let owned_texture_count = if textured { r.u32()? as usize } else { 0 };
         let texture_count = if textured { r.u32()? as usize } else { 0 };
         if owned_texture_count > MAX_MESHES || texture_count > MAX_MESHES {
@@ -481,12 +523,22 @@ impl ScenePacket {
                 }
                 mesh.validate_material()?;
             }
+            if opcode >= 22 {
+                let cast = r.u32()?;
+                let receive = r.u32()?;
+                if cast > 1 || receive > 1 {
+                    return Err("Invalid shadow mesh flags".into());
+                }
+                mesh.cast_shadow = cast == 1;
+                mesh.receive_shadow = receive == 1;
+            }
             updates.push((index, mesh));
         }
         if r.offset != data.len() {
             return Err("trailing scene bytes".into());
         }
         Ok(Self {
+            shadows,
             view,
             revision,
             base,
@@ -546,6 +598,7 @@ impl ScenePacket {
         });
         Ok(Frame {
             environment: None,
+            shadows: self.shadows,
             version: 1,
             view_projection: self.view_projection,
             background: self.background,

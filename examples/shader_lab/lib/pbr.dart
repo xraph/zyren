@@ -57,7 +57,7 @@ class _PbrLabState extends State<_PbrLab> {
   bool environmentControls = false;
   double environmentAngle = 0;
   late final List<TextureMap> maps = _makeMaps();
-  bool textured = true;
+  bool textured = true, shadows = true;
   double ambient = 1, exposure = 1;
   ToneMapping toneMapping = ToneMapping.acesFilmic;
   late final Group grid;
@@ -91,16 +91,30 @@ class _PbrLabState extends State<_PbrLab> {
       for (var column = 0; column < 4; column++) {
         grid.add(
           Mesh(
-            sphere,
-            StandardMaterial(
-              baseColor: const Color3(.85, .5, .12),
-              metallic: row * .5,
-              roughness: const [.1, .35, .65, 1.0][column],
-            ),
-          )..position = Vec3((column - 1.5) * 1.35, (1 - row) * 1.35, 0),
+              sphere,
+              StandardMaterial(
+                baseColor: const Color3(.85, .5, .12),
+                metallic: row * .5,
+                roughness: const [.1, .35, .65, 1.0][column],
+              ),
+            )
+            ..position = Vec3((column - 1.5) * 1.35, (1 - row) * 1.35, 0)
+            ..castShadow = true
+            ..receiveShadow = true,
         );
       }
     }
+    controller.scene.add(
+      Mesh(
+          PlaneGeometry(width: 9, height: 7),
+          StandardMaterial(
+            baseColor: const Color3(.08, .1, .14),
+            roughness: .9,
+          ),
+        )
+        ..position = const Vec3(0, 0, -1)
+        ..receiveShadow = true,
+    );
     _applyTextures();
     hemisphere = controller.scene.add(
       HemisphereLight(
@@ -109,7 +123,12 @@ class _PbrLabState extends State<_PbrLab> {
         intensity: ambient,
       ),
     );
-    sun = controller.scene.add(DirectionalLight(intensity: intensity));
+    sun = controller.scene.add(
+      DirectionalLight(
+        intensity: intensity,
+        shadow: DirectionalShadow(distance: 20),
+      ),
+    );
     sun.quaternion =
         Quat.axisAngle(const Vec3(0, 1, 0), angle) *
         Quat.axisAngle(const Vec3(1, 0, 0), -.4);
@@ -216,15 +235,32 @@ class _PbrLabState extends State<_PbrLab> {
               children: [
                 const Text('PBR', style: TextStyle(fontSize: 18)),
                 const Spacer(),
-                DropdownButton<bool>(
-                  key: const ValueKey('LightingControls'),
-                  value: environmentControls,
-                  items: const [
-                    DropdownMenuItem(value: false, child: Text('Lights')),
-                    DropdownMenuItem(value: true, child: Text('Environment')),
-                  ],
-                  onChanged: (value) =>
-                      setState(() => environmentControls = value!),
+                IconButton(
+                  key: const ValueKey('Shadows'),
+                  tooltip: shadows ? 'Disable shadows' : 'Enable shadows',
+                  isSelected: shadows,
+                  icon: const Icon(Icons.wb_shade_outlined),
+                  selectedIcon: const Icon(Icons.wb_shade),
+                  onPressed: () => setState(() {
+                    shadows = !shadows;
+                    sun.shadow = shadows
+                        ? DirectionalShadow(distance: 20)
+                        : null;
+                  }),
+                ),
+                SizedBox(
+                  width: 160,
+                  child: DropdownButton<bool>(
+                    isExpanded: true,
+                    key: const ValueKey('LightingControls'),
+                    value: environmentControls,
+                    items: const [
+                      DropdownMenuItem(value: false, child: Text('Lights')),
+                      DropdownMenuItem(value: true, child: Text('Environment')),
+                    ],
+                    onChanged: (value) =>
+                        setState(() => environmentControls = value!),
+                  ),
                 ),
               ],
             ),

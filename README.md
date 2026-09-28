@@ -163,8 +163,9 @@ point, spot and hemisphere lights. It supports normal, metallic/roughness,
 occlusion and emissive maps with independent UV selection and shared images.
 [HDR color and tone mapping](docs/design/color-pipeline.md) preserve bright light
 through effects. [Environment lighting](docs/design/environment-lighting.md)
-adds diffuse and rough specular reflections from HDR panoramas. Shadows remain
-in progress.
+adds diffuse and rough specular reflections from HDR panoramas.
+[Native shadows](docs/design/shadows.md) support directional cascades, spot maps
+and six point-light faces.
 
 ## Plugins and backends
 

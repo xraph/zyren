@@ -408,7 +408,7 @@ occlusion checks. The HDR checkpoint adds RGBA16Float scene/resources, terminal
 exposure and Linear/Reinhard/ACES curves through the existing compositor. Shared
 effects preserve HDR precision and reset history when precision changes. See
 [color pipeline](../../design/color-pipeline.md). Task 5 remains open for
-shadows and glTF gates listed below. This is not the full PBR profile.
+the glTF gates listed below. This is not the full PBR profile.
 
 HDR asset checkpoint: `HdrImageData`, `HdrImageLoader` and native RGBE decoding
 preserve float pixels through CPU scopes and RGBA16F resource uploads. Flutter
@@ -427,6 +427,15 @@ to standard materials. Tests cover analytic directional convolution, independent
 BRDF quadrature, HDR radiance, material pixels and resource lifetime. See
 [environment lighting](../../design/environment-lighting.md) for the supported
 profile and its single-scattering approximation.
+
+Shadow checkpoint: typed light settings and mesh flags now drive native depth
+atlases. Directional cascades use float64 camera-relative fitting and texel
+stabilization; spotlights and point lights use perspective maps. Atlas ownership
+is bounded per view and device, with dirty-input reuse and explicit diagnostics.
+Pixel checks cover cascade transitions, all six point faces, alpha masks,
+geometry updates, mirrored winding and planet-scale coordinates. See
+[native shadows](../../design/shadows.md) for the supported profile. Standard
+glTF and exact extension qualification still keep Task 5 open.
 
 **Files:** Create core `materials/standard_material.dart`,
 `lights/{directional,point,spot,hemisphere}_light.dart`; native
@@ -450,7 +459,7 @@ transparent overlap -> documented ordering and depth-write policy
 ```
 
 - [ ] Run `cargo test --test pbr_render -- --include-ignored` on a real GPU; expected failures are absent shading/shadows. Establish tolerances independently and document sorted-transparency limitations.
-- [ ] Implement metallic/roughness BRDF, normal mapping, punctual lights, IBL and environment convolution through core graph/resources. Add shadow maps with bounded atlas allocation, directional cascades, bias controls and dirty invalidation. Put color conversion/tone mapping in one terminal path.
+- [x] Implement metallic/roughness BRDF, normal mapping, punctual lights, IBL and environment convolution through core graph/resources. Add shadow maps with bounded atlas allocation, directional cascades, bias controls and dirty invalidation. Put color conversion/tone mapping in one terminal path.
 
 ```text
 scene -> lights/casters -> dirty shadow/environment passes

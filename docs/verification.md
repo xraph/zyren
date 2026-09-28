@@ -1402,3 +1402,47 @@ Release builds pass for macOS (52.1 MB) and Android arm64 (23.4 MB). The updated
 Pixel release is running as `dev.gpu3d.shader_lab`, PID 19311 at verification,
 with runner 46635 retained and no error-level process logs. Runner 55363 was
 stopped before this test/build cycle.
+
+## Native shadows, 2026-09-28
+
+Directional cascades, spotlight maps and six point-light faces now render into
+native depth atlases. The public API uses typed light settings and per-mesh
+`castShadow`/`receiveShadow` flags. Geospatial uses the same core path. See
+[native shadows](design/shadows.md) for the supported profile and limits.
+
+Numerical probes check all six point faces, cascade blend intervals, transformed
+casters, geometry patches, mirrored alpha masks, opacity and emission. A scene
+translated to a planet-scale origin keeps its expected shadow. Atlas diagnostics
+verify unchanged-frame reuse, explicit invalidation, per-view release, the 64 MiB
+device limit and successful retry after another view closes. Native packet tests
+reject malformed shadow tables and every truncated message. Randomized packing
+checks cover admitted mixed map sizes and over-budget requests.
+
+Checks pass: 284 core/glTF/geospatial, 65 native Dart, 68 Flutter facade, two
+shader-lab layout and 15 independent effects tests, 434 Dart/Flutter tests in
+all. All 103 Rust tests pass with GPU tests enabled. Strict Clippy, analysis,
+formatting and package/ABI boundaries pass.
+
+The macOS Metal bridge and physical Pixel Vulkan integrations pass the same
+shadow probes alongside existing PBR, HDR, environment and composition checks.
+These integrations use explicit readback. The 768 by 512 native PBR preview at
+`artifacts/native-shadows-pbr.png` was inspected. The example adds a receiving
+backdrop and a header toggle, with layout checks at 320, 390 and 1100 pixels.
+The initial header overflow at 320 pixels was corrected before the layout rerun.
+
+The first shadow regression observed the original lit receiver after casting
+was enabled. Implementing depth rendering made it pass. Initial WGSL compilation
+caught an entry-point call and a reserved identifier; both were corrected before
+GPU qualification. An initial combined Dart command used the wrong geospatial
+package path; the corrected command above includes `flutter_geospatial`.
+
+Release builds pass for macOS (52.5 MB) and Android arm64 (23.6 MB). The Mac
+integration could not foreground its window. Interactive native-window checks,
+Apple compositor pixels, iOS and other desktop/mobile GPU qualification remain
+open. No lock polling or bypass was attempted. This checkpoint does not complete
+Task 5's glTF gates or the full Three.js and Takram port.
+
+The Pixel release is running as `dev.gpu3d.shader_lab`, PID 21415 at verification,
+with runner 33022 retained and no error-level process logs. Runner 46635 was
+stopped before the serialized Flutter test/build cycle. The release app uses
+native Vulkan rendering; interaction with its visible controls remains unverified.

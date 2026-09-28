@@ -8,6 +8,7 @@ import '../../../packages/gpu3d_native/test/support/standard_maps_checks.dart';
 import '../../../packages/gpu3d_native/test/support/hdr_checks.dart';
 import '../../../packages/gpu3d_native/test/support/hdr_asset_checks.dart';
 import '../../../packages/gpu3d_native/test/support/environment_checks.dart';
+import '../../../packages/gpu3d_native/test/support/shadow_checks.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -21,6 +22,7 @@ void main() {
       await verifyHdr(backend);
       await verifyHdrAsset(backend);
       await verifyEnvironment(backend);
+      await verifyShadows(backend);
     } finally {
       await backend.close();
     }

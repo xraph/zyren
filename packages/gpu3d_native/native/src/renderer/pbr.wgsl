@@ -97,7 +97,8 @@ fn shade_standard(input: VertexOutput, front: bool, surface: StandardSurface) ->
                 attenuation *= cone * cone;
             }
         }
-        color += direct_brdf(n, v, l, base, surface.metallic, surface.roughness) * light.color_intensity.rgb * light.color_intensity.w * attenuation;
+        color += direct_brdf(n, v, l, base, surface.metallic, surface.roughness) * light.color_intensity.rgb * light.color_intensity.w * attenuation
+            * shadow_visibility(i, input.relative_position, select(-normalized_or(input.normal,n), normalized_or(input.normal,n), front), l);
     }
     return vec4(color, select(1., alpha, mode > 1.5));
 }

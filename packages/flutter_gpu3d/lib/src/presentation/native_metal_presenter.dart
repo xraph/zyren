@@ -55,6 +55,9 @@ class NativeMetalBackend implements NativeGpuBackend {
   @override
   Future<GraphCacheStats> graphStats() => _gpu.graphStats();
 
+  @override
+  Future<ShadowStats> shadowStats() => _gpu.shadowStats();
+
   static Future<NativeMetalBackend> create({int? runtimeToken}) async {
     if (!Platform.isMacOS && !Platform.isIOS) {
       throw _issue(
@@ -106,6 +109,7 @@ class NativeMetalBackend implements NativeGpuBackend {
       RenderFeature.standardMaterials,
       RenderFeature.hdrColor,
       RenderFeature.environmentLighting,
+      RenderFeature.shadows,
       RenderFeature.compute,
       RenderFeature.storageTextures,
     },

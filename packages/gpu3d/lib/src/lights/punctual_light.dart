@@ -41,6 +41,15 @@ sealed class Light extends Object3D {
 /// point and spot intensity is candela.
 sealed class PunctualLight extends Light {
   PunctualLight({super.color, super.intensity, super.name});
+  ShadowSettings? get shadow;
+  int _shadowRevision = 0;
+  int get shadowRevision => _shadowRevision;
+
+  /// Forces the next shadow render even when the captured scene is unchanged.
+  void invalidateShadow() {
+    _shadowRevision = (_shadowRevision + 1) & 0x7fffffff;
+    _changed();
+  }
 
   /// Points the emitting -Z axis at a target in parent coordinates.
   @override
@@ -51,7 +60,21 @@ sealed class PunctualLight extends Light {
 }
 
 final class DirectionalLight extends PunctualLight {
-  DirectionalLight({super.color, super.intensity, super.name});
+  DirectionalShadow? _shadow;
+  @override
+  DirectionalShadow? get shadow => _shadow;
+  set shadow(DirectionalShadow? value) {
+    if (identical(value, _shadow)) return;
+    _shadow = value;
+    _changed();
+  }
+
+  DirectionalLight({
+    DirectionalShadow? shadow,
+    super.color,
+    super.intensity,
+    super.name,
+  }) : _shadow = shadow;
 }
 
 sealed class PositionalLight extends PunctualLight {
@@ -77,19 +100,45 @@ sealed class PositionalLight extends PunctualLight {
 }
 
 final class PointLight extends PositionalLight {
-  PointLight({super.color, super.intensity, super.range, super.name});
+  PointShadow? _shadow;
+  @override
+  PointShadow? get shadow => _shadow;
+  set shadow(PointShadow? value) {
+    if (identical(value, _shadow)) return;
+    _shadow = value;
+    _changed();
+  }
+
+  PointLight({
+    PointShadow? shadow,
+    super.color,
+    super.intensity,
+    super.range,
+    super.name,
+  }) : _shadow = shadow;
 }
 
 final class SpotLight extends PositionalLight {
+  SpotShadow? _shadow;
+  @override
+  SpotShadow? get shadow => _shadow;
+  set shadow(SpotShadow? value) {
+    if (identical(value, _shadow)) return;
+    _shadow = value;
+    _changed();
+  }
+
   double _inner, _outer;
   SpotLight({
+    SpotShadow? shadow,
     double innerConeAngle = 0,
     double outerConeAngle = math.pi / 4,
     super.color,
     super.intensity,
     super.range,
     super.name,
-  }) : _inner = innerConeAngle,
+  }) : _shadow = shadow,
+       _inner = innerConeAngle,
        _outer = outerConeAngle {
     _validateCone(_inner, _outer);
   }

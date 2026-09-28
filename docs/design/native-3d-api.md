@@ -430,8 +430,9 @@ lights are scene objects. The [color pipeline](color-pipeline.md) adds linear
 RGBA16Float scene/effect color with terminal exposure and tone mapping. You can
 load [HDR assets](hdr-assets.md) through CPU asset scopes and upload their linear
 float pixels. [EnvironmentLighting](environment-lighting.md) prepares diffuse
-and GGX specular maps through core compute APIs and binds them per view. Shadow
-APIs remain targets.
+and GGX specular maps through core compute APIs and binds them per view.
+[Native shadows](shadows.md) add bounded directional cascades, spot maps and
+six point faces, with per-mesh casting and receiving.
 
 The common path is `StandardMaterial`: linear `baseColor`, optional base-color,
 normal, metallic/roughness, occlusion and emissive textures; metallic, roughness,

@@ -41,6 +41,7 @@ enum Command {
     Execute { key: Key },
     Release { key: Key },
     Stats {},
+    ShadowStats {},
 }
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -177,6 +178,7 @@ fn scoped<T>(
 }
 
 pub(crate) struct GraphContext<'a> {
+    pub shadow_stats: crate::renderer::ShadowStats,
     pub mesh_layout: &'a wgpu::BindGroupLayout,
     pub device: &'a wgpu::Device,
     pub queue: &'a wgpu::Queue,
@@ -193,6 +195,7 @@ impl GraphStore {
         capacity: usize,
     ) -> Result<Vec<u8>, String> {
         let GraphContext {
+            shadow_stats,
             mesh_layout,
             device,
             queue,
@@ -219,6 +222,7 @@ impl GraphStore {
                     .meshes
                     .compile(
                         &mut GraphContext {
+                            shadow_stats,
                             device,
                             queue,
                             resources,
@@ -243,6 +247,10 @@ impl GraphStore {
                 Command::Release { key: value } => self
                     .release(device, resources, shaders, key(value))
                     .map(|()| json!({})),
+                Command::ShadowStats {} => Ok(json!({
+                    "atlasCount": shadow_stats.atlas_count, "residentBytes": shadow_stats.resident_bytes,
+                    "renderedViews": shadow_stats.rendered_views, "reusedFrames": shadow_stats.reused_frames,
+                })),
                 Command::Stats {} => Ok(
                     json!({"liveGraphs": self.registry.live_allocations(), "descriptionBytes": self.registry.resident_bytes(),
                 "cachedPipelines": self.cache.len(), "pipelineCompilations": self.compilation_count, "cacheHits": self.cache_hits,

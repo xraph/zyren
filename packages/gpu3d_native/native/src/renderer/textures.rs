@@ -156,7 +156,7 @@ impl Renderer {
         }
         Ok(())
     }
-    fn texture_parts(&self, map: &ColorMap) -> (wgpu::TextureView, wgpu::Sampler) {
+    pub(super) fn texture_parts(&self, map: &ColorMap) -> (wgpu::TextureView, wgpu::Sampler) {
         let image = &self.textures[&map.texture];
         let view = self
             .resources

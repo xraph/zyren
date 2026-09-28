@@ -144,6 +144,10 @@ impl Geometry {
 #[derive(Clone, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Mesh {
+    #[serde(default)]
+    pub cast_shadow: bool,
+    #[serde(default)]
+    pub receive_shadow: bool,
     #[serde(skip)]
     pub shader: Option<crate::resources::registry::ResourceKey>,
     pub geometry: u32,
@@ -189,6 +193,8 @@ fn enabled() -> bool {
 impl Default for Mesh {
     fn default() -> Self {
         Self {
+            cast_shadow: false,
+            receive_shadow: false,
             geometry: 0,
             shader: None,
             model: glam::Mat4::IDENTITY.to_cols_array(),
@@ -327,6 +333,8 @@ impl SceneTexture {
 #[derive(Clone, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Frame {
+    #[serde(default)]
+    pub shadows: crate::shadows::ShadowFrame,
     #[serde(skip)]
     pub environment: Option<crate::lighting::Environment>,
     #[serde(default)]
@@ -373,6 +381,7 @@ impl ColorPipeline {
 }
 impl Frame {
     pub fn validate(&self, cached: &HashSet<u32>) -> Result<(), String> {
+        self.shadows.validate(&self.lights)?;
         if let Some(pipeline) = self.color_pipeline {
             pipeline.validate()?;
         }

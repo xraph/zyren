@@ -314,9 +314,10 @@ impl Renderer {
             &[Option<PreparedMaterial>],
             bool,
             &super::environment::PreparedEnvironment,
+            &super::shadows::PreparedShadows,
         ),
     ) -> wgpu::CommandEncoder {
-        let (graph, materials, surface, environment) = composition;
+        let (graph, materials, surface, environment, shadows) = composition;
         let scene_format = scene_format(frame, format, graph).expect("validated color pipeline");
         let hdr = frame.color_pipeline.is_some();
         let scene_texture = graph
@@ -332,7 +333,7 @@ impl Renderer {
             depth,
             scene_format,
             size,
-            (materials, graph, environment),
+            (materials, graph, environment, shadows),
         );
         if let Some(accumulation) = accumulation {
             self.compositor.encode(

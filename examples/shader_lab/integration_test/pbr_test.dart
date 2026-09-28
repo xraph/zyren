@@ -11,6 +11,7 @@ import '../../../packages/gpu3d_native/test/support/standard_maps_checks.dart';
 import '../../../packages/gpu3d_native/test/support/hdr_checks.dart';
 import '../../../packages/gpu3d_native/test/support/hdr_asset_checks.dart';
 import '../../../packages/gpu3d_native/test/support/environment_checks.dart';
+import '../../../packages/gpu3d_native/test/support/shadow_checks.dart';
 import 'effects_test.dart' show waitForFrame;
 
 void main() {
@@ -27,6 +28,7 @@ void main() {
       await verifyHdr(backend);
       await verifyHdrAsset(backend);
       await verifyEnvironment(backend);
+      await verifyShadows(backend);
     } finally {
       await backend.close();
     }
@@ -45,7 +47,7 @@ void main() {
       final first = await waitForFrame(
         tester,
         controller,
-        (frame) => frame.drawCalls == 12,
+        (frame) => frame.drawCalls == 13,
       );
       expect(first.readbackBytes, 0);
       final exposure = controller.colorPipeline!.exposure;
@@ -56,7 +58,7 @@ void main() {
       final exposed = await waitForFrame(
         tester,
         controller,
-        (f) => f.drawCalls == 12 && f.uploadedBytes == 0,
+        (f) => f.drawCalls == 13 && f.uploadedBytes == 0,
       );
       expect(exposed.readbackBytes, 0);
       expect(controller.colorPipeline!.exposure, lessThan(exposure));
@@ -64,6 +66,21 @@ void main() {
       final light = controller.scene.children
           .whereType<DirectionalLight>()
           .single;
+      expect(light.shadow, isNotNull);
+      await tester.tap(find.byKey(const ValueKey('Shadows')));
+      await waitForFrame(
+        tester,
+        controller,
+        (frame) => frame.uploadedBytes == 0,
+      );
+      expect(light.shadow, isNull);
+      await tester.tap(find.byKey(const ValueKey('Shadows')));
+      await waitForFrame(
+        tester,
+        controller,
+        (frame) => frame.uploadedBytes == 0,
+      );
+      expect(light.shadow, isNotNull);
       final before = light.intensity;
       await tester.drag(
         find.byKey(const ValueKey('Light')),
@@ -75,13 +92,13 @@ void main() {
         (frame) => frame.uploadedBytes == 0,
       );
       expect(light.intensity, lessThan(before));
-      expect(edited.drawCalls, 12);
+      expect(edited.drawCalls, 13);
       final orientation = light.quaternion;
       await tester.drag(
         find.byKey(const ValueKey('Angle')),
         const Offset(60, 0),
       );
-      await waitForFrame(tester, controller, (frame) => frame.drawCalls == 12);
+      await waitForFrame(tester, controller, (frame) => frame.drawCalls == 13);
       expect(light.quaternion, isNot(orientation));
       final hemisphere = controller.scene.children
           .whereType<HemisphereLight>()
@@ -91,14 +108,14 @@ void main() {
         find.byKey(const ValueKey('Ambient')),
         const Offset(40, 0),
       );
-      await waitForFrame(tester, controller, (frame) => frame.drawCalls == 12);
+      await waitForFrame(tester, controller, (frame) => frame.drawCalls == 13);
       expect(hemisphere.intensity, greaterThan(beforeAmbient));
       for (var i = 0; i < 2; i++) {
         await tester.tap(find.byKey(const ValueKey('Textures')));
         final toggled = await waitForFrame(
           tester,
           controller,
-          (frame) => frame.drawCalls == 12,
+          (frame) => frame.drawCalls == 13,
         );
         expect(toggled.readbackBytes, 0);
       }
@@ -112,7 +129,7 @@ void main() {
         final frame = await waitForFrame(
           tester,
           controller,
-          (frame) => frame.drawCalls == 12 && frame.uploadedBytes == 0,
+          (frame) => frame.drawCalls == 13 && frame.uploadedBytes == 0,
         );
         expect(frame.readbackBytes, 0);
       }

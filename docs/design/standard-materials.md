@@ -113,9 +113,9 @@ reference assets still need the glTF qualification gate. Dynamic tangents use
 older captures held by another view and uploads 16 bytes per changed vertex.
 
 Occlusion interpolates between 1 and the sampled red channel using
-`occlusionStrength`. It affects hemisphere diffuse illumination, leaving direct
-lights and emission unchanged. Future environment lighting must use this same
-indirect-light rule.
+`occlusionStrength`. It affects hemisphere and environment illumination, leaving
+direct lights and emission unchanged. [Native shadows](shadows.md) attenuate
+individual punctual lights when you enable casting and receiving.
 
 ## Light objects
 

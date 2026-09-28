@@ -14,6 +14,7 @@ class PbrBackend extends FakeBackend {
       RenderFeature.indexedMeshes,
       RenderFeature.standardMaterials,
       RenderFeature.hdrColor,
+      RenderFeature.shadows,
     },
     limits: DeviceLimits(
       maxTextureDimension2D: 2048,
@@ -45,7 +46,7 @@ void main() {
       final controller = tester
           .widget<SceneView>(find.byType(SceneView))
           .controller!;
-      expect(backend.submissions.last.scene.drawCalls, 12);
+      expect(backend.submissions.last.scene.drawCalls, 13);
       expect(controller.colorPipeline?.toneMapping, ToneMapping.acesFilmic);
       final initialExposure = controller.colorPipeline!.exposure;
       await tester.drag(
@@ -61,6 +62,13 @@ void main() {
       final light = controller.scene.children
           .whereType<DirectionalLight>()
           .single;
+      expect(light.shadow, isNotNull);
+      await tester.tap(find.byKey(const ValueKey('Shadows')));
+      await tester.pumpAndSettle();
+      expect(light.shadow, isNull);
+      await tester.tap(find.byKey(const ValueKey('Shadows')));
+      await tester.pumpAndSettle();
+      expect(backend.submissions.last.shadows.views.length, 3);
       final materials = controller.scene.children
           .whereType<Group>()
           .single

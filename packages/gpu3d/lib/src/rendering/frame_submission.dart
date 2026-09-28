@@ -9,6 +9,7 @@ import '../scene/scene.dart';
 import 'frame_output.dart';
 import '../resources/resource_scope.dart';
 part 'scene_packet.dart';
+part 'shadow_capture.dart';
 
 class FrameTime {
   final Duration elapsed, delta, rawDelta;
@@ -38,6 +39,12 @@ class CameraSnapshot {
 
 /// Captured transforms with shared immutable CPU geometry recipes.
 class SceneSnapshot {
+  final List<_ShadowLight> _shadowLights;
+  bool get hasShadows =>
+      _shadowLights.isNotEmpty ||
+      _meshes.any(
+        (mesh) => mesh['cast_shadow'] == true || mesh['receive_shadow'] == true,
+      );
   final List<Map<String, Object>> _meshes;
   final List<Map<String, Object>> _lights, _hemispheres;
   bool get hasStandardMaterials => _meshes.any((m) => m.containsKey('pbr'));
@@ -70,6 +77,7 @@ class SceneSnapshot {
     this._light,
     this._ambient,
     this.meshShaders,
+    this._shadowLights,
   );
   static SceneSnapshot _capture(Scene scene, Camera camera) {
     final meshes = <Map<String, Object>>[],
@@ -78,6 +86,7 @@ class SceneSnapshot {
     final lights = <Map<String, Object>>[];
     final hemispheres = <Map<String, Object>>[];
     final meshShaders = <int, MeshShaderProgram>{};
+    final shadows = <_ShadowLight>[];
     void visit(Object3D node, vm.Matrix4 parent, bool parentVisible) {
       final visible = parentVisible && node.visible;
       final world = parent * node.localMatrix.toVectorMath();
@@ -123,6 +132,11 @@ class SceneSnapshot {
           throw ArgumentError('Light direction must be finite and nonzero.');
         }
         direction.normalize();
+        if (node.shadow case final settings?) {
+          shadows.add(
+            _ShadowLight(lights.length, settings, node.shadowRevision),
+          );
+        }
         final position =
             world.getTranslation() - camera.position.toVectorMath();
         lights.add(
@@ -180,6 +194,8 @@ class SceneSnapshot {
           meshes.add(
             _freeze(<String, Object>{
                   'geometry': geometry.id,
+                  if (node.castShadow) 'cast_shadow': true,
+                  if (node.receiveShadow) 'receive_shadow': true,
                   'model': relative.storage.toList(),
                   'color': node.material.color.toList(),
                   'unlit': node.material.unlit,
@@ -239,11 +255,13 @@ class SceneSnapshot {
       List.unmodifiable(scene.lightDirection.storage),
       scene.ambient,
       Map.unmodifiable(meshShaders),
+      List.unmodifiable(shadows),
     );
   }
 }
 
 class FrameSubmission {
+  final ShadowSnapshot shadows;
   final CompiledGraph? graph;
   final ColorPipeline? colorPipeline;
   final Environment? environment;
@@ -263,6 +281,7 @@ class FrameSubmission {
     this.graph,
     this.colorPipeline,
     this.environment,
+    this.shadows,
   );
 
   /// Captures once so changes made during an asynchronous render affect only
@@ -295,6 +314,7 @@ class FrameSubmission {
       graph,
       colorPipeline,
       environment,
+      ShadowSnapshot.capture(sceneSnapshot, camera, size.width / size.height),
     );
   }
 
@@ -309,11 +329,15 @@ class FrameSubmission {
     graph,
     colorPipeline,
     environment,
+    shadows,
   );
 
   /// Compatibility encoder for native v1 adapters. Geometry conversion is lazy.
   Map<String, Object> toNativePacket({Set<int> uploaded = const {}}) {
-    if (graph != null || environment != null || scene.meshShaders.isNotEmpty) {
+    if (graph != null ||
+        environment != null ||
+        scene.meshShaders.isNotEmpty ||
+        scene.hasShadows) {
       throw UnsupportedError('GPU programs require binary native submissions.');
     }
     if (scene._textures.isNotEmpty) {
