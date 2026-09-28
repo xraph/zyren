@@ -245,6 +245,7 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
           ),
       ]);
       final shared = _SharedModel(
+        prepared.skins,
         prepared.animations,
         prepared.nodes,
         prepared.scenes,

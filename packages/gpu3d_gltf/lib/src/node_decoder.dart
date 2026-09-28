@@ -7,7 +7,8 @@ import 'recipes.dart';
 (List<NodeRecipe>, List<SceneRecipe>, int?) decodeNodes(
   Map<String, Object?> root,
   GltfLimits limits,
-  int meshCount,
+  List<List<double>> meshWeights,
+  DecodeBudget budget,
 ) {
   final lights = LightDecoder(root);
   final rawNodes = array(field(root, 'nodes', const []), 'nodes');
@@ -22,7 +23,7 @@ import 'recipes.dart';
   final parents = List<int?>.filled(rawNodes.length, null);
   for (var i = 0; i < rawNodes.length; i++) {
     final path = 'nodes[$i]', node = object(rawNodes[i], 'nodes[$i]');
-    for (final key in ['skin', 'weights', 'camera']) {
+    for (final key in ['camera']) {
       if (node.containsKey(key)) {
         fail(
           '$path.$key',
@@ -35,8 +36,33 @@ import 'recipes.dart';
         ? string(node['name'], '$path.name')
         : null;
     final mesh = node.containsKey('mesh')
-        ? index(node['mesh'], meshCount, '$path.mesh')
+        ? index(node['mesh'], meshWeights.length, '$path.mesh')
         : null;
+    final skin = node.containsKey('skin')
+        ? index(
+            node['skin'],
+            array(field(root, 'skins', const []), 'skins').length,
+            '$path.skin',
+          )
+        : null;
+    if (mesh == null && (skin != null || node.containsKey('weights'))) {
+      fail(path, 'Skin and morph weights require a mesh.');
+    }
+    final defaults = mesh == null ? const <double>[] : meshWeights[mesh];
+    budget.reserve(defaults.length * 16, '$path.weights');
+    final weights = node.containsKey('weights')
+        ? numbers(node['weights'], defaults.length, '$path.weights')
+        : defaults;
+    if (node.containsKey('weights') && defaults.isEmpty) {
+      fail('$path.weights', 'Weights require morph targets.');
+    }
+    if (weights.any((v) => v.abs() > 1e6)) {
+      fail(
+        '$path.weights',
+        'Morph weight magnitude exceeds 1e6.',
+        AssetLoadError.limitExceeded,
+      );
+    }
     final children = <int>[];
     if (node.containsKey('children')) {
       final raw = array(node['children'], '$path.children');
@@ -132,6 +158,8 @@ import 'recipes.dart';
         mesh,
         List.unmodifiable(children),
         light: lights.forNode(node, path),
+        skin: skin,
+        weights: List.unmodifiable(weights),
       ),
     );
   }

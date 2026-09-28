@@ -1745,3 +1745,51 @@ inspection remain unverified. This checkpoint does not qualify Windows, Linux
 or physical iOS. glTF skin/morph import, morph-weight animation, the remaining
 animation semantics, custom shader deformation and full Three.js/Takram parity
 remain open. Task 6 stays unchecked.
+
+## glTF skin and morph import, 28 September 2026
+
+The optional loader imports four joint influences per vertex, inverse bind
+matrices, position/normal/tangent morph deltas and animated weights. Instances
+share geometry and clips while retaining independent joint objects, weights and
+mixers. Node overrides, default identity inverse binds, sparse morph accessors,
+normalized animation outputs and cubic scalar grouping pass loader tests.
+Implicit flat normals get target deltas from each displaced triangle. Errors
+retain field paths for malformed bindings, attributes, bounds and limits.
+
+Core `MorphWeightKeyframeTrack` supports step, linear and cubic interpolation.
+The mixer can bind one node to several primitives, blend against each primitive's
+rest weights, and validate all sampled values before publishing a pose. Tests
+cover independent instances, weighted mixing, restoration and atomic rejection.
+
+The final Dart run passed 377 core, glTF and geospatial cases, including compiled
+worker and encoder paths. The serial native GPU suite passed 85 cases. Seven
+viewer tests passed, covering desktop/narrow layouts and deformed camera framing.
+Analyzer, formatting, package boundaries and Apple ABI checks passed. This change
+has no Rust source changes.
+
+The imported native pixel fixture matches explicit CPU position queries and
+preserves frozen frames after playback and template release. One two-joint pose
+edit uploads 400 bytes. The viewer's authored `deformation.glb` uses two ribbons
+with shared geometry and independent skins; its clip animates one ribbon's joint
+rotation and width. Native integration checks presentation readback of zero,
+seeking, independent state and pause-to-idle behavior.
+
+Normal-mapped morphs require authored base tangents. Generated tangent seams
+across morph targets, additional joint sets, color/UV morph deltas and singular
+inverse binds remain unsupported. Completion events, additive mixing, finite
+repetition counts, broader renderer work and full Three.js/Takram parity remain
+open. Windows, Linux and physical iOS qualification remain outstanding.
+
+The standalone Metal image `artifacts/gltf-deformation.png` was visually checked.
+The capture tool's explicit `--studio` option supplies lighting for PBR models
+that have no authored lights. The first capture lacked lights and showed black silhouettes;
+the lit capture shows both displaced ribbons. This image is an explicit readback,
+not evidence of an inspected Flutter desktop window or Android release screen.
+
+The final macOS Metal and physical Pixel Vulkan integration runs passed. A macOS
+recheck exposed a test race: clearing collected frames after selecting a paused
+model could discard its only frame. The test now clears first and waits for the
+expected draw count. Both targets passed with that fix. macOS still reported a
+foreground failure, so desktop interaction and Android release-screen inspection
+remain unverified. The final Pixel release build was 25.9 MB and launched the imported deformation
+example. Its error-level process log was empty when checked.

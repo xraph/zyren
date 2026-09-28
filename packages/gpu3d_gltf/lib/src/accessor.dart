@@ -4,7 +4,7 @@ import 'package:gpu3d/gpu3d.dart';
 import 'checked.dart';
 import 'limits.dart';
 
-enum AccessorUsage { generic, vertex, indices, image, animation }
+enum AccessorUsage { generic, vertex, indices, image, animation, skin }
 
 final class DecodedAccessor {
   final TypedData data;
@@ -218,11 +218,11 @@ class AccessorReader {
           );
         }
       }
-      if (usage == AccessorUsage.animation &&
+      if ((usage == AccessorUsage.animation || usage == AccessorUsage.skin) &&
           (view.stride != null || view.target != null)) {
         fail(
           path,
-          'Animation accessors need tightly packed views without a GPU target.',
+          'Animation and skin accessors need tightly packed views without a GPU target.',
         );
       }
       if (usage == AccessorUsage.indices &&

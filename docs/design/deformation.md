@@ -100,8 +100,8 @@ Unlit, diffuse and standard triangle materials support deformation, including
 UV maps, vertex colors, tangent normal maps, transparency and shadows. Morphs
 also work with `InstancedMesh`. Separate skeletal palettes per instance,
 `ShaderMaterial` deformation, expanded lines/points and extra joint influence
-sets are not supported yet. The glTF loader still rejects skin/morph content;
-imported bindings and animated morph-weight tracks are the next layer of work.
+sets are not supported yet. The optional glTF loader imports skin bindings,
+morph deltas and animated weights through this core API.
 
 The ordering follows the [glTF morph and skin specification](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html)
 and [Khronos skinning tutorial](https://github.khronos.org/glTF-Tutorials/gltfTutorial/gltfTutorial_020_Skins.html).
@@ -141,3 +141,51 @@ with several primitives, pass `morphTargets: {'node:0': [first, second]}` alongs
 that node's entry. Each primitive retains its own rest weights. Stopping the
 last action restores them, and weighted actions blend against those rest values.
 The mixer checks every sampled transform and weight before publishing a pose.
+
+
+## glTF models
+
+Load a model with `Gltf.asset(...)`, then call `instantiate()` and play one of
+its clips through `instance.mixer`. Geometry stays shared. Joints, morph weights
+and playback belong to the instance. `instance.morphTargets` maps source node
+indices to their morph primitives, so you can adjust a pose without a name lookup.
+
+The importer accepts `JOINTS_0` with unsigned byte or short components and
+`WEIGHTS_0` with float or normalized unsigned components. It normalizes positive
+float weight sums, validates joint indices even for zero-weight entries, and
+rejects duplicate nonzero influences. Missing inverse binds use identity
+matrices. Skin joints must share a root and belong to each scene using the skin.
+
+Morph targets support position, normal and tangent XYZ deltas, including sparse
+accessors. When base normals are absent, the importer generates each target's
+flat normal deltas from its displaced triangles. Node weights override mesh defaults. Primitives without morph targets
+remain static when another primitive in their mesh has targets. Weight animation
+accepts float or normalized integer scalar outputs, including cubic tangent
+triples. Matrix nodes can receive weight animation.
+
+Limits are 256 joints, four influences per vertex, 64 morph targets and one
+million keyed weight components per track, plus cubic tangents when present.
+Payload budgets include expanded attributes and copied keys. Extra influence sets, color/UV morph deltas and
+singular inverse binds produce explicit errors. Normal-mapped morphs require
+authored base tangents; generating tangent seams across morph targets remains
+unsupported. The renderer applies its own
+upload and residency limits.
+
+In the model viewer, choose **Skin + morph** or run:
+
+```sh
+flutter run --release -d <android-device> --dart-define=GPU3D_MODEL=deformation.glb
+flutter test integration_test/gltf_deformation_test.dart -d macos
+```
+
+The example loads two ribbons from one GLB. One clip animates the first ribbon's
+joint rotation and width; the second ribbon retains its pose. You can regenerate
+this authored fixture from `examples/model_viewer` with
+`dart run tool/generate_deformation_fixture.dart`.
+
+
+For a standalone PNG with explicit studio lighting:
+
+```sh
+dart run tool/capture.dart assets/models/deformation.glb ../../artifacts/gltf-deformation.png 1 --studio
+```

@@ -7,6 +7,7 @@ import 'package:gpu3d_gltf/src/worker.dart';
 import '../support/fixtures.dart';
 import '../support/pbr_fixture.dart';
 import '../support/animation_fixture.dart';
+import '../support/deformation_fixture.dart';
 
 final class Cancellation implements LoadCancellation {
   final callbacks = <void Function()>{};
@@ -44,7 +45,9 @@ final class ModelSources implements ByteSourceResolver {
   Future<ResolvedSource> read(Uri uri, SourceReadContext context) async =>
       ResolvedSource(
         effectiveUri: uri,
-        bytes: uri.path.endsWith('animated.glb')
+        bytes: uri.path.endsWith('deformation.glb')
+            ? deformationModel()
+            : uri.path.endsWith('animated.glb')
             ? animatedModel()
             : uri.path.endsWith('pbr.glb')
             ? pbrModel(
@@ -168,6 +171,15 @@ Future<void> main() async {
   final moving = animated.instantiate();
   moving.mixer.play(moving.animations.single).seek(const Duration(seconds: 1));
   check(moving.nodes[0]!.position == const Vec3(0, .5, 0));
+  final deformed = (await scope.load(Gltf.asset('deformation.glb')).result)
+      .instantiate();
+  deformed.mixer
+      .play(deformed.animations.single)
+      .seek(const Duration(seconds: 1));
+  final skinned = deformed.nodes[1]!.children.whereType<SkinnedMesh>().single;
+  check(
+    skinned.morphWeights[0] == 1 && skinned.skin.joints[0] == deformed.nodes[2],
+  );
   await scope.close();
   check(model.isReleased && mesh.material.colorMap != null);
   print('AOT glTF workers passed.');

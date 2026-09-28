@@ -527,6 +527,16 @@ animation tracks, completion events, additive mixing and finite repetition
 counts remain open, so Task 6 stays unchecked.
 
 
+Import checkpoint, 28 September 2026: glTF skin and morph loading now creates
+instance-local joints and weight bindings over shared geometry. Typed weight
+tracks cover step, linear and cubic interpolation with atomic pose updates.
+The model viewer loads an authored two-ribbon GLB and frames its deformed bounds.
+Metal and Pixel Vulkan integration verify imported pixels, a 400-byte pose edit,
+independent state and pause-to-idle behavior with zero presentation readback.
+Task 6 remains open for completion events, additive mixing, finite repetition
+counts, custom shader deformation/instancing and per-instance color support.
+
+
 **Files:** Create core `scene/instanced_mesh.dart`, `animation/{clip,track,mixer,action}.dart`,
 `geometry/{skin,morph_target}.dart`; native `passes/deformation.rs`, WGSL,
 `test/animation_test.dart`, `native/tests/deformation_render.rs` and viewer controls.

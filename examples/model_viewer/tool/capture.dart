@@ -8,10 +8,12 @@ import 'package:gpu3d_native/gpu3d_native.dart';
 import 'package:model_viewer/model_bounds.dart';
 
 /// Explicit native GPU readback for a standalone PNG, without a Flutter window.
-Future<void> main(List<String> args) async {
+Future<void> main(List<String> arguments) async {
+  final studio = arguments.contains('--studio');
+  final args = arguments.where((value) => value != '--studio').toList();
   if (args.length < 2 || args.length > 3) {
     stderr.writeln(
-      'Usage: dart run tool/capture.dart model.glb output.png [animationSeconds]',
+      'Usage: dart run tool/capture.dart model.glb output.png [animationSeconds] [--studio]',
     );
     exitCode = 64;
     return;
@@ -41,6 +43,20 @@ Future<void> main(List<String> args) async {
     final scene = Scene()
       ..background = const Color3(.025, .04, .065)
       ..add(root);
+    if (studio) {
+      scene.add(
+        DirectionalLight(intensity: 3)
+          ..rotateY(-.5)
+          ..rotateX(-.5),
+      );
+      scene.add(
+        HemisphereLight(
+          intensity: .7,
+          groundColor: const Color3(.15, .18, .25),
+        ),
+      );
+      stdout.writeln('Capture studio lighting enabled.');
+    }
     final camera = PerspectiveCamera(
       target: bounds.center,
       position:

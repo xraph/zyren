@@ -77,7 +77,8 @@ behaviour and tangent handedness. Decoder tests cover independent instances,
 limits, malformed fields, UV requirements, image variants and release workers.
 The viewer fixture exercises authored lighting and an explicit studio fallback.
 
-TRS animation imports through the [core playback API](animation.md). Skins, morphs, cameras,
+Transform and morph-weight animation import through the [core playback API](animation.md).
+Skin and morph geometry use [native deformation](deformation.md). Imported cameras,
 lit/textured points and lines, and advanced material
 extensions are not implemented. Unknown required extensions fail. Optional ones
 produce warnings and use their supported fallback data. Do not treat this profile

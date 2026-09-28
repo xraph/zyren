@@ -4,6 +4,7 @@ import 'package:gpu3d/gpu3d.dart';
 import 'accessor.dart';
 import 'animation_decoder.dart';
 import 'checked.dart';
+import 'deformation_decoder.dart';
 import 'instance_validation.dart';
 import 'material_decoder.dart';
 import 'node_decoder.dart';
@@ -24,10 +25,12 @@ PreparedModel prepareModel(
     budget: budget,
   );
   final rawMeshes = array(field(root, 'meshes', const []), 'meshes');
+  final defaults = decodeMorphDefaults(rawMeshes, budget);
   final (nodes, scenes, selected) = decodeNodes(
     root,
     options.limits,
-    rawMeshes.length,
+    defaults,
+    budget,
   );
   validateInstances(
     nodes,
@@ -36,20 +39,13 @@ PreparedModel prepareModel(
     options.limits.maxPrimitives,
     options.limits.maxLights,
   );
-  final animations = decodeAnimations(root, reader, options.limits);
+  final animations = decodeAnimations(root, reader, options.limits, defaults);
   final issues = <SceneIssue>[];
   final materials = MaterialDecoder(root, reader, options, issues);
   final meshes = <List<PrimitiveRecipe>>[];
   var primitiveCount = 0;
   for (var m = 0; m < rawMeshes.length; m++) {
     final meshPath = 'meshes[$m]', mesh = object(rawMeshes[m], 'meshes[$m]');
-    if (mesh.containsKey('weights')) {
-      fail(
-        '$meshPath.weights',
-        'Morph targets are not yet supported.',
-        AssetLoadError.unsupportedFeature,
-      );
-    }
     final name = mesh.containsKey('name')
         ? string(mesh['name'], '$meshPath.name')
         : null;
@@ -68,19 +64,13 @@ PreparedModel prepareModel(
           AssetLoadError.limitExceeded,
         );
       }
-      if (primitive.containsKey('targets')) {
-        fail(
-          '$path.targets',
-          'Morph targets are not yet supported.',
-          AssetLoadError.unsupportedFeature,
-        );
-      }
       final attributes = object(primitive['attributes'], '$path.attributes');
       final decoded = <String, DecodedAccessor>{};
       for (final entry in attributes.entries) {
         final semantic = entry.key,
             attributePath = '$path.attributes.$semantic';
-        if (semantic.startsWith('JOINTS_') || semantic.startsWith('WEIGHTS_')) {
+        if ((semantic.startsWith('JOINTS_') && semantic != 'JOINTS_0') ||
+            (semantic.startsWith('WEIGHTS_') && semantic != 'WEIGHTS_0')) {
           fail(
             attributePath,
             'This vertex semantic is not yet supported by the native model profile.',
@@ -94,6 +84,8 @@ PreparedModel prepareModel(
               'COLOR_0',
               'TEXCOORD_0',
               'TEXCOORD_1',
+              'JOINTS_0',
+              'WEIGHTS_0',
             ].contains(semantic) &&
             !semantic.startsWith('_')) {
           fail(
@@ -110,7 +102,9 @@ PreparedModel prepareModel(
           ),
           usage: AccessorUsage.vertex,
         );
-        if (semantic == 'POSITION' || semantic == 'NORMAL') {
+        if (semantic == 'JOINTS_0' || semantic == 'WEIGHTS_0') {
+          validateJointAccessor(a, semantic, attributePath);
+        } else if (semantic == 'POSITION' || semantic == 'NORMAL') {
           if (a.type != 'VEC3' || a.componentType != 5126 || a.normalized) {
             fail(
               attributePath,
@@ -332,6 +326,49 @@ PreparedModel prepareModel(
           }
         }
       }
+      decodeJointAttributes(
+        decoded,
+        output,
+        flat ? indices : null,
+        reader.budget,
+        path,
+      );
+      var morphTargets = decodeMorphTargets(
+        root,
+        primitive,
+        mesh,
+        decoded,
+        reader,
+        flat ? indices : null,
+        path,
+        (reference, accessor) => _positionBounds(root, reference, accessor),
+      );
+      if (flat && morphTargets.isNotEmpty) {
+        morphTargets = generateMorphNormals(
+          morphTargets,
+          positions,
+          output[VertexSemantic.normal]!.data as Float32List,
+          budget,
+          path,
+        );
+      }
+      if (morphTargets.isNotEmpty &&
+          material.normalMap != null &&
+          !output.containsKey(VertexSemantic.tangent)) {
+        fail(
+          '$path.attributes.TANGENT',
+          'Normal-mapped morphs require authored base tangents; generating morph tangent seams is not yet supported.',
+          AssetLoadError.unsupportedFeature,
+        );
+      }
+      if ((morphTargets.isNotEmpty || decoded.containsKey('JOINTS_0')) &&
+          topology != GeometryTopology.triangles) {
+        fail(
+          path,
+          'Native deformation requires triangle primitives.',
+          AssetLoadError.unsupportedFeature,
+        );
+      }
       if (flat) {
         budget.reserve(vertexCount * 4, path);
         indices = Uint32List(vertexCount);
@@ -364,6 +401,7 @@ PreparedModel prepareModel(
             indices: indices,
             indexFormat: format,
             topology: topology,
+            morphTargets: morphTargets,
           ),
           material,
           name,
@@ -372,7 +410,9 @@ PreparedModel prepareModel(
     }
     meshes.add(List.unmodifiable(primitives));
   }
+  final skins = decodeSkins(root, nodes, scenes, meshes, reader);
   return PreparedModel(
+    skins,
     animations,
     nodes,
     scenes,

@@ -52,13 +52,6 @@ final class ModelAsset {
         ..quaternion = data.rotation
         ..scale = data.scale;
       bindings[index] = object;
-      if (data.mesh case final mesh?) {
-        for (final primitive in shared.meshes[mesh]) {
-          object.add(
-            Mesh(primitive.geometry, primitive.material, name: primitive.name),
-          );
-        }
-      }
       if (data.light case final light?) object.add(light.instantiate());
       for (final child in data.children) {
         object.add(node(child));
@@ -67,8 +60,44 @@ final class ModelAsset {
     }
 
     final children = [for (final index in scene.roots) node(index)];
+    final morphBindings = <int, List<Mesh>>{};
+    final skins = <int, Skin>{};
+    for (final entry in bindings.entries) {
+      final data = shared.nodes[entry.key];
+      if (data.mesh case final mesh?) {
+        final Skin? skin = data.skin == null
+            ? null
+            : skins.putIfAbsent(data.skin!, () {
+                final recipe = shared.skins[data.skin!];
+                return Skin(
+                  joints: [for (final joint in recipe.joints) bindings[joint]!],
+                  inverseBindMatrices: recipe.inverseBindMatrices,
+                );
+              });
+        for (final primitive in shared.meshes[mesh]) {
+          final object = skin == null
+              ? Mesh(
+                  primitive.geometry,
+                  primitive.material,
+                  name: primitive.name,
+                )
+              : SkinnedMesh(
+                  primitive.geometry,
+                  primitive.material,
+                  skin: skin,
+                  name: primitive.name,
+                );
+          if (object.morphWeights.isNotEmpty) {
+            object.morphWeights = data.weights;
+            (morphBindings[entry.key] ??= []).add(object);
+          }
+          entry.value.add(object);
+        }
+      }
+    }
     final root = ModelInstance._(
       bindings,
+      morphBindings,
       shared.animations,
       name: name ?? scene.name,
     );
@@ -88,8 +117,13 @@ final class ModelAsset {
 /// this scene while retaining their original duration, including empty clips.
 final class ModelInstance extends Group {
   final Map<int, Object3D> nodes;
+  final Map<int, List<Mesh>> morphTargets;
   final List<AnimationClip> animations;
   late final AnimationMixer mixer = AnimationMixer(
+    morphTargets: {
+      for (final entry in morphTargets.entries)
+        animationNodeTarget(entry.key): entry.value,
+    },
     nodes: {
       for (final entry in nodes.entries)
         animationNodeTarget(entry.key): entry.value,
@@ -97,9 +131,14 @@ final class ModelInstance extends Group {
   );
   ModelInstance._(
     Map<int, Object3D> nodes,
+    Map<int, List<Mesh>> morphTargets,
     List<AnimationClip> source, {
     super.name,
-  }) : nodes = Map.unmodifiable(nodes),
+  }) : morphTargets = Map.unmodifiable({
+         for (final entry in morphTargets.entries)
+           entry.key: List<Mesh>.unmodifiable(entry.value),
+       }),
+       nodes = Map.unmodifiable(nodes),
        animations = _sceneAnimations(nodes, source);
 }
 
@@ -122,6 +161,7 @@ List<AnimationClip> _sceneAnimations(
 }
 
 final class _SharedModel {
+  final List<SkinRecipe> skins;
   final List<AnimationClip> animations;
   final List<NodeRecipe> nodes;
   final List<SceneRecipe> scenes;
@@ -130,6 +170,7 @@ final class _SharedModel {
   final List<SceneIssue> issues;
   final Uri sourceUri;
   const _SharedModel(
+    this.skins,
     this.animations,
     this.nodes,
     this.scenes,

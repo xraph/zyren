@@ -79,7 +79,7 @@ unavailable clips in your controls. Template release does not invalidate existin
 instances or their playback. See [animation](../../docs/design/animation.md).
 
 The importer validates time bounds, strictly increasing seconds, output shape,
-channel uniqueness and TRS targets before publishing a model. Rotation outputs
+channel uniqueness and transform/morph targets before publishing a model. Rotation outputs
 accept float and normalized 8/16-bit integer quaternions; sparse accessors work
 for animation too. Cubic tangents keep their authored magnitudes and signs.
 Singular scale keys are rejected. If interpolation later produces a singular
@@ -119,12 +119,15 @@ unknown optional extensions produce warnings and use the core fallback data.
 | Missing normal-map tangents, mirrored seams and UV0/UV1 selection | `tangent_model_test`; pinned MikkTSpace reference and native pixel checks |
 | `KHR_lights_punctual` | Directional, point and spot instances, transforms, units, range and cones; bounded native profile |
 | Translation, rotation and scale animation | STEP, LINEAR and CUBICSPLINE; independent instance mixers |
-| Skins, morphs and imported cameras | Explicit unsupported-feature error |
+| Skins and morph targets | Four influences, 256 joints, 64 position/normal/tangent targets; instance-local bindings |
+| Morph-weight animation | STEP, LINEAR and CUBICSPLINE scalar channels; sparse and normalized integer accessors |
+| Imported cameras, extra joint sets and color/UV morph deltas | Explicit unsupported-feature error |
 | Lit or textured lines/points, UV sets above one, singular or out-of-range native transforms | Explicit unsupported-feature error |
 | Draco, meshopt, Basis/KTX2 and other required extensions | Explicit unsupported-feature error |
 
 Missing normal-map tangents require `AssetServices.tangentGenerator`. Flutter's
-native runtimes supply it. Standalone Dart callers can use
+native runtimes supply it. Normal-mapped morphs currently require authored
+base tangents, because generated seams across morph targets are unsupported. Standalone Dart callers can use
 `NativeTangentGenerator` from `gpu3d_native`, or provide their own implementation
 of the core `TangentGenerator` interface. See [tangent preparation](../../docs/design/tangent-generation.md)
 for limits and direct geometry usage.
@@ -173,3 +176,11 @@ Run `dart test packages/gpu3d_gltf/test` from the workspace root. The native
 fixture also renders real pixels, verifies shared uploads and retires the final
 resources on Metal and Pixel Vulkan. See [verification](../../docs/verification.md)
 and the [glTF specification](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html).
+
+
+For skin and morph models, use the same `instantiate()` and mixer API.
+`instance.morphTargets[nodeIndex]` gives you the primitives controlled by that
+node's weights. Geometry and clips remain shared while joints and weights stay
+independent. Node weights override mesh defaults. Missing inverse bind matrices
+use identity. See [deformation](../../docs/design/deformation.md) for limits,
+validation rules and the native viewer example.

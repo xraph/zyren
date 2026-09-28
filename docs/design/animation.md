@@ -153,6 +153,7 @@ flutter test integration_test/animation_test.dart -d DEVICE_ID
 ```
 
 The two scene hierarchies share a clip and immutable geometry. This is transform
-animation; GPU instancing, skinning and morph deformation
-remain separate Task 6 work. glTF TRS import now uses these same tracks. Track completion events, additive blending and
+animation. Native GPU instancing, skinning and morph deformation use the
+[deformation API](deformation.md). glTF transform and morph-weight import use
+these same tracks. Track completion events, additive blending and
 finite repetition counts also remain open parts of the broader animation API.

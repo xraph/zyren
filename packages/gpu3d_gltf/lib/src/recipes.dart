@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'package:gpu3d/gpu3d.dart';
 
 final class PreparedModel {
+  final List<SkinRecipe> skins;
   final List<AnimationClip> animations;
   final List<NodeRecipe> nodes;
   final List<SceneRecipe> scenes;
@@ -11,6 +12,7 @@ final class PreparedModel {
   final List<SceneIssue> issues;
   final int decodedBytes;
   const PreparedModel(
+    this.skins,
     this.animations,
     this.nodes,
     this.scenes,
@@ -26,7 +28,8 @@ final class NodeRecipe {
   final String? name;
   final Vec3 position, scale;
   final Quat rotation;
-  final int? mesh;
+  final int? mesh, skin;
+  final List<double> weights;
   final List<int> children;
   final LightRecipe? light;
   const NodeRecipe(
@@ -37,6 +40,8 @@ final class NodeRecipe {
     this.mesh,
     this.children, {
     this.light,
+    this.skin,
+    this.weights = const [],
   });
 }
 
@@ -149,4 +154,10 @@ final class LightRecipe {
       outerConeAngle: outer,
     ),
   };
+}
+
+final class SkinRecipe {
+  final List<int> joints;
+  final List<Mat4> inverseBindMatrices;
+  const SkinRecipe(this.joints, this.inverseBindMatrices);
 }

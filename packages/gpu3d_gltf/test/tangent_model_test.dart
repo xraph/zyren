@@ -60,6 +60,46 @@ Uint8List normalMapped({
 );
 
 void main() {
+  test('normal-mapped morphs require authored tangent seams', () async {
+    for (final authored in [false, true]) {
+      final generator = TestTangents();
+      final source = editModel(normalMapped(authored: authored), (root) {
+        final primitive = (root['meshes'] as List).first['primitives'][0];
+        primitive['targets'] = [
+          {'POSITION': primitive['attributes']['POSITION']},
+        ];
+      });
+      final scope = scopeFor(
+        ImageSources(source),
+        Images(),
+        tangentGenerator: generator,
+      );
+      final result = scope.load(Gltf.asset('morph.glb')).result;
+      if (authored) {
+        final model = await result;
+        expect(onlyMesh(model).geometry.morphTargets, hasLength(1));
+      } else {
+        await expectLater(
+          result,
+          throwsA(
+            isA<AssetLoadException>()
+                .having(
+                  (e) => e.code,
+                  'code',
+                  AssetLoadError.unsupportedFeature,
+                )
+                .having(
+                  (e) => e.fieldPath,
+                  'path',
+                  endsWith('attributes.TANGENT'),
+                ),
+          ),
+        );
+      }
+      expect(generator.calls, 0);
+    }
+  });
+
   test(
     'normal map selects UV1 and flat normals discard authored tangents',
     () async {

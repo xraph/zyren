@@ -97,3 +97,21 @@ and keep independent two-joint poses. Playback, pose, speed and width controls
 affect the blue mesh. Pausing releases frame demand. See the
 [deformation API](../../docs/design/deformation.md) for binding rules, limits and
 native verification commands.
+
+
+## Imported skin and morph animation
+
+Choose **Skin + morph** to load the authored `deformation.glb`. Its two ribbons
+share geometry and keep separate joint hierarchies. The clip bends and widens
+one ribbon while the other retains its pose. Existing playback, seek and speed
+controls apply to the imported clip. Camera framing uses the current deformed
+bounds, including cancellation of the glTF mesh node transform during skinning.
+
+```sh
+flutter run --release -d <android-device> --dart-define=GPU3D_MODEL=deformation.glb
+flutter test integration_test/gltf_deformation_test.dart -d macos
+```
+
+
+The capture tool accepts `--studio` to add explicit lighting for a standalone
+PBR image: `dart run tool/capture.dart assets/models/deformation.glb output.png 1 --studio`.

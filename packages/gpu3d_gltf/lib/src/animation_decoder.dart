@@ -19,6 +19,7 @@ List<AnimationClip> decodeAnimations(
   Map<String, Object?> root,
   AccessorReader reader,
   GltfLimits limits,
+  List<List<double>> meshWeights,
 ) {
   final animations = array(field(root, 'animations', const []), 'animations');
   if (root.containsKey('animations') && animations.isEmpty) {
@@ -56,18 +57,6 @@ List<AnimationClip> decodeAnimations(
       limits.maxAnimationChannels,
       '$path.channels',
     );
-    for (var c = 0; c < channels.length; c++) {
-      final cp = '$path.channels[$c]';
-      final channel = object(channels[c], cp);
-      final target = object(channel['target'], '$cp.target');
-      if (target['path'] == 'weights') {
-        fail(
-          '$cp.target.path',
-          'Morph target animation is not yet supported.',
-          AssetLoadError.unsupportedFeature,
-        );
-      }
-    }
     final samplers = <_Sampler>[];
     for (var s = 0; s < rawSamplers.length; s++) {
       final sp = '$path.samplers[$s]', sampler = object(rawSamplers[s], sp);
@@ -136,25 +125,6 @@ List<AnimationClip> decodeAnimations(
           );
         }
       }
-      final outputMeta = object(
-        accessors[outputIndex],
-        'accessors[$outputIndex]',
-      );
-      final outputCount = integer(
-        outputMeta['count'],
-        'accessors[$outputIndex].count',
-        min: 1,
-      );
-      final multiplier = interpolation == KeyframeInterpolation.cubicSpline
-          ? 3
-          : 1;
-      // TRS outputs contain one vector per key, or tangent/value/tangent triples.
-      if (outputCount != count * multiplier) {
-        fail(
-          '$sp.output',
-          'TRS output count does not match the animation input.',
-        );
-      }
       final output = reader.read(outputIndex, usage: AccessorUsage.animation);
       samplers.add(_Sampler(times, output, interpolation, sp));
     }
@@ -167,14 +137,8 @@ List<AnimationClip> decodeAnimations(
           samplers[index(channel['sampler'], samplers.length, '$cp.sampler')];
       final target = object(channel['target'], '$cp.target');
       final property = string(target['path'], '$cp.target.path');
-      if (property == 'weights') {
-        fail(
-          '$cp.target.path',
-          'Morph target animation is not yet supported.',
-          AssetLoadError.unsupportedFeature,
-        );
-      }
-      if (!['translation', 'rotation', 'scale'].contains(property)) {
+      final weights = property == 'weights';
+      if (!['translation', 'rotation', 'scale', 'weights'].contains(property)) {
         fail('$cp.target.path', 'Unknown animation target path.');
       }
       final node = target.containsKey('node')
@@ -187,7 +151,8 @@ List<AnimationClip> decodeAnimations(
             'An animation cannot target the same node property twice.',
           );
         }
-        if (object(nodes[node], 'nodes[$node]').containsKey('matrix')) {
+        if (!weights &&
+            object(nodes[node], 'nodes[$node]').containsKey('matrix')) {
           fail(
             '$cp.target.node',
             'Animated nodes must use TRS instead of a matrix.',
@@ -200,11 +165,18 @@ List<AnimationClip> decodeAnimations(
       final normalizedInteger =
           [5120, 5121, 5122, 5123].contains(output.componentType) &&
           output.normalized;
-      if (output.type != (rotation ? 'VEC4' : 'VEC3') ||
-          !(float || (rotation && normalizedInteger))) {
+      if (output.type !=
+              (weights
+                  ? 'SCALAR'
+                  : rotation
+                  ? 'VEC4'
+                  : 'VEC3') ||
+          !(float || ((rotation || weights) && normalizedInteger))) {
         fail(
           op,
-          rotation
+          weights
+              ? 'Morph weights require float or normalized integer SCALAR accessors.'
+              : rotation
               ? 'Rotations require float or normalized integer VEC4 accessors.'
               : 'Translation and scale require float VEC3 accessors.',
         );
@@ -215,7 +187,41 @@ List<AnimationClip> decodeAnimations(
         cp,
       );
       final cubic = sampler.interpolation == KeyframeInterpolation.cubicSpline;
-      final stride = cubic ? 3 : 1, components = output.components;
+      final stride = cubic ? 3 : 1;
+      var components = output.components;
+      if (weights) {
+        if (node == null) continue;
+        final metadata = object(nodes[node], 'nodes[$node]');
+        if (!metadata.containsKey('mesh')) {
+          fail(
+            '$cp.target.node',
+            'Weight animation requires a mesh with morph targets.',
+          );
+        }
+        final mesh = index(
+          metadata['mesh'],
+          meshWeights.length,
+          'nodes[$node].mesh',
+        );
+        components = meshWeights[mesh].length;
+        if (components == 0) {
+          fail('$cp.target.node', 'Weight animation requires morph targets.');
+        }
+      }
+      if (output.count !=
+          sampler.times.length * stride * (weights ? components : 1)) {
+        fail(
+          op,
+          'Output count does not match keyframes and target components.',
+        );
+      }
+      if (weights && sampler.times.length * components > 1000000) {
+        fail(
+          op,
+          'Morph animation exceeds one million key components.',
+          AssetLoadError.limitExceeded,
+        );
+      }
       final data = output.values;
       for (var k = 0; k < sampler.times.length; k++) {
         final at = (k * stride + (cubic ? 1 : 0)) * components;
@@ -246,7 +252,10 @@ List<AnimationClip> decodeAnimations(
       duration = math.max(duration, sampler.times.last);
       // Bound expanded immutable key objects and lists, including copied times.
       reader.budget.reserve(
-        sampler.times.length * (16 + stride * (components * 8 + 40)),
+        sampler.times.length *
+            (16 +
+                stride *
+                    (components * (weights ? 16 : 8) + (weights ? 64 : 40))),
         cp,
       );
       final id = animationNodeTarget(node);
@@ -268,7 +277,33 @@ List<AnimationClip> decodeAnimations(
             data[(k * stride + offset) * 4 + 3].toDouble(),
           ),
       ];
-      if (rotation) {
+      if (weights) {
+        List<List<double>> vectors(int offset) => [
+          for (var k = 0; k < sampler.times.length; k++)
+            [
+              for (var j = 0; j < components; j++)
+                data[(k * stride + offset) * components + j].toDouble(),
+            ],
+        ];
+        final values = vectors(keyOffset);
+        if (values.any((v) => v.any((w) => w.abs() > 1e6))) {
+          fail(
+            op,
+            'Morph weight magnitude exceeds 1e6.',
+            AssetLoadError.limitExceeded,
+          );
+        }
+        tracks.add(
+          MorphWeightKeyframeTrack(
+            target: id,
+            times: sampler.times,
+            values: values,
+            interpolation: sampler.interpolation,
+            inTangents: cubic ? vectors(0) : null,
+            outTangents: cubic ? vectors(2) : null,
+          ),
+        );
+      } else if (rotation) {
         tracks.add(
           QuaternionKeyframeTrack(
             target: id,

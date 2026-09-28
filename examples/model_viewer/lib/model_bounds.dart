@@ -19,7 +19,10 @@ Future<({Vec3 center, double radius})> modelBounds(
     final (object, parent) = stack.removeLast();
     final world = parent * object.localMatrix, m = world.storage;
     if (object is Mesh) {
-      final positions = object.geometry.positions;
+      final pose = object.captureDeformation();
+      final positions = pose == null
+          ? object.geometry.positions
+          : [for (final corner in pose.bounds.corners) ...corner.storage];
       for (var i = 0; i < positions.length; i += 3) {
         final x = positions[i], y = positions[i + 1], z = positions[i + 2];
         final point = Vec3(

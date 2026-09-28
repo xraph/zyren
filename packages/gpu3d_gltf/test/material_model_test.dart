@@ -32,45 +32,60 @@ void main() {
     expect(material.alphaCutoff, 1.1);
     expect(material.side, MaterialSide.doubleSided);
   });
-  test('unsupported deformation and color features fail explicitly', () async {
-    for (final bytes in [
-      triangleModel(
-        changes: {
-          'nodes': [
-            {'mesh': 0, 'skin': 0},
-          ],
-        },
-      ),
-      triangleModel(
-        changes: {
-          'nodes': [
-            {'mesh': 0, 'camera': 0},
-          ],
-        },
-      ),
-      primitiveModel(
-        indices: [0, 1, 2],
-        primitiveChanges: {
-          'targets': [{}],
-        },
-      ),
-      primitiveModel(
-        indices: [0, 1, 2],
-        primitiveChanges: {
-          'attributes': {'POSITION': 0, 'COLOR_1': 0},
-        },
-      ),
-    ]) {
-      await expectLater(
-        load(bytes),
-        throwsA(
-          isA<AssetLoadException>()
-              .having((e) => e.code, 'code', AssetLoadError.unsupportedFeature)
-              .having((e) => e.fieldPath, 'path', isNotNull),
+  test(
+    'invalid deformation and unsupported color features fail explicitly',
+    () async {
+      for (final (bytes, code) in [
+        (
+          triangleModel(
+            changes: {
+              'nodes': [
+                {'mesh': 0, 'skin': 0},
+              ],
+            },
+          ),
+          AssetLoadError.invalidData,
         ),
-      );
-    }
-  });
+        (
+          triangleModel(
+            changes: {
+              'nodes': [
+                {'mesh': 0, 'camera': 0},
+              ],
+            },
+          ),
+          AssetLoadError.unsupportedFeature,
+        ),
+        (
+          primitiveModel(
+            indices: [0, 1, 2],
+            primitiveChanges: {
+              'targets': [{}],
+            },
+          ),
+          AssetLoadError.invalidData,
+        ),
+        (
+          primitiveModel(
+            indices: [0, 1, 2],
+            primitiveChanges: {
+              'attributes': {'POSITION': 0, 'COLOR_1': 0},
+            },
+          ),
+          AssetLoadError.unsupportedFeature,
+        ),
+      ]) {
+        await expectLater(
+          load(bytes),
+          throwsA(
+            isA<AssetLoadException>()
+                .having((e) => e.code, 'code', code)
+                .having((e) => e.fieldPath, 'path', isNotNull),
+          ),
+        );
+      }
+    },
+  );
   test(
     'explicit nulls and invalid material fields retain diagnostics',
     () async {

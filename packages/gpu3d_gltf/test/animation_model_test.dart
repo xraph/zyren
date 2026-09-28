@@ -329,34 +329,28 @@ void main() {
     },
   );
 
-  test(
-    'singular scales and morph channels retain explicit unsupported errors',
-    () async {
-      for (final source in [
-        animatedModel(path: 'scale'),
-        animatedModel(path: 'weights'),
-      ]) {
-        await expectLater(
-          load(source),
-          throwsA(
-            isA<AssetLoadException>().having(
-              (e) => e.code,
-              'code',
-              AssetLoadError.unsupportedFeature,
-            ),
+  test('singular scale keys retain explicit unsupported errors', () async {
+    for (final source in [animatedModel(path: 'scale')]) {
+      await expectLater(
+        load(source),
+        throwsA(
+          isA<AssetLoadException>().having(
+            (e) => e.code,
+            'code',
+            AssetLoadError.unsupportedFeature,
           ),
-        );
-      }
-      final model = await load(
-        animatedModel(path: 'scale', values: [-1, 2, 1, -2, 4, 1]),
+        ),
       );
-      final instance = model.instantiate();
-      instance.mixer
-          .play(instance.animations.single)
-          .seek(const Duration(seconds: 1));
-      expect(instance.nodes[0]!.scale, const Vec3(-1.5, 3, 1));
-    },
-  );
+    }
+    final model = await load(
+      animatedModel(path: 'scale', values: [-1, 2, 1, -2, 4, 1]),
+    );
+    final instance = model.instantiate();
+    instance.mixer
+        .play(instance.animations.single)
+        .seek(const Duration(seconds: 1));
+    expect(instance.nodes[0]!.scale, const Vec3(-1.5, 3, 1));
+  });
 
   test(
     'clip, channel and decoded allocation limits reject before publication',
