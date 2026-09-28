@@ -697,3 +697,13 @@ inputs, padded rows and independent dynamic edits. All 132 core/geospatial/glTF
 and 36 native Dart tests pass, including GPU cases. Workspace analysis and
 package/header boundaries pass. This CPU handoff changes no native protocol or
 platform support; public glTF model conversion remains in progress.
+
+
+## Mask cutoffs above one
+
+The core and native packet validator accept nonnegative finite float32 mask
+cutoffs, including values above one. A real Metal image probe confirms that a
+cutoff of 1.1 discards every fragment. Negative and nonfinite packet values
+remain rejected. The focused checks pass: two core tests, seven Rust packet
+tests and the native material-alpha fixture. This does not establish glTF
+material parity.

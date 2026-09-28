@@ -66,6 +66,8 @@ Future<void> verifyMaterialAlpha() async {
       alphaCutoff: cutoff,
       opacity: opacity,
     );
+    front.material = masked(1.1);
+    pixel(await render(), [0, 0, 255, 255]);
     front.material = masked(.6);
     pixel(await render(), [0, 0, 255, 255]);
     front.material = masked(128 / 255);

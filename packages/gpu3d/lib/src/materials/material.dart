@@ -39,11 +39,13 @@ sealed class MeshMaterial {
     if (!opacity.isFinite || opacity < 0 || opacity > 1) {
       throw ArgumentError.value(opacity, 'opacity', 'Must be in [0, 1].');
     }
-    if (!alphaCutoff.isFinite || alphaCutoff < 0 || alphaCutoff > 1) {
+    if (!alphaCutoff.isFinite ||
+        alphaCutoff < 0 ||
+        alphaCutoff > 3.4028234663852886e38) {
       throw ArgumentError.value(
         alphaCutoff,
         'alphaCutoff',
-        'Must be in [0, 1].',
+        'Must be nonnegative and fit finite float32 storage.',
       );
     }
   }

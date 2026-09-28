@@ -209,7 +209,7 @@ impl Mesh {
             || !self.opacity.is_finite()
             || !(0.0..=1.0).contains(&self.opacity)
             || !self.alpha_cutoff.is_finite()
-            || !(0.0..=1.0).contains(&self.alpha_cutoff)
+            || self.alpha_cutoff < 0.
         {
             return Err("invalid alpha mode, opacity or cutoff".into());
         }

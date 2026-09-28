@@ -36,6 +36,12 @@ void main() {
     expect(copy.depthTest, isFalse);
     for (final invalid in [-.1, 1.1, double.nan, double.infinity]) {
       expect(() => UnlitMaterial(opacity: invalid), throwsArgumentError);
+    }
+    expect(
+      DiffuseMaterial(alphaCutoff: 1.1).copyWith(opacity: .5).alphaCutoff,
+      1.1,
+    );
+    for (final invalid in [-.1, 1e39, double.nan, double.infinity]) {
       expect(() => DiffuseMaterial(alphaCutoff: invalid), throwsArgumentError);
     }
   });

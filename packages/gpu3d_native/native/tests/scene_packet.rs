@@ -364,11 +364,15 @@ fn alpha_packet_validates_policy_ranges_flags_and_truncations() {
     assert_eq!(frame.meshes[0].alpha_mode, 2);
     assert_eq!(frame.meshes[0].render_order, -4);
     assert!(!frame.meshes[0].writes_depth());
+    let mut above_one = valid.clone();
+    above_one[material + 8..material + 12].copy_from_slice(&1.1_f32.to_le_bytes());
+    assert!(ScenePacket::decode(&above_one).is_ok());
     for (offset, value) in [
         (0, 3_u32),
         (4, f32::NAN.to_bits()),
         (4, (-0.1_f32).to_bits()),
-        (8, 1.1_f32.to_bits()),
+        (8, (-0.1_f32).to_bits()),
+        (8, f32::INFINITY.to_bits()),
         (12, 2),
         (16, 2),
     ] {

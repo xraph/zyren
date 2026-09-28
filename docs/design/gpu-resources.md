@@ -293,7 +293,9 @@ Opacity, cutoff, ordering and depth edits retain existing geometry and images.
 | `mask` | Discard when opacity times texture alpha is below `alphaCutoff`; surviving fragments are opaque | Enabled |
 | `blend` | Source-over blending with opacity times texture alpha | Disabled |
 
-Opacity defaults to 1 and cutoff to .5. Both accept finite values in [0, 1].
+Opacity defaults to 1 and accepts finite values in [0, 1]. The cutoff defaults
+to .5 and accepts nonnegative finite float32 values. A cutoff above 1 discards
+every fragment in mask mode, as required by glTF.
 A fragment exactly at the cutoff survives. Colors blend in linear light before
 sRGB output encoding. Raw image `AlphaMode` describes pixel storage and remains
 separate from `MaterialAlphaMode`.
