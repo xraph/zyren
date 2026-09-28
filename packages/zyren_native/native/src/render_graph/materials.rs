@@ -80,6 +80,7 @@ impl MaterialStore {
                 || pass.vertex_count.is_some()
                 || pass.instance_count.is_some()
                 || pass.sample_count.is_some()
+                || pass.blend.is_some()
                 || pass.bindings.iter().any(|b| {
                     b.group == 0
                         || matches!(

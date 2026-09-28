@@ -144,6 +144,7 @@ impl GraphStore {
                             || pass.vertex_count.is_some()
                             || pass.instance_count.is_some()
                             || pass.sample_count.is_some()
+                            || pass.blend.is_some()
                         {
                             return Err(GraphError::new(
                                 "invalidDescriptor",
@@ -282,6 +283,7 @@ impl GraphStore {
                     fragment: fragment.to_owned(),
                     compute: compute.to_owned(),
                     format,
+                    blend: pass.blend.unwrap_or_default(),
                 };
                 let pipeline = if let Some(pipeline) =
                     self.cache.get(&cache_key).and_then(Weak::upgrade)
@@ -333,7 +335,7 @@ impl GraphStore {
                                     compilation_options: Default::default(),
                                     targets: &[Some(wgpu::ColorTargetState {
                                         format: format.unwrap(),
-                                        blend: None,
+                                        blend: pass.blend.unwrap_or_default().state(),
                                         write_mask: wgpu::ColorWrites::ALL,
                                     })],
                                 }),

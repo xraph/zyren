@@ -118,6 +118,11 @@ fn native_graph_validation_retains_owners_and_rejects_forged_access() {
         graph(&mut renderer, compile(bad))["error"]["code"],
         "uninitializedRead"
     );
+    for blend in ["additive", "premultipliedAlpha", "replace"] {
+        let mut bad = description.clone();
+        bad["passes"][0]["blend"] = json!(blend);
+        assert!(!graph(&mut renderer, compile(bad))["error"].is_null());
+    }
     let built = graph(&mut renderer, compile(description.clone()));
     let key = built["result"]["key"].clone();
     assert!(!key.is_null(), "{built}");

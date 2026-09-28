@@ -101,6 +101,7 @@ struct PipelineKey {
     vertex: String,
     fragment: String,
     format: Option<wgpu::TextureFormat>,
+    blend: descriptor::Blend,
 }
 enum PipelineKind {
     Compute(wgpu::ComputePipeline),

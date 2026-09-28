@@ -9,6 +9,10 @@ enum AttachmentLoad { clear, load }
 
 enum AttachmentStore { store, discard }
 
+/// Procedural pass output is linear. Alpha blending expects premultiplied RGB;
+/// additive blending sums RGB and alpha, while replace overwrites the target.
+enum RenderBlend { replace, premultipliedAlpha, additive }
+
 /// Linear RGBA. The target texture's format handles output color encoding.
 final class ClearColor {
   final double red, green, blue, alpha;
@@ -68,11 +72,13 @@ final class ComputePassDescriptor extends PassDescriptor {
 final class RenderPassDescriptor extends PassDescriptor {
   final String vertexEntryPoint, fragmentEntryPoint;
   final ColorAttachment color;
+  final RenderBlend blend;
   final int vertexCount, instanceCount, sampleCount;
   RenderPassDescriptor({
     required super.name,
     required super.program,
     required this.color,
+    this.blend = RenderBlend.replace,
     this.vertexEntryPoint = 'vertex',
     this.fragmentEntryPoint = 'fragment',
     this.vertexCount = 3,

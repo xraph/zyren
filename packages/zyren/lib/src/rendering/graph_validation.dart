@@ -311,6 +311,7 @@ _prepareGraph(GraphDescription graph, GraphDevice device) {
           'vertexCount': pass.vertexCount,
           'instanceCount': pass.instanceCount,
           'sampleCount': pass.sampleCount,
+          'blend': pass.blend.name,
           'color': {
             'key': resource._key,
             'mipLevel': color.mipLevel,
