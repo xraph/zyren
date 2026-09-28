@@ -74,6 +74,42 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('Restart')));
     await tester.pumpAndSettle();
     expect(arm('Right').quaternion, left);
+    final heldLeft = arm('Left').quaternion;
+    await tester.tap(find.byKey(const ValueKey('Fade layer')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 375));
+    expect(
+      tester.widget<Slider>(find.byKey(const ValueKey('Layer weight'))).value,
+      inExclusiveRange(0, .35),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<Slider>(find.byKey(const ValueKey('Layer weight'))).value,
+      0,
+    );
+    await tester.tap(find.byKey(const ValueKey('Crossfade')));
+    await tester.pump();
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 75));
+    }
+    await tester.pump();
+    expect(find.text('Blend to Swing'), findsOneWidget);
+    expect(
+      tester
+          .widget<DropdownButton<double>>(find.byKey(const ValueKey('Speed')))
+          .value,
+      inExclusiveRange(.5, 1),
+    );
+    expect(arm('Left').quaternion, heldLeft);
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.byKey(const ValueKey('Halt')));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<DropdownButton<double>>(find.byKey(const ValueKey('Speed')))
+          .value,
+      0,
+    );
     await tester.pumpWidget(const SizedBox());
     await tester.runAsync(() => controller.whenDisposed);
     expect(backend.closeCount, 1);

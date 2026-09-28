@@ -564,6 +564,14 @@ match explicit reference poses with 400-byte layer-weight edits. The animation
 lab exposes independent layer strength. Fades/warping, custom shader support,
 per-instance colors and the remaining Task 6 gates are still open.
 
+Transition checkpoint, 28 September 2026: actions now support fades,
+cross-fades and integrated speed transitions. Cross-fades schedule both actions
+atomically, optionally matching rates for clips of different lengths. Tests
+cover paused layers, reversals, irregular frames, fade-end clock limits,
+rollback and idle demand. The animation lab reuses Swing and Reach actions and
+exposes layer fades and slow-to-stop controls. Custom shader deformation and
+instancing, per-instance colors and the remaining Task 6 gates stay open.
+
 **Files:** Create core `scene/instanced_mesh.dart`, `animation/{clip,track,mixer,action}.dart`,
 `geometry/{skin,morph_target}.dart`; native `passes/deformation.rs`, WGSL,
 `test/animation_test.dart`, `native/tests/deformation_render.rs` and viewer controls.

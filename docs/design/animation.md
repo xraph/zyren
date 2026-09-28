@@ -101,8 +101,8 @@ action, including paused and finished ones.
 | `pause()` | Holds this action's pose and stops its clock |
 | `resume()` | Continues a paused action; restarts a finished action from the appropriate end |
 | `seek(Duration)` | Applies a nonnegative position immediately, clamped at clip end; preserves pause and leaves a previously finished action paused |
-| `speed` | Finite `[-1024, 1024]`; negative plays backwards and zero stops clock demand |
-| `weight` | Finite `[0, 1]`; zero-weight running actions still advance their clocks |
+| `speed` | Finite `[-1024, 1024]`; negative plays backwards and zero stops clock demand; assigning cancels a speed transition |
+| `weight` | Finite `[0, 1]`; zero-weight running actions still advance their clocks; assigning cancels a fade |
 | `loop` | `once`, `repeat` or `pingPong`; changing it preserves local time and resets phase and repeat count |
 | `repetitions` | Total traversals, including the first; null is unlimited; changing it resets the completed count |
 | `stop()` | Removes this action and restores channels no other action owns |
@@ -124,8 +124,9 @@ transforms or advancing playheads. A singular scale or invalid rotation leaves
 the prior pose and action times intact. Stopping the last owner releases its
 rest snapshot, so later playback captures subsequent application edits.
 
-The plugin holds one frame demand while any action advances. Paused, finished
-and zero-speed actions release it. Starting or resuming an action skips its first
+The plugin holds one frame demand while any playhead or transition advances.
+Paused, finished and zero-speed actions release it once their transitions finish.
+Starting or resuming an action skips its first
 automatic delta, preventing time spent idle from becoming a jump. Other running
 actions continue normally. Detaching releases demand and preserves playback
 state for explicit Dart updates or a later attachment.
@@ -179,6 +180,68 @@ The reference-pose convention follows
 Here, each action stores its reference samples and the immutable clip stays
 usable by other model instances and normal playback.
 
+## Fades, cross-fades and speed transitions
+
+You can fade a held additive pose, move smoothly between clips, or ease playback
+to a stop:
+
+```dart
+lean.fadeTo(.8, const Duration(milliseconds: 300));
+lean.fadeOut(const Duration(milliseconds: 500));
+
+final reach = mixer.play(reachClip, weight: 0)..pause();
+swing.crossFadeTo(reach, const Duration(milliseconds: 750), warp: true);
+reach.halt(const Duration(seconds: 1));
+```
+
+All transitions are linear and use mixer time. They continue while the playhead
+is paused or finished, so you can fade a held pose without moving along its
+clip. Each action holds at most one fade and one speed transition. Scheduling
+another replaces the previous transition. Durations accept zero through one
+billion seconds; zero applies the endpoint immediately.
+
+| Control | Behaviour |
+| --- | --- |
+| `fadeTo(weight, duration)` | Starts from the current weight; optional `pauseWhenDone` defaults to false |
+| `fadeIn(duration, weight: 1)` | Starts at zero weight and reaches the supplied weight; preserves playhead pause |
+| `fadeOut(duration, pauseWhenDone: true)` | Reaches zero weight, then pauses the playhead by default |
+| `stopFading()` | Keeps the current weight and cancels the fade |
+| `warp(startSpeed, endSpeed, duration)` | Sets the starting speed and integrates the linear speed curve |
+| `warpTo(speed, duration)` | Starts from the current speed |
+| `halt(duration)` | Changes speed smoothly to zero |
+| `stopWarping()` | Keeps the current speed and cancels its transition |
+| `isFading`, `isWarping` | Reports whether each transition remains active |
+
+`crossFadeTo(target, duration)` fades the source from its current weight to zero
+and the target from its current weight to `targetWeight` (default one). It resumes
+the target, restarting it if finished, and pauses the source at the fade endpoint.
+`target.crossFadeFrom(source, duration)` performs the same operation. Both
+unstopped actions must belong to one mixer. The source remains reusable at zero
+weight; call `stop` when you no longer need its bindings.
+
+With `warp: true`, both clips must have positive durations. The source speed
+changes from its current value to `target.speed * source.duration / target.duration`.
+The target starts at `source.speed * target.duration / source.duration` and ends
+at its original speed. This matches rates measured in clip traversals per second;
+it preserves existing phases. Calculated speeds must still fit `[-1024, 1024]`.
+Without warping, each action retains its own speed and any existing speed transition.
+
+The mixer commits both sides of a cross-fade together. Invalid poses leave all
+weights, transition progress, clocks and events unchanged. Speed curves are
+integrated across each step, splitting at reversals so a clip can finish before
+the direction changes. A fade that pauses halfway through a large update advances
+the playhead only as far as that fade endpoint. Unrelated speed transitions can
+continue after the playhead pauses.
+
+New transitions skip their first automatic frame delta to ignore time spent idle.
+Already running playheads keep advancing. Reattaching a mixer skips that first
+delta for both clocks and transitions; explicit `update` calls advance immediately.
+Transitions release frame demand when finished, provided no playhead still needs
+it. Fades do not emit loop or completion events.
+
+The control names follow [Three.js AnimationAction](https://threejs.org/docs/pages/AnimationAction.html).
+This API uses absolute weights and speeds and keeps atomic mixer validation.
+
 ## Finite playback and events
 
 To play a clip three times and react to natural completion, subscribe before
@@ -210,6 +273,9 @@ event per action: a loop event with the number of crossed boundaries, or a
 finished event if that step completes playback. Listening code can change
 playback without mutating the mixer during pose evaluation. The snapshot stays
 fixed even if its action has since advanced, restarted or stopped.
+When a speed curve reverses, a loop snapshot reports the last playback segment's
+direction. A completion snapshot keeps the direction that reached the endpoint,
+even if the speed transition changes sign later in that same update.
 
 A zero-duration clip finishes during `play`, with zero completed traversals.
 Subscribe first to receive that event. No frame is needed. Seek, pause, stop and
@@ -256,8 +322,10 @@ flutter test integration_test/animation_test.dart -d DEVICE_ID
 
 The two scene hierarchies share clips and immutable geometry. Each has a paused
 lean layer over its main motion; the layer-strength slider affects only the
-selected model and does not hold frame demand. This is transform
+selected model and does not hold frame demand when idle. You can fade that layer,
+blend between Swing and Reach with matched playback rates, and slow the selected
+action to a stop. The controls reuse actions for repeated blends. This is transform
 animation. Native GPU instancing, skinning and morph deformation use the
 [deformation API](deformation.md). glTF transform and morph-weight import use
-these same tracks. Cross-fades and time warping remain open parts of the broader
-animation API.
+these same tracks. Custom shader deformation, per-instance colors and remaining
+renderer qualification are tracked separately in the implementation plan.

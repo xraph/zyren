@@ -122,14 +122,10 @@ final class AnimationMixer extends ScenePlugin {
   void update(Duration delta) => _update(delta, fromFrame: false);
   void _update(Duration delta, {required bool fromFrame}) {
     if (delta.isNegative) throw ArgumentError.value(delta, 'delta');
-    final seconds = delta.inMicroseconds / 1e6;
     final states = <AnimationAction, _Playback>{};
     for (final action in _actions) {
       final next = action._state.copy(), duration = action.clip.durationSeconds;
-      if (next.advancing && !(fromFrame && next.fresh) && seconds != 0) {
-        next.advance(seconds, duration);
-      }
-      next.fresh = false;
+      _advanceAnimation(next, delta.inMicroseconds, duration, fromFrame);
       states[action] = next;
     }
     final events = <(AnimationAction, bool, int)>[];
@@ -314,6 +310,8 @@ final class AnimationMixer extends ScenePlugin {
     _context = context;
     for (final action in _actions) {
       action._state.fresh = true;
+      action._state.fade = action._state.fade?.reattach();
+      action._state.warp = action._state.warp?.reattach();
     }
     _attachment = context.scope.onClose(() {
       _demand?.dispose();

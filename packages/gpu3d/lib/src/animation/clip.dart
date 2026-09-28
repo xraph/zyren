@@ -11,6 +11,7 @@ part 'action.dart';
 part 'blend.dart';
 part 'events.dart';
 part 'system.dart';
+part 'transition.dart';
 
 /// Immutable tracks shared by independent mixers. Times are seconds.
 final class AnimationClip {

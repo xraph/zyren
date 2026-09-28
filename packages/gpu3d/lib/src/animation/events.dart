@@ -7,14 +7,16 @@ sealed class AnimationEvent {
   final double timeSeconds;
   final int completedRepetitions;
 
-  /// Playback speed direction, independent of ping-pong reflection. Zero speed
-  /// on an immediately finished clip uses the forward direction (1).
+  /// Direction of the last playback segment, independent of ping-pong
+  /// reflection. Completion retains the direction that reached the endpoint,
+  /// even if a speed transition reverses later in the same update. An
+  /// immediately finished clip uses its initial speed (zero means forward).
   final int direction;
   Duration get time => Duration(microseconds: (timeSeconds * 1e6).round());
   AnimationEvent._(this.action)
     : timeSeconds = action.timeSeconds,
       completedRepetitions = action.completedRepetitions,
-      direction = action.speed < 0 ? -1 : 1;
+      direction = action._state.eventDirection;
 }
 
 /// One event per action/update, even when a step crosses several boundaries.

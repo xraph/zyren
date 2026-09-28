@@ -5,6 +5,83 @@ import 'animation_test.dart' show movement;
 
 void main() {
   test(
+    'transitions ignore idle deltas and keep held poses scheduled',
+    () async {
+      final node = Group();
+      final mixer = AnimationMixer(nodes: {'part': node});
+      final action = mixer.play(movement())
+        ..seek(const Duration(milliseconds: 500))
+        ..pause();
+      var demands = 0;
+      Future<SceneEngine> attach() => SceneEngine.create(
+        scene: Scene()..add(node),
+        camera: PerspectiveCamera(),
+        rendererFactory: () async => TestRenderer([]),
+        plugins: [mixer],
+        acquireFrameDemand: () {
+          demands++;
+          return Registration(() => demands--);
+        },
+      );
+      Future<void> frame(SceneEngine engine, int ms) => engine
+          .render(
+            elapsed: Duration(milliseconds: ms),
+            time: FrameTime(
+              elapsed: Duration(milliseconds: ms),
+              delta: Duration(milliseconds: ms),
+            ),
+            width: 4,
+            height: 4,
+          )
+          .then((_) {});
+      var engine = await attach();
+      try {
+        await frame(engine, 0);
+        action.fadeOut(const Duration(seconds: 1));
+        action.warpTo(0, const Duration(seconds: 1));
+        expect(demands, 1);
+        await frame(engine, 10000);
+        expect(action.weight, 1);
+        expect(action.speed, 1);
+        await frame(engine, 250);
+        expect(action.weight, .75);
+        expect(action.speed, .75);
+        expect(action.timeSeconds, .5);
+        await engine.dispose();
+        expect(demands, 0);
+        engine = await attach();
+        await frame(engine, 10000);
+        expect(action.weight, .75);
+        expect(action.speed, .75);
+        await frame(engine, 750);
+        expect(action.weight, 0);
+        expect(action.speed, 0);
+        expect(demands, 0);
+        action.speed = 1;
+        action.resume();
+        await frame(engine, 10000);
+        action.fadeTo(1, const Duration(seconds: 1));
+        await frame(engine, 250);
+        expect(
+          action.timeSeconds,
+          .75,
+          reason: 'Starting a fade preserves a running clock.',
+        );
+        expect(
+          action.weight,
+          0,
+          reason: 'Only the new transition skips its first delta.',
+        );
+        await frame(engine, 250);
+        expect(action.weight, .25);
+      } finally {
+        await engine.dispose();
+      }
+      expect(demands, 0);
+    },
+  );
+
+  test(
     'finite completion releases demand before events can start a successor',
     () async {
       final system = AnimationSystem(),

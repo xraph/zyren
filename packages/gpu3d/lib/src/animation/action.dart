@@ -7,7 +7,9 @@ final class _Playback {
   AnimationLoop loop;
   int? repetitions;
   int completedRepetitions;
+  int eventDirection;
   bool paused, finished, fresh;
+  _AnimationRamp? fade, warp;
   _Playback({
     required this.phase,
     required this.speed,
@@ -18,7 +20,10 @@ final class _Playback {
     this.paused = false,
     this.finished = false,
     this.fresh = true,
-  });
+    this.fade,
+    this.warp,
+    int? eventDirection,
+  }) : eventDirection = eventDirection ?? (speed < 0 ? -1 : 1);
   _Playback copy() => _Playback(
     phase: phase,
     speed: speed,
@@ -29,14 +34,19 @@ final class _Playback {
     paused: paused,
     finished: finished,
     fresh: fresh,
+    fade: fade,
+    warp: warp,
+    eventDirection: eventDirection,
   );
   double time(double duration) =>
       loop == AnimationLoop.pingPong && phase > duration
       ? 2 * duration - phase
       : phase;
-  void advance(double seconds, double duration) {
-    final direction = speed > 0 ? 1 : -1;
-    final distance = seconds * speed.abs();
+  void advance(double displacement, double duration) {
+    if (displacement == 0 || finished) return;
+    final direction = displacement > 0 ? 1 : -1;
+    eventDirection = direction;
+    final distance = displacement.abs();
     // Absorb only roundoff at clip boundaries, including split frame deltas.
     final tolerance = duration * 1.7763568394002505e-15;
     if (loop == AnimationLoop.once) {
@@ -102,7 +112,8 @@ final class _Playback {
     }
   }
 
-  bool get advancing => !paused && !finished && speed != 0;
+  bool get advancing =>
+      (!paused && !finished && speed != 0) || fade != null || warp != null;
 }
 
 /// Playback state belongs to one mixer. Finished and paused actions retain their
@@ -135,14 +146,131 @@ final class AnimationAction {
     _change((s) {
       if (s.speed == 0 && value != 0) s.fresh = true;
       s.speed = value;
+      s.warp = null;
     });
   }
 
   double get weight => _state.weight;
   set weight(double value) {
     _weight(value);
-    _change((s) => s.weight = value);
+    _change((s) {
+      s.weight = value;
+      s.fade = null;
+    });
   }
+
+  bool get isFading => !_stopped && _state.fade != null;
+  bool get isWarping => !_stopped && _state.warp != null;
+
+  /// Linearly changes the current weight using mixer time, even when paused.
+  /// Replaces any existing fade. A zero duration applies the weight immediately.
+  void fadeTo(double weight, Duration duration, {bool pauseWhenDone = false}) {
+    _weight(weight);
+    final micros = _transitionDuration(duration);
+    _change(
+      (s) => _fadeAnimation(
+        s,
+        s.weight,
+        weight,
+        micros,
+        pauseWhenDone: pauseWhenDone,
+      ),
+    );
+  }
+
+  /// Starts at zero weight. Use [fadeTo] to continue from the current weight.
+  /// Fading does not resume a paused playhead.
+  void fadeIn(Duration duration, {double weight = 1}) {
+    _weight(weight);
+    final micros = _transitionDuration(duration);
+    _change((s) => _fadeAnimation(s, 0, weight, micros));
+  }
+
+  /// Fades to zero and, by default, pauses at the fade endpoint. The action
+  /// remains reusable; call [stop] to release its track bindings.
+  void fadeOut(Duration duration, {bool pauseWhenDone = true}) =>
+      fadeTo(0, duration, pauseWhenDone: pauseWhenDone);
+
+  void stopFading() => _change((s) => s.fade = null);
+
+  /// Integrates a linear speed curve, including reversals. Speeds are absolute
+  /// multipliers in [-1024, 1024], not factors of the current speed.
+  /// The transition uses mixer time even when the playhead is paused.
+  void warp(double startSpeed, double endSpeed, Duration duration) {
+    _speed(startSpeed);
+    _speed(endSpeed);
+    final micros = _transitionDuration(duration);
+    _change((s) => _warpAnimation(s, startSpeed, endSpeed, micros));
+  }
+
+  void warpTo(double speed, Duration duration) =>
+      warp(this.speed, speed, duration);
+  void halt(Duration duration) => warpTo(0, duration);
+  void stopWarping() => _change((s) => s.warp = null);
+
+  /// Fades this action out while resuming and fading [target] in. Both actions
+  /// must belong to this mixer. Their weights and clocks commit together.
+  /// With [warp], normalized playback rates match throughout the transition;
+  /// playhead phases are preserved. Both clips must have positive durations.
+  void crossFadeTo(
+    AnimationAction target,
+    Duration duration, {
+    bool warp = false,
+    double targetWeight = 1,
+  }) {
+    if (_stopped || target._stopped) {
+      throw StateError('Crossfades require two unstopped actions.');
+    }
+    if (identical(this, target) || !identical(_mixer, target._mixer)) {
+      throw ArgumentError('Crossfades require different actions on one mixer.');
+    }
+    _weight(targetWeight);
+    final micros = _transitionDuration(duration);
+    final sourceState = _state.copy(), targetState = target._state.copy();
+    if (warp) {
+      final a = clip.durationSeconds, b = target.clip.durationSeconds;
+      if (a == 0 || b == 0) {
+        throw ArgumentError(
+          'Warped crossfades require positive clip durations.',
+        );
+      }
+      final sourceEnd = target.speed * a / b;
+      final targetStart = speed * b / a;
+      _speed(sourceEnd);
+      _speed(targetStart);
+      _warpAnimation(sourceState, speed, sourceEnd, micros);
+      _warpAnimation(targetState, targetStart, target.speed, micros);
+    }
+    if (targetState.paused || targetState.finished) {
+      if (targetState.finished && target.clip.durationSeconds > 0) {
+        targetState.phase = targetState.speed < 0
+            ? target.clip.durationSeconds
+            : 0;
+        targetState.completedRepetitions = 0;
+      }
+      targetState.finished = target.clip.durationSeconds == 0;
+      targetState.paused = false;
+      targetState.fresh = true;
+    }
+    _fadeAnimation(sourceState, weight, 0, micros, pauseWhenDone: true);
+    _fadeAnimation(targetState, target.weight, targetWeight, micros);
+    _mixer._apply(_mixer._actions, {
+      this: sourceState,
+      target: targetState,
+    }, invalidate: true);
+  }
+
+  void crossFadeFrom(
+    AnimationAction source,
+    Duration duration, {
+    bool warp = false,
+    double targetWeight = 1,
+  }) => source.crossFadeTo(
+    this,
+    duration,
+    warp: warp,
+    targetWeight: targetWeight,
+  );
 
   /// Total traversals, including the first; null repeats indefinitely.
   int? get repetitions => _state.repetitions;

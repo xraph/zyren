@@ -7,6 +7,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:shader_lab/animation.dart';
 import '../../../packages/gpu3d_native/test/support/animation_checks.dart';
 import '../../../packages/gpu3d_native/test/support/additive_animation_checks.dart';
+import '../../../packages/gpu3d_native/test/support/animation_transition_checks.dart';
 import 'effects_test.dart' show waitForFrame;
 
 void main() {
@@ -20,6 +21,7 @@ void main() {
     try {
       await verifyAnimation(backend);
       await verifyAdditiveAnimation(backend);
+      await verifyAnimationTransitions(backend);
     } finally {
       await backend.close();
     }
@@ -117,6 +119,38 @@ void main() {
         finishedCount,
         reason: 'Natural completion releases frame demand.',
       );
+      expect(frames.every((f) => f.readbackBytes == 0), isTrue);
+      await tester.tap(find.byKey(const ValueKey('Fade layer')));
+      for (var i = 0; i < 4; i++) {
+        await advance();
+      }
+      expect(
+        tester.widget<Slider>(find.byKey(const ValueKey('Layer weight'))).value,
+        0,
+      );
+      final fadedCount = frames.length;
+      await advance();
+      expect(frames.length, fadedCount);
+      expect(arm('Left').quaternion, leftPaused);
+      await tester.tap(find.byKey(const ValueKey('Crossfade')));
+      for (var i = 0; i < 4; i++) {
+        await advance();
+      }
+      expect(find.text('Blend to Swing'), findsOneWidget);
+      expect(arm('Left').quaternion, leftPaused);
+      await tester.tap(find.byKey(const ValueKey('Halt')));
+      for (var i = 0; i < 4; i++) {
+        await advance();
+      }
+      expect(
+        tester
+            .widget<DropdownButton<double>>(find.byKey(const ValueKey('Speed')))
+            .value,
+        0,
+      );
+      final haltedCount = frames.length;
+      await advance();
+      expect(frames.length, haltedCount);
       expect(frames.every((f) => f.readbackBytes == 0), isTrue);
       expect(tester.takeException(), isNull);
     } finally {

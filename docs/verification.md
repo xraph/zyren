@@ -1919,3 +1919,37 @@ physical iOS qualification remain open.
 The 24.3 MB Android release launched the updated animation lab on the Pixel.
 Its process was confirmed, with no error-level process-log entries when checked.
 The app remains running for inspection; its release screen was not inspected.
+## Animation transitions, 28 September 2026
+
+You can fade held poses, cross-fade clips and change playback speed over time.
+Each action owns one replaceable fade and one speed transition. Cross-fades
+commit both actions together and can match traversal rates across different
+clip durations. Invalid poses preserve the previous weights, clocks and
+transition progress. Speed integration splits reversals and respects fade-end
+pause boundaries, including a single large elapsed step.
+
+Core coverage includes irregular frame partitions, reverse completion events,
+transition replacement and cancellation, stopped/foreign actions, bounded
+durations and speeds, idle-time skipping, reattachment and demand release.
+All 408 core, glTF and geospatial Dart cases and 90 serial native GPU cases pass.
+Analyzer, formatting, package boundaries and Apple ABI headers pass.
+
+The native transition fixture compares cross-faded skin rotation, scale and
+morph output against independently constructed poses and CPU-deformed geometry.
+The maximum allowed pixel difference is two byte levels. Each transition step
+uploads 400 bytes of pose data while the geometry stays resident. Frozen frame
+captures retain their original pixels.
+
+The animation lab reuses Swing and Reach actions and adds layer fades and a
+slow-to-stop control. Widget checks cover 320 by 640, 390 by 700 and 1100 by 700
+layouts with more than 250 pixels of canvas height. Vulkan integration on the
+physical Pixel and macOS Metal integration pass. Both verify native reference
+pixels, independent model controls, transition completion and settled frame
+demand, with zero presentation readback bytes.
+
+The standalone Metal capture `artifacts/animation-transitions.png` was visually
+inspected at the midpoint of a cross-fade. It uses explicit readback for
+validation. The macOS runner still reports that it cannot foreground the app;
+manual desktop interaction remains unverified. Windows, Linux and physical iOS
+qualification, custom shader deformation/instancing, per-instance colors and
+the remaining implementation-plan gates are open.

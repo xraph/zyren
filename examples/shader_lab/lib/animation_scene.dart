@@ -10,6 +10,7 @@ class AnimationLabScene {
   final mixers = <AnimationMixer>[];
   final actions = <AnimationAction>[];
   final layers = <AnimationAction>[];
+  final _alternates = <AnimationAction>[];
   AnimationLabScene({bool autoplay = true}) {
     scene.background = const Color3(.015, .022, .035);
     final clip = AnimationClip(
@@ -53,6 +54,29 @@ class AnimationLabScene {
         ),
       ],
     );
+    final reach = AnimationClip(
+      name: 'Reach',
+      tracks: [
+        VectorKeyframeTrack.position(
+          target: 'arm',
+          times: [0, 1, 2],
+          values: [
+            const Vec3(0, -.5, 0),
+            const Vec3(0, -.1, 0),
+            const Vec3(0, -.5, 0),
+          ],
+        ),
+        QuaternionKeyframeTrack(
+          target: 'arm',
+          times: [0, 1, 2],
+          values: [
+            Quat.identity,
+            Quat.axisAngle(const Vec3(1, 0, 0), 1.1),
+            Quat.identity,
+          ],
+        ),
+      ],
+    );
     final beam = BoxGeometry(width: .25, height: 1.4, depth: .3),
         tip = BoxGeometry(width: .55, height: .35, depth: .4),
         base = BoxGeometry(width: .8, height: .2, depth: .7);
@@ -79,6 +103,7 @@ class AnimationLabScene {
       if (i == 1) playback.seek(const Duration(seconds: 2));
       if (i == 1 || !autoplay) playback.pause();
       actions.add(playback);
+      _alternates.add(mixer.play(reach, weight: 0)..pause());
       layers.add(
         mixer.play(
             layerClip,
@@ -102,4 +127,18 @@ class AnimationLabScene {
       ),
     );
   }
+
+  void crossFade(int model) {
+    final source = actions[model], target = _alternates[model];
+    target
+      ..loop = source.loop
+      ..repetitions = source.repetitions
+      ..speed = source.speed
+      ..seek(Duration.zero);
+    source.crossFadeTo(target, const Duration(milliseconds: 750), warp: true);
+    actions[model] = target;
+    _alternates[model] = source;
+  }
+
+  String nextClipName(int model) => _alternates[model].clip.name!;
 }

@@ -52,8 +52,9 @@ class _AnimationLab extends StatefulWidget {
 
 class _AnimationLabState extends State<_AnimationLab> {
   late final SceneController controller;
-  final actions = <AnimationAction>[];
-  final layers = <AnimationAction>[];
+  late final AnimationLabScene demo;
+  List<AnimationAction> get actions => demo.actions;
+  List<AnimationAction> get layers => demo.layers;
   StreamSubscription<FrameStats>? subscription;
   final eventSubscriptions = <StreamSubscription<AnimationEvent>>[];
   int selected = 0;
@@ -61,7 +62,7 @@ class _AnimationLabState extends State<_AnimationLab> {
   @override
   void initState() {
     super.initState();
-    final demo = AnimationLabScene(autoplay: widget.autoplay);
+    demo = AnimationLabScene(autoplay: widget.autoplay);
     controller = SceneController(
       runtime: widget.runtime,
       scene: demo.scene,
@@ -77,8 +78,6 @@ class _AnimationLabState extends State<_AnimationLab> {
         }),
       );
     }
-    actions.addAll(demo.actions);
-    layers.addAll(demo.layers);
     subscription = controller.frameStats.listen((_) {
       if (mounted) setState(() {});
     });
@@ -192,10 +191,18 @@ class _AnimationLabState extends State<_AnimationLab> {
                     value: action.speed,
                     isExpanded: true,
                     items: [
-                      for (final speed in [-2.0, -1.0, 0.0, .5, 1.0, 2.0])
+                      for (final speed in {
+                        -2.0,
+                        -1.0,
+                        0.0,
+                        .5,
+                        1.0,
+                        2.0,
+                        action.speed,
+                      })
                         DropdownMenuItem(
                           value: speed,
-                          child: Text('${speed}x'),
+                          child: Text('${speed.toStringAsFixed(2)}x'),
                         ),
                     ],
                     onChanged: (value) => edit(() => action.speed = value!),
@@ -230,6 +237,30 @@ class _AnimationLabState extends State<_AnimationLab> {
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Row(
               children: [
+                Expanded(
+                  child: TextButton.icon(
+                    key: const ValueKey('Crossfade'),
+                    icon: const Icon(Icons.swap_horiz, size: 18),
+                    label: Text('Blend to ${demo.nextClipName(selected)}'),
+                    onPressed: () => edit(() => demo.crossFade(selected)),
+                  ),
+                ),
+                TextButton(
+                  key: const ValueKey('Halt'),
+                  onPressed: action.speed == 0
+                      ? null
+                      : () => edit(
+                          () => action.halt(const Duration(milliseconds: 750)),
+                        ),
+                  child: const Text('Slow to stop'),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(
+              children: [
                 const Text('Lean layer'),
                 Expanded(
                   child: Slider(
@@ -247,6 +278,25 @@ class _AnimationLabState extends State<_AnimationLab> {
                     textAlign: TextAlign.end,
                   ),
                 ),
+                IconButton(
+                  key: const ValueKey('Fade layer'),
+                  tooltip: layers[selected].weight == 0
+                      ? 'Fade layer in'
+                      : 'Fade layer out',
+                  icon: Icon(
+                    layers[selected].weight == 0
+                        ? Icons.visibility
+                        : Icons.visibility_off,
+                  ),
+                  onPressed: () => edit(() {
+                    final layer = layers[selected];
+                    if (layer.weight == 0) {
+                      layer.fadeIn(const Duration(milliseconds: 750));
+                    } else {
+                      layer.fadeOut(const Duration(milliseconds: 750));
+                    }
+                  }),
+                ),
               ],
             ),
           ),
@@ -255,7 +305,9 @@ class _AnimationLabState extends State<_AnimationLab> {
             child: Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                action.isFinished
+                action.isFading
+                    ? 'Blending to ${action.clip.name}'
+                    : action.isFinished
                     ? 'Finished · ${action.completedRepetitions} runs'
                     : 'Independent playback · ${action.completedRepetitions} runs',
                 key: const ValueKey('Playback status'),
