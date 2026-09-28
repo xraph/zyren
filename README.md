@@ -216,11 +216,12 @@ and upload rules.
 
 Colours use linear RGB; `Color3.hex` converts an sRGB hex colour for you. Object
 positions use double precision until the camera origin has been subtracted.
-Local vertex attributes use float32 storage. The current
-materials support opaque diffuse lighting, unlit shading and RGBA color textures.
-See [color textures](docs/design/gpu-resources.md#color-textures) for UVs, samplers
-and supplied mip levels. `NativeImageDecoder` decodes bounded PNG/JPEG inputs.
-Automatic mips, transparency, shadows and PBR remain planned work.
+Local vertex attributes use float32 storage. Materials support unlit, diffuse
+and metal/roughness PBR shading, texture maps, alpha masks and blending. Native
+lighting includes environment maps and bounded directional/spot shadows.
+See [renderer profiles](docs/renderer-capabilities.md) for supported behavior and
+limits, and [color textures](docs/design/gpu-resources.md#color-textures) for UVs,
+samplers and mipmaps. `NativeImageDecoder` decodes bounded PNG/JPEG inputs.
 
 ## Plugins and backends
 

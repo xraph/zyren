@@ -5,9 +5,11 @@ native platforms. Geospatial is one optional plugin, alongside future loaders,
 controls and effects. Earth-specific behavior must not become a dependency of
 ordinary 3D scenes.
 
-The initial native renderer and plugin host establish the API and build path.
-You can use the example to evaluate those decisions. Production use needs the
-remaining renderer and platform work below.
+The native renderer, navigation and RGB atmosphere have passed the
+[current qualification](parity/navigation-renderer-atmosphere-checkpoint.md) on
+macOS, Pixel and iPhone. The full source port is incomplete. Use the
+[parity matrix](parity/matrix.md) for the remaining source contracts and story
+comparisons; platform and performance limits still apply.
 
 The detailed [implementation program](superpowers/plans/2026-09-26-native-3d-program.md)
 breaks this work into API/DX, native presentation, general rendering, and
@@ -19,41 +21,34 @@ defines ownership and application workflows before those changes land.
 
 | Area | Implemented now | Required for the target |
 | --- | --- | --- |
-| Scene and maths | Object hierarchy, transforms, perspective camera, double precision positions | Orthographic cameras, layers, bounds, raycasting, spatial queries and frustum culling |
-| Geometry | Versioned dynamic attributes, uint16/uint32 indices, UVs, box/sphere, portable lines and points | Native tangent/color/skinning bindings, joined/dashed strokes, instancing and morph targets |
-| Materials and lighting | Diffuse/unlit materials, color textures, samplers, linear-light mipmaps, alpha modes, depth and draw order | PBR, multiple light types, shadows, environment maps, transparent canvas composition and HDR color output |
-| Animation | Frame hooks | Clips, tracks, interpolation, mixers and skeletal animation |
-| Assets | Typed scoped loading, shared in-flight decoding, bundle/file/HTTP sources and bounded native PNG/JPEG decoding | glTF models, worker parsing, extension fixtures and compressed textures through loader plugins |
-| Rendering | Native GPU pipelines, explicit RGBA output, opt-in Metal views and Android Vulkan shared textures | Render graph, public shader/material extensions, compute, offscreen passes, HDR, postprocessing and broader native surface qualification |
-| Extensibility | Dependency-ordered plugins, typed services, replaceable renderer/presenter and scoped versioned GPU resources | Pass descriptors and native shader extensions through the public API |
-| Developer tools | Runnable example, capability checks and validation errors | Picking tools, statistics, profiling, context/device recovery and performance fixtures |
+| Scene and maths | Object hierarchy, double precision positions, perspective/orthographic cameras, transitions, bounds and triangle/instance raycasting | Layers, broader spatial queries, frustum/LOD culling and deformed picking |
+| Geometry | Dynamic attributes, uint16/uint32 indices, UV0/UV1, tangents, primitives, lines/points and instancing | Skinning, morph targets and joined/dashed strokes |
+| Materials and lighting | Metal/roughness PBR and maps, punctual lights, environment convolution, directional/spot shadows, mipmaps and alpha modes | Multiple-scattering PBR, advanced physical materials, area lights and point-light shadows |
+| Animation | Frame hooks and optional transform/camera timeline tracks with interpolation and playback | glTF animation import, mixers, skeletal animation, morphs and event tracks |
+| Assets | Scoped loading, shared decoding, bundle/file/HTTP sources, PNG/JPEG and standard glTF with unlit/punctual-light extensions | Compressed textures/meshes, further image formats and glTF extensions |
+| Rendering | Native Metal/Vulkan presentation, public WGSL graphs/compute, HDR, MSAA/FXAA, bloom and custom effects | Temporal reconstruction, motion vectors, GPU timestamps, indirect draws and wider platform qualification |
+| Extensibility | Dependency-ordered plugins, typed services, replaceable backends and scoped resources/shader/graph APIs | Further source shader-node equivalents and capability profiles |
+| Developer tools | Picking/selection tools, scene inspection, sampled frame statistics, capability checks and validation errors | GPU timing, broader recovery qualification and representative performance fixtures |
 
 Keep shader, texture and render-pass primitives in the core. The geospatial
 plugin should express atmosphere and clouds through those public primitives.
 Do not add a geospatial-only rendering path to bypass missing core features.
 
-## Delivery order
+## Remaining delivery order
 
-1. API and native presentation: extract the pure Dart core, establish controller
-   ownership and observable scene updates, then replace RGBA readback with shared
-   GPU textures. Verify
-   resizing, background/resume, Flutter engine detach, device loss and multiple
-   viewports on physical iOS/Android devices, macOS and Windows. Measure frame
-   latency, CPU copies and GPU memory with representative scenes.
-2. General 3D resources: texture/sampler ownership, glTF 2.0 assets, PBR materials,
-   HDR output, image-based lighting, instancing, culling, picking, animation and
-   skeletal meshes. Define resource disposal and asynchronous loading contracts
-   before adding loaders.
-3. Planetary rendering: complete geographic tiling and camera controls, add
-   screen-space-error LOD, terrain/imagery streaming, origin rebasing and an
-   Earth-scale depth strategy. Keep credentials and network fetching outside
-   the rendering core.
-4. Atmosphere: port scattering precomputation and evaluation to WGSL, compare
-   LUTs numerically and compare native output with the supplied reference.
-   Add astronomy fixtures and atmosphere-aware material lighting.
-5. Clouds and effects: volumetric ray marching, shadows, temporal history,
-   tone mapping and antialiasing. Validate camera cuts, changing weather,
-   precision, GPU feature limits and memory use on mobile hardware.
+1. Stream deterministic terrain/imagery through public core APIs, with
+   screen-space-error LOD, bounded requests/caches, cancellation and measured
+   planetary depth precision. Add the separate 3D Tiles loader, provider adapters
+   and source story configurations. Keep credentials outside the rendering core.
+2. Complete atmosphere variants: source LUT loading, automatic material lighting,
+   probes/environment adapters, spectral integration and remaining haze overlays.
+3. Add volumetric clouds, weather generators, cloud shadows, temporal reconstruction
+   and remaining source effects. Check moving cameras and changing weather.
+4. Extend the general renderer with animation/skinning/morphs, compressed assets
+   and the [material/effect backlog](renderer-capabilities.md#extension-backlog).
+5. Compare all upstream stories at fixed cameras, times, assets and exposures.
+   Qualify Windows/Linux and broader device recovery, then measure representative
+   frame latency, copies and memory use.
 
 Completion means the API, native implementation, tests and example work together.
 A successful cross-compile does not establish device compatibility or frame rate.

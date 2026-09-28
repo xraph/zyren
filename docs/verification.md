@@ -1,14 +1,17 @@
 # Verification
 
-Checked locally on 26 September 2026 with Flutter 3.47.5, Dart 3.13.4,
-Rust 1.97.1 and Xcode 27.0.
+Current qualification: 28 September 2026, using Flutter 3.47.5, Dart 3.13.4,
+Rust 1.97.1 and Xcode 27.0. Read the
+[navigation, renderer and atmosphere report](parity/navigation-renderer-atmosphere-checkpoint.md)
+for current suite counts, native device results and visual checks. The
+[renderer profiles](renderer-capabilities.md) define supported features and budgets.
 
 | Target | Build | Runtime evidence |
 | --- | --- | --- |
-| macOS ARM64 | Debug and release apps passed | Apple M3 Max / Metal pixel tests, Dart FFI tests and Flutter integration test passed; globe and wrapping controls inspected in desktop and narrow native windows; standalone release launch rendered without a development runner |
+| macOS ARM64 | Debug and release apps passed | Apple M3 Max / Metal numerical, lifecycle and native navigation/renderer/atmosphere integrations pass; renderer and atmosphere foreground controls inspected |
 | iOS ARM64 simulator | Debug app passed | iPhone 17 Pro simulator on iOS 26.0 passed the Flutter integration test with a rendered native image |
-| Android ARM64 | Debug and release APKs passed | Pixel 9 Pro / Mali-G715 public Vulkan SceneView passes updates, remount, independent cameras, resize/visibility and 100 create/remove cycles with zero presentation readback; broader composition and device qualification remain open |
-| iOS physical device | Build target configured | Signing, device deployment and GPU behaviour not verified |
+| Android ARM64 | Debug and release APKs passed | Pixel 9 Pro / Mali-G715 Vulkan passes native navigation, renderer and atmosphere fixtures, plus updates, remount, independent cameras, resize/visibility and 100 create/remove cycles; broader device qualification remains open |
+| iOS physical device | Signed profile deployment passed | iPhone 16 Pro / iOS 27 Metal navigation, renderer and atmosphere fixtures pass controls, compact layouts, zero presentation readbacks and cleanup |
 | Windows | Build hook and CI job configured | No Windows host build or runtime verification yet |
 | Linux | Build hook and CI job configured | No Linux host build or runtime verification yet |
 | Other CPU architectures | Rust target declarations configured | Not built or tested locally |
@@ -16,7 +19,11 @@ Rust 1.97.1 and Xcode 27.0.
 The CI workflow has been written but has not run remotely. Nothing has been
 pushed. A simulator pass does not establish physical mobile GPU performance.
 
-## Checks passed
+## Initial checks, 26 September 2026
+
+The sections below retain earlier checkpoint results and their limits at the time.
+They are implementation history. Use the current reports linked above to decide
+what you can run now.
 
 - Rust: three tests, including the explicitly enabled native GPU test. Assertions
   cover actual pixels, front/back depth ordering, row padding, target resizing up
@@ -61,7 +68,7 @@ Physical mobile and Windows/Linux runtime qualification remain outstanding.
 Earlier iOS simulator and Android build results above describe the pre-extraction
 layout; they have not yet been repeated for the new packages.
 
-## Known limits
+## Initial renderer limits
 
 Default example presentation copies RGBA data from the GPU to Dart and back
 into Flutter. The experimental Apple texture bridge avoids this transfer but fails its
