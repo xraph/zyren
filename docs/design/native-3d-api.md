@@ -358,6 +358,10 @@ they retain only the native lease they need, not a Dart object or widget.
 
 ## 7. Assets, loading and cancellation
 
+The [typed loading infrastructure](asset-loading.md) is implemented. The glTF
+request and model APIs below remain the Task 3 target until its decoder and
+viewer fixtures pass.
+
 ```dart
 import 'package:gpu3d_gltf/gpu3d_gltf.dart';
 

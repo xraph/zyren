@@ -198,6 +198,13 @@ tracked above.
 
 ## Task 3: Typed asset loading and glTF models
 
+Current checkpoint: typed core requests, shared jobs, independent cancellation,
+per-consumer ownership, source budgets and Flutter/native adapters are implemented.
+`SceneRuntime.assetServices` works without a GPU view. See
+[asset loading](../../design/asset-loading.md) for the current API and limits.
+The glTF decoder, model templates, worker parsing, extension fixtures and model
+viewer remain open, so the combined acceptance checks below stay unchecked.
+
 **Files:** Implement core `assets/{asset_scope,asset_request,source_resolver,shared_load}.dart`;
 create `packages/gpu3d_gltf/{pubspec.yaml,lib/gpu3d_gltf.dart}` and decoder modules.
 Create `packages/gpu3d/test/shared_load_test.dart`,

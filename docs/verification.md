@@ -613,3 +613,34 @@ This checkpoint changes geometry recipes and their allocation accounting. It
 adds no renderer backend or platform qualification. Task 2's opaque native
 presentation is unchanged; transparent Flutter composition remains tracked in
 Task 4. Typed asset loading and glTF are next.
+
+## Shared typed asset loading
+
+Typed requests and scoped load ownership pass 93 core, 8 geospatial, 35 native
+Dart and 66 Flutter/example tests. The native suite includes its GPU cases.
+Analysis, formatting and package/header boundaries pass. Tests cover shared
+fetch/decode, immediate and final-consumer cancellation, retry, late decoded
+ownership, independent result release, reentrant disposal and cleanup failures.
+
+Local HTTP fixtures check manual redirects, effective base URIs, forbidden
+origins, unknown response lengths, gzip expansion, byte limits, cancellation,
+HTTP errors and deadlines. File reads and Flutter bundle offsets/keys have their
+own fixtures. Concurrent dependency and image tests check aggregate admission;
+plain controller tests confirm that CPU loading starts no GPU backend.
+
+The bundle-loading integration passes on Metal and the physical Pixel's Vulkan
+backend. Two consumers share one fetch and one native PNG decode, then receive
+separate templates over shared geometry and pixels. Releasing the templates
+prevents new instances while existing meshes keep rendering. Both views upload
+200 bytes together, surviving instances upload zero more, and final removal
+returns native residency to zero.
+
+The native primitives demo rebuilds for macOS (49.5 MB) and Android ARM64
+(21.9 MB). The Metal release is visibly rendering at narrow width, and the
+Android release launches on the Pixel. Sustained manual Android interaction
+remains unverified.
+
+The source adapters do not establish glTF support. Model parsing, accessor and
+extension validation, worker responsiveness and the model viewer remain open.
+HTTP fixtures ran on the desktop host; this checkpoint does not qualify mobile
+network configuration or add iOS, Windows, Linux or Adreno evidence.
