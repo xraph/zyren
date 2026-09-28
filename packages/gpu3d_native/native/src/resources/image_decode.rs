@@ -4,7 +4,9 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
 };
 pub mod ffi;
+mod hdr;
 mod jpeg;
+pub use hdr::{DecodedHdrImage, decode_hdr};
 
 const MIB: u64 = 1024 * 1024;
 static BUDGET: Budget = Budget::new(256 * MIB);

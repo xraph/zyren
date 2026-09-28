@@ -29,6 +29,22 @@ uint32_t fg2_image_decode(const uint8_t *input, size_t length,
  * Never copy the descriptor's ownership or use its pixels after release.
  */
 void fg2_image_free(Fg2ImagePixels *output);
+typedef struct {
+  uint32_t width;
+  uint32_t height;
+  float *pixels;
+  size_t length; /* float components, not bytes */
+} Fg2HdrImagePixels;
+/* CPU-only Radiance RGBE profile, same status codes and limits as above.
+ * Returns owned top-down opaque RGBA32F. Values are linear, as stored.
+ * Missing primaries assume linear sRGB; explicit other primaries, XYZE and
+ * non-square pixels are unsupported. EXPOSURE/COLORCORR are not reapplied.
+ * All pointers must be valid and disjoint. Output must be empty.
+ */
+uint32_t fg2_hdr_image_decode(const uint8_t *input, size_t length,
+    const Fg2ImageLimits *limits, Fg2HdrImagePixels *output);
+/* Same ownership contract as fg2_image_free. */
+void fg2_hdr_image_free(Fg2HdrImagePixels *output);
 #ifdef __cplusplus
 }
 #endif

@@ -49,8 +49,11 @@ releases its scopes and scene references; the last view closes the worker.
 Use `TextureImage.rgba` and `TextureMap` for color textures, UV selection,
 wrap/filter settings and supplied or native-generated mip levels. Set
 `generateMipmaps: true` to build a full chain in linear light on the GPU. `NativeImageDecoder` decodes PNG
-and JPEG on a CPU isolate with bounded admission. Dynamic geometry uploads
-merged attribute ranges while preserving captures held by other views.
+and JPEG on a CPU isolate with bounded admission. For linear float pixels, use
+`NativeHdrImageDecoder` with `HdrImageLoader`. See the
+[HDR asset API](../../docs/design/hdr-assets.md) for limits and upload examples.
+Dynamic geometry uploads merged attribute ranges while preserving captures held
+by other views.
 
 Worker requests carry a generation and a monotonic request ID. Worker exit or
 error settles every pending request. Stale and duplicate replies are ignored.

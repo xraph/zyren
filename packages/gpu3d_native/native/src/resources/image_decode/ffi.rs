@@ -112,3 +112,90 @@ pub unsafe extern "C" fn fg2_image_free(output: *mut ImagePixels) {
         }
     }
 }
+
+#[repr(C)]
+#[derive(Default)]
+pub struct HdrImagePixels {
+    pub width: u32,
+    pub height: u32,
+    pub pixels: *mut f32,
+    /// Number of float components, not bytes.
+    pub length: usize,
+}
+
+/// Decode top-down linear RGBA32F pixels on the CPU.
+/// # Safety
+/// Input and limits must be readable. Output must be writable, empty and disjoint
+/// from both. Release successful output exactly once using `fg2_hdr_image_free`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn fg2_hdr_image_decode(
+    input: *const u8,
+    length: usize,
+    limits: *const ImageLimits,
+    output: *mut HdrImagePixels,
+) -> u32 {
+    if output.is_null() {
+        return DecodeError::InvalidData as u32;
+    }
+    unsafe {
+        *output = HdrImagePixels::default();
+    }
+    let mut code = DecodeError::Internal;
+    let ok: u32 = crate::guard(|| {
+        if input.is_null() || limits.is_null() || length == 0 {
+            code = DecodeError::InvalidData;
+            return Err("invalid HDR input buffers".into());
+        }
+        if length > 16 * 1024 * 1024 {
+            code = DecodeError::LimitExceeded;
+            return Err("HDR input exceeds encoded ceiling".into());
+        }
+        let limits = unsafe { &*limits };
+        if limits.version != 1 {
+            code = DecodeError::InvalidLimits;
+            return Err("unsupported HDR limits version".into());
+        }
+        let limits = DecodeLimits {
+            max_dimension: limits.max_dimension,
+            max_encoded_bytes: limits.max_encoded_bytes,
+            max_decoded_bytes: limits.max_decoded_bytes,
+            max_working_bytes: limits.max_working_bytes,
+        };
+        let image = super::decode_hdr(unsafe { std::slice::from_raw_parts(input, length) }, limits)
+            .map_err(|error| {
+                code = error;
+                format!("HDR decode: {error:?}")
+            })?;
+        let pixels = image.pixels.into_boxed_slice();
+        unsafe {
+            *output = HdrImagePixels {
+                width: image.width,
+                height: image.height,
+                length: pixels.len(),
+                pixels: Box::into_raw(pixels).cast::<f32>(),
+            };
+        }
+        Ok(1)
+    });
+    if ok == 1 { 0 } else { code as u32 }
+}
+
+/// Release HDR pixels and clear the descriptor. Cleared descriptors are safe.
+/// # Safety
+/// Output must be null, the unchanged result of `fg2_hdr_image_decode`, or a
+/// descriptor cleared by this function. Do not copy ownership.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn fg2_hdr_image_free(output: *mut HdrImagePixels) {
+    if output.is_null() {
+        return;
+    }
+    let image = unsafe { std::mem::take(&mut *output) };
+    if !image.pixels.is_null() {
+        unsafe {
+            drop(Box::from_raw(std::ptr::slice_from_raw_parts_mut(
+                image.pixels,
+                image.length,
+            )));
+        }
+    }
+}

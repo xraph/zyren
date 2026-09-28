@@ -1311,3 +1311,50 @@ the shared-effect precision guard. The Pixel release is running as
 and no error-level process logs. Pixel window interaction remains unverified in
 this checkpoint. The Mac integration could not foreground its window; manual
 release-window inspection and Apple compositor pixels remain unverified.
+
+
+## HDR asset loading, 2026-09-28
+
+You can load Radiance RGBE files through `HdrImageLoader` and keep their values
+in immutable RGBA32F CPU storage. Flutter presets provide the native HDR decoder
+before a view attaches. The core asset service remains optional and independent
+of Flutter and geospatial. See [HDR assets](design/hdr-assets.md) for the supported
+file profile and explicit float16 upload API.
+
+The native decoder covers all eight axis orientations, flat and both RLE forms,
+strict header/run/payload validation, exponent extremes, byte limits and C-buffer
+ownership. Seven decoder tests include 512 reproducible input mutations. CPU
+half-float tests cover all 31,744 nonnegative finite half values, subnormals,
+ties, overflow and an upload-scale double-rounding regression. Mixed byte/HDR
+loads share float-byte admission, and cancellation cannot publish late results.
+
+Checks pass: 269 core/glTF/geospatial, 59 native Dart, 68 Flutter facade, two
+shader-lab layout and 15 independent effects tests, 413 Dart/Flutter tests in
+all. The full Rust run passed 98 tests; the final seven-test HDR suite adds the
+mutation regression, bringing covered Rust tests to 99. Strict Clippy, analysis,
+formatting, package boundaries and C-header syntax pass.
+
+Metal and Pixel Vulkan integrations exercise CPU decode, RGBA16F upload, linear
+mip generation, compute sampling and resource cleanup alongside existing PBR,
+material-map and tone-mapping probes. The Metal app integration also exercises
+its existing controls and zero-readback presentation checks. It could not bring
+its window to the foreground. Manual release-window inspection and Apple
+compositor pixels remain unverified, with no lock polling or bypass attempted.
+No new iOS, Windows, Linux or Adreno qualification is claimed.
+
+The first GPU fixture omitted its imported graph input and exposed only one
+sampled mip. Correcting both declarations made the probe read the intended mip.
+The default Flutter HDR test must run from `packages/flutter_gpu3d`, whose
+dependencies activate native build hooks; the workspace root's test invocation
+did not resolve the HDR FFI symbols. The corrected package run passes. The
+initial generated RGBE fixture had incorrect exponents and was fixed against
+the format's numeric conversion before GPU checks.
+
+Environment prefiltering, BRDF integration, PBR environment bindings and shadows
+remain open in Task 5. The full Three.js and Takram port is still in progress.
+
+Both release builds pass: macOS 51.9 MB and Android arm64 23.3 MB. The updated
+Pixel release demo is running under runner 55363, process 17208, with no
+error-level process logs at verification. Previous runner 60768 was stopped
+before the Flutter test/build cycle. The release scene retains its existing
+lighting; HDR asset decoding is qualified through the integration probes above.

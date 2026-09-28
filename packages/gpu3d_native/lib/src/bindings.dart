@@ -45,6 +45,36 @@ external int imageDecode(
 )
 external void imageFree(Pointer<NativeImagePixels> output);
 
+final class NativeHdrImagePixels extends Struct {
+  @Uint32()
+  external int width;
+  @Uint32()
+  external int height;
+  external Pointer<Float> pixels;
+  @Size()
+  external int length;
+}
+
+@Native<
+  Uint32 Function(
+    Pointer<Uint8>,
+    Size,
+    Pointer<NativeImageLimits>,
+    Pointer<NativeHdrImagePixels>,
+  )
+>(symbol: 'fg2_hdr_image_decode', assetId: _asset)
+external int hdrImageDecode(
+  Pointer<Uint8> input,
+  int length,
+  Pointer<NativeImageLimits> limits,
+  Pointer<NativeHdrImagePixels> output,
+);
+@Native<Void Function(Pointer<NativeHdrImagePixels>)>(
+  symbol: 'fg2_hdr_image_free',
+  assetId: _asset,
+)
+external void hdrImageFree(Pointer<NativeHdrImagePixels> output);
+
 @Native<Uint32 Function()>(symbol: 'fg_abi_version', assetId: _asset)
 external int abiVersion();
 @Native<Uint64 Function()>(symbol: 'fg_create', assetId: _asset)

@@ -410,6 +410,14 @@ effects preserve HDR precision and reset history when precision changes. See
 [color pipeline](../../design/color-pipeline.md). Task 5 remains open for IBL,
 shadows and glTF gates listed below. This is not the full PBR profile.
 
+HDR asset checkpoint: `HdrImageData`, `HdrImageLoader` and native RGBE decoding
+preserve float pixels through CPU scopes and RGBA16F resource uploads. Flutter
+presets include the HDR decoder. All eight orientations, bounded RLE parsing,
+aggregate asset budgets, cancellation and finite half-float conversion have
+regressions. Metal and Pixel Vulkan verify upload, mip generation and compute
+sampling. See [HDR assets](../../design/hdr-assets.md) for the supported file
+profile. Environment filtering, BRDF integration and PBR bindings remain open.
+
 **Files:** Create core `materials/standard_material.dart`,
 `lights/{directional,point,spot,hemisphere}_light.dart`; native
 `passes/{pbr,shadow,environment}.rs`, WGSL modules,

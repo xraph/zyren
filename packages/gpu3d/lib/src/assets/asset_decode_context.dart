@@ -113,14 +113,37 @@ final class AssetDecodeContext {
     _decodedBytes += bytes;
   }
 
-  Future<ImageData> decodeImage(Uint8List bytes, {String? fieldPath}) {
+  Future<ImageData> decodeImage(Uint8List bytes, {String? fieldPath}) =>
+      _decodeImage<ImageData>(
+        bytes,
+        _services.imageDecoder?.decode,
+        (image) => image.pixels.lengthInBytes,
+        'image',
+        fieldPath,
+      );
+
+  Future<HdrImageData> decodeHdrImage(Uint8List bytes, {String? fieldPath}) =>
+      _decodeImage<HdrImageData>(
+        bytes,
+        _services.hdrImageDecoder?.decode,
+        (image) => image.pixels.lengthInBytes,
+        'HDR image',
+        fieldPath,
+      );
+
+  Future<T> _decodeImage<T>(
+    Uint8List bytes,
+    Future<T> Function(Uint8List, {ImageDecodeLimits limits})? decode,
+    int Function(T) byteLength,
+    String kind,
+    String? fieldPath,
+  ) {
     final future = _imageTail.then((_) async {
       cancellation.throwIfCancelled();
-      final decoder = _services.imageDecoder;
-      if (decoder == null) {
+      if (decode == null) {
         throw AssetLoadException(
           AssetLoadError.unsupportedFeature,
-          'No image decoder is configured.',
+          'No $kind decoder is configured.',
           sourceUri: sourceUri,
           fieldPath: fieldPath,
         );
@@ -136,10 +159,10 @@ final class AssetDecodeContext {
         maxWorkingBytes: imageLimits.maxWorkingBytes,
         maxDimension: imageLimits.maxDimension,
       );
-      late final ImageData image;
+      late final T image;
       try {
         decodeLimits.validateInput(bytes);
-        image = await decoder.decode(bytes, limits: decodeLimits);
+        image = await decode(bytes, limits: decodeLimits);
       } on ImageDecodeException catch (error) {
         throw AssetLoadException(
           switch (error.code) {
@@ -157,7 +180,11 @@ final class AssetDecodeContext {
         );
       }
       cancellation.throwIfCancelled();
-      reserveDecodedBytes(image.pixels.length, fieldPath: fieldPath);
+      final length = byteLength(image);
+      if (length > decodeLimits.maxDecodedBytes) {
+        throw _limit('Decoded image exceeds its byte budget.', fieldPath);
+      }
+      reserveDecodedBytes(length, fieldPath: fieldPath);
       return image;
     });
     _imageTail = future.then<void>(

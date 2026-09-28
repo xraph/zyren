@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:flutter_gpu3d/flutter_gpu3d.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -149,6 +150,58 @@ void main() {
       await progress;
       bundle.data.complete(Uint8List(4).buffer.asByteData());
       await Future<void>.delayed(Duration.zero);
+    },
+  );
+
+  test(
+    'default services load HDR bundle assets before a view attaches',
+    () async {
+      var backendStarts = 0;
+      final bytes = Uint8List.fromList([
+        ...ascii.encode('#?RADIANCE\nFORMAT=32-bit_rle_rgbe\n\n-Y 1 +X 1\n'),
+        128,
+        64,
+        32,
+        130,
+      ]);
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      messenger.setMockMessageHandler('flutter/assets', (message) async {
+        expect(
+          utf8.decode(
+            message!.buffer.asUint8List(
+              message.offsetInBytes,
+              message.lengthInBytes,
+            ),
+          ),
+          'hdr/default.hdr',
+        );
+        return ByteData.sublistView(bytes);
+      });
+      final controller = SceneController(
+        runtime: SceneRuntime(
+          backendFactory: () async {
+            backendStarts++;
+            throw StateError('HDR assets do not need a renderer.');
+          },
+        ),
+      );
+      try {
+        final image = await controller.assets
+            .load(
+              AssetRequest(
+                uri: Uri.parse('asset:///hdr/default.hdr'),
+                loader: const HdrImageLoader(),
+              ),
+            )
+            .result;
+        expect(image.pixels, [2, 1, .5, 1]);
+        expect(backendStarts, 0);
+      } finally {
+        controller.dispose();
+        await controller.whenDisposed;
+        messenger.setMockMessageHandler('flutter/assets', null);
+      }
     },
   );
 

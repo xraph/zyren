@@ -427,8 +427,9 @@ The [standard material profile](standard-materials.md) implements base color,
 normal, metallic/roughness, occlusion and emissive maps, shared raster settings,
 and explicit or derivative tangent bases. Directional, point, spot and hemisphere
 lights are scene objects. The [color pipeline](color-pipeline.md) adds linear
-RGBA16Float scene/effect color with terminal exposure and tone mapping. Environment
-reflections and shadow APIs remain targets.
+RGBA16Float scene/effect color with terminal exposure and tone mapping. You can
+load [HDR assets](hdr-assets.md) through CPU asset scopes and upload their linear
+float pixels. Environment reflections and shadow APIs remain targets.
 
 The common path is `StandardMaterial`: linear `baseColor`, optional base-color,
 normal, metallic/roughness, occlusion and emissive textures; metallic, roughness,

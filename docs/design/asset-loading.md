@@ -26,12 +26,14 @@ you still need to follow that widget's mounted rules.
 ## Services and sharing
 
 Flutter controllers provide bundle, file and HTTP resolution plus native PNG/JPEG
-decoding. These services work before you attach a view. You can override them:
+and Radiance RGBE HDR decoding. These services work before you attach a view.
+You can override them:
 
 ```dart
 final services = AssetServices(
   resolver: const FlutterSourceResolver(),
   imageDecoder: const NativeImageDecoder(),
+  hdrImageDecoder: const NativeHdrImageDecoder(),
   limits: const AssetLimits(maxTotalSourceBytes: 64 * 1024 * 1024),
   onCleanupError: reportCleanupFailure,
 );
@@ -175,3 +177,5 @@ warning. Animations, skins, morphs, vertex colors and unsupported required
 extensions fail explicitly. See the [fixture-backed support matrix](../../packages/gpu3d_gltf/README.md)
 for the exact limits. The broader renderer and full glTF feature set remain work
 in the resource and renderer plan.
+
+For float image data and the RGBE profile, see [HDR assets](hdr-assets.md).

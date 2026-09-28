@@ -49,3 +49,7 @@ export 'src/resources/resource_scope.dart'
         GraphDeviceDescription;
 
 export 'src/rendering/color_pipeline.dart';
+
+export 'src/assets/hdr_image.dart';
+export 'src/assets/hdr_image_decoder.dart';
+export 'src/assets/hdr_image_loader.dart';

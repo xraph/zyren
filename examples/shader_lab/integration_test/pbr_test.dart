@@ -9,6 +9,7 @@ import 'package:shader_lab/pbr.dart';
 import '../../../packages/gpu3d_native/test/support/pbr_checks.dart';
 import '../../../packages/gpu3d_native/test/support/standard_maps_checks.dart';
 import '../../../packages/gpu3d_native/test/support/hdr_checks.dart';
+import '../../../packages/gpu3d_native/test/support/hdr_asset_checks.dart';
 import 'effects_test.dart' show waitForFrame;
 
 void main() {
@@ -23,6 +24,7 @@ void main() {
       await verifyPbr(backend);
       await verifyStandardMaps(backend);
       await verifyHdr(backend);
+      await verifyHdrAsset(backend);
     } finally {
       await backend.close();
     }
