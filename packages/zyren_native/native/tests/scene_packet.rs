@@ -733,3 +733,33 @@ fn instance_packets_bound_counts_and_validate_affine_matrices() {
         assert!(ScenePacket::decode(&truncated).is_err());
     }
 }
+
+#[test]
+fn sample_counts_are_explicit_and_reject_unsupported_values() {
+    let mut data = packet();
+    data[4..8].copy_from_slice(&26_u32.to_le_bytes());
+    for value in [0_u32, 0, 0, 0, 0, 1_f32.to_bits(), 1_f32.to_bits(), 0] {
+        data.extend(value.to_le_bytes());
+    }
+    data.extend([0_u8; 24]);
+    data.extend([0_u8; 12]);
+    data.extend(0.1_f32.to_le_bytes());
+    data.extend(10_f32.to_le_bytes());
+    let sample = data.len();
+    data.extend(4_u32.to_le_bytes());
+    let length = (data.len() - 24) as u64;
+    data[16..24].copy_from_slice(&length.to_le_bytes());
+    assert_eq!(
+        ScenePacket::decode(&data)
+            .unwrap()
+            .resolve(None)
+            .unwrap()
+            .settings
+            .sample_count,
+        4
+    );
+    for count in [0_u32, 2, 8, u32::MAX] {
+        data[sample..sample + 4].copy_from_slice(&count.to_le_bytes());
+        assert!(ScenePacket::decode(&data).is_err());
+    }
+}

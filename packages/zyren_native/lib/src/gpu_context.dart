@@ -61,6 +61,8 @@ final class NativeGpuContext {
     return value;
   }
 
+  Future<NativeDeviceInfo> deviceInfo() => _device.deviceInfo();
+
   Future<ResourceStats> resourceStats() => _device.stats();
   MaterialCompiler createMaterialCompiler({String label = ''}) {
     _checkOpen();

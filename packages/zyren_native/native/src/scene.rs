@@ -395,6 +395,7 @@ pub struct EnvironmentMap {
 #[serde(default, deny_unknown_fields)]
 pub struct RenderSettings {
     pub enabled: bool,
+    pub sample_count: u32,
     pub effects: Vec<[u64; 4]>,
     pub tone_mapping: u32,
     pub exposure: f32,
@@ -409,6 +410,7 @@ impl Default for RenderSettings {
     fn default() -> Self {
         Self {
             enabled: false,
+            sample_count: 1,
             effects: vec![],
             tone_mapping: 0,
             exposure: 1.,
@@ -430,7 +432,9 @@ impl RenderSettings {
         }) {
             return Err("Invalid environment parameters".into());
         }
-        if self.camera_origin.iter().any(|v| !v.is_finite())
+        if ![1, 4].contains(&self.sample_count)
+            || (self.sample_count != 1 && !self.enabled)
+            || self.camera_origin.iter().any(|v| !v.is_finite())
             || self.effects.len() > 8
             || self.tone_mapping > 2
             || !self.exposure.is_finite()

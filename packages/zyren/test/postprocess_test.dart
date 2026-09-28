@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:test/test.dart';
 import 'package:zyren/zyren.dart';
 import 'package:zyren/rendering.dart';
@@ -53,6 +54,17 @@ void main() {
     },
   );
   test('render settings bound exposure, alpha and effect counts', () {
+    expect(() => RenderSettings(sampleCount: 2), throwsArgumentError);
+    expect(RenderSettings(sampleCount: 4).enabled, isTrue);
+    expect(RenderSettings(sampleCount: 4).copyWith(exposure: 2).sampleCount, 4);
+    final packet = ScenePacketEncoder(viewId: 1).encode(
+      FrameSubmission.capture(
+        scene: Scene()..renderSettings = RenderSettings(sampleCount: 4),
+        camera: PerspectiveCamera(),
+        size: PhysicalSize(4, 4),
+      ),
+    );
+    expect(ByteData.sublistView(packet.bytes).getUint32(4, Endian.little), 26);
     expect(() => RenderSettings(exposure: double.nan), throwsArgumentError);
     expect(() => RenderSettings(backgroundAlpha: 1.1), throwsArgumentError);
     expect(() => RenderSettings(historyEpoch: -1), throwsArgumentError);

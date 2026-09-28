@@ -72,7 +72,7 @@ impl ScenePacket {
             return Err("unsupported scene packet".into());
         }
         let opcode = r.u32()?;
-        if !(10..=25).contains(&opcode) {
+        if !(10..=26).contains(&opcode) {
             return Err("unsupported scene packet".into());
         }
         let textured = opcode >= 11;
@@ -170,6 +170,10 @@ impl ScenePacket {
             for _ in 0..count {
                 settings.shadows.push(r.floats()?);
             }
+        }
+        if opcode >= 26 {
+            settings.sample_count = r.u32()?;
+            settings.validate()?;
         }
         crate::scene::validate_shadows(&settings, &lights)?;
         let mut retained = HashSet::new();

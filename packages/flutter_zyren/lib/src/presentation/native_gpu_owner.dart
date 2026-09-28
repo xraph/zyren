@@ -10,6 +10,12 @@ mixin NativeGpuOwner implements MaterialBackend {
   bool get gpuOwnerClosed;
   Future<Map> gpuRequest(Map<String, Object> arguments);
   NativeGpuContext? _gpu;
+  Set<int> _gpuSampleCounts = const {1};
+  Set<int> get gpuSampleCounts => _gpuSampleCounts;
+  Future<void> loadGpuCapabilities() async {
+    _gpuSampleCounts = (await _context.deviceInfo()).sampleCounts;
+  }
+
   NativeGpuContext get _context {
     if (gpuOwnerClosed) throw StateError('Native view has closed.');
     return _gpu ??= NativeGpuContext((operation, bytes, capacity) async {

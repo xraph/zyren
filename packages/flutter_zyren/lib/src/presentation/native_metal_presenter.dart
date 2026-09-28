@@ -53,10 +53,17 @@ class NativeMetalBackend with NativeGpuOwner implements MaterialBackend {
       final result = (await _channel.invokeMapMethod<Object?, Object?>(
         'create',
       ))!;
-      return NativeMetalBackend._(
+      final backend = NativeMetalBackend._(
         result['session'] as int,
         result['adapter'] as String,
       );
+      try {
+        await backend.loadGpuCapabilities();
+        return backend;
+      } catch (_) {
+        await backend.close();
+        rethrow;
+      }
     } on PlatformException catch (error) {
       throw _issue(
         SceneIssueCodes.backendUnavailable,
@@ -94,6 +101,7 @@ class NativeMetalBackend with NativeGpuOwner implements MaterialBackend {
     },
     limits: DeviceLimits(
       maxTextureDimension2D: 4096,
+      sampleCounts: gpuSampleCounts,
       maxTextureDimension3D: 256,
       maxGeometryBytes: 64 * 1024 * 1024,
     ),

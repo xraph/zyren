@@ -103,13 +103,14 @@ struct View {
     images: [Image; 3],
     history: Image,
     depth: Image,
+    multisample: Option<multisample::Multisample>,
     settings: RenderSettings,
     camera: [f32; 16],
     valid: bool,
 }
 impl View {
     fn bytes(&self) -> u64 {
-        self.width as u64 * self.height as u64 * 36
+        self.width as u64 * self.height as u64 * if self.multisample.is_some() { 84 } else { 36 }
     }
 }
 #[repr(C)]
@@ -124,6 +125,7 @@ struct ScreenUniforms {
 pub(super) struct Effects {
     views: HashMap<u64, View>,
     outputs: HashMap<wgpu::TextureFormat, wgpu::RenderPipeline>,
+    depth_resolve: Option<wgpu::RenderPipeline>,
 }
 impl Effects {
     pub fn remove(&mut self, id: u64) {
@@ -145,7 +147,13 @@ impl Effects {
             return Ok(());
         }
         let [width, height] = size;
-        let requested = width as u64 * height as u64 * 36;
+        let requested = width as u64
+            * height as u64
+            * if frame.settings.sample_count == 4 {
+                84
+            } else {
+                36
+            };
         let other: u64 = self
             .views
             .iter()
@@ -160,6 +168,9 @@ impl Effects {
             .is_finite()
         {
             return Err("Screen effects require an invertible camera projection".into());
+        }
+        if frame.settings.sample_count == 4 && self.depth_resolve.is_none() {
+            self.depth_resolve = Some(multisample::pipeline(device));
         }
         self.outputs.entry(format).or_insert_with(|| {
             let shader = device.create_shader_module(wgpu::include_wgsl!("output.wgsl"));
@@ -178,24 +189,35 @@ impl Effects {
                 format,
             )
         });
-        if self
-            .views
-            .get(&id)
-            .is_none_or(|v| v.width != width || v.height != height)
-        {
-            self.views.insert(
-                id,
-                View {
-                    width,
-                    height,
-                    images: std::array::from_fn(|_| Image::new(device, width, height, HDR)),
-                    history: Image::new(device, width, height, HDR),
-                    depth: Image::new(device, width, height, wgpu::TextureFormat::Depth32Float),
-                    settings: frame.settings.clone(),
-                    camera: frame.view_projection,
-                    valid: false,
-                },
-            );
+        if self.views.get(&id).is_none_or(|v| {
+            v.width != width
+                || v.height != height
+                || v.settings.sample_count != frame.settings.sample_count
+        }) {
+            let validation = device.push_error_scope(wgpu::ErrorFilter::Validation);
+            let memory = device.push_error_scope(wgpu::ErrorFilter::OutOfMemory);
+            let candidate = View {
+                width,
+                height,
+                images: std::array::from_fn(|_| Image::new(device, width, height, HDR)),
+                history: Image::new(device, width, height, HDR),
+                depth: Image::new(device, width, height, wgpu::TextureFormat::Depth32Float),
+                multisample: (frame.settings.sample_count == 4)
+                    .then(|| multisample::Multisample::new(device, size)),
+                settings: frame.settings.clone(),
+                camera: frame.view_projection,
+                valid: false,
+            };
+            let mut failure = None;
+            for scope in [memory, validation] {
+                if let Some(error) = pollster::block_on(scope.pop()) {
+                    failure = Some(error.to_string());
+                }
+            }
+            if let Some(error) = failure {
+                return Err(error);
+            }
+            self.views.insert(id, candidate);
         }
         let view = self.views.get_mut(&id).unwrap();
         if view.settings != frame.settings || view.camera != frame.view_projection {
@@ -215,6 +237,9 @@ impl Renderer {
         format: wgpu::TextureFormat,
     ) -> Result<(), String> {
         frame.settings.validate()?;
+        if frame.settings.sample_count == 4 && !self.supports_msaa4 {
+            return Err("Four-sample HDR/depth antialiasing is unsupported on this device".into());
+        }
         for key in &frame.settings.effects {
             if self
                 .graphs
@@ -239,12 +264,40 @@ impl Renderer {
         size: [u32; 2],
     ) -> wgpu::CommandEncoder {
         if !frame.settings.enabled {
-            return self.encode_scene(frame, output, depth, format, size);
+            return self.encode_scene(frame, output, depth, format, size, None);
         }
         let id = frame.binary.as_ref().map_or(0, |v| v.view);
         let view = &self.effects.views[&id];
-        let mut encoder =
-            self.encode_scene(frame, &view.images[0].view, &view.depth.view, HDR, size);
+        let mut encoder = if let Some(msaa) = &view.multisample {
+            let mut encoder = self.encode_scene(
+                frame,
+                &msaa.color,
+                &msaa.depth,
+                HDR,
+                size,
+                Some(&view.images[0].view),
+            );
+            multisample::resolve(
+                &self.device,
+                &mut encoder,
+                self.effects
+                    .depth_resolve
+                    .as_ref()
+                    .expect("depth resolve pipeline"),
+                &msaa.depth,
+                &view.depth.view,
+            );
+            encoder
+        } else {
+            self.encode_scene(
+                frame,
+                &view.images[0].view,
+                &view.depth.view,
+                HDR,
+                size,
+                None,
+            )
+        };
         let uniforms = ScreenUniforms {
             inverse: Mat4::from_cols_array(&frame.view_projection)
                 .inverse()

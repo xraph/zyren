@@ -39,6 +39,7 @@ enum Command {
     Execute { key: Key },
     Release { key: Key },
     Stats {},
+    DeviceInfo {},
 }
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -176,6 +177,7 @@ pub(crate) struct GraphContext<'a> {
     pub instance_bytes: u64,
     pub instance_uploaded_bytes: u64,
     pub instance_draw_calls: usize,
+    pub device_info: Value,
 }
 
 impl GraphStore {
@@ -198,6 +200,7 @@ impl GraphStore {
             instance_bytes,
             instance_uploaded_bytes,
             instance_draw_calls,
+            device_info,
         } = context;
         if bytes.len() > MAX_COMMAND_BYTES || capacity != RESPONSE_CAPACITY {
             return Err("Invalid graph command capacity".into());
@@ -239,6 +242,7 @@ impl GraphStore {
                 Command::Release { key: value } => self
                     .release(device, resources, shaders, key(value))
                     .map(|()| json!({})),
+                Command::DeviceInfo {} => Ok(device_info),
                 Command::Stats {} => Ok(
                     json!({"instanceBytes":instance_bytes,"instanceUploadedBytes":instance_uploaded_bytes,"instanceDrawCalls":instance_draw_calls,"shadowBytes":shadow_bytes,"shadowPasses":shadow_passes,"targetBytes": target_bytes, "liveMaterials": self.materials.live(), "liveGraphs": self.registry.live_allocations(), "descriptionBytes": self.registry.resident_bytes(),
                 "cachedPipelines": self.cache.len(), "pipelineCompilations": self.compilation_count, "cacheHits": self.cache_hits}),

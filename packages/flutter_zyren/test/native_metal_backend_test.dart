@@ -3,6 +3,7 @@ library;
 
 import 'dart:typed_data';
 import 'dart:async';
+import 'support/device_info.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zyren/zyren.dart';
@@ -21,6 +22,8 @@ void main() {
             switch (call.method) {
               case 'connect':
                 return null;
+              case 'gpu':
+                return deviceInfoReply(call.arguments as Map);
               case 'create':
                 return {'session': 1, 'adapter': 'test Metal'};
               case 'prepare':
@@ -46,6 +49,7 @@ void main() {
             .setMockMethodCallHandler(channel, null),
       );
       final backend = await NativeMetalBackend.create(runtimeToken: 10);
+      expect(backend.capabilities.limits.sampleCounts, {1, 4});
       final target = await backend.prepareView(7, PhysicalSize(16, 16));
       final scene = Scene()..add(Mesh(BoxGeometry(), UnlitMaterial()));
       FrameSubmission frame() => FrameSubmission.capture(
@@ -98,6 +102,8 @@ void main() {
             switch (call.method) {
               case 'connect':
                 return null;
+              case 'gpu':
+                return deviceInfoReply(call.arguments as Map);
               case 'create':
                 return {'session': 1, 'adapter': 'test Metal'};
               case 'prepare':
@@ -118,6 +124,7 @@ void main() {
             .setMockMethodCallHandler(channel, null),
       );
       final backend = await NativeMetalBackend.create(runtimeToken: 10);
+      expect(backend.capabilities.limits.sampleCounts, {1, 4});
       final target = await backend.prepareView(7, PhysicalSize(16, 16));
       final rendering = backend.render(
         FrameSubmission.capture(

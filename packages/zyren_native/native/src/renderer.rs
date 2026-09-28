@@ -14,6 +14,7 @@ pub(crate) mod effects;
 mod environment;
 mod instances;
 mod lighting;
+mod multisample;
 pub(crate) mod pipelines;
 mod shadows;
 mod textures;
@@ -88,6 +89,7 @@ pub struct RendererState {
     pub(crate) android_generation: u64,
     pipelines: pipelines::MeshPipelines,
     effects: effects::Effects,
+    supports_msaa4: bool,
     texture_layout: wgpu::BindGroupLayout,
     pbr_layout: wgpu::BindGroupLayout,
     pbr_texture_layout: wgpu::BindGroupLayout,
@@ -166,6 +168,14 @@ impl Renderer {
             })
             .await
             .map_err(|e| format!("no Metal, Vulkan or DX12 adapter: {e}"))?;
+        let supports_msaa4 = [effects::HDR, wgpu::TextureFormat::Depth32Float]
+            .iter()
+            .all(|format| {
+                adapter
+                    .get_texture_format_features(*format)
+                    .flags
+                    .contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X4)
+            });
         let info = adapter.get_info();
         let (device, queue) = adapter
             .request_device(&wgpu::DeviceDescriptor {
@@ -241,6 +251,7 @@ impl Renderer {
                 shaders: crate::shaders::ShaderStore::default(),
                 graphs: crate::render_graph::GraphStore::default(),
                 instances: instances::Instances::default(),
+                supports_msaa4,
                 views: HashMap::new(),
                 targets: None,
                 adapter_name: info.name,
@@ -302,6 +313,7 @@ impl Renderer {
                 instance_bytes: state.instances.bytes(),
                 instance_uploaded_bytes: state.instances.uploaded_bytes,
                 instance_draw_calls: state.instances.draws(),
+                device_info: serde_json::json!({"backend":format!("{:?}",state.backend),"adapterName":state.adapter_name,"sampleCounts":if state.supports_msaa4 {vec![1,4]} else {vec![1]}}),
             },
             bytes,
             capacity,
@@ -626,6 +638,7 @@ impl Renderer {
         depth_view: &wgpu::TextureView,
         format: wgpu::TextureFormat,
         size: [u32; 2],
+        resolve: Option<&wgpu::TextureView>,
     ) -> wgpu::CommandEncoder {
         let vp = Mat4::from_cols_array(&frame.view_projection);
         let bindings: Vec<_> = frame
@@ -704,7 +717,7 @@ impl Renderer {
                 label: Some("native frame"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: color_view,
-                    resolve_target: None,
+                    resolve_target: resolve,
                     depth_slice: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
@@ -739,6 +752,7 @@ impl Renderer {
                             format,
                             mesh,
                             !geometry.recipe.tangents.is_empty(),
+                            frame.settings.sample_count,
                         )
                         .with_mirror(draw.mirrored),
                     ),

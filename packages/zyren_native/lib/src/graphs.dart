@@ -1,5 +1,16 @@
 part of 'native_renderer.dart';
 
+final class NativeDeviceInfo {
+  final String backend, adapterName;
+  final Set<int> sampleCounts;
+  NativeDeviceInfo._(Map value)
+    : backend = value['backend'] as String,
+      adapterName = value['adapterName'] as String,
+      sampleCounts = Set.unmodifiable(
+        (value['sampleCounts'] as List).cast<int>(),
+      );
+}
+
 final class GraphCacheStats {
   final int shadowBytes, shadowPasses;
   final int instanceBytes, instanceUploadedBytes, instanceDrawCalls;
@@ -143,6 +154,9 @@ mixin _NativeGraphs {
   Future<void> releaseGraph(Object key) async {
     await _graphCommand({'operation': 'release', 'key': key as _GraphKey});
   }
+
+  Future<NativeDeviceInfo> deviceInfo() async =>
+      NativeDeviceInfo._(await _graphCommand({'operation': 'deviceInfo'}));
 
   Future<GraphCacheStats> graphStats() async {
     final result = await _graphCommand({'operation': 'stats'});

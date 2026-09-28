@@ -120,6 +120,8 @@ class NativeBackend implements MaterialBackend {
 
   DeviceCapabilities get _capabilities => DeviceCapabilities(
     name: 'wgpu-native',
+    backend: _renderer._deviceInfo.backend,
+    adapterName: _renderer._deviceInfo.adapterName,
     features: {
       RenderFeature.indexedMeshes,
       RenderFeature.diffuseLighting,
@@ -144,6 +146,7 @@ class NativeBackend implements MaterialBackend {
     },
     limits: DeviceLimits(
       maxTextureDimension2D: 4096,
+      sampleCounts: _renderer._deviceInfo.sampleCounts,
       maxTextureDimension3D: 256,
       maxGeometryBytes: 64 * 1024 * 1024,
     ),

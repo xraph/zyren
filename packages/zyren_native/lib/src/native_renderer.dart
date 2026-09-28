@@ -17,7 +17,10 @@ part 'gpu_context.dart';
 /// One native GPU device, owned by a persistent worker isolate.
 /// Await [dispose] when you no longer need it.
 class NativeRenderer implements SceneRenderer {
-  static final _capabilities = RendererCapabilities(
+  RendererCapabilities get _capabilities => RendererCapabilities(
+    backend: _deviceInfo.backend,
+    adapterName: _deviceInfo.adapterName,
+    sampleCounts: _deviceInfo.sampleCounts,
     name: 'wgpu-native',
     features: {
       RenderFeatures.indexedMeshes,
@@ -38,6 +41,7 @@ class NativeRenderer implements SceneRenderer {
     (worker) => worker.abort(),
   );
   final WorkerSession _worker;
+  late final NativeDeviceInfo _deviceInfo;
   final _sceneEncoder = ScenePacketEncoder(viewId: 1);
   int _nextView = 1, _owners = 1;
   Future<Object?>? _frame;
@@ -48,8 +52,18 @@ class NativeRenderer implements SceneRenderer {
     _finalizer.attach(this, _worker, detach: this);
   }
 
-  static Future<NativeRenderer> create() async =>
-      NativeRenderer._(await WorkerSession.start(renderWorker));
+  static Future<NativeRenderer> create() async {
+    final value = NativeRenderer._(await WorkerSession.start(renderWorker));
+    try {
+      value._deviceInfo = await _NativeResourceDevice(
+        _workerTransport(value._worker),
+      ).deviceInfo();
+      return value;
+    } catch (_) {
+      await value.dispose();
+      rethrow;
+    }
+  }
 
   @override
   Future<RenderedFrame> render(

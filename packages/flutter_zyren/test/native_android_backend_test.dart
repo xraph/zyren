@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'support/device_info.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -24,6 +25,8 @@ void main() {
       switch (call.method) {
         case 'connect':
           return null;
+        case 'gpu':
+          return deviceInfoReply(call.arguments as Map);
         case 'create':
           return {
             'session': 1,
@@ -51,6 +54,7 @@ void main() {
       }
     });
     final backend = await NativeAndroidBackend.create(runtimeToken: 10);
+    expect(backend.capabilities.limits.sampleCounts, {1, 4});
     final factory = const NativeAndroidPresenterFactory();
     final presenter = factory.create(backend);
     final scene = Scene()..add(Mesh(BoxGeometry(), UnlitMaterial()));
@@ -114,6 +118,8 @@ void main() {
         switch (call.method) {
           case 'connect':
             return null;
+          case 'gpu':
+            return deviceInfoReply(call.arguments as Map);
           case 'create':
             return {'session': 1, 'adapter': 'test Vulkan', 'driverInfo': ''};
           case 'prepare':
@@ -128,6 +134,7 @@ void main() {
         }
       });
       final backend = await NativeAndroidBackend.create(runtimeToken: 10);
+      expect(backend.capabilities.limits.sampleCounts, {1, 4});
       final presenter = const NativeAndroidPresenterFactory().create(backend);
       final target = await presenter.prepare(PhysicalSize(16, 16));
       final submission = FrameSubmission.capture(
@@ -174,6 +181,8 @@ void main() {
       switch (call.method) {
         case 'connect':
           return null;
+        case 'gpu':
+          return deviceInfoReply(call.arguments as Map);
         case 'create':
           return {'session': 1, 'adapter': 'Vulkan'};
         case 'prepare':
@@ -188,6 +197,7 @@ void main() {
       }
     });
     final backend = await NativeAndroidBackend.create(runtimeToken: 10);
+    expect(backend.capabilities.limits.sampleCounts, {1, 4});
     final presenter = const NativeAndroidPresenterFactory().create(backend);
     final pending = presenter.prepare(PhysicalSize(16, 16));
     final rejected = expectLater(
@@ -213,6 +223,8 @@ void main() {
       switch (call.method) {
         case 'connect':
           return null;
+        case 'gpu':
+          return deviceInfoReply(call.arguments as Map);
         case 'create':
           return {'session': ++next, 'adapter': 'Vulkan'};
         case 'prepare':

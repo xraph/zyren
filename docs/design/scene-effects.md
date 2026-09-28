@@ -65,7 +65,8 @@ Two views sharing a scene keep separate histories. Device recreation creates
 new invalid history. Closing a view or returning it to the direct path releases
 its intermediate targets. `NativeBackend.graphStats().targetBytes` reports these
 allocations. A device has a separate 128 MiB target budget, charged at 36 bytes
-per HDR pixel per view. Over-budget resize fails before replacing that view's
+per HDR pixel per view at one sample, or 84 bytes with four-sample color and
+depth targets. Over-budget resize fails before replacing that view's
 targets. Explicit resource allocations retain their existing 64 MiB budget.
 
 ## Run the consumer
@@ -86,5 +87,24 @@ after teardown. Numerical GPU probes cover HDR values above one, both tone-map
 curves, depth input, per-view history, camera cuts and premultiplied alpha. Mobile
 postprocessing and transparent OS composition still need device qualification.
 
-This profile has one sample per pixel. MSAA, a built-in antialiasing stage,
-motion-vector reprojection and temporal rejection are not implemented here.
+## Multisample antialiasing
+
+Set `RenderSettings(sampleCount: 4)` for four samples, or leave the default of
+one. `backend.capabilities.limits.sampleCounts` reports the adapter's supported
+HDR/depth counts. Native backends query those format capabilities when they start;
+they do not infer them from the operating system. `NativeGpuContext.deviceInfo()`
+exposes the same adapter name, backend and sample counts to host integrations.
+Unsupported counts fail explicitly.
+
+Color resolves into the linear HDR image before effects run. A separate depth
+pass keeps the nearest covered sample for position reconstruction. At a silhouette,
+that depth describes the closest covered surface; it is not an averaged position.
+Color retains fractional coverage in its premultiplied alpha. Effects need to keep
+that coverage when applying depth-based shading.
+
+The Metal fixture compares fractional edges with single-sample output, verifies
+depth reconstruction and checks custom WGSL and instanced PBR pipelines. Resize,
+budget rejection, returning to one sample and target cleanup also pass. Four-sample
+native presentation and mobile output remain part of final qualification.
+A built-in spatial filter, motion-vector reprojection and temporal rejection are
+not implemented at this checkpoint.

@@ -173,7 +173,9 @@ final class ScenePacketEncoder {
       throw ArgumentError('A view supports at most 65536 instances.');
     }
     final hasTangents = scene._geometries.values.any((g) => g.tangents != null);
-    final opcode = instanceCount > 0
+    final opcode = scene._settings.sampleCount != 1
+        ? 26
+        : instanceCount > 0
         ? 25
         : scene._shadows.isNotEmpty ||
               scene._meshes.any((m) => m['shadowFlags'] != 2)
@@ -258,6 +260,7 @@ final class ScenePacketEncoder {
         body.floats(shadow);
       }
     }
+    if (opcode >= 26) body.u32(scene._settings.sampleCount);
     for (final id in owned) {
       body.u32(id);
     }

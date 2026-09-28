@@ -9,6 +9,7 @@ pub(super) struct PipelineKey {
     textured: bool,
     standard: bool,
     instanced: bool,
+    samples: u32,
     pub(super) tangents: bool,
     side: u32,
     mirrored: bool,
@@ -31,9 +32,15 @@ impl PipelineKey {
             vec![self]
         }
     }
-    pub(super) fn new(format: wgpu::TextureFormat, mesh: &Mesh, tangents: bool) -> Self {
+    pub(super) fn new(
+        format: wgpu::TextureFormat,
+        mesh: &Mesh,
+        tangents: bool,
+        samples: u32,
+    ) -> Self {
         Self {
             format,
+            samples,
             shader: mesh.shader,
             textured: mesh.material_maps().next().is_some(),
             standard: mesh.pbr.is_some(),
@@ -153,6 +160,7 @@ impl MeshPipelines {
                 format,
                 mesh,
                 !geometries[&mesh.geometry].recipe.tangents.is_empty(),
+                frame.settings.sample_count,
             )
             .variants()
             .iter()
@@ -169,6 +177,7 @@ impl MeshPipelines {
                 format,
                 mesh,
                 !geometries[&mesh.geometry].recipe.tangents.is_empty(),
+                frame.settings.sample_count,
             );
             for key in key.variants() {
                 if !self.cache.contains_key(&key) && !pending.contains_key(&key) {
@@ -178,6 +187,7 @@ impl MeshPipelines {
                             materials.resolve(value).expect("validated shader"),
                             format,
                             mesh,
+                            frame.settings.sample_count,
                         )
                     } else {
                         self.create(device, key)
@@ -278,10 +288,11 @@ pub(crate) fn material_pipeline(
     material: &PreparedMaterial,
     format: wgpu::TextureFormat,
     mesh: &Mesh,
+    samples: u32,
 ) -> wgpu::RenderPipeline {
     create_pipeline(
         device,
-        PipelineKey::new(format, mesh, false),
+        PipelineKey::new(format, mesh, false, samples),
         ShaderPipeline {
             module: &material.shader,
             layout: &material.layout,
@@ -374,7 +385,10 @@ fn create_pipeline(
             stencil: Default::default(),
             bias: Default::default(),
         }),
-        multisample: Default::default(),
+        multisample: wgpu::MultisampleState {
+            count: key.samples,
+            ..Default::default()
+        },
         multiview_mask: None,
         cache: None,
     })

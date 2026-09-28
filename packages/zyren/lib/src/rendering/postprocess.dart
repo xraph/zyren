@@ -50,7 +50,7 @@ final class RenderSettings {
   final List<ScreenEffect> effects;
   final ToneMapping toneMapping;
   final double exposure, backgroundAlpha;
-  final int historyEpoch;
+  final int historyEpoch, sampleCount;
   final bool hdr;
   final EnvironmentMap? environment;
   RenderSettings({
@@ -60,9 +60,11 @@ final class RenderSettings {
     this.backgroundAlpha = 1,
     this.historyEpoch = 0,
     this.hdr = false,
+    this.sampleCount = 1,
     this.environment,
   }) : effects = List.unmodifiable(effects) {
-    if (!exposure.isFinite ||
+    if (!{1, 4}.contains(sampleCount) ||
+        !exposure.isFinite ||
         exposure < 0 ||
         exposure > 65504 ||
         !backgroundAlpha.isFinite ||
@@ -83,6 +85,7 @@ final class RenderSettings {
     double? backgroundAlpha,
     int? historyEpoch,
     bool? hdr,
+    int? sampleCount,
     EnvironmentMap? environment,
   }) => RenderSettings(
     effects: effects ?? this.effects,
@@ -91,9 +94,11 @@ final class RenderSettings {
     backgroundAlpha: backgroundAlpha ?? this.backgroundAlpha,
     historyEpoch: historyEpoch ?? this.historyEpoch,
     hdr: hdr ?? this.hdr,
+    sampleCount: sampleCount ?? this.sampleCount,
     environment: environment ?? this.environment,
   );
   bool get enabled =>
+      sampleCount != 1 ||
       environment != null ||
       hdr ||
       effects.isNotEmpty ||
