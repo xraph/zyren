@@ -298,6 +298,8 @@ pub struct Frame {
     pub version: u32,
     pub view_projection: [f32; 16],
     pub background: [f64; 3],
+    #[serde(default = "one")]
+    pub background_alpha: f32,
     pub light_direction: [f32; 3],
     pub ambient: f32,
     pub geometries: Vec<Geometry>,
@@ -321,6 +323,8 @@ impl Frame {
             return Err("scene exceeds the mesh limit".into());
         }
         if self.view_projection.iter().any(|v| !v.is_finite())
+            || !self.background_alpha.is_finite()
+            || !(0.0..=1.0).contains(&self.background_alpha)
             || self
                 .background
                 .iter()

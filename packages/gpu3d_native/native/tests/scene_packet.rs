@@ -536,3 +536,28 @@ fn sided_packets_validate_flags_and_preserve_legacy_defaults() {
         .unwrap();
     assert_eq!(legacy.meshes[0].side, 0);
 }
+
+#[test]
+fn background_alpha_extends_packets_without_changing_legacy_defaults() {
+    let legacy = ScenePacket::decode(&packet())
+        .unwrap()
+        .resolve(None)
+        .unwrap();
+    assert_eq!(legacy.background_alpha, 1.);
+    let mut data = packet();
+    data[4..8].copy_from_slice(&18_u32.to_le_bytes());
+    data.extend(0.5_f32.to_le_bytes());
+    data.extend([0_u8; 12]); // texture ownership, uploads, patches
+    let length = data.len() as u64 - 24;
+    data[16..24].copy_from_slice(&length.to_le_bytes());
+    let frame = ScenePacket::decode(&data).unwrap().resolve(None).unwrap();
+    assert_eq!(frame.background_alpha, 0.5);
+    for value in [-0.1, 1.1, f32::NAN, f32::INFINITY] {
+        data[148..152].copy_from_slice(&value.to_le_bytes());
+        assert!(ScenePacket::decode(&data).is_err());
+    }
+    for value in [0_f32, 1.] {
+        data[148..152].copy_from_slice(&value.to_le_bytes());
+        assert!(ScenePacket::decode(&data).is_ok());
+    }
+}

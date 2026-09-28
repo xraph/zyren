@@ -51,7 +51,9 @@ void main() {
         dynamic: true,
       );
       final node = Line(geometry, LineMaterial(width: 5));
-      final scene = Scene()..add(node);
+      final scene = Scene()
+        ..background = const Color3(0, 0, 0)
+        ..add(node);
       final encoder = ScenePacketEncoder(viewId: 123);
       FrameSubmission capture() => FrameSubmission.capture(
         scene: scene,

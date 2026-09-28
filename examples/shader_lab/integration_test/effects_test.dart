@@ -76,7 +76,7 @@ void main() {
         prepared,
         (frame) => frame.computeDispatches == 1,
       );
-      expect(first.drawCalls, 4);
+      expect(first.drawCalls, 5);
       expect(first.readbackBytes, 0);
       expect(first.presentationPath, isNot(PresentationPath.readback));
       await tester.pumpWidget(

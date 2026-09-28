@@ -37,6 +37,10 @@ class SceneSnapshot {
   final Map<int, TextureImage> _textures;
   final List<double> _background, _light;
   final double _ambient;
+  final double backgroundOpacity;
+
+  /// One resolve draw converts a transparent scene to straight color.
+  int get alphaResolveDraws => backgroundOpacity < 1 ? 1 : 0;
   final Map<int, MeshShaderProgram> meshShaders;
   int get drawCalls => _meshes.length;
   int get triangles => _meshes.fold(0, (sum, mesh) {
@@ -50,6 +54,7 @@ class SceneSnapshot {
     this._geometries,
     this._textures,
     this._background,
+    this.backgroundOpacity,
     this._light,
     this._ambient,
     this.meshShaders,
@@ -121,7 +126,10 @@ class SceneSnapshot {
       List.unmodifiable(meshes),
       Map.unmodifiable(geometries),
       Map.unmodifiable(textures),
-      List.unmodifiable(scene.background.toList()),
+      List.unmodifiable(scene.background?.toList() ?? [0.0, 0.0, 0.0]),
+      scene.background == null
+          ? 0.0
+          : Float32List.fromList([scene.backgroundOpacity]).single,
       List.unmodifiable(scene.lightDirection.storage),
       scene.ambient,
       Map.unmodifiable(meshShaders),
@@ -189,6 +197,7 @@ class FrameSubmission {
           'version': 1,
           'view_projection': camera.viewProjection,
           'background': scene._background,
+          'background_alpha': scene.backgroundOpacity,
           'light_direction': scene._light,
           'ambient': scene._ambient,
           'geometries': [

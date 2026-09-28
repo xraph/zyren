@@ -172,6 +172,8 @@ bool matches(const std::shared_ptr<Session> &s, NSDictionary *args) {
 - (NSObject<FlutterPlatformView> *)createWithFrame:(CGRect)frame viewIdentifier:(int64_t)viewId arguments:(id)args {
   Gpu3dSceneHost *host = [[Gpu3dSceneHost alloc] initWithFrame:frame];
   host.userInteractionEnabled = NO;
+  host.opaque = NO;
+  host.backgroundColor = [UIColor clearColor];
 #endif
 #if DEBUG
   auto gate = _testGate;
@@ -197,7 +199,7 @@ bool matches(const std::shared_ptr<Session> &s, NSDictionary *args) {
   if (s->closed.load() || !s->device || generation <= s->revokedThrough || generation <= s->generation || s->layer) return;
   CAMetalLayer *layer = (CAMetalLayer *)host.layer;
   layer.device = s->device; layer.pixelFormat = MTLPixelFormatBGRA8Unorm_sRGB;
-  layer.framebufferOnly = YES; layer.maximumDrawableCount = 3; layer.allowsNextDrawableTimeout = YES; layer.opaque = YES;
+  layer.framebufferOnly = YES; layer.maximumDrawableCount = 3; layer.allowsNextDrawableTimeout = YES; layer.opaque = NO;
   CGColorSpaceRef color = CGColorSpaceCreateWithName(kCGColorSpaceSRGB); layer.colorspace = color; CGColorSpaceRelease(color);
   s->revoke(); s->generation = generation; s->view = viewId; s->layer = layer; s->logical = CGSizeZero;
   host->session = s; host->generation = generation;

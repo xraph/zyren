@@ -66,7 +66,7 @@ struct Session : std::enable_shared_from_this<Session> {
     layer.framebufferOnly = YES;
     layer.maximumDrawableCount = 3;
     layer.allowsNextDrawableTimeout = YES;
-    layer.opaque = YES;
+    layer.opaque = NO;
     CGColorSpaceRef colorSpace = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
     layer.colorspace = colorSpace;
     CGColorSpaceRelease(colorSpace);
@@ -225,6 +225,8 @@ struct Session : std::enable_shared_from_this<Session> {
 #else
 - (NSObject<FlutterPlatformView> *)createWithFrame:(CGRect)frame viewIdentifier:(int64_t)viewId arguments:(id)args {
   Gpu3dMetalHost *host = [[Gpu3dMetalHost alloc] initWithFrame:frame];
+  host.opaque = NO;
+  host.backgroundColor = [UIColor clearColor];
 #endif
   if (!_api.create || ![args isKindOfClass:NSDictionary.class] ||
       ![args[@"initial"] isKindOfClass:NSString.class] || ![args[@"steady"] isKindOfClass:NSString.class]) {

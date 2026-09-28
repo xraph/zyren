@@ -301,14 +301,28 @@ void _finite(Vec3 value, String name) {
 }
 
 class Scene extends Object3D {
-  Color3 _background = Color3.hex(0x101722);
+  Color3? _background;
+  double _backgroundOpacity = 1;
   Vec3 _lightDirection = const Vec3(1, -1, 2);
   double _ambient = .18;
-  Color3 get background => _background;
-  set background(Color3 value) {
-    value.toList();
+
+  /// Null leaves the canvas transparent. A color fills the canvas.
+  Color3? get background => _background;
+  set background(Color3? value) {
+    value?.toList();
     if (value == _background) return;
     _background = value;
+    _changed();
+  }
+
+  /// Coverage of [background], from zero to one. Null backgrounds stay clear.
+  double get backgroundOpacity => _backgroundOpacity;
+  set backgroundOpacity(double value) {
+    if (!value.isFinite || value < 0 || value > 1) {
+      throw ArgumentError.value(value, 'backgroundOpacity');
+    }
+    if (value == _backgroundOpacity) return;
+    _backgroundOpacity = value;
     _changed();
   }
 
@@ -383,7 +397,8 @@ class Scene extends Object3D {
     return {
       'version': 1,
       'view_projection': camera.viewProjection(aspect).storage.toList(),
-      'background': background.toList(),
+      'background': background?.toList() ?? [0.0, 0.0, 0.0],
+      'background_alpha': background == null ? 0.0 : backgroundOpacity,
       'light_direction': lightDirection.storage.toList(),
       'ambient': ambient,
       'geometries': [

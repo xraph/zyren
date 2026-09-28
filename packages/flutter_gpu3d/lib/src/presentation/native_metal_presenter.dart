@@ -239,10 +239,14 @@ class NativeMetalBackend implements NativeGpuBackend {
       cpuBuildTime: submission.cpuBuildTime,
       cpuSubmitTime: clock.elapsed,
       drawCalls:
-          submission.scene.drawCalls + (submission.graph?.drawCalls ?? 0),
+          submission.scene.drawCalls +
+          submission.scene.alphaResolveDraws +
+          (submission.graph?.drawCalls ?? 0),
       computeDispatches: submission.graph?.dispatches ?? 0,
       triangles:
-          submission.scene.triangles + (submission.graph?.triangles ?? 0),
+          submission.scene.triangles +
+          submission.scene.alphaResolveDraws +
+          (submission.graph?.triangles ?? 0),
       readbackBytes: result['readbackBytes'] as int,
       uploadedBytes: packet.uploadedBytes,
     );

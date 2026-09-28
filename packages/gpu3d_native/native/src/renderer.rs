@@ -647,10 +647,10 @@ impl Renderer {
                     depth_slice: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: frame.background[0],
-                            g: frame.background[1],
-                            b: frame.background[2],
-                            a: 1.0,
+                            r: frame.background[0] * f64::from(frame.background_alpha),
+                            g: frame.background[1] * f64::from(frame.background_alpha),
+                            b: frame.background[2] * f64::from(frame.background_alpha),
+                            a: f64::from(frame.background_alpha),
                         }),
                         store: wgpu::StoreOp::Store,
                     },
@@ -809,14 +809,20 @@ impl Renderer {
                 _texture: depth,
             });
         }
-        self.prepare_frame_pipelines(frame, texture.format(), graph.as_ref())?;
+        self.prepare_frame_pipelines(
+            frame,
+            texture.format(),
+            [width, height],
+            graph.as_ref(),
+            true,
+        )?;
         let encoder = self.encode_frame(
             frame,
             &texture.create_view(&Default::default()),
             &self.surface_depth.as_ref().unwrap().view,
             texture.format(),
             [texture.width(), texture.height()],
-            (graph.as_ref(), &materials),
+            (graph.as_ref(), &materials, true),
         );
         let result = self
             .submit(encoder, graph.as_ref(), &materials)
@@ -836,7 +842,13 @@ impl Renderer {
             self.prepare_materials(frame, wgpu::TextureFormat::Rgba8UnormSrgb, graph.as_ref())?;
         self.prepare_scene(frame)?;
         self.resize(width, height);
-        self.prepare_frame_pipelines(frame, wgpu::TextureFormat::Rgba8UnormSrgb, graph.as_ref())?;
+        self.prepare_frame_pipelines(
+            frame,
+            wgpu::TextureFormat::Rgba8UnormSrgb,
+            [width, height],
+            graph.as_ref(),
+            false,
+        )?;
         let target = self.targets.as_ref().unwrap();
         let mut encoder = self.encode_frame(
             frame,
@@ -844,7 +856,7 @@ impl Renderer {
             &target.depth_view,
             wgpu::TextureFormat::Rgba8UnormSrgb,
             [width, height],
-            (graph.as_ref(), &materials),
+            (graph.as_ref(), &materials, false),
         );
         encoder.copy_texture_to_buffer(
             target.color.as_image_copy(),

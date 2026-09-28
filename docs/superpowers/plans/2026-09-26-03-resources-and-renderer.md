@@ -188,7 +188,7 @@ alpha: straight input -> blend semantics -> premultiplied compositor boundary
 | Native mipmaps and ownership | Native mip fixtures, explicit scope regeneration, odd extents, alpha-weighted filtering and Metal/Pixel integrations |
 | Alpha modes, depth, ordering and portable primitives | Material and primitive pixel fixtures plus direct native presentation on Metal/Pixel |
 | Built-in UVs | Six box-face corner probes and four sphere quadrants on Metal/Pixel; seam/pole and dynamic UV tests |
-| Transparent premultiplied compositor boundary | Open. Current presentation is opaque; implement and qualify transparent output during Task 4 |
+| Transparent premultiplied compositor boundary | Implemented. Straight capture/effect inputs, Metal surface bytes and Pixel Flutter composition checked. Apple window-compositor pixels and other platform qualification remain open |
 
 The implementation arrived in focused local commits listed in Git history and
 `docs/verification.md`. The native test hosts available here are Metal and the
@@ -326,6 +326,13 @@ state, invalidation and removal. Manual composition remains an explicit exclusiv
 alternative. The independent effects package uses this API, and Flutter reports
 nonfatal candidate issues while keeping the current viewport ready. History and
 transparent compositor output remain open, so task 4 is still in progress.
+
+Transparent output checkpoint: nullable scene backgrounds, background opacity,
+straight-alpha effect inputs and captures, and native compositor conversion are
+implemented. Native surface tests and Pixel Flutter composition check fractional
+coverage. The image adapter preserves alpha metadata and converts at the Flutter
+boundary. See [scene alpha](../../design/scene-alpha.md). Temporal history remains
+open, along with Apple window-compositor pixel proof and broader platform gates.
 
 **Files:** Create graph/shader modules from the map, native
 `src/render_graph/{compile,execute}.rs`, Dart `test/render_graph_test.dart`,

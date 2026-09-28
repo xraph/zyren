@@ -63,7 +63,9 @@ void main() {
       EncodedScenePacket packet(IndexFormat format) =>
           ScenePacketEncoder(viewId: 1).encode(
             FrameSubmission.capture(
-              scene: Scene()..add(Mesh(triangle(format), UnlitMaterial())),
+              scene: Scene()
+                ..background = const Color3(0, 0, 0)
+                ..add(Mesh(triangle(format), UnlitMaterial())),
               camera: PerspectiveCamera(),
               size: PhysicalSize(31, 31),
             ),

@@ -22,6 +22,7 @@ pub struct ScenePacket {
     updates: Vec<(usize, Mesh)>,
     view_projection: [f32; 16],
     background: [f64; 3],
+    background_alpha: f32,
     light_direction: [f32; 3],
     ambient: f32,
     retained_textures: HashSet<u32>,
@@ -70,7 +71,7 @@ impl ScenePacket {
             return Err("unsupported scene packet".into());
         }
         let opcode = r.u32()?;
-        if !(10..=17).contains(&opcode) {
+        if !(10..=18).contains(&opcode) {
             return Err("unsupported scene packet".into());
         }
         let textured = opcode >= 11;
@@ -99,6 +100,14 @@ impl ScenePacket {
         let background = r.floats::<3>()?.map(f64::from);
         let light_direction = r.floats()?;
         let ambient = r.floats::<1>()?[0];
+        let background_alpha = if opcode >= 18 {
+            r.floats::<1>()?[0]
+        } else {
+            1.
+        };
+        if !(0.0..=1.0).contains(&background_alpha) {
+            return Err("invalid background alpha".into());
+        }
         let owned_texture_count = if textured { r.u32()? as usize } else { 0 };
         let texture_count = if textured { r.u32()? as usize } else { 0 };
         if owned_texture_count > MAX_MESHES || texture_count > MAX_MESHES {
@@ -364,6 +373,7 @@ impl ScenePacket {
             updates,
             view_projection,
             background,
+            background_alpha,
             light_direction,
             ambient,
             retained_textures,
@@ -413,6 +423,7 @@ impl ScenePacket {
             version: 1,
             view_projection: self.view_projection,
             background: self.background,
+            background_alpha: self.background_alpha,
             light_direction: self.light_direction,
             ambient: self.ambient,
             geometries: self.geometries,

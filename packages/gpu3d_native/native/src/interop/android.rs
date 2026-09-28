@@ -125,11 +125,17 @@ pub unsafe extern "C" fn fg_android_attach(
             desired_maximum_frame_latency: 2,
             alpha_mode: if capabilities
                 .alpha_modes
-                .contains(&wgpu::CompositeAlphaMode::Opaque)
+                .contains(&wgpu::CompositeAlphaMode::PreMultiplied)
             {
-                wgpu::CompositeAlphaMode::Opaque
-            } else {
+                wgpu::CompositeAlphaMode::PreMultiplied
+            } else if capabilities
+                .alpha_modes
+                .contains(&wgpu::CompositeAlphaMode::Inherit)
+            {
+                // SurfaceProducer consumes RGBA images as Flutter textures.
                 wgpu::CompositeAlphaMode::Inherit
+            } else {
+                return Err("Vulkan surface lacks premultiplied alpha presentation".into());
             },
             view_formats: vec![],
         };

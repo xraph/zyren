@@ -11,21 +11,50 @@ const OUTPUT_SHADER: &str = r#"
   let positions = array<vec2<f32>, 3>(vec2(-1., -1.), vec2(3., -1.), vec2(-1., 3.));
   return vec4<f32>(positions[i], 0., 1.);
 }
+fn encode_srgb(rgb: vec3<f32>) -> vec3<f32> {
+  return select(1.055 * pow(max(rgb, vec3(0.)), vec3(1. / 2.4)) - .055,
+                12.92 * rgb, rgb <= vec3(.0031308));
+}
+fn decode_srgb(rgb: vec3<f32>) -> vec3<f32> {
+  return select(pow(max((rgb + .055) / 1.055, vec3(0.)), vec3(2.4)),
+                rgb / 12.92, rgb <= vec3(.04045));
+}
 @fragment fn fragment(@builtin(position) pixel: vec4<f32>) -> @location(0) vec4<f32> {
-  return textureLoad(source, vec2<i32>(pixel.xy), 0);
+  var color = textureLoad(source, vec2<i32>(pixel.xy), 0);
+  if (__UNASSOCIATE__) {
+    color = vec4(select(vec3(0.), color.rgb / max(color.a, 1e-8), color.a > 0.), color.a);
+  }
+  if (__PREMULTIPLY__) {
+    if (__SRGB__) {
+      color = vec4(decode_srgb(encode_srgb(color.rgb) * color.a), color.a);
+    } else {
+      color = vec4(color.rgb * color.a, color.a);
+    }
+  }
+  return color;
 }
 "#;
+#[derive(Clone, Copy, Hash, PartialEq, Eq)]
+struct OutputTransform {
+    unassociate: bool,
+    premultiply: bool,
+}
 #[derive(Default)]
 pub(super) struct Compositor {
-    pipelines: HashMap<wgpu::TextureFormat, (wgpu::RenderPipeline, wgpu::BindGroupLayout)>,
+    pipelines: HashMap<
+        (wgpu::TextureFormat, OutputTransform),
+        (wgpu::RenderPipeline, wgpu::BindGroupLayout),
+    >,
+    accumulation: Option<wgpu::Texture>,
 }
 impl Compositor {
     fn prepare(
         &mut self,
         device: &wgpu::Device,
         format: wgpu::TextureFormat,
+        transform: OutputTransform,
     ) -> Result<(), String> {
-        if self.pipelines.contains_key(&format) {
+        if self.pipelines.contains_key(&(format, transform)) {
             return Ok(());
         }
         let validation = device.push_error_scope(wgpu::ErrorFilter::Validation);
@@ -51,7 +80,27 @@ impl Compositor {
         });
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("frame output"),
-            source: wgpu::ShaderSource::Wgsl(OUTPUT_SHADER.into()),
+            source: wgpu::ShaderSource::Wgsl(
+                OUTPUT_SHADER
+                    .replace(
+                        "__UNASSOCIATE__",
+                        if transform.unassociate {
+                            "true"
+                        } else {
+                            "false"
+                        },
+                    )
+                    .replace(
+                        "__PREMULTIPLY__",
+                        if transform.premultiply {
+                            "true"
+                        } else {
+                            "false"
+                        },
+                    )
+                    .replace("__SRGB__", if format.is_srgb() { "true" } else { "false" })
+                    .into(),
+            ),
         });
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("frame output"),
@@ -80,7 +129,8 @@ impl Compositor {
         if let Some(error) = error {
             return Err(error.to_string());
         }
-        self.pipelines.insert(format, (pipeline, layout));
+        self.pipelines
+            .insert((format, transform), (pipeline, layout));
         Ok(())
     }
     fn encode(
@@ -89,9 +139,9 @@ impl Compositor {
         encoder: &mut wgpu::CommandEncoder,
         source: &wgpu::Texture,
         target: &wgpu::TextureView,
-        format: wgpu::TextureFormat,
+        output: (wgpu::TextureFormat, OutputTransform),
     ) {
-        let (pipeline, layout) = &self.pipelines[&format];
+        let (pipeline, layout) = &self.pipelines[&output];
         let view = source.create_view(&Default::default());
         let binding = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("frame output"),
@@ -136,13 +186,65 @@ impl Renderer {
         &mut self,
         frame: &Frame,
         format: wgpu::TextureFormat,
+        size: [u32; 2],
         graph: Option<&FrameGraph>,
+        surface: bool,
     ) -> Result<(), String> {
         let scene_format = graph.map_or(format, |g| g.scene_color.format());
         self.prepare_pipelines(frame, scene_format)?;
+        let state = self.state.as_mut().unwrap();
+        if frame.background_alpha < 1. {
+            if state.compositor.accumulation.as_ref().is_none_or(|t| {
+                t.width() != size[0] || t.height() != size[1] || t.format() != scene_format
+            }) {
+                let validation = state.device.push_error_scope(wgpu::ErrorFilter::Validation);
+                let memory = state
+                    .device
+                    .push_error_scope(wgpu::ErrorFilter::OutOfMemory);
+                let internal = state.device.push_error_scope(wgpu::ErrorFilter::Internal);
+                let texture = state.device.create_texture(&wgpu::TextureDescriptor {
+                    label: Some("scene alpha accumulation"),
+                    size: wgpu::Extent3d {
+                        width: size[0],
+                        height: size[1],
+                        depth_or_array_layers: 1,
+                    },
+                    mip_level_count: 1,
+                    sample_count: 1,
+                    dimension: wgpu::TextureDimension::D2,
+                    format: scene_format,
+                    usage: wgpu::TextureUsages::RENDER_ATTACHMENT
+                        | wgpu::TextureUsages::TEXTURE_BINDING,
+                    view_formats: &[],
+                });
+                let error = pollster::block_on(internal.pop())
+                    .or(pollster::block_on(memory.pop()))
+                    .or(pollster::block_on(validation.pop()));
+                if let Some(error) = error {
+                    return Err(error.to_string());
+                }
+                state.compositor.accumulation = Some(texture);
+            }
+            state.compositor.prepare(
+                &state.device,
+                scene_format,
+                OutputTransform {
+                    unassociate: true,
+                    premultiply: surface && graph.is_none(),
+                },
+            )?;
+        } else {
+            state.compositor.accumulation = None;
+        }
         if graph.is_some() {
-            let state = self.state.as_mut().unwrap();
-            state.compositor.prepare(&state.device, format)?;
+            state.compositor.prepare(
+                &state.device,
+                format,
+                OutputTransform {
+                    unassociate: false,
+                    premultiply: surface,
+                },
+            )?;
         }
         Ok(())
     }
@@ -153,24 +255,53 @@ impl Renderer {
         depth: &wgpu::TextureView,
         format: wgpu::TextureFormat,
         size: [u32; 2],
-        composition: (Option<&FrameGraph>, &[Option<PreparedMaterial>]),
+        composition: (Option<&FrameGraph>, &[Option<PreparedMaterial>], bool),
     ) -> wgpu::CommandEncoder {
-        let (graph, materials) = composition;
-        let Some(graph) = graph else {
-            return self.encode_scene(frame, color, depth, format, size, (materials, None));
-        };
-        let scene_view = graph.scene_color.create_view(&Default::default());
+        let (graph, materials, surface) = composition;
+        let scene_format = graph.map_or(format, |g| g.scene_color.format());
+        let scene_view = graph.map(|g| g.scene_color.create_view(&Default::default()));
+        let scene_target = scene_view.as_ref().unwrap_or(color);
+        let accumulation = self.compositor.accumulation.as_ref();
+        let accumulation_view = accumulation.map(|t| t.create_view(&Default::default()));
         let mut encoder = self.encode_scene(
             frame,
-            &scene_view,
+            accumulation_view.as_ref().unwrap_or(scene_target),
             depth,
-            graph.scene_color.format(),
+            scene_format,
             size,
-            (materials, Some(graph)),
+            (materials, graph),
         );
-        graph.encode(&mut encoder);
-        self.compositor
-            .encode(&self.device, &mut encoder, &graph.output, color, format);
+        if let Some(accumulation) = accumulation {
+            self.compositor.encode(
+                &self.device,
+                &mut encoder,
+                accumulation,
+                scene_target,
+                (
+                    scene_format,
+                    OutputTransform {
+                        unassociate: true,
+                        premultiply: surface && graph.is_none(),
+                    },
+                ),
+            );
+        }
+        if let Some(graph) = graph {
+            graph.encode(&mut encoder);
+            self.compositor.encode(
+                &self.device,
+                &mut encoder,
+                &graph.output,
+                color,
+                (
+                    format,
+                    OutputTransform {
+                        unassociate: false,
+                        premultiply: surface,
+                    },
+                ),
+            );
+        }
         encoder
     }
 }

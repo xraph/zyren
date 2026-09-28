@@ -22,7 +22,9 @@ void main() {
     'sidedness changes are captured without reuploading shared geometry',
     () {
       final mesh = Mesh(PlaneGeometry(), UnlitMaterial());
-      final scene = Scene()..add(mesh);
+      final scene = Scene()
+        ..background = const Color3(0, 0, 0)
+        ..add(mesh);
       final camera = PerspectiveCamera();
       FrameSubmission capture() => FrameSubmission.capture(
         scene: scene,

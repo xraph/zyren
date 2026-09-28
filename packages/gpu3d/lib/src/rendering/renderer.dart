@@ -3,7 +3,8 @@ import 'capabilities.dart';
 import 'frame_output.dart';
 import '../scene/scene.dart';
 
-/// Tightly packed, top-down RGBA8 pixels. The consumer owns this buffer.
+/// Tightly packed, top-down RGBA8 sRGB pixels with declared alpha representation.
+/// The consumer owns this buffer.
 class RenderedFrame {
   final Uint8List pixels;
   final int width, height;

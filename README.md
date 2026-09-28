@@ -8,14 +8,15 @@ The core is a general-purpose Dart 3D library. `flutter_geospatial` is an option
 plugin built on that core. Three.js-level rendering and scene capabilities are
 the target for the core.
 
-This is an early implementation. You can render opaque meshes, compose a scene
+This is an early implementation. You can render opaque, masked and blended meshes, compose a scene
 graph, move a perspective camera and build an ECEF globe. On macOS and iOS, you
 can opt into direct Metal view presentation through `SceneRuntime.nativeMetal()`.
 On Android API 29 or newer, use `SceneRuntime.nativeAndroid()` for Vulkan
 presentation through Flutter textures. Neither path reads pixels back to the CPU
 during ordinary presentation.
 The portable examples still select explicit RGBA readback. Full Three.js and
-three-geospatial parity is still ahead.
+three-geospatial parity is still ahead. Scenes have a [transparent canvas](docs/design/scene-alpha.md)
+by default; assign a background color when you need an opaque fill.
 
 The [implementation plan](docs/superpowers/plans/2026-09-26-native-3d-program.md)
 sets out the remaining work, tests and platform gates. Read the

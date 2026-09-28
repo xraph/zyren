@@ -644,6 +644,7 @@ class SceneEngine {
           image: ImageData(
             pixels: frame.pixels,
             size: PhysicalSize(frame.width, frame.height),
+            alphaMode: frame.alphaMode,
           ),
           stats: FrameStats(
             frameId: info.number,

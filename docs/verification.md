@@ -1052,3 +1052,34 @@ with its Flutter runner retained and no error-level process log entries.
 The macOS runner could not foreground its app. Manual release inspection and
 new iOS, Windows, Linux or Adreno qualification remain open. Task 4 still needs
 history and transparent compositor output; this is not full Takram parity.
+
+## Transparent compositor output, 2026-09-28
+
+`Scene()` now has a transparent canvas. Nullable `background` and validated
+`backgroundOpacity` are captured in JSON or binary opcode 18. Older native
+packets remain opaque. The renderer resolves blended scene color before effects,
+returns straight-alpha captures and premultiplies encoded sRGB at presentation.
+Flutter image adapters preserve alpha metadata through both compatibility paths.
+
+The checkpoint passed 168 core, 51 native Dart, 67 Flutter facade, 12 effects-plugin
+and 1 app-layout tests. Native Dart ran serially with GPU tests enabled. All 75 Rust
+tests passed with ignored GPU cases included. Analysis, strict Clippy, formatting,
+package boundaries and ABI header checks passed.
+
+New GPU checks cover clear and fractional backgrounds, overlapping translucent
+meshes, resize, opaque transitions, alpha-changing effects and malformed alpha
+packets. Metal surface bytes match premultiplied sRGB expectations while explicit
+capture remains straight. The physical Pixel test captures a native Flutter
+texture over white and checks fractional and midtone colors, plugin fading and
+bypass, including an effect that makes an opaque scene translucent. Presentation
+readback stays zero; sessions and surface ownership return to zero after disposal.
+
+Both shader-lab integrations passed on Pixel Vulkan and macOS Metal. The combined
+macOS run failed to start its second app; that effects integration passed on a
+separate retry. The macOS runner still could not foreground the app. Apple
+window-compositor pixels remain unverified because Flutter's RepaintBoundary
+capture excludes native platform views.
+
+Release builds passed for macOS (52.0 MB) and Android arm64 (23.3 MB). This adds
+no iOS, Windows, Linux or Adreno qualification. Task 4 still needs temporal
+history; the full Three.js core and Takram port remain in progress.

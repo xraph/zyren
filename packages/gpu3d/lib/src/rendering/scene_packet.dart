@@ -135,7 +135,9 @@ final class ScenePacketEncoder {
         uploadBytes > 64 * 1024 * 1024) {
       throw ArgumentError('Scene resource upload exceeds the frame budget.');
     }
-    final opcode = scene._meshes.any((m) => m['side'] != 0)
+    final opcode = scene.backgroundOpacity < 1
+        ? 18
+        : scene._meshes.any((m) => m['side'] != 0)
         ? 17
         : scene._meshes.any((m) => m['primitive_kind'] != 0)
         ? 16
@@ -167,6 +169,7 @@ final class ScenePacketEncoder {
     body.floats(scene._background);
     body.floats(scene._light);
     body.floats([scene._ambient]);
+    if (opcode >= 18) body.floats([scene.backgroundOpacity]);
     body.u32(scene._textures.length);
     body.u32(textures.length);
     if (opcode >= 12) body.u32(patches.length);

@@ -194,6 +194,11 @@ you can override its format and usage for compute effects. Builders may allocate
 other scratch resources through `frame.resources`. Every output must be a sampled,
 single-mip texture with the frame's dimensions.
 
+Effect inputs and outputs use straight alpha. Preserve the input alpha unless
+your effect changes coverage. The renderer resolves scene blending before the
+effect chain and premultiplies only at the presentation boundary. See
+[transparent scenes](scene-alpha.md) for color conversion and capture behavior.
+
 Independent plugins contribute to one graph. `after: {'example.color'}` orders
 an effect after another registered effect; otherwise attachment order determines
 the color chain. Dependencies include disabled registrations, so bypassing an
