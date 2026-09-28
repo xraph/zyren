@@ -2127,3 +2127,41 @@ Culling currently skips whole mesh or instance-batch draws. It does not compact
 individual instances, discard offscreen resources, defer their initial uploads,
 or perform occlusion culling. Orbit/framing controls, the optional inspector and
 the remaining core/Takram and platform work stay open.
+
+## Camera framing, 28 September 2026
+
+You can fit world bounds with `camera.frameBounds`, including a selected mesh or
+a union of model bounds. Perspective fits account for the depth of each corner;
+orthographic fits preserve zoom. Both preserve viewing direction, target the
+bounds center and fit the clip planes. Empty bounds leave the camera unchanged,
+and invalid or unrepresentable fits fail before mutation.
+
+Six new core cases cover perspective aspect/depth, orthographic zoom, oblique
+views at Earth-scale coordinates, flat/point bounds, invalid inputs and clip
+range changes. They first failed because the API was absent. All 449
+core/glTF/geospatial Dart cases pass, alongside 78 Flutter facade cases and five
+Shader Lab widget cases. Analysis, formatting, package boundaries and Apple ABI
+checks pass. Rust source is unchanged in this checkpoint.
+
+A native Metal pixel fixture frames three colored boxes under both projections
+at wide and narrow aspects, then checks their rendered center pixels. The macOS
+culling integration also passes: framing all 61 boxes and then a tapped selection
+retains uploaded geometry and reports zero presentation readback. The widget
+regression first failed on the missing framing buttons. A later pan check found
+that the close view inherited the fitted clip range; restoring the close camera
+configuration fixes that regression.
+
+The 53.1 MB macOS release app runs on Metal. Live inspection confirmed that
+framing all boxes shows the complete row with 61 color draws. Selecting Box 30
+and framing it reduces the count to three; switching to orthographic projection
+and resizing between desktop and compact windows keeps that box inside the
+viewport. The settled frames report zero uploaded bytes. The app remains running
+in the compact window with Box 30 selected.
+
+The Android arm64 release APK builds at 23.1 MB. Physical Android framing remains
+unverified, along with Windows, Linux and physical iOS qualification.
+
+The demo retains a fit through projection changes and desktop/narrow resizing.
+Framing uses explicit caller-supplied bounds and does not animate camera moves.
+Orbit controls, the optional inspector, full core/Takram parity and remaining
+platform qualification stay open.

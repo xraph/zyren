@@ -40,6 +40,24 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('Culling projection')));
     await tester.pumpAndSettle();
     expect(controller.camera, isA<OrthographicCamera>());
+    await tester.tap(find.byKey(const ValueKey('Frame all')));
+    await tester.pumpAndSettle();
+    expect(backend.submissions.last.scene.drawCalls, 61);
+    await tester.tapAt(tester.getCenter(find.byType(SceneView)));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Box 30 selected'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('Frame selection')));
+    await tester.pumpAndSettle();
+    expect(backend.submissions.last.scene.drawCalls, lessThan(5));
+    final selected = controller.scene.children.whereType<Mesh>().elementAt(30);
+    expect(
+      controller.camera.target,
+      selected.bounds.transformed(selected.worldMatrix).center,
+    );
+    await tester.tap(find.byKey(const ValueKey('Culling projection')));
+    await tester.pumpAndSettle();
+    expect(controller.camera, isA<PerspectiveCamera>());
+    expect(backend.submissions.last.scene.drawCalls, lessThan(5));
     for (final size in [
       const Size(1100, 700),
       const Size(390, 700),
@@ -50,6 +68,11 @@ void main() {
       expect(tester.getSize(find.byType(SceneView)).height, greaterThan(450));
       expect(tester.takeException(), isNull);
     }
+    tester.widget<Slider>(find.byKey(const ValueKey('Camera pan'))).onChanged!(
+      20,
+    );
+    await tester.pumpAndSettle();
+    expect(backend.submissions.last.scene.drawCalls, inInclusiveRange(1, 15));
     await tester.pumpWidget(const SizedBox());
     await tester.runAsync(() => controller.whenDisposed);
     expect(backend.closeCount, 1);

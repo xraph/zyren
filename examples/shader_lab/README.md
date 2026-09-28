@@ -103,6 +103,9 @@ skinning, morph targets, instance colors and triangle selection.
 Pan across 61 meshes sharing one box geometry. You can toggle frustum culling or
 switch projection in the header. The footer reports color draws and uploaded
 bytes; camera movement reuses the geometry already on the GPU.
+Use **Frame all boxes** to fit the whole row, or tap a box and choose **Frame
+selected box**. The fit follows projection changes and window resizing. Moving
+the pan slider returns to the close camera view with its original clip range.
 
 ```sh
 fvm flutter run --release -d macos -t lib/culling.dart

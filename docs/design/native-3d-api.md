@@ -560,6 +560,11 @@ buttons, kind, modifiers and phase. `SceneView` converts Flutter events and
 participates in the gesture arena. `OrbitControls` requests gestures through that
 adapter; it does not intercept global input or clicks on overlay buttons.
 
+`camera.frameBounds(worldBounds, aspect: logicalWidth / logicalHeight)` fits a
+selection under either built-in projection, retaining viewing direction and
+fitting the clip planes. See [camera framing](camera-framing.md) for padding,
+empty bounds, projection behavior and validation.
+
 `pick(ViewportPoint)` returns the nearest visible/layer-matching `PickResult?`:
 object, world point, distance, triangle/instance index and optional UV. Snapshot
 the camera and view size for the request. Map logical points to normalized device

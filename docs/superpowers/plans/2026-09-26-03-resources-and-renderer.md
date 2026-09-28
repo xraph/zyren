@@ -701,6 +701,13 @@ Scene opcode 27 preserves offscreen shadow casters and resource ownership.
 See [culling](../../design/frustum-culling.md) for its contract. Orbit controls,
 framing, the optional inspector and their acceptance checks remain open.
 
+Framing checkpoint (2026-09-28): `Camera.frameBounds` fits world bounds under
+both built-in projections while preserving direction, up and orthographic zoom.
+It validates the fit before mutation and handles point/flat bounds. The culling
+lab can fit all boxes or a tapped selection and retain that fit through resize
+and projection changes. See [camera framing](../../design/camera-framing.md).
+Orbit controls, the inspector and the remaining acceptance checks stay open.
+
 ## Task 8: HDR effects, history and renderer profiles
 
 Task 5 now supplies HDR scene targets and terminal tone mapping. The existing

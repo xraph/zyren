@@ -48,6 +48,12 @@ class _CullingLabState extends State<_CullingLab> {
   FrameStats? stats;
   bool enabled = true;
   double pan = 0;
+  Size viewport = Size.zero;
+  Mesh? selected;
+  Bounds3? framedBounds;
+  String? selectionError;
+  late final Registration tapGesture;
+  int pickGeneration = 0;
 
   @override
   void initState() {
@@ -77,6 +83,7 @@ class _CullingLabState extends State<_CullingLab> {
       camera: PerspectiveCamera(position: const Vec3(0, 2, 8)),
       options: EngineOptions(presentation: widget.presentation),
     );
+    tapGesture = controller.input.registerGesture(SceneGesture.tap);
     subscription = controller.frameStats.listen((value) {
       if (mounted) setState(() => stats = value);
     });
@@ -84,9 +91,37 @@ class _CullingLabState extends State<_CullingLab> {
 
   @override
   void dispose() {
+    tapGesture.dispose();
     unawaited(subscription?.cancel());
     controller.dispose();
     super.dispose();
+  }
+
+  Bounds3 boundsOf(Mesh mesh) => mesh.bounds.transformed(mesh.worldMatrix);
+
+  void frame(Bounds3 bounds) {
+    if (viewport.isEmpty) return;
+    pickGeneration++;
+    controller.camera.frameBounds(bounds, aspect: viewport.aspectRatio);
+    framedBounds = bounds;
+    pan = controller.camera.target.x.clamp(-30, 30);
+  }
+
+  Future<void> select(ScenePointerEvent event) async {
+    if (event.phase != ScenePointerPhase.tap) return;
+    final generation = ++pickGeneration;
+    try {
+      final hit = await controller.pick(event.point);
+      if (!mounted || generation != pickGeneration) return;
+      setState(() {
+        selected = hit?.object;
+        selectionError = null;
+      });
+    } on SceneException catch (error) {
+      if (mounted && generation == pickGeneration) {
+        setState(() => selectionError = error.issue.message);
+      }
+    }
   }
 
   @override
@@ -99,7 +134,33 @@ class _CullingLabState extends State<_CullingLab> {
             child: Row(
               children: [
                 const Expanded(
-                  child: Text('Camera culling', style: TextStyle(fontSize: 18)),
+                  child: Text(
+                    'Camera culling',
+                    style: TextStyle(fontSize: 18),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                IconButton(
+                  key: const ValueKey('Frame all'),
+                  tooltip: 'Frame all boxes',
+                  icon: const Icon(Icons.fit_screen),
+                  onPressed: () => setState(
+                    () => frame(
+                      meshes.fold(
+                        const Bounds3.empty(),
+                        (bounds, mesh) => bounds.union(boundsOf(mesh)),
+                      ),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  key: const ValueKey('Frame selection'),
+                  tooltip: 'Frame selected box',
+                  icon: const Icon(Icons.center_focus_strong),
+                  onPressed: selected == null
+                      ? null
+                      : () => setState(() => frame(boundsOf(selected!))),
                 ),
                 IconButton(
                   key: const ValueKey('Culling projection'),
@@ -112,6 +173,7 @@ class _CullingLabState extends State<_CullingLab> {
                         : Icons.crop_square,
                   ),
                   onPressed: () => setState(() {
+                    pickGeneration++;
                     final old = controller.camera;
                     controller.camera = old is OrthographicCamera
                         ? PerspectiveCamera(
@@ -123,6 +185,7 @@ class _CullingLabState extends State<_CullingLab> {
                             target: old.target,
                             verticalSize: 6,
                           );
+                    if (framedBounds case final bounds?) frame(bounds);
                   }),
                 ),
                 IconButton(
@@ -155,9 +218,20 @@ class _CullingLabState extends State<_CullingLab> {
                     min: -30,
                     max: 30,
                     onChanged: (value) => setState(() {
+                      pickGeneration++;
+                      framedBounds = null;
                       pan = value;
-                      controller.camera.position = Vec3(value, 2, 8);
-                      controller.camera.target = Vec3(value, 0, 0);
+                      controller.camera =
+                          controller.camera is OrthographicCamera
+                          ? OrthographicCamera(
+                              position: Vec3(value, 2, 8),
+                              target: Vec3(value, 0, 0),
+                              verticalSize: 6,
+                            )
+                          : PerspectiveCamera(
+                              position: Vec3(value, 2, 8),
+                              target: Vec3(value, 0, 0),
+                            );
                     }),
                   ),
                 ),
@@ -168,7 +242,17 @@ class _CullingLabState extends State<_CullingLab> {
               ],
             ),
           ),
-          Expanded(child: SceneView(controller: controller)),
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                if (viewport != constraints.biggest) {
+                  viewport = constraints.biggest;
+                  if (framedBounds case final bounds?) frame(bounds);
+                }
+                return SceneView(controller: controller, onPointer: select);
+              },
+            ),
+          ),
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
             child: Align(
@@ -176,7 +260,12 @@ class _CullingLabState extends State<_CullingLab> {
               child: Text(
                 stats == null
                     ? 'Preparing renderer'
-                    : '${stats!.drawCalls} / ${meshes.length} color draws · ${stats!.uploadedBytes} B uploaded',
+                    : '${stats!.drawCalls} / ${meshes.length} color draws · ${stats!.uploadedBytes} B uploaded'
+                          '${selectionError == null
+                              ? selected == null
+                                    ? ''
+                                    : '\n${selected!.name} selected'
+                              : '\n$selectionError'}',
                 style: const TextStyle(fontSize: 12),
               ),
             ),

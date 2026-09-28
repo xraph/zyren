@@ -50,6 +50,32 @@ void main() {
           (frame) => frame.readbackBytes == 0,
         );
         expect(controller.camera, isA<OrthographicCamera>());
+        await tester.tap(find.byKey(const ValueKey('Frame all')));
+        final fitted = await waitForFrame(
+          tester,
+          controller,
+          (frame) => frame.drawCalls == 61,
+        );
+        expect(fitted.uploadedBytes, 0);
+        expect(fitted.readbackBytes, 0);
+        await tester.tapAt(tester.getCenter(find.byType(SceneView)));
+        await tester.pumpAndSettle();
+        expect(find.textContaining('Box 30 selected'), findsOneWidget);
+        await tester.tap(find.byKey(const ValueKey('Frame selection')));
+        final focused = await waitForFrame(
+          tester,
+          controller,
+          (frame) => frame.drawCalls > 0 && frame.drawCalls < 5,
+        );
+        expect(focused.uploadedBytes, 0);
+        expect(focused.readbackBytes, 0);
+        await tester.tap(find.byKey(const ValueKey('Culling projection')));
+        await waitForFrame(
+          tester,
+          controller,
+          (frame) => frame.drawCalls > 0 && frame.drawCalls < 5,
+        );
+        expect(controller.camera, isA<PerspectiveCamera>());
         expect(tester.takeException(), isNull);
       } finally {
         await tester.pumpWidget(const SizedBox());

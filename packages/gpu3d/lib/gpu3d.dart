@@ -1,5 +1,7 @@
 library;
 
+export 'src/controls/camera_framing.dart';
+
 export 'src/animation/clip.dart';
 
 export 'src/geometry/geometry.dart' hide watchGeometry;
