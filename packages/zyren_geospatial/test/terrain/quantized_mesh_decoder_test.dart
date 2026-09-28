@@ -5,6 +5,46 @@ import 'package:zyren_geospatial/zyren_geospatial.dart';
 import 'quantized_mesh_fixture.dart';
 
 void main() {
+  test(
+    'configuration rejects arithmetic overflow before computing reservations',
+    () {
+      for (final create in <QuantizedMeshLimits Function()>[
+        () => QuantizedMeshLimits(
+          maxVertices: 0x7fffffffffffffff,
+          maxTriangles: 2,
+          maxEdgeVertices: 8,
+        ),
+        () => QuantizedMeshLimits(maxTriangles: 0x5555555555555556),
+        () => QuantizedMeshLimits(
+          maxVertices: 3,
+          maxTriangles: 1,
+          maxEdgeVertices: 0x7fffffffffffffff,
+        ),
+      ]) {
+        expect(create, throwsArgumentError);
+      }
+      final vertices = QuantizedMeshLimits(
+        maxVertices: 999992,
+        maxTriangles: 1,
+        maxEdgeVertices: 8,
+      );
+      expect(vertices.residentBytes, greaterThan(vertices.decodedBytes));
+      final triangles = QuantizedMeshLimits(
+        maxVertices: 3,
+        maxTriangles: 999984,
+        maxEdgeVertices: 8,
+      );
+      expect(triangles.decodedBytes, greaterThan(12000000));
+      expect(
+        () => QuantizedMeshLimits(maxVertices: 999993, maxEdgeVertices: 8),
+        throwsArgumentError,
+      );
+      expect(
+        () => QuantizedMeshLimits(maxTriangles: 999985, maxEdgeVertices: 8),
+        throwsArgumentError,
+      );
+    },
+  );
   const rectangle = GeographicRectangle(-.0001, -.0001, .0001, .0001);
   final decoder = QuantizedMeshDecoder();
   TerrainTile decode(Uint8List bytes, {double skirtDepth = 50}) =>

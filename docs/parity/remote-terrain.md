@@ -88,8 +88,8 @@ dart test --concurrency=1
 dart analyze
 ```
 
-The checked suite has 129 tests. New checks cover malformed headers, every
-truncation of the small fixture, hostile counts, index alignment, edge membership,
+The checked suite has 130 tests. New checks cover reservation overflow, malformed
+headers, every truncation of the small fixture, hostile counts, index alignment, edge membership,
 oct normals, local precision, manifest policy, polar/dateline bounds and
 cancellation after an uncooperative resolver returns. Loopback HTTP tests exercise
 gzip, failed requests, retry and cancellation during a pending response.

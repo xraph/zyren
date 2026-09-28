@@ -18,8 +18,11 @@ final class QuantizedMeshLimits {
     if (maxEncodedBytes < 128 ||
         maxEncodedBytes > 64 * 1024 * 1024 ||
         maxVertices < 3 ||
+        maxVertices > 1000000 ||
         maxTriangles < 1 ||
+        maxTriangles > 1000000 ||
         maxEdgeVertices < 8 ||
+        maxEdgeVertices > 500000 ||
         maxVertices + maxEdgeVertices > 1000000 ||
         maxTriangles * 3 + maxEdgeVertices * 6 > 3000000) {
       throw ArgumentError(
