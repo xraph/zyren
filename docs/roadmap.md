@@ -36,10 +36,11 @@ Do not add a geospatial-only rendering path to bypass missing core features.
 
 ## Remaining delivery order
 
-1. Stream deterministic terrain/imagery through public core APIs, with
-   screen-space-error LOD, bounded requests/caches, cancellation and measured
-   planetary depth precision. Add the separate 3D Tiles loader, provider adapters
-   and source story configurations. Keep credentials outside the rendering core.
+1. Extend the [offline terrain/imagery slice](parity/terrain-streaming.md), which
+   now uses public core APIs with screen-space-error LOD, bounded requests/caches
+   and cancellation. Measure planetary depth precision, add remote terrain
+   formats and the separate 3D Tiles loader, then provider adapters and source
+   story configurations. Keep credentials outside the rendering core.
 2. Complete atmosphere variants: source LUT loading, automatic material lighting,
    probes/environment adapters, spectral integration and remaining haze overlays.
 3. Add volumetric clouds, weather generators, cloud shadows, temporal reconstruction

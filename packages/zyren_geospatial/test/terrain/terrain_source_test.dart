@@ -6,6 +6,64 @@ import '../streaming/tile_scheduler_test.dart' show flush;
 
 void main() {
   test(
+    'accepted patches next to either pole load with finite normals',
+    () async {
+      for (final northPole in [true, false]) {
+        final edge = math.pi / 2 - 1e-10;
+        final source = ProceduralTerrainSource(
+          scheme: TilingScheme(
+            width: 1,
+            rectangle: GeographicRectangle(
+              -.001,
+              northPole ? edge - .001 : -edge,
+              .001,
+              northPole ? edge : -edge + .001,
+            ),
+          ),
+        );
+        final tile = await source.load(
+          const TileCoordinate(0, 0, 0),
+          contextFor(source),
+        );
+        expect(tile.geometry.normals.every((n) => n.isFinite), isTrue);
+        for (var i = 0; i < tile.geometry.normals.length; i += 3) {
+          final n = tile.geometry.normals;
+          expect(Vec3(n[i], n[i + 1], n[i + 2]).length, closeTo(1, 1e-6));
+        }
+      }
+    },
+  );
+
+  test(
+    'declared bounds contain high-latitude surface and skirt vertices',
+    () async {
+      final source = ProceduralTerrainSource(
+        maximumHeight: 0,
+        scheme: TilingScheme(
+          width: 1,
+          rectangle: GeographicRectangle(0, 1.451, .000001, 1.55),
+        ),
+      );
+      const coordinate = TileCoordinate(0, 0, 0);
+      final metadata = source.describe(coordinate);
+      final tile = await source.load(coordinate, contextFor(source));
+      for (var i = 0; i < tile.geometry.positions.length; i += 3) {
+        final position =
+            tile.origin +
+            Vec3(
+              tile.geometry.positions[i],
+              tile.geometry.positions[i + 1],
+              tile.geometry.positions[i + 2],
+            );
+        expect(
+          (position - metadata.center).length,
+          lessThanOrEqualTo(metadata.radius),
+        );
+      }
+    },
+  );
+
+  test(
     'fixture payload matches reservation and imagery uses north at V zero',
     () async {
       final source = ProceduralTerrainSource();

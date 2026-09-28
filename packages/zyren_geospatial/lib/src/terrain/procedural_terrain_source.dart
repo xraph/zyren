@@ -9,8 +9,9 @@ import 'terrain_tile.dart';
 
 /// Offline fixture with analytic hills, aligned checker imagery and edge skirts.
 /// Regional patches only. This source does not model real terrain or providers.
-class ProceduralTerrainSource implements TileSource<TerrainTile> {
+class ProceduralTerrainSource implements TerrainSource {
   final TilingScheme scheme;
+  @override
   final Ellipsoid ellipsoid;
   final int segments, imagerySize, maximumLevel;
   final double maximumHeight, skirtDepth;
@@ -80,8 +81,13 @@ class ProceduralTerrainSource implements TileSource<TerrainTile> {
     }
     final rect = scheme.getRectangle(coordinate);
     final size = 1 << coordinate.z;
-    final cell =
-        math.max(rect.width, rect.height) * ellipsoid.maximumRadius / segments;
+    // Geodetic angles describe surface normals. A flattened ellipsoid's
+    // surface derivative can exceed its largest radius.
+    final angularScale =
+        ellipsoid.maximumRadius *
+        ellipsoid.maximumRadius /
+        ellipsoid.minimumRadius;
+    final cell = math.max(rect.width, rect.height) * angularScale / segments;
     final error =
         maximumHeight *
             4 *
@@ -95,7 +101,7 @@ class ProceduralTerrainSource implements TileSource<TerrainTile> {
         Geodetic(rect.west + rect.width / 2, (rect.south + rect.north) / 2),
       ),
       radius:
-          ellipsoid.maximumRadius * (rect.width + rect.height) / 2 +
+          angularScale * (rect.width + rect.height) / 2 +
           maximumHeight +
           skirtDepth,
       geometricError: coordinate.z == maximumLevel ? 0 : error,
@@ -159,8 +165,11 @@ class ProceduralTerrainSource implements TileSource<TerrainTile> {
       final v = (size - coordinate.y - 1 + y / segments) / size;
       final p = _point(u, v, lowering);
       const step = .00001;
-      final east = _point(u + step, v) - _point(u - step, v);
-      final south = _point(u, v + step) - _point(u, v - step);
+      // One-sided derivatives at dataset edges also stay inside the poles.
+      final east =
+          _point(math.min(1, u + step), v) - _point(math.max(0, u - step), v);
+      final south =
+          _point(u, math.min(1, v + step)) - _point(u, math.max(0, v - step));
       positions.addAll((p - origin).storage);
       normals.addAll(south.cross(east).normalized().storage);
       uv.addAll([x / segments, y / segments]);
@@ -230,6 +239,10 @@ class ProceduralTerrainSource implements TileSource<TerrainTile> {
         generateMipmaps: true,
       ),
       imageryRectangle: scheme.getRectangle(coordinate),
+      sampler: const SamplerDescriptor(
+        minFilter: TextureFilter.nearest,
+        magFilter: TextureFilter.nearest,
+      ),
     );
   }
 }

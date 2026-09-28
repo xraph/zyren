@@ -48,15 +48,54 @@ source from allocating excessive temporary memory internally.
 
 ## Fixture evidence and limits
 
-The initial 16 tests cover projections, hysteresis, frustum exit, cancellation,
+The scheduler and source tests cover projections, hysteresis, frustum exit, cancellation,
 replacement, bounded retries, LRU eviction, byte reservations, parent coverage,
 height normals, winding, imagery orientation and dateline edges. Shared edges
 differ by at most 0.000031405 metres after float conversion in the checked
 fixture. Geometry vertices are relative to a double-precision ECEF tile origin.
 Edge skirts cover the bounded fixture's mixed-detail gaps.
 
-Native presentation evidence is recorded after the terrain plugin is qualified.
+High-latitude bounds use `maximumRadius² / minimumRadius` as a conservative
+surface derivative bound. Normal samples stay inside the geographic patch at
+both poles. The checker source uses nearest magnification so changing terrain
+detail does not also change the width of checker transitions; ordinary imagery
+retains its default linear sampler.
+
+## Native consumer
+
+`TerrainPlugin` depends on `GeospatialPlugin` and checks that their ellipsoids
+match. It builds the next visible mesh set before replacing scene membership.
+Only visible meshes reach the core renderer, which owns their native resources
+and submission retirement. Detach cancels loads and removes the entire group.
+Use `onChanged` for loading status. It updates when loads settle even if the
+viewport is idle and no new sampled frame statistics arrive.
+
+From `examples/planet`, run:
+
+```sh
+flutter run -d macos -t lib/terrain_lab.dart
+flutter test integration_test/terrain_streaming_test.dart -d macos
+```
+
+The lab has overview, detail, east and west cameras, trackpad navigation, cache
+statistics and an offline switch. Enable the switch at a detail camera to keep
+the parent visible while child loads fail. Reconnect and retry restores detail.
+
+Native Metal checks render both imagery colors, change LOD, resize and close
+during decode. The detailed 256 × 192 frame contains 48,606 terrain pixels.
+Coarsening restores the root's 27,260-byte native allocation; disposal leaves
+zero resident resource bytes. A separate image comparison checks that checker
+filtering stays consistent between root and child geometry.
+
+The Flutter integration passes camera flights, offline fallback, retry and a
+390 × 700 layout. Its final run presented 49 frames with zero readback bytes,
+then retired every session, renderer and drawable. CUA inspection also confirms
+the overview, detail and east views, plus the visible offline fallback.
+All 111 geospatial tests pass, including the four native terrain checks.
+
 Logical resident bytes include native vertex/index payloads and texture mipmaps.
 They exclude driver overhead and frames awaiting GPU retirement. This regional
 fixture does not qualify planetary depth accuracy, provider data, all upstream
-stories or Windows/Linux support.
+stories or Windows/Linux support. This slice has not been run on physical mobile
+devices. Atlas gutters, seamless filtering for provider imagery, fades and
+worker-isolate decoding remain open.

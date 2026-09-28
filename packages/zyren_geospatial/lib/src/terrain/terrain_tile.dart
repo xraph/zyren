@@ -1,18 +1,25 @@
 import 'package:zyren/zyren.dart';
 import '../streaming/tile_source.dart';
 import '../tiling.dart';
+import '../geodesy.dart';
+
+abstract interface class TerrainSource implements TileSource<TerrainTile> {
+  Ellipsoid get ellipsoid;
+}
 
 /// A mesh in metres relative to [origin], with top-left geographic imagery.
 final class TerrainTile implements TileContent {
   final Vec3 origin;
   final BufferGeometry geometry;
   final TextureImage imagery;
+  final SamplerDescriptor sampler;
   final GeographicRectangle imageryRectangle;
   TerrainTile({
     required this.origin,
     required this.geometry,
     required this.imagery,
     required this.imageryRectangle,
+    this.sampler = const SamplerDescriptor(),
   }) {
     if (!origin.isFinite || geometry.isDynamic) {
       throw ArgumentError(

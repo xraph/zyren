@@ -10,3 +10,16 @@ with the shared native Metal SceneView. The [camera lab notes](../../docs/parity
 cover device commands, runtime checks and remaining limits. This is a numerical
 port fixture with local calibration geometry; city streaming, atmosphere and
 clouds remain in the [full parity matrix](../../docs/parity/matrix.md).
+
+# Terrain streaming lab
+
+Run `flutter run -d macos -t lib/terrain_lab.dart` to explore a deterministic
+terrain patch with checker imagery. The camera presets change detail as you
+move. Scroll or pinch to zoom, or drag to orbit.
+
+At a detail camera, enable **Offline test** to fail child loads while the parent
+stays visible. **Reconnect and retry** restores finer terrain. The footer shows
+loading requests, cached CPU bytes and visible GPU payload bytes.
+
+The [terrain notes](../../docs/parity/terrain-streaming.md) cover source contracts,
+native verification and limits. This fixture needs no provider credentials.
