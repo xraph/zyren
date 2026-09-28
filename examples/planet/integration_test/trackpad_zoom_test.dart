@@ -111,6 +111,34 @@ void main() {
           '${(orbital - radius).round()} m altitude',
         );
       }
+      await tester.sendEventToBinding(pointer.panZoomStart(point));
+      for (var step = 1; step <= 4; step++) {
+        await tester.sendEventToBinding(
+          pointer.panZoomUpdate(
+            point,
+            pan: Offset(0, 24.0 * step),
+            timeStamp: Duration(milliseconds: 16 * step),
+          ),
+        );
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      await waitFrame(frames);
+      final released = controller.camera.position.length;
+      await tester.sendEventToBinding(
+        pointer.panZoomEnd(timeStamp: const Duration(milliseconds: 64)),
+      );
+      for (var frame = 0; frame < 20; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      final coasted = controller.camera.position.length;
+      expect(coasted, lessThan(released - 1000));
+      expect(coasted, greaterThan(radius));
+      debugPrint(
+        'Trackpad released zoom: $released to $coasted metres from center',
+      );
+      // A new gesture stops the tail before the layout check.
+      await tester.sendEventToBinding(pointer.panZoomStart(point));
+      await tester.sendEventToBinding(pointer.panZoomEnd());
       await tester.binding.setSurfaceSize(const Size(390, 700));
       await tester.pump();
       await waitFrame(frames);

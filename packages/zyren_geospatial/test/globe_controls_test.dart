@@ -9,6 +9,38 @@ List<double> numbers(Object? value) =>
     (value as List).cast<num>().map((v) => v.toDouble()).toList();
 Vec3 vector(Object? value) => Vec3.array(numbers(value));
 void main() {
+  for (final burst in [3200.0, 12800.0, 25600.0]) {
+    test('outward scroll bursts retain the orbital distance limit: $burst', () {
+      final camera = PerspectiveCamera(
+        position: const Vec3(6379637, 0, 0),
+        target: const Vec3(6379637, 0, 10000),
+        up: const Vec3(1, 0, 0),
+        near: 1,
+        far: 1e9,
+      );
+      final controls = GlobeControls(camera);
+      addTearDown(controls.dispose);
+      controls.update(1 / 60);
+      for (var i = 0; i < 20; i++) {
+        controls.handleWheel(const ViewportPoint(400, 280), burst);
+        controls.update(1 / 60);
+        expect(
+          controls.distanceToCenter,
+          lessThanOrEqualTo(controls.maxPerspectiveDistance + 1e-6),
+        );
+        expect(camera.position.isFinite, isTrue);
+        expect(camera.far, greaterThan(camera.near));
+      }
+      expect(
+        controls.distanceToCenter,
+        closeTo(controls.maxPerspectiveDistance, 1e-6),
+      );
+      expect(
+        controls.forward.dot(-camera.position.normalized()),
+        greaterThan(.99),
+      );
+    });
+  }
   for (final inwardDelta in [400.0, 800.0, 1600.0]) {
     test(
       'inward zoom refreshes a horizon ray after reaching orbit: $inwardDelta',

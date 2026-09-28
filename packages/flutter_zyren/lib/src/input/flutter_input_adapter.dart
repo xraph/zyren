@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/gestures.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:zyren/zyren.dart';
@@ -14,7 +15,12 @@ class FlutterInputAdapter implements ViewportInputSource, KeyboardInputSource {
   final _keyInterests = <SceneKey, int>{};
   final _pressedKeys = <SceneKey>{};
   final _activePointers = <int, ScenePointerEvent>{};
-  final _trackpads = <int, ({PointerEvent event, double scale})>{};
+  final _trackpads = <int, _TrackpadMotion>{};
+  Ticker? _coastTicker;
+  PointerEvent? _coastSource;
+  ScenePointerCallback? _coastCallback;
+  double _coastVelocity = 0;
+  Duration _coastElapsed = Duration.zero, _coastStart = Duration.zero;
   PointerDownEvent? _dragTap;
   @override
   ViewportMetrics viewport = const ViewportMetrics(0, 0);
@@ -143,12 +149,14 @@ class FlutterInputAdapter implements ViewportInputSource, KeyboardInputSource {
   }
 
   void _cancelTrackpad(int pointer, ScenePointerCallback? callback) {
+    if (_coastSource?.pointer == pointer) _stopCoast(cancel: true);
     final previous = _trackpads.remove(pointer);
     if (previous == null) return;
     emit(convert(previous.event, ScenePointerPhase.cancel), callback);
   }
 
   void _cancelTrackpads() {
+    _stopCoast(cancel: true);
     for (final pointer in _trackpads.keys.toList()) {
       _cancelTrackpad(pointer, null);
     }
@@ -157,36 +165,105 @@ class FlutterInputAdapter implements ViewportInputSource, KeyboardInputSource {
   void _trackpad(PointerEvent event, ScenePointerCallback? callback) {
     if (_closed || !wants(SceneGesture.scroll)) return;
     if (event is PointerPanZoomStartEvent) {
-      _trackpads[event.pointer] = (event: event, scale: 1);
+      _stopCoast(cancel: true);
+      _trackpads[event.pointer] = _TrackpadMotion(event);
     } else if (event is PointerPanZoomEndEvent) {
-      _trackpads.remove(event.pointer);
+      final motion = _trackpads.remove(event.pointer);
+      if (motion == null || _trackpads.isNotEmpty) return;
+      final velocity = motion.releaseVelocity(event.timeStamp);
+      if (velocity.abs() < 30) return;
+      _stopCoast();
+      _coastSource = motion.event;
+      _coastCallback = callback;
+      _coastVelocity = velocity.clamp(-3200, 3200);
+      _coastElapsed = Duration.zero;
+      _coastStart = event.timeStamp;
+      GestureBinding.instance.pointerRouter.addGlobalRoute(_interruptCoast);
+      (_coastTicker ??= Ticker(
+        _tickCoast,
+        debugLabel: 'Scene trackpad zoom',
+      )).start();
     } else if (event is PointerPanZoomUpdateEvent) {
       final previous = _trackpads[event.pointer];
       if (previous == null || !event.scale.isFinite || event.scale <= 0) return;
-      _trackpads[event.pointer] = (event: event, scale: event.scale);
       // Native scale is cumulative. Convert each ratio to wheel-equivalent
       // logical pixels, inverse to Flutter's default scroll-to-scale factor.
       final pinch = -200 * (math.log(event.scale) - math.log(previous.scale));
       final delta = -event.localPanDelta + Offset(0, pinch);
+      previous.update(event, delta.dy);
       if (delta == Offset.zero) return;
-      emit(
-        ScenePointerEvent(
-          point: ViewportPoint(event.localPosition.dx, event.localPosition.dy),
-          delta: ViewportPoint(delta.dx, delta.dy),
-          phase: ScenePointerPhase.scroll,
-          pointer: event.pointer,
-          kind: ScenePointerKind.trackpad,
-          time: event.timeStamp,
-          modifiers: modifiers,
-        ),
-        callback,
-      );
+      _emitTrackpad(event, delta, callback);
+    }
+  }
+
+  void _emitTrackpad(
+    PointerEvent event,
+    Offset delta,
+    ScenePointerCallback? callback, {
+    Duration? time,
+  }) => emit(
+    ScenePointerEvent(
+      point: ViewportPoint(event.localPosition.dx, event.localPosition.dy),
+      delta: ViewportPoint(delta.dx, delta.dy),
+      phase: ScenePointerPhase.scroll,
+      pointer: event.pointer,
+      kind: ScenePointerKind.trackpad,
+      time: time ?? event.timeStamp,
+      modifiers: modifiers,
+    ),
+    callback,
+  );
+
+  void _tickCoast(Duration elapsed) {
+    final source = _coastSource;
+    if (source == null || _closed || !wants(SceneGesture.scroll)) {
+      _stopCoast();
+      return;
+    }
+    final seconds = elapsed.inMicroseconds / Duration.microsecondsPerSecond;
+    final previous =
+        _coastElapsed.inMicroseconds / Duration.microsecondsPerSecond;
+    if (seconds <= previous) return;
+    // Integrate exponential velocity exactly over each display frame. Travel
+    // stays independent of refresh rate, with at most 400 extra logical pixels.
+    final decay = math.exp(-8 * seconds);
+    final distance = _coastVelocity * (math.exp(-8 * previous) - decay) / 8;
+    _coastElapsed = elapsed;
+    _emitTrackpad(
+      source,
+      Offset(0, distance),
+      _coastCallback,
+      time: _coastStart + elapsed,
+    );
+    if ((_coastVelocity * decay).abs() < 5) _stopCoast();
+  }
+
+  void _stopCoast({bool cancel = false}) {
+    final source = _coastSource;
+    if (source != null) {
+      GestureBinding.instance.pointerRouter.removeGlobalRoute(_interruptCoast);
+    }
+    _coastSource = null;
+    _coastCallback = null;
+    _coastTicker?.stop();
+    if (cancel && source != null) {
+      emit(convert(source, ScenePointerPhase.cancel), null);
+    }
+  }
+
+  void _interruptCoast(PointerEvent event) {
+    if (event is PointerDownEvent ||
+        event is PointerPanZoomStartEvent ||
+        event is PointerScrollEvent ||
+        event is PointerScrollInertiaCancelEvent) {
+      _stopCoast(cancel: true);
     }
   }
 
   void close() {
     if (_closed) return;
     suspend();
+    _coastTicker?.dispose();
     _closed = true;
     _interests.clear();
     _keyInterests.clear();
@@ -273,6 +350,7 @@ class FlutterInputAdapter implements ViewportInputSource, KeyboardInputSource {
         builder: (context) => Listener(
           behavior: HitTestBehavior.opaque,
           onPointerDown: (event) {
+            _stopCoast(cancel: true);
             if (wantsKeyboard) Focus.of(context).requestFocus();
             pointer(event, ScenePointerPhase.down);
           },
@@ -288,6 +366,7 @@ class FlutterInputAdapter implements ViewportInputSource, KeyboardInputSource {
               resolved,
             ) {
               final scroll = resolved as PointerScrollEvent;
+              _stopCoast(cancel: true);
               emit(
                 ScenePointerEvent(
                   point: ViewportPoint(
@@ -356,6 +435,44 @@ class FlutterInputAdapter implements ViewportInputSource, KeyboardInputSource {
         ),
       ),
     );
+  }
+}
+
+class _TrackpadMotion {
+  PointerEvent event;
+  double scale = 1, _distance = 0, _direction = 0;
+  final _samples = <({Duration time, double distance})>[];
+
+  _TrackpadMotion(this.event) {
+    _samples.add((time: event.timeStamp, distance: 0));
+  }
+
+  void update(PointerPanZoomUpdateEvent next, double delta) {
+    if (next.timeStamp <= event.timeStamp ||
+        (delta != 0 && _direction != 0 && delta.sign != _direction)) {
+      _samples
+        ..clear()
+        ..add((time: event.timeStamp, distance: _distance));
+    }
+    if (delta != 0) _direction = delta.sign;
+    _distance += delta;
+    _samples.add((time: next.timeStamp, distance: _distance));
+    final cutoff = next.timeStamp - const Duration(milliseconds: 80);
+    while (_samples.length > 2 && _samples.first.time < cutoff) {
+      _samples.removeAt(0);
+    }
+    event = next;
+    scale = next.scale;
+  }
+
+  double releaseVelocity(Duration time) {
+    final pause = time - event.timeStamp;
+    if (pause.isNegative || pause > const Duration(milliseconds: 80)) return 0;
+    final first = _samples.first, last = _samples.last;
+    final seconds =
+        (time - first.time).inMicroseconds / Duration.microsecondsPerSecond;
+    if (seconds <= 0) return 0;
+    return (last.distance - first.distance) / seconds;
   }
 }
 

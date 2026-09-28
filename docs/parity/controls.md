@@ -125,9 +125,21 @@ wheel pixels. The cursor stays at the gesture's starting location. This path
 does not also emit touch-scale updates. Suspension, detachment and removal of
 the last scroll registration cancel pending trackpad motion.
 
+On release, the host estimates zoom velocity from the last 80 milliseconds of
+movement and continues it with exponential decay. Faster gestures travel farther.
+A pause before release suppresses the tail. Velocity is capped at 3,200 logical
+pixels per second, limiting extra travel to 400 pixels. Frame-by-frame integration
+keeps that distance stable across display refresh rates. A new pointer gesture,
+wheel input or platform inertia-cancel signal stops it, including clicks on
+controls outside the viewport. The ticker and temporary pointer observer are
+removed when motion ends, input is suspended or the scene is disposed.
+
 Widget tests cover transformed viewports at DPR 1.5 with two render scales,
 text-field focus, key repeat/cancellation, claimed drags, detachment and both
 claimed/unclaimed wheel input. These are host input checks, not control parity.
 Trackpad tests also cover parent scroll ownership, cumulative pinch ratios,
 transformed viewports at DPR 2, interrupted gestures and ordinary touch pinch
 while trackpad zoom is registered.
+Momentum checks cover gesture speed, reversal, release pauses, interruption and
+equal travel at 30, 60 and 120 Hz. Both OrbitControls modes use trackpad delta
+magnitude, so splitting one movement across more events preserves its zoom.

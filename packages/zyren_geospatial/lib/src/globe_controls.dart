@@ -333,6 +333,7 @@ class GlobeControls extends EnvironmentControls {
   @override
   void updateZoom() {
     if (state != EnvironmentState.zoom && zoomDelta == 0) return;
+    final zoomingOut = zoomDelta < 0;
     dragInertia = Vec3.zero;
     rotationInertia = const ViewportPoint(0, 0);
     globeInertia = Quat.identity;
@@ -363,7 +364,10 @@ class GlobeControls extends EnvironmentControls {
       final transition = perspectiveTransitionDistance,
           maximum = maxPerspectiveDistance;
       final distanceAlpha =
-          (distanceToCenter - transition) / (maximum - transition);
+          ((distanceToCenter - transition) / (maximum - transition)).clamp(
+            0.0,
+            1.0,
+          );
       tiltTowardsCenter(.4 * distanceAlpha * deltaAlpha);
       alignCameraUpToNorth(.2 * distanceAlpha * deltaAlpha);
       final scale =
@@ -387,6 +391,18 @@ class GlobeControls extends EnvironmentControls {
       final clamped = math.max(factor, math.min(minimum / c.zoom, 1));
       c.zoom = math.min(maxZoom, c.zoom * clamped);
       zoomDelta = 0;
+      zoomDirectionSet = false;
+    }
+    // A coalesced scroll burst can cross both the near/far threshold and the
+    // orbital limit in one frame. Apply the limit after either zoom path.
+    if (c is PerspectiveCamera &&
+        zoomingOut &&
+        distanceToCenter > maxPerspectiveDistance + 1e-6) {
+      translate(
+        vectorToCenter.normalized() *
+            (distanceToCenter - maxPerspectiveDistance),
+      );
+      tiltTowardsCenter(1);
       zoomDirectionSet = false;
     }
   }

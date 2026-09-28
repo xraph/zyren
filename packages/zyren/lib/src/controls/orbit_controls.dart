@@ -333,7 +333,11 @@ class OrbitControls {
         _events.add(OrbitEvent.start);
         _mouseParameters(point);
         if (event.delta.y != 0) {
-          final scale = getZoomScale(event.delta.y);
+          final scale = event.kind == ScenePointerKind.trackpad
+              ? math
+                    .pow(.95, zoomSpeed * (event.delta.y * .01).abs())
+                    .toDouble()
+              : getZoomScale(event.delta.y);
           _scale *= event.delta.y < 0 ? scale : 1 / scale;
         }
         update();

@@ -8,6 +8,49 @@ Vec3 vector(dynamic values) =>
     Vec3.array((values as List).map((v) => (v as num).toDouble()).toList());
 
 void main() {
+  for (final behavior in OrbitBehavior.values) {
+    for (final orthographic in [false, true]) {
+      test(
+        'trackpad intensity and event splitting: $behavior ortho=$orthographic',
+        () {
+          final Camera camera = orthographic
+              ? OrthographicCamera(position: const Vec3(0, 0, 10))
+              : PerspectiveCamera(position: const Vec3(0, 0, 10));
+          final controls = OrbitControls(
+            camera,
+            behavior: behavior,
+            viewport: const ViewportMetrics(800, 600),
+          );
+          addTearDown(controls.dispose);
+          double viewScale() =>
+              orthographic ? 1 / controls.zoom : controls.distance;
+          void scroll(double delta) => controls.handlePointer(
+            ScenePointerEvent(
+              point: const ViewportPoint(400, 300),
+              delta: ViewportPoint(0, delta),
+              phase: ScenePointerPhase.scroll,
+              kind: ScenePointerKind.trackpad,
+            ),
+          );
+          final initial = viewScale();
+          scroll(1);
+          final gentle = viewScale();
+          expect(gentle, greaterThan(initial));
+          controls.reset();
+          scroll(100);
+          final fast = viewScale();
+          expect(fast - initial, greaterThan((gentle - initial) * 90));
+          controls.reset();
+          for (var i = 0; i < 100; i++) {
+            scroll(1);
+          }
+          expect(viewScale(), closeTo(fast, 1e-10));
+          scroll(-100);
+          expect(viewScale(), closeTo(initial, 1e-10));
+        },
+      );
+    }
+  }
   for (final name in ['stdlib_orbit', 'three_orbit']) {
     final modern = name == 'three_orbit';
     final fixture =

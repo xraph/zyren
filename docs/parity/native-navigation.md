@@ -51,6 +51,8 @@ for the implemented renderer/atmosphere profiles and separate device results.
 ## Trackpad zoom
 
 You can scroll with two fingers or pinch over the viewport to zoom in and out.
+Faster gestures zoom farther and keep moving briefly after your fingers lift,
+then slow to a stop. A new gesture or a click on a control interrupts the motion.
 Keep zooming out to leave the surface and see Earth from orbit. The shared
 Flutter adapter claims native pan/zoom events when the controls register scroll
 input, preserving the existing touch gestures and the parent page's scrolling
@@ -69,9 +71,14 @@ Inward zoom now refreshes the cursor ray after far navigation has turned the
 camera toward Earth. Previously, a cached ray could still point toward the old
 horizon, miss the planet and let a large inward delta cross the surface. Three
 regressions cover that reversal at 400, 800 and 1,600 wheel-equivalent pixels.
+Large outward bursts also respect the orbital distance limit when they cross
+the near/far boundary in a single frame. At that limit the camera faces Earth.
 
-The run also checks a 390 by 700 layout. It reports 530 presentations, 138 stats
+The native test also sends a timed flick and verifies that the camera continues
+moving toward Earth after release, then interrupts the tail with a new gesture.
+The run checks a 390 by 700 layout. It reports 552 presentations, 141 stats
 samples, zero ordinary readback bytes and no remaining sessions, renderers,
-held drawables or retiring resources. All 79 Flutter tests and 86 geospatial
-tests pass, as do analysis and package-boundary checks. These are injected
+held drawables or retiring resources. All 89 Flutter tests, 89 geospatial tests
+and 184 OrbitControls/plugin checks pass, as do analysis and package-boundary
+checks. These are injected
 gesture tests; physical trackpad pinch feel has not been manually qualified.
