@@ -1,11 +1,13 @@
 import 'dart:io';
 import 'dart:math' as math;
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_zyren/flutter_zyren.dart';
 import 'package:zyren/rendering.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:multiple_views/scene_workbench.dart';
+import '../test/support/workbench_gizmo.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -59,14 +61,22 @@ void main() {
       }
 
       final cameraPosition = controller.camera.position;
-      final gesture = await tester.startGesture(project(const Vec3(0, 2, 0)));
+      double radius() => workbenchGizmoRadius(controller);
+      // Keep depth-tested rings outside the part even in a large native window.
+      if (radius() < 2) {
+        controller.camera.position = cameraPosition * (2 / radius());
+        await until(() => radius() >= 2 - 1e-6);
+      }
+      final editingCameraPosition = controller.camera.position;
+      double r = radius();
+      final gesture = await tester.startGesture(project(Vec3(0, r, 0)));
       await tester.pump(const Duration(milliseconds: 100));
-      await gesture.moveTo(project(const Vec3(0, 2.5, 0)));
+      await gesture.moveTo(project(Vec3(0, r + .5, 0)));
       await until(() => housing.position.y > .4);
       await gesture.up();
       await tester.pump(const Duration(milliseconds: 100));
       expect(housing.position.y, closeTo(.5, 1e-5));
-      expect(controller.camera.position, cameraPosition);
+      expect(controller.camera.position, editingCameraPosition);
       await tester.tap(find.byTooltip('Undo'));
       await until(() => housing.position == original);
       Future<void> mode(String label) async {
@@ -78,7 +88,7 @@ void main() {
 
       await mode('Rotate');
       Vec3 ringPoint(double angle) =>
-          Vec3(1.7 * math.cos(angle), 1.7 * math.sin(angle), 0);
+          Vec3(r * .85 * math.cos(angle), r * .85 * math.sin(angle), 0);
       final rotation = await tester.startGesture(
         project(ringPoint(math.pi / 4)),
       );
@@ -91,9 +101,10 @@ void main() {
       await tester.tap(find.byTooltip('Undo'));
       await until(() => housing.quaternion == Quat.identity);
       await mode('Scale');
-      final scale = await tester.startGesture(project(const Vec3(0, 2, 0)));
+      r = radius();
+      final scale = await tester.startGesture(project(Vec3(0, r, 0)));
       await tester.pump(const Duration(milliseconds: 100));
-      await scale.moveTo(project(const Vec3(0, 3, 0)));
+      await scale.moveTo(project(Vec3(0, r * 1.5, 0)));
       await until(() => housing.scale.y > 1.4);
       await scale.up();
       await tester.pump(const Duration(milliseconds: 100));
@@ -101,13 +112,14 @@ void main() {
       await tester.tap(find.byTooltip('Undo'));
       await until(() => housing.scale == Vec3.one);
       await mode('Move');
-      final cancelled = await tester.startGesture(project(const Vec3(0, 2, 0)));
+      r = radius();
+      final cancelled = await tester.startGesture(project(Vec3(0, r, 0)));
       await tester.pump(const Duration(milliseconds: 100));
-      await cancelled.moveTo(project(const Vec3(0, 2.5, 0)));
+      await cancelled.moveTo(project(Vec3(0, r + .5, 0)));
       await until(() => housing.position.y > .4);
       await cancelled.cancel();
       await until(() => housing.position == original);
-      expect(controller.camera.position, cameraPosition);
+      expect(controller.camera.position, editingCameraPosition);
       // A rotated part distinguishes world coordinates from its local frame.
       final tilted = Quat.axisAngle(const Vec3(1, 0, 0), .35);
       housing.quaternion = tilted;
@@ -115,9 +127,10 @@ void main() {
       await tester.pump(const Duration(milliseconds: 250));
       await tester.tap(find.text('World').last);
       await tester.pump(const Duration(milliseconds: 250));
-      final worldAxis = await tester.startGesture(project(const Vec3(0, 2, 0)));
+      r = radius();
+      final worldAxis = await tester.startGesture(project(Vec3(0, r, 0)));
       await tester.pump(const Duration(milliseconds: 100));
-      await worldAxis.moveTo(project(const Vec3(0, 2.5, 0)));
+      await worldAxis.moveTo(project(Vec3(0, r + .5, 0)));
       await until(() => housing.position.y > .4);
       await worldAxis.up();
       await tester.pump(const Duration(milliseconds: 100));
@@ -126,11 +139,14 @@ void main() {
       await until(() => housing.position == original);
       await tester.tap(find.byTooltip('Snap: 0.25 units / 15° / 10%'));
       await tester.pump(const Duration(milliseconds: 100));
-      final plane = await tester.startGesture(project(const Vec3(1.3, 1.3, 0)));
+      r = radius();
+      final plane = await tester.startGesture(
+        project(Vec3(r * .65, r * .65, 0)),
+      );
       await until(
         () => find.text('Drag XY · Esc cancels').evaluate().isNotEmpty,
       );
-      await plane.moveTo(project(const Vec3(1.61, 1.86, 0)));
+      await plane.moveTo(project(Vec3(r * .65 + .31, r * .65 + .56, 0)));
       await until(() => housing.position.x > .2);
       await plane.up();
       await tester.pump(const Duration(milliseconds: 100));
@@ -138,11 +154,12 @@ void main() {
         housing.position.distanceTo(const Vec3(.25, .5, 0)),
         lessThan(1e-5),
       );
-      expect(controller.camera.position, cameraPosition);
+      expect(controller.camera.position, editingCameraPosition);
       await tester.tap(find.byTooltip('Undo'));
       await until(() => housing.position == original);
       await tester.tap(find.byTooltip('Snap: 0.25 units / 15° / 10%'));
       await mode('Rotate');
+      r = radius();
       final worldRing = await tester.startGesture(
         project(ringPoint(math.pi / 4)),
       );
@@ -168,6 +185,37 @@ void main() {
       );
       housing.quaternion = Quat.identity;
       await mode('Move');
+      final beforeZoom = radius();
+      // The workbench's orbit behavior uses one zoom step per wheel event.
+      for (var i = 0; i < 3; i++) {
+        await tester.sendEventToBinding(
+          PointerScrollEvent(
+            position: tester.getCenter(find.byType(SceneView)),
+            scrollDelta: const Offset(0, 100),
+          ),
+        );
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      await until(() => radius() > beforeZoom * 1.1);
+      r = radius();
+      expect(
+        r / beforeZoom,
+        closeTo(
+          controller.camera.position.length / editingCameraPosition.length,
+          1e-5,
+        ),
+      );
+      final zoomedCamera = controller.camera.position;
+      final zoomed = await tester.startGesture(project(Vec3(0, r, 0)));
+      await tester.pump(const Duration(milliseconds: 100));
+      await zoomed.moveTo(project(Vec3(0, r + .5, 0)));
+      await until(() => housing.position.y > .4);
+      await zoomed.up();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(housing.position.y, closeTo(.5, 1e-5));
+      expect(controller.camera.position, zoomedCamera);
+      await tester.tap(find.byTooltip('Undo'));
+      await until(() => housing.position == original);
       await tester.tap(find.byTooltip('Move +X'));
       await until(() => housing.position != original);
       expect(housing.position, original + const Vec3(.25, 0, 0));

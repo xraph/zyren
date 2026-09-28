@@ -9,7 +9,7 @@ on Android. It requires native presentation.
 
 | Package | Current behavior |
 | --- | --- |
-| `zyren_tools` | Tap or direct selection, temporary material highlighting, local/world transform gizmos and translation planes, transactional drag history, snapping, bounded undo/redo with conflict detection, fixed world-point measurements |
+| `zyren_tools` | Tap or direct selection, temporary material highlighting, local/world transform gizmos and translation planes, optional screen-size handles, transactional drag history, snapping, bounded undo/redo with conflict detection, fixed world-point measurements |
 | `zyren_devtools` | Immutable hierarchy and transform snapshots, stable inspector IDs, live object resolution, bounded frame history and backend capabilities |
 | `zyren_timeline` | Absolute transform and camera tracks, quaternion interpolation, step visibility, play/pause/seek, looping and scoped frame demand |
 | `zyren_engineering` | Stable host IDs, immutable metadata and object-local annotations, temporary isolation, validated JSON, asynchronous host storage and atomic file replacement |
@@ -25,11 +25,20 @@ The timeline scrubs an exploded assembly. Seeking or starting playback clears ma
 because the timeline becomes the pose writer.
 
 Handles use native unlit meshes and respect scene occlusion. The workbench uses a
-two-unit handle radius in the selected coordinate space; the object's own scale
-does not stretch it. Local axes follow the object's rotation. World axes cancel
+nominal handle radius of 96 logical pixels, capped at a third of the shorter
+viewport edge for small canvases. The radius stays steady as you zoom. Axes still
+foreshorten in depth, and the object's own scale does not
+stretch its handles. Local axes follow the object's rotation. World axes cancel
 parent transforms, including nonuniform scale and reflection, so movement and
 plane snapping follow world coordinates. XY, XZ and YZ pads move two coordinates
 at once. They use the color of the perpendicular axis.
+
+The plugin also supports fixed scene-unit handles when you omit `screenSize`.
+Local screen-size handles preserve the parent's scale and shear proportions,
+normalizing the longest basis vector to the requested radius. Screen sizing
+changes the helper meshes without changing translation or snapping units. Visual
+size freezes during a drag and updates on release. If the model hides a handle,
+zoom out or orbit to reach it. See [screen sizing](design/gizmo-screen-size.md).
 
 Scaling stays local. The workbench retains your chosen space when you return to
 Move or Rotate. World rotation requires an accumulated parent transform with
@@ -71,35 +80,42 @@ planet example's error component is a thin adapter around the same widget.
   retain their exact values when restored, so undo/redo does not report a false
   external edit from normalization rounding.
 - Geospatial Dart suite: 17 tests passed, run from `packages/zyren_geospatial`.
-- Plugin suites: 59 tests passed. They cover selection cleanup, clip-aware picking,
+- Plugin suites: 73 tests passed. They cover selection cleanup, clip-aware picking,
   invalid transforms, undo conflicts, bounded history, immutable diagnostics,
   deterministic seeking, loop overshoot and frame-demand teardown. Gizmo cases
   cover local axes, nonuniform parent scale, orthographic views, snapping, rotation
   across the angle seam, camera exclusion, pointer ownership and cancellation.
   World and plane cases cover nested shear, reflected parents, transformed scene
   roots, two-coordinate snapping, edge-on planes and safe space changes.
+  Screen-size cases cover perspective and orthographic zoom, field of view,
+  viewport resizing, small-canvas limits, display density, transformed parents,
+  scale sensitivity, frozen drag size, depth clipping, occlusion and an idle
+  scene's revision.
   Engineering cases cover stable ID rebinding, anchor transforms, visibility
   ownership, malformed documents, file round trips, stale reads and failed writes.
-- Flutter facade and example suites: 76 tests passed. The workbench checks edits,
+- Flutter facade and example suites: 77 tests passed. The workbench checks edits,
   touch dragging, undo/redo, scaling, part selection and playback at 1100, 390 and
   320 logical pixels wide. Review checks include save failure, cancelled and
   malformed reloads, fresh-scene persistence and unsaved notes surviving renderer
   retry. Touch and mouse taps also work with the viewport's eager drag recognizer;
   drags, cancelled pointers, secondary clicks and multi-touch do not emit taps.
+  A startup regression checks that plugins receive logical viewport dimensions
+  during attachment and the first render, before any pointer input.
 - Workspace analysis and package-boundary checks passed. CI includes the plugin
   tests and checks that the packages depend only on the Dart core.
 - macOS Metal integration passed with local move, rotate and scale drags, world
   movement and rotation on a tilted part, snapped XY plane movement, single-step
   undo, pointer cancellation, camera isolation, assembly playback and disposal.
-  Reported frames contained twelve draws with move handles and planes visible,
-  and zero readback bytes.
+  The screen-size revision also checks wheel zoom followed by picking, dragging
+  and undo. Its 24 reported samples contained twelve draws with move handles and
+  planes visible, and zero readback bytes.
 - The earlier local-axis gizmo workbench passed on a physical Pixel 9 Pro, Android 17 / Vulkan,
   using shared-texture presentation. The run covered move, rotate and scale drags,
   undo, pointer cancellation, camera isolation, part selection, assembly playback
   and disposal, with nine draws and zero readback bytes. Its assembly selection
   scrolls the list before tapping a row outside the narrow panel's visible area.
-  The world/plane revision has not been rerun there because another checkout is
-  using the device for its native material demo.
+  The world/plane and screen-size revisions have not been rerun there because
+  another checkout is using the device for its native material demo.
 - Engineering integration passed again on macOS Metal with thirteen draws for
   the parts, move handles, planes and review pin, and zero readback bytes. It
   edited metadata, isolated and restored a part, created a surface note, saved to
@@ -111,7 +127,9 @@ planet example's error component is a thin adapter around the same widget.
   saved status. The world/plane revision was also checked at both window sizes:
   the space selector works, plane handles render and the inspector moves beneath
   the canvas in the narrow layout. Automated layout checks cover 1100, 390 and
-  320 logical pixels.
+  320 logical pixels. The screen-size revision was visually checked during zoom
+  and at a short, roughly 398-pixel-wide native window. Its handles shrink to fit
+  the shallow canvas while the toolbar and inspector retain their narrow layout.
 
 The core reference tests load fixtures relative to their package directories.
 Running those suites from the workspace root produces missing-fixture errors;
@@ -123,9 +141,9 @@ one frame after that interval to verify the paused scene's final draw count.
 
 ## Remaining scope
 
-Screen-size handles, section clipping, postprocessing outlines, skeletal
+Section clipping, postprocessing outlines, skeletal
 animation, morph targets, event tracks, CAD import and collaborative review are
-not included. Handles have a fixed size in scene units and remain depth-tested.
+not included. Handles remain depth-tested, including with screen sizing enabled.
 The plugins do not replace the renderer or implement a second material system.
 
 The inspector reports unavailable GPU timings and residency as unavailable. It

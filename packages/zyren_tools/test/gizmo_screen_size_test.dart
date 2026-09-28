@@ -133,12 +133,26 @@ void main() {
       await render(pixels: 64);
       expect(radius(), closeTo(before, 1e-10));
       for (final viewport in [
-        const ViewportMetrics(320, 240),
+        const ViewportMetrics(600, 400),
         const ViewportMetrics(1200, 900),
       ]) {
         input.viewport = viewport;
         await render();
         expect(projectedXTip(), closeTo(96 * 1.12, 1e-8));
+      }
+    },
+  );
+
+  test(
+    'small viewports cap the radius at a third of the shorter edge',
+    () async {
+      for (final viewport in [
+        const ViewportMetrics(240, 180),
+        const ViewportMetrics(180, 240),
+      ]) {
+        input.viewport = viewport;
+        await render();
+        expect(projectedXTip(), closeTo(60 * 1.12, 1e-8));
       }
     },
   );

@@ -46,8 +46,8 @@ class TransformGizmoPlugin extends ScenePlugin {
   /// Radius in parent units for local axes, or world units for world axes.
   final double size;
 
-  /// Optional nominal radius in logical pixels. Axes still foreshorten in depth.
-  /// Omit to keep [size] in scene units.
+  /// Optional nominal radius in logical pixels, capped at a third of the shorter
+  /// viewport edge. Axes still foreshorten in depth. Omit for scene-unit [size].
   final double? screenSize;
   final double translationSnap, rotationSnap, scaleSnap;
   final void Function(bool dragging)? onDragChanged;
@@ -252,10 +252,14 @@ class TransformGizmoPlugin extends ScenePlugin {
     try {
       final projected = camera.projectPoint(pivot, viewport.aspect);
       if (projected.z < 0 || projected.z > 1) return null;
+      final pixels = math.min(
+        screenSize!,
+        math.min(viewport.width, viewport.height) / 3,
+      );
       final offset = camera.unprojectPoint(
         Vec3(
           projected.x,
-          projected.y + 2 * screenSize! / viewport.height,
+          projected.y + 2 * pixels / viewport.height,
           projected.z,
         ),
         viewport.aspect,

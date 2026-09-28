@@ -1,7 +1,9 @@
 # Screen-size transform handles
 
 Set `screenSize` on `TransformGizmoPlugin` to keep a nominal handle radius in
-logical pixels as you zoom or resize the view. The workbench uses 96 pixels.
+logical pixels as you zoom or resize the view. The workbench requests 96 pixels.
+The radius is capped at a third of the viewport's shorter edge to leave room for
+arrow tips and canvas controls in small views.
 Omit it to keep the existing `size` in scene units.
 
 The plugin measures a camera-facing span at the selected object's depth through

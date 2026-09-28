@@ -50,9 +50,9 @@ transformed-parent behavior and the world-rotation restriction.
 The host pauses camera input through the gizmo's drag callback and disables
 handles during playback and measurement. Register the gizmo before orbit controls
 so it receives the pointer first. The workbench keeps toolbar edits as an
-alternative to dragging. Handles have a fixed radius in parent units for local
-axes and world units for world axes. Screen-size scaling and always-visible
-rendering remain outside this milestone.
+alternative to dragging. You can keep a fixed radius in scene units or opt into
+[screen-size handles](gizmo-screen-size.md), as the workbench does. Always-visible
+rendering remains outside this milestone.
 
 ## Scope and verification
 

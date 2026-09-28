@@ -145,6 +145,7 @@ class _WorkbenchState extends State<_Workbench> {
     );
     _gizmo = TransformGizmoPlugin(
       size: 2,
+      screenSize: 96,
       onDragChanged: (dragging) {
         _orbit.controls?.enabled = !dragging;
         if (dragging) _timeline.pause();

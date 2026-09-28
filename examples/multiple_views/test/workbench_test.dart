@@ -1,8 +1,10 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_zyren/flutter_zyren.dart';
 import 'package:zyren_tools/zyren_tools.dart';
 import 'package:multiple_views/scene_workbench.dart';
+import 'support/workbench_gizmo.dart';
 import '../../../packages/flutter_zyren/test/support/backend_fake.dart';
 import '../../../packages/flutter_zyren/test/support/fakes.dart';
 
@@ -42,9 +44,11 @@ void main() {
       }
 
       final cameraPosition = controller.camera.position;
-      final gesture = await tester.startGesture(project(const Vec3(0, 2, 0)));
+      double radius() => workbenchGizmoRadius(controller);
+      double r = radius();
+      final gesture = await tester.startGesture(project(Vec3(0, r, 0)));
       await frames(tester);
-      await gesture.moveTo(project(const Vec3(0, 2.5, 0)));
+      await gesture.moveTo(project(Vec3(0, r + .5, 0)));
       await frames(tester);
       await gesture.up();
       await frames(tester);
@@ -59,10 +63,13 @@ void main() {
       await frames(tester);
       await tester.tap(find.text('World').last);
       await frames(tester);
-      final plane = await tester.startGesture(project(const Vec3(1.3, 1.3, 0)));
+      r = radius();
+      final plane = await tester.startGesture(
+        project(Vec3(r * .65, r * .65, 0)),
+      );
       await frames(tester);
       expect(find.text('Drag XY · Esc cancels'), findsOneWidget);
-      await plane.moveTo(project(const Vec3(1.8, 1.55, 0)));
+      await plane.moveTo(project(Vec3(r * .65 + .5, r * .65 + .25, 0)));
       await frames(tester);
       await plane.up();
       await frames(tester);
@@ -95,11 +102,10 @@ void main() {
       );
       expect(scaleSpace.value, GizmoSpace.local);
       expect(scaleSpace.onChanged, isNull);
-      final scaleGesture = await tester.startGesture(
-        project(const Vec3(0, 2, 0)),
-      );
+      r = radius();
+      final scaleGesture = await tester.startGesture(project(Vec3(0, r, 0)));
       await frames(tester);
-      await scaleGesture.moveTo(project(const Vec3(0, 3, 0)));
+      await scaleGesture.moveTo(project(Vec3(0, r * 1.5, 0)));
       await frames(tester);
       await scaleGesture.up();
       await frames(tester);
@@ -152,10 +158,17 @@ void main() {
         (object) => object.name == 'Transform gizmo',
       );
       expect(helper.visible, isTrue);
+      double projectedSizeRatio() {
+        final size = tester.getSize(find.byType(SceneView));
+        return radius() * size.height / math.min(96, size.shortestSide / 3);
+      }
+
+      final beforeResize = projectedSizeRatio();
       await tester.binding.setSurfaceSize(const Size(320, 640));
       await frames(tester);
       expect(tester.takeException(), isNull);
       expect(tester.getSize(find.byType(SceneView)).height, greaterThan(200));
+      expect(projectedSizeRatio(), closeTo(beforeResize, 1e-6));
       await tester.pumpWidget(const SizedBox());
       await frames(tester);
       expect(controller.isDisposed, isTrue);

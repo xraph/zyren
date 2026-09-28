@@ -71,6 +71,7 @@ chosen space, leaving the perpendicular coordinate unchanged.
 Set `screenSize` to keep the nominal radius steady as you zoom or resize. It uses
 logical pixels and supports perspective and orthographic cameras. Axis tips
 extend beyond that radius, and axes pointing into the view still foreshorten.
+The radius is capped at a third of the shorter viewport edge for small views.
 Local handles retain parent scale and shear proportions, with the longest basis
 vector normalized to the requested radius. The handle meshes resize without
 changing translation or snapping units. Their size freezes during a drag and
