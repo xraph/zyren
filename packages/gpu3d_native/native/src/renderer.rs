@@ -405,6 +405,9 @@ impl Renderer {
     }
 
     pub fn decode_scene(&self, bytes: &[u8]) -> Result<Frame, String> {
+        if let Some(failure) = &self.failure {
+            return Err(failure.clone());
+        }
         let (bytes, graph, materials, environment) =
             crate::render_graph::decode_frame_packet(bytes)?;
         let mut frame = self.decode_plain_scene(bytes)?;
@@ -1064,7 +1067,17 @@ impl Renderer {
         let graph = self.resolve_frame_graph(frame, width, height)?;
         let environment = self.prepare_environment(frame, graph.as_ref())?;
         let materials = self.prepare_materials(frame, texture.format(), graph.as_ref())?;
+        let scene_format = composition::scene_format(frame, texture.format(), graph.as_ref())?;
+        // Attachment rejection must precede scene revisions and reusable-buffer edits.
+        self.prepare_frame_targets(
+            frame,
+            texture.format(),
+            [width, height],
+            graph.as_ref(),
+            true,
+        )?;
         self.prepare_scene(frame)?;
+        self.prepare_pipelines(frame, scene_format)?;
         let shadows = self.prepare_shadows(frame)?;
         if self
             .surface_depth
@@ -1092,13 +1105,6 @@ impl Renderer {
                 _texture: depth,
             });
         }
-        self.prepare_frame_pipelines(
-            frame,
-            texture.format(),
-            [width, height],
-            graph.as_ref(),
-            true,
-        )?;
         let encoder = self.encode_frame(
             frame,
             &texture.create_view(&Default::default()),
@@ -1126,16 +1132,19 @@ impl Renderer {
         let environment = self.prepare_environment(frame, graph.as_ref())?;
         let materials =
             self.prepare_materials(frame, wgpu::TextureFormat::Rgba8UnormSrgb, graph.as_ref())?;
-        self.prepare_scene(frame)?;
-        let shadows = self.prepare_shadows(frame)?;
-        self.resize(width, height);
-        self.prepare_frame_pipelines(
+        let scene_format =
+            composition::scene_format(frame, wgpu::TextureFormat::Rgba8UnormSrgb, graph.as_ref())?;
+        self.prepare_frame_targets(
             frame,
             wgpu::TextureFormat::Rgba8UnormSrgb,
             [width, height],
             graph.as_ref(),
             false,
         )?;
+        self.prepare_scene(frame)?;
+        self.prepare_pipelines(frame, scene_format)?;
+        let shadows = self.prepare_shadows(frame)?;
+        self.resize(width, height);
         let target = self.targets.as_ref().unwrap();
         let mut encoder = self.encode_frame(
             frame,

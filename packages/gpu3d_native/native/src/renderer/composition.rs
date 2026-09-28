@@ -317,7 +317,7 @@ impl Renderer {
             .map(|key| self.graphs.frame(key, width, height))
             .transpose()
     }
-    pub(super) fn prepare_frame_pipelines(
+    pub(super) fn prepare_frame_targets(
         &mut self,
         frame: &Frame,
         format: wgpu::TextureFormat,
@@ -331,7 +331,6 @@ impl Renderer {
         {
             return Err("HDR scene color exceeds 64 MiB per attachment".into());
         }
-        self.prepare_pipelines(frame, scene_format)?;
         let state = self.state.as_mut().unwrap();
         MultisampleTargets::prepare(
             &state.device,

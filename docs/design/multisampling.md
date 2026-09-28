@@ -16,7 +16,15 @@ viewport exceeds that limit. This is an attachment limit, not a process memory
 cap. Single-sample resolves, depth, plugin resources and retained scene data
 also consume memory.
 
+Attachment admission and target creation run before scene revision changes or
+geometry uploads. If a frame exceeds the limit, you can retry the last capture
+or submit its geometry edits at a smaller size. Shared views retain their own
+accepted versions. A GPU failure that marks the device unusable still requires
+recreating the renderer.
+
 Native tests cover transparent white edges, resize, sample-count changes,
 invalid packets and recovery after a rejected allocation. The Dart native
 fixture covers custom mesh shaders and HDR graph composition. These checks ran
-on macOS Metal; the other backends still need device qualification.
+on macOS Metal; the other backends still need device qualification. Binary Dart
+regressions also cover rejected HDR/MSAA edits, retries and shared geometry
+ownership. A direct native frame test alone cannot verify revision agreement.
