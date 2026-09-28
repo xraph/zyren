@@ -1,0 +1,27 @@
+name: model_viewer
+description: Native glTF model loading through the public Dart API.
+publish_to: none
+version: 0.1.0+1
+resolution: workspace
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+dependencies:
+  zyren:
+    path: ../../packages/zyren
+  zyren_native:
+    path: ../../packages/zyren_native
+  flutter:
+    sdk: flutter
+  flutter_zyren:
+    path: ../../packages/flutter_zyren
+  zyren_gltf:
+    path: ../../packages/zyren_gltf
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/models/

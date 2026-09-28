@@ -156,6 +156,8 @@ class SceneToolsPlugin extends ScenePlugin {
       _highlight = switch (object.material) {
         DiffuseMaterial material => material.copyWith(color: highlightColor),
         UnlitMaterial material => material.copyWith(color: highlightColor),
+        LineMaterial material => material.copyWith(color: highlightColor),
+        PointsMaterial material => material.copyWith(color: highlightColor),
       };
       object.material = _highlight!;
     }

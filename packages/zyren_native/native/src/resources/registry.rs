@@ -1,6 +1,17 @@
 use super::ResourceError;
+use std::sync::atomic::{AtomicU64, Ordering};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+static NEXT_REGISTRY: AtomicU64 = AtomicU64::new(1);
+
+pub(crate) fn next_registry_id() -> u64 {
+    NEXT_REGISTRY
+        .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |id| {
+            id.checked_add(1).filter(|next| *next <= i64::MAX as u64)
+        })
+        .expect("resource registry IDs exhausted")
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct ResourceKey {
     pub renderer: u64,
     pub device_generation: u64,

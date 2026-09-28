@@ -10,7 +10,7 @@ class ScopeCleanupException implements Exception {
 }
 
 /// Stops registrations synchronously in reverse order. Await [whenClosed] for
-/// asynchronous stream cancellation and all collected cleanup failures.
+/// asynchronous cleanup and all collected cleanup failures.
 class AttachmentScope {
   final _registrations = <Registration>[];
   final _errors = <Object>[];
@@ -32,18 +32,17 @@ class AttachmentScope {
     return registration;
   }
 
-  Registration listen<T>(
-    Stream<T> events,
-    void Function(T) onData, {
-    void Function(Object, StackTrace)? onError,
-  }) {
+  /// Starts cleanup synchronously on close and tracks its asynchronous result.
+  /// Cleanup runs once, including when you dispose the registration yourself.
+  Registration onClose(FutureOr<void> Function() cleanup) {
     if (_closed) throw StateError('Attachment scope has been closed.');
-    final subscription = events.listen(onData, onError: onError);
-    return keep(
+    return keep(_cleanupRegistration(cleanup));
+  }
+
+  Registration _cleanupRegistration(FutureOr<void> Function() cleanup) =>
       Registration(() {
         _pending++;
-        // Future.sync invokes cancel now, so no later stream event is delivered.
-        Future<void>.sync(subscription.cancel).then<void>(
+        Future<void>.sync(cleanup).then<void>(
           (_) {
             _pending--;
             _finish();
@@ -54,8 +53,18 @@ class AttachmentScope {
             _finish();
           },
         );
-      }),
-    );
+      });
+
+  Registration listen<T>(
+    Stream<T> events,
+    void Function(T) onData, {
+    void Function(Object, StackTrace)? onError,
+  }) {
+    if (_closed) throw StateError('Attachment scope has been closed.');
+    final subscription = events.listen(onData, onError: onError);
+    // listen may synchronously close the scope. keep still cancels this rejected
+    // subscription before reporting that attachment has ended.
+    return keep(_cleanupRegistration(subscription.cancel));
   }
 
   void _finish() {

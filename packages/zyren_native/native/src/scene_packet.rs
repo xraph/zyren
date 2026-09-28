@@ -1,5 +1,6 @@
 use crate::scene::{
-    ColorMap, Frame, Geometry, MAX_INDICES, MAX_MESHES, MAX_VERTICES, Mesh, SceneTexture,
+    AttributeRange, ColorMap, Frame, Geometry, GeometryPatch, IndexFormat, MAX_INDICES, MAX_MESHES,
+    MAX_VERTICES, Mesh, SceneTexture,
 };
 use std::collections::HashSet;
 
@@ -25,6 +26,7 @@ pub struct ScenePacket {
     ambient: f32,
     retained_textures: HashSet<u32>,
     textures: Vec<SceneTexture>,
+    geometry_patches: Vec<GeometryPatch>,
 }
 struct Reader<'a> {
     data: &'a [u8],
@@ -68,10 +70,10 @@ impl ScenePacket {
             return Err("unsupported scene packet".into());
         }
         let opcode = r.u32()?;
-        if opcode != 10 && opcode != 11 {
+        if !(10..=17).contains(&opcode) {
             return Err("unsupported scene packet".into());
         }
-        let textured = opcode == 11;
+        let textured = opcode >= 11;
         let revision = r.u64()?;
         if r.u64()? != (data.len() - r.offset) as u64 {
             return Err("scene body length mismatch".into());
@@ -102,6 +104,10 @@ impl ScenePacket {
         if owned_texture_count > MAX_MESHES || texture_count > MAX_MESHES {
             return Err("texture table count exceeds limit".into());
         }
+        let patch_count = if opcode >= 12 { r.u32()? as usize } else { 0 };
+        if patch_count > MAX_MESHES {
+            return Err("geometry patch count exceeds limit".into());
+        }
         let mut retained = HashSet::new();
         for _ in 0..retained_count {
             if !retained.insert(r.u32()?) {
@@ -122,15 +128,29 @@ impl ScenePacket {
             let height = r.u32()?;
             let format = r.u32()?;
             let mips = r.u32()?;
+            let mip_generation = if opcode >= 14 { r.u32()? } else { 0 };
             if width == 0
                 || height == 0
                 || width > 4096
                 || height > 4096
                 || format > 1
+                || mip_generation > 2
+                || (mip_generation != 0 && mips != 1)
                 || mips == 0
                 || mips > 32 - width.max(height).leading_zeros()
             {
                 return Err("invalid texture descriptor".into());
+            }
+            let target_mips = if mip_generation == 0 {
+                mips
+            } else {
+                32 - width.max(height).leading_zeros()
+            };
+            texture_bytes += (0..target_mips)
+                .map(|m| (width >> m).max(1) as usize * (height >> m).max(1) as usize * 4)
+                .sum::<usize>();
+            if texture_bytes > 64 * 1024 * 1024 {
+                return Err("texture residency budget exceeded".into());
             }
             let mut levels = Vec::new();
             for mip in 0..mips {
@@ -138,10 +158,6 @@ impl ScenePacket {
                 let expected = (width >> mip).max(1) as usize * (height >> mip).max(1) as usize * 4;
                 if length != expected {
                     return Err("texture mip length mismatch".into());
-                }
-                texture_bytes += length;
-                if texture_bytes > 64 * 1024 * 1024 {
-                    return Err("texture upload budget exceeded".into());
                 }
                 levels.push(r.bytes(length)?.to_vec());
             }
@@ -151,6 +167,7 @@ impl ScenePacket {
                 height,
                 format,
                 levels,
+                mip_generation,
             });
         }
         let mut geometries = Vec::new();
@@ -161,7 +178,16 @@ impl ScenePacket {
             let vertex_count = r.u32()? as usize;
             let index_count = r.u32()? as usize;
             let uv_flags = if textured { r.u32()? } else { 0 };
-            if uv_flags > 3 {
+            let topology = if opcode >= 16 { r.u32()? } else { 0 };
+            if topology > 3 {
+                return Err("unsupported geometry topology".into());
+            }
+            let index_format = if opcode >= 13 && uv_flags & 4 != 0 {
+                IndexFormat::Uint16
+            } else {
+                IndexFormat::Uint32
+            };
+            if uv_flags > if opcode >= 13 { 7 } else { 3 } {
                 return Err("unknown UV attributes".into());
             }
             if vertex_count > MAX_VERTICES || index_count > MAX_INDICES {
@@ -172,15 +198,18 @@ impl ScenePacket {
             if vertices > MAX_VERTICES || indices > MAX_INDICES {
                 return Err("geometry upload exceeds budget".into());
             }
-            let needed = vertex_count * (24 + uv_flags.count_ones() as usize * 8) + index_count * 4;
+            let needed = vertex_count * (24 + (uv_flags & 3).count_ones() as usize * 8)
+                + index_count * index_format.bytes();
             if needed > data.len() - r.offset {
                 return Err("truncated geometry payload".into());
             }
             let mut geometry = Geometry {
                 id,
+                topology,
                 positions: Vec::with_capacity(vertex_count),
                 normals: Vec::with_capacity(vertex_count),
                 indices: Vec::with_capacity(index_count),
+                index_format,
                 uv0: Vec::new(),
                 uv1: Vec::new(),
             };
@@ -191,7 +220,12 @@ impl ScenePacket {
                 geometry.normals.push(r.floats()?);
             }
             for _ in 0..index_count {
-                geometry.indices.push(r.u32()?);
+                geometry.indices.push(match index_format {
+                    IndexFormat::Uint16 => {
+                        u16::from_le_bytes(r.bytes(2)?.try_into().unwrap()) as u32
+                    }
+                    IndexFormat::Uint32 => r.u32()?,
+                });
             }
             if uv_flags & 1 != 0 {
                 for _ in 0..vertex_count {
@@ -205,6 +239,49 @@ impl ScenePacket {
             }
             geometry.validate()?;
             geometries.push(geometry);
+        }
+        let mut geometry_patches = Vec::new();
+        let mut patch_ids = HashSet::new();
+        for _ in 0..patch_count {
+            let id = r.u32()?;
+            let base = r.u32()?;
+            let count = r.u32()? as usize;
+            if id == base || count == 0 || count > 64 || !patch_ids.insert(id) {
+                return Err("invalid geometry patch descriptor".into());
+            }
+            let mut ranges = Vec::new();
+            for _ in 0..count {
+                let semantic = r.u32()?;
+                let first = r.u32()?;
+                let count = r.u32()?;
+                if semantic > 3
+                    || count == 0
+                    || first
+                        .checked_add(count)
+                        .is_none_or(|end| end as usize > MAX_VERTICES)
+                {
+                    return Err("invalid geometry patch range".into());
+                }
+                let values_count = count as usize * if semantic < 2 { 3 } else { 2 };
+                if values_count * 4 > data.len() - r.offset {
+                    return Err("truncated geometry patch".into());
+                }
+                let mut values = Vec::with_capacity(values_count);
+                for _ in 0..values_count {
+                    values.push(r.floats::<1>()?[0]);
+                }
+                ranges.push(AttributeRange {
+                    semantic,
+                    first,
+                    values,
+                });
+            }
+            geometry_patches.push(GeometryPatch { id, base, ranges });
+        }
+        if geometry_patches.iter().any(|p| patch_ids.contains(&p.base))
+            || geometries.iter().any(|g| patch_ids.contains(&g.id))
+        {
+            return Err("geometry patch chains or repeated targets are unsupported".into());
         }
         let mut updates = Vec::new();
         let mut changed = HashSet::new();
@@ -241,16 +318,38 @@ impl ScenePacket {
             } else {
                 None
             };
-            updates.push((
-                index,
-                Mesh {
-                    geometry,
-                    model,
-                    color,
-                    unlit: unlit == 1,
-                    color_map,
-                },
-            ));
+            let mut mesh = Mesh {
+                geometry,
+                model,
+                color,
+                unlit: unlit == 1,
+                color_map,
+                ..Default::default()
+            };
+            if opcode >= 15 {
+                mesh.alpha_mode = r.u32()?;
+                mesh.opacity = r.floats::<1>()?[0];
+                mesh.alpha_cutoff = r.floats::<1>()?[0];
+                let depth_test = r.u32()?;
+                let depth_write = r.u32()?;
+                if depth_test > 1 || depth_write > 1 {
+                    return Err("invalid depth flags".into());
+                }
+                mesh.depth_test = depth_test == 1;
+                mesh.depth_write = Some(depth_write == 1);
+                mesh.render_order = r.u32()? as i32;
+                if opcode >= 16 {
+                    mesh.primitive_kind = r.u32()?;
+                    mesh.primitive_size = r.floats::<1>()?[0];
+                    mesh.size_units = r.u32()?;
+                    mesh.point_shape = r.u32()?;
+                    if opcode >= 17 {
+                        mesh.side = r.u32()?;
+                    }
+                }
+                mesh.validate_material()?;
+            }
+            updates.push((index, mesh));
         }
         if r.offset != data.len() {
             return Err("trailing scene bytes".into());
@@ -269,6 +368,7 @@ impl ScenePacket {
             ambient,
             retained_textures,
             textures,
+            geometry_patches,
         })
     }
     pub fn view(&self) -> u64 {
@@ -279,16 +379,7 @@ impl ScenePacket {
             return Err("stale scene revision".into());
         }
         let mut meshes = if self.base == 0 {
-            vec![
-                Mesh {
-                    geometry: 0,
-                    model: [0.; 16],
-                    color: [0.; 3],
-                    unlit: false,
-                    color_map: None
-                };
-                self.mesh_count
-            ]
+            vec![Mesh::default(); self.mesh_count]
         } else {
             let old = previous
                 .filter(|p| p.revision == self.base && p.meshes.len() == self.mesh_count)
@@ -328,6 +419,7 @@ impl ScenePacket {
             meshes,
             binary,
             textures: self.textures,
+            geometry_patches: self.geometry_patches,
         })
     }
 }

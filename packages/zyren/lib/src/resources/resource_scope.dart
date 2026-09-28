@@ -1,8 +1,19 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 import '../plugins/attachment_scope.dart';
+import '../rendering/scene_issue.dart';
 import 'buffer.dart';
 import 'texture.dart';
+import 'texture_image.dart';
+import '../plugins/registration.dart';
+part '../rendering/shader.dart';
+part '../rendering/shader_compiler.dart';
+part '../rendering/shader_bindings.dart';
+part '../rendering/pass_descriptor.dart';
+part '../rendering/render_graph.dart';
+part '../rendering/graph_compiler.dart';
+part '../rendering/graph_validation.dart';
 
 /// Adapter contract for a single device generation. Keys remain backend-private.
 /// A successful allocation owns one reference. Release waits for GPU retirement.
@@ -13,6 +24,7 @@ abstract interface class ResourceDevice {
   Future<void> release(Object key);
   Future<void> writeBuffer(Object key, int offset, Uint8List bytes);
   Future<void> writeTexture(Object key, int mipLevel, Uint8List bytes);
+  Future<void> generateMipmaps(Object key, MipmapAlphaFilter alphaFilter);
   Future<Uint8List> readBuffer(Object key, int offset, int length);
   Future<Uint8List> readTexture(Object key, int mipLevel);
 }
@@ -203,6 +215,19 @@ final class ResourceScope {
     _texture(resource, mipLevel, TextureUsage.copySource);
     return _device.readTexture(resource._key, mipLevel);
   });
+
+  /// Regenerates allocated levels from level zero on the native GPU.
+  /// The texture needs sampled and renderAttachment usage. sRGB formats filter
+  /// in linear light; the output keeps straight alpha.
+  Future<void> generateMipmaps(
+    GpuResource<Texture> resource, {
+    MipmapAlphaFilter alphaFilter = MipmapAlphaFilter.independent,
+  }) => _run(() {
+    _texture(resource, 0, TextureUsage.sampled);
+    _texture(resource, 0, TextureUsage.renderAttachment);
+    return _device.generateMipmaps(resource._key, alphaFilter);
+  });
+
   Future<void> close() {
     _closed = true;
     return _closing ??= _close();

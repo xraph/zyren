@@ -21,7 +21,7 @@ Future<void> main() async {
       0,
       (sum, frame) => sum + frame.stats.uploadedBytes,
     );
-    if (uploaded != 720) {
+    if (uploaded != 1104) {
       throw StateError('Shared geometry was uploaded twice.');
     }
     print('Two views, one native device, $uploaded geometry bytes uploaded.');
@@ -29,7 +29,7 @@ Future<void> main() async {
     await second.render(capture());
     await first.close();
     final retained = await second.resourceStats();
-    if (retained.residentBytes != 720) {
+    if (retained.residentBytes != 1104) {
       throw StateError('Hidden geometry was lost.');
     }
     mesh.visible = true;

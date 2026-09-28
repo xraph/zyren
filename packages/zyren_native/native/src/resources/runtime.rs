@@ -1,19 +1,17 @@
 use super::{
     ResourceError,
-    registry::{ResourceKey, ResourceRegistry},
+    registry::{ResourceKey, ResourceRegistry, next_registry_id},
     upload::{Command, MAX_BYTES, Operation, checked_upload_range},
 };
-use std::{
-    sync::atomic::{AtomicU64, Ordering},
-    time::Duration,
-};
-static NEXT_DEVICE: AtomicU64 = AtomicU64::new(1);
+use std::time::Duration;
+mod scene_updates;
 
 enum Resource {
     Geometry {
         vertices: wgpu::Buffer,
         indices: wgpu::Buffer,
         count: u32,
+        index_format: wgpu::IndexFormat,
         uv: Option<wgpu::Buffer>,
     },
     Buffer {
@@ -34,17 +32,17 @@ pub struct ResourceStore {
     serial: u64,
     uploaded: u64,
     pending: Option<wgpu::SubmissionIndex>,
+    mipmaps: super::mipmap::MipmapGenerator,
 }
 impl Default for ResourceStore {
     fn default() -> Self {
-        let renderer = NEXT_DEVICE
-            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |id| id.checked_add(1))
-            .expect("resource device IDs exhausted");
+        let renderer = next_registry_id();
         Self {
             registry: ResourceRegistry::new(renderer, 1, MAX_BYTES),
             serial: 0,
             uploaded: 0,
             pending: None,
+            mipmaps: Default::default(),
         }
     }
 }
@@ -82,6 +80,54 @@ fn mip_extent(
     })
 }
 impl ResourceStore {
+    pub(crate) fn graph_buffer(&self, key: ResourceKey) -> Result<wgpu::Buffer, ResourceError> {
+        match self.registry.resolve(key)? {
+            Resource::Buffer { buffer, .. } => Ok(buffer.clone()),
+            _ => Err(ResourceError::InvalidUsage),
+        }
+    }
+    pub(crate) fn graph_texture(&self, key: ResourceKey) -> Result<wgpu::Texture, ResourceError> {
+        match self.registry.resolve(key)? {
+            Resource::Texture { texture, .. } => Ok(texture.clone()),
+            _ => Err(ResourceError::InvalidUsage),
+        }
+    }
+    pub(crate) fn retain_graph(&mut self, keys: &[ResourceKey]) -> Result<(), ResourceError> {
+        for (index, key) in keys.iter().enumerate() {
+            if let Err(error) = self.registry.retain(*key) {
+                for previous in &keys[..index] {
+                    let _ = self.registry.release(*previous);
+                }
+                return Err(error);
+            }
+        }
+        Ok(())
+    }
+    pub(crate) fn release_graph(
+        &mut self,
+        device: &wgpu::Device,
+        keys: &[ResourceKey],
+    ) -> Result<(), ResourceError> {
+        self.wait(device)?;
+        for key in keys {
+            self.registry.release(*key)?;
+        }
+        self.registry.retire_completed(self.serial);
+        Ok(())
+    }
+    pub(crate) fn execute_graph(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        keys: &[ResourceKey],
+        commands: wgpu::CommandBuffer,
+    ) -> Result<(), ResourceError> {
+        self.submit(device, queue, [commands])?;
+        for key in keys {
+            self.registry.mark_used(*key, self.serial)?;
+        }
+        self.wait(device)
+    }
     pub(crate) fn check_scene_capacity(
         &self,
         bytes: u64,
@@ -97,24 +143,77 @@ impl ResourceStore {
         use wgpu::util::DeviceExt;
         let bytes = geometry.byte_length() as u64;
         self.registry.check_capacity(bytes)?;
-        let vertices: Vec<[f32; 6]> = geometry
+        let mut vertices: Vec<[f32; 6]> = geometry
             .positions
             .iter()
             .zip(&geometry.normals)
             .map(|(p, n)| [p[0], p[1], p[2], n[0], n[1], n[2]])
             .collect();
+        let mut expanded_indices = Vec::new();
+        if geometry.topology != 0 {
+            vertices.clear();
+            for primitive in 0..geometry.primitive_count() {
+                let (start, end) = match geometry.topology {
+                    1 => (primitive * 2, primitive * 2 + 1),
+                    2 => (primitive, primitive + 1),
+                    _ => (primitive, primitive),
+                };
+                let a = geometry.positions[geometry.indices[start] as usize];
+                let b = geometry.positions[geometry.indices[end] as usize];
+                let offset = vertices.len() as u32;
+                vertices.extend_from_slice(&[[a[0], a[1], a[2], b[0], b[1], b[2]]; 4]);
+                expanded_indices.extend_from_slice(&[
+                    offset,
+                    offset + 1,
+                    offset + 2,
+                    offset,
+                    offset + 2,
+                    offset + 3,
+                ]);
+            }
+        }
+        let draw_indices = if geometry.topology == 0 {
+            &geometry.indices
+        } else {
+            &expanded_indices
+        };
+        let index_format = if geometry.topology == 0 {
+            geometry.index_format
+        } else {
+            crate::scene::IndexFormat::Uint32
+        };
+        let compact = if index_format == crate::scene::IndexFormat::Uint16 {
+            Some(
+                geometry
+                    .indices
+                    .iter()
+                    .map(|i| u16::try_from(*i))
+                    .collect::<Result<Vec<_>, _>>()
+                    .map_err(|_| ResourceError::InvalidRange)?,
+            )
+        } else {
+            None
+        };
+        let index_bytes = match &compact {
+            Some(values) => bytemuck::cast_slice(values),
+            None => bytemuck::cast_slice(draw_indices),
+        };
         let validation = device.push_error_scope(wgpu::ErrorFilter::Validation);
         let memory = device.push_error_scope(wgpu::ErrorFilter::OutOfMemory);
         let internal = device.push_error_scope(wgpu::ErrorFilter::Internal);
         let vertices = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("scene vertices"),
             contents: bytemuck::cast_slice(&vertices),
-            usage: wgpu::BufferUsages::VERTEX,
+            usage: wgpu::BufferUsages::VERTEX
+                | wgpu::BufferUsages::COPY_SRC
+                | wgpu::BufferUsages::COPY_DST,
         });
         let indices = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("scene indices"),
-            contents: bytemuck::cast_slice(&geometry.indices),
-            usage: wgpu::BufferUsages::INDEX,
+            contents: index_bytes,
+            usage: wgpu::BufferUsages::INDEX
+                | wgpu::BufferUsages::COPY_SRC
+                | wgpu::BufferUsages::COPY_DST,
         });
         let uv = if geometry.uv0.is_empty() && geometry.uv1.is_empty() {
             None
@@ -130,7 +229,9 @@ impl ResourceStore {
                 device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                     label: Some("scene UVs"),
                     contents: bytemuck::cast_slice(&values),
-                    usage: wgpu::BufferUsages::VERTEX,
+                    usage: wgpu::BufferUsages::VERTEX
+                        | wgpu::BufferUsages::COPY_SRC
+                        | wgpu::BufferUsages::COPY_DST,
                 }),
             )
         };
@@ -138,7 +239,8 @@ impl ResourceStore {
             Resource::Geometry {
                 vertices,
                 indices,
-                count: geometry.indices.len() as u32,
+                count: draw_indices.len() as u32,
+                index_format: index_format.native(),
                 uv,
             },
             bytes,
@@ -156,12 +258,19 @@ impl ResourceStore {
     pub(crate) fn geometry(
         &self,
         key: ResourceKey,
-    ) -> (&wgpu::Buffer, &wgpu::Buffer, u32, Option<&wgpu::Buffer>) {
+    ) -> (
+        &wgpu::Buffer,
+        &wgpu::Buffer,
+        u32,
+        Option<&wgpu::Buffer>,
+        wgpu::IndexFormat,
+    ) {
         let Resource::Geometry {
             vertices,
             indices,
             count,
             uv,
+            index_format,
         } = self
             .registry
             .resolve(key)
@@ -169,7 +278,7 @@ impl ResourceStore {
         else {
             unreachable!()
         };
-        (vertices, indices, *count, uv.as_ref())
+        (vertices, indices, *count, uv.as_ref(), *index_format)
     }
     pub(crate) fn insert_scene_texture(
         &mut self,
@@ -189,7 +298,7 @@ impl ResourceStore {
                 height: image.height,
                 depth_or_array_layers: 1,
             },
-            mip_level_count: image.levels.len() as u32,
+            mip_level_count: image.mip_count(),
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: if image.format == 0 {
@@ -197,7 +306,13 @@ impl ResourceStore {
             } else {
                 wgpu::TextureFormat::Rgba8UnormSrgb
             },
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING
+                | wgpu::TextureUsages::COPY_DST
+                | if image.mip_generation != 0 {
+                    wgpu::TextureUsages::RENDER_ATTACHMENT
+                } else {
+                    wgpu::TextureUsages::empty()
+                },
             view_formats: &[],
         });
         for (mip, pixels) in image.levels.iter().enumerate() {
@@ -223,16 +338,14 @@ impl ResourceStore {
                 },
             );
         }
-        let key = self.registry.insert(
-            Resource::Texture {
-                texture,
-                width: image.width,
-                height: image.height,
-                mips: image.levels.len() as u32,
-                usage: 9,
-            },
-            bytes,
-        )?;
+        let generated = if image.mip_generation != 0 && image.mip_count() > 1 {
+            Some(
+                self.mipmaps
+                    .encode(device, &texture, image.mip_generation == 2),
+            )
+        } else {
+            None
+        };
         let mut failed = false;
         for scope in [internal, memory, validation] {
             failed |= pollster::block_on(scope.pop()).is_some();
@@ -240,7 +353,23 @@ impl ResourceStore {
         if failed {
             return Err(ResourceError::DeviceFailed);
         }
-        self.uploaded = self.uploaded.saturating_add(bytes);
+        if let Some(commands) = generated {
+            self.submit(device, queue, [commands])?;
+        }
+        let key = self.registry.insert(
+            Resource::Texture {
+                texture,
+                width: image.width,
+                height: image.height,
+                mips: image.mip_count(),
+                usage: if image.mip_generation != 0 { 11 } else { 9 },
+            },
+            bytes,
+        )?;
+        self.registry.mark_used(key, self.serial)?;
+        self.uploaded = self
+            .uploaded
+            .saturating_add(image.upload_byte_length() as u64);
         Ok(key)
     }
     pub(crate) fn scene_texture(&self, key: ResourceKey) -> &wgpu::Texture {
@@ -423,6 +552,7 @@ impl ResourceStore {
                     wgpu::TextureUsages::RENDER_ATTACHMENT,
                     wgpu::TextureUsages::COPY_SRC,
                     wgpu::TextureUsages::COPY_DST,
+                    wgpu::TextureUsages::STORAGE_BINDING,
                 ];
                 let usage = flags
                     .into_iter()
@@ -513,6 +643,21 @@ impl ResourceStore {
                 self.submit(device, queue, [])?;
                 self.registry.mark_used(key, self.serial)?;
                 self.uploaded = self.uploaded.saturating_add(data.len() as u64);
+                Vec::new()
+            }
+            Operation::GenerateMipmaps(key, alpha_filter) => {
+                let Resource::Texture { texture, usage, .. } = self.registry.resolve(key)? else {
+                    return Err(ResourceError::InvalidUsage);
+                };
+                if usage & 3 != 3 {
+                    return Err(ResourceError::InvalidUsage);
+                }
+                if texture.mip_level_count() > 1 {
+                    let texture = texture.clone();
+                    let commands = self.mipmaps.encode(device, &texture, alpha_filter == 1);
+                    self.submit(device, queue, [commands])?;
+                    self.registry.mark_used(key, self.serial)?;
+                }
                 Vec::new()
             }
             Operation::Retain(key) => {

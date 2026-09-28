@@ -10,6 +10,8 @@ import 'package:zyren/rendering.dart';
 
 part 'backend.dart';
 part 'resources.dart';
+part 'shaders.dart';
+part 'graphs.dart';
 
 /// One native GPU device, owned by a persistent worker isolate.
 /// Await [dispose] when you no longer need it.
@@ -22,6 +24,9 @@ class NativeRenderer implements SceneRenderer {
       RenderFeatures.unlitMaterials,
       RenderFeatures.rgbaReadback,
       RenderFeatures.colorTextures,
+      RenderFeatures.alphaMaterials,
+      RenderFeatures.portablePrimitives,
+      RenderFeatures.materialSidedness,
     },
     maxDimension: 4096,
   );

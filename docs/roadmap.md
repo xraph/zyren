@@ -20,12 +20,12 @@ defines ownership and application workflows before those changes land.
 | Area | Implemented now | Required for the target |
 | --- | --- | --- |
 | Scene and maths | Object hierarchy, transforms, perspective camera, double precision positions | Orthographic cameras, layers, bounds, raycasting, spatial queries and frustum culling |
-| Geometry | Indexed meshes, normals, immutable shared buffers, box and sphere | Dynamic attributes, UVs, tangents, lines, points, instancing, morph targets and skinning |
-| Materials and lighting | Opaque diffuse and unlit materials, one directional light | Textures, samplers, PBR, multiple light types, shadows, transparency, environment maps and colour management |
+| Geometry | Versioned dynamic attributes, uint16/uint32 indices, UVs, box/sphere, portable lines and points | Native tangent/color/skinning bindings, joined/dashed strokes, instancing and morph targets |
+| Materials and lighting | Diffuse/unlit materials, color textures, samplers, linear-light mipmaps, alpha modes, depth and draw order | PBR, multiple light types, shadows, environment maps, transparent canvas composition and HDR color output |
 | Animation | Frame hooks | Clips, tracks, interpolation, mixers and skeletal animation |
-| Assets | Programmatic geometry | Async loading, cancellation, caches, glTF, image decoders and compressed textures through loader plugins |
-| Rendering | Native depth-tested GPU pipeline and RGBA output | Render graph, public shader/material extensions, compute, offscreen targets, HDR, postprocessing and shared texture presentation |
-| Extensibility | Dependency-ordered plugins, typed services, replaceable renderer and presenter | Versioned resource handles and pass descriptors for native shader extensions without private Rust access |
+| Assets | Typed scoped loading, shared in-flight decoding, bundle/file/HTTP sources and bounded native PNG/JPEG decoding | glTF models, worker parsing, extension fixtures and compressed textures through loader plugins |
+| Rendering | Native GPU pipelines, explicit RGBA output, opt-in Metal views and Android Vulkan shared textures | Render graph, public shader/material extensions, compute, offscreen passes, HDR, postprocessing and broader native surface qualification |
+| Extensibility | Dependency-ordered plugins, typed services, replaceable renderer/presenter and scoped versioned GPU resources | Pass descriptors and native shader extensions through the public API |
 | Developer tools | Runnable example, capability checks and validation errors | Picking tools, statistics, profiling, context/device recovery and performance fixtures |
 
 Keep shader, texture and render-pass primitives in the core. The geospatial

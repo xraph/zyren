@@ -45,6 +45,14 @@ class Device implements ResourceDevice {
   @override
   Future<void> writeTexture(Object key, int mipLevel, Uint8List bytes) async {}
   @override
+  Future<void> generateMipmaps(
+    Object key,
+    MipmapAlphaFilter alphaFilter,
+  ) async {
+    await writing?.future;
+  }
+
+  @override
   Future<Uint8List> readTexture(Object key, int mipLevel) async => Uint8List(4);
   @override
   Future<Uint8List> readBuffer(Object key, int offset, int length) async =>
@@ -52,6 +60,49 @@ class Device implements ResourceDevice {
 }
 
 void main() {
+  test('storage textures require a linear format', () {
+    expect(
+      () =>
+          TextureDescriptor(width: 4, height: 4, usage: {TextureUsage.storage}),
+      throwsArgumentError,
+    );
+    final descriptor = TextureDescriptor(
+      width: 4,
+      height: 4,
+      format: TextureFormat.rgba8Unorm,
+      usage: {TextureUsage.storage, TextureUsage.sampled},
+    );
+    expect(descriptor.byteLength, 64);
+  });
+  test(
+    'mip generation drains before release and checks scope ownership',
+    () async {
+      final device = Device()..writing = Completer<void>();
+      final owner = ResourceScope(device), other = ResourceScope(device);
+      final texture = await owner.createTexture(
+        TextureDescriptor(
+          width: 2,
+          height: 2,
+          mipLevels: 2,
+          usage: {TextureUsage.sampled, TextureUsage.renderAttachment},
+        ),
+      );
+      await expectLater(other.generateMipmaps(texture), throwsArgumentError);
+      final pending = owner.generateMipmaps(
+        texture,
+        alphaFilter: MipmapAlphaFilter.weighted,
+      );
+      final closing = owner.close();
+      await Future<void>.delayed(Duration.zero);
+      expect(device.releases, 0);
+      device.writing!.complete();
+      await pending;
+      await closing;
+      expect(device.live, isEmpty);
+      await expectLater(owner.generateMipmaps(texture), throwsStateError);
+      await other.close();
+    },
+  );
   BufferDescriptor descriptor() => BufferDescriptor(
     label: 'vertices',
     size: 16,

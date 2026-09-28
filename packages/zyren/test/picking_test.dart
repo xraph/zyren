@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
 import 'package:zyren/zyren.dart';
 import 'package:test/test.dart';
 
@@ -9,6 +10,60 @@ void expectVector(Vec3 actual, Vec3 expected, [double tolerance = 1e-10]) {
 }
 
 void main() {
+  test('dynamic geometry updates invalidate cached picking bounds', () {
+    final scene = Scene();
+    final geometry = PlaneGeometry(dynamic: true);
+    scene.add(Mesh(geometry, UnlitMaterial()));
+    final picker = Raycaster();
+    final original = CameraRay(const Vec3(.1, .2, 3), const Vec3(0, 0, -1));
+    expect(picker.intersectScene(scene, original), hasLength(1));
+    final positions = Float32List.fromList(geometry.positions);
+    for (var i = 0; i < positions.length; i += 3) {
+      positions[i] += 10;
+    }
+    geometry.updateAttribute(VertexSemantic.position, positions);
+    expect(picker.intersectScene(scene, original), isEmpty);
+    expect(
+      picker.intersectScene(
+        scene,
+        CameraRay(const Vec3(10.1, .2, 3), const Vec3(0, 0, -1)),
+      ),
+      hasLength(1),
+    );
+  });
+
+  test('material sides preserve local winding through mirrored transforms', () {
+    for (final scale in [Vec3.one, const Vec3(-1, 1, 1)]) {
+      final scene = Scene();
+      final mesh = scene.add(
+        Mesh(PlaneGeometry(), UnlitMaterial(side: MaterialSide.front)),
+      )..scale = scale;
+      final picker = Raycaster();
+      final front = CameraRay(const Vec3(.1, .2, 3), const Vec3(0, 0, -1));
+      final back = CameraRay(const Vec3(.1, .2, -3), const Vec3(0, 0, 1));
+      expect(picker.intersectScene(scene, front), hasLength(1));
+      expect(picker.intersectScene(scene, back), isEmpty);
+      mesh.material = UnlitMaterial(side: MaterialSide.back);
+      expect(picker.intersectScene(scene, front), isEmpty);
+      expect(picker.intersectScene(scene, back), hasLength(1));
+    }
+  });
+
+  test('triangle picking skips primitive geometry and visits its children', () {
+    final scene = Scene();
+    final line = scene.add(
+      Line(LineGeometry(points: [Vec3.zero, Vec3.one]), LineMaterial()),
+    );
+    line.add(Mesh(PlaneGeometry(), UnlitMaterial()));
+    scene.add(Points(PointGeometry(points: [Vec3.zero]), PointsMaterial()));
+    final hits = Raycaster().intersectScene(
+      scene,
+      CameraRay(const Vec3(.1, .2, 3), const Vec3(0, 0, -1)),
+    );
+    expect(hits, hasLength(1));
+    expect(hits.single.object, same(line.children.single));
+  });
+
   final picker = Raycaster();
   Mesh plane({String? name}) =>
       Mesh(PlaneGeometry(width: 2, height: 2), UnlitMaterial(), name: name);

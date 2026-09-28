@@ -42,14 +42,14 @@ If you use an earlier checkout, update your dependencies and imports:
 
 | Previous package | Zyren package | Main import |
 | --- | --- | --- |
-| `gpu3d` | `zyren` | `package:zyren/zyren.dart` |
-| `gpu3d_native` | `zyren_native` | `package:zyren_native/zyren_native.dart` |
-| `flutter_gpu3d` | `flutter_zyren` | `package:flutter_zyren/flutter_zyren.dart` |
-| `flutter_geospatial` | `zyren_geospatial` | `package:zyren_geospatial/zyren_geospatial.dart` |
-| `gpu3d_tools` | `zyren_tools` | `package:zyren_tools/zyren_tools.dart` |
-| `gpu3d_devtools` | `zyren_devtools` | `package:zyren_devtools/zyren_devtools.dart` |
-| `gpu3d_timeline` | `zyren_timeline` | `package:zyren_timeline/zyren_timeline.dart` |
-| `gpu3d_engineering` | `zyren_engineering` | `package:zyren_engineering/zyren_engineering.dart` |
+| `zyren` | `zyren` | `package:zyren/zyren.dart` |
+| `zyren_native` | `zyren_native` | `package:zyren_native/zyren_native.dart` |
+| `flutter_zyren` | `flutter_zyren` | `package:flutter_zyren/flutter_zyren.dart` |
+| `zyren_geospatial` | `zyren_geospatial` | `package:zyren_geospatial/zyren_geospatial.dart` |
+| `zyren_tools` | `zyren_tools` | `package:zyren_tools/zyren_tools.dart` |
+| `zyren_devtools` | `zyren_devtools` | `package:zyren_devtools/zyren_devtools.dart` |
+| `zyren_timeline` | `zyren_timeline` | `package:zyren_timeline/zyren_timeline.dart` |
+| `zyren_engineering` | `zyren_engineering` | `package:zyren_engineering/zyren_engineering.dart` |
 
 Use the matching folders under `packages/` for path dependencies, then run
 `fvm flutter pub get` and fully restart your app so Flutter registers the renamed
@@ -70,6 +70,11 @@ documents the implemented operations and limits. Scene geometry now uses the sam
 registry and binary packets. Use `NativeBackend.createView()` for independent
 readback views sharing one device, geometry and material images. `TextureImage`
 and `TextureMap` provide opaque color textures with independent sampler settings.
+
+You can also run custom WGSL compute and procedural render passes through
+`NativeBackend.createGraphCompiler()`. The [render graph guide](docs/design/render-graphs.md)
+includes a native heatmap example, typed bindings and graph replacement rules.
+Scene material and platform-view graph integration remain in progress.
 
 ## Run the example
 
@@ -182,17 +187,21 @@ you can create a `SceneController`, pass it to `SceneView(controller: controller
 and call `controller.dispose()` from your State. Borrowed views retain their
 scene and session across unmounts. Static scenes render only after an edit. You can also create a `NativeRenderer` directly,
 await `render`, then await `dispose`.
-Only one frame may be in flight per view. Geometry is immutable and shared by
-meshes. Hiding a mesh retains its allocation; removing it from every owning view
-releases it after submitted work completes. Construct a new geometry when its
-contents change. Flutter's native view presenters still own separate devices.
+Only one frame may be in flight per view. Meshes can share geometry. Create it
+with `dynamic: true` to update position, normal or UV ranges while preserving
+captured frames. Hiding a mesh retains its allocation; removing it from every
+owning view releases it after submitted work completes. Flutter's native view
+presenters still own separate devices. See
+[dynamic geometry](docs/design/gpu-resources.md#dynamic-geometry) for ownership
+and upload rules.
 
-Colours use linear RGB; `Color3.hex` converts an sRGB hex colour for you. Positions
-use double precision until the camera origin has been subtracted. The current
+Colours use linear RGB; `Color3.hex` converts an sRGB hex colour for you. Object
+positions use double precision until the camera origin has been subtracted.
+Local vertex attributes use float32 storage. The current
 materials support opaque diffuse lighting, unlit shading and RGBA color textures.
 See [color textures](docs/design/gpu-resources.md#color-textures) for UVs, samplers
-and supplied mip levels. Image decoding, transparency, shadows and PBR remain
-planned work.
+and supplied mip levels. `NativeImageDecoder` decodes bounded PNG/JPEG inputs.
+Automatic mips, transparency, shadows and PBR remain planned work.
 
 ## Plugins and backends
 

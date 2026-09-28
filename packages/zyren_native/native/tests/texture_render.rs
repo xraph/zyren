@@ -170,3 +170,43 @@ fn textured_mesh_packet_rejects_invalid_uvs_and_sampler_fields() {
     packet[map + 4..map + 8].copy_from_slice(&8_u32.to_le_bytes());
     assert!(ScenePacket::decode(&packet).unwrap().resolve(None).is_err());
 }
+
+#[test]
+fn generated_mip_packet_checks_policy_and_full_residency_before_payload() {
+    let mut packet = image_packet();
+    packet[4..8].copy_from_slice(&14_u32.to_le_bytes());
+    packet.splice(156..156, 0_u32.to_le_bytes());
+    packet.splice(184..184, 2_u32.to_le_bytes());
+    let length = (packet.len() - 24) as u64;
+    packet[16..24].copy_from_slice(&length.to_le_bytes());
+    let frame = ScenePacket::decode(&packet).unwrap().resolve(None).unwrap();
+    assert_eq!(frame.textures[0].byte_length(), 20);
+    assert_eq!(frame.textures[0].levels.len(), 1);
+    for mode in [0_u32, 1, 2] {
+        let mut valid = packet.clone();
+        valid[184..188].copy_from_slice(&mode.to_le_bytes());
+        let image = ScenePacket::decode(&valid).unwrap().resolve(None).unwrap();
+        assert_eq!(
+            image.textures[0].byte_length(),
+            if mode == 0 { 16 } else { 20 }
+        );
+    }
+    let mut oversized = packet.clone();
+    oversized[168..172].copy_from_slice(&4096_u32.to_le_bytes());
+    oversized[172..176].copy_from_slice(&4096_u32.to_le_bytes());
+    assert!(
+        matches!(ScenePacket::decode(&oversized), Err(e) if e == "texture residency budget exceeded")
+    );
+    for (offset, value) in [(184, 3_u32), (180, 2), (168, 4096), (172, 4096)] {
+        let mut invalid = packet.clone();
+        invalid[offset..offset + 4].copy_from_slice(&value.to_le_bytes());
+        assert!(ScenePacket::decode(&invalid).is_err());
+    }
+    for end in 0..packet.len() {
+        let mut truncated = packet[..end].to_vec();
+        if end >= 24 {
+            truncated[16..24].copy_from_slice(&((end - 24) as u64).to_le_bytes());
+        }
+        assert!(ScenePacket::decode(&truncated).is_err());
+    }
+}

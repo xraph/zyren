@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:vector_math/vector_math_64.dart' as vm;
 import '../geometry/geometry.dart';
+import '../geometry/vertex_attribute.dart';
 import '../resources/texture_image.dart';
 import '../scene/scene.dart';
 import 'frame_output.dart';
@@ -31,15 +32,17 @@ class CameraSnapshot {
 /// Captured transforms with shared immutable CPU geometry recipes.
 class SceneSnapshot {
   final List<Map<String, Object>> _meshes;
-  final Map<int, BufferGeometry> _geometries;
+  final Map<int, GeometrySnapshot> _geometries;
   final Map<int, TextureImage> _textures;
   final List<double> _background, _light;
   final double _ambient;
   int get drawCalls => _meshes.length;
-  int get triangles => _meshes.fold(
-    0,
-    (sum, mesh) => sum + _geometries[mesh['geometry']]!.indices.length ~/ 3,
-  );
+  int get triangles => _meshes.fold(0, (sum, mesh) {
+    final geometry = _geometries[mesh['geometry']]!;
+    return sum +
+        geometry.primitiveCount *
+            (geometry.topology == GeometryTopology.triangles ? 1 : 2);
+  });
   SceneSnapshot._(
     this._meshes,
     this._geometries,
@@ -50,13 +53,14 @@ class SceneSnapshot {
   );
   static SceneSnapshot _capture(Scene scene, Camera camera) {
     final meshes = <Map<String, Object>>[],
-        geometries = <int, BufferGeometry>{};
+        geometries = <int, GeometrySnapshot>{};
     final textures = <int, TextureImage>{};
     void visit(Object3D node, vm.Matrix4 parent, bool parentVisible) {
       final visible = parentVisible && node.visible;
       final world = parent * node.localMatrix.toVectorMath();
       if (node is Mesh) {
-        geometries[node.geometry.id] = node.geometry;
+        final geometry = node.geometry.capture();
+        geometries[geometry.id] = geometry;
         final map = node.material.colorMap;
         if (map != null) textures[map.image.id] = map.image;
         if (visible) {
@@ -71,10 +75,21 @@ class SceneSnapshot {
             );
           meshes.add(
             _freeze(<String, Object>{
-                  'geometry': node.geometry.id,
+                  'geometry': geometry.id,
                   'model': relative.storage.toList(),
                   'color': node.material.color.toList(),
                   'unlit': node.material.unlit,
+                  'side': node.material.side.index,
+                  'alpha_mode': node.material.alphaMode.index,
+                  'opacity': node.material.opacity,
+                  'alpha_cutoff': node.material.alphaCutoff,
+                  'depth_test': node.material.depthTest,
+                  'depth_write': node.material.writesDepth,
+                  'render_order': node.renderOrder,
+                  'primitive_kind': node.material.primitiveKind,
+                  'primitive_size': node.material.primitiveSize,
+                  'size_units': node.material.sizeUnits.index,
+                  'point_shape': node.material.pointShape.index,
                   'colorMap': map?.toPacket() ?? <int>[],
                 })
                 as Map<String, Object>,

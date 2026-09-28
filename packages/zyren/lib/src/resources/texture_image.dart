@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 import 'texture.dart';
+import '../rendering/frame_output.dart';
 
 enum TextureWrap { clampToEdge, repeat, mirroredRepeat }
 
@@ -25,24 +26,119 @@ final class SamplerDescriptor {
   ];
 }
 
-/// Immutable, tightly packed RGBA image levels, with a top-left pixel origin.
-/// Creating an image allocates CPU storage. Each native device uploads on demand.
+/// A caller-local image identity over immutable, top-left-origin RGBA pixels.
+/// Native devices upload the shared data on demand.
 final class TextureImage {
   static int _nextId = 1;
   final int id = _nextId++;
-  final TextureDescriptor descriptor;
-  final List<Uint8List> levels;
+  final TextureImageData data;
+  TextureDescriptor get descriptor => data.descriptor;
+  List<Uint8List> get levels => data.levels;
+  bool get generatesMipmaps => data.generatesMipmaps;
+  MipmapAlphaFilter get mipmapAlphaFilter => data.mipmapAlphaFilter;
+  TextureImage.fromData(this.data);
+  factory TextureImage.fromImage(
+    ImageData image, {
+    bool generateMipmaps = false,
+    MipmapAlphaFilter mipmapAlphaFilter = MipmapAlphaFilter.independent,
+  }) => TextureImage.fromData(
+    TextureImageData.fromImage(
+      image,
+      generateMipmaps: generateMipmaps,
+      mipmapAlphaFilter: mipmapAlphaFilter,
+    ),
+  );
   factory TextureImage.rgba({
     required int width,
     required int height,
     required Uint8List pixels,
     List<Uint8List> mipmaps = const [],
+    bool generateMipmaps = false,
+    MipmapAlphaFilter mipmapAlphaFilter = MipmapAlphaFilter.independent,
+    TextureFormat format = TextureFormat.rgba8UnormSrgb,
+  }) => TextureImage.fromData(
+    TextureImageData.rgba(
+      width: width,
+      height: height,
+      pixels: pixels,
+      mipmaps: mipmaps,
+      generateMipmaps: generateMipmaps,
+      mipmapAlphaFilter: mipmapAlphaFilter,
+      format: format,
+    ),
+  );
+}
+
+/// Validated immutable image storage, safe to prepare on a worker isolate.
+/// Creating [TextureImage] from this data assigns its caller-local resource ID.
+final class TextureImageData {
+  final TextureDescriptor descriptor;
+
+  /// CPU-provided levels. Generated lower levels stay on the GPU.
+  final List<Uint8List> levels;
+
+  /// Whether the native device generates the full chain from level zero.
+  final bool generatesMipmaps;
+  final MipmapAlphaFilter mipmapAlphaFilter;
+  factory TextureImageData.fromImage(
+    ImageData image, {
+    bool generateMipmaps = false,
+    MipmapAlphaFilter mipmapAlphaFilter = MipmapAlphaFilter.independent,
+  }) {
+    if (image.format != PixelFormat.rgba8 ||
+        image.alphaMode == AlphaMode.premultiplied) {
+      throw UnsupportedError(
+        'Color textures require straight or opaque RGBA8 pixels.',
+      );
+    }
+    final descriptor = TextureDescriptor(
+      width: image.size.width,
+      height: image.size.height,
+      mipLevels: generateMipmaps
+          ? (image.size.width > image.size.height
+                    ? image.size.width
+                    : image.size.height)
+                .bitLength
+          : 1,
+      format: image.colorSpace == ColorSpace.srgb
+          ? TextureFormat.rgba8UnormSrgb
+          : TextureFormat.rgba8Unorm,
+    );
+    final pixels = Uint8List(descriptor.mipByteLength(0));
+    final rowBytes = image.size.width * 4;
+    for (var y = 0; y < image.size.height; y++) {
+      pixels.setRange(
+        y * rowBytes,
+        (y + 1) * rowBytes,
+        image.pixels,
+        y * image.rowStride,
+      );
+    }
+    return TextureImageData._(
+      descriptor,
+      List.unmodifiable([pixels.asUnmodifiableView()]),
+      generateMipmaps,
+      mipmapAlphaFilter,
+    );
+  }
+  factory TextureImageData.rgba({
+    required int width,
+    required int height,
+    required Uint8List pixels,
+    List<Uint8List> mipmaps = const [],
+    bool generateMipmaps = false,
+    MipmapAlphaFilter mipmapAlphaFilter = MipmapAlphaFilter.independent,
     TextureFormat format = TextureFormat.rgba8UnormSrgb,
   }) {
+    if (generateMipmaps && mipmaps.isNotEmpty) {
+      throw ArgumentError('Choose supplied mipmaps or native generation.');
+    }
     final descriptor = TextureDescriptor(
       width: width,
       height: height,
-      mipLevels: mipmaps.length + 1,
+      mipLevels: generateMipmaps
+          ? (width > height ? width : height).bitLength
+          : mipmaps.length + 1,
       format: format,
     );
     final sources = [pixels, ...mipmaps];
@@ -51,15 +147,22 @@ final class TextureImage {
         throw ArgumentError('Mip $i must contain tightly packed RGBA pixels.');
       }
     }
-    return TextureImage._(
+    return TextureImageData._(
       descriptor,
       List.unmodifiable([
         for (final source in sources)
           Uint8List.fromList(source).asUnmodifiableView(),
       ]),
+      generateMipmaps,
+      mipmapAlphaFilter,
     );
   }
-  TextureImage._(this.descriptor, this.levels);
+  TextureImageData._(
+    this.descriptor,
+    this.levels,
+    this.generatesMipmaps,
+    this.mipmapAlphaFilter,
+  );
 }
 
 /// Color image binding. UV (0, 0) addresses the image's top-left corner.

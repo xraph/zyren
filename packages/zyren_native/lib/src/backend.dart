@@ -2,7 +2,7 @@ part of 'native_renderer.dart';
 
 /// Native rendering from a captured submission, without Flutter dependencies.
 /// Apple surfaces use the same worker and GPU device as explicit capture.
-class NativeBackend implements ResourceBackend {
+class NativeBackend implements GraphBackend {
   final NativeRenderer _renderer;
   final ScenePacketEncoder _encoder;
   Future<FrameOutput>? _drawing;
@@ -12,6 +12,8 @@ class NativeBackend implements ResourceBackend {
   int _nextFrame = 0;
   final _surfaces = <NativeSurfaceSnapshot>{};
   final _resourceScopes = <ResourceScope>{};
+  final _shaderCompilers = <ShaderCompiler>{};
+  final _graphCompilers = <GraphCompiler>{};
   final _NativeResourceDevice _resources;
   NativeBackend._(
     this._renderer,
@@ -55,6 +57,32 @@ class NativeBackend implements ResourceBackend {
 
   Future<ResourceStats> resourceStats() => _resources.stats();
 
+  @override
+  ShaderCompiler createShaderCompiler({String label = ''}) {
+    if (_closed) throw StateError('Backend has closed.');
+    final compiler = ShaderCompiler(_resources, label: label);
+    _shaderCompilers.add(compiler);
+    compiler.whenClosed.then((_) {
+      _shaderCompilers.remove(compiler);
+    });
+    return compiler;
+  }
+
+  Future<ShaderStats> shaderStats() => _resources.shaderStats();
+
+  @override
+  GraphCompiler createGraphCompiler({String label = ''}) {
+    if (_closed) throw StateError('Backend has closed.');
+    final compiler = GraphCompiler(_resources, label: label);
+    _graphCompilers.add(compiler);
+    compiler.whenClosed.then((_) {
+      _graphCompilers.remove(compiler);
+    });
+    return compiler;
+  }
+
+  Future<GraphCacheStats> graphStats() => _resources.graphStats();
+
   /// Apple texture registration remains experimental while Flutter's texture
   /// cache prevents prompt buffer retirement. Keep it out of default selection.
   static Future<NativeBackend> create({
@@ -86,6 +114,13 @@ class NativeBackend implements ResourceBackend {
       RenderFeature.rgbaReadback,
       RenderFeature.scopedResources,
       RenderFeature.colorTextures,
+      RenderFeature.alphaMaterials,
+      RenderFeature.portablePrimitives,
+      RenderFeature.materialSidedness,
+      RenderFeature.shaderCompilation,
+      RenderFeature.renderGraphs,
+      RenderFeature.compute,
+      RenderFeature.storageTextures,
       if (_experimentalAppleSurfaces && NativeSurfaces().appleAvailable)
         RenderFeature.sharedTexture,
     },
@@ -275,6 +310,22 @@ class NativeBackend implements ResourceBackend {
     Object? failure;
     StackTrace? failureStack;
     final resourceClosures = [
+      for (final compiler in _graphCompilers.toList())
+        compiler.close().then<void>(
+          (_) {},
+          onError: (Object error, StackTrace stack) {
+            failure ??= error;
+            failureStack ??= stack;
+          },
+        ),
+      for (final compiler in _shaderCompilers.toList())
+        compiler.close().then<void>(
+          (_) {},
+          onError: (Object error, StackTrace stack) {
+            failure ??= error;
+            failureStack ??= stack;
+          },
+        ),
       for (final scope in _resourceScopes.toList())
         scope.close().then<void>(
           (_) {},

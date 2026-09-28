@@ -15,7 +15,7 @@ void main() {
       size: PhysicalSize(31, 31),
     );
     final first = encoder.encode(capture());
-    expect(first.uploadedBytes, 720);
+    expect(first.uploadedBytes, 1104);
     expect(ByteData.sublistView(first.bytes).getUint32(0, Endian.little), 2);
     encoder.accept(first);
     mesh.position = const Vec3(1, 0, 0);

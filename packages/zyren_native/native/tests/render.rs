@@ -96,3 +96,35 @@ fn native_gpu_pixels_depth_resize_and_cache() {
         "unused geometry must be released"
     );
 }
+
+#[test]
+fn json_material_defaults_and_validation_match_binary_contract() {
+    let original = frame_json();
+    let legacy: Frame = serde_json::from_value(original.clone()).unwrap();
+    assert!(legacy.meshes[0].writes_depth());
+    assert_eq!(legacy.meshes[0].opacity, 1.);
+    let mut glass = original.clone();
+    glass["meshes"][0]["alpha_mode"] = json!(2);
+    let frame: Frame = serde_json::from_value(glass.clone()).unwrap();
+    assert!(!frame.meshes[0].writes_depth());
+    glass["meshes"][0]["depth_write"] = json!(true);
+    let frame: Frame = serde_json::from_value(glass).unwrap();
+    assert!(frame.meshes[0].writes_depth());
+    for (field, value) in [
+        ("alpha_mode", json!(3)),
+        ("opacity", json!(-0.1)),
+        ("alpha_cutoff", json!(-0.1)),
+    ] {
+        let mut invalid = original.clone();
+        invalid["meshes"][0][field] = value;
+        let frame: Frame = serde_json::from_value(invalid).unwrap();
+        assert!(frame.validate(&Default::default()).is_err());
+    }
+    for cutoff in [1.1, f32::MAX] {
+        let mut masked = original.clone();
+        masked["meshes"][0]["alpha_mode"] = json!(1);
+        masked["meshes"][0]["alpha_cutoff"] = json!(cutoff);
+        let frame: Frame = serde_json::from_value(masked).unwrap();
+        assert!(frame.validate(&Default::default()).is_ok());
+    }
+}

@@ -111,8 +111,28 @@ device loss: invalidate generation -> retain CPU recipes -> fail old GPU handles
 Opaque color texture checkpoint: `TextureImage`, `TextureMap`, independent
 samplers, UV0/UV1 and supplied mip levels use binary scene opcode 11 and the
 shared resource registry. The native demo exercises filtering and wrapping.
-Task 2 remains open for dynamic attributes, bounded PNG/JPEG decoding, automatic
-mips, alpha modes, render ordering and portable lines/points. See
+Image decode checkpoint: `NativeImageDecoder` runs bounded PNG/JPEG work on a
+CPU isolate and returns core `ImageData`. `TextureImage.fromImage` strips row
+padding and owns its pixels. Strict framing, CRC, extent checks and typed errors
+cover malformed input; admission uses decoder workspace estimates. See
+[image decoding](../../design/gpu-resources.md#decode-image-files).
+Dynamic geometry checkpoint: fixed typed layouts, immutable captures and bounded
+range journals reach native GPU buffers. Exclusive versions reuse storage;
+shared views retain older versions until their owners advance. The core checks
+tangent handedness and other typed attributes, but native materials currently
+accept position, normal and UV0/UV1 only. Explicit uint16/uint32 index formats
+preserve their width through native draws and dynamic copies. Native mipmaps use
+linear-light area reduction, optional alpha-weighted RGB and full-chain admission.
+Scene images and explicit resource scopes share the same GPU generator. Metal
+and physical Pixel Vulkan checks pass. Alpha modes, opacity, cutoffs, explicit
+depth policies and render ordering now use native pipeline state with stable
+object sorting. Portable lines/points now use bounded native triangle expansion,
+pixel/world sizes and shared versioned recipes. Native surfaces reuse those
+buffers across camera and size edits. Box faces and sphere seams/poles now have
+UV0 mappings verified with native texture probes. The Task 2 audit leaves the
+premultiplied transparent compositor boundary open, pending the output-pass work
+in Task 4. Joined/dashed strokes and order-independent transparency remain later
+renderer work. See
 [color textures](../../design/gpu-resources.md#color-textures) for the API.
 
 **Files:** Add core `geometry/{vertex_attribute,vertex_layout}.dart`, resource
@@ -128,8 +148,12 @@ declares dimension, extent, format, usage, mip count and color space.
 limits) -> Future<ImageData>` is a core service implemented by the native package.
 Pin Rust `image` 0.25.10 with default features disabled and PNG/JPEG enabled in
 this task's lockfile update; verify its declared Rust floor and licenses.
+The pinned crate declares Rust 1.88.0, below this repository's 1.97 floor.
+JPEG decoding uses pinned zune-jpeg 0.5.15 directly because image's adapter
+disables strict mode and ignores allocation limits. Engine admission accounts
+for its coefficient and row buffers. Retain that audit when changing the pins.
 
-- [ ] Add an indexed quad with a 2x2 corner texture, repeat/clamp samplers and a second UV set. Probe known linear/sRGB values and alpha conversion independently. Add a dirty-range test:
+- [x] Add an indexed quad with a 2x2 corner texture, repeat/clamp samplers and a second UV set. Probe known linear/sRGB values and alpha conversion independently. Add a dirty-range test:
 
 ```dart
 final geometry = BoxGeometry(dynamic: true);
@@ -141,7 +165,7 @@ expect(() => geometry.updateAttribute(VertexSemantic.position,
     Float32List(3), firstVertex: geometry.vertexCount), throwsRangeError);
 ```
 
-- [ ] Run `fvm dart test test/geometry_update_test.dart` and `cargo test --test texture_render --test image_limits`; new format/layout behavior must fail initially. Add compressed-byte limits, truncated PNG/JPEG, malicious dimensions, overflow, unsupported channel formats, mip and row-alignment cases.
+- [x] Run `fvm dart test test/geometry_update_test.dart` and `cargo test --test texture_render --test image_limits`; new format/layout behavior must fail initially. Add compressed-byte limits, truncated PNG/JPEG, malicious dimensions, overflow, unsupported channel formats, mip and row-alignment cases.
 - [ ] Implement attribute validation, index widths, tangent handedness and dirty-range merging. Decode images with strict extent checks plus an engine budget around decoding and output allocation. Decoder limits alone are insufficient because some allocation limits are best effort. [Image limits contract](https://docs.rs/image/0.25.10/image/struct.Limits.html).
 
 ```text
@@ -151,10 +175,42 @@ color: sRGB decode for color images -> linear shading -> output conversion once
 alpha: straight input -> blend semantics -> premultiplied compositor boundary
 ```
 
-- [ ] Add opaque/mask/blend modes, explicit render ordering and transparent depth-write defaults. Test lines and points with portable geometry expansion where wide native primitives are unavailable, including pixel/world size units. Unsupported format/usage returns a typed error.
-- [ ] Run texture/geometry/FFI tests on Metal and available Vulkan/D3D12 hosts, add a textured native example and commit `feat: render textured and dynamic geometry with explicit color rules`.
+- [x] Add opaque/mask/blend modes, explicit render ordering and transparent depth-write defaults. Test lines and points with portable geometry expansion where wide native primitives are unavailable, including pixel/world size units. Unsupported format/usage returns a typed error.
+- [x] Run texture/geometry/FFI tests on Metal and available Vulkan/D3D12 hosts, add a textured native example and commit `feat: render textured and dynamic geometry with explicit color rules`.
+
+### Task 2 audit
+
+| Requirement | Current evidence |
+| --- | --- |
+| Texture corners, wrap/filter, UV0/UV1 and linear/sRGB probes | `texture_render_test.dart`, native `texture_render.rs` and the textured SceneView integration |
+| Dynamic attribute validation, journal merging, shared captures and index widths | Core geometry/index tests, native geometry update tests, malformed packet tests and Metal/Pixel integrations |
+| Bounded PNG/JPEG decode and typed errors | `image_decoder_test.dart`, native `image_limits.rs`/`image_abi.rs`, Flutter decoder integration |
+| Native mipmaps and ownership | Native mip fixtures, explicit scope regeneration, odd extents, alpha-weighted filtering and Metal/Pixel integrations |
+| Alpha modes, depth, ordering and portable primitives | Material and primitive pixel fixtures plus direct native presentation on Metal/Pixel |
+| Built-in UVs | Six box-face corner probes and four sphere quadrants on Metal/Pixel; seam/pole and dynamic UV tests |
+| Transparent premultiplied compositor boundary | Open. Current presentation is opaque; implement and qualify transparent output during Task 4 |
+
+The implementation arrived in focused local commits listed in Git history and
+`docs/verification.md`. The native test hosts available here are Metal and the
+Pixel's Vulkan backend. D3D12 qualification remains open. Task 3 can proceed with
+the existing textured material path while the compositor requirement stays
+tracked above.
 
 ## Task 3: Typed asset loading and glTF models
+
+Current checkpoint: typed requests, shared jobs, worker parsing/preparation and
+scope-owned static model templates are implemented. `Gltf.asset` and `Gltf.uri`
+produce ordinary core scene instances with shared immutable geometry and images.
+The supported unlit subset, unsupported features and required diagnostic PBR
+mode are listed in the [fixture matrix](../../packages/zyren_gltf/README.md).
+The standalone model viewer passes bundle and HTTP loading, relative dependencies,
+reloads and native presentation checks on Metal and physical Pixel Vulkan. Its
+widget tests cover cancellation, retry, input during pending work, object names,
+scene selection, route cleanup and desktop/narrow layouts. Compiled release
+worker tests and native texture/lifetime probes also pass. Release builds and
+manual visual inspection are tracked separately in verification; the Mac remains
+locked, so no manual window inspection is claimed. Full glTF/PBR/animation parity
+belongs to the later tasks and extension work.
 
 **Files:** Implement core `assets/{asset_scope,asset_request,source_resolver,shared_load}.dart`;
 create `packages/zyren_gltf/{pubspec.yaml,lib/zyren_gltf.dart}` and decoder modules.
@@ -170,7 +226,7 @@ budgets. `SceneRuntime.assetServices` supplies defaults and host overrides; thes
 CPU services can initialize without a view. Flutter supplies bundle resolution;
 core and glTF import no Flutter.
 
-- [ ] Create a memory resolver fixture implementing `ByteSourceResolver`: URI-to-byte map, per-URI request count and controllable completion. Cancel one of two consumers and assert the survivor receives an independently usable model with one underlying fetch/decode:
+- [x] Create a memory resolver fixture implementing `ByteSourceResolver`: URI-to-byte map, per-URI request count and controllable completion. Cancel one of two consumers and assert the survivor receives an independently usable model with one underlying fetch/decode:
 
 ```dart
 final first = scope.load(Gltf.uri(uri));
@@ -184,8 +240,8 @@ expect(resolver.requestCount(uri), 1);
 expect(identical(model.instantiate(), model.instantiate()), isFalse);
 ```
 
-- [ ] Run core shared-load and glTF tests; expect missing decoder behavior initially. Cover cancellation of the final consumer, scope close during decode, progress with unknown length, relative references, redirected base URIs, URI traversal policy, bad GLB lengths, sparse/interleaved accessors, normalization and unsupported required extensions. Validate against the [glTF 2.0 specification](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html).
-- [ ] Implement checked parsing, source resolution and shared jobs keyed by source/version/options. Separate consumer cancellation from the job. Decode workers return transferable typed data; cancellation prevents scene publication and drops late decoded ownership. Mutable URI caches need stable content identity or explicit invalidation.
+- [x] Run core shared-load and glTF tests; expect missing decoder behavior initially. Cover cancellation of the final consumer, scope close during decode, progress with unknown length, relative references, redirected base URIs, URI traversal policy, bad GLB lengths, sparse/interleaved accessors, normalization and unsupported required extensions. Validate against the [glTF 2.0 specification](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html).
+- [x] Implement checked parsing, source resolution and shared jobs keyed by source/version/options. Separate consumer cancellation from the job. Decode workers return transferable typed data; cancellation prevents scene publication and drops late decoded ownership. Mutable URI caches need stable content identity or explicit invalidation.
 
 ```text
 consumer joins: attach its task to matching shared job
@@ -196,10 +252,27 @@ instantiate: clone nodes/animation state; retain immutable decoded resources
 scope.release(template): stop future instantiation; retain live instance resources
 ```
 
-- [ ] Build bundle and URI viewers with progress, cancel/retry, object names and errors. Before PBR task 5, require an explicit unlit diagnostic override for metallic/roughness assets and label that mode. Do not claim faithful standard glTF rendering yet. Maintain a fixture-backed extension matrix.
-- [ ] Verify decode does not block UI input, repeated load/cancel/route removal settles all tasks, and one removed view does not invalidate another instance. Run analyzer/tests/integration; commit `feat: load glTF assets with scoped cancellation and shared resources`.
+- [x] Build bundle and URI viewers with progress, cancel/retry, object names and errors. Before PBR task 5, require an explicit unlit diagnostic override for metallic/roughness assets and label that mode. Do not claim faithful standard glTF rendering yet. Maintain a fixture-backed extension matrix.
+- [x] Verify decode does not block UI input, repeated load/cancel/route removal settles all tasks, and one removed view does not invalidate another instance. Run analyzer/tests/integration; commit `feat: load glTF assets with scoped cancellation and shared resources`.
 
 ## Task 4: Public render graph and shader plugin API
+
+Compiler checkpoint, 2026-09-27: `ShaderSource`, `ShaderCompiler`, opaque
+`ShaderProgram`, typed UTF-16 diagnostics and lazy `context.shaders` ownership
+are implemented. The native worker validates WGSL modules, bounds admission and
+shares live modules across compilers on one device. Compiler errors preserve
+the device. Custom materials, platform-view integration and the independent
+effects example remain open. See
+[shader compilation](../../design/shader-compilation.md).
+
+Graph checkpoint: public typed bindings and compute-to-render execution now run
+on Metal and Pixel Vulkan. Immutable candidates validate access, dependency order,
+layouts and pipeline interfaces before replacing an active graph. Compiled graphs
+retain their programs and resources; buffers can update without recompilation.
+Whole-allocation lifetimes and weak pipeline caches are implemented. This profile
+uses explicit resource textures. Scene insertion, custom mesh materials, plugin
+ownership, resize/history and the separate effects consumer remain open. See
+[render graphs](../../design/render-graphs.md).
 
 **Files:** Create graph/shader modules from the map, native
 `src/render_graph/{compile,execute}.rs`, Dart `test/render_graph_test.dart`,
@@ -215,7 +288,7 @@ resource reads/writes, dependencies and load/store operations.
 replacing the active graph. `ShaderMaterial` binds a checked program/layout and
 parameters. Public APIs expose no native pointers.
 
-- [ ] Create a two-pass fixture: write a storage texture with the WGSL below, then sample it on a full-screen quad. Bind group 0, binding 0 is an `rgba8unorm` storage-write texture. Dispatch `Workgroups(8, 8, 1)` for a 64x64 target:
+- [x] Create a two-pass fixture: write a storage texture with the WGSL below, then sample it on a full-screen quad. Bind group 0, binding 0 is an `rgba8unorm` storage-write texture. Dispatch `Workgroups(8, 8, 1)` for a 64x64 target:
 
 ```wgsl
 @group(0) @binding(0) var output: texture_storage_2d<rgba8unorm, write>;
@@ -226,7 +299,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
 }
 ```
 
-- [ ] Run graph tests and `cargo test --test shader_diagnostics`; assert labeled failures for cycles, uninitialized reads, write/read alias conflicts, sample counts, bindings, invalid WGSL source locations and unsupported storage formats. A failed edit must preserve the prior valid graph.
+- [x] Run graph tests and `cargo test --test shader_diagnostics`; assert labeled failures for cycles, uninitialized reads, write/read alias conflicts, sample counts, bindings, invalid WGSL source locations and unsupported storage formats. A failed edit must preserve the prior valid graph.
 - [ ] Implement topological ordering, lifetime intervals, validation and capability negotiation. Use wgpu's validated usage model for hazards. Start without transient aliasing optimization, then enable only proven nonoverlapping compatible lifetimes. Cache pipelines by source/layout/options/device generation.
 
 ```text

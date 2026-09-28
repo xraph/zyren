@@ -98,3 +98,7 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+PNG/JPEG decoding also uses the pinned Rust crates listed in
+[image decoder dependency licenses](docs/image-decoder-licenses.md). That file
+contains their license and copyright notices for redistribution.

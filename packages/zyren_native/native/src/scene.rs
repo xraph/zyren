@@ -1,3 +1,4 @@
+pub use crate::geometry_update::{AttributeRange, GeometryPatch};
 use std::collections::HashSet;
 
 use serde::Deserialize;
@@ -7,13 +8,39 @@ pub const MAX_VERTICES: usize = 1_000_000;
 pub const MAX_INDICES: usize = 3_000_000;
 pub const MAX_MESHES: usize = 4096;
 
+#[derive(Clone, Copy, Default, PartialEq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum IndexFormat {
+    Uint16,
+    #[default]
+    Uint32,
+}
+impl IndexFormat {
+    pub fn bytes(self) -> usize {
+        match self {
+            Self::Uint16 => 2,
+            Self::Uint32 => 4,
+        }
+    }
+    pub fn native(self) -> wgpu::IndexFormat {
+        match self {
+            Self::Uint16 => wgpu::IndexFormat::Uint16,
+            Self::Uint32 => wgpu::IndexFormat::Uint32,
+        }
+    }
+}
+
 #[derive(Clone, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Geometry {
     pub id: u32,
+    #[serde(default)]
+    pub topology: u32,
     pub positions: Vec<[f32; 3]>,
     pub normals: Vec<[f32; 3]>,
     pub indices: Vec<u32>,
+    #[serde(default)]
+    pub index_format: IndexFormat,
     #[serde(default)]
     pub uv0: Vec<[f32; 2]>,
     #[serde(default)]
@@ -21,16 +48,40 @@ pub struct Geometry {
 }
 
 impl Geometry {
+    pub fn primitive_count(&self) -> usize {
+        match self.topology {
+            0 => self.indices.len() / 3,
+            1 => self.indices.len() / 2,
+            2 => self.indices.len().saturating_sub(1),
+            _ => self.indices.len(),
+        }
+    }
     pub fn byte_length(&self) -> usize {
+        if self.topology != 0 {
+            return self.primitive_count() * 120;
+        }
         self.positions.len()
             * (if self.uv0.is_empty() && self.uv1.is_empty() {
                 24
             } else {
                 40
             })
+            + self.indices.len() * self.index_format.bytes()
+    }
+    pub fn cpu_byte_length(&self) -> usize {
+        (self.positions.len() + self.normals.len()) * 12
+            + (self.uv0.len() + self.uv1.len()) * 8
             + self.indices.len() * 4
     }
     pub fn validate(&self) -> Result<(), String> {
+        if self.topology > 3
+            || (self.topology != 0
+                && (self.primitive_count() > 250_000
+                    || !self.uv0.is_empty()
+                    || !self.uv1.is_empty()))
+        {
+            return Err("unsupported primitive topology, attributes or expanded budget".into());
+        }
         for uv in [&self.uv0, &self.uv1] {
             if !uv.is_empty()
                 && (uv.len() != self.positions.len() || uv.iter().flatten().any(|v| !v.is_finite()))
@@ -44,9 +95,13 @@ impl Geometry {
         if self.normals.len() != self.positions.len()
             || self.indices.is_empty()
             || self.indices.len() > MAX_INDICES
-            || !self.indices.len().is_multiple_of(3)
+            || (self.topology == 0 && !self.indices.len().is_multiple_of(3))
+            || (self.topology == 1 && !self.indices.len().is_multiple_of(2))
+            || (self.topology == 2 && self.indices.len() < 2)
         {
-            return Err("geometry requires one normal per vertex and indexed triangles".into());
+            return Err(
+                "geometry needs one normal per vertex and indices matching its topology".into(),
+            );
         }
         if self
             .positions
@@ -58,10 +113,10 @@ impl Geometry {
                 .normals
                 .iter()
                 .any(|v| glam::Vec3::from_array(*v).length_squared() < 1e-12)
-            || self
-                .indices
-                .iter()
-                .any(|i| *i as usize >= self.positions.len())
+            || self.indices.iter().any(|i| {
+                *i as usize >= self.positions.len()
+                    || (self.index_format == IndexFormat::Uint16 && *i > u16::MAX as u32)
+            })
         {
             return Err("geometry contains invalid coordinates, normals or indices".into());
         }
@@ -78,6 +133,88 @@ pub struct Mesh {
     pub unlit: bool,
     #[serde(default)]
     pub color_map: Option<ColorMap>,
+    #[serde(default)]
+    pub alpha_mode: u32,
+    #[serde(default)]
+    pub side: u32,
+    #[serde(default = "one")]
+    pub opacity: f32,
+    #[serde(default = "half")]
+    pub alpha_cutoff: f32,
+    #[serde(default = "enabled")]
+    pub depth_test: bool,
+    #[serde(default)]
+    pub depth_write: Option<bool>,
+    #[serde(default)]
+    pub render_order: i32,
+    #[serde(default)]
+    pub primitive_kind: u32,
+    #[serde(default = "one")]
+    pub primitive_size: f32,
+    #[serde(default)]
+    pub size_units: u32,
+    #[serde(default)]
+    pub point_shape: u32,
+}
+fn one() -> f32 {
+    1.
+}
+fn half() -> f32 {
+    0.5
+}
+fn enabled() -> bool {
+    true
+}
+impl Default for Mesh {
+    fn default() -> Self {
+        Self {
+            geometry: 0,
+            model: glam::Mat4::IDENTITY.to_cols_array(),
+            color: [1.; 3],
+            unlit: false,
+            color_map: None,
+            alpha_mode: 0,
+            side: 0,
+            opacity: 1.,
+            alpha_cutoff: 0.5,
+            depth_test: true,
+            depth_write: None,
+            render_order: 0,
+            primitive_kind: 0,
+            primitive_size: 1.,
+            size_units: 0,
+            point_shape: 0,
+        }
+    }
+}
+impl Mesh {
+    pub fn writes_depth(&self) -> bool {
+        self.depth_write.unwrap_or(self.alpha_mode != 2)
+    }
+    pub fn validate_material(&self) -> Result<(), String> {
+        if self.side > 2 || (self.primitive_kind != 0 && self.side != 0) {
+            return Err("invalid material side".into());
+        }
+        if self.primitive_kind > 2
+            || self.size_units > 1
+            || self.point_shape > 1
+            || !self.primitive_size.is_finite()
+            || self.primitive_size <= 0.
+            || self.primitive_size > if self.size_units == 0 { 4096. } else { 1e12 }
+            || (self.primitive_kind != 0 && (self.color_map.is_some() || !self.unlit))
+        {
+            return Err("invalid primitive material".into());
+        }
+        if self.alpha_mode > 2
+            || !self.opacity.is_finite()
+            || !(0.0..=1.0).contains(&self.opacity)
+            || !self.alpha_cutoff.is_finite()
+            || self.alpha_cutoff < 0.
+        {
+            return Err("invalid alpha mode, opacity or cutoff".into());
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, PartialEq, Deserialize)]
@@ -106,9 +243,23 @@ pub struct SceneTexture {
     pub height: u32,
     pub format: u32,
     pub levels: Vec<Vec<u8>>,
+    #[serde(default)]
+    pub mip_generation: u32,
 }
 impl SceneTexture {
+    pub fn mip_count(&self) -> u32 {
+        if self.mip_generation == 0 {
+            self.levels.len() as u32
+        } else {
+            32 - self.width.max(self.height).leading_zeros()
+        }
+    }
     pub fn byte_length(&self) -> usize {
+        (0..self.mip_count())
+            .map(|m| (self.width >> m).max(1) as usize * (self.height >> m).max(1) as usize * 4)
+            .sum()
+    }
+    pub fn upload_byte_length(&self) -> usize {
         self.levels.iter().map(Vec::len).sum()
     }
     pub fn validate(&self) -> Result<(), String> {
@@ -117,6 +268,8 @@ impl SceneTexture {
             || self.width > 4096
             || self.height > 4096
             || self.format > 1
+            || self.mip_generation > 2
+            || (self.mip_generation != 0 && self.levels.len() != 1)
             || self.levels.is_empty()
             || self.levels.len() > (32 - self.width.max(self.height).leading_zeros()) as usize
         {
@@ -150,6 +303,8 @@ pub struct Frame {
     pub textures: Vec<SceneTexture>,
     #[serde(skip)]
     pub binary: Option<crate::scene_packet::ViewState>,
+    #[serde(skip)]
+    pub geometry_patches: Vec<GeometryPatch>,
 }
 
 impl Frame {
@@ -187,6 +342,7 @@ impl Frame {
             return Err("geometry upload exceeds the per-frame budget".into());
         }
         for mesh in &self.meshes {
+            mesh.validate_material()?;
             if !cached.contains(&mesh.geometry) && !added.contains(&mesh.geometry) {
                 return Err("mesh refers to a missing geometry".into());
             }

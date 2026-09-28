@@ -1,3 +1,5 @@
+pub mod image_decode;
+mod mipmap;
 pub mod registry;
 mod runtime;
 pub mod upload;

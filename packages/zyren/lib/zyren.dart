@@ -1,6 +1,8 @@
 library;
 
-export 'src/geometry/geometry.dart';
+export 'src/geometry/geometry.dart' hide watchGeometry;
+export 'src/geometry/vertex_attribute.dart';
+export 'src/geometry/vertex_layout.dart';
 export 'src/scene/scene.dart';
 export 'src/spatial/raycaster.dart';
 export 'src/plugins/engine.dart';
@@ -26,8 +28,20 @@ export 'src/rendering/scene_issue.dart';
 export 'src/plugins/attachment_scope.dart';
 export 'src/assets/load_task.dart';
 export 'src/assets/asset_scope.dart';
+export 'src/assets/asset_request.dart';
+export 'src/assets/source_resolver.dart' hide UnavailableSourceResolver;
+export 'src/assets/load_cancellation.dart' show LoadCancellation;
+export 'src/assets/image_decoder.dart';
+export 'src/rendering/frame_output.dart'
+    show ImageData, PhysicalSize, PixelFormat, ColorSpace, AlphaMode;
 
 export 'src/resources/buffer.dart';
 export 'src/resources/texture.dart';
 export 'src/resources/texture_image.dart';
-export 'src/resources/resource_scope.dart' hide ResourceDevice;
+export 'src/resources/resource_scope.dart'
+    hide
+        ResourceDevice,
+        ShaderDevice,
+        ShaderBuild,
+        GraphDevice,
+        GraphDeviceDescription;

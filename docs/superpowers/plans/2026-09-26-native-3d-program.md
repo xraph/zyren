@@ -187,10 +187,12 @@ M1 has opt-in Metal and Android Vulkan view presentation, with broader platform
 qualification still open. M2 now has explicit scoped buffer/texture allocation
 and binary transfers, tested on macOS Metal and physical Android Vulkan. Scene
 geometry now uses the same registry with binary transfers and changed mesh
-records. Shared readback views pass lifetime and upload-reuse checks on Metal;
-the Vulkan scene rerun needs the disconnected Pixel. Public native presenters
-still own separate devices. Material bindings, glTF and the graph/shader API
-remain open.
+records. Shared readback views pass lifetime and upload-reuse checks on Metal
+and the physical Pixel's Vulkan backend. Textures, bounded PNG/JPEG decoding,
+generated mips, dynamic geometry, alpha/depth state and object ordering now use
+the native registry. Portable lines/points add physical pixel and world sizes.
+Public native presenters still own separate devices. glTF, PBR and the public
+graph/shader API remain open, along with the rest of the program's later tasks.
 See the [resource checkpoint](../../design/gpu-resources.md) for its limits.
 
 The four subsystem plans contain 25 task groups and explicit verification steps.

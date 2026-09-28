@@ -9,14 +9,9 @@ use glam::Mat4;
 use wgpu::util::DeviceExt;
 
 use crate::scene::{Frame, pixel_len};
+mod draw_order;
+mod pipelines;
 mod textures;
-
-#[repr(C)]
-#[derive(Clone, Copy, Pod, Zeroable)]
-struct Vertex {
-    position: [f32; 3],
-    normal: [f32; 3],
-}
 
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
@@ -26,11 +21,16 @@ struct Uniforms {
     color_unlit: [f32; 4],
     light_ambient: [f32; 4],
     map_params: [f32; 4],
+    view_projection: [f32; 16],
+    model: [f32; 16],
+    primitive: [f32; 4],
+    viewport: [f32; 4],
 }
 
 struct GpuGeometry {
     key: crate::resources::registry::ResourceKey,
     recipe: std::sync::Arc<crate::scene::Geometry>,
+    center: glam::Vec3,
 }
 struct Targets {
     width: u32,
@@ -80,14 +80,9 @@ pub struct RendererState {
     pub(crate) android: Option<crate::interop::android::AndroidTarget>,
     #[cfg(target_os = "android")]
     pub(crate) android_generation: u64,
-    pipeline: wgpu::RenderPipeline,
-    textured_pipeline: wgpu::RenderPipeline,
+    pipelines: pipelines::MeshPipelines,
     texture_layout: wgpu::BindGroupLayout,
     textures: HashMap<u32, textures::GpuSceneTexture>,
-    #[cfg(any(target_vendor = "apple", target_os = "android"))]
-    surface_pipeline: wgpu::RenderPipeline,
-    #[cfg(any(target_vendor = "apple", target_os = "android"))]
-    textured_surface_pipeline: wgpu::RenderPipeline,
     #[cfg(any(target_vendor = "apple", target_os = "android"))]
     surface_depth: Option<DepthTarget>,
     #[cfg(any(target_vendor = "apple", target_os = "android"))]
@@ -99,6 +94,8 @@ pub struct RendererState {
     layout: wgpu::BindGroupLayout,
     geometries: HashMap<u32, GpuGeometry>,
     resources: crate::resources::ResourceStore,
+    shaders: crate::shaders::ShaderStore,
+    graphs: crate::render_graph::GraphStore,
     views: HashMap<u64, crate::scene_packet::ViewState>,
     targets: Option<Targets>,
     pub adapter_name: String,
@@ -167,10 +164,6 @@ impl Renderer {
             })
             .await
             .map_err(|e| format!("device creation failed: {e}"))?;
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("native opaque mesh"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("mesh.wgsl").into()),
-        });
         let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: None,
             entries: &[wgpu::BindGroupLayoutEntry {
@@ -184,77 +177,8 @@ impl Renderer {
                 count: None,
             }],
         });
-        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: None,
-            bind_group_layouts: &[Some(&layout)],
-            ..Default::default()
-        });
         let texture_layout = textures::layout(&device);
-        let textured_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("textured meshes"),
-            bind_group_layouts: &[Some(&layout), Some(&texture_layout)],
-            ..Default::default()
-        });
-        let create_pipeline = |format, textured| {
-            let attributes = wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3];
-            let uv_attributes = wgpu::vertex_attr_array![2 => Float32x2, 3 => Float32x2];
-            let mut buffers = vec![Some(wgpu::VertexBufferLayout {
-                array_stride: 24,
-                step_mode: wgpu::VertexStepMode::Vertex,
-                attributes: &attributes,
-            })];
-            if textured {
-                buffers.push(Some(wgpu::VertexBufferLayout {
-                    array_stride: 16,
-                    step_mode: wgpu::VertexStepMode::Vertex,
-                    attributes: &uv_attributes,
-                }));
-            }
-            device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-                label: Some("opaque meshes"),
-                layout: Some(if textured {
-                    &textured_layout
-                } else {
-                    &pipeline_layout
-                }),
-                vertex: wgpu::VertexState {
-                    module: &shader,
-                    entry_point: Some(if textured { "vs_textured" } else { "vs_main" }),
-                    compilation_options: Default::default(),
-                    buffers: &buffers,
-                },
-                fragment: Some(wgpu::FragmentState {
-                    module: &shader,
-                    entry_point: Some(if textured { "fs_textured" } else { "fs_main" }),
-                    compilation_options: Default::default(),
-                    targets: &[Some(wgpu::ColorTargetState {
-                        format,
-                        blend: None,
-                        write_mask: wgpu::ColorWrites::ALL,
-                    })],
-                }),
-                primitive: wgpu::PrimitiveState {
-                    cull_mode: None,
-                    ..Default::default()
-                },
-                depth_stencil: Some(wgpu::DepthStencilState {
-                    format: wgpu::TextureFormat::Depth32Float,
-                    depth_write_enabled: Some(true),
-                    depth_compare: Some(wgpu::CompareFunction::Less),
-                    stencil: Default::default(),
-                    bias: Default::default(),
-                }),
-                multisample: Default::default(),
-                multiview_mask: None,
-                cache: None,
-            })
-        };
-        let pipeline = create_pipeline(wgpu::TextureFormat::Rgba8UnormSrgb, false);
-        let textured_pipeline = create_pipeline(wgpu::TextureFormat::Rgba8UnormSrgb, true);
-        #[cfg(any(target_vendor = "apple", target_os = "android"))]
-        let surface_pipeline = create_pipeline(wgpu::TextureFormat::Bgra8UnormSrgb, false);
-        #[cfg(any(target_vendor = "apple", target_os = "android"))]
-        let textured_surface_pipeline = create_pipeline(wgpu::TextureFormat::Bgra8UnormSrgb, true);
+        let pipelines = pipelines::MeshPipelines::new(&device, &layout, &texture_layout);
         Ok(Self {
             state: Some(Box::new(RendererState {
                 device,
@@ -267,14 +191,9 @@ impl Renderer {
                 android: None,
                 #[cfg(target_os = "android")]
                 android_generation: 0,
-                pipeline,
-                textured_pipeline,
+                pipelines,
                 texture_layout,
                 textures: HashMap::new(),
-                #[cfg(any(target_vendor = "apple", target_os = "android"))]
-                surface_pipeline,
-                #[cfg(any(target_vendor = "apple", target_os = "android"))]
-                textured_surface_pipeline,
                 #[cfg(any(target_vendor = "apple", target_os = "android"))]
                 surface_depth: None,
                 #[cfg(any(target_vendor = "apple", target_os = "android"))]
@@ -286,6 +205,8 @@ impl Renderer {
                 layout,
                 geometries: HashMap::new(),
                 resources: crate::resources::ResourceStore::default(),
+                shaders: crate::shaders::ShaderStore::default(),
+                graphs: crate::render_graph::GraphStore::default(),
                 views: HashMap::new(),
                 targets: None,
                 adapter_name: info.name,
@@ -322,6 +243,28 @@ impl Renderer {
             state.failure = Some("GPU resource command failed; recreate this renderer".into());
         }
         result
+    }
+
+    pub fn shader_command(&mut self, bytes: &[u8], capacity: usize) -> Result<Vec<u8>, String> {
+        let state = self.state.as_mut().unwrap();
+        state
+            .shaders
+            .execute(&state.device, bytes, capacity, &mut state.failure)
+    }
+
+    pub fn graph_command(&mut self, bytes: &[u8], capacity: usize) -> Result<Vec<u8>, String> {
+        let state = self.state.as_mut().unwrap();
+        state.graphs.command(
+            crate::render_graph::GraphContext {
+                device: &state.device,
+                queue: &state.queue,
+                resources: &mut state.resources,
+                shaders: &mut state.shaders,
+                failure: &mut state.failure,
+            },
+            bytes,
+            capacity,
+        )
     }
 
     fn resize(&mut self, width: u32, height: u32) {
@@ -385,7 +328,20 @@ impl Renderer {
         if bytes.starts_with(&2_u32.to_le_bytes()) {
             let packet = crate::scene_packet::ScenePacket::decode(bytes)?;
             let previous = self.views.get(&packet.view());
-            packet.resolve(previous)
+            let mut frame = packet.resolve(previous)?;
+            let mut bytes: usize = frame.geometries.iter().map(|g| g.cpu_byte_length()).sum();
+            for patch in &frame.geometry_patches {
+                let base = self
+                    .geometries
+                    .get(&patch.base)
+                    .ok_or("geometry patch base is not resident")?;
+                bytes = bytes
+                    .checked_add(base.recipe.cpu_byte_length())
+                    .filter(|n| *n <= 64 * 1024 * 1024)
+                    .ok_or("geometry patch CPU budget exceeded")?;
+                frame.geometries.push(patch.apply(&base.recipe)?);
+            }
+            Ok(frame)
         } else {
             serde_json::from_slice(bytes).map_err(|error| format!("invalid scene: {error}"))
         }
@@ -458,11 +414,53 @@ impl Renderer {
             }
         }
         frame.validate(&cached)?;
+        for mesh in &frame.meshes {
+            let geometry = frame
+                .geometries
+                .iter()
+                .find(|g| g.id == mesh.geometry)
+                .or_else(|| {
+                    self.geometries
+                        .get(&mesh.geometry)
+                        .map(|g| g.recipe.as_ref())
+                })
+                .ok_or("missing primitive geometry")?;
+            let kind = match geometry.topology {
+                0 => 0,
+                1 | 2 => 1,
+                _ => 2,
+            };
+            if kind != mesh.primitive_kind {
+                return Err("material and geometry topology mismatch".into());
+            }
+        }
         let (texture_bytes, texture_count) = self.validate_textures(frame)?;
+        let reusable: HashMap<u32, u32> = frame
+            .geometry_patches
+            .iter()
+            .filter(|patch| {
+                !self.geometries.contains_key(&patch.id)
+                    && frame
+                        .geometry_patches
+                        .iter()
+                        .filter(|p| p.base == patch.base)
+                        .count()
+                        == 1
+                    && frame
+                        .binary
+                        .as_ref()
+                        .is_some_and(|v| !v.retained.contains(&patch.base))
+                    && !self
+                        .views
+                        .iter()
+                        .any(|(id, v)| *id != view && v.retained.contains(&patch.base))
+            })
+            .map(|p| (p.id, p.base))
+            .collect();
         let bytes: usize = frame
             .geometries
             .iter()
-            .filter(|g| !self.geometries.contains_key(&g.id))
+            .filter(|g| !self.geometries.contains_key(&g.id) && !reusable.contains_key(&g.id))
             .map(|g| g.byte_length())
             .sum();
         self.resources
@@ -471,7 +469,9 @@ impl Renderer {
                 frame
                     .geometries
                     .iter()
-                    .filter(|g| !self.geometries.contains_key(&g.id))
+                    .filter(|g| {
+                        !self.geometries.contains_key(&g.id) && !reusable.contains_key(&g.id)
+                    })
                     .count()
                     + texture_count,
             )
@@ -480,18 +480,33 @@ impl Renderer {
         for geometry in &frame.geometries {
             if !self.geometries.contains_key(&geometry.id) {
                 let state = self.state.as_mut().unwrap();
-                let key = state
-                    .resources
-                    .insert_geometry(&state.device, geometry)
-                    .map_err(|e| {
-                        state.failure = Some(e.to_string());
-                        e.to_string()
-                    })?;
+                let patch = frame.geometry_patches.iter().find(|p| p.id == geometry.id);
+                let result = if let Some(patch) = patch {
+                    let base_key = state.geometries[&patch.base].key;
+                    state.resources.patch_geometry(
+                        &state.device,
+                        &state.queue,
+                        base_key,
+                        geometry,
+                        patch,
+                        reusable.contains_key(&geometry.id),
+                    )
+                } else {
+                    state.resources.insert_geometry(&state.device, geometry)
+                };
+                let key = result.map_err(|e| {
+                    state.failure = Some(e.to_string());
+                    e.to_string()
+                })?;
+                if let Some(base) = reusable.get(&geometry.id) {
+                    state.geometries.remove(base);
+                }
                 state.geometries.insert(
                     geometry.id,
                     GpuGeometry {
                         key,
                         recipe: std::sync::Arc::new(geometry.clone()),
+                        center: draw_order::geometry_center(geometry),
                     },
                 );
             }
@@ -515,13 +530,27 @@ impl Renderer {
         self.evict_geometry()
     }
 
+    fn prepare_pipelines(
+        &mut self,
+        frame: &Frame,
+        format: wgpu::TextureFormat,
+    ) -> Result<(), String> {
+        let state = self.state.as_mut().unwrap();
+        state
+            .pipelines
+            .prepare(&state.device, frame, format)
+            .inspect_err(|error| {
+                state.failure = Some(error.clone());
+            })
+    }
+
     fn encode_scene(
         &self,
         frame: &Frame,
         color_view: &wgpu::TextureView,
         depth_view: &wgpu::TextureView,
-        pipeline: &wgpu::RenderPipeline,
-        textured_pipeline: &wgpu::RenderPipeline,
+        format: wgpu::TextureFormat,
+        size: [u32; 2],
     ) -> wgpu::CommandEncoder {
         let vp = Mat4::from_cols_array(&frame.view_projection);
         let bindings: Vec<_> = frame
@@ -544,11 +573,20 @@ impl Renderer {
                         frame.light_direction[2],
                         frame.ambient,
                     ],
+                    view_projection: frame.view_projection,
+                    model: mesh.model,
+                    primitive: [
+                        mesh.primitive_size,
+                        mesh.size_units as f32,
+                        mesh.point_shape as f32,
+                        0.,
+                    ],
+                    viewport: [size[0] as f32, size[1] as f32, 0., 0.],
                     map_params: [
                         mesh.color_map.as_ref().map_or(0., |map| map.uv_set as f32),
-                        0.,
-                        0.,
-                        0.,
+                        mesh.opacity,
+                        mesh.alpha_cutoff,
+                        mesh.alpha_mode as f32,
                     ],
                 };
                 let buffer = self
@@ -601,23 +639,24 @@ impl Renderer {
                 }),
                 ..Default::default()
             });
-            for ((mesh, binding), texture_binding) in
-                frame.meshes.iter().zip(&bindings).zip(&texture_bindings)
-            {
+            for index in draw_order::sorted(frame, |id| self.geometries[&id].center) {
+                let mesh = &frame.meshes[index];
+                let binding = &bindings[index];
+                let texture_binding = &texture_bindings[index];
                 let geometry = &self.geometries[&mesh.geometry];
-                pass.set_pipeline(if texture_binding.is_some() {
-                    textured_pipeline
-                } else {
-                    pipeline
-                });
+                pass.set_pipeline(
+                    self.pipelines
+                        .get(pipelines::PipelineKey::new(format, mesh)),
+                );
                 pass.set_bind_group(0, binding, &[]);
-                let (vertices, indices, count, uv) = self.resources.geometry(geometry.key);
+                let (vertices, indices, count, uv, index_format) =
+                    self.resources.geometry(geometry.key);
                 pass.set_vertex_buffer(0, vertices.slice(..));
                 if let Some(binding) = texture_binding {
                     pass.set_vertex_buffer(1, uv.expect("validated UV buffer").slice(..));
                     pass.set_bind_group(1, binding, &[]);
                 }
-                pass.set_index_buffer(indices.slice(..), wgpu::IndexFormat::Uint32);
+                pass.set_index_buffer(indices.slice(..), index_format);
                 pass.draw_indexed(0..count, 0, 0..1);
             }
         }
@@ -716,20 +755,13 @@ impl Renderer {
                 _texture: depth,
             });
         }
+        self.prepare_pipelines(frame, texture.format())?;
         let encoder = self.encode_scene(
             frame,
             &texture.create_view(&Default::default()),
             &self.surface_depth.as_ref().unwrap().view,
-            if texture.format() == wgpu::TextureFormat::Rgba8UnormSrgb {
-                &self.pipeline
-            } else {
-                &self.surface_pipeline
-            },
-            if texture.format() == wgpu::TextureFormat::Rgba8UnormSrgb {
-                &self.textured_pipeline
-            } else {
-                &self.textured_surface_pipeline
-            },
+            texture.format(),
+            [texture.width(), texture.height()],
         );
         let result = self
             .submit(encoder)
@@ -746,13 +778,14 @@ impl Renderer {
         let len = pixel_len(width, height)?;
         self.prepare_scene(frame)?;
         self.resize(width, height);
+        self.prepare_pipelines(frame, wgpu::TextureFormat::Rgba8UnormSrgb)?;
         let target = self.targets.as_ref().unwrap();
         let mut encoder = self.encode_scene(
             frame,
             &target.color_view,
             &target.depth_view,
-            &self.pipeline,
-            &self.textured_pipeline,
+            wgpu::TextureFormat::Rgba8UnormSrgb,
+            [width, height],
         );
         encoder.copy_texture_to_buffer(
             target.color.as_image_copy(),

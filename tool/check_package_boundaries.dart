@@ -10,6 +10,7 @@ void main(List<String> args) {
     'zyren_devtools': {'zyren'},
     'zyren_timeline': {'zyren'},
     'zyren_engineering': {'zyren'},
+    'zyren_gltf': {'zyren'},
   };
   final directive = RegExp(
     r'''^\s*(?:import|export)\s+['"]([^'"]+)['"]''',

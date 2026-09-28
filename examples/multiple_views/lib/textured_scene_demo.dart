@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_zyren/flutter_zyren.dart';
 
 void main() => runApp(
@@ -14,9 +15,11 @@ void main() => runApp(
 class TexturedSceneApp extends StatelessWidget {
   final SceneRuntime runtime;
   final PresentationPolicy presentation;
+  final ImageDecoder decoder;
   const TexturedSceneApp({
     super.key,
     required this.runtime,
+    this.decoder = const NativeImageDecoder(),
     this.presentation = PresentationPolicy.requireNative,
   });
   @override
@@ -25,15 +28,35 @@ class TexturedSceneApp extends StatelessWidget {
     theme: ThemeData.dark(useMaterial3: true).copyWith(
       scaffoldBackgroundColor: const Color(0xff111823),
       visualDensity: VisualDensity.compact,
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          minimumSize: const Size(0, 36),
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+        ),
+      ),
     ),
-    home: _TextureScene(runtime: runtime, presentation: presentation),
+    home: _TextureScene(
+      runtime: runtime,
+      presentation: presentation,
+      decoder: decoder,
+    ),
   );
 }
 
 class _TextureScene extends StatefulWidget {
   final SceneRuntime runtime;
   final PresentationPolicy presentation;
-  const _TextureScene({required this.runtime, required this.presentation});
+  final ImageDecoder decoder;
+  const _TextureScene({
+    required this.runtime,
+    required this.presentation,
+    required this.decoder,
+  });
   @override
   State<_TextureScene> createState() => _TextureSceneState();
 }
@@ -41,9 +64,13 @@ class _TextureScene extends StatefulWidget {
 class _TextureSceneState extends State<_TextureScene> {
   late final SceneController controller;
   late final Mesh mesh;
-  final image = TextureImage.rgba(
+  late final GeometrySnapshot original;
+  bool deformed = false, mipmaps = true, denseUv = false;
+  double uvOffset = 0;
+  var image = TextureImage.rgba(
     width: 2,
     height: 2,
+    generateMipmaps: true,
     pixels: Uint8List.fromList([
       255,
       64,
@@ -63,6 +90,39 @@ class _TextureSceneState extends State<_TextureScene> {
       255,
     ]),
   );
+  String source = 'RGBA';
+  String? loading, error;
+
+  Future<void> load(String format) async {
+    if (loading != null) return;
+    setState(() {
+      loading = format;
+      error = null;
+    });
+    try {
+      final asset = format == 'PNG' ? 'corners.png' : 'gray.jpg';
+      final bytes = await rootBundle.load('assets/images/$asset');
+      final decoded = await widget.decoder.decode(Uint8List.sublistView(bytes));
+      if (!mounted) return;
+      setState(() {
+        image = TextureImage.fromImage(decoded, generateMipmaps: mipmaps);
+        source = format;
+        mesh.material = material();
+      });
+    } catch (failure) {
+      if (!mounted) return;
+      setState(() {
+        error = '$format failed: $failure. Tap $format to retry.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          loading = null;
+        });
+      }
+    }
+  }
+
   var filter = TextureFilter.nearest;
   var wrap = TextureWrap.repeat;
 
@@ -90,6 +150,8 @@ class _TextureSceneState extends State<_TextureScene> {
     mesh = controller.scene.add(
       Mesh(
         BufferGeometry(
+          dynamic: true,
+          indexFormat: IndexFormat.uint16,
           positions: [-1, -1, 0, 1, -1, 0, 1, 1, 0, -1, 1, 0],
           normals: [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1],
           indices: [0, 1, 2, 0, 2, 3],
@@ -98,7 +160,58 @@ class _TextureSceneState extends State<_TextureScene> {
         material(),
       ),
     )..rotateY(.25);
+    original = mesh.geometry.capture();
   }
+
+  void deform() => setState(() {
+    deformed = !deformed;
+    mesh.geometry.updateAttribute(
+      VertexSemantic.position,
+      Float32List.fromList([deformed ? .4 : 1, 1, 0]),
+      firstVertex: 2,
+    );
+  });
+
+  void toggleMipmaps() => setState(() {
+    mipmaps = !mipmaps;
+    image = TextureImage.rgba(
+      width: image.descriptor.width,
+      height: image.descriptor.height,
+      pixels: image.levels.first,
+      format: image.descriptor.format,
+      generateMipmaps: mipmaps,
+    );
+    mesh.material = material();
+  });
+
+  void shiftUv() => setState(() {
+    uvOffset = (uvOffset + .25) % 2;
+    updateUv();
+  });
+
+  void updateUv() {
+    mesh.geometry.updateAttribute(
+      VertexSemantic.uv0,
+      Float32List.fromList([
+        for (var i = 0; i < original.uv0!.length; i++)
+          original.uv0![i] * (denseUv ? 128 : 1) + (i.isEven ? uvOffset : 0),
+      ]),
+    );
+  }
+
+  void reset() => setState(() {
+    deformed = false;
+    denseUv = false;
+    uvOffset = 0;
+    mesh.geometry.updateAttribute(
+      VertexSemantic.position,
+      Float32List.fromList(original.positions),
+    );
+    mesh.geometry.updateAttribute(
+      VertexSemantic.uv0,
+      Float32List.fromList(original.uv0!),
+    );
+  });
 
   @override
   void dispose() {
@@ -114,8 +227,10 @@ class _TextureSceneState extends State<_TextureScene> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text('Native textures', style: TextStyle(fontSize: 22)),
-            const Text('2 × 2 sRGB image · UV repeat × 2 · opaque color'),
+            const Text('Native mesh', style: TextStyle(fontSize: 22)),
+            Text(
+              '$source ${image.descriptor.width}×${image.descriptor.height} · ${image.descriptor.mipLevels} mips',
+            ),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -123,6 +238,7 @@ class _TextureSceneState extends State<_TextureScene> {
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 SegmentedButton<TextureFilter>(
+                  showSelectedIcon: false,
                   segments: const [
                     ButtonSegment(
                       value: TextureFilter.nearest,
@@ -140,6 +256,7 @@ class _TextureSceneState extends State<_TextureScene> {
                   }),
                 ),
                 SegmentedButton<TextureWrap>(
+                  showSelectedIcon: false,
                   segments: const [
                     ButtonSegment(
                       value: TextureWrap.repeat,
@@ -162,11 +279,33 @@ class _TextureSceneState extends State<_TextureScene> {
                 ),
                 OutlinedButton(
                   onPressed: () => mesh.rotateY(.2),
-                  child: const Text('Turn plane'),
+                  child: const Text('Turn'),
                 ),
+                TextButton(onPressed: deform, child: const Text('Deform')),
+                TextButton(onPressed: reset, child: const Text('Reset')),
+                TextButton(onPressed: shiftUv, child: const Text('Shift UV')),
+                TextButton(
+                  onPressed: toggleMipmaps,
+                  child: Text(mipmaps ? 'Mips on' : 'Mips off'),
+                ),
+                TextButton(
+                  onPressed: () => setState(() {
+                    denseUv = !denseUv;
+                    updateUv();
+                  }),
+                  child: Text(denseUv ? 'Wide UV' : 'Dense UV'),
+                ),
+                for (final format in ['PNG', 'JPEG'])
+                  TextButton(
+                    onPressed: loading == null ? () => load(format) : null,
+                    child: Text(format),
+                  ),
+                if (loading != null) Text('Decoding $loading…'),
               ],
             ),
-            const SizedBox(height: 8),
+            if (error != null)
+              Text(error!, style: const TextStyle(color: Colors.orange)),
+            const SizedBox(height: 4),
             Expanded(child: SceneView(controller: controller)),
           ],
         ),

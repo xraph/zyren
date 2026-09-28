@@ -515,3 +515,382 @@ The Android runner emitted a cleanup warning for the earlier
 `dev.zyren.multiple_views` test identity. Device inspection confirmed that this
 obsolete package was absent and the original `dev.gpu3d.multiple_views`
 application remained installed. No further uninstall was needed.
+
+
+## Dynamic geometry checkpoint
+
+Fixed typed layouts and position, normal and UV range updates pass 63 core tests,
+8 geospatial tests, 21 native Dart tests with GPU execution, 59 Flutter/example
+tests and 50 Rust tests including GPU cases. The AOT encoder regression covers
+an accepted dynamic update followed by a frame with no geometry upload. Analysis,
+strict Clippy, formatting and package/header boundary checks pass.
+
+Native integration passes on macOS Metal and the physical Pixel 9 Pro's Vulkan
+backend. Two views retain different captures of one geometry; closing the old
+owner retires its version. An exclusive position/normal edit to the same vertex
+uploads 24 bytes and retains one allocation. Changed UV rows produce the expected
+red-to-green pixels. Removing the final mesh returns resident bytes to zero.
+Malformed patch ranges, every packet truncation and reproducible packet mutations
+are rejected. Rejected patches preserve prior pixels, ownership and revisions.
+
+The float32 vertex contract required a 1e-7 ellipsoid normal tolerance. Geodetic
+round-trip and local-frame precision tests still use their stricter float64
+bounds. Example tests run from their owning package so Flutter bundles the image
+fixtures; CI uses the same commands.
+
+The macOS release demo was rebuilt and inspected through its native controls.
+Deform changes the visible shape, Shift UV moves its texture coordinates, and
+PNG and JPEG decode into that same edited mesh. Desktop and narrow native
+windows were inspected. The demo uses direct native Metal presentation.
+macOS release (49.1 MB) and Android ARM64 release (21.7 MB) builds pass. Task 2 remains open for index widths, automatic mips, alpha modes,
+ordering and portable lines/points. Native material shaders still reject tangent,
+color, joints and weights. This checkpoint adds no iOS, Windows, Linux or Adreno
+qualification and makes no Three.js or Takram parity claim.
+
+## Compact index buffers
+
+Explicit uint16/uint32 geometry passes 66 core tests, 8 geospatial tests, 23 native
+Dart tests with GPU execution, 59 Flutter/example tests and 52 Rust tests including
+GPU cases. The compact triangle regression places the next record after six
+index bytes, checks actual pixel output and keeps an older shared version alive
+after a dynamic edit. Input above 65,535 is rejected for uint16 and preserved for
+uint32. No index conversion truncates values.
+
+The compact plane passes the same Metal and physical Pixel Vulkan integration:
+shared copies preserve pixels, merged dirty rows upload 24 bytes and final removal
+releases all descriptor bytes. AOT encoding, malformed packets, truncation,
+seeded mutations, analysis, Clippy, formatting and package/header boundaries pass.
+The demo opts into uint16; existing callers retain the uint32 default. CPU patch
+admission uses expanded recipe bytes independently of GPU index width.
+
+The compact-index release demo builds for macOS (49.1 MB) and Android ARM64
+(21.7 MB). Native macOS inspection confirms both the initial textured plane and
+its deformed, UV-shifted version at narrow width. The new binaries use the same
+public entrypoint. Android release launches successfully; sustained visual
+interaction remains unverified. Its focused Vulkan GPU tests passed.
+
+
+## Generated mipmaps
+
+Automatic scene mipmaps and explicit `ResourceScope.generateMipmaps` pass 69 core,
+8 geospatial, 25 native Dart GPU, 59 Flutter/example and 55 Rust tests including
+GPU cases. AOT scene encoding combines generated levels with uint16 indices.
+Analysis, strict Clippy, formatting and package/header boundary checks pass.
+
+The same GPU fixtures run on macOS Metal and the physical Pixel's Vulkan backend.
+A black/white sRGB image reduces to approximately 188, independent RGBA preserves
+hidden colors, alpha-weighted RGB excludes them, and odd extents retain the last
+row and column. Tests cover 1-by-N and single-level textures, regeneration,
+shared ownership, cleanup and byte accounting. Invalid policies, usage, stale
+keys, packet truncation and oversized generated chains are rejected before
+mutation. Generated pixels do not count as uploaded bytes.
+
+The native demo builds for macOS (49.2 MB) and Android ARM64 (21.7 MB). Metal UI
+inspection confirms the Dense UV and Mips controls change the rendered texture.
+Desktop and narrow layouts were checked; the 320-pixel widget test retains more
+than 320 pixels of canvas height. Android GPU integration passed and the release
+app launches on the Pixel. Sustained manual interaction with its release
+presentation remains unverified.
+
+This checkpoint generates RGBA8 linear and sRGB mip chains. Materials still
+render opaquely; mask/blend modes, alpha coverage preservation, ordering and
+portable lines/points remain open. It adds no iOS, Windows, Linux or Adreno
+qualification and does not establish Three.js or Takram parity.
+
+## Material alpha and draw ordering
+
+Opaque, mask and blend modes pass 71 core, 8 geospatial, 26 native Dart GPU,
+60 Flutter/example and 58 Rust tests including GPU cases. AOT encoding exercises
+alpha state together with generated mipmaps and compact indices. Analysis,
+strict Clippy, formatting and package/header boundary checks pass.
+
+The same material fixture passes through Flutter on Metal and the physical
+Pixel's Vulkan backend. Pixel probes cover source-over blending in linear light,
+texture alpha multiplied by opacity, cutoff equality, opaque alpha, lit
+materials, automatic depth writes and explicit depth overrides. Camera movement,
+render order and dynamic geometry centers change draw order without reuploading
+unchanged resources. Final removal releases all resident bytes. Invalid material
+records, every packet truncation and seeded mutations preserve the prior scene;
+older packet formats restore their opaque defaults.
+
+The material demo builds for macOS (49.5 MB) and Android ARM64 (21.9 MB). Native
+Metal inspection confirms that Mask, Blend and Depth order change the overlapping
+planes at desktop and narrow widths. The 320-pixel layout test keeps more than
+300 pixels of canvas height. The Android release launches on the Pixel; sustained
+manual interaction with that release remains unverified.
+
+The canvas remains opaque. Transparent Flutter composition needs its own output
+color-conversion path, and object sorting cannot resolve intersecting transparent
+triangles. Portable lines/points are the next Task 2 work. This checkpoint adds no
+iOS, Windows, Linux or Adreno qualification and makes no parity claim.
+
+## Portable lines and points
+
+Line strips, independent segment pairs and point markers pass 73 core,
+8 geospatial, 27 native Dart GPU, 61 Flutter/example and 61 Rust tests including
+GPU cases. AOT encoding combines primitive and triangle records, then changes
+point size without a geometry upload. Analysis, strict Clippy, formatting and
+package/header boundaries pass.
+
+Flutter integration passes two checks on each of Metal and the physical Pixel's
+Vulkan backend: deterministic pixel tests and direct native presentation. The
+pixel tests cover constant physical widths at different distances and aspect
+ratios, world-size attenuation, point shapes, blending, segment pairs, degenerate
+segments and near-plane clipping. Native views report zero readback bytes, and
+camera, shape and size edits report zero uploaded geometry bytes.
+
+Shared views retain one allocation until a dynamic position edit creates a new
+recipe. The older capture keeps its pixels, closing its owner releases that
+version, and final removal returns resident bytes to zero. Protocol tests cover
+topology and size validation, expanded allocation limits, truncation and seeded
+mutations. Invalid material/geometry pairs preserve prior pixels and ownership.
+
+The release demo builds for macOS (49.5 MB) and Android ARM64 (21.9 MB). Native
+Metal inspection checks Pixels/World, camera distance and circle/square markers
+at desktop and narrow widths. The 320-pixel widget test retains more than 300
+pixels of canvas height. Android release launch is checked separately; sustained
+manual interaction remains unverified.
+
+Lines currently use independent segment quads with butt ends. Joins, configurable
+caps, dashes, textured sprites and antialiased edge coverage remain open. Object
+alpha sorting does not reorder individual points or segments. Built-in box/sphere
+UVs are next, before the final Task 2 audit and asset loading. This checkpoint adds
+no iOS, Windows, Linux or Adreno qualification.
+
+## Built-in texture coordinates
+
+Box and sphere UVs pass 75 core, 8 geospatial and 28 native Dart GPU tests.
+The same texture fixture passes through Flutter on Metal and the physical
+Pixel's Vulkan backend. Six box faces preserve their expected image orientation;
+four sphere quadrants sample the expected north/south colors. CPU tests cover
+exact seam positions, pole UV midpoints and dynamic UV edits. Analysis,
+formatting and package/header boundary checks pass.
+
+The three existing resource integrations also pass on both devices. A uint32
+box now uploads 1,104 geometry bytes, including its UV buffer. The native
+shared-view example confirms that another view and device restoration reuse
+the allocation, then final removal returns geometry residency to zero. Camera
+changes in the new texture fixture upload no additional bytes.
+
+This checkpoint changes geometry recipes and their allocation accounting. It
+adds no renderer backend or platform qualification. Task 2's opaque native
+presentation is unchanged; transparent Flutter composition remains tracked in
+Task 4. Typed asset loading and glTF are next.
+
+## Shared typed asset loading
+
+Typed requests and scoped load ownership pass 93 core, 8 geospatial, 35 native
+Dart and 66 Flutter/example tests. The native suite includes its GPU cases.
+Analysis, formatting and package/header boundaries pass. Tests cover shared
+fetch/decode, immediate and final-consumer cancellation, retry, late decoded
+ownership, independent result release, reentrant disposal and cleanup failures.
+
+Local HTTP fixtures check manual redirects, effective base URIs, forbidden
+origins, unknown response lengths, gzip expansion, byte limits, cancellation,
+HTTP errors and deadlines. File reads and Flutter bundle offsets/keys have their
+own fixtures. Concurrent dependency and image tests check aggregate admission;
+plain controller tests confirm that CPU loading starts no GPU backend.
+
+The bundle-loading integration passes on Metal and the physical Pixel's Vulkan
+backend. Two consumers share one fetch and one native PNG decode, then receive
+separate templates over shared geometry and pixels. Releasing the templates
+prevents new instances while existing meshes keep rendering. Both views upload
+200 bytes together, surviving instances upload zero more, and final removal
+returns native residency to zero.
+
+The native primitives demo rebuilds for macOS (49.5 MB) and Android ARM64
+(21.9 MB). The Metal release is visibly rendering at narrow width, and the
+Android release launches on the Pixel. Sustained manual Android interaction
+remains unverified.
+
+The source adapters do not establish glTF support. Model parsing, accessor and
+extension validation, worker responsiveness and the model viewer remain open.
+HTTP fixtures ran on the desktop host; this checkpoint does not qualify mobile
+network configuration or add iOS, Windows, Linux or Adreno evidence.
+
+## glTF parser foundation
+
+The optional `zyren_gltf` package passes 25 parser tests, including a compiled
+Dart release executable. Fixtures cover GLB truncation and seeded mutations,
+JSON depth/token limits and duplicate keys, version and extension errors,
+relative buffers after redirects, embedded base64 payloads, URI policy, sparse
+accessors, normalized integers, interleaved data and padded matrix columns.
+Worker tests check bounded admission, cancellation, retry, error field paths and
+caller event-loop responsiveness. All 101 core/geospatial tests pass alongside
+whole-workspace analysis and package/header boundary checks.
+
+This checkpoint provides internal decoder components. It does not expose public
+model requests or claim glTF rendering support. Scene conversion, material
+handling, independent model templates and native model-viewer fixtures remain
+open. No renderer code changed, and no additional GPU or platform qualification
+is claimed here.
+
+## Native material sides
+
+Front/back culling, double-sided rendering and back-face lighting pass 64 Rust
+checks and 231 Dart/Flutter tests. The Dart count includes 25 glTF parser tests
+and 36 native tests with GPU cases enabled. Strict Clippy, whole-workspace
+analysis, formatting and package/header checks pass.
+
+The same sidedness fixture passes through Flutter on macOS Metal and the
+physical Pixel's Vulkan backend. Its 120 render probes cover plain and textured
+materials, unlit and diffuse shading, both camera directions, negative and
+nonuniform parent scales, and two nested reflections. Material/camera changes
+upload no additional geometry. Removing the final mesh returns residency to zero.
+Packet fixtures reject invalid side values, single-sided expanded primitives and
+every truncation while preserving legacy double-sided defaults.
+
+`material_side_demo.dart` uses public APIs and native presentation. Its controls
+and disposal pass at 320px width with more than 350px of canvas height. Release
+builds succeed for macOS (49.2 MB) and Android ARM64 (21.8 MB), and the Android
+release launches on the Pixel. The Mac was locked during release UI inspection;
+that manual check remains open. Sustained manual Android interaction also remains
+unverified. These results add no iOS, Windows, Linux or Adreno qualification.
+
+The first Android release build retained the integration-test plugin in a
+generated Java registrant. Rebuilding with normal dependency refresh regenerated
+the release plugin list and passed. Use a normal `flutter build` after running an
+integration target; `--no-pub` can leave that generated development entry behind.
+
+## Worker-prepared geometry and images
+
+`GeometryData` and `TextureImageData` separate validated CPU storage from resource
+identity. Four new tests check isolate transfer, unique caller IDs, owned immutable
+inputs, padded rows and independent dynamic edits. All 132 core/geospatial/glTF
+and 36 native Dart tests pass, including GPU cases. Workspace analysis and
+package/header boundaries pass. This CPU handoff changes no native protocol or
+platform support; public glTF model conversion remains in progress.
+
+
+## Mask cutoffs above one
+
+The core and native packet validator accept nonnegative finite float32 mask
+cutoffs, including values above one. A real Metal image probe confirms that a
+cutoff of 1.1 discards every fragment. Negative and nonfinite packet values
+remain rejected. The focused checks pass: two core tests, seven Rust packet
+tests and the native material-alpha fixture. This does not establish glTF
+material parity.
+
+## Public static glTF model loading
+
+The public `Gltf.asset`/`Gltf.uri` path passes 52 glTF tests, including a compiled
+release executable. Tests cover independent model templates and instances, shared
+loads, cancellation during images, scope close, hierarchy validation, expanded
+primitive limits, native transform ranges, seven topology modes, image buffer
+views, normalized UVs, all minification filters and explicit material diagnostics.
+
+The native glTF fixture loads PNG data through `NativeImageDecoder`, renders four
+texture corners and mirrors the loaded instance. Two views share uploads.
+Releasing templates preserves existing instances; closing one view preserves its
+sibling. Removing the final instance leaves zero resident GPU bytes. The fixture
+passes in native Dart on Metal and Flutter integrations on macOS Metal and the
+physical Pixel's Vulkan backend. This establishes the tested static profile only.
+PBR, deformation, additional extensions and platform qualification remain open.
+The standalone viewer now passes two widget tests and its native integration on
+Metal and Pixel Vulkan. That integration exercises GLB bundles, relative-file
+glTF bundles, loopback HTTP dependencies and three reloads with zero presentation
+readback bytes. The narrow layout retains over 270 logical pixels for the canvas
+at 320 by 640. An explicit native capture also produced the authored assembly's
+PNG with three draws and 36 triangles; this verifies the rendered artifact, not
+the locked Mac's visible window. Manual macOS release inspection remains open.
+
+The viewer release builds pass: macOS app 53.8 MB and Android arm64 APK 24.1 MB.
+The first Android release attempt failed because a concurrent Flutter test
+regenerated the plugin registrant with `integration_test`. A sequential build
+with dependency refresh regenerated it correctly. Serialize Flutter tests and
+platform builds in this workspace; do not repair generated registrants by hand.
+The final analyzer, formatter and package/header boundary checks pass. Regression
+coverage includes 159 core/geospatial/glTF tests (52 glTF), 37 native GPU tests,
+57 Flutter facade tests, 10 existing example tests and two viewer widget tests.
+
+The Android release installed and launched successfully on the Pixel, PID 21516
+at verification. No Flutter or AndroidRuntime error was reported for that
+process. The device's screensaver covered the app during the final inspection,
+so a manual release-screen check is still pending. The integration tests and
+standalone native PNG are the visual/rendering evidence for this checkpoint.
+
+## Scoped WGSL compiler
+
+Native WGSL module validation passes through the Dart worker on macOS Metal and
+the physical Pixel's Vulkan device. Tests cover syntax and type errors, UTF-16
+locations around emoji, duplicate-source caching, independent shared-view
+ownership, foreign handles and close during pending compilation. Each fixture
+renders an existing red mesh after a failed compile to verify that the device
+remains usable, then checks that closing shader owners clears their cache.
+
+The Rust tests also cover the 256-program and 16 MiB source budgets, response
+capacity before mutation, strict command fields, cross-type handle rejection,
+entry point stages and workgroup overrides. The complete Rust suite passes all
+68 tests, including GPU tests. Clippy reports no warnings. Dart coverage passes
+169 core/geospatial/glTF tests, 39 native tests and 57 Flutter facade tests;
+workspace analysis, formatting and package/header boundaries also pass.
+A scope regression also confirms that synchronous closure during stream
+subscription still cancels the rejected listener.
+
+The standalone `example/shader_compiler.dart` ran on Metal and reported a validated
+compute entry point, a labeled error at line 1, column 45, and zero programs or
+cached modules after close. This is module-validation evidence. Custom shader
+dispatch, render graph execution and native platform-view bindings remain open.
+The macOS integration passed even though the app could not be foregrounded;
+the locked desktop's manual window inspection remains unverified. These checks
+add no iOS, Windows, Linux or Adreno qualification.
+
+The wider Rust run found an obsolete JSON-material test that rejected mask
+cutoffs above one. Its regression now accepts finite float32 values through
+`f32::MAX` and rejects negative cutoffs, matching the existing glTF/binary contract.
+
+## Native render graphs
+
+The public graph API runs a compute shader into a 64 by 64 storage texture, then
+samples it on a full-screen quad. Every output pixel matches the red fixture.
+Replacing that graph with a gradient verifies orientation and spatial sampling.
+These checks pass on macOS Metal and the physical Pixel's Vulkan backend.
+
+The same integrations check uniform buffers at aligned offsets, read-write
+storage buffers, parameter updates without recompilation and pipeline reuse.
+Invalid sampler slots, undersized uniform bindings and read-only bindings for a
+writing shader fail with the pass name while preserving the active graph.
+Closing the author scopes preserves compiled execution; releasing the final
+owners leaves zero graph allocations, pipelines, shader modules and resource bytes.
+
+Core tests cover immutable registrations, dependency ordering, cycles, resource
+aliases, discarded attachments and compiler close during compilation or graph
+replacement. Rust additionally checks strict control messages, response capacity
+before mutation, invalid handle types and binding-group overflow. The complete
+Rust suite passes 71 tests, including GPU cases, with strict Clippy clean.
+Regression suites pass 181 core/geospatial/glTF, 41 native Dart and 57 Flutter
+facade tests. Analysis, formatting, C-header syntax and package/header checks pass.
+
+An existing mipmap fixture requested every texture usage. Storage support made
+that include an invalid sRGB storage usage; the fixture now declares its actual
+sampling, rendering and copy usages, and its original image checks pass.
+
+`example/render_graph.dart` ran on Metal and saved the 256 by 256 heatmap PNG,
+which was visually inspected. It reports one dispatch, one draw and zero resource
+bytes or cached pipelines after cleanup. The macOS integration again passed
+despite a foreground failure; this is native GPU evidence, not manual inspection
+of the locked desktop. No iOS, Windows, Linux or Adreno graph qualification was
+added. Scene materials, platform-view graph composition, plugin graph ownership
+and resize/history remain open.
+
+## Primary checkout renderer integration
+
+The primary `main` checkout integrates committed renderer checkpoint `49bd4db`
+through the Zyren package names. Existing navigation, picking and workbench APIs
+remain available. Picking now rebuilds cached bounds after geometry edits and
+respects material sidedness, including mirrored transforms. Triangle picking
+skips line and point primitives while still visiting their children. Programmatic
+selection preserves primitive size and style.
+
+Checks on the integrated source passed: 374 core, 45 geospatial, 53 tools, 52 glTF,
+41 native Dart tests with GPU execution, 71 Rust tests including GPU cases,
+74 Flutter facade and 13 workbench/example tests. Analysis, strict Clippy, package
+boundaries and Apple ABI header checks passed. Native model and graph fixtures
+ran on macOS Metal. These results do not establish new mobile runtime coverage.
+
+The pending navigation phone runs were stopped after the Pixel remained locked
+and the iPhone wireless test connection did not complete. Planet stays installed
+on iPhone. Final mobile qualification remains required after the renderer and
+atmosphere changes. The imported historical checkpoints above retain their
+original scope; floating-point volume textures, HDR/PBR and atmosphere are still
+subsequent work.

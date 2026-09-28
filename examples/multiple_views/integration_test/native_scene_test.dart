@@ -316,6 +316,15 @@ void main() {
       await tester.tap(find.text('Clamp'));
       await until(tester, () => frames.length > count);
       expect(frames.last.uploadedBytes, 0);
+      for (final (format, bytes) in [('PNG', 16), ('JPEG', 256)]) {
+        await tester.pump(const Duration(milliseconds: 250));
+        count = frames.length;
+        await tester.tap(find.text(format));
+        await until(tester, () => frames.length > count);
+        expect(frames.last.uploadedBytes, bytes);
+        expect(find.textContaining('$format ·'), findsOneWidget);
+        expect(find.textContaining('failed:'), findsNothing);
+      }
       expect(find.byType(RawImage), findsNothing);
       expect(frames.map((frame) => frame.readbackBytes), everyElement(0));
       await tester.pumpWidget(const SizedBox());

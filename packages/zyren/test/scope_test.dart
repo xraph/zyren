@@ -6,6 +6,59 @@ import 'support/fakes.dart';
 
 void main() {
   test(
+    'reentrant stream attachment still cancels the rejected subscription',
+    () async {
+      final scope = AttachmentScope();
+      var cancelled = false;
+      final stream = StreamController<int>(
+        sync: true,
+        onListen: scope.close,
+        onCancel: () {
+          cancelled = true;
+        },
+      );
+      expect(() => scope.listen(stream.stream, (_) {}), throwsStateError);
+      expect(cancelled, isTrue);
+      await stream.close();
+    },
+  );
+  test(
+    'async close callbacks stop immediately and join cleanup failures',
+    () async {
+      final scope = AttachmentScope();
+      final gate = Completer<void>();
+      final events = <int>[];
+      scope.onClose(() {
+        events.add(1);
+        throw StateError('cleanup');
+      });
+      scope.onClose(() {
+        events.add(2);
+        return gate.future;
+      });
+      scope.close();
+      expect(events, [2, 1]);
+      var completed = false;
+      final outcome = expectLater(
+        scope.whenClosed,
+        throwsA(isA<ScopeCleanupException>()),
+      );
+      scope.whenClosed.then<void>(
+        (_) {
+          completed = true;
+        },
+        onError: (Object _, StackTrace _) {
+          completed = true;
+        },
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(completed, isFalse);
+      gate.complete();
+      await outcome;
+      expect(() => scope.onClose(() {}), throwsStateError);
+    },
+  );
+  test(
     'asynchronous cancellation errors join cleanup failures without skipping owners',
     () async {
       final gate = Completer<void>();

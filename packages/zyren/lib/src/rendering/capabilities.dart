@@ -11,6 +11,11 @@ enum RenderFeature {
   timestampQueries,
   scopedResources,
   colorTextures,
+  alphaMaterials,
+  portablePrimitives,
+  materialSidedness,
+  shaderCompilation,
+  renderGraphs,
 }
 
 /// Limits enforced by the backend, even if the adapter can allocate more.

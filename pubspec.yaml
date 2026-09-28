@@ -11,7 +11,9 @@ workspace:
   - packages/zyren_native
   - packages/flutter_zyren
   - packages/zyren_geospatial
+  - packages/zyren_gltf
   - examples/planet
   - examples/multiple_views
+  - examples/model_viewer
 dev_dependencies:
   lints: ^6.0.0

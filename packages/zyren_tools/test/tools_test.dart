@@ -70,6 +70,31 @@ void main() {
   );
 
   test(
+    'primitive selection preserves style and restores original material',
+    () {
+      final lineMaterial = LineMaterial(width: 7, widthUnits: SizeUnits.world);
+      final pointsMaterial = PointsMaterial(size: 11, shape: PointShape.square);
+      final line = scene.add(
+        Line(LineGeometry(points: [Vec3.zero, Vec3.one]), lineMaterial),
+      );
+      final points = scene.add(
+        Points(PointGeometry(points: [Vec3.zero]), pointsMaterial),
+      );
+      tools.select(line);
+      expect(line.material.color, tools.highlightColor);
+      expect(line.material.width, 7);
+      expect(line.material.widthUnits, SizeUnits.world);
+      tools.select(points);
+      expect(line.material, same(lineMaterial));
+      expect(points.material.color, tools.highlightColor);
+      expect(points.material.size, 11);
+      expect(points.material.shape, PointShape.square);
+      tools.select(null);
+      expect(points.material, same(pointsMaterial));
+    },
+  );
+
+  test(
     'picking rejects outside points and geometry outside camera clipping',
     () {
       expect(

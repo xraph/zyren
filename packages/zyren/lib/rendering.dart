@@ -8,4 +8,10 @@ export 'src/rendering/render_backend.dart';
 export 'src/rendering/scene_issue.dart';
 export 'src/rendering/frame_scheduler.dart';
 
-export 'src/resources/resource_scope.dart' show ResourceDevice;
+export 'src/resources/resource_scope.dart'
+    show
+        ResourceDevice,
+        ShaderDevice,
+        ShaderBuild,
+        GraphDevice,
+        GraphDeviceDescription;

@@ -61,7 +61,7 @@ final class PickResult {
   final Vec3 point;
 
   /// World-space face normal, transformed by the inverse transpose.
-  /// Both sides are pickable; the normal retains the geometry's orientation.
+  /// The normal retains the geometry's orientation on either material side.
   final Vec3 normal;
   final double distance;
   final int triangleIndex, sceneRevision;
@@ -83,8 +83,9 @@ final class PickResult {
   });
 }
 
-/// CPU picking for the same visible, double-sided static meshes as the renderer.
-/// Immutable geometry trees are cached weakly; transforms are read on each query.
+/// CPU triangle picking with the renderer's visibility and material sidedness.
+/// Trees are cached weakly by geometry revision; transforms are read each query.
+/// Line and point geometry are skipped, while their children are still visited.
 final class Raycaster {
   final _trees = Expando<_GeometryTree>('picking geometry');
 
@@ -101,7 +102,8 @@ final class Raycaster {
     void visit(Object3D node, Mat4 parent) {
       if (!node.visible) return;
       final world = parent * node.localMatrix;
-      if (node is Mesh) {
+      if (node is Mesh &&
+          node.geometry.topology == GeometryTopology.triangles) {
         objectOrder[node] = objectOrder.length;
         final inverse = world.inverted();
         final translation = Vec3(
@@ -118,8 +120,11 @@ final class Raycaster {
             'Mesh transform cannot represent the picking ray.',
           );
         }
-        final tree = _trees[node.geometry] ??= _GeometryTree(node.geometry);
-        tree.intersect(origin, direction, near, far, (
+        var tree = _trees[node.geometry];
+        if (tree == null || tree.revision != node.geometry.revision) {
+          tree = _trees[node.geometry] = _GeometryTree(node.geometry);
+        }
+        tree.intersect(origin, direction, near, far, node.material.side, (
           triangle,
           distance,
           weights,
@@ -182,12 +187,13 @@ final class _Node {
 
 final class _GeometryTree {
   final BufferGeometry geometry;
+  final int revision;
   late final List<int> order = List.generate(
     geometry.indices.length ~/ 3,
     (i) => i,
   );
   late final _Node root = _build(0, order.length);
-  _GeometryTree(this.geometry);
+  _GeometryTree(this.geometry) : revision = geometry.revision;
   Vec3 vertex(int triangle, int corner) => Vec3.array(
     geometry.positions,
     geometry.indices[triangle * 3 + corner] * 3,
@@ -240,6 +246,7 @@ final class _GeometryTree {
     Vec3 direction,
     double near,
     double far,
+    MaterialSide side,
     _Hit hit,
   ) {
     void visit(_Node node) {
@@ -255,7 +262,11 @@ final class _GeometryTree {
         final edge1 = vertex(triangle, 1) - a, edge2 = vertex(triangle, 2) - a;
         final cross = direction.cross(edge2);
         final determinant = edge1.dot(cross);
-        if (determinant == 0) continue;
+        if (determinant == 0 ||
+            (side == MaterialSide.front && determinant < 0) ||
+            (side == MaterialSide.back && determinant > 0)) {
+          continue;
+        }
         final offset = origin - a;
         final u = offset.dot(cross) / determinant;
         if (u < 0 || u > 1) continue;

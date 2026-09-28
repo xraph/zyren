@@ -21,7 +21,7 @@ class SceneController {
   final SceneRuntime runtime;
   final _input = FlutterInputAdapter();
   final _raycaster = Raycaster();
-  final assets = AssetScope();
+  late final AssetScope assets;
   final _registrations = AttachmentScope();
   AttachmentScope _lifetime = AttachmentScope();
   final _cleanupErrors = <Object>[];
@@ -78,6 +78,7 @@ class SceneController {
        _camera = camera ?? PerspectiveCamera(),
        runtime = runtime ?? const SceneRuntime() {
     options.validate();
+    assets = AssetScope(services: this.runtime.assetServices);
     _scheduler = FrameScheduler(
       maxFramesPerSecond: options.maxFramesPerSecond,
       onChanged: _scheduleWake,

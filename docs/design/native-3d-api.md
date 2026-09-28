@@ -304,7 +304,11 @@ Use immutable material descriptions. `mesh.material = material.copyWith(...)`
 invalidates its bindings. Geometry has immutable layouts with explicit
 `updateAttribute(VertexSemantic, TypedData, {int firstVertex = 0})` for dynamic
 buffers. Mutations validate counts/ranges and enqueue dirty byte ranges.
-Static geometry can be shared. No scene mutation calls FFI immediately.
+Static and dynamic geometry can be shared. Captures retain immutable revisions,
+and native buffers reuse exclusive storage or preserve versions held by another
+view. No scene mutation calls FFI immediately. See
+[dynamic geometry](gpu-resources.md#dynamic-geometry) for current formats and
+range-upload behavior.
 
 An outermost `controller.update` batches notifications into one invalidation.
 It does not roll back Dart changes if the callback throws; it publishes the final
@@ -353,6 +357,10 @@ the primary release mechanism. Native callbacks may arrive after widget removal;
 they retain only the native lease they need, not a Dart object or widget.
 
 ## 7. Assets, loading and cancellation
+
+The [typed loading infrastructure](asset-loading.md) is implemented. The glTF
+request and model APIs below remain the Task 3 target until its decoder and
+viewer fixtures pass.
 
 ```dart
 import 'package:zyren_gltf/zyren_gltf.dart';
@@ -417,7 +425,7 @@ that controller again. Instantiation from a released template fails explicitly.
 The common path is `StandardMaterial`: linear `baseColor`, optional base-color,
 normal, metallic/roughness, occlusion and emissive textures; metallic, roughness,
 emissive intensity, alpha mode, cutoff, sidedness and depth settings. Also provide
-`UnlitMaterial`, `LineMaterial`, `PointMaterial` and advanced `ShaderMaterial`.
+`UnlitMaterial`, `LineMaterial`, `PointsMaterial` and advanced `ShaderMaterial`.
 The current `MeshMaterial` migrates to `DiffuseMaterial` or `UnlitMaterial`.
 
 Texture descriptions declare dimension, format, color space, usage, mip levels
@@ -471,8 +479,11 @@ class HeatmapPlugin extends ScenePlugin {
 }
 ```
 
-`heatmapWgsl`, `heatmapBindings` and `heatmapTexture` are application inputs, defined and compiled
-in the executable shader example delivered by plan 03. `ShaderSource`,
+`context.shaders`, `ShaderSource` and `ShaderProgram` are implemented in the
+[compiler checkpoint](shader-compilation.md). The graph code above is the target
+API for the remaining task 4 work. `heatmapWgsl`, `heatmapBindings` and
+`heatmapTexture` will be application inputs in the independent effects example.
+`ShaderSource`,
 `ComputePassDescriptor`, `Workgroups` and `ShaderBindings` are advanced core
 contracts. A shader program comes from compilation; callers cannot fabricate one
 by casting an integer. `context.scope.keep(Registration)` guarantees deregistration
