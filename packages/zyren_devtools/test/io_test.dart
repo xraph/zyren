@@ -199,6 +199,20 @@ void main() {
     expect(responses[5]['error']['code'], -32700);
   });
 
+  test(
+    'aborted clients do not stop the bridge from serving diagnostics',
+    () async {
+      final socket = await Socket.connect('127.0.0.1', server.endpoint.port);
+      socket.write(
+        'POST /call HTTP/1.1\r\nHost: 127.0.0.1:${server.endpoint.port}\r\nAuthorization: Bearer ${server.token}\r\nContent-Length: 100\r\n\r\n{',
+      );
+      await socket.flush();
+      socket.destroy();
+      final result = await client.call('inspect_scene');
+      expect(result['totalNodes'], 1);
+    },
+  );
+
   test('client refuses remote destinations before sending its token', () {
     expect(
       () => DevtoolsClient(

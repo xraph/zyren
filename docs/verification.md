@@ -515,3 +515,36 @@ The Android runner emitted a cleanup warning for the earlier
 `dev.zyren.multiple_views` test identity. Device inspection confirmed that this
 obsolete package was absent and the original `dev.gpu3d.multiple_views`
 application remained installed. No further uninstall was needed.
+
+## AI diagnostics and MCP, 2026-09-27
+
+The `zyren_devtools` diagnostic contract, local bridge and CLI/MCP adapters passed
+63 plugin tests, including 19 devtools tests. The checks cover revision-aware
+pagination, removed objects, inherited visibility, perspective and orthographic
+clip bounds, large world coordinates, camera errors, scene-size limits, bounded
+history, immutable returned issue evidence, absent native measurements, rejected
+credentials and browser origins, oversized payloads, aborted connections, actual
+CLI subprocesses and MCP initialization/tool/error behavior.
+
+All 76 Flutter/example tests passed, including the workbench at desktop and
+narrow widths. Workspace analysis, formatting and package boundaries passed.
+The compiled authoring recipe attaches, renders and reports its cube in CI.
+
+A separate CLI process invoked all seven tools against the running native macOS
+workbench with `ZYREN_AI_DX=true`. A stdio MCP process initialized, discovered all
+seven tools and returned a structured report from the same live scene. The
+backend was Metal on Apple M3 Max, with native-view presentation, 10 draw calls,
+4136 triangles and zero readback bytes. The scene contained 24 nodes and 19 meshes,
+10 effectively visible. One retained frame was available from the on-demand
+renderer. No host issues or doctor findings were reported. GPU time and resident
+memory remained null. These results establish the live connection and reported
+rendering state, not pixel-level visibility or an FPS measurement.
+
+Flutter reported that it could not foreground the app. The process and native
+scene remained available to the CLI and MCP checks. The debug bridge was stopped
+after verification. Tokens and raw debug logs are excluded from this repository.
+
+This checkpoint does not qualify Android port forwarding, physical iOS,
+Windows/Linux runtime use, or a specific third-party MCP client UI. The bridge
+is read-only. Automatic scene edits, hosted inference, full asset replay and a
+Flutter DevTools extension are not implemented by this change.

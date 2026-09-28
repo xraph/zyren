@@ -1,11 +1,14 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_zyren/flutter_zyren.dart';
 import 'package:flutter_zyren/widgets.dart';
 import 'package:zyren_devtools/zyren_devtools.dart';
+import 'package:zyren_devtools/io.dart';
 import 'package:zyren_engineering/zyren_engineering.dart';
 import 'package:zyren_timeline/zyren_timeline.dart';
 import 'package:zyren_tools/zyren_tools.dart';
@@ -15,6 +18,7 @@ import 'review_dialogs.dart';
 void main() => runApp(
   SceneWorkbenchApp(
     reviewStore: WorkbenchReviewStore(),
+    enableAiTools: const bool.fromEnvironment('ZYREN_AI_DX'),
     runtime: Platform.isAndroid
         ? const SceneRuntime.nativeAndroid()
         : const SceneRuntime.nativeMetal(),
@@ -25,11 +29,13 @@ class SceneWorkbenchApp extends StatelessWidget {
   final SceneRuntime runtime;
   final PresentationPolicy presentation;
   final EngineeringStore? reviewStore;
+  final bool enableAiTools;
   const SceneWorkbenchApp({
     super.key,
     required this.runtime,
     this.presentation = PresentationPolicy.requireNative,
     this.reviewStore,
+    this.enableAiTools = false,
   });
   @override
   Widget build(BuildContext context) => MaterialApp(
@@ -46,6 +52,7 @@ class SceneWorkbenchApp extends StatelessWidget {
       runtime: runtime,
       presentation: presentation,
       reviewStore: reviewStore,
+      enableAiTools: enableAiTools,
     ),
   );
 }
@@ -54,10 +61,12 @@ class _Workbench extends StatefulWidget {
   final SceneRuntime runtime;
   final PresentationPolicy presentation;
   final EngineeringStore? reviewStore;
+  final bool enableAiTools;
   const _Workbench({
     required this.runtime,
     required this.presentation,
     this.reviewStore,
+    this.enableAiTools = false,
   });
   @override
   State<_Workbench> createState() => _WorkbenchState();
@@ -71,6 +80,8 @@ class _WorkbenchState extends State<_Workbench> {
   final _orbit = OrbitControlsPlugin();
   late final TransformGizmoPlugin _gizmo;
   final _inspector = SceneDevtoolsPlugin();
+  SceneDiagnostics? _diagnostics;
+  DevtoolsServer? _aiTools;
   late final SceneTimelinePlugin _timeline;
   late final SceneEngineeringPlugin _engineering;
   final _sourceObjects = <String, Object3D>{};
@@ -185,6 +196,10 @@ class _WorkbenchState extends State<_Workbench> {
     _controller.use(_timeline);
     _controller.use(_engineering);
     _controller.use(_inspector);
+    if (kDebugMode && widget.enableAiTools) {
+      _diagnostics = SceneDiagnostics(_inspector);
+      unawaited(_startAiTools());
+    }
     _subscriptions.addAll([
       _tools.changes.listen((_) => _refresh()),
       _timeline.changes.listen((_) {
@@ -200,12 +215,33 @@ class _WorkbenchState extends State<_Workbench> {
         _refresh();
       }),
       _controller.issues.listen((issue) {
+        _diagnostics?.recordIssue(issue);
         _notice = issue.message;
         _noticeIsError = true;
         _refresh();
       }),
     ]);
     _controller.status.addListener(_statusChanged);
+  }
+
+  Future<void> _startAiTools() async {
+    try {
+      final server = await DevtoolsServer.start(_diagnostics!);
+      if (!mounted) {
+        await server.close();
+        return;
+      }
+      _aiTools = server;
+      // Explicit debug opt-in. Treat this session token like a local debugger URL.
+      debugPrint(
+        'ZYREN_AI_DX ${jsonEncode({'endpoint': server.endpoint.toString(), 'token': server.token})}',
+      );
+    } catch (_) {
+      if (!mounted) return;
+      _notice = 'AI tools could not start. Check local socket permissions.';
+      _noticeIsError = true;
+      _refresh();
+    }
   }
 
   void _statusChanged() {
@@ -1023,6 +1059,8 @@ class _WorkbenchState extends State<_Workbench> {
 
   @override
   void dispose() {
+    final server = _aiTools;
+    if (server != null) unawaited(server.close());
     _controller.status.removeListener(_statusChanged);
     for (final subscription in _subscriptions) {
       unawaited(subscription.cancel());

@@ -48,7 +48,7 @@ Future<void> serveDevtoolsMcp({
       final id = decoded['id'];
       final method = decoded['method'];
       final rawParams = decoded['params'];
-      if (rawParams != null && rawParams is! Map<String, dynamic>) {
+      if (decoded.containsKey('params') && rawParams is! Map<String, dynamic>) {
         if (id != null) {
           reply(id, code: -32602, message: 'Parameters must be an object.');
         }
@@ -107,7 +107,9 @@ Future<void> serveDevtoolsMcp({
         reply(id, result: {'tools': SceneDiagnostics.tools});
       } else if (method == 'tools/call') {
         final name = params['name'];
-        final arguments = params['arguments'] ?? <String, Object?>{};
+        final arguments = params.containsKey('arguments')
+            ? params['arguments']
+            : <String, Object?>{};
         if (name is! String ||
             !SceneDiagnostics.tools.any((t) => t['name'] == name) ||
             arguments is! Map<String, dynamic>) {

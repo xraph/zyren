@@ -32,9 +32,17 @@ current alpha API.
 - `flutter_zyren` adds Flutter views and re-exports the common scene API.
 - `zyren_geospatial` is a Dart-only plugin depending on `zyren`.
 - [`zyren_tools`](packages/zyren_tools/README.md) adds selection, reversible transforms and measurements.
-- [`zyren_devtools`](packages/zyren_devtools/README.md) inspects scene objects and reported frame statistics.
+- [`zyren_devtools`](packages/zyren_devtools/README.md) provides scene inspection, blank-scene diagnostics, a local CLI and MCP tools.
 - [`zyren_timeline`](packages/zyren_timeline/README.md) plays and scrubs transform and camera tracks.
 - [`zyren_engineering`](packages/zyren_engineering/README.md) binds stable IDs, metadata and review notes to scene objects, with temporary isolation and host-owned storage.
+
+## AI developer tools
+
+Connect an MCP assistant to the running workbench to inspect objects, explain
+blank scenes and examine reported frame costs. The same seven read-only tools
+are available through a local CLI. See [AI setup](docs/ai/README.md) for debug
+startup, connection details and MCP configuration, and the
+[agent guide](docs/ai/AGENT_GUIDE.md) for the current Dart API and tested recipe.
 
 ## Moving from the original package names
 

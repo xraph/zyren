@@ -151,6 +151,83 @@ void main() {
   );
 
   test(
+    'orthographic and camera-relative bounds work at large world coordinates',
+    () {
+      scene.position = const Vec3(6378137, 0, 0);
+      scene.add(Mesh(BoxGeometry(), UnlitMaterial()));
+      engine.camera = OrthographicCamera(
+        position: const Vec3(6378137, 0, 5),
+        target: const Vec3(6378137, 0, 0),
+      );
+      final inside = diagnostics.call('diagnose_scene', {'aspect': 2});
+      expect(
+        (inside['findings'] as List).map((e) => e['code']),
+        isNot(contains('outsideClipVolume')),
+      );
+      scene.position = const Vec3(6378147, 0, 0);
+      expect(
+        (diagnostics.call('diagnose_scene', {'aspect': 2})['findings'] as List)
+            .map((e) => e['code']),
+        contains('outsideClipVolume'),
+      );
+    },
+  );
+
+  test('oversized scenes fail instead of diagnosing a partial traversal', () {
+    scene.batch(() {
+      for (var i = 0; i < 10001; i++) {
+        scene.add(Group());
+      }
+    });
+    expect(
+      () => diagnostics.call('diagnose_scene', {'aspect': 1}),
+      throwsA(
+        isA<DiagnosticException>().having(
+          (e) => e.code,
+          'code',
+          'sceneTooLarge',
+        ),
+      ),
+    );
+  });
+
+  test('returned issues cannot overwrite retained evidence', () {
+    diagnostics.recordIssue(
+      SceneIssue(
+        code: 'deviceLost',
+        message: 'Device lost',
+        operation: 'render',
+        requiredFeatures: {RenderFeature.indexedMeshes},
+      ),
+    );
+    final issue =
+        (diagnostics.call('get_scene_issues')['issues'] as List).single as Map;
+    issue['code'] = 'overwritten';
+    (issue['requiredFeatures'] as List).clear();
+    final saved =
+        (diagnostics.call('get_scene_issues')['issues'] as List).single;
+    expect(saved['code'], 'deviceLost');
+    expect(saved['requiredFeatures'], ['indexedMeshes']);
+  });
+
+  test(
+    'startup issues remain readable while no renderer is attached',
+    () async {
+      await engine.dispose();
+      diagnostics.recordIssue(
+        SceneIssue(
+          code: 'backendUnavailable',
+          message: 'Backend unavailable',
+          operation: 'initialize',
+        ),
+      );
+      final result = diagnostics.call('get_scene_issues');
+      expect(result['attached'], false);
+      expect((result['issues'] as List).single['code'], 'backendUnavailable');
+    },
+  );
+
+  test(
     'invalid input fails explicitly and detached state cannot serve stale data',
     () async {
       for (final args in [

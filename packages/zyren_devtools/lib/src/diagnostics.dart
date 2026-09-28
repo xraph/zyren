@@ -110,7 +110,18 @@ final class SceneDiagnostics {
       'attached': inspector.isAttached,
     };
     if (name == 'get_scene_issues') {
-      return {...envelope, 'issues': _issues.toList()};
+      return {
+        ...envelope,
+        'issues': [
+          for (final issue in _issues)
+            {
+              ...issue,
+              'requiredFeatures': List<String>.from(
+                issue['requiredFeatures'] as List,
+              ),
+            },
+        ],
+      };
     }
     if (!inspector.isAttached) {
       throw const DiagnosticException(
@@ -129,7 +140,15 @@ final class SceneDiagnostics {
         'capabilities': _capabilities(),
         'diagnosis': _doctor((arguments['aspect'] as num?)?.toDouble()),
         'frameStats': _frames(120),
-        'issues': _issues.toList(),
+        'issues': [
+          for (final issue in _issues)
+            {
+              ...issue,
+              'requiredFeatures': List<String>.from(
+                issue['requiredFeatures'] as List,
+              ),
+            },
+        ],
         'includesAssets': false,
       },
       _ => throw StateError('Missing diagnostic handler.'),
@@ -156,6 +175,9 @@ final class SceneDiagnostics {
       'root': {
         'visible': inspector._attached.scene.visible,
         'matrix': inspector._attached.scene.localMatrix.storage,
+        'backgroundLinear': inspector._attached.scene.background.toList(),
+        'ambient': inspector._attached.scene.ambient,
+        'lightDirection': inspector._attached.scene.lightDirection.storage,
       },
       'totalNodes': snapshot.nodes.length,
       'nodes': snapshot.nodes.skip(offset).take(limit).map(_node).toList(),
