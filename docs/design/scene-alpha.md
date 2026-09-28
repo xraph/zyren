@@ -41,9 +41,9 @@ conversion. Metal layers allow alpha. Android selects premultiplied presentation
 when available, or inherited RGBA presentation for Flutter's SurfaceProducer;
 unsupported surface modes fail explicitly.
 
-This is an 8-bit output path. Small alpha values have the precision limits of the
-current scene texture format. HDR formats and temporal accumulation remain later
-work.
+Presentation and explicit image readback use 8-bit output. Select
+[ColorPipeline](color-pipeline.md) for RGBA16F scene accumulation and effects;
+small alpha values follow the precision limits of the selected scene format.
 
 ## Cost and ownership
 

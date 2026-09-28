@@ -48,6 +48,10 @@ fn direct_brdf_matches_normal_incidence_reference_and_has_no_ambient_energy() {
     metal.geometries.clear();
     // A .5 metal has only .5/(4*pi) at normal incidence.
     gray(pixel(&mut renderer, &metal), 56);
+    let mut mixture = frame(0.5, 1., json!([light(0, 1., 0.)]));
+    mixture.geometries.clear();
+    // Half dielectric, half metal radiance: (.5*.96/pi + .54/(4*pi))/2.
+    gray(pixel(&mut renderer, &mixture), 88);
     metal.meshes[0].color = [0.; 3];
     gray(pixel(&mut renderer, &metal), 0);
     unlit.meshes[0].pbr.as_mut().unwrap().emissive = [0.25; 3];

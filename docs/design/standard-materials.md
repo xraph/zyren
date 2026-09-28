@@ -57,8 +57,11 @@ image color space.
 
 Shading uses GGX, height-correlated Smith visibility and Schlick Fresnel with
 dielectric reflectance `0.04`. The shader squares perceptual roughness and floors
-that result at `0.002025` to keep a zero-roughness highlight finite. Metals have
-no diffuse contribution. A black metal with zero emission stays black.
+that result at `0.002025` to keep a zero-roughness highlight finite. Intermediate
+metallic values blend the dielectric and metal BRDFs in linear radiance, as
+defined by [glTF Appendix B](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#appendix-b-brdf-implementation).
+Metals have no diffuse contribution. A black metal has zero normal-incidence
+reflectance; Schlick Fresnel still adds reflection at grazing angles.
 
 Standard materials use the scene's explicit light objects. The compatibility
 `Scene.ambient` and `Scene.lightDirection` settings do not supply extra energy
@@ -107,8 +110,10 @@ and the model matrix for T.
 
 Without tangents, the shader derives a basis from screen-space position and the
 normal map's UV derivatives. Degenerate UV charts retain the geometric normal.
-This fallback does not establish MikkTSpace asset-baking equivalence. MikkTSpace
-generation remains outside the [glTF import profile](gltf-materials.md).
+This fallback does not establish MikkTSpace asset-baking equivalence. The
+[glTF importer](gltf-materials.md) generates missing tangents through the native
+[MikkTSpace service](tangent-generation.md). You can use that service for
+procedural geometry too.
 Dynamic tangents use
 `updateAttribute` like the other attributes. Their separate GPU stream preserves
 older captures held by another view and uploads 16 bytes per changed vertex.
@@ -197,6 +202,9 @@ one frame share one light uniform buffer. Custom mesh shaders keep their existin
 uniform prefix and binding layout.
 
 ## Scope and examples
+
+See [material reference checks](material-reference-checks.md) for the linear HDR
+oracle, numerical tolerances and links to the map, shadow and alpha fixtures.
 
 The default profile renders to RGBA8. Select [ColorPipeline](color-pipeline.md)
 for linear HDR accumulation with exposure and terminal tone mapping.

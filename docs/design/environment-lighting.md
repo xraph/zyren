@@ -72,7 +72,10 @@ This uses the single-scattering split-sum approximation described in
 [Real Shading in Unreal Engine 4](https://cdn2.unrealengine.com/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf).
 It assumes the normal and view direction coincide during specular prefiltering.
 Very small bright sources and grazing reflections need higher sampling and
-remain approximate. Multiple scattering compensation, local reflection probes,
+remain approximate. Diffuse attenuation uses dielectric Fresnel before the
+metallic blend; the split-sum specular term interpolates the two reflectances.
+This keeps radiance linear in metallic weight for a fixed surface and environment.
+Multiple scattering compensation, local reflection probes,
 parallax correction and a sky background renderer are outside this checkpoint.
 This is not a claim of Three.js or Takram parity.
 
@@ -110,6 +113,8 @@ the panorama seam and poles, and BRDF values against independent angular
 quadrature. Pixel probes cover rotation, roughness, occlusion, emission and a
 missing environment. Lifecycle tests cover replacement failure, frame boundaries,
 multiple views, disposal during preparation and cleanup failures.
+The [material reference checks](material-reference-checks.md) also test metallic
+interpolation at three viewing angles and three roughness values in linear HDR.
 
 The sphere-grid example in `examples/shader_lab/lib/pbr.dart` includes an
 analytic HDR studio panorama. Select Environment in its header to edit intensity

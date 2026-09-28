@@ -14,11 +14,11 @@ fn shade_environment(n: vec3<f32>, v: vec3<f32>, surface: StandardSurface) -> ve
     if (environment.params.x == 0.) { return vec3(0.); }
     let nv = clamp(dot(n,v), 0., 1.);
     let f0 = mix(vec3(.04), surface.base.rgb, surface.metallic);
-    let fresnel = f0 + (vec3(1.) - f0) * pow(1. - nv, 5.);
+    let dielectric_fresnel = .04 + .96 * pow(1. - nv, 5.);
     let diffuse = textureSampleLevel(diffuse_environment, environment_sampler, environment_uv(n), 0.).rgb;
     let specular = textureSampleLevel(specular_environment, environment_sampler, environment_uv(reflect(-v,n)), surface.roughness * environment.params.y).rgb;
     let brdf = textureSampleLevel(environment_brdf, brdf_sampler, vec2(nv, surface.roughness), 0.).rg;
-    return ((vec3(1.) - fresnel) * (1. - surface.metallic) * surface.base.rgb * diffuse
+    return ((1. - dielectric_fresnel) * (1. - surface.metallic) * surface.base.rgb * diffuse
         + specular * (f0 * brdf.x + brdf.y)) * environment.params.x * surface.occlusion;
 }
 
@@ -42,21 +42,24 @@ fn normalized_or(v: vec3<f32>, fallback: vec3<f32>) -> vec3<f32> {
 }
 
 fn direct_brdf(n: vec3<f32>, v: vec3<f32>, l: vec3<f32>, base: vec3<f32>, metallic: f32, roughness: f32) -> vec3<f32> {
-    let nl = max(dot(n, l), 0.);
-    let nv = max(dot(n, v), 0.);
+    let nl = clamp(dot(n, l), 0., 1.);
+    let nv = clamp(dot(n, v), 0., 1.);
     if (nl <= 0. || nv <= 0.) { return vec3(0.); }
     let h = normalized_or(l + v, n);
-    let nh = max(dot(n, h), 0.);
+    let nh = clamp(dot(n, h), 0., 1.);
     let vh = clamp(dot(v, h), 0., 1.);
     let alpha = max(roughness * roughness, 0.002025);
     let a2 = alpha * alpha;
-    let denominator = nh * nh * (a2 - 1.) + 1.;
+    // |N x H|^2 avoids cancellation in 1 - (N.H)^2 at glossy peaks.
+    let cross_nh = cross(n, h);
+    let denominator = dot(cross_nh, cross_nh) + a2 * nh * nh;
     let distribution = a2 / (3.141592653589793 * denominator * denominator);
     let visibility = 0.5 / max(nl * sqrt(a2 + (1. - a2) * nv * nv)
         + nv * sqrt(a2 + (1. - a2) * nl * nl), 1e-12);
     let f0 = mix(vec3(0.04), base, metallic);
     let fresnel = f0 + (vec3(1.) - f0) * pow(1. - vh, 5.);
-    let diffuse = (vec3(1.) - fresnel) * (1. - metallic) * base / 3.141592653589793;
+    let dielectric_fresnel = 0.04 + 0.96 * pow(1. - vh, 5.);
+    let diffuse = (1. - dielectric_fresnel) * (1. - metallic) * base / 3.141592653589793;
     return (diffuse + fresnel * distribution * visibility) * nl;
 }
 

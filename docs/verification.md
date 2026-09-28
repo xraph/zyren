@@ -1535,3 +1535,40 @@ remaining platform qualification open.
 Release builds pass for macOS (55.6 MB) and Android arm64 (25.5 MB). The Pixel
 release launched with `GPU3D_MODEL=normal-map.glb` and no error-level process
 logs at verification. Interactive release-screen inspection remains unverified.
+
+## Linear material reference checkpoint
+
+Checked 28 September 2026. Direct and environment lighting now blend dielectric
+and metal responses correctly at intermediate metallic values. The GGX
+distribution also uses a stable cross-product denominator at glossy peaks.
+The new linear HDR tests exposed both defects before the fixes. See
+[material reference checks](design/material-reference-checks.md) for the oracle,
+sample matrix and independently chosen tolerances.
+
+Checks pass: all 73 native Dart tests, five Rust PBR tests on Metal, scoped Dart
+analysis, strict Clippy, formatting and package/Apple-header boundaries. The
+new helper checks 150 direct-light patches against a double-precision CPU oracle
+and 45 environment patches for linear metallic interpolation. Every direct
+sample is within the larger of 0.3% or 2e-5 linear radiance per channel. The glTF
+and Rust fixtures also check a half-metallic material after SDR conversion.
+
+The shared reference helper passes on macOS Metal and physical Pixel Vulkan.
+Both platforms pass sphere-grid controls and model-viewer bundle/HTTP/reload
+lifecycle checks with zero presentation readback bytes. The Pixel also passes
+the updated glTF reference-pixel integration. These seven integration tests
+qualify the current static material profile; they do not add animation or certify
+full glTF conformance.
+
+The native PNG capture at `artifacts/native-pbr-reference.png` was generated and
+inspected: 13 draws, twelve mapped spheres and a shadow-receiving backdrop.
+macOS integration windows still could not be foregrounded. GPU pixel and lifecycle
+results pass, but interactive desktop inspection remains unverified.
+
+The Android arm64 PBR release builds at 24.2 MB and starts with no error-level
+process logs. The device capture shows its lock/ambient screen, so release-screen
+inspection remains unverified. The release process is left running for inspection
+on the device.
+
+Plan 03 Task 5's baseline gates are now checked. Instancing, morph targets,
+skinning and animation are next. Advanced physical materials, area lights,
+antialiasing, full Takram parity and the remaining native platforms stay open.

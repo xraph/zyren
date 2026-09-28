@@ -18,7 +18,7 @@ You can also prepare core geometry directly:
 
 ```dart
 final prepared = await const NativeTangentGenerator().generate(data, uvSet: 1);
-final mesh = Mesh(geometry: BufferGeometry.fromData(prepared), material: material);
+final mesh = Mesh(BufferGeometry.fromData(prepared), material);
 ```
 
 The core owns `TangentGenerator`, `TangentGenerationLimits` and immutable
@@ -74,5 +74,6 @@ preservation, native reference vectors and bounded failures, loader service
 selection and diagnostics, then native normal-map pixels on Metal and Vulkan.
 The viewer includes a Normal map sample with generated tangents. Its Metal and
 Pixel Vulkan integration checks pass. A bundled AOT capture also renders it
-without a Flutter window. Broader material reference coverage remains part of Task 5. This feature does not
-close the full Three.js or Takram port.
+without a Flutter window. See [material reference checks](material-reference-checks.md)
+for the wider shading fixtures. This feature does not close the full Three.js or
+Takram port.

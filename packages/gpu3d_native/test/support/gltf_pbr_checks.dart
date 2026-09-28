@@ -80,6 +80,20 @@ Future<void> verifyGltfPbr(NativeGpuBackend backend) async {
   // At N=L=V and roughness=1, GGX dielectric radiance is
   // base*.96/pi + .04/(4*pi); a metal has base/(4*pi).
   pixel(await render(pbrModel()), [110, 110, 110, 255]);
+  // Metallic=.5 blends the two BRDFs in linear radiance before sRGB output.
+  pixel(
+    await render(
+      pbrModel(
+        material: {
+          'pbrMetallicRoughness': {
+            'baseColorFactor': [.5, .5, .5, 1],
+            'metallicFactor': .5,
+          },
+        },
+      ),
+    ),
+    [88, 88, 88, 255],
+  );
   pixel(
     await render(
       pbrModel(

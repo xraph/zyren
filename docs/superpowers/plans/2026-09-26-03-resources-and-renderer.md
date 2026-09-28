@@ -394,6 +394,11 @@ failure -> close candidate scope; keep current graph; report diagnostics
 
 ## Task 5: PBR, lights, shadows and environment maps
 
+The static material baseline is qualified on macOS Metal and physical Pixel
+Vulkan as of 28 September 2026. The checks below are complete for the documented
+profile. Task 6 is next; full glTF, Three.js, Takram and other platform
+qualification remain open.
+
 Direct-light checkpoint, 2026-09-28: `StandardMaterial`, directional/point/spot
 scene lights and opcode 19 now reach native Metal/Vulkan rendering. Independent
 pixel probes cover BRDF values, no ambient energy, emission, roughness, point
@@ -446,8 +451,12 @@ The viewer exposes an authored PBR assembly and a studio toggle for scenes witho
 See [the import profile](../../design/gltf-materials.md). Vertex colors now reach
 built-in triangle, line and point materials, dynamic GPU updates and masked
 shadows. The loader accepts float and normalized byte/short RGB/RGBA colors.
-MikkTSpace generation and broader extension/reference coverage remain open;
-these checkpoints do not claim complete glTF or Three.js parity.
+MikkTSpace now prepares missing normal-map tangents through a bounded CPU service.
+The material reference checkpoint adds 150 independent linear HDR direct-light
+patches and 45 environment interpolation patches on Metal and physical Pixel
+Vulkan. These checks correct intermediate-metallic blending and glossy peak
+precision. See [material reference checks](../../design/material-reference-checks.md).
+Advanced profiles and complete glTF or Three.js parity remain open.
 
 **Files:** Create core `materials/standard_material.dart`,
 `lights/{directional,point,spot,hemisphere}_light.dart`; native
@@ -460,7 +469,7 @@ asset/resource APIs. A core lighting plugin owns environment prefilter/BRDF
 resources. glTF conversion produces ordinary descriptors, without a separate
 glTF rendering path.
 
-- [ ] Add a fixed-camera sphere grid for roughness/metallic values, tangent handedness, alpha masks, overlap, emissive and occlusion. Compare linear-light probes and reference patches. Include directional/spot shadows, point-light falloff and negative scale:
+- [x] Add a fixed-camera sphere grid for roughness/metallic values, maps, emissive, occlusion and shadows. Complement it with numerical fixtures for tangent handedness, alpha masks, overlap, directional/spot shadows, point-light falloff and negative scale. Compare linear-light probes and reference patches:
 
 ```text
 black metal + zero environment -> no invented diffuse energy
@@ -470,7 +479,7 @@ masked leaf -> matching depth/shadow silhouette at the same cutoff
 transparent overlap -> documented ordering and depth-write policy
 ```
 
-- [ ] Run `cargo test --test pbr_render -- --include-ignored` on a real GPU; expected failures are absent shading/shadows. Establish tolerances independently and document sorted-transparency limitations.
+- [x] Run `cargo test --test pbr_render -- --include-ignored` on a real GPU. Establish tolerances independently and document sorted-transparency limitations.
 - [x] Implement metallic/roughness BRDF, normal mapping, punctual lights, IBL and environment convolution through core graph/resources. Add shadow maps with bounded atlas allocation, directional cascades, bias controls and dirty invalidation. Put color conversion/tone mapping in one terminal path.
 
 ```text
@@ -480,8 +489,8 @@ blend -> sorted transparent pass with explicit depth/blend state
 linear HDR -> tone map/output conversion -> presentation
 ```
 
-- [ ] Enable standard glTF rendering only after reference fixtures pass. Qualify `KHR_materials_unlit` and `KHR_lights_punctual` with exact tests. Keep other required extensions rejected. Advanced physical-material and area-light profiles remain individually reviewed follow-on work.
-- [ ] Run GPU fixtures, model-viewer lifecycle and mobile capability checks; commit `feat: add physically based materials and native lighting`.
+- [x] Enable standard glTF rendering after reference fixtures pass. Qualify the supported `KHR_materials_unlit` and `KHR_lights_punctual` profile with exact tests. Keep other required extensions rejected. Advanced physical-material and area-light profiles remain individually reviewed follow-on work.
+- [x] Run GPU fixtures, model-viewer lifecycle and mobile capability checks. Commit the material, lighting, shadow, glTF and numerical qualification changes in focused checkpoints.
 
 ## Task 6: Instancing, morph targets, skinning and animation
 
