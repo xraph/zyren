@@ -1,0 +1,13 @@
+name: shader_lab_cli
+description: A native Dart host for the independent effects plugin.
+publish_to: none
+resolution: workspace
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+dependencies:
+  gpu3d:
+    path: ../../../../packages/gpu3d
+  gpu3d_native:
+    path: ../../../../packages/gpu3d_native
+  shader_lab_effects:
+    path: ..

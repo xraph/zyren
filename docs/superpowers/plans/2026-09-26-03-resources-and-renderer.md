@@ -291,6 +291,14 @@ lifetime are checked. This establishes scene-first composition on Metal and
 Vulkan. Automatic pass registration, custom mesh materials, resize/history and
 the separate effects consumer still need implementation.
 
+Effects consumer checkpoint: `examples/shader_lab/effects_plugin` now imports
+only public core APIs and provides two spatial render passes. Its typed controls
+update uniforms without recompilation. Child resource scopes support transactional
+resize and cleanup, including failed candidates and closure during compilation.
+Missing capabilities reject by default or bypass explicitly. The Flutter demo
+uses native presentation. This closes the independent spatial consumer portion;
+custom materials, automatic registration and temporal history remain open.
+
 **Files:** Create graph/shader modules from the map, native
 `src/render_graph/{compile,execute}.rs`, Dart `test/render_graph_test.dart`,
 native `tests/shader_diagnostics.rs`, `examples/shader_lab` and a separate

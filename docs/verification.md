@@ -897,3 +897,41 @@ The Metal integration passed despite the existing foreground failure. Manual
 inspection of the locked desktop remains open. These tests add no iOS, Windows,
 Linux or Adreno qualification. Custom mesh materials, automatic pass registration,
 resize/history management and the independent effects consumer remain unfinished.
+
+## Independent native effects consumer
+
+`ResourceScope.createChild` now supports independently replaceable allocation
+sets. Four regressions cover descendant admission, independent closure, collected
+cleanup errors and a reentrant adapter closing its parent during allocation.
+That last test found a late-allocation leak, fixed by tracking accepted work
+before calling the adapter while preserving synchronous upload snapshots.
+
+`examples/shader_lab/effects_plugin` depends only on the public Dart core API.
+Its exposure/saturation and vignette passes use typed controls and explicit
+capability rejection or bypass. Uniform edits preserve pipelines; resize compiles
+new textures transactionally and closes author references on success or failure.
+Tests cover failed replacement, closure during compilation, independent views,
+reattachment and return to zero graph, shader and resource ownership.
+
+197 core/geospatial/glTF tests, 46 native Dart tests, 63 Flutter facade tests,
+seven effects tests and one desktop/narrow demo widget test pass, 314 in total.
+The native effects integrations pass on macOS Metal and Pixel Vulkan. Pixel
+assertions use the Vulkan readback backend; the Android surface adapter does not
+support capture. Both platforms exercise the real Flutter controls, orbit input,
+resolution changes and native presentation with zero readback. The fixture
+requests observations across the existing five-per-second statistics limit.
+
+Analysis, formatting and package/header boundary checks pass. The standalone CLI
+runs in JIT and bundled AOT modes outside the workspace, producing byte-identical
+768 by 432 PNGs with six draws. The image was inspected. The CLI has its own
+runtime dependency on `gpu3d_native`, which is required for the executable to
+bundle the native asset; the effects library stays independent of that backend.
+
+Release builds pass for Android arm64 (23.2 MB) and macOS (51.7 MB). The shader
+lab release is running on the Pixel, PID 18587 at verification, with its Flutter
+runner retained and no errors in the process log. Manual release-screen
+inspection remains unverified. The Metal
+integration still reports the existing foreground failure, so manual desktop
+inspection remains open. These checks add no iOS, Windows, Linux or Adreno
+qualification. The new effects are spatial. Temporal history, HDR, custom mesh
+materials and automatic cross-plugin pass registration remain unfinished.

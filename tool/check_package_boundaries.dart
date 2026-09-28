@@ -4,9 +4,10 @@ import 'dart:io';
 void main(List<String> args) {
   final root = Directory(args.isEmpty ? '.' : args.single);
   final allowed = <String, Set<String>>{
-    'gpu3d': {'vector_math'},
-    'gpu3d_gltf': {'gpu3d'},
-    'flutter_geospatial': {'gpu3d'},
+    'packages/gpu3d': {'gpu3d', 'vector_math'},
+    'packages/gpu3d_gltf': {'gpu3d_gltf', 'gpu3d'},
+    'packages/flutter_geospatial': {'flutter_geospatial', 'gpu3d'},
+    'examples/shader_lab/effects_plugin': {'shader_lab_effects', 'gpu3d'},
   };
   final directive = RegExp(
     r'''^\s*(?:import|export)\s+['"]([^'"]+)['"]''',
@@ -14,7 +15,7 @@ void main(List<String> args) {
   );
   final failures = <String>[];
   for (final package in allowed.entries) {
-    final directory = Directory('${root.path}/packages/${package.key}/lib');
+    final directory = Directory('${root.path}/${package.key}/lib');
     for (final file in directory.listSync(recursive: true).whereType<File>()) {
       if (!file.path.endsWith('.dart')) continue;
       for (final match in directive.allMatches(file.readAsStringSync())) {
@@ -22,11 +23,22 @@ void main(List<String> args) {
         if (uri == 'dart:ui' ||
             uri == 'dart:ffi' ||
             uri.startsWith('package:') &&
-                !{
-                  package.key,
-                  ...package.value,
-                }.contains(uri.substring(8).split('/').first)) {
+                !package.value.contains(uri.substring(8).split('/').first)) {
           failures.add('${file.path}: unexpected dependency $uri');
+        }
+        if (package.key == 'examples/shader_lab/effects_plugin' &&
+            (uri.startsWith('package:gpu3d/src/') ||
+                !uri.contains(':') &&
+                    !file.absolute.uri
+                        .resolve(uri)
+                        .normalizePath()
+                        .path
+                        .startsWith(
+                          directory.absolute.uri.normalizePath().path,
+                        ))) {
+          failures.add(
+            '${file.path}: effects must use public package imports: $uri',
+          );
         }
       }
     }

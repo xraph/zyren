@@ -188,8 +188,9 @@ Advanced callers can pass `graph:` to `FrameSubmission.capture` or
 `SceneEngine.renderFrame`. An explicit graph overrides the plugin selection for
 that frame. The backend must advertise `frameGraphs`. A frame graph rejects
 standalone `execute()`, wrong devices and mismatched sizes; compile matching
-resources before rendering a resized frame. Automatic resize and temporal history
-management are still pending.
+resources before rendering a resized frame. You can group candidate textures in
+`context.resources.createChild()` and close their author references after
+compilation. Temporal history management remains pending.
 
 `FrameStats.drawCalls` and `triangles` include effect draws and the terminal
 full-screen draw. `computeDispatches` counts compute passes. Native adapters use
@@ -203,6 +204,13 @@ for the terminal output read. Explicit effect passes keep their zero-based indic
 Run `fvm dart run example/frame_graph.dart /tmp/native-frame-graph.png` from
 `packages/gpu3d_native`. It renders three meshes, rotates their color channels in
 compute, then adds a vignette in a render pass.
+
+The separate [shader lab effects package](../../examples/shader_lab/effects_plugin/README.md)
+shows a complete spatial plugin with exposure, saturation and vignette controls.
+It uses public core imports, replaces textures on resize, publishes a typed
+control service and offers explicit rejection or bypass for unsupported adapters.
+The [Flutter demo](../../examples/shader_lab/README.md) runs those passes on its
+presenter's native device. Uniform edits reuse pipelines.
 
 ## Current profile
 
@@ -218,8 +226,8 @@ shader's layout and device limits. Native admission allows 32 live graphs and
 16 MiB of description storage per device. Labels have a 1024-byte UTF-8 limit.
 
 This profile supports explicit resource graphs and scene frame composition.
-Scene `ShaderMaterial`, automatic pass registration and resize/history resources
-remain in plan 03.
+Scene `ShaderMaterial`, automatic pass registration and history resources remain
+in plan 03. The effects example owns its resize policy using child scopes.
 Graph execution is verified on macOS Metal and Pixel Vulkan; see
 [verification](../verification.md). Other
 platforms have no graph qualification yet.
