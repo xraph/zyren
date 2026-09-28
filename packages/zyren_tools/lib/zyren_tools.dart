@@ -158,6 +158,7 @@ class SceneToolsPlugin extends ScenePlugin {
         UnlitMaterial material => material.copyWith(color: highlightColor),
         LineMaterial material => material.copyWith(color: highlightColor),
         PointsMaterial material => material.copyWith(color: highlightColor),
+        StandardMaterial material => material.copyWith(color: highlightColor),
         ShaderMaterial material => material.copyWith(color: highlightColor),
       };
       object.material = _highlight!;

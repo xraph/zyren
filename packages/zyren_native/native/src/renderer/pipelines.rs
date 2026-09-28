@@ -7,6 +7,7 @@ pub(super) struct PipelineKey {
     format: wgpu::TextureFormat,
     shader: Option<[u64; 4]>,
     textured: bool,
+    standard: bool,
     side: u32,
     mirrored: bool,
     blend: bool,
@@ -20,6 +21,7 @@ impl PipelineKey {
             format,
             shader: mesh.shader,
             textured: mesh.color_map.is_some(),
+            standard: mesh.pbr.is_some(),
             side: mesh.side,
             mirrored: mesh.primitive_kind == 0
                 && glam::Mat4::from_cols_array(&mesh.model).determinant() < 0.,
@@ -32,6 +34,9 @@ impl PipelineKey {
 }
 pub(super) struct MeshPipelines {
     shader: wgpu::ShaderModule,
+    standard_shader: wgpu::ShaderModule,
+    standard_plain: wgpu::PipelineLayout,
+    standard_textured: wgpu::PipelineLayout,
     plain: wgpu::PipelineLayout,
     textured: wgpu::PipelineLayout,
     cache: HashMap<PipelineKey, wgpu::RenderPipeline>,
@@ -41,8 +46,20 @@ impl MeshPipelines {
         device: &wgpu::Device,
         layout: &wgpu::BindGroupLayout,
         texture_layout: &wgpu::BindGroupLayout,
+        pbr_layout: &wgpu::BindGroupLayout,
     ) -> Self {
         Self {
+            standard_shader: device.create_shader_module(wgpu::include_wgsl!("pbr.wgsl")),
+            standard_plain: device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("standard"),
+                bind_group_layouts: &[Some(layout), Some(pbr_layout)],
+                ..Default::default()
+            }),
+            standard_textured: device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("standard textured"),
+                bind_group_layouts: &[Some(layout), Some(pbr_layout), Some(texture_layout)],
+                ..Default::default()
+            }),
             shader: device.create_shader_module(wgpu::ShaderModuleDescriptor {
                 label: Some("native mesh materials"),
                 source: wgpu::ShaderSource::Wgsl(
@@ -138,6 +155,31 @@ impl MeshPipelines {
         &self.cache[&key]
     }
     fn create(&self, device: &wgpu::Device, key: PipelineKey) -> wgpu::RenderPipeline {
+        if key.standard {
+            return create_pipeline(
+                device,
+                key,
+                ShaderPipeline {
+                    module: &self.standard_shader,
+                    layout: if key.textured {
+                        &self.standard_textured
+                    } else {
+                        &self.standard_plain
+                    },
+                    requires_uv: key.textured,
+                    vertex: if key.textured {
+                        "vertex_textured"
+                    } else {
+                        "vertex"
+                    },
+                    fragment: if key.textured {
+                        "fragment_textured"
+                    } else {
+                        "fragment"
+                    },
+                },
+            );
+        }
         create_pipeline(
             device,
             key,

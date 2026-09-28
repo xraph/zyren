@@ -156,7 +156,11 @@ final class ScenePacketEncoder {
         uploadBytes > 64 * 1024 * 1024) {
       throw ArgumentError('Scene resource upload exceeds the frame budget.');
     }
-    final opcode = scene._settings.enabled
+    final opcode =
+        (scene._lights.isNotEmpty ||
+            scene._meshes.any((m) => (m['pbr'] as List).isNotEmpty))
+        ? 20
+        : scene._settings.enabled
         ? 19
         : scene._meshes.any((m) => m.containsKey('shader'))
         ? 18
@@ -205,6 +209,12 @@ final class ScenePacketEncoder {
       }
       for (final key in effects) {
         body.add(key);
+      }
+    }
+    if (opcode >= 20) {
+      body.u32(scene._lights.length);
+      for (final light in scene._lights) {
+        body.floats(light);
       }
     }
     for (final id in owned) {
@@ -305,6 +315,11 @@ final class ScenePacketEncoder {
           }
         }
       }
+      if (opcode >= 20) {
+        final pbr = (mesh['pbr'] as List).cast<double>();
+        body.u32(pbr.isEmpty ? 0 : 1);
+        body.floats(pbr);
+      }
     }
     final payload = body.finish();
     if (payload.length > 66 * 1024 * 1024 - 24) {
@@ -385,7 +400,7 @@ bool _sameMesh(Map<String, Object> a, Map<String, Object> b) {
   ]) {
     if (a[field] != b[field]) return false;
   }
-  for (final field in ['model', 'color', 'colorMap']) {
+  for (final field in ['model', 'color', 'colorMap', 'pbr']) {
     final left = a[field] as List, right = b[field] as List;
     if (left.length != right.length) return false;
     for (var i = 0; i < left.length; i++) {

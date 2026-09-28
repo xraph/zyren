@@ -139,6 +139,8 @@ pub struct Mesh {
     pub side: u32,
     #[serde(default)]
     pub shader: Option<[u64; 4]>,
+    #[serde(default)]
+    pub pbr: Option<[f32; 6]>,
     #[serde(default = "one")]
     pub opacity: f32,
     #[serde(default = "half")]
@@ -178,6 +180,7 @@ impl Default for Mesh {
             alpha_mode: 0,
             side: 0,
             shader: None,
+            pbr: None,
             opacity: 1.,
             alpha_cutoff: 0.5,
             depth_test: true,
@@ -195,6 +198,16 @@ impl Mesh {
         self.depth_write.unwrap_or(self.alpha_mode != 2)
     }
     pub fn validate_material(&self) -> Result<(), String> {
+        if let Some(p) = self.pbr
+            && (self.shader.is_some()
+                || self.primitive_kind != 0
+                || p.iter().any(|v| !v.is_finite())
+                || p[..2].iter().any(|v| !(0.0..=1.).contains(v))
+                || !(0.0..=65504.).contains(&p[2])
+                || p[3..].iter().any(|v| !(0.0..=1.).contains(v)))
+        {
+            return Err("Invalid PBR material".into());
+        }
         if self.shader.is_some() && (self.primitive_kind != 0 || self.color_map.is_some()) {
             return Err(
                 "Custom shaders require triangle geometry and explicit shader bindings".into(),
@@ -343,6 +356,8 @@ pub struct Frame {
     pub version: u32,
     #[serde(default)]
     pub settings: RenderSettings,
+    #[serde(default)]
+    pub lights: Vec<[f32; 20]>,
     pub view_projection: [f32; 16],
     pub background: [f64; 3],
     pub light_direction: [f32; 3],
@@ -360,6 +375,24 @@ pub struct Frame {
 impl Frame {
     pub fn validate(&self, cached: &HashSet<u32>) -> Result<(), String> {
         self.settings.validate()?;
+        if self.lights.len() > 16
+            || self.lights.iter().any(|l| {
+                l.iter().any(|v| !v.is_finite())
+                    || l[3] < 0.
+                    || l[3] > 3.
+                    || l[3].fract() != 0.
+                    || l[4..7].iter().any(|v| !(0.0..=1.).contains(v))
+                    || !(0.0..=1e12).contains(&l[7])
+                    || !(0.0..=1e12).contains(&l[11])
+                    || glam::Vec3::from_slice(&l[8..11]).length_squared() < 1e-12
+                    || !(0.0..=1.).contains(&l[12])
+                    || !(0.0..=1.).contains(&l[13])
+                    || l[12] < l[13]
+                    || l[16..19].iter().any(|v| !(0.0..=1.).contains(v))
+            })
+        {
+            return Err("Invalid physical lights".into());
+        }
         if self.version != 1 {
             return Err("unsupported scene protocol version".into());
         }

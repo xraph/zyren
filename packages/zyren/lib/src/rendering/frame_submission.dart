@@ -1,10 +1,12 @@
 import 'dart:typed_data';
+import 'dart:math' as math;
 import 'package:vector_math/vector_math_64.dart' as vm;
 import '../geometry/geometry.dart';
 import '../geometry/vertex_attribute.dart';
 import '../resources/texture_image.dart';
 import '../resources/resource_scope.dart' show MaterialDevice, MeshShader;
 import '../scene/scene.dart';
+import '../math/vec3.dart';
 import 'frame_output.dart';
 part 'scene_packet.dart';
 
@@ -38,6 +40,7 @@ class SceneSnapshot {
   final List<double> _background, _light;
   final double _ambient;
   final RenderSettings _settings;
+  final List<List<double>> _lights;
   int get drawCalls => _meshes.length;
   int get triangles => _meshes.fold(0, (sum, mesh) {
     final geometry = _geometries[mesh['geometry']]!;
@@ -53,14 +56,61 @@ class SceneSnapshot {
     this._light,
     this._ambient,
     this._settings,
+    this._lights,
   );
   static SceneSnapshot _capture(Scene scene, Camera camera) {
     final meshes = <Map<String, Object>>[],
         geometries = <int, GeometrySnapshot>{};
     final textures = <int, TextureImage>{};
+    final lights = <List<double>>[];
     void visit(Object3D node, vm.Matrix4 parent, bool parentVisible) {
       final visible = parentVisible && node.visible;
       final world = parent * node.localMatrix.toVectorMath();
+      if (node is Light && visible) {
+        final direction = switch (node) {
+          DirectionalLight light => light.direction,
+          SpotLight light => light.direction,
+          _ => const Vec3(0, 0, -1),
+        };
+        final vector = world.transform(
+          vm.Vector4(direction.x, direction.y, direction.z, 0),
+        );
+        final d = vm.Vector3(vector.x, vector.y, vector.z)..normalize();
+        final position =
+            world.getTranslation() - camera.position.toVectorMath();
+        final kind = node is HemisphereLight
+            ? 3.0
+            : node is SpotLight
+            ? 2.0
+            : node is PointLight
+            ? 1.0
+            : 0.0;
+        lights.add(
+          List.unmodifiable([
+            ...position.storage,
+            kind,
+            ...node.color.toList(),
+            node.intensity,
+            ...d.storage,
+            node is PointLight ? node.range : 0.0,
+            node is SpotLight
+                ? math.cos(node.angle * (1 - node.penumbra))
+                : 0.0,
+            node is SpotLight ? math.cos(node.angle) : 0.0,
+            0.0,
+            0.0,
+            ...node is HemisphereLight
+                ? node.groundColor.toList()
+                : [0.0, 0.0, 0.0],
+            0.0,
+          ]),
+        );
+        if (lights.length > 16) {
+          throw ArgumentError(
+            'A scene supports at most sixteen physical lights.',
+          );
+        }
+      }
       if (node is Mesh) {
         final shader = node.material is ShaderMaterial
             ? (node.material as ShaderMaterial).shader
@@ -104,6 +154,15 @@ class SceneSnapshot {
                   'point_shape': node.material.pointShape.index,
                   'colorMap': map?.toPacket() ?? <int>[],
                   'shader': ?shader,
+                  'pbr': node.material is StandardMaterial
+                      ? [
+                          (node.material as StandardMaterial).metallic,
+                          (node.material as StandardMaterial).roughness,
+                          (node.material as StandardMaterial).emissiveIntensity,
+                          ...(node.material as StandardMaterial).emissive
+                              .toList(),
+                        ]
+                      : <double>[],
                 })
                 as Map<String, Object>,
           );
@@ -122,7 +181,14 @@ class SceneSnapshot {
       List.unmodifiable(scene.background.toList()),
       List.unmodifiable(scene.lightDirection.storage),
       scene.ambient,
-      scene.renderSettings.copyWith(effects: scene.effects),
+      scene.renderSettings.copyWith(
+        effects: scene.effects,
+        hdr:
+            scene.renderSettings.hdr ||
+            meshes.any((m) => (m['pbr'] as List).isNotEmpty) ||
+            lights.isNotEmpty,
+      ),
+      List.unmodifiable(lights),
     );
   }
 }
@@ -192,7 +258,9 @@ class FrameSubmission {
           ],
           'meshes': [
             for (final mesh in scene._meshes)
-              Map<String, Object>.from(mesh)..remove('colorMap'),
+              Map<String, Object>.from(mesh)
+                ..remove('colorMap')
+                ..remove('pbr'),
           ],
         })
         as Map<String, Object>;

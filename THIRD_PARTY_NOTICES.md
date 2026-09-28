@@ -45,7 +45,9 @@ THE SOFTWARE.
 ## Three.js
 
 Camera reference fixtures execute Three.js 0.184.0, and the three184 orbit mode
-ports its OrbitControls implementation. Its MIT license follows.
+ports its OrbitControls implementation. The standard material shader adapts its
+scalar GGX, correlated Smith and Schlick functions, with numerical fixtures
+extracted from the same pinned release. Its MIT license follows.
 
 Source: https://github.com/mrdoob/three.js
 

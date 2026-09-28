@@ -13,6 +13,7 @@ import '../math/vec3.dart';
 import '../math/quat.dart';
 import '../math/mat4.dart';
 part 'revision.dart';
+part '../lights/lights.dart';
 part 'camera_projection.dart';
 part 'primitives.dart';
 
@@ -433,9 +434,16 @@ class Scene extends Object3D {
     final geometries = <int, GeometrySnapshot>{};
     void visit(Object3D node, vm.Matrix4 parent) {
       if (!node.visible) return;
+      if (node is Light) {
+        throw UnsupportedError(
+          'Physical lights require binary scene submissions.',
+        );
+      }
       final world = parent * node.localMatrix.toVectorMath();
       if (node is Mesh) {
-        if (node.material.colorMap != null || node.material is ShaderMaterial) {
+        if (node.material.colorMap != null ||
+            node.material is ShaderMaterial ||
+            node.material is StandardMaterial) {
           throw UnsupportedError(
             'Texture materials require binary scene submissions.',
           );

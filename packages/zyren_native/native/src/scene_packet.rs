@@ -28,6 +28,7 @@ pub struct ScenePacket {
     textures: Vec<SceneTexture>,
     geometry_patches: Vec<GeometryPatch>,
     settings: crate::scene::RenderSettings,
+    lights: Vec<[f32; 20]>,
 }
 struct Reader<'a> {
     data: &'a [u8],
@@ -71,7 +72,7 @@ impl ScenePacket {
             return Err("unsupported scene packet".into());
         }
         let opcode = r.u32()?;
-        if !(10..=19).contains(&opcode) {
+        if !(10..=20).contains(&opcode) {
             return Err("unsupported scene packet".into());
         }
         let textured = opcode >= 11;
@@ -129,6 +130,16 @@ impl ScenePacket {
                     .push([r.u64()?, r.u64()?, r.u64()?, r.u64()?]);
             }
             settings.validate()?;
+        }
+        let mut lights = Vec::new();
+        if opcode >= 20 {
+            let count = r.u32()?;
+            if count > 16 {
+                return Err("Too many physical lights".into());
+            }
+            for _ in 0..count {
+                lights.push(r.floats()?);
+            }
         }
         let mut retained = HashSet::new();
         for _ in 0..retained_count {
@@ -378,6 +389,14 @@ impl ScenePacket {
                 }
                 mesh.validate_material()?;
             }
+            if opcode >= 20 {
+                mesh.pbr = match r.u32()? {
+                    0 => None,
+                    1 => Some(r.floats()?),
+                    _ => return Err("Invalid PBR flag".into()),
+                };
+                mesh.validate_material()?;
+            }
             updates.push((index, mesh));
         }
         if r.offset != data.len() {
@@ -399,6 +418,7 @@ impl ScenePacket {
             textures,
             geometry_patches,
             settings,
+            lights,
         })
     }
     pub fn view(&self) -> u64 {
@@ -442,6 +462,7 @@ impl ScenePacket {
         Ok(Frame {
             version: 1,
             settings: self.settings,
+            lights: self.lights,
             view_projection: self.view_projection,
             background: self.background,
             light_direction: self.light_direction,

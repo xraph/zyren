@@ -11,6 +11,7 @@ use wgpu::util::DeviceExt;
 use crate::scene::{Frame, pixel_len};
 mod draw_order;
 pub(crate) mod effects;
+mod lighting;
 pub(crate) mod pipelines;
 mod textures;
 
@@ -84,6 +85,7 @@ pub struct RendererState {
     pipelines: pipelines::MeshPipelines,
     effects: effects::Effects,
     texture_layout: wgpu::BindGroupLayout,
+    pbr_layout: wgpu::BindGroupLayout,
     textures: HashMap<u32, textures::GpuSceneTexture>,
     #[cfg(any(target_vendor = "apple", target_os = "android"))]
     surface_depth: Option<DepthTarget>,
@@ -180,7 +182,9 @@ impl Renderer {
             }],
         });
         let texture_layout = textures::layout(&device);
-        let pipelines = pipelines::MeshPipelines::new(&device, &layout, &texture_layout);
+        let pbr_layout = lighting::layout(&device);
+        let pipelines =
+            pipelines::MeshPipelines::new(&device, &layout, &texture_layout, &pbr_layout);
         Ok(Self {
             state: Some(Box::new(RendererState {
                 device,
@@ -196,6 +200,7 @@ impl Renderer {
                 pipelines,
                 effects: effects::Effects::default(),
                 texture_layout,
+                pbr_layout,
                 textures: HashMap::new(),
                 #[cfg(any(target_vendor = "apple", target_os = "android"))]
                 surface_depth: None,
@@ -624,6 +629,7 @@ impl Renderer {
                 })
             })
             .collect();
+        let lighting = self.lighting_bindings(frame);
         let texture_bindings: Vec<_> = frame
             .meshes
             .iter()
@@ -672,6 +678,9 @@ impl Renderer {
                 pass.set_vertex_buffer(0, vertices.slice(..));
                 if let Some(binding) = texture_binding {
                     pass.set_vertex_buffer(1, uv.expect("validated UV buffer").slice(..));
+                    pass.set_bind_group(if mesh.pbr.is_some() { 2 } else { 1 }, binding, &[]);
+                }
+                if let Some(binding) = &lighting[index] {
                     pass.set_bind_group(1, binding, &[]);
                 }
                 if let Some(key) = mesh.shader {
