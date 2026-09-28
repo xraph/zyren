@@ -153,6 +153,25 @@ fn key_value(key: ResourceKey) -> [u64; 4] {
 }
 
 impl ShaderStore {
+    pub(crate) fn retain_graph(&mut self, keys: &[ResourceKey]) -> Result<(), ResourceError> {
+        for (index, key) in keys.iter().enumerate() {
+            if let Err(error) = self.registry.retain(*key) {
+                for previous in &keys[..index] {
+                    let _ = self.registry.release(*previous);
+                }
+                return Err(error);
+            }
+        }
+        Ok(())
+    }
+    pub(crate) fn release_graph(&mut self, keys: &[ResourceKey]) -> Result<(), ResourceError> {
+        for key in keys {
+            self.registry.release(*key)?;
+        }
+        self.registry.retire_completed(0);
+        self.cache.retain(|_, module| module.strong_count() > 0);
+        Ok(())
+    }
     pub fn resolve(&self, key: ResourceKey) -> Result<&CompiledShader, ResourceError> {
         self.registry.resolve(key).map(Arc::as_ref)
     }

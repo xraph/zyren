@@ -104,7 +104,12 @@ Future<void> verifyResourceMips() async {
         height: height,
         format: format,
         mipLevels: (width > height ? width : height).bitLength,
-        usage: TextureUsage.values.toSet(),
+        usage: {
+          TextureUsage.sampled,
+          TextureUsage.renderAttachment,
+          TextureUsage.copySource,
+          TextureUsage.copyDestination,
+        },
       ),
     );
     await scope.writeTexture(resource, Uint8List.fromList(pixels));
@@ -178,7 +183,12 @@ Future<void> verifyResourceMips() async {
         height: 2,
         mipLevels: 2,
         format: TextureFormat.rgba8Unorm,
-        usage: TextureUsage.values.toSet(),
+        usage: {
+          TextureUsage.sampled,
+          TextureUsage.renderAttachment,
+          TextureUsage.copySource,
+          TextureUsage.copyDestination,
+        },
       ),
     );
     final sharedScope = backend.createResourceScope();

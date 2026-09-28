@@ -19,3 +19,8 @@ abstract interface class ResourceBackend implements RenderBackend {
 abstract interface class ShaderBackend implements ResourceBackend {
   ShaderCompiler createShaderCompiler({String label = ''});
 }
+
+/// Validates and executes custom passes on explicitly scoped resources.
+abstract interface class GraphBackend implements ShaderBackend {
+  GraphCompiler createGraphCompiler({String label = ''});
+}

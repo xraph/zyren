@@ -80,6 +80,54 @@ fn mip_extent(
     })
 }
 impl ResourceStore {
+    pub(crate) fn graph_buffer(&self, key: ResourceKey) -> Result<wgpu::Buffer, ResourceError> {
+        match self.registry.resolve(key)? {
+            Resource::Buffer { buffer, .. } => Ok(buffer.clone()),
+            _ => Err(ResourceError::InvalidUsage),
+        }
+    }
+    pub(crate) fn graph_texture(&self, key: ResourceKey) -> Result<wgpu::Texture, ResourceError> {
+        match self.registry.resolve(key)? {
+            Resource::Texture { texture, .. } => Ok(texture.clone()),
+            _ => Err(ResourceError::InvalidUsage),
+        }
+    }
+    pub(crate) fn retain_graph(&mut self, keys: &[ResourceKey]) -> Result<(), ResourceError> {
+        for (index, key) in keys.iter().enumerate() {
+            if let Err(error) = self.registry.retain(*key) {
+                for previous in &keys[..index] {
+                    let _ = self.registry.release(*previous);
+                }
+                return Err(error);
+            }
+        }
+        Ok(())
+    }
+    pub(crate) fn release_graph(
+        &mut self,
+        device: &wgpu::Device,
+        keys: &[ResourceKey],
+    ) -> Result<(), ResourceError> {
+        self.wait(device)?;
+        for key in keys {
+            self.registry.release(*key)?;
+        }
+        self.registry.retire_completed(self.serial);
+        Ok(())
+    }
+    pub(crate) fn execute_graph(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        keys: &[ResourceKey],
+        commands: wgpu::CommandBuffer,
+    ) -> Result<(), ResourceError> {
+        self.submit(device, queue, [commands])?;
+        for key in keys {
+            self.registry.mark_used(*key, self.serial)?;
+        }
+        self.wait(device)
+    }
     pub(crate) fn check_scene_capacity(
         &self,
         bytes: u64,
@@ -504,6 +552,7 @@ impl ResourceStore {
                     wgpu::TextureUsages::RENDER_ATTACHMENT,
                     wgpu::TextureUsages::COPY_SRC,
                     wgpu::TextureUsages::COPY_DST,
+                    wgpu::TextureUsages::STORAGE_BINDING,
                 ];
                 let usage = flags
                     .into_iter()

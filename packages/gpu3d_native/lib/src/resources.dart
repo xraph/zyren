@@ -50,8 +50,8 @@ final class _ResourcePacket {
 }
 
 final class _NativeResourceDevice
-    with _NativeShaders
-    implements ResourceDevice, ShaderDevice {
+    with _NativeShaders, _NativeGraphs
+    implements GraphDevice {
   final NativeRenderer _renderer;
   @override
   WorkerSession get _worker => _renderer._worker;

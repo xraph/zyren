@@ -60,6 +60,20 @@ class Device implements ResourceDevice {
 }
 
 void main() {
+  test('storage textures require a linear format', () {
+    expect(
+      () =>
+          TextureDescriptor(width: 4, height: 4, usage: {TextureUsage.storage}),
+      throwsArgumentError,
+    );
+    final descriptor = TextureDescriptor(
+      width: 4,
+      height: 4,
+      format: TextureFormat.rgba8Unorm,
+      usage: {TextureUsage.storage, TextureUsage.sampled},
+    );
+    expect(descriptor.byteLength, 64);
+  });
   test(
     'mip generation drains before release and checks scope ownership',
     () async {

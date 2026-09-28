@@ -95,6 +95,7 @@ pub struct RendererState {
     geometries: HashMap<u32, GpuGeometry>,
     resources: crate::resources::ResourceStore,
     shaders: crate::shaders::ShaderStore,
+    graphs: crate::render_graph::GraphStore,
     views: HashMap<u64, crate::scene_packet::ViewState>,
     targets: Option<Targets>,
     pub adapter_name: String,
@@ -205,6 +206,7 @@ impl Renderer {
                 geometries: HashMap::new(),
                 resources: crate::resources::ResourceStore::default(),
                 shaders: crate::shaders::ShaderStore::default(),
+                graphs: crate::render_graph::GraphStore::default(),
                 views: HashMap::new(),
                 targets: None,
                 adapter_name: info.name,
@@ -248,6 +250,21 @@ impl Renderer {
         state
             .shaders
             .execute(&state.device, bytes, capacity, &mut state.failure)
+    }
+
+    pub fn graph_command(&mut self, bytes: &[u8], capacity: usize) -> Result<Vec<u8>, String> {
+        let state = self.state.as_mut().unwrap();
+        state.graphs.command(
+            crate::render_graph::GraphContext {
+                device: &state.device,
+                queue: &state.queue,
+                resources: &mut state.resources,
+                shaders: &mut state.shaders,
+                failure: &mut state.failure,
+            },
+            bytes,
+            capacity,
+        )
     }
 
     fn resize(&mut self, width: u32, height: u32) {

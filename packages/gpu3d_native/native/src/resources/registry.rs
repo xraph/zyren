@@ -11,7 +11,7 @@ pub(crate) fn next_registry_id() -> u64 {
         .expect("resource registry IDs exhausted")
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct ResourceKey {
     pub renderer: u64,
     pub device_generation: u64,

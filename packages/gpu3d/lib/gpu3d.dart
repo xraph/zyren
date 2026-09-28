@@ -32,4 +32,9 @@ export 'src/resources/buffer.dart';
 export 'src/resources/texture.dart';
 export 'src/resources/texture_image.dart';
 export 'src/resources/resource_scope.dart'
-    hide ResourceDevice, ShaderDevice, ShaderBuild;
+    hide
+        ResourceDevice,
+        ShaderDevice,
+        ShaderBuild,
+        GraphDevice,
+        GraphDeviceDescription;

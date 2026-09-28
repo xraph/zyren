@@ -1,5 +1,6 @@
 pub mod geometry_update;
 pub mod interop;
+pub mod render_graph;
 pub mod renderer;
 pub mod resources;
 mod retirement;
@@ -267,6 +268,54 @@ pub unsafe extern "C" fn fg2_shader_command(
             .lock()
             .map_err(|_| "Renderer lock failed")?
             .shader_command(bytes, capacity)?;
+        unsafe {
+            std::ptr::copy_nonoverlapping(result.as_ptr(), output, result.len());
+            *written = result.len();
+        }
+        Ok(1)
+    });
+    if ok == 1 { 0 } else { 1 }
+}
+/// Executes a bounded JSON graph command. Returns zero for a response, including
+/// graph diagnostics, or one for a transport error available in fg_last_error.
+/// # Safety
+/// Input and output buffers must be valid for their supplied lengths. `written`
+/// must point to writable storage. The buffers must not overlap.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn fg2_graph_command(
+    handle: u64,
+    input: *const u8,
+    length: usize,
+    output: *mut u8,
+    capacity: usize,
+    written: *mut usize,
+) -> u32 {
+    let ok: u32 = guard(|| {
+        if written.is_null() {
+            return Err("Missing graph response length".into());
+        }
+        unsafe {
+            *written = 0;
+        }
+        if input.is_null()
+            || output.is_null()
+            || length == 0
+            || length > render_graph::MAX_COMMAND_BYTES
+            || capacity != render_graph::RESPONSE_CAPACITY
+        {
+            return Err("Invalid graph command buffers".into());
+        }
+        let renderer = registry()
+            .lock()
+            .map_err(|_| "Registry lock failed")?
+            .get(&handle)
+            .cloned()
+            .ok_or("Renderer disposed")?;
+        let bytes = unsafe { std::slice::from_raw_parts(input, length) };
+        let result = renderer
+            .lock()
+            .map_err(|_| "Renderer lock failed")?
+            .graph_command(bytes, capacity)?;
         unsafe {
             std::ptr::copy_nonoverlapping(result.as_ptr(), output, result.len());
             *written = result.len();

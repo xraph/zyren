@@ -5,8 +5,15 @@ import '../plugins/attachment_scope.dart';
 import '../rendering/scene_issue.dart';
 import 'buffer.dart';
 import 'texture.dart';
+import 'texture_image.dart';
+import '../plugins/registration.dart';
 part '../rendering/shader.dart';
 part '../rendering/shader_compiler.dart';
+part '../rendering/shader_bindings.dart';
+part '../rendering/pass_descriptor.dart';
+part '../rendering/render_graph.dart';
+part '../rendering/graph_compiler.dart';
+part '../rendering/graph_validation.dart';
 
 /// Adapter contract for a single device generation. Keys remain backend-private.
 /// A successful allocation owns one reference. Release waits for GPU retirement.

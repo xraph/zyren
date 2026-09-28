@@ -139,7 +139,7 @@ impl<'a> Command<'a> {
                 {
                     return Err(ResourceError::InvalidCommand);
                 }
-                if usage == 0 || usage & !15 != 0 {
+                if usage == 0 || usage & !31 != 0 || (usage & 16 != 0 && format != 0) {
                     return Err(ResourceError::InvalidUsage);
                 }
                 let descriptor = TextureDescriptor {

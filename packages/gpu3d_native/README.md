@@ -12,6 +12,7 @@ fvm dart run example/offscreen.dart
 fvm dart run example/resources.dart
 fvm dart run example/shared_views.dart
 fvm dart run example/shader_compiler.dart
+fvm dart run example/render_graph.dart /tmp/native-graph.png
 RUN_NATIVE_GPU=1 fvm dart test --concurrency=1
 ```
 
@@ -63,5 +64,12 @@ Use `createShaderCompiler()` or a plugin's `context.shaders` to validate WGSL
 modules on the native worker. Source errors include Dart string locations and
 leave the device usable. Compilers own their programs, and shared views can
 retain them independently. See [shader compilation](../../docs/design/shader-compilation.md)
-for the API and limits. Dispatch, custom materials and render graph execution
+for the API and limits.
+
+Use `createGraphCompiler()` to execute compute and procedural render passes with
+typed buffer, texture and sampler bindings. Failed edits preserve the active
+graph, and uniform updates reuse its pipelines. The
+[render graph guide](../../docs/design/render-graphs.md) covers ownership,
+dependencies and limits. The example saves a native compute-to-render heatmap
+as a PNG. Custom mesh materials and direct platform-view graph composition
 remain in progress.

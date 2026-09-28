@@ -11,6 +11,9 @@ extern "C" {
  */
 uint32_t fg2_shader_command(uint64_t renderer, const uint8_t *input, size_t length,
                             uint8_t *output, size_t capacity, size_t *written);
+/* The graph channel uses the same framing limits and status convention. */
+uint32_t fg2_graph_command(uint64_t renderer, const uint8_t *input, size_t length,
+                           uint8_t *output, size_t capacity, size_t *written);
 #define FG2_ABI_VERSION 2
 typedef enum {
   FG2_OK = 0,

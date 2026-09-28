@@ -18,12 +18,12 @@ try {
 }
 ```
 
-This checkpoint creates validated shader modules. You cannot dispatch them or
-bind them to materials yet. Pipeline compilation must also validate entry point
-interfaces, resource bindings and output formats; render graph execution and
-Flutter platform-view integration remain in plan 03, task 4. The backend advertises
-`RenderFeature.shaderCompilation`, with compute and storage-texture execution
-still unavailable through the public API.
+This API creates validated shader modules. Use a [render graph](render-graphs.md)
+to compile their pipelines, bind resources and execute compute or procedural
+render passes into scoped textures. `NativeBackend` advertises
+`RenderFeature.shaderCompilation`, `renderGraphs`, `compute` and `storageTextures`.
+Custom mesh materials and Flutter platform-view graph integration remain in
+plan 03, task 4.
 
 ## Plugin ownership
 

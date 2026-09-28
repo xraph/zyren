@@ -9,6 +9,32 @@ fn packet(op: u32, body: &[u8]) -> Vec<u8> {
     ]
     .concat()
 }
+
+#[test]
+#[ignore = "requires a native Metal, Vulkan or DX12 device"]
+fn storage_texture_admission_rejects_srgb_without_poisoning_device() {
+    let mut renderer = pollster::block_on(Renderer::new()).unwrap();
+    let descriptor = |format: u32| {
+        [4_u32, 4, 1, format, 29, 0]
+            .into_iter()
+            .flat_map(u32::to_le_bytes)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        renderer.resource_command(&packet(3, &descriptor(1)), 56),
+        Err(ResourceError::InvalidUsage)
+    );
+    let texture = renderer
+        .resource_command(&packet(3, &descriptor(0)), 56)
+        .unwrap();
+    let bytes = [texture[24..].to_vec(), 0_u32.to_le_bytes().to_vec()].concat();
+    let pixels = renderer.resource_command(&packet(9, &bytes), 88).unwrap();
+    assert_eq!(&pixels[24..], &[0; 64]);
+    renderer
+        .resource_command(&packet(6, &texture[24..]), 24)
+        .unwrap();
+    assert_eq!(stats(&mut renderer), [0, 0, 0]);
+}
 fn descriptor(size: u64, usage: u32) -> Vec<u8> {
     [
         size.to_le_bytes().as_slice(),

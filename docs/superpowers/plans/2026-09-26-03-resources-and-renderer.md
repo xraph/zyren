@@ -261,9 +261,18 @@ Compiler checkpoint, 2026-09-27: `ShaderSource`, `ShaderCompiler`, opaque
 `ShaderProgram`, typed UTF-16 diagnostics and lazy `context.shaders` ownership
 are implemented. The native worker validates WGSL modules, bounds admission and
 shares live modules across compilers on one device. Compiler errors preserve
-the device. Render graph execution, bindings, custom materials, platform-view
-integration and the independent effects example remain open. See
+the device. Custom materials, platform-view integration and the independent
+effects example remain open. See
 [shader compilation](../../design/shader-compilation.md).
+
+Graph checkpoint: public typed bindings and compute-to-render execution now run
+on Metal and Pixel Vulkan. Immutable candidates validate access, dependency order,
+layouts and pipeline interfaces before replacing an active graph. Compiled graphs
+retain their programs and resources; buffers can update without recompilation.
+Whole-allocation lifetimes and weak pipeline caches are implemented. This profile
+uses explicit resource textures. Scene insertion, custom mesh materials, plugin
+ownership, resize/history and the separate effects consumer remain open. See
+[render graphs](../../design/render-graphs.md).
 
 **Files:** Create graph/shader modules from the map, native
 `src/render_graph/{compile,execute}.rs`, Dart `test/render_graph_test.dart`,
@@ -279,7 +288,7 @@ resource reads/writes, dependencies and load/store operations.
 replacing the active graph. `ShaderMaterial` binds a checked program/layout and
 parameters. Public APIs expose no native pointers.
 
-- [ ] Create a two-pass fixture: write a storage texture with the WGSL below, then sample it on a full-screen quad. Bind group 0, binding 0 is an `rgba8unorm` storage-write texture. Dispatch `Workgroups(8, 8, 1)` for a 64x64 target:
+- [x] Create a two-pass fixture: write a storage texture with the WGSL below, then sample it on a full-screen quad. Bind group 0, binding 0 is an `rgba8unorm` storage-write texture. Dispatch `Workgroups(8, 8, 1)` for a 64x64 target:
 
 ```wgsl
 @group(0) @binding(0) var output: texture_storage_2d<rgba8unorm, write>;
@@ -290,7 +299,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
 }
 ```
 
-- [ ] Run graph tests and `cargo test --test shader_diagnostics`; assert labeled failures for cycles, uninitialized reads, write/read alias conflicts, sample counts, bindings, invalid WGSL source locations and unsupported storage formats. A failed edit must preserve the prior valid graph.
+- [x] Run graph tests and `cargo test --test shader_diagnostics`; assert labeled failures for cycles, uninitialized reads, write/read alias conflicts, sample counts, bindings, invalid WGSL source locations and unsupported storage formats. A failed edit must preserve the prior valid graph.
 - [ ] Implement topological ordering, lifetime intervals, validation and capability negotiation. Use wgpu's validated usage model for hazards. Start without transient aliasing optimization, then enable only proven nonoverlapping compatible lifetimes. Cache pipelines by source/layout/options/device generation.
 
 ```text

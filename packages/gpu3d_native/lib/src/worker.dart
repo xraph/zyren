@@ -59,13 +59,15 @@ void renderWorker(WorkerBootstrap start) {
         reply(true, null);
         return;
       }
-      if (request.operation == 'resource' || request.operation == 'shader') {
+      if (request.operation == 'resource' ||
+          request.operation == 'shader' ||
+          request.operation == 'graph') {
         final bytes = (request.arguments[0] as TransferableTypedData)
             .materialize()
             .asUint8List();
         final capacity = request.arguments[1] as int;
-        final shader = request.operation == 'shader';
-        if (shader
+        final control = request.operation != 'resource';
+        if (control
             ? (bytes.length > 8 * 1024 * 1024 || capacity != 256 * 1024)
             : (bytes.length > 64 * 1024 * 1024 + 2048 ||
                   capacity < 24 ||
@@ -77,9 +79,11 @@ void renderWorker(WorkerBootstrap start) {
         final written = calloc<Size>();
         try {
           input.asTypedList(bytes.length).setAll(0, bytes);
-          final command = shader
-              ? native.shaderCommand
-              : native.resourceCommand;
+          final command = switch (request.operation) {
+            'shader' => native.shaderCommand,
+            'graph' => native.graphCommand,
+            _ => native.resourceCommand,
+          };
           final status = command(
             owner.handle,
             input,

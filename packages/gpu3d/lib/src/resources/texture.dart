@@ -14,7 +14,13 @@ enum TextureFormat { rgba8Unorm, rgba8UnormSrgb }
 /// to prevent transparent colors from bleeding into smaller levels.
 enum MipmapAlphaFilter { independent, weighted }
 
-enum TextureUsage { sampled, renderAttachment, copySource, copyDestination }
+enum TextureUsage {
+  sampled,
+  renderAttachment,
+  copySource,
+  copyDestination,
+  storage,
+}
 
 /// A two-dimensional RGBA8 texture. The format determines its color encoding.
 /// Mip uploads contain tightly packed rows and preserve alpha without conversion.
@@ -45,6 +51,10 @@ final class TextureDescriptor extends ResourceDescriptor<Texture> {
       );
     }
     if (usage.isEmpty) throw ArgumentError('Texture usage must not be empty.');
+    if (usage.contains(TextureUsage.storage) &&
+        format != TextureFormat.rgba8Unorm) {
+      throw ArgumentError('Storage textures require linear rgba8Unorm.');
+    }
     if (byteLength > 64 * 1024 * 1024) {
       throw ArgumentError('Texture exceeds 64 MiB.');
     }

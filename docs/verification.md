@@ -775,3 +775,37 @@ add no iOS, Windows, Linux or Adreno qualification.
 The wider Rust run found an obsolete JSON-material test that rejected mask
 cutoffs above one. Its regression now accepts finite float32 values through
 `f32::MAX` and rejects negative cutoffs, matching the existing glTF/binary contract.
+
+## Native render graphs
+
+The public graph API runs a compute shader into a 64 by 64 storage texture, then
+samples it on a full-screen quad. Every output pixel matches the red fixture.
+Replacing that graph with a gradient verifies orientation and spatial sampling.
+These checks pass on macOS Metal and the physical Pixel's Vulkan backend.
+
+The same integrations check uniform buffers at aligned offsets, read-write
+storage buffers, parameter updates without recompilation and pipeline reuse.
+Invalid sampler slots, undersized uniform bindings and read-only bindings for a
+writing shader fail with the pass name while preserving the active graph.
+Closing the author scopes preserves compiled execution; releasing the final
+owners leaves zero graph allocations, pipelines, shader modules and resource bytes.
+
+Core tests cover immutable registrations, dependency ordering, cycles, resource
+aliases, discarded attachments and compiler close during compilation or graph
+replacement. Rust additionally checks strict control messages, response capacity
+before mutation, invalid handle types and binding-group overflow. The complete
+Rust suite passes 71 tests, including GPU cases, with strict Clippy clean.
+Regression suites pass 181 core/geospatial/glTF, 41 native Dart and 57 Flutter
+facade tests. Analysis, formatting, C-header syntax and package/header checks pass.
+
+An existing mipmap fixture requested every texture usage. Storage support made
+that include an invalid sRGB storage usage; the fixture now declares its actual
+sampling, rendering and copy usages, and its original image checks pass.
+
+`example/render_graph.dart` ran on Metal and saved the 256 by 256 heatmap PNG,
+which was visually inspected. It reports one dispatch, one draw and zero resource
+bytes or cached pipelines after cleanup. The macOS integration again passed
+despite a foreground failure; this is native GPU evidence, not manual inspection
+of the locked desktop. No iOS, Windows, Linux or Adreno graph qualification was
+added. Scene materials, platform-view graph composition, plugin graph ownership
+and resize/history remain open.

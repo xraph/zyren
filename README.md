@@ -41,6 +41,11 @@ registry and binary packets. Use `NativeBackend.createView()` for independent
 readback views sharing one device, geometry and material images. `TextureImage`
 and `TextureMap` provide opaque color textures with independent sampler settings.
 
+You can also run custom WGSL compute and procedural render passes through
+`NativeBackend.createGraphCompiler()`. The [render graph guide](docs/design/render-graphs.md)
+includes a native heatmap example, typed bindings and graph replacement rules.
+Scene material and platform-view graph integration remain in progress.
+
 ## Run the example
 
 You'll need Rust through rustup and the Flutter SDK pinned in `.fvmrc`. The
