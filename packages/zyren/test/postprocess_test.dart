@@ -69,7 +69,10 @@ void main() {
       final scene = Scene()
         ..renderSettings = RenderSettings(effects: List.filled(6, a));
       final registration = scene.addEffect(a);
-      final last = scene.addEffect(a);
+      final last = scene.addEffect(a, requiresTransparentBackground: true);
+      expect(scene.backgroundAlpha, 0);
+      scene.renderSettings = scene.renderSettings.copyWith(backgroundAlpha: .4);
+      expect(scene.backgroundAlpha, 0);
       registration.replace(b);
       expect(scene.effects, [...List.filled(6, a), b, a]);
       expect(() => scene.addEffect(a), throwsStateError);
@@ -80,6 +83,7 @@ void main() {
       expect(() => registration.replace(b), throwsStateError);
       expect(scene.effects, hasLength(7));
       last.dispose();
+      expect(scene.backgroundAlpha, .4);
       await programs.close();
     },
   );

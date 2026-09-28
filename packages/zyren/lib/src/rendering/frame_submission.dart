@@ -269,6 +269,7 @@ class SceneSnapshot {
       List.unmodifiable(scene.lightDirection.storage),
       scene.ambient,
       scene.renderSettings.copyWith(
+        backgroundAlpha: scene.backgroundAlpha,
         effects: scene.effects,
         environment: scene.environment,
         hdr:

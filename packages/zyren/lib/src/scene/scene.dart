@@ -391,6 +391,12 @@ final class EffectRegistration extends Registration {
 class Scene extends Object3D {
   RenderSettings _renderSettings = RenderSettings();
   final _effects = <Object, ScreenEffect>{};
+  final _transparentBackgroundEffects = <Object>{};
+
+  /// Effective clear alpha while an effect supplies the visible background.
+  double get backgroundAlpha => _transparentBackgroundEffects.isEmpty
+      ? _renderSettings.backgroundAlpha
+      : 0;
   EnvironmentMap? _environment;
   EnvironmentMap? get environment =>
       _environment ?? _renderSettings.environment;
@@ -415,17 +421,24 @@ class Scene extends Object3D {
   List<ScreenEffect> get effects =>
       List.unmodifiable([..._renderSettings.effects, ..._effects.values]);
 
-  EffectRegistration addEffect(ScreenEffect effect) {
+  /// Request a transparent clear when your effect composites its own sky or
+  /// backdrop behind scene coverage. Disposing the slot restores the setting.
+  EffectRegistration addEffect(
+    ScreenEffect effect, {
+    bool requiresTransparentBackground = false,
+  }) {
     if (effect.isClosed) throw StateError('Effect owner has closed.');
     if (effects.length >= 8) {
       throw StateError('At most eight effects are supported.');
     }
     final key = Object();
     _effects[key] = effect;
+    if (requiresTransparentBackground) _transparentBackgroundEffects.add(key);
     _changed();
     return EffectRegistration._(
       () {
         _effects.remove(key);
+        _transparentBackgroundEffects.remove(key);
         _changed();
       },
       (replacement) {
