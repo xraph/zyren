@@ -603,7 +603,7 @@ and typed properties, using step/linear/cubic interpolation. Mixers own demand
 only while active. `Skin` contains joints/inverse bind matrices; morph weights
 belong to instances, not templates.
 
-- [ ] Pin keyframe values, negative playback, loop boundaries and demand release. Add a two-bone fixture, normalized weights and two independent instances:
+- [x] Pin keyframe values, negative playback, loop boundaries and demand release. Add a two-bone fixture, normalized weights and two independent instances:
 
 ```text
 first mixer seeks to 500 ms; second remains at 0 ms
@@ -612,8 +612,8 @@ stop final action -> scheduler settles after the final pose frame
 10,000 transforms -> bounded instance uploads, no per-instance pipeline creation
 ```
 
-- [ ] Run animation tests and `cargo test --test deformation_render -- --include-ignored`; missing deformation/shared-state defects must fail. Cover joint bounds, nonfinite weights, excess joint counts, mirrored/nonuniform transforms and zero-duration clips.
-- [ ] Implement track mixing, bind-pose validation, instance buffers and deformation within negotiated limits. CPU fallbacks must be explicit and measured; otherwise reject unsupported counts. Publish deformed bounds for culling/picking. Preserve cubic quaternion normalization and glTF interpolation semantics.
+- [x] Run animation tests and `cargo test --test deformation_render -- --include-ignored`; missing deformation/shared-state defects must fail. Cover joint bounds, nonfinite weights, excess joint counts, mirrored/nonuniform transforms and zero-duration clips.
+- [x] Implement track mixing, bind-pose validation, instance buffers and deformation within negotiated limits. CPU fallbacks must be explicit and measured; otherwise reject unsupported counts. Publish deformed bounds for culling/picking. Preserve cubic quaternion normalization and glTF interpolation semantics.
 
 ```text
 sample typed tracks -> blend local pose -> update world transforms
@@ -621,8 +621,22 @@ resolve skin/morph state -> update changed buffers -> deform geometry
 publish current bounds/revision -> draw instances -> retain until GPU completion
 ```
 
-- [ ] Add playback/seek/speed and morph controls. Verify demand stops when paused and resume avoids a giant time step. Compare a small GPU-deformed mesh with a CPU oracle using bounded positional error.
-- [ ] Run animation/GPU/asset tests and instance benchmarks; commit `feat: render instanced and animated models`.
+- [x] Add playback/seek/speed and morph controls. Verify demand stops when paused and resume avoids a giant time step. Compare a small GPU-deformed mesh with a CPU oracle using bounded positional error.
+- [x] Run animation/GPU/asset tests and instance benchmarks; commit `feat: render instanced and animated models`.
+
+Checkpoint audit (2026-09-28, `c6d9892`): all five task 6 gates are covered.
+`animation_test.dart`, `animation_lifecycle_test.dart`, and
+`animation_plugin_test.dart` pin sampling, independent mixers, loop boundaries,
+and demand release. `deformation_test.dart` and `deformation_packet_test.dart`
+cover pose ownership, bounds, invalid bindings, and backend limit rejection.
+Native `deformation_render.rs` compares GPU output with an independent CPU
+oracle; `instances.rs` covers 10,000 instances and bounded range updates.
+Shader Lab exposes playback, seek, speed, morph, and instance palette controls.
+The checkpoint passed 646 tests plus one macOS Metal integration test. The
+instance benchmark records one draw and a 128-byte upload for one changed
+transform or color among 10,000 instances. Android release compilation passed;
+live Vulkan qualification and the other platform runs remain open. These checks
+complete task 6, not the full library or cross-platform release qualification.
 
 ## Task 7: Cameras, bounds, culling, picking and controls
 
