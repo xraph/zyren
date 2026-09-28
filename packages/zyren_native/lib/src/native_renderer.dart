@@ -31,6 +31,15 @@ class NativeRenderer implements SceneRenderer {
       RenderFeatures.alphaMaterials,
       RenderFeatures.portablePrimitives,
       RenderFeatures.materialSidedness,
+      RenderFeature.hdr,
+      RenderFeature.standardMaterials,
+      RenderFeature.punctualLights,
+      RenderFeature.shadowMaps,
+      RenderFeature.instancing,
+      RenderFeature.spatialAntialiasing,
+      RenderFeature.bloom,
+      if (_deviceInfo.sampleCounts.contains(4))
+        RenderFeature.multisampleAntialiasing,
     },
     maxDimension: 4096,
   );

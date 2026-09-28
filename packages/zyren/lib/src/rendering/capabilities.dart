@@ -21,6 +21,14 @@ enum RenderFeature {
   shaderMaterials,
   postprocessing,
   hdr,
+  standardMaterials,
+  punctualLights,
+  environmentLighting,
+  shadowMaps,
+  instancing,
+  multisampleAntialiasing,
+  spatialAntialiasing,
+  bloom,
 }
 
 /// Limits enforced by the backend, even if the adapter can allocate more.

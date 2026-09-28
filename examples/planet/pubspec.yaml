@@ -15,9 +15,10 @@ dependencies:
   zyren_geospatial:
     path: ../../packages/zyren_geospatial
 
-dev_dependencies:
   shader_lab:
     path: ../shader_lab
+
+dev_dependencies:
   zyren:
     path: ../../packages/zyren
   flutter_test:

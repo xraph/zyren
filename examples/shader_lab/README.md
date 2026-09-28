@@ -12,3 +12,12 @@ Run `RUN_NATIVE_GPU=1 fvm dart test` in this directory for the standalone native
 consumer. Planet's native graph integration test also installs this package on
 the presentation device. See [the effect contract](../../docs/design/scene-effects.md)
 for color, history and allocation limits.
+
+
+`RendererFixture` combines standard materials, a generated HDR environment,
+directional and spot shadows, 64 mirrored instances and an emissive source.
+`RendererProfilePlugin` enables ACES, FXAA, bloom and four samples when supported.
+The standalone test shares this scene across two views and checks resource cleanup.
+`tool/renderer_benchmark.dart` records explicit readback timings; set `RENDERER_RGBA`
+to save its last 512x384 RGBA frame. Planet's `renderer_lab.dart` presents the same
+fixture through the native host. See [renderer profiles](../../docs/renderer-capabilities.md).

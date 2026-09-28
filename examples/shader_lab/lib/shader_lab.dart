@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 import 'package:zyren/zyren.dart';
+export 'renderer_fixture.dart';
 
 const shaderLabControls = ServiceKey<ShaderLabControls>('shader-lab.controls');
 

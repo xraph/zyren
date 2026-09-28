@@ -17,6 +17,41 @@ void main() {
     debugDefaultTargetPlatformOverride = null;
     messenger.setMockMethodCallHandler(channel, null);
   });
+  test('MSAA feature admission follows the adapter sample counts', () async {
+    for (final samples in [
+      <int>[1],
+      <int>[1, 4],
+    ]) {
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        switch (call.method) {
+          case 'connect':
+          case 'close':
+            return null;
+          case 'create':
+            return {
+              'session': 1,
+              'adapter': 'test Android',
+              'driverInfo': 'test driver',
+            };
+          case 'gpu':
+            return deviceInfoReply(call.arguments as Map, samples: samples);
+          default:
+            throw StateError(call.method);
+        }
+      });
+      final backend = await NativeAndroidBackend.create(runtimeToken: 10);
+      expect(
+        backend.capabilities.supports(RenderFeature.multisampleAntialiasing),
+        samples.contains(4),
+      );
+      expect(
+        backend.capabilities.supports(RenderFeature.standardMaterials),
+        isTrue,
+      );
+      expect(backend.capabilities.supports(RenderFeature.bloom), isTrue);
+      await backend.close();
+    }
+  });
   test('applied superseded frames retain geometry through remount', () async {
     final packets = <ByteData>[];
     final detached = <int>[];

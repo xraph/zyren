@@ -92,7 +92,10 @@ void main() {
       final controller = tester
           .widget<SceneView>(find.byType(SceneView))
           .controller!;
-      expect(controller.scene.children.single.name, 'Assembly');
+      expect(
+        controller.scene.children.whereType<Group>().single.name,
+        'Assembly',
+      );
       expect(backend.submissions.last.scene.drawCalls, 3);
       final before = controller.camera.position;
       await tester.drag(find.byType(SceneView), const Offset(40, 20));
@@ -107,7 +110,10 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Single box').last);
       await tester.pumpAndSettle();
-      expect(controller.scene.children.single.name, 'Single box');
+      expect(
+        controller.scene.children.whereType<Group>().single.name,
+        'Single box',
+      );
       for (final size in [const Size(320, 640), const Size(390, 700)]) {
         await tester.binding.setSurfaceSize(size);
         await tester.pump();
@@ -116,7 +122,7 @@ void main() {
       }
       await tester.tap(find.byTooltip('Clear model'));
       await tester.pump();
-      expect(controller.scene.children, isEmpty);
+      expect(controller.scene.children.whereType<Group>(), isEmpty);
       expect(find.text('Load a 3D model'), findsOneWidget);
       await remove(tester);
       expect(backend.closeCount, 1);

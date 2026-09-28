@@ -13,6 +13,44 @@ import 'package:flutter_zyren/src/presentation/native_metal_presenter.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   const channel = MethodChannel('zyren/scene-views');
+  final messenger =
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+  test('MSAA feature admission follows the adapter sample counts', () async {
+    addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+    for (final samples in [
+      <int>[1],
+      <int>[1, 4],
+    ]) {
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        switch (call.method) {
+          case 'connect':
+          case 'close':
+            return null;
+          case 'create':
+            return {
+              'session': 1,
+              'adapter': 'test Metal',
+              'driverInfo': 'test driver',
+            };
+          case 'gpu':
+            return deviceInfoReply(call.arguments as Map, samples: samples);
+          default:
+            throw StateError(call.method);
+        }
+      });
+      final backend = await NativeMetalBackend.create(runtimeToken: 10);
+      expect(
+        backend.capabilities.supports(RenderFeature.multisampleAntialiasing),
+        samples.contains(4),
+      );
+      expect(
+        backend.capabilities.supports(RenderFeature.standardMaterials),
+        isTrue,
+      );
+      expect(backend.capabilities.supports(RenderFeature.bloom), isTrue);
+      await backend.close();
+    }
+  });
   test(
     'superseded applied frames update geometry residency and capture shares it',
     () async {

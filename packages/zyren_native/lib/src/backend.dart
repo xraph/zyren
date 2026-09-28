@@ -141,6 +141,15 @@ class NativeBackend implements MaterialBackend {
       RenderFeature.shaderMaterials,
       RenderFeature.postprocessing,
       RenderFeature.hdr,
+      RenderFeature.standardMaterials,
+      RenderFeature.punctualLights,
+      RenderFeature.environmentLighting,
+      RenderFeature.shadowMaps,
+      RenderFeature.instancing,
+      RenderFeature.spatialAntialiasing,
+      RenderFeature.bloom,
+      if (_renderer._deviceInfo.sampleCounts.contains(4))
+        RenderFeature.multisampleAntialiasing,
       if (_experimentalAppleSurfaces && NativeSurfaces().appleAvailable)
         RenderFeature.sharedTexture,
     },
