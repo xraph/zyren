@@ -2040,3 +2040,44 @@ The Android arm64 release APK builds at 23.2 MB. Device verification is pending
 after the previous Pixel run froze in the background. Windows, Linux and physical
 iOS qualification, custom shader shadow passes, separate skeletal instance
 palettes and full core/Takram parity remain open.
+
+## Accelerated picking, 28 September 2026
+
+Picking now uses immutable geometry and scene BVHs by default. You can retain a
+raycaster across queries, inspect its build/refit and traversal counters, or use
+linear traversal for comparison. Geometry and posed surfaces refit after edits;
+scene refits reuse model inverses for unchanged instances. Frozen requests remain
+valid after later edits, removal and cache resets.
+
+The release benchmark exposed a cold-cache crash that JIT tests did not catch.
+The macOS arm64 disassembly showed a cached-list load before its null guard in
+the recursive visitor. Capturing a non-null baseline list outside that visitor
+fixed the reproducer. The AOT regression now covers cold and warm captures,
+scene and geometry refits, morph edits, instances, empty scenes and cache resets.
+
+All 437 core, glTF and geospatial Dart cases, 93 serial native GPU cases,
+78 Flutter facade cases, 15 effects-plugin cases and four Shader Lab widget
+cases pass. The macOS geometry integration also passes, including native pixel
+comparisons, projection switching, triangle selection and zero presentation
+readback. Rust source is unchanged in this checkpoint.
+
+Analysis is clean for packages, examples and tooling. Root-wide analysis reports
+nine informational import lints in two pre-existing ignored artifact scripts.
+Changed-file formatting, package boundaries, Apple ABI and diff checks pass.
+
+The [CPU benchmark](../packages/gpu3d/benchmark/README.md) records release costs
+on the Apple M3 Max. The dense grid query tests eight of 32,768 triangles.
+The 10,000-instance query visits four candidate records; editing one instance
+requires one model inverse and measured 2.013 ms median capture plus traversal.
+Refitting the dense grid for one query costs more than its linear scan.
+
+The Android arm64 release APK builds at 23.3 MB. This does not qualify picking
+on a physical Android device. The 53.4 MB macOS release app runs on Metal. Its
+narrow window was inspected while selecting the skinned ribbon and reflected
+instance 7, then changing projection and pose and selecting the updated skin.
+The outline matched each selected triangle. The app remains running, paused
+with triangle 19 selected. Desktop and narrow widget layouts also pass.
+
+Windows, Linux and physical iOS qualification,
+renderer frustum culling, orbit/framing tools, the optional inspector and the
+remaining core/Takram parity work stay open.

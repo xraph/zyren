@@ -686,8 +686,14 @@ CPU queries match native Metal pixels for skinned, morphed, mirrored instanced,
 and layer-filtered meshes. The macOS interaction fixture passed without
 presentation readback. Android release compilation passed; live Vulkan selection
 remains unverified. See [picking](../../design/picking.md) for the API and limits.
-BVH refit/rebuild, conservative frustum culling, orbit controls, framing, and the
-optional inspector remain open. Queries currently run on the calling isolate.
+BVH checkpoint (2026-09-28): revision-safe geometry and scene trees accelerate
+queries, with per-mesh skin/morph refits, cached model inverses and immutable
+requests. Core tests compare against linear traversal, including 10,000
+instances, coincident triangles and reflected nonuniform transforms. The release
+regression checks cold caches, edits and retained requests. See the
+[CPU benchmark](../../../packages/gpu3d/benchmark/README.md) for cold, steady and
+edit costs. Conservative frustum culling, orbit controls, framing, and the
+optional inspector remain open. Queries run on the calling isolate.
 
 ## Task 8: HDR effects, history and renderer profiles
 

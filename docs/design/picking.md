@@ -44,7 +44,8 @@ rendering session into `SceneFailed`.
 You can query geometry without Flutter or a GPU:
 
 ```dart
-final query = Raycaster(near: 0, far: 100).capture(
+final raycaster = Raycaster(near: 0, far: 100);
+final query = raycaster.capture(
   scene,
   Ray(const Vec3(0, 0, 5), const Vec3(0, 0, -1)),
 );
@@ -60,6 +61,47 @@ Equal distances retain scene traversal, instance, and triangle order.
 `Ray` provides triangle and axis-aligned box intersections. Triangle edges count
 as hits; degenerate triangles do not. Its direction is normalized at construction.
 Box queries return the entry distance, or zero when the origin is inside.
+
+## Accelerated queries
+
+Keep your `Raycaster` between queries. It builds bounding volume hierarchies
+(BVHs) for triangle geometry and scene instances, then visits the nearest bounds
+first. `SceneController` keeps its own raycaster for you. Repeated picks on an
+unchanged scene reuse the captured geometry, model inverses and both trees.
+
+Position, morph and joint edits refit triangle bounds. Attribute edits that leave
+positions unchanged reuse those bounds. Each deformed mesh has its own posed
+tree; ordinary meshes can share a geometry tree. Scene edits refit the instance
+tree when membership and traversal order stay the same. Changed membership or
+geometry topology builds a new tree.
+
+Refits preserve the old partitions, so substantial movement can reduce pruning
+efficiency. Call `raycaster.clearCache()` to build fresh partitions on the next
+capture. That also releases the raycaster's reusable indices. Requests you've
+already captured keep their original data and remain valid after edits, removal
+or a cache reset.
+
+You can inspect the work a query performs:
+
+```dart
+final report = query.trace(); // Nearest hit; false returns all intersections.
+print(report.hits);
+print(report.statistics.triangleTests);
+print(report.statistics.geometryRefits);
+```
+
+`trace(firstHitOnly: false)` returns all hits. Its immutable statistics combine
+the build/refit work recorded during capture with the tests performed by that
+invocation. Repeating `trace` repeats the traversal and reports the same captured
+build counters; it does not rebuild the captured tree. `modelMatrixInversions`
+counts mesh/instance inverses computed by the raycaster, excluding camera and
+skin preparation. `bvhBoundsTests` counts tree-node bounds, while `meshTests`
+counts candidate mesh/instance records and `triangleTests` counts exact tests.
+
+Use `RaycastAcceleration.none` to compare with linear traversal or avoid building
+trees for a one-off query. BVH build and refit work runs synchronously. A changing
+surface with only one query per revision can cost more than a linear scan; see
+the [benchmark](../../packages/gpu3d/benchmark/README.md) for measured examples.
 
 ## Projection and layers
 
@@ -89,8 +131,8 @@ against the camera mask. A parent's layer does not filter its children, but its
 ## Current limits
 
 Queries test CPU bounds followed by triangles. They run on the calling isolate;
-returning a future does not move the work to a background worker. BVH acceleration and
-frustum culling remain open in task 7.
+returning a future does not move the work to a background worker. Renderer
+frustum culling remains open in task 7.
 
 Skinning and morph positions match the built-in native deformation. Queries do
 not execute custom vertex shaders, sample texture alpha, or test line and point

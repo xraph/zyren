@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
 import '../geometry/geometry.dart';
 import '../input/viewport_point.dart';
 import '../math/mat4.dart';
@@ -8,6 +9,16 @@ import '../scene/layer_mask.dart';
 import '../scene/scene.dart';
 import 'bounds.dart';
 import 'ray.dart';
+part 'bvh.dart';
+
+/// Controls how a captured query finds candidate triangles.
+enum RaycastAcceleration {
+  /// Reuse revisioned geometry and scene bounding volume hierarchies.
+  bvh,
+
+  /// Test every candidate mesh and triangle without building spatial trees.
+  none,
+}
 
 /// CPU triangle queries. Captures retain immutable geometry and pose revisions.
 /// Texture alpha, line/point footprints and custom vertex shader displacement
@@ -15,10 +26,23 @@ import 'ray.dart';
 final class Raycaster {
   final double near, far;
   final LayerMask layers;
+  final RaycastAcceleration acceleration;
+  var _scenes = Expando<_SceneBvh>();
+  var _geometry = Expando<_GeometryBvh>();
+  var _poses = Expando<_GeometryBvh>();
+
+  /// Releases reusable indices. Requests already captured keep their versions.
+  void clearCache() {
+    _scenes = Expando<_SceneBvh>();
+    _geometry = Expando<_GeometryBvh>();
+    _poses = Expando<_GeometryBvh>();
+  }
+
   Raycaster({
     this.near = 0,
     this.far = double.infinity,
     this.layers = LayerMask.all,
+    this.acceleration = RaycastAcceleration.bvh,
   }) {
     if (!near.isFinite || near < 0 || far.isNaN || far < near) {
       throw ArgumentError('Ray limits require 0 <= near <= far.');
@@ -70,6 +94,8 @@ final class Raycaster {
         minDistance,
         maxDistance,
         const [],
+        null,
+        _RaycastCounters().freeze(),
       );
     }
     return _capture(scene, ray, minDistance, maxDistance, mask);
@@ -82,6 +108,24 @@ final class Raycaster {
     double far,
     LayerMask layers,
   ) {
+    final stats = _RaycastCounters();
+    final cached = _scenes[scene];
+    if (cached != null &&
+        cached.revision == scene.revision &&
+        cached.layers == layers) {
+      return RaycastSnapshot._(
+        ray,
+        scene.revision,
+        near,
+        far,
+        cached.meshes,
+        cached.tree,
+        stats.freeze(),
+      );
+    }
+    // Keep the loop baseline non-null. Dart 3.13.4 AOT can hoist nullable
+    // baseline field loads ahead of a guard inside this recursive visitor.
+    final previousMeshes = cached?.meshes ?? const <_PickMesh>[];
     final meshes = <_PickMesh>[];
     void visit(Object3D node, Mat4 parent) {
       if (!node.visible) return;
@@ -105,6 +149,13 @@ final class Raycaster {
         }
         final pose = node.captureDeformation();
         final geometry = node.geometry.capture();
+        _GeometryBvh? index;
+        if (acceleration == RaycastAcceleration.bvh) {
+          final cache = pose == null ? _geometry : _poses;
+          final Object key = pose == null ? node.geometry : node;
+          index = _GeometryBvh.update(geometry, pose, cache[key], stats);
+          cache[key] = index;
+        }
         final bounds =
             pose?.bounds ??
             Bounds3(geometry.bounds.minimum, geometry.bounds.maximum);
@@ -113,19 +164,43 @@ final class Raycaster {
             : null;
         final count = node is InstancedMesh ? node.count : 1;
         for (var i = 0; i < count; i++) {
-          final model = instances == null
-              ? world
-              : world * instances.transforms[i];
+          final instance = instances?.transforms[i];
+          final old = meshes.length < previousMeshes.length
+              ? previousMeshes[meshes.length]
+              : null;
+          final Mat4 model, inverse;
+          if (old == null ||
+              !identical(old.object, node) ||
+              old.instanceIndex != (instance == null ? null : i) ||
+              old.meshWorld != world ||
+              old.instanceTransform != instance) {
+            model = instance == null ? world : world * instance;
+            inverse = model.inverted();
+            stats.modelMatrixInversions++;
+          } else {
+            if (identical(old.geometry, geometry) &&
+                identical(old.pose, pose) &&
+                old.side == node.material.side) {
+              meshes.add(old);
+              continue;
+            }
+            model = old.model;
+            inverse = old.inverse;
+          }
           meshes.add(
             _PickMesh(
+              meshes.length,
+              index,
               node,
               geometry,
               pose,
               model,
-              model.inverted(),
+              inverse,
               bounds,
               node.material.side,
-              instances == null ? null : i,
+              instance == null ? null : i,
+              world,
+              instance,
             ),
           );
         }
@@ -136,12 +211,35 @@ final class Raycaster {
     }
 
     visit(scene, Mat4.identity());
+    final frozen = List<_PickMesh>.unmodifiable(meshes);
+    _BoundsBvh? tree;
+    final sameObjects =
+        cached != null &&
+        cached.meshes.length == frozen.length &&
+        Iterable<int>.generate(frozen.length).every(
+          (i) =>
+              identical(cached.meshes[i].object, frozen[i].object) &&
+              cached.meshes[i].instanceIndex == frozen[i].instanceIndex,
+        );
+    if (acceleration == RaycastAcceleration.bvh) {
+      final bounds = [for (final mesh in meshes) mesh.worldBounds];
+      if (sameObjects && cached.tree != null) {
+        tree = cached.tree!.refit(bounds);
+        stats.sceneRefits++;
+      } else {
+        tree = _BoundsBvh(bounds);
+        stats.sceneBuilds++;
+      }
+    }
+    _scenes[scene] = _SceneBvh(scene.revision, layers, frozen, tree);
     return RaycastSnapshot._(
       ray,
       scene.revision,
       near,
       far,
-      List.unmodifiable(meshes),
+      frozen,
+      tree,
+      stats.freeze(),
     );
   }
 }
@@ -153,59 +251,76 @@ final class RaycastSnapshot {
   final int sceneRevision;
   final double _near, _far;
   final List<_PickMesh> _meshes;
+  final _BoundsBvh? _tree;
+  final RaycastStatistics _captureStats;
   RaycastSnapshot._(
     this.ray,
     this.sceneRevision,
     this._near,
     this._far,
     this._meshes,
+    this._tree,
+    this._captureStats,
   );
 
-  PickResult? intersectFirst() => _guard(() {
-    PickResult? nearest;
-    _intersect((hit) {
-      if (nearest == null || hit.distance < nearest!.distance) nearest = hit;
-    });
-    return nearest;
-  });
+  PickResult? intersectFirst() => trace().hits.firstOrNull;
 
   /// Nearest first. Ties retain scene traversal, instance and triangle order.
-  List<PickResult> intersectAll() => _guard(() {
-    final hits = <(int, PickResult)>[];
-    _intersect((hit) => hits.add((hits.length, hit)));
-    hits.sort((a, b) {
-      final distance = a.$2.distance.compareTo(b.$2.distance);
-      return distance == 0 ? a.$1.compareTo(b.$1) : distance;
-    });
-    return List.unmodifiable(hits.map((hit) => hit.$2));
-  });
+  List<PickResult> intersectAll() => trace(firstHitOnly: false).hits;
 
-  void _intersect(void Function(PickResult) receive) {
-    for (final mesh in _meshes) {
-      final local = Ray(
-        _project(mesh.inverse, ray.origin),
-        _direction(mesh.inverse, ray.direction),
-      );
-      if (local.intersectBounds(mesh.bounds) == null) continue;
+  /// Captured build/refit work and exact tests performed by this query.
+  RaycastReport trace({bool firstHitOnly = true}) => _guard(() {
+    final stats = _RaycastCounters.from(_captureStats);
+    final hits = <(int, PickResult)>[];
+    var limit = _far;
+    int compare((int, PickResult) a, (int, PickResult) b) {
+      final distance = a.$2.distance.compareTo(b.$2.distance);
+      if (distance != 0) return distance;
+      final mesh = a.$1.compareTo(b.$1);
+      return mesh == 0
+          ? a.$2.triangleIndex.compareTo(b.$2.triangleIndex)
+          : mesh;
+    }
+
+    void receive(int order, PickResult hit) {
+      final entry = (order, hit);
+      if (!firstHitOnly) {
+        hits.add(entry);
+      } else if (hits.isEmpty || compare(entry, hits.first) < 0) {
+        if (hits.isNotEmpty) hits.clear();
+        hits.add(entry);
+        limit = hit.distance;
+      }
+    }
+
+    void meshHit(int meshIndex) {
+      final mesh = _meshes[meshIndex];
+      stats.meshTests++;
+      final direction = _direction(mesh.inverse, ray.direction);
+      final local = Ray(_project(mesh.inverse, ray.origin), direction);
+      if (local.intersectBounds(mesh.bounds) == null) return;
       final indices = mesh.geometry.indices;
-      for (var i = 0; i < indices.length; i += 3) {
+      void triangleHit(int triangle) {
+        final i = triangle * 3;
         final a = indices[i], b = indices[i + 1], c = indices[i + 2];
+        stats.triangleTests++;
         final hit = local.intersectTriangle(
           mesh.vertex(a),
           mesh.vertex(b),
           mesh.vertex(c),
           side: mesh.side,
         );
-        if (hit == null) continue;
+        if (hit == null) return;
         final point = _project(mesh.model, hit.point);
         // Local distances change under nonuniform scaling. Sort in world space.
         final distance = point.distanceTo(ray.origin);
         if (!distance.isFinite) {
           throw ArgumentError('Intersection distance is not finite.');
         }
-        if (distance < _near || distance > _far) continue;
+        if (distance < _near || distance > _far) return;
         final weights = hit.barycentric, uv = mesh.geometry.uv0;
         receive(
+          mesh.order,
           PickResult._(
             object: mesh.object,
             point: point,
@@ -234,8 +349,78 @@ final class RaycastSnapshot {
           ),
         );
       }
+
+      if (mesh.index case final index?) {
+        index.tree.visit(
+          local,
+          () => limit * direction.length,
+          triangleHit,
+          stats,
+        );
+      } else {
+        for (var i = 0; i < indices.length ~/ 3; i++) {
+          triangleHit(i);
+        }
+      }
     }
-  }
+
+    if (_tree case final tree?) {
+      tree.visit(ray, () => limit, meshHit, stats);
+    } else {
+      for (var i = 0; i < _meshes.length; i++) {
+        meshHit(i);
+      }
+    }
+    hits.sort(compare);
+    return RaycastReport._(
+      List.unmodifiable(hits.map((hit) => hit.$2)),
+      stats.freeze(),
+    );
+  });
+}
+
+/// Read-only counters, including build work captured before query execution.
+final class RaycastStatistics {
+  /// New triangle trees built during capture.
+  final int geometryBuilds;
+
+  /// Existing triangle partitions updated for geometry or pose changes.
+  final int geometryRefits;
+
+  /// New mesh/instance trees built during capture.
+  final int sceneBuilds;
+
+  /// Existing mesh/instance partitions updated during capture.
+  final int sceneRefits;
+
+  /// Mesh/instance inverses computed here, excluding camera and skin work.
+  final int modelMatrixInversions;
+
+  /// Candidate mesh/instance records visited by this traversal.
+  final int meshTests;
+
+  /// Tree-node bounds tested, excluding candidate mesh-local bounds.
+  final int bvhBoundsTests;
+
+  /// Exact ray/triangle tests performed by this traversal.
+  final int triangleTests;
+  const RaycastStatistics._(
+    this.geometryBuilds,
+    this.geometryRefits,
+    this.sceneBuilds,
+    this.sceneRefits,
+    this.modelMatrixInversions,
+    this.meshTests,
+    this.bvhBoundsTests,
+    this.triangleTests,
+  );
+}
+
+/// Sorted captured hits and the work recorded for one traversal.
+final class RaycastReport {
+  final List<PickResult> hits;
+  final RaycastStatistics statistics;
+  const RaycastReport._(this.hits, this.statistics);
 }
 
 final class PickResult {
@@ -262,14 +447,21 @@ final class PickResult {
 }
 
 final class _PickMesh {
+  final int order;
+  final _GeometryBvh? index;
   final Mesh object;
   final GeometrySnapshot geometry;
   final DeformationSnapshot? pose;
   final Mat4 model, inverse;
   final Bounds3 bounds;
+  final Mat4 meshWorld;
+  final Mat4? instanceTransform;
+  late final Bounds3 worldBounds = bounds.transformed(model);
   final MaterialSide side;
   final int? instanceIndex;
   _PickMesh(
+    this.order,
+    this.index,
     this.object,
     this.geometry,
     this.pose,
@@ -278,8 +470,13 @@ final class _PickMesh {
     this.bounds,
     this.side,
     this.instanceIndex,
+    this.meshWorld,
+    this.instanceTransform,
   );
   Vec3 vertex(int index) {
+    if (this.index case final tree?) {
+      return Vec3.array(tree.positions, index * 3);
+    }
     if (pose != null) return pose!.vertexPosition(index);
     final p = geometry.positions, i = index * 3;
     return Vec3(p[i], p[i + 1], p[i + 2]);
