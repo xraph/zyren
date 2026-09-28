@@ -34,6 +34,27 @@ Future<void> settle(Tiles3DStreamer streamer) async {
 }
 
 void main() {
+  test('tileset error controls appearance before root refinement', () async {
+    final resolver = MemoryResolver({'/parent': triangleModel()});
+    final streamer = Tiles3DStreamer(
+      tileset: await source(tile(refine: 'REPLACE', uri: 'parent')),
+      services: AssetServices(resolver: resolver),
+    );
+    addTearDown(streamer.dispose);
+    final camera = PerspectiveCamera(
+      position: const Vec3(0, -1000000, 0),
+      up: const Vec3(0, 0, 1),
+      far: 1e9,
+    );
+    streamer.update(camera, const ViewportMetrics(800, 600));
+    await settle(streamer);
+    expect(resolver.reads, isEmpty);
+    expect(streamer.visible, isEmpty);
+    camera.position = const Vec3(0, -1000, 0);
+    streamer.update(camera, const ViewportMetrics(800, 600));
+    await settle(streamer);
+    expect(streamer.visible.keys, ['0']);
+  });
   test('LRU eviction reloads content when the view returns', () async {
     final resolver = MemoryResolver({
       '/left': triangleModel(),

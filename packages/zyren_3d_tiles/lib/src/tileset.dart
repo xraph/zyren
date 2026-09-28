@@ -91,7 +91,14 @@ final class Tileset3D {
   final Uri sourceUri;
   final String version;
   final int tileCount;
-  const Tileset3D._(this.root, this.sourceUri, this.version, this.tileCount);
+  final double geometricError;
+  const Tileset3D._(
+    this.root,
+    this.sourceUri,
+    this.version,
+    this.tileCount,
+    this.geometricError,
+  );
 }
 
 class _TilesetLoader extends AssetLoader<Tileset3D> {
@@ -113,7 +120,8 @@ class _TilesetLoader extends AssetLoader<Tileset3D> {
         asset.containsKey('gltfUpAxis') && asset['gltfUpAxis'] != 'Y') {
       _unsupported();
     }
-    if (_number(json['geometricError']) < 0) _invalid();
+    final geometricError = _number(json['geometricError']);
+    if (geometricError < 0) _invalid();
     var count = 0;
     TileNode3D node(
       Object? value,
@@ -180,6 +188,7 @@ class _TilesetLoader extends AssetLoader<Tileset3D> {
       source.effectiveUri,
       asset['version'] as String,
       count,
+      geometricError,
     );
     return DecodedAsset(create: () => result, release: (_) {});
   }

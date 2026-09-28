@@ -140,7 +140,10 @@ class Tiles3DStreamer {
 
     final root = tileset.root;
     final queue = <TileNode3D>[];
-    if (root.bounds.isVisible(camera, viewport) && admit([root])) {
+    if (root.bounds.isVisible(camera, viewport) &&
+        root.bounds.screenError(tileset.geometricError, camera, viewport) >
+            maximumScreenError &&
+        admit([root])) {
       queue.add(root);
     }
     while (queue.isNotEmpty) {
