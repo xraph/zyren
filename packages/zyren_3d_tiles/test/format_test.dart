@@ -100,6 +100,57 @@ void main() {
     final bounds = (await parse(root)).root.bounds;
     expect(bounds.radius, greaterThanOrEqualTo(math.sqrt(18)));
   });
+  test(
+    'oriented boxes cull offscreen slabs without their loose spheres',
+    () async {
+      for (final camera in <Camera>[
+        PerspectiveCamera(position: Vec3.zero, target: const Vec3(0, 0, -1)),
+        OrthographicCamera(
+          position: Vec3.zero,
+          target: const Vec3(0, 0, -1),
+          left: -10,
+          right: 10,
+          bottom: -10,
+          top: 10,
+        ),
+      ]) {
+        for (final (center, visible) in [
+          (const Vec3(1000, 0, -20), false),
+          (const Vec3(0, 0, 100), false),
+          (const Vec3(0, 0, -20), true),
+        ]) {
+          final root = tile(refine: 'REPLACE')
+            ..['boundingVolume'] = {
+              'box': [...center.storage, 1, 0, 0, 0, 10000, 0, 0, 0, 1],
+            };
+          expect(
+            (await parse(
+              root,
+            )).root.bounds.isVisible(camera, const ViewportMetrics(800, 600)),
+            visible,
+          );
+        }
+        for (final (x, visible) in [(30.0, true), (50.0, false)]) {
+          final root =
+              tile(
+                  refine: 'REPLACE',
+                  transform: [1, 0, 0, 0, 3, 1, 0, 0, 0, 0, 1, 0, x, 0, -20, 1],
+                )
+                ..['boundingVolume'] = {
+                  'box': [0, 0, 0, 1, 0, 0, 0, 10, 0, 0, 0, 1],
+                };
+          expect(
+            (await parse(
+              root,
+            )).root.bounds.isVisible(camera, const ViewportMetrics(800, 600)),
+            visible,
+            reason:
+                'Apply shear to every half axis before testing the frustum.',
+          );
+        }
+      }
+    },
+  );
   test('unsupported traversal features fail explicitly', () async {
     for (final (key, value) in [
       ('implicitTiling', {}),

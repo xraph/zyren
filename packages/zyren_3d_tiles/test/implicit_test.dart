@@ -341,7 +341,7 @@ void main() {
         '/mesh/1/1/1.glb': triangleModel(),
       });
       final c = await stream(sparse);
-      c.update(camera(size: 1, x: 20), view);
+      c.update(camera(size: 1, x: 4), view);
       await settle(c);
       expect(c.failures, isEmpty);
       expect(c.visible, hasLength(2));

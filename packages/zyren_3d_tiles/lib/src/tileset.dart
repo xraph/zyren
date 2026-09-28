@@ -17,11 +17,16 @@ final class Tiles3DLimits {
 
 enum TileRefinement { add, replace }
 
-/// Conservative world-space sphere. Region bounds are already in WGS84 ECEF.
+/// World-space bounds. Boxes retain their transformed half axes for culling;
+/// the enclosing sphere estimates screen error. Regions are in WGS84 ECEF.
 final class TileBounds3D {
   final Vec3 center;
   final double radius;
-  const TileBounds3D._(this.center, this.radius);
+  final List<Vec3>? _halfAxes;
+  const TileBounds3D._(this.center, this.radius, [this._halfAxes]);
+  double _support(Vec3 normal) =>
+      _halfAxes?.fold<double>(0, (sum, axis) => sum + axis.dot(normal).abs()) ??
+      radius * normal.length;
   double screenError(double error, Camera camera, ViewportMetrics viewport) {
     if (camera is OrthographicCamera) {
       return error *
@@ -48,20 +53,26 @@ final class TileBounds3D {
     final right = forward.cross(camera.up).normalized(),
         up = right.cross(forward);
     final x = delta.dot(right), y = delta.dot(up), z = delta.dot(forward);
+    final depthRadius = _support(forward);
     if (camera is PerspectiveCamera) {
-      if (z + radius < camera.near || z - radius > camera.far) return false;
+      if (z + depthRadius < camera.near || z - depthRadius > camera.far) {
+        return false;
+      }
       final ty = math.tan(camera.fieldOfView / 2) / camera.zoom,
           tx = ty * viewport.aspect;
-      return x.abs() <= z * tx + radius * math.sqrt(1 + tx * tx) &&
-          y.abs() <= z * ty + radius * math.sqrt(1 + ty * ty);
+      return x <= z * tx + _support(right - forward * tx) &&
+          -x <= z * tx + _support(-right - forward * tx) &&
+          y <= z * ty + _support(up - forward * ty) &&
+          -y <= z * ty + _support(-up - forward * ty);
     }
     if (camera is OrthographicCamera) {
-      return z + radius >= camera.near &&
-          z - radius <= camera.far &&
+      return z + depthRadius >= camera.near &&
+          z - depthRadius <= camera.far &&
           (x - (camera.left + camera.right) / 2).abs() <=
-              (camera.right - camera.left) / (2 * camera.zoom) + radius &&
+              (camera.right - camera.left) / (2 * camera.zoom) +
+                  _support(right) &&
           (y - (camera.top + camera.bottom) / 2).abs() <=
-              (camera.top - camera.bottom) / (2 * camera.zoom) + radius;
+              (camera.top - camera.bottom) / (2 * camera.zoom) + _support(up);
     }
     throw UnsupportedError(
       '3D Tiles requires a perspective or orthographic camera.',
@@ -306,6 +317,7 @@ TileBounds3D _bounds(Map<String, dynamic> json, Mat4 world) {
   }
   late Vec3 center;
   late double radius;
+  List<Vec3>? axes;
   if (json.containsKey('sphere')) {
     final values = _numbers(json['sphere'], 4);
     if (values[3] < 0) _invalid();
@@ -315,8 +327,11 @@ TileBounds3D _bounds(Map<String, dynamic> json, Mat4 world) {
     final values = _numbers(json['box'], 12);
     center = _point(world, Vec3.array(values));
     radius = 0;
+    axes = [];
     for (var i = 3; i < 12; i += 3) {
-      radius += _point(world, Vec3.array(values, i), direction: true).length;
+      final axis = _point(world, Vec3.array(values, i), direction: true);
+      axes.add(axis);
+      radius += axis.length;
     }
   } else {
     final v = _numbers(json['region'], 6);
@@ -343,7 +358,11 @@ TileBounds3D _bounds(Map<String, dynamic> json, Mat4 world) {
         1;
   }
   if (!center.isFinite || !radius.isFinite || radius < 0) _invalid();
-  return TileBounds3D._(center, radius);
+  return TileBounds3D._(
+    center,
+    radius,
+    axes == null ? null : List.unmodifiable(axes),
+  );
 }
 
 void _tilesetExtensions(Map<String, dynamic> json) {
