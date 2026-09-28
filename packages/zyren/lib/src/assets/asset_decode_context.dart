@@ -20,6 +20,79 @@ final class AssetDecodeContext {
   int get encodedBytes => _encodedBytes;
   int get decodedBytes => _decodedBytes;
 
+  bool supportsTextureEncoding(TextureEncoding encoding) =>
+      _services.textureDecoder?.encodings.contains(encoding) ?? false;
+
+  Future<TextureImageData> decodeTexture(
+    Uint8List bytes, {
+    required TextureEncoding encoding,
+    String? fieldPath,
+  }) {
+    final future = _decodeTail.then((_) async {
+      cancellation.throwIfCancelled();
+      if (!supportsTextureEncoding(encoding)) {
+        throw AssetLoadException(
+          AssetLoadError.unsupportedFeature,
+          'No decoder supports this texture encoding.',
+          sourceUri: sourceUri,
+          fieldPath: fieldPath,
+        );
+      }
+      final remaining = limits.maxDecodedBytes - _decodedBytes;
+      if (remaining <= 0) {
+        throw _limit('Decoded bytes exceed the job budget.', fieldPath);
+      }
+      final imageLimits = limits.images;
+      final decodeLimits = ImageDecodeLimits(
+        maxEncodedBytes: imageLimits.maxEncodedBytes,
+        maxDecodedBytes: math.min(remaining, imageLimits.maxDecodedBytes),
+        maxWorkingBytes: imageLimits.maxWorkingBytes,
+        maxDimension: imageLimits.maxDimension,
+      );
+      late final TextureImageData texture;
+      try {
+        decodeLimits.validateInput(bytes);
+        texture = await _services.textureDecoder!.decode(
+          bytes,
+          encoding: encoding,
+          limits: decodeLimits,
+        );
+      } on ImageDecodeException catch (error) {
+        throw AssetLoadException(
+          switch (error.code) {
+            ImageDecodeError.limitExceeded => AssetLoadError.limitExceeded,
+            ImageDecodeError.invalidData => AssetLoadError.invalidData,
+            ImageDecodeError.unsupportedFormat ||
+            ImageDecodeError.unsupportedColor =>
+              AssetLoadError.unsupportedFeature,
+            _ => AssetLoadError.decodeFailed,
+          },
+          error.message,
+          sourceUri: sourceUri,
+          fieldPath: fieldPath,
+          cause: error,
+        );
+      }
+      cancellation.throwIfCancelled();
+      final byteCount = texture.levels.fold<int>(
+        0,
+        (sum, level) => sum + level.length,
+      );
+      if (byteCount > decodeLimits.maxDecodedBytes ||
+          texture.descriptor.width > decodeLimits.maxDimension ||
+          texture.descriptor.height > decodeLimits.maxDimension) {
+        throw _limit('Decoded texture exceeds its limits.', fieldPath);
+      }
+      reserveDecodedBytes(byteCount, fieldPath: fieldPath);
+      return texture;
+    });
+    _decodeTail = future.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
+    return future;
+  }
+
   bool supportsBufferEncoding(BufferEncoding encoding) =>
       _services.bufferDecoder?.encodings.contains(encoding) ?? false;
 
