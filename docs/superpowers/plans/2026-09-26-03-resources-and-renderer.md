@@ -344,6 +344,15 @@ pixels and cleanup on Metal and Pixel Vulkan. See
 audit, with Apple window-compositor proof and broader platform qualification open.
 Actual HDR/TAA and motion/depth rejection stay in task 8.
 
+Acceptance audit, 2026-09-28: task 4's public API and independent consumer are
+implemented and checked. The exact compute-to-render fixture, typed bindings,
+ordered hazards, labeled failures, transactional replacement, mesh materials,
+typed plugin services and history run through the public Dart/native path.
+See the [acceptance evidence](../../verification.md#render-graph-acceptance-2026-09-28).
+Transient allocation reuse remains disabled under the recorded conservative
+resource policy. Apple window-compositor inspection and iOS, Windows, Linux and
+Adreno qualification remain program gates, not evidence supplied by this audit.
+
 **Files:** Create graph/shader modules from the map, native
 `src/render_graph/{compile,execute}.rs`, Dart `test/render_graph_test.dart`,
 native `tests/shader_diagnostics.rs`, `examples/shader_lab` and a separate
@@ -371,7 +380,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
 ```
 
 - [x] Run graph tests and `cargo test --test shader_diagnostics`; assert labeled failures for cycles, uninitialized reads, write/read alias conflicts, sample counts, bindings, invalid WGSL source locations and unsupported storage formats. A failed edit must preserve the prior valid graph.
-- [ ] Implement topological ordering, lifetime intervals, validation and capability negotiation. Use wgpu's validated usage model for hazards. Start without transient aliasing optimization, then enable only proven nonoverlapping compatible lifetimes. Cache pipelines by source/layout/options/device generation.
+- [x] Implement topological ordering, lifetime intervals, validation and capability negotiation. Use wgpu's validated usage model for hazards. Start without transient aliasing optimization, then enable only proven nonoverlapping compatible lifetimes. Cache pipelines by source/layout/options/device generation.
 
 ```text
 registration -> immutable candidate -> validate labels and hazards
@@ -380,8 +389,8 @@ success -> swap at frame boundary; retire old graph after submitted use
 failure -> close candidate scope; keep current graph; report diagnostics
 ```
 
-- [ ] Add a public custom mesh material and two-pass postprocess consumer with resize/history invalidation. Include capability fallback/rejection tests. Plugins expose typed services/configuration to other plugins through attachment scopes, without private Rust access.
-- [ ] Analyze the separate consumer, run real GPU output tests and commit `feat: expose validated render graph and WGSL plugin APIs`.
+- [x] Add a public custom mesh material and two-pass postprocess consumer with resize/history invalidation. Include capability fallback/rejection tests. Plugins expose typed services/configuration to other plugins through attachment scopes, without private Rust access.
+- [x] Analyze the separate consumer, run real GPU output tests and commit the API in focused checkpoints through `0ae2760`.
 
 ## Task 5: PBR, lights, shadows and environment maps
 

@@ -1119,3 +1119,29 @@ There is no new iOS, Windows, Linux or Adreno qualification.
 
 Task 4 needs its acceptance audit. The demo supplies frame blending; HDR/TAA,
 motion/depth rejection, later core features and the full Takram port remain open.
+
+## Render-graph acceptance, 2026-09-28
+
+Plan 03 task 4 is accepted for the implemented native graph profile. Source review
+and fresh runs passed 182 core, 51 native Dart and 15 independent consumer tests,
+plus all 75 Rust tests with GPU cases included. This reruns the exact 64x64
+compute-to-quad fixture and shader diagnostics after the final history commit.
+The preceding Metal/Pixel integrations and release builds used the same code.
+
+| Requirement | Evidence |
+| --- | --- |
+| WGSL compilation and labeled failures | `shader_compiler_test.dart`, Rust `shader_diagnostics.rs`, native syntax/type recovery and source-location checks |
+| Graph ordering, access declarations and lifetimes | `render_graph_test.dart`, `graph_phase_test.dart`, Rust `render_graph.rs`; dependencies reorder passes and reject cycles, invalid aliases and uninitialized/discarded reads |
+| Transactional ownership and pipeline reuse | Core compiler/closure regressions and native graph fixtures preserve accepted work, retain resources, reuse live pipelines and return residency to zero |
+| Custom mesh materials | `mesh_shader_test.dart`, native material fixtures and shader-lab's independently packaged stripe material |
+| Public plugin composition and typed services | `shared_graph_test.dart`, native `graph_test.dart`, independent effects tests and the package-boundary check |
+| Resize/history and capability policy | `history_graph_test.dart`, consumer resize/temporal tests, native accumulation and explicit rejection/bypass tests |
+
+No transient alias allocator is enabled. Whole-allocation hazards and owned
+textures are the accepted first profile, as recorded when graph execution was
+implemented. The API additions arrived in focused commits through `0ae2760`,
+instead of the plan's single suggested commit.
+
+This acceptance does not qualify additional devices, HDR/TAA, shadows, PBR or
+Takram parity. Apple window-compositor inspection and iOS, Windows, Linux and
+Adreno remain open in the program's platform gates.
