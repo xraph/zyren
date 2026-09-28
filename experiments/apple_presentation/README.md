@@ -49,4 +49,4 @@ seconds of idle time; an explicit cache flush releases them. Flutter owns its
 cache, so the plugin cannot perform that flush through its public texture API.
 The packaged Flutter fixture now reproduces the resulting bounded-allocation
 stall and macOS teardown retention. See the
-[Apple checkpoint](../../docs/apple-presentation-checkpoint.md).
+[Apple checkpoint](https://xraph.com/docs/zyren/reference/apple-presentation-checkpoint).

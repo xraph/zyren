@@ -7,7 +7,7 @@ ID for native Vulkan presentation. The inspector moves below the canvas on a
 narrow screen and scrolls independently.
 
 The workbench uses `zyren_tools`, `zyren_devtools` and `zyren_timeline` through
-their public APIs. See [the checkpoint](../../docs/scene-workbench-checkpoint.md)
+their public APIs. See [the checkpoint](https://xraph.com/docs/zyren/reference/scene-workbench-checkpoint)
 for verification and remaining features.
 
 Run `flutter run -d macos` from this directory. The same app has generated
@@ -42,7 +42,7 @@ indices and fixed float32 attributes. Each edit wakes the native
 view and the displayed revision advances. Materials still render opaquely;
 transparency remains pending.
 
-See [image decoding](../../docs/design/gpu-resources.md#decode-image-files) for
+See [image decoding](https://xraph.com/docs/zyren/reference/design/gpu-resources#decode-image-files) for
 the public API, supported formats and memory limits.
 
 You can inspect face culling and lighting with:

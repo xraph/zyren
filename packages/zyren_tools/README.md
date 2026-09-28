@@ -61,7 +61,7 @@ The native pass adds one draw per selected draw batch and one overlay. Its edge
 lies inside the selected coverage and runs after postprocessing. It allocates a
 per-view mask, without turning on HDR by itself. Depth-writing occluders hide
 the mask; overlays that do not write depth and coincident surfaces follow the
-limitations described in [selection outlines](../../docs/design/selection-outlines.md).
+limitations described in [selection outlines](https://xraph.com/docs/zyren/reference/design/selection-outlines).
 Custom shaders must be safe to draw again and use their output alpha as coverage.
 
 ## Canvas handles

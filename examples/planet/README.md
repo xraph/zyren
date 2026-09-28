@@ -6,10 +6,10 @@ marker. See the [workspace README](../../README.md) for setup and verification.
 # Camera pose lab
 
 Run `flutter run -d macos -t lib/camera_lab.dart` to use the ported PointOfView
-with the shared native Metal SceneView. The [camera lab notes](../../docs/parity/native-camera-lab.md)
+with the shared native Metal SceneView. The [camera lab notes](https://xraph.com/docs/zyren/reference/parity/native-camera-lab)
 cover device commands, runtime checks and remaining limits. This is a numerical
 port fixture with local calibration geometry; city streaming, atmosphere and
-clouds remain in the [full parity matrix](../../docs/parity/matrix.md).
+clouds remain in the [full parity matrix](https://xraph.com/docs/zyren/reference/parity/matrix).
 
 # Terrain streaming lab
 
@@ -21,5 +21,5 @@ At a detail camera, enable **Offline test** to fail child loads while the parent
 stays visible. **Reconnect and retry** restores finer terrain. The footer shows
 loading requests, cached CPU bytes and visible GPU payload bytes.
 
-The [terrain notes](../../docs/parity/terrain-streaming.md) cover source contracts,
+The [terrain notes](https://xraph.com/docs/zyren/reference/parity/terrain-streaming) cover source contracts,
 native verification and limits. This fixture needs no provider credentials.

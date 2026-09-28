@@ -10,7 +10,7 @@ a frame. Attachment cleanup removes both effects and closes their GPU owners.
 
 Run `RUN_NATIVE_GPU=1 fvm dart test` in this directory for the standalone native
 consumer. Planet's native graph integration test also installs this package on
-the presentation device. See [the effect contract](../../docs/design/scene-effects.md)
+the presentation device. See [the effect contract](https://xraph.com/docs/zyren/reference/design/scene-effects)
 for color, history and allocation limits.
 
 
@@ -20,4 +20,4 @@ directional and spot shadows, 64 mirrored instances and an emissive source.
 The standalone test shares this scene across two views and checks resource cleanup.
 `tool/renderer_benchmark.dart` records explicit readback timings; set `RENDERER_RGBA`
 to save its last 512x384 RGBA frame. Planet's `renderer_lab.dart` presents the same
-fixture through the native host. See [renderer profiles](../../docs/renderer-capabilities.md).
+fixture through the native host. See [renderer profiles](https://xraph.com/docs/zyren/reference/renderer-capabilities).

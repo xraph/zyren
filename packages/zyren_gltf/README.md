@@ -95,5 +95,5 @@ resource identities, worker errors and cancellation.
 
 Run `dart test packages/zyren_gltf/test` from the workspace root. The native
 fixture also renders real pixels, verifies shared uploads and retires the final
-resources on Metal and Pixel Vulkan. See [verification](../../docs/verification.md)
+resources on Metal and Pixel Vulkan. See [verification](https://xraph.com/docs/zyren/reference/verification)
 and the [glTF specification](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html).

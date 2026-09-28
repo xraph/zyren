@@ -18,7 +18,7 @@ The full license is in [licenses/3d-tiles-renderer.txt](licenses/3d-tiles-render
 The geospatial maths, atmosphere and celestial shader equations, star catalogue
 and port inventory reference Takram's three-geospatial project. Its MIT license
 is reproduced below. The catalogue object and regeneration command are pinned
-in [Atmosphere parity](docs/parity/atmosphere.md).
+in [Atmosphere parity](https://xraph.com/docs/zyren/reference/parity/atmosphere).
 
 Source: https://github.com/takram-design-engineering/three-geospatial
 
@@ -106,7 +106,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 PNG/JPEG decoding also uses the pinned Rust crates listed in
-[image decoder dependency licenses](docs/image-decoder-licenses.md). That file
+[image decoder dependency licenses](licenses/image-decoder-notices.md). That file
 contains their license and copyright notices for redistribution.
 
 

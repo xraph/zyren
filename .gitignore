@@ -17,3 +17,6 @@ target/
 .idea/
 coverage/
 artifacts/
+
+# Local engineering notes and documentation sources.
+/docs/
