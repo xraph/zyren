@@ -10,6 +10,7 @@ import '../rendering/frame_output.dart';
 import '../rendering/render_backend.dart';
 import '../scene/scene.dart';
 import '../resources/resource_scope.dart';
+import '../resources/gpu_scope.dart';
 
 /// Share one exported key instance between a provider and its dependents.
 class ServiceKey<T extends Object> {
@@ -57,6 +58,7 @@ class PluginContext {
   ResourceScope? _resources;
   GraphCompiler? _graphs;
   MaterialCompiler? _materials;
+  GpuScope? _gpuScope;
   final Scene scene;
   Camera camera;
   final DeviceCapabilities capabilities;
@@ -171,6 +173,38 @@ class PluginContext {
     scope.onClose(compiler.close);
     return _materials = compiler;
   }
+
+  /// A separately closeable resource/shader/graph/material lifetime. Use this
+  /// for transactional replacements and caches that must retire before detach.
+  GpuScope createGpuScope({String label = ''}) {
+    if (!_active || scope.isClosed) {
+      throw StateError('Plugin context has been detached.');
+    }
+    final backend = _backend;
+    if (backend is! MaterialBackend) {
+      throw SceneException(
+        SceneIssue(
+          code: SceneIssueCodes.unsupportedFeature,
+          message: 'This backend cannot create complete GPU scopes.',
+          operation: 'allocate',
+          pluginId: _pluginId,
+          requiredFeatures: {
+            RenderFeature.scopedResources,
+            RenderFeature.renderGraphs,
+            RenderFeature.shaderMaterials,
+          },
+        ),
+      );
+    }
+    final root = _gpuScope ??= GpuScope.fromBackend(backend, label: _pluginId);
+    if (root.childCount == 0 && !_gpuCleanupRegistered) {
+      _gpuCleanupRegistered = true;
+      scope.onClose(root.close);
+    }
+    return root.createChild(label: label);
+  }
+
+  bool _gpuCleanupRegistered = false;
 
   void invalidate() {
     if (!_active) throw StateError('Plugin context has been detached.');

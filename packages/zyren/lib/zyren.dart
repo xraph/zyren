@@ -49,3 +49,5 @@ export 'src/resources/resource_scope.dart'
         EnvironmentDevice;
 
 export 'src/lights/environment_lighting_plugin.dart';
+
+export 'src/resources/gpu_scope.dart';
