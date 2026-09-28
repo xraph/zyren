@@ -194,7 +194,9 @@ final class ScenePacketEncoder {
         uploadBytes > 64 * 1024 * 1024) {
       throw ArgumentError('Scene resource upload exceeds the frame budget.');
     }
-    final opcode = scene.hasInstances
+    final opcode = scene._meshes.any((m) => m['color_visible'] == false)
+        ? 27
+        : scene.hasInstances
         ? 26
         : scene.hasDeformation ||
               scene._geometries.values.any(
@@ -500,6 +502,7 @@ final class ScenePacketEncoder {
         body.u32(mesh['instance_count'] as int);
       }
       if (opcode >= 25) body.u32(mesh['pose'] as int);
+      if (opcode >= 27) body.u32(mesh['color_visible'] == false ? 0 : 1);
     }
     final payload = body.finish();
     if (payload.length > 66 * 1024 * 1024 - 24) {
@@ -624,6 +627,7 @@ bool _sameMesh(Map<String, Object> a, Map<String, Object> b) {
     'point_shape',
     'cast_shadow',
     'receive_shadow',
+    'color_visible',
   ]) {
     if (a[field] != b[field]) return false;
   }

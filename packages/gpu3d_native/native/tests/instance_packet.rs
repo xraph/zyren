@@ -133,3 +133,46 @@ fn color_packets_validate_every_channel_and_legacy_packets_default_to_white() {
         .unwrap();
     assert_eq!(legacy.instances[0].colors, [[1.; 3]; 2]);
 }
+
+#[test]
+fn color_visibility_packets_validate_flags_and_legacy_defaults() {
+    let (mut culled, tables, instances) = packet();
+    culled[4..8].copy_from_slice(&27_u32.to_le_bytes());
+    culled.splice(tables + 12..tables + 12, [0_u8; 8]);
+    let instances = instances + 8;
+    let white: Vec<u8> = [1_f32; 3].into_iter().flat_map(f32::to_le_bytes).collect();
+    culled.splice(instances + 136..instances + 136, white.clone());
+    culled.splice(instances + 72..instances + 72, white);
+    uint(&mut culled, &[0, 0]); // no pose; no color draw
+    let length = (culled.len() - 24) as u64;
+    culled[16..24].copy_from_slice(&length.to_le_bytes());
+    let frame = ScenePacket::decode(&culled).unwrap().resolve(None).unwrap();
+    assert!(!frame.meshes[0].color_visible);
+    let offset = culled.len() - 4;
+    let mut enabled = culled.clone();
+    enabled[offset..].copy_from_slice(&1_u32.to_le_bytes());
+    assert!(
+        ScenePacket::decode(&enabled)
+            .unwrap()
+            .resolve(None)
+            .unwrap()
+            .meshes[0]
+            .color_visible
+    );
+    let mut invalid = culled.clone();
+    invalid[offset..].copy_from_slice(&2_u32.to_le_bytes());
+    assert!(ScenePacket::decode(&invalid).is_err());
+    for end in 24..culled.len() {
+        let mut truncated = culled[..end].to_vec();
+        truncated[16..24].copy_from_slice(&((end - 24) as u64).to_le_bytes());
+        assert!(ScenePacket::decode(&truncated).is_err());
+    }
+    assert!(
+        ScenePacket::decode(&packet().0)
+            .unwrap()
+            .resolve(None)
+            .unwrap()
+            .meshes[0]
+            .color_visible
+    );
+}

@@ -667,7 +667,7 @@ animated mesh -> hit current deformed surface, not stale bind pose
 ```
 
 - [ ] Run spatial/camera tests and selection integration; absent picking/culling must fail. Singular transforms and zero-size views return typed invalid requests, not NaN hits. Include overlay buttons and scroll-parent gesture competition.
-- [ ] Implement CPU bounds/triangle picking, then static-geometry BVH refit/rebuild on revisions. Account for deformed/instance transforms and sidedness. Use conservative frustum bounds; unknown bounds stay visible. Correct world distance after nonuniform local transforms.
+- [x] Implement CPU bounds/triangle picking, then static-geometry BVH refit/rebuild on revisions. Account for deformed/instance transforms and sidedness. Use conservative frustum bounds; unknown bounds stay visible. Correct world distance after nonuniform local transforms.
 
 ```text
 capture revision -> map point to NDC once -> construct world ray
@@ -692,8 +692,14 @@ requests. Core tests compare against linear traversal, including 10,000
 instances, coincident triangles and reflected nonuniform transforms. The release
 regression checks cold caches, edits and retained requests. See the
 [CPU benchmark](../../../packages/gpu3d/benchmark/README.md) for cold, steady and
-edit costs. Conservative frustum culling, orbit controls, framing, and the
-optional inspector remain open. Queries run on the calling isolate.
+edit costs. Queries run on the calling isolate.
+
+Frustum checkpoint (2026-09-28): built-in triangle bounds, skin/morph poses and
+aggregate instance bounds now control native color draws per camera. Unknown
+shader/primitive bounds stay visible, with explicit bounds and opt-out controls.
+Scene opcode 27 preserves offscreen shadow casters and resource ownership.
+See [culling](../../design/frustum-culling.md) for its contract. Orbit controls,
+framing, the optional inspector and their acceptance checks remain open.
 
 ## Task 8: HDR effects, history and renderer profiles
 

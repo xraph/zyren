@@ -167,6 +167,8 @@ impl Geometry {
 #[derive(Clone, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Mesh {
+    #[serde(default = "enabled")]
+    pub color_visible: bool,
     #[serde(default)]
     pub cast_shadow: bool,
     #[serde(default)]
@@ -227,6 +229,7 @@ fn enabled() -> bool {
 impl Default for Mesh {
     fn default() -> Self {
         Self {
+            color_visible: true,
             cast_shadow: false,
             receive_shadow: false,
             instances: 0,

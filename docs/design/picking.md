@@ -132,7 +132,8 @@ against the camera mask. A parent's layer does not filter its children, but its
 
 Queries test CPU bounds followed by triangles. They run on the calling isolate;
 returning a future does not move the work to a background worker. Renderer
-frustum culling remains open in task 7.
+[frustum culling](frustum-culling.md) uses a separate color-visibility decision;
+CPU queries continue to test captured triangle geometry.
 
 Skinning and morph positions match the built-in native deformation. Queries do
 not execute custom vertex shaders, sample texture alpha, or test line and point

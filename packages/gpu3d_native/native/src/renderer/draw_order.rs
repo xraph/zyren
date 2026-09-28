@@ -25,6 +25,9 @@ pub(super) fn sorted(
     let vp = Mat4::from_cols_array(&frame.view_projection);
     let mut order = Vec::new();
     for (index, mesh) in frame.meshes.iter().enumerate() {
+        if !mesh.color_visible {
+            continue;
+        }
         if mesh.alpha_mode != 2 {
             order.push(Draw {
                 mesh: index,

@@ -146,6 +146,28 @@ class Group extends Object3D {
 }
 
 class Mesh extends Object3D with _MeshDeformation {
+  bool _frustumCulled = true;
+  Bounds3? _cullingBounds;
+
+  /// Allows camera-frustum rejection of this mesh's color draw.
+  /// Shadow participation and resource ownership are independent.
+  bool get frustumCulled => _frustumCulled;
+  set frustumCulled(bool value) {
+    if (value == _frustumCulled) return;
+    _frustumCulled = value;
+    _changed();
+  }
+
+  /// Optional mesh-local bounds after deformation and instance transforms.
+  /// Null infers built-in triangle bounds. Custom shaders and expanded
+  /// primitives stay visible until you supply conservative bounds here.
+  Bounds3? get cullingBounds => _cullingBounds;
+  set cullingBounds(Bounds3? value) {
+    if (identical(value, _cullingBounds)) return;
+    _cullingBounds = value;
+    _changed();
+  }
+
   bool _castShadow = false, _receiveShadow = false;
   bool get castShadow => _castShadow;
   set castShadow(bool value) {

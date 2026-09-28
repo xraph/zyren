@@ -2081,3 +2081,49 @@ with triangle 19 selected. Desktop and narrow widget layouts also pass.
 Windows, Linux and physical iOS qualification,
 renderer frustum culling, orbit/framing tools, the optional inspector and the
 remaining core/Takram parity work stay open.
+
+## Native frustum culling, 28 September 2026
+
+You can now pan past built-in triangle meshes without submitting their offscreen
+color draws. Camera-relative bounds account for skin/morph poses and aggregate
+instance transforms. Unknown custom-shader and expanded-primitive bounds stay
+visible. `Mesh.cullingBounds` accepts an explicit conservative override, and
+`Mesh.frustumCulled` lets you disable culling for a mesh.
+
+Scene opcode 27 adds a validated color-visibility flag. The native draw queue
+skips those color records while retaining shadow participation and resource
+ownership. A pixel regression first showed a red box still rendered after Dart
+culled it, then passed after the flag reached the native queue. Another native
+fixture places a caster outside the camera view and confirms its shadow still
+darkens a visible receiver. Clearing that caster flag restores the lit pixels.
+Its first run had an incorrectly aimed light; the corrected fixture follows
+`PunctualLight.lookAt`'s emitting-axis convention.
+
+All 443 core/glTF/geospatial Dart cases, 95 serial native GPU cases, 121 Rust
+cases including GPU tests, 78 Flutter facade cases, 15 effects-plugin cases and
+five Shader Lab widget cases pass. The release scene-encoder fixture exercises
+culling and restoration without geometry uploads. Packet tests reject malformed
+visibility flags and truncation, and check that older versions enable color draws.
+Packages, examples and tooling analysis, strict Clippy, Dart/Rust formatting,
+package boundaries and Apple ABI checks pass.
+
+The new culling lab shares one box geometry across 61 meshes. Desktop and narrow
+widget checks cover panning, projection changes and the culling toggle. Its macOS
+integration passes with zero presentation readback: disabling culling restores
+61 color draws, and panning or toggling culling does not re-upload the geometry.
+
+The 53.0 MB macOS release app runs on Metal. Live inspection covered compact and
+expanded windows, panning and both projections. The compact perspective view
+reported five draws with culling enabled and 61 with it disabled, with the same
+visible image. Panning changed the count to six; the expanded view drew 13.
+Orthographic projection drew nine in the expanded window and five after returning
+to the compact window. Every settled view reported zero uploaded bytes.
+
+The Android arm64 release APK builds at 23.1 MB. Physical Android culling and
+selection remain unverified; this build does not qualify Vulkan interaction.
+Windows, Linux and physical iOS qualification also remain open.
+
+Culling currently skips whole mesh or instance-batch draws. It does not compact
+individual instances, discard offscreen resources, defer their initial uploads,
+or perform occlusion culling. Orbit/framing controls, the optional inspector and
+the remaining core/Takram and platform work stay open.

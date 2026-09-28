@@ -60,6 +60,7 @@ export 'src/lighting/environment_lighting.dart';
 export 'src/geometry/tangent_generator.dart';
 
 export 'src/spatial/bounds.dart';
+export 'src/spatial/frustum.dart';
 
 export 'src/geometry/morph_target.dart';
 

@@ -584,7 +584,9 @@ resource ownership. See [deformation](deformation.md).
 
 [Picking and cameras](picking.md) describes the implemented CPU triangle queries,
 orthographic projection, layer masks, and frozen asynchronous selections.
-BVH acceleration, culling, orbit controls, and the optional inspector remain open.
+Queries now use revision-safe BVHs, and [frustum culling](frustum-culling.md)
+skips offscreen color draws while retaining shadow participation and resource
+ownership. Orbit controls and the optional inspector remain open.
 
 Texture presentation must compose with Flutter clipping, transforms, opacity,
 scrolling, overlays and hit testing. Flutter rebuilds do not recreate the GPU.

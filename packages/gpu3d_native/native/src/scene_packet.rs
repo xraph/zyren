@@ -82,7 +82,7 @@ impl ScenePacket {
             return Err("unsupported scene packet".into());
         }
         let opcode = r.u32()?;
-        if !(10..=26).contains(&opcode) {
+        if !(10..=27).contains(&opcode) {
             return Err("unsupported scene packet".into());
         }
         let textured = opcode >= 11;
@@ -765,6 +765,13 @@ impl ScenePacket {
             if opcode >= 25 {
                 mesh.pose = r.u32()?;
                 mesh.validate_material()?;
+            }
+            if opcode >= 27 {
+                mesh.color_visible = match r.u32()? {
+                    0 => false,
+                    1 => true,
+                    _ => return Err("Invalid color visibility flag".into()),
+                };
             }
             updates.push((index, mesh));
         }

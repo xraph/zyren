@@ -6,6 +6,8 @@ import '../geometry/geometry.dart';
 import '../geometry/vertex_attribute.dart';
 import '../resources/texture_image.dart';
 import '../scene/scene.dart';
+import '../math/mat4.dart';
+import '../spatial/frustum.dart';
 import 'frame_output.dart';
 import '../resources/resource_scope.dart';
 part 'scene_packet.dart';
@@ -66,9 +68,15 @@ class SceneSnapshot {
   int get drawCalls => _meshes.fold(
     0,
     (n, mesh) =>
-        n + (mesh['alpha_mode'] == 2 ? mesh['instance_count'] as int : 1),
+        n +
+        (mesh['color_visible'] == false
+            ? 0
+            : mesh['alpha_mode'] == 2
+            ? mesh['instance_count'] as int
+            : 1),
   );
   int get triangles => _meshes.fold(0, (sum, mesh) {
+    if (mesh['color_visible'] == false) return sum;
     final geometry = _geometries[mesh['geometry']]!;
     return sum +
         (mesh['instance_count'] as int) *
@@ -90,7 +98,7 @@ class SceneSnapshot {
     this.meshShaders,
     this._shadowLights,
   );
-  static SceneSnapshot _capture(Scene scene, Camera camera) {
+  static SceneSnapshot _capture(Scene scene, Camera camera, Frustum frustum) {
     final meshes = <Map<String, Object>>[],
         geometries = <int, GeometrySnapshot>{};
     final textures = <int, TextureImage>{};
@@ -252,8 +260,20 @@ class SceneSnapshot {
             ..setTranslation(
               world.getTranslation() - camera.position.toVectorMath(),
             );
+          final bounds =
+              node.cullingBounds ??
+              (node.material is! ShaderMaterial &&
+                      geometry.topology == GeometryTopology.triangles
+                  ? node.bounds
+                  : null);
+          final colorVisible =
+              !node.frustumCulled ||
+              frustum.intersectsBounds(
+                bounds?.transformed(Mat4.fromVectorMath(relative)),
+              );
           meshes.add(
             _freeze(<String, Object>{
+                  'color_visible': colorVisible,
                   'geometry': geometry.id,
                   'instances': instance?.id ?? 0,
                   'pose': pose?.id ?? 0,
@@ -374,7 +394,11 @@ class FrameSubmission {
       camera.viewProjection(aspect).storage,
       camera.projectionMatrix(aspect).storage,
     );
-    final sceneSnapshot = SceneSnapshot._capture(scene, camera);
+    final sceneSnapshot = SceneSnapshot._capture(
+      scene,
+      camera,
+      Frustum.fromMatrix(Mat4(cameraSnapshot.viewProjection)),
+    );
     return FrameSubmission._(
       sceneSnapshot,
       cameraSnapshot,

@@ -95,5 +95,22 @@ fvm flutter test test/animation_app_test.dart
 fvm flutter test integration_test/animation_test.dart -d DEVICE_ID
 ```
 
-This demo animates scene transforms. GPU instancing, skinning, morph targets and
-glTF animation import remain open work.
+This demo animates scene transforms. Run `lib/geometry.dart` for custom shader
+skinning, morph targets, instance colors and triangle selection.
+
+## Culling lab
+
+Pan across 61 meshes sharing one box geometry. You can toggle frustum culling or
+switch projection in the header. The footer reports color draws and uploaded
+bytes; camera movement reuses the geometry already on the GPU.
+
+```sh
+fvm flutter run --release -d macos -t lib/culling.dart
+fvm flutter run --release -d DEVICE_ID -t lib/culling.dart
+fvm flutter test test/culling_app_test.dart
+fvm flutter test integration_test/culling_test.dart -d macos
+```
+
+Presentation requires native Metal or Vulkan on the qualified hosts. See
+[frustum culling](../../docs/design/frustum-culling.md) for shader bounds,
+instance batches, shadows and resource lifetime.
