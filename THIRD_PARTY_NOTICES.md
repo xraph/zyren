@@ -1,5 +1,17 @@
 # Third-party notices
 
+## 3d-tiles-renderer
+
+CameraTransitionManager is adapted from 3d-tiles-renderer 0.4.24, copyright
+2020 California Institute of Technology, licensed under Apache 2.0. The port
+uses Dart camera values, typed events and explicit elapsed time.
+
+Source: https://github.com/NASA-AMMOS/3DTilesRendererJS
+
+The full license is in [licenses/3d-tiles-renderer.txt](licenses/3d-tiles-renderer.txt).
+
+## three-geospatial
+
 The geospatial maths and port inventory reference Takram's three-geospatial
 project. Its MIT license is reproduced below.
 
