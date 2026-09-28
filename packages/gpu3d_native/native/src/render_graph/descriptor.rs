@@ -7,6 +7,8 @@ pub struct Description {
     pub label: String,
     #[serde(rename = "sceneColor")]
     pub scene_color: Option<Key>,
+    #[serde(rename = "scenePassIndex", default)]
+    pub scene_pass_index: usize,
     pub output: Option<Key>,
     pub inputs: Vec<Key>,
     pub resources: Vec<Resource>,

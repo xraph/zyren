@@ -9,6 +9,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:shader_lab/main.dart';
 import '../effects_plugin/test/support/native_checks.dart';
 import '../../../packages/gpu3d_native/test/support/mesh_shader_checks.dart';
+import '../../../packages/gpu3d_native/test/support/graph_phase_checks.dart';
 
 Future<FrameStats> waitForFrame(
   WidgetTester tester,
@@ -53,8 +54,42 @@ void main() {
       await verifyEffects(backend);
       await verifyMeshShaders(backend);
       await verifyMeshAttachmentAlias(backend);
+      await verifyGraphPhases(backend);
     } finally {
       await backend.close();
+    }
+    final prepared = SceneController(
+      runtime: Platform.isAndroid
+          ? const SceneRuntime.nativeAndroid()
+          : const SceneRuntime.nativeMetal(),
+    );
+    prepared.use(PreparedMaterialFixture());
+    try {
+      await tester.pumpWidget(
+        MaterialApp(home: SceneView(controller: prepared)),
+      );
+      final first = await waitForFrame(
+        tester,
+        prepared,
+        (frame) => frame.computeDispatches == 1,
+      );
+      expect(first.drawCalls, 2);
+      expect(first.readbackBytes, 0);
+      expect(first.presentationPath, isNot(PresentationPath.readback));
+      await tester.pumpWidget(
+        MaterialApp(home: SceneView(controller: prepared, resolutionScale: .5)),
+      );
+      final resized = await waitForFrame(
+        tester,
+        prepared,
+        (frame) => frame.physicalSize.width < first.physicalSize.width,
+      );
+      expect(resized.computeDispatches, 1);
+      expect(resized.readbackBytes, 0);
+    } finally {
+      await tester.pumpWidget(const SizedBox());
+      prepared.dispose();
+      await prepared.whenDisposed;
     }
     await tester.pumpWidget(
       ShaderLabApp(

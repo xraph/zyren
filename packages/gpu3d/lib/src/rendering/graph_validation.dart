@@ -2,6 +2,8 @@ part of '../resources/resource_scope.dart';
 
 (GraphDeviceDescription, List<String>, List<GraphResourceLifetime>)
 _prepareGraph(GraphDescription graph, GraphDevice device) {
+  final passes = graph.allPasses.toList();
+  final boundary = graph.beforeScene.length;
   Never fail(
     GraphErrorCode code,
     String message, {
@@ -16,8 +18,8 @@ _prepareGraph(GraphDescription graph, GraphDevice device) {
   bool validLabel(String value) =>
       value.isNotEmpty && utf8.encode(value).length <= 1024;
   if (utf8.encode(graph.label).length > 1024 ||
-      graph.passes.isEmpty ||
-      graph.passes.length > 128) {
+      passes.isEmpty ||
+      passes.length > 128) {
     fail(
       GraphErrorCode.limitExceeded,
       'A graph needs 1 to 128 passes and a label within 1024 UTF-8 bytes.',
@@ -58,6 +60,12 @@ _prepareGraph(GraphDescription graph, GraphDevice device) {
       'A frame graph requires both sceneColor and output.',
     );
   }
+  if (boundary > 0 && graph.sceneColor == null) {
+    fail(
+      GraphErrorCode.invalidDescriptor,
+      'Before-scene passes require a scene frame graph.',
+    );
+  }
   Object? sceneKey, outputKey;
   if (graph.sceneColor case final scene?) {
     sceneKey = resourceKey(scene);
@@ -75,15 +83,14 @@ _prepareGraph(GraphDescription graph, GraphDevice device) {
         'Frame textures need matching dimensions, one mip, renderable scene color and sampled output.',
       );
     }
-    inputs.add(sceneKey);
   }
   final names = <String, int>{};
   final reads = <Set<Object>>[],
       writes = <Set<Object>>[],
       discarded = <Set<Object>>[];
   final commands = <Map<String, Object?>>[];
-  for (var index = 0; index < graph.passes.length; index++) {
-    final pass = graph.passes[index];
+  for (var index = 0; index < passes.length; index++) {
+    final pass = passes[index];
     if (!validLabel(pass.name)) {
       fail(
         GraphErrorCode.invalidDescriptor,
@@ -250,31 +257,52 @@ _prepareGraph(GraphDescription graph, GraphDevice device) {
         pass: pass,
       );
     }
+    if (index < boundary &&
+        (actualReads.contains(sceneKey) || actualWrites.contains(sceneKey))) {
+      fail(
+        GraphErrorCode.invalidDescriptor,
+        'Before-scene passes cannot access the scene color attachment.',
+        pass: pass,
+        resource: graph.sceneColor,
+      );
+    }
     reads.add(declaredReads);
     writes.add(declaredWrites);
     discarded.add(discard);
     commands.add(command);
   }
-  final edges = List.generate(graph.passes.length, (_) => <int>{});
+  final edges = List.generate(passes.length, (_) => <int>{});
   void edge(int from, int to) {
+    if (from >= boundary && to < boundary) {
+      fail(
+        GraphErrorCode.invalidDescriptor,
+        'A before-scene pass cannot depend on work after the scene.',
+        pass: passes[to],
+      );
+    }
     if (from != to) edges[from].add(to);
   }
 
-  for (var i = 0; i < graph.passes.length; i++) {
-    for (final dependency in graph.passes[i].after) {
+  for (var before = 0; before < boundary; before++) {
+    for (var after = boundary; after < passes.length; after++) {
+      edge(before, after);
+    }
+  }
+  for (var i = 0; i < passes.length; i++) {
+    for (final dependency in passes[i].after) {
       final before = names[dependency];
       if (before == null) {
         fail(
           GraphErrorCode.missingDependency,
           'Unknown dependency $dependency.',
-          pass: graph.passes[i],
+          pass: passes[i],
         );
       }
       if (before == i) {
         fail(
           GraphErrorCode.cycle,
           'A pass cannot depend on itself.',
-          pass: graph.passes[i],
+          pass: passes[i],
         );
       }
       edge(before, i);
@@ -294,12 +322,14 @@ _prepareGraph(GraphDescription graph, GraphDevice device) {
       for (final candidate in producers) {
         if (candidate < reader) producer = candidate;
       }
-      if (producer == null && !inputs.contains(key)) {
+      if (producer == null &&
+          !inputs.contains(key) &&
+          !(key == sceneKey && reader >= boundary)) {
         if (producers.isEmpty || producers.first == reader) {
           fail(
             GraphErrorCode.uninitializedRead,
             'Resource is read before it is initialized.',
-            pass: graph.passes[reader],
+            pass: passes[reader],
             resource: resources[key],
           );
         }
@@ -331,10 +361,10 @@ _prepareGraph(GraphDescription graph, GraphDevice device) {
       if (--incoming[next] == 0) available.add(next);
     }
   }
-  if (order.length != graph.passes.length) {
+  if (order.length != passes.length) {
     final blocked = [
       for (var i = 0; i < incoming.length; i++)
-        if (incoming[i] > 0) graph.passes[i],
+        if (incoming[i] > 0) passes[i],
     ];
     fail(
       GraphErrorCode.cycle,
@@ -343,15 +373,16 @@ _prepareGraph(GraphDescription graph, GraphDevice device) {
     );
   }
   final initialized = {...inputs},
-      intervals = <Object, (int, int)>{?sceneKey: (-1, -1)};
+      intervals = <Object, (int, int)>{?sceneKey: (boundary - 1, boundary - 1)};
   for (var position = 0; position < order.length; position++) {
+    if (position == boundary && sceneKey != null) initialized.add(sceneKey);
     final index = order[position];
     for (final key in reads[index]) {
       if (!initialized.contains(key)) {
         fail(
           GraphErrorCode.uninitializedRead,
           'Resource contents were discarded before this read.',
-          pass: graph.passes[index],
+          pass: passes[index],
           resource: resources[key],
         );
       }
@@ -362,6 +393,7 @@ _prepareGraph(GraphDescription graph, GraphDevice device) {
       intervals[key] = (intervals[key]?.$1 ?? position, position);
     }
   }
+  if (boundary == order.length && sceneKey != null) initialized.add(sceneKey);
   if (outputKey != null) {
     if (!initialized.contains(outputKey)) {
       fail(
@@ -375,6 +407,7 @@ _prepareGraph(GraphDescription graph, GraphDevice device) {
   return (
     GraphDeviceDescription({
       'sceneColor': ?sceneKey,
+      'scenePassIndex': boundary,
       'output': ?outputKey,
       'label': graph.label,
       'inputs': inputs.toList(),
@@ -384,7 +417,7 @@ _prepareGraph(GraphDescription graph, GraphDevice device) {
       ],
       'passes': [for (final index in order) commands[index]],
     }),
-    [for (final index in order) graph.passes[index].name],
+    [for (final index in order) passes[index].name],
     [
       for (final entry in intervals.entries)
         GraphResourceLifetime(

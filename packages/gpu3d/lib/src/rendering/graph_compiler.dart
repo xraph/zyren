@@ -112,6 +112,9 @@ final class CompiledGraph {
   final List<GraphResourceLifetime> lifetimes;
   final TextureDescriptor? _sceneColor;
   final int drawCalls, triangles, dispatches;
+
+  /// The first entries in [passNames] execute before scene rendering.
+  final int beforeScenePassCount;
   bool get isFrameGraph => _sceneColor != null;
   final _pending = <Future<void>>{};
   bool _closed = false;
@@ -124,16 +127,19 @@ final class CompiledGraph {
     Iterable<GraphResourceLifetime> lifetimes,
     GraphDescription description,
   ) : _sceneColor = description.sceneColor?.descriptor as TextureDescriptor?,
+      beforeScenePassCount = description.beforeScene.length,
       drawCalls =
-          description.passes.whereType<RenderPassDescriptor>().length +
+          description.allPasses.whereType<RenderPassDescriptor>().length +
           (description.output == null ? 0 : 1),
       triangles =
-          description.passes.whereType<RenderPassDescriptor>().fold(
+          description.allPasses.whereType<RenderPassDescriptor>().fold(
             0,
             (sum, pass) => sum + (pass.vertexCount ~/ 3) * pass.instanceCount,
           ) +
           (description.output == null ? 0 : 1),
-      dispatches = description.passes.whereType<ComputePassDescriptor>().length,
+      dispatches = description.allPasses
+          .whereType<ComputePassDescriptor>()
+          .length,
       passNames = List.unmodifiable(passNames),
       lifetimes = List.unmodifiable(lifetimes);
   bool get isClosed => _closed;

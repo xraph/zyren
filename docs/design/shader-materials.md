@@ -55,6 +55,10 @@ final bindings = ShaderBindings([BufferBinding.uniform(0, tint, group: 1)]);
 Writable bindings are rejected. A material also cannot sample the active scene
 color attachment. Post-processing belongs in a frame graph after the scene pass.
 Custom material textures use scoped bindings rather than `TextureMap`.
+You can populate those textures or buffers with `GraphDescription.beforeScene`
+passes before a material reads them in that frame. The engine's group-0 uniform
+size is part of pipeline validation, so an oversized declaration fails before
+the program is published.
 
 ## Color and raster state
 

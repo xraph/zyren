@@ -175,7 +175,7 @@ impl Renderer {
                 ty: wgpu::BindingType::Buffer {
                     ty: wgpu::BufferBindingType::Uniform,
                     has_dynamic_offset: false,
-                    min_binding_size: None,
+                    min_binding_size: wgpu::BufferSize::new(std::mem::size_of::<Uniforms>() as u64),
                 },
                 count: None,
             }],
@@ -569,8 +569,12 @@ impl Renderer {
         depth_view: &wgpu::TextureView,
         format: wgpu::TextureFormat,
         size: [u32; 2],
-        materials: &[Option<crate::render_graph::PreparedMaterial>],
+        composition: (
+            &[Option<crate::render_graph::PreparedMaterial>],
+            Option<&crate::render_graph::FrameGraph>,
+        ),
     ) -> wgpu::CommandEncoder {
+        let (materials, graph) = composition;
         let vp = Mat4::from_cols_array(&frame.view_projection);
         let bindings: Vec<_> = frame
             .meshes
@@ -631,6 +635,9 @@ impl Renderer {
             .map(|mesh| mesh.color_map.as_ref().map(|map| self.texture_binding(map)))
             .collect();
         let mut encoder = self.device.create_command_encoder(&Default::default());
+        if let Some(graph) = graph {
+            graph.encode_before(&mut encoder);
+        }
         {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("native frame"),

@@ -310,6 +310,14 @@ controls, zero-readback presentation, resize and cleanup. See
 registration, temporal history and transparent compositor output remain open;
 task 4 is not complete.
 
+Preparation phase checkpoint: `GraphDescription.beforeScene` and
+`FramePassStage.beforeScene` separate resource preparation from post-processing.
+Dependencies sort within phases, while the scene boundary prevents backward
+dependencies and early access to scene color. The native command buffer now
+executes preparation, scene drawing, effects and output conversion in order.
+Compute-generated material textures are verified in their producing frame.
+This is the execution contract for the pending shared registration layer.
+
 **Files:** Create graph/shader modules from the map, native
 `src/render_graph/{compile,execute}.rs`, Dart `test/render_graph_test.dart`,
 native `tests/shader_diagnostics.rs`, `examples/shader_lab` and a separate

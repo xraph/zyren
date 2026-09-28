@@ -72,6 +72,48 @@ fn native_graph_validation_retains_owners_and_rejects_forged_access() {
       "bindings": [{"kind": "storageTexture", "key": texture_key, "group": 0, "binding": 0, "stages": [2], "mipLevel": 0, "mipLevels": 1}],
       "reads": [], "writes": [texture_key]}]});
     let compile = |description: Value| json!({"operation": "compile", "description": description});
+    for index in [1, 2, usize::MAX] {
+        let mut bad = description.clone();
+        bad["scenePassIndex"] = json!(index);
+        assert_eq!(
+            graph(&mut renderer, compile(bad))["error"]["code"],
+            "invalidDescriptor"
+        );
+    }
+    let scene = renderer
+        .resource_command(
+            &packet(
+                3,
+                &[4_u32, 4, 1, 0, 23, 0]
+                    .into_iter()
+                    .flat_map(u32::to_le_bytes)
+                    .collect::<Vec<_>>(),
+            ),
+            56,
+        )
+        .unwrap();
+    let scene_key = json!(keys(&scene[24..]));
+    for read in [false, true] {
+        let mut bad = description.clone();
+        bad["scenePassIndex"] = json!(1);
+        bad["sceneColor"] = scene_key.clone();
+        bad["output"] = scene_key.clone();
+        bad["resources"] = json!([{ "key": scene_key, "label": "scene" }]);
+        bad["inputs"] = json!([scene_key]);
+        bad["passes"][0]["bindings"][0]["key"] = scene_key.clone();
+        bad["passes"][0]["writes"] = if read { json!([]) } else { json!([scene_key]) };
+        if read {
+            bad["passes"][0]["bindings"][0]["kind"] = json!("sampled");
+            bad["passes"][0]["reads"] = json!([scene_key]);
+        }
+        assert_eq!(
+            graph(&mut renderer, compile(bad))["error"]["code"],
+            "invalidDescriptor"
+        );
+    }
+    renderer
+        .resource_command(&packet(6, &scene[24..]), 24)
+        .unwrap();
     assert!(
         renderer
             .graph_command(&request(compile(description.clone())), CAPACITY - 1)

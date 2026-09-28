@@ -95,6 +95,25 @@ Future<void> verifyMeshShaders(NativeGpuBackend backend) async {
       ),
     );
     expect((await backend.graphStats()).liveMeshShaders, 1);
+    await expectLater(
+      shaders.compileMesh(
+        ShaderSource.wgsl('''
+struct Oversized { values: array<vec4<f32>, 64> };
+@group(0) @binding(0) var<uniform> engine: Oversized;
+@vertex fn vertex(@location(0) p: vec3<f32>) -> @builtin(position) vec4<f32> {
+  return vec4(p, 1.) + engine.values[63];
+}
+@fragment fn fragment() -> @location(0) vec4<f32> { return vec4(1.); }
+'''),
+      ),
+      throwsA(
+        isA<GraphException>().having(
+          (e) => e.code,
+          'code',
+          GraphErrorCode.pipelineFailed,
+        ),
+      ),
+    );
 
     final material = ShaderMaterial(program, side: MaterialSide.front);
     final mesh = Mesh(PlaneGeometry(width: 2, height: 2), material);

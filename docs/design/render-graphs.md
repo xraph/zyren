@@ -158,18 +158,33 @@ is the common backend contract with resource, shader and graph statistics.
 ## Scene composition
 
 Add `sceneColor` and `output` to a `GraphDescription` to process a scene frame.
-The native renderer draws the scene into `sceneColor`, executes the declared
-passes, then samples `output` into the readback target or native surface. All
-three stages share one command buffer. Surface presentation needs no CPU readback.
+The native renderer executes `beforeScene`, draws the scene into `sceneColor`,
+executes `passes`, then samples `output` into the readback target or native surface.
+These stages share one command buffer. Surface presentation needs no CPU readback.
 
 ```dart
 final compiled = await context.graphs.compile(GraphDescription(
   sceneColor: sceneColor,
   output: finalColor,
+  beforeScene: [prepareMaterialTextures],
   passes: [colorTransform, vignette],
 ));
 frameBinding.graph = compiled;
 ```
+
+`beforeScene` is optional. Use it for compute or procedural render passes that
+prepare textures or buffers for a custom mesh material. The mesh sees that work
+in the same frame. You can register these passes on a `RenderGraph` with
+`stage: FramePassStage.beforeScene`; its default stage remains `afterScene`.
+Before-scene passes require a frame graph and cannot read or write `sceneColor`,
+even if you list it as an external input. The scene initializes that attachment
+at the boundary. Dependencies can reorder passes within either phase, but cannot
+move an after-scene producer ahead of a before-scene consumer.
+
+For resource preparation without post-processing, use an empty `passes` list and
+set `output` to `sceneColor`. `CompiledGraph.beforeScenePassCount` tells you how
+many entries at the start of `passNames` execute before the scene. Statistics
+include work in both phases and the final output draw.
 
 Claim `frameBinding = context.frameGraph` during `attach`. You can assign a
 replacement in `beforeRender` after compilation succeeds, or set `graph = null`
@@ -180,7 +195,7 @@ through a typed service. This binding does not own the graph's compiler.
 Both textures need one mip and dimensions equal to the physical frame size.
 The scene texture needs render-attachment usage, and the final output needs
 sampled usage. Declare the usages your effect bindings need too. Scene color is
-initialized before graph execution; output must remain initialized after the
+initialized after the before-scene phase; output must remain initialized after the
 last pass. Texture formats handle linear/sRGB conversion, including the final
 native target. Current formats are RGBA8, so HDR effects need a later format profile.
 
@@ -198,8 +213,11 @@ full-screen draw. `computeDispatches` counts compute passes. Native adapters use
 the frame settles. `NativeGpuServices.submitFrame` provides its native packet
 encoding for platform adapters.
 
-Lifetime intervals use `-1` for the implicit scene write and `passNames.length`
-for the terminal output read. Explicit effect passes keep their zero-based indices.
+Lifetime intervals use `beforeScenePassCount - 1` for the implicit scene write
+at the boundary and `passNames.length` for the terminal output read. Existing
+postprocess-only graphs still use `-1` for the scene write. Explicit passes keep
+their zero-based indices. These are conservative diagnostic intervals, not
+permission to alias allocations. Graph ownership lasts through GPU completion.
 
 Run `fvm dart run example/frame_graph.dart /tmp/native-frame-graph.png` from
 `packages/gpu3d_native`. It renders three meshes, rotates their color channels in
@@ -225,9 +243,10 @@ four bind groups and slots 0 through 15 in each group. Buffer offsets require
 shader's layout and device limits. Native admission allows 32 live graphs and
 16 MiB of description storage per device. Labels have a 1024-byte UTF-8 limit.
 
-This profile supports explicit resource graphs and scene frame composition.
-Scene `ShaderMaterial`, automatic pass registration and history resources remain
-in plan 03. The effects example owns its resize policy using child scopes.
+This profile supports explicit resource graphs, before/after-scene composition
+and [custom mesh materials](shader-materials.md). Automatic pass registration and
+history resources remain in plan 03. The effects example owns its resize policy
+using child scopes.
 Graph execution is verified on macOS Metal and Pixel Vulkan; see
 [verification](../verification.md). Other
 platforms have no graph qualification yet.

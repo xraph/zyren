@@ -13,7 +13,14 @@ impl FrameGraph {
         &self.graph.resources
     }
     pub fn encode(&self, encoder: &mut wgpu::CommandEncoder) {
-        self.graph.encode(encoder);
+        self.graph.encode_range(
+            encoder,
+            self.graph.scene_pass_index..self.graph.passes.len(),
+        );
+    }
+    pub fn encode_before(&self, encoder: &mut wgpu::CommandEncoder) {
+        self.graph
+            .encode_range(encoder, 0..self.graph.scene_pass_index);
     }
 }
 impl GraphStore {

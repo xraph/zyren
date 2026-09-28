@@ -980,3 +980,33 @@ though its assertions passed; manual macOS release inspection remains unverified
 No new iOS, Windows, Linux or Adreno qualification was performed. Task 4 remains
 open for shared pass registration, temporal history and transparent compositor
 output. This checkpoint does not establish full Three.js or Takram parity.
+
+## Before-scene preparation, 2026-09-28
+
+Frame graphs now run preparation passes before the scene and effects afterward
+in one command buffer. Metal pixel tests change a compute-generated material
+texture from red to green to white and check the result in that same frame.
+Both preparation-only and preparation-plus-effects graphs pass. Author scopes
+can close while compiled owners remain usable, and final cleanup returns GPU
+resource bytes, graphs and mesh programs to zero.
+
+Four core regressions cover phase ordering, the scene boundary, imported aliases,
+backward dependencies, combined pass limits and failed candidate preservation.
+Native validation also rejects forged boundaries and early scene-color access.
+A separate regression caught oversized engine uniform declarations passing
+material compilation. The engine layout now supplies its actual minimum binding
+size, so these programs fail before publication and valid materials still render.
+
+The checkpoint passed 148 core, 50 native Dart, 63 Flutter facade, 10 effects-plugin
+and 1 app-layout tests. Native Dart ran serially with GPU tests enabled. Six focused
+Rust graph and shader tests passed with ignored GPU cases enabled. Analysis,
+strict Clippy, formatting, package boundaries and ABI header checks passed.
+
+The shader-lab integrations passed on macOS Metal and physical Pixel Vulkan.
+They check the preparation pixels and exercise the same compute-to-material path
+through native Flutter surfaces, including resize, zero presentation readback and
+final cleanup. Release builds passed for Android arm64 (23.3 MB) and macOS
+(52.0 MB). Manual release inspection remains unverified. The macOS runner
+still could not foreground the app. No iOS, Windows, Linux or Adreno qualification
+was added. Shared plugin registration, history and transparent compositor output
+remain open.

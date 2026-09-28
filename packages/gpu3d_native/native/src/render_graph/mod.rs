@@ -129,6 +129,7 @@ struct PreparedPass {
     instance_count: u32,
 }
 struct ScopedGraph {
+    scene_pass_index: usize,
     passes: Vec<PreparedPass>,
     resources: Vec<ResourceKey>,
     shaders: Vec<ResourceKey>,

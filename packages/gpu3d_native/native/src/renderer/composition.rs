@@ -157,7 +157,7 @@ impl Renderer {
     ) -> wgpu::CommandEncoder {
         let (graph, materials) = composition;
         let Some(graph) = graph else {
-            return self.encode_scene(frame, color, depth, format, size, materials);
+            return self.encode_scene(frame, color, depth, format, size, (materials, None));
         };
         let scene_view = graph.scene_color.create_view(&Default::default());
         let mut encoder = self.encode_scene(
@@ -166,7 +166,7 @@ impl Renderer {
             depth,
             graph.scene_color.format(),
             size,
-            materials,
+            (materials, Some(graph)),
         );
         graph.encode(&mut encoder);
         self.compositor

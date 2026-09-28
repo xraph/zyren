@@ -38,9 +38,16 @@ impl GraphStore {
 
 impl super::ScopedGraph {
     pub(super) fn encode(&self, encoder: &mut wgpu::CommandEncoder) -> (u32, u32) {
+        self.encode_range(encoder, 0..self.passes.len())
+    }
+    pub(super) fn encode_range(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        range: std::ops::Range<usize>,
+    ) -> (u32, u32) {
         let mut dispatches = 0;
         let mut draws = 0;
-        for pass in &self.passes {
+        for pass in &self.passes[range] {
             match &pass.pipeline.kind {
                 PipelineKind::Compute(pipeline) => {
                     let mut encoder = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
