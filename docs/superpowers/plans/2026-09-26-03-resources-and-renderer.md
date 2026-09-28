@@ -546,6 +546,15 @@ Skin + normal map viewer sample adds a twist target, with zero-readback
 presentation and 400-byte pose edits. Task 6 remains open for the animation and
 custom shader work listed above.
 
+Playback lifecycle checkpoint, 28 September 2026: actions now accept finite
+repetition counts and emit typed loop/completion snapshots after the full pose
+commits. Tests cover reverse and ping-pong endpoints, fractional durations,
+replay, callback-driven successors and atomic failures. Native pixels retain
+the completed pose without geometry uploads. The animation lab exposes run
+counts and status; Metal and physical Pixel Vulkan checks verify natural
+completion releases frame demand. Additive blending, custom shader deformation,
+per-instance colors and the rest of Task 6 remain open.
+
 **Files:** Create core `scene/instanced_mesh.dart`, `animation/{clip,track,mixer,action}.dart`,
 `geometry/{skin,morph_target}.dart`; native `passes/deformation.rs`, WGSL,
 `test/animation_test.dart`, `native/tests/deformation_render.rs` and viewer controls.

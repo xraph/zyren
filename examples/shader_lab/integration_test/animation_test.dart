@@ -78,6 +78,30 @@ void main() {
       expect(arm('Left').quaternion, leftPaused);
       expect(frames.last.uploadedBytes, 0);
       expect(frames.every((f) => f.readbackBytes == 0), isTrue);
+      tester
+          .widget<DropdownButton<int>>(
+            find.byKey(const ValueKey('Repetitions')),
+          )
+          .onChanged!(2);
+      tester
+          .widget<DropdownButton<double>>(find.byKey(const ValueKey('Speed')))
+          .onChanged!(2);
+      await tester.tap(find.byKey(const ValueKey('Restart')));
+      await tester.tap(find.byKey(const ValueKey('Playback')));
+      for (var i = 0; i < 12; i++) {
+        await advance();
+        if (find.text('Finished · 2 runs').evaluate().isNotEmpty) break;
+      }
+      expect(find.text('Finished · 2 runs'), findsOneWidget);
+      await advance();
+      final finishedCount = frames.length;
+      await advance();
+      expect(
+        frames.length,
+        finishedCount,
+        reason: 'Natural completion releases frame demand.',
+      );
+      expect(frames.every((f) => f.readbackBytes == 0), isTrue);
       expect(tester.takeException(), isNull);
     } finally {
       await subscription.cancel();

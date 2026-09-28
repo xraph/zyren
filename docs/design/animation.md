@@ -93,7 +93,7 @@ A zero-duration clip applies its pose and finishes without continuous demand.
 ## Actions, mixing and frame demand
 
 Each `play` call creates an independent action. Its options are `loop` (`repeat`
-by default), `speed` (`1`) and `weight` (`1`). `actions` lists every unstopped
+by default), `speed` (`1`), `weight` (`1`) and optional `repetitions`. `actions` lists every unstopped
 action, including paused and finished ones.
 
 | Control | Behaviour |
@@ -103,7 +103,8 @@ action, including paused and finished ones.
 | `seek(Duration)` | Applies a nonnegative position immediately, clamped at clip end; preserves pause and leaves a previously finished action paused |
 | `speed` | Finite `[-1024, 1024]`; negative plays backwards and zero stops clock demand |
 | `weight` | Finite `[0, 1]`; zero-weight running actions still advance their clocks |
-| `loop` | `once`, `repeat` or `pingPong`; changing it preserves local time and resets the ping-pong phase |
+| `loop` | `once`, `repeat` or `pingPong`; changing it preserves local time and resets phase and repeat count |
+| `repetitions` | Total traversals, including the first; null is unlimited; changing it resets the completed count |
 | `stop()` | Removes this action and restores channels no other action owns |
 | `stopAll()` | Removes all mixer actions and restores their rest values |
 
@@ -128,6 +129,58 @@ and zero-speed actions release it. Starting or resuming an action skips its firs
 automatic delta, preventing time spent idle from becoming a jump. Other running
 actions continue normally. Detaching releases demand and preserves playback
 state for explicit Dart updates or a later attachment.
+
+## Finite playback and events
+
+To play a clip three times and react to natural completion, subscribe before
+calling `play`:
+
+```dart
+final subscription = mixer.events.listen((event) {
+  switch (event) {
+    case AnimationFinishedEvent(:final action):
+      action.stop(); // Release its held pose, or play a successor here.
+    case AnimationLoopEvent(:final repetitionsDelta):
+      print('Crossed $repetitionsDelta clip boundaries');
+  }
+});
+final action = mixer.play(clip, repetitions: 3);
+// Cancel the subscription when its owning screen or model is disposed.
+```
+
+`repetitions` accepts 1 through one billion. Null keeps repeating. Each ping-pong
+leg counts as one traversal, so two legs return to the starting endpoint.
+`once` always performs one traversal, regardless of this option. A finished
+action retains its final contribution and releases frame demand. Reverse
+repeat ends at zero; forward repeat ends at the clip duration.
+
+Events are asynchronous broadcast snapshots. Each carries `action`, local
+`time`/`timeSeconds`, `completedRepetitions` and playback `direction` (`-1` or
+`1`, independent of ping-pong reflection). A time step produces at most one
+event per action: a loop event with the number of crossed boundaries, or a
+finished event if that step completes playback. Listening code can change
+playback without mutating the mixer during pose evaluation. The snapshot stays
+fixed even if its action has since advanced, restarted or stopped.
+
+A zero-duration clip finishes during `play`, with zero completed traversals.
+Subscribe first to receive that event. No frame is needed. Seek, pause, stop and
+configuration edits never synthesize completion events. Seeking resets the
+completed count and ping-pong phase; resuming after a pause retains them, while
+resuming a finished action starts a fresh run. Loop edits reset phase and count;
+repeat-count edits preserve phase and reset only the count. Editing a finished
+action leaves it paused until you resume it.
+
+All poses, counters and completion states commit together. A failed track sample
+leaves the previous state intact and emits no event. Boundary arithmetic allows
+only floating-point roundoff so split elapsed steps can land on fractional clip
+ends. Finite clips clamp before counting unused excess elapsed time; an
+unlimited step that would exceed the exact counter range of `2^53 - 1` is
+rejected before publication.
+
+The traversal and batched loop-event model follows the
+[Three.js animation action](https://threejs.org/docs/pages/AnimationAction.html).
+This Dart API keeps its existing held final pose and publishes typed events
+after committing the complete mixer update.
 
 ## Bounds and verification
 
@@ -155,5 +208,4 @@ flutter test integration_test/animation_test.dart -d DEVICE_ID
 The two scene hierarchies share a clip and immutable geometry. This is transform
 animation. Native GPU instancing, skinning and morph deformation use the
 [deformation API](deformation.md). glTF transform and morph-weight import use
-these same tracks. Track completion events, additive blending and
-finite repetition counts also remain open parts of the broader animation API.
+these same tracks. Additive blending, cross-fades and time warping remain open parts of the broader animation API.

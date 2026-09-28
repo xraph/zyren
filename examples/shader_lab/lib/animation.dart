@@ -54,6 +54,7 @@ class _AnimationLabState extends State<_AnimationLab> {
   late final SceneController controller;
   final actions = <AnimationAction>[];
   StreamSubscription<FrameStats>? subscription;
+  final eventSubscriptions = <StreamSubscription<AnimationEvent>>[];
   int selected = 0;
   AnimationAction get action => actions[selected];
   @override
@@ -69,6 +70,11 @@ class _AnimationLabState extends State<_AnimationLab> {
     );
     for (final mixer in demo.mixers) {
       controller.use(mixer);
+      eventSubscriptions.add(
+        mixer.events.listen((_) {
+          if (mounted) setState(() {});
+        }),
+      );
     }
     actions.addAll(demo.actions);
     subscription = controller.frameStats.listen((_) {
@@ -178,7 +184,7 @@ class _AnimationLabState extends State<_AnimationLab> {
                 ),
                 const SizedBox(width: 16),
                 SizedBox(
-                  width: 110,
+                  width: 85,
                   child: DropdownButton<double>(
                     key: const ValueKey('Speed'),
                     value: action.speed,
@@ -187,22 +193,47 @@ class _AnimationLabState extends State<_AnimationLab> {
                       for (final speed in [-2.0, -1.0, 0.0, .5, 1.0, 2.0])
                         DropdownMenuItem(
                           value: speed,
-                          child: Text('${speed}x speed'),
+                          child: Text('${speed}x'),
                         ),
                     ],
                     onChanged: (value) => edit(() => action.speed = value!),
                   ),
                 ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 92,
+                  child: DropdownButton<int>(
+                    key: const ValueKey('Repetitions'),
+                    value: action.repetitions ?? 0,
+                    isExpanded: true,
+                    items: [
+                      for (final count in [0, 1, 2, 3])
+                        DropdownMenuItem(
+                          value: count,
+                          child: Text(count == 0 ? 'Forever' : '$count runs'),
+                        ),
+                    ],
+                    onChanged: action.loop == AnimationLoop.once
+                        ? null
+                        : (value) => edit(
+                            () =>
+                                action.repetitions = value == 0 ? null : value,
+                          ),
+                  ),
+                ),
               ],
             ),
           ),
-          const Padding(
+          Padding(
             padding: EdgeInsets.fromLTRB(12, 0, 12, 4),
             child: Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                'Shared clip · independent playback',
-                style: TextStyle(fontSize: 12),
+                action.isFinished
+                    ? 'Finished · ${action.completedRepetitions} runs'
+                    : 'Independent playback · ${action.completedRepetitions} runs',
+                key: const ValueKey('Playback status'),
+                style: const TextStyle(fontSize: 12),
               ),
             ),
           ),
@@ -227,6 +258,9 @@ class _AnimationLabState extends State<_AnimationLab> {
   @override
   void dispose() {
     unawaited(subscription?.cancel());
+    for (final events in eventSubscriptions) {
+      unawaited(events.cancel());
+    }
     controller.dispose();
     super.dispose();
   }

@@ -1834,3 +1834,42 @@ full Three.js/Takram parity remain open. Task 6 stays unchecked.
 The 26.0 MB Android release launched the normal-mapped deformation sample on
 the Pixel. Its process was confirmed and the error-level process log was empty
 when checked. The release remains running for inspection.
+
+
+## Animation lifecycle, 28 September 2026
+
+You can set a finite traversal count when playing an action or through its
+`repetitions` property. Ping-pong counts each leg, reverse repeat finishes at
+zero, and completed actions hold their final pose. Changing loop settings or
+seeking resets the count. Restarting a finished action begins a fresh run.
+
+Typed `AnimationLoopEvent` and `AnimationFinishedEvent` snapshots are delivered
+asynchronously after pose validation and publication. Large steps emit one
+event per action; the loop event carries its crossed-boundary count. Invalid
+poses preserve times, counters and completion state and emit nothing. Tests
+also cover zero-duration clips, event-driven replacement, reverse direction
+changes, invalid limits and counter overflow. A split-step test caught missed
+fractional endpoints in reverse playback; roundoff handling now covers once,
+repeat and ping-pong modes.
+
+The final core, glTF and geospatial suite passed 389 cases. The native GPU suite
+passed 88 cases with serial execution, and all three shader-lab widget cases
+passed. The final focused animation run passed 27 cases after the one-shot
+roundoff fix. Analysis, formatting, package boundaries and Apple ABI checks
+passed. No native ABI or Rust source changed.
+
+The native pixel fixture retains completed and frozen poses without geometry
+uploads. Metal and physical Pixel Vulkan integration pass for independent
+playback, seeking, finite completion, frame-demand release and zero-readback
+presentation. The animation lab adds run-count selection and completion status;
+its widget checks retain a canvas over 250 pixels high at 320x640 and cover
+390x700 and 1100x700 layouts.
+
+macOS could not foreground the test app, so manual desktop interaction remains
+unverified. Windows, Linux and physical iOS qualification are still open.
+Additive blending, fades/warping, custom shader deformation and other core and
+Takram parity work remain. Task 6 and the full implementation goal stay open.
+
+The 24.3 MB Android release launched `lib/animation.dart` on the Pixel. Its
+process was confirmed and its error-level process log was empty when checked.
+The release app remains running; its screen was not inspected.

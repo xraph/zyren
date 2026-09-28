@@ -63,4 +63,25 @@ Future<void> verifyAnimation(NativeGpuBackend backend) async {
   expect(centroid(previous, 0), centroid(start, 0));
   expect(b.position, Vec3.zero);
   action.stop();
+  final events = <AnimationEvent>[];
+  final subscription = first.events.listen(events.add);
+  try {
+    final finite = first.play(clip, repetitions: 2);
+    first.update(const Duration(seconds: 2));
+    await Future<void>.delayed(Duration.zero);
+    expect(finite.isFinished, isTrue);
+    expect(events.single, isA<AnimationFinishedEvent>());
+    final finished = await render(capture());
+    expect(finished.image.pixels, orderedEquals(moved.image.pixels));
+    expect(finished.stats.uploadedBytes, 0);
+    final held = capture();
+    finite.resume();
+    expect(
+      (await render(held)).image.pixels,
+      orderedEquals(finished.image.pixels),
+    );
+    finite.stop();
+  } finally {
+    await subscription.cancel();
+  }
 }

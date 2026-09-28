@@ -40,6 +40,18 @@ void main() {
     await tester.pumpAndSettle();
     expect(arm('Left').quaternion, isNot(left));
     expect(arm('Right').quaternion, right);
+    tester
+        .widget<DropdownButton<int>>(find.byKey(const ValueKey('Repetitions')))
+        .onChanged!(2);
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<DropdownButton<int>>(
+            find.byKey(const ValueKey('Repetitions')),
+          )
+          .value,
+      2,
+    );
     for (final size in [
       const Size(390, 700),
       const Size(1100, 700),

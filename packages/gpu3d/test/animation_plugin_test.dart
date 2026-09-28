@@ -4,6 +4,56 @@ import 'support/fakes.dart';
 import 'animation_test.dart' show movement;
 
 void main() {
+  test(
+    'finite completion releases demand before events can start a successor',
+    () async {
+      final system = AnimationSystem(),
+          mixer = AnimationMixer(nodes: {'part': Group()});
+      var demands = 0;
+      final registration = system.add(mixer);
+      final action = mixer.play(movement(), repetitions: 2);
+      final engine = await SceneEngine.create(
+        scene: Scene(),
+        camera: PerspectiveCamera(),
+        rendererFactory: () async => TestRenderer([]),
+        plugins: [system],
+        acquireFrameDemand: () {
+          demands++;
+          return Registration(() => demands--);
+        },
+      );
+      AnimationAction? successor;
+      final sub = mixer.events.listen((event) {
+        if (event is AnimationFinishedEvent) {
+          expect(demands, 0);
+          successor = mixer.play(movement());
+          expect(demands, 1);
+        }
+      });
+      try {
+        await engine.render(elapsed: Duration.zero, width: 4, height: 4);
+        await engine.render(
+          elapsed: const Duration(seconds: 2),
+          time: const FrameTime(
+            elapsed: Duration(seconds: 2),
+            delta: Duration(seconds: 2),
+          ),
+          width: 4,
+          height: 4,
+        );
+        await Future<void>.delayed(Duration.zero);
+        expect(action.isFinished, isTrue);
+        expect(successor, isNotNull);
+        registration.dispose();
+        expect(demands, 0);
+      } finally {
+        await sub.cancel();
+        registration.dispose();
+        await engine.dispose();
+      }
+    },
+  );
+
   test('failed direct attachment cannot steal a system-owned mixer', () async {
     final system = AnimationSystem();
     final mixer = AnimationMixer(nodes: {'part': Group()});

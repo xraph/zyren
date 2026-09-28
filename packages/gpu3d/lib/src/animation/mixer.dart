@@ -9,6 +9,11 @@ final class AnimationMixer extends ScenePlugin {
   final Map<String, Object3D> nodes;
   final Map<String, List<Mesh>> morphTargets;
   List<AnimationAction> _actions = [];
+  final _events = StreamController<AnimationEvent>.broadcast();
+
+  /// Asynchronous events from committed playback updates. Subscribe before play
+  /// to receive zero-duration completion; cancel when the owner is disposed.
+  Stream<AnimationEvent> get events => _events.stream;
   Map<(String, TransformProperty), Object> _rest = {};
   PluginContext? _context;
   Registration? _demand;
@@ -35,8 +40,10 @@ final class AnimationMixer extends ScenePlugin {
     AnimationLoop loop = AnimationLoop.repeat,
     double speed = 1,
     double weight = 1,
+    int? repetitions,
   }) {
     AnimationAction._speed(speed);
+    AnimationAction._repetitions(repetitions);
     AnimationAction._weight(weight);
     if (_actions.length >= 256) {
       throw StateError('Stop an action before exceeding 256 actions.');
@@ -71,10 +78,12 @@ final class AnimationMixer extends ScenePlugin {
         speed: speed,
         weight: weight,
         loop: loop,
+        repetitions: repetitions,
         finished: clip.durationSeconds == 0,
       ),
     );
     _apply([..._actions, action], const {}, invalidate: true);
+    if (action.isFinished) _publishEvent(action, finished: true, delta: 0);
     return action;
   }
 
@@ -94,20 +103,36 @@ final class AnimationMixer extends ScenePlugin {
     for (final action in _actions) {
       final next = action._state.copy(), duration = action.clip.durationSeconds;
       if (next.advancing && !(fromFrame && next.fresh) && seconds != 0) {
-        final phase = next.phase + seconds * next.speed;
-        if (next.loop == AnimationLoop.once) {
-          next.phase = phase.clamp(0.0, duration);
-          next.finished = next.speed > 0 ? phase >= duration : phase <= 0;
-        } else {
-          next.phase =
-              phase %
-              (next.loop == AnimationLoop.pingPong ? 2 * duration : duration);
-        }
+        next.advance(seconds, duration);
       }
       next.fresh = false;
       states[action] = next;
     }
+    final events = <(AnimationAction, bool, int)>[];
+    for (final entry in states.entries) {
+      final before = entry.key._state, after = entry.value;
+      final delta = after.completedRepetitions - before.completedRepetitions;
+      if ((!before.finished && after.finished) || delta > 0) {
+        events.add((entry.key, after.finished, delta));
+      }
+    }
     _apply(_actions, states, invalidate: !fromFrame);
+    for (final (action, finished, delta) in events) {
+      _publishEvent(action, finished: finished, delta: delta);
+    }
+  }
+
+  void _publishEvent(
+    AnimationAction action, {
+    required bool finished,
+    required int delta,
+  }) {
+    if (!_events.hasListener) return;
+    _events.add(
+      finished
+          ? AnimationFinishedEvent._(action)
+          : AnimationLoopEvent._(action, delta),
+    );
   }
 
   void _apply(

@@ -5,12 +5,16 @@ enum AnimationLoop { once, repeat, pingPong }
 final class _Playback {
   double phase, speed, weight;
   AnimationLoop loop;
+  int? repetitions;
+  int completedRepetitions;
   bool paused, finished, fresh;
   _Playback({
     required this.phase,
     required this.speed,
     required this.weight,
     required this.loop,
+    this.repetitions,
+    this.completedRepetitions = 0,
     this.paused = false,
     this.finished = false,
     this.fresh = true,
@@ -20,6 +24,8 @@ final class _Playback {
     speed: speed,
     weight: weight,
     loop: loop,
+    repetitions: repetitions,
+    completedRepetitions: completedRepetitions,
     paused: paused,
     finished: finished,
     fresh: fresh,
@@ -28,6 +34,74 @@ final class _Playback {
       loop == AnimationLoop.pingPong && phase > duration
       ? 2 * duration - phase
       : phase;
+  void advance(double seconds, double duration) {
+    final direction = speed > 0 ? 1 : -1;
+    final distance = seconds * speed.abs();
+    // Absorb only roundoff at clip boundaries, including split frame deltas.
+    final tolerance = duration * 1.7763568394002505e-15;
+    if (loop == AnimationLoop.once) {
+      phase = (phase + distance * direction).clamp(0.0, duration);
+      finished = direction > 0
+          ? duration - phase <= tolerance
+          : phase <= tolerance;
+      if (finished) {
+        phase = direction > 0 ? duration : 0;
+        completedRepetitions = 1;
+      }
+      return;
+    }
+    final local = phase % duration;
+    final first = direction > 0
+        ? duration - local
+        : local == 0
+        ? duration
+        : local;
+    final remaining = repetitions == null
+        ? null
+        : repetitions! - completedRepetitions;
+    final finishDistance = remaining == null
+        ? null
+        : first + (remaining - 1) * duration;
+    if (finishDistance != null &&
+        distance +
+                math.max(tolerance, finishDistance * 1.7763568394002505e-15) >=
+            finishDistance) {
+      if (loop == AnimationLoop.repeat) {
+        phase = direction > 0 ? duration : 0;
+      } else {
+        final firstEnd = direction > 0
+            ? (phase < duration ? duration : 0.0)
+            : (phase > 0 && phase <= duration ? 0.0 : duration);
+        phase = (remaining! - 1).isOdd ? duration - firstEnd : firstEnd;
+      }
+      completedRepetitions = repetitions!;
+      finished = true;
+      return;
+    }
+    if (distance + tolerance >= first) {
+      final additional = math.max(
+        0.0,
+        (distance - first + tolerance) / duration,
+      );
+      // Keep counters exact on every Dart target and reject before publication.
+      if (!additional.isFinite ||
+          additional >= 9007199254740991 - completedRepetitions) {
+        throw ArgumentError(
+          'An animation step exceeds the exact repetition counter range.',
+        );
+      }
+      completedRepetitions += additional.floor() + 1;
+    }
+    final period = loop == AnimationLoop.pingPong ? 2 * duration : duration;
+    phase = (phase + direction * (distance % period)) % period;
+    if (phase <= tolerance || period - phase <= tolerance) {
+      phase = 0;
+    } else if (loop == AnimationLoop.pingPong &&
+        (phase - duration).abs() <= tolerance) {
+      phase = duration;
+    }
+  }
+
   bool get advancing => !paused && !finished && speed != 0;
 }
 
@@ -60,10 +134,25 @@ final class AnimationAction {
     _change((s) => s.weight = value);
   }
 
+  /// Total traversals, including the first; null repeats indefinitely.
+  int? get repetitions => _state.repetitions;
+  set repetitions(int? value) {
+    _repetitions(value);
+    _change((s) {
+      s.repetitions = value;
+      s.completedRepetitions = 0;
+      s.paused |= s.finished;
+      s.finished = clip.durationSeconds == 0;
+    });
+  }
+
+  int get completedRepetitions => _state.completedRepetitions;
+
   AnimationLoop get loop => _state.loop;
   set loop(AnimationLoop value) => _change((s) {
     s.phase = timeSeconds;
     s.loop = value;
+    s.completedRepetitions = 0;
     s.paused |= s.finished;
     s.finished = clip.durationSeconds == 0;
   });
@@ -73,6 +162,7 @@ final class AnimationAction {
     _change((s) {
       if (s.finished && clip.durationSeconds > 0) {
         s.phase = s.speed < 0 ? clip.durationSeconds : 0;
+        s.completedRepetitions = 0;
       }
       s.finished = clip.durationSeconds == 0;
       s.paused = false;
@@ -83,6 +173,7 @@ final class AnimationAction {
   void seek(Duration time) {
     if (time.isNegative) throw ArgumentError.value(time, 'time');
     _change((s) {
+      s.completedRepetitions = 0;
       s.phase = (time.inMicroseconds / 1e6).clamp(0.0, clip.durationSeconds);
       s.paused |= s.finished;
       s.finished = clip.durationSeconds == 0;
@@ -109,6 +200,16 @@ final class AnimationAction {
     final next = _state.copy();
     edit(next);
     _mixer._apply(_mixer._actions, {this: next}, invalidate: true);
+  }
+
+  static void _repetitions(int? value) {
+    if (value != null && (value < 1 || value > 1000000000)) {
+      throw ArgumentError.value(
+        value,
+        'repetitions',
+        'Use null or [1, 1000000000].',
+      );
+    }
   }
 
   static void _speed(double value) {
