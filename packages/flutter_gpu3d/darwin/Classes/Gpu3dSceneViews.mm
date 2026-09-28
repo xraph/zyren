@@ -9,6 +9,8 @@
 
 namespace {
 struct Api {
+  using Command = uint32_t (*)(uint64_t, const uint8_t *, size_t, uint8_t *, size_t, size_t *);
+  Command resource, shader, graph;
   uint64_t (*create)();
   uint32_t (*destroy)(uint64_t);
   void *(*device)(uint64_t);
@@ -25,8 +27,9 @@ struct Api {
     LOAD(render, "fg_metal_render_texture"); LOAD(capture, "fg_render");
     LOAD(lastError, "fg_last_error"); LOAD(readback, "fg_metal_readback_bytes");
     LOAD(live, "fg_live_renderer_count"); LOAD(retiring, "fg_retiring_renderer_count");
+    LOAD(resource, "fg2_resource_command"); LOAD(shader, "fg2_shader_command"); LOAD(graph, "fg2_graph_command");
 #undef LOAD
-    return create && destroy && device && render && capture && lastError && readback && live && retiring;
+    return create && destroy && device && render && capture && lastError && readback && live && retiring && resource && shader && graph;
   }
   NSString *error() const {
     uint8_t bytes[1024]; size_t length = lastError(bytes, sizeof(bytes));
@@ -272,6 +275,41 @@ bool matches(const std::shared_ptr<Session> &s, NSDictionary *args) {
   }
   auto s = found->second;
   if ([call.method isEqualToString:@"close"]) { _sessions.erase(found); close(s, result); return; }
+  if ([call.method isEqualToString:@"gpuCommand"]) {
+    id kind = args[@"kind"], data = args[@"bytes"];
+    if (![kind isKindOfClass:NSString.class] || ![data isKindOfClass:FlutterStandardTypedData.class] || !number(args[@"capacity"])) {
+      result(error(@"invalidCommand", @"A command kind, byte packet and response capacity are required.")); return;
+    }
+    const bool resource = [kind isEqualToString:@"resource"];
+    Api::Command command = resource ? s->api.resource : [kind isEqualToString:@"shader"] ? s->api.shader : [kind isEqualToString:@"graph"] ? s->api.graph : nullptr;
+    NSData *packet = ((FlutterStandardTypedData *)data).data;
+    const int64_t capacity = [args[@"capacity"] longLongValue];
+    if (!command || packet.length == 0 ||
+        (resource ? (packet.length > 64 * 1024 * 1024 + 2048 || capacity < 24 || capacity > 64 * 1024 * 1024 + 24)
+                  : (packet.length > 8 * 1024 * 1024 || capacity != 256 * 1024))) {
+      result(error(@"invalidCommand", @"Native command exceeds its transfer limits.")); return;
+    }
+    dispatch_async(s->queue, ^{
+      @autoreleasepool {
+        if (s->closed.load() || !s->renderer) {
+          dispatch_async(dispatch_get_main_queue(), ^{ result(error(@"disposed", @"Native scene session has closed.")); }); return;
+        }
+        NSMutableData *output = [NSMutableData dataWithLength:capacity];
+        size_t written = 0;
+        const uint32_t status = command(s->renderer, static_cast<const uint8_t *>(packet.bytes), packet.length,
+          static_cast<uint8_t *>(output.mutableBytes), capacity, &written);
+        if (written > static_cast<size_t>(capacity)) {
+          dispatch_async(dispatch_get_main_queue(), ^{ result(error(@"invalidCommand", @"Native response exceeded capacity.")); }); return;
+        }
+        NSString *message = status ? s->api.error() : nil;
+        output.length = written;
+        NSDictionary *reply = status ? @{@"status": @(status), @"message": message}
+          : @{@"status": @0, @"bytes": [FlutterStandardTypedData typedDataWithBytes:output]};
+        dispatch_async(dispatch_get_main_queue(), ^{ result(reply); });
+      }
+    });
+    return;
+  }
   if ([call.method isEqualToString:@"detach"]) {
     if (!number(args[@"attachment"])) { result(error(@"invalidAttachment", @"An attachment ID is required.")); return; }
     s->detach([args[@"attachment"] unsignedLongLongValue]); result(nil); return;

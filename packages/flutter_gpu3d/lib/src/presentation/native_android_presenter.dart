@@ -3,9 +3,13 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:gpu3d/rendering.dart';
+import 'package:gpu3d/gpu3d.dart'
+    show ResourceScope, ShaderCompiler, GraphCompiler;
 import 'package:gpu3d_native/surfaces.dart';
+import 'package:gpu3d_native/gpu3d_native.dart';
 import '../presentation.dart';
 import 'output_presenter.dart';
+import 'native_gpu_transport.dart';
 
 const _channel = MethodChannel('gpu3d/android-surfaces');
 SceneException _issue(String code, String message, String operation) =>
@@ -19,7 +23,7 @@ SceneException _deferred() => _issue(
 );
 
 /// Controller-owned Vulkan renderer. Select through SceneRuntime.nativeAndroid().
-class NativeAndroidBackend implements RenderBackend {
+class NativeAndroidBackend implements NativeGpuBackend {
   final int session;
   final String adapter;
   final String? driver;
@@ -28,7 +32,26 @@ class NativeAndroidBackend implements RenderBackend {
   int _nextFrame = 0, _nextAttachment = 0;
   Future<FrameOutput>? _drawing;
   Future<void>? _closing;
+  late final _gpu = nativeGpuServices(
+    (args) async => (await request<Map>('gpuCommand', args))!,
+  );
   NativeAndroidBackend._(this.session, this.adapter, this.driver);
+
+  @override
+  ResourceScope createResourceScope({String label = ''}) =>
+      _gpu.createResourceScope(label: label);
+  @override
+  ShaderCompiler createShaderCompiler({String label = ''}) =>
+      _gpu.createShaderCompiler(label: label);
+  @override
+  GraphCompiler createGraphCompiler({String label = ''}) =>
+      _gpu.createGraphCompiler(label: label);
+  @override
+  Future<ResourceStats> resourceStats() => _gpu.resourceStats();
+  @override
+  Future<ShaderStats> shaderStats() => _gpu.shaderStats();
+  @override
+  Future<GraphCacheStats> graphStats() => _gpu.graphStats();
 
   static Future<NativeAndroidBackend> create({int? runtimeToken}) async {
     if (defaultTargetPlatform != TargetPlatform.android) {
@@ -81,6 +104,11 @@ class NativeAndroidBackend implements RenderBackend {
       RenderFeature.alphaMaterials,
       RenderFeature.portablePrimitives,
       RenderFeature.materialSidedness,
+      RenderFeature.scopedResources,
+      RenderFeature.shaderCompilation,
+      RenderFeature.renderGraphs,
+      RenderFeature.compute,
+      RenderFeature.storageTextures,
     },
     limits: DeviceLimits(
       maxTextureDimension2D: 4096,
@@ -198,12 +226,11 @@ class NativeAndroidBackend implements RenderBackend {
   Future<void> close() => _closing ??= _close();
   Future<void> _close() async {
     _closed = true;
-    final drawing = _drawing;
-    await Future.wait<void>([
-      request<void>('close'),
-      if (drawing != null)
-        drawing.then<void>((_) {}, onError: (Object _, StackTrace _) {}),
-    ]);
+    final drawing = _drawing?.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
+    await closeNativeGpuServices(_gpu, () => request<void>('close'), drawing);
   }
 }
 

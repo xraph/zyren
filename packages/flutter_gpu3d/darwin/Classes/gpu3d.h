@@ -2,6 +2,7 @@
 #define GPU3D_H
 #include <stdint.h>
 #include <stddef.h>
+#include "gpu3d_resources.h"
 #ifdef __cplusplus
 extern "C" {
 #endif

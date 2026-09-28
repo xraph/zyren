@@ -5,6 +5,11 @@ render passes on the backend's native device. You can bind scoped buffers and
 textures, update their contents, and execute the graph again without rebuilding
 its pipelines. Compilation and submission run on the native worker.
 
+Flutter plugins can use the same API through `context.resources`,
+`context.shaders` and `context.graphs` with `SceneRuntime.nativeMetal()` or
+`SceneRuntime.nativeAndroid()`. Those services run on the presenter's own device
+and native queue. You do not need a second offscreen backend.
+
 Try the complete example from `packages/gpu3d_native`:
 
 ```sh
@@ -138,6 +143,17 @@ consumer can retain a published texture in its own `context.resources` scope.
 Closing the attachment stops new resource, shader and graph work synchronously.
 Accepted work drains before `detach` and backend close. Failed attachment follows
 the same cleanup path. Services belonging to sibling attachments stay usable.
+
+The platform bridges serialize GPU commands with scene rendering. They enforce
+the same input and response limits as the Dart worker before calling Rust. A
+presenter closes GPU owners before destroying its native session, including when
+resource cleanup fails. Concurrent cleanup failures are collected together.
+
+If you build a native adapter, `NativeGpuServices.withTransport` supplies the
+shared codecs and owner tracking. Its sender accepts a command kind, bytes and
+response capacity, returning `NativeGpuReply`. Keep one services instance per
+device and await its close before destroying the transport. `NativeGpuBackend`
+is the common backend contract with resource, shader and graph statistics.
 
 ## Current profile
 

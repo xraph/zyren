@@ -277,6 +277,12 @@ shared-device engines pass GPU tests. Scene insertion, custom mesh materials,
 resize/history and the separate effects consumer remain open. See
 [render graphs](../../design/render-graphs.md).
 
+Presenter checkpoint: Metal and Android backends now implement the native graph
+backend contract through their existing platform worker queues. Plugin resources,
+shaders and graph textures use the presenter's device. This closes service access
+on those adapters; graph output composition and custom scene materials still need
+their own rendering integration.
+
 **Files:** Create graph/shader modules from the map, native
 `src/render_graph/{compile,execute}.rs`, Dart `test/render_graph_test.dart`,
 native `tests/shader_diagnostics.rs`, `examples/shader_lab` and a separate

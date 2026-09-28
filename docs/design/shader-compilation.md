@@ -25,6 +25,11 @@ render passes into scoped textures. `NativeBackend` advertises
 Custom mesh materials and Flutter platform-view graph integration remain in
 plan 03, task 4.
 
+The native Metal and Android view backends also expose the compiler. In a
+Flutter plugin, `context.shaders` uses the same GPU device as its scene presenter.
+Shader diagnostics travel as bounded UTF-8 data through the platform worker and
+retain their Dart string locations.
+
 ## Plugin ownership
 
 Inside `ScenePlugin.attach`, use `context.shaders.compile(source)`. The context

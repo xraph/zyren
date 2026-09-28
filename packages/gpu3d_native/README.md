@@ -19,6 +19,16 @@ RUN_NATIVE_GPU=1 fvm dart test --concurrency=1
 Run these commands from `packages/gpu3d_native` so the native build hook refreshes
 the library. The root workspace has no runtime dependencies of its own.
 
+To build a standalone executable with its native library, use:
+
+```sh
+fvm dart build cli -t example/render_graph.dart -o build/graph
+build/graph/bundle/bin/render_graph /tmp/native-graph.png
+```
+
+Distribute the whole `bundle` directory. `dart compile exe` alone does not run
+the native build hook or package its library.
+
 The example renders a red box and prints the centre pixel. GPU tests require a
 compatible device. In PowerShell, set `$env:RUN_NATIVE_GPU = '1'` before running
 `fvm dart test`.
@@ -75,3 +85,9 @@ dependencies and limits. Plugins can use attachment-owned `context.resources`,
 The example saves a native compute-to-render heatmap
 as a PNG. Custom mesh materials and direct platform-view graph composition
 remain in progress.
+
+Native platform adapters can use `NativeGpuServices.withTransport` to reuse the
+resource, shader and graph codecs with their existing renderer queue. The Metal
+and Android Flutter presenters use this path. `NativeGpuBackend` provides their
+common graph backend and accounting contract; application plugins still use
+`PluginContext` and public core types.

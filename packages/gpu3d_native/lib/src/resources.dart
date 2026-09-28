@@ -52,11 +52,31 @@ final class _ResourcePacket {
 final class _NativeResourceDevice
     with _NativeShaders, _NativeGraphs
     implements GraphDevice {
-  final NativeRenderer _renderer;
-  @override
-  WorkerSession get _worker => _renderer._worker;
+  final NativeGpuCommandSender _send;
   int _nextRequest = 0;
-  _NativeResourceDevice(this._renderer);
+  _NativeResourceDevice(this._send);
+  @override
+  Future<NativeGpuReply> _submit(
+    NativeGpuCommand kind,
+    Uint8List bytes,
+    int capacity,
+  ) async {
+    final control = kind != NativeGpuCommand.resource;
+    if (bytes.isEmpty ||
+        (control
+            ? (bytes.length > 8 * 1024 * 1024 || capacity != 256 * 1024)
+            : (bytes.length > 64 * 1024 * 1024 + 2048 ||
+                  capacity < 24 ||
+                  capacity > 64 * 1024 * 1024 + 24))) {
+      throw ArgumentError('Native command transfer exceeds the limit.');
+    }
+    final reply = await _send(kind, bytes, capacity);
+    if (reply.status == 0 && reply.bytes!.length > capacity) {
+      throw StateError('Native command exceeded response capacity.');
+    }
+    return reply;
+  }
+
   Future<Uint8List> _command(
     int opcode,
     _ResourcePacket body, {
@@ -70,24 +90,21 @@ final class _NativeResourceDevice
       ..u64(requestId)
       ..u64(payload.length);
     packet._bytes.add(payload);
-    final result =
-        await _worker.request('resource', [
-              TransferableTypedData.fromList([packet.finish()]),
-              responseBytes + 24,
-            ])
-            as List<Object>;
-    final code = result[0] as int;
+    final result = await _submit(
+      NativeGpuCommand.resource,
+      packet.finish(),
+      responseBytes + 24,
+    );
+    final code = result.status;
     if (code != 0) {
       throw ResourceException(
         code <= ResourceErrorCode.values.length
             ? ResourceErrorCode.values[code - 1]
             : ResourceErrorCode.invalidCommand,
-        result[1] as String,
+        result.message!,
       );
     }
-    final response = (result[1] as TransferableTypedData)
-        .materialize()
-        .asUint8List();
+    final response = result.bytes!;
     if (response.length != responseBytes + 24) {
       throw StateError('Invalid native resource response length.');
     }

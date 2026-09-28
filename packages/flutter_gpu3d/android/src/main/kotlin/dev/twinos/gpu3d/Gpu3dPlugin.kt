@@ -14,6 +14,8 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import org.json.JSONObject
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 
 internal object Native {
     init { System.loadLibrary("gpu3d_surface") }
@@ -25,6 +27,7 @@ internal object Native {
     external fun present(handle: Long)
     external fun info(handle: Long): String
     external fun counters(): LongArray
+    external fun gpuCommand(handle: Long, kind: Int, bytes: ByteArray, capacity: Int): ByteArray
 }
 
 /** Controller-owned Vulkan renderers with replaceable Flutter surface attachments. */
@@ -239,6 +242,34 @@ class Gpu3dPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         val attachment = call.argument<Number>("attachment")?.toLong()
         when (call.method) {
             "close" -> close(session, result)
+            "gpuCommand" -> {
+                val kind = when (call.argument<String>("kind")) {
+                    "resource" -> 0
+                    "shader" -> 1
+                    "graph" -> 2
+                    else -> throw IllegalArgumentException("Invalid native command kind.")
+                }
+                val bytes = requireNotNull(call.argument<ByteArray>("bytes"))
+                val capacity = requireNotNull(call.argument<Number>("capacity")).toLong()
+                require(bytes.isNotEmpty() && if (kind == 0)
+                    bytes.size <= 64 * 1024 * 1024 + 2048 && capacity in 24L..(64L * 1024 * 1024 + 24)
+                    else bytes.size <= 8 * 1024 * 1024 && capacity == 256L * 1024) {
+                    "Native command exceeds its transfer limits."
+                }
+                worker.execute {
+                    try {
+                        check(!session.closed && session.handle != 0L) { "Native GPU session has closed." }
+                        val reply = Native.gpuCommand(session.handle, kind, bytes, capacity.toInt())
+                        check(reply.size >= 4) { "Invalid native GPU response." }
+                        val status = ByteBuffer.wrap(reply).order(ByteOrder.LITTLE_ENDIAN).int
+                        val response = if (status == 0) mapOf("status" to 0, "bytes" to reply.copyOfRange(4, reply.size))
+                            else mapOf("status" to status, "message" to String(reply, 4, reply.size - 4, Charsets.UTF_8))
+                        main.post { result.success(response) }
+                    } catch (error: Exception) {
+                        main.post { result.error("nativeFailure", error.message, null) }
+                    }
+                }
+            }
             "prepare" -> {
                 checkNotNull(attachment)
                 require(attachment > 0 && attachment >= session.attachment &&

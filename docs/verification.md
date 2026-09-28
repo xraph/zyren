@@ -828,3 +828,38 @@ Metal and Pixel Vulkan through the Flutter integration.
 Execution remains explicit in `beforeRender`. These services establish plugin
 ownership and typed output sharing, with no automatic scene insertion or native
 view composition. The locked Mac still prevented manual window inspection.
+
+## GPU services on native view devices
+
+The native Metal and Android view backends pass the same compute-to-texture,
+procedural rendering, typed buffer binding, failed replacement and cleanup
+fixtures as the Dart worker. Two integration tests pass on each device. A plugin
+also compiles a shader with UTF-8 diagnostics, executes compute work, reads its
+result and then renders a scene on the presenter's device. The Pixel submits
+that scene to a Vulkan surface with zero presentation readback bytes.
+
+The platform queues reject invalid command kinds and transfer capacities before
+calling Rust. Unit tests cover closing every GPU owner while allocation is
+pending, release before session destruction, idempotent close, and preservation
+of both resource cleanup and session-close failures. All 186 core/geospatial/glTF,
+44 native Dart and 63 Flutter facade tests pass, 293 in total. Analysis,
+formatting, C-header syntax, package boundaries and both mirrored ABI headers
+also pass. Rust implementation code is unchanged since its 71-test run.
+
+The native scene demo builds in release mode for macOS (49.8 MB) and Android
+arm64 (22.0 MB). The graph CLI also builds with `dart build cli` and runs from
+outside the workspace using its bundled native library. Its inspected PNG
+contains the expected gradient and rings, and cleanup reports zero resource
+bytes and cached pipelines. An initial `dart compile exe` build omitted that
+library and could not create the backend; the package README now gives the
+bundle command.
+
+The Android release installed and launched on the physical Pixel, PID 13176 at
+verification, with no errors in the process log. Its Flutter runner remains
+attached. This confirms launch; manual release-screen inspection is still open.
+
+These checks establish GPU service access on the presenter device. Graph output
+composition, custom scene materials, resize/history and the independent effects
+consumer remain open. The macOS integration passed despite a foreground failure;
+manual inspection of the locked desktop remains unverified. No iOS, Windows,
+Linux or Adreno qualification was added.

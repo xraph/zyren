@@ -20,7 +20,11 @@ final class _ShaderKey {
 }
 
 mixin _NativeShaders implements ShaderDevice {
-  WorkerSession get _worker;
+  Future<NativeGpuReply> _submit(
+    NativeGpuCommand kind,
+    Uint8List bytes,
+    int capacity,
+  );
   int _shaderRequest = 0;
 
   Future<Map<String, dynamic>> _shaderCommand(
@@ -31,20 +35,10 @@ mixin _NativeShaders implements ShaderDevice {
     final bytes = utf8.encode(
       jsonEncode({'version': 1, 'request': request, 'command': command}),
     );
-    final reply =
-        await _worker.request('shader', [
-              TransferableTypedData.fromList([bytes]),
-              256 * 1024,
-            ])
-            as List<Object>;
-    if (reply[0] != 0) throw StateError(reply[1] as String);
+    final reply = await _submit(NativeGpuCommand.shader, bytes, 256 * 1024);
+    if (reply.status != 0) throw StateError(reply.message!);
     final result =
-        jsonDecode(
-              utf8.decode(
-                (reply[1] as TransferableTypedData).materialize().asUint8List(),
-              ),
-            )
-            as Map<String, dynamic>;
+        jsonDecode(utf8.decode(reply.bytes!)) as Map<String, dynamic>;
     if (result['version'] != 1 || result['request'] != request) {
       throw StateError('Invalid native shader response.');
     }

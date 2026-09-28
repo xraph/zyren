@@ -2,7 +2,7 @@ part of 'native_renderer.dart';
 
 /// Native rendering from a captured submission, without Flutter dependencies.
 /// Apple surfaces use the same worker and GPU device as explicit capture.
-class NativeBackend implements GraphBackend {
+class NativeBackend implements NativeGpuBackend {
   final NativeRenderer _renderer;
   final ScenePacketEncoder _encoder;
   Future<FrameOutput>? _drawing;
@@ -20,7 +20,9 @@ class NativeBackend implements GraphBackend {
     this._experimentalAppleSurfaces, {
     int viewId = 1,
     _NativeResourceDevice? resources,
-  }) : _resources = resources ?? _NativeResourceDevice(_renderer),
+  }) : _resources =
+           resources ??
+           _NativeResourceDevice(_workerGpuSender(_renderer._worker)),
        _encoder = ScenePacketEncoder(viewId: viewId);
 
   /// An independent view that shares this device and its immutable geometry.
@@ -55,6 +57,7 @@ class NativeBackend implements GraphBackend {
     return scope;
   }
 
+  @override
   Future<ResourceStats> resourceStats() => _resources.stats();
 
   @override
@@ -68,6 +71,7 @@ class NativeBackend implements GraphBackend {
     return compiler;
   }
 
+  @override
   Future<ShaderStats> shaderStats() => _resources.shaderStats();
 
   @override
@@ -81,6 +85,7 @@ class NativeBackend implements GraphBackend {
     return compiler;
   }
 
+  @override
   Future<GraphCacheStats> graphStats() => _resources.graphStats();
 
   /// Apple texture registration remains experimental while Flutter's texture

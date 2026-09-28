@@ -31,17 +31,20 @@ void main(List<String> args) {
       }
     }
   }
-  final canonical = File(
-    '${root.path}/packages/gpu3d_native/native/include/gpu3d.h',
-  );
-  final apple = File(
-    '${root.path}/packages/flutter_gpu3d/darwin/Classes/gpu3d.h',
-  );
-  if (canonical.readAsStringSync() != apple.readAsStringSync()) {
-    failures.add(
-      'Apple ABI header differs from the native canonical header. '
-      'Run dart tool/sync_apple_header.dart.',
+  for (final name in ['gpu3d.h', 'gpu3d_resources.h']) {
+    final canonical = File(
+      '${root.path}/packages/gpu3d_native/native/include/$name',
     );
+    final apple = File(
+      '${root.path}/packages/flutter_gpu3d/darwin/Classes/$name',
+    );
+    if (!apple.existsSync() ||
+        canonical.readAsStringSync() != apple.readAsStringSync()) {
+      failures.add(
+        'Apple ABI header $name differs from the native canonical header. '
+        'Run dart tool/sync_apple_header.dart.',
+      );
+    }
   }
   if (failures.isNotEmpty) {
     stderr.writeln(failures.join('\n'));
