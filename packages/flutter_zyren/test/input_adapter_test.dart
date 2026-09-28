@@ -4,9 +4,53 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_zyren/flutter_zyren.dart';
 import 'support/backend_fake.dart';
+import 'support/fakes.dart' show TestPlugin;
 import 'controller_test.dart' show frames, readback, runtime;
 
 void main() {
+  testWidgets(
+    'plugins receive logical dimensions before attachment and first render',
+    (tester) async {
+      tester.view.devicePixelRatio = 2;
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final observed = <ViewportMetrics>[];
+      void capture(PluginContext context) =>
+          observed.add((context.input as ViewportInputSource).viewport);
+      final controller =
+          SceneController(options: readback, runtime: runtime(FakeBackend()))
+            ..use(
+              TestPlugin(
+                'viewport-probe',
+                [],
+                onAttach: capture,
+                onBefore: (context, _) => capture(context),
+              ),
+            );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Center(
+            child: SizedBox(
+              width: 200,
+              height: 100,
+              child: SceneView(controller: controller, resolutionScale: .5),
+            ),
+          ),
+        ),
+      );
+      await frames(tester);
+      expect(observed.length, greaterThanOrEqualTo(2));
+      for (final viewport in observed) {
+        expect(viewport.width, 200);
+        expect(viewport.height, 100);
+        expect(viewport.devicePixelRatio, 2);
+      }
+      controller.dispose();
+      await frames(tester);
+      await controller.whenDisposed;
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
   testWidgets('claimed drags preserve taps without selecting after gestures', (
     tester,
   ) async {
