@@ -52,6 +52,29 @@ fn jpeg_converts_rgb_to_opaque_rgba() {
 }
 
 #[test]
+fn jpeg_accepts_bounded_zero_alignment_padding() {
+    let _serial = DECODE_TEST.lock().unwrap();
+    let original = include_bytes!("../../../../test_assets/images/gray.jpg");
+    let expected = decode(original, DecodeLimits::default()).unwrap();
+    for padding in 1..=3 {
+        let mut bytes = original.to_vec();
+        bytes.resize(bytes.len() + padding, 0);
+        assert_eq!(
+            decode(&bytes, DecodeLimits::default()).unwrap().pixels,
+            expected.pixels
+        );
+    }
+    for suffix in [&[0, 0, 0, 0][..], &[1], &[0, 0xff, 0xd8]] {
+        let mut bytes = original.to_vec();
+        bytes.extend_from_slice(suffix);
+        assert_eq!(
+            decode(&bytes, DecodeLimits::default()).unwrap_err(),
+            DecodeError::InvalidData
+        );
+    }
+}
+
+#[test]
 fn compressed_extent_output_and_working_limits_apply_before_allocation() {
     let _serial = DECODE_TEST.lock().unwrap();
     let bytes = png();

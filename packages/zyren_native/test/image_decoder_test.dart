@@ -49,6 +49,10 @@ void main() {
     expect([image.size.width, image.size.height], [8, 8]);
     expect(image.pixels.first, closeTo(128, 1));
     expect(image.pixels[3], 255);
+    for (var padding = 1; padding <= 3; padding++) {
+      final aligned = Uint8List(jpeg.length + padding)..setAll(0, jpeg);
+      expect((await decoder.decode(aligned)).pixels, image.pixels);
+    }
     final png = await fixture('corners.png');
     for (final (bytes, limits, code) in [
       (

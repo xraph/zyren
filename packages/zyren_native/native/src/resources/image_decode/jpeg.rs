@@ -31,7 +31,10 @@ pub(super) fn validate(bytes: &[u8], limits: DecodeLimits) -> Result<(), DecodeE
         }
         in_scan = false;
         if marker == 0xd9 {
-            return if scans > 0 && offset == bytes.len() {
+            // Embedded Google tile textures can include zero alignment bytes.
+            // Accept at most a four-byte alignment tail, never another payload.
+            let tail = &bytes[offset..];
+            return if scans > 0 && tail.len() <= 3 && tail.iter().all(|byte| *byte == 0) {
                 Ok(())
             } else {
                 Err(DecodeError::InvalidData)
