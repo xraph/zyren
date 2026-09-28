@@ -178,6 +178,7 @@ impl GraphStore {
                         if !texture
                             .usage()
                             .contains(wgpu::TextureUsages::RENDER_ATTACHMENT)
+                            || texture.dimension() != wgpu::TextureDimension::D2
                             || target.mip_level >= texture.mip_level_count()
                             || target
                                 .clear

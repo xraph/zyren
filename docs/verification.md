@@ -894,3 +894,22 @@ on iPhone. Final mobile qualification remains required after the renderer and
 atmosphere changes. The imported historical checkpoints above retain their
 original scope; floating-point volume textures, HDR/PBR and atmosphere are still
 subsequent work.
+
+## Float and volume texture checkpoint
+
+Scoped textures now support RGBA16 float, RGBA32 float and R32 float, with
+explicit 2D or 3D dimensions. Volume uploads and readback cover every depth slice
+and mip. Metal checks write a 3D half-float texture in compute, sample it through
+a render graph and preserve signed HDR values in a full-float target. Format and
+dimension mismatches reject graph replacement while the active graph remains
+executable. The graph cache includes both properties in its binding layout key.
+
+The portable limits are 4096 texels per 2D axis, 256 per 3D axis and 64 MiB across
+scoped allocations. Float32 formats use unfiltered reads. Automatic image mip
+generation remains RGBA8-only. Volumes cannot be render attachments. This stage
+does not yet add custom scene materials or platform-view graph composition.
+
+Validation for this stage: 377 core tests, 72 Rust tests including GPU cases,
+43 native Dart tests (the updated RGBA8 image fixture reran separately), clean
+analysis and strict Clippy, and passing package boundaries. Mobile float texture
+qualification remains part of the final device checks.

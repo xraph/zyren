@@ -16,19 +16,24 @@ enum RenderFeature {
   materialSidedness,
   shaderCompilation,
   renderGraphs,
+  floatTextures,
+  volumeTextures,
 }
 
 /// Limits enforced by the backend, even if the adapter can allocate more.
 class DeviceLimits {
   final int maxTextureDimension2D;
+  final int maxTextureDimension3D;
   final int maxGeometryBytes;
   final Set<int> sampleCounts;
   DeviceLimits({
     required this.maxTextureDimension2D,
+    this.maxTextureDimension3D = 0,
     required this.maxGeometryBytes,
     Set<int> sampleCounts = const {1},
   }) : sampleCounts = Set.unmodifiable(sampleCounts) {
     if (maxTextureDimension2D < 1 ||
+        maxTextureDimension3D < 0 ||
         maxGeometryBytes < 1 ||
         sampleCounts.isEmpty ||
         sampleCounts.any((value) => value < 1)) {

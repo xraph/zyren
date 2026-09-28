@@ -33,6 +33,8 @@ pub struct LayoutKey {
     pub kind: BindingKind,
     pub size: u64,
     pub filtering: bool,
+    pub texture_format: Option<wgpu::TextureFormat>,
+    pub dimension: Option<wgpu::TextureViewDimension>,
 }
 pub struct Bindings {
     pub layouts: Vec<Vec<wgpu::BindGroupLayoutEntry>>,
@@ -120,6 +122,8 @@ pub fn prepare(
             kind: binding.kind,
             size: 0,
             filtering: false,
+            texture_format: None,
+            dimension: None,
         };
         let (ty, resource) = match binding.kind {
             BindingKind::Uniform | BindingKind::StorageRead | BindingKind::StorageReadWrite => {
@@ -206,13 +210,20 @@ pub fn prepare(
                         .checked_add(levels)
                         .is_none_or(|end| end > texture.mip_level_count())
                     || (storage
-                        && (texture.format() != wgpu::TextureFormat::Rgba8Unorm || levels != 1))
+                        && (texture.format() == wgpu::TextureFormat::Rgba8UnormSrgb || levels != 1))
                 {
                     return Err(invalid(
                         "Texture usage, mip range or storage format is invalid",
                     ));
                 }
                 result.use_resource(id, !storage, storage)?;
+                let dimension = if texture.dimension() == wgpu::TextureDimension::D3 {
+                    wgpu::TextureViewDimension::D3
+                } else {
+                    wgpu::TextureViewDimension::D2
+                };
+                layout_key.texture_format = Some(texture.format());
+                layout_key.dimension = Some(dimension);
                 let view = texture.create_view(&wgpu::TextureViewDescriptor {
                     base_mip_level: level,
                     mip_level_count: Some(levels),
@@ -222,13 +233,18 @@ pub fn prepare(
                 let ty = if storage {
                     wgpu::BindingType::StorageTexture {
                         access: wgpu::StorageTextureAccess::WriteOnly,
-                        format: wgpu::TextureFormat::Rgba8Unorm,
-                        view_dimension: wgpu::TextureViewDimension::D2,
+                        format: texture.format(),
+                        view_dimension: dimension,
                     }
                 } else {
                     wgpu::BindingType::Texture {
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                        view_dimension: wgpu::TextureViewDimension::D2,
+                        sample_type: wgpu::TextureSampleType::Float {
+                            filterable: !matches!(
+                                texture.format(),
+                                wgpu::TextureFormat::Rgba32Float | wgpu::TextureFormat::R32Float
+                            ),
+                        },
+                        view_dimension: dimension,
                         multisampled: false,
                     }
                 };

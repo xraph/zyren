@@ -115,13 +115,15 @@ final class _NativeResourceDevice
   @override
   Future<Object> createTexture(TextureDescriptor d) async => _ResourceKey(
     await _command(
-      3,
+      11,
       _ResourcePacket()
         ..u32(d.width)
         ..u32(d.height)
         ..u32(d.mipLevels)
         ..u32(d.format.index)
         ..u32(d.usage.fold(0, (mask, use) => mask | (1 << use.index)))
+        ..u32(d.depth)
+        ..u32(d.dimension.index)
         ..label(d.label),
       responseBytes: 32,
     ),

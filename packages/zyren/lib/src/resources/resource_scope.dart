@@ -223,8 +223,15 @@ final class ResourceScope {
     GpuResource<Texture> resource, {
     MipmapAlphaFilter alphaFilter = MipmapAlphaFilter.independent,
   }) => _run(() {
-    _texture(resource, 0, TextureUsage.sampled);
+    final descriptor = _texture(resource, 0, TextureUsage.sampled);
     _texture(resource, 0, TextureUsage.renderAttachment);
+    if (descriptor.dimension != TextureDimension.d2 ||
+        (descriptor.format != TextureFormat.rgba8Unorm &&
+            descriptor.format != TextureFormat.rgba8UnormSrgb)) {
+      throw ArgumentError(
+        'Automatic mip generation requires a 2D RGBA8 texture.',
+      );
+    }
     return _device.generateMipmaps(resource._key, alphaFilter);
   });
 

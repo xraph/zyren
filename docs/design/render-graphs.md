@@ -21,7 +21,9 @@ verified devices.
 Compile your [WGSL programs](shader-compilation.md) and allocate textures through
 a resource scope on the same backend. A compute output needs
 `TextureUsage.storage`; add `TextureUsage.sampled` when another pass samples it.
-Storage textures use linear `TextureFormat.rgba8Unorm`.
+Storage textures accept linear RGBA8, RGBA16 float, RGBA32 float and R32 float.
+Use `TextureDimension.d3` and `depth` for volumes. The bind layout follows the
+texture dimension and format, so your WGSL declaration must match both.
 
 Given the example's programs and textures, you build the graph like this:
 
@@ -113,8 +115,13 @@ are admission accounting, not measured driver memory.
 ## Current profile
 
 The backend advertises `renderGraphs`, `compute` and `storageTextures`. The
-implemented profile supports 2D RGBA8 linear/sRGB targets with one sample, a single
-color attachment and procedural triangle-list draws using vertex/instance indices.
+implemented profile supports 2D RGBA8 linear/sRGB and floating-point targets with
+one sample, a single color attachment and procedural triangle-list draws using
+vertex/instance indices. Compute and sampling also support 3D textures. Volumes
+have a 256-texel limit per axis and cannot be color attachments. All allocations
+share the existing 64 MiB device budget. RGBA16 float supports linear sampling;
+RGBA32 float and R32 float require nearest sampling or `textureLoad` in the
+portable profile. Automatic mip generation remains limited to 2D RGBA8 images.
 There are no graph vertex buffers, depth attachments or blend controls yet.
 
 You can use up to 128 passes and 1024 resources per graph, 64 bindings per pass,

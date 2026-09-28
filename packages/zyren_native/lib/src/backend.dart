@@ -121,11 +121,14 @@ class NativeBackend implements GraphBackend {
       RenderFeature.renderGraphs,
       RenderFeature.compute,
       RenderFeature.storageTextures,
+      RenderFeature.floatTextures,
+      RenderFeature.volumeTextures,
       if (_experimentalAppleSurfaces && NativeSurfaces().appleAvailable)
         RenderFeature.sharedTexture,
     },
     limits: DeviceLimits(
       maxTextureDimension2D: 4096,
+      maxTextureDimension3D: 256,
       maxGeometryBytes: 64 * 1024 * 1024,
     ),
   );

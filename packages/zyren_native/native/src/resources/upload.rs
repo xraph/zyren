@@ -27,15 +27,32 @@ pub struct BufferDescriptor<'a> {
 pub struct TextureDescriptor<'a> {
     pub width: u32,
     pub height: u32,
+    pub depth: u32,
+    pub dimension: u32,
     pub mip_levels: u32,
     pub format: u32,
     pub usage: u32,
     pub label: &'a str,
 }
 impl TextureDescriptor<'_> {
+    pub fn texture_format(&self) -> wgpu::TextureFormat {
+        match self.format {
+            0 => wgpu::TextureFormat::Rgba8Unorm,
+            1 => wgpu::TextureFormat::Rgba8UnormSrgb,
+            2 => wgpu::TextureFormat::Rgba16Float,
+            3 => wgpu::TextureFormat::Rgba32Float,
+            4 => wgpu::TextureFormat::R32Float,
+            _ => unreachable!("validated texture format"),
+        }
+    }
     pub fn byte_length(&self) -> u64 {
         (0..self.mip_levels)
-            .map(|m| (self.width >> m).max(1) as u64 * (self.height >> m).max(1) as u64 * 4)
+            .map(|m| {
+                (self.width >> m).max(1) as u64
+                    * (self.height >> m).max(1) as u64
+                    * (self.depth >> m).max(1) as u64
+                    * self.texture_format().block_copy_size(None).unwrap() as u64
+            })
             .sum()
     }
 }
@@ -122,29 +139,42 @@ impl<'a> Command<'a> {
                 Operation::CreateBuffer(BufferDescriptor { size, usage, label })
             }
             2 => Operation::WriteBuffer(r.key()?, r.u64()?, r.payload()?),
-            3 => {
+            3 | 11 => {
                 let width = r.u32()?;
                 let height = r.u32()?;
                 let mip_levels = r.u32()?;
                 let format = r.u32()?;
                 let usage = r.u32()?;
+                let depth = if opcode == 11 { r.u32()? } else { 1 };
+                let dimension = if opcode == 11 { r.u32()? } else { 0 };
                 let label = r.label()?;
+                let maximum = if dimension == 1 { 256 } else { 4096 };
                 if width == 0
                     || height == 0
-                    || width > 4096
-                    || height > 4096
+                    || depth == 0
+                    || width > maximum
+                    || height > maximum
+                    || depth > maximum
+                    || dimension > 1
+                    || (dimension == 0 && depth != 1)
                     || mip_levels == 0
-                    || mip_levels > 32 - width.max(height).leading_zeros()
-                    || format > 1
+                    || mip_levels > 32 - width.max(height).max(depth).leading_zeros()
+                    || format > (if opcode == 11 { 4 } else { 1 })
                 {
                     return Err(ResourceError::InvalidCommand);
                 }
-                if usage == 0 || usage & !31 != 0 || (usage & 16 != 0 && format != 0) {
+                if usage == 0
+                    || usage & !31 != 0
+                    || (usage & 16 != 0 && format == 1)
+                    || (dimension == 1 && usage & 2 != 0)
+                {
                     return Err(ResourceError::InvalidUsage);
                 }
                 let descriptor = TextureDescriptor {
                     width,
                     height,
+                    depth,
+                    dimension,
                     mip_levels,
                     format,
                     usage,

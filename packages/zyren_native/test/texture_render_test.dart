@@ -121,7 +121,10 @@ void main() {
         ),
       );
       expect(pixel(await render(), 16, 16), [255, 255, 255, 255]);
-      for (final format in TextureFormat.values) {
+      for (final format in [
+        TextureFormat.rgba8Unorm,
+        TextureFormat.rgba8UnormSrgb,
+      ]) {
         final gray = TextureImage.rgba(
           width: 1,
           height: 1,

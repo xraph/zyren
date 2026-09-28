@@ -228,3 +228,48 @@ fn mip_command_checks_every_field_and_truncation() {
     trailing.push(0);
     assert!(Command::decode(&packet(10, &trailing)).is_err());
 }
+
+#[test]
+#[ignore = "requires a native Metal, Vulkan or DX12 device"]
+fn volume_commands_validate_every_field_without_partial_allocation() {
+    let mut renderer = pollster::block_on(Renderer::new()).unwrap();
+    // width, height, mips, format, usage, depth, dimension, label length.
+    let valid = [5_u32, 3, 3, 4, 12, 3, 1, 0];
+    let body: Vec<u8> = valid.into_iter().flat_map(u32::to_le_bytes).collect();
+    for length in 0..body.len() {
+        assert!(
+            renderer
+                .resource_command(&packet(11, &body[..length]), 56)
+                .is_err()
+        );
+    }
+    for (field, value) in [
+        (0, 0),
+        (0, 257),
+        (1, 0),
+        (2, 0),
+        (2, 4),
+        (3, 5),
+        (4, 0),
+        (4, 2),
+        (5, 0),
+        (5, 257),
+        (6, 2),
+        (6, 0),
+    ] {
+        let mut invalid = valid;
+        invalid[field] = value;
+        let bytes: Vec<u8> = invalid.into_iter().flat_map(u32::to_le_bytes).collect();
+        assert!(
+            renderer.resource_command(&packet(11, &bytes), 56).is_err(),
+            "field {field}"
+        );
+        assert_eq!(stats(&mut renderer), [0, 0, 0]);
+    }
+    let texture = renderer.resource_command(&packet(11, &body), 56).unwrap();
+    assert_eq!(stats(&mut renderer), [192, 0, 1]);
+    renderer
+        .resource_command(&packet(6, &texture[24..]), 24)
+        .unwrap();
+    assert_eq!(stats(&mut renderer), [0, 0, 0]);
+}

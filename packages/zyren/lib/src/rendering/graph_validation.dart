@@ -192,7 +192,7 @@ _prepareGraph(GraphDescription graph, GraphDevice device) {
               binding.mipLevels > descriptor.mipLevels ||
               binding.mipLevel > descriptor.mipLevels - binding.mipLevels ||
               (binding.storage &&
-                  (descriptor.format != TextureFormat.rgba8Unorm ||
+                  (descriptor.format == TextureFormat.rgba8UnormSrgb ||
                       binding.mipLevels != 1))) {
             fail(
               GraphErrorCode.invalidBinding,
@@ -280,6 +280,7 @@ _prepareGraph(GraphDescription graph, GraphDevice device) {
           color.clearColor.alpha,
         ];
         if (!descriptor.usage.contains(TextureUsage.renderAttachment) ||
+            descriptor.dimension != TextureDimension.d2 ||
             color.mipLevel < 0 ||
             color.mipLevel >= descriptor.mipLevels ||
             clear.any(
