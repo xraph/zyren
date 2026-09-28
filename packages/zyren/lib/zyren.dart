@@ -19,6 +19,8 @@ export 'src/input/viewport_input.dart';
 export 'src/controls/orbit_controls.dart';
 export 'src/controls/orbit_controls_plugin.dart';
 export 'src/controls/camera_transition_manager.dart';
+export 'src/controls/environment_controls.dart';
+export 'src/controls/environment_controls_plugin.dart';
 export 'src/rendering/capabilities.dart';
 export 'src/rendering/scene_issue.dart';
 export 'src/plugins/attachment_scope.dart';

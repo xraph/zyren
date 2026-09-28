@@ -2,9 +2,12 @@
 
 ## 3d-tiles-renderer
 
-CameraTransitionManager is adapted from 3d-tiles-renderer 0.4.24, copyright
+CameraTransitionManager and EnvironmentControls are adapted from
+3d-tiles-renderer 0.4.24, copyright
 2020 California Institute of Technology, licensed under Apache 2.0. The port
-uses Dart camera values, typed events and explicit elapsed time.
+uses Dart camera values, typed events, native input, surface queries and explicit
+elapsed time. Interrupted input clears pending motion, and wheel input refreshes
+its target without requiring a preceding pointer move.
 
 Source: https://github.com/NASA-AMMOS/3DTilesRendererJS
 

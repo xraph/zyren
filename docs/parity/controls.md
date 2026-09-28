@@ -75,7 +75,14 @@ Flutter scale callback alone loses the pointer information this requires.
 
 The three-stdlib and r184 replay gates pass for the cases listed in
 [the stdlib evidence](native-orbit.md) and [the r184 evidence](three-orbit.md).
-The Environment/Globe family still needs its implementation and replay gates.
+EnvironmentControls now passes 24 upstream replay cases across perspective and
+orthographic cameras, Y/Z up, damping and 30/60/120 Hz. The traces cover surface
+dragging, pivot rotation, wheel units, resize, touch arbitration and idle frames.
+Additional tests cover terrain clearance, interrupted input and plugin disposal.
+Native wheel events refresh their target even without a preceding pointer move;
+this intentionally avoids a stale pointer jump in upstream orthographic zoom.
+CameraTransitionManager passes 12 upstream traces and a fixed-point projection
+check. GlobeControls and native surface navigation qualification remain pending.
 Full story screenshot comparison remains unrun.
 
 ## Native input contract
