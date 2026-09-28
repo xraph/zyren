@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_gpu3d/flutter_gpu3d.dart';
 
@@ -42,6 +43,10 @@ class _PbrLab extends StatefulWidget {
 class _PbrLabState extends State<_PbrLab> {
   late final SceneController controller;
   late final DirectionalLight sun;
+  late final HemisphereLight hemisphere;
+  late final List<TextureMap> maps = _makeMaps();
+  bool textured = true;
+  double ambient = 1;
   late final Group grid;
   StreamSubscription<FrameStats>? subscription;
   FrameStats? stats;
@@ -78,6 +83,14 @@ class _PbrLabState extends State<_PbrLab> {
         );
       }
     }
+    _applyTextures();
+    hemisphere = controller.scene.add(
+      HemisphereLight(
+        skyColor: const Color3(.5, .65, 1),
+        groundColor: const Color3(.15, .1, .06),
+        intensity: ambient,
+      ),
+    );
     sun = controller.scene.add(DirectionalLight(intensity: intensity));
     sun.quaternion =
         Quat.axisAngle(const Vec3(0, 1, 0), angle) *
@@ -89,6 +102,68 @@ class _PbrLabState extends State<_PbrLab> {
     subscription = controller.frameStats.listen((value) {
       if (mounted) setState(() => stats = value);
     });
+  }
+
+  List<TextureMap> _makeMaps() {
+    final base = <int>[],
+        normal = <int>[],
+        packed = <int>[],
+        emission = <int>[];
+    for (var y = 0; y < 32; y++) {
+      for (var x = 0; x < 32; x++) {
+        final ridge = math.sin(x * math.pi / 4) * math.cos(y * math.pi / 4);
+        final nx = ridge * .5,
+            ny = math.cos(x * math.pi / 4) * math.sin(y * math.pi / 4) * .5;
+        normal.addAll([
+          ((nx + 1) * 127.5).round(),
+          ((ny + 1) * 127.5).round(),
+          ((math.sqrt(1 - nx * nx - ny * ny) + 1) * 127.5).round(),
+          255,
+        ]);
+        final bright = (x ~/ 8 + y ~/ 8).isEven;
+        base.addAll([for (var i = 0; i < 3; i++) bright ? 255 : 190, 255]);
+        packed.addAll([bright ? 255 : 50, 128 + (x * 127 ~/ 31), 255, 255]);
+        emission.addAll([x % 8 == 0 ? 255 : 0, y % 8 == 0 ? 255 : 0, 0, 255]);
+      }
+    }
+    return [
+      for (final (i, bytes) in [base, normal, packed, emission].indexed)
+        TextureMap(
+          image: TextureImage.rgba(
+            width: 32,
+            height: 32,
+            pixels: Uint8List.fromList(bytes),
+            format: i == 1 || i == 2
+                ? TextureFormat.rgba8Unorm
+                : TextureFormat.rgba8UnormSrgb,
+            generateMipmaps: true,
+          ),
+          sampler: const SamplerDescriptor(
+            wrapU: TextureWrap.repeat,
+            wrapV: TextureWrap.repeat,
+          ),
+        ),
+    ];
+  }
+
+  void _applyTextures() {
+    for (final mesh in grid.children.whereType<Mesh>()) {
+      mesh.material = (mesh.material as StandardMaterial).copyWith(
+        baseColorMap: maps[0],
+        normalMap: maps[1],
+        metallicRoughnessMap: maps[2],
+        occlusionMap: maps[2],
+        emissiveMap: maps[3],
+        emissive: textured
+            ? const Color3(.03, .03, .03)
+            : const Color3(0, 0, 0),
+        clearBaseColorMap: !textured,
+        clearNormalMap: !textured,
+        clearMetallicRoughnessMap: !textured,
+        clearOcclusionMap: !textured,
+        clearEmissiveMap: !textured,
+      );
+    }
   }
 
   Widget control(
@@ -122,7 +197,7 @@ class _PbrLabState extends State<_PbrLab> {
             child: Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                'PBR · direct lights',
+                'PBR · materials and lights',
                 style: TextStyle(fontSize: 18),
               ),
             ),
@@ -142,6 +217,29 @@ class _PbrLabState extends State<_PbrLab> {
             child: Wrap(
               spacing: 12,
               children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('Textures'),
+                    Switch(
+                      key: const ValueKey('Textures'),
+                      value: textured,
+                      onChanged: (value) => setState(() {
+                        textured = value;
+                        _applyTextures();
+                      }),
+                    ),
+                  ],
+                ),
+                control(
+                  'Ambient',
+                  ambient,
+                  3,
+                  (value) => setState(() {
+                    ambient = value;
+                    hemisphere.intensity = value;
+                  }),
+                ),
                 control(
                   'Light',
                   intensity,

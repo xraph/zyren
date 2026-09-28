@@ -26,6 +26,7 @@ pub struct ScenePacket {
     light_direction: [f32; 3],
     ambient: f32,
     lights: Vec<crate::lighting::PunctualLight>,
+    hemispheres: Vec<crate::lighting::HemisphereLight>,
     retained_textures: HashSet<u32>,
     textures: Vec<SceneTexture>,
     geometry_patches: Vec<GeometryPatch>,
@@ -72,7 +73,7 @@ impl ScenePacket {
             return Err("unsupported scene packet".into());
         }
         let opcode = r.u32()?;
-        if !(10..=19).contains(&opcode) {
+        if !(10..=20).contains(&opcode) {
             return Err("unsupported scene packet".into());
         }
         let textured = opcode >= 11;
@@ -128,6 +129,23 @@ impl ScenePacket {
                 };
                 light.validate()?;
                 lights.push(light);
+            }
+        }
+        let mut hemispheres = Vec::new();
+        if opcode >= 20 {
+            let count = r.u32()? as usize;
+            if count > crate::lighting::MAX_HEMISPHERES {
+                return Err("scene exceeds hemisphere light limit".into());
+            }
+            for _ in 0..count {
+                let light = crate::lighting::HemisphereLight {
+                    sky_color: r.floats()?,
+                    ground_color: r.floats()?,
+                    direction: r.floats()?,
+                    intensity: r.floats::<1>()?[0],
+                };
+                light.validate()?;
+                hemispheres.push(light);
             }
         }
         let owned_texture_count = if textured { r.u32()? as usize } else { 0 };
@@ -218,7 +236,15 @@ impl ScenePacket {
             } else {
                 IndexFormat::Uint32
             };
-            if uv_flags > if opcode >= 13 { 7 } else { 3 } {
+            if uv_flags
+                > if opcode >= 20 {
+                    15
+                } else if opcode >= 13 {
+                    7
+                } else {
+                    3
+                }
+            {
                 return Err("unknown UV attributes".into());
             }
             if vertex_count > MAX_VERTICES || index_count > MAX_INDICES {
@@ -229,7 +255,10 @@ impl ScenePacket {
             if vertices > MAX_VERTICES || indices > MAX_INDICES {
                 return Err("geometry upload exceeds budget".into());
             }
-            let needed = vertex_count * (24 + (uv_flags & 3).count_ones() as usize * 8)
+            let needed = vertex_count
+                * (24
+                    + (uv_flags & 3).count_ones() as usize * 8
+                    + if uv_flags & 8 != 0 { 16 } else { 0 })
                 + index_count * index_format.bytes();
             if needed > data.len() - r.offset {
                 return Err("truncated geometry payload".into());
@@ -243,6 +272,7 @@ impl ScenePacket {
                 index_format,
                 uv0: Vec::new(),
                 uv1: Vec::new(),
+                tangents: Vec::new(),
             };
             for _ in 0..vertex_count {
                 geometry.positions.push(r.floats()?);
@@ -268,6 +298,11 @@ impl ScenePacket {
                     geometry.uv1.push(r.floats()?);
                 }
             }
+            if uv_flags & 8 != 0 {
+                for _ in 0..vertex_count {
+                    geometry.tangents.push(r.floats()?);
+                }
+            }
             geometry.validate()?;
             geometries.push(geometry);
         }
@@ -285,7 +320,7 @@ impl ScenePacket {
                 let semantic = r.u32()?;
                 let first = r.u32()?;
                 let count = r.u32()?;
-                if semantic > 3
+                if semantic > if opcode >= 20 { 4 } else { 3 }
                     || count == 0
                     || first
                         .checked_add(count)
@@ -293,7 +328,14 @@ impl ScenePacket {
                 {
                     return Err("invalid geometry patch range".into());
                 }
-                let values_count = count as usize * if semantic < 2 { 3 } else { 2 };
+                let values_count = count as usize
+                    * if semantic < 2 {
+                        3
+                    } else if semantic < 4 {
+                        2
+                    } else {
+                        4
+                    };
                 if values_count * 4 > data.len() - r.offset {
                     return Err("truncated geometry patch".into());
                 }
@@ -382,11 +424,46 @@ impl ScenePacket {
                     match r.u32()? {
                         0 => (),
                         1 => {
-                            mesh.pbr = Some(crate::lighting::StandardMaterial {
+                            let mut pbr = crate::lighting::StandardMaterial {
                                 metallic: r.floats::<1>()?[0],
                                 roughness: r.floats::<1>()?[0],
                                 emissive: r.floats()?,
-                            })
+                                normal_scale: 1.,
+                                occlusion_strength: 1.,
+                                normal_map: None,
+                                metallic_roughness_map: None,
+                                occlusion_map: None,
+                                emissive_map: None,
+                            };
+                            if opcode >= 20 {
+                                pbr.normal_scale = r.floats::<1>()?[0];
+                                pbr.occlusion_strength = r.floats::<1>()?[0];
+                                for map in [
+                                    &mut pbr.normal_map,
+                                    &mut pbr.metallic_roughness_map,
+                                    &mut pbr.occlusion_map,
+                                    &mut pbr.emissive_map,
+                                ] {
+                                    match r.u32()? {
+                                        0 => (),
+                                        1 => {
+                                            let texture = r.u32()?;
+                                            let uv_set = r.u32()?;
+                                            let mut sampler = [0; 5];
+                                            for value in &mut sampler {
+                                                *value = r.u32()?;
+                                            }
+                                            *map = Some(ColorMap {
+                                                texture,
+                                                uv_set,
+                                                sampler,
+                                            });
+                                        }
+                                        _ => return Err("invalid standard texture flag".into()),
+                                    }
+                                }
+                            }
+                            mesh.pbr = Some(pbr);
                         }
                         _ => return Err("invalid standard material flag".into()),
                     }
@@ -412,6 +489,7 @@ impl ScenePacket {
             light_direction,
             ambient,
             lights,
+            hemispheres,
             retained_textures,
             textures,
             geometry_patches,
@@ -442,9 +520,8 @@ impl ScenePacket {
             return Err("visible geometry must be retained by its view".into());
         }
         if meshes.iter().any(|m| {
-            m.color_map
-                .as_ref()
-                .is_some_and(|map| !self.retained_textures.contains(&map.texture))
+            m.texture_maps()
+                .any(|map| !self.retained_textures.contains(&map.texture))
         }) {
             return Err("visible textures must be owned by the view".into());
         }
@@ -463,6 +540,7 @@ impl ScenePacket {
             light_direction: self.light_direction,
             ambient: self.ambient,
             lights: self.lights,
+            hemispheres: self.hemispheres,
             geometries: self.geometries,
             meshes,
             binary,

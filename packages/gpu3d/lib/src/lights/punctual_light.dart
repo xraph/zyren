@@ -1,11 +1,11 @@
 part of '../scene/scene.dart';
 
-/// A scene light. Directional and spot lights emit along local -Z. Colors are
-/// linear; intensity is lux for directional lights and candela for point/spot.
-sealed class PunctualLight extends Object3D {
+/// A scene light with linear color and a finite intensity. Each subtype defines
+/// its intensity unit and orientation.
+sealed class Light extends Object3D {
   Color3 _color;
   double _intensity;
-  PunctualLight({
+  Light({
     Color3 color = const Color3(1, 1, 1),
     double intensity = 1,
     super.name,
@@ -35,6 +35,12 @@ sealed class PunctualLight extends Object3D {
     }
     return value;
   }
+}
+
+/// Directional and spot lights emit along local -Z. Directional intensity is lux;
+/// point and spot intensity is candela.
+sealed class PunctualLight extends Light {
+  PunctualLight({super.color, super.intensity, super.name});
 
   /// Points the emitting -Z axis at a target in parent coordinates.
   @override

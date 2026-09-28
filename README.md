@@ -159,8 +159,9 @@ See [color textures](docs/design/gpu-resources.md#color-textures) for UVs, sampl
 and supplied mip levels. `NativeImageDecoder` decodes bounded PNG/JPEG inputs.
 Automatic mips and opaque, masked and blended materials are implemented.
 [`StandardMaterial`](docs/design/standard-materials.md) works with directional,
-point and spot lights. Its remaining work includes normal/ORM textures, HDR,
-environment lighting and shadows.
+point, spot and hemisphere lights. It supports normal, metallic/roughness,
+occlusion and emissive maps with independent UV selection and shared images.
+HDR, environment reflections and shadows remain in progress.
 
 ## Plugins and backends
 

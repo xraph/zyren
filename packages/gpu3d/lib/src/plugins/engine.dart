@@ -639,11 +639,13 @@ class SceneEngine {
           ),
         );
       }
-      if (_visibleLightCount(scene) > capabilities.limits.maxPunctualLights) {
+      if (_visibleLightCount(scene) > capabilities.limits.maxPunctualLights ||
+          _visibleHemisphereLightCount(scene) >
+              capabilities.limits.maxHemisphereLights) {
         throw SceneException(
           SceneIssue(
             code: SceneIssueCodes.unsupportedFeature,
-            message: "The scene exceeds this backend's punctual light limit.",
+            message: "The scene exceeds this backend's light limits.",
             operation: 'render',
             limits: capabilities.limits,
           ),
@@ -783,4 +785,12 @@ int _visibleLightCount(Object3D node) => !node.visible
           node.children.fold(
             0,
             (sum, child) => sum + _visibleLightCount(child),
+          );
+
+int _visibleHemisphereLightCount(Object3D node) => !node.visible
+    ? 0
+    : (node is HemisphereLight ? 1 : 0) +
+          node.children.fold(
+            0,
+            (sum, child) => sum + _visibleHemisphereLightCount(child),
           );

@@ -13,6 +13,7 @@ enum Resource {
         count: u32,
         index_format: wgpu::IndexFormat,
         uv: Option<wgpu::Buffer>,
+        tangents: Option<wgpu::Buffer>,
     },
     Buffer {
         buffer: wgpu::Buffer,
@@ -235,12 +236,22 @@ impl ResourceStore {
                 }),
             )
         };
+        let tangents = (!geometry.tangents.is_empty()).then(|| {
+            device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("scene tangents"),
+                contents: bytemuck::cast_slice(&geometry.tangents),
+                usage: wgpu::BufferUsages::VERTEX
+                    | wgpu::BufferUsages::COPY_SRC
+                    | wgpu::BufferUsages::COPY_DST,
+            })
+        });
         let key = self.registry.insert(
             Resource::Geometry {
                 vertices,
                 indices,
                 count: draw_indices.len() as u32,
                 index_format: index_format.native(),
+                tangents,
                 uv,
             },
             bytes,
@@ -271,6 +282,7 @@ impl ResourceStore {
             count,
             uv,
             index_format,
+            ..
         } = self
             .registry
             .resolve(key)
@@ -279,6 +291,16 @@ impl ResourceStore {
             unreachable!()
         };
         (vertices, indices, *count, uv.as_ref(), *index_format)
+    }
+    pub(crate) fn geometry_tangents(&self, key: ResourceKey) -> Option<&wgpu::Buffer> {
+        let Resource::Geometry { tangents, .. } = self
+            .registry
+            .resolve(key)
+            .expect("validated scene geometry")
+        else {
+            unreachable!()
+        };
+        tangents.as_ref()
     }
     pub(crate) fn insert_scene_texture(
         &mut self,

@@ -18,6 +18,7 @@ class PbrBackend extends FakeBackend {
       maxTextureDimension2D: 2048,
       maxGeometryBytes: 1000000,
       maxPunctualLights: 16,
+      maxHemisphereLights: 4,
     ),
   );
 }
@@ -46,6 +47,18 @@ void main() {
       final light = controller.scene.children
           .whereType<DirectionalLight>()
           .single;
+      final materials = controller.scene.children
+          .whereType<Group>()
+          .single
+          .children
+          .whereType<Mesh>();
+      expect(
+        (materials.first.material as StandardMaterial).normalMap,
+        isNotNull,
+      );
+      await tester.tap(find.byKey(const ValueKey('Textures')));
+      await tester.pumpAndSettle();
+      expect((materials.first.material as StandardMaterial).normalMap, isNull);
       final initial = light.intensity;
       await tester.drag(
         find.byKey(const ValueKey('Light')),

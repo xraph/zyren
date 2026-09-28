@@ -423,10 +423,11 @@ that controller again. Instantiation from a released template fails explicitly.
 
 ## 8. Materials, lights and asset compatibility
 
-The [direct-light material profile](standard-materials.md) is implemented:
-`StandardMaterial` has base color/map, metallic, roughness, emission and shared
-raster settings; directional, point and spot lights are scene objects. The
-additional texture channels, HDR, environment and shadow APIs below remain targets.
+The [standard material profile](standard-materials.md) implements base color,
+normal, metallic/roughness, occlusion and emissive maps, shared raster settings,
+and explicit or derivative tangent bases. Directional, point, spot and hemisphere
+lights are scene objects. HDR, environment reflections and shadow APIs remain
+targets.
 
 The common path is `StandardMaterial`: linear `baseColor`, optional base-color,
 normal, metallic/roughness, occlusion and emissive textures; metallic, roughness,

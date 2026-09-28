@@ -38,9 +38,10 @@ class CameraSnapshot {
 /// Captured transforms with shared immutable CPU geometry recipes.
 class SceneSnapshot {
   final List<Map<String, Object>> _meshes;
-  final List<Map<String, Object>> _lights;
+  final List<Map<String, Object>> _lights, _hemispheres;
   bool get hasStandardMaterials => _meshes.any((m) => m.containsKey('pbr'));
   int get punctualLightCount => _lights.length;
+  int get hemisphereLightCount => _hemispheres.length;
   final Map<int, GeometrySnapshot> _geometries;
   final Map<int, TextureImage> _textures;
   final List<double> _background, _light;
@@ -60,6 +61,7 @@ class SceneSnapshot {
   SceneSnapshot._(
     this._meshes,
     this._lights,
+    this._hemispheres,
     this._geometries,
     this._textures,
     this._background,
@@ -73,10 +75,38 @@ class SceneSnapshot {
         geometries = <int, GeometrySnapshot>{};
     final textures = <int, TextureImage>{};
     final lights = <Map<String, Object>>[];
+    final hemispheres = <Map<String, Object>>[];
     final meshShaders = <int, MeshShaderProgram>{};
     void visit(Object3D node, vm.Matrix4 parent, bool parentVisible) {
       final visible = parentVisible && node.visible;
       final world = parent * node.localMatrix.toVectorMath();
+      if (visible && node is HemisphereLight) {
+        if (hemispheres.length >= 4) {
+          throw ArgumentError(
+            'A scene supports at most 4 visible hemisphere lights.',
+          );
+        }
+        final direction = vm.Vector3(
+          world.entry(0, 1),
+          world.entry(1, 1),
+          world.entry(2, 1),
+        );
+        if (!direction.length2.isFinite || direction.length2 < 1e-30) {
+          throw ArgumentError(
+            'Hemisphere direction must be finite and nonzero.',
+          );
+        }
+        direction.normalize();
+        hemispheres.add(
+          _freeze(<String, Object>{
+                'sky_color': node.skyColor.toList(),
+                'ground_color': node.groundColor.toList(),
+                'direction': direction.storage.toList(),
+                'intensity': node.intensity,
+              })
+              as Map<String, Object>,
+        );
+      }
       if (visible && node is PunctualLight) {
         if (lights.length >= 16) {
           throw ArgumentError(
@@ -120,7 +150,9 @@ class SceneSnapshot {
         final geometry = node.geometry.capture();
         geometries[geometry.id] = geometry;
         final map = node.material.colorMap;
-        if (map != null) textures[map.image.id] = map.image;
+        for (final binding in node.material.textureMaps) {
+          textures[binding.image.id] = binding.image;
+        }
         if (visible) {
           if (node.material case ShaderMaterial(:final program)) {
             if (program.isClosed) {
@@ -133,10 +165,12 @@ class SceneSnapshot {
             }
             meshShaders[meshes.length] = program;
           }
-          if (map != null &&
-              (map.uvSet == 0 ? node.geometry.uv0 : node.geometry.uv1) ==
-                  null) {
-            throw ArgumentError('The color map requires UV set ${map.uvSet}.');
+          for (final binding in node.material.textureMaps) {
+            if ((binding.uvSet == 0 ? geometry.uv0 : geometry.uv1) == null) {
+              throw ArgumentError(
+                'A material map requires UV set ${binding.uvSet}.',
+              );
+            }
           }
           final relative = world.clone()
             ..setTranslation(
@@ -152,6 +186,17 @@ class SceneSnapshot {
                     'pbr': <String, Object>{
                       'metallic': material.metallic,
                       'roughness': material.roughness,
+                      'normal_scale': material.normalScale,
+                      'occlusion_strength': material.occlusionStrength,
+                      if (material.normalMap != null)
+                        'normal_map': material.normalMap!.toPacket(),
+                      if (material.metallicRoughnessMap != null)
+                        'metallic_roughness_map': material.metallicRoughnessMap!
+                            .toPacket(),
+                      if (material.occlusionMap != null)
+                        'occlusion_map': material.occlusionMap!.toPacket(),
+                      if (material.emissiveMap != null)
+                        'emissive_map': material.emissiveMap!.toPacket(),
                       'emissive': material.emissive
                           .toList()
                           .map((v) => v * material.emissiveIntensity)
@@ -183,6 +228,7 @@ class SceneSnapshot {
     return SceneSnapshot._(
       List.unmodifiable(meshes),
       List.unmodifiable(lights),
+      List.unmodifiable(hemispheres),
       Map.unmodifiable(geometries),
       Map.unmodifiable(textures),
       List.unmodifiable(scene.background?.toList() ?? [0.0, 0.0, 0.0]),
@@ -265,6 +311,7 @@ class FrameSubmission {
           'light_direction': scene._light,
           'ambient': scene._ambient,
           'lights': scene._lights,
+          'hemispheres': scene._hemispheres,
           'geometries': [
             for (final id in {
               for (final mesh in scene._meshes) mesh['geometry'] as int,

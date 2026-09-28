@@ -400,8 +400,12 @@ pixel probes cover BRDF values, no ambient energy, emission, roughness, point
 falloff, spot cones including float32 collapse, masks and mirrored transforms.
 The Flutter sphere grid exercises 12 shared-geometry materials and live light
 controls. See [the current API](../../design/standard-materials.md).
-Task 5 remains open for the texture channels, IBL, shadows, HDR and glTF gates
-listed below. This checkpoint does not establish the full PBR profile.
+Texture checkpoint: normal, metallic/roughness, occlusion and emissive maps now
+share existing image ownership with independent samplers and UV sets. Explicit
+tangents and dynamic ranges reach native buffers, with a derivative fallback when
+attributes are absent. Hemisphere lights provide the diffuse indirect term for
+occlusion checks. Task 5 remains open for IBL, shadows, HDR and glTF gates listed
+below. This checkpoint does not establish the full PBR profile.
 
 **Files:** Create core `materials/standard_material.dart`,
 `lights/{directional,point,spot,hemisphere}_light.dart`; native

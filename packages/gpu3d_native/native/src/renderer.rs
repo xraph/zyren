@@ -29,6 +29,8 @@ struct Uniforms {
     viewport: [f32; 4],
     pbr_params: [f32; 4],
     emissive: [f32; 4],
+    pbr_maps: [u32; 4],
+    pbr_factors: [f32; 4],
 }
 
 struct GpuGeometry {
@@ -87,6 +89,7 @@ pub struct RendererState {
     pipelines: pipelines::MeshPipelines,
     compositor: composition::Compositor,
     texture_layout: wgpu::BindGroupLayout,
+    standard_texture_layout: wgpu::BindGroupLayout,
     textures: HashMap<u32, textures::GpuSceneTexture>,
     #[cfg(any(target_vendor = "apple", target_os = "android"))]
     surface_depth: Option<DepthTarget>,
@@ -212,9 +215,15 @@ impl Renderer {
                 },
             ],
         });
-        let texture_layout = textures::layout(&device);
-        let pipelines =
-            pipelines::MeshPipelines::new(&device, &layout, &pbr_layout, &texture_layout);
+        let texture_layout = textures::layout(&device, 1);
+        let standard_texture_layout = textures::layout(&device, 5);
+        let pipelines = pipelines::MeshPipelines::new(
+            &device,
+            &layout,
+            &pbr_layout,
+            &texture_layout,
+            &standard_texture_layout,
+        );
         Ok(Self {
             state: Some(Box::new(RendererState {
                 device,
@@ -230,6 +239,7 @@ impl Renderer {
                 pipelines,
                 compositor: composition::Compositor::default(),
                 texture_layout,
+                standard_texture_layout,
                 pbr_layout,
                 textures: HashMap::new(),
                 #[cfg(any(target_vendor = "apple", target_os = "android"))]
@@ -575,7 +585,7 @@ impl Renderer {
                 retained_textures: frame
                     .meshes
                     .iter()
-                    .filter_map(|m| m.color_map.as_ref().map(|map| map.texture))
+                    .flat_map(|m| m.texture_maps().map(|map| map.texture))
                     .collect(),
             });
         self.views.insert(view, state);
@@ -588,9 +598,12 @@ impl Renderer {
         format: wgpu::TextureFormat,
     ) -> Result<(), String> {
         let state = self.state.as_mut().unwrap();
+        let geometries = &state.geometries;
         state
             .pipelines
-            .prepare(&state.device, frame, format)
+            .prepare(&state.device, frame, format, |id| {
+                !geometries[&id].recipe.tangents.is_empty()
+            })
             .inspect_err(|error| {
                 state.failure = Some(error.clone());
             })
@@ -616,6 +629,7 @@ impl Renderer {
                     label: Some("punctual lights"),
                     contents: bytemuck::bytes_of(&crate::lighting::LightingUniform::capture(
                         &frame.lights,
+                        &frame.hemispheres,
                     )),
                     usage: wgpu::BufferUsages::UNIFORM,
                 })
@@ -625,7 +639,34 @@ impl Renderer {
             .iter()
             .map(|mesh| {
                 let model = Mat4::from_cols_array(&mesh.model);
+                let mut pbr_maps = [0; 4];
+                if let Some(pbr) = &mesh.pbr {
+                    for (i, map) in [
+                        mesh.color_map.as_ref(),
+                        pbr.normal_map.as_ref(),
+                        pbr.metallic_roughness_map.as_ref(),
+                        pbr.occlusion_map.as_ref(),
+                        pbr.emissive_map.as_ref(),
+                    ]
+                    .into_iter()
+                    .enumerate()
+                    {
+                        if let Some(map) = map {
+                            pbr_maps[0] |= 1 << i;
+                            pbr_maps[1] |= map.uv_set << i;
+                        }
+                    }
+                }
                 let uniforms = Uniforms {
+                    pbr_maps,
+                    pbr_factors: mesh.pbr.as_ref().map_or([0.; 4], |p| {
+                        [
+                            p.normal_scale,
+                            p.occlusion_strength,
+                            model.determinant().signum(),
+                            0.,
+                        ]
+                    }),
                     pbr_params: mesh
                         .pbr
                         .as_ref()
@@ -694,7 +735,7 @@ impl Renderer {
         let texture_bindings: Vec<_> = frame
             .meshes
             .iter()
-            .map(|mesh| mesh.color_map.as_ref().map(|map| self.texture_binding(map)))
+            .map(|mesh| self.texture_binding(mesh))
             .collect();
         let mut encoder = self.device.create_command_encoder(&Default::default());
         if let Some(graph) = graph {
@@ -735,10 +776,11 @@ impl Renderer {
                 if let Some(material) = &materials[index] {
                     material.bind(&mut pass);
                 } else {
-                    pass.set_pipeline(
-                        self.pipelines
-                            .get(pipelines::PipelineKey::new(format, mesh)),
-                    );
+                    pass.set_pipeline(self.pipelines.get(pipelines::PipelineKey::new(
+                        format,
+                        mesh,
+                        !geometry.recipe.tangents.is_empty(),
+                    )));
                 }
                 pass.set_bind_group(0, binding, &[]);
                 let (vertices, indices, count, uv, index_format) =
@@ -753,6 +795,11 @@ impl Renderer {
                 if let Some(binding) = texture_binding {
                     pass.set_vertex_buffer(1, uv.expect("validated UV buffer").slice(..));
                     pass.set_bind_group(1, binding, &[]);
+                    if mesh.pbr.is_some()
+                        && let Some(tangents) = self.resources.geometry_tangents(geometry.key)
+                    {
+                        pass.set_vertex_buffer(2, tangents.slice(..));
+                    }
                 }
                 pass.set_index_buffer(indices.slice(..), index_format);
                 pass.draw_indexed(0..count, 0, 0..1);

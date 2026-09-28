@@ -6,6 +6,7 @@ pub(super) struct PipelineKey {
     format: wgpu::TextureFormat,
     textured: bool,
     standard: bool,
+    tangent: bool,
     side: u32,
     mirrored: bool,
     blend: bool,
@@ -14,10 +15,11 @@ pub(super) struct PipelineKey {
     depth_write: bool,
 }
 impl PipelineKey {
-    pub(super) fn new(format: wgpu::TextureFormat, mesh: &Mesh) -> Self {
+    pub(super) fn new(format: wgpu::TextureFormat, mesh: &Mesh, tangent: bool) -> Self {
         Self {
             format,
-            textured: mesh.color_map.is_some(),
+            textured: mesh.texture_maps().next().is_some(),
+            tangent: tangent && mesh.pbr.is_some() && mesh.texture_maps().next().is_some(),
             standard: mesh.pbr.is_some(),
             side: mesh.side,
             mirrored: mesh.primitive_kind == 0
@@ -43,6 +45,7 @@ impl MeshPipelines {
         layout: &wgpu::BindGroupLayout,
         pbr_layout: &wgpu::BindGroupLayout,
         texture_layout: &wgpu::BindGroupLayout,
+        standard_texture_layout: &wgpu::BindGroupLayout,
     ) -> Self {
         Self {
             shader: device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -75,7 +78,7 @@ impl MeshPipelines {
             }),
             standard_textured: device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("textured standard material"),
-                bind_group_layouts: &[Some(pbr_layout), Some(texture_layout)],
+                bind_group_layouts: &[Some(pbr_layout), Some(standard_texture_layout)],
                 ..Default::default()
             }),
             cache: HashMap::new(),
@@ -86,9 +89,15 @@ impl MeshPipelines {
         device: &wgpu::Device,
         frame: &Frame,
         format: wgpu::TextureFormat,
+        has_tangents: impl Fn(u32) -> bool,
     ) -> Result<(), String> {
         if frame.meshes.iter().all(|mesh| {
-            mesh.shader.is_some() || self.cache.contains_key(&PipelineKey::new(format, mesh))
+            mesh.shader.is_some()
+                || self.cache.contains_key(&PipelineKey::new(
+                    format,
+                    mesh,
+                    has_tangents(mesh.geometry),
+                ))
         }) {
             return Ok(());
         }
@@ -99,7 +108,7 @@ impl MeshPipelines {
             if mesh.shader.is_some() {
                 continue;
             }
-            let key = PipelineKey::new(format, mesh);
+            let key = PipelineKey::new(format, mesh, has_tangents(mesh.geometry));
             if !self.cache.contains_key(&key) {
                 let pipeline = self.create(device, key);
                 self.cache.insert(key, pipeline);
@@ -122,6 +131,7 @@ impl MeshPipelines {
     fn create(&self, device: &wgpu::Device, key: PipelineKey) -> wgpu::RenderPipeline {
         let attributes = wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3];
         let uv_attributes = wgpu::vertex_attr_array![2 => Float32x2, 3 => Float32x2];
+        let tangent_attributes = wgpu::vertex_attr_array![4 => Float32x4];
         let mut buffers = vec![Some(wgpu::VertexBufferLayout {
             array_stride: 24,
             step_mode: wgpu::VertexStepMode::Vertex,
@@ -132,6 +142,13 @@ impl MeshPipelines {
                 array_stride: 16,
                 step_mode: wgpu::VertexStepMode::Vertex,
                 attributes: &uv_attributes,
+            }));
+        }
+        if key.tangent {
+            buffers.push(Some(wgpu::VertexBufferLayout {
+                array_stride: 16,
+                step_mode: wgpu::VertexStepMode::Vertex,
+                attributes: &tangent_attributes,
             }));
         }
         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -151,6 +168,8 @@ impl MeshPipelines {
                     "vs_line"
                 } else if key.primitive_kind == 2 {
                     "vs_point"
+                } else if key.tangent {
+                    "vs_standard_tangent"
                 } else if key.textured {
                     "vs_textured"
                 } else {

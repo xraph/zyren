@@ -1,6 +1,7 @@
 use serde::Deserialize;
 
 pub const MAX_LIGHTS: usize = 16;
+pub const MAX_HEMISPHERES: usize = 4;
 
 #[derive(Clone, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -8,10 +9,39 @@ pub struct StandardMaterial {
     pub metallic: f32,
     pub roughness: f32,
     pub emissive: [f32; 3],
+    #[serde(default = "one")]
+    pub normal_scale: f32,
+    #[serde(default = "one")]
+    pub occlusion_strength: f32,
+    #[serde(default)]
+    pub normal_map: Option<crate::scene::ColorMap>,
+    #[serde(default)]
+    pub metallic_roughness_map: Option<crate::scene::ColorMap>,
+    #[serde(default)]
+    pub occlusion_map: Option<crate::scene::ColorMap>,
+    #[serde(default)]
+    pub emissive_map: Option<crate::scene::ColorMap>,
+}
+fn one() -> f32 {
+    1.
 }
 impl StandardMaterial {
+    pub fn maps(&self) -> [Option<&crate::scene::ColorMap>; 4] {
+        [
+            self.normal_map.as_ref(),
+            self.metallic_roughness_map.as_ref(),
+            self.occlusion_map.as_ref(),
+            self.emissive_map.as_ref(),
+        ]
+    }
     pub fn validate(&self) -> Result<(), String> {
-        if [self.metallic, self.roughness]
+        for map in self.maps().into_iter().flatten() {
+            map.validate()?;
+        }
+        if !self.normal_scale.is_finite() || self.normal_scale.abs() > 1e6 {
+            return Err("invalid normal scale".into());
+        }
+        if [self.metallic, self.roughness, self.occlusion_strength]
             .iter()
             .any(|v| !v.is_finite() || !(0.0..=1.0).contains(v))
             || self
@@ -65,6 +95,39 @@ impl PunctualLight {
     }
 }
 
+#[derive(Clone, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HemisphereLight {
+    pub sky_color: [f32; 3],
+    pub ground_color: [f32; 3],
+    pub direction: [f32; 3],
+    pub intensity: f32,
+}
+impl HemisphereLight {
+    pub fn validate(&self) -> Result<(), String> {
+        let norm = glam::Vec3::from_array(self.direction).length_squared();
+        if !norm.is_finite()
+            || (norm - 1.).abs() > 1e-4
+            || !self.intensity.is_finite()
+            || !(0.0..=1e12).contains(&self.intensity)
+            || self
+                .sky_color
+                .iter()
+                .chain(&self.ground_color)
+                .any(|v| !v.is_finite() || !(0.0..=1.0).contains(v))
+        {
+            return Err("invalid hemisphere light".into());
+        }
+        Ok(())
+    }
+}
+#[repr(C)]
+#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+pub(crate) struct HemisphereUniform {
+    sky_intensity: [f32; 4],
+    ground: [f32; 4],
+    direction: [f32; 4],
+}
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub(crate) struct LightUniform {
@@ -78,12 +141,34 @@ pub(crate) struct LightUniform {
 pub(crate) struct LightingUniform {
     count: [u32; 4],
     lights: [LightUniform; MAX_LIGHTS],
+    hemispheres: [HemisphereUniform; MAX_HEMISPHERES],
 }
 impl LightingUniform {
-    pub fn capture(lights: &[PunctualLight]) -> Self {
+    pub fn capture(lights: &[PunctualLight], hemispheres: &[HemisphereLight]) -> Self {
         use bytemuck::Zeroable;
         let mut result = Self::zeroed();
         result.count[0] = lights.len() as u32;
+        result.count[1] = hemispheres.len() as u32;
+        for (output, light) in result.hemispheres.iter_mut().zip(hemispheres) {
+            output.sky_intensity = [
+                light.sky_color[0],
+                light.sky_color[1],
+                light.sky_color[2],
+                light.intensity,
+            ];
+            output.ground = [
+                light.ground_color[0],
+                light.ground_color[1],
+                light.ground_color[2],
+                0.,
+            ];
+            output.direction = [
+                light.direction[0],
+                light.direction[1],
+                light.direction[2],
+                0.,
+            ];
+        }
         for (output, light) in result.lights.iter_mut().zip(lights) {
             output.position_kind = [
                 light.position[0],

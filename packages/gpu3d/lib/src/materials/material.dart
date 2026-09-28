@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import '../math/color3.dart';
 import '../resources/texture_image.dart';
+import '../resources/texture.dart' show TextureFormat;
 import '../resources/resource_scope.dart' show MeshShaderProgram;
 part 'primitives.dart';
 part 'shader_material.dart';
@@ -20,6 +21,7 @@ sealed class MeshMaterial {
   final Color3 color;
   final MaterialSide side;
   final TextureMap? colorMap;
+  Iterable<TextureMap> get textureMaps => [?colorMap];
   final MaterialAlphaMode alphaMode;
   final double opacity, alphaCutoff;
   final bool depthTest;

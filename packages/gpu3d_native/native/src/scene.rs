@@ -45,6 +45,8 @@ pub struct Geometry {
     pub uv0: Vec<[f32; 2]>,
     #[serde(default)]
     pub uv1: Vec<[f32; 2]>,
+    #[serde(default)]
+    pub tangents: Vec<[f32; 4]>,
 }
 
 impl Geometry {
@@ -67,20 +69,35 @@ impl Geometry {
                 40
             })
             + self.indices.len() * self.index_format.bytes()
+            + self.tangents.len() * 16
     }
     pub fn cpu_byte_length(&self) -> usize {
         (self.positions.len() + self.normals.len()) * 12
             + (self.uv0.len() + self.uv1.len()) * 8
             + self.indices.len() * 4
+            + self.tangents.len() * 16
     }
     pub fn validate(&self) -> Result<(), String> {
         if self.topology > 3
             || (self.topology != 0
                 && (self.primitive_count() > 250_000
                     || !self.uv0.is_empty()
-                    || !self.uv1.is_empty()))
+                    || !self.uv1.is_empty()
+                    || !self.tangents.is_empty()))
         {
             return Err("unsupported primitive topology, attributes or expanded budget".into());
+        }
+        if !self.tangents.is_empty()
+            && (self.tangents.len() != self.positions.len()
+                || self.tangents.iter().any(|t| {
+                    let norm = glam::Vec3::new(t[0], t[1], t[2]).length_squared();
+                    t.iter().any(|v| !v.is_finite())
+                        || !norm.is_finite()
+                        || norm < 1e-12
+                        || t[3].abs() != 1.
+                }))
+        {
+            return Err("tangents need nonzero finite XYZ and handedness -1 or 1".into());
         }
         for uv in [&self.uv0, &self.uv1] {
             if !uv.is_empty()
@@ -194,6 +211,12 @@ impl Default for Mesh {
     }
 }
 impl Mesh {
+    pub fn texture_maps(&self) -> impl Iterator<Item = &ColorMap> {
+        self.color_map
+            .iter()
+            .chain(self.pbr.iter().flat_map(|p| p.maps().into_iter().flatten()))
+    }
+
     pub fn writes_depth(&self) -> bool {
         self.depth_write.unwrap_or(self.alpha_mode != 2)
     }
@@ -313,6 +336,8 @@ pub struct Frame {
     pub ambient: f32,
     #[serde(default)]
     pub lights: Vec<crate::lighting::PunctualLight>,
+    #[serde(default)]
+    pub hemispheres: Vec<crate::lighting::HemisphereLight>,
     pub geometries: Vec<Geometry>,
     pub meshes: Vec<Mesh>,
     #[serde(default)]
@@ -327,6 +352,12 @@ pub struct Frame {
 
 impl Frame {
     pub fn validate(&self, cached: &HashSet<u32>) -> Result<(), String> {
+        if self.hemispheres.len() > crate::lighting::MAX_HEMISPHERES {
+            return Err("scene exceeds hemisphere light limit".into());
+        }
+        for light in &self.hemispheres {
+            light.validate()?;
+        }
         if self.lights.len() > crate::lighting::MAX_LIGHTS {
             return Err("scene exceeds punctual light limit".into());
         }

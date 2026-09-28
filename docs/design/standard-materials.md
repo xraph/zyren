@@ -1,8 +1,8 @@
-# Standard materials and direct lights
+# Standard materials and lights
 
-You can render metallic/roughness materials with directional, point and spot
-lights through the native backend. Import `gpu3d/gpu3d.dart` for Dart or
-`flutter_gpu3d/flutter_gpu3d.dart` for Flutter. Geospatial is not required.
+You can render textured metallic/roughness materials with directional, point,
+spot and hemisphere lights through the native backend. Import `gpu3d/gpu3d.dart`
+for Dart or `flutter_gpu3d/flutter_gpu3d.dart` for Flutter. Geospatial is not required.
 
 ```dart
 final scene = Scene()..background = const Color3(.02, .02, .02);
@@ -30,7 +30,7 @@ too. `SceneEngine` rejects visible standard materials on adapters that lack this
 feature before it submits a frame. Legacy `NativeRenderer` adapters do not
 advertise this material profile.
 The legacy `Scene.snapshot` serializer rejects visible standard materials or
-punctual lights. Use `FrameSubmission.capture` to retain their lighting data.
+light objects. Use `FrameSubmission.capture` to retain their lighting data.
 
 ## Material parameters
 
@@ -42,6 +42,12 @@ punctual lights. Use `FrameSubmission.capture` to retain their lighting data.
 | `roughness` | `1` | Finite perceptual roughness in `[0, 1]` |
 | `emissive` | Linear black | Emission color, independent of scene lights |
 | `emissiveIntensity` | `1` | Finite multiplier in `[0, 1e12]` |
+| `normalMap` | None | Linear tangent-space XYZ texture |
+| `normalScale` | `1` | Scales tangent-space X/Y; finite in `[-1e6, 1e6]` |
+| `metallicRoughnessMap` | None | Linear texture; G multiplies roughness, B multiplies metallic |
+| `occlusionMap` | None | Linear texture; R attenuates indirect light |
+| `occlusionStrength` | `1` | Finite value in `[0, 1]`; zero disables occlusion |
+| `emissiveMap` | None | RGB multiplies emission after color-space conversion |
 
 The material also accepts the shared `side`, `alphaMode`, `opacity`,
 `alphaCutoff`, `depthTest` and `depthWrite` settings. `copyWith` preserves omitted
@@ -63,6 +69,54 @@ the existing sorted transparency path and its automatic depth-write policy.
 Sorting cannot resolve every intersecting transparent surface. See the
 [scene alpha contract](scene-alpha.md) for captures and compositor output.
 
+## Texture bindings and tangents
+
+Each map has its own sampler and `uvSet`, either 0 or 1. Capture rejects a visible
+material when its geometry lacks a requested UV set. You can bind one packed
+image to `metallicRoughnessMap` and `occlusionMap`; the device stores that image
+once. `MeshMaterial.textureMaps` enumerates all bindings. A material's `copyWith`
+accepts `clearNormalMap`, `clearMetallicRoughnessMap`, `clearOcclusionMap` and
+`clearEmissiveMap`, in addition to `clearBaseColorMap`.
+
+Normal, metallic/roughness and occlusion images must use
+`TextureFormat.rgba8Unorm`. Their constructors reject sRGB data maps instead of
+silently applying gamma to numerical channels. Base color and emissive images
+may use sRGB storage or already-linear pixels. The native texture unit applies
+the declared conversion before filtering. Only the base-color map supplies alpha.
+
+```dart
+final flatNormal = TextureMap(
+  image: TextureImage.rgba(
+    width: 1,
+    height: 1,
+    pixels: Uint8List.fromList([128, 128, 255, 255]),
+    format: TextureFormat.rgba8Unorm,
+  ),
+);
+sphere.material = surface.copyWith(normalMap: flatNormal, normalScale: .5);
+```
+
+Import `dart:typed_data` for `Uint8List`. Normal samples decode RGB to `[-1, 1]`,
+scale X/Y, then normalize after transformation into world space. You can supply
+`VertexSemantic.tangent` as `VertexFormat.float32x4` through
+`BufferGeometry.fromAttributes`. XYZ is a nonzero tangent, and W must be `-1` or
+`1`. Tangents must describe the UV chart selected by `normalMap`. The shader
+orthogonalizes the tangent against the normal and accounts for mirrored world
+transforms and back faces. Nonuniform transforms use the normal matrix for N
+and the model matrix for T.
+
+Without tangents, the shader derives a basis from screen-space position and the
+normal map's UV derivatives. Degenerate UV charts retain the geometric normal.
+This fallback does not establish MikkTSpace asset-baking equivalence; imported
+reference assets still need the glTF qualification gate. Dynamic tangents use
+`updateAttribute` like the other attributes. Their separate GPU stream preserves
+older captures held by another view and uploads 16 bytes per changed vertex.
+
+Occlusion interpolates between 1 and the sampled red channel using
+`occlusionStrength`. It affects hemisphere diffuse illumination, leaving direct
+lights and emission unchanged. Future environment lighting must use this same
+indirect-light rule.
+
 ## Light objects
 
 | Type | Intensity unit | Position and direction |
@@ -70,12 +124,23 @@ Sorting cannot resolve every intersecting transparent surface. See the
 | `DirectionalLight` | Lux | Emits along local `-Z`; translation does not affect illumination |
 | `PointLight` | Candela | Emits in all directions from its world position |
 | `SpotLight` | Candela | Emits from its position along local `-Z` within its cone |
+| `HemisphereLight` | Lux | Diffuse sky/ground irradiance; local `+Y` points toward the sky |
 
 Each light has linear `color`, `intensity`, visibility and the usual scene
-transform. Intensity is finite in `[0, 1e12]`; its default is `1`. Lights inherit
-parent transforms and visibility. The current native limit is 16 visible lights,
-reported through `DeviceLimits.maxPunctualLights`. Hiding a parent hides its
-lights too. Exceeding the limit fails explicitly.
+transform. `Light` is their common base; `PunctualLight` covers directional,
+point and spot types. Intensity is finite in `[0, 1e12]`; its default is `1`.
+Lights inherit parent transforms and visibility. Native limits are 16 visible
+punctual lights and 4 hemisphere lights, reported independently through
+`DeviceLimits.maxPunctualLights` and `maxHemisphereLights`. Hiding a parent hides
+its lights too. Exceeding either limit fails explicitly.
+
+`HemisphereLight` accepts `skyColor` (white by default), `groundColor` (black),
+`intensity` and `name`. `skyColor` aliases the common `color` property. The shader
+interpolates sky and ground by `0.5 * dot(normal, up) + 0.5`, then multiplies by
+intensity and diffuse reflectance `0.96 * baseColor * (1 - metallic) / pi`.
+Occlusion applies to this term. Hemisphere lighting is a diffuse approximation;
+it supplies no specular environment reflections. Rotate the light to orient its
+sky axis. Translation has no effect.
 
 Point and spot lights use inverse-square attenuation. `range: null` leaves the
 range unbounded. A finite range is in metres, must be in `(0, 1e12]`, and fades to
@@ -114,6 +179,15 @@ inner cosine and outer cosine. Zero range means unbounded. Each mesh update adds
 a `u32` standard-material flag after sidedness, followed by metallic, roughness
 and emissive RGB when set. Older opcodes retain their existing layouts.
 
+Opcode 20 adds a hemisphere table after the punctual table: `u32` count, then
+sky RGB, ground RGB, normalized direction XYZ and intensity as float32 values.
+A standard material appends normal scale and occlusion strength after emission,
+then four optional maps in normal, metallic/roughness, occlusion and emissive
+order. Each map has a `u32` presence flag followed by the existing texture ID,
+UV set and five sampler fields. Geometry flag bit 3 adds float32x4 tangents after
+the UV arrays; patch semantic 4 updates their separate stream. Opcode 19 keeps
+its defaults when these fields are absent.
+
 Native admission rejects malformed flags, truncated tables, excess lights and
 nonfinite or out-of-range parameters before drawing. Material changes participate
 in scene deltas. Updating a light or material parameter does not upload the
@@ -123,11 +197,10 @@ uniform prefix and binding layout.
 
 ## Scope and examples
 
-This profile renders direct lighting to the existing RGBA8 scene target. Values
-above the target's range clamp. HDR accumulation, tone mapping, normal/ORM and
-emissive textures, image-based lighting, hemisphere lights and shadows remain
-Task 5 work. Standard glTF material conversion remains gated on that broader
-profile and its reference fixtures.
+This profile renders direct and hemisphere lighting to the existing RGBA8 scene
+target. Values above the target's range clamp. HDR accumulation, tone mapping,
+image-based lighting and shadows remain Task 5 work. Standard glTF material
+conversion remains gated on that broader profile and its reference fixtures.
 
 Run the [Flutter PBR lab](../../examples/shader_lab/README.md) for a sphere grid
 and light controls. The standalone `gpu3d_native/example/pbr.dart` renders a PNG

@@ -7,6 +7,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:gpu3d/rendering.dart' show PresentationPath;
 import 'package:shader_lab/pbr.dart';
 import '../../../packages/gpu3d_native/test/support/pbr_checks.dart';
+import '../../../packages/gpu3d_native/test/support/standard_maps_checks.dart';
 import 'effects_test.dart' show waitForFrame;
 
 void main() {
@@ -19,10 +20,18 @@ void main() {
         : await NativeMetalBackend.create();
     try {
       await verifyPbr(backend);
+      await verifyStandardMaps(backend);
     } finally {
       await backend.close();
     }
-    await tester.pumpWidget(const PbrLabApp());
+    await tester
+        .pumpWidget(const PbrLabApp())
+        .timeout(
+          const Duration(seconds: 20),
+          onTimeout: () => throw TestFailure(
+            'Flutter did not deliver a frame. The native window may be inactive.',
+          ),
+        );
     final controller = tester
         .widget<SceneView>(find.byType(SceneView))
         .controller!;
@@ -56,6 +65,25 @@ void main() {
       );
       await waitForFrame(tester, controller, (frame) => frame.drawCalls == 12);
       expect(light.quaternion, isNot(orientation));
+      final hemisphere = controller.scene.children
+          .whereType<HemisphereLight>()
+          .single;
+      final beforeAmbient = hemisphere.intensity;
+      await tester.drag(
+        find.byKey(const ValueKey('Ambient')),
+        const Offset(40, 0),
+      );
+      await waitForFrame(tester, controller, (frame) => frame.drawCalls == 12);
+      expect(hemisphere.intensity, greaterThan(beforeAmbient));
+      for (var i = 0; i < 2; i++) {
+        await tester.tap(find.byKey(const ValueKey('Textures')));
+        final toggled = await waitForFrame(
+          tester,
+          controller,
+          (frame) => frame.drawCalls == 12,
+        );
+        expect(toggled.readbackBytes, 0);
+      }
       expect(tester.takeException(), isNull);
     } finally {
       await tester.pumpWidget(const SizedBox());

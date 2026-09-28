@@ -25,17 +25,19 @@ enum RenderFeature {
 class DeviceLimits {
   final int maxTextureDimension2D;
   final int maxGeometryBytes;
-  final int maxPunctualLights;
+  final int maxPunctualLights, maxHemisphereLights;
   final Set<int> sampleCounts;
   DeviceLimits({
     required this.maxTextureDimension2D,
     required this.maxGeometryBytes,
     this.maxPunctualLights = 0,
+    this.maxHemisphereLights = 0,
     Set<int> sampleCounts = const {1},
   }) : sampleCounts = Set.unmodifiable(sampleCounts) {
     if (maxTextureDimension2D < 1 ||
         maxGeometryBytes < 1 ||
         maxPunctualLights < 0 ||
+        maxHemisphereLights < 0 ||
         sampleCounts.isEmpty ||
         sampleCounts.any((value) => value < 1)) {
       throw ArgumentError('Device limits must be positive.');

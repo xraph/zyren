@@ -54,16 +54,18 @@ final class ScenePacketEncoder {
     for (final geometry in scene._geometries.values) {
       if (!visible.contains(geometry.id)) continue;
       if (geometry.attributes.keys.any(
-        (s) => s.index > VertexSemantic.uv1.index,
+        (s) => s.index > VertexSemantic.tangent.index,
       )) {
         throw UnsupportedError(
-          'This material renderer supports position, normal and UV attributes.',
+          'This renderer supports position, normal, UV and tangent attributes.',
         );
       }
       if (geometry.topology != GeometryTopology.triangles &&
-          (geometry.uv0 != null || geometry.uv1 != null)) {
+          (geometry.uv0 != null ||
+              geometry.uv1 != null ||
+              geometry.tangents != null)) {
         throw UnsupportedError(
-          'Expanded primitives do not support UV attributes.',
+          'Expanded primitives do not support UV or tangent attributes.',
         );
       }
       final base = uploaded[geometry.logicalId];
@@ -91,6 +93,10 @@ final class ScenePacketEncoder {
       for (final mesh in scene._meshes)
         if ((mesh['colorMap'] as List).isNotEmpty)
           (mesh['colorMap'] as List).first as int,
+      for (final mesh in scene._meshes)
+        for (final field in _standardMapFields)
+          if ((mesh['pbr'] as Map?)?[field] case final List binding)
+            binding.first as int,
     };
     final textures = [
       for (final id in visibleTextures)
@@ -135,7 +141,12 @@ final class ScenePacketEncoder {
         uploadBytes > 64 * 1024 * 1024) {
       throw ArgumentError('Scene resource upload exceeds the frame budget.');
     }
-    final opcode = scene.hasStandardMaterials || scene.punctualLightCount > 0
+    final opcode =
+        scene.hasStandardMaterials ||
+            scene.hemisphereLightCount > 0 ||
+            scene._geometries.values.any((g) => g.tangents != null)
+        ? 20
+        : scene.punctualLightCount > 0
         ? 19
         : scene.backgroundOpacity < 1
         ? 18
@@ -187,6 +198,15 @@ final class ScenePacketEncoder {
         ]);
       }
     }
+    if (opcode >= 20) {
+      body.u32(scene._hemispheres.length);
+      for (final light in scene._hemispheres) {
+        body.floats((light['sky_color'] as List).cast<double>());
+        body.floats((light['ground_color'] as List).cast<double>());
+        body.floats((light['direction'] as List).cast<double>());
+        body.floats([light['intensity'] as double]);
+      }
+    }
     body.u32(scene._textures.length);
     body.u32(textures.length);
     if (opcode >= 12) body.u32(patches.length);
@@ -220,7 +240,8 @@ final class ScenePacketEncoder {
       body.u32(
         (geometry.uv0 == null ? 0 : 1) |
             (geometry.uv1 == null ? 0 : 2) |
-            (geometry.indexFormat == IndexFormat.uint16 ? 4 : 0),
+            (geometry.indexFormat == IndexFormat.uint16 ? 4 : 0) |
+            (geometry.tangents == null ? 0 : 8),
       );
       if (opcode >= 16) body.u32(geometry.topology.index);
       body.floats(geometry.positions);
@@ -228,6 +249,7 @@ final class ScenePacketEncoder {
       body.indices(geometry.indices, geometry.indexFormat);
       if (geometry.uv0 != null) body.floats(geometry.uv0!);
       if (geometry.uv1 != null) body.floats(geometry.uv1!);
+      if (geometry.tangents != null) body.floats(geometry.tangents!);
     }
     for (final patch in patches) {
       body.u32(patch.geometry.id);
@@ -282,6 +304,17 @@ final class ScenePacketEncoder {
                 material['roughness'] as double,
               ]);
               body.floats((material['emissive'] as List).cast<double>());
+              if (opcode >= 20) {
+                body.floats([
+                  material['normal_scale'] as double,
+                  material['occlusion_strength'] as double,
+                ]);
+                for (final field in _standardMapFields) {
+                  final binding = (material[field] as List?)?.cast<int>();
+                  body.u32(binding == null ? 0 : 1);
+                  if (binding != null) body.integers(binding);
+                }
+              }
             }
           }
         }
@@ -330,10 +363,16 @@ final class _GeometryPatch {
   _GeometryPatch(this.baseId, this.geometry, this.ranges);
   int get uploadedBytes {
     var bytes = 0;
-    for (var buffer = 0; buffer < 2; buffer++) {
+    for (var buffer = 0; buffer < 3; buffer++) {
       final selected = [
         for (final range in ranges)
-          if ((range.semantic.index < 2 ? 0 : 1) == buffer) range,
+          if ((range.semantic.index < 2
+                  ? 0
+                  : range.semantic.index < 4
+                  ? 1
+                  : 2) ==
+              buffer)
+            range,
       ]..sort((a, b) => a.firstVertex.compareTo(b.firstVertex));
       var end = 0;
       for (final range in selected) {
@@ -347,14 +386,31 @@ final class _GeometryPatch {
   }
 }
 
+const _standardMapFields = [
+  'normal_map',
+  'metallic_roughness_map',
+  'occlusion_map',
+  'emissive_map',
+];
+
 bool _sameMesh(Map<String, Object> a, Map<String, Object> b) {
   final leftPbr = a['pbr'] as Map?, rightPbr = b['pbr'] as Map?;
   if (leftPbr == null || rightPbr == null) {
     if (leftPbr != rightPbr) return false;
   } else {
     if (leftPbr['metallic'] != rightPbr['metallic'] ||
-        leftPbr['roughness'] != rightPbr['roughness']) {
+        leftPbr['roughness'] != rightPbr['roughness'] ||
+        leftPbr['normal_scale'] != rightPbr['normal_scale'] ||
+        leftPbr['occlusion_strength'] != rightPbr['occlusion_strength']) {
       return false;
+    }
+    for (final field in _standardMapFields) {
+      final left = (leftPbr[field] as List?) ?? const [],
+          right = (rightPbr[field] as List?) ?? const [];
+      if (left.length != right.length) return false;
+      for (var i = 0; i < left.length; i++) {
+        if (left[i] != right[i]) return false;
+      }
     }
     for (var i = 0; i < 3; i++) {
       if ((leftPbr['emissive'] as List)[i] !=

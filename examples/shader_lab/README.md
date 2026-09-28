@@ -54,15 +54,21 @@ fvm flutter run -d macos -t lib/pbr.dart
 fvm flutter run --release -d DEVICE_ID -t lib/pbr.dart
 fvm flutter test test/pbr_app_test.dart
 fvm flutter test integration_test/pbr_test.dart -d macos
+fvm flutter test integration_test/pbr_pixels_test.dart -d DEVICE_ID
 ```
 
 The grid shares one sphere geometry across 12 materials. Roughness increases
 left to right (`0.1`, `0.35`, `0.65`, `1`); metallic increases top to bottom (`0`,
 `0.5`, `1`). Light changes directional intensity in lux. Angle rotates that light
-around Y in radians. A blue point light adds a fixed fill. Both controls redraw
-without uploading geometry or images again.
+around Y in radians. A blue point light adds a fixed fill. Ambient controls the
+hemisphere light. Textures switches the shared base-color, normal, packed
+occlusion/roughness/metallic and emissive images on or off. The maps multiply the
+grid's material factors. Light edits redraw without uploading geometry or images;
+re-enabling released texture maps uploads their pixels again.
 
 The integration checks reference pixels, point falloff, narrow spot cones,
 texture masks, negative scale, emission, resource cleanup and native presentation
 with zero readback. See [standard materials](../../docs/design/standard-materials.md)
-for the implemented parameters and remaining renderer work.
+for the implemented parameters and remaining renderer work. `pbr_pixels_test`
+runs the native readback assertions without mounting a window. Keep that result
+separate from `pbr_test`, which also verifies Flutter controls and presentation.

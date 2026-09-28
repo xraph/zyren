@@ -9,6 +9,7 @@ fn triangle() -> Geometry {
         index_format: Default::default(),
         uv0: vec![[0., 0.]; 3],
         uv1: vec![],
+        tangents: vec![],
     }
 }
 #[test]
@@ -104,4 +105,30 @@ fn expanded_geometry_requires_a_full_recipe_update() {
     };
     assert!(patch.apply(&base).is_err());
     assert_eq!(base.positions[0], [0., 0., 0.]);
+}
+
+#[test]
+fn tangent_ranges_keep_handedness_and_use_their_own_buffer() {
+    let mut base = triangle();
+    base.tangents = vec![[1., 0., 0., 1.]; 3];
+    let mut patch = GeometryPatch {
+        id: 8,
+        base: 7,
+        ranges: vec![AttributeRange {
+            semantic: 4,
+            first: 1,
+            values: vec![1., 0., 0., -1.],
+        }],
+    };
+    let next = patch.apply(&base).unwrap();
+    assert_eq!(next.tangents[1], [1., 0., 0., -1.]);
+    assert_eq!(base.tangents[1], [1., 0., 0., 1.]);
+    assert_eq!(patch.gpu_ranges(), vec![(2, 1, 2)]);
+    patch.ranges[0].values[3] = 0.;
+    assert!(patch.apply(&base).is_err());
+    patch.ranges[0].values = vec![0., 0., 0., 1.];
+    assert!(patch.apply(&base).is_err());
+    patch.ranges[0].values = vec![1., 0., 0., 1.];
+    base.tangents.clear();
+    assert!(patch.apply(&base).is_err());
 }

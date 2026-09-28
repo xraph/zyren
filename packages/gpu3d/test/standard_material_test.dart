@@ -64,6 +64,13 @@ void main() {
         );
         expect(renderer.renders, 0);
         mesh.visible = false;
+        final hemisphere = engine.scene.add(HemisphereLight());
+        await expectLater(
+          engine.renderFrame(elapsed: Duration.zero, width: 31, height: 31),
+          throwsA(isA<SceneException>()),
+        );
+        expect(renderer.renders, 0);
+        hemisphere.visible = false;
         await engine.renderFrame(elapsed: Duration.zero, width: 31, height: 31);
         expect(renderer.renders, 1);
       } finally {

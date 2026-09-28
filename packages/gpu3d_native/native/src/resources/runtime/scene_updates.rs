@@ -22,6 +22,7 @@ impl ResourceStore {
             indices,
             count,
             uv,
+            tangents,
             index_format,
         } = self.registry.resolve(base)?
         else {
@@ -30,6 +31,10 @@ impl ResourceStore {
         if uv.is_none() && patch.gpu_ranges().iter().any(|range| range.0 == 1) {
             return Err(ResourceError::InvalidRange);
         }
+        if tangents.is_none() && patch.gpu_ranges().iter().any(|range| range.0 == 2) {
+            return Err(ResourceError::InvalidRange);
+        }
+        let old_tangents = tangents.clone();
         let index_format = *index_format;
         let (old_vertices, old_indices, old_count, old_uv) =
             (vertices.clone(), indices.clone(), *count, uv.clone());
@@ -57,12 +62,18 @@ impl ResourceStore {
         let uv = old_uv
             .as_ref()
             .map(|b| if reuse { b.clone() } else { clone_buffer(b) });
+        let tangents = old_tangents
+            .as_ref()
+            .map(|b| if reuse { b.clone() } else { clone_buffer(b) });
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: Some("geometry ranges"),
         });
         if !reuse {
             encoder.copy_buffer_to_buffer(&old_vertices, 0, &vertices, 0, old_vertices.size());
             encoder.copy_buffer_to_buffer(&old_indices, 0, &indices, 0, old_indices.size());
+            if let (Some(old), Some(new)) = (&old_tangents, &tangents) {
+                encoder.copy_buffer_to_buffer(old, 0, new, 0, old.size());
+            }
             if let (Some(old), Some(new)) = (&old_uv, &uv) {
                 encoder.copy_buffer_to_buffer(old, 0, new, 0, old.size());
             }
@@ -77,7 +88,7 @@ impl ResourceStore {
                     &vertices,
                     24,
                 )
-            } else {
+            } else if buffer == 1 {
                 (
                     (first..end)
                         .flat_map(|i| {
@@ -91,6 +102,12 @@ impl ResourceStore {
                         })
                         .collect(),
                     uv.as_ref().expect("UV ranges were preflighted"),
+                    16,
+                )
+            } else {
+                (
+                    (first..end).flat_map(|i| geometry.tangents[i]).collect(),
+                    tangents.as_ref().expect("tangent ranges were preflighted"),
                     16,
                 )
             };
@@ -126,6 +143,7 @@ impl ResourceStore {
                     indices,
                     count: old_count,
                     uv,
+                    tangents,
                     index_format,
                 },
                 geometry.byte_length() as u64,

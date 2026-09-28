@@ -136,6 +136,7 @@ class NativeBackend implements NativeGpuBackend {
       maxTextureDimension2D: 4096,
       maxGeometryBytes: 64 * 1024 * 1024,
       maxPunctualLights: 16,
+      maxHemisphereLights: 4,
     ),
   );
   @override

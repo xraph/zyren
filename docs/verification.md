@@ -1194,3 +1194,58 @@ Task 5 remains open for normal/ORM/emissive maps, HDR, environment lighting,
 shadows, hemisphere lights and standard glTF material/extension qualification.
 There is no new iOS, Windows, Linux or Adreno evidence. This direct-light profile
 does not establish full Three.js or Takram parity.
+
+## Standard material maps and hemisphere lighting, 2026-09-28
+
+`StandardMaterial` now supports normal, metallic/roughness, occlusion and emissive
+maps alongside base color. Each channel selects its own sampler and UV set.
+Data maps require linear storage; color maps use their declared texture format.
+Explicit tangents preserve handedness under mirrored and nonuniform transforms.
+Meshes without tangents use a derivative basis, with degenerate UVs retaining
+the geometric normal. This fallback does not claim MikkTSpace equivalence.
+
+`HemisphereLight` supplies diffuse indirect irradiance between sky and ground.
+Its local +Y axis selects the sky direction, and the native profile admits four
+visible hemispheres in addition to 16 punctual lights. Occlusion affects this
+indirect contribution, leaving direct light and emission unchanged. Hemisphere
+lighting does not supply environment reflections or establish IBL support.
+
+Binary opcode 20 carries the additional maps, tangent stream and hemisphere
+table. Tangent edits upload changed ranges while preserving geometry retained
+by other views. Parameter and sampler edits reuse image uploads; removing maps
+releases their residency when no remaining submission retains them.
+
+The checkpoint passed 253 core/glTF/geospatial tests, 53 native Dart tests,
+69 Flutter facade/demo tests and 15 independent effects tests, 390 in total.
+All 87 Rust tests passed with GPU cases included. Native Dart ran serially with
+`RUN_NATIVE_GPU=1`. Analysis, strict Clippy, formatting, package boundaries,
+Apple ABI header consistency and diff checks passed.
+
+Numeric GPU fixtures cover packed channels, emissive sRGB decoding, independent
+UV selection, normal scale, explicit and derivative tangents, mirrored basis
+orientation, occlusion strength and final resource cleanup. An off-axis light
+makes the handedness fixture distinguish both bitangent directions. A second
+view retains its old pixels while another submission patches tangents. Invalid
+data-map formats, UVs, tangent values and truncated packets reject cleanly.
+
+The PBR and effects app integrations passed on macOS Metal with zero presentation
+readback. The physical Pixel passed the standalone PBR GPU integration on Vulkan,
+including the UV1 derivative case. Its expanded PBR window interaction test
+stalled while the app surface stayed inactive and was cancelled. A normal wake
+and foreground request did not restore that surface. This checkpoint therefore
+does not claim an Android window interaction pass. The separate GPU test has a
+90-second timeout; the window test also bounds its initial frame wait.
+
+The PBR lab adds texture and ambient controls. Layout tests pass at 320, 390 and
+1100 pixels. Standalone Metal JIT and bundled AOT executables produced identical
+768x512 PNGs at `artifacts/pbr-maps-metal-grid.png` and
+`artifacts/pbr-maps-metal-aot.png`; the grid was inspected locally. Release builds
+passed for macOS (50.8 MB) and Android arm64 (22.8 MB). The Pixel release is running
+as `dev.gpu3d.shader_lab`, PID 10023 at verification, with its runner retained and
+no error-level process logs.
+
+The Mac remains locked and its integration could not foreground the app. Manual
+release-window inspection and Apple compositor pixels remain unverified. There
+is no new iOS, Windows, Linux or Adreno qualification. Task 5 remains open for
+HDR, environment lighting, shadows and standard glTF material/extension gates.
+Full Three.js and Takram parity remain open.
