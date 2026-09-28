@@ -178,6 +178,11 @@ pub struct Mesh {
     pub size_units: u32,
     #[serde(default)]
     pub point_shape: u32,
+    #[serde(default = "default_shadow_flags")]
+    pub shadow_flags: u32,
+}
+fn default_shadow_flags() -> u32 {
+    2
 }
 fn pbr_scales() -> [f32; 3] {
     [1.; 3]
@@ -214,6 +219,7 @@ impl Default for Mesh {
             primitive_size: 1.,
             size_units: 0,
             point_shape: 0,
+            shadow_flags: 2,
         }
     }
 }
@@ -225,6 +231,11 @@ impl Mesh {
         self.depth_write.unwrap_or(self.alpha_mode != 2)
     }
     pub fn validate_material(&self) -> Result<(), String> {
+        if self.shadow_flags > 3
+            || (self.shadow_flags & 1 != 0 && (self.shader.is_some() || self.primitive_kind != 0))
+        {
+            return Err("Invalid shadow caster flags or material".into());
+        }
         if (self.pbr.is_none() && self.pbr_maps.iter().any(Option::is_some))
             || self.pbr_scales.iter().any(|v| !v.is_finite())
             || self.pbr_scales[..2].iter().any(|v| v.abs() > 1e6)
@@ -366,6 +377,8 @@ pub struct RenderSettings {
     pub history_epoch: u32,
     pub camera_origin: [f64; 3],
     pub environment: Option<EnvironmentMap>,
+    pub shadows: Vec<[f32; 8]>,
+    pub shadow_camera: [f32; 2],
 }
 impl Default for RenderSettings {
     fn default() -> Self {
@@ -378,6 +391,8 @@ impl Default for RenderSettings {
             history_epoch: 0,
             camera_origin: [0.; 3],
             environment: None,
+            shadows: vec![],
+            shadow_camera: [0.1, 1000.],
         }
     }
 }
@@ -428,6 +443,7 @@ pub struct Frame {
 
 impl Frame {
     pub fn validate(&self, cached: &HashSet<u32>) -> Result<(), String> {
+        validate_shadows(&self.settings, &self.lights)?;
         self.settings.validate()?;
         if self.lights.len() > 16
             || self.lights.iter().any(|l| {
@@ -513,4 +529,47 @@ pub fn pixel_len(width: u32, height: u32) -> Result<usize, String> {
         ));
     }
     Ok(width as usize * height as usize * 4)
+}
+
+pub(crate) fn validate_shadows(
+    settings: &RenderSettings,
+    light_values: &[[f32; 20]],
+) -> Result<(), String> {
+    let clip = settings.shadow_camera;
+    if clip.iter().any(|v| !v.is_finite()) || clip[1] <= clip[0] || settings.shadows.len() > 8 {
+        return Err("Invalid shadow camera or count".into());
+    }
+    let mut lights = HashSet::new();
+    let mut maps = 0;
+    for s in &settings.shadows {
+        if s.iter().any(|v| !v.is_finite())
+            || s[0] < 0.
+            || s[0].fract() != 0.
+            || s[0] as usize >= light_values.len()
+            || !lights.insert(s[0] as usize)
+            || ![128., 256., 512., 1024.].contains(&s[1])
+            || !(1.0..=4.).contains(&s[2])
+            || s[2].fract() != 0.
+            || s[3] <= 0.
+            || s[4] <= s[3]
+            || s[4] > 1e8
+            || !(0.0..=1.).contains(&s[5])
+            || !(0.0..=1e6).contains(&s[6])
+            || !(0.0..=1.).contains(&s[7])
+        {
+            return Err("Invalid shadow descriptor".into());
+        }
+        let kind = light_values[s[0] as usize][3];
+        if (kind != 0. && kind != 2.)
+            || (kind == 2. && s[2] != 1.)
+            || (kind == 0. && s[4].min(clip[1]) <= clip[0].max(0.001))
+        {
+            return Err("Unsupported shadow light or camera range".into());
+        }
+        maps += s[2] as usize;
+    }
+    if maps > 8 {
+        return Err("Too many shadow projections".into());
+    }
+    Ok(())
 }

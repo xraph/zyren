@@ -14,6 +14,7 @@ pub(crate) mod effects;
 mod environment;
 mod lighting;
 pub(crate) mod pipelines;
+mod shadows;
 mod textures;
 
 #[repr(C)]
@@ -34,6 +35,7 @@ struct GpuGeometry {
     key: crate::resources::registry::ResourceKey,
     recipe: std::sync::Arc<crate::scene::Geometry>,
     center: glam::Vec3,
+    bounds: [glam::Vec3; 2],
 }
 struct Targets {
     width: u32,
@@ -90,6 +92,7 @@ pub struct RendererState {
     pbr_texture_layout: wgpu::BindGroupLayout,
     pbr_white: wgpu::Texture,
     environment: environment::Environment,
+    shadows: shadows::Shadows,
     environment_keys: Vec<crate::resources::registry::ResourceKey>,
     textures: HashMap<u32, textures::GpuSceneTexture>,
     #[cfg(any(target_vendor = "apple", target_os = "android"))]
@@ -191,6 +194,7 @@ impl Renderer {
         let pbr_texture_layout = textures::pbr_layout(&device);
         let pbr_white = textures::white(&device, &queue);
         let environment = environment::Environment::new(&device);
+        let shadows = shadows::Shadows::new(&device, &texture_layout);
         let pipelines = pipelines::MeshPipelines::new(
             &device,
             &layout,
@@ -218,6 +222,7 @@ impl Renderer {
                 pbr_texture_layout,
                 pbr_white,
                 environment,
+                shadows,
                 environment_keys: vec![],
                 textures: HashMap::new(),
                 #[cfg(any(target_vendor = "apple", target_os = "android"))]
@@ -289,6 +294,8 @@ impl Renderer {
                 failure: &mut state.failure,
                 engine_layout: &state.layout,
                 target_bytes: state.effects.bytes(),
+                shadow_bytes: state.shadows.bytes(),
+                shadow_passes: state.shadows.passes,
             },
             bytes,
             capacity,
@@ -382,6 +389,7 @@ impl Renderer {
     pub fn close_scene_view(&mut self, view: u64) -> Result<(), String> {
         self.views.remove(&view);
         self.effects.remove(view);
+        self.shadows.remove(view);
         self.evict_geometry()
     }
     fn evict_geometry(&mut self) -> Result<(), String> {
@@ -445,6 +453,7 @@ impl Renderer {
             }
         }
         frame.validate(&cached)?;
+        self.shadows.admit(frame)?;
         self.environment.textures(frame, &self.resources)?;
         self.environment_keys = frame
             .settings
@@ -551,12 +560,14 @@ impl Renderer {
                 if let Some(base) = reusable.get(&geometry.id) {
                     state.geometries.remove(base);
                 }
+                let bounds = draw_order::geometry_bounds(geometry);
                 state.geometries.insert(
                     geometry.id,
                     GpuGeometry {
                         key,
                         recipe: std::sync::Arc::new(geometry.clone()),
-                        center: draw_order::geometry_center(geometry),
+                        center: bounds[0] * 0.5 + bounds[1] * 0.5,
+                        bounds,
                     },
                 );
             }
@@ -585,6 +596,7 @@ impl Renderer {
         frame: &Frame,
         format: wgpu::TextureFormat,
     ) -> Result<(), String> {
+        self.prepare_shadows(frame)?;
         let state = self.state.as_mut().unwrap();
         state.pipelines.prepare(
             &state.device,
@@ -674,6 +686,7 @@ impl Renderer {
                 .binding(&self.device, frame, &self.resources)
         });
         let mut encoder = self.device.create_command_encoder(&Default::default());
+        self.encode_shadows(frame, &mut encoder);
         {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("native frame"),
@@ -878,6 +891,7 @@ impl Renderer {
             return Err(error);
         }
         self.accept_history(frame);
+        self.shadows.accept(frame);
         Ok(())
     }
 
@@ -928,6 +942,7 @@ impl Renderer {
         });
         self.wait_for_submission(submission)?;
         self.accept_history(frame);
+        self.shadows.accept(frame);
         let mapped_result = receiver
             .recv_timeout(Duration::from_secs(1))
             .map_err(|error| format!("readback callback failed: {error}"))

@@ -166,7 +166,11 @@ final class ScenePacketEncoder {
       throw ArgumentError('Scene resource upload exceeds the frame budget.');
     }
     final hasTangents = scene._geometries.values.any((g) => g.tangents != null);
-    final opcode = environment != null
+    final opcode =
+        scene._shadows.isNotEmpty ||
+            scene._meshes.any((m) => m['shadowFlags'] != 2)
+        ? 24
+        : environment != null
         ? 23
         : hasTangents
         ? 22
@@ -237,6 +241,13 @@ final class ScenePacketEncoder {
           body.add(key);
         }
         body.floats([environment!.intensity, environment.rotation]);
+      }
+    }
+    if (opcode >= 24) {
+      body.u32(scene._shadows.length);
+      body.floats(scene._shadowCamera);
+      for (final shadow in scene._shadows) {
+        body.floats(shadow);
       }
     }
     for (final id in owned) {
@@ -348,6 +359,7 @@ final class ScenePacketEncoder {
           body.floats((mesh['pbrScales'] as List).cast<double>());
         }
       }
+      if (opcode >= 24) body.u32(mesh['shadowFlags'] as int);
     }
     final payload = body.finish();
     if (payload.length > 66 * 1024 * 1024 - 24) {
@@ -421,6 +433,7 @@ bool _sameMesh(Map<String, Object> a, Map<String, Object> b) {
     'geometry',
     'unlit',
     'side',
+    'shadowFlags',
     'alpha_mode',
     'opacity',
     'alpha_cutoff',

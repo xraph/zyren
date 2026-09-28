@@ -72,7 +72,7 @@ impl ScenePacket {
             return Err("unsupported scene packet".into());
         }
         let opcode = r.u32()?;
-        if !(10..=23).contains(&opcode) {
+        if !(10..=24).contains(&opcode) {
             return Err("unsupported scene packet".into());
         }
         let textured = opcode >= 11;
@@ -161,6 +161,17 @@ impl ScenePacket {
             }
             settings.validate()?;
         }
+        if opcode >= 24 {
+            let count = r.u32()?;
+            if count > 8 {
+                return Err("Too many shadow lights".into());
+            }
+            settings.shadow_camera = r.floats()?;
+            for _ in 0..count {
+                settings.shadows.push(r.floats()?);
+            }
+        }
+        crate::scene::validate_shadows(&settings, &lights)?;
         let mut retained = HashSet::new();
         for _ in 0..retained_count {
             if !retained.insert(r.u32()?) {
@@ -453,6 +464,10 @@ impl ScenePacket {
                     }
                     mesh.pbr_scales = r.floats()?;
                 }
+                mesh.validate_material()?;
+            }
+            if opcode >= 24 {
+                mesh.shadow_flags = r.u32()?;
                 mesh.validate_material()?;
             }
             updates.push((index, mesh));

@@ -16,6 +16,31 @@ struct Light { positionKind: vec4<f32>, colorIntensity: vec4<f32>, directionRang
 struct Lights { count: vec4<f32>, view: vec4<f32>, values: array<Light,16> };
 @group(1) @binding(0) var<uniform> material: Material;
 @group(1) @binding(1) var<uniform> lights: Lights;
+struct ShadowMap { matrix:mat4x4<f32>, rect:vec4<f32>, params:vec4<f32> };
+struct Shadows { camera:vec4<f32>, maps:array<ShadowMap,8> };
+@group(1) @binding(2) var<uniform> shadows:Shadows;
+@group(1) @binding(3) var shadowAtlas:texture_depth_2d;
+@group(1) @binding(4) var shadowSampler:sampler_comparison;
+fn shadowVisibility(light:u32,point:vec3<f32>,normal:vec3<f32>)->f32 {
+ if material.factors.w<.5 {return 1.;}
+ let texel=1./vec2<f32>(textureDimensions(shadowAtlas));
+ for(var i=0u;i<min(u32(shadows.camera.w),8u);i++) {
+   let map=shadows.maps[i];
+   if u32(map.params.x)!=light || (map.params.w>0. && dot(point,shadows.camera.xyz)>map.params.w) {continue;}
+   let p=map.matrix*vec4<f32>(point+normal*map.params.z,1.);
+   if p.w<=0. {return 1.;}
+   let ndc=p.xyz/p.w;let uv=ndc.xy*vec2<f32>(.5,-.5)+.5;
+   if any(uv<vec2<f32>(0.)) || any(uv>vec2<f32>(1.)) || ndc.z<0. || ndc.z>1. {return 1.;}
+   let coord=map.rect.xy+uv*map.rect.zw;
+   var sum=0.;
+   for(var y=-1;y<=1;y++) {for(var x=-1;x<=1;x++) {
+     let sample=clamp(coord+vec2<f32>(f32(x),f32(y))*texel,map.rect.xy+texel*.5,map.rect.xy+map.rect.zw-texel*.5);
+     sum+=textureSampleCompareLevel(shadowAtlas,shadowSampler,sample,ndc.z-map.params.y);
+   }}
+   return sum/9.;
+ }
+ return 1.;
+}
 @group(2) @binding(0) var baseMap: texture_2d<f32>;
 @group(2) @binding(1) var baseSampler: sampler;
 @group(2) @binding(2) var normalMap: texture_2d<f32>;
@@ -132,7 +157,7 @@ fn shade(input: PbrVertex, front: bool, sampleColor: vec4<f32>) -> vec4<f32> {
      }
    }
    if dot(n,l) > 0. && dot(n,view) > 0. {
-     color += intensity * attenuation * brdf(base,metal,rough,n,view,l);
+     color += intensity * attenuation * shadowVisibility(i,input.point,n) * brdf(base,metal,rough,n,view,l);
    }
  }
  return vec4<f32>(clamp(color,vec3<f32>(0.),vec3<f32>(65504.)),select(1.,alpha,uniforms.map_params.w>1.5));

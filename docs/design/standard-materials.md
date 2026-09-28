@@ -53,7 +53,7 @@ Normal mapping uses authored float4 tangent attributes when supplied. Their
 handedness follows mirrored transforms; dynamic updates preserve earlier captured
 geometry in other views. Without tangents, the shader derives its frame from
 position and UV screen derivatives. Degenerate UVs keep the surface normal.
-Shadows and standard glTF material loading remain the next renderer stage.
+Standard glTF material loading remains the next renderer stage.
 Standard glTF mode continues to reject unsupported PBR profiles until those
 fixtures pass. Mobile PBR qualification is also pending.
 
@@ -93,3 +93,36 @@ Three r184 scalar functions. They also check constant HDR radiance, directional
 reflection broadening, rotation, failed budget admission, owner closure and plugin
 cleanup. The fixtures are in `test_assets/rendering/pbr/environment.json` and
 `packages/zyren_native/test/environment_test.dart`. Mobile qualification is pending.
+
+
+## Shadows
+
+Set `mesh.castShadow = true` for each caster. Standard materials receive shadows
+by default; set `receiveShadow = false` to disable that contribution on a mesh.
+Enable a directional or spot light with `shadow: ShadowSettings(...)`.
+
+Directional lights support one to four cascades. `maxDistance` limits their camera
+coverage, and `splitLambda` blends uniform and logarithmic distance splits. The
+projection includes caster depth bounds and snaps its origin to the texel grid
+using the double precision camera origin. Spot lights use one perspective map;
+`near` and `maxDistance` bound its light-space depth. `bias` is normalized depth,
+and `normalBias` offsets the receiver in world units along its shaded normal.
+
+The native renderer packs up to eight projections per view into a depth atlas.
+Each projection uses 128, 256, 512 or 1024 pixels per side. All views sharing a
+device have a combined 64 MiB shadow budget. Admission happens before accepting
+a scene update, so a rejected allocation leaves the earlier view usable.
+`GraphCacheStats.shadowBytes` reports atlas residency, and `shadowPasses` counts
+rendered projections. Unchanged caster, light and camera inputs reuse the maps.
+Removing the shadow settings or closing the view releases its atlas.
+
+Alpha masks use the material's base map, UV selection, sampler, opacity and cutoff
+in the depth pass. Winding follows mirrored transforms. Blended materials cast no
+shadow; custom shader and nontriangle casters are rejected. This profile applies
+shadow visibility to direct PBR lighting. It does not alter unlit materials,
+environment illumination or the legacy diffuse-light path. Filtering uses a 3 by 3
+comparison kernel. Point and hemisphere shadow maps are outside this profile.
+
+Metal fixtures cover cascade ranges, spot projections, mask removal, sidedness,
+bias, mutable caster/receiver flags, reuse, shared-device budgets and cleanup.
+Mobile shadow qualification remains pending.

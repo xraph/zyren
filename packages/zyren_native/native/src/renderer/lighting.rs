@@ -1,22 +1,39 @@
 use super::*;
 
 pub(super) fn layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
+    let mut entries: Vec<_> = [64, 1312, 784]
+        .into_iter()
+        .enumerate()
+        .map(|(binding, size)| wgpu::BindGroupLayoutEntry {
+            binding: binding as u32,
+            visibility: wgpu::ShaderStages::FRAGMENT,
+            ty: wgpu::BindingType::Buffer {
+                ty: wgpu::BufferBindingType::Uniform,
+                has_dynamic_offset: false,
+                min_binding_size: wgpu::BufferSize::new(size),
+            },
+            count: None,
+        })
+        .collect();
+    entries.push(wgpu::BindGroupLayoutEntry {
+        binding: 3,
+        visibility: wgpu::ShaderStages::FRAGMENT,
+        ty: wgpu::BindingType::Texture {
+            sample_type: wgpu::TextureSampleType::Depth,
+            view_dimension: wgpu::TextureViewDimension::D2,
+            multisampled: false,
+        },
+        count: None,
+    });
+    entries.push(wgpu::BindGroupLayoutEntry {
+        binding: 4,
+        visibility: wgpu::ShaderStages::FRAGMENT,
+        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Comparison),
+        count: None,
+    });
     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
         label: Some("physical material and lights"),
-        entries: &[64, 1312]
-            .into_iter()
-            .enumerate()
-            .map(|(binding, size)| wgpu::BindGroupLayoutEntry {
-                binding: binding as u32,
-                visibility: wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: wgpu::BufferSize::new(size),
-                },
-                count: None,
-            })
-            .collect::<Vec<_>>(),
+        entries: &entries,
     })
 }
 impl Renderer {
@@ -24,6 +41,7 @@ impl Renderer {
         if frame.meshes.iter().all(|m| m.pbr.is_none()) {
             return vec![None; frame.meshes.len()];
         }
+        let (shadow_buffer, shadow_view) = self.shadows.globals(&self.device, frame);
         let mut lights = [0_f32; 328];
         lights[0] = frame.lights.len() as f32;
         let inverse = Mat4::from_cols_array(&frame.view_projection).inverse();
@@ -66,7 +84,7 @@ impl Renderer {
                         p[0],
                         p[1],
                         p[2],
-                        0.,
+                        if mesh.shadow_flags & 2 != 0 { 1. } else { 0. },
                         p[3],
                         p[4],
                         p[5],
@@ -91,6 +109,18 @@ impl Renderer {
                         label: Some("physical material"),
                         layout: &self.pbr_layout,
                         entries: &[
+                            wgpu::BindGroupEntry {
+                                binding: 2,
+                                resource: shadow_buffer.as_entire_binding(),
+                            },
+                            wgpu::BindGroupEntry {
+                                binding: 3,
+                                resource: wgpu::BindingResource::TextureView(&shadow_view),
+                            },
+                            wgpu::BindGroupEntry {
+                                binding: 4,
+                                resource: wgpu::BindingResource::Sampler(&self.shadows.sampler),
+                            },
                             wgpu::BindGroupEntry {
                                 binding: 0,
                                 resource: buffer.as_entire_binding(),

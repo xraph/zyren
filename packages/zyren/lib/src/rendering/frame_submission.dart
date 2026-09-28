@@ -41,7 +41,8 @@ class SceneSnapshot {
   final List<double> _background, _light;
   final double _ambient;
   final RenderSettings _settings;
-  final List<List<double>> _lights;
+  final List<List<double>> _lights, _shadows;
+  final List<double> _shadowCamera;
   int get drawCalls => _meshes.length;
   int get triangles => _meshes.fold(0, (sum, mesh) {
     final geometry = _geometries[mesh['geometry']]!;
@@ -58,16 +59,45 @@ class SceneSnapshot {
     this._ambient,
     this._settings,
     this._lights,
+    this._shadows,
+    this._shadowCamera,
   );
   static SceneSnapshot _capture(Scene scene, Camera camera) {
     final meshes = <Map<String, Object>>[],
         geometries = <int, GeometrySnapshot>{};
     final textures = <int, TextureImage>{};
-    final lights = <List<double>>[];
+    final lights = <List<double>>[], shadows = <List<double>>[];
     void visit(Object3D node, vm.Matrix4 parent, bool parentVisible) {
       final visible = parentVisible && node.visible;
       final world = parent * node.localMatrix.toVectorMath();
       if (node is Light && visible) {
+        final shadow = switch (node) {
+          DirectionalLight l => l.shadow,
+          SpotLight l => l.shadow,
+          _ => null,
+        };
+        if (shadow != null) {
+          if (node is HemisphereLight) {
+            throw UnsupportedError('Hemisphere lights cannot cast shadows.');
+          }
+          shadows.add(
+            List.unmodifiable([
+              lights.length.toDouble(),
+              shadow.resolution.toDouble(),
+              shadow.cascades.toDouble(),
+              shadow.near,
+              shadow.maxDistance,
+              shadow.bias,
+              shadow.normalBias,
+              shadow.splitLambda,
+            ]),
+          );
+          if (shadows.fold(0.0, (sum, s) => sum + s[2]) > 8) {
+            throw ArgumentError(
+              'A view supports at most eight shadow projections.',
+            );
+          }
+        }
         final direction = switch (node) {
           DirectionalLight light => light.direction,
           SpotLight light => light.direction,
@@ -122,6 +152,13 @@ class SceneSnapshot {
             node.geometry.uv1 == null) {
           throw ArgumentError('This mesh shader requires UV attributes.');
         }
+        if (node.castShadow &&
+            (shader != null ||
+                node.geometry.topology != GeometryTopology.triangles)) {
+          throw UnsupportedError(
+            'Shadow casters require triangle geometry with a built-in material.',
+          );
+        }
         final geometry = node.geometry.capture();
         geometries[geometry.id] = geometry;
         final map = node.material.colorMap;
@@ -160,6 +197,8 @@ class SceneSnapshot {
                   'color': node.material.color.toList(),
                   'unlit': node.material.unlit,
                   'side': node.material.side.index,
+                  'shadowFlags':
+                      (node.castShadow ? 1 : 0) | (node.receiveShadow ? 2 : 0),
                   'alpha_mode': node.material.alphaMode.index,
                   'opacity': node.material.opacity,
                   'alpha_cutoff': node.material.alphaCutoff,
@@ -220,6 +259,17 @@ class SceneSnapshot {
             lights.isNotEmpty,
       ),
       List.unmodifiable(lights),
+      List.unmodifiable(shadows),
+      List.unmodifiable(switch (camera) {
+        PerspectiveCamera c => [c.near, c.far],
+        OrthographicCamera c => [c.near, c.far],
+        _ =>
+          shadows.isEmpty
+              ? [.1, 1000.0]
+              : throw UnsupportedError(
+                  'Shadows require a perspective or orthographic camera.',
+                ),
+      }),
     );
   }
 }
@@ -270,7 +320,9 @@ class FrameSubmission {
   Map<String, Object> toNativePacket({Set<int> uploaded = const {}}) {
     if (scene._settings.enabled ||
         scene._textures.isNotEmpty ||
-        scene._meshes.any((m) => m.containsKey('shader'))) {
+        scene._meshes.any(
+          (m) => m.containsKey('shader') || m['shadowFlags'] != 2,
+        )) {
       throw UnsupportedError(
         'Texture materials require binary scene submissions.',
       );
@@ -294,7 +346,8 @@ class FrameSubmission {
                 ..remove('pbr')
                 ..remove('pbrMaps')
                 ..remove('pbrScales')
-                ..remove('allImages'),
+                ..remove('allImages')
+                ..remove('shadowFlags'),
           ],
         })
         as Map<String, Object>;

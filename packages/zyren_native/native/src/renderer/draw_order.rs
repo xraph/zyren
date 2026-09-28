@@ -1,7 +1,7 @@
 use crate::scene::{Frame, Geometry};
 use glam::{Mat4, Vec3};
 
-pub(super) fn geometry_center(geometry: &Geometry) -> Vec3 {
+pub(super) fn geometry_bounds(geometry: &Geometry) -> [Vec3; 2] {
     let mut min = Vec3::splat(f32::INFINITY);
     let mut max = Vec3::splat(f32::NEG_INFINITY);
     for position in &geometry.positions {
@@ -9,7 +9,7 @@ pub(super) fn geometry_center(geometry: &Geometry) -> Vec3 {
         min = min.min(p);
         max = max.max(p);
     }
-    min * 0.5 + max * 0.5
+    [min, max]
 }
 
 pub(super) fn sorted(frame: &Frame, center: impl Fn(u32) -> Vec3) -> Vec<usize> {

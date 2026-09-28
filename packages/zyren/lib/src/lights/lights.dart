@@ -34,15 +34,18 @@ void _lightScalar(double value, String name) {
 }
 
 /// Irradiance in lux. Direction is the local direction in which rays travel.
-class DirectionalLight extends Light {
+class DirectionalLight extends Light with _ShadowLight {
   Vec3 _direction;
   DirectionalLight({
     Vec3 direction = const Vec3(0, 0, -1),
+    ShadowSettings? shadow,
     super.color,
     super.intensity,
     super.name,
   }) : _direction = direction.normalized(),
-       super();
+       super() {
+    this.shadow = shadow;
+  }
   Vec3 get direction => _direction;
   set direction(Vec3 value) {
     _direction = value.normalized();
@@ -65,11 +68,12 @@ class PointLight extends Light {
   }
 }
 
-class SpotLight extends PointLight {
+class SpotLight extends PointLight with _ShadowLight {
   Vec3 _direction;
   double _angle, _penumbra;
   SpotLight({
     Vec3 direction = const Vec3(0, 0, -1),
+    ShadowSettings? shadow,
     double angle = math.pi / 3,
     double penumbra = 0,
     super.range,
@@ -80,6 +84,7 @@ class SpotLight extends PointLight {
        _angle = angle,
        _penumbra = penumbra {
     _checkCone(angle, penumbra);
+    this.shadow = shadow;
   }
   static void _checkCone(double angle, double penumbra) {
     if (!angle.isFinite ||

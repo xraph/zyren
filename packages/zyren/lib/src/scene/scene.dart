@@ -15,6 +15,7 @@ import '../math/quat.dart';
 import '../math/mat4.dart';
 part 'revision.dart';
 part '../lights/lights.dart';
+part '../lights/shadow_settings.dart';
 part 'camera_projection.dart';
 part 'primitives.dart';
 
@@ -130,6 +131,23 @@ class Mesh extends Object3D {
   final BufferGeometry geometry;
   MeshMaterial _material;
   int _renderOrder = 0;
+  bool _castShadow = false, _receiveShadow = true;
+  bool get castShadow => _castShadow;
+  set castShadow(bool value) {
+    if (_castShadow != value) {
+      _castShadow = value;
+      _changed();
+    }
+  }
+
+  bool get receiveShadow => _receiveShadow;
+  set receiveShadow(bool value) {
+    if (_receiveShadow != value) {
+      _receiveShadow = value;
+      _changed();
+    }
+  }
+
   Mesh(this.geometry, MeshMaterial material, {super.name, int renderOrder = 0})
     : _material = material {
     _validateMaterial(material);
@@ -462,7 +480,9 @@ class Scene extends Object3D {
       }
       final world = parent * node.localMatrix.toVectorMath();
       if (node is Mesh) {
-        if (node.material.colorMap != null ||
+        if (node.castShadow ||
+            !node.receiveShadow ||
+            node.material.colorMap != null ||
             node.material is ShaderMaterial ||
             node.material is StandardMaterial) {
           throw UnsupportedError(

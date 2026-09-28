@@ -610,3 +610,57 @@ fn environment_packet_bounds_and_resource_tokens_are_checked() {
         assert!(ScenePacket::decode(&invalid).is_err());
     }
 }
+
+#[test]
+fn shadow_packets_reject_invalid_ranges_counts_and_light_kinds() {
+    let mut valid = packet();
+    valid[4..8].copy_from_slice(&24_u32.to_le_bytes());
+    for v in [0_u32, 0, 0, 0, 0, 1_f32.to_bits(), 1_f32.to_bits(), 0] {
+        valid.extend(v.to_le_bytes());
+    }
+    for v in [0_f64; 3] {
+        valid.extend(v.to_le_bytes());
+    }
+    valid.extend(1_u32.to_le_bytes());
+    let light = valid.len();
+    for v in [
+        0_f32, 0., 0., 0., 1., 1., 1., 1., 0., 0., -1., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
+    ] {
+        valid.extend(v.to_le_bytes());
+    }
+    valid.extend(0_u32.to_le_bytes());
+    valid.extend(1_u32.to_le_bytes());
+    valid.extend(0.1_f32.to_le_bytes());
+    valid.extend(10_f32.to_le_bytes());
+    let settings = valid.len();
+    for v in [0_f32, 256., 2., 0.01, 10., 0.0005, 0.01, 0.5] {
+        valid.extend(v.to_le_bytes());
+    }
+    let length = valid.len() as u64 - 24;
+    valid[16..24].copy_from_slice(&length.to_le_bytes());
+    let frame = ScenePacket::decode(&valid).unwrap().resolve(None).unwrap();
+    assert_eq!(frame.settings.shadows[0][2], 2.);
+    for (offset, value) in [
+        (light + 12, 1_f32),
+        (light + 12, 2.),
+        (settings, 1.),
+        (settings + 4, 8192.),
+        (settings + 8, 5.),
+        (settings + 12, 0.),
+        (settings + 16, 0.001),
+        (settings + 20, f32::NAN),
+        (settings + 24, -1.),
+        (settings + 28, 2.),
+    ] {
+        let mut invalid = valid.clone();
+        invalid[offset..offset + 4].copy_from_slice(&value.to_le_bytes());
+        assert!(ScenePacket::decode(&invalid).is_err(), "offset {offset}");
+    }
+    for end in 0..valid.len() {
+        let mut invalid = valid[..end].to_vec();
+        if end >= 24 {
+            invalid[16..24].copy_from_slice(&((end - 24) as u64).to_le_bytes());
+        }
+        assert!(ScenePacket::decode(&invalid).is_err());
+    }
+}
