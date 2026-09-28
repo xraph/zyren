@@ -330,7 +330,7 @@ class _SceneViewState extends State<SceneView>
       if (previous != null) {
         WidgetsBinding.instance.addPostFrameCallback((_) => _release(previous));
       }
-      controller._presented(frame.stats, time);
+      controller._presented(frame.stats);
     } catch (error, stack) {
       if (mounted && version == _version && !controller.isDisposed) {
         if (error is SceneException &&

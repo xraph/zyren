@@ -64,7 +64,8 @@ class SceneController {
   bool _closed = false, _visible = false;
   Future<void> Function()? _closePresentation;
   Future<void>? _presentationDisposal, _retiring;
-  Duration? _lastStats;
+  Timer? _statsTimer;
+  FrameStats? _pendingStats;
   void Function()? _wakeView;
   bool _wakeScheduled = false, _automaticRecoveryUsed = false;
   void _scheduleWake() {
@@ -111,6 +112,9 @@ class SceneController {
 
   ValueListenable<SceneStatus> get status => _status;
   Stream<SceneIssue> get issues => _issues.stream;
+
+  /// Samples at most every 200 ms and publishes the last pending frame even
+  /// when demand rendering stops. The first presented frame emits immediately.
   Stream<FrameStats> get frameStats => _stats.stream;
   Future<RendererInfo> get ready => _ready.future;
   Future<FrameStats> get firstFrame => _firstFrame.future;
@@ -362,6 +366,7 @@ class SceneController {
     if (!_firstFrame.isCompleted) _firstFrame.completeError(exception, stack);
     _scheduler.setVisible(false);
     _status.value = SceneFailed(_generation, exception.issue);
+    _clearStats();
     _issues.add(exception.issue);
     final failedEngine = _engine;
     _engine = null;
@@ -413,14 +418,26 @@ class SceneController {
     return completer.future;
   }
 
-  void _presented(FrameStats stats, FrameTime time) {
+  void _presented(FrameStats stats) {
     if (_closed) return;
     if (!_firstFrame.isCompleted) _firstFrame.complete(stats);
-    if (_lastStats == null ||
-        time.elapsed - _lastStats! >= const Duration(milliseconds: 200)) {
-      _lastStats = time.elapsed;
-      _stats.add(stats);
-    }
+    _pendingStats = stats;
+    if (_statsTimer == null) _publishStats();
+  }
+
+  void _publishStats() {
+    _statsTimer = null;
+    final latest = _pendingStats;
+    _pendingStats = null;
+    if (_closed || latest == null) return;
+    _stats.add(latest);
+    _statsTimer = Timer(const Duration(milliseconds: 200), _publishStats);
+  }
+
+  void _clearStats() {
+    _statsTimer?.cancel();
+    _statsTimer = null;
+    _pendingStats = null;
   }
 
   Future<void> retry() {
@@ -464,6 +481,7 @@ class SceneController {
   void dispose() {
     if (_closed) return;
     _closed = true;
+    _clearStats();
     _scheduler.setVisible(false);
     for (final scope in [_registrations, _lifetime]) {
       try {
