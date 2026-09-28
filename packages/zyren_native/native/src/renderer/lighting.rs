@@ -45,9 +45,10 @@ impl Renderer {
         let mut lights = [0_f32; 328];
         lights[0] = frame.lights.len() as f32;
         let inverse = Mat4::from_cols_array(&frame.view_projection).inverse();
-        let direction = (inverse.project_point3(glam::Vec3::ZERO)
-            - inverse.project_point3(glam::Vec3::new(0., 0., 0.5)))
-        .normalize();
+        let direction =
+            (inverse.project_point3(glam::Vec3::new(0., 0., frame.settings.depth_near()))
+                - inverse.project_point3(glam::Vec3::new(0., 0., 0.5)))
+            .normalize();
         lights[4..7].copy_from_slice(&direction.to_array());
         lights[7] = if frame.view_projection[15] == 1. {
             1.

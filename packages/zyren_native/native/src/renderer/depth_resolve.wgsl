@@ -7,3 +7,7 @@
  let p=vec2<i32>(position.xy);
  return min(min(textureLoad(source,p,0),textureLoad(source,p,1)),min(textureLoad(source,p,2),textureLoad(source,p,3)));
 }
+@fragment fn reversed_fragment(@builtin(position) position:vec4<f32>)->@builtin(frag_depth) f32 {
+ let p=vec2<i32>(position.xy);
+ return max(max(textureLoad(source,p,0),textureLoad(source,p,1)),max(textureLoad(source,p,2),textureLoad(source,p,3)));
+}

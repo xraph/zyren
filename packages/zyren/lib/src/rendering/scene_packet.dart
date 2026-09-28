@@ -173,8 +173,9 @@ final class ScenePacketEncoder {
       throw ArgumentError('A view supports at most 65536 instances.');
     }
     final hasTangents = scene._geometries.values.any((g) => g.tangents != null);
-    final opcode =
-        scene._meshes.any((m) => (m['clippingPlanes'] as List).isNotEmpty)
+    final opcode = submission.camera.depthStrategy == DepthStrategy.reversed
+        ? 29
+        : scene._meshes.any((m) => (m['clippingPlanes'] as List).isNotEmpty)
         ? 28
         : scene._settings.bloom != null ||
               scene._settings.spatialAntialiasing != SpatialAntialiasing.none
@@ -282,6 +283,7 @@ final class ScenePacketEncoder {
       }
     }
     if (opcode >= 28) body.u32(scene._settings.enabled ? 1 : 0);
+    if (opcode >= 29) body.u32(submission.camera.depthStrategy.index);
     for (final id in owned) {
       body.u32(id);
     }

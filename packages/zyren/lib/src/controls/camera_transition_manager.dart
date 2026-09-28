@@ -41,7 +41,8 @@ final class CameraTransitionEvent {
 /// Call [update] with elapsed seconds, then render [camera]. The cameras share a
 /// view direction and keep [fixedPoint] at the same apparent scale. As upstream,
 /// perspective zoom should be one and orthographic bounds should be centered.
-/// Camera ownership stays with the caller.
+/// Camera ownership stays with the caller. Intermediate frames keep the visible
+/// camera's depth strategy, switching to the destination's at the endpoint.
 class CameraTransitionManager {
   final PerspectiveCamera perspectiveCamera;
   final OrthographicCamera orthographicCamera;
@@ -139,7 +140,10 @@ class CameraTransitionManager {
       _alpha = next;
       _emit(CameraTransitionEventType.change);
     }
-    if (animating) _updateTransitionCamera(eased);
+    if (animating) {
+      transitionCamera.depthStrategy = previous.depthStrategy;
+      _updateTransitionCamera(eased);
+    }
     if (!identical(previous, camera)) {
       if (identical(camera, transitionCamera)) {
         _emit(CameraTransitionEventType.transitionStart);

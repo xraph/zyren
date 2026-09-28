@@ -9,6 +9,7 @@ import '../resources/resource_scope.dart'
 import '../scene/scene.dart';
 import '../math/vec3.dart';
 import 'frame_output.dart';
+import 'depth_strategy.dart';
 part 'scene_packet.dart';
 part 'scene_draws.dart';
 
@@ -29,8 +30,12 @@ class FrameTime {
 
 class CameraSnapshot {
   final List<double> origin, viewProjection;
-  CameraSnapshot._(Iterable<double> origin, Iterable<double> viewProjection)
-    : origin = List.unmodifiable(origin),
+  final DepthStrategy depthStrategy;
+  CameraSnapshot._(
+    Iterable<double> origin,
+    Iterable<double> viewProjection,
+    this.depthStrategy,
+  ) : origin = List.unmodifiable(origin),
       viewProjection = List.unmodifiable(viewProjection);
 }
 
@@ -45,6 +50,7 @@ class SceneSnapshot {
   final List<List<double>> _lights, _shadows;
   final List<double> _shadowCamera;
   final List<double> _viewProjection;
+  final DepthStrategy _depthStrategy;
   late final int drawCalls = _countDraws(this);
   int get triangles => _meshes.fold<int>(0, (sum, mesh) {
     final geometry = _geometries[mesh['geometry']]!;
@@ -65,6 +71,7 @@ class SceneSnapshot {
     this._shadows,
     this._shadowCamera,
     this._viewProjection,
+    this._depthStrategy,
   );
   static SceneSnapshot _capture(
     Scene scene,
@@ -315,6 +322,7 @@ class SceneSnapshot {
                 ),
       }),
       viewProjection,
+      camera.depthStrategy,
     );
   }
 }
@@ -349,6 +357,7 @@ class FrameSubmission {
     final cameraSnapshot = CameraSnapshot._(
       camera.position.storage,
       camera.viewProjection(size.width / size.height).storage,
+      camera.depthStrategy,
     );
     final sceneSnapshot = SceneSnapshot._capture(
       scene,
@@ -367,7 +376,8 @@ class FrameSubmission {
 
   /// Compatibility encoder for native v1 adapters. Geometry conversion is lazy.
   Map<String, Object> toNativePacket({Set<int> uploaded = const {}}) {
-    if (scene._settings.enabled ||
+    if (camera.depthStrategy != DepthStrategy.standard ||
+        scene._settings.enabled ||
         scene._textures.isNotEmpty ||
         scene._meshes.any(
           (m) =>
@@ -376,9 +386,7 @@ class FrameSubmission {
               m['shadowFlags'] != 2 ||
               (m['instances'] as List).isNotEmpty,
         )) {
-      throw UnsupportedError(
-        'Texture materials require binary scene submissions.',
-      );
+      throw UnsupportedError('This frame requires binary scene submissions.');
     }
     return _freeze(<String, Object>{
           'version': 1,

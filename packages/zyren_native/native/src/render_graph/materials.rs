@@ -203,6 +203,7 @@ impl MaterialStore {
                     wgpu::TextureFormat::Rgba8UnormSrgb,
                     &Default::default(),
                     1,
+                    false,
                 );
             }
             Ok(material)

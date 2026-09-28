@@ -879,6 +879,28 @@ fn section_packets_reject_invalid_planes_and_truncation() {
         invalid[16..24].copy_from_slice(&((end - 24) as u64).to_le_bytes());
         assert!(ScenePacket::decode(&invalid).is_err());
     }
+    let strategy_offset = effects_flag + 4;
+    data[4..8].copy_from_slice(&29_u32.to_le_bytes());
+    data.splice(strategy_offset..strategy_offset, 1_u32.to_le_bytes());
+    let length = (data.len() - 24) as u64;
+    data[16..24].copy_from_slice(&length.to_le_bytes());
+    for strategy in [0_u32, 1, 2, u32::MAX] {
+        data[strategy_offset..strategy_offset + 4].copy_from_slice(&strategy.to_le_bytes());
+        let decoded = ScenePacket::decode(&data);
+        if strategy <= 1 {
+            let frame = decoded.unwrap().resolve(None).unwrap();
+            assert_eq!(frame.settings.depth_strategy, strategy);
+            assert!(!frame.settings.enabled);
+        } else {
+            assert!(decoded.is_err());
+        }
+    }
+    data[strategy_offset..strategy_offset + 4].copy_from_slice(&1_u32.to_le_bytes());
+    for end in 24..data.len() {
+        let mut truncated = data[..end].to_vec();
+        truncated[16..24].copy_from_slice(&((end - 24) as u64).to_le_bytes());
+        assert!(ScenePacket::decode(&truncated).is_err());
+    }
     let mut custom = frame.meshes[0].clone();
     custom.shader = Some([1; 4]);
     assert!(custom.validate_material().is_err());

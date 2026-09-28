@@ -111,6 +111,7 @@ class NativeAndroidBackend with NativeGpuOwner implements MaterialBackend {
       RenderFeature.instancing,
       RenderFeature.spatialAntialiasing,
       RenderFeature.bloom,
+      RenderFeature.reversedDepth,
       if (gpuSampleCounts.contains(4)) RenderFeature.multisampleAntialiasing,
     },
     limits: DeviceLimits(

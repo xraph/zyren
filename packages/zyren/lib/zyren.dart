@@ -24,6 +24,7 @@ export 'src/controls/camera_transition_manager.dart';
 export 'src/controls/environment_controls.dart';
 export 'src/controls/environment_controls_plugin.dart';
 export 'src/rendering/capabilities.dart';
+export 'src/rendering/depth_strategy.dart';
 export 'src/rendering/scene_issue.dart';
 export 'src/plugins/attachment_scope.dart';
 export 'src/assets/load_task.dart';

@@ -31,7 +31,7 @@ impl Multisample {
         }
     }
 }
-pub(super) fn pipeline(device: &wgpu::Device) -> wgpu::RenderPipeline {
+pub(super) fn pipeline(device: &wgpu::Device, reversed_depth: bool) -> wgpu::RenderPipeline {
     let shader = device.create_shader_module(wgpu::include_wgsl!("depth_resolve.wgsl"));
     device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
         label: Some("nearest covered depth resolve"),
@@ -44,7 +44,11 @@ pub(super) fn pipeline(device: &wgpu::Device) -> wgpu::RenderPipeline {
         },
         fragment: Some(wgpu::FragmentState {
             module: &shader,
-            entry_point: Some("fragment"),
+            entry_point: Some(if reversed_depth {
+                "reversed_fragment"
+            } else {
+                "fragment"
+            }),
             compilation_options: Default::default(),
             targets: &[],
         }),
@@ -67,6 +71,7 @@ pub(super) fn resolve(
     pipeline: &wgpu::RenderPipeline,
     input: &wgpu::TextureView,
     output: &wgpu::TextureView,
+    clear: f32,
 ) {
     let group = device.create_bind_group(&wgpu::BindGroupDescriptor {
         label: Some("multisample depth"),
@@ -82,7 +87,7 @@ pub(super) fn resolve(
         depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
             view: output,
             depth_ops: Some(wgpu::Operations {
-                load: wgpu::LoadOp::Clear(1.),
+                load: wgpu::LoadOp::Clear(clear),
                 store: wgpu::StoreOp::Store,
             }),
             stencil_ops: None,

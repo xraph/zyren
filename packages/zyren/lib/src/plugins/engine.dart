@@ -3,6 +3,7 @@ import 'registration.dart';
 import 'attachment_scope.dart';
 import '../input/pointer_event.dart';
 import '../rendering/capabilities.dart';
+import '../rendering/depth_strategy.dart';
 import '../rendering/scene_issue.dart';
 import '../rendering/renderer.dart';
 import '../rendering/frame_submission.dart';
@@ -523,6 +524,17 @@ class SceneEngine {
     final future = Future<FrameOutput>.microtask(() async {
       for (final (plugin, context) in _attached) {
         await plugin.beforeRender(context, info);
+      }
+      if (camera.depthStrategy == DepthStrategy.reversed &&
+          !capabilities.supports(RenderFeature.reversedDepth)) {
+        throw SceneException(
+          SceneIssue(
+            code: SceneIssueCodes.unsupportedFeature,
+            message: 'This backend does not support reversed depth.',
+            operation: 'render',
+            requiredFeatures: {RenderFeature.reversedDepth},
+          ),
+        );
       }
       final FrameOutput result;
       if (_backend case final backend?) {

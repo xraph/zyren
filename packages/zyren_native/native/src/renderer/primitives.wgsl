@@ -12,9 +12,9 @@ struct ClippedSegment {
 fn clip_segment(a: vec4<f32>, b: vec4<f32>) -> ClippedSegment {
     var first = 0.0;
     var last = 1.0;
-    let starts = vec2<f32>(a.z, a.w - 0.000001);
-    let ends = vec2<f32>(b.z, b.w - 0.000001);
-    for (var plane = 0u; plane < 2u; plane++) {
+    let starts = vec3<f32>(a.z, a.w - a.z, a.w - 0.000001);
+    let ends = vec3<f32>(b.z, b.w - b.z, b.w - 0.000001);
+    for (var plane = 0u; plane < 3u; plane++) {
         let start = starts[plane];
         let end = ends[plane];
         if start < 0.0 && end < 0.0 { return ClippedSegment(a, b, false); }

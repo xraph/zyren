@@ -8,7 +8,7 @@ pub(super) fn projections(
 ) -> Result<(Vec<Map>, Vec3), String> {
     let inverse = Mat4::from_cols_array(&frame.view_projection).inverse();
     let camera = (inverse.project_point3(Vec3::new(0., 0., 0.5))
-        - inverse.project_point3(Vec3::ZERO))
+        - inverse.project_point3(Vec3::new(0., 0., frame.settings.depth_near())))
     .normalize();
     let mut maps = Vec::new();
     for s in &signature.settings {
@@ -36,7 +36,8 @@ pub(super) fn projections(
                 let mut max = Vec3::splat(f32::NEG_INFINITY);
                 for x in [-1., 1.] {
                     for y in [-1., 1.] {
-                        let a = inverse.project_point3(Vec3::new(x, y, 0.));
+                        let a =
+                            inverse.project_point3(Vec3::new(x, y, frame.settings.depth_near()));
                         let b = inverse.project_point3(Vec3::new(x, y, 0.5));
                         let ray = b - a;
                         for depth in [split(cascade), end] {

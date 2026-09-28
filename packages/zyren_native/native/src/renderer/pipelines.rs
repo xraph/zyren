@@ -10,6 +10,7 @@ pub(super) struct PipelineKey {
     standard: bool,
     instanced: bool,
     samples: u32,
+    reversed_depth: bool,
     pub(super) tangents: bool,
     side: u32,
     mirrored: bool,
@@ -37,10 +38,12 @@ impl PipelineKey {
         mesh: &Mesh,
         tangents: bool,
         samples: u32,
+        reversed_depth: bool,
     ) -> Self {
         Self {
             format,
             samples,
+            reversed_depth,
             shader: mesh.shader,
             textured: mesh.material_maps().next().is_some(),
             standard: mesh.pbr.is_some(),
@@ -161,6 +164,7 @@ impl MeshPipelines {
                 mesh,
                 !geometries[&mesh.geometry].recipe.tangents.is_empty(),
                 frame.settings.sample_count,
+                frame.settings.reversed_depth(),
             )
             .variants()
             .iter()
@@ -178,6 +182,7 @@ impl MeshPipelines {
                 mesh,
                 !geometries[&mesh.geometry].recipe.tangents.is_empty(),
                 frame.settings.sample_count,
+                frame.settings.reversed_depth(),
             );
             for key in key.variants() {
                 if !self.cache.contains_key(&key) && !pending.contains_key(&key) {
@@ -188,6 +193,7 @@ impl MeshPipelines {
                             format,
                             mesh,
                             frame.settings.sample_count,
+                            frame.settings.reversed_depth(),
                         )
                     } else {
                         self.create(device, key)
@@ -289,10 +295,11 @@ pub(crate) fn material_pipeline(
     format: wgpu::TextureFormat,
     mesh: &Mesh,
     samples: u32,
+    reversed_depth: bool,
 ) -> wgpu::RenderPipeline {
     create_pipeline(
         device,
-        PipelineKey::new(format, mesh, false, samples),
+        PipelineKey::new(format, mesh, false, samples, reversed_depth),
         ShaderPipeline {
             module: &material.shader,
             layout: &material.layout,
@@ -378,7 +385,11 @@ fn create_pipeline(
             format: wgpu::TextureFormat::Depth32Float,
             depth_write_enabled: Some(key.depth_write),
             depth_compare: Some(if key.depth_test {
-                wgpu::CompareFunction::Less
+                if key.reversed_depth {
+                    wgpu::CompareFunction::Greater
+                } else {
+                    wgpu::CompareFunction::Less
+                }
             } else {
                 wgpu::CompareFunction::Always
             }),

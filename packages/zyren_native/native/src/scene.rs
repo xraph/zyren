@@ -438,6 +438,7 @@ impl BloomSettings {
 pub struct RenderSettings {
     pub enabled: bool,
     pub sample_count: u32,
+    pub depth_strategy: u32,
     pub spatial_antialiasing: u32,
     pub bloom: Option<BloomSettings>,
     pub effects: Vec<[u64; 4]>,
@@ -455,6 +456,7 @@ impl Default for RenderSettings {
         Self {
             enabled: false,
             sample_count: 1,
+            depth_strategy: 0,
             spatial_antialiasing: 0,
             bloom: None,
             effects: vec![],
@@ -470,6 +472,15 @@ impl Default for RenderSettings {
     }
 }
 impl RenderSettings {
+    pub fn reversed_depth(&self) -> bool {
+        self.depth_strategy == 1
+    }
+    pub fn depth_clear(&self) -> f32 {
+        if self.reversed_depth() { 0. } else { 1. }
+    }
+    pub fn depth_near(&self) -> f32 {
+        if self.reversed_depth() { 1. } else { 0. }
+    }
     pub fn validate(&self) -> Result<(), String> {
         if self.environment.as_ref().is_some_and(|e| {
             !e.intensity.is_finite()
@@ -481,7 +492,8 @@ impl RenderSettings {
         if let Some(bloom) = &self.bloom {
             bloom.validate()?;
         }
-        if self.spatial_antialiasing > 1
+        if self.depth_strategy > 1
+            || self.spatial_antialiasing > 1
             || ((self.spatial_antialiasing != 0 || self.bloom.is_some()) && !self.enabled)
             || ![1, 4].contains(&self.sample_count)
             || (self.sample_count != 1 && !self.enabled)

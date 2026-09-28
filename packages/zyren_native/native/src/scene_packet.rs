@@ -72,7 +72,7 @@ impl ScenePacket {
             return Err("unsupported scene packet".into());
         }
         let opcode = r.u32()?;
-        if !(10..=28).contains(&opcode) {
+        if !(10..=29).contains(&opcode) {
             return Err("unsupported scene packet".into());
         }
         let textured = opcode >= 11;
@@ -199,6 +199,10 @@ impl ScenePacket {
                 1 => true,
                 _ => return Err("Invalid postprocessing flag".into()),
             };
+            settings.validate()?;
+        }
+        if opcode >= 29 {
+            settings.depth_strategy = r.u32()?;
             settings.validate()?;
         }
         crate::scene::validate_shadows(&settings, &lights)?;

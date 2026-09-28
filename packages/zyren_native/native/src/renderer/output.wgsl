@@ -2,7 +2,8 @@
 struct ScreenUniforms {
   inverseViewProjection: mat4x4<f32>,
   viewport: vec4<f32>, // width, height, history valid, exposure
-  output: vec4<f32>, // tone map, reserved
+  output: vec4<f32>, // tone map, sRGB output, spatial AA, encoded input
+  depth: vec4<f32>, // reversed depth, reserved
 };
 @group(0) @binding(0) var sceneColor: texture_2d<f32>;
 @group(0) @binding(1) var sceneDepth: texture_depth_2d;

@@ -102,7 +102,9 @@ impl Instances {
                 .cmp(&(right.alpha_mode == 2))
                 .then(left.render_order.cmp(&right.render_order))
                 .then_with(|| {
-                    if blend {
+                    if blend && frame.settings.reversed_depth() {
+                        a.3.total_cmp(&b.3)
+                    } else if blend {
                         b.3.total_cmp(&a.3)
                     } else {
                         std::cmp::Ordering::Equal

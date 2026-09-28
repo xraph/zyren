@@ -744,7 +744,7 @@ impl Renderer {
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
                     view: depth_view,
                     depth_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(1.0),
+                        load: wgpu::LoadOp::Clear(frame.settings.depth_clear()),
                         store: wgpu::StoreOp::Store,
                     }),
                     stencil_ops: None,
@@ -765,6 +765,7 @@ impl Renderer {
                             mesh,
                             !geometry.recipe.tangents.is_empty(),
                             frame.settings.sample_count,
+                            frame.settings.reversed_depth(),
                         )
                         .with_mirror(draw.mirrored),
                     ),

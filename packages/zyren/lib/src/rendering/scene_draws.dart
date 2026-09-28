@@ -49,7 +49,11 @@ int _countDraws(SceneSnapshot scene) {
         right['render_order'] as int,
       );
     }
-    if (result == 0 && blend) result = b.depth.compareTo(a.depth);
+    if (result == 0 && blend) {
+      result = scene._depthStrategy == DepthStrategy.reversed
+          ? a.depth.compareTo(b.depth)
+          : b.depth.compareTo(a.depth);
+    }
     if (result == 0) result = a.mesh.compareTo(b.mesh);
     if (result == 0 && !blend) {
       result = (a.mirror ? 1 : 0).compareTo(b.mirror ? 1 : 0);

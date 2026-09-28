@@ -14,12 +14,23 @@ final class PostProcessDescriptor extends MeshShaderDescriptor {
 struct ScreenUniforms {
   inverseViewProjection: mat4x4<f32>,
   viewport: vec4<f32>, // width, height, history valid, exposure
-  output: vec4<f32>, // tone map, reserved
+  output: vec4<f32>, // tone map, sRGB output, spatial AA, encoded input
+  depth: vec4<f32>, // reversed depth, reserved
 };
 @group(0) @binding(0) var sceneColor: texture_2d<f32>;
 @group(0) @binding(1) var sceneDepth: texture_depth_2d;
 @group(0) @binding(2) var historyColor: texture_2d<f32>;
 @group(0) @binding(3) var<uniform> screen: ScreenUniforms;
+// UV uses the top-left image origin. The result is relative to the camera.
+fn scenePosition(uv: vec2<f32>, depth: f32) -> vec3<f32> {
+  let ndc = uv * vec2<f32>(2., -2.) + vec2<f32>(-1., 1.);
+  let point = screen.inverseViewProjection * vec4<f32>(ndc, depth, 1.);
+  return point.xyz / point.w;
+}
+fn sceneNearDepth() -> f32 { return select(0., 1., screen.depth.x > .5); }
+fn sceneDepthIsBackground(depth: f32) -> bool {
+  return select(depth >= 1., depth <= 0., screen.depth.x > .5);
+}
 struct ScreenVertex {
   @builtin(position) position: vec4<f32>,
   @location(0) uv: vec2<f32>,

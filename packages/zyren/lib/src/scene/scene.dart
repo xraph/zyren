@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:vector_math/vector_math_64.dart' as vm;
 import '../geometry/geometry.dart';
+import '../rendering/depth_strategy.dart';
 import '../resources/resource_scope.dart'
     show RenderSettings, ScreenEffect, EnvironmentMap;
 import '../plugins/registration.dart';
@@ -203,6 +204,16 @@ class Mesh extends Object3D {
 }
 
 abstract class Camera extends Object3D {
+  Camera({DepthStrategy depthStrategy = DepthStrategy.standard})
+    : _depthStrategy = depthStrategy;
+  DepthStrategy _depthStrategy;
+  DepthStrategy get depthStrategy => _depthStrategy;
+  set depthStrategy(DepthStrategy value) {
+    if (_depthStrategy == value) return;
+    _depthStrategy = value;
+    _changed();
+  }
+
   Vec3 get target;
   set target(Vec3 value);
   Vec3 get up;
@@ -225,8 +236,8 @@ abstract class Camera extends Object3D {
   /// Returns a world ray through NDC X/Y. Custom projections start at near.
   CameraRay rayFromNdc(double x, double y, double aspect) {
     final inverse = viewProjection(aspect).inverted();
-    final near = _transformPoint(inverse, Vec3(x, y, 0));
-    final far = _transformPoint(inverse, Vec3(x, y, 1));
+    final near = _transformPoint(inverse, Vec3(x, y, depthStrategy.nearDepth));
+    final far = _transformPoint(inverse, Vec3(x, y, depthStrategy.farDepth));
     return CameraRay(position + near, far - near);
   }
 }
@@ -242,6 +253,7 @@ class PerspectiveCamera extends Camera {
     double near = .1,
     double far = 1000,
     double zoom = 1,
+    super.depthStrategy,
   }) : _target = target,
        _up = up,
        _fieldOfView = fieldOfView,
@@ -375,8 +387,20 @@ class PerspectiveCamera extends Camera {
     final projection = vm.Matrix4.zero()
       ..setEntry(0, 0, f / aspect)
       ..setEntry(1, 1, f)
-      ..setEntry(2, 2, far / (near - far))
-      ..setEntry(2, 3, near * far / (near - far))
+      ..setEntry(
+        2,
+        2,
+        depthStrategy == DepthStrategy.reversed
+            ? near / (far - near)
+            : far / (near - far),
+      )
+      ..setEntry(
+        2,
+        3,
+        depthStrategy == DepthStrategy.reversed
+            ? near * far / (far - near)
+            : near * far / (near - far),
+      )
       ..setEntry(3, 2, -1);
     return Mat4.fromVectorMath(projection * view);
   }
@@ -519,6 +543,11 @@ class Scene extends Object3D {
     double aspect, {
     Set<int> uploaded = const {},
   }) {
+    if (camera.depthStrategy != DepthStrategy.standard) {
+      throw UnsupportedError(
+        'Reversed depth requires binary scene submissions.',
+      );
+    }
     if (renderSettings.enabled || _effects.isNotEmpty || environment != null) {
       throw UnsupportedError(
         'Postprocessing requires binary scene submissions.',

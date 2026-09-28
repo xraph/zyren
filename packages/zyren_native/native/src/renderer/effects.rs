@@ -30,7 +30,7 @@ pub fn layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
                 ty: wgpu::BindingType::Buffer {
                     ty: wgpu::BufferBindingType::Uniform,
                     has_dynamic_offset: false,
-                    min_binding_size: wgpu::BufferSize::new(96),
+                    min_binding_size: wgpu::BufferSize::new(112),
                 },
                 count: None,
             },
@@ -124,13 +124,14 @@ struct ScreenUniforms {
     inverse: [f32; 16],
     viewport: [f32; 4],
     output: [f32; 4],
+    depth: [f32; 4],
 }
 
 #[derive(Default)]
 pub(super) struct Effects {
     views: HashMap<u64, View>,
     outputs: HashMap<wgpu::TextureFormat, wgpu::RenderPipeline>,
-    depth_resolve: Option<wgpu::RenderPipeline>,
+    depth_resolve: [Option<wgpu::RenderPipeline>; 2],
     bloom: Option<bloom::Pipelines>,
     display: Option<wgpu::RenderPipeline>,
 }
@@ -178,8 +179,12 @@ impl Effects {
         {
             return Err("Screen effects require an invertible camera projection".into());
         }
-        if frame.settings.sample_count == 4 && self.depth_resolve.is_none() {
-            self.depth_resolve = Some(multisample::pipeline(device));
+        let resolve = &mut self.depth_resolve[frame.settings.depth_strategy as usize];
+        if frame.settings.sample_count == 4 && resolve.is_none() {
+            *resolve = Some(multisample::pipeline(
+                device,
+                frame.settings.reversed_depth(),
+            ));
         }
         if bloom::Targets::byte_length(size, frame.settings.bloom.as_ref()) > 0
             && self.bloom.is_none()
@@ -307,12 +312,12 @@ impl Renderer {
             multisample::resolve(
                 &self.device,
                 &mut encoder,
-                self.effects
-                    .depth_resolve
+                self.effects.depth_resolve[frame.settings.depth_strategy as usize]
                     .as_ref()
                     .expect("depth resolve pipeline"),
                 &msaa.depth,
                 &view.depth.view,
+                frame.settings.depth_clear(),
             );
             encoder
         } else {
@@ -341,6 +346,7 @@ impl Renderer {
                 frame.settings.spatial_antialiasing as f32,
                 0.,
             ],
+            depth: [frame.settings.depth_strategy as f32, 0., 0., 0.],
         };
         let buffer = self
             .device

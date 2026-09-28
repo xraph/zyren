@@ -37,13 +37,12 @@ fn diskCoverage(chord:f32,rad:f32,width:f32)->f32 {
 @fragment fn fragment(v:ScreenVertex)->@location(0) vec4<f32> {
  let f=atmosphereFrame;let coord=vec2<i32>(v.position.xy);
  let input=textureLoad(sceneColor,coord,0);let depth=textureLoad(sceneDepth,coord,0);
- let ndc=v.uv*vec2<f32>(2.,-2.)+vec2<f32>(-1.,1.);
- let mid=screen.inverseViewProjection*vec4<f32>(ndc,.5,1.);
- var worldRay=normalize(mid.xyz/mid.w);var origin=f.camera.xyz;
+ let mid=scenePosition(v.uv,.5);
+ var worldRay=normalize(mid);var origin=f.camera.xyz;
  if(f.camera.w>0.){
    worldRay=f.forward.xyz;
-   let near=screen.inverseViewProjection*vec4<f32>(ndc,0.,1.);
-   origin+=(f.worldToEcef*vec4<f32>(near.xyz/near.w-worldRay*f.forward.w,0.)).xyz*.001;
+   let near=scenePosition(v.uv,sceneNearDepth());
+   origin+=(f.worldToEcef*vec4<f32>(near-worldRay*f.forward.w,0.)).xyz*.001;
  }
  let ray=normalize((f.worldToEcef*vec4<f32>(worldRay,0.)).xyz);
  let sunChord=dot(ray-f.sun.xyz,ray-f.sun.xyz);let moonChord=dot(ray-f.moon.xyz,ray-f.moon.xyz);
@@ -72,14 +71,14 @@ fn diskCoverage(chord:f32,rad:f32,width:f32)->f32 {
    }
    sky=distant*air.transmittance+air.radiance;
  }
- if(depth>=1.){
+ if(sceneDepthIsBackground(depth)){
    if(f.options.z>0.){return vec4<f32>(clamp(input.rgb+sky*(1.-input.a),vec3<f32>(0.),vec3<f32>(65504.)),1.);}
    return input;
  }
  var foreground=input.rgb;
  if(f.options.x>0.){
-   let point=screen.inverseViewProjection*vec4<f32>(ndc,depth,1.);
-   let end=f.camera.xyz+(f.worldToEcef*vec4<f32>(point.xyz/point.w,0.)).xyz*.001;
+   let point=scenePosition(v.uv,depth);
+   let end=f.camera.xyz+(f.worldToEcef*vec4<f32>(point,0.)).xyz*.001;
    let air=atmosphereSegment(origin,end,f.sun.xyz);
    foreground=foreground*air.transmittance+air.radiance*input.a;
  }

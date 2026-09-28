@@ -28,6 +28,7 @@ class OrthographicCamera extends Camera {
     double near = 0,
     double far = 1000,
     double zoom = 1,
+    super.depthStrategy,
   }) : _target = target,
        _up = up,
        _left = left,
@@ -124,10 +125,22 @@ class OrthographicCamera extends Camera {
     final projection = vm.Matrix4.identity()
       ..setEntry(0, 0, 2 / width)
       ..setEntry(1, 1, 2 / height)
-      ..setEntry(2, 2, 1 / (near - far))
+      ..setEntry(
+        2,
+        2,
+        depthStrategy == DepthStrategy.reversed
+            ? 1 / (far - near)
+            : 1 / (near - far),
+      )
       ..setEntry(0, 3, -2 * cx / width)
       ..setEntry(1, 3, -2 * cy / height)
-      ..setEntry(2, 3, near / (near - far));
+      ..setEntry(
+        2,
+        3,
+        depthStrategy == DepthStrategy.reversed
+            ? far / (far - near)
+            : near / (near - far),
+      );
     return Mat4.fromVectorMath(projection * view);
   }
 
