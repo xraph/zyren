@@ -22,7 +22,11 @@ class AtmosphereFixture {
     near: 1,
     far: 1e9,
   );
-  final sky = AtmospherePlugin(date: DateTime.utc(2026, 3, 20, 12));
+  final sky = AtmospherePlugin(
+    date: DateTime.utc(2026, 3, 20, 12),
+    // Two-pixel points retain catalogue light through the display FXAA pass.
+    appearance: AtmosphereAppearance(starPointSize: 2),
+  );
   final sun = DirectionalLight(intensity: 2);
   AtmosphereFixture() {
     scene.add(
@@ -56,6 +60,9 @@ class AtmosphereFixture {
     sun.direction = -CelestialDirections.at(
       DateTime.utc(2026, 3, 20, hour),
     ).sunECEF;
+    scene.renderSettings = scene.renderSettings.copyWith(
+      exposure: hour == 0 ? 1000 : 3,
+    );
   }
 
   void horizon() {

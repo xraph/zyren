@@ -153,7 +153,7 @@ Pixel 9 Pro Vulkan, day/dusk/night changes, horizon/orbit views, navigation, haz
 and 320/390/1000 pixel layouts passed. Each run observed 11 test frames, zero
 presentation readbacks and zero native owners after disposal.
 The iPhone 16 Pro Metal profile run also passes all controls, widths and cleanup
-checks: 31 native presentations, 11 samples, zero readbacks and zero remaining
+checks: 30 native presentations, 11 samples, zero readbacks and zero remaining
 owners. Its layout check measures canvas height after system safe areas. Planet
 stays installed after the test. Windows DX12 remains unverified.
 
@@ -161,10 +161,20 @@ A subsequent macOS foreground inspection used a separately named app bundle from
 the primary checkout to avoid selecting an older running Planet window. Day and
 dusk show distinct sky gradients; horizon/orbit controls change the camera, and
 the haze switch visibly changes distant-object colour and contrast. The daylight
-orbital view shows the globe and atmospheric limb. Night becomes dark, but stars
-were not discernible at the demo's fixed exposure. The numerical celestial checks
-above remain valid; a useful visual night-sky review is still outstanding. This
-check is not a full upstream story comparison.
+orbital view shows the globe and atmospheric limb. The night preset uses exposure
+1000 and two-pixel star points so catalogue stars remain visible through FXAA.
+Day and dusk use exposure 3. The library keeps its original photometry and defaults.
+The foreground Metal check confirms visible stars at the horizon and around the
+night-side planet, followed by restored daylight when you select Day.
+
+The Planet pixel regression uses the actual demo scene at 800 and 320 pixels wide.
+It compares stars enabled and disabled after ACES and FXAA, then checks that a
+return to Day reproduces the original daylight image. The regression found zero
+visible star pixels before the fix and passes with the night preset. Native
+resources return to zero after disposal. The updated demo also passes its native
+integration on Mac (31 presentations), Pixel (20) and iPhone (30), with 11 samples
+per run, zero presentation readbacks and clean teardown. These checks do not
+establish full upstream story parity.
 
 The Pixel initially crashed inside the Mali Vulkan compiler while compiling the
 direct-irradiance pass with texture arguments passed through helper functions.

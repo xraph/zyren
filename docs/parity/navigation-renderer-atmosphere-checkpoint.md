@@ -1,8 +1,9 @@
 # Navigation, renderer and atmosphere qualification
 
 The requested three feature groups are implemented in the primary checkout on
-`main`. This report records the 28 September 2026 qualification. The production
-checkpoint is `68e1f51`; device limits below still apply. Nothing was pushed.
+`main`. This report records the 28 September 2026 qualification. The library
+checkpoint is `68e1f51`, with the Planet night preset follow-up described below.
+Device limits still apply. Nothing was pushed.
 
 You can run the public Planet targets `lib/navigation_lab.dart`,
 `lib/renderer_lab.dart` and `lib/atmosphere_lab.dart`. They use native presentation
@@ -41,6 +42,7 @@ process-wide.
 | Flutter host | 76 |
 | Multiple views / model viewer | 13 / 2 |
 | Independent shader lab with GPU execution | 3 |
+| Planet night preset with GPU execution | 1 |
 | Rust, including normally ignored GPU tests | 81 |
 
 Workspace analysis, strict Rust Clippy and the package-boundary/Apple-header guard
@@ -60,8 +62,8 @@ and the Flutter host and examples use `flutter test`.
 | Device | Navigation | Renderer | Atmosphere |
 | --- | --- | --- | --- |
 | macOS, Apple M3 Max, Metal | Pass after the final control fix: 73 native presentations, 17 samples | Both combined renderer tests pass | Pass: 31 native presentations, 11 samples |
-| Pixel 9 Pro, Android 17, Vulkan | Pass: 64 native presentations, 18 samples | Both combined renderer tests pass | Pass: 18 native presentations, 11 samples |
-| iPhone 16 Pro, iOS 27, Metal | Pass: 75 native presentations, 18 samples | Both tests pass: two-view GPU lifecycle and compact controls | Pass: 31 native presentations, 11 samples |
+| Pixel 9 Pro, Android 17, Vulkan | Pass: 64 native presentations, 18 samples | Both combined renderer tests pass | Pass after night preset update: 20 native presentations, 11 samples |
+| iPhone 16 Pro, iOS 27, Metal | Pass: 75 native presentations, 18 samples | Both tests pass: two-view GPU lifecycle and compact controls | Pass after night preset update: 30 native presentations, 11 samples |
 | Windows DX12 / Linux Vulkan | Unrun | Unrun | Unrun |
 
 Every passing native run reported zero ordinary presentation readbacks and zero
@@ -78,9 +80,14 @@ reset and native window resizing work, with controls remaining visible.
 The atmosphere lab visibly changes between the blue daytime sky, orange dusk
 horizon and dark night. Horizon and orbit controls change the view, and toggling
 haze changes the colour and contrast of distant boxes. The daylight orbital view
-shows the globe and atmospheric limb. Stars were not discernible in the night
-captures at the demo's fixed exposure, so visual night-sky qualification remains
-open despite the passing numerical celestial fixtures. This inspection does not
+shows the globe and atmospheric limb. The night preset now uses exposure 1000 and
+two-pixel star points; day and dusk retain exposure 3. Stars are visible in the
+foreground Metal horizon and orbital views. A regression with the real catalogue
+checks final ACES/FXAA pixels at 800 and 320 pixels wide, plus exact daylight
+restoration after selecting Day. It failed on the previous fixed-exposure demo
+and passes with the preset. Library photometry and defaults are unchanged.
+The updated atmosphere integration also passes on Mac, Pixel and iPhone with
+zero presentation readbacks and clean teardown. The visual inspection does not
 establish full upstream story parity or manual 320/390-pixel layout coverage;
 those widths retain the automated device evidence below.
 
