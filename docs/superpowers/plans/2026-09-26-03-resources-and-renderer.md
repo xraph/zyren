@@ -166,7 +166,7 @@ expect(() => geometry.updateAttribute(VertexSemantic.position,
 ```
 
 - [x] Run `fvm dart test test/geometry_update_test.dart` and `cargo test --test texture_render --test image_limits`; new format/layout behavior must fail initially. Add compressed-byte limits, truncated PNG/JPEG, malicious dimensions, overflow, unsupported channel formats, mip and row-alignment cases.
-- [ ] Implement attribute validation, index widths, tangent handedness and dirty-range merging. Decode images with strict extent checks plus an engine budget around decoding and output allocation. Decoder limits alone are insufficient because some allocation limits are best effort. [Image limits contract](https://docs.rs/image/0.25.10/image/struct.Limits.html).
+- [x] Implement attribute validation, index widths, tangent handedness and dirty-range merging. Decode images with strict extent checks plus an engine budget around decoding and output allocation. Decoder limits alone are insufficient because some allocation limits are best effort. [Image limits contract](https://docs.rs/image/0.25.10/image/struct.Limits.html).
 
 ```text
 image: bound input -> read dimensions -> checked decoded byte estimate -> decode

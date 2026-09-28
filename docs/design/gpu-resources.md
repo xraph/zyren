@@ -606,9 +606,13 @@ The default ceilings are 16 MiB of encoded input, 64 MiB of RGBA output and 4096
 pixels on either axis. You can lower each limit. `maxWorkingBytes` defaults to
 128 MiB per native job, with 256 MiB reserved across active native decodes.
 The reservation includes two encoded-input lengths, output/conversion buffers
-and decoder workspace. PNG uses the library allocation limit; JPEG uses a
-conservative estimate for coefficient and row buffers, so some images below
-the dimension ceiling will still exceed their working budget.
+and decoder workspace. PNG reserves output and possible RGBA conversion before
+constructing its reader, then applies the remaining limit to that reader. Its
+admission floor includes 1 MiB for inflate state and tables plus 32 bytes per
+image column for row/filter buffers. JPEG uses a conservative estimate for
+coefficient and row buffers, so some images below the dimension ceiling still
+exceed their working budget. Tightening `image::Limits` after PNG construction
+does not update the pinned reader; the initial reservation is required.
 
 This admission budget is not a process-memory cap. Decoder allocator overhead,
 Dart isolate transfers, the returned image and later GPU uploads have separate

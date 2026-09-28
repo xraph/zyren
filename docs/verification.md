@@ -2287,3 +2287,17 @@ show more neighboring meshes. Analysis, formatting and package boundaries pass.
 The macOS release builds at 56.1 MB and the Android arm64 APK at 24.5 MB.
 The Mac locked before manual verification of the revised panel, so repeated live
 open/select/close cycles and the final AXTree log check remain pending. The native integration does not establish that result.
+
+## PNG allocation audit, 28 September 2026
+
+PNG decoding reserves output/conversion memory before constructing the decoder.
+The pinned image adapter does not propagate later allocation-limit changes to
+its PNG reader. A regression first reproduced successful decoding under an
+allowance that covered pixels but omitted inflate workspace; it now returns
+`LimitExceeded`, and a sufficient allowance still preserves the reference pixels.
+
+All 349 core cases and 87 nonignored Rust cases pass. The native image, image-ABI,
+geometry-update and texture-packet suites also pass, along with seven Dart native
+PNG/JPEG/HDR isolate cases. The HDR GPU case was skipped in that CPU-only run.
+Strict Clippy passes. Task 2's remaining allocation gate is closed; this audit
+does not change the recorded device-qualification limits or establish an RSS cap.
