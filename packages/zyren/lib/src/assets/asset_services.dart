@@ -4,6 +4,7 @@ part of 'asset_scope.dart';
 final class AssetServices {
   final ByteSourceResolver resolver;
   final ImageDecoder? imageDecoder;
+  final BufferDecoder? bufferDecoder;
   final AssetLimits limits;
   final SourcePolicy policy;
 
@@ -13,6 +14,7 @@ final class AssetServices {
   const AssetServices({
     this.resolver = const UnavailableSourceResolver(),
     this.imageDecoder,
+    this.bufferDecoder,
     this.limits = const AssetLimits(),
     this.policy = const SourcePolicy(),
     this.onCleanupError,

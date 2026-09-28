@@ -5,6 +5,7 @@ import '../plugins/attachment_scope.dart';
 import '../rendering/frame_output.dart';
 import 'asset_request.dart';
 import 'image_decoder.dart';
+import 'buffer_decoder.dart';
 import 'load_cancellation.dart';
 import 'load_task.dart';
 import 'source_resolver.dart';

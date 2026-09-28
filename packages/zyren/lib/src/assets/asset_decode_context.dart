@@ -1,6 +1,6 @@
 part of 'asset_scope.dart';
 
-/// Services for a single decode. Reads and image decodes are admitted serially
+/// Services for a single decode. Reads and CPU decodes are admitted serially
 /// so concurrent dependencies cannot each spend the same remaining budget.
 final class AssetDecodeContext {
   final AssetServices _services;
@@ -8,7 +8,7 @@ final class AssetDecodeContext {
   final Uri sourceUri;
   final void Function(LoadProgress) _report;
   final _sources = <Uri, Future<ResolvedSource>>{};
-  Future<void> _readTail = Future.value(), _imageTail = Future.value();
+  Future<void> _readTail = Future.value(), _decodeTail = Future.value();
   int _encodedBytes = 0, _decodedBytes = 0;
   AssetDecodeContext._(
     this._services,
@@ -19,6 +19,9 @@ final class AssetDecodeContext {
   AssetLimits get limits => _services.limits;
   int get encodedBytes => _encodedBytes;
   int get decodedBytes => _decodedBytes;
+
+  bool supportsBufferEncoding(BufferEncoding encoding) =>
+      _services.bufferDecoder?.encodings.contains(encoding) ?? false;
 
   void report(LoadProgress progress) {
     cancellation.throwIfCancelled();
@@ -129,7 +132,7 @@ final class AssetDecodeContext {
   }
 
   Future<ImageData> decodeImage(Uint8List bytes, {String? fieldPath}) {
-    final future = _imageTail.then((_) async {
+    final future = _decodeTail.then((_) async {
       cancellation.throwIfCancelled();
       final decoder = _services.imageDecoder;
       if (decoder == null) {
@@ -175,7 +178,63 @@ final class AssetDecodeContext {
       reserveDecodedBytes(image.pixels.length, fieldPath: fieldPath);
       return image;
     });
-    _imageTail = future.then<void>(
+    _decodeTail = future.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
+    return future;
+  }
+
+  Future<Uint8List> decodeBuffer(
+    Uint8List bytes, {
+    required BufferDecodeOptions options,
+    String? fieldPath,
+  }) {
+    final future = _decodeTail.then((_) async {
+      cancellation.throwIfCancelled();
+      if (!supportsBufferEncoding(options.encoding)) {
+        throw AssetLoadException(
+          AssetLoadError.unsupportedFeature,
+          'No decoder is configured for this buffer encoding.',
+          sourceUri: sourceUri,
+          fieldPath: fieldPath,
+        );
+      }
+      try {
+        final remaining = limits.maxDecodedBytes - _decodedBytes;
+        options.validateInput(bytes, maxDecodedBytes: remaining);
+        final expected = options.decodedByteLength;
+        reserveDecodedBytes(expected, fieldPath: fieldPath);
+        final output = await _services.bufferDecoder!.decode(
+          bytes,
+          options: options,
+          maxDecodedBytes: remaining,
+        );
+        cancellation.throwIfCancelled();
+        if (output.length != expected) {
+          throw const BufferDecodeException(
+            BufferDecodeError.invalidData,
+            'Buffer decoder returned a different byte count.',
+          );
+        }
+        return output.asUnmodifiableView();
+      } on BufferDecodeException catch (error) {
+        throw AssetLoadException(
+          switch (error.code) {
+            BufferDecodeError.invalidData => AssetLoadError.invalidData,
+            BufferDecodeError.limitExceeded => AssetLoadError.limitExceeded,
+            BufferDecodeError.unsupportedEncoding =>
+              AssetLoadError.unsupportedFeature,
+            _ => AssetLoadError.decodeFailed,
+          },
+          error.message,
+          sourceUri: sourceUri,
+          fieldPath: fieldPath,
+          cause: error,
+        );
+      }
+    });
+    _decodeTail = future.then<void>(
       (_) {},
       onError: (Object _, StackTrace _) {},
     );
