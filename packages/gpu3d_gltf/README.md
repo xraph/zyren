@@ -23,7 +23,7 @@ await assets.close();
 
 In Flutter, use `controller.assets` or create a scope from
 `SceneRuntime.assetServices`. The runtime supplies bundle/URI resolution and a
-native image decoder. `Gltf.uri` accepts an absolute URI. Relative buffers and
+native image decoder and MikkTSpace tangent generator. `Gltf.uri` accepts an absolute URI. Relative buffers and
 images resolve against the source's effective URI, including permitted redirects.
 
 ## Ownership and cancellation
@@ -33,8 +33,10 @@ Each consumer receives its own scope-owned template. `instantiate` clones the
 node hierarchy and shares immutable geometry, materials and images. You can move
 an instance or replace its material without changing a sibling instance.
 
-Call `task.cancel()` to cancel one consumer. The last cancellation terminates the
-worker; closing its scope also cancels outstanding loads. Releasing a template
+Call `task.cancel()` to cancel one consumer. The last cancellation terminates parser
+workers and prevents results from being published. An active native image or
+tangent job finishes within its limits before its storage is reclaimed. Closing
+the scope also cancels outstanding loads. Releasing a template
 prevents future instantiation. Existing instances stay usable, and each renderer
 owns the lifetime of its uploaded resources. Completed URI loads are not cached.
 
@@ -73,10 +75,17 @@ unknown optional extensions produce warnings and use the core fallback data.
 | `COLOR_0` float or normalized byte/short RGB/RGBA | `vertex_color_model_test`; native interpolation, alpha and shadow probes |
 | `KHR_materials_unlit` | Listed static features, including vertex color and alpha |
 | PBR triangle materials and authored tangents | `pbr_model_test`; native analytic reference pixels |
+| Missing normal-map tangents, mirrored seams and UV0/UV1 selection | `tangent_model_test`; pinned MikkTSpace reference and native pixel checks |
 | `KHR_lights_punctual` | Directional, point and spot instances, transforms, units, range and cones; bounded native profile |
 | Animations, skins, morphs and imported cameras | Explicit unsupported-feature error |
 | Lit or textured lines/points, UV sets above one, singular or out-of-range native transforms | Explicit unsupported-feature error |
 | Draco, meshopt, Basis/KTX2 and other required extensions | Explicit unsupported-feature error |
+
+Missing normal-map tangents require `AssetServices.tangentGenerator`. Flutter's
+native runtimes supply it. Standalone Dart callers can use
+`NativeTangentGenerator` from `gpu3d_native`, or provide their own implementation
+of the core `TangentGenerator` interface. See [tangent preparation](../../docs/design/tangent-generation.md)
+for limits and direct geometry usage.
 
 ## Lighting and image ownership
 
@@ -102,7 +111,7 @@ selection belong to the material usage.
 primitive limit also checks the expanded meshes in each scene, so repeated mesh
 references cannot bypass admission. Core `AssetLimits` bounds source and decoded
 payloads. Geometry accounting includes intermediate accessor arrays, generated
-normals and owned copies. Image accounting includes decoder output and each owned
+normals, generated tangent seam copies and owned copies. Image accounting includes decoder output and each owned
 color-space/mip variant. These are payload limits, not a process-memory ceiling. Renderers
 apply their own frame upload and GPU residency budgets when a model is drawn.
 

@@ -11,6 +11,10 @@ shares the meshes but omits lights, so you can check a viewer's explicit lightin
 policy. The analytic texture/light fixtures in `gpu3d_gltf/test/support` use
 repo-authored one-pixel PNGs and quads with known BRDF samples.
 
+`normal-map.glb` adds a ribbed tangent-space normal texture to the painted
+housing, without authored tangents. It exercises automatic MikkTSpace generation
+in the viewer. The ribs affect lighting only; vertex positions are unchanged.
+
 The geometry and four-corner image were authored for this repository. They use
 no third-party model or image content and are maintained as repository test data.
 Regenerate both this directory and the viewer bundle with:

@@ -9,6 +9,7 @@ pub mod scene;
 pub mod scene_packet;
 pub mod shaders;
 pub mod shadows;
+pub mod tangents;
 
 use std::{
     cell::RefCell,

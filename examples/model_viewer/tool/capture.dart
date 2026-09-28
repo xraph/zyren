@@ -22,6 +22,7 @@ Future<void> main(List<String> args) async {
     services: const AssetServices(
       resolver: NativeSourceResolver(),
       imageDecoder: NativeImageDecoder(),
+      tangentGenerator: NativeTangentGenerator(),
     ),
   );
   final backend = await NativeBackend.create();

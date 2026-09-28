@@ -6,6 +6,7 @@ import 'package:gpu3d_gltf/gpu3d_gltf.dart';
 import 'package:gpu3d_native/gpu3d_native.dart';
 import 'package:test/test.dart';
 import '../../../gpu3d_gltf/test/support/pbr_fixture.dart';
+import '../../../gpu3d_gltf/test/support/fixtures.dart' show editModel;
 
 final class _Source implements ByteSourceResolver {
   final Uint8List bytes;
@@ -20,11 +21,13 @@ Future<void> verifyGltfPbr(NativeGpuBackend backend) async {
   Future<List<int>> render(
     Uint8List bytes, {
     void Function(Scene)? configure,
+    bool generatedTangents = false,
   }) async {
     final assets = AssetScope(
       services: AssetServices(
         resolver: _Source(bytes),
         imageDecoder: const NativeImageDecoder(),
+        tangentGenerator: const NativeTangentGenerator(),
       ),
     );
     try {
@@ -33,6 +36,21 @@ Future<void> verifyGltfPbr(NativeGpuBackend backend) async {
       final scene = Scene()
         ..background = const Color3(0, 0, 0)
         ..add(model.instantiate());
+      if (generatedTangents) {
+        void check(Object3D object) {
+          if (object is Mesh) {
+            expect(
+              object.geometry.attributes[VertexSemantic.tangent],
+              isNotNull,
+            );
+          }
+          for (final child in object.children) {
+            check(child);
+          }
+        }
+
+        check(scene);
+      }
       configure?.call(scene);
       final frame =
           await backend.render(
@@ -286,6 +304,24 @@ Future<void> verifyGltfPbr(NativeGpuBackend backend) async {
   );
   expect(positive[0], greaterThan(80));
   pixel(negative, [0, 0, 0, 255]);
+  for (final flat in [false, true]) {
+    final missing = editModel(
+      pbrModel(material: normalMaterial, lightNode: node),
+      (root) {
+        final attributes =
+            (root['meshes'] as List).first['primitives'][0]['attributes']
+                as Map;
+        if (flat) {
+          attributes.remove('NORMAL');
+        } else {
+          attributes.remove('TANGENT');
+        }
+      },
+    );
+    // The fixture's V coordinate runs downward. MikkTSpace must generate -1
+    // handedness, including after flat-normal expansion discards authored T.
+    pixel(await render(missing, generatedTangents: true), negative);
+  }
   await backend.render(
     FrameSubmission.capture(
       scene: Scene(),

@@ -183,3 +183,37 @@ external int sceneResidentBytes(int renderer);
   assetId: _asset,
 )
 external int sceneUploadedBytes(int renderer);
+
+final class NativeTangentLimits extends Struct {
+  @Uint32()
+  external int version;
+  @Uint64()
+  external int maxWorkingBytes;
+  @Uint64()
+  external int maxIterations;
+}
+
+@Native<
+  Uint32 Function(
+    Pointer<Float>,
+    Pointer<Float>,
+    Pointer<Float>,
+    Uint32,
+    Pointer<Uint32>,
+    Uint32,
+    Pointer<NativeTangentLimits>,
+    Pointer<Float>,
+    Size,
+  )
+>(symbol: 'fg2_generate_tangents', assetId: _asset)
+external int generateTangents(
+  Pointer<Float> positions,
+  Pointer<Float> normals,
+  Pointer<Float> uvs,
+  int vertexCount,
+  Pointer<Uint32> indices,
+  int cornerCount,
+  Pointer<NativeTangentLimits> limits,
+  Pointer<Float> output,
+  int outputLength,
+);

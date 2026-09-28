@@ -37,9 +37,12 @@ must return straight RGBA8 source channels without applying color corrections.
 The loader selects the transfer function from the map's usage.
 
 Authored float VEC4 tangents retain handedness. Missing normals produce flat
-normals and discard tangents, as required by glTF. Without authored tangents,
-the native shader derives a basis from position and UV derivatives. This is not
-a MikkTSpace mesh generator and can differ from a baker at seams.
+normals and discard tangents, as required by glTF. A normal-mapped primitive
+without tangents uses `AssetServices.tangentGenerator` with the normal map's UV
+set. Flutter's native runtime supplies MikkTSpace. Tangent seams split vertices
+while preserving every other attribute. See [tangent generation](tangent-generation.md).
+Procedural core geometry can still use the shader's derivative fallback, but that
+path does not claim equivalence to a baked MikkTSpace basis.
 
 `KHR_materials_unlit` retains base color, alpha and sidedness while ignoring
 normal, metallic/roughness, occlusion and emissive inputs. Those unused images
@@ -75,7 +78,7 @@ limits, malformed fields, UV requirements, image variants and release workers.
 The viewer fixture exercises authored lighting and an explicit studio fallback.
 
 This remains a static subset. Animation, skins, morphs, cameras,
-MikkTSpace generation, lit/textured points and lines, and advanced material
+lit/textured points and lines, and advanced material
 extensions are not implemented. Unknown required extensions fail. Optional ones
 produce warnings and use their supported fallback data. Do not treat this profile
 as full glTF conformance or complete Three.js parity.

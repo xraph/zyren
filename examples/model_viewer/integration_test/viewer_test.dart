@@ -109,6 +109,23 @@ void main() {
       expect(controller.scene.children.single.name, 'Vertex color assembly');
       expect(frames.last.readbackBytes, 0);
 
+      await loadWith(find.text('Normal map'));
+      expect(controller.scene.children.single.name, 'Normal map assembly');
+      expect(frames.last.readbackBytes, 0);
+      final housing =
+          controller
+                  .scene
+                  .children
+                  .single
+                  .children
+                  .first
+                  .children[1]
+                  .children
+                  .single
+              as Mesh;
+      expect((housing.material as StandardMaterial).normalMap, isNotNull);
+      expect(housing.geometry.attributes[VertexSemantic.tangent], isNotNull);
+
       expect(tester.takeException(), isNull);
     } finally {
       await tester.pumpWidget(const SizedBox());

@@ -277,6 +277,16 @@ void main() {
   }
   (colored['scenes'] as List).first['name'] = 'Vertex color assembly';
   final coloredGlb = encodeGlb(colored, coloredData);
+  final normalMapped = jsonDecode(jsonEncode(pbr)) as Map<String, Object?>;
+  (normalMapped['materials'] as List)[1]['normalTexture'] = {'index': 0};
+  normalMapped['images'] = [
+    {'uri': 'data:image/png;base64,${base64Encode(ribbedNormalPng())}'},
+  ];
+  normalMapped['samplers'] = [
+    {'minFilter': 9987, 'magFilter': 9729, 'wrapS': 10497, 'wrapT': 10497},
+  ];
+  (normalMapped['scenes'] as List).first['name'] = 'Normal map assembly';
+  final normalGlb = encodeGlb(normalMapped, data);
   root['buffers'] = [
     <String, Object?>{'byteLength': data.length, 'uri': 'assembly.bin'},
   ];
@@ -290,6 +300,7 @@ void main() {
     File('${location.path}/assembly.glb').writeAsBytesSync(glb);
     File('${location.path}/pbr.glb').writeAsBytesSync(pbrGlb);
     File('${location.path}/colors.glb').writeAsBytesSync(coloredGlb);
+    File('${location.path}/normal-map.glb').writeAsBytesSync(normalGlb);
     File('${location.path}/assembly.gltf').writeAsStringSync(
       "${const JsonEncoder.withIndent('  ').convert(root)}\n",
     );
@@ -317,4 +328,53 @@ Uint8List encodeGlb(Map<String, Object?> root, Uint8List data) {
   result.setRange(20, 20 + json.length, json);
   result.setRange(28 + padded, result.length, data);
   return result;
+}
+
+// A tangent-space normal field for four rounded ribs. Geometry stays unchanged.
+Uint8List ribbedNormalPng() {
+  const size = 64;
+  final rows = BytesBuilder();
+  for (var y = 0; y < size; y++) {
+    rows.addByte(0);
+    for (var x = 0; x < size; x++) {
+      final slope = -.8 * math.cos((x + .5) / size * 8 * math.pi);
+      final length = math.sqrt(slope * slope + 1);
+      rows.add([
+        ((slope / length * .5 + .5) * 255).round(),
+        128,
+        ((1 / length * .5 + .5) * 255).round(),
+        255,
+      ]);
+    }
+  }
+  final output = BytesBuilder()..add([137, 80, 78, 71, 13, 10, 26, 10]);
+  void chunk(String type, List<int> data) {
+    final body = [...ascii.encode(type), ...data];
+    var crc = 0xffffffff;
+    for (final byte in body) {
+      crc ^= byte;
+      for (var i = 0; i < 8; i++) {
+        crc = (crc >>> 1) ^ ((crc & 1) == 0 ? 0 : 0xedb88320);
+      }
+    }
+    output.add((ByteData(4)..setUint32(0, data.length)).buffer.asUint8List());
+    output.add(body);
+    output.add(
+      (ByteData(4)..setUint32(0, (~crc) & 0xffffffff)).buffer.asUint8List(),
+    );
+  }
+
+  chunk(
+    'IHDR',
+    (ByteData(13)
+          ..setUint32(0, size)
+          ..setUint32(4, size)
+          ..setUint8(8, 8)
+          ..setUint8(9, 6))
+        .buffer
+        .asUint8List(),
+  );
+  chunk('IDAT', zlib.encode(rows.toBytes()));
+  chunk('IEND', []);
+  return output.toBytes();
 }

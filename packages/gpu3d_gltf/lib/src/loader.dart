@@ -152,8 +152,18 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
         final primitives = <_ModelPrimitive>[];
         for (final primitive in mesh) {
           context.cancellation.throwIfCancelled();
-          final geometry = BufferGeometry.fromData(primitive.geometry),
-              m = primitive.material;
+          var data = primitive.geometry;
+          final m = primitive.material;
+          if (m.normalMap case final normalMap?
+              when !data.attributes.containsKey(VertexSemantic.tangent)) {
+            data = await context.generateTangents(
+              data,
+              uvSet: normalMap.uvSet,
+              fieldPath:
+                  'meshes[${meshes.length}].primitives[${primitives.length}].attributes.TANGENT',
+            );
+          }
+          final geometry = BufferGeometry.fromData(data);
           TextureMap? texture(ImageBindingRecipe? binding) => binding == null
               ? null
               : TextureMap(

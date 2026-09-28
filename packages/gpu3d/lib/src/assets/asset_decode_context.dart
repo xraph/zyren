@@ -1,6 +1,6 @@
 part of 'asset_scope.dart';
 
-/// Services for a single decode. Reads and image decodes are admitted serially
+/// Services for a single decode. Reads and CPU preparation are admitted serially
 /// so concurrent dependencies cannot each spend the same remaining budget.
 final class AssetDecodeContext {
   final AssetServices _services;
@@ -8,7 +8,7 @@ final class AssetDecodeContext {
   final Uri sourceUri;
   final void Function(LoadProgress) _report;
   final _sources = <Uri, Future<ResolvedSource>>{};
-  Future<void> _readTail = Future.value(), _imageTail = Future.value();
+  Future<void> _readTail = Future.value(), _decodeTail = Future.value();
   int _encodedBytes = 0, _decodedBytes = 0;
   AssetDecodeContext._(
     this._services,
@@ -138,7 +138,7 @@ final class AssetDecodeContext {
     String kind,
     String? fieldPath,
   ) {
-    final future = _imageTail.then((_) async {
+    final future = _decodeTail.then((_) async {
       cancellation.throwIfCancelled();
       if (decode == null) {
         throw AssetLoadException(
@@ -187,7 +187,7 @@ final class AssetDecodeContext {
       reserveDecodedBytes(length, fieldPath: fieldPath);
       return image;
     });
-    _imageTail = future.then<void>(
+    _decodeTail = future.then<void>(
       (_) {},
       onError: (Object _, StackTrace _) {},
     );

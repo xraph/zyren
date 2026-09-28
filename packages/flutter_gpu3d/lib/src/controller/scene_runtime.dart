@@ -14,6 +14,7 @@ class SceneRuntime {
     resolver: FlutterSourceResolver(),
     imageDecoder: NativeImageDecoder(),
     hdrImageDecoder: NativeHdrImageDecoder(),
+    tangentGenerator: NativeTangentGenerator(),
   );
   final AssetServices assetServices;
   final Future<RenderBackend> Function() backendFactory;

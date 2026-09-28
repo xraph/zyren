@@ -54,3 +54,5 @@ export 'src/assets/hdr_image.dart';
 export 'src/assets/hdr_image_decoder.dart';
 export 'src/assets/hdr_image_loader.dart';
 export 'src/lighting/environment_lighting.dart';
+
+export 'src/geometry/tangent_generator.dart';

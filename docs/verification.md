@@ -1483,3 +1483,55 @@ that release remains unverified. `artifacts/native-gltf-pbr.png` is a Metal read
 of the authored three-part PBR fixture. This checkpoint does not qualify full
 glTF conformance, iOS/Windows/Linux runtime parity, or the remaining Three.js and
 Takram feature set.
+
+## MikkTSpace normal-map checkpoint
+
+Checked 28 September 2026. Normal-mapped glTF primitives without usable authored
+tangents now use the core `TangentGenerator` service. Flutter supplies the native
+MikkTSpace implementation. It runs on a CPU isolate, splits tangent seams and
+preserves all vertex attributes. See [tangent generation](design/tangent-generation.md)
+for the public API, limits and cancellation behaviour.
+
+Checks pass: 320 core/glTF/geospatial tests, 72 native Dart tests, 69 Flutter
+facade tests and three viewer widget tests, 464 Dart/Flutter tests in total.
+All 109 Rust tests pass, including GPU cases and the bounded tangent regressions.
+Analyzer, strict Clippy, formatting and package/Apple-header boundaries pass.
+The initial combined Dart command used the wrong geospatial directory; the
+corrected suite uses `packages/flutter_geospatial/test`.
+
+The curved mirrored fixture matches an unmodified pinned MikkTSpace build within
+1e-6, including reversed face order. Tests also cover mirrored handedness, UV1,
+flat-normal regeneration, unused vertices, attribute formats, uint16 promotion,
+output budgets, serialized asset admission, cancellation and field diagnostics.
+The native stack-depth regression rejects a high-valence fan and verifies that a
+subsequent job can run.
+
+A deterministic 1,000-mesh C harness passes address, undefined-behaviour and
+float-cast sanitizers with recovery disabled. It exposed the reference sort's
+shift-by-32 case, which now uses a defined rotate. Zero-extent position hashes
+also avoid a NaN-to-int cast. The vendor note records both changes. Reproduce the
+sanitizer check from the workspace root:
+
+```sh
+clang -std=c11 -O1 -g -fsanitize=address,undefined,float-cast-overflow \
+  -fno-sanitize-recover=all packages/gpu3d_native/native/src/tangents.c \
+  packages/gpu3d_native/native/tests/tangent_sanitize.c -o /tmp/gpu3d-tangent-check
+/tmp/gpu3d-tangent-check
+```
+
+Metal and physical Pixel Vulkan pass the glTF pixel probes, including generated
+normal-map bases. Both platforms pass viewer bundle/HTTP/reload tests and the new
+Normal map sample with zero presentation readback bytes. Desktop and 320/390-pixel
+widget layouts pass. macOS could not foreground its integration window, so those
+results do not establish interactive desktop inspection.
+
+The bundled release capture CLI ran from `/tmp` and rendered the normal-map
+sample through Metal: three draws, 36 triangles. The inspected output is
+`artifacts/native-mikktspace-aot.png`. Normal-map ribs affect shading while the
+box geometry stays unchanged. This checkpoint leaves broader material reference
+coverage, instancing/deformation/animation, antialiasing, geospatial parity and
+remaining platform qualification open.
+
+Release builds pass for macOS (55.6 MB) and Android arm64 (25.5 MB). The Pixel
+release launched with `GPU3D_MODEL=normal-map.glb` and no error-level process
+logs at verification. Interactive release-screen inspection remains unverified.

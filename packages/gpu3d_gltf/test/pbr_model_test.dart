@@ -5,6 +5,7 @@ import 'geometry_model_test.dart' show onlyMesh;
 import 'model_test.dart' show load, triangleIn;
 import 'image_model_test.dart' show Images, ImageSources, scopeFor;
 import 'support/fixtures.dart';
+import 'tangent_model_test.dart' show TestTangents;
 
 void main() {
   test(
@@ -65,7 +66,11 @@ void main() {
         ];
       });
       final images = Images();
-      final scope = scopeFor(ImageSources(bytes), images);
+      final scope = scopeFor(
+        ImageSources(bytes),
+        images,
+        tangentGenerator: TestTangents(),
+      );
       final model = await scope.load(Gltf.asset('model.glb')).result;
       final material = onlyMesh(model).material as StandardMaterial;
       expect(images.calls, 1);
@@ -312,7 +317,7 @@ void main() {
           'pbrMetallicRoughness': {
             'baseColorTexture': {'index': 0},
           },
-          'normalTexture': {'index': 0},
+          'occlusionTexture': {'index': 0},
         },
       ];
     });

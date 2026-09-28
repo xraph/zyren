@@ -5,6 +5,7 @@ final class AssetServices {
   final ByteSourceResolver resolver;
   final ImageDecoder? imageDecoder;
   final HdrImageDecoder? hdrImageDecoder;
+  final TangentGenerator? tangentGenerator;
   final AssetLimits limits;
   final SourcePolicy policy;
 
@@ -15,6 +16,7 @@ final class AssetServices {
     this.resolver = const UnavailableSourceResolver(),
     this.imageDecoder,
     this.hdrImageDecoder,
+    this.tangentGenerator,
     this.limits = const AssetLimits(),
     this.policy = const SourcePolicy(),
     this.onCleanupError,
@@ -28,12 +30,14 @@ final class AssetServices {
 final class AssetLimits {
   final int maxSourceBytes, maxTotalSourceBytes, maxSources, maxDecodedBytes;
   final ImageDecodeLimits images;
+  final TangentGenerationLimits tangents;
   const AssetLimits({
     this.maxSourceBytes = 32 * 1024 * 1024,
     this.maxTotalSourceBytes = 128 * 1024 * 1024,
     this.maxSources = 128,
     this.maxDecodedBytes = 128 * 1024 * 1024,
     this.images = const ImageDecodeLimits(),
+    this.tangents = const TangentGenerationLimits(),
   });
   void validate() {
     for (final (name, value) in [
@@ -45,5 +49,6 @@ final class AssetLimits {
       RangeError.checkValueInInterval(value, 1, 0x7fffffff, name);
     }
     images.validate();
+    tangents.validate();
   }
 }

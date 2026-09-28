@@ -10,8 +10,12 @@ import 'hdr_image_decoder.dart';
 import 'load_cancellation.dart';
 import 'load_task.dart';
 import 'source_resolver.dart';
+import '../geometry/geometry.dart';
+import '../geometry/vertex_attribute.dart';
+import '../geometry/tangent_generator.dart';
 
 part 'asset_services.dart';
+part 'asset_tangents.dart';
 part 'asset_decode_context.dart';
 part 'shared_load.dart';
 

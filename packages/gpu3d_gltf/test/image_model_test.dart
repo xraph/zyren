@@ -62,11 +62,13 @@ AssetScope scopeFor(
   ImageSources source,
   Images images, {
   AssetLimits limits = const AssetLimits(),
+  TangentGenerator? tangentGenerator,
 }) {
   final scope = AssetScope(
     services: AssetServices(
       resolver: source,
       imageDecoder: images,
+      tangentGenerator: tangentGenerator,
       limits: limits,
     ),
   );
