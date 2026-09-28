@@ -14,6 +14,7 @@ class SceneRuntime {
     resolver: FlutterSourceResolver(),
     imageDecoder: NativeImageDecoder(),
     bufferDecoder: NativeBufferDecoder(),
+    meshDecoder: NativeMeshDecoder(),
   );
   final AssetServices assetServices;
   final Future<RenderBackend> Function() backendFactory;

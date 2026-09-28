@@ -76,7 +76,8 @@ unknown optional extensions produce warnings and use the core fallback data.
 | Animations, skins, morphs, vertex colors and imported cameras | Explicit unsupported-feature error |
 | PBR or textured lines/points, UV sets above one, singular or out-of-range native transforms | Explicit unsupported-feature error |
 | `EXT_meshopt_compression` | Attributes, triangle/index sequences and all three filters with a configured `BufferDecoder`; optional extension uses fallback data when no codec is available |
-| Draco, Basis/KTX2 and other required extensions | Explicit unsupported-feature error |
+| `KHR_draco_mesh_compression` | Draco 2.2 meshes through `CompressedMeshDecoder`; triangle strips become triangle lists, attribute IDs and accessor formats are validated |
+| Sparse overrides on Draco accessors, Basis/KTX2 and other required extensions | Explicit unsupported-feature error |
 
 ## Limits and workers
 
@@ -92,6 +93,12 @@ Flutter's default asset services include the native meshopt decoder. For a Dart
 application, pass `NativeBufferDecoder()` as `AssetServices.bufferDecoder`.
 Decoded views count against the job budget before accessor conversion. Fallback
 buffers marked by meshopt are skipped when you configure the codec.
+
+For Draco, use `NativeMeshDecoder()` as `AssetServices.meshDecoder`. Flutter
+includes it by default. Declared position bounds may include quantization
+padding; decoded vertices must remain inside that range, and the model uses
+their actual bounds. The independent Khronos Box fixture checks Draco loading
+and native tile rendering alongside the generated sequential/EdgeBreaker quads.
 
 Each caller isolate admits two workers and sixteen queued jobs. Large buffers use
 transferable inputs and isolate-exit results. Workers prepare immutable geometry

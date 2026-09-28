@@ -1,6 +1,6 @@
-pub mod geometry_update;
 pub mod compression;
 pub mod draco;
+pub mod geometry_update;
 pub mod interop;
 pub mod render_graph;
 pub mod renderer;

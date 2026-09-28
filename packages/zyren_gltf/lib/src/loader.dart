@@ -8,6 +8,7 @@ import 'options.dart';
 import 'recipes.dart';
 import 'worker.dart';
 import 'meshopt.dart';
+import 'draco.dart';
 part 'model_asset.dart';
 
 abstract final class Gltf {
@@ -69,6 +70,7 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
         supportedExtensions: {
           'KHR_materials_unlit',
           'KHR_lights_punctual',
+          if (context.supportsMeshEncoding(MeshEncoding.draco)) dracoExtension,
           if (context.supportsBufferEncoding(BufferEncoding.meshopt))
             meshoptExtension,
         },
@@ -85,6 +87,14 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
       var root = document.root;
       if (meshopt != null) {
         (root, buffers) = await meshopt.decode(document, buffers, context);
+      }
+      if (context.supportsMeshEncoding(MeshEncoding.draco)) {
+        (root, buffers) = await decodeDraco(
+          root,
+          buffers,
+          context,
+          options.limits,
+        );
       }
       final prepared = await GltfWorkers.model(
         root,

@@ -317,6 +317,7 @@ class Tiles3DStreamer {
           resolver: tracker,
           imageDecoder: services.imageDecoder,
           bufferDecoder: services.bufferDecoder,
+          meshDecoder: services.meshDecoder,
           policy: services.policy,
           onCleanupError: services.onCleanupError,
           limits: AssetLimits(
@@ -328,6 +329,7 @@ class Tiles3DStreamer {
               budget.perTileDecodedBytes,
             ),
             images: limits.images,
+            meshes: limits.meshes,
           ),
         ),
       );

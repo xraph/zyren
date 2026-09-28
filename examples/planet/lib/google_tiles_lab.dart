@@ -117,6 +117,7 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
         resolver: provider,
         imageDecoder: base.imageDecoder,
         bufferDecoder: base.bufferDecoder,
+        meshDecoder: base.meshDecoder,
       );
       manifest = AssetScope(services: services);
       _provider = provider;
