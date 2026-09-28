@@ -35,6 +35,17 @@ reference even if an earlier release failed. A handle from a closed scope is
 unusable. Keep the handle returned by `retain` to use its surviving reference.
 You cannot share allocations between independent native devices.
 
+Use `scope.createChild(label: 'viewport textures')` for allocations you replace
+together, such as an effect's textures after resize. A child closes independently;
+its parent and siblings stay usable. Closing the parent immediately stops new
+work throughout the tree, waits for accepted operations and collects cleanup
+errors without skipping other children.
+
+Compiled graphs retain their own references. You can close a candidate's child
+scope after compilation succeeds, or after a failed attempt, without keeping its
+allocations in the attachment until the view closes. Keep the child open when
+you still need to upload uniforms or read its resources.
+
 ## Transfers and ownership
 
 Descriptors are immutable CPU values. Creating one allocates no GPU memory.

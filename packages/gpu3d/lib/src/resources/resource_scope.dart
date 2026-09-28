@@ -64,6 +64,7 @@ final class ResourceScope {
   final ResourceDevice _device;
   final String label;
   final _owned = <GpuResource<Object?>>[];
+  final _children = <ResourceScope>{};
   final _pending = <Future<void>>{};
   final _closedSignal = Completer<void>();
   bool _closed = false;
@@ -73,6 +74,16 @@ final class ResourceScope {
 
   /// Completes when cleanup settles, even if close reports a release failure.
   Future<void> get whenClosed => _closedSignal.future;
+
+  /// Creates an independently closable owner on the same device. Closing this
+  /// scope closes every descendant and drains accepted work throughout the tree.
+  ResourceScope createChild({String label = ''}) {
+    _checkOpen();
+    final child = ResourceScope(_device, label: label);
+    _children.add(child);
+    child.whenClosed.then((_) => _children.remove(child));
+    return child;
+  }
 
   void _checkOpen() {
     if (_closed) throw StateError('Resource scope has closed: $label');
@@ -94,7 +105,8 @@ final class ResourceScope {
     } catch (error, stack) {
       return Future.error(error, stack);
     }
-    final result = Future.sync(operation);
+    final completion = Completer<T>();
+    final result = completion.future;
     late Future<void> settled;
     settled = result
         .then<void>((_) {}, onError: (Object _, StackTrace _) {})
@@ -102,6 +114,10 @@ final class ResourceScope {
           _pending.remove(settled);
         });
     _pending.add(settled);
+    // Register first, while still invoking uploads synchronously to capture data.
+    Future.sync(
+      operation,
+    ).then(completion.complete, onError: completion.completeError);
     return result;
   }
 
@@ -236,8 +252,17 @@ final class ResourceScope {
 
   Future<void> _close() async {
     try {
-      await Future.wait(_pending.toList());
       final failures = <Object>[];
+      final children = [
+        for (final child in _children.toList())
+          child.close().then<void>(
+            (_) {},
+            onError: (Object error, StackTrace _) {
+              failures.add(error);
+            },
+          ),
+      ];
+      await Future.wait([...children, ..._pending]);
       for (final resource in _owned.reversed) {
         try {
           await _device.release(resource._key);
