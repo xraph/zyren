@@ -39,6 +39,12 @@ GeometryData mirroredQuad() => GeometryData(
       ]),
       format: VertexFormat.unorm8x4,
     ),
+    VertexSemantic.weights: VertexAttribute(
+      Float32List.fromList([
+        for (var i = 0; i < 4; i++) ...[1, 0, 0, 0],
+      ]),
+      format: VertexFormat.float32x4,
+    ),
     VertexSemantic.joints: VertexAttribute(
       Uint16List.fromList([
         for (var i = 0; i < 4; i++) ...[i, 2, 3, 4],
@@ -51,6 +57,59 @@ GeometryData mirroredQuad() => GeometryData(
 );
 
 void main() {
+  test(
+    'tangent seam remapping preserves morph targets and includes their byte budget',
+    () {
+      final source = mirroredQuad();
+      final g = GeometryData(
+        attributes: source.attributes,
+        indices: source.indices,
+        morphTargets: [
+          MorphTarget(
+            name: 'offset',
+            positions: [
+              for (var i = 0; i < 4; i++) ...[i.toDouble(), 0, 0],
+            ],
+          ),
+        ],
+      );
+      final tangents = Float32List.fromList([
+        for (var i = 0; i < 3; i++) ...[1, 0, 0, 1],
+        for (var i = 0; i < 3; i++) ...[-1, 0, 0, -1],
+      ]);
+      final remapped = g.withCornerTangents(tangents);
+      expect(remapped.morphTargets.single.positions, [
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        2,
+        0,
+        0,
+        0,
+        0,
+        0,
+        2,
+        0,
+        0,
+        3,
+        0,
+        0,
+      ]);
+      expect(remapped.morphTargets.single.name, 'offset');
+      expect(
+        () => g.withCornerTangents(
+          tangents,
+          limits: TangentGenerationLimits(
+            maxOutputBytes: remapped.byteLength - 1,
+          ),
+        ),
+        throwsA(isA<TangentGenerationException>()),
+      );
+    },
+  );
   test('seam splitting promotes indices beyond the uint16 vertex range', () {
     const count = 32769;
     final geometry = GeometryData(

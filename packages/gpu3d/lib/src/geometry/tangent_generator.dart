@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 import 'geometry.dart';
+import 'morph_target.dart';
 import 'vertex_attribute.dart';
 
 /// CPU tangent preparation. Implementations return new geometry and split shared
@@ -87,9 +88,11 @@ extension CornerTangents on GeometryData {
         'Provide one XYZW tangent for each triangle corner.',
       );
     }
-    final stride = attributes.entries
-        .where((e) => e.key != VertexSemantic.tangent)
-        .fold<int>(16, (sum, e) => sum + e.value.format.stride);
+    final stride =
+        attributes.entries
+            .where((e) => e.key != VertexSemantic.tangent)
+            .fold<int>(16, (sum, e) => sum + e.value.format.stride) +
+        morphTargets.fold<int>(0, (n, t) => n + t.byteLength ~/ t.vertexCount);
     final remap = <(int, double, double, double, double), int>{};
     final sourceVertices = <int>[], sourceCorners = <int>[];
     final mapped = Uint32List(indices.length);
@@ -158,7 +161,21 @@ extension CornerTangents on GeometryData {
       values,
       format: VertexFormat.float32x4,
     );
+    Float32List? remapDeltas(Float32List? source) => source == null
+        ? null
+        : Float32List.fromList([
+            for (final i in sourceVertices) ...source.sublist(i * 3, i * 3 + 3),
+          ]);
     return GeometryData(
+      morphTargets: [
+        for (final target in morphTargets)
+          MorphTarget(
+            name: target.name,
+            positions: remapDeltas(target.positions),
+            normals: remapDeltas(target.normals),
+            tangents: remapDeltas(target.tangents),
+          ),
+      ],
       attributes: result,
       indices: mapped,
       indexFormat: sourceVertices.length <= 65536

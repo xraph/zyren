@@ -80,8 +80,12 @@ final class InstancedMesh extends Mesh {
     _transforms,
     _history,
   );
-  Bounds3 get bounds =>
-      captureInstances().boundsFor(geometry.capture(), count: count);
+  @override
+  Bounds3 get bounds => captureInstances().boundsFor(
+    geometry.capture(),
+    count: count,
+    localBounds: captureDeformation()?.bounds,
+  );
 }
 
 final class InstanceRange {
@@ -151,12 +155,22 @@ final class InstanceSnapshot {
     return List.unmodifiable(merged);
   }
 
-  Bounds3 boundsFor(GeometrySnapshot geometry, {required int count}) {
+  Bounds3? _boundsLocal;
+  Bounds3 boundsFor(
+    GeometrySnapshot geometry, {
+    required int count,
+    Bounds3? localBounds,
+  }) {
     RangeError.checkValueInInterval(count, 0, capacity, 'count');
-    if (identical(_boundsGeometry, geometry) && _boundsCount == count) {
+    if (identical(_boundsGeometry, geometry) &&
+        _boundsCount == count &&
+        identical(_boundsLocal, localBounds)) {
       return _bounds!;
     }
-    final local = Bounds3(geometry.bounds.minimum, geometry.bounds.maximum);
+    final local =
+        localBounds ??
+        Bounds3(geometry.bounds.minimum, geometry.bounds.maximum);
+    _boundsLocal = localBounds;
     var result = const Bounds3.empty();
     for (var i = 0; i < count; i++) {
       result = result.union(local.transformed(transforms[i]));

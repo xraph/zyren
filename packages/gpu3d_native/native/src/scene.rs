@@ -49,6 +49,12 @@ pub struct Geometry {
     pub tangents: Vec<[f32; 4]>,
     #[serde(default)]
     pub colors: Vec<[f32; 4]>,
+    #[serde(default)]
+    pub joints: Vec<[u32; 4]>,
+    #[serde(default)]
+    pub weights: Vec<[f32; 4]>,
+    #[serde(default)]
+    pub morphs: Vec<crate::deformation::MorphTarget>,
 }
 
 impl Geometry {
@@ -73,6 +79,7 @@ impl Geometry {
             + self.indices.len() * self.index_format.bytes()
             + self.tangents.len() * 16
             + self.colors.len() * 16
+            + self.deformation_bytes()
     }
     pub fn cpu_byte_length(&self) -> usize {
         (self.positions.len() + self.normals.len()) * 12
@@ -80,8 +87,10 @@ impl Geometry {
             + self.indices.len() * 4
             + self.tangents.len() * 16
             + self.colors.len() * 16
+            + self.deformation_bytes()
     }
     pub fn validate(&self) -> Result<(), String> {
+        self.validate_deformation()?;
         if self.topology > 3
             || (self.topology != 0
                 && (self.primitive_count() > 250_000
@@ -166,6 +175,8 @@ pub struct Mesh {
     pub shader: Option<crate::resources::registry::ResourceKey>,
     #[serde(skip)]
     pub instances: u32,
+    #[serde(skip)]
+    pub pose: u32,
     #[serde(skip, default = "one_instance")]
     pub instance_count: u32,
     pub geometry: u32,
@@ -219,6 +230,7 @@ impl Default for Mesh {
             cast_shadow: false,
             receive_shadow: false,
             instances: 0,
+            pose: 0,
             instance_count: 1,
             geometry: 0,
             shader: None,
@@ -253,6 +265,9 @@ impl Mesh {
         self.depth_write.unwrap_or(self.alpha_mode != 2)
     }
     pub fn validate_material(&self) -> Result<(), String> {
+        if self.pose != 0 && (self.primitive_kind != 0 || self.shader.is_some()) {
+            return Err("deformation requires built-in triangle materials".into());
+        }
         if self.instance_count == 0
             || self.instance_count as usize > crate::instances::MAX_INSTANCES
             || (self.instances == 0 && self.instance_count != 1)
@@ -393,6 +408,8 @@ pub struct Frame {
     pub geometry_patches: Vec<GeometryPatch>,
     #[serde(skip)]
     pub instances: Vec<crate::instances::Instances>,
+    #[serde(skip)]
+    pub poses: Vec<crate::deformation::Pose>,
     #[serde(skip)]
     pub instance_patches: Vec<crate::instances::InstancePatch>,
     #[serde(skip)]

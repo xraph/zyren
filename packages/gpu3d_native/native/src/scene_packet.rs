@@ -12,6 +12,7 @@ pub struct ViewState {
     pub meshes: Vec<Mesh>,
     pub retained_textures: HashSet<u32>,
     pub retained_instances: HashSet<u32>,
+    pub retained_poses: HashSet<u32>,
 }
 pub struct ScenePacket {
     shadows: crate::shadows::ShadowFrame,
@@ -34,6 +35,8 @@ pub struct ScenePacket {
     textures: Vec<SceneTexture>,
     geometry_patches: Vec<GeometryPatch>,
     retained_instances: HashSet<u32>,
+    retained_poses: HashSet<u32>,
+    poses: Vec<crate::deformation::Pose>,
     instances: Vec<crate::instances::Instances>,
     instance_patches: Vec<crate::instances::InstancePatch>,
 }
@@ -79,7 +82,7 @@ impl ScenePacket {
             return Err("unsupported scene packet".into());
         }
         let opcode = r.u32()?;
-        if !(10..=24).contains(&opcode) {
+        if !(10..=25).contains(&opcode) {
             return Err("unsupported scene packet".into());
         }
         let textured = opcode >= 11;
@@ -222,6 +225,14 @@ impl ScenePacket {
         if instance_counts.iter().any(|n| *n > MAX_MESHES) {
             return Err("instance table count exceeds limit".into());
         }
+        let pose_counts = if opcode >= 25 {
+            [r.u32()? as usize, r.u32()? as usize]
+        } else {
+            [0; 2]
+        };
+        if pose_counts.iter().any(|n| *n > MAX_MESHES) {
+            return Err("pose table exceeds limit".into());
+        }
         let mut retained = HashSet::new();
         for _ in 0..retained_count {
             if !retained.insert(r.u32()?) {
@@ -239,6 +250,13 @@ impl ScenePacket {
             let id = r.u32()?;
             if id == 0 || !retained_instances.insert(id) {
                 return Err("invalid retained instance identifier".into());
+            }
+        }
+        let mut retained_poses = HashSet::new();
+        for _ in 0..pose_counts[0] {
+            let id = r.u32()?;
+            if id == 0 || !retained_poses.insert(id) {
+                return Err("invalid retained pose identifier".into());
             }
         }
         let mut textures = Vec::new();
@@ -309,7 +327,9 @@ impl ScenePacket {
                 IndexFormat::Uint32
             };
             if uv_flags
-                > if opcode >= 23 {
+                > if opcode >= 25 {
+                    127
+                } else if opcode >= 23 {
                     31
                 } else if opcode >= 20 {
                     15
@@ -333,7 +353,8 @@ impl ScenePacket {
                 * (24
                     + (uv_flags & 3).count_ones() as usize * 8
                     + if uv_flags & 8 != 0 { 16 } else { 0 }
-                    + if uv_flags & 16 != 0 { 16 } else { 0 })
+                    + if uv_flags & 16 != 0 { 16 } else { 0 }
+                    + if uv_flags & 32 != 0 { 32 } else { 0 })
                 + index_count * index_format.bytes();
             if needed > data.len() - r.offset {
                 return Err("truncated geometry payload".into());
@@ -349,6 +370,9 @@ impl ScenePacket {
                 uv1: Vec::new(),
                 tangents: Vec::new(),
                 colors: Vec::new(),
+                joints: Vec::new(),
+                weights: Vec::new(),
+                morphs: Vec::new(),
             };
             for _ in 0..vertex_count {
                 geometry.positions.push(r.floats()?);
@@ -384,6 +408,47 @@ impl ScenePacket {
                     geometry.colors.push(r.floats()?);
                 }
             }
+            if uv_flags & 32 != 0 {
+                for _ in 0..vertex_count {
+                    geometry
+                        .joints
+                        .push([r.u32()?, r.u32()?, r.u32()?, r.u32()?]);
+                }
+                for _ in 0..vertex_count {
+                    geometry.weights.push(r.floats()?);
+                }
+            }
+            if uv_flags & 64 != 0 {
+                let count = r.u32()? as usize;
+                if count == 0
+                    || count > crate::deformation::MAX_MORPHS
+                    || count * vertex_count * 36 > 64 * 1024 * 1024
+                {
+                    return Err("morph table exceeds budget".into());
+                }
+                for _ in 0..count {
+                    let flags = r.u32()?;
+                    if flags == 0
+                        || flags > 7
+                        || flags.count_ones() as usize * vertex_count * 12 > data.len() - r.offset
+                    {
+                        return Err("invalid or truncated morph attributes".into());
+                    }
+                    let mut target = crate::deformation::MorphTarget::default();
+                    for (flag, stream) in [
+                        (1, &mut target.positions),
+                        (2, &mut target.normals),
+                        (4, &mut target.tangents),
+                    ] {
+                        if flags & flag != 0 {
+                            for _ in 0..vertex_count {
+                                stream.push(r.floats()?);
+                            }
+                        }
+                    }
+                    geometry.morphs.push(target);
+                }
+            }
             geometry.validate()?;
             geometries.push(geometry);
         }
@@ -402,7 +467,9 @@ impl ScenePacket {
                 let first = r.u32()?;
                 let count = r.u32()?;
                 if semantic
-                    > if opcode >= 23 {
+                    > if opcode >= 25 {
+                        127
+                    } else if opcode >= 23 {
                         5
                     } else if opcode >= 20 {
                         4
@@ -517,6 +584,33 @@ impl ScenePacket {
             return Err("instance patch chains are unsupported".into());
         }
         let mut updates = Vec::new();
+        let mut poses = Vec::new();
+        for _ in 0..pose_counts[1] {
+            let id = r.u32()?;
+            let geometry = r.u32()?;
+            let morphs = r.u32()? as usize;
+            let joints = r.u32()? as usize;
+            if id == 0
+                || morphs > crate::deformation::MAX_MORPHS
+                || joints > crate::deformation::MAX_JOINTS
+            {
+                return Err("pose descriptor exceeds limits".into());
+            }
+            let mut weights = Vec::new();
+            let mut matrices = Vec::new();
+            for _ in 0..morphs {
+                weights.push(r.floats::<1>()?[0]);
+            }
+            for _ in 0..joints {
+                matrices.push(r.floats()?);
+            }
+            poses.push(crate::deformation::Pose {
+                id,
+                geometry,
+                weights,
+                matrices,
+            });
+        }
         let mut changed = HashSet::new();
         for _ in 0..update_count {
             let index = r.u32()? as usize;
@@ -651,6 +745,10 @@ impl ScenePacket {
                 mesh.instance_count = r.u32()?;
                 mesh.validate_material()?;
             }
+            if opcode >= 25 {
+                mesh.pose = r.u32()?;
+                mesh.validate_material()?;
+            }
             updates.push((index, mesh));
         }
         if r.offset != data.len() {
@@ -677,6 +775,8 @@ impl ScenePacket {
             textures,
             geometry_patches,
             retained_instances,
+            retained_poses,
+            poses,
             instances,
             instance_patches,
         })
@@ -725,6 +825,16 @@ impl ScenePacket {
         {
             return Err("visible instance resources must be owned and uploads referenced".into());
         }
+        if meshes
+            .iter()
+            .any(|m| m.pose != 0 && !self.retained_poses.contains(&m.pose))
+            || self
+                .poses
+                .iter()
+                .any(|p| !meshes.iter().any(|m| m.pose == p.id))
+        {
+            return Err("visible poses must be owned and uploads referenced".into());
+        }
         let binary = Some(ViewState {
             view: self.view,
             revision: self.revision,
@@ -732,6 +842,7 @@ impl ScenePacket {
             meshes: meshes.clone(),
             retained_textures: self.retained_textures,
             retained_instances: self.retained_instances,
+            retained_poses: self.retained_poses,
         });
         Ok(Frame {
             environment: None,
@@ -751,6 +862,7 @@ impl ScenePacket {
             textures: self.textures,
             geometry_patches: self.geometry_patches,
             instances: self.instances,
+            poses: self.poses,
             instance_patches: self.instance_patches,
             graph: None,
         })

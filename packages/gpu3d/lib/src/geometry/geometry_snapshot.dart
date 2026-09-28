@@ -43,6 +43,7 @@ final class GeometrySnapshot {
   final VertexLayout layout;
   final Map<VertexSemantic, VertexAttribute> attributes;
   final List<int> indices;
+  final List<MorphTarget> morphTargets;
   final IndexFormat indexFormat;
   final GeometryTopology topology;
   final List<GeometryChange> history;
@@ -53,11 +54,19 @@ final class GeometrySnapshot {
     required this.layout,
     required Map<VertexSemantic, VertexAttribute> attributes,
     required this.indices,
+    required this.morphTargets,
     required this.indexFormat,
     required this.topology,
     required List<GeometryChange> history,
   }) : attributes = Map.unmodifiable(attributes),
        history = List.unmodifiable(history);
+  List<int>? get joints {
+    final values = attributes[VertexSemantic.joints]?.data;
+    return values is Uint16List ? values : values as Uint32List?;
+  }
+
+  List<double>? get weights =>
+      attributes[VertexSemantic.weights]?.data as Float32List?;
   List<double> get positions =>
       attributes[VertexSemantic.position]!.data as Float32List;
   List<double> get normals =>
@@ -102,7 +111,9 @@ final class GeometrySnapshot {
             indices.length * indexFormat.bytesPerIndex +
             (uv0 != null || uv1 != null ? layout.vertexCount * 16 : 0) +
             (tangents == null ? 0 : layout.vertexCount * 16) +
-            (colors == null ? 0 : layout.vertexCount * 16)
+            (colors == null ? 0 : layout.vertexCount * 16) +
+            (joints == null ? 0 : layout.vertexCount * 32) +
+            morphTargets.length * layout.vertexCount * 36
       : primitiveCount * (colors == null ? 120 : 248);
 
   /// Null means the base is incompatible or older than the bounded journal.

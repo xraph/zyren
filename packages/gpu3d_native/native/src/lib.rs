@@ -1,3 +1,4 @@
+pub mod deformation;
 pub mod geometry_update;
 pub mod instances;
 pub mod interop;

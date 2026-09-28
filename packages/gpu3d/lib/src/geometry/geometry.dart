@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'dart:typed_data';
 import '../math/vec3.dart';
+import 'morph_target.dart';
 import 'vertex_attribute.dart';
 import 'vertex_layout.dart';
 part 'geometry_snapshot.dart';
@@ -20,6 +21,7 @@ enum IndexFormat {
 final class GeometryData {
   late final VertexLayout layout;
   final Map<VertexSemantic, VertexAttribute> attributes;
+  final List<MorphTarget> morphTargets;
   late final List<int> indices;
   final IndexFormat indexFormat;
   final GeometryTopology topology;
@@ -28,8 +30,30 @@ final class GeometryData {
     required List<int> indices,
     this.indexFormat = IndexFormat.uint32,
     this.topology = GeometryTopology.triangles,
-  }) : attributes = Map.unmodifiable(attributes) {
+    List<MorphTarget> morphTargets = const [],
+  }) : attributes = Map.unmodifiable(attributes),
+       morphTargets = _morphTargets(morphTargets) {
     layout = VertexLayout(this.attributes);
+    if (attributes.containsKey(VertexSemantic.joints) !=
+        attributes.containsKey(VertexSemantic.weights)) {
+      throw ArgumentError(
+        'Joint indices and weights must be supplied together.',
+      );
+    }
+    if ((morphTargets.isNotEmpty ||
+            attributes.containsKey(VertexSemantic.joints)) &&
+        topology != GeometryTopology.triangles) {
+      throw ArgumentError('Deformation requires triangle geometry.');
+    }
+    for (final target in morphTargets) {
+      if (target.vertexCount != layout.vertexCount ||
+          (target.tangents != null &&
+              !attributes.containsKey(VertexSemantic.tangent))) {
+        throw ArgumentError(
+          'Morph deltas must match their base vertex attributes.',
+        );
+      }
+    }
     if (indices.isEmpty ||
         indices.length > 3000000 ||
         (topology == GeometryTopology.triangles && indices.length % 3 != 0) ||
@@ -59,8 +83,16 @@ final class GeometryData {
         ? Uint16List.fromList(indices).asUnmodifiableView()
         : Uint32List.fromList(indices).asUnmodifiableView();
   }
+  static List<MorphTarget> _morphTargets(List<MorphTarget> values) {
+    if (values.length > 64) {
+      throw ArgumentError('Geometry supports at most 64 morph targets.');
+    }
+    return List.unmodifiable(values);
+  }
+
   int get byteLength => attributes.values.fold<int>(
-    indices.length * indexFormat.bytesPerIndex,
+    indices.length * indexFormat.bytesPerIndex +
+        morphTargets.fold<int>(0, (n, t) => n + t.byteLength),
     (sum, attribute) => sum + attribute.data.lengthInBytes,
   );
 }
@@ -84,6 +116,7 @@ class BufferGeometry {
   List<double>? get uv0 => _snapshot.uv0;
   List<double>? get uv1 => _snapshot.uv1;
   List<double>? get colors => _snapshot.colors;
+  List<MorphTarget> get morphTargets => _snapshot.morphTargets;
   GeometrySnapshot capture() => _snapshot;
 
   BufferGeometry({
@@ -94,6 +127,7 @@ class BufferGeometry {
     GeometryTopology topology = GeometryTopology.triangles,
     List<double>? uv0,
     List<double>? uv1,
+    List<MorphTarget> morphTargets = const [],
     bool dynamic = false,
   }) : this.fromAttributes(
          attributes: {
@@ -119,6 +153,7 @@ class BufferGeometry {
          indices: indices,
          topology: topology,
          indexFormat: indexFormat,
+         morphTargets: morphTargets,
          dynamic: dynamic,
        );
 
@@ -127,6 +162,7 @@ class BufferGeometry {
     required List<int> indices,
     IndexFormat indexFormat = IndexFormat.uint32,
     GeometryTopology topology = GeometryTopology.triangles,
+    List<MorphTarget> morphTargets = const [],
     bool dynamic = false,
   }) : this.fromData(
          GeometryData(
@@ -134,6 +170,7 @@ class BufferGeometry {
            indices: indices,
            indexFormat: indexFormat,
            topology: topology,
+           morphTargets: morphTargets,
          ),
          dynamic: dynamic,
        );
@@ -149,6 +186,7 @@ class BufferGeometry {
       layout: data.layout,
       topology: data.topology,
       attributes: data.attributes,
+      morphTargets: data.morphTargets,
       indexFormat: data.indexFormat,
       indices: data.indices,
       history: const [],
@@ -212,6 +250,7 @@ class BufferGeometry {
       },
       indices: indices,
       indexFormat: indexFormat,
+      morphTargets: morphTargets,
       history: [
         ..._snapshot.history.skip(_snapshot.history.length >= 64 ? 1 : 0),
         GeometryChange(

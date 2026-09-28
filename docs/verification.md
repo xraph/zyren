@@ -1698,3 +1698,50 @@ The macOS runner could not foreground the application. Interactive desktop and
 release-screen inspection remain unverified. This checkpoint does not qualify
 Windows, Linux or physical iOS. Custom shader instancing, per-copy colors,
 skinning, morph targets, picking and full Three.js/Takram parity remain open.
+
+## Native skin and morph checkpoint, 28 September 2026
+
+`MorphTarget`, `Skin`, `Bone` and `SkinnedMesh` now reach native vertex-stage
+GPU deformation. Each mesh owns its morph weights and palette while geometry
+stays shared. Color and shadow passes use the same deformation function. Pose
+changes update a small buffer; source bounds and joint-index validation are
+cached by geometry revision. See [the API](design/deformation.md).
+
+Verification passed:
+
+- 363 core, glTF and geospatial Dart cases, including the final focused tests
+  for capability limits, source-edit invalidation, immutable poses and bounds.
+- 84 native Dart cases with `RUN_NATIVE_GPU=1` and `--concurrency=1`; 69 Flutter
+  facade cases; six model-viewer and three shader-lab widget cases.
+- The 116-case Rust suite with opt-in GPU tests, followed by the new bounded
+  deformation-packet test. All four deformation Rust cases passed again after
+  the source-cache change. The numeric GPU oracle compares positions, normals
+  and tangents with an independent CPU calculation to an absolute error below
+  `1e-5`, including reflected and nonuniform joint transforms.
+- Native material comparisons cover unlit, diffuse and standard shading,
+  normal maps, tangent/color attributes, alpha masks and blending. Morphs on
+  instanced meshes, updated transparent depth, shadow invalidation, rejection
+  recovery and independently retained view poses pass.
+- macOS Metal and physical Pixel Vulkan integrations present with zero readback.
+  Each changed two-joint pose uploads 400 bytes. The second mesh retains its
+  pose, and frame demand stops after pausing. Pixel integration passed again
+  after the final cache change.
+- Widget checks at 1000x700 and 320x640 preserve a usable canvas and working
+  playback, seek and morph controls. Clippy, Dart analysis, formatting, package
+  boundaries and Apple ABI checks pass.
+
+The release entry point `lib/deformation.dart` built as a 24.2 MB APK and
+launched on the Pixel. Its process was confirmed after launch, with no
+error-level output in the process log checked then. The native Metal readback
+at `artifacts/native-deformation.png` was visually inspected and shows two
+independent deformed ribbons and their shadows.
+
+The first native Dart suite was run concurrently and hit the existing
+process-global renderer-count assertion in the HDR decoder test. Running the
+suite with its documented `--concurrency=1` setting passed all 84 cases.
+
+The macOS app could not be foregrounded. Interactive desktop and release-screen
+inspection remain unverified. This checkpoint does not qualify Windows, Linux
+or physical iOS. glTF skin/morph import, morph-weight animation, the remaining
+animation semantics, custom shader deformation and full Three.js/Takram parity
+remain open. Task 6 stays unchecked.

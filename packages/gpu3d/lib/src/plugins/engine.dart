@@ -669,6 +669,7 @@ class SceneEngine {
           ),
         );
       }
+      _checkDeformation(scene, capabilities);
       final instanceCapacity = _instanceCapacity(scene);
       if (instanceCapacity > 0 &&
           (!capabilities.supports(RenderFeature.instancing) ||
@@ -868,3 +869,36 @@ bool _hasVisibleShadows(Object3D node) =>
 int _instanceCapacity(Object3D node) =>
     (node is InstancedMesh ? node.capacity : 0) +
     node.children.fold<int>(0, (n, child) => n + _instanceCapacity(child));
+
+void _checkDeformation(Object3D node, DeviceCapabilities capabilities) {
+  if (!node.visible) return;
+  if (node is Mesh) {
+    final required = <RenderFeature>{};
+    if (node is SkinnedMesh &&
+        (!capabilities.supports(RenderFeature.skinning) ||
+            node.skin.joints.length > capabilities.limits.maxJoints)) {
+      required.add(RenderFeature.skinning);
+    }
+    if (node.geometry.morphTargets.isNotEmpty &&
+        (!capabilities.supports(RenderFeature.morphTargets) ||
+            node.geometry.morphTargets.length >
+                capabilities.limits.maxMorphTargets)) {
+      required.add(RenderFeature.morphTargets);
+    }
+    if (required.isNotEmpty) {
+      throw SceneException(
+        SceneIssue(
+          code: SceneIssueCodes.unsupportedFeature,
+          message:
+              'This mesh exceeds the backend deformation capability or limits.',
+          operation: 'render',
+          requiredFeatures: required,
+          limits: capabilities.limits,
+        ),
+      );
+    }
+  }
+  for (final child in node.children) {
+    _checkDeformation(child, capabilities);
+  }
+}

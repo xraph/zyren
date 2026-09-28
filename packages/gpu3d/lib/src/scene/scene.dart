@@ -13,6 +13,8 @@ import '../spatial/bounds.dart';
 part 'revision.dart';
 part 'primitives.dart';
 part 'instanced_mesh.dart';
+part 'deformation.dart';
+part '../geometry/skin.dart';
 part '../lights/punctual_light.dart';
 part '../lights/hemisphere_light.dart';
 part '../lights/shadow_settings.dart';
@@ -93,6 +95,14 @@ class Object3D with _Revisioned {
   }
 
   Mat4 get localMatrix => Mat4.compose(position, quaternion, scale);
+  Mat4 get worldMatrix {
+    var result = localMatrix;
+    for (var node = parent; node != null; node = node.parent) {
+      result = node.localMatrix * result;
+    }
+    return result;
+  }
+
   Object3D translate(Vec3 offset) {
     position = position + offset;
     return this;
@@ -125,7 +135,7 @@ class Group extends Object3D {
   Group({super.name});
 }
 
-class Mesh extends Object3D {
+class Mesh extends Object3D with _MeshDeformation {
   bool _castShadow = false, _receiveShadow = false;
   bool get castShadow => _castShadow;
   set castShadow(bool value) {
@@ -141,6 +151,7 @@ class Mesh extends Object3D {
     _changed();
   }
 
+  @override
   final BufferGeometry geometry;
   MeshMaterial _material;
   int _renderOrder = 0;

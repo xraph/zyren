@@ -88,3 +88,12 @@ Use the count menu to change visibility, “Move one” for a 112-byte update, a
 “Rotate group” for a transform change with no instance upload. Drag to orbit;
 pinch or scroll to zoom. See [instancing](../../docs/design/instancing.md) for
 bounds, material support, limits and transparent ordering.
+
+## Skin and morph demo
+
+Run `flutter run --release -d <android-device> -t lib/deformation.dart` or
+`flutter run -d macos -t lib/deformation.dart`. Two meshes share a ribbon geometry
+and keep independent two-joint poses. Playback, pose, speed and width controls
+affect the blue mesh. Pausing releases frame demand. See the
+[deformation API](../../docs/design/deformation.md) for binding rules, limits and
+native verification commands.

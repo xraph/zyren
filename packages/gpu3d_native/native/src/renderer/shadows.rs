@@ -27,6 +27,7 @@ struct DepthUniform {
 struct Caster {
     geometry: u32,
     instances: u32,
+    pose: u32,
     instance_count: u32,
     key: crate::resources::registry::ResourceKey,
     model: [f32; 16],
@@ -58,6 +59,7 @@ struct PipelineKey {
     textured: bool,
     colored: bool,
     instanced: bool,
+    deformed: bool,
     mirrored: bool,
     side: u32,
 }
@@ -65,6 +67,7 @@ impl PipelineKey {
     fn new(mesh: &crate::scene::Mesh) -> Self {
         Self {
             instanced: mesh.instances != 0,
+            deformed: mesh.pose != 0,
             textured: mesh.alpha_mode == 1 && mesh.color_map.is_some(),
             colored: mesh.alpha_mode == 1 && mesh.vertex_colors,
             mirrored: Mat4::from_cols_array(&mesh.model).determinant() < 0.,
@@ -78,6 +81,8 @@ pub(super) struct ShadowSystem {
     sampler: wgpu::Sampler,
     layout: wgpu::BindGroupLayout,
     plain: wgpu::PipelineLayout,
+    deformed_plain: wgpu::PipelineLayout,
+    deformed_textured: wgpu::PipelineLayout,
     textured: wgpu::PipelineLayout,
     shader: wgpu::ShaderModule,
     pipelines: HashMap<PipelineKey, wgpu::RenderPipeline>,
@@ -125,7 +130,11 @@ pub(super) fn layout_entries() -> Vec<wgpu::BindGroupLayoutEntry> {
     .collect()
 }
 impl ShadowSystem {
-    pub fn new(device: &wgpu::Device, texture_layout: &wgpu::BindGroupLayout) -> Self {
+    pub fn new(
+        device: &wgpu::Device,
+        texture_layout: &wgpu::BindGroupLayout,
+        deformation_layout: &wgpu::BindGroupLayout,
+    ) -> Self {
         let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("shadow caster"),
             entries: &[wgpu::BindGroupLayoutEntry {
@@ -151,6 +160,20 @@ impl ShadowSystem {
                 min_filter: wgpu::FilterMode::Linear,
                 ..Default::default()
             }),
+            deformed_plain: device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("deformed triangles"),
+                bind_group_layouts: &[Some(&layout), None, Some(deformation_layout)],
+                ..Default::default()
+            }),
+            deformed_textured: device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("deformed triangles"),
+                bind_group_layouts: &[
+                    Some(&layout),
+                    Some(texture_layout),
+                    Some(deformation_layout),
+                ],
+                ..Default::default()
+            }),
             plain: device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("shadow caster"),
                 bind_group_layouts: &[Some(&layout)],
@@ -163,7 +186,16 @@ impl ShadowSystem {
             }),
             shader: device.create_shader_module(wgpu::ShaderModuleDescriptor {
                 label: Some("shadow depth"),
-                source: wgpu::ShaderSource::Wgsl(include_str!("shadow_depth.wgsl").into()),
+                source: wgpu::ShaderSource::Wgsl(
+                    concat!(
+                        include_str!("shadow_depth.wgsl"),
+                        "\n",
+                        include_str!("../deformation.wgsl"),
+                        "\n",
+                        include_str!("deformation_depth.wgsl")
+                    )
+                    .into(),
+                ),
             }),
             layout,
             pipelines: HashMap::new(),
@@ -230,35 +262,47 @@ impl ShadowSystem {
                 attributes: &instance_attributes,
             }));
         }
+        let vertex_entry = if key.instanced {
+            match (key.textured, key.colored) {
+                (true, true) => "vs_instance_depth_textured_colored",
+                (true, false) => "vs_instance_depth_textured",
+                (false, true) => "vs_instance_depth_colored",
+                (false, false) => "vs_instance_depth",
+            }
+        } else if key.textured {
+            if key.colored {
+                "vs_depth_textured_colored"
+            } else {
+                "vs_depth_textured"
+            }
+        } else {
+            if key.colored {
+                "vs_depth_colored"
+            } else {
+                "vs_depth"
+            }
+        };
+        let vertex_entry = if key.deformed {
+            format!("deformed_{vertex_entry}")
+        } else {
+            vertex_entry.to_owned()
+        };
         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("shadow depth"),
-            layout: Some(if key.textured {
+            layout: Some(if key.deformed {
+                if key.textured {
+                    &self.deformed_textured
+                } else {
+                    &self.deformed_plain
+                }
+            } else if key.textured {
                 &self.textured
             } else {
                 &self.plain
             }),
             vertex: wgpu::VertexState {
                 module: &self.shader,
-                entry_point: Some(if key.instanced {
-                    match (key.textured, key.colored) {
-                        (true, true) => "vs_instance_depth_textured_colored",
-                        (true, false) => "vs_instance_depth_textured",
-                        (false, true) => "vs_instance_depth_colored",
-                        (false, false) => "vs_instance_depth",
-                    }
-                } else if key.textured {
-                    if key.colored {
-                        "vs_depth_textured_colored"
-                    } else {
-                        "vs_depth_textured"
-                    }
-                } else {
-                    if key.colored {
-                        "vs_depth_colored"
-                    } else {
-                        "vs_depth"
-                    }
-                }),
+                entry_point: Some(&vertex_entry),
                 compilation_options: Default::default(),
                 buffers: &buffers,
             },
@@ -390,6 +434,9 @@ impl PreparedShadows {
                         buffer.slice(..),
                     );
                 }
+                if mesh.pose != 0 {
+                    pass.set_bind_group(2, &renderer.poses[&mesh.pose].binding, &[]);
+                }
                 pass.draw_indexed(0..count, 0, 0..mesh.instance_count);
             }
         }
@@ -429,6 +476,7 @@ impl Renderer {
                     .map(|m| Caster {
                         geometry: m.geometry,
                         instances: m.instances,
+                        pose: m.pose,
                         instance_count: m.instance_count,
                         key: state.geometries[&m.geometry].key,
                         model: m.model,

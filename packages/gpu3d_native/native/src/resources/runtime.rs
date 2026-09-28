@@ -4,6 +4,7 @@ use super::{
     upload::{Command, MAX_BYTES, Operation, checked_upload_range},
 };
 use std::time::Duration;
+mod deformation;
 mod instances;
 mod scene_updates;
 
@@ -16,6 +17,7 @@ enum Resource {
         uv: Option<wgpu::Buffer>,
         tangents: Option<wgpu::Buffer>,
         colors: Option<wgpu::Buffer>,
+        deformation: Option<wgpu::Buffer>,
     },
     Buffer {
         buffer: wgpu::Buffer,
@@ -268,6 +270,15 @@ impl ResourceStore {
                     | wgpu::BufferUsages::COPY_DST,
             })
         });
+        let deformation = (geometry.deformation_bytes() > 0).then(|| {
+            device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("deformation source"),
+                contents: bytemuck::cast_slice(&geometry.deformation_values()),
+                usage: wgpu::BufferUsages::STORAGE
+                    | wgpu::BufferUsages::COPY_SRC
+                    | wgpu::BufferUsages::COPY_DST,
+            })
+        });
         let key = self.registry.insert(
             Resource::Geometry {
                 vertices,
@@ -276,6 +287,7 @@ impl ResourceStore {
                 index_format: index_format.native(),
                 tangents,
                 colors,
+                deformation,
                 uv,
             },
             bytes,
@@ -315,6 +327,14 @@ impl ResourceStore {
             unreachable!()
         };
         (vertices, indices, *count, uv.as_ref(), *index_format)
+    }
+    pub(crate) fn geometry_deformation(&self, key: ResourceKey) -> Option<&wgpu::Buffer> {
+        let Resource::Geometry { deformation, .. } =
+            self.registry.resolve(key).expect("retained geometry")
+        else {
+            return None;
+        };
+        deformation.as_ref()
     }
     pub(crate) fn geometry_colors(&self, key: ResourceKey) -> Option<&wgpu::Buffer> {
         let Resource::Geometry { colors, .. } =

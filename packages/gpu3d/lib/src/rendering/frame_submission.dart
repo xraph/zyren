@@ -52,6 +52,8 @@ class SceneSnapshot {
   int get hemisphereLightCount => _hemispheres.length;
   final Map<int, GeometrySnapshot> _geometries;
   final Map<int, InstanceSnapshot> _instances;
+  final Map<int, DeformationSnapshot> _poses;
+  bool get hasDeformation => _poses.isNotEmpty;
   bool get hasInstances => _instances.isNotEmpty;
   final Map<int, TextureImage> _textures;
   final List<double> _background, _light;
@@ -79,6 +81,7 @@ class SceneSnapshot {
     this._hemispheres,
     this._geometries,
     this._instances,
+    this._poses,
     this._textures,
     this._background,
     this.backgroundOpacity,
@@ -92,6 +95,7 @@ class SceneSnapshot {
         geometries = <int, GeometrySnapshot>{};
     final textures = <int, TextureImage>{};
     final instances = <int, InstanceSnapshot>{};
+    final poses = <int, DeformationSnapshot>{};
     var instanceCapacity = 0;
     final lights = <Map<String, Object>>[];
     final hemispheres = <Map<String, Object>>[];
@@ -181,6 +185,21 @@ class SceneSnapshot {
           }
           instances[instance.id] = instance;
         }
+        if (node is SkinnedMesh) {
+          for (final joint in node.skin.joints) {
+            Object3D? owner = joint;
+            while (owner != null && !identical(owner, scene)) {
+              owner = owner.parent;
+            }
+            if (owner == null) {
+              throw ArgumentError(
+                'Skin joints must belong to the rendered scene.',
+              );
+            }
+          }
+        }
+        final pose = node.captureDeformation();
+        if (pose != null) poses[pose.id] = pose;
         final geometry = node.geometry.capture();
         geometries[geometry.id] = geometry;
         final map = node.material.colorMap;
@@ -192,9 +211,9 @@ class SceneSnapshot {
             throw ArgumentError('Vertex colors require a color attribute.');
           }
           if (node.material case ShaderMaterial(:final program)) {
-            if (instance != null) {
+            if (instance != null || pose != null) {
               throw UnsupportedError(
-                "InstancedMesh currently requires a built-in material.",
+                "Instancing and deformation require a built-in material.",
               );
             }
             if (program.isClosed) {
@@ -222,6 +241,7 @@ class SceneSnapshot {
             _freeze(<String, Object>{
                   'geometry': geometry.id,
                   'instances': instance?.id ?? 0,
+                  'pose': pose?.id ?? 0,
                   'instance_count': node is InstancedMesh ? node.count : 1,
                   if (node.castShadow) 'cast_shadow': true,
                   if (node.receiveShadow) 'receive_shadow': true,
@@ -278,6 +298,7 @@ class SceneSnapshot {
       List.unmodifiable(hemispheres),
       Map.unmodifiable(geometries),
       Map.unmodifiable(instances),
+      Map.unmodifiable(poses),
       Map.unmodifiable(textures),
       List.unmodifiable(scene.background?.toList() ?? [0.0, 0.0, 0.0]),
       scene.background == null
@@ -369,9 +390,10 @@ class FrameSubmission {
         environment != null ||
         scene.meshShaders.isNotEmpty ||
         scene.hasShadows ||
-        scene.hasInstances) {
+        scene.hasInstances ||
+        scene.hasDeformation) {
       throw UnsupportedError(
-        'Instancing, shadows and GPU programs require binary native submissions.',
+        'Deformation, instancing, shadows and GPU programs require binary native submissions.',
       );
     }
     if (scene._textures.isNotEmpty) {

@@ -84,10 +84,15 @@ final class ShadowSnapshot {
       final geometry = scene._geometries[mesh['geometry']]!;
       final model = vm.Matrix4.fromList((mesh['model'] as List).cast<double>());
       final instance = scene._instances[mesh['instances']];
+      final deformedBounds = scene._poses[mesh['pose']]?.bounds;
       final corners = instance == null
-          ? geometry.bounds.corners
+          ? (deformedBounds?.corners ?? geometry.bounds.corners)
           : instance
-                .boundsFor(geometry, count: mesh['instance_count'] as int)
+                .boundsFor(
+                  geometry,
+                  count: mesh['instance_count'] as int,
+                  localBounds: deformedBounds,
+                )
                 .corners;
       bounds.add([
         for (final corner in corners) model.transformed3(corner.toVectorMath()),

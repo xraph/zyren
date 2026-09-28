@@ -19,7 +19,7 @@ pub(super) struct Draw {
 }
 pub(super) fn sorted(
     frame: &Frame,
-    center: impl Fn(u32) -> Vec3,
+    center: impl Fn(&crate::scene::Mesh) -> Vec3,
     transform: impl Fn(u32, u32) -> Mat4,
 ) -> Vec<Draw> {
     let vp = Mat4::from_cols_array(&frame.view_projection);
@@ -40,7 +40,7 @@ pub(super) fn sorted(
             } else {
                 transform(mesh.instances, instance)
             };
-            let clip = mvp * local * center(mesh.geometry).extend(1.);
+            let clip = mvp * local * center(mesh).extend(1.);
             let depth = if clip.w.abs() > 1e-20 {
                 clip.z / clip.w
             } else {

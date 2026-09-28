@@ -9,6 +9,7 @@ pub(super) struct PipelineKey {
     tangent: bool,
     colored: bool,
     instanced: bool,
+    deformed: bool,
     side: u32,
     mirrored: bool,
     blend: bool,
@@ -22,6 +23,7 @@ impl PipelineKey {
             format,
             colored: mesh.vertex_colors,
             instanced: mesh.instances != 0,
+            deformed: mesh.pose != 0,
             textured: mesh.texture_maps().next().is_some(),
             tangent: tangent && mesh.pbr.is_some() && mesh.texture_maps().next().is_some(),
             standard: mesh.pbr.is_some(),
@@ -38,8 +40,12 @@ impl PipelineKey {
 pub(super) struct MeshPipelines {
     shader: wgpu::ShaderModule,
     plain: wgpu::PipelineLayout,
+    deformed_plain: wgpu::PipelineLayout,
+    deformed_textured: wgpu::PipelineLayout,
     textured: wgpu::PipelineLayout,
     standard_plain: wgpu::PipelineLayout,
+    deformed_standard_plain: wgpu::PipelineLayout,
+    deformed_standard_textured: wgpu::PipelineLayout,
     standard_textured: wgpu::PipelineLayout,
     cache: HashMap<PipelineKey, wgpu::RenderPipeline>,
 }
@@ -50,6 +56,7 @@ impl MeshPipelines {
         pbr_layout: &wgpu::BindGroupLayout,
         texture_layout: &wgpu::BindGroupLayout,
         standard_texture_layout: &wgpu::BindGroupLayout,
+        deformation_layout: &wgpu::BindGroupLayout,
     ) -> Self {
         Self {
             shader: device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -57,6 +64,10 @@ impl MeshPipelines {
                 source: wgpu::ShaderSource::Wgsl(
                     concat!(
                         include_str!("../mesh.wgsl"),
+                        "\n",
+                        include_str!("../deformation.wgsl"),
+                        "\n",
+                        include_str!("../deformation_mesh.wgsl"),
                         "\n",
                         include_str!("primitives.wgsl"),
                         "\n",
@@ -67,6 +78,34 @@ impl MeshPipelines {
                     .into(),
                 ),
             }),
+            deformed_plain: device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("deformed triangles"),
+                bind_group_layouts: &[Some(layout), None, Some(deformation_layout)],
+                ..Default::default()
+            }),
+            deformed_textured: device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("deformed triangles"),
+                bind_group_layouts: &[Some(layout), Some(texture_layout), Some(deformation_layout)],
+                ..Default::default()
+            }),
+            deformed_standard_plain: device.create_pipeline_layout(
+                &wgpu::PipelineLayoutDescriptor {
+                    label: Some("deformed triangles"),
+                    bind_group_layouts: &[Some(pbr_layout), None, Some(deformation_layout)],
+                    ..Default::default()
+                },
+            ),
+            deformed_standard_textured: device.create_pipeline_layout(
+                &wgpu::PipelineLayoutDescriptor {
+                    label: Some("deformed triangles"),
+                    bind_group_layouts: &[
+                        Some(pbr_layout),
+                        Some(standard_texture_layout),
+                        Some(deformation_layout),
+                    ],
+                    ..Default::default()
+                },
+            ),
             plain: device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: None,
                 bind_group_layouts: &[Some(layout)],
@@ -180,9 +219,60 @@ impl MeshPipelines {
                 attributes: &instance_attributes,
             }));
         }
+        let vertex_entry = if key.instanced {
+            match (key.tangent, key.textured, key.colored) {
+                (true, _, true) => "vs_instance_standard_tangent_colored",
+                (true, _, false) => "vs_instance_standard_tangent",
+                (_, true, true) => "vs_instance_textured_colored",
+                (_, true, false) => "vs_instance_textured",
+                (_, _, true) => "vs_instance_colored",
+                _ => "vs_instance_main",
+            }
+        } else if key.primitive_kind == 1 {
+            if key.colored {
+                "vs_line_colored"
+            } else {
+                "vs_line"
+            }
+        } else if key.primitive_kind == 2 {
+            if key.colored {
+                "vs_point_colored"
+            } else {
+                "vs_point"
+            }
+        } else if key.tangent {
+            if key.colored {
+                "vs_standard_tangent_colored"
+            } else {
+                "vs_standard_tangent"
+            }
+        } else if key.textured {
+            if key.colored {
+                "vs_textured_colored"
+            } else {
+                "vs_textured"
+            }
+        } else {
+            if key.colored { "vs_colored" } else { "vs_main" }
+        };
+        let vertex_entry = if key.deformed {
+            format!("deformed_{vertex_entry}")
+        } else {
+            vertex_entry.to_owned()
+        };
         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("native mesh state"),
-            layout: Some(if key.standard && key.textured {
+            layout: Some(if key.deformed {
+                if key.standard && key.textured {
+                    &self.deformed_standard_textured
+                } else if key.standard {
+                    &self.deformed_standard_plain
+                } else if key.textured {
+                    &self.deformed_textured
+                } else {
+                    &self.deformed_plain
+                }
+            } else if key.standard && key.textured {
                 &self.standard_textured
             } else if key.standard {
                 &self.standard_plain
@@ -193,42 +283,7 @@ impl MeshPipelines {
             }),
             vertex: wgpu::VertexState {
                 module: &self.shader,
-                entry_point: Some(if key.instanced {
-                    match (key.tangent, key.textured, key.colored) {
-                        (true, _, true) => "vs_instance_standard_tangent_colored",
-                        (true, _, false) => "vs_instance_standard_tangent",
-                        (_, true, true) => "vs_instance_textured_colored",
-                        (_, true, false) => "vs_instance_textured",
-                        (_, _, true) => "vs_instance_colored",
-                        _ => "vs_instance_main",
-                    }
-                } else if key.primitive_kind == 1 {
-                    if key.colored {
-                        "vs_line_colored"
-                    } else {
-                        "vs_line"
-                    }
-                } else if key.primitive_kind == 2 {
-                    if key.colored {
-                        "vs_point_colored"
-                    } else {
-                        "vs_point"
-                    }
-                } else if key.tangent {
-                    if key.colored {
-                        "vs_standard_tangent_colored"
-                    } else {
-                        "vs_standard_tangent"
-                    }
-                } else if key.textured {
-                    if key.colored {
-                        "vs_textured_colored"
-                    } else {
-                        "vs_textured"
-                    }
-                } else {
-                    if key.colored { "vs_colored" } else { "vs_main" }
-                }),
+                entry_point: Some(&vertex_entry),
                 compilation_options: Default::default(),
                 buffers: &buffers,
             },

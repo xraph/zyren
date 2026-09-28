@@ -11,6 +11,7 @@ use wgpu::util::DeviceExt;
 
 use crate::scene::{Frame, pixel_len};
 mod composition;
+mod deformation;
 mod draw_order;
 mod instances;
 mod materials;
@@ -38,6 +39,7 @@ struct Uniforms {
 }
 
 struct GpuGeometry {
+    deformation_bounds: crate::deformation::SourceBounds,
     key: crate::resources::registry::ResourceKey,
     recipe: std::sync::Arc<crate::scene::Geometry>,
     center: glam::Vec3,
@@ -110,6 +112,8 @@ pub struct RendererState {
     shadows: shadows::ShadowSystem,
     geometries: HashMap<u32, GpuGeometry>,
     instances: HashMap<u32, instances::GpuInstances>,
+    poses: HashMap<u32, deformation::GpuPose>,
+    deformation_layout: wgpu::BindGroupLayout,
     resources: crate::resources::ResourceStore,
     shaders: crate::shaders::ShaderStore,
     graphs: crate::render_graph::GraphStore,
@@ -232,13 +236,15 @@ impl Renderer {
         let environment_defaults = environment::Defaults::new(&device);
         let texture_layout = textures::layout(&device, 1);
         let standard_texture_layout = textures::layout(&device, 5);
-        let shadows = shadows::ShadowSystem::new(&device, &texture_layout);
+        let deformation_layout = deformation::layout(&device);
+        let shadows = shadows::ShadowSystem::new(&device, &texture_layout, &deformation_layout);
         let pipelines = pipelines::MeshPipelines::new(
             &device,
             &layout,
             &pbr_layout,
             &texture_layout,
             &standard_texture_layout,
+            &deformation_layout,
         );
         Ok(Self {
             state: Some(Box::new(RendererState {
@@ -272,6 +278,8 @@ impl Renderer {
                 layout,
                 geometries: HashMap::new(),
                 instances: HashMap::new(),
+                poses: HashMap::new(),
+                deformation_layout,
                 resources: crate::resources::ResourceStore::default(),
                 shaders: crate::shaders::ShaderStore::default(),
                 graphs: crate::render_graph::GraphStore::default(),
@@ -485,6 +493,7 @@ impl Renderer {
         }
         self.evict_textures()?;
         self.evict_instances()?;
+        self.evict_poses()?;
         let state = self.state.as_mut().unwrap();
         state.resources.collect(&state.device).map_err(|e| {
             state.failure = Some(e.to_string());
@@ -550,6 +559,7 @@ impl Renderer {
                 return Err("material and geometry topology mismatch".into());
             }
         }
+        let (pose_bytes, pose_count) = self.validate_poses(frame)?;
         let (texture_bytes, texture_count) = self.validate_textures(frame)?;
         let (reusable_instances, instance_bytes, instance_count) =
             self.validate_instances(frame)?;
@@ -583,7 +593,7 @@ impl Renderer {
             .sum();
         self.resources
             .check_scene_capacity(
-                (bytes + texture_bytes + instance_bytes) as u64,
+                (bytes + texture_bytes + instance_bytes + pose_bytes) as u64,
                 frame
                     .geometries
                     .iter()
@@ -592,7 +602,8 @@ impl Renderer {
                     })
                     .count()
                     + texture_count
-                    + instance_count,
+                    + instance_count
+                    + pose_count,
             )
             .map_err(|e| e.to_string())?;
         // Preflight all CPU validation before any existing ownership changes.
@@ -626,12 +637,14 @@ impl Renderer {
                         key,
                         recipe: std::sync::Arc::new(geometry.clone()),
                         center: draw_order::geometry_center(geometry),
+                        deformation_bounds: crate::deformation::SourceBounds::new(geometry),
                     },
                 );
             }
         }
         self.upload_textures(frame)?;
         self.upload_instances(frame, &reusable_instances)?;
+        self.upload_poses(frame)?;
         let state = frame
             .binary
             .clone()
@@ -641,6 +654,7 @@ impl Renderer {
                 retained: frame.meshes.iter().map(|m| m.geometry).collect(),
                 meshes: Vec::new(),
                 retained_instances: HashSet::new(),
+                retained_poses: HashSet::new(),
                 retained_textures: frame
                     .meshes
                     .iter()
@@ -847,7 +861,13 @@ impl Renderer {
             });
             let draws = draw_order::sorted(
                 frame,
-                |id| self.geometries[&id].center,
+                |mesh| {
+                    if mesh.pose == 0 {
+                        self.geometries[&mesh.geometry].center
+                    } else {
+                        self.poses[&mesh.pose].center
+                    }
+                },
                 |id, index| {
                     Mat4::from_cols_array(&self.instances[&id].recipe.transforms[index as usize])
                 },
@@ -915,6 +935,9 @@ impl Renderer {
                         buffer.slice(..),
                     );
                 }
+                if mesh.pose != 0 {
+                    pass.set_bind_group(2, &self.poses[&mesh.pose].binding, &[]);
+                }
                 pass.draw_indexed(0..count, 0, draw.instances);
             }
         }
@@ -935,6 +958,7 @@ impl Renderer {
             .map(|g| g.key)
             .chain(self.textures.values().map(|t| t.key))
             .chain(self.instances.values().map(|i| i.key))
+            .chain(self.poses.values().map(|p| p.key))
             .chain(environment.resources.iter().copied())
             .chain(
                 materials

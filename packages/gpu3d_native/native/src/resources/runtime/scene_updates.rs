@@ -24,6 +24,7 @@ impl ResourceStore {
             uv,
             tangents,
             colors,
+            deformation,
             index_format,
         } = self.registry.resolve(base)?
         else {
@@ -38,6 +39,7 @@ impl ResourceStore {
         if colors.is_none() && patch.gpu_ranges().iter().any(|range| range.0 == 3) {
             return Err(ResourceError::InvalidRange);
         }
+        let old_deformation = deformation.clone();
         let old_colors = colors.clone();
         let old_tangents = tangents.clone();
         let index_format = *index_format;
@@ -73,10 +75,16 @@ impl ResourceStore {
         let tangents = old_tangents
             .as_ref()
             .map(|b| if reuse { b.clone() } else { clone_buffer(b) });
+        let deformation = old_deformation
+            .as_ref()
+            .map(|b| if reuse { b.clone() } else { clone_buffer(b) });
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: Some("geometry ranges"),
         });
         if !reuse {
+            if let (Some(old), Some(new)) = (&old_deformation, &deformation) {
+                encoder.copy_buffer_to_buffer(old, 0, new, 0, old.size());
+            }
             encoder.copy_buffer_to_buffer(&old_vertices, 0, &vertices, 0, old_vertices.size());
             encoder.copy_buffer_to_buffer(&old_indices, 0, &indices, 0, old_indices.size());
             if let (Some(old), Some(new)) = (&old_colors, &colors) {
@@ -162,6 +170,7 @@ impl ResourceStore {
                     uv,
                     tangents,
                     colors,
+                    deformation,
                     index_format,
                 },
                 geometry.byte_length() as u64,

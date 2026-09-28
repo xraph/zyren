@@ -72,6 +72,7 @@ fn frame(count: usize) -> Frame {
         meshes: f.meshes.clone(),
         retained_textures: Default::default(),
         retained_instances: [1].into(),
+        retained_poses: Default::default(),
     });
     f
 }

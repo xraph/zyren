@@ -23,6 +23,8 @@ enum RenderFeature {
   environmentLighting,
   shadows,
   instancing,
+  skinning,
+  morphTargets,
 }
 
 /// Limits enforced by the backend, even if the adapter can allocate more.
@@ -30,11 +32,14 @@ class DeviceLimits {
   final int maxTextureDimension2D;
   final int maxGeometryBytes;
   final int maxPunctualLights, maxHemisphereLights, maxInstances;
+  final int maxJoints, maxMorphTargets;
   final Set<int> sampleCounts;
   DeviceLimits({
     required this.maxTextureDimension2D,
     required this.maxGeometryBytes,
     this.maxInstances = 0,
+    this.maxJoints = 0,
+    this.maxMorphTargets = 0,
     this.maxPunctualLights = 0,
     this.maxHemisphereLights = 0,
     Set<int> sampleCounts = const {1},
@@ -42,6 +47,8 @@ class DeviceLimits {
     if (maxTextureDimension2D < 1 ||
         maxGeometryBytes < 1 ||
         maxInstances < 0 ||
+        maxJoints < 0 ||
+        maxMorphTargets < 0 ||
         maxPunctualLights < 0 ||
         maxHemisphereLights < 0 ||
         sampleCounts.isEmpty ||

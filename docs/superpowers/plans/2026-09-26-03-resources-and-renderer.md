@@ -516,6 +516,17 @@ checks. Metal and physical Pixel Vulkan presentation pass with zero readback.
 See [instancing](../../design/instancing.md). Custom shader instancing, per-copy
 colors and skin/morph deformation remain open; the full task stays unchecked.
 
+Checkpoint, 28 September 2026: native vertex-stage skinning and morph targets
+now use immutable source geometry with per-mesh pose buffers. Metal and physical
+Pixel Vulkan checks cover material pixels, independent poses, current bounds,
+shadow invalidation and zero-readback presentation. A GPU numeric oracle checks
+position, normal and tangent errors below 1e-5. The demo adds playback, seeking,
+speed and morph controls and verifies pause-to-idle behavior. See
+[deformation](../../design/deformation.md). glTF skin/morph loading, morph-weight
+animation tracks, completion events, additive mixing and finite repetition
+counts remain open, so Task 6 stays unchecked.
+
+
 **Files:** Create core `scene/instanced_mesh.dart`, `animation/{clip,track,mixer,action}.dart`,
 `geometry/{skin,morph_target}.dart`; native `passes/deformation.rs`, WGSL,
 `test/animation_test.dart`, `native/tests/deformation_render.rs` and viewer controls.

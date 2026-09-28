@@ -11,6 +11,9 @@ fn triangle() -> Geometry {
         uv1: vec![],
         tangents: vec![],
         colors: vec![],
+        joints: vec![],
+        weights: vec![],
+        morphs: vec![],
     }
 }
 #[test]

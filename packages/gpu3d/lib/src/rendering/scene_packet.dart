@@ -11,6 +11,7 @@ final class EncodedScenePacket {
   final Map<int, GeometrySnapshot> _uploaded;
   final Set<int> _uploadedTextures;
   final Map<int, InstanceSnapshot> _uploadedInstances;
+  final Map<int, DeformationSnapshot> _uploadedPoses;
   EncodedScenePacket._(
     this.bytes,
     this.uploadedBytes,
@@ -21,6 +22,7 @@ final class EncodedScenePacket {
     this._uploaded,
     this._uploadedTextures,
     this._uploadedInstances,
+    this._uploadedPoses,
   );
 }
 
@@ -33,6 +35,7 @@ final class ScenePacketEncoder {
   Map<int, GeometrySnapshot> _uploaded = {};
   Set<int> _uploadedTextures = {};
   Map<int, InstanceSnapshot> _uploadedInstances = {};
+  Map<int, DeformationSnapshot> _uploadedPoses = {};
   ScenePacketEncoder({required this.viewId}) {
     if (viewId <= 0) throw ArgumentError.value(viewId, 'viewId');
   }
@@ -56,13 +59,6 @@ final class ScenePacketEncoder {
     final patches = <_GeometryPatch>[];
     for (final geometry in scene._geometries.values) {
       if (!visible.contains(geometry.id)) continue;
-      if (geometry.attributes.keys.any(
-        (s) => s.index > VertexSemantic.color.index,
-      )) {
-        throw UnsupportedError(
-          'This renderer supports position, normal, UV, tangent and color attributes.',
-        );
-      }
       if (geometry.topology != GeometryTopology.triangles &&
           (geometry.uv0 != null ||
               geometry.uv1 != null ||
@@ -74,7 +70,10 @@ final class ScenePacketEncoder {
       final base = uploaded[geometry.logicalId];
       if (base?.id == geometry.id) continue;
       final ranges =
-          base == null || geometry.topology != GeometryTopology.triangles
+          base == null ||
+              geometry.topology != GeometryTopology.triangles ||
+              geometry.joints != null ||
+              geometry.morphTargets.isNotEmpty
           ? null
           : geometry.changesSince(base);
       if (base == null || ranges == null) {
@@ -130,6 +129,21 @@ final class ScenePacketEncoder {
         if (uploadedInstances[instance.logicalId] case final uploaded?)
           uploaded.id,
     };
+    final poseLogicalIds = scene._poses.values.map((v) => v.logicalId).toSet();
+    final uploadedPoses = Map<int, DeformationSnapshot>.of(_uploadedPoses)
+      ..removeWhere((id, _) => !poseLogicalIds.contains(id));
+    final visiblePoses = scene._meshes.map((m) => m['pose']).toSet();
+    final poseUploads = <DeformationSnapshot>[];
+    for (final pose in scene._poses.values) {
+      if (!visiblePoses.contains(pose.id)) continue;
+      if (uploadedPoses[pose.logicalId]?.id == pose.id) continue;
+      poseUploads.add(pose);
+      uploadedPoses[pose.logicalId] = pose;
+    }
+    final ownedPoses = {
+      for (final pose in scene._poses.values)
+        if (uploadedPoses[pose.logicalId] case final uploaded?) uploaded.id,
+    };
     final updates = <int>[];
     // Choose full replacement before accessing the nullable baseline. Keep this
     // guard explicit for AOT compilation as well as first-frame ownership.
@@ -171,12 +185,22 @@ final class ScenePacketEncoder {
     for (final (_, _, ranges) in instancePatches) {
       uploadBytes += ranges.fold<int>(0, (n, range) => n + range.count * 112);
     }
+    uploadBytes += poseUploads.fold<int>(
+      0,
+      (n, pose) => n + pose.gpuByteLength,
+    );
     if (vertices > 1000000 ||
         indices > 3000000 ||
         uploadBytes > 64 * 1024 * 1024) {
       throw ArgumentError('Scene resource upload exceeds the frame budget.');
     }
-    final opcode = scene.hasInstances
+    final opcode =
+        scene.hasDeformation ||
+            scene._geometries.values.any(
+              (g) => g.joints != null || g.morphTargets.isNotEmpty,
+            )
+        ? 25
+        : scene.hasInstances
         ? 24
         : scene._geometries.values.any((g) => g.colors != null) ||
               scene._meshes.any((m) => m['vertex_colors'] == true)
@@ -286,6 +310,10 @@ final class ScenePacketEncoder {
       body.u32(instanceUploads.length);
       body.u32(instancePatches.length);
     }
+    if (opcode >= 25) {
+      body.u32(ownedPoses.length);
+      body.u32(poseUploads.length);
+    }
     for (final id in owned) {
       body.u32(id);
     }
@@ -294,6 +322,11 @@ final class ScenePacketEncoder {
     }
     if (opcode >= 24) {
       for (final id in ownedInstances) {
+        body.u32(id);
+      }
+    }
+    if (opcode >= 25) {
+      for (final id in ownedPoses) {
         body.u32(id);
       }
     }
@@ -323,7 +356,9 @@ final class ScenePacketEncoder {
             (geometry.uv1 == null ? 0 : 2) |
             (geometry.indexFormat == IndexFormat.uint16 ? 4 : 0) |
             (geometry.tangents == null ? 0 : 8) |
-            (geometry.colors == null ? 0 : 16),
+            (geometry.colors == null ? 0 : 16) |
+            (geometry.joints == null ? 0 : 32) |
+            (geometry.morphTargets.isEmpty ? 0 : 64),
       );
       if (opcode >= 16) body.u32(geometry.topology.index);
       body.floats(geometry.positions);
@@ -333,6 +368,23 @@ final class ScenePacketEncoder {
       if (geometry.uv1 != null) body.floats(geometry.uv1!);
       if (geometry.tangents != null) body.floats(geometry.tangents!);
       if (geometry.colors != null) body.floats(geometry.colors!);
+      if (geometry.joints != null) {
+        body.integers(geometry.joints!);
+        body.floats(geometry.weights!);
+      }
+      if (geometry.morphTargets.isNotEmpty) {
+        body.u32(geometry.morphTargets.length);
+        for (final target in geometry.morphTargets) {
+          body.u32(
+            (target.positions == null ? 0 : 1) |
+                (target.normals == null ? 0 : 2) |
+                (target.tangents == null ? 0 : 4),
+          );
+          if (target.positions != null) body.floats(target.positions!);
+          if (target.normals != null) body.floats(target.normals!);
+          if (target.tangents != null) body.floats(target.tangents!);
+        }
+      }
     }
     for (final patch in patches) {
       body.u32(patch.geometry.id);
@@ -374,6 +426,18 @@ final class ScenePacketEncoder {
         for (var i = range.first; i < range.first + range.count; i++) {
           body.floats(instance.transforms[i].storage);
         }
+      }
+    }
+    for (final pose in poseUploads) {
+      body.integers([
+        pose.id,
+        pose.geometry.id,
+        pose.weights.length,
+        pose.matrices.length,
+      ]);
+      body.floats(pose.weights);
+      for (final matrix in pose.matrices) {
+        body.floats(matrix.storage);
       }
     }
     for (final i in updates) {
@@ -434,6 +498,7 @@ final class ScenePacketEncoder {
         body.u32(mesh['instances'] as int);
         body.u32(mesh['instance_count'] as int);
       }
+      if (opcode >= 25) body.u32(mesh['pose'] as int);
     }
     final payload = body.finish();
     if (payload.length > 66 * 1024 * 1024 - 24) {
@@ -456,6 +521,7 @@ final class ScenePacketEncoder {
       uploaded,
       uploadedTextures,
       uploadedInstances,
+      uploadedPoses,
     );
   }
 
@@ -469,6 +535,7 @@ final class ScenePacketEncoder {
     _uploaded = packet._uploaded;
     _uploadedTextures = packet._uploadedTextures;
     _uploadedInstances = packet._uploadedInstances;
+    _uploadedPoses = packet._uploadedPoses;
     _accepted = packet._revision;
   }
 }
@@ -539,6 +606,7 @@ bool _sameMesh(Map<String, Object> a, Map<String, Object> b) {
   for (final field in [
     'geometry',
     'instances',
+    'pose',
     'instance_count',
     'unlit',
     'vertex_colors',

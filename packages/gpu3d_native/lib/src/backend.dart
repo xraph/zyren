@@ -134,6 +134,8 @@ class NativeBackend implements NativeGpuBackend {
       RenderFeature.environmentLighting,
       RenderFeature.shadows,
       RenderFeature.instancing,
+      RenderFeature.skinning,
+      RenderFeature.morphTargets,
       RenderFeature.compute,
       RenderFeature.storageTextures,
       if (_experimentalAppleSurfaces && NativeSurfaces().appleAvailable)
@@ -143,6 +145,8 @@ class NativeBackend implements NativeGpuBackend {
       maxTextureDimension2D: 4096,
       maxGeometryBytes: 64 * 1024 * 1024,
       maxInstances: 100000,
+      maxJoints: 256,
+      maxMorphTargets: 64,
       maxPunctualLights: 16,
       maxHemisphereLights: 4,
     ),

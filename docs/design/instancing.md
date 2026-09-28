@@ -65,8 +65,9 @@ copy. The sort uses transformed geometry centers and `renderOrder`, with the
 same limitations for intersecting transparent surfaces as ordinary meshes.
 Changing the camera does not reorder or re-upload the instance buffer.
 
-`ShaderMaterial`, point/line geometry, skinning and morph deformation are not
-supported by this profile. Custom shader instancing needs an explicit vertex
+Shared [morph deformation](deformation.md) applies before the instance transforms.
+`ShaderMaterial`, point/line geometry and a separate skin palette per instance
+are not supported by this profile. Custom shader instancing needs an explicit vertex
 contract and remains open. No CPU expansion or browser renderer is selected.
 
 ## Run and verify
