@@ -41,6 +41,12 @@ wrap/filter settings and supplied or native-generated mip levels. Set
 and JPEG on a CPU isolate with bounded admission. Dynamic geometry uploads
 merged attribute ranges while preserving captures held by other views.
 
+`NativeBufferDecoder` decodes meshopt attributes and indices on a CPU isolate.
+It supports octahedral, quaternion and exponential filters. You can lower its
+output budget per call; the native ceiling is 64 MiB, with at most two active
+calls. The decoder creates no GPU device. See the synthetic fixtures in
+`test_assets/compression` and their regeneration command.
+
 Worker requests carry a generation and a monotonic request ID. Worker exit or
 error settles every pending request. Stale and duplicate replies are ignored.
 Explicit close remains the normal path; native finalization also releases the

@@ -316,6 +316,7 @@ class Tiles3DStreamer {
         services: AssetServices(
           resolver: tracker,
           imageDecoder: services.imageDecoder,
+          bufferDecoder: services.bufferDecoder,
           policy: services.policy,
           onCleanupError: services.onCleanupError,
           limits: AssetLimits(

@@ -75,7 +75,8 @@ unknown optional extensions produce warnings and use the core fallback data.
 | `KHR_lights_punctual` | Directional, point and spot lights, up to sixteen per scene; independent node instances |
 | Animations, skins, morphs, vertex colors and imported cameras | Explicit unsupported-feature error |
 | PBR or textured lines/points, UV sets above one, singular or out-of-range native transforms | Explicit unsupported-feature error |
-| Draco, meshopt, Basis/KTX2 and other required extensions | Explicit unsupported-feature error |
+| `EXT_meshopt_compression` | Attributes, triangle/index sequences and all three filters with a configured `BufferDecoder`; optional extension uses fallback data when no codec is available |
+| Draco, Basis/KTX2 and other required extensions | Explicit unsupported-feature error |
 
 ## Limits and workers
 
@@ -86,6 +87,11 @@ payloads. Geometry accounting includes intermediate accessor arrays, generated
 normals and owned copies. Image accounting includes decoder output and owned
 texture copies. These are payload limits, not a process-memory ceiling. Renderers
 apply their own frame upload and GPU residency budgets when a model is drawn.
+
+Flutter's default asset services include the native meshopt decoder. For a Dart
+application, pass `NativeBufferDecoder()` as `AssetServices.bufferDecoder`.
+Decoded views count against the job budget before accessor conversion. Fallback
+buffers marked by meshopt are skipped when you configure the codec.
 
 Each caller isolate admits two workers and sixteen queued jobs. Large buffers use
 transferable inputs and isolate-exit results. Workers prepare immutable geometry

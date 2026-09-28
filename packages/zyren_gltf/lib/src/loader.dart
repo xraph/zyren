@@ -7,6 +7,7 @@ import 'data_uri.dart';
 import 'options.dart';
 import 'recipes.dart';
 import 'worker.dart';
+import 'meshopt.dart';
 part 'model_asset.dart';
 
 abstract final class Gltf {
@@ -65,18 +66,28 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
         source.bytes,
         options.limits,
         context.cancellation,
-        supportedExtensions: const {
+        supportedExtensions: {
           'KHR_materials_unlit',
           'KHR_lights_punctual',
+          if (context.supportsBufferEncoding(BufferEncoding.meshopt))
+            meshoptExtension,
         },
       );
-      final buffers = await resolveBuffers(
+      final meshopt = context.supportsBufferEncoding(BufferEncoding.meshopt)
+          ? MeshoptViews.inspect(document)
+          : null;
+      var buffers = await resolveBuffers(
         document,
         context,
         source.effectiveUri,
+        skippedBuffers: meshopt?.skippedBuffers ?? const {},
       );
+      var root = document.root;
+      if (meshopt != null) {
+        (root, buffers) = await meshopt.decode(document, buffers, context);
+      }
       final prepared = await GltfWorkers.model(
-        document.root,
+        root,
         buffers,
         options,
         context.limits.maxDecodedBytes - context.decodedBytes,
