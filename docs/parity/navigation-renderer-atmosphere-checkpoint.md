@@ -2,7 +2,7 @@
 
 The requested three feature groups are implemented in the primary checkout on
 `main`. This report records the 28 September 2026 qualification. The production
-checkpoint is `94daacd`; device limits below still apply. Nothing was pushed.
+checkpoint is `68e1f51`; device limits below still apply. Nothing was pushed.
 
 You can run the public Planet targets `lib/navigation_lab.dart`,
 `lib/renderer_lab.dart` and `lib/atmosphere_lab.dart`. They use native presentation
@@ -60,22 +60,35 @@ and the Flutter host and examples use `flutter test`.
 | Device | Navigation | Renderer | Atmosphere |
 | --- | --- | --- | --- |
 | macOS, Apple M3 Max, Metal | Pass after the final control fix: 73 native presentations, 17 samples | Both combined renderer tests pass | Pass: 31 native presentations, 11 samples |
-| Pixel 9 Pro, Android 17, Vulkan | Final run stopped while keyguard was locked; no completed result | Both combined renderer tests pass | Pass: 18 native presentations, 11 samples |
-| iPhone 16 Pro, iOS 27, Metal | No completed result | No completed result | Scene rendered and controls ran, but no complete corrected test result |
+| Pixel 9 Pro, Android 17, Vulkan | Pass: 64 native presentations, 18 samples | Both combined renderer tests pass | Pass: 18 native presentations, 11 samples |
+| iPhone 16 Pro, iOS 27, Metal | Pass: 75 native presentations, 18 samples | Both tests pass: two-view GPU lifecycle and compact controls | Pass: 31 native presentations, 11 samples |
 | Windows DX12 / Linux Vulkan | Unrun | Unrun | Unrun |
 
 Every passing native run reported zero ordinary presentation readbacks and zero
 sessions, renderers, retiring resources and held drawables or surfaces after
-disposal. Counts are not frame-rate measurements. The locked Mac prevented
-foreground activation, so native counters and separately inspected render images
-support these results; they do not establish a manual foreground-window review.
+disposal. Counts are not frame-rate measurements. Foreground visual review remains
+unverified. Initial Mac runs could not activate their window while the host was
+locked. On the resumed attempt, app capture selected an older blank Planet window
+among several running copies, and accessibility selection of an isolated copy
+timed out. Native counters and separately inspected render images support the
+rendering results; they do not establish a manual foreground-window review.
 
-The iPhone profile test rendered day/dusk/night, horizon/orbit and haze, then
-failed a fixed 480-pixel canvas assertion at 453 pixels. The corrected test uses
-70% of usable height after system safe areas. It passes on Mac. Its iPhone retry
-built but Xcode failed to find Runner during launch; a later device check reported
-that a passcode was required. Planet remains installed. Both phones need to stay
-unlocked to finish the missing checks.
+The iPhone atmosphere and renderer tests pass their corrected compact-layout
+assertions, which measure 70% of usable height after system safe areas. Navigation
+also passes. The renderer test reports two samples per view, six native
+presentations, zero readbacks and clean teardown; its second test checks compact
+controls at 1000, 320 and 390 logical pixels. The resumed profile runs use
+`FLUTTER_LLDB_DEBUGGING=true` for Flutter's CoreDevice launch path and keep Planet installed to preserve developer trust.
+Run from `examples/planet`, with the phone unlocked:
+
+```sh
+FLUTTER_LLDB_DEBUGGING=true fvm flutter drive --profile \
+  --driver=test_driver/integration_test.dart \
+  --target=integration_test/atmosphere_lab_test.dart \
+  -d YOUR_IPHONE_ID --publish-port --keep-app-running
+```
+
+Use `navigation_lab_test.dart` or `renderer_lab_test.dart` for the other fixtures.
 
 The Pixel atmosphere initially exposed a Mali Vulkan compiler crash when texture
 objects passed through shader helpers. Specializing those helpers by global
@@ -119,7 +132,7 @@ The following decisions preserve the execution ledger's order.
     overlapping transparent layers need a later layered-depth design.
 13. Scale orthographic sensitivity inside the exponent to preserve input direction
     and the neutral factor. Cost if wrong: custom speeds differ from upstream.
-14. Measure compact layout against usable height after safe areas. Cost if wrong:
+14. Measure atmosphere and renderer layout against usable height after safe areas. Cost if wrong:
     the permitted absolute canvas height varies with system insets.
 
 ## Review follow-up

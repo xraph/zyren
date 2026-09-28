@@ -37,10 +37,11 @@ sessions, renderers, held drawables or retiring resources after disposal.
 The app could not be foregrounded, so this is native integration evidence rather
 than a manual inspection of its window.
 
-Pixel Vulkan and iPhone Metal runs are pending device access. The Pixel has its
-lock screen showing, and the iPhone requires its passcode. Earlier iPhone launch
-attempts also failed in Xcode automation. No completed navigation result is
-claimed for either phone. This checkpoint adds no Windows or Linux qualification.
+The Pixel 9 Pro Vulkan run passes the same navigation test: 64 presentations,
+18 samples, zero readback bytes and zero remaining native owners. The iPhone 16
+Pro Metal profile run also passes, with 75 presentations, 18 samples, zero
+readback bytes and clean teardown. The iPhone driver keeps Planet installed to
+preserve device trust. This checkpoint adds no Windows or Linux qualification.
 
 The macOS run was repeated after renderer, atmosphere and orthographic sensitivity
 changes. See the [combined qualification](navigation-renderer-atmosphere-checkpoint.md)

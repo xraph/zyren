@@ -59,7 +59,7 @@ fail. See the [glTF package](../packages/zyren_gltf/README.md),
 | Planet renderer lab on macOS Metal | Two native views, resize and edits pass; zero presentation readbacks; zero sessions, renderers, retiring resources or held drawables after teardown |
 | Model viewer | Standard glTF loading and compact desktop/narrow widget flows pass; native glTF material/light probes pass separately |
 | Pixel 9 Pro Vulkan | Both native renderer tests pass: two views, resize, edits, desktop/narrow layouts, zero presentation readback and cleanup counts |
-| iPhone Metal | Combined renderer presentation remains part of final device qualification |
+| iPhone 16 Pro Metal | Both profile tests pass: two views, resize, edits, compact controls, zero readback and clean teardown; six native presentations in the two-view test |
 | Windows DX12 / Linux Vulkan | Backend paths exist; this profile has not been qualified on those hosts |
 
 Run the visual consumer from `examples/planet` with

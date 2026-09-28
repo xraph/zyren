@@ -59,7 +59,7 @@ glTF specification requires. `KHR_lights_punctual` creates ordinary core lights
 under the model node hierarchy. A model instance owns independent lights; its
 geometry, material and image data remain shared. Standard materials need physical
 lights or environment lighting in the scene. The combined renderer fixture passes
-on macOS Metal and Pixel Vulkan. iPhone qualification remains open; see the
+on macOS Metal, Pixel Vulkan and iPhone Metal; see the
 [renderer profiles](../renderer-capabilities.md).
 
 

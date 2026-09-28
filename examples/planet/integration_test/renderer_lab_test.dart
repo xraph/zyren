@@ -135,9 +135,15 @@ void main() {
           await tester.binding.setSurfaceSize(Size(width, 700));
           await tester.pump(const Duration(milliseconds: 100));
           expect(tester.takeException(), isNull);
+          final padding = tester.view.padding;
+          final usableHeight =
+              700 -
+              (padding.top + padding.bottom) / tester.view.devicePixelRatio;
           expect(
             tester.getSize(find.byType(SceneView)).height,
-            greaterThan(500),
+            greaterThan(usableHeight * .70),
+            reason:
+                'Keep the canvas above 70% of usable height, excluding system safe areas.',
           );
           expect(find.text('Material lab'), findsOneWidget);
         }
