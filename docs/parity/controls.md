@@ -90,7 +90,8 @@ The port keeps an orthonormal camera frame at the top-down tilt limit. Upstream
 can create a non-unit quaternion there, so that boundary has a separate invariant
 test rather than a claim of trajectory parity. Uniform world scale also scales
 horizon distances; nonuniform and sheared frames are rejected. These corrections
-are deliberate. Native surface navigation qualification remains pending.
+are deliberate. [Native navigation evidence](native-navigation.md) records the
+macOS integration and the pending mobile checks.
 Full story screenshot comparison remains unrun.
 
 ## Native input contract

@@ -20,7 +20,7 @@ class Surface {
 const p=(type,x,y,extra={})=>({type,x,y,...extra});
 // Avoid upstream's non-unit quaternion at the top-down tilt clamp.
 // Dart tests cover that boundary separately with orthonormal camera invariants.
-const actions=[p('down',400,300),p('move',420,315),p('move',435,325),{type:'up'},{type:'tick',count:8},p('down',400,300,{buttons:2}),p('move',425,303),{type:'up'},{type:'tick',count:8},p('hover',400,300),p('wheel',400,300,{dy:-120}),p('wheel',400,300,{dy:240}),p('hover',620,280),p('wheel',620,280,{dy:-80}),p('wheel',620,280,{dy:160}),p('down',400,300),p('move',1200,-100),{type:'up'},{type:'tick',count:8},{type:'resize',width:390,height:700},p('hover',195,350),p('wheel',195,350,{dy:300}),p('wheel',195,350,{dy:-300})];
+const actions=[p('down',400,300),p('move',420,315),p('move',435,325),{type:'up'},{type:'tick',count:8},p('down',400,300,{buttons:2}),p('move',425,303),{type:'up'},{type:'tick',count:8},p('hover',400,300),p('wheel',400,300,{dy:-120}),p('wheel',400,300,{dy:240}),p('hover',620,280),p('wheel',620,280,{dy:-80}),p('wheel',620,280,{dy:160}),p('down',400,300),p('move',1200,-100),{type:'up'},{type:'tick',count:8},{type:'resize',width:390,height:700},p('hover',195,350),p('wheel',195,350,{dy:300}),p('wheel',195,350,{dy:-300}),p('down',155,350,{touch:true}),p('down',235,350,{touch:true,id:2}),{type:'batch',points:[p('move',145,350,{touch:true}),p('move',245,350,{touch:true,id:2})]},{type:'up'},p('down',155,350,{touch:true}),p('down',235,350,{touch:true,id:2}),{type:'batch',points:[p('move',160,354,{touch:true}),p('move',240,354,{touch:true,id:2})]},{type:'up'}];
 const cases=[];
 for(const hz of [30,60,120]) for(const kind of ['perspective','orthographic']) for(const near of [false,true]) for(const transformed of [false,true]) {
   const radius=6378137, surface=new Surface(), frame=new three.Group();
@@ -39,7 +39,7 @@ for(const hz of [30,60,120]) for(const kind of ['perspective','orthographic']) f
   for(const action of actions){
     if(action.type==='tick'){for(let i=0;i<action.count;i++){controls.update(1/hz);capture({type:'tick'});}continue;}
     if(action.type==='resize'){surface.clientWidth=action.width;surface.clientHeight=action.height;if(kind==='perspective')camera.aspect=action.width/action.height;camera.updateProjectionMatrix();}
-    else surface.emit(({down:'pointerdown',move:'pointermove',hover:'pointermove',up:'pointerup',wheel:'wheel'})[action.type],{clientX:action.x??0,clientY:action.y??0,pointerId:1,pointerType:'mouse',buttons:action.buttons??1,deltaY:action.dy??0,deltaMode:0});
+    else { for(const a of action.type==='batch'?action.points:[action]) surface.emit(({down:'pointerdown',move:'pointermove',hover:'pointermove',up:'pointerup',wheel:'wheel'})[a.type],{clientX:a.x??0,clientY:a.y??0,pointerId:a.id??1,pointerType:a.touch?'touch':'mouse',buttons:a.buttons??1,deltaY:a.dy??0,deltaMode:0}); }
     await Promise.resolve();controls.update(1/hz);capture(action);
   }
   cases.push({hz,kind,near,transformed,initial,radii:controls.ellipsoid.radius.toArray(),trace});controls.dispose();

@@ -151,23 +151,30 @@ void main() {
               (action['dy'] as num).toDouble(),
             );
           } else if (!['tick', 'initial'].contains(action['type'])) {
-            controls.handlePointer(
-              ScenePointerEvent(
-                point: ViewportPoint(
-                  (action['x'] as num? ?? 0).toDouble(),
-                  (action['y'] as num? ?? 0).toDouble(),
+            for (final action
+                in action['type'] == 'batch'
+                    ? (action['points'] as List).cast<Map>()
+                    : [action]) {
+              controls.handlePointer(
+                ScenePointerEvent(
+                  point: ViewportPoint(
+                    (action['x'] as num? ?? 0).toDouble(),
+                    (action['y'] as num? ?? 0).toDouble(),
+                  ),
+                  phase: switch (action['type']) {
+                    'down' => ScenePointerPhase.down,
+                    'move' => ScenePointerPhase.move,
+                    'hover' => ScenePointerPhase.hover,
+                    _ => ScenePointerPhase.up,
+                  },
+                  buttons: action['buttons'] as int? ?? 1,
+                  kind: action['touch'] == true
+                      ? ScenePointerKind.touch
+                      : ScenePointerKind.mouse,
+                  pointer: action['id'] as int? ?? 1,
                 ),
-                phase: switch (action['type']) {
-                  'down' => ScenePointerPhase.down,
-                  'move' => ScenePointerPhase.move,
-                  'hover' => ScenePointerPhase.hover,
-                  _ => ScenePointerPhase.up,
-                },
-                buttons: action['buttons'] as int? ?? 1,
-                kind: ScenePointerKind.mouse,
-                pointer: 1,
-              ),
-            );
+              );
+            }
           }
           if (action['type'] != 'initial') controls.update(dt);
           final reason = '$index $action';

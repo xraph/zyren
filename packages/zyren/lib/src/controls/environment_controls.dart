@@ -78,6 +78,7 @@ class EnvironmentControls {
   ScenePointerKind? _pointerKind;
   int _buttons = 0;
   ViewportPoint? _hover;
+  ViewportPoint? _lastZoomPointer;
   bool _touchMoved = false, _upInitialized = false;
 
   EnvironmentControls(
@@ -219,6 +220,7 @@ class EnvironmentControls {
     dragInertia = Vec3.zero;
     rotationInertia = const ViewportPoint(0, 0);
     zoomDelta = 0;
+    _lastZoomPointer = null;
     pendingUpdate = false;
     zoomDirectionSet = zoomPointSet = false;
   }
@@ -394,8 +396,10 @@ class EnvironmentControls {
   }
 
   void updateZoomDirection() {
-    if (zoomDirectionSet || pointer == null) return;
-    zoomDirection = pointerRay(pointer!).direction;
+    final point = pointer ?? _lastZoomPointer;
+    if (zoomDirectionSet || point == null) return;
+    _lastZoomPointer = point;
+    zoomDirection = pointerRay(point).direction;
     zoomDirectionSet = true;
   }
 
