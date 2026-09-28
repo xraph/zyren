@@ -72,8 +72,8 @@ final class NativeGpuServices {
     return compiler;
   }
 
-  /// Encodes a scene submission for this device and holds its graph until the
-  /// adapter's native frame completes. The original scene packet stays immutable.
+  /// Holds the scene's graph and mesh programs until the native frame completes.
+  /// The original scene packet stays immutable.
   Future<T> submitFrame<T>(
     FrameSubmission submission,
     Uint8List packet,

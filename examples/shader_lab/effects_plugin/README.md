@@ -9,6 +9,20 @@ final effects = controller.use(EffectsPlugin(
 effects.options = effects.options.copyWith(saturation: 0);
 ```
 
+Apply a custom material to one of your meshes with the same public API:
+
+```dart
+final pattern = controller.use(PatternMaterialPlugin(mesh, frequency: 8));
+pattern.frequency = 3;
+```
+
+The pattern uses UV0, so supply geometry with that attribute. It borrows the mesh
+and restores its previous material on detach unless you assigned another material
+in the meantime. Frequency ranges from 1 to 16 and updates a uniform. Each
+attachment compiles its own device-bound program; use a separate mesh when
+rendering through independent devices. Unsupported adapters reject by default,
+or preserve the original material with `UnsupportedEffects.bypass`.
+
 Exposure uses stops between -2 and 2. Saturation ranges from 0 to 2, vignette from
 0 to 1. Values must be finite. Updates invalidate the view and upload a 16-byte
 uniform on the next frame; they do not rebuild shader pipelines. The two passes

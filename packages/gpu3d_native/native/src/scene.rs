@@ -127,6 +127,8 @@ impl Geometry {
 #[derive(Clone, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Mesh {
+    #[serde(skip)]
+    pub shader: Option<crate::resources::registry::ResourceKey>,
     pub geometry: u32,
     pub model: [f32; 16],
     pub color: [f32; 3],
@@ -169,6 +171,7 @@ impl Default for Mesh {
     fn default() -> Self {
         Self {
             geometry: 0,
+            shader: None,
             model: glam::Mat4::IDENTITY.to_cols_array(),
             color: [1.; 3],
             unlit: false,

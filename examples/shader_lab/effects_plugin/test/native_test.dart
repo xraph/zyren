@@ -9,6 +9,59 @@ import 'support/native_checks.dart';
 void main() {
   final skip = Platform.environment['RUN_NATIVE_GPU'] != '1';
   test(
+    'custom material uniforms change pixels without compiling and restore borrowed meshes',
+    () async {
+      final observer = await NativeBackend.create();
+      final mesh = Mesh(
+        BoxGeometry(),
+        DiffuseMaterial(color: const Color3(.1, .8, .2)),
+      );
+      final original = mesh.material;
+      final pattern = PatternMaterialPlugin(mesh);
+      final scene = Scene()..add(mesh);
+      Future<SceneEngine> attach() => SceneEngine.create(
+        scene: scene,
+        camera: PerspectiveCamera(),
+        backendFactory: () async => observer.createView(),
+        plugins: [pattern],
+      );
+      final engine = await attach();
+      SceneEngine? next;
+      try {
+        Future<ReadbackOutput> draw() async =>
+            await engine.renderFrame(
+                  elapsed: Duration.zero,
+                  width: 64,
+                  height: 48,
+                )
+                as ReadbackOutput;
+        final first = await draw();
+        final builds = (await observer.shaderStats()).compilationCount;
+        final pipelines = (await observer.graphStats()).meshPipelines;
+        pattern.frequency = 3;
+        final second = await draw();
+        expect(second.image.pixels, isNot(first.image.pixels));
+        expect((await observer.shaderStats()).compilationCount, builds);
+        expect((await observer.graphStats()).meshPipelines, pipelines);
+        await engine.dispose();
+        expect(mesh.material, same(original));
+        expect((await observer.graphStats()).liveMeshShaders, 0);
+        expect((await observer.resourceStats()).residentBytes, 0);
+        next = await attach();
+        final replacement = UnlitMaterial();
+        mesh.material = replacement;
+        await next.dispose();
+        expect(mesh.material, same(replacement));
+        expect((await observer.shaderStats()).livePrograms, 0);
+      } finally {
+        await engine.dispose();
+        await next?.dispose();
+        await observer.close();
+      }
+    },
+    skip: skip,
+  );
+  test(
     'two passes, uniform edits, resize, bypass and retirement on native GPU',
     () async {
       final backend = await NativeBackend.create();

@@ -25,7 +25,7 @@ Future<void> main(List<String> args) async {
     scene: scene,
     camera: PerspectiveCamera(position: const Vec3(3, 2, 7)),
     backendFactory: () async => backend,
-    plugins: [effects],
+    plugins: [effects, PatternMaterialPlugin(scene.children[1] as Mesh)],
   );
   try {
     final output =

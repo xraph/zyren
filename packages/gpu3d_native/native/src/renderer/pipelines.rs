@@ -70,17 +70,18 @@ impl MeshPipelines {
         frame: &Frame,
         format: wgpu::TextureFormat,
     ) -> Result<(), String> {
-        if frame
-            .meshes
-            .iter()
-            .all(|mesh| self.cache.contains_key(&PipelineKey::new(format, mesh)))
-        {
+        if frame.meshes.iter().all(|mesh| {
+            mesh.shader.is_some() || self.cache.contains_key(&PipelineKey::new(format, mesh))
+        }) {
             return Ok(());
         }
         let validation = device.push_error_scope(wgpu::ErrorFilter::Validation);
         let memory = device.push_error_scope(wgpu::ErrorFilter::OutOfMemory);
         let internal = device.push_error_scope(wgpu::ErrorFilter::Internal);
         for mesh in &frame.meshes {
+            if mesh.shader.is_some() {
+                continue;
+            }
             let key = PipelineKey::new(format, mesh);
             if !self.cache.contains_key(&key) {
                 let pipeline = self.create(device, key);

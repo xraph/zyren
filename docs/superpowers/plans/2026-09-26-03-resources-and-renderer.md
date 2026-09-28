@@ -299,6 +299,17 @@ Missing capabilities reject by default or bypass explicitly. The Flutter demo
 uses native presentation. This closes the independent spatial consumer portion;
 custom materials, automatic registration and temporal history remain open.
 
+Custom material checkpoint, 2026-09-28: `compileMesh` returns an opaque program
+for `ShaderMaterial`, with engine transforms in group 0 and read-only user
+bindings in groups 1 through 3. Native pipelines validate before publication,
+retain bindings, share cached variants and drain accepted frames before release.
+The separate plugin now supplies a UV stripe material alongside its spatial
+effects. Metal and Pixel Vulkan integration covers shader pixels, material
+controls, zero-readback presentation, resize and cleanup. See
+[custom mesh materials](../../design/shader-materials.md). Automatic pass
+registration, temporal history and transparent compositor output remain open;
+task 4 is not complete.
+
 **Files:** Create graph/shader modules from the map, native
 `src/render_graph/{compile,execute}.rs`, Dart `test/render_graph_test.dart`,
 native `tests/shader_diagnostics.rs`, `examples/shader_lab` and a separate
@@ -306,6 +317,7 @@ consumer package at `examples/shader_lab/effects_plugin`.
 
 **Interfaces:** `ShaderSource.wgsl(source, label:)`,
 `ShaderCompiler.compile(ShaderSource) -> Future<ShaderProgram>`,
+`ShaderCompiler.compileMesh(ShaderSource, bindings:, vertexLayout:) -> Future<MeshShaderProgram>`,
 `ShaderBindings`, `Workgroups`, `ComputePassDescriptor`, `RenderPassDescriptor`.
 `RenderGraph.addCompute`/`addRender` return `Registration`; descriptors declare
 resource reads/writes, dependencies and load/store operations.

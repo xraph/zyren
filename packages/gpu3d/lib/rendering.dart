@@ -13,5 +13,7 @@ export 'src/resources/resource_scope.dart'
         ResourceDevice,
         ShaderDevice,
         ShaderBuild,
+        MeshShaderDevice,
+        MeshShaderDeviceDescription,
         GraphDevice,
         GraphDeviceDescription;

@@ -3,7 +3,9 @@ mod compile;
 mod descriptor;
 mod execute;
 mod frame;
+mod mesh;
 pub(crate) use frame::{FrameGraph, decode_packet as decode_frame_packet};
+pub(crate) use mesh::PreparedMaterial;
 
 use crate::{
     resources::{
@@ -34,6 +36,8 @@ struct Request {
 #[serde(tag = "operation", rename_all = "camelCase", deny_unknown_fields)]
 enum Command {
     Compile { description: Description },
+    CompileMesh { description: mesh::Description },
+    ReleaseMesh { key: Key },
     Execute { key: Key },
     Release { key: Key },
     Stats {},
@@ -47,6 +51,9 @@ pub struct GraphError {
     resource_label: Option<String>,
 }
 impl GraphError {
+    pub(crate) fn is_device_failure(&self) -> bool {
+        self.code == "deviceFailed"
+    }
     fn new(code: &'static str, message: &str) -> Self {
         Self {
             code,
@@ -126,8 +133,10 @@ struct ScopedGraph {
     resources: Vec<ResourceKey>,
     shaders: Vec<ResourceKey>,
     frame: Option<(wgpu::Texture, wgpu::Texture)>,
+    scene_resource: Option<ResourceKey>,
 }
 pub struct GraphStore {
+    pub(crate) meshes: mesh::MeshStore,
     registry: ResourceRegistry<Arc<ScopedGraph>>,
     cache: HashMap<PipelineKey, Weak<Pipeline>>,
     compilation_count: u64,
@@ -136,6 +145,7 @@ pub struct GraphStore {
 impl Default for GraphStore {
     fn default() -> Self {
         Self {
+            meshes: mesh::MeshStore::default(),
             registry: ResourceRegistry::new(next_registry_id(), 1, 16 * 1024 * 1024),
             cache: HashMap::new(),
             compilation_count: 0,
@@ -166,6 +176,7 @@ fn scoped<T>(
 }
 
 pub(crate) struct GraphContext<'a> {
+    pub mesh_layout: &'a wgpu::BindGroupLayout,
     pub device: &'a wgpu::Device,
     pub queue: &'a wgpu::Queue,
     pub resources: &'a mut ResourceStore,
@@ -181,6 +192,7 @@ impl GraphStore {
         capacity: usize,
     ) -> Result<Vec<u8>, String> {
         let GraphContext {
+            mesh_layout,
             device,
             queue,
             resources,
@@ -202,6 +214,25 @@ impl GraphStore {
             ))
         } else {
             match request.command {
+                Command::CompileMesh { description } => self
+                    .meshes
+                    .compile(
+                        &mut GraphContext {
+                            device,
+                            queue,
+                            resources,
+                            shaders,
+                            failure,
+                            mesh_layout,
+                        },
+                        description,
+                        bytes.len() as u64,
+                    )
+                    .map(|key| json!({"key": key})),
+                Command::ReleaseMesh { key: value } => self
+                    .meshes
+                    .release(device, resources, shaders, key(value))
+                    .map(|()| json!({})),
                 Command::Compile { description } => self
                     .compile(device, resources, shaders, description, bytes.len() as u64)
                     .map(|key| json!({"key": key})),
@@ -213,7 +244,8 @@ impl GraphStore {
                     .map(|()| json!({})),
                 Command::Stats {} => Ok(
                     json!({"liveGraphs": self.registry.live_allocations(), "descriptionBytes": self.registry.resident_bytes(),
-                "cachedPipelines": self.cache.len(), "pipelineCompilations": self.compilation_count, "cacheHits": self.cache_hits}),
+                "cachedPipelines": self.cache.len(), "pipelineCompilations": self.compilation_count, "cacheHits": self.cache_hits,
+                "liveMeshShaders": self.meshes.count(), "meshPipelines": self.meshes.pipelines()}),
                 ),
             }
         };

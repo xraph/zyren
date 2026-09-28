@@ -5,19 +5,28 @@ final class GraphCacheStats {
       descriptionBytes,
       cachedPipelines,
       pipelineCompilations,
-      cacheHits;
+      cacheHits,
+      liveMeshShaders,
+      meshPipelines;
   const GraphCacheStats({
     required this.liveGraphs,
     required this.descriptionBytes,
     required this.cachedPipelines,
     required this.pipelineCompilations,
     required this.cacheHits,
+    this.liveMeshShaders = 0,
+    this.meshPipelines = 0,
   });
 }
 
 final class _GraphKey {
   final List<int> values;
   _GraphKey(List<int> values) : values = List.unmodifiable(values);
+}
+
+final class _MeshShaderKey {
+  final List<int> values;
+  _MeshShaderKey(List<int> values) : values = List.unmodifiable(values);
 }
 
 Object? _graphEncode(Object? value) => switch (value) {
@@ -27,6 +36,7 @@ Object? _graphEncode(Object? value) => switch (value) {
   ],
   _ShaderKey(:final values) => values,
   _GraphKey(:final values) => values,
+  _MeshShaderKey(:final values) => values,
   Map value => {
     for (final entry in value.entries)
       entry.key as String: _graphEncode(entry.value),
@@ -71,6 +81,23 @@ mixin _NativeGraphs {
     return result['result'] as Map<String, dynamic>;
   }
 
+  Future<Object> compileMeshShader(
+    MeshShaderDeviceDescription description,
+  ) async {
+    final result = await _graphCommand({
+      'operation': 'compileMesh',
+      'description': description.data,
+    });
+    return _MeshShaderKey((result['key'] as List<dynamic>).cast<int>());
+  }
+
+  Future<void> releaseMeshShader(Object key) async {
+    await _graphCommand({
+      'operation': 'releaseMesh',
+      'key': key as _MeshShaderKey,
+    });
+  }
+
   Future<Object> compileGraph(GraphDeviceDescription description) async {
     final result = await _graphCommand({
       'operation': 'compile',
@@ -103,6 +130,8 @@ mixin _NativeGraphs {
       cachedPipelines: result['cachedPipelines'] as int,
       pipelineCompilations: result['pipelineCompilations'] as int,
       cacheHits: result['cacheHits'] as int,
+      liveMeshShaders: result['liveMeshShaders'] as int,
+      meshPipelines: result['meshPipelines'] as int,
     );
   }
 }

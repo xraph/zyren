@@ -3,6 +3,9 @@
 Run the demo to change exposure, saturation and vignette on a native scene. Drag
 to orbit, pinch or scroll to zoom, and change resolution to exercise texture
 replacement. Switch effects off to compare the original scene.
+The middle box uses a custom WGSL material. Change Stripes to update its uniform
+without compiling another pipeline. The Effects switch controls post-processing;
+the mesh material remains active.
 
 ```sh
 fvm flutter pub get

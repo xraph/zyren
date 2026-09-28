@@ -61,6 +61,7 @@ class ShaderLab extends StatefulWidget {
 class _ShaderLabState extends State<ShaderLab> {
   late final SceneController controller;
   late final EffectsPlugin effects;
+  late final PatternMaterialPlugin pattern;
   late final List<Registration> gestures;
   StreamSubscription<FrameStats>? subscription;
   FrameStats? stats;
@@ -88,6 +89,12 @@ class _ShaderLabState extends State<ShaderLab> {
           ..position = Vec3(x, 0, 0),
       );
     }
+    pattern = controller.use(
+      PatternMaterialPlugin(
+        controller.scene.children[1] as Mesh,
+        unsupported: widget.unsupported,
+      ),
+    );
     gestures = [
       controller.input.registerGesture(SceneGesture.scale),
       controller.input.registerGesture(SceneGesture.scroll),
@@ -193,6 +200,7 @@ class _ShaderLabState extends State<ShaderLab> {
                         icon: const Icon(Icons.restart_alt),
                         onPressed: () {
                           configure(EffectsOptions());
+                          pattern.frequency = 8;
                           yaw = .55;
                           pitch = .3;
                           distance = 7;
@@ -253,6 +261,15 @@ class _ShaderLabState extends State<ShaderLab> {
                     0,
                     1,
                     (v) => configure(options.copyWith(vignette: v)),
+                  ),
+                  slider(
+                    'Stripes',
+                    pattern.frequency,
+                    1,
+                    16,
+                    (v) => setState(() {
+                      pattern.frequency = v;
+                    }),
                   ),
                 ],
               ),

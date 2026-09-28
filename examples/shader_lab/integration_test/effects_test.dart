@@ -8,6 +8,7 @@ import 'package:gpu3d/rendering.dart' show PresentationPath;
 import 'package:integration_test/integration_test.dart';
 import 'package:shader_lab/main.dart';
 import '../effects_plugin/test/support/native_checks.dart';
+import '../../../packages/gpu3d_native/test/support/mesh_shader_checks.dart';
 
 Future<FrameStats> waitForFrame(
   WidgetTester tester,
@@ -50,6 +51,8 @@ void main() {
         : await NativeMetalBackend.create();
     try {
       await verifyEffects(backend);
+      await verifyMeshShaders(backend);
+      await verifyMeshAttachmentAlias(backend);
     } finally {
       await backend.close();
     }
@@ -71,6 +74,10 @@ void main() {
         (frame) => frame.drawCalls == 6,
       );
       expect(first.readbackBytes, 0);
+      expect(
+        (controller.scene.children[1] as Mesh).material,
+        isA<ShaderMaterial>(),
+      );
       expect(first.presentationPath, isNot(PresentationPath.readback));
       await tester.tap(find.byType(Switch));
       await tester.pump();
@@ -89,6 +96,11 @@ void main() {
       );
       await waitForFrame(tester, controller, (frame) => frame.drawCalls == 6);
       final position = controller.camera.position;
+      await tester.drag(
+        find.byKey(const ValueKey('Stripes')),
+        const Offset(30, 0),
+      );
+      await waitForFrame(tester, controller, (frame) => frame.drawCalls == 6);
       await tester.drag(find.byType(SceneView), const Offset(30, 15));
       await waitForFrame(tester, controller, (frame) => frame.drawCalls == 6);
       expect(controller.camera.position, isNot(position));

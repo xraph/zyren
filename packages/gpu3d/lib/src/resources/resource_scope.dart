@@ -15,6 +15,7 @@ part '../rendering/pass_descriptor.dart';
 part '../rendering/render_graph.dart';
 part '../rendering/graph_compiler.dart';
 part '../rendering/graph_validation.dart';
+part '../rendering/mesh_shader.dart';
 
 /// Adapter contract for a single device generation. Keys remain backend-private.
 /// A successful allocation owns one reference. Release waits for GPU retirement.

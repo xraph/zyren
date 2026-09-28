@@ -426,6 +426,9 @@ The common path is `StandardMaterial`: linear `baseColor`, optional base-color,
 normal, metallic/roughness, occlusion and emissive textures; metallic, roughness,
 emissive intensity, alpha mode, cutoff, sidedness and depth settings. Also provide
 `UnlitMaterial`, `LineMaterial`, `PointsMaterial` and advanced `ShaderMaterial`.
+The [custom mesh material checkpoint](shader-materials.md) implements
+`ShaderMaterial` through `ShaderCompiler.compileMesh`, with device ownership,
+read-only bindings and native raster-state variants.
 The current `MeshMaterial` migrates to `DiffuseMaterial` or `UnlitMaterial`.
 
 Texture descriptions declare dimension, format, color space, usage, mip levels

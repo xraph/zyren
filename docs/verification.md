@@ -940,3 +940,43 @@ reports the existing foreground failure, so manual desktop
 inspection remains open. These checks add no iOS, Windows, Linux or Adreno
 qualification. The new effects are spatial. Temporal history, HDR, custom mesh
 materials and automatic cross-plugin pass registration remain unfinished.
+
+## Custom mesh materials, 2026-09-28
+
+`ShaderCompiler.compileMesh` and `ShaderMaterial` now render custom WGSL vertex
+and fragment programs through the native scene path. The shader lab applies a
+UV stripe material through its independent plugin package. A frequency slider
+updates the uniform without rebuilding pipelines.
+
+The checkpoint passed 144 core, 52 glTF, 8 geospatial, 49 native Dart, 63 Flutter
+facade, 10 effects-plugin and 1 app-layout tests. Native Dart tests ran with
+`RUN_NATIVE_GPU=1 --concurrency=1`: the first concurrent suite run exposed the
+existing process-wide renderer-count assertions in image-decoder/finalization
+tests. The serial suite passed. The Rust suite passed 55 tests with 18 tests
+ignored by default; eight focused material, graph and shader tests also passed
+with `--include-ignored`. Analyzer, strict Clippy, formatters, package boundaries
+and diff checks passed.
+
+Metal pixel tests cover uniforms, UV textures in group 3, shared pipeline caches,
+shader replacement without geometry changes, alpha mask/blend, culling, mirrored
+transforms, depth, frame effects and binding ownership after author scope closure.
+Failed pipelines and render-attachment sampling are rejected without breaking
+later valid frames. Shared-device views accept the same programs; foreign and
+legacy renderers reject them. Closing immediately after a frame containing two
+programs now drains both before release, pinned by core and native regressions.
+
+The macOS Metal and physical Pixel Vulkan shader-lab integrations passed, covering
+shader pixels, the custom material with post-processing, controls, orbit, resize,
+zero-readback native presentation and final session cleanup. The final program-swap
+assertions and immediate-close regression were subsequently rerun in native Dart
+on Metal. The standalone JIT and bundled AOT commands produced byte-identical
+images; `artifacts/shader-lab-materials.png` was inspected.
+
+Release builds passed for Android arm64 (23.3 MB) and macOS (52.0 MB). The Android
+release was installed and launched as `dev.gpu3d.shader_lab`, PID 21186 at the final
+check, with no error-level process log entries. The device screensaver obscured
+manual release inspection. The macOS integration could not foreground its app,
+though its assertions passed; manual macOS release inspection remains unverified.
+No new iOS, Windows, Linux or Adreno qualification was performed. Task 4 remains
+open for shared pass registration, temporal history and transparent compositor
+output. This checkpoint does not establish full Three.js or Takram parity.

@@ -91,6 +91,12 @@ class NativeRenderer implements SceneRenderer {
     _NativeResourceDevice? resources,
   }) async {
     if (_closed) throw StateError('Renderer has been disposed.');
+    if (resources == null &&
+        (submission.graph != null || submission.scene.meshShaders.isNotEmpty)) {
+      throw UnsupportedError(
+        'Custom scene shaders require a native GPU backend.',
+      );
+    }
     final packet = encoder.encode(submission);
     Future<List<Object>> submit(Uint8List bytes) async =>
         await _worker.request('render', [

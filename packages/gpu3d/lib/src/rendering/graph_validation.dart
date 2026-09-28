@@ -135,106 +135,12 @@ _prepareGraph(GraphDescription graph, GraphDevice device) {
       if (write) actualWrites.add(key);
     }
 
-    if (pass.bindings.entries.length > 64) {
-      fail(
-        GraphErrorCode.limitExceeded,
-        'A pass supports at most 64 bindings.',
-        pass: pass,
-      );
-    }
-    final slots = <(int, int)>{};
-    final bindings = <Map<String, Object?>>[];
-    for (final binding in pass.bindings.entries) {
-      if (binding.group < 0 ||
-          binding.group >= 4 ||
-          binding.binding < 0 ||
-          binding.binding >= 16 ||
-          !slots.add((binding.group, binding.binding))) {
-        fail(
-          GraphErrorCode.invalidBinding,
-          'Bindings need unique slots in groups 0 to 3, bindings 0 to 15.',
-          pass: pass,
-        );
-      }
-      final supportedStages = pass is ComputePassDescriptor
-          ? {ShaderStage.compute}
-          : {ShaderStage.vertex, ShaderStage.fragment};
-      final visibility =
-          binding.visibility ??
-          (pass is ComputePassDescriptor
-              ? {ShaderStage.compute}
-              : binding._writes
-              ? {ShaderStage.fragment}
-              : {ShaderStage.vertex, ShaderStage.fragment});
-      if (visibility.isEmpty || !supportedStages.containsAll(visibility)) {
-        fail(
-          GraphErrorCode.invalidBinding,
-          'Binding visibility must match the pass stages.',
-          pass: pass,
-        );
-      }
-      final entry = <String, Object?>{
-        'group': binding.group,
-        'binding': binding.binding,
-        'stages': visibility.map((stage) => stage.index).toList()..sort(),
-        'kind': binding._kind,
-      };
-      final resource = binding.resource;
-      if (resource != null) {
-        use(resource, binding._reads, binding._writes);
-        entry['key'] = resource._key;
-      }
-      switch (binding) {
-        case BufferBinding():
-          final descriptor = binding.resource.descriptor as BufferDescriptor;
-          final size = binding.size ?? descriptor.size - binding.offset;
-          final usage = binding.access == BufferBindingAccess.uniform
-              ? BufferUsage.uniform
-              : BufferUsage.storage;
-          if (!descriptor.usage.contains(usage) ||
-              binding.offset < 0 ||
-              binding.offset % 256 != 0 ||
-              size <= 0 ||
-              size % 4 != 0 ||
-              size > descriptor.size ||
-              binding.offset > descriptor.size - size) {
-            fail(
-              GraphErrorCode.invalidBinding,
-              'Buffer binding requires matching usage, a 256-byte aligned offset and a valid four-byte aligned range.',
-              pass: pass,
-              resource: resource,
-            );
-          }
-          entry.addAll({'offset': binding.offset, 'size': size});
-        case TextureBinding():
-          final descriptor = binding.resource.descriptor as TextureDescriptor;
-          final usage = binding.storage
-              ? TextureUsage.storage
-              : TextureUsage.sampled;
-          if (!descriptor.usage.contains(usage) ||
-              binding.mipLevel < 0 ||
-              binding.mipLevels < 1 ||
-              binding.mipLevels > descriptor.mipLevels ||
-              binding.mipLevel > descriptor.mipLevels - binding.mipLevels ||
-              (binding.storage &&
-                  (descriptor.format != TextureFormat.rgba8Unorm ||
-                      binding.mipLevels != 1))) {
-            fail(
-              GraphErrorCode.invalidBinding,
-              'Texture binding usage, mip range or storage format is invalid.',
-              pass: pass,
-              resource: resource,
-            );
-          }
-          entry.addAll({
-            'mipLevel': binding.mipLevel,
-            'mipLevels': binding.mipLevels,
-          });
-        case SamplerBinding():
-          entry['sampler'] = binding.sampler.toPacket();
-      }
-      bindings.add(entry);
-    }
+    final bindings = _encodeShaderBindings(
+      pass.bindings,
+      compute: pass is ComputePassDescriptor,
+      label: pass.name,
+      use: use,
+    );
     void entryPoint(String name, ShaderStage stage) {
       if (!pass.program.entryPoints.any(
         (entry) => entry.name == name && entry.stage == stage,
@@ -488,4 +394,115 @@ _prepareGraph(GraphDescription graph, GraphDevice device) {
         ),
     ],
   );
+}
+
+List<Map<String, Object?>> _encodeShaderBindings(
+  ShaderBindings values, {
+  required bool compute,
+  required String label,
+  required void Function(GpuResource<Object?>, bool, bool) use,
+}) {
+  Never fail(
+    GraphErrorCode code,
+    String message, {
+    GpuResource<Object?>? resource,
+  }) => throw GraphException(
+    code,
+    message,
+    passName: label,
+    resourceLabel: resource?.label,
+  );
+  if (values.entries.length > 64) {
+    fail(GraphErrorCode.limitExceeded, 'A pass supports at most 64 bindings.');
+  }
+  final slots = <(int, int)>{};
+  final bindings = <Map<String, Object?>>[];
+  for (final binding in values.entries) {
+    if (binding.group < 0 ||
+        binding.group >= 4 ||
+        binding.binding < 0 ||
+        binding.binding >= 16 ||
+        !slots.add((binding.group, binding.binding))) {
+      fail(
+        GraphErrorCode.invalidBinding,
+        'Bindings need unique slots in groups 0 to 3, bindings 0 to 15.',
+      );
+    }
+    final supportedStages = compute
+        ? {ShaderStage.compute}
+        : {ShaderStage.vertex, ShaderStage.fragment};
+    final visibility =
+        binding.visibility ??
+        (compute
+            ? {ShaderStage.compute}
+            : binding._writes
+            ? {ShaderStage.fragment}
+            : {ShaderStage.vertex, ShaderStage.fragment});
+    if (visibility.isEmpty || !supportedStages.containsAll(visibility)) {
+      fail(
+        GraphErrorCode.invalidBinding,
+        'Binding visibility must match the pass stages.',
+      );
+    }
+    final entry = <String, Object?>{
+      'group': binding.group,
+      'binding': binding.binding,
+      'stages': visibility.map((stage) => stage.index).toList()..sort(),
+      'kind': binding._kind,
+    };
+    final resource = binding.resource;
+    if (resource != null) {
+      use(resource, binding._reads, binding._writes);
+      entry['key'] = resource._key;
+    }
+    switch (binding) {
+      case BufferBinding():
+        final descriptor = binding.resource.descriptor as BufferDescriptor;
+        final size = binding.size ?? descriptor.size - binding.offset;
+        final usage = binding.access == BufferBindingAccess.uniform
+            ? BufferUsage.uniform
+            : BufferUsage.storage;
+        if (!descriptor.usage.contains(usage) ||
+            binding.offset < 0 ||
+            binding.offset % 256 != 0 ||
+            size <= 0 ||
+            size % 4 != 0 ||
+            size > descriptor.size ||
+            binding.offset > descriptor.size - size) {
+          fail(
+            GraphErrorCode.invalidBinding,
+            'Buffer binding requires matching usage, a 256-byte aligned offset and a valid four-byte aligned range.',
+            resource: resource,
+          );
+        }
+        entry.addAll({'offset': binding.offset, 'size': size});
+      case TextureBinding():
+        final descriptor = binding.resource.descriptor as TextureDescriptor;
+        final usage = binding.storage
+            ? TextureUsage.storage
+            : TextureUsage.sampled;
+        if (!descriptor.usage.contains(usage) ||
+            binding.mipLevel < 0 ||
+            binding.mipLevels < 1 ||
+            binding.mipLevels > descriptor.mipLevels ||
+            binding.mipLevel > descriptor.mipLevels - binding.mipLevels ||
+            (binding.storage &&
+                (descriptor.format != TextureFormat.rgba8Unorm ||
+                    binding.mipLevels != 1))) {
+          fail(
+            GraphErrorCode.invalidBinding,
+            'Texture binding usage, mip range or storage format is invalid.',
+            resource: resource,
+          );
+        }
+        entry.addAll({
+          'mipLevel': binding.mipLevel,
+          'mipLevels': binding.mipLevels,
+        });
+      case SamplerBinding():
+        entry['sampler'] = binding.sampler.toPacket();
+    }
+    bindings.add(entry);
+  }
+  return bindings;
 }

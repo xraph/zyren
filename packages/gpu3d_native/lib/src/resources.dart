@@ -51,28 +51,70 @@ final class _ResourcePacket {
 
 final class _NativeResourceDevice
     with _NativeShaders, _NativeGraphs
-    implements GraphDevice {
+    implements GraphDevice, MeshShaderDevice {
   final NativeGpuCommandSender _send;
   Future<T> submitFrame<T>(
     FrameSubmission submission,
     Uint8List packet,
     Future<T> Function(Uint8List bytes) submit,
   ) {
-    final graph = submission.graph;
-    if (graph == null) return Future.sync(() => submit(packet));
-    return graph.submitFrame(this, submission.size, (key) {
-      final values = (key as _GraphKey).values;
-      final envelope = ByteData(48 + packet.length)
+    final programs = submission.scene.meshShaders;
+    final unique = programs.values.toSet().toList();
+    final keys = <MeshShaderProgram, _MeshShaderKey>{};
+    Future<T> encode(Object? graph) {
+      if (keys.isEmpty && graph == null) {
+        return Future.sync(() => submit(packet));
+      }
+      final graphKey = (graph as _GraphKey?)?.values;
+      final header = keys.isEmpty ? 48 : 56 + programs.length * 40;
+      final envelope = ByteData(header + packet.length)
         ..setUint32(0, 3, Endian.little)
-        ..setUint32(4, 1, Endian.little)
+        ..setUint32(4, keys.isEmpty ? 1 : 2, Endian.little)
         ..setUint64(8, packet.length, Endian.little);
-      for (var i = 0; i < 4; i++) {
-        envelope.setUint64(16 + i * 8, values[i], Endian.little);
+      if (keys.isNotEmpty) {
+        envelope.setUint32(16, programs.length, Endian.little);
+        envelope.setUint32(20, graphKey == null ? 0 : 1, Endian.little);
+        var offset = 56;
+        for (final entry in programs.entries) {
+          envelope.setUint32(offset, entry.key, Endian.little);
+          for (var i = 0; i < 4; i++) {
+            envelope.setUint64(
+              offset + 8 + i * 8,
+              keys[entry.value]!.values[i],
+              Endian.little,
+            );
+          }
+          offset += 40;
+        }
+      }
+      if (graphKey != null) {
+        for (var i = 0; i < 4; i++) {
+          envelope.setUint64(
+            (keys.isEmpty ? 16 : 24) + i * 8,
+            graphKey[i],
+            Endian.little,
+          );
+        }
       }
       final bytes = envelope.buffer.asUint8List()
-        ..setRange(48, 48 + packet.length, packet);
+        ..setRange(header, header + packet.length, packet);
       return submit(bytes);
-    });
+    }
+
+    Future<T> hold(int index) {
+      if (index == unique.length) {
+        final graph = submission.graph;
+        return graph == null
+            ? encode(null)
+            : graph.submitFrame(this, submission.size, encode);
+      }
+      return unique[index].submitFrame(this, (key) {
+        keys[unique[index]] = key as _MeshShaderKey;
+        return hold(index + 1);
+      });
+    }
+
+    return hold(0);
   }
 
   int _nextRequest = 0;

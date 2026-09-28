@@ -37,6 +37,7 @@ class SceneSnapshot {
   final Map<int, TextureImage> _textures;
   final List<double> _background, _light;
   final double _ambient;
+  final Map<int, MeshShaderProgram> meshShaders;
   int get drawCalls => _meshes.length;
   int get triangles => _meshes.fold(0, (sum, mesh) {
     final geometry = _geometries[mesh['geometry']]!;
@@ -51,11 +52,13 @@ class SceneSnapshot {
     this._background,
     this._light,
     this._ambient,
+    this.meshShaders,
   );
   static SceneSnapshot _capture(Scene scene, Camera camera) {
     final meshes = <Map<String, Object>>[],
         geometries = <int, GeometrySnapshot>{};
     final textures = <int, TextureImage>{};
+    final meshShaders = <int, MeshShaderProgram>{};
     void visit(Object3D node, vm.Matrix4 parent, bool parentVisible) {
       final visible = parentVisible && node.visible;
       final world = parent * node.localMatrix.toVectorMath();
@@ -65,6 +68,17 @@ class SceneSnapshot {
         final map = node.material.colorMap;
         if (map != null) textures[map.image.id] = map.image;
         if (visible) {
+          if (node.material case ShaderMaterial(:final program)) {
+            if (program.isClosed) {
+              throw StateError('Mesh shader has closed: ${program.label}');
+            }
+            if (program.vertexLayout == MeshVertexLayout.positionNormalUv &&
+                node.geometry.uv0 == null &&
+                node.geometry.uv1 == null) {
+              throw ArgumentError('This mesh shader requires UV attributes.');
+            }
+            meshShaders[meshes.length] = program;
+          }
           if (map != null &&
               (map.uvSet == 0 ? node.geometry.uv0 : node.geometry.uv1) ==
                   null) {
@@ -110,6 +124,7 @@ class SceneSnapshot {
       List.unmodifiable(scene.background.toList()),
       List.unmodifiable(scene.lightDirection.storage),
       scene.ambient,
+      Map.unmodifiable(meshShaders),
     );
   }
 }
@@ -162,8 +177,8 @@ class FrameSubmission {
 
   /// Compatibility encoder for native v1 adapters. Geometry conversion is lazy.
   Map<String, Object> toNativePacket({Set<int> uploaded = const {}}) {
-    if (graph != null) {
-      throw UnsupportedError('Frame graphs require binary native submissions.');
+    if (graph != null || scene.meshShaders.isNotEmpty) {
+      throw UnsupportedError('GPU programs require binary native submissions.');
     }
     if (scene._textures.isNotEmpty) {
       throw UnsupportedError(

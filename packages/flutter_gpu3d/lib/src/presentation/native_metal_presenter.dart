@@ -102,6 +102,7 @@ class NativeMetalBackend implements NativeGpuBackend {
       RenderFeature.shaderCompilation,
       RenderFeature.renderGraphs,
       RenderFeature.frameGraphs,
+      RenderFeature.meshShaders,
       RenderFeature.compute,
       RenderFeature.storageTextures,
     },

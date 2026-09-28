@@ -1,0 +1,379 @@
+use super::{GraphError, bindings, compile::check_entry, descriptor::*, key, key_value, scoped};
+use crate::{
+    resources::{
+        ResourceStore,
+        registry::{ResourceKey, ResourceRegistry, next_registry_id},
+    },
+    scene::Mesh,
+    shaders::ShaderStore,
+};
+use serde::Deserialize;
+use std::{
+    collections::HashMap,
+    sync::{Arc, Weak},
+};
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(super) struct Description {
+    label: String,
+    program: Key,
+    bindings: Vec<Binding>,
+    vertex_layout: u32,
+    vertex_entry_point: String,
+    fragment_entry_point: String,
+}
+#[derive(Clone, Copy, Hash, PartialEq, Eq)]
+struct State {
+    format: wgpu::TextureFormat,
+    side: u32,
+    mirrored: bool,
+    blend: bool,
+    depth_test: bool,
+    depth_write: bool,
+}
+impl State {
+    fn new(format: wgpu::TextureFormat, mesh: &Mesh) -> Self {
+        Self {
+            format,
+            side: mesh.side,
+            mirrored: glam::Mat4::from_cols_array(&mesh.model).determinant() < 0.,
+            blend: mesh.alpha_mode == 2,
+            depth_test: mesh.depth_test,
+            depth_write: mesh.writes_depth(),
+        }
+    }
+}
+#[derive(Clone, Hash, PartialEq, Eq)]
+struct PipelineKey {
+    module: wgpu::ShaderModule,
+    bindings: Vec<bindings::LayoutKey>,
+    vertex: String,
+    fragment: String,
+    uv: bool,
+    state: State,
+}
+struct Pipeline {
+    native: wgpu::RenderPipeline,
+    layout: wgpu::PipelineLayout,
+    groups: Vec<wgpu::BindGroupLayout>,
+}
+struct Program {
+    label: String,
+    key: PipelineKey,
+    prototype: Arc<Pipeline>,
+    groups: Vec<wgpu::BindGroup>,
+    resources: Vec<ResourceKey>,
+    shader: ResourceKey,
+}
+pub(crate) struct PreparedMaterial {
+    pipeline: Arc<Pipeline>,
+    groups: Vec<wgpu::BindGroup>,
+    pub resources: Vec<ResourceKey>,
+    pub uv: bool,
+}
+impl PreparedMaterial {
+    pub fn bind(&self, pass: &mut wgpu::RenderPass<'_>) {
+        pass.set_pipeline(&self.pipeline.native);
+        for (index, group) in self.groups.iter().enumerate() {
+            pass.set_bind_group(index as u32 + 1, group, &[]);
+        }
+    }
+}
+pub(crate) struct MeshStore {
+    registry: ResourceRegistry<Program>,
+    cache: HashMap<PipelineKey, Weak<Pipeline>>,
+    owned: HashMap<(ResourceKey, State), Arc<Pipeline>>,
+}
+impl Default for MeshStore {
+    fn default() -> Self {
+        Self {
+            registry: ResourceRegistry::new(next_registry_id(), 1, 16 * 1024 * 1024),
+            cache: HashMap::new(),
+            owned: HashMap::new(),
+        }
+    }
+}
+fn create_pipeline(
+    device: &wgpu::Device,
+    key: &PipelineKey,
+    layout: &wgpu::PipelineLayout,
+) -> wgpu::RenderPipeline {
+    let attributes = wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3];
+    let uv = wgpu::vertex_attr_array![2 => Float32x2, 3 => Float32x2];
+    let mut buffers = vec![Some(wgpu::VertexBufferLayout {
+        array_stride: 24,
+        step_mode: wgpu::VertexStepMode::Vertex,
+        attributes: &attributes,
+    })];
+    if key.uv {
+        buffers.push(Some(wgpu::VertexBufferLayout {
+            array_stride: 16,
+            step_mode: wgpu::VertexStepMode::Vertex,
+            attributes: &uv,
+        }));
+    }
+    let state = key.state;
+    device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        label: Some("custom mesh material"),
+        layout: Some(layout),
+        vertex: wgpu::VertexState {
+            module: &key.module,
+            entry_point: Some(&key.vertex),
+            compilation_options: Default::default(),
+            buffers: &buffers,
+        },
+        fragment: Some(wgpu::FragmentState {
+            module: &key.module,
+            entry_point: Some(&key.fragment),
+            compilation_options: Default::default(),
+            targets: &[Some(wgpu::ColorTargetState {
+                format: state.format,
+                blend: state.blend.then_some(wgpu::BlendState::ALPHA_BLENDING),
+                write_mask: wgpu::ColorWrites::ALL,
+            })],
+        }),
+        primitive: wgpu::PrimitiveState {
+            front_face: if state.mirrored {
+                wgpu::FrontFace::Cw
+            } else {
+                wgpu::FrontFace::Ccw
+            },
+            cull_mode: match state.side {
+                1 => Some(wgpu::Face::Back),
+                2 => Some(wgpu::Face::Front),
+                _ => None,
+            },
+            ..Default::default()
+        },
+        depth_stencil: Some(wgpu::DepthStencilState {
+            format: wgpu::TextureFormat::Depth32Float,
+            depth_write_enabled: Some(state.depth_write),
+            depth_compare: Some(if state.depth_test {
+                wgpu::CompareFunction::Less
+            } else {
+                wgpu::CompareFunction::Always
+            }),
+            stencil: Default::default(),
+            bias: Default::default(),
+        }),
+        multisample: Default::default(),
+        multiview_mask: None,
+        cache: None,
+    })
+}
+impl MeshStore {
+    pub fn count(&self) -> u64 {
+        self.registry.live_allocations()
+    }
+    pub fn pipelines(&mut self) -> usize {
+        self.cache.retain(|_, value| value.strong_count() > 0);
+        self.cache.len()
+    }
+    pub(super) fn compile(
+        &mut self,
+        context: &mut super::GraphContext<'_>,
+        description: Description,
+        bytes: u64,
+    ) -> Result<Key, GraphError> {
+        let device = context.device;
+        if self.count() >= 128
+            || self.owned.len() >= 512
+            || description.label.len() > 1024
+            || description.vertex_layout > 1
+        {
+            return Err(GraphError::new(
+                "limitExceeded",
+                "Mesh shader exceeds program, label or vertex layout limits",
+            ));
+        }
+        self.registry.check_capacity(bytes)?;
+        if description.bindings.iter().any(|b| {
+            b.group == 0
+                || matches!(
+                    b.kind,
+                    BindingKind::StorageReadWrite | BindingKind::StorageTexture
+                )
+        }) {
+            return Err(GraphError::new(
+                "invalidBinding",
+                "Mesh bindings must read from groups one to three",
+            ));
+        }
+        let shader = context.shaders.resolve(key(description.program))?;
+        check_entry(shader, &description.vertex_entry_point, "vertex")?;
+        check_entry(shader, &description.fragment_entry_point, "fragment")?;
+        let pass = Pass {
+            kind: Kind::Render,
+            name: description.label.clone(),
+            program: description.program,
+            bindings: description.bindings,
+            reads: vec![],
+            writes: vec![],
+            after: vec![],
+            entry_point: None,
+            workgroups: None,
+            vertex_entry_point: None,
+            fragment_entry_point: None,
+            vertex_count: None,
+            instance_count: None,
+            sample_count: None,
+            color: None,
+        };
+        let (pipeline_key, pipeline, groups, resources) =
+            scoped(device, &description.label, || {
+                let bindings = bindings::prepare(device, context.resources, &pass)?;
+                let cache_key = PipelineKey {
+                    module: shader.module.clone(),
+                    bindings: bindings.keys,
+                    vertex: description.vertex_entry_point,
+                    fragment: description.fragment_entry_point,
+                    uv: description.vertex_layout == 1,
+                    state: State::new(wgpu::TextureFormat::Rgba8UnormSrgb, &Mesh::default()),
+                };
+                let pipeline = if let Some(p) = self.cache.get(&cache_key).and_then(Weak::upgrade) {
+                    p
+                } else {
+                    let mut groups = vec![context.mesh_layout.clone()];
+                    for entries in bindings.layouts.iter().skip(1) {
+                        groups.push(device.create_bind_group_layout(
+                            &wgpu::BindGroupLayoutDescriptor {
+                                label: Some(&description.label),
+                                entries,
+                            },
+                        ));
+                    }
+                    let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                        label: Some(&description.label),
+                        bind_group_layouts: &groups.iter().map(Some).collect::<Vec<_>>(),
+                        immediate_size: 0,
+                    });
+                    Arc::new(Pipeline {
+                        native: create_pipeline(device, &cache_key, &layout),
+                        layout,
+                        groups,
+                    })
+                };
+                let groups = bindings
+                    .resources
+                    .iter()
+                    .enumerate()
+                    .skip(1)
+                    .map(|(index, resources)| {
+                        device.create_bind_group(&wgpu::BindGroupDescriptor {
+                            label: Some(&description.label),
+                            layout: &pipeline.groups[index],
+                            entries: &resources
+                                .iter()
+                                .map(|(slot, resource)| wgpu::BindGroupEntry {
+                                    binding: *slot,
+                                    resource: resource.binding(),
+                                })
+                                .collect::<Vec<_>>(),
+                        })
+                    })
+                    .collect();
+                Ok((
+                    cache_key,
+                    pipeline,
+                    groups,
+                    bindings.reads.into_iter().map(key).collect::<Vec<_>>(),
+                ))
+            })?;
+        context.resources.retain_graph(&resources)?;
+        let shader_key = key(description.program);
+        if let Err(error) = context.shaders.retain_graph(&[shader_key]) {
+            context.resources.release_graph(device, &resources)?;
+            return Err(error.into());
+        }
+        let program = Program {
+            label: description.label,
+            key: pipeline_key.clone(),
+            prototype: pipeline.clone(),
+            groups,
+            resources: resources.clone(),
+            shader: shader_key,
+        };
+        match self.registry.insert(program, bytes) {
+            Ok(id) => {
+                self.cache
+                    .insert(pipeline_key.clone(), Arc::downgrade(&pipeline));
+                self.owned.insert((id, pipeline_key.state), pipeline);
+                Ok(key_value(id))
+            }
+            Err(error) => {
+                context.resources.release_graph(device, &resources)?;
+                context.shaders.release_graph(&[shader_key])?;
+                Err(error.into())
+            }
+        }
+    }
+    pub fn release(
+        &mut self,
+        device: &wgpu::Device,
+        resources: &mut ResourceStore,
+        shaders: &mut ShaderStore,
+        id: ResourceKey,
+    ) -> Result<(), GraphError> {
+        let program = self.registry.resolve(id)?;
+        let keys = program.resources.clone();
+        let shader = program.shader;
+        self.registry.release(id)?;
+        self.registry.retire_completed(0);
+        self.owned.retain(|(owner, _), _| *owner != id);
+        self.cache.retain(|_, p| p.strong_count() > 0);
+        let resources_result = resources.release_graph(device, &keys);
+        let shaders_result = shaders.release_graph(&[shader]);
+        resources_result?;
+        shaders_result?;
+        Ok(())
+    }
+    pub fn prepare(
+        &mut self,
+        device: &wgpu::Device,
+        id: ResourceKey,
+        mesh: &Mesh,
+        format: wgpu::TextureFormat,
+    ) -> Result<PreparedMaterial, GraphError> {
+        let program = self.registry.resolve(id)?;
+        if mesh.primitive_kind != 0 || mesh.color_map.is_some() {
+            return Err(GraphError::new(
+                "invalidDescriptor",
+                "Custom mesh shaders require triangle geometry and scoped texture bindings",
+            ));
+        }
+        let state = State::new(format, mesh);
+        let pipeline = if let Some(pipeline) = self.owned.get(&(id, state)) {
+            pipeline.clone()
+        } else {
+            if self.owned.len() >= 512 {
+                return Err(GraphError::new(
+                    "limitExceeded",
+                    "Mesh pipeline variant budget exceeded",
+                ));
+            }
+            let mut cache_key = program.key.clone();
+            cache_key.state = state;
+            let pipeline = if let Some(p) = self.cache.get(&cache_key).and_then(Weak::upgrade) {
+                p
+            } else {
+                scoped(device, &program.label, || {
+                    Ok(Arc::new(Pipeline {
+                        native: create_pipeline(device, &cache_key, &program.prototype.layout),
+                        layout: program.prototype.layout.clone(),
+                        groups: program.prototype.groups.clone(),
+                    }))
+                })?
+            };
+            self.cache.insert(cache_key, Arc::downgrade(&pipeline));
+            self.owned.insert((id, state), pipeline.clone());
+            pipeline
+        };
+        Ok(PreparedMaterial {
+            pipeline,
+            groups: program.groups.clone(),
+            resources: program.resources.clone(),
+            uv: program.key.uv,
+        })
+    }
+}

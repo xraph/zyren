@@ -11,6 +11,7 @@ use wgpu::util::DeviceExt;
 use crate::scene::{Frame, pixel_len};
 mod composition;
 mod draw_order;
+mod materials;
 mod pipelines;
 mod textures;
 
@@ -259,6 +260,7 @@ impl Renderer {
         let state = self.state.as_mut().unwrap();
         state.graphs.command(
             crate::render_graph::GraphContext {
+                mesh_layout: &state.layout,
                 device: &state.device,
                 queue: &state.queue,
                 resources: &mut state.resources,
@@ -328,9 +330,16 @@ impl Renderer {
     }
 
     pub fn decode_scene(&self, bytes: &[u8]) -> Result<Frame, String> {
-        let (bytes, graph) = crate::render_graph::decode_frame_packet(bytes)?;
+        let (bytes, graph, materials) = crate::render_graph::decode_frame_packet(bytes)?;
         let mut frame = self.decode_plain_scene(bytes)?;
         frame.graph = graph;
+        for (index, key) in materials {
+            frame
+                .meshes
+                .get_mut(index as usize)
+                .ok_or("Mesh shader index is outside scene")?
+                .shader = Some(key);
+        }
         Ok(frame)
     }
     fn decode_plain_scene(&self, bytes: &[u8]) -> Result<Frame, String> {
@@ -560,6 +569,7 @@ impl Renderer {
         depth_view: &wgpu::TextureView,
         format: wgpu::TextureFormat,
         size: [u32; 2],
+        materials: &[Option<crate::render_graph::PreparedMaterial>],
     ) -> wgpu::CommandEncoder {
         let vp = Mat4::from_cols_array(&frame.view_projection);
         let bindings: Vec<_> = frame
@@ -653,14 +663,24 @@ impl Renderer {
                 let binding = &bindings[index];
                 let texture_binding = &texture_bindings[index];
                 let geometry = &self.geometries[&mesh.geometry];
-                pass.set_pipeline(
-                    self.pipelines
-                        .get(pipelines::PipelineKey::new(format, mesh)),
-                );
+                if let Some(material) = &materials[index] {
+                    material.bind(&mut pass);
+                } else {
+                    pass.set_pipeline(
+                        self.pipelines
+                            .get(pipelines::PipelineKey::new(format, mesh)),
+                    );
+                }
                 pass.set_bind_group(0, binding, &[]);
                 let (vertices, indices, count, uv, index_format) =
                     self.resources.geometry(geometry.key);
                 pass.set_vertex_buffer(0, vertices.slice(..));
+                if materials[index]
+                    .as_ref()
+                    .is_some_and(|material| material.uv)
+                {
+                    pass.set_vertex_buffer(1, uv.expect("validated shader UV buffer").slice(..));
+                }
                 if let Some(binding) = texture_binding {
                     pass.set_vertex_buffer(1, uv.expect("validated UV buffer").slice(..));
                     pass.set_bind_group(1, binding, &[]);
@@ -676,6 +696,7 @@ impl Renderer {
         &mut self,
         encoder: wgpu::CommandEncoder,
         graph: Option<&crate::render_graph::FrameGraph>,
+        materials: &[Option<crate::render_graph::PreparedMaterial>],
     ) -> Result<Submission, String> {
         let index = self.queue.submit([encoder.finish()]);
         let keys: Vec<_> = self
@@ -683,6 +704,12 @@ impl Renderer {
             .values()
             .map(|g| g.key)
             .chain(self.textures.values().map(|t| t.key))
+            .chain(
+                materials
+                    .iter()
+                    .flatten()
+                    .flat_map(|m| m.resources.iter().copied()),
+            )
             .chain(
                 graph
                     .into_iter()
@@ -747,6 +774,7 @@ impl Renderer {
     ) -> Result<(), String> {
         pixel_len(width, height)?;
         let graph = self.resolve_frame_graph(frame, width, height)?;
+        let materials = self.prepare_materials(frame, texture.format(), graph.as_ref())?;
         self.prepare_scene(frame)?;
         if self
             .surface_depth
@@ -781,10 +809,10 @@ impl Renderer {
             &self.surface_depth.as_ref().unwrap().view,
             texture.format(),
             [texture.width(), texture.height()],
-            graph.as_ref(),
+            (graph.as_ref(), &materials),
         );
         let result = self
-            .submit(encoder, graph.as_ref())
+            .submit(encoder, graph.as_ref(), &materials)
             .and_then(|submission| self.wait_for_submission(submission));
         if let Err(error) = result {
             // Stop future submissions and keep the imported resource owned.
@@ -797,6 +825,8 @@ impl Renderer {
     pub fn render(&mut self, frame: &Frame, width: u32, height: u32) -> Result<Vec<u8>, String> {
         let len = pixel_len(width, height)?;
         let graph = self.resolve_frame_graph(frame, width, height)?;
+        let materials =
+            self.prepare_materials(frame, wgpu::TextureFormat::Rgba8UnormSrgb, graph.as_ref())?;
         self.prepare_scene(frame)?;
         self.resize(width, height);
         self.prepare_frame_pipelines(frame, wgpu::TextureFormat::Rgba8UnormSrgb, graph.as_ref())?;
@@ -807,7 +837,7 @@ impl Renderer {
             &target.depth_view,
             wgpu::TextureFormat::Rgba8UnormSrgb,
             [width, height],
-            graph.as_ref(),
+            (graph.as_ref(), &materials),
         );
         encoder.copy_texture_to_buffer(
             target.color.as_image_copy(),
@@ -827,7 +857,7 @@ impl Renderer {
         );
         let readback = target.readback.clone();
         let stride = target.stride;
-        let submission = self.submit(encoder, graph.as_ref())?;
+        let submission = self.submit(encoder, graph.as_ref(), &materials)?;
         let slice = readback.slice(..);
         let (sender, receiver) = mpsc::sync_channel(1);
         slice.map_async(wgpu::MapMode::Read, move |result| {

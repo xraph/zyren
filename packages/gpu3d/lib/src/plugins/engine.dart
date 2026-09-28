@@ -542,18 +542,27 @@ class SceneEngine {
       for (final (plugin, context) in _attached) {
         await plugin.beforeRender(context, info);
       }
-      final FrameOutput result;
-      if (_backend case final backend?) {
-        result = await backend.render(
-          FrameSubmission.capture(
-            scene: scene,
-            camera: camera,
-            size: PhysicalSize(width, height),
-            time: time ?? FrameTime(elapsed: elapsed, delta: delta),
-            target: target,
-            graph: graph ?? _frameGraph?.graph,
+      if (!capabilities.supports(RenderFeature.meshShaders) &&
+          _hasVisibleShaderMaterial(scene)) {
+        throw SceneException(
+          SceneIssue(
+            code: SceneIssueCodes.unsupportedFeature,
+            message: 'This backend does not support mesh shaders.',
+            operation: 'render',
           ),
         );
+      }
+      final FrameOutput result;
+      if (_backend case final backend?) {
+        final submission = FrameSubmission.capture(
+          scene: scene,
+          camera: camera,
+          size: PhysicalSize(width, height),
+          time: time ?? FrameTime(elapsed: elapsed, delta: delta),
+          target: target,
+          graph: graph ?? _frameGraph?.graph,
+        );
+        result = await backend.render(submission);
       } else {
         if (target is! ReadbackTarget) {
           throw StateError(
@@ -648,3 +657,8 @@ SceneException _cancelled([Object? cause]) => SceneException(
     cause: cause,
   ),
 );
+
+bool _hasVisibleShaderMaterial(Object3D node) =>
+    node.visible &&
+    ((node is Mesh && node.material is ShaderMaterial) ||
+        node.children.any(_hasVisibleShaderMaterial));

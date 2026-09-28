@@ -17,6 +17,7 @@ enum RenderFeature {
   shaderCompilation,
   renderGraphs,
   frameGraphs,
+  meshShaders,
 }
 
 /// Limits enforced by the backend, even if the adapter can allocate more.

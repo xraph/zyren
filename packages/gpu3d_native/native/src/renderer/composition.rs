@@ -1,5 +1,8 @@
 use super::Renderer;
-use crate::{render_graph::FrameGraph, scene::Frame};
+use crate::{
+    render_graph::{FrameGraph, PreparedMaterial},
+    scene::Frame,
+};
 use std::collections::HashMap;
 
 const OUTPUT_SHADER: &str = r#"
@@ -150,14 +153,21 @@ impl Renderer {
         depth: &wgpu::TextureView,
         format: wgpu::TextureFormat,
         size: [u32; 2],
-        graph: Option<&FrameGraph>,
+        composition: (Option<&FrameGraph>, &[Option<PreparedMaterial>]),
     ) -> wgpu::CommandEncoder {
+        let (graph, materials) = composition;
         let Some(graph) = graph else {
-            return self.encode_scene(frame, color, depth, format, size);
+            return self.encode_scene(frame, color, depth, format, size, materials);
         };
         let scene_view = graph.scene_color.create_view(&Default::default());
-        let mut encoder =
-            self.encode_scene(frame, &scene_view, depth, graph.scene_color.format(), size);
+        let mut encoder = self.encode_scene(
+            frame,
+            &scene_view,
+            depth,
+            graph.scene_color.format(),
+            size,
+            materials,
+        );
         graph.encode(&mut encoder);
         self.compositor
             .encode(&self.device, &mut encoder, &graph.output, color, format);

@@ -51,6 +51,7 @@ impl GraphStore {
             resources: resource_keys.clone(),
             shaders: shader_keys.clone(),
             frame,
+            scene_resource: description.scene_color.map(key),
         });
         match self.registry.insert(graph, bytes) {
             Ok(key) => Ok(super::key_value(key)),
@@ -401,7 +402,7 @@ impl GraphStore {
     }
 }
 
-fn check_entry(
+pub(super) fn check_entry(
     shader: &crate::shaders::CompiledShader,
     name: &str,
     stage: &str,
