@@ -15,6 +15,7 @@ class TerrainFixture {
     ..lightDirection = const Vec3(1, -.4, .8)
     ..ambient = .35;
   final camera = PerspectiveCamera(
+    depthStrategy: DepthStrategy.reversed,
     position: origin + const Vec3(12000, 0, 0),
     target: origin,
     up: const Vec3(0, 0, 1),

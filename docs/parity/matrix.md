@@ -96,7 +96,7 @@ remains separate.
 | R4 | WGSL mesh/fullscreen pipelines, typed bindings, depth targets and HDR implemented; dedicated normal targets remain | Atmosphere/effects | Custom plugin pipeline through public APIs, native pixel comparisons |
 | R5 | Render graphs, compute, hazard validation, mipmaps and per-view history implemented; MRT and motion reprojection remain | LUT generation, clouds, effects | Dependency validation, read/write hazards and device capability failures |
 | R6 | Standard PBR/maps, punctual lights, bounded shadows, environment lighting, alpha, instancing, standard glTF, MSAA/FXAA/bloom implemented | Tile cities and full stories | glTF corpus, lighting fixtures, actual asset rendering |
-| R7 | Camera-relative transforms, planetary depth strategy, streaming budgets/culling | Ground-to-space movement | Millimeter local detail, horizon/depth stress cases, stable LOD |
+| R7 | Camera-relative transforms, opt-in reversed depth and bounded offline streaming implemented | Ground-to-space movement | [Depth measurements and native occlusion](planetary-depth.md), [regional terrain evidence](terrain-streaming.md); global terrain stress and broader device precision remain |
 | R8 | Native mobile/desktop packaging and backend presentation | Release | Separate physical iOS/Android, macOS and Windows runtime qualification |
 
 ## Implementation sequence

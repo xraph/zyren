@@ -17,6 +17,13 @@ presentation. Returned RGBA8 images use sRGB premultiplied alpha. Custom HDR eff
 receive linear premultiplied color. `gpuTime` is nullable and remains null in this
 profile; the renderer does not advertise timestamp queries or indirect draws.
 
+Camera depth is independent of the color profile. `DepthStrategy.reversed` uses
+Depth32 float with a zero clear, greater comparison and maximum MSAA depth resolve.
+Standard depth remains the default. Both require finite clipping planes; only
+backends advertising `RenderFeature.reversedDepth` accept the reversed mode.
+See the [planetary depth measurements](parity/planetary-depth.md) for its tested
+precision and the public screen reconstruction helpers.
+
 ## Materials and lighting
 
 `StandardMaterial` implements isotropic metal/roughness shading with base color,

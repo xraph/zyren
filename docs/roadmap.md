@@ -26,7 +26,7 @@ defines ownership and application workflows before those changes land.
 | Materials and lighting | Metal/roughness PBR and maps, punctual lights, environment convolution, directional/spot shadows, mipmaps and alpha modes | Multiple-scattering PBR, advanced physical materials, area lights and point-light shadows |
 | Animation | Frame hooks and optional transform/camera timeline tracks with interpolation and playback | glTF animation import, mixers, skeletal animation, morphs and event tracks |
 | Assets | Scoped loading, shared decoding, bundle/file/HTTP sources, PNG/JPEG and standard glTF with unlit/punctual-light extensions | Compressed textures/meshes, further image formats and glTF extensions |
-| Rendering | Native Metal/Vulkan presentation, public WGSL graphs/compute, HDR, MSAA/FXAA, bloom and custom effects | Temporal reconstruction, motion vectors, GPU timestamps, indirect draws and wider platform qualification |
+| Rendering | Native Metal/Vulkan presentation, public WGSL graphs/compute, reversed depth, HDR, MSAA/FXAA, bloom and custom effects | Temporal reconstruction, motion vectors, GPU timestamps, indirect draws and wider platform qualification |
 | Extensibility | Dependency-ordered plugins, typed services, replaceable backends and scoped resources/shader/graph APIs | Further source shader-node equivalents and capability profiles |
 | Developer tools | Picking/selection tools, scene inspection, sampled frame statistics, capability checks and validation errors | GPU timing, broader recovery qualification and representative performance fixtures |
 
@@ -38,9 +38,9 @@ Do not add a geospatial-only rendering path to bypass missing core features.
 
 1. Extend the [offline terrain/imagery slice](parity/terrain-streaming.md), which
    now uses public core APIs with screen-space-error LOD, bounded requests/caches
-   and cancellation. Measure planetary depth precision, add remote terrain
-   formats and the separate 3D Tiles loader, then provider adapters and source
-   story configurations. Keep credentials outside the rendering core.
+   and cancellation. The [reversed-depth fixture](parity/planetary-depth.md) now
+   measures surface-to-orbit depth behavior. Add remote terrain formats and the
+   separate 3D Tiles loader, then provider adapters and source story configurations. Keep credentials outside the rendering core.
 2. Complete atmosphere variants: source LUT loading, automatic material lighting,
    probes/environment adapters, spectral integration and remaining haze overlays.
 3. Add volumetric clouds, weather generators, cloud shadows, temporal reconstruction

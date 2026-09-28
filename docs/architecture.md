@@ -108,9 +108,10 @@ coordinates are metres. ECEF is right handed: X crosses longitude zero, Y crosse
 scene API is right handed with Y up by default; the globe example uses Z up.
 
 Keep absolute world positions in double precision. Camera-relative rendering
-preserves local detail at Earth scale. It does not fix depth precision across
-arbitrarily large near/far ratios; reversed depth and terrain-specific depth
-strategies belong in the later planetary renderer.
+preserves local detail at Earth scale. Opt-in `DepthStrategy.reversed` keeps
+perspective depth precision across large near/far ratios on supporting backends.
+The [measured depth fixture](parity/planetary-depth.md) separates depth
+quantization from GPU occlusion evidence and records the remaining limits.
 
 ## Why this stack
 

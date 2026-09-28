@@ -16,6 +16,7 @@ class AtmosphereFixture {
       spatialAntialiasing: SpatialAntialiasing.fxaa,
     );
   final camera = PerspectiveCamera(
+    depthStrategy: DepthStrategy.reversed,
     position: const Vec3(6379637, 0, 0),
     target: const Vec3(6379637, 0, 10000),
     up: const Vec3(1, 0, 0),
