@@ -166,6 +166,7 @@ class _ShaderLabState extends State<ShaderLab> {
     return Scaffold(
       body: SafeArea(
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -273,12 +274,15 @@ class _ShaderLabState extends State<ShaderLab> {
                     'Drag to orbit · Scroll or pinch to zoom',
                     style: TextStyle(fontSize: 12),
                   ),
-                  if (frame != null)
-                    Text(
-                      '${frame.physicalSize.width} × ${frame.physicalSize.height} · ${frame.drawCalls} draws · '
-                      '${effects.state.graphBuilds} graph builds',
+                  SizedBox(
+                    width: 264,
+                    child: Text(
+                      frame == null
+                          ? 'Preparing native view'
+                          : '${frame.physicalSize.width}×${frame.physicalSize.height} · ${frame.drawCalls} draws',
                       style: const TextStyle(fontSize: 12),
                     ),
+                  ),
                 ],
               ),
             ),

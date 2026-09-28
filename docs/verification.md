@@ -927,11 +927,16 @@ runs in JIT and bundled AOT modes outside the workspace, producing byte-identica
 runtime dependency on `gpu3d_native`, which is required for the executable to
 bundle the native asset; the effects library stays independent of that backend.
 
-Release builds pass for Android arm64 (23.2 MB) and macOS (51.7 MB). The shader
-lab release is running on the Pixel, PID 18587 at verification, with its Flutter
-runner retained and no errors in the process log. Manual release-screen
-inspection remains unverified. The Metal
-integration still reports the existing foreground failure, so manual desktop
+The narrow-layout regression also checks that first-frame diagnostics preserve
+the canvas dimensions. An initial release run replaced its ImageReader when the
+footer appeared. The footer now reserves its space and the canvas fills the
+available width; the regression and Pixel integration pass after that fix.
+
+Release builds pass for Android arm64 (23.2 MB) and macOS (51.7 MB). The updated
+shader lab release is running on the Pixel, PID 19444 at verification, with its
+Flutter runner retained and no error entries in the process log. Manual
+release-screen inspection remains unverified. The Metal integration still
+reports the existing foreground failure, so manual desktop
 inspection remains open. These checks add no iOS, Windows, Linux or Adreno
 qualification. The new effects are spatial. Temporal history, HDR, custom mesh
 materials and automatic cross-plugin pass registration remain unfinished.

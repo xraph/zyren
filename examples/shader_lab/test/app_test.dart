@@ -11,7 +11,7 @@ void main() {
     'effects, camera and resolution controls fit desktop and narrow widths',
     (tester) async {
       final backend = FakeBackend();
-      await tester.binding.setSurfaceSize(const Size(1100, 700));
+      await tester.binding.setSurfaceSize(const Size(320, 640));
       addTearDown(() => tester.binding.setSurfaceSize(null));
       await tester.pumpWidget(
         ShaderLabApp(
@@ -24,6 +24,14 @@ void main() {
           unsupported: UnsupportedEffects.bypass,
         ),
       );
+      final initialCanvas = tester.getSize(find.byType(SceneView));
+      await tester.pumpAndSettle();
+      expect(
+        tester.getSize(find.byType(SceneView)),
+        initialCanvas,
+        reason: 'First-frame diagnostics must not resize the native surface.',
+      );
+      await tester.binding.setSurfaceSize(const Size(1100, 700));
       await tester.pumpAndSettle();
       final controller = tester
           .widget<SceneView>(find.byType(SceneView))
