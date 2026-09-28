@@ -23,6 +23,9 @@ final class AssetDecodeContext {
   bool supportsBufferEncoding(BufferEncoding encoding) =>
       _services.bufferDecoder?.encodings.contains(encoding) ?? false;
 
+  bool supportsMeshEncoding(MeshEncoding encoding) =>
+      _services.meshDecoder?.encodings.contains(encoding) ?? false;
+
   void report(LoadProgress progress) {
     cancellation.throwIfCancelled();
     _report(progress);
@@ -248,4 +251,65 @@ final class AssetDecodeContext {
         sourceUri: sourceUri,
         fieldPath: fieldPath,
       );
+
+  Future<DecodedMeshData> decodeMesh(
+    Uint8List bytes, {
+    required MeshEncoding encoding,
+    String? fieldPath,
+  }) {
+    final future = _decodeTail.then((_) async {
+      cancellation.throwIfCancelled();
+      if (!supportsMeshEncoding(encoding)) {
+        throw AssetLoadException(
+          AssetLoadError.unsupportedFeature,
+          'No decoder is configured for this mesh encoding.',
+          sourceUri: sourceUri,
+          fieldPath: fieldPath,
+        );
+      }
+      final remaining = limits.maxDecodedBytes - _decodedBytes;
+      if (remaining <= 0) {
+        throw _limit('Decoded bytes exceed the job budget.', fieldPath);
+      }
+      final configured = limits.meshes;
+      final decodeLimits = MeshDecodeLimits(
+        maxEncodedBytes: configured.maxEncodedBytes,
+        maxDecodedBytes: math.min(remaining, configured.maxDecodedBytes),
+        maxVertices: configured.maxVertices,
+        maxTriangles: configured.maxTriangles,
+        maxAttributes: configured.maxAttributes,
+      );
+      try {
+        decodeLimits.validateInput(bytes);
+        final mesh = await _services.meshDecoder!.decode(
+          bytes,
+          encoding: encoding,
+          limits: decodeLimits,
+        );
+        cancellation.throwIfCancelled();
+        decodeLimits.validateOutput(mesh);
+        reserveDecodedBytes(mesh.decodedByteLength, fieldPath: fieldPath);
+        return mesh;
+      } on BufferDecodeException catch (error) {
+        throw AssetLoadException(
+          switch (error.code) {
+            BufferDecodeError.invalidData => AssetLoadError.invalidData,
+            BufferDecodeError.limitExceeded => AssetLoadError.limitExceeded,
+            BufferDecodeError.unsupportedEncoding =>
+              AssetLoadError.unsupportedFeature,
+            _ => AssetLoadError.decodeFailed,
+          },
+          error.message,
+          sourceUri: sourceUri,
+          fieldPath: fieldPath,
+          cause: error,
+        );
+      }
+    });
+    _decodeTail = future.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
+    return future;
+  }
 }

@@ -34,6 +34,7 @@ export 'src/assets/source_resolver.dart' hide UnavailableSourceResolver;
 export 'src/assets/load_cancellation.dart' show LoadCancellation;
 export 'src/assets/image_decoder.dart';
 export 'src/assets/buffer_decoder.dart';
+export 'src/assets/mesh_decoder.dart';
 export 'src/rendering/frame_output.dart'
     show ImageData, PhysicalSize, PixelFormat, ColorSpace, AlphaMode;
 
