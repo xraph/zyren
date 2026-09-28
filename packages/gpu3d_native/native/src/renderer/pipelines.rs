@@ -4,6 +4,7 @@ use std::collections::HashMap;
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub(super) struct PipelineKey {
     format: wgpu::TextureFormat,
+    sample_count: u32,
     textured: bool,
     standard: bool,
     tangent: bool,
@@ -18,9 +19,15 @@ pub(super) struct PipelineKey {
     depth_write: bool,
 }
 impl PipelineKey {
-    pub(super) fn new(format: wgpu::TextureFormat, mesh: &Mesh, tangent: bool) -> Self {
+    pub(super) fn new(
+        format: wgpu::TextureFormat,
+        mesh: &Mesh,
+        tangent: bool,
+        sample_count: u32,
+    ) -> Self {
         Self {
             format,
+            sample_count,
             colored: mesh.vertex_colors,
             instanced: mesh.instances != 0,
             deformed: mesh.pose != 0,
@@ -142,6 +149,7 @@ impl MeshPipelines {
                     format,
                     mesh,
                     has_tangents(mesh.geometry),
+                    frame.sample_count(),
                 ))
         }) {
             return Ok(());
@@ -153,7 +161,12 @@ impl MeshPipelines {
             if mesh.shader.is_some() {
                 continue;
             }
-            let key = PipelineKey::new(format, mesh, has_tangents(mesh.geometry));
+            let key = PipelineKey::new(
+                format,
+                mesh,
+                has_tangents(mesh.geometry),
+                frame.sample_count(),
+            );
             if !self.cache.contains_key(&key) {
                 let pipeline = self.create(device, key);
                 self.cache.insert(key, pipeline);
@@ -335,7 +348,10 @@ impl MeshPipelines {
                 stencil: Default::default(),
                 bias: Default::default(),
             }),
-            multisample: Default::default(),
+            multisample: wgpu::MultisampleState {
+                count: key.sample_count,
+                ..Default::default()
+            },
             multiview_mask: None,
             cache: None,
         })

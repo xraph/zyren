@@ -686,8 +686,11 @@ impl Renderer {
     fn encode_scene(
         &self,
         frame: &Frame,
-        color_view: &wgpu::TextureView,
-        depth_view: &wgpu::TextureView,
+        attachments: (
+            &wgpu::TextureView,
+            Option<&wgpu::TextureView>,
+            &wgpu::TextureView,
+        ),
         format: wgpu::TextureFormat,
         size: [u32; 2],
         composition: (
@@ -697,6 +700,7 @@ impl Renderer {
             &shadows::PreparedShadows,
         ),
     ) -> wgpu::CommandEncoder {
+        let (color_view, resolve_target, depth_view) = attachments;
         let (materials, graph, environment, shadows) = composition;
         let vp = Mat4::from_cols_array(&frame.view_projection);
         let lighting = frame.meshes.iter().any(|m| m.pbr.is_some()).then(|| {
@@ -838,7 +842,7 @@ impl Renderer {
                 label: Some("native frame"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: color_view,
-                    resolve_target: None,
+                    resolve_target,
                     depth_slice: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
@@ -887,6 +891,7 @@ impl Renderer {
                         format,
                         mesh,
                         !geometry.recipe.tangents.is_empty(),
+                        frame.sample_count(),
                     )));
                 }
                 pass.set_bind_group(0, binding, &[]);

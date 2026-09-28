@@ -5,6 +5,7 @@ import 'package:gpu3d_native/gpu3d_native.dart';
 import 'package:test/test.dart';
 
 Future<void> verifyHdr(NativeGpuBackend backend) async {
+  expect(backend.capabilities.limits.sampleCounts, containsAll([1, 4]));
   final scope = backend.createResourceScope();
   final shaders = backend.createShaderCompiler();
   final compiler = backend.createGraphCompiler();
@@ -206,7 +207,10 @@ Future<void> verifyHdr(NativeGpuBackend backend) async {
                 camera: camera,
                 size: PhysicalSize(31, 31),
                 graph: graph,
-                colorPipeline: ColorPipeline(toneMapping: ToneMapping.reinhard),
+                colorPipeline: ColorPipeline(
+                  toneMapping: ToneMapping.reinhard,
+                  sampleCount: 4,
+                ),
               ),
             )
             as ReadbackOutput;
@@ -251,6 +255,12 @@ ${MeshShaderInterface.wgsl}
       242,
       64,
     ]);
+    pixel(
+      await draw(
+        ColorPipeline(toneMapping: ToneMapping.reinhard, sampleCount: 4),
+      ),
+      [124, 213, 242, 64],
+    );
     pixel(await draw(null), [137, 255, 255, 64]);
   } finally {
     mesh.material = original;

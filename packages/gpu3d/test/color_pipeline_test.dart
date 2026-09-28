@@ -3,8 +3,58 @@ import 'package:gpu3d/gpu3d.dart';
 import 'package:gpu3d/rendering.dart';
 import 'package:test/test.dart';
 import 'support/fakes.dart';
+import 'shared_graph_test.dart' show SharedBackend;
 
 void main() {
+  test('multisampling is captured in both packet formats', () {
+    final frame = FrameSubmission.capture(
+      scene: Scene(),
+      camera: PerspectiveCamera(),
+      size: PhysicalSize(31, 31),
+      colorPipeline: ColorPipeline(sampleCount: 4),
+    );
+    expect(frame.withGraph(null).colorPipeline!.sampleCount, 4);
+    expect(
+      (frame.toNativePacket()['color_pipeline'] as Map)['sample_count'],
+      4,
+    );
+    final packet = ScenePacketEncoder(viewId: 1).encode(frame);
+    final bytes = ByteData.sublistView(packet.bytes);
+    expect(bytes.getUint32(4, Endian.little), 28);
+    // Fixed header, view table, projection/background/lights, HDR flag and curve.
+    expect(bytes.getUint32(172, Endian.little), 4);
+    for (final samples in [0, 2, 3, 8, -1]) {
+      expect(() => ColorPipeline(sampleCount: samples), throwsArgumentError);
+    }
+  });
+  test('unsupported sample count rejects before backend submission', () async {
+    final backend = SharedBackend();
+    final engine = await SceneEngine.create(
+      scene: Scene(),
+      camera: PerspectiveCamera(),
+      backendFactory: () async => backend,
+    );
+    try {
+      await expectLater(
+        engine.renderFrame(
+          elapsed: Duration.zero,
+          width: 16,
+          height: 16,
+          colorPipeline: ColorPipeline(sampleCount: 4),
+        ),
+        throwsA(
+          isA<SceneException>().having(
+            (e) => e.issue.code,
+            'code',
+            SceneIssueCodes.unsupportedFeature,
+          ),
+        ),
+      );
+      expect(backend.last, isNull);
+    } finally {
+      await engine.dispose();
+    }
+  });
   test('unsupported HDR rejects before legacy rendering', () async {
     final renderer = TestRenderer([]);
     final engine = await SceneEngine.create(

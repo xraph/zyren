@@ -82,7 +82,7 @@ impl ScenePacket {
             return Err("unsupported scene packet".into());
         }
         let opcode = r.u32()?;
-        if !(10..=27).contains(&opcode) {
+        if !(10..=28).contains(&opcode) {
             return Err("unsupported scene packet".into());
         }
         let textured = opcode >= 11;
@@ -170,6 +170,7 @@ impl ScenePacket {
             let pipeline = crate::scene::ColorPipeline {
                 tone_mapping: r.u32()?,
                 exposure: r.floats::<1>()?[0],
+                sample_count: if opcode >= 28 { r.u32()? } else { 1 },
             };
             pipeline.validate()?;
             Some(pipeline)

@@ -422,12 +422,18 @@ pub struct Frame {
 #[derive(Clone, Copy, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ColorPipeline {
+    #[serde(default = "single_sample")]
+    pub sample_count: u32,
     pub tone_mapping: u32,
     pub exposure: f32,
 }
+fn single_sample() -> u32 {
+    1
+}
 impl ColorPipeline {
     pub fn validate(&self) -> Result<(), String> {
-        if self.tone_mapping > 2
+        if ![1, 4].contains(&self.sample_count)
+            || self.tone_mapping > 2
             || !self.exposure.is_finite()
             || !(0.0..=1e6).contains(&self.exposure)
         {
@@ -437,6 +443,10 @@ impl ColorPipeline {
     }
 }
 impl Frame {
+    pub fn sample_count(&self) -> u32 {
+        self.color_pipeline
+            .map_or(1, |pipeline| pipeline.sample_count)
+    }
     pub fn validate(&self, cached: &HashSet<u32>) -> Result<(), String> {
         self.shadows.validate(&self.lights)?;
         if let Some(pipeline) = self.color_pipeline {

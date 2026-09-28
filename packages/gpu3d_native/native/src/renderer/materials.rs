@@ -27,7 +27,7 @@ impl Renderer {
                 let material = state
                     .graphs
                     .meshes
-                    .prepare(&state.device, key, mesh, format)
+                    .prepare(&state.device, key, mesh, format, frame.sample_count())
                     .map_err(|error| {
                         if error.is_device_failure() {
                             state.failure = Some(error.to_string());

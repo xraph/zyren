@@ -194,7 +194,9 @@ final class ScenePacketEncoder {
         uploadBytes > 64 * 1024 * 1024) {
       throw ArgumentError('Scene resource upload exceeds the frame budget.');
     }
-    final opcode = scene._meshes.any((m) => m['color_visible'] == false)
+    final opcode = (submission.colorPipeline?.sampleCount ?? 1) > 1
+        ? 28
+        : scene._meshes.any((m) => m['color_visible'] == false)
         ? 27
         : scene.hasInstances
         ? 26
@@ -279,6 +281,7 @@ final class ScenePacketEncoder {
     if (opcode >= 21 && submission.colorPipeline != null) {
       body.u32(submission.colorPipeline!.toneMapping.index);
       body.floats([submission.colorPipeline!.exposure]);
+      if (opcode >= 28) body.u32(submission.colorPipeline!.sampleCount);
     }
     if (opcode >= 22) {
       body.u32(submission.shadows.views.length);

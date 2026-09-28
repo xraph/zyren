@@ -7,6 +7,73 @@ use std::collections::HashMap;
 
 use wgpu::util::DeviceExt;
 const OUTPUT_SHADER: &str = include_str!("output.wgsl");
+
+struct MultisampleTargets {
+    color: wgpu::Texture,
+    depth: wgpu::Texture,
+}
+impl MultisampleTargets {
+    fn prepare(
+        device: &wgpu::Device,
+        current: &mut Option<Self>,
+        format: wgpu::TextureFormat,
+        size: [u32; 2],
+        samples: u32,
+    ) -> Result<(), String> {
+        if samples == 1 {
+            *current = None;
+            return Ok(());
+        }
+        let pixels = u64::from(size[0]) * u64::from(size[1]);
+        let bytes_per_pixel = if format == wgpu::TextureFormat::Rgba16Float {
+            8
+        } else {
+            4
+        };
+        if pixels * bytes_per_pixel * u64::from(samples) > crate::resources::upload::MAX_BYTES {
+            return Err("Multisample color exceeds 64 MiB per attachment; reduce render scale or sample count".into());
+        }
+        if current.as_ref().is_some_and(|t| {
+            t.color.width() == size[0]
+                && t.color.height() == size[1]
+                && t.color.format() == format
+                && t.color.sample_count() == samples
+        }) {
+            return Ok(());
+        }
+        let validation = device.push_error_scope(wgpu::ErrorFilter::Validation);
+        let memory = device.push_error_scope(wgpu::ErrorFilter::OutOfMemory);
+        let internal = device.push_error_scope(wgpu::ErrorFilter::Internal);
+        let texture = |label, format| {
+            device.create_texture(&wgpu::TextureDescriptor {
+                label: Some(label),
+                size: wgpu::Extent3d {
+                    width: size[0],
+                    height: size[1],
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: samples,
+                dimension: wgpu::TextureDimension::D2,
+                format,
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                view_formats: &[],
+            })
+        };
+        let candidate = Self {
+            color: texture("multisample scene color", format),
+            depth: texture("multisample scene depth", wgpu::TextureFormat::Depth32Float),
+        };
+        let error = pollster::block_on(internal.pop())
+            .or(pollster::block_on(memory.pop()))
+            .or(pollster::block_on(validation.pop()));
+        if let Some(error) = error {
+            return Err(error.to_string());
+        }
+        *current = Some(candidate);
+        Ok(())
+    }
+}
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 struct OutputTransform {
     unassociate: bool,
@@ -21,6 +88,7 @@ pub(super) struct Compositor {
     >,
     accumulation: Option<wgpu::Texture>,
     hdr: Option<wgpu::Texture>,
+    multisample: Option<MultisampleTargets>,
 }
 impl Compositor {
     fn prepare(
@@ -265,6 +333,13 @@ impl Renderer {
         }
         self.prepare_pipelines(frame, scene_format)?;
         let state = self.state.as_mut().unwrap();
+        MultisampleTargets::prepare(
+            &state.device,
+            &mut state.compositor.multisample,
+            scene_format,
+            size,
+            frame.sample_count(),
+        )?;
         if hdr && graph.is_none() {
             target(&state.device, &mut state.compositor.hdr, scene_format, size)?;
         } else {
@@ -327,10 +402,17 @@ impl Renderer {
         let scene_target = scene_view.as_ref().unwrap_or(color);
         let accumulation = self.compositor.accumulation.as_ref();
         let accumulation_view = accumulation.map(|t| t.create_view(&Default::default()));
+        let resolve = accumulation_view.as_ref().unwrap_or(scene_target);
+        let multisample = self.compositor.multisample.as_ref();
+        let multisample_color = multisample.map(|t| t.color.create_view(&Default::default()));
+        let multisample_depth = multisample.map(|t| t.depth.create_view(&Default::default()));
         let mut encoder = self.encode_scene(
             frame,
-            accumulation_view.as_ref().unwrap_or(scene_target),
-            depth,
+            (
+                multisample_color.as_ref().unwrap_or(resolve),
+                multisample.map(|_| resolve),
+                multisample_depth.as_ref().unwrap_or(depth),
+            ),
             scene_format,
             size,
             (materials, graph, environment, shadows),

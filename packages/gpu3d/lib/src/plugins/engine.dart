@@ -604,6 +604,20 @@ class SceneEngine {
         ),
       );
     }
+    if (!capabilities.limits.sampleCounts.contains(
+      colorPipeline?.sampleCount ?? 1,
+    )) {
+      return Future.error(
+        SceneException(
+          SceneIssue(
+            code: SceneIssueCodes.unsupportedFeature,
+            message: 'The requested sample count exceeds this backend profile.',
+            operation: 'render',
+            limits: capabilities.limits,
+          ),
+        ),
+      );
+    }
     if (graph != null && _sharedGraph != null) {
       return Future.error(
         StateError(

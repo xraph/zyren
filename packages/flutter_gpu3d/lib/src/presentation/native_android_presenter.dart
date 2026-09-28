@@ -124,6 +124,7 @@ class NativeAndroidBackend implements NativeGpuBackend {
     },
     limits: DeviceLimits(
       maxTextureDimension2D: 4096,
+      sampleCounts: {1, 4},
       maxGeometryBytes: 64 * 1024 * 1024,
       maxInstances: 100000,
       maxJoints: 256,

@@ -457,6 +457,7 @@ class FrameSubmission {
             'color_pipeline': {
               'tone_mapping': pipeline.toneMapping.index,
               'exposure': pipeline.exposure,
+              if (pipeline.sampleCount != 1) 'sample_count': pipeline.sampleCount,
             },
           'geometries': [
             for (final id in {

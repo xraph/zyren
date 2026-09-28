@@ -6,10 +6,17 @@ enum ToneMapping { linear, reinhard, acesFilmic }
 final class ColorPipeline {
   final ToneMapping toneMapping;
   final double exposure;
+
+  /// Scene coverage samples. Effects receive resolved single-sample color.
+  final int sampleCount;
   ColorPipeline({
     this.toneMapping = ToneMapping.acesFilmic,
     this.exposure = 1,
+    this.sampleCount = 1,
   }) {
+    if (sampleCount != 1 && sampleCount != 4) {
+      throw ArgumentError.value(sampleCount, 'sampleCount', 'Expected 1 or 4.');
+    }
     if (!exposure.isFinite || exposure < 0 || exposure > 1e6) {
       throw ArgumentError.value(
         exposure,

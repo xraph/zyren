@@ -27,6 +27,7 @@ pub(super) struct Description {
 }
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 struct State {
+    sample_count: u32,
     format: wgpu::TextureFormat,
     side: u32,
     mirrored: bool,
@@ -35,8 +36,9 @@ struct State {
     depth_write: bool,
 }
 impl State {
-    fn new(format: wgpu::TextureFormat, mesh: &Mesh) -> Self {
+    fn new(format: wgpu::TextureFormat, mesh: &Mesh, sample_count: u32) -> Self {
         Self {
+            sample_count,
             format,
             side: mesh.side,
             mirrored: glam::Mat4::from_cols_array(&mesh.model).determinant() < 0.,
@@ -191,7 +193,10 @@ fn create_pipeline(
             stencil: Default::default(),
             bias: Default::default(),
         }),
-        multisample: Default::default(),
+        multisample: wgpu::MultisampleState {
+            count: state.sample_count,
+            ..Default::default()
+        },
         multiview_mask: None,
         cache: None,
     })
@@ -269,7 +274,7 @@ impl MeshStore {
                     colored: description.vertex_layout >= 3,
                     instanced: description.geometry & 1 != 0,
                     deformed: description.geometry & 2 != 0,
-                    state: State::new(wgpu::TextureFormat::Rgba8UnormSrgb, &Mesh::default()),
+                    state: State::new(wgpu::TextureFormat::Rgba8UnormSrgb, &Mesh::default(), 1),
                 };
                 let pipeline = if let Some(p) = self.cache.get(&cache_key).and_then(Weak::upgrade) {
                     p
@@ -384,6 +389,7 @@ impl MeshStore {
         id: ResourceKey,
         mesh: &Mesh,
         format: wgpu::TextureFormat,
+        sample_count: u32,
     ) -> Result<PreparedMaterial, GraphError> {
         let program = self.registry.resolve(id)?;
         if mesh.primitive_kind != 0 || mesh.color_map.is_some() {
@@ -400,7 +406,7 @@ impl MeshStore {
                 "Mesh geometry does not match the shader profile",
             ));
         }
-        let state = State::new(format, mesh);
+        let state = State::new(format, mesh, sample_count);
         let pipeline = if let Some(pipeline) = self.owned.get(&(id, state)) {
             pipeline.clone()
         } else {
