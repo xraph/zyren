@@ -70,6 +70,8 @@ Use `createGraphCompiler()` to execute compute and procedural render passes with
 typed buffer, texture and sampler bindings. Failed edits preserve the active
 graph, and uniform updates reuse its pipelines. The
 [render graph guide](../../docs/design/render-graphs.md) covers ownership,
-dependencies and limits. The example saves a native compute-to-render heatmap
+dependencies and limits. Plugins can use attachment-owned `context.resources`,
+`context.shaders` and `context.graphs` without a native backend reference.
+The example saves a native compute-to-render heatmap
 as a PNG. Custom mesh materials and direct platform-view graph composition
 remain in progress.

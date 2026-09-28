@@ -110,6 +110,35 @@ on the device, keyed by module, binding layout, entry points and target format.
 Use `backend.graphStats()` for live graph and pipeline counts. Description bytes
 are admission accounting, not measured driver memory.
 
+## Plugin ownership
+
+Inside a `ScenePlugin`, use `context.resources`, `context.shaders` and
+`context.graphs` to allocate resources, compile programs and compile the graph.
+Each service is created on first access and belongs to that attachment. You do
+not need a native backend reference or a private import.
+
+Declare `scopedResources`, `shaderCompilation` and `renderGraphs` in your plugin's
+`requiredFeatures`. Add `compute` and `storageTextures` when your passes need
+them. The engine checks those requirements before attachment. Direct access on
+an unsupported backend also reports the requesting plugin and missing service.
+
+```dart
+// During attach, after preparing programs and resources:
+compiled = await context.graphs.compile(graph.describe(label: id));
+
+// During beforeRender, when this plugin needs to update its output:
+await compiled.execute();
+```
+
+The compiler holds one active graph per attachment. Execution is explicit; these
+services do not insert passes into the scene renderer or present graph textures.
+Use typed `ServiceKey<T>` values to publish outputs to dependent plugins. A
+consumer can retain a published texture in its own `context.resources` scope.
+
+Closing the attachment stops new resource, shader and graph work synchronously.
+Accepted work drains before `detach` and backend close. Failed attachment follows
+the same cleanup path. Services belonging to sibling attachments stay usable.
+
 ## Current profile
 
 The backend advertises `renderGraphs`, `compute` and `storageTextures`. The
@@ -124,7 +153,7 @@ shader's layout and device limits. Native admission allows 32 live graphs and
 16 MiB of description storage per device. Labels have a 1024-byte UTF-8 limit.
 
 This profile executes into explicit resource textures. Scene `ShaderMaterial`,
-automatic plugin graph ownership, direct platform-view composition and
-resize/history resources remain in plan 03. Graph execution is verified on
-macOS Metal and Pixel Vulkan; see [verification](../verification.md). Other
+direct platform-view composition and resize/history resources remain in plan 03.
+Graph execution is verified on macOS Metal and Pixel Vulkan; see
+[verification](../verification.md). Other
 platforms have no graph qualification yet.

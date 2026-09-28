@@ -809,3 +809,22 @@ despite a foreground failure; this is native GPU evidence, not manual inspection
 of the locked desktop. No iOS, Windows, Linux or Adreno graph qualification was
 added. Scene materials, platform-view graph composition, plugin graph ownership
 and resize/history remain open.
+
+## Attachment-owned graph services
+
+`PluginContext.resources` and `graphs` now join the existing shader service.
+Five core regressions verify lazy allocation, independent attachment owners,
+scope closure before detach, cancellation during compilation, failed attachment
+cleanup and labeled unsupported-service errors. They pass with all 186
+core/geospatial/glTF tests. All 42 native Dart tests also pass.
+
+The native plugin fixture publishes its computed texture through a typed service
+and a dependent plugin retains and reads it. Two engines share one device and
+one cached pipeline. Closing the first leaves the second rendering; closing both
+returns graphs, pipelines, resource bytes and shader modules to zero. A provider
+that fails after compilation also leaves no allocations. This fixture passes on
+Metal and Pixel Vulkan through the Flutter integration.
+
+Execution remains explicit in `beforeRender`. These services establish plugin
+ownership and typed output sharing, with no automatic scene insertion or native
+view composition. The locked Mac still prevented manual window inspection.

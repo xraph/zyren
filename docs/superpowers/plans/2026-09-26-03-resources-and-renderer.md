@@ -270,8 +270,11 @@ on Metal and Pixel Vulkan. Immutable candidates validate access, dependency orde
 layouts and pipeline interfaces before replacing an active graph. Compiled graphs
 retain their programs and resources; buffers can update without recompilation.
 Whole-allocation lifetimes and weak pipeline caches are implemented. This profile
-uses explicit resource textures. Scene insertion, custom mesh materials, plugin
-ownership, resize/history and the separate effects consumer remain open. See
+uses explicit resource textures. Lazy `context.resources` and `context.graphs`
+services now own allocations and graph compilation per attachment, with explicit
+execution and cleanup on failed attach. Typed output services and independent
+shared-device engines pass GPU tests. Scene insertion, custom mesh materials,
+resize/history and the separate effects consumer remain open. See
 [render graphs](../../design/render-graphs.md).
 
 **Files:** Create graph/shader modules from the map, native

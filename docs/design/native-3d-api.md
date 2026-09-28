@@ -480,8 +480,11 @@ class HeatmapPlugin extends ScenePlugin {
 ```
 
 `context.shaders`, `ShaderSource` and `ShaderProgram` are implemented in the
-[compiler checkpoint](shader-compilation.md). The graph code above is the target
-API for the remaining task 4 work. `heatmapWgsl`, `heatmapBindings` and
+[compiler checkpoint](shader-compilation.md). `context.resources` now owns GPU
+allocations and `context.graphs` owns a graph compiler for explicit execution;
+see [render graphs](render-graphs.md). The automatic `context.graph` registration
+code above remains the target API for scene insertion in task 4.
+`heatmapWgsl`, `heatmapBindings` and
 `heatmapTexture` will be application inputs in the independent effects example.
 `ShaderSource`,
 `ComputePassDescriptor`, `Workgroups` and `ShaderBindings` are advanced core

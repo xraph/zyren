@@ -54,6 +54,8 @@ class PluginContext {
   final String _pluginId;
   final RenderBackend? _backend;
   ShaderCompiler? _shaders;
+  ResourceScope? _resources;
+  GraphCompiler? _graphs;
   final Scene scene;
   Camera camera;
   final DeviceCapabilities capabilities;
@@ -77,29 +79,79 @@ class PluginContext {
     this.input,
   );
 
+  /// Lazily owns GPU allocations for this attachment on its backend's device.
+  ResourceScope get resources {
+    _checkAttached();
+    if (_resources case final resources?) return resources;
+    final backend = _backend;
+    if (backend is! ResourceBackend) {
+      throw _unsupported(
+        RenderFeature.scopedResources,
+        'allocate',
+        'This backend cannot allocate scoped GPU resources.',
+      );
+    }
+    final resources = backend.createResourceScope(label: _pluginId);
+    scope.onClose(resources.close);
+    return _resources = resources;
+  }
+
+  /// Owns one explicitly executed graph per attachment. Failed candidates keep
+  /// the active graph; closing [scope] drains executions and releases ownership.
+  GraphCompiler get graphs {
+    _checkAttached();
+    if (_graphs case final compiler?) return compiler;
+    final backend = _backend;
+    if (backend is! GraphBackend) {
+      throw _unsupported(
+        RenderFeature.renderGraphs,
+        'compile',
+        'This backend cannot compile custom render graphs.',
+      );
+    }
+    final compiler = backend.createGraphCompiler(label: _pluginId);
+    scope.onClose(compiler.close);
+    return _graphs = compiler;
+  }
+
   /// Lazily owns shader programs for this attachment. Closing [scope] stops
   /// compilation and releases its programs after accepted work settles.
   ShaderCompiler get shaders {
-    if (!_active || scope.isClosed) {
-      throw StateError('Plugin context has been detached.');
-    }
+    _checkAttached();
     if (_shaders case final compiler?) return compiler;
     final backend = _backend;
     if (backend is! ShaderBackend) {
-      throw SceneException(
-        SceneIssue(
-          code: SceneIssueCodes.unsupportedFeature,
-          message: 'This backend cannot compile custom shaders.',
-          operation: 'compile',
-          pluginId: _pluginId,
-          requiredFeatures: {RenderFeature.shaderCompilation},
-        ),
+      throw _unsupported(
+        RenderFeature.shaderCompilation,
+        'compile',
+        'This backend cannot compile custom shaders.',
       );
     }
     final compiler = backend.createShaderCompiler(label: _pluginId);
     scope.onClose(compiler.close);
     return _shaders = compiler;
   }
+
+  void _checkAttached() {
+    if (!_active || scope.isClosed) {
+      throw StateError('Plugin context has been detached.');
+    }
+  }
+
+  SceneException _unsupported(
+    RenderFeature feature,
+    String operation,
+    String message,
+  ) => SceneException(
+    SceneIssue(
+      code: SceneIssueCodes.unsupportedFeature,
+      message: message,
+      operation: operation,
+      pluginId: _pluginId,
+      requiredFeatures: {feature},
+      limits: capabilities.limits,
+    ),
+  );
 
   void invalidate() {
     if (!_active) throw StateError('Plugin context has been detached.');
