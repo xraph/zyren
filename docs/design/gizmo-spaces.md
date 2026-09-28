@@ -29,4 +29,5 @@ query reports axes or planes.
 Tests cover world alignment, transformed parents, plane constraints, snapping,
 reflection, unsupported world rotation, cancellation, undo and redo. The
 workbench adds a compact space selector and native desktop/mobile checks.
-Screen-size scaling and always-visible rendering remain separate work.
+You can opt into [screen-size scaling](gizmo-screen-size.md). Always-visible
+rendering remains separate work.

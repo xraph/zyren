@@ -45,6 +45,10 @@ class TransformGizmoPlugin extends ScenePlugin {
 
   /// Radius in parent units for local axes, or world units for world axes.
   final double size;
+
+  /// Optional nominal radius in logical pixels. Axes still foreshorten in depth.
+  /// Omit to keep [size] in scene units.
+  final double? screenSize;
   final double translationSnap, rotationSnap, scaleSnap;
   final void Function(bool dragging)? onDragChanged;
   bool snapEnabled = false;
@@ -53,6 +57,8 @@ class TransformGizmoPlugin extends ScenePlugin {
   GizmoSpace _space = GizmoSpace.local;
   final _root = Group(name: 'Transform gizmo');
   final _frame = Group(name: 'Handle frame');
+  final _visuals = Group(name: 'Handle visuals');
+  ViewportMetrics? _viewport;
   Mat4? _compensatedParent;
   final _groups = <GizmoMode, Group>{};
   final _handles = <Mesh, GizmoHandle>{};
@@ -67,17 +73,19 @@ class TransformGizmoPlugin extends ScenePlugin {
 
   TransformGizmoPlugin({
     this.size = 1.5,
+    this.screenSize,
     this.translationSnap = .25,
     this.rotationSnap = math.pi / 12,
     this.scaleSnap = .1,
     this.onDragChanged,
   }) {
     if ([
-      size,
-      translationSnap,
-      rotationSnap,
-      scaleSnap,
-    ].any((value) => !value.isFinite || value <= 0)) {
+          size,
+          translationSnap,
+          rotationSnap,
+          scaleSnap,
+        ].any((value) => !value.isFinite || value <= 0) ||
+        (screenSize != null && (!screenSize!.isFinite || screenSize! <= 0))) {
       throw ArgumentError(
         'Gizmo size and snap increments must be finite and positive.',
       );
@@ -173,30 +181,49 @@ class TransformGizmoPlugin extends ScenePlugin {
     return _tools!._contains(object);
   }
 
-  void _sync() {
+  /// Supplies logical dimensions for hosts without [ViewportInputSource].
+  /// Call before rendering and after resizing. Hit tests also update this value.
+  void updateViewport(ViewportMetrics viewport) {
+    _viewport = viewport;
+    _sync(viewport);
+  }
+
+  void _sync([ViewportMetrics? viewport]) {
     final context = _context;
     if (context == null || _syncing) return;
     _syncing = true;
     try {
+      final input = context.input;
+      viewport ??= input is ViewportInputSource ? input.viewport : _viewport;
       final selected = _tools!.selected;
-      final visible =
+      final available =
           _enabled &&
           selected != null &&
           _visible(selected) &&
           !owns(selected) &&
           unavailableReason == null;
+      var scale = available ? _visualScale(selected, viewport) : null;
+      var visible = available && scale != null;
       if (_drag != null &&
           (!visible ||
               !identical(selected, _drag!.session.object) ||
               !_drag!.session._ownsPose ||
               !identical(context.camera, _drag!.camera) ||
-              context.camera.revision != _drag!.cameraRevision)) {
+              context.camera.revision != _drag!.cameraRevision ||
+              (viewport != null &&
+                  (!viewport.isUsable ||
+                      viewport.width != _drag!.viewport.width ||
+                      viewport.height != _drag!.viewport.height)))) {
         cancel();
+        scale = available ? _visualScale(selected, viewport) : null;
+        visible = available && scale != null;
       }
       context.scene.batch(() {
         if (visible) {
-          selected.parent!.add(_root);
+          selected!.parent!.add(_root);
           _placeFrame(selected);
+          final factor = _drag == null ? scale! : _drag!.radius / size;
+          _visuals.scale = Vec3(factor, factor, factor);
         }
         _root.visible = visible;
         for (final entry in _groups.entries) {
@@ -213,6 +240,42 @@ class TransformGizmoPlugin extends ScenePlugin {
       });
     } finally {
       _syncing = false;
+    }
+  }
+
+  double? _visualScale(Object3D selected, ViewportMetrics? viewport) {
+    if (screenSize == null) return 1;
+    if (viewport == null || !viewport.isUsable) return null;
+    final parent = _world(selected.parent!);
+    final pivot = _point(parent, selected.position);
+    final camera = _context!.camera;
+    try {
+      final projected = camera.projectPoint(pivot, viewport.aspect);
+      if (projected.z < 0 || projected.z > 1) return null;
+      final offset = camera.unprojectPoint(
+        Vec3(
+          projected.x,
+          projected.y + 2 * screenSize! / viewport.height,
+          projected.z,
+        ),
+        viewport.aspect,
+      );
+      final stretch = effectiveSpace == GizmoSpace.world
+          ? 1.0
+          : GizmoAxis.values
+                .map(
+                  (axis) => _point(
+                    parent,
+                    selected.quaternion.rotate(axis.direction),
+                    w: 0,
+                  ).length,
+                )
+                .reduce(math.max);
+      final scale = pivot.distanceTo(offset) / (size * stretch);
+      return scale.isFinite && scale > 0 ? scale : null;
+    } on ArgumentError {
+      // A pivot at the eye plane cannot be projected to a finite screen span.
+      return null;
     }
   }
 
@@ -280,6 +343,7 @@ class TransformGizmoPlugin extends ScenePlugin {
 
   /// Returns only a visible handle at the frontmost clipped surface.
   GizmoHandle? hitTestHandle(ViewportPoint point, ViewportMetrics viewport) {
+    updateViewport(viewport);
     if (_context == null ||
         !viewport.isUsable ||
         !point.x.isFinite ||
@@ -290,7 +354,6 @@ class TransformGizmoPlugin extends ScenePlugin {
         point.y > viewport.height) {
       return null;
     }
-    _sync();
     if (!_root.visible) return null;
     for (final hit in _raycaster.intersectScene(
       _context!.scene,
@@ -306,7 +369,7 @@ class TransformGizmoPlugin extends ScenePlugin {
   /// Headless hosts can route logical pointer coordinates here directly.
   void handlePointer(ScenePointerEvent event, ViewportMetrics viewport) {
     if (_context == null) return;
-    _sync();
+    updateViewport(viewport);
     final drag = _drag;
     if (drag != null) {
       _tools!._suppressTap = true;
@@ -371,7 +434,7 @@ class TransformGizmoPlugin extends ScenePlugin {
                     : drag.pose.rotation * Quat.axisAngle(axis, angle),
               );
             case GizmoMode.scale:
-              var factor = 1 + (amount.x - drag.start.x) / size;
+              var factor = 1 + (amount.x - drag.start.x) / drag.radius;
               if (snap) factor = _snap(factor, scaleSnap);
               factor = math.max(.05, factor);
               final scale = drag.pose.scale;
@@ -418,6 +481,7 @@ class TransformGizmoPlugin extends ScenePlugin {
       viewport,
       _context!.camera,
       amount,
+      size * _visuals.scale.x,
     );
     onDragChanged?.call(true);
     _sync();
@@ -448,6 +512,7 @@ class TransformGizmoPlugin extends ScenePlugin {
   }
 
   void _buildHandles() {
+    _frame.add(_visuals);
     final shaft = BoxGeometry(
       width: size * .7,
       height: size * .055,
@@ -464,7 +529,7 @@ class TransformGizmoPlugin extends ScenePlugin {
       _materials[axis] = UnlitMaterial(color: Color3.hex(axis.color));
     }
     for (final mode in GizmoMode.values) {
-      final group = _frame.add(Group(name: mode.name));
+      final group = _visuals.add(Group(name: mode.name));
       _groups[mode] = group;
       for (final axis in GizmoAxis.values) {
         final rotation = switch (axis) {
@@ -529,6 +594,7 @@ final class _GizmoDrag {
   final Camera camera;
   final Mat4 inverse, parentInverse;
   final double handedness;
+  final double radius;
   final ViewportMetrics viewport;
   final Vec3 start;
   final _Pose pose;
@@ -543,6 +609,7 @@ final class _GizmoDrag {
     this.viewport,
     this.camera,
     this.start,
+    this.radius,
   ) : cameraRevision = camera.revision,
       parentInverse = _world(session.object.parent!).inverted(),
       handedness = _handedness(_world(session.object.parent!)),

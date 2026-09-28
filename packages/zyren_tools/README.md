@@ -45,6 +45,7 @@ the scene. Picking respects that depth: you cannot grab a handle through a part.
 ```dart
 final orbit = OrbitControlsPlugin();
 final gizmo = TransformGizmoPlugin(
+  screenSize: 96, // optional radius in logical pixels
   onDragChanged: (dragging) => orbit.controls?.enabled = !dragging,
 );
 controller.use(tools);
@@ -67,6 +68,20 @@ local space and 1.5 world units in world space; the object's own scale does not
 stretch its handles. Plane snapping rounds both displacement coordinates in the
 chosen space, leaving the perpendicular coordinate unchanged.
 
+Set `screenSize` to keep the nominal radius steady as you zoom or resize. It uses
+logical pixels and supports perspective and orthographic cameras. Axis tips
+extend beyond that radius, and axes pointing into the view still foreshorten.
+Local handles retain parent scale and shear proportions, with the longest basis
+vector normalized to the requested radius. The handle meshes resize without
+changing translation or snapping units. Their size freezes during a drag and
+updates when you release it.
+
+Screen sizing reads dimensions from `ViewportInputSource`. If your host doesn't
+provide that input capability, call `gizmo.updateViewport(metrics)` before
+rendering and after each resize. Direct hit tests and pointer events also supply
+dimensions. Handles hide when the logical viewport is unavailable or unusable,
+or the selected pivot is outside the camera's depth range.
+
 World movement works through rotated, reflected, nonuniformly scaled and sheared
 parent hierarchies. World rotation needs a uniformly scaled parent transform
 with orthogonal axes, since the object's local pose cannot store shear. Check
@@ -77,8 +92,8 @@ Scaling changes one local component and preserves its sign, with a minimum
 factor of 0.05 per gesture. `effectiveSpace` reports local while scaling and
 returns to your configured `space` in Move or Rotate mode. An axis aimed directly
 at the camera or a plane seen edge-on cannot provide a stable drag direction.
-Orbit the view before dragging it. Handle size remains in scene units, so it
-changes on screen as you zoom.
+Orbit the view before dragging it. With screen sizing, dragging a scale handle
+by half its displayed radius still multiplies that component by 1.5.
 
 `hitTest` retains its axis-only result. Use `hitTestHandle` for a `GizmoAxis` or
 `GizmoPlane`, and `activeHandle.label` for drag feedback. `activeAxis` is null
