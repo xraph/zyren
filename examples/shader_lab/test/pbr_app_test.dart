@@ -30,6 +30,9 @@ void main() {
     'PBR grid controls preserve a usable native canvas at narrow widths',
     (tester) async {
       final backend = PbrBackend();
+      tester.view.devicePixelRatio = 1;
+      tester.view.padding = const FakeViewPadding(top: 62, bottom: 34);
+      addTearDown(tester.view.reset);
       await tester.binding.setSurfaceSize(const Size(320, 640));
       addTearDown(() => tester.binding.setSurfaceSize(null));
       await tester.pumpWidget(
@@ -43,6 +46,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      expect(tester.getSize(find.byType(SceneView)).height, greaterThan(250));
       final controller = tester
           .widget<SceneView>(find.byType(SceneView))
           .controller!;

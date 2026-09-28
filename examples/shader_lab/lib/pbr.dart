@@ -244,11 +244,12 @@ class _PbrLabState extends State<_PbrLab> {
 
   Widget control(
     String label,
+    double width,
     double value,
     double max,
     ValueChanged<double> change,
   ) => SizedBox(
-    width: 250,
+    width: width,
     child: Row(
       children: [
         SizedBox(width: 58, child: Text(label)),
@@ -264,224 +265,257 @@ class _PbrLabState extends State<_PbrLab> {
     ),
   );
   @override
-  Widget build(BuildContext context) => Scaffold(
-    body: SafeArea(
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    widget.proceduralGeometry ? 'Core geometry' : 'PBR',
-                    style: const TextStyle(fontSize: 18),
-                  ),
-                ),
-                IconButton(
-                  key: const ValueKey('Shadows'),
-                  tooltip: shadows ? 'Disable shadows' : 'Enable shadows',
-                  isSelected: shadows,
-                  icon: const Icon(Icons.wb_shade_outlined),
-                  selectedIcon: const Icon(Icons.wb_shade),
-                  onPressed: () => setState(() {
-                    shadows = !shadows;
-                    sun.shadow = shadows
-                        ? DirectionalShadow(distance: 20)
-                        : null;
-                  }),
-                ),
-                SizedBox(
-                  width: 160,
-                  child: DropdownButton<bool>(
-                    isExpanded: true,
-                    key: const ValueKey('LightingControls'),
-                    value: environmentControls,
-                    items: const [
-                      DropdownMenuItem(value: false, child: Text('Lights')),
-                      DropdownMenuItem(value: true, child: Text('Environment')),
-                    ],
-                    onChanged: (value) =>
-                        setState(() => environmentControls = value!),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Roughness 0.1 → 1 across · Metallic 0 → 1 down',
-                style: TextStyle(fontSize: 12),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Wrap(
-              spacing: 12,
-              children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final controlWidth = ((constraints.maxWidth - 36) / 2).clamp(
+        140.0,
+        250.0,
+      );
+      return Scaffold(
+        body: SafeArea(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+                child: Row(
                   children: [
-                    const Text('Textures'),
-                    Switch(
-                      key: const ValueKey('Textures'),
-                      value: textured,
-                      onChanged: (value) => setState(() {
-                        textured = value;
-                        _applyTextures();
+                    Expanded(
+                      child: Text(
+                        widget.proceduralGeometry ? 'Core geometry' : 'PBR',
+                        style: const TextStyle(fontSize: 18),
+                      ),
+                    ),
+                    IconButton(
+                      key: const ValueKey('Shadows'),
+                      tooltip: shadows ? 'Disable shadows' : 'Enable shadows',
+                      isSelected: shadows,
+                      icon: const Icon(Icons.wb_shade_outlined),
+                      selectedIcon: const Icon(Icons.wb_shade),
+                      onPressed: () => setState(() {
+                        shadows = !shadows;
+                        sun.shadow = shadows
+                            ? DirectionalShadow(distance: 20)
+                            : null;
                       }),
                     ),
+                    SizedBox(
+                      width: 160,
+                      child: DropdownButton<bool>(
+                        isExpanded: true,
+                        key: const ValueKey('LightingControls'),
+                        value: environmentControls,
+                        items: const [
+                          DropdownMenuItem(value: false, child: Text('Lights')),
+                          DropdownMenuItem(
+                            value: true,
+                            child: Text('Environment'),
+                          ),
+                        ],
+                        onChanged: (value) =>
+                            setState(() => environmentControls = value!),
+                      ),
+                    ),
                   ],
                 ),
-                DropdownButton<ToneMapping>(
-                  key: const ValueKey('ToneMapping'),
-                  value: toneMapping,
-                  items: [
-                    for (final entry in ToneMapping.values)
-                      DropdownMenuItem(
-                        value: entry,
-                        child: Text(switch (entry) {
-                          ToneMapping.linear => 'Linear',
-                          ToneMapping.reinhard => 'Reinhard',
-                          ToneMapping.acesFilmic => 'ACES',
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Wrap(
+                  spacing: 12,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text('Textures'),
+                        Switch(
+                          key: const ValueKey('Textures'),
+                          value: textured,
+                          onChanged: (value) => setState(() {
+                            textured = value;
+                            _applyTextures();
+                          }),
+                        ),
+                      ],
+                    ),
+                    DropdownButton<ToneMapping>(
+                      key: const ValueKey('ToneMapping'),
+                      value: toneMapping,
+                      items: [
+                        for (final entry in ToneMapping.values)
+                          DropdownMenuItem(
+                            value: entry,
+                            child: Text(switch (entry) {
+                              ToneMapping.linear => 'Linear',
+                              ToneMapping.reinhard => 'Reinhard',
+                              ToneMapping.acesFilmic => 'ACES',
+                            }),
+                          ),
+                      ],
+                      onChanged: (value) => setState(() {
+                        toneMapping = value!;
+                        controller.colorPipeline = ColorPipeline(
+                          toneMapping: toneMapping,
+                          exposure: exposure,
+                          sampleCount: sampleCount,
+                        );
+                      }),
+                    ),
+                    control(
+                      'Exposure',
+                      controlWidth,
+                      exposure,
+                      4,
+                      (value) => setState(() {
+                        exposure = value;
+                        controller.colorPipeline = ColorPipeline(
+                          toneMapping: toneMapping,
+                          exposure: exposure,
+                          sampleCount: sampleCount,
+                        );
+                      }),
+                    ),
+                    if (environmentControls) ...[
+                      control(
+                        'Sky',
+                        controlWidth,
+                        environment.intensity,
+                        4,
+                        (value) =>
+                            setState(() => environment.intensity = value),
+                      ),
+                      control(
+                        'Rotation',
+                        controlWidth,
+                        environmentAngle,
+                        math.pi * 2,
+                        (value) => setState(() {
+                          environmentAngle = value;
+                          environment.rotation = Quat.axisAngle(
+                            const Vec3(0, 1, 0),
+                            value,
+                          );
                         }),
                       ),
+                    ] else ...[
+                      control(
+                        'Ambient',
+                        controlWidth,
+                        ambient,
+                        3,
+                        (value) => setState(() {
+                          ambient = value;
+                          hemisphere.intensity = value;
+                        }),
+                      ),
+                      control(
+                        'Light',
+                        controlWidth,
+                        intensity,
+                        5,
+                        (v) => setState(() {
+                          intensity = v;
+                          sun.intensity = v;
+                        }),
+                      ),
+                      control(
+                        'Angle',
+                        controlWidth,
+                        angle,
+                        math.pi * 2,
+                        (v) => setState(() {
+                          angle = v;
+                          sun.quaternion =
+                              Quat.axisAngle(const Vec3(0, 1, 0), v) *
+                              Quat.axisAngle(const Vec3(1, 0, 0), -.4);
+                        }),
+                      ),
+                    ],
                   ],
-                  onChanged: (value) => setState(() {
-                    toneMapping = value!;
-                    controller.colorPipeline = ColorPipeline(
-                      toneMapping: toneMapping,
-                      exposure: exposure,
-                      sampleCount: sampleCount,
-                    );
-                  }),
                 ),
-                control(
-                  'Exposure',
-                  exposure,
-                  4,
-                  (value) => setState(() {
-                    exposure = value;
-                    controller.colorPipeline = ColorPipeline(
-                      toneMapping: toneMapping,
-                      exposure: exposure,
-                      sampleCount: sampleCount,
-                    );
-                  }),
+              ),
+              if (widget.postProcessing)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Wrap(
+                    spacing: 8,
+                    children: [
+                      FilterChip(
+                        label: const Text('4× MSAA'),
+                        showCheckmark: false,
+                        labelPadding: const EdgeInsets.symmetric(horizontal: 4),
+                        selected: sampleCount == 4,
+                        onSelected: (value) => setState(() {
+                          sampleCount = value ? 4 : 1;
+                          controller.colorPipeline = ColorPipeline(
+                            toneMapping: toneMapping,
+                            exposure: exposure,
+                            sampleCount: sampleCount,
+                          );
+                        }),
+                      ),
+                      FilterChip(
+                        label: const Text('Bloom'),
+                        showCheckmark: false,
+                        labelPadding: const EdgeInsets.symmetric(horizontal: 4),
+                        selected: effects.bloom != null,
+                        onSelected: (value) => setState(
+                          () => effects.bloom = value ? BloomOptions() : null,
+                        ),
+                      ),
+                      FilterChip(
+                        label: const Text('Spatial AA'),
+                        showCheckmark: false,
+                        labelPadding: const EdgeInsets.symmetric(horizontal: 4),
+                        selected: effects.antialias,
+                        onSelected: (value) =>
+                            setState(() => effects.antialias = value),
+                      ),
+                    ],
+                  ),
                 ),
-                if (environmentControls) ...[
-                  control(
-                    'Sky',
-                    environment.intensity,
-                    4,
-                    (value) => setState(() => environment.intensity = value),
-                  ),
-                  control(
-                    'Rotation',
-                    environmentAngle,
-                    math.pi * 2,
-                    (value) => setState(() {
-                      environmentAngle = value;
-                      environment.rotation = Quat.axisAngle(
-                        const Vec3(0, 1, 0),
-                        value,
-                      );
-                    }),
-                  ),
-                ] else ...[
-                  control(
-                    'Ambient',
-                    ambient,
-                    3,
-                    (value) => setState(() {
-                      ambient = value;
-                      hemisphere.intensity = value;
-                    }),
-                  ),
-                  control(
-                    'Light',
-                    intensity,
-                    5,
-                    (v) => setState(() {
-                      intensity = v;
-                      sun.intensity = v;
-                    }),
-                  ),
-                  control(
-                    'Angle',
-                    angle,
-                    math.pi * 2,
-                    (v) => setState(() {
-                      angle = v;
-                      sun.quaternion =
-                          Quat.axisAngle(const Vec3(0, 1, 0), v) *
-                          Quat.axisAngle(const Vec3(1, 0, 0), -.4);
-                    }),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          if (widget.postProcessing)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Wrap(
-                spacing: 8,
-                children: [
-                  FilterChip(
-                    label: const Text('4× MSAA'),
-                    selected: sampleCount == 4,
-                    onSelected: (value) => setState(() {
-                      sampleCount = value ? 4 : 1;
-                      controller.colorPipeline = ColorPipeline(
-                        toneMapping: toneMapping,
-                        exposure: exposure,
-                        sampleCount: sampleCount,
-                      );
-                    }),
-                  ),
-                  FilterChip(
-                    label: const Text('Bloom'),
-                    selected: effects.bloom != null,
-                    onSelected: (value) => setState(
-                      () => effects.bloom = value ? BloomOptions() : null,
+              const Divider(height: 1),
+              Expanded(
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    SceneView(
+                      controller: controller,
+                      resolutionScale: widget.postProcessing ? .5 : 1,
                     ),
-                  ),
-                  FilterChip(
-                    label: const Text('Spatial AA'),
-                    selected: effects.antialias,
-                    onSelected: (value) =>
-                        setState(() => effects.antialias = value),
-                  ),
-                ],
+                    const Positioned(
+                      top: 8,
+                      left: 12,
+                      right: 12,
+                      child: IgnorePointer(
+                        child: Text(
+                          'Roughness 0.1 → 1 across · Metallic 0 → 1 down',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          const Divider(height: 1),
-          Expanded(
-            child: SceneView(
-              controller: controller,
-              resolutionScale: widget.postProcessing ? .5 : 1,
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                stats == null
-                    ? 'Preparing native view'
-                    : '${stats!.drawCalls} draws · ${stats!.physicalSize.width}×${stats!.physicalSize.height}',
-                style: const TextStyle(fontSize: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    stats == null
+                        ? 'Preparing native view'
+                        : '${stats!.drawCalls} draws · ${stats!.physicalSize.width}×${stats!.physicalSize.height}',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
-        ],
-      ),
-    ),
+        ),
+      );
+    },
   );
   @override
   void dispose() {
