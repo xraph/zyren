@@ -111,3 +111,30 @@ them. The gizmo releases its input registrations and helper geometry on detach.
 Use the exported `sceneTools` service key from a dependent plugin, declaring
 `zyren.tools` in its dependencies. Cancel your `changes` subscription when its
 consumer closes. Engine teardown clears selection, history and measurements.
+
+## Section cuts
+
+Register `SceneSectionPlugin` to preview a cut and restore the previous planes
+when you clear it or detach. You can supply up to six world-space half-spaces.
+Points remain visible when they satisfy every plane.
+
+```dart
+final sections = SceneSectionPlugin();
+controller.use(sections);
+await controller.ready;
+sections.setPlanes([
+  ClippingPlane(normal: const Vec3(1, 0, 0), offset: 2),
+]); // Keep x >= 2.
+sections.clear();
+```
+
+Plane changes affect native rendering, shadow casters and triangle picking.
+`Object3D.clippingEnabled = false` exempts a subtree; transform handles already
+opt out. Cuts do not generate caps. Use double-sided materials to see interior
+surfaces. Custom shader materials must opt out while clipping is active.
+
+`isActive` and `planes` describe the plugin's current session. Subscribe to
+`changes` for controls, and cancel the subscription when the consumer closes.
+An external assignment to `Scene.clippingPlanes` ends session ownership.
+Clearing or detaching then preserves that external state. A subsequent
+`setPlanes` starts a new session and saves those planes for restoration.

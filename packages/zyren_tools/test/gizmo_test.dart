@@ -94,6 +94,24 @@ void main() {
     await input.keys.close();
   });
 
+  test(
+    'section cuts leave handles pickable for a fully clipped part',
+    () async {
+      scene.clippingPlanes = [
+        ClippingPlane(normal: const Vec3(-1, 0, 0), offset: 100),
+      ];
+      await flush();
+      const start = Vec3(1.45, 0, 0);
+      expect(gizmo.hitTest(project(start), input.viewport), GizmoAxis.x);
+      expect(tools.pick(project(Vec3.zero), input.viewport), isNull);
+      await pointer(ScenePointerPhase.down, start);
+      await pointer(ScenePointerPhase.up, start + const Vec3(.5, 0, 0));
+      expect(mesh.position.x, closeTo(.5, 1e-9));
+      expect(tools.undo(), isTrue);
+      expect(mesh.position, Vec3.zero);
+    },
+  );
+
   test('world movement cancels parent rotation and nonuniform scale', () async {
     parent.position = const Vec3(1, -1, .5);
     parent.quaternion = Quat.axisAngle(const Vec3(0, 0, 1), math.pi / 2);

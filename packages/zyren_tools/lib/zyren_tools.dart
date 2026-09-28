@@ -5,6 +5,7 @@ import 'dart:math' as math;
 import 'package:zyren/zyren.dart';
 
 part 'src/transform_gizmo.dart';
+part 'src/scene_section.dart';
 
 const sceneTools = ServiceKey<SceneToolsPlugin>('zyren.tools');
 

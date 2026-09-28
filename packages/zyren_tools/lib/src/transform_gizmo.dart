@@ -55,7 +55,7 @@ class TransformGizmoPlugin extends ScenePlugin {
   bool _enabled = true;
   GizmoMode _mode = GizmoMode.translate;
   GizmoSpace _space = GizmoSpace.local;
-  final _root = Group(name: 'Transform gizmo');
+  final _root = Group(name: 'Transform gizmo')..clippingEnabled = false;
   final _frame = Group(name: 'Handle frame');
   final _visuals = Group(name: 'Handle visuals');
   ViewportMetrics? _viewport;
