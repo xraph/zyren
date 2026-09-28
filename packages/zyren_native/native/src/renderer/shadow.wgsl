@@ -13,3 +13,9 @@ struct Vertex { @builtin(position) position:vec4<f32>, @location(0) uv:vec2<f32>
  let alpha=textureSample(color,colorSampler,v.uv).a*uniforms.params.y;
  if uniforms.params.w>.5 && alpha<uniforms.params.z {discard;}
 }
+@vertex fn plain_instanced(@location(0) position:vec3<f32>,i:InstanceTransform)->Vertex {
+ return Vertex(uniforms.mvp*instanceModel(i)*vec4<f32>(position,1.),vec2<f32>(0.));
+}
+@vertex fn textured_instanced(@location(0) position:vec3<f32>,@location(2) uv0:vec2<f32>,@location(3) uv1:vec2<f32>,i:InstanceTransform)->Vertex {
+ return Vertex(uniforms.mvp*instanceModel(i)*vec4<f32>(position,1.),select(uv0,uv1,uniforms.params.x>.5));
+}

@@ -7,6 +7,7 @@ pub const MAX_DIMENSION: u32 = 4096;
 pub const MAX_VERTICES: usize = 1_000_000;
 pub const MAX_INDICES: usize = 3_000_000;
 pub const MAX_MESHES: usize = 4096;
+pub const MAX_INSTANCES: usize = 65536;
 
 #[derive(Clone, Copy, Default, PartialEq, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -142,6 +143,8 @@ impl Geometry {
 #[derive(Clone, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Mesh {
+    #[serde(default)]
+    pub instances: Vec<[f32; 16]>,
     pub geometry: u32,
     pub model: [f32; 16],
     pub color: [f32; 3],
@@ -200,6 +203,7 @@ impl Default for Mesh {
     fn default() -> Self {
         Self {
             geometry: 0,
+            instances: Vec::new(),
             model: glam::Mat4::IDENTITY.to_cols_array(),
             color: [1.; 3],
             unlit: false,
@@ -231,6 +235,27 @@ impl Mesh {
         self.depth_write.unwrap_or(self.alpha_mode != 2)
     }
     pub fn validate_material(&self) -> Result<(), String> {
+        if !self.instances.is_empty()
+            && (self.instances.len() > MAX_INSTANCES
+                || self.shader.is_some()
+                || self.primitive_kind != 0)
+        {
+            return Err("Instances require bounded built-in triangle materials".into());
+        }
+        for values in &self.instances {
+            let model = glam::Mat4::from_cols_array(values);
+            if !model.is_finite()
+                || !model.inverse().is_finite()
+                || !model.determinant().is_finite()
+                || model.determinant().abs() < 1e-20
+                || values[3] != 0.
+                || values[7] != 0.
+                || values[11] != 0.
+                || values[15] != 1.
+            {
+                return Err("Invalid affine instance transform".into());
+            }
+        }
         if self.shadow_flags > 3
             || (self.shadow_flags & 1 != 0 && (self.shader.is_some() || self.primitive_kind != 0))
         {
@@ -494,6 +519,9 @@ impl Frame {
         }
         if vertices > MAX_VERTICES || indices > MAX_INDICES {
             return Err("geometry upload exceeds the per-frame budget".into());
+        }
+        if self.meshes.iter().map(|m| m.instances.len()).sum::<usize>() > MAX_INSTANCES {
+            return Err("Instance count exceeds the per-view budget".into());
         }
         for mesh in &self.meshes {
             mesh.validate_material()?;

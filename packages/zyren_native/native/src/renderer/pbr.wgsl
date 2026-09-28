@@ -97,6 +97,21 @@ fn brdf(base: vec3<f32>, metal: f32, rough: f32, n: vec3<f32>, v: vec3<f32>, l: 
  let f=f0*(1.-schlick)+vec3<f32>(schlick);
  return nl*(base*(1.-metal)/3.14159265359 + f*visibility*d);
 }
+
+fn transformInstance(position:vec3<f32>,normal:vec3<f32>,i:InstanceTransform)->PbrVertex {
+ var v:PbrVertex;let point=instanceModel(i)*vec4<f32>(position,1.);
+ v.position=uniforms.view_projection*point;v.point=point.xyz;v.normal=instanceNormal(i)*normal;
+ return v;
+}
+@vertex fn vertex_instanced(@location(0) position:vec3<f32>,@location(1) normal:vec3<f32>,i:InstanceTransform)->PbrVertex {return transformInstance(position,normal,i);}
+@vertex fn vertex_textured_instanced(@location(0) position:vec3<f32>,@location(1) normal:vec3<f32>,@location(2) uv0:vec2<f32>,@location(3) uv1:vec2<f32>,i:InstanceTransform)->PbrVertex {
+ var v=transformInstance(position,normal,i);v.uv=uv0;v.uv1=uv1;return v;
+}
+@vertex fn vertex_tangent_instanced(@location(0) position:vec3<f32>,@location(1) normal:vec3<f32>,@location(2) uv0:vec2<f32>,@location(3) uv1:vec2<f32>,@location(4) tangent:vec4<f32>,i:InstanceTransform)->PbrVertex {
+ var v=transformInstance(position,normal,i);v.uv=uv0;v.uv1=uv1;
+ let linear=mat3x3<f32>(i.a.xyz,i.b.xyz,i.c.xyz);
+ v.tangent=vec4<f32>(linear*tangent.xyz,tangent.w*sign(determinant(linear)));return v;
+}
 fn shade(input: PbrVertex, front: bool, sampleColor: vec4<f32>) -> vec4<f32> {
  let flags=u32(material.scales.w);
  let normalUv=select(input.uv,input.uv1,material.uvSets.x>.5);

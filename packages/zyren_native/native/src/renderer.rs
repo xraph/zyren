@@ -12,6 +12,7 @@ use crate::scene::{Frame, pixel_len};
 mod draw_order;
 pub(crate) mod effects;
 mod environment;
+mod instances;
 mod lighting;
 pub(crate) mod pipelines;
 mod shadows;
@@ -93,6 +94,7 @@ pub struct RendererState {
     pbr_white: wgpu::Texture,
     environment: environment::Environment,
     shadows: shadows::Shadows,
+    instances: instances::Instances,
     environment_keys: Vec<crate::resources::registry::ResourceKey>,
     textures: HashMap<u32, textures::GpuSceneTexture>,
     #[cfg(any(target_vendor = "apple", target_os = "android"))]
@@ -238,6 +240,7 @@ impl Renderer {
                 resources: crate::resources::ResourceStore::default(),
                 shaders: crate::shaders::ShaderStore::default(),
                 graphs: crate::render_graph::GraphStore::default(),
+                instances: instances::Instances::default(),
                 views: HashMap::new(),
                 targets: None,
                 adapter_name: info.name,
@@ -296,6 +299,9 @@ impl Renderer {
                 target_bytes: state.effects.bytes(),
                 shadow_bytes: state.shadows.bytes(),
                 shadow_passes: state.shadows.passes,
+                instance_bytes: state.instances.bytes(),
+                instance_uploaded_bytes: state.instances.uploaded_bytes,
+                instance_draw_calls: state.instances.draws(),
             },
             bytes,
             capacity,
@@ -390,6 +396,7 @@ impl Renderer {
         self.views.remove(&view);
         self.effects.remove(view);
         self.shadows.remove(view);
+        self.instances.remove(view);
         self.evict_geometry()
     }
     fn evict_geometry(&mut self) -> Result<(), String> {
@@ -454,6 +461,7 @@ impl Renderer {
         }
         frame.validate(&cached)?;
         self.shadows.admit(frame)?;
+        self.instances.admit(frame)?;
         self.environment.textures(frame, &self.resources)?;
         self.environment_keys = frame
             .settings
@@ -573,6 +581,10 @@ impl Renderer {
             }
         }
         self.upload_textures(frame)?;
+        let state = self.state.as_mut().unwrap();
+        state
+            .instances
+            .prepare(&state.device, &state.queue, frame, &state.geometries)?;
         let state = frame
             .binary
             .clone()
@@ -714,16 +726,23 @@ impl Renderer {
                 }),
                 ..Default::default()
             });
-            for index in draw_order::sorted(frame, |id| self.geometries[&id].center) {
+            let instances = self.instances.view(frame);
+            for draw in &instances.draws {
+                let index = draw.mesh;
                 let mesh = &frame.meshes[index];
                 let binding = &bindings[index];
                 let texture_binding = &texture_bindings[index];
                 let geometry = &self.geometries[&mesh.geometry];
-                pass.set_pipeline(self.pipelines.get(pipelines::PipelineKey::new(
-                    format,
-                    mesh,
-                    !geometry.recipe.tangents.is_empty(),
-                )));
+                pass.set_pipeline(
+                    self.pipelines.get(
+                        pipelines::PipelineKey::new(
+                            format,
+                            mesh,
+                            !geometry.recipe.tangents.is_empty(),
+                        )
+                        .with_mirror(draw.mirrored),
+                    ),
+                );
                 pass.set_bind_group(0, binding, &[]);
                 let (vertices, indices, count, uv, index_format, tangents) =
                     self.resources.geometry(geometry.key);
@@ -767,7 +786,17 @@ impl Renderer {
                     }
                 }
                 pass.set_index_buffer(indices.slice(..), index_format);
-                pass.draw_indexed(0..count, 0, 0..1);
+                if draw.instanced {
+                    pass.set_vertex_buffer(
+                        3,
+                        instances
+                            .buffer
+                            .as_ref()
+                            .expect("instance buffer")
+                            .slice(..),
+                    );
+                }
+                pass.draw_indexed(0..count, 0, draw.range.clone());
             }
         }
         encoder

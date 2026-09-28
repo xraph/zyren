@@ -10,6 +10,7 @@ import '../scene/scene.dart';
 import '../math/vec3.dart';
 import 'frame_output.dart';
 part 'scene_packet.dart';
+part 'scene_draws.dart';
 
 class FrameTime {
   final Duration elapsed, delta, rawDelta;
@@ -43,11 +44,13 @@ class SceneSnapshot {
   final RenderSettings _settings;
   final List<List<double>> _lights, _shadows;
   final List<double> _shadowCamera;
-  int get drawCalls => _meshes.length;
-  int get triangles => _meshes.fold(0, (sum, mesh) {
+  final List<double> _viewProjection;
+  late final int drawCalls = _countDraws(this);
+  int get triangles => _meshes.fold<int>(0, (sum, mesh) {
     final geometry = _geometries[mesh['geometry']]!;
     return sum +
         geometry.primitiveCount *
+            math.max(1, (mesh['instances'] as List).length ~/ 16).toInt() *
             (geometry.topology == GeometryTopology.triangles ? 1 : 2);
   });
   SceneSnapshot._(
@@ -61,8 +64,13 @@ class SceneSnapshot {
     this._lights,
     this._shadows,
     this._shadowCamera,
+    this._viewProjection,
   );
-  static SceneSnapshot _capture(Scene scene, Camera camera) {
+  static SceneSnapshot _capture(
+    Scene scene,
+    Camera camera,
+    List<double> viewProjection,
+  ) {
     final meshes = <Map<String, Object>>[],
         geometries = <int, GeometrySnapshot>{};
     final textures = <int, TextureImage>{};
@@ -194,6 +202,16 @@ class SceneSnapshot {
             _freeze(<String, Object>{
                   'geometry': geometry.id,
                   'model': relative.storage.toList(),
+                  'instances': node is InstancedMesh
+                      ? [
+                          for (var i = 0; i < node.count; i++)
+                            ..._relativeInstance(
+                              world,
+                              node.transformAt(i).toVectorMath(),
+                              camera.position,
+                            ),
+                        ]
+                      : <double>[],
                   'color': node.material.color.toList(),
                   'unlit': node.material.unlit,
                   'side': node.material.side.index,
@@ -270,6 +288,7 @@ class SceneSnapshot {
                   'Shadows require a perspective or orthographic camera.',
                 ),
       }),
+      viewProjection,
     );
   }
 }
@@ -305,7 +324,11 @@ class FrameSubmission {
       camera.position.storage,
       camera.viewProjection(size.width / size.height).storage,
     );
-    final sceneSnapshot = SceneSnapshot._capture(scene, camera);
+    final sceneSnapshot = SceneSnapshot._capture(
+      scene,
+      camera,
+      cameraSnapshot.viewProjection,
+    );
     return FrameSubmission._(
       sceneSnapshot,
       cameraSnapshot,
@@ -321,7 +344,10 @@ class FrameSubmission {
     if (scene._settings.enabled ||
         scene._textures.isNotEmpty ||
         scene._meshes.any(
-          (m) => m.containsKey('shader') || m['shadowFlags'] != 2,
+          (m) =>
+              m.containsKey('shader') ||
+              m['shadowFlags'] != 2 ||
+              (m['instances'] as List).isNotEmpty,
         )) {
       throw UnsupportedError(
         'Texture materials require binary scene submissions.',
@@ -347,7 +373,8 @@ class FrameSubmission {
                 ..remove('pbrMaps')
                 ..remove('pbrScales')
                 ..remove('allImages')
-                ..remove('shadowFlags'),
+                ..remove('shadowFlags')
+                ..remove('instances'),
           ],
         })
         as Map<String, Object>;
@@ -363,3 +390,13 @@ Object _freeze(Object value) => switch (value) {
   ),
   _ => value,
 };
+
+List<double> _relativeInstance(
+  vm.Matrix4 parent,
+  vm.Matrix4 instance,
+  Vec3 origin,
+) {
+  final world = parent * instance;
+  world.setTranslation(world.getTranslation() - origin.toVectorMath());
+  return world.storage.toList();
+}

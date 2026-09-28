@@ -54,3 +54,10 @@ fn shade(normal: vec3<f32>, sample_color: vec4<f32>) -> vec4<f32> {
 @fragment fn fs_main(input: VertexOutput, @builtin(front_facing) front: bool) -> @location(0) vec4<f32> {
     return shade(select(-input.normal, input.normal, front), vec4<f32>(1.0));
 }
+
+@vertex fn vs_main_instanced(@location(0) position:vec3<f32>, @location(1) normal:vec3<f32>, i:InstanceTransform)->VertexOutput {
+ return VertexOutput(uniforms.view_projection*instanceModel(i)*vec4<f32>(position,1.),instanceNormal(i)*normal,vec2<f32>(0.));
+}
+@vertex fn vs_textured_instanced(@location(0) position:vec3<f32>, @location(1) normal:vec3<f32>, @location(2) uv0:vec2<f32>, @location(3) uv1:vec2<f32>, i:InstanceTransform)->VertexOutput {
+ return VertexOutput(uniforms.view_projection*instanceModel(i)*vec4<f32>(position,1.),instanceNormal(i)*normal,select(uv0,uv1,uniforms.map_params.x>.5));
+}

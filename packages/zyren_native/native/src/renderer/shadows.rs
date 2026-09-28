@@ -34,6 +34,7 @@ struct Pipeline {
     side: u32,
     mirrored: bool,
     textured: bool,
+    instanced: bool,
 }
 pub(super) struct Shadows {
     views: HashMap<u64, View>,
@@ -71,7 +72,17 @@ impl Shadows {
             pipelines: HashMap::new(),
             uniforms,
             layout,
-            shader: device.create_shader_module(wgpu::include_wgsl!("shadow.wgsl")),
+            shader: device.create_shader_module(wgpu::ShaderModuleDescriptor {
+                label: Some("instance shadows"),
+                source: wgpu::ShaderSource::Wgsl(
+                    concat!(
+                        include_str!("instance.wgsl"),
+                        "\n",
+                        include_str!("shadow.wgsl")
+                    )
+                    .into(),
+                ),
+            }),
             empty: atlas(device, 1, 1),
             sampler: device.create_sampler(&wgpu::SamplerDescriptor {
                 label: Some("shadow comparison"),
@@ -178,9 +189,25 @@ impl Shadows {
         let internal = device.push_error_scope(wgpu::ErrorFilter::Internal);
         let mut pending = HashMap::new();
         for mesh in &signature.casters {
-            let key = pipeline_key(mesh);
-            if !self.pipelines.contains_key(&key) && !pending.contains_key(&key) {
-                pending.insert(key, self.pipeline(device, key));
+            let base = pipeline_key(mesh);
+            let keys = if base.instanced {
+                vec![
+                    Pipeline {
+                        mirrored: false,
+                        ..base
+                    },
+                    Pipeline {
+                        mirrored: true,
+                        ..base
+                    },
+                ]
+            } else {
+                vec![base]
+            };
+            for key in keys {
+                if !self.pipelines.contains_key(&key) && !pending.contains_key(&key) {
+                    pending.insert(key, self.pipeline(device, key));
+                }
             }
         }
         let texture = self
@@ -227,12 +254,22 @@ impl Shadows {
                 attributes: &uv,
             }));
         }
+        if key.instanced {
+            buffers.resize_with(3, || None);
+            buffers.push(Some(super::instances::layout()));
+        }
+        let entry = match (key.textured, key.instanced) {
+            (false, false) => "plain",
+            (true, false) => "textured",
+            (false, true) => "plain_instanced",
+            (true, true) => "textured_instanced",
+        };
         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("shadow caster"),
             layout: Some(&self.layout),
             vertex: wgpu::VertexState {
                 module: &self.shader,
-                entry_point: Some(if key.textured { "textured" } else { "plain" }),
+                entry_point: Some(entry),
                 compilation_options: Default::default(),
                 buffers: &buffers,
             },
@@ -317,6 +354,7 @@ fn pipeline_key(m: &Mesh) -> Pipeline {
         side: m.side,
         mirrored: Mat4::from_cols_array(&m.model).determinant() < 0.,
         textured: m.color_map.is_some(),
+        instanced: !m.instances.is_empty(),
     }
 }
 fn atlas(device: &wgpu::Device, width: u32, height: u32) -> wgpu::Texture {
@@ -347,9 +385,8 @@ impl Renderer {
         let Some(view) = self.shadows.views.get(&view_id(frame)).filter(|v| v.dirty) else {
             return;
         };
-        let textures: Vec<_> = view
-            .signature
-            .casters
+        let textures: Vec<_> = frame
+            .meshes
             .iter()
             .map(|m| match &m.color_map {
                 Some(map) => self.texture_binding(map),
@@ -377,13 +414,18 @@ impl Renderer {
             .maps
             .iter()
             .map(|map| {
-                view.signature
-                    .casters
+                frame
+                    .meshes
                     .iter()
                     .map(|mesh| {
-                        let mut values = (map.matrix * Mat4::from_cols_array(&mesh.model))
-                            .to_cols_array()
-                            .to_vec();
+                        let mut values = (map.matrix
+                            * if mesh.instances.is_empty() {
+                                Mat4::from_cols_array(&mesh.model)
+                            } else {
+                                Mat4::IDENTITY
+                            })
+                        .to_cols_array()
+                        .to_vec();
                         values.extend([
                             mesh.color_map.as_ref().map_or(0., |m| m.uv_set as f32),
                             mesh.opacity,
@@ -432,8 +474,18 @@ impl Renderer {
                 1.,
             );
             pass.set_scissor_rect(map.rect[0], map.rect[1], map.rect[2], map.rect[3]);
-            for (j, mesh) in view.signature.casters.iter().enumerate() {
-                pass.set_pipeline(&self.shadows.pipelines[&pipeline_key(mesh)]);
+            let instances = self.instances.view(frame);
+            for draw in &instances.draws {
+                let j = draw.mesh;
+                let mesh = &frame.meshes[j];
+                if mesh.shadow_flags & 1 == 0 || mesh.alpha_mode == 2 {
+                    continue;
+                }
+                let key = Pipeline {
+                    mirrored: draw.mirrored,
+                    ..pipeline_key(mesh)
+                };
+                pass.set_pipeline(&self.shadows.pipelines[&key]);
                 pass.set_bind_group(0, &bindings[i][j], &[]);
                 pass.set_bind_group(1, &textures[j], &[]);
                 let (vertices, indices, count, uv, format, _) =
@@ -443,7 +495,17 @@ impl Renderer {
                     pass.set_vertex_buffer(1, uv.expect("validated UVs").slice(..));
                 }
                 pass.set_index_buffer(indices.slice(..), format);
-                pass.draw_indexed(0..count, 0, 0..1);
+                if draw.instanced {
+                    pass.set_vertex_buffer(
+                        3,
+                        instances
+                            .buffer
+                            .as_ref()
+                            .expect("instance buffer")
+                            .slice(..),
+                    );
+                }
+                pass.draw_indexed(0..count, 0, draw.range.clone());
             }
         }
     }

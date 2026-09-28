@@ -1,0 +1,34 @@
+{
+  "backend": "wgpu-native",
+  "host": "Version 27.0 (Build 26A428)",
+  "release": false,
+  "instances": 10000,
+  "size": [
+    128,
+    128
+  ],
+  "captureMicros": [
+    5713,
+    7319,
+    5718,
+    5753,
+    5719,
+    5797,
+    5719,
+    5756
+  ],
+  "endToEndReadbackMicros": [
+    16390,
+    15534,
+    17751,
+    14000,
+    21051,
+    14068,
+    16557,
+    14224
+  ],
+  "instanceBytes": 1120000,
+  "instanceDrawCalls": 1,
+  "singleEditUploadedBytes": 112,
+  "remainingInstanceBytes": 0
+}

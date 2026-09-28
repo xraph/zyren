@@ -173,6 +173,9 @@ pub(crate) struct GraphContext<'a> {
     pub target_bytes: u64,
     pub shadow_bytes: u64,
     pub shadow_passes: u64,
+    pub instance_bytes: u64,
+    pub instance_uploaded_bytes: u64,
+    pub instance_draw_calls: usize,
 }
 
 impl GraphStore {
@@ -192,6 +195,9 @@ impl GraphStore {
             target_bytes,
             shadow_bytes,
             shadow_passes,
+            instance_bytes,
+            instance_uploaded_bytes,
+            instance_draw_calls,
         } = context;
         if bytes.len() > MAX_COMMAND_BYTES || capacity != RESPONSE_CAPACITY {
             return Err("Invalid graph command capacity".into());
@@ -234,7 +240,7 @@ impl GraphStore {
                     .release(device, resources, shaders, key(value))
                     .map(|()| json!({})),
                 Command::Stats {} => Ok(
-                    json!({"shadowBytes":shadow_bytes,"shadowPasses":shadow_passes,"targetBytes": target_bytes, "liveMaterials": self.materials.live(), "liveGraphs": self.registry.live_allocations(), "descriptionBytes": self.registry.resident_bytes(),
+                    json!({"instanceBytes":instance_bytes,"instanceUploadedBytes":instance_uploaded_bytes,"instanceDrawCalls":instance_draw_calls,"shadowBytes":shadow_bytes,"shadowPasses":shadow_passes,"targetBytes": target_bytes, "liveMaterials": self.materials.live(), "liveGraphs": self.registry.live_allocations(), "descriptionBytes": self.registry.resident_bytes(),
                 "cachedPipelines": self.cache.len(), "pipelineCompilations": self.compilation_count, "cacheHits": self.cache_hits}),
                 ),
             }

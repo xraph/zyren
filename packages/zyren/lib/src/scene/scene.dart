@@ -18,6 +18,7 @@ part '../lights/lights.dart';
 part '../lights/shadow_settings.dart';
 part 'camera_projection.dart';
 part 'primitives.dart';
+part 'instanced_mesh.dart';
 
 class Object3D with _Revisioned {
   final String? name;

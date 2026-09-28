@@ -68,10 +68,11 @@ final class PickResult {
   final Vec3 barycentric;
   final ({double u, double v})? uv, uv1;
 
-  /// Reserved for instanced geometry; current meshes have no instance index.
-  int? get instanceIndex => null;
+  /// Stable slot in an InstancedMesh, or null for an ordinary mesh.
+  final int? instanceIndex;
   const PickResult._({
     required this.object,
+    this.instanceIndex,
     required this.point,
     required this.normal,
     required this.distance,
@@ -105,55 +106,73 @@ final class Raycaster {
       if (node is Mesh &&
           node.geometry.topology == GeometryTopology.triangles) {
         objectOrder[node] = objectOrder.length;
-        final inverse = world.inverted();
-        final translation = Vec3(
-          world.storage[12],
-          world.storage[13],
-          world.storage[14],
-        );
-        // Subtract the origin before applying the inverse linear transform to
-        // keep planetary translation out of the small local intersection math.
-        final origin = _vector(inverse, ray.origin - translation);
-        final direction = _vector(inverse, ray.direction);
-        if (!origin.isFinite || !direction.isFinite || direction.length2 == 0) {
-          throw ArgumentError(
-            'Mesh transform cannot represent the picking ray.',
-          );
-        }
-        var tree = _trees[node.geometry];
-        if (tree == null || tree.revision != node.geometry.revision) {
-          tree = _trees[node.geometry] = _GeometryTree(node.geometry);
-        }
-        tree.intersect(origin, direction, near, far, node.material.side, (
-          triangle,
-          distance,
-          weights,
-          localNormal,
+        for (
+          var slot = 0;
+          slot < (node is InstancedMesh ? node.count : 1);
+          slot++
         ) {
-          final point = ray.at(distance);
-          final m = inverse.storage;
-          final normal = Vec3(
-            m[0] * localNormal.x + m[1] * localNormal.y + m[2] * localNormal.z,
-            m[4] * localNormal.x + m[5] * localNormal.y + m[6] * localNormal.z,
-            m[8] * localNormal.x + m[9] * localNormal.y + m[10] * localNormal.z,
-          ).normalized();
-          if (!point.isFinite) {
-            throw ArgumentError('Intersection is not finite.');
-          }
-          hits.add(
-            PickResult._(
-              object: node,
-              point: point,
-              normal: normal,
-              distance: distance,
-              triangleIndex: triangle,
-              sceneRevision: revision,
-              barycentric: weights,
-              uv: _uv(node.geometry, node.geometry.uv0, triangle, weights),
-              uv1: _uv(node.geometry, node.geometry.uv1, triangle, weights),
-            ),
+          final instanceWorld = node is InstancedMesh
+              ? world * node.transformAt(slot)
+              : world;
+          final inverse = instanceWorld.inverted();
+          final translation = Vec3(
+            instanceWorld.storage[12],
+            instanceWorld.storage[13],
+            instanceWorld.storage[14],
           );
-        });
+          // Subtract the origin before applying the inverse linear transform to
+          // keep planetary translation out of the small local intersection math.
+          final origin = _vector(inverse, ray.origin - translation);
+          final direction = _vector(inverse, ray.direction);
+          if (!origin.isFinite ||
+              !direction.isFinite ||
+              direction.length2 == 0) {
+            throw ArgumentError(
+              'Mesh transform cannot represent the picking ray.',
+            );
+          }
+          var tree = _trees[node.geometry];
+          if (tree == null || tree.revision != node.geometry.revision) {
+            tree = _trees[node.geometry] = _GeometryTree(node.geometry);
+          }
+          tree.intersect(origin, direction, near, far, node.material.side, (
+            triangle,
+            distance,
+            weights,
+            localNormal,
+          ) {
+            final point = ray.at(distance);
+            final m = inverse.storage;
+            final normal = Vec3(
+              m[0] * localNormal.x +
+                  m[1] * localNormal.y +
+                  m[2] * localNormal.z,
+              m[4] * localNormal.x +
+                  m[5] * localNormal.y +
+                  m[6] * localNormal.z,
+              m[8] * localNormal.x +
+                  m[9] * localNormal.y +
+                  m[10] * localNormal.z,
+            ).normalized();
+            if (!point.isFinite) {
+              throw ArgumentError('Intersection is not finite.');
+            }
+            hits.add(
+              PickResult._(
+                object: node,
+                instanceIndex: node is InstancedMesh ? slot : null,
+                point: point,
+                normal: normal,
+                distance: distance,
+                triangleIndex: triangle,
+                sceneRevision: revision,
+                barycentric: weights,
+                uv: _uv(node.geometry, node.geometry.uv0, triangle, weights),
+                uv1: _uv(node.geometry, node.geometry.uv1, triangle, weights),
+              ),
+            );
+          });
+        }
       }
       for (final child in node.children) {
         visit(child, world);
@@ -169,7 +188,11 @@ final class Raycaster {
       final distance = a.distance.compareTo(b.distance);
       if (distance != 0) return distance;
       final order = objectOrder[a.object]!.compareTo(objectOrder[b.object]!);
-      return order != 0 ? order : a.triangleIndex.compareTo(b.triangleIndex);
+      if (order != 0) return order;
+      final instance = (a.instanceIndex ?? -1).compareTo(b.instanceIndex ?? -1);
+      return instance != 0
+          ? instance
+          : a.triangleIndex.compareTo(b.triangleIndex);
     });
     return List.unmodifiable(hits);
   }

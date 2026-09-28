@@ -8,6 +8,7 @@ pub(super) struct PipelineKey {
     shader: Option<[u64; 4]>,
     textured: bool,
     standard: bool,
+    instanced: bool,
     pub(super) tangents: bool,
     side: u32,
     mirrored: bool,
@@ -17,12 +18,26 @@ pub(super) struct PipelineKey {
     depth_write: bool,
 }
 impl PipelineKey {
+    pub(super) fn with_mirror(mut self, mirrored: bool) -> Self {
+        if self.primitive_kind == 0 {
+            self.mirrored = mirrored;
+        }
+        self
+    }
+    fn variants(self) -> Vec<Self> {
+        if self.instanced {
+            vec![self.with_mirror(false), self.with_mirror(true)]
+        } else {
+            vec![self]
+        }
+    }
     pub(super) fn new(format: wgpu::TextureFormat, mesh: &Mesh, tangents: bool) -> Self {
         Self {
             format,
             shader: mesh.shader,
             textured: mesh.material_maps().next().is_some(),
             standard: mesh.pbr.is_some(),
+            instanced: !mesh.instances.is_empty(),
             tangents: tangents && mesh.pbr.is_some() && mesh.material_maps().next().is_some(),
             side: mesh.side,
             mirrored: mesh.primitive_kind == 0
@@ -53,7 +68,17 @@ impl MeshPipelines {
         environment_layout: &wgpu::BindGroupLayout,
     ) -> Self {
         Self {
-            standard_shader: device.create_shader_module(wgpu::include_wgsl!("pbr.wgsl")),
+            standard_shader: device.create_shader_module(wgpu::ShaderModuleDescriptor {
+                label: Some("PBR instances"),
+                source: wgpu::ShaderSource::Wgsl(
+                    concat!(
+                        include_str!("instance.wgsl"),
+                        "\n",
+                        include_str!("pbr.wgsl")
+                    )
+                    .into(),
+                ),
+            }),
             standard_plain: device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("standard"),
                 bind_group_layouts: &[
@@ -78,6 +103,8 @@ impl MeshPipelines {
                 label: Some("native mesh materials"),
                 source: wgpu::ShaderSource::Wgsl(
                     concat!(
+                        include_str!("instance.wgsl"),
+                        "\n",
                         include_str!("../mesh.wgsl"),
                         "\n",
                         include_str!("primitives.wgsl")
@@ -122,11 +149,14 @@ impl MeshPipelines {
             }
         }
         if frame.meshes.iter().all(|mesh| {
-            self.cache.contains_key(&PipelineKey::new(
+            PipelineKey::new(
                 format,
                 mesh,
                 !geometries[&mesh.geometry].recipe.tangents.is_empty(),
-            ))
+            )
+            .variants()
+            .iter()
+            .all(|key| self.cache.contains_key(key))
         }) {
             return Ok(());
         }
@@ -140,18 +170,20 @@ impl MeshPipelines {
                 mesh,
                 !geometries[&mesh.geometry].recipe.tangents.is_empty(),
             );
-            if !self.cache.contains_key(&key) && !pending.contains_key(&key) {
-                let pipeline = if let Some(value) = mesh.shader {
-                    material_pipeline(
-                        device,
-                        materials.resolve(value).expect("validated shader"),
-                        format,
-                        mesh,
-                    )
-                } else {
-                    self.create(device, key)
-                };
-                pending.insert(key, pipeline);
+            for key in key.variants() {
+                if !self.cache.contains_key(&key) && !pending.contains_key(&key) {
+                    let pipeline = if let Some(value) = mesh.shader {
+                        material_pipeline(
+                            device,
+                            materials.resolve(value).expect("validated shader"),
+                            format,
+                            mesh,
+                        )
+                    } else {
+                        self.create(device, key)
+                    };
+                    pending.insert(key, pipeline);
+                }
             }
         }
         let mut error = None;
@@ -286,12 +318,21 @@ fn create_pipeline(
             attributes: &tangent_attributes,
         }));
     }
+    if key.instanced {
+        buffers.resize_with(3, || None);
+        buffers.push(Some(super::instances::layout()));
+    }
+    let vertex = if key.instanced {
+        format!("{}_instanced", shader.vertex)
+    } else {
+        shader.vertex.into()
+    };
     device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
         label: Some("native mesh state"),
         layout: Some(shader.layout),
         vertex: wgpu::VertexState {
             module: shader.module,
-            entry_point: Some(shader.vertex),
+            entry_point: Some(&vertex),
             compilation_options: Default::default(),
             buffers: &buffers,
         },

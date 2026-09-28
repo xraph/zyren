@@ -48,14 +48,21 @@ pub(super) fn projections(
                     }
                 }
                 for mesh in &signature.casters {
-                    let model = light_view * Mat4::from_cols_array(&mesh.model);
-                    let bounds = geometries[&mesh.geometry].bounds;
-                    for x in [bounds[0].x, bounds[1].x] {
-                        for y in [bounds[0].y, bounds[1].y] {
-                            for z in [bounds[0].z, bounds[1].z] {
-                                let depth = model.transform_point3(Vec3::new(x, y, z)).z;
-                                min.z = min.z.min(depth);
-                                max.z = max.z.max(depth);
+                    let models = if mesh.instances.is_empty() {
+                        std::slice::from_ref(&mesh.model)
+                    } else {
+                        &mesh.instances
+                    };
+                    for values in models {
+                        let model = light_view * Mat4::from_cols_array(values);
+                        let bounds = geometries[&mesh.geometry].bounds;
+                        for x in [bounds[0].x, bounds[1].x] {
+                            for y in [bounds[0].y, bounds[1].y] {
+                                for z in [bounds[0].z, bounds[1].z] {
+                                    let depth = model.transform_point3(Vec3::new(x, y, z)).z;
+                                    min.z = min.z.min(depth);
+                                    max.z = max.z.max(depth);
+                                }
                             }
                         }
                     }

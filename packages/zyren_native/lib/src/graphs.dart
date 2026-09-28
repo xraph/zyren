@@ -2,6 +2,7 @@ part of 'native_renderer.dart';
 
 final class GraphCacheStats {
   final int shadowBytes, shadowPasses;
+  final int instanceBytes, instanceUploadedBytes, instanceDrawCalls;
   final int liveMaterials, targetBytes;
   final int liveGraphs,
       descriptionBytes,
@@ -10,6 +11,9 @@ final class GraphCacheStats {
       cacheHits;
   const GraphCacheStats({
     this.shadowBytes = 0,
+    this.instanceBytes = 0,
+    this.instanceUploadedBytes = 0,
+    this.instanceDrawCalls = 0,
     this.shadowPasses = 0,
     this.liveMaterials = 0,
     this.targetBytes = 0,
@@ -144,6 +148,9 @@ mixin _NativeGraphs {
     final result = await _graphCommand({'operation': 'stats'});
     return GraphCacheStats(
       shadowBytes: result['shadowBytes'] as int,
+      instanceBytes: result['instanceBytes'] as int,
+      instanceUploadedBytes: result['instanceUploadedBytes'] as int,
+      instanceDrawCalls: result['instanceDrawCalls'] as int,
       shadowPasses: result['shadowPasses'] as int,
       liveMaterials: result['liveMaterials'] as int,
       targetBytes: result['targetBytes'] as int,

@@ -674,3 +674,62 @@ fn shadow_packets_reject_invalid_ranges_counts_and_light_kinds() {
         assert!(ScenePacket::decode(&invalid).is_err());
     }
 }
+
+#[test]
+fn instance_packets_bound_counts_and_validate_affine_matrices() {
+    let (mut data, _) = alpha_packet();
+    data[4..8].copy_from_slice(&25_u32.to_le_bytes());
+    data.splice(180..180, 0_u32.to_le_bytes()); // Triangle topology.
+    let mut header = Vec::new();
+    for value in [0_u32, 0, 1_f32.to_bits(), 1_f32.to_bits(), 0] {
+        header.extend(value.to_le_bytes());
+    }
+    header.extend([0_u8; 24]); // Camera origin.
+    header.extend([0_u8; 12]); // Lights, environment, shadows.
+    header.extend(0.1_f32.to_le_bytes());
+    header.extend(10_f32.to_le_bytes());
+    data.splice(160..160, header);
+    for value in [
+        0_u32,
+        1_f32.to_bits(),
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1_f32.to_bits(),
+        1_f32.to_bits(),
+        1_f32.to_bits(),
+        2,
+    ] {
+        data.extend(value.to_le_bytes());
+    }
+    let count = data.len();
+    data.extend(1_u32.to_le_bytes());
+    for value in glam::Mat4::IDENTITY.to_cols_array() {
+        data.extend(value.to_le_bytes());
+    }
+    let length = (data.len() - 24) as u64;
+    data[16..24].copy_from_slice(&length.to_le_bytes());
+    let frame = ScenePacket::decode(&data).unwrap().resolve(None).unwrap();
+    assert_eq!(frame.meshes[0].instances.len(), 1);
+    for (offset, value) in [
+        (count, 65537_u32),
+        (count + 4, f32::NAN.to_bits()),
+        (count + 4, 0),
+        (count + 16, 0.1_f32.to_bits()),
+    ] {
+        let mut invalid = data.clone();
+        invalid[offset..offset + 4].copy_from_slice(&value.to_le_bytes());
+        assert!(ScenePacket::decode(&invalid).is_err(), "offset {offset}");
+    }
+    for end in 24..data.len() {
+        let mut truncated = data[..end].to_vec();
+        truncated[16..24].copy_from_slice(&((end - 24) as u64).to_le_bytes());
+        assert!(ScenePacket::decode(&truncated).is_err());
+    }
+}

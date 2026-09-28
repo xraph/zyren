@@ -165,10 +165,18 @@ final class ScenePacketEncoder {
         uploadBytes > 64 * 1024 * 1024) {
       throw ArgumentError('Scene resource upload exceeds the frame budget.');
     }
+    final instanceCount = scene._meshes.fold(
+      0,
+      (sum, mesh) => sum + (mesh['instances'] as List).length ~/ 16,
+    );
+    if (instanceCount > 65536) {
+      throw ArgumentError('A view supports at most 65536 instances.');
+    }
     final hasTangents = scene._geometries.values.any((g) => g.tangents != null);
-    final opcode =
-        scene._shadows.isNotEmpty ||
-            scene._meshes.any((m) => m['shadowFlags'] != 2)
+    final opcode = instanceCount > 0
+        ? 25
+        : scene._shadows.isNotEmpty ||
+              scene._meshes.any((m) => m['shadowFlags'] != 2)
         ? 24
         : environment != null
         ? 23
@@ -360,6 +368,11 @@ final class ScenePacketEncoder {
         }
       }
       if (opcode >= 24) body.u32(mesh['shadowFlags'] as int);
+      if (opcode >= 25) {
+        final instances = (mesh['instances'] as List).cast<double>();
+        body.u32(instances.length ~/ 16);
+        body.floats(instances);
+      }
     }
     final payload = body.finish();
     if (payload.length > 66 * 1024 * 1024 - 24) {
@@ -454,6 +467,7 @@ bool _sameMesh(Map<String, Object> a, Map<String, Object> b) {
     'pbr',
     'pbrMaps',
     'pbrScales',
+    'instances',
   ]) {
     final left = a[field] as List, right = b[field] as List;
     if (left.length != right.length) return false;
