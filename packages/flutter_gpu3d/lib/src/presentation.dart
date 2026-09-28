@@ -1,4 +1,5 @@
 import 'dart:ui' as ui;
+import 'dart:typed_data';
 import 'package:flutter/widgets.dart';
 import 'package:gpu3d/gpu3d.dart';
 
@@ -16,7 +17,7 @@ abstract interface class FramePresenter {
   Future<void> dispose();
 }
 
-/// The current native readback adapter. Shared GPU textures are a later backend.
+/// Explicit RGBA readback adapter with conversion at the Flutter boundary.
 class ImageFramePresenter implements FramePresenter {
   bool _closed = false;
   static FramePresenter create() => ImageFramePresenter();
@@ -33,7 +34,7 @@ class ImageFramePresenter implements FramePresenter {
     ui.ImageDescriptor? descriptor;
     ui.Codec? codec;
     try {
-      buffer = await ui.ImmutableBuffer.fromUint8List(frame.pixels);
+      buffer = await ui.ImmutableBuffer.fromUint8List(_flutterPixels(frame));
       descriptor = ui.ImageDescriptor.raw(
         buffer,
         width: frame.width,
@@ -58,6 +59,22 @@ class ImageFramePresenter implements FramePresenter {
   Future<void> dispose() async {
     _closed = true;
   }
+}
+
+Uint8List _flutterPixels(RenderedFrame frame) {
+  if (frame.alphaMode == AlphaMode.premultiplied) return frame.pixels;
+  final pixels = Uint8List.fromList(frame.pixels);
+  for (var i = 0; i < pixels.length; i += 4) {
+    if (frame.alphaMode == AlphaMode.opaque) {
+      pixels[i + 3] = 255;
+    } else {
+      final alpha = pixels[i + 3];
+      for (var channel = 0; channel < 3; channel++) {
+        pixels[i + channel] = (pixels[i + channel] * alpha + 127) ~/ 255;
+      }
+    }
+  }
+  return pixels;
 }
 
 class _ImageFrame implements PresentedFrame {
