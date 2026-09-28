@@ -14,6 +14,8 @@ dependencies:
     path: ../../packages/flutter_zyren
   zyren_geospatial:
     path: ../../packages/zyren_geospatial
+  zyren_3d_tiles:
+    path: ../../packages/zyren_3d_tiles
 
   shader_lab:
     path: ../shader_lab

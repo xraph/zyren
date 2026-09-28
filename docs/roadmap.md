@@ -40,8 +40,9 @@ Do not add a geospatial-only rendering path to bypass missing core features.
    now uses public core APIs with screen-space-error LOD, bounded requests/caches
    and cancellation. The [reversed-depth fixture](parity/planetary-depth.md) now
    measures surface-to-orbit depth behavior. [Static quantized-mesh terrain](parity/remote-terrain.md)
-   now loads through a bounded remote source. Add the separate 3D Tiles loader,
-   provider adapters, dynamic terrain availability and source story configurations.
+   now loads through a bounded remote source. The optional [explicit 3D Tiles loader](parity/3d-tiles.md)
+   supports GLB/b3dm, bounded streaming and parent fallback. Add provider adapters,
+   external/implicit tilesets, dynamic terrain availability and source story configurations.
    Keep credentials outside the rendering core.
 2. Complete atmosphere variants: source LUT loading, automatic material lighting,
    probes/environment adapters, spectral integration and remaining haze overlays.
