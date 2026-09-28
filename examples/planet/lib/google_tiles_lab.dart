@@ -1,0 +1,267 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_zyren/flutter_zyren.dart';
+import 'package:flutter_zyren/widgets.dart' as widgets;
+import 'package:zyren_3d_tiles/zyren_3d_tiles.dart';
+import 'package:zyren_geospatial/zyren_geospatial.dart';
+import 'tile_attribution_bar.dart';
+import 'zero_state.dart';
+
+void main() => runApp(const GoogleTilesLabApp());
+
+class GoogleTilesLabApp extends StatelessWidget {
+  final GlobalKey<GoogleTilesLabState>? labKey;
+  const GoogleTilesLabApp({super.key, this.labKey});
+  @override
+  Widget build(BuildContext context) => MaterialApp(
+    debugShowCheckedModeBanner: false,
+    theme: ThemeData.dark(
+      useMaterial3: true,
+    ).copyWith(visualDensity: VisualDensity.compact),
+    home: GoogleTilesLab(key: labKey),
+  );
+}
+
+class GoogleTilesLab extends StatefulWidget {
+  const GoogleTilesLab({super.key});
+  @override
+  State<GoogleTilesLab> createState() => GoogleTilesLabState();
+}
+
+class GoogleTilesLabState extends State<GoogleTilesLab> {
+  static const _googleKey = String.fromEnvironment('ZYREN_GOOGLE_MAPS_KEY');
+  static const _ionToken = String.fromEnvironment('ZYREN_CESIUM_ION_TOKEN');
+  static bool get configured => _googleKey.isNotEmpty || _ionToken.isNotEmpty;
+  late final SceneController controller;
+  final _controls = GlobeControlsPlugin();
+  Tiles3DProviderSession? _provider;
+  AssetScope? _manifest;
+  Tiles3DPlugin? tiles;
+  bool _loading = true;
+  Object? _error;
+  Future<void>? _loadTask, _closing;
+  Future<void> get whenClosed => _closing ?? Future<void>.value();
+  Object? get loadError => _error;
+  String _location = 'Manhattan';
+
+  @override
+  void initState() {
+    super.initState();
+    controller =
+        SceneController(
+            scene: Scene()..background = const Color3(.035, .055, .08),
+            camera: PerspectiveCamera(
+              near: 1,
+              far: 1e8,
+              depthStrategy: DepthStrategy.reversed,
+            ),
+            options: const EngineOptions(
+              presentation: PresentationPolicy.requireNative,
+            ),
+            runtime: switch (defaultTargetPlatform) {
+              TargetPlatform.android => const SceneRuntime.nativeAndroid(),
+              TargetPlatform.iOS ||
+              TargetPlatform.macOS => const SceneRuntime.nativeMetal(),
+              _ => const SceneRuntime(),
+            },
+          )
+          ..use(GeospatialPlugin())
+          ..use(_controls);
+    _view('Manhattan');
+    unawaited(_startLoad());
+  }
+
+  void _view(String location) {
+    _location = location;
+    _controls.controls?.cancel();
+    final manhattan = location == 'Manhattan';
+    final coordinate = manhattan
+        ? Geodetic.degrees(-73.9709, 40.7589)
+        : Geodetic.degrees(138.5973, 35.2138);
+    PointOfView(
+      distance: manhattan ? 3000 : 7000,
+      heading: Angle.degrees(manhattan ? -155 : 71),
+      pitch: Angle.degrees(manhattan ? -35 : -31),
+    ).decompose(coordinate.toEcef()).applyTo(controller.camera);
+    controller.invalidate();
+  }
+
+  Future<void> _startLoad() => _loadTask = _load();
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    if (!configured) {
+      setState(() => _loading = false);
+      return;
+    }
+    Tiles3DProviderSession? provider;
+    AssetScope? manifest;
+    try {
+      final base = controller.runtime.assetServices;
+      provider = _googleKey.isNotEmpty
+          ? await Tiles3DProvider.googleMaps(
+              transport: base.resolver,
+              apiKey: () => _googleKey,
+            )
+          : await Tiles3DProvider.cesiumIon(
+              transport: base.resolver,
+              accessToken: () => _ionToken,
+              assetId: 2275207,
+            );
+      if (!mounted) return;
+      final services = AssetServices(
+        resolver: provider,
+        imageDecoder: base.imageDecoder,
+      );
+      manifest = AssetScope(services: services);
+      _provider = provider;
+      _manifest = manifest;
+      final tileset = await manifest
+          .load(Tiles3D.tileset(provider.rootUri))
+          .result;
+      if (!mounted) return;
+      tiles = Tiles3DPlugin(
+        tileset: tileset,
+        services: services,
+        maximumScreenError: 20,
+        budget: Tiles3DBudget(
+          maxRequests: 2,
+          maxSelectedTiles: 512,
+          maxDecodedBytes: 512 * 1024 * 1024,
+          maxResidentBytes: 32 * 1024 * 1024,
+          perTileDecodedBytes: 16 * 1024 * 1024,
+          perTileResidentBytes: 8 * 1024 * 1024,
+        ),
+        onChanged: (_) {
+          if (mounted) setState(() {});
+        },
+      );
+      controller.use(tiles!);
+      _provider = provider;
+      _manifest = manifest;
+      provider = null;
+      manifest = null;
+    } catch (error) {
+      if (mounted) _error = error;
+    } finally {
+      if (manifest != null && identical(_manifest, manifest)) _manifest = null;
+      if (provider != null && identical(_provider, provider)) _provider = null;
+      await manifest?.close();
+      await provider?.close();
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    controller.dispose();
+    _closing = _close();
+    unawaited(_closing);
+    super.dispose();
+  }
+
+  Future<void> _close() async {
+    await controller.whenDisposed;
+    await _manifest?.close();
+    await _provider?.close();
+    await _loadTask;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final stats = tiles?.stats;
+    final failures = tiles?.failures ?? const <TileFailure3D>[];
+    return Scaffold(
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              child: Wrap(
+                spacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  const Text(
+                    'Photorealistic 3D',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                  ),
+                  for (final location in ['Manhattan', 'Fuji'])
+                    ChoiceChip(
+                      label: Text(location),
+                      selected: _location == location,
+                      onSelected: _loading
+                          ? null
+                          : (_) => setState(() => _view(location)),
+                    ),
+                ],
+              ),
+            ),
+            if (failures.isNotEmpty)
+              Wrap(
+                spacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text(
+                    '${failures.length} tiles unavailable',
+                    style: const TextStyle(color: Colors.amber),
+                  ),
+                  TextButton(
+                    onPressed: tiles!.retryFailed,
+                    child: const Text('Retry tiles'),
+                  ),
+                ],
+              ),
+            Expanded(
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : !configured
+                  ? widgets.ZeroState(
+                      title: 'Google Maps access is required',
+                      message:
+                          'Configure ZYREN_GOOGLE_MAPS_KEY or ZYREN_CESIUM_ION_TOKEN when you build this lab.',
+                      actionLabel: 'Check access',
+                      onAction: _startLoad,
+                    )
+                  : _error != null
+                  ? widgets.ZeroState(
+                      title: 'Google Maps could not load',
+                      message:
+                          'Check provider access and your network connection.',
+                      actionLabel: 'Retry connection',
+                      onAction: _startLoad,
+                    )
+                  : SceneView(
+                      controller: controller,
+                      errorBuilder: (context, issue, retry) =>
+                          ZeroState(error: issue, onRetry: retry),
+                    ),
+            ),
+            if (_provider case final provider?)
+              TileAttributionBar(
+                googleMaps: provider.isGoogleMaps,
+                tileCredits: tiles?.attributions ?? const [],
+                providerCredits: provider.attributions,
+              ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              child: Wrap(
+                spacing: 12,
+                children: [
+                  Text(
+                    '${stats?.visibleTiles ?? 0} tiles · ${stats?.activeRequests ?? 0} loading',
+                  ),
+                  if (stats?.budgetLimited ?? false)
+                    const Text('Detail limited by memory budget'),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
