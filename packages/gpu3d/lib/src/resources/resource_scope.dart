@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../rendering/mesh_deformation_wgsl.dart';
 import 'dart:convert';
 import 'dart:isolate';
 import 'dart:typed_data';

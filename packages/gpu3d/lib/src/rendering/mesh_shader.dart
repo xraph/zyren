@@ -1,10 +1,60 @@
 part of '../resources/resource_scope.dart';
 
-enum MeshVertexLayout { positionNormal, positionNormalUv }
+enum MeshVertexLayout {
+  positionNormal,
+  positionNormalUv,
+  positionNormalUvTangent,
+  positionNormalColor,
+  positionNormalUvColor,
+  positionNormalUvTangentColor;
+
+  bool get hasUv => index == 1 || index == 2 || index == 4 || index == 5;
+  bool get hasTangents => index == 2 || index == 5;
+  bool get hasColors => index >= 3;
+}
+
+/// Engine-managed vertex data required by a compiled mesh program.
+enum MeshShaderGeometry {
+  rigid,
+  instanced,
+  deformed,
+  deformedInstanced;
+
+  bool get usesInstancing => index.isOdd;
+  bool get usesDeformation => index >= 2;
+}
 
 /// Include this prelude in WGSL to use the scene's group-zero uniform layout.
 /// Matrices use camera-relative world coordinates. Fragment output is linear.
 abstract final class MeshShaderInterface {
+  /// Group-two skin and morph buffers, shared with the native material kernel.
+  /// Call deform_vertex before applying an instance or model transform.
+  static const deformation = meshDeformationWgsl;
+
+  /// Per-instance transforms at vertex locations 6 through 12.
+  static const instancing = '''
+struct MeshInstanceInput {
+  @location(6) model0: vec4<f32>,
+  @location(7) model1: vec4<f32>,
+  @location(8) model2: vec4<f32>,
+  @location(9) model3: vec4<f32>,
+  @location(10) normal0: vec4<f32>,
+  @location(11) normal1: vec4<f32>,
+  @location(12) normal2: vec4<f32>,
+};
+fn meshInstanceMatrix(instance: MeshInstanceInput) -> mat4x4<f32> {
+  return mat4x4(instance.model0, instance.model1, instance.model2, instance.model3);
+}
+fn meshInstanceNormalMatrix(instance: MeshInstanceInput) -> mat3x3<f32> {
+  return mat3x3(instance.normal0.xyz, instance.normal1.xyz, instance.normal2.xyz);
+}
+fn meshInstanceFront(front: bool, orientation: f32) -> bool {
+  let oriented = front == (orientation > 0.);
+  if (mesh.viewport.z == 1. && !oriented) || (mesh.viewport.z == 2. && oriented) { discard; }
+  return oriented;
+}
+''';
+
   static const wgsl = '''
 struct MeshUniforms {
   mvp: mat4x4<f32>,
@@ -46,6 +96,7 @@ extension MeshShaderCompiler on ShaderCompiler {
     ShaderSource source, {
     ShaderBindings? bindings,
     MeshVertexLayout vertexLayout = MeshVertexLayout.positionNormal,
+    MeshShaderGeometry geometry = MeshShaderGeometry.rigid,
     String vertexEntryPoint = 'vertex',
     String fragmentEntryPoint = 'fragment',
   }) => _run(() async {
@@ -60,11 +111,15 @@ extension MeshShaderCompiler on ShaderCompiler {
     }
     final values = bindings ?? ShaderBindings(const []);
     if (values.entries.any(
-      (binding) => binding.group == 0 || binding._writes,
+      (binding) =>
+          binding.group == 0 ||
+          binding._writes ||
+          (geometry.usesDeformation && binding.group == 2),
     )) {
       throw GraphException(
         GraphErrorCode.invalidBinding,
-        'Mesh bindings must be read-only and use groups one to three.',
+        'Mesh bindings must be read-only. Group zero belongs to the engine; '
+        'deformed programs also reserve group two.',
         passName: source.label,
       );
     }
@@ -107,6 +162,7 @@ extension MeshShaderCompiler on ShaderCompiler {
           'program': build.key,
           'bindings': encoded,
           'vertexLayout': vertexLayout.index,
+          'geometry': geometry.index,
           'vertexEntryPoint': vertexEntryPoint,
           'fragmentEntryPoint': fragmentEntryPoint,
         }),
@@ -117,6 +173,7 @@ extension MeshShaderCompiler on ShaderCompiler {
         key,
         source.label,
         vertexLayout,
+        geometry,
       );
       _meshes.add(program);
       _checkOpen();
@@ -135,6 +192,7 @@ final class MeshShaderProgram {
   final Object _key;
   final String label;
   final MeshVertexLayout vertexLayout;
+  final MeshShaderGeometry geometry;
   final _pending = <Future<void>>{};
   bool _closed = false;
   Future<void>? _closing;
@@ -144,6 +202,7 @@ final class MeshShaderProgram {
     this._key,
     this.label,
     this.vertexLayout,
+    this.geometry,
   );
   bool get isClosed => _closed || _compiler.isClosed;
 

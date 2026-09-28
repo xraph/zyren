@@ -51,6 +51,12 @@ impl Renderer {
                 if material.uv && geometry.uv0.is_empty() && geometry.uv1.is_empty() {
                     return Err("Mesh shader requires UV geometry".into());
                 }
+                if material.tangent && geometry.tangents.is_empty() {
+                    return Err("Mesh shader requires tangent geometry".into());
+                }
+                if material.colored && geometry.colors.is_empty() {
+                    return Err("Mesh shader requires color geometry".into());
+                }
                 Ok(Some(material))
             })
             .collect()

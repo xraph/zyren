@@ -5,8 +5,17 @@ import 'package:gpu3d/rendering.dart';
 import 'package:gpu3d_native/gpu3d_native.dart';
 import 'package:test/test.dart';
 import 'support/mesh_shader_checks.dart';
+import 'support/mesh_shader_geometry_checks.dart';
 
 void main() {
+  test('custom geometry profiles match rigid reference meshes', () async {
+    final backend = await NativeBackend.create();
+    try {
+      await verifyMeshShaderGeometry(backend);
+    } finally {
+      await backend.close();
+    }
+  }, skip: Platform.environment['RUN_NATIVE_GPU'] != '1');
   test(
     'mesh UV textures, pipeline variants and scene effects share native ownership',
     () async {

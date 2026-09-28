@@ -265,15 +265,15 @@ impl Mesh {
         self.depth_write.unwrap_or(self.alpha_mode != 2)
     }
     pub fn validate_material(&self) -> Result<(), String> {
-        if self.pose != 0 && (self.primitive_kind != 0 || self.shader.is_some()) {
-            return Err("deformation requires built-in triangle materials".into());
+        if self.pose != 0 && self.primitive_kind != 0 {
+            return Err("deformation requires triangle materials".into());
         }
         if self.instance_count == 0
             || self.instance_count as usize > crate::instances::MAX_INSTANCES
             || (self.instances == 0 && self.instance_count != 1)
-            || (self.instances != 0 && (self.primitive_kind != 0 || self.shader.is_some()))
+            || (self.instances != 0 && self.primitive_kind != 0)
         {
-            return Err("instancing requires a built-in triangle material and valid count".into());
+            return Err("instancing requires a triangle material and valid count".into());
         }
         if let Some(pbr) = &self.pbr {
             pbr.validate()?;

@@ -98,9 +98,10 @@ Native backends advertise `RenderFeature.skinning`, `RenderFeature.morphTargets`
 
 Unlit, diffuse and standard triangle materials support deformation, including
 UV maps, vertex colors, tangent normal maps, transparency and shadows. Morphs
-also work with `InstancedMesh`. Separate skeletal palettes per instance,
-`ShaderMaterial` deformation, expanded lines/points and extra joint influence
-sets are not supported yet. The optional glTF loader imports skin bindings,
+also work with `InstancedMesh`. Custom programs opt into these buffers through
+the [mesh shader geometry profiles](shader-materials.md#instancing-skinning-and-morphs).
+Separate skeletal palettes per instance, custom shader shadows, expanded
+lines/points and extra joint influence sets are not supported yet. The optional glTF loader imports skin bindings,
 morph deltas and animated weights through this core API.
 
 The ordering follows the [glTF morph and skin specification](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html)

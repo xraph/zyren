@@ -12,10 +12,13 @@ final class PatternMaterialPlugin extends ScenePlugin {
   MeshMaterial? _original;
   ShaderMaterial? _material;
   GpuResource<Buffer>? _parameters;
+  @override
+  final String id;
   PatternMaterialPlugin(
     this.mesh, {
     double frequency = 8,
     this.unsupported = UnsupportedEffects.reject,
+    this.id = 'shader-lab.pattern',
   }) : _frequency = _valid(frequency);
 
   static double _valid(double value) {
@@ -32,8 +35,6 @@ final class PatternMaterialPlugin extends ScenePlugin {
     if (context != null && !context.scope.isClosed) context.invalidate();
   }
 
-  @override
-  String get id => 'shader-lab.pattern';
   static const features = {
     RenderFeature.meshShaders,
     RenderFeature.shaderCompilation,
@@ -48,6 +49,12 @@ final class PatternMaterialPlugin extends ScenePlugin {
     _context = context;
     if (!context.capabilities.features.containsAll(features)) return;
     final original = mesh.material;
+    final deformed = mesh.captureDeformation() != null;
+    final geometry = mesh is InstancedMesh
+        ? (deformed
+              ? MeshShaderGeometry.deformedInstanced
+              : MeshShaderGeometry.instanced)
+        : (deformed ? MeshShaderGeometry.deformed : MeshShaderGeometry.rigid);
     _parameters = await context.resources.createBuffer(
       BufferDescriptor(
         label: 'stripe frequency',
@@ -56,7 +63,8 @@ final class PatternMaterialPlugin extends ScenePlugin {
       ),
     );
     final program = await context.shaders.compileMesh(
-      ShaderSource.wgsl(_patternWgsl, label: 'shader-lab.pattern.wgsl'),
+      ShaderSource.wgsl(_patternWgsl(geometry), label: '$id.wgsl'),
+      geometry: geometry,
       vertexLayout: MeshVertexLayout.positionNormalUv,
       bindings: ShaderBindings([
         BufferBinding.uniform(0, _parameters!, group: 1),
@@ -100,20 +108,30 @@ final class PatternMaterialPlugin extends ScenePlugin {
   }
 }
 
-const _patternWgsl =
+String _patternWgsl(MeshShaderGeometry geometry) =>
     '''
 ${MeshShaderInterface.wgsl}
+${geometry.usesInstancing ? MeshShaderInterface.instancing : ''}
+${geometry.usesDeformation ? MeshShaderInterface.deformation : ''}
 @group(1) @binding(0) var<uniform> pattern: vec4<f32>;
 struct Vertex {
   @builtin(position) position: vec4<f32>,
   @location(0) uv: vec2<f32>,
   @location(1) normal: vec3<f32>,
+  @location(2) @interpolate(flat) orientation: f32,
 };
-@vertex fn vertex(@location(0) p: vec3<f32>, @location(1) n: vec3<f32>,
-    @location(2) uv: vec2<f32>) -> Vertex {
-  return Vertex(mesh.mvp * vec4(p, 1.), uv, (mesh.normalMatrix * vec4(n, 0.)).xyz);
+@vertex fn vertex(@builtin(vertex_index) index: u32, @location(0) p: vec3<f32>, @location(1) n: vec3<f32>,
+    @location(2) uv: vec2<f32> ${geometry.usesInstancing ? ', instance: MeshInstanceInput' : ''}) -> Vertex {
+  var position = p; var normal = n;
+  ${geometry.usesDeformation ? '''let d = deform_vertex(index, p, n, vec4(1.,0.,0.,1.));
+  position = d.position; normal = d.normal;''' : ''}
+  ${geometry.usesInstancing ? '''position = (meshInstanceMatrix(instance) * vec4(position,1.)).xyz;
+  normal = meshInstanceNormalMatrix(instance) * normal;''' : ''}
+  return Vertex(mesh.mvp * vec4(position, 1.), uv, (mesh.normalMatrix * vec4(normal, 0.)).xyz,
+    ${geometry.usesInstancing ? 'instance.normal0.w' : '1.'});
 }
-@fragment fn fragment(input: Vertex) -> @location(0) vec4<f32> {
+@fragment fn fragment(input: Vertex, @builtin(front_facing) front: bool) -> @location(0) vec4<f32> {
+  ${geometry.usesInstancing ? 'let facing = meshInstanceFront(front, input.orientation);' : ''}
   let phase = (input.uv.x + input.uv.y) * pattern.x;
   let stripe = .5 + .5 * sin(phase * 6.2831853);
   let feather = min(.45, fwidth(phase));

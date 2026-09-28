@@ -572,6 +572,16 @@ rollback and idle demand. The animation lab reuses Swing and Reach actions and
 exposes layer fades and slow-to-stop controls. Custom shader deformation and
 instancing, per-instance colors and the remaining Task 6 gates stay open.
 
+Custom geometry shader checkpoint, 28 September 2026: mesh programs declare
+rigid, instanced, deformed or combined geometry. Public WGSL helpers expose the
+native deformation kernel and instance transform/face conventions. Vertex
+layouts cover UVs, tangents and colors. Native tests compare every profile and
+layout with rigid reference geometry, including mirrored winding, and retain
+old captures through pose/instance edits. The material plugin supports these
+profiles and the shader lab has animated geometry controls. Per-instance colors,
+custom shader shadows, separate skeletal instance palettes and remaining Task 6
+gates stay open.
+
 **Files:** Create core `scene/instanced_mesh.dart`, `animation/{clip,track,mixer,action}.dart`,
 `geometry/{skin,morph_target}.dart`; native `passes/deformation.rs`, WGSL,
 `test/animation_test.dart`, `native/tests/deformation_render.rs` and viewer controls.

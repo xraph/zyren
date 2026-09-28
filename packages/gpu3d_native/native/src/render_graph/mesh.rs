@@ -20,6 +20,8 @@ pub(super) struct Description {
     program: Key,
     bindings: Vec<Binding>,
     vertex_layout: u32,
+    #[serde(default)]
+    geometry: u32,
     vertex_entry_point: String,
     fragment_entry_point: String,
 }
@@ -51,6 +53,10 @@ struct PipelineKey {
     vertex: String,
     fragment: String,
     uv: bool,
+    tangent: bool,
+    colored: bool,
+    instanced: bool,
+    deformed: bool,
     state: State,
 }
 struct Pipeline {
@@ -62,21 +68,25 @@ struct Program {
     label: String,
     key: PipelineKey,
     prototype: Arc<Pipeline>,
-    groups: Vec<wgpu::BindGroup>,
+    groups: Vec<Option<wgpu::BindGroup>>,
     resources: Vec<ResourceKey>,
     shader: ResourceKey,
 }
 pub(crate) struct PreparedMaterial {
     pipeline: Arc<Pipeline>,
-    groups: Vec<wgpu::BindGroup>,
+    groups: Vec<Option<wgpu::BindGroup>>,
     pub resources: Vec<ResourceKey>,
     pub uv: bool,
+    pub tangent: bool,
+    pub colored: bool,
 }
 impl PreparedMaterial {
     pub fn bind(&self, pass: &mut wgpu::RenderPass<'_>) {
         pass.set_pipeline(&self.pipeline.native);
         for (index, group) in self.groups.iter().enumerate() {
-            pass.set_bind_group(index as u32 + 1, group, &[]);
+            if let Some(group) = group {
+                pass.set_bind_group(index as u32 + 1, group, &[]);
+            }
         }
     }
 }
@@ -101,6 +111,9 @@ fn create_pipeline(
 ) -> wgpu::RenderPipeline {
     let attributes = wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3];
     let uv = wgpu::vertex_attr_array![2 => Float32x2, 3 => Float32x2];
+    let tangent = wgpu::vertex_attr_array![4 => Float32x4];
+    let color = wgpu::vertex_attr_array![5 => Float32x4];
+    let instance = wgpu::vertex_attr_array![6=>Float32x4,7=>Float32x4,8=>Float32x4,9=>Float32x4,10=>Float32x4,11=>Float32x4,12=>Float32x4];
     let mut buffers = vec![Some(wgpu::VertexBufferLayout {
         array_stride: 24,
         step_mode: wgpu::VertexStepMode::Vertex,
@@ -111,6 +124,27 @@ fn create_pipeline(
             array_stride: 16,
             step_mode: wgpu::VertexStepMode::Vertex,
             attributes: &uv,
+        }));
+    }
+    if key.tangent {
+        buffers.push(Some(wgpu::VertexBufferLayout {
+            array_stride: 16,
+            step_mode: wgpu::VertexStepMode::Vertex,
+            attributes: &tangent,
+        }));
+    }
+    if key.colored {
+        buffers.push(Some(wgpu::VertexBufferLayout {
+            array_stride: 16,
+            step_mode: wgpu::VertexStepMode::Vertex,
+            attributes: &color,
+        }));
+    }
+    if key.instanced {
+        buffers.push(Some(wgpu::VertexBufferLayout {
+            array_stride: 112,
+            step_mode: wgpu::VertexStepMode::Instance,
+            attributes: &instance,
         }));
     }
     let state = key.state;
@@ -139,7 +173,7 @@ fn create_pipeline(
             } else {
                 wgpu::FrontFace::Ccw
             },
-            cull_mode: match state.side {
+            cull_mode: match if key.instanced { 0 } else { state.side } {
                 1 => Some(wgpu::Face::Back),
                 2 => Some(wgpu::Face::Front),
                 _ => None,
@@ -180,7 +214,8 @@ impl MeshStore {
         if self.count() >= 128
             || self.owned.len() >= 512
             || description.label.len() > 1024
-            || description.vertex_layout > 1
+            || description.vertex_layout > 5
+            || description.geometry > 3
         {
             return Err(GraphError::new(
                 "limitExceeded",
@@ -190,6 +225,7 @@ impl MeshStore {
         self.registry.check_capacity(bytes)?;
         if description.bindings.iter().any(|b| {
             b.group == 0
+                || (description.geometry & 2 != 0 && b.group == 2)
                 || matches!(
                     b.kind,
                     BindingKind::StorageReadWrite | BindingKind::StorageTexture
@@ -197,7 +233,7 @@ impl MeshStore {
         }) {
             return Err(GraphError::new(
                 "invalidBinding",
-                "Mesh bindings must read from groups one to three",
+                "Mesh bindings must read from groups one to three; deformed programs reserve group two",
             ));
         }
         let shader = context.shaders.resolve(key(description.program))?;
@@ -228,20 +264,30 @@ impl MeshStore {
                     bindings: bindings.keys,
                     vertex: description.vertex_entry_point,
                     fragment: description.fragment_entry_point,
-                    uv: description.vertex_layout == 1,
+                    uv: matches!(description.vertex_layout, 1 | 2 | 4 | 5),
+                    tangent: matches!(description.vertex_layout, 2 | 5),
+                    colored: description.vertex_layout >= 3,
+                    instanced: description.geometry & 1 != 0,
+                    deformed: description.geometry & 2 != 0,
                     state: State::new(wgpu::TextureFormat::Rgba8UnormSrgb, &Mesh::default()),
                 };
                 let pipeline = if let Some(p) = self.cache.get(&cache_key).and_then(Weak::upgrade) {
                     p
                 } else {
                     let mut groups = vec![context.mesh_layout.clone()];
-                    for entries in bindings.layouts.iter().skip(1) {
-                        groups.push(device.create_bind_group_layout(
-                            &wgpu::BindGroupLayoutDescriptor {
+                    let count = bindings
+                        .layouts
+                        .len()
+                        .max(if cache_key.deformed { 3 } else { 1 });
+                    for index in 1..count {
+                        groups.push(if cache_key.deformed && index == 2 {
+                            context.deformation_layout.clone()
+                        } else {
+                            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                                 label: Some(&description.label),
-                                entries,
-                            },
-                        ));
+                                entries: bindings.layouts.get(index).map_or(&[], Vec::as_slice),
+                            })
+                        });
                     }
                     let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                         label: Some(&description.label),
@@ -254,23 +300,27 @@ impl MeshStore {
                         groups,
                     })
                 };
-                let groups = bindings
-                    .resources
-                    .iter()
-                    .enumerate()
-                    .skip(1)
-                    .map(|(index, resources)| {
-                        device.create_bind_group(&wgpu::BindGroupDescriptor {
-                            label: Some(&description.label),
-                            layout: &pipeline.groups[index],
-                            entries: &resources
-                                .iter()
-                                .map(|(slot, resource)| wgpu::BindGroupEntry {
-                                    binding: *slot,
-                                    resource: resource.binding(),
-                                })
-                                .collect::<Vec<_>>(),
-                        })
+                let groups = (1..pipeline.groups.len())
+                    .map(|index| {
+                        if cache_key.deformed && index == 2 {
+                            return None;
+                        }
+                        Some(
+                            device.create_bind_group(&wgpu::BindGroupDescriptor {
+                                label: Some(&description.label),
+                                layout: &pipeline.groups[index],
+                                entries: &bindings
+                                    .resources
+                                    .get(index)
+                                    .map_or(&[][..], Vec::as_slice)
+                                    .iter()
+                                    .map(|(slot, resource)| wgpu::BindGroupEntry {
+                                        binding: *slot,
+                                        resource: resource.binding(),
+                                    })
+                                    .collect::<Vec<_>>(),
+                            }),
+                        )
                     })
                     .collect();
                 Ok((
@@ -342,6 +392,14 @@ impl MeshStore {
                 "Custom mesh shaders require triangle geometry and scoped texture bindings",
             ));
         }
+        if program.key.instanced != (mesh.instances != 0)
+            || program.key.deformed != (mesh.pose != 0)
+        {
+            return Err(GraphError::new(
+                "invalidDescriptor",
+                "Mesh geometry does not match the shader profile",
+            ));
+        }
         let state = State::new(format, mesh);
         let pipeline = if let Some(pipeline) = self.owned.get(&(id, state)) {
             pipeline.clone()
@@ -374,6 +432,8 @@ impl MeshStore {
             groups: program.groups.clone(),
             resources: program.resources.clone(),
             uv: program.key.uv,
+            tangent: program.key.tangent,
+            colored: program.key.colored,
         })
     }
 }

@@ -1953,3 +1953,44 @@ validation. The macOS runner still reports that it cannot foreground the app;
 manual desktop interaction remains unverified. Windows, Linux and physical iOS
 qualification, custom shader deformation/instancing, per-instance colors and
 the remaining implementation-plan gates are open.
+
+## Custom shaders for animated geometry, 28 September 2026
+
+You can compile mesh shaders for rigid geometry, instancing, deformation or
+shared deformation across instances. The public WGSL helpers expose the same
+skin and morph kernel that native materials use, plus instance transforms and
+face orientation. Six vertex layouts cover UVs, tangents and colors. Dart
+capture and native preparation reject profiles or attributes that do not match
+the mesh. Deformed programs reserve binding group 2 for the engine.
+
+The native fixture checks all 24 profile/layout combinations against rigid
+reference geometry, including skinning, shared morphs, nonuniform scale and
+mixed instance winding. It also checks all three material sides, group-3
+resources, author-scope closure, frozen captures and final resource release.
+A shared morph edit uploads 272 bytes; one instance transform uploads 112 bytes.
+Neither edit compiles another pipeline.
+
+All 412 core, glTF and geospatial Dart cases, 91 serial native GPU cases,
+118 Rust cases (including the GPU cases) and 15 plugin cases pass. The four
+shader-lab widget cases pass at narrow and desktop sizes. Analyzer, strict
+Clippy, formatting, package boundaries and Apple ABI checks pass.
+
+The animated material demo renders one skinned ribbon and twelve instances in
+two draws. Its Metal integration passes the reference fixture and checks pose,
+width and stripe controls, settled frame demand and zero presentation readback.
+The standalone Metal capture `artifacts/mesh-shader-geometry.png` was visually
+inspected. That capture uses explicit readback and does not establish inspection
+of a Flutter window.
+
+The Pixel integration built and installed, then timed out while Android reported
+the test app as cached and frozen. That run does not qualify these shaders on
+Android. The macOS test runner could not foreground its window, but the 53.3 MB
+release app subsequently launched. Its actual window was inspected at desktop
+and narrow widths. Pausing settled uploads to zero; the pose, width and stripe
+controls changed the rendered ribbons; resuming restored animation and
+400-byte pose updates. The release app remains running. Windows, Linux and
+physical iOS qualification are open.
+
+Custom shader shadow passes, separate skeletal palettes per instance,
+per-instance colors and the remaining core and Takram parity work are still
+open. Task 6 remains unchecked.

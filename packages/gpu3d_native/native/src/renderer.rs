@@ -335,6 +335,7 @@ impl Renderer {
             crate::render_graph::GraphContext {
                 shadow_stats,
                 mesh_layout: &state.layout,
+                deformation_layout: &state.deformation_layout,
                 device: &state.device,
                 queue: &state.queue,
                 resources: &mut state.resources,
@@ -904,11 +905,31 @@ impl Renderer {
                             .slice(..),
                     );
                 }
-                if materials[index]
-                    .as_ref()
-                    .is_some_and(|material| material.uv)
-                {
-                    pass.set_vertex_buffer(1, uv.expect("validated shader UV buffer").slice(..));
+                if let Some(material) = &materials[index] {
+                    if material.uv {
+                        pass.set_vertex_buffer(
+                            1,
+                            uv.expect("validated shader UV buffer").slice(..),
+                        );
+                    }
+                    if material.tangent {
+                        pass.set_vertex_buffer(
+                            1 + u32::from(material.uv),
+                            self.resources
+                                .geometry_tangents(geometry.key)
+                                .expect("validated shader tangent buffer")
+                                .slice(..),
+                        );
+                    }
+                    if material.colored {
+                        pass.set_vertex_buffer(
+                            1 + u32::from(material.uv) + u32::from(material.tangent),
+                            self.resources
+                                .geometry_colors(geometry.key)
+                                .expect("validated shader color buffer")
+                                .slice(..),
+                        );
+                    }
                 }
                 if let Some(binding) = texture_binding {
                     pass.set_vertex_buffer(1, uv.expect("validated UV buffer").slice(..));
@@ -928,12 +949,17 @@ impl Renderer {
                         .resources
                         .graph_buffer(self.instances[&mesh.instances].key)
                         .expect("validated instance buffer");
-                    pass.set_vertex_buffer(
+                    let slot = materials[index].as_ref().map_or(
                         1 + u32::from(textured)
                             + u32::from(tangent)
                             + u32::from(mesh.vertex_colors),
-                        buffer.slice(..),
+                        |material| {
+                            1 + u32::from(material.uv)
+                                + u32::from(material.tangent)
+                                + u32::from(material.colored)
+                        },
                     );
+                    pass.set_vertex_buffer(slot, buffer.slice(..));
                 }
                 if mesh.pose != 0 {
                     pass.set_bind_group(2, &self.poses[&mesh.pose].binding, &[]);

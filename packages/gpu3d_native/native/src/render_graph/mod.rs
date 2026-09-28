@@ -180,6 +180,7 @@ fn scoped<T>(
 pub(crate) struct GraphContext<'a> {
     pub shadow_stats: crate::renderer::ShadowStats,
     pub mesh_layout: &'a wgpu::BindGroupLayout,
+    pub deformation_layout: &'a wgpu::BindGroupLayout,
     pub device: &'a wgpu::Device,
     pub queue: &'a wgpu::Queue,
     pub resources: &'a mut ResourceStore,
@@ -197,6 +198,7 @@ impl GraphStore {
         let GraphContext {
             shadow_stats,
             mesh_layout,
+            deformation_layout,
             device,
             queue,
             resources,
@@ -229,6 +231,7 @@ impl GraphStore {
                             shaders,
                             failure,
                             mesh_layout,
+                            deformation_layout,
                         },
                         description,
                         bytes.len() as u64,

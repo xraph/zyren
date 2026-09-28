@@ -211,18 +211,30 @@ class SceneSnapshot {
             throw ArgumentError('Vertex colors require a color attribute.');
           }
           if (node.material case ShaderMaterial(:final program)) {
-            if (instance != null || pose != null) {
-              throw UnsupportedError(
-                "Instancing and deformation require a built-in material.",
+            if (program.geometry.usesInstancing != (instance != null) ||
+                program.geometry.usesDeformation != (pose != null)) {
+              throw ArgumentError(
+                'Mesh shader geometry profile ${program.geometry.name} '
+                'does not match this mesh.',
               );
             }
             if (program.isClosed) {
               throw StateError('Mesh shader has closed: ${program.label}');
             }
-            if (program.vertexLayout == MeshVertexLayout.positionNormalUv &&
+            if (program.vertexLayout.hasUv &&
                 node.geometry.uv0 == null &&
                 node.geometry.uv1 == null) {
               throw ArgumentError('This mesh shader requires UV attributes.');
+            }
+            if (program.vertexLayout.hasTangents && geometry.tangents == null) {
+              throw ArgumentError(
+                'This mesh shader requires tangent attributes.',
+              );
+            }
+            if (program.vertexLayout.hasColors && geometry.colors == null) {
+              throw ArgumentError(
+                'This mesh shader requires color attributes.',
+              );
             }
             meshShaders[meshes.length] = program;
           }
