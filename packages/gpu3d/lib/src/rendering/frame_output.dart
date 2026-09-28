@@ -73,7 +73,7 @@ class ImageData {
 }
 
 /// Unavailable native measurements remain null. CPU timings cover Dart snapshot
-/// construction and encoding, not driver work. Upload bytes count geometry data.
+/// construction and encoding, not driver work. Upload bytes count geometry, instance and texture data.
 class FrameStats {
   final int frameId, surfaceEpoch, drawCalls, triangles, readbackBytes;
   final int uploadedBytes, coalescedFrames, droppedFrames, computeDispatches;

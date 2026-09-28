@@ -21,10 +21,13 @@ struct ShadowUniform {
 struct DepthUniform {
     mvp: [f32; 16],
     params: [f32; 4],
+    side: [f32; 4],
 }
 #[derive(Clone, PartialEq)]
 struct Caster {
     geometry: u32,
+    instances: u32,
+    instance_count: u32,
     key: crate::resources::registry::ResourceKey,
     model: [f32; 16],
     side: u32,
@@ -54,12 +57,14 @@ pub struct ShadowStats {
 struct PipelineKey {
     textured: bool,
     colored: bool,
+    instanced: bool,
     mirrored: bool,
     side: u32,
 }
 impl PipelineKey {
     fn new(mesh: &crate::scene::Mesh) -> Self {
         Self {
+            instanced: mesh.instances != 0,
             textured: mesh.alpha_mode == 1 && mesh.color_map.is_some(),
             colored: mesh.alpha_mode == 1 && mesh.vertex_colors,
             mirrored: Mat4::from_cols_array(&mesh.model).determinant() < 0.,
@@ -195,6 +200,7 @@ impl ShadowSystem {
         Ok(())
     }
     fn pipeline(&self, device: &wgpu::Device, key: PipelineKey) -> wgpu::RenderPipeline {
+        let instance_attributes = wgpu::vertex_attr_array![6=>Float32x4,7=>Float32x4,8=>Float32x4,9=>Float32x4,10=>Float32x4,11=>Float32x4,12=>Float32x4];
         let attributes = wgpu::vertex_attr_array![0 => Float32x3];
         let color_attributes = wgpu::vertex_attr_array![5=>Float32x4];
         let uv_attributes = wgpu::vertex_attr_array![2 => Float32x2, 3 => Float32x2];
@@ -217,6 +223,13 @@ impl ShadowSystem {
                 attributes: &color_attributes,
             }));
         }
+        if key.instanced {
+            buffers.push(Some(wgpu::VertexBufferLayout {
+                array_stride: 112,
+                step_mode: wgpu::VertexStepMode::Instance,
+                attributes: &instance_attributes,
+            }));
+        }
         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("shadow depth"),
             layout: Some(if key.textured {
@@ -226,7 +239,14 @@ impl ShadowSystem {
             }),
             vertex: wgpu::VertexState {
                 module: &self.shader,
-                entry_point: Some(if key.textured {
+                entry_point: Some(if key.instanced {
+                    match (key.textured, key.colored) {
+                        (true, true) => "vs_instance_depth_textured_colored",
+                        (true, false) => "vs_instance_depth_textured",
+                        (false, true) => "vs_instance_depth_colored",
+                        (false, false) => "vs_instance_depth",
+                    }
+                } else if key.textured {
                     if key.colored {
                         "vs_depth_textured_colored"
                     } else {
@@ -258,7 +278,7 @@ impl ShadowSystem {
                 } else {
                     wgpu::FrontFace::Ccw
                 },
-                cull_mode: match key.side {
+                cull_mode: match if key.instanced { 0 } else { key.side } {
                     1 => Some(wgpu::Face::Back),
                     2 => Some(wgpu::Face::Front),
                     _ => None,
@@ -360,7 +380,17 @@ impl PreparedShadows {
                     pass.set_vertex_buffer(1, uv.expect("validated shadow UV buffer").slice(..));
                 }
                 pass.set_index_buffer(indices.slice(..), format);
-                pass.draw_indexed(0..count, 0, 0..1);
+                if mesh.instances != 0 {
+                    let buffer = renderer
+                        .resources
+                        .graph_buffer(renderer.instances[&mesh.instances].key)
+                        .expect("validated shadow instance buffer");
+                    pass.set_vertex_buffer(
+                        1 + u32::from(pipeline.textured) + u32::from(pipeline.colored),
+                        buffer.slice(..),
+                    );
+                }
+                pass.draw_indexed(0..count, 0, 0..mesh.instance_count);
             }
         }
     }
@@ -398,6 +428,8 @@ impl Renderer {
                     .filter(|m| m.cast_shadow)
                     .map(|m| Caster {
                         geometry: m.geometry,
+                        instances: m.instances,
+                        instance_count: m.instance_count,
                         key: state.geometries[&m.geometry].key,
                         model: m.model,
                         side: m.side,
@@ -475,6 +507,16 @@ impl Renderer {
                         state.shadows.pipelines.insert(key, pipeline);
                     }
                     let params = DepthUniform {
+                        side: [
+                            if mesh.instances != 0 {
+                                mesh.side as f32
+                            } else {
+                                0.
+                            },
+                            0.,
+                            0.,
+                            0.,
+                        ],
                         mvp: (vp * Mat4::from_cols_array(&mesh.model)).to_cols_array(),
                         params: [
                             mesh.opacity,

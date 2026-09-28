@@ -10,6 +10,7 @@ final class EncodedScenePacket {
   final SceneSnapshot _scene;
   final Map<int, GeometrySnapshot> _uploaded;
   final Set<int> _uploadedTextures;
+  final Map<int, InstanceSnapshot> _uploadedInstances;
   EncodedScenePacket._(
     this.bytes,
     this.uploadedBytes,
@@ -19,6 +20,7 @@ final class EncodedScenePacket {
     this._scene,
     this._uploaded,
     this._uploadedTextures,
+    this._uploadedInstances,
   );
 }
 
@@ -30,6 +32,7 @@ final class ScenePacketEncoder {
   SceneSnapshot? _previous;
   Map<int, GeometrySnapshot> _uploaded = {};
   Set<int> _uploadedTextures = {};
+  Map<int, InstanceSnapshot> _uploadedInstances = {};
   ScenePacketEncoder({required this.viewId}) {
     if (viewId <= 0) throw ArgumentError.value(viewId, 'viewId');
   }
@@ -102,6 +105,31 @@ final class ScenePacketEncoder {
       for (final id in visibleTextures)
         if (!uploadedTextures.contains(id)) scene._textures[id]!,
     ];
+    final instanceLogicalIds = scene._instances.values
+        .map((v) => v.logicalId)
+        .toSet();
+    final uploadedInstances = Map<int, InstanceSnapshot>.of(_uploadedInstances)
+      ..removeWhere((id, _) => !instanceLogicalIds.contains(id));
+    final visibleInstances = scene._meshes.map((m) => m['instances']).toSet();
+    final instanceUploads = <InstanceSnapshot>[];
+    final instancePatches = <(int, InstanceSnapshot, List<InstanceRange>)>[];
+    for (final instance in scene._instances.values) {
+      if (!visibleInstances.contains(instance.id)) continue;
+      final base = uploadedInstances[instance.logicalId];
+      if (base?.id == instance.id) continue;
+      final ranges = base == null ? null : instance.changesSince(base);
+      if (base == null || ranges == null) {
+        instanceUploads.add(instance);
+      } else {
+        instancePatches.add((base.id, instance, ranges));
+      }
+      uploadedInstances[instance.logicalId] = instance;
+    }
+    final ownedInstances = {
+      for (final instance in scene._instances.values)
+        if (uploadedInstances[instance.logicalId] case final uploaded?)
+          uploaded.id,
+    };
     final updates = <int>[];
     // Choose full replacement before accessing the nullable baseline. Keep this
     // guard explicit for AOT compilation as well as first-frame ownership.
@@ -136,14 +164,22 @@ final class ScenePacketEncoder {
         (sum, level) => sum + level.length,
       );
     }
+    uploadBytes += instanceUploads.fold<int>(
+      0,
+      (n, instance) => n + instance.gpuByteLength,
+    );
+    for (final (_, _, ranges) in instancePatches) {
+      uploadBytes += ranges.fold<int>(0, (n, range) => n + range.count * 112);
+    }
     if (vertices > 1000000 ||
         indices > 3000000 ||
         uploadBytes > 64 * 1024 * 1024) {
       throw ArgumentError('Scene resource upload exceeds the frame budget.');
     }
-    final opcode =
-        scene._geometries.values.any((g) => g.colors != null) ||
-            scene._meshes.any((m) => m['vertex_colors'] == true)
+    final opcode = scene.hasInstances
+        ? 24
+        : scene._geometries.values.any((g) => g.colors != null) ||
+              scene._meshes.any((m) => m['vertex_colors'] == true)
         ? 23
         : scene.hasShadows
         ? 22
@@ -245,11 +281,21 @@ final class ScenePacketEncoder {
     body.u32(scene._textures.length);
     body.u32(textures.length);
     if (opcode >= 12) body.u32(patches.length);
+    if (opcode >= 24) {
+      body.u32(ownedInstances.length);
+      body.u32(instanceUploads.length);
+      body.u32(instancePatches.length);
+    }
     for (final id in owned) {
       body.u32(id);
     }
     for (final id in scene._textures.keys) {
       body.u32(id);
+    }
+    if (opcode >= 24) {
+      for (final id in ownedInstances) {
+        body.u32(id);
+      }
     }
     for (final image in textures) {
       body.u32(image.id);
@@ -311,6 +357,25 @@ final class ScenePacketEncoder {
         );
       }
     }
+    for (final instance in instanceUploads) {
+      body.u32(instance.id);
+      body.u32(instance.capacity);
+      for (final matrix in instance.transforms) {
+        body.floats(matrix.storage);
+      }
+    }
+    for (final (baseId, instance, ranges) in instancePatches) {
+      body.u32(instance.id);
+      body.u32(baseId);
+      body.u32(ranges.length);
+      for (final range in ranges) {
+        body.u32(range.first);
+        body.u32(range.count);
+        for (var i = range.first; i < range.first + range.count; i++) {
+          body.floats(instance.transforms[i].storage);
+        }
+      }
+    }
     for (final i in updates) {
       final mesh = scene._meshes[i];
       body.u32(i);
@@ -365,6 +430,10 @@ final class ScenePacketEncoder {
         body.u32(mesh['receive_shadow'] == true ? 1 : 0);
       }
       if (opcode >= 23) body.u32(mesh['vertex_colors'] == true ? 1 : 0);
+      if (opcode >= 24) {
+        body.u32(mesh['instances'] as int);
+        body.u32(mesh['instance_count'] as int);
+      }
     }
     final payload = body.finish();
     if (payload.length > 66 * 1024 * 1024 - 24) {
@@ -386,6 +455,7 @@ final class ScenePacketEncoder {
       scene,
       uploaded,
       uploadedTextures,
+      uploadedInstances,
     );
   }
 
@@ -398,6 +468,7 @@ final class ScenePacketEncoder {
     _previous = packet._scene;
     _uploaded = packet._uploaded;
     _uploadedTextures = packet._uploadedTextures;
+    _uploadedInstances = packet._uploadedInstances;
     _accepted = packet._revision;
   }
 }
@@ -467,6 +538,8 @@ bool _sameMesh(Map<String, Object> a, Map<String, Object> b) {
   }
   for (final field in [
     'geometry',
+    'instances',
+    'instance_count',
     'unlit',
     'vertex_colors',
     'side',

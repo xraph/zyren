@@ -26,11 +26,13 @@ struct VertexOutput {
     @location(4) uv1: vec2<f32>,
     @location(5) tangent: vec4<f32>,
     @location(6) color: vec4<f32>,
+    @location(7) @interpolate(flat) orientation: f32,
 };
 
 fn mesh_vertex(position: vec3<f32>, normal: vec3<f32>) -> VertexOutput {
     var output: VertexOutput;
     output.color = vec4(1.);
+    output.orientation = 1.;
     output.position = uniforms.mvp * vec4<f32>(position, 1.0);
     output.relative_position = (uniforms.model * vec4<f32>(position, 1.0)).xyz;
     output.normal = (uniforms.normal_matrix * vec4<f32>(normal, 0.0)).xyz;
@@ -50,6 +52,7 @@ fn mesh_vertex(position: vec3<f32>, normal: vec3<f32>) -> VertexOutput {
 fn textured_vertex(position: vec3<f32>, normal: vec3<f32>, uv0: vec2<f32>, uv1: vec2<f32>) -> VertexOutput {
     var output: VertexOutput;
     output.color = vec4(1.);
+    output.orientation = 1.;
     output.position = uniforms.mvp * vec4<f32>(position, 1.0);
     output.relative_position = (uniforms.model * vec4<f32>(position, 1.0)).xyz;
     output.normal = (uniforms.normal_matrix * vec4<f32>(normal, 0.0)).xyz;
@@ -93,9 +96,77 @@ fn shade(normal: vec3<f32>, sample_color: vec4<f32>) -> vec4<f32> {
 }
 
 @fragment fn fs_textured(input: VertexOutput, @builtin(front_facing) front: bool) -> @location(0) vec4<f32> {
-    return shade(select(-input.normal, input.normal, front), textureSample(color_map, color_sampler, input.uv) * input.color);
+    return shade(select(-input.normal, input.normal, material_front(front, input.orientation)), textureSample(color_map, color_sampler, input.uv) * input.color);
 }
 
 @fragment fn fs_main(input: VertexOutput, @builtin(front_facing) front: bool) -> @location(0) vec4<f32> {
-    return shade(select(-input.normal, input.normal, front), input.color);
+    return shade(select(-input.normal, input.normal, material_front(front, input.orientation)), input.color);
+}
+
+struct InstanceInput {
+    @location(6) model0: vec4<f32>,
+    @location(7) model1: vec4<f32>,
+    @location(8) model2: vec4<f32>,
+    @location(9) model3: vec4<f32>,
+    @location(10) normal0: vec4<f32>,
+    @location(11) normal1: vec4<f32>,
+    @location(12) normal2: vec4<f32>,
+};
+fn instance_matrix(instance: InstanceInput) -> mat4x4<f32> {
+    return mat4x4(instance.model0, instance.model1, instance.model2, instance.model3);
+}
+fn instance_vertex(position: vec3<f32>, normal: vec3<f32>, instance: InstanceInput) -> VertexOutput {
+    let local = instance_matrix(instance) * vec4(position, 1.);
+    let n = mat3x3(instance.normal0.xyz, instance.normal1.xyz, instance.normal2.xyz) * normal;
+    var output = mesh_vertex(local.xyz, n);
+    output.orientation = instance.normal0.w;
+    return output;
+}
+fn material_front(front: bool, orientation: f32) -> bool {
+    let oriented = front == (orientation > 0.);
+    if (uniforms.viewport.z == 1. && !oriented) || (uniforms.viewport.z == 2. && oriented) { discard; }
+    return oriented;
+}
+
+@vertex fn vs_instance_main(@location(0) position: vec3<f32>, @location(1) normal: vec3<f32>, instance: InstanceInput) -> VertexOutput {
+    var output = instance_vertex(position, normal, instance);
+    return output;
+}
+
+@vertex fn vs_instance_colored(@location(0) position: vec3<f32>, @location(1) normal: vec3<f32>, instance: InstanceInput, @location(5) color: vec4<f32>) -> VertexOutput {
+    var output = instance_vertex(position, normal, instance);
+    output.color = color;
+    return output;
+}
+
+@vertex fn vs_instance_textured(@location(0) position: vec3<f32>, @location(1) normal: vec3<f32>, instance: InstanceInput, @location(2) uv0: vec2<f32>, @location(3) uv1: vec2<f32>) -> VertexOutput {
+    var output = instance_vertex(position, normal, instance);
+    output.uv = select(uv0, uv1, uniforms.map_params.x > 0.5);
+    output.uv0 = uv0; output.uv1 = uv1;
+    return output;
+}
+
+@vertex fn vs_instance_textured_colored(@location(0) position: vec3<f32>, @location(1) normal: vec3<f32>, instance: InstanceInput, @location(2) uv0: vec2<f32>, @location(3) uv1: vec2<f32>, @location(5) color: vec4<f32>) -> VertexOutput {
+    var output = instance_vertex(position, normal, instance);
+    output.uv = select(uv0, uv1, uniforms.map_params.x > 0.5);
+    output.uv0 = uv0; output.uv1 = uv1;
+    output.color = color;
+    return output;
+}
+
+@vertex fn vs_instance_standard_tangent(@location(0) position: vec3<f32>, @location(1) normal: vec3<f32>, instance: InstanceInput, @location(2) uv0: vec2<f32>, @location(3) uv1: vec2<f32>, @location(4) tangent: vec4<f32>) -> VertexOutput {
+    var output = instance_vertex(position, normal, instance);
+    output.uv = select(uv0, uv1, uniforms.map_params.x > 0.5);
+    output.uv0 = uv0; output.uv1 = uv1;
+    output.tangent = vec4((uniforms.model * instance_matrix(instance) * vec4(tangent.xyz, 0.)).xyz, tangent.w * uniforms.pbr_factors.z * instance.normal0.w);
+    return output;
+}
+
+@vertex fn vs_instance_standard_tangent_colored(@location(0) position: vec3<f32>, @location(1) normal: vec3<f32>, instance: InstanceInput, @location(2) uv0: vec2<f32>, @location(3) uv1: vec2<f32>, @location(4) tangent: vec4<f32>, @location(5) color: vec4<f32>) -> VertexOutput {
+    var output = instance_vertex(position, normal, instance);
+    output.uv = select(uv0, uv1, uniforms.map_params.x > 0.5);
+    output.uv0 = uv0; output.uv1 = uv1;
+    output.tangent = vec4((uniforms.model * instance_matrix(instance) * vec4(tangent.xyz, 0.)).xyz, tangent.w * uniforms.pbr_factors.z * instance.normal0.w);
+    output.color = color;
+    return output;
 }

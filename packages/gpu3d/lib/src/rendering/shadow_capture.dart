@@ -83,9 +83,14 @@ final class ShadowSnapshot {
       if (mesh['cast_shadow'] != true) continue;
       final geometry = scene._geometries[mesh['geometry']]!;
       final model = vm.Matrix4.fromList((mesh['model'] as List).cast<double>());
+      final instance = scene._instances[mesh['instances']];
+      final corners = instance == null
+          ? geometry.bounds.corners
+          : instance
+                .boundsFor(geometry, count: mesh['instance_count'] as int)
+                .corners;
       bounds.add([
-        for (final corner in geometry.bounds.corners)
-          model.transformed3(corner.toVectorMath()),
+        for (final corner in corners) model.transformed3(corner.toVectorMath()),
       ]);
     }
     final views = <ShadowView>[];

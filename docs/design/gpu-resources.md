@@ -635,3 +635,24 @@ Run `fvm flutter run -d macos -t lib/textured_scene_demo.dart` from
 `examples/multiple_views`, or replace `macos` with your Android device ID.
 Tap PNG or JPEG to decode the bundled fixtures and update the native material.
 Asset resolution, shared request caching and cancellation remain task 3 work.
+
+### Instanced scene packets
+
+Opcode 24 extends the opcode 23 scene layout. After the texture ownership,
+texture upload and geometry patch counts, three u32 counts describe retained
+instance resources, full instance uploads and instance patches. Retained
+instance IDs follow retained texture IDs. Full instance uploads and then
+patches follow the geometry uploads and patches, before updated mesh records.
+
+A full instance upload contains its u32 ID, u32 capacity and one column-major
+float32 matrix per slot. A patch contains its target ID, base ID and range count;
+each range carries its first slot, count and matrices. Ranges must be ordered,
+disjoint and within the base capacity. Patch chains are rejected. Updated mesh
+records append the instance ID and visible count after the vertex-color flag.
+ID zero selects an ordinary mesh with count one.
+
+The decoder checks immutable IDs, owned baselines, affine invertibility,
+float32 inverse validity and table/slot budgets before GPU ownership changes.
+The native buffer derives padded normal matrices and reflection signs from each
+changed transform. Full uploads count 112 bytes per slot; patches count the
+changed slots only. See [instancing](instancing.md) for public APIs and limits.

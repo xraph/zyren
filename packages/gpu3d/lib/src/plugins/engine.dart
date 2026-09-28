@@ -669,6 +669,21 @@ class SceneEngine {
           ),
         );
       }
+      final instanceCapacity = _instanceCapacity(scene);
+      if (instanceCapacity > 0 &&
+          (!capabilities.supports(RenderFeature.instancing) ||
+              instanceCapacity > capabilities.limits.maxInstances)) {
+        throw SceneException(
+          SceneIssue(
+            code: SceneIssueCodes.unsupportedFeature,
+            message:
+                'This scene exceeds the backend instance capability or capacity.',
+            operation: 'render',
+            requiredFeatures: {RenderFeature.instancing},
+            limits: capabilities.limits,
+          ),
+        );
+      }
       if (_hasVisibleShadows(scene) &&
           !capabilities.supports(RenderFeature.shadows)) {
         throw SceneException(
@@ -849,3 +864,7 @@ bool _hasVisibleShadows(Object3D node) =>
     ((node is PunctualLight && node.shadow != null) ||
         (node is Mesh && (node.castShadow || node.receiveShadow)) ||
         node.children.any(_hasVisibleShadows));
+
+int _instanceCapacity(Object3D node) =>
+    (node is InstancedMesh ? node.capacity : 0) +
+    node.children.fold<int>(0, (n, child) => n + _instanceCapacity(child));

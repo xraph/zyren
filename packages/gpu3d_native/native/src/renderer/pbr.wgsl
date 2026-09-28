@@ -153,7 +153,7 @@ fn mapped_normal(input: VertexOutput, uv: vec2<f32>, sample: vec3<f32>) -> vec3<
     return normalized_or(t * local.x + b * local.y + n * local.z, n);
 }
 @fragment fn fs_standard(input: VertexOutput, @builtin(front_facing) front: bool) -> @location(0) vec4<f32> {
-    return shade_standard(input, front, standard_surface(input));
+    return shade_standard(input, material_front(front, input.orientation), standard_surface(input));
 }
 @fragment fn fs_standard_textured(input: VertexOutput, @builtin(front_facing) front: bool) -> @location(0) vec4<f32> {
     var surface = standard_surface(input);
@@ -177,5 +177,5 @@ fn mapped_normal(input: VertexOutput, uv: vec2<f32>, sample: vec3<f32>) -> vec3<
     if ((flags & 16u) != 0u) {
         surface.emission *= textureSample(emissive_map, emissive_sampler, material_uv(input,4u)).rgb;
     }
-    return shade_standard(input, front, surface);
+    return shade_standard(input, material_front(front, input.orientation), surface);
 }

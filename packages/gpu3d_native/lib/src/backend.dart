@@ -133,6 +133,7 @@ class NativeBackend implements NativeGpuBackend {
       RenderFeature.hdrColor,
       RenderFeature.environmentLighting,
       RenderFeature.shadows,
+      RenderFeature.instancing,
       RenderFeature.compute,
       RenderFeature.storageTextures,
       if (_experimentalAppleSurfaces && NativeSurfaces().appleAvailable)
@@ -141,6 +142,7 @@ class NativeBackend implements NativeGpuBackend {
     limits: DeviceLimits(
       maxTextureDimension2D: 4096,
       maxGeometryBytes: 64 * 1024 * 1024,
+      maxInstances: 100000,
       maxPunctualLights: 16,
       maxHemisphereLights: 4,
     ),

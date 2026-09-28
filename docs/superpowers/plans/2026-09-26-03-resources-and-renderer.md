@@ -498,15 +498,23 @@ Core transform checkpoint: immutable vector/quaternion tracks, independent
 mixers and playback actions now implement step, linear and cubic sampling,
 weights, reverse playback, loop modes and frame-demand ownership. The native
 animation lab demonstrates two separately controlled copies of one clip.
-See [the API](../../design/animation.md). Task 6 remains open for GPU instancing,
-skin/morph deformation and the remaining tests below.
+See [the API](../../design/animation.md). Task 6 remains open for skin/morph
+deformation and the remaining tests below.
 
 glTF animation checkpoint: the optional loader imports STEP, LINEAR and
 CUBICSPLINE TRS channels into core clips. Model instances expose indexed nodes,
 scene-filtered clips and independent mixers. `AnimationSystem` accepts mixers
 after a view initializes and releases their demand on removal. The model viewer
-provides clip selection, playback and seeking. GPU instancing, skinning, morph
-deformation and broader animation features remain open.
+provides clip selection, playback and seeking. Skinning, morph deformation and
+broader animation features remain open.
+
+GPU instancing checkpoint: `InstancedMesh` batches built-in triangle materials
+through native instance buffers. The 10000-copy test confirms one opaque draw
+and one pipeline variant. Dirty ranges, reflected normal/tangent transforms,
+transparent ordering, shadow bounds and shared-view lifetimes pass native
+checks. Metal and physical Pixel Vulkan presentation pass with zero readback.
+See [instancing](../../design/instancing.md). Custom shader instancing, per-copy
+colors and skin/morph deformation remain open; the full task stays unchecked.
 
 **Files:** Create core `scene/instanced_mesh.dart`, `animation/{clip,track,mixer,action}.dart`,
 `geometry/{skin,morph_target}.dart`; native `passes/deformation.rs`, WGSL,

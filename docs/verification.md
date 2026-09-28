@@ -1663,3 +1663,38 @@ The Android release builds at 25.7 MB and launches with
 windows could not be foregrounded. Interactive desktop and release-screen
 inspection remain unverified. GPU instancing, skinning, morph deformation, the
 full Three.js/Takram port and remaining platform qualification are still open.
+
+## Native GPU instancing checkpoint, 28 September 2026
+
+`InstancedMesh` now reaches native instance vertex buffers, material pipelines,
+draw ranges and shadow passes. The 10000-copy Rust GPU test checks the actual
+color-pass draw count and pipeline cache: one draw, one pipeline variant. The
+scene occupies 1121104 bytes including its shared box geometry. A single edited
+instance uploads 112 bytes; camera, parent and count changes upload zero.
+
+Verification passed:
+
+- 355 core, glTF and geospatial Dart tests; 80 native Dart GPU tests; 69 Flutter
+  facade tests; four model-viewer widget tests; three shader-lab widget tests.
+- 113 Rust tests including opt-in native GPU cases. Targeted protocol/admission
+  tests passed again after the final ownership guards. Clippy, analysis,
+  formatting, package boundaries and Apple ABI checks passed.
+- Metal and physical Pixel Vulkan integration checks cover 10000 copies, partial
+  edits, material pixels, reflected/nonuniform transforms, normal maps with
+  tangent/color streams, global transparent ordering and shadow invalidation.
+  Shared native views preserve independently captured versions through teardown.
+- Native presentation reports zero readback. The macOS integration also checks
+  1000x700 and 320x640 layouts after resize, with a usable canvas and no overflow.
+- The Android release entry point `lib/instancing.dart` built and launched on the
+  Pixel. The retained runner's process was confirmed, with no error-level output
+  in the process log checked after launch.
+
+The same scene was saved and visually inspected through explicit native Metal
+readback at `artifacts/native-instancing.png`. The repeatable benchmark lives at
+`packages/gpu3d_native/benchmark/instancing.dart`; its measured scope and local
+results are recorded in [renderer benchmarks](../benchmarks/renderer/README.md).
+
+The macOS runner could not foreground the application. Interactive desktop and
+release-screen inspection remain unverified. This checkpoint does not qualify
+Windows, Linux or physical iOS. Custom shader instancing, per-copy colors,
+skinning, morph targets, picking and full Three.js/Takram parity remain open.

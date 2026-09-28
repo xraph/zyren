@@ -79,3 +79,12 @@ Widget tests cover narrow and desktop layouts, scene selection, input during a
 pending load, unknown byte totals, cancellation, URI failure/retry and route
 cleanup. The integration test serves the bundled glTF and its dependencies over
 loopback HTTP, renders them with the native presenter, then repeats the load.
+
+## Instancing demo
+
+Run `flutter run -d macos -t lib/instancing.dart` to display 10000 boxes in one
+native draw. The same entry point runs on an Android device with `-d <device>`.
+Use the count menu to change visibility, “Move one” for a 112-byte update, and
+“Rotate group” for a transform change with no instance upload. Drag to orbit;
+pinch or scroll to zoom. See [instancing](../../docs/design/instancing.md) for
+bounds, material support, limits and transparent ordering.

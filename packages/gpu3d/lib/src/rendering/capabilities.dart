@@ -22,23 +22,26 @@ enum RenderFeature {
   hdrColor,
   environmentLighting,
   shadows,
+  instancing,
 }
 
 /// Limits enforced by the backend, even if the adapter can allocate more.
 class DeviceLimits {
   final int maxTextureDimension2D;
   final int maxGeometryBytes;
-  final int maxPunctualLights, maxHemisphereLights;
+  final int maxPunctualLights, maxHemisphereLights, maxInstances;
   final Set<int> sampleCounts;
   DeviceLimits({
     required this.maxTextureDimension2D,
     required this.maxGeometryBytes,
+    this.maxInstances = 0,
     this.maxPunctualLights = 0,
     this.maxHemisphereLights = 0,
     Set<int> sampleCounts = const {1},
   }) : sampleCounts = Set.unmodifiable(sampleCounts) {
     if (maxTextureDimension2D < 1 ||
         maxGeometryBytes < 1 ||
+        maxInstances < 0 ||
         maxPunctualLights < 0 ||
         maxHemisphereLights < 0 ||
         sampleCounts.isEmpty ||

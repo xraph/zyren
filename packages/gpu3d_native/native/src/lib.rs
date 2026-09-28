@@ -1,4 +1,5 @@
 pub mod geometry_update;
+pub mod instances;
 pub mod interop;
 pub mod lighting;
 pub mod render_graph;

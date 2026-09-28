@@ -11,6 +11,7 @@ pub struct ViewState {
     pub retained: HashSet<u32>,
     pub meshes: Vec<Mesh>,
     pub retained_textures: HashSet<u32>,
+    pub retained_instances: HashSet<u32>,
 }
 pub struct ScenePacket {
     shadows: crate::shadows::ShadowFrame,
@@ -32,6 +33,9 @@ pub struct ScenePacket {
     retained_textures: HashSet<u32>,
     textures: Vec<SceneTexture>,
     geometry_patches: Vec<GeometryPatch>,
+    retained_instances: HashSet<u32>,
+    instances: Vec<crate::instances::Instances>,
+    instance_patches: Vec<crate::instances::InstancePatch>,
 }
 struct Reader<'a> {
     data: &'a [u8],
@@ -75,7 +79,7 @@ impl ScenePacket {
             return Err("unsupported scene packet".into());
         }
         let opcode = r.u32()?;
-        if !(10..=23).contains(&opcode) {
+        if !(10..=24).contains(&opcode) {
             return Err("unsupported scene packet".into());
         }
         let textured = opcode >= 11;
@@ -210,6 +214,14 @@ impl ScenePacket {
         if patch_count > MAX_MESHES {
             return Err("geometry patch count exceeds limit".into());
         }
+        let instance_counts = if opcode >= 24 {
+            [r.u32()? as usize, r.u32()? as usize, r.u32()? as usize]
+        } else {
+            [0; 3]
+        };
+        if instance_counts.iter().any(|n| *n > MAX_MESHES) {
+            return Err("instance table count exceeds limit".into());
+        }
         let mut retained = HashSet::new();
         for _ in 0..retained_count {
             if !retained.insert(r.u32()?) {
@@ -220,6 +232,13 @@ impl ScenePacket {
         for _ in 0..owned_texture_count {
             if !retained_textures.insert(r.u32()?) {
                 return Err("duplicate owned texture".into());
+            }
+        }
+        let mut retained_instances = HashSet::new();
+        for _ in 0..instance_counts[0] {
+            let id = r.u32()?;
+            if id == 0 || !retained_instances.insert(id) {
+                return Err("invalid retained instance identifier".into());
             }
         }
         let mut textures = Vec::new();
@@ -425,6 +444,78 @@ impl ScenePacket {
         {
             return Err("geometry patch chains or repeated targets are unsupported".into());
         }
+        let mut instances = Vec::new();
+        let mut instance_patches = Vec::new();
+        let mut instance_ids = HashSet::new();
+        let mut slots = 0_usize;
+        for _ in 0..instance_counts[1] {
+            let id = r.u32()?;
+            let count = r.u32()? as usize;
+            slots = slots
+                .checked_add(count)
+                .ok_or("instance slot count overflow")?;
+            if id == 0
+                || count == 0
+                || slots > crate::instances::MAX_INSTANCES
+                || !instance_ids.insert(id)
+                || count * 64 > data.len() - r.offset
+            {
+                return Err("invalid instance upload or capacity".into());
+            }
+            let mut transforms = Vec::with_capacity(count);
+            for _ in 0..count {
+                transforms.push(r.floats()?);
+            }
+            let value = crate::instances::Instances { id, transforms };
+            value.validate()?;
+            instances.push(value);
+        }
+        for _ in 0..instance_counts[2] {
+            let id = r.u32()?;
+            let base = r.u32()?;
+            let count = r.u32()? as usize;
+            if id == 0
+                || base == 0
+                || id == base
+                || count == 0
+                || count > 64
+                || !instance_ids.insert(id)
+            {
+                return Err("invalid instance patch descriptor".into());
+            }
+            let mut ranges = Vec::new();
+            let mut previous_end = 0;
+            for _ in 0..count {
+                let first = r.u32()? as usize;
+                let length = r.u32()? as usize;
+                slots = slots
+                    .checked_add(length)
+                    .ok_or("instance slot count overflow")?;
+                if length == 0
+                    || slots > crate::instances::MAX_INSTANCES
+                    || first < previous_end
+                    || first
+                        .checked_add(length)
+                        .is_none_or(|end| end > crate::instances::MAX_INSTANCES)
+                    || length * 64 > data.len() - r.offset
+                {
+                    return Err("invalid instance patch range".into());
+                }
+                let mut transforms = Vec::with_capacity(length);
+                for _ in 0..length {
+                    transforms.push(r.floats()?);
+                }
+                previous_end = first + length;
+                ranges.push(crate::instances::InstanceRange { first, transforms });
+            }
+            instance_patches.push(crate::instances::InstancePatch { id, base, ranges });
+        }
+        if instance_patches
+            .iter()
+            .any(|p| instance_ids.contains(&p.base))
+        {
+            return Err("instance patch chains are unsupported".into());
+        }
         let mut updates = Vec::new();
         let mut changed = HashSet::new();
         for _ in 0..update_count {
@@ -555,6 +646,11 @@ impl ScenePacket {
                     _ => return Err("Invalid vertex color flag".into()),
                 };
             }
+            if opcode >= 24 {
+                mesh.instances = r.u32()?;
+                mesh.instance_count = r.u32()?;
+                mesh.validate_material()?;
+            }
             updates.push((index, mesh));
         }
         if r.offset != data.len() {
@@ -580,6 +676,9 @@ impl ScenePacket {
             retained_textures,
             textures,
             geometry_patches,
+            retained_instances,
+            instances,
+            instance_patches,
         })
     }
     pub fn view(&self) -> u64 {
@@ -612,12 +711,27 @@ impl ScenePacket {
         }) {
             return Err("visible textures must be owned by the view".into());
         }
+        if meshes
+            .iter()
+            .any(|m| m.instances != 0 && !self.retained_instances.contains(&m.instances))
+            || self
+                .instances
+                .iter()
+                .any(|i| !meshes.iter().any(|m| m.instances == i.id))
+            || self
+                .instance_patches
+                .iter()
+                .any(|i| !meshes.iter().any(|m| m.instances == i.id))
+        {
+            return Err("visible instance resources must be owned and uploads referenced".into());
+        }
         let binary = Some(ViewState {
             view: self.view,
             revision: self.revision,
             retained: self.retained,
             meshes: meshes.clone(),
             retained_textures: self.retained_textures,
+            retained_instances: self.retained_instances,
         });
         Ok(Frame {
             environment: None,
@@ -636,6 +750,8 @@ impl ScenePacket {
             binary,
             textures: self.textures,
             geometry_patches: self.geometry_patches,
+            instances: self.instances,
+            instance_patches: self.instance_patches,
             graph: None,
         })
     }

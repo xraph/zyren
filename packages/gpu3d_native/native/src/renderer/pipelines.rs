@@ -8,6 +8,7 @@ pub(super) struct PipelineKey {
     standard: bool,
     tangent: bool,
     colored: bool,
+    instanced: bool,
     side: u32,
     mirrored: bool,
     blend: bool,
@@ -20,6 +21,7 @@ impl PipelineKey {
         Self {
             format,
             colored: mesh.vertex_colors,
+            instanced: mesh.instances != 0,
             textured: mesh.texture_maps().next().is_some(),
             tangent: tangent && mesh.pbr.is_some() && mesh.texture_maps().next().is_some(),
             standard: mesh.pbr.is_some(),
@@ -132,10 +134,14 @@ impl MeshPipelines {
     pub(super) fn get(&self, key: PipelineKey) -> &wgpu::RenderPipeline {
         &self.cache[&key]
     }
+    pub(super) fn len(&self) -> usize {
+        self.cache.len()
+    }
     fn create(&self, device: &wgpu::Device, key: PipelineKey) -> wgpu::RenderPipeline {
         let attributes = wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3];
         let uv_attributes = wgpu::vertex_attr_array![2 => Float32x2, 3 => Float32x2];
         let color_attributes = wgpu::vertex_attr_array![5=>Float32x4,6=>Float32x4];
+        let instance_attributes = wgpu::vertex_attr_array![6=>Float32x4,7=>Float32x4,8=>Float32x4,9=>Float32x4,10=>Float32x4,11=>Float32x4,12=>Float32x4];
         let tangent_attributes = wgpu::vertex_attr_array![4 => Float32x4];
         let mut buffers = vec![Some(wgpu::VertexBufferLayout {
             array_stride: 24,
@@ -167,6 +173,13 @@ impl MeshPipelines {
                 },
             }));
         }
+        if key.instanced {
+            buffers.push(Some(wgpu::VertexBufferLayout {
+                array_stride: 112,
+                step_mode: wgpu::VertexStepMode::Instance,
+                attributes: &instance_attributes,
+            }));
+        }
         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("native mesh state"),
             layout: Some(if key.standard && key.textured {
@@ -180,7 +193,16 @@ impl MeshPipelines {
             }),
             vertex: wgpu::VertexState {
                 module: &self.shader,
-                entry_point: Some(if key.primitive_kind == 1 {
+                entry_point: Some(if key.instanced {
+                    match (key.tangent, key.textured, key.colored) {
+                        (true, _, true) => "vs_instance_standard_tangent_colored",
+                        (true, _, false) => "vs_instance_standard_tangent",
+                        (_, true, true) => "vs_instance_textured_colored",
+                        (_, true, false) => "vs_instance_textured",
+                        (_, _, true) => "vs_instance_colored",
+                        _ => "vs_instance_main",
+                    }
+                } else if key.primitive_kind == 1 {
                     if key.colored {
                         "vs_line_colored"
                     } else {
@@ -240,7 +262,7 @@ impl MeshPipelines {
                 } else {
                     wgpu::FrontFace::Ccw
                 },
-                cull_mode: match key.side {
+                cull_mode: match if key.instanced { 0 } else { key.side } {
                     1 => Some(wgpu::Face::Back),
                     2 => Some(wgpu::Face::Front),
                     _ => None,

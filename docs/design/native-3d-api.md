@@ -576,8 +576,10 @@ updates use typed geometry resources and must work on native mobile feature limi
 Core transform tracks and independent mixer playback are implemented. See
 [animation](animation.md) for binding, sampling, mixing and frame-demand behaviour.
 glTF TRS import now exposes indexed model instances, core clips and independent mixers.
-`AnimationSystem` accepts those mixers after view initialization. GPU instancing,
-skinning and morph targets remain open.
+`AnimationSystem` accepts those mixers after view initialization.
+[`InstancedMesh`](instancing.md) now batches built-in triangle materials with
+versioned transform ranges and current bounds. Skinning, morph targets and
+custom shader instancing remain open.
 
 Texture presentation must compose with Flutter clipping, transforms, opacity,
 scrolling, overlays and hit testing. Flutter rebuilds do not recreate the GPU.

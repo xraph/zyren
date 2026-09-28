@@ -4,6 +4,7 @@ use super::{
     upload::{Command, MAX_BYTES, Operation, checked_upload_range},
 };
 use std::time::Duration;
+mod instances;
 mod scene_updates;
 
 enum Resource {

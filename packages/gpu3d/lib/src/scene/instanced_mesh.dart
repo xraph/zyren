@@ -1,0 +1,168 @@
+part of 'scene.dart';
+
+/// Shared triangle geometry with independent local instance transforms.
+/// Capacity is fixed; [count] selects the visible prefix of that storage.
+final class InstancedMesh extends Mesh {
+  static int _nextLogicalId = 1;
+  final int _logicalId = _nextLogicalId++;
+  final int capacity;
+  int _count, _instanceRevision = 0;
+  final List<Mat4> _transforms;
+  final List<_InstanceChange> _history = [];
+  InstanceSnapshot? _snapshot;
+  InstancedMesh(
+    super.geometry,
+    super.material, {
+    required int count,
+    super.name,
+    super.renderOrder,
+  }) : capacity = _capacity(count),
+       _count = count,
+       _transforms = List.filled(_capacity(count), Mat4.identity()) {
+    if (geometry.topology != GeometryTopology.triangles) {
+      throw ArgumentError('InstancedMesh requires triangle geometry.');
+    }
+  }
+  static int _capacity(int count) =>
+      RangeError.checkValueInInterval(count, 0, 100000, 'count');
+  int get count => _count;
+  set count(int value) {
+    RangeError.checkValueInInterval(value, 0, capacity, 'count');
+    if (_count == value) return;
+    _count = value;
+    _changed();
+  }
+
+  Mat4 getTransform(int index) =>
+      _transforms[RangeError.checkValidIndex(index, _transforms, 'index')];
+  void setTransform(int index, Mat4 transform) =>
+      setTransforms(index, [transform]);
+
+  /// Validates the complete range before publishing it. Matrices are immutable.
+  void setTransforms(int first, List<Mat4> transforms) {
+    RangeError.checkValueInInterval(first, 0, capacity, 'first');
+    if (transforms.length > capacity - first) {
+      throw RangeError('Instance transform range exceeds capacity.');
+    }
+    var changed = false;
+    for (var i = 0; i < transforms.length; i++) {
+      final m = transforms[i].storage, matrix = transforms[i].toVectorMath();
+      final determinant = matrix.determinant();
+      if (m[3] != 0 ||
+          m[7] != 0 ||
+          m[11] != 0 ||
+          m[15] != 1 ||
+          !determinant.isFinite ||
+          determinant == 0) {
+        throw ArgumentError(
+          'Instance transforms must be affine and invertible.',
+        );
+      }
+      changed |= _transforms[first + i] != transforms[i];
+    }
+    if (!changed) return;
+    _transforms.setRange(first, first + transforms.length, transforms);
+    _instanceRevision++;
+    if (_history.length == 64) _history.removeAt(0);
+    _history.add(
+      _InstanceChange(
+        _instanceRevision,
+        InstanceRange(first, transforms.length),
+      ),
+    );
+    _snapshot = null;
+    _changed();
+  }
+
+  InstanceSnapshot captureInstances() => _snapshot ??= InstanceSnapshot._(
+    _logicalId,
+    _instanceRevision,
+    _transforms,
+    _history,
+  );
+  Bounds3 get bounds =>
+      captureInstances().boundsFor(geometry.capture(), count: count);
+}
+
+final class InstanceRange {
+  final int first, count;
+  const InstanceRange(this.first, this.count);
+}
+
+final class _InstanceChange {
+  final int revision;
+  final InstanceRange range;
+  const _InstanceChange(this.revision, this.range);
+}
+
+/// Immutable data for a captured instance-buffer version. IDs identify storage,
+/// while a mesh's count and parent transform remain separate draw properties.
+final class InstanceSnapshot {
+  static int _nextId = 1;
+  final int id = _nextId++;
+  final int logicalId, revision;
+  final List<Mat4> transforms;
+  final List<_InstanceChange> _history;
+  GeometrySnapshot? _boundsGeometry;
+  int _boundsCount = -1;
+  Bounds3? _bounds;
+  InstanceSnapshot._(
+    this.logicalId,
+    this.revision,
+    List<Mat4> transforms,
+    List<_InstanceChange> history,
+  ) : transforms = List.unmodifiable(transforms),
+      _history = List.unmodifiable(history);
+  int get capacity => transforms.length;
+  int get gpuByteLength => capacity * 112;
+  List<InstanceRange>? changesSince(InstanceSnapshot base) {
+    if (logicalId != base.logicalId ||
+        capacity != base.capacity ||
+        base.revision > revision) {
+      return null;
+    }
+    if (base.revision == revision) return const [];
+    if (_history.isEmpty || _history.first.revision > base.revision + 1) {
+      return null;
+    }
+    final ranges = [
+      for (final change in _history)
+        if (change.revision > base.revision) change.range,
+    ]..sort((a, b) => a.first.compareTo(b.first));
+    final merged = <InstanceRange>[];
+    for (final range in ranges) {
+      if (merged.isNotEmpty &&
+          range.first <= merged.last.first + merged.last.count) {
+        final previous = merged.removeLast();
+        merged.add(
+          InstanceRange(
+            previous.first,
+            math.max(
+                  previous.first + previous.count,
+                  range.first + range.count,
+                ) -
+                previous.first,
+          ),
+        );
+      } else {
+        merged.add(range);
+      }
+    }
+    return List.unmodifiable(merged);
+  }
+
+  Bounds3 boundsFor(GeometrySnapshot geometry, {required int count}) {
+    RangeError.checkValueInInterval(count, 0, capacity, 'count');
+    if (identical(_boundsGeometry, geometry) && _boundsCount == count) {
+      return _bounds!;
+    }
+    final local = Bounds3(geometry.bounds.minimum, geometry.bounds.maximum);
+    var result = const Bounds3.empty();
+    for (var i = 0; i < count; i++) {
+      result = result.union(local.transformed(transforms[i]));
+    }
+    _boundsGeometry = geometry;
+    _boundsCount = count;
+    return _bounds = result;
+  }
+}

@@ -164,6 +164,10 @@ pub struct Mesh {
     pub receive_shadow: bool,
     #[serde(skip)]
     pub shader: Option<crate::resources::registry::ResourceKey>,
+    #[serde(skip)]
+    pub instances: u32,
+    #[serde(skip, default = "one_instance")]
+    pub instance_count: u32,
     pub geometry: u32,
     pub model: [f32; 16],
     pub color: [f32; 3],
@@ -197,6 +201,9 @@ pub struct Mesh {
     #[serde(default)]
     pub point_shape: u32,
 }
+fn one_instance() -> u32 {
+    1
+}
 fn one() -> f32 {
     1.
 }
@@ -211,6 +218,8 @@ impl Default for Mesh {
         Self {
             cast_shadow: false,
             receive_shadow: false,
+            instances: 0,
+            instance_count: 1,
             geometry: 0,
             shader: None,
             model: glam::Mat4::IDENTITY.to_cols_array(),
@@ -244,6 +253,13 @@ impl Mesh {
         self.depth_write.unwrap_or(self.alpha_mode != 2)
     }
     pub fn validate_material(&self) -> Result<(), String> {
+        if self.instance_count == 0
+            || self.instance_count as usize > crate::instances::MAX_INSTANCES
+            || (self.instances == 0 && self.instance_count != 1)
+            || (self.instances != 0 && (self.primitive_kind != 0 || self.shader.is_some()))
+        {
+            return Err("instancing requires a built-in triangle material and valid count".into());
+        }
         if let Some(pbr) = &self.pbr {
             pbr.validate()?;
             if self.unlit || self.primitive_kind != 0 || self.shader.is_some() {
@@ -375,6 +391,10 @@ pub struct Frame {
     pub binary: Option<crate::scene_packet::ViewState>,
     #[serde(skip)]
     pub geometry_patches: Vec<GeometryPatch>,
+    #[serde(skip)]
+    pub instances: Vec<crate::instances::Instances>,
+    #[serde(skip)]
+    pub instance_patches: Vec<crate::instances::InstancePatch>,
     #[serde(skip)]
     pub graph: Option<crate::resources::registry::ResourceKey>,
 }

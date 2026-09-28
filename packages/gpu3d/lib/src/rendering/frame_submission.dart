@@ -51,6 +51,8 @@ class SceneSnapshot {
   int get punctualLightCount => _lights.length;
   int get hemisphereLightCount => _hemispheres.length;
   final Map<int, GeometrySnapshot> _geometries;
+  final Map<int, InstanceSnapshot> _instances;
+  bool get hasInstances => _instances.isNotEmpty;
   final Map<int, TextureImage> _textures;
   final List<double> _background, _light;
   final double _ambient;
@@ -59,11 +61,16 @@ class SceneSnapshot {
   /// One resolve draw converts a transparent scene to straight color.
   int get alphaResolveDraws => backgroundOpacity < 1 ? 1 : 0;
   final Map<int, MeshShaderProgram> meshShaders;
-  int get drawCalls => _meshes.length;
+  int get drawCalls => _meshes.fold(
+    0,
+    (n, mesh) =>
+        n + (mesh['alpha_mode'] == 2 ? mesh['instance_count'] as int : 1),
+  );
   int get triangles => _meshes.fold(0, (sum, mesh) {
     final geometry = _geometries[mesh['geometry']]!;
     return sum +
-        geometry.primitiveCount *
+        (mesh['instance_count'] as int) *
+            geometry.primitiveCount *
             (geometry.topology == GeometryTopology.triangles ? 1 : 2);
   });
   SceneSnapshot._(
@@ -71,6 +78,7 @@ class SceneSnapshot {
     this._lights,
     this._hemispheres,
     this._geometries,
+    this._instances,
     this._textures,
     this._background,
     this.backgroundOpacity,
@@ -83,6 +91,8 @@ class SceneSnapshot {
     final meshes = <Map<String, Object>>[],
         geometries = <int, GeometrySnapshot>{};
     final textures = <int, TextureImage>{};
+    final instances = <int, InstanceSnapshot>{};
+    var instanceCapacity = 0;
     final lights = <Map<String, Object>>[];
     final hemispheres = <Map<String, Object>>[];
     final meshShaders = <int, MeshShaderProgram>{};
@@ -162,17 +172,31 @@ class SceneSnapshot {
         );
       }
       if (node is Mesh) {
+        final instance = node is InstancedMesh ? node.captureInstances() : null;
+        if (instance != null) {
+          if ((instanceCapacity += instance.capacity) > 100000) {
+            throw ArgumentError(
+              'A scene view supports at most 100000 instance slots.',
+            );
+          }
+          instances[instance.id] = instance;
+        }
         final geometry = node.geometry.capture();
         geometries[geometry.id] = geometry;
         final map = node.material.colorMap;
         for (final binding in node.material.textureMaps) {
           textures[binding.image.id] = binding.image;
         }
-        if (visible) {
+        if (visible && (node is! InstancedMesh || node.count > 0)) {
           if (node.material.vertexColors && geometry.colors == null) {
             throw ArgumentError('Vertex colors require a color attribute.');
           }
           if (node.material case ShaderMaterial(:final program)) {
+            if (instance != null) {
+              throw UnsupportedError(
+                "InstancedMesh currently requires a built-in material.",
+              );
+            }
             if (program.isClosed) {
               throw StateError('Mesh shader has closed: ${program.label}');
             }
@@ -197,6 +221,8 @@ class SceneSnapshot {
           meshes.add(
             _freeze(<String, Object>{
                   'geometry': geometry.id,
+                  'instances': instance?.id ?? 0,
+                  'instance_count': node is InstancedMesh ? node.count : 1,
                   if (node.castShadow) 'cast_shadow': true,
                   if (node.receiveShadow) 'receive_shadow': true,
                   'model': relative.storage.toList(),
@@ -251,6 +277,7 @@ class SceneSnapshot {
       List.unmodifiable(lights),
       List.unmodifiable(hemispheres),
       Map.unmodifiable(geometries),
+      Map.unmodifiable(instances),
       Map.unmodifiable(textures),
       List.unmodifiable(scene.background?.toList() ?? [0.0, 0.0, 0.0]),
       scene.background == null
@@ -341,8 +368,11 @@ class FrameSubmission {
     if (graph != null ||
         environment != null ||
         scene.meshShaders.isNotEmpty ||
-        scene.hasShadows) {
-      throw UnsupportedError('GPU programs require binary native submissions.');
+        scene.hasShadows ||
+        scene.hasInstances) {
+      throw UnsupportedError(
+        'Instancing, shadows and GPU programs require binary native submissions.',
+      );
     }
     if (scene._textures.isNotEmpty) {
       throw UnsupportedError(

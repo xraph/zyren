@@ -12,6 +12,7 @@ use wgpu::util::DeviceExt;
 use crate::scene::{Frame, pixel_len};
 mod composition;
 mod draw_order;
+mod instances;
 mod materials;
 mod pipelines;
 mod shadows;
@@ -102,11 +103,13 @@ pub struct RendererState {
     pub(crate) drawable_owner: Option<crate::interop::metal::DrawableOwner>,
     pub(crate) failure: Option<String>,
     counters: RenderCounters,
+    last_scene_draws: std::cell::Cell<u64>,
     layout: wgpu::BindGroupLayout,
     pbr_layout: wgpu::BindGroupLayout,
     environment_defaults: environment::Defaults,
     shadows: shadows::ShadowSystem,
     geometries: HashMap<u32, GpuGeometry>,
+    instances: HashMap<u32, instances::GpuInstances>,
     resources: crate::resources::ResourceStore,
     shaders: crate::shaders::ShaderStore,
     graphs: crate::render_graph::GraphStore,
@@ -265,8 +268,10 @@ impl Renderer {
                 drawable_owner: None,
                 failure: None,
                 counters: RenderCounters::default(),
+                last_scene_draws: std::cell::Cell::new(0),
                 layout,
                 geometries: HashMap::new(),
+                instances: HashMap::new(),
                 resources: crate::resources::ResourceStore::default(),
                 shaders: crate::shaders::ShaderStore::default(),
                 graphs: crate::render_graph::GraphStore::default(),
@@ -422,10 +427,35 @@ impl Renderer {
                     .ok_or("geometry patch CPU budget exceeded")?;
                 frame.geometries.push(patch.apply(&base.recipe)?);
             }
+            bytes += frame
+                .instances
+                .iter()
+                .map(|i| i.transforms.len() * 64)
+                .sum::<usize>();
+            for patch in &frame.instance_patches {
+                let base = self
+                    .instances
+                    .get(&patch.base)
+                    .ok_or("instance patch base is not resident")?;
+                if !previous.is_some_and(|v| v.retained_instances.contains(&patch.base)) {
+                    return Err("instance patch base is not owned by its view".into());
+                }
+                bytes += base.recipe.transforms.len() * 64;
+                if bytes > 64 * 1024 * 1024 {
+                    return Err("instance patch CPU budget exceeded".into());
+                }
+                frame.instances.push(patch.apply(&base.recipe)?);
+            }
+            if bytes > 64 * 1024 * 1024 {
+                return Err("scene CPU budget exceeded".into());
+            }
             Ok(frame)
         } else {
             serde_json::from_slice(bytes).map_err(|error| format!("invalid scene: {error}"))
         }
+    }
+    pub fn scene_draw_stats(&self) -> (u64, usize) {
+        (self.last_scene_draws.get(), self.pipelines.len())
     }
     pub fn scene_resource_stats(&self) -> (u64, u64) {
         self.resources.stats()
@@ -454,6 +484,7 @@ impl Renderer {
                 .map_err(|e| e.to_string())?;
         }
         self.evict_textures()?;
+        self.evict_instances()?;
         let state = self.state.as_mut().unwrap();
         state.resources.collect(&state.device).map_err(|e| {
             state.failure = Some(e.to_string());
@@ -520,6 +551,8 @@ impl Renderer {
             }
         }
         let (texture_bytes, texture_count) = self.validate_textures(frame)?;
+        let (reusable_instances, instance_bytes, instance_count) =
+            self.validate_instances(frame)?;
         let reusable: HashMap<u32, u32> = frame
             .geometry_patches
             .iter()
@@ -550,7 +583,7 @@ impl Renderer {
             .sum();
         self.resources
             .check_scene_capacity(
-                (bytes + texture_bytes) as u64,
+                (bytes + texture_bytes + instance_bytes) as u64,
                 frame
                     .geometries
                     .iter()
@@ -558,7 +591,8 @@ impl Renderer {
                         !self.geometries.contains_key(&g.id) && !reusable.contains_key(&g.id)
                     })
                     .count()
-                    + texture_count,
+                    + texture_count
+                    + instance_count,
             )
             .map_err(|e| e.to_string())?;
         // Preflight all CPU validation before any existing ownership changes.
@@ -597,6 +631,7 @@ impl Renderer {
             }
         }
         self.upload_textures(frame)?;
+        self.upload_instances(frame, &reusable_instances)?;
         let state = frame
             .binary
             .clone()
@@ -605,6 +640,7 @@ impl Renderer {
                 revision: 0,
                 retained: frame.meshes.iter().map(|m| m.geometry).collect(),
                 meshes: Vec::new(),
+                retained_instances: HashSet::new(),
                 retained_textures: frame
                     .meshes
                     .iter()
@@ -725,7 +761,16 @@ impl Renderer {
                         mesh.point_shape as f32,
                         0.,
                     ],
-                    viewport: [size[0] as f32, size[1] as f32, 0., 0.],
+                    viewport: [
+                        size[0] as f32,
+                        size[1] as f32,
+                        if mesh.instances != 0 {
+                            mesh.side as f32
+                        } else {
+                            0.
+                        },
+                        0.,
+                    ],
                     map_params: [
                         mesh.color_map.as_ref().map_or(0., |map| map.uv_set as f32),
                         mesh.opacity,
@@ -800,7 +845,16 @@ impl Renderer {
                 }),
                 ..Default::default()
             });
-            for index in draw_order::sorted(frame, |id| self.geometries[&id].center) {
+            let draws = draw_order::sorted(
+                frame,
+                |id| self.geometries[&id].center,
+                |id, index| {
+                    Mat4::from_cols_array(&self.instances[&id].recipe.transforms[index as usize])
+                },
+            );
+            self.last_scene_draws.set(draws.len() as u64);
+            for draw in draws {
+                let index = draw.mesh;
                 let mesh = &frame.meshes[index];
                 let binding = &bindings[index];
                 let texture_binding = &texture_bindings[index];
@@ -846,7 +900,22 @@ impl Renderer {
                     }
                 }
                 pass.set_index_buffer(indices.slice(..), index_format);
-                pass.draw_indexed(0..count, 0, 0..1);
+                if mesh.instances != 0 {
+                    let textured = mesh.texture_maps().next().is_some();
+                    let tangent =
+                        textured && mesh.pbr.is_some() && !geometry.recipe.tangents.is_empty();
+                    let buffer = self
+                        .resources
+                        .graph_buffer(self.instances[&mesh.instances].key)
+                        .expect("validated instance buffer");
+                    pass.set_vertex_buffer(
+                        1 + u32::from(textured)
+                            + u32::from(tangent)
+                            + u32::from(mesh.vertex_colors),
+                        buffer.slice(..),
+                    );
+                }
+                pass.draw_indexed(0..count, 0, draw.instances);
             }
         }
         encoder
@@ -865,6 +934,7 @@ impl Renderer {
             .values()
             .map(|g| g.key)
             .chain(self.textures.values().map(|t| t.key))
+            .chain(self.instances.values().map(|i| i.key))
             .chain(environment.resources.iter().copied())
             .chain(
                 materials
