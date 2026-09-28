@@ -5,6 +5,7 @@ import 'package:gpu3d/gpu3d.dart';
 import 'package:gpu3d_gltf/gpu3d_gltf.dart';
 import 'package:gpu3d_gltf/src/worker.dart';
 import '../support/fixtures.dart';
+import '../support/pbr_fixture.dart';
 
 final class Cancellation implements LoadCancellation {
   final callbacks = <void Function()>{};
@@ -40,7 +41,20 @@ void check(bool value) {
 final class ModelSources implements ByteSourceResolver {
   @override
   Future<ResolvedSource> read(Uri uri, SourceReadContext context) async =>
-      ResolvedSource(effectiveUri: uri, bytes: texturedModel());
+      ResolvedSource(
+        effectiveUri: uri,
+        bytes: uri.path.endsWith('pbr.glb')
+            ? pbrModel(
+                material: {
+                  'pbrMetallicRoughness': {
+                    'baseColorTexture': {'index': 0},
+                  },
+                  'normalTexture': {'index': 0},
+                  'emissiveTexture': {'index': 0},
+                },
+              )
+            : texturedModel(),
+      );
 }
 
 final class ModelImages implements ImageDecoder {
@@ -133,6 +147,20 @@ Future<void> main() async {
   check(mesh.material.colorMap!.image.id > existingImage.id);
   check(mesh.geometry.vertexCount == 4 && mesh.geometry.indices.length == 6);
   check(mesh.material.side == MaterialSide.front);
+  final pbr = await scope.load(Gltf.asset('pbr.glb')).result;
+  final pbrInstance = pbr.instantiate();
+  final standard =
+      (pbrInstance.children.first.children.single as Mesh).material
+          as StandardMaterial;
+  check(identical(standard.baseColorMap!.image, standard.emissiveMap!.image));
+  check(
+    standard.normalMap!.image.descriptor.format == TextureFormat.rgba8Unorm,
+  );
+  check(
+    standard.baseColorMap!.image.descriptor.format ==
+        TextureFormat.rgba8UnormSrgb,
+  );
+  check(pbrInstance.children.last.children.single is DirectionalLight);
   await scope.close();
   check(model.isReleased && mesh.material.colorMap != null);
   print('AOT glTF workers passed.');

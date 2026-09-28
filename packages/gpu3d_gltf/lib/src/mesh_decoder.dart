@@ -35,7 +35,13 @@ PreparedModel prepareModel(
     options.limits,
     rawMeshes.length,
   );
-  validateInstances(nodes, scenes, rawMeshes, options.limits.maxPrimitives);
+  validateInstances(
+    nodes,
+    scenes,
+    rawMeshes,
+    options.limits.maxPrimitives,
+    options.limits.maxLights,
+  );
   final issues = <SceneIssue>[];
   final materials = MaterialDecoder(root, reader, options, issues);
   final meshes = <List<PrimitiveRecipe>>[];
@@ -202,7 +208,14 @@ PreparedModel prepareModel(
         '$path.material',
         present: primitive.containsKey('material'),
       );
-      if (material.colorMap case final binding?) {
+      if (material.standard && topology != GeometryTopology.triangles) {
+        fail(
+          '$path.material',
+          'Lit points and lines are not yet supported.',
+          AssetLoadError.unsupportedFeature,
+        );
+      }
+      for (final binding in material.maps) {
         if (topology != GeometryTopology.triangles) {
           fail(
             '$path.material',
@@ -212,7 +225,7 @@ PreparedModel prepareModel(
         }
         if (!decoded.containsKey('TEXCOORD_${binding.uvSet}')) {
           fail(
-            '$path.attributes',
+            '$path.attributes.TEXCOORD_${binding.uvSet}',
             'The material requires UV set ${binding.uvSet}.',
           );
         }
@@ -287,6 +300,13 @@ PreparedModel prepareModel(
         attribute(VertexSemantic.normal, normals, VertexFormat.float32x3);
       }
       if (topology == GeometryTopology.triangles) {
+        if (tangent != null && suppliedNormals != null) {
+          attribute(
+            VertexSemantic.tangent,
+            tangent.data as Float32List,
+            VertexFormat.float32x4,
+          );
+        }
         for (final (name, semantic) in [
           ('TEXCOORD_0', VertexSemantic.uv0),
           ('TEXCOORD_1', VertexSemantic.uv1),

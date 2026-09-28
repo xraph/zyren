@@ -71,8 +71,9 @@ final class GltfWorkers {
   static Future<TextureImageData> image(
     ImageData image,
     bool mipmaps,
-    LoadCancellation cancellation,
-  ) async =>
+    LoadCancellation cancellation, {
+    ColorSpace? colorSpace,
+  }) async =>
       await _enqueue(
             () => [
               'image',
@@ -80,7 +81,7 @@ final class GltfWorkers {
               image.size,
               image.rowStride,
               image.format,
-              image.colorSpace,
+              colorSpace ?? image.colorSpace,
               image.alphaMode,
               mipmaps,
             ],

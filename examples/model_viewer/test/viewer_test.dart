@@ -31,7 +31,12 @@ class Sources implements ByteSourceResolver {
           'Fixture unavailable',
         );
       }
-      return ResolvedSource(effectiveUri: uri, bytes: data);
+      return ResolvedSource(
+        effectiveUri: uri,
+        bytes: uri.path.endsWith('pbr.glb')
+            ? File('assets/models/pbr.glb').readAsBytesSync()
+            : data,
+      );
     } finally {
       registration.dispose();
     }
@@ -76,6 +81,46 @@ Future<void> remove(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets('PBR scenes use authored lights or an explicit studio toggle', (
+    tester,
+  ) async {
+    final sources = Sources(), backend = FakeBackend();
+    await tester.binding.setSurfaceSize(const Size(1000, 700));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      ModelViewerApp(
+        runtime: runtime(sources, backend),
+        presentation: PresentationPolicy.readbackOnly,
+      ),
+    );
+    await waitForModel(tester);
+    await tester.tap(find.text('PBR model'));
+    await waitForModel(tester);
+    final controller = tester
+        .widget<SceneView>(find.byType(SceneView))
+        .controller!;
+    expect(controller.scene.children.single.name, 'PBR assembly');
+    expect(find.byTooltip('Studio light'), findsNothing);
+    expect(backend.submissions.last.scene.drawCalls, 3);
+    await tester.tap(find.byType(DropdownButton<int>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('No authored lights').last);
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Studio light'), findsOneWidget);
+    final studio = controller.scene.children.single.children.last;
+    expect(studio.name, 'Viewer studio');
+    expect(studio.visible, isTrue);
+    await tester.tap(find.byTooltip('Studio light'));
+    await tester.pump();
+    expect(studio.visible, isFalse);
+    for (final size in [const Size(320, 640), const Size(390, 700)]) {
+      await tester.binding.setSurfaceSize(size);
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      expect(tester.getSize(find.byType(SceneView)).height, greaterThan(240));
+    }
+    await remove(tester);
+  });
   testWidgets(
     'bundle loading, named scenes and controls fit desktop and narrow layouts',
     (tester) async {

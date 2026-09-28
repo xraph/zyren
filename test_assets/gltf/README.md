@@ -5,6 +5,12 @@ second scene containing one box. The JSON form references `assembly.bin` and
 `corners.png`; the GLB embeds geometry and a PNG data URI. Names, hierarchy,
 shared geometry, mipmapped sampling and scene selection are intentional.
 
+`pbr.glb` uses the same geometry with brushed metal, painted dielectric and copper
+materials. Its first scene has authored point and directional lights. The second
+shares the meshes but omits lights, so you can check a viewer's explicit lighting
+policy. The analytic texture/light fixtures in `gpu3d_gltf/test/support` use
+repo-authored one-pixel PNGs and quads with known BRDF samples.
+
 The geometry and four-corner image were authored for this repository. They use
 no third-party model or image content and are maintained as repository test data.
 Regenerate both this directory and the viewer bundle with:

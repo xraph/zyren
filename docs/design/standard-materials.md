@@ -107,8 +107,9 @@ and the model matrix for T.
 
 Without tangents, the shader derives a basis from screen-space position and the
 normal map's UV derivatives. Degenerate UV charts retain the geometric normal.
-This fallback does not establish MikkTSpace asset-baking equivalence; imported
-reference assets still need the glTF qualification gate. Dynamic tangents use
+This fallback does not establish MikkTSpace asset-baking equivalence. MikkTSpace
+generation remains outside the [glTF import profile](gltf-materials.md).
+Dynamic tangents use
 `updateAttribute` like the other attributes. Their separate GPU stream preserves
 older captures held by another view and uploads 16 bytes per changed vertex.
 
@@ -200,8 +201,9 @@ uniform prefix and binding layout.
 The default profile renders to RGBA8. Select [ColorPipeline](color-pipeline.md)
 for linear HDR accumulation with exposure and terminal tone mapping.
 [EnvironmentLighting](environment-lighting.md) adds diffuse and GGX specular
-lighting from HDR panoramas. Shadows remain Task 5 work. Standard glTF material conversion remains
-gated on that broader profile and its reference fixtures.
+lighting from HDR panoramas. [Native shadows](shadows.md) add directional
+cascades, point maps and spot maps. The optional glTF package imports the
+[documented material and light profile](gltf-materials.md) into these core types.
 
 Run the [Flutter PBR lab](../../examples/shader_lab/README.md) for a sphere grid
 and light controls. The standalone `gpu3d_native/example/pbr.dart` renders a PNG

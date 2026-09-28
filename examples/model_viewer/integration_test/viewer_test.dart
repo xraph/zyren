@@ -42,7 +42,22 @@ void main() {
           return;
         }
       }
-      fail('Model did not produce a native frame.');
+      fail(
+        'Model did not produce a native frame: '
+        'status=${controller!.status.value}, frames=${frames.length}, '
+        'draws=${frames.isEmpty ? null : frames.last.drawCalls}, '
+        'models=${controller.scene.children.map((node) => node.name).toList()}, '
+        'requests=$requests.',
+      );
+    }
+
+    Future<void> loadWith(Finder control) async {
+      // Frame statistics are sampled at 200 ms. Space demand-rendered loads so
+      // the next native frame is observable even when a local asset loads fast.
+      await tester.pump(const Duration(milliseconds: 250));
+      frames.clear();
+      await tester.tap(control);
+      await ready();
     }
 
     try {
@@ -62,17 +77,13 @@ void main() {
       await tester.drag(find.byType(SceneView), const Offset(50, 20));
       await tester.pump(const Duration(milliseconds: 200));
       expect(controller.camera.position, isNot(initialCamera));
-      frames.clear();
-      await tester.tap(find.text('Relative glTF'));
-      await ready();
+      await loadWith(find.text('Relative glTF'));
       expect(frames.last.readbackBytes, 0);
       await tester.enterText(
         find.byType(TextField),
         'http://127.0.0.1:${server.port}/assembly.gltf',
       );
-      frames.clear();
-      await tester.tap(find.byTooltip('Load URI'));
-      await ready();
+      await loadWith(find.byTooltip('Load URI'));
       expect(requests, {
         '/assembly.gltf': 1,
         '/assembly.bin': 1,
@@ -80,11 +91,23 @@ void main() {
       });
       expect(frames.last.readbackBytes, 0);
       for (var i = 0; i < 3; i++) {
-        frames.clear();
-        await tester.tap(find.text('Retry'));
-        await ready();
+        await loadWith(find.text('Retry'));
       }
       expect(requests['/assembly.gltf'], 4);
+      await loadWith(find.text('PBR model'));
+      expect(controller.scene.children.single.name, 'PBR assembly');
+      expect(find.byTooltip('Studio light'), findsNothing);
+      expect(frames.last.readbackBytes, 0);
+      await tester.tap(find.byType(DropdownButton<int>));
+      await tester.pumpAndSettle();
+      await loadWith(find.text('No authored lights').last);
+      expect(find.byTooltip('Studio light'), findsOneWidget);
+      final studio = controller.scene.children.single.children.last;
+      expect(studio.visible, isTrue);
+      await tester.tap(find.byTooltip('Studio light'));
+      await tester.pump();
+      expect(studio.visible, isFalse);
+
       expect(tester.takeException(), isNull);
     } finally {
       await tester.pumpWidget(const SizedBox());

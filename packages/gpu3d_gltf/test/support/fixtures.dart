@@ -110,6 +110,7 @@ Uint8List triangleModel({bool unlit = true, Map<String, Object?>? changes}) {
 Uint8List primitiveModel({
   List<double> positions = const [-1, -1, 0, 1, -1, 0, 1, 1, 0, -1, 1, 0],
   List<double>? normals,
+  List<double>? tangents,
   List<int>? indices,
   int mode = 4,
   bool byteUvs = false,
@@ -157,6 +158,7 @@ Uint8List primitiveModel({
 
   attribute('POSITION', positions, 3);
   if (normals != null) attribute('NORMAL', normals, 3);
+  if (tangents != null) attribute('TANGENT', tangents, 4);
   if (byteUvs) {
     final view = views.length, count = positions.length ~/ 3;
     views.add({
@@ -295,11 +297,16 @@ Uint8List editModel(
       jsonDecode(utf8.decode(bytes.sublist(20, 20 + jsonLength)))
           as Map<String, Object?>;
   final binaryOffset = 20 + jsonLength + 8;
-  final binary = BytesBuilder()..add(bytes.sublist(binaryOffset));
+  final hasBinary = binaryOffset <= bytes.length;
+  final binary = BytesBuilder();
+  if (hasBinary) binary.add(bytes.sublist(binaryOffset));
   if (appendBinary != null) binary.add(appendBinary);
   edit(root);
   if (appendBinary != null) {
     (root['buffers'] as List).first['byteLength'] = binary.length;
   }
-  return glb(root, binary: binary.toBytes());
+  return glb(
+    root,
+    binary: hasBinary || appendBinary != null ? binary.toBytes() : null,
+  );
 }

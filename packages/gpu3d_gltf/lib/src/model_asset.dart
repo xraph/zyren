@@ -55,6 +55,7 @@ final class ModelAsset {
           );
         }
       }
+      if (data.light case final light?) object.add(light.instantiate());
       for (final child in data.children) {
         object.add(node(child));
       }

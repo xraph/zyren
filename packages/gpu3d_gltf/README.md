@@ -44,8 +44,12 @@ A document without scenes can load as metadata but cannot be instantiated.
 
 ## Material profile
 
-The current renderer accepts the supported subset of `KHR_materials_unlit` below.
-Standard metallic/roughness materials require an explicit diagnostic preview:
+Standard mode imports metallic/roughness triangle materials as `StandardMaterial`.
+You get base color, normal, packed metallic/roughness, occlusion and emissive maps,
+with their factors, UV sets, alpha modes and sidedness. `KHR_materials_unlit`
+materials use `UnlitMaterial` and ignore lighting-only maps.
+
+For inspection without lighting, you can still choose the diagnostic preview:
 
 ```dart
 final request = Gltf.uri(uri, options: const GltfOptions(
@@ -67,19 +71,38 @@ unknown optional extensions produce warnings and use the core fallback data.
 | Unlit base color, opacity, mask/blend, front or double-sided faces | `material_model_test`; native alpha and side fixtures |
 | PNG/JPEG sources, image buffer views, data URIs, UV0/UV1 and samplers | `image_model_test`; native glTF texture/lifetime fixture |
 | `KHR_materials_unlit` | Partial: the listed static features; vertex colors still unsupported |
-| PBR materials | Explicit unlit diagnostic approximation only |
+| PBR triangle materials and authored tangents | `pbr_model_test`; native analytic reference pixels |
+| `KHR_lights_punctual` | Directional, point and spot instances, transforms, units, range and cones; bounded native profile |
 | Animations, skins, morphs, vertex colors and imported cameras | Explicit unsupported-feature error |
-| Textured lines/points, UV sets above one, singular or out-of-range native transforms | Explicit unsupported-feature error |
+| Lit or textured lines/points, UV sets above one, singular or out-of-range native transforms | Explicit unsupported-feature error |
 | Draco, meshopt, Basis/KTX2 and other required extensions | Explicit unsupported-feature error |
+
+## Lighting and image ownership
+
+`KHR_lights_punctual` definitions become ordinary core lights beneath their glTF
+nodes. Each instance gets editable light objects. Transforming a node moves or
+orients its light; range and intensity keep their authored values. Directional
+intensity is lux, while point and spot intensity is candela. Shadow flags are not
+part of this extension and remain opt-in through the core API.
+
+The loader adds no ambient or studio light. Supply lights or an environment for
+PBR assets that contain neither. The model viewer provides a labelled studio
+control for that case. See the [import profile](../../docs/design/gltf-materials.md).
+
+Base color and emission use sRGB textures. Normal, metallic/roughness and occlusion
+use linear textures. A source image is decoded once, then shared per color-space
+and mip-generation variant. Samplers remain independent. Custom image decoders
+must preserve source channel values as straight RGBA8; conversion and GPU format
+selection belong to the material usage.
 
 ## Limits and workers
 
-`GltfLimits` bounds JSON metadata, accessors, nodes, depth and primitives. The
+`GltfLimits` bounds JSON metadata, accessors, nodes, depth, primitives and up to 16 light instances per scene. The
 primitive limit also checks the expanded meshes in each scene, so repeated mesh
 references cannot bypass admission. Core `AssetLimits` bounds source and decoded
 payloads. Geometry accounting includes intermediate accessor arrays, generated
-normals and owned copies. Image accounting includes decoder output and owned
-texture copies. These are payload limits, not a process-memory ceiling. Renderers
+normals and owned copies. Image accounting includes decoder output and each owned
+color-space/mip variant. These are payload limits, not a process-memory ceiling. Renderers
 apply their own frame upload and GPU residency budgets when a model is drawn.
 
 Each caller isolate admits two workers and sixteen queued jobs. Large buffers use

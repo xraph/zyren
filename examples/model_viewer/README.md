@@ -8,9 +8,9 @@ or scroll to zoom. Frame model resets the camera to the loaded geometry.
 
 ```sh
 cd examples/model_viewer
-flutter run -d macos --release
+flutter run -d macos --release --dart-define=GPU3D_MODEL=pbr.glb
 # Or select an Android device:
-flutter run -d DEVICE_ID --release
+flutter run -d DEVICE_ID --release --dart-define=GPU3D_MODEL=pbr.glb
 ```
 
 The viewer requires native presentation. macOS uses Metal; Android API 29+ uses
@@ -32,8 +32,11 @@ and `controller.assets.release(model)` when you no longer need to instantiate
 that template. A controller closes its asset scope when disposed. The example
 retains the previous model until its replacement loads and frames successfully.
 
-PBR preview is an explicit unlit approximation for the next load or retry. Its
-warning stays visible on the loaded model. The loader currently supports a
+Choose PBR model for a metallic/roughness assembly with authored point and
+directional lights. Its second scene has no lights, so the viewer supplies a
+studio setup that you can toggle in the header. Imported lights always take
+precedence. The material-mode menu also offers an unlit diagnostic approximation
+for the next load or retry, with a warning on the loaded model. The loader currently supports a
 static subset of glTF, with unsupported features reported through source/field
 diagnostics. Read the [support matrix](../../packages/gpu3d_gltf/README.md) before
 choosing an asset. HTTP sources stay within the configured source policy; this
@@ -53,7 +56,9 @@ Verification:
 
 ```sh
 flutter test
+flutter test integration_test/pbr_pixels_test.dart -d macos
 flutter test integration_test/viewer_test.dart -d macos
+flutter test integration_test/pbr_pixels_test.dart -d DEVICE_ID
 flutter test integration_test/viewer_test.dart -d DEVICE_ID
 ```
 

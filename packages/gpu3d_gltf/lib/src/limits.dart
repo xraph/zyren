@@ -1,5 +1,6 @@
 /// Parser metadata and accessor limits, in addition to the core asset budgets.
 /// [maxPrimitives] bounds decoded primitives and expanded meshes per scene.
+/// [maxLights] bounds light instances per scene, including repeated definitions.
 final class GltfLimits {
   final int maxJsonBytes,
       maxJsonDepth,
@@ -8,7 +9,8 @@ final class GltfLimits {
       maxAccessorElements,
       maxNodes,
       maxNodeDepth,
-      maxPrimitives;
+      maxPrimitives,
+      maxLights;
   const GltfLimits({
     this.maxJsonBytes = 8 * 1024 * 1024,
     this.maxJsonDepth = 64,
@@ -18,6 +20,7 @@ final class GltfLimits {
     this.maxNodes = 4096,
     this.maxNodeDepth = 128,
     this.maxPrimitives = 4096,
+    this.maxLights = 16,
   });
   void validate() {
     for (final (name, value, ceiling) in [
@@ -29,6 +32,7 @@ final class GltfLimits {
       ('maxNodes', maxNodes, 32768),
       ('maxNodeDepth', maxNodeDepth, 256),
       ('maxPrimitives', maxPrimitives, 4096),
+      ('maxLights', maxLights, 16),
     ]) {
       RangeError.checkValueInInterval(value, 1, ceiling, name);
     }
@@ -43,6 +47,7 @@ final class GltfLimits {
     maxNodes,
     maxNodeDepth,
     maxPrimitives,
+    maxLights,
   );
   @override
   bool operator ==(Object other) => other is GltfLimits && _key == other._key;

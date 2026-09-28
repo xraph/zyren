@@ -1446,3 +1446,40 @@ The Pixel release is running as `dev.gpu3d.shader_lab`, PID 21415 at verificatio
 with runner 33022 retained and no error-level process logs. Runner 46635 was
 stopped before the serialized Flutter test/build cycle. The release app uses
 native Vulkan rendering; interaction with its visible controls remains unverified.
+
+## glTF PBR and punctual-light checkpoint
+
+Checked 28 September 2026. The standard loader publishes `StandardMaterial`
+triangles with base color, normal, metallic/roughness, occlusion and emissive maps.
+Authored tangents reach native buffers. `KHR_lights_punctual` imports independent
+light instances, validates references and bounds light counts per scene.
+`KHR_materials_unlit` keeps its lighting-independent path. See the
+[import profile](design/gltf-materials.md) for the remaining static-subset limits.
+
+The checked suites pass 295 core/glTF/geospatial tests, 66 native Dart tests,
+68 Flutter facade tests and three model-viewer widget tests, including compiled
+worker coverage. Analyzer, formatting and package/Apple ABI boundaries pass.
+Native Rust code did not change in this checkpoint.
+
+Metal and physical Pixel Vulkan pass independent glTF pixel probes for PBR
+factor defaults, light units, inverse-square falloff, range, rotated spots,
+all five maps, alpha masks, emission, occlusion and tangent handedness. The viewer
+passes bundle/HTTP loading, relative dependencies, repeated reloads, authored
+PBR lights and its explicit studio toggle on both platforms. Presentation reports
+zero readback bytes. Desktop and 320/390-pixel widget layouts pass.
+
+An initial macOS reload test waited for a statistics event after an action inside
+the stream's 200 ms sampling interval. The demand-rendered frame could finish
+without another statistic, so the test now spaces load actions before observing
+them. The isolated rerun passes. A subsequent test in the original batch also
+failed to attach to the app; its isolated native-pixel run passes. macOS still
+reports an inability to foreground the window, so these results do not establish
+interactive desktop or compositor inspection.
+
+Release builds pass with `GPU3D_MODEL=pbr.glb`: macOS 55.4 MB and Android arm64
+24.9 MB. The Pixel release process launched without error-level logs, but its
+final screen capture showed the lock screen. Interactive visual inspection of
+that release remains unverified. `artifacts/native-gltf-pbr.png` is a Metal readback preview
+of the authored three-part PBR fixture. This checkpoint does not qualify full
+glTF conformance, iOS/Windows/Linux runtime parity, or the remaining Three.js and
+Takram feature set.

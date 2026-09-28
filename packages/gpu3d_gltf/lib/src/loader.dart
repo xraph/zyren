@@ -65,7 +65,10 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
         source.bytes,
         options.limits,
         context.cancellation,
-        supportedExtensions: const {'KHR_materials_unlit'},
+        supportedExtensions: const {
+          'KHR_materials_unlit',
+          'KHR_lights_punctual',
+        },
       );
       final buffers = await resolveBuffers(
         document,
@@ -80,15 +83,18 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
         context.cancellation,
       );
       context.reserveDecodedBytes(prepared.decodedBytes);
-      final variants = <int, Set<bool>>{};
+      final variants = <int, Set<(bool, ColorSpace)>>{};
       for (final mesh in prepared.meshes) {
         for (final primitive in mesh) {
-          if (primitive.material.colorMap case final binding?) {
-            (variants[binding.source] ??= <bool>{}).add(binding.mipmaps);
+          for (final binding in primitive.material.maps) {
+            (variants[binding.source] ??= <(bool, ColorSpace)>{}).add((
+              binding.mipmaps,
+              binding.colorSpace,
+            ));
           }
         }
       }
-      final images = <(int, bool), TextureImage>{};
+      final images = <(int, bool, ColorSpace), TextureImage>{};
       for (final entry in prepared.images.entries) {
         context.cancellation.throwIfCancelled();
         final path = 'images[${entry.key}]', recipe = entry.value;
@@ -123,7 +129,7 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
         }
         _checkImageType(bytes, media, path, imageUri);
         final image = await context.decodeImage(bytes, fieldPath: path);
-        for (final mipmaps in variants[entry.key]!) {
+        for (final (mipmaps, colorSpace) in variants[entry.key]!) {
           context.reserveDecodedBytes(
             image.size.width * image.size.height * 4,
             fieldPath: path,
@@ -132,8 +138,11 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
             image,
             mipmaps,
             context.cancellation,
+            colorSpace: colorSpace,
           );
-          images[(entry.key, mipmaps)] = TextureImage.fromData(data);
+          images[(entry.key, mipmaps, colorSpace)] = TextureImage.fromData(
+            data,
+          );
         }
       }
       context.report(LoadProgress(stage: LoadStage.prepare, completedBytes: 0));
@@ -145,15 +154,37 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
           context.cancellation.throwIfCancelled();
           final geometry = BufferGeometry.fromData(primitive.geometry),
               m = primitive.material;
-          final binding = m.colorMap;
-          final map = binding == null
+          TextureMap? texture(ImageBindingRecipe? binding) => binding == null
               ? null
               : TextureMap(
-                  image: images[(binding.source, binding.mipmaps)]!,
+                  image:
+                      images[(
+                        binding.source,
+                        binding.mipmaps,
+                        binding.colorSpace,
+                      )]!,
                   sampler: binding.sampler,
                   uvSet: binding.uvSet,
                 );
+          final map = texture(m.colorMap);
           final MeshMaterial material = switch (geometry.topology) {
+            GeometryTopology.triangles when m.standard => StandardMaterial(
+              baseColor: m.color,
+              baseColorMap: map,
+              metallic: m.metallic,
+              roughness: m.roughness,
+              normalMap: texture(m.normalMap),
+              normalScale: m.normalScale,
+              metallicRoughnessMap: texture(m.metallicRoughnessMap),
+              occlusionMap: texture(m.occlusionMap),
+              occlusionStrength: m.occlusionStrength,
+              emissive: m.emissive,
+              emissiveMap: texture(m.emissiveMap),
+              side: m.side,
+              opacity: m.opacity,
+              alphaMode: m.alphaMode,
+              alphaCutoff: m.cutoff,
+            ),
             GeometryTopology.triangles => UnlitMaterial(
               color: m.color,
               colorMap: map,

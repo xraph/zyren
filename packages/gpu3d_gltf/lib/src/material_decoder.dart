@@ -1,7 +1,6 @@
 import 'package:gpu3d/gpu3d.dart';
 import 'accessor.dart';
 import 'checked.dart';
-import 'node_decoder.dart' show numbers;
 import 'options.dart';
 import 'recipes.dart';
 
@@ -44,14 +43,9 @@ final class MaterialDecoder {
         );
       }
     }
-    if (!unlit) {
-      if (options.materialMode == GltfMaterialMode.standard) {
-        fail(
-          path,
-          'PBR materials need a qualified PBR renderer. Choose unlitDiagnostic explicitly to preview base color.',
-          AssetLoadError.unsupportedFeature,
-        );
-      }
+    final standard =
+        !unlit && options.materialMode == GltfMaterialMode.standard;
+    if (!unlit && !standard) {
       issues.add(
         SceneIssue(
           code: 'gltf.unlitDiagnostic',
@@ -130,6 +124,48 @@ final class MaterialDecoder {
             '$path.pbrMetallicRoughness.baseColorTexture',
           )
         : null;
+    ImageBindingRecipe? map(
+      Map<String, Object?> owner,
+      String key,
+      String base,
+      ColorSpace space,
+    ) => standard && owner.containsKey(key)
+        ? _texture(owner[key], '$base.$key', colorSpace: space)
+        : null;
+    final normal = map(material, 'normalTexture', path, ColorSpace.linear);
+    final occlusion = map(
+      material,
+      'occlusionTexture',
+      path,
+      ColorSpace.linear,
+    );
+    double textureFactor(String key, String fieldName, double maximum) {
+      if (!standard || !material.containsKey(key)) return 1;
+      final info = object(material[key], '$path.$key');
+      final value = number(field(info, fieldName, 1), '$path.$key.$fieldName');
+      if (fieldName == 'strength' && (value < 0 || value > 1)) {
+        fail('$path.$key.$fieldName', 'Occlusion strength must be in [0, 1].');
+      }
+      if (value.abs() > maximum) {
+        fail(
+          '$path.$key.$fieldName',
+          'Texture factor exceeds the native material profile.',
+          AssetLoadError.unsupportedFeature,
+        );
+      }
+      return value;
+    }
+
+    final emission = standard
+        ? numbers(
+            field(material, 'emissiveFactor', [0, 0, 0]),
+            3,
+            '$path.emissiveFactor',
+          )
+        : [0.0, 0.0, 0.0];
+    if (emission.any((v) => v < 0 || v > 1)) {
+      fail('$path.emissiveFactor', 'Emissive factors must be in [0, 1].');
+    }
     return _materials[i] = MaterialRecipe(
       Color3(factor[0], factor[1], factor[2]),
       factor[3],
@@ -137,10 +173,35 @@ final class MaterialDecoder {
       mode,
       doubleSided ? MaterialSide.doubleSided : MaterialSide.front,
       binding,
+      standard: standard,
+      metallic: number(
+        field(pbr, 'metallicFactor', 1),
+        '$path.pbrMetallicRoughness.metallicFactor',
+      ),
+      roughness: number(
+        field(pbr, 'roughnessFactor', 1),
+        '$path.pbrMetallicRoughness.roughnessFactor',
+      ),
+      emissive: Color3(emission[0], emission[1], emission[2]),
+      normalMap: normal,
+      normalScale: textureFactor('normalTexture', 'scale', 1e6),
+      occlusionMap: occlusion,
+      occlusionStrength: textureFactor('occlusionTexture', 'strength', 1),
+      metallicRoughnessMap: map(
+        pbr,
+        'metallicRoughnessTexture',
+        '$path.pbrMetallicRoughness',
+        ColorSpace.linear,
+      ),
+      emissiveMap: map(material, 'emissiveTexture', path, ColorSpace.srgb),
     );
   }
 
-  ImageBindingRecipe _texture(Object? reference, String path) {
+  ImageBindingRecipe _texture(
+    Object? reference,
+    String path, {
+    ColorSpace colorSpace = ColorSpace.srgb,
+  }) {
     final info = object(reference, path);
     final textures = array(field(root, 'textures', const []), 'textures');
     final i = index(info['index'], textures.length, '$path.index');
@@ -148,7 +209,7 @@ final class MaterialDecoder {
     if (uv > 1) {
       fail(
         '$path.texCoord',
-        'The native color material supports UV0 and UV1.',
+        'Native materials support UV0 and UV1.',
         AssetLoadError.unsupportedFeature,
       );
     }
@@ -251,6 +312,7 @@ final class MaterialDecoder {
             ? TextureFilter.nearest
             : TextureFilter.linear,
       ),
+      colorSpace: colorSpace,
     );
   }
 }

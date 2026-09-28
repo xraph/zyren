@@ -437,6 +437,16 @@ geometry updates, mirrored winding and planet-scale coordinates. See
 [native shadows](../../design/shadows.md) for the supported profile. Standard
 glTF and exact extension qualification still keep Task 5 open.
 
+glTF material checkpoint: standard mode now imports metallic/roughness triangles,
+all five texture bindings, authored tangents and punctual light instances.
+Analytic native pixels cover map transfer functions, channel selection, units,
+range, rotation, masks, emission, occlusion and handedness. One decoded source
+can supply shared sRGB and linear image variants with independent samplers.
+The viewer exposes an authored PBR assembly and a studio toggle for scenes without lights.
+See [the import profile](../../design/gltf-materials.md). Vertex colors,
+MikkTSpace generation and broader extension/reference coverage remain open;
+this checkpoint does not claim complete glTF or Three.js parity.
+
 **Files:** Create core `materials/standard_material.dart`,
 `lights/{directional,point,spot,hemisphere}_light.dart`; native
 `passes/{pbr,shadow,environment}.rs`, WGSL modules,

@@ -1,6 +1,7 @@
 import 'package:gpu3d/gpu3d.dart';
 import 'checked.dart';
 import 'limits.dart';
+import 'light_decoder.dart';
 import 'recipes.dart';
 
 (List<NodeRecipe>, List<SceneRecipe>, int?) decodeNodes(
@@ -8,6 +9,7 @@ import 'recipes.dart';
   GltfLimits limits,
   int meshCount,
 ) {
+  final lights = LightDecoder(root);
   final rawNodes = array(field(root, 'nodes', const []), 'nodes');
   if (rawNodes.length > limits.maxNodes) {
     fail(
@@ -129,6 +131,7 @@ import 'recipes.dart';
         scale,
         mesh,
         List.unmodifiable(children),
+        light: lights.forNode(node, path),
       ),
     );
   }
@@ -186,10 +189,4 @@ import 'recipes.dart';
       ? index(root['scene'], scenes.length, 'scene')
       : null;
   return (List.unmodifiable(nodes), List.unmodifiable(scenes), selected);
-}
-
-List<double> numbers(Object? value, int count, String path) {
-  final values = array(value, path);
-  if (values.length != count) fail(path, 'Expected $count components.');
-  return [for (var i = 0; i < count; i++) number(values[i], '$path[$i]')];
 }

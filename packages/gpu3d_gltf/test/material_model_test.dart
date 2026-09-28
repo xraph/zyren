@@ -114,32 +114,25 @@ void main() {
       }
     },
   );
-  test(
-    'a missing default material requires the diagnostic PBR opt-in',
-    () async {
-      final bytes = editModel(primitiveModel(indices: [0, 1, 2]), (root) {
-        ((root['meshes'] as List).first['primitives'] as List).first.remove(
-          'material',
-        );
-      });
-      await expectLater(
-        load(bytes),
-        throwsA(
-          isA<AssetLoadException>().having(
-            (e) => e.code,
-            'code',
-            AssetLoadError.unsupportedFeature,
-          ),
-        ),
+  test('a missing material uses glTF PBR defaults', () async {
+    final bytes = editModel(primitiveModel(indices: [0, 1, 2]), (root) {
+      ((root['meshes'] as List).first['primitives'] as List).first.remove(
+        'material',
       );
-      final model = await load(
-        bytes,
-        options: const GltfOptions(
-          materialMode: GltfMaterialMode.unlitDiagnostic,
-        ),
-      );
-      expect(onlyMesh(model).material.color, const Color3(1, 1, 1));
-      expect(model.issues.single.code, 'gltf.unlitDiagnostic');
-    },
-  );
+    });
+    final standard = await load(bytes);
+    final material = onlyMesh(standard).material as StandardMaterial;
+    expect(material.baseColor, const Color3(1, 1, 1));
+    expect(material.metallic, 1);
+    expect(material.roughness, 1);
+    expect(standard.issues, isEmpty);
+    final model = await load(
+      bytes,
+      options: const GltfOptions(
+        materialMode: GltfMaterialMode.unlitDiagnostic,
+      ),
+    );
+    expect(onlyMesh(model).material.color, const Color3(1, 1, 1));
+    expect(model.issues.single.code, 'gltf.unlitDiagnostic');
+  });
 }

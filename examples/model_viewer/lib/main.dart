@@ -55,7 +55,7 @@ class _ModelViewerState extends State<ModelViewer> {
   LoadTask<ModelAsset>? task;
   StreamSubscription<LoadProgress>? progress;
   ModelAsset? model;
-  Group? instance;
+  Group? instance, studio;
   AssetRequest<ModelAsset>? lastRequest;
   int generation = 0, selectedScene = 0;
   bool busy = false, diagnostic = false;
@@ -77,7 +77,16 @@ class _ModelViewerState extends State<ModelViewer> {
       controller.input.registerGesture(SceneGesture.scroll),
     ];
     camera();
-    unawaited(load(bundle('assembly.glb')));
+    unawaited(
+      load(
+        bundle(
+          const String.fromEnvironment(
+            'GPU3D_MODEL',
+            defaultValue: 'assembly.glb',
+          ),
+        ),
+      ),
+    );
   }
 
   GltfOptions get options => GltfOptions(
@@ -156,6 +165,7 @@ class _ModelViewerState extends State<ModelViewer> {
       if (stale(ticket)) return;
       if (instance case final previous?) controller.scene.remove(previous);
       if (model case final previous?) controller.assets.release(previous);
+      configureLighting(next);
       controller.scene.add(next);
       setState(() {
         model = acquired;
@@ -199,6 +209,32 @@ class _ModelViewerState extends State<ModelViewer> {
     }
   }
 
+  void configureLighting(Group root) {
+    var hasPbr = false, hasLights = false;
+    final pending = <Object3D>[root];
+    while (pending.isNotEmpty) {
+      final object = pending.removeLast();
+      hasPbr |= object is Mesh && object.material is StandardMaterial;
+      hasLights |= object is Light;
+      pending.addAll(object.children);
+    }
+    studio = null;
+    if (hasPbr && !hasLights) {
+      studio = root.add(Group(name: 'Viewer studio'))
+        ..add(
+          DirectionalLight(intensity: 3)
+            ..rotateY(-.5)
+            ..rotateX(-.5),
+        )
+        ..add(
+          HemisphereLight(
+            intensity: .7,
+            groundColor: const Color3(.15, .18, .25),
+          ),
+        );
+    }
+  }
+
   List<String> objectNames(Object3D root) {
     final result = <String>[], pending = [root];
     while (pending.isNotEmpty) {
@@ -239,6 +275,7 @@ class _ModelViewerState extends State<ModelViewer> {
     setState(() {
       model = null;
       instance = null;
+      studio = null;
       names = const [];
       error = '';
       status = 'Choose a model';
@@ -258,6 +295,7 @@ class _ModelViewerState extends State<ModelViewer> {
       final bounds = await modelBounds(next, () => stale(ticket));
       if (stale(ticket)) return;
       controller.scene.remove(instance!);
+      configureLighting(next);
       controller.scene.add(next);
       setState(() {
         instance = next;
@@ -337,6 +375,15 @@ class _ModelViewerState extends State<ModelViewer> {
                 const Expanded(
                   child: Text('Model viewer', style: TextStyle(fontSize: 20)),
                 ),
+                if (studio != null)
+                  IconButton(
+                    tooltip: 'Studio light',
+                    isSelected: studio!.visible,
+                    onPressed: () =>
+                        setState(() => studio!.visible = !studio!.visible),
+                    icon: const Icon(Icons.light_mode_outlined),
+                    selectedIcon: const Icon(Icons.light_mode),
+                  ),
                 IconButton(
                   tooltip: 'Frame model',
                   onPressed: resetCamera,
@@ -362,6 +409,24 @@ class _ModelViewerState extends State<ModelViewer> {
                     ),
                   ),
                 ),
+                PopupMenuButton<bool>(
+                  tooltip: 'Material mode',
+                  icon: const Icon(Icons.tune),
+                  initialValue: diagnostic,
+                  onSelected: (value) => setState(() => diagnostic = value),
+                  itemBuilder: (_) => [
+                    CheckedPopupMenuItem(
+                      value: false,
+                      checked: !diagnostic,
+                      child: const Text('Native PBR'),
+                    ),
+                    CheckedPopupMenuItem(
+                      value: true,
+                      checked: diagnostic,
+                      child: const Text('Unlit diagnostic'),
+                    ),
+                  ],
+                ),
                 IconButton(
                   tooltip: 'Load URI',
                   onPressed: loadUri,
@@ -376,22 +441,21 @@ class _ModelViewerState extends State<ModelViewer> {
               children: [
                 TextButton(
                   onPressed: () => load(bundle('assembly.glb')),
-                  child: const Text('Bundled GLB'),
+                  child: const Text('GLB'),
                 ),
                 TextButton(
                   onPressed: () => load(bundle('assembly.gltf')),
                   child: const Text('Relative glTF'),
                 ),
-                FilterChip(
-                  label: const Text('PBR preview'),
-                  selected: diagnostic,
-                  onSelected: (value) => setState(() => diagnostic = value),
+                TextButton(
+                  onPressed: () => load(bundle('pbr.glb')),
+                  child: const Text('PBR model'),
                 ),
               ],
             ),
             if (diagnostic)
               const Text(
-                'PBR preview uses unlit base color on the next load.',
+                'Diagnostic mode uses unlit base color on the next load.',
                 style: TextStyle(fontSize: 12),
               ),
             Row(
