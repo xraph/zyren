@@ -76,6 +76,7 @@ class _WorkbenchState extends State<_Workbench> {
   late final TransformGizmoPlugin _gizmo;
   final _inspector = SceneDevtoolsPlugin();
   late final SceneTimelinePlugin _timeline;
+  TimelineEvent? _lastTimelineEvent;
   late final SceneEngineeringPlugin _engineering;
   final _sourceObjects = <String, Object3D>{};
   final _pins = <String, Mesh>{};
@@ -132,6 +133,19 @@ class _WorkbenchState extends State<_Workbench> {
     });
     _timeline = SceneTimelinePlugin(
       duration: const Duration(seconds: 3),
+      markers: [
+        TimelineMarker(Duration.zero, id: 'assembled', label: 'Assembled'),
+        TimelineMarker(
+          const Duration(milliseconds: 1500),
+          id: 'separating',
+          label: 'Separating',
+        ),
+        TimelineMarker(
+          const Duration(seconds: 3),
+          id: 'exploded',
+          label: 'Exploded',
+        ),
+      ],
       tracks: [
         for (var i = 0; i < _parts.length; i++)
           TransformTrack(_parts[i], [
@@ -196,6 +210,10 @@ class _WorkbenchState extends State<_Workbench> {
       _sections.changes.listen((_) => _refresh()),
       _timeline.changes.listen((_) {
         _gizmo.enabled = !_timeline.isPlaying && !_measuring && !_annotating;
+        _refresh();
+      }),
+      _timeline.events.listen((event) {
+        _lastTimelineEvent = event;
         _refresh();
       }),
       _engineering.changes.listen((_) {
@@ -273,6 +291,7 @@ class _WorkbenchState extends State<_Workbench> {
         microseconds: (value * _timeline.duration.inMicroseconds).round(),
       ),
     );
+    _lastTimelineEvent = null;
   });
 
   void _pointer(ScenePointerEvent event) {
@@ -834,8 +853,25 @@ class _WorkbenchState extends State<_Workbench> {
           onChanged: _ready ? _seek : null,
         ),
       ),
-      Text(
-        '${(_timeline.position.inMilliseconds / 1000).toStringAsFixed(1)} / 3 s',
+      Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Text(
+            '${(_timeline.position.inMilliseconds / 1000).toStringAsFixed(1)} / 3 s',
+          ),
+          if (_lastTimelineEvent case final event?)
+            Tooltip(
+              message:
+                  'Last marker: ${event.marker.label} at '
+                  '${(event.marker.time.inMilliseconds / 1000).toStringAsFixed(1)} s',
+              child: Text(
+                event.marker.label!,
+                key: const ValueKey('timeline-event'),
+                style: Theme.of(context).textTheme.labelSmall,
+              ),
+            ),
+        ],
       ),
       _button('Reset pose', Icons.restart_alt, _ready ? () => _seek(0) : null),
     ],

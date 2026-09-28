@@ -11,7 +11,7 @@ on Android. It requires native presentation.
 | --- | --- |
 | `zyren_tools` | Tap or direct selection, temporary material highlighting, local/world transform gizmos and translation planes, optional screen-size handles, reversible section sessions, transactional drag history, snapping, bounded undo/redo with conflict detection, fixed world-point measurements |
 | `zyren_devtools` | Immutable hierarchy and transform snapshots, stable inspector IDs, live object resolution, bounded frame history and backend capabilities |
-| `zyren_timeline` | Absolute transform and camera tracks, quaternion interpolation, step visibility, play/pause/seek, looping and scoped frame demand |
+| `zyren_timeline` | Absolute transform and camera tracks, quaternion interpolation, step visibility, play/pause/seek, ordered playback markers, looping and scoped frame demand |
 | `zyren_engineering` | Stable host IDs, immutable metadata and object-local annotations, temporary isolation, validated JSON, asynchronous host storage and atomic file replacement |
 
 The example combines these packages with the existing orbit controls. You can
@@ -23,6 +23,11 @@ entry. Escape or pointer cancellation restores its starting pose, provided anoth
 writer has not changed the object or its ancestors. Toolbar edits remain available.
 The timeline scrubs an exploded assembly. Seeking or starting playback clears manual edit history
 because the timeline becomes the pose writer.
+
+Playback delivers Assembled, Separating and Exploded markers at 0, 1.5 and 3
+seconds. You can see the last marker beneath the elapsed time. Pause keeps it;
+scrubbing clears it and emits no markers. See [timeline events](design/timeline-events.md)
+for loop ordering, asynchronous delivery and the event limit.
 
 Handles use native unlit meshes and respect scene occlusion. The workbench uses a
 nominal handle radius of 96 logical pixels, capped at a third of the shorter
@@ -164,11 +169,28 @@ faces and usable transform handles in the native view. Narrow section controls
 were checked by the widget suite; a separate native narrow-window visual check
 has not been completed for this revision.
 
+## Timeline event verification on 2026-09-28
+
+The timeline event milestone passed 26 package tests and all 15 example widget
+tests. Cases cover equal-time ordering, repeated frames, loop endpoints and
+overshoot across several loops, silent seeking, replay, detached reuse, failed
+samples and bounded event delivery. The workbench exercises all three markers,
+pause/resume, silent scrubbing and replay at 1100, 390 and 320 logical pixels.
+Analysis, formatting and package-boundary checks passed. The macOS Metal
+integration passed with twelve native frame samples and zero readback bytes.
+It exercised the same marker workflow through native-view presentation and
+awaited controller disposal. Native visual inspection confirmed the completed
+pose and Exploded label at desktop width and in a roughly 396-pixel-wide window.
+The narrow playback row stayed visible, and a slider click cleared the marker
+while updating the pose. Timeline events have not been rerun on Android, iOS,
+Windows or Linux.
+
 ## Remaining scope
 
-Section caps, custom-shader clipping, postprocessing outlines, skeletal
-animation, morph targets, event tracks, CAD import and collaborative review are
-not included. Handles remain depth-tested, including with screen sizing enabled.
+Section caps, custom-shader clipping, postprocessing outlines, clip mixing,
+skeletal animation, morph targets, imported animation events, CAD import and
+collaborative review are not included. Handles remain depth-tested, including
+with screen sizing enabled.
 The plugins do not replace the renderer or implement a second material system.
 
 The inspector reports unavailable GPU timings and residency as unavailable. It
