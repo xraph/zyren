@@ -5,6 +5,7 @@ environment:
 workspace:
   - packages/gpu3d
   - packages/gpu3d_native
+  - packages/gpu3d_gltf
   - packages/flutter_gpu3d
   - packages/flutter_geospatial
   - examples/planet

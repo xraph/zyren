@@ -644,3 +644,20 @@ The source adapters do not establish glTF support. Model parsing, accessor and
 extension validation, worker responsiveness and the model viewer remain open.
 HTTP fixtures ran on the desktop host; this checkpoint does not qualify mobile
 network configuration or add iOS, Windows, Linux or Adreno evidence.
+
+## glTF parser foundation
+
+The optional `gpu3d_gltf` package passes 25 parser tests, including a compiled
+Dart release executable. Fixtures cover GLB truncation and seeded mutations,
+JSON depth/token limits and duplicate keys, version and extension errors,
+relative buffers after redirects, embedded base64 payloads, URI policy, sparse
+accessors, normalized integers, interleaved data and padded matrix columns.
+Worker tests check bounded admission, cancellation, retry, error field paths and
+caller event-loop responsiveness. All 101 core/geospatial tests pass alongside
+whole-workspace analysis and package/header boundary checks.
+
+This checkpoint provides internal decoder components. It does not expose public
+model requests or claim glTF rendering support. Scene conversion, material
+handling, independent model templates and native model-viewer fixtures remain
+open. No renderer code changed, and no additional GPU or platform qualification
+is claimed here.

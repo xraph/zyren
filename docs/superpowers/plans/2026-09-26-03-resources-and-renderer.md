@@ -202,8 +202,12 @@ Current checkpoint: typed core requests, shared jobs, independent cancellation,
 per-consumer ownership, source budgets and Flutter/native adapters are implemented.
 `SceneRuntime.assetServices` works without a GPU view. See
 [asset loading](../../design/asset-loading.md) for the current API and limits.
-The glTF decoder, model templates, worker parsing, extension fixtures and model
-viewer remain open, so the combined acceptance checks below stay unchecked.
+The optional glTF package now parses bounded JSON/GLB containers and decodes
+sparse, interleaved, normalized and matrix accessors on cancellable workers.
+Required extensions are rejected until their handlers are qualified. Parser
+fixtures also run in a compiled release executable. Model templates, scene and
+material conversion, extension rendering and the model viewer remain open, so
+the combined acceptance checks below stay unchecked.
 
 **Files:** Implement core `assets/{asset_scope,asset_request,source_resolver,shared_load}.dart`;
 create `packages/gpu3d_gltf/{pubspec.yaml,lib/gpu3d_gltf.dart}` and decoder modules.

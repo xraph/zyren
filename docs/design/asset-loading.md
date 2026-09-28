@@ -124,5 +124,8 @@ do not turn it into a percentage or assume it is the total for the entire model.
 ## Current scope
 
 The typed loading infrastructure, source adapters and image integration are
-implemented. The glTF plugin, model viewer and extension compatibility matrix are
-the next Task 3 work. This API alone does not establish glTF rendering support.
+implemented. The optional `gpu3d_gltf` package has bounded JSON/GLB parsing,
+buffer resolution, accessor decoding and cancellable worker isolates, checked
+in both the Dart test runner and a compiled release executable. Model requests,
+templates, material conversion and the viewer remain Task 3 work. This API alone
+does not establish glTF rendering support.

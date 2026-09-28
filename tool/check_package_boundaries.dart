@@ -5,6 +5,7 @@ void main(List<String> args) {
   final root = Directory(args.isEmpty ? '.' : args.single);
   final allowed = <String, Set<String>>{
     'gpu3d': {'vector_math'},
+    'gpu3d_gltf': {'gpu3d'},
     'flutter_geospatial': {'gpu3d'},
   };
   final directive = RegExp(
