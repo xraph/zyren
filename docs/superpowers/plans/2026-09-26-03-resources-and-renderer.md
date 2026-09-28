@@ -499,7 +499,14 @@ mixers and playback actions now implement step, linear and cubic sampling,
 weights, reverse playback, loop modes and frame-demand ownership. The native
 animation lab demonstrates two separately controlled copies of one clip.
 See [the API](../../design/animation.md). Task 6 remains open for GPU instancing,
-skin/morph deformation, glTF animation import and the remaining tests below.
+skin/morph deformation and the remaining tests below.
+
+glTF animation checkpoint: the optional loader imports STEP, LINEAR and
+CUBICSPLINE TRS channels into core clips. Model instances expose indexed nodes,
+scene-filtered clips and independent mixers. `AnimationSystem` accepts mixers
+after a view initializes and releases their demand on removal. The model viewer
+provides clip selection, playback and seeking. GPU instancing, skinning, morph
+deformation and broader animation features remain open.
 
 **Files:** Create core `scene/instanced_mesh.dart`, `animation/{clip,track,mixer,action}.dart`,
 `geometry/{skin,morph_target}.dart`; native `passes/deformation.rs`, WGSL,

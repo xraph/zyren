@@ -36,11 +36,6 @@ void main() {
     for (final bytes in [
       triangleModel(
         changes: {
-          'animations': [{}],
-        },
-      ),
-      triangleModel(
-        changes: {
           'nodes': [
             {'mesh': 0, 'skin': 0},
           ],

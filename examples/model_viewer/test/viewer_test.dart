@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_gpu3d/flutter_gpu3d.dart';
 import 'package:model_viewer/main.dart';
+import 'package:gpu3d_gltf/gpu3d_gltf.dart';
+import 'support/controls.dart';
 import '../../../packages/flutter_gpu3d/test/support/backend_fake.dart';
 import '../../../packages/flutter_gpu3d/test/support/fakes.dart';
 
@@ -33,7 +35,10 @@ class Sources implements ByteSourceResolver {
       }
       return ResolvedSource(
         effectiveUri: uri,
-        bytes: uri.path.endsWith('pbr.glb') || uri.path.endsWith('colors.glb')
+        bytes:
+            uri.path.endsWith('pbr.glb') ||
+                uri.path.endsWith('colors.glb') ||
+                uri.path.endsWith('animated.glb')
             ? File('assets/models/${uri.pathSegments.last}').readAsBytesSync()
             : data,
       );
@@ -81,6 +86,68 @@ Future<void> remove(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets(
+    'loaded animation controls seek, switch clips and release on replacement',
+    (tester) async {
+      final sources = Sources(), backend = FakeBackend();
+      await tester.binding.setSurfaceSize(const Size(1000, 700));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        ModelViewerApp(
+          runtime: runtime(sources, backend),
+          autoplayAnimations: false,
+          presentation: PresentationPolicy.readbackOnly,
+        ),
+      );
+      await waitForModel(tester);
+      await chooseExample(tester, 'Animation');
+      await waitForModel(tester);
+      final controller = tester
+          .widget<SceneView>(find.byType(SceneView))
+          .controller!;
+      final instance = controller.scene.children.single as ModelInstance;
+      expect(instance.animations.map((c) => c.name), ['Assembly', 'Pulse']);
+      final original = instance.nodes[2]!.position;
+      final slider = tester.widget<Slider>(
+        find.byKey(const ValueKey('Animation playhead')),
+      );
+      slider.onChanged!(2);
+      await tester.pump();
+      expect(instance.nodes[2]!.position.y, closeTo(.7, 1e-6));
+      await tester.tap(find.byKey(const ValueKey('Animation clip')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Pulse').last);
+      await tester.pumpAndSettle();
+      expect(instance.nodes[2]!.position.x, closeTo(original.x, 1e-6));
+      expect(instance.nodes[2]!.position.y, original.y);
+      tester
+          .widget<Slider>(find.byKey(const ValueKey('Animation playhead')))
+          .onChanged!(2);
+      await tester.pump();
+      expect(instance.nodes[3]!.scale.x, closeTo(1.1, 1e-6));
+      for (final size in [
+        const Size(320, 640),
+        const Size(390, 700),
+        const Size(1000, 700),
+      ]) {
+        await tester.binding.setSurfaceSize(size);
+        await tester.pump();
+        expect(tester.takeException(), isNull);
+        expect(tester.getSize(find.byType(SceneView)).height, greaterThan(240));
+      }
+      await tester.tap(find.byKey(const ValueKey('Animation playback')));
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(instance.mixer.isAdvancing, isTrue);
+      await chooseExample(tester, 'GLB');
+      await waitForModel(tester);
+      expect(instance.mixer.actions, isEmpty);
+      expect(find.byKey(const ValueKey('Animation playback')), findsNothing);
+      expect(tester.takeException(), isNull);
+      await remove(tester);
+      expect(backend.closeCount, 1);
+    },
+  );
+
   testWidgets('PBR scenes use authored lights or an explicit studio toggle', (
     tester,
   ) async {
@@ -94,7 +161,7 @@ void main() {
       ),
     );
     await waitForModel(tester);
-    await tester.tap(find.text('PBR model'));
+    await chooseExample(tester, 'PBR model');
     await waitForModel(tester);
     final controller = tester
         .widget<SceneView>(find.byType(SceneView))
@@ -119,7 +186,7 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(tester.getSize(find.byType(SceneView)).height, greaterThan(240));
     }
-    await tester.tap(find.text('Colors'));
+    await chooseExample(tester, 'Colors');
     await waitForModel(tester);
     final root = controller.scene.children.single;
     expect(root.name, 'Vertex color assembly');
@@ -218,7 +285,7 @@ void main() {
       await waitForModel(tester);
       expect(sources.reads, 3);
       sources.gate = Completer<void>();
-      await tester.tap(find.text('Relative glTF'));
+      await chooseExample(tester, 'Relative glTF');
       await tester.pump();
       await remove(tester);
       sources.gate!.complete();

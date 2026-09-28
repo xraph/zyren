@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'package:gpu3d/gpu3d.dart';
 
 final class PreparedModel {
+  final List<AnimationClip> animations;
   final List<NodeRecipe> nodes;
   final List<SceneRecipe> scenes;
   final int? defaultScene;
@@ -10,6 +11,7 @@ final class PreparedModel {
   final List<SceneIssue> issues;
   final int decodedBytes;
   const PreparedModel(
+    this.animations,
     this.nodes,
     this.scenes,
     this.defaultScene,

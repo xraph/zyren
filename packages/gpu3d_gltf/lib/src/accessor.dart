@@ -4,7 +4,7 @@ import 'package:gpu3d/gpu3d.dart';
 import 'checked.dart';
 import 'limits.dart';
 
-enum AccessorUsage { generic, vertex, indices, image }
+enum AccessorUsage { generic, vertex, indices, image, animation }
 
 final class DecodedAccessor {
   final TypedData data;
@@ -217,6 +217,13 @@ class AccessorReader {
             'Shared vertex attribute views must define a byte stride.',
           );
         }
+      }
+      if (usage == AccessorUsage.animation &&
+          (view.stride != null || view.target != null)) {
+        fail(
+          path,
+          'Animation accessors need tightly packed views without a GPU target.',
+        );
       }
       if (usage == AccessorUsage.indices &&
           (view.stride != null || view.target == 34962)) {

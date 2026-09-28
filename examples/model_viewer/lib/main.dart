@@ -20,29 +20,43 @@ void main() => runApp(
 class ModelViewerApp extends StatelessWidget {
   final SceneRuntime runtime;
   final PresentationPolicy presentation;
+  final bool autoplayAnimations;
   const ModelViewerApp({
     super.key,
     required this.runtime,
     this.presentation = PresentationPolicy.requireNative,
+    this.autoplayAnimations = true,
   });
   @override
   Widget build(BuildContext context) => MaterialApp(
     debugShowCheckedModeBanner: false,
     theme: ThemeData.dark(useMaterial3: true).copyWith(
       visualDensity: VisualDensity.compact,
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          minimumSize: const Size(48, 40),
+        ),
+      ),
       scaffoldBackgroundColor: const Color(0xff101722),
     ),
-    home: ModelViewer(runtime: runtime, presentation: presentation),
+    home: ModelViewer(
+      runtime: runtime,
+      presentation: presentation,
+      autoplayAnimations: autoplayAnimations,
+    ),
   );
 }
 
 class ModelViewer extends StatefulWidget {
   final SceneRuntime runtime;
   final PresentationPolicy presentation;
+  final bool autoplayAnimations;
   const ModelViewer({
     super.key,
     required this.runtime,
     this.presentation = PresentationPolicy.requireNative,
+    this.autoplayAnimations = true,
   });
   @override
   State<ModelViewer> createState() => _ModelViewerState();
@@ -55,7 +69,13 @@ class _ModelViewerState extends State<ModelViewer> {
   LoadTask<ModelAsset>? task;
   StreamSubscription<LoadProgress>? progress;
   ModelAsset? model;
-  Group? instance, studio;
+  ModelInstance? instance;
+  Group? studio;
+  late final AnimationSystem animations;
+  Registration? animationRegistration;
+  AnimationAction? action;
+  int selectedAnimation = 0;
+  StreamSubscription<FrameStats>? frames;
   AssetRequest<ModelAsset>? lastRequest;
   int generation = 0, selectedScene = 0;
   bool busy = false, diagnostic = false;
@@ -71,6 +91,10 @@ class _ModelViewerState extends State<ModelViewer> {
       runtime: widget.runtime,
       options: EngineOptions(presentation: widget.presentation),
     );
+    animations = controller.use(AnimationSystem());
+    frames = controller.frameStats.listen((_) {
+      if (mounted && action != null) setState(() {});
+    });
     controller.scene.background = const Color3(.025, .04, .065);
     gestures = [
       controller.input.registerGesture(SceneGesture.scale),
@@ -165,6 +189,7 @@ class _ModelViewerState extends State<ModelViewer> {
       if (stale(ticket)) return;
       if (instance case final previous?) controller.scene.remove(previous);
       if (model case final previous?) controller.assets.release(previous);
+      configureAnimation(next);
       configureLighting(next);
       controller.scene.add(next);
       setState(() {
@@ -208,6 +233,85 @@ class _ModelViewerState extends State<ModelViewer> {
       }
     }
   }
+
+  void configureAnimation(ModelInstance next) {
+    animationRegistration?.dispose();
+    instance?.mixer.stopAll();
+    action = null;
+    animationRegistration = null;
+    selectedAnimation = next.animations.indexWhere(
+      (clip) => clip.tracks.isNotEmpty,
+    );
+    if (selectedAnimation < 0) return;
+    animationRegistration = animations.add(next.mixer);
+    action = next.mixer.play(next.animations[selectedAnimation]);
+    if (!widget.autoplayAnimations) action!.pause();
+  }
+
+  void selectAnimation(int? index) {
+    if (index == null || instance == null) return;
+    final playing = action?.isPlaying ?? false;
+    instance!.mixer.stopAll();
+    setState(() {
+      selectedAnimation = index;
+      action = instance!.mixer.play(instance!.animations[index]);
+      if (!playing) action!.pause();
+    });
+  }
+
+  Widget animationControls() => Row(
+    children: [
+      SizedBox(
+        width: 100,
+        child: DropdownButton<int>(
+          key: const ValueKey('Animation clip'),
+          isExpanded: true,
+          value: selectedAnimation,
+          onChanged: selectAnimation,
+          items: [
+            for (var i = 0; i < instance!.animations.length; i++)
+              if (instance!.animations[i].tracks.isNotEmpty)
+                DropdownMenuItem(
+                  value: i,
+                  child: Text(
+                    instance!.animations[i].name ?? 'Clip ${i + 1}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+          ],
+        ),
+      ),
+      IconButton(
+        key: const ValueKey('Animation playback'),
+        tooltip: action!.isPlaying ? 'Pause animation' : 'Play animation',
+        onPressed: () => setState(() {
+          if (action!.isPlaying) {
+            action!.pause();
+          } else {
+            action!.resume();
+          }
+        }),
+        icon: Icon(action!.isPlaying ? Icons.pause : Icons.play_arrow),
+      ),
+      Expanded(
+        child: Slider(
+          key: const ValueKey('Animation playhead'),
+          value: action!.timeSeconds,
+          max: math.max(action!.clip.durationSeconds, .001),
+          label: '${action!.timeSeconds.toStringAsFixed(1)} s',
+          onChanged: (value) => setState(
+            () => action!.seek(Duration(microseconds: (value * 1e6).round())),
+          ),
+        ),
+      ),
+      IconButton(
+        tooltip: 'Restart animation',
+        onPressed: () => setState(() => action!.seek(Duration.zero)),
+        icon: const Icon(Icons.replay),
+      ),
+    ],
+  );
 
   void configureLighting(Group root) {
     var hasPbr = false, hasLights = false;
@@ -270,6 +374,10 @@ class _ModelViewerState extends State<ModelViewer> {
 
   void clear() {
     cancel();
+    animationRegistration?.dispose();
+    animationRegistration = null;
+    instance?.mixer.stopAll();
+    action = null;
     if (instance case final old?) controller.scene.remove(old);
     if (model case final old?) controller.assets.release(old);
     setState(() {
@@ -295,6 +403,7 @@ class _ModelViewerState extends State<ModelViewer> {
       final bounds = await modelBounds(next, () => stale(ticket));
       if (stale(ticket)) return;
       controller.scene.remove(instance!);
+      configureAnimation(next);
       configureLighting(next);
       controller.scene.add(next);
       setState(() {
@@ -357,6 +466,8 @@ class _ModelViewerState extends State<ModelViewer> {
     for (final registration in gestures) {
       registration.dispose();
     }
+    animationRegistration?.dispose();
+    unawaited(frames?.cancel());
     controller.dispose();
     address.dispose();
     super.dispose();
@@ -434,33 +545,6 @@ class _ModelViewerState extends State<ModelViewer> {
                 ),
               ],
             ),
-            Wrap(
-              spacing: 6,
-              runSpacing: 0,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                TextButton(
-                  onPressed: () => load(bundle('assembly.glb')),
-                  child: const Text('GLB'),
-                ),
-                TextButton(
-                  onPressed: () => load(bundle('assembly.gltf')),
-                  child: const Text('Relative glTF'),
-                ),
-                TextButton(
-                  onPressed: () => load(bundle('pbr.glb')),
-                  child: const Text('PBR model'),
-                ),
-                TextButton(
-                  onPressed: () => load(bundle('colors.glb')),
-                  child: const Text('Colors'),
-                ),
-                TextButton(
-                  onPressed: () => load(bundle('normal-map.glb')),
-                  child: const Text('Normal map'),
-                ),
-              ],
-            ),
             if (diagnostic)
               const Text(
                 'Diagnostic mode uses unlit base color on the next load.',
@@ -468,6 +552,22 @@ class _ModelViewerState extends State<ModelViewer> {
               ),
             Row(
               children: [
+                PopupMenuButton<String>(
+                  tooltip: 'Examples',
+                  icon: const Icon(Icons.view_in_ar),
+                  onSelected: (file) => load(bundle(file)),
+                  itemBuilder: (_) => [
+                    for (final (file, label) in [
+                      ('assembly.glb', 'GLB'),
+                      ('assembly.gltf', 'Relative glTF'),
+                      ('pbr.glb', 'PBR model'),
+                      ('colors.glb', 'Colors'),
+                      ('normal-map.glb', 'Normal map'),
+                      ('animated.glb', 'Animation'),
+                    ])
+                      PopupMenuItem(value: file, child: Text(label)),
+                  ],
+                ),
                 Expanded(
                   child:
                       !busy &&
@@ -538,6 +638,7 @@ class _ModelViewerState extends State<ModelViewer> {
                   ),
                 ),
               ),
+            if (action != null) animationControls(),
             if (busy) const LinearProgressIndicator(minHeight: 2),
             Expanded(
               child: Stack(

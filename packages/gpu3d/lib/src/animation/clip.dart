@@ -7,6 +7,7 @@ import '../plugins/registration.dart';
 part 'track.dart';
 part 'mixer.dart';
 part 'action.dart';
+part 'system.dart';
 
 /// Immutable tracks shared by independent mixers. Times are seconds.
 final class AnimationClip {

@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:gpu3d/gpu3d.dart';
 import 'accessor.dart';
+import 'animation_decoder.dart';
 import 'checked.dart';
 import 'instance_validation.dart';
 import 'material_decoder.dart';
@@ -15,13 +16,6 @@ PreparedModel prepareModel(
   GltfOptions options,
   int maxDecodedBytes,
 ) {
-  if (root.containsKey('animations')) {
-    fail(
-      'animations',
-      'Animated models need the animation profile, which is not yet implemented.',
-      AssetLoadError.unsupportedFeature,
-    );
-  }
   final budget = DecodeBudget(maxDecodedBytes);
   final reader = AccessorReader(
     root,
@@ -42,6 +36,7 @@ PreparedModel prepareModel(
     options.limits.maxPrimitives,
     options.limits.maxLights,
   );
+  final animations = decodeAnimations(root, reader, options.limits);
   final issues = <SceneIssue>[];
   final materials = MaterialDecoder(root, reader, options, issues);
   final meshes = <List<PrimitiveRecipe>>[];
@@ -378,6 +373,7 @@ PreparedModel prepareModel(
     meshes.add(List.unmodifiable(primitives));
   }
   return PreparedModel(
+    animations,
     nodes,
     scenes,
     selected,

@@ -287,6 +287,112 @@ void main() {
   ];
   (normalMapped['scenes'] as List).first['name'] = 'Normal map assembly';
   final normalGlb = encodeGlb(normalMapped, data);
+  final animated = jsonDecode(jsonEncode(pbr)) as Map<String, Object?>;
+  final animatedBytes = BytesBuilder()..add(data);
+  int animationAccessor(
+    List<double> values,
+    int components, {
+    bool time = false,
+  }) {
+    final bytes = ByteData(values.length * 4);
+    for (var i = 0; i < values.length; i++) {
+      bytes.setFloat32(i * 4, values[i], Endian.little);
+    }
+    final views = animated['bufferViews'] as List,
+        accessors = animated['accessors'] as List;
+    final index = accessors.length;
+    accessors.add({
+      'bufferView': views.length,
+      'componentType': 5126,
+      'count': values.length ~/ components,
+      'type': components == 1 ? 'SCALAR' : 'VEC$components',
+      if (time) 'min': [values.first],
+      if (time) 'max': [values.last],
+    });
+    views.add({
+      'buffer': 0,
+      'byteOffset': animatedBytes.length,
+      'byteLength': bytes.lengthInBytes,
+    });
+    animatedBytes.add(bytes.buffer.asUint8List());
+    return index;
+  }
+
+  final liftTimes = animationAccessor([0, 2, 4], 1, time: true);
+  final lift = animationAccessor([
+    0,
+    0,
+    0,
+    -.45,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    -.45,
+    .7,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    -.45,
+    0,
+    0,
+    0,
+    0,
+    0,
+  ], 3);
+  final spinTimes = animationAccessor([0, 1, 2, 3, 4], 1, time: true);
+  final spin = animationAccessor([
+    for (var i = 0; i <= 4; i++) ...[
+      0.0,
+      math.sin(i * math.pi / 4),
+      0.0,
+      math.cos(i * math.pi / 4),
+    ],
+  ], 4);
+  final pulse = animationAccessor([.8, .8, .8, 1.1, 1.1, 1.1, .8, .8, .8], 3);
+  animated['animations'] = [
+    {
+      'name': 'Assembly',
+      'samplers': [
+        {'input': liftTimes, 'output': lift, 'interpolation': 'CUBICSPLINE'},
+        {'input': spinTimes, 'output': spin},
+      ],
+      'channels': [
+        {
+          'sampler': 0,
+          'target': {'node': 2, 'path': 'translation'},
+        },
+        {
+          'sampler': 1,
+          'target': {'node': 3, 'path': 'rotation'},
+        },
+      ],
+    },
+    {
+      'name': 'Pulse',
+      'samplers': [
+        {'input': liftTimes, 'output': pulse, 'interpolation': 'STEP'},
+      ],
+      'channels': [
+        {
+          'sampler': 0,
+          'target': {'node': 3, 'path': 'scale'},
+        },
+      ],
+    },
+  ];
+  (animated['scenes'] as List).first['name'] = 'Animated assembly';
+  final animationData = animatedBytes.toBytes();
+  (animated['buffers'] as List).first['byteLength'] = animationData.length;
+  final animatedGlb = encodeGlb(animated, animationData);
   root['buffers'] = [
     <String, Object?>{'byteLength': data.length, 'uri': 'assembly.bin'},
   ];
@@ -301,6 +407,7 @@ void main() {
     File('${location.path}/pbr.glb').writeAsBytesSync(pbrGlb);
     File('${location.path}/colors.glb').writeAsBytesSync(coloredGlb);
     File('${location.path}/normal-map.glb').writeAsBytesSync(normalGlb);
+    File('${location.path}/animated.glb').writeAsBytesSync(animatedGlb);
     File('${location.path}/assembly.gltf').writeAsStringSync(
       "${const JsonEncoder.withIndent('  ').convert(root)}\n",
     );

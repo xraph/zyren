@@ -6,6 +6,7 @@ import 'package:gpu3d_gltf/gpu3d_gltf.dart';
 import 'package:gpu3d_gltf/src/worker.dart';
 import '../support/fixtures.dart';
 import '../support/pbr_fixture.dart';
+import '../support/animation_fixture.dart';
 
 final class Cancellation implements LoadCancellation {
   final callbacks = <void Function()>{};
@@ -43,7 +44,9 @@ final class ModelSources implements ByteSourceResolver {
   Future<ResolvedSource> read(Uri uri, SourceReadContext context) async =>
       ResolvedSource(
         effectiveUri: uri,
-        bytes: uri.path.endsWith('pbr.glb')
+        bytes: uri.path.endsWith('animated.glb')
+            ? animatedModel()
+            : uri.path.endsWith('pbr.glb')
             ? pbrModel(
                 material: {
                   'pbrMetallicRoughness': {
@@ -161,6 +164,10 @@ Future<void> main() async {
         TextureFormat.rgba8UnormSrgb,
   );
   check(pbrInstance.children.last.children.single is DirectionalLight);
+  final animated = await scope.load(Gltf.asset('animated.glb')).result;
+  final moving = animated.instantiate();
+  moving.mixer.play(moving.animations.single).seek(const Duration(seconds: 1));
+  check(moving.nodes[0]!.position == const Vec3(0, .5, 0));
   await scope.close();
   check(model.isReleased && mesh.material.colorMap != null);
   print('AOT glTF workers passed.');

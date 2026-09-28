@@ -1616,3 +1616,50 @@ platform qualification are still open.
 The Android arm64 animation release builds at 24.1 MB and launches on the Pixel
 without error-level process logs. It is left running with the animation entrypoint.
 Interactive release-screen inspection remains unverified.
+
+
+## glTF transform animation and runtime mixer registration
+
+Checked 28 September 2026. The optional glTF loader now imports translation,
+rotation and scale channels with STEP, LINEAR and CUBICSPLINE sampling. Imported
+instances expose source-indexed nodes, scene-filtered clips and independent
+mixers. `AnimationSystem` accepts mixers after view initialization and releases
+frame demand when their registrations are disposed.
+
+All 500 tests in the checked suites pass: 349 core/glTF/geospatial, 75 native
+Dart GPU, 69 Flutter facade, four model-viewer widgets and three shader-lab
+widgets. Compiled glTF worker tests exercise imported clips. Analyzer, formatting,
+package boundaries and the Apple ABI header check pass. Rust renderer code did
+not change, so the Rust suite was not repeated for this checkpoint.
+
+Import tests cover sparse outputs, normalized integer rotations, cubic tangent
+magnitudes, duplicate names/channels, matrix targets, malformed time bounds,
+scene selection, release lifetime and admission budgets. The vendored, unmodified
+[Khronos BoxAnimated fixture](../test_assets/gltf/khronos/README.md) also checks
+that its 2.5-second rotation channel holds while translation continues to about
+3.70833 seconds. The whole clip repeats on one clock.
+
+Metal and physical Pixel Vulkan pass the imported-animation integration. Pixel
+checks prove independent instance motion, frozen captured transforms and zero
+geometry reuploads on seek. Interactive controls exercise play, pause, seek and
+replacement through native presentation with zero readback bytes. Frame statistics
+settle after pausing or replacing the animated model. The existing Metal viewer
+integration also passes bundle/HTTP loading, repeated reloads and all material
+examples after the compact Examples menu change.
+
+Widget checks at 320, 390 and 1000 pixels preserve a canvas taller than 240 pixels
+with playback controls visible. The first layout exposed excessive example-button
+rows; the final menu removes those rows. Tests wait for menu transitions before
+selecting another example, preventing taps on a closing overlay.
+
+Native captures `artifacts/native-gltf-animation.png` and
+`artifacts/native-khronos-box-animated.png` were rendered at 1.5 seconds and
+inspected. The latter uses Box Animated by Cesium, copyright 2017,
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/legalcode), with viewer
+lights added. Model data and source attribution are retained in the fixture folder.
+
+The Android release builds at 25.7 MB and launches with
+`--dart-define=GPU3D_MODEL=animated.glb`. macOS integration tests pass but their
+windows could not be foregrounded. Interactive desktop and release-screen
+inspection remain unverified. GPU instancing, skinning, morph deformation, the
+full Three.js/Takram port and remaining platform qualification are still open.

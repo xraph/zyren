@@ -6,6 +6,7 @@ import 'package:flutter_gpu3d/flutter_gpu3d.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:model_viewer/main.dart';
+import '../test/support/controls.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -57,6 +58,12 @@ void main() {
       await ready();
     }
 
+    Future<void> loadExample(String label) async {
+      frames.clear();
+      await chooseExample(tester, label);
+      await ready();
+    }
+
     try {
       await tester.pumpWidget(
         ModelViewerApp(
@@ -74,7 +81,7 @@ void main() {
       await tester.drag(find.byType(SceneView), const Offset(50, 20));
       await tester.pump(const Duration(milliseconds: 200));
       expect(controller.camera.position, isNot(initialCamera));
-      await loadWith(find.text('Relative glTF'));
+      await loadExample('Relative glTF');
       expect(frames.last.readbackBytes, 0);
       await tester.enterText(
         find.byType(TextField),
@@ -91,7 +98,7 @@ void main() {
         await loadWith(find.text('Retry'));
       }
       expect(requests['/assembly.gltf'], 4);
-      await loadWith(find.text('PBR model'));
+      await loadExample('PBR model');
       expect(controller.scene.children.single.name, 'PBR assembly');
       expect(find.byTooltip('Studio light'), findsNothing);
       expect(frames.last.readbackBytes, 0);
@@ -105,11 +112,11 @@ void main() {
       await tester.pump();
       expect(studio.visible, isFalse);
 
-      await loadWith(find.text('Colors'));
+      await loadExample('Colors');
       expect(controller.scene.children.single.name, 'Vertex color assembly');
       expect(frames.last.readbackBytes, 0);
 
-      await loadWith(find.text('Normal map'));
+      await loadExample('Normal map');
       expect(controller.scene.children.single.name, 'Normal map assembly');
       expect(frames.last.readbackBytes, 0);
       final housing =

@@ -9,8 +9,10 @@ import 'package:model_viewer/model_bounds.dart';
 
 /// Explicit native GPU readback for a standalone PNG, without a Flutter window.
 Future<void> main(List<String> args) async {
-  if (args.length != 2) {
-    stderr.writeln('Usage: dart run tool/capture.dart model.glb output.png');
+  if (args.length < 2 || args.length > 3) {
+    stderr.writeln(
+      'Usage: dart run tool/capture.dart model.glb output.png [animationSeconds]',
+    );
     exitCode = 64;
     return;
   }
@@ -29,6 +31,12 @@ Future<void> main(List<String> args) async {
   try {
     final model = await assets.load(Gltf.uri(source)).result;
     final root = model.instantiate();
+    if (args.length == 3) {
+      final seconds = double.parse(args[2]);
+      root.mixer
+          .play(root.animations.first)
+          .seek(Duration(microseconds: (seconds * 1e6).round()));
+    }
     final bounds = await modelBounds(root, () => false);
     final scene = Scene()
       ..background = const Color3(.025, .04, .065)

@@ -11,6 +11,8 @@ final class AnimationMixer extends ScenePlugin {
   Map<(String, TransformProperty), Object> _rest = {};
   PluginContext? _context;
   Registration? _demand;
+  Registration? _attachment;
+  AnimationSystem? _system;
   AnimationMixer({required Map<String, Object3D> nodes, String? id})
     : id = id ?? 'gpu3d.animation.${_nextId++}',
       nodes = Map.unmodifiable(nodes) {
@@ -191,6 +193,15 @@ final class AnimationMixer extends ScenePlugin {
 
   @override
   void attach(PluginContext context) {
+    if (_system != null) {
+      throw StateError(
+        'Register the owning AnimationSystem instead of its mixer.',
+      );
+    }
+    _attachContext(context);
+  }
+
+  void _attachContext(PluginContext context) {
     if (_context != null) {
       throw StateError('An animation mixer belongs to one attachment.');
     }
@@ -198,10 +209,11 @@ final class AnimationMixer extends ScenePlugin {
     for (final action in _actions) {
       action._state.fresh = true;
     }
-    context.scope.onClose(() {
+    _attachment = context.scope.onClose(() {
       _demand?.dispose();
       _demand = null;
       _context = null;
+      _attachment = null;
     });
     _syncDemand();
   }
@@ -211,8 +223,6 @@ final class AnimationMixer extends ScenePlugin {
       _update(frame.delta, fromFrame: true);
   @override
   void detach(PluginContext context) {
-    _demand?.dispose();
-    _demand = null;
-    _context = null;
+    if (identical(_context, context)) _attachment?.dispose();
   }
 }

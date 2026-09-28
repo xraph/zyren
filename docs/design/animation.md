@@ -34,6 +34,28 @@ nonnegative elapsed step. Explicit steps advance immediately. An attached mixer
 advances from the engine's frame delta; do not also advance it manually unless
 you intend to apply both steps.
 
+## Models loaded after view initialization
+
+Register an `AnimationSystem` before attaching the view, then add each loaded
+model's mixer:
+
+```dart
+final playback = controller.use(AnimationSystem());
+// Later, after loading and instantiating a model:
+final registration = playback.add(instance.mixer);
+final action = instance.mixer.play(instance.animations.first);
+registration.dispose(); // Stops automatic updates, preserving action state.
+```
+
+A mixer belongs to one system or direct plugin attachment. Duplicate ownership
+is rejected. Keep the registration alongside the model and dispose it when you
+replace or remove that model. Detaching a system releases all frame demand while
+retaining its mixer registrations for reattachment. Each newly attached mixer
+skips its first frame delta. Systems support up to 4096 registered mixers.
+
+The optional `gpu3d_gltf` loader publishes these same core clips and mixers.
+See its [instance and scene selection API](../../packages/gpu3d_gltf/README.md#animation).
+
 ## Tracks and instance ownership
 
 Track targets are your stable string IDs. The `nodes` map resolves them to
@@ -131,6 +153,6 @@ flutter test integration_test/animation_test.dart -d DEVICE_ID
 ```
 
 The two scene hierarchies share a clip and immutable geometry. This is transform
-animation; GPU instancing, skinning, morph deformation and glTF animation import
-remain separate Task 6 work. Track completion events, additive blending and
+animation; GPU instancing, skinning and morph deformation
+remain separate Task 6 work. glTF TRS import now uses these same tracks. Track completion events, additive blending and
 finite repetition counts also remain open parts of the broader animation API.

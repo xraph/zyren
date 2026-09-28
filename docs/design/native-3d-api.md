@@ -575,7 +575,9 @@ weight, loop and stop. Mixers own frame demand while actions run. Skin and morph
 updates use typed geometry resources and must work on native mobile feature limits.
 Core transform tracks and independent mixer playback are implemented. See
 [animation](animation.md) for binding, sampling, mixing and frame-demand behaviour.
-GPU instancing, skinning, morph targets and glTF animation import remain open.
+glTF TRS import now exposes indexed model instances, core clips and independent mixers.
+`AnimationSystem` accepts those mixers after view initialization. GPU instancing,
+skinning and morph targets remain open.
 
 Texture presentation must compose with Flutter clipping, transforms, opacity,
 scrolling, overlays and hit testing. Flutter rebuilds do not recreate the GPU.

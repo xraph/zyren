@@ -4,6 +4,99 @@ import 'support/fakes.dart';
 import 'animation_test.dart' show movement;
 
 void main() {
+  test('failed direct attachment cannot steal a system-owned mixer', () async {
+    final system = AnimationSystem();
+    final mixer = AnimationMixer(nodes: {'part': Group()});
+    final action = mixer.play(movement());
+    final registration = system.add(mixer);
+    var demands = 0;
+    Future<SceneEngine> create(List<ScenePlugin> plugins) => SceneEngine.create(
+      scene: Scene(),
+      camera: PerspectiveCamera(),
+      rendererFactory: () async => TestRenderer([]),
+      plugins: plugins,
+      acquireFrameDemand: () {
+        demands++;
+        return Registration(() => demands--);
+      },
+    );
+    final engine = await create([system]);
+    try {
+      await expectLater(create([mixer]), throwsStateError);
+      expect(demands, 1);
+      action.pause();
+      expect(demands, 0);
+      action.resume();
+      expect(demands, 1);
+    } finally {
+      registration.dispose();
+      await engine.dispose();
+    }
+    expect(demands, 0);
+  });
+
+  test(
+    'dynamic systems own late mixers and release demand on removal',
+    () async {
+      final system = AnimationSystem(), other = AnimationSystem();
+      var demands = 0;
+      final engine = await SceneEngine.create(
+        scene: Scene(),
+        camera: PerspectiveCamera(),
+        rendererFactory: () async => TestRenderer([]),
+        plugins: [system],
+        acquireFrameDemand: () {
+          demands++;
+          return Registration(() => demands--);
+        },
+      );
+      final mixer = AnimationMixer(nodes: {'part': Group()});
+      final action = mixer.play(movement());
+      final registration = system.add(mixer);
+      expect(demands, 1);
+      expect(() => other.add(mixer), throwsStateError);
+      expect(() => system.add(mixer), throwsStateError);
+      Future<void> step() async {
+        await engine.render(
+          elapsed: const Duration(milliseconds: 200),
+          time: const FrameTime(
+            elapsed: Duration(milliseconds: 200),
+            delta: Duration(milliseconds: 200),
+          ),
+          width: 4,
+          height: 4,
+        );
+      }
+
+      await step();
+      expect(action.timeSeconds, 0);
+      await step();
+      expect(action.timeSeconds, .2);
+      registration.dispose();
+      expect(demands, 0);
+      await step();
+      expect(action.timeSeconds, .2);
+      final retained = other.add(mixer);
+      await engine.dispose();
+      final next = await SceneEngine.create(
+        scene: Scene(),
+        camera: PerspectiveCamera(),
+        rendererFactory: () async => TestRenderer([]),
+        plugins: [other],
+        acquireFrameDemand: () {
+          demands++;
+          return Registration(() => demands--);
+        },
+      );
+      expect(demands, 1);
+      await next.dispose();
+      expect(demands, 0);
+      retained.dispose();
+      mixer.update(const Duration(milliseconds: 100));
+      expect(action.timeSeconds, closeTo(.3, 1e-9));
+    },
+  );
+
   test(
     'pause, finish, speed zero and detach release demand; resume ignores idle time',
     () async {

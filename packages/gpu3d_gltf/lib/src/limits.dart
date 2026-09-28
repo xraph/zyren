@@ -10,7 +10,10 @@ final class GltfLimits {
       maxNodes,
       maxNodeDepth,
       maxPrimitives,
-      maxLights;
+      maxLights,
+      maxAnimations,
+      maxAnimationChannels,
+      maxAnimationKeyframes;
   const GltfLimits({
     this.maxJsonBytes = 8 * 1024 * 1024,
     this.maxJsonDepth = 64,
@@ -21,6 +24,9 @@ final class GltfLimits {
     this.maxNodeDepth = 128,
     this.maxPrimitives = 4096,
     this.maxLights = 16,
+    this.maxAnimations = 256,
+    this.maxAnimationChannels = 4096,
+    this.maxAnimationKeyframes = 1000000,
   });
   void validate() {
     for (final (name, value, ceiling) in [
@@ -33,6 +39,9 @@ final class GltfLimits {
       ('maxNodeDepth', maxNodeDepth, 256),
       ('maxPrimitives', maxPrimitives, 4096),
       ('maxLights', maxLights, 16),
+      ('maxAnimations', maxAnimations, 4096),
+      ('maxAnimationChannels', maxAnimationChannels, 4096),
+      ('maxAnimationKeyframes', maxAnimationKeyframes, 1000000),
     ]) {
       RangeError.checkValueInInterval(value, 1, ceiling, name);
     }
@@ -48,6 +57,9 @@ final class GltfLimits {
     maxNodeDepth,
     maxPrimitives,
     maxLights,
+    maxAnimations,
+    maxAnimationChannels,
+    maxAnimationKeyframes,
   );
   @override
   bool operator ==(Object other) => other is GltfLimits && _key == other._key;

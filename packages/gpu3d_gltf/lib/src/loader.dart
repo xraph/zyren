@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:gpu3d/gpu3d.dart';
 import 'buffers.dart';
+import 'animation_decoder.dart';
 import 'data_uri.dart';
 import 'options.dart';
 import 'recipes.dart';
@@ -244,6 +245,7 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
           ),
       ]);
       final shared = _SharedModel(
+        prepared.animations,
         prepared.nodes,
         prepared.scenes,
         prepared.defaultScene,

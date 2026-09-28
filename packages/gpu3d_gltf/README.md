@@ -1,6 +1,6 @@
 # gpu3d_gltf
 
-Load static glTF models into ordinary `gpu3d` scene objects. This optional package
+Load glTF models and transform animations into ordinary `gpu3d` scene objects. This optional package
 uses the public Dart core and can decode models without Flutter or a GPU device.
 
 ```dart
@@ -44,6 +44,47 @@ owns the lifetime of its uploaded resources. Completed URI loads are not cached.
 selects one scene; the declared default or first scene is used when you omit it.
 A document without scenes can load as metadata but cannot be instantiated.
 
+## Animation
+
+`instantiate` returns a `ModelInstance`, which is also an ordinary `Group`.
+Its `nodes` map uses source node indices, and `animations` retains source clip
+order and names. Duplicate display names do not affect binding. Each instance
+owns a lazy `mixer`; keyframes and geometry remain shared.
+
+```dart
+// Register this plugin before attaching your Flutter view.
+final playback = controller.use(AnimationSystem());
+
+// Models can finish loading after the view starts.
+final model = await controller.assets.load(Gltf.asset('animated.glb')).result;
+final instance = model.instantiate();
+controller.scene.add(instance);
+final registration = playback.add(instance.mixer);
+final action = instance.mixer.play(instance.animations.first);
+action.pause();
+action.seek(const Duration(milliseconds: 500));
+
+registration.dispose(); // Release automatic playback when removing this model.
+controller.scene.remove(instance);
+```
+
+Standalone Dart code can call `instance.mixer.update(delta)` instead. Do not
+advance a mixer manually while its system also advances it. Removing a mixer
+keeps its pose and action state; `stopAll()` restores its captured rest pose.
+
+`model.animations` contains all source channels. Instance clips omit channels
+outside the selected scene but retain the original duration and index. A clip
+with no targets in that scene has an empty `tracks` list. Use that to disable
+unavailable clips in your controls. Template release does not invalidate existing
+instances or their playback. See [animation](../../docs/design/animation.md).
+
+The importer validates time bounds, strictly increasing seconds, output shape,
+channel uniqueness and TRS targets before publishing a model. Rotation outputs
+accept float and normalized 8/16-bit integer quaternions; sparse accessors work
+for animation too. Cubic tangents keep their authored magnitudes and signs.
+Singular scale keys are rejected. If interpolation later produces a singular
+scale or zero quaternion, the mixer rejects that update and keeps its prior pose.
+
 ## Material profile
 
 Standard mode imports metallic/roughness triangle materials as `StandardMaterial`.
@@ -77,7 +118,8 @@ unknown optional extensions produce warnings and use the core fallback data.
 | PBR triangle materials and authored tangents | `pbr_model_test`; native analytic reference pixels |
 | Missing normal-map tangents, mirrored seams and UV0/UV1 selection | `tangent_model_test`; pinned MikkTSpace reference and native pixel checks |
 | `KHR_lights_punctual` | Directional, point and spot instances, transforms, units, range and cones; bounded native profile |
-| Animations, skins, morphs and imported cameras | Explicit unsupported-feature error |
+| Translation, rotation and scale animation | STEP, LINEAR and CUBICSPLINE; independent instance mixers |
+| Skins, morphs and imported cameras | Explicit unsupported-feature error |
 | Lit or textured lines/points, UV sets above one, singular or out-of-range native transforms | Explicit unsupported-feature error |
 | Draco, meshopt, Basis/KTX2 and other required extensions | Explicit unsupported-feature error |
 
@@ -107,7 +149,13 @@ selection belong to the material usage.
 
 ## Limits and workers
 
-`GltfLimits` bounds JSON metadata, accessors, nodes, depth, primitives and up to 16 light instances per scene. The
+`GltfLimits` bounds JSON metadata, accessors, nodes, depth, primitives and up to 16 light instances per scene.
+Animation defaults allow 256 clips, 4096 total channels and 1,000,000 keys.
+Sampler count is bounded by `maxAnimationChannels` too. Sampler keys and expanded
+channel keys are each checked against `maxAnimationKeyframes`, so reusing one
+sampler across many nodes cannot bypass the limit. The clip ceiling is 4096;
+channel and key ceilings equal their defaults. Decoded payload accounting also
+reserves space for immutable animation keys, tangents and copied time arrays. The
 primitive limit also checks the expanded meshes in each scene, so repeated mesh
 references cannot bypass admission. Core `AssetLimits` bounds source and decoded
 payloads. Geometry accounting includes intermediate accessor arrays, generated
