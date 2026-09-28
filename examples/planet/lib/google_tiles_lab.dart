@@ -128,6 +128,7 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
           .result;
       if (!mounted) return;
       tiles = Tiles3DPlugin(
+        fadeDuration: const Duration(milliseconds: 250),
         tileset: tileset,
         services: services,
         maximumScreenError: 20,

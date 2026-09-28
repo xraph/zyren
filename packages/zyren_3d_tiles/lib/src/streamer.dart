@@ -83,6 +83,7 @@ class Tiles3DStreamer {
   final Tiles3DBudget budget;
   final GltfOptions options;
   final double maximumScreenError;
+  final Duration fadeDuration;
   final void Function()? onChanged;
   final DateTime Function() _clock;
   final _cache = <String, _LoadedTile>{};
@@ -91,6 +92,10 @@ class Tiles3DStreamer {
   Map<String, TileNode3D> _selected = {};
   Map<String, List<TileNode3D>> _branches = {};
   Map<String, Group> _visible = {};
+  final _watch = Stopwatch()..start();
+  Duration _elapsed = Duration.zero;
+  _TileTransition? _transition;
+  bool get isTransitioning => _transition != null;
   bool _budgetLimited = false, _disposed = false, _notificationPending = false;
   int _generation = 0;
   Future<void>? _closing;
@@ -102,6 +107,7 @@ class Tiles3DStreamer {
     Tiles3DBudget? budget,
     this.options = const GltfOptions(),
     this.maximumScreenError = 8,
+    this.fadeDuration = Duration.zero,
     this.onChanged,
     DateTime Function()? clock,
   }) : _tileset = tileset,
@@ -109,6 +115,11 @@ class Tiles3DStreamer {
        budget = budget ?? Tiles3DBudget() {
     services.limits.validate();
     options.limits.validate();
+    if (fadeDuration.isNegative || fadeDuration > const Duration(seconds: 5)) {
+      throw ArgumentError(
+        'Fade duration must be between zero and five seconds.',
+      );
+    }
     if (!maximumScreenError.isFinite || maximumScreenError <= 0) {
       throw ArgumentError('Screen error must be positive.');
     }
@@ -145,9 +156,15 @@ class Tiles3DStreamer {
     _budgetLimited,
   );
 
-  void update(Camera camera, ViewportMetrics viewport) {
+  void update(Camera camera, ViewportMetrics viewport, {Duration? elapsed}) {
     _checkOpen();
     if (!viewport.isUsable) return;
+    final time = elapsed ?? _watch.elapsed;
+    if (time.isNegative) {
+      throw ArgumentError('Elapsed time cannot be negative.');
+    }
+    if (time < _elapsed) _finishTransition();
+    _elapsed = time;
     _lastCamera = camera;
     _lastViewport = viewport;
     final before = stats._values;
@@ -243,19 +260,22 @@ class Tiles3DStreamer {
       if (value != null) _cache[id] = value;
     }
     _refresh();
+    _discardInactive();
     _pump();
     bool sameKeys(Map<String, Object> a, Map<String, Object> b) =>
         a.length == b.length && a.keys.every(b.containsKey);
     if (before != stats._values ||
         failuresBefore != _failures.length ||
         !sameKeys(selectedBefore, _selected) ||
-        !sameKeys(visibleBefore, _visible)) {
+        !sameKeys(visibleBefore, _visible) ||
+        isTransitioning) {
       _notify();
     }
   }
 
   void replaceTileset(Tileset3D tileset) {
     _checkOpen();
+    _finishTransition();
     _generation++;
     for (final request in _active) {
       request.cancelled = true;
@@ -298,7 +318,9 @@ class Tiles3DStreamer {
       }
       while (_cachedBytes + _reservedBytes + budget.perTileDecodedBytes >
           budget.maxDecodedBytes) {
-        final unused = _cache.keys.where((id) => !_selected.containsKey(id));
+        final unused = _cache.keys.where(
+          (id) => !_selected.containsKey(id) && !_holdsVisible(id),
+        );
         if (unused.isEmpty) break;
         _evict(unused.first);
       }
@@ -401,7 +423,7 @@ class Tiles3DStreamer {
       request.done.complete();
       if (!_disposed) {
         if (hierarchyChanged && _lastCamera != null && _lastViewport != null) {
-          update(_lastCamera!, _lastViewport!);
+          update(_lastCamera!, _lastViewport!, elapsed: _elapsed);
         } else {
           _refresh();
           _pump();
@@ -441,9 +463,105 @@ class Tiles3DStreamer {
       );
     }
 
-    _visible = _selected.containsKey(tileset.root.id)
+    final desired = _selected.containsKey(tileset.root.id)
         ? coverage(tileset.root).$2
-        : {};
+        : <String, Group>{};
+    _updateTransition(desired);
+  }
+
+  bool _holdsVisible(String id) =>
+      fadeDuration > Duration.zero && _visible.containsKey(id);
+
+  void _cover(Group group, FragmentCoverage coverage) {
+    void visit(Object3D object) {
+      if (object is Mesh) object.fragmentCoverage = coverage;
+      for (final child in object.children) {
+        visit(child);
+      }
+    }
+
+    visit(group);
+  }
+
+  void _finishTransition() {
+    final transition = _transition;
+    if (transition == null) return;
+    for (final group in {...transition.from, ...transition.to}.values) {
+      _cover(group, const FragmentCoverage.full());
+    }
+    _visible = transition.to;
+    _transition = null;
+  }
+
+  void _updateTransition(Map<String, Group> desired) {
+    var transition = _transition;
+    if (transition != null) {
+      if (desired.isEmpty ||
+          _visible.keys.any((id) => !_cache.containsKey(id))) {
+        _finishTransition();
+        _visible = desired;
+        return;
+      }
+      if (_elapsed - transition.started >= fadeDuration) {
+        _finishTransition();
+        transition = null;
+      }
+    }
+    if (transition == null) {
+      final unchanged =
+          desired.length == _visible.length &&
+          desired.keys.every(_visible.containsKey);
+      if (unchanged) return;
+      final union = {..._visible, ...desired};
+      bool related(String a, String b) =>
+          a.startsWith('$b/') || b.startsWith('$a/');
+      final outgoing = _visible.keys.where((id) => !desired.containsKey(id));
+      final incoming = desired.keys.where((id) => !_visible.containsKey(id));
+      final refinement =
+          outgoing.every((a) => desired.keys.any((b) => related(a, b))) &&
+          incoming.every((a) => _visible.keys.any((b) => related(a, b)));
+      final canFade =
+          fadeDuration > Duration.zero &&
+          _visible.isNotEmpty &&
+          desired.isNotEmpty &&
+          refinement &&
+          union.length <= budget.maxSelectedTiles &&
+          union.keys.every(_cache.containsKey) &&
+          union.keys.fold<int>(
+                0,
+                (n, id) => n + _cache[id]!.content.residentBytes,
+              ) <=
+              budget.maxResidentBytes &&
+          _cachedBytes + _reservedBytes <= budget.maxDecodedBytes;
+      if (!canFade) {
+        for (final group in _visible.values) {
+          _cover(group, const FragmentCoverage.full());
+        }
+        _visible = desired;
+        return;
+      }
+      transition = _TileTransition(_visible, desired, _elapsed);
+      _transition = transition;
+    }
+    final progress =
+        ((_elapsed - transition.started).inMicroseconds /
+                fadeDuration.inMicroseconds)
+            .clamp(0.0, 1.0);
+    _visible = {...transition.from, ...transition.to};
+    final outgoing = FragmentCoverage(lower: progress),
+        incoming = FragmentCoverage(upper: progress);
+    for (final entry in _visible.entries) {
+      final before = transition.from.containsKey(entry.key),
+          after = transition.to.containsKey(entry.key);
+      _cover(
+        entry.value,
+        before && after
+            ? const FragmentCoverage.full()
+            : before
+            ? outgoing
+            : incoming,
+      );
+    }
   }
 
   void _evict(String id) {
@@ -471,6 +589,7 @@ class Tiles3DStreamer {
         .where(
           (entry) =>
               !_selected.containsKey(entry.key) &&
+              !_holdsVisible(entry.key) &&
               (provider || !entry.value.freshness.reusable(now)),
         )
         .map((entry) => entry.key)
@@ -492,6 +611,8 @@ class Tiles3DStreamer {
   Future<void> dispose() {
     if (_closing case final closing?) return closing;
     _disposed = true;
+    _finishTransition();
+    _watch.stop();
     for (final request in _active) {
       request.cancelled = true;
       request.task.cancel();
@@ -512,6 +633,12 @@ class Tiles3DStreamer {
   void _checkOpen() {
     if (_disposed) throw StateError('3D Tiles streamer is disposed.');
   }
+}
+
+final class _TileTransition {
+  final Map<String, Group> from, to;
+  final Duration started;
+  const _TileTransition(this.from, this.to, this.started);
 }
 
 final class _LoadedTile {

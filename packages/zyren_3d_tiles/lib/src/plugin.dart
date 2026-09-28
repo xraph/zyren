@@ -5,6 +5,7 @@ class Tiles3DPlugin extends ScenePlugin {
   final AssetServices services;
   final Tiles3DBudget? budget;
   final double maximumScreenError;
+  final Duration fadeDuration;
   final GltfOptions options;
   final void Function(Tiles3DStats)? onChanged;
   Tiles3DStreamer? _streamer;
@@ -15,12 +16,14 @@ class Tiles3DPlugin extends ScenePlugin {
     required this.services,
     this.budget,
     this.maximumScreenError = 8,
+    this.fadeDuration = Duration.zero,
     this.options = const GltfOptions(),
     this.onChanged,
   }) : _tileset = tileset;
   @override
   String get id => 'tiles3d';
   Tiles3DStats? get stats => _streamer?.stats;
+  bool get isTransitioning => _streamer?.isTransitioning ?? false;
   List<String> get attributions => _streamer?.attributions ?? const [];
   List<TileFailure3D> get failures => _streamer?.failures ?? const [];
   Set<String> get visibleTileIds =>
@@ -34,6 +37,7 @@ class Tiles3DPlugin extends ScenePlugin {
       budget: budget,
       options: options,
       maximumScreenError: maximumScreenError,
+      fadeDuration: fadeDuration,
       onChanged: () {
         _sync();
         context.invalidate();
@@ -65,8 +69,10 @@ class Tiles3DPlugin extends ScenePlugin {
       input is ViewportInputSource
           ? input.viewport
           : ViewportMetrics(frame.width.toDouble(), frame.height.toDouble()),
+      elapsed: frame.elapsed,
     );
     _sync();
+    if (isTransitioning) context.invalidate();
   }
 
   void _sync() {
