@@ -45,7 +45,7 @@ class EnvironmentControls {
   final _events = StreamController<NavigationEvent>.broadcast(sync: true);
   Stream<NavigationEvent> get events => _events.stream;
   ViewportMetrics viewport;
-  bool _enabled = true, _closed = false, pendingUpdate = false;
+  bool _enabled = true, _closed = false, pendingUpdate = true;
   bool get enabled => _enabled;
   set enabled(bool value) {
     checkOpen();
@@ -183,8 +183,10 @@ class EnvironmentControls {
     if (!deltaY.isFinite || !point.x.isFinite || !point.y.isFinite) {
       throw ArgumentError('Wheel input must be finite.');
     }
+    if (_hover?.x != point.x || _hover?.y != point.y) {
+      zoomDirectionSet = zoomPointSet = false;
+    }
     _hover = point;
-    zoomDirectionSet = zoomPointSet = false;
     emit(NavigationEvent.start);
     zoomDelta -=
         .25 *
@@ -272,17 +274,18 @@ class EnvironmentControls {
     zoomPointSet = false;
     final inertia = inertiaNeedsUpdate,
         adjustRotation = pendingUpdate || inertiaNeedsUpdate;
+    final action = state;
     if (pendingUpdate || inertia) {
       final delta = zoomDelta;
       updateZoom();
       updatePosition(deltaSeconds);
       updateRotation(deltaSeconds);
-      if (state == EnvironmentState.drag || state == EnvironmentState.rotate) {
+      if (action == EnvironmentState.drag || action == EnvironmentState.rotate) {
         inertiaTargetDistance = (pivotPoint - camera.position).dot(forward);
-      } else if (state == EnvironmentState.none) {
+      } else if (action == EnvironmentState.none) {
         updateInertia(deltaSeconds);
       }
-      if (state != EnvironmentState.none || delta != 0 || inertia) {
+      if (action != EnvironmentState.none || delta != 0 || inertia) {
         emit(NavigationEvent.change);
       }
       pendingUpdate = false;
@@ -609,9 +612,11 @@ class EnvironmentControls {
   }
 
   void rotateAround(Vec3 pivot, Quat rotation) {
-    final f = rotation.rotate(forward), u = rotation.rotate(camera.up);
+    final f = rotation.rotate(forward),
+        u = rotation.rotate((-forward).cross(right));
+    final aimDistance = math.max(1.0, camera.target.distanceTo(camera.position));
     camera.position = pivot + rotation.rotate(camera.position - pivot);
-    camera.target = camera.position + f;
+    camera.target = camera.position + f * aimDistance;
     camera.up = u;
   }
 
@@ -717,7 +722,7 @@ Quat navigationSlerp(Quat a, Quat b, double t) {
     b = Quat(-b.x, -b.y, -b.z, -b.w);
   }
   var x = 1 - t, y = t;
-  if (dot < 1 - 1e-12) {
+  if (dot < .9995) {
     final angle = math.acos(dot.clamp(-1, 1)), sin = math.sin(angle);
     x = math.sin((1 - t) * angle) / sin;
     y = math.sin(t * angle) / sin;

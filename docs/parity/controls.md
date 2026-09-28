@@ -82,7 +82,15 @@ Additional tests cover terrain clearance, interrupted input and plugin disposal.
 Native wheel events refresh their target even without a preceding pointer move;
 this intentionally avoids a stale pointer jump in upstream orthographic zoom.
 CameraTransitionManager passes 12 upstream traces and a fixed-point projection
-check. GlobeControls and native surface navigation qualification remain pending.
+check. GlobeControls passes 24 traces at 30/60/120 Hz with both camera types,
+near/far modes, damping, horizon misses and translated/rotated Earth frames.
+Position and clipping error is below 0.1 mm in these recorded cases.
+
+The port keeps an orthonormal camera frame at the top-down tilt limit. Upstream
+can create a non-unit quaternion there, so that boundary has a separate invariant
+test rather than a claim of trajectory parity. Uniform world scale also scales
+horizon distances; nonuniform and sheared frames are rejected. These corrections
+are deliberate. Native surface navigation qualification remains pending.
 Full story screenshot comparison remains unrun.
 
 ## Native input contract

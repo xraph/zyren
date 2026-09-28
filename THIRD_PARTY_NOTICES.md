@@ -2,7 +2,7 @@
 
 ## 3d-tiles-renderer
 
-CameraTransitionManager and EnvironmentControls are adapted from
+CameraTransitionManager, EnvironmentControls and GlobeControls are adapted from
 3d-tiles-renderer 0.4.24, copyright
 2020 California Institute of Technology, licensed under Apache 2.0. The port
 uses Dart camera values, typed events, native input, surface queries and explicit

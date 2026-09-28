@@ -20,6 +20,32 @@ class _Renderer implements SceneRenderer {
 
 void main() {
   test(
+    'globe navigation resolves the shared ellipsoid and releases controls',
+    () async {
+      final world = GeospatialPlugin(ellipsoid: Ellipsoid(1000, 1000, 950));
+      final navigation = GlobeControlsPlugin(
+        configureGlobe: (c) => c.enableDamping = true,
+      );
+      final engine = await SceneEngine.create(
+        scene: Scene(),
+        camera: PerspectiveCamera(
+          position: const Vec3(3000, 100, 100),
+          up: const Vec3(0, 0, 1),
+          far: 1e7,
+        ),
+        rendererFactory: () async => _Renderer(),
+        plugins: [navigation, world],
+      );
+      expect(navigation.controls!.ellipsoid, same(world.reference.ellipsoid));
+      final controls = navigation.controls!;
+      expect(controls.enableDamping, isTrue);
+      expect(engine.pluginIds, ['geospatial', 'geospatial.globe-controls']);
+      await engine.dispose();
+      expect(navigation.controls, isNull);
+      expect(() => controls.update(.1), throwsStateError);
+    },
+  );
+  test(
     'geospatial registers on the core and orbit uses its configured world',
     () async {
       final geospatial = GeospatialPlugin(ellipsoid: Ellipsoid(10, 10, 8));
