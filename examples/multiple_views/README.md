@@ -34,3 +34,14 @@ transparency remains pending.
 
 See [image decoding](../../docs/design/gpu-resources.md#decode-image-files) for
 the public API, supported formats and memory limits.
+
+You can inspect face culling and lighting with:
+
+```sh
+fvm flutter run -d macos -t lib/material_side_demo.dart
+```
+
+Front, Back and Both select the triangle faces to render. View back moves the
+camera behind the triangle; Mirror changes its parent's scale. Lit and Unlit
+switch shading. The light follows the camera so you can check back-face normals.
+The same entrypoint selects native Vulkan presentation on Android.

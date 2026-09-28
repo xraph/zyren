@@ -79,6 +79,7 @@ class SceneSnapshot {
                   'model': relative.storage.toList(),
                   'color': node.material.color.toList(),
                   'unlit': node.material.unlit,
+                  'side': node.material.side.index,
                   'alpha_mode': node.material.alphaMode.index,
                   'opacity': node.material.opacity,
                   'alpha_cutoff': node.material.alphaCutoff,

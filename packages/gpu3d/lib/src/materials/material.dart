@@ -9,8 +9,13 @@ enum MaterialAlphaMode { opaque, mask, blend }
 /// Automatic writes depth for opaque and masked materials, but not blended ones.
 enum DepthWrite { automatic, enabled, disabled }
 
+/// Triangle faces to render. Winding follows the full world transform, including
+/// mirrored parents. Double-sided and back-face lighting reverse back normals.
+enum MaterialSide { doubleSided, front, back }
+
 sealed class MeshMaterial {
   final Color3 color;
+  final MaterialSide side;
   final TextureMap? colorMap;
   final MaterialAlphaMode alphaMode;
   final double opacity, alphaCutoff;
@@ -18,6 +23,7 @@ sealed class MeshMaterial {
   final DepthWrite depthWrite;
   MeshMaterial({
     Color3? color,
+    this.side = MaterialSide.doubleSided,
     this.colorMap,
     this.alphaMode = MaterialAlphaMode.opaque,
     this.opacity = 1,
@@ -56,6 +62,7 @@ sealed class MeshMaterial {
 final class DiffuseMaterial extends MeshMaterial {
   DiffuseMaterial({
     super.color,
+    super.side,
     super.colorMap,
     super.alphaMode,
     super.opacity,
@@ -67,6 +74,7 @@ final class DiffuseMaterial extends MeshMaterial {
   bool get unlit => false;
   DiffuseMaterial copyWith({
     Color3? color,
+    MaterialSide? side,
     TextureMap? colorMap,
     MaterialAlphaMode? alphaMode,
     double? opacity,
@@ -75,6 +83,7 @@ final class DiffuseMaterial extends MeshMaterial {
     DepthWrite? depthWrite,
   }) => DiffuseMaterial(
     color: color ?? this.color,
+    side: side ?? this.side,
     colorMap: colorMap ?? this.colorMap,
     alphaMode: alphaMode ?? this.alphaMode,
     opacity: opacity ?? this.opacity,
@@ -87,6 +96,7 @@ final class DiffuseMaterial extends MeshMaterial {
 final class UnlitMaterial extends MeshMaterial {
   UnlitMaterial({
     super.color,
+    super.side,
     super.colorMap,
     super.alphaMode,
     super.opacity,
@@ -98,6 +108,7 @@ final class UnlitMaterial extends MeshMaterial {
   bool get unlit => true;
   UnlitMaterial copyWith({
     Color3? color,
+    MaterialSide? side,
     TextureMap? colorMap,
     MaterialAlphaMode? alphaMode,
     double? opacity,
@@ -106,6 +117,7 @@ final class UnlitMaterial extends MeshMaterial {
     DepthWrite? depthWrite,
   }) => UnlitMaterial(
     color: color ?? this.color,
+    side: side ?? this.side,
     colorMap: colorMap ?? this.colorMap,
     alphaMode: alphaMode ?? this.alphaMode,
     opacity: opacity ?? this.opacity,

@@ -135,7 +135,9 @@ final class ScenePacketEncoder {
         uploadBytes > 64 * 1024 * 1024) {
       throw ArgumentError('Scene resource upload exceeds the frame budget.');
     }
-    final opcode = scene._meshes.any((m) => m['primitive_kind'] != 0)
+    final opcode = scene._meshes.any((m) => m['side'] != 0)
+        ? 17
+        : scene._meshes.any((m) => m['primitive_kind'] != 0)
         ? 16
         : scene._meshes.any(
             (m) =>
@@ -250,6 +252,7 @@ final class ScenePacketEncoder {
           body.floats([mesh['primitive_size'] as double]);
           body.u32(mesh['size_units'] as int);
           body.u32(mesh['point_shape'] as int);
+          if (opcode >= 17) body.u32(mesh['side'] as int);
         }
       }
     }
@@ -317,6 +320,7 @@ bool _sameMesh(Map<String, Object> a, Map<String, Object> b) {
   for (final field in [
     'geometry',
     'unlit',
+    'side',
     'alpha_mode',
     'opacity',
     'alpha_cutoff',

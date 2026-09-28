@@ -47,10 +47,10 @@ fn shade(normal: vec3<f32>, sample_color: vec4<f32>) -> vec4<f32> {
         select(1.0, alpha, mode > 1.5));
 }
 
-@fragment fn fs_textured(input: VertexOutput) -> @location(0) vec4<f32> {
-    return shade(input.normal, textureSample(color_map, color_sampler, input.uv));
+@fragment fn fs_textured(input: VertexOutput, @builtin(front_facing) front: bool) -> @location(0) vec4<f32> {
+    return shade(select(-input.normal, input.normal, front), textureSample(color_map, color_sampler, input.uv));
 }
 
-@fragment fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
-    return shade(input.normal, vec4<f32>(1.0));
+@fragment fn fs_main(input: VertexOutput, @builtin(front_facing) front: bool) -> @location(0) vec4<f32> {
+    return shade(select(-input.normal, input.normal, front), vec4<f32>(1.0));
 }

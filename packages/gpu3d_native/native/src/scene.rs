@@ -135,6 +135,8 @@ pub struct Mesh {
     pub color_map: Option<ColorMap>,
     #[serde(default)]
     pub alpha_mode: u32,
+    #[serde(default)]
+    pub side: u32,
     #[serde(default = "one")]
     pub opacity: f32,
     #[serde(default = "half")]
@@ -172,6 +174,7 @@ impl Default for Mesh {
             unlit: false,
             color_map: None,
             alpha_mode: 0,
+            side: 0,
             opacity: 1.,
             alpha_cutoff: 0.5,
             depth_test: true,
@@ -189,6 +192,9 @@ impl Mesh {
         self.depth_write.unwrap_or(self.alpha_mode != 2)
     }
     pub fn validate_material(&self) -> Result<(), String> {
+        if self.side > 2 || (self.primitive_kind != 0 && self.side != 0) {
+            return Err("invalid material side".into());
+        }
         if self.primitive_kind > 2
             || self.size_units > 1
             || self.point_shape > 1

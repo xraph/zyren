@@ -315,6 +315,33 @@ meshes when you need a reliable order; order-independent transparency remains
 future renderer work. The canvas is currently opaque. Transparent Flutter
 composition still needs a separate output color-conversion path.
 
+## Material sides
+
+Use `side: MaterialSide.front` on `UnlitMaterial` or `DiffuseMaterial` to cull
+back faces. `MaterialSide.back` renders the opposite faces, and
+`MaterialSide.doubleSided` renders both. Double-sided remains the default for
+existing core scenes. A glTF loader must choose `front` unless the source
+material enables `doubleSided`.
+
+```dart
+final surface = UnlitMaterial(
+  color: const Color3(.04, .65, 1),
+  side: MaterialSide.front,
+);
+mesh.material = surface.copyWith(side: MaterialSide.doubleSided);
+```
+
+Front winding follows the complete world transform, including mirrored parents.
+The renderer reverses normals when lighting back faces. This applies to plain
+and textured triangles; expanded lines and points remain double-sided.
+`RenderFeature.materialSidedness` reports support. Changing sides uses a mesh
+state update and retains its geometry and texture allocations.
+
+Run `lib/material_side_demo.dart` in the multiple-view example to switch sides,
+move behind the triangle and mirror its parent. The rules follow
+[glTF winding and double-sided lighting](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#double-sided).
+Material sidedness alone does not establish glTF material compatibility.
+
 ## Built-in texture coordinates
 
 `PlaneGeometry`, `BoxGeometry` and `SphereGeometry` include UV0, so you can attach
@@ -417,8 +444,8 @@ RGBA8 unorm and RGBA8 unorm sRGB. Empty or unknown usage bits are rejected.
 
 ## Binary scene protocol, version 2
 
-The render entrypoints accept opcode 16 for portable primitives, opcode 15 for
-alpha/depth/order state, opcode 14
+The render entrypoints accept opcode 17 for material sides, opcode 16 for
+portable primitives, opcode 15 for alpha/depth/order state, opcode 14
 for generated mips, opcode 13 for
 compact indices, opcode 12 for
 geometry patches, opcode 11 for textures and opcode 10 for older untextured
@@ -485,6 +512,12 @@ its opcode 15 state. Material kind must match geometry topology. Sizes must be
 finite and positive, at most 4096 pixels or 1e12 world units. Primitive materials
 reject textures and lighting; expanded geometry rejects UVs and patch records.
 Dynamic primitives send a complete new recipe. Older opcodes default to triangles.
+
+Opcode 17 appends a side u32 to each updated mesh after its opcode 16 material
+state: 0 is double-sided, 1 is front and 2 is back. Other values are rejected.
+Expanded primitives require side 0. Earlier opcodes retain double-sided state.
+The pipeline selects clockwise front winding when the mesh's world transform
+has a negative determinant, and counterclockwise otherwise.
 
 View IDs and revisions are positive. Base zero replaces the complete draw list;
 otherwise it must match the last applied revision and mesh count. Matrices use

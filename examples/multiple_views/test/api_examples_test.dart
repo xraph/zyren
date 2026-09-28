@@ -9,6 +9,7 @@ import 'package:multiple_views/main.dart';
 import 'package:multiple_views/textured_scene_demo.dart';
 import 'package:multiple_views/material_alpha_demo.dart';
 import 'package:multiple_views/primitives_demo.dart';
+import 'package:multiple_views/material_side_demo.dart';
 import '../../../packages/flutter_gpu3d/test/support/backend_fake.dart';
 import '../../../packages/flutter_gpu3d/test/support/fakes.dart';
 
@@ -37,6 +38,48 @@ class TestImageDecoder implements ImageDecoder {
 }
 
 void main() {
+  testWidgets('material side controls retain a usable narrow canvas', (
+    tester,
+  ) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.binding.setSurfaceSize(const Size(320, 640));
+    final backend = FakeBackend();
+    await tester.pumpWidget(
+      MaterialSideApp(
+        runtime: runtime(backend),
+        presentation: PresentationPolicy.readbackOnly,
+      ),
+    );
+    await frames(tester);
+    final controller = tester
+        .widget<SceneView>(find.byType(SceneView))
+        .controller!;
+    final group = controller.scene.children.single;
+    final mesh = group.children.single as Mesh;
+    expect(mesh.material.side, MaterialSide.front);
+    await tester.tap(find.text('Back'));
+    await frames(tester);
+    expect(mesh.material.side, MaterialSide.back);
+    await tester.tap(find.text('View back'));
+    await tester.tap(find.text('Mirror'));
+    await tester.tap(find.text('Unlit'));
+    await frames(tester);
+    expect(controller.camera.position.z, -5);
+    expect(group.scale.x, -1);
+    expect(mesh.material, isA<UnlitMaterial>());
+    expect(mesh.material.side, MaterialSide.back);
+    await tester.tap(find.text('Both'));
+    await frames(tester);
+    expect(mesh.material.side, MaterialSide.doubleSided);
+    expect(tester.getSize(find.byType(SceneView)).height, greaterThan(350));
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    await frames(tester);
+    await controller.whenDisposed;
+    expect(backend.closeCount, 1);
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets(
     'primitive sizing controls preserve resources and fit a narrow canvas',
     (tester) async {

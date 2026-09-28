@@ -207,7 +207,9 @@ sparse, interleaved, normalized and matrix accessors on cancellable workers.
 Required extensions are rejected until their handlers are qualified. Parser
 fixtures also run in a compiled release executable. Model templates, scene and
 material conversion, extension rendering and the model viewer remain open, so
-the combined acceptance checks below stay unchecked.
+the combined acceptance checks below stay unchecked. Native material sides now
+cover front/back culling, mirrored world transforms and back-face normals on
+Metal and Pixel Vulkan. The loader can use that public core material state.
 
 **Files:** Implement core `assets/{asset_scope,asset_request,source_resolver,shared_load}.dart`;
 create `packages/gpu3d_gltf/{pubspec.yaml,lib/gpu3d_gltf.dart}` and decoder modules.

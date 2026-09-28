@@ -497,3 +497,38 @@ fn incompatible_primitive_material_preserves_pixels_and_residency() {
     assert_eq!(renderer.render(&first, 64, 64).unwrap(), pixels);
     assert_eq!(renderer.scene_resource_stats(), (360, 360));
 }
+
+#[test]
+fn sided_packets_validate_flags_and_preserve_legacy_defaults() {
+    let mut valid = primitive_packet();
+    valid[4..8].copy_from_slice(&17_u32.to_le_bytes());
+    valid[180..184].copy_from_slice(&0_u32.to_le_bytes()); // triangles
+    let primitive = valid.len() - 16;
+    valid[primitive..primitive + 4].copy_from_slice(&0_u32.to_le_bytes());
+    valid.extend(1_u32.to_le_bytes());
+    let length = (valid.len() - 24) as u64;
+    valid[16..24].copy_from_slice(&length.to_le_bytes());
+    let frame = ScenePacket::decode(&valid).unwrap().resolve(None).unwrap();
+    assert_eq!(frame.meshes[0].side, 1);
+    for value in [3_u32, u32::MAX] {
+        let mut invalid = valid.clone();
+        let offset = invalid.len() - 4;
+        invalid[offset..].copy_from_slice(&value.to_le_bytes());
+        assert!(ScenePacket::decode(&invalid).is_err());
+    }
+    for end in 0..valid.len() {
+        let mut data = valid[..end].to_vec();
+        if end >= 24 {
+            data[16..24].copy_from_slice(&((end - 24) as u64).to_le_bytes());
+        }
+        assert!(ScenePacket::decode(&data).is_err(), "end {end}");
+    }
+    let mut mixed = valid.clone();
+    mixed[primitive..primitive + 4].copy_from_slice(&2_u32.to_le_bytes());
+    assert!(ScenePacket::decode(&mixed).is_err());
+    let legacy = ScenePacket::decode(&primitive_packet())
+        .unwrap()
+        .resolve(None)
+        .unwrap();
+    assert_eq!(legacy.meshes[0].side, 0);
+}

@@ -5,6 +5,8 @@ use std::collections::HashMap;
 pub(super) struct PipelineKey {
     format: wgpu::TextureFormat,
     textured: bool,
+    side: u32,
+    mirrored: bool,
     blend: bool,
     primitive_kind: u32,
     depth_test: bool,
@@ -15,6 +17,9 @@ impl PipelineKey {
         Self {
             format,
             textured: mesh.color_map.is_some(),
+            side: mesh.side,
+            mirrored: mesh.primitive_kind == 0
+                && glam::Mat4::from_cols_array(&mesh.model).determinant() < 0.,
             blend: mesh.alpha_mode == 2,
             primitive_kind: mesh.primitive_kind,
             depth_test: mesh.depth_test,
@@ -153,7 +158,16 @@ impl MeshPipelines {
                 })],
             }),
             primitive: wgpu::PrimitiveState {
-                cull_mode: None,
+                front_face: if key.mirrored {
+                    wgpu::FrontFace::Cw
+                } else {
+                    wgpu::FrontFace::Ccw
+                },
+                cull_mode: match key.side {
+                    1 => Some(wgpu::Face::Back),
+                    2 => Some(wgpu::Face::Front),
+                    _ => None,
+                },
                 ..Default::default()
             },
             depth_stencil: Some(wgpu::DepthStencilState {

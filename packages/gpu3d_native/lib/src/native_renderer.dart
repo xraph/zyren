@@ -24,6 +24,7 @@ class NativeRenderer implements SceneRenderer {
       RenderFeatures.colorTextures,
       RenderFeatures.alphaMaterials,
       RenderFeatures.portablePrimitives,
+      RenderFeatures.materialSidedness,
     },
     maxDimension: 4096,
   );

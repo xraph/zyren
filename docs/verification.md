@@ -661,3 +661,30 @@ model requests or claim glTF rendering support. Scene conversion, material
 handling, independent model templates and native model-viewer fixtures remain
 open. No renderer code changed, and no additional GPU or platform qualification
 is claimed here.
+
+## Native material sides
+
+Front/back culling, double-sided rendering and back-face lighting pass 64 Rust
+checks and 231 Dart/Flutter tests. The Dart count includes 25 glTF parser tests
+and 36 native tests with GPU cases enabled. Strict Clippy, whole-workspace
+analysis, formatting and package/header checks pass.
+
+The same sidedness fixture passes through Flutter on macOS Metal and the
+physical Pixel's Vulkan backend. Its 120 render probes cover plain and textured
+materials, unlit and diffuse shading, both camera directions, negative and
+nonuniform parent scales, and two nested reflections. Material/camera changes
+upload no additional geometry. Removing the final mesh returns residency to zero.
+Packet fixtures reject invalid side values, single-sided expanded primitives and
+every truncation while preserving legacy double-sided defaults.
+
+`material_side_demo.dart` uses public APIs and native presentation. Its controls
+and disposal pass at 320px width with more than 350px of canvas height. Release
+builds succeed for macOS (49.2 MB) and Android ARM64 (21.8 MB), and the Android
+release launches on the Pixel. The Mac was locked during release UI inspection;
+that manual check remains open. Sustained manual Android interaction also remains
+unverified. These results add no iOS, Windows, Linux or Adreno qualification.
+
+The first Android release build retained the integration-test plugin in a
+generated Java registrant. Rebuilding with normal dependency refresh regenerated
+the release plugin list and passed. Use a normal `flutter build` after running an
+integration target; `--no-pub` can leave that generated development entry behind.
