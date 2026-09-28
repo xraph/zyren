@@ -7,6 +7,7 @@ import 'package:zyren/rendering.dart';
 import 'package:zyren_native/surfaces.dart';
 import '../presentation.dart';
 import 'output_presenter.dart';
+import 'native_gpu_owner.dart';
 
 const _channel = MethodChannel('zyren/scene-views');
 
@@ -22,7 +23,7 @@ SceneException _deferred() => _issue(
 
 /// Apple channel transport for one controller-owned Rust renderer.
 /// Applications select it through SceneRuntime.nativeMetal().
-class NativeMetalBackend implements RenderBackend {
+class NativeMetalBackend with NativeGpuOwner implements GraphBackend {
   final int session;
   final String adapter;
   final _encoder = ScenePacketEncoder(viewId: 1);
@@ -31,6 +32,11 @@ class NativeMetalBackend implements RenderBackend {
   Future<FrameOutput>? _drawing;
   Future<void>? _closing;
   NativeMetalBackend._(this.session, this.adapter);
+  @override
+  bool get gpuOwnerClosed => _closed;
+  @override
+  Future<Map> gpuRequest(Map<String, Object> arguments) async =>
+      (await request<Map>('gpu', arguments))!;
 
   static Future<NativeMetalBackend> create({int? runtimeToken}) async {
     if (!Platform.isMacOS && !Platform.isIOS) {
@@ -75,9 +81,17 @@ class NativeMetalBackend implements RenderBackend {
       RenderFeature.alphaMaterials,
       RenderFeature.portablePrimitives,
       RenderFeature.materialSidedness,
+      RenderFeature.scopedResources,
+      RenderFeature.shaderCompilation,
+      RenderFeature.renderGraphs,
+      RenderFeature.compute,
+      RenderFeature.storageTextures,
+      RenderFeature.floatTextures,
+      RenderFeature.volumeTextures,
     },
     limits: DeviceLimits(
       maxTextureDimension2D: 4096,
+      maxTextureDimension3D: 256,
       maxGeometryBytes: 64 * 1024 * 1024,
     ),
   );
@@ -232,7 +246,13 @@ class NativeMetalBackend implements RenderBackend {
     _closed = true;
     final drawing = _drawing;
     await Future.wait<void>([
-      request<void>('close'),
+      () async {
+        try {
+          await closeGpuScopes();
+        } finally {
+          await request<void>('close');
+        }
+      }(),
       if (drawing != null)
         drawing.then<void>((_) {}, onError: (Object _, StackTrace _) {}),
     ]);

@@ -52,11 +52,28 @@ final class _ResourcePacket {
 final class _NativeResourceDevice
     with _NativeShaders, _NativeGraphs
     implements GraphDevice {
-  final NativeRenderer _renderer;
+  final NativeGpuTransport _transport;
   @override
-  WorkerSession get _worker => _renderer._worker;
+  Future<NativeGpuReply> _requestNative(
+    String operation,
+    Uint8List bytes,
+    int capacity,
+  ) {
+    final control = operation != 'resource';
+    if (control
+        ? (bytes.length > 8 * 1024 * 1024 || capacity != 256 * 1024)
+        : (bytes.length > 64 * 1024 * 1024 + 2048 ||
+              capacity < 24 ||
+              capacity > 64 * 1024 * 1024 + 24)) {
+      return Future.error(
+        ArgumentError('Native command transfer exceeds the limit.'),
+      );
+    }
+    return _transport(operation, bytes, capacity);
+  }
+
   int _nextRequest = 0;
-  _NativeResourceDevice(this._renderer);
+  _NativeResourceDevice(this._transport);
   Future<Uint8List> _command(
     int opcode,
     _ResourcePacket body, {
@@ -70,24 +87,21 @@ final class _NativeResourceDevice
       ..u64(requestId)
       ..u64(payload.length);
     packet._bytes.add(payload);
-    final result =
-        await _worker.request('resource', [
-              TransferableTypedData.fromList([packet.finish()]),
-              responseBytes + 24,
-            ])
-            as List<Object>;
-    final code = result[0] as int;
+    final result = await _requestNative(
+      'resource',
+      packet.finish(),
+      responseBytes + 24,
+    );
+    final code = result.status;
     if (code != 0) {
       throw ResourceException(
         code <= ResourceErrorCode.values.length
             ? ResourceErrorCode.values[code - 1]
             : ResourceErrorCode.invalidCommand,
-        result[1] as String,
+        result.error,
       );
     }
-    final response = (result[1] as TransferableTypedData)
-        .materialize()
-        .asUint8List();
+    final response = result.bytes;
     if (response.length != responseBytes + 24) {
       throw StateError('Invalid native resource response length.');
     }

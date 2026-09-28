@@ -2,6 +2,50 @@ import 'dart:async';
 import 'package:zyren/zyren.dart';
 import 'package:zyren/rendering.dart';
 import 'package:test/test.dart';
+import 'support/fakes.dart';
+
+class PluginBackend implements GraphBackend {
+  final device = Device();
+  final scopes = <ResourceScope>[];
+  final shaders = <ShaderCompiler>[];
+  final graphs = <GraphCompiler>[];
+  @override
+  DeviceCapabilities get capabilities => DeviceCapabilities(
+    name: 'graph plugin',
+    features: {
+      RenderFeature.scopedResources,
+      RenderFeature.shaderCompilation,
+      RenderFeature.renderGraphs,
+    },
+    limits: DeviceLimits(maxTextureDimension2D: 64, maxGeometryBytes: 1024),
+  );
+  @override
+  ResourceScope createResourceScope({String label = ''}) {
+    final value = ResourceScope(device, label: label);
+    scopes.add(value);
+    return value;
+  }
+
+  @override
+  ShaderCompiler createShaderCompiler({String label = ''}) {
+    final value = ShaderCompiler(device, label: label);
+    shaders.add(value);
+    return value;
+  }
+
+  @override
+  GraphCompiler createGraphCompiler({String label = ''}) {
+    final value = GraphCompiler(device, label: label);
+    graphs.add(value);
+    return value;
+  }
+
+  @override
+  Future<void> close() async {}
+  @override
+  Future<FrameOutput> render(FrameSubmission submission) =>
+      throw UnimplementedError();
+}
 
 class Device implements GraphDevice {
   GraphDeviceDescription? submitted;
@@ -64,6 +108,68 @@ class Device implements GraphDevice {
 }
 
 void main() {
+  test(
+    'plugin graph and resource scopes are lazy and close on detach',
+    () async {
+      final backend = PluginBackend();
+      final engine = await SceneEngine.create(
+        scene: Scene(),
+        camera: PerspectiveCamera(),
+        backendFactory: () async => backend,
+        plugins: [
+          TestPlugin(
+            'effect',
+            [],
+            onAttach: (context) {
+              expect(context.resources, same(context.resources));
+              expect(context.graphs, same(context.graphs));
+            },
+            onDetach: (context) {
+              expect(backend.scopes.single.isClosed, isTrue);
+              expect(backend.graphs.single.isClosed, isTrue);
+              expect(() => context.resources, throwsStateError);
+              expect(() => context.graphs, throwsStateError);
+            },
+          ),
+          TestPlugin('idle', []),
+        ],
+      );
+      expect(backend.scopes, hasLength(1));
+      expect(backend.graphs, hasLength(1));
+      expect(backend.shaders, isEmpty);
+      await engine.dispose();
+    },
+  );
+
+  test(
+    'plugin graph access fails with a typed unsupported capability',
+    () async {
+      final engine = SceneEngine.create(
+        scene: Scene(),
+        camera: PerspectiveCamera(),
+        rendererFactory: () async => TestRenderer([]),
+        plugins: [
+          TestPlugin(
+            'effect',
+            [],
+            onAttach: (context) {
+              context.graphs;
+            },
+          ),
+        ],
+      );
+      await expectLater(
+        engine,
+        throwsA(
+          isA<SceneException>().having(
+            (e) => e.issue.code,
+            'code',
+            SceneIssueCodes.unsupportedFeature,
+          ),
+        ),
+      );
+    },
+  );
   late Device device;
   late ResourceScope scope;
   late ShaderCompiler shaders;

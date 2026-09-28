@@ -25,6 +25,7 @@ internal object Native {
     external fun present(handle: Long)
     external fun info(handle: Long): String
     external fun counters(): LongArray
+    external fun gpu(handle: Long, operation: Int, packet: ByteArray, capacity: Int): ByteArray
 }
 
 /** Controller-owned Vulkan renderers with replaceable Flutter surface attachments. */
@@ -239,6 +240,33 @@ class ZyrenPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         val attachment = call.argument<Number>("attachment")?.toLong()
         when (call.method) {
             "close" -> close(session, result)
+            "gpu" -> {
+                val operation = when (call.argument<String>("operation")) {
+                    "resource" -> 0; "shader" -> 1; "graph" -> 2
+                    else -> throw IllegalArgumentException("Unknown GPU operation.")
+                }
+                val bytes = checkNotNull(call.argument<ByteArray>("data"))
+                val requestedCapacity = checkNotNull(call.argument<Number>("capacity")).toLong()
+                require(if (operation == 0) bytes.size <= 64 * 1024 * 1024 + 2048 &&
+                    requestedCapacity in 24L..(64L * 1024 * 1024 + 24)
+                    else bytes.size <= 8 * 1024 * 1024 && requestedCapacity == 256L * 1024) {
+                    "GPU command exceeds its transfer limits."
+                }
+                worker.execute {
+                    try {
+                        check(!session.closed) { "Native session has closed." }
+                        val reply = Native.gpu(session.handle, operation, bytes, requestedCapacity.toInt())
+                        check(reply.size >= 4) { "GPU response is truncated." }
+                        val status = java.nio.ByteBuffer.wrap(reply, 0, 4)
+                            .order(java.nio.ByteOrder.LITTLE_ENDIAN).int
+                        val data = reply.copyOfRange(4, reply.size)
+                        main.post { result.success(mapOf("status" to status, "data" to data,
+                            "error" to if (status == 0) "" else data.toString(Charsets.UTF_8))) }
+                    } catch (error: Exception) {
+                        main.post { result.error("nativeFailure", error.message, null) }
+                    }
+                }
+            }
             "prepare" -> {
                 checkNotNull(attachment)
                 require(attachment > 0 && attachment >= session.attachment &&

@@ -130,8 +130,14 @@ four bind groups and slots 0 through 15 in each group. Buffer offsets require
 shader's layout and device limits. Native admission allows 32 live graphs and
 16 MiB of description storage per device. Labels have a 1024-byte UTF-8 limit.
 
+Plugins obtain lazy attachment-owned `context.resources`, `context.shaders` and
+`context.graphs`. Detachment closes these scopes and drains accepted operations.
+Metal and Android native views run their commands on the same native queue and
+renderer as scene presentation. Host shutdown drains GPU scopes before destroying
+the renderer. The standalone native backend uses the same command adapters.
+
 This profile executes into explicit resource textures. Scene `ShaderMaterial`,
-automatic plugin graph ownership, direct platform-view composition and
-resize/history resources remain in plan 03. Graph execution is verified on
+direct platform-view graph composition and resize/history resources remain in
+plan 03. Graph execution is verified on
 macOS Metal and Pixel Vulkan; see [verification](../verification.md). Other
 platforms have no graph qualification yet.

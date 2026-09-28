@@ -6,6 +6,7 @@ import 'package:zyren/rendering.dart';
 import 'package:zyren_native/surfaces.dart';
 import '../presentation.dart';
 import 'output_presenter.dart';
+import 'native_gpu_owner.dart';
 
 const _channel = MethodChannel('zyren/android-surfaces');
 SceneException _issue(String code, String message, String operation) =>
@@ -19,7 +20,7 @@ SceneException _deferred() => _issue(
 );
 
 /// Controller-owned Vulkan renderer. Select through SceneRuntime.nativeAndroid().
-class NativeAndroidBackend implements RenderBackend {
+class NativeAndroidBackend with NativeGpuOwner implements GraphBackend {
   final int session;
   final String adapter;
   final String? driver;
@@ -29,6 +30,11 @@ class NativeAndroidBackend implements RenderBackend {
   Future<FrameOutput>? _drawing;
   Future<void>? _closing;
   NativeAndroidBackend._(this.session, this.adapter, this.driver);
+  @override
+  bool get gpuOwnerClosed => _closed;
+  @override
+  Future<Map> gpuRequest(Map<String, Object> arguments) async =>
+      (await request<Map>('gpu', arguments))!;
 
   static Future<NativeAndroidBackend> create({int? runtimeToken}) async {
     if (defaultTargetPlatform != TargetPlatform.android) {
@@ -81,9 +87,17 @@ class NativeAndroidBackend implements RenderBackend {
       RenderFeature.alphaMaterials,
       RenderFeature.portablePrimitives,
       RenderFeature.materialSidedness,
+      RenderFeature.scopedResources,
+      RenderFeature.shaderCompilation,
+      RenderFeature.renderGraphs,
+      RenderFeature.compute,
+      RenderFeature.storageTextures,
+      RenderFeature.floatTextures,
+      RenderFeature.volumeTextures,
     },
     limits: DeviceLimits(
       maxTextureDimension2D: 4096,
+      maxTextureDimension3D: 256,
       maxGeometryBytes: 64 * 1024 * 1024,
     ),
   );
@@ -200,7 +214,13 @@ class NativeAndroidBackend implements RenderBackend {
     _closed = true;
     final drawing = _drawing;
     await Future.wait<void>([
-      request<void>('close'),
+      () async {
+        try {
+          await closeGpuScopes();
+        } finally {
+          await request<void>('close');
+        }
+      }(),
       if (drawing != null)
         drawing.then<void>((_) {}, onError: (Object _, StackTrace _) {}),
     ]);

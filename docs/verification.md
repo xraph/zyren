@@ -913,3 +913,23 @@ Validation for this stage: 377 core tests, 72 Rust tests including GPU cases,
 43 native Dart tests (the updated RGBA8 image fixture reran separately), clean
 analysis and strict Clippy, and passing package boundaries. Mobile float texture
 qualification remains part of the final device checks.
+
+## Plugin GPU ownership on native views
+
+Plugin contexts now own resource and graph scopes alongside shader compilers.
+Metal and Android native view transports accept bounded GPU commands on their
+existing native queues. The native command context shares the standalone worker
+adapters and drains accepted work before host renderer destruction.
+
+The macOS Metal integration computed a signed HDR volume, checked its values
+through an explicit fixture readback, then executed the graph before two native
+scene presentations across resize. Teardown returned sessions, renderers, held
+drawables and retiring renderers to zero. Scene presentation reported zero
+readback bytes. The app could not be foregrounded, so this is automated native
+execution evidence without manual window inspection.
+
+Checks passed: 379 core tests, 45 native Dart tests with GPU execution, 74 Flutter
+facade tests, workspace analysis and package boundaries. The Android ARM64 debug
+APK builds with the JNI GPU command transport. Android and iPhone runtime checks
+remain in final qualification. This stage runs plugin graphs alongside scene
+presentation; composition of their output into the visible frame is still open.

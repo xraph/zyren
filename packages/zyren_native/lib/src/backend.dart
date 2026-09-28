@@ -20,7 +20,9 @@ class NativeBackend implements GraphBackend {
     this._experimentalAppleSurfaces, {
     int viewId = 1,
     _NativeResourceDevice? resources,
-  }) : _resources = resources ?? _NativeResourceDevice(_renderer),
+  }) : _resources =
+           resources ??
+           _NativeResourceDevice(_workerTransport(_renderer._worker)),
        _encoder = ScenePacketEncoder(viewId: viewId);
 
   /// An independent view that shares this device and its immutable geometry.

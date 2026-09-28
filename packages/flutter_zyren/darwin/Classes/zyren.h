@@ -14,6 +14,12 @@ uint32_t fg2_shader_command(uint64_t renderer, const uint8_t *input, size_t leng
 /* The graph channel uses the same framing limits and status convention. */
 uint32_t fg2_graph_command(uint64_t renderer, const uint8_t *input, size_t length,
                            uint8_t *output, size_t capacity, size_t *written);
+/* Binary resource commands, version 2. Input is bounded to 64 MiB + 2048;
+ * output capacity is in [24, 64 MiB + 24]. Zero means success. Other values
+ * are resource error codes 1 through 6; read fg_last_error for details.
+ */
+uint32_t fg2_resource_command(uint64_t renderer, const uint8_t *input, size_t length,
+                              uint8_t *output, size_t capacity, size_t *written);
 #define FG2_ABI_VERSION 2
 typedef enum {
   FG2_OK = 0,

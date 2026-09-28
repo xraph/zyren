@@ -54,6 +54,8 @@ class PluginContext {
   final String _pluginId;
   final RenderBackend? _backend;
   ShaderCompiler? _shaders;
+  ResourceScope? _resources;
+  GraphCompiler? _graphs;
   final Scene scene;
   Camera camera;
   final DeviceCapabilities capabilities;
@@ -76,6 +78,52 @@ class PluginContext {
     this._demand,
     this.input,
   );
+
+  /// Allocations belong to this plugin attachment and close during detachment.
+  ResourceScope get resources {
+    if (!_active || scope.isClosed) {
+      throw StateError('Plugin context has been detached.');
+    }
+    if (_resources case final resources?) return resources;
+    final backend = _backend;
+    if (backend is! ResourceBackend) {
+      throw SceneException(
+        SceneIssue(
+          code: SceneIssueCodes.unsupportedFeature,
+          message: 'This backend cannot allocate scoped GPU resources.',
+          operation: 'allocate',
+          pluginId: _pluginId,
+          requiredFeatures: {RenderFeature.scopedResources},
+        ),
+      );
+    }
+    final resources = backend.createResourceScope(label: _pluginId);
+    scope.onClose(resources.close);
+    return _resources = resources;
+  }
+
+  /// Owns the plugin's active graph, including failed-replacement preservation.
+  GraphCompiler get graphs {
+    if (!_active || scope.isClosed) {
+      throw StateError('Plugin context has been detached.');
+    }
+    if (_graphs case final graphs?) return graphs;
+    final backend = _backend;
+    if (backend is! GraphBackend) {
+      throw SceneException(
+        SceneIssue(
+          code: SceneIssueCodes.unsupportedFeature,
+          message: 'This backend cannot execute custom render graphs.',
+          operation: 'graph',
+          pluginId: _pluginId,
+          requiredFeatures: {RenderFeature.renderGraphs},
+        ),
+      );
+    }
+    final graphs = backend.createGraphCompiler(label: _pluginId);
+    scope.onClose(graphs.close);
+    return _graphs = graphs;
+  }
 
   /// Lazily owns shader programs for this attachment. Closing [scope] stops
   /// compilation and releases its programs after accepted work settles.

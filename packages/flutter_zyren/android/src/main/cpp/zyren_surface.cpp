@@ -18,6 +18,9 @@ struct Api {
   decltype(&fg_android_present) present = nullptr;
   decltype(&fg_android_detach) detach = nullptr;
   decltype(&fg_android_info) info = nullptr;
+  decltype(&fg2_resource_command) resource = nullptr;
+  decltype(&fg2_shader_command) shader = nullptr;
+  decltype(&fg2_graph_command) graph = nullptr;
   size_t (*live)() = nullptr;
   size_t (*retiring)() = nullptr;
 } api;
@@ -70,6 +73,9 @@ Java_dev_twinos_zyren_Native_connect(JNIEnv *env, jobject, jlong token) {
   LOAD(present, "fg_android_present")
   LOAD(detach, "fg_android_detach")
   LOAD(info, "fg_android_info")
+  LOAD(resource, "fg2_resource_command")
+  LOAD(shader, "fg2_shader_command")
+  LOAD(graph, "fg2_graph_command")
   LOAD(live, "fg_live_renderer_count")
   LOAD(retiring, "fg_retiring_renderer_count")
 #undef LOAD
@@ -130,5 +136,39 @@ Java_dev_twinos_zyren_Native_counters(JNIEnv *env, jobject) {
   jlong values[] = {static_cast<jlong>(api.live()), static_cast<jlong>(api.retiring())};
   auto result = env->NewLongArray(2);
   env->SetLongArrayRegion(result, 0, 2, values);
+  return result;
+}
+
+extern "C" JNIEXPORT jbyteArray JNICALL
+Java_dev_twinos_zyren_Native_gpu(JNIEnv *env, jobject, jlong handle, jint operation,
+                               jbyteArray packet, jint capacity) {
+  if (!ready(env)) return nullptr;
+  const auto length = env->GetArrayLength(packet);
+  const bool control = operation != 0;
+  if (operation < 0 || operation > 2 || (control ?
+      (length > 8 * 1024 * 1024 || capacity != 256 * 1024) :
+      (length > 64 * 1024 * 1024 + 2048 || capacity < 24 || capacity > 64 * 1024 * 1024 + 24))) {
+    fail(env, "GPU command exceeds its transfer limits."); return nullptr;
+  }
+  std::vector<uint8_t> input(length), output(capacity);
+  env->GetByteArrayRegion(packet, 0, length, reinterpret_cast<jbyte *>(input.data()));
+  if (env->ExceptionCheck()) return nullptr;
+  auto command = operation == 0 ? api.resource : operation == 1 ? api.shader : api.graph;
+  size_t written = 0;
+  uint32_t status = command(handle, input.data(), input.size(), output.data(), output.size(), &written);
+  if (written > output.size()) { fail(env, "GPU response exceeded its capacity."); return nullptr; }
+  if (status != 0) {
+    const auto size = api.error(nullptr, 0);
+    if (size > 65536) { fail(env, "GPU error exceeds its transfer limit."); return nullptr; }
+    output.resize(size);
+    written = api.error(output.data(), size);
+    if (written > output.size()) { fail(env, "GPU error exceeded its capacity."); return nullptr; }
+  }
+  auto result = env->NewByteArray(static_cast<jsize>(written + 4));
+  if (!result) return nullptr;
+  uint8_t header[] = {static_cast<uint8_t>(status), static_cast<uint8_t>(status >> 8),
+                     static_cast<uint8_t>(status >> 16), static_cast<uint8_t>(status >> 24)};
+  env->SetByteArrayRegion(result, 0, 4, reinterpret_cast<jbyte *>(header));
+  env->SetByteArrayRegion(result, 4, static_cast<jsize>(written), reinterpret_cast<jbyte *>(output.data()));
   return result;
 }

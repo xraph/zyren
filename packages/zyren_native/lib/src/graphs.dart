@@ -36,7 +36,11 @@ Object? _graphEncode(Object? value) => switch (value) {
 };
 
 mixin _NativeGraphs {
-  WorkerSession get _worker;
+  Future<NativeGpuReply> _requestNative(
+    String operation,
+    Uint8List bytes,
+    int capacity,
+  );
   int _graphRequest = 0;
   Future<Map<String, dynamic>> _graphCommand(
     Map<String, Object?> command,
@@ -49,20 +53,13 @@ mixin _NativeGraphs {
         'command': _graphEncode(command),
       }),
     );
-    final reply =
-        await _worker.request('graph', [
-              TransferableTypedData.fromList([bytes]),
-              256 * 1024,
-            ])
-            as List<Object>;
-    if (reply[0] != 0) throw StateError(reply[1] as String);
-    final result =
-        jsonDecode(
-              utf8.decode(
-                (reply[1] as TransferableTypedData).materialize().asUint8List(),
-              ),
-            )
-            as Map<String, dynamic>;
+    final reply = await _requestNative(
+      'graph',
+      Uint8List.fromList(bytes),
+      256 * 1024,
+    );
+    if (reply.status != 0) throw StateError(reply.error);
+    final result = jsonDecode(utf8.decode(reply.bytes)) as Map<String, dynamic>;
     if (result['version'] != 1 || result['request'] != request) {
       throw StateError('Invalid native graph response.');
     }
