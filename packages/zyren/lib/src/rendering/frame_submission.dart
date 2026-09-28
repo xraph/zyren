@@ -5,7 +5,7 @@ import '../geometry/geometry.dart';
 import '../geometry/vertex_attribute.dart';
 import '../resources/texture_image.dart';
 import '../resources/resource_scope.dart'
-    show MaterialDevice, MeshShader, EnvironmentDevice;
+    show MaterialDevice, MeshShader, EnvironmentDevice, SpatialAntialiasing;
 import '../scene/scene.dart';
 import '../math/vec3.dart';
 import 'frame_output.dart';

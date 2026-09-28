@@ -1,6 +1,9 @@
 use super::*;
 use crate::scene::RenderSettings;
 
+#[path = "bloom.rs"]
+mod bloom;
+
 pub const HDR: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float;
 const TARGET_BUDGET: u64 = 128 * 1024 * 1024;
 
@@ -104,6 +107,7 @@ struct View {
     history: Image,
     depth: Image,
     multisample: Option<multisample::Multisample>,
+    bloom: Option<bloom::Targets>,
     settings: RenderSettings,
     camera: [f32; 16],
     valid: bool,
@@ -111,6 +115,7 @@ struct View {
 impl View {
     fn bytes(&self) -> u64 {
         self.width as u64 * self.height as u64 * if self.multisample.is_some() { 84 } else { 36 }
+            + self.bloom.as_ref().map_or(0, bloom::Targets::bytes)
     }
 }
 #[repr(C)]
@@ -126,6 +131,8 @@ pub(super) struct Effects {
     views: HashMap<u64, View>,
     outputs: HashMap<wgpu::TextureFormat, wgpu::RenderPipeline>,
     depth_resolve: Option<wgpu::RenderPipeline>,
+    bloom: Option<bloom::Pipelines>,
+    display: Option<wgpu::RenderPipeline>,
 }
 impl Effects {
     pub fn remove(&mut self, id: u64) {
@@ -154,6 +161,8 @@ impl Effects {
             } else {
                 36
             };
+        let requested =
+            requested + bloom::Targets::byte_length(size, frame.settings.bloom.as_ref());
         let other: u64 = self
             .views
             .iter()
@@ -171,6 +180,21 @@ impl Effects {
         }
         if frame.settings.sample_count == 4 && self.depth_resolve.is_none() {
             self.depth_resolve = Some(multisample::pipeline(device));
+        }
+        if bloom::Targets::byte_length(size, frame.settings.bloom.as_ref()) > 0
+            && self.bloom.is_none()
+        {
+            self.bloom = Some(bloom::Pipelines::new(device));
+        }
+        if frame.settings.spatial_antialiasing != 0 && self.display.is_none() {
+            let shader = device.create_shader_module(wgpu::include_wgsl!("output.wgsl"));
+            let bindings = layout(device);
+            let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("FXAA display input"),
+                bind_group_layouts: &[Some(&bindings)],
+                ..Default::default()
+            });
+            self.display = Some(pipeline(device, &shader, &layout, "vertex", "display", HDR));
         }
         self.outputs.entry(format).or_insert_with(|| {
             let shader = device.create_shader_module(wgpu::include_wgsl!("output.wgsl"));
@@ -193,6 +217,8 @@ impl Effects {
             v.width != width
                 || v.height != height
                 || v.settings.sample_count != frame.settings.sample_count
+                || v.bloom.as_ref().map_or(0, bloom::Targets::bytes)
+                    != bloom::Targets::byte_length(size, frame.settings.bloom.as_ref())
         }) {
             let validation = device.push_error_scope(wgpu::ErrorFilter::Validation);
             let memory = device.push_error_scope(wgpu::ErrorFilter::OutOfMemory);
@@ -204,6 +230,7 @@ impl Effects {
                 depth: Image::new(device, width, height, wgpu::TextureFormat::Depth32Float),
                 multisample: (frame.settings.sample_count == 4)
                     .then(|| multisample::Multisample::new(device, size)),
+                bloom: bloom::Targets::new(device, size, frame.settings.bloom.as_ref()),
                 settings: frame.settings.clone(),
                 camera: frame.view_projection,
                 valid: false,
@@ -311,7 +338,7 @@ impl Renderer {
             output: [
                 frame.settings.tone_mapping as f32,
                 if format.is_srgb() { 1. } else { 0. },
-                0.,
+                frame.settings.spatial_antialiasing as f32,
                 0.,
             ],
         };
@@ -322,30 +349,31 @@ impl Renderer {
                 contents: bytemuck::bytes_of(&uniforms),
                 usage: wgpu::BufferUsages::UNIFORM,
             });
-        let bind = |pipeline: &wgpu::RenderPipeline, input: &wgpu::TextureView| {
-            self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some("screen inputs"),
-                layout: &pipeline.get_bind_group_layout(0),
-                entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: wgpu::BindingResource::TextureView(input),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: wgpu::BindingResource::TextureView(&view.depth.view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 2,
-                        resource: wgpu::BindingResource::TextureView(&view.history.view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 3,
-                        resource: buffer.as_entire_binding(),
-                    },
-                ],
-            })
-        };
+        let bind =
+            |pipeline: &wgpu::RenderPipeline, input: &wgpu::TextureView, buffer: &wgpu::Buffer| {
+                self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+                    label: Some("screen inputs"),
+                    layout: &pipeline.get_bind_group_layout(0),
+                    entries: &[
+                        wgpu::BindGroupEntry {
+                            binding: 0,
+                            resource: wgpu::BindingResource::TextureView(input),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 1,
+                            resource: wgpu::BindingResource::TextureView(&view.depth.view),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 2,
+                            resource: wgpu::BindingResource::TextureView(&view.history.view),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 3,
+                            resource: buffer.as_entire_binding(),
+                        },
+                    ],
+                })
+            };
         let mut current = 0;
         for key in &frame.settings.effects {
             let material = self
@@ -355,7 +383,7 @@ impl Renderer {
                 .expect("validated screen shader");
             let pipeline = material.screen_pipeline.as_ref().unwrap();
             let next = if current == 1 { 2 } else { 1 };
-            let group = bind(pipeline, &view.images[current].view);
+            let group = bind(pipeline, &view.images[current].view, &buffer);
             draw(
                 &mut encoder,
                 &view.images[next].view,
@@ -365,9 +393,8 @@ impl Renderer {
             );
             current = next;
         }
-        let pipeline = &self.effects.outputs[&format];
-        let group = bind(pipeline, &view.images[current].view);
-        draw(&mut encoder, output, pipeline, &group, &[]);
+        // History is the custom-effect HDR result, before bloom and output AA.
+        // Reusing a display halo as next frame's scene input would add it twice.
         encoder.copy_texture_to_texture(
             view.images[current].texture.as_image_copy(),
             view.history.texture.as_image_copy(),
@@ -377,6 +404,40 @@ impl Renderer {
                 depth_or_array_layers: 1,
             },
         );
+        if let Some(targets) = &view.bloom {
+            let next = if current == 1 { 2 } else { 1 };
+            self.effects.bloom.as_ref().unwrap().encode(
+                &self.device,
+                &mut encoder,
+                targets,
+                frame.settings.bloom.as_ref().unwrap(),
+                &view.images[current].view,
+                &view.images[next].view,
+            );
+            current = next;
+        }
+        let output_buffer = if frame.settings.spatial_antialiasing != 0 {
+            // Reuse an HDR ping-pong image for encoded display colors. FXAA can
+            // sample it many times without repeating exposure/tone/transfer math.
+            let next = if current == 1 { 2 } else { 1 };
+            let pipeline = self.effects.display.as_ref().unwrap();
+            let group = bind(pipeline, &view.images[current].view, &buffer);
+            draw(&mut encoder, &view.images[next].view, pipeline, &group, &[]);
+            current = next;
+            let mut encoded = uniforms;
+            encoded.output[3] = 1.;
+            self.device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("FXAA output uniforms"),
+                    contents: bytemuck::bytes_of(&encoded),
+                    usage: wgpu::BufferUsages::UNIFORM,
+                })
+        } else {
+            buffer
+        };
+        let pipeline = &self.effects.outputs[&format];
+        let group = bind(pipeline, &view.images[current].view, &output_buffer);
+        draw(&mut encoder, output, pipeline, &group, &[]);
         encoder
     }
     pub(super) fn accept_history(&mut self, frame: &Frame) {

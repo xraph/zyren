@@ -763,3 +763,54 @@ fn sample_counts_are_explicit_and_reject_unsupported_values() {
         assert!(ScenePacket::decode(&data).is_err());
     }
 }
+
+#[test]
+fn builtin_effect_settings_reject_malformed_flags_ranges_and_truncation() {
+    let mut data = packet();
+    data[4..8].copy_from_slice(&27_u32.to_le_bytes());
+    for value in [0_u32, 0, 0, 0, 0, 1_f32.to_bits(), 1_f32.to_bits(), 0] {
+        data.extend(value.to_le_bytes());
+    }
+    data.extend([0_u8; 24]);
+    data.extend([0_u8; 12]);
+    data.extend(0.1_f32.to_le_bytes());
+    data.extend(10_f32.to_le_bytes());
+    data.extend(1_u32.to_le_bytes());
+    let effects = data.len();
+    for value in [
+        1_u32,
+        1,
+        0.5_f32.to_bits(),
+        1_f32.to_bits(),
+        0.5_f32.to_bits(),
+        0.7_f32.to_bits(),
+        5,
+    ] {
+        data.extend(value.to_le_bytes());
+    }
+    let length = (data.len() - 24) as u64;
+    data[16..24].copy_from_slice(&length.to_le_bytes());
+    let frame = ScenePacket::decode(&data).unwrap().resolve(None).unwrap();
+    assert_eq!(frame.settings.spatial_antialiasing, 1);
+    assert_eq!(frame.settings.bloom.unwrap().levels, 5);
+    for (offset, value) in [
+        (0, 2_u32),
+        (4, 2),
+        (8, f32::NAN.to_bits()),
+        (8, 17_f32.to_bits()),
+        (12, (-1_f32).to_bits()),
+        (16, 1.1_f32.to_bits()),
+        (20, f32::INFINITY.to_bits()),
+        (24, 0),
+        (24, 7),
+    ] {
+        let mut invalid = data.clone();
+        invalid[effects + offset..effects + offset + 4].copy_from_slice(&value.to_le_bytes());
+        assert!(ScenePacket::decode(&invalid).is_err());
+    }
+    for end in 24..data.len() {
+        let mut invalid = data[..end].to_vec();
+        invalid[16..24].copy_from_slice(&((end - 24) as u64).to_le_bytes());
+        assert!(ScenePacket::decode(&invalid).is_err());
+    }
+}

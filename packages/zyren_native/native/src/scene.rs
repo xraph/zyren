@@ -392,10 +392,39 @@ pub struct EnvironmentMap {
 }
 
 #[derive(Clone, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BloomSettings {
+    pub intensity: f32,
+    pub threshold: f32,
+    pub soft_knee: f32,
+    pub scatter: f32,
+    pub levels: u32,
+}
+impl BloomSettings {
+    fn validate(&self) -> Result<(), String> {
+        if !self.intensity.is_finite()
+            || !(0.0..=16.).contains(&self.intensity)
+            || !self.threshold.is_finite()
+            || !(0.0..=65504.).contains(&self.threshold)
+            || !self.soft_knee.is_finite()
+            || !(0.0..=1.).contains(&self.soft_knee)
+            || !self.scatter.is_finite()
+            || !(0.0..=1.).contains(&self.scatter)
+            || !(1..=6).contains(&self.levels)
+        {
+            return Err("Invalid bloom parameters".into());
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, PartialEq, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct RenderSettings {
     pub enabled: bool,
     pub sample_count: u32,
+    pub spatial_antialiasing: u32,
+    pub bloom: Option<BloomSettings>,
     pub effects: Vec<[u64; 4]>,
     pub tone_mapping: u32,
     pub exposure: f32,
@@ -411,6 +440,8 @@ impl Default for RenderSettings {
         Self {
             enabled: false,
             sample_count: 1,
+            spatial_antialiasing: 0,
+            bloom: None,
             effects: vec![],
             tone_mapping: 0,
             exposure: 1.,
@@ -432,7 +463,12 @@ impl RenderSettings {
         }) {
             return Err("Invalid environment parameters".into());
         }
-        if ![1, 4].contains(&self.sample_count)
+        if let Some(bloom) = &self.bloom {
+            bloom.validate()?;
+        }
+        if self.spatial_antialiasing > 1
+            || ((self.spatial_antialiasing != 0 || self.bloom.is_some()) && !self.enabled)
+            || ![1, 4].contains(&self.sample_count)
             || (self.sample_count != 1 && !self.enabled)
             || self.camera_origin.iter().any(|v| !v.is_finite())
             || self.effects.len() > 8

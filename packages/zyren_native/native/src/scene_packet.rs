@@ -72,7 +72,7 @@ impl ScenePacket {
             return Err("unsupported scene packet".into());
         }
         let opcode = r.u32()?;
-        if !(10..=26).contains(&opcode) {
+        if !(10..=27).contains(&opcode) {
             return Err("unsupported scene packet".into());
         }
         let textured = opcode >= 11;
@@ -173,6 +173,24 @@ impl ScenePacket {
         }
         if opcode >= 26 {
             settings.sample_count = r.u32()?;
+            settings.validate()?;
+        }
+        if opcode >= 27 {
+            settings.spatial_antialiasing = r.u32()?;
+            settings.bloom = match r.u32()? {
+                0 => None,
+                1 => {
+                    let values = r.floats::<4>()?;
+                    Some(crate::scene::BloomSettings {
+                        intensity: values[0],
+                        threshold: values[1],
+                        soft_knee: values[2],
+                        scatter: values[3],
+                        levels: r.u32()?,
+                    })
+                }
+                _ => return Err("Invalid bloom flag".into()),
+            };
             settings.validate()?;
         }
         crate::scene::validate_shadows(&settings, &lights)?;

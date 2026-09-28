@@ -15,9 +15,9 @@ scene.renderSettings = RenderSettings(
 ```
 
 The renderer draws enabled scenes into RGBA16 float color and Depth32 float
-depth. Effects run in registration order, then one terminal pass applies exposure,
-tone mapping and sRGB conversion. Readback and native presentation use the same
-conversion. Transparent output is premultiplied in sRGB for the compositor;
+depth. Effects run in registration order, followed by optional bloom, exposure,
+tone mapping and sRGB conversion. Optional FXAA filters the encoded result.
+Readback and native presentation use the same conversion. Transparent output is premultiplied in sRGB for the compositor;
 `ImageData.alphaMode` reports that convention. Effects operate on premultiplied
 linear color and must preserve that convention themselves.
 
@@ -49,8 +49,9 @@ uploads change subsequent frames without recompilation.
 
 ## Use history deliberately
 
-Each native view owns its previous final linear HDR result. That result is saved
-before tone mapping. `screen.viewport.z` is 1 when history is valid and 0 when
+Each native view owns its previous custom-effect linear HDR result. That result
+is saved before built-in bloom, tone mapping and FXAA. Keeping bloom out of
+history prevents temporal effects from adding the same halo again. `screen.viewport.z` is 1 when history is valid and 0 when
 it must be ignored. The other viewport components contain width, height and
 exposure. `screen.inverseViewProjection` reconstructs camera-relative positions
 from the depth buffer, whose normalized range is 0 through 1.
@@ -66,7 +67,8 @@ new invalid history. Closing a view or returning it to the direct path releases
 its intermediate targets. `NativeBackend.graphStats().targetBytes` reports these
 allocations. A device has a separate 128 MiB target budget, charged at 36 bytes
 per HDR pixel per view at one sample, or 84 bytes with four-sample color and
-depth targets. Over-budget resize fails before replacing that view's
+depth targets, plus the bloom pyramid when enabled. Over-budget resize fails
+before replacing that view's
 targets. Explicit resource allocations retain their existing 64 MiB budget.
 
 ## Run the consumer
@@ -106,5 +108,45 @@ The Metal fixture compares fractional edges with single-sample output, verifies
 depth reconstruction and checks custom WGSL and instanced PBR pipelines. Resize,
 budget rejection, returning to one sample and target cleanup also pass. Four-sample
 native presentation and mobile output remain part of final qualification.
-A built-in spatial filter, motion-vector reprojection and temporal rejection are
-not implemented at this checkpoint.
+
+## Spatial antialiasing and bloom
+
+```dart
+scene.renderSettings = RenderSettings(
+  toneMapping: ToneMapping.aces,
+  spatialAntialiasing: SpatialAntialiasing.fxaa,
+  bloom: BloomSettings(intensity: .15, threshold: 1, levels: 5),
+);
+```
+
+FXAA uses the luminance and edge-search equations from Three.js r184. It filters
+encoded display colors after tone mapping, where its contrast thresholds apply.
+The display pass reuses an existing ping-pong image; FXAA adds no image allocation.
+For transparent output, alpha contrast can select an edge even when the object is
+black. Interpolating premultiplied color and alpha together avoids a dark fringe.
+FXAA can soften fine text and shader detail. You can choose it, MSAA, both, or
+neither. Motion-vector reprojection and temporal rejection remain follow-up work.
+
+Bloom extracts positive radiance before exposure using the maximum RGB channel,
+a linear threshold and a soft knee. Downsampling happens after extraction so a
+small bright source survives averaging. A normalized tent pyramid spreads the
+light; `scatter` controls the weight of broader levels. Levels range from one
+through six and stop at 1x1. Intensity ranges from zero through 16. Zero intensity
+skips pyramid allocation. `copyWith(clearBloom: true)` removes the settings.
+
+Each pyramid level has two RGBA16 float images. Starting at half resolution with
+rounded-up dimensions, its charge is `16 * sum(levelWidth * levelHeight)` bytes.
+This shares the 128 MiB target budget with HDR, history and MSAA. Parameter changes
+reuse targets when their size is unchanged. Resize and level changes stage a new
+set before replacing the old one.
+
+Bloom retains the original alpha and scales its added radiance by that coverage.
+A transparent background therefore clips the halo outside covered pixels. Use an
+opaque sky or backdrop when the glow should extend into the background.
+
+The Metal probes cover a constant field across pyramid depths, an analytical
+single-level impulse, soft thresholds, pre-exposure extraction, history isolation,
+MSAA composition, odd sizes, 1x1 targets, shared views and budget recovery. Four
+FXAA fixtures compare the output with a CPU evaluation of pinned Three.js r184
+within one byte per channel. The generator is `tool/fxaa_reference.mjs`; its fixture
+records the source hash. These checks do not establish mobile presentation parity.

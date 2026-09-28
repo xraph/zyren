@@ -173,7 +173,11 @@ final class ScenePacketEncoder {
       throw ArgumentError('A view supports at most 65536 instances.');
     }
     final hasTangents = scene._geometries.values.any((g) => g.tangents != null);
-    final opcode = scene._settings.sampleCount != 1
+    final opcode =
+        scene._settings.bloom != null ||
+            scene._settings.spatialAntialiasing != SpatialAntialiasing.none
+        ? 27
+        : scene._settings.sampleCount != 1
         ? 26
         : instanceCount > 0
         ? 25
@@ -261,6 +265,20 @@ final class ScenePacketEncoder {
       }
     }
     if (opcode >= 26) body.u32(scene._settings.sampleCount);
+    if (opcode >= 27) {
+      body.u32(scene._settings.spatialAntialiasing.index);
+      final bloom = scene._settings.bloom;
+      body.u32(bloom == null ? 0 : 1);
+      if (bloom != null) {
+        body.floats([
+          bloom.intensity,
+          bloom.threshold,
+          bloom.softKnee,
+          bloom.scatter,
+        ]);
+        body.u32(bloom.levels);
+      }
+    }
     for (final id in owned) {
       body.u32(id);
     }

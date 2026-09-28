@@ -44,11 +44,46 @@ final class ScreenEffect {
 
 enum ToneMapping { none, reinhard, aces }
 
+enum SpatialAntialiasing { none, fxaa }
+
+/// A normalized HDR bloom pyramid. Threshold is linear, before exposure.
+/// Bloom preserves scene alpha, so transparent backgrounds clip its halo.
+final class BloomSettings {
+  final double intensity, threshold, softKnee, scatter;
+  final int levels;
+  BloomSettings({
+    this.intensity = .15,
+    this.threshold = 1,
+    this.softKnee = .5,
+    this.scatter = .7,
+    this.levels = 5,
+  }) {
+    if (!intensity.isFinite ||
+        intensity < 0 ||
+        intensity > 16 ||
+        !threshold.isFinite ||
+        threshold < 0 ||
+        threshold > 65504 ||
+        !softKnee.isFinite ||
+        softKnee < 0 ||
+        softKnee > 1 ||
+        !scatter.isFinite ||
+        scatter < 0 ||
+        scatter > 1 ||
+        levels < 1 ||
+        levels > 6) {
+      throw ArgumentError('Invalid bloom parameters.');
+    }
+  }
+}
+
 /// Immutable per-view render configuration. Increment [historyEpoch] for a cut
 /// or a discontinuous parameter edit. Camera/projection edits also invalidate.
 final class RenderSettings {
   final List<ScreenEffect> effects;
   final ToneMapping toneMapping;
+  final SpatialAntialiasing spatialAntialiasing;
+  final BloomSettings? bloom;
   final double exposure, backgroundAlpha;
   final int historyEpoch, sampleCount;
   final bool hdr;
@@ -56,6 +91,8 @@ final class RenderSettings {
   RenderSettings({
     Iterable<ScreenEffect> effects = const [],
     this.toneMapping = ToneMapping.none,
+    this.spatialAntialiasing = SpatialAntialiasing.none,
+    this.bloom,
     this.exposure = 1,
     this.backgroundAlpha = 1,
     this.historyEpoch = 0,
@@ -81,6 +118,9 @@ final class RenderSettings {
   RenderSettings copyWith({
     Iterable<ScreenEffect>? effects,
     ToneMapping? toneMapping,
+    SpatialAntialiasing? spatialAntialiasing,
+    BloomSettings? bloom,
+    bool clearBloom = false,
     double? exposure,
     double? backgroundAlpha,
     int? historyEpoch,
@@ -90,6 +130,8 @@ final class RenderSettings {
   }) => RenderSettings(
     effects: effects ?? this.effects,
     toneMapping: toneMapping ?? this.toneMapping,
+    spatialAntialiasing: spatialAntialiasing ?? this.spatialAntialiasing,
+    bloom: clearBloom ? null : bloom ?? this.bloom,
     exposure: exposure ?? this.exposure,
     backgroundAlpha: backgroundAlpha ?? this.backgroundAlpha,
     historyEpoch: historyEpoch ?? this.historyEpoch,
@@ -98,6 +140,8 @@ final class RenderSettings {
     environment: environment ?? this.environment,
   );
   bool get enabled =>
+      spatialAntialiasing != SpatialAntialiasing.none ||
+      bloom != null ||
       sampleCount != 1 ||
       environment != null ||
       hdr ||
