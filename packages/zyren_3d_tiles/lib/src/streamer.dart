@@ -84,6 +84,7 @@ class Tiles3DStreamer {
   final GltfOptions options;
   final double maximumScreenError;
   final void Function()? onChanged;
+  final DateTime Function() _clock;
   final _cache = <String, _LoadedTile>{};
   final _active = <_TileRequest>{};
   final _failures = <String, TileFailure3D>{}, _attempts = <String, int>{};
@@ -102,7 +103,9 @@ class Tiles3DStreamer {
     this.options = const GltfOptions(),
     this.maximumScreenError = 8,
     this.onChanged,
+    DateTime Function()? clock,
   }) : _tileset = tileset,
+       _clock = clock ?? DateTime.now,
        budget = budget ?? Tiles3DBudget() {
     services.limits.validate();
     options.limits.validate();
@@ -149,6 +152,7 @@ class Tiles3DStreamer {
     _lastViewport = viewport;
     final before = stats._values;
     final selectedBefore = _selected, visibleBefore = _visible;
+    _discardInactive();
     final failuresBefore = _failures.length;
     final previous = _branches.keys.toSet();
     final nodes = <String, TileNode3D>{},
@@ -224,6 +228,7 @@ class Tiles3DStreamer {
       queue.addAll(children);
     }
     _selected = nodes;
+    _discardInactive();
     _branches = branches;
     for (final request in _active) {
       if (!nodes.containsKey(request.node.id)) {
@@ -295,13 +300,17 @@ class Tiles3DStreamer {
           budget.maxDecodedBytes) {
         final unused = _cache.keys.where((id) => !_selected.containsKey(id));
         if (unused.isEmpty) break;
-        unawaited(_cache.remove(unused.first)!.scope.close());
+        _evict(unused.first);
       }
       if (_cachedBytes + _reservedBytes + budget.perTileDecodedBytes >
           budget.maxDecodedBytes) {
         continue;
       }
-      final tracker = _TrackedResolver(services.resolver, tileset.sourceUri);
+      final tracker = _TrackedResolver(
+        services.resolver,
+        tileset.sourceUri,
+        _clock,
+      );
       final limits = services.limits;
       final scope = AssetScope(
         services: AssetServices(
@@ -361,7 +370,12 @@ class Tiles3DStreamer {
       final group = content.model?.instantiate(
         transform: request.node.transform,
       );
-      _cache[request.node.id] = _LoadedTile(request.scope, content, group);
+      _cache[request.node.id] = _LoadedTile(
+        request.scope,
+        content,
+        group,
+        request.tracker.freshness,
+      );
       hierarchyChanged = content.hierarchy != null;
       retained = true;
     } catch (error) {
@@ -428,6 +442,40 @@ class Tiles3DStreamer {
         : {};
   }
 
+  void _evict(String id) {
+    final entry = _cache.remove(id);
+    if (entry == null) return;
+    unawaited(entry.scope.close());
+    final hierarchy = entry.content.hierarchy;
+    if (hierarchy == null) return;
+    // A refreshed document may assign a new URI or transform to the same ID.
+    // Retire the descendants with the metadata that defined their identity.
+    void retire(TileNode3D node) {
+      _evict(node.id);
+      for (final child in node.children) {
+        retire(child);
+      }
+    }
+
+    retire(hierarchy.root);
+  }
+
+  void _discardInactive() {
+    final now = _clock();
+    final provider = services.resolver is Tiles3DProviderSession;
+    final discard = _cache.entries
+        .where(
+          (entry) =>
+              !_selected.containsKey(entry.key) &&
+              (provider || !entry.value.freshness.reusable(now)),
+        )
+        .map((entry) => entry.key)
+        .toList();
+    for (final id in discard) {
+      _evict(id);
+    }
+  }
+
   void _notify() {
     if (_notificationPending || _disposed) return;
     _notificationPending = true;
@@ -466,7 +514,8 @@ final class _LoadedTile {
   final AssetScope scope;
   final _StreamContent content;
   final Group? group;
-  const _LoadedTile(this.scope, this.content, this.group);
+  final _TileFreshness freshness;
+  const _LoadedTile(this.scope, this.content, this.group, this.freshness);
 }
 
 final class _TileRequest {
@@ -484,7 +533,9 @@ final class _TrackedResolver implements ByteSourceResolver {
   final ByteSourceResolver delegate;
   final Uri sourceUri;
   final _pending = <Future<void>>{};
-  _TrackedResolver(this.delegate, this.sourceUri);
+  final DateTime Function() clock;
+  final freshness = _TileFreshness();
+  _TrackedResolver(this.delegate, this.sourceUri, this.clock);
   void track(Future<void> future) {
     late final Future<void> settled;
     settled = future
@@ -495,9 +546,11 @@ final class _TrackedResolver implements ByteSourceResolver {
 
   @override
   Future<ResolvedSource> read(Uri uri, SourceReadContext context) {
-    final future = Future.sync(() {
+    final future = Future.sync(() async {
       context.policy.validate(sourceUri, uri);
-      return delegate.read(uri, context);
+      final result = await delegate.read(uri, context);
+      freshness.include(result.headers, clock());
+      return result;
     });
     track(future.then<void>((_) {}));
     return future;

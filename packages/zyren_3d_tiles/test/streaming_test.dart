@@ -86,6 +86,132 @@ void main() {
     },
   );
 
+  test(
+    'HTTP freshness limits inactive cache reuse without refetching every frame',
+    () async {
+      for (final (headers, keepsFresh) in [
+        ({'cache-control': 'private, max-age=10', 'age': '3'}, true),
+        (
+          {
+            'cache-control': 'max-age="10"',
+            'date': 'Sun, 27 Sep 2026 23:59:57 GMT',
+          },
+          true,
+        ),
+        ({'expires': 'Mon, 28 Sep 2026 00:00:07 GMT'}, true),
+        ({'cache-control': 'no-store'}, false),
+        ({'cache-control': 'no-cache'}, false),
+        ({'cache-control': 'max-age=9999999999999999999999'}, false),
+        ({'cache-control': 'max-age=10, max-age=30'}, false),
+      ]) {
+        var now = DateTime.utc(2026, 9, 28);
+        final resolver = HeaderResolver({
+          '/left': triangleModel(),
+          '/right': triangleModel(),
+        }, headers);
+        Map<String, Object?> side(String uri, double x) =>
+            tile(uri: uri)
+              ..['boundingVolume'] = {
+                'sphere': [x, 0, 0, 3],
+              };
+        final root =
+            tile(
+                refine: 'REPLACE',
+                children: [side('left', -50), side('right', 50)],
+              )
+              ..['boundingVolume'] = {
+                'sphere': [0, 0, 0, 100],
+              };
+        final s = Tiles3DStreamer(
+          tileset: await source(root),
+          services: AssetServices(resolver: resolver),
+          clock: () => now,
+        );
+        addTearDown(s.dispose);
+        final camera = OrthographicCamera(
+          left: -5,
+          right: 5,
+          bottom: -5,
+          top: 5,
+          position: const Vec3(-50, -50, 0),
+          target: const Vec3(-50, 0, 0),
+          up: const Vec3(0, 0, 1),
+        );
+        void look(double x) {
+          camera.position = Vec3(x, -50, 0);
+          camera.target = Vec3(x, 0, 0);
+          s.update(camera, const ViewportMetrics(800, 600));
+        }
+
+        look(-50);
+        await settle(s);
+        look(-50);
+        await settle(s);
+        expect(resolver.reads.where((p) => p == '/left'), hasLength(1));
+        look(50);
+        await settle(s);
+        look(-50);
+        await settle(s);
+        expect(
+          resolver.reads.where((p) => p == '/left'),
+          hasLength(keepsFresh ? 1 : 2),
+        );
+        look(50);
+        await settle(s);
+        now = now.add(const Duration(seconds: 8));
+        look(-50);
+        await settle(s);
+        expect(
+          resolver.reads.where((p) => p == '/left'),
+          hasLength(keepsFresh ? 2 : 3),
+        );
+        expect(s.failures, isEmpty);
+      }
+    },
+  );
+
+  test(
+    'expired external metadata also retires payloads whose identity it defined',
+    () async {
+      final resolver = MetadataHeaders({
+        '/nested': tilesetBytes(tile(refine: 'REPLACE', uri: 'old')),
+        '/old': triangleModel(
+          changes: {
+            'asset': {'version': '2.0', 'copyright': 'Old'},
+          },
+        ),
+        '/new': triangleModel(
+          changes: {
+            'asset': {'version': '2.0', 'copyright': 'New'},
+          },
+        ),
+      });
+      final s = Tiles3DStreamer(
+        tileset: await source(tile(refine: 'REPLACE', uri: 'nested')),
+        services: AssetServices(resolver: resolver),
+      );
+      addTearDown(s.dispose);
+      final camera = PerspectiveCamera(
+        position: const Vec3(0, -50, 0),
+        up: const Vec3(0, 0, 1),
+        far: 1e9,
+      );
+      s.update(camera, const ViewportMetrics(800, 600));
+      await settle(s);
+      expect(s.attributions, ['Old']);
+      camera.position = const Vec3(0, -1e7, 0);
+      s.update(camera, const ViewportMetrics(800, 600));
+      resolver.files['/nested'] = tilesetBytes(
+        tile(refine: 'REPLACE', uri: 'new'),
+      );
+      camera.position = const Vec3(0, -50, 0);
+      s.update(camera, const ViewportMetrics(800, 600));
+      await settle(s);
+      expect(resolver.reads, contains('/new'));
+      expect(s.attributions, ['New']);
+    },
+  );
+
   test('tileset error controls appearance before root refinement', () async {
     final resolver = MemoryResolver({'/parent': triangleModel()});
     final streamer = Tiles3DStreamer(
@@ -473,4 +599,31 @@ void main() {
 class AllowReferences extends SourcePolicy {
   @override
   void validate(Uri from, Uri to, {String? fieldPath}) {}
+}
+
+class HeaderResolver extends MemoryResolver {
+  final Map<String, String> headers;
+  HeaderResolver(super.files, this.headers);
+  @override
+  Future<ResolvedSource> read(Uri uri, SourceReadContext context) async {
+    final source = await super.read(uri, context);
+    return ResolvedSource(
+      effectiveUri: source.effectiveUri,
+      bytes: source.bytes,
+      headers: headers,
+    );
+  }
+}
+
+class MetadataHeaders extends MemoryResolver {
+  MetadataHeaders(super.files);
+  @override
+  Future<ResolvedSource> read(Uri uri, SourceReadContext context) async {
+    final source = await super.read(uri, context);
+    return ResolvedSource(
+      effectiveUri: source.effectiveUri,
+      bytes: source.bytes,
+      headers: uri.path == '/nested' ? {'cache-control': 'no-store'} : const {},
+    );
+  }
 }
