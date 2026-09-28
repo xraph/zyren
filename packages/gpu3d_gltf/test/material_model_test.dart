@@ -62,7 +62,7 @@ void main() {
       primitiveModel(
         indices: [0, 1, 2],
         primitiveChanges: {
-          'attributes': {'POSITION': 0, 'COLOR_0': 0},
+          'attributes': {'POSITION': 0, 'COLOR_1': 0},
         },
       ),
     ]) {

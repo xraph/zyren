@@ -169,6 +169,9 @@ class SceneSnapshot {
           textures[binding.image.id] = binding.image;
         }
         if (visible) {
+          if (node.material.vertexColors && geometry.colors == null) {
+            throw ArgumentError('Vertex colors require a color attribute.');
+          }
           if (node.material case ShaderMaterial(:final program)) {
             if (program.isClosed) {
               throw StateError('Mesh shader has closed: ${program.label}');
@@ -199,6 +202,7 @@ class SceneSnapshot {
                   'model': relative.storage.toList(),
                   'color': node.material.color.toList(),
                   'unlit': node.material.unlit,
+                  if (node.material.vertexColors) 'vertex_colors': true,
                   if (node.material case StandardMaterial material)
                     'pbr': <String, Object>{
                       'metallic': material.metallic,

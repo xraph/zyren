@@ -33,8 +33,8 @@ class Sources implements ByteSourceResolver {
       }
       return ResolvedSource(
         effectiveUri: uri,
-        bytes: uri.path.endsWith('pbr.glb')
-            ? File('assets/models/pbr.glb').readAsBytesSync()
+        bytes: uri.path.endsWith('pbr.glb') || uri.path.endsWith('colors.glb')
+            ? File('assets/models/${uri.pathSegments.last}').readAsBytesSync()
             : data,
       );
     } finally {
@@ -119,6 +119,25 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(tester.getSize(find.byType(SceneView)).height, greaterThan(240));
     }
+    await tester.tap(find.text('Colors'));
+    await waitForModel(tester);
+    final root = controller.scene.children.single;
+    expect(root.name, 'Vertex color assembly');
+    final meshes = <Mesh>[];
+    void collect(Object3D object) {
+      if (object is Mesh) meshes.add(object);
+      for (final child in object.children) {
+        collect(child);
+      }
+    }
+
+    collect(root);
+    expect(meshes, hasLength(3));
+    expect(
+      meshes.every((m) => m.material.vertexColors && m.geometry.colors != null),
+      isTrue,
+    );
+    expect(tester.takeException(), isNull);
     await remove(tester);
   });
   testWidgets(

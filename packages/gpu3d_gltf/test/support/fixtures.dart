@@ -111,6 +111,9 @@ Uint8List primitiveModel({
   List<double> positions = const [-1, -1, 0, 1, -1, 0, 1, 1, 0, -1, 1, 0],
   List<double>? normals,
   List<double>? tangents,
+  List<double>? colors,
+  int colorComponents = 4,
+  int colorComponentType = 5126,
   List<int>? indices,
   int mode = 4,
   bool byteUvs = false,
@@ -159,6 +162,44 @@ Uint8List primitiveModel({
   attribute('POSITION', positions, 3);
   if (normals != null) attribute('NORMAL', normals, 3);
   if (tangents != null) attribute('TANGENT', tangents, 4);
+  if (colors != null) {
+    final width = colorComponentType == 5126
+        ? 4
+        : colorComponentType == 5123
+        ? 2
+        : 1;
+    final stride = (width * colorComponents + 3) & ~3;
+    final count = colors.length ~/ colorComponents;
+    final data = ByteData(count * stride);
+    for (var i = 0; i < count; i++) {
+      for (var c = 0; c < colorComponents; c++) {
+        final value = colors[i * colorComponents + c],
+            offset = i * stride + c * width;
+        if (width == 4) {
+          data.setFloat32(offset, value, Endian.little);
+        } else if (width == 2) {
+          data.setUint16(offset, (value * 65535).round(), Endian.little);
+        } else {
+          data.setUint8(offset, (value * 255).round());
+        }
+      }
+    }
+    attributes['COLOR_0'] = accessors.length;
+    accessors.add({
+      'bufferView': views.length,
+      'componentType': colorComponentType,
+      if (colorComponentType != 5126) 'normalized': true,
+      'count': count,
+      'type': 'VEC$colorComponents',
+    });
+    views.add({
+      'buffer': 0,
+      'byteOffset': binary.length,
+      'byteLength': data.lengthInBytes,
+      'byteStride': stride,
+    });
+    binary.add(data.buffer.asUint8List());
+  }
   if (byteUvs) {
     final view = views.length, count = positions.length ~/ 3;
     views.add({

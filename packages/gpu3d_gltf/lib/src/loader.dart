@@ -167,6 +167,9 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
                   uvSet: binding.uvSet,
                 );
           final map = texture(m.colorMap);
+          final vertexColors = geometry.attributes.containsKey(
+            VertexSemantic.color,
+          );
           final MeshMaterial material = switch (geometry.topology) {
             GeometryTopology.triangles when m.standard => StandardMaterial(
               baseColor: m.color,
@@ -182,6 +185,7 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
               emissiveMap: texture(m.emissiveMap),
               side: m.side,
               opacity: m.opacity,
+              vertexColors: vertexColors,
               alphaMode: m.alphaMode,
               alphaCutoff: m.cutoff,
             ),
@@ -190,6 +194,7 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
               colorMap: map,
               side: m.side,
               opacity: m.opacity,
+              vertexColors: vertexColors,
               alphaMode: m.alphaMode,
               alphaCutoff: m.cutoff,
             ),
@@ -198,6 +203,7 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
               size: 1,
               shape: PointShape.square,
               opacity: m.opacity,
+              vertexColors: vertexColors,
               alphaMode: m.alphaMode,
               alphaCutoff: m.cutoff,
             ),
@@ -205,6 +211,7 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
               color: m.color,
               width: 1,
               opacity: m.opacity,
+              vertexColors: vertexColors,
               alphaMode: m.alphaMode,
               alphaCutoff: m.cutoff,
             ),

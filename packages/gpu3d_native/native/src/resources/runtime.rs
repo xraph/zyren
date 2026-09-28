@@ -14,6 +14,7 @@ enum Resource {
         index_format: wgpu::IndexFormat,
         uv: Option<wgpu::Buffer>,
         tangents: Option<wgpu::Buffer>,
+        colors: Option<wgpu::Buffer>,
     },
     Buffer {
         buffer: wgpu::Buffer,
@@ -151,6 +152,7 @@ impl ResourceStore {
             .map(|(p, n)| [p[0], p[1], p[2], n[0], n[1], n[2]])
             .collect();
         let mut expanded_indices = Vec::new();
+        let mut expanded_colors: Vec<[f32; 8]> = Vec::new();
         if geometry.topology != 0 {
             vertices.clear();
             for primitive in 0..geometry.primitive_count() {
@@ -161,6 +163,13 @@ impl ResourceStore {
                 };
                 let a = geometry.positions[geometry.indices[start] as usize];
                 let b = geometry.positions[geometry.indices[end] as usize];
+                if !geometry.colors.is_empty() {
+                    let ca = geometry.colors[geometry.indices[start] as usize];
+                    let cb = geometry.colors[geometry.indices[end] as usize];
+                    expanded_colors.extend_from_slice(
+                        &[[ca[0], ca[1], ca[2], ca[3], cb[0], cb[1], cb[2], cb[3]]; 4],
+                    );
+                }
                 let offset = vertices.len() as u32;
                 vertices.extend_from_slice(&[[a[0], a[1], a[2], b[0], b[1], b[2]]; 4]);
                 expanded_indices.extend_from_slice(&[
@@ -245,6 +254,19 @@ impl ResourceStore {
                     | wgpu::BufferUsages::COPY_DST,
             })
         });
+        let colors = (!geometry.colors.is_empty()).then(|| {
+            device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("scene colors"),
+                contents: if geometry.topology == 0 {
+                    bytemuck::cast_slice(&geometry.colors)
+                } else {
+                    bytemuck::cast_slice(&expanded_colors)
+                },
+                usage: wgpu::BufferUsages::VERTEX
+                    | wgpu::BufferUsages::COPY_SRC
+                    | wgpu::BufferUsages::COPY_DST,
+            })
+        });
         let key = self.registry.insert(
             Resource::Geometry {
                 vertices,
@@ -252,6 +274,7 @@ impl ResourceStore {
                 count: draw_indices.len() as u32,
                 index_format: index_format.native(),
                 tangents,
+                colors,
                 uv,
             },
             bytes,
@@ -291,6 +314,14 @@ impl ResourceStore {
             unreachable!()
         };
         (vertices, indices, *count, uv.as_ref(), *index_format)
+    }
+    pub(crate) fn geometry_colors(&self, key: ResourceKey) -> Option<&wgpu::Buffer> {
+        let Resource::Geometry { colors, .. } =
+            self.registry.resolve(key).expect("retained geometry")
+        else {
+            return None;
+        };
+        colors.as_ref()
     }
     pub(crate) fn geometry_tangents(&self, key: ResourceKey) -> Option<&wgpu::Buffer> {
         let Resource::Geometry { tangents, .. } = self

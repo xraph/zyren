@@ -35,6 +35,7 @@ final class StandardMaterial extends MeshMaterial {
     super.opacity,
     super.alphaCutoff,
     super.depthTest,
+    super.vertexColors,
     super.depthWrite,
   }) : super(color: baseColor, colorMap: baseColorMap) {
     for (final entry in {
@@ -103,6 +104,7 @@ final class StandardMaterial extends MeshMaterial {
     double? opacity,
     double? alphaCutoff,
     bool? depthTest,
+    bool? vertexColors,
     DepthWrite? depthWrite,
   }) => StandardMaterial(
     baseColor: baseColor ?? this.baseColor,
@@ -124,6 +126,7 @@ final class StandardMaterial extends MeshMaterial {
     opacity: opacity ?? this.opacity,
     alphaCutoff: alphaCutoff ?? this.alphaCutoff,
     depthTest: depthTest ?? this.depthTest,
+    vertexColors: vertexColors ?? this.vertexColors,
     depthWrite: depthWrite ?? this.depthWrite,
   );
 }

@@ -183,6 +183,37 @@ Future<void> verifyGltfPbr(NativeGpuBackend backend) async {
   pixel(await render(pbrModel(material: mapped)), expected);
   pixel(
     await render(
+      pbrModel(
+        material: mapped,
+        colorComponentType: 5123,
+        colors: [
+          for (var i = 0; i < 4; i++) ...[.25, 1, 0, .5],
+        ],
+      ),
+    ),
+    [
+      for (var c = 0; c < 3; c++)
+        encode(
+          decode([128, 64, 32][c]) * [.25, 1, 0][c] * .96 / math.pi +
+              .04 / (4 * math.pi) +
+              decode([64, 128, 0][c]) * .25,
+        ),
+      255,
+    ],
+  );
+  pixel(
+    await render(
+      pbrModel(
+        material: {...mapped, 'alphaMode': 'MASK', 'alphaCutoff': .3},
+        colors: [
+          for (var i = 0; i < 4; i++) ...[1, 1, 1, .5],
+        ],
+      ),
+    ),
+    [0, 0, 0, 255],
+  );
+  pixel(
+    await render(
       pbrModel(material: {...mapped, 'alphaMode': 'MASK', 'alphaCutoff': .6}),
     ),
     [0, 0, 0, 255],

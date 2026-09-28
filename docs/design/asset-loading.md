@@ -171,10 +171,10 @@ Only resource identity assignment happens on the caller. Scene selection default
 to the declared scene, then the first scene; scene-free documents cannot be
 instantiated. Names and source diagnostics remain available on the template.
 
-The first material profile covers a subset of static `KHR_materials_unlit`.
-PBR requires `GltfMaterialMode.unlitDiagnostic`, which records an approximation
-warning. Animations, skins, morphs, vertex colors and unsupported required
-extensions fail explicitly. See the [fixture-backed support matrix](../../packages/gpu3d_gltf/README.md)
+The static material profile imports metallic/roughness triangles, all five maps,
+vertex colors and punctual lights. You can select `GltfMaterialMode.unlitDiagnostic`
+for an unlit approximation with a warning. Animations, skins, morphs and
+unsupported required extensions fail explicitly. See the [fixture-backed support matrix](../../packages/gpu3d_gltf/README.md)
 for the exact limits. The broader renderer and full glTF feature set remain work
 in the resource and renderer plan.
 

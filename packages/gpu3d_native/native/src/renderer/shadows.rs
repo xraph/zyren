@@ -29,6 +29,7 @@ struct Caster {
     model: [f32; 16],
     side: u32,
     alpha_mode: u32,
+    vertex_colors: bool,
     opacity: f32,
     cutoff: f32,
     map: Option<crate::scene::ColorMap>,
@@ -52,6 +53,7 @@ pub struct ShadowStats {
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 struct PipelineKey {
     textured: bool,
+    colored: bool,
     mirrored: bool,
     side: u32,
 }
@@ -59,6 +61,7 @@ impl PipelineKey {
     fn new(mesh: &crate::scene::Mesh) -> Self {
         Self {
             textured: mesh.alpha_mode == 1 && mesh.color_map.is_some(),
+            colored: mesh.alpha_mode == 1 && mesh.vertex_colors,
             mirrored: Mat4::from_cols_array(&mesh.model).determinant() < 0.,
             side: mesh.side,
         }
@@ -193,6 +196,7 @@ impl ShadowSystem {
     }
     fn pipeline(&self, device: &wgpu::Device, key: PipelineKey) -> wgpu::RenderPipeline {
         let attributes = wgpu::vertex_attr_array![0 => Float32x3];
+        let color_attributes = wgpu::vertex_attr_array![5=>Float32x4];
         let uv_attributes = wgpu::vertex_attr_array![2 => Float32x2, 3 => Float32x2];
         let mut buffers = vec![Some(wgpu::VertexBufferLayout {
             array_stride: 24,
@@ -206,6 +210,13 @@ impl ShadowSystem {
                 attributes: &uv_attributes,
             }));
         }
+        if key.colored {
+            buffers.push(Some(wgpu::VertexBufferLayout {
+                array_stride: 16,
+                step_mode: wgpu::VertexStepMode::Vertex,
+                attributes: &color_attributes,
+            }));
+        }
         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("shadow depth"),
             layout: Some(if key.textured {
@@ -216,9 +227,17 @@ impl ShadowSystem {
             vertex: wgpu::VertexState {
                 module: &self.shader,
                 entry_point: Some(if key.textured {
-                    "vs_depth_textured"
+                    if key.colored {
+                        "vs_depth_textured_colored"
+                    } else {
+                        "vs_depth_textured"
+                    }
                 } else {
-                    "vs_depth"
+                    if key.colored {
+                        "vs_depth_colored"
+                    } else {
+                        "vs_depth"
+                    }
                 }),
                 compilation_options: Default::default(),
                 buffers: &buffers,
@@ -324,6 +343,18 @@ impl PreparedShadows {
                 let (vertices, indices, count, uv, format) =
                     renderer.resources.geometry(geometry.key);
                 pass.set_vertex_buffer(0, vertices.slice(..));
+                let pipeline = PipelineKey::new(mesh);
+                if pipeline.colored {
+                    pass.set_vertex_buffer(
+                        1 + u32::from(pipeline.textured),
+                        renderer
+                            .resources
+                            .geometry_colors(geometry.key)
+                            .expect("validated shadow colors")
+                            .slice(..),
+                    );
+                }
+
                 if let Some(alpha) = &draw.alpha {
                     pass.set_bind_group(1, alpha, &[]);
                     pass.set_vertex_buffer(1, uv.expect("validated shadow UV buffer").slice(..));
@@ -371,6 +402,7 @@ impl Renderer {
                         model: m.model,
                         side: m.side,
                         alpha_mode: m.alpha_mode,
+                        vertex_colors: m.vertex_colors,
                         opacity: m.opacity,
                         cutoff: m.alpha_cutoff,
                         map: if m.alpha_mode == 1 {

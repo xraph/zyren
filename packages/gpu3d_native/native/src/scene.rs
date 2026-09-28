@@ -47,6 +47,8 @@ pub struct Geometry {
     pub uv1: Vec<[f32; 2]>,
     #[serde(default)]
     pub tangents: Vec<[f32; 4]>,
+    #[serde(default)]
+    pub colors: Vec<[f32; 4]>,
 }
 
 impl Geometry {
@@ -60,7 +62,7 @@ impl Geometry {
     }
     pub fn byte_length(&self) -> usize {
         if self.topology != 0 {
-            return self.primitive_count() * 120;
+            return self.primitive_count() * (if self.colors.is_empty() { 120 } else { 248 });
         }
         self.positions.len()
             * (if self.uv0.is_empty() && self.uv1.is_empty() {
@@ -70,12 +72,14 @@ impl Geometry {
             })
             + self.indices.len() * self.index_format.bytes()
             + self.tangents.len() * 16
+            + self.colors.len() * 16
     }
     pub fn cpu_byte_length(&self) -> usize {
         (self.positions.len() + self.normals.len()) * 12
             + (self.uv0.len() + self.uv1.len()) * 8
             + self.indices.len() * 4
             + self.tangents.len() * 16
+            + self.colors.len() * 16
     }
     pub fn validate(&self) -> Result<(), String> {
         if self.topology > 3
@@ -86,6 +90,16 @@ impl Geometry {
                     || !self.tangents.is_empty()))
         {
             return Err("unsupported primitive topology, attributes or expanded budget".into());
+        }
+        if !self.colors.is_empty()
+            && (self.colors.len() != self.positions.len()
+                || self
+                    .colors
+                    .iter()
+                    .flatten()
+                    .any(|v| !v.is_finite() || !(0.0..=1.0).contains(v)))
+        {
+            return Err("colors need four finite values in [0,1] per vertex".into());
         }
         if !self.tangents.is_empty()
             && (self.tangents.len() != self.positions.len()
@@ -155,6 +169,8 @@ pub struct Mesh {
     pub color: [f32; 3],
     pub unlit: bool,
     #[serde(default)]
+    pub vertex_colors: bool,
+    #[serde(default)]
     pub color_map: Option<ColorMap>,
     #[serde(default)]
     pub pbr: Option<crate::lighting::StandardMaterial>,
@@ -200,6 +216,7 @@ impl Default for Mesh {
             model: glam::Mat4::IDENTITY.to_cols_array(),
             color: [1.; 3],
             unlit: false,
+            vertex_colors: false,
             color_map: None,
             pbr: None,
             alpha_mode: 0,

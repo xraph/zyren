@@ -235,6 +235,48 @@ void main() {
   ];
   // The second scene has PBR surfaces but no authored lights, for viewer fill.
   final pbrGlb = encodeGlb(pbr, data);
+  final colored = jsonDecode(jsonEncode(pbr)) as Map<String, Object?>;
+  final colorBytes = Uint8List.fromList([
+    for (var i = 0; i < positions.length; i += 3)
+      for (var c = 0; c < 3; c++) ((positions[i + c] + .5) * 255).round(),
+  ]);
+  final colorViews = colored['bufferViews'] as List;
+  final colorAccessors = colored['accessors'] as List;
+  final colorIndex = colorAccessors.length;
+  colorAccessors.add({
+    'bufferView': colorViews.length,
+    'componentType': 5121,
+    'normalized': true,
+    'count': positions.length ~/ 3,
+    'type': 'VEC3',
+  });
+  // RGB vertices need a four-byte stride in glTF.
+  final paddedColors = Uint8List(positions.length ~/ 3 * 4);
+  for (var i = 0; i < positions.length ~/ 3; i++) {
+    paddedColors.setRange(i * 4, i * 4 + 3, colorBytes, i * 3);
+  }
+  colorViews.add({
+    'buffer': 0,
+    'byteOffset': data.length,
+    'byteLength': paddedColors.length,
+    'byteStride': 4,
+  });
+  final coloredData =
+      (BytesBuilder()
+            ..add(data)
+            ..add(paddedColors))
+          .toBytes();
+  (colored['buffers'] as List).first['byteLength'] = coloredData.length;
+  for (final mesh in colored['meshes'] as List) {
+    for (final primitive in mesh['primitives'] as List) {
+      primitive['attributes']['COLOR_0'] = colorIndex;
+    }
+  }
+  for (final material in colored['materials'] as List) {
+    material['pbrMetallicRoughness']['baseColorFactor'] = [1, 1, 1, 1];
+  }
+  (colored['scenes'] as List).first['name'] = 'Vertex color assembly';
+  final coloredGlb = encodeGlb(colored, coloredData);
   root['buffers'] = [
     <String, Object?>{'byteLength': data.length, 'uri': 'assembly.bin'},
   ];
@@ -247,6 +289,7 @@ void main() {
       ..createSync(recursive: true);
     File('${location.path}/assembly.glb').writeAsBytesSync(glb);
     File('${location.path}/pbr.glb').writeAsBytesSync(pbrGlb);
+    File('${location.path}/colors.glb').writeAsBytesSync(coloredGlb);
     File('${location.path}/assembly.gltf').writeAsStringSync(
       "${const JsonEncoder.withIndent('  ').convert(root)}\n",
     );

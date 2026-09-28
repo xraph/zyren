@@ -35,7 +35,9 @@ retains the previous model until its replacement loads and frames successfully.
 Choose PBR model for a metallic/roughness assembly with authored point and
 directional lights. Its second scene has no lights, so the viewer supplies a
 studio setup that you can toggle in the header. Imported lights always take
-precedence. The material-mode menu also offers an unlit diagnostic approximation
+precedence. Choose Colors to see normalized RGB vertex colors on the same
+assembly. You can start there with `--dart-define=GPU3D_MODEL=colors.glb`.
+The material-mode menu also offers an unlit diagnostic approximation
 for the next load or retry, with a warning on the loaded model. The loader currently supports a
 static subset of glTF, with unsupported features reported through source/field
 diagnostics. Read the [support matrix](../../packages/gpu3d_gltf/README.md) before

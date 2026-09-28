@@ -83,6 +83,7 @@ class BufferGeometry {
   List<int> get indices => _snapshot.indices;
   List<double>? get uv0 => _snapshot.uv0;
   List<double>? get uv1 => _snapshot.uv1;
+  List<double>? get colors => _snapshot.colors;
   GeometrySnapshot capture() => _snapshot;
 
   BufferGeometry({

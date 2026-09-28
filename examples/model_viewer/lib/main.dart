@@ -451,6 +451,10 @@ class _ModelViewerState extends State<ModelViewer> {
                   onPressed: () => load(bundle('pbr.glb')),
                   child: const Text('PBR model'),
                 ),
+                TextButton(
+                  onPressed: () => load(bundle('colors.glb')),
+                  child: const Text('Colors'),
+                ),
               ],
             ),
             if (diagnostic)

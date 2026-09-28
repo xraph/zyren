@@ -512,6 +512,9 @@ impl Renderer {
                 1 | 2 => 1,
                 _ => 2,
             };
+            if mesh.vertex_colors && (geometry.colors.is_empty() || mesh.shader.is_some()) {
+                return Err("Vertex colors require a color attribute and built-in material".into());
+            }
             if kind != mesh.primitive_kind {
                 return Err("material and geometry topology mismatch".into());
             }
@@ -815,6 +818,18 @@ impl Renderer {
                 let (vertices, indices, count, uv, index_format) =
                     self.resources.geometry(geometry.key);
                 pass.set_vertex_buffer(0, vertices.slice(..));
+                if mesh.vertex_colors {
+                    let textured = mesh.texture_maps().next().is_some();
+                    let tangent =
+                        textured && mesh.pbr.is_some() && !geometry.recipe.tangents.is_empty();
+                    pass.set_vertex_buffer(
+                        1 + u32::from(textured) + u32::from(tangent),
+                        self.resources
+                            .geometry_colors(geometry.key)
+                            .expect("validated color buffer")
+                            .slice(..),
+                    );
+                }
                 if materials[index]
                     .as_ref()
                     .is_some_and(|material| material.uv)

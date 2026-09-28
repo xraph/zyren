@@ -39,7 +39,7 @@ impl GeometryPatch {
         let mut previous = None;
         for range in &self.ranges {
             let count = range.count();
-            if range.semantic > 4
+            if range.semantic > 5
                 || count == 0
                 || !range.values.len().is_multiple_of(range.components())
                 || range.values.iter().any(|v| !v.is_finite())
@@ -61,6 +61,7 @@ impl GeometryPatch {
             if (range.semantic == 2 && base.uv0.is_empty())
                 || (range.semantic == 3 && base.uv1.is_empty())
                 || (range.semantic == 4 && base.tangents.is_empty())
+                || (range.semantic == 5 && base.colors.is_empty())
             {
                 return Err("geometry patch cannot change its vertex layout".into());
             }
@@ -84,6 +85,7 @@ impl GeometryPatch {
                     2 => next.uv0[index].copy_from_slice(values),
                     3 => next.uv1[index].copy_from_slice(values),
                     4 => next.tangents[index].copy_from_slice(values),
+                    5 => next.colors[index].copy_from_slice(values),
                     _ => unreachable!(),
                 }
             }
@@ -94,7 +96,7 @@ impl GeometryPatch {
     // Native position/normal and UV0/UV1 pairs use interleaved buffers.
     pub fn gpu_ranges(&self) -> Vec<(u32, usize, usize)> {
         let mut result = Vec::new();
-        for buffer in 0..3 {
+        for buffer in 0..4 {
             let mut ranges: Vec<_> = self
                 .ranges
                 .iter()
@@ -104,7 +106,7 @@ impl GeometryPatch {
                     } else if r.semantic < 4 {
                         1
                     } else {
-                        2
+                        r.semantic - 2
                     }) == buffer
                 })
                 .map(|r| (r.first as usize, r.first as usize + r.count()))

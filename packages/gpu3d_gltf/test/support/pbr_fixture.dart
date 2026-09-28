@@ -22,6 +22,8 @@ Uint8List pbrModel({
   Map<String, Object?> lightNode = const {},
   double handedness = 1,
   bool unlit = false,
+  List<double>? colors,
+  int colorComponentType = 5126,
 }) => primitiveModel(
   indices: [0, 1, 2, 0, 2, 3],
   normals: [
@@ -31,6 +33,8 @@ Uint8List pbrModel({
     for (var i = 0; i < 4; i++) ...[1, 0, 0, handedness],
   ],
   byteUvs: true,
+  colors: colors,
+  colorComponentType: colorComponentType,
   changes: {
     'extensionsUsed': ['KHR_lights_punctual', if (unlit) 'KHR_materials_unlit'],
     'extensionsRequired': [

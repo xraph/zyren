@@ -70,10 +70,11 @@ unknown optional extensions produce warnings and use the core fallback data.
 | Untextured points, segments, loops and strips | `geometry_model_test`; one-pixel native primitives |
 | Unlit base color, opacity, mask/blend, front or double-sided faces | `material_model_test`; native alpha and side fixtures |
 | PNG/JPEG sources, image buffer views, data URIs, UV0/UV1 and samplers | `image_model_test`; native glTF texture/lifetime fixture |
-| `KHR_materials_unlit` | Partial: the listed static features; vertex colors still unsupported |
+| `COLOR_0` float or normalized byte/short RGB/RGBA | `vertex_color_model_test`; native interpolation, alpha and shadow probes |
+| `KHR_materials_unlit` | Listed static features, including vertex color and alpha |
 | PBR triangle materials and authored tangents | `pbr_model_test`; native analytic reference pixels |
 | `KHR_lights_punctual` | Directional, point and spot instances, transforms, units, range and cones; bounded native profile |
-| Animations, skins, morphs, vertex colors and imported cameras | Explicit unsupported-feature error |
+| Animations, skins, morphs and imported cameras | Explicit unsupported-feature error |
 | Lit or textured lines/points, UV sets above one, singular or out-of-range native transforms | Explicit unsupported-feature error |
 | Draco, meshopt, Basis/KTX2 and other required extensions | Explicit unsupported-feature error |
 

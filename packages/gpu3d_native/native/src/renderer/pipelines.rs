@@ -7,6 +7,7 @@ pub(super) struct PipelineKey {
     textured: bool,
     standard: bool,
     tangent: bool,
+    colored: bool,
     side: u32,
     mirrored: bool,
     blend: bool,
@@ -18,6 +19,7 @@ impl PipelineKey {
     pub(super) fn new(format: wgpu::TextureFormat, mesh: &Mesh, tangent: bool) -> Self {
         Self {
             format,
+            colored: mesh.vertex_colors,
             textured: mesh.texture_maps().next().is_some(),
             tangent: tangent && mesh.pbr.is_some() && mesh.texture_maps().next().is_some(),
             standard: mesh.pbr.is_some(),
@@ -133,6 +135,7 @@ impl MeshPipelines {
     fn create(&self, device: &wgpu::Device, key: PipelineKey) -> wgpu::RenderPipeline {
         let attributes = wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3];
         let uv_attributes = wgpu::vertex_attr_array![2 => Float32x2, 3 => Float32x2];
+        let color_attributes = wgpu::vertex_attr_array![5=>Float32x4,6=>Float32x4];
         let tangent_attributes = wgpu::vertex_attr_array![4 => Float32x4];
         let mut buffers = vec![Some(wgpu::VertexBufferLayout {
             array_stride: 24,
@@ -153,6 +156,17 @@ impl MeshPipelines {
                 attributes: &tangent_attributes,
             }));
         }
+        if key.colored {
+            buffers.push(Some(wgpu::VertexBufferLayout {
+                array_stride: if key.primitive_kind == 0 { 16 } else { 32 },
+                step_mode: wgpu::VertexStepMode::Vertex,
+                attributes: if key.primitive_kind == 0 {
+                    &color_attributes[..1]
+                } else {
+                    &color_attributes
+                },
+            }));
+        }
         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("native mesh state"),
             layout: Some(if key.standard && key.textured {
@@ -167,15 +181,31 @@ impl MeshPipelines {
             vertex: wgpu::VertexState {
                 module: &self.shader,
                 entry_point: Some(if key.primitive_kind == 1 {
-                    "vs_line"
+                    if key.colored {
+                        "vs_line_colored"
+                    } else {
+                        "vs_line"
+                    }
                 } else if key.primitive_kind == 2 {
-                    "vs_point"
+                    if key.colored {
+                        "vs_point_colored"
+                    } else {
+                        "vs_point"
+                    }
                 } else if key.tangent {
-                    "vs_standard_tangent"
+                    if key.colored {
+                        "vs_standard_tangent_colored"
+                    } else {
+                        "vs_standard_tangent"
+                    }
                 } else if key.textured {
-                    "vs_textured"
+                    if key.colored {
+                        "vs_textured_colored"
+                    } else {
+                        "vs_textured"
+                    }
                 } else {
-                    "vs_main"
+                    if key.colored { "vs_colored" } else { "vs_main" }
                 }),
                 compilation_options: Default::default(),
                 buffers: &buffers,

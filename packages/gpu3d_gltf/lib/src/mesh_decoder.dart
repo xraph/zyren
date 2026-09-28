@@ -85,9 +85,7 @@ PreparedModel prepareModel(
       for (final entry in attributes.entries) {
         final semantic = entry.key,
             attributePath = '$path.attributes.$semantic';
-        if (semantic.startsWith('COLOR_') ||
-            semantic.startsWith('JOINTS_') ||
-            semantic.startsWith('WEIGHTS_')) {
+        if (semantic.startsWith('JOINTS_') || semantic.startsWith('WEIGHTS_')) {
           fail(
             attributePath,
             'This vertex semantic is not yet supported by the native model profile.',
@@ -98,6 +96,7 @@ PreparedModel prepareModel(
               'POSITION',
               'NORMAL',
               'TANGENT',
+              'COLOR_0',
               'TEXCOORD_0',
               'TEXCOORD_1',
             ].contains(semantic) &&
@@ -126,6 +125,15 @@ PreparedModel prepareModel(
         } else if (semantic == 'TANGENT') {
           if (a.type != 'VEC4' || a.componentType != 5126 || a.normalized) {
             fail(attributePath, 'Tangents require float VEC4 accessors.');
+          }
+        } else if (semantic == 'COLOR_0') {
+          if (!['VEC3', 'VEC4'].contains(a.type) ||
+              !((a.componentType == 5126 && !a.normalized) ||
+                  ([5121, 5123].contains(a.componentType) && a.normalized))) {
+            fail(
+              attributePath,
+              'Colors require float or normalized unsigned RGB/RGBA accessors.',
+            );
           }
         } else if (semantic.startsWith('TEXCOORD_')) {
           if (a.type != 'VEC2' ||
@@ -298,6 +306,19 @@ PreparedModel prepareModel(
           }
         }
         attribute(VertexSemantic.normal, normals, VertexFormat.float32x3);
+      }
+      if (decoded['COLOR_0'] case final color?) {
+        final values = expanded(color);
+        budget.reserve(vertexCount * 16, path);
+        final colors = Float32List(vertexCount * 4);
+        for (var i = 0; i < vertexCount; i++) {
+          for (var c = 0; c < 4; c++) {
+            colors[i * 4 + c] = c >= color.components
+                ? 1
+                : values[i * color.components + c].clamp(0, 1);
+          }
+        }
+        attribute(VertexSemantic.color, colors, VertexFormat.float32x4);
       }
       if (topology == GeometryTopology.triangles) {
         if (tangent != null && suppliedNormals != null) {

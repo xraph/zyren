@@ -52,9 +52,6 @@ void main() {
     }
 
     Future<void> loadWith(Finder control) async {
-      // Frame statistics are sampled at 200 ms. Space demand-rendered loads so
-      // the next native frame is observable even when a local asset loads fast.
-      await tester.pump(const Duration(milliseconds: 250));
       frames.clear();
       await tester.tap(control);
       await ready();
@@ -107,6 +104,10 @@ void main() {
       await tester.tap(find.byTooltip('Studio light'));
       await tester.pump();
       expect(studio.visible, isFalse);
+
+      await loadWith(find.text('Colors'));
+      expect(controller.scene.children.single.name, 'Vertex color assembly');
+      expect(frames.last.readbackBytes, 0);
 
       expect(tester.takeException(), isNull);
     } finally {

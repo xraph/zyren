@@ -109,7 +109,7 @@ struct StandardSurface {
 };
 fn standard_surface(input: VertexOutput) -> StandardSurface {
     var surface: StandardSurface;
-    surface.base = vec4(uniforms.color_unlit.rgb, 1.);
+    surface.base = vec4(uniforms.color_unlit.rgb, 1.) * input.color;
     surface.normal = normalized_or(input.normal, vec3(0.,0.,1.));
     surface.metallic = uniforms.pbr_params.x;
     surface.roughness = uniforms.pbr_params.y;

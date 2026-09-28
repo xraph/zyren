@@ -4,6 +4,7 @@ import 'package:flutter_gpu3d/src/presentation/native_metal_presenter.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import '../../../packages/gpu3d_native/test/support/gltf_pbr_checks.dart';
+import '../../../packages/gpu3d_native/test/support/vertex_colors_checks.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -13,6 +14,7 @@ void main() {
         : await NativeMetalBackend.create();
     try {
       await verifyGltfPbr(backend);
+      await verifyVertexColors(backend);
     } finally {
       await backend.close();
     }

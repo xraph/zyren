@@ -75,7 +75,7 @@ impl ScenePacket {
             return Err("unsupported scene packet".into());
         }
         let opcode = r.u32()?;
-        if !(10..=22).contains(&opcode) {
+        if !(10..=23).contains(&opcode) {
             return Err("unsupported scene packet".into());
         }
         let textured = opcode >= 11;
@@ -290,7 +290,9 @@ impl ScenePacket {
                 IndexFormat::Uint32
             };
             if uv_flags
-                > if opcode >= 20 {
+                > if opcode >= 23 {
+                    31
+                } else if opcode >= 20 {
                     15
                 } else if opcode >= 13 {
                     7
@@ -311,7 +313,8 @@ impl ScenePacket {
             let needed = vertex_count
                 * (24
                     + (uv_flags & 3).count_ones() as usize * 8
-                    + if uv_flags & 8 != 0 { 16 } else { 0 })
+                    + if uv_flags & 8 != 0 { 16 } else { 0 }
+                    + if uv_flags & 16 != 0 { 16 } else { 0 })
                 + index_count * index_format.bytes();
             if needed > data.len() - r.offset {
                 return Err("truncated geometry payload".into());
@@ -326,6 +329,7 @@ impl ScenePacket {
                 uv0: Vec::new(),
                 uv1: Vec::new(),
                 tangents: Vec::new(),
+                colors: Vec::new(),
             };
             for _ in 0..vertex_count {
                 geometry.positions.push(r.floats()?);
@@ -356,6 +360,11 @@ impl ScenePacket {
                     geometry.tangents.push(r.floats()?);
                 }
             }
+            if uv_flags & 16 != 0 {
+                for _ in 0..vertex_count {
+                    geometry.colors.push(r.floats()?);
+                }
+            }
             geometry.validate()?;
             geometries.push(geometry);
         }
@@ -373,7 +382,14 @@ impl ScenePacket {
                 let semantic = r.u32()?;
                 let first = r.u32()?;
                 let count = r.u32()?;
-                if semantic > if opcode >= 20 { 4 } else { 3 }
+                if semantic
+                    > if opcode >= 23 {
+                        5
+                    } else if opcode >= 20 {
+                        4
+                    } else {
+                        3
+                    }
                     || count == 0
                     || first
                         .checked_add(count)
@@ -531,6 +547,13 @@ impl ScenePacket {
                 }
                 mesh.cast_shadow = cast == 1;
                 mesh.receive_shadow = receive == 1;
+            }
+            if opcode >= 23 {
+                mesh.vertex_colors = match r.u32()? {
+                    0 => false,
+                    1 => true,
+                    _ => return Err("Invalid vertex color flag".into()),
+                };
             }
             updates.push((index, mesh));
         }

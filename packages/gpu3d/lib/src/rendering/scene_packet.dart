@@ -54,10 +54,10 @@ final class ScenePacketEncoder {
     for (final geometry in scene._geometries.values) {
       if (!visible.contains(geometry.id)) continue;
       if (geometry.attributes.keys.any(
-        (s) => s.index > VertexSemantic.tangent.index,
+        (s) => s.index > VertexSemantic.color.index,
       )) {
         throw UnsupportedError(
-          'This renderer supports position, normal, UV and tangent attributes.',
+          'This renderer supports position, normal, UV, tangent and color attributes.',
         );
       }
       if (geometry.topology != GeometryTopology.triangles &&
@@ -141,7 +141,11 @@ final class ScenePacketEncoder {
         uploadBytes > 64 * 1024 * 1024) {
       throw ArgumentError('Scene resource upload exceeds the frame budget.');
     }
-    final opcode = scene.hasShadows
+    final opcode =
+        scene._geometries.values.any((g) => g.colors != null) ||
+            scene._meshes.any((m) => m['vertex_colors'] == true)
+        ? 23
+        : scene.hasShadows
         ? 22
         : submission.colorPipeline != null
         ? 21
@@ -272,7 +276,8 @@ final class ScenePacketEncoder {
         (geometry.uv0 == null ? 0 : 1) |
             (geometry.uv1 == null ? 0 : 2) |
             (geometry.indexFormat == IndexFormat.uint16 ? 4 : 0) |
-            (geometry.tangents == null ? 0 : 8),
+            (geometry.tangents == null ? 0 : 8) |
+            (geometry.colors == null ? 0 : 16),
       );
       if (opcode >= 16) body.u32(geometry.topology.index);
       body.floats(geometry.positions);
@@ -281,6 +286,7 @@ final class ScenePacketEncoder {
       if (geometry.uv0 != null) body.floats(geometry.uv0!);
       if (geometry.uv1 != null) body.floats(geometry.uv1!);
       if (geometry.tangents != null) body.floats(geometry.tangents!);
+      if (geometry.colors != null) body.floats(geometry.colors!);
     }
     for (final patch in patches) {
       body.u32(patch.geometry.id);
@@ -291,8 +297,12 @@ final class ScenePacketEncoder {
         body.u32(range.firstVertex);
         body.u32(range.vertexCount);
         final attribute = patch.geometry.attributes[range.semantic]!;
-        final values = attribute.data as Float32List;
-        final components = attribute.format.components;
+        final values = range.semantic == VertexSemantic.color
+            ? patch.geometry.colors!
+            : attribute.data as Float32List;
+        final components = range.semantic == VertexSemantic.color
+            ? 4
+            : attribute.format.components;
         body.floats(
           values.sublist(
             range.firstVertex * components,
@@ -354,6 +364,7 @@ final class ScenePacketEncoder {
         body.u32(mesh['cast_shadow'] == true ? 1 : 0);
         body.u32(mesh['receive_shadow'] == true ? 1 : 0);
       }
+      if (opcode >= 23) body.u32(mesh['vertex_colors'] == true ? 1 : 0);
     }
     final payload = body.finish();
     if (payload.length > 66 * 1024 * 1024 - 24) {
@@ -398,14 +409,14 @@ final class _GeometryPatch {
   _GeometryPatch(this.baseId, this.geometry, this.ranges);
   int get uploadedBytes {
     var bytes = 0;
-    for (var buffer = 0; buffer < 3; buffer++) {
+    for (var buffer = 0; buffer < 4; buffer++) {
       final selected = [
         for (final range in ranges)
           if ((range.semantic.index < 2
                   ? 0
                   : range.semantic.index < 4
                   ? 1
-                  : 2) ==
+                  : range.semantic.index - 2) ==
               buffer)
             range,
       ]..sort((a, b) => a.firstVertex.compareTo(b.firstVertex));
@@ -457,6 +468,7 @@ bool _sameMesh(Map<String, Object> a, Map<String, Object> b) {
   for (final field in [
     'geometry',
     'unlit',
+    'vertex_colors',
     'side',
     'alpha_mode',
     'opacity',

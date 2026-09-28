@@ -24,6 +24,12 @@ the authored values. Base color and emission use sRGB image formats. Data maps
 use linear formats; packed roughness reads green, metallic reads blue and
 occlusion reads red. Only base color contributes texture alpha.
 
+Vertex colors use the same native path as Dart-authored geometry. The loader
+accepts `COLOR_0` as float or normalized unsigned byte/short RGB and RGBA,
+clamps channels to [0, 1], and supplies alpha 1 for RGB. These are linear
+multipliers on base color and alpha. They do not tint emission. Flat-normal
+generation expands colors with the source vertex indices.
+
 Image decoding runs once per referenced source. Each required color-space and
 mip-generation variant owns a texture image, charged to the decoded byte budget.
 Bindings share that image even when their sampler or UV set differs. Decoders
@@ -68,7 +74,7 @@ behaviour and tangent handedness. Decoder tests cover independent instances,
 limits, malformed fields, UV requirements, image variants and release workers.
 The viewer fixture exercises authored lighting and an explicit studio fallback.
 
-This remains a static subset. Vertex colors, animation, skins, morphs, cameras,
+This remains a static subset. Animation, skins, morphs, cameras,
 MikkTSpace generation, lit/textured points and lines, and advanced material
 extensions are not implemented. Unknown required extensions fail. Optional ones
 produce warnings and use their supported fallback data. Do not treat this profile

@@ -68,6 +68,29 @@ final class GeometrySnapshot {
   List<double>? get tangents =>
       attributes[VertexSemantic.tangent]?.data as Float32List?;
 
+  /// Linear RGBA values, normalized and padded once per immutable revision.
+  late final List<double>? colors = _colors();
+  List<double>? _colors() {
+    final attribute = attributes[VertexSemantic.color];
+    if (attribute == null) return null;
+    final values = attribute.data;
+    if (values is Float32List && attribute.format == VertexFormat.float32x4) {
+      return values;
+    }
+    final output = Float32List(layout.vertexCount * 4);
+    final components = attribute.format.components;
+    for (var i = 0; i < layout.vertexCount; i++) {
+      for (var c = 0; c < 4; c++) {
+        output[i * 4 + c] = c >= components
+            ? 1
+            : values is Uint8List
+            ? values[i * components + c] / 255
+            : (values as Float32List)[i * components + c];
+      }
+    }
+    return output.asUnmodifiableView();
+  }
+
   int get primitiveCount => switch (topology) {
     GeometryTopology.triangles => indices.length ~/ 3,
     GeometryTopology.lineSegments => indices.length ~/ 2,
@@ -78,8 +101,9 @@ final class GeometrySnapshot {
       ? positions.length * 8 +
             indices.length * indexFormat.bytesPerIndex +
             (uv0 != null || uv1 != null ? layout.vertexCount * 16 : 0) +
-            (tangents == null ? 0 : layout.vertexCount * 16)
-      : primitiveCount * 120;
+            (tangents == null ? 0 : layout.vertexCount * 16) +
+            (colors == null ? 0 : layout.vertexCount * 16)
+      : primitiveCount * (colors == null ? 120 : 248);
 
   /// Null means the base is incompatible or older than the bounded journal.
   List<GeometryRange>? changesSince(GeometrySnapshot base) {
@@ -135,6 +159,10 @@ final class GeometrySnapshot {
       'tangents': [
         for (var i = 0; i < tangents!.length; i += 4)
           tangents!.sublist(i, i + 4),
+      ],
+    if (colors != null)
+      'colors': [
+        for (var i = 0; i < colors!.length; i += 4) colors!.sublist(i, i + 4),
       ],
     'indices': indices,
     'index_format': indexFormat.name,

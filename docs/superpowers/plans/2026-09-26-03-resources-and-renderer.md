@@ -443,9 +443,11 @@ Analytic native pixels cover map transfer functions, channel selection, units,
 range, rotation, masks, emission, occlusion and handedness. One decoded source
 can supply shared sRGB and linear image variants with independent samplers.
 The viewer exposes an authored PBR assembly and a studio toggle for scenes without lights.
-See [the import profile](../../design/gltf-materials.md). Vertex colors,
+See [the import profile](../../design/gltf-materials.md). Vertex colors now reach
+built-in triangle, line and point materials, dynamic GPU updates and masked
+shadows. The loader accepts float and normalized byte/short RGB/RGBA colors.
 MikkTSpace generation and broader extension/reference coverage remain open;
-this checkpoint does not claim complete glTF or Three.js parity.
+these checkpoints do not claim complete glTF or Three.js parity.
 
 **Files:** Create core `materials/standard_material.dart`,
 `lights/{directional,point,spot,hemisphere}_light.dart`; native
