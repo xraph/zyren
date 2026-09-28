@@ -98,6 +98,7 @@ final class AssetDecodeContext {
         throw AssetLoadException(
           error.code,
           error.issue.message,
+          httpStatus: error.httpStatus,
           sourceUri: error.issue.sourceUri ?? uri,
           fieldPath: error.fieldPath ?? fieldPath,
           cause: error,

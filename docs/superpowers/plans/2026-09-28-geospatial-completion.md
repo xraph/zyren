@@ -80,6 +80,33 @@ bounds from the original root and integer global coordinates to avoid drift.
   malformed binary lengths, cancellation and parent coverage on failed subtrees.
 - [x] Run analyzer, package suite and a native fixture before a focused commit.
 
+## Task 3: Provider transport, sessions and attribution
+
+Files: core asset transport value types, native resolver, glTF asset metadata,
+new tile provider adapter and provider lab in Planet, with transport/provider
+and visible-attribution tests.
+
+Use caller-owned secrets to open Google Maps directly or resolve a Cesium Ion
+endpoint. The existing TwinOS Ion token can access Google's asset 2275207. Keep
+that token at the Ion endpoint and the issued Google key at the Google origin.
+Return sanitized effective URIs and typed errors. Refresh expired sessions once,
+coalesce concurrent refreshes, and retain physical cancellation ownership.
+
+- [ ] Extend SourceReadContext with immutable request headers, ResolvedSource
+  with immutable response cache headers, and AssetLoadException with optional
+  HTTP status. Native redirects drop credentials across origins. Test bounds,
+  cancellation, auth status and redirects before implementing.
+- [ ] Implement bounded provider endpoint/session reads over ByteSourceResolver.
+  Test Google keys/sessions, Ion external and bearer endpoints, concurrent refresh,
+  denial, secret-free diagnostics and cancellation. Keep endpoint validation
+  narrower than caller URI policy so a permissive policy cannot leak credentials.
+- [ ] Retain glTF copyright metadata and aggregate attribution from visible tiles.
+  Carry provider credits and render readable Google Maps/data-source attribution.
+- [ ] Honor response freshness and keep provider content in memory for the active
+  visualization. Add a native Manhattan lab, load the authorized Google dataset,
+  and record transport versus rendered results separately. Compression failures
+  advance Task 4 before claiming the live provider rendering gate has passed.
+
 ## Subsequent task order
 
 2. Implicit quadtree/octree coordinates, subtree availability parsing and lazy traversal.

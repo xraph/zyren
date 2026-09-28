@@ -69,6 +69,11 @@ final class NativeSourceResolver implements ByteSourceResolver {
         context.cancellation.throwIfCancelled();
         final request = await client.getUrl(uri);
         request.followRedirects = false;
+        if (uri.scheme == initial.scheme &&
+            uri.host == initial.host &&
+            uri.port == initial.port) {
+          context.headers.forEach(request.headers.set);
+        }
         final response = await request.close();
         context.cancellation.throwIfCancelled();
         if (response.isRedirect) {
@@ -98,6 +103,7 @@ final class NativeSourceResolver implements ByteSourceResolver {
           throw AssetLoadException(
             AssetLoadError.sourceFailed,
             'Source returned HTTP ${response.statusCode}.',
+            httpStatus: response.statusCode,
             sourceUri: uri,
           );
         }
@@ -114,6 +120,17 @@ final class NativeSourceResolver implements ByteSourceResolver {
           effectiveUri: uri,
           bytes: bytes,
           mediaType: response.headers.contentType?.mimeType,
+          headers: {
+            for (final name in [
+              'cache-control',
+              'etag',
+              'last-modified',
+              'expires',
+              'date',
+              'age',
+            ])
+              name: ?response.headers.value(name),
+          },
         );
       }
     }
