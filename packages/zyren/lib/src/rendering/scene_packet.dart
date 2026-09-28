@@ -281,6 +281,7 @@ final class ScenePacketEncoder {
         body.u32(bloom.levels);
       }
     }
+    if (opcode >= 28) body.u32(scene._settings.enabled ? 1 : 0);
     for (final id in owned) {
       body.u32(id);
     }

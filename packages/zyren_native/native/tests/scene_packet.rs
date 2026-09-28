@@ -830,6 +830,8 @@ fn section_packets_reject_invalid_planes_and_truncation() {
     header.extend(10_f32.to_le_bytes());
     header.extend(1_u32.to_le_bytes()); // sample count
     header.extend([0_u8; 8]); // FXAA and bloom
+    let effects_flag = 160 + header.len();
+    header.extend(0_u32.to_le_bytes()); // No HDR targets for section planes alone.
     data.splice(160..160, header);
     for value in [
         0_u32,
@@ -860,8 +862,10 @@ fn section_packets_reject_invalid_planes_and_truncation() {
     data[16..24].copy_from_slice(&length.to_le_bytes());
     let frame = ScenePacket::decode(&data).unwrap().resolve(None).unwrap();
     assert_eq!(frame.meshes[0].clipping_planes, vec![[1., 0., 0., -0.25]]);
+    assert!(!frame.settings.enabled);
     for (offset, value) in [
         (count, 7_u32),
+        (effects_flag, 2_u32),
         (count + 4, 0),
         (count + 4, 2_f32.to_bits()),
         (count + 16, f32::NAN.to_bits()),

@@ -18,7 +18,8 @@ cannot safely acquire a fragment discard without a shader contract.
 Plane offsets are converted to camera-relative coordinates in Dart double
 precision before upload. Binary scene opcode 28 carries the effective planes
 with each mesh update. Removing a plane produces a mesh update too. Existing
-packets remain valid and mean no clipping.
+packets remain valid and mean no clipping. Opcode 28 also carries an explicit
+postprocessing flag, so a cut alone does not allocate HDR targets.
 
 CPU triangle picking rejects intersections in the removed half-space and keeps
 looking for deeper surfaces. Material sidedness still applies. These cuts do

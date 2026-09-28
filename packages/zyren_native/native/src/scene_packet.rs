@@ -193,6 +193,14 @@ impl ScenePacket {
             };
             settings.validate()?;
         }
+        if opcode >= 28 {
+            settings.enabled = match r.u32()? {
+                0 => false,
+                1 => true,
+                _ => return Err("Invalid postprocessing flag".into()),
+            };
+            settings.validate()?;
+        }
         crate::scene::validate_shadows(&settings, &lights)?;
         let mut retained = HashSet::new();
         for _ in 0..retained_count {

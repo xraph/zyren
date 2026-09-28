@@ -21,7 +21,7 @@ void main() {
       );
       final scene = Scene()..background = const Color3(0, 0, 0);
       final group = scene.add(Group());
-      scene.add(DirectionalLight());
+      final sun = scene.add(DirectionalLight());
       final plane = ClippingPlane(normal: const Vec3(1, 0, 0));
       Future<ReadbackOutput> render() async =>
           await backend.render(
@@ -109,6 +109,13 @@ void main() {
         final distant = await render();
         expect(red(distant, 16), 0);
         expect(red(distant, 24), 255);
+        scene.remove(sun);
+        expect(red(await render(), 24), 255);
+        expect(
+          (await backend.graphStats()).targetBytes,
+          0,
+          reason: 'Section planes alone must not allocate HDR targets.',
+        );
       } finally {
         await backend.close();
       }
