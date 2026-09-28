@@ -5,6 +5,7 @@ use std::{
 };
 pub mod ffi;
 mod jpeg;
+pub mod ktx2;
 
 const MIB: u64 = 1024 * 1024;
 static BUDGET: Budget = Budget::new(256 * MIB);

@@ -19,6 +19,7 @@ zune-core = "=0.5.3"
 zune-jpeg = "=0.5.15"
 image = { version = "=0.25.10", default-features = false, features = ["png", "jpeg"] }
 meshopt = "=0.6.2"
+basisu_c_sys = { version = "=0.9.1", default-features = false, features = ["std", "transcode_default"] }
 draco-core = { version = "=2.2.1", default-features = false, features = ["decoder", "edgebreaker_valence_decode", "legacy_bitstream_decode"] }
 pollster = "0.4"
 serde = { version = "1", features = ["derive"] }
@@ -43,4 +44,5 @@ strip = "none"
 wgpu-hal = { path = "vendor/wgpu-hal" }
 
 [dev-dependencies]
+basisu_c_sys = { version = "=0.9.1", default-features = false, features = ["std", "encoder", "extra", "transcode_default"] }
 draco-core = { version = "=2.2.1", default-features = false, features = ["encoder", "edgebreaker_valence_encode"] }

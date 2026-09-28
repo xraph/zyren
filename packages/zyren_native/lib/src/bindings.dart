@@ -109,6 +109,32 @@ external int imageDecode(
 )
 external void imageFree(Pointer<NativeImagePixels> output);
 
+final class NativeTextureBytes extends Struct {
+  external Pointer<Uint8> data;
+  @Size()
+  external int length;
+}
+
+@Native<
+  Uint32 Function(
+    Pointer<Uint8>,
+    Size,
+    Pointer<NativeImageLimits>,
+    Pointer<NativeTextureBytes>,
+  )
+>(symbol: 'fg2_ktx2_decode', assetId: _asset)
+external int ktx2Decode(
+  Pointer<Uint8> input,
+  int length,
+  Pointer<NativeImageLimits> limits,
+  Pointer<NativeTextureBytes> output,
+);
+@Native<Void Function(Pointer<NativeTextureBytes>)>(
+  symbol: 'fg2_ktx2_free',
+  assetId: _asset,
+)
+external void ktx2Free(Pointer<NativeTextureBytes> output);
+
 @Native<Uint32 Function()>(symbol: 'fg_abi_version', assetId: _asset)
 external int abiVersion();
 @Native<Uint64 Function()>(symbol: 'fg_create', assetId: _asset)

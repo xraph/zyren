@@ -53,6 +53,15 @@ count and decoded bytes. Sequential and EdgeBreaker connectivity run on CPU
 workers, with early header checks before connectivity allocation. These limits
 bound payloads and codec counts, not total process memory.
 
+`NativeTextureDecoder` transcodes two-dimensional KTX2 Basis textures to RGBA8
+on CPU workers. ETC1S, UASTC and Zstd-compressed UASTC retain authored mip levels,
+alpha and linear/sRGB metadata. You can lower `ImageDecodeLimits` for all mip
+bytes, dimensions and estimated workspace. Two calls may run per Dart isolate;
+native workspace admission is shared with PNG/JPEG decoding. Array, cube, video,
+HDR, custom swizzle and nonstandard orientation textures are outside this
+profile. GPU uploads use RGBA8, so source compression saves transfer bytes but
+does not reduce GPU texture storage. Allocation estimates are not an RSS cap.
+
 Worker requests carry a generation and a monotonic request ID. Worker exit or
 error settles every pending request. Stale and duplicate replies are ignored.
 Explicit close remains the normal path; native finalization also releases the
