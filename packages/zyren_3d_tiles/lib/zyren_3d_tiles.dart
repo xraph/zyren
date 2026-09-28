@@ -11,6 +11,8 @@ import 'package:zyren_geospatial/zyren_geospatial.dart'
 
 part 'src/tileset.dart';
 part 'src/content.dart';
+part 'src/streamer.dart';
+part 'src/plugin.dart';
 
 abstract final class Tiles3D {
   static AssetRequest<Tileset3D> tileset(Uri uri, {Tiles3DLimits? limits}) =>

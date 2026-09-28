@@ -29,12 +29,15 @@ final class _TransformGroup extends Group {
 
 class _ContentLoader extends AssetLoader<TileModel3D> {
   final GltfOptions options;
-  const _ContentLoader(this.options);
+  final void Function(Future<void>)? track;
+  const _ContentLoader(this.options, {this.track});
   @override
   Future<DecodedAsset<TileModel3D>> decode(
     ResolvedSource source,
     AssetDecodeContext context,
   ) async {
+    final done = Completer<void>();
+    track?.call(done.future);
     try {
       var bytes = source.bytes, rtc = Vec3.zero;
       if (bytes.length >= 4 &&
@@ -78,8 +81,8 @@ class _ContentLoader extends AssetLoader<TileModel3D> {
         release: (model) => decoded.release(model._model),
         dispose: decoded.dispose,
       );
-    } on LoadCancelled {
-      rethrow;
+    } finally {
+      done.complete();
     }
   }
 }
