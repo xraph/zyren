@@ -183,6 +183,8 @@ pub struct Mesh {
     pub point_shape: u32,
     #[serde(default = "default_shadow_flags")]
     pub shadow_flags: u32,
+    #[serde(default)]
+    pub clipping_planes: Vec<[f32; 4]>,
 }
 fn default_shadow_flags() -> u32 {
     2
@@ -224,6 +226,7 @@ impl Default for Mesh {
             size_units: 0,
             point_shape: 0,
             shadow_flags: 2,
+            clipping_planes: Vec::new(),
         }
     }
 }
@@ -235,6 +238,18 @@ impl Mesh {
         self.depth_write.unwrap_or(self.alpha_mode != 2)
     }
     pub fn validate_material(&self) -> Result<(), String> {
+        if self.clipping_planes.len() > 6
+            || (!self.clipping_planes.is_empty() && self.shader.is_some())
+            || self.clipping_planes.iter().any(|plane| {
+                plane.iter().any(|value| !value.is_finite())
+                    || (glam::Vec3::new(plane[0], plane[1], plane[2]).length_squared() - 1.).abs()
+                        > 1e-4
+            })
+        {
+            return Err(
+                "Clipping requires at most six normalized planes and a built-in material".into(),
+            );
+        }
         if !self.instances.is_empty()
             && (self.instances.len() > MAX_INSTANCES
                 || self.shader.is_some()

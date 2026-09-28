@@ -75,8 +75,27 @@ class SceneSnapshot {
         geometries = <int, GeometrySnapshot>{};
     final textures = <int, TextureImage>{};
     final lights = <List<double>>[], shadows = <List<double>>[];
-    void visit(Object3D node, vm.Matrix4 parent, bool parentVisible) {
+    final planes = <double>[
+      for (final plane in scene.clippingPlanes) ...[
+        ...plane.normal.storage,
+        plane.normal.dot(camera.position) - plane.offset,
+      ],
+    ];
+    if (planes.any(
+      (value) => !value.isFinite || value.abs() > 3.4028234663852886e38,
+    )) {
+      throw ArgumentError(
+        'Camera-relative clipping planes exceed the GPU numeric range.',
+      );
+    }
+    void visit(
+      Object3D node,
+      vm.Matrix4 parent,
+      bool parentVisible,
+      bool parentClipping,
+    ) {
       final visible = parentVisible && node.visible;
+      final clipping = parentClipping && node.clippingEnabled;
       final world = parent * node.localMatrix.toVectorMath();
       if (node is Light && visible) {
         final shadow = switch (node) {
@@ -198,8 +217,14 @@ class SceneSnapshot {
             ..setTranslation(
               world.getTranslation() - camera.position.toVectorMath(),
             );
+          if (clipping && planes.isNotEmpty && shader != null) {
+            throw UnsupportedError(
+              'Custom shader materials must opt out of scene clipping.',
+            );
+          }
           meshes.add(
             _freeze(<String, Object>{
+                  'clippingPlanes': clipping ? planes : <double>[],
                   'geometry': geometry.id,
                   'model': relative.storage.toList(),
                   'instances': node is InstancedMesh
@@ -256,11 +281,11 @@ class SceneSnapshot {
         }
       }
       for (final child in node.children) {
-        visit(child, world, visible);
+        visit(child, world, visible, clipping);
       }
     }
 
-    visit(scene, vm.Matrix4.identity(), true);
+    visit(scene, vm.Matrix4.identity(), true, true);
     return SceneSnapshot._(
       List.unmodifiable(meshes),
       Map.unmodifiable(geometries),
@@ -347,6 +372,7 @@ class FrameSubmission {
         scene._meshes.any(
           (m) =>
               m.containsKey('shader') ||
+              (m['clippingPlanes'] as List).isNotEmpty ||
               m['shadowFlags'] != 2 ||
               (m['instances'] as List).isNotEmpty,
         )) {
@@ -375,7 +401,8 @@ class FrameSubmission {
                 ..remove('pbrScales')
                 ..remove('allImages')
                 ..remove('shadowFlags')
-                ..remove('instances'),
+                ..remove('instances')
+                ..remove('clippingPlanes'),
           ],
         })
         as Map<String, Object>;

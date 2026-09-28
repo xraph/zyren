@@ -56,7 +56,7 @@ impl Shadows {
                 ty: wgpu::BindingType::Buffer {
                     ty: wgpu::BufferBindingType::Uniform,
                     has_dynamic_offset: false,
-                    min_binding_size: wgpu::BufferSize::new(80),
+                    min_binding_size: wgpu::BufferSize::new(256),
                 },
                 count: None,
             }],
@@ -432,6 +432,9 @@ impl Renderer {
                             mesh.alpha_cutoff,
                             if mesh.alpha_mode == 1 { 1. } else { 0. },
                         ]);
+                        values.extend(mesh.model);
+                        values.extend(section_planes(mesh).into_iter().flatten());
+                        values.extend([mesh.clipping_planes.len() as f32, 0., 0., 0.]);
                         let buffer =
                             self.device
                                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {

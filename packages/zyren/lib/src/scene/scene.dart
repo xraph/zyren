@@ -19,6 +19,7 @@ part '../lights/shadow_settings.dart';
 part 'camera_projection.dart';
 part 'primitives.dart';
 part 'instanced_mesh.dart';
+part 'clipping_plane.dart';
 
 class Object3D with _Revisioned {
   final String? name;
@@ -26,6 +27,16 @@ class Object3D with _Revisioned {
   Vec3 _position = Vec3.zero, _scale = Vec3.one;
   Quat _quaternion = Quat.identity;
   bool _visible = true;
+  bool _clippingEnabled = true;
+
+  /// False exempts this object and its descendants from scene section planes.
+  bool get clippingEnabled => _clippingEnabled;
+  set clippingEnabled(bool value) {
+    if (_clippingEnabled == value) return;
+    _clippingEnabled = value;
+    _changed();
+  }
+
   Object3D? _parent;
   final List<Object3D> _children = [];
   Object3D? get parent => _parent;
@@ -389,6 +400,19 @@ final class EffectRegistration extends Registration {
 }
 
 class Scene extends Object3D {
+  List<ClippingPlane> _clippingPlanes = const [];
+
+  /// Up to six world-space half-spaces, intersected without generating caps.
+  List<ClippingPlane> get clippingPlanes => _clippingPlanes;
+  set clippingPlanes(List<ClippingPlane> value) {
+    if (identical(value, _clippingPlanes)) return;
+    if (value.length > 6) {
+      throw ArgumentError('A scene supports at most six clipping planes.');
+    }
+    _clippingPlanes = List.unmodifiable(value);
+    _changed();
+  }
+
   RenderSettings _renderSettings = RenderSettings();
   final _effects = <Object, ScreenEffect>{};
   final _transparentBackgroundEffects = <Object>{};

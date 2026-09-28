@@ -814,3 +814,68 @@ fn builtin_effect_settings_reject_malformed_flags_ranges_and_truncation() {
         assert!(ScenePacket::decode(&invalid).is_err());
     }
 }
+
+#[test]
+fn section_packets_reject_invalid_planes_and_truncation() {
+    let (mut data, _) = alpha_packet();
+    data[4..8].copy_from_slice(&28_u32.to_le_bytes());
+    data.splice(180..180, 0_u32.to_le_bytes()); // Triangle topology.
+    let mut header = Vec::new();
+    for value in [0_u32, 0, 1_f32.to_bits(), 1_f32.to_bits(), 0] {
+        header.extend(value.to_le_bytes());
+    }
+    header.extend([0_u8; 24]); // Camera origin.
+    header.extend([0_u8; 12]); // Lights, environment, shadows.
+    header.extend(0.1_f32.to_le_bytes());
+    header.extend(10_f32.to_le_bytes());
+    header.extend(1_u32.to_le_bytes()); // sample count
+    header.extend([0_u8; 8]); // FXAA and bloom
+    data.splice(160..160, header);
+    for value in [
+        0_u32,
+        1_f32.to_bits(),
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1_f32.to_bits(),
+        1_f32.to_bits(),
+        1_f32.to_bits(),
+        2,
+    ] {
+        data.extend(value.to_le_bytes());
+    }
+    data.extend(0_u32.to_le_bytes()); // instances
+    let count = data.len();
+    data.extend(1_u32.to_le_bytes());
+    for value in [1_f32, 0., 0., -0.25] {
+        data.extend(value.to_le_bytes());
+    }
+    let length = (data.len() - 24) as u64;
+    data[16..24].copy_from_slice(&length.to_le_bytes());
+    let frame = ScenePacket::decode(&data).unwrap().resolve(None).unwrap();
+    assert_eq!(frame.meshes[0].clipping_planes, vec![[1., 0., 0., -0.25]]);
+    for (offset, value) in [
+        (count, 7_u32),
+        (count + 4, 0),
+        (count + 4, 2_f32.to_bits()),
+        (count + 16, f32::NAN.to_bits()),
+    ] {
+        let mut invalid = data.clone();
+        invalid[offset..offset + 4].copy_from_slice(&value.to_le_bytes());
+        assert!(ScenePacket::decode(&invalid).is_err());
+    }
+    for end in 24..data.len() {
+        let mut invalid = data[..end].to_vec();
+        invalid[16..24].copy_from_slice(&((end - 24) as u64).to_le_bytes());
+        assert!(ScenePacket::decode(&invalid).is_err());
+    }
+    let mut custom = frame.meshes[0].clone();
+    custom.shader = Some([1; 4]);
+    assert!(custom.validate_material().is_err());
+}

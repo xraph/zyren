@@ -174,8 +174,10 @@ final class ScenePacketEncoder {
     }
     final hasTangents = scene._geometries.values.any((g) => g.tangents != null);
     final opcode =
-        scene._settings.bloom != null ||
-            scene._settings.spatialAntialiasing != SpatialAntialiasing.none
+        scene._meshes.any((m) => (m['clippingPlanes'] as List).isNotEmpty)
+        ? 28
+        : scene._settings.bloom != null ||
+              scene._settings.spatialAntialiasing != SpatialAntialiasing.none
         ? 27
         : scene._settings.sampleCount != 1
         ? 26
@@ -394,6 +396,11 @@ final class ScenePacketEncoder {
         body.u32(instances.length ~/ 16);
         body.floats(instances);
       }
+      if (opcode >= 28) {
+        final planes = (mesh['clippingPlanes'] as List).cast<double>();
+        body.u32(planes.length ~/ 4);
+        body.floats(planes);
+      }
     }
     final payload = body.finish();
     if (payload.length > 66 * 1024 * 1024 - 24) {
@@ -489,6 +496,7 @@ bool _sameMesh(Map<String, Object> a, Map<String, Object> b) {
     'pbrMaps',
     'pbrScales',
     'instances',
+    'clippingPlanes',
   ]) {
     final left = a[field] as List, right = b[field] as List;
     if (left.length != right.length) return false;

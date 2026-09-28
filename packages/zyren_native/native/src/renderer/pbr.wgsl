@@ -8,8 +8,16 @@ struct Uniforms {
     model: mat4x4<f32>,
     primitive: vec4<f32>,
     viewport: vec4<f32>,
+    inverse_view_projection: mat4x4<f32>,
+    clipping_planes: array<vec4<f32>,6>,
+    clipping: vec4<f32>,
 };
 @group(0) @binding(0) var<uniform> uniforms: Uniforms;
+fn section_clip(point: vec3<f32>) {
+    for (var i = 0u; i < u32(uniforms.clipping.x); i++) {
+        if dot(uniforms.clipping_planes[i], vec4<f32>(point, 1.)) < 0. { discard; }
+    }
+}
 
 struct Material { factors: vec4<f32>, emissive: vec4<f32>, scales: vec4<f32>, uvSets: vec4<f32> };
 struct Light { positionKind: vec4<f32>, colorIntensity: vec4<f32>, directionRange: vec4<f32>, cone: vec4<f32>, ground: vec4<f32> };
@@ -122,6 +130,7 @@ fn shade(input: PbrVertex, front: bool, sampleColor: vec4<f32>) -> vec4<f32> {
  let dp1=dpdx(input.point); let dp2=dpdy(input.point);
  let duv1=dpdx(normalUv); let duv2=dpdy(normalUv);
  let determinant=duv1.x*duv2.y-duv1.y*duv2.x;
+ section_clip(input.point);
  let base=uniforms.color_unlit.rgb*sampleColor.rgb;
  let alpha=uniforms.map_params.y*sampleColor.a;
  if uniforms.map_params.w > .5 && uniforms.map_params.w < 1.5 && alpha < uniforms.map_params.z { discard; }

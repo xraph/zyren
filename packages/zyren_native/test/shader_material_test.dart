@@ -87,6 +87,12 @@ void main() {
         }
 
         expect(await center(), [255, 0, 0, 255]);
+        scene.clippingPlanes = [ClippingPlane(normal: const Vec3(1, 0, 0))];
+        await expectLater(center(), throwsUnsupportedError);
+        mesh.clippingEnabled = false;
+        expect(await center(), [255, 0, 0, 255]);
+        scene.clippingPlanes = [];
+        mesh.clippingEnabled = true;
         await expectLater(
           materials.compile(descriptor(tintBinding: 3)),
           throwsA(

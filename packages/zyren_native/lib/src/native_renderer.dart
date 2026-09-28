@@ -38,6 +38,7 @@ class NativeRenderer implements SceneRenderer {
       RenderFeature.instancing,
       RenderFeature.spatialAntialiasing,
       RenderFeature.bloom,
+      RenderFeature.sectionClipping,
       if (_deviceInfo.sampleCounts.contains(4))
         RenderFeature.multisampleAntialiasing,
     },

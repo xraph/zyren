@@ -31,6 +31,15 @@ struct Uniforms {
     model: [f32; 16],
     primitive: [f32; 4],
     viewport: [f32; 4],
+    inverse_view_projection: [f32; 16],
+    clipping_planes: [[f32; 4]; 6],
+    clipping: [f32; 4],
+}
+
+fn section_planes(mesh: &crate::scene::Mesh) -> [[f32; 4]; 6] {
+    let mut planes = [[0.; 4]; 6];
+    planes[..mesh.clipping_planes.len()].copy_from_slice(&mesh.clipping_planes);
+    planes
 }
 
 struct GpuGeometry {
@@ -647,6 +656,9 @@ impl Renderer {
             .map(|mesh| {
                 let model = Mat4::from_cols_array(&mesh.model);
                 let uniforms = Uniforms {
+                    inverse_view_projection: vp.inverse().to_cols_array(),
+                    clipping_planes: section_planes(mesh),
+                    clipping: [mesh.clipping_planes.len() as f32, 0., 0., 0.],
                     mvp: (vp * model).to_cols_array(),
                     normal_matrix: model.inverse().transpose().to_cols_array(),
                     color_unlit: [

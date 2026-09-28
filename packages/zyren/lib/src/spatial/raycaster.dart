@@ -100,8 +100,9 @@ final class Raycaster {
     final revision = scene.revision;
     final hits = <PickResult>[];
     final objectOrder = <Mesh, int>{};
-    void visit(Object3D node, Mat4 parent) {
+    void visit(Object3D node, Mat4 parent, bool parentClipping) {
       if (!node.visible) return;
+      final clipping = parentClipping && node.clippingEnabled;
       final world = parent * node.localMatrix;
       if (node is Mesh &&
           node.geometry.topology == GeometryTopology.triangles) {
@@ -142,6 +143,12 @@ final class Raycaster {
             localNormal,
           ) {
             final point = ray.at(distance);
+            if (clipping &&
+                scene.clippingPlanes.any(
+                  (plane) => plane.distanceTo(point) < 0,
+                )) {
+              return;
+            }
             final m = inverse.storage;
             final normal = Vec3(
               m[0] * localNormal.x +
@@ -175,12 +182,12 @@ final class Raycaster {
         }
       }
       for (final child in node.children) {
-        visit(child, world);
+        visit(child, world, clipping);
       }
     }
 
     try {
-      visit(scene, Mat4.identity());
+      visit(scene, Mat4.identity(), true);
     } on ArgumentError catch (error) {
       throw _invalid('Scene transforms cannot be used for picking.', error);
     }

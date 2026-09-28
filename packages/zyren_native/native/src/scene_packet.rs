@@ -72,7 +72,7 @@ impl ScenePacket {
             return Err("unsupported scene packet".into());
         }
         let opcode = r.u32()?;
-        if !(10..=27).contains(&opcode) {
+        if !(10..=28).contains(&opcode) {
             return Err("unsupported scene packet".into());
         }
         let textured = opcode >= 11;
@@ -499,6 +499,16 @@ impl ScenePacket {
                 }
                 for _ in 0..count {
                     mesh.instances.push(r.floats()?);
+                }
+                mesh.validate_material()?;
+            }
+            if opcode >= 28 {
+                let count = r.u32()? as usize;
+                if count > 6 {
+                    return Err("Clipping plane count exceeds the profile".into());
+                }
+                for _ in 0..count {
+                    mesh.clipping_planes.push(r.floats()?);
                 }
                 mesh.validate_material()?;
             }

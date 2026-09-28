@@ -2,6 +2,7 @@ struct PrimitiveOutput {
     @builtin(position) position: vec4<f32>,
     @location(0) corner: vec2<f32>,
     @location(1) @interpolate(flat) circle: u32,
+    @location(2) point: vec3<f32>,
 };
 struct ClippedSegment {
     a: vec4<f32>,
@@ -39,7 +40,7 @@ fn camera_up() -> vec3<f32> {
     return normalize(vec3<f32>(vp[0].y, vp[1].y, vp[2].y));
 }
 fn hidden_primitive() -> PrimitiveOutput {
-    return PrimitiveOutput(vec4<f32>(0.0, 0.0, -1.0, 1.0), vec2<f32>(0.0), 0u);
+    return PrimitiveOutput(vec4<f32>(0.0, 0.0, -1.0, 1.0), vec2<f32>(0.0), 0u, vec3<f32>(0.));
 }
 @vertex fn vs_line(@location(0) start: vec3<f32>, @location(1) end: vec3<f32>,
     @builtin(vertex_index) vertex: u32) -> PrimitiveOutput {
@@ -62,7 +63,8 @@ fn hidden_primitive() -> PrimitiveOutput {
         let offset = (right * perpendicular.x + up * perpendicular.y) * corner.y * uniforms.primitive.x * 0.5;
         position += uniforms.view_projection * vec4<f32>(offset, 0.0);
     }
-    return PrimitiveOutput(position, corner, 0u);
+    let point = uniforms.inverse_view_projection * position;
+    return PrimitiveOutput(position, corner, 0u, point.xyz / point.w);
 }
 @vertex fn vs_point(@location(0) center: vec3<f32>, @builtin(vertex_index) vertex: u32) -> PrimitiveOutput {
     var position = uniforms.mvp * vec4<f32>(center, 1.0);
@@ -74,9 +76,10 @@ fn hidden_primitive() -> PrimitiveOutput {
         let offset = (camera_right() * corner.x + camera_up() * corner.y) * uniforms.primitive.x * 0.5;
         position += uniforms.view_projection * vec4<f32>(offset, 0.0);
     }
-    return PrimitiveOutput(position, corner, u32(uniforms.primitive.z));
+    let point = uniforms.inverse_view_projection * position;
+    return PrimitiveOutput(position, corner, u32(uniforms.primitive.z), point.xyz / point.w);
 }
 @fragment fn fs_primitive(input: PrimitiveOutput) -> @location(0) vec4<f32> {
     if input.circle == 1u && dot(input.corner, input.corner) > 1.0 { discard; }
-    return shade(vec3<f32>(0.0, 0.0, 1.0), vec4<f32>(1.0));
+    return shade(vec3<f32>(0.0, 0.0, 1.0), vec4<f32>(1.0), input.point);
 }
