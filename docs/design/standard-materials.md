@@ -49,9 +49,11 @@ the material's emission and can use sRGB storage. Each map chooses UV0 or UV1.
 `normalScaleX` and `normalScaleY` control the tangent-space normal components,
 and `occlusionStrength` blends between no occlusion and the sampled value.
 
-Normal mapping currently derives its tangent frame from position and UV
-screen derivatives, including mirrored geometry. Degenerate UVs keep the surface
-normal. Explicit tangent attributes, environment lighting, shadows and standard
-glTF material loading remain the next renderer stage.
+Normal mapping uses authored float4 tangent attributes when supplied. Their
+handedness follows mirrored transforms; dynamic updates preserve earlier captured
+geometry in other views. Without tangents, the shader derives its frame from
+position and UV screen derivatives. Degenerate UVs keep the surface normal.
+Environment lighting, shadows and standard glTF material loading remain the next
+renderer stage.
 Standard glTF mode continues to reject unsupported PBR profiles until those
 fixtures pass. Mobile PBR qualification is also pending.

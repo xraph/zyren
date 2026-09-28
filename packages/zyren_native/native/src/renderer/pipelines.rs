@@ -8,6 +8,7 @@ pub(super) struct PipelineKey {
     shader: Option<[u64; 4]>,
     textured: bool,
     standard: bool,
+    pub(super) tangents: bool,
     side: u32,
     mirrored: bool,
     blend: bool,
@@ -16,12 +17,13 @@ pub(super) struct PipelineKey {
     depth_write: bool,
 }
 impl PipelineKey {
-    pub(super) fn new(format: wgpu::TextureFormat, mesh: &Mesh) -> Self {
+    pub(super) fn new(format: wgpu::TextureFormat, mesh: &Mesh, tangents: bool) -> Self {
         Self {
             format,
             shader: mesh.shader,
             textured: mesh.material_maps().next().is_some(),
             standard: mesh.pbr.is_some(),
+            tangents: tangents && mesh.pbr.is_some() && mesh.material_maps().next().is_some(),
             side: mesh.side,
             mirrored: mesh.primitive_kind == 0
                 && glam::Mat4::from_cols_array(&mesh.model).determinant() < 0.,
@@ -91,6 +93,7 @@ impl MeshPipelines {
         frame: &Frame,
         format: wgpu::TextureFormat,
         materials: &MaterialStore,
+        geometries: &HashMap<u32, super::GpuGeometry>,
     ) -> Result<(), String> {
         self.retire_materials(materials);
         for mesh in &frame.meshes {
@@ -107,11 +110,13 @@ impl MeshPipelines {
                 }
             }
         }
-        if frame
-            .meshes
-            .iter()
-            .all(|mesh| self.cache.contains_key(&PipelineKey::new(format, mesh)))
-        {
+        if frame.meshes.iter().all(|mesh| {
+            self.cache.contains_key(&PipelineKey::new(
+                format,
+                mesh,
+                !geometries[&mesh.geometry].recipe.tangents.is_empty(),
+            ))
+        }) {
             return Ok(());
         }
         let validation = device.push_error_scope(wgpu::ErrorFilter::Validation);
@@ -119,7 +124,11 @@ impl MeshPipelines {
         let internal = device.push_error_scope(wgpu::ErrorFilter::Internal);
         let mut pending = HashMap::new();
         for mesh in &frame.meshes {
-            let key = PipelineKey::new(format, mesh);
+            let key = PipelineKey::new(
+                format,
+                mesh,
+                !geometries[&mesh.geometry].recipe.tangents.is_empty(),
+            );
             if !self.cache.contains_key(&key) && !pending.contains_key(&key) {
                 let pipeline = if let Some(value) = mesh.shader {
                     material_pipeline(
@@ -168,7 +177,9 @@ impl MeshPipelines {
                         &self.standard_plain
                     },
                     requires_uv: key.textured,
-                    vertex: if key.textured {
+                    vertex: if key.tangents {
+                        "vertex_tangent"
+                    } else if key.textured {
                         "vertex_textured"
                     } else {
                         "vertex"
@@ -227,7 +238,7 @@ pub(crate) fn material_pipeline(
 ) -> wgpu::RenderPipeline {
     create_pipeline(
         device,
-        PipelineKey::new(format, mesh),
+        PipelineKey::new(format, mesh, false),
         ShaderPipeline {
             module: &material.shader,
             layout: &material.layout,
@@ -243,6 +254,7 @@ fn create_pipeline(
     shader: ShaderPipeline<'_>,
 ) -> wgpu::RenderPipeline {
     let attributes = wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3];
+    let tangent_attributes = wgpu::vertex_attr_array![4 => Float32x4];
     let uv_attributes = wgpu::vertex_attr_array![2 => Float32x2, 3 => Float32x2];
     let mut buffers = vec![Some(wgpu::VertexBufferLayout {
         array_stride: 24,
@@ -254,6 +266,13 @@ fn create_pipeline(
             array_stride: 16,
             step_mode: wgpu::VertexStepMode::Vertex,
             attributes: &uv_attributes,
+        }));
+    }
+    if key.tangents {
+        buffers.push(Some(wgpu::VertexBufferLayout {
+            array_stride: 16,
+            step_mode: wgpu::VertexStepMode::Vertex,
+            attributes: &tangent_attributes,
         }));
     }
     device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {

@@ -72,7 +72,7 @@ impl ScenePacket {
             return Err("unsupported scene packet".into());
         }
         let opcode = r.u32()?;
-        if !(10..=21).contains(&opcode) {
+        if !(10..=22).contains(&opcode) {
             return Err("unsupported scene packet".into());
         }
         let textured = opcode >= 11;
@@ -220,7 +220,15 @@ impl ScenePacket {
             } else {
                 IndexFormat::Uint32
             };
-            if uv_flags > if opcode >= 13 { 7 } else { 3 } {
+            if uv_flags
+                > if opcode >= 22 {
+                    15
+                } else if opcode >= 13 {
+                    7
+                } else {
+                    3
+                }
+            {
                 return Err("unknown UV attributes".into());
             }
             if vertex_count > MAX_VERTICES || index_count > MAX_INDICES {
@@ -231,7 +239,10 @@ impl ScenePacket {
             if vertices > MAX_VERTICES || indices > MAX_INDICES {
                 return Err("geometry upload exceeds budget".into());
             }
-            let needed = vertex_count * (24 + (uv_flags & 3).count_ones() as usize * 8)
+            let needed = vertex_count
+                * (24
+                    + (uv_flags & 3).count_ones() as usize * 8
+                    + if uv_flags & 8 != 0 { 16 } else { 0 })
                 + index_count * index_format.bytes();
             if needed > data.len() - r.offset {
                 return Err("truncated geometry payload".into());
@@ -245,6 +256,7 @@ impl ScenePacket {
                 index_format,
                 uv0: Vec::new(),
                 uv1: Vec::new(),
+                tangents: Vec::new(),
             };
             for _ in 0..vertex_count {
                 geometry.positions.push(r.floats()?);
@@ -270,6 +282,11 @@ impl ScenePacket {
                     geometry.uv1.push(r.floats()?);
                 }
             }
+            if uv_flags & 8 != 0 {
+                for _ in 0..vertex_count {
+                    geometry.tangents.push(r.floats()?);
+                }
+            }
             geometry.validate()?;
             geometries.push(geometry);
         }
@@ -287,7 +304,7 @@ impl ScenePacket {
                 let semantic = r.u32()?;
                 let first = r.u32()?;
                 let count = r.u32()?;
-                if semantic > 3
+                if semantic > if opcode >= 22 { 4 } else { 3 }
                     || count == 0
                     || first
                         .checked_add(count)
@@ -295,7 +312,14 @@ impl ScenePacket {
                 {
                     return Err("invalid geometry patch range".into());
                 }
-                let values_count = count as usize * if semantic < 2 { 3 } else { 2 };
+                let values_count = count as usize
+                    * if semantic < 2 {
+                        3
+                    } else if semantic == 4 {
+                        4
+                    } else {
+                        2
+                    };
                 if values_count * 4 > data.len() - r.offset {
                     return Err("truncated geometry patch".into());
                 }

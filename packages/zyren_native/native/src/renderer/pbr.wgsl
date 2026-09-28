@@ -26,12 +26,13 @@ struct Lights { count: vec4<f32>, view: vec4<f32>, values: array<Light,16> };
 @group(2) @binding(7) var aoSampler: sampler;
 @group(2) @binding(8) var emissiveMap: texture_2d<f32>;
 @group(2) @binding(9) var emissiveSampler: sampler;
-struct PbrVertex { @builtin(position) position: vec4<f32>, @location(0) normal: vec3<f32>, @location(1) point: vec3<f32>, @location(2) uv: vec2<f32>, @location(3) uv1: vec2<f32> };
+struct PbrVertex { @builtin(position) position: vec4<f32>, @location(0) normal: vec3<f32>, @location(1) point: vec3<f32>, @location(2) uv: vec2<f32>, @location(3) uv1: vec2<f32>, @location(4) tangent: vec4<f32> };
 fn transform(position: vec3<f32>, normal: vec3<f32>) -> PbrVertex {
  var v: PbrVertex;
  v.position = uniforms.mvp * vec4<f32>(position,1.);
  v.normal = (uniforms.normal_matrix * vec4<f32>(normal,0.)).xyz;
  v.point = (uniforms.model * vec4<f32>(position,1.)).xyz;
+ v.tangent = vec4<f32>(0.);
  v.uv = vec2<f32>(0.); v.uv1 = vec2<f32>(0.);
  return v;
 }
@@ -39,6 +40,12 @@ fn transform(position: vec3<f32>, normal: vec3<f32>) -> PbrVertex {
 @vertex fn vertex_textured(@location(0) position: vec3<f32>, @location(1) normal: vec3<f32>, @location(2) uv0: vec2<f32>, @location(3) uv1: vec2<f32>) -> PbrVertex {
  var v = transform(position,normal);
  v.uv = uv0; v.uv1 = uv1;
+ return v;
+}
+@vertex fn vertex_tangent(@location(0) position: vec3<f32>, @location(1) normal: vec3<f32>, @location(2) uv0: vec2<f32>, @location(3) uv1: vec2<f32>, @location(4) tangent: vec4<f32>) -> PbrVertex {
+ var v=transform(position,normal); v.uv=uv0; v.uv1=uv1;
+ let linear=mat3x3<f32>(uniforms.model[0].xyz,uniforms.model[1].xyz,uniforms.model[2].xyz);
+ v.tangent=vec4<f32>(linear*tangent.xyz,tangent.w*sign(determinant(linear)));
  return v;
 }
 fn brdf(base: vec3<f32>, metal: f32, rough: f32, n: vec3<f32>, v: vec3<f32>, l: vec3<f32>) -> vec3<f32> {
@@ -69,9 +76,13 @@ fn shade(input: PbrVertex, front: bool, sampleColor: vec4<f32>) -> vec4<f32> {
  let alpha=uniforms.map_params.y*sampleColor.a;
  if uniforms.map_params.w > .5 && uniforms.map_params.w < 1.5 && alpha < uniforms.map_params.z { discard; }
  var n=normalize(select(-input.normal,input.normal,front));
- if (flags&2u)!=0u && abs(determinant)>1e-10 {
-   let rawT=(dp1*duv2.y-dp2*duv1.y)/determinant;
-   let rawB=(-dp1*duv2.x+dp2*duv1.x)/determinant;
+ if (flags&2u)!=0u && (abs(input.tangent.w)>.5 || abs(determinant)>1e-10) {
+   var rawT=input.tangent.xyz;
+   var rawB=cross(normalize(input.normal),rawT)*input.tangent.w;
+   if abs(input.tangent.w)<.5 {
+     rawT=(dp1*duv2.y-dp2*duv1.y)/determinant;
+     rawB=(-dp1*duv2.x+dp2*duv1.x)/determinant;
+   }
    let projected=rawT-n*dot(n,rawT);
    if dot(projected,projected)>1e-20 {
      let t=normalize(projected);

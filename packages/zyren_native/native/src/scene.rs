@@ -45,6 +45,8 @@ pub struct Geometry {
     pub uv0: Vec<[f32; 2]>,
     #[serde(default)]
     pub uv1: Vec<[f32; 2]>,
+    #[serde(default)]
+    pub tangents: Vec<[f32; 4]>,
 }
 
 impl Geometry {
@@ -66,11 +68,13 @@ impl Geometry {
             } else {
                 40
             })
+            + self.tangents.len() * 16
             + self.indices.len() * self.index_format.bytes()
     }
     pub fn cpu_byte_length(&self) -> usize {
         (self.positions.len() + self.normals.len()) * 12
             + (self.uv0.len() + self.uv1.len()) * 8
+            + self.tangents.len() * 16
             + self.indices.len() * 4
     }
     pub fn validate(&self) -> Result<(), String> {
@@ -78,7 +82,8 @@ impl Geometry {
             || (self.topology != 0
                 && (self.primitive_count() > 250_000
                     || !self.uv0.is_empty()
-                    || !self.uv1.is_empty()))
+                    || !self.uv1.is_empty()
+                    || !self.tangents.is_empty()))
         {
             return Err("unsupported primitive topology, attributes or expanded budget".into());
         }
@@ -88,6 +93,16 @@ impl Geometry {
             {
                 return Err("UV attributes need two finite values per vertex".into());
             }
+        }
+        if !self.tangents.is_empty()
+            && (self.tangents.len() != self.positions.len()
+                || self.tangents.iter().any(|v| {
+                    v.iter().any(|c| !c.is_finite())
+                        || glam::Vec3::new(v[0], v[1], v[2]).length_squared() < 1e-12
+                        || (v[3] != -1. && v[3] != 1.)
+                }))
+        {
+            return Err("tangents need a nonzero direction and handedness of +/-1".into());
         }
         if self.positions.is_empty() || self.positions.len() > MAX_VERTICES {
             return Err("geometry vertex count is outside the supported range".into());

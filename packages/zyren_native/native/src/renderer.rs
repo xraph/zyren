@@ -573,9 +573,13 @@ impl Renderer {
         format: wgpu::TextureFormat,
     ) -> Result<(), String> {
         let state = self.state.as_mut().unwrap();
-        state
-            .pipelines
-            .prepare(&state.device, frame, format, &state.graphs.materials)
+        state.pipelines.prepare(
+            &state.device,
+            frame,
+            format,
+            &state.graphs.materials,
+            &state.geometries,
+        )
     }
 
     fn encode_scene(
@@ -685,12 +689,13 @@ impl Renderer {
                 let binding = &bindings[index];
                 let texture_binding = &texture_bindings[index];
                 let geometry = &self.geometries[&mesh.geometry];
-                pass.set_pipeline(
-                    self.pipelines
-                        .get(pipelines::PipelineKey::new(format, mesh)),
-                );
+                pass.set_pipeline(self.pipelines.get(pipelines::PipelineKey::new(
+                    format,
+                    mesh,
+                    !geometry.recipe.tangents.is_empty(),
+                )));
                 pass.set_bind_group(0, binding, &[]);
-                let (vertices, indices, count, uv, index_format) =
+                let (vertices, indices, count, uv, index_format, tangents) =
                     self.resources.geometry(geometry.key);
                 pass.set_vertex_buffer(0, vertices.slice(..));
                 if let Some(binding) = texture_binding {
@@ -698,6 +703,12 @@ impl Renderer {
                         pass.set_vertex_buffer(1, uv.expect("validated UV buffer").slice(..));
                     }
                     pass.set_bind_group(if mesh.pbr.is_some() { 2 } else { 1 }, binding, &[]);
+                }
+                if mesh.pbr.is_some()
+                    && mesh.material_maps().next().is_some()
+                    && let Some(tangents) = tangents
+                {
+                    pass.set_vertex_buffer(2, tangents.slice(..));
                 }
                 if let Some(binding) = &lighting[index] {
                     pass.set_bind_group(1, binding, &[]);

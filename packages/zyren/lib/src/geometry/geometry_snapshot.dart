@@ -40,6 +40,9 @@ final class GeometrySnapshot {
   List<double>? get uv0 => attributes[VertexSemantic.uv0]?.data as Float32List?;
   List<double>? get uv1 => attributes[VertexSemantic.uv1]?.data as Float32List?;
 
+  List<double>? get tangents =>
+      attributes[VertexSemantic.tangent]?.data as Float32List?;
+
   int get primitiveCount => switch (topology) {
     GeometryTopology.triangles => indices.length ~/ 3,
     GeometryTopology.lineSegments => indices.length ~/ 2,
@@ -49,7 +52,8 @@ final class GeometrySnapshot {
   int get gpuByteLength => topology == GeometryTopology.triangles
       ? positions.length * 8 +
             indices.length * indexFormat.bytesPerIndex +
-            (uv0 != null || uv1 != null ? layout.vertexCount * 16 : 0)
+            (uv0 != null || uv1 != null ? layout.vertexCount * 16 : 0) +
+            (tangents != null ? layout.vertexCount * 16 : 0)
       : primitiveCount * 120;
 
   /// Null means the base is incompatible or older than the bounded journal.
