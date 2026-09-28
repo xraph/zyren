@@ -120,6 +120,7 @@ Future<void> verifyHdr(NativeGpuBackend backend) async {
   );
   pixel(dimmed, [71, 188, 255, 64]);
   expect(dimmed.stats.uploadedBytes, 0);
+  expect(dimmed.stats.drawCalls, 3); // Mesh, alpha resolve, terminal tone map.
   if (backend is NativeBackend) {
     final peer = backend.createView();
     try {

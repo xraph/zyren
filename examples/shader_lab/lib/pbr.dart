@@ -12,11 +12,13 @@ class PbrLabApp extends StatelessWidget {
   final SceneRuntime? runtime;
   final PresentationPolicy presentation;
   final bool environmentLighting;
+  final bool postProcessing;
   const PbrLabApp({
     super.key,
     this.runtime,
     this.presentation = PresentationPolicy.requireNative,
     this.environmentLighting = true,
+    this.postProcessing = false,
   });
   @override
   Widget build(BuildContext context) => MaterialApp(
@@ -32,6 +34,7 @@ class PbrLabApp extends StatelessWidget {
               : const SceneRuntime()),
       presentation: presentation,
       environmentLighting: environmentLighting,
+      postProcessing: postProcessing,
     ),
   );
 }
@@ -40,10 +43,12 @@ class _PbrLab extends StatefulWidget {
   final SceneRuntime? runtime;
   final PresentationPolicy presentation;
   final bool environmentLighting;
+  final bool postProcessing;
   const _PbrLab({
     this.runtime,
     required this.presentation,
     required this.environmentLighting,
+    this.postProcessing = false,
   });
   @override
   State<_PbrLab> createState() => _PbrLabState();
@@ -57,6 +62,8 @@ class _PbrLabState extends State<_PbrLab> {
   bool environmentControls = false;
   double environmentAngle = 0;
   late final List<TextureMap> maps = _makeMaps();
+  final effects = PostProcessing(bloom: BloomOptions());
+  int sampleCount = 1;
   bool textured = true, shadows = true;
   double ambient = 1, exposure = 1;
   ToneMapping toneMapping = ToneMapping.acesFilmic;
@@ -67,12 +74,13 @@ class _PbrLabState extends State<_PbrLab> {
   @override
   void initState() {
     super.initState();
+    sampleCount = widget.postProcessing ? 4 : 1;
     environment = EnvironmentLighting(
       image: widget.environmentLighting ? studioEnvironment() : null,
     );
     controller = SceneController(
       runtime: widget.runtime,
-      colorPipeline: ColorPipeline(),
+      colorPipeline: ColorPipeline(sampleCount: sampleCount),
       options: EngineOptions(presentation: widget.presentation),
       camera: PerspectiveCamera(
         position: const Vec3(0, 0, 9),
@@ -80,6 +88,7 @@ class _PbrLabState extends State<_PbrLab> {
       ),
     );
     if (widget.environmentLighting) controller.use(environment);
+    if (widget.postProcessing) controller.use(effects);
     controller.scene.background = const Color3(.012, .018, .028);
     grid = controller.scene.add(Group());
     final sphere = SphereGeometry(
@@ -313,6 +322,7 @@ class _PbrLabState extends State<_PbrLab> {
                     controller.colorPipeline = ColorPipeline(
                       toneMapping: toneMapping,
                       exposure: exposure,
+                      sampleCount: sampleCount,
                     );
                   }),
                 ),
@@ -325,6 +335,7 @@ class _PbrLabState extends State<_PbrLab> {
                     controller.colorPipeline = ColorPipeline(
                       toneMapping: toneMapping,
                       exposure: exposure,
+                      sampleCount: sampleCount,
                     );
                   }),
                 ),
@@ -381,8 +392,47 @@ class _PbrLabState extends State<_PbrLab> {
               ],
             ),
           ),
+          if (widget.postProcessing)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Wrap(
+                spacing: 8,
+                children: [
+                  FilterChip(
+                    label: const Text('4× MSAA'),
+                    selected: sampleCount == 4,
+                    onSelected: (value) => setState(() {
+                      sampleCount = value ? 4 : 1;
+                      controller.colorPipeline = ColorPipeline(
+                        toneMapping: toneMapping,
+                        exposure: exposure,
+                        sampleCount: sampleCount,
+                      );
+                    }),
+                  ),
+                  FilterChip(
+                    label: const Text('Bloom'),
+                    selected: effects.bloom != null,
+                    onSelected: (value) => setState(
+                      () => effects.bloom = value ? BloomOptions() : null,
+                    ),
+                  ),
+                  FilterChip(
+                    label: const Text('Spatial AA'),
+                    selected: effects.antialias,
+                    onSelected: (value) =>
+                        setState(() => effects.antialias = value),
+                  ),
+                ],
+              ),
+            ),
           const Divider(height: 1),
-          Expanded(child: SceneView(controller: controller)),
+          Expanded(
+            child: SceneView(
+              controller: controller,
+              resolutionScale: widget.postProcessing ? .5 : 1,
+            ),
+          ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             child: Align(

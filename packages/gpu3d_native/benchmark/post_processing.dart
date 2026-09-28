@@ -1,0 +1,129 @@
+import 'dart:convert';
+import 'dart:io';
+import 'package:gpu3d/gpu3d.dart';
+import 'package:gpu3d/rendering.dart';
+import 'package:gpu3d_native/gpu3d_native.dart';
+
+Future<void> main() async {
+  final backend = await NativeBackend.create();
+  final results = <Map<String, Object?>>[];
+  try {
+    for (final width in [640, 1280]) {
+      final height = width * 9 ~/ 16;
+      for (final profile in ['ldr', 'hdr', 'msaa4', 'bloom', 'bloom+spatial']) {
+        final scene = Scene()..background = const Color3(.01, .01, .01);
+        final copies = scene.add(
+          InstancedMesh(
+            SphereGeometry(radius: .09, widthSegments: 16, heightSegments: 8),
+            StandardMaterial(
+              baseColor: const Color3(.1, .3, .8),
+              metallic: .4,
+              roughness: .3,
+              emissive: const Color3(.1, .05, 0),
+              emissiveIntensity: 4,
+            ),
+            count: 400,
+          ),
+        );
+        copies.setTransforms(
+          0,
+          List.generate(
+            400,
+            (i) => Mat4.compose(
+              Vec3((i % 20 - 9.5) * .23, (i ~/ 20 - 9.5) * .23, 0),
+              Quat.identity,
+              Vec3.one,
+            ),
+          ),
+        );
+        scene.add(DirectionalLight(intensity: 4));
+        final camera = PerspectiveCamera(position: const Vec3(0, 0, 8));
+        final effects = PostProcessing(
+          bloom: profile.startsWith('bloom') ? BloomOptions() : null,
+          antialias: profile.endsWith('spatial'),
+        );
+        final engine = await SceneEngine.create(
+          scene: scene,
+          camera: camera,
+          backendFactory: () async => backend.createView(),
+          plugins: [effects],
+          onIssue: (issue) => throw SceneException(issue),
+        );
+        final pipeline = profile == 'ldr'
+            ? null
+            : ColorPipeline(sampleCount: profile == 'hdr' ? 1 : 4);
+        try {
+          Future<FrameOutput> frame() => engine.renderFrame(
+            elapsed: Duration.zero,
+            width: width,
+            height: height,
+            colorPipeline: pipeline,
+          );
+          await frame();
+          final resident = await backend.resourceStats();
+          final times = <int>[], builds = <int>[];
+          FrameStats? last;
+          for (var i = 0; i < 25; i++) {
+            camera.position = Vec3(i * .0001, 0, 8);
+            final timer = Stopwatch()..start();
+            final output = await frame();
+            timer.stop();
+            last = output.stats;
+            if (last.uploadedBytes != 0 ||
+                last.readbackBytes != width * height * 4 ||
+                last.gpuTime != null) {
+              throw StateError(
+                'Frame upload/readback/timestamp invariant changed.',
+              );
+            }
+            if (i >= 5) {
+              times.add(timer.elapsedMicroseconds);
+              builds.add(last.cpuBuildTime.inMicroseconds);
+            }
+          }
+          final after = await backend.resourceStats();
+          if (after.residentBytes != resident.residentBytes ||
+              after.liveAllocations != resident.liveAllocations) {
+            throw StateError(
+              'Effect allocations grew during steady rendering.',
+            );
+          }
+          times.sort();
+          builds.sort();
+          results.add({
+            'profile': profile,
+            'width': width,
+            'height': height,
+            'copies': 400,
+            'samples': 20,
+            'p50Ms': times[10] / 1000,
+            'p95Ms': times[18] / 1000,
+            'p50CaptureMs': builds[10] / 1000,
+            'drawCalls': last!.drawCalls,
+            'residentResourceBytes': after.residentBytes,
+            'resourceAllocations': after.liveAllocations,
+            'readbackBytes': last.readbackBytes,
+            'steadyUploadBytes': last.uploadedBytes,
+            'gpuTime': null,
+          });
+        } finally {
+          await engine.dispose();
+        }
+        if ((await backend.resourceStats()).residentBytes != 0) {
+          throw StateError('Effect resources leaked after view disposal.');
+        }
+      }
+    }
+  } finally {
+    await backend.close();
+  }
+  stdout.writeln(
+    const JsonEncoder.withIndent('  ').convert({
+      'platform': Platform.operatingSystem,
+      'runtime': Platform.version,
+      'timing':
+          'End-to-end explicit readback; no presentation FPS or GPU timestamp claim.',
+      'results': results,
+    }),
+  );
+}

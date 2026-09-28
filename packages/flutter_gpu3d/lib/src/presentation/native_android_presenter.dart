@@ -125,6 +125,7 @@ class NativeAndroidBackend implements NativeGpuBackend {
     limits: DeviceLimits(
       maxTextureDimension2D: 4096,
       sampleCounts: {1, 4},
+      maxResidentResourceBytes: 256 * 1024 * 1024,
       maxGeometryBytes: 64 * 1024 * 1024,
       maxInstances: 100000,
       maxJoints: 256,
@@ -239,11 +240,13 @@ class NativeAndroidBackend implements NativeGpuBackend {
         drawCalls:
             submission.scene.drawCalls +
             submission.scene.alphaResolveDraws +
+            submission.outputConversionDraws +
             (submission.graph?.drawCalls ?? 0),
         computeDispatches: submission.graph?.dispatches ?? 0,
         triangles:
             submission.scene.triangles +
             submission.scene.alphaResolveDraws +
+            submission.outputConversionDraws +
             (submission.graph?.triangles ?? 0),
         readbackBytes: result['readbackBytes'] as int,
         uploadedBytes: packet.uploadedBytes,

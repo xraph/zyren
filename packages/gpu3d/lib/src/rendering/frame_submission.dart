@@ -348,6 +348,9 @@ class SceneSnapshot {
 }
 
 class FrameSubmission {
+  /// A graph already counts its final output conversion. Standalone HDR needs one.
+  int get outputConversionDraws =>
+      colorPipeline != null && graph == null ? 1 : 0;
   final ShadowSnapshot shadows;
   final CompiledGraph? graph;
   final ColorPipeline? colorPipeline;
@@ -457,7 +460,8 @@ class FrameSubmission {
             'color_pipeline': {
               'tone_mapping': pipeline.toneMapping.index,
               'exposure': pipeline.exposure,
-              if (pipeline.sampleCount != 1) 'sample_count': pipeline.sampleCount,
+              if (pipeline.sampleCount != 1)
+                'sample_count': pipeline.sampleCount,
             },
           'geometries': [
             for (final id in {

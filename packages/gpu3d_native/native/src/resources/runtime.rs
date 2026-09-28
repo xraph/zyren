@@ -32,6 +32,9 @@ enum Resource {
         usage: u32,
     },
 }
+/// Aggregate admission includes old and candidate graphs during replacement.
+pub const MAX_RESIDENT_BYTES: u64 = 256 * 1024 * 1024;
+
 pub struct ResourceStore {
     registry: ResourceRegistry<Resource>,
     serial: u64,
@@ -43,7 +46,7 @@ impl Default for ResourceStore {
     fn default() -> Self {
         let renderer = next_registry_id();
         Self {
-            registry: ResourceRegistry::new(renderer, 1, MAX_BYTES),
+            registry: ResourceRegistry::new(renderer, 1, MAX_RESIDENT_BYTES),
             serial: 0,
             uploaded: 0,
             pending: None,

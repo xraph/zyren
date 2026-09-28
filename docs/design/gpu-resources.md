@@ -76,8 +76,11 @@ GPU timeout. Batching and narrower per-resource waits remain performance work.
 
 ## Limits and accounting
 
-The first resource profile permits 64 MiB of descriptor payload per device,
+The resource profile permits 256 MiB of resident descriptor payload per device,
+with a 64 MiB limit per allocation or transfer,
 65,536 registry slots, 4096-pixel texture dimensions and 1024 UTF-8 bytes per label.
+The device reports the total through `maxResidentResourceBytes`. Old and candidate
+graphs coexist during replacement; both count against it.
 Mip bytes count toward the texture allocation. Native validation repeats bounds,
 usage and budget checks before GPU allocation or transfer. Failed validation
 leaves existing allocations usable.
@@ -127,7 +130,7 @@ use the versioned range updates described below.
 
 Each view permits one in-flight frame, 4096 meshes and 4096 owned geometry IDs.
 A device permits 64 views and 16,384 cached mesh records. Scene allocations share
-the 64 MiB resource budget with explicit buffers and textures. Replacement
+the 256 MiB resident resource budget with explicit buffers and textures. Replacement
 submissions need room for both old and new allocations until validation succeeds.
 A rejected submission preserves the previous view state. Scene readback frame
 statistics report actual device upload bytes, including zero for an already
@@ -239,7 +242,7 @@ per vertex. `TextureMap.uvSet` selects 0 or 1 and capture rejects a missing set.
 
 Scene images use the resource registry and share geometry's view ownership rules.
 Hiding a mapped mesh retains its image; removing the last owner releases it after
-submitted work completes. Supplied and generated mip levels count toward the shared 64 MiB
+submitted work completes. Supplied and generated mip levels count toward the shared 256 MiB
 budget. Each view can own up to 4096 images. `RenderFeature.colorTextures` reports
 support. Legacy Dart JSON encoders reject texture materials explicitly.
 

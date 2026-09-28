@@ -70,3 +70,5 @@ export 'src/geometry/morph_target.dart';
 export 'src/scene/layer_mask.dart';
 export 'src/spatial/ray.dart';
 export 'src/spatial/raycaster.dart';
+
+export 'src/effects/post_processing.dart';

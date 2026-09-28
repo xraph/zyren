@@ -778,3 +778,14 @@ A developer can load a supported standard glTF scene, select/animate it and add
 a separately packaged shader effect without editing Rust or importing private
 files. Capabilities, ownership and limitations accompany working examples.
 Atmosphere and clouds still belong to the optional plugin plan.
+
+Task 8 checkpoint (2026-09-28): native four-sample MSAA resolves before alpha
+conversion and effects, including custom mesh materials. `PostProcessing` adds
+public-graph bloom and spatial AA with bounded intermediates. Native fixtures
+cover impulse/edge pixels, failed candidate recovery, stable resource residency
+and release. The shared resource allowance is now distinct from the per-resource
+limit so graph replacement can retain the last valid frame. Metal surface
+integration passes effect toggles and desktop/narrow layouts with zero readback.
+See [profiles](../../renderer-capabilities.md) and
+[post-processing](../../design/post-processing.md). Temporal rejection and broad
+Three.js parity remain open; the profile table lists their acceptance fixtures.

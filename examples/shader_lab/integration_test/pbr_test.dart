@@ -46,7 +46,7 @@ void main() {
       final first = await waitForFrame(
         tester,
         controller,
-        (frame) => frame.drawCalls == 13,
+        (frame) => frame.drawCalls == 14,
       );
       expect(first.readbackBytes, 0);
       final exposure = controller.colorPipeline!.exposure;
@@ -57,7 +57,7 @@ void main() {
       final exposed = await waitForFrame(
         tester,
         controller,
-        (f) => f.drawCalls == 13 && f.uploadedBytes == 0,
+        (f) => f.drawCalls == 14 && f.uploadedBytes == 0,
       );
       expect(exposed.readbackBytes, 0);
       expect(controller.colorPipeline!.exposure, lessThan(exposure));
@@ -91,13 +91,13 @@ void main() {
         (frame) => frame.uploadedBytes == 0,
       );
       expect(light.intensity, lessThan(before));
-      expect(edited.drawCalls, 13);
+      expect(edited.drawCalls, 14);
       final orientation = light.quaternion;
       await tester.drag(
         find.byKey(const ValueKey('Angle')),
         const Offset(60, 0),
       );
-      await waitForFrame(tester, controller, (frame) => frame.drawCalls == 13);
+      await waitForFrame(tester, controller, (frame) => frame.drawCalls == 14);
       expect(light.quaternion, isNot(orientation));
       final hemisphere = controller.scene.children
           .whereType<HemisphereLight>()
@@ -107,14 +107,14 @@ void main() {
         find.byKey(const ValueKey('Ambient')),
         const Offset(40, 0),
       );
-      await waitForFrame(tester, controller, (frame) => frame.drawCalls == 13);
+      await waitForFrame(tester, controller, (frame) => frame.drawCalls == 14);
       expect(hemisphere.intensity, greaterThan(beforeAmbient));
       for (var i = 0; i < 2; i++) {
         await tester.tap(find.byKey(const ValueKey('Textures')));
         final toggled = await waitForFrame(
           tester,
           controller,
-          (frame) => frame.drawCalls == 13,
+          (frame) => frame.drawCalls == 14,
         );
         expect(toggled.readbackBytes, 0);
       }
@@ -128,7 +128,7 @@ void main() {
         final frame = await waitForFrame(
           tester,
           controller,
-          (frame) => frame.drawCalls == 13 && frame.uploadedBytes == 0,
+          (frame) => frame.drawCalls == 14 && frame.uploadedBytes == 0,
         );
         expect(frame.readbackBytes, 0);
       }

@@ -33,10 +33,14 @@ class DeviceLimits {
   final int maxGeometryBytes;
   final int maxPunctualLights, maxHemisphereLights, maxInstances;
   final int maxJoints, maxMorphTargets;
+
+  /// Descriptor bytes shared by scene resources and explicit scopes. Null is unknown.
+  final int? maxResidentResourceBytes;
   final Set<int> sampleCounts;
   DeviceLimits({
     required this.maxTextureDimension2D,
     required this.maxGeometryBytes,
+    this.maxResidentResourceBytes,
     this.maxInstances = 0,
     this.maxJoints = 0,
     this.maxMorphTargets = 0,
@@ -46,6 +50,7 @@ class DeviceLimits {
   }) : sampleCounts = Set.unmodifiable(sampleCounts) {
     if (maxTextureDimension2D < 1 ||
         maxGeometryBytes < 1 ||
+        (maxResidentResourceBytes != null && maxResidentResourceBytes! < 1) ||
         maxInstances < 0 ||
         maxJoints < 0 ||
         maxMorphTargets < 0 ||

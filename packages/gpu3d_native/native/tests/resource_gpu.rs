@@ -82,11 +82,25 @@ fn native_resource_validation_is_atomic_and_does_not_poison_device() {
         &[0; 16]
     );
     assert_eq!(stats(&mut renderer), [16, 0, 1]);
+    // The resident allowance is separate from the per-allocation limit.
+    let mut large = Vec::new();
+    for _ in 0..3 {
+        let reply = renderer
+            .resource_command(&packet(1, &descriptor(64 * 1024 * 1024, 1)), 56)
+            .unwrap();
+        large.push(reply[24..].to_vec());
+    }
     // Native budget applies across allocations, regardless of Dart validation.
     assert_eq!(
         renderer.resource_command(&packet(1, &descriptor(64 * 1024 * 1024, 1)), 56),
         Err(ResourceError::BudgetExceeded)
     );
+    for allocation in large {
+        renderer
+            .resource_command(&packet(6, &allocation), 24)
+            .unwrap();
+    }
+    assert_eq!(stats(&mut renderer), [16, 0, 1]);
     let mut foreign = key.to_vec();
     foreign[0] ^= 128;
     assert_eq!(

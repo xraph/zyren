@@ -1,7 +1,7 @@
 part of 'native_renderer.dart';
 
-/// Payload bytes allocated by explicit resource scopes on this device.
-/// Frame targets, legacy scene geometry and temporary readback staging are separate.
+/// Payload bytes allocated by scene resources and explicit scopes on this device.
+/// Frame targets, driver padding and temporary readback staging are separate.
 final class ResourceStats {
   final int residentBytes, uploadedBytes, liveAllocations;
   const ResourceStats({

@@ -2301,3 +2301,25 @@ geometry-update and texture-packet suites also pass, along with seven Dart nativ
 PNG/JPEG/HDR isolate cases. The HDR GPU case was skipped in that CPU-only run.
 Strict Clippy passes. Task 2's remaining allocation gate is closed; this audit
 does not change the recorded device-qualification limits or establish an RSS cap.
+
+## 28 September: MSAA, bloom and renderer budgets
+
+`ColorPipeline(sampleCount: 4)` and `PostProcessing` pass seven serial Rust
+postprocess cases, five native resource cases and five Dart native HDR/effect/
+budget cases on Metal. The core suite passes 352 tests; Rust's ordinary suite,
+strict Clippy and Dart/Flutter analysis pass. Five Shader Lab widget tests and
+both the post-processing and PBR macOS integrations pass. Surface integration
+checks use no presentation readback and cover 320/960-pixel layouts.
+
+The new budget fixture fills the 256 MiB shared resource allowance, verifies
+that the next allocation fails, then confirms complete release. Individual
+allocations and transfers retain their 64 MiB limit. This fixes effect graph
+replacement with environment lighting while preserving the previous graph on
+failure. Standalone HDR frame statistics now include the terminal tone-map draw.
+
+The native AOT benchmark renders 400 instanced spheres at 640×360 and 1280×720
+across five color/effect profiles. Every steady frame uploads zero scene bytes;
+resource residency stays stable and returns to zero after each view. Timings and
+accounting boundaries are recorded in `benchmarks/renderer`. GPU timestamps stay
+unknown. Windows, Android and iOS device qualification remain open, as does manual
+visual inspection because the app could not foreground on the sleeping display.
