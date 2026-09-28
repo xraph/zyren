@@ -1,4 +1,3 @@
-import 'package:gpu3d/rendering.dart';
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:gpu3d/gpu3d.dart';

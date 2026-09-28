@@ -44,14 +44,11 @@ final class PreparedMaterialFixture extends ScenePlugin {
     RenderFeature.storageTextures,
     RenderFeature.meshShaders,
   };
-  late FrameGraphBinding _binding;
   late GpuResource<Buffer> _tint;
   late ComputePassDescriptor _preparePass;
   Mesh? _mesh;
-  PhysicalSize? _size;
   @override
   Future<void> attach(PluginContext context) async {
-    _binding = context.frameGraph;
     _tint = await context.resources.createBuffer(
       BufferDescriptor(
         size: 16,
@@ -88,36 +85,10 @@ final class PreparedMaterialFixture extends ScenePlugin {
         TextureBinding.storage(1, generated),
       ]),
     );
+    context.graph.addCompute(_preparePass, inputs: [_tint]);
     _mesh = context.scene.add(
       Mesh(PlaneGeometry(width: 2, height: 2), ShaderMaterial(material)),
     );
-  }
-
-  @override
-  Future<void> beforeRender(PluginContext context, FrameInfo frame) async {
-    if (_size?.width == frame.width && _size?.height == frame.height) return;
-    final candidate = context.resources.createChild(label: 'prepared scene');
-    try {
-      final color = await candidate.createTexture(
-        TextureDescriptor(
-          width: frame.width,
-          height: frame.height,
-          usage: {TextureUsage.renderAttachment, TextureUsage.sampled},
-        ),
-      );
-      _binding.graph = await context.graphs.compile(
-        GraphDescription(
-          sceneColor: color,
-          output: color,
-          inputs: [_tint],
-          beforeScene: [_preparePass],
-          passes: [],
-        ),
-      );
-      _size = PhysicalSize(frame.width, frame.height);
-    } finally {
-      await candidate.close();
-    }
   }
 
   @override
@@ -125,7 +96,6 @@ final class PreparedMaterialFixture extends ScenePlugin {
     final mesh = _mesh;
     if (mesh != null) context.scene.remove(mesh);
     _mesh = null;
-    _size = null;
   }
 }
 

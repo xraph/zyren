@@ -485,12 +485,15 @@ class HeatmapPlugin extends ScenePlugin {
 `context.shaders`, `ShaderSource` and `ShaderProgram` are implemented in the
 [compiler checkpoint](shader-compilation.md). `context.resources` now owns GPU
 allocations and `context.graphs` owns a graph compiler for explicit execution;
-see [render graphs](render-graphs.md). The automatic `context.graph` registration
-code above remains the target API for scene insertion in task 4.
-Scene-first composition is available through an attachment-owned
+see [render graphs](render-graphs.md). `context.graph` inserts shared compute,
+render and effect contributions into the scene frame. Its registrations belong
+to the attachment automatically; the explicit `scope.keep` above is optional.
+Compute and render contributions default to preparation before the scene.
+Use `addEffect` for a color chain with automatic resize and candidate cleanup.
+Manual composition is available through an attachment-owned
 `context.frameGraph` binding. It selects a compiled graph whose `sceneColor` and
-`output` textures connect the scene to native presentation. Automatic shared pass
-registration through `context.graph` remains separate work.
+`output` textures connect the scene to native presentation. Choose shared or
+manual composition for each view. Mixing them is rejected during attachment.
 `heatmapWgsl`, `heatmapBindings` and
 `heatmapTexture` will be application inputs in the independent effects example.
 `ShaderSource`,

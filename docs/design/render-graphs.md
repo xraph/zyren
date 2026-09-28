@@ -157,6 +157,79 @@ is the common backend contract with resource, shader and graph statistics.
 
 ## Scene composition
 
+### Shared plugin contributions
+
+Register effects during `attach` with `context.graph.addEffect`. You get the
+previous enabled effect's output and a temporary resource scope sized to the
+physical frame:
+
+```dart
+final effect = context.graph.addEffect(
+  name: 'example.color',
+  build: (frame) async {
+    final output = await frame.createColorTexture(label: 'color output');
+    return GraphEffect(
+      output: output,
+      inputs: [parameters],
+      passes: [RenderPassDescriptor(
+        name: 'example.color.draw',
+        program: program,
+        color: ColorAttachment(output),
+        bindings: ShaderBindings([
+          TextureBinding.sampled(0, frame.input),
+          BufferBinding.uniform(1, parameters),
+        ]),
+        reads: [frame.input, parameters],
+        writes: [output],
+      )],
+    );
+  },
+);
+```
+
+Compile `program` and allocate persistent `parameters` through the attachment's
+shader and resource services. The builder runs on first use, resize or graph
+invalidation. `frame.createColorTexture` matches the input format and frame size;
+you can override its format and usage for compute effects. Builders may allocate
+other scratch resources through `frame.resources`. Every output must be a sampled,
+single-mip texture with the frame's dimensions.
+
+Independent plugins contribute to one graph. `after: {'example.color'}` orders
+an effect after another registered effect; otherwise attachment order determines
+the color chain. Dependencies include disabled registrations, so bypassing an
+effect keeps the remaining order. Missing dependencies and cycles are errors.
+Pass names remain globally unique across the combined graph.
+
+Set `effect.enabled = false` to bypass it, call `effect.invalidate()` after a
+layout or builder change, or `effect.dispose()` to remove it. The attachment owns
+the handle and removes it on detach or failed attach. Uniform uploads need only
+`context.invalidate()`, which redraws without rebuilding. New registrations are
+restricted to `attach`; handle changes are allowed while attached.
+
+For material preparation, use `context.graph.addCompute` or `addRender` with fixed
+pass descriptors and any externally initialized `inputs`. Both default to
+`FramePassStage.beforeScene`. Set `stage: FramePassStage.afterScene` for work after
+scene rendering. Effects always join the after-scene color chain. Plugins that
+need continuous updates still acquire frame demand explicitly.
+
+You can inspect `context.graph.state` for the last successful size, build count
+and latest candidate issue. A failed edit keeps a same-sized active graph and
+reports once through `SceneEngine.create(onIssue:)` or `SceneController.issues`.
+The Flutter viewport stays ready. Invalidate the registration to retry after
+repairing the edit. A size change also permits a new attempt. Failed initial
+builds and failed resizes throw because no compatible graph can render that
+requested frame. A stale candidate is discarded when registrations change during
+its build; the Flutter scheduler retries the frame.
+
+The engine closes candidate scopes after compilation and retains compiled GPU
+ownership through frame completion. Builders must not publish temporary textures
+as persistent plugin services. Keep persistent allocations in `context.resources`.
+Use either shared contributions or manual final composition in one engine.
+`context.frameGraph` and an explicit `renderFrame(graph:)` cannot override a shared
+plugin graph.
+
+### Manual composition
+
 Add `sceneColor` and `output` to a `GraphDescription` to process a scene frame.
 The native renderer executes `beforeScene`, draws the scene into `sceneColor`,
 executes `passes`, then samples `output` into the readback target or native surface.
@@ -243,10 +316,10 @@ four bind groups and slots 0 through 15 in each group. Buffer offsets require
 shader's layout and device limits. Native admission allows 32 live graphs and
 16 MiB of description storage per device. Labels have a 1024-byte UTF-8 limit.
 
-This profile supports explicit resource graphs, before/after-scene composition
-and [custom mesh materials](shader-materials.md). Automatic pass registration and
-history resources remain in plan 03. The effects example owns its resize policy
-using child scopes.
+This profile supports explicit resource graphs, shared plugin registration,
+before/after-scene composition and [custom mesh materials](shader-materials.md).
+History resources remain in plan 03. Shared effects use engine-owned resize scopes;
+manual composition can group its candidate textures in child scopes.
 Graph execution is verified on macOS Metal and Pixel Vulkan; see
 [verification](../verification.md). Other
 platforms have no graph qualification yet.

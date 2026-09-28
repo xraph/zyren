@@ -96,3 +96,103 @@ Future<void> verifyEffects(NativeGpuBackend backend) async {
   expect((await backend.graphStats()).cachedPipelines, 0);
   expect((await backend.shaderStats()).livePrograms, 0);
 }
+
+class _InvertPlugin extends ScenePlugin {
+  @override
+  String get id => 'test.invert';
+  late GraphRegistration registration;
+  bool failBuild = false;
+  @override
+  Future<void> attach(PluginContext context) async {
+    final program = await context.shaders.compile(
+      ShaderSource.wgsl('''
+@group(0) @binding(0) var source: texture_2d<f32>;
+@vertex fn vertex(@builtin(vertex_index) i: u32) -> @builtin(position) vec4<f32> {
+  let p = array<vec2<f32>, 3>(vec2(-1., -1.), vec2(3., -1.), vec2(-1., 3.));
+  return vec4(p[i], 0., 1.);
+}
+@fragment fn fragment(@builtin(position) p: vec4<f32>) -> @location(0) vec4<f32> {
+  return vec4(vec3(1.) - textureLoad(source, vec2<i32>(p.xy), 0).rgb, 1.);
+}
+'''),
+    );
+    registration = context.graph.addEffect(
+      name: id,
+      after: {EffectsPlugin.pluginId},
+      build: (frame) async {
+        final output = await frame.createColorTexture(label: 'inverted');
+        if (failBuild) throw StateError('invalid edit');
+        return GraphEffect(
+          output: output,
+          passes: [
+            RenderPassDescriptor(
+              name: id,
+              program: program,
+              color: ColorAttachment(output),
+              bindings: ShaderBindings([
+                TextureBinding.sampled(0, frame.input),
+              ]),
+              reads: [frame.input],
+              writes: [output],
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+Future<void> verifySharedEffects(NativeGpuBackend backend) async {
+  final effects = EffectsPlugin(
+    options: EffectsOptions(exposure: -1, vignette: 0),
+  );
+  final invert = _InvertPlugin();
+  final issues = <SceneIssue>[];
+  final engine = await SceneEngine.create(
+    scene: Scene()..background = const Color3(1, 0, 0),
+    camera: PerspectiveCamera(),
+    backendFactory: () async => ObservedBackend(backend),
+    // Registration order deliberately opposes the effect dependency.
+    plugins: [invert, effects],
+    onIssue: issues.add,
+  );
+  try {
+    Future<ReadbackOutput> draw(int w) async =>
+        await engine.renderFrame(elapsed: Duration.zero, width: w, height: 13)
+            as ReadbackOutput;
+    for (final width in [17, 23]) {
+      final frame = await draw(width);
+      expect(frame.image.pixels[0], closeTo(srgb(.5), 2));
+      expect(frame.image.pixels.sublist(1, 4), [255, 255, 255]);
+      expect(frame.stats.drawCalls, 4);
+      expect((await backend.graphStats()).liveGraphs, 1);
+    }
+    final resident = (await backend.resourceStats()).residentBytes;
+    invert.failBuild = true;
+    invert.registration.invalidate();
+    final preserved = await draw(23);
+    expect(preserved.image.pixels[0], closeTo(srgb(.5), 2));
+    expect(preserved.image.pixels.sublist(1, 4), [255, 255, 255]);
+    expect(issues.single.pluginId, invert.id);
+    expect((await backend.resourceStats()).residentBytes, resident);
+    await draw(23);
+    expect(issues, hasLength(1));
+    invert.failBuild = false;
+    invert.registration.invalidate();
+    await draw(23);
+    effects.options = effects.options.copyWith(enabled: false);
+    final bypass = await draw(23);
+    expect(bypass.image.pixels.sublist(0, 4), [0, 255, 255, 255]);
+    expect(bypass.stats.drawCalls, 2);
+    invert.registration.enabled = false;
+    final plain = await draw(23);
+    expect(plain.image.pixels.sublist(0, 4), [255, 0, 0, 255]);
+    expect(plain.stats.drawCalls, 0);
+    expect((await backend.graphStats()).liveGraphs, 0);
+  } finally {
+    await engine.dispose();
+  }
+  expect((await backend.resourceStats()).residentBytes, 0);
+  expect((await backend.graphStats()).liveGraphs, 0);
+  expect((await backend.shaderStats()).livePrograms, 0);
+}

@@ -242,6 +242,9 @@ class SceneController {
         input: _input,
         lifetime: _lifetime,
         onInvalidate: _scheduler.request,
+        onIssue: (issue) {
+          if (!_closed && generation == _generation) _issues.add(issue);
+        },
         acquireFrameDemand: _scheduler.acquireDemand,
         backendFactory: () async {
           final backend = await runtime.backendFactory();

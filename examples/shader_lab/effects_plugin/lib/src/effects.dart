@@ -76,7 +76,8 @@ final class EffectsPlugin extends ScenePlugin implements EffectsControls {
   EffectsOptions _options;
   EffectsOptions? _uploaded;
   PluginContext? _context;
-  FrameGraphBinding? _binding;
+  GraphRegistration? _registration;
+  int _observedBuilds = 0;
   ShaderProgram? _program;
   GpuResource<Buffer>? _parameters;
   EffectsState _state = EffectsState(
@@ -117,7 +118,6 @@ final class EffectsPlugin extends ScenePlugin implements EffectsControls {
     );
     context.provide(effectsControls, this);
     if (missing.isNotEmpty) return;
-    _binding = context.frameGraph;
     _program = await context.shaders.compile(
       ShaderSource.wgsl(effectsWgsl, label: 'shader-lab.effects.wgsl'),
     );
@@ -128,16 +128,19 @@ final class EffectsPlugin extends ScenePlugin implements EffectsControls {
         usage: {BufferUsage.uniform, BufferUsage.copyDestination},
       ),
     );
+    _registration = context.graph.addEffect(
+      name: id,
+      build: _build,
+      enabled: _options.enabled,
+    );
   }
 
   @override
   Future<void> beforeRender(PluginContext context, FrameInfo frame) async {
     if (_state.availability != EffectsAvailability.supported) return;
     final options = _options;
-    if (!options.enabled) {
-      _binding!.graph = null;
-      return;
-    }
+    _registration!.enabled = options.enabled;
+    if (!options.enabled) return;
     if (!identical(_uploaded, options)) {
       await context.resources.writeBuffer(
         _parameters!,
@@ -150,73 +153,60 @@ final class EffectsPlugin extends ScenePlugin implements EffectsControls {
       );
       _uploaded = options;
     }
-    if (_state.size?.width != frame.width ||
-        _state.size?.height != frame.height) {
-      await _resize(context, frame);
-    }
-    _binding!.graph = context.graphs.active;
   }
 
-  Future<void> _resize(PluginContext context, FrameInfo frame) async {
-    final candidate = context.resources.createChild(label: 'effects resize');
-    try {
-      Future<GpuResource<Texture>> texture(String label) =>
-          candidate.createTexture(
-            TextureDescriptor(
-              label: label,
-              width: frame.width,
-              height: frame.height,
-              usage: {TextureUsage.renderAttachment, TextureUsage.sampled},
-            ),
-          );
-      final scene = await texture('effects scene');
-      final graded = await texture('effects color');
-      final output = await texture('effects output');
-      RenderPassDescriptor pass(
-        String name,
-        String fragment,
-        GpuResource<Texture> input,
-        GpuResource<Texture> target,
-      ) => RenderPassDescriptor(
-        name: name,
-        program: _program!,
-        fragmentEntryPoint: fragment,
-        color: ColorAttachment(target),
-        bindings: ShaderBindings([
-          TextureBinding.sampled(0, input),
-          BufferBinding.uniform(1, _parameters!),
-        ]),
-        reads: [input, _parameters!],
-        writes: [target],
-      );
-      final graph = await context.graphs.compile(
-        GraphDescription(
-          label: 'shader-lab.effects',
-          sceneColor: scene,
-          output: output,
-          inputs: [_parameters!],
-          passes: [
-            pass('effects.color', 'grade', scene, graded),
-            pass('effects.vignette', 'vignette', graded, output),
-          ],
-        ),
-      );
-      _binding!.graph = graph;
+  Future<GraphEffect> _build(EffectBuildContext frame) async {
+    final graded = await frame.createColorTexture(label: 'effects color');
+    final output = await frame.createColorTexture(label: 'effects output');
+    RenderPassDescriptor pass(
+      String name,
+      String fragment,
+      GpuResource<Texture> input,
+      GpuResource<Texture> target,
+    ) => RenderPassDescriptor(
+      name: name,
+      program: _program!,
+      fragmentEntryPoint: fragment,
+      color: ColorAttachment(target),
+      bindings: ShaderBindings([
+        TextureBinding.sampled(0, input),
+        BufferBinding.uniform(1, _parameters!),
+      ]),
+      reads: [input, _parameters!],
+      writes: [target],
+    );
+    return GraphEffect(
+      output: output,
+      inputs: [_parameters!],
+      passes: [
+        pass('effects.color', 'grade', frame.input, graded),
+        pass('effects.vignette', 'vignette', graded, output),
+      ],
+    );
+  }
+
+  @override
+  void afterRender(PluginContext context, FrameInfo info, FrameStats stats) {
+    if (context.scope.isClosed) return;
+    if (_state.availability != EffectsAvailability.supported) return;
+    final graph = context.graph.state;
+    if (_options.enabled &&
+        graph.issue == null &&
+        graph.builds != _observedBuilds) {
       _state = EffectsState(
         availability: EffectsAvailability.supported,
-        size: PhysicalSize(frame.width, frame.height),
+        size: graph.size,
         graphBuilds: _state.graphBuilds + 1,
       );
-    } finally {
-      // The compiled graph retains textures; failed candidates have no owner.
-      await candidate.close();
     }
+    _observedBuilds = graph.builds;
   }
 
   @override
   void detach(PluginContext context) {
     _context = null;
-    _binding = null;
+    _registration = null;
+    _observedBuilds = 0;
     _program = null;
     _parameters = null;
     _uploaded = null;

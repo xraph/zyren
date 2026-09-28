@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'registration.dart';
 import 'attachment_scope.dart';
 import '../input/pointer_event.dart';
@@ -10,6 +11,8 @@ import '../rendering/frame_output.dart';
 import '../rendering/render_backend.dart';
 import '../scene/scene.dart';
 import '../resources/resource_scope.dart';
+import '../resources/texture.dart';
+part 'plugin_graph.dart';
 
 /// Share one exported key instance between a provider and its dependents.
 class ServiceKey<T extends Object> {
@@ -79,6 +82,8 @@ class PluginContext {
   ResourceScope? _resources;
   GraphCompiler? _graphs;
   FrameGraphBinding? _frameGraph;
+  PluginGraph? _graph;
+  final _SharedFrameGraph Function() _claimGraph;
   final FrameGraphBinding Function() _claimFrameGraph;
   final Scene scene;
   Camera camera;
@@ -102,7 +107,34 @@ class PluginContext {
     this._demand,
     this.input,
     this._claimFrameGraph,
+    this._claimGraph,
   );
+
+  /// Shared preparation and effect contributions, owned by this attachment.
+  PluginGraph get graph {
+    _checkAttached();
+    if (_graph case final graph?) return graph;
+    if (!_registering) {
+      throw StateError('Claim shared graph access during attach.');
+    }
+    for (final feature in const [
+      RenderFeature.scopedResources,
+      RenderFeature.shaderCompilation,
+      RenderFeature.renderGraphs,
+      RenderFeature.frameGraphs,
+    ]) {
+      if (!capabilities.supports(feature) ||
+          (feature == RenderFeature.renderGraphs &&
+              _backend is! GraphBackend)) {
+        throw _unsupported(
+          feature,
+          'attach',
+          'This backend cannot compose shared frame graphs.',
+        );
+      }
+    }
+    return _graph = PluginGraph._(this, _claimGraph());
+  }
 
   /// Claim during attach, then select compiled replacements in beforeRender.
   /// Only one plugin owns final composition; providers can share pass builders
@@ -266,10 +298,23 @@ class SceneEngine {
 
   FrameGraphBinding? _frameGraph;
   String? _frameGraphOwner;
-  FrameGraphBinding _claimFrameGraph(String pluginId) {
+  _SharedFrameGraph? _sharedGraph;
+  _SharedFrameGraph _claimGraph() {
     if (_frameGraph != null) {
       throw StateError(
-        'Frame composition already belongs to $_frameGraphOwner.',
+        'Manual frame composition already belongs to $_frameGraphOwner.',
+      );
+    }
+    return _sharedGraph ??= _SharedFrameGraph(
+      _backend! as GraphBackend,
+      _onIssue,
+    );
+  }
+
+  FrameGraphBinding _claimFrameGraph(String pluginId) {
+    if (_frameGraph != null || _sharedGraph != null) {
+      throw StateError(
+        'Frame composition already belongs to ${_frameGraphOwner ?? 'shared graph plugins'}.',
       );
     }
     _frameGraphOwner = pluginId;
@@ -280,6 +325,7 @@ class SceneEngine {
   final RenderBackend? _backend;
   final List<ScenePlugin> _plugins;
   final Object _owner;
+  final void Function(SceneIssue)? _onIssue;
   final Map<Object, Object> _services = {};
   final List<(ScenePlugin, PluginContext)> _attached = [];
   Future<FrameOutput>? _frame;
@@ -296,6 +342,7 @@ class SceneEngine {
     this._backend,
     this._plugins,
     this._owner,
+    this._onIssue,
   );
   DeviceCapabilities get capabilities =>
       _backend?.capabilities ?? _renderer!.capabilities;
@@ -310,6 +357,7 @@ class SceneEngine {
     InputSource? input,
     AttachmentScope? lifetime,
     void Function()? onInvalidate,
+    void Function(SceneIssue)? onIssue,
     Registration Function()? acquireFrameDemand,
   }) async {
     if ((rendererFactory == null) == (backendFactory == null)) {
@@ -364,7 +412,15 @@ class SceneEngine {
       );
       final renderer = await rendererFactory?.call();
       final backend = await backendFactory?.call();
-      engine = SceneEngine._(scene, camera, renderer, backend, ordered, owner);
+      engine = SceneEngine._(
+        scene,
+        camera,
+        renderer,
+        backend,
+        ordered,
+        owner,
+        onIssue,
+      );
       if (cancelled) throw _cancelled();
       for (final plugin in ordered) {
         final missing = plugin.requiredFeatures.difference(
@@ -396,6 +452,7 @@ class SceneEngine {
           acquireFrameDemand,
           input,
           () => engine!._claimFrameGraph(plugin.id),
+          () => engine!._claimGraph(),
         );
         engine._attached.add((plugin, context));
         try {
@@ -503,6 +560,13 @@ class SceneEngine {
     required int height,
   }) {
     if (_closed) return Future.error(StateError('Engine has been disposed.'));
+    if (graph != null && _sharedGraph != null) {
+      return Future.error(
+        StateError(
+          'Explicit frame graphs cannot override shared plugin composition.',
+        ),
+      );
+    }
     if (graph != null && !capabilities.supports(RenderFeature.frameGraphs)) {
       return Future.error(
         SceneException(
@@ -554,13 +618,14 @@ class SceneEngine {
       }
       final FrameOutput result;
       if (_backend case final backend?) {
+        final shared = await _sharedGraph?.prepare(PhysicalSize(width, height));
         final submission = FrameSubmission.capture(
           scene: scene,
           camera: camera,
           size: PhysicalSize(width, height),
           time: time ?? FrameTime(elapsed: elapsed, delta: delta),
           target: target,
-          graph: graph ?? _frameGraph?.graph,
+          graph: graph ?? _frameGraph?.graph ?? shared,
         );
         result = await backend.render(submission);
       } else {
@@ -607,6 +672,7 @@ class SceneEngine {
   Future<void> dispose() => _disposal ??= _dispose();
   Future<void> _dispose() async {
     _closed = true;
+    _sharedGraph?.stop();
     final errors = <Object>[];
     for (final (_, context) in _attached.reversed) {
       try {
@@ -619,6 +685,11 @@ class SceneEngine {
       await _frame;
     } catch (_) {
       /* The frame caller receives this error. */
+    }
+    try {
+      await _sharedGraph?.close();
+    } catch (error) {
+      errors.add(error);
     }
     for (final (plugin, context) in _attached.reversed) {
       try {

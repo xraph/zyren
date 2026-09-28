@@ -28,11 +28,12 @@ Exposure uses stops between -2 and 2. Saturation ranges from 0 to 2, vignette fr
 uniform on the next frame; they do not rebuild shader pipelines. The two passes
 work in linear light, preserve alpha and clamp color into the RGBA8 range.
 
-Use one plugin instance per view. Resizing creates textures in a child resource
-scope and compiles a replacement graph before selecting it. Failed candidates
+Use one plugin instance per view. The plugin registers its color and vignette
+passes through `context.graph.addEffect`. The engine owns resize and combines
+these passes with contributions from other plugins. Failed candidates
 release their allocations and preserve the previous graph. A failed resized
 frame reports the error to the caller; it does not stretch the old output.
-Closing the attachment releases its resources and clears composition ownership.
+Closing the attachment releases its resources and removes its contribution.
 You can reattach the instance after disposal to rebuild on another device.
 
 A dependent plugin declares `EffectsPlugin.pluginId` in `dependencies` and reads
@@ -44,9 +45,11 @@ Missing capabilities reject attachment by default. Set
 on an adapter without effects. Inspect `state.missingFeatures` to explain that
 choice in your UI. Bypass never silently changes the renderer backend.
 
-This example owns final composition for its view. Multiple effects providers
-need to cooperate through a shared builder; automatic cross-plugin pass
-registration is not implemented yet. There is no temporal history sampling in
+Your own effect can run after this one with
+`after: {EffectsPlugin.pluginId}` on `context.graph.addEffect`. That is an effect
+ordering constraint, separate from the plugin dependency needed to read the typed
+controls service. Disabling these effects lets the next effect read scene color.
+There is no temporal history sampling in
 these effects. The library depends only on `gpu3d`. Its GPU tests use the native
 backend as a development dependency. The separate `example` CLI host declares
 the native backend as a runtime dependency so `dart build cli` bundles its native

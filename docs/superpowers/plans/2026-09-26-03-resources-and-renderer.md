@@ -318,6 +318,15 @@ executes preparation, scene drawing, effects and output conversion in order.
 Compute-generated material textures are verified in their producing frame.
 This is the execution contract for the pending shared registration layer.
 
+Shared registration checkpoint: attachment-owned `context.graph` now accepts
+compute/render preparation and ordered effect builders. The engine combines
+independent plugins, owns resize candidates, rejects stale builds and preserves
+same-sized valid graphs after failed edits. `GraphRegistration` controls enabled
+state, invalidation and removal. Manual composition remains an explicit exclusive
+alternative. The independent effects package uses this API, and Flutter reports
+nonfatal candidate issues while keeping the current viewport ready. History and
+transparent compositor output remain open, so task 4 is still in progress.
+
 **Files:** Create graph/shader modules from the map, native
 `src/render_graph/{compile,execute}.rs`, Dart `test/render_graph_test.dart`,
 native `tests/shader_diagnostics.rs`, `examples/shader_lab` and a separate

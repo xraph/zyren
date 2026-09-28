@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:gpu3d/rendering.dart' show PresentationPath;
 import 'package:integration_test/integration_test.dart';
 import 'package:shader_lab/main.dart';
+import 'package:shader_lab_effects/shader_lab_effects.dart';
 import '../effects_plugin/test/support/native_checks.dart';
 import '../../../packages/gpu3d_native/test/support/mesh_shader_checks.dart';
 import '../../../packages/gpu3d_native/test/support/graph_phase_checks.dart';
@@ -52,6 +53,7 @@ void main() {
         : await NativeMetalBackend.create();
     try {
       await verifyEffects(backend);
+      await verifySharedEffects(backend);
       await verifyMeshShaders(backend);
       await verifyMeshAttachmentAlias(backend);
       await verifyGraphPhases(backend);
@@ -64,6 +66,7 @@ void main() {
           : const SceneRuntime.nativeMetal(),
     );
     prepared.use(PreparedMaterialFixture());
+    prepared.use(EffectsPlugin(options: EffectsOptions(vignette: 0)));
     try {
       await tester.pumpWidget(
         MaterialApp(home: SceneView(controller: prepared)),
@@ -73,7 +76,7 @@ void main() {
         prepared,
         (frame) => frame.computeDispatches == 1,
       );
-      expect(first.drawCalls, 2);
+      expect(first.drawCalls, 4);
       expect(first.readbackBytes, 0);
       expect(first.presentationPath, isNot(PresentationPath.readback));
       await tester.pumpWidget(

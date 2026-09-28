@@ -73,6 +73,14 @@ void main() {
     },
     skip: skip,
   );
+  test('independent plugins share ordered native frame effects', () async {
+    final backend = await NativeBackend.create();
+    try {
+      await verifySharedEffects(backend);
+    } finally {
+      await backend.close();
+    }
+  }, skip: skip);
   test(
     'shared scenes have independent effects and reattachment rebuilds resources',
     () async {

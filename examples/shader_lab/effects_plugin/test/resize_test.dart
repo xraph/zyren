@@ -70,6 +70,7 @@ class Device implements GraphDevice {
 
 class Backend extends UnsupportedBackend implements GraphBackend {
   final device = Device();
+  Completer<void>? frameGate, frameEntered;
   late GraphCompiler compiler;
   CompiledGraph? submitted;
   @override
@@ -90,6 +91,8 @@ class Backend extends UnsupportedBackend implements GraphBackend {
   @override
   Future<FrameOutput> render(FrameSubmission frame) async {
     submitted = frame.graph;
+    if (!(frameEntered?.isCompleted ?? true)) frameEntered!.complete();
+    await frameGate?.future;
     return ReadbackOutput(
       image: ImageData(pixels: Uint8List(4), size: PhysicalSize(1, 1)),
       stats: FrameStats(
@@ -108,6 +111,36 @@ class Backend extends UnsupportedBackend implements GraphBackend {
 }
 
 void main() {
+  test(
+    'closing effects while a submitted frame finishes preserves its result',
+    () async {
+      final backend = Backend(), plugin = EffectsPlugin();
+      final engine = await SceneEngine.create(
+        scene: Scene(),
+        camera: PerspectiveCamera(),
+        backendFactory: () async => backend,
+        plugins: [plugin],
+      );
+      await engine.renderFrame(elapsed: Duration.zero, width: 17, height: 13);
+      backend.frameGate = Completer<void>();
+      backend.frameEntered = Completer<void>();
+      final pending = engine.renderFrame(
+        elapsed: Duration.zero,
+        width: 17,
+        height: 13,
+      );
+      await backend.frameEntered!.future;
+      final closing = engine.dispose();
+      backend.frameGate!.complete();
+      try {
+        await pending;
+      } finally {
+        await closing;
+      }
+      expect(backend.device.graphs, isEmpty);
+      expect(backend.device.authors, isEmpty);
+    },
+  );
   test(
     'failed resize releases candidates and preserves the previous graph',
     () async {

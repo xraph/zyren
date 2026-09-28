@@ -1018,3 +1018,37 @@ All 151 core tests, nine focused native graph/material cases and ten effects-plu
 tests passed afterward. Analysis is clean. The initial native test command named
 two absent files; their actual graph suites were then run and passed. The updated
 Android release was rebuilt and launched on the Pixel with its runner retained.
+
+## Shared plugin frame graphs, 2026-09-28
+
+`context.graph` combines attachment-owned preparation passes and effect builders
+in one frame graph. Registrations can be enabled, invalidated or disposed. The
+engine owns resize candidates and replaces the active graph after compilation.
+Failed edits preserve a compatible graph and report a single nonfatal issue;
+failed initial builds and resizes still fail that frame. Flutter keeps the
+viewport ready when an edit falls back to the last valid graph.
+
+Thirteen core regressions cover independent ordering, reuse, resize, bypass,
+failed edits, stale candidates, attachment rollback, capability errors, manual
+composition conflicts and teardown while building or presenting. All 164 core
+tests passed, along with 50 native Dart, 64 Flutter facade, 12 effects-plugin and
+1 app-layout tests. Native suites ran serially with GPU tests enabled. Analysis,
+formatting, package boundaries and ABI header checks passed. Rust code did not
+change in this checkpoint.
+
+The native effects consumer now uses shared registration. Two independent plugins
+produce checked Metal pixels in dependency order, bypass independently, preserve
+pixels after a failed edit and return resource, graph and shader ownership to zero.
+The macOS Metal and physical Pixel Vulkan integrations passed those checks and
+combine compute material preparation with post-processing on native Flutter
+surfaces. Resize and zero presentation readback are asserted on both devices.
+The effects teardown regression was added afterward and passed in the consumer
+suite: closing an attachment cannot turn an already submitted frame into a hook
+failure.
+
+Release builds passed for macOS (52.0 MB) and Android arm64 (23.9 MB). The updated
+Android release is running as `dev.gpu3d.shader_lab`, PID 24617 at verification,
+with its Flutter runner retained and no error-level process log entries.
+The macOS runner could not foreground its app. Manual release inspection and
+new iOS, Windows, Linux or Adreno qualification remain open. Task 4 still needs
+history and transparent compositor output; this is not full Takram parity.
