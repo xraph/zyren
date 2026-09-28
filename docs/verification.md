@@ -723,4 +723,25 @@ sibling. Removing the final instance leaves zero resident GPU bytes. The fixture
 passes in native Dart on Metal and Flutter integrations on macOS Metal and the
 physical Pixel's Vulkan backend. This establishes the tested static profile only.
 PBR, deformation, additional extensions and platform qualification remain open.
-The standalone model viewer is being qualified separately.
+The standalone viewer now passes two widget tests and its native integration on
+Metal and Pixel Vulkan. That integration exercises GLB bundles, relative-file
+glTF bundles, loopback HTTP dependencies and three reloads with zero presentation
+readback bytes. The narrow layout retains over 270 logical pixels for the canvas
+at 320 by 640. An explicit native capture also produced the authored assembly's
+PNG with three draws and 36 triangles; this verifies the rendered artifact, not
+the locked Mac's visible window. Manual macOS release inspection remains open.
+
+The viewer release builds pass: macOS app 53.8 MB and Android arm64 APK 24.1 MB.
+The first Android release attempt failed because a concurrent Flutter test
+regenerated the plugin registrant with `integration_test`. A sequential build
+with dependency refresh regenerated it correctly. Serialize Flutter tests and
+platform builds in this workspace; do not repair generated registrants by hand.
+The final analyzer, formatter and package/header boundary checks pass. Regression
+coverage includes 159 core/geospatial/glTF tests (52 glTF), 37 native GPU tests,
+57 Flutter facade tests, 10 existing example tests and two viewer widget tests.
+
+The Android release installed and launched successfully on the Pixel, PID 21516
+at verification. No Flutter or AndroidRuntime error was reported for that
+process. The device's screensaver covered the app during the final inspection,
+so a manual release-screen check is still pending. The integration tests and
+standalone native PNG are the visual/rendering evidence for this checkpoint.

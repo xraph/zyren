@@ -198,18 +198,19 @@ tracked above.
 
 ## Task 3: Typed asset loading and glTF models
 
-Current checkpoint: typed core requests, shared jobs, independent cancellation,
-per-consumer ownership, source budgets and Flutter/native adapters are implemented.
-`SceneRuntime.assetServices` works without a GPU view. See
-[asset loading](../../design/asset-loading.md) for the current API and limits.
-The optional glTF package now parses bounded JSON/GLB containers and decodes
-sparse, interleaved, normalized and matrix accessors on cancellable workers.
-Required extensions are rejected until their handlers are qualified. Parser
-fixtures also run in a compiled release executable. Model templates, scene and
-material conversion, extension rendering and the model viewer remain open, so
-the combined acceptance checks below stay unchecked. Native material sides now
-cover front/back culling, mirrored world transforms and back-face normals on
-Metal and Pixel Vulkan. The loader can use that public core material state.
+Current checkpoint: typed requests, shared jobs, worker parsing/preparation and
+scope-owned static model templates are implemented. `Gltf.asset` and `Gltf.uri`
+produce ordinary core scene instances with shared immutable geometry and images.
+The supported unlit subset, unsupported features and required diagnostic PBR
+mode are listed in the [fixture matrix](../../packages/gpu3d_gltf/README.md).
+The standalone model viewer passes bundle and HTTP loading, relative dependencies,
+reloads and native presentation checks on Metal and physical Pixel Vulkan. Its
+widget tests cover cancellation, retry, input during pending work, object names,
+scene selection, route cleanup and desktop/narrow layouts. Compiled release
+worker tests and native texture/lifetime probes also pass. Release builds and
+manual visual inspection are tracked separately in verification; the Mac remains
+locked, so no manual window inspection is claimed. Full glTF/PBR/animation parity
+belongs to the later tasks and extension work.
 
 **Files:** Implement core `assets/{asset_scope,asset_request,source_resolver,shared_load}.dart`;
 create `packages/gpu3d_gltf/{pubspec.yaml,lib/gpu3d_gltf.dart}` and decoder modules.
@@ -225,7 +226,7 @@ budgets. `SceneRuntime.assetServices` supplies defaults and host overrides; thes
 CPU services can initialize without a view. Flutter supplies bundle resolution;
 core and glTF import no Flutter.
 
-- [ ] Create a memory resolver fixture implementing `ByteSourceResolver`: URI-to-byte map, per-URI request count and controllable completion. Cancel one of two consumers and assert the survivor receives an independently usable model with one underlying fetch/decode:
+- [x] Create a memory resolver fixture implementing `ByteSourceResolver`: URI-to-byte map, per-URI request count and controllable completion. Cancel one of two consumers and assert the survivor receives an independently usable model with one underlying fetch/decode:
 
 ```dart
 final first = scope.load(Gltf.uri(uri));
@@ -239,8 +240,8 @@ expect(resolver.requestCount(uri), 1);
 expect(identical(model.instantiate(), model.instantiate()), isFalse);
 ```
 
-- [ ] Run core shared-load and glTF tests; expect missing decoder behavior initially. Cover cancellation of the final consumer, scope close during decode, progress with unknown length, relative references, redirected base URIs, URI traversal policy, bad GLB lengths, sparse/interleaved accessors, normalization and unsupported required extensions. Validate against the [glTF 2.0 specification](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html).
-- [ ] Implement checked parsing, source resolution and shared jobs keyed by source/version/options. Separate consumer cancellation from the job. Decode workers return transferable typed data; cancellation prevents scene publication and drops late decoded ownership. Mutable URI caches need stable content identity or explicit invalidation.
+- [x] Run core shared-load and glTF tests; expect missing decoder behavior initially. Cover cancellation of the final consumer, scope close during decode, progress with unknown length, relative references, redirected base URIs, URI traversal policy, bad GLB lengths, sparse/interleaved accessors, normalization and unsupported required extensions. Validate against the [glTF 2.0 specification](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html).
+- [x] Implement checked parsing, source resolution and shared jobs keyed by source/version/options. Separate consumer cancellation from the job. Decode workers return transferable typed data; cancellation prevents scene publication and drops late decoded ownership. Mutable URI caches need stable content identity or explicit invalidation.
 
 ```text
 consumer joins: attach its task to matching shared job
@@ -251,8 +252,8 @@ instantiate: clone nodes/animation state; retain immutable decoded resources
 scope.release(template): stop future instantiation; retain live instance resources
 ```
 
-- [ ] Build bundle and URI viewers with progress, cancel/retry, object names and errors. Before PBR task 5, require an explicit unlit diagnostic override for metallic/roughness assets and label that mode. Do not claim faithful standard glTF rendering yet. Maintain a fixture-backed extension matrix.
-- [ ] Verify decode does not block UI input, repeated load/cancel/route removal settles all tasks, and one removed view does not invalidate another instance. Run analyzer/tests/integration; commit `feat: load glTF assets with scoped cancellation and shared resources`.
+- [x] Build bundle and URI viewers with progress, cancel/retry, object names and errors. Before PBR task 5, require an explicit unlit diagnostic override for metallic/roughness assets and label that mode. Do not claim faithful standard glTF rendering yet. Maintain a fixture-backed extension matrix.
+- [x] Verify decode does not block UI input, repeated load/cancel/route removal settles all tasks, and one removed view does not invalidate another instance. Run analyzer/tests/integration; commit `feat: load glTF assets with scoped cancellation and shared resources`.
 
 ## Task 4: Public render graph and shader plugin API
 

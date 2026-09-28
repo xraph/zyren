@@ -10,5 +10,6 @@ workspace:
   - packages/flutter_geospatial
   - examples/planet
   - examples/multiple_views
+  - examples/model_viewer
 dev_dependencies:
   lints: ^6.0.0
