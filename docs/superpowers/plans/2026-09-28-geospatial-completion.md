@@ -46,17 +46,17 @@ scheduler, with ordinary `TileModel3D` groups for renderable payloads. Prefix
 child identities with the referring node, compose its transform, resolve URIs
 against the effective external URL and retain the document ancestry for cycles.
 
-- [ ] Write regressions using a memory resolver: transformed root -> external
+- [x] Write regressions using a memory resolver: transformed root -> external
   JSON -> GLB, extensionless JSON, redirect cycle, failure/retry and cancellation.
   Assert world translation, parent fallback and that cycles issue no unbounded
   reads. Run `dart test test/external_test.dart`. Expected: unsupportedFeature.
-- [ ] Separate streamed hierarchy/model payloads without changing the public
+- [x] Separate streamed hierarchy/model payloads without changing the public
   `Tiles3D.content` model API. Parse nested roots with inherited refinement and
   a shared depth ceiling. Count cached manifest nodes in decoded payload bytes.
-- [ ] Recompute selection after a hierarchy arrives. External links contribute
+- [x] Recompute selection after a hierarchy arrives. External links contribute
   no visible group; their descendants determine coverage. Keep their scopes and
   physical request slots under the same lifetime rules as model content.
-- [ ] Run `dart analyze` and `dart test --concurrency=1` in the tile package.
+- [x] Run `dart analyze` and `dart test --concurrency=1` in the tile package.
   Expected: all pass. Add an HTTP native nested fixture, run it, then commit.
 
 ## Subsequent task order

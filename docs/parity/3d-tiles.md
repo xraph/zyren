@@ -1,13 +1,13 @@
-# Explicit 3D Tiles
+# 3D Tiles streaming
 
-You can stream an explicit tileset with `zyren_3d_tiles`, using ordinary core
+You can stream explicit and nested tilesets with `zyren_3d_tiles`, using ordinary core
 meshes and the native renderer. Try the local fixture from `examples/planet`:
 
 ```sh
 flutter run -d macos -t lib/tiles3d_lab.dart
 ```
 
-Overview shows the coarse parent. Detail requests four b3dm buildings over
+Overview shows the coarse parent. Detail follows an extensionless external manifest to four b3dm buildings over
 loopback HTTP. Turn on **Fail downloads** to clear the cache and return HTTP 503
 for child content, then use **Reconnect and retry** to refine again. The fixture
 needs no credentials. Trackpad navigation uses the existing orbit controls.
@@ -35,6 +35,9 @@ The supported subset follows the [3D Tiles specification](https://github.com/Ces
 and [b3dm layout](https://github.com/CesiumGS/3d-tiles/blob/main/specification/TileFormats/Batched3DModel/README.adoc):
 
 - Explicit 1.0 and 1.1 trees with arbitrary child counts and inherited ADD/REPLACE.
+- Lazy external tilesets, including extensionless JSON and redirects. Nested roots
+  inherit the referring transform and refinement. Relative content follows the
+  effective document URL; cycles and excessive nested depth are rejected.
 - Sphere, box and WGS84 region bounds. Regions ignore tile transforms, including
   at the dateline and poles. Box and sphere bounds use conservative world spheres.
 - Affine transform composition with conservative geometric-error scaling under
@@ -52,7 +55,7 @@ ADD content remains alongside its descendants. Empty internal nodes remain
 traversable even with zero tile error. Whole sibling groups must fit the budget
 before selection, so a tight budget can leave the view coarse.
 
-Implicit tiling, external tilesets, multiple contents, viewer request volumes
+Implicit tiling, multiple contents, viewer request volumes
 and unsupported required extensions return `unsupportedFeature`. Optional tile
 extensions are also rejected. Batch tables are parsed but do not expose feature
 styling or metadata queries. Provider authentication, attribution UI, compression,
@@ -103,7 +106,8 @@ flutter test integration_test/tiles3d_streaming_test.dart -d macos
 
 Format and scheduler checks cover transforms, region bounds, malformed lengths,
 unsupported traversal, URI policy, mixed refinement, empty nodes, eviction,
-request cancellation, source replacement and bounded retries. All 20 package
+request cancellation, source replacement and bounded retries. External hierarchy
+checks cover redirects, transforms, cycles, retry and disposal. All 25 package
 tests pass. The Metal HTTP fixture covers 2,500 pixels at 256 × 192, retains the
 parent on HTTP 503, refines to four buildings after retry, resizes to 130 × 250
 and releases all resident GPU bytes on disposal.

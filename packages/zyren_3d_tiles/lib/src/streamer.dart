@@ -93,6 +93,8 @@ class Tiles3DStreamer {
   bool _budgetLimited = false, _disposed = false, _notificationPending = false;
   int _generation = 0;
   Future<void>? _closing;
+  Camera? _lastCamera;
+  ViewportMetrics? _lastViewport;
   Tiles3DStreamer({
     required Tileset3D tileset,
     required this.services,
@@ -111,7 +113,7 @@ class Tiles3DStreamer {
   Map<String, Group> get visible => Map.unmodifiable(_visible);
   List<TileFailure3D> get failures => List.unmodifiable(_failures.values);
   int get _cachedBytes =>
-      _cache.values.fold(0, (n, e) => n + e.model.decodedBytes);
+      _cache.values.fold(0, (n, e) => n + e.content.decodedBytes);
   int get _reservedBytes => _active.length * budget.perTileDecodedBytes;
   Tiles3DStats get stats => Tiles3DStats._(
     _selected.length,
@@ -119,13 +121,15 @@ class Tiles3DStreamer {
     _active.length,
     _cachedBytes,
     _reservedBytes,
-    _visible.keys.fold(0, (n, id) => n + _cache[id]!.model.residentBytes),
+    _visible.keys.fold(0, (n, id) => n + _cache[id]!.content.residentBytes),
     _budgetLimited,
   );
 
   void update(Camera camera, ViewportMetrics viewport) {
     _checkOpen();
     if (!viewport.isUsable) return;
+    _lastCamera = camera;
+    _lastViewport = viewport;
     final before = stats._values;
     final selectedBefore = _selected, visibleBefore = _visible;
     final failuresBefore = _failures.length;
@@ -135,15 +139,21 @@ class Tiles3DStreamer {
     var cpu = 0, gpu = 0;
     _budgetLimited = false;
     bool admit(List<TileNode3D> group) {
-      final count = group.where((n) => n.contentUri != null).length;
+      var groupCpu = 0, groupGpu = 0;
+      for (final node in group) {
+        if (node.contentUri == null) continue;
+        final cached = _cache[node.id]?.content;
+        groupCpu += cached?.decodedBytes ?? budget.perTileDecodedBytes;
+        groupGpu += cached?.residentBytes ?? budget.perTileResidentBytes;
+      }
       if (nodes.length + group.length > budget.maxSelectedTiles ||
-          cpu + count * budget.perTileDecodedBytes > budget.maxDecodedBytes ||
-          gpu + count * budget.perTileResidentBytes > budget.maxResidentBytes) {
+          cpu + groupCpu > budget.maxDecodedBytes ||
+          gpu + groupGpu > budget.maxResidentBytes) {
         _budgetLimited = true;
         return false;
       }
-      cpu += count * budget.perTileDecodedBytes;
-      gpu += count * budget.perTileResidentBytes;
+      cpu += groupCpu;
+      gpu += groupGpu;
       for (final node in group) {
         nodes[node.id] = node;
       }
@@ -168,17 +178,29 @@ class Tiles3DStreamer {
         return error == 0 ? a.id.compareTo(b.id) : error;
       });
       final node = queue.removeAt(0);
-      if (node.children.isEmpty) continue;
+      final external = _cache[node.id]?.content.hierarchy;
+      if (node.children.isEmpty && external == null) continue;
       final threshold =
           maximumScreenError * (previous.contains(node.id) ? 0.8 : 1);
-      if (node.contentUri != null &&
+      if (external == null &&
+          node.contentUri != null &&
           node.bounds.screenError(node.geometricError, camera, viewport) <=
               threshold) {
         continue;
       }
-      final children = node.children
-          .where((n) => n.bounds.isVisible(camera, viewport))
-          .toList();
+      final children =
+          (external == null
+                  ? node.children
+                  : external.root.bounds.screenError(
+                          external.geometricError,
+                          camera,
+                          viewport,
+                        ) >
+                        maximumScreenError
+                  ? [external.root]
+                  : <TileNode3D>[])
+              .where((n) => n.bounds.isVisible(camera, viewport))
+              .toList();
       if (!admit(children)) continue;
       branches[node.id] = children;
       queue.addAll(children);
@@ -226,6 +248,8 @@ class Tiles3DStreamer {
     _visible = {};
     _failures.clear();
     _attempts.clear();
+    _lastCamera = null;
+    _lastViewport = null;
     _notify();
   }
 
@@ -287,7 +311,12 @@ class Tiles3DStreamer {
         scope.load(
           AssetRequest(
             uri: node.contentUri!,
-            loader: _ContentLoader(options, track: tracker.track),
+            loader: _StreamContentLoader(
+              node,
+              tileset._limits,
+              options,
+              tracker.track,
+            ),
           ),
         ),
       );
@@ -303,16 +332,19 @@ class Tiles3DStreamer {
       _selected.containsKey(r.node.id) &&
       !r.cancelled;
   Future<void> _load(_TileRequest request) async {
-    var retained = false;
+    var retained = false, hierarchyChanged = false;
     try {
-      final model = await request.task.result;
+      final content = await request.task.result;
       if (!_accepts(request)) return;
-      if (model.decodedBytes > budget.perTileDecodedBytes ||
-          model.residentBytes > budget.perTileResidentBytes) {
+      if (content.decodedBytes > budget.perTileDecodedBytes ||
+          content.residentBytes > budget.perTileResidentBytes) {
         _limit();
       }
-      final group = model.instantiate(transform: request.node.transform);
-      _cache[request.node.id] = _LoadedTile(request.scope, model, group);
+      final group = content.model?.instantiate(
+        transform: request.node.transform,
+      );
+      _cache[request.node.id] = _LoadedTile(request.scope, content, group);
+      hierarchyChanged = content.hierarchy != null;
       retained = true;
     } catch (error) {
       if (_accepts(request) && error is! LoadCancelled) {
@@ -332,8 +364,12 @@ class Tiles3DStreamer {
       _active.remove(request);
       request.done.complete();
       if (!_disposed) {
-        _refresh();
-        _pump();
+        if (hierarchyChanged && _lastCamera != null && _lastViewport != null) {
+          update(_lastCamera!, _lastViewport!);
+        } else {
+          _refresh();
+          _pump();
+        }
         _notify();
       }
     }
@@ -342,6 +378,7 @@ class Tiles3DStreamer {
   void _refresh() {
     (bool, Map<String, Group>) coverage(TileNode3D node) {
       final own = _cache[node.id];
+      final group = own?.group;
       final children = _branches[node.id];
       if (children != null) {
         var complete = true;
@@ -357,11 +394,11 @@ class Tiles3DStreamer {
         if (node.refinement == TileRefinement.add) {
           return (
             complete && (node.contentUri == null || own != null),
-            {if (own != null) node.id: own.group, ...found},
+            {node.id: ?group, ...found},
           );
         }
       }
-      if (own != null) return (true, {node.id: own.group});
+      if (group != null) return (true, {node.id: group});
       return (
         node.contentUri == null && node.children.isEmpty,
         <String, Group>{},
@@ -409,9 +446,9 @@ class Tiles3DStreamer {
 
 final class _LoadedTile {
   final AssetScope scope;
-  final TileModel3D model;
-  final Group group;
-  const _LoadedTile(this.scope, this.model, this.group);
+  final _StreamContent content;
+  final Group? group;
+  const _LoadedTile(this.scope, this.content, this.group);
 }
 
 final class _TileRequest {
@@ -419,7 +456,7 @@ final class _TileRequest {
   final int generation;
   final AssetScope scope;
   final _TrackedResolver tracker;
-  final LoadTask<TileModel3D> task;
+  final LoadTask<_StreamContent> task;
   final done = Completer<void>();
   bool cancelled = false;
   _TileRequest(this.node, this.generation, this.scope, this.tracker, this.task);

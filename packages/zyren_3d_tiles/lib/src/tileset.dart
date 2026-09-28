@@ -75,6 +75,8 @@ final class TileNode3D {
   final TileRefinement refinement;
   final Uri? contentUri;
   final List<TileNode3D> children;
+  final List<Uri> _documentAncestors;
+  final int _depth;
   TileNode3D._(
     this.id,
     this.transform,
@@ -83,6 +85,8 @@ final class TileNode3D {
     this.refinement,
     this.contentUri,
     List<TileNode3D> children,
+    this._documentAncestors,
+    this._depth,
   ) : children = List.unmodifiable(children);
 }
 
@@ -92,23 +96,34 @@ final class Tileset3D {
   final String version;
   final int tileCount;
   final double geometricError;
+  final Tiles3DLimits _limits;
   const Tileset3D._(
     this.root,
     this.sourceUri,
     this.version,
     this.tileCount,
     this.geometricError,
+    this._limits,
   );
 }
 
 class _TilesetLoader extends AssetLoader<Tileset3D> {
   final Tiles3DLimits limits;
-  const _TilesetLoader(this.limits);
+  final TileNode3D? referringNode;
+  const _TilesetLoader(this.limits, {this.referringNode});
   @override
   Future<DecodedAsset<Tileset3D>> decode(
     ResolvedSource source,
     AssetDecodeContext context,
   ) async {
+    final referring = referringNode;
+    final ancestors = referring?._documentAncestors ?? const <Uri>[];
+    if (ancestors.contains(source.effectiveUri)) _invalid();
+    if (referring != null && referring._depth >= limits.maxDepth) _limit();
+    final documents = List<Uri>.unmodifiable([
+      ...ancestors,
+      source.effectiveUri,
+    ]);
     final json = _json(
       source.bytes,
       limits.maxManifestBytes,
@@ -176,19 +191,36 @@ class _TilesetLoader extends AssetLoader<Tileset3D> {
       if (children is! List || children.length > limits.maxTiles - count) {
         _limit();
       }
-      return TileNode3D._(id, world, bounds, error, refinement, uri, [
-        for (var i = 0; i < children.length; i++)
-          node(children[i], world, '$id/$i', depth + 1, refinement),
-      ]);
+      return TileNode3D._(
+        id,
+        world,
+        bounds,
+        error,
+        refinement,
+        uri,
+        [
+          for (var i = 0; i < children.length; i++)
+            node(children[i], world, '$id/$i', depth + 1, refinement),
+        ],
+        documents,
+        depth,
+      );
     }
 
-    final root = node(json['root'], Mat4.identity(), '0', 1, null);
+    final root = node(
+      json['root'],
+      referring?.transform ?? Mat4.identity(),
+      referring == null ? '0' : '${referring.id}/external',
+      (referring?._depth ?? 0) + 1,
+      referring?.refinement,
+    );
     final result = Tileset3D._(
       root,
       source.effectiveUri,
       asset['version'] as String,
       count,
       geometricError,
+      limits,
     );
     return DecodedAsset(create: () => result, release: (_) {});
   }

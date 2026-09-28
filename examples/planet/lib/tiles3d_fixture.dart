@@ -64,6 +64,22 @@ Map<String, Uint8List> tiles3DFixtureFiles() {
     });
     i++;
   }
+  const volume = {
+    'box': [0, 0, 50, 180, 0, 0, 0, 180, 0, 0, 0, 85],
+  };
+  files['/buildings'] = Uint8List.fromList(
+    utf8.encode(
+      jsonEncode({
+        'asset': {'version': '1.1'},
+        'geometricError': 1000,
+        'root': {
+          'boundingVolume': volume,
+          'geometricError': 0,
+          'children': children,
+        },
+      }),
+    ),
+  );
   files['/tileset'] = Uint8List.fromList(
     utf8.encode(
       jsonEncode({
@@ -78,7 +94,13 @@ Map<String, Uint8List> tiles3DFixtureFiles() {
           'geometricError': 15,
           'refine': 'REPLACE',
           'content': {'uri': 'parent'},
-          'children': children,
+          'children': [
+            {
+              'boundingVolume': volume,
+              'geometricError': 0,
+              'content': {'uri': 'buildings'},
+            },
+          ],
         },
       }),
     ),

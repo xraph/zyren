@@ -29,70 +29,60 @@ final class _TransformGroup extends Group {
 
 class _ContentLoader extends AssetLoader<TileModel3D> {
   final GltfOptions options;
-  final void Function(Future<void>)? track;
-  const _ContentLoader(this.options, {this.track});
+  const _ContentLoader(this.options);
   @override
   Future<DecodedAsset<TileModel3D>> decode(
     ResolvedSource source,
     AssetDecodeContext context,
   ) async {
-    final done = Completer<void>();
-    track?.call(done.future);
-    try {
-      var bytes = source.bytes, rtc = Vec3.zero;
-      if (bytes.length >= 4 &&
-          ByteData.sublistView(bytes).getUint32(0, Endian.little) ==
-              0x6d643362) {
-        final decoded = _b3dm(bytes);
-        bytes = decoded.$1;
-        rtc = decoded.$2;
-      } else if (bytes.length < 4 ||
-          ByteData.sublistView(bytes).getUint32(0, Endian.little) !=
-              0x46546c67) {
-        // JSON glTF is allowed; a nested tileset needs a different traversal path.
-        final json = _json(
-          bytes,
-          options.limits.maxJsonBytes,
-          options.limits.maxJsonDepth,
-        );
-        if (json.containsKey('root')) _unsupported();
-      }
-      final decoded = await Gltf.uri(source.effectiveUri, options: options)
-          .loader
-          .decode(
-            ResolvedSource(
-              effectiveUri: source.effectiveUri,
-              bytes: bytes,
-              mediaType: source.mediaType,
-            ),
-            context,
-          );
-      // The template retains every decoded mesh, including unused meshes and
-      // alternate scenes. The decoder's ledger covers all of them, and can
-      // conservatively include temporary decode payloads too.
-      final decodedReservation = context.decodedBytes;
-      return DecodedAsset(
-        create: () {
-          final model = decoded.create();
-          try {
-            final size = _payload(model.instantiate());
-            return TileModel3D._(
-              model,
-              rtc,
-              math.max(decodedReservation, size.$1),
-              size.$2,
-            );
-          } catch (_) {
-            decoded.release(model);
-            rethrow;
-          }
-        },
-        release: (model) => decoded.release(model._model),
-        dispose: decoded.dispose,
+    var bytes = source.bytes, rtc = Vec3.zero;
+    if (bytes.length >= 4 &&
+        ByteData.sublistView(bytes).getUint32(0, Endian.little) == 0x6d643362) {
+      final decoded = _b3dm(bytes);
+      bytes = decoded.$1;
+      rtc = decoded.$2;
+    } else if (bytes.length < 4 ||
+        ByteData.sublistView(bytes).getUint32(0, Endian.little) != 0x46546c67) {
+      // JSON glTF is allowed; a nested tileset needs a different traversal path.
+      final json = _json(
+        bytes,
+        options.limits.maxJsonBytes,
+        options.limits.maxJsonDepth,
       );
-    } finally {
-      done.complete();
+      if (json.containsKey('root')) _unsupported();
     }
+    final decoded = await Gltf.uri(source.effectiveUri, options: options).loader
+        .decode(
+          ResolvedSource(
+            effectiveUri: source.effectiveUri,
+            bytes: bytes,
+            mediaType: source.mediaType,
+          ),
+          context,
+        );
+    // The template retains every decoded mesh, including unused meshes and
+    // alternate scenes. The decoder's ledger covers all of them, and can
+    // conservatively include temporary decode payloads too.
+    final decodedReservation = context.decodedBytes;
+    return DecodedAsset(
+      create: () {
+        final model = decoded.create();
+        try {
+          final size = _payload(model.instantiate());
+          return TileModel3D._(
+            model,
+            rtc,
+            math.max(decodedReservation, size.$1),
+            size.$2,
+          );
+        } catch (_) {
+          decoded.release(model);
+          rethrow;
+        }
+      },
+      release: (model) => decoded.release(model._model),
+      dispose: decoded.dispose,
+    );
   }
 }
 
