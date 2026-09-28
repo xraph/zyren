@@ -657,7 +657,7 @@ The inspector exports `SceneInspector(controller:)` and
 `SceneStatsOverlay(controller:)`, using public scene/status/diagnostic contracts.
 They borrow the controller and own only their subscriptions.
 
-- [ ] Test ray/triangle/box intersections, misses, edges, nearest ordering, visibility/layers, orthographic rays, instance IDs and scale. Compare a visible highlighted triangle with the pick result:
+- [x] Test ray/triangle/box intersections, misses, edges, nearest ordering, visibility/layers, orthographic rays, instance IDs and scale. Compare a visible highlighted triangle with the pick result:
 
 ```text
 same logical pick at DPR 1, 1.5, 3 and resolution scale 0.5
@@ -677,6 +677,17 @@ return nearest object/instance/triangle/UV and sceneRevision
 
 - [ ] Add compact selection/framing/orbit controls, projection switching and independent multi-view cameras. Put the reusable inspector and throttled statistics overlay in the optional inspector package; test its subscription cleanup and desktop/narrow layouts. Verify orbit settling, pointer cancellation and focus without global event interception.
 - [ ] Run unit/integration/GPU culling fixtures; commit `feat: add scene picking cameras and orbit controls`.
+
+Picking checkpoint (2026-09-28): core rays, immutable scene queries, layer
+masks, and orthographic projection are implemented. The facade captures logical
+viewport, camera, and pose state before returning `pick`'s future. Shader Lab
+supports tap selection and a captured triangle outline under both projections.
+CPU queries match native Metal pixels for skinned, morphed, mirrored instanced,
+and layer-filtered meshes. The macOS interaction fixture passed without
+presentation readback. Android release compilation passed; live Vulkan selection
+remains unverified. See [picking](../../design/picking.md) for the API and limits.
+BVH refit/rebuild, conservative frustum culling, orbit controls, framing, and the
+optional inspector remain open. Queries currently run on the calling isolate.
 
 ## Task 8: HDR effects, history and renderer profiles
 

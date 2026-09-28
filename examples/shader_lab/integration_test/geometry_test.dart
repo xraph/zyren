@@ -7,6 +7,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:shader_lab/geometry.dart';
 import '../../../packages/gpu3d_native/test/support/mesh_shader_geometry_checks.dart';
 import '../../../packages/gpu3d_native/test/support/instance_color_checks.dart';
+import '../../../packages/gpu3d_native/test/support/picking_checks.dart';
 import 'effects_test.dart' show waitForFrame;
 
 void main() {
@@ -20,6 +21,7 @@ void main() {
     try {
       await verifyMeshShaderGeometry(backend);
       await verifyInstanceColors(backend);
+      await verifyPickingPixels(backend);
     } finally {
       await backend.close();
     }
@@ -81,6 +83,31 @@ void main() {
       final settled = frames.length;
       await advance();
       expect(frames.length, settled);
+      await tester.tap(find.byKey(const ValueKey('Geometry projection')));
+      await advance();
+      final camera = controller.camera as OrthographicCamera;
+      final size = tester.getSize(find.byType(SceneView));
+      final point = ViewportPoint(
+        size.width / 2 + .54 * size.height / camera.verticalSize,
+        size.height / 2 + .78 * size.height / camera.verticalSize,
+      );
+      final hit = (await controller.pick(point))!;
+      expect(hit.instanceIndex, 0);
+      await tester.tapAt(
+        tester.getTopLeft(find.byType(SceneView)) + Offset(point.x, point.y),
+      );
+      await advance();
+      expect(find.textContaining('Instance 0'), findsOneWidget);
+      final outline = controller.scene.children.whereType<Line>().single;
+      final vertices = hit.triangle.expand((v) => v.storage).toList();
+      for (var i = 0; i < vertices.length; i++) {
+        expect(outline.geometry.positions[i], closeTo(vertices[i], 1e-6));
+      }
+      expect(frames.last.drawCalls, 3);
+      await tester.tap(find.byKey(const ValueKey('Geometry projection')));
+      await advance();
+      expect(controller.camera, isA<PerspectiveCamera>());
+      expect(frames.last.drawCalls, 2);
       expect(frames.every((f) => f.readbackBytes == 0), isTrue);
       expect(tester.takeException(), isNull);
     } finally {

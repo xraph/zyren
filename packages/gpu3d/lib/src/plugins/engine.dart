@@ -13,6 +13,7 @@ import '../rendering/frame_submission.dart';
 import '../rendering/frame_output.dart';
 import '../rendering/render_backend.dart';
 import '../scene/scene.dart';
+import '../scene/layer_mask.dart';
 import '../resources/resource_scope.dart';
 import '../resources/texture.dart';
 part 'plugin_graph.dart';
@@ -580,6 +581,7 @@ class SceneEngine {
   }
 
   Future<FrameOutput> renderFrame({
+    double? aspectRatio,
     ColorPipeline? colorPipeline,
     CompiledGraph? graph,
     OutputTarget target = const ReadbackTarget(),
@@ -649,7 +651,7 @@ class SceneEngine {
         await plugin.beforeRender(context, info);
       }
       if (!capabilities.supports(RenderFeature.meshShaders) &&
-          _hasVisibleShaderMaterial(scene)) {
+          _hasVisibleShaderMaterial(scene, camera.layers)) {
         throw SceneException(
           SceneIssue(
             code: SceneIssueCodes.unsupportedFeature,
@@ -658,7 +660,7 @@ class SceneEngine {
           ),
         );
       }
-      if (_hasVisibleStandardMaterial(scene) &&
+      if (_hasVisibleStandardMaterial(scene, camera.layers) &&
           !capabilities.supports(RenderFeature.standardMaterials)) {
         throw SceneException(
           SceneIssue(
@@ -669,7 +671,7 @@ class SceneEngine {
           ),
         );
       }
-      _checkDeformation(scene, capabilities);
+      _checkDeformation(scene, capabilities, camera.layers);
       final instanceCapacity = _instanceCapacity(scene);
       if (instanceCapacity > 0 &&
           (!capabilities.supports(RenderFeature.instancing) ||
@@ -685,7 +687,7 @@ class SceneEngine {
           ),
         );
       }
-      if (_hasVisibleShadows(scene) &&
+      if (_hasVisibleShadows(scene, camera.layers) &&
           !capabilities.supports(RenderFeature.shadows)) {
         throw SceneException(
           SceneIssue(
@@ -696,8 +698,9 @@ class SceneEngine {
           ),
         );
       }
-      if (_visibleLightCount(scene) > capabilities.limits.maxPunctualLights ||
-          _visibleHemisphereLightCount(scene) >
+      if (_visibleLightCount(scene, camera.layers) >
+              capabilities.limits.maxPunctualLights ||
+          _visibleHemisphereLightCount(scene, camera.layers) >
               capabilities.limits.maxHemisphereLights) {
         throw SceneException(
           SceneIssue(
@@ -711,6 +714,7 @@ class SceneEngine {
       final FrameOutput result;
       if (_backend case final backend?) {
         var submission = FrameSubmission.capture(
+          aspectRatio: aspectRatio,
           scene: scene,
           camera: camera,
           size: PhysicalSize(width, height),
@@ -835,44 +839,59 @@ SceneException _cancelled([Object? cause]) => SceneException(
   ),
 );
 
-bool _hasVisibleShaderMaterial(Object3D node) =>
+bool _hasVisibleShaderMaterial(Object3D node, LayerMask layers) =>
     node.visible &&
-    ((node is Mesh && node.material is ShaderMaterial) ||
-        node.children.any(_hasVisibleShaderMaterial));
+    ((node is Mesh &&
+            node.layers.intersects(layers) &&
+            node.material is ShaderMaterial) ||
+        node.children.any((child) => _hasVisibleShaderMaterial(child, layers)));
 
-bool _hasVisibleStandardMaterial(Object3D node) =>
+bool _hasVisibleStandardMaterial(Object3D node, LayerMask layers) =>
     node.visible &&
-    ((node is Mesh && node.material is StandardMaterial) ||
-        node.children.any(_hasVisibleStandardMaterial));
-int _visibleLightCount(Object3D node) => !node.visible
+    ((node is Mesh &&
+            node.layers.intersects(layers) &&
+            node.material is StandardMaterial) ||
+        node.children.any(
+          (child) => _hasVisibleStandardMaterial(child, layers),
+        ));
+int _visibleLightCount(Object3D node, LayerMask layers) => !node.visible
     ? 0
-    : (node is PunctualLight ? 1 : 0) +
+    : (node is PunctualLight && node.layers.intersects(layers) ? 1 : 0) +
           node.children.fold(
             0,
-            (sum, child) => sum + _visibleLightCount(child),
+            (sum, child) => sum + _visibleLightCount(child, layers),
           );
 
-int _visibleHemisphereLightCount(Object3D node) => !node.visible
+int _visibleHemisphereLightCount(Object3D node, LayerMask layers) =>
+    !node.visible
     ? 0
-    : (node is HemisphereLight ? 1 : 0) +
+    : (node is HemisphereLight && node.layers.intersects(layers) ? 1 : 0) +
           node.children.fold(
             0,
-            (sum, child) => sum + _visibleHemisphereLightCount(child),
+            (sum, child) => sum + _visibleHemisphereLightCount(child, layers),
           );
 
-bool _hasVisibleShadows(Object3D node) =>
+bool _hasVisibleShadows(Object3D node, LayerMask layers) =>
     node.visible &&
-    ((node is PunctualLight && node.shadow != null) ||
-        (node is Mesh && (node.castShadow || node.receiveShadow)) ||
-        node.children.any(_hasVisibleShadows));
+    ((node is PunctualLight &&
+            node.layers.intersects(layers) &&
+            node.shadow != null) ||
+        (node is Mesh &&
+            node.layers.intersects(layers) &&
+            (node.castShadow || node.receiveShadow)) ||
+        node.children.any((child) => _hasVisibleShadows(child, layers)));
 
 int _instanceCapacity(Object3D node) =>
     (node is InstancedMesh ? node.capacity : 0) +
     node.children.fold<int>(0, (n, child) => n + _instanceCapacity(child));
 
-void _checkDeformation(Object3D node, DeviceCapabilities capabilities) {
+void _checkDeformation(
+  Object3D node,
+  DeviceCapabilities capabilities,
+  LayerMask layers,
+) {
   if (!node.visible) return;
-  if (node is Mesh) {
+  if (node is Mesh && node.layers.intersects(layers)) {
     final required = <RenderFeature>{};
     if (node is SkinnedMesh &&
         (!capabilities.supports(RenderFeature.skinning) ||
@@ -899,6 +918,6 @@ void _checkDeformation(Object3D node, DeviceCapabilities capabilities) {
     }
   }
   for (final child in node.children) {
-    _checkDeformation(child, capabilities);
+    _checkDeformation(child, capabilities, layers);
   }
 }

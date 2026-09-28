@@ -13,6 +13,35 @@ FrameSubmission capture(Scene scene, [PerspectiveCamera? camera]) =>
     );
 
 void main() {
+  test(
+    'camera layers filter material and light requirements before rendering',
+    () async {
+      final renderer = TestRenderer([]);
+      final scene = Scene();
+      scene.add(
+        Mesh(PlaneGeometry(), StandardMaterial())..layers = LayerMask.only(1),
+      );
+      scene.add(HemisphereLight()..layers = LayerMask.only(1));
+      final camera = PerspectiveCamera();
+      final engine = await SceneEngine.create(
+        scene: scene,
+        camera: camera,
+        rendererFactory: () async => renderer,
+      );
+      try {
+        await engine.renderFrame(elapsed: Duration.zero, width: 31, height: 31);
+        expect(renderer.renders, 1);
+        camera.layers = LayerMask.only(1);
+        await expectLater(
+          engine.renderFrame(elapsed: Duration.zero, width: 31, height: 31),
+          throwsA(isA<SceneException>()),
+        );
+        expect(renderer.renders, 1);
+      } finally {
+        await engine.dispose();
+      }
+    },
+  );
   test('legacy snapshots reject lighting they cannot represent', () {
     final scene = Scene();
     final mesh = scene.add(Mesh(PlaneGeometry(), StandardMaterial()));

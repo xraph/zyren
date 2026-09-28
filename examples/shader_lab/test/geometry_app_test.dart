@@ -98,6 +98,23 @@ void main() {
       },
     );
     expect(backend.submissions.last.scene.drawCalls, 2);
+    await tester.tap(find.byKey(const ValueKey('Geometry projection')));
+    await tester.pumpAndSettle();
+    expect(controller.camera, isA<OrthographicCamera>());
+    final size = tester.getSize(find.byType(SceneView));
+    final camera = controller.camera as OrthographicCamera;
+    final origin = tester.getTopLeft(find.byType(SceneView));
+    final x = size.width / 2 + .54 * size.height / camera.verticalSize;
+    final y = size.height / 2 + .78 * size.height / camera.verticalSize;
+    await tester.tapAt(origin + Offset(x, y));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Instance 0'), findsOneWidget);
+    expect(controller.scene.children.whereType<Line>(), hasLength(1));
+    expect(backend.submissions.last.scene.drawCalls, 3);
+    await tester.tap(find.byKey(const ValueKey('Geometry projection')));
+    await tester.pumpAndSettle();
+    expect(controller.camera, isA<PerspectiveCamera>());
+    expect(controller.scene.children.whereType<Line>(), isEmpty);
     await tester.pumpWidget(const SizedBox());
     await tester.runAsync(() => controller.whenDisposed);
     expect(backend.closeCount, 1);

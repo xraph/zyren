@@ -578,8 +578,13 @@ Core transform tracks and independent mixer playback are implemented. See
 glTF TRS import now exposes indexed model instances, core clips and independent mixers.
 `AnimationSystem` accepts those mixers after view initialization.
 [`InstancedMesh`](instancing.md) now batches built-in triangle materials with
-versioned transform ranges and current bounds. Skinning, morph targets and
-custom shader instancing remain open.
+versioned transform ranges and current bounds. Skinning, morph targets,
+per-instance colors, and custom shader geometry profiles use the same captured
+resource ownership. See [deformation](deformation.md).
+
+[Picking and cameras](picking.md) describes the implemented CPU triangle queries,
+orthographic projection, layer masks, and frozen asynchronous selections.
+BVH acceleration, culling, orbit controls, and the optional inspector remain open.
 
 Texture presentation must compose with Flutter clipping, transforms, opacity,
 scrolling, overlays and hit testing. Flutter rebuilds do not recreate the GPU.

@@ -60,6 +60,8 @@ class SceneController {
   Future<void>? _initialization, _drawing, _failureCleanup, _retrying;
   Object? _viewToken;
   String? _viewLabel;
+  Size _logicalSize = Size.zero;
+  final _raycaster = Raycaster();
   int _generation = 0;
   bool _closed = false, _visible = false;
   Future<void> Function()? _closePresentation;
@@ -128,6 +130,38 @@ class SceneController {
   void update(void Function() changes) {
     _checkOpen();
     scene.batch(changes);
+  }
+
+  /// Selects the nearest triangle using this view's logical coordinates.
+  /// Scene, camera and viewport state are captured synchronously. The future
+  /// returns that captured result even if the scene changes before completion.
+  Future<PickResult?> pick(ViewportPoint point) {
+    try {
+      if (_closed) {
+        throw _exception(
+          SceneIssueCodes.disposed,
+          'SceneController has been disposed.',
+          'pick',
+        );
+      }
+      if (_viewToken == null || _logicalSize.isEmpty) {
+        throw _exception(
+          SceneIssueCodes.invalidPickRequest,
+          'Picking requires an attached view with a positive logical extent.',
+          'pick',
+        );
+      }
+      final snapshot = _raycaster.captureFromCamera(
+        scene,
+        camera,
+        point,
+        logicalWidth: _logicalSize.width,
+        logicalHeight: _logicalSize.height,
+      );
+      return Future<PickResult?>.microtask(snapshot.intersectFirst);
+    } catch (error, stack) {
+      return Future<PickResult?>.error(error, stack);
+    }
   }
 
   void invalidate() {
@@ -204,6 +238,7 @@ class SceneController {
     if (!identical(_viewToken, token)) return;
     _viewToken = null;
     _viewLabel = null;
+    _logicalSize = Size.zero;
     _wakeView = null;
     _visible = false;
     _scheduler.setVisible(false);
@@ -394,6 +429,7 @@ class SceneController {
     OutputTarget target,
   ) {
     final completer = Completer<FrameOutput>();
+    final aspect = _logicalSize.width / _logicalSize.height;
     _drawing = Future<void>.microtask(() async {
       try {
         _checkOpen();
@@ -407,6 +443,7 @@ class SceneController {
           target: target,
           elapsed: time.elapsed,
           time: time,
+          aspectRatio: aspect,
           width: size.width,
           height: size.height,
         );

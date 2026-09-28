@@ -61,6 +61,10 @@ class _GeometryLabState extends State<_GeometryLab> {
   late final SceneController controller;
   StreamSubscription<FrameStats>? subscription;
   FrameStats? stats;
+  late final Registration tapGesture;
+  Line? selection;
+  String selectionLabel = 'Tap a ribbon to inspect its triangle';
+  int pickGeneration = 0;
   @override
   void initState() {
     super.initState();
@@ -75,6 +79,7 @@ class _GeometryLabState extends State<_GeometryLab> {
       options: EngineOptions(presentation: widget.presentation),
     );
     controller.use(demo.mixer);
+    tapGesture = controller.input.registerGesture(SceneGesture.tap);
     for (final pattern in demo.patterns) {
       controller.use(pattern);
     }
@@ -85,9 +90,52 @@ class _GeometryLabState extends State<_GeometryLab> {
 
   @override
   void dispose() {
+    tapGesture.dispose();
     unawaited(subscription?.cancel());
     controller.dispose();
     super.dispose();
+  }
+
+  void clearSelection() {
+    pickGeneration++;
+    if (selection case final line?) controller.scene.remove(line);
+    selection = null;
+    selectionLabel = 'Tap a ribbon to inspect its triangle';
+  }
+
+  Future<void> select(ScenePointerEvent event) async {
+    if (event.phase != ScenePointerPhase.tap) return;
+    demo.action.pause();
+    clearSelection();
+    final generation = pickGeneration;
+    try {
+      final hit = await controller.pick(event.point);
+      if (!mounted || generation != pickGeneration) return;
+      setState(() {
+        if (hit == null) {
+          selectionLabel = 'No triangle here';
+          return;
+        }
+        selection = controller.scene.add(
+          Line(
+            LineGeometry(points: hit.triangle, closed: true),
+            LineMaterial(
+              color: const Color3(1, 1, 1),
+              width: 2,
+              depthTest: false,
+            ),
+            renderOrder: 1,
+          ),
+        );
+        selectionLabel =
+            '${hit.instanceIndex == null ? 'Skinned ribbon' : 'Instance ${hit.instanceIndex}'}'
+            ' · triangle ${hit.triangleIndex} · ${hit.distance.toStringAsFixed(2)} units';
+      });
+    } on SceneException catch (error) {
+      if (mounted && generation == pickGeneration) {
+        setState(() => selectionLabel = error.issue.message);
+      }
+    }
   }
 
   @override
@@ -103,7 +151,26 @@ class _GeometryLabState extends State<_GeometryLab> {
                   child: Text(
                     'Animated shader materials',
                     style: TextStyle(fontSize: 18),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
+                ),
+                IconButton(
+                  key: const ValueKey('Geometry projection'),
+                  tooltip: controller.camera is OrthographicCamera
+                      ? 'Use perspective camera'
+                      : 'Use orthographic camera',
+                  icon: Icon(
+                    controller.camera is OrthographicCamera
+                        ? Icons.view_in_ar
+                        : Icons.crop_square,
+                  ),
+                  onPressed: () => setState(() {
+                    clearSelection();
+                    controller.camera = controller.camera is OrthographicCamera
+                        ? demo.camera
+                        : OrthographicCamera(position: demo.camera.position);
+                  }),
                 ),
                 IconButton(
                   key: const ValueKey('Geometry colors'),
@@ -123,6 +190,7 @@ class _GeometryLabState extends State<_GeometryLab> {
                     demo.action.isPlaying ? Icons.pause : Icons.play_arrow,
                   ),
                   onPressed: () => setState(() {
+                    clearSelection();
                     if (demo.action.isPlaying) {
                       demo.action.pause();
                     } else {
@@ -153,14 +221,11 @@ class _GeometryLabState extends State<_GeometryLab> {
               pattern.frequency = value;
             }
           }),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Align(
               alignment: Alignment.centerLeft,
-              child: Text(
-                'One skinned ribbon · Twelve instances',
-                style: TextStyle(fontSize: 12),
-              ),
+              child: Text(selectionLabel, style: const TextStyle(fontSize: 12)),
             ),
           ),
           Expanded(
@@ -178,7 +243,13 @@ class _GeometryLabState extends State<_GeometryLab> {
                             math.max(.1, aspect)),
                   ),
                 );
-                return SceneView(controller: controller);
+                if (controller.camera case OrthographicCamera camera) {
+                  camera.verticalSize = math.max(
+                    3.6,
+                    4.2 / math.max(.1, aspect),
+                  );
+                }
+                return SceneView(controller: controller, onPointer: select);
               },
             ),
           ),
@@ -216,7 +287,10 @@ class _GeometryLabState extends State<_GeometryLab> {
             value: value,
             min: min,
             max: max,
-            onChanged: (value) => setState(() => change(value)),
+            onChanged: (value) => setState(() {
+              clearSelection();
+              change(value);
+            }),
           ),
         ),
         SizedBox(

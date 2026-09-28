@@ -103,8 +103,9 @@ class SceneSnapshot {
     final shadows = <_ShadowLight>[];
     void visit(Object3D node, vm.Matrix4 parent, bool parentVisible) {
       final visible = parentVisible && node.visible;
+      final matchesLayers = node.layers.intersects(camera.layers);
       final world = parent * node.localMatrix.toVectorMath();
-      if (visible && node is HemisphereLight) {
+      if (visible && matchesLayers && node is HemisphereLight) {
         if (hemispheres.length >= 4) {
           throw ArgumentError(
             'A scene supports at most 4 visible hemisphere lights.',
@@ -131,7 +132,7 @@ class SceneSnapshot {
               as Map<String, Object>,
         );
       }
-      if (visible && node is PunctualLight) {
+      if (visible && matchesLayers && node is PunctualLight) {
         if (lights.length >= 16) {
           throw ArgumentError(
             'A scene supports at most 16 visible punctual lights.',
@@ -206,7 +207,9 @@ class SceneSnapshot {
         for (final binding in node.material.textureMaps) {
           textures[binding.image.id] = binding.image;
         }
-        if (visible && (node is! InstancedMesh || node.count > 0)) {
+        if (visible &&
+            matchesLayers &&
+            (node is! InstancedMesh || node.count > 0)) {
           if (node.material.vertexColors && geometry.colors == null) {
             throw ArgumentError('Vertex colors require a color attribute.');
           }
@@ -350,10 +353,13 @@ class FrameSubmission {
 
   /// Captures once so changes made during an asynchronous render affect only
   /// later submissions. This does not allocate a GPU or require Flutter.
+  /// [aspectRatio] preserves the logical viewport when physical pixels round.
+  /// Without it, the projection follows [size].
   factory FrameSubmission.capture({
     required Scene scene,
     required Camera camera,
     required PhysicalSize size,
+    double? aspectRatio,
     OutputTarget target = const ReadbackTarget(),
     FrameTime time = const FrameTime(),
     CompiledGraph? graph,
@@ -361,11 +367,12 @@ class FrameSubmission {
     Environment? environment,
   }) {
     final clock = Stopwatch()..start();
+    final aspect = aspectRatio ?? size.width / size.height;
 
     final cameraSnapshot = CameraSnapshot._(
       camera.position.storage,
-      camera.viewProjection(size.width / size.height).storage,
-      camera.projectionMatrix(size.width / size.height).storage,
+      camera.viewProjection(aspect).storage,
+      camera.projectionMatrix(aspect).storage,
     );
     final sceneSnapshot = SceneSnapshot._capture(scene, camera);
     return FrameSubmission._(
@@ -378,7 +385,7 @@ class FrameSubmission {
       graph,
       colorPipeline,
       environment,
-      ShadowSnapshot.capture(sceneSnapshot, camera, size.width / size.height),
+      ShadowSnapshot.capture(sceneSnapshot, camera, aspect),
     );
   }
 

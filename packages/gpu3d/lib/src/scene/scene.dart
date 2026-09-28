@@ -10,6 +10,8 @@ import '../math/vec3.dart';
 import '../math/quat.dart';
 import '../math/mat4.dart';
 import '../spatial/bounds.dart';
+import 'layer_mask.dart';
+part 'orthographic_camera.dart';
 part 'revision.dart';
 part 'primitives.dart';
 part 'instanced_mesh.dart';
@@ -25,6 +27,14 @@ class Object3D with _Revisioned {
   Vec3 _position = Vec3.zero, _scale = Vec3.one;
   Quat _quaternion = Quat.identity;
   bool _visible = true;
+  LayerMask _layers = LayerMask.only(0);
+  LayerMask get layers => _layers;
+  set layers(LayerMask value) {
+    if (value == _layers) return;
+    _layers = value;
+    _changed();
+  }
+
   Object3D? _parent;
   final List<Object3D> _children = [];
   Object3D? get parent => _parent;
@@ -203,7 +213,30 @@ abstract class Camera extends Object3D {
   Vec3 get up;
   set up(Vec3 value);
   Mat4 projectionMatrix(double aspect);
-  Mat4 viewProjection(double aspect);
+  Mat4 viewProjection(double aspect) {
+    final projection = projectionMatrix(aspect).toVectorMath();
+    if (!position.isFinite || !target.isFinite || !up.isFinite) {
+      throw ArgumentError('Invalid camera.');
+    }
+    final direction = position - target;
+    if (direction.length2 < 1e-20 || up.length2 < 1e-20) {
+      throw ArgumentError(
+        'Camera needs a distinct target and a nonzero up vector.',
+      );
+    }
+    final z = direction.normalized(), cross = up.cross(direction);
+    if (cross.length2 < 1e-20) {
+      throw ArgumentError(
+        'Camera up must not be parallel to the view direction.',
+      );
+    }
+    final x = cross.normalized(), y = z.cross(x);
+    final view = vm.Matrix4.identity()
+      ..setRow(0, vm.Vector4(x.x, x.y, x.z, 0))
+      ..setRow(1, vm.Vector4(y.x, y.y, y.z, 0))
+      ..setRow(2, vm.Vector4(z.x, z.y, z.z, 0));
+    return Mat4.fromVectorMath(projection * view);
+  }
 }
 
 class PerspectiveCamera extends Camera {
@@ -304,32 +337,6 @@ class PerspectiveCamera extends Camera {
       ..setEntry(3, 2, -1);
     return Mat4.fromVectorMath(projection);
   }
-
-  @override
-  Mat4 viewProjection(double aspect) {
-    final projection = projectionMatrix(aspect).toVectorMath();
-    if (!position.isFinite || !target.isFinite || !up.isFinite) {
-      throw ArgumentError('Invalid perspective camera.');
-    }
-    final direction = position - target;
-    if (direction.length2 < 1e-20 || up.length2 < 1e-20) {
-      throw ArgumentError(
-        'Camera needs a distinct target and a nonzero up vector.',
-      );
-    }
-    final z = direction.normalized(), cross = up.cross(direction);
-    if (cross.length2 < 1e-20) {
-      throw ArgumentError(
-        'Camera up must not be parallel to the view direction.',
-      );
-    }
-    final x = cross.normalized(), y = z.cross(x);
-    final view = vm.Matrix4.identity()
-      ..setRow(0, vm.Vector4(x.x, x.y, x.z, 0))
-      ..setRow(1, vm.Vector4(y.x, y.y, y.z, 0))
-      ..setRow(2, vm.Vector4(z.x, z.y, z.z, 0));
-    return Mat4.fromVectorMath(projection * view);
-  }
 }
 
 void _finite(Vec3 value, String name) {
@@ -395,14 +402,15 @@ class Scene extends Object3D {
     final geometries = <int, GeometrySnapshot>{};
     void visit(Object3D node, vm.Matrix4 parent) {
       if (!node.visible) return;
-      if (node is Light ||
-          (node is Mesh && node.material is StandardMaterial)) {
+      if (node.layers.intersects(camera.layers) &&
+          (node is Light ||
+              (node is Mesh && node.material is StandardMaterial))) {
         throw UnsupportedError(
           'Standard materials and light objects require FrameSubmission.capture.',
         );
       }
       final world = parent * node.localMatrix.toVectorMath();
-      if (node is Mesh) {
+      if (node is Mesh && node.layers.intersects(camera.layers)) {
         if (node.castShadow || node.receiveShadow) {
           throw UnsupportedError('Shadows require binary scene submissions.');
         }
