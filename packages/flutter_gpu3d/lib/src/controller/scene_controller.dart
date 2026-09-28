@@ -60,7 +60,14 @@ class SceneController {
   Future<void>? _initialization, _drawing, _failureCleanup, _retrying;
   Object? _viewToken;
   String? _viewLabel;
-  Size _logicalSize = Size.zero;
+  Size _viewportSize = Size.zero;
+  Size get _logicalSize => _viewportSize;
+  set _logicalSize(Size value) {
+    _viewportSize = value;
+    _input.logicalWidth = value.width;
+    _input.logicalHeight = value.height;
+  }
+
   final _raycaster = Raycaster();
   int _generation = 0;
   bool _closed = false, _visible = false;
@@ -239,6 +246,7 @@ class SceneController {
     _viewToken = null;
     _viewLabel = null;
     _logicalSize = Size.zero;
+    _input.setActive(false);
     _wakeView = null;
     _visible = false;
     _scheduler.setVisible(false);
@@ -267,6 +275,7 @@ class SceneController {
   }
 
   void _setVisible(bool value) {
+    _input.setActive(value);
     _scheduler.setVisible(value);
     if (_visible == value) return;
     _visible = value;

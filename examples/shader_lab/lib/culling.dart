@@ -43,6 +43,7 @@ class _CullingLab extends StatefulWidget {
 
 class _CullingLabState extends State<_CullingLab> {
   late final SceneController controller;
+  final orbit = OrbitControls();
   late final List<Mesh> meshes;
   StreamSubscription<FrameStats>? subscription;
   FrameStats? stats;
@@ -83,6 +84,7 @@ class _CullingLabState extends State<_CullingLab> {
       camera: PerspectiveCamera(position: const Vec3(0, 2, 8)),
       options: EngineOptions(presentation: widget.presentation),
     );
+    controller.use(orbit);
     tapGesture = controller.input.registerGesture(SceneGesture.tap);
     subscription = controller.frameStats.listen((value) {
       if (mounted) setState(() => stats = value);
@@ -108,6 +110,11 @@ class _CullingLabState extends State<_CullingLab> {
   }
 
   Future<void> select(ScenePointerEvent event) async {
+    if (event.phase == ScenePointerPhase.scaleStart ||
+        event.phase == ScenePointerPhase.scroll) {
+      framedBounds = null;
+      pickGeneration++;
+    }
     if (event.phase != ScenePointerPhase.tap) return;
     final generation = ++pickGeneration;
     try {
@@ -210,6 +217,19 @@ class _CullingLabState extends State<_CullingLab> {
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Row(
               children: [
+                IconButton(
+                  key: const ValueKey('Reset orbit'),
+                  tooltip: 'Reset orbit',
+                  icon: const Icon(Icons.restart_alt),
+                  onPressed: controller.status.value is! SceneReady
+                      ? null
+                      : () => setState(() {
+                          framedBounds = null;
+                          pickGeneration++;
+                          orbit.reset();
+                          pan = controller.camera.target.x.clamp(-30, 30);
+                        }),
+                ),
                 const Text('Pan'),
                 Expanded(
                   child: Slider(

@@ -106,6 +106,10 @@ bytes; camera movement reuses the geometry already on the GPU.
 Use **Frame all boxes** to fit the whole row, or tap a box and choose **Frame
 selected box**. The fit follows projection changes and window resizing. Moving
 the pan slider returns to the close camera view with its original clip range.
+Drag to orbit, use a secondary/Shift drag to pan, and scroll or pinch to zoom.
+The reset button beside the pan slider restores the controls' saved view.
+Damping settles back to demand rendering after you finish a gesture. See
+[orbit controls](../../docs/design/orbit-controls.md) for bindings and limits.
 
 ```sh
 fvm flutter run --release -d macos -t lib/culling.dart

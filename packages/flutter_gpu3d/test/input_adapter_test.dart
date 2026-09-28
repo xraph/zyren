@@ -44,6 +44,9 @@ void main() {
         ),
       );
       await frames(tester);
+      expect(controller.input, isA<ViewportInputSource>());
+      expect((controller.input as ViewportInputSource).logicalWidth, 300);
+      expect((controller.input as ViewportInputSource).logicalHeight, 300);
       await tester.enterText(find.byType(TextField), 'Camera');
       await tester.pump();
       expect(find.text('Camera'), findsOneWidget);
@@ -65,6 +68,14 @@ void main() {
         events
             .where((e) => e.phase == ScenePointerPhase.scaleUpdate)
             .any((e) => e.scale > 1),
+        isTrue,
+      );
+      expect(
+        events
+            .where((e) => e.phase == ScenePointerPhase.scaleUpdate)
+            .any(
+              (e) => e.pointerCount == 2 && e.kind == ScenePointerKind.touch,
+            ),
         isTrue,
       );
       await first.up();

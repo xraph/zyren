@@ -2165,3 +2165,52 @@ The demo retains a fit through projection changes and desktop/narrow resizing.
 Framing uses explicit caller-supplied bounds and does not animate camera moves.
 Orbit controls, the optional inspector, full core/Takram parity and remaining
 platform qualification stay open.
+
+## Orbit controls, 28 September 2026
+
+You can attach `OrbitControls` to a view for orbit, pan and zoom with either
+built-in camera projection. The plugin supports arbitrary up vectors, custom
+drag bindings, distance/zoom/polar limits, programmatic movement and saved-state
+reset. Exponential damping uses elapsed time and releases frame demand when
+movement settles. Cancellation, suspension, disablement, camera replacement and
+external pose edits discard pending movement.
+
+Flutter supplies logical viewport dimensions and won gestures with pointer
+count, device and button metadata. Mouse, touch and trackpad navigation use the
+local gesture arena. Overlay hit testing, keyboard focus and competing scroll
+parents have regression coverage. Controls do not install global input handlers.
+Disabling them returns wheel and scale interests to the surrounding widgets.
+
+Ten new core cases cover navigation, independent shared-scene views, limits,
+invalid poses, damping at different frame intervals, reset and lifecycle cleanup.
+Four Flutter cases cover mouse buttons, wheel, touch, trackpad, cancellation,
+focus, overlay controls, parent scrolling and DPR/render-scale independence.
+The initial failures established the absent plugin and viewport-input contract;
+a pole regression caught an unrepresentable pose before mutation. Widget teardown
+needed a bounded real-async/fake-clock drain for stream cancellation, with no
+production engine lifecycle change.
+
+All 459 core/glTF/geospatial Dart cases, 82 Flutter facade cases and five Shader
+Lab widget cases pass. Both macOS integrations pass. The culling integration
+checks orbit settling, zero geometry re-upload, zero presentation readback and
+reset; the geometry integration retains native selection coverage. Packages,
+examples and tooling analysis, changed-file formatting, package boundaries,
+Apple ABI header and diff checks pass. Native Rust implementation is unchanged
+since the culling checkpoint, so its full suites were not repeated here.
+
+The 53.2 MB macOS release app runs on Metal. Live checks covered perspective
+dragging, wheel zoom, reset, orthographic dragging and compact/expanded windows.
+Perspective orbit changed five color draws to seven, dollying out showed 21,
+and reset restored five. The expanded orthographic view showed 11 draws. Settled
+frames reported zero uploaded bytes. The app remains running in the compact
+perspective view.
+
+The Android arm64 release APK builds at 23.2 MB. Physical Android interaction
+remains unverified, along with Windows, Linux and physical iOS qualification.
+Flutter reports that the macOS plugin still needs Swift Package Manager support;
+the current CocoaPods release build succeeds.
+
+Clip planes remain caller-owned during navigation. Zoom-to-cursor, keyboard
+navigation, the optional inspector, full core/Takram parity and remaining platform
+qualification stay open. The [controls API](design/orbit-controls.md) documents
+the current input and lifecycle contract.

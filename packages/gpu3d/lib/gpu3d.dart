@@ -1,6 +1,7 @@
 library;
 
 export 'src/controls/camera_framing.dart';
+export 'src/controls/orbit_controls.dart';
 
 export 'src/animation/clip.dart';
 

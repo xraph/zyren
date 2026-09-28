@@ -33,7 +33,7 @@ final class ScenePointerEvent {
   final ViewportPoint point, delta;
   final ScenePointerPhase phase;
   final ScenePointerKind kind;
-  final int pointer, buttons;
+  final int pointer, buttons, pointerCount;
   final Set<SceneModifier> modifiers;
   final Duration time;
   final double scale, rotation;
@@ -42,6 +42,7 @@ final class ScenePointerEvent {
     required this.phase,
     this.pointer = 0,
     this.buttons = 0,
+    this.pointerCount = 1,
     this.kind = ScenePointerKind.unknown,
     Set<SceneModifier> modifiers = const {},
     this.time = Duration.zero,
@@ -56,4 +57,11 @@ abstract interface class InputSource {
 
   /// Interests participate in the host's gesture arena only while registered.
   Registration registerGesture(SceneGesture gesture);
+}
+
+/// Gesture input with the attached viewport's logical extent, before DPR or
+/// render-resolution scaling. Zero dimensions mean no usable attached view.
+abstract interface class ViewportInputSource implements InputSource {
+  double get logicalWidth;
+  double get logicalHeight;
 }

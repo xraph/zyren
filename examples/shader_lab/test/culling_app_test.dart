@@ -26,6 +26,16 @@ void main() {
         .widget<SceneView>(find.byType(SceneView))
         .controller!;
     expect(backend.submissions.last.scene.drawCalls, inInclusiveRange(1, 15));
+    final beforeOrbit = controller.camera.position;
+    await tester.dragFrom(
+      tester.getCenter(find.byType(SceneView)),
+      const Offset(70, 30),
+    );
+    await tester.pumpAndSettle();
+    expect(controller.camera.position, isNot(beforeOrbit));
+    await tester.tap(find.byKey(const ValueKey('Reset orbit')));
+    await tester.pumpAndSettle();
+    expect(controller.camera.position, beforeOrbit);
     await tester.tap(find.byKey(const ValueKey('Culling enabled')));
     await tester.pumpAndSettle();
     expect(backend.submissions.last.scene.drawCalls, 61);
@@ -74,7 +84,14 @@ void main() {
     await tester.pumpAndSettle();
     expect(backend.submissions.last.scene.drawCalls, inInclusiveRange(1, 15));
     await tester.pumpWidget(const SizedBox());
-    await tester.runAsync(() => controller.whenDisposed);
+    var disposed = false;
+    controller.whenDisposed.then((_) => disposed = true);
+    for (var i = 0; i < 20 && !disposed; i++) {
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await tester.pump();
+    }
+    expect(disposed, isTrue);
+    await controller.whenDisposed;
     expect(backend.closeCount, 1);
   });
 }

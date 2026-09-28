@@ -591,7 +591,8 @@ resource ownership. See [deformation](deformation.md).
 orthographic projection, layer masks, and frozen asynchronous selections.
 Queries now use revision-safe BVHs, and [frustum culling](frustum-culling.md)
 skips offscreen color draws while retaining shadow participation and resource
-ownership. Orbit controls and the optional inspector remain open.
+ownership. [Orbit controls](orbit-controls.md) provide local pan/zoom/orbit input,
+time-based damping and per-view frame demand. The optional inspector remains open.
 
 Texture presentation must compose with Flutter clipping, transforms, opacity,
 scrolling, overlays and hit testing. Flutter rebuilds do not recreate the GPU.

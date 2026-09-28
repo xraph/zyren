@@ -14,6 +14,15 @@ void main() {
       final controller = tester
           .widget<SceneView>(find.byType(SceneView))
           .controller!;
+      final frames = <FrameStats>[];
+      final subscription = controller.frameStats.listen(frames.add);
+      Future<void> advance(int count) async {
+        for (var i = 0; i < count; i++) {
+          await tester.pump(const Duration(milliseconds: 20));
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+        }
+      }
+
       try {
         final first = await waitForFrame(
           tester,
@@ -76,8 +85,32 @@ void main() {
           (frame) => frame.drawCalls > 0 && frame.drawCalls < 5,
         );
         expect(controller.camera, isA<PerspectiveCamera>());
+        final beforeOrbit = controller.camera.position;
+        await tester.dragFrom(
+          tester.getCenter(find.byType(SceneView)),
+          const Offset(70, 30),
+        );
+        await advance(100);
+        expect(controller.camera.position, isNot(beforeOrbit));
+        expect(frames.last.uploadedBytes, 0);
+        expect(frames.last.readbackBytes, 0);
+        final settled = frames.length;
+        await advance(20);
+        expect(
+          frames.length,
+          settled,
+          reason: 'Orbit releases demand after damping.',
+        );
+        await tester.tap(find.byKey(const ValueKey('Reset orbit')));
+        await waitForFrame(
+          tester,
+          controller,
+          (frame) => frame.readbackBytes == 0,
+        );
+        expect(controller.camera.position, beforeOrbit);
         expect(tester.takeException(), isNull);
       } finally {
+        await subscription.cancel();
         await tester.pumpWidget(const SizedBox());
         await controller.whenDisposed;
       }

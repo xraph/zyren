@@ -666,7 +666,7 @@ camera moves during async pick -> result uses captured revision
 animated mesh -> hit current deformed surface, not stale bind pose
 ```
 
-- [ ] Run spatial/camera tests and selection integration; absent picking/culling must fail. Singular transforms and zero-size views return typed invalid requests, not NaN hits. Include overlay buttons and scroll-parent gesture competition.
+- [x] Run spatial/camera tests and selection integration; absent picking/culling must fail. Singular transforms and zero-size views return typed invalid requests, not NaN hits. Include overlay buttons and scroll-parent gesture competition.
 - [x] Implement CPU bounds/triangle picking, then static-geometry BVH refit/rebuild on revisions. Account for deformed/instance transforms and sidedness. Use conservative frustum bounds; unknown bounds stay visible. Correct world distance after nonuniform local transforms.
 
 ```text
@@ -707,6 +707,15 @@ It validates the fit before mutation and handles point/flat bounds. The culling
 lab can fit all boxes or a tapped selection and retain that fit through resize
 and projection changes. See [camera framing](../../design/camera-framing.md).
 Orbit controls, the inspector and the remaining acceptance checks stay open.
+
+Orbit checkpoint (2026-09-28): a general core plugin now handles local orbit,
+pan and zoom with logical viewport input, configurable bindings/limits, arbitrary
+up vectors and time-based damping. Cancellation, suspension, external camera
+edits and teardown clear pending movement. Frame demand ends after settling.
+Shared-scene views retain independent controls. The culling lab combines this
+with selection, framing and projection switching. See
+[orbit controls](../../design/orbit-controls.md). The optional inspector and
+final acceptance audit remain open.
 
 ## Task 8: HDR effects, history and renderer profiles
 
