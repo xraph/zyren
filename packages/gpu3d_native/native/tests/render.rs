@@ -113,11 +113,18 @@ fn json_material_defaults_and_validation_match_binary_contract() {
     for (field, value) in [
         ("alpha_mode", json!(3)),
         ("opacity", json!(-0.1)),
-        ("alpha_cutoff", json!(1.1)),
+        ("alpha_cutoff", json!(-0.1)),
     ] {
         let mut invalid = original.clone();
         invalid["meshes"][0][field] = value;
         let frame: Frame = serde_json::from_value(invalid).unwrap();
         assert!(frame.validate(&Default::default()).is_err());
+    }
+    for cutoff in [1.1, f32::MAX] {
+        let mut masked = original.clone();
+        masked["meshes"][0]["alpha_mode"] = json!(1);
+        masked["meshes"][0]["alpha_cutoff"] = json!(cutoff);
+        let frame: Frame = serde_json::from_value(masked).unwrap();
+        assert!(frame.validate(&Default::default()).is_ok());
     }
 }
