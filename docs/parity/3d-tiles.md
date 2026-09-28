@@ -70,7 +70,10 @@ The streamer defaults to four active content jobs, 256 selected nodes, a 64 MiB
 CPU cache budget and 128 MiB of visible GPU payload. Reservations are 4 MiB decoded
 and 8 MiB resident per tile. Increase these explicitly for larger assets. Actual
 geometry and image payloads must fit the reservation, and each cached model keeps
-its asset scope until eviction, source replacement or disposal.
+its asset scope until eviction, source replacement or disposal. CPU accounting
+uses the decoder's reservations, including unused meshes and alternate scenes.
+It can overestimate retained bytes because that ledger also includes temporary
+decoded payloads. Visible GPU accounting uses the instantiated scene.
 
 These are logical payload limits. Encoded input, parser arrays, temporary copies,
 scene objects and driver overhead are additional; the budget is not a process
@@ -100,7 +103,7 @@ flutter test integration_test/tiles3d_streaming_test.dart -d macos
 
 Format and scheduler checks cover transforms, region bounds, malformed lengths,
 unsupported traversal, URI policy, mixed refinement, empty nodes, eviction,
-request cancellation, source replacement and bounded retries. All 17 package
+request cancellation, source replacement and bounded retries. All 20 package
 tests pass. The Metal HTTP fixture covers 2,500 pixels at 256 × 192, retains the
 parent on HTTP 503, refines to four buildings after retry, resizes to 130 × 250
 and releases all resident GPU bytes on disposal.

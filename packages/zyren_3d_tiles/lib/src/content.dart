@@ -67,12 +67,21 @@ class _ContentLoader extends AssetLoader<TileModel3D> {
             ),
             context,
           );
+      // The template retains every decoded mesh, including unused meshes and
+      // alternate scenes. The decoder's ledger covers all of them, and can
+      // conservatively include temporary decode payloads too.
+      final decodedReservation = context.decodedBytes;
       return DecodedAsset(
         create: () {
           final model = decoded.create();
           try {
             final size = _payload(model.instantiate());
-            return TileModel3D._(model, rtc, size.$1, size.$2);
+            return TileModel3D._(
+              model,
+              rtc,
+              math.max(decodedReservation, size.$1),
+              size.$2,
+            );
           } catch (_) {
             decoded.release(model);
             rethrow;

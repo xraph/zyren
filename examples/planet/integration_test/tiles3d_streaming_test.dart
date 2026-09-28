@@ -49,6 +49,14 @@ void main() {
       final count = lab.tiles!.visibleTileIds.length;
       await tester.pump(const Duration(milliseconds: 250));
       expect(find.text('$count tiles · 0 loading'), findsOneWidget);
+      await tester.tap(find.text('Overview'));
+      await until(() => lab.tiles!.visibleTileIds.length == 1);
+      await tester.pump();
+      expect(find.text('1 tiles · 0 loading'), findsOneWidget);
+      await tester.tap(find.text('Detail'));
+      await until(() => lab.tiles!.visibleTileIds.length == count);
+      await tester.pump();
+      expect(find.text('$count tiles · 0 loading'), findsOneWidget);
       await tester.tap(find.byType(Switch));
       await until(
         () =>

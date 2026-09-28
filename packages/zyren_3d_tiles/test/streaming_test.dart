@@ -55,53 +55,75 @@ void main() {
     await settle(streamer);
     expect(streamer.visible.keys, ['0']);
   });
-  test('LRU eviction reloads content when the view returns', () async {
-    final resolver = MemoryResolver({
-      '/left': triangleModel(),
-      '/right': triangleModel(),
-    });
-    Map<String, Object?> side(String uri, double x) =>
-        tile(uri: uri)
-          ..['boundingVolume'] = {
-            'sphere': [x, 0, 0, 3],
-          };
-    final root =
-        tile(
-            refine: 'REPLACE',
-            children: [side('left', -50), side('right', 50)],
-          )
-          ..['boundingVolume'] = {
-            'sphere': [0, 0, 0, 100],
-          };
-    final streamer = Tiles3DStreamer(
-      tileset: await source(root),
-      services: AssetServices(resolver: resolver),
-      budget: Tiles3DBudget(
-        maxDecodedBytes: 1024,
-        perTileDecodedBytes: 1024,
-        maxResidentBytes: 1024,
-        perTileResidentBytes: 1024,
-      ),
-    );
-    addTearDown(streamer.dispose);
-    for (final x in [-50.0, 50.0, -50.0]) {
-      streamer.update(
-        PerspectiveCamera(
-          position: Vec3(x, -10, 0),
-          target: Vec3(x, 0, 0),
-          up: const Vec3(0, 0, 1),
+  for (final (label, changes) in [
+    ('default scene', <String, Object?>{}),
+    (
+      'unused meshes',
+      <String, Object?>{
+        'nodes': [{}],
+        'scenes': [{}],
+      },
+    ),
+    (
+      'alternate scene',
+      <String, Object?>{
+        'scenes': [
+          {},
+          {
+            'nodes': [0],
+          },
+        ],
+      },
+    ),
+  ]) {
+    test('LRU eviction accounts for $label when the view returns', () async {
+      final resolver = MemoryResolver({
+        '/left': triangleModel(changes: changes),
+        '/right': triangleModel(changes: changes),
+      });
+      Map<String, Object?> side(String uri, double x) =>
+          tile(uri: uri)
+            ..['boundingVolume'] = {
+              'sphere': [x, 0, 0, 3],
+            };
+      final root =
+          tile(
+              refine: 'REPLACE',
+              children: [side('left', -50), side('right', 50)],
+            )
+            ..['boundingVolume'] = {
+              'sphere': [0, 0, 0, 100],
+            };
+      final streamer = Tiles3DStreamer(
+        tileset: await source(root),
+        services: AssetServices(resolver: resolver),
+        budget: Tiles3DBudget(
+          maxDecodedBytes: 1024,
+          perTileDecodedBytes: 1024,
+          maxResidentBytes: 1024,
+          perTileResidentBytes: 1024,
         ),
-        const ViewportMetrics(100, 100),
       );
-      await settle(streamer);
-      expect(streamer.visible.length, 1);
-      expect(
-        streamer.stats.cachedBytes + streamer.stats.reservedBytes,
-        lessThanOrEqualTo(1024),
-      );
-    }
-    expect(resolver.reads, ['/left', '/right', '/left']);
-  });
+      addTearDown(streamer.dispose);
+      for (final x in [-50.0, 50.0, -50.0]) {
+        streamer.update(
+          PerspectiveCamera(
+            position: Vec3(x, -10, 0),
+            target: Vec3(x, 0, 0),
+            up: const Vec3(0, 0, 1),
+          ),
+          const ViewportMetrics(100, 100),
+        );
+        await settle(streamer);
+        expect(streamer.visible.length, 1);
+        expect(
+          streamer.stats.cachedBytes + streamer.stats.reservedBytes,
+          lessThanOrEqualTo(1024),
+        );
+      }
+      expect(resolver.reads, ['/left', '/right', '/left']);
+    });
+  }
   test('content requests respect the current host reference policy', () async {
     final manifest = AssetScope(
       services: AssetServices(
@@ -140,6 +162,54 @@ void main() {
     target: Vec3.zero,
     up: const Vec3(0, 0, 1),
     far: 20000,
+  );
+  test(
+    'cached camera changes notify once and unchanged frames stay quiet',
+    () async {
+      final notices = <Tiles3DStats>[];
+      late final Tiles3DStreamer streamer;
+      streamer = Tiles3DStreamer(
+        tileset: await source(
+          tile(
+            refine: 'REPLACE',
+            uri: 'parent',
+            error: 10,
+            children: [
+              tile(uri: 'a'),
+              tile(uri: 'b'),
+            ],
+          ),
+        ),
+        services: AssetServices(
+          resolver: MemoryResolver({
+            '/parent': triangleModel(),
+            '/a': triangleModel(),
+            '/b': triangleModel(),
+          }),
+        ),
+        onChanged: () => notices.add(streamer.stats),
+      );
+      addTearDown(streamer.dispose);
+      streamer.update(camera(), viewport);
+      await settle(streamer);
+      await flush();
+      expect(streamer.visible.length, 2);
+      notices.clear();
+      streamer.update(camera(10000), viewport);
+      await flush();
+      expect(streamer.visible.keys, ['0']);
+      expect(notices, hasLength(1));
+      expect(notices.single.visibleTiles, 1);
+      notices.clear();
+      streamer.update(camera(10000), viewport);
+      await flush();
+      expect(notices, isEmpty);
+      final away = camera(10000)..target = const Vec3(0, -20000, 0);
+      streamer.update(away, viewport);
+      await flush();
+      expect(notices, hasLength(1));
+      expect(notices.single.visibleTiles, 0);
+    },
   );
   test(
     'REPLACE retains parent through child failure and refines after explicit retry',

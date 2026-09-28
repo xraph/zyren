@@ -54,6 +54,15 @@ final class Tiles3DStats {
     this.residentBytes,
     this.budgetLimited,
   );
+  Object get _values => (
+    selectedTiles,
+    visibleTiles,
+    activeRequests,
+    cachedBytes,
+    reservedBytes,
+    residentBytes,
+    budgetLimited,
+  );
 }
 
 final class TileFailure3D {
@@ -117,6 +126,9 @@ class Tiles3DStreamer {
   void update(Camera camera, ViewportMetrics viewport) {
     _checkOpen();
     if (!viewport.isUsable) return;
+    final before = stats._values;
+    final selectedBefore = _selected, visibleBefore = _visible;
+    final failuresBefore = _failures.length;
     final previous = _branches.keys.toSet();
     final nodes = <String, TileNode3D>{},
         branches = <String, List<TileNode3D>>{};
@@ -187,6 +199,14 @@ class Tiles3DStreamer {
     }
     _refresh();
     _pump();
+    bool sameKeys(Map<String, Object> a, Map<String, Object> b) =>
+        a.length == b.length && a.keys.every(b.containsKey);
+    if (before != stats._values ||
+        failuresBefore != _failures.length ||
+        !sameKeys(selectedBefore, _selected) ||
+        !sameKeys(visibleBefore, _visible)) {
+      _notify();
+    }
   }
 
   void replaceTileset(Tileset3D tileset) {
