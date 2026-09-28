@@ -41,10 +41,23 @@ final class AnimationMixer extends ScenePlugin {
     double speed = 1,
     double weight = 1,
     int? repetitions,
+    AnimationBlendMode blendMode = AnimationBlendMode.normal,
+    Duration referenceTime = Duration.zero,
   }) {
     AnimationAction._speed(speed);
     AnimationAction._repetitions(repetitions);
     AnimationAction._weight(weight);
+    final referenceSeconds = referenceTime.inMicroseconds / 1e6;
+    if (referenceTime.isNegative ||
+        referenceSeconds > clip.durationSeconds ||
+        (blendMode == AnimationBlendMode.normal &&
+            referenceTime != Duration.zero)) {
+      throw ArgumentError.value(
+        referenceTime,
+        'referenceTime',
+        'Choose a time within the clip for additive playback; normal playback uses zero.',
+      );
+    }
     if (_actions.length >= 256) {
       throw StateError('Stop an action before exceeding 256 actions.');
     }
@@ -70,6 +83,14 @@ final class AnimationMixer extends ScenePlugin {
         throw ArgumentError('Unknown animation target: ${track.target}');
       }
     }
+    final reference = <KeyframeTrack, Object>{};
+    if (blendMode == AnimationBlendMode.additive) {
+      for (final track in clip.tracks) {
+        final value = track.sample(referenceSeconds);
+        _validate(track.property, value);
+        reference[track] = value;
+      }
+    }
     final action = AnimationAction._(
       this,
       clip,
@@ -81,6 +102,9 @@ final class AnimationMixer extends ScenePlugin {
         repetitions: repetitions,
         finished: clip.durationSeconds == 0,
       ),
+      blendMode: blendMode,
+      referenceTime: referenceTime,
+      referencePose: reference,
     );
     _apply([..._actions, action], const {}, invalidate: true);
     if (action.isFinished) _publishEvent(action, finished: true, delta: 0);
@@ -143,6 +167,7 @@ final class AnimationMixer extends ScenePlugin {
     final rest = Map<(String, TransformProperty), Object>.of(_rest);
     final retained = <(String, TransformProperty)>{};
     final mixed = <(String, TransformProperty), (Object, double)>{};
+    final additive = <(String, TransformProperty), Object>{};
     for (final action in actions) {
       final state = states[action] ?? action._state;
       for (final track in action.clip.tracks) {
@@ -151,6 +176,15 @@ final class AnimationMixer extends ScenePlugin {
         rest.putIfAbsent(key, () => _read(key.$1, key.$2));
         if (state.weight == 0) continue;
         final value = track.sample(state.time(action.clip.durationSeconds));
+        if (action.blendMode == AnimationBlendMode.additive) {
+          final offset = _animationOffset(value, action._referencePose[track]!);
+          additive[key] = _addAnimationValue(
+            additive[key] ?? _animationIdentity(offset),
+            offset,
+            state.weight,
+          );
+          continue;
+        }
         final previous = mixed[key];
         mixed[key] = previous == null
             ? (value, state.weight)
@@ -167,11 +201,16 @@ final class AnimationMixer extends ScenePlugin {
     final poses = <(String, TransformProperty), Object>{};
     for (final entry in rest.entries) {
       final sample = mixed[entry.key];
-      Object blendRest(Object rest) => sample == null
-          ? rest
-          : sample.$2 < 1
-          ? _blend(sample.$1, rest, 1 - sample.$2)
-          : sample.$1;
+      Object blendRest(Object rest) {
+        final base = sample == null
+            ? rest
+            : sample.$2 < 1
+            ? _blend(sample.$1, rest, 1 - sample.$2)
+            : sample.$1;
+        final offset = additive[entry.key];
+        return offset == null ? base : _addAnimationValue(base, offset, 1);
+      }
+
       if (entry.value is Map<Mesh, List<double>>) {
         final weights = <Mesh, List<double>>{};
         for (final rest in (entry.value as Map<Mesh, List<double>>).entries) {

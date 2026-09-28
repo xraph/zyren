@@ -130,6 +130,55 @@ automatic delta, preventing time spent idle from becoming a jump. Other running
 actions continue normally. Detaching releases demand and preserves playback
 state for explicit Dart updates or a later attachment.
 
+## Additive layers
+
+You can layer an ordinary clip over the normal animation without copying or
+rewriting its keys:
+
+```dart
+final lean = mixer.play(
+  leanClip,
+  blendMode: AnimationBlendMode.additive,
+  referenceTime: const Duration(milliseconds: 500),
+  weight: .35,
+);
+lean.weight = .8;
+lean.pause(); // Holds the layer's contribution without advancing its clock.
+lean.stop();  // Removes this layer while the other actions keep playing.
+```
+
+At the reference time the layer contributes no offset. The default reference is
+zero. An explicit reference must lie inside the clip and produce a valid pose;
+normal playback only accepts the default reference. The action captures that
+reference once. `blendMode` and `referenceTime` are fixed for the action, while
+its weight, clock and loop controls work as before. A new action starts at the
+usual playback endpoint, so a reference in the middle can contribute an offset
+immediately.
+
+Position, scale and morph weights use `sample - reference`. Scale is a numeric
+difference, not a scale ratio. Rotation uses `inverse(reference) * sample` and
+blends that offset from the identity quaternion. The weighted rotation is
+composed in local space after the normal pose; multiple rotation layers compose
+in play order, which matters for rotations around different axes.
+
+The mixer completes normal weighted/rest blending first, then adds the layers.
+Additive weights stay independent and are not normalized against other layers
+or the normal actions. A layer with no normal action applies over the captured
+rest pose, including each morph primitive's independent rest weights. Stopping
+the last owner restores that rest pose. Cubic interpolation is sampled before
+computing offsets, preserving the original quaternion signs and tangent rates.
+
+The complete combined pose is validated before publication. A singular final
+scale, nonfinite value or out-of-range morph weight rejects the update without
+changing any node, playhead, repeat count or completion event. Zero-weight
+layers still own their channels and advance their clocks when playing, just as
+normal zero-weight actions do.
+
+The reference-pose convention follows
+[Three.js additive conversion](https://github.com/mrdoob/three.js/blob/dev/src/animation/AnimationUtils.js).
+Here, each action stores its reference samples and the immutable clip stays
+usable by other model instances and normal playback.
+
 ## Finite playback and events
 
 To play a clip three times and react to natural completion, subscribe before
@@ -205,7 +254,10 @@ flutter run --release -d DEVICE_ID -t lib/animation.dart
 flutter test integration_test/animation_test.dart -d DEVICE_ID
 ```
 
-The two scene hierarchies share a clip and immutable geometry. This is transform
+The two scene hierarchies share clips and immutable geometry. Each has a paused
+lean layer over its main motion; the layer-strength slider affects only the
+selected model and does not hold frame demand. This is transform
 animation. Native GPU instancing, skinning and morph deformation use the
 [deformation API](deformation.md). glTF transform and morph-weight import use
-these same tracks. Additive blending, cross-fades and time warping remain open parts of the broader animation API.
+these same tracks. Cross-fades and time warping remain open parts of the broader
+animation API.

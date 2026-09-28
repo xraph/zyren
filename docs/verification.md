@@ -1873,3 +1873,49 @@ Takram parity work remain. Task 6 and the full implementation goal stay open.
 The 24.3 MB Android release launched `lib/animation.dart` on the Pixel. Its
 process was confirmed and its error-level process log was empty when checked.
 The release app remains running; its screen was not inspected.
+
+
+## Additive animation, 28 September 2026
+
+You can play an ordinary clip as an additive layer using a reference time,
+without rewriting its shared keys. The mixer applies weighted numeric offsets
+and local quaternion offsets after its normal weighted/rest blend. Layers keep
+independent weights and clocks. Each morph primitive retains its own rest pose,
+and stopping the final owner restores that pose.
+
+Eight focused cases cover play order, multiple layers, local rotation order,
+antipodal quaternions, cubic reference sampling, separate clocks, primitive and
+instance isolation, reference validation and atomic rejection. Singular combined
+scales and an overflowing morph primitive leave every channel and playhead
+unchanged. Completion events still follow committed updates.
+
+The final core, glTF and geospatial suite passed 397 cases. All 89 serial native
+GPU cases and three shader-lab widget cases passed. Analysis, formatting,
+package boundaries and the Apple ABI header check passed. The implementation
+changes Dart animation sampling and mixing; native shader code and ABI are
+unchanged.
+
+The native pixel fixture compares layered skin rotation, scale and morph weights
+with explicit reference poses. A layer-weight edit uploads 400 bytes, and
+captured frames retain their earlier poses. The demo's Lean layer slider affects
+only the selected model; its held layer contributes without continuous frame
+demand. Narrow and desktop widget layouts pass.
+
+The standalone Metal capture `artifacts/additive-animation.png` was visually
+inspected and shows both independently posed models using six native draws.
+This image uses explicit readback. It does not establish inspection of a Flutter
+window or the Android release screen.
+
+Fades, time warping, custom shader deformation, per-instance colors, later core
+work and full Three.js/Takram parity remain open. Task 6 stays unchecked.
+
+Metal and physical Pixel Vulkan integration checks passed with the native
+reference fixture and the layer-strength control. Editing a paused layer changes
+only its model, presentation reads back zero bytes, and pausing or naturally
+finishing the main action releases frame demand. macOS could not foreground the
+app, so manual desktop interaction remains unverified. Windows, Linux and
+physical iOS qualification remain open.
+
+The 24.3 MB Android release launched the updated animation lab on the Pixel.
+Its process was confirmed, with no error-level process-log entries when checked.
+The app remains running for inspection; its release screen was not inspected.

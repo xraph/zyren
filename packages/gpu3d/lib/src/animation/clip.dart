@@ -8,6 +8,7 @@ import '../plugins/registration.dart';
 part 'track.dart';
 part 'mixer.dart';
 part 'action.dart';
+part 'blend.dart';
 part 'events.dart';
 part 'system.dart';
 

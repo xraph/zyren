@@ -9,6 +9,7 @@ class AnimationLabScene {
   );
   final mixers = <AnimationMixer>[];
   final actions = <AnimationAction>[];
+  final layers = <AnimationAction>[];
   AnimationLabScene({bool autoplay = true}) {
     scene.background = const Color3(.015, .022, .035);
     final clip = AnimationClip(
@@ -34,6 +35,21 @@ class AnimationLabScene {
             Quat.axisAngle(const Vec3(0, 0, 1), .65),
             Quat.axisAngle(const Vec3(0, 0, 1), -.65),
           ],
+        ),
+      ],
+    );
+    final layerClip = AnimationClip(
+      name: 'Lean',
+      tracks: [
+        QuaternionKeyframeTrack(
+          target: 'arm',
+          times: [0, 1],
+          values: [Quat.identity, Quat.axisAngle(const Vec3(0, 1, 0), .9)],
+        ),
+        VectorKeyframeTrack.position(
+          target: 'arm',
+          times: [0, 1],
+          values: [Vec3.zero, const Vec3(0, .15, 0)],
         ),
       ],
     );
@@ -63,6 +79,15 @@ class AnimationLabScene {
       if (i == 1) playback.seek(const Duration(seconds: 2));
       if (i == 1 || !autoplay) playback.pause();
       actions.add(playback);
+      layers.add(
+        mixer.play(
+            layerClip,
+            blendMode: AnimationBlendMode.additive,
+            weight: .35,
+          )
+          ..seek(const Duration(seconds: 1))
+          ..pause(),
+      );
     }
     scene.add(
       DirectionalLight(intensity: 3)

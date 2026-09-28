@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:shader_lab/animation.dart';
 import '../../../packages/gpu3d_native/test/support/animation_checks.dart';
+import '../../../packages/gpu3d_native/test/support/additive_animation_checks.dart';
 import 'effects_test.dart' show waitForFrame;
 
 void main() {
@@ -18,6 +19,7 @@ void main() {
         : await NativeMetalBackend.create();
     try {
       await verifyAnimation(backend);
+      await verifyAdditiveAnimation(backend);
     } finally {
       await backend.close();
     }
@@ -69,6 +71,20 @@ void main() {
         frames.length,
         count,
         reason: 'No animation demand remains after both actions pause.',
+      );
+      final rightPaused = arm('Right').quaternion;
+      tester
+          .widget<Slider>(find.byKey(const ValueKey('Layer weight')))
+          .onChanged!(.85);
+      await advance();
+      expect(arm('Right').quaternion, isNot(rightPaused));
+      expect(arm('Left').quaternion, leftPaused);
+      final afterLayer = frames.length;
+      await advance();
+      expect(
+        frames.length,
+        afterLayer,
+        reason: 'A paused layer does not hold frame demand.',
       );
       await tester.drag(
         find.byKey(const ValueKey('Playhead')),

@@ -555,6 +555,15 @@ counts and status; Metal and physical Pixel Vulkan checks verify natural
 completion releases frame demand. Additive blending, custom shader deformation,
 per-instance colors and the rest of Task 6 remain open.
 
+Additive checkpoint, 28 September 2026: `AnimationBlendMode.additive` layers
+sampled offsets over the normal/rest blend, using a captured reference time.
+Shared clips stay immutable. Coverage includes independent morph primitive
+rests, quaternion composition order, cubic references, separate clocks and
+atomic rejection of singular or oversized results. Native skin/morph pixels
+match explicit reference poses with 400-byte layer-weight edits. The animation
+lab exposes independent layer strength. Fades/warping, custom shader support,
+per-instance colors and the remaining Task 6 gates are still open.
+
 **Files:** Create core `scene/instanced_mesh.dart`, `animation/{clip,track,mixer,action}.dart`,
 `geometry/{skin,morph_target}.dart`; native `passes/deformation.rs`, WGSL,
 `test/animation_test.dart`, `native/tests/deformation_render.rs` and viewer controls.

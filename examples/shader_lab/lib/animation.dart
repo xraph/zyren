@@ -53,6 +53,7 @@ class _AnimationLab extends StatefulWidget {
 class _AnimationLabState extends State<_AnimationLab> {
   late final SceneController controller;
   final actions = <AnimationAction>[];
+  final layers = <AnimationAction>[];
   StreamSubscription<FrameStats>? subscription;
   final eventSubscriptions = <StreamSubscription<AnimationEvent>>[];
   int selected = 0;
@@ -77,6 +78,7 @@ class _AnimationLabState extends State<_AnimationLab> {
       );
     }
     actions.addAll(demo.actions);
+    layers.addAll(demo.layers);
     subscription = controller.frameStats.listen((_) {
       if (mounted) setState(() {});
     });
@@ -219,6 +221,30 @@ class _AnimationLabState extends State<_AnimationLab> {
                             () =>
                                 action.repetitions = value == 0 ? null : value,
                           ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(
+              children: [
+                const Text('Lean layer'),
+                Expanded(
+                  child: Slider(
+                    key: const ValueKey('Layer weight'),
+                    value: layers[selected].weight,
+                    label: '${(layers[selected].weight * 100).round()}%',
+                    onChanged: (value) =>
+                        edit(() => layers[selected].weight = value),
+                  ),
+                ),
+                SizedBox(
+                  width: 36,
+                  child: Text(
+                    '${(layers[selected].weight * 100).round()}%',
+                    textAlign: TextAlign.end,
                   ),
                 ),
               ],

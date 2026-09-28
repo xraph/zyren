@@ -40,6 +40,13 @@ void main() {
     await tester.pumpAndSettle();
     expect(arm('Left').quaternion, isNot(left));
     expect(arm('Right').quaternion, right);
+    final beforeLayer = arm('Left').quaternion;
+    tester
+        .widget<Slider>(find.byKey(const ValueKey('Layer weight')))
+        .onChanged!(.8);
+    await tester.pumpAndSettle();
+    expect(arm('Left').quaternion, isNot(beforeLayer));
+    expect(arm('Right').quaternion, right);
     tester
         .widget<DropdownButton<int>>(find.byKey(const ValueKey('Repetitions')))
         .onChanged!(2);

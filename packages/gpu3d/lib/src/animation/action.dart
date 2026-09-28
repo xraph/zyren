@@ -110,9 +110,19 @@ final class _Playback {
 final class AnimationAction {
   final AnimationMixer _mixer;
   final AnimationClip clip;
+  final AnimationBlendMode blendMode;
+  final Duration referenceTime;
+  final Map<KeyframeTrack, Object> _referencePose;
   _Playback _state;
   bool _stopped = false;
-  AnimationAction._(this._mixer, this.clip, this._state);
+  AnimationAction._(
+    this._mixer,
+    this.clip,
+    this._state, {
+    required this.blendMode,
+    required this.referenceTime,
+    required Map<KeyframeTrack, Object> referencePose,
+  }) : _referencePose = Map.unmodifiable(referencePose);
   bool get isStopped => _stopped;
   bool get isPaused => _state.paused;
   bool get isFinished => _state.finished;
