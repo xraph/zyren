@@ -2,6 +2,47 @@ import 'dart:ffi';
 
 const _asset = 'package:zyren_native/src/bindings.dart';
 
+final class NativeMeshLimits extends Struct {
+  @Uint32()
+  external int version;
+  @Uint32()
+  external int maxVertices;
+  @Uint32()
+  external int maxTriangles;
+  @Uint32()
+  external int maxAttributes;
+  @Uint64()
+  external int maxEncodedBytes;
+  @Uint64()
+  external int maxDecodedBytes;
+}
+
+final class NativeMeshBytes extends Struct {
+  external Pointer<Uint8> data;
+  @Size()
+  external int length;
+}
+
+@Native<
+  Uint32 Function(
+    Pointer<Uint8>,
+    Size,
+    Pointer<NativeMeshLimits>,
+    Pointer<NativeMeshBytes>,
+  )
+>(symbol: 'fg2_draco_decode', assetId: _asset)
+external int dracoDecode(
+  Pointer<Uint8> input,
+  int length,
+  Pointer<NativeMeshLimits> limits,
+  Pointer<NativeMeshBytes> output,
+);
+@Native<Void Function(Pointer<NativeMeshBytes>)>(
+  symbol: 'fg2_draco_free',
+  assetId: _asset,
+)
+external void dracoFree(Pointer<NativeMeshBytes> output);
+
 @Native<
   Uint32 Function(
     Pointer<Uint8>,

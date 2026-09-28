@@ -172,6 +172,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "draco-core"
+version = "2.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "19e6754613ae8a9c9bc12a48b795ae56066c1de258ff8d75c9583f27d33720e3"
+dependencies = [
+ "bytemuck",
+]
+
+[[package]]
 name = "equivalent"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1259,6 +1268,7 @@ dependencies = [
  "bytemuck",
  "cc",
  "crc32fast",
+ "draco-core",
  "glam",
  "image",
  "meshopt",

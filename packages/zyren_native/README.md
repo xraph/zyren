@@ -47,6 +47,12 @@ output budget per call; the native ceiling is 64 MiB, with at most two active
 calls. The decoder creates no GPU device. See the synthetic fixtures in
 `test_assets/compression` and their regeneration command.
 
+`NativeMeshDecoder` returns triangle indices and packed attributes from Draco
+2.2 meshes. Configure `MeshDecodeLimits` to bound vertices, triangles, attribute
+count and decoded bytes. Sequential and EdgeBreaker connectivity run on CPU
+workers, with early header checks before connectivity allocation. These limits
+bound payloads and codec counts, not total process memory.
+
 Worker requests carry a generation and a monotonic request ID. Worker exit or
 error settles every pending request. Stale and duplicate replies are ignored.
 Explicit close remains the normal path; native finalization also releases the
