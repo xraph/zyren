@@ -247,7 +247,7 @@ void main() {
       () async {
         parent.quaternion = Quat.axisAngle(const Vec3(0, 1, 0), .5);
         parent.scale = Vec3(reflected ? -2 : 2, 2, 2);
-        mesh.quaternion = Quat.axisAngle(const Vec3(1, 0, 0), .3);
+        mesh.quaternion = Quat.axisAngle(const Vec3(1, 0, 0), .35);
         Vec3 worldVector() {
           final p = mesh.quaternion.rotate(const Vec3(1, 1, 0));
           return parent.quaternion.rotate(
@@ -271,6 +271,13 @@ void main() {
         );
         expect(tools.undo(), isTrue);
         expect(worldVector().distanceTo(before), lessThan(1e-9));
+        expect(tools.redo(), isTrue);
+        expect(
+          worldVector().distanceTo(
+            Quat.axisAngle(const Vec3(0, 0, 1), .3).rotate(before),
+          ),
+          lessThan(1e-9),
+        );
       },
     );
   }
