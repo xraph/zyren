@@ -30,7 +30,7 @@ presenters are documented in the workspace README.
 
 Use `createResourceScope()` for typed buffer and texture allocations on this
 backend's device. Scopes support shared references, binary uploads, explicit
-readback and deterministic close. See [the resource API and protocol](https://xraph.com/docs/zyren/reference/design/gpu-resources)
+readback and deterministic close. See [GPU resource ownership](https://xraph.com/docs/zyren/gpu-resources)
 for limits and ownership. Scene geometry uses the same registry with binary
 uploads and changed mesh records. `createView()` returns an independent readback
 view sharing the device, geometry revisions and material images. Closing a view
@@ -63,13 +63,13 @@ ends; joins, configurable caps, dashes and textured sprites remain open.
 Use `createShaderCompiler()` or a plugin's `context.shaders` to validate WGSL
 modules on the native worker. Source errors include Dart string locations and
 leave the device usable. Compilers own their programs, and shared views can
-retain them independently. See [shader compilation](https://xraph.com/docs/zyren/reference/design/shader-compilation)
+retain them independently. See [shader compilation](https://xraph.com/docs/zyren/shaders)
 for the API and limits.
 
 Use `createGraphCompiler()` to execute compute and procedural render passes with
 typed buffer, texture and sampler bindings. Failed edits preserve the active
 graph, and uniform updates reuse its pipelines. The
-[render graph guide](https://xraph.com/docs/zyren/reference/design/render-graphs) covers ownership,
+[render graph guide](https://xraph.com/docs/zyren/shaders) covers ownership,
 dependencies and limits. The example saves a native compute-to-render heatmap
-as a PNG. Custom mesh materials and direct platform-view graph composition
-remain in progress.
+as a PNG. The [shader guide](https://xraph.com/docs/zyren/shaders) also covers
+custom mesh materials and screen effects.

@@ -18,4 +18,5 @@ workspace:
   - examples/model_viewer
   - examples/shader_lab
 dev_dependencies:
+  analyzer: ^13.3.0
   lints: ^6.0.0

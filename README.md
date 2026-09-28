@@ -5,6 +5,7 @@
 <p align="center">
   <a href="https://xraph.com/work/zyren">Project</a> ·
   <a href="https://xraph.com/docs/zyren">Documentation</a> ·
+  <a href="https://xraph.com/docs/zyren/reference">API reference</a> ·
   <a href="#quick-start">Quick start</a> ·
   <a href="#examples">Examples</a> ·
   <a href="https://github.com/xraph/zyren/issues">Issues</a>
@@ -215,8 +216,19 @@ pnpm docs:build
 
 The website owns the committed documentation snapshot, navigation, search and
 version routes. The local source tree is not included in a fresh Zyren clone.
-See [contributing documentation](https://xraph.com/docs/zyren/contributing)
-for the import and recovery workflow.
+Restore public MDX from `website/content/docs/zyren/v0/` into that local source
+directory when starting from a fresh clone. Keep internal notes outside
+`docs/content/docs` so they cannot enter the public import.
+
+The [API reference](https://xraph.com/docs/zyren/reference) is generated from public
+Dart exports. Refresh it from the Zyren root before importing:
+
+```sh
+fvm dart run tool/generate_api_reference.dart
+```
+
+This writes only API declarations and their Dart documentation to the ignored
+local source. Public feature guides are edited separately.
 
 ## Development checks
 

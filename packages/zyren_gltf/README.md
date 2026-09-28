@@ -93,7 +93,9 @@ and image data; renderer identities are assigned on the caller. Errors include
 source URIs and field paths. Compiled release tests cover the public model path,
 resource identities, worker errors and cancellation.
 
-Run `dart test packages/zyren_gltf/test` from the workspace root. The native
-fixture also renders real pixels, verifies shared uploads and retires the final
-resources on Metal and Pixel Vulkan. See [verification](https://xraph.com/docs/zyren/reference/verification)
-and the [glTF specification](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html).
+Run `dart test packages/zyren_gltf/test` from the workspace root. See the
+[model loading guide](https://xraph.com/docs/zyren/assets) for usage and supported
+features, the [API reference](https://xraph.com/docs/zyren/reference/zyren_gltf/api)
+for options and signatures, and the
+[glTF specification](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html)
+for the file format.
