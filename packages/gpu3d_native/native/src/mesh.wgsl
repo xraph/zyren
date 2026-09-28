@@ -111,6 +111,7 @@ struct InstanceInput {
     @location(10) normal0: vec4<f32>,
     @location(11) normal1: vec4<f32>,
     @location(12) normal2: vec4<f32>,
+    @location(13) color: vec3<f32>,
 };
 fn instance_matrix(instance: InstanceInput) -> mat4x4<f32> {
     return mat4x4(instance.model0, instance.model1, instance.model2, instance.model3);
@@ -120,6 +121,7 @@ fn instance_vertex(position: vec3<f32>, normal: vec3<f32>, instance: InstanceInp
     let n = mat3x3(instance.normal0.xyz, instance.normal1.xyz, instance.normal2.xyz) * normal;
     var output = mesh_vertex(local.xyz, n);
     output.orientation = instance.normal0.w;
+    output.color = vec4(instance.color, 1.);
     return output;
 }
 fn material_front(front: bool, orientation: f32) -> bool {
@@ -135,7 +137,7 @@ fn material_front(front: bool, orientation: f32) -> bool {
 
 @vertex fn vs_instance_colored(@location(0) position: vec3<f32>, @location(1) normal: vec3<f32>, instance: InstanceInput, @location(5) color: vec4<f32>) -> VertexOutput {
     var output = instance_vertex(position, normal, instance);
-    output.color = color;
+    output.color *= color;
     return output;
 }
 
@@ -150,7 +152,7 @@ fn material_front(front: bool, orientation: f32) -> bool {
     var output = instance_vertex(position, normal, instance);
     output.uv = select(uv0, uv1, uniforms.map_params.x > 0.5);
     output.uv0 = uv0; output.uv1 = uv1;
-    output.color = color;
+    output.color *= color;
     return output;
 }
 
@@ -167,6 +169,6 @@ fn material_front(front: bool, orientation: f32) -> bool {
     output.uv = select(uv0, uv1, uniforms.map_params.x > 0.5);
     output.uv0 = uv0; output.uv1 = uv1;
     output.tangent = vec4((uniforms.model * instance_matrix(instance) * vec4(tangent.xyz, 0.)).xyz, tangent.w * uniforms.pbr_factors.z * instance.normal0.w);
-    output.color = color;
+    output.color *= color;
     return output;
 }

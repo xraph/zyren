@@ -1,17 +1,19 @@
 use glam::Mat4;
 
 pub const MAX_INSTANCES: usize = 100_000;
-pub const INSTANCE_STRIDE: usize = 112;
+pub const INSTANCE_STRIDE: usize = 128;
 
 #[derive(Clone, PartialEq)]
 pub struct Instances {
     pub id: u32,
     pub transforms: Vec<[f32; 16]>,
+    pub colors: Vec<[f32; 3]>,
 }
 #[derive(Clone, PartialEq)]
 pub struct InstanceRange {
     pub first: usize,
     pub transforms: Vec<[f32; 16]>,
+    pub colors: Vec<[f32; 3]>,
 }
 #[derive(Clone, PartialEq)]
 pub struct InstancePatch {
@@ -23,6 +25,15 @@ impl Instances {
     pub fn validate(&self) -> Result<(), String> {
         if self.id == 0 || self.transforms.is_empty() || self.transforms.len() > MAX_INSTANCES {
             return Err("invalid instance capacity or identifier".into());
+        }
+        if self.colors.len() != self.transforms.len()
+            || self
+                .colors
+                .iter()
+                .flatten()
+                .any(|v| !v.is_finite() || !(0.0..=1.0).contains(v))
+        {
+            return Err("instance colors require one finite linear RGB value per transform".into());
         }
         for values in &self.transforms {
             let matrix = Mat4::from_cols_array(values);
@@ -44,8 +55,9 @@ impl Instances {
         self.transforms.len() * INSTANCE_STRIDE
     }
     pub fn gpu_values(&self, range: std::ops::Range<usize>) -> Vec<f32> {
-        let mut values = Vec::with_capacity(range.len() * 28);
-        for transform in &self.transforms[range] {
+        let mut values = Vec::with_capacity(range.len() * 32);
+        for index in range {
+            let transform = &self.transforms[index];
             let matrix = Mat4::from_cols_array(transform);
             let normal = matrix.inverse().transpose();
             values.extend_from_slice(transform);
@@ -57,12 +69,15 @@ impl Instances {
             ]);
             values.extend_from_slice(&[normal.y_axis.x, normal.y_axis.y, normal.y_axis.z, 0.]);
             values.extend_from_slice(&[normal.z_axis.x, normal.z_axis.y, normal.z_axis.z, 0.]);
+            values.extend_from_slice(&self.colors[index]);
+            values.push(1.);
         }
         values
     }
 }
 impl InstancePatch {
     pub fn apply(&self, base: &Instances) -> Result<Instances, String> {
+        base.validate()?;
         if self.id == 0
             || self.id == self.base
             || base.id != self.base
@@ -80,10 +95,14 @@ impl InstancePatch {
                 .checked_add(range.transforms.len())
                 .filter(|end| *end <= next.transforms.len())
                 .ok_or("instance range exceeds capacity")?;
-            if range.transforms.is_empty() || range.first < previous_end {
+            if range.transforms.is_empty()
+                || range.first < previous_end
+                || range.colors.len() != range.transforms.len()
+            {
                 return Err("instance ranges must be nonempty, ordered and disjoint".into());
             }
             next.transforms[range.first..end].copy_from_slice(&range.transforms);
+            next.colors[range.first..end].copy_from_slice(&range.colors);
             previous_end = end;
         }
         next.validate()?;

@@ -71,6 +71,14 @@ void main() {
         .onChanged!(1);
     await tester.pumpAndSettle();
     expect(skin.captureDeformation(), isNot(same(original)));
+    final originalColors = instanced.captureInstances();
+    await tester.tap(find.byKey(const ValueKey('Geometry colors')));
+    await tester.pumpAndSettle();
+    expect(instanced.captureInstances(), isNot(same(originalColors)));
+    expect(instanced.getColor(0), isNot(instanced.getColor(1)));
+    await tester.tap(find.byKey(const ValueKey('Geometry colors')));
+    await tester.pumpAndSettle();
+    expect(instanced.captureInstances().colors, originalColors.colors);
     for (final size in [
       const Size(390, 700),
       const Size(1100, 700),

@@ -37,14 +37,14 @@ Future<void> verifyInstancing(NativeGpuBackend backend) async {
   final first = await render(capture());
   expect(first.stats.drawCalls, 1);
   expect(first.stats.triangles, 120000);
-  expect(first.stats.uploadedBytes, greaterThanOrEqualTo(1120000));
+  expect(first.stats.uploadedBytes, greaterThanOrEqualTo(1280000));
   expect(first.image.pixels.where((v) => v > 200).length, greaterThan(81 * 81));
   mesh.setTransform(
     42,
     Mat4.compose(const Vec3(5, 0, 0), Quat.identity, Vec3.one),
   );
   final updated = await render(capture());
-  expect(updated.stats.uploadedBytes, 112);
+  expect(updated.stats.uploadedBytes, 128);
   mesh.count = 2;
   mesh.setTransforms(0, [
     Mat4.compose(const Vec3(-.6, 0, 0), Quat.identity, Vec3.one),
@@ -52,7 +52,7 @@ Future<void> verifyInstancing(NativeGpuBackend backend) async {
   ]);
   final frozen = capture();
   final pair = await render(frozen);
-  expect(pair.stats.uploadedBytes, 224);
+  expect(pair.stats.uploadedBytes, 256);
   expect(pair.stats.drawCalls, 1);
   mesh.position = const Vec3(0, .3, 0);
   final parent = await render(capture());
@@ -68,7 +68,7 @@ Future<void> verifyInstancing(NativeGpuBackend backend) async {
   );
   expect((await render(capture())).stats.uploadedBytes, 0);
   mesh.visible = true;
-  expect((await render(capture())).stats.uploadedBytes, 112);
+  expect((await render(capture())).stats.uploadedBytes, 128);
   expect((await render(frozen)).image.pixels, orderedEquals(pair.image.pixels));
 }
 

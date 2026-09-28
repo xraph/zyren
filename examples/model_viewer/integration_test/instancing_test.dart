@@ -53,7 +53,7 @@ void main() {
       var start = frames.length;
       await tester.tap(find.byKey(const ValueKey('Move one instance')));
       await waitFrame(start);
-      expect(frames.last.uploadedBytes, 112);
+      expect(frames.last.uploadedBytes, 128);
       start = frames.length;
       await tester.tap(find.byKey(const ValueKey('Rotate instances')));
       await waitFrame(start);

@@ -94,3 +94,42 @@ fn instance_packets_reject_truncation_counts_and_invalid_transforms() {
             .is_err()
     );
 }
+
+#[test]
+fn color_packets_validate_every_channel_and_legacy_packets_default_to_white() {
+    let (mut colored, tables, instances) = packet();
+    colored[4..8].copy_from_slice(&26_u32.to_le_bytes());
+    colored.splice(tables + 12..tables + 12, [0_u8; 8]); // empty pose tables
+    let instances = instances + 8;
+    let mut red = Vec::new();
+    floats(&mut red, &[1., 0., 0.]);
+    let mut blue = Vec::new();
+    floats(&mut blue, &[0., 0., 1.]);
+    colored.splice(instances + 136..instances + 136, blue);
+    colored.splice(instances + 72..instances + 72, red);
+    uint(&mut colored, &[0]); // no mesh pose
+    let length = (colored.len() - 24) as u64;
+    colored[16..24].copy_from_slice(&length.to_le_bytes());
+    let frame = ScenePacket::decode(&colored)
+        .unwrap()
+        .resolve(None)
+        .unwrap();
+    assert_eq!(frame.instances[0].colors, [[1., 0., 0.], [0., 0., 1.]]);
+    for value in [f32::NAN, f32::INFINITY, -0.1, 1.1] {
+        for offset in [instances + 72, instances + 148] {
+            let mut bad = colored.clone();
+            bad[offset..offset + 4].copy_from_slice(&value.to_le_bytes());
+            assert!(ScenePacket::decode(&bad).is_err());
+        }
+    }
+    for end in 24..colored.len() {
+        let mut truncated = colored[..end].to_vec();
+        truncated[16..24].copy_from_slice(&((end - 24) as u64).to_le_bytes());
+        assert!(ScenePacket::decode(&truncated).is_err());
+    }
+    let legacy = ScenePacket::decode(&packet().0)
+        .unwrap()
+        .resolve(None)
+        .unwrap();
+    assert_eq!(legacy.instances[0].colors, [[1.; 3]; 2]);
+}

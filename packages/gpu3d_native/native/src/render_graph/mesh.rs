@@ -113,7 +113,7 @@ fn create_pipeline(
     let uv = wgpu::vertex_attr_array![2 => Float32x2, 3 => Float32x2];
     let tangent = wgpu::vertex_attr_array![4 => Float32x4];
     let color = wgpu::vertex_attr_array![5 => Float32x4];
-    let instance = wgpu::vertex_attr_array![6=>Float32x4,7=>Float32x4,8=>Float32x4,9=>Float32x4,10=>Float32x4,11=>Float32x4,12=>Float32x4];
+    let instance = wgpu::vertex_attr_array![6=>Float32x4,7=>Float32x4,8=>Float32x4,9=>Float32x4,10=>Float32x4,11=>Float32x4,12=>Float32x4,13=>Float32x3];
     let mut buffers = vec![Some(wgpu::VertexBufferLayout {
         array_stride: 24,
         step_mode: wgpu::VertexStepMode::Vertex,
@@ -142,7 +142,7 @@ fn create_pipeline(
     }
     if key.instanced {
         buffers.push(Some(wgpu::VertexBufferLayout {
-            array_stride: 112,
+            array_stride: crate::instances::INSTANCE_STRIDE as u64,
             step_mode: wgpu::VertexStepMode::Instance,
             attributes: &instance,
         }));

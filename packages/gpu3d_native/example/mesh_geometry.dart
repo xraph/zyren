@@ -8,6 +8,7 @@ import '../../../examples/shader_lab/lib/geometry_scene.dart';
 
 Future<void> main(List<String> args) async {
   final demo = GeometryLabScene(autoplay: false);
+  if (args.contains('--colors')) demo.setColors(true);
   demo.action.seek(const Duration(seconds: 1));
   final engine = await SceneEngine.create(
     scene: demo.scene,
@@ -23,7 +24,8 @@ Future<void> main(List<String> args) async {
               height: 512,
             )
             as ReadbackOutput;
-    final path = args.isEmpty ? 'mesh-geometry.png' : args.first;
+    final paths = args.where((arg) => arg != '--colors');
+    final path = paths.isEmpty ? 'mesh-geometry.png' : paths.first;
     await File(path).writeAsBytes(png(frame.image));
     stdout.writeln(
       '$path: ${frame.stats.drawCalls} native draws, one skin and twelve instances with mixed winding',

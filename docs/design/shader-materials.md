@@ -152,6 +152,12 @@ Instanced pipelines disable hardware culling because one draw can contain both
 mirrored and unmirrored instances. If you omit the fragment helper, your shader
 owns that face policy. Model winding is still handled by the native pipeline.
 
+`instance.color` at location 13 contains the linear RGB tint from
+`InstancedMesh.setColor` or `setColors`, defaulting to white. Pass it to the
+fragment stage and multiply your base RGB by it when you want material-style
+tinting. The tint does not carry alpha. Updating it preserves the program and
+uploads the changed 128-byte instance records.
+
 Geometry and shader bindings stay resident across pose edits. Updating a shared
 morph pose uploads its pose buffer; changing one instance transform updates
 that instance range. Captured frames keep their original pose and transforms.

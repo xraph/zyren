@@ -50,7 +50,7 @@
 @vertex fn deformed_vs_instance_colored(@builtin(vertex_index) index: u32, @location(0) position: vec3<f32>, @location(1) normal: vec3<f32>, instance: InstanceInput, @location(5) color: vec4<f32>) -> VertexOutput {
     let d = deform_vertex(index, position, normal, vec4(1.,0.,0.,1.));
     var output = instance_vertex(d.position, d.normal, instance);
-    output.color = color;
+    output.color *= color;
     return output;
 }
 
@@ -67,7 +67,7 @@
     var output = instance_vertex(d.position, d.normal, instance);
     output.uv = select(uv0, uv1, uniforms.map_params.x > 0.5);
     output.uv0 = uv0; output.uv1 = uv1;
-    output.color = color;
+    output.color *= color;
     return output;
 }
 
@@ -86,6 +86,6 @@
     output.uv = select(uv0, uv1, uniforms.map_params.x > 0.5);
     output.uv0 = uv0; output.uv1 = uv1;
     output.tangent = vec4((uniforms.model * instance_matrix(instance) * vec4(d.tangent.xyz, 0.)).xyz, d.tangent.w * uniforms.pbr_factors.z * instance.normal0.w);
-    output.color = color;
+    output.color *= color;
     return output;
 }

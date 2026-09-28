@@ -4,11 +4,13 @@ import 'package:gpu3d/rendering.dart';
 import 'package:gpu3d_native/gpu3d_native.dart';
 import 'package:test/test.dart';
 import 'support/instancing_checks.dart';
+import 'support/instance_color_checks.dart';
 
 void main() {
   for (final entry in {
     'uploads and 10000 instances': verifyInstancing,
     'material pixels': verifyInstanceMaterials,
+    'per-instance color pixels': verifyInstanceColors,
     'shadow invalidation': verifyInstanceShadows,
     'transparent ordering': verifyInstanceBlendOrder,
   }.entries) {
@@ -27,6 +29,10 @@ void main() {
       final a = await NativeBackend.create(), b = a.createView();
       try {
         final mesh = InstancedMesh(BoxGeometry(), UnlitMaterial(), count: 2);
+        mesh.setTransforms(0, [
+          Mat4.compose(const Vec3(-.7, 0, 0), Quat.identity, Vec3.one),
+          Mat4.compose(const Vec3(.7, 0, 0), Quat.identity, Vec3.one),
+        ]);
         final scene = Scene()..add(mesh);
         FrameSubmission capture() => FrameSubmission.capture(
           scene: scene,
@@ -36,12 +42,9 @@ void main() {
         final frozen = capture();
         final original = await a.render(frozen) as ReadbackOutput;
         await b.render(frozen);
-        mesh.setTransform(
-          1,
-          Mat4.compose(const Vec3(1, 0, 0), Quat.identity, Vec3.one),
-        );
+        mesh.setColor(1, const Color3(1, 0, 0));
         final changed = await a.render(capture()) as ReadbackOutput;
-        expect(changed.stats.uploadedBytes, 112);
+        expect(changed.stats.uploadedBytes, 128);
         final old = await b.render(frozen) as ReadbackOutput;
         expect(old.stats.uploadedBytes, 0);
         expect(old.image.pixels, orderedEquals(original.image.pixels));

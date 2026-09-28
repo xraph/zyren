@@ -119,6 +119,7 @@ struct Vertex {
   @location(0) uv: vec2<f32>,
   @location(1) normal: vec3<f32>,
   @location(2) @interpolate(flat) orientation: f32,
+  @location(3) color: vec3<f32>,
 };
 @vertex fn vertex(@builtin(vertex_index) index: u32, @location(0) p: vec3<f32>, @location(1) n: vec3<f32>,
     @location(2) uv: vec2<f32> ${geometry.usesInstancing ? ', instance: MeshInstanceInput' : ''}) -> Vertex {
@@ -128,7 +129,8 @@ struct Vertex {
   ${geometry.usesInstancing ? '''position = (meshInstanceMatrix(instance) * vec4(position,1.)).xyz;
   normal = meshInstanceNormalMatrix(instance) * normal;''' : ''}
   return Vertex(mesh.mvp * vec4(position, 1.), uv, (mesh.normalMatrix * vec4(normal, 0.)).xyz,
-    ${geometry.usesInstancing ? 'instance.normal0.w' : '1.'});
+    ${geometry.usesInstancing ? 'instance.normal0.w' : '1.'},
+    ${geometry.usesInstancing ? 'instance.color' : 'vec3(1.)'});
 }
 @fragment fn fragment(input: Vertex, @builtin(front_facing) front: bool) -> @location(0) vec4<f32> {
   ${geometry.usesInstancing ? 'let facing = meshInstanceFront(front, input.orientation);' : ''}
@@ -137,6 +139,6 @@ struct Vertex {
   let feather = min(.45, fwidth(phase));
   let tone = mix(.08, 1., smoothstep(.5 - feather, .5 + feather, stripe));
   let light = mesh.light.w + (1. - mesh.light.w) * max(0., dot(normalize(input.normal), normalize(mesh.light.xyz)));
-  return meshColor(vec4(vec3(tone * light), 1.));
+  return meshColor(vec4(input.color * (tone * light), 1.));
 }
 ''';

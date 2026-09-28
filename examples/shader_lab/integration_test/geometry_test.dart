@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:shader_lab/geometry.dart';
 import '../../../packages/gpu3d_native/test/support/mesh_shader_geometry_checks.dart';
+import '../../../packages/gpu3d_native/test/support/instance_color_checks.dart';
 import 'effects_test.dart' show waitForFrame;
 
 void main() {
@@ -18,6 +19,7 @@ void main() {
         : await NativeMetalBackend.create();
     try {
       await verifyMeshShaderGeometry(backend);
+      await verifyInstanceColors(backend);
     } finally {
       await backend.close();
     }
@@ -62,6 +64,15 @@ void main() {
         0,
         reason: 'Uniform edits retain geometry and pose resources.',
       );
+      final colors = mesh.captureInstances();
+      await tester.tap(find.byKey(const ValueKey('Geometry colors')));
+      await advance();
+      expect(
+        mesh.captureInstances().colors,
+        isNot(orderedEquals(colors.colors)),
+      );
+      expect(frames.last.uploadedBytes, 1536);
+      expect(frames.last.drawCalls, 2);
       await tester.tap(find.byKey(const ValueKey('Geometry playback')));
       await advance();
       expect(frames.last.uploadedBytes, 400);

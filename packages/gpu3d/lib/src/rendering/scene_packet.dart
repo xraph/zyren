@@ -183,7 +183,7 @@ final class ScenePacketEncoder {
       (n, instance) => n + instance.gpuByteLength,
     );
     for (final (_, _, ranges) in instancePatches) {
-      uploadBytes += ranges.fold<int>(0, (n, range) => n + range.count * 112);
+      uploadBytes += ranges.fold<int>(0, (n, range) => n + range.count * 128);
     }
     uploadBytes += poseUploads.fold<int>(
       0,
@@ -194,14 +194,13 @@ final class ScenePacketEncoder {
         uploadBytes > 64 * 1024 * 1024) {
       throw ArgumentError('Scene resource upload exceeds the frame budget.');
     }
-    final opcode =
-        scene.hasDeformation ||
-            scene._geometries.values.any(
-              (g) => g.joints != null || g.morphTargets.isNotEmpty,
-            )
+    final opcode = scene.hasInstances
+        ? 26
+        : scene.hasDeformation ||
+              scene._geometries.values.any(
+                (g) => g.joints != null || g.morphTargets.isNotEmpty,
+              )
         ? 25
-        : scene.hasInstances
-        ? 24
         : scene._geometries.values.any((g) => g.colors != null) ||
               scene._meshes.any((m) => m['vertex_colors'] == true)
         ? 23
@@ -412,8 +411,9 @@ final class ScenePacketEncoder {
     for (final instance in instanceUploads) {
       body.u32(instance.id);
       body.u32(instance.capacity);
-      for (final matrix in instance.transforms) {
-        body.floats(matrix.storage);
+      for (var i = 0; i < instance.capacity; i++) {
+        body.floats(instance.transforms[i].storage);
+        body.floats(instance.colors[i].toList());
       }
     }
     for (final (baseId, instance, ranges) in instancePatches) {
@@ -425,6 +425,7 @@ final class ScenePacketEncoder {
         body.u32(range.count);
         for (var i = range.first; i < range.first + range.count; i++) {
           body.floats(instance.transforms[i].storage);
+          body.floats(instance.colors[i].toList());
         }
       }
     }

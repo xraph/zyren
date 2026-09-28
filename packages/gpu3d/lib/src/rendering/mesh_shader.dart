@@ -31,7 +31,7 @@ abstract final class MeshShaderInterface {
   /// Call deform_vertex before applying an instance or model transform.
   static const deformation = meshDeformationWgsl;
 
-  /// Per-instance transforms at vertex locations 6 through 12.
+  /// Per-instance transforms at locations 6 through 12 and linear RGB at 13.
   static const instancing = '''
 struct MeshInstanceInput {
   @location(6) model0: vec4<f32>,
@@ -41,6 +41,7 @@ struct MeshInstanceInput {
   @location(10) normal0: vec4<f32>,
   @location(11) normal1: vec4<f32>,
   @location(12) normal2: vec4<f32>,
+  @location(13) color: vec3<f32>,
 };
 fn meshInstanceMatrix(instance: MeshInstanceInput) -> mat4x4<f32> {
   return mat4x4(instance.model0, instance.model1, instance.model2, instance.model3);

@@ -22,9 +22,9 @@ void main() {
       final initial = a.encode(frozen);
       expect(
         ByteData.sublistView(initial.bytes).getUint32(4, Endian.little),
-        24,
+        26,
       );
-      expect(initial.uploadedBytes, geometry.capture().gpuByteLength + 1120000);
+      expect(initial.uploadedBytes, geometry.capture().gpuByteLength + 1280000);
       expect(frozen.scene.drawCalls, 1);
       expect(frozen.scene.triangles, 120000);
       expect(() => frozen.toNativePacket(), throwsUnsupportedError);
@@ -35,7 +35,7 @@ void main() {
         Mat4.compose(const Vec3(1, 0, 0), Quat.identity, Vec3.one),
       );
       final changed = a.encode(capture());
-      expect(changed.uploadedBytes, 112);
+      expect(changed.uploadedBytes, 128);
       a.accept(changed);
       mesh.count = 30;
       mesh.position = const Vec3(2, 0, 0);
@@ -54,10 +54,10 @@ void main() {
       a.accept(hidden);
       mesh.visible = true;
       final shown = a.encode(capture());
-      expect(shown.uploadedBytes, 112);
+      expect(shown.uploadedBytes, 128);
       a.accept(shown);
       final backtrack = a.encode(frozen);
-      expect(backtrack.uploadedBytes, 1120000);
+      expect(backtrack.uploadedBytes, 1280000);
       a.accept(backtrack);
       expect(a.encode(frozen).uploadedBytes, 0);
       mesh.material = UnlitMaterial(

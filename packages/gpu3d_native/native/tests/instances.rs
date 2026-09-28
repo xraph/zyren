@@ -11,6 +11,7 @@ fn recipe(id: u32, count: usize) -> Instances {
     Instances {
         id,
         transforms: vec![Mat4::IDENTITY.to_cols_array(); count],
+        colors: vec![[1.; 3]; count],
     }
 }
 #[test]
@@ -23,12 +24,15 @@ fn instance_admission_and_ranges_are_bounded_and_preserve_snapshots() {
         ranges: vec![InstanceRange {
             first: 1,
             transforms: vec![values],
+            colors: vec![[0.2, 0.4, 0.6]],
         }],
     };
     let next = patch.apply(&base).unwrap();
     assert_eq!(base.transforms[1], Mat4::IDENTITY.to_cols_array());
     let gpu = next.gpu_values(1..2);
-    assert_eq!(gpu.len(), 28);
+    assert_eq!(gpu.len(), 32);
+    assert_eq!(&gpu[28..32], &[0.2, 0.4, 0.6, 1.]);
+    assert_eq!(base.colors[1], [1.; 3]);
     assert_eq!(gpu[16], -0.5);
     assert_eq!(gpu[19], -1.);
     assert!((gpu[21] - 1. / 3.).abs() < 1e-6);
@@ -47,7 +51,8 @@ fn instance_admission_and_ranges_are_bounded_and_preserve_snapshots() {
         assert!(
             Instances {
                 id: 1,
-                transforms: vec![values]
+                transforms: vec![values],
+                colors: vec![[1.; 3]]
             }
             .validate()
             .is_err()
@@ -55,6 +60,34 @@ fn instance_admission_and_ranges_are_bounded_and_preserve_snapshots() {
     }
     assert!(recipe(1, 100001).validate().is_err());
     assert!(recipe(0, 1).validate().is_err());
+}
+
+#[test]
+fn invalid_color_ranges_leave_the_base_version_unchanged() {
+    let base = recipe(1, 2);
+    let mut patch = InstancePatch {
+        id: 2,
+        base: 1,
+        ranges: vec![InstanceRange {
+            first: 0,
+            transforms: vec![Mat4::IDENTITY.to_cols_array()],
+            colors: vec![[1., 0., 0.]],
+        }],
+    };
+    assert_eq!(patch.apply(&base).unwrap().colors[0], [1., 0., 0.]);
+    for colors in [
+        vec![],
+        vec![[1.; 3]; 2],
+        vec![[f32::NAN, 1., 1.]],
+        vec![[1.1, 0., 0.]],
+    ] {
+        patch.ranges[0].colors = colors;
+        assert!(patch.apply(&base).is_err());
+        assert_eq!(base.colors, [[1.; 3]; 2]);
+    }
+    let mut bad = base.clone();
+    bad.colors.pop();
+    assert!(bad.validate().is_err());
 }
 fn frame(count: usize) -> Frame {
     let mut f:Frame=serde_json::from_value(json!({
@@ -97,7 +130,7 @@ fn ten_thousand_instances_share_one_draw_and_pipeline() {
     assert_eq!(renderer.scene_draw_stats(), (1, 1));
     assert!(pixels.chunks_exact(4).filter(|p| p[0] > 200).count() > 10000);
     let (resident, uploaded) = renderer.scene_resource_stats();
-    assert_eq!(resident, 10000 * 112 + 3 * 24 + 3 * 4);
+    assert_eq!(resident, 10000 * 128 + 3 * 24 + 3 * 4);
     assert_eq!(uploaded, resident);
     f.geometries.clear();
     f.instances.clear();

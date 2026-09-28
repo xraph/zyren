@@ -582,6 +582,16 @@ profiles and the shader lab has animated geometry controls. Per-instance colors,
 custom shader shadows, separate skeletal instance palettes and remaining Task 6
 gates stay open.
 
+Instance color checkpoint, 28 September 2026: `setColor` and `setColors` publish
+validated linear RGB tints with the same snapshot and dirty-range ownership as
+transforms. Built-in materials multiply base RGB by the tint; custom shaders
+read it at location 13. Each changed record uploads 128 bytes. Native references
+cover ordinary and morphed instances, mixed winding, material/vertex color
+products and shared-view retention. The 1000/10000-instance benchmark retains
+one draw and stable residency through camera, transform and color edits. The
+shader lab exposes a palette control. Task 6 still needs its final gate audit;
+custom shader shadows and separate skeletal instance palettes remain open.
+
 **Files:** Create core `scene/instanced_mesh.dart`, `animation/{clip,track,mixer,action}.dart`,
 `geometry/{skin,morph_target}.dart`; native `passes/deformation.rs`, WGSL,
 `test/animation_test.dart`, `native/tests/deformation_render.rs` and viewer controls.

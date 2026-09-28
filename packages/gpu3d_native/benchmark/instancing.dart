@@ -40,11 +40,13 @@ Future<void> main() async {
       final initial = await draw();
       final resident = (await backend.resourceStats()).residentBytes;
       final groups = <String, Object>{};
-      for (final change in ['camera', 'oneInstance']) {
+      for (final change in ['camera', 'oneInstance', 'oneColor']) {
         final times = <int>[];
         for (var i = 0; i < 30; i++) {
           if (change == 'camera') {
             camera.position = Vec3(i * .001, 0, 4);
+          } else if (change == 'oneColor') {
+            mesh.setColor(0, Color3(i / 30, .4, .8));
           } else {
             mesh.setTransform(
               0,
@@ -55,7 +57,7 @@ Future<void> main() async {
           final frame = await draw();
           timer.stop();
           if (frame.stats.drawCalls != 1 ||
-              frame.stats.uploadedBytes != (change == 'camera' ? 0 : 112)) {
+              frame.stats.uploadedBytes != (change == 'camera' ? 0 : 128)) {
             throw StateError(
               'Instancing draw/upload invariant failed: ${frame.stats.drawCalls} draws, ${frame.stats.uploadedBytes} bytes.',
             );
@@ -66,7 +68,7 @@ Future<void> main() async {
         groups[change] = {
           'p50ReadbackFrameMs': times[times.length ~/ 2] / 1000,
           'p95ReadbackFrameMs': times[(times.length * .95).ceil() - 1] / 1000,
-          'uploadedBytesPerFrame': change == 'camera' ? 0 : 112,
+          'uploadedBytesPerFrame': change == 'camera' ? 0 : 128,
         };
       }
       if ((await backend.resourceStats()).residentBytes != resident) {

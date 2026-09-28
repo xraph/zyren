@@ -1,6 +1,6 @@
 # Instanced meshes
 
-Use `InstancedMesh` when copies share triangle geometry and a built-in material.
+Use `InstancedMesh` when copies share triangle geometry and a material.
 Opaque and masked copies use one native indexed draw per mesh. You can update a
 copy without rebuilding its geometry or changing the other transforms.
 
@@ -18,6 +18,7 @@ boxes.setTransforms(0, List.generate(10000, (i) => Mat4.compose(
 boxes.setTransform(42, Mat4.compose(
   const Vec3(42, 3, 0), Quat.identity, Vec3.one,
 ));
+boxes.setColor(42, const Color3(1, .2, .1));
 boxes.count = 1000;
 boxes.rotateY(.2);
 ```
@@ -29,6 +30,14 @@ showing it. Use `setTransforms` for bulk edits. The complete range is validated
 before publication. Each matrix must be affine and invertible; native submission
 also requires finite float32 transforms and inverses.
 
+Use `setColor(index, color)` or `setColors(first, colors)` for per-copy tints.
+`getColor(index)` returns the current linear RGB value. White is the default
+and leaves the material unchanged. The tint multiplies base material, texture
+and vertex RGB without changing opacity or emissive light. Channels must be
+finite and between zero and one. An invalid color rejects the entire range;
+captured frames keep their previous colors. Color indices address capacity,
+including hidden copies, just as transform indices do.
+
 Transforms are local to the mesh. Its parent hierarchy and ordinary position,
 quaternion and scale apply to the whole group. Moving that group, moving the
 camera or changing `count` uploads no instance data. `bounds` gives the current
@@ -37,12 +46,14 @@ and reflection. Shadow fitting uses those same bounds.
 
 ## Uploads and ownership
 
-A native instance occupies 112 bytes: a model matrix and a padded normal matrix.
+A native instance occupies 128 bytes: a model matrix, padded normal matrix and
+padded RGB tint.
 The normal matrix preserves lighting under nonuniform scale. Reflection signs
 preserve material sidedness and tangent handedness within a mixed batch.
 
 The initial upload allocates capacity. Subsequent edits merge dirty ranges and
-upload 112 bytes per changed slot. A 64-revision journal bounds bookkeeping;
+upload 128 bytes per changed slot. Transform and color edits share dirty ranges,
+so overlapping edits upload each slot once. A 64-revision journal bounds bookkeeping;
 older captures use a full upload when the journal cannot describe their changes.
 Captured frames own immutable versions. Exclusive versions reuse GPU storage;
 shared views retain the older buffer until their owners advance or close. Hidden
@@ -57,7 +68,8 @@ budget with geometry and images. Unsupported capabilities fail before rendering.
 
 Unlit, diffuse and standard materials support instances, including UV maps,
 tangents, vertex colors, masks, PBR lighting and shadows. Vertex colors belong to
-the shared geometry. A separate color per copy is not exposed yet.
+the shared geometry; instance tints multiply them. Color changes retain the
+geometry and material pipeline.
 
 Blended instances join the global transparent object sort. Each copy receives
 its own depth and draw range, so transparent batching can require one draw per
@@ -66,9 +78,15 @@ same limitations for intersecting transparent surfaces as ordinary meshes.
 Changing the camera does not reorder or re-upload the instance buffer.
 
 Shared [morph deformation](deformation.md) applies before the instance transforms.
-`ShaderMaterial`, point/line geometry and a separate skin palette per instance
-are not supported by this profile. Custom shader instancing needs an explicit vertex
-contract and remains open. No CPU expansion or browser renderer is selected.
+[`ShaderMaterial`](shader-materials.md) uses an explicit instanced geometry
+profile. Its public WGSL input exposes the tint at vertex location 13; your
+shader decides how to apply it. Point/line geometry and a separate skin palette
+per instance remain unsupported. No CPU expansion or browser renderer is selected.
+
+Scene packet opcode 26 carries RGB beside each uploaded or patched transform.
+The native decoder accepts earlier instance packets with white tints. Invalid
+colors, truncated records and ranges outside capacity reject the packet before
+the renderer publishes its next resource version.
 
 ## Run and verify
 
@@ -80,9 +98,13 @@ flutter run -d <android-device> -t lib/instancing.dart
 flutter test integration_test/instancing_test.dart -d macos
 ```
 
-The demo displays 10000 boxes. “Move one” uploads 112 bytes. “Rotate group”
+The demo displays 10000 boxes. "Move one" uploads 128 bytes. "Rotate group"
 uploads zero. Count changes preserve storage. The toolbar wraps at narrow widths
 and leaves the canvas available for orbit and zoom gestures.
+
+The shader lab's `lib/geometry.dart` demo also exposes a palette button. It changes
+twelve differently transformed ribbons while retaining two scene draws and the
+existing material programs.
 
 `tool/capture_instances.dart` renders the same scene to a PNG through explicit
 native readback. Run it from `packages/gpu3d_native` so the build hook refreshes:

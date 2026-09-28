@@ -180,7 +180,7 @@ impl MeshPipelines {
         let attributes = wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3];
         let uv_attributes = wgpu::vertex_attr_array![2 => Float32x2, 3 => Float32x2];
         let color_attributes = wgpu::vertex_attr_array![5=>Float32x4,6=>Float32x4];
-        let instance_attributes = wgpu::vertex_attr_array![6=>Float32x4,7=>Float32x4,8=>Float32x4,9=>Float32x4,10=>Float32x4,11=>Float32x4,12=>Float32x4];
+        let instance_attributes = wgpu::vertex_attr_array![6=>Float32x4,7=>Float32x4,8=>Float32x4,9=>Float32x4,10=>Float32x4,11=>Float32x4,12=>Float32x4,13=>Float32x3];
         let tangent_attributes = wgpu::vertex_attr_array![4 => Float32x4];
         let mut buffers = vec![Some(wgpu::VertexBufferLayout {
             array_stride: 24,
@@ -214,7 +214,7 @@ impl MeshPipelines {
         }
         if key.instanced {
             buffers.push(Some(wgpu::VertexBufferLayout {
-                array_stride: 112,
+                array_stride: crate::instances::INSTANCE_STRIDE as u64,
                 step_mode: wgpu::VertexStepMode::Instance,
                 attributes: &instance_attributes,
             }));

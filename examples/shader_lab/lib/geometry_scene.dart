@@ -10,6 +10,7 @@ class GeometryLabScene {
   late final AnimationMixer mixer;
   late final AnimationAction action;
   final patterns = <PatternMaterialPlugin>[];
+  bool colorful = false;
   GeometryLabScene({
     bool autoplay = true,
     UnsupportedEffects unsupported = UnsupportedEffects.reject,
@@ -31,7 +32,7 @@ class GeometryLabScene {
     instances = scene.add(
       InstancedMesh(
         geometry,
-        DiffuseMaterial(color: const Color3(1, .5, .12)),
+        DiffuseMaterial(color: const Color3(1, 1, 1)),
         count: 12,
       ),
     );
@@ -46,6 +47,7 @@ class GeometryLabScene {
         ),
       ),
     );
+    setColors(false);
     mixer = AnimationMixer(nodes: {'tip': tip});
     action = mixer.play(
       AnimationClip(
@@ -81,6 +83,23 @@ class GeometryLabScene {
   void setWidth(double value) {
     skin.setMorphWeight(0, value);
     instances.setMorphWeight(0, value);
+  }
+
+  void setColors(bool value) {
+    colorful = value;
+    const palette = [
+      Color3(.12, .7, 1),
+      Color3(1, .3, .16),
+      Color3(.2, 1, .35),
+      Color3(.8, .3, 1),
+    ];
+    instances.setColors(
+      0,
+      List.generate(
+        instances.capacity,
+        (i) => value ? palette[i % palette.length] : const Color3(1, .5, .12),
+      ),
+    );
   }
 }
 

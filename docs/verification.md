@@ -1994,3 +1994,49 @@ physical iOS qualification are open.
 Custom shader shadow passes, separate skeletal palettes per instance,
 per-instance colors and the remaining core and Takram parity work are still
 open. Task 6 remains unchecked.
+
+## Per-instance colors, 28 September 2026
+
+You can tint individual copies with `InstancedMesh.setColor` or update a range
+with `setColors`. White preserves the original material. Invalid channels reject
+the whole range, and captured frames retain their colors after later edits.
+The native record now occupies 128 bytes, including its padded RGB tint.
+Scene opcode 26 carries the tint; older instance packets decode with white.
+
+The native fixture compares 22 built-in material/deformation combinations with
+ordinary meshes whose material colors are set independently. It covers texture
+and vertex color products, normals, masks, transparency and reflected transforms.
+Custom shader fixtures exercise every vertex layout with instance tints. Shared
+views retain their original pixels, frozen captures survive edits, and one tint
+change uploads 128 bytes without recompiling material pipelines.
+
+All 415 core, glTF and geospatial Dart cases, 92 serial native GPU cases,
+120 Rust cases including GPU tests, 15 plugin cases and four shader-lab widget
+cases pass. Analyzer, strict Clippy, formatting, package boundaries and Apple ABI
+checks pass. The first broad Dart command used a nonexistent geospatial test
+directory; the corrected command passed all 415 cases.
+
+Metal integration passes the material references and the live palette control.
+Changing all twelve ribbon tints uploads 1536 bytes and retains two scene draws.
+Presentation uses zero readback bytes, and pausing releases frame demand. The
+standalone `artifacts/instance-colors.png` capture was visually inspected; its
+explicit readback is separate from the native presentation check.
+
+The 53.3 MB macOS release app launched and its desktop window was inspected.
+The palette button visibly changes all twelve tints while paused, with the
+display reporting two draws and 1536 uploaded bytes. Resuming playback restores
+400-byte pose updates. The app remains running with the palette enabled. Narrow
+layouts for this control pass the 320x640 and 390x700 widget checks; an attempted
+live window resize did not change the window size.
+
+The macOS benchmark retains one draw and stable residency at 1000 and 10000
+instances. At 10000 copies, a single tint edit uploads 128 bytes and measured
+3.184 ms median and 5.893 ms p95 over 20 samples after warmup. These are complete
+128 by 128 readback timings, including Dart, the worker, GPU wait and pixel copy.
+They are not presentation FPS or GPU timestamps. The raw results are saved in
+`artifacts/instance-colors-benchmark.json`.
+
+The Android arm64 release APK builds at 23.2 MB. Device verification is pending
+after the previous Pixel run froze in the background. Windows, Linux and physical
+iOS qualification, custom shader shadow passes, separate skeletal instance
+palettes and full core/Takram parity remain open.

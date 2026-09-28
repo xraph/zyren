@@ -106,6 +106,17 @@ class _GeometryLabState extends State<_GeometryLab> {
                   ),
                 ),
                 IconButton(
+                  key: const ValueKey('Geometry colors'),
+                  tooltip: demo.colorful
+                      ? 'Reset instance colors'
+                      : 'Color instances',
+                  icon: Icon(
+                    demo.colorful ? Icons.palette : Icons.palette_outlined,
+                  ),
+                  onPressed: () =>
+                      setState(() => demo.setColors(!demo.colorful)),
+                ),
+                IconButton(
                   key: const ValueKey('Geometry playback'),
                   tooltip: demo.action.isPlaying ? 'Pause' : 'Play',
                   icon: Icon(

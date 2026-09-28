@@ -82,7 +82,7 @@ impl ScenePacket {
             return Err("unsupported scene packet".into());
         }
         let opcode = r.u32()?;
-        if !(10..=25).contains(&opcode) {
+        if !(10..=26).contains(&opcode) {
             return Err("unsupported scene packet".into());
         }
         let textured = opcode >= 11;
@@ -515,6 +515,7 @@ impl ScenePacket {
         let mut instance_patches = Vec::new();
         let mut instance_ids = HashSet::new();
         let mut slots = 0_usize;
+        let instance_bytes = if opcode >= 26 { 76 } else { 64 };
         for _ in 0..instance_counts[1] {
             let id = r.u32()?;
             let count = r.u32()? as usize;
@@ -525,15 +526,21 @@ impl ScenePacket {
                 || count == 0
                 || slots > crate::instances::MAX_INSTANCES
                 || !instance_ids.insert(id)
-                || count * 64 > data.len() - r.offset
+                || count * instance_bytes > data.len() - r.offset
             {
                 return Err("invalid instance upload or capacity".into());
             }
             let mut transforms = Vec::with_capacity(count);
+            let mut colors = Vec::with_capacity(count);
             for _ in 0..count {
                 transforms.push(r.floats()?);
+                colors.push(if opcode >= 26 { r.floats()? } else { [1.; 3] });
             }
-            let value = crate::instances::Instances { id, transforms };
+            let value = crate::instances::Instances {
+                id,
+                transforms,
+                colors,
+            };
             value.validate()?;
             instances.push(value);
         }
@@ -564,16 +571,26 @@ impl ScenePacket {
                     || first
                         .checked_add(length)
                         .is_none_or(|end| end > crate::instances::MAX_INSTANCES)
-                    || length * 64 > data.len() - r.offset
+                    || length * instance_bytes > data.len() - r.offset
                 {
                     return Err("invalid instance patch range".into());
                 }
                 let mut transforms = Vec::with_capacity(length);
+                let mut colors = Vec::with_capacity(length);
                 for _ in 0..length {
                     transforms.push(r.floats()?);
+                    let color = if opcode >= 26 { r.floats()? } else { [1.; 3] };
+                    if color.iter().any(|v| !(0.0..=1.0).contains(v)) {
+                        return Err("invalid instance color".into());
+                    }
+                    colors.push(color);
                 }
                 previous_end = first + length;
-                ranges.push(crate::instances::InstanceRange { first, transforms });
+                ranges.push(crate::instances::InstanceRange {
+                    first,
+                    transforms,
+                    colors,
+                });
             }
             instance_patches.push(crate::instances::InstancePatch { id, base, ranges });
         }

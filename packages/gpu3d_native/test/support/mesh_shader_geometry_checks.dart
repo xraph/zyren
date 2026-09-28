@@ -37,7 +37,7 @@ struct Vertex {
   return Vertex(mesh.mvp * vec4(p,1.), (mesh.normalMatrix * vec4(n,0.)).xyz,
     (mesh.model * vec4(t.xyz,0.)).xyz,
     ${layout.hasUv ? '(uv0 + uv1) * .5' : 'vec2(0.)'},
-    ${layout.hasColors ? 'color' : 'vec4(1.)'},
+    ${layout.hasColors ? 'color' : 'vec4(1.)'} * ${profile.usesInstancing ? 'vec4(instance.color, 1.)' : 'vec4(1.)'},
     ${profile.usesInstancing ? 'instance.normal0.w' : '1.'});
 }
 @fragment fn fragment(input: Vertex, @builtin(front_facing) front: bool) -> @location(0) vec4<f32> {
@@ -161,9 +161,18 @@ Future<void> verifyMeshShaderGeometry(NativeGpuBackend backend) async {
               index,
               Mat4.compose(position, Quat.identity, scale),
             );
+            mesh.setColor(
+              index,
+              index == 0 ? const Color3(.2, .7, 1) : const Color3(1, .3, .15),
+            );
           }
           root.add(
-            Mesh(expectedGeometry, referenceMaterial)
+            Mesh(
+                expectedGeometry,
+                referenceMaterial.copyWith(
+                  color: mesh is InstancedMesh ? mesh.getColor(index) : null,
+                ),
+              )
               ..position = position
               ..scale = scale,
           );
@@ -175,7 +184,9 @@ Future<void> verifyMeshShaderGeometry(NativeGpuBackend backend) async {
                 : [MaterialSide.front]) {
           mesh.material = material.copyWith(side: side);
           for (final child in root.children.whereType<Mesh>()) {
-            child.material = referenceMaterial.copyWith(side: side);
+            child.material = (child.material as ShaderMaterial).copyWith(
+              side: side,
+            );
           }
           final actual = await draw(scene), reference = await draw(expected);
           var maxDifference = 0, occupied = 0;
@@ -218,7 +229,9 @@ Future<void> verifyMeshShaderGeometry(NativeGpuBackend backend) async {
         const Vec3(.6, .8, .9),
       ),
     );
-    expect((await draw(scene)).stats.uploadedBytes, 112);
+    expect((await draw(scene)).stats.uploadedBytes, 128);
+    instanced.setColor(0, const Color3(.9, .2, .8));
+    expect((await draw(scene)).stats.uploadedBytes, 128);
     expect((await backend.graphStats()).meshPipelines, pipelines);
     expect(
       (await backend.render(frozen) as ReadbackOutput).image.pixels,

@@ -1,6 +1,6 @@
 part of 'scene.dart';
 
-/// Shared triangle geometry with independent local instance transforms.
+/// Shared triangle geometry with independent local transforms and RGB tints.
 /// Capacity is fixed; [count] selects the visible prefix of that storage.
 final class InstancedMesh extends Mesh {
   static int _nextLogicalId = 1;
@@ -8,6 +8,7 @@ final class InstancedMesh extends Mesh {
   final int capacity;
   int _count, _instanceRevision = 0;
   final List<Mat4> _transforms;
+  final List<Color3> _colors;
   final List<_InstanceChange> _history = [];
   InstanceSnapshot? _snapshot;
   InstancedMesh(
@@ -18,7 +19,8 @@ final class InstancedMesh extends Mesh {
     super.renderOrder,
   }) : capacity = _capacity(count),
        _count = count,
-       _transforms = List.filled(_capacity(count), Mat4.identity()) {
+       _transforms = List.filled(_capacity(count), Mat4.identity()),
+       _colors = List.filled(_capacity(count), const Color3(1, 1, 1)) {
     if (geometry.topology != GeometryTopology.triangles) {
       throw ArgumentError('InstancedMesh requires triangle geometry.');
     }
@@ -62,13 +64,36 @@ final class InstancedMesh extends Mesh {
     }
     if (!changed) return;
     _transforms.setRange(first, first + transforms.length, transforms);
+    _publishRange(first, transforms.length);
+  }
+
+  Color3 getColor(int index) =>
+      _colors[RangeError.checkValidIndex(index, _colors, 'index')];
+
+  /// Multiplies the material and vertex RGB. White preserves their colors.
+  void setColor(int index, Color3 color) => setColors(index, [color]);
+
+  /// Validates every linear RGB channel before publishing the range.
+  void setColors(int first, List<Color3> colors) {
+    RangeError.checkValueInInterval(first, 0, capacity, 'first');
+    if (colors.length > capacity - first) {
+      throw RangeError('Instance color range exceeds capacity.');
+    }
+    var changed = false;
+    for (var i = 0; i < colors.length; i++) {
+      colors[i].toList();
+      changed |= _colors[first + i] != colors[i];
+    }
+    if (!changed) return;
+    _colors.setRange(first, first + colors.length, colors);
+    _publishRange(first, colors.length);
+  }
+
+  void _publishRange(int first, int count) {
     _instanceRevision++;
     if (_history.length == 64) _history.removeAt(0);
     _history.add(
-      _InstanceChange(
-        _instanceRevision,
-        InstanceRange(first, transforms.length),
-      ),
+      _InstanceChange(_instanceRevision, InstanceRange(first, count)),
     );
     _snapshot = null;
     _changed();
@@ -78,6 +103,7 @@ final class InstancedMesh extends Mesh {
     _logicalId,
     _instanceRevision,
     _transforms,
+    _colors,
     _history,
   );
   @override
@@ -106,6 +132,7 @@ final class InstanceSnapshot {
   final int id = _nextId++;
   final int logicalId, revision;
   final List<Mat4> transforms;
+  final List<Color3> colors;
   final List<_InstanceChange> _history;
   GeometrySnapshot? _boundsGeometry;
   int _boundsCount = -1;
@@ -114,11 +141,13 @@ final class InstanceSnapshot {
     this.logicalId,
     this.revision,
     List<Mat4> transforms,
+    List<Color3> colors,
     List<_InstanceChange> history,
   ) : transforms = List.unmodifiable(transforms),
+      colors = List.unmodifiable(colors),
       _history = List.unmodifiable(history);
   int get capacity => transforms.length;
-  int get gpuByteLength => capacity * 112;
+  int get gpuByteLength => capacity * 128;
   List<InstanceRange>? changesSince(InstanceSnapshot base) {
     if (logicalId != base.logicalId ||
         capacity != base.capacity ||
