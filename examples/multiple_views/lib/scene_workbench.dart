@@ -68,6 +68,10 @@ class _WorkbenchState extends State<_Workbench> {
   bool _refreshQueued = false;
   late final SceneController _controller;
   final _tools = SceneToolsPlugin();
+  final _sections = SceneSectionPlugin();
+  int _sectionAxis = 0;
+  double _sectionOffset = 0;
+  bool _sectionFlipped = false;
   final _orbit = OrbitControlsPlugin();
   late final TransformGizmoPlugin _gizmo;
   final _inspector = SceneDevtoolsPlugin();
@@ -181,6 +185,7 @@ class _WorkbenchState extends State<_Workbench> {
       excludeFromIsolation: _gizmo.owns,
     );
     _controller.use(_tools);
+    _controller.use(_sections);
     _controller.use(_gizmo);
     _controller.use(_orbit);
     _controller.use(_timeline);
@@ -188,6 +193,7 @@ class _WorkbenchState extends State<_Workbench> {
     _controller.use(_inspector);
     _subscriptions.addAll([
       _tools.changes.listen((_) => _refresh()),
+      _sections.changes.listen((_) => _refresh()),
       _timeline.changes.listen((_) {
         _gizmo.enabled = !_timeline.isPlaying && !_measuring && !_annotating;
         _refresh();
@@ -706,9 +712,98 @@ class _WorkbenchState extends State<_Workbench> {
               ? () => _tools.clearMeasurements()
               : null,
         ),
+        IconButton(
+          tooltip: 'Section view',
+          isSelected: _sections.isActive,
+          icon: const Icon(Icons.content_cut, size: 20),
+          onPressed: _ready
+              ? () => _edit(() {
+                  if (_sections.isActive) {
+                    _sections.clear();
+                  } else {
+                    _applySection();
+                  }
+                })
+              : null,
+          constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+        ),
       ],
     );
   }
+
+  void _applySection() {
+    final normal = [
+      const Vec3(1, 0, 0),
+      const Vec3(0, 1, 0),
+      const Vec3(0, 0, 1),
+    ][_sectionAxis];
+    final plane = ClippingPlane(normal: normal, offset: _sectionOffset);
+    _sections.setPlanes([_sectionFlipped ? plane.flipped : plane]);
+  }
+
+  Widget _sectionBar() => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 8),
+    child: Row(
+      children: [
+        DropdownButton<int>(
+          key: const ValueKey('section-axis'),
+          value: _sectionAxis,
+          underline: const SizedBox(),
+          items: const [
+            DropdownMenuItem(value: 0, child: Text('Cut X')),
+            DropdownMenuItem(value: 1, child: Text('Cut Y')),
+            DropdownMenuItem(value: 2, child: Text('Cut Z')),
+          ],
+          onChanged: _ready
+              ? (value) => _edit(() {
+                  _sectionAxis = value!;
+                  _applySection();
+                })
+              : null,
+        ),
+        Expanded(
+          child: Slider(
+            key: const ValueKey('section-offset'),
+            min: -2,
+            max: 2,
+            divisions: 80,
+            value: _sectionOffset,
+            label: _sectionOffset.toStringAsFixed(2),
+            semanticFormatterCallback: (value) =>
+                'Section offset ${value.toStringAsFixed(2)} scene units',
+            onChanged: _ready
+                ? (value) => _edit(() {
+                    _sectionOffset = value;
+                    _applySection();
+                  })
+                : null,
+          ),
+        ),
+        SizedBox(
+          width: 42,
+          child: Text(
+            _sectionOffset.toStringAsFixed(2),
+            textAlign: TextAlign.end,
+          ),
+        ),
+        _button(
+          'Flip section',
+          Icons.flip,
+          _ready
+              ? () => _edit(() {
+                  _sectionFlipped = !_sectionFlipped;
+                  _applySection();
+                })
+              : null,
+        ),
+        _button(
+          'Clear section',
+          Icons.close,
+          _ready ? () => _edit(_sections.clear) : null,
+        ),
+      ],
+    ),
+  );
 
   Widget _playback() => Row(
     children: [
@@ -1004,6 +1099,7 @@ class _WorkbenchState extends State<_Workbench> {
             padding: const EdgeInsets.symmetric(horizontal: 6),
             child: Align(alignment: Alignment.centerLeft, child: _toolbar()),
           ),
+          if (_sections.isActive) _sectionBar(),
           if (_notice != null)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),

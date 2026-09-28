@@ -56,9 +56,11 @@ rendering remains outside this milestone.
 
 ## Scope and verification
 
-This first version does not include render-pass effects, section clipping, native
-line primitives, skeletal animation, CAD import or physics. Engineering-specific
-metadata and annotation persistence remain a separate plugin milestone.
+The initial milestone excluded section clipping and engineering persistence.
+Both now have separate implementations. See [section clipping](section-clipping.md)
+and the [workbench checkpoint](../scene-workbench-checkpoint.md) for current
+behavior and verification. Outlines, skeletal animation, CAD import and physics
+remain outside this workbench.
 
 Behavior tests cover selection cleanup, command conflicts, invalid transforms,
 measurement units, immutable diagnostics, timeline interpolation and teardown.

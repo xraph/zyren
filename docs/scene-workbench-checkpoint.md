@@ -9,7 +9,7 @@ on Android. It requires native presentation.
 
 | Package | Current behavior |
 | --- | --- |
-| `zyren_tools` | Tap or direct selection, temporary material highlighting, local/world transform gizmos and translation planes, optional screen-size handles, transactional drag history, snapping, bounded undo/redo with conflict detection, fixed world-point measurements |
+| `zyren_tools` | Tap or direct selection, temporary material highlighting, local/world transform gizmos and translation planes, optional screen-size handles, reversible section sessions, transactional drag history, snapping, bounded undo/redo with conflict detection, fixed world-point measurements |
 | `zyren_devtools` | Immutable hierarchy and transform snapshots, stable inspector IDs, live object resolution, bounded frame history and backend capabilities |
 | `zyren_timeline` | Absolute transform and camera tracks, quaternion interpolation, step visibility, play/pause/seek, looping and scoped frame demand |
 | `zyren_engineering` | Stable host IDs, immutable metadata and object-local annotations, temporary isolation, validated JSON, asynchronous host storage and atomic file replacement |
@@ -53,6 +53,14 @@ stay fixed in world space. The line and label are Flutter overlays, with no dept
 occlusion, and distances use scene units. Clear measurements with the adjacent
 button. The inspector moves below the canvas at narrow widths and has its own
 scroll area.
+
+Choose the scissors button to section the assembly. Select X, Y or Z, move the
+offset slider in scene units, and flip the retained half when needed. Clear
+restores the earlier planes. Sections cut native surfaces, shadow casters and
+triangle picks. Handles stay available even if the selected part is fully cut
+away. The example uses double-sided materials so you can see the remaining
+interior faces. It does not fill the cut with a cap. See
+[section clipping](design/section-clipping.md) for the core and plugin contracts.
 
 Open Review to edit a part's name, tag and material. Isolate the selected part,
 then restore the previous visibility when you're done. Add a surface note and
@@ -139,15 +147,32 @@ checking disposal. The native integration test awaits actual disposal directly.
 Controller diagnostics sample at most every 200 ms. The integration test requests
 one frame after that interval to verify the paused scene's final draw count.
 
+The section milestone passed 417 core tests, 56 tools tests, all 66 native Dart
+tests with GPU execution enabled on macOS Metal, and 62 Rust tests. Native Rust
+tests marked for explicit GPU execution were not part of that count; the
+material-sidedness GPU test also passed. Rust formatting, Clippy, package
+boundaries and analysis of the changed packages and example passed.
+
+The section workbench passed all 14 widget tests, including controls at 1100,
+390 and 320 logical pixels. Its macOS native integration produced seven samples,
+twelve draws and zero readback bytes while enabling, moving, flipping and
+clearing a section. A native-window failure exposed an implicit HDR allocation
+in the new packet version. Opcode 28 now carries an explicit postprocessing
+flag; a GPU regression checks that section planes alone allocate no HDR targets.
+Desktop visual inspection confirmed both retained halves, visible interior
+faces and usable transform handles in the native view. Narrow section controls
+were checked by the widget suite; a separate native narrow-window visual check
+has not been completed for this revision.
+
 ## Remaining scope
 
-Section clipping, postprocessing outlines, skeletal
+Section caps, custom-shader clipping, postprocessing outlines, skeletal
 animation, morph targets, event tracks, CAD import and collaborative review are
 not included. Handles remain depth-tested, including with screen sizing enabled.
 The plugins do not replace the renderer or implement a second material system.
 
 The inspector reports unavailable GPU timings and residency as unavailable. It
 does not expose the native allocation registry or claim total GPU memory usage.
-This workbench has not been qualified on iOS, Windows or Linux. No Rust renderer
-code changed in this milestone; the checks above are not a new renderer-wide GPU
-qualification.
+This workbench has not been qualified on iOS, Windows or Linux. Section clipping
+changes the Rust renderer and remains unverified on Android, iOS, Windows and
+Linux. Earlier platform checks above apply to their recorded revisions.
