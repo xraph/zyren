@@ -246,6 +246,7 @@ class SceneSnapshot {
 class FrameSubmission {
   final CompiledGraph? graph;
   final ColorPipeline? colorPipeline;
+  final Environment? environment;
   final SceneSnapshot scene;
   final CameraSnapshot camera;
   final OutputTarget target;
@@ -261,6 +262,7 @@ class FrameSubmission {
     this.cpuBuildTime,
     this.graph,
     this.colorPipeline,
+    this.environment,
   );
 
   /// Captures once so changes made during an asynchronous render affect only
@@ -273,6 +275,7 @@ class FrameSubmission {
     FrameTime time = const FrameTime(),
     CompiledGraph? graph,
     ColorPipeline? colorPipeline,
+    Environment? environment,
   }) {
     final clock = Stopwatch()..start();
 
@@ -291,6 +294,7 @@ class FrameSubmission {
       clock.elapsed,
       graph,
       colorPipeline,
+      environment,
     );
   }
 
@@ -304,11 +308,12 @@ class FrameSubmission {
     cpuBuildTime,
     graph,
     colorPipeline,
+    environment,
   );
 
   /// Compatibility encoder for native v1 adapters. Geometry conversion is lazy.
   Map<String, Object> toNativePacket({Set<int> uploaded = const {}}) {
-    if (graph != null || scene.meshShaders.isNotEmpty) {
+    if (graph != null || environment != null || scene.meshShaders.isNotEmpty) {
       throw UnsupportedError('GPU programs require binary native submissions.');
     }
     if (scene._textures.isNotEmpty) {

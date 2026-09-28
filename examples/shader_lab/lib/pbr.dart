@@ -4,16 +4,19 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_gpu3d/flutter_gpu3d.dart';
+import 'studio_environment.dart';
 
 void main() => runApp(const PbrLabApp());
 
 class PbrLabApp extends StatelessWidget {
   final SceneRuntime? runtime;
   final PresentationPolicy presentation;
+  final bool environmentLighting;
   const PbrLabApp({
     super.key,
     this.runtime,
     this.presentation = PresentationPolicy.requireNative,
+    this.environmentLighting = true,
   });
   @override
   Widget build(BuildContext context) => MaterialApp(
@@ -28,6 +31,7 @@ class PbrLabApp extends StatelessWidget {
               ? const SceneRuntime.nativeMetal()
               : const SceneRuntime()),
       presentation: presentation,
+      environmentLighting: environmentLighting,
     ),
   );
 }
@@ -35,7 +39,12 @@ class PbrLabApp extends StatelessWidget {
 class _PbrLab extends StatefulWidget {
   final SceneRuntime? runtime;
   final PresentationPolicy presentation;
-  const _PbrLab({this.runtime, required this.presentation});
+  final bool environmentLighting;
+  const _PbrLab({
+    this.runtime,
+    required this.presentation,
+    required this.environmentLighting,
+  });
   @override
   State<_PbrLab> createState() => _PbrLabState();
 }
@@ -44,6 +53,9 @@ class _PbrLabState extends State<_PbrLab> {
   late final SceneController controller;
   late final DirectionalLight sun;
   late final HemisphereLight hemisphere;
+  late final EnvironmentLighting environment;
+  bool environmentControls = false;
+  double environmentAngle = 0;
   late final List<TextureMap> maps = _makeMaps();
   bool textured = true;
   double ambient = 1, exposure = 1;
@@ -55,6 +67,9 @@ class _PbrLabState extends State<_PbrLab> {
   @override
   void initState() {
     super.initState();
+    environment = EnvironmentLighting(
+      image: widget.environmentLighting ? studioEnvironment() : null,
+    );
     controller = SceneController(
       runtime: widget.runtime,
       colorPipeline: ColorPipeline(),
@@ -64,6 +79,7 @@ class _PbrLabState extends State<_PbrLab> {
         fieldOfView: 1.05,
       ),
     );
+    if (widget.environmentLighting) controller.use(environment);
     controller.scene.background = const Color3(.012, .018, .028);
     grid = controller.scene.add(Group());
     final sphere = SphereGeometry(
@@ -194,14 +210,23 @@ class _PbrLabState extends State<_PbrLab> {
     body: SafeArea(
       child: Column(
         children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(12, 8, 12, 0),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'PBR · materials and lights',
-                style: TextStyle(fontSize: 18),
-              ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+            child: Row(
+              children: [
+                const Text('PBR', style: TextStyle(fontSize: 18)),
+                const Spacer(),
+                DropdownButton<bool>(
+                  key: const ValueKey('LightingControls'),
+                  value: environmentControls,
+                  items: const [
+                    DropdownMenuItem(value: false, child: Text('Lights')),
+                    DropdownMenuItem(value: true, child: Text('Environment')),
+                  ],
+                  onChanged: (value) =>
+                      setState(() => environmentControls = value!),
+                ),
+              ],
             ),
           ),
           const Padding(
@@ -267,35 +292,56 @@ class _PbrLabState extends State<_PbrLab> {
                     );
                   }),
                 ),
-                control(
-                  'Ambient',
-                  ambient,
-                  3,
-                  (value) => setState(() {
-                    ambient = value;
-                    hemisphere.intensity = value;
-                  }),
-                ),
-                control(
-                  'Light',
-                  intensity,
-                  5,
-                  (v) => setState(() {
-                    intensity = v;
-                    sun.intensity = v;
-                  }),
-                ),
-                control(
-                  'Angle',
-                  angle,
-                  math.pi * 2,
-                  (v) => setState(() {
-                    angle = v;
-                    sun.quaternion =
-                        Quat.axisAngle(const Vec3(0, 1, 0), v) *
-                        Quat.axisAngle(const Vec3(1, 0, 0), -.4);
-                  }),
-                ),
+                if (environmentControls) ...[
+                  control(
+                    'Sky',
+                    environment.intensity,
+                    4,
+                    (value) => setState(() => environment.intensity = value),
+                  ),
+                  control(
+                    'Rotation',
+                    environmentAngle,
+                    math.pi * 2,
+                    (value) => setState(() {
+                      environmentAngle = value;
+                      environment.rotation = Quat.axisAngle(
+                        const Vec3(0, 1, 0),
+                        value,
+                      );
+                    }),
+                  ),
+                ] else ...[
+                  control(
+                    'Ambient',
+                    ambient,
+                    3,
+                    (value) => setState(() {
+                      ambient = value;
+                      hemisphere.intensity = value;
+                    }),
+                  ),
+                  control(
+                    'Light',
+                    intensity,
+                    5,
+                    (v) => setState(() {
+                      intensity = v;
+                      sun.intensity = v;
+                    }),
+                  ),
+                  control(
+                    'Angle',
+                    angle,
+                    math.pi * 2,
+                    (v) => setState(() {
+                      angle = v;
+                      sun.quaternion =
+                          Quat.axisAngle(const Vec3(0, 1, 0), v) *
+                          Quat.axisAngle(const Vec3(1, 0, 0), -.4);
+                    }),
+                  ),
+                ],
               ],
             ),
           ),

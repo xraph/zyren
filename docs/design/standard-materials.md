@@ -198,8 +198,9 @@ uniform prefix and binding layout.
 ## Scope and examples
 
 The default profile renders to RGBA8. Select [ColorPipeline](color-pipeline.md)
-for linear HDR accumulation with exposure and terminal tone mapping. Image-based
-lighting and shadows remain Task 5 work. Standard glTF material conversion remains
+for linear HDR accumulation with exposure and terminal tone mapping.
+[EnvironmentLighting](environment-lighting.md) adds diffuse and GGX specular
+lighting from HDR panoramas. Shadows remain Task 5 work. Standard glTF material conversion remains
 gated on that broader profile and its reference fixtures.
 
 Run the [Flutter PBR lab](../../examples/shader_lab/README.md) for a sphere grid

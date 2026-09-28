@@ -1,3 +1,27 @@
+struct EnvironmentSettings { params: vec4<f32>, rotation: vec4<f32> };
+@group(0) @binding(2) var<uniform> environment: EnvironmentSettings;
+@group(0) @binding(3) var diffuse_environment: texture_2d<f32>;
+@group(0) @binding(4) var specular_environment: texture_2d<f32>;
+@group(0) @binding(5) var environment_brdf: texture_2d<f32>;
+@group(0) @binding(6) var environment_sampler: sampler;
+@group(0) @binding(7) var brdf_sampler: sampler;
+fn environment_uv(direction: vec3<f32>) -> vec2<f32> {
+    let q = vec4(-environment.rotation.xyz, environment.rotation.w);
+    let local = direction + 2. * cross(q.xyz, cross(q.xyz, direction) + q.w * direction);
+    return vec2(atan2(local.z, local.x) / (2. * 3.141592653589793) + .5, acos(clamp(local.y, -1., 1.)) / 3.141592653589793);
+}
+fn shade_environment(n: vec3<f32>, v: vec3<f32>, surface: StandardSurface) -> vec3<f32> {
+    if (environment.params.x == 0.) { return vec3(0.); }
+    let nv = clamp(dot(n,v), 0., 1.);
+    let f0 = mix(vec3(.04), surface.base.rgb, surface.metallic);
+    let fresnel = f0 + (vec3(1.) - f0) * pow(1. - nv, 5.);
+    let diffuse = textureSampleLevel(diffuse_environment, environment_sampler, environment_uv(n), 0.).rgb;
+    let specular = textureSampleLevel(specular_environment, environment_sampler, environment_uv(reflect(-v,n)), surface.roughness * environment.params.y).rgb;
+    let brdf = textureSampleLevel(environment_brdf, brdf_sampler, vec2(nv, surface.roughness), 0.).rg;
+    return ((vec3(1.) - fresnel) * (1. - surface.metallic) * surface.base.rgb * diffuse
+        + specular * (f0 * brdf.x + brdf.y)) * environment.params.x * surface.occlusion;
+}
+
 struct PunctualLight {
     position_kind: vec4<f32>,
     direction_range: vec4<f32>,
@@ -43,7 +67,7 @@ fn shade_standard(input: VertexOutput, front: bool, surface: StandardSurface) ->
     let n = select(-surface.normal, surface.normal, front);
     let v = normalized_or(-input.relative_position, n);
     let base = surface.base.rgb;
-    var color = surface.emission;
+    var color = surface.emission + shade_environment(n, v, surface);
     for (var i = 0u; i < lighting.count.y; i++) {
         let light = lighting.hemispheres[i];
         let weight = clamp(dot(n, light.direction.xyz) * 0.5 + 0.5, 0., 1.);

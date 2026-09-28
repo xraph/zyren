@@ -1358,3 +1358,47 @@ Pixel release demo is running under runner 55363, process 17208, with no
 error-level process logs at verification. Previous runner 60768 was stopped
 before the Flutter test/build cycle. The release scene retains its existing
 lighting; HDR asset decoding is qualified through the integration probes above.
+
+## Native environment lighting, 2026-09-28
+
+`EnvironmentLighting` now prepares an HDR panorama and lights ordinary standard
+materials through the native renderer. Its core implementation uses scoped
+resources and compute graphs for diffuse convolution, GGX specular filtering and
+a correlated-Smith BRDF lookup. Geospatial remains an optional consumer. See
+[environment lighting](design/environment-lighting.md) for the API and supported
+profile.
+
+The GPU probes check constant HDR values within one half-float rounding step and
+directional gradients against their analytic Lambert convolution, including the
+seam and poles. BRDF samples agree with an independent angular quadrature.
+Material pixels cover rotation, roughness, occlusion, emission, a missing map
+and composition with custom mesh shaders and frame effects.
+
+Lifecycle tests cover failed replacements, publication between frames,
+independent view settings, retained ownership, foreign devices, disposal during
+preparation and cleanup errors after successful filtering. Native envelope
+tests reject truncated data, invalid keys, reserved bytes, nonfinite intensity
+and invalid rotations. The sphere-grid demo adds a generated HDR studio image
+and compact intensity/rotation controls.
+
+Checks pass: 276 core/glTF/geospatial, 63 native Dart, 68 Flutter facade, two
+shader-lab layout and 15 independent effects tests, 424 Dart/Flutter tests in
+all. All 100 Rust tests pass with GPU tests enabled. Strict Clippy, analysis,
+formatting and the package/ABI boundary guard pass.
+
+The macOS Metal bridge and physical Pixel Vulkan integrations pass the same
+numerical and composition probes. These are explicit readback checks, separate
+from interactive presentation. The 768 by 512 native sphere-grid render was
+inspected; the desktop and narrow widget layouts pass. The Mac integration
+could not foreground its window. Interactive inspection of the updated native
+windows, Apple compositor pixels and additional platform qualification remain
+open.
+
+This checkpoint uses a single-scattering split-sum environment model. Shadows,
+standard glTF qualification, advanced physical materials and full Three.js or
+Takram parity remain unfinished.
+
+Release builds pass for macOS (52.1 MB) and Android arm64 (23.4 MB). The updated
+Pixel release is running as `dev.gpu3d.shader_lab`, PID 19311 at verification,
+with runner 46635 retained and no error-level process logs. Runner 55363 was
+stopped before this test/build cycle.

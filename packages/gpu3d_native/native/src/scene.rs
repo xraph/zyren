@@ -327,6 +327,8 @@ impl SceneTexture {
 #[derive(Clone, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Frame {
+    #[serde(skip)]
+    pub environment: Option<crate::lighting::Environment>,
     #[serde(default)]
     pub color_pipeline: Option<ColorPipeline>,
     pub version: u32,

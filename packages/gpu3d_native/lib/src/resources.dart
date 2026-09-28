@@ -61,20 +61,23 @@ final class _NativeResourceDevice
     final programs = submission.scene.meshShaders;
     final unique = programs.values.toSet().toList();
     final keys = <MeshShaderProgram, _MeshShaderKey>{};
-    Future<T> encode(Object? graph) {
-      if (keys.isEmpty && graph == null) {
+    Future<T> encode(Object? graph, [List<Object>? environmentKeys]) {
+      if (keys.isEmpty && graph == null && environmentKeys == null) {
         return Future.sync(() => submit(packet));
       }
       final graphKey = (graph as _GraphKey?)?.values;
-      final header = keys.isEmpty ? 48 : 56 + programs.length * 40;
+      final environment = submission.environment;
+      final version = environmentKeys != null ? 3 : (keys.isEmpty ? 1 : 2);
+      final base = version == 3 ? 184 : (version == 2 ? 56 : 48);
+      final header = base + (version >= 2 ? programs.length * 40 : 0);
       final envelope = ByteData(header + packet.length)
         ..setUint32(0, 3, Endian.little)
-        ..setUint32(4, keys.isEmpty ? 1 : 2, Endian.little)
+        ..setUint32(4, version, Endian.little)
         ..setUint64(8, packet.length, Endian.little);
-      if (keys.isNotEmpty) {
+      if (version >= 2) {
         envelope.setUint32(16, programs.length, Endian.little);
         envelope.setUint32(20, graphKey == null ? 0 : 1, Endian.little);
-        var offset = 56;
+        var offset = base;
         for (final entry in programs.entries) {
           envelope.setUint32(offset, entry.key, Endian.little);
           for (var i = 0; i < 4; i++) {
@@ -90,10 +93,29 @@ final class _NativeResourceDevice
       if (graphKey != null) {
         for (var i = 0; i < 4; i++) {
           envelope.setUint64(
-            (keys.isEmpty ? 16 : 24) + i * 8,
+            (version == 1 ? 16 : 24) + i * 8,
             graphKey[i],
             Endian.little,
           );
+        }
+      }
+      if (environmentKeys != null) {
+        for (var i = 0; i < 3; i++) {
+          envelope.buffer.asUint8List().setRange(
+            56 + i * 32,
+            88 + i * 32,
+            (environmentKeys[i] as _ResourceKey).bytes,
+          );
+        }
+        envelope.setFloat32(152, environment!.intensity, Endian.little);
+        final rotation = environment.rotation;
+        for (final (i, value) in [
+          rotation.x,
+          rotation.y,
+          rotation.z,
+          rotation.w,
+        ].indexed) {
+          envelope.setFloat32(156 + i * 4, value, Endian.little);
         }
       }
       final bytes = envelope.buffer.asUint8List()
@@ -104,9 +126,19 @@ final class _NativeResourceDevice
     Future<T> hold(int index) {
       if (index == unique.length) {
         final graph = submission.graph;
+        Future<T> withEnvironment(Object? graphKey) {
+          final environment = submission.environment;
+          return environment == null
+              ? encode(graphKey)
+              : environment.map.submitFrame(
+                  this,
+                  (keys) => encode(graphKey, keys),
+                );
+        }
+
         return graph == null
-            ? encode(null)
-            : graph.submitFrame(this, submission.size, encode);
+            ? withEnvironment(null)
+            : graph.submitFrame(this, submission.size, withEnvironment);
       }
       return unique[index].submitFrame(this, (key) {
         keys[unique[index]] = key as _MeshShaderKey;

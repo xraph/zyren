@@ -20,6 +20,7 @@ enum RenderFeature {
   meshShaders,
   standardMaterials,
   hdrColor,
+  environmentLighting,
 }
 
 /// Limits enforced by the backend, even if the adapter can allocate more.

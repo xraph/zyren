@@ -111,6 +111,7 @@ class NativeAndroidBackend implements NativeGpuBackend {
       RenderFeature.meshShaders,
       RenderFeature.standardMaterials,
       RenderFeature.hdrColor,
+      RenderFeature.environmentLighting,
       RenderFeature.compute,
       RenderFeature.storageTextures,
     },

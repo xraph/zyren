@@ -1,3 +1,4 @@
+mod environment;
 use std::{
     collections::{HashMap, HashSet},
     sync::mpsc,
@@ -101,6 +102,7 @@ pub struct RendererState {
     counters: RenderCounters,
     layout: wgpu::BindGroupLayout,
     pbr_layout: wgpu::BindGroupLayout,
+    environment_defaults: environment::Defaults,
     geometries: HashMap<u32, GpuGeometry>,
     resources: crate::resources::ResourceStore,
     shaders: crate::shaders::ShaderStore,
@@ -189,32 +191,38 @@ impl Renderer {
         let pbr_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("standard material frame"),
             entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: wgpu::BufferSize::new(
-                            std::mem::size_of::<Uniforms>() as u64
-                        ),
+                vec![
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: wgpu::BufferSize::new(
+                                std::mem::size_of::<Uniforms>() as u64,
+                            ),
+                        },
+                        count: None,
                     },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: wgpu::BufferSize::new(std::mem::size_of::<
-                            crate::lighting::LightingUniform,
-                        >() as u64),
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: wgpu::BufferSize::new(std::mem::size_of::<
+                                crate::lighting::LightingUniform,
+                            >()
+                                as u64),
+                        },
+                        count: None,
                     },
-                    count: None,
-                },
-            ],
+                ],
+                environment::layout_entries(),
+            ]
+            .concat(),
         });
+        let environment_defaults = environment::Defaults::new(&device);
         let texture_layout = textures::layout(&device, 1);
         let standard_texture_layout = textures::layout(&device, 5);
         let pipelines = pipelines::MeshPipelines::new(
@@ -241,6 +249,7 @@ impl Renderer {
                 texture_layout,
                 standard_texture_layout,
                 pbr_layout,
+                environment_defaults,
                 textures: HashMap::new(),
                 #[cfg(any(target_vendor = "apple", target_os = "android"))]
                 surface_depth: None,
@@ -374,9 +383,11 @@ impl Renderer {
     }
 
     pub fn decode_scene(&self, bytes: &[u8]) -> Result<Frame, String> {
-        let (bytes, graph, materials) = crate::render_graph::decode_frame_packet(bytes)?;
+        let (bytes, graph, materials, environment) =
+            crate::render_graph::decode_frame_packet(bytes)?;
         let mut frame = self.decode_plain_scene(bytes)?;
         frame.graph = graph;
+        frame.environment = environment;
         for (index, key) in materials {
             frame
                 .meshes
@@ -619,9 +630,10 @@ impl Renderer {
         composition: (
             &[Option<crate::render_graph::PreparedMaterial>],
             Option<&crate::render_graph::FrameGraph>,
+            &environment::PreparedEnvironment,
         ),
     ) -> wgpu::CommandEncoder {
-        let (materials, graph) = composition;
+        let (materials, graph, environment) = composition;
         let vp = Mat4::from_cols_array(&frame.view_projection);
         let lighting = frame.meshes.iter().any(|m| m.pbr.is_some()).then(|| {
             self.device
@@ -720,6 +732,7 @@ impl Renderer {
                         binding: 1,
                         resource: lighting.as_ref().unwrap().as_entire_binding(),
                     });
+                    entries.extend(environment.entries(&self.environment_defaults));
                 }
                 self.device.create_bind_group(&wgpu::BindGroupDescriptor {
                     label: None,
@@ -813,6 +826,7 @@ impl Renderer {
         encoder: wgpu::CommandEncoder,
         graph: Option<&crate::render_graph::FrameGraph>,
         materials: &[Option<crate::render_graph::PreparedMaterial>],
+        environment: &environment::PreparedEnvironment,
     ) -> Result<Submission, String> {
         let index = self.queue.submit([encoder.finish()]);
         let keys: Vec<_> = self
@@ -820,6 +834,7 @@ impl Renderer {
             .values()
             .map(|g| g.key)
             .chain(self.textures.values().map(|t| t.key))
+            .chain(environment.resources.iter().copied())
             .chain(
                 materials
                     .iter()
@@ -890,6 +905,7 @@ impl Renderer {
     ) -> Result<(), String> {
         pixel_len(width, height)?;
         let graph = self.resolve_frame_graph(frame, width, height)?;
+        let environment = self.prepare_environment(frame, graph.as_ref())?;
         let materials = self.prepare_materials(frame, texture.format(), graph.as_ref())?;
         self.prepare_scene(frame)?;
         if self
@@ -931,10 +947,10 @@ impl Renderer {
             &self.surface_depth.as_ref().unwrap().view,
             texture.format(),
             [texture.width(), texture.height()],
-            (graph.as_ref(), &materials, true),
+            (graph.as_ref(), &materials, true, &environment),
         );
         let result = self
-            .submit(encoder, graph.as_ref(), &materials)
+            .submit(encoder, graph.as_ref(), &materials, &environment)
             .and_then(|submission| self.wait_for_submission(submission));
         if let Err(error) = result {
             // Stop future submissions and keep the imported resource owned.
@@ -947,6 +963,7 @@ impl Renderer {
     pub fn render(&mut self, frame: &Frame, width: u32, height: u32) -> Result<Vec<u8>, String> {
         let len = pixel_len(width, height)?;
         let graph = self.resolve_frame_graph(frame, width, height)?;
+        let environment = self.prepare_environment(frame, graph.as_ref())?;
         let materials =
             self.prepare_materials(frame, wgpu::TextureFormat::Rgba8UnormSrgb, graph.as_ref())?;
         self.prepare_scene(frame)?;
@@ -965,7 +982,7 @@ impl Renderer {
             &target.depth_view,
             wgpu::TextureFormat::Rgba8UnormSrgb,
             [width, height],
-            (graph.as_ref(), &materials, false),
+            (graph.as_ref(), &materials, false, &environment),
         );
         encoder.copy_texture_to_buffer(
             target.color.as_image_copy(),
@@ -985,7 +1002,7 @@ impl Renderer {
         );
         let readback = target.readback.clone();
         let stride = target.stride;
-        let submission = self.submit(encoder, graph.as_ref(), &materials)?;
+        let submission = self.submit(encoder, graph.as_ref(), &materials, &environment)?;
         let slice = readback.slice(..);
         let (sender, receiver) = mpsc::sync_channel(1);
         slice.map_async(wgpu::MapMode::Read, move |result| {

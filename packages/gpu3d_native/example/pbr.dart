@@ -4,9 +4,13 @@ import 'package:gpu3d/gpu3d.dart';
 import 'package:gpu3d/rendering.dart';
 import 'package:gpu3d_native/gpu3d_native.dart';
 import 'support/png.dart';
+// Shared Dart-only fixture for the two PBR examples.
+// ignore: avoid_relative_lib_imports
+import '../../../examples/shader_lab/lib/studio_environment.dart';
 
 Future<void> main(List<String> args) async {
   final backend = await NativeBackend.create();
+  final resources = backend.createResourceScope();
   final scene = Scene()..background = const Color3(.012, .018, .028);
   TextureMap image(List<int> pixels, {bool srgb = false}) => TextureMap(
     image: TextureImage.rgba(
@@ -114,10 +118,15 @@ Future<void> main(List<String> args) async {
       ..position = const Vec3(-3, 1, 3),
   );
   try {
+    final environment = await EnvironmentMap.fromEquirectangular(
+      studioEnvironment(),
+      resources: resources,
+    );
     final output =
         await backend.render(
               FrameSubmission.capture(
                 colorPipeline: ColorPipeline(),
+                environment: Environment(map: environment),
                 scene: scene,
                 camera: PerspectiveCamera(
                   position: const Vec3(0, 0, 6),
@@ -131,6 +140,7 @@ Future<void> main(List<String> args) async {
     await File(path).writeAsBytes(png(output.image));
     stdout.writeln('$path: ${output.stats.drawCalls} native PBR draws');
   } finally {
+    await resources.close();
     await backend.close();
   }
 }

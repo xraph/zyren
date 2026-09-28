@@ -102,13 +102,18 @@ impl GraphStore {
     }
 }
 
-type FramePacket<'a> = (&'a [u8], Option<ResourceKey>, Vec<(u32, ResourceKey)>);
+type FramePacket<'a> = (
+    &'a [u8],
+    Option<ResourceKey>,
+    Vec<(u32, ResourceKey)>,
+    Option<crate::lighting::Environment>,
+);
 
 pub(crate) fn decode_packet(bytes: &[u8]) -> Result<FramePacket<'_>, String> {
     if !bytes.starts_with(&3_u32.to_le_bytes()) {
-        return Ok((bytes, None, vec![]));
+        return Ok((bytes, None, vec![], None));
     }
-    if bytes.len() < 48 || bytes.len() > 66 * 1024 * 1024 + 56 + 4096 * 40 {
+    if bytes.len() < 48 || bytes.len() > 66 * 1024 * 1024 + 184 + 4096 * 40 {
         return Err("Invalid scene envelope length".into());
     }
     let u32_at = |offset| u32::from_le_bytes(bytes[offset..offset + 4].try_into().unwrap());
@@ -120,12 +125,13 @@ pub(crate) fn decode_packet(bytes: &[u8]) -> Result<FramePacket<'_>, String> {
         }
         Ok(key(fields))
     };
-    let (offset, graph, materials) = match u32_at(4) {
-        1 => (48, Some(read_key(16)?), vec![]),
-        2 if bytes.len() >= 56 => {
+    let (offset, graph, materials, environment) = match u32_at(4) {
+        1 => (48, Some(read_key(16)?), vec![], None),
+        version @ (2 | 3) if bytes.len() >= 56 => {
+            let base = if version == 3 { 184 } else { 56 };
             let count = u32_at(16) as usize;
             let has_graph = u32_at(20);
-            if count > 4096 || has_graph > 1 || bytes.len() < 56 + count * 40 {
+            if count > 4096 || has_graph > 1 || bytes.len() < base + count * 40 {
                 return Err("Invalid mesh shader envelope".into());
             }
             let graph = if has_graph == 1 {
@@ -139,14 +145,30 @@ pub(crate) fn decode_packet(bytes: &[u8]) -> Result<FramePacket<'_>, String> {
             let mut seen = std::collections::HashSet::new();
             let mut materials = Vec::with_capacity(count);
             for i in 0..count {
-                let offset = 56 + i * 40;
+                let offset = base + i * 40;
                 let index = u32_at(offset);
                 if index >= 4096 || u32_at(offset + 4) != 0 || !seen.insert(index) {
                     return Err("Invalid or duplicate mesh shader index".into());
                 }
                 materials.push((index, read_key(offset + 8)?));
             }
-            (56 + count * 40, graph, materials)
+            let environment = if version == 3 {
+                if bytes[172..184].iter().any(|byte| *byte != 0) {
+                    return Err("Invalid environment reserved bytes".into());
+                }
+                let float_at =
+                    |offset| f32::from_le_bytes(bytes[offset..offset + 4].try_into().unwrap());
+                let value = crate::lighting::Environment {
+                    textures: [read_key(56)?, read_key(88)?, read_key(120)?],
+                    intensity: float_at(152),
+                    rotation: std::array::from_fn(|i| float_at(156 + i * 4)),
+                };
+                value.validate()?;
+                Some(value)
+            } else {
+                None
+            };
+            (base + count * 40, graph, materials, environment)
         }
         _ => return Err("Unsupported scene envelope".into()),
     };
@@ -157,12 +179,61 @@ pub(crate) fn decode_packet(bytes: &[u8]) -> Result<FramePacket<'_>, String> {
     {
         return Err("Invalid enclosed scene packet".into());
     }
-    Ok((&bytes[offset..], graph, materials))
+    Ok((&bytes[offset..], graph, materials, environment))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn environment_envelope_validates_all_fields_and_composes_with_graphs_and_materials() {
+        let mut bytes = vec![0; 184 + 40 + 24];
+        bytes[0..4].copy_from_slice(&3_u32.to_le_bytes());
+        bytes[4..8].copy_from_slice(&3_u32.to_le_bytes());
+        bytes[8..16].copy_from_slice(&24_u64.to_le_bytes());
+        bytes[16..20].copy_from_slice(&1_u32.to_le_bytes());
+        bytes[20..24].copy_from_slice(&1_u32.to_le_bytes());
+        for (offset, value) in [(24, 1_u64), (56, 2), (88, 3), (120, 4), (192, 5)] {
+            bytes[offset..offset + 8].copy_from_slice(&value.to_le_bytes());
+        }
+        bytes[152..156].copy_from_slice(&0.5_f32.to_le_bytes());
+        bytes[168..172].copy_from_slice(&1_f32.to_le_bytes());
+        bytes[224..228].copy_from_slice(&2_u32.to_le_bytes());
+        let (scene, graph, materials, environment) = decode_packet(&bytes).unwrap();
+        assert_eq!(scene.len(), 24);
+        assert_eq!(graph.unwrap().renderer, 1);
+        assert_eq!(materials[0].1.renderer, 5);
+        let environment = environment.unwrap();
+        assert_eq!(environment.textures.map(|key| key.renderer), [2, 3, 4]);
+        assert_eq!(environment.intensity, 0.5);
+        assert_eq!(environment.rotation, [0., 0., 0., 1.]);
+        for length in 4..bytes.len() {
+            assert!(decode_packet(&bytes[..length]).is_err(), "length {length}");
+        }
+        for offset in [56, 64, 72, 80, 88, 96, 104, 112, 120, 128, 136, 144] {
+            let mut invalid = bytes.clone();
+            invalid[offset..offset + 8].copy_from_slice(&u64::MAX.to_le_bytes());
+            assert!(decode_packet(&invalid).is_err(), "key at {offset}");
+        }
+        for offset in 172..184 {
+            let mut invalid = bytes.clone();
+            invalid[offset] = 1;
+            assert!(decode_packet(&invalid).is_err(), "reserved {offset}");
+        }
+        for offset in [152, 156, 160, 164, 168] {
+            for value in [f32::NAN, f32::INFINITY, f32::NEG_INFINITY, -2., 1_000_001.] {
+                let mut invalid = bytes.clone();
+                invalid[offset..offset + 4].copy_from_slice(&value.to_le_bytes());
+                assert!(
+                    decode_packet(&invalid).is_err(),
+                    "float at {offset}: {value}"
+                );
+            }
+        }
+        bytes[168..172].fill(0);
+        assert!(decode_packet(&bytes).is_err(), "zero quaternion");
+    }
+
     #[test]
     fn mesh_envelope_rejects_duplicate_indices_reserved_fields_and_truncation() {
         let mut bytes = vec![0; 56 + 2 * 40 + 24];
@@ -172,8 +243,9 @@ mod tests {
         bytes[16..20].copy_from_slice(&2_u32.to_le_bytes());
         bytes[96..100].copy_from_slice(&1_u32.to_le_bytes());
         bytes[136..140].copy_from_slice(&2_u32.to_le_bytes());
-        let (scene, graph, materials) = decode_packet(&bytes).unwrap();
+        let (scene, graph, materials, environment) = decode_packet(&bytes).unwrap();
         assert_eq!(scene.len(), 24);
+        assert!(environment.is_none());
         assert!(graph.is_none());
         assert_eq!(materials.len(), 2);
         for length in 4..bytes.len() {
@@ -206,8 +278,9 @@ mod tests {
         bytes[8..16].copy_from_slice(&24_u64.to_le_bytes());
         bytes[16..24].copy_from_slice(&1_u64.to_le_bytes());
         bytes[48..52].copy_from_slice(&2_u32.to_le_bytes());
-        let (scene, key, materials) = decode_packet(&bytes).unwrap();
+        let (scene, key, materials, environment) = decode_packet(&bytes).unwrap();
         assert_eq!(scene.len(), 24);
+        assert!(environment.is_none());
         assert!(materials.is_empty());
         assert_eq!(key.unwrap().renderer, 1);
         for length in 4..bytes.len() {

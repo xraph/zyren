@@ -38,6 +38,7 @@ void main() {
             presenterFactory: () => TestPresenter('PBR frame', backend.events),
           ),
           presentation: PresentationPolicy.readbackOnly,
+          environmentLighting: false,
         ),
       );
       await tester.pumpAndSettle();
@@ -85,6 +86,21 @@ void main() {
         expect(tester.takeException(), isNull);
         expect(tester.getSize(find.byType(SceneView)).height, greaterThan(250));
       }
+      await tester.binding.setSurfaceSize(const Size(320, 640));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('LightingControls')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Environment').last);
+      await tester.pumpAndSettle();
+      for (final label in ['Sky', 'Rotation']) {
+        final slider = find.byKey(ValueKey(label));
+        final before = tester.widget<Slider>(slider).value;
+        await tester.drag(slider, const Offset(40, 0));
+        await tester.pumpAndSettle();
+        expect(tester.widget<Slider>(slider).value, greaterThan(before));
+      }
+      expect(tester.takeException(), isNull);
+      expect(tester.getSize(find.byType(SceneView)).height, greaterThan(250));
       await tester.pumpWidget(const SizedBox());
       await tester.runAsync(() => controller.whenDisposed);
       expect(backend.closeCount, 1);

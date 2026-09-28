@@ -407,7 +407,7 @@ attributes are absent. Hemisphere lights provide the diffuse indirect term for
 occlusion checks. The HDR checkpoint adds RGBA16Float scene/resources, terminal
 exposure and Linear/Reinhard/ACES curves through the existing compositor. Shared
 effects preserve HDR precision and reset history when precision changes. See
-[color pipeline](../../design/color-pipeline.md). Task 5 remains open for IBL,
+[color pipeline](../../design/color-pipeline.md). Task 5 remains open for
 shadows and glTF gates listed below. This is not the full PBR profile.
 
 HDR asset checkpoint: `HdrImageData`, `HdrImageLoader` and native RGBE decoding
@@ -416,7 +416,17 @@ presets include the HDR decoder. All eight orientations, bounded RLE parsing,
 aggregate asset budgets, cancellation and finite half-float conversion have
 regressions. Metal and Pixel Vulkan verify upload, mip generation and compute
 sampling. See [HDR assets](../../design/hdr-assets.md) for the supported file
-profile. Environment filtering, BRDF integration and PBR bindings remain open.
+profile.
+
+Environment checkpoint: `EnvironmentMap` prepares diffuse irradiance/pi, GGX
+specular levels and a correlated-Smith BRDF lookup through core compute graphs.
+`EnvironmentLighting` owns per-view preparation, retains the current map after
+failure and publishes replacements between frames. Intensity and rotation
+update without reuploading images. Native frame envelopes bind the scoped maps
+to standard materials. Tests cover analytic directional convolution, independent
+BRDF quadrature, HDR radiance, material pixels and resource lifetime. See
+[environment lighting](../../design/environment-lighting.md) for the supported
+profile and its single-scattering approximation.
 
 **Files:** Create core `materials/standard_material.dart`,
 `lights/{directional,point,spot,hemisphere}_light.dart`; native

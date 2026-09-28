@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:isolate';
 import 'dart:typed_data';
+import '../assets/hdr_image.dart';
+import '../math/quat.dart';
 import '../plugins/attachment_scope.dart';
 import '../rendering/scene_issue.dart';
 import '../rendering/frame_output.dart';
@@ -17,6 +20,9 @@ part '../rendering/history_swap.dart';
 part '../rendering/graph_compiler.dart';
 part '../rendering/graph_validation.dart';
 part '../rendering/mesh_shader.dart';
+part '../lighting/environment_map.dart';
+part '../lighting/environment.dart';
+part '../lighting/environment_shaders.dart';
 
 /// Adapter contract for a single device generation. Keys remain backend-private.
 /// A successful allocation owns one reference. Release waits for GPU retirement.

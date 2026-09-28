@@ -10,6 +10,7 @@ import '../../../packages/gpu3d_native/test/support/pbr_checks.dart';
 import '../../../packages/gpu3d_native/test/support/standard_maps_checks.dart';
 import '../../../packages/gpu3d_native/test/support/hdr_checks.dart';
 import '../../../packages/gpu3d_native/test/support/hdr_asset_checks.dart';
+import '../../../packages/gpu3d_native/test/support/environment_checks.dart';
 import 'effects_test.dart' show waitForFrame;
 
 void main() {
@@ -25,6 +26,7 @@ void main() {
       await verifyStandardMaps(backend);
       await verifyHdr(backend);
       await verifyHdrAsset(backend);
+      await verifyEnvironment(backend);
     } finally {
       await backend.close();
     }
@@ -101,6 +103,19 @@ void main() {
         expect(toggled.readbackBytes, 0);
       }
       expect(tester.takeException(), isNull);
+      await tester.tap(find.byKey(const ValueKey('LightingControls')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Environment').last);
+      await tester.pumpAndSettle();
+      for (final label in ['Sky', 'Rotation']) {
+        await tester.drag(find.byKey(ValueKey(label)), const Offset(40, 0));
+        final frame = await waitForFrame(
+          tester,
+          controller,
+          (frame) => frame.drawCalls == 12 && frame.uploadedBytes == 0,
+        );
+        expect(frame.readbackBytes, 0);
+      }
     } finally {
       await tester.pumpWidget(const SizedBox());
       await controller.whenDisposed;

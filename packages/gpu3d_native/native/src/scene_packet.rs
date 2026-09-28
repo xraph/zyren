@@ -545,6 +545,7 @@ impl ScenePacket {
             retained_textures: self.retained_textures,
         });
         Ok(Frame {
+            environment: None,
             version: 1,
             view_projection: self.view_projection,
             background: self.background,

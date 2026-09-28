@@ -66,5 +66,6 @@ with byte images and geometry. Cancellation prevents late results from reaching
 a closed scope. A running native decode finishes within its limits before its
 storage is released.
 
-Environment convolution and PBR environment bindings remain the next Task 5 work.
-Uploading an HDR texture alone does not add image-based lighting to a scene.
+Use [EnvironmentLighting](environment-lighting.md) to prepare diffuse and
+specular lighting from this image. Uploading an HDR texture alone does not bind
+it to a scene.

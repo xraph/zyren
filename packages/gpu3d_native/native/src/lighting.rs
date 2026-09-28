@@ -193,3 +193,23 @@ impl LightingUniform {
         result
     }
 }
+
+#[derive(Clone, PartialEq)]
+pub struct Environment {
+    pub textures: [crate::resources::registry::ResourceKey; 3],
+    pub intensity: f32,
+    pub rotation: [f32; 4],
+}
+impl Environment {
+    pub fn validate(&self) -> Result<(), String> {
+        let norm = glam::Vec4::from_array(self.rotation).length_squared();
+        if !self.intensity.is_finite()
+            || !(0.0..=1e6).contains(&self.intensity)
+            || !norm.is_finite()
+            || (norm - 1.).abs() > 1e-4
+        {
+            return Err("Invalid environment intensity or rotation".into());
+        }
+        Ok(())
+    }
+}

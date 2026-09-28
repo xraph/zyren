@@ -67,9 +67,16 @@ occlusion/roughness/metallic and emissive images on or off. The maps multiply th
 grid's material factors. Light edits redraw without uploading geometry or images;
 re-enabling released texture maps uploads their pixels again.
 
+An analytic HDR studio panorama supplies environment lighting without a download.
+Select Environment in the header to edit Sky intensity and Rotation. Those edits
+reuse the prepared diffuse and specular maps. See
+[environment lighting](../../docs/design/environment-lighting.md) for image
+loading, quality settings and procedural sources.
+
 The integration checks reference pixels, point falloff, narrow spot cones,
 texture masks, negative scale, emission, resource cleanup and native presentation
 with zero readback. See [standard materials](../../docs/design/standard-materials.md)
 for the implemented parameters and remaining renderer work. `pbr_pixels_test`
-runs the native readback assertions without mounting a window. Keep that result
+runs the native readback assertions, including environment convolution, BRDF
+quadrature and custom-material/effect composition, without mounting a viewport. Keep that result
 separate from `pbr_test`, which also verifies Flutter controls and presentation.

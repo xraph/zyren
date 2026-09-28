@@ -17,6 +17,7 @@ import '../resources/resource_scope.dart';
 import '../resources/texture.dart';
 part 'plugin_graph.dart';
 part 'texture_history.dart';
+part 'environment_binding.dart';
 
 /// Share one exported key instance between a provider and its dependents.
 class ServiceKey<T extends Object> {
@@ -87,6 +88,8 @@ class PluginContext {
   GraphCompiler? _graphs;
 
   FrameGraphBinding? _frameGraph;
+  EnvironmentBinding? _environment;
+  final EnvironmentBinding Function() _claimEnvironment;
   PluginGraph? _graph;
   final _SharedFrameGraph Function() _claimGraph;
   final FrameGraphBinding Function() _claimFrameGraph;
@@ -113,6 +116,7 @@ class PluginContext {
     this.input,
     this._claimFrameGraph,
     this._claimGraph,
+    this._claimEnvironment,
   );
 
   /// Shared preparation and effect contributions, owned by this attachment.
@@ -309,6 +313,16 @@ class SceneEngine {
     _sharedGraph?.invalidateHistory();
   }
 
+  EnvironmentBinding? _environment;
+  EnvironmentBinding _claimEnvironment(String pluginId) {
+    if (_environment != null) {
+      throw StateError(
+        'Plugin $pluginId cannot replace the environment provider.',
+      );
+    }
+    return _environment = EnvironmentBinding._();
+  }
+
   FrameGraphBinding? _frameGraph;
   String? _frameGraphOwner;
   _SharedFrameGraph? _sharedGraph;
@@ -466,6 +480,7 @@ class SceneEngine {
           input,
           () => engine!._claimFrameGraph(plugin.id),
           () => engine!._claimGraph(),
+          () => engine!._claimEnvironment(plugin.id),
         );
         engine._attached.add((plugin, context));
         try {
@@ -676,6 +691,7 @@ class SceneEngine {
           target: target,
           graph: graph ?? _frameGraph?.graph,
           colorPipeline: colorPipeline,
+          environment: _environment?.environment,
         );
         if (_sharedGraph case final shared?) {
           submission = submission.withGraph(

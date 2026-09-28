@@ -128,6 +128,7 @@ class NativeBackend implements NativeGpuBackend {
       RenderFeature.meshShaders,
       RenderFeature.standardMaterials,
       RenderFeature.hdrColor,
+      RenderFeature.environmentLighting,
       RenderFeature.compute,
       RenderFeature.storageTextures,
       if (_experimentalAppleSurfaces && NativeSurfaces().appleAvailable)
