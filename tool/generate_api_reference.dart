@@ -212,11 +212,15 @@ Future<void> main(List<String> args) async {
             if (doc.isNotEmpty) page.writeln('$doc\n');
           }
         }
-        await File('${output.path}/$key.mdx').writeAsString(page.toString());
+        await File(
+          '${output.path}/$key.mdx',
+        ).writeAsString('${page.toString().trimRight()}\n');
       }
       index.writeln();
     }
-    await File('${output.path}/index.mdx').writeAsString(index.toString());
+    await File(
+      '${output.path}/index.mdx',
+    ).writeAsString('${index.toString().trimRight()}\n');
     await File('${output.path}/meta.json').writeAsString(
       '${jsonEncode({
         'title': 'API reference',
