@@ -377,12 +377,11 @@ class GlobeControls extends EnvironmentControls {
       final distanceAlpha = (c.zoom - transition) / (minimum - transition);
       tiltTowardsCenter(.4 * distanceAlpha * deltaAlpha);
       alignCameraUpToNorth(.2 * distanceAlpha * deltaAlpha);
-      final normalized = math.pow(.95, (zoomDelta * .05).abs()).toDouble();
+      final normalized = math
+          .pow(.95, (zoomDelta * .05).abs() * zoomSpeed)
+          .toDouble();
       final factor = zoomDelta > 0 ? 1 / normalized : normalized;
-      final clamped = math.max(
-        factor * zoomSpeed,
-        math.min(minimum / c.zoom, 1),
-      );
+      final clamped = math.max(factor, math.min(minimum / c.zoom, 1));
       c.zoom = math.min(maxZoom, c.zoom * clamped);
       zoomDelta = 0;
       zoomDirectionSet = false;

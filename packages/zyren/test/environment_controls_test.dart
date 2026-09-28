@@ -1,11 +1,68 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 import 'package:test/test.dart';
 import 'package:zyren/zyren.dart';
 
 Vec3 vector(Object? value) =>
     Vec3.array((value as List).cast<num>().map((v) => v.toDouble()).toList());
 void main() {
+  for (final speed in [.5, 1.0, 2.0]) {
+    for (final input in ['wheel', 'pinch']) {
+      for (final zoomIn in [true, false]) {
+        test('orthographic environment $input speed=$speed zoomIn=$zoomIn', () {
+          final camera = OrthographicCamera(position: const Vec3(40, 60, 100));
+          final controls = EnvironmentControls(camera)..enableDamping = true;
+          controls.zoomSpeed = speed;
+          addTearDown(controls.dispose);
+          controls.update(1 / 60);
+          final before = camera.zoom;
+          if (input == 'wheel') {
+            controls.handleWheel(
+              const ViewportPoint(400, 300),
+              zoomIn ? -40 : 40,
+            );
+          } else {
+            void touch(int id, double x, ScenePointerPhase phase) =>
+                controls.handlePointer(
+                  ScenePointerEvent(
+                    point: ViewportPoint(x, 300),
+                    pointer: id,
+                    phase: phase,
+                    buttons: 1,
+                    kind: ScenePointerKind.touch,
+                  ),
+                );
+            touch(1, 350, ScenePointerPhase.down);
+            touch(2, 450, ScenePointerPhase.down);
+            controls.update(1 / 60);
+            touch(1, zoomIn ? 340 : 360, ScenePointerPhase.move);
+            touch(2, zoomIn ? 460 : 440, ScenePointerPhase.move);
+          }
+          controls.update(1 / 60);
+          expect(camera.zoom, zoomIn ? greaterThan(before) : lessThan(before));
+          final exponent = (input == 'wheel' ? .5 : 1.0) * speed;
+          final normalized = math.pow(.95, exponent).toDouble();
+          expect(
+            camera.zoom / before,
+            closeTo(zoomIn ? 1 / normalized : normalized, 1e-12),
+          );
+          // A stationary pinch can still wake a frame; it must not change zoom.
+          final stationary = camera.zoom;
+          controls.wake();
+          controls.update(1 / 60);
+          expect(camera.zoom, stationary);
+          controls.cancel();
+          for (var frame = 0; frame < 30; frame++) {
+            controls.update(1 / 60);
+          }
+          expect(camera.zoom, stationary);
+          expect(controls.needsUpdate, isFalse);
+        });
+      }
+    }
+  }
+
   test('wheel uses its own pointer position without a preceding hover', () {
     final a = PerspectiveCamera(position: const Vec3(40, 60, 100));
     final b = PerspectiveCamera(position: const Vec3(40, 60, 100));

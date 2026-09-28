@@ -282,7 +282,8 @@ class EnvironmentControls {
       updateZoom();
       updatePosition(deltaSeconds);
       updateRotation(deltaSeconds);
-      if (action == EnvironmentState.drag || action == EnvironmentState.rotate) {
+      if (action == EnvironmentState.drag ||
+          action == EnvironmentState.rotate) {
         inertiaTargetDistance = (pivotPoint - camera.position).dot(forward);
       } else if (action == EnvironmentState.none) {
         updateInertia(deltaSeconds);
@@ -427,8 +428,10 @@ class EnvironmentControls {
     final hit = zoomPointSet || updateZoomPoint(), c = camera;
     if (c is OrthographicCamera) {
       final before = pointerRay(point).origin;
-      final normalized = math.pow(.95, (scale * .05).abs()).toDouble();
-      var factor = (scale > 0 ? 1 / normalized : normalized) * zoomSpeed;
+      final normalized = math
+          .pow(.95, (scale * .05).abs() * zoomSpeed)
+          .toDouble();
+      var factor = scale > 0 ? 1 / normalized : normalized;
       if (factor > 1 ? maxZoom < c.zoom * factor : minZoom > c.zoom * factor) {
         factor = 1;
       }
@@ -618,7 +621,10 @@ class EnvironmentControls {
   void rotateAround(Vec3 pivot, Quat rotation) {
     final f = rotation.rotate(forward),
         u = rotation.rotate((-forward).cross(right));
-    final aimDistance = math.max(1.0, camera.target.distanceTo(camera.position));
+    final aimDistance = math.max(
+      1.0,
+      camera.target.distanceTo(camera.position),
+    );
     camera.position = pivot + rotation.rotate(camera.position - pivot);
     camera.target = camera.position + f * aimDistance;
     camera.up = u;

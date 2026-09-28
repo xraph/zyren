@@ -90,7 +90,12 @@ The port keeps an orthonormal camera frame at the top-down tilt limit. Upstream
 can create a non-unit quaternion there, so that boundary has a separate invariant
 test rather than a claim of trajectory parity. Uniform world scale also scales
 horizon distances; nonuniform and sheared frames are rejected. These corrections
-are deliberate. [Native navigation evidence](native-navigation.md) records the
+are deliberate. Orthographic `zoomSpeed` scales the exponent of the zoom factor,
+so positive sensitivity preserves the requested direction and stationary pinches
+keep zoom unchanged. Upstream multiplies the final factor by sensitivity, which
+reverses some inputs at speeds below or above one. Wheel and pinch regressions
+cover speeds 0.5, 1 and 2 in environment and near/far globe controls; all default
+speed replay traces still pass. [Native navigation evidence](native-navigation.md) records the
 macOS integration and the pending mobile checks.
 Full story screenshot comparison remains unrun.
 
