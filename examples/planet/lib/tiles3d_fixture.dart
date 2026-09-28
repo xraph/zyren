@@ -195,7 +195,7 @@ Uint8List _box(double halfWidth, double height, List<double> color) {
   }
   final json = utf8.encode(
     jsonEncode({
-      'asset': {'version': '2.0'},
+      'asset': {'version': '2.0', 'copyright': 'Zyren synthetic buildings'},
       'buffers': [
         {'byteLength': binary.lengthInBytes},
       ],

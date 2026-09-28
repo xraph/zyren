@@ -19,6 +19,8 @@ dependencies:
 
   shader_lab:
     path: ../shader_lab
+  html: ^0.15.7
+  url_launcher: ^6.3.2
 
 dev_dependencies:
   zyren:

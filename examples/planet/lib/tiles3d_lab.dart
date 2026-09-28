@@ -5,6 +5,7 @@ import 'package:flutter_zyren/flutter_zyren.dart';
 import 'package:flutter_zyren/widgets.dart' as widgets;
 import 'package:zyren_3d_tiles/zyren_3d_tiles.dart';
 import 'tiles3d_fixture.dart';
+import 'tile_attribution_bar.dart';
 import 'zero_state.dart';
 
 void main() => runApp(const Tiles3DLabApp());
@@ -216,6 +217,7 @@ class Tiles3DLabState extends State<Tiles3DLab> {
                           ZeroState(error: issue, onRetry: retry),
                     ),
             ),
+            TileAttributionBar(tileCredits: tiles?.attributions ?? const []),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               child: Wrap(

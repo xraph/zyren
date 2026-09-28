@@ -47,6 +47,8 @@ void main() {
             lab.tiles!.stats!.activeRequests == 0,
       );
       final count = lab.tiles!.visibleTileIds.length;
+      expect(lab.tiles!.attributions, ['Zyren synthetic buildings']);
+      expect(find.text('Data sources'), findsOneWidget);
       await tester.pump(const Duration(milliseconds: 250));
       expect(find.text('$count tiles · 0 loading'), findsOneWidget);
       await tester.tap(find.text('Overview'));
@@ -76,6 +78,13 @@ void main() {
       await tester.binding.setSurfaceSize(const Size(390, 700));
       await until(() => frames > before);
       expect(tester.takeException(), isNull);
+      await tester.tap(find.text('Data sources'));
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pump();
+      expect(find.text('Zyren synthetic buildings'), findsWidgets);
+      await tester.tap(find.text('Close'));
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pump();
       expect(tester.getSize(find.byType(SceneView)).height, greaterThan(430));
       debugPrint(
         '3D Tiles native: $count detail tiles, $frames frame samples.',
