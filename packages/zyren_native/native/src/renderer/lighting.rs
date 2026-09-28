@@ -3,7 +3,7 @@ use super::*;
 pub(super) fn layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
         label: Some("physical material and lights"),
-        entries: &[32, 1312]
+        entries: &[64, 1312]
             .into_iter()
             .enumerate()
             .map(|(binding, size)| wgpu::BindGroupLayoutEntry {
@@ -51,7 +51,35 @@ impl Renderer {
             .iter()
             .map(|mesh| {
                 mesh.pbr.map(|p| {
-                    let values = [p[0], p[1], p[2], 0., p[3], p[4], p[5], 0.];
+                    let mut flags = u32::from(mesh.color_map.is_some());
+                    for (i, map) in mesh.pbr_maps.iter().enumerate() {
+                        if map.is_some() {
+                            flags |= 1 << (i + 1);
+                        }
+                    }
+                    let uv: Vec<_> = mesh
+                        .pbr_maps
+                        .iter()
+                        .map(|map| map.as_ref().map_or(0., |m| m.uv_set as f32))
+                        .collect();
+                    let values = [
+                        p[0],
+                        p[1],
+                        p[2],
+                        0.,
+                        p[3],
+                        p[4],
+                        p[5],
+                        0.,
+                        mesh.pbr_scales[0],
+                        mesh.pbr_scales[1],
+                        mesh.pbr_scales[2],
+                        flags as f32,
+                        uv[0],
+                        uv[1],
+                        uv[2],
+                        uv[3],
+                    ];
                     let buffer =
                         self.device
                             .create_buffer_init(&wgpu::util::BufferInitDescriptor {

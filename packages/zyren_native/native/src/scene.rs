@@ -141,6 +141,10 @@ pub struct Mesh {
     pub shader: Option<[u64; 4]>,
     #[serde(default)]
     pub pbr: Option<[f32; 6]>,
+    #[serde(default)]
+    pub pbr_maps: [Option<ColorMap>; 4],
+    #[serde(default = "pbr_scales")]
+    pub pbr_scales: [f32; 3],
     #[serde(default = "one")]
     pub opacity: f32,
     #[serde(default = "half")]
@@ -159,6 +163,9 @@ pub struct Mesh {
     pub size_units: u32,
     #[serde(default)]
     pub point_shape: u32,
+}
+fn pbr_scales() -> [f32; 3] {
+    [1.; 3]
 }
 fn one() -> f32 {
     1.
@@ -181,6 +188,8 @@ impl Default for Mesh {
             side: 0,
             shader: None,
             pbr: None,
+            pbr_maps: Default::default(),
+            pbr_scales: pbr_scales(),
             opacity: 1.,
             alpha_cutoff: 0.5,
             depth_test: true,
@@ -194,10 +203,23 @@ impl Default for Mesh {
     }
 }
 impl Mesh {
+    pub fn material_maps(&self) -> impl Iterator<Item = &ColorMap> {
+        self.color_map.iter().chain(self.pbr_maps.iter().flatten())
+    }
     pub fn writes_depth(&self) -> bool {
         self.depth_write.unwrap_or(self.alpha_mode != 2)
     }
     pub fn validate_material(&self) -> Result<(), String> {
+        if (self.pbr.is_none() && self.pbr_maps.iter().any(Option::is_some))
+            || self.pbr_scales.iter().any(|v| !v.is_finite())
+            || self.pbr_scales[..2].iter().any(|v| v.abs() > 1e6)
+            || !(0.0..=1.).contains(&self.pbr_scales[2])
+        {
+            return Err("Invalid PBR maps or scales".into());
+        }
+        for map in self.material_maps() {
+            map.validate()?;
+        }
         if let Some(p) = self.pbr
             && (self.shader.is_some()
                 || self.primitive_kind != 0

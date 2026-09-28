@@ -86,6 +86,8 @@ pub struct RendererState {
     effects: effects::Effects,
     texture_layout: wgpu::BindGroupLayout,
     pbr_layout: wgpu::BindGroupLayout,
+    pbr_texture_layout: wgpu::BindGroupLayout,
+    pbr_white: wgpu::Texture,
     textures: HashMap<u32, textures::GpuSceneTexture>,
     #[cfg(any(target_vendor = "apple", target_os = "android"))]
     surface_depth: Option<DepthTarget>,
@@ -183,8 +185,15 @@ impl Renderer {
         });
         let texture_layout = textures::layout(&device);
         let pbr_layout = lighting::layout(&device);
-        let pipelines =
-            pipelines::MeshPipelines::new(&device, &layout, &texture_layout, &pbr_layout);
+        let pbr_texture_layout = textures::pbr_layout(&device);
+        let pbr_white = textures::white(&device, &queue);
+        let pipelines = pipelines::MeshPipelines::new(
+            &device,
+            &layout,
+            &texture_layout,
+            &pbr_layout,
+            &pbr_texture_layout,
+        );
         Ok(Self {
             state: Some(Box::new(RendererState {
                 device,
@@ -201,6 +210,8 @@ impl Renderer {
                 effects: effects::Effects::default(),
                 texture_layout,
                 pbr_layout,
+                pbr_texture_layout,
+                pbr_white,
                 textures: HashMap::new(),
                 #[cfg(any(target_vendor = "apple", target_os = "android"))]
                 surface_depth: None,
@@ -549,7 +560,7 @@ impl Renderer {
                 retained_textures: frame
                     .meshes
                     .iter()
-                    .filter_map(|m| m.color_map.as_ref().map(|map| map.texture))
+                    .flat_map(|m| m.material_maps().map(|map| map.texture))
                     .collect(),
             });
         self.views.insert(view, state);
@@ -633,7 +644,13 @@ impl Renderer {
         let texture_bindings: Vec<_> = frame
             .meshes
             .iter()
-            .map(|mesh| mesh.color_map.as_ref().map(|map| self.texture_binding(map)))
+            .map(|mesh| {
+                if mesh.pbr.is_some() {
+                    Some(self.pbr_texture_binding(mesh))
+                } else {
+                    mesh.color_map.as_ref().map(|map| self.texture_binding(map))
+                }
+            })
             .collect();
         let mut encoder = self.device.create_command_encoder(&Default::default());
         {
@@ -677,7 +694,9 @@ impl Renderer {
                     self.resources.geometry(geometry.key);
                 pass.set_vertex_buffer(0, vertices.slice(..));
                 if let Some(binding) = texture_binding {
-                    pass.set_vertex_buffer(1, uv.expect("validated UV buffer").slice(..));
+                    if mesh.material_maps().next().is_some() {
+                        pass.set_vertex_buffer(1, uv.expect("validated UV buffer").slice(..));
+                    }
                     pass.set_bind_group(if mesh.pbr.is_some() { 2 } else { 1 }, binding, &[]);
                 }
                 if let Some(binding) = &lighting[index] {

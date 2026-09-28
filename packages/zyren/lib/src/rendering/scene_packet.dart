@@ -110,8 +110,7 @@ final class ScenePacketEncoder {
     );
     final visibleTextures = {
       for (final mesh in scene._meshes)
-        if ((mesh['colorMap'] as List).isNotEmpty)
-          (mesh['colorMap'] as List).first as int,
+        ...(mesh['allImages'] as List).cast<int>(),
     };
     final textures = [
       for (final id in visibleTextures)
@@ -159,7 +158,7 @@ final class ScenePacketEncoder {
     final opcode =
         (scene._lights.isNotEmpty ||
             scene._meshes.any((m) => (m['pbr'] as List).isNotEmpty))
-        ? 20
+        ? 21
         : scene._settings.enabled
         ? 19
         : scene._meshes.any((m) => m.containsKey('shader'))
@@ -319,6 +318,10 @@ final class ScenePacketEncoder {
         final pbr = (mesh['pbr'] as List).cast<double>();
         body.u32(pbr.isEmpty ? 0 : 1);
         body.floats(pbr);
+        if (opcode >= 21) {
+          body.integers((mesh['pbrMaps'] as List).cast<int>());
+          body.floats((mesh['pbrScales'] as List).cast<double>());
+        }
       }
     }
     final payload = body.finish();
@@ -400,7 +403,14 @@ bool _sameMesh(Map<String, Object> a, Map<String, Object> b) {
   ]) {
     if (a[field] != b[field]) return false;
   }
-  for (final field in ['model', 'color', 'colorMap', 'pbr']) {
+  for (final field in [
+    'model',
+    'color',
+    'colorMap',
+    'pbr',
+    'pbrMaps',
+    'pbrScales',
+  ]) {
     final left = a[field] as List, right = b[field] as List;
     if (left.length != right.length) return false;
     for (var i = 0; i < left.length; i++) {

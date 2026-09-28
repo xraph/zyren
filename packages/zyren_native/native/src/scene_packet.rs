@@ -72,7 +72,7 @@ impl ScenePacket {
             return Err("unsupported scene packet".into());
         }
         let opcode = r.u32()?;
-        if !(10..=20).contains(&opcode) {
+        if !(10..=21).contains(&opcode) {
             return Err("unsupported scene packet".into());
         }
         let textured = opcode >= 11;
@@ -395,6 +395,20 @@ impl ScenePacket {
                     1 => Some(r.floats()?),
                     _ => return Err("Invalid PBR flag".into()),
                 };
+                if opcode >= 21 {
+                    for map in &mut mesh.pbr_maps {
+                        *map = match r.u32()? {
+                            0 => None,
+                            1 => Some(ColorMap {
+                                texture: r.u32()?,
+                                uv_set: r.u32()?,
+                                sampler: [r.u32()?, r.u32()?, r.u32()?, r.u32()?, r.u32()?],
+                            }),
+                            _ => return Err("Invalid PBR map flag".into()),
+                        };
+                    }
+                    mesh.pbr_scales = r.floats()?;
+                }
                 mesh.validate_material()?;
             }
             updates.push((index, mesh));
@@ -446,9 +460,8 @@ impl ScenePacket {
             return Err("visible geometry must be retained by its view".into());
         }
         if meshes.iter().any(|m| {
-            m.color_map
-                .as_ref()
-                .is_some_and(|map| !self.retained_textures.contains(&map.texture))
+            m.material_maps()
+                .any(|map| !self.retained_textures.contains(&map.texture))
         }) {
             return Err("visible textures must be owned by the view".into());
         }

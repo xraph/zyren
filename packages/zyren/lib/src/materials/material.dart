@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import '../math/color3.dart';
 import '../resources/texture_image.dart';
+import '../resources/texture.dart' show TextureFormat;
 import '../resources/resource_scope.dart'
     show MeshShader, PostProcessDescriptor;
 part 'primitives.dart';

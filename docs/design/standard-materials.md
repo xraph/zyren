@@ -1,7 +1,7 @@
 # Standard materials and physical lights
 
 `StandardMaterial` shades a linear base color with metallic and roughness factors,
-a base-color texture and emissive radiance. It supports the shared side, mask,
+base-color, normal, metallic/roughness, occlusion and emissive textures. It supports the shared side, mask,
 blend and depth policies. Standard materials automatically enable the HDR scene
 path. Choose a tone-mapping curve in `scene.renderSettings` to retain highlights
 above one in the displayed image.
@@ -42,7 +42,16 @@ spot cutoff, hemisphere irradiance, emission, base-color textures, mirrored
 transforms, masks and premultiplied transparency. Light and material edits are
 captured per frame; invalid parameter values fail before native upload.
 
-Normal, metallic/roughness, occlusion and emissive maps, environment lighting,
-shadows, and standard glTF material loading remain the next renderer stage.
+Normal, metallic/roughness and occlusion maps require linear RGBA8 storage.
+The metallic/roughness texture uses green for roughness and blue for metallic;
+occlusion uses red and affects indirect light only. Emissive textures multiply
+the material's emission and can use sRGB storage. Each map chooses UV0 or UV1.
+`normalScaleX` and `normalScaleY` control the tangent-space normal components,
+and `occlusionStrength` blends between no occlusion and the sampled value.
+
+Normal mapping currently derives its tangent frame from position and UV
+screen derivatives, including mirrored geometry. Degenerate UVs keep the surface
+normal. Explicit tangent attributes, environment lighting, shadows and standard
+glTF material loading remain the next renderer stage.
 Standard glTF mode continues to reject unsupported PBR profiles until those
 fixtures pass. Mobile PBR qualification is also pending.

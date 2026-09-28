@@ -124,13 +124,30 @@ class SceneSnapshot {
         final geometry = node.geometry.capture();
         geometries[geometry.id] = geometry;
         final map = node.material.colorMap;
-        if (map != null) textures[map.image.id] = map.image;
+        final standard = node.material is StandardMaterial
+            ? node.material as StandardMaterial
+            : null;
+        final extraMaps = [
+          standard?.normalMap,
+          standard?.metallicRoughnessMap,
+          standard?.occlusionMap,
+          standard?.emissiveMap,
+        ];
+        final maps = [map, ...extraMaps].nonNulls;
+        for (final entry in maps) {
+          textures[entry.image.id] = entry.image;
+        }
         if (visible) {
-          if (map != null &&
-              (map.uvSet == 0 ? node.geometry.uv0 : node.geometry.uv1) ==
-                  null) {
-            throw ArgumentError('The color map requires UV set ${map.uvSet}.');
+          for (final entry in maps) {
+            if ((entry.uvSet == 0 ? node.geometry.uv0 : node.geometry.uv1) ==
+                null) {
+              throw ArgumentError(
+                'Material map requires UV set ${entry.uvSet}.',
+              );
+            }
           }
+        }
+        if (visible) {
           final relative = world.clone()
             ..setTranslation(
               world.getTranslation() - camera.position.toVectorMath(),
@@ -153,6 +170,18 @@ class SceneSnapshot {
                   'size_units': node.material.sizeUnits.index,
                   'point_shape': node.material.pointShape.index,
                   'colorMap': map?.toPacket() ?? <int>[],
+                  'allImages': maps.map((entry) => entry.image.id).toList(),
+                  'pbrMaps': [
+                    for (final entry in extraMaps) ...[
+                      entry == null ? 0 : 1,
+                      ...?entry?.toPacket(),
+                    ],
+                  ],
+                  'pbrScales': [
+                    standard?.normalScaleX ?? 1.0,
+                    standard?.normalScaleY ?? 1.0,
+                    standard?.occlusionStrength ?? 1.0,
+                  ],
                   'shader': ?shader,
                   'pbr': node.material is StandardMaterial
                       ? [
@@ -260,7 +289,10 @@ class FrameSubmission {
             for (final mesh in scene._meshes)
               Map<String, Object>.from(mesh)
                 ..remove('colorMap')
-                ..remove('pbr'),
+                ..remove('pbr')
+                ..remove('pbrMaps')
+                ..remove('pbrScales')
+                ..remove('allImages'),
           ],
         })
         as Map<String, Object>;

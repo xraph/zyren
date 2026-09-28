@@ -20,7 +20,7 @@ impl PipelineKey {
         Self {
             format,
             shader: mesh.shader,
-            textured: mesh.color_map.is_some(),
+            textured: mesh.material_maps().next().is_some(),
             standard: mesh.pbr.is_some(),
             side: mesh.side,
             mirrored: mesh.primitive_kind == 0
@@ -47,17 +47,18 @@ impl MeshPipelines {
         layout: &wgpu::BindGroupLayout,
         texture_layout: &wgpu::BindGroupLayout,
         pbr_layout: &wgpu::BindGroupLayout,
+        pbr_texture_layout: &wgpu::BindGroupLayout,
     ) -> Self {
         Self {
             standard_shader: device.create_shader_module(wgpu::include_wgsl!("pbr.wgsl")),
             standard_plain: device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("standard"),
-                bind_group_layouts: &[Some(layout), Some(pbr_layout)],
+                bind_group_layouts: &[Some(layout), Some(pbr_layout), Some(pbr_texture_layout)],
                 ..Default::default()
             }),
             standard_textured: device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("standard textured"),
-                bind_group_layouts: &[Some(layout), Some(pbr_layout), Some(texture_layout)],
+                bind_group_layouts: &[Some(layout), Some(pbr_layout), Some(pbr_texture_layout)],
                 ..Default::default()
             }),
             shader: device.create_shader_module(wgpu::ShaderModuleDescriptor {
