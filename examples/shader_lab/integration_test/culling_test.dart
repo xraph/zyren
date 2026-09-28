@@ -10,6 +10,7 @@ void main() {
   testWidgets(
     'native culling switches draws while retaining shared resources',
     (tester) async {
+      final semantics = tester.ensureSemantics();
       await tester.pumpWidget(const CullingLabApp());
       final controller = tester
           .widget<SceneView>(find.byType(SceneView))
@@ -74,7 +75,7 @@ void main() {
         final focused = await waitForFrame(
           tester,
           controller,
-          (frame) => frame.drawCalls > 0 && frame.drawCalls < 5,
+          (frame) => frame.drawCalls > 0 && frame.drawCalls < fitted.drawCalls,
         );
         expect(focused.uploadedBytes, 0);
         expect(focused.readbackBytes, 0);
@@ -82,7 +83,7 @@ void main() {
         await waitForFrame(
           tester,
           controller,
-          (frame) => frame.drawCalls > 0 && frame.drawCalls < 5,
+          (frame) => frame.drawCalls > 0 && frame.drawCalls < fitted.drawCalls,
         );
         expect(controller.camera, isA<PerspectiveCamera>());
         final beforeOrbit = controller.camera.position;
@@ -115,12 +116,12 @@ void main() {
         expect(find.text('Scene inspector'), findsOneWidget);
         expect(find.text('Last frame $idleFrame'), findsOneWidget);
         expect(find.textContaining('readback 0 B'), findsOneWidget);
-        await tester.enterText(find.byType(TextField), 'Box 30');
+        await tester.enterText(find.byType(TextField), 'Box 31');
         await tester.pump();
         await tester.tap(
           find.descendant(
             of: find.byType(ListTile),
-            matching: find.text('Box 30'),
+            matching: find.text('Box 31'),
           ),
         );
         await tester.pump();
@@ -136,10 +137,17 @@ void main() {
         );
         await tester.tap(find.byTooltip('Close inspector'));
         await tester.pumpAndSettle();
+        expect(
+          tester.semantics.simulatedAccessibilityTraversal().map(
+            (node) => node.label,
+          ),
+          contains('Camera culling'),
+        );
         expect(controller.isDisposed, isFalse);
         expect(controller.latestFrameStats!.frameId, idleFrame);
         expect(tester.takeException(), isNull);
       } finally {
+        semantics.dispose();
         await subscription.cancel();
         await tester.pumpWidget(const SizedBox());
         await controller.whenDisposed;

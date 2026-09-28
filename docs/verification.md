@@ -2262,3 +2262,28 @@ Manager adoption for the Apple plugin also remains open.
 This closes task 7's camera, picking, controls and inspector acceptance gates.
 HDR effects/antialiasing, remaining asset and core breadth, full Takram plugin
 parity, platform qualification and release packaging remain in scope.
+
+## Inspector modal follow-up, 28 September 2026
+
+The culling lab hosts inspection in a nonmodal panel over the canvas. Its close
+button, Escape and back navigation return keyboard focus to **Inspect scene**.
+Selection status stays on one line so an initial selection does not resize the
+viewport. Inspection keeps the current presented frame; framing is explicit.
+
+Live macOS inspection found AXTree errors after selecting an object and closing
+the original drawer. A minimal Flutter drawer passed, but the actual inspector
+reproduced the error with its native view removed. Excluding native-view semantics
+and adding a body semantics boundary did not resolve it. Those experimental
+changes were discarded; this follow-up changes the demo host only.
+
+All 100 facade, inspector and demo cases pass, including desktop/narrow layouts,
+close/Escape/back navigation, focus restoration and stable viewport dimensions.
+Semantic traversal keeps the main content available while inspection is open.
+The native Metal integration passes with semantics enabled and checks unchanged
+frame IDs when selecting a different mesh through inspection. Camera framing now
+compares against the full-scene draw count because wider windows can legitimately
+show more neighboring meshes. Analysis, formatting and package boundaries pass.
+
+The macOS release builds at 56.1 MB and the Android arm64 APK at 24.5 MB.
+The Mac locked before manual verification of the revised panel, so repeated live
+open/select/close cycles and the final AXTree log check remain pending. The native integration does not establish that result.
