@@ -10,6 +10,7 @@ import 'support/pbr_fixture.dart';
 
 class TestTangents implements TangentGenerator {
   int calls = 0, selectedUv = -1;
+  bool omitMorphTangents = false;
   GeometryData? input;
   final entered = Completer<void>();
   Completer<void>? gate;
@@ -26,10 +27,14 @@ class TestTangents implements TangentGenerator {
     if (!entered.isCompleted) entered.complete();
     await gate?.future;
     if (failure case final error?) throw error;
+    final corners = Float32List.fromList([
+      for (var i = 0; i < geometry.indices.length; i++) ...[1, 0, 0, 1],
+    ]);
     return geometry.withCornerTangents(
-      Float32List.fromList([
-        for (var i = 0; i < geometry.indices.length; i++) ...[1, 0, 0, 1],
-      ]),
+      corners,
+      morphTangents: omitMorphTangents
+          ? null
+          : [for (final _ in geometry.morphTargets) corners],
       limits: limits,
     );
   }
@@ -60,7 +65,37 @@ Uint8List normalMapped({
 );
 
 void main() {
-  test('normal-mapped morphs require authored tangent seams', () async {
+  test(
+    'custom generators cannot silently omit generated morph tangents',
+    () async {
+      final generator = TestTangents()..omitMorphTangents = true;
+      final source = editModel(normalMapped(), (root) {
+        final primitive = (root['meshes'] as List).first['primitives'][0];
+        primitive['targets'] = [
+          {'POSITION': primitive['attributes']['POSITION']},
+        ];
+      });
+      final scope = scopeFor(
+        ImageSources(source),
+        Images(),
+        tangentGenerator: generator,
+      );
+      await expectLater(
+        scope.load(Gltf.asset('morph.glb')).result,
+        throwsA(
+          isA<AssetLoadException>()
+              .having((e) => e.code, 'code', AssetLoadError.decodeFailed)
+              .having(
+                (e) => e.fieldPath,
+                'path',
+                endsWith('attributes.TANGENT'),
+              ),
+        ),
+      );
+    },
+  );
+
+  test('normal-mapped morphs generate missing target tangent seams', () async {
     for (final authored in [false, true]) {
       final generator = TestTangents();
       final source = editModel(normalMapped(authored: authored), (root) {
@@ -74,29 +109,15 @@ void main() {
         Images(),
         tangentGenerator: generator,
       );
-      final result = scope.load(Gltf.asset('morph.glb')).result;
-      if (authored) {
-        final model = await result;
-        expect(onlyMesh(model).geometry.morphTargets, hasLength(1));
-      } else {
-        await expectLater(
-          result,
-          throwsA(
-            isA<AssetLoadException>()
-                .having(
-                  (e) => e.code,
-                  'code',
-                  AssetLoadError.unsupportedFeature,
-                )
-                .having(
-                  (e) => e.fieldPath,
-                  'path',
-                  endsWith('attributes.TANGENT'),
-                ),
-          ),
+      final model = await scope.load(Gltf.asset('morph.glb')).result;
+      expect(onlyMesh(model).geometry.morphTargets, hasLength(1));
+      if (!authored) {
+        expect(
+          onlyMesh(model).geometry.morphTargets.single.tangents,
+          isNotNull,
         );
       }
-      expect(generator.calls, 0);
+      expect(generator.calls, authored ? 0 : 1);
     }
   });
 

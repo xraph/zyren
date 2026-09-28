@@ -51,10 +51,12 @@ extension TangentPreparation on AssetDecodeContext {
         );
       }
       cancellation.throwIfCancelled();
-      if (!result.attributes.containsKey(VertexSemantic.tangent)) {
+      if (!result.attributes.containsKey(VertexSemantic.tangent) ||
+          result.morphTargets.length != geometry.morphTargets.length ||
+          result.morphTargets.any((target) => target.tangents == null)) {
         throw AssetLoadException(
           AssetLoadError.decodeFailed,
-          'The tangent generator returned geometry without tangents.',
+          'The tangent generator must return base tangents and generated deltas for every morph target.',
           sourceUri: sourceUri,
           fieldPath: fieldPath,
         );

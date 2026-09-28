@@ -57,6 +57,54 @@ GeometryData mirroredQuad() => GeometryData(
 );
 
 void main() {
+  test('morph-only tangent seams refine the shared base partition', () {
+    final original = mirroredQuad();
+    final source = GeometryData(
+      attributes: original.attributes,
+      indices: original.indices,
+      morphTargets: [MorphTarget(name: 'bend', positions: List.filled(12, 0))],
+    );
+    final base = Float32List.fromList([
+      for (var i = 0; i < 6; i++) ...[1, 0, 0, 1],
+    ]);
+    final target = Float32List.fromList([
+      for (var i = 0; i < 3; i++) ...[1, 0, 0, 1],
+      for (var i = 0; i < 3; i++) ...[0, 1, 0, -1],
+    ]);
+    final result = source.withCornerTangents(base, morphTangents: [target]);
+    expect(result.layout.vertexCount, 6);
+    expect(result.indices, [0, 1, 2, 3, 4, 5]);
+    expect(result.morphTargets.single.name, 'bend');
+    expect(result.morphTargets.single.tangents, [
+      for (var i = 0; i < 3; i++) ...[0, 0, 0],
+      for (var i = 0; i < 3; i++) ...[-1, 1, 0],
+    ]);
+    expect(result.attributes[VertexSemantic.tangent]!.data, [
+      for (var i = 0; i < 6; i++) ...[1, 0, 0, 1],
+    ]);
+    expect(result.attributes[VertexSemantic.joints]!.data, [
+      for (final i in [0, 1, 2, 0, 2, 3]) ...[i, 2, 3, 4],
+    ]);
+    expect(
+      () => source.withCornerTangents(
+        base,
+        morphTangents: [target],
+        limits: TangentGenerationLimits(maxOutputBytes: result.byteLength - 1),
+      ),
+      throwsA(isA<TangentGenerationException>()),
+    );
+    expect(
+      () => source.withCornerTangents(base, morphTangents: []),
+      throwsA(isA<TangentGenerationException>()),
+    );
+    target[0] = double.nan;
+    expect(result.morphTargets.single.tangents!.first, 0);
+    expect(
+      () => source.withCornerTangents(base, morphTangents: [target]),
+      throwsA(isA<TangentGenerationException>()),
+    );
+  });
+
   test(
     'tangent seam remapping preserves morph targets and includes their byte budget',
     () {

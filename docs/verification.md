@@ -1793,3 +1793,44 @@ expected draw count. Both targets passed with that fix. macOS still reported a
 foreground failure, so desktop interaction and Android release-screen inspection
 remain unverified. The final Pixel release build was 25.9 MB and launched the imported deformation
 example. Its error-level process log was empty when checked.
+
+
+## Generated morph tangents, 28 September 2026
+
+Normal-mapped glTF morphs no longer require authored base tangents. The native
+CPU worker runs MikkTSpace for the base and each changed position/normal pose,
+preserves seams introduced by any target, and writes tangent XYZ deltas. The
+loader checks that a custom generator returns every target's tangent stream.
+The base handedness remains fixed, matching glTF's three-component morph format.
+
+The working limit includes FFI attribute arrays and retained corner streams,
+with the remainder reserved for native scratch. Iteration limits are shared
+across the pose passes. Zero-delta targets reuse the base stream. Tests cover
+normal-only targets, invalid poses, output bounds and recovery after failures.
+Input/output geometry copies and remapping tables remain outside this payload
+budget. This is not a process-memory ceiling.
+
+Checks passed: 379 core, glTF and geospatial Dart cases, 88 serial native GPU
+cases, seven viewer cases, analysis, formatting, package boundaries and the
+Apple ABI header check. There are no Rust source changes in this checkpoint.
+The native pixel test compares a full morph weight with independently generated
+absolute-pose tangents, covers UV0/UV1 and generated flat normals, and confirms
+that omitting morph tangent deltas causes a visible mismatch. Intermediate and
+negative weights match explicit CPU reference geometry.
+
+Metal and physical Pixel Vulkan integration checks pass for both imported
+ribbon samples. The new Skin + normal map sample has width and twist targets,
+generated tangents and independent skins. Presentation reads back zero bytes,
+a changed two-joint pose uploads 400 bytes, and pausing releases frame demand.
+Both authored GLB fixtures regenerate byte-for-byte. The standalone Metal
+capture at `artifacts/gltf-morph-normal.png` was visually inspected; it shows two
+displaced, shaded ribbons and uses explicit readback.
+
+macOS still reports a foreground failure. Desktop interaction and Android
+release-screen inspection remain unverified. Windows, Linux and physical iOS
+qualification, the remaining animation semantics, broader core rendering and
+full Three.js/Takram parity remain open. Task 6 stays unchecked.
+
+The 26.0 MB Android release launched the normal-mapped deformation sample on
+the Pixel. Its process was confirmed and the error-level process log was empty
+when checked. The release remains running for inspection.

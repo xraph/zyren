@@ -5,7 +5,8 @@ import 'package:gpu3d/gpu3d.dart';
 import 'package:model_viewer/deformation_scene.dart';
 
 // Authored ribbons with shared source geometry and independent joint hierarchies.
-void main() {
+void main(List<String> args) {
+  final normalMapped = args.contains('--normal-map');
   final geometry = deformationRibbon();
   final bytes = BytesBuilder();
   final views = <Map<String, Object?>>[], accessors = <Map<String, Object?>>[];
@@ -59,6 +60,48 @@ void main() {
 
   final position = accessor(geometry.positions, 'VEC3', 3, bounds: true);
   final normal = accessor(geometry.normals, 'VEC3', 3);
+  final uv = normalMapped
+      ? accessor(
+          [
+            for (var i = 0; i < geometry.vertexCount; i++) ...[
+              (geometry.positions[i * 3] + .27) / .54,
+              (geometry.positions[i * 3 + 1] + .9) / 1.8,
+            ],
+          ],
+          'VEC2',
+          2,
+        )
+      : null;
+  final twist = normalMapped
+      ? accessor(
+          [
+            for (var i = 0; i < geometry.vertexCount; i++) ...[
+              0,
+              0,
+              geometry.positions[i * 3] * geometry.positions[i * 3 + 1] * 1.5,
+            ],
+          ],
+          'VEC3',
+          3,
+          bounds: true,
+        )
+      : null;
+  final twistNormals = normalMapped
+      ? accessor(
+          [
+            for (var i = 0; i < geometry.vertexCount; i++)
+              ...(Vec3(
+                        -1.5 * geometry.positions[i * 3 + 1],
+                        -1.5 * geometry.positions[i * 3],
+                        1,
+                      ).normalized() -
+                      const Vec3(0, 0, 1))
+                  .storage,
+          ],
+          'VEC3',
+          3,
+        )
+      : null;
   final joints = accessor(
     geometry.attributes[VertexSemantic.joints]!.data as List<int>,
     'VEC4',
@@ -94,7 +137,11 @@ void main() {
     'VEC4',
     4,
   );
-  final morphAnimation = accessor([0, 1, 0, -.3, 0], 'SCALAR', 1);
+  final morphAnimation = accessor(
+    normalMapped ? [0, 0, 1, 1, 0, 0, -.3, -.5, 0, 0] : [0, 1, 0, -.3, 0],
+    'SCALAR',
+    1,
+  );
   final root = <String, Object?>{
     'asset': {
       'version': '2.0',
@@ -105,9 +152,22 @@ void main() {
     ],
     'bufferViews': views,
     'accessors': accessors,
+    if (normalMapped) ...{
+      // Authored tangent-space +Y normal. No base or target tangents are stored.
+      'images': [
+        {
+          'uri':
+              'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNo+N/wHwAHAQL/Jx/KFwAAAABJRU5ErkJggg==',
+        },
+      ],
+      'textures': [
+        {'source': 0},
+      ],
+    },
     'materials': [
       {
         'doubleSided': true,
+        if (normalMapped) 'normalTexture': {'index': 0, 'scale': .4},
         'pbrMetallicRoughness': {
           'baseColorFactor': [.1, .65, 1, 1],
           'metallicFactor': 0,
@@ -118,15 +178,16 @@ void main() {
     'meshes': [
       {
         'name': 'Ribbon',
-        'weights': [0],
+        'weights': [0, if (normalMapped) 0],
         'extras': {
-          'targetNames': ['width'],
+          'targetNames': ['width', if (normalMapped) 'twist'],
         },
         'primitives': [
           {
             'attributes': {
               'POSITION': position,
               'NORMAL': normal,
+              if (normalMapped) 'TEXCOORD_0': uv,
               'JOINTS_0': joints,
               'WEIGHTS_0': weights,
             },
@@ -134,6 +195,7 @@ void main() {
             'material': 0,
             'targets': [
               {'POSITION': morph},
+              if (normalMapped) {'POSITION': twist, 'NORMAL': twistNormals},
             ],
           },
         ],
@@ -164,7 +226,7 @@ void main() {
       {
         'mesh': 0,
         'skin': 1,
-        'weights': [.3],
+        'weights': [.3, if (normalMapped) .4],
       },
       {
         'translation': [0, -.9, 0],
@@ -192,13 +254,13 @@ void main() {
     ],
     'scenes': [
       {
-        'name': 'Skinned ribbons',
+        'name': normalMapped ? 'Normal-mapped ribbons' : 'Skinned ribbons',
         'nodes': [0],
       },
     ],
     'animations': [
       {
-        'name': 'Bend and width',
+        'name': normalMapped ? 'Bend, width and twist' : 'Bend and width',
         'samplers': [
           {'input': time, 'output': rotation},
           {'input': time, 'output': morphAnimation},
@@ -234,5 +296,7 @@ void main() {
   output.fillRange(20, 20 + jsonLength, 0x20);
   output.setRange(20, 20 + json.length, json);
   output.setRange(28 + jsonLength, output.length, bytes.takeBytes());
-  File('assets/models/deformation.glb').writeAsBytesSync(output);
+  File(
+    'assets/models/${normalMapped ? 'deformation-normal' : 'deformation'}.glb',
+  ).writeAsBytesSync(output);
 }

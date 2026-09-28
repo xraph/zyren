@@ -352,15 +352,6 @@ PreparedModel prepareModel(
           path,
         );
       }
-      if (morphTargets.isNotEmpty &&
-          material.normalMap != null &&
-          !output.containsKey(VertexSemantic.tangent)) {
-        fail(
-          '$path.attributes.TANGENT',
-          'Normal-mapped morphs require authored base tangents; generating morph tangent seams is not yet supported.',
-          AssetLoadError.unsupportedFeature,
-        );
-      }
       if ((morphTargets.isNotEmpty || decoded.containsKey('JOINTS_0')) &&
           topology != GeometryTopology.triangles) {
         fail(

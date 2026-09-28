@@ -116,7 +116,7 @@ unknown optional extensions produce warnings and use the core fallback data.
 | `COLOR_0` float or normalized byte/short RGB/RGBA | `vertex_color_model_test`; native interpolation, alpha and shadow probes |
 | `KHR_materials_unlit` | Listed static features, including vertex color and alpha |
 | PBR triangle materials and authored tangents | `pbr_model_test`; native analytic reference pixels |
-| Missing normal-map tangents, mirrored seams and UV0/UV1 selection | `tangent_model_test`; pinned MikkTSpace reference and native pixel checks |
+| Missing normal-map tangents, morph seams/deltas and UV0/UV1 selection | `tangent_model_test`; pinned MikkTSpace reference and native pixel checks |
 | `KHR_lights_punctual` | Directional, point and spot instances, transforms, units, range and cones; bounded native profile |
 | Translation, rotation and scale animation | STEP, LINEAR and CUBICSPLINE; independent instance mixers |
 | Skins and morph targets | Four influences, 256 joints, 64 position/normal/tangent targets; instance-local bindings |
@@ -126,8 +126,8 @@ unknown optional extensions produce warnings and use the core fallback data.
 | Draco, meshopt, Basis/KTX2 and other required extensions | Explicit unsupported-feature error |
 
 Missing normal-map tangents require `AssetServices.tangentGenerator`. Flutter's
-native runtimes supply it. Normal-mapped morphs currently require authored
-base tangents, because generated seams across morph targets are unsupported. Standalone Dart callers can use
+native runtimes supply it. The service generates base tangents and morph tangent
+deltas while preserving seams from every target. Standalone Dart callers can use
 `NativeTangentGenerator` from `gpu3d_native`, or provide their own implementation
 of the core `TangentGenerator` interface. See [tangent preparation](../../docs/design/tangent-generation.md)
 for limits and direct geometry usage.

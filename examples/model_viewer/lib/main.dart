@@ -565,6 +565,7 @@ class _ModelViewerState extends State<ModelViewer> {
                       ('normal-map.glb', 'Normal map'),
                       ('animated.glb', 'Animation'),
                       ('deformation.glb', 'Skin + morph'),
+                      ('deformation-normal.glb', 'Skin + normal map'),
                     ])
                       PopupMenuItem(value: file, child: Text(label)),
                   ],

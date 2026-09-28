@@ -166,10 +166,11 @@ triples. Matrix nodes can receive weight animation.
 Limits are 256 joints, four influences per vertex, 64 morph targets and one
 million keyed weight components per track, plus cubic tangents when present.
 Payload budgets include expanded attributes and copied keys. Extra influence sets, color/UV morph deltas and
-singular inverse binds produce explicit errors. Normal-mapped morphs require
-authored base tangents; generating tangent seams across morph targets remains
-unsupported. The renderer applies its own
-upload and residency limits.
+singular inverse binds produce explicit errors. Normal-mapped morphs can omit
+base tangents. The configured tangent service generates base and target bases,
+splits seams across every pose, then stores target tangent deltas. Authored base
+tangents still pass through. The renderer applies its own upload and residency
+limits. See [tangent preparation](tangent-generation.md) for worker budgets.
 
 In the model viewer, choose **Skin + morph** or run:
 
@@ -188,4 +189,13 @@ For a standalone PNG with explicit studio lighting:
 
 ```sh
 dart run tool/capture.dart assets/models/deformation.glb ../../artifacts/gltf-deformation.png 1 --studio
+```
+
+Choose **Skin + normal map** to load the version with generated tangents, an
+additional twist target and a tangent-space normal map. It uses the same native
+skin/morph path. Regenerate or run it from `examples/model_viewer`:
+
+```sh
+dart run tool/generate_deformation_fixture.dart --normal-map
+flutter run --release -d <android-device> --dart-define=GPU3D_MODEL=deformation-normal.glb
 ```

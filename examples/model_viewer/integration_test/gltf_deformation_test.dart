@@ -8,6 +8,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:model_viewer/main.dart';
 import '../test/support/controls.dart';
 import '../../../packages/gpu3d_native/test/support/gltf_deformation_checks.dart';
+import '../../../packages/gpu3d_native/test/support/morph_tangent_checks.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -19,6 +20,7 @@ void main() {
           : await NativeMetalBackend.create();
       try {
         await verifyGltfDeformation(backend);
+        await verifyMorphTangents(backend);
       } finally {
         await backend.close();
       }
@@ -61,35 +63,49 @@ void main() {
 
       try {
         await ready('Assembly', 3);
-        frames.clear();
-        await chooseExample(tester, 'Skin + morph');
-        await ready('Skinned ribbons', 2);
-        final instance = controller.scene.children.single as ModelInstance;
-        final mesh = instance.nodes[3]!.children
-            .whereType<SkinnedMesh>()
-            .single;
-        final other = instance.nodes[6]!.children
-            .whereType<SkinnedMesh>()
-            .single;
-        expect(mesh.geometry, same(other.geometry));
-        final independent = other.captureDeformation();
-        tester
-            .widget<Slider>(find.byKey(const ValueKey('Animation playhead')))
-            .onChanged!(1);
-        await advance();
-        expect(mesh.morphWeights, [1]);
-        expect(other.captureDeformation(), same(independent));
-        expect(frames.any((f) => f.uploadedBytes == 400), isTrue);
-        expect(frames.every((f) => f.readbackBytes == 0), isTrue);
-        await tester.tap(find.byKey(const ValueKey('Animation playback')));
-        await advance();
-        expect(mesh.morphWeights, isNot([1]));
-        await tester.tap(find.byKey(const ValueKey('Animation playback')));
-        await advance();
-        final settled = frames.length;
-        await advance();
-        expect(frames.length, settled);
-        expect(tester.takeException(), isNull);
+        for (final normalMapped in [false, true]) {
+          frames.clear();
+          await chooseExample(
+            tester,
+            normalMapped ? 'Skin + normal map' : 'Skin + morph',
+          );
+          await ready(
+            normalMapped ? 'Normal-mapped ribbons' : 'Skinned ribbons',
+            2,
+          );
+          final instance = controller.scene.children.single as ModelInstance;
+          final mesh = instance.nodes[3]!.children
+              .whereType<SkinnedMesh>()
+              .single;
+          final other = instance.nodes[6]!.children
+              .whereType<SkinnedMesh>()
+              .single;
+          expect(mesh.geometry, same(other.geometry));
+          final independent = other.captureDeformation();
+          tester
+              .widget<Slider>(find.byKey(const ValueKey('Animation playhead')))
+              .onChanged!(1);
+          await advance();
+          expect(mesh.morphWeights, [1, if (normalMapped) 1]);
+          if (normalMapped) {
+            expect(
+              mesh.geometry.morphTargets.every((t) => t.tangents != null),
+              isTrue,
+            );
+          }
+          expect(other.captureDeformation(), same(independent));
+          expect(frames.any((f) => f.uploadedBytes == 400), isTrue);
+          expect(frames.every((f) => f.readbackBytes == 0), isTrue);
+          await tester.tap(find.byKey(const ValueKey('Animation playback')));
+          await advance();
+          expect(mesh.morphWeights, isNot([1, if (normalMapped) 1]));
+          await tester.tap(find.byKey(const ValueKey('Animation playback')));
+          await advance();
+          final settled = frames.length;
+          await advance();
+          expect(frames.length, settled);
+          expect(tester.takeException(), isNull);
+        }
       } finally {
         await sub.cancel();
         await tester.pumpWidget(const SizedBox());

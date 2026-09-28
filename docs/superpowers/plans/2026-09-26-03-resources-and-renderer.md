@@ -537,6 +537,15 @@ Task 6 remains open for completion events, additive mixing, finite repetition
 counts, custom shader deformation/instancing and per-instance color support.
 
 
+Morph tangent checkpoint, 28 September 2026: normal-mapped glTF morphs can now
+omit base tangents. The CPU worker generates every changed pose, preserves all
+pose seams and stores tangent deltas within the job's shared payload and
+iteration limits. Metal and Pixel Vulkan checks compare final-pose pixels with
+independently generated absolute geometry, including UV1 and flat normals. The
+Skin + normal map viewer sample adds a twist target, with zero-readback
+presentation and 400-byte pose edits. Task 6 remains open for the animation and
+custom shader work listed above.
+
 **Files:** Create core `scene/instanced_mesh.dart`, `animation/{clip,track,mixer,action}.dart`,
 `geometry/{skin,morph_target}.dart`; native `passes/deformation.rs`, WGSL,
 `test/animation_test.dart`, `native/tests/deformation_render.rs` and viewer controls.

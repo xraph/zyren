@@ -7,6 +7,96 @@ import 'package:test/test.dart';
 import '../../gpu3d/test/tangent_generator_test.dart' show mirroredQuad;
 
 void main() {
+  test(
+    'morph corner bases match separately generated absolute poses',
+    () async {
+      final original = mirroredQuad();
+      final plain = GeometryData(
+        attributes: {
+          ...original.attributes,
+          VertexSemantic.tangent: VertexAttribute(
+            Float32List.fromList([
+              for (var i = 0; i < 4; i++) ...[1, 0, 0, 1],
+            ]),
+            format: VertexFormat.float32x4,
+          ),
+        },
+        indices: original.indices,
+      );
+      final target = MorphTarget(
+        name: 'bend',
+        positions: [0, 0, 0, .2, .3, .1, -.1, .1, .4, .1, -.3, -.2],
+        normals: [
+          for (var i = 0; i < 4; i++) ...[.2, .1, -.05],
+        ],
+        tangents: List.filled(12, 42),
+      );
+      final input = GeometryData(
+        attributes: plain.attributes,
+        indices: plain.indices,
+        morphTargets: [
+          target,
+          MorphTarget(name: 'zero', positions: List.filled(12, 0)),
+          MorphTarget(name: 'normal only', normals: List.filled(12, .1)),
+        ],
+      );
+      final output = await const NativeTangentGenerator().generate(input);
+      final base = await const NativeTangentGenerator().generate(plain);
+      final absolute = GeometryData(
+        attributes: {
+          ...plain.attributes,
+          VertexSemantic.position: VertexAttribute(
+            Float32List.fromList([
+              for (var i = 0; i < 12; i++)
+                (plain.attributes[VertexSemantic.position]!.data
+                        as Float32List)[i] +
+                    target.positions![i],
+            ]),
+            format: VertexFormat.float32x3,
+          ),
+          VertexSemantic.normal: VertexAttribute(
+            Float32List.fromList([
+              for (var i = 0; i < 12; i++)
+                (plain.attributes[VertexSemantic.normal]!.data
+                        as Float32List)[i] +
+                    target.normals![i],
+            ]),
+            format: VertexFormat.float32x3,
+          ),
+        },
+        indices: plain.indices,
+      );
+      final expected = await const NativeTangentGenerator().generate(absolute);
+      final actualValues =
+          output.attributes[VertexSemantic.tangent]!.data as Float32List;
+      final baseValues =
+          base.attributes[VertexSemantic.tangent]!.data as Float32List;
+      final expectedValues =
+          expected.attributes[VertexSemantic.tangent]!.data as Float32List;
+      for (var corner = 0; corner < plain.indices.length; corner++) {
+        final actualVertex = output.indices[corner];
+        for (var c = 0; c < 3; c++) {
+          expect(
+            actualValues[actualVertex * 4 + c],
+            baseValues[base.indices[corner] * 4 + c],
+          );
+          expect(
+            actualValues[actualVertex * 4 + c] +
+                output.morphTargets.first.tangents![actualVertex * 3 + c],
+            closeTo(expectedValues[expected.indices[corner] * 4 + c], 1e-6),
+          );
+        }
+      }
+      expect(output.morphTargets.first.name, 'bend');
+      expect(target.tangents!.first, 42);
+      expect(output.morphTargets[1].tangents!.every((v) => v == 0), isTrue);
+      expect(
+        output.morphTargets[2].tangents!.any((v) => v.abs() > .01),
+        isTrue,
+      );
+    },
+  );
+
   const generator = NativeTangentGenerator();
   test('curved mirrored geometry matches the unmodified reference', () async {
     final fixture =
@@ -118,6 +208,54 @@ void main() {
       );
     }
     expect((await generator.generate(mirroredQuad())).layout.vertexCount, 6);
+  });
+  test('morph jobs share limits and invalid poses release admission', () async {
+    final base = mirroredQuad();
+    GeometryData withTarget(MorphTarget target) => GeometryData(
+      attributes: base.attributes,
+      indices: base.indices,
+      morphTargets: [target],
+    );
+    final changed = withTarget(MorphTarget(normals: List.filled(12, .1)));
+    for (final limits in [
+      const TangentGenerationLimits(maxWorkingBytes: 400),
+      const TangentGenerationLimits(maxIterations: 1),
+      const TangentGenerationLimits(maxOutputBytes: 400),
+    ]) {
+      await expectLater(
+        generator.generate(changed, limits: limits),
+        throwsA(
+          isA<TangentGenerationException>().having(
+            (e) => e.code,
+            'code',
+            TangentGenerationError.limitExceeded,
+          ),
+        ),
+      );
+    }
+    for (final target in [
+      MorphTarget(
+        normals: [
+          for (var i = 0; i < 4; i++) ...[0, 0, -1],
+        ],
+      ),
+      MorphTarget(positions: List.filled(12, 1e16)),
+    ]) {
+      await expectLater(
+        generator.generate(withTarget(target)),
+        throwsA(
+          isA<TangentGenerationException>().having(
+            (e) => e.code,
+            'code',
+            TangentGenerationError.invalidData,
+          ),
+        ),
+      );
+    }
+    expect(
+      (await generator.generate(changed)).morphTargets.single.tangents,
+      isNotNull,
+    );
   });
   test('degenerate positions and UVs return the reference fallback', () async {
     final source = mirroredQuad();

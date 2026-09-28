@@ -34,6 +34,14 @@ vertices. It copies every attribute in its original format, including byte
 colors and joint indices. Equal corners keep their shared index. Unused vertices
 are removed and output uses the smallest supported index width.
 
+Morph targets participate in the same remap. Each changed position or normal
+pose gets its own MikkTSpace pass, and a seam in any pose splits the shared
+vertex. The result stores each target's tangent XYZ minus the base tangent XYZ.
+Zero position/normal deltas reuse the base calculation. Target handedness cannot
+be animated in glTF, so the base sign stays fixed. If you call
+`withCornerTangents` directly, supply absolute corner streams through
+`morphTangents` to generate deltas; omitting them only remaps existing deltas.
+
 The glTF loader generates tangents only when a normal map needs them and the
 prepared primitive has no authored tangents. It uses that map's UV set. Authored
 tangents with authored normals pass through unchanged. If normals are missing,
@@ -50,16 +58,20 @@ records the bounded execution changes and original license.
 
 You can lower limits through `AssetLimits.tangents` or the direct generator call.
 The output ceiling is 128 MiB and one million vertices. Native scratch has a
-128 MiB ceiling per job and a shared 256 MiB reservation pool. Each reference loop
-condition charges a budget of at most 100 million iterations. Recursive depth is
-limited to 256. Exceeding a limit returns a typed error and releases scratch.
+128 MiB ceiling per job and a shared 256 MiB reservation pool. The configured
+working budget includes FFI attribute arrays, a reusable output buffer and the
+retained base/target corner streams. Their sizes are checked before allocation;
+the remaining budget goes to native scratch. The total reference-loop budget,
+at most 100 million iterations, is divided equally across the base and changed
+target poses. Recursive depth is limited to 256. Exceeding a limit returns a typed error and releases scratch.
 Positions and UV coordinates must be finite and within +/-1e15; invalid generated
-bases are rejected before publication.
+bases, zero-length normals and invalid target poses are rejected before
+publication.
 
 These are payload and native scratch limits, not a process-memory ceiling. Dart
-geometry copies, remapping tables and caller-owned FFI buffers add temporary
-storage. Two jobs per Dart isolate can be active. Native scratch admission also
-applies across isolates.
+input/output geometry copies and remapping tables add temporary storage. Two
+jobs per Dart isolate can be active. Native scratch admission also applies
+across isolates.
 
 Asset scopes serialize image decoding and tangent preparation against the same
 remaining decoded-byte budget. They account for the complete replacement
@@ -72,8 +84,8 @@ worker storage is reclaimed.
 The implementation is checked in layers: core seam remapping and attribute
 preservation, native reference vectors and bounded failures, loader service
 selection and diagnostics, then native normal-map pixels on Metal and Vulkan.
-The viewer includes a Normal map sample with generated tangents. Its Metal and
-Pixel Vulkan integration checks pass. A bundled AOT capture also renders it
+The viewer includes Normal map and Skin + normal map samples with generated
+tangents. Its Metal and Pixel Vulkan integration checks pass. A bundled AOT capture also renders it
 without a Flutter window. See [material reference checks](material-reference-checks.md)
 for the wider shading fixtures. This feature does not close the full Three.js or
 Takram port.
