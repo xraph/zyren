@@ -31,7 +31,7 @@ final class AtmosphereLuts {
   /// indirect irradiance functions. Keep this LUT lease alive while using it.
   AtmosphereShader shader({int group = 1, int firstBinding = 0}) {
     if (isClosed) throw StateError('Atmosphere LUT owner has closed.');
-    if (group < 0 || group > 3 || firstBinding < 0 || firstBinding > 27) {
+    if (group < 0 || group > 3 || firstBinding < 0 || firstBinding > 11) {
       throw ArgumentError('Invalid atmosphere shader binding range.');
     }
     final entries = {

@@ -9,6 +9,74 @@ import 'package:zyren_native/zyren_native.dart';
 
 void main() {
   test(
+    'LUT shader rejects overflowing bindings and executes at the last valid offset',
+    () async {
+      final backend = await NativeBackend.create();
+      final owner = GpuScope.fromBackend(backend);
+      final cache = AtmosphereLutCache(owner);
+      try {
+        final lease = await cache.acquire(
+          parameters: AtmosphereParameters.legacy().copyWith(
+            rayleighScattering: Vec3.zero,
+            mieScattering: Vec3.zero,
+            mieExtinction: Vec3.zero,
+            absorptionExtinction: Vec3.zero,
+          ),
+        );
+        final tables = lease.luts;
+        for (final offset in [-1, 12, 27]) {
+          expect(
+            () => tables.shader(firstBinding: offset),
+            throwsArgumentError,
+          );
+        }
+        final module = tables.shader(firstBinding: 11);
+        final output = await owner.resources.createBuffer(
+          BufferDescriptor(
+            size: 4,
+            usage: {BufferUsage.storage, BufferUsage.copySource},
+          ),
+        );
+        final program = await owner.shaders.compile(
+          ShaderSource.wgsl('''
+${module.source}
+@group(0) @binding(0) var<storage,read_write> output:array<f32>;
+@compute @workgroup_size(1) fn main() {
+  output[0] = textureLoad(atmosphereTransmittance, vec2<i32>(0), 0).x;
+}
+'''),
+        );
+        final graph = await owner.graphs.compile(
+          GraphDescription(
+            inputs: [...tables.textures.values, output],
+            passes: [
+              ComputePassDescriptor(
+                name: 'last valid atmosphere bindings',
+                program: program,
+                bindings: ShaderBindings([
+                  ...module.bindings.entries,
+                  BufferBinding.storageReadWrite(0, output),
+                ]),
+                reads: [...tables.textures.values, output],
+                writes: [output],
+                workgroups: Workgroups(1),
+              ),
+            ],
+          ),
+        );
+        await graph.execute();
+        final bytes = await owner.resources.readBuffer(output);
+        expect(ByteData.sublistView(bytes).getFloat32(0, Endian.little), 1);
+        await lease.close();
+      } finally {
+        await cache.close();
+        await owner.close();
+        expect((await backend.resourceStats()).residentBytes, 0);
+        await backend.close();
+      }
+    },
+  );
+  test(
     'LUT cache shares device work, rejects cancelled candidates and retires workspace',
     () async {
       final backend = await NativeBackend.create();

@@ -33,7 +33,7 @@ process-wide.
 | Suite | Passed |
 | --- | ---: |
 | Dart core | 409 |
-| Geospatial, including native atmosphere fixtures | 82 |
+| Geospatial, including native atmosphere fixtures | 83 |
 | Native Dart/FFI with GPU execution | 64 |
 | Tools | 53 |
 | glTF | 57 |
@@ -122,13 +122,14 @@ The following decisions preserve the execution ledger's order.
 14. Measure compact layout against usable height after safe areas. Cost if wrong:
     the permitted absolute canvas height varies with system insets.
 
-## Deferred minor
+## Review follow-up
 
-`AtmosphereLuts.shader(firstBinding: ...)` accepts offsets 12 through 27, although
-its five bindings only fit the core range 0 through 15 when the offset is at most
-11. Compilation rejects the unsupported layout safely. Use offsets 0 through 11
-until the convenience method's validation is tightened. This was the review's
-only deferred minor finding.
+`AtmosphereLuts.shader(firstBinding: ...)` now rejects offsets above 11 before
+constructing a shader library. Five consecutive bindings must fit the core range
+0 through 15. The regression first reproduced the missing rejection at 12, then
+passed with the fix; it also compiles and executes a real Metal graph at offset
+11 and checks that teardown releases every resource. All 83 geospatial tests and
+workspace analysis pass. The review's only deferred minor is resolved.
 
 ## Remaining scope
 
