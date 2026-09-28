@@ -137,8 +137,9 @@ final class QuantizedMeshDecoder {
               1 => v[id] != 0,
               2 => u[id] != 32767,
               _ => v[id] != 32767,
-            })
+            }) {
           _invalid();
+        }
       }
       // Clockwise perimeter in east/north space makes skirt faces point out.
       int along(int id) => side.isEven ? v[id] : u[id];
@@ -149,8 +150,9 @@ final class QuantizedMeshDecoder {
       );
       if ({along(edge.first), along(edge.last)}.length != 2 ||
           math.min(along(edge.first), along(edge.last)) != 0 ||
-          math.max(along(edge.first), along(edge.last)) != 32767)
+          math.max(along(edge.first), along(edge.last)) != 32767) {
         _invalid();
+      }
       edges.add(edge);
     }
     Uint8List? octNormals;

@@ -13,6 +13,7 @@ export 'src/terrain/terrain_tile.dart';
 export 'src/terrain/procedural_terrain_source.dart';
 export 'src/terrain/terrain_plugin.dart';
 export 'src/terrain/quantized_mesh_decoder.dart';
+export 'src/terrain/quantized_mesh_source.dart';
 export 'src/point_of_view.dart';
 export 'src/astronomy/celestial_directions.dart';
 
