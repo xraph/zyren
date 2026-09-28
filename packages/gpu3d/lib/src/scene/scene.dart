@@ -11,6 +11,7 @@ import '../math/quat.dart';
 import '../math/mat4.dart';
 part 'revision.dart';
 part 'primitives.dart';
+part '../lights/punctual_light.dart';
 
 class Object3D with _Revisioned {
   final String? name;
@@ -364,6 +365,12 @@ class Scene extends Object3D {
     final geometries = <int, GeometrySnapshot>{};
     void visit(Object3D node, vm.Matrix4 parent) {
       if (!node.visible) return;
+      if (node is PunctualLight ||
+          (node is Mesh && node.material is StandardMaterial)) {
+        throw UnsupportedError(
+          'Standard materials and punctual lights require FrameSubmission.capture.',
+        );
+      }
       final world = parent * node.localMatrix.toVectorMath();
       if (node is Mesh) {
         if (node.material.colorMap != null) {

@@ -136,6 +136,8 @@ pub struct Mesh {
     #[serde(default)]
     pub color_map: Option<ColorMap>,
     #[serde(default)]
+    pub pbr: Option<crate::lighting::StandardMaterial>,
+    #[serde(default)]
     pub alpha_mode: u32,
     #[serde(default)]
     pub side: u32,
@@ -176,6 +178,7 @@ impl Default for Mesh {
             color: [1.; 3],
             unlit: false,
             color_map: None,
+            pbr: None,
             alpha_mode: 0,
             side: 0,
             opacity: 1.,
@@ -195,6 +198,12 @@ impl Mesh {
         self.depth_write.unwrap_or(self.alpha_mode != 2)
     }
     pub fn validate_material(&self) -> Result<(), String> {
+        if let Some(pbr) = &self.pbr {
+            pbr.validate()?;
+            if self.unlit || self.primitive_kind != 0 || self.shader.is_some() {
+                return Err("standard material cannot be unlit, expanded or custom".into());
+            }
+        }
         if self.side > 2 || (self.primitive_kind != 0 && self.side != 0) {
             return Err("invalid material side".into());
         }
@@ -302,6 +311,8 @@ pub struct Frame {
     pub background_alpha: f32,
     pub light_direction: [f32; 3],
     pub ambient: f32,
+    #[serde(default)]
+    pub lights: Vec<crate::lighting::PunctualLight>,
     pub geometries: Vec<Geometry>,
     pub meshes: Vec<Mesh>,
     #[serde(default)]
@@ -316,6 +327,12 @@ pub struct Frame {
 
 impl Frame {
     pub fn validate(&self, cached: &HashSet<u32>) -> Result<(), String> {
+        if self.lights.len() > crate::lighting::MAX_LIGHTS {
+            return Err("scene exceeds punctual light limit".into());
+        }
+        for light in &self.lights {
+            light.validate()?;
+        }
         if self.version != 1 {
             return Err("unsupported scene protocol version".into());
         }

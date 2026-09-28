@@ -1,5 +1,6 @@
 pub mod geometry_update;
 pub mod interop;
+pub mod lighting;
 pub mod render_graph;
 pub mod renderer;
 pub mod resources;

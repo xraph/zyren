@@ -394,6 +394,15 @@ failure -> close candidate scope; keep current graph; report diagnostics
 
 ## Task 5: PBR, lights, shadows and environment maps
 
+Direct-light checkpoint, 2026-09-28: `StandardMaterial`, directional/point/spot
+scene lights and opcode 19 now reach native Metal/Vulkan rendering. Independent
+pixel probes cover BRDF values, no ambient energy, emission, roughness, point
+falloff, spot cones including float32 collapse, masks and mirrored transforms.
+The Flutter sphere grid exercises 12 shared-geometry materials and live light
+controls. See [the current API](../../design/standard-materials.md).
+Task 5 remains open for the texture channels, IBL, shadows, HDR and glTF gates
+listed below. This checkpoint does not establish the full PBR profile.
+
 **Files:** Create core `materials/standard_material.dart`,
 `lights/{directional,point,spot,hemisphere}_light.dart`; native
 `passes/{pbr,shadow,environment}.rs`, WGSL modules,

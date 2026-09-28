@@ -126,6 +126,7 @@ class NativeBackend implements NativeGpuBackend {
       RenderFeature.renderGraphs,
       RenderFeature.frameGraphs,
       RenderFeature.meshShaders,
+      RenderFeature.standardMaterials,
       RenderFeature.compute,
       RenderFeature.storageTextures,
       if (_experimentalAppleSurfaces && NativeSurfaces().appleAvailable)
@@ -134,6 +135,7 @@ class NativeBackend implements NativeGpuBackend {
     limits: DeviceLimits(
       maxTextureDimension2D: 4096,
       maxGeometryBytes: 64 * 1024 * 1024,
+      maxPunctualLights: 16,
     ),
   );
   @override

@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:math' as math;
 import 'package:vector_math/vector_math_64.dart' as vm;
 import '../geometry/geometry.dart';
 import '../geometry/vertex_attribute.dart';
@@ -37,6 +38,9 @@ class CameraSnapshot {
 /// Captured transforms with shared immutable CPU geometry recipes.
 class SceneSnapshot {
   final List<Map<String, Object>> _meshes;
+  final List<Map<String, Object>> _lights;
+  bool get hasStandardMaterials => _meshes.any((m) => m.containsKey('pbr'));
+  int get punctualLightCount => _lights.length;
   final Map<int, GeometrySnapshot> _geometries;
   final Map<int, TextureImage> _textures;
   final List<double> _background, _light;
@@ -55,6 +59,7 @@ class SceneSnapshot {
   });
   SceneSnapshot._(
     this._meshes,
+    this._lights,
     this._geometries,
     this._textures,
     this._background,
@@ -67,10 +72,50 @@ class SceneSnapshot {
     final meshes = <Map<String, Object>>[],
         geometries = <int, GeometrySnapshot>{};
     final textures = <int, TextureImage>{};
+    final lights = <Map<String, Object>>[];
     final meshShaders = <int, MeshShaderProgram>{};
     void visit(Object3D node, vm.Matrix4 parent, bool parentVisible) {
       final visible = parentVisible && node.visible;
       final world = parent * node.localMatrix.toVectorMath();
+      if (visible && node is PunctualLight) {
+        if (lights.length >= 16) {
+          throw ArgumentError(
+            'A scene supports at most 16 visible punctual lights.',
+          );
+        }
+        final direction = vm.Vector3(
+          -world.entry(0, 2),
+          -world.entry(1, 2),
+          -world.entry(2, 2),
+        );
+        if (!direction.length2.isFinite || direction.length2 < 1e-30) {
+          throw ArgumentError('Light direction must be finite and nonzero.');
+        }
+        direction.normalize();
+        final position =
+            world.getTranslation() - camera.position.toVectorMath();
+        lights.add(
+          _freeze(<String, Object>{
+                'kind': switch (node) {
+                  DirectionalLight() => 0,
+                  PointLight() => 1,
+                  SpotLight() => 2,
+                },
+                'color': node.color.toList(),
+                'intensity': node.intensity,
+                'position': position.storage.toList(),
+                'direction': direction.storage.toList(),
+                'range': node is PositionalLight ? node.range ?? 0.0 : 0.0,
+                'inner_cos': node is SpotLight
+                    ? math.cos(node.innerConeAngle)
+                    : 1.0,
+                'outer_cos': node is SpotLight
+                    ? math.cos(node.outerConeAngle)
+                    : 0.0,
+              })
+              as Map<String, Object>,
+        );
+      }
       if (node is Mesh) {
         final geometry = node.geometry.capture();
         geometries[geometry.id] = geometry;
@@ -103,6 +148,15 @@ class SceneSnapshot {
                   'model': relative.storage.toList(),
                   'color': node.material.color.toList(),
                   'unlit': node.material.unlit,
+                  if (node.material case StandardMaterial material)
+                    'pbr': <String, Object>{
+                      'metallic': material.metallic,
+                      'roughness': material.roughness,
+                      'emissive': material.emissive
+                          .toList()
+                          .map((v) => v * material.emissiveIntensity)
+                          .toList(),
+                    },
                   'side': node.material.side.index,
                   'alpha_mode': node.material.alphaMode.index,
                   'opacity': node.material.opacity,
@@ -128,6 +182,7 @@ class SceneSnapshot {
     visit(scene, vm.Matrix4.identity(), true);
     return SceneSnapshot._(
       List.unmodifiable(meshes),
+      List.unmodifiable(lights),
       Map.unmodifiable(geometries),
       Map.unmodifiable(textures),
       List.unmodifiable(scene.background?.toList() ?? [0.0, 0.0, 0.0]),
@@ -209,6 +264,7 @@ class FrameSubmission {
           'background_alpha': scene.backgroundOpacity,
           'light_direction': scene._light,
           'ambient': scene._ambient,
+          'lights': scene._lights,
           'geometries': [
             for (final id in {
               for (final mesh in scene._meshes) mesh['geometry'] as int,

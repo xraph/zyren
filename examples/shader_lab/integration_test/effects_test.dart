@@ -36,7 +36,10 @@ Future<FrameStats> waitForFrame(
       result,
       isNotNull,
       reason:
-          'Native draws: $observed. Controller: ${controller.status.value}.',
+          'Native draws: $observed. Controller: ${switch (controller.status.value) {
+            SceneFailed(:final issue) => issue,
+            final state => state,
+          }}.',
     );
     return result!;
   } finally {

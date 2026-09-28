@@ -44,3 +44,25 @@ fvm dart build cli --target=render.dart --output=/tmp/shader-lab-cli
 The integration checks shader pixels, native presentation with zero readback,
 controls, resize, history pixels/reset, compute history and cleanup. The standalone Dart command saves an explicit
 readback image for inspection; it is not the app's presentation path.
+
+## PBR lab
+
+Run the separate material demo with native presentation:
+
+```sh
+fvm flutter run -d macos -t lib/pbr.dart
+fvm flutter run --release -d DEVICE_ID -t lib/pbr.dart
+fvm flutter test test/pbr_app_test.dart
+fvm flutter test integration_test/pbr_test.dart -d macos
+```
+
+The grid shares one sphere geometry across 12 materials. Roughness increases
+left to right (`0.1`, `0.35`, `0.65`, `1`); metallic increases top to bottom (`0`,
+`0.5`, `1`). Light changes directional intensity in lux. Angle rotates that light
+around Y in radians. A blue point light adds a fixed fill. Both controls redraw
+without uploading geometry or images again.
+
+The integration checks reference pixels, point falloff, narrow spot cones,
+texture masks, negative scale, emission, resource cleanup and native presentation
+with zero readback. See [standard materials](../../docs/design/standard-materials.md)
+for the implemented parameters and remaining renderer work.

@@ -25,6 +25,7 @@ pub struct ScenePacket {
     background_alpha: f32,
     light_direction: [f32; 3],
     ambient: f32,
+    lights: Vec<crate::lighting::PunctualLight>,
     retained_textures: HashSet<u32>,
     textures: Vec<SceneTexture>,
     geometry_patches: Vec<GeometryPatch>,
@@ -71,7 +72,7 @@ impl ScenePacket {
             return Err("unsupported scene packet".into());
         }
         let opcode = r.u32()?;
-        if !(10..=18).contains(&opcode) {
+        if !(10..=19).contains(&opcode) {
             return Err("unsupported scene packet".into());
         }
         let textured = opcode >= 11;
@@ -107,6 +108,27 @@ impl ScenePacket {
         };
         if !(0.0..=1.0).contains(&background_alpha) {
             return Err("invalid background alpha".into());
+        }
+        let mut lights = Vec::new();
+        if opcode >= 19 {
+            let count = r.u32()? as usize;
+            if count > crate::lighting::MAX_LIGHTS {
+                return Err("scene exceeds punctual light limit".into());
+            }
+            for _ in 0..count {
+                let light = crate::lighting::PunctualLight {
+                    kind: r.u32()?,
+                    color: r.floats()?,
+                    intensity: r.floats::<1>()?[0],
+                    position: r.floats()?,
+                    direction: r.floats()?,
+                    range: r.floats::<1>()?[0],
+                    inner_cos: r.floats::<1>()?[0],
+                    outer_cos: r.floats::<1>()?[0],
+                };
+                light.validate()?;
+                lights.push(light);
+            }
         }
         let owned_texture_count = if textured { r.u32()? as usize } else { 0 };
         let texture_count = if textured { r.u32()? as usize } else { 0 };
@@ -356,6 +378,19 @@ impl ScenePacket {
                         mesh.side = r.u32()?;
                     }
                 }
+                if opcode >= 19 {
+                    match r.u32()? {
+                        0 => (),
+                        1 => {
+                            mesh.pbr = Some(crate::lighting::StandardMaterial {
+                                metallic: r.floats::<1>()?[0],
+                                roughness: r.floats::<1>()?[0],
+                                emissive: r.floats()?,
+                            })
+                        }
+                        _ => return Err("invalid standard material flag".into()),
+                    }
+                }
                 mesh.validate_material()?;
             }
             updates.push((index, mesh));
@@ -376,6 +411,7 @@ impl ScenePacket {
             background_alpha,
             light_direction,
             ambient,
+            lights,
             retained_textures,
             textures,
             geometry_patches,
@@ -426,6 +462,7 @@ impl ScenePacket {
             background_alpha: self.background_alpha,
             light_direction: self.light_direction,
             ambient: self.ambient,
+            lights: self.lights,
             geometries: self.geometries,
             meshes,
             binary,

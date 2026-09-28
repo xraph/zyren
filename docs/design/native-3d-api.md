@@ -423,6 +423,11 @@ that controller again. Instantiation from a released template fails explicitly.
 
 ## 8. Materials, lights and asset compatibility
 
+The [direct-light material profile](standard-materials.md) is implemented:
+`StandardMaterial` has base color/map, metallic, roughness, emission and shared
+raster settings; directional, point and spot lights are scene objects. The
+additional texture channels, HDR, environment and shadow APIs below remain targets.
+
 The common path is `StandardMaterial`: linear `baseColor`, optional base-color,
 normal, metallic/roughness, occlusion and emissive textures; metallic, roughness,
 emissive intensity, alpha mode, cutoff, sidedness and depth settings. Also provide
@@ -616,7 +621,7 @@ frame to calculate whether the frame used readback.
 | Caller-managed `NativeRenderer` | Advanced `NativeBackend` plus core `SceneEngine`; keep the old readback wrapper during migration |
 | `Vector3` / `Quaternion` scene storage | `Vec3` / `Quat` immutable scene values; explicit conversion at vector_math boundaries |
 | `MeshMaterial(unlit: true)` | `UnlitMaterial` |
-| `MeshMaterial(unlit: false)` | `DiffuseMaterial`; use `StandardMaterial` once PBR lands |
+| `MeshMaterial(unlit: false)` | `DiffuseMaterial` for compatibility lighting; `StandardMaterial` for explicit direct lights |
 | `onFrame(Duration)` | `onUpdate(FrameTime)`, returning a removable registration |
 | String feature requirements | Typed `RenderFeature` set |
 | RGBA `RenderedFrame` only | Internal `FrameOutput` with readback and presented variants |

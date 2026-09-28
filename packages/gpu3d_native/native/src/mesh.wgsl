@@ -8,6 +8,8 @@ struct Uniforms {
     model: mat4x4<f32>,
     primitive: vec4<f32>,
     viewport: vec4<f32>,
+    pbr_params: vec4<f32>,
+    emissive: vec4<f32>,
 };
 @group(0) @binding(0) var<uniform> uniforms: Uniforms;
 @group(1) @binding(0) var color_map: texture_2d<f32>;
@@ -17,11 +19,13 @@ struct VertexOutput {
     @builtin(position) position: vec4<f32>,
     @location(0) normal: vec3<f32>,
     @location(1) uv: vec2<f32>,
+    @location(2) relative_position: vec3<f32>,
 };
 
 @vertex fn vs_main(@location(0) position: vec3<f32>, @location(1) normal: vec3<f32>) -> VertexOutput {
     var output: VertexOutput;
     output.position = uniforms.mvp * vec4<f32>(position, 1.0);
+    output.relative_position = (uniforms.model * vec4<f32>(position, 1.0)).xyz;
     output.normal = (uniforms.normal_matrix * vec4<f32>(normal, 0.0)).xyz;
     output.uv = vec2<f32>(0.0);
     return output;
@@ -31,6 +35,7 @@ struct VertexOutput {
     @location(2) uv0: vec2<f32>, @location(3) uv1: vec2<f32>) -> VertexOutput {
     var output: VertexOutput;
     output.position = uniforms.mvp * vec4<f32>(position, 1.0);
+    output.relative_position = (uniforms.model * vec4<f32>(position, 1.0)).xyz;
     output.normal = (uniforms.normal_matrix * vec4<f32>(normal, 0.0)).xyz;
     output.uv = select(uv0, uv1, uniforms.map_params.x > 0.5);
     return output;

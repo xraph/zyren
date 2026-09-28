@@ -628,6 +628,27 @@ class SceneEngine {
           ),
         );
       }
+      if (_hasVisibleStandardMaterial(scene) &&
+          !capabilities.supports(RenderFeature.standardMaterials)) {
+        throw SceneException(
+          SceneIssue(
+            code: SceneIssueCodes.unsupportedFeature,
+            message: 'This backend does not support standard materials.',
+            operation: 'render',
+            requiredFeatures: {RenderFeature.standardMaterials},
+          ),
+        );
+      }
+      if (_visibleLightCount(scene) > capabilities.limits.maxPunctualLights) {
+        throw SceneException(
+          SceneIssue(
+            code: SceneIssueCodes.unsupportedFeature,
+            message: "The scene exceeds this backend's punctual light limit.",
+            operation: 'render',
+            limits: capabilities.limits,
+          ),
+        );
+      }
       final FrameOutput result;
       if (_backend case final backend?) {
         var submission = FrameSubmission.capture(
@@ -751,3 +772,15 @@ bool _hasVisibleShaderMaterial(Object3D node) =>
     node.visible &&
     ((node is Mesh && node.material is ShaderMaterial) ||
         node.children.any(_hasVisibleShaderMaterial));
+
+bool _hasVisibleStandardMaterial(Object3D node) =>
+    node.visible &&
+    ((node is Mesh && node.material is StandardMaterial) ||
+        node.children.any(_hasVisibleStandardMaterial));
+int _visibleLightCount(Object3D node) => !node.visible
+    ? 0
+    : (node is PunctualLight ? 1 : 0) +
+          node.children.fold(
+            0,
+            (sum, child) => sum + _visibleLightCount(child),
+          );

@@ -1,5 +1,8 @@
 # Verification
 
+This file records successive checkpoints. Later sections supersede earlier
+feature counts and limits; a historical runtime result is not a fresh device check.
+
 Checked locally on 26 September 2026 with Flutter 3.47.5, Dart 3.13.4,
 Rust 1.97.1 and Xcode 27.0.
 
@@ -1145,3 +1148,49 @@ instead of the plan's single suggested commit.
 This acceptance does not qualify additional devices, HDR/TAA, shadows, PBR or
 Takram parity. Apple window-compositor inspection and iOS, Windows, Linux and
 Adreno remain open in the program's platform gates.
+
+## Direct-light standard materials, 2026-09-28
+
+`StandardMaterial` now renders metallic/roughness shading, base-color textures,
+emission and existing alpha/depth/side modes. Directional, point and spot lights
+use ordinary scene transforms and explicit intensity units. The native profile
+admits 16 visible lights. Binary opcode 19 carries the frozen light table and
+material deltas; material and light edits reuse resident geometry and images.
+
+The checkpoint passed 249 core/glTF/geospatial tests, 52 native Dart tests,
+69 Flutter facade/demo tests and 15 independent effects tests, 385 in total.
+All 80 Rust tests passed with GPU cases included. Native Dart ran serially with
+`RUN_NATIVE_GPU=1`. Analysis, strict Clippy, formatting, package boundaries,
+Apple ABI header consistency and diff checks passed.
+
+Independent numeric GPU probes verify the direct BRDF, no ambient contribution,
+emission, roughness, point inverse-square falloff and range. Other fixtures cover
+spotlight direction/cones, base-color masks, negative/nonuniform scales,
+transparent emission, bounded packets and final resource cleanup. A narrow-cone
+regression first produced black at the centre because float32 collapsed the two
+cosines. The shader now preserves centre intensity at that representable limit.
+The legacy `Scene.snapshot` path rejects visible standard materials and lights
+instead of silently losing their shading data; a regression verifies the failure
+and hidden-object behavior.
+
+The PBR lab and existing effects lab passed separately on macOS Metal and the
+physical Pixel's Vulkan backend. PBR integration checks 12 sphere draws, light
+controls, zero geometry/image uploads for parameter edits, and zero presentation
+readback. The effects integration covers the custom mesh shader and temporal
+history after the native uniform layout extension. Layout tests pass at 320,
+390 and 1100 pixels. The PBR app explicitly selects native Metal or Android
+presentation; its first integration run caught an accidental readback default.
+
+The standalone Metal example rendered a 768x512 sphere grid, saved to
+`artifacts/pbr-metal-grid.png` and inspected locally. PBR release builds passed
+for macOS (50.5 MB) and Android arm64 (22.6 MB). The Pixel release is running as
+`dev.gpu3d.shader_lab`, PID 3142 at verification, with its runner retained and no
+error-level process logs. Its screen capture showed the screensaver, so this
+checkpoint does not claim visual inspection of the Android release window.
+The Mac is locked and its integration runner could not foreground the app;
+manual release inspection and Apple window-compositor pixels remain unverified.
+
+Task 5 remains open for normal/ORM/emissive maps, HDR, environment lighting,
+shadows, hemisphere lights and standard glTF material/extension qualification.
+There is no new iOS, Windows, Linux or Adreno evidence. This direct-light profile
+does not establish full Three.js or Takram parity.

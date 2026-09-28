@@ -49,7 +49,9 @@ Plugins on `SceneRuntime.nativeMetal()` and `SceneRuntime.nativeAndroid()` can
 allocate and execute graphs on their presenter's device through the context's
 resource, shader and graph services. Frame graphs process scene color through
 compute/render passes and present the result directly on those native views.
-Custom scene materials and automatic resize/history management remain in progress.
+Custom WGSL materials, transactional resize and texture history are available
+through the public plugin API. See the [shader lab](examples/shader_lab/README.md)
+for an independent effects plugin using those services.
 
 ## Run the example
 
@@ -151,10 +153,14 @@ and upload rules.
 Colours use linear RGB; `Color3.hex` converts an sRGB hex colour for you. Object
 positions use double precision until the camera origin has been subtracted.
 Local vertex attributes use float32 storage. The current
-materials support opaque diffuse lighting, unlit shading and RGBA color textures.
+materials support diffuse lighting, unlit shading, direct metallic/roughness
+lighting and RGBA color textures.
 See [color textures](docs/design/gpu-resources.md#color-textures) for UVs, samplers
 and supplied mip levels. `NativeImageDecoder` decodes bounded PNG/JPEG inputs.
-Automatic mips, transparency, shadows and PBR remain planned work.
+Automatic mips and opaque, masked and blended materials are implemented.
+[`StandardMaterial`](docs/design/standard-materials.md) works with directional,
+point and spot lights. Its remaining work includes normal/ORM textures, HDR,
+environment lighting and shadows.
 
 ## Plugins and backends
 

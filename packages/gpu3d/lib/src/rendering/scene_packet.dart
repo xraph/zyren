@@ -135,7 +135,9 @@ final class ScenePacketEncoder {
         uploadBytes > 64 * 1024 * 1024) {
       throw ArgumentError('Scene resource upload exceeds the frame budget.');
     }
-    final opcode = scene.backgroundOpacity < 1
+    final opcode = scene.hasStandardMaterials || scene.punctualLightCount > 0
+        ? 19
+        : scene.backgroundOpacity < 1
         ? 18
         : scene._meshes.any((m) => m['side'] != 0)
         ? 17
@@ -170,6 +172,21 @@ final class ScenePacketEncoder {
     body.floats(scene._light);
     body.floats([scene._ambient]);
     if (opcode >= 18) body.floats([scene.backgroundOpacity]);
+    if (opcode >= 19) {
+      body.u32(scene._lights.length);
+      for (final light in scene._lights) {
+        body.u32(light['kind'] as int);
+        body.floats((light['color'] as List).cast<double>());
+        body.floats([light['intensity'] as double]);
+        body.floats((light['position'] as List).cast<double>());
+        body.floats((light['direction'] as List).cast<double>());
+        body.floats([
+          light['range'] as double,
+          light['inner_cos'] as double,
+          light['outer_cos'] as double,
+        ]);
+      }
+    }
     body.u32(scene._textures.length);
     body.u32(textures.length);
     if (opcode >= 12) body.u32(patches.length);
@@ -256,6 +273,17 @@ final class ScenePacketEncoder {
           body.u32(mesh['size_units'] as int);
           body.u32(mesh['point_shape'] as int);
           if (opcode >= 17) body.u32(mesh['side'] as int);
+          if (opcode >= 19) {
+            final material = mesh['pbr'] as Map?;
+            body.u32(material == null ? 0 : 1);
+            if (material != null) {
+              body.floats([
+                material['metallic'] as double,
+                material['roughness'] as double,
+              ]);
+              body.floats((material['emissive'] as List).cast<double>());
+            }
+          }
         }
       }
     }
@@ -320,6 +348,21 @@ final class _GeometryPatch {
 }
 
 bool _sameMesh(Map<String, Object> a, Map<String, Object> b) {
+  final leftPbr = a['pbr'] as Map?, rightPbr = b['pbr'] as Map?;
+  if (leftPbr == null || rightPbr == null) {
+    if (leftPbr != rightPbr) return false;
+  } else {
+    if (leftPbr['metallic'] != rightPbr['metallic'] ||
+        leftPbr['roughness'] != rightPbr['roughness']) {
+      return false;
+    }
+    for (var i = 0; i < 3; i++) {
+      if ((leftPbr['emissive'] as List)[i] !=
+          (rightPbr['emissive'] as List)[i]) {
+        return false;
+      }
+    }
+  }
   for (final field in [
     'geometry',
     'unlit',

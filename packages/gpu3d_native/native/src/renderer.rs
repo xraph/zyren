@@ -27,6 +27,8 @@ struct Uniforms {
     model: [f32; 16],
     primitive: [f32; 4],
     viewport: [f32; 4],
+    pbr_params: [f32; 4],
+    emissive: [f32; 4],
 }
 
 struct GpuGeometry {
@@ -95,6 +97,7 @@ pub struct RendererState {
     pub(crate) failure: Option<String>,
     counters: RenderCounters,
     layout: wgpu::BindGroupLayout,
+    pbr_layout: wgpu::BindGroupLayout,
     geometries: HashMap<u32, GpuGeometry>,
     resources: crate::resources::ResourceStore,
     shaders: crate::shaders::ShaderStore,
@@ -180,8 +183,38 @@ impl Renderer {
                 count: None,
             }],
         });
+        let pbr_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("standard material frame"),
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: wgpu::BufferSize::new(
+                            std::mem::size_of::<Uniforms>() as u64
+                        ),
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: wgpu::BufferSize::new(std::mem::size_of::<
+                            crate::lighting::LightingUniform,
+                        >() as u64),
+                    },
+                    count: None,
+                },
+            ],
+        });
         let texture_layout = textures::layout(&device);
-        let pipelines = pipelines::MeshPipelines::new(&device, &layout, &texture_layout);
+        let pipelines =
+            pipelines::MeshPipelines::new(&device, &layout, &pbr_layout, &texture_layout);
         Ok(Self {
             state: Some(Box::new(RendererState {
                 device,
@@ -197,6 +230,7 @@ impl Renderer {
                 pipelines,
                 compositor: composition::Compositor::default(),
                 texture_layout,
+                pbr_layout,
                 textures: HashMap::new(),
                 #[cfg(any(target_vendor = "apple", target_os = "android"))]
                 surface_depth: None,
@@ -576,12 +610,29 @@ impl Renderer {
     ) -> wgpu::CommandEncoder {
         let (materials, graph) = composition;
         let vp = Mat4::from_cols_array(&frame.view_projection);
+        let lighting = frame.meshes.iter().any(|m| m.pbr.is_some()).then(|| {
+            self.device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("punctual lights"),
+                    contents: bytemuck::bytes_of(&crate::lighting::LightingUniform::capture(
+                        &frame.lights,
+                    )),
+                    usage: wgpu::BufferUsages::UNIFORM,
+                })
+        });
         let bindings: Vec<_> = frame
             .meshes
             .iter()
             .map(|mesh| {
                 let model = Mat4::from_cols_array(&mesh.model);
                 let uniforms = Uniforms {
+                    pbr_params: mesh
+                        .pbr
+                        .as_ref()
+                        .map_or([0.; 4], |p| [p.metallic, p.roughness, 0., 0.]),
+                    emissive: mesh.pbr.as_ref().map_or([0.; 4], |p| {
+                        [p.emissive[0], p.emissive[1], p.emissive[2], 0.]
+                    }),
                     mvp: (vp * model).to_cols_array(),
                     normal_matrix: model.inverse().transpose().to_cols_array(),
                     color_unlit: [
@@ -619,13 +670,24 @@ impl Renderer {
                         contents: bytemuck::bytes_of(&uniforms),
                         usage: wgpu::BufferUsages::UNIFORM,
                     });
+                let mut entries = vec![wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: buffer.as_entire_binding(),
+                }];
+                if mesh.pbr.is_some() {
+                    entries.push(wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: lighting.as_ref().unwrap().as_entire_binding(),
+                    });
+                }
                 self.device.create_bind_group(&wgpu::BindGroupDescriptor {
                     label: None,
-                    layout: &self.layout,
-                    entries: &[wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: buffer.as_entire_binding(),
-                    }],
+                    layout: if mesh.pbr.is_some() {
+                        &self.pbr_layout
+                    } else {
+                        &self.layout
+                    },
+                    entries: &entries,
                 })
             })
             .collect();

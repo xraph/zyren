@@ -5,6 +5,7 @@ use std::collections::HashMap;
 pub(super) struct PipelineKey {
     format: wgpu::TextureFormat,
     textured: bool,
+    standard: bool,
     side: u32,
     mirrored: bool,
     blend: bool,
@@ -17,6 +18,7 @@ impl PipelineKey {
         Self {
             format,
             textured: mesh.color_map.is_some(),
+            standard: mesh.pbr.is_some(),
             side: mesh.side,
             mirrored: mesh.primitive_kind == 0
                 && glam::Mat4::from_cols_array(&mesh.model).determinant() < 0.,
@@ -31,12 +33,15 @@ pub(super) struct MeshPipelines {
     shader: wgpu::ShaderModule,
     plain: wgpu::PipelineLayout,
     textured: wgpu::PipelineLayout,
+    standard_plain: wgpu::PipelineLayout,
+    standard_textured: wgpu::PipelineLayout,
     cache: HashMap<PipelineKey, wgpu::RenderPipeline>,
 }
 impl MeshPipelines {
     pub(super) fn new(
         device: &wgpu::Device,
         layout: &wgpu::BindGroupLayout,
+        pbr_layout: &wgpu::BindGroupLayout,
         texture_layout: &wgpu::BindGroupLayout,
     ) -> Self {
         Self {
@@ -46,7 +51,9 @@ impl MeshPipelines {
                     concat!(
                         include_str!("../mesh.wgsl"),
                         "\n",
-                        include_str!("primitives.wgsl")
+                        include_str!("primitives.wgsl"),
+                        "\n",
+                        include_str!("pbr.wgsl")
                     )
                     .into(),
                 ),
@@ -59,6 +66,16 @@ impl MeshPipelines {
             textured: device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: None,
                 bind_group_layouts: &[Some(layout), Some(texture_layout)],
+                ..Default::default()
+            }),
+            standard_plain: device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("standard material"),
+                bind_group_layouts: &[Some(pbr_layout)],
+                ..Default::default()
+            }),
+            standard_textured: device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("textured standard material"),
+                bind_group_layouts: &[Some(pbr_layout), Some(texture_layout)],
                 ..Default::default()
             }),
             cache: HashMap::new(),
@@ -119,7 +136,11 @@ impl MeshPipelines {
         }
         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("native mesh state"),
-            layout: Some(if key.textured {
+            layout: Some(if key.standard && key.textured {
+                &self.standard_textured
+            } else if key.standard {
+                &self.standard_plain
+            } else if key.textured {
                 &self.textured
             } else {
                 &self.plain
@@ -142,6 +163,10 @@ impl MeshPipelines {
                 module: &self.shader,
                 entry_point: Some(if key.primitive_kind != 0 {
                     "fs_primitive"
+                } else if key.standard && key.textured {
+                    "fs_standard_textured"
+                } else if key.standard {
+                    "fs_standard"
                 } else if key.textured {
                     "fs_textured"
                 } else {
