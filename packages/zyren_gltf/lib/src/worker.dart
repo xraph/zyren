@@ -89,6 +89,28 @@ final class GltfWorkers {
           )
           as TextureImageData;
 
+  static Future<TextureImageData> texture(
+    TextureImageData texture,
+    bool mipmaps,
+    LoadCancellation cancellation,
+  ) async =>
+      await _enqueue(
+            () => [
+              'texture',
+              [
+                for (final level
+                    in mipmaps ? texture.levels : [texture.levels.first])
+                  TransferableTypedData.fromList([level]),
+              ],
+              texture.descriptor.width,
+              texture.descriptor.height,
+              texture.descriptor.format,
+              mipmaps && texture.levels.length == 1,
+            ],
+            cancellation,
+          )
+          as TextureImageData;
+
   static Future<List<DecodedAccessor>> accessors(
     Map<String, Object?> root,
     List<Uint8List> buffers,
@@ -269,6 +291,19 @@ void _entry((SendPort, List<Object>) request) {
             alphaMode: args[6] as AlphaMode,
           ),
           generateMipmaps: args[7] as bool,
+        );
+      case 'texture':
+        final levels = [
+          for (final transfer in args[1] as List<TransferableTypedData>)
+            transfer.materialize().asUint8List(),
+        ];
+        result = TextureImageData.rgba(
+          width: args[2] as int,
+          height: args[3] as int,
+          pixels: levels.first,
+          mipmaps: levels.sublist(1),
+          format: args[4] as TextureFormat,
+          generateMipmaps: args[5] as bool,
         );
       case 'accessors':
         final root = args[1] as Map<String, Object?>;

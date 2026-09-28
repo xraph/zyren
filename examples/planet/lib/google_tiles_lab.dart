@@ -116,6 +116,7 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
       final services = AssetServices(
         resolver: provider,
         imageDecoder: base.imageDecoder,
+        textureDecoder: base.textureDecoder,
         bufferDecoder: base.bufferDecoder,
         meshDecoder: base.meshDecoder,
       );

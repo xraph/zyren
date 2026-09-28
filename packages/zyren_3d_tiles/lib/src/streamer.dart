@@ -316,6 +316,7 @@ class Tiles3DStreamer {
         services: AssetServices(
           resolver: tracker,
           imageDecoder: services.imageDecoder,
+          textureDecoder: services.textureDecoder,
           bufferDecoder: services.bufferDecoder,
           meshDecoder: services.meshDecoder,
           policy: services.policy,

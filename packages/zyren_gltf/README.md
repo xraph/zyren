@@ -77,7 +77,8 @@ unknown optional extensions produce warnings and use the core fallback data.
 | PBR or textured lines/points, UV sets above one, singular or out-of-range native transforms | Explicit unsupported-feature error |
 | `EXT_meshopt_compression` | Attributes, triangle/index sequences and all three filters with a configured `BufferDecoder`; optional extension uses fallback data when no codec is available |
 | `KHR_draco_mesh_compression` | Draco 2.2 meshes through `CompressedMeshDecoder`; triangle strips become triangle lists, attribute IDs and accessor formats are validated |
-| Sparse overrides on Draco accessors, Basis/KTX2 and other required extensions | Explicit unsupported-feature error |
+| `KHR_texture_basisu` | KTX2 ETC1S/UASTC through `TextureDecoder`, including Zstd, authored mips and PNG/JPEG fallback when optional |
+| Sparse overrides on Draco accessors and other required extensions | Explicit unsupported-feature error |
 
 ## Limits and workers
 
@@ -93,6 +94,13 @@ Flutter's default asset services include the native meshopt decoder. For a Dart
 application, pass `NativeBufferDecoder()` as `AssetServices.bufferDecoder`.
 Decoded views count against the job budget before accessor conversion. Fallback
 buffers marked by meshopt are skipped when you configure the codec.
+
+For Basis textures, pass `NativeTextureDecoder()` as `AssetServices.textureDecoder`.
+Flutter includes it by default. Authored mip levels and alpha survive CPU
+transcoding to RGBA8. A texture with one source level gets generated mips when
+its sampler requests them. The material usage must agree with the texture's
+linear/sRGB metadata. Native storage is RGBA8; compressed GPU uploads, arrays,
+cubes, video, HDR, custom swizzles and alternate orientations are unsupported.
 
 For Draco, use `NativeMeshDecoder()` as `AssetServices.meshDecoder`. Flutter
 includes it by default. Declared position bounds may include quantization

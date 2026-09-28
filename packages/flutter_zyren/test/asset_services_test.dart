@@ -32,6 +32,15 @@ class Loader extends AssetLoader<Value> {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  test('default runtime supplies CPU geometry and texture codecs', () {
+    final services = SceneRuntime.defaultAssetServices;
+    expect(services.bufferDecoder!.encodings, contains(BufferEncoding.meshopt));
+    expect(services.meshDecoder!.encodings, contains(MeshEncoding.draco));
+    expect(
+      services.textureDecoder!.encodings,
+      contains(TextureEncoding.ktx2Basis),
+    );
+  });
   test(
     'detached controllers share CPU services without creating a GPU backend',
     () async {

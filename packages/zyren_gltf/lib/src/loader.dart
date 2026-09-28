@@ -9,6 +9,7 @@ import 'recipes.dart';
 import 'worker.dart';
 import 'meshopt.dart';
 import 'draco.dart';
+import 'basis.dart';
 part 'model_asset.dart';
 
 abstract final class Gltf {
@@ -70,6 +71,8 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
         supportedExtensions: {
           'KHR_materials_unlit',
           'KHR_lights_punctual',
+          if (context.supportsTextureEncoding(TextureEncoding.ktx2Basis))
+            basisExtension,
           if (context.supportsMeshEncoding(MeshEncoding.draco)) dracoExtension,
           if (context.supportsBufferEncoding(BufferEncoding.meshopt))
             meshoptExtension,
@@ -96,6 +99,10 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
           options.limits,
         );
       }
+      root = selectBasisTextures(
+        root,
+        context.supportsTextureEncoding(TextureEncoding.ktx2Basis),
+      );
       final prepared = await GltfWorkers.model(
         root,
         buffers,
@@ -131,7 +138,9 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
               context.limits.images.maxEncodedBytes,
               context.limits.maxDecodedBytes - context.decodedBytes,
             ),
-            const {'image/png', 'image/jpeg'},
+            recipe.basis
+                ? const {'image/ktx2'}
+                : const {'image/png', 'image/jpeg'},
             context.cancellation,
             '$path.uri',
           );
@@ -148,7 +157,46 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
           bytes = imageSource.bytes;
           imageUri = imageSource.effectiveUri;
         }
-        _checkImageType(bytes, media, path, imageUri);
+        _checkImageType(bytes, media, path, imageUri, basis: recipe.basis);
+        if (recipe.basis) {
+          final texture = await context.decodeTexture(
+            bytes,
+            encoding: TextureEncoding.ktx2Basis,
+            fieldPath: path,
+          );
+          for (final (mipmaps, linear) in variants[entry.key]!) {
+            final expected = linear
+                ? TextureFormat.rgba8Unorm
+                : TextureFormat.rgba8UnormSrgb;
+            if (texture.descriptor.format != expected) {
+              throw AssetLoadException(
+                AssetLoadError.invalidData,
+                'Basis transfer function does not match the material texture usage.',
+                sourceUri: imageUri,
+                fieldPath: path,
+              );
+            }
+            final unchanged = mipmaps
+                ? texture.levels.length > 1
+                : texture.levels.length == 1;
+            final selected = mipmaps ? texture.levels : [texture.levels.first];
+            if (!unchanged) {
+              context.reserveDecodedBytes(
+                selected.fold<int>(0, (sum, level) => sum + level.length),
+                fieldPath: path,
+              );
+            }
+            final data = unchanged
+                ? texture
+                : await GltfWorkers.texture(
+                    texture,
+                    mipmaps,
+                    context.cancellation,
+                  );
+            images[(entry.key, mipmaps, linear)] = TextureImage.fromData(data);
+          }
+          continue;
+        }
         final image = await context.decodeImage(bytes, fieldPath: path);
         for (final (mipmaps, linear) in variants[entry.key]!) {
           context.reserveDecodedBytes(
@@ -276,7 +324,27 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
 
 void _releaseModel(ModelAsset asset) => asset._release();
 
-void _checkImageType(Uint8List bytes, String? media, String path, Uri uri) {
+void _checkImageType(
+  Uint8List bytes,
+  String? media,
+  String path,
+  Uri uri, {
+  bool basis = false,
+}) {
+  if (basis) {
+    const magic = [171, 75, 84, 88, 32, 50, 48, 187, 13, 10, 26, 10];
+    if (bytes.length < magic.length ||
+        Iterable<int>.generate(magic.length).any((i) => bytes[i] != magic[i]) ||
+        (media != null && media != 'image/ktx2')) {
+      throw AssetLoadException(
+        AssetLoadError.invalidData,
+        'Basis sources require KTX2 bytes and MIME type.',
+        sourceUri: uri,
+        fieldPath: path,
+      );
+    }
+    return;
+  }
   final png =
       bytes.length >= 8 &&
       bytes[0] == 137 &&

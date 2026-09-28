@@ -107,7 +107,8 @@ final class ImageBindingRecipe {
 final class ImageRecipe {
   final String? uri, mediaType;
   final Uint8List? bytes;
-  const ImageRecipe(this.uri, this.mediaType, this.bytes);
+  final bool basis;
+  const ImageRecipe(this.uri, this.mediaType, this.bytes, {this.basis = false});
 }
 
 final class LightRecipe {

@@ -13,6 +13,7 @@ class SceneRuntime {
   static const defaultAssetServices = AssetServices(
     resolver: FlutterSourceResolver(),
     imageDecoder: NativeImageDecoder(),
+    textureDecoder: NativeTextureDecoder(),
     bufferDecoder: NativeBufferDecoder(),
     meshDecoder: NativeMeshDecoder(),
   );
