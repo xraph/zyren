@@ -15,6 +15,7 @@ mod environment;
 mod instances;
 mod lighting;
 mod multisample;
+mod outlines;
 pub(crate) mod pipelines;
 mod shadows;
 mod textures;
@@ -98,6 +99,7 @@ pub struct RendererState {
     pub(crate) android_generation: u64,
     pipelines: pipelines::MeshPipelines,
     effects: effects::Effects,
+    outlines: outlines::Outlines,
     supports_msaa4: bool,
     texture_layout: wgpu::BindGroupLayout,
     pbr_layout: wgpu::BindGroupLayout,
@@ -177,14 +179,18 @@ impl Renderer {
             })
             .await
             .map_err(|e| format!("no Metal, Vulkan or DX12 adapter: {e}"))?;
-        let supports_msaa4 = [effects::HDR, wgpu::TextureFormat::Depth32Float]
-            .iter()
-            .all(|format| {
-                adapter
-                    .get_texture_format_features(*format)
-                    .flags
-                    .contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X4)
-            });
+        let supports_msaa4 = [
+            effects::HDR,
+            outlines::FORMAT,
+            wgpu::TextureFormat::Depth32Float,
+        ]
+        .iter()
+        .all(|format| {
+            adapter
+                .get_texture_format_features(*format)
+                .flags
+                .contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X4)
+        });
         let info = adapter.get_info();
         let (device, queue) = adapter
             .request_device(&wgpu::DeviceDescriptor {
@@ -238,6 +244,7 @@ impl Renderer {
                 android_generation: 0,
                 pipelines,
                 effects: effects::Effects::default(),
+                outlines: outlines::Outlines::default(),
                 texture_layout,
                 pbr_layout,
                 pbr_texture_layout,
@@ -316,7 +323,7 @@ impl Renderer {
                 shaders: &mut state.shaders,
                 failure: &mut state.failure,
                 engine_layout: &state.layout,
-                target_bytes: state.effects.bytes(),
+                target_bytes: state.effects.bytes() + state.outlines.bytes(),
                 shadow_bytes: state.shadows.bytes(),
                 shadow_passes: state.shadows.passes,
                 instance_bytes: state.instances.bytes(),
@@ -416,6 +423,7 @@ impl Renderer {
     pub fn close_scene_view(&mut self, view: u64) -> Result<(), String> {
         self.views.remove(&view);
         self.effects.remove(view);
+        self.outlines.remove(view);
         self.shadows.remove(view);
         self.instances.remove(view);
         self.evict_geometry()
@@ -724,19 +732,35 @@ impl Renderer {
         });
         let mut encoder = self.device.create_command_encoder(&Default::default());
         self.encode_shadows(frame, &mut encoder);
-        {
+        for mask in [false, true] {
+            let (color_view, resolve, format) = if mask {
+                let Some(view) = self.outlines.view(frame) else {
+                    continue;
+                };
+                (view.attachment(), view.resolve(), outlines::FORMAT)
+            } else {
+                (color_view, resolve, format)
+            };
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("native frame"),
+                label: Some(if mask {
+                    "selection coverage"
+                } else {
+                    "native frame"
+                }),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: color_view,
                     resolve_target: resolve,
                     depth_slice: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: frame.background[0] * frame.settings.background_alpha as f64,
-                            g: frame.background[1] * frame.settings.background_alpha as f64,
-                            b: frame.background[2] * frame.settings.background_alpha as f64,
-                            a: frame.settings.background_alpha as f64,
+                        load: wgpu::LoadOp::Clear(if mask {
+                            wgpu::Color::TRANSPARENT
+                        } else {
+                            wgpu::Color {
+                                r: frame.background[0] * frame.settings.background_alpha as f64,
+                                g: frame.background[1] * frame.settings.background_alpha as f64,
+                                b: frame.background[2] * frame.settings.background_alpha as f64,
+                                a: frame.settings.background_alpha as f64,
+                            }
                         }),
                         store: wgpu::StoreOp::Store,
                     },
@@ -744,7 +768,11 @@ impl Renderer {
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
                     view: depth_view,
                     depth_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(frame.settings.depth_clear()),
+                        load: if mask {
+                            wgpu::LoadOp::Load
+                        } else {
+                            wgpu::LoadOp::Clear(frame.settings.depth_clear())
+                        },
                         store: wgpu::StoreOp::Store,
                     }),
                     stencil_ops: None,
@@ -755,6 +783,9 @@ impl Renderer {
             for draw in &instances.draws {
                 let index = draw.mesh;
                 let mesh = &frame.meshes[index];
+                if mask && !mesh.outlined {
+                    continue;
+                }
                 let binding = &bindings[index];
                 let texture_binding = &texture_bindings[index];
                 let geometry = &self.geometries[&mesh.geometry];
@@ -767,7 +798,8 @@ impl Renderer {
                             frame.settings.sample_count,
                             frame.settings.reversed_depth(),
                         )
-                        .with_mirror(draw.mirrored),
+                        .with_mirror(draw.mirrored)
+                        .with_mask(mask),
                     ),
                 );
                 pass.set_bind_group(0, binding, &[]);

@@ -40,6 +40,7 @@ class NativeRenderer implements SceneRenderer {
       RenderFeature.bloom,
       RenderFeature.reversedDepth,
       RenderFeature.sectionClipping,
+      RenderFeature.selectionOutlines,
       if (_deviceInfo.sampleCounts.contains(4))
         RenderFeature.multisampleAntialiasing,
     },

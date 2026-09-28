@@ -21,6 +21,7 @@ part 'camera_projection.dart';
 part 'primitives.dart';
 part 'instanced_mesh.dart';
 part 'clipping_plane.dart';
+part 'scene_outline.dart';
 
 class Object3D with _Revisioned {
   final String? name;
@@ -29,6 +30,15 @@ class Object3D with _Revisioned {
   Quat _quaternion = Quat.identity;
   bool _visible = true;
   bool _clippingEnabled = true;
+  bool _outlineEnabled = true;
+
+  /// False excludes this subtree from inherited scene outlines.
+  bool get outlineEnabled => _outlineEnabled;
+  set outlineEnabled(bool value) {
+    if (_outlineEnabled == value) return;
+    _outlineEnabled = value;
+    _changed();
+  }
 
   /// False exempts this object and its descendants from scene section planes.
   bool get clippingEnabled => _clippingEnabled;
@@ -425,6 +435,13 @@ final class EffectRegistration extends Registration {
 
 class Scene extends Object3D {
   List<ClippingPlane> _clippingPlanes = const [];
+  SceneOutline? _outline;
+  SceneOutline? get outline => _outline;
+  set outline(SceneOutline? value) {
+    if (identical(value, _outline)) return;
+    _outline = value;
+    _changed();
+  }
 
   /// Up to six world-space half-spaces, intersected without generating caps.
   List<ClippingPlane> get clippingPlanes => _clippingPlanes;

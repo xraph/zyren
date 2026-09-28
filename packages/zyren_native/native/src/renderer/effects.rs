@@ -285,7 +285,8 @@ impl Renderer {
             }
         }
         let state = self.state.as_mut().unwrap();
-        state.effects.prepare(&state.device, frame, size, format)
+        state.effects.prepare(&state.device, frame, size, format)?;
+        state.outlines.prepare(&state.device, frame, size, format)
     }
     pub(super) fn encode_frame(
         &self,
@@ -296,7 +297,10 @@ impl Renderer {
         size: [u32; 2],
     ) -> wgpu::CommandEncoder {
         if !frame.settings.enabled {
-            return self.encode_scene(frame, output, depth, format, size, None);
+            let mut encoder = self.encode_scene(frame, output, depth, format, size, None);
+            self.outlines
+                .encode(&self.device, &mut encoder, frame, output, format);
+            return encoder;
         }
         let id = frame.binary.as_ref().map_or(0, |v| v.view);
         let view = &self.effects.views[&id];
@@ -444,6 +448,8 @@ impl Renderer {
         let pipeline = &self.effects.outputs[&format];
         let group = bind(pipeline, &view.images[current].view, &output_buffer);
         draw(&mut encoder, output, pipeline, &group, &[]);
+        self.outlines
+            .encode(&self.device, &mut encoder, frame, output, format);
         encoder
     }
     pub(super) fn accept_history(&mut self, frame: &Frame) {

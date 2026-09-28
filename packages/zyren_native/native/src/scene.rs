@@ -185,6 +185,8 @@ pub struct Mesh {
     pub shadow_flags: u32,
     #[serde(default)]
     pub clipping_planes: Vec<[f32; 4]>,
+    #[serde(default)]
+    pub outlined: bool,
 }
 fn default_shadow_flags() -> u32 {
     2
@@ -227,6 +229,7 @@ impl Default for Mesh {
             point_shape: 0,
             shadow_flags: 2,
             clipping_planes: Vec::new(),
+            outlined: false,
         }
     }
 }
@@ -436,6 +439,7 @@ impl BloomSettings {
 #[derive(Clone, PartialEq, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct RenderSettings {
+    pub outline: Option<OutlineSettings>,
     pub enabled: bool,
     pub sample_count: u32,
     pub depth_strategy: u32,
@@ -455,6 +459,7 @@ impl Default for RenderSettings {
     fn default() -> Self {
         Self {
             enabled: false,
+            outline: None,
             sample_count: 1,
             depth_strategy: 0,
             spatial_antialiasing: 0,
@@ -482,6 +487,14 @@ impl RenderSettings {
         if self.reversed_depth() { 1. } else { 0. }
     }
     pub fn validate(&self) -> Result<(), String> {
+        if self.outline.as_ref().is_some_and(|o| {
+            !(1..=8).contains(&o.width)
+                || o.color
+                    .iter()
+                    .any(|v| !v.is_finite() || !(0.0..=1.).contains(v))
+        }) {
+            return Err("Invalid outline settings".into());
+        }
         if self.environment.as_ref().is_some_and(|e| {
             !e.intensity.is_finite()
                 || !(0.0..=65504.).contains(&e.intensity)
@@ -509,6 +522,13 @@ impl RenderSettings {
         }
         Ok(())
     }
+}
+
+#[derive(Clone, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OutlineSettings {
+    pub color: [f32; 4],
+    pub width: u32,
 }
 
 #[derive(Clone, PartialEq, Deserialize)]

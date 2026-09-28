@@ -904,4 +904,38 @@ fn section_packets_reject_invalid_planes_and_truncation() {
     let mut custom = frame.meshes[0].clone();
     custom.shader = Some([1; 4]);
     assert!(custom.validate_material().is_err());
+
+    data[4..8].copy_from_slice(&30_u32.to_le_bytes());
+    let outline_offset = strategy_offset + 4;
+    let mut outline = Vec::new();
+    for value in [1_f32, 0., 0., 1.] {
+        outline.extend(value.to_le_bytes());
+    }
+    outline.extend(2_u32.to_le_bytes());
+    data.splice(outline_offset..outline_offset, outline);
+    let outline_flag = data.len();
+    data.extend(1_u32.to_le_bytes());
+    let length = (data.len() - 24) as u64;
+    data[16..24].copy_from_slice(&length.to_le_bytes());
+    let frame = ScenePacket::decode(&data).unwrap().resolve(None).unwrap();
+    assert_eq!(frame.settings.outline.unwrap().width, 2);
+    assert!(frame.meshes[0].outlined);
+    assert!(!frame.settings.enabled);
+    for (offset, value) in [
+        (outline_offset, f32::NAN.to_bits()),
+        (outline_offset, (-1_f32).to_bits()),
+        (outline_offset + 12, 1.1_f32.to_bits()),
+        (outline_offset + 16, 0),
+        (outline_offset + 16, 9),
+        (outline_flag, 2),
+    ] {
+        let mut invalid = data.clone();
+        invalid[offset..offset + 4].copy_from_slice(&value.to_le_bytes());
+        assert!(ScenePacket::decode(&invalid).is_err());
+    }
+    for end in 24..data.len() {
+        let mut truncated = data[..end].to_vec();
+        truncated[16..24].copy_from_slice(&((end - 24) as u64).to_le_bytes());
+        assert!(ScenePacket::decode(&truncated).is_err());
+    }
 }

@@ -173,7 +173,9 @@ final class ScenePacketEncoder {
       throw ArgumentError('A view supports at most 65536 instances.');
     }
     final hasTangents = scene._geometries.values.any((g) => g.tangents != null);
-    final opcode = submission.camera.depthStrategy == DepthStrategy.reversed
+    final opcode = scene.hasOutline
+        ? 30
+        : submission.camera.depthStrategy == DepthStrategy.reversed
         ? 29
         : scene._meshes.any((m) => (m['clippingPlanes'] as List).isNotEmpty)
         ? 28
@@ -284,6 +286,11 @@ final class ScenePacketEncoder {
     }
     if (opcode >= 28) body.u32(scene._settings.enabled ? 1 : 0);
     if (opcode >= 29) body.u32(submission.camera.depthStrategy.index);
+    if (opcode >= 30) {
+      final outline = scene._outline!;
+      body.floats([...outline.color.toList(), outline.opacity]);
+      body.u32(outline.width);
+    }
     for (final id in owned) {
       body.u32(id);
     }
@@ -404,6 +411,7 @@ final class ScenePacketEncoder {
         body.u32(planes.length ~/ 4);
         body.floats(planes);
       }
+      if (opcode >= 30) body.u32(mesh['outlined'] == true ? 1 : 0);
     }
     final payload = body.finish();
     if (payload.length > 66 * 1024 * 1024 - 24) {
@@ -475,6 +483,7 @@ bool _sameMesh(Map<String, Object> a, Map<String, Object> b) {
   if (!identical(a['shader'], b['shader'])) return false;
   for (final field in [
     'geometry',
+    'outlined',
     'unlit',
     'side',
     'shadowFlags',

@@ -1,8 +1,12 @@
 part of 'frame_submission.dart';
 
 int _countDraws(SceneSnapshot scene) {
+  final hasOutline = scene.hasOutline;
   if (!scene._meshes.any((m) => (m['instances'] as List).isNotEmpty)) {
-    return scene._meshes.length;
+    return scene._meshes.length +
+        (hasOutline
+            ? 1 + scene._meshes.where((m) => m['outlined'] == true).length
+            : 0);
   }
   final order = <({int mesh, int slot, bool mirror, double depth})>[];
   final vp = vm.Matrix4.fromList(scene._viewProjection);
@@ -63,9 +67,14 @@ int _countDraws(SceneSnapshot scene) {
   var count = 0, previous = -1;
   bool? mirror;
   for (final draw in order) {
-    if (previous != draw.mesh || mirror != draw.mirror) count++;
+    if (previous != draw.mesh || mirror != draw.mirror) {
+      count++;
+      if (hasOutline && scene._meshes[draw.mesh]['outlined'] == true) {
+        count++;
+      }
+    }
     previous = draw.mesh;
     mirror = draw.mirror;
   }
-  return count;
+  return count + (hasOutline ? 1 : 0);
 }

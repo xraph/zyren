@@ -10,11 +10,12 @@ bindings, instance transforms and clipping planes. It reads the main pass depth
 with an inclusive comparison and never writes depth. Standard and reversed depth
 use matching comparisons. Alpha cutouts and fragment discards apply to the mask;
 overlapping selected draws retain the largest coverage alpha. A fully occluded
-object has no mask and no outline. Materials that disable depth testing keep
-that behavior. Transparent surfaces follow the scene's depth-write policy.
+object behind a depth-writing occluder has no mask and no outline. Materials that
+disable depth testing keep that behavior. Occluders that do not write depth do
+not hide the mask; coincident surfaces cannot be distinguished by depth alone.
 
 The edge lies inside the selected coverage, including occlusion and section
-boundaries. It does not extend across foreground objects. Custom shaders use
+boundaries. It stays behind depth-writing foreground objects. Custom shaders use
 their output alpha as coverage and must be safe to execute for an extra draw.
 Shader side effects and color-distorting postprocess warps are outside this
 contract. The mask remains in scene screen coordinates after postprocessing.

@@ -51,6 +51,9 @@ class SceneSnapshot {
   final List<double> _shadowCamera;
   final List<double> _viewProjection;
   final DepthStrategy _depthStrategy;
+  final SceneOutline? _outline;
+  bool get hasOutline =>
+      _outline != null && _meshes.any((m) => m['outlined'] == true);
   late final int drawCalls = _countDraws(this);
   int get triangles => _meshes.fold<int>(0, (sum, mesh) {
     final geometry = _geometries[mesh['geometry']]!;
@@ -72,6 +75,7 @@ class SceneSnapshot {
     this._shadowCamera,
     this._viewProjection,
     this._depthStrategy,
+    this._outline,
   );
   static SceneSnapshot _capture(
     Scene scene,
@@ -100,9 +104,15 @@ class SceneSnapshot {
       vm.Matrix4 parent,
       bool parentVisible,
       bool parentClipping,
+      bool parentOutlined,
+      bool parentOutlineEnabled,
     ) {
       final visible = parentVisible && node.visible;
       final clipping = parentClipping && node.clippingEnabled;
+      final outlineEnabled = parentOutlineEnabled && node.outlineEnabled;
+      final outlined =
+          outlineEnabled &&
+          (parentOutlined || (scene.outline?.objects.contains(node) ?? false));
       final world = parent * node.localMatrix.toVectorMath();
       if (node is Light && visible) {
         final shadow = switch (node) {
@@ -232,6 +242,7 @@ class SceneSnapshot {
           meshes.add(
             _freeze(<String, Object>{
                   'clippingPlanes': clipping ? planes : <double>[],
+                  'outlined': outlined && (scene.outline?.opacity ?? 0) > 0,
                   'geometry': geometry.id,
                   'model': relative.storage.toList(),
                   'instances': node is InstancedMesh
@@ -288,11 +299,11 @@ class SceneSnapshot {
         }
       }
       for (final child in node.children) {
-        visit(child, world, visible, clipping);
+        visit(child, world, visible, clipping, outlined, outlineEnabled);
       }
     }
 
-    visit(scene, vm.Matrix4.identity(), true, true);
+    visit(scene, vm.Matrix4.identity(), true, true, false, true);
     return SceneSnapshot._(
       List.unmodifiable(meshes),
       Map.unmodifiable(geometries),
@@ -323,6 +334,7 @@ class SceneSnapshot {
       }),
       viewProjection,
       camera.depthStrategy,
+      scene.outline,
     );
   }
 }
@@ -376,7 +388,8 @@ class FrameSubmission {
 
   /// Compatibility encoder for native v1 adapters. Geometry conversion is lazy.
   Map<String, Object> toNativePacket({Set<int> uploaded = const {}}) {
-    if (camera.depthStrategy != DepthStrategy.standard ||
+    if (scene.hasOutline ||
+        camera.depthStrategy != DepthStrategy.standard ||
         scene._settings.enabled ||
         scene._textures.isNotEmpty ||
         scene._meshes.any(
@@ -410,7 +423,8 @@ class FrameSubmission {
                 ..remove('allImages')
                 ..remove('shadowFlags')
                 ..remove('instances')
-                ..remove('clippingPlanes'),
+                ..remove('clippingPlanes')
+                ..remove('outlined'),
           ],
         })
         as Map<String, Object>;

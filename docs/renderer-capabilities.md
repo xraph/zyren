@@ -10,6 +10,7 @@ renderer does not switch to a browser or OpenGL implementation.
 | Direct scene | Native output color, Depth32 float | Indexed meshes, unlit/diffuse/standard materials, RGBA8 maps and mipmaps, alpha masks/blending, material sides, lines/points, instances and punctual lighting | 4096 maximum 2D dimension; 65536 instances per view; 16 active lights |
 | HDR effects | RGBA16 float, Depth32 float, single-sample history | Exposure, Reinhard or fitted ACES, up to eight custom screen effects, FXAA, normalized bloom | 128 MiB of targets shared by views; 36 bytes per pixel before bloom |
 | Multisample HDR | Four-sample RGBA16 float and Depth32 float resolved to single-sample HDR/depth | The HDR profile with fractional coverage and nearest-sample depth | Only when `sampleCounts` contains 4; 84 bytes per pixel before bloom |
+| Selection outlines | RGBA8 coverage mask, shared scene depth | Inner edges on selected objects and descendants; material coverage, section cuts, standard/reversed depth and MSAA | 1 to 8 physical pixels; 64 MiB of masks shared by views; 4 bytes per pixel, or 20 with MSAA4 |
 | Public GPU resources | RGBA8 linear/sRGB, RGBA16/32 float, R32 float; 2D/3D textures | Scoped buffers/textures, WGSL compilation, compute/render graphs, mesh shaders, screen effects and environment convolution | 64 MiB explicit resources; 4096 2D / 256 3D dimensions; format/usage validation |
 
 The same scene/material/effect implementation serves explicit readback and native
@@ -23,6 +24,13 @@ Standard depth remains the default. Both require finite clipping planes; only
 backends advertising `RenderFeature.reversedDepth` accept the reversed mode.
 See the [planetary depth measurements](parity/planetary-depth.md) for its tested
 precision and the public screen reconstruction helpers.
+
+Backends advertising `RenderFeature.selectionOutlines` accept `Scene.outline`.
+Outlines run after postprocessing and do not enable HDR by themselves. The mask
+reuses selected material shaders with a read-only depth test. Depth-writing
+occluders hide it; overlays that do not write depth and coincident surfaces need
+the limits described in the [outline contract](design/selection-outlines.md).
+Outline masks are included in native graph diagnostics' `targetBytes`.
 
 ## Materials and lighting
 

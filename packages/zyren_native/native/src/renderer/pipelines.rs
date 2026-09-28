@@ -18,6 +18,7 @@ pub(super) struct PipelineKey {
     primitive_kind: u32,
     depth_test: bool,
     depth_write: bool,
+    mask: bool,
 }
 impl PipelineKey {
     pub(super) fn with_mirror(mut self, mirrored: bool) -> Self {
@@ -26,12 +27,24 @@ impl PipelineKey {
         }
         self
     }
-    fn variants(self) -> Vec<Self> {
-        if self.instanced {
+    pub(super) fn with_mask(mut self, mask: bool) -> Self {
+        self.mask = mask;
+        if mask {
+            self.format = super::outlines::FORMAT;
+            self.depth_write = false;
+        }
+        self
+    }
+    fn variants(self, outlined: bool) -> Vec<Self> {
+        let mut variants = if self.instanced {
             vec![self.with_mirror(false), self.with_mirror(true)]
         } else {
             vec![self]
+        };
+        if outlined {
+            variants.extend(variants.clone().into_iter().map(|key| key.with_mask(true)));
         }
+        variants
     }
     pub(super) fn new(
         format: wgpu::TextureFormat,
@@ -56,6 +69,7 @@ impl PipelineKey {
             primitive_kind: mesh.primitive_kind,
             depth_test: mesh.depth_test,
             depth_write: mesh.writes_depth(),
+            mask: false,
         }
     }
 }
@@ -166,7 +180,7 @@ impl MeshPipelines {
                 frame.settings.sample_count,
                 frame.settings.reversed_depth(),
             )
-            .variants()
+            .variants(mesh.outlined && frame.settings.outline.is_some())
             .iter()
             .all(|key| self.cache.contains_key(key))
         }) {
@@ -184,16 +198,13 @@ impl MeshPipelines {
                 frame.settings.sample_count,
                 frame.settings.reversed_depth(),
             );
-            for key in key.variants() {
+            for key in key.variants(mesh.outlined && frame.settings.outline.is_some()) {
                 if !self.cache.contains_key(&key) && !pending.contains_key(&key) {
                     let pipeline = if let Some(value) = mesh.shader {
-                        material_pipeline(
+                        custom_pipeline(
                             device,
                             materials.resolve(value).expect("validated shader"),
-                            format,
-                            mesh,
-                            frame.settings.sample_count,
-                            frame.settings.reversed_depth(),
+                            key,
                         )
                     } else {
                         self.create(device, key)
@@ -297,9 +308,20 @@ pub(crate) fn material_pipeline(
     samples: u32,
     reversed_depth: bool,
 ) -> wgpu::RenderPipeline {
+    custom_pipeline(
+        device,
+        material,
+        PipelineKey::new(format, mesh, false, samples, reversed_depth),
+    )
+}
+fn custom_pipeline(
+    device: &wgpu::Device,
+    material: &PreparedMaterial,
+    key: PipelineKey,
+) -> wgpu::RenderPipeline {
     create_pipeline(
         device,
-        PipelineKey::new(format, mesh, false, samples, reversed_depth),
+        key,
         ShaderPipeline {
             module: &material.shader,
             layout: &material.layout,
@@ -360,12 +382,26 @@ fn create_pipeline(
             compilation_options: Default::default(),
             targets: &[Some(wgpu::ColorTargetState {
                 format: key.format,
-                blend: if key.blend {
+                blend: if key.mask {
+                    let component = wgpu::BlendComponent {
+                        src_factor: wgpu::BlendFactor::One,
+                        dst_factor: wgpu::BlendFactor::One,
+                        operation: wgpu::BlendOperation::Max,
+                    };
+                    Some(wgpu::BlendState {
+                        color: component,
+                        alpha: component,
+                    })
+                } else if key.blend {
                     Some(wgpu::BlendState::ALPHA_BLENDING)
                 } else {
                     None
                 },
-                write_mask: wgpu::ColorWrites::ALL,
+                write_mask: if key.mask {
+                    wgpu::ColorWrites::ALPHA
+                } else {
+                    wgpu::ColorWrites::ALL
+                },
             })],
         }),
         primitive: wgpu::PrimitiveState {
@@ -386,9 +422,17 @@ fn create_pipeline(
             depth_write_enabled: Some(key.depth_write),
             depth_compare: Some(if key.depth_test {
                 if key.reversed_depth {
-                    wgpu::CompareFunction::Greater
+                    if key.mask {
+                        wgpu::CompareFunction::GreaterEqual
+                    } else {
+                        wgpu::CompareFunction::Greater
+                    }
                 } else {
-                    wgpu::CompareFunction::Less
+                    if key.mask {
+                        wgpu::CompareFunction::LessEqual
+                    } else {
+                        wgpu::CompareFunction::Less
+                    }
                 }
             } else {
                 wgpu::CompareFunction::Always

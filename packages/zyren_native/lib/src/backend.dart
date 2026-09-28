@@ -150,6 +150,7 @@ class NativeBackend implements MaterialBackend {
       RenderFeature.bloom,
       RenderFeature.reversedDepth,
       RenderFeature.sectionClipping,
+      RenderFeature.selectionOutlines,
       if (_renderer._deviceInfo.sampleCounts.contains(4))
         RenderFeature.multisampleAntialiasing,
       if (_experimentalAppleSurfaces && NativeSurfaces().appleAvailable)

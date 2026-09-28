@@ -536,6 +536,20 @@ class SceneEngine {
           ),
         );
       }
+      if (scene.outline case final outline?) {
+        if (outline.objects.isNotEmpty &&
+            outline.opacity > 0 &&
+            !capabilities.supports(RenderFeature.selectionOutlines)) {
+          throw SceneException(
+            SceneIssue(
+              code: SceneIssueCodes.unsupportedFeature,
+              message: 'This backend does not support selection outlines.',
+              operation: 'render',
+              requiredFeatures: {RenderFeature.selectionOutlines},
+            ),
+          );
+        }
+      }
       final FrameOutput result;
       if (_backend case final backend?) {
         result = await backend.render(
