@@ -377,6 +377,17 @@ void _finite(Vec3 value, String name) {
   }
 }
 
+/// Owns one effect slot. Replacements keep its order and do not need a free slot.
+final class EffectRegistration extends Registration {
+  final void Function(ScreenEffect) _replace;
+  EffectRegistration._(super.release, this._replace);
+  void replace(ScreenEffect effect) {
+    if (isDisposed) throw StateError('Effect registration has closed.');
+    if (effect.isClosed) throw StateError('Effect owner has closed.');
+    _replace(effect);
+  }
+}
+
 class Scene extends Object3D {
   RenderSettings _renderSettings = RenderSettings();
   final _effects = <Object, ScreenEffect>{};
@@ -404,7 +415,7 @@ class Scene extends Object3D {
   List<ScreenEffect> get effects =>
       List.unmodifiable([..._renderSettings.effects, ..._effects.values]);
 
-  Registration addEffect(ScreenEffect effect) {
+  EffectRegistration addEffect(ScreenEffect effect) {
     if (effect.isClosed) throw StateError('Effect owner has closed.');
     if (effects.length >= 8) {
       throw StateError('At most eight effects are supported.');
@@ -412,10 +423,16 @@ class Scene extends Object3D {
     final key = Object();
     _effects[key] = effect;
     _changed();
-    return Registration(() {
-      _effects.remove(key);
-      _changed();
-    });
+    return EffectRegistration._(
+      () {
+        _effects.remove(key);
+        _changed();
+      },
+      (replacement) {
+        _effects[key] = replacement;
+        _changed();
+      },
+    );
   }
 
   set renderSettings(RenderSettings value) {

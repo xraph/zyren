@@ -53,6 +53,36 @@ void main() {
       await programs.close();
     },
   );
+  test(
+    'effect replacement preserves order and an occupied eighth slot',
+    () async {
+      final device = fixture.Device();
+      final programs = ShaderCompiler(device),
+          materials = MaterialCompiler(device);
+      final program = await programs.compile(ShaderSource.wgsl('valid'));
+      final a = await materials.compileEffect(
+        PostProcessDescriptor(program: program),
+      );
+      final b = await materials.compileEffect(
+        PostProcessDescriptor(program: program),
+      );
+      final scene = Scene()
+        ..renderSettings = RenderSettings(effects: List.filled(6, a));
+      final registration = scene.addEffect(a);
+      final last = scene.addEffect(a);
+      registration.replace(b);
+      expect(scene.effects, [...List.filled(6, a), b, a]);
+      expect(() => scene.addEffect(a), throwsStateError);
+      await materials.close();
+      expect(() => registration.replace(a), throwsStateError);
+      expect(scene.effects[6], same(b));
+      registration.dispose();
+      expect(() => registration.replace(b), throwsStateError);
+      expect(scene.effects, hasLength(7));
+      last.dispose();
+      await programs.close();
+    },
+  );
   test('render settings bound exposure, alpha and effect counts', () {
     expect(() => RenderSettings(sampleCount: 2), throwsArgumentError);
     expect(RenderSettings(sampleCount: 4).enabled, isTrue);
