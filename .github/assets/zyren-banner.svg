@@ -1,10 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="360" viewBox="0 0 1280 360" role="img" aria-labelledby="title desc">
-<title id="title">Zyren. Native 3D for Dart and Flutter.</title><desc id="desc">A blue exploded assembly beside the Zyren wordmark. Metal, Vulkan and Direct3D 12.</desc>
-<rect width="1280" height="360" rx="20" fill="#eaf0f8"/>
-<g stroke="#c7d3e5" fill="none"><path d="M740 310 1000 170 1260 310M790 337 1050 197 1280 320M690 283 950 143 1210 283"/><path d="m765 230 190 103m-130-135 190 103m-130-135 190 103m-130-135 190 103"/></g>
-<g stroke="#244e98" stroke-width="2" stroke-linejoin="round">
-<path d="m835 245 155-83 155 83-155 83Z" fill="#92acd7"/><path d="m835 245 155 83v18l-155-83Z" fill="#557bbb"/><path d="m990 328 155-83v18l-155 83Z" fill="#305794"/>
-<path d="m865 163 125-67 125 67-125 67Z" fill="#b6cfff"/><path d="m865 163 125 67v28l-125-67Z" fill="#5080d0"/><path d="m990 230 125-67v28l-125 67Z" fill="#2858a9"/>
-<path d="m900 92 90-48 90 48-90 48Z" fill="#7eabff"/><path d="m900 92 90 48v26l-90-48Z" fill="#346edf"/><path d="m990 140 90-48v26l-90 48Z" fill="#2149a0"/>
-</g><path d="M990 174v24m0 68v27" stroke="#244e98" stroke-dasharray="4 5"/>
-<g fill="#182e54" font-family="Arial,Helvetica,sans-serif"><text x="64" y="143" font-size="106" font-weight="700" letter-spacing="-6">zyren</text><text x="69" y="198" font-size="30">Native 3D for Dart and Flutter.</text><text x="69" y="273" font-size="18" fill="#3f5c82">Metal / Vulkan / Direct3D 12</text><text x="69" y="306" font-size="16" fill="#3f5c82">Scene graph · materials · geospatial · native rendering</text></g></svg>
+<title id="title">Zyren. Native 3D for Dart and Flutter.</title><desc id="desc">An orange and graphite exploded assembly beside the Zyren wordmark. Metal, Vulkan and Direct3D 12.</desc>
+<rect width="1280" height="360" rx="0" fill="#0a0908"/>
+<g stroke="#302b26" fill="none"><path d="M740 310 1000 170 1260 310M790 337 1050 197 1280 320M690 283 950 143 1210 283"/><path d="m765 230 190 103m-130-135 190 103m-130-135 190 103m-130-135 190 103"/></g>
+<g stroke="#746c63" stroke-width="2" stroke-linejoin="round">
+<path d="m835 245 155-83 155 83-155 83Z" fill="#37332e"/><path d="m835 245 155 83v18l-155-83Z" fill="#22201c"/><path d="m990 328 155-83v18l-155 83Z" fill="#111010"/>
+<path d="m865 163 125-67 125 67-125 67Z" fill="#575047"/><path d="m865 163 125 67v28l-125-67Z" fill="#302b26"/><path d="m990 230 125-67v28l-125 67Z" fill="#171411"/>
+<path d="m900 92 90-48 90 48-90 48Z" fill="#ff4d1c"/><path d="m900 92 90 48v26l-90-48Z" fill="#b93715"/><path d="m990 140 90-48v26l-90 48Z" fill="#662710"/>
+</g><path d="M990 174v24m0 68v27" stroke="#746c63" stroke-dasharray="4 5"/>
+<g fill="#edeae4" font-family="Arial,Helvetica,sans-serif"><text x="64" y="143" font-size="100" font-weight="700" letter-spacing="-6">ZYREN</text><text x="69" y="198" font-size="30">Native 3D for Dart and Flutter.</text><text x="69" y="273" font-size="18" fill="#8b857b">Metal / Vulkan / Direct3D 12</text><text x="69" y="306" font-size="16" fill="#8b857b">Scene graph · materials · geospatial · native rendering</text></g></svg>
