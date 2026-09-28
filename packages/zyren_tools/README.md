@@ -34,7 +34,35 @@ another transform command or using undo and redo.
 
 Measurements retain fixed world anchors in scene units. They do not follow a
 moving mesh or convert to metres. Your host supplies labels and drawing.
-Selection outlines need a separate rendering pass.
+
+## Native selection outlines
+
+Use `SceneOutlinePlugin` after scene tools to outline the selected object and its
+descendants. Disable the older material highlight if you want to keep the part's
+original colors:
+
+```dart
+controller.use(SceneToolsPlugin(highlightSelection: false));
+controller.use(SceneOutlinePlugin(width: 3));
+```
+
+The plugin requires `RenderFeature.selectionOutlines`. Width is one to eight
+physical pixels, and you can set `color` and `opacity`. Outlines follow material
+coverage, section cuts and the scene's depth convention. A selected group forms
+one combined mask. Gizmos opt out; set `outlineEnabled = false` on your own helper
+roots to exclude them too.
+
+Clearing selection or detaching restores the earlier `Scene.outline` only while
+the plugin still owns it. External outline edits survive ordinary tool updates;
+changing selection starts a new session. The `sceneOutlines` service exposes
+`isActive`. You can also use `SceneOutline` directly without the tools plugin.
+
+The native pass adds one draw per selected draw batch and one overlay. Its edge
+lies inside the selected coverage and runs after postprocessing. It allocates a
+per-view mask, without turning on HDR by itself. Depth-writing occluders hide
+the mask; overlays that do not write depth and coincident surfaces follow the
+limitations described in [selection outlines](../../docs/design/selection-outlines.md).
+Custom shaders must be safe to draw again and use their output alpha as coverage.
 
 ## Canvas handles
 

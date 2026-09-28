@@ -138,7 +138,8 @@ void main() {
                 (object) => object.name == 'Cover',
               )
               as Mesh;
-      expect(cover.material.color, Color3.hex(0xf2bd65));
+      expect(cover.material.color, Color3.hex(0x6f93d0));
+      expect(controller.scene.outline!.objects, contains(cover));
       final slider = tester.widget<Slider>(
         find.byKey(const ValueKey('timeline')),
       );

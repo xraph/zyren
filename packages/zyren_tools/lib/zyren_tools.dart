@@ -6,6 +6,7 @@ import 'package:zyren/zyren.dart';
 
 part 'src/transform_gizmo.dart';
 part 'src/scene_section.dart';
+part 'src/scene_outline.dart';
 
 const sceneTools = ServiceKey<SceneToolsPlugin>('zyren.tools');
 
@@ -27,6 +28,7 @@ class SceneToolsPlugin extends ScenePlugin {
   final int historyLimit;
   final Color3 highlightColor;
   final bool selectOnTap;
+  final bool highlightSelection;
   final _changes = StreamController<void>.broadcast();
   final _raycaster = Raycaster();
   final _undo = <_TransformEdit>[], _redo = <_TransformEdit>[];
@@ -41,6 +43,7 @@ class SceneToolsPlugin extends ScenePlugin {
   SceneToolsPlugin({
     this.historyLimit = 100,
     this.selectOnTap = true,
+    this.highlightSelection = true,
     Color3? highlightColor,
   }) : highlightColor = highlightColor ?? Color3.hex(0xf2bd65) {
     if (historyLimit < 1) {
@@ -152,7 +155,7 @@ class SceneToolsPlugin extends ScenePlugin {
     _session?.cancel();
     _restoreHighlight();
     _selected = object;
-    if (object is Mesh) {
+    if (object is Mesh && highlightSelection) {
       _original = object.material;
       _highlight = switch (object.material) {
         DiffuseMaterial material => material.copyWith(color: highlightColor),

@@ -67,7 +67,8 @@ class _WorkbenchState extends State<_Workbench> {
   final _viewKey = GlobalKey();
   bool _refreshQueued = false;
   late final SceneController _controller;
-  final _tools = SceneToolsPlugin();
+  final _tools = SceneToolsPlugin(highlightSelection: false);
+  final _outlines = SceneOutlinePlugin(width: 3);
   final _sections = SceneSectionPlugin();
   int _sectionAxis = 0;
   double _sectionOffset = 0;
@@ -199,6 +200,7 @@ class _WorkbenchState extends State<_Workbench> {
       excludeFromIsolation: _gizmo.owns,
     );
     _controller.use(_tools);
+    _controller.use(_outlines);
     _controller.use(_sections);
     _controller.use(_gizmo);
     _controller.use(_orbit);
@@ -358,7 +360,7 @@ class _WorkbenchState extends State<_Workbench> {
           _pinGeometry,
           UnlitMaterial(color: Color3.hex(0xff8ec3)),
           name: 'Review pin',
-        );
+        )..outlineEnabled = false;
         _pinLeases[note.id] = _tools.excludeFromPicking(pin);
         return pin;
       });

@@ -9,7 +9,7 @@ on Android. It requires native presentation.
 
 | Package | Current behavior |
 | --- | --- |
-| `zyren_tools` | Tap or direct selection, temporary material highlighting, local/world transform gizmos and translation planes, optional screen-size handles, reversible section sessions, transactional drag history, snapping, bounded undo/redo with conflict detection, fixed world-point measurements |
+| `zyren_tools` | Tap or direct selection, optional native outlines or temporary material highlighting, local/world transform gizmos and translation planes, optional screen-size handles, reversible section sessions, transactional drag history, snapping, bounded undo/redo with conflict detection, fixed world-point measurements |
 | `zyren_devtools` | Immutable hierarchy and transform snapshots, stable inspector IDs, live object resolution, bounded frame history and backend capabilities |
 | `zyren_timeline` | Absolute transform and camera tracks, quaternion interpolation, step visibility, play/pause/seek, ordered playback markers, looping and scoped frame demand |
 | `zyren_engineering` | Stable host IDs, immutable metadata and object-local annotations, temporary isolation, validated JSON, asynchronous host storage and atomic file replacement |
@@ -23,6 +23,12 @@ entry. Escape or pointer cancellation restores its starting pose, provided anoth
 writer has not changed the object or its ancestors. Toolbar edits remain available.
 The timeline scrubs an exploded assembly. Seeking or starting playback clears manual edit history
 because the timeline becomes the pose writer.
+
+Selected parts keep their material colors and receive a three-physical-pixel
+inner outline. It follows visible material coverage and section cuts, with
+depth-writing objects hiding occluded edges. Gizmos and review pins stay out of
+the selection mask. See [selection outlines](design/selection-outlines.md) for
+depth, transparency and custom-shader limits.
 
 Playback delivers Assembled, Separating and Exploded markers at 0, 1.5 and 3
 seconds. You can see the last marker beneath the elapsed time. Pause keeps it;
@@ -185,9 +191,37 @@ The narrow playback row stayed visible, and a slider click cleared the marker
 while updating the pose. Timeline events have not been rerun on Android, iOS,
 Windows or Linux.
 
+## Selection outline verification on 2026-09-28
+
+The outline milestone passed 428 core tests, 59 tools tests, 89 Flutter facade
+tests and 15 example widget tests. The full native Dart suite passed all 75 tests
+with GPU execution enabled on macOS Metal. Outline pixels were checked with
+standard and reversed depth, occlusion, section cuts, alpha cutouts, custom shader
+discard, instances, lines, points, HDR, bloom and MSAA. Target checks cover resize,
+multiple views, budget rejection, recovery and release. All 62 non-ignored Rust
+tests passed; 20 tests requiring explicit GPU execution were excluded from that
+Rust count. Analysis, formatting, Clippy and package-boundary checks passed.
+
+Three macOS Metal workbench integrations passed. Selection and transform gestures
+produced 25 samples with fourteen draws at the final selected pose. Section
+controls produced seven samples with fourteen draws while enabling, moving,
+flipping and clearing a cut. Review persistence produced seven samples, rendered
+the annotation pin, saved to application storage and restored the note onto a
+fresh scene. Each workflow reported zero readback bytes and awaited disposal.
+The selected cover retained its original blue material throughout selection.
+
+Native visual inspection confirmed whole-part and section-boundary outlines at
+desktop width. A separately named build also passed at 396 logical pixels wide:
+the toolbar wrapped, the inspector moved below the canvas, playback stayed
+visible and flipping the section updated the outlined boundary. The separate
+bundle avoided selecting an older app from another checkout.
+
+Outlines have not been qualified on Android, iOS, Windows or Linux. Earlier
+platform checks in this document apply to their recorded revisions.
+
 ## Remaining scope
 
-Section caps, custom-shader clipping, postprocessing outlines, clip mixing,
+Section caps, custom-shader clipping, clip mixing,
 skeletal animation, morph targets, imported animation events, CAD import and
 collaborative review are not included. Handles remain depth-tested, including
 with screen sizing enabled.

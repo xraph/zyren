@@ -18,6 +18,7 @@ class FakeBackend implements RenderBackend {
     features: {
       RenderFeature.rgbaReadback,
       RenderFeature.indexedMeshes,
+      RenderFeature.selectionOutlines,
       ...additionalFeatures,
     },
     limits: DeviceLimits(

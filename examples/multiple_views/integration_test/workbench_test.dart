@@ -229,7 +229,10 @@ void main() {
                 (object) => object.name == 'Cover',
               )
               as Mesh;
-      await until(() => cover.material.color == Color3.hex(0xf2bd65));
+      await until(
+        () => controller.scene.outline?.objects.contains(cover) ?? false,
+      );
+      expect(cover.material.color, Color3.hex(0x6f93d0));
       tester.widget<Slider>(find.byKey(const ValueKey('timeline'))).onChanged!(
         1,
       );
@@ -241,9 +244,9 @@ void main() {
       // that interval; a paused scene otherwise has no reason to draw again.
       await tester.pump(const Duration(milliseconds: 250));
       controller.invalidate();
-      await until(() => frames.last.drawCalls == 12);
+      await until(() => frames.last.drawCalls == 14);
       expect(frames.map((frame) => frame.readbackBytes), everyElement(0));
-      expect(frames.last.drawCalls, 12);
+      expect(frames.last.drawCalls, 14);
       expect(find.byType(RawImage), findsNothing);
       debugPrint(
         'Workbench native evidence: ${frames.length} samples, ${frames.last.drawCalls} draws, zero readback bytes.',

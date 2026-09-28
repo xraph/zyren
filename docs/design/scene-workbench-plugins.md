@@ -59,8 +59,9 @@ rendering remains outside this milestone.
 The initial milestone excluded section clipping and engineering persistence.
 Both now have separate implementations. See [section clipping](section-clipping.md)
 and the [workbench checkpoint](../scene-workbench-checkpoint.md) for current
-behavior and verification. Outlines, skeletal animation, CAD import and physics
-remain outside this workbench.
+behavior and verification. [Selection outlines](selection-outlines.md) also have
+a native pass and an optional tools plugin. Skeletal animation, CAD import and
+physics remain outside this workbench.
 
 Behavior tests cover selection cleanup, command conflicts, invalid transforms,
 measurement units, immutable diagnostics, timeline interpolation and teardown.

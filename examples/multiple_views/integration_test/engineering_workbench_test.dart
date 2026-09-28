@@ -111,7 +111,7 @@ void main() {
     expect(saved.annotations.values.single.text, 'Check the seal face');
     await tester.pump(const Duration(milliseconds: 250));
     controller!.invalidate();
-    await until(() => stats.isNotEmpty && stats.last.drawCalls == 13);
+    await until(() => stats.isNotEmpty && stats.last.drawCalls == 15);
     expect(stats.map((frame) => frame.readbackBytes), everyElement(0));
     await close();
     await subscription.cancel();
