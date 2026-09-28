@@ -12,6 +12,8 @@ import 'package:zyren_geospatial/zyren_geospatial.dart'
 part 'src/tileset.dart';
 part 'src/content.dart';
 part 'src/external_content.dart';
+part 'src/implicit.dart';
+part 'src/subtree.dart';
 part 'src/streamer.dart';
 part 'src/plugin.dart';
 

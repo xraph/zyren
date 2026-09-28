@@ -80,7 +80,8 @@ class Tiles3DLabState extends State<Tiles3DLab> {
       _error = null;
     });
     try {
-      final fixture = _fixture ?? await Tiles3DFixture.start();
+      final fixture =
+          _fixture ?? await Tiles3DFixture.start(implicitTiling: true);
       if (!mounted) {
         await fixture.close();
         return;

@@ -13,11 +13,12 @@ final class Tiles3DFixture {
   Future<void> close() => _server.close(force: true);
   static Future<Tiles3DFixture> start({
     Duration latency = const Duration(milliseconds: 40),
+    bool implicitTiling = false,
   }) async {
     final fixture = Tiles3DFixture._(
       await HttpServer.bind(InternetAddress.loopbackIPv4, 0),
     );
-    final files = tiles3DFixtureFiles();
+    final files = tiles3DFixtureFiles(implicitTiling: implicitTiling);
     fixture._server.listen((request) async {
       try {
         await Future<void>.delayed(latency);
@@ -41,7 +42,7 @@ final class Tiles3DFixture {
   }
 }
 
-Map<String, Uint8List> tiles3DFixtureFiles() {
+Map<String, Uint8List> tiles3DFixtureFiles({bool implicitTiling = false}) {
   final files = <String, Uint8List>{
     '/parent': _box(165, 12, [.25, .5, .75, 1]),
   };
@@ -55,6 +56,7 @@ Map<String, Uint8List> tiles3DFixtureFiles() {
   ]) {
     final glb = _box(28, 55 + i * 18, [.75, .65 + i * .04, .4, 1]);
     files['/child$i'] = _b3dm(glb, [x, y, 0]);
+    files['/child/1/${i % 2}/${i ~/ 2}'] = files['/child$i']!;
     children.add({
       'boundingVolume': {
         'sphere': [x, y, 50, 85],
@@ -75,11 +77,38 @@ Map<String, Uint8List> tiles3DFixtureFiles() {
         'root': {
           'boundingVolume': volume,
           'geometricError': 0,
-          'children': children,
+          if (!implicitTiling) 'children': children,
+          if (implicitTiling) ...{
+            'content': {'uri': 'child/{level}/{x}/{y}'},
+            'implicitTiling': {
+              'subdivisionScheme': 'QUADTREE',
+              'availableLevels': 2,
+              'subtreeLevels': 2,
+              'subtrees': {'uri': 'subtree/{level}/{x}/{y}'},
+            },
+          },
         },
       }),
     ),
   );
+  files['/subtree/0/0/0'] = Uint8List.fromList(
+    utf8.encode(
+      jsonEncode({
+        'buffers': [
+          {'uri': '../../../availability', 'byteLength': 1},
+        ],
+        'bufferViews': [
+          {'buffer': 0, 'byteOffset': 0, 'byteLength': 1},
+        ],
+        'tileAvailability': {'constant': 1},
+        'contentAvailability': [
+          {'bitstream': 0, 'availableCount': 4},
+        ],
+        'childSubtreeAvailability': {'constant': 0},
+      }),
+    ),
+  );
+  files['/availability'] = Uint8List.fromList([0x1e]);
   files['/tileset'] = Uint8List.fromList(
     utf8.encode(
       jsonEncode({

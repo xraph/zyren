@@ -1,14 +1,14 @@
 # 3D Tiles streaming
 
-You can stream explicit and nested tilesets with `zyren_3d_tiles`, using ordinary core
+You can stream explicit, nested and implicit tilesets with `zyren_3d_tiles`, using ordinary core
 meshes and the native renderer. Try the local fixture from `examples/planet`:
 
 ```sh
 flutter run -d macos -t lib/tiles3d_lab.dart
 ```
 
-Overview shows the coarse parent. Detail follows an extensionless external manifest to four b3dm buildings over
-loopback HTTP. Turn on **Fail downloads** to clear the cache and return HTTP 503
+Overview shows the coarse parent. Detail follows an extensionless external manifest and an implicit quadtree to
+four b3dm buildings over loopback HTTP. Turn on **Fail downloads** to clear the cache and return HTTP 503
 for child content, then use **Reconnect and retry** to refine again. The fixture
 needs no credentials. Trackpad navigation uses the existing orbit controls.
 
@@ -38,6 +38,9 @@ and [b3dm layout](https://github.com/CesiumGS/3d-tiles/blob/main/specification/T
 - Lazy external tilesets, including extensionless JSON and redirects. Nested roots
   inherit the referring transform and refinement. Relative content follows the
   effective document URL; cycles and excessive nested depth are rejected.
+- Implicit quadtrees and octrees with JSON or binary subtrees, constant or sparse
+  Morton availability and external availability buffers. Subtree boundaries load
+  lazily. Bounds and errors derive from the implicit root and global coordinates.
 - Sphere, box and WGS84 region bounds. Regions ignore tile transforms, including
   at the dateline and poles. Box and sphere bounds use conservative world spheres.
 - Affine transform composition with conservative geometric-error scaling under
@@ -55,7 +58,7 @@ ADD content remains alongside its descendants. Empty internal nodes remain
 traversable even with zero tile error. Whole sibling groups must fit the budget
 before selection, so a tight budget can leave the view coarse.
 
-Implicit tiling, multiple contents, viewer request volumes
+Implicit metadata overrides, multiple contents, viewer request volumes
 and unsupported required extensions return `unsupportedFeature`. Optional tile
 extensions are also rejected. Batch tables are parsed but do not expose feature
 styling or metadata queries. Provider authentication, attribution UI, compression,
@@ -64,7 +67,10 @@ fades and the Manhattan/Fuji story configurations remain open.
 ## Limits and ownership
 
 Manifests default to 4 MiB, 4,096 nodes and 64 levels. Byte, count and depth caps
-are checked before the corresponding parser work. Content reads use your
+are checked before the corresponding parser work. Implicit subtrees allow 8,192
+materialized nodes by default, configured with `maxSubtreeTiles`; availability
+scanning is bounded separately at eight times that count. Coordinate precision
+limits implicit trees to 52 levels, within the shared depth ceiling. Content reads use your
 `AssetServices` limits and glTF decoding uses `GltfOptions` limits. The default
 URI policy keeps references and redirects on the same origin. Supply credentials
 through your resolver; manifest query parameters are not copied to content URIs.
@@ -107,8 +113,10 @@ flutter test integration_test/tiles3d_streaming_test.dart -d macos
 Format and scheduler checks cover transforms, region bounds, malformed lengths,
 unsupported traversal, URI policy, mixed refinement, empty nodes, eviction,
 request cancellation, source replacement and bounded retries. External hierarchy
-checks cover redirects, transforms, cycles, retry and disposal. All 25 package
-tests pass. The Metal HTTP fixture covers 2,500 pixels at 256 × 192, retains the
+checks cover redirects, transforms, cycles, retry and disposal. Implicit checks
+cover sparse availability, Morton coordinates, dateline regions, height splits,
+malformed binary lengths, unavailable ancestors and deferred buffers. All 38 package
+tests pass. The explicit and implicit Metal HTTP fixtures each cover 2,500 pixels at 256 × 192, retains the
 parent on HTTP 503, refines to four buildings after retry, resizes to 130 × 250
 and releases all resident GPU bytes on disposal.
 

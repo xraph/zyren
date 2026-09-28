@@ -59,6 +59,27 @@ against the effective external URL and retain the document ancestry for cycles.
 - [x] Run `dart analyze` and `dart test --concurrency=1` in the tile package.
   Expected: all pass. Add an HTTP native nested fixture, run it, then commit.
 
+## Task 2: Implicit tile subtrees
+
+Files: tile parser and streamer, new `implicit.dart`, `subtree.dart` and
+`test/implicit_test.dart` in `packages/zyren_3d_tiles`.
+
+Represent each subtree boundary as a non-renderable resource node. Decode its
+availability into bounded ordinary tile nodes and deferred child-subtree nodes.
+Share the streamer's existing request slots, scopes, fallback and cache. Content
+and subtree templates resolve from the original effective tileset URI; binary
+buffer references resolve from the effective subtree URI. Compute box/region
+bounds from the original root and integer global coordinates to avoid drift.
+
+- [x] Add failing fixtures for quad/octree constants, sparse Morton bitstreams,
+  JSON and binary subtrees, external availability buffers and lazy boundaries.
+- [x] Add configured subtree-node limits. Validate depth, bit lengths, trailing
+  bits, parent/content consistency, buffer alignment/ranges and URI policy before
+  publishing nodes. Reject unsupported metadata overrides explicitly.
+- [x] Test inherited transforms, dateline regions, available-level termination,
+  malformed binary lengths, cancellation and parent coverage on failed subtrees.
+- [x] Run analyzer, package suite and a native fixture before a focused commit.
+
 ## Subsequent task order
 
 2. Implicit quadtree/octree coordinates, subtree availability parsing and lazy traversal.

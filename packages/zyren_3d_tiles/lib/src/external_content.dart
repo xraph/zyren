@@ -29,6 +29,18 @@ final class _StreamContentLoader extends AssetLoader<_StreamContent> {
     final done = Completer<void>();
     track(done.future);
     try {
+      if (node._implicit != null) {
+        final hierarchy = await _decodeSubtree(
+          node._implicit!,
+          source,
+          context,
+        );
+        return DecodedAsset(
+          create: () =>
+              _StreamContent.hierarchy(hierarchy, context.decodedBytes),
+          release: (_) {},
+        );
+      }
       final magic = source.bytes.length < 4
           ? 0
           : ByteData.sublistView(source.bytes).getUint32(0, Endian.little);
@@ -39,7 +51,7 @@ final class _StreamContentLoader extends AssetLoader<_StreamContent> {
           math.max(limits.maxDepth * 2 + 16, options.limits.maxJsonDepth),
         );
         if (json.containsKey('root')) {
-          if (node.children.isNotEmpty) _invalid();
+          if (node.children.isNotEmpty || node._implicitContent) _invalid();
           final decoded = await _TilesetLoader(
             limits,
             referringNode: node,

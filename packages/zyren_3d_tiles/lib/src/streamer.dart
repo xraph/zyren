@@ -111,6 +111,9 @@ class Tiles3DStreamer {
     }
   }
   Map<String, Group> get visible => Map.unmodifiable(_visible);
+
+  /// Read-only selection for bounds, hierarchy and request diagnostics.
+  Map<String, TileNode3D> get selected => Map.unmodifiable(_selected);
   List<TileFailure3D> get failures => List.unmodifiable(_failures.values);
   int get _cachedBytes =>
       _cache.values.fold(0, (n, e) => n + e.content.decodedBytes);
@@ -191,12 +194,13 @@ class Tiles3DStreamer {
       final children =
           (external == null
                   ? node.children
-                  : external.root.bounds.screenError(
-                          external.geometricError,
-                          camera,
-                          viewport,
-                        ) >
-                        maximumScreenError
+                  : node._implicit != null ||
+                        external.root.bounds.screenError(
+                              external.geometricError,
+                              camera,
+                              viewport,
+                            ) >
+                            maximumScreenError
                   ? [external.root]
                   : <TileNode3D>[])
               .where((n) => n.bounds.isVisible(camera, viewport))

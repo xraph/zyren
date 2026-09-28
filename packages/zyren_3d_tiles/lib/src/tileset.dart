@@ -1,15 +1,17 @@
 part of '../zyren_3d_tiles.dart';
 
 final class Tiles3DLimits {
-  final int maxManifestBytes, maxTiles, maxDepth;
+  final int maxManifestBytes, maxTiles, maxDepth, maxSubtreeTiles;
   Tiles3DLimits({
     this.maxManifestBytes = 4 * 1024 * 1024,
     this.maxTiles = 4096,
     this.maxDepth = 64,
+    this.maxSubtreeTiles = 8192,
   }) {
     RangeError.checkValueInInterval(maxManifestBytes, 1, 16 * 1024 * 1024);
     RangeError.checkValueInInterval(maxTiles, 1, 32768);
     RangeError.checkValueInInterval(maxDepth, 1, 128);
+    RangeError.checkValueInInterval(maxSubtreeTiles, 1, 32768);
   }
 }
 
@@ -77,6 +79,8 @@ final class TileNode3D {
   final List<TileNode3D> children;
   final List<Uri> _documentAncestors;
   final int _depth;
+  final _ImplicitRef? _implicit;
+  final bool _implicitContent;
   TileNode3D._(
     this.id,
     this.transform,
@@ -86,8 +90,12 @@ final class TileNode3D {
     this.contentUri,
     List<TileNode3D> children,
     this._documentAncestors,
-    this._depth,
-  ) : children = List.unmodifiable(children);
+    this._depth, {
+    _ImplicitRef? implicit,
+    bool implicitContent = false,
+  }) : children = List.unmodifiable(children),
+       _implicit = implicit,
+       _implicitContent = implicitContent;
 }
 
 final class Tileset3D {
@@ -150,7 +158,7 @@ class _TilesetLoader extends AssetLoader<Tileset3D> {
       context.reserveDecodedBytes(512);
       final item = _object(value);
       _extensions(item);
-      for (final key in ['implicitTiling', 'contents', 'viewerRequestVolume']) {
+      for (final key in ['contents', 'viewerRequestVolume']) {
         if (item.containsKey(key)) _unsupported();
       }
       final refine = item['refine'];
@@ -169,6 +177,21 @@ class _TilesetLoader extends AssetLoader<Tileset3D> {
       final error = _number(item['geometricError']) * _scale(world);
       if (error < 0 || !error.isFinite) _invalid();
       final bounds = _bounds(_object(item['boundingVolume']), world);
+      if (item.containsKey('implicitTiling')) {
+        final spec = _ImplicitSpec.parse(
+          item,
+          source.effectiveUri,
+          world,
+          error,
+          refinement,
+          id,
+          documents,
+          depth,
+          limits,
+          context,
+        );
+        return spec.reference(0, 0, 0, 0).node(context, id: id);
+      }
       Uri? uri;
       if (item.containsKey('content')) {
         final content = _object(item['content']);
