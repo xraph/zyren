@@ -179,6 +179,7 @@ class SceneController {
   bool get isDisposed;
   void update(void Function() changes);
   void invalidate();
+  void invalidateHistory();
   Registration onUpdate(void Function(FrameTime) callback);
   T use<T extends ScenePlugin>(T plugin);
   Future<PickResult?> pick(ViewportPoint point);
@@ -515,8 +516,18 @@ A render graph records passes, resource reads/writes, load/store operations,
 formats, sample counts and explicit dependencies. Compilation validates cycles,
 read-before-write, incompatible aliases and resource budgets. The executor derives
 hazards from those declarations. Plugin order alone does not synchronize GPU work.
-Persistent history textures have explicit invalidation on resize, camera cuts,
-projection changes and device recovery. History is scoped to a view.
+Shared effects allocate persistent history through `frame.createHistory()`.
+Resize, camera replacement, projection changes and engine recreation reset its
+validity. Call `controller.invalidateHistory()` or
+`context.graph.invalidateHistory()` after a camera cut. History belongs to a view;
+see [texture history](texture-history.md) for shader bindings and failure behavior.
+
+Custom `Camera` subclasses must implement `projectionMatrix(aspect)` as well as
+`viewProjection(aspect)`. The projection matrix excludes camera position and
+orientation. `CameraSnapshot.projection` freezes it with the scene and combined
+view-projection matrix before asynchronous preparation, so camera motion can
+preserve history while a projection change resets it. This adds a required method
+to the unpublished camera API.
 
 WGSL is the first custom shader language. Compile through the native toolchain,
 return labeled source locations and binding-layout errors, and cache by source,

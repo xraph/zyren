@@ -278,12 +278,14 @@ last pass. Texture formats handle linear/sRGB conversion, including the final
 native target. Current formats are RGBA8, so HDR effects need a later format profile.
 
 Advanced callers can pass `graph:` to `FrameSubmission.capture` or
-`SceneEngine.renderFrame`. An explicit graph overrides the plugin selection for
-that frame. The backend must advertise `frameGraphs`. A frame graph rejects
+`SceneEngine.renderFrame`. An explicit graph overrides a manual plugin selection
+for that frame; shared plugin composition rejects explicit overrides. The backend
+must advertise `frameGraphs`. A frame graph rejects
 standalone `execute()`, wrong devices and mismatched sizes; compile matching
 resources before rendering a resized frame. You can group candidate textures in
 `context.resources.createChild()` and close their author references after
-compilation. Temporal history management remains pending.
+compilation. Shared effects can create engine-owned
+[texture history](texture-history.md) through their build context.
 
 `FrameStats.drawCalls` and `triangles` include effect draws and the terminal
 full-screen draw. `computeDispatches` counts compute passes. Native adapters use
@@ -323,8 +325,9 @@ shader's layout and device limits. Native admission allows 32 live graphs and
 
 This profile supports explicit resource graphs, shared plugin registration,
 before/after-scene composition and [custom mesh materials](shader-materials.md).
-History resources remain in plan 03. Shared effects use engine-owned resize scopes;
-manual composition can group its candidate textures in child scopes.
+Shared effects use engine-owned resize scopes and previous/current history pairs.
+Manual composition can group its candidate textures in child scopes and owns its
+own history lifecycle. HDR formats and temporal antialiasing remain in plan 03.
 Graph execution is verified on macOS Metal and Pixel Vulkan; see
 [verification](../verification.md). Other
 platforms have no graph qualification yet.

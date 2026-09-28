@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
+import '../resources/buffer.dart';
 import 'registration.dart';
 import 'attachment_scope.dart';
 import '../input/pointer_event.dart';
@@ -13,6 +15,7 @@ import '../scene/scene.dart';
 import '../resources/resource_scope.dart';
 import '../resources/texture.dart';
 part 'plugin_graph.dart';
+part 'texture_history.dart';
 
 /// Share one exported key instance between a provider and its dependents.
 class ServiceKey<T extends Object> {
@@ -81,6 +84,7 @@ class PluginContext {
   ShaderCompiler? _shaders;
   ResourceScope? _resources;
   GraphCompiler? _graphs;
+
   FrameGraphBinding? _frameGraph;
   PluginGraph? _graph;
   final _SharedFrameGraph Function() _claimGraph;
@@ -290,10 +294,18 @@ class SceneEngine {
   Camera get camera => _camera;
   set camera(Camera value) {
     if (_closed) throw StateError('Engine has been disposed.');
+    if (identical(_camera, value)) return;
     _camera = value;
+    invalidateHistory();
     for (final (_, context) in _attached) {
       context.camera = value;
     }
+  }
+
+  /// Call after a discontinuous camera move or another temporal discontinuity.
+  void invalidateHistory() {
+    if (_closed) throw StateError('Engine has been disposed.');
+    _sharedGraph?.invalidateHistory();
   }
 
   FrameGraphBinding? _frameGraph;
@@ -618,16 +630,21 @@ class SceneEngine {
       }
       final FrameOutput result;
       if (_backend case final backend?) {
-        final shared = await _sharedGraph?.prepare(PhysicalSize(width, height));
-        final submission = FrameSubmission.capture(
+        var submission = FrameSubmission.capture(
           scene: scene,
           camera: camera,
           size: PhysicalSize(width, height),
           time: time ?? FrameTime(elapsed: elapsed, delta: delta),
           target: target,
-          graph: graph ?? _frameGraph?.graph ?? shared,
+          graph: graph ?? _frameGraph?.graph,
         );
+        if (_sharedGraph case final shared?) {
+          submission = submission.withGraph(
+            await shared.prepare(submission.size, submission.camera.projection),
+          );
+        }
         result = await backend.render(submission);
+        _sharedGraph?.completeFrame(submission.graph);
       } else {
         if (target is! ReadbackTarget) {
           throw StateError(

@@ -39,6 +39,7 @@ export 'src/resources/texture.dart';
 export 'src/resources/texture_image.dart';
 export 'src/resources/resource_scope.dart'
     hide
+        swapHistoryTextures,
         ResourceDevice,
         ShaderDevice,
         ShaderBuild,

@@ -61,6 +61,7 @@ class ShaderLab extends StatefulWidget {
 class _ShaderLabState extends State<ShaderLab> {
   late final SceneController controller;
   late final EffectsPlugin effects;
+  late final TemporalBlendPlugin temporal;
   late final PatternMaterialPlugin pattern;
   late final List<Registration> gestures;
   StreamSubscription<FrameStats>? subscription;
@@ -78,6 +79,12 @@ class _ShaderLabState extends State<ShaderLab> {
       options: EngineOptions(presentation: widget.presentation),
     );
     effects = controller.use(EffectsPlugin(unsupported: widget.unsupported));
+    temporal = controller.use(
+      TemporalBlendPlugin(
+        unsupported: widget.unsupported,
+        after: {EffectsPlugin.pluginId},
+      ),
+    );
     controller.scene.background = const Color3(.025, .035, .06);
     for (final (x, color) in [
       (-1.5, const Color3(.85, .06, .035)),
@@ -167,6 +174,37 @@ class _ShaderLabState extends State<ShaderLab> {
       ],
     ),
   );
+  Widget selectControl(
+    String label,
+    String key,
+    double value,
+    Map<double, String> choices,
+    ValueChanged<double> changed, {
+    required double width,
+  }) => SizedBox(
+    width: width,
+    child: InputDecorator(
+      decoration: InputDecoration(
+        labelText: label,
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+        border: InputBorder.none,
+      ),
+      child: DropdownButton<double>(
+        key: ValueKey(key),
+        value: value,
+        isExpanded: true,
+        underline: const SizedBox(),
+        items: [
+          for (final entry in choices.entries)
+            DropdownMenuItem(value: entry.key, child: Text(entry.value)),
+        ],
+        onChanged: (value) {
+          if (value != null) changed(value);
+        },
+      ),
+    ),
+  );
   @override
   Widget build(BuildContext context) {
     final options = effects.options, frame = stats;
@@ -201,6 +239,8 @@ class _ShaderLabState extends State<ShaderLab> {
                         onPressed: () {
                           configure(EffectsOptions());
                           pattern.frequency = 8;
+                          temporal.enabled = false;
+                          controller.invalidateHistory();
                           yaw = .55;
                           pitch = .3;
                           distance = 7;
@@ -212,24 +252,36 @@ class _ShaderLabState extends State<ShaderLab> {
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text('Resolution  '),
-                      DropdownButton<double>(
-                        key: const ValueKey('resolution'),
-                        value: resolution,
-                        items: [
-                          for (final r in [.5, .75, 1.0])
-                            DropdownMenuItem(
-                              value: r,
-                              child: Text('${(r * 100).round()}%'),
-                            ),
-                        ],
-                        onChanged: (r) {
-                          if (r != null) {
-                            setState(() {
-                              resolution = r;
-                            });
-                          }
+                      selectControl(
+                        'History',
+                        'history',
+                        temporal.enabled ? temporal.retention : 0,
+                        {0.0: 'Off', .5: '50%', .9: '90%'},
+                        (value) {
+                          setState(() {
+                            temporal.enabled = value > 0;
+                            if (value > 0) temporal.retention = value;
+                          });
                         },
+                        width: 112,
+                      ),
+                      IconButton(
+                        key: const ValueKey('reset-history'),
+                        tooltip: 'Reset frame history',
+                        onPressed: controller.invalidateHistory,
+                        icon: const Icon(Icons.restart_alt, size: 18),
+                      ),
+                      selectControl(
+                        'Scale',
+                        'resolution',
+                        resolution,
+                        {.5: '50%', .75: '75%', 1.0: '100%'},
+                        (value) {
+                          setState(() {
+                            resolution = value;
+                          });
+                        },
+                        width: 100,
                       ),
                     ],
                   ),

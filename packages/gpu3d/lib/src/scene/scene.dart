@@ -171,6 +171,7 @@ abstract class Camera extends Object3D {
   set target(Vec3 value);
   Vec3 get up;
   set up(Vec3 value);
+  Mat4 projectionMatrix(double aspect);
   Mat4 viewProjection(double aspect);
 }
 
@@ -251,7 +252,7 @@ class PerspectiveCamera extends Camera {
   }
 
   @override
-  Mat4 viewProjection(double aspect) {
+  Mat4 projectionMatrix(double aspect) {
     if (!aspect.isFinite ||
         aspect <= 0 ||
         !fieldOfView.isFinite ||
@@ -260,10 +261,23 @@ class PerspectiveCamera extends Camera {
         !near.isFinite ||
         !far.isFinite ||
         near <= 0 ||
-        far <= near ||
-        !position.isFinite ||
-        !target.isFinite ||
-        !up.isFinite) {
+        far <= near) {
+      throw ArgumentError('Invalid perspective projection.');
+    }
+    final f = 1 / math.tan(fieldOfView / 2);
+    final projection = vm.Matrix4.zero()
+      ..setEntry(0, 0, f / aspect)
+      ..setEntry(1, 1, f)
+      ..setEntry(2, 2, far / (near - far))
+      ..setEntry(2, 3, near * far / (near - far))
+      ..setEntry(3, 2, -1);
+    return Mat4.fromVectorMath(projection);
+  }
+
+  @override
+  Mat4 viewProjection(double aspect) {
+    final projection = projectionMatrix(aspect).toVectorMath();
+    if (!position.isFinite || !target.isFinite || !up.isFinite) {
       throw ArgumentError('Invalid perspective camera.');
     }
     final direction = position - target;
@@ -283,13 +297,6 @@ class PerspectiveCamera extends Camera {
       ..setRow(0, vm.Vector4(x.x, x.y, x.z, 0))
       ..setRow(1, vm.Vector4(y.x, y.y, y.z, 0))
       ..setRow(2, vm.Vector4(z.x, z.y, z.z, 0));
-    final f = 1 / math.tan(fieldOfView / 2);
-    final projection = vm.Matrix4.zero()
-      ..setEntry(0, 0, f / aspect)
-      ..setEntry(1, 1, f)
-      ..setEntry(2, 2, far / (near - far))
-      ..setEntry(2, 3, near * far / (near - far))
-      ..setEntry(3, 2, -1);
     return Mat4.fromVectorMath(projection * view);
   }
 }

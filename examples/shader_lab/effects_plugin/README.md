@@ -49,8 +49,31 @@ Your own effect can run after this one with
 `after: {EffectsPlugin.pluginId}` on `context.graph.addEffect`. That is an effect
 ordering constraint, separate from the plugin dependency needed to read the typed
 controls service. Disabling these effects lets the next effect read scene color.
-There is no temporal history sampling in
-these effects. The library depends only on `gpu3d`. Its GPU tests use the native
+The library depends only on `gpu3d`. Its GPU tests use the native
 backend as a development dependency. The separate `example` CLI host declares
 the native backend as a runtime dependency so `dart build cli` bundles its native
 asset for deployment.
+
+You can add frame blending after the spatial effects:
+
+```dart
+final temporal = controller.use(TemporalBlendPlugin(
+  enabled: true,
+  retention: .8,
+  after: {EffectsPlugin.pluginId},
+));
+temporal.reset();
+```
+
+Retention is the previous-frame weight, finite and between zero inclusive and
+one exclusive. The default is .8, but the plugin starts disabled unless you pass
+`enabled: true`. Changing retention updates a uniform without recompiling.
+The effect requests continuous frames while enabled and blends alpha-weighted
+linear color using engine-owned history. It provides no motion or depth rejection,
+so moving objects leave trails. This is a history API example, not TAA.
+
+Call `temporal.reset()` or `controller.invalidateHistory()` after a camera jump.
+Resize, projection changes, camera replacement and graph rebuilds reset samples
+automatically. `temporal.historyFrames` reports the shared graph's successful
+frame count since reset. Unsupported adapters reject by default; explicit
+`UnsupportedEffects.bypass` keeps normal scene rendering.

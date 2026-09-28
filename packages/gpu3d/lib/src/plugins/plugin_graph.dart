@@ -3,9 +3,15 @@ part of 'engine.dart';
 /// Last successful shared composition and its most recent candidate failure.
 final class SceneGraphState {
   final PhysicalSize? size;
-  final int builds;
+  final int builds, historyFrames, historyGeneration;
   final SceneIssue? issue;
-  const SceneGraphState({this.size, this.builds = 0, this.issue});
+  const SceneGraphState({
+    this.size,
+    this.builds = 0,
+    this.issue,
+    this.historyFrames = 0,
+    this.historyGeneration = 0,
+  });
 }
 
 /// A removable contribution. Changes rebuild the graph at the next frame.
@@ -41,7 +47,24 @@ final class EffectBuildContext {
   final PhysicalSize size;
   final GpuResource<Texture> input;
   final ResourceScope resources;
-  EffectBuildContext._(this.size, this.input, this.resources);
+  final _HistoryCandidate _history;
+  EffectBuildContext._(this.size, this.input, this.resources, this._history);
+
+  /// Creates two persistent textures. Write current, sample previous and use
+  /// TextureHistoryState.validFrames to reject samples after invalidation.
+  Future<TextureHistory> createHistory({
+    String label = '',
+    TextureFormat? format,
+    Set<TextureUsage> usage = const {
+      TextureUsage.sampled,
+      TextureUsage.renderAttachment,
+    },
+  }) => _history.create(
+    size,
+    format ?? (input.descriptor as TextureDescriptor).format,
+    label,
+    usage,
+  );
 
   Future<GpuResource<Texture>> createColorTexture({
     String label = '',
@@ -84,6 +107,13 @@ final class PluginGraph {
   final _SharedFrameGraph _owner;
   PluginGraph._(this._context, this._owner);
   SceneGraphState get state => _owner.state;
+
+  /// Resets temporal samples without rebuilding programs or reallocating textures.
+  void invalidateHistory() {
+    _context._checkAttached();
+    _owner.invalidateHistory();
+    _context.invalidate();
+  }
 
   GraphRegistration addCompute(
     ComputePassDescriptor pass, {
@@ -171,7 +201,12 @@ final class _SharedFrameGraph {
   final void Function(SceneIssue)? onIssue;
   final _entries = <_GraphContribution>[];
   final _cleanupErrors = <Object>[];
-  GraphCompiler? _compiler;
+  GraphCompiler? _compiler, _alternate;
+  _HistoryCandidate? _history;
+  int _historyFrames = 0, _historyGeneration = 0, _historyIndex = 0;
+  int _preparedGeneration = -1;
+  CompiledGraph? _preparedGraph;
+  List<double>? _projection;
   int _revision = 0, _builtRevision = -1;
   (int, int, int)? _failed;
   Object? _failure;
@@ -308,7 +343,67 @@ final class _SharedFrameGraph {
     }
   }
 
-  Future<CompiledGraph?> prepare(PhysicalSize size) async {
+  void _historyState() {
+    state = SceneGraphState(
+      size: state.size,
+      builds: state.builds,
+      issue: state.issue,
+      historyFrames: _historyFrames,
+      historyGeneration: _historyGeneration,
+    );
+  }
+
+  void invalidateHistory() {
+    if (_stopped) throw StateError('Shared frame graph has closed.');
+    _historyFrames = 0;
+    _historyIndex = 0;
+    _historyGeneration = (_historyGeneration + 1) & 0xffffffff;
+    _historyState();
+  }
+
+  Future<CompiledGraph?> prepare(
+    PhysicalSize size,
+    List<double> projection,
+  ) async {
+    await _prepareGraph(size);
+    if (_projection case final previous?
+        when previous.length != projection.length ||
+            List.generate(
+              previous.length,
+              (i) => i,
+            ).any((i) => previous[i] != projection[i])) {
+      invalidateHistory();
+    }
+    _projection = projection;
+    final generation = _historyGeneration;
+    await _history?.writeState(_historyFrames, generation);
+    if (_stopped || generation != _historyGeneration) {
+      throw SceneException(
+        SceneIssue(
+          code: SceneIssueCodes.frameDeferred,
+          message: 'History changed during frame preparation. Retry the frame.',
+          operation: 'graph',
+        ),
+      );
+    }
+    _preparedGeneration = generation;
+    return _preparedGraph = _historyIndex == 0
+        ? _compiler?.active
+        : _alternate?.active;
+  }
+
+  void completeFrame(CompiledGraph? graph) {
+    if (_history?.textures.isEmpty ?? true) return;
+    if (_preparedGeneration != _historyGeneration ||
+        !identical(graph, _preparedGraph)) {
+      return;
+    }
+    _historyIndex = 1 - _historyIndex;
+    if (_historyFrames < 0xffffffff) _historyFrames++;
+    _historyState();
+  }
+
+  Future<CompiledGraph?> _prepareGraph(PhysicalSize size) async {
     _checkCurrent(_revision);
     if (_failed case final failed?
         when failed.$2 != size.width || failed.$3 != size.height) {
@@ -321,7 +416,8 @@ final class _SharedFrameGraph {
       Error.throwWithStackTrace(_failure!, _failureStack!);
     }
     ResourceScope? resources;
-    GraphCompiler? candidate;
+    GraphCompiler? candidate, alternate;
+    _HistoryCandidate? history;
     try {
       final entries = _entries.toList();
       final effects = _effects(entries);
@@ -329,6 +425,9 @@ final class _SharedFrameGraph {
           .where((e) => e.pass != null && e.registration.enabled)
           .toList();
       if (fixed.isNotEmpty || effects.isNotEmpty) {
+        history = _HistoryCandidate(
+          backend.createResourceScope(label: 'frame history'),
+        );
         resources = backend.createResourceScope(
           label: 'shared frame candidate',
         );
@@ -355,7 +454,7 @@ final class _SharedFrameGraph {
           final GraphEffect effect;
           try {
             effect = await entry.build!(
-              EffectBuildContext._(size, output, effectScope),
+              EffectBuildContext._(size, output, effectScope, history),
             );
           } catch (error) {
             _checkCurrent(revision);
@@ -391,16 +490,32 @@ final class _SharedFrameGraph {
         }
         if (before.isNotEmpty || after.isNotEmpty) {
           candidate = backend.createGraphCompiler(label: 'shared frame');
-          await candidate.compile(
-            GraphDescription(
-              label: 'shared frame',
-              sceneColor: scene,
-              output: output,
-              beforeScene: before,
-              passes: after,
-              inputs: inputs,
-            ),
+          final description = GraphDescription(
+            label: 'shared frame',
+            sceneColor: scene,
+            output: output,
+            beforeScene: before,
+            passes: after,
+            inputs: [
+              ...inputs,
+              for (final texture in history.textures) texture.previous,
+              if (history.uniforms != null) history.uniforms!,
+            ],
           );
+          final swapped = history.textures.isEmpty
+              ? null
+              : swapHistoryTextures(
+                  description,
+                  history.textures.map((t) => (t.previous, t.current)),
+                );
+          await candidate.compile(description);
+          _checkCurrent(revision);
+          if (swapped != null) {
+            alternate = backend.createGraphCompiler(
+              label: 'shared frame alternate',
+            );
+            await alternate.compile(swapped);
+          }
         } else if (!identical(output, scene)) {
           throw GraphException(
             GraphErrorCode.uninitializedRead,
@@ -411,16 +526,37 @@ final class _SharedFrameGraph {
         resources = null;
       }
       _checkCurrent(revision);
-      final previous = _compiler;
+      final previous = _compiler, previousAlternate = _alternate;
+      final previousHistory = _history;
       _compiler = candidate;
+      _alternate = alternate;
+      _history = history;
       candidate = null;
+      alternate = null;
+      history = null;
+      _projection = null;
+      invalidateHistory();
       _builtRevision = revision;
       _failed = null;
       _failure = null;
       _failureStack = null;
-      state = SceneGraphState(size: size, builds: state.builds + 1);
+      state = SceneGraphState(
+        size: size,
+        builds: state.builds + 1,
+        historyGeneration: _historyGeneration,
+      );
       try {
         await previous?.close();
+      } catch (error) {
+        _cleanupErrors.add(error);
+      }
+      try {
+        await previousAlternate?.close();
+      } catch (error) {
+        _cleanupErrors.add(error);
+      }
+      try {
+        await previousHistory?.close();
       } catch (error) {
         _cleanupErrors.add(error);
       }
@@ -430,6 +566,16 @@ final class _SharedFrameGraph {
       final failures = <Object>[];
       try {
         await candidate?.close();
+      } catch (error) {
+        failures.add(error);
+      }
+      try {
+        await alternate?.close();
+      } catch (error) {
+        failures.add(error);
+      }
+      try {
+        await history?.close();
       } catch (error) {
         failures.add(error);
       }
@@ -455,6 +601,8 @@ final class _SharedFrameGraph {
         size: state.size,
         builds: state.builds,
         issue: issue,
+        historyFrames: _historyFrames,
+        historyGeneration: _historyGeneration,
       );
       if (_builtRevision >= 0 && _matches(size)) {
         try {
@@ -475,7 +623,19 @@ final class _SharedFrameGraph {
     } catch (error) {
       _cleanupErrors.add(error);
     }
+    try {
+      await _alternate?.close();
+    } catch (error) {
+      _cleanupErrors.add(error);
+    }
+    try {
+      await _history?.close();
+    } catch (error) {
+      _cleanupErrors.add(error);
+    }
     _compiler = null;
+    _alternate = null;
+    _history = null;
     _entries.clear();
     if (_cleanupErrors.isNotEmpty) throw ScopeCleanupException(_cleanupErrors);
   }

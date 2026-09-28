@@ -9,6 +9,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:shader_lab/main.dart';
 import 'package:shader_lab_effects/shader_lab_effects.dart';
 import '../effects_plugin/test/support/native_checks.dart';
+import '../effects_plugin/test/support/temporal_checks.dart';
 import '../../../packages/gpu3d_native/test/support/mesh_shader_checks.dart';
 import '../../../packages/gpu3d_native/test/support/graph_phase_checks.dart';
 
@@ -53,6 +54,8 @@ void main() {
         : await NativeMetalBackend.create();
     try {
       await verifyEffects(backend);
+      await verifyTemporalHistory(backend);
+      await verifyComputeHistory(backend);
       await verifySharedEffects(backend);
       await verifyMeshShaders(backend);
       await verifyMeshAttachmentAlias(backend);
@@ -67,6 +70,9 @@ void main() {
     );
     prepared.use(PreparedMaterialFixture());
     prepared.use(EffectsPlugin(options: EffectsOptions(vignette: 0)));
+    final preparedHistory = prepared.use(
+      TemporalBlendPlugin(enabled: true, after: {EffectsPlugin.pluginId}),
+    );
     try {
       await tester.pumpWidget(
         MaterialApp(home: SceneView(controller: prepared)),
@@ -76,7 +82,10 @@ void main() {
         prepared,
         (frame) => frame.computeDispatches == 1,
       );
-      expect(first.drawCalls, 5);
+      expect(first.drawCalls, 6);
+      expect(preparedHistory.historyFrames, greaterThan(0));
+      prepared.invalidateHistory();
+      expect(preparedHistory.historyFrames, 0);
       expect(first.readbackBytes, 0);
       expect(first.presentationPath, isNot(PresentationPath.readback));
       await tester.pumpWidget(
@@ -142,6 +151,21 @@ void main() {
       await tester.drag(find.byType(SceneView), const Offset(30, 15));
       await waitForFrame(tester, controller, (frame) => frame.drawCalls == 6);
       expect(controller.camera.position, isNot(position));
+      await tester.tap(find.byKey(const ValueKey('history')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('90%').last);
+      final history = await waitForFrame(
+        tester,
+        controller,
+        (frame) => frame.drawCalls == 7,
+      );
+      expect(history.readbackBytes, 0);
+      await tester.tap(find.byKey(const ValueKey('reset-history')));
+      await waitForFrame(tester, controller, (frame) => frame.drawCalls == 7);
+      await tester.tap(find.byKey(const ValueKey('history')));
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(find.text('Off').last);
+      await waitForFrame(tester, controller, (frame) => frame.drawCalls == 6);
       await tester.tap(find.byKey(const ValueKey('resolution')));
       await tester.pumpAndSettle();
       await tester.tap(find.text('50%').last);

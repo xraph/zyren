@@ -334,6 +334,16 @@ coverage. The image adapter preserves alpha metadata and converts at the Flutter
 boundary. See [scene alpha](../../design/scene-alpha.md). Temporal history remains
 open, along with Apple window-compositor pixel proof and broader platform gates.
 
+Temporal history checkpoint: shared effect builders create `TextureHistory`
+pairs with validity/generation uniforms. Two precompiled variants exchange texture
+roles after successful backend completion. Resize, projection changes, camera
+replacement, explicit cuts and engine recreation reset samples; failed candidates
+retain valid history. The independent temporal blend and compute consumers verify
+pixels and cleanup on Metal and Pixel Vulkan. See
+[texture history](../../design/texture-history.md). Task 4 still needs its acceptance
+audit, with Apple window-compositor proof and broader platform qualification open.
+Actual HDR/TAA and motion/depth rejection stay in task 8.
+
 **Files:** Create graph/shader modules from the map, native
 `src/render_graph/{compile,execute}.rs`, Dart `test/render_graph_test.dart`,
 native `tests/shader_diagnostics.rs`, `examples/shader_lab` and a separate

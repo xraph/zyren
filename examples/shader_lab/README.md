@@ -20,12 +20,16 @@ qualification. Windows and Linux still need their own build and device checks.
 
 The separately packaged [effects plugin](effects_plugin/README.md) imports only
 the public Dart core API. Its two spatial render passes run after the scene on
-the same GPU device. It does not blend previous frames. Temporal history, HDR
-formats and motion/depth rejection remain later renderer work.
+the same GPU device. Choose History 50% or 90% to add the separate temporal blend
+plugin, then move the camera to see the retained pixels. The adjacent reset button
+discards that history. The blend runs continuously while enabled and uses
+alpha-weighted linear color. HDR formats, TAA and motion/depth rejection remain
+later renderer work.
 
-The resolution selector scales each physical dimension. Lower it for large or
+The Scale selector scales each physical dimension. Lower it for large or
 high-density windows: transactional resize needs space for both texture sets
-until the new graph replaces the old one. The native resource budget is 64 MiB.
+until the new graph replaces the old one. Each enabled history also needs two
+textures. The native resource budget is 64 MiB.
 
 ```sh
 fvm flutter test test/app_test.dart
@@ -38,5 +42,5 @@ fvm dart build cli --target=render.dart --output=/tmp/shader-lab-cli
 ```
 
 The integration checks shader pixels, native presentation with zero readback,
-controls, resize and cleanup. The standalone Dart command saves an explicit
+controls, resize, history pixels/reset, compute history and cleanup. The standalone Dart command saves an explicit
 readback image for inspection; it is not the app's presentation path.

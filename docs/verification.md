@@ -1083,3 +1083,39 @@ capture excludes native platform views.
 Release builds passed for macOS (52.0 MB) and Android arm64 (23.3 MB). This adds
 no iOS, Windows, Linux or Adreno qualification. Task 4 still needs temporal
 history; the full Three.js core and Takram port remain in progress.
+
+## Shared texture history, 2026-09-28
+
+Shared effects now allocate previous/current texture pairs through
+`EffectBuildContext.createHistory`. The engine compiles both binding variants
+before publication, uploads validity/generation metadata and advances history
+only after successful backend completion. Resize, projection changes, camera
+replacement, explicit invalidation and engine recreation reset samples. Camera
+and scene snapshots are frozen before asynchronous graph preparation.
+
+The checkpoint passed 182 core, 51 native Dart, 67 Flutter facade, 15 independent
+effects-plugin and 1 app-layout tests, 316 in total. GPU tests ran serially with
+`RUN_NATIVE_GPU=1`. Analysis, formatting, package boundaries and ABI header checks
+passed. No Rust implementation changed; this checkpoint did not rerun the prior
+75-test Rust suite.
+
+Core regressions cover failed renders, failed second-variant compilation, failed
+resize, reset races during upload/submission, retained aliases, frozen camera
+capture and teardown during a build. Invalid previous writes, imported current
+textures and discarded history attachments reject before compilation.
+
+Native Metal and physical Pixel Vulkan checks verify successive blended pixels,
+compute accumulation, transparent color, independent view histories, reset and
+resize, bypass/re-enable, pipeline reuse and final resource cleanup. Flutter
+integration adds history to a compute-prepared custom mesh and spatial effects,
+then exercises History controls, reset and resize with zero presentation readback.
+The app layout test passes at 320, 390 and 1100 pixels.
+
+Release builds passed for macOS (52.3 MB) and Android arm64 (23.5 MB). The Pixel
+release is running as `dev.gpu3d.shader_lab`, PID 29283 at verification, with its
+Flutter runner retained. The macOS integration could not foreground its window,
+so manual release inspection and Apple window-compositor pixels remain unverified.
+There is no new iOS, Windows, Linux or Adreno qualification.
+
+Task 4 needs its acceptance audit. The demo supplies frame blending; HDR/TAA,
+motion/depth rejection, later core features and the full Takram port remain open.

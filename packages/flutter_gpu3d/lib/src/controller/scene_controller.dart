@@ -121,6 +121,13 @@ class SceneController {
     _scheduler.request();
   }
 
+  /// Discards temporal samples after a camera cut, then requests a frame.
+  void invalidateHistory() {
+    _checkOpen();
+    _engine?.invalidateHistory();
+    invalidate();
+  }
+
   Registration onUpdate(void Function(FrameTime) callback) {
     _checkOpen();
     final key = Object();

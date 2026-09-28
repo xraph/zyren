@@ -13,6 +13,7 @@ part '../rendering/shader_compiler.dart';
 part '../rendering/shader_bindings.dart';
 part '../rendering/pass_descriptor.dart';
 part '../rendering/render_graph.dart';
+part '../rendering/history_swap.dart';
 part '../rendering/graph_compiler.dart';
 part '../rendering/graph_validation.dart';
 part '../rendering/mesh_shader.dart';

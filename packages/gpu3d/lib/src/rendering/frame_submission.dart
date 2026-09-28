@@ -24,10 +24,14 @@ class FrameTime {
 }
 
 class CameraSnapshot {
-  final List<double> origin, viewProjection;
-  CameraSnapshot._(Iterable<double> origin, Iterable<double> viewProjection)
-    : origin = List.unmodifiable(origin),
-      viewProjection = List.unmodifiable(viewProjection);
+  final List<double> origin, viewProjection, projection;
+  CameraSnapshot._(
+    Iterable<double> origin,
+    Iterable<double> viewProjection,
+    Iterable<double> projection,
+  ) : origin = List.unmodifiable(origin),
+      viewProjection = List.unmodifiable(viewProjection),
+      projection = List.unmodifiable(projection);
 }
 
 /// Captured transforms with shared immutable CPU geometry recipes.
@@ -170,6 +174,7 @@ class FrameSubmission {
     final cameraSnapshot = CameraSnapshot._(
       camera.position.storage,
       camera.viewProjection(size.width / size.height).storage,
+      camera.projectionMatrix(size.width / size.height).storage,
     );
     final sceneSnapshot = SceneSnapshot._capture(scene, camera);
     return FrameSubmission._(
@@ -182,6 +187,10 @@ class FrameSubmission {
       graph,
     );
   }
+
+  /// Selects a compiled graph without recapturing mutable scene or camera state.
+  FrameSubmission withGraph(CompiledGraph? graph) =>
+      FrameSubmission._(scene, camera, target, size, time, cpuBuildTime, graph);
 
   /// Compatibility encoder for native v1 adapters. Geometry conversion is lazy.
   Map<String, Object> toNativePacket({Set<int> uploaded = const {}}) {
