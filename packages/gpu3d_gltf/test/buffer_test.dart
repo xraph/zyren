@@ -4,7 +4,7 @@ import 'package:gpu3d/gpu3d.dart';
 import 'package:gpu3d_gltf/src/buffers.dart';
 import 'package:gpu3d_gltf/src/document.dart';
 import 'package:test/test.dart';
-import 'container_test.dart' show glb;
+import 'support/fixtures.dart' show glb;
 
 class Sources implements ByteSourceResolver {
   final Map<Uri, ResolvedSource> files;

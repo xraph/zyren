@@ -8,6 +8,9 @@ import 'data_uri.dart';
 import 'checked.dart';
 import 'document.dart';
 import 'limits.dart';
+import 'options.dart';
+import 'recipes.dart';
+import 'mesh_decoder.dart';
 
 /// At most two parser isolates run from one application isolate. Queued jobs
 /// retain source references; transferable copies are made only after admission.
@@ -29,17 +32,61 @@ final class GltfWorkers {
   static Future<GltfDocument> parse(
     Uint8List bytes,
     GltfLimits limits,
-    LoadCancellation cancellation,
-  ) async =>
+    LoadCancellation cancellation, {
+    Set<String> supportedExtensions = const {},
+  }) async =>
       await _enqueue(
             () => [
               'parse',
               TransferableTypedData.fromList([bytes]),
               limits,
+              supportedExtensions,
             ],
             cancellation,
           )
           as GltfDocument;
+
+  static Future<PreparedModel> model(
+    Map<String, Object?> root,
+    List<Uint8List> buffers,
+    GltfOptions options,
+    int maxDecodedBytes,
+    LoadCancellation cancellation,
+  ) async =>
+      await _enqueue(
+            () => [
+              'model',
+              root,
+              [
+                for (final bytes in buffers)
+                  TransferableTypedData.fromList([bytes]),
+              ],
+              options,
+              maxDecodedBytes,
+            ],
+            cancellation,
+          )
+          as PreparedModel;
+
+  static Future<TextureImageData> image(
+    ImageData image,
+    bool mipmaps,
+    LoadCancellation cancellation,
+  ) async =>
+      await _enqueue(
+            () => [
+              'image',
+              TransferableTypedData.fromList([image.pixels]),
+              image.size,
+              image.rowStride,
+              image.format,
+              image.colorSpace,
+              image.alphaMode,
+              mipmaps,
+            ],
+            cancellation,
+          )
+          as TextureImageData;
 
   static Future<List<DecodedAccessor>> accessors(
     Map<String, Object?> root,
@@ -193,7 +240,35 @@ void _entry((SendPort, List<Object>) request) {
         final bytes = (args[1] as TransferableTypedData)
             .materialize()
             .asUint8List();
-        result = GltfDocument.parse(bytes, limits: args[2] as GltfLimits);
+        result = GltfDocument.parse(
+          bytes,
+          limits: args[2] as GltfLimits,
+          supportedExtensions: args[3] as Set<String>,
+        );
+      case 'model':
+        result = prepareModel(
+          args[1] as Map<String, Object?>,
+          [
+            for (final transfer in args[2] as List<TransferableTypedData>)
+              transfer.materialize().asUint8List(),
+          ],
+          args[3] as GltfOptions,
+          args[4] as int,
+        );
+      case 'image':
+        result = TextureImageData.fromImage(
+          ImageData(
+            pixels: (args[1] as TransferableTypedData)
+                .materialize()
+                .asUint8List(),
+            size: args[2] as PhysicalSize,
+            rowStride: args[3] as int,
+            format: args[4] as PixelFormat,
+            colorSpace: args[5] as ColorSpace,
+            alphaMode: args[6] as AlphaMode,
+          ),
+          generateMipmaps: args[7] as bool,
+        );
       case 'accessors':
         final root = args[1] as Map<String, Object?>;
         final buffers = [

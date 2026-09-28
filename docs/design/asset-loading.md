@@ -144,11 +144,34 @@ the changed attribute and preserve the recipe and other geometries using it.
 An immutable view alone does not transfer ownership; use your worker protocol's
 transfer or exit mechanism when moving large recipes between isolates.
 
-## Current scope
+## Static glTF models
 
-The typed loading infrastructure, source adapters and image integration are
-implemented. The optional `gpu3d_gltf` package has bounded JSON/GLB parsing,
-buffer resolution, accessor decoding and cancellable worker isolates, checked
-in both the Dart test runner and a compiled release executable. Model requests,
-templates, material conversion and the viewer remain Task 3 work. This API alone
-does not establish glTF rendering support.
+The optional `gpu3d_gltf` package exposes `Gltf.asset`, `Gltf.uri`, `GltfOptions`
+and scope-owned `ModelAsset` templates. Load through your existing asset scope:
+
+```dart
+final task = controller.assets.load(Gltf.asset('assets/models/assembly.glb'));
+final model = await task.result;
+controller.scene.add(model.instantiate(name: 'Assembly A'));
+controller.scene.add(model.instantiate(name: 'Assembly B')
+  ..position = const Vec3(3, 0, 0));
+controller.assets.release(model);
+```
+
+Release stops future instantiation from that template. Existing instances keep
+their shared immutable geometry and images. Each renderer retires its GPU
+resources after the last visible instance/view no longer needs them. Templates
+from two consumers share decoded resources while retaining independent release.
+Instances own their transforms and material assignments.
+
+The loader prepares geometry, image copies and scene descriptions on workers.
+Only resource identity assignment happens on the caller. Scene selection defaults
+to the declared scene, then the first scene; scene-free documents cannot be
+instantiated. Names and source diagnostics remain available on the template.
+
+The first material profile covers a subset of static `KHR_materials_unlit`.
+PBR requires `GltfMaterialMode.unlitDiagnostic`, which records an approximation
+warning. Animations, skins, morphs, vertex colors and unsupported required
+extensions fail explicitly. See the [fixture-backed support matrix](../../packages/gpu3d_gltf/README.md)
+for the exact limits. The broader renderer and full glTF feature set remain work
+in the resource and renderer plan.

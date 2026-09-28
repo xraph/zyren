@@ -707,3 +707,20 @@ cutoff of 1.1 discards every fragment. Negative and nonfinite packet values
 remain rejected. The focused checks pass: two core tests, seven Rust packet
 tests and the native material-alpha fixture. This does not establish glTF
 material parity.
+
+## Public static glTF model loading
+
+The public `Gltf.asset`/`Gltf.uri` path passes 52 glTF tests, including a compiled
+release executable. Tests cover independent model templates and instances, shared
+loads, cancellation during images, scope close, hierarchy validation, expanded
+primitive limits, native transform ranges, seven topology modes, image buffer
+views, normalized UVs, all minification filters and explicit material diagnostics.
+
+The native glTF fixture loads PNG data through `NativeImageDecoder`, renders four
+texture corners and mirrors the loaded instance. Two views share uploads.
+Releasing templates preserves existing instances; closing one view preserves its
+sibling. Removing the final instance leaves zero resident GPU bytes. The fixture
+passes in native Dart on Metal and Flutter integrations on macOS Metal and the
+physical Pixel's Vulkan backend. This establishes the tested static profile only.
+PBR, deformation, additional extensions and platform qualification remain open.
+The standalone model viewer is being qualified separately.

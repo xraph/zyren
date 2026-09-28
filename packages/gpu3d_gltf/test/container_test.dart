@@ -6,46 +6,7 @@ import 'package:gpu3d_gltf/gpu3d_gltf.dart';
 import 'package:gpu3d_gltf/src/document.dart';
 import 'package:test/test.dart';
 
-Uint8List glb(
-  Map<String, Object?> root, {
-  List<int>? binary,
-  List<int>? unknown,
-}) {
-  final json = utf8.encode(jsonEncode(root));
-  final jsonLength = (json.length + 3) & ~3;
-  final binLength = binary == null ? 0 : (binary.length + 3) & ~3;
-  final extraLength = unknown == null ? 0 : (unknown.length + 3) & ~3;
-  final bytes = Uint8List(
-    20 +
-        jsonLength +
-        (binary == null ? 0 : 8 + binLength) +
-        (unknown == null ? 0 : 8 + extraLength),
-  );
-  final data = ByteData.sublistView(bytes);
-  for (final (offset, value) in [
-    (0, 0x46546c67),
-    (4, 2),
-    (8, bytes.length),
-    (12, jsonLength),
-    (16, 0x4e4f534a),
-  ]) {
-    data.setUint32(offset, value, Endian.little);
-  }
-  bytes.fillRange(20, 20 + jsonLength, 0x20);
-  bytes.setRange(20, 20 + json.length, json);
-  var offset = 20 + jsonLength;
-  for (final (chunk, length, type) in [
-    (binary, binLength, 0x004e4942),
-    (unknown, extraLength, 42),
-  ]) {
-    if (chunk == null) continue;
-    data.setUint32(offset, length, Endian.little);
-    data.setUint32(offset + 4, type, Endian.little);
-    bytes.setRange(offset + 8, offset + 8 + chunk.length, chunk);
-    offset += 8 + length;
-  }
-  return bytes;
-}
+import 'support/fixtures.dart';
 
 final basic = <String, Object?>{
   'asset': {'version': '2.0'},
