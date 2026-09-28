@@ -26,11 +26,52 @@ final class SamplerDescriptor {
   ];
 }
 
-/// Immutable, tightly packed RGBA image levels, with a top-left pixel origin.
-/// Creating an image allocates CPU storage. Each native device uploads on demand.
+/// A caller-local image identity over immutable, top-left-origin RGBA pixels.
+/// Native devices upload the shared data on demand.
 final class TextureImage {
   static int _nextId = 1;
   final int id = _nextId++;
+  final TextureImageData data;
+  TextureDescriptor get descriptor => data.descriptor;
+  List<Uint8List> get levels => data.levels;
+  bool get generatesMipmaps => data.generatesMipmaps;
+  MipmapAlphaFilter get mipmapAlphaFilter => data.mipmapAlphaFilter;
+  TextureImage.fromData(this.data);
+  factory TextureImage.fromImage(
+    ImageData image, {
+    bool generateMipmaps = false,
+    MipmapAlphaFilter mipmapAlphaFilter = MipmapAlphaFilter.independent,
+  }) => TextureImage.fromData(
+    TextureImageData.fromImage(
+      image,
+      generateMipmaps: generateMipmaps,
+      mipmapAlphaFilter: mipmapAlphaFilter,
+    ),
+  );
+  factory TextureImage.rgba({
+    required int width,
+    required int height,
+    required Uint8List pixels,
+    List<Uint8List> mipmaps = const [],
+    bool generateMipmaps = false,
+    MipmapAlphaFilter mipmapAlphaFilter = MipmapAlphaFilter.independent,
+    TextureFormat format = TextureFormat.rgba8UnormSrgb,
+  }) => TextureImage.fromData(
+    TextureImageData.rgba(
+      width: width,
+      height: height,
+      pixels: pixels,
+      mipmaps: mipmaps,
+      generateMipmaps: generateMipmaps,
+      mipmapAlphaFilter: mipmapAlphaFilter,
+      format: format,
+    ),
+  );
+}
+
+/// Validated immutable image storage, safe to prepare on a worker isolate.
+/// Creating [TextureImage] from this data assigns its caller-local resource ID.
+final class TextureImageData {
   final TextureDescriptor descriptor;
 
   /// CPU-provided levels. Generated lower levels stay on the GPU.
@@ -39,7 +80,7 @@ final class TextureImage {
   /// Whether the native device generates the full chain from level zero.
   final bool generatesMipmaps;
   final MipmapAlphaFilter mipmapAlphaFilter;
-  factory TextureImage.fromImage(
+  factory TextureImageData.fromImage(
     ImageData image, {
     bool generateMipmaps = false,
     MipmapAlphaFilter mipmapAlphaFilter = MipmapAlphaFilter.independent,
@@ -73,14 +114,14 @@ final class TextureImage {
         y * image.rowStride,
       );
     }
-    return TextureImage._(
+    return TextureImageData._(
       descriptor,
       List.unmodifiable([pixels.asUnmodifiableView()]),
       generateMipmaps,
       mipmapAlphaFilter,
     );
   }
-  factory TextureImage.rgba({
+  factory TextureImageData.rgba({
     required int width,
     required int height,
     required Uint8List pixels,
@@ -106,7 +147,7 @@ final class TextureImage {
         throw ArgumentError('Mip $i must contain tightly packed RGBA pixels.');
       }
     }
-    return TextureImage._(
+    return TextureImageData._(
       descriptor,
       List.unmodifiable([
         for (final source in sources)
@@ -116,7 +157,7 @@ final class TextureImage {
       mipmapAlphaFilter,
     );
   }
-  TextureImage._(
+  TextureImageData._(
     this.descriptor,
     this.levels,
     this.generatesMipmaps,

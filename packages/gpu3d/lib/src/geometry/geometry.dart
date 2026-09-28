@@ -15,6 +15,56 @@ enum IndexFormat {
   int get bytesPerIndex => this == uint16 ? 2 : 4;
 }
 
+/// Validated immutable CPU geometry, safe to prepare on a worker isolate.
+/// Resource identities are allocated only when you create [BufferGeometry].
+final class GeometryData {
+  late final VertexLayout layout;
+  final Map<VertexSemantic, VertexAttribute> attributes;
+  late final List<int> indices;
+  final IndexFormat indexFormat;
+  final GeometryTopology topology;
+  GeometryData({
+    required Map<VertexSemantic, VertexAttribute> attributes,
+    required List<int> indices,
+    this.indexFormat = IndexFormat.uint32,
+    this.topology = GeometryTopology.triangles,
+  }) : attributes = Map.unmodifiable(attributes) {
+    layout = VertexLayout(this.attributes);
+    if (indices.isEmpty ||
+        indices.length > 3000000 ||
+        (topology == GeometryTopology.triangles && indices.length % 3 != 0) ||
+        (topology == GeometryTopology.lineSegments &&
+            indices.length % 2 != 0) ||
+        (topology == GeometryTopology.lineStrip && indices.length < 2) ||
+        indices.any(
+          (i) =>
+              i < 0 ||
+              i >= layout.vertexCount ||
+              (indexFormat == IndexFormat.uint16 && i > 65535),
+        )) {
+      throw ArgumentError(
+        'Indices must fit the topology, vertex count and ${indexFormat.name} range.',
+      );
+    }
+    final primitiveCount = switch (topology) {
+      GeometryTopology.triangles => indices.length ~/ 3,
+      GeometryTopology.lineSegments => indices.length ~/ 2,
+      GeometryTopology.lineStrip => indices.length - 1,
+      GeometryTopology.points => indices.length,
+    };
+    if (topology != GeometryTopology.triangles && primitiveCount > 250000) {
+      throw ArgumentError('Expanded primitives support at most 250000 quads.');
+    }
+    this.indices = indexFormat == IndexFormat.uint16
+        ? Uint16List.fromList(indices).asUnmodifiableView()
+        : Uint32List.fromList(indices).asUnmodifiableView();
+  }
+  int get byteLength => attributes.values.fold<int>(
+    indices.length * indexFormat.bytesPerIndex,
+    (sum, attribute) => sum + attribute.data.lengthInBytes,
+  );
+}
+
 /// Indexed geometry with an optional fixed-layout update path.
 class BufferGeometry {
   static int _nextId = 1;
@@ -77,44 +127,29 @@ class BufferGeometry {
     IndexFormat indexFormat = IndexFormat.uint32,
     GeometryTopology topology = GeometryTopology.triangles,
     bool dynamic = false,
-  }) : isDynamic = dynamic {
-    final layout = VertexLayout(attributes);
-    if (indices.isEmpty ||
-        indices.length > 3000000 ||
-        (topology == GeometryTopology.triangles && indices.length % 3 != 0) ||
-        (topology == GeometryTopology.lineSegments &&
-            indices.length % 2 != 0) ||
-        (topology == GeometryTopology.lineStrip && indices.length < 2) ||
-        indices.any(
-          (i) =>
-              i < 0 ||
-              i >= layout.vertexCount ||
-              (indexFormat == IndexFormat.uint16 && i > 65535),
-        )) {
-      throw ArgumentError(
-        'Indices must fit the topology, vertex count and ${indexFormat.name} range.',
-      );
-    }
-    final primitiveCount = switch (topology) {
-      GeometryTopology.triangles => indices.length ~/ 3,
-      GeometryTopology.lineSegments => indices.length ~/ 2,
-      GeometryTopology.lineStrip => indices.length - 1,
-      GeometryTopology.points => indices.length,
-    };
-    if (topology != GeometryTopology.triangles && primitiveCount > 250000) {
-      throw ArgumentError('Expanded primitives support at most 250000 quads.');
-    }
+  }) : this.fromData(
+         GeometryData(
+           attributes: attributes,
+           indices: indices,
+           indexFormat: indexFormat,
+           topology: topology,
+         ),
+         dynamic: dynamic,
+       );
+
+  /// Reuses validated storage without copying or scanning vertex data.
+  /// Dynamic updates copy changed attributes and leave [data] intact.
+  BufferGeometry.fromData(GeometryData data, {bool dynamic = false})
+    : isDynamic = dynamic {
     _snapshot = GeometrySnapshot._(
       id: id,
       logicalId: id,
       revision: 0,
-      layout: layout,
-      topology: topology,
-      attributes: attributes,
-      indexFormat: indexFormat,
-      indices: indexFormat == IndexFormat.uint16
-          ? Uint16List.fromList(indices).asUnmodifiableView()
-          : Uint32List.fromList(indices).asUnmodifiableView(),
+      layout: data.layout,
+      topology: data.topology,
+      attributes: data.attributes,
+      indexFormat: data.indexFormat,
+      indices: data.indices,
       history: const [],
     );
   }

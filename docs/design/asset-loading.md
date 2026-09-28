@@ -121,6 +121,29 @@ move CPU work off Flutter's UI isolate.
 Progress byte counts describe the current operation. A null total stays unknown;
 do not turn it into a percentage or assume it is the total for the entire model.
 
+## Preparing data on workers
+
+Build `GeometryData` and `TextureImageData` in your decode worker, then return
+them to the caller. These immutable recipes validate and own their input without
+allocating scene resource identities. You can publish them cheaply:
+
+```dart
+final geometry = BufferGeometry.fromData(decodedGeometry);
+final image = TextureImage.fromData(decodedImage);
+```
+
+Here, `decodedGeometry` and `decodedImage` are the recipes returned by your
+worker. The constructors assign IDs on the caller isolate and reuse validated
+storage without another vertex scan or pixel copy. Creating resource identities
+inside several workers would allow their independent counters to collide.
+
+Recipes retain no GPU resources. Share a single `BufferGeometry` or `TextureImage`
+when instances should share a native allocation. Calling `fromData` twice creates
+two resource identities over the same CPU data. Dynamic geometry updates copy
+the changed attribute and preserve the recipe and other geometries using it.
+An immutable view alone does not transfer ownership; use your worker protocol's
+transfer or exit mechanism when moving large recipes between isolates.
+
 ## Current scope
 
 The typed loading infrastructure, source adapters and image integration are

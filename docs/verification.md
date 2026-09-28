@@ -688,3 +688,12 @@ The first Android release build retained the integration-test plugin in a
 generated Java registrant. Rebuilding with normal dependency refresh regenerated
 the release plugin list and passed. Use a normal `flutter build` after running an
 integration target; `--no-pub` can leave that generated development entry behind.
+
+## Worker-prepared geometry and images
+
+`GeometryData` and `TextureImageData` separate validated CPU storage from resource
+identity. Four new tests check isolate transfer, unique caller IDs, owned immutable
+inputs, padded rows and independent dynamic edits. All 132 core/geospatial/glTF
+and 36 native Dart tests pass, including GPU cases. Workspace analysis and
+package/header boundaries pass. This CPU handoff changes no native protocol or
+platform support; public glTF model conversion remains in progress.
