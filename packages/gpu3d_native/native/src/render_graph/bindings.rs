@@ -206,7 +206,10 @@ pub fn prepare(
                         .checked_add(levels)
                         .is_none_or(|end| end > texture.mip_level_count())
                     || (storage
-                        && (texture.format() != wgpu::TextureFormat::Rgba8Unorm || levels != 1))
+                        && (!matches!(
+                            texture.format(),
+                            wgpu::TextureFormat::Rgba8Unorm | wgpu::TextureFormat::Rgba16Float
+                        ) || levels != 1))
                 {
                     return Err(invalid(
                         "Texture usage, mip range or storage format is invalid",
@@ -222,7 +225,7 @@ pub fn prepare(
                 let ty = if storage {
                     wgpu::BindingType::StorageTexture {
                         access: wgpu::StorageTextureAccess::WriteOnly,
-                        format: wgpu::TextureFormat::Rgba8Unorm,
+                        format: texture.format(),
                         view_dimension: wgpu::TextureViewDimension::D2,
                     }
                 } else {

@@ -141,10 +141,11 @@ final class ScenePacketEncoder {
         uploadBytes > 64 * 1024 * 1024) {
       throw ArgumentError('Scene resource upload exceeds the frame budget.');
     }
-    final opcode =
-        scene.hasStandardMaterials ||
-            scene.hemisphereLightCount > 0 ||
-            scene._geometries.values.any((g) => g.tangents != null)
+    final opcode = submission.colorPipeline != null
+        ? 21
+        : scene.hasStandardMaterials ||
+              scene.hemisphereLightCount > 0 ||
+              scene._geometries.values.any((g) => g.tangents != null)
         ? 20
         : scene.punctualLightCount > 0
         ? 19
@@ -206,6 +207,10 @@ final class ScenePacketEncoder {
         body.floats((light['direction'] as List).cast<double>());
         body.floats([light['intensity'] as double]);
       }
+    }
+    if (opcode >= 21) {
+      body.u32(submission.colorPipeline!.toneMapping.index);
+      body.floats([submission.colorPipeline!.exposure]);
     }
     body.u32(scene._textures.length);
     body.u32(textures.length);

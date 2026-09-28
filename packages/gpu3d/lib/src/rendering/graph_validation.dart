@@ -520,7 +520,7 @@ List<Map<String, Object?>> _encodeShaderBindings(
             binding.mipLevels > descriptor.mipLevels ||
             binding.mipLevel > descriptor.mipLevels - binding.mipLevels ||
             (binding.storage &&
-                (descriptor.format != TextureFormat.rgba8Unorm ||
+                (descriptor.format == TextureFormat.rgba8UnormSrgb ||
                     binding.mipLevels != 1))) {
           fail(
             GraphErrorCode.invalidBinding,

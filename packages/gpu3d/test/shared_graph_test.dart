@@ -70,6 +70,8 @@ class EffectPlugin extends ScenePlugin {
   late PluginContext context;
   late GraphRegistration registration;
   ShaderProgram? program;
+  final formats = <TextureFormat>[];
+  TextureFormat? outputFormat;
   bool failBuild = false;
   Completer<void>? buildGate;
   Completer<void>? buildEntered;
@@ -82,7 +84,11 @@ class EffectPlugin extends ScenePlugin {
       name: id,
       after: after,
       build: (frame) async {
-        final output = await frame.createColorTexture(label: '$id output');
+        formats.add((frame.input.descriptor as TextureDescriptor).format);
+        final output = await frame.createColorTexture(
+          label: '$id output',
+          format: outputFormat,
+        );
         if (!(buildEntered?.isCompleted ?? true)) buildEntered!.complete();
         await buildGate?.future;
         if (failBuild) throw StateError('broken effect');
@@ -132,6 +138,72 @@ void main() {
 
   Future<FrameOutput> draw([int width = 17]) =>
       engine.renderFrame(elapsed: Duration.zero, width: width, height: 13);
+
+  test(
+    'shared effects inherit HDR and rebuild only when precision changes',
+    () async {
+      final effect = EffectPlugin('precision');
+      await start([effect]);
+      await engine.renderFrame(
+        elapsed: Duration.zero,
+        width: 17,
+        height: 13,
+        colorPipeline: ColorPipeline(),
+      );
+      final hdr = backend.last!.graph;
+      await engine.renderFrame(
+        elapsed: Duration.zero,
+        width: 17,
+        height: 13,
+        colorPipeline: ColorPipeline(exposure: .2),
+      );
+      expect(backend.last!.graph, same(hdr));
+      expect(effect.formats, [TextureFormat.rgba16Float]);
+      await draw();
+      expect(effect.formats, [
+        TextureFormat.rgba16Float,
+        TextureFormat.rgba8UnormSrgb,
+      ]);
+      expect(backend.last!.graph, isNot(same(hdr)));
+      effect.failBuild = true;
+      await expectLater(
+        engine.renderFrame(
+          elapsed: Duration.zero,
+          width: 17,
+          height: 13,
+          colorPipeline: ColorPipeline(),
+        ),
+        throwsA(isA<SceneException>()),
+      );
+      expect(effect.context.graph.state.issue, isNotNull);
+      effect.failBuild = false;
+      effect.registration.invalidate();
+      await engine.renderFrame(
+        elapsed: Duration.zero,
+        width: 17,
+        height: 13,
+        colorPipeline: ColorPipeline(exposure: .5),
+      );
+      expect(backend.last!.colorPipeline?.exposure, .5);
+    },
+  );
+
+  test('an HDR effect cannot silently narrow the shared color chain', () async {
+    final effect = EffectPlugin('narrow')
+      ..outputFormat = TextureFormat.rgba8Unorm;
+    await start([effect]);
+    await expectLater(
+      engine.renderFrame(
+        elapsed: Duration.zero,
+        width: 17,
+        height: 13,
+        colorPipeline: ColorPipeline(),
+      ),
+      throwsA(isA<GraphException>()),
+    );
+    expect(backend.last, isNull);
+    expect(backend.device.authors, isEmpty);
+  });
 
   test(
     'independent effects chain in dependency order and reuse until resize',

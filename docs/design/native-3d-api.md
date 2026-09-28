@@ -426,8 +426,9 @@ that controller again. Instantiation from a released template fails explicitly.
 The [standard material profile](standard-materials.md) implements base color,
 normal, metallic/roughness, occlusion and emissive maps, shared raster settings,
 and explicit or derivative tangent bases. Directional, point, spot and hemisphere
-lights are scene objects. HDR, environment reflections and shadow APIs remain
-targets.
+lights are scene objects. The [color pipeline](color-pipeline.md) adds linear
+RGBA16Float scene/effect color with terminal exposure and tone mapping. Environment
+reflections and shadow APIs remain targets.
 
 The common path is `StandardMaterial`: linear `baseColor`, optional base-color,
 normal, metallic/roughness, occlusion and emissive textures; metallic, roughness,

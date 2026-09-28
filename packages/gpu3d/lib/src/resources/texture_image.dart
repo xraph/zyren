@@ -130,6 +130,9 @@ final class TextureImageData {
     MipmapAlphaFilter mipmapAlphaFilter = MipmapAlphaFilter.independent,
     TextureFormat format = TextureFormat.rgba8UnormSrgb,
   }) {
+    if (format == TextureFormat.rgba16Float) {
+      throw ArgumentError("RGBA byte images do not accept float16 storage.");
+    }
     if (generateMipmaps && mipmaps.isNotEmpty) {
       throw ArgumentError('Choose supplied mipmaps or native generation.');
     }

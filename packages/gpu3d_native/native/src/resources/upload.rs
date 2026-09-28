@@ -35,7 +35,11 @@ pub struct TextureDescriptor<'a> {
 impl TextureDescriptor<'_> {
     pub fn byte_length(&self) -> u64 {
         (0..self.mip_levels)
-            .map(|m| (self.width >> m).max(1) as u64 * (self.height >> m).max(1) as u64 * 4)
+            .map(|m| {
+                (self.width >> m).max(1) as u64
+                    * (self.height >> m).max(1) as u64
+                    * if self.format == 2 { 8 } else { 4 }
+            })
             .sum()
     }
 }
@@ -135,11 +139,11 @@ impl<'a> Command<'a> {
                     || height > 4096
                     || mip_levels == 0
                     || mip_levels > 32 - width.max(height).leading_zeros()
-                    || format > 1
+                    || format > 2
                 {
                     return Err(ResourceError::InvalidCommand);
                 }
-                if usage == 0 || usage & !31 != 0 || (usage & 16 != 0 && format != 0) {
+                if usage == 0 || usage & !31 != 0 || (usage & 16 != 0 && format == 1) {
                     return Err(ResourceError::InvalidUsage);
                 }
                 let descriptor = TextureDescriptor {

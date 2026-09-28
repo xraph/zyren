@@ -46,7 +46,8 @@ class _PbrLabState extends State<_PbrLab> {
   late final HemisphereLight hemisphere;
   late final List<TextureMap> maps = _makeMaps();
   bool textured = true;
-  double ambient = 1;
+  double ambient = 1, exposure = 1;
+  ToneMapping toneMapping = ToneMapping.acesFilmic;
   late final Group grid;
   StreamSubscription<FrameStats>? subscription;
   FrameStats? stats;
@@ -56,6 +57,7 @@ class _PbrLabState extends State<_PbrLab> {
     super.initState();
     controller = SceneController(
       runtime: widget.runtime,
+      colorPipeline: ColorPipeline(),
       options: EngineOptions(presentation: widget.presentation),
       camera: PerspectiveCamera(
         position: const Vec3(0, 0, 9),
@@ -230,6 +232,40 @@ class _PbrLabState extends State<_PbrLab> {
                       }),
                     ),
                   ],
+                ),
+                DropdownButton<ToneMapping>(
+                  key: const ValueKey('ToneMapping'),
+                  value: toneMapping,
+                  items: [
+                    for (final entry in ToneMapping.values)
+                      DropdownMenuItem(
+                        value: entry,
+                        child: Text(switch (entry) {
+                          ToneMapping.linear => 'Linear',
+                          ToneMapping.reinhard => 'Reinhard',
+                          ToneMapping.acesFilmic => 'ACES',
+                        }),
+                      ),
+                  ],
+                  onChanged: (value) => setState(() {
+                    toneMapping = value!;
+                    controller.colorPipeline = ColorPipeline(
+                      toneMapping: toneMapping,
+                      exposure: exposure,
+                    );
+                  }),
+                ),
+                control(
+                  'Exposure',
+                  exposure,
+                  4,
+                  (value) => setState(() {
+                    exposure = value;
+                    controller.colorPipeline = ColorPipeline(
+                      toneMapping: toneMapping,
+                      exposure: exposure,
+                    );
+                  }),
                 ),
                 control(
                   'Ambient',

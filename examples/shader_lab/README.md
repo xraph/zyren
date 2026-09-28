@@ -23,8 +23,8 @@ the public Dart core API. Its two spatial render passes run after the scene on
 the same GPU device. Choose History 50% or 90% to add the separate temporal blend
 plugin, then move the camera to see the retained pixels. The adjacent reset button
 discards that history. The blend runs continuously while enabled and uses
-alpha-weighted linear color. HDR formats, TAA and motion/depth rejection remain
-later renderer work.
+alpha-weighted linear color. The PBR lab below uses the new HDR color pipeline.
+TAA and motion/depth rejection remain later renderer work.
 
 The Scale selector scales each physical dimension. Lower it for large or
 high-density windows: transactional resize needs space for both texture sets
@@ -61,7 +61,8 @@ The grid shares one sphere geometry across 12 materials. Roughness increases
 left to right (`0.1`, `0.35`, `0.65`, `1`); metallic increases top to bottom (`0`,
 `0.5`, `1`). Light changes directional intensity in lux. Angle rotates that light
 around Y in radians. A blue point light adds a fixed fill. Ambient controls the
-hemisphere light. Textures switches the shared base-color, normal, packed
+hemisphere light. Exposure adjusts the HDR multiplier; the adjacent selector
+chooses ACES, Reinhard or Linear tone mapping. Textures switches the shared base-color, normal, packed
 occlusion/roughness/metallic and emissive images on or off. The maps multiply the
 grid's material factors. Light edits redraw without uploading geometry or images;
 re-enabling released texture maps uploads their pixels again.

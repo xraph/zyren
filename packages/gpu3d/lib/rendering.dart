@@ -17,3 +17,5 @@ export 'src/resources/resource_scope.dart'
         MeshShaderDeviceDescription,
         GraphDevice,
         GraphDeviceDescription;
+
+export 'src/rendering/color_pipeline.dart';

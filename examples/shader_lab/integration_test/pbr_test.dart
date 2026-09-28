@@ -8,6 +8,7 @@ import 'package:gpu3d/rendering.dart' show PresentationPath;
 import 'package:shader_lab/pbr.dart';
 import '../../../packages/gpu3d_native/test/support/pbr_checks.dart';
 import '../../../packages/gpu3d_native/test/support/standard_maps_checks.dart';
+import '../../../packages/gpu3d_native/test/support/hdr_checks.dart';
 import 'effects_test.dart' show waitForFrame;
 
 void main() {
@@ -21,6 +22,7 @@ void main() {
     try {
       await verifyPbr(backend);
       await verifyStandardMaps(backend);
+      await verifyHdr(backend);
     } finally {
       await backend.close();
     }
@@ -42,6 +44,18 @@ void main() {
         (frame) => frame.drawCalls == 12,
       );
       expect(first.readbackBytes, 0);
+      final exposure = controller.colorPipeline!.exposure;
+      await tester.drag(
+        find.byKey(const ValueKey('Exposure')),
+        const Offset(-40, 0),
+      );
+      final exposed = await waitForFrame(
+        tester,
+        controller,
+        (f) => f.drawCalls == 12 && f.uploadedBytes == 0,
+      );
+      expect(exposed.readbackBytes, 0);
+      expect(controller.colorPipeline!.exposure, lessThan(exposure));
       expect(first.presentationPath, isNot(PresentationPath.readback));
       final light = controller.scene.children
           .whereType<DirectionalLight>()
@@ -89,5 +103,5 @@ void main() {
       await tester.pumpWidget(const SizedBox());
       await controller.whenDisposed;
     }
-  });
+  }, timeout: const Timeout(Duration(seconds: 90)));
 }

@@ -13,6 +13,7 @@ class PbrBackend extends FakeBackend {
       RenderFeature.rgbaReadback,
       RenderFeature.indexedMeshes,
       RenderFeature.standardMaterials,
+      RenderFeature.hdrColor,
     },
     limits: DeviceLimits(
       maxTextureDimension2D: 2048,
@@ -44,6 +45,18 @@ void main() {
           .widget<SceneView>(find.byType(SceneView))
           .controller!;
       expect(backend.submissions.last.scene.drawCalls, 12);
+      expect(controller.colorPipeline?.toneMapping, ToneMapping.acesFilmic);
+      final initialExposure = controller.colorPipeline!.exposure;
+      await tester.drag(
+        find.byKey(const ValueKey('Exposure')),
+        const Offset(-40, 0),
+      );
+      await tester.pumpAndSettle();
+      expect(controller.colorPipeline!.exposure, lessThan(initialExposure));
+      expect(
+        backend.submissions.last.colorPipeline,
+        same(controller.colorPipeline),
+      );
       final light = controller.scene.children
           .whereType<DirectionalLight>()
           .single;

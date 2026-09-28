@@ -208,6 +208,8 @@ final class _SharedFrameGraph {
   CompiledGraph? _preparedGraph;
   List<double>? _projection;
   int _revision = 0, _builtRevision = -1;
+  TextureFormat _colorFormat = TextureFormat.rgba8UnormSrgb;
+  TextureFormat? _builtFormat;
   (int, int, int)? _failed;
   Object? _failure;
   StackTrace? _failureStack;
@@ -323,7 +325,9 @@ final class _SharedFrameGraph {
   }
 
   bool _matches(PhysicalSize size) =>
-      state.size?.width == size.width && state.size?.height == size.height;
+      _builtFormat == _colorFormat &&
+      state.size?.width == size.width &&
+      state.size?.height == size.height;
 
   void stop() {
     _stopped = true;
@@ -364,7 +368,12 @@ final class _SharedFrameGraph {
   Future<CompiledGraph?> prepare(
     PhysicalSize size,
     List<double> projection,
+    TextureFormat colorFormat,
   ) async {
+    if (_colorFormat != colorFormat) {
+      _colorFormat = colorFormat;
+      _revision++;
+    }
     await _prepareGraph(size);
     if (_projection case final previous?
         when previous.length != projection.length ||
@@ -434,6 +443,7 @@ final class _SharedFrameGraph {
         final scene = await resources.createTexture(
           TextureDescriptor(
             label: 'shared scene color',
+            format: _colorFormat,
             width: size.width,
             height: size.height,
             usage: {TextureUsage.sampled, TextureUsage.renderAttachment},
@@ -474,10 +484,12 @@ final class _SharedFrameGraph {
           if (descriptor.width != size.width ||
               descriptor.height != size.height ||
               descriptor.mipLevels != 1 ||
+              (_colorFormat == TextureFormat.rgba16Float &&
+                  descriptor.format != TextureFormat.rgba16Float) ||
               !descriptor.usage.contains(TextureUsage.sampled)) {
             throw GraphException(
               GraphErrorCode.invalidDescriptor,
-              'Effect output must be a sampled, single-mip texture matching the frame.',
+              'Effect output must match the frame dimensions, preserve HDR precision, and be sampled with one mip.',
               passName: entry.name,
             );
           }
@@ -537,6 +549,7 @@ final class _SharedFrameGraph {
       _projection = null;
       invalidateHistory();
       _builtRevision = revision;
+      _builtFormat = _colorFormat;
       _failed = null;
       _failure = null;
       _failureStack = null;

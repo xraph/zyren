@@ -117,6 +117,7 @@ Future<void> main(List<String> args) async {
     final output =
         await backend.render(
               FrameSubmission.capture(
+                colorPipeline: ColorPipeline(),
                 scene: scene,
                 camera: PerspectiveCamera(
                   position: const Vec3(0, 0, 6),

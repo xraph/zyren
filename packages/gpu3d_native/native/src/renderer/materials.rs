@@ -14,7 +14,7 @@ impl Renderer {
         if let Some(failure) = &self.failure {
             return Err(failure.clone());
         }
-        let format = graph.map_or(format, |g| g.scene_color.format());
+        let format = super::composition::scene_format(frame, format, graph)?;
         let state = self.state.as_mut().unwrap();
         frame
             .meshes

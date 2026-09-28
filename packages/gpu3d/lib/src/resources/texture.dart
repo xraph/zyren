@@ -8,7 +8,7 @@ final class Texture {
 /// Alias for Flutter consumers, whose widget library also exports Texture.
 typedef GpuTexture = Texture;
 
-enum TextureFormat { rgba8Unorm, rgba8UnormSrgb }
+enum TextureFormat { rgba8Unorm, rgba8UnormSrgb, rgba16Float }
 
 /// Independent channels preserve hidden RGB. Weighted RGB uses alpha coverage
 /// to prevent transparent colors from bleeding into smaller levels.
@@ -22,7 +22,7 @@ enum TextureUsage {
   storage,
 }
 
-/// A two-dimensional RGBA8 texture. The format determines its color encoding.
+/// A two-dimensional RGBA texture. Float texels use four little-endian float16 values.
 /// Mip uploads contain tightly packed rows and preserve alpha without conversion.
 final class TextureDescriptor extends ResourceDescriptor<Texture> {
   final int width, height, mipLevels;
@@ -52,8 +52,8 @@ final class TextureDescriptor extends ResourceDescriptor<Texture> {
     }
     if (usage.isEmpty) throw ArgumentError('Texture usage must not be empty.');
     if (usage.contains(TextureUsage.storage) &&
-        format != TextureFormat.rgba8Unorm) {
-      throw ArgumentError('Storage textures require linear rgba8Unorm.');
+        format == TextureFormat.rgba8UnormSrgb) {
+      throw ArgumentError('Storage textures require a linear format.');
     }
     if (byteLength > 64 * 1024 * 1024) {
       throw ArgumentError('Texture exceeds 64 MiB.');
@@ -62,7 +62,9 @@ final class TextureDescriptor extends ResourceDescriptor<Texture> {
   int mipByteLength(int level) {
     RangeError.checkValueInInterval(level, 0, mipLevels - 1, 'mipLevel');
     final w = width >> level, h = height >> level;
-    return (w == 0 ? 1 : w) * (h == 0 ? 1 : h) * 4;
+    return (w == 0 ? 1 : w) *
+        (h == 0 ? 1 : h) *
+        (format == TextureFormat.rgba16Float ? 8 : 4);
   }
 
   @override

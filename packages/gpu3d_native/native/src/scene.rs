@@ -327,6 +327,8 @@ impl SceneTexture {
 #[derive(Clone, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Frame {
+    #[serde(default)]
+    pub color_pipeline: Option<ColorPipeline>,
     pub version: u32,
     pub view_projection: [f32; 16],
     pub background: [f64; 3],
@@ -350,8 +352,28 @@ pub struct Frame {
     pub graph: Option<crate::resources::registry::ResourceKey>,
 }
 
+#[derive(Clone, Copy, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ColorPipeline {
+    pub tone_mapping: u32,
+    pub exposure: f32,
+}
+impl ColorPipeline {
+    pub fn validate(&self) -> Result<(), String> {
+        if self.tone_mapping > 2
+            || !self.exposure.is_finite()
+            || !(0.0..=1e6).contains(&self.exposure)
+        {
+            return Err("invalid HDR color pipeline".into());
+        }
+        Ok(())
+    }
+}
 impl Frame {
     pub fn validate(&self, cached: &HashSet<u32>) -> Result<(), String> {
+        if let Some(pipeline) = self.color_pipeline {
+            pipeline.validate()?;
+        }
         if self.hemispheres.len() > crate::lighting::MAX_HEMISPHERES {
             return Err("scene exceeds hemisphere light limit".into());
         }

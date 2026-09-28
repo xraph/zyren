@@ -1249,3 +1249,65 @@ release-window inspection and Apple compositor pixels remain unverified. There
 is no new iOS, Windows, Linux or Adreno qualification. Task 5 remains open for
 HDR, environment lighting, shadows and standard glTF material/extension gates.
 Full Three.js and Takram parity remain open.
+
+## HDR scene color and terminal tone mapping, 2026-09-28
+
+`ColorPipeline` now selects linear RGBA16Float scene color with exposure and
+Linear, Reinhard or ACES filmic tone mapping. Flutter owns the setting per
+`SceneController`; Dart callers select it per frame. Binary opcode 21 carries
+immutable settings. A null pipeline preserves the existing RGBA8 path.
+
+The native compositor applies the curve after transparency and graph effects,
+then performs output transfer and surface premultiplication. Readback retains
+straight alpha. Shared color effects inherit HDR precision and reject RGBA8
+outputs. Explicit graphs require HDR scene/output endpoints. Exposure edits reuse
+compiled effects; precision changes rebuild the graph and reset its history.
+Custom mesh shaders use the selected scene format without interface changes.
+
+RGBA16Float resources support render, sample, storage, upload and readback usage.
+Mip sizes, copies and residency account for eight bytes per texel. The byte-image
+API explicitly rejects float formats. Each resource and internal HDR attachment
+retains the 64 MiB bound. This is internal HDR lighting with SDR output, not HDR
+monitor support or a new HDR asset decoder.
+
+The checkpoint passed 259 core/glTF/geospatial, 54 native Dart, 69 Flutter
+facade/demo and 15 independent effects tests, 397 total. All 92 Rust tests passed
+with GPU cases enabled, along with strict Clippy. Native Dart ran serially with
+`RUN_NATIVE_GPU=1`. Analysis, formatting, package boundaries and Apple ABI header
+checks passed.
+
+The first numeric probes reproduced clipped bright channels. Their passing
+replacements verify exposure before conversion, independent ACES values,
+transparent overlap in linear light, straight alpha and output transfer once.
+Other tests cover float texture bytes, compute storage, effect ordering, custom
+mesh shaders, independent view exposure and cleanup. A failing shared-effect
+regression exposed a silent RGBA8 narrowing; that graph now rejects before
+submission. Failed precision changes cannot fall back to an incompatible graph.
+History resets when precision changes and preserves linear samples across
+exposure edits. Invalid curves, exposure values and truncated opcode 21 packets
+reject before GPU work.
+
+The physical Pixel passed the final standalone Vulkan GPU integration, including
+custom shader and independent-view checks. macOS Metal passed the PBR app with
+Exposure interaction and zero presentation readback, and the separate effects
+app passed after the compositor change. Layout tests pass at 320, 390 and 1100
+pixels. The PBR lab exposes ACES/Reinhard/Linear plus Exposure.
+
+The standalone native example produced identical JIT and bundled AOT PNGs at
+`artifacts/pbr-hdr-metal.png` and `artifacts/pbr-hdr-metal-aot.png`. The grid was
+inspected locally. The first broad native Dart invocation used the wrong cwd,
+which caused three missing-fixture failures; the corrected package run passed.
+Its byte-image test also needed an explicit RGBA8 format list after the enum
+expanded. Float resources have separate GPU assertions.
+
+Task 5 remains open for environment reflections, shadows and glTF qualification.
+Task 8 still includes bloom, multisampling, antialiasing and broader profiles.
+No new iOS, Windows, Linux or Adreno evidence was added. Full Three.js/Takram
+parity is not established.
+
+Final release builds passed for macOS (51.8 MB) and Android arm64 (23.2 MB) after
+the shared-effect precision guard. The Pixel release is running as
+`dev.gpu3d.shader_lab`, PID 13912 at verification, with its Flutter runner retained
+and no error-level process logs. Pixel window interaction remains unverified in
+this checkpoint. The Mac integration could not foreground its window; manual
+release-window inspection and Apple compositor pixels remain unverified.

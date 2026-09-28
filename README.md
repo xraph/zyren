@@ -161,7 +161,8 @@ Automatic mips and opaque, masked and blended materials are implemented.
 [`StandardMaterial`](docs/design/standard-materials.md) works with directional,
 point, spot and hemisphere lights. It supports normal, metallic/roughness,
 occlusion and emissive maps with independent UV selection and shared images.
-HDR, environment reflections and shadows remain in progress.
+[HDR color and tone mapping](docs/design/color-pipeline.md) preserve bright light
+through effects. Environment reflections and shadows remain in progress.
 
 ## Plugins and backends
 

@@ -23,6 +23,7 @@ pub struct ScenePacket {
     view_projection: [f32; 16],
     background: [f64; 3],
     background_alpha: f32,
+    color_pipeline: Option<crate::scene::ColorPipeline>,
     light_direction: [f32; 3],
     ambient: f32,
     lights: Vec<crate::lighting::PunctualLight>,
@@ -73,7 +74,7 @@ impl ScenePacket {
             return Err("unsupported scene packet".into());
         }
         let opcode = r.u32()?;
-        if !(10..=20).contains(&opcode) {
+        if !(10..=21).contains(&opcode) {
             return Err("unsupported scene packet".into());
         }
         let textured = opcode >= 11;
@@ -148,6 +149,16 @@ impl ScenePacket {
                 hemispheres.push(light);
             }
         }
+        let color_pipeline = if opcode >= 21 {
+            let pipeline = crate::scene::ColorPipeline {
+                tone_mapping: r.u32()?,
+                exposure: r.floats::<1>()?[0],
+            };
+            pipeline.validate()?;
+            Some(pipeline)
+        } else {
+            None
+        };
         let owned_texture_count = if textured { r.u32()? as usize } else { 0 };
         let texture_count = if textured { r.u32()? as usize } else { 0 };
         if owned_texture_count > MAX_MESHES || texture_count > MAX_MESHES {
@@ -486,6 +497,7 @@ impl ScenePacket {
             view_projection,
             background,
             background_alpha,
+            color_pipeline,
             light_direction,
             ambient,
             lights,
@@ -537,6 +549,7 @@ impl ScenePacket {
             view_projection: self.view_projection,
             background: self.background,
             background_alpha: self.background_alpha,
+            color_pipeline: self.color_pipeline,
             light_direction: self.light_direction,
             ambient: self.ambient,
             lights: self.lights,

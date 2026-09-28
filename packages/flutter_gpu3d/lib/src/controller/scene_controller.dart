@@ -18,6 +18,14 @@ class SceneController {
   final Scene scene;
   Camera _camera;
   final EngineOptions options;
+  ColorPipeline? _colorPipeline;
+  ColorPipeline? get colorPipeline => _colorPipeline;
+  set colorPipeline(ColorPipeline? value) {
+    _checkOpen();
+    _colorPipeline = value;
+    invalidate();
+  }
+
   final SceneRuntime runtime;
   final _input = FlutterInputAdapter();
   late final AssetScope assets;
@@ -72,8 +80,10 @@ class SceneController {
     Scene? scene,
     Camera? camera,
     this.options = const EngineOptions(),
+    ColorPipeline? colorPipeline,
     SceneRuntime? runtime,
-  }) : scene = scene ?? Scene(),
+  }) : _colorPipeline = colorPipeline,
+       scene = scene ?? Scene(),
        _camera = camera ?? PerspectiveCamera(),
        runtime = runtime ?? const SceneRuntime() {
     options.validate();
@@ -388,6 +398,7 @@ class SceneController {
         }
         _checkOpen();
         final frame = await _engine!.renderFrame(
+          colorPipeline: _colorPipeline,
           target: target,
           elapsed: time.elapsed,
           time: time,

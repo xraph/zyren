@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'color_pipeline.dart';
 import 'dart:math' as math;
 import 'package:vector_math/vector_math_64.dart' as vm;
 import '../geometry/geometry.dart';
@@ -244,6 +245,7 @@ class SceneSnapshot {
 
 class FrameSubmission {
   final CompiledGraph? graph;
+  final ColorPipeline? colorPipeline;
   final SceneSnapshot scene;
   final CameraSnapshot camera;
   final OutputTarget target;
@@ -258,6 +260,7 @@ class FrameSubmission {
     this.time,
     this.cpuBuildTime,
     this.graph,
+    this.colorPipeline,
   );
 
   /// Captures once so changes made during an asynchronous render affect only
@@ -269,6 +272,7 @@ class FrameSubmission {
     OutputTarget target = const ReadbackTarget(),
     FrameTime time = const FrameTime(),
     CompiledGraph? graph,
+    ColorPipeline? colorPipeline,
   }) {
     final clock = Stopwatch()..start();
 
@@ -286,12 +290,21 @@ class FrameSubmission {
       time,
       clock.elapsed,
       graph,
+      colorPipeline,
     );
   }
 
   /// Selects a compiled graph without recapturing mutable scene or camera state.
-  FrameSubmission withGraph(CompiledGraph? graph) =>
-      FrameSubmission._(scene, camera, target, size, time, cpuBuildTime, graph);
+  FrameSubmission withGraph(CompiledGraph? graph) => FrameSubmission._(
+    scene,
+    camera,
+    target,
+    size,
+    time,
+    cpuBuildTime,
+    graph,
+    colorPipeline,
+  );
 
   /// Compatibility encoder for native v1 adapters. Geometry conversion is lazy.
   Map<String, Object> toNativePacket({Set<int> uploaded = const {}}) {
@@ -312,6 +325,11 @@ class FrameSubmission {
           'ambient': scene._ambient,
           'lights': scene._lights,
           'hemispheres': scene._hemispheres,
+          if (colorPipeline case final pipeline?)
+            'color_pipeline': {
+              'tone_mapping': pipeline.toneMapping.index,
+              'exposure': pipeline.exposure,
+            },
           'geometries': [
             for (final id in {
               for (final mesh in scene._meshes) mesh['geometry'] as int,

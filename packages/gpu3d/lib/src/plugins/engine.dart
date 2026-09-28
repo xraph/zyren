@@ -6,6 +6,7 @@ import 'registration.dart';
 import 'attachment_scope.dart';
 import '../input/pointer_event.dart';
 import '../rendering/capabilities.dart';
+import '../rendering/color_pipeline.dart';
 import '../rendering/scene_issue.dart';
 import '../rendering/renderer.dart';
 import '../rendering/frame_submission.dart';
@@ -564,6 +565,7 @@ class SceneEngine {
   }
 
   Future<FrameOutput> renderFrame({
+    ColorPipeline? colorPipeline,
     CompiledGraph? graph,
     OutputTarget target = const ReadbackTarget(),
     required Duration elapsed,
@@ -572,6 +574,19 @@ class SceneEngine {
     required int height,
   }) {
     if (_closed) return Future.error(StateError('Engine has been disposed.'));
+    if (colorPipeline != null &&
+        !capabilities.supports(RenderFeature.hdrColor)) {
+      return Future.error(
+        SceneException(
+          SceneIssue(
+            code: SceneIssueCodes.unsupportedFeature,
+            message: "This backend does not support HDR color.",
+            operation: "render",
+            requiredFeatures: {RenderFeature.hdrColor},
+          ),
+        ),
+      );
+    }
     if (graph != null && _sharedGraph != null) {
       return Future.error(
         StateError(
@@ -660,10 +675,17 @@ class SceneEngine {
           time: time ?? FrameTime(elapsed: elapsed, delta: delta),
           target: target,
           graph: graph ?? _frameGraph?.graph,
+          colorPipeline: colorPipeline,
         );
         if (_sharedGraph case final shared?) {
           submission = submission.withGraph(
-            await shared.prepare(submission.size, submission.camera.projection),
+            await shared.prepare(
+              submission.size,
+              submission.camera.projection,
+              colorPipeline == null
+                  ? TextureFormat.rgba8UnormSrgb
+                  : TextureFormat.rgba16Float,
+            ),
           );
         }
         result = await backend.render(submission);

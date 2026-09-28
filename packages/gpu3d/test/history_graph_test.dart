@@ -117,6 +117,30 @@ void main() {
   tearDown(() => engine.dispose());
   Future<FrameOutput> draw([int width = 17]) =>
       engine.renderFrame(elapsed: Duration.zero, width: width, height: 13);
+  test(
+    'precision changes reset history while exposure edits preserve it',
+    () async {
+      await draw();
+      await engine.renderFrame(
+        elapsed: Duration.zero,
+        width: 17,
+        height: 13,
+        colorPipeline: ColorPipeline(),
+      );
+      expect(backend.device.historyWrites.last[0], 0);
+      final builds = backend.device.builds;
+      await engine.renderFrame(
+        elapsed: Duration.zero,
+        width: 17,
+        height: 13,
+        colorPipeline: ColorPipeline(exposure: .25),
+      );
+      expect(backend.device.historyWrites.last[0], 1);
+      expect(backend.device.builds, builds);
+      await draw();
+      expect(backend.device.historyWrites.last[0], 0);
+    },
+  );
   for (final invalid in ['previous', 'discard', 'import']) {
     test(
       'invalid history $invalid fails before compiling and releases candidates',

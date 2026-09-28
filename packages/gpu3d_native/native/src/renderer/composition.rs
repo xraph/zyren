@@ -5,39 +5,13 @@ use crate::{
 };
 use std::collections::HashMap;
 
-const OUTPUT_SHADER: &str = r#"
-@group(0) @binding(0) var source: texture_2d<f32>;
-@vertex fn vertex(@builtin(vertex_index) i: u32) -> @builtin(position) vec4<f32> {
-  let positions = array<vec2<f32>, 3>(vec2(-1., -1.), vec2(3., -1.), vec2(-1., 3.));
-  return vec4<f32>(positions[i], 0., 1.);
-}
-fn encode_srgb(rgb: vec3<f32>) -> vec3<f32> {
-  return select(1.055 * pow(max(rgb, vec3(0.)), vec3(1. / 2.4)) - .055,
-                12.92 * rgb, rgb <= vec3(.0031308));
-}
-fn decode_srgb(rgb: vec3<f32>) -> vec3<f32> {
-  return select(pow(max((rgb + .055) / 1.055, vec3(0.)), vec3(2.4)),
-                rgb / 12.92, rgb <= vec3(.04045));
-}
-@fragment fn fragment(@builtin(position) pixel: vec4<f32>) -> @location(0) vec4<f32> {
-  var color = textureLoad(source, vec2<i32>(pixel.xy), 0);
-  if (__UNASSOCIATE__) {
-    color = vec4(select(vec3(0.), color.rgb / max(color.a, 1e-8), color.a > 0.), color.a);
-  }
-  if (__PREMULTIPLY__) {
-    if (__SRGB__) {
-      color = vec4(decode_srgb(encode_srgb(color.rgb) * color.a), color.a);
-    } else {
-      color = vec4(color.rgb * color.a, color.a);
-    }
-  }
-  return color;
-}
-"#;
+use wgpu::util::DeviceExt;
+const OUTPUT_SHADER: &str = include_str!("output.wgsl");
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 struct OutputTransform {
     unassociate: bool,
     premultiply: bool,
+    tone_mapping: Option<u32>,
 }
 #[derive(Default)]
 pub(super) struct Compositor {
@@ -46,6 +20,7 @@ pub(super) struct Compositor {
         (wgpu::RenderPipeline, wgpu::BindGroupLayout),
     >,
     accumulation: Option<wgpu::Texture>,
+    hdr: Option<wgpu::Texture>,
 }
 impl Compositor {
     fn prepare(
@@ -62,16 +37,28 @@ impl Compositor {
         let internal = device.push_error_scope(wgpu::ErrorFilter::Internal);
         let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("frame output texture"),
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Texture {
-                    sample_type: wgpu::TextureSampleType::Float { filterable: false },
-                    view_dimension: wgpu::TextureViewDimension::D2,
-                    multisampled: false,
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
                 },
-                count: None,
-            }],
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: wgpu::BufferSize::new(16),
+                    },
+                    count: None,
+                },
+            ],
         });
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("frame output"),
@@ -82,6 +69,18 @@ impl Compositor {
             label: Some("frame output"),
             source: wgpu::ShaderSource::Wgsl(
                 OUTPUT_SHADER
+                    .replace(
+                        "__HDR__",
+                        if transform.tone_mapping.is_some() {
+                            "true"
+                        } else {
+                            "false"
+                        },
+                    )
+                    .replace(
+                        "__CURVE__",
+                        &format!("{}u", transform.tone_mapping.unwrap_or(0)),
+                    )
                     .replace(
                         "__UNASSOCIATE__",
                         if transform.unassociate {
@@ -139,17 +138,29 @@ impl Compositor {
         encoder: &mut wgpu::CommandEncoder,
         source: &wgpu::Texture,
         target: &wgpu::TextureView,
-        output: (wgpu::TextureFormat, OutputTransform),
+        output: (wgpu::TextureFormat, OutputTransform, f32),
     ) {
-        let (pipeline, layout) = &self.pipelines[&output];
+        let (format, transform, exposure) = output;
+        let (pipeline, layout) = &self.pipelines[&(format, transform)];
+        let parameters = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("frame exposure"),
+            contents: bytemuck::cast_slice(&[exposure, 0., 0., 0.]),
+            usage: wgpu::BufferUsages::UNIFORM,
+        });
         let view = source.create_view(&Default::default());
         let binding = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("frame output"),
             layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: wgpu::BindingResource::TextureView(&view),
-            }],
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: parameters.as_entire_binding(),
+                },
+            ],
         });
         let colors = [Some(wgpu::RenderPassColorAttachment {
             view: target,
@@ -169,6 +180,62 @@ impl Compositor {
         pass.set_bind_group(0, &binding, &[]);
         pass.draw(0..3, 0..1);
     }
+}
+pub(super) fn scene_format(
+    frame: &Frame,
+    format: wgpu::TextureFormat,
+    graph: Option<&FrameGraph>,
+) -> Result<wgpu::TextureFormat, String> {
+    if let Some(pipeline) = frame.color_pipeline {
+        pipeline.validate()?;
+        if graph.is_some_and(|g| {
+            g.scene_color.format() != wgpu::TextureFormat::Rgba16Float
+                || g.output.format() != wgpu::TextureFormat::Rgba16Float
+        }) {
+            return Err("HDR requires RGBA16Float scene and graph output textures".into());
+        }
+        Ok(wgpu::TextureFormat::Rgba16Float)
+    } else {
+        Ok(graph.map_or(format, |g| g.scene_color.format()))
+    }
+}
+fn target(
+    device: &wgpu::Device,
+    texture: &mut Option<wgpu::Texture>,
+    format: wgpu::TextureFormat,
+    size: [u32; 2],
+) -> Result<(), String> {
+    if texture
+        .as_ref()
+        .is_some_and(|t| t.width() == size[0] && t.height() == size[1] && t.format() == format)
+    {
+        return Ok(());
+    }
+    let validation = device.push_error_scope(wgpu::ErrorFilter::Validation);
+    let memory = device.push_error_scope(wgpu::ErrorFilter::OutOfMemory);
+    let internal = device.push_error_scope(wgpu::ErrorFilter::Internal);
+    let candidate = device.create_texture(&wgpu::TextureDescriptor {
+        label: Some("scene color accumulation"),
+        size: wgpu::Extent3d {
+            width: size[0],
+            height: size[1],
+            depth_or_array_layers: 1,
+        },
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format,
+        usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+        view_formats: &[],
+    });
+    let error = pollster::block_on(internal.pop())
+        .or(pollster::block_on(memory.pop()))
+        .or(pollster::block_on(validation.pop()));
+    if let Some(error) = error {
+        return Err(error.to_string());
+    }
+    *texture = Some(candidate);
+    Ok(())
 }
 impl Renderer {
     pub(super) fn resolve_frame_graph(
@@ -190,59 +257,46 @@ impl Renderer {
         graph: Option<&FrameGraph>,
         surface: bool,
     ) -> Result<(), String> {
-        let scene_format = graph.map_or(format, |g| g.scene_color.format());
+        let scene_format = scene_format(frame, format, graph)?;
+        let hdr = frame.color_pipeline.is_some();
+        if hdr && u64::from(size[0]) * u64::from(size[1]) * 8 > crate::resources::upload::MAX_BYTES
+        {
+            return Err("HDR scene color exceeds 64 MiB per attachment".into());
+        }
         self.prepare_pipelines(frame, scene_format)?;
         let state = self.state.as_mut().unwrap();
+        if hdr && graph.is_none() {
+            target(&state.device, &mut state.compositor.hdr, scene_format, size)?;
+        } else {
+            state.compositor.hdr = None;
+        }
         if frame.background_alpha < 1. {
-            if state.compositor.accumulation.as_ref().is_none_or(|t| {
-                t.width() != size[0] || t.height() != size[1] || t.format() != scene_format
-            }) {
-                let validation = state.device.push_error_scope(wgpu::ErrorFilter::Validation);
-                let memory = state
-                    .device
-                    .push_error_scope(wgpu::ErrorFilter::OutOfMemory);
-                let internal = state.device.push_error_scope(wgpu::ErrorFilter::Internal);
-                let texture = state.device.create_texture(&wgpu::TextureDescriptor {
-                    label: Some("scene alpha accumulation"),
-                    size: wgpu::Extent3d {
-                        width: size[0],
-                        height: size[1],
-                        depth_or_array_layers: 1,
-                    },
-                    mip_level_count: 1,
-                    sample_count: 1,
-                    dimension: wgpu::TextureDimension::D2,
-                    format: scene_format,
-                    usage: wgpu::TextureUsages::RENDER_ATTACHMENT
-                        | wgpu::TextureUsages::TEXTURE_BINDING,
-                    view_formats: &[],
-                });
-                let error = pollster::block_on(internal.pop())
-                    .or(pollster::block_on(memory.pop()))
-                    .or(pollster::block_on(validation.pop()));
-                if let Some(error) = error {
-                    return Err(error.to_string());
-                }
-                state.compositor.accumulation = Some(texture);
-            }
+            target(
+                &state.device,
+                &mut state.compositor.accumulation,
+                scene_format,
+                size,
+            )?;
             state.compositor.prepare(
                 &state.device,
                 scene_format,
                 OutputTransform {
                     unassociate: true,
-                    premultiply: surface && graph.is_none(),
+                    premultiply: surface && graph.is_none() && !hdr,
+                    tone_mapping: None,
                 },
             )?;
         } else {
             state.compositor.accumulation = None;
         }
-        if graph.is_some() {
+        if graph.is_some() || hdr {
             state.compositor.prepare(
                 &state.device,
                 format,
                 OutputTransform {
                     unassociate: false,
                     premultiply: surface,
+                    tone_mapping: frame.color_pipeline.map(|p| p.tone_mapping),
                 },
             )?;
         }
@@ -258,8 +312,12 @@ impl Renderer {
         composition: (Option<&FrameGraph>, &[Option<PreparedMaterial>], bool),
     ) -> wgpu::CommandEncoder {
         let (graph, materials, surface) = composition;
-        let scene_format = graph.map_or(format, |g| g.scene_color.format());
-        let scene_view = graph.map(|g| g.scene_color.create_view(&Default::default()));
+        let scene_format = scene_format(frame, format, graph).expect("validated color pipeline");
+        let hdr = frame.color_pipeline.is_some();
+        let scene_texture = graph
+            .map(|g| &g.scene_color)
+            .or(self.compositor.hdr.as_ref());
+        let scene_view = scene_texture.map(|t| t.create_view(&Default::default()));
         let scene_target = scene_view.as_ref().unwrap_or(color);
         let accumulation = self.compositor.accumulation.as_ref();
         let accumulation_view = accumulation.map(|t| t.create_view(&Default::default()));
@@ -281,24 +339,30 @@ impl Renderer {
                     scene_format,
                     OutputTransform {
                         unassociate: true,
-                        premultiply: surface && graph.is_none(),
+                        premultiply: surface && graph.is_none() && !hdr,
+                        tone_mapping: None,
                     },
+                    1.,
                 ),
             );
         }
         if let Some(graph) = graph {
             graph.encode(&mut encoder);
+        }
+        if let Some(output) = graph.map(|g| &g.output).or(self.compositor.hdr.as_ref()) {
             self.compositor.encode(
                 &self.device,
                 &mut encoder,
-                &graph.output,
+                output,
                 color,
                 (
                     format,
                     OutputTransform {
                         unassociate: false,
                         premultiply: surface,
+                        tone_mapping: frame.color_pipeline.map(|p| p.tone_mapping),
                     },
+                    frame.color_pipeline.map_or(1., |p| p.exposure),
                 ),
             );
         }

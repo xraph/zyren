@@ -404,8 +404,11 @@ Texture checkpoint: normal, metallic/roughness, occlusion and emissive maps now
 share existing image ownership with independent samplers and UV sets. Explicit
 tangents and dynamic ranges reach native buffers, with a derivative fallback when
 attributes are absent. Hemisphere lights provide the diffuse indirect term for
-occlusion checks. Task 5 remains open for IBL, shadows, HDR and glTF gates listed
-below. This checkpoint does not establish the full PBR profile.
+occlusion checks. The HDR checkpoint adds RGBA16Float scene/resources, terminal
+exposure and Linear/Reinhard/ACES curves through the existing compositor. Shared
+effects preserve HDR precision and reset history when precision changes. See
+[color pipeline](../../design/color-pipeline.md). Task 5 remains open for IBL,
+shadows and glTF gates listed below. This is not the full PBR profile.
 
 **Files:** Create core `materials/standard_material.dart`,
 `lights/{directional,point,spot,hemisphere}_light.dart`; native
@@ -516,6 +519,11 @@ return nearest object/instance/triangle/UV and sceneRevision
 - [ ] Run unit/integration/GPU culling fixtures; commit `feat: add scene picking cameras and orbit controls`.
 
 ## Task 8: HDR effects, history and renderer profiles
+
+Task 5 now supplies HDR scene targets and terminal tone mapping. The existing
+history API inherits HDR color and resets on precision changes. Bloom, MSAA,
+spatial/temporal antialiasing, profile publication and the remaining task 8
+fixtures are still open.
 
 **Files:** Create core `rendering/history_texture.dart`, native
 `passes/{tone_map,antialias,bloom}.rs`, WGSL and `native/tests/postprocess_render.rs`.
