@@ -62,6 +62,13 @@ fail. See the [glTF package](../packages/zyren_gltf/README.md),
 | iPhone 16 Pro Metal | Both profile tests pass: two views, resize, edits, compact controls, zero readback and clean teardown; six native presentations in the two-view test |
 | Windows DX12 / Linux Vulkan | Backend paths exist; this profile has not been qualified on those hosts |
 
+The 28 September macOS foreground inspection also confirms visible material
+spheres, cube instances, shadows and bloom in the Planet renderer lab. Glow
+toggles, orbit input, reset and native window resizing work. A separately named
+bundle built from the primary checkout avoided selecting an older Planet window;
+the check required no renderer changes. Narrow mobile widths retain the automated
+device evidence above.
+
 Run the visual consumer from `examples/planet` with
 `fvm flutter run -d macos -t lib/renderer_lab.dart`. It uses physical materials,
 environment lighting, directional and spot shadows, mirrored instances, custom

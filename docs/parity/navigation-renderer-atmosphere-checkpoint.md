@@ -66,12 +66,23 @@ and the Flutter host and examples use `flutter test`.
 
 Every passing native run reported zero ordinary presentation readbacks and zero
 sessions, renderers, retiring resources and held drawables or surfaces after
-disposal. Counts are not frame-rate measurements. Foreground visual review remains
-unverified. Initial Mac runs could not activate their window while the host was
-locked. On the resumed attempt, app capture selected an older blank Planet window
-among several running copies, and accessibility selection of an isolated copy
-timed out. Native counters and separately inspected render images support the
-rendering results; they do not establish a manual foreground-window review.
+disposal. Counts are not frame-rate measurements.
+
+The resumed macOS foreground inspection succeeded with separately named app
+bundles built from the primary checkout. Distinct bundle identifiers let the
+capture tool select these windows among several running Planet copies. No
+renderer code changed for this check. The material lab visibly renders its
+material spheres, cube instances, shadows and bloom. Glow toggles, orbit input,
+reset and native window resizing work, with controls remaining visible.
+
+The atmosphere lab visibly changes between the blue daytime sky, orange dusk
+horizon and dark night. Horizon and orbit controls change the view, and toggling
+haze changes the colour and contrast of distant boxes. The daylight orbital view
+shows the globe and atmospheric limb. Stars were not discernible in the night
+captures at the demo's fixed exposure, so visual night-sky qualification remains
+open despite the passing numerical celestial fixtures. This inspection does not
+establish full upstream story parity or manual 320/390-pixel layout coverage;
+those widths retain the automated device evidence below.
 
 The iPhone atmosphere and renderer tests pass their corrected compact-layout
 assertions, which measure 70% of usable height after system safe areas. Navigation
