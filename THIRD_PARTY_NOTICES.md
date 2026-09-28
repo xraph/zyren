@@ -119,3 +119,11 @@ Source: https://github.com/cosinekitty/astronomy
 
 Copyright (c) 2019-2023 Don Cross. The complete MIT license is in
 [licenses/astronomy-engine.txt](licenses/astronomy-engine.txt).
+
+## Precomputed Atmospheric Scattering
+
+The geospatial atmosphere ports the Bruneton transmittance, single and multiple
+scattering, irradiance and runtime equations carried by the supplied
+three-geospatial snapshot. Copyright (c) 2017 Eric Bruneton and Copyright (c)
+2008 INRIA. The complete redistribution conditions and disclaimer are retained
+in [licenses/bruneton.txt](licenses/bruneton.txt).
