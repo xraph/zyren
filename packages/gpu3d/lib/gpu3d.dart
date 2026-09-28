@@ -1,5 +1,7 @@
 library;
 
+export 'src/animation/clip.dart';
+
 export 'src/geometry/geometry.dart' hide watchGeometry;
 export 'src/geometry/vertex_attribute.dart';
 export 'src/geometry/vertex_layout.dart';

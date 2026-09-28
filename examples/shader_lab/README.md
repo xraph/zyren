@@ -80,3 +80,20 @@ for the implemented parameters and remaining renderer work. `pbr_pixels_test`
 runs the native readback assertions, including environment convolution, BRDF
 quadrature and custom-material/effect composition, without mounting a viewport. Keep that result
 separate from `pbr_test`, which also verifies Flutter controls and presentation.
+
+## Animation lab
+
+Play two independently bound copies of one clip. Select Left or Right to pause,
+seek, reverse or change its loop mode. Both paused models stop requesting frames.
+The scene and clip also run in standalone Dart; see
+[the animation API](../../docs/design/animation.md).
+
+```sh
+fvm flutter run -d macos -t lib/animation.dart
+fvm flutter run --release -d DEVICE_ID -t lib/animation.dart
+fvm flutter test test/animation_app_test.dart
+fvm flutter test integration_test/animation_test.dart -d DEVICE_ID
+```
+
+This demo animates scene transforms. GPU instancing, skinning, morph targets and
+glTF animation import remain open work.

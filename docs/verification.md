@@ -1572,3 +1572,47 @@ on the device.
 Plan 03 Task 5's baseline gates are now checked. Instancing, morph targets,
 skinning and animation are next. Advanced physical materials, area lights,
 antialiasing, full Takram parity and the remaining native platforms stay open.
+
+## Core transform animation checkpoint
+
+Checked 28 September 2026. `AnimationClip`, typed vector/quaternion tracks,
+`AnimationMixer` and `AnimationAction` now animate ordinary scene transforms.
+Clips are immutable; each mixer resolves stable target IDs to its own nodes.
+Playback supports pause, seek, reverse speed, weighted actions and once/repeat/
+ping-pong loops. See [animation](design/animation.md) for the API and limits.
+
+Checks pass: 335 core/glTF/geospatial tests, 74 native Dart tests, 69 Flutter
+facade tests and three shader-lab widget tests, 481 tests in those suites.
+The final camera-fit change also passes the focused animation widget test.
+Analyzer, formatting and package/Apple-header boundaries pass. Rust renderer
+code did not change.
+
+The tests pin Hermite tangent scaling, quaternion short arcs and cubic sign
+handling, weighted rest poses, reverse/loop boundaries, independent instances,
+admission limits and atomic rejection of invalid poses. Scheduler checks verify
+that pause, completion, speed zero and detach release frame demand, and that
+resume excludes idle time. Attachment scopes prune disposed registrations when
+new registrations arrive, keeping repeated play/pause demand changes bounded.
+
+Metal and physical Pixel Vulkan pass the animation integration. Playing or
+seeking one model preserves the other model's pose; after both pause, frame
+statistics settle. Native presentation reports zero readback bytes. Explicit
+pixel captures also prove that old submissions retain their transforms and that
+new animated poses do not upload geometry again.
+
+The initial 320-pixel widget check exposed a header overflow. The header now
+wraps, with tests at 320, 390 and 1100 pixels, and the camera fits both models to
+the available canvas. Both device integrations pass after that change. macOS
+could not foreground its integration window, so interactive desktop inspection
+remains unverified.
+
+The bundled native capture executable runs from `/tmp` and produces
+`artifacts/native-animation-aot.png`: six draws showing independent 0.8-second
+and 2-second poses from one shared clip. That image was inspected.
+Task 6 remains open for GPU instancing, skinning, morph targets, glTF animation
+import and broader animation features. Full Three.js/Takram and remaining
+platform qualification are still open.
+
+The Android arm64 animation release builds at 24.1 MB and launches on the Pixel
+without error-level process logs. It is left running with the animation entrypoint.
+Interactive release-screen inspection remains unverified.

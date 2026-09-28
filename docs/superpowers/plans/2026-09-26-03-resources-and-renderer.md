@@ -494,12 +494,19 @@ linear HDR -> tone map/output conversion -> presentation
 
 ## Task 6: Instancing, morph targets, skinning and animation
 
+Core transform checkpoint: immutable vector/quaternion tracks, independent
+mixers and playback actions now implement step, linear and cubic sampling,
+weights, reverse playback, loop modes and frame-demand ownership. The native
+animation lab demonstrates two separately controlled copies of one clip.
+See [the API](../../design/animation.md). Task 6 remains open for GPU instancing,
+skin/morph deformation, glTF animation import and the remaining tests below.
+
 **Files:** Create core `scene/instanced_mesh.dart`, `animation/{clip,track,mixer,action}.dart`,
 `geometry/{skin,morph_target}.dart`; native `passes/deformation.rs`, WGSL,
 `test/animation_test.dart`, `native/tests/deformation_render.rs` and viewer controls.
 
 **Interfaces:** `InstancedMesh.setTransform(index, Mat4)` updates one instance;
-`AnimationMixer.play(AnimationClip) -> Action`; actions support `pause`,
+`AnimationMixer.play(AnimationClip) -> AnimationAction`; actions support `pause`,
 `seek(Duration)`, `stop`, `speed`, `weight`, `loop`. Tracks bind stable node IDs
 and typed properties, using step/linear/cubic interpolation. Mixers own demand
 only while active. `Skin` contains joints/inverse bind matrices; morph weights

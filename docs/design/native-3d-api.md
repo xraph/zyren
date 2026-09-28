@@ -569,10 +569,13 @@ Include `sceneRevision` in the result so a tool can identify a pick completed
 against an earlier scene snapshot. `ViewportPoint.toNdc` takes logical width and
 height and returns `Vec3(x,y,0)`; physical resolution never enters that conversion.
 
-`AnimationClip`, typed tracks, interpolation, `AnimationMixer` and `Action` form
+`AnimationClip`, typed tracks, interpolation, `AnimationMixer` and `AnimationAction` form
 the animation API. `mixer.play(clip)` returns an action with pause, seek, speed,
 weight, loop and stop. Mixers own frame demand while actions run. Skin and morph
 updates use typed geometry resources and must work on native mobile feature limits.
+Core transform tracks and independent mixer playback are implemented. See
+[animation](animation.md) for binding, sampling, mixing and frame-demand behaviour.
+GPU instancing, skinning, morph targets and glTF animation import remain open.
 
 Texture presentation must compose with Flutter clipping, transforms, opacity,
 scrolling, overlays and hit testing. Flutter rebuilds do not recreate the GPU.
