@@ -1010,3 +1010,11 @@ final cleanup. Release builds passed for Android arm64 (23.3 MB) and macOS
 still could not foreground the app. No iOS, Windows, Linux or Adreno qualification
 was added. Shared plugin registration, history and transparent compositor output
 remain open.
+
+The follow-up compiler check reproduced reentrant shutdown returning before a
+pending build, missing its release failure, and admitting a second build from an
+adapter callback. Accepted compilation is now registered before adapter entry.
+All 151 core tests, nine focused native graph/material cases and ten effects-plugin
+tests passed afterward. Analysis is clean. The initial native test command named
+two absent files; their actual graph suites were then run and passed. The updated
+Android release was rebuilt and launched on the Pixel with its runner retained.

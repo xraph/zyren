@@ -38,11 +38,15 @@ final class GraphCompiler {
         ),
       );
     }
-    final future = _compile(description);
-    _compiling = future;
-    return future.whenComplete(() {
+    final completion = Completer<CompiledGraph>();
+    final future = completion.future.whenComplete(() {
       _compiling = null;
     });
+    _compiling = future;
+    Future.sync(
+      () => _compile(description),
+    ).then(completion.complete, onError: completion.completeError);
+    return future;
   }
 
   Future<CompiledGraph> _compile(GraphDescription description) async {

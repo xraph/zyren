@@ -5,6 +5,7 @@ import 'package:test/test.dart';
 
 class Device implements GraphDevice {
   GraphDeviceDescription? submitted;
+  void Function()? onGraphCompile;
   bool reject = false;
   Object? releaseFailure;
   Completer<void>? gate;
@@ -34,6 +35,7 @@ class Device implements GraphDevice {
   @override
   Future<Object> compileGraph(GraphDeviceDescription description) async {
     submitted = description;
+    onGraphCompile?.call();
     await gate?.future;
     if (reject) {
       throw GraphException(
@@ -189,6 +191,87 @@ void main() {
       expect(compiler.active, same(compiled));
     },
   );
+  for (final failsRelease in [false, true]) {
+    test(
+      'reentrant close drains accepted compilation (release failure: $failsRelease)',
+      () async {
+        device.gate = Completer<void>();
+        final failure = StateError('release failed');
+        if (failsRelease) device.releaseFailure = failure;
+        var closed = false;
+        Object? closeError;
+        late Future<void> closing;
+        device.onGraphCompile = () {
+          closing = compiler.close().then<void>(
+            (_) {
+              closed = true;
+            },
+            onError: (Object error, StackTrace _) {
+              closed = true;
+              closeError = error;
+            },
+          );
+        };
+        final pending = expectLater(
+          compiler.compile(GraphDescription(passes: [write()])),
+          throwsStateError,
+        );
+        await Future<void>.delayed(Duration.zero);
+        final closedBeforeCompletion = closed;
+        device.gate!.complete();
+        await pending;
+        await closing;
+        expect(closedBeforeCompletion, isFalse);
+        expect(closed, isTrue);
+        expect(device.graphs, isEmpty);
+        expect(compiler.active, isNull);
+        if (failsRelease) {
+          expect(
+            closeError,
+            isA<ScopeCleanupException>().having(
+              (error) => error.errors,
+              'errors',
+              contains(same(failure)),
+            ),
+          );
+          // The failure was observed above. Use a new owner for tearDown.
+          compiler = GraphCompiler(device);
+        } else {
+          expect(closeError, isNull);
+        }
+      },
+    );
+  }
+  test('reentrant compilation cannot admit a second candidate', () async {
+    final description = GraphDescription(passes: [write()]);
+    device.gate = Completer<void>();
+    var nestedAccepted = false;
+    Object? nestedError;
+    late Future<void> nested;
+    device.onGraphCompile = () {
+      device.onGraphCompile = null;
+      nested = compiler
+          .compile(description)
+          .then<void>(
+            (_) {
+              nestedAccepted = true;
+            },
+            onError: (Object error, StackTrace _) {
+              nestedError = error;
+            },
+          );
+    };
+    final outer = compiler.compile(description);
+    device.gate!.complete();
+    final graph = await outer;
+    await nested;
+    expect(nestedAccepted, isFalse);
+    expect(nestedError, isA<StateError>());
+    expect(compiler.active, same(graph));
+    expect(device.graphs, hasLength(1));
+    await compiler.close();
+    expect(device.graphs, isEmpty);
+  });
   test(
     'cycles and missing dependencies fail before native compilation',
     () async {
