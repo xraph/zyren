@@ -53,6 +53,28 @@ final class _NativeResourceDevice
     with _NativeShaders, _NativeGraphs
     implements GraphDevice {
   final NativeGpuCommandSender _send;
+  Future<T> submitFrame<T>(
+    FrameSubmission submission,
+    Uint8List packet,
+    Future<T> Function(Uint8List bytes) submit,
+  ) {
+    final graph = submission.graph;
+    if (graph == null) return Future.sync(() => submit(packet));
+    return graph.submitFrame(this, submission.size, (key) {
+      final values = (key as _GraphKey).values;
+      final envelope = ByteData(48 + packet.length)
+        ..setUint32(0, 3, Endian.little)
+        ..setUint32(4, 1, Endian.little)
+        ..setUint64(8, packet.length, Endian.little);
+      for (var i = 0; i < 4; i++) {
+        envelope.setUint64(16 + i * 8, values[i], Endian.little);
+      }
+      final bytes = envelope.buffer.asUint8List()
+        ..setRange(48, 48 + packet.length, packet);
+      return submit(bytes);
+    });
+  }
+
   int _nextRequest = 0;
   _NativeResourceDevice(this._send);
   @override

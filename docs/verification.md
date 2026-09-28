@@ -855,11 +855,45 @@ library and could not create the backend; the package README now gives the
 bundle command.
 
 The Android release installed and launched on the physical Pixel, PID 13176 at
-verification, with no errors in the process log. Its Flutter runner remains
-attached. This confirms launch; manual release-screen inspection is still open.
+verification, with no errors in the process log. This confirms launch; manual
+release-screen inspection is still open.
 
 These checks establish GPU service access on the presenter device. Graph output
 composition, custom scene materials, resize/history and the independent effects
 consumer remain open. The macOS integration passed despite a foreground failure;
 manual inspection of the locked desktop remains unverified. No iOS, Windows,
 Linux or Adreno qualification was added.
+
+## Scene frame composition
+
+Frame graphs now render scene color, run compute/render effects and sample the
+final texture into native output in one GPU submission. Tests check every pixel
+of an odd-sized 17 by 13 frame, a changed scene, a red mesh, linear-to-sRGB values,
+dimension rejection without losing the next frame, and cleanup after author
+scopes close. Both render-to-render and compute-to-render chains pass on Metal
+and the physical Pixel's Vulkan device. The Pixel presenter also runs the plugin
+chain into a native surface with zero presentation readback bytes.
+
+Seven core regressions cover the frame contract, discarded output, device and
+size checks, plugin ownership, unsupported backends and pending-frame lifetime.
+A reentrant adapter-close test failed before submission was registered ahead of
+the callback; it now passes. Draw and triangle counts include effects and the
+terminal draw, and compute dispatches are reported separately.
+
+All 193 core/geospatial/glTF, 46 native Dart and 63 Flutter facade tests pass,
+302 in total. Rust passes 72 tests including GPU cases, with strict Clippy clean.
+The native frame envelope also rejects truncation, incorrect lengths, nested
+packets and oversized keys. The standalone `example/frame_graph.dart` ran in
+both JIT and bundled AOT modes, producing identical inspected PNGs with five
+draws and one compute dispatch.
+
+Analysis, formatting and package/header checks pass. The native scene demo builds
+in release mode for macOS (49.9 MB) and Android arm64 (22.1 MB). The Android release
+was relaunched on the Pixel, PID 16080 at verification, with its Flutter runner
+retained and no errors in the process log. The composition integrations and CLI
+image verify the effects; the running demo retains its existing scene controls.
+
+The Metal integration passed despite the existing foreground failure. Manual
+inspection of the locked desktop remains open. These tests add no iOS, Windows,
+Linux or Adreno qualification. Custom mesh materials, automatic pass registration,
+resize/history management and the independent effects consumer remain unfinished.

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import '../plugins/attachment_scope.dart';
 import '../rendering/scene_issue.dart';
+import '../rendering/frame_output.dart';
 import 'buffer.dart';
 import 'texture.dart';
 import 'texture_image.dart';

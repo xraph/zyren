@@ -107,6 +107,7 @@ class NativeAndroidBackend implements NativeGpuBackend {
       RenderFeature.scopedResources,
       RenderFeature.shaderCompilation,
       RenderFeature.renderGraphs,
+      RenderFeature.frameGraphs,
       RenderFeature.compute,
       RenderFeature.storageTextures,
     },
@@ -191,14 +192,18 @@ class NativeAndroidBackend implements NativeGpuBackend {
     final clock = Stopwatch()..start();
     final packet = _encoder.encode(submission);
     final frame = ++_nextFrame;
-    final pending = request<Map>('render', {
-      'scene': packet.bytes,
-      'frame': frame,
-      'attachment': key.attachment,
-      'epoch': target.epoch,
-      'width': submission.size.width,
-      'height': submission.size.height,
-    });
+    final pending = _gpu.submitFrame(
+      submission,
+      packet.bytes,
+      (bytes) => request<Map>('render', {
+        'scene': bytes,
+        'frame': frame,
+        'attachment': key.attachment,
+        'epoch': target.epoch,
+        'width': submission.size.width,
+        'height': submission.size.height,
+      }),
+    );
     clock.stop();
     final result = (await pending)!;
     if (result['applied'] == true) _encoder.accept(packet);
@@ -214,8 +219,11 @@ class NativeAndroidBackend implements NativeGpuBackend {
         presentationPath: PresentationPath.sharedTexture,
         cpuBuildTime: submission.cpuBuildTime,
         cpuSubmitTime: clock.elapsed,
-        drawCalls: submission.scene.drawCalls,
-        triangles: submission.scene.triangles,
+        drawCalls:
+            submission.scene.drawCalls + (submission.graph?.drawCalls ?? 0),
+        computeDispatches: submission.graph?.dispatches ?? 0,
+        triangles:
+            submission.scene.triangles + (submission.graph?.triangles ?? 0),
         readbackBytes: result['readbackBytes'] as int,
         uploadedBytes: packet.uploadedBytes,
       ),

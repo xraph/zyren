@@ -22,8 +22,8 @@ This API creates validated shader modules. Use a [render graph](render-graphs.md
 to compile their pipelines, bind resources and execute compute or procedural
 render passes into scoped textures. `NativeBackend` advertises
 `RenderFeature.shaderCompilation`, `renderGraphs`, `compute` and `storageTextures`.
-Custom mesh materials and Flutter platform-view graph integration remain in
-plan 03, task 4.
+Frame graphs can also process scene color before native presentation. Custom mesh
+materials remain in plan 03, task 4.
 
 The native Metal and Android view backends also expose the compiler. In a
 Flutter plugin, `context.shaders` uses the same GPU device as its scene presenter.

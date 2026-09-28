@@ -54,6 +54,7 @@ final class GraphCompiler {
       description.label,
       prepared.$2,
       prepared.$3,
+      description,
     );
     if (_closed) {
       await _retire(candidate);
@@ -109,6 +110,9 @@ final class CompiledGraph {
   final String label;
   final List<String> passNames;
   final List<GraphResourceLifetime> lifetimes;
+  final TextureDescriptor? _sceneColor;
+  final int drawCalls, triangles, dispatches;
+  bool get isFrameGraph => _sceneColor != null;
   final _pending = <Future<void>>{};
   bool _closed = false;
   Future<void>? _closing;
@@ -118,14 +122,63 @@ final class CompiledGraph {
     this.label,
     Iterable<String> passNames,
     Iterable<GraphResourceLifetime> lifetimes,
-  ) : passNames = List.unmodifiable(passNames),
+    GraphDescription description,
+  ) : _sceneColor = description.sceneColor?.descriptor as TextureDescriptor?,
+      drawCalls =
+          description.passes.whereType<RenderPassDescriptor>().length +
+          (description.output == null ? 0 : 1),
+      triangles =
+          description.passes.whereType<RenderPassDescriptor>().fold(
+            0,
+            (sum, pass) => sum + (pass.vertexCount ~/ 3) * pass.instanceCount,
+          ) +
+          (description.output == null ? 0 : 1),
+      dispatches = description.passes.whereType<ComputePassDescriptor>().length,
+      passNames = List.unmodifiable(passNames),
       lifetimes = List.unmodifiable(lifetimes);
   bool get isClosed => _closed;
   Future<GraphStats> execute() {
+    if (isFrameGraph) {
+      return Future.error(
+        GraphException(
+          GraphErrorCode.invalidDescriptor,
+          'Submit this graph with a scene frame.',
+        ),
+      );
+    }
+    return _run(() => _device.executeGraph(_key));
+  }
+
+  /// Backend adapter contract. Validates device and size, then keeps the opaque
+  /// backend key alive until the submitted frame settles. The key is not a pointer.
+  Future<T> submitFrame<T>(
+    GraphDevice device,
+    PhysicalSize size,
+    Future<T> Function(Object key) submit,
+  ) => _run(() {
+    if (!identical(device, _device)) {
+      throw GraphException(
+        GraphErrorCode.foreignResource,
+        'Graph belongs to another device.',
+      );
+    }
+    final texture = _sceneColor;
+    if (texture == null ||
+        texture.width != size.width ||
+        texture.height != size.height) {
+      throw GraphException(
+        GraphErrorCode.invalidDescriptor,
+        'Compile a frame graph matching the frame dimensions.',
+      );
+    }
+    return submit(_key);
+  });
+
+  Future<T> _run<T>(Future<T> Function() operation) {
     if (_closed) {
       return Future.error(StateError('Compiled graph has closed: $label'));
     }
-    final future = Future.sync(() => _device.executeGraph(_key));
+    final future = Future<T>.microtask(operation);
     late Future<void> settled;
     settled = future
         .then<void>((_) {}, onError: (Object _, StackTrace _) {})

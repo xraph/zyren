@@ -5,6 +5,7 @@ import '../geometry/vertex_attribute.dart';
 import '../resources/texture_image.dart';
 import '../scene/scene.dart';
 import 'frame_output.dart';
+import '../resources/resource_scope.dart';
 part 'scene_packet.dart';
 
 class FrameTime {
@@ -114,6 +115,7 @@ class SceneSnapshot {
 }
 
 class FrameSubmission {
+  final CompiledGraph? graph;
   final SceneSnapshot scene;
   final CameraSnapshot camera;
   final OutputTarget target;
@@ -127,6 +129,7 @@ class FrameSubmission {
     this.size,
     this.time,
     this.cpuBuildTime,
+    this.graph,
   );
 
   /// Captures once so changes made during an asynchronous render affect only
@@ -137,6 +140,7 @@ class FrameSubmission {
     required PhysicalSize size,
     OutputTarget target = const ReadbackTarget(),
     FrameTime time = const FrameTime(),
+    CompiledGraph? graph,
   }) {
     final clock = Stopwatch()..start();
 
@@ -152,11 +156,15 @@ class FrameSubmission {
       size,
       time,
       clock.elapsed,
+      graph,
     );
   }
 
   /// Compatibility encoder for native v1 adapters. Geometry conversion is lazy.
   Map<String, Object> toNativePacket({Set<int> uploaded = const {}}) {
+    if (graph != null) {
+      throw UnsupportedError('Frame graphs require binary native submissions.');
+    }
     if (scene._textures.isNotEmpty) {
       throw UnsupportedError(
         'Texture materials require binary scene submissions.',

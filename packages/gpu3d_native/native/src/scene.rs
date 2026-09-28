@@ -305,6 +305,8 @@ pub struct Frame {
     pub binary: Option<crate::scene_packet::ViewState>,
     #[serde(skip)]
     pub geometry_patches: Vec<GeometryPatch>,
+    #[serde(skip)]
+    pub graph: Option<crate::resources::registry::ResourceKey>,
 }
 
 impl Frame {

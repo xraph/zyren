@@ -87,17 +87,21 @@ class NativeRenderer implements SceneRenderer {
 
   Future<RenderedFrame> _renderBinary(
     FrameSubmission submission,
-    ScenePacketEncoder encoder,
-  ) async {
+    ScenePacketEncoder encoder, {
+    _NativeResourceDevice? resources,
+  }) async {
     if (_closed) throw StateError('Renderer has been disposed.');
     final packet = encoder.encode(submission);
-    final reply =
+    Future<List<Object>> submit(Uint8List bytes) async =>
         await _worker.request('render', [
-              TransferableTypedData.fromList([packet.bytes]),
+              TransferableTypedData.fromList([bytes]),
               submission.size.width,
               submission.size.height,
             ])
             as List<Object>;
+    final reply = resources == null
+        ? await submit(packet.bytes)
+        : await resources.submitFrame(submission, packet.bytes, submit);
     encoder.accept(packet);
     final bytes = (reply[0] as TransferableTypedData)
         .materialize()
@@ -123,15 +127,16 @@ class NativeRenderer implements SceneRenderer {
     EncodedScenePacket packet,
     ScenePacketEncoder encoder,
     SurfaceTarget target,
-    int frameId,
-  ) {
+    int frameId, {
+    Uint8List? bytes,
+  }) {
     if (_closed) return Future.error(StateError('Renderer has been disposed.'));
     if (_frame != null) {
       return Future.error(StateError('Only one frame may be in flight.'));
     }
     final future = _worker
         .request('surfaceRender', [
-          TransferableTypedData.fromList([packet.bytes]),
+          TransferableTypedData.fromList([bytes ?? packet.bytes]),
           (target.surface as NativeSurfaceKey).toMessage(),
           target.epoch,
           frameId,

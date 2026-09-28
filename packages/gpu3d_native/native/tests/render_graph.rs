@@ -118,6 +118,20 @@ fn native_graph_validation_retains_owners_and_rejects_forged_access() {
         graph(&mut renderer, compile(bad))["error"]["code"],
         "uninitializedRead"
     );
+    for (scene, output, code) in [
+        (texture_key.clone(), Value::Null, "invalidDescriptor"),
+        (Value::Null, texture_key.clone(), "invalidDescriptor"),
+        (texture_key.clone(), texture_key.clone(), "invalidBinding"),
+        (shader_key.clone(), texture_key.clone(), "invalidDescriptor"),
+    ] {
+        let mut candidate = description.clone();
+        candidate["sceneColor"] = scene;
+        candidate["output"] = output;
+        assert_eq!(
+            graph(&mut renderer, compile(candidate))["error"]["code"],
+            code
+        );
+    }
     let built = graph(&mut renderer, compile(description.clone()));
     let key = built["result"]["key"].clone();
     assert!(!key.is_null(), "{built}");

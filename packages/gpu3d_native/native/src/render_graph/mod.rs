@@ -2,6 +2,8 @@ mod bindings;
 mod compile;
 mod descriptor;
 mod execute;
+mod frame;
+pub(crate) use frame::{FrameGraph, decode_packet as decode_frame_packet};
 
 use crate::{
     resources::{
@@ -56,6 +58,11 @@ impl GraphError {
     fn at(mut self, name: &str) -> Self {
         self.pass_name = Some(name[..name.floor_char_boundary(name.len().min(1024))].into());
         self
+    }
+}
+impl std::fmt::Display for GraphError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "graph.{}: {}", self.code, self.message)
     }
 }
 impl From<ResourceError> for GraphError {
@@ -118,6 +125,7 @@ struct ScopedGraph {
     passes: Vec<PreparedPass>,
     resources: Vec<ResourceKey>,
     shaders: Vec<ResourceKey>,
+    frame: Option<(wgpu::Texture, wgpu::Texture)>,
 }
 pub struct GraphStore {
     registry: ResourceRegistry<Arc<ScopedGraph>>,

@@ -484,6 +484,10 @@ class HeatmapPlugin extends ScenePlugin {
 allocations and `context.graphs` owns a graph compiler for explicit execution;
 see [render graphs](render-graphs.md). The automatic `context.graph` registration
 code above remains the target API for scene insertion in task 4.
+Scene-first composition is available through an attachment-owned
+`context.frameGraph` binding. It selects a compiled graph whose `sceneColor` and
+`output` textures connect the scene to native presentation. Automatic shared pass
+registration through `context.graph` remains separate work.
 `heatmapWgsl`, `heatmapBindings` and
 `heatmapTexture` will be application inputs in the independent effects example.
 `ShaderSource`,

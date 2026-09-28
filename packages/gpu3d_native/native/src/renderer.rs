@@ -9,6 +9,7 @@ use glam::Mat4;
 use wgpu::util::DeviceExt;
 
 use crate::scene::{Frame, pixel_len};
+mod composition;
 mod draw_order;
 mod pipelines;
 mod textures;
@@ -81,6 +82,7 @@ pub struct RendererState {
     #[cfg(target_os = "android")]
     pub(crate) android_generation: u64,
     pipelines: pipelines::MeshPipelines,
+    compositor: composition::Compositor,
     texture_layout: wgpu::BindGroupLayout,
     textures: HashMap<u32, textures::GpuSceneTexture>,
     #[cfg(any(target_vendor = "apple", target_os = "android"))]
@@ -192,6 +194,7 @@ impl Renderer {
                 #[cfg(target_os = "android")]
                 android_generation: 0,
                 pipelines,
+                compositor: composition::Compositor::default(),
                 texture_layout,
                 textures: HashMap::new(),
                 #[cfg(any(target_vendor = "apple", target_os = "android"))]
@@ -325,6 +328,12 @@ impl Renderer {
     }
 
     pub fn decode_scene(&self, bytes: &[u8]) -> Result<Frame, String> {
+        let (bytes, graph) = crate::render_graph::decode_frame_packet(bytes)?;
+        let mut frame = self.decode_plain_scene(bytes)?;
+        frame.graph = graph;
+        Ok(frame)
+    }
+    fn decode_plain_scene(&self, bytes: &[u8]) -> Result<Frame, String> {
         if bytes.starts_with(&2_u32.to_le_bytes()) {
             let packet = crate::scene_packet::ScenePacket::decode(bytes)?;
             let previous = self.views.get(&packet.view());
@@ -663,13 +672,22 @@ impl Renderer {
         encoder
     }
 
-    fn submit(&mut self, encoder: wgpu::CommandEncoder) -> Result<Submission, String> {
+    fn submit(
+        &mut self,
+        encoder: wgpu::CommandEncoder,
+        graph: Option<&crate::render_graph::FrameGraph>,
+    ) -> Result<Submission, String> {
         let index = self.queue.submit([encoder.finish()]);
         let keys: Vec<_> = self
             .geometries
             .values()
             .map(|g| g.key)
             .chain(self.textures.values().map(|t| t.key))
+            .chain(
+                graph
+                    .into_iter()
+                    .flat_map(|g| g.resources().iter().copied()),
+            )
             .collect();
         if let Err(error) = self.resources.scene_submitted(index.clone(), &keys) {
             self.failure = Some(error.to_string());
@@ -728,6 +746,7 @@ impl Renderer {
         height: u32,
     ) -> Result<(), String> {
         pixel_len(width, height)?;
+        let graph = self.resolve_frame_graph(frame, width, height)?;
         self.prepare_scene(frame)?;
         if self
             .surface_depth
@@ -755,16 +774,17 @@ impl Renderer {
                 _texture: depth,
             });
         }
-        self.prepare_pipelines(frame, texture.format())?;
-        let encoder = self.encode_scene(
+        self.prepare_frame_pipelines(frame, texture.format(), graph.as_ref())?;
+        let encoder = self.encode_frame(
             frame,
             &texture.create_view(&Default::default()),
             &self.surface_depth.as_ref().unwrap().view,
             texture.format(),
             [texture.width(), texture.height()],
+            graph.as_ref(),
         );
         let result = self
-            .submit(encoder)
+            .submit(encoder, graph.as_ref())
             .and_then(|submission| self.wait_for_submission(submission));
         if let Err(error) = result {
             // Stop future submissions and keep the imported resource owned.
@@ -776,16 +796,18 @@ impl Renderer {
 
     pub fn render(&mut self, frame: &Frame, width: u32, height: u32) -> Result<Vec<u8>, String> {
         let len = pixel_len(width, height)?;
+        let graph = self.resolve_frame_graph(frame, width, height)?;
         self.prepare_scene(frame)?;
         self.resize(width, height);
-        self.prepare_pipelines(frame, wgpu::TextureFormat::Rgba8UnormSrgb)?;
+        self.prepare_frame_pipelines(frame, wgpu::TextureFormat::Rgba8UnormSrgb, graph.as_ref())?;
         let target = self.targets.as_ref().unwrap();
-        let mut encoder = self.encode_scene(
+        let mut encoder = self.encode_frame(
             frame,
             &target.color_view,
             &target.depth_view,
             wgpu::TextureFormat::Rgba8UnormSrgb,
             [width, height],
+            graph.as_ref(),
         );
         encoder.copy_texture_to_buffer(
             target.color.as_image_copy(),
@@ -805,7 +827,7 @@ impl Renderer {
         );
         let readback = target.readback.clone();
         let stride = target.stride;
-        let submission = self.submit(encoder)?;
+        let submission = self.submit(encoder, graph.as_ref())?;
         let slice = readback.slice(..);
         let (sender, receiver) = mpsc::sync_channel(1);
         slice.map_async(wgpu::MapMode::Read, move |result| {

@@ -20,17 +20,35 @@ final class RenderGraph {
     });
   }
 
-  GraphDescription describe({String label = ''}) =>
-      GraphDescription(label: label, passes: _passes, inputs: _inputs);
+  GraphDescription describe({
+    String label = '',
+    GpuResource<Texture>? sceneColor,
+    GpuResource<Texture>? output,
+  }) => GraphDescription(
+    label: label,
+    passes: _passes,
+    inputs: _inputs,
+    sceneColor: sceneColor,
+    output: output,
+  );
 }
 
 /// Inputs are initialized by work outside this graph before every execution.
 final class GraphDescription {
   final String label;
+
+  /// The scene is rendered here before this graph runs. Both frame textures
+  /// must have one mip and match the submitted frame's physical dimensions.
+  final GpuResource<Texture>? sceneColor;
+
+  /// Sampled into the final output after all passes. Requires [sceneColor].
+  final GpuResource<Texture>? output;
   final List<PassDescriptor> passes;
   final List<GpuResource<Object?>> inputs;
   GraphDescription({
     this.label = '',
+    this.sceneColor,
+    this.output,
     required Iterable<PassDescriptor> passes,
     Iterable<GpuResource<Object?>> inputs = const [],
   }) : passes = List.unmodifiable(passes),

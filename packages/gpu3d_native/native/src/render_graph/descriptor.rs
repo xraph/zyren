@@ -5,6 +5,9 @@ pub type Key = [u64; 4];
 #[serde(deny_unknown_fields)]
 pub struct Description {
     pub label: String,
+    #[serde(rename = "sceneColor")]
+    pub scene_color: Option<Key>,
+    pub output: Option<Key>,
     pub inputs: Vec<Key>,
     pub resources: Vec<Resource>,
     pub passes: Vec<Pass>,

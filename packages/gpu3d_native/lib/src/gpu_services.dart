@@ -72,6 +72,14 @@ final class NativeGpuServices {
     return compiler;
   }
 
+  /// Encodes a scene submission for this device and holds its graph until the
+  /// adapter's native frame completes. The original scene packet stays immutable.
+  Future<T> submitFrame<T>(
+    FrameSubmission submission,
+    Uint8List packet,
+    Future<T> Function(Uint8List bytes) submit,
+  ) => _device.submitFrame(submission, packet, submit);
+
   Future<ResourceStats> resourceStats() => _device.stats();
   Future<ShaderStats> shaderStats() => _device.shaderStats();
   Future<GraphCacheStats> graphStats() => _device.graphStats();

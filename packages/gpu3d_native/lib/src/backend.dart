@@ -124,6 +124,7 @@ class NativeBackend implements NativeGpuBackend {
       RenderFeature.materialSidedness,
       RenderFeature.shaderCompilation,
       RenderFeature.renderGraphs,
+      RenderFeature.frameGraphs,
       RenderFeature.compute,
       RenderFeature.storageTextures,
       if (_experimentalAppleSurfaces && NativeSurfaces().appleAvailable)
@@ -192,11 +193,17 @@ class NativeBackend implements NativeGpuBackend {
     try {
       if (submission.target case final SurfaceTarget target) {
         final packet = _encoder.encode(submission);
-        final pending = _renderer._renderSurfacePacket(
-          packet,
-          _encoder,
-          target,
-          ++_nextFrame,
+        final frameId = ++_nextFrame;
+        final pending = _resources.submitFrame(
+          submission,
+          packet.bytes,
+          (bytes) => _renderer._renderSurfacePacket(
+            packet,
+            _encoder,
+            target,
+            frameId,
+            bytes: bytes,
+          ),
         );
         clock.stop();
         final receipt = await pending;
@@ -211,15 +218,22 @@ class NativeBackend implements NativeGpuBackend {
             presentationPath: PresentationPath.sharedTexture,
             cpuBuildTime: submission.cpuBuildTime,
             cpuSubmitTime: clock.elapsed,
-            drawCalls: submission.scene.drawCalls,
-            triangles: submission.scene.triangles,
+            drawCalls:
+                submission.scene.drawCalls + (submission.graph?.drawCalls ?? 0),
+            computeDispatches: submission.graph?.dispatches ?? 0,
+            triangles:
+                submission.scene.triangles + (submission.graph?.triangles ?? 0),
             uploadedBytes: packet.uploadedBytes,
             residentBytes: receipt[2],
             readbackBytes: receipt[3],
           ),
         );
       }
-      final pending = _renderer._renderBinary(submission, _encoder);
+      final pending = _renderer._renderBinary(
+        submission,
+        _encoder,
+        resources: _resources,
+      );
       clock.stop();
       final frame = await pending;
       return ReadbackOutput(
@@ -230,8 +244,11 @@ class NativeBackend implements NativeGpuBackend {
           presentationPath: PresentationPath.readback,
           cpuBuildTime: submission.cpuBuildTime,
           cpuSubmitTime: clock.elapsed,
-          drawCalls: submission.scene.drawCalls,
-          triangles: submission.scene.triangles,
+          drawCalls:
+              submission.scene.drawCalls + (submission.graph?.drawCalls ?? 0),
+          computeDispatches: submission.graph?.dispatches ?? 0,
+          triangles:
+              submission.scene.triangles + (submission.graph?.triangles ?? 0),
           uploadedBytes: frame.uploadedBytes,
           residentBytes: frame.residentBytes,
           readbackBytes: frame.pixels.length,

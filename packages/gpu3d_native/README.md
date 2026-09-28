@@ -13,6 +13,7 @@ fvm dart run example/resources.dart
 fvm dart run example/shared_views.dart
 fvm dart run example/shader_compiler.dart
 fvm dart run example/render_graph.dart /tmp/native-graph.png
+fvm dart run example/frame_graph.dart /tmp/native-frame-graph.png
 RUN_NATIVE_GPU=1 fvm dart test --concurrency=1
 ```
 
@@ -83,8 +84,10 @@ graph, and uniform updates reuse its pipelines. The
 dependencies and limits. Plugins can use attachment-owned `context.resources`,
 `context.shaders` and `context.graphs` without a native backend reference.
 The example saves a native compute-to-render heatmap
-as a PNG. Custom mesh materials and direct platform-view graph composition
-remain in progress.
+as a PNG. Use `GraphDescription.sceneColor` and `output` with a scene submission
+to process scene pixels on the GPU before native presentation. Plugins select the
+compiled graph through an attachment-owned `context.frameGraph` binding. Custom
+mesh materials and automatic resize/history management remain in progress.
 
 Native platform adapters can use `NativeGpuServices.withTransport` to reuse the
 resource, shader and graph codecs with their existing renderer queue. The Metal

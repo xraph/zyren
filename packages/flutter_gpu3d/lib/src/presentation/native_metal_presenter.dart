@@ -101,6 +101,7 @@ class NativeMetalBackend implements NativeGpuBackend {
       RenderFeature.scopedResources,
       RenderFeature.shaderCompilation,
       RenderFeature.renderGraphs,
+      RenderFeature.frameGraphs,
       RenderFeature.compute,
       RenderFeature.storageTextures,
     },
@@ -208,17 +209,21 @@ class NativeMetalBackend implements NativeGpuBackend {
     final packet = _encoder.encode(submission);
     final frame = ++_nextFrame;
     final key = target is SurfaceTarget ? target.surface as _MetalKey : null;
-    final pending = request<Map>(key == null ? 'capture' : 'render', {
-      'json': packet.bytes,
-      'frame': frame,
-      'width': submission.size.width,
-      'height': submission.size.height,
-      if (key != null) ...{
-        'view': key.view,
-        'attachment': key.attachment,
-        'epoch': (target as SurfaceTarget).epoch,
-      },
-    });
+    final pending = _gpu.submitFrame(
+      submission,
+      packet.bytes,
+      (bytes) => request<Map>(key == null ? 'capture' : 'render', {
+        'json': bytes,
+        'frame': frame,
+        'width': submission.size.width,
+        'height': submission.size.height,
+        if (key != null) ...{
+          'view': key.view,
+          'attachment': key.attachment,
+          'epoch': (target as SurfaceTarget).epoch,
+        },
+      }),
+    );
     clock.stop();
     final result = (await pending)!;
     if (result['applied'] == true) _encoder.accept(packet);
@@ -232,8 +237,11 @@ class NativeMetalBackend implements NativeGpuBackend {
           : PresentationPath.nativeView,
       cpuBuildTime: submission.cpuBuildTime,
       cpuSubmitTime: clock.elapsed,
-      drawCalls: submission.scene.drawCalls,
-      triangles: submission.scene.triangles,
+      drawCalls:
+          submission.scene.drawCalls + (submission.graph?.drawCalls ?? 0),
+      computeDispatches: submission.graph?.dispatches ?? 0,
+      triangles:
+          submission.scene.triangles + (submission.graph?.triangles ?? 0),
       readbackBytes: result['readbackBytes'] as int,
       uploadedBytes: packet.uploadedBytes,
     );

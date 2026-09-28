@@ -46,8 +46,9 @@ You can also run custom WGSL compute and procedural render passes through
 includes a native heatmap example, typed bindings and graph replacement rules.
 Plugins on `SceneRuntime.nativeMetal()` and `SceneRuntime.nativeAndroid()` can
 allocate and execute graphs on their presenter's device through the context's
-resource, shader and graph services. Custom scene materials and composition of
-graph textures into the presented scene remain in progress.
+resource, shader and graph services. Frame graphs process scene color through
+compute/render passes and present the result directly on those native views.
+Custom scene materials and automatic resize/history management remain in progress.
 
 ## Run the example
 

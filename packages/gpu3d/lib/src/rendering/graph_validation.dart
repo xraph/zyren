@@ -52,6 +52,31 @@ _prepareGraph(GraphDescription graph, GraphDevice device) {
   }
 
   final inputs = {for (final input in graph.inputs) resourceKey(input)};
+  if ((graph.sceneColor == null) != (graph.output == null)) {
+    fail(
+      GraphErrorCode.invalidDescriptor,
+      'A frame graph requires both sceneColor and output.',
+    );
+  }
+  Object? sceneKey, outputKey;
+  if (graph.sceneColor case final scene?) {
+    sceneKey = resourceKey(scene);
+    outputKey = resourceKey(graph.output!);
+    final source = scene.descriptor as TextureDescriptor;
+    final output = graph.output!.descriptor as TextureDescriptor;
+    if (!source.usage.contains(TextureUsage.renderAttachment) ||
+        !output.usage.contains(TextureUsage.sampled) ||
+        source.mipLevels != 1 ||
+        output.mipLevels != 1 ||
+        source.width != output.width ||
+        source.height != output.height) {
+      fail(
+        GraphErrorCode.invalidBinding,
+        'Frame textures need matching dimensions, one mip, renderable scene color and sampled output.',
+      );
+    }
+    inputs.add(sceneKey);
+  }
   final names = <String, int>{};
   final reads = <Set<Object>>[],
       writes = <Set<Object>>[],
@@ -411,7 +436,8 @@ _prepareGraph(GraphDescription graph, GraphDevice device) {
       pass: blocked.first,
     );
   }
-  final initialized = {...inputs}, intervals = <Object, (int, int)>{};
+  final initialized = {...inputs},
+      intervals = <Object, (int, int)>{?sceneKey: (-1, -1)};
   for (var position = 0; position < order.length; position++) {
     final index = order[position];
     for (final key in reads[index]) {
@@ -430,8 +456,20 @@ _prepareGraph(GraphDescription graph, GraphDevice device) {
       intervals[key] = (intervals[key]?.$1 ?? position, position);
     }
   }
+  if (outputKey != null) {
+    if (!initialized.contains(outputKey)) {
+      fail(
+        GraphErrorCode.uninitializedRead,
+        'Frame output is uninitialized or discarded.',
+        resource: graph.output,
+      );
+    }
+    intervals[outputKey] = (intervals[outputKey]?.$1 ?? -1, order.length);
+  }
   return (
     GraphDeviceDescription({
+      'sceneColor': ?sceneKey,
+      'output': ?outputKey,
       'label': graph.label,
       'inputs': inputs.toList(),
       'resources': [

@@ -49,6 +49,28 @@ abstract class ScenePlugin {
   FutureOr<void> detach(PluginContext context) {}
 }
 
+/// One attachment selects the final frame graph for its view. Assign a compiled
+/// replacement in beforeRender after compilation succeeds. A null value disables
+/// effects. The graph's compiler continues to own its resources and lifetime.
+final class FrameGraphBinding {
+  CompiledGraph? _graph;
+  bool _closed = false;
+  FrameGraphBinding._();
+  CompiledGraph? get graph => _graph;
+  set graph(CompiledGraph? value) {
+    if (_closed) throw StateError('Frame graph binding has closed.');
+    if (value != null && (!value.isFrameGraph || value.isClosed)) {
+      throw ArgumentError('Select a live compiled scene frame graph.');
+    }
+    _graph = value;
+  }
+
+  void _close() {
+    _closed = true;
+    _graph = null;
+  }
+}
+
 /// Services belong to this engine, never to a process-wide registry.
 class PluginContext {
   final String _pluginId;
@@ -56,6 +78,8 @@ class PluginContext {
   ShaderCompiler? _shaders;
   ResourceScope? _resources;
   GraphCompiler? _graphs;
+  FrameGraphBinding? _frameGraph;
+  final FrameGraphBinding Function() _claimFrameGraph;
   final Scene scene;
   Camera camera;
   final DeviceCapabilities capabilities;
@@ -77,7 +101,29 @@ class PluginContext {
     this._invalidate,
     this._demand,
     this.input,
+    this._claimFrameGraph,
   );
+
+  /// Claim during attach, then select compiled replacements in beforeRender.
+  /// Only one plugin owns final composition; providers can share pass builders
+  /// with other plugins through a typed service.
+  FrameGraphBinding get frameGraph {
+    _checkAttached();
+    if (_frameGraph case final binding?) return binding;
+    if (!_registering) {
+      throw StateError('Claim frame composition during attach.');
+    }
+    if (!capabilities.supports(RenderFeature.frameGraphs)) {
+      throw _unsupported(
+        RenderFeature.frameGraphs,
+        'attach',
+        'This backend cannot compose scene frame graphs.',
+      );
+    }
+    final binding = _claimFrameGraph();
+    scope.keep(Registration(binding._close));
+    return _frameGraph = binding;
+  }
 
   /// Lazily owns GPU allocations for this attachment on its backend's device.
   ResourceScope get resources {
@@ -218,6 +264,18 @@ class SceneEngine {
     }
   }
 
+  FrameGraphBinding? _frameGraph;
+  String? _frameGraphOwner;
+  FrameGraphBinding _claimFrameGraph(String pluginId) {
+    if (_frameGraph != null) {
+      throw StateError(
+        'Frame composition already belongs to $_frameGraphOwner.',
+      );
+    }
+    _frameGraphOwner = pluginId;
+    return _frameGraph = FrameGraphBinding._();
+  }
+
   final SceneRenderer? _renderer;
   final RenderBackend? _backend;
   final List<ScenePlugin> _plugins;
@@ -337,6 +395,7 @@ class SceneEngine {
           onInvalidate,
           acquireFrameDemand,
           input,
+          () => engine!._claimFrameGraph(plugin.id),
         );
         engine._attached.add((plugin, context));
         try {
@@ -436,6 +495,7 @@ class SceneEngine {
   }
 
   Future<FrameOutput> renderFrame({
+    CompiledGraph? graph,
     OutputTarget target = const ReadbackTarget(),
     required Duration elapsed,
     FrameTime? time,
@@ -443,6 +503,17 @@ class SceneEngine {
     required int height,
   }) {
     if (_closed) return Future.error(StateError('Engine has been disposed.'));
+    if (graph != null && !capabilities.supports(RenderFeature.frameGraphs)) {
+      return Future.error(
+        SceneException(
+          SceneIssue(
+            code: SceneIssueCodes.unsupportedFeature,
+            message: 'This backend does not support scene frame graphs.',
+            operation: 'render',
+          ),
+        ),
+      );
+    }
     if (_frame != null) {
       return Future.error(StateError('Only one frame may be in flight.'));
     }
@@ -480,6 +551,7 @@ class SceneEngine {
             size: PhysicalSize(width, height),
             time: time ?? FrameTime(elapsed: elapsed, delta: delta),
             target: target,
+            graph: graph ?? _frameGraph?.graph,
           ),
         );
       } else {

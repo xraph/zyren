@@ -16,6 +16,7 @@ enum RenderFeature {
   materialSidedness,
   shaderCompilation,
   renderGraphs,
+  frameGraphs,
 }
 
 /// Limits enforced by the backend, even if the adapter can allocate more.

@@ -155,6 +155,55 @@ response capacity, returning `NativeGpuReply`. Keep one services instance per
 device and await its close before destroying the transport. `NativeGpuBackend`
 is the common backend contract with resource, shader and graph statistics.
 
+## Scene composition
+
+Add `sceneColor` and `output` to a `GraphDescription` to process a scene frame.
+The native renderer draws the scene into `sceneColor`, executes the declared
+passes, then samples `output` into the readback target or native surface. All
+three stages share one command buffer. Surface presentation needs no CPU readback.
+
+```dart
+final compiled = await context.graphs.compile(GraphDescription(
+  sceneColor: sceneColor,
+  output: finalColor,
+  passes: [colorTransform, vignette],
+));
+frameBinding.graph = compiled;
+```
+
+Claim `frameBinding = context.frameGraph` during `attach`. You can assign a
+replacement in `beforeRender` after compilation succeeds, or set `graph = null`
+to disable effects. Closing the attachment clears the binding. Only one plugin
+owns final composition for a view; cooperating plugins can share a pass builder
+through a typed service. This binding does not own the graph's compiler.
+
+Both textures need one mip and dimensions equal to the physical frame size.
+The scene texture needs render-attachment usage, and the final output needs
+sampled usage. Declare the usages your effect bindings need too. Scene color is
+initialized before graph execution; output must remain initialized after the
+last pass. Texture formats handle linear/sRGB conversion, including the final
+native target. Current formats are RGBA8, so HDR effects need a later format profile.
+
+Advanced callers can pass `graph:` to `FrameSubmission.capture` or
+`SceneEngine.renderFrame`. An explicit graph overrides the plugin selection for
+that frame. The backend must advertise `frameGraphs`. A frame graph rejects
+standalone `execute()`, wrong devices and mismatched sizes; compile matching
+resources before rendering a resized frame. Automatic resize and temporal history
+management are still pending.
+
+`FrameStats.drawCalls` and `triangles` include effect draws and the terminal
+full-screen draw. `computeDispatches` counts compute passes. Native adapters use
+`CompiledGraph.submitFrame` to validate the device and hold graph ownership until
+the frame settles. `NativeGpuServices.submitFrame` provides its native packet
+encoding for platform adapters.
+
+Lifetime intervals use `-1` for the implicit scene write and `passNames.length`
+for the terminal output read. Explicit effect passes keep their zero-based indices.
+
+Run `fvm dart run example/frame_graph.dart /tmp/native-frame-graph.png` from
+`packages/gpu3d_native`. It renders three meshes, rotates their color channels in
+compute, then adds a vignette in a render pass.
+
 ## Current profile
 
 The backend advertises `renderGraphs`, `compute` and `storageTextures`. The
@@ -168,8 +217,9 @@ four bind groups and slots 0 through 15 in each group. Buffer offsets require
 shader's layout and device limits. Native admission allows 32 live graphs and
 16 MiB of description storage per device. Labels have a 1024-byte UTF-8 limit.
 
-This profile executes into explicit resource textures. Scene `ShaderMaterial`,
-direct platform-view composition and resize/history resources remain in plan 03.
+This profile supports explicit resource graphs and scene frame composition.
+Scene `ShaderMaterial`, automatic pass registration and resize/history resources
+remain in plan 03.
 Graph execution is verified on macOS Metal and Pixel Vulkan; see
 [verification](../verification.md). Other
 platforms have no graph qualification yet.

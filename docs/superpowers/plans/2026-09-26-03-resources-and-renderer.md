@@ -283,6 +283,14 @@ shaders and graph textures use the presenter's device. This closes service acces
 on those adapters; graph output composition and custom scene materials still need
 their own rendering integration.
 
+Frame composition checkpoint: `GraphDescription.sceneColor` and `output` connect
+scene rendering, compute/render effects and native presentation in one submission.
+An attachment claims `context.frameGraph` and selects a compiled replacement in
+`beforeRender`. Device, dimensions, final output initialization and pending-frame
+lifetime are checked. This establishes scene-first composition on Metal and
+Vulkan. Automatic pass registration, custom mesh materials, resize/history and
+the separate effects consumer still need implementation.
+
 **Files:** Create graph/shader modules from the map, native
 `src/render_graph/{compile,execute}.rs`, Dart `test/render_graph_test.dart`,
 native `tests/shader_diagnostics.rs`, `examples/shader_lab` and a separate

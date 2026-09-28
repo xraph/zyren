@@ -420,6 +420,7 @@ impl ScenePacket {
             binary,
             textures: self.textures,
             geometry_patches: self.geometry_patches,
+            graph: None,
         })
     }
 }

@@ -37,6 +37,7 @@ impl GraphStore {
         }
         self.registry.check_capacity(bytes)?;
         self.cache.retain(|_, value| value.strong_count() > 0);
+        let frame = self.prepare_frame(resources, &description)?;
         let result = self.prepare(device, resources, shaders, &description);
         self.cache.retain(|_, value| value.strong_count() > 0);
         let (passes, resource_keys, shader_keys) = result?;
@@ -49,6 +50,7 @@ impl GraphStore {
             passes,
             resources: resource_keys.clone(),
             shaders: shader_keys.clone(),
+            frame,
         });
         match self.registry.insert(graph, bytes) {
             Ok(key) => Ok(super::key_value(key)),
@@ -87,6 +89,9 @@ impl GraphStore {
                 "invalidDescriptor",
                 "Input resource is absent from resource table",
             ));
+        }
+        if let Some(scene) = description.scene_color {
+            initialized.insert(scene);
         }
         let mut names = HashSet::new();
         let mut passes = Vec::new();
@@ -381,6 +386,14 @@ impl GraphStore {
                 initialized.remove(&color.key);
             }
             passes.push(prepared.1);
+        }
+        if let Some(output) = description.output
+            && !initialized.contains(&output)
+        {
+            return Err(GraphError::new(
+                "uninitializedRead",
+                "Frame output is uninitialized or discarded",
+            ));
         }
         let mut resource_keys: Vec<_> = declared_resources.into_iter().map(key).collect();
         resource_keys.sort_by_key(|k| (k.renderer, k.device_generation, k.slot, k.slot_generation));
