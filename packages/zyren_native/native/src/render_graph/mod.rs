@@ -2,6 +2,7 @@ mod bindings;
 mod compile;
 mod descriptor;
 mod execute;
+pub(crate) mod materials;
 
 use crate::{
     resources::{
@@ -31,6 +32,9 @@ struct Request {
 #[derive(Deserialize)]
 #[serde(tag = "operation", rename_all = "camelCase", deny_unknown_fields)]
 enum Command {
+    CompileMaterial { description: Description },
+    ReleaseMaterial { key: Key },
+    RetainMaterial { key: Key },
     Compile { description: Description },
     Execute { key: Key },
     Release { key: Key },
@@ -120,6 +124,7 @@ struct ScopedGraph {
     shaders: Vec<ResourceKey>,
 }
 pub struct GraphStore {
+    pub(crate) materials: materials::MaterialStore,
     registry: ResourceRegistry<Arc<ScopedGraph>>,
     cache: HashMap<PipelineKey, Weak<Pipeline>>,
     compilation_count: u64,
@@ -128,6 +133,7 @@ pub struct GraphStore {
 impl Default for GraphStore {
     fn default() -> Self {
         Self {
+            materials: Default::default(),
             registry: ResourceRegistry::new(next_registry_id(), 1, 16 * 1024 * 1024),
             cache: HashMap::new(),
             compilation_count: 0,
@@ -163,6 +169,7 @@ pub(crate) struct GraphContext<'a> {
     pub resources: &'a mut ResourceStore,
     pub shaders: &'a mut ShaderStore,
     pub failure: &'a mut Option<String>,
+    pub engine_layout: &'a wgpu::BindGroupLayout,
 }
 
 impl GraphStore {
@@ -178,6 +185,7 @@ impl GraphStore {
             resources,
             shaders,
             failure,
+            engine_layout,
         } = context;
         if bytes.len() > MAX_COMMAND_BYTES || capacity != RESPONSE_CAPACITY {
             return Err("Invalid graph command capacity".into());
@@ -194,6 +202,22 @@ impl GraphStore {
             ))
         } else {
             match request.command {
+                Command::CompileMaterial { description } => self
+                    .materials
+                    .compile(
+                        device,
+                        resources,
+                        shaders,
+                        engine_layout,
+                        description,
+                        bytes.len() as u64,
+                    )
+                    .map(|key| json!({"key":key})),
+                Command::ReleaseMaterial { key } => self
+                    .materials
+                    .release(device, resources, shaders, key)
+                    .map(|()| json!({})),
+                Command::RetainMaterial { key } => self.materials.retain(key).map(|()| json!({})),
                 Command::Compile { description } => self
                     .compile(device, resources, shaders, description, bytes.len() as u64)
                     .map(|key| json!({"key": key})),
@@ -204,7 +228,7 @@ impl GraphStore {
                     .release(device, resources, shaders, key(value))
                     .map(|()| json!({})),
                 Command::Stats {} => Ok(
-                    json!({"liveGraphs": self.registry.live_allocations(), "descriptionBytes": self.registry.resident_bytes(),
+                    json!({"liveMaterials": self.materials.live(), "liveGraphs": self.registry.live_allocations(), "descriptionBytes": self.registry.resident_bytes(),
                 "cachedPipelines": self.cache.len(), "pipelineCompilations": self.compilation_count, "cacheHits": self.cache_hits}),
                 ),
             }

@@ -1,12 +1,14 @@
 part of 'native_renderer.dart';
 
 final class GraphCacheStats {
+  final int liveMaterials;
   final int liveGraphs,
       descriptionBytes,
       cachedPipelines,
       pipelineCompilations,
       cacheHits;
   const GraphCacheStats({
+    this.liveMaterials = 0,
     required this.liveGraphs,
     required this.descriptionBytes,
     required this.cachedPipelines,
@@ -20,6 +22,11 @@ final class _GraphKey {
   _GraphKey(List<int> values) : values = List.unmodifiable(values);
 }
 
+final class _MaterialKey {
+  final List<int> values;
+  _MaterialKey(List<int> values) : values = List.unmodifiable(values);
+}
+
 Object? _graphEncode(Object? value) => switch (value) {
   _ResourceKey(:final bytes) => [
     for (var i = 0; i < 4; i++)
@@ -27,6 +34,7 @@ Object? _graphEncode(Object? value) => switch (value) {
   ],
   _ShaderKey(:final values) => values,
   _GraphKey(:final values) => values,
+  _MaterialKey(:final values) => values,
   Map value => {
     for (final entry in value.entries)
       entry.key as String: _graphEncode(entry.value),
@@ -82,6 +90,36 @@ mixin _NativeGraphs {
     return _GraphKey((result['key'] as List<dynamic>).cast<int>());
   }
 
+  Future<Object> compileMaterial(GraphDeviceDescription description) async {
+    final result = await _graphCommand({
+      'operation': 'compileMaterial',
+      'description': description.data,
+    });
+    return _MaterialKey((result['key'] as List<dynamic>).cast<int>());
+  }
+
+  Future<void> releaseMaterial(Object key) async {
+    await _graphCommand({
+      'operation': 'releaseMaterial',
+      'key': key as _MaterialKey,
+    });
+  }
+
+  Future<void> retainMaterial(Object key) async {
+    await _graphCommand({
+      'operation': 'retainMaterial',
+      'key': key as _MaterialKey,
+    });
+  }
+
+  Uint8List encodeMaterialKey(Object key) {
+    final bytes = _ResourcePacket();
+    for (final value in (key as _MaterialKey).values) {
+      bytes.u64(value);
+    }
+    return bytes.finish();
+  }
+
   Future<GraphStats> executeGraph(Object key) async {
     final result = await _graphCommand({
       'operation': 'execute',
@@ -101,6 +139,7 @@ mixin _NativeGraphs {
   Future<GraphCacheStats> graphStats() async {
     final result = await _graphCommand({'operation': 'stats'});
     return GraphCacheStats(
+      liveMaterials: result['liveMaterials'] as int,
       liveGraphs: result['liveGraphs'] as int,
       descriptionBytes: result['descriptionBytes'] as int,
       cachedPipelines: result['cachedPipelines'] as int,

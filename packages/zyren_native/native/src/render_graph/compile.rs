@@ -131,6 +131,12 @@ impl GraphStore {
                 let mut vertex_count = 0;
                 let mut instance_count = 0;
                 let (vertex, fragment, compute) = match pass.kind {
+                    Kind::Material => {
+                        return Err(GraphError::new(
+                            "invalidDescriptor",
+                            "Use the material compiler for mesh shaders",
+                        ));
+                    }
                     Kind::Compute => {
                         if pass.color.is_some()
                             || pass.vertex_entry_point.is_some()

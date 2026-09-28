@@ -136,8 +136,33 @@ Metal and Android native views run their commands on the same native queue and
 renderer as scene presentation. Host shutdown drains GPU scopes before destroying
 the renderer. The standalone native backend uses the same command adapters.
 
-This profile executes into explicit resource textures. Scene `ShaderMaterial`,
-direct platform-view graph composition and resize/history resources remain in
-plan 03. Graph execution is verified on
+## Use a shader on a mesh
+
+Compile a `MeshShaderDescriptor` with `context.materials` or
+`backend.createMaterialCompiler()`, then pass the result to `ShaderMaterial`.
+`ShaderMaterial.uniformsWgsl` declares the renderer's group 0 interface.
+`ShaderMaterial.vertexWgsl(uv: true)` supplies the standard position, normal and
+UV vertex stage; set `requiresUv: true` on the descriptor when using it.
+Readonly user bindings occupy groups 1 through 3. Vertex positions and model
+translations use the camera origin, matching the rest of the scene renderer.
+
+Call `meshColor` from your fragment stage to apply the material color, opacity
+and alpha cutoff. Culling, mirrored transforms, blending and depth policies use
+the regular material pipeline state. Arbitrary shaders must implement any other
+lighting or normal transforms they need.
+
+Compilation checks entry points, bindings and the mesh interface before returning
+a shader. A failed candidate leaves earlier shaders usable. Compiled materials
+retain programs and bound allocations independently of their author scopes.
+Keep the material compiler open while drawing, or use another compiler's
+`retain(shader)` on the same device. Closing the final owner releases the native
+bindings. Cross-device and closed-owner submissions fail before rendering.
+
+The native material fixture checks texture updates, failed edits, mirrored
+culling and two views with independent material ownership. The macOS Planet
+fixture displays a computed float volume through a custom mesh shader on the
+presentation device. Ordinary presentation performs no CPU image readback.
+
+Direct scene postprocessing and resize/history resources remain in plan 03. Graph execution is verified on
 macOS Metal and Pixel Vulkan; see [verification](../verification.md). Other
 platforms have no graph qualification yet.

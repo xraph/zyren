@@ -231,6 +231,15 @@ _prepareGraph(GraphDescription graph, GraphDevice device) {
       'after': pass.after.toList(),
     };
     switch (pass) {
+      case _MaterialPassDescriptor(:final descriptor):
+        entryPoint(descriptor.vertexEntryPoint, ShaderStage.vertex);
+        entryPoint(descriptor.fragmentEntryPoint, ShaderStage.fragment);
+        command.addAll({
+          'kind': 'material',
+          'vertexEntryPoint': descriptor.vertexEntryPoint,
+          'fragmentEntryPoint': descriptor.fragmentEntryPoint,
+          'requiresUv': descriptor.requiresUv,
+        });
       case ComputePassDescriptor():
         entryPoint(pass.entryPoint, ShaderStage.compute);
         final groups = [

@@ -26,15 +26,27 @@ final class EncodedScenePacket {
 /// Independent views need independent encoders, even when sharing a device.
 final class ScenePacketEncoder {
   final int viewId;
+  final MaterialDevice? materialDevice;
   int _next = 0, _accepted = 0;
   SceneSnapshot? _previous;
   Map<int, GeometrySnapshot> _uploaded = {};
   Set<int> _uploadedTextures = {};
-  ScenePacketEncoder({required this.viewId}) {
+  ScenePacketEncoder({required this.viewId, this.materialDevice}) {
     if (viewId <= 0) throw ArgumentError.value(viewId, 'viewId');
   }
   EncodedScenePacket encode(FrameSubmission submission) {
     final scene = submission.scene;
+    for (final mesh in scene._meshes) {
+      if (mesh['shader'] case final MeshShader shader) {
+        final device = materialDevice;
+        if (device == null) {
+          throw UnsupportedError(
+            'Custom materials require a material-capable backend.',
+          );
+        }
+        shader.encodeForDevice(device);
+      }
+    }
     final previous = _previous;
     final topology =
         previous == null ||
@@ -135,7 +147,9 @@ final class ScenePacketEncoder {
         uploadBytes > 64 * 1024 * 1024) {
       throw ArgumentError('Scene resource upload exceeds the frame budget.');
     }
-    final opcode = scene._meshes.any((m) => m['side'] != 0)
+    final opcode = scene._meshes.any((m) => m.containsKey('shader'))
+        ? 18
+        : scene._meshes.any((m) => m['side'] != 0)
         ? 17
         : scene._meshes.any((m) => m['primitive_kind'] != 0)
         ? 16
@@ -253,6 +267,19 @@ final class ScenePacketEncoder {
           body.u32(mesh['size_units'] as int);
           body.u32(mesh['point_shape'] as int);
           if (opcode >= 17) body.u32(mesh['side'] as int);
+          if (opcode >= 18) {
+            final shader = mesh['shader'] as MeshShader?;
+            body.u32(shader == null ? 0 : 1);
+            if (shader != null) {
+              final device = materialDevice;
+              if (device == null) {
+                throw UnsupportedError(
+                  'Custom materials require a material-capable backend.',
+                );
+              }
+              body.add(shader.encodeForDevice(device));
+            }
+          }
         }
       }
     }
@@ -317,6 +344,7 @@ final class _GeometryPatch {
 }
 
 bool _sameMesh(Map<String, Object> a, Map<String, Object> b) {
+  if (!identical(a['shader'], b['shader'])) return false;
   for (final field in [
     'geometry',
     'unlit',

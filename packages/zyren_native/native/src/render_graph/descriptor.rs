@@ -20,6 +20,7 @@ pub struct Resource {
 pub enum Kind {
     Compute,
     Render,
+    Material,
 }
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -39,6 +40,7 @@ pub struct Pass {
     pub instance_count: Option<u32>,
     pub sample_count: Option<u32>,
     pub color: Option<Color>,
+    pub requires_uv: Option<bool>,
 }
 #[derive(Deserialize, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[serde(rename_all = "camelCase")]

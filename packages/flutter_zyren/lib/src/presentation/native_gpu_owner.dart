@@ -1,12 +1,12 @@
 import 'dart:typed_data';
 import 'package:zyren/rendering.dart';
 import 'package:zyren/zyren.dart'
-    show ResourceScope, ShaderCompiler, GraphCompiler;
+    show ResourceScope, ShaderCompiler, GraphCompiler, MaterialCompiler;
 import 'package:zyren_native/zyren_native.dart';
 
 /// Shared ownership for channel-backed renderers. Each host serializes GPU
 /// commands with scene rendering on its existing native queue.
-mixin NativeGpuOwner implements GraphBackend {
+mixin NativeGpuOwner implements MaterialBackend {
   bool get gpuOwnerClosed;
   Future<Map> gpuRequest(Map<String, Object> arguments);
   NativeGpuContext? _gpu;
@@ -37,4 +37,10 @@ mixin NativeGpuOwner implements GraphBackend {
   Future<void> closeGpuScopes() async {
     await _gpu?.close();
   }
+
+  @override
+  MaterialCompiler createMaterialCompiler({String label = ''}) =>
+      _context.createMaterialCompiler(label: label);
+  ScenePacketEncoder createGpuSceneEncoder({required int viewId}) =>
+      _context.createSceneEncoder(viewId: viewId);
 }

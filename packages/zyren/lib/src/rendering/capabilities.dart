@@ -18,6 +18,7 @@ enum RenderFeature {
   renderGraphs,
   floatTextures,
   volumeTextures,
+  shaderMaterials,
 }
 
 /// Limits enforced by the backend, even if the adapter can allocate more.

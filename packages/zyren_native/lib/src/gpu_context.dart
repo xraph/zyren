@@ -28,6 +28,7 @@ final class NativeGpuContext {
   final _resources = <ResourceScope>{};
   final _shaders = <ShaderCompiler>{};
   final _graphs = <GraphCompiler>{};
+  final _materials = <MaterialCompiler>{};
   bool _closed = false;
   Future<void>? _closing;
   NativeGpuContext(NativeGpuTransport transport)
@@ -61,6 +62,19 @@ final class NativeGpuContext {
   }
 
   Future<ResourceStats> resourceStats() => _device.stats();
+  MaterialCompiler createMaterialCompiler({String label = ''}) {
+    _checkOpen();
+    final value = MaterialCompiler(_device, label: label);
+    _materials.add(value);
+    value.whenClosed.then((_) => _materials.remove(value));
+    return value;
+  }
+
+  ScenePacketEncoder createSceneEncoder({required int viewId}) {
+    _checkOpen();
+    return ScenePacketEncoder(viewId: viewId, materialDevice: _device);
+  }
+
   Future<ShaderStats> shaderStats() => _device.shaderStats();
   Future<GraphCacheStats> graphStats() => _device.graphStats();
   Future<void> close() {
@@ -72,6 +86,7 @@ final class NativeGpuContext {
     final failures = <Object>[];
     for (final close in [
       for (final graph in _graphs.toList()) graph.close,
+      for (final material in _materials.toList()) material.close,
       for (final shader in _shaders.toList()) shader.close,
       for (final resource in _resources.toList()) resource.close,
     ]) {

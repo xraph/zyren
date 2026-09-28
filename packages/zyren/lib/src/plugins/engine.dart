@@ -56,6 +56,7 @@ class PluginContext {
   ShaderCompiler? _shaders;
   ResourceScope? _resources;
   GraphCompiler? _graphs;
+  MaterialCompiler? _materials;
   final Scene scene;
   Camera camera;
   final DeviceCapabilities capabilities;
@@ -147,6 +148,28 @@ class PluginContext {
     final compiler = backend.createShaderCompiler(label: _pluginId);
     scope.onClose(compiler.close);
     return _shaders = compiler;
+  }
+
+  MaterialCompiler get materials {
+    if (!_active || scope.isClosed) {
+      throw StateError('Plugin context has been detached.');
+    }
+    if (_materials case final compiler?) return compiler;
+    final backend = _backend;
+    if (backend is! MaterialBackend) {
+      throw SceneException(
+        SceneIssue(
+          code: SceneIssueCodes.unsupportedFeature,
+          message: 'This backend cannot compile custom mesh materials.',
+          operation: 'material',
+          pluginId: _pluginId,
+          requiredFeatures: {RenderFeature.shaderMaterials},
+        ),
+      );
+    }
+    final compiler = backend.createMaterialCompiler(label: _pluginId);
+    scope.onClose(compiler.close);
+    return _materials = compiler;
   }
 
   void invalidate() {

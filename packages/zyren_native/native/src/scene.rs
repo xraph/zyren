@@ -137,6 +137,8 @@ pub struct Mesh {
     pub alpha_mode: u32,
     #[serde(default)]
     pub side: u32,
+    #[serde(default)]
+    pub shader: Option<[u64; 4]>,
     #[serde(default = "one")]
     pub opacity: f32,
     #[serde(default = "half")]
@@ -175,6 +177,7 @@ impl Default for Mesh {
             color_map: None,
             alpha_mode: 0,
             side: 0,
+            shader: None,
             opacity: 1.,
             alpha_cutoff: 0.5,
             depth_test: true,
@@ -192,6 +195,11 @@ impl Mesh {
         self.depth_write.unwrap_or(self.alpha_mode != 2)
     }
     pub fn validate_material(&self) -> Result<(), String> {
+        if self.shader.is_some() && (self.primitive_kind != 0 || self.color_map.is_some()) {
+            return Err(
+                "Custom shaders require triangle geometry and explicit shader bindings".into(),
+            );
+        }
         if self.side > 2 || (self.primitive_kind != 0 && self.side != 0) {
             return Err("invalid material side".into());
         }

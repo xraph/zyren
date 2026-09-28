@@ -12,6 +12,7 @@ class VolumeFixture extends ScenePlugin {
   Set<RenderFeature> get requiredFeatures => {
     RenderFeature.volumeTextures,
     RenderFeature.renderGraphs,
+    RenderFeature.shaderMaterials,
   };
   late CompiledGraph graph;
   bool verified = false, detached = false;
@@ -25,7 +26,11 @@ class VolumeFixture extends ScenePlugin {
         depth: 2,
         dimension: TextureDimension.d3,
         format: TextureFormat.rgba32Float,
-        usage: {TextureUsage.storage, TextureUsage.copySource},
+        usage: {
+          TextureUsage.storage,
+          TextureUsage.copySource,
+          TextureUsage.sampled,
+        },
       ),
     );
     final program = await context.shaders.compile(
@@ -69,6 +74,26 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         }
       }
     }
+    final materialProgram = await context.shaders.compile(
+      ShaderSource.wgsl(
+        '${ShaderMaterial.uniformsWgsl}\n${ShaderMaterial.vertexWgsl()}\n'
+        '''
+@group(1) @binding(0) var volume: texture_3d<f32>;
+@fragment fn fragment(input: MeshVertex) -> @location(0) vec4<f32> {
+  let x = clamp(i32(input.position.x / mesh.viewport.x * 4.), 0, 3);
+  let value = textureLoad(volume, vec3<i32>(x,0,1),0);
+  return meshColor(vec4(value.rgb * vec3(1.,0.25,-0.5),1.));
+}
+''',
+      ),
+    );
+    final material = await context.materials.compile(
+      MeshShaderDescriptor(
+        program: materialProgram,
+        bindings: ShaderBindings([TextureBinding.sampled(0, volume, group: 1)]),
+      ),
+    );
+    (context.scene.children.first as Mesh).material = ShaderMaterial(material);
     verified = true;
   }
 

@@ -111,6 +111,9 @@ impl<T> ResourceRegistry<T> {
     pub fn resolve(&self, key: ResourceKey) -> Result<&T, ResourceError> {
         Ok(&self.entry(key)?.value)
     }
+    pub fn references(&self, key: ResourceKey) -> Result<u32, ResourceError> {
+        Ok(self.entry(key)?.references)
+    }
     pub fn retain(&mut self, key: ResourceKey) -> Result<(), ResourceError> {
         let references = self
             .entry(key)?

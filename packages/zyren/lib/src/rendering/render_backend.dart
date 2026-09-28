@@ -24,3 +24,7 @@ abstract interface class ShaderBackend implements ResourceBackend {
 abstract interface class GraphBackend implements ShaderBackend {
   GraphCompiler createGraphCompiler({String label = ''});
 }
+
+abstract interface class MaterialBackend implements GraphBackend {
+  MaterialCompiler createMaterialCompiler({String label = ''});
+}

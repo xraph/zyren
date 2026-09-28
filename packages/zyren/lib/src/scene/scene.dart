@@ -398,7 +398,7 @@ class Scene extends Object3D {
       if (!node.visible) return;
       final world = parent * node.localMatrix.toVectorMath();
       if (node is Mesh) {
-        if (node.material.colorMap != null) {
+        if (node.material.colorMap != null || node.material is ShaderMaterial) {
           throw UnsupportedError(
             'Texture materials require binary scene submissions.',
           );

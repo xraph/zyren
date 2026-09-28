@@ -51,7 +51,7 @@ final class _ResourcePacket {
 
 final class _NativeResourceDevice
     with _NativeShaders, _NativeGraphs
-    implements GraphDevice {
+    implements MaterialDevice {
   final NativeGpuTransport _transport;
   @override
   Future<NativeGpuReply> _requestNative(

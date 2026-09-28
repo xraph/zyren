@@ -3,6 +3,7 @@ import 'package:vector_math/vector_math_64.dart' as vm;
 import '../geometry/geometry.dart';
 import '../geometry/vertex_attribute.dart';
 import '../resources/texture_image.dart';
+import '../resources/resource_scope.dart' show MaterialDevice, MeshShader;
 import '../scene/scene.dart';
 import 'frame_output.dart';
 part 'scene_packet.dart';
@@ -59,6 +60,15 @@ class SceneSnapshot {
       final visible = parentVisible && node.visible;
       final world = parent * node.localMatrix.toVectorMath();
       if (node is Mesh) {
+        final shader = node.material is ShaderMaterial
+            ? (node.material as ShaderMaterial).shader
+            : null;
+        if (shader != null &&
+            shader.descriptor.requiresUv &&
+            node.geometry.uv0 == null &&
+            node.geometry.uv1 == null) {
+          throw ArgumentError('This mesh shader requires UV attributes.');
+        }
         final geometry = node.geometry.capture();
         geometries[geometry.id] = geometry;
         final map = node.material.colorMap;
@@ -91,6 +101,7 @@ class SceneSnapshot {
                   'size_units': node.material.sizeUnits.index,
                   'point_shape': node.material.pointShape.index,
                   'colorMap': map?.toPacket() ?? <int>[],
+                  'shader': ?shader,
                 })
                 as Map<String, Object>,
           );
@@ -157,7 +168,8 @@ class FrameSubmission {
 
   /// Compatibility encoder for native v1 adapters. Geometry conversion is lazy.
   Map<String, Object> toNativePacket({Set<int> uploaded = const {}}) {
-    if (scene._textures.isNotEmpty) {
+    if (scene._textures.isNotEmpty ||
+        scene._meshes.any((m) => m.containsKey('shader'))) {
       throw UnsupportedError(
         'Texture materials require binary scene submissions.',
       );

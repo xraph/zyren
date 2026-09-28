@@ -10,7 +10,7 @@ use wgpu::util::DeviceExt;
 
 use crate::scene::{Frame, pixel_len};
 mod draw_order;
-mod pipelines;
+pub(crate) mod pipelines;
 mod textures;
 
 #[repr(C)]
@@ -254,17 +254,20 @@ impl Renderer {
 
     pub fn graph_command(&mut self, bytes: &[u8], capacity: usize) -> Result<Vec<u8>, String> {
         let state = self.state.as_mut().unwrap();
-        state.graphs.command(
+        let result = state.graphs.command(
             crate::render_graph::GraphContext {
                 device: &state.device,
                 queue: &state.queue,
                 resources: &mut state.resources,
                 shaders: &mut state.shaders,
                 failure: &mut state.failure,
+                engine_layout: &state.layout,
             },
             bytes,
             capacity,
-        )
+        );
+        state.pipelines.retire_materials(&state.graphs.materials);
+        result
     }
 
     fn resize(&mut self, width: u32, height: u32) {
@@ -433,6 +436,16 @@ impl Renderer {
             if kind != mesh.primitive_kind {
                 return Err("material and geometry topology mismatch".into());
             }
+            if let Some(key) = mesh.shader {
+                let material = self
+                    .graphs
+                    .materials
+                    .resolve(key)
+                    .map_err(|e| e.to_string())?;
+                if material.requires_uv && geometry.uv0.is_empty() && geometry.uv1.is_empty() {
+                    return Err("Material shader requires UV attributes".into());
+                }
+            }
         }
         let (texture_bytes, texture_count) = self.validate_textures(frame)?;
         let reusable: HashMap<u32, u32> = frame
@@ -538,10 +551,7 @@ impl Renderer {
         let state = self.state.as_mut().unwrap();
         state
             .pipelines
-            .prepare(&state.device, frame, format)
-            .inspect_err(|error| {
-                state.failure = Some(error.clone());
-            })
+            .prepare(&state.device, frame, format, &state.graphs.materials)
     }
 
     fn encode_scene(
@@ -655,6 +665,22 @@ impl Renderer {
                 if let Some(binding) = texture_binding {
                     pass.set_vertex_buffer(1, uv.expect("validated UV buffer").slice(..));
                     pass.set_bind_group(1, binding, &[]);
+                }
+                if let Some(key) = mesh.shader {
+                    let material = self
+                        .graphs
+                        .materials
+                        .resolve(key)
+                        .expect("validated material shader");
+                    if material.requires_uv {
+                        pass.set_vertex_buffer(
+                            1,
+                            uv.expect("validated material UV buffer").slice(..),
+                        );
+                    }
+                    for (group, binding) in material.groups.iter().enumerate() {
+                        pass.set_bind_group(group as u32 + 1, binding, &[]);
+                    }
                 }
                 pass.set_index_buffer(indices.slice(..), index_format);
                 pass.draw_indexed(0..count, 0, 0..1);

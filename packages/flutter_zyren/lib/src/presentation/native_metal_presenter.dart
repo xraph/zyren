@@ -23,10 +23,10 @@ SceneException _deferred() => _issue(
 
 /// Apple channel transport for one controller-owned Rust renderer.
 /// Applications select it through SceneRuntime.nativeMetal().
-class NativeMetalBackend with NativeGpuOwner implements GraphBackend {
+class NativeMetalBackend with NativeGpuOwner implements MaterialBackend {
   final int session;
   final String adapter;
-  final _encoder = ScenePacketEncoder(viewId: 1);
+  late final _encoder = createGpuSceneEncoder(viewId: 1);
   bool _closed = false;
   int _nextFrame = 0, _nextAttachment = 0;
   Future<FrameOutput>? _drawing;
@@ -88,6 +88,7 @@ class NativeMetalBackend with NativeGpuOwner implements GraphBackend {
       RenderFeature.storageTextures,
       RenderFeature.floatTextures,
       RenderFeature.volumeTextures,
+      RenderFeature.shaderMaterials,
     },
     limits: DeviceLimits(
       maxTextureDimension2D: 4096,

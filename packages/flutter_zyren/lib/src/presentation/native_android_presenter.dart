@@ -20,11 +20,11 @@ SceneException _deferred() => _issue(
 );
 
 /// Controller-owned Vulkan renderer. Select through SceneRuntime.nativeAndroid().
-class NativeAndroidBackend with NativeGpuOwner implements GraphBackend {
+class NativeAndroidBackend with NativeGpuOwner implements MaterialBackend {
   final int session;
   final String adapter;
   final String? driver;
-  final _encoder = ScenePacketEncoder(viewId: 1);
+  late final _encoder = createGpuSceneEncoder(viewId: 1);
   bool _closed = false;
   int _nextFrame = 0, _nextAttachment = 0;
   Future<FrameOutput>? _drawing;
@@ -94,6 +94,7 @@ class NativeAndroidBackend with NativeGpuOwner implements GraphBackend {
       RenderFeature.storageTextures,
       RenderFeature.floatTextures,
       RenderFeature.volumeTextures,
+      RenderFeature.shaderMaterials,
     },
     limits: DeviceLimits(
       maxTextureDimension2D: 4096,

@@ -70,7 +70,7 @@ impl ScenePacket {
             return Err("unsupported scene packet".into());
         }
         let opcode = r.u32()?;
-        if !(10..=17).contains(&opcode) {
+        if !(10..=18).contains(&opcode) {
             return Err("unsupported scene packet".into());
         }
         let textured = opcode >= 11;
@@ -345,6 +345,13 @@ impl ScenePacket {
                     mesh.point_shape = r.u32()?;
                     if opcode >= 17 {
                         mesh.side = r.u32()?;
+                    }
+                    if opcode >= 18 {
+                        mesh.shader = match r.u32()? {
+                            0 => None,
+                            1 => Some([r.u64()?, r.u64()?, r.u64()?, r.u64()?]),
+                            _ => return Err("invalid shader material flag".into()),
+                        };
                     }
                 }
                 mesh.validate_material()?;

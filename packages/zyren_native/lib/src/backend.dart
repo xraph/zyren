@@ -2,9 +2,9 @@ part of 'native_renderer.dart';
 
 /// Native rendering from a captured submission, without Flutter dependencies.
 /// Apple surfaces use the same worker and GPU device as explicit capture.
-class NativeBackend implements GraphBackend {
+class NativeBackend implements MaterialBackend {
   final NativeRenderer _renderer;
-  final ScenePacketEncoder _encoder;
+  late final ScenePacketEncoder _encoder;
   Future<FrameOutput>? _drawing;
   final bool _experimentalAppleSurfaces;
   bool _closed = false;
@@ -14,6 +14,7 @@ class NativeBackend implements GraphBackend {
   final _resourceScopes = <ResourceScope>{};
   final _shaderCompilers = <ShaderCompiler>{};
   final _graphCompilers = <GraphCompiler>{};
+  final _materialCompilers = <MaterialCompiler>{};
   final _NativeResourceDevice _resources;
   NativeBackend._(
     this._renderer,
@@ -22,8 +23,9 @@ class NativeBackend implements GraphBackend {
     _NativeResourceDevice? resources,
   }) : _resources =
            resources ??
-           _NativeResourceDevice(_workerTransport(_renderer._worker)),
-       _encoder = ScenePacketEncoder(viewId: viewId);
+           _NativeResourceDevice(_workerTransport(_renderer._worker)) {
+    _encoder = ScenePacketEncoder(viewId: viewId, materialDevice: _resources);
+  }
 
   /// An independent view that shares this device and its immutable geometry.
   /// Closing either view preserves the other view's scenes and resource scopes.
@@ -85,6 +87,15 @@ class NativeBackend implements GraphBackend {
 
   Future<GraphCacheStats> graphStats() => _resources.graphStats();
 
+  @override
+  MaterialCompiler createMaterialCompiler({String label = ''}) {
+    if (_closed) throw StateError('Backend has closed.');
+    final compiler = MaterialCompiler(_resources, label: label);
+    _materialCompilers.add(compiler);
+    compiler.whenClosed.then((_) => _materialCompilers.remove(compiler));
+    return compiler;
+  }
+
   /// Apple texture registration remains experimental while Flutter's texture
   /// cache prevents prompt buffer retirement. Keep it out of default selection.
   static Future<NativeBackend> create({
@@ -125,6 +136,7 @@ class NativeBackend implements GraphBackend {
       RenderFeature.storageTextures,
       RenderFeature.floatTextures,
       RenderFeature.volumeTextures,
+      RenderFeature.shaderMaterials,
       if (_experimentalAppleSurfaces && NativeSurfaces().appleAvailable)
         RenderFeature.sharedTexture,
     },
@@ -315,6 +327,14 @@ class NativeBackend implements GraphBackend {
     Object? failure;
     StackTrace? failureStack;
     final resourceClosures = [
+      for (final compiler in _materialCompilers.toList())
+        compiler.close().then<void>(
+          (_) {},
+          onError: (Object error, StackTrace stack) {
+            failure ??= error;
+            failureStack ??= stack;
+          },
+        ),
       for (final compiler in _graphCompilers.toList())
         compiler.close().then<void>(
           (_) {},
