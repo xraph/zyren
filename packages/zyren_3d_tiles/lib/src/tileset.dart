@@ -137,7 +137,7 @@ class _TilesetLoader extends AssetLoader<Tileset3D> {
       limits.maxManifestBytes,
       limits.maxDepth * 2 + 16,
     );
-    _extensions(json);
+    _tilesetExtensions(json);
     final asset = _object(json['asset']);
     if (!['1.0', '1.1'].contains(asset['version']) ||
         asset.containsKey('gltfUpAxis') && asset['gltfUpAxis'] != 'Y') {
@@ -344,4 +344,37 @@ TileBounds3D _bounds(Map<String, dynamic> json, Mat4 world) {
   }
   if (!center.isFinite || !radius.isFinite || radius < 0) _invalid();
   return TileBounds3D._(center, radius);
+}
+
+void _tilesetExtensions(Map<String, dynamic> json) {
+  const gltf = '3DTILES_content_gltf';
+  List<String> names(Object? value) {
+    if (value == null) return [];
+    if (value is! List ||
+        value.length > 256 ||
+        value.any((v) => v is! String || v.length > 256 || v.isEmpty)) {
+      _invalid();
+    }
+    return value.cast<String>();
+  }
+
+  final required = names(json['extensionsRequired']);
+  final used = names(json['extensionsUsed']);
+  if (required.any((name) => !used.contains(name))) _invalid();
+  if (required.any((name) => name != gltf)) _unsupported();
+  if (_object(json['asset'])['version'] == '1.1' && required.contains(gltf)) {
+    _invalid();
+  }
+  final extensions = json['extensions'] == null
+      ? <String, dynamic>{}
+      : _object(json['extensions']);
+  for (final entry in extensions.entries) {
+    if (entry.key != gltf) _unsupported();
+    if (!used.contains(gltf)) _invalid();
+    final content = _object(entry.value);
+    final contentUsed = names(content['extensionsUsed']);
+    final contentRequired = names(content['extensionsRequired']);
+    if (contentRequired.any((name) => !contentUsed.contains(name))) _invalid();
+    // The content loader validates actual glTF extension support per payload.
+  }
 }

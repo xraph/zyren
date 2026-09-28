@@ -16,6 +16,7 @@ part 'src/implicit.dart';
 part 'src/subtree.dart';
 part 'src/streamer.dart';
 part 'src/plugin.dart';
+part 'src/provider.dart';
 
 abstract final class Tiles3D {
   static AssetRequest<Tileset3D> tileset(Uri uri, {Tiles3DLimits? limits}) =>
