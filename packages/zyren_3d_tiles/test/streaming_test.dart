@@ -34,6 +34,58 @@ Future<void> settle(Tiles3DStreamer streamer) async {
 }
 
 void main() {
+  test(
+    'visible attribution follows parent fallback and excludes cached invisible tiles',
+    () async {
+      final resolver = MemoryResolver({
+        '/parent': triangleModel(
+          changes: {
+            'asset': {'version': '2.0', 'copyright': 'Parent; Shared'},
+          },
+        ),
+        '/one': triangleModel(
+          changes: {
+            'asset': {'version': '2.0', 'copyright': 'Zeta; Shared'},
+          },
+        ),
+      });
+      final s = Tiles3DStreamer(
+        tileset: await source(
+          tile(
+            refine: 'REPLACE',
+            uri: 'parent',
+            error: 10,
+            children: [
+              tile(uri: 'one'),
+              tile(uri: 'two'),
+            ],
+          ),
+        ),
+        services: AssetServices(resolver: resolver),
+      );
+      addTearDown(s.dispose);
+      final camera = PerspectiveCamera(
+        position: const Vec3(0, -50, 0),
+        up: const Vec3(0, 0, 1),
+      );
+      s.update(camera, const ViewportMetrics(800, 600));
+      await settle(s);
+      expect(s.attributions, ['Parent', 'Shared']);
+      resolver.files['/two'] = triangleModel(
+        changes: {
+          'asset': {'version': '2.0', 'copyright': 'Alpha;Shared'},
+        },
+      );
+      s.retryFailed();
+      await settle(s);
+      expect(s.attributions, ['Alpha', 'Shared', 'Zeta']);
+      expect(() => s.attributions.clear(), throwsUnsupportedError);
+      camera.position = const Vec3(0, -1000000, 0);
+      s.update(camera, const ViewportMetrics(800, 600));
+      expect(s.attributions, isEmpty);
+    },
+  );
+
   test('tileset error controls appearance before root refinement', () async {
     final resolver = MemoryResolver({'/parent': triangleModel()});
     final streamer = Tiles3DStreamer(

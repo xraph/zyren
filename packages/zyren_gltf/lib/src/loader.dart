@@ -224,6 +224,10 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
             resourceLabel: issue.resourceLabel,
           ),
       ]);
+      final copyright =
+          (document.root['asset'] as Map<String, Object?>)['copyright']
+              as String?;
+      context.reserveDecodedBytes((copyright?.length ?? 0) * 2);
       final shared = _SharedModel(
         prepared.nodes,
         prepared.scenes,
@@ -231,6 +235,7 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
         List.unmodifiable(meshes),
         issues,
         source.effectiveUri,
+        copyright,
       );
       return DecodedAsset(
         create: () => ModelAsset._(shared),

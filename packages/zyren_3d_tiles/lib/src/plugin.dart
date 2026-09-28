@@ -21,6 +21,7 @@ class Tiles3DPlugin extends ScenePlugin {
   @override
   String get id => 'tiles3d';
   Tiles3DStats? get stats => _streamer?.stats;
+  List<String> get attributions => _streamer?.attributions ?? const [];
   List<TileFailure3D> get failures => _streamer?.failures ?? const [];
   Set<String> get visibleTileIds =>
       Set.unmodifiable(_streamer?.visible.keys ?? const <String>[]);

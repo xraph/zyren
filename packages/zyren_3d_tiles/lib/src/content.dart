@@ -11,6 +11,7 @@ final class TileModel3D {
     this.decodedBytes,
     this.residentBytes,
   );
+  String? get copyright => _model.copyright;
   Group instantiate({Mat4? transform}) {
     final root = _TransformGroup(transform ?? Mat4.identity());
     final rtc = Group()..position = _rtc;

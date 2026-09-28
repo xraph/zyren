@@ -114,6 +114,20 @@ class Tiles3DStreamer {
 
   /// Read-only selection for bounds, hierarchy and request diagnostics.
   Map<String, TileNode3D> get selected => Map.unmodifiable(_selected);
+
+  /// Sorted and deduplicated source credits for the geometry currently visible.
+  List<String> get attributions {
+    final values = <String>{};
+    for (final id in _visible.keys) {
+      final copyright = _cache[id]?.content.model?.copyright;
+      if (copyright == null) continue;
+      values.addAll(
+        copyright.split(';').map((s) => s.trim()).where((s) => s.isNotEmpty),
+      );
+    }
+    return List.unmodifiable(values.toList()..sort());
+  }
+
   List<TileFailure3D> get failures => List.unmodifiable(_failures.values);
   int get _cachedBytes =>
       _cache.values.fold(0, (n, e) => n + e.content.decodedBytes);

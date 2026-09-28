@@ -33,6 +33,31 @@ Future<ModelAsset> load(
 
 void main() {
   test(
+    'model copyright survives instantiation and rejects non-string metadata',
+    () async {
+      final model = await load(
+        triangleModel(
+          changes: {
+            'asset': {'version': '2.0', 'copyright': 'Provider A;Provider B'},
+          },
+        ),
+      );
+      expect(model.copyright, 'Provider A;Provider B');
+      expect(model.instantiate(), isA<Group>());
+      await expectLater(
+        load(
+          triangleModel(
+            changes: {
+              'asset': {'version': '2.0', 'copyright': 5},
+            },
+          ),
+        ),
+        throwsA(isA<AssetLoadException>()),
+      );
+    },
+  );
+
+  test(
     'typed requests validate bundle paths and share by immutable options',
     () {
       final first = Gltf.asset('models/a b.glb');

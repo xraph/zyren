@@ -13,6 +13,7 @@ final class ModelAsset {
   final List<ModelSceneInfo> scenes;
   final List<SceneIssue> issues;
   final Uri sourceUri;
+  final String? copyright;
   final int? defaultSceneIndex;
   bool get isReleased => _shared == null;
   ModelAsset._(_SharedModel shared)
@@ -27,6 +28,7 @@ final class ModelAsset {
       ]),
       issues = shared.issues,
       sourceUri = shared.sourceUri,
+      copyright = shared.copyright,
       defaultSceneIndex = shared.defaultScene;
 
   /// Uses the declared default scene, or the first scene when none is declared.
@@ -83,6 +85,7 @@ final class _SharedModel {
   final List<List<_ModelPrimitive>> meshes;
   final List<SceneIssue> issues;
   final Uri sourceUri;
+  final String? copyright;
   const _SharedModel(
     this.nodes,
     this.scenes,
@@ -90,6 +93,7 @@ final class _SharedModel {
     this.meshes,
     this.issues,
     this.sourceUri,
+    this.copyright,
   );
 }
 

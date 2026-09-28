@@ -77,6 +77,9 @@ final class GltfDocument {
       _preflight(json, limits);
       final root = object(jsonDecode(utf8.decode(json)), r'$');
       final asset = object(root['asset'], 'asset');
+      if (asset.containsKey('copyright') && asset['copyright'] is! String) {
+        fail('asset.copyright', 'Copyright must be a string.');
+      }
       final version = _version(asset['version'], 'asset.version');
       if (version.$1 != 2) {
         fail(
