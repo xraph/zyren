@@ -30,4 +30,35 @@ drive `Tiles3DStreamer` directly, pass monotonically increasing `elapsed` to
 
 Optional asset codecs provide meshopt, Draco 2.2 and KTX2 Basis support. Flutter's
 default services include them. See `zyren_gltf` for format limits and fallback
-behavior. Feature metadata and feature styling remain separate work.
+behavior.
+
+You can style features from b3dm batch tables or glTF structural property tables:
+
+```dart
+tiles.setStyle(TileStyle3D((feature) {
+  final height = feature.properties['height'];
+  return TileFeatureStyle3D(
+    show: height is num && height > 20,
+    color: const Color3(0.2, 0.6, 1),
+  );
+}));
+```
+
+Styles apply to cached tiles and future arrivals. Call `setStyle(null)` to
+restore the authored materials and visibility. Callbacks run once per feature
+when a tile arrives or you explicitly restyle it. An exception during restyling
+leaves cached instances unchanged. A callback error on arrival appears in
+`failures`; correct the style, then call `retryFailed()`.
+
+`featureFor(pick)` returns the picked feature's immutable properties. IDs are
+local to a tile. Use `featureLabel` or `featureSet` on `TileStyle3D` to select one
+of several feature sets. Color replaces the material's base factor while keeping
+its maps; opacity below one enables blending. Hidden features are excluded from
+picking. Refinement coverage remains independent of styling.
+
+The loader partitions uniform-feature triangles and points within the glTF
+primitive and byte budgets. Mixed IDs within a triangle, feature textures and
+feature lines are unsupported. Legacy batch tables support JSON values and
+aligned binary scalar/vector columns, with count, range and finite-value checks.
+Batch-table hierarchy extensions are unsupported. Modern property-table limits
+are documented in `zyren_gltf`.

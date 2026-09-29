@@ -9,6 +9,7 @@ import 'node_decoder.dart';
 import 'options.dart';
 import 'recipes.dart';
 import 'feature_decoder.dart';
+import 'metadata_decoder.dart';
 
 PreparedModel prepareModel(
   Map<String, Object?> root,
@@ -30,6 +31,7 @@ PreparedModel prepareModel(
     limits: options.limits,
     budget: budget,
   );
+  final propertyTables = decodePropertyTables(root, reader, budget);
   final rawMeshes = array(field(root, 'meshes', const []), 'meshes');
   final (nodes, scenes, selected) = decodeNodes(
     root,
@@ -378,6 +380,7 @@ PreparedModel prepareModel(
     Map.unmodifiable(materials.images),
     List.unmodifiable(issues),
     budget.usedBytes,
+    propertyTables,
   );
 }
 

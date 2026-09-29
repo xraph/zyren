@@ -91,8 +91,14 @@ Attribute features on triangles must have the same ID at all three vertices.
 Points also support implicit IDs. The loader partitions geometry on its worker
 and counts the resulting draw calls against `maxPrimitives`, including repeated
 instances. Feature textures, lines and mixed IDs within a triangle return an
-explicit unsupported-feature error. Property values and styling are separate
-from this identity API.
+explicit unsupported-feature error.
+
+Read `ModelAsset.propertyTables` for immutable properties indexed by feature ID.
+The structural metadata profile supports inline schemas, numeric scalars,
+vectors and matrices, UTF-8 strings, packed booleans, enums, normalization,
+scale/offset, missing values and defaults. Arrays, 64-bit integers, external
+schemas, property textures and property attributes return explicit unsupported
+errors. All decoded table storage counts against the asset budget.
 
 ## Limits and workers
 

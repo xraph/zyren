@@ -82,6 +82,8 @@ class Tiles3DStreamer {
   final AssetServices services;
   final Tiles3DBudget budget;
   final GltfOptions options;
+  TileStyle3D? _style;
+  TileStyle3D? get style => _style;
   final double maximumScreenError;
   final Duration fadeDuration;
   final void Function()? onChanged;
@@ -106,11 +108,13 @@ class Tiles3DStreamer {
     required this.services,
     Tiles3DBudget? budget,
     this.options = const GltfOptions(),
+    TileStyle3D? style,
     this.maximumScreenError = 8,
     this.fadeDuration = Duration.zero,
     this.onChanged,
     DateTime Function()? clock,
   }) : _tileset = tileset,
+       _style = style,
        _clock = clock ?? DateTime.now,
        budget = budget ?? Tiles3DBudget() {
     services.limits.validate();
@@ -379,6 +383,37 @@ class Tiles3DStreamer {
     }
   }
 
+  /// Applies to all cached instances and future arrivals. Callback failure leaves
+  /// every cached instance and the current style unchanged.
+  void setStyle(TileStyle3D? style) {
+    if (_disposed) throw StateError('The tile streamer is disposed.');
+    final edits = <_StyleEdit>[];
+    for (final entry in _cache.values) {
+      if (entry.group case final group?) {
+        edits.addAll(group._prepareStyle(style));
+      }
+    }
+    _applyStyle(edits);
+    _style = style;
+    _notify();
+  }
+
+  TileFeature3D? featureFor(
+    PickResult pick, {
+    int featureSet = 0,
+    String? featureLabel,
+  }) {
+    for (final group in _visible.values) {
+      final feature = (group as TileModelInstance3D).featureFor(
+        pick,
+        featureSet: featureSet,
+        featureLabel: featureLabel,
+      );
+      if (feature != null) return feature;
+    }
+    return null;
+  }
+
   bool _accepts(_TileRequest r) =>
       !_disposed &&
       r.generation == _generation &&
@@ -396,6 +431,7 @@ class Tiles3DStreamer {
       final group = content.model?.instantiate(
         transform: request.node.transform,
       );
+      group?.setStyle(_style);
       _cache[request.node.id] = _LoadedTile(
         request.scope,
         content,
@@ -644,7 +680,7 @@ final class _TileTransition {
 final class _LoadedTile {
   final AssetScope scope;
   final _StreamContent content;
-  final Group? group;
+  final TileModelInstance3D? group;
   final _TileFreshness freshness;
   const _LoadedTile(this.scope, this.content, this.group, this.freshness);
 }

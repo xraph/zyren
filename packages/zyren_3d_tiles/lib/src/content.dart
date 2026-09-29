@@ -4,24 +4,32 @@ part of '../zyren_3d_tiles.dart';
 final class TileModel3D {
   final ModelAsset _model;
   final Vec3 _rtc;
+  final ModelPropertyTable? _batch;
   final int decodedBytes, residentBytes;
   const TileModel3D._(
     this._model,
     this._rtc,
+    this._batch,
     this.decodedBytes,
     this.residentBytes,
   );
   String? get copyright => _model.copyright;
-  Group instantiate({Mat4? transform}) {
-    final root = _TransformGroup(transform ?? Mat4.identity());
+  TileModelInstance3D instantiate({Mat4? transform}) {
+    final model = _model.instantiate();
+    final root = TileModelInstance3D._(
+      transform ?? Mat4.identity(),
+      model,
+      _model.propertyTables,
+      _batch,
+    );
     final rtc = Group()..position = _rtc;
     final axis = Group()..rotateX(math.pi / 2);
-    root.add(rtc).add(axis).add(_model.instantiate());
+    root.add(rtc).add(axis).add(model);
     return root;
   }
 }
 
-final class _TransformGroup extends Group {
+class _TransformGroup extends Group {
   final Mat4 _matrix;
   _TransformGroup(this._matrix);
   @override
@@ -37,11 +45,13 @@ class _ContentLoader extends AssetLoader<TileModel3D> {
     AssetDecodeContext context,
   ) async {
     var bytes = source.bytes, rtc = Vec3.zero;
+    ModelPropertyTable? batch;
     if (bytes.length >= 4 &&
         ByteData.sublistView(bytes).getUint32(0, Endian.little) == 0x6d643362) {
-      final decoded = _b3dm(bytes);
+      final decoded = _b3dm(bytes, context, options.limits);
       bytes = decoded.$1;
       rtc = decoded.$2;
+      batch = decoded.$3;
     } else if (bytes.length < 4 ||
         ByteData.sublistView(bytes).getUint32(0, Endian.little) != 0x46546c67) {
       // JSON glTF is allowed; a nested tileset needs a different traversal path.
@@ -69,10 +79,18 @@ class _ContentLoader extends AssetLoader<TileModel3D> {
       create: () {
         final model = decoded.create();
         try {
-          final size = _payload(model.instantiate());
+          final instance = model.instantiate();
+          TileModelInstance3D._(
+            Mat4.identity(),
+            instance,
+            model.propertyTables,
+            batch,
+          );
+          final size = _payload(instance);
           return TileModel3D._(
             model,
             rtc,
+            batch,
             math.max(decodedReservation, size.$1),
             size.$2,
           );
@@ -87,7 +105,11 @@ class _ContentLoader extends AssetLoader<TileModel3D> {
   }
 }
 
-(Uint8List, Vec3) _b3dm(Uint8List bytes) {
+(Uint8List, Vec3, ModelPropertyTable) _b3dm(
+  Uint8List bytes,
+  AssetDecodeContext context,
+  GltfLimits limits,
+) {
   if (bytes.length < 28 || bytes.length % 8 != 0) _invalid();
   final b = ByteData.sublistView(bytes);
   int uint(int at) => b.getUint32(at, Endian.little);
@@ -101,16 +123,21 @@ class _ContentLoader extends AssetLoader<TileModel3D> {
       start % 8 != 0) {
     _invalid();
   }
+  final jsonLimit = limits.maxJsonBytes < 1024 * 1024
+      ? limits.maxJsonBytes
+      : 1024 * 1024;
+  final depthLimit = limits.maxJsonDepth < 32 ? limits.maxJsonDepth : 32;
   final feature = _json(
     Uint8List.sublistView(bytes, 28, 28 + fj),
-    1024 * 1024,
-    32,
+    jsonLimit,
+    depthLimit,
   );
+  var properties = <String, dynamic>{};
   if (bj > 0) {
-    _json(
+    properties = _json(
       Uint8List.sublistView(bytes, 28 + fj + fb, 28 + fj + fb + bj),
-      1024 * 1024,
-      32,
+      jsonLimit,
+      depthLimit,
     );
   }
   final bin = Uint8List.sublistView(bytes, 28 + fj, 28 + fj + fb);
@@ -151,7 +178,15 @@ class _ContentLoader extends AssetLoader<TileModel3D> {
       bytes.skip(start + length).any((v) => v != 0)) {
     _invalid();
   }
-  return (Uint8List.sublistView(bytes, start, start + length), rtc);
+  context.reserveDecodedBytes((fj + bj) * 2 + bb);
+  final table = _batchProperties(
+    properties,
+    Uint8List.sublistView(bytes, start - bb, start),
+    batchLength.toInt(),
+    context,
+    limits,
+  );
+  return (Uint8List.sublistView(bytes, start, start + length), rtc, table);
 }
 
 (int, int) _payload(Object3D root) {

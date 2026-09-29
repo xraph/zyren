@@ -11,6 +11,8 @@ import 'meshopt.dart';
 import 'draco.dart';
 import 'basis.dart';
 import 'features.dart';
+import 'metadata.dart';
+import 'metadata_decoder.dart' show structuralMetadataExtension;
 import 'feature_decoder.dart' show meshFeaturesExtension;
 part 'model_asset.dart';
 
@@ -74,6 +76,7 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
           'KHR_materials_unlit',
           'KHR_lights_punctual',
           meshFeaturesExtension,
+          structuralMetadataExtension,
           if (context.supportsTextureEncoding(TextureEncoding.ktx2Basis))
             basisExtension,
           if (context.supportsMeshEncoding(MeshEncoding.draco)) dracoExtension,
@@ -315,6 +318,7 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
         issues,
         source.effectiveUri,
         copyright,
+        prepared.propertyTables,
       );
       return DecodedAsset(
         create: () => ModelAsset._(shared),

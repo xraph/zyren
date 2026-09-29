@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:zyren/zyren.dart';
 import 'features.dart';
+import 'metadata.dart';
 
 final class PreparedModel {
   final List<NodeRecipe> nodes;
@@ -10,6 +11,7 @@ final class PreparedModel {
   final Map<int, ImageRecipe> images;
   final List<SceneIssue> issues;
   final int decodedBytes;
+  final List<ModelPropertyTable> propertyTables;
   const PreparedModel(
     this.nodes,
     this.scenes,
@@ -18,6 +20,7 @@ final class PreparedModel {
     this.images,
     this.issues,
     this.decodedBytes,
+    this.propertyTables,
   );
 }
 

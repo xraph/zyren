@@ -7,6 +7,8 @@ class Tiles3DPlugin extends ScenePlugin {
   final double maximumScreenError;
   final Duration fadeDuration;
   final GltfOptions options;
+  TileStyle3D? _style;
+  TileStyle3D? get style => _style;
   final void Function(Tiles3DStats)? onChanged;
   Tiles3DStreamer? _streamer;
   Group? _group;
@@ -19,7 +21,9 @@ class Tiles3DPlugin extends ScenePlugin {
     this.fadeDuration = Duration.zero,
     this.options = const GltfOptions(),
     this.onChanged,
-  }) : _tileset = tileset;
+    TileStyle3D? style,
+  }) : _tileset = tileset,
+       _style = style;
   @override
   String get id => 'tiles3d';
   Tiles3DStats? get stats => _streamer?.stats;
@@ -36,6 +40,7 @@ class Tiles3DPlugin extends ScenePlugin {
       services: services,
       budget: budget,
       options: options,
+      style: _style,
       maximumScreenError: maximumScreenError,
       fadeDuration: fadeDuration,
       onChanged: () {
@@ -55,6 +60,22 @@ class Tiles3DPlugin extends ScenePlugin {
     _sync();
     _context?.invalidate();
   }
+
+  void setStyle(TileStyle3D? style) {
+    _streamer?.setStyle(style);
+    _style = style;
+    _context?.invalidate();
+  }
+
+  TileFeature3D? featureFor(
+    PickResult pick, {
+    int featureSet = 0,
+    String? featureLabel,
+  }) => _streamer?.featureFor(
+    pick,
+    featureSet: featureSet,
+    featureLabel: featureLabel,
+  );
 
   void retryFailed() {
     _streamer?.retryFailed();

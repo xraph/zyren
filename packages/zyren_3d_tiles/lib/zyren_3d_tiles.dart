@@ -11,6 +11,8 @@ import 'package:zyren_geospatial/zyren_geospatial.dart'
 
 part 'src/tileset.dart';
 part 'src/content.dart';
+part 'src/batch_metadata.dart';
+part 'src/feature_style.dart';
 part 'src/external_content.dart';
 part 'src/implicit.dart';
 part 'src/subtree.dart';
