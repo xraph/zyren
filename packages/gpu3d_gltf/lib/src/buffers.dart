@@ -8,8 +8,9 @@ import 'worker.dart';
 Future<List<Uint8List>> resolveBuffers(
   GltfDocument document,
   AssetDecodeContext context,
-  Uri baseUri,
-) async {
+  Uri baseUri, {
+  Set<int> skippedBuffers = const {},
+}) async {
   final descriptions = array(
     field(document.root, 'buffers', const []),
     'buffers',
@@ -24,6 +25,10 @@ Future<List<Uint8List>> resolveBuffers(
       '$path.byteLength',
       min: 1,
     );
+    if (skippedBuffers.contains(i)) {
+      buffers.add(Uint8List(0));
+      continue;
+    }
     if (length > context.limits.maxSourceBytes) {
       fail(
         '$path.byteLength',

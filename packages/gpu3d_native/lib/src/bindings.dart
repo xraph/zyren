@@ -2,6 +2,70 @@ import 'dart:ffi';
 
 const _asset = 'package:gpu3d_native/src/bindings.dart';
 
+final class NativeMeshLimits extends Struct {
+  @Uint32()
+  external int version;
+  @Uint32()
+  external int maxVertices;
+  @Uint32()
+  external int maxTriangles;
+  @Uint32()
+  external int maxAttributes;
+  @Uint64()
+  external int maxEncodedBytes;
+  @Uint64()
+  external int maxDecodedBytes;
+}
+
+final class NativeMeshBytes extends Struct {
+  external Pointer<Uint8> data;
+  @Size()
+  external int length;
+}
+
+@Native<
+  Uint32 Function(
+    Pointer<Uint8>,
+    Size,
+    Pointer<NativeMeshLimits>,
+    Pointer<NativeMeshBytes>,
+  )
+>(symbol: 'fg2_draco_decode', assetId: _asset)
+external int dracoDecode(
+  Pointer<Uint8> input,
+  int length,
+  Pointer<NativeMeshLimits> limits,
+  Pointer<NativeMeshBytes> output,
+);
+@Native<Void Function(Pointer<NativeMeshBytes>)>(
+  symbol: 'fg2_draco_free',
+  assetId: _asset,
+)
+external void dracoFree(Pointer<NativeMeshBytes> output);
+
+@Native<
+  Uint32 Function(
+    Pointer<Uint8>,
+    Size,
+    Size,
+    Size,
+    Uint32,
+    Uint32,
+    Pointer<Uint8>,
+    Size,
+  )
+>(symbol: 'fg2_meshopt_decode', assetId: _asset)
+external int meshoptDecode(
+  Pointer<Uint8> input,
+  int length,
+  int count,
+  int stride,
+  int mode,
+  int filter,
+  Pointer<Uint8> output,
+  int outputLength,
+);
+
 final class NativeImageLimits extends Struct {
   @Uint32()
   external int version;
@@ -44,6 +108,32 @@ external int imageDecode(
   assetId: _asset,
 )
 external void imageFree(Pointer<NativeImagePixels> output);
+
+final class NativeTextureBytes extends Struct {
+  external Pointer<Uint8> data;
+  @Size()
+  external int length;
+}
+
+@Native<
+  Uint32 Function(
+    Pointer<Uint8>,
+    Size,
+    Pointer<NativeImageLimits>,
+    Pointer<NativeTextureBytes>,
+  )
+>(symbol: 'fg2_ktx2_decode', assetId: _asset)
+external int ktx2Decode(
+  Pointer<Uint8> input,
+  int length,
+  Pointer<NativeImageLimits> limits,
+  Pointer<NativeTextureBytes> output,
+);
+@Native<Void Function(Pointer<NativeTextureBytes>)>(
+  symbol: 'fg2_ktx2_free',
+  assetId: _asset,
+)
+external void ktx2Free(Pointer<NativeTextureBytes> output);
 
 final class NativeHdrImagePixels extends Struct {
   @Uint32()

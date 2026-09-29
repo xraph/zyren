@@ -76,3 +76,7 @@ export 'src/effects/post_processing.dart';
 export 'src/math/vec2.dart';
 export 'src/geometry/procedural.dart';
 export 'src/math/curve3.dart';
+
+export 'src/assets/buffer_decoder.dart';
+export 'src/assets/mesh_decoder.dart';
+export 'src/assets/texture_decoder.dart';

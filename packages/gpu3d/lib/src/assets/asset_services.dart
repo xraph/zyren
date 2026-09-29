@@ -4,6 +4,9 @@ part of 'asset_scope.dart';
 final class AssetServices {
   final ByteSourceResolver resolver;
   final ImageDecoder? imageDecoder;
+  final TextureDecoder? textureDecoder;
+  final BufferDecoder? bufferDecoder;
+  final CompressedMeshDecoder? meshDecoder;
   final HdrImageDecoder? hdrImageDecoder;
   final TangentGenerator? tangentGenerator;
   final AssetLimits limits;
@@ -15,6 +18,9 @@ final class AssetServices {
   const AssetServices({
     this.resolver = const UnavailableSourceResolver(),
     this.imageDecoder,
+    this.textureDecoder,
+    this.bufferDecoder,
+    this.meshDecoder,
     this.hdrImageDecoder,
     this.tangentGenerator,
     this.limits = const AssetLimits(),
@@ -30,6 +36,7 @@ final class AssetServices {
 final class AssetLimits {
   final int maxSourceBytes, maxTotalSourceBytes, maxSources, maxDecodedBytes;
   final ImageDecodeLimits images;
+  final MeshDecodeLimits meshes;
   final TangentGenerationLimits tangents;
   const AssetLimits({
     this.maxSourceBytes = 32 * 1024 * 1024,
@@ -37,6 +44,7 @@ final class AssetLimits {
     this.maxSources = 128,
     this.maxDecodedBytes = 128 * 1024 * 1024,
     this.images = const ImageDecodeLimits(),
+    this.meshes = const MeshDecodeLimits(),
     this.tangents = const TangentGenerationLimits(),
   });
   void validate() {
@@ -49,6 +57,7 @@ final class AssetLimits {
       RangeError.checkValueInInterval(value, 1, 0x7fffffff, name);
     }
     images.validate();
+    meshes.validate();
     tangents.validate();
   }
 }

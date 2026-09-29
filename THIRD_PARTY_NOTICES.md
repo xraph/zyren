@@ -1,5 +1,10 @@
 # Third-party notices
 
+Native compressed-asset decoding uses meshopt 0.6.2, draco-core 2.2.1 and
+basisu_c_sys 0.9.1. Their binding and bundled-code notices are retained in
+[compression licenses](docs/licenses/compression). The Khronos Box fixture has
+its own [source and attribution](test_assets/compression/khronos-box/SOURCE.md).
+
 The geospatial maths and port inventory reference Takram's three-geospatial
 project. Its MIT license is reproduced below.
 

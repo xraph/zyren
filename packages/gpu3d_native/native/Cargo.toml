@@ -12,6 +12,9 @@ crate-type = ["cdylib", "staticlib", "rlib"]
 cc = "1.2"
 
 [dependencies]
+meshopt = "=0.6.2"
+basisu_c_sys = { version = "=0.9.1", default-features = false, features = ["std", "transcode_default"] }
+draco-core = { version = "=2.2.1", default-features = false, features = ["decoder", "edgebreaker_valence_decode", "legacy_bitstream_decode"] }
 bytemuck = { version = "1.25", features = ["derive"] }
 glam = "0.33"
 crc32fast = "=1.5.2"
@@ -39,3 +42,7 @@ strip = "none"
 
 [patch.crates-io]
 wgpu-hal = { path = "vendor/wgpu-hal" }
+
+[dev-dependencies]
+basisu_c_sys = { version = "=0.9.1", default-features = false, features = ["std", "encoder", "extra", "transcode_default"] }
+draco-core = { version = "=2.2.1", default-features = false, features = ["encoder", "edgebreaker_valence_encode"] }

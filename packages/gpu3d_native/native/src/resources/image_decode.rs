@@ -1,3 +1,4 @@
+pub mod ktx2;
 use image::{ColorType, ImageDecoder, ImageError, Limits, codecs::png::PngDecoder};
 use std::{
     io::Cursor,

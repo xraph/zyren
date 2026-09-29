@@ -1,4 +1,6 @@
+pub mod compression;
 pub mod deformation;
+pub mod draco;
 pub mod geometry_update;
 pub mod instances;
 pub mod interop;

@@ -3,6 +3,7 @@ import 'accessor.dart';
 import 'checked.dart';
 import 'options.dart';
 import 'recipes.dart';
+import 'basis.dart';
 
 final class MaterialDecoder {
   final Map<String, Object?> root;
@@ -228,6 +229,16 @@ final class MaterialDecoder {
       sources.length,
       '$texturePath.source',
     );
+    final basis = object(
+      field(texture, 'extensions', <String, Object?>{}),
+      '$texturePath.extensions',
+    ).containsKey(basisExtension);
+    if (images.containsKey(source) && images[source]!.basis != basis) {
+      fail(
+        '$texturePath.source',
+        'A Basis image cannot also be an ordinary image source.',
+      );
+    }
     if (!images.containsKey(source)) {
       final imagePath = 'images[$source]',
           image = object(sources[source], 'images[$source]');
@@ -239,7 +250,13 @@ final class MaterialDecoder {
       final media = image.containsKey('mimeType')
           ? string(image['mimeType'], '$imagePath.mimeType')
           : null;
-      if (media != null && media != 'image/png' && media != 'image/jpeg') {
+      if (basis && media != null && media != 'image/ktx2') {
+        fail('$imagePath.mimeType', 'Basis sources require image/ktx2.');
+      }
+      if (!basis &&
+          media != null &&
+          media != 'image/png' &&
+          media != 'image/jpeg') {
         fail(
           '$imagePath.mimeType',
           'Only PNG and JPEG images are supported.',
@@ -259,6 +276,7 @@ final class MaterialDecoder {
         hasView
             ? reader.imageBytes(image['bufferView'], '$imagePath.bufferView')
             : null,
+        basis: basis,
       );
     }
     var sampler = <String, Object?>{};

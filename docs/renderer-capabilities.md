@@ -58,6 +58,12 @@ untextured tangent variants for instances, colors and morphs. Physical-layer
 maps, transmission, volume and glTF physical extensions remain open.
 See [physical materials](design/physical-materials.md).
 
+Native CPU decoders now load Draco, meshopt and Basis/KTX2 through the glTF
+plugin. Real compressed models pass Metal pixels and resource cleanup; Flutter's
+default services also decode them without creating a renderer. Basis transcodes
+to RGBA8, so compressed GPU texture residency remains separate.
+See [compressed assets](design/compressed-assets.md).
+
 The remaining breadth has concrete acceptance work:
 
 | Family | Owner | Required evidence before claiming parity |
@@ -65,7 +71,7 @@ The remaining breadth has concrete acceptance work:
 | Further geometry utilities | Core geometry/math | Shapes with holes, beveled extrusion, text, subdivision and CSG fixtures |
 | Advanced physical materials | Core materials/native shaders | Clearcoat, transmission, volume, IOR, sheen and anisotropy reference scenes |
 | Area lighting and additional shadows | Core lighting/native renderer | Photometric references, occlusion and bounded atlas behavior |
-| Compressed assets | Asset plugins/native decoders | KTX2/Basis, Draco and meshopt fixtures, malformed input, cancellation and budgets |
+| Compressed assets | Asset plugins/native decoders | macOS fixture, cancellation, budget and Metal checks pass; other native targets and compressed GPU residency remain open |
 | Further loaders and exporters | Optional asset plugins | Round trips, provenance, error recovery and allocation cleanup |
 | Full camera/control and animation breadth | Core plus control plugins | Reference gestures, hierarchy transforms, clips and multiple views |
 | Temporal AA and advanced effects | Core effect plugins | Motion/depth rejection, disocclusion, jitter and independent history after cuts/resize/recovery |

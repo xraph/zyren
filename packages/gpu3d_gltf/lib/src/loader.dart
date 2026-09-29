@@ -3,6 +3,9 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:gpu3d/gpu3d.dart';
 import 'buffers.dart';
+import 'basis.dart';
+import 'draco.dart';
+import 'meshopt.dart';
 import 'animation_decoder.dart';
 import 'data_uri.dart';
 import 'options.dart';
@@ -66,18 +69,43 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
         source.bytes,
         options.limits,
         context.cancellation,
-        supportedExtensions: const {
+        supportedExtensions: {
           'KHR_materials_unlit',
           'KHR_lights_punctual',
+          if (context.supportsTextureEncoding(TextureEncoding.ktx2Basis))
+            basisExtension,
+          if (context.supportsMeshEncoding(MeshEncoding.draco)) dracoExtension,
+          if (context.supportsBufferEncoding(BufferEncoding.meshopt))
+            meshoptExtension,
         },
       );
-      final buffers = await resolveBuffers(
+      final meshopt = context.supportsBufferEncoding(BufferEncoding.meshopt)
+          ? MeshoptViews.inspect(document)
+          : null;
+      var buffers = await resolveBuffers(
         document,
         context,
         source.effectiveUri,
+        skippedBuffers: meshopt?.skippedBuffers ?? const {},
+      );
+      var root = document.root;
+      if (meshopt != null) {
+        (root, buffers) = await meshopt.decode(document, buffers, context);
+      }
+      if (context.supportsMeshEncoding(MeshEncoding.draco)) {
+        (root, buffers) = await decodeDraco(
+          root,
+          buffers,
+          context,
+          options.limits,
+        );
+      }
+      root = selectBasisTextures(
+        root,
+        context.supportsTextureEncoding(TextureEncoding.ktx2Basis),
       );
       final prepared = await GltfWorkers.model(
-        document.root,
+        root,
         buffers,
         options,
         context.limits.maxDecodedBytes - context.decodedBytes,
@@ -111,7 +139,9 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
               context.limits.images.maxEncodedBytes,
               context.limits.maxDecodedBytes - context.decodedBytes,
             ),
-            const {'image/png', 'image/jpeg'},
+            recipe.basis
+                ? const {'image/ktx2'}
+                : const {'image/png', 'image/jpeg'},
             context.cancellation,
             '$path.uri',
           );
@@ -128,7 +158,48 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
           bytes = imageSource.bytes;
           imageUri = imageSource.effectiveUri;
         }
-        _checkImageType(bytes, media, path, imageUri);
+        _checkImageType(bytes, media, path, imageUri, basis: recipe.basis);
+        if (recipe.basis) {
+          final texture = await context.decodeTexture(
+            bytes,
+            encoding: TextureEncoding.ktx2Basis,
+            fieldPath: path,
+          );
+          for (final (mipmaps, colorSpace) in variants[entry.key]!) {
+            final expected = colorSpace == ColorSpace.linear
+                ? TextureFormat.rgba8Unorm
+                : TextureFormat.rgba8UnormSrgb;
+            if (texture.descriptor.format != expected) {
+              throw AssetLoadException(
+                AssetLoadError.invalidData,
+                'Basis transfer function does not match the material texture usage.',
+                sourceUri: imageUri,
+                fieldPath: path,
+              );
+            }
+            final unchanged = mipmaps
+                ? texture.levels.length > 1
+                : texture.levels.length == 1;
+            final selected = mipmaps ? texture.levels : [texture.levels.first];
+            if (!unchanged) {
+              context.reserveDecodedBytes(
+                selected.fold<int>(0, (sum, level) => sum + level.length),
+                fieldPath: path,
+              );
+            }
+            final data = unchanged
+                ? texture
+                : await GltfWorkers.texture(
+                    texture,
+                    mipmaps,
+                    context.cancellation,
+                  );
+            images[(entry.key, mipmaps, colorSpace)] = TextureImage.fromData(
+              data,
+            );
+          }
+          continue;
+        }
         final image = await context.decodeImage(bytes, fieldPath: path);
         for (final (mipmaps, colorSpace) in variants[entry.key]!) {
           context.reserveDecodedBytes(
@@ -272,7 +343,27 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
 
 void _releaseModel(ModelAsset asset) => asset._release();
 
-void _checkImageType(Uint8List bytes, String? media, String path, Uri uri) {
+void _checkImageType(
+  Uint8List bytes,
+  String? media,
+  String path,
+  Uri uri, {
+  bool basis = false,
+}) {
+  if (basis) {
+    const magic = [171, 75, 84, 88, 32, 50, 48, 187, 13, 10, 26, 10];
+    if (bytes.length < magic.length ||
+        Iterable<int>.generate(magic.length).any((i) => bytes[i] != magic[i]) ||
+        (media != null && media != 'image/ktx2')) {
+      throw AssetLoadException(
+        AssetLoadError.invalidData,
+        'Basis sources require KTX2 bytes and MIME type.',
+        sourceUri: uri,
+        fieldPath: path,
+      );
+    }
+    return;
+  }
   final png =
       bytes.length >= 8 &&
       bytes[0] == 137 &&
