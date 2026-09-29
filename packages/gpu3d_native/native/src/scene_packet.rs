@@ -15,6 +15,7 @@ pub struct ViewState {
     pub retained_poses: HashSet<u32>,
 }
 pub struct ScenePacket {
+    temporal: Option<crate::temporal::TemporalInput>,
     shadows: crate::shadows::ShadowFrame,
     view: u64,
     revision: u64,
@@ -83,7 +84,7 @@ impl ScenePacket {
             return Err("unsupported scene packet".into());
         }
         let opcode = r.u32()?;
-        if !(10..=30).contains(&opcode) {
+        if !(10..=31).contains(&opcode) {
             return Err("unsupported scene packet".into());
         }
         let textured = opcode >= 11;
@@ -176,6 +177,44 @@ impl ScenePacket {
                 areas.push(light);
             }
         }
+        let temporal = if opcode >= 31 {
+            let [history_weight, depth_tolerance] = r.floats()?;
+            let max_bytes = r.u64()?;
+            let reset = r.u64()?;
+            let camera = r.u64()?;
+            let origin = [
+                f64::from_bits(r.u64()?),
+                f64::from_bits(r.u64()?),
+                f64::from_bits(r.u64()?),
+            ];
+            let forward = r.floats()?;
+            let target_distance = r.floats::<1>()?[0];
+            let projection = r.floats()?;
+            let count = r.u32()? as usize;
+            if count != mesh_count {
+                return Err("Temporal identity count differs from scene".into());
+            }
+            let mut identities = Vec::with_capacity(count);
+            for _ in 0..count {
+                identities.push([r.u64()?, r.u64()?]);
+            }
+            let input = crate::temporal::TemporalInput {
+                history_weight,
+                depth_tolerance,
+                max_bytes,
+                reset,
+                camera,
+                origin,
+                forward,
+                target_distance,
+                projection,
+                identities,
+            };
+            input.validate(mesh_count)?;
+            Some(input)
+        } else {
+            None
+        };
         let has_color_pipeline = if opcode >= 22 {
             match r.u32()? {
                 0 => false,
@@ -829,6 +868,7 @@ impl ScenePacket {
             lights,
             hemispheres,
             areas,
+            temporal,
             retained_textures,
             textures,
             geometry_patches,
@@ -903,6 +943,7 @@ impl ScenePacket {
             retained_poses: self.retained_poses,
         });
         Ok(Frame {
+            temporal: self.temporal,
             environment: None,
             shadows: self.shadows,
             version: 1,

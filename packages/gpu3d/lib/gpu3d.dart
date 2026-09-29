@@ -84,3 +84,7 @@ export 'src/assets/texture_decoder.dart';
 export 'src/geometry/shape.dart';
 
 export 'src/geometry/geometry_utils.dart';
+
+export 'src/rendering/temporal_aa_options.dart';
+
+export 'src/effects/temporal_antialiasing.dart';

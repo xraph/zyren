@@ -89,6 +89,9 @@ class NativeBackend implements NativeGpuBackend {
   Future<GraphCacheStats> graphStats() => _resources.graphStats();
 
   @override
+  Future<TemporalStats> temporalStats() => _resources.temporalStats();
+
+  @override
   Future<ShadowStats> shadowStats() => _resources.shadowStats();
 
   /// Apple texture registration remains experimental while Flutter's texture
@@ -132,6 +135,7 @@ class NativeBackend implements NativeGpuBackend {
       RenderFeature.standardMaterials,
       RenderFeature.physicalMaterials,
       RenderFeature.areaLighting,
+      RenderFeature.temporalAntialiasing,
       RenderFeature.hdrColor,
       RenderFeature.environmentLighting,
       RenderFeature.shadows,
@@ -241,12 +245,18 @@ class NativeBackend implements NativeGpuBackend {
             cpuSubmitTime: clock.elapsed,
             drawCalls:
                 submission.scene.drawCalls +
+                (submission.temporalAA == null
+                    ? 0
+                    : submission.scene.temporalMotionDraws + 1) +
                 submission.scene.alphaResolveDraws +
                 submission.outputConversionDraws +
                 (submission.graph?.drawCalls ?? 0),
             computeDispatches: submission.graph?.dispatches ?? 0,
             triangles:
                 submission.scene.triangles +
+                (submission.temporalAA == null
+                    ? 0
+                    : submission.scene.triangles + 1) +
                 submission.scene.alphaResolveDraws +
                 submission.outputConversionDraws +
                 (submission.graph?.triangles ?? 0),
@@ -273,12 +283,18 @@ class NativeBackend implements NativeGpuBackend {
           cpuSubmitTime: clock.elapsed,
           drawCalls:
               submission.scene.drawCalls +
+              (submission.temporalAA == null
+                  ? 0
+                  : submission.scene.temporalMotionDraws + 1) +
               submission.scene.alphaResolveDraws +
               submission.outputConversionDraws +
               (submission.graph?.drawCalls ?? 0),
           computeDispatches: submission.graph?.dispatches ?? 0,
           triangles:
               submission.scene.triangles +
+              (submission.temporalAA == null
+                  ? 0
+                  : submission.scene.triangles + 1) +
               submission.scene.alphaResolveDraws +
               submission.outputConversionDraws +
               (submission.graph?.triangles ?? 0),

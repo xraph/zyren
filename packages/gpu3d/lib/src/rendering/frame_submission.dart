@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 import 'color_pipeline.dart';
+import 'temporal_aa_options.dart';
 import 'dart:math' as math;
 import 'package:vector_math/vector_math_64.dart' as vm;
 import '../geometry/geometry.dart';
@@ -29,12 +30,18 @@ class FrameTime {
 }
 
 class CameraSnapshot {
-  final List<double> origin, viewProjection, projection;
+  final List<double> origin, viewProjection, projection, forward;
+  final int identity;
+  final double targetDistance;
   CameraSnapshot._(
     Iterable<double> origin,
     Iterable<double> viewProjection,
     Iterable<double> projection,
-  ) : origin = List.unmodifiable(origin),
+    Iterable<double> forward,
+    this.identity,
+    this.targetDistance,
+  ) : forward = List.unmodifiable(forward),
+      origin = List.unmodifiable(origin),
       viewProjection = List.unmodifiable(viewProjection),
       projection = List.unmodifiable(projection);
 }
@@ -48,6 +55,7 @@ class SceneSnapshot {
         (mesh) => mesh['cast_shadow'] == true || mesh['receive_shadow'] == true,
       );
   final List<Map<String, Object>> _meshes;
+  final List<(int, int)> _identities;
   final List<Map<String, Object>> _lights, _hemispheres, _areas;
   bool get hasStandardMaterials => _meshes.any((m) => m.containsKey('pbr'));
   int get punctualLightCount => _lights.length;
@@ -76,6 +84,10 @@ class SceneSnapshot {
             ? mesh['instance_count'] as int
             : 1),
   );
+
+  /// Motion draws batch each visible mesh, including transparent instances.
+  int get temporalMotionDraws =>
+      _meshes.where((mesh) => mesh['color_visible'] != false).length;
   int get triangles => _meshes.fold(0, (sum, mesh) {
     if (mesh['color_visible'] == false) return sum;
     final geometry = _geometries[mesh['geometry']]!;
@@ -86,6 +98,7 @@ class SceneSnapshot {
   });
   SceneSnapshot._(
     this._meshes,
+    this._identities,
     this._lights,
     this._hemispheres,
     this._areas,
@@ -110,6 +123,7 @@ class SceneSnapshot {
     final lights = <Map<String, Object>>[];
     final hemispheres = <Map<String, Object>>[];
     final areas = <Map<String, Object>>[];
+    final identities = <(int, int)>[];
     final meshShaders = <int, MeshShaderProgram>{};
     final shadows = <_ShadowLight>[];
     void visit(Object3D node, vm.Matrix4 parent, bool parentVisible) {
@@ -319,6 +333,7 @@ class SceneSnapshot {
               frustum.intersectsBounds(
                 bounds?.transformed(Mat4.fromVectorMath(relative)),
               );
+          identities.add((node.id, geometry.logicalId));
           meshes.add(
             _freeze(<String, Object>{
                   'color_visible': colorVisible,
@@ -392,6 +407,7 @@ class SceneSnapshot {
     visit(scene, vm.Matrix4.identity(), true);
     return SceneSnapshot._(
       List.unmodifiable(meshes),
+      List.unmodifiable(identities),
       List.unmodifiable(lights),
       List.unmodifiable(hemispheres),
       List.unmodifiable(areas),
@@ -418,6 +434,8 @@ class FrameSubmission {
   final ShadowSnapshot shadows;
   final CompiledGraph? graph;
   final ColorPipeline? colorPipeline;
+  final TemporalAAOptions? temporalAA;
+  final int temporalReset;
   final Environment? environment;
   final SceneSnapshot scene;
   final CameraSnapshot camera;
@@ -434,6 +452,8 @@ class FrameSubmission {
     this.cpuBuildTime,
     this.graph,
     this.colorPipeline,
+    this.temporalAA,
+    this.temporalReset,
     this.environment,
     this.shadows,
   );
@@ -451,8 +471,18 @@ class FrameSubmission {
     FrameTime time = const FrameTime(),
     CompiledGraph? graph,
     ColorPipeline? colorPipeline,
+    TemporalAAOptions? temporalAA,
+    int temporalReset = 0,
     Environment? environment,
   }) {
+    if (temporalReset < 0 ||
+        temporalReset > 0x1fffffffffffff ||
+        (temporalAA != null &&
+            (colorPipeline == null || colorPipeline.sampleCount != 1))) {
+      throw ArgumentError(
+        'Temporal AA needs single-sample HDR and a nonnegative safe reset generation.',
+      );
+    }
     final clock = Stopwatch()..start();
     final aspect = aspectRatio ?? size.width / size.height;
 
@@ -460,6 +490,9 @@ class FrameSubmission {
       camera.position.storage,
       camera.viewProjection(aspect).storage,
       camera.projectionMatrix(aspect).storage,
+      (camera.target - camera.position).normalized().storage,
+      camera.id,
+      camera.target.distanceTo(camera.position),
     );
     final sceneSnapshot = SceneSnapshot._capture(
       scene,
@@ -475,6 +508,8 @@ class FrameSubmission {
       clock.elapsed,
       graph,
       colorPipeline,
+      temporalAA,
+      temporalReset,
       environment,
       ShadowSnapshot.capture(sceneSnapshot, camera, aspect),
     );
@@ -490,13 +525,16 @@ class FrameSubmission {
     cpuBuildTime,
     graph,
     colorPipeline,
+    temporalAA,
+    temporalReset,
     environment,
     shadows,
   );
 
   /// Compatibility encoder for native v1 adapters. Geometry conversion is lazy.
   Map<String, Object> toNativePacket({Set<int> uploaded = const {}}) {
-    if (graph != null ||
+    if (temporalAA != null ||
+        graph != null ||
         environment != null ||
         scene.meshShaders.isNotEmpty ||
         scene.hasShadows ||

@@ -327,7 +327,8 @@ This profile supports explicit resource graphs, shared plugin registration,
 before/after-scene composition and [custom mesh materials](shader-materials.md).
 Shared effects use engine-owned resize scopes and previous/current history pairs.
 Manual composition can group its candidate textures in child scopes and owns its
-own history lifecycle. HDR formats and temporal antialiasing remain in plan 03.
+own history lifecycle. Native [temporal AA](temporal-antialiasing.md) runs before
+graph effects in the HDR scene profile.
 Graph execution is verified on macOS Metal and Pixel Vulkan; see
 [verification](../verification.md). Other
 platforms have no graph qualification yet.

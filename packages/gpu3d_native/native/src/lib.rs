@@ -14,6 +14,7 @@ pub mod scene_packet;
 pub mod shaders;
 pub mod shadows;
 pub mod tangents;
+pub mod temporal;
 
 use std::{
     cell::RefCell,

@@ -11,6 +11,16 @@ final class ShadowStats {
   });
 }
 
+/// Device-wide temporal attachments and retained motion buffers.
+/// Separate from application resource scopes and shadow atlases.
+final class TemporalStats {
+  final int residentBytes, historyViews;
+  const TemporalStats({
+    required this.residentBytes,
+    required this.historyViews,
+  });
+}
+
 final class GraphCacheStats {
   final int liveGraphs,
       descriptionBytes,
@@ -131,6 +141,14 @@ mixin _NativeGraphs {
 
   Future<void> releaseGraph(Object key) async {
     await _graphCommand({'operation': 'release', 'key': key as _GraphKey});
+  }
+
+  Future<TemporalStats> temporalStats() async {
+    final result = await _graphCommand({'operation': 'temporalStats'});
+    return TemporalStats(
+      residentBytes: result['residentBytes'] as int,
+      historyViews: result['historyViews'] as int,
+    );
   }
 
   Future<ShadowStats> shadowStats() async {

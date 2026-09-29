@@ -68,6 +68,7 @@ class _PbrLabState extends State<_PbrLab> {
   double environmentAngle = 0;
   late final List<TextureMap> maps = _makeMaps();
   final effects = PostProcessing(bloom: BloomOptions());
+  final temporal = TemporalAntialiasing(enabled: false);
   int sampleCount = 1;
   bool textured = true, shadows = true;
   double ambient = 1, exposure = 1;
@@ -93,7 +94,10 @@ class _PbrLabState extends State<_PbrLab> {
       ),
     );
     if (widget.environmentLighting) controller.use(environment);
-    if (widget.postProcessing) controller.use(effects);
+    if (widget.postProcessing) {
+      controller.use(effects);
+      controller.use(temporal);
+    }
     controller.scene.background = const Color3(.012, .018, .028);
     grid = controller.scene.add(Group());
     final sphere = SphereGeometry(
@@ -446,11 +450,27 @@ class _PbrLabState extends State<_PbrLab> {
                         selected: sampleCount == 4,
                         onSelected: (value) => setState(() {
                           sampleCount = value ? 4 : 1;
+                          if (value) temporal.enabled = false;
                           controller.colorPipeline = ColorPipeline(
                             toneMapping: toneMapping,
                             exposure: exposure,
                             sampleCount: sampleCount,
                           );
+                        }),
+                      ),
+                      FilterChip(
+                        label: const Text('Temporal AA'),
+                        showCheckmark: false,
+                        labelPadding: const EdgeInsets.symmetric(horizontal: 4),
+                        selected: temporal.enabled,
+                        onSelected: (value) => setState(() {
+                          if (value) sampleCount = 1;
+                          controller.colorPipeline = ColorPipeline(
+                            toneMapping: toneMapping,
+                            exposure: exposure,
+                            sampleCount: sampleCount,
+                          );
+                          temporal.enabled = value;
                         }),
                       ),
                       FilterChip(

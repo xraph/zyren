@@ -58,6 +58,9 @@ class NativeMetalBackend implements NativeGpuBackend {
   @override
   Future<ShadowStats> shadowStats() => _gpu.shadowStats();
 
+  @override
+  Future<TemporalStats> temporalStats() => _gpu.temporalStats();
+
   static Future<NativeMetalBackend> create({int? runtimeToken}) async {
     if (!Platform.isMacOS && !Platform.isIOS) {
       throw _issue(
@@ -107,6 +110,9 @@ class NativeMetalBackend implements NativeGpuBackend {
       RenderFeature.frameGraphs,
       RenderFeature.meshShaders,
       RenderFeature.standardMaterials,
+      RenderFeature.physicalMaterials,
+      RenderFeature.areaLighting,
+      RenderFeature.temporalAntialiasing,
       RenderFeature.hdrColor,
       RenderFeature.environmentLighting,
       RenderFeature.shadows,
@@ -126,6 +132,7 @@ class NativeMetalBackend implements NativeGpuBackend {
       maxMorphTargets: 64,
       maxPunctualLights: 16,
       maxHemisphereLights: 4,
+      maxAreaLights: 4,
     ),
   );
 
@@ -257,12 +264,16 @@ class NativeMetalBackend implements NativeGpuBackend {
       cpuSubmitTime: clock.elapsed,
       drawCalls:
           submission.scene.drawCalls +
+          (submission.temporalAA == null
+              ? 0
+              : submission.scene.temporalMotionDraws + 1) +
           submission.scene.alphaResolveDraws +
           submission.outputConversionDraws +
           (submission.graph?.drawCalls ?? 0),
       computeDispatches: submission.graph?.dispatches ?? 0,
       triangles:
           submission.scene.triangles +
+          (submission.temporalAA == null ? 0 : submission.scene.triangles + 1) +
           submission.scene.alphaResolveDraws +
           submission.outputConversionDraws +
           (submission.graph?.triangles ?? 0),

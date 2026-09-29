@@ -42,6 +42,7 @@ enum Command {
     Release { key: Key },
     Stats {},
     ShadowStats {},
+    TemporalStats {},
 }
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -178,6 +179,7 @@ fn scoped<T>(
 }
 
 pub(crate) struct GraphContext<'a> {
+    pub temporal_stats: (u64, usize),
     pub shadow_stats: crate::renderer::ShadowStats,
     pub mesh_layout: &'a wgpu::BindGroupLayout,
     pub deformation_layout: &'a wgpu::BindGroupLayout,
@@ -197,6 +199,7 @@ impl GraphStore {
     ) -> Result<Vec<u8>, String> {
         let GraphContext {
             shadow_stats,
+            temporal_stats,
             mesh_layout,
             deformation_layout,
             device,
@@ -225,6 +228,7 @@ impl GraphStore {
                     .compile(
                         &mut GraphContext {
                             shadow_stats,
+                            temporal_stats,
                             device,
                             queue,
                             resources,
@@ -250,6 +254,9 @@ impl GraphStore {
                 Command::Release { key: value } => self
                     .release(device, resources, shaders, key(value))
                     .map(|()| json!({})),
+                Command::TemporalStats {} => Ok(json!({
+                    "residentBytes": temporal_stats.0, "historyViews": temporal_stats.1,
+                })),
                 Command::ShadowStats {} => Ok(json!({
                     "atlasCount": shadow_stats.atlas_count, "residentBytes": shadow_stats.resident_bytes,
                     "renderedViews": shadow_stats.rendered_views, "reusedFrames": shadow_stats.reused_frames,

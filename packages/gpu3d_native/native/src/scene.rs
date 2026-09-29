@@ -391,6 +391,8 @@ impl SceneTexture {
 #[derive(Clone, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Frame {
+    #[serde(skip)]
+    pub temporal: Option<crate::temporal::TemporalInput>,
     #[serde(default)]
     pub shadows: crate::shadows::ShadowFrame,
     #[serde(skip)]
@@ -458,6 +460,12 @@ impl Frame {
     }
     pub fn validate(&self, cached: &HashSet<u32>) -> Result<(), String> {
         self.shadows.validate(&self.lights)?;
+        if let Some(temporal) = &self.temporal {
+            temporal.validate(self.meshes.len())?;
+            if self.binary.is_none() || self.color_pipeline.is_none() || self.sample_count() != 1 {
+                return Err("Temporal AA needs a binary scene view and single-sample HDR".into());
+            }
+        }
         if self.areas.len() > crate::lighting::MAX_AREAS {
             return Err("scene exceeds area light limit".into());
         }

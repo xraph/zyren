@@ -18,6 +18,7 @@ mod instances;
 mod materials;
 mod pipelines;
 mod shadows;
+mod temporal;
 mod textures;
 pub use shadows::ShadowStats;
 
@@ -122,6 +123,7 @@ pub struct RendererState {
     graphs: crate::render_graph::GraphStore,
     views: HashMap<u64, crate::scene_packet::ViewState>,
     targets: Option<Targets>,
+    temporal: temporal::System,
     pub adapter_name: String,
     pub backend: wgpu::Backend,
     _permit: crate::retirement::DevicePermit,
@@ -291,6 +293,7 @@ impl Renderer {
                 graphs: crate::render_graph::GraphStore::default(),
                 views: HashMap::new(),
                 targets: None,
+                temporal: temporal::System::default(),
                 adapter_name: info.name,
                 backend: info.backend,
                 _permit: permit,
@@ -336,10 +339,12 @@ impl Renderer {
 
     pub fn graph_command(&mut self, bytes: &[u8], capacity: usize) -> Result<Vec<u8>, String> {
         let shadow_stats = self.shadow_stats();
+        let temporal_stats = self.temporal_stats();
         let state = self.state.as_mut().unwrap();
         state.graphs.command(
             crate::render_graph::GraphContext {
                 shadow_stats,
+                temporal_stats,
                 mesh_layout: &state.layout,
                 deformation_layout: &state.deformation_layout,
                 device: &state.device,
@@ -481,6 +486,7 @@ impl Renderer {
     pub fn close_scene_view(&mut self, view: u64) -> Result<(), String> {
         self.views.remove(&view);
         self.shadows.remove(view);
+        self.temporal.remove(view);
         self.evict_geometry()
     }
     fn evict_geometry(&mut self) -> Result<(), String> {
@@ -728,7 +734,7 @@ impl Renderer {
     ) -> wgpu::CommandEncoder {
         let (color_view, resolve_target, depth_view) = attachments;
         let (materials, graph, environment, shadows) = composition;
-        let vp = Mat4::from_cols_array(&frame.view_projection);
+        let vp = Mat4::from_cols_array(&self.temporal.vp(frame));
         let lighting = frame.meshes.iter().any(|m| m.pbr.is_some()).then(|| {
             self.device
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -897,7 +903,11 @@ impl Renderer {
                     view: depth_view,
                     depth_ops: Some(wgpu::Operations {
                         load: wgpu::LoadOp::Clear(1.0),
-                        store: wgpu::StoreOp::Discard,
+                        store: if frame.temporal.is_some() {
+                            wgpu::StoreOp::Store
+                        } else {
+                            wgpu::StoreOp::Discard
+                        },
                     }),
                     stencil_ops: None,
                 }),
@@ -1106,6 +1116,7 @@ impl Renderer {
     ) -> Result<(), String> {
         pixel_len(width, height)?;
         self.check_shadows(frame)?;
+        self.check_temporal(frame, [width, height])?;
         let graph = self.resolve_frame_graph(frame, width, height)?;
         let environment = self.prepare_environment(frame, graph.as_ref())?;
         let materials = self.prepare_materials(frame, texture.format(), graph.as_ref())?;
@@ -1121,6 +1132,7 @@ impl Renderer {
         self.prepare_scene(frame)?;
         self.prepare_pipelines(frame, scene_format)?;
         let shadows = self.prepare_shadows(frame)?;
+        self.prepare_temporal(frame, [width, height])?;
         if self
             .surface_depth
             .as_ref()
@@ -1164,12 +1176,14 @@ impl Renderer {
             return Err(error);
         }
         self.accept_shadows(shadows);
+        self.temporal.accept();
         Ok(())
     }
 
     pub fn render(&mut self, frame: &Frame, width: u32, height: u32) -> Result<Vec<u8>, String> {
         let len = pixel_len(width, height)?;
         self.check_shadows(frame)?;
+        self.check_temporal(frame, [width, height])?;
         let graph = self.resolve_frame_graph(frame, width, height)?;
         let environment = self.prepare_environment(frame, graph.as_ref())?;
         let materials =
@@ -1186,6 +1200,7 @@ impl Renderer {
         self.prepare_scene(frame)?;
         self.prepare_pipelines(frame, scene_format)?;
         let shadows = self.prepare_shadows(frame)?;
+        self.prepare_temporal(frame, [width, height])?;
         self.resize(width, height);
         let target = self.targets.as_ref().unwrap();
         let mut encoder = self.encode_frame(
@@ -1238,6 +1253,7 @@ impl Renderer {
         drop(mapped);
         readback.unmap();
         self.counters.readback_bytes += pixels.len() as u64;
+        self.temporal.accept();
         Ok(pixels)
     }
 }

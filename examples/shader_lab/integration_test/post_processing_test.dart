@@ -52,6 +52,13 @@ void main() {
         await tester.tap(find.widgetWithText(FilterChip, '4× MSAA'));
         await waitForFrame(tester, controller, (f) => f.uploadedBytes == 0);
         expect(controller.colorPipeline!.sampleCount, 1);
+        await tester.tap(find.widgetWithText(FilterChip, 'Temporal AA'));
+        await waitForFrame(
+          tester,
+          controller,
+          (f) => f.drawCalls == initial.drawCalls + 11 && f.readbackBytes == 0,
+        );
+        expect(controller.colorPipeline!.sampleCount, 1);
         for (final size in [const Size(320, 640), const Size(960, 720)]) {
           await tester.binding.setSurfaceSize(size);
           await tester.pump();
@@ -70,6 +77,14 @@ void main() {
           (f) => f.drawCalls == initial.drawCalls + 1,
         );
         expect(controller.colorPipeline!.sampleCount, 4);
+        expect(
+          tester
+              .widget<FilterChip>(
+                find.widgetWithText(FilterChip, 'Temporal AA'),
+              )
+              .selected,
+          isFalse,
+        );
       } finally {
         await tester.pumpWidget(const SizedBox());
         await controller.whenDisposed;

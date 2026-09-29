@@ -19,3 +19,5 @@ export 'src/resources/resource_scope.dart'
         GraphDeviceDescription;
 
 export 'src/rendering/color_pipeline.dart';
+
+export 'src/rendering/temporal_aa_options.dart';

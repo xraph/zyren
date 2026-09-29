@@ -398,7 +398,12 @@ impl Renderer {
             .map(|g| &g.scene_color)
             .or(self.compositor.hdr.as_ref());
         let scene_view = scene_texture.map(|t| t.create_view(&Default::default()));
-        let scene_target = scene_view.as_ref().unwrap_or(color);
+        let output_scene_target = scene_view.as_ref().unwrap_or(color);
+        let temporal_targets = self.temporal.targets(frame);
+        let temporal_color = temporal_targets.map(|t| t.0.create_view(&Default::default()));
+        let temporal_depth = temporal_targets.map(|t| t.1.create_view(&Default::default()));
+        let scene_target = temporal_color.as_ref().unwrap_or(output_scene_target);
+        let depth = temporal_depth.as_ref().unwrap_or(depth);
         let accumulation = self.compositor.accumulation.as_ref();
         let accumulation_view = accumulation.map(|t| t.create_view(&Default::default()));
         let resolve = accumulation_view.as_ref().unwrap_or(scene_target);
@@ -433,6 +438,7 @@ impl Renderer {
                 ),
             );
         }
+        self.encode_temporal(frame, output_scene_target, &mut encoder);
         if let Some(graph) = graph {
             graph.encode(&mut encoder);
         }

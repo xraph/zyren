@@ -69,3 +69,31 @@ use a presentation benchmark for frame pacing.
 maximum latency, source identity and null values for unavailable measurements.
 [The initial 20-frame run](2026-09-28-post-processing-metal.json) is retained for
 comparison. The warmer, longer run is not evidence of a renderer optimization.
+
+## Temporal reconstruction
+
+The 29 September AOT run adds temporal AA and bloom with temporal AA to the same
+400-sphere fixture on the Apple M3 Max. Each case measures 300 frames after warmup.
+
+| Pixels | Profile | Median | P95 | P99 | Temporal payload |
+| --- | --- | --- | --- | --- | --- |
+| 640x360 | HDR | 0.737 ms | 0.993 ms | 1.202 ms | 0 MiB |
+| 640x360 | TAA | 1.378 ms | 1.631 ms | 1.775 ms | 11.53 MiB |
+| 640x360 | Bloom + TAA | 1.507 ms | 1.673 ms | 1.731 ms | 11.53 MiB |
+| 1280x720 | HDR | 1.401 ms | 1.657 ms | 1.827 ms | 0 MiB |
+| 1280x720 | TAA | 2.073 ms | 2.300 ms | 2.354 ms | 45.81 MiB |
+| 1280x720 | Bloom + TAA | 2.209 ms | 2.741 ms | 3.123 ms | 45.81 MiB |
+
+Temporal and scoped resource allocations stayed constant during each measured
+case and returned to zero after view disposal. Temporal payload counts history,
+working targets and copied motion buffers. It excludes normal scene targets,
+transient uniforms and driver overhead. Bloom allocations remain in the scoped
+resource column of the JSON.
+
+These timings include explicit readback. They are not presentation FPS. GPU
+timestamps, power and thermal state remain unknown. This run followed validation
+workloads, so compare profiles within the run rather than treating differences
+from the previous day's measurements as a renderer regression or improvement.
+
+[The temporal run](2026-09-29-temporal-metal-300.json) records all seven profiles,
+source identity, readback bytes and separate temporal residency.

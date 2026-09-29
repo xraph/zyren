@@ -6,6 +6,7 @@ abstract interface class NativeGpuBackend implements GraphBackend {
   Future<ShaderStats> shaderStats();
   Future<GraphCacheStats> graphStats();
   Future<ShadowStats> shadowStats();
+  Future<TemporalStats> temporalStats();
 }
 
 /// Control channels implemented by the native worker and platform presenters.
@@ -85,6 +86,7 @@ final class NativeGpuServices {
   Future<ShaderStats> shaderStats() => _device.shaderStats();
   Future<GraphCacheStats> graphStats() => _device.graphStats();
   Future<ShadowStats> shadowStats() => _device.shadowStats();
+  Future<TemporalStats> temporalStats() => _device.temporalStats();
 
   /// Stops admission immediately. Await before destroying the native session.
   Future<void> close() => _closing ??= _close();

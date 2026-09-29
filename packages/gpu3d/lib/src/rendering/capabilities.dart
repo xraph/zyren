@@ -21,6 +21,7 @@ enum RenderFeature {
   standardMaterials,
   physicalMaterials,
   areaLighting,
+  temporalAntialiasing,
   hdrColor,
   environmentLighting,
   shadows,

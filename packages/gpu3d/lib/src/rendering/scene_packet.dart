@@ -194,7 +194,9 @@ final class ScenePacketEncoder {
         uploadBytes > 64 * 1024 * 1024) {
       throw ArgumentError('Scene resource upload exceeds the frame budget.');
     }
-    final opcode = scene.areaLightCount > 0
+    final opcode = submission.temporalAA != null
+        ? 31
+        : scene.areaLightCount > 0
         ? 30
         : scene._meshes.any((m) => (m['pbr'] as Map?)?['physical'] != null)
         ? 29
@@ -293,6 +295,26 @@ final class ScenePacketEncoder {
           body.floats((light[field] as List).cast<double>());
         }
         body.floats([light['intensity'] as double]);
+      }
+    }
+    if (opcode >= 31) {
+      final options = submission.temporalAA!;
+      body.floats([options.historyWeight, options.depthTolerance]);
+      body.u64(options.maxBytes);
+      body.u64(submission.temporalReset);
+      body.u64(submission.camera.identity);
+      // Float64 origins preserve cut detection at large world coordinates.
+      for (final value in submission.camera.origin) {
+        final bytes = ByteData(8)..setFloat64(0, value, Endian.little);
+        body.add(bytes.buffer.asUint8List());
+      }
+      body.floats(submission.camera.forward);
+      body.floats([submission.camera.targetDistance]);
+      body.floats(submission.camera.projection);
+      body.u32(scene._identities.length);
+      for (final pair in scene._identities) {
+        body.u64(pair.$1);
+        body.u64(pair.$2);
       }
     }
     if (opcode >= 22) body.u32(submission.colorPipeline == null ? 0 : 1);

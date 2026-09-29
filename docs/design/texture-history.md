@@ -39,8 +39,9 @@ not clear either texture. Your shader must observe this rule.
 You can see the complete shader in the independent
 [temporal blend plugin](../../examples/shader_lab/effects_plugin/lib/src/temporal.dart).
 It blends alpha-weighted linear color, then returns straight alpha for the next
-effect. It demonstrates accumulation; TAA, motion vectors and depth rejection
-remain renderer work in plan 03, task 8.
+effect. It demonstrates accumulation. Use the separate
+[temporal AA plugin](temporal-antialiasing.md) when you need native jitter, motion
+vectors and depth rejection.
 
 ## Ownership and submission
 

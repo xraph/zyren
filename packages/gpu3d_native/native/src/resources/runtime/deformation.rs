@@ -21,7 +21,7 @@ impl ResourceStore {
         let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("mesh pose"),
             contents: bytemuck::cast_slice(&values),
-            usage: wgpu::BufferUsages::STORAGE,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
         });
         let mut failed = false;
         for scope in [internal, memory, validation] {

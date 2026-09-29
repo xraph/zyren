@@ -7,7 +7,7 @@ No browser or OpenGL fallback is part of these profiles.
 | Profile | Scene color | Coverage | Final output | Effects |
 | --- | --- | --- | --- | --- |
 | Default | RGBA8 sRGB | One sample | SDR sRGB | Public render graph |
-| HDR | Linear RGBA16Float | One or four samples | SDR sRGB after exposure and tone map | Bloom, spatial AA, custom graph passes |
+| HDR | Linear RGBA16Float | One or four samples | SDR sRGB after exposure and tone map | Bloom, spatial AA, temporal AA, custom graph passes |
 
 `ColorPipeline` enables HDR and selects linear, Reinhard or ACES filmic tone
 mapping. It does not request an HDR monitor output. Four-sample color resolves
@@ -21,6 +21,7 @@ The current native limits are explicit:
 | Single resource allocation or transfer | 64 MiB |
 | Scene and scoped resources per device | 256 MiB, including replacement candidates |
 | HDR or multisample color attachment | 64 MiB per attachment |
+| Temporal histories and motion | 128 MiB per view by default; 256 MiB per device, including replacement overlap |
 | PostProcessing intermediates | 64 MiB per graph by default; configurable within device limits |
 | Punctual / hemisphere / rectangular area lights | 16 / 4 / 4 |
 | Instances / joints / morph targets | 100000 / 256 / 64 |
@@ -44,6 +45,10 @@ Windows DX12 remain separate device qualification gates. Compiling a platform
 package does not qualify its presentation, driver behavior or timing.
 The app could not be foregrounded during this run because the display was asleep;
 a manual visual check remains open.
+
+The new temporal profile also passes both macOS Flutter gallery cases, including
+AA mode switching, bloom and 320/960-pixel layouts with zero presentation
+readback. Its iOS surface qualification is still pending.
 
 The core already includes scene hierarchies, camera projection and framing,
 orbit, trackball and fly controls, bounds/culling/picking/BVH, dynamic and procedural geometry,
@@ -84,13 +89,14 @@ The remaining breadth has concrete acceptance work:
 | Compressed assets | Asset plugins/native decoders | macOS fixture, cancellation, budget and Metal checks pass; other native targets and compressed GPU residency remain open |
 | Further loaders and exporters | Optional asset plugins | Round trips, provenance, error recovery and allocation cleanup |
 | Full camera/control and animation breadth | Core plus control plugins | Reference gestures, hierarchy transforms, clips and multiple views |
-| Temporal AA and advanced effects | Core effect plugins | Motion/depth rejection, disocclusion, jitter and independent history after cuts/resize/recovery |
+| Temporal AA and advanced effects | Core effect plugins | Built-in triangle TAA passes Metal convergence, motion, deformation, budget and multi-view checks; custom shader/primitive motion and broader device qualification remain open |
 | Takram geospatial parity | Optional geospatial plugins | Reference story, control, atmosphere, cloud and effect fixtures |
 
 Bloom here is a single-scale Gaussian effect. Spatial AA is a local edge-aware
-filter. Neither establishes parity with UnrealBloomPass, SMAA or TAA. The existing
-history API supplies lifetime and invalidation mechanics; it is not a temporal
-antialiasing algorithm.
+filter. Neither establishes parity with UnrealBloomPass or SMAA.
+`TemporalAntialiasing` supplies a separate jitter, motion and depth reconstruction
+path before graph effects. See [temporal AA](design/temporal-antialiasing.md) for
+its supported materials, memory accounting and rejection rules.
 
 Combined HDR/MSAA/bloom/spatial/history fixtures verify independent histories on
 shared-scene views, exposure changes, camera cuts, projection changes, resize and

@@ -7,6 +7,7 @@ import 'attachment_scope.dart';
 import '../input/pointer_event.dart';
 import '../rendering/capabilities.dart';
 import '../rendering/color_pipeline.dart';
+import '../rendering/temporal_aa_options.dart';
 import '../rendering/scene_issue.dart';
 import '../rendering/renderer.dart';
 import '../rendering/frame_submission.dart';
@@ -19,6 +20,7 @@ import '../resources/texture.dart';
 part 'plugin_graph.dart';
 part 'texture_history.dart';
 part 'environment_binding.dart';
+part 'temporal_binding.dart';
 
 /// Share one exported key instance between a provider and its dependents.
 class ServiceKey<T extends Object> {
@@ -91,6 +93,8 @@ class PluginContext {
   FrameGraphBinding? _frameGraph;
   EnvironmentBinding? _environment;
   final EnvironmentBinding Function() _claimEnvironment;
+  TemporalBinding? _temporal;
+  final TemporalBinding Function() _claimTemporal;
   PluginGraph? _graph;
   final _SharedFrameGraph Function() _claimGraph;
   final FrameGraphBinding Function() _claimFrameGraph;
@@ -118,6 +122,7 @@ class PluginContext {
     this._claimFrameGraph,
     this._claimGraph,
     this._claimEnvironment,
+    this._claimTemporal,
   );
 
   /// Shared preparation and effect contributions, owned by this attachment.
@@ -312,9 +317,20 @@ class SceneEngine {
   void invalidateHistory() {
     if (_closed) throw StateError('Engine has been disposed.');
     _sharedGraph?.invalidateHistory();
+    _temporal?.reset();
   }
 
   EnvironmentBinding? _environment;
+  TemporalBinding? _temporal;
+  TemporalBinding _claimTemporal(String pluginId) {
+    if (_temporal != null) {
+      throw StateError(
+        'Plugin $pluginId cannot replace the temporal provider.',
+      );
+    }
+    return _temporal = TemporalBinding._();
+  }
+
   EnvironmentBinding _claimEnvironment(String pluginId) {
     if (_environment != null) {
       throw StateError(
@@ -482,6 +498,7 @@ class SceneEngine {
           () => engine!._claimFrameGraph(plugin.id),
           () => engine!._claimGraph(),
           () => engine!._claimEnvironment(plugin.id),
+          () => engine!._claimTemporal(plugin.id),
         );
         engine._attached.add((plugin, context));
         try {
@@ -763,6 +780,8 @@ class SceneEngine {
           graph: graph ?? _frameGraph?.graph,
           colorPipeline: colorPipeline,
           environment: _environment?.environment,
+          temporalAA: _temporal?.options,
+          temporalReset: _temporal?.generation ?? 0,
         );
         if (_sharedGraph case final shared?) {
           submission = submission.withGraph(

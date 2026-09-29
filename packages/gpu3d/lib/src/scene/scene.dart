@@ -23,6 +23,10 @@ part '../lights/rect_area_light.dart';
 part '../lights/shadow_settings.dart';
 
 class Object3D with _Revisioned {
+  static int _nextObjectId = 1;
+
+  /// Stable within this isolate, across scene edits and reparenting.
+  final int id = _nextObjectId++;
   final String? name;
   Object3D({this.name});
   Vec3 _position = Vec3.zero, _scale = Vec3.one;

@@ -32,7 +32,9 @@ alpha contrast, filters along the edge, then restores straight color. It can
 soften shader and texture edges that MSAA leaves untouched. It has no temporal
 history and does not claim FXAA, SMAA or TAA parity.
 
-All effects run after MSAA resolve and before the terminal tone map. Your other
+All effects run after MSAA resolve or native temporal reconstruction, and before
+the terminal tone map. See [temporal AA](temporal-antialiasing.md) for the
+separate motion-aware scene profile. Your other
 effects can order themselves with `after`, using this plugin's configurable ID.
 The implementation uses the public graph, shader and resource APIs. It doesn't
 need native renderer hooks or the geospatial package.

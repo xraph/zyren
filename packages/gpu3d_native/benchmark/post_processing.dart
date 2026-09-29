@@ -13,7 +13,15 @@ Future<void> main() async {
   try {
     for (final width in [640, 1280]) {
       final height = width * 9 ~/ 16;
-      for (final profile in ['ldr', 'hdr', 'msaa4', 'bloom', 'bloom+spatial']) {
+      for (final profile in [
+        'ldr',
+        'hdr',
+        'msaa4',
+        'bloom',
+        'bloom+spatial',
+        'taa',
+        'bloom+taa',
+      ]) {
         final scene = Scene()..background = const Color3(.01, .01, .01);
         final copies = scene.add(
           InstancedMesh(
@@ -49,12 +57,19 @@ Future<void> main() async {
           scene: scene,
           camera: camera,
           backendFactory: () async => backend.createView(),
-          plugins: [effects],
+          plugins: [
+            effects,
+            if (profile.contains('taa')) TemporalAntialiasing(),
+          ],
           onIssue: (issue) => throw SceneException(issue),
         );
         final pipeline = profile == 'ldr'
             ? null
-            : ColorPipeline(sampleCount: profile == 'hdr' ? 1 : 4);
+            : ColorPipeline(
+                sampleCount: profile == 'hdr' || profile.contains('taa')
+                    ? 1
+                    : 4,
+              );
         try {
           Future<FrameOutput> frame() => engine.renderFrame(
             elapsed: Duration.zero,
@@ -63,6 +78,9 @@ Future<void> main() async {
             colorPipeline: pipeline,
           );
           await frame();
+          await frame();
+          await frame();
+          final temporalBefore = await backend.temporalStats();
           final resident = await backend.resourceStats();
           final times = <int>[], builds = <int>[];
           FrameStats? last;
@@ -83,6 +101,12 @@ Future<void> main() async {
               times.add(timer.elapsedMicroseconds);
               builds.add(last.cpuBuildTime.inMicroseconds);
             }
+          }
+          final temporalAfter = await backend.temporalStats();
+          if (temporalBefore.residentBytes != temporalAfter.residentBytes) {
+            throw StateError(
+              'Temporal allocations grew during steady rendering.',
+            );
           }
           final after = await backend.resourceStats();
           if (after.residentBytes != resident.residentBytes ||
@@ -107,6 +131,7 @@ Future<void> main() async {
             'p50CaptureMs': percentile(builds, .5),
             'drawCalls': last!.drawCalls,
             'residentResourceBytes': after.residentBytes,
+            'temporalBytes': temporalAfter.residentBytes,
             'resourceAllocations': after.liveAllocations,
             'readbackBytes': last.readbackBytes,
             'steadyUploadBytes': last.uploadedBytes,
@@ -115,7 +140,8 @@ Future<void> main() async {
         } finally {
           await engine.dispose();
         }
-        if ((await backend.resourceStats()).residentBytes != 0) {
+        if ((await backend.temporalStats()).residentBytes != 0 ||
+            (await backend.resourceStats()).residentBytes != 0) {
           throw StateError('Effect resources leaked after view disposal.');
         }
       }
