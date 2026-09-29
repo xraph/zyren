@@ -48,9 +48,10 @@ class SceneSnapshot {
         (mesh) => mesh['cast_shadow'] == true || mesh['receive_shadow'] == true,
       );
   final List<Map<String, Object>> _meshes;
-  final List<Map<String, Object>> _lights, _hemispheres;
+  final List<Map<String, Object>> _lights, _hemispheres, _areas;
   bool get hasStandardMaterials => _meshes.any((m) => m.containsKey('pbr'));
   int get punctualLightCount => _lights.length;
+  int get areaLightCount => _areas.length;
   int get hemisphereLightCount => _hemispheres.length;
   final Map<int, GeometrySnapshot> _geometries;
   final Map<int, InstanceSnapshot> _instances;
@@ -87,6 +88,7 @@ class SceneSnapshot {
     this._meshes,
     this._lights,
     this._hemispheres,
+    this._areas,
     this._geometries,
     this._instances,
     this._poses,
@@ -107,12 +109,53 @@ class SceneSnapshot {
     var instanceCapacity = 0;
     final lights = <Map<String, Object>>[];
     final hemispheres = <Map<String, Object>>[];
+    final areas = <Map<String, Object>>[];
     final meshShaders = <int, MeshShaderProgram>{};
     final shadows = <_ShadowLight>[];
     void visit(Object3D node, vm.Matrix4 parent, bool parentVisible) {
       final visible = parentVisible && node.visible;
       final matchesLayers = node.layers.intersects(camera.layers);
       final world = parent * node.localMatrix.toVectorMath();
+      if (visible && matchesLayers && node is RectAreaLight) {
+        if (areas.length >= 4) {
+          throw ArgumentError(
+            'A scene supports at most 4 visible area lights.',
+          );
+        }
+        final w =
+            vm.Vector3(
+              world.entry(0, 0),
+              world.entry(1, 0),
+              world.entry(2, 0),
+            ) *
+            (node.width * .5);
+        final h =
+            vm.Vector3(
+              world.entry(0, 1),
+              world.entry(1, 1),
+              world.entry(2, 1),
+            ) *
+            (node.height * .5);
+        final area = w.cross(h).length2;
+        if (!area.isFinite || area < 1e-20) {
+          throw ArgumentError(
+            'Area light transform must define a finite nonzero area.',
+          );
+        }
+        areas.add(
+          _freeze(<String, Object>{
+                'position':
+                    (world.getTranslation() - camera.position.toVectorMath())
+                        .storage
+                        .toList(),
+                'half_width': w.storage.toList(),
+                'half_height': h.storage.toList(),
+                'color': node.color.toList(),
+                'intensity': node.intensity,
+              })
+              as Map<String, Object>,
+        );
+      }
       if (visible && matchesLayers && node is HemisphereLight) {
         if (hemispheres.length >= 4) {
           throw ArgumentError(
@@ -351,6 +394,7 @@ class SceneSnapshot {
       List.unmodifiable(meshes),
       List.unmodifiable(lights),
       List.unmodifiable(hemispheres),
+      List.unmodifiable(areas),
       Map.unmodifiable(geometries),
       Map.unmodifiable(instances),
       Map.unmodifiable(poses),
@@ -476,6 +520,7 @@ class FrameSubmission {
           'ambient': scene._ambient,
           'lights': scene._lights,
           'hemispheres': scene._hemispheres,
+          if (scene._areas.isNotEmpty) 'areas': scene._areas,
           if (colorPipeline case final pipeline?)
             'color_pipeline': {
               'tone_mapping': pipeline.toneMapping.index,

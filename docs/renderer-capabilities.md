@@ -22,7 +22,7 @@ The current native limits are explicit:
 | Scene and scoped resources per device | 256 MiB, including replacement candidates |
 | HDR or multisample color attachment | 64 MiB per attachment |
 | PostProcessing intermediates | 64 MiB per graph by default; configurable within device limits |
-| Punctual / hemisphere lights | 16 / 4 |
+| Punctual / hemisphere / rectangular area lights | 16 / 4 / 4 |
 | Instances / joints / morph targets | 100000 / 256 / 64 |
 
 These are payload admission limits. GPU padding, render targets, shadow atlases,
@@ -63,6 +63,11 @@ plugin. Real compressed models pass Metal pixels and resource cleanup; Flutter's
 default services also decode them without creating a renderer. Basis transcodes
 to RGBA8, so compressed GPU texture residency remains separate.
 See [compressed assets](design/compressed-assets.md).
+
+Rectangular area lights now integrate diffuse, GGX and physical-layer response
+on Metal. Four oriented emitters are supported per scene. Fixed LTC tables add
+128 KiB per renderer outside scoped counters. Area-light shadows and broader
+device qualification remain open. See [area lights](design/area-lights.md).
 
 The remaining breadth has concrete acceptance work:
 

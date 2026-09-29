@@ -696,6 +696,21 @@ class SceneEngine {
           ),
         );
       }
+      final areaCount = _visibleAreaLightCount(scene, camera.layers);
+      if (areaCount > capabilities.limits.maxAreaLights ||
+          (areaCount > 0 &&
+              !capabilities.supports(RenderFeature.areaLighting))) {
+        throw SceneException(
+          SceneIssue(
+            code: SceneIssueCodes.unsupportedFeature,
+            message:
+                'This scene exceeds the backend area-light capability or capacity.',
+            operation: 'render',
+            requiredFeatures: {RenderFeature.areaLighting},
+            limits: capabilities.limits,
+          ),
+        );
+      }
       _checkDeformation(scene, capabilities, camera.layers);
       final instanceCapacity = _instanceCapacity(scene);
       if (instanceCapacity > 0 &&
@@ -895,6 +910,13 @@ int _visibleLightCount(Object3D node, LayerMask layers) => !node.visible
             (sum, child) => sum + _visibleLightCount(child, layers),
           );
 
+int _visibleAreaLightCount(Object3D node, LayerMask layers) => !node.visible
+    ? 0
+    : (node is RectAreaLight && node.layers.intersects(layers) ? 1 : 0) +
+          node.children.fold(
+            0,
+            (sum, child) => sum + _visibleAreaLightCount(child, layers),
+          );
 int _visibleHemisphereLightCount(Object3D node, LayerMask layers) =>
     !node.visible
     ? 0

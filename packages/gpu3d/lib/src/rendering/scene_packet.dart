@@ -194,8 +194,9 @@ final class ScenePacketEncoder {
         uploadBytes > 64 * 1024 * 1024) {
       throw ArgumentError('Scene resource upload exceeds the frame budget.');
     }
-    final opcode =
-        scene._meshes.any((m) => (m['pbr'] as Map?)?['physical'] != null)
+    final opcode = scene.areaLightCount > 0
+        ? 30
+        : scene._meshes.any((m) => (m['pbr'] as Map?)?['physical'] != null)
         ? 29
         : (submission.colorPipeline?.sampleCount ?? 1) > 1
         ? 28
@@ -277,6 +278,20 @@ final class ScenePacketEncoder {
         body.floats((light['sky_color'] as List).cast<double>());
         body.floats((light['ground_color'] as List).cast<double>());
         body.floats((light['direction'] as List).cast<double>());
+        body.floats([light['intensity'] as double]);
+      }
+    }
+    if (opcode >= 30) {
+      body.u32(scene._areas.length);
+      for (final light in scene._areas) {
+        for (final field in [
+          'position',
+          'half_width',
+          'half_height',
+          'color',
+        ]) {
+          body.floats((light[field] as List).cast<double>());
+        }
         body.floats([light['intensity'] as double]);
       }
     }

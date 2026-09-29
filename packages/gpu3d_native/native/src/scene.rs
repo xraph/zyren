@@ -408,6 +408,8 @@ pub struct Frame {
     pub lights: Vec<crate::lighting::PunctualLight>,
     #[serde(default)]
     pub hemispheres: Vec<crate::lighting::HemisphereLight>,
+    #[serde(default)]
+    pub areas: Vec<crate::lighting::RectAreaLight>,
     pub geometries: Vec<Geometry>,
     pub meshes: Vec<Mesh>,
     #[serde(default)]
@@ -456,6 +458,12 @@ impl Frame {
     }
     pub fn validate(&self, cached: &HashSet<u32>) -> Result<(), String> {
         self.shadows.validate(&self.lights)?;
+        if self.areas.len() > crate::lighting::MAX_AREAS {
+            return Err("scene exceeds area light limit".into());
+        }
+        for light in &self.areas {
+            light.validate()?;
+        }
         if let Some(pipeline) = self.color_pipeline {
             pipeline.validate()?;
         }

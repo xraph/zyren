@@ -19,6 +19,7 @@ part 'deformation.dart';
 part '../geometry/skin.dart';
 part '../lights/punctual_light.dart';
 part '../lights/hemisphere_light.dart';
+part '../lights/rect_area_light.dart';
 part '../lights/shadow_settings.dart';
 
 class Object3D with _Revisioned {

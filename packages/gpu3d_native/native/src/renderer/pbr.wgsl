@@ -29,10 +29,12 @@ struct PunctualLight {
     cone: vec4<f32>,
 };
 struct HemisphereLight { sky_intensity: vec4<f32>, ground: vec4<f32>, direction: vec4<f32> };
+struct AreaLight { position: vec4<f32>, half_width: vec4<f32>, half_height: vec4<f32>, color_intensity: vec4<f32> };
 struct Lighting {
     count: vec4<u32>,
     lights: array<PunctualLight, 16>,
     hemispheres: array<HemisphereLight, 4>,
+    areas: array<AreaLight, 4>,
 };
 @group(0) @binding(1) var<uniform> lighting: Lighting;
 
@@ -105,6 +107,9 @@ fn shade_standard(input: VertexOutput, front: bool, surface: StandardSurface) ->
         }
         color += physical_direct(n, v, l, input.tangent, surface) * light.color_intensity.rgb * light.color_intensity.w * attenuation
             * shadow_visibility(i, input.relative_position, select(-normalized_or(input.normal,n), normalized_or(input.normal,n), front), l);
+    }
+    for (var i = 0u; i < lighting.count.z; i++) {
+        color += shade_area(lighting.areas[i], input.relative_position, n, v, input.tangent, surface);
     }
     return vec4(color, select(1., alpha, mode > 1.5));
 }

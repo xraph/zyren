@@ -74,3 +74,17 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
+
+## LTC area-light tables
+
+The native rectangular-light matrix and amplitude tables are adapted from
+Three.js r180, under the Three.js MIT terms above, and from the fitted LTC data
+by Eric Heitz, Jonathan Dupuy, Stephen Hill and David Neubelt (2017).
+Their [license](packages/gpu3d_native/native/src/renderer/ltc/LICENSE) and
+[table provenance](packages/gpu3d_native/native/src/renderer/ltc/README.md) are
+included with the data.
+
+Reference: *Real-Time Polygonal-Light Shading with Linearly Transformed Cosines*,
+Eric Heitz, Jonathan Dupuy, Stephen Hill and David Neubelt, ACM Transactions on
+Graphics (Proceedings of ACM SIGGRAPH 2016) 35(4), 2016.
+[Project page](https://eheitzresearch.wordpress.com/415-2/).

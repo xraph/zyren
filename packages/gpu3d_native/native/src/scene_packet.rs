@@ -31,6 +31,7 @@ pub struct ScenePacket {
     ambient: f32,
     lights: Vec<crate::lighting::PunctualLight>,
     hemispheres: Vec<crate::lighting::HemisphereLight>,
+    areas: Vec<crate::lighting::RectAreaLight>,
     retained_textures: HashSet<u32>,
     textures: Vec<SceneTexture>,
     geometry_patches: Vec<GeometryPatch>,
@@ -82,7 +83,7 @@ impl ScenePacket {
             return Err("unsupported scene packet".into());
         }
         let opcode = r.u32()?;
-        if !(10..=29).contains(&opcode) {
+        if !(10..=30).contains(&opcode) {
             return Err("unsupported scene packet".into());
         }
         let textured = opcode >= 11;
@@ -155,6 +156,24 @@ impl ScenePacket {
                 };
                 light.validate()?;
                 hemispheres.push(light);
+            }
+        }
+        let mut areas = Vec::new();
+        if opcode >= 30 {
+            let count = r.u32()? as usize;
+            if count > crate::lighting::MAX_AREAS {
+                return Err("scene exceeds area light limit".into());
+            }
+            for _ in 0..count {
+                let light = crate::lighting::RectAreaLight {
+                    position: r.floats()?,
+                    half_width: r.floats()?,
+                    half_height: r.floats()?,
+                    color: r.floats()?,
+                    intensity: r.floats::<1>()?[0],
+                };
+                light.validate()?;
+                areas.push(light);
             }
         }
         let has_color_pipeline = if opcode >= 22 {
@@ -809,6 +828,7 @@ impl ScenePacket {
             ambient,
             lights,
             hemispheres,
+            areas,
             retained_textures,
             textures,
             geometry_patches,
@@ -894,6 +914,7 @@ impl ScenePacket {
             ambient: self.ambient,
             lights: self.lights,
             hemispheres: self.hemispheres,
+            areas: self.areas,
             geometries: self.geometries,
             meshes,
             binary,

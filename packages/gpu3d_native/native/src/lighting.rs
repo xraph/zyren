@@ -2,6 +2,7 @@ use serde::Deserialize;
 
 pub const MAX_LIGHTS: usize = 16;
 pub const MAX_HEMISPHERES: usize = 4;
+pub const MAX_AREAS: usize = 4;
 
 #[derive(Clone, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -132,6 +133,47 @@ impl HemisphereLight {
         Ok(())
     }
 }
+#[derive(Clone, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RectAreaLight {
+    pub position: [f32; 3],
+    pub half_width: [f32; 3],
+    pub half_height: [f32; 3],
+    pub color: [f32; 3],
+    pub intensity: f32,
+}
+impl RectAreaLight {
+    pub fn validate(&self) -> Result<(), String> {
+        let normal =
+            glam::Vec3::from_array(self.half_width).cross(glam::Vec3::from_array(self.half_height));
+        if self
+            .position
+            .iter()
+            .chain(&self.half_width)
+            .chain(&self.half_height)
+            .any(|v| !v.is_finite())
+            || !normal.length_squared().is_finite()
+            || normal.length_squared() < 1e-20
+            || !self.intensity.is_finite()
+            || !(0.0..=1e12).contains(&self.intensity)
+            || self
+                .color
+                .iter()
+                .any(|v| !v.is_finite() || !(0.0..=1.0).contains(v))
+        {
+            return Err("invalid rectangular area light".into());
+        }
+        Ok(())
+    }
+}
+#[repr(C)]
+#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+pub(crate) struct AreaUniform {
+    position: [f32; 4],
+    half_width: [f32; 4],
+    half_height: [f32; 4],
+    color_intensity: [f32; 4],
+}
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub(crate) struct HemisphereUniform {
@@ -153,13 +195,40 @@ pub(crate) struct LightingUniform {
     count: [u32; 4],
     lights: [LightUniform; MAX_LIGHTS],
     hemispheres: [HemisphereUniform; MAX_HEMISPHERES],
+    areas: [AreaUniform; MAX_AREAS],
 }
 impl LightingUniform {
-    pub fn capture(lights: &[PunctualLight], hemispheres: &[HemisphereLight]) -> Self {
+    pub fn capture(
+        lights: &[PunctualLight],
+        hemispheres: &[HemisphereLight],
+        areas: &[RectAreaLight],
+    ) -> Self {
         use bytemuck::Zeroable;
         let mut result = Self::zeroed();
         result.count[0] = lights.len() as u32;
         result.count[1] = hemispheres.len() as u32;
+        result.count[2] = areas.len() as u32;
+        for (output, light) in result.areas.iter_mut().zip(areas) {
+            output.position = [light.position[0], light.position[1], light.position[2], 0.];
+            output.half_width = [
+                light.half_width[0],
+                light.half_width[1],
+                light.half_width[2],
+                0.,
+            ];
+            output.half_height = [
+                light.half_height[0],
+                light.half_height[1],
+                light.half_height[2],
+                0.,
+            ];
+            output.color_intensity = [
+                light.color[0],
+                light.color[1],
+                light.color[2],
+                light.intensity,
+            ];
+        }
         for (output, light) in result.hemispheres.iter_mut().zip(hemispheres) {
             output.sky_intensity = [
                 light.sky_color[0],
@@ -259,6 +328,46 @@ mod physical_tests {
             value[index] = invalid;
             material.physical = Some(value);
             assert!(material.validate().is_err(), "invalid slot {index}");
+        }
+    }
+}
+
+#[cfg(test)]
+mod area_tests {
+    use super::RectAreaLight;
+    #[test]
+    fn rejects_degenerate_nonfinite_and_unbounded_area_lights() {
+        let good = RectAreaLight {
+            position: [0., 0., 2.],
+            half_width: [1., 0., 0.],
+            half_height: [0., 1., 0.],
+            color: [1.; 3],
+            intensity: 1.,
+        };
+        good.validate().unwrap();
+        for light in [
+            RectAreaLight {
+                half_height: [2., 0., 0.],
+                ..good.clone()
+            },
+            RectAreaLight {
+                half_width: [f32::INFINITY, 0., 0.],
+                ..good.clone()
+            },
+            RectAreaLight {
+                color: [-1., 0., 0.],
+                ..good.clone()
+            },
+            RectAreaLight {
+                intensity: f32::NAN,
+                ..good.clone()
+            },
+            RectAreaLight {
+                position: [0., f32::INFINITY, 0.],
+                ..good.clone()
+            },
+        ] {
+            assert!(light.validate().is_err());
         }
     }
 }

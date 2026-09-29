@@ -20,6 +20,7 @@ enum RenderFeature {
   meshShaders,
   standardMaterials,
   physicalMaterials,
+  areaLighting,
   hdrColor,
   environmentLighting,
   shadows,
@@ -32,7 +33,7 @@ enum RenderFeature {
 class DeviceLimits {
   final int maxTextureDimension2D;
   final int maxGeometryBytes;
-  final int maxPunctualLights, maxHemisphereLights, maxInstances;
+  final int maxPunctualLights, maxHemisphereLights, maxInstances, maxAreaLights;
   final int maxJoints, maxMorphTargets;
 
   /// Descriptor bytes shared by scene resources and explicit scopes. Null is unknown.
@@ -47,6 +48,7 @@ class DeviceLimits {
     this.maxMorphTargets = 0,
     this.maxPunctualLights = 0,
     this.maxHemisphereLights = 0,
+    this.maxAreaLights = 0,
     Set<int> sampleCounts = const {1},
   }) : sampleCounts = Set.unmodifiable(sampleCounts) {
     if (maxTextureDimension2D < 1 ||
@@ -57,6 +59,7 @@ class DeviceLimits {
         maxMorphTargets < 0 ||
         maxPunctualLights < 0 ||
         maxHemisphereLights < 0 ||
+        maxAreaLights < 0 ||
         sampleCounts.isEmpty ||
         sampleCounts.any((value) => value < 1)) {
       throw ArgumentError('Device limits must be positive.');

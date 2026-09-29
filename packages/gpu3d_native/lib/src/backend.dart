@@ -131,6 +131,7 @@ class NativeBackend implements NativeGpuBackend {
       RenderFeature.meshShaders,
       RenderFeature.standardMaterials,
       RenderFeature.physicalMaterials,
+      RenderFeature.areaLighting,
       RenderFeature.hdrColor,
       RenderFeature.environmentLighting,
       RenderFeature.shadows,
@@ -152,6 +153,7 @@ class NativeBackend implements NativeGpuBackend {
       maxMorphTargets: 64,
       maxPunctualLights: 16,
       maxHemisphereLights: 4,
+      maxAreaLights: 4,
     ),
   );
   @override

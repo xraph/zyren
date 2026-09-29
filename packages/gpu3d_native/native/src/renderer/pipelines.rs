@@ -84,6 +84,8 @@ impl MeshPipelines {
                         "\n",
                         include_str!("physical.wgsl"),
                         "\n",
+                        include_str!("area_lights.wgsl"),
+                        "\n",
                         include_str!("shadow_sampling.wgsl")
                     )
                     .into(),

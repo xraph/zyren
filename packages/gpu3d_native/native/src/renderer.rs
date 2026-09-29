@@ -1,3 +1,4 @@
+mod area_lights;
 mod environment;
 use std::{
     collections::{HashMap, HashSet},
@@ -110,6 +111,7 @@ pub struct RendererState {
     layout: wgpu::BindGroupLayout,
     pbr_layout: wgpu::BindGroupLayout,
     environment_defaults: environment::Defaults,
+    area_tables: area_lights::Tables,
     shadows: shadows::ShadowSystem,
     geometries: HashMap<u32, GpuGeometry>,
     instances: HashMap<u32, instances::GpuInstances>,
@@ -231,10 +233,12 @@ impl Renderer {
                 ],
                 environment::layout_entries(),
                 shadows::layout_entries(),
+                area_lights::layout_entries(),
             ]
             .concat(),
         });
         let environment_defaults = environment::Defaults::new(&device);
+        let area_tables = area_lights::Tables::new(&device, &queue);
         let texture_layout = textures::layout(&device, 1);
         let standard_texture_layout = textures::layout(&device, 5);
         let deformation_layout = deformation::layout(&device);
@@ -265,6 +269,7 @@ impl Renderer {
                 standard_texture_layout,
                 pbr_layout,
                 environment_defaults,
+                area_tables,
                 shadows,
                 textures: HashMap::new(),
                 #[cfg(any(target_vendor = "apple", target_os = "android"))]
@@ -731,6 +736,7 @@ impl Renderer {
                     contents: bytemuck::bytes_of(&crate::lighting::LightingUniform::capture(
                         &frame.lights,
                         &frame.hemispheres,
+                        &frame.areas,
                     )),
                     usage: wgpu::BufferUsages::UNIFORM,
                 })
@@ -847,6 +853,7 @@ impl Renderer {
                     });
                     entries.extend(environment.entries(&self.environment_defaults));
                     entries.extend(shadows.entries(&self.shadows));
+                    entries.extend(self.area_tables.entries());
                 }
                 self.device.create_bind_group(&wgpu::BindGroupDescriptor {
                     label: None,
