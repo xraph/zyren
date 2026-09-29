@@ -14,6 +14,7 @@ struct Uniforms {
     pbr_factors: vec4<f32>,
     physical: array<vec4<f32>, 4>,
     transmission: array<vec4<f32>,2>,
+    optical: array<vec4<f32>,2>,
     capture_projection: mat4x4<f32>,
 };
 @group(0) @binding(0) var<uniform> uniforms: Uniforms;

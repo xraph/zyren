@@ -34,8 +34,8 @@ That is a realtime approximation, not a path-traced reference. Hemisphere lights
 remain a diffuse ambient approximation. A material with default physical factors
 matches standard PBR in the native direct-light fixture.
 
-Scene opcode 33 carries sixteen reflectance floats, eight transmission floats
-and ten optional layer maps
+Scene opcode 34 carries sixteen reflectance floats, eight transmission floats,
+eight optical floats and twelve optional layer maps
 after the standard descriptor. Older opcodes keep their layout. Layer edits participate in delta comparison, so
 they do not reupload geometry. `RenderFeature.physicalMaterials` lets adapters
 reject the family before rendering.
@@ -46,7 +46,7 @@ environment, shadow, instance and deformation regressions remain part of the
 acceptance run. [Transmission and volume](transmission.md) add glass refraction
 and absorption through a separate opaque capture.
 
-You can texture all ten layer channels:
+You can texture all twelve layer channels:
 
 | Map | Channels | Interpretation |
 | --- | --- | --- |
@@ -60,6 +60,8 @@ You can texture all ten layer channels:
 | `anisotropyMap` | RG, B | Tangent direction in [-1, 1], then strength |
 | `transmissionMap` | R | Linear transmission amount |
 | `thicknessMap` | G | Linear thickness multiplier |
+| `iridescenceMap` | R | Linear thin-film strength |
+| `iridescenceThicknessMap` | G | Interpolated minimum/maximum film thickness |
 
 Maps multiply their factors. Each map chooses UV0 or UV1 and keeps its sampler.
 Data maps require `rgba8Unorm`; color maps use the texture format's conversion.
@@ -70,7 +72,7 @@ Otherwise, supplied tangents must match the selected normal-map UV frame.
 Without supplied tangents, the shader derives the frame from UVs.
 
 Native pipelines only bind active physical maps and share identical sampler
-descriptors. All ten maps require 23 sampled textures per fragment stage, including
+descriptors. All twelve maps require 25 sampled textures per fragment stage, including
 fixed standard, environment, shadow, area and transmission bindings. They need
 eight fixed samplers plus the number of distinct physical-map samplers. Adapter
 limits reject unsupported combinations before uploads without poisoning the
@@ -91,3 +93,5 @@ Model references: [Khronos specular](https://github.com/KhronosGroup/glTF/blob/m
 [Filament](https://google.github.io/filament/main/filament.html) and the
 [Three.js sheen fit](https://github.com/mrdoob/three.js/blob/r180/src/renderers/shaders/ShaderChunk/lights_physical_pars_fragment.glsl.js).
 The Three.js notice is retained in `THIRD_PARTY_NOTICES.md`.
+
+[Optical materials](optical-materials.md) describes iridescence, dispersion and their glTF extensions.

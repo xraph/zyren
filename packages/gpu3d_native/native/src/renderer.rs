@@ -42,6 +42,7 @@ struct Uniforms {
     pbr_factors: [f32; 4],
     physical: [[f32; 4]; 4],
     transmission: [[f32; 4]; 2],
+    optical: [[f32; 4]; 2],
     capture_projection: [f32; 16],
 }
 
@@ -806,6 +807,10 @@ impl Renderer {
                         transmission: {
                             let t = mesh.pbr.as_ref().map_or([0.; 8], |p| p.transmission);
                             [t[..4].try_into().unwrap(), t[4..].try_into().unwrap()]
+                        },
+                        optical: {
+                            let o = mesh.pbr.as_ref().map_or([0.; 8], |p| p.optical);
+                            [o[..4].try_into().unwrap(), o[4..].try_into().unwrap()]
                         },
                         capture_projection: vp.to_cols_array(),
                         physical: {

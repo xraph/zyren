@@ -15,7 +15,7 @@ impl Variant {
         standard: &wgpu::BindGroupLayout,
         deformation: &wgpu::BindGroupLayout,
     ) -> Self {
-        let entries: Vec<_> = (0..10)
+        let entries: Vec<_> = (0..12)
             .filter(|i| sampler_slot(key, *i).is_some())
             .flat_map(|i| {
                 let mut entries = vec![wgpu::BindGroupLayoutEntry {
@@ -65,7 +65,7 @@ impl Variant {
 pub(super) fn shader(key: u64) -> String {
     let mut declarations = String::new();
     let mut body = String::from("var surface=original;\n");
-    for i in 0..10 {
+    for i in 0..12 {
         let Some(sampler) = sampler_slot(key, i) else {
             continue;
         };
@@ -95,6 +95,8 @@ pub(super) fn shader(key: u64) -> String {
             7 => "let direction=sample_7.rg*2.-vec2(1.);\nsurface.physical[2].w*=sample_7.b;\nsurface.physical[3].x+=select(0.,atan2(direction.y,direction.x),dot(direction,direction)>1e-12);\n",
             8 => "surface.transmission[0].x*=sample_8.r;\n",
             9 => "surface.transmission[0].y*=sample_9.g;\n",
+            10 => "surface.optical[0].x*=sample_10.r;\n",
+            11 => "surface.optical[0].w=mix(surface.optical[0].z,surface.optical[0].w,sample_11.g);\n",
             _ => unreachable!(),
         });
     }
@@ -162,8 +164,8 @@ fn sampler_slot(key: u64, i: u32) -> Option<u32> {
 }
 pub(super) fn binding_counts(key: u64) -> (u32, u32) {
     (
-        (0..10).filter(|i| sampler_slot(key, *i).is_some()).count() as u32,
-        (0..10)
+        (0..12).filter(|i| sampler_slot(key, *i).is_some()).count() as u32,
+        (0..12)
             .filter(|i| sampler_slot(key, *i) == Some(*i))
             .count() as u32,
     )

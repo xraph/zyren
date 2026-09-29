@@ -34,6 +34,36 @@ Uint8List physicalModel(
   },
 );
 void main() {
+  test('required iridescence and dispersion decode with linear maps', () async {
+    final bytes = physicalModel({
+      'KHR_materials_iridescence': {
+        'iridescenceFactor': .6,
+        'iridescenceIor': 1.4,
+        'iridescenceThicknessMinimum': 600,
+        'iridescenceThicknessMaximum': 200,
+        'iridescenceTexture': {'index': 0},
+        'iridescenceThicknessTexture': {'index': 0},
+      },
+      'KHR_materials_volume': {'thicknessFactor': 1},
+      'KHR_materials_dispersion': {'dispersion': .7},
+    });
+    final scope = scopeFor(ImageSources(bytes), Images());
+    final model = await scope.load(Gltf.asset('optics.glb')).result;
+    final material = onlyMesh(model).material as PhysicalMaterial;
+    expect(material.iridescence, .6);
+    expect(material.iridescenceIor, 1.4);
+    expect(material.iridescenceThicknessMinimum, 600);
+    expect(material.iridescenceThicknessMaximum, 200);
+    expect(material.dispersion, .7);
+    expect(
+      material.iridescenceMap!.image.descriptor.format,
+      TextureFormat.rgba8Unorm,
+    );
+    expect(
+      material.iridescenceThicknessMap!.image,
+      same(material.iridescenceMap!.image),
+    );
+  });
   test(
     'required physical glTF extensions publish factors and all map channels',
     () async {
@@ -195,6 +225,18 @@ void main() {
           'KHR_materials_emissive_strength': {'emissiveStrength': -1},
         },
         {'KHR_materials_unlit': {}, 'KHR_materials_clearcoat': {}},
+        {
+          'KHR_materials_dispersion': {'dispersion': .1},
+        },
+        {
+          'KHR_materials_iridescence': {'iridescenceIor': .9},
+        },
+        {
+          'KHR_materials_iridescence': {'iridescenceFactor': 2},
+        },
+        {
+          'KHR_materials_iridescence': {'iridescenceThicknessMinimum': -1},
+        },
         {
           'KHR_materials_volume': {'attenuationDistance': 0},
         },

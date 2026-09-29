@@ -8,6 +8,8 @@ const physicalExtensions = {
   'KHR_materials_anisotropy',
   'KHR_materials_transmission',
   'KHR_materials_volume',
+  'KHR_materials_iridescence',
+  'KHR_materials_dispersion',
 };
 const emissionExtension = 'KHR_materials_emissive_strength';
 
@@ -115,7 +117,35 @@ extension on MaterialDecoder {
             maximum: 1e12,
           )
         : double.infinity;
+    if (parsed.containsKey('KHR_materials_dispersion') &&
+        !parsed.containsKey('KHR_materials_volume')) {
+      fail(
+        '$path.extensions.KHR_materials_dispersion',
+        'Dispersion requires KHR_materials_volume.',
+      );
+    }
     final factors = PhysicalMaterial(
+      iridescence: factor('iridescence', 'iridescenceFactor', 0),
+      iridescenceIor: factor(
+        'iridescence',
+        'iridescenceIor',
+        1.3,
+        minimum: 1,
+        maximum: 1e6,
+      ),
+      iridescenceThicknessMinimum: factor(
+        'iridescence',
+        'iridescenceThicknessMinimum',
+        100,
+        maximum: 1e6,
+      ),
+      iridescenceThicknessMaximum: factor(
+        'iridescence',
+        'iridescenceThicknessMaximum',
+        400,
+        maximum: 1e6,
+      ),
+      dispersion: factor('dispersion', 'dispersion', 0, maximum: 1e3),
       transmission: factor('transmission', 'transmissionFactor', 0),
       thickness: factor('volume', 'thicknessFactor', 0, maximum: 1e6),
       attenuationDistance: distance,
@@ -152,6 +182,8 @@ extension on MaterialDecoder {
       map('anisotropy', 'anisotropyTexture'),
       map('transmission', 'transmissionTexture'),
       map('volume', 'thicknessTexture'),
+      map('iridescence', 'iridescenceTexture'),
+      map('iridescence', 'iridescenceThicknessTexture'),
     ]);
     return standard ? recipe : null;
   }

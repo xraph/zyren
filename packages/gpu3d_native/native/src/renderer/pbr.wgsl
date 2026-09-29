@@ -125,6 +125,7 @@ struct StandardSurface {
     emission: vec3<f32>, occlusion: f32,
     physical: array<vec4<f32>,4>, coat_normal: vec3<f32>,
     transmission: array<vec4<f32>,2>,
+    optical: array<vec4<f32>,2>,
 };
 fn standard_surface(input: VertexOutput) -> StandardSurface {
     var surface: StandardSurface;
@@ -136,6 +137,7 @@ fn standard_surface(input: VertexOutput) -> StandardSurface {
     surface.occlusion = 1.;
     surface.physical = uniforms.physical;
     surface.transmission = uniforms.transmission;
+    surface.optical = uniforms.optical;
     surface.coat_normal = surface.normal;
     return surface;
 }

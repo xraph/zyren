@@ -411,6 +411,23 @@ class SceneSnapshot {
                               .toPacket(),
                         if (material.thicknessMap != null)
                           'thickness_map': material.thicknessMap!.toPacket(),
+                        if (material.iridescenceMap != null)
+                          'iridescence_map': material.iridescenceMap!
+                              .toPacket(),
+                        if (material.iridescenceThicknessMap != null)
+                          'iridescence_thickness_map': material
+                              .iridescenceThicknessMap!
+                              .toPacket(),
+                        'optical': <double>[
+                          material.iridescence,
+                          material.iridescenceIor,
+                          material.iridescenceThicknessMinimum,
+                          material.iridescenceThicknessMaximum,
+                          material.dispersion,
+                          0,
+                          0,
+                          0,
+                        ],
                         'transmission': <double>[
                           material.transmission,
                           material.thickness,

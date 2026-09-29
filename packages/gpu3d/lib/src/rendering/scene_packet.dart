@@ -196,7 +196,7 @@ final class ScenePacketEncoder {
     }
     final opcode =
         scene._meshes.any((m) => (m['pbr'] as Map?)?['physical'] != null)
-        ? 33
+        ? 34
         : submission.temporalAA != null
         ? 31
         : scene.areaLightCount > 0
@@ -546,6 +546,9 @@ final class ScenePacketEncoder {
                     (material!['transmission'] as List).cast<double>(),
                   );
                 }
+                if (opcode >= 34) {
+                  body.floats((material!['optical'] as List).cast<double>());
+                }
                 if (opcode >= 32) {
                   for (final field in _physicalMapFields) {
                     final binding = (material![field] as List?)?.cast<int>();
@@ -663,6 +666,7 @@ bool _sameMesh(Map<String, Object> a, Map<String, Object> b) {
       ..._physicalMapFields,
       'physical',
       'transmission',
+      'optical',
     ]) {
       final left = (leftPbr[field] as List?) ?? const [],
           right = (rightPbr[field] as List?) ?? const [];
@@ -774,4 +778,6 @@ const _physicalMapFields = [
   'anisotropy_map',
   'transmission_map',
   'thickness_map',
+  'iridescence_map',
+  'iridescence_thickness_map',
 ];

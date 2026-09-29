@@ -4,6 +4,13 @@ part of 'material.dart';
 /// Colors and lighting operate in linear space. Rotation is in radians about
 /// the surface normal. Anisotropy uses the geometry's tangent frame.
 final class PhysicalMaterial extends StandardMaterial {
+  /// Thin-film thickness is measured in nanometres. Dispersion controls the
+  /// wavelength spread through a transmissive volume; zero disables it.
+  final double iridescence, iridescenceIor;
+  final double iridescenceThicknessMinimum, iridescenceThicknessMaximum;
+  final double dispersion;
+  final TextureMap? iridescenceMap, iridescenceThicknessMap;
+
   /// Optical transmission, independent of alpha coverage.
   final double transmission, thickness, attenuationDistance;
   final Color3 attenuationColor;
@@ -31,6 +38,8 @@ final class PhysicalMaterial extends StandardMaterial {
     ?anisotropyMap,
     ?transmissionMap,
     ?thicknessMap,
+    ?iridescenceMap,
+    ?iridescenceThicknessMap,
   ];
 
   final double ior;
@@ -43,6 +52,13 @@ final class PhysicalMaterial extends StandardMaterial {
   final Color3 specularColor;
   final Color3 sheenColor;
   PhysicalMaterial({
+    this.iridescence = 0,
+    this.iridescenceIor = 1.3,
+    this.iridescenceThicknessMinimum = 100,
+    this.iridescenceThicknessMaximum = 400,
+    this.dispersion = 0,
+    this.iridescenceMap,
+    this.iridescenceThicknessMap,
     this.transmission = 0,
     this.thickness = 0,
     this.attenuationDistance = double.infinity,
@@ -89,6 +105,7 @@ final class PhysicalMaterial extends StandardMaterial {
     super.depthWrite,
   }) {
     for (final entry in {
+      'iridescence': iridescence,
       'transmission': transmission,
       'specularIntensity': specularIntensity,
       'clearcoat': clearcoat,
@@ -98,6 +115,16 @@ final class PhysicalMaterial extends StandardMaterial {
     }.entries) {
       if (!entry.value.isFinite || entry.value < 0 || entry.value > 1) {
         throw ArgumentError.value(entry.value, entry.key, 'Expected [0, 1].');
+      }
+    }
+    for (final (value, lower, upper, name) in [
+      (iridescenceIor, 1.0, 1e6, 'iridescenceIor'),
+      (iridescenceThicknessMinimum, 0.0, 1e6, 'iridescenceThicknessMinimum'),
+      (iridescenceThicknessMaximum, 0.0, 1e6, 'iridescenceThicknessMaximum'),
+      (dispersion, 0.0, 1e3, 'dispersion'),
+    ]) {
+      if (!value.isFinite || value < lower || value > upper) {
+        throw ArgumentError.value(value, name, 'Expected [$lower, $upper].');
       }
     }
     if (!thickness.isFinite || thickness < 0 || thickness > 1e6) {
@@ -136,6 +163,8 @@ final class PhysicalMaterial extends StandardMaterial {
       anisotropyMap,
       transmissionMap,
       thicknessMap,
+      iridescenceMap,
+      iridescenceThicknessMap,
     ].nonNulls) {
       if (map.image.descriptor.format != TextureFormat.rgba8Unorm) {
         throw ArgumentError(
@@ -148,6 +177,15 @@ final class PhysicalMaterial extends StandardMaterial {
   }
   @override
   PhysicalMaterial copyWith({
+    double? iridescence,
+    double? iridescenceIor,
+    double? iridescenceThicknessMinimum,
+    double? iridescenceThicknessMaximum,
+    double? dispersion,
+    TextureMap? iridescenceMap,
+    TextureMap? iridescenceThicknessMap,
+    bool clearIridescenceMap = false,
+    bool clearIridescenceThicknessMap = false,
     double? transmission,
     double? thickness,
     double? attenuationDistance,
@@ -208,6 +246,19 @@ final class PhysicalMaterial extends StandardMaterial {
     bool? vertexColors,
     DepthWrite? depthWrite,
   }) => PhysicalMaterial(
+    iridescence: iridescence ?? this.iridescence,
+    iridescenceIor: iridescenceIor ?? this.iridescenceIor,
+    iridescenceThicknessMinimum:
+        iridescenceThicknessMinimum ?? this.iridescenceThicknessMinimum,
+    iridescenceThicknessMaximum:
+        iridescenceThicknessMaximum ?? this.iridescenceThicknessMaximum,
+    dispersion: dispersion ?? this.dispersion,
+    iridescenceMap: clearIridescenceMap
+        ? null
+        : iridescenceMap ?? this.iridescenceMap,
+    iridescenceThicknessMap: clearIridescenceThicknessMap
+        ? null
+        : iridescenceThicknessMap ?? this.iridescenceThicknessMap,
     transmission: transmission ?? this.transmission,
     thickness: thickness ?? this.thickness,
     attenuationDistance: attenuationDistance ?? this.attenuationDistance,

@@ -414,6 +414,7 @@ pub(super) fn shader_source(mask: u64) -> String {
             include_str!("pbr.wgsl"),
             "\n",
             include_str!("physical.wgsl"),
+            include_str!("iridescence.wgsl"),
             include_str!("transmission.wgsl"),
             "\n",
             include_str!("area_lights.wgsl"),

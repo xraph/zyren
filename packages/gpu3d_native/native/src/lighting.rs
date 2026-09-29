@@ -10,9 +10,11 @@ pub struct StandardMaterial {
     #[serde(default)]
     pub physical: Option<[f32; 16]>,
     #[serde(default)]
-    pub physical_maps: [Option<crate::scene::ColorMap>; 10],
+    pub physical_maps: [Option<crate::scene::ColorMap>; 12],
     #[serde(default)]
     pub transmission: [f32; 8],
+    #[serde(default)]
+    pub optical: [f32; 8],
     pub metallic: f32,
     pub roughness: f32,
     pub emissive: [f32; 3],
@@ -53,6 +55,18 @@ impl StandardMaterial {
             })
     }
     pub fn validate(&self) -> Result<(), String> {
+        let o = self.optical;
+        if o.iter().any(|v| !v.is_finite())
+            || !(0.0..=1.).contains(&o[0])
+            || (o[1] != 0. && !(1.0..=1e6).contains(&o[1]))
+            || o[2..4].iter().any(|v| !(0.0..=1e6).contains(v))
+            || !(0.0..=1e3).contains(&o[4])
+            || o[5..].iter().any(|v| *v != 0.)
+            || (o[0] > 0. && o[1] < 1.)
+            || ((o[0] > 0. || o[4] > 0.) && self.physical.is_none())
+        {
+            return Err("invalid optical material parameters".into());
+        }
         let t = self.transmission;
         if t.iter().any(|v| !v.is_finite())
             || !(0.0..=1.).contains(&t[0])

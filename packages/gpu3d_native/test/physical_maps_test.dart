@@ -40,6 +40,8 @@ void main() {
     () async {
       final backend = await NativeBackend.create();
       final extensions = <String, Object?>{
+        'KHR_materials_iridescence': {'iridescenceFactor': .7},
+        'KHR_materials_dispersion': {'dispersion': .5},
         'KHR_materials_ior': {'ior': 1.8},
         'KHR_materials_specular': {'specularFactor': .6},
         'KHR_materials_clearcoat': {
@@ -107,6 +109,8 @@ void main() {
         expect(mesh.geometry.capture().tangents, isNotNull);
         final mapped = mesh.material;
         final reference = PhysicalMaterial(
+          iridescence: .7,
+          dispersion: .5,
           transmission: .6,
           thickness: .5,
           attenuationDistance: 2,
@@ -226,6 +230,12 @@ void main() {
           transmissionMap: scalar,
           thickness: .5,
           thicknessMap: scalar,
+          iridescence: .8,
+          iridescenceThicknessMinimum: 450,
+          iridescenceThicknessMaximum: 200,
+          iridescenceMap: scalar,
+          iridescenceThicknessMap: scalar,
+          dispersion: .3,
         );
         final reference = PhysicalMaterial(
           vertexColors: true,
@@ -248,6 +258,9 @@ void main() {
           anisotropy: .8 * 192 / 255,
           transmission: .7 * 64 / 255,
           thickness: .5 * 128 / 255,
+          iridescence: .8 * 64 / 255,
+          iridescenceThicknessMaximum: 450 + (200 - 450) * 128 / 255,
+          dispersion: .3,
           anisotropyRotation:
               .3 + math.atan2(128 * 2 / 255 - 1, 64 * 2 / 255 - 1),
         );

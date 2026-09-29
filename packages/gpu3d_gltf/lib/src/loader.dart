@@ -344,6 +344,8 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
               anisotropyMap: maps[7],
               transmissionMap: maps[8],
               thicknessMap: maps[9],
+              iridescenceMap: maps[10],
+              iridescenceThicknessMap: maps[11],
             );
           }
           primitives.add(_ModelPrimitive(geometry, material, primitive.name));

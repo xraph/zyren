@@ -17,11 +17,8 @@ fn transmission_sample(uv:vec2<f32>, surface_depth:f32) -> vec4<f32> {
     }}
     return select(vec4(-1.),color/max(total,1e-12),total>1e-8);
 }
-fn physical_transmission(input:VertexOutput, n:vec3<f32>, v:vec3<f32>, surface:StandardSurface) -> vec4<f32> {
-    let amount=surface.transmission[0].x*(1.-surface.metallic);
-    if (amount<=0.) { return vec4(0.,0.,0.,1.); }
-    let nv=clamp(dot(n,v),0.,1.);
-    let ray=refract(-v,n,1./max(surface.physical[0].x,1.));
+fn transmission_path(input:VertexOutput, n:vec3<f32>, v:vec3<f32>, surface:StandardSurface, ior:f32) -> vec4<f32> {
+    let ray=refract(-v,n,1./max(ior,1.));
     let distance=surface.transmission[0].y*length(ray*input.world_scale);
     let exit_position=input.relative_position+normalized_or(ray,-v)*distance;
     let clip=uniforms.capture_projection*vec4(exit_position,1.);
@@ -30,7 +27,7 @@ fn physical_transmission(input:VertexOutput, n:vec3<f32>, v:vec3<f32>, surface:S
     if (clip.w>1e-8 && surface.transmission[0].y>0.) {
         uv=clip.xy/clip.w*vec2(.5,-.5)+vec2(.5);
     }
-    let rough=surface.roughness*clamp(surface.physical[0].x*2.-2.,0.,1.);
+    let rough=surface.roughness*clamp(ior*2.-2.,0.,1.);
     let radius=rough*rough*.08*min(uniforms.viewport.x,uniforms.viewport.y)/uniforms.viewport.xy;
     var incoming=vec4(0.); var total=0.;
     for(var y=-1;y<=1;y++) { for(var x=-1;x<=1;x++) {
@@ -50,8 +47,22 @@ fn physical_transmission(input:VertexOutput, n:vec3<f32>, v:vec3<f32>, surface:S
     if(surface.transmission[0].z>0. && distance>0.) {
         absorption=pow(surface.transmission[1].rgb,vec3(distance/surface.transmission[0].z));
     }
+    return vec4(incoming.rgb*absorption,incoming.a);
+}
+fn physical_transmission(input:VertexOutput, n:vec3<f32>, v:vec3<f32>, surface:StandardSurface) -> vec4<f32> {
+    let amount=surface.transmission[0].x*(1.-surface.metallic);
+    if(amount<=0.) {return vec4(0.,0.,0.,1.);}
+    let nv=clamp(dot(n,v),0.,1.);
+    let ior=max(surface.physical[0].x,1.);
+    var incoming=transmission_path(input,n,v,surface,ior);
+    if(surface.optical[1].x>0. && surface.transmission[0].y>0.) {
+        let spread=(ior-1.)*.025*surface.optical[1].x;
+        let red=transmission_path(input,n,v,surface,max(1.,ior-spread));
+        let blue=transmission_path(input,n,v,surface,ior+spread);
+        incoming=vec4(red.r,incoming.g,blue.b,max(incoming.a,max(red.a,blue.a)));
+    }
     let coat=coat_fresnel(clamp(dot(surface.coat_normal,v),0.,1.),surface);
     let sheen=maximum3(surface.physical[2].rgb)*sheen_albedo(nv,surface.physical[1].w);
     let weight=amount*(1.-maximum3(physical_fresnel(nv,surface)))*(1.-coat)*(1.-sheen);
-    return vec4(incoming.rgb*surface.base.rgb*absorption*weight,1.-weight*(1.-incoming.a));
+    return vec4(incoming.rgb*surface.base.rgb*weight,1.-weight*(1.-incoming.a));
 }
