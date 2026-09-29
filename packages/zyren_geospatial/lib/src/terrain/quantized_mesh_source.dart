@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:math' as math;
 import 'package:zyren/zyren.dart';
 import '../geodesy.dart';
@@ -6,8 +5,9 @@ import '../tiling.dart';
 import '../streaming/tile_source.dart';
 import 'terrain_tile.dart';
 import 'quantized_mesh_decoder.dart';
+import 'terrain_extensions.dart';
 
-/// Static EPSG:4326/TMS quantized-mesh layers over a host-provided resolver.
+/// EPSG:4326/TMS quantized-mesh layers over a host-provided resolver.
 /// Supply authentication in that resolver. Dataset IDs must contain no secrets.
 /// Incomplete sibling coverage stays at the parent until fill tiles are supported.
 final class QuantizedMeshTerrainSource implements TerrainSource {
@@ -16,7 +16,11 @@ final class QuantizedMeshTerrainSource implements TerrainSource {
   final SourcePolicy _policy;
   final Uri _base;
   final String _template;
-  final bool _requestNormals;
+  final List<String> _extensions;
+  final int? metadataAvailability;
+  final int maxAvailabilityPages, maxAvailabilityRanges;
+  final _pages = <TileCoordinate, TerrainAvailabilityMetadata>{};
+  int _rangeCount = 0;
   final List<List<_Availability>>? _available;
   final TilingScheme _scheme = TilingScheme();
   @override
@@ -36,7 +40,10 @@ final class QuantizedMeshTerrainSource implements TerrainSource {
     required SourcePolicy policy,
     required Uri base,
     required String template,
-    required bool requestNormals,
+    required List<String> extensions,
+    required this.metadataAvailability,
+    required this.maxAvailabilityPages,
+    required this.maxAvailabilityRanges,
     required List<List<_Availability>>? available,
     required String datasetId,
     required this.version,
@@ -51,7 +58,7 @@ final class QuantizedMeshTerrainSource implements TerrainSource {
        _policy = policy,
        _base = base,
        _template = template,
-       _requestNormals = requestNormals,
+       _extensions = List.unmodifiable(extensions),
        _available = available,
        identity = 'quantized:$datasetId@$version:${_nextInstance++}';
 
@@ -66,12 +73,18 @@ final class QuantizedMeshTerrainSource implements TerrainSource {
     SourcePolicy policy = const SourcePolicy(),
     QuantizedMeshLimits? limits,
     int maxManifestBytes = 1024 * 1024,
+    int maxAvailabilityPages = 1024,
+    int maxAvailabilityRanges = 16384,
     double minimumHeight = -12000,
     double maximumHeight = 10000,
     double skirtDepth = 50,
     double levelZeroGeometricError = 100000,
   }) async {
     if (!RegExp(r'^[A-Za-z0-9._-]{1,128}$').hasMatch(datasetId) ||
+        maxAvailabilityPages < 1 ||
+        maxAvailabilityPages > 65536 ||
+        maxAvailabilityRanges < 1 ||
+        maxAvailabilityRanges > 262144 ||
         maxManifestBytes < 1 ||
         maxManifestBytes > 4 * 1024 * 1024 ||
         !minimumHeight.isFinite ||
@@ -96,8 +109,7 @@ final class QuantizedMeshTerrainSource implements TerrainSource {
       maxManifestBytes,
     );
     try {
-      final json = jsonDecode(utf8.decode(resolved.bytes));
-      if (json is! Map<String, dynamic>) _invalid();
+      final json = terrainJson(resolved.bytes, maxManifestBytes);
       for (final (name, expected) in [
         ('format', 'quantized-mesh-1.0'),
         ('scheme', 'tms'),
@@ -106,8 +118,7 @@ final class QuantizedMeshTerrainSource implements TerrainSource {
       ]) {
         if (json.containsKey(name) && json[name] != expected) _unsupported();
       }
-      if (json.containsKey('parentUrl') ||
-          json.containsKey('metadataAvailability')) {
+      if (json.containsKey('parentUrl')) {
         _unsupported();
       }
       final zoom = json['maxzoom'];
@@ -128,14 +139,20 @@ final class QuantizedMeshTerrainSource implements TerrainSource {
         _invalid();
       }
       final attribution = json['attribution'] ?? '';
-      if (attribution is! String) _invalid();
+      if (attribution is! String || attribution.length > 8192) _invalid();
       final extensions = json['extensions'] ?? <String>[];
       if (extensions is! List || extensions.any((e) => e is! String)) {
         _invalid();
       }
+      final interval = json['metadataAvailability'];
+      if (interval != null &&
+          (interval is! int || interval < 1 || interval > 30)) {
+        _invalid();
+      }
+      if (interval != null && !extensions.contains('metadata')) _unsupported();
       final availability = json['available'];
       List<List<_Availability>>? available;
-      if (json.containsKey('available')) {
+      if (interval == null && json.containsKey('available')) {
         if (availability is! List || availability.length > zoom + 1) _invalid();
         var total = 0;
         available = [];
@@ -177,7 +194,14 @@ final class QuantizedMeshTerrainSource implements TerrainSource {
         policy: policy,
         base: resolved.effectiveUri,
         template: template,
-        requestNormals: extensions.contains('octvertexnormals'),
+        extensions: [
+          'octvertexnormals',
+          'watermask',
+          'metadata',
+        ].where(extensions.contains).toList(),
+        metadataAvailability: interval as int?,
+        maxAvailabilityPages: maxAvailabilityPages,
+        maxAvailabilityRanges: maxAvailabilityRanges,
         available: available,
         datasetId: datasetId,
         version: version,
@@ -211,19 +235,93 @@ final class QuantizedMeshTerrainSource implements TerrainSource {
     }
   }
 
-  bool _has(TileCoordinate tile) {
+  /// Unknown coordinates are not requested until an ancestor publishes coverage.
+  TerrainAvailability availabilityOf(TileCoordinate tile) {
     if (tile.z < 0 ||
         tile.z > maximumLevel ||
         tile.x < 0 ||
         tile.y < 0 ||
         tile.x >= 2 * (1 << tile.z) ||
         tile.y >= 1 << tile.z) {
-      return false;
+      return TerrainAvailability.unavailable;
     }
-    final availability = _available;
-    return availability == null ||
-        tile.z < availability.length &&
-            availability[tile.z].any((range) => range.contains(tile));
+    final interval = metadataAvailability;
+    if (interval == null) {
+      final available = _available;
+      return available == null ||
+              tile.z < available.length &&
+                  available[tile.z].any((range) => range.contains(tile))
+          ? TerrainAvailability.available
+          : TerrainAvailability.unavailable;
+    }
+    for (var level = 1; level <= tile.z; level++) {
+      final pageLevel = (level - 1) ~/ interval * interval;
+      final pageTile = TileCoordinate(
+        tile.x >> (tile.z - pageLevel),
+        tile.y >> (tile.z - pageLevel),
+        pageLevel,
+      );
+      final page = _pages[pageTile];
+      if (page == null) return TerrainAvailability.unknown;
+      final offset = level - pageLevel - 1;
+      final ancestor = TileCoordinate(
+        tile.x >> (tile.z - level),
+        tile.y >> (tile.z - level),
+        level,
+      );
+      if (offset >= page.levels.length ||
+          !page.levels[offset].any((r) => r.contains(ancestor))) {
+        return TerrainAvailability.unavailable;
+      }
+    }
+    return TerrainAvailability.available;
+  }
+
+  bool _has(TileCoordinate tile) =>
+      availabilityOf(tile) == TerrainAvailability.available;
+
+  void _recordAvailability(
+    TileCoordinate tile,
+    TerrainAvailabilityMetadata? page,
+  ) {
+    final interval = metadataAvailability;
+    if (interval == null || tile.z % interval != 0 || tile.z == maximumLevel) {
+      return;
+    }
+    if (page == null ||
+        page.levels.length > math.min(interval, maximumLevel - tile.z)) {
+      _invalid();
+    }
+    for (var offset = 0; offset < page.levels.length; offset++) {
+      final scale = 1 << (offset + 1);
+      for (final range in page.levels[offset]) {
+        if (range.startX < tile.x * scale ||
+            range.endX >= (tile.x + 1) * scale ||
+            range.startY < tile.y * scale ||
+            range.endY >= (tile.y + 1) * scale) {
+          _invalid();
+        }
+      }
+    }
+    final previous = _pages[tile];
+    if (previous != null) {
+      if (previous.levels.length != page.levels.length) _invalid();
+      for (var i = 0; i < page.levels.length; i++) {
+        if (previous.levels[i].length != page.levels[i].length ||
+            previous.levels[i].toSet().length !=
+                page.levels[i].toSet().length ||
+            !previous.levels[i].toSet().containsAll(page.levels[i])) {
+          _invalid();
+        }
+      }
+      return;
+    }
+    if (_pages.length >= maxAvailabilityPages ||
+        _rangeCount + page.rangeCount > maxAvailabilityRanges) {
+      throw _sanitized(AssetLoadError.limitExceeded);
+    }
+    _pages[tile] = page;
+    _rangeCount += page.rangeCount;
   }
 
   void _validate(TileCoordinate tile) {
@@ -252,7 +350,7 @@ final class QuantizedMeshTerrainSource implements TerrainSource {
       center: center,
       radius: scale * (rectangle.width + rectangle.height) / 2 + height + 2,
       geometricError: levelZeroGeometricError / (1 << coordinate.z),
-      decodedBytes: limits.decodedBytes,
+      decodedBytes: limits.decodedBytes + attribution.length * 2,
       residentBytes: limits.residentBytes,
       children: children.every(_has) ? children : const [],
     );
@@ -269,11 +367,11 @@ final class QuantizedMeshTerrainSource implements TerrainSource {
       text = text.replaceAll('{${entry.key}}', entry.value);
     }
     var uri = _base.resolve(text);
-    if (_requestNormals) {
+    if (_extensions.isNotEmpty) {
       uri = uri.replace(
         queryParameters: {
           ...uri.queryParameters,
-          'extensions': 'octvertexnormals',
+          'extensions': _extensions.join('-'),
         },
       );
     }
@@ -289,7 +387,7 @@ final class QuantizedMeshTerrainSource implements TerrainSource {
     context.cancellation.throwIfCancelled();
     _validate(coordinate);
     if (context.sourceIdentity != identity ||
-        context.byteBudget < limits.decodedBytes) {
+        context.byteBudget < limits.decodedBytes + attribution.length * 2) {
       throw ArgumentError(
         'Terrain load requires its source identity and full reservation.',
       );
@@ -301,14 +399,30 @@ final class QuantizedMeshTerrainSource implements TerrainSource {
         _policy,
         context.cancellation,
         limits.maxEncodedBytes,
+        headers: {
+          'Accept':
+              'application/vnd.quantized-mesh${_extensions.isEmpty ? '' : ';extensions=${_extensions.join('-')}'}',
+        },
       );
-      return QuantizedMeshDecoder(limits: limits).decode(
+      final tile = QuantizedMeshDecoder(limits: limits).decode(
         resolved.bytes,
         rectangle: _scheme.getRectangle(coordinate),
         cancellation: context.cancellation,
         skirtDepth: skirtDepth,
         minimumHeight: minimumHeight,
         maximumHeight: maximumHeight,
+      );
+      context.cancellation.throwIfCancelled();
+      _recordAvailability(coordinate, tile.availability);
+      return TerrainTile(
+        origin: tile.origin,
+        geometry: tile.geometry,
+        imagery: tile.imagery,
+        sampler: tile.sampler,
+        imageryRectangle: tile.imageryRectangle,
+        waterMask: tile.waterMask,
+        availability: tile.availability,
+        attributions: attribution.isEmpty ? const [] : [attribution],
       );
     } on LoadCancelled {
       rethrow;
@@ -326,13 +440,15 @@ Future<ResolvedSource> _read(
   Uri uri,
   SourcePolicy policy,
   LoadCancellation cancellation,
-  int maxBytes,
-) async {
+  int maxBytes, {
+  Map<String, String> headers = const {},
+}) async {
   cancellation.throwIfCancelled();
   try {
     policy.validate(uri, uri);
     final context = SourceReadContext(
       maxBytes: maxBytes,
+      headers: headers,
       cancellation: cancellation,
       policy: policy,
       onProgress: (_, _) {},

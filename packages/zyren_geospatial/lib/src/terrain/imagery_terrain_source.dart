@@ -183,6 +183,8 @@ final class ImageryTerrainSource implements TerrainSource {
     context.cancellation.throwIfCancelled();
     return TerrainTile(
       origin: base.origin,
+      waterMask: base.waterMask,
+      availability: base.availability,
       geometry: base.geometry,
       imageryRectangle: base.imageryRectangle,
       attributions: credits.toList()..sort(),

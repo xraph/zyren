@@ -54,3 +54,30 @@ zero-opacity layers.
 Native tests use local HTTP fixtures for decoding, parent fallback, retry and
 resource cleanup. Provider access and provider-specific requirements need their
 own live qualification.
+
+## Terrain metadata
+
+`QuantizedMeshTerrainSource` supports EPSG:4326/TMS layers with static ranges or
+`metadataAvailability`. Dynamic layers start with two roots. A validated mesh
+response makes its advertised descendants available on the next selection pass;
+`availabilityOf()` distinguishes unknown coverage from an unavailable tile.
+The source requests advertised normals, water masks and metadata through both
+Accept and the extensions query parameter.
+
+Sparse siblings retain their parent. Fill tiles and `parentUrl` layer stacks are
+not supported. Availability is stable for a source version: a changed metadata
+page fails rather than mixing generations. Replace the source when the dataset
+changes. Missing required metadata also fails and follows the normal retry path.
+
+You can set `maxAvailabilityPages` and `maxAvailabilityRanges` when opening a
+source. Defaults are 1,024 pages and 16,384 ranges, retained for the source lifetime
+separately from the tile cache. A full metadata store stops further refinement
+with a limit error. Each mesh also has `maxMetadataBytes` (64 KiB by default) and
+`maxMetadataRanges` (1,024) decoder limits. Payload reservations include masks,
+parsed ranges and credits; temporary JSON parsing is bounded by bytes and depth.
+
+`TerrainTile.waterMask` contains one uniform byte or a north-first 256 by 256
+coverage grid, where 0 is land and 255 is water. Values between them preserve
+soft coastlines. `TerrainTile.availability` retains immutable relative-level
+ranges. Imagery composition preserves both fields and the provider's credits.
+These are CPU values; a water mask alone does not add a reflective water pass.

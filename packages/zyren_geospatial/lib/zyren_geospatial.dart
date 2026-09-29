@@ -33,3 +33,10 @@ export 'src/terrain/imagery_source.dart'
         ImageryUrlScheme;
 export 'src/terrain/imagery_terrain_source.dart'
     show ImageryTerrainSource, ImageryLayer;
+
+export 'src/terrain/terrain_extensions.dart'
+    show
+        TerrainAvailability,
+        TerrainWaterMask,
+        TerrainAvailabilityRange,
+        TerrainAvailabilityMetadata;
