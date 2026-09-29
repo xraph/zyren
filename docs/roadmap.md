@@ -24,9 +24,9 @@ defines ownership and application workflows before those changes land.
 | --- | --- | --- |
 | Scene and maths | Hierarchies, transforms, perspective/orthographic cameras, layers, bounds, BVH picking, culling and camera framing | Broader reference coverage for complete Three.js parity |
 | Geometry | Dynamic attributes, lines/points, curves/tubes, instancing, skinning/morphs, shapes with holes, beveled extrusion and topology helpers | Text, subdivision and CSG |
-| Materials and lighting | Standard PBR, IOR/specular, clearcoat, sheen, anisotropy, transmission/volume, ten physical maps, punctual/hemisphere/area lights, shadows and environment lighting | Iridescence, dispersion, nested volumes, area-light shadows and broader device references |
+| Materials and lighting | Standard PBR, IOR/specular, clearcoat, sheen, anisotropy, transmission/volume, iridescence/dispersion, twelve physical maps, punctual/hemisphere/area lights, punctual and area shadows and environment lighting | Nested volumes, continuous emitter visibility and broader device references |
 | Animation and controls | Clips, tracks, interpolation, blending, skeletal animation, orbit/trackball/fly controls | Broader mixing and reference gesture coverage |
-| Assets | Scoped loading, worker glTF parsing, image decoding, physical extensions and native Draco/meshopt/Basis decoding | Additional loaders/exporters, compressed GPU residency and decoder qualification on other targets |
+| Assets | Scoped loading, worker glTF parsing, image decoding, physical extensions and native Draco/meshopt/Basis decoding, BC7/ETC2/ASTC GPU residency | Additional loaders/exporters and decoder qualification on other targets |
 | Rendering | Native presentation, shader extensions, compute/render graphs, HDR, MSAA, bloom, spatial AA and motion/depth temporal AA | Temporal motion for custom shaders and line/point primitives, broader native surface qualification |
 | Extensibility | Dependency-ordered plugins, typed services, replaceable backend/presenter, public pass descriptors and scoped GPU resources | Keep future plugins on these public contracts |
 | Developer tools | Runnable galleries, picking, resource/frame statistics, budget checks, recovery fixtures and AOT benchmarks | Physical-device timing, display pacing, power and thermal measurements |

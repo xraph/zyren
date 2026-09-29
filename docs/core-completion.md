@@ -77,10 +77,10 @@ manual visual inspection remains open.
 
 This completes the planned feature families, not every Three.js API. The
 [capability matrix](renderer-capabilities.md) records remaining breadth:
-iridescence and dispersion, nested refractive volumes, area-light shadows,
-compressed GPU texture residency, text/subdivision/CSG, additional asset formats,
-and temporal motion for custom shaders and line/point primitives. Basis currently
-transcodes to RGBA8. Transmission uses an opaque scene capture. Temporal AA requires
+nested refractive volumes, continuous emitter visibility, text/subdivision/CSG,
+additional asset formats, and temporal motion for custom shaders and line/point
+primitives. Iridescence, dispersion, area shadows and compressed GPU residency
+are implemented in the follow-up below. Transmission uses an opaque scene capture. Temporal AA requires
 single-sample HDR and cannot run simultaneously with MSAA.
 
 Takram geospatial parity is separate plugin work. This checkout has not merged
@@ -121,3 +121,31 @@ flutter run -d macos -t lib/physical.dart
 
 Run GPU workloads serially. Use an available iOS simulator identifier in place
 of `macos` for the simulator fixture.
+
+## Optics, area shadows and GPU compression
+
+The [follow-up plan](superpowers/plans/2026-09-29-core-optics-shadows-compression.md)
+adds the three requested core capabilities:
+
+| Change | Local commit | Evidence |
+| --- | --- | --- |
+| Iridescence and dispersion | `e3076f1` | Thin-film reference colors, independent RGB refraction paths, two linear maps, glTF extensions and native material variants |
+| Rectangular area shadows | `73e3339` | Full/partial occlusion, motion, receiver/caster flags, 97 simultaneous projections, cache reuse and atlas retirement |
+| Compressed GPU residency | `1c117a0` | BC7, ETC2 RGBA8 and ASTC 4x4 sampling, exact raw block readback, authored mip tails, capability admission and zero final residency |
+
+The implementation passes 405 core, 124 loader, 139 native Dart and 84 Flutter
+package tests. All 151 Rust tests pass with hardware-gated cases enabled. Analysis of the changed
+packages and gallery, strict Clippy, formatting, package boundaries and Apple ABI
+checks pass. The default CPU decoder stays RGBA8 for loading before a renderer
+exists. Use `NativeTextureDecoder.forDevice` when you want compressed residency.
+
+Area shadows sample four regions of an emitter. This gives partial visibility
+with a fixed budget, but can show bands and does not integrate visibility
+continuously over the rectangle. Dispersion uses three paths through the opaque
+scene capture; nested refraction and caustics remain outside this profile.
+
+The updated physical gallery passes macOS Metal and the iPhone 17 Pro iOS 26
+simulator checks. It exercises film/dispersion/shadow controls, compressed texture
+loading, MSAA/TAA/bloom, and desktop/narrow resizing with zero presentation
+readback. Narrow slider layout uses the panel width, so a smaller embedded view
+keeps useful canvas space even when the device screen is wider.

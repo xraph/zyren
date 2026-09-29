@@ -4,7 +4,7 @@ import 'package:gpu3d/gpu3d.dart';
 import 'package:gpu3d/rendering.dart';
 import 'package:gpu3d_native/gpu3d_native.dart';
 
-Future<void> main() async {
+Future<void> main(List<String> requestedProfiles) async {
   const warmupFrames = 30, measuredFrames = 300;
   double percentile(List<int> sorted, double fraction) =>
       sorted[(sorted.length * fraction).ceil() - 1] / 1000;
@@ -13,22 +13,51 @@ Future<void> main() async {
   try {
     for (final width in [640, 1280]) {
       final height = width * 9 ~/ 16;
-      for (final profile in [
-        'ldr',
-        'hdr',
-        'msaa4',
-        'bloom',
-        'bloom+spatial',
-        'taa',
-        'bloom+taa',
-        'glass',
-        'glass+taa',
-      ]) {
+      for (final profile
+          in [
+            'ldr',
+            'hdr',
+            'msaa4',
+            'bloom',
+            'bloom+spatial',
+            'taa',
+            'bloom+taa',
+            'glass',
+            'glass+taa',
+            'iridescence',
+            'dispersion',
+            'area-shadow',
+            'texture-rgba',
+            'texture-compressed',
+            'optics+taa',
+          ].where(
+            (p) => requestedProfiles.isEmpty || requestedProfiles.contains(p),
+          )) {
+        final optical = ['iridescence', 'optics+taa'].contains(profile);
+        final dispersive = ['dispersion', 'optics+taa'].contains(profile);
+        final areaShadow = ['area-shadow', 'optics+taa'].contains(profile);
+        TextureImageData? texture;
+        if (profile.startsWith('texture-') || profile == 'optics+taa') {
+          final decoder = profile == 'texture-rgba'
+              ? const NativeTextureDecoder()
+              : NativeTextureDecoder.forDevice(backend.capabilities);
+          texture = await decoder.decode(
+            await File(
+              '../../test_assets/compression/colors-uastc.ktx2',
+            ).readAsBytes(),
+            encoding: TextureEncoding.ktx2Basis,
+          );
+        }
         final scene = Scene()..background = const Color3(.01, .01, .01);
         final copies = scene.add(
           InstancedMesh(
             SphereGeometry(radius: .09, widthSegments: 16, heightSegments: 8),
-            StandardMaterial(
+            PhysicalMaterial(
+              iridescence: optical ? 1 : 0,
+              iridescenceThicknessMaximum: 350,
+              baseColorMap: texture == null
+                  ? null
+                  : TextureMap(image: TextureImage.fromData(texture)),
               baseColor: const Color3(.1, .3, .8),
               metallic: .4,
               roughness: .3,
@@ -50,12 +79,31 @@ Future<void> main() async {
           ),
         );
         scene.add(DirectionalLight(intensity: 4));
-        if (profile.startsWith('glass')) {
+        copies.castShadow = areaShadow;
+        if (areaShadow) {
+          scene.add(
+            RectAreaLight(
+                width: 3,
+                height: 2,
+                intensity: 3,
+                shadow: AreaShadow(far: 20),
+              )
+              ..position = const Vec3(0, 3, 4)
+              ..lookAt(Vec3.zero),
+          );
+          scene.add(
+            Mesh(PlaneGeometry(width: 6, height: 6), StandardMaterial())
+              ..position = const Vec3(0, 0, -1)
+              ..receiveShadow = true,
+          );
+        }
+        if (profile.startsWith('glass') || dispersive) {
           scene.add(
             Mesh(
               PlaneGeometry(width: 4, height: 4),
               PhysicalMaterial(
                 transmission: 1,
+                dispersion: dispersive ? 5 : 0,
                 thickness: .5,
                 roughness: .2,
                 attenuationColor: const Color3(.5, .8, 1),
@@ -85,7 +133,11 @@ Future<void> main() async {
                 sampleCount:
                     profile == 'hdr' ||
                         profile.contains('taa') ||
-                        profile.startsWith('glass')
+                        profile.startsWith('glass') ||
+                        optical ||
+                        dispersive ||
+                        areaShadow ||
+                        profile.startsWith('texture-')
                     ? 1
                     : 4,
               );
@@ -102,6 +154,7 @@ Future<void> main() async {
           final temporalBefore = await backend.temporalStats();
           final transmissionBefore = await backend.transmissionStats();
           final resident = await backend.resourceStats();
+          final shadowsBefore = await backend.shadowStats();
           final times = <int>[], builds = <int>[];
           FrameStats? last;
           for (var i = 0; i < warmupFrames + measuredFrames; i++) {
@@ -135,6 +188,13 @@ Future<void> main() async {
               'Temporal allocations grew during steady rendering.',
             );
           }
+          final shadowsAfter = await backend.shadowStats();
+          if (shadowsAfter.residentBytes != shadowsBefore.residentBytes ||
+              shadowsAfter.renderedViews != shadowsBefore.renderedViews) {
+            throw StateError(
+              'Static area shadows changed during camera motion.',
+            );
+          }
           final after = await backend.resourceStats();
           if (after.residentBytes != resident.residentBytes ||
               after.liveAllocations != resident.liveAllocations) {
@@ -158,6 +218,11 @@ Future<void> main() async {
             'p50CaptureMs': percentile(builds, .5),
             'drawCalls': last!.drawCalls,
             'residentResourceBytes': after.residentBytes,
+            'textureFormat': texture?.descriptor.format.name,
+            'texturePayloadBytes': texture?.descriptor.byteLength ?? 0,
+            'shadowBytes': shadowsAfter.residentBytes,
+            'shadowViewsRenderedDuringMeasurement':
+                shadowsAfter.renderedViews - shadowsBefore.renderedViews,
             'temporalBytes': temporalAfter.residentBytes,
             'transmissionBytes': transmissionAfter.residentBytes,
             'resourceAllocations': after.liveAllocations,
@@ -168,7 +233,8 @@ Future<void> main() async {
         } finally {
           await engine.dispose();
         }
-        if ((await backend.transmissionStats()).residentBytes != 0 ||
+        if ((await backend.shadowStats()).residentBytes != 0 ||
+            (await backend.transmissionStats()).residentBytes != 0 ||
             (await backend.temporalStats()).residentBytes != 0 ||
             (await backend.resourceStats()).residentBytes != 0) {
           throw StateError('Effect resources leaked after view disposal.');
@@ -182,6 +248,9 @@ Future<void> main() async {
     const JsonEncoder.withIndent('  ').convert({
       'platform': Platform.operatingSystem,
       'runtime': Platform.version,
+      'supportedTextureFormats': backend.capabilities.textureFormats
+          .map((f) => f.name)
+          .toList(),
       'thermalState': null,
       'powerState': null,
       'timing':

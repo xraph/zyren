@@ -5,6 +5,39 @@ import 'package:gpu3d_native/gpu3d_native.dart';
 import 'package:test/test.dart';
 
 void main() {
+  test('decoder selection requires enabled linear and sRGB storage', () {
+    TextureTranscodeTarget choose(Set<TextureFormat> formats) =>
+        NativeTextureDecoder.forDevice(
+          DeviceCapabilities(
+            name: 'fixture',
+            features: {},
+            textureFormats: formats,
+            limits: DeviceLimits(
+              maxTextureDimension2D: 4096,
+              maxGeometryBytes: 1024,
+            ),
+          ),
+        ).target;
+    expect(choose({}), TextureTranscodeTarget.rgba8);
+    expect(choose({TextureFormat.astc4x4Unorm}), TextureTranscodeTarget.rgba8);
+    expect(
+      choose({TextureFormat.etc2Rgba8Unorm, TextureFormat.etc2Rgba8UnormSrgb}),
+      TextureTranscodeTarget.etc2Rgba8,
+    );
+    expect(
+      choose({
+        TextureFormat.bc7RgbaUnorm,
+        TextureFormat.bc7RgbaUnormSrgb,
+        TextureFormat.etc2Rgba8Unorm,
+        TextureFormat.etc2Rgba8UnormSrgb,
+      }),
+      TextureTranscodeTarget.bc7,
+    );
+    expect(
+      choose(TextureFormat.values.toSet()),
+      TextureTranscodeTarget.astc4x4,
+    );
+  });
   test(
     'Basis targets retain blocks and authored mip tails without a device',
     () async {

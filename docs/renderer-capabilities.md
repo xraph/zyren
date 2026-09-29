@@ -25,6 +25,7 @@ The current native limits are explicit:
 | Transmission capture | 128 MiB including replacement overlap; 64 MiB color attachment |
 | PostProcessing intermediates | 64 MiB per graph by default; configurable within device limits |
 | Punctual / hemisphere / rectangular area lights | 16 / 4 / 4 |
+| Shared shadow atlas | 2048x2048 depth, 16 MiB per view; 64 MiB per device; at most 128 projections |
 | Instances / joints / morph targets | 100000 / 256 / 64 |
 
 These are payload admission limits. GPU padding, render targets, shadow atlases,
@@ -61,21 +62,23 @@ custom WGSL materials, compute/render graphs, scoped assets and glTF loading.
 These are implemented feature families, not a claim of complete Three.js parity.
 
 `PhysicalMaterial` adds native IOR, specular, clearcoat, sheen and anisotropy
-factors, ten texture maps and glTF physical extensions. Transmission and volume
+factors, iridescence, dispersion, twelve texture maps and glTF physical extensions. Transmission and volume
 add opaque color/depth capture, refraction and absorption. Native pixels cover
 direct, area and environment lighting, loaded models and deformation variants.
 See [physical materials](design/physical-materials.md).
 
 Native CPU decoders now load Draco, meshopt and Basis/KTX2 through the glTF
 plugin. Real compressed models pass Metal pixels and resource cleanup; Flutter's
-default services also decode them without creating a renderer. Basis transcodes
-to RGBA8, so compressed GPU texture residency remains separate.
+default services also decode them without creating a renderer. A device-selected
+Basis decoder preserves BC7, ETC2 RGBA8 or ASTC 4x4 blocks in GPU storage, including
+linear/sRGB variants and authored mip tails. Default pre-view decoding stays RGBA8.
 See [compressed assets](design/compressed-assets.md).
 
 Rectangular area lights now integrate diffuse, GGX and physical-layer response
 on Metal. Four oriented emitters are supported per scene. Fixed LTC tables add
-128 KiB per renderer outside scoped counters. Area-light shadows and broader
-device qualification remain open. See [area lights](design/area-lights.md).
+128 KiB per renderer outside scoped counters. Optional area shadows sample four
+emitter quadrants through the shared atlas, with 24 cube views per light. Broader
+device qualification remains open. See [area lights](design/area-lights.md).
 
 Shapes with holes, beveled extrusion and topology helpers are available in Dart.
 Trackball and fly plugins share the existing per-view input and frame-demand
@@ -87,9 +90,9 @@ The remaining breadth has concrete acceptance work:
 | Family | Owner | Required evidence before claiming parity |
 | --- | --- | --- |
 | Further geometry utilities | Core geometry/math | Shapes with holes and beveled extrusion pass CPU/Metal checks; text, subdivision and CSG remain open |
-| Further physical materials | Core materials/native shaders | Layered reflectance and capture-based transmission pass Metal checks; iridescence, dispersion, nested volumes and broader device references remain open |
-| Area lighting and additional shadows | Core lighting/native renderer | Photometric references, occlusion and bounded atlas behavior |
-| Compressed assets | Asset plugins/native decoders | macOS fixture, cancellation, budget and Metal checks pass; other native targets and compressed GPU residency remain open |
+| Further physical materials | Core materials/native shaders | Layered reflectance and capture-based transmission pass Metal checks; nested volumes and broader device references remain open |
+| Area lighting and additional shadows | Core lighting/native renderer | Diffuse/glossy and full/partial occlusion references pass Metal checks; continuous emitter visibility and broader device coverage remain open |
+| Compressed assets | Asset plugins/native decoders | macOS fixture, cancellation, budget and Metal checks pass; BC7/ETC2/ASTC residency passes Metal; other native targets remain open |
 | Further loaders and exporters | Optional asset plugins | Round trips, provenance, error recovery and allocation cleanup |
 | Full camera/control and animation breadth | Core plus control plugins | Reference gestures, hierarchy transforms, clips and multiple views |
 | Temporal AA and advanced effects | Core effect plugins | Built-in triangle TAA passes Metal convergence, motion, deformation, budget and multi-view checks; custom shader/primitive motion and broader device qualification remain open |

@@ -452,11 +452,15 @@ byte count followed by exactly that many bytes. Trailing bytes are rejected.
 | 8, statistics | empty | resident bytes u64, uploaded bytes u64, live allocations u64 |
 | 9, read texture | key, mip u32 | tightly packed raw bytes |
 | 10, generate mips | key, alpha filter u32 (0 independent, 1 weighted) | empty |
+| 11, enabled texture formats | empty | bit mask u32, bit N names storage format N |
 
 Buffer usage bits 0 through 5 are vertex, index buffer, uniform, storage, copy
-source and copy destination. Texture usage bits 0 through 3 are sampled, render
-attachment, copy source and copy destination. Texture formats 0 and 1 are
-RGBA8 unorm and RGBA8 unorm sRGB. Empty or unknown usage bits are rejected.
+source and copy destination. Texture usage bits 0 through 4 are sampled, render
+attachment, copy source, copy destination and storage. Texture formats 0/1 are
+RGBA8 linear/sRGB, 2 is RGBA16F, 3/4 are BC7 linear/sRGB, 5/6 are ETC2 RGBA8
+linear/sRGB, and 7/8 are ASTC 4x4 linear/sRGB. Empty or unknown usage bits are
+rejected. Compressed storage permits bits 0, 2 and 3 only. Format-query opcode 11
+belongs to the resource protocol and is independent of scene opcodes.
 
 ## Binary scene protocol, version 2
 
@@ -475,7 +479,7 @@ request-ID field. Opcode 11 has this body:
 | 3 | view-projection matrix 16 f32, background 3 f32, light direction 3 f32, ambient f32 |
 | 4 | owned texture count u32, texture upload count u32 |
 | 5 | owned geometry IDs, then owned texture IDs, u32 per entry |
-| 6 | texture uploads: ID, width, height, format, mip count, all u32; then each mip's byte length u32 and RGBA bytes |
+| 6 | texture uploads: ID, width, height, format, mip count, all u32; then each mip's byte length u32 and packed pixels or compression blocks |
 | 7 | geometry uploads: ID, vertex count, index count, UV flags, all u32; position float3 array, normal float3 array, u32 index array, optional UV0 then UV1 float2 arrays |
 | 8 | updates: mesh index u32, geometry ID u32, model matrix 16 f32, color 3 f32, unlit u32, color map flag u32 |
 

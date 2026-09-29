@@ -20,11 +20,36 @@ void main() {
         final first = await waitForFrame(
           tester,
           controller,
-          (f) => f.drawCalls >= 20,
+          (f) => f.drawCalls >= 20 && f.uploadedBytes == 0,
         );
         expect(first.readbackBytes, 0);
-        // One glass mesh: capture has N-1 draws, main has N, HDR resolve has one.
-        final temporalDraws = first.drawCalls + first.drawCalls ~/ 2 + 1;
+        final info = await controller.ready;
+        expect(info.capabilities.textureFormats, isNotEmpty);
+        for (
+          var i = 0;
+          i < 200 && find.textContaining(' B ·').evaluate().isEmpty;
+          i++
+        ) {
+          await tester.pump(const Duration(milliseconds: 20));
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+        }
+        expect(find.textContaining('112 B'), findsOneWidget);
+        for (final label in ['Iridescence', 'Dispersion', 'Area shadows']) {
+          await tester.tap(find.widgetWithText(FilterChip, label));
+          await waitForFrame(
+            tester,
+            controller,
+            (f) => f.readbackBytes == 0 && f.uploadedBytes == 0,
+          );
+        }
+        // Measure the settled viewport after loading and disabling shadows.
+        // One glass mesh: capture N-1, main N, HDR resolve one.
+        final settled = await waitForFrame(
+          tester,
+          controller,
+          (f) => f.uploadedBytes == 0,
+        );
+        final temporalDraws = settled.drawCalls + settled.drawCalls ~/ 2 + 1;
         tester
             .widget<Slider>(find.byKey(const ValueKey('Roughness')))
             .onChanged!(.75);
@@ -34,7 +59,7 @@ void main() {
         await waitForFrame(
           tester,
           controller,
-          (f) => f.drawCalls == first.drawCalls,
+          (f) => f.drawCalls == settled.drawCalls,
         );
         await tester.tap(find.widgetWithText(FilterChip, 'Temporal AA'));
         await waitForFrame(

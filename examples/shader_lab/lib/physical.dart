@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_gpu3d/flutter_gpu3d.dart';
 import 'studio_environment.dart';
@@ -28,10 +30,15 @@ class _PhysicalLabState extends State<_PhysicalLab> {
   late final SceneController controller;
   final temporal = TemporalAntialiasing(enabled: false);
   final effects = PostProcessing();
-  late final Mesh coat, cloth, glass;
+  late final Mesh coat, cloth, glass, swatch;
   late final RectAreaLight area;
   double roughness = .18, thickness = 1.2;
-  bool areaEnabled = true, msaa = true;
+  bool areaEnabled = true,
+      msaa = true,
+      film = true,
+      dispersion = true,
+      shadows = true;
+  String storage = 'Loading texture';
   FrameStats? stats;
   StreamSubscription<FrameStats>? subscription;
   @override
@@ -65,7 +72,9 @@ class _PhysicalLabState extends State<_PhysicalLab> {
         PhysicalMaterial(
           baseColor: const Color3(.08, .28, .7),
           roughness: .3,
-          clearcoat: 1,
+          iridescence: 1,
+          iridescenceThicknessMaximum: 350,
+          clearcoat: .2,
           clearcoatRoughness: .08,
         ),
       )..position = const Vec3(-1.75, 0, 0),
@@ -89,6 +98,7 @@ class _PhysicalLabState extends State<_PhysicalLab> {
           roughness: roughness,
           thickness: thickness,
           ior: 1.5,
+          dispersion: 5,
           attenuationColor: const Color3(.3, .8, .95),
           attenuationDistance: 3,
         ),
@@ -106,8 +116,32 @@ class _PhysicalLabState extends State<_PhysicalLab> {
         )..position = Vec3((i - 5.5) * .6, 0, -1),
       );
     }
+    coat.castShadow = true;
+    cloth.castShadow = true;
+    scene.add(
+      Mesh(
+          PlaneGeometry(width: 9, height: 6),
+          StandardMaterial(
+            baseColor: const Color3(.12, .14, .18),
+            roughness: .8,
+          ),
+        )
+        ..rotateX(-math.pi / 2)
+        ..position = const Vec3(0, -.9, 0)
+        ..receiveShadow = true,
+    );
+    swatch = scene.add(
+      Mesh(PlaneGeometry(width: 1.2, height: .55), UnlitMaterial())
+        ..position = const Vec3(0, 1.4, 0),
+    );
+    unawaited(loadTexture());
     area = scene.add(
-      RectAreaLight(width: 3, height: 2, intensity: 4)
+      RectAreaLight(
+          width: 3,
+          height: 2,
+          intensity: 4,
+          shadow: AreaShadow(far: 20),
+        )
         ..position = const Vec3(0, 2.5, 3)
         ..lookAt(Vec3.zero),
     );
@@ -116,10 +150,37 @@ class _PhysicalLabState extends State<_PhysicalLab> {
     });
   }
 
+  Future<void> loadTexture() async {
+    try {
+      final info = await controller.ready;
+      final source = await rootBundle.load('assets/colors-uastc.ktx2');
+      final image = await NativeTextureDecoder.forDevice(info.capabilities)
+          .decode(
+            source.buffer.asUint8List(
+              source.offsetInBytes,
+              source.lengthInBytes,
+            ),
+            encoding: TextureEncoding.ktx2Basis,
+          );
+      if (!mounted) return;
+      swatch.material = UnlitMaterial(
+        colorMap: TextureMap(image: TextureImage.fromData(image)),
+      );
+      setState(
+        () => storage =
+            '${image.descriptor.format.name} · ${image.descriptor.byteLength} B',
+      );
+      controller.invalidate();
+    } catch (error) {
+      if (mounted) setState(() => storage = 'Texture failed: $error');
+    }
+  }
+
   void updateGlass() {
     glass.material = (glass.material as PhysicalMaterial).copyWith(
       roughness: roughness,
       thickness: thickness,
+      dispersion: dispersion ? 5 : 0,
     );
     controller.invalidate();
   }
@@ -129,28 +190,32 @@ class _PhysicalLabState extends State<_PhysicalLab> {
     double value,
     double max,
     void Function(double) onChanged,
-  ) => SizedBox(
-    width: 240,
-    child: Row(
-      children: [
-        SizedBox(
-          width: 90,
-          child: Text(
-            '$title ${value.toStringAsFixed(2)}',
-            style: const TextStyle(fontSize: 12),
-          ),
-        ),
-        Expanded(
-          child: Slider(
-            key: ValueKey(title),
-            value: value,
-            max: max,
-            onChanged: (v) => setState(() => onChanged(v)),
-          ),
-        ),
-      ],
-    ),
-  );
+    double availableWidth,
+  ) {
+    final narrow = availableWidth < 480;
+    final label = Text(
+      '$title ${value.toStringAsFixed(2)}',
+      style: const TextStyle(fontSize: 12),
+    );
+    final control = Slider(
+      key: ValueKey(title),
+      value: value,
+      max: max,
+      onChanged: (v) => setState(() => onChanged(v)),
+    );
+    return SizedBox(
+      width: narrow ? (availableWidth - 8) / 2 : 240,
+      child: narrow
+          ? Column(mainAxisSize: MainAxisSize.min, children: [label, control])
+          : Row(
+              children: [
+                SizedBox(width: 90, child: label),
+                Expanded(child: control),
+              ],
+            ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Physical materials'), toolbarHeight: 44),
@@ -158,64 +223,93 @@ class _PhysicalLabState extends State<_PhysicalLab> {
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 0,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              slider('Roughness', roughness, 1, (v) {
-                roughness = v;
-                updateGlass();
-              }),
-              slider('Thickness', thickness, 3, (v) {
-                thickness = v;
-                updateGlass();
-              }),
-              FilterChip(
-                label: const Text('Area light'),
-                selected: areaEnabled,
-                onSelected: (v) => setState(() {
-                  areaEnabled = v;
-                  area.intensity = v ? 4 : 0;
-                  controller.invalidate();
-                }),
-              ),
-              FilterChip(
-                label: const Text('4× MSAA'),
-                selected: msaa,
-                onSelected: (v) => setState(() {
-                  msaa = v;
-                  if (v) temporal.enabled = false;
-                  controller.colorPipeline = ColorPipeline(
-                    sampleCount: v ? 4 : 1,
-                  );
-                }),
-              ),
-              FilterChip(
-                label: const Text('Temporal AA'),
-                selected: temporal.enabled,
-                onSelected: (v) => setState(() {
-                  if (v) {
-                    msaa = false;
-                    controller.colorPipeline = ColorPipeline();
-                  }
-                  temporal.enabled = v;
-                }),
-              ),
-              FilterChip(
-                label: const Text('Bloom'),
-                selected: effects.bloom != null,
-                onSelected: (v) =>
-                    setState(() => effects.bloom = v ? BloomOptions() : null),
-              ),
-            ],
+          child: LayoutBuilder(
+            builder: (context, constraints) => Wrap(
+              spacing: 8,
+              runSpacing: 0,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                slider('Roughness', roughness, 1, (v) {
+                  roughness = v;
+                  updateGlass();
+                }, constraints.maxWidth),
+                slider('Thickness', thickness, 3, (v) {
+                  thickness = v;
+                  updateGlass();
+                }, constraints.maxWidth),
+                FilterChip(
+                  label: const Text('Iridescence'),
+                  selected: film,
+                  onSelected: (v) => setState(() {
+                    film = v;
+                    coat.material = (coat.material as PhysicalMaterial)
+                        .copyWith(iridescence: v ? 1 : 0);
+                    controller.invalidate();
+                  }),
+                ),
+                FilterChip(
+                  label: const Text('Dispersion'),
+                  selected: dispersion,
+                  onSelected: (v) => setState(() {
+                    dispersion = v;
+                    updateGlass();
+                  }),
+                ),
+                FilterChip(
+                  label: const Text('Area shadows'),
+                  selected: shadows,
+                  onSelected: (v) => setState(() {
+                    shadows = v;
+                    area.shadow = v ? AreaShadow(far: 20) : null;
+                    controller.invalidate();
+                  }),
+                ),
+                FilterChip(
+                  label: const Text('Area light'),
+                  selected: areaEnabled,
+                  onSelected: (v) => setState(() {
+                    areaEnabled = v;
+                    area.intensity = v ? 4 : 0;
+                    controller.invalidate();
+                  }),
+                ),
+                FilterChip(
+                  label: const Text('4× MSAA'),
+                  selected: msaa,
+                  onSelected: (v) => setState(() {
+                    msaa = v;
+                    if (v) temporal.enabled = false;
+                    controller.colorPipeline = ColorPipeline(
+                      sampleCount: v ? 4 : 1,
+                    );
+                  }),
+                ),
+                FilterChip(
+                  label: const Text('Temporal AA'),
+                  selected: temporal.enabled,
+                  onSelected: (v) => setState(() {
+                    if (v) {
+                      msaa = false;
+                      controller.colorPipeline = ColorPipeline();
+                    }
+                    temporal.enabled = v;
+                  }),
+                ),
+                FilterChip(
+                  label: const Text('Bloom'),
+                  selected: effects.bloom != null,
+                  onSelected: (v) =>
+                      setState(() => effects.bloom = v ? BloomOptions() : null),
+                ),
+              ],
+            ),
           ),
         ),
         const Padding(
           padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [Text('Clearcoat'), Text('Sheen'), Text('Glass')],
+            children: [Text('Thin film'), Text('Sheen'), Text('Glass')],
           ),
         ),
         Expanded(child: SceneView(controller: controller, resolutionScale: .5)),
@@ -226,7 +320,7 @@ class _PhysicalLabState extends State<_PhysicalLab> {
             child: Text(
               stats == null
                   ? 'Preparing materials…'
-                  : '${stats!.drawCalls} draws · ${stats!.triangles} triangles · drag to orbit',
+                  : '$storage · ${stats!.drawCalls} draws · drag to orbit',
               style: const TextStyle(fontSize: 12),
             ),
           ),

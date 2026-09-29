@@ -140,12 +140,41 @@ void main() {
               resolver: MemorySource(bytes),
               bufferDecoder: const NativeBufferDecoder(),
               meshDecoder: const NativeMeshDecoder(),
-              textureDecoder: const NativeTextureDecoder(),
+              textureDecoder: NativeTextureDecoder.forDevice(
+                backend.capabilities,
+              ),
             ),
           );
           try {
             final asset = await scope.load(Gltf.asset('compressed.glb')).result;
             final root = scene.add(asset.instantiate());
+            Iterable<Object3D> nodes(Object3D node) sync* {
+              yield node;
+              for (final child in node.children) {
+                yield* nodes(child);
+              }
+            }
+
+            for (final node in nodes(root)) {
+              if (node is Mesh) {
+                if (node.material.colorMap case final map?) {
+                  expect(
+                    backend.capabilities.textureFormats,
+                    contains(map.image.descriptor.format),
+                  );
+                  final compressed =
+                      NativeTextureDecoder.forDevice(
+                        backend.capabilities,
+                      ).target !=
+                      TextureTranscodeTarget.rgba8;
+                  expect(map.image.descriptor.format.isCompressed, compressed);
+                  expect(
+                    map.image.descriptor.byteLength,
+                    compressed ? 112 : 340,
+                  );
+                }
+              }
+            }
             final frame = await draw();
             expect(frame.stats.triangles, greaterThan(0));
             expect(

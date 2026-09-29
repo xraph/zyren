@@ -281,3 +281,41 @@ fn compressed_format_admission_is_atomic_and_checks_query_capacity() {
         assert_eq!(stats(&mut renderer), [0, 0, 0]);
     }
 }
+
+#[test]
+#[ignore = "requires a native Metal, Vulkan or DX12 device"]
+fn a_device_without_enabled_compression_rejects_blocks_before_allocation() {
+    let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+        backends: wgpu::Backends::METAL | wgpu::Backends::VULKAN | wgpu::Backends::DX12,
+        ..wgpu::InstanceDescriptor::new_without_display_handle()
+    });
+    let adapter = pollster::block_on(instance.request_adapter(&Default::default())).unwrap();
+    let (device, queue) = pollster::block_on(adapter.request_device(&Default::default())).unwrap();
+    let mut store = gpu3d_runtime::resources::ResourceStore::default();
+    let query = store
+        .execute(&device, &queue, &packet(11, &[]), 28)
+        .unwrap();
+    assert_eq!(&query[24..28], &7_u32.to_le_bytes());
+    for format in 3..=8 {
+        let body: Vec<u8> = [8_u32, 8, 4, format, 13, 0]
+            .into_iter()
+            .flat_map(u32::to_le_bytes)
+            .collect();
+        assert_eq!(
+            store.execute(&device, &queue, &packet(3, &body), 56),
+            Err(ResourceError::InvalidUsage)
+        );
+    }
+    let stats = store.execute(&device, &queue, &packet(8, &[]), 48).unwrap();
+    assert_eq!(&stats[24..], &[0; 24]);
+    let body: Vec<u8> = [8_u32, 8, 4, 1, 13, 0]
+        .into_iter()
+        .flat_map(u32::to_le_bytes)
+        .collect();
+    let key = store
+        .execute(&device, &queue, &packet(3, &body), 56)
+        .unwrap();
+    store
+        .execute(&device, &queue, &packet(6, &key[24..]), 24)
+        .unwrap();
+}
