@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_gpu3d/flutter_gpu3d.dart';
-import 'package:gpu3d_inspector/gpu3d_inspector.dart';
+import 'package:flutter_zyren/flutter_zyren.dart';
+import 'package:zyren_inspector/zyren_inspector.dart';
 
 void main() => runApp(const CullingLabApp());
 

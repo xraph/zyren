@@ -8,7 +8,7 @@ shared geometry, mipmapped sampling and scene selection are intentional.
 `pbr.glb` uses the same geometry with brushed metal, painted dielectric and copper
 materials. Its first scene has authored point and directional lights. The second
 shares the meshes but omits lights, so you can check a viewer's explicit lighting
-policy. The analytic texture/light fixtures in `gpu3d_gltf/test/support` use
+policy. The analytic texture/light fixtures in `zyren_gltf/test/support` use
 repo-authored one-pixel PNGs and quads with known BRDF samples.
 
 `normal-map.glb` adds a ribbed tangent-space normal texture to the painted

@@ -1,21 +1,21 @@
 PODS:
-  - flutter_gpu3d (0.1.0):
+  - flutter_zyren (0.1.0):
     - Flutter
     - FlutterMacOS
   - FlutterMacOS (1.0.0)
 
 DEPENDENCIES:
-  - flutter_gpu3d (from `Flutter/ephemeral/.symlinks/plugins/flutter_gpu3d/darwin`)
+  - flutter_zyren (from `Flutter/ephemeral/.symlinks/plugins/flutter_zyren/darwin`)
   - FlutterMacOS (from `Flutter/ephemeral`)
 
 EXTERNAL SOURCES:
-  flutter_gpu3d:
-    :path: Flutter/ephemeral/.symlinks/plugins/flutter_gpu3d/darwin
+  flutter_zyren:
+    :path: Flutter/ephemeral/.symlinks/plugins/flutter_zyren/darwin
   FlutterMacOS:
     :path: Flutter/ephemeral
 
 SPEC CHECKSUMS:
-  flutter_gpu3d: c2e4461ab0f8adaaadd1c8a39d73b095f5282bf0
+  flutter_zyren: c2e4461ab0f8adaaadd1c8a39d73b095f5282bf0
   FlutterMacOS: c232990155153907050900a2e175c7773903ba4e
 
 PODFILE CHECKSUM: 1e95c36afbfd1cb6423ceca4de7a8e1b256fb6ac

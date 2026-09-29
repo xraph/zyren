@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
-import 'package:gpu3d/gpu3d.dart';
+import 'package:zyren/zyren.dart';
 import 'package:model_viewer/deformation_scene.dart';
 
 // Authored ribbons with shared source geometry and independent joint hierarchies.
@@ -145,7 +145,7 @@ void main(List<String> args) {
   final root = <String, Object?>{
     'asset': {
       'version': '2.0',
-      'generator': 'gpu3d authored deformation fixture',
+      'generator': 'zyren authored deformation fixture',
     },
     'buffers': [
       {'byteLength': bytes.length},

@@ -16,7 +16,7 @@ final controller = SceneController(
 controller.colorPipeline = ColorPipeline(exposure: .8);
 ```
 
-Import `flutter_gpu3d/flutter_gpu3d.dart` for this example. Dart callers pass
+Import `flutter_zyren/flutter_zyren.dart` for this example. Dart callers pass
 `colorPipeline` to `SceneEngine.renderFrame` or `FrameSubmission.capture`. Each
 submission captures its immutable settings, including when you select a graph
 later with `withGraph`. Two views can share scene resources with different

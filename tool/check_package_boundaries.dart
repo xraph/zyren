@@ -4,11 +4,11 @@ import 'dart:io';
 void main(List<String> args) {
   final root = Directory(args.isEmpty ? '.' : args.single);
   final allowed = <String, Set<String>>{
-    'packages/gpu3d': {'gpu3d', 'vector_math', 'dart_earcut'},
-    'packages/gpu3d_gltf': {'gpu3d_gltf', 'gpu3d'},
-    'packages/flutter_geospatial': {'flutter_geospatial', 'gpu3d'},
-    'packages/gpu3d_inspector': {'gpu3d_inspector', 'flutter', 'flutter_gpu3d'},
-    'examples/shader_lab/effects_plugin': {'shader_lab_effects', 'gpu3d'},
+    'packages/zyren': {'zyren', 'vector_math', 'dart_earcut'},
+    'packages/zyren_gltf': {'zyren_gltf', 'zyren'},
+    'packages/zyren_geospatial': {'zyren_geospatial', 'zyren'},
+    'packages/zyren_inspector': {'zyren_inspector', 'flutter', 'flutter_zyren'},
+    'examples/shader_lab/effects_plugin': {'shader_lab_effects', 'zyren'},
   };
   final directive = RegExp(
     r'''^\s*(?:import|export)\s+['"]([^'"]+)['"]''',
@@ -28,9 +28,9 @@ void main(List<String> args) {
           failures.add('${file.path}: unexpected dependency $uri');
         }
         if ((package.key == 'examples/shader_lab/effects_plugin' ||
-                package.key == 'packages/gpu3d_inspector') &&
-            (uri.startsWith('package:gpu3d/src/') ||
-                uri.startsWith('package:flutter_gpu3d/src/') ||
+                package.key == 'packages/zyren_inspector') &&
+            (uri.startsWith('package:zyren/src/') ||
+                uri.startsWith('package:flutter_zyren/src/') ||
                 !uri.contains(':') &&
                     !file.absolute.uri
                         .resolve(uri)
@@ -46,12 +46,12 @@ void main(List<String> args) {
       }
     }
   }
-  for (final name in ['gpu3d.h', 'gpu3d_resources.h']) {
+  for (final name in ['zyren.h', 'zyren_resources.h']) {
     final canonical = File(
-      '${root.path}/packages/gpu3d_native/native/include/$name',
+      '${root.path}/packages/zyren_native/native/include/$name',
     );
     final apple = File(
-      '${root.path}/packages/flutter_gpu3d/darwin/Classes/$name',
+      '${root.path}/packages/flutter_zyren/darwin/Classes/$name',
     );
     if (!apple.existsSync() ||
         canonical.readAsStringSync() != apple.readAsStringSync()) {

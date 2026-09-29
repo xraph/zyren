@@ -95,6 +95,6 @@ and a fixed 256 KiB response buffer. Native admission checks the complete respon
 capacity before mutating ownership. Buffer and image data keep the existing
 binary resource protocol.
 
-Run `fvm dart run example/shader_compiler.dart` from `packages/gpu3d_native` to
+Run `fvm dart run example/shader_compiler.dart` from `packages/zyren_native` to
 validate a storage-texture shader, print a source error and check cleanup on your
 native device. See [verification](../verification.md) for the tested platforms.

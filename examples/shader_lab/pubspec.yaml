@@ -8,14 +8,14 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_gpu3d:
-    path: ../../packages/flutter_gpu3d
-  gpu3d_inspector:
-    path: ../../packages/gpu3d_inspector
-  gpu3d:
-    path: ../../packages/gpu3d
-  gpu3d_native:
-    path: ../../packages/gpu3d_native
+  flutter_zyren:
+    path: ../../packages/flutter_zyren
+  zyren_inspector:
+    path: ../../packages/zyren_inspector
+  zyren:
+    path: ../../packages/zyren
+  zyren_native:
+    path: ../../packages/zyren_native
   shader_lab_effects:
     path: effects_plugin
 dev_dependencies:

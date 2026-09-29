@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 import 'dart:typed_data';
-import 'package:gpu3d/gpu3d.dart';
+import 'package:zyren/zyren.dart';
 import 'shaders.dart';
 
 enum UnsupportedEffects { reject, bypass }

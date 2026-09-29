@@ -43,8 +43,8 @@ pushed. A simulator pass does not establish physical mobile GPU performance.
 
 ## Core extraction checkpoint
 
-The core now lives in `gpu3d`, the native hook and renderer in `gpu3d_native`,
-and Flutter presentation in `flutter_gpu3d`. Geospatial depends on `gpu3d` only.
+The core now lives in `zyren`, the native hook and renderer in `zyren_native`,
+and Flutter presentation in `flutter_zyren`. Geospatial depends on `zyren` only.
 The native crate and Cargo lockfile were compared byte-for-byte with the previous
 commit after relocation; their contents did not change.
 
@@ -128,7 +128,7 @@ The final review fixes passed 49 core/geospatial Dart tests, 34 facade widget
 tests and three executable-example widget tests. The native package passed six tests:
 three worker protocol tests and three real GPU tests, including a worker killed
 without a dispose request returning its native handle count to baseline. Run
-native tests from `packages/gpu3d_native`, with `RUN_NATIVE_GPU=1` and
+native tests from `packages/zyren_native`, with `RUN_NATIVE_GPU=1` and
 `--concurrency=1`, so build hooks refresh the correct library and handle-count
 checks run in isolation.
 
@@ -205,7 +205,7 @@ The checkpoint review found three defects: Metal fence completion accepted faile
 commands, native destruction could still block after a GPU timeout, and a Flutter
 resize requested during a completion microtask could be lost. Regression tests
 reproduced each failure. The renderer now checks retained Metal command statuses
-through a small [pinned HAL patch](../packages/gpu3d_native/native/vendor/README.md),
+through a small [pinned HAL patch](../packages/zyren_native/native/vendor/README.md),
 retires failed device ownership off the caller's thread, and drains newer Flutter
 requests before completing their shared operation. The process limits active and
 retiring devices to 32; permanently blocked devices remain charged. All three
@@ -650,7 +650,7 @@ network configuration or add iOS, Windows, Linux or Adreno evidence.
 
 ## glTF parser foundation
 
-The optional `gpu3d_gltf` package passes 25 parser tests, including a compiled
+The optional `zyren_gltf` package passes 25 parser tests, including a compiled
 Dart release executable. Fixtures cover GLB truncation and seeded mutations,
 JSON depth/token limits and duplicate keys, version and extension errors,
 relative buffers after redirects, embedded base64 payloads, URI policy, sparse
@@ -927,7 +927,7 @@ requests observations across the existing five-per-second statistics limit.
 Analysis, formatting and package/header boundary checks pass. The standalone CLI
 runs in JIT and bundled AOT modes outside the workspace, producing byte-identical
 768 by 432 PNGs with six draws. The image was inspected. The CLI has its own
-runtime dependency on `gpu3d_native`, which is required for the executable to
+runtime dependency on `zyren_native`, which is required for the executable to
 bundle the native asset; the effects library stays independent of that backend.
 
 The narrow-layout regression also checks that first-frame diagnostics preserve
@@ -976,7 +976,7 @@ on Metal. The standalone JIT and bundled AOT commands produced byte-identical
 images; `artifacts/shader-lab-materials.png` was inspected.
 
 Release builds passed for Android arm64 (23.3 MB) and macOS (52.0 MB). The Android
-release was installed and launched as `dev.gpu3d.shader_lab`, PID 21186 at the final
+release was installed and launched as `dev.zyren.shader_lab`, PID 21186 at the final
 check, with no error-level process log entries. The device screensaver obscured
 manual release inspection. The macOS integration could not foreground its app,
 though its assertions passed; manual macOS release inspection remains unverified.
@@ -1050,7 +1050,7 @@ suite: closing an attachment cannot turn an already submitted frame into a hook
 failure.
 
 Release builds passed for macOS (52.0 MB) and Android arm64 (23.9 MB). The updated
-Android release is running as `dev.gpu3d.shader_lab`, PID 24617 at verification,
+Android release is running as `dev.zyren.shader_lab`, PID 24617 at verification,
 with its Flutter runner retained and no error-level process log entries.
 The macOS runner could not foreground its app. Manual release inspection and
 new iOS, Windows, Linux or Adreno qualification remain open. Task 4 still needs
@@ -1115,7 +1115,7 @@ then exercises History controls, reset and resize with zero presentation readbac
 The app layout test passes at 320, 390 and 1100 pixels.
 
 Release builds passed for macOS (52.3 MB) and Android arm64 (23.5 MB). The Pixel
-release is running as `dev.gpu3d.shader_lab`, PID 29283 at verification, with its
+release is running as `dev.zyren.shader_lab`, PID 29283 at verification, with its
 Flutter runner retained. The macOS integration could not foreground its window,
 so manual release inspection and Apple window-compositor pixels remain unverified.
 There is no new iOS, Windows, Linux or Adreno qualification.
@@ -1184,7 +1184,7 @@ presentation; its first integration run caught an accidental readback default.
 The standalone Metal example rendered a 768x512 sphere grid, saved to
 `artifacts/pbr-metal-grid.png` and inspected locally. PBR release builds passed
 for macOS (50.5 MB) and Android arm64 (22.6 MB). The Pixel release is running as
-`dev.gpu3d.shader_lab`, PID 3142 at verification, with its runner retained and no
+`dev.zyren.shader_lab`, PID 3142 at verification, with its runner retained and no
 error-level process logs. Its screen capture showed the screensaver, so this
 checkpoint does not claim visual inspection of the Android release window.
 The Mac is locked and its integration runner could not foreground the app;
@@ -1241,7 +1241,7 @@ The PBR lab adds texture and ambient controls. Layout tests pass at 320, 390 and
 768x512 PNGs at `artifacts/pbr-maps-metal-grid.png` and
 `artifacts/pbr-maps-metal-aot.png`; the grid was inspected locally. Release builds
 passed for macOS (50.8 MB) and Android arm64 (22.8 MB). The Pixel release is running
-as `dev.gpu3d.shader_lab`, PID 10023 at verification, with its runner retained and
+as `dev.zyren.shader_lab`, PID 10023 at verification, with its runner retained and
 no error-level process logs.
 
 The Mac remains locked and its integration could not foreground the app. Manual
@@ -1307,7 +1307,7 @@ parity is not established.
 
 Final release builds passed for macOS (51.8 MB) and Android arm64 (23.2 MB) after
 the shared-effect precision guard. The Pixel release is running as
-`dev.gpu3d.shader_lab`, PID 13912 at verification, with its Flutter runner retained
+`dev.zyren.shader_lab`, PID 13912 at verification, with its Flutter runner retained
 and no error-level process logs. Pixel window interaction remains unverified in
 this checkpoint. The Mac integration could not foreground its window; manual
 release-window inspection and Apple compositor pixels remain unverified.
@@ -1344,7 +1344,7 @@ No new iOS, Windows, Linux or Adreno qualification is claimed.
 
 The first GPU fixture omitted its imported graph input and exposed only one
 sampled mip. Correcting both declarations made the probe read the intended mip.
-The default Flutter HDR test must run from `packages/flutter_gpu3d`, whose
+The default Flutter HDR test must run from `packages/flutter_zyren`, whose
 dependencies activate native build hooks; the workspace root's test invocation
 did not resolve the HDR FFI symbols. The corrected package run passes. The
 initial generated RGBE fixture had incorrect exponents and was fixed against
@@ -1399,7 +1399,7 @@ standard glTF qualification, advanced physical materials and full Three.js or
 Takram parity remain unfinished.
 
 Release builds pass for macOS (52.1 MB) and Android arm64 (23.4 MB). The updated
-Pixel release is running as `dev.gpu3d.shader_lab`, PID 19311 at verification,
+Pixel release is running as `dev.zyren.shader_lab`, PID 19311 at verification,
 with runner 46635 retained and no error-level process logs. Runner 55363 was
 stopped before this test/build cycle.
 
@@ -1434,7 +1434,7 @@ The first shadow regression observed the original lit receiver after casting
 was enabled. Implementing depth rendering made it pass. Initial WGSL compilation
 caught an entry-point call and a reserved identifier; both were corrected before
 GPU qualification. An initial combined Dart command used the wrong geospatial
-package path; the corrected command above includes `flutter_geospatial`.
+package path; the corrected command above includes `zyren_geospatial`.
 
 Release builds pass for macOS (52.5 MB) and Android arm64 (23.6 MB). The Mac
 integration could not foreground its window. Interactive native-window checks,
@@ -1442,7 +1442,7 @@ Apple compositor pixels, iOS and other desktop/mobile GPU qualification remain
 open. No lock polling or bypass was attempted. This checkpoint does not complete
 Task 5's glTF gates or the full Three.js and Takram port.
 
-The Pixel release is running as `dev.gpu3d.shader_lab`, PID 21415 at verification,
+The Pixel release is running as `dev.zyren.shader_lab`, PID 21415 at verification,
 with runner 33022 retained and no error-level process logs. Runner 46635 was
 stopped before the serialized Flutter test/build cycle. The release app uses
 native Vulkan rendering; interaction with its visible controls remains unverified.
@@ -1476,7 +1476,7 @@ failed to attach to the app; its isolated native-pixel run passes. macOS still
 reports an inability to foreground the window, so these results do not establish
 interactive desktop or compositor inspection.
 
-Release builds pass with `GPU3D_MODEL=pbr.glb`: macOS 55.4 MB and Android arm64
+Release builds pass with `ZYREN_MODEL=pbr.glb`: macOS 55.4 MB and Android arm64
 24.9 MB. The Pixel release process launched without error-level logs, but its
 final screen capture showed the lock screen. Interactive visual inspection of
 that release remains unverified. `artifacts/native-gltf-pbr.png` is a Metal readback preview
@@ -1497,7 +1497,7 @@ facade tests and three viewer widget tests, 464 Dart/Flutter tests in total.
 All 109 Rust tests pass, including GPU cases and the bounded tangent regressions.
 Analyzer, strict Clippy, formatting and package/Apple-header boundaries pass.
 The initial combined Dart command used the wrong geospatial directory; the
-corrected suite uses `packages/flutter_geospatial/test`.
+corrected suite uses `packages/zyren_geospatial/test`.
 
 The curved mirrored fixture matches an unmodified pinned MikkTSpace build within
 1e-6, including reversed face order. Tests also cover mirrored handedness, UV1,
@@ -1514,9 +1514,9 @@ sanitizer check from the workspace root:
 
 ```sh
 clang -std=c11 -O1 -g -fsanitize=address,undefined,float-cast-overflow \
-  -fno-sanitize-recover=all packages/gpu3d_native/native/src/tangents.c \
-  packages/gpu3d_native/native/tests/tangent_sanitize.c -o /tmp/gpu3d-tangent-check
-/tmp/gpu3d-tangent-check
+  -fno-sanitize-recover=all packages/zyren_native/native/src/tangents.c \
+  packages/zyren_native/native/tests/tangent_sanitize.c -o /tmp/zyren-tangent-check
+/tmp/zyren-tangent-check
 ```
 
 Metal and physical Pixel Vulkan pass the glTF pixel probes, including generated
@@ -1533,7 +1533,7 @@ coverage, instancing/deformation/animation, antialiasing, geospatial parity and
 remaining platform qualification open.
 
 Release builds pass for macOS (55.6 MB) and Android arm64 (25.5 MB). The Pixel
-release launched with `GPU3D_MODEL=normal-map.glb` and no error-level process
+release launched with `ZYREN_MODEL=normal-map.glb` and no error-level process
 logs at verification. Interactive release-screen inspection remains unverified.
 
 ## Linear material reference checkpoint
@@ -1659,7 +1659,7 @@ inspected. The latter uses Box Animated by Cesium, copyright 2017,
 lights added. Model data and source attribution are retained in the fixture folder.
 
 The Android release builds at 25.7 MB and launches with
-`--dart-define=GPU3D_MODEL=animated.glb`. macOS integration tests pass but their
+`--dart-define=ZYREN_MODEL=animated.glb`. macOS integration tests pass but their
 windows could not be foregrounded. Interactive desktop and release-screen
 inspection remain unverified. GPU instancing, skinning, morph deformation, the
 full Three.js/Takram port and remaining platform qualification are still open.
@@ -1691,7 +1691,7 @@ Verification passed:
 
 The same scene was saved and visually inspected through explicit native Metal
 readback at `artifacts/native-instancing.png`. The repeatable benchmark lives at
-`packages/gpu3d_native/benchmark/instancing.dart`; its measured scope and local
+`packages/zyren_native/benchmark/instancing.dart`; its measured scope and local
 results are recorded in [renderer benchmarks](../benchmarks/renderer/README.md).
 
 The macOS runner could not foreground the application. Interactive desktop and
@@ -2065,7 +2065,7 @@ Analysis is clean for packages, examples and tooling. Root-wide analysis reports
 nine informational import lints in two pre-existing ignored artifact scripts.
 Changed-file formatting, package boundaries, Apple ABI and diff checks pass.
 
-The [CPU benchmark](../packages/gpu3d/benchmark/README.md) records release costs
+The [CPU benchmark](../packages/zyren/benchmark/README.md) records release costs
 on the Apple M3 Max. The dense grid query tests eight of 32,768 triangles.
 The 10,000-instance query visits four candidate records; editing one instance
 requires one model inverse and measured 2.013 ms median capture plus traversal.
@@ -2218,7 +2218,7 @@ the current input and lifecycle contract.
 ## Optional scene inspector, 28 September 2026
 
 You can add `SceneInspector(controller:)` or `SceneStatsOverlay(controller:)`
-from the optional `gpu3d_inspector` package. The inspector searches object names,
+from the optional `zyren_inspector` package. The inspector searches object names,
 retains matching ancestors, shows mesh/transform details and reports controller
 status and the latest observed issue. It borrows the controller and uses public
 facade imports. Package checks reject private core/facade imports and native or

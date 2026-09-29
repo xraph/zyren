@@ -1,4 +1,4 @@
-import 'package:gpu3d/gpu3d.dart';
+import 'package:zyren/zyren.dart';
 
 /// One clip drives two separately bound scene hierarchies.
 class AnimationLabScene {

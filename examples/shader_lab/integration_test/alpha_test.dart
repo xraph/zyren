@@ -3,11 +3,11 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_gpu3d/flutter_gpu3d.dart';
-import 'package:flutter_gpu3d/src/presentation/native_metal_presenter.dart';
+import 'package:flutter_zyren/flutter_zyren.dart';
+import 'package:flutter_zyren/src/presentation/native_metal_presenter.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import '../../../packages/gpu3d_native/test/support/scene_alpha_checks.dart';
+import '../../../packages/zyren_native/test/support/scene_alpha_checks.dart';
 import 'effects_test.dart' show waitForFrame;
 
 void main() {
@@ -105,7 +105,7 @@ void main() {
       await controller.whenDisposed;
     }
     final diagnostics = (await MethodChannel(
-      Platform.isAndroid ? 'gpu3d/android-surfaces' : 'gpu3d/scene-views',
+      Platform.isAndroid ? 'zyren/android-surfaces' : 'zyren/scene-views',
     ).invokeMapMethod<Object?, Object?>('diagnostics'))!;
     expect(diagnostics['sessions'], 0);
     expect(diagnostics['renderers'], 0);

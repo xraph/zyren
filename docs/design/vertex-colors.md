@@ -29,7 +29,7 @@ geometry.updateAttribute(
 );
 ```
 
-Import `dart:typed_data` and `package:gpu3d/gpu3d.dart` for this example.
+Import `dart:typed_data` and `package:zyren/zyren.dart` for this example.
 You get the same flag on `DiffuseMaterial`, `StandardMaterial`, `LineMaterial`
 and `PointsMaterial`. It defaults to false. Enabling it requires a color
 attribute, and a material created with vertex colors defaults to a white tint.

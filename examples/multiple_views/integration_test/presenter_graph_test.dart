@@ -2,13 +2,13 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gpu3d/gpu3d.dart';
-import 'package:gpu3d/rendering.dart';
-import 'package:gpu3d_native/gpu3d_native.dart';
-import 'package:flutter_gpu3d/src/presentation/native_android_presenter.dart';
-import 'package:flutter_gpu3d/src/presentation/native_metal_presenter.dart';
+import 'package:zyren/zyren.dart';
+import 'package:zyren/rendering.dart';
+import 'package:zyren_native/zyren_native.dart';
+import 'package:flutter_zyren/src/presentation/native_android_presenter.dart';
+import 'package:flutter_zyren/src/presentation/native_metal_presenter.dart';
 import 'package:integration_test/integration_test.dart';
-import '../../../packages/gpu3d_native/test/support/graph_checks.dart';
+import '../../../packages/zyren_native/test/support/graph_checks.dart';
 
 class _ComputePlugin extends ScenePlugin {
   @override
@@ -87,7 +87,7 @@ void main() {
   Future<NativeGpuBackend> create() async =>
       android ? NativeAndroidBackend.create() : NativeMetalBackend.create();
   final channel = MethodChannel(
-    android ? 'gpu3d/android-surfaces' : 'gpu3d/scene-views',
+    android ? 'zyren/android-surfaces' : 'zyren/scene-views',
   );
 
   testWidgets(

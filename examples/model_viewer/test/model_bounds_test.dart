@@ -1,7 +1,7 @@
 import 'dart:io';
-import 'package:flutter_gpu3d/flutter_gpu3d.dart';
+import 'package:flutter_zyren/flutter_zyren.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gpu3d_gltf/gpu3d_gltf.dart';
+import 'package:zyren_gltf/zyren_gltf.dart';
 import 'package:model_viewer/model_bounds.dart';
 
 final class _Source implements ByteSourceResolver {

@@ -32,32 +32,32 @@ and required GPU features. No platform becomes supported just because it builds.
 
 | Package | Responsibility | Dependencies inside this repository |
 | --- | --- | --- |
-| `gpu3d` | Dart scene model, maths, resource descriptions, engine contracts, plugins, animation and render graph | None |
-| `gpu3d_native` | Rust renderer, versioned FFI, native resource registry, worker and offscreen rendering | `gpu3d` |
-| `flutter_gpu3d` | Public Flutter facade, controller, viewport, input adapter and native presentation registration | `gpu3d`, `gpu3d_native` |
-| `flutter_geospatial` | Geodetic maths, world model, globe/terrain/atmosphere plugins | `gpu3d` |
-| `gpu3d_gltf` | Optional glTF decoder and asset request types | `gpu3d` |
-| `gpu3d_inspector` | Optional Flutter diagnostics and scene inspection tools | `flutter_gpu3d` |
+| `zyren` | Dart scene model, maths, resource descriptions, engine contracts, plugins, animation and render graph | None |
+| `zyren_native` | Rust renderer, versioned FFI, native resource registry, worker and offscreen rendering | `zyren` |
+| `flutter_zyren` | Public Flutter facade, controller, viewport, input adapter and native presentation registration | `zyren`, `zyren_native` |
+| `zyren_geospatial` | Geodetic maths, world model, globe/terrain/atmosphere plugins | `zyren` |
+| `zyren_gltf` | Optional glTF decoder and asset request types | `zyren` |
+| `zyren_inspector` | Optional Flutter diagnostics and scene inspection tools | `flutter_zyren` |
 
 Keep the current public Flutter package names. New package names are working
 repository names; check registry availability before publication. Re-export the
-common core types from `flutter_gpu3d.dart`, so Flutter applications need one
-import for ordinary 3D work. Use `gpu3d.dart` for Dart-only work and
+common core types from `flutter_zyren.dart`, so Flutter applications need one
+import for ordinary 3D work. Use `zyren.dart` for Dart-only work and
 `rendering.dart` for advanced graph/shader contracts. Avoid barrel exports of FFI
 bindings, platform pointers and generated implementation code.
 
 Keep Apple, Android, Windows and Linux presentation adapters in platform folders
-of `flutter_gpu3d` initially. Separate federated packages only when they need
+of `flutter_zyren` initially. Separate federated packages only when they need
 independent releases or maintainers. Move the existing Rust crate intact to
-`gpu3d_native/native`; do not combine that move with a renderer rewrite.
+`zyren_native/native`; do not combine that move with a renderer rewrite.
 
 ```mermaid
 flowchart TD
-  App[Flutter application] --> View[flutter_gpu3d]
-  App --> Geo[flutter_geospatial plugin]
-  App --> Gltf[gpu3d_gltf loader]
-  View --> Core[gpu3d Dart core]
-  View --> Native[gpu3d_native]
+  App[Flutter application] --> View[flutter_zyren]
+  App --> Geo[zyren_geospatial plugin]
+  App --> Gltf[zyren_gltf loader]
+  View --> Core[zyren Dart core]
+  View --> Native[zyren_native]
   Geo --> Core
   Gltf --> Core
   Native --> Core
@@ -75,7 +75,7 @@ Inside your existing Flutter app, add one 3D import. The host's normal Flutter
 imports supply `Widget`, `BuildContext` and its loading/error widgets.
 
 ```dart
-import 'package:flutter_gpu3d/flutter_gpu3d.dart' as g;
+import 'package:flutter_zyren/flutter_zyren.dart' as g;
 
 Widget build(BuildContext context) => g.SceneView.builder(
   sceneKey: const ValueKey('preview'),
@@ -365,7 +365,7 @@ including metallic/roughness materials and authored punctual lights. Animation
 and other unsupported features remain explicit errors.
 
 ```dart
-import 'package:gpu3d_gltf/gpu3d_gltf.dart';
+import 'package:zyren_gltf/zyren_gltf.dart';
 
 final task = view.assets.load(Gltf.asset('assets/pump.glb'));
 final subscription = task.progress.listen(showLoadProgress);
@@ -404,7 +404,7 @@ Canonical types:
 A typed request carries its loader, so `Gltf.asset` needs no separate registration
 call. `AssetDecodeContext` supplies cancellation, byte budgets, source resolution
 and image decoding. `SceneRuntime.assetServices` lets the host override those
-services; optional loaders still import only `gpu3d`.
+services; optional loaders still import only `zyren`.
 `ByteSourceResolver` supplies bundle, file, memory or HTTP bytes with size limits.
 The Flutter adapter provides bundle access. Network credentials stay in the host
 resolver. External glTF references follow the request's base URI and resolver
@@ -593,7 +593,7 @@ Queries now use revision-safe BVHs, and [frustum culling](frustum-culling.md)
 skips offscreen color draws while retaining shadow participation and resource
 ownership. [Orbit controls](orbit-controls.md) provide local pan/zoom/orbit input,
 time-based damping and per-view frame demand. The optional
-[`gpu3d_inspector`](../../packages/gpu3d_inspector/README.md) package provides a
+[`zyren_inspector`](../../packages/zyren_inspector/README.md) package provides a
 searchable scene tree, object details and sampled statistics through public
 Flutter contracts. Its widgets borrow the controller and own their listeners.
 

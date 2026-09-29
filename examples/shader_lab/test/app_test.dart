@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_gpu3d/flutter_gpu3d.dart';
+import 'package:flutter_zyren/flutter_zyren.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shader_lab/main.dart';
 import 'package:shader_lab_effects/shader_lab_effects.dart';
-import '../../../packages/flutter_gpu3d/test/support/backend_fake.dart';
-import '../../../packages/flutter_gpu3d/test/support/fakes.dart';
+import '../../../packages/flutter_zyren/test/support/backend_fake.dart';
+import '../../../packages/flutter_zyren/test/support/fakes.dart';
 
 void main() {
   testWidgets(

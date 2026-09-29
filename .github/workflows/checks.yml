@@ -29,17 +29,17 @@ jobs:
       - run: flutter pub get
       - run: flutter analyze
       - run: dart format --output=none --set-exit-if-changed packages examples/planet/lib examples/planet/integration_test examples/multiple_views/lib examples/multiple_views/test examples/multiple_views/integration_test
-      - run: cargo +1.97.1 fmt --manifest-path packages/gpu3d_native/native/Cargo.toml --check
-      - run: cargo +1.97.1 clippy --manifest-path packages/gpu3d_native/native/Cargo.toml --all-targets --locked -- -D warnings
-      - run: cargo +1.97.1 test --manifest-path packages/gpu3d_native/native/Cargo.toml --locked
+      - run: cargo +1.97.1 fmt --manifest-path packages/zyren_native/native/Cargo.toml --check
+      - run: cargo +1.97.1 clippy --manifest-path packages/zyren_native/native/Cargo.toml --all-targets --locked -- -D warnings
+      - run: cargo +1.97.1 test --manifest-path packages/zyren_native/native/Cargo.toml --locked
       - run: dart run tool/check_package_boundaries.dart
-      - run: dart test packages/gpu3d/test packages/flutter_geospatial/test
+      - run: dart test packages/zyren/test packages/zyren_geospatial/test
       - run: flutter test
-        working-directory: packages/flutter_gpu3d
+        working-directory: packages/flutter_zyren
       - run: flutter test
         working-directory: examples/multiple_views
       - run: dart test test/worker_failure_test.dart
-        working-directory: packages/gpu3d_native
+        working-directory: packages/zyren_native
       - run: flutter build ${{ matrix.platform }} --debug
         working-directory: examples/planet
   mobile:

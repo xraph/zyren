@@ -1,7 +1,7 @@
 import 'package:flutter/widgets.dart';
-import 'package:flutter_gpu3d/flutter_gpu3d.dart';
+import 'package:flutter_zyren/flutter_zyren.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gpu3d/rendering.dart';
+import 'package:zyren/rendering.dart';
 import 'package:integration_test/integration_test.dart';
 
 class CountedBundle implements ByteSourceResolver {

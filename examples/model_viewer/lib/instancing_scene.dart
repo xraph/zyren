@@ -1,5 +1,5 @@
 import 'dart:math' as math;
-import 'package:gpu3d/gpu3d.dart';
+import 'package:zyren/zyren.dart';
 
 InstancedMesh populateInstances(Scene scene) {
   scene.background = const Color3(.018, .027, .046);

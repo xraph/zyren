@@ -1,10 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
-import 'package:gpu3d/gpu3d.dart';
-import 'package:gpu3d/rendering.dart';
-import 'package:gpu3d_gltf/gpu3d_gltf.dart';
-import 'package:gpu3d_native/gpu3d_native.dart';
+import 'package:zyren/zyren.dart';
+import 'package:zyren/rendering.dart';
+import 'package:zyren_gltf/zyren_gltf.dart';
+import 'package:zyren_native/zyren_native.dart';
 import 'package:model_viewer/model_bounds.dart';
 
 /// Explicit native GPU readback for a standalone PNG, without a Flutter window.

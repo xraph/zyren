@@ -10,10 +10,10 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_gpu3d:
-    path: ../../packages/flutter_gpu3d
-  flutter_geospatial:
-    path: ../../packages/flutter_geospatial
+  flutter_zyren:
+    path: ../../packages/flutter_zyren
+  zyren_geospatial:
+    path: ../../packages/zyren_geospatial
 
 dev_dependencies:
   flutter_test:

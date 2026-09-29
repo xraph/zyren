@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:flutter_gpu3d/flutter_gpu3d.dart';
-import 'package:gpu3d_gltf/gpu3d_gltf.dart';
+import 'package:flutter_zyren/flutter_zyren.dart';
+import 'package:zyren_gltf/zyren_gltf.dart';
 import 'model_bounds.dart';
 
 void main() => runApp(
@@ -104,7 +104,7 @@ class _ModelViewerState extends State<ModelViewer> {
       load(
         bundle(
           const String.fromEnvironment(
-            'GPU3D_MODEL',
+            'ZYREN_MODEL',
             defaultValue: 'assembly.glb',
           ),
         ),

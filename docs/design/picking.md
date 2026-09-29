@@ -101,7 +101,7 @@ counts candidate mesh/instance records and `triangleTests` counts exact tests.
 Use `RaycastAcceleration.none` to compare with linear traversal or avoid building
 trees for a one-off query. BVH build and refit work runs synchronously. A changing
 surface with only one query per revision can cost more than a linear scan; see
-the [benchmark](../../packages/gpu3d/benchmark/README.md) for measured examples.
+the [benchmark](../../packages/zyren/benchmark/README.md) for measured examples.
 
 ## Projection and layers
 

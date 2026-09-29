@@ -10,7 +10,7 @@ view, then turn the mesh again to verify the right renderer remains active.
 
 `managed_mesh.dart` shows view-owned setup and cleanup. `borrowed_viewer.dart`
 shows a controller that survives unmounting its viewport. All three examples
-import their 3D API from `package:flutter_gpu3d/flutter_gpu3d.dart`.
+import their 3D API from `package:flutter_zyren/flutter_zyren.dart`.
 
 Rendering uses the native GPU. The default entrypoint selects RGBA readback for
 Flutter presentation. Use `lib/native_scene_demo.dart` for direct Metal views

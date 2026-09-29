@@ -1,7 +1,7 @@
 {
   "asset": {
     "version": "2.0",
-    "generator": "gpu3d authored fixture"
+    "generator": "zyren authored fixture"
   },
   "extensionsUsed": [
     "KHR_materials_unlit"

@@ -107,7 +107,7 @@ twelve differently transformed ribbons while retaining two scene draws and the
 existing material programs.
 
 `tool/capture_instances.dart` renders the same scene to a PNG through explicit
-native readback. Run it from `packages/gpu3d_native` so the build hook refreshes:
+native readback. Run it from `packages/zyren_native` so the build hook refreshes:
 
 ```sh
 dart run ../../examples/model_viewer/tool/capture_instances.dart ../../artifacts/native-instancing.png

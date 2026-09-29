@@ -1,14 +1,14 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter_gpu3d/flutter_gpu3d.dart';
-import 'package:flutter_gpu3d/src/presentation/native_metal_presenter.dart';
+import 'package:flutter_zyren/flutter_zyren.dart';
+import 'package:flutter_zyren/src/presentation/native_metal_presenter.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gpu3d_gltf/gpu3d_gltf.dart';
+import 'package:zyren_gltf/zyren_gltf.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:model_viewer/main.dart';
 import '../test/support/controls.dart';
-import '../../../packages/gpu3d_native/test/support/gltf_deformation_checks.dart';
-import '../../../packages/gpu3d_native/test/support/morph_tangent_checks.dart';
+import '../../../packages/zyren_native/test/support/gltf_deformation_checks.dart';
+import '../../../packages/zyren_native/test/support/morph_tangent_checks.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();

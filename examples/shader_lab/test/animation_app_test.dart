@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_gpu3d/flutter_gpu3d.dart';
+import 'package:flutter_zyren/flutter_zyren.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shader_lab/animation.dart';
 import 'pbr_app_test.dart' show PbrBackend;
-import '../../../packages/flutter_gpu3d/test/support/fakes.dart';
+import '../../../packages/flutter_zyren/test/support/fakes.dart';
 
 void main() {
   testWidgets('independent animation controls fit desktop and narrow screens', (

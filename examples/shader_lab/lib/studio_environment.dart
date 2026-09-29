@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 import 'dart:typed_data';
-import 'package:gpu3d/gpu3d.dart';
+import 'package:zyren/zyren.dart';
 
 /// An analytic HDR studio panorama, so the example needs no external assets.
 HdrImageData studioEnvironment() {

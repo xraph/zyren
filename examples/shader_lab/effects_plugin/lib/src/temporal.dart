@@ -1,5 +1,5 @@
 import 'dart:typed_data';
-import 'package:gpu3d/gpu3d.dart';
+import 'package:zyren/zyren.dart';
 import 'effects.dart';
 
 /// A temporal blend that demonstrates frame history. This does not reproject

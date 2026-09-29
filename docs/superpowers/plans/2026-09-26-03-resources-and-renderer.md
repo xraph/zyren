@@ -39,18 +39,18 @@ same backend contracts. Use explicit readback for deterministic image tests.
 
 | Files | Responsibility |
 | --- | --- |
-| `packages/gpu3d/lib/src/resources/{buffer,texture,sampler,resource_scope}.dart` | Typed CPU descriptors and scoped handles |
-| `packages/gpu3d_native/native/src/resources/{registry,buffer,texture,upload}.rs` | Native lifetime, budget and upload validation |
-| `packages/gpu3d/lib/src/assets` | Source resolution, cancellation, shared jobs and asset scopes |
-| `packages/gpu3d_gltf/lib/src/{request,decoder,extensions}` | glTF requests and document conversion |
-| `packages/gpu3d/lib/src/rendering/{render_graph,shader,pass_descriptor}.dart` | Advanced public API |
-| `packages/gpu3d_native/native/src/{render_graph,passes,shaders}` | Graph executor and render pipelines |
-| `packages/gpu3d/lib/src/{materials,lights,animation,spatial}` | General scene capabilities |
+| `packages/zyren/lib/src/resources/{buffer,texture,sampler,resource_scope}.dart` | Typed CPU descriptors and scoped handles |
+| `packages/zyren_native/native/src/resources/{registry,buffer,texture,upload}.rs` | Native lifetime, budget and upload validation |
+| `packages/zyren/lib/src/assets` | Source resolution, cancellation, shared jobs and asset scopes |
+| `packages/zyren_gltf/lib/src/{request,decoder,extensions}` | glTF requests and document conversion |
+| `packages/zyren/lib/src/rendering/{render_graph,shader,pass_descriptor}.dart` | Advanced public API |
+| `packages/zyren_native/native/src/{render_graph,passes,shaders}` | Graph executor and render pipelines |
+| `packages/zyren/lib/src/{materials,lights,animation,spatial}` | General scene capabilities |
 | `examples/{model_viewer,shader_lab}` | Public API consumers, without private imports |
 | `test_assets/{gltf,images,rendering}` | Small licensed fixtures and expected results |
 
 Run Dart tests in their owning package, Rust commands in
-`packages/gpu3d_native/native` and integration tests from each example. Shader
+`packages/zyren_native/native` and integration tests from each example. Shader
 tests use real native compilation. Image comparisons include numeric probes and
 tolerances established from the reference, with backend/driver recorded; avoid
 one universal byte-identical golden across unrelated GPU implementations.
@@ -202,7 +202,7 @@ Current checkpoint: typed requests, shared jobs, worker parsing/preparation and
 scope-owned static model templates are implemented. `Gltf.asset` and `Gltf.uri`
 produce ordinary core scene instances with shared immutable geometry and images.
 The supported unlit subset, unsupported features and required diagnostic PBR
-mode are listed in the [fixture matrix](../../packages/gpu3d_gltf/README.md).
+mode are listed in the [fixture matrix](../../packages/zyren_gltf/README.md).
 The standalone model viewer passes bundle and HTTP loading, relative dependencies,
 reloads and native presentation checks on Metal and physical Pixel Vulkan. Its
 widget tests cover cancellation, retry, input during pending work, object names,
@@ -213,9 +213,9 @@ locked, so no manual window inspection is claimed. Full glTF/PBR/animation parit
 belongs to the later tasks and extension work.
 
 **Files:** Implement core `assets/{asset_scope,asset_request,source_resolver,shared_load}.dart`;
-create `packages/gpu3d_gltf/{pubspec.yaml,lib/gpu3d_gltf.dart}` and decoder modules.
-Create `packages/gpu3d/test/shared_load_test.dart`,
-`packages/gpu3d_gltf/test/{accessor,model,uri_policy,cancellation}_test.dart`,
+create `packages/zyren_gltf/{pubspec.yaml,lib/zyren_gltf.dart}` and decoder modules.
+Create `packages/zyren/test/shared_load_test.dart`,
+`packages/zyren_gltf/test/{accessor,model,uri_policy,cancellation}_test.dart`,
 `test_assets/gltf` and `examples/model_viewer`.
 
 **Interfaces:** Implement `AssetRequest<T>`, `LoadTask<T>`, `ModelAsset` and
@@ -644,9 +644,9 @@ complete task 6, not the full library or cross-platform release qualification.
 `spatial/{bounds,frustum,ray,raycaster,bvh}.dart`, `controls/orbit_controls.dart`;
 modify facade picking/input. Create `test/{raycaster,camera,controls}_test.dart`
 and viewer selection integration tests. Create the optional Flutter package
-`packages/gpu3d_inspector`, with `lib/gpu3d_inspector.dart`,
+`packages/zyren_inspector`, with `lib/zyren_inspector.dart`,
 `lib/src/{scene_inspector,stats_overlay}.dart` and widget tests; it depends on
-`flutter_gpu3d` and does not enter core dependencies.
+`flutter_zyren` and does not enter core dependencies.
 
 **Interfaces:** Implement `Bounds3`, `Ray`, `Raycaster`, `OrthographicCamera`,
 layer masks and `PickResult`. Use plan 01's `ViewportPoint.toNdc`.
@@ -691,7 +691,7 @@ queries, with per-mesh skin/morph refits, cached model inverses and immutable
 requests. Core tests compare against linear traversal, including 10,000
 instances, coincident triangles and reflected nonuniform transforms. The release
 regression checks cold caches, edits and retained requests. See the
-[CPU benchmark](../../../packages/gpu3d/benchmark/README.md) for cold, steady and
+[CPU benchmark](../../../packages/zyren/benchmark/README.md) for cold, steady and
 edit costs. Queries run on the calling isolate.
 
 Frustum checkpoint (2026-09-28): built-in triangle bounds, skin/morph poses and
@@ -717,7 +717,7 @@ with selection, framing and projection switching. See
 [orbit controls](../../design/orbit-controls.md). The optional inspector and
 final acceptance audit remain open.
 
-Inspector checkpoint (2026-09-28): the optional `gpu3d_inspector` package now
+Inspector checkpoint (2026-09-28): the optional `zyren_inspector` package now
 exports `SceneInspector` and `SceneStatsOverlay`. Both use public facade APIs
 and borrow their controller. Tests cover hierarchy search and selection, scene
 updates, empty/failure states, sampled trailing statistics, pointer passthrough,

@@ -13,7 +13,7 @@ without exposing platform details to application code.
 ## Output contracts
 
 Ordinary rendering must not require pixels to cross FFI. Use these internal core
-contracts in `packages/gpu3d/lib/src/rendering/frame_output.dart` and
+contracts in `packages/zyren/lib/src/rendering/frame_output.dart` and
 `render_backend.dart`:
 
 ```dart

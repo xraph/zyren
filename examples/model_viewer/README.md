@@ -8,9 +8,9 @@ or scroll to zoom. Frame model resets the camera to the loaded geometry.
 
 ```sh
 cd examples/model_viewer
-flutter run -d macos --release --dart-define=GPU3D_MODEL=pbr.glb
+flutter run -d macos --release --dart-define=ZYREN_MODEL=pbr.glb
 # Or select an Android device:
-flutter run -d DEVICE_ID --release --dart-define=GPU3D_MODEL=pbr.glb
+flutter run -d DEVICE_ID --release --dart-define=ZYREN_MODEL=pbr.glb
 ```
 
 The viewer requires native presentation. macOS uses Metal; Android API 29+ uses
@@ -36,21 +36,21 @@ Open Examples and choose PBR model for a metallic/roughness assembly with author
 directional lights. Its second scene has no lights, so the viewer supplies a
 studio setup that you can toggle in the header. Imported lights always take
 precedence. Choose Colors to see normalized RGB vertex colors on the same
-assembly. You can start there with `--dart-define=GPU3D_MODEL=colors.glb`.
+assembly. You can start there with `--dart-define=ZYREN_MODEL=colors.glb`.
 The material-mode menu also offers an unlit diagnostic approximation
 for the next load or retry, with a warning on the loaded model. The loader currently supports a
 bounded subset of glTF, with unsupported features reported through source/field
-diagnostics. Read the [support matrix](../../packages/gpu3d_gltf/README.md) before
+diagnostics. Read the [support matrix](../../packages/zyren_gltf/README.md) before
 choosing an asset. HTTP sources stay within the configured source policy; this
 example stores no credentials and adds no authentication UI.
 
 Choose Animation for an authored PBR assembly with cubic lift, linear rotation
 and step scale clips. The compact playback row selects clips, plays or pauses,
 seeks and restarts. Replacing the model releases its mixer registration. Start
-with that asset using `--dart-define=GPU3D_MODEL=animated.glb`.
+with that asset using `--dart-define=ZYREN_MODEL=animated.glb`.
 
 ```sh
-flutter run --release -d DEVICE_ID --dart-define=GPU3D_MODEL=animated.glb
+flutter run --release -d DEVICE_ID --dart-define=ZYREN_MODEL=animated.glb
 flutter test integration_test/animation_test.dart -d DEVICE_ID
 ```
 
@@ -108,7 +108,7 @@ controls apply to the imported clip. Camera framing uses the current deformed
 bounds, including cancellation of the glTF mesh node transform during skinning.
 
 ```sh
-flutter run --release -d <android-device> --dart-define=GPU3D_MODEL=deformation.glb
+flutter run --release -d <android-device> --dart-define=ZYREN_MODEL=deformation.glb
 flutter test integration_test/gltf_deformation_test.dart -d macos
 ```
 

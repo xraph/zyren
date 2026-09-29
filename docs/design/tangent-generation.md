@@ -51,7 +51,7 @@ A missing generator produces an actionable error at the primitive's TANGENT path
 
 The native implementation uses Mikkelsen's pinned reference algorithm with its
 default 180-degree threshold. Normals are normalized for calculation. Source
-geometry is unchanged. The [vendor note](../../packages/gpu3d_native/native/vendor/mikktspace/README.md)
+geometry is unchanged. The [vendor note](../../packages/zyren_native/native/vendor/mikktspace/README.md)
 records the bounded execution changes and original license.
 
 ## Admission and cancellation

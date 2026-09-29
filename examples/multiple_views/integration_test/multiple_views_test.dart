@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_gpu3d/flutter_gpu3d.dart';
+import 'package:flutter_zyren/flutter_zyren.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:multiple_views/main.dart';
 

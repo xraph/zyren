@@ -19,7 +19,7 @@ architecture can be dropped directly into a native Rust renderer.
 | React Three Fiber wrappers | Flutter widgets and controllers | Per native feature |
 | External 3D tiles integration | Separate streaming/LOD loader | Separate milestone |
 
-`flutter_geospatial` is an optional plugin package on the generic Dart 3D core.
+`zyren_geospatial` is an optional plugin package on the generic Dart 3D core.
 Keep astronomy, planetary coordinates and globe-specific behavior in that plugin;
 keep textures, shaders, render passes, animation and asset loading in the core.
 

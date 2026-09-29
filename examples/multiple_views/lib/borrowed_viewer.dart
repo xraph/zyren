@@ -1,5 +1,5 @@
 import 'package:flutter/widgets.dart';
-import 'package:flutter_gpu3d/flutter_gpu3d.dart';
+import 'package:flutter_zyren/flutter_zyren.dart';
 
 /// The caller owns this controller and may mount it again after this view closes.
 class BorrowedViewer extends StatelessWidget {

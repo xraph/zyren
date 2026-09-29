@@ -1,6 +1,6 @@
 # Renderer benchmarks
 
-Run the native instancing benchmark from `packages/gpu3d_native`:
+Run the native instancing benchmark from `packages/zyren_native`:
 
 ```sh
 dart run benchmark/instancing.dart
@@ -28,7 +28,7 @@ pipeline variant for 10000 opaque copies.
 
 ## HDR effects
 
-Build and run the AOT bundle from `packages/gpu3d_native`:
+Build and run the AOT bundle from `packages/zyren_native`:
 
 ```sh
 dart build cli -t benchmark/post_processing.dart -o build/renderer-profile
@@ -125,7 +125,7 @@ They do not measure display pacing, GPU timestamps, power or thermal state.
 ## Iridescence, area shadows and compressed textures
 
 The final optics run uses source `46f3bf4` on the same M3 Max. You can reproduce
-its seven profiles from `packages/gpu3d_native` after rebuilding the AOT bundle:
+its seven profiles from `packages/zyren_native` after rebuilding the AOT bundle:
 
 ```sh
 build/renderer-profile/bundle/bin/post_processing hdr iridescence dispersion area-shadow texture-rgba texture-compressed optics+taa

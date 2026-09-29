@@ -56,7 +56,7 @@ The tests compare bounds, winding, cap counts, curve length, closed seams and
 native front-face pixels against CPU ray queries. Interior Catmull-Rom samples
 come from the supplied project's Three.js version, 0.184.0, covering all three
 parameterizations with open and closed curves. The fixture generator lives in
-`packages/gpu3d/test/fixtures`.
+`packages/zyren/test/fixtures`.
 
 Run `flutter run -d macos -t lib/procedural.dart` from `examples/shader_lab` for
 the native geometry gallery with PBR lighting, bloom and MSAA controls.

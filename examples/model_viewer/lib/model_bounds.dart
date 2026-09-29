@@ -1,5 +1,5 @@
 import 'dart:math' as math;
-import 'package:gpu3d/gpu3d.dart';
+import 'package:zyren/zyren.dart';
 
 /// Viewer framing yields between chunks so large meshes keep input responsive.
 Future<({Vec3 center, double radius})> modelBounds(

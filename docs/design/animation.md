@@ -23,7 +23,7 @@ action.speed = -1;
 action.resume();
 ```
 
-Import `gpu3d/gpu3d.dart` in Dart or `flutter_gpu3d/flutter_gpu3d.dart` in Flutter.
+Import `zyren/zyren.dart` in Dart or `flutter_zyren/flutter_zyren.dart` in Flutter.
 Register the mixer before the view initializes, like other scene plugins.
 Each mixer gets a unique plugin ID; supply `id` when another plugin needs a
 stable dependency on it. The returned type is `AnimationAction`, avoiding a
@@ -53,8 +53,8 @@ replace or remove that model. Detaching a system releases all frame demand while
 retaining its mixer registrations for reattachment. Each newly attached mixer
 skips its first frame delta. Systems support up to 4096 registered mixers.
 
-The optional `gpu3d_gltf` loader publishes these same core clips and mixers.
-See its [instance and scene selection API](../../packages/gpu3d_gltf/README.md#animation).
+The optional `zyren_gltf` loader publishes these same core clips and mixers.
+See its [instance and scene selection API](../../packages/zyren_gltf/README.md#animation).
 
 ## Tracks and instance ownership
 

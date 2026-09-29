@@ -1,6 +1,6 @@
-import 'package:gpu3d/gpu3d.dart';
-import 'package:gpu3d/rendering.dart';
-import 'package:gpu3d_native/gpu3d_native.dart';
+import 'package:zyren/zyren.dart';
+import 'package:zyren/rendering.dart';
+import 'package:zyren_native/zyren_native.dart';
 import 'package:shader_lab_effects/shader_lab_effects.dart';
 import 'package:test/test.dart';
 import 'native_checks.dart' show ObservedBackend;

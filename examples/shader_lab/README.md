@@ -112,7 +112,7 @@ Damping settles back to demand rendering after you finish a gesture. See
 [orbit controls](../../docs/design/orbit-controls.md) for bindings and limits.
 Open **Inspect scene** beside the pan slider to search the hierarchy, select a
 box and inspect its transform, renderer status and last presented frame. The
-panel uses the optional [inspector package](../../packages/gpu3d_inspector/README.md).
+panel uses the optional [inspector package](../../packages/zyren_inspector/README.md).
 The canvas keeps its size while the panel is open. Opening, selecting and closing
 do not request rendering; **Frame inspected box** moves the camera explicitly.
 Close the panel with its close button, Escape or back navigation. Keyboard focus

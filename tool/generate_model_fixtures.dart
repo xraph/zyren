@@ -68,7 +68,7 @@ void main() {
   const png =
       'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAHUlEQVR4AQESAO3/AP8AAIAA/wD/AAAA/wD/////PdsIeTLV3/QAAAAASUVORK5CYII=';
   final root = <String, Object?>{
-    'asset': {'version': '2.0', 'generator': 'gpu3d authored fixture'},
+    'asset': {'version': '2.0', 'generator': 'zyren authored fixture'},
     'extensionsUsed': ['KHR_materials_unlit'],
     'extensionsRequired': ['KHR_materials_unlit'],
     'buffers': [

@@ -38,9 +38,9 @@ contains their license and copyright notices for redistribution.
 
 ## Three.js tone mapping, curve and sheen references
 
-The ACES filmic fit in `packages/gpu3d_native/native/src/renderer/output.wgsl`
+The ACES filmic fit in `packages/zyren_native/native/src/renderer/output.wgsl`
 follows Three.js, including its viewing exposure adjustment. The Catmull-Rom
-parameterization in `packages/gpu3d/lib/src/math/curve3.dart` follows the same
+parameterization in `packages/zyren/lib/src/math/curve3.dart` follows the same
 nonuniform cubic formulation and repeated-point handling. Its reference fixture
 uses Three.js 0.184.0.
 
@@ -49,7 +49,7 @@ Source: https://github.com/mrdoob/three.js/blob/dev/src/renderers/shaders/Shader
 Curve source: https://github.com/mrdoob/three.js/blob/r184/src/extras/curves/CatmullRomCurve3.js
 
 The Charlie directional-albedo fit in
-`packages/gpu3d_native/native/src/renderer/physical.wgsl` follows Three.js r180.
+`packages/zyren_native/native/src/renderer/physical.wgsl` follows Three.js r180.
 
 Sheen source: https://github.com/mrdoob/three.js/blob/r180/src/renderers/shaders/ShaderChunk/lights_physical_pars_fragment.glsl.js
 
@@ -80,8 +80,8 @@ THE SOFTWARE.
 The native rectangular-light matrix and amplitude tables are adapted from
 Three.js r180, under the Three.js MIT terms above, and from the fitted LTC data
 by Eric Heitz, Jonathan Dupuy, Stephen Hill and David Neubelt (2017).
-Their [license](packages/gpu3d_native/native/src/renderer/ltc/LICENSE) and
-[table provenance](packages/gpu3d_native/native/src/renderer/ltc/README.md) are
+Their [license](packages/zyren_native/native/src/renderer/ltc/LICENSE) and
+[table provenance](packages/zyren_native/native/src/renderer/ltc/README.md) are
 included with the data.
 
 Reference: *Real-Time Polygonal-Light Shading with Linearly Transformed Cosines*,

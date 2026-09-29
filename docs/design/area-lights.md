@@ -50,8 +50,8 @@ Reference: Eric Heitz, Jonathan Dupuy, Stephen Hill and David Neubelt,
 *Real-Time Polygonal-Light Shading with Linearly Transformed Cosines*,
 ACM Transactions on Graphics 35(4), 2016.
 [Project and paper](https://eheitzresearch.wordpress.com/415-2/).
-See the [table license](../../packages/gpu3d_native/native/src/renderer/ltc/LICENSE)
-and [provenance](../../packages/gpu3d_native/native/src/renderer/ltc/README.md).
+See the [table license](../../packages/zyren_native/native/src/renderer/ltc/LICENSE)
+and [provenance](../../packages/zyren_native/native/src/renderer/ltc/README.md).
 
 Shadow bias uses the face-oriented geometric normal. Your normal map still drives
 the material's lighting, but it does not move shadow lookups. Rotating the camera

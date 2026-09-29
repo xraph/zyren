@@ -1,6 +1,6 @@
 # Material reference checks
 
-You can run the material probes against a native GPU from `packages/gpu3d_native`:
+You can run the material probes against a native GPU from `packages/zyren_native`:
 
 ```sh
 RUN_NATIVE_GPU=1 dart test test/pbr_reference_test.dart test/gltf_model_test.dart --concurrency=1
@@ -62,7 +62,7 @@ See [environment lighting](environment-lighting.md) for its sampling limits.
 
 ## Related fixtures
 
-All paths below are relative to `packages/gpu3d_native/test`.
+All paths below are relative to `packages/zyren_native/test`.
 
 | Behaviour | Fixture |
 | --- | --- |

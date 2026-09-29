@@ -5,8 +5,8 @@
 import FlutterMacOS
 import Foundation
 
-import flutter_gpu3d
+import flutter_zyren
 
 func RegisterGeneratedPlugins(registry: FlutterPluginRegistry) {
-  Gpu3dPlugin.register(with: registry.registrar(forPlugin: "Gpu3dPlugin"))
+  ZyrenPlugin.register(with: registry.registrar(forPlugin: "ZyrenPlugin"))
 }

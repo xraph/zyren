@@ -49,7 +49,7 @@ Your own effect can run after this one with
 `after: {EffectsPlugin.pluginId}` on `context.graph.addEffect`. That is an effect
 ordering constraint, separate from the plugin dependency needed to read the typed
 controls service. Disabling these effects lets the next effect read scene color.
-The library depends only on `gpu3d`. Its GPU tests use the native
+The library depends only on `zyren`. Its GPU tests use the native
 backend as a development dependency. The separate `example` CLI host declares
 the native backend as a runtime dependency so `dart build cli` bundles its native
 asset for deployment.

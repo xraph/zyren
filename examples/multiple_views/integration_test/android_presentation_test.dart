@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gpu3d_native/surfaces.dart';
+import 'package:zyren_native/surfaces.dart';
 import 'package:integration_test/integration_test.dart';
 
 import 'package:multiple_views/experimental/metal_proof_view.dart'
@@ -9,7 +9,7 @@ import 'package:multiple_views/experimental/metal_proof_view.dart'
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
-  const channel = MethodChannel('gpu3d/android-proof');
+  const channel = MethodChannel('zyren/android-proof');
   testWidgets('Vulkan surfaces render, resize, replace and release', (
     tester,
   ) async {

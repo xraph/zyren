@@ -6,8 +6,8 @@ Run this on a Mac with Xcode and a Metal device:
 xcrun clang++ -std=c++17 -fobjc-arc -Wall -Wextra -Werror \
   -framework Foundation -framework CoreVideo -framework Metal -framework IOSurface \
   experiments/apple_presentation/iosurface_lifetime.mm \
-  -o /tmp/gpu3d-iosurface-lifetime
-/tmp/gpu3d-iosurface-lifetime
+  -o /tmp/zyren-iosurface-lifetime
+/tmp/zyren-iosurface-lifetime
 ```
 
 The executable checks three ownership assumptions. A one-buffer Core Video pool

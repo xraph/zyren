@@ -1,5 +1,5 @@
 import 'dart:typed_data';
-import 'package:gpu3d/gpu3d.dart';
+import 'package:zyren/zyren.dart';
 import 'effects.dart' show UnsupportedEffects;
 
 /// Applies a UV stripe material to a borrowed mesh for this attachment's lifetime.

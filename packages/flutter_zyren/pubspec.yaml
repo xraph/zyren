@@ -1,0 +1,30 @@
+name: flutter_zyren
+description: Flutter views for the native Dart 3D engine.
+version: 0.1.0
+publish_to: none
+resolution: workspace
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+  flutter: '>=3.38.0'
+dependencies:
+  flutter:
+    sdk: flutter
+  zyren:
+    path: ../zyren
+  zyren_native:
+    path: ../zyren_native
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: dev.twinos.zyren
+        pluginClass: ZyrenPlugin
+      ios:
+        pluginClass: ZyrenPlugin
+        sharedDarwinSource: true
+      macos:
+        pluginClass: ZyrenPlugin
+        sharedDarwinSource: true

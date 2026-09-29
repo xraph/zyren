@@ -1,14 +1,14 @@
 name: shader_lab_effects
-description: A separately packaged native scene effect using the public gpu3d API.
+description: A separately packaged native scene effect using the public zyren API.
 publish_to: none
 version: 0.1.0
 resolution: workspace
 environment:
   sdk: '>=3.10.0 <4.0.0'
 dependencies:
-  gpu3d:
-    path: ../../../packages/gpu3d
+  zyren:
+    path: ../../../packages/zyren
 dev_dependencies:
   test: ^1.25.0
-  gpu3d_native:
-    path: ../../../packages/gpu3d_native
+  zyren_native:
+    path: ../../../packages/zyren_native

@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.22)
+project(zyren_surface LANGUAGES CXX)
+add_library(zyren_surface SHARED src/main/cpp/zyren_surface.cpp)
+target_include_directories(zyren_surface PRIVATE ../darwin/Classes)
+target_link_libraries(zyren_surface android dl)
+target_link_options(zyren_surface PRIVATE "-Wl,-z,max-page-size=16384")

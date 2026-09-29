@@ -1,7 +1,7 @@
 # Extend the engine
 
-Use `gpu3d` for Dart scene and plugin code, or `flutter_gpu3d` for the Flutter
-facade. Add `flutter_geospatial` when you need Earth coordinates or globe controls. The dependency points one way: the
+Use `zyren` for Dart scene and plugin code, or `flutter_zyren` for the Flutter
+facade. Add `zyren_geospatial` when you need Earth coordinates or globe controls. The dependency points one way: the
 geospatial package imports the core, and the core never imports geospatial.
 
 ## Choose an extension point
@@ -146,9 +146,9 @@ with an empty plugin list.
 Use the advanced import when you need a backend without a Flutter view:
 
 ```dart
-import 'package:gpu3d/gpu3d.dart';
-import 'package:gpu3d/rendering.dart';
-import 'package:gpu3d_native/gpu3d_native.dart';
+import 'package:zyren/zyren.dart';
+import 'package:zyren/rendering.dart';
+import 'package:zyren_native/zyren_native.dart';
 
 final backend = await NativeBackend.create();
 try {
@@ -186,7 +186,7 @@ those counters, so they do not measure total GPU residency. GPU timing remains
 unavailable.
 
 Run the headless example with `fvm dart run example/offscreen.dart` from
-`packages/gpu3d_native`. It requires a native Metal, Vulkan or DX12 device.
+`packages/zyren_native`. It requires a native Metal, Vulkan or DX12 device.
 
 ## Scene value migration
 
@@ -207,7 +207,7 @@ publishes the final revision. `Vec3`, `Quat` and `Mat4` expose read-only values;
 view now takes radians, so use `Angle.degrees(42)` for the old 42-degree view.
 Geodetic methods return `Vec3` and still preserve double precision in metres.
 
-`FrameScheduler` is available from `package:gpu3d/rendering.dart`. Call `tick`
+`FrameScheduler` is available from `package:zyren/rendering.dart`. Call `tick`
 with a monotonic time only when you can submit a frame. It returns null while
 idle or hidden. A request remains pending across the FPS limit; a removable
 demand registration produces continuous frames. The Flutter controller uses this clock. `onUpdate` acquires continuous demand
@@ -219,7 +219,7 @@ frame and `context.acquireFrameDemand()` while animating or damping.
 Use one import for ordinary Flutter scenes:
 
 ```dart
-import 'package:flutter_gpu3d/flutter_gpu3d.dart';
+import 'package:flutter_zyren/flutter_zyren.dart';
 
 final viewport = SceneView.builder(
   sceneKey: 'preview',

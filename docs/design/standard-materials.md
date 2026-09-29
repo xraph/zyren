@@ -1,8 +1,8 @@
 # Standard materials and lights
 
 You can render textured metallic/roughness materials with directional, point,
-spot and hemisphere lights through the native backend. Import `gpu3d/gpu3d.dart`
-for Dart or `flutter_gpu3d/flutter_gpu3d.dart` for Flutter. Geospatial is not required.
+spot and hemisphere lights through the native backend. Import `zyren/zyren.dart`
+for Dart or `flutter_zyren/flutter_zyren.dart` for Flutter. Geospatial is not required.
 
 ```dart
 final scene = Scene()..background = const Color3(.02, .02, .02);
@@ -214,7 +214,7 @@ cascades, point maps and spot maps. The optional glTF package imports the
 [documented material and light profile](gltf-materials.md) into these core types.
 
 Run the [Flutter PBR lab](../../examples/shader_lab/README.md) for a sphere grid
-and light controls. The standalone `gpu3d_native/example/pbr.dart` renders a PNG
+and light controls. The standalone `zyren_native/example/pbr.dart` renders a PNG
 through explicit readback for inspection.
 
 The material equations and light conventions follow the

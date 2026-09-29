@@ -122,7 +122,7 @@ Both meshes share geometry. Playback, pose, speed and width controls affect the
 blue mesh; the orange mesh keeps its own pose. Pausing releases frame demand.
 The controls wrap at narrow widths while leaving the canvas visible.
 
-From `packages/gpu3d_native`, use explicit readback to save the reference scene:
+From `packages/zyren_native`, use explicit readback to save the reference scene:
 
 ```sh
 dart run example/deformation.dart ../../artifacts/native-deformation.png
@@ -176,7 +176,7 @@ limits. See [tangent preparation](tangent-generation.md) for worker budgets.
 In the model viewer, choose **Skin + morph** or run:
 
 ```sh
-flutter run --release -d <android-device> --dart-define=GPU3D_MODEL=deformation.glb
+flutter run --release -d <android-device> --dart-define=ZYREN_MODEL=deformation.glb
 flutter test integration_test/gltf_deformation_test.dart -d macos
 ```
 
@@ -198,5 +198,5 @@ skin/morph path. Regenerate or run it from `examples/model_viewer`:
 
 ```sh
 dart run tool/generate_deformation_fixture.dart --normal-map
-flutter run --release -d <android-device> --dart-define=GPU3D_MODEL=deformation-normal.glb
+flutter run --release -d <android-device> --dart-define=ZYREN_MODEL=deformation-normal.glb
 ```

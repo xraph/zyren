@@ -2,12 +2,12 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_gpu3d/flutter_gpu3d.dart';
+import 'package:flutter_zyren/flutter_zyren.dart';
 
 /// Standalone release check, selected by METAL_SCENE_SMOKE.
 Future<void> runNativeSceneSmoke() async {
   WidgetsFlutterBinding.ensureInitialized();
-  const channel = MethodChannel('gpu3d/scene-views');
+  const channel = MethodChannel('zyren/scene-views');
   final scene = Scene()..add(Mesh(BoxGeometry(), UnlitMaterial()));
   final controllers = [
     SceneController(

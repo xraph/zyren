@@ -1,6 +1,0 @@
-cmake_minimum_required(VERSION 3.22)
-project(gpu3d_surface LANGUAGES CXX)
-add_library(gpu3d_surface SHARED src/main/cpp/gpu3d_surface.cpp)
-target_include_directories(gpu3d_surface PRIVATE ../darwin/Classes)
-target_link_libraries(gpu3d_surface android dl)
-target_link_options(gpu3d_surface PRIVATE "-Wl,-z,max-page-size=16384")

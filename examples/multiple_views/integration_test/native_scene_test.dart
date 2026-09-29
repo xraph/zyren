@@ -2,8 +2,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_gpu3d/flutter_gpu3d.dart';
-import 'package:gpu3d/rendering.dart';
+import 'package:flutter_zyren/flutter_zyren.dart';
+import 'package:zyren/rendering.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:multiple_views/main.dart';
 import 'package:multiple_views/textured_scene_demo.dart';
@@ -40,7 +40,7 @@ void main() {
       : PresentationPath.nativeView;
   final ownership = android ? 'surfaces' : 'heldDrawables';
   final channel = MethodChannel(
-    android ? 'gpu3d/android-surfaces' : 'gpu3d/scene-views',
+    android ? 'zyren/android-surfaces' : 'zyren/scene-views',
   );
   Future<Map<Object?, Object?>> stats() async =>
       (await channel.invokeMapMethod<Object?, Object?>('diagnostics'))!;

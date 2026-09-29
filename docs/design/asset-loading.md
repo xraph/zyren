@@ -148,7 +148,7 @@ transfer or exit mechanism when moving large recipes between isolates.
 
 ## Static glTF models
 
-The optional `gpu3d_gltf` package exposes `Gltf.asset`, `Gltf.uri`, `GltfOptions`
+The optional `zyren_gltf` package exposes `Gltf.asset`, `Gltf.uri`, `GltfOptions`
 and scope-owned `ModelAsset` templates. Load through your existing asset scope:
 
 ```dart
@@ -174,7 +174,7 @@ instantiated. Names and source diagnostics remain available on the template.
 The static material profile imports metallic/roughness triangles, all five maps,
 vertex colors and punctual lights. You can select `GltfMaterialMode.unlitDiagnostic`
 for an unlit approximation with a warning. Animations, skins, morphs and
-unsupported required extensions fail explicitly. See the [fixture-backed support matrix](../../packages/gpu3d_gltf/README.md)
+unsupported required extensions fail explicitly. See the [fixture-backed support matrix](../../packages/zyren_gltf/README.md)
 for the exact limits. The broader renderer and full glTF feature set remain work
 in the resource and renderer plan.
 

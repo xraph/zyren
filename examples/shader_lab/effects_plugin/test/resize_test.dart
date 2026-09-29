@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
-import 'package:gpu3d/gpu3d.dart';
-import 'package:gpu3d/rendering.dart';
+import 'package:zyren/zyren.dart';
+import 'package:zyren/rendering.dart';
 import 'package:shader_lab_effects/shader_lab_effects.dart';
 import 'package:test/test.dart';
 import 'effects_test.dart' show UnsupportedBackend;

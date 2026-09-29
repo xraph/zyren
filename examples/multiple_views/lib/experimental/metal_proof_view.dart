@@ -3,11 +3,11 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:gpu3d/gpu3d.dart';
-import 'package:gpu3d/rendering.dart';
-import 'package:gpu3d_native/surfaces.dart';
+import 'package:zyren/zyren.dart';
+import 'package:zyren/rendering.dart';
+import 'package:zyren_native/surfaces.dart';
 
-const metalProofChannel = MethodChannel('gpu3d/metal-proof');
+const metalProofChannel = MethodChannel('zyren/metal-proof');
 
 Future<void> connectMetalProof() => metalProofChannel.invokeMethod<void>(
   'connect',
@@ -77,13 +77,13 @@ class _MetalProofViewState extends State<MetalProofView>
   @override
   Widget build(BuildContext context) => Platform.isMacOS
       ? AppKitView(
-          viewType: 'gpu3d/metal-proof',
+          viewType: 'zyren/metal-proof',
           creationParams: widget.packets,
           creationParamsCodec: const StandardMessageCodec(),
           onPlatformViewCreated: _created,
         )
       : UiKitView(
-          viewType: 'gpu3d/metal-proof',
+          viewType: 'zyren/metal-proof',
           creationParams: widget.packets,
           creationParamsCodec: const StandardMessageCodec(),
           onPlatformViewCreated: _created,

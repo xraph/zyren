@@ -10,7 +10,7 @@ Flutter plugins can use the same API through `context.resources`,
 `SceneRuntime.nativeAndroid()`. Those services run on the presenter's own device
 and native queue. You do not need a second offscreen backend.
 
-Try the complete example from `packages/gpu3d_native`:
+Try the complete example from `packages/zyren_native`:
 
 ```sh
 fvm dart run example/render_graph.dart /tmp/native-graph.png
@@ -300,7 +300,7 @@ their zero-based indices. These are conservative diagnostic intervals, not
 permission to alias allocations. Graph ownership lasts through GPU completion.
 
 Run `fvm dart run example/frame_graph.dart /tmp/native-frame-graph.png` from
-`packages/gpu3d_native`. It renders three meshes, rotates their color channels in
+`packages/zyren_native`. It renders three meshes, rotates their color channels in
 compute, then adds a vignette in a render pass.
 
 The separate [shader lab effects package](../../examples/shader_lab/effects_plugin/README.md)

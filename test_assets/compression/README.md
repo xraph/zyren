@@ -1,6 +1,6 @@
 # Compression fixtures
 
-You can regenerate these synthetic fixtures from `packages/gpu3d_native/native`:
+You can regenerate these synthetic fixtures from `packages/zyren_native/native`:
 
 ```sh
 cargo +1.97.1 run --example make_meshopt_fixture

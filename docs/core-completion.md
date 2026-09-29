@@ -92,22 +92,22 @@ Run Dart and Flutter suites from their package directories. Native build hooks
 need the consuming package as the working directory:
 
 ```sh
-# packages/gpu3d and packages/gpu3d_gltf
+# packages/zyren and packages/zyren_gltf
 dart test
 
-# packages/gpu3d_native
+# packages/zyren_native
 RUN_NATIVE_GPU=1 dart test --concurrency=1
 
-# packages/flutter_gpu3d
+# packages/flutter_zyren
 flutter test
 ```
 
 From the repository root:
 
 ```sh
-cargo +1.97.1 test --manifest-path packages/gpu3d_native/native/Cargo.toml -- --test-threads=1
-cargo +1.97.1 test --manifest-path packages/gpu3d_native/native/Cargo.toml -- --ignored --test-threads=1
-cargo +1.97.1 clippy --manifest-path packages/gpu3d_native/native/Cargo.toml --all-targets -- -D warnings
+cargo +1.97.1 test --manifest-path packages/zyren_native/native/Cargo.toml -- --test-threads=1
+cargo +1.97.1 test --manifest-path packages/zyren_native/native/Cargo.toml -- --ignored --test-threads=1
+cargo +1.97.1 clippy --manifest-path packages/zyren_native/native/Cargo.toml --all-targets -- -D warnings
 dart run tool/check_package_boundaries.dart
 dart run tool/sync_apple_header.dart --check
 ```

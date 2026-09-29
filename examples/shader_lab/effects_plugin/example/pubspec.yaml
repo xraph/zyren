@@ -5,9 +5,9 @@ resolution: workspace
 environment:
   sdk: '>=3.10.0 <4.0.0'
 dependencies:
-  gpu3d:
-    path: ../../../../packages/gpu3d
-  gpu3d_native:
-    path: ../../../../packages/gpu3d_native
+  zyren:
+    path: ../../../../packages/zyren
+  zyren_native:
+    path: ../../../../packages/zyren_native
   shader_lab_effects:
     path: ..
