@@ -88,3 +88,9 @@ Reference: *Real-Time Polygonal-Light Shading with Linearly Transformed Cosines*
 Eric Heitz, Jonathan Dupuy, Stephen Hill and David Neubelt, ACM Transactions on
 Graphics (Proceedings of ACM SIGGRAPH 2016) 35(4), 2016.
 [Project page](https://eheitzresearch.wordpress.com/415-2/).
+
+## Dart Earcut
+
+Shape triangulation uses `dart_earcut` 1.2.0, a Dart port of Earcut. The package's
+[MIT and ISC notices](docs/licenses/geometry/dart-earcut.txt) are retained for
+redistribution. See the [upstream repository](https://github.com/JaffaKetchup/dart_earcut).

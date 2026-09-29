@@ -46,7 +46,7 @@ The app could not be foregrounded during this run because the display was asleep
 a manual visual check remains open.
 
 The core already includes scene hierarchies, camera projection and framing,
-orbit controls, bounds/culling/picking/BVH, dynamic and procedural geometry,
+orbit, trackball and fly controls, bounds/culling/picking/BVH, dynamic and procedural geometry,
 Bézier/Catmull-Rom paths, swept tubes, instancing,
 skinning/morphs, animation blending, standard PBR, shadows, environment lighting,
 custom WGSL materials, compute/render graphs, scoped assets and glTF loading.
@@ -69,11 +69,16 @@ on Metal. Four oriented emitters are supported per scene. Fixed LTC tables add
 128 KiB per renderer outside scoped counters. Area-light shadows and broader
 device qualification remain open. See [area lights](design/area-lights.md).
 
+Shapes with holes, beveled extrusion and topology helpers are available in Dart.
+Trackball and fly plugins share the existing per-view input and frame-demand
+contracts. See [geometry and controls](design/geometry-controls.md) for limits,
+coordinate conventions and keyboard/gamepad integration.
+
 The remaining breadth has concrete acceptance work:
 
 | Family | Owner | Required evidence before claiming parity |
 | --- | --- | --- |
-| Further geometry utilities | Core geometry/math | Shapes with holes, beveled extrusion, text, subdivision and CSG fixtures |
+| Further geometry utilities | Core geometry/math | Shapes with holes and beveled extrusion pass CPU/Metal checks; text, subdivision and CSG remain open |
 | Advanced physical materials | Core materials/native shaders | Clearcoat, transmission, volume, IOR, sheen and anisotropy reference scenes |
 | Area lighting and additional shadows | Core lighting/native renderer | Photometric references, occlusion and bounded atlas behavior |
 | Compressed assets | Asset plugins/native decoders | macOS fixture, cancellation, budget and Metal checks pass; other native targets and compressed GPU residency remain open |

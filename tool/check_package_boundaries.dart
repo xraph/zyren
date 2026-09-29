@@ -4,7 +4,7 @@ import 'dart:io';
 void main(List<String> args) {
   final root = Directory(args.isEmpty ? '.' : args.single);
   final allowed = <String, Set<String>>{
-    'packages/gpu3d': {'gpu3d', 'vector_math'},
+    'packages/gpu3d': {'gpu3d', 'vector_math', 'dart_earcut'},
     'packages/gpu3d_gltf': {'gpu3d_gltf', 'gpu3d'},
     'packages/flutter_geospatial': {'flutter_geospatial', 'gpu3d'},
     'packages/gpu3d_inspector': {'gpu3d_inspector', 'flutter', 'flutter_gpu3d'},

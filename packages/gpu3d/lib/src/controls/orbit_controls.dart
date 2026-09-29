@@ -1,9 +1,13 @@
 import 'dart:math' as math;
 import '../input/pointer_event.dart';
 import '../math/vec3.dart';
+import '../math/vec2.dart';
+import '../math/quat.dart';
 import '../plugins/engine.dart';
 import '../plugins/registration.dart';
 import '../scene/scene.dart';
+part 'trackball_controls.dart';
+part 'fly_controls.dart';
 
 /// Limits use scene units, radians and orthographic zoom factors.
 final class OrbitLimits {
@@ -274,10 +278,7 @@ class OrbitControls extends ScenePlugin {
     } else if (event.phase == ScenePointerPhase.scaleUpdate && _dragging) {
       switch (dragBinding(event)) {
         case OrbitDragAction.rotate:
-          rotateBy(
-            azimuth: -2 * math.pi * event.delta.x / height * rotateSpeed,
-            polar: -2 * math.pi * event.delta.y / height * rotateSpeed,
-          );
+          _rotatePointer(event, width, height);
         case OrbitDragAction.pan:
           final z = (camera.position - camera.target).normalized();
           final x = camera.up.cross(z).normalized(), y = z.cross(x);
@@ -305,6 +306,13 @@ class OrbitControls extends ScenePlugin {
         _lastScale = event.scale;
       }
     }
+  }
+
+  void _rotatePointer(ScenePointerEvent event, double width, double height) {
+    rotateBy(
+      azimuth: -2 * math.pi * event.delta.x / height * rotateSpeed,
+      polar: -2 * math.pi * event.delta.y / height * rotateSpeed,
+    );
   }
 
   @override
