@@ -5,9 +5,12 @@ native platforms. Geospatial is one optional plugin, alongside future loaders,
 controls and effects. Earth-specific behavior must not become a dependency of
 ordinary 3D scenes.
 
-The initial native renderer and plugin host establish the API and build path.
-You can use the example to evaluate those decisions. Production use needs the
-remaining renderer and platform work below.
+The native renderer now covers the core feature families below. You can run the
+physical-material gallery to exercise glass, area lighting, MSAA, temporal AA and
+bloom together. Check the [capability matrix](renderer-capabilities.md) for the
+supported combinations and device evidence before choosing a production target.
+The [core validation record](core-completion.md) lists the delivered commits,
+final test results and remaining qualification limits.
 
 The detailed [implementation program](superpowers/plans/2026-09-26-native-3d-program.md)
 breaks this work into API/DX, native presentation, general rendering, and
@@ -19,31 +22,29 @@ defines ownership and application workflows before those changes land.
 
 | Area | Implemented now | Required for the target |
 | --- | --- | --- |
-| Scene and maths | Object hierarchy, transforms, perspective camera, double precision positions | Orthographic cameras, layers, bounds, raycasting, spatial queries and frustum culling |
-| Geometry | Versioned dynamic attributes, uint16/uint32 indices, UVs, box/sphere, portable lines and points | Native tangent/color/skinning bindings, joined/dashed strokes, instancing and morph targets |
-| Materials and lighting | Diffuse/unlit materials, color textures, samplers, linear-light mipmaps, alpha modes, depth and draw order | PBR, multiple light types, shadows, environment maps, transparent canvas composition and HDR color output |
-| Animation | Frame hooks | Clips, tracks, interpolation, mixers and skeletal animation |
-| Assets | Typed scoped loading, shared in-flight decoding, bundle/file/HTTP sources and bounded native PNG/JPEG decoding | glTF models, worker parsing, extension fixtures and compressed textures through loader plugins |
-| Rendering | Native GPU pipelines, explicit RGBA output, opt-in Metal views and Android Vulkan shared textures | Render graph, public shader/material extensions, compute, offscreen passes, HDR, postprocessing and broader native surface qualification |
-| Extensibility | Dependency-ordered plugins, typed services, replaceable renderer/presenter and scoped versioned GPU resources | Pass descriptors and native shader extensions through the public API |
-| Developer tools | Runnable example, capability checks and validation errors | Picking tools, statistics, profiling, context/device recovery and performance fixtures |
+| Scene and maths | Hierarchies, transforms, perspective/orthographic cameras, layers, bounds, BVH picking, culling and camera framing | Broader reference coverage for complete Three.js parity |
+| Geometry | Dynamic attributes, lines/points, curves/tubes, instancing, skinning/morphs, shapes with holes, beveled extrusion and topology helpers | Text, subdivision and CSG |
+| Materials and lighting | Standard PBR, IOR/specular, clearcoat, sheen, anisotropy, transmission/volume, ten physical maps, punctual/hemisphere/area lights, shadows and environment lighting | Iridescence, dispersion, nested volumes, area-light shadows and broader device references |
+| Animation and controls | Clips, tracks, interpolation, blending, skeletal animation, orbit/trackball/fly controls | Broader mixing and reference gesture coverage |
+| Assets | Scoped loading, worker glTF parsing, image decoding, physical extensions and native Draco/meshopt/Basis decoding | Additional loaders/exporters, compressed GPU residency and decoder qualification on other targets |
+| Rendering | Native presentation, shader extensions, compute/render graphs, HDR, MSAA, bloom, spatial AA and motion/depth temporal AA | Temporal motion for custom shaders and line/point primitives, broader native surface qualification |
+| Extensibility | Dependency-ordered plugins, typed services, replaceable backend/presenter, public pass descriptors and scoped GPU resources | Keep future plugins on these public contracts |
+| Developer tools | Runnable galleries, picking, resource/frame statistics, budget checks, recovery fixtures and AOT benchmarks | Physical-device timing, display pacing, power and thermal measurements |
 
 Keep shader, texture and render-pass primitives in the core. The geospatial
 plugin should express atmosphere and clouds through those public primitives.
 Do not add a geospatial-only rendering path to bypass missing core features.
 
-## Delivery order
+## Qualification and plugin work
 
-1. API and native presentation: extract the pure Dart core, establish controller
-   ownership and observable scene updates, then replace RGBA readback with shared
-   GPU textures. Verify
-   resizing, background/resume, Flutter engine detach, device loss and multiple
-   viewports on physical iOS/Android devices, macOS and Windows. Measure frame
-   latency, CPU copies and GPU memory with representative scenes.
-2. General 3D resources: texture/sampler ownership, glTF 2.0 assets, PBR materials,
-   HDR output, image-based lighting, instancing, culling, picking, animation and
-   skeletal meshes. Define resource disposal and asynchronous loading contracts
-   before adding loaders.
+1. Native presentation: qualify resizing, background/resume, Flutter engine
+   detach, device loss and multiple viewports on physical iOS/Android devices
+   and Windows. macOS Metal and iOS simulator fixtures pass, but simulator checks
+   do not qualify a physical phone. Measure display pacing, CPU copies and GPU
+   memory with representative scenes.
+2. General 3D breadth: use the implemented material, lighting, geometry, control
+   and asset APIs while extending the remaining families in the table. Require
+   native reference output and bounded resource cleanup for each addition.
 3. Planetary rendering: complete geographic tiling and camera controls, add
    screen-space-error LOD, terrain/imagery streaming, origin rebasing and an
    Earth-scale depth strategy. Keep credentials and network fetching outside
