@@ -50,16 +50,26 @@ from 128 to 1024. Directional and spot maps default to 512, point maps to 256.
 | Setting | Default | Meaning |
 | --- | --- | --- |
 | `bias` | .0005 | Positive normalized depth offset toward the light, up to .1 |
-| `normalBias` | .02 | Receiver offset along its geometric normal, in world units |
+| `normalBias` | .02 | Receiver offset along its shading normal, in world units |
 | `slopeBias` | .002 | Extra depth offset at grazing light angles, up to .1 |
 | `filterRadius` | 1 | Nine comparison taps, spread by 0..4 shadow texels |
 | `strength` | 1 | Direct-light shadow opacity, from 0 to 1 |
 
 Start with the defaults, then tune bias for your scene's scale. Too little can
 produce self-shadowing artifacts; too much detaches shadows from their casters.
-Normal maps affect shading but do not perturb the receiver bias. Shadows
-attenuate only the relevant punctual light. Environment lighting, hemisphere
+Normal maps also affect the receiver bias direction. Shadows
+attenuate only the relevant punctual or area light. Environment lighting, hemisphere
 lighting and emission remain intact.
+
+Rectangular lights accept `AreaShadow`, with the same positional clipping,
+bias and strength settings. Its default resolution is 128. Four emitter regions
+each use six cube faces, for 24 views per light. Lighting integrates each region
+separately and applies visibility at that region's centre. Four area emitters fit
+at default resolution; larger faces compete with all other lights for atlas space.
+
+```dart
+scene.add(RectAreaLight(width: 2, height: 1, shadow: AreaShadow(far: 40)));
+```
 
 ## Native ownership and limits
 
@@ -68,7 +78,7 @@ receives float32 matrices in the same coordinate system as scene geometry.
 This keeps geospatial scenes on the ordinary core path.
 
 Each active view owns a 2048 by 2048 `Depth32Float` atlas, 16 MiB. One device can
-own at most four atlases, or 64 MiB. A frame can contain at most 32 shadow views
+own at most four atlases, or 64 MiB. A frame can contain at most 128 shadow views
 and 65,536 caster draws. Maps are packed in descending size without overlap;
 requests that exceed the atlas or device budget fail without dropping a light.
 Reducing map resolution fits more lights into one atlas but does not change

@@ -180,3 +180,36 @@ final class PointShadow extends PositionalShadow {
     strength: strength ?? this.strength,
   );
 }
+
+/// Four rectangle patches each use six shadow views in the shared atlas.
+final class AreaShadow extends PositionalShadow {
+  AreaShadow({
+    super.near,
+    super.far,
+    super.resolution = 128,
+    super.bias,
+    super.normalBias,
+    super.slopeBias,
+    super.filterRadius,
+    super.strength,
+  });
+  AreaShadow copyWith({
+    double? near,
+    double? far,
+    int? resolution,
+    double? bias,
+    double? normalBias,
+    double? slopeBias,
+    double? filterRadius,
+    double? strength,
+  }) => AreaShadow(
+    near: near ?? this.near,
+    far: far ?? this.far,
+    resolution: resolution ?? this.resolution,
+    bias: bias ?? this.bias,
+    normalBias: normalBias ?? this.normalBias,
+    slopeBias: slopeBias ?? this.slopeBias,
+    filterRadius: filterRadius ?? this.filterRadius,
+    strength: strength ?? this.strength,
+  );
+}

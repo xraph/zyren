@@ -2,7 +2,7 @@ struct ShadowView {
     projection: mat4x4<f32>, rect: vec4<f32>, params: vec4<f32>, interval: vec4<f32>,
 };
 struct Shadows {
-    forward: vec4<f32>, lights: array<vec4<u32>,16>, views: array<ShadowView,32>,
+    forward: vec4<f32>, lights: array<vec4<u32>,20>, views: array<ShadowView,128>,
 };
 @group(0) @binding(8) var<uniform> shadows: Shadows;
 @group(0) @binding(9) var shadow_atlas: texture_depth_2d;
@@ -51,4 +51,29 @@ fn shadow_visibility(light_index: u32, position: vec3<f32>, normal: vec3<f32>, l
         return current;
     }
     return sample_shadow(light_views.x + face, position, normal, l);
+}
+
+fn cube_shadow_face(offset:vec3<f32>) -> u32 {
+    let magnitude=abs(offset);
+    if(magnitude.x>=magnitude.y && magnitude.x>=magnitude.z) {return select(1u,0u,offset.x>=0.);}
+    if(magnitude.y>=magnitude.z) {return select(3u,2u,offset.y>=0.);}
+    return select(5u,4u,offset.z>=0.);
+}
+fn shadowed_area(index:u32,position:vec3<f32>,n:vec3<f32>,v:vec3<f32>,tangent:vec4<f32>,surface:StandardSurface) -> vec3<f32> {
+    let light=lighting.areas[index];
+    let views=shadows.lights[16u+index];
+    if(uniforms.pbr_params.z<.5 || views.y==0u) {return shade_area(light,position,n,v,tangent,surface);}
+    var result=vec3(0.);
+    for(var quadrant=0u;quadrant<4u;quadrant++) {
+        var part=light;
+        let offset=light.half_width.xyz*(f32(quadrant%2u)-.5)+light.half_height.xyz*(f32(quadrant/2u)-.5);
+        part.position=vec4(light.position.xyz+offset,0.);
+        part.half_width*=.5;
+        part.half_height*=.5;
+        let toward=part.position.xyz-position;
+        let face=cube_shadow_face(-toward);
+        let visibility=sample_shadow(views.x+quadrant*6u+face,position,n,normalized_or(toward,n));
+        result+=shade_area(part,position,n,v,tangent,surface)*visibility;
+    }
+    return result;
 }

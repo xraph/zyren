@@ -465,7 +465,8 @@ impl Frame {
             .map_or(1, |pipeline| pipeline.sample_count)
     }
     pub fn validate(&self, cached: &HashSet<u32>) -> Result<(), String> {
-        self.shadows.validate(&self.lights)?;
+        self.shadows
+            .validate_with_areas(&self.lights, &self.areas)?;
         if let Some(temporal) = &self.temporal {
             temporal.validate(self.meshes.len())?;
             if self.binary.is_none() || self.color_pipeline.is_none() || self.sample_count() != 1 {

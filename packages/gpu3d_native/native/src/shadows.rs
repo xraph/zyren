@@ -1,7 +1,8 @@
 use serde::Deserialize;
 
 pub const ATLAS_SIZE: u32 = 2048;
-pub const MAX_VIEWS: usize = 32;
+pub const MAX_SHADOW_LIGHTS: usize = crate::lighting::MAX_LIGHTS + crate::lighting::MAX_AREAS;
+pub const MAX_VIEWS: usize = 128;
 pub const ATLAS_BYTES: u64 = ATLAS_SIZE as u64 * ATLAS_SIZE as u64 * 4;
 pub const MAX_BYTES: u64 = 64 * 1024 * 1024;
 
@@ -39,6 +40,13 @@ pub struct AtlasRect {
 
 impl ShadowFrame {
     pub fn validate(&self, lights: &[crate::lighting::PunctualLight]) -> Result<(), String> {
+        self.validate_with_areas(lights, &[])
+    }
+    pub fn validate_with_areas(
+        &self,
+        lights: &[crate::lighting::PunctualLight],
+        areas: &[crate::lighting::RectAreaLight],
+    ) -> Result<(), String> {
         if self.views.is_empty() {
             return Ok(());
         }
@@ -48,17 +56,27 @@ impl ShadowFrame {
         {
             return Err("Invalid shadow view count or camera direction".into());
         }
-        let mut counts = [0; crate::lighting::MAX_LIGHTS];
+        let kind = |index: usize| -> Result<u32, String> {
+            if index >= crate::lighting::MAX_LIGHTS {
+                areas
+                    .get(index - crate::lighting::MAX_LIGHTS)
+                    .map(|_| 3)
+                    .ok_or_else(|| "Invalid area shadow light index".into())
+            } else {
+                lights
+                    .get(index)
+                    .map(|l| l.kind)
+                    .ok_or_else(|| "Invalid shadow light index".into())
+            }
+        };
+        let mut counts = [0; MAX_SHADOW_LIGHTS];
         let mut previous = 0;
         for view in &self.views {
-            if view.light_index as usize >= crate::lighting::MAX_LIGHTS || view.kind > 2 {
+            if view.light_index as usize >= MAX_SHADOW_LIGHTS || view.kind > 3 {
                 return Err("Invalid shadow light index or kind".into());
             }
-            let light = lights
-                .get(view.light_index as usize)
-                .ok_or("Invalid shadow light index")?;
             let matrix = glam::Mat4::from_cols_array(&view.view_projection);
-            if view.kind != light.kind
+            if view.kind != kind(view.light_index as usize)?
                 || view.light_index < previous
                 || view.view_projection.iter().any(|v| !v.is_finite())
                 || !matrix.determinant().is_finite()
@@ -92,9 +110,10 @@ impl ShadowFrame {
             if count == 0 {
                 continue;
             }
-            let valid = match lights[index].kind {
+            let valid = match kind(index)? {
                 0 => (1..=4).contains(&count),
                 1 => count == 6,
+                3 => count == 24,
                 _ => count == 1,
             };
             if !valid {
@@ -123,7 +142,9 @@ impl ShadowFrame {
                 {
                     return Err("Directional shadow intervals must be contiguous".into());
                 }
-                if first.kind == 1 && (pair[0].near != pair[1].near || pair[0].far != pair[1].far) {
+                if (first.kind == 1 || first.kind == 3)
+                    && (pair[0].near != pair[1].near || pair[0].far != pair[1].far)
+                {
                     return Err("Point shadow faces must share clipping".into());
                 }
             }

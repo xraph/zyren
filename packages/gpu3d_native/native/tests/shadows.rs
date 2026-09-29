@@ -178,3 +178,43 @@ fn shadow_packets_reject_every_truncation_and_malformed_tables() {
         );
     }
 }
+
+#[test]
+fn area_face_sets_validate_indices_counts_clipping_and_atlas_capacity() {
+    let areas: Vec<gpu3d_runtime::lighting::RectAreaLight> = (0..4)
+        .map(|_| {
+            serde_json::from_value(serde_json::json!({
+                "position":[0,0,2], "half_width":[1,0,0], "half_height":[0,1,0],
+                "color":[1,1,1], "intensity":1
+            }))
+            .unwrap()
+        })
+        .collect();
+    let mut frame = ShadowFrame {
+        forward: [0., 0., -1.],
+        views: vec![],
+    };
+    for index in 16..20 {
+        let mut face = view(3, 128);
+        face.light_index = index;
+        frame.views.extend(vec![face; 24]);
+    }
+    assert!(frame.validate_with_areas(&[], &areas).is_ok());
+    let good = frame.clone();
+    frame.views.pop();
+    assert!(frame.validate_with_areas(&[], &areas).is_err());
+    frame = good.clone();
+    frame.views[0].light_index = 15;
+    assert!(frame.validate_with_areas(&[], &areas).is_err());
+    frame = good.clone();
+    frame.views[7].far = 99.;
+    assert!(frame.validate_with_areas(&[], &areas).is_err());
+    frame = good.clone();
+    frame.views[0].kind = 1;
+    assert!(frame.validate_with_areas(&[], &areas).is_err());
+    frame = good;
+    for face in &mut frame.views {
+        face.resolution = 512;
+    }
+    assert!(frame.validate_with_areas(&[], &areas).is_err());
+}

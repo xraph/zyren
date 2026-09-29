@@ -23,15 +23,23 @@ orientation still affects the highlight. This costs more than the isotropic LTC
 path. A very narrow anisotropic lobe under a large nearby emitter can need more
 samples than this bounded approximation provides.
 
-Area lights do not cast shadows in this profile. They illuminate existing
-surfaces; add visible geometry separately if you want to see the emitter itself.
+Enable shadows with `shadow: AreaShadow()` and set `castShadow` and
+`receiveShadow` on the relevant meshes. Four emitter regions each use a six-face
+cube projection, then shade their share of the rectangle with their own
+visibility. This gives bounded partial occlusion, with four spatial samples and
+PCF at each sample. You can see sampling bands in wide penumbras; this is not a
+continuous visibility integral. Moving or resizing the emitter refreshes its
+shadow views. Add visible geometry separately if you want to see the emitter.
 Use `RenderFeature.areaLighting` and `DeviceLimits.maxAreaLights` when selecting a
 backend. Invalid or collapsed rectangles fail before GPU submission.
 
 The tables occupy 128 KiB per native renderer and remain for its lifetime. They
 are fixed renderer data, outside scoped-resource counters. Manual bilinear loads
-avoid requiring filterable float32 textures. No allocation scales with the number
-of lights; lighting data is a bounded uniform buffer.
+avoid requiring filterable float32 textures. Lighting data is a bounded uniform buffer. Shadowed lights share a 16 MiB
+atlas per view, subject to the existing device atlas budget. `AreaShadow` defaults
+to 128 pixels per face; four lights use 96 faces and fit the atlas. Increasing
+resolution can exceed the shared pixel budget and fails before allocation.
+See [shadow settings and ownership](shadows.md).
 
 Metal tests compare diffuse pixels to an independent surface integral and glossy
 pixels to a numerical GGX reference. They also cover live dimensions, back-face

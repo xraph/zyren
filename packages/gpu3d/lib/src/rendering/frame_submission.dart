@@ -189,6 +189,11 @@ class SceneSnapshot {
             'Area light transform must define a finite nonzero area.',
           );
         }
+        if (node.shadow case final settings?) {
+          shadows.add(
+            _ShadowLight(16 + areas.length, settings, node.shadowRevision),
+          );
+        }
         areas.add(
           _freeze(<String, Object>{
                 'position':

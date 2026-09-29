@@ -84,7 +84,7 @@ impl ScenePacket {
             return Err("unsupported scene packet".into());
         }
         let opcode = r.u32()?;
-        if !(10..=34).contains(&opcode) {
+        if !(10..=35).contains(&opcode) {
             return Err("unsupported scene packet".into());
         }
         let textured = opcode >= 11;
@@ -274,7 +274,7 @@ impl ScenePacket {
                     filter_radius: values[7],
                 });
             }
-            shadows.validate(&lights)?;
+            shadows.validate_with_areas(&lights, &areas)?;
         }
         let owned_texture_count = if textured { r.u32()? as usize } else { 0 };
         let texture_count = if textured { r.u32()? as usize } else { 0 };

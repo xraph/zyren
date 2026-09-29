@@ -4,13 +4,30 @@ part of '../scene/scene.dart';
 /// Width and height are metres before the world transform is applied.
 final class RectAreaLight extends Light {
   double _width, _height;
+  AreaShadow? _shadow;
+  int _shadowRevision = 0;
+  int get shadowRevision => _shadowRevision;
+  AreaShadow? get shadow => _shadow;
+  set shadow(AreaShadow? value) {
+    if (identical(value, _shadow)) return;
+    _shadow = value;
+    _changed();
+  }
+
+  void invalidateShadow() {
+    _shadowRevision = (_shadowRevision + 1) & 0x7fffffff;
+    _changed();
+  }
+
   RectAreaLight({
+    AreaShadow? shadow,
     double width = 1,
     double height = 1,
     super.color,
     super.intensity,
     super.name,
-  }) : _width = _dimension(width, 'width'),
+  }) : _shadow = shadow,
+       _width = _dimension(width, 'width'),
        _height = _dimension(height, 'height');
   double get width => _width;
   set width(double value) {

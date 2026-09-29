@@ -195,7 +195,9 @@ final class ScenePacketEncoder {
       throw ArgumentError('Scene resource upload exceeds the frame budget.');
     }
     final opcode =
-        scene._meshes.any((m) => (m['pbr'] as Map?)?['physical'] != null)
+        scene._shadowLights.any((light) => light.settings is AreaShadow)
+        ? 35
+        : scene._meshes.any((m) => (m['pbr'] as Map?)?['physical'] != null)
         ? 34
         : submission.temporalAA != null
         ? 31

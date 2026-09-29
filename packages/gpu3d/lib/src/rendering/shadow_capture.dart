@@ -99,21 +99,30 @@ final class ShadowSnapshot {
       ]);
     }
     final views = <ShadowView>[];
-    for (final captured in scene._shadowLights) {
-      final light = scene._lights[captured.index];
+    final shadowLights = scene._shadowLights.toList()
+      ..sort((a, b) => a.index.compareTo(b.index));
+    for (final captured in shadowLights) {
       final settings = captured.settings;
+      final isArea = settings is AreaShadow;
+      final light = isArea
+          ? scene._areas[captured.index - 16]
+          : scene._lights[captured.index];
       vm.Vector3 vector(Object? value) {
         final values = (value as List).cast<double>();
         return vm.Vector3(values[0], values[1], values[2]);
       }
 
-      final direction = vector(light['direction']);
+      final direction = isArea
+          ? -vector(
+              light['half_width'],
+            ).cross(vector(light['half_height'])).normalized()
+          : vector(light['direction']);
       final position = vector(light['position']);
       void add(vm.Matrix4 matrix, double near, double far, [double blend = 0]) {
         views.add(
           ShadowView._(
             captured.index,
-            light['kind'] as int,
+            isArea ? 3 : light['kind'] as int,
             settings.resolution,
             captured.revision,
             matrix.storage,
@@ -157,6 +166,27 @@ final class ShadowSnapshot {
           previousStart = previous;
           previous = split;
         }
+      } else if (settings is AreaShadow) {
+        final width = vector(light['half_width']);
+        final height = vector(light['half_height']);
+        for (final y in [-.5, .5]) {
+          for (final x in [-.5, .5]) {
+            final sample = position + width * x + height * y;
+            for (final direction in _cubeShadowDirections()) {
+              add(
+                _perspectiveShadow(
+                  sample,
+                  direction,
+                  math.pi / 2,
+                  settings.near,
+                  settings.far,
+                ),
+                settings.near,
+                settings.far,
+              );
+            }
+          }
+        }
       } else if (settings is PositionalShadow) {
         final range = light['range'] as double;
         final far = range == 0 ? settings.far : math.min(range, settings.far);
@@ -164,14 +194,7 @@ final class ShadowSnapshot {
           throw ArgumentError('Light range must exceed shadow near.');
         }
         if (settings is PointShadow) {
-          for (final direction in [
-            vm.Vector3(1, 0, 0),
-            vm.Vector3(-1, 0, 0),
-            vm.Vector3(0, 1, 0),
-            vm.Vector3(0, -1, 0),
-            vm.Vector3(0, 0, 1),
-            vm.Vector3(0, 0, -1),
-          ]) {
+          for (final direction in _cubeShadowDirections()) {
             add(
               _perspectiveShadow(
                 position,
@@ -199,14 +222,14 @@ final class ShadowSnapshot {
         }
       }
     }
-    if (views.length > 32 ||
+    if (views.length > 128 ||
         views.fold<int>(
               0,
               (sum, view) => sum + view.resolution * view.resolution,
             ) >
             2048 * 2048) {
       throw ArgumentError(
-        'Shadows exceed the 32-view or 2048-square atlas budget.',
+        'Shadows exceed the 128-view or 2048-square atlas budget.',
       );
     }
     return ShadowSnapshot._(views, forward.storage);
@@ -299,3 +322,12 @@ vm.Matrix4 _directionalMatrix(
       ),
     );
 }
+
+List<vm.Vector3> _cubeShadowDirections() => [
+  vm.Vector3(1, 0, 0),
+  vm.Vector3(-1, 0, 0),
+  vm.Vector3(0, 1, 0),
+  vm.Vector3(0, -1, 0),
+  vm.Vector3(0, 0, 1),
+  vm.Vector3(0, 0, -1),
+];

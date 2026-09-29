@@ -112,7 +112,7 @@ fn shade_standard(input: VertexOutput, front: bool, original: StandardSurface) -
             * shadow_visibility(i, input.relative_position, select(-normalized_or(input.normal,n), normalized_or(input.normal,n), front), l);
     }
     for (var i = 0u; i < lighting.count.z; i++) {
-        color += shade_area(lighting.areas[i], input.relative_position, n, v, input.tangent, surface);
+        color += shadowed_area(i, input.relative_position, n, v, input.tangent, surface);
     }
     let transmission=physical_transmission(input,n,v,surface);
     color+=transmission.rgb;

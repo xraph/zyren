@@ -13,7 +13,7 @@ struct ViewUniform {
 #[derive(Clone, Copy, Pod, Zeroable)]
 struct ShadowUniform {
     forward: [f32; 4],
-    lights: [[u32; 4]; crate::lighting::MAX_LIGHTS],
+    lights: [[u32; 4]; crate::shadows::MAX_SHADOW_LIGHTS],
     views: [ViewUniform; MAX_VIEWS],
 }
 #[repr(C)]
@@ -207,7 +207,9 @@ impl ShadowSystem {
         self.atlases.remove(&view);
     }
     fn check(&self, frame: &Frame) -> Result<(), String> {
-        frame.shadows.validate(&frame.lights)?;
+        frame
+            .shadows
+            .validate_with_areas(&frame.lights, &frame.areas)?;
         for mesh in &frame.meshes {
             if mesh.receive_shadow && mesh.pbr.is_none() {
                 return Err("Shadow receivers require standard materials".into());
