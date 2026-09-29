@@ -52,7 +52,7 @@ fn shade_area(light: AreaLight, position: vec3<f32>, n: vec3<f32>, v: vec3<f32>,
     let center=light.position.xyz-position;
     let w=light.half_width.xyz; let h=light.half_height.xyz;
     if (dot(cross(w,h),center) <= 0. || dot(n,v) <= 0.) { return vec3(0.); }
-    if (surface.physical[3].y != 0. && (surface.physical[2].w > 0. || surface.optical[0].x > 0.)) {
+    if (surface.physical[3].y != 0. && (surface.physical[2].w > 0. || (surface.optical[0].x > 0. && surface.optical[0].w > 0.))) {
         return anisotropic_area(light,center,n,v,tangent,surface);
     }
     let axis=select(vec3(1.,0.,0.),vec3(0.,1.,0.),abs(n.x)>.9);

@@ -133,7 +133,7 @@ adds the three requested core capabilities:
 | Rectangular area shadows | `73e3339` | Full/partial occlusion, motion, receiver/caster flags, 97 simultaneous projections, cache reuse and atlas retirement |
 | Compressed GPU residency | `1c117a0` | BC7, ETC2 RGBA8 and ASTC 4x4 sampling, exact raw block readback, authored mip tails, capability admission and zero final residency |
 
-The implementation passes 405 core, 124 loader, 139 native Dart and 84 Flutter
+The implementation passes 405 core, 124 loader, 141 native Dart and 84 Flutter
 package tests. All 151 Rust tests pass with hardware-gated cases enabled. Analysis of the changed
 packages and gallery, strict Clippy, formatting, package boundaries and Apple ABI
 checks pass. The default CPU decoder stays RGBA8 for loading before a renderer
@@ -149,3 +149,17 @@ simulator checks. It exercises film/dispersion/shadow controls, compressed textu
 loading, MSAA/TAA/bloom, and desktop/narrow resizing with zero presentation
 readback. Narrow slider layout uses the panel width, so a smaller embedded view
 keeps useful canvas space even when the device screen is wider.
+
+The follow-up review found two issues, both fixed with regressions that failed
+before the shader changes: area-shadow bias now uses the geometric normal, and
+zero-thickness iridescence keeps the baseline area-light path. A benchmark-triggered
+regression also fixes unnecessary atlas rebuilds when the camera rotates.
+Translation still changes relative-coordinate depth inputs, so the benchmark
+records redraws rather than treating them as leaks. No review minors were deferred.
+
+The retained API decisions are explicit: thickness endpoints may be reversed;
+compressed base dimensions must align to four pixels and mips must be authored;
+materials exceeding device binding limits fail admission. These choices can
+require asset preprocessing or simpler materials on limited devices. Physical
+iOS, Android and Windows remain qualification gates, with target-specific driver
+behavior still unverified.

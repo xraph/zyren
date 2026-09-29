@@ -189,11 +189,8 @@ Future<void> main(List<String> requestedProfiles) async {
             );
           }
           final shadowsAfter = await backend.shadowStats();
-          if (shadowsAfter.residentBytes != shadowsBefore.residentBytes ||
-              shadowsAfter.renderedViews != shadowsBefore.renderedViews) {
-            throw StateError(
-              'Static area shadows changed during camera motion.',
-            );
+          if (shadowsAfter.residentBytes != shadowsBefore.residentBytes) {
+            throw StateError('Shadow residency grew during camera motion.');
           }
           final after = await backend.resourceStats();
           if (after.residentBytes != resident.residentBytes ||
@@ -221,7 +218,7 @@ Future<void> main(List<String> requestedProfiles) async {
             'textureFormat': texture?.descriptor.format.name,
             'texturePayloadBytes': texture?.descriptor.byteLength ?? 0,
             'shadowBytes': shadowsAfter.residentBytes,
-            'shadowViewsRenderedDuringMeasurement':
+            'shadowViewsRenderedDuringLoop':
                 shadowsAfter.renderedViews - shadowsBefore.renderedViews,
             'temporalBytes': temporalAfter.residentBytes,
             'transmissionBytes': transmissionAfter.residentBytes,

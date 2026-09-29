@@ -59,7 +59,7 @@ fn cube_shadow_face(offset:vec3<f32>) -> u32 {
     if(magnitude.y>=magnitude.z) {return select(3u,2u,offset.y>=0.);}
     return select(5u,4u,offset.z>=0.);
 }
-fn shadowed_area(index:u32,position:vec3<f32>,n:vec3<f32>,v:vec3<f32>,tangent:vec4<f32>,surface:StandardSurface) -> vec3<f32> {
+fn shadowed_area(index:u32,position:vec3<f32>,geometric_normal:vec3<f32>,n:vec3<f32>,v:vec3<f32>,tangent:vec4<f32>,surface:StandardSurface) -> vec3<f32> {
     let light=lighting.areas[index];
     let views=shadows.lights[16u+index];
     if(uniforms.pbr_params.z<.5 || views.y==0u) {return shade_area(light,position,n,v,tangent,surface);}
@@ -72,7 +72,7 @@ fn shadowed_area(index:u32,position:vec3<f32>,n:vec3<f32>,v:vec3<f32>,tangent:ve
         part.half_height*=.5;
         let toward=part.position.xyz-position;
         let face=cube_shadow_face(-toward);
-        let visibility=sample_shadow(views.x+quadrant*6u+face,position,n,normalized_or(toward,n));
+        let visibility=sample_shadow(views.x+quadrant*6u+face,position,geometric_normal,normalized_or(toward,geometric_normal));
         result+=shade_area(part,position,n,v,tangent,surface)*visibility;
     }
     return result;

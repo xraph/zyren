@@ -50,7 +50,7 @@ from 128 to 1024. Directional and spot maps default to 512, point maps to 256.
 | Setting | Default | Meaning |
 | --- | --- | --- |
 | `bias` | .0005 | Positive normalized depth offset toward the light, up to .1 |
-| `normalBias` | .02 | Receiver offset along its shading normal, in world units |
+| `normalBias` | .02 | Receiver offset along its face-oriented geometric normal, in world units |
 | `slopeBias` | .002 | Extra depth offset at grazing light angles, up to .1 |
 | `filterRadius` | 1 | Nine comparison taps, spread by 0..4 shadow texels |
 | `strength` | 1 | Direct-light shadow opacity, from 0 to 1 |

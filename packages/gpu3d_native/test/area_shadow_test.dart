@@ -60,6 +60,15 @@ void main() {
         final reused = await backend.shadowStats();
         expect(reused.renderedViews, before.renderedViews);
         expect(reused.reusedFrames, greaterThan(before.reusedFrames));
+        camera.target = const Vec3(0, .25, 0);
+        await draw();
+        expect(
+          (await backend.shadowStats()).renderedViews,
+          reused.renderedViews,
+          reason:
+              'Rotating the receiver camera does not change area-light depth projections.',
+        );
+        camera.target = Vec3.zero;
         blocker.position = const Vec3(.75, 0, 1.5);
         final partial = await draw();
         expect(linear(partial) / linear(lit), closeTo(.5, .06));

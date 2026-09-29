@@ -469,8 +469,13 @@ impl Renderer {
             state.shadows.remove(view);
             None
         } else {
+            // Camera direction selects cascades during sampling. The depth
+            // projections already capture every camera change that affects
+            // rasterization, so direction alone must not invalidate the atlas.
+            let mut depth_frame = frame.shadows.clone();
+            depth_frame.forward = [0.; 3];
             let signature = Signature {
-                frame: frame.shadows.clone(),
+                frame: depth_frame,
                 casters: frame
                     .meshes
                     .iter()

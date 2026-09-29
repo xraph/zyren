@@ -52,3 +52,9 @@ ACM Transactions on Graphics 35(4), 2016.
 [Project and paper](https://eheitzresearch.wordpress.com/415-2/).
 See the [table license](../../packages/gpu3d_native/native/src/renderer/ltc/LICENSE)
 and [provenance](../../packages/gpu3d_native/native/src/renderer/ltc/README.md).
+
+Shadow bias uses the face-oriented geometric normal. Your normal map still drives
+the material's lighting, but it does not move shadow lookups. Rotating the camera
+reuses unchanged area depth views. Camera translation changes the renderer's
+relative-coordinate projections and may redraw all 24 views per shadowed area;
+that work is included in the native benchmark. Atlas residency stays fixed.
