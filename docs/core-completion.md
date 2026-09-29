@@ -132,11 +132,13 @@ adds the three requested core capabilities:
 | Iridescence and dispersion | `e3076f1` | Thin-film reference colors, independent RGB refraction paths, two linear maps, glTF extensions and native material variants |
 | Rectangular area shadows | `73e3339` | Full/partial occlusion, motion, receiver/caster flags, 97 simultaneous projections, cache reuse and atlas retirement |
 | Compressed GPU residency | `1c117a0` | BC7, ETC2 RGBA8 and ASTC 4x4 sampling, exact raw block readback, authored mip tails, capability admission and zero final residency |
+| Gallery and device admission | `d9749da` | Native optical controls, compressed asset loading, narrow layout and rejection before unsupported GPU allocation |
+| Final edge cases | `46f3bf4` | Geometric shadow bias, exact zero-film lighting and camera-rotation shadow cache reuse |
 
-The implementation passes 405 core, 124 loader, 141 native Dart and 84 Flutter
-package tests. All 151 Rust tests pass with hardware-gated cases enabled. Analysis of the changed
-packages and gallery, strict Clippy, formatting, package boundaries and Apple ABI
-checks pass. The default CPU decoder stays RGBA8 for loading before a renderer
+The implementation at `46f3bf4` passes 405 core, 124 loader, 141 native Dart and
+84 Flutter package tests. All 151 Rust tests pass with hardware-gated cases
+enabled. Analysis of `packages`, `examples` and `tool`, strict Clippy, formatting,
+package boundaries and Apple ABI checks pass. The default CPU decoder stays RGBA8 for loading before a renderer
 exists. Use `NativeTextureDecoder.forDevice` when you want compressed residency.
 
 Area shadows sample four regions of an emitter. This gives partial visibility
@@ -145,7 +147,8 @@ continuously over the rectangle. Dispersion uses three paths through the opaque
 scene capture; nested refraction and caustics remain outside this profile.
 
 The updated physical gallery passes macOS Metal and the iPhone 17 Pro iOS 26
-simulator checks. It exercises film/dispersion/shadow controls, compressed texture
+simulator checks, both repeated after the final shader fixes. It exercises
+film/dispersion/shadow controls, compressed texture
 loading, MSAA/TAA/bloom, and desktop/narrow resizing with zero presentation
 readback. Narrow slider layout uses the panel width, so a smaller embedded view
 keeps useful canvas space even when the device screen is wider.
@@ -163,3 +166,19 @@ materials exceeding device binding limits fail admission. These choices can
 require asset preprocessing or simpler materials on limited devices. Physical
 iOS, Android and Windows remain qualification gates, with target-specific driver
 behavior still unverified.
+
+The [final optics benchmark](../benchmarks/renderer/2026-09-29-optics-metal-300.json)
+records 14 profile/size combinations at `46f3bf4`, each with 30 warmup and 300
+measured frames. At 1280x720, area shadows measure 2.388 ms median and 2.586 ms
+P95. The combined iridescence, dispersion, area-shadow and TAA fixture measures
+15.192 ms median and 16.844 ms P95. These are end-to-end readback timings on an
+M3 Max; GPU timestamps, display pacing, power and thermal state remain unknown.
+
+The compressed fixture holds 112 bytes of ASTC mip payload, versus 340 bytes as
+RGBA. Each shadowed view holds a 16 MiB atlas. Camera translation redraws 24
+projections per shadowed area light per frame; camera rotation reuses depth.
+All steady frames upload zero scene-resource bytes. Scoped, shadow, temporal
+and transmission residency stays stable during the run and reaches zero after
+each view closes. These counters exclude normal frame targets, driver padding
+and staging. The [benchmark notes](../benchmarks/renderer/README.md) record the
+fixture and its costs.

@@ -121,3 +121,51 @@ scoped resources. The source commit and benchmark hash are recorded in the
 
 These measurements include readback and followed the native surface checks.
 They do not measure display pacing, GPU timestamps, power or thermal state.
+
+## Iridescence, area shadows and compressed textures
+
+The final optics run uses source `46f3bf4` on the same M3 Max. You can reproduce
+its seven profiles from `packages/gpu3d_native` after rebuilding the AOT bundle:
+
+```sh
+build/renderer-profile/bundle/bin/post_processing hdr iridescence dispersion area-shadow texture-rgba texture-compressed optics+taa
+```
+
+Each profile draws 400 spheres at 640x360 and 1280x720, with 30 warmup frames
+and 300 measured frames. The table shows the larger size.
+
+| Profile | Median | P95 |
+| --- | --- | --- |
+| HDR | 0.834 ms | 0.910 ms |
+| Iridescence | 0.883 ms | 0.981 ms |
+| Dispersion | 1.574 ms | 1.716 ms |
+| Area shadows | 2.388 ms | 2.586 ms |
+| RGBA texture | 0.895 ms | 1.012 ms |
+| Compressed texture | 0.897 ms | 0.992 ms |
+| Iridescence, dispersion, area shadows and TAA | 15.192 ms | 16.844 ms |
+
+The combined profile is expensive. Its 400 iridescent spheres receive area
+lighting, a glass pane adds dispersive transmission, and temporal AA adds its
+reconstruction passes. These results include explicit readback. GPU timestamps,
+display pacing, power and thermal state remain unmeasured.
+
+The same 8x8 texture with four authored mips occupies 340 bytes as RGBA and
+112 bytes as ASTC 4x4. BC7 and ETC2 RGBA8 also pass native sampling and exact
+block-readback tests, but the device-selected benchmark uses ASTC. The tiny
+fixture checks storage accounting; it does not establish texture-heavy scene
+performance.
+
+Each shadowed profile holds one 16 MiB atlas. Camera translation changes
+camera-relative depth inputs and redraws 24 projections per shadowed area light.
+The loop records 7,896 projections across warmup and measurement. Rotation alone
+reuses the cached depths, as checked by a separate regression.
+
+Every steady frame uploads zero geometry, instance and texture bytes. Scoped,
+shadow, temporal and transmission residency stays constant and returns to zero
+after each view closes. Their counters exclude normal frame targets, driver
+padding and staging; they are payload accounting, not total process GPU memory.
+
+[The optics run](2026-09-29-optics-metal-300.json) records both sizes, separate
+residency columns, P99 and maximum latency, source and build-input hashes, and
+null values for unavailable measurements. Compare profiles within this run;
+differences from earlier runs do not establish an optimization or regression.
