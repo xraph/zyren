@@ -35,6 +35,12 @@ class TerrainPlugin extends ScenePlugin {
   TileStreamingStats? get stats => _scheduler?.stats;
   Set<TileCoordinate> get visibleCoordinates =>
       Set.unmodifiable(_scheduler?.visible.keys ?? const []);
+  List<String> get attributions => List.unmodifiable(
+    ({
+      for (final tile in _scheduler?.visible.values ?? <TerrainTile>[])
+        ...tile.attributions,
+    }.toList()..sort()),
+  );
   List<TileFailure> get failures => _scheduler?.failures ?? const [];
 
   void _validateSource(TerrainSource source, PluginContext context) {

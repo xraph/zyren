@@ -14,13 +14,15 @@ final class TerrainTile implements TileContent {
   final TextureImage imagery;
   final SamplerDescriptor sampler;
   final GeographicRectangle imageryRectangle;
+  final List<String> attributions;
   TerrainTile({
     required this.origin,
     required this.geometry,
     required this.imagery,
     required this.imageryRectangle,
     this.sampler = const SamplerDescriptor(),
-  }) {
+    List<String> attributions = const [],
+  }) : attributions = List.unmodifiable(attributions) {
     if (!origin.isFinite || geometry.isDynamic) {
       throw ArgumentError(
         'Terrain requires a finite origin and immutable geometry.',
@@ -29,11 +31,12 @@ final class TerrainTile implements TileContent {
   }
   @override
   int get decodedBytes =>
-      geometry.attributes.values.fold(
+      geometry.attributes.values.fold<int>(
         geometry.indices.length * geometry.indexFormat.bytesPerIndex,
         (bytes, attribute) => bytes + attribute.data.lengthInBytes,
       ) +
-      imagery.levels.fold(0, (bytes, level) => bytes + level.length);
+      imagery.levels.fold<int>(0, (bytes, level) => bytes + level.length) +
+      attributions.fold<int>(0, (bytes, text) => bytes + text.length * 2);
   @override
   int get residentBytes =>
       geometry.capture().gpuByteLength + imagery.descriptor.byteLength;

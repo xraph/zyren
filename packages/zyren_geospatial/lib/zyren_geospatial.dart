@@ -24,3 +24,12 @@ export 'src/atmosphere/lut_cache.dart';
 export 'src/atmosphere/star_catalog.dart';
 export 'src/atmosphere/appearance.dart';
 export 'src/atmosphere/plugin.dart';
+
+export 'src/terrain/imagery_source.dart'
+    show
+        RasterImagerySource,
+        TemplateImagerySource,
+        ImageryProjection,
+        ImageryUrlScheme;
+export 'src/terrain/imagery_terrain_source.dart'
+    show ImageryTerrainSource, ImageryLayer;
