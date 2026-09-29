@@ -1,8 +1,37 @@
 import 'dart:typed_data';
 import 'package:gpu3d/gpu3d.dart';
+import 'package:gpu3d/rendering.dart';
 import 'package:test/test.dart';
 
 void main() {
+  test('metallic maps keep potential glass out of opaque capture', () {
+    final map = TextureMap(
+      image: TextureImage.rgba(
+        width: 1,
+        height: 1,
+        format: TextureFormat.rgba8Unorm,
+        pixels: Uint8List.fromList([255, 255, 0, 255]),
+      ),
+    );
+    final scene = Scene()
+      ..add(
+        Mesh(
+          PlaneGeometry(),
+          PhysicalMaterial(
+            transmission: 1,
+            metallic: 1,
+            metallicRoughnessMap: map,
+          ),
+        ),
+      );
+    final snapshot = FrameSubmission.capture(
+      scene: scene,
+      camera: PerspectiveCamera(position: const Vec3(0, 0, 3)),
+      size: PhysicalSize(31, 31),
+    ).scene;
+    expect(snapshot.hasTransmission, isTrue);
+    expect(snapshot.transmissionCaptureDraws, 0);
+  });
   test('glass keeps coverage separate from transmission and volume', () {
     final glass = PhysicalMaterial(
       transmission: 1,

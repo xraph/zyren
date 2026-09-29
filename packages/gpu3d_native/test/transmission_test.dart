@@ -18,6 +18,47 @@ TextureMap dataMap(int r, int g) => TextureMap(
   ),
 );
 void main() {
+  test('inactive volume preserves opaque double-sided backfaces', () async {
+    final backend = await NativeBackend.create();
+    try {
+      final scene = Scene()..background = const Color3(1, 1, 1);
+      final mesh = scene.add(
+        Mesh(PlaneGeometry(width: 4, height: 4), PhysicalMaterial())
+          ..rotateY(math.pi),
+      );
+      final camera = PerspectiveCamera(position: const Vec3(0, 0, 3));
+      for (final material in [
+        PhysicalMaterial(thickness: 1, baseColor: const Color3(0, 0, 0)),
+        PhysicalMaterial(
+          thickness: 1,
+          transmission: 1,
+          transmissionMap: dataMap(0, 255),
+          baseColor: const Color3(0, 0, 0),
+        ),
+        PhysicalMaterial(
+          thickness: 1,
+          transmission: 1,
+          metallic: 1,
+          baseColor: const Color3(0, 0, 0),
+        ),
+      ]) {
+        mesh.material = material;
+        final image =
+            (await backend.render(
+                      FrameSubmission.capture(
+                        scene: scene,
+                        camera: camera,
+                        size: PhysicalSize(31, 31),
+                      ),
+                    )
+                    as ReadbackOutput)
+                .image;
+        expect(image.pixels.sublist(1920, 1924), [0, 0, 0, 255]);
+      }
+    } finally {
+      await backend.close();
+    }
+  }, skip: Platform.environment['RUN_NATIVE_GPU'] != '1');
   test(
     'native glass preserves Fresnel, tint, absorption, maps, instance scale and live capture',
     () async {
@@ -63,6 +104,13 @@ void main() {
         for (final mode in ['sdr', 'hdr', 'msaa', 'taa']) {
           pixel(await draw(mode: mode), [.96, .96, .96]);
         }
+        glass.material = PhysicalMaterial(
+          transmission: 1,
+          metallic: 1,
+          roughness: 0,
+          metallicRoughnessMap: dataMap(255, 255),
+        );
+        pixel(await draw(), [.96, .96, .96]);
         glass.material = PhysicalMaterial(
           transmission: 1,
           ior: 1,

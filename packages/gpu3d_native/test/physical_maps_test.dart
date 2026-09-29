@@ -323,6 +323,92 @@ void main() {
     skip: Platform.environment['RUN_NATIVE_GPU'] != '1',
   );
 
+  test('clearcoat UV1 derives its frame when base tangents use UV0', () async {
+    final backend = await NativeBackend.create();
+    try {
+      final plane = PlaneGeometry(width: 4, height: 4);
+      final uv = plane.uv0!;
+      final geometry = BufferGeometry.fromAttributes(
+        attributes: {
+          ...plane.attributes,
+          VertexSemantic.uv1: VertexAttribute(
+            Float32List.fromList([
+              for (var i = 0; i < uv.length; i += 2) ...[uv[i + 1], 1 - uv[i]],
+            ]),
+            format: VertexFormat.float32x2,
+          ),
+          VertexSemantic.tangent: VertexAttribute(
+            Float32List.fromList([
+              for (var i = 0; i < plane.vertexCount; i++) ...[1, 0, 0, -1],
+            ]),
+            format: VertexFormat.float32x4,
+          ),
+        },
+        indices: plane.indices,
+      );
+      final n = const Vec3(
+        1 - 128 * 2 / 255,
+        1 - 192 * 2 / 255,
+        240 * 2 / 255 - 1,
+      ).normalized();
+      final reference = BufferGeometry.fromAttributes(
+        attributes: {
+          ...plane.attributes,
+          VertexSemantic.normal: VertexAttribute(
+            Float32List.fromList([
+              for (var i = 0; i < plane.vertexCount; i++) ...n.storage,
+            ]),
+            format: VertexFormat.float32x3,
+          ),
+        },
+        indices: plane.indices,
+      );
+      final scene = Scene()
+        ..add(DirectionalLight(intensity: 3)..lookAt(const Vec3(0, -1, -1)));
+      final coat = PhysicalMaterial(
+        baseColor: const Color3(0, 0, 0),
+        specularIntensity: 0,
+        clearcoat: 1,
+        clearcoatRoughness: .7,
+      );
+      final mesh = scene.add(
+        Mesh(
+          geometry,
+          coat.copyWith(
+            normalMap: dataMap([128, 128, 255, 255]),
+            normalScale: 0,
+            clearcoatNormalMap: dataMap([192, 128, 240, 255], uvSet: 1),
+          ),
+        ),
+      );
+      final camera = PerspectiveCamera(position: const Vec3(0, 0, 2));
+      Future<List<int>> draw() async =>
+          (await backend.render(
+                    FrameSubmission.capture(
+                      scene: scene,
+                      camera: camera,
+                      size: PhysicalSize(31, 31),
+                    ),
+                  )
+                  as ReadbackOutput)
+              .image
+              .pixels
+              .sublist(1920, 1924);
+      final actual = await draw();
+      scene.remove(mesh);
+      scene.add(Mesh(reference, coat));
+      final expected = await draw();
+      expect(expected[0], greaterThan(5));
+      for (var c = 0; c < 3; c++) {
+        expect(actual[c], closeTo(expected[c], 1));
+      }
+    } on SceneException catch (error) {
+      fail(error.issue.cause.toString());
+    } finally {
+      await backend.close();
+    }
+  }, skip: Platform.environment['RUN_NATIVE_GPU'] != '1');
+
   test(
     'clearcoat normal is independent from the base surface normal',
     () async {

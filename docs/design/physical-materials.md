@@ -64,8 +64,10 @@ You can texture all ten layer channels:
 Maps multiply their factors. Each map chooses UV0 or UV1 and keeps its sampler.
 Data maps require `rgba8Unorm`; color maps use the texture format's conversion.
 The coat normal has its own lighting frame for direct, area and environment
-reflection. Shared authored tangents must match the normal maps' UV frame;
-without authored tangents, the shader derives a normal-map frame from UVs.
+reflection. When base and coat normal maps use different UV sets, the shader
+derives the coat frame from its UVs and keeps the supplied tangents for the base.
+Otherwise, supplied tangents must match the selected normal-map UV frame.
+Without supplied tangents, the shader derives the frame from UVs.
 
 Native pipelines only bind active physical maps and share identical sampler
 descriptors. All ten maps require 23 sampled textures per fragment stage, including

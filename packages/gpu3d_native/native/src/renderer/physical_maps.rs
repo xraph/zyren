@@ -83,7 +83,11 @@ pub(super) fn shader(key: u64) -> String {
         body.push_str(match i {
             0 => "surface.physical[0].z*=sample_0.r;\n",
             1 => "surface.physical[0].w*=sample_1.g;\n",
-            2 => "surface.coat_normal=mapped_normal(input,uv_2,sample_2.rgb,uniforms.physical[3].z);\n",
+            2 => "var coat_input=input;\n\
+                  let base_normal_uv=(uniforms.pbr_maps.y>>1u)&1u;\n\
+                  let coat_normal_uv=(uniforms.pbr_maps.w>>2u)&1u;\n\
+                  if ((uniforms.pbr_maps.x&2u)!=0u && base_normal_uv!=coat_normal_uv) {coat_input.tangent=vec4(0.);}\n\
+                  surface.coat_normal=mapped_normal(coat_input,uv_2,sample_2.rgb,uniforms.physical[3].z);\n",
             3 => "surface.physical[2]=vec4(surface.physical[2].rgb*sample_3.rgb,surface.physical[2].w);\n",
             4 => "surface.physical[1].w*=sample_4.a;\n",
             5 => "surface.physical[0].y*=sample_5.a;\n",

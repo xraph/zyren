@@ -78,7 +78,7 @@ class SceneSnapshot {
     final pbr = mesh['pbr'] as Map?;
     return pbr != null &&
         ((pbr['transmission'] as List?)?.first as num? ?? 0) > 0 &&
-        (pbr['metallic'] as num) < 1;
+        ((pbr['metallic'] as num) < 1 || pbr['metallic_roughness_map'] != null);
   }
 
   bool get hasTransmission =>

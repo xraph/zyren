@@ -68,7 +68,7 @@ fn direct_brdf(n: vec3<f32>, v: vec3<f32>, l: vec3<f32>, base: vec3<f32>, metall
 fn shade_standard(input: VertexOutput, front: bool, original: StandardSurface) -> vec4<f32> {
     var surface=original;
     surface.coat_normal=select(-surface.coat_normal,surface.coat_normal,front);
-    if (surface.transmission[0].y>0. && !front) {discard;}
+    if (surface.transmission[0].y>0. && surface.transmission[0].x>0. && surface.metallic<1. && !front) {discard;}
     let alpha = surface.base.a * uniforms.map_params.y;
     let mode = uniforms.map_params.w;
     if (mode > 0.5 && mode < 1.5 && alpha < uniforms.map_params.z) { discard; }
