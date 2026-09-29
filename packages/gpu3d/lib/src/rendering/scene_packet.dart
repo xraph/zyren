@@ -96,7 +96,7 @@ final class ScenePacketEncoder {
         if ((mesh['colorMap'] as List).isNotEmpty)
           (mesh['colorMap'] as List).first as int,
       for (final mesh in scene._meshes)
-        for (final field in _standardMapFields)
+        for (final field in [..._standardMapFields, ..._physicalMapFields])
           if ((mesh['pbr'] as Map?)?[field] case final List binding)
             binding.first as int,
     };
@@ -194,7 +194,10 @@ final class ScenePacketEncoder {
         uploadBytes > 64 * 1024 * 1024) {
       throw ArgumentError('Scene resource upload exceeds the frame budget.');
     }
-    final opcode = submission.temporalAA != null
+    final opcode =
+        scene._meshes.any((m) => (m['pbr'] as Map?)?['physical'] != null)
+        ? 32
+        : submission.temporalAA != null
         ? 31
         : scene.areaLightCount > 0
         ? 30
@@ -297,7 +300,8 @@ final class ScenePacketEncoder {
         body.floats([light['intensity'] as double]);
       }
     }
-    if (opcode >= 31) {
+    if (opcode >= 32) body.u32(submission.temporalAA == null ? 0 : 1);
+    if (opcode >= 31 && submission.temporalAA != null) {
       final options = submission.temporalAA!;
       body.floats([options.historyWeight, options.depthTolerance]);
       body.u64(options.maxBytes);
@@ -535,7 +539,16 @@ final class ScenePacketEncoder {
             if (opcode >= 29) {
               final physical = (material?['physical'] as List?)?.cast<double>();
               body.u32(physical == null ? 0 : 1);
-              if (physical != null) body.floats(physical);
+              if (physical != null) {
+                body.floats(physical);
+                if (opcode >= 32) {
+                  for (final field in _physicalMapFields) {
+                    final binding = (material![field] as List?)?.cast<int>();
+                    body.u32(binding == null ? 0 : 1);
+                    if (binding != null) body.integers(binding);
+                  }
+                }
+              }
             }
           }
         }
@@ -640,7 +653,11 @@ bool _sameMesh(Map<String, Object> a, Map<String, Object> b) {
         leftPbr['occlusion_strength'] != rightPbr['occlusion_strength']) {
       return false;
     }
-    for (final field in [..._standardMapFields, 'physical']) {
+    for (final field in [
+      ..._standardMapFields,
+      ..._physicalMapFields,
+      'physical',
+    ]) {
       final left = (leftPbr[field] as List?) ?? const [],
           right = (rightPbr[field] as List?) ?? const [];
       if (left.length != right.length) return false;
@@ -739,3 +756,14 @@ final class _SceneWriter {
 
   Uint8List finish() => _bytes.takeBytes();
 }
+
+const _physicalMapFields = [
+  'clearcoat_map',
+  'clearcoat_roughness_map',
+  'clearcoat_normal_map',
+  'sheen_color_map',
+  'sheen_roughness_map',
+  'specular_intensity_map',
+  'specular_color_map',
+  'anisotropy_map',
+];

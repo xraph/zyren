@@ -84,7 +84,7 @@ impl ScenePacket {
             return Err("unsupported scene packet".into());
         }
         let opcode = r.u32()?;
-        if !(10..=31).contains(&opcode) {
+        if !(10..=32).contains(&opcode) {
             return Err("unsupported scene packet".into());
         }
         let textured = opcode >= 11;
@@ -177,7 +177,16 @@ impl ScenePacket {
                 areas.push(light);
             }
         }
-        let temporal = if opcode >= 31 {
+        let has_temporal = if opcode >= 32 {
+            match r.u32()? {
+                0 => false,
+                1 => true,
+                _ => return Err("invalid temporal flag".into()),
+            }
+        } else {
+            opcode >= 31
+        };
+        let temporal = if has_temporal {
             let [history_weight, depth_tolerance] = r.floats()?;
             let max_bytes = r.u64()?;
             let reset = r.u64()?;
@@ -756,6 +765,7 @@ impl ScenePacket {
                         1 => {
                             let mut pbr = crate::lighting::StandardMaterial {
                                 physical: None,
+                                physical_maps: Default::default(),
                                 metallic: r.floats::<1>()?[0],
                                 roughness: r.floats::<1>()?[0],
                                 emissive: r.floats()?,
@@ -803,10 +813,30 @@ impl ScenePacket {
                     match r.u32()? {
                         0 => (),
                         1 => {
-                            mesh.pbr
-                                .as_mut()
-                                .ok_or("physical material requires PBR")?
-                                .physical = Some(r.floats()?);
+                            let material =
+                                mesh.pbr.as_mut().ok_or("physical material requires PBR")?;
+                            material.physical = Some(r.floats()?);
+                            if opcode >= 32 {
+                                for map in &mut material.physical_maps {
+                                    match r.u32()? {
+                                        0 => (),
+                                        1 => {
+                                            let texture = r.u32()?;
+                                            let uv_set = r.u32()?;
+                                            let mut sampler = [0; 5];
+                                            for value in &mut sampler {
+                                                *value = r.u32()?;
+                                            }
+                                            *map = Some(ColorMap {
+                                                texture,
+                                                uv_set,
+                                                sampler,
+                                            });
+                                        }
+                                        _ => return Err("invalid physical texture flag".into()),
+                                    }
+                                }
+                            }
                         }
                         _ => return Err("invalid physical material flag".into()),
                     }

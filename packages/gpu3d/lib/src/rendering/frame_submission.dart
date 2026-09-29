@@ -349,21 +349,45 @@ class SceneSnapshot {
                   if (node.material.vertexColors) 'vertex_colors': true,
                   if (node.material case StandardMaterial material)
                     'pbr': <String, Object>{
-                      if (material is PhysicalMaterial)
+                      if (material is PhysicalMaterial) ...{
+                        if (material.clearcoatMap != null)
+                          'clearcoat_map': material.clearcoatMap!.toPacket(),
+                        if (material.clearcoatRoughnessMap != null)
+                          'clearcoat_roughness_map': material
+                              .clearcoatRoughnessMap!
+                              .toPacket(),
+                        if (material.clearcoatNormalMap != null)
+                          'clearcoat_normal_map': material.clearcoatNormalMap!
+                              .toPacket(),
+                        if (material.sheenColorMap != null)
+                          'sheen_color_map': material.sheenColorMap!.toPacket(),
+                        if (material.sheenRoughnessMap != null)
+                          'sheen_roughness_map': material.sheenRoughnessMap!
+                              .toPacket(),
+                        if (material.specularIntensityMap != null)
+                          'specular_intensity_map': material
+                              .specularIntensityMap!
+                              .toPacket(),
+                        if (material.specularColorMap != null)
+                          'specular_color_map': material.specularColorMap!
+                              .toPacket(),
+                        if (material.anisotropyMap != null)
+                          'anisotropy_map': material.anisotropyMap!.toPacket(),
                         'physical': <double>[
                           material.ior,
                           material.specularIntensity,
                           material.clearcoat,
                           material.clearcoatRoughness,
-                          ...material.specularColor.toList(),
+                          ...material.specularColor.toList(maxChannel: 1e6),
                           material.sheenRoughness,
                           ...material.sheenColor.toList(),
                           material.anisotropy,
                           material.anisotropyRotation,
                           1,
-                          0,
+                          material.clearcoatNormalScale,
                           0,
                         ],
+                      },
                       'metallic': material.metallic,
                       'roughness': material.roughness,
                       'normal_scale': material.normalScale,

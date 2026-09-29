@@ -58,7 +58,16 @@ final class PrimitiveRecipe {
   const PrimitiveRecipe(this.geometry, this.material, this.name);
 }
 
+final class PhysicalRecipe {
+  final PhysicalMaterial factors;
+  final List<ImageBindingRecipe?> maps;
+  PhysicalRecipe(this.factors, Iterable<ImageBindingRecipe?> maps)
+    : maps = List.unmodifiable(maps);
+}
+
 final class MaterialRecipe {
+  final PhysicalRecipe? physical;
+  final double emissiveIntensity;
   final Color3 color;
   final double opacity, cutoff;
   final MaterialAlphaMode alphaMode;
@@ -77,6 +86,7 @@ final class MaterialRecipe {
     ?metallicRoughnessMap,
     ?occlusionMap,
     ?emissiveMap,
+    ...?physical?.maps.nonNulls,
   ];
   const MaterialRecipe(
     this.color,
@@ -86,6 +96,8 @@ final class MaterialRecipe {
     this.side,
     this.colorMap, {
     this.standard = false,
+    this.physical,
+    this.emissiveIntensity = 1,
     this.metallic = 1,
     this.roughness = 1,
     this.normalScale = 1,

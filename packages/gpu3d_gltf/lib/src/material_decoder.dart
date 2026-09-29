@@ -4,6 +4,7 @@ import 'checked.dart';
 import 'options.dart';
 import 'recipes.dart';
 import 'basis.dart';
+part 'physical_decoder.dart';
 
 final class MaterialDecoder {
   final Map<String, Object?> root;
@@ -167,6 +168,8 @@ final class MaterialDecoder {
     if (emission.any((v) => v < 0 || v > 1)) {
       fail('$path.emissiveFactor', 'Emissive factors must be in [0, 1].');
     }
+    final physical = _physical(extensions, path, standard, unlit);
+    final emissionStrength = _emissionStrength(extensions, path, unlit);
     return _materials[i] = MaterialRecipe(
       Color3(factor[0], factor[1], factor[2]),
       factor[3],
@@ -175,6 +178,8 @@ final class MaterialDecoder {
       doubleSided ? MaterialSide.doubleSided : MaterialSide.front,
       binding,
       standard: standard,
+      physical: physical,
+      emissiveIntensity: emissionStrength,
       metallic: number(
         field(pbr, 'metallicFactor', 1),
         '$path.pbrMetallicRoughness.metallicFactor',

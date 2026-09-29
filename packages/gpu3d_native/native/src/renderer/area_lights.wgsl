@@ -52,7 +52,7 @@ fn shade_area(light: AreaLight, position: vec3<f32>, n: vec3<f32>, v: vec3<f32>,
     let center=light.position.xyz-position;
     let w=light.half_width.xyz; let h=light.half_height.xyz;
     if (dot(cross(w,h),center) <= 0. || dot(n,v) <= 0.) { return vec3(0.); }
-    if (uniforms.physical[3].y != 0. && uniforms.physical[2].w > 0.) {
+    if (surface.physical[3].y != 0. && surface.physical[2].w > 0.) {
         return anisotropic_area(light,center,n,v,tangent,surface);
     }
     let axis=select(vec3(1.,0.,0.),vec3(0.,1.,0.),abs(n.x)>.9);
@@ -62,22 +62,28 @@ fn shade_area(light: AreaLight, position: vec3<f32>, n: vec3<f32>, v: vec3<f32>,
     let identity=mat3x3(vec3(1.,0.,0.),vec3(0.,1.,0.),vec3(0.,0.,1.));
     let diffuse_integral=ltc_polygon(points,identity);
     let nv=clamp(dot(n,v),0.,1.);
-    let physical=uniforms.physical[3].y != 0.;
-    let dielectric=select(vec3(.04),physical_f0(),physical);
+    let physical=surface.physical[3].y != 0.;
+    let dielectric=select(vec3(.04),physical_f0(surface),physical);
     let f0=mix(dielectric,surface.base.rgb,surface.metallic);
-    let f90=mix(select(1.,uniforms.physical[0].y,physical),1.,surface.metallic);
+    let f90=mix(select(1.,surface.physical[0].y,physical),1.,surface.metallic);
     let amplitude=ltc_lookup(ltc_amplitude,surface.roughness,nv);
     let specular_integral=ltc_polygon(points,ltc_transform(surface.roughness,nv));
     var color=surface.base.rgb*(1.-surface.metallic)*(1.-maximum3(dielectric))*diffuse_integral
         + (f0*amplitude.x+(vec3(f90)-f0)*amplitude.y)*specular_integral;
     if (physical) {
         // Smooth cloth response and energy reduction use the hemispherical fit.
-        let sheen=uniforms.physical[2].rgb;
-        let sheen_energy=sheen_albedo(nv,uniforms.physical[1].w);
+        let sheen=surface.physical[2].rgb;
+        let sheen_energy=sheen_albedo(nv,surface.physical[1].w);
         color=color*(1.-maximum3(sheen)*sheen_energy)+sheen*diffuse_integral*sheen_energy;
-        let coat_amplitude=ltc_lookup(ltc_amplitude,uniforms.physical[0].w,nv);
-        let coat_integral=ltc_polygon(points,ltc_transform(uniforms.physical[0].w,nv));
-        color=color*(1.-coat_fresnel(nv))+vec3(uniforms.physical[0].z*(.04*coat_amplitude.x+.96*coat_amplitude.y)*coat_integral);
+        let cn=surface.coat_normal;
+        let coat_nv=clamp(dot(cn,v),0.,1.);
+        let coat_axis=select(vec3(1.,0.,0.),vec3(0.,1.,0.),abs(cn.x)>.9);
+        let ct=normalized_or(v-cn*dot(cn,v),normalized_or(cross(coat_axis,cn),coat_axis));
+        let coat_basis=transpose(mat3x3(ct,cross(cn,ct),cn));
+        let coat_points=array<vec3<f32>,4>(coat_basis*(center-w-h),coat_basis*(center+w-h),coat_basis*(center+w+h),coat_basis*(center-w+h));
+        let coat_amplitude=ltc_lookup(ltc_amplitude,surface.physical[0].w,coat_nv);
+        let coat_integral=ltc_polygon(coat_points,ltc_transform(surface.physical[0].w,coat_nv));
+        color=color*(1.-coat_fresnel(coat_nv,surface))+vec3(surface.physical[0].z*(.04*coat_amplitude.x+.96*coat_amplitude.y)*coat_integral);
     }
     return color*light.color_intensity.rgb*light.color_intensity.w;
 }

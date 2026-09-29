@@ -82,14 +82,18 @@ impl Renderer {
                         p.occlusion_map.as_ref(),
                     ]
                     .into_iter()
+                    .chain(
+                        p.physical_maps
+                            .iter()
+                            .enumerate()
+                            .filter(|(i, _)| ![3, 6].contains(i))
+                            .map(|(_, m)| m.as_ref()),
+                    )
                     .flatten()
                     .any(|data| data.texture == map.texture)
                 }) && image.format != 0
                 {
-                    return Err(
-                        "normal, metallic/roughness and occlusion maps require linear storage"
-                            .into(),
-                    );
+                    return Err("material data maps require linear storage".into());
                 }
                 let geometry = frame
                     .geometries

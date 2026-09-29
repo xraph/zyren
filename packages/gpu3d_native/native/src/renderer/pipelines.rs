@@ -6,6 +6,7 @@ pub(super) struct PipelineKey {
     format: wgpu::TextureFormat,
     sample_count: u32,
     textured: bool,
+    physical_maps: u16,
     standard: bool,
     tangent: bool,
     colored: bool,
@@ -28,6 +29,7 @@ impl PipelineKey {
         Self {
             format,
             sample_count,
+            physical_maps: mesh.pbr.as_ref().map_or(0, |p| p.physical_map_mask()),
             colored: mesh.vertex_colors,
             instanced: mesh.instances != 0,
             deformed: mesh.pose != 0,
@@ -48,6 +50,10 @@ impl PipelineKey {
 }
 pub(super) struct MeshPipelines {
     shader: wgpu::ShaderModule,
+    physical: HashMap<u16, super::physical_maps::Variant>,
+    pbr_layout: wgpu::BindGroupLayout,
+    standard_maps: wgpu::BindGroupLayout,
+    deformation_layout: wgpu::BindGroupLayout,
     plain: wgpu::PipelineLayout,
     deformed_plain: wgpu::PipelineLayout,
     deformed_textured: wgpu::PipelineLayout,
@@ -68,28 +74,13 @@ impl MeshPipelines {
         deformation_layout: &wgpu::BindGroupLayout,
     ) -> Self {
         Self {
+            physical: HashMap::new(),
+            pbr_layout: pbr_layout.clone(),
+            standard_maps: standard_texture_layout.clone(),
+            deformation_layout: deformation_layout.clone(),
             shader: device.create_shader_module(wgpu::ShaderModuleDescriptor {
                 label: Some("native mesh materials"),
-                source: wgpu::ShaderSource::Wgsl(
-                    concat!(
-                        include_str!("../mesh.wgsl"),
-                        "\n",
-                        include_str!("../deformation.wgsl"),
-                        "\n",
-                        include_str!("../deformation_mesh.wgsl"),
-                        "\n",
-                        include_str!("primitives.wgsl"),
-                        "\n",
-                        include_str!("pbr.wgsl"),
-                        "\n",
-                        include_str!("physical.wgsl"),
-                        "\n",
-                        include_str!("area_lights.wgsl"),
-                        "\n",
-                        include_str!("shadow_sampling.wgsl")
-                    )
-                    .into(),
-                ),
+                source: wgpu::ShaderSource::Wgsl(shader_source(0).into()),
             }),
             deformed_plain: device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("deformed triangles"),
@@ -160,6 +151,17 @@ impl MeshPipelines {
         }) {
             return Ok(());
         }
+        for mesh in &frame.meshes {
+            let count = mesh
+                .pbr
+                .as_ref()
+                .map_or(0, |p| p.physical_map_mask().count_ones());
+            if count + 11 > device.limits().max_sampled_textures_per_shader_stage {
+                return Err(
+                    "Physical maps exceed this adapter's sampled texture binding limit".into(),
+                );
+            }
+        }
         let validation = device.push_error_scope(wgpu::ErrorFilter::Validation);
         let memory = device.push_error_scope(wgpu::ErrorFilter::OutOfMemory);
         let internal = device.push_error_scope(wgpu::ErrorFilter::Internal);
@@ -173,6 +175,18 @@ impl MeshPipelines {
                 has_tangents(mesh.geometry),
                 frame.sample_count(),
             );
+            if key.physical_maps != 0 && !self.physical.contains_key(&key.physical_maps) {
+                self.physical.insert(
+                    key.physical_maps,
+                    super::physical_maps::Variant::new(
+                        device,
+                        key.physical_maps,
+                        &self.pbr_layout,
+                        &self.standard_maps,
+                        &self.deformation_layout,
+                    ),
+                );
+            }
             if !self.cache.contains_key(&key) {
                 let pipeline = self.create(device, key);
                 self.cache.insert(key, pipeline);
@@ -191,6 +205,9 @@ impl MeshPipelines {
     }
     pub(super) fn get(&self, key: PipelineKey) -> &wgpu::RenderPipeline {
         &self.cache[&key]
+    }
+    pub(super) fn physical_layout(&self, mask: u16) -> &wgpu::BindGroupLayout {
+        &self.physical[&mask].maps
     }
     pub(super) fn len(&self) -> usize {
         self.cache.len()
@@ -287,9 +304,17 @@ impl MeshPipelines {
         } else {
             vertex_entry.to_owned()
         };
+        let variant = self.physical.get(&key.physical_maps);
+        let shader = variant.map_or(&self.shader, |v| &v.shader);
         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("native mesh state"),
-            layout: Some(if key.deformed {
+            layout: Some(if let Some(variant) = variant {
+                if key.deformed {
+                    &variant.deformed
+                } else {
+                    &variant.plain
+                }
+            } else if key.deformed {
                 if key.standard && key.textured {
                     &self.deformed_standard_textured
                 } else if key.standard {
@@ -309,13 +334,13 @@ impl MeshPipelines {
                 &self.plain
             }),
             vertex: wgpu::VertexState {
-                module: &self.shader,
+                module: shader,
                 entry_point: Some(&vertex_entry),
                 compilation_options: Default::default(),
                 buffers: &buffers,
             },
             fragment: Some(wgpu::FragmentState {
-                module: &self.shader,
+                module: shader,
                 entry_point: Some(if key.primitive_kind != 0 {
                     "fs_primitive"
                 } else if key.standard && key.textured {
@@ -370,4 +395,28 @@ impl MeshPipelines {
             cache: None,
         })
     }
+}
+
+pub(super) fn shader_source(mask: u16) -> String {
+    format!(
+        "{}\n{}",
+        concat!(
+            include_str!("../mesh.wgsl"),
+            "\n",
+            include_str!("../deformation.wgsl"),
+            "\n",
+            include_str!("../deformation_mesh.wgsl"),
+            "\n",
+            include_str!("primitives.wgsl"),
+            "\n",
+            include_str!("pbr.wgsl"),
+            "\n",
+            include_str!("physical.wgsl"),
+            "\n",
+            include_str!("area_lights.wgsl"),
+            "\n",
+            include_str!("shadow_sampling.wgsl")
+        ),
+        super::physical_maps::shader(mask)
+    )
 }

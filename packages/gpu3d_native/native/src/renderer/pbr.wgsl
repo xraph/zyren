@@ -65,7 +65,9 @@ fn direct_brdf(n: vec3<f32>, v: vec3<f32>, l: vec3<f32>, base: vec3<f32>, metall
     return (diffuse + fresnel * distribution * visibility) * nl;
 }
 
-fn shade_standard(input: VertexOutput, front: bool, surface: StandardSurface) -> vec4<f32> {
+fn shade_standard(input: VertexOutput, front: bool, original: StandardSurface) -> vec4<f32> {
+    var surface=original;
+    surface.coat_normal=select(-surface.coat_normal,surface.coat_normal,front);
     let alpha = surface.base.a * uniforms.map_params.y;
     let mode = uniforms.map_params.w;
     if (mode > 0.5 && mode < 1.5 && alpha < uniforms.map_params.z) { discard; }
@@ -73,13 +75,13 @@ fn shade_standard(input: VertexOutput, front: bool, surface: StandardSurface) ->
     let v = normalized_or(-input.relative_position, n);
     let base = surface.base.rgb;
     let physical = uniforms.physical[3].y != 0.;
-    let coat = select(0., coat_fresnel(clamp(dot(n,v),0.,1.)), physical);
+    let coat = select(0., coat_fresnel(clamp(dot(surface.coat_normal,v),0.,1.),surface), physical);
     var color = surface.emission * (1.-coat) + physical_environment(n, v, input.tangent, surface);
     for (var i = 0u; i < lighting.count.y; i++) {
         let light = lighting.hemispheres[i];
         let weight = clamp(dot(n, light.direction.xyz) * 0.5 + 0.5, 0., 1.);
         let irradiance = mix(light.ground.rgb, light.sky_intensity.rgb, weight) * light.sky_intensity.w;
-        let diffuse_weight = select(.96, 1.-maximum3(physical_fresnel(clamp(dot(n,v),0.,1.))), physical);
+        let diffuse_weight = select(.96, 1.-maximum3(physical_fresnel(clamp(dot(n,v),0.,1.),surface)), physical);
         color += irradiance * base * (1. - surface.metallic) * (diffuse_weight / 3.141592653589793) * surface.occlusion * (1.-coat);
     }
     for (var i = 0u; i < lighting.count.x; i++) {
@@ -117,6 +119,7 @@ fn shade_standard(input: VertexOutput, front: bool, surface: StandardSurface) ->
 struct StandardSurface {
     base: vec4<f32>, normal: vec3<f32>, metallic: f32, roughness: f32,
     emission: vec3<f32>, occlusion: f32,
+    physical: array<vec4<f32>,4>, coat_normal: vec3<f32>,
 };
 fn standard_surface(input: VertexOutput) -> StandardSurface {
     var surface: StandardSurface;
@@ -126,6 +129,8 @@ fn standard_surface(input: VertexOutput) -> StandardSurface {
     surface.roughness = uniforms.pbr_params.y;
     surface.emission = uniforms.emissive.rgb;
     surface.occlusion = 1.;
+    surface.physical = uniforms.physical;
+    surface.coat_normal = surface.normal;
     return surface;
 }
 @group(1) @binding(2) var normal_map: texture_2d<f32>;
@@ -139,7 +144,7 @@ fn standard_surface(input: VertexOutput) -> StandardSurface {
 fn material_uv(input: VertexOutput, slot: u32) -> vec2<f32> {
     return select(input.uv0, input.uv1, (uniforms.pbr_maps.y & (1u << slot)) != 0u);
 }
-fn mapped_normal(input: VertexOutput, uv: vec2<f32>, sample: vec3<f32>) -> vec3<f32> {
+fn mapped_normal(input: VertexOutput, uv: vec2<f32>, sample: vec3<f32>, scale: f32) -> vec3<f32> {
     let n = normalized_or(input.normal, vec3(0.,0.,1.));
     // Evaluate derivatives before branching on interpolated tangent data.
     let dx = dpdx(input.relative_position); let dy = dpdy(input.relative_position);
@@ -157,11 +162,11 @@ fn mapped_normal(input: VertexOutput, uv: vec2<f32>, sample: vec3<f32>) -> vec3<
     if (has_tangent) { handedness = input.tangent.w; }
     let b = cross(n,t) * handedness;
     let encoded = sample * 2. - vec3(1.);
-    let local = encoded * vec3(uniforms.pbr_factors.xx, 1.);
+    let local = encoded * vec3(scale,scale,1.);
     return normalized_or(t * local.x + b * local.y + n * local.z, n);
 }
 @fragment fn fs_standard(input: VertexOutput, @builtin(front_facing) front: bool) -> @location(0) vec4<f32> {
-    return shade_standard(input, material_front(front, input.orientation), standard_surface(input));
+    return shade_standard(input, material_front(front, input.orientation), physical_surface(input,standard_surface(input)));
 }
 @fragment fn fs_standard_textured(input: VertexOutput, @builtin(front_facing) front: bool) -> @location(0) vec4<f32> {
     var surface = standard_surface(input);
@@ -171,7 +176,7 @@ fn mapped_normal(input: VertexOutput, uv: vec2<f32>, sample: vec3<f32>) -> vec3<
     }
     if ((flags & 2u) != 0u) {
         let uv = material_uv(input,1u);
-        surface.normal = mapped_normal(input, uv, textureSample(normal_map, normal_sampler, uv).rgb);
+        surface.normal = mapped_normal(input, uv, textureSample(normal_map, normal_sampler, uv).rgb,uniforms.pbr_factors.x);
     }
     if ((flags & 4u) != 0u) {
         let sample = textureSample(metallic_roughness_map, metallic_roughness_sampler, material_uv(input,2u));
@@ -185,5 +190,5 @@ fn mapped_normal(input: VertexOutput, uv: vec2<f32>, sample: vec3<f32>) -> vec3<
     if ((flags & 16u) != 0u) {
         surface.emission *= textureSample(emissive_map, emissive_sampler, material_uv(input,4u)).rgb;
     }
-    return shade_standard(input, material_front(front, input.orientation), surface);
+    return shade_standard(input, material_front(front, input.orientation), physical_surface(input,surface));
 }

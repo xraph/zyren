@@ -10,6 +10,7 @@ import 'animation_decoder.dart';
 import 'data_uri.dart';
 import 'options.dart';
 import 'recipes.dart';
+import 'material_decoder.dart' show physicalExtensions, emissionExtension;
 import 'worker.dart';
 part 'model_asset.dart';
 
@@ -71,6 +72,8 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
         context.cancellation,
         supportedExtensions: {
           'KHR_materials_unlit',
+          ...physicalExtensions,
+          emissionExtension,
           'KHR_lights_punctual',
           if (context.supportsTextureEncoding(TextureEncoding.ktx2Basis))
             basisExtension,
@@ -226,11 +229,15 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
           context.cancellation.throwIfCancelled();
           var data = primitive.geometry;
           final m = primitive.material;
-          if (m.normalMap case final normalMap?
-              when !data.attributes.containsKey(VertexSemantic.tangent)) {
+          final tangentMap =
+              m.normalMap ?? m.physical?.maps[2] ?? m.physical?.maps[7];
+          final needsTangent =
+              tangentMap != null || (m.physical?.factors.anisotropy ?? 0) > 0;
+          if (needsTangent &&
+              !data.attributes.containsKey(VertexSemantic.tangent)) {
             data = await context.generateTangents(
               data,
-              uvSet: normalMap.uvSet,
+              uvSet: tangentMap?.uvSet ?? 0,
               fieldPath:
                   'meshes[${meshes.length}].primitives[${primitives.length}].attributes.TANGENT',
             );
@@ -252,7 +259,7 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
           final vertexColors = geometry.attributes.containsKey(
             VertexSemantic.color,
           );
-          final MeshMaterial material = switch (geometry.topology) {
+          MeshMaterial material = switch (geometry.topology) {
             GeometryTopology.triangles when m.standard => StandardMaterial(
               baseColor: m.color,
               baseColorMap: map,
@@ -264,6 +271,7 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
               occlusionMap: texture(m.occlusionMap),
               occlusionStrength: m.occlusionStrength,
               emissive: m.emissive,
+              emissiveIntensity: m.emissiveIntensity,
               emissiveMap: texture(m.emissiveMap),
               side: m.side,
               opacity: m.opacity,
@@ -298,6 +306,36 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
               alphaCutoff: m.cutoff,
             ),
           };
+          if (m.physical case final physical?) {
+            final maps = physical.maps.map(texture).toList();
+            material = physical.factors.copyWith(
+              baseColor: m.color,
+              baseColorMap: map,
+              metallic: m.metallic,
+              roughness: m.roughness,
+              normalMap: texture(m.normalMap),
+              normalScale: m.normalScale,
+              metallicRoughnessMap: texture(m.metallicRoughnessMap),
+              occlusionMap: texture(m.occlusionMap),
+              occlusionStrength: m.occlusionStrength,
+              emissive: m.emissive,
+              emissiveIntensity: m.emissiveIntensity,
+              emissiveMap: texture(m.emissiveMap),
+              side: m.side,
+              opacity: m.opacity,
+              vertexColors: vertexColors,
+              alphaMode: m.alphaMode,
+              alphaCutoff: m.cutoff,
+              clearcoatMap: maps[0],
+              clearcoatRoughnessMap: maps[1],
+              clearcoatNormalMap: maps[2],
+              sheenColorMap: maps[3],
+              sheenRoughnessMap: maps[4],
+              specularIntensityMap: maps[5],
+              specularColorMap: maps[6],
+              anisotropyMap: maps[7],
+            );
+          }
           primitives.add(_ModelPrimitive(geometry, material, primitive.name));
           if (++published % 64 == 0) await Future<void>.delayed(Duration.zero);
         }

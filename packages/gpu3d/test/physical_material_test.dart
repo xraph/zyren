@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
 import 'package:gpu3d/gpu3d.dart';
 import 'package:gpu3d/rendering.dart';
 import 'package:test/test.dart';
@@ -124,4 +125,64 @@ void main() {
       expect(capture().changedMeshes, 0);
     }
   });
+  test(
+    'physical maps retain texture ownership, validate storage and enter scene deltas',
+    () {
+      final map = TextureMap(
+        image: TextureImage.rgba(
+          width: 1,
+          height: 1,
+          pixels: Uint8List.fromList([80, 120, 190, 128]),
+          format: TextureFormat.rgba8Unorm,
+        ),
+      );
+      final material = PhysicalMaterial(
+        clearcoat: 1,
+        clearcoatMap: map,
+        clearcoatNormalScale: .5,
+        specularColor: const Color3(2, 1, .5),
+        ior: 0,
+      );
+      final mesh = Mesh(PlaneGeometry(), material), scene = Scene();
+      scene.add(mesh);
+      final encoder = ScenePacketEncoder(viewId: 7),
+          camera = PerspectiveCamera();
+      EncodedScenePacket capture() => encoder.encode(
+        FrameSubmission.capture(
+          scene: scene,
+          camera: camera,
+          size: PhysicalSize(7, 7),
+        ),
+      );
+      final initial = capture();
+      encoder.accept(initial);
+      expect(capture().uploadedBytes, 0);
+      final copy =
+          (material as StandardMaterial).copyWith(roughness: .4)
+              as PhysicalMaterial;
+      expect(copy.clearcoatMap, same(map));
+      expect(copy.clearcoatNormalScale, .5);
+      expect(copy.specularColor.r, 2);
+      expect(copy.ior, 0);
+      mesh.material = copy.copyWith(clearClearcoatMap: true);
+      final changed = capture();
+      expect(changed.changedMeshes, 1);
+      expect(changed.uploadedBytes, 0);
+      encoder.accept(changed);
+      mesh.material = copy;
+      expect(capture().uploadedBytes, 4);
+      final srgb = TextureMap(
+        image: TextureImage.rgba(width: 1, height: 1, pixels: Uint8List(4)),
+      );
+      expect(() => PhysicalMaterial(clearcoatMap: srgb), throwsArgumentError);
+      expect(
+        () => PhysicalMaterial(clearcoatNormalScale: double.nan),
+        throwsArgumentError,
+      );
+      expect(
+        () => PhysicalMaterial(specularColor: const Color3(-1, 0, 0)),
+        throwsArgumentError,
+      );
+    },
+  );
 }

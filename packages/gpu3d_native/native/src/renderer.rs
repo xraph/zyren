@@ -16,6 +16,7 @@ mod deformation;
 mod draw_order;
 mod instances;
 mod materials;
+mod physical_maps;
 mod pipelines;
 mod shadows;
 mod temporal;
@@ -184,6 +185,10 @@ impl Renderer {
                 label: Some("flutter_gpu3d"),
                 required_limits: wgpu::Limits {
                     max_texture_dimension_2d: crate::scene::MAX_DIMENSION,
+                    max_sampled_textures_per_shader_stage: adapter
+                        .limits()
+                        .max_sampled_textures_per_shader_stage
+                        .min(32),
                     ..wgpu::Limits::downlevel_defaults()
                 },
                 ..Default::default()
@@ -770,6 +775,13 @@ impl Renderer {
                         }
                     }
                 }
+                if let Some(pbr) = &mesh.pbr {
+                    for (i, map) in pbr.physical_maps.iter().enumerate() {
+                        if let Some(map) = map {
+                            pbr_maps[3] |= map.uv_set << i;
+                        }
+                    }
+                }
                 let uniforms = Uniforms {
                     physical: {
                         let p = mesh.pbr.as_ref().and_then(|p| p.physical).unwrap_or([
@@ -877,6 +889,11 @@ impl Renderer {
             .iter()
             .map(|mesh| self.texture_binding(mesh))
             .collect();
+        let physical_bindings: Vec<_> = frame
+            .meshes
+            .iter()
+            .map(|mesh| self.physical_texture_binding(mesh))
+            .collect();
         let mut encoder = self.device.create_command_encoder(&Default::default());
         if let Some(graph) = graph {
             graph.encode_before(&mut encoder);
@@ -944,6 +961,9 @@ impl Renderer {
                     )));
                 }
                 pass.set_bind_group(0, binding, &[]);
+                if let Some(physical) = &physical_bindings[index] {
+                    pass.set_bind_group(3, physical, &[]);
+                }
                 let (vertices, indices, count, uv, index_format) =
                     self.resources.geometry(geometry.key);
                 pass.set_vertex_buffer(0, vertices.slice(..));

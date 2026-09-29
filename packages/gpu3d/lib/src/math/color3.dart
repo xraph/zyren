@@ -23,10 +23,15 @@ final class Color3 {
       other is Color3 && r == other.r && g == other.g && b == other.b;
   @override
   int get hashCode => Object.hash(r, g, b);
-  List<double> toList() {
+
+  /// Validates linear channels for the consuming material or light profile.
+  List<double> toList({double maxChannel = 1}) {
+    if (!maxChannel.isFinite || maxChannel <= 0) {
+      throw ArgumentError.value(maxChannel, 'maxChannel');
+    }
     final values = [r, g, b];
-    if (values.any((v) => !v.isFinite || v < 0 || v > 1)) {
-      throw ArgumentError('RGB channels must be in [0, 1].');
+    if (values.any((v) => !v.isFinite || v < 0 || v > maxChannel)) {
+      throw ArgumentError('RGB channels must be in [0, $maxChannel].');
     }
     return values;
   }

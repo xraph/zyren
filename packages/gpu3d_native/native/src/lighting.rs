@@ -9,6 +9,8 @@ pub const MAX_AREAS: usize = 4;
 pub struct StandardMaterial {
     #[serde(default)]
     pub physical: Option<[f32; 16]>,
+    #[serde(default)]
+    pub physical_maps: [Option<crate::scene::ColorMap>; 8],
     pub metallic: f32,
     pub roughness: f32,
     pub emissive: [f32; 3],
@@ -29,23 +31,40 @@ fn one() -> f32 {
     1.
 }
 impl StandardMaterial {
-    pub fn maps(&self) -> [Option<&crate::scene::ColorMap>; 4] {
+    pub fn maps(&self) -> Vec<Option<&crate::scene::ColorMap>> {
         [
             self.normal_map.as_ref(),
             self.metallic_roughness_map.as_ref(),
             self.occlusion_map.as_ref(),
             self.emissive_map.as_ref(),
         ]
+        .into_iter()
+        .chain(self.physical_maps.iter().map(Option::as_ref))
+        .collect()
+    }
+    pub fn physical_map_mask(&self) -> u16 {
+        self.physical_maps
+            .iter()
+            .enumerate()
+            .fold(0, |mask, (i, map)| {
+                mask | if map.is_some() { 1 << i } else { 0 }
+            })
     }
     pub fn validate(&self) -> Result<(), String> {
         if let Some(p) = self.physical
             && (p.iter().any(|v| !v.is_finite())
-                || !(1.0..=10.0).contains(&p[0])
-                || p[1..12].iter().any(|v| !(0.0..=1.0).contains(v))
+                || (p[0] != 0. && !(1.0..=1e6).contains(&p[0]))
+                || [1, 2, 3, 7, 8, 9, 10, 11]
+                    .iter()
+                    .any(|i| !(0.0..=1.0).contains(&p[*i]))
+                || p[4..7].iter().any(|v| !(0.0..=1e6).contains(v))
                 || p[12].abs() > 1e6
-                || p[13..] != [1., 0., 0.])
+                || (p[13] != 1. || p[14].abs() > 1e6 || p[15] != 0.))
         {
             return Err("invalid physical material parameters".into());
+        }
+        if self.physical.is_none() && self.physical_map_mask() != 0 {
+            return Err("physical maps require a physical material".into());
         }
         for map in self.maps().into_iter().flatten() {
             map.validate()?;
@@ -317,11 +336,11 @@ mod physical_tests {
         }
         for (index, invalid) in [
             (0, 0.9),
-            (0, 11.),
+            (0, 1e6 + 1.),
             (1, -0.1),
             (11, 1.1),
             (13, 0.),
-            (14, 1.),
+            (14, 1e6 + 1.),
             (15, 1.),
         ] {
             let mut value = good;

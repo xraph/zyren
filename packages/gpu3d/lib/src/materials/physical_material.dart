@@ -4,6 +4,28 @@ part of 'material.dart';
 /// Colors and lighting operate in linear space. Rotation is in radians about
 /// the surface normal. Anisotropy uses the geometry's tangent frame.
 final class PhysicalMaterial extends StandardMaterial {
+  final double clearcoatNormalScale;
+  final TextureMap? clearcoatMap,
+      clearcoatRoughnessMap,
+      clearcoatNormalMap,
+      sheenColorMap,
+      sheenRoughnessMap,
+      specularIntensityMap,
+      specularColorMap,
+      anisotropyMap;
+  @override
+  Iterable<TextureMap> get textureMaps => [
+    ...super.textureMaps,
+    ?clearcoatMap,
+    ?clearcoatRoughnessMap,
+    ?clearcoatNormalMap,
+    ?sheenColorMap,
+    ?sheenRoughnessMap,
+    ?specularIntensityMap,
+    ?specularColorMap,
+    ?anisotropyMap,
+  ];
+
   final double ior;
   final double specularIntensity;
   final double clearcoat;
@@ -14,6 +36,16 @@ final class PhysicalMaterial extends StandardMaterial {
   final Color3 specularColor;
   final Color3 sheenColor;
   PhysicalMaterial({
+    this.clearcoatNormalScale = 1,
+    this.clearcoatMap,
+    this.clearcoatRoughnessMap,
+    this.clearcoatNormalMap,
+    this.sheenColorMap,
+    this.sheenRoughnessMap,
+    this.specularIntensityMap,
+    this.specularColorMap,
+    this.anisotropyMap,
+
     this.ior = 1.5,
     this.specularIntensity = 1,
     this.clearcoat = 0,
@@ -54,8 +86,8 @@ final class PhysicalMaterial extends StandardMaterial {
         throw ArgumentError.value(entry.value, entry.key, 'Expected [0, 1].');
       }
     }
-    if (!ior.isFinite || ior < 1 || ior > 10) {
-      throw ArgumentError.value(ior, 'ior', 'Expected [1, 10].');
+    if (!ior.isFinite || (ior != 0 && ior < 1) || ior > 1e6) {
+      throw ArgumentError.value(ior, 'ior', 'Expected zero or [1, 1e6].');
     }
     if (!anisotropyRotation.isFinite || anisotropyRotation.abs() > 1e6) {
       throw ArgumentError.value(
@@ -64,11 +96,46 @@ final class PhysicalMaterial extends StandardMaterial {
         'Expected finite radians in [-1e6, 1e6].',
       );
     }
-    specularColor.toList();
+    if (!clearcoatNormalScale.isFinite || clearcoatNormalScale.abs() > 1e6) {
+      throw ArgumentError.value(clearcoatNormalScale, 'clearcoatNormalScale');
+    }
+    for (final map in [
+      clearcoatMap,
+      clearcoatRoughnessMap,
+      clearcoatNormalMap,
+      sheenRoughnessMap,
+      specularIntensityMap,
+      anisotropyMap,
+    ].nonNulls) {
+      if (map.image.descriptor.format != TextureFormat.rgba8Unorm) {
+        throw ArgumentError(
+          'Physical data maps require TextureFormat.rgba8Unorm.',
+        );
+      }
+    }
+    specularColor.toList(maxChannel: 1e6);
     sheenColor.toList();
   }
   @override
   PhysicalMaterial copyWith({
+    double? clearcoatNormalScale,
+    TextureMap? clearcoatMap,
+    bool clearClearcoatMap = false,
+    TextureMap? clearcoatRoughnessMap,
+    bool clearClearcoatRoughnessMap = false,
+    TextureMap? clearcoatNormalMap,
+    bool clearClearcoatNormalMap = false,
+    TextureMap? sheenColorMap,
+    bool clearSheenColorMap = false,
+    TextureMap? sheenRoughnessMap,
+    bool clearSheenRoughnessMap = false,
+    TextureMap? specularIntensityMap,
+    bool clearSpecularIntensityMap = false,
+    TextureMap? specularColorMap,
+    bool clearSpecularColorMap = false,
+    TextureMap? anisotropyMap,
+    bool clearAnisotropyMap = false,
+
     double? ior,
     double? specularIntensity,
     double? clearcoat,
@@ -103,6 +170,30 @@ final class PhysicalMaterial extends StandardMaterial {
     bool? vertexColors,
     DepthWrite? depthWrite,
   }) => PhysicalMaterial(
+    clearcoatNormalScale: clearcoatNormalScale ?? this.clearcoatNormalScale,
+    clearcoatMap: clearClearcoatMap ? null : clearcoatMap ?? this.clearcoatMap,
+    clearcoatRoughnessMap: clearClearcoatRoughnessMap
+        ? null
+        : clearcoatRoughnessMap ?? this.clearcoatRoughnessMap,
+    clearcoatNormalMap: clearClearcoatNormalMap
+        ? null
+        : clearcoatNormalMap ?? this.clearcoatNormalMap,
+    sheenColorMap: clearSheenColorMap
+        ? null
+        : sheenColorMap ?? this.sheenColorMap,
+    sheenRoughnessMap: clearSheenRoughnessMap
+        ? null
+        : sheenRoughnessMap ?? this.sheenRoughnessMap,
+    specularIntensityMap: clearSpecularIntensityMap
+        ? null
+        : specularIntensityMap ?? this.specularIntensityMap,
+    specularColorMap: clearSpecularColorMap
+        ? null
+        : specularColorMap ?? this.specularColorMap,
+    anisotropyMap: clearAnisotropyMap
+        ? null
+        : anisotropyMap ?? this.anisotropyMap,
+
     ior: ior ?? this.ior,
     specularIntensity: specularIntensity ?? this.specularIntensity,
     clearcoat: clearcoat ?? this.clearcoat,

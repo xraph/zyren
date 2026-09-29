@@ -60,7 +60,7 @@ These are implemented feature families, not a claim of complete Three.js parity.
 `PhysicalMaterial` adds native IOR, specular, clearcoat, sheen and anisotropy
 factors. Its first increment passes Metal direct/environment pixels and the
 untextured tangent variants for instances, colors and morphs. Physical-layer
-maps, transmission, volume and glTF physical extensions remain open.
+maps and glTF physical extensions are implemented. Transmission and volume remain open.
 See [physical materials](design/physical-materials.md).
 
 Native CPU decoders now load Draco, meshopt and Basis/KTX2 through the glTF
