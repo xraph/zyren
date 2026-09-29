@@ -97,3 +97,27 @@ from the previous day's measurements as a renderer regression or improvement.
 
 [The temporal run](2026-09-29-temporal-metal-300.json) records all seven profiles,
 source identity, readback bytes and separate temporal residency.
+
+
+## Transmission capture
+
+The physical-material run adds a glass pane in front of the same 400-sphere
+fixture. Each profile measures 300 frames after 30 warmup frames on the M3 Max.
+
+| Pixels | Profile | Median | P95 | Capture payload |
+| --- | --- | --- | --- | --- |
+| 640x360 | hdr | 0.645 ms | 0.795 ms | 0.00 MiB |
+| 640x360 | glass | 0.867 ms | 0.967 ms | 2.64 MiB |
+| 640x360 | glass+taa | 1.000 ms | 1.226 ms | 2.64 MiB |
+| 1280x720 | hdr | 0.814 ms | 0.916 ms | 0.00 MiB |
+| 1280x720 | glass | 1.162 ms | 1.320 ms | 10.55 MiB |
+| 1280x720 | glass+taa | 1.405 ms | 1.474 ms | 10.55 MiB |
+
+Capture, temporal and scoped allocations remained constant through each case and
+returned to zero after its view closed. Glass adds an opaque capture draw and a
+main-scene glass draw. Capture bytes are reported separately from temporal and
+scoped resources. The source commit and benchmark hash are recorded in the
+[physical-material run](2026-09-29-physical-metal-300.json).
+
+These measurements include readback and followed the native surface checks.
+They do not measure display pacing, GPU timestamps, power or thermal state.

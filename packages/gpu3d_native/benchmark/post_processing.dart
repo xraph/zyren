@@ -21,6 +21,8 @@ Future<void> main() async {
         'bloom+spatial',
         'taa',
         'bloom+taa',
+        'glass',
+        'glass+taa',
       ]) {
         final scene = Scene()..background = const Color3(.01, .01, .01);
         final copies = scene.add(
@@ -48,6 +50,20 @@ Future<void> main() async {
           ),
         );
         scene.add(DirectionalLight(intensity: 4));
+        if (profile.startsWith('glass')) {
+          scene.add(
+            Mesh(
+              PlaneGeometry(width: 4, height: 4),
+              PhysicalMaterial(
+                transmission: 1,
+                thickness: .5,
+                roughness: .2,
+                attenuationColor: const Color3(.5, .8, 1),
+                attenuationDistance: 2,
+              ),
+            )..position = const Vec3(0, 0, 1),
+          );
+        }
         final camera = PerspectiveCamera(position: const Vec3(0, 0, 8));
         final effects = PostProcessing(
           bloom: profile.startsWith('bloom') ? BloomOptions() : null,
@@ -66,7 +82,10 @@ Future<void> main() async {
         final pipeline = profile == 'ldr'
             ? null
             : ColorPipeline(
-                sampleCount: profile == 'hdr' || profile.contains('taa')
+                sampleCount:
+                    profile == 'hdr' ||
+                        profile.contains('taa') ||
+                        profile.startsWith('glass')
                     ? 1
                     : 4,
               );
@@ -81,6 +100,7 @@ Future<void> main() async {
           await frame();
           await frame();
           final temporalBefore = await backend.temporalStats();
+          final transmissionBefore = await backend.transmissionStats();
           final resident = await backend.resourceStats();
           final times = <int>[], builds = <int>[];
           FrameStats? last;
@@ -103,6 +123,13 @@ Future<void> main() async {
             }
           }
           final temporalAfter = await backend.temporalStats();
+          final transmissionAfter = await backend.transmissionStats();
+          if (transmissionAfter.residentBytes !=
+              transmissionBefore.residentBytes) {
+            throw StateError(
+              'Transmission capture grew during steady rendering.',
+            );
+          }
           if (temporalBefore.residentBytes != temporalAfter.residentBytes) {
             throw StateError(
               'Temporal allocations grew during steady rendering.',
@@ -132,6 +159,7 @@ Future<void> main() async {
             'drawCalls': last!.drawCalls,
             'residentResourceBytes': after.residentBytes,
             'temporalBytes': temporalAfter.residentBytes,
+            'transmissionBytes': transmissionAfter.residentBytes,
             'resourceAllocations': after.liveAllocations,
             'readbackBytes': last.readbackBytes,
             'steadyUploadBytes': last.uploadedBytes,
@@ -140,7 +168,8 @@ Future<void> main() async {
         } finally {
           await engine.dispose();
         }
-        if ((await backend.temporalStats()).residentBytes != 0 ||
+        if ((await backend.transmissionStats()).residentBytes != 0 ||
+            (await backend.temporalStats()).residentBytes != 0 ||
             (await backend.resourceStats()).residentBytes != 0) {
           throw StateError('Effect resources leaked after view disposal.');
         }
