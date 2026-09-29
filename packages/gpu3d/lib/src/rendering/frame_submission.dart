@@ -74,6 +74,25 @@ class SceneSnapshot {
   /// One resolve draw converts a transparent scene to straight color.
   int get alphaResolveDraws => backgroundOpacity < 1 ? 1 : 0;
   final Map<int, MeshShaderProgram> meshShaders;
+  bool _transmissive(Map<String, Object> mesh) {
+    final pbr = mesh['pbr'] as Map?;
+    return pbr != null &&
+        ((pbr['transmission'] as List?)?.first as num? ?? 0) > 0 &&
+        (pbr['metallic'] as num) < 1;
+  }
+
+  bool get hasTransmission =>
+      _meshes.any((m) => m['color_visible'] != false && _transmissive(m));
+  int get transmissionCaptureDraws => hasTransmission
+      ? _meshes
+            .where(
+              (m) =>
+                  m['color_visible'] != false &&
+                  m['alpha_mode'] != 2 &&
+                  !_transmissive(m),
+            )
+            .length
+      : 0;
   int get drawCalls => _meshes.fold(
     0,
     (n, mesh) =>
@@ -88,6 +107,20 @@ class SceneSnapshot {
   /// Motion draws batch each visible mesh, including transparent instances.
   int get temporalMotionDraws =>
       _meshes.where((mesh) => mesh['color_visible'] != false).length;
+  int get transmissionCaptureTriangles => !hasTransmission
+      ? 0
+      : _meshes.fold(0, (sum, mesh) {
+          if (mesh['color_visible'] == false ||
+              mesh['alpha_mode'] == 2 ||
+              _transmissive(mesh)) {
+            return sum;
+          }
+          final geometry = _geometries[mesh['geometry']]!;
+          return sum +
+              (mesh['instance_count'] as int) *
+                  geometry.primitiveCount *
+                  (geometry.topology == GeometryTopology.triangles ? 1 : 2);
+        });
   int get triangles => _meshes.fold(0, (sum, mesh) {
     if (mesh['color_visible'] == false) return sum;
     final geometry = _geometries[mesh['geometry']]!;
@@ -373,6 +406,21 @@ class SceneSnapshot {
                               .toPacket(),
                         if (material.anisotropyMap != null)
                           'anisotropy_map': material.anisotropyMap!.toPacket(),
+                        if (material.transmissionMap != null)
+                          'transmission_map': material.transmissionMap!
+                              .toPacket(),
+                        if (material.thicknessMap != null)
+                          'thickness_map': material.thicknessMap!.toPacket(),
+                        'transmission': <double>[
+                          material.transmission,
+                          material.thickness,
+                          material.attenuationDistance.isInfinite
+                              ? 0
+                              : material.attenuationDistance,
+                          0,
+                          ...material.attenuationColor.toList(),
+                          0,
+                        ],
                         'physical': <double>[
                           material.ior,
                           material.specularIntensity,

@@ -21,6 +21,7 @@ mod pipelines;
 mod shadows;
 mod temporal;
 mod textures;
+mod transmission;
 pub use shadows::ShadowStats;
 
 #[repr(C)]
@@ -40,6 +41,8 @@ struct Uniforms {
     pbr_maps: [u32; 4],
     pbr_factors: [f32; 4],
     physical: [[f32; 4]; 4],
+    transmission: [[f32; 4]; 2],
+    capture_projection: [f32; 16],
 }
 
 struct GpuGeometry {
@@ -125,6 +128,7 @@ pub struct RendererState {
     views: HashMap<u64, crate::scene_packet::ViewState>,
     targets: Option<Targets>,
     temporal: temporal::System,
+    transmission: transmission::System,
     pub adapter_name: String,
     pub backend: wgpu::Backend,
     _permit: crate::retirement::DevicePermit,
@@ -241,11 +245,13 @@ impl Renderer {
                 environment::layout_entries(),
                 shadows::layout_entries(),
                 area_lights::layout_entries(),
+                transmission::layout_entries(),
             ]
             .concat(),
         });
         let environment_defaults = environment::Defaults::new(&device);
         let area_tables = area_lights::Tables::new(&device, &queue);
+        let transmission = transmission::System::new(&device);
         let texture_layout = textures::layout(&device, 1);
         let standard_texture_layout = textures::layout(&device, 5);
         let deformation_layout = deformation::layout(&device);
@@ -299,6 +305,7 @@ impl Renderer {
                 views: HashMap::new(),
                 targets: None,
                 temporal: temporal::System::default(),
+                transmission,
                 adapter_name: info.name,
                 backend: info.backend,
                 _permit: permit,
@@ -345,11 +352,13 @@ impl Renderer {
     pub fn graph_command(&mut self, bytes: &[u8], capacity: usize) -> Result<Vec<u8>, String> {
         let shadow_stats = self.shadow_stats();
         let temporal_stats = self.temporal_stats();
+        let transmission_bytes = self.transmission.bytes();
         let state = self.state.as_mut().unwrap();
         state.graphs.command(
             crate::render_graph::GraphContext {
                 shadow_stats,
                 temporal_stats,
+                transmission_bytes,
                 mesh_layout: &state.layout,
                 deformation_layout: &state.deformation_layout,
                 device: &state.device,
@@ -492,6 +501,7 @@ impl Renderer {
         self.views.remove(&view);
         self.shadows.remove(view);
         self.temporal.remove(view);
+        self.transmission.remove(view);
         self.evict_geometry()
     }
     fn evict_geometry(&mut self) -> Result<(), String> {
@@ -710,14 +720,23 @@ impl Renderer {
     ) -> Result<(), String> {
         let state = self.state.as_mut().unwrap();
         let geometries = &state.geometries;
-        state
-            .pipelines
-            .prepare(&state.device, frame, format, |id| {
-                !geometries[&id].recipe.tangents.is_empty()
-            })
-            .inspect_err(|error| {
-                state.failure = Some(error.clone());
-            })
+        for samples in if state.transmission.targets.is_some() && frame.sample_count() != 1 {
+            vec![1, frame.sample_count()]
+        } else {
+            vec![frame.sample_count()]
+        } {
+            state
+                .pipelines
+                .prepare(
+                    &state.device,
+                    frame,
+                    format,
+                    |id| !geometries[&id].recipe.tangents.is_empty(),
+                    samples,
+                )
+                .inspect_err(|error| state.failure = Some(error.clone()))?;
+        }
+        Ok(())
     }
 
     fn encode_scene(
@@ -752,138 +771,152 @@ impl Renderer {
                     usage: wgpu::BufferUsages::UNIFORM,
                 })
         });
-        let bindings: Vec<_> = frame
-            .meshes
-            .iter()
-            .map(|mesh| {
-                let model = Mat4::from_cols_array(&mesh.model);
-                let mut pbr_maps = [0; 4];
-                if let Some(pbr) = &mesh.pbr {
-                    for (i, map) in [
-                        mesh.color_map.as_ref(),
-                        pbr.normal_map.as_ref(),
-                        pbr.metallic_roughness_map.as_ref(),
-                        pbr.occlusion_map.as_ref(),
-                        pbr.emissive_map.as_ref(),
-                    ]
-                    .into_iter()
-                    .enumerate()
-                    {
-                        if let Some(map) = map {
-                            pbr_maps[0] |= 1 << i;
-                            pbr_maps[1] |= map.uv_set << i;
+        let make_bindings = |capture: bool| -> Vec<_> {
+            frame
+                .meshes
+                .iter()
+                .map(|mesh| {
+                    let model = Mat4::from_cols_array(&mesh.model);
+                    let mut pbr_maps = [0; 4];
+                    if let Some(pbr) = &mesh.pbr {
+                        for (i, map) in [
+                            mesh.color_map.as_ref(),
+                            pbr.normal_map.as_ref(),
+                            pbr.metallic_roughness_map.as_ref(),
+                            pbr.occlusion_map.as_ref(),
+                            pbr.emissive_map.as_ref(),
+                        ]
+                        .into_iter()
+                        .enumerate()
+                        {
+                            if let Some(map) = map {
+                                pbr_maps[0] |= 1 << i;
+                                pbr_maps[1] |= map.uv_set << i;
+                            }
                         }
                     }
-                }
-                if let Some(pbr) = &mesh.pbr {
-                    for (i, map) in pbr.physical_maps.iter().enumerate() {
-                        if let Some(map) = map {
-                            pbr_maps[3] |= map.uv_set << i;
+                    if let Some(pbr) = &mesh.pbr {
+                        for (i, map) in pbr.physical_maps.iter().enumerate() {
+                            if let Some(map) = map {
+                                pbr_maps[3] |= map.uv_set << i;
+                            }
                         }
                     }
-                }
-                let uniforms = Uniforms {
-                    physical: {
-                        let p = mesh.pbr.as_ref().and_then(|p| p.physical).unwrap_or([
-                            1.5, 1., 0., 0., 1., 1., 1., 1., 0., 0., 0., 0., 0., 0., 0., 0.,
-                        ]);
-                        [
-                            p[0..4].try_into().unwrap(),
-                            p[4..8].try_into().unwrap(),
-                            p[8..12].try_into().unwrap(),
-                            p[12..16].try_into().unwrap(),
-                        ]
-                    },
-                    pbr_maps,
-                    pbr_factors: mesh.pbr.as_ref().map_or([0.; 4], |p| {
-                        [
-                            p.normal_scale,
-                            p.occlusion_strength,
-                            model.determinant().signum(),
-                            0.,
-                        ]
-                    }),
-                    pbr_params: mesh.pbr.as_ref().map_or([0.; 4], |p| {
-                        [
-                            p.metallic,
-                            p.roughness,
-                            if mesh.receive_shadow { 1. } else { 0. },
-                            0.,
-                        ]
-                    }),
-                    emissive: mesh.pbr.as_ref().map_or([0.; 4], |p| {
-                        [p.emissive[0], p.emissive[1], p.emissive[2], 0.]
-                    }),
-                    mvp: (vp * model).to_cols_array(),
-                    normal_matrix: model.inverse().transpose().to_cols_array(),
-                    color_unlit: [
-                        mesh.color[0],
-                        mesh.color[1],
-                        mesh.color[2],
-                        if mesh.unlit { 1.0 } else { 0.0 },
-                    ],
-                    light_ambient: [
-                        frame.light_direction[0],
-                        frame.light_direction[1],
-                        frame.light_direction[2],
-                        frame.ambient,
-                    ],
-                    view_projection: frame.view_projection,
-                    model: mesh.model,
-                    primitive: [
-                        mesh.primitive_size,
-                        mesh.size_units as f32,
-                        mesh.point_shape as f32,
-                        0.,
-                    ],
-                    viewport: [
-                        size[0] as f32,
-                        size[1] as f32,
-                        if mesh.instances != 0 {
-                            mesh.side as f32
-                        } else {
-                            0.
+                    let uniforms = Uniforms {
+                        transmission: {
+                            let t = mesh.pbr.as_ref().map_or([0.; 8], |p| p.transmission);
+                            [t[..4].try_into().unwrap(), t[4..].try_into().unwrap()]
                         },
-                        0.,
-                    ],
-                    map_params: [
-                        mesh.color_map.as_ref().map_or(0., |map| map.uv_set as f32),
-                        mesh.opacity,
-                        mesh.alpha_cutoff,
-                        mesh.alpha_mode as f32,
-                    ],
-                };
-                let buffer = self
-                    .device
-                    .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                        capture_projection: vp.to_cols_array(),
+                        physical: {
+                            let p = mesh.pbr.as_ref().and_then(|p| p.physical).unwrap_or([
+                                1.5, 1., 0., 0., 1., 1., 1., 1., 0., 0., 0., 0., 0., 0., 0., 0.,
+                            ]);
+                            [
+                                p[0..4].try_into().unwrap(),
+                                p[4..8].try_into().unwrap(),
+                                p[8..12].try_into().unwrap(),
+                                p[12..16].try_into().unwrap(),
+                            ]
+                        },
+                        pbr_maps,
+                        pbr_factors: mesh.pbr.as_ref().map_or([0.; 4], |p| {
+                            [
+                                p.normal_scale,
+                                p.occlusion_strength,
+                                model.determinant().signum(),
+                                0.,
+                            ]
+                        }),
+                        pbr_params: mesh.pbr.as_ref().map_or([0.; 4], |p| {
+                            [
+                                p.metallic,
+                                p.roughness,
+                                if mesh.receive_shadow { 1. } else { 0. },
+                                0.,
+                            ]
+                        }),
+                        emissive: mesh.pbr.as_ref().map_or([0.; 4], |p| {
+                            [p.emissive[0], p.emissive[1], p.emissive[2], 0.]
+                        }),
+                        mvp: (vp * model).to_cols_array(),
+                        normal_matrix: model.inverse().transpose().to_cols_array(),
+                        color_unlit: [
+                            mesh.color[0],
+                            mesh.color[1],
+                            mesh.color[2],
+                            if mesh.unlit { 1.0 } else { 0.0 },
+                        ],
+                        light_ambient: [
+                            frame.light_direction[0],
+                            frame.light_direction[1],
+                            frame.light_direction[2],
+                            frame.ambient,
+                        ],
+                        view_projection: frame.view_projection,
+                        model: mesh.model,
+                        primitive: [
+                            mesh.primitive_size,
+                            mesh.size_units as f32,
+                            mesh.point_shape as f32,
+                            0.,
+                        ],
+                        viewport: [
+                            size[0] as f32,
+                            size[1] as f32,
+                            if mesh.instances != 0 {
+                                mesh.side as f32
+                            } else {
+                                0.
+                            },
+                            0.,
+                        ],
+                        map_params: [
+                            mesh.color_map.as_ref().map_or(0., |map| map.uv_set as f32),
+                            mesh.opacity,
+                            mesh.alpha_cutoff,
+                            mesh.alpha_mode as f32,
+                        ],
+                    };
+                    let buffer =
+                        self.device
+                            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                                label: None,
+                                contents: bytemuck::bytes_of(&uniforms),
+                                usage: wgpu::BufferUsages::UNIFORM,
+                            });
+                    let mut entries = vec![wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: buffer.as_entire_binding(),
+                    }];
+                    if mesh.pbr.is_some() {
+                        entries.push(wgpu::BindGroupEntry {
+                            binding: 1,
+                            resource: lighting.as_ref().unwrap().as_entire_binding(),
+                        });
+                        entries.extend(environment.entries(&self.environment_defaults));
+                        entries.extend(shadows.entries(&self.shadows));
+                        entries.extend(self.area_tables.entries());
+                        entries.extend(self.transmission.entries(capture));
+                    }
+                    self.device.create_bind_group(&wgpu::BindGroupDescriptor {
                         label: None,
-                        contents: bytemuck::bytes_of(&uniforms),
-                        usage: wgpu::BufferUsages::UNIFORM,
-                    });
-                let mut entries = vec![wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: buffer.as_entire_binding(),
-                }];
-                if mesh.pbr.is_some() {
-                    entries.push(wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: lighting.as_ref().unwrap().as_entire_binding(),
-                    });
-                    entries.extend(environment.entries(&self.environment_defaults));
-                    entries.extend(shadows.entries(&self.shadows));
-                    entries.extend(self.area_tables.entries());
-                }
-                self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-                    label: None,
-                    layout: if mesh.pbr.is_some() {
-                        &self.pbr_layout
-                    } else {
-                        &self.layout
-                    },
-                    entries: &entries,
+                        layout: if mesh.pbr.is_some() {
+                            &self.pbr_layout
+                        } else {
+                            &self.layout
+                        },
+                        entries: &entries,
+                    })
                 })
-            })
-            .collect();
+                .collect()
+        };
+        let bindings = make_bindings(false);
+        let capture_bindings = self
+            .transmission
+            .targets
+            .as_ref()
+            .map(|_| make_bindings(true));
         let texture_bindings: Vec<_> = frame
             .meshes
             .iter()
@@ -899,7 +932,28 @@ impl Renderer {
             graph.encode_before(&mut encoder);
         }
         shadows.encode(self, frame, &mut encoder);
-        {
+        self.last_scene_draws.set(0);
+        for capture in [true, false] {
+            if capture && self.transmission.targets.is_none() {
+                continue;
+            }
+            let (color_view, resolve_target, depth_view) = if capture {
+                let t = self.transmission.targets.as_ref().unwrap();
+                (&t.color, None, &t.depth)
+            } else {
+                (color_view, resolve_target, depth_view)
+            };
+            let bindings = if capture {
+                capture_bindings.as_ref().unwrap()
+            } else {
+                &bindings
+            };
+            let materials = if capture {
+                &self.transmission.materials[..]
+            } else {
+                materials
+            };
+            let samples = if capture { 1 } else { frame.sample_count() };
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("native frame"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -920,7 +974,7 @@ impl Renderer {
                     view: depth_view,
                     depth_ops: Some(wgpu::Operations {
                         load: wgpu::LoadOp::Clear(1.0),
-                        store: if frame.temporal.is_some() {
+                        store: if capture || frame.temporal.is_some() {
                             wgpu::StoreOp::Store
                         } else {
                             wgpu::StoreOp::Discard
@@ -943,8 +997,14 @@ impl Renderer {
                     Mat4::from_cols_array(&self.instances[&id].recipe.transforms[index as usize])
                 },
             );
-            self.last_scene_draws.set(draws.len() as u64);
             for draw in draws {
+                if capture
+                    && (frame.meshes[draw.mesh].transmissive()
+                        || frame.meshes[draw.mesh].alpha_mode == 2)
+                {
+                    continue;
+                }
+                self.last_scene_draws.set(self.last_scene_draws.get() + 1);
                 let index = draw.mesh;
                 let mesh = &frame.meshes[index];
                 let binding = &bindings[index];
@@ -957,7 +1017,7 @@ impl Renderer {
                         format,
                         mesh,
                         !geometry.recipe.tangents.is_empty(),
-                        frame.sample_count(),
+                        samples,
                     )));
                 }
                 pass.set_bind_group(0, binding, &[]);
@@ -1137,6 +1197,7 @@ impl Renderer {
         pixel_len(width, height)?;
         self.check_shadows(frame)?;
         self.check_temporal(frame, [width, height])?;
+        self.check_physical_bindings(frame)?;
         let graph = self.resolve_frame_graph(frame, width, height)?;
         let environment = self.prepare_environment(frame, graph.as_ref())?;
         let materials = self.prepare_materials(frame, texture.format(), graph.as_ref())?;
@@ -1149,6 +1210,7 @@ impl Renderer {
             graph.as_ref(),
             true,
         )?;
+        self.prepare_transmission(frame, scene_format, [width, height], graph.as_ref())?;
         self.prepare_scene(frame)?;
         self.prepare_pipelines(frame, scene_format)?;
         let shadows = self.prepare_shadows(frame)?;
@@ -1204,6 +1266,7 @@ impl Renderer {
         let len = pixel_len(width, height)?;
         self.check_shadows(frame)?;
         self.check_temporal(frame, [width, height])?;
+        self.check_physical_bindings(frame)?;
         let graph = self.resolve_frame_graph(frame, width, height)?;
         let environment = self.prepare_environment(frame, graph.as_ref())?;
         let materials =
@@ -1217,6 +1280,7 @@ impl Renderer {
             graph.as_ref(),
             false,
         )?;
+        self.prepare_transmission(frame, scene_format, [width, height], graph.as_ref())?;
         self.prepare_scene(frame)?;
         self.prepare_pipelines(frame, scene_format)?;
         let shadows = self.prepare_shadows(frame)?;

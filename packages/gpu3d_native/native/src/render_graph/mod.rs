@@ -43,6 +43,7 @@ enum Command {
     Stats {},
     ShadowStats {},
     TemporalStats {},
+    TransmissionStats {},
 }
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -180,6 +181,7 @@ fn scoped<T>(
 
 pub(crate) struct GraphContext<'a> {
     pub temporal_stats: (u64, usize),
+    pub transmission_bytes: u64,
     pub shadow_stats: crate::renderer::ShadowStats,
     pub mesh_layout: &'a wgpu::BindGroupLayout,
     pub deformation_layout: &'a wgpu::BindGroupLayout,
@@ -200,6 +202,7 @@ impl GraphStore {
         let GraphContext {
             shadow_stats,
             temporal_stats,
+            transmission_bytes,
             mesh_layout,
             deformation_layout,
             device,
@@ -229,6 +232,7 @@ impl GraphStore {
                         &mut GraphContext {
                             shadow_stats,
                             temporal_stats,
+                            transmission_bytes,
                             device,
                             queue,
                             resources,
@@ -254,6 +258,9 @@ impl GraphStore {
                 Command::Release { key: value } => self
                     .release(device, resources, shaders, key(value))
                     .map(|()| json!({})),
+                Command::TransmissionStats {} => {
+                    Ok(json!({"residentBytes":transmission_bytes,"fixedBytes":8}))
+                }
                 Command::TemporalStats {} => Ok(json!({
                     "residentBytes": temporal_stats.0, "historyViews": temporal_stats.1,
                 })),

@@ -97,7 +97,10 @@ impl Renderer {
                 glam::Mat4::from_cols_array(&prior.unwrap().unjittered_vp)
                     * glam::Mat4::from_cols_array(&p.mesh.model)
             });
-            let reactive = mesh.alpha_mode == 2 || !mesh.depth_test || !mesh.writes_depth();
+            let reactive = mesh.transmissive()
+                || mesh.alpha_mode == 2
+                || !mesh.depth_test
+                || !mesh.writes_depth();
             let parameters = Uniform {
                 current: current_mvp.to_cols_array(),
                 previous: previous_mvp.to_cols_array(),

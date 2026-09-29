@@ -4,6 +4,9 @@ part of 'material.dart';
 /// Colors and lighting operate in linear space. Rotation is in radians about
 /// the surface normal. Anisotropy uses the geometry's tangent frame.
 final class PhysicalMaterial extends StandardMaterial {
+  /// Optical transmission, independent of alpha coverage.
+  final double transmission, thickness, attenuationDistance;
+  final Color3 attenuationColor;
   final double clearcoatNormalScale;
   final TextureMap? clearcoatMap,
       clearcoatRoughnessMap,
@@ -12,7 +15,9 @@ final class PhysicalMaterial extends StandardMaterial {
       sheenRoughnessMap,
       specularIntensityMap,
       specularColorMap,
-      anisotropyMap;
+      anisotropyMap,
+      transmissionMap,
+      thicknessMap;
   @override
   Iterable<TextureMap> get textureMaps => [
     ...super.textureMaps,
@@ -24,6 +29,8 @@ final class PhysicalMaterial extends StandardMaterial {
     ?specularIntensityMap,
     ?specularColorMap,
     ?anisotropyMap,
+    ?transmissionMap,
+    ?thicknessMap,
   ];
 
   final double ior;
@@ -36,6 +43,12 @@ final class PhysicalMaterial extends StandardMaterial {
   final Color3 specularColor;
   final Color3 sheenColor;
   PhysicalMaterial({
+    this.transmission = 0,
+    this.thickness = 0,
+    this.attenuationDistance = double.infinity,
+    this.attenuationColor = const Color3(1, 1, 1),
+    this.transmissionMap,
+    this.thicknessMap,
     this.clearcoatNormalScale = 1,
     this.clearcoatMap,
     this.clearcoatRoughnessMap,
@@ -76,6 +89,7 @@ final class PhysicalMaterial extends StandardMaterial {
     super.depthWrite,
   }) {
     for (final entry in {
+      'transmission': transmission,
       'specularIntensity': specularIntensity,
       'clearcoat': clearcoat,
       'clearcoatRoughness': clearcoatRoughness,
@@ -86,6 +100,20 @@ final class PhysicalMaterial extends StandardMaterial {
         throw ArgumentError.value(entry.value, entry.key, 'Expected [0, 1].');
       }
     }
+    if (!thickness.isFinite || thickness < 0 || thickness > 1e6) {
+      throw ArgumentError.value(thickness, 'thickness', 'Expected [0, 1e6].');
+    }
+    if (attenuationDistance.isNaN ||
+        attenuationDistance <= 0 ||
+        (attenuationDistance.isFinite &&
+            (attenuationDistance < 1e-6 || attenuationDistance > 1e12))) {
+      throw ArgumentError.value(
+        attenuationDistance,
+        'attenuationDistance',
+        'Expected [1e-6, 1e12] or infinity.',
+      );
+    }
+    attenuationColor.toList();
     if (!ior.isFinite || (ior != 0 && ior < 1) || ior > 1e6) {
       throw ArgumentError.value(ior, 'ior', 'Expected zero or [1, 1e6].');
     }
@@ -106,6 +134,8 @@ final class PhysicalMaterial extends StandardMaterial {
       sheenRoughnessMap,
       specularIntensityMap,
       anisotropyMap,
+      transmissionMap,
+      thicknessMap,
     ].nonNulls) {
       if (map.image.descriptor.format != TextureFormat.rgba8Unorm) {
         throw ArgumentError(
@@ -118,6 +148,14 @@ final class PhysicalMaterial extends StandardMaterial {
   }
   @override
   PhysicalMaterial copyWith({
+    double? transmission,
+    double? thickness,
+    double? attenuationDistance,
+    Color3? attenuationColor,
+    TextureMap? transmissionMap,
+    TextureMap? thicknessMap,
+    bool clearTransmissionMap = false,
+    bool clearThicknessMap = false,
     double? clearcoatNormalScale,
     TextureMap? clearcoatMap,
     bool clearClearcoatMap = false,
@@ -170,6 +208,14 @@ final class PhysicalMaterial extends StandardMaterial {
     bool? vertexColors,
     DepthWrite? depthWrite,
   }) => PhysicalMaterial(
+    transmission: transmission ?? this.transmission,
+    thickness: thickness ?? this.thickness,
+    attenuationDistance: attenuationDistance ?? this.attenuationDistance,
+    attenuationColor: attenuationColor ?? this.attenuationColor,
+    transmissionMap: clearTransmissionMap
+        ? null
+        : transmissionMap ?? this.transmissionMap,
+    thicknessMap: clearThicknessMap ? null : thicknessMap ?? this.thicknessMap,
     clearcoatNormalScale: clearcoatNormalScale ?? this.clearcoatNormalScale,
     clearcoatMap: clearClearcoatMap ? null : clearcoatMap ?? this.clearcoatMap,
     clearcoatRoughnessMap: clearClearcoatRoughnessMap

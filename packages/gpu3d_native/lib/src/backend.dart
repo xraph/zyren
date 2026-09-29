@@ -92,6 +92,10 @@ class NativeBackend implements NativeGpuBackend {
   Future<TemporalStats> temporalStats() => _resources.temporalStats();
 
   @override
+  Future<TransmissionStats> transmissionStats() =>
+      _resources.transmissionStats();
+
+  @override
   Future<ShadowStats> shadowStats() => _resources.shadowStats();
 
   /// Apple texture registration remains experimental while Flutter's texture
@@ -245,6 +249,7 @@ class NativeBackend implements NativeGpuBackend {
             cpuSubmitTime: clock.elapsed,
             drawCalls:
                 submission.scene.drawCalls +
+                submission.scene.transmissionCaptureDraws +
                 (submission.temporalAA == null
                     ? 0
                     : submission.scene.temporalMotionDraws + 1) +
@@ -254,6 +259,7 @@ class NativeBackend implements NativeGpuBackend {
             computeDispatches: submission.graph?.dispatches ?? 0,
             triangles:
                 submission.scene.triangles +
+                submission.scene.transmissionCaptureTriangles +
                 (submission.temporalAA == null
                     ? 0
                     : submission.scene.triangles + 1) +
@@ -283,6 +289,7 @@ class NativeBackend implements NativeGpuBackend {
           cpuSubmitTime: clock.elapsed,
           drawCalls:
               submission.scene.drawCalls +
+              submission.scene.transmissionCaptureDraws +
               (submission.temporalAA == null
                   ? 0
                   : submission.scene.temporalMotionDraws + 1) +
@@ -292,6 +299,7 @@ class NativeBackend implements NativeGpuBackend {
           computeDispatches: submission.graph?.dispatches ?? 0,
           triangles:
               submission.scene.triangles +
+              submission.scene.transmissionCaptureTriangles +
               (submission.temporalAA == null
                   ? 0
                   : submission.scene.triangles + 1) +

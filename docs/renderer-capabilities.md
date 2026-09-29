@@ -22,6 +22,7 @@ The current native limits are explicit:
 | Scene and scoped resources per device | 256 MiB, including replacement candidates |
 | HDR or multisample color attachment | 64 MiB per attachment |
 | Temporal histories and motion | 128 MiB per view by default; 256 MiB per device, including replacement overlap |
+| Transmission capture | 128 MiB including replacement overlap; 64 MiB color attachment |
 | PostProcessing intermediates | 64 MiB per graph by default; configurable within device limits |
 | Punctual / hemisphere / rectangular area lights | 16 / 4 / 4 |
 | Instances / joints / morph targets | 100000 / 256 / 64 |
@@ -46,9 +47,11 @@ package does not qualify its presentation, driver behavior or timing.
 The app could not be foregrounded during this run because the display was asleep;
 a manual visual check remains open.
 
-The new temporal profile also passes both macOS Flutter gallery cases, including
-AA mode switching, bloom and 320/960-pixel layouts with zero presentation
-readback. Its iOS surface qualification is still pending.
+The temporal profile passes both macOS Flutter gallery cases. The physical
+gallery also passes on macOS Metal and the iPhone 17 Pro iOS 26 simulator, including
+glass/area controls, MSAA/TAA/bloom switching and 320/960-pixel layouts with zero
+presentation readback. The simulator uses the host GPU; it does not qualify a
+physical iPhone.
 
 The core already includes scene hierarchies, camera projection and framing,
 orbit, trackball and fly controls, bounds/culling/picking/BVH, dynamic and procedural geometry,
@@ -58,9 +61,9 @@ custom WGSL materials, compute/render graphs, scoped assets and glTF loading.
 These are implemented feature families, not a claim of complete Three.js parity.
 
 `PhysicalMaterial` adds native IOR, specular, clearcoat, sheen and anisotropy
-factors. Its first increment passes Metal direct/environment pixels and the
-untextured tangent variants for instances, colors and morphs. Physical-layer
-maps and glTF physical extensions are implemented. Transmission and volume remain open.
+factors, ten texture maps and glTF physical extensions. Transmission and volume
+add opaque color/depth capture, refraction and absorption. Native pixels cover
+direct, area and environment lighting, loaded models and deformation variants.
 See [physical materials](design/physical-materials.md).
 
 Native CPU decoders now load Draco, meshopt and Basis/KTX2 through the glTF
@@ -84,7 +87,7 @@ The remaining breadth has concrete acceptance work:
 | Family | Owner | Required evidence before claiming parity |
 | --- | --- | --- |
 | Further geometry utilities | Core geometry/math | Shapes with holes and beveled extrusion pass CPU/Metal checks; text, subdivision and CSG remain open |
-| Advanced physical materials | Core materials/native shaders | Clearcoat, transmission, volume, IOR, sheen and anisotropy reference scenes |
+| Further physical materials | Core materials/native shaders | Layered reflectance and capture-based transmission pass Metal checks; iridescence, dispersion, nested volumes and broader device references remain open |
 | Area lighting and additional shadows | Core lighting/native renderer | Photometric references, occlusion and bounded atlas behavior |
 | Compressed assets | Asset plugins/native decoders | macOS fixture, cancellation, budget and Metal checks pass; other native targets and compressed GPU residency remain open |
 | Further loaders and exporters | Optional asset plugins | Round trips, provenance, error recovery and allocation cleanup |

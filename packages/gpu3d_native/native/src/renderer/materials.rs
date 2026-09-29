@@ -11,6 +11,15 @@ impl Renderer {
         format: wgpu::TextureFormat,
         graph: Option<&FrameGraph>,
     ) -> Result<Vec<Option<PreparedMaterial>>, String> {
+        self.prepare_materials_at_samples(frame, format, graph, frame.sample_count())
+    }
+    pub(super) fn prepare_materials_at_samples(
+        &mut self,
+        frame: &Frame,
+        format: wgpu::TextureFormat,
+        graph: Option<&FrameGraph>,
+        samples: u32,
+    ) -> Result<Vec<Option<PreparedMaterial>>, String> {
         if let Some(failure) = &self.failure {
             return Err(failure.clone());
         }
@@ -27,7 +36,7 @@ impl Renderer {
                 let material = state
                     .graphs
                     .meshes
-                    .prepare(&state.device, key, mesh, format, frame.sample_count())
+                    .prepare(&state.device, key, mesh, format, samples)
                     .map_err(|error| {
                         if error.is_device_failure() {
                             state.failure = Some(error.to_string());

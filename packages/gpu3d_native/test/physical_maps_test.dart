@@ -56,6 +56,12 @@ void main() {
           'anisotropyRotation': .4,
         },
         'KHR_materials_emissive_strength': {'emissiveStrength': 2},
+        'KHR_materials_transmission': {'transmissionFactor': .6},
+        'KHR_materials_volume': {
+          'thicknessFactor': .5,
+          'attenuationDistance': 2,
+          'attenuationColor': [.4, .6, 1],
+        },
       };
       final source = editModel(
         pbrModel(
@@ -101,6 +107,10 @@ void main() {
         expect(mesh.geometry.capture().tangents, isNotNull);
         final mapped = mesh.material;
         final reference = PhysicalMaterial(
+          transmission: .6,
+          thickness: .5,
+          attenuationDistance: 2,
+          attenuationColor: const Color3(.4, .6, 1),
           baseColor: const Color3(.4, .6, .8),
           roughness: .6,
           ior: 1.8,
@@ -212,6 +222,10 @@ void main() {
           specularIntensityMap: scalar,
           specularColorMap: color,
           anisotropyMap: scalar,
+          transmission: .7,
+          transmissionMap: scalar,
+          thickness: .5,
+          thicknessMap: scalar,
         );
         final reference = PhysicalMaterial(
           vertexColors: true,
@@ -232,6 +246,8 @@ void main() {
             .9 * linear(192),
           ),
           anisotropy: .8 * 192 / 255,
+          transmission: .7 * 64 / 255,
+          thickness: .5 * 128 / 255,
           anisotropyRotation:
               .3 + math.atan2(128 * 2 / 255 - 1, 64 * 2 / 255 - 1),
         );

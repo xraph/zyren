@@ -10,32 +10,33 @@ pub(super) struct Variant {
 impl Variant {
     pub fn new(
         device: &wgpu::Device,
-        mask: u16,
+        key: u64,
         frame: &wgpu::BindGroupLayout,
         standard: &wgpu::BindGroupLayout,
         deformation: &wgpu::BindGroupLayout,
     ) -> Self {
-        let entries: Vec<_> = (0..8)
-            .filter(|i| mask & (1 << i) != 0)
+        let entries: Vec<_> = (0..10)
+            .filter(|i| sampler_slot(key, *i).is_some())
             .flat_map(|i| {
-                [
-                    wgpu::BindGroupLayoutEntry {
-                        binding: i * 2,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Texture {
-                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                            view_dimension: wgpu::TextureViewDimension::D2,
-                            multisampled: false,
-                        },
-                        count: None,
+                let mut entries = vec![wgpu::BindGroupLayoutEntry {
+                    binding: i * 2,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        multisampled: false,
                     },
-                    wgpu::BindGroupLayoutEntry {
+                    count: None,
+                }];
+                if sampler_slot(key, i) == Some(i) {
+                    entries.push(wgpu::BindGroupLayoutEntry {
                         binding: i * 2 + 1,
                         visibility: wgpu::ShaderStages::FRAGMENT,
                         ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                         count: None,
-                    },
-                ]
+                    });
+                }
+                entries
             })
             .collect();
         let maps = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -51,7 +52,7 @@ impl Variant {
         };
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("mapped physical material"),
-            source: wgpu::ShaderSource::Wgsl(super::pipelines::shader_source(mask).into()),
+            source: wgpu::ShaderSource::Wgsl(super::pipelines::shader_source(key).into()),
         });
         Self {
             shader,
@@ -61,15 +62,24 @@ impl Variant {
         }
     }
 }
-pub(super) fn shader(mask: u16) -> String {
+pub(super) fn shader(key: u64) -> String {
     let mut declarations = String::new();
     let mut body = String::from("var surface=original;\n");
-    for i in 0..8 {
-        if mask & (1 << i) == 0 {
+    for i in 0..10 {
+        let Some(sampler) = sampler_slot(key, i) else {
             continue;
+        };
+        declarations.push_str(&format!(
+            "@group(3) @binding({}) var physical_map_{i}: texture_2d<f32>;\n",
+            i * 2
+        ));
+        if sampler == i {
+            declarations.push_str(&format!(
+                "@group(3) @binding({}) var physical_sampler_{i}: sampler;\n",
+                i * 2 + 1
+            ));
         }
-        declarations.push_str(&format!("@group(3) @binding({}) var physical_map_{i}: texture_2d<f32>;\n@group(3) @binding({}) var physical_sampler_{i}: sampler;\n", i*2, i*2+1));
-        body.push_str(&format!("let uv_{i}=select(input.uv0,input.uv1,(uniforms.pbr_maps.w & {}u)!=0u);\nlet sample_{i}=textureSample(physical_map_{i},physical_sampler_{i},uv_{i});\n",1<<i));
+        body.push_str(&format!("let uv_{i}=select(input.uv0,input.uv1,(uniforms.pbr_maps.w & {}u)!=0u);\nlet sample_{i}=textureSample(physical_map_{i},physical_sampler_{sampler},uv_{i});\n",1<<i));
         body.push_str(match i {
             0 => "surface.physical[0].z*=sample_0.r;\n",
             1 => "surface.physical[0].w*=sample_1.g;\n",
@@ -79,6 +89,8 @@ pub(super) fn shader(mask: u16) -> String {
             5 => "surface.physical[0].y*=sample_5.a;\n",
             6 => "surface.physical[1]=vec4(surface.physical[1].rgb*sample_6.rgb,surface.physical[1].w);\n",
             7 => "let direction=sample_7.rg*2.-vec2(1.);\nsurface.physical[2].w*=sample_7.b;\nsurface.physical[3].x+=select(0.,atan2(direction.y,direction.x),dot(direction,direction)>1e-12);\n",
+            8 => "surface.transmission[0].x*=sample_8.r;\n",
+            9 => "surface.transmission[0].y*=sample_9.g;\n",
             _ => unreachable!(),
         });
     }
@@ -89,8 +101,8 @@ pub(super) fn shader(mask: u16) -> String {
 impl Renderer {
     pub(super) fn physical_texture_binding(&self, mesh: &Mesh) -> Option<wgpu::BindGroup> {
         let material = mesh.pbr.as_ref()?;
-        let mask = material.physical_map_mask();
-        if mask == 0 {
+        let key = binding_key(material);
+        if key == 0 {
             return None;
         }
         let parts: Vec<_> = material
@@ -102,22 +114,75 @@ impl Renderer {
         let entries: Vec<_> = parts
             .iter()
             .flat_map(|(i, (view, sampler))| {
-                [
-                    wgpu::BindGroupEntry {
-                        binding: *i as u32 * 2,
-                        resource: wgpu::BindingResource::TextureView(view),
-                    },
-                    wgpu::BindGroupEntry {
+                let mut entries = vec![wgpu::BindGroupEntry {
+                    binding: *i as u32 * 2,
+                    resource: wgpu::BindingResource::TextureView(view),
+                }];
+                if sampler_slot(key, *i as u32) == Some(*i as u32) {
+                    entries.push(wgpu::BindGroupEntry {
                         binding: *i as u32 * 2 + 1,
                         resource: wgpu::BindingResource::Sampler(sampler),
-                    },
-                ]
+                    });
+                }
+                entries
             })
             .collect();
         Some(self.device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("physical layer maps"),
-            layout: self.pipelines.physical_layout(mask),
+            layout: self.pipelines.physical_layout(key),
             entries: &entries,
         }))
+    }
+}
+
+// Encode sampler equivalence, independent of texture identity and sampler values.
+pub(super) fn binding_key(material: &crate::lighting::StandardMaterial) -> u64 {
+    material
+        .physical_maps
+        .iter()
+        .enumerate()
+        .fold(0, |key, (i, map)| {
+            let Some(map) = map else {
+                return key;
+            };
+            let first = material.physical_maps[..i]
+                .iter()
+                .position(|m| m.as_ref().is_some_and(|m| m.sampler == map.sampler))
+                .unwrap_or(i);
+            key | ((first as u64 + 1) << (i * 4))
+        })
+}
+fn sampler_slot(key: u64, i: u32) -> Option<u32> {
+    let value = ((key >> (i * 4)) & 15) as u32;
+    value.checked_sub(1)
+}
+pub(super) fn binding_counts(key: u64) -> (u32, u32) {
+    (
+        (0..10).filter(|i| sampler_slot(key, *i).is_some()).count() as u32,
+        (0..10)
+            .filter(|i| sampler_slot(key, *i) == Some(*i))
+            .count() as u32,
+    )
+}
+
+impl Renderer {
+    pub(super) fn check_physical_bindings(
+        &self,
+        frame: &crate::scene::Frame,
+    ) -> Result<(), String> {
+        for mesh in &frame.meshes {
+            let Some(material) = &mesh.pbr else {
+                continue;
+            };
+            let (textures, samplers) = binding_counts(binding_key(material));
+            if textures + 13 > self.device.limits().max_sampled_textures_per_shader_stage
+                || samplers + 8 > self.device.limits().max_samplers_per_shader_stage
+            {
+                return Err(
+                    "Physical maps exceed this adapter's texture or sampler binding limit".into(),
+                );
+            }
+        }
+        Ok(())
     }
 }

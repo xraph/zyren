@@ -68,6 +68,7 @@ fn direct_brdf(n: vec3<f32>, v: vec3<f32>, l: vec3<f32>, base: vec3<f32>, metall
 fn shade_standard(input: VertexOutput, front: bool, original: StandardSurface) -> vec4<f32> {
     var surface=original;
     surface.coat_normal=select(-surface.coat_normal,surface.coat_normal,front);
+    if (surface.transmission[0].y>0. && !front) {discard;}
     let alpha = surface.base.a * uniforms.map_params.y;
     let mode = uniforms.map_params.w;
     if (mode > 0.5 && mode < 1.5 && alpha < uniforms.map_params.z) { discard; }
@@ -82,7 +83,7 @@ fn shade_standard(input: VertexOutput, front: bool, original: StandardSurface) -
         let weight = clamp(dot(n, light.direction.xyz) * 0.5 + 0.5, 0., 1.);
         let irradiance = mix(light.ground.rgb, light.sky_intensity.rgb, weight) * light.sky_intensity.w;
         let diffuse_weight = select(.96, 1.-maximum3(physical_fresnel(clamp(dot(n,v),0.,1.),surface)), physical);
-        color += irradiance * base * (1. - surface.metallic) * (diffuse_weight / 3.141592653589793) * surface.occlusion * (1.-coat);
+        color += irradiance * base * (1. - surface.metallic) * (1.-surface.transmission[0].x) * (diffuse_weight / 3.141592653589793) * surface.occlusion * (1.-coat);
     }
     for (var i = 0u; i < lighting.count.x; i++) {
         let light = lighting.lights[i];
@@ -113,13 +114,17 @@ fn shade_standard(input: VertexOutput, front: bool, original: StandardSurface) -
     for (var i = 0u; i < lighting.count.z; i++) {
         color += shade_area(lighting.areas[i], input.relative_position, n, v, input.tangent, surface);
     }
-    return vec4(color, select(1., alpha, mode > 1.5));
+    let transmission=physical_transmission(input,n,v,surface);
+    color+=transmission.rgb;
+    let coverage=transmission.a;
+    return vec4(select(color,color/max(coverage,1e-8),mode>1.5),coverage*select(1.,alpha,mode>1.5));
 }
 
 struct StandardSurface {
     base: vec4<f32>, normal: vec3<f32>, metallic: f32, roughness: f32,
     emission: vec3<f32>, occlusion: f32,
     physical: array<vec4<f32>,4>, coat_normal: vec3<f32>,
+    transmission: array<vec4<f32>,2>,
 };
 fn standard_surface(input: VertexOutput) -> StandardSurface {
     var surface: StandardSurface;
@@ -130,6 +135,7 @@ fn standard_surface(input: VertexOutput) -> StandardSurface {
     surface.emission = uniforms.emissive.rgb;
     surface.occlusion = 1.;
     surface.physical = uniforms.physical;
+    surface.transmission = uniforms.transmission;
     surface.coat_normal = surface.normal;
     return surface;
 }

@@ -258,6 +258,12 @@ impl Default for Mesh {
     }
 }
 impl Mesh {
+    pub fn transmissive(&self) -> bool {
+        self.pbr
+            .as_ref()
+            .is_some_and(|p| p.transmission[0] > 0. && p.metallic < 1.)
+    }
+
     pub fn anisotropic(&self) -> bool {
         self.pbr
             .as_ref()

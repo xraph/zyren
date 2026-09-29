@@ -52,7 +52,7 @@ fn physical_direct(n: vec3<f32>, v: vec3<f32>, l: vec3<f32>, tangent: vec4<f32>,
     let dielectric = physical_fresnel(vh,surface);
     let metal = surface.base.rgb + (vec3(1.)-surface.base.rgb) * pow(1.-vh,5.);
     let fresnel = mix(dielectric,metal,surface.metallic);
-    let diffuse = (1.-maximum3(dielectric)) * (1.-surface.metallic) * surface.base.rgb / 3.141592653589793;
+    let diffuse = (1.-maximum3(dielectric)) * (1.-surface.metallic) * (1.-surface.transmission[0].x) * surface.base.rgb / 3.141592653589793;
     var base = diffuse + fresnel * ggx_distribution_visibility(n,v,l,t,surface.roughness,surface.physical[2].w);
     // Charlie distribution with Neubelt visibility for a soft cloth lobe.
     let inverse_alpha = 1. / max(surface.physical[1].w * surface.physical[1].w, .002025);
@@ -83,7 +83,7 @@ fn physical_environment(n: vec3<f32>, v: vec3<f32>, tangent: vec4<f32>, surface:
     let brdf = textureSampleLevel(environment_brdf,brdf_sampler,vec2(nv,surface.roughness),0.).rg;
     let f0 = mix(physical_f0(surface),surface.base.rgb,surface.metallic);
     let f90 = mix(surface.physical[0].y,1.,surface.metallic);
-    var base = (1.-maximum3(physical_fresnel(nv,surface))) * (1.-surface.metallic) * surface.base.rgb * diffuse + radiance * (f0*brdf.x+f90*brdf.y);
+    var base = (1.-maximum3(physical_fresnel(nv,surface))) * (1.-surface.metallic) * (1.-surface.transmission[0].x) * surface.base.rgb * diffuse + radiance * (f0*brdf.x+f90*brdf.y);
     let sheen = surface.physical[2].rgb;
     let sheen_energy = sheen_albedo(nv,surface.physical[1].w);
     base = base * (1.-maximum3(sheen)*sheen_energy) + sheen * diffuse * sheen_energy;

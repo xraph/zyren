@@ -61,6 +61,9 @@ class NativeMetalBackend implements NativeGpuBackend {
   @override
   Future<TemporalStats> temporalStats() => _gpu.temporalStats();
 
+  @override
+  Future<TransmissionStats> transmissionStats() => _gpu.transmissionStats();
+
   static Future<NativeMetalBackend> create({int? runtimeToken}) async {
     if (!Platform.isMacOS && !Platform.isIOS) {
       throw _issue(
@@ -264,6 +267,7 @@ class NativeMetalBackend implements NativeGpuBackend {
       cpuSubmitTime: clock.elapsed,
       drawCalls:
           submission.scene.drawCalls +
+          submission.scene.transmissionCaptureDraws +
           (submission.temporalAA == null
               ? 0
               : submission.scene.temporalMotionDraws + 1) +
@@ -273,6 +277,7 @@ class NativeMetalBackend implements NativeGpuBackend {
       computeDispatches: submission.graph?.dispatches ?? 0,
       triangles:
           submission.scene.triangles +
+          submission.scene.transmissionCaptureTriangles +
           (submission.temporalAA == null ? 0 : submission.scene.triangles + 1) +
           submission.scene.alphaResolveDraws +
           submission.outputConversionDraws +

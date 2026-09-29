@@ -307,6 +307,14 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
             ),
           };
           if (m.physical case final physical?) {
+            if (geometry.topology != GeometryTopology.triangles) {
+              throw AssetLoadException(
+                AssetLoadError.unsupportedFeature,
+                'Physical glTF materials require triangle primitives.',
+                fieldPath:
+                    'meshes[${meshes.length}].primitives[${primitives.length}]',
+              );
+            }
             final maps = physical.maps.map(texture).toList();
             material = physical.factors.copyWith(
               baseColor: m.color,
@@ -334,6 +342,8 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
               specularIntensityMap: maps[5],
               specularColorMap: maps[6],
               anisotropyMap: maps[7],
+              transmissionMap: maps[8],
+              thicknessMap: maps[9],
             );
           }
           primitives.add(_ModelPrimitive(geometry, material, primitive.name));

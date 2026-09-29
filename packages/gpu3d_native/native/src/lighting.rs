@@ -10,7 +10,9 @@ pub struct StandardMaterial {
     #[serde(default)]
     pub physical: Option<[f32; 16]>,
     #[serde(default)]
-    pub physical_maps: [Option<crate::scene::ColorMap>; 8],
+    pub physical_maps: [Option<crate::scene::ColorMap>; 10],
+    #[serde(default)]
+    pub transmission: [f32; 8],
     pub metallic: f32,
     pub roughness: f32,
     pub emissive: [f32; 3],
@@ -51,6 +53,19 @@ impl StandardMaterial {
             })
     }
     pub fn validate(&self) -> Result<(), String> {
+        let t = self.transmission;
+        if t.iter().any(|v| !v.is_finite())
+            || !(0.0..=1.).contains(&t[0])
+            || !(0.0..=1e6).contains(&t[1])
+            || (t[2] != 0. && !(1e-6..=1e12).contains(&t[2]))
+            || t[3] != 0.
+            || t[7] != 0.
+            || t[4..7].iter().any(|v| !(0.0..=1.).contains(v))
+            || (t[0] > 0. && self.physical.is_none())
+        {
+            return Err("invalid physical transmission parameters".into());
+        }
+
         if let Some(p) = self.physical
             && (p.iter().any(|v| !v.is_finite())
                 || (p[0] != 0. && !(1.0..=1e6).contains(&p[0]))

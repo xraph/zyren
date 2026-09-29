@@ -68,7 +68,7 @@ fn shade_area(light: AreaLight, position: vec3<f32>, n: vec3<f32>, v: vec3<f32>,
     let f90=mix(select(1.,surface.physical[0].y,physical),1.,surface.metallic);
     let amplitude=ltc_lookup(ltc_amplitude,surface.roughness,nv);
     let specular_integral=ltc_polygon(points,ltc_transform(surface.roughness,nv));
-    var color=surface.base.rgb*(1.-surface.metallic)*(1.-maximum3(dielectric))*diffuse_integral
+    var color=surface.base.rgb*(1.-surface.metallic)*(1.-surface.transmission[0].x)*(1.-maximum3(dielectric))*diffuse_integral
         + (f0*amplitude.x+(vec3(f90)-f0)*amplitude.y)*specular_integral;
     if (physical) {
         // Smooth cloth response and energy reduction use the hemispherical fit.

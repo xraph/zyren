@@ -13,6 +13,8 @@ struct Uniforms {
     pbr_maps: vec4<u32>,
     pbr_factors: vec4<f32>,
     physical: array<vec4<f32>, 4>,
+    transmission: array<vec4<f32>,2>,
+    capture_projection: mat4x4<f32>,
 };
 @group(0) @binding(0) var<uniform> uniforms: Uniforms;
 @group(1) @binding(0) var color_map: texture_2d<f32>;
@@ -28,12 +30,14 @@ struct VertexOutput {
     @location(5) tangent: vec4<f32>,
     @location(6) color: vec4<f32>,
     @location(7) @interpolate(flat) orientation: f32,
+    @location(8) @interpolate(flat) world_scale: vec3<f32>,
 };
 
 fn mesh_vertex(position: vec3<f32>, normal: vec3<f32>) -> VertexOutput {
     var output: VertexOutput;
     output.color = vec4(1.);
     output.orientation = 1.;
+    output.world_scale=vec3(length(uniforms.model[0].xyz),length(uniforms.model[1].xyz),length(uniforms.model[2].xyz));
     output.position = uniforms.mvp * vec4<f32>(position, 1.0);
     output.relative_position = (uniforms.model * vec4<f32>(position, 1.0)).xyz;
     output.normal = (uniforms.normal_matrix * vec4<f32>(normal, 0.0)).xyz;
@@ -54,6 +58,7 @@ fn textured_vertex(position: vec3<f32>, normal: vec3<f32>, uv0: vec2<f32>, uv1: 
     var output: VertexOutput;
     output.color = vec4(1.);
     output.orientation = 1.;
+    output.world_scale=vec3(length(uniforms.model[0].xyz),length(uniforms.model[1].xyz),length(uniforms.model[2].xyz));
     output.position = uniforms.mvp * vec4<f32>(position, 1.0);
     output.relative_position = (uniforms.model * vec4<f32>(position, 1.0)).xyz;
     output.normal = (uniforms.normal_matrix * vec4<f32>(normal, 0.0)).xyz;
@@ -122,6 +127,8 @@ fn instance_vertex(position: vec3<f32>, normal: vec3<f32>, instance: InstanceInp
     let n = mat3x3(instance.normal0.xyz, instance.normal1.xyz, instance.normal2.xyz) * normal;
     var output = mesh_vertex(local.xyz, n);
     output.orientation = instance.normal0.w;
+    let world=uniforms.model*instance_matrix(instance);
+    output.world_scale=vec3(length(world[0].xyz),length(world[1].xyz),length(world[2].xyz));
     output.color = vec4(instance.color, 1.);
     return output;
 }

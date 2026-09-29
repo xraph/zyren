@@ -6,7 +6,7 @@ pub(super) struct PipelineKey {
     format: wgpu::TextureFormat,
     sample_count: u32,
     textured: bool,
-    physical_maps: u16,
+    physical_maps: u64,
     standard: bool,
     tangent: bool,
     colored: bool,
@@ -29,7 +29,10 @@ impl PipelineKey {
         Self {
             format,
             sample_count,
-            physical_maps: mesh.pbr.as_ref().map_or(0, |p| p.physical_map_mask()),
+            physical_maps: mesh
+                .pbr
+                .as_ref()
+                .map_or(0, super::physical_maps::binding_key),
             colored: mesh.vertex_colors,
             instanced: mesh.instances != 0,
             deformed: mesh.pose != 0,
@@ -50,7 +53,7 @@ impl PipelineKey {
 }
 pub(super) struct MeshPipelines {
     shader: wgpu::ShaderModule,
-    physical: HashMap<u16, super::physical_maps::Variant>,
+    physical: HashMap<u64, super::physical_maps::Variant>,
     pbr_layout: wgpu::BindGroupLayout,
     standard_maps: wgpu::BindGroupLayout,
     deformation_layout: wgpu::BindGroupLayout,
@@ -139,6 +142,7 @@ impl MeshPipelines {
         frame: &Frame,
         format: wgpu::TextureFormat,
         has_tangents: impl Fn(u32) -> bool,
+        samples: u32,
     ) -> Result<(), String> {
         if frame.meshes.iter().all(|mesh| {
             mesh.shader.is_some()
@@ -146,19 +150,22 @@ impl MeshPipelines {
                     format,
                     mesh,
                     has_tangents(mesh.geometry),
-                    frame.sample_count(),
+                    samples,
                 ))
         }) {
             return Ok(());
         }
         for mesh in &frame.meshes {
-            let count = mesh
-                .pbr
-                .as_ref()
-                .map_or(0, |p| p.physical_map_mask().count_ones());
-            if count + 11 > device.limits().max_sampled_textures_per_shader_stage {
+            let (textures, samplers) = super::physical_maps::binding_counts(
+                mesh.pbr
+                    .as_ref()
+                    .map_or(0, super::physical_maps::binding_key),
+            );
+            if textures + 13 > device.limits().max_sampled_textures_per_shader_stage
+                || samplers + 8 > device.limits().max_samplers_per_shader_stage
+            {
                 return Err(
-                    "Physical maps exceed this adapter's sampled texture binding limit".into(),
+                    "Physical maps exceed this adapter's texture or sampler binding limit".into(),
                 );
             }
         }
@@ -169,12 +176,7 @@ impl MeshPipelines {
             if mesh.shader.is_some() {
                 continue;
             }
-            let key = PipelineKey::new(
-                format,
-                mesh,
-                has_tangents(mesh.geometry),
-                frame.sample_count(),
-            );
+            let key = PipelineKey::new(format, mesh, has_tangents(mesh.geometry), samples);
             if key.physical_maps != 0 && !self.physical.contains_key(&key.physical_maps) {
                 self.physical.insert(
                     key.physical_maps,
@@ -206,7 +208,7 @@ impl MeshPipelines {
     pub(super) fn get(&self, key: PipelineKey) -> &wgpu::RenderPipeline {
         &self.cache[&key]
     }
-    pub(super) fn physical_layout(&self, mask: u16) -> &wgpu::BindGroupLayout {
+    pub(super) fn physical_layout(&self, mask: u64) -> &wgpu::BindGroupLayout {
         &self.physical[&mask].maps
     }
     pub(super) fn len(&self) -> usize {
@@ -397,7 +399,7 @@ impl MeshPipelines {
     }
 }
 
-pub(super) fn shader_source(mask: u16) -> String {
+pub(super) fn shader_source(mask: u64) -> String {
     format!(
         "{}\n{}",
         concat!(
@@ -412,6 +414,7 @@ pub(super) fn shader_source(mask: u16) -> String {
             include_str!("pbr.wgsl"),
             "\n",
             include_str!("physical.wgsl"),
+            include_str!("transmission.wgsl"),
             "\n",
             include_str!("area_lights.wgsl"),
             "\n",

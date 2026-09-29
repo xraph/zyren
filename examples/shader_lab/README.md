@@ -128,3 +128,20 @@ fvm flutter test integration_test/culling_test.dart -d macos
 Presentation requires native Metal or Vulkan on the qualified hosts. See
 [frustum culling](../../docs/design/frustum-culling.md) for shader bounds,
 instance batches, shadows and resource lifetime.
+
+
+## Physical material gallery
+
+Run `fvm flutter run -d macos -t lib/physical.dart` for clearcoat, sheen and
+refractive glass with rectangular area lighting. Roughness and thickness controls
+update the glass; AA and bloom switches use the native renderer. The compact
+controls wrap on narrow screens. The integration fixture checks material edits,
+area lighting, MSAA/TAA/bloom switching and 320/960-pixel layouts without
+presentation readback:
+
+```sh
+fvm flutter test integration_test/physical_test.dart -d macos
+```
+
+See [transmission](../../docs/design/transmission.md) for capture budgets and the
+limits of refraction from a visible scene image.

@@ -84,7 +84,7 @@ impl ScenePacket {
             return Err("unsupported scene packet".into());
         }
         let opcode = r.u32()?;
-        if !(10..=32).contains(&opcode) {
+        if !(10..=33).contains(&opcode) {
             return Err("unsupported scene packet".into());
         }
         let textured = opcode >= 11;
@@ -765,6 +765,7 @@ impl ScenePacket {
                         1 => {
                             let mut pbr = crate::lighting::StandardMaterial {
                                 physical: None,
+                                transmission: [0.; 8],
                                 physical_maps: Default::default(),
                                 metallic: r.floats::<1>()?[0],
                                 roughness: r.floats::<1>()?[0],
@@ -816,8 +817,15 @@ impl ScenePacket {
                             let material =
                                 mesh.pbr.as_mut().ok_or("physical material requires PBR")?;
                             material.physical = Some(r.floats()?);
+                            if opcode >= 33 {
+                                material.transmission = r.floats()?;
+                            }
                             if opcode >= 32 {
-                                for map in &mut material.physical_maps {
+                                for map in material.physical_maps.iter_mut().take(if opcode >= 33 {
+                                    10
+                                } else {
+                                    8
+                                }) {
                                     match r.u32()? {
                                         0 => (),
                                         1 => {

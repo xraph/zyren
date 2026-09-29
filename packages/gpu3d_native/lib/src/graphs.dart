@@ -11,6 +11,16 @@ final class ShadowStats {
   });
 }
 
+/// Shared opaque capture payload and fixed fallback bindings.
+/// Separate from application resource scopes, shadows and temporal history.
+final class TransmissionStats {
+  final int residentBytes, fixedBytes;
+  const TransmissionStats({
+    required this.residentBytes,
+    required this.fixedBytes,
+  });
+}
+
 /// Device-wide temporal attachments and retained motion buffers.
 /// Separate from application resource scopes and shadow atlases.
 final class TemporalStats {
@@ -141,6 +151,14 @@ mixin _NativeGraphs {
 
   Future<void> releaseGraph(Object key) async {
     await _graphCommand({'operation': 'release', 'key': key as _GraphKey});
+  }
+
+  Future<TransmissionStats> transmissionStats() async {
+    final result = await _graphCommand({'operation': 'transmissionStats'});
+    return TransmissionStats(
+      residentBytes: result['residentBytes'] as int,
+      fixedBytes: result['fixedBytes'] as int,
+    );
   }
 
   Future<TemporalStats> temporalStats() async {

@@ -6,6 +6,8 @@ const physicalExtensions = {
   'KHR_materials_clearcoat',
   'KHR_materials_sheen',
   'KHR_materials_anisotropy',
+  'KHR_materials_transmission',
+  'KHR_materials_volume',
 };
 const emissionExtension = 'KHR_materials_emissive_strength';
 
@@ -104,7 +106,20 @@ extension on MaterialDecoder {
     if (ior != 0 && ior < 1) {
       fail(location('ior', 'ior'), 'IOR must be zero or at least one.');
     }
+    final distance = ext('volume').containsKey('attenuationDistance')
+        ? factor(
+            'volume',
+            'attenuationDistance',
+            1,
+            minimum: 1e-6,
+            maximum: 1e12,
+          )
+        : double.infinity;
     final factors = PhysicalMaterial(
+      transmission: factor('transmission', 'transmissionFactor', 0),
+      thickness: factor('volume', 'thicknessFactor', 0, maximum: 1e6),
+      attenuationDistance: distance,
+      attenuationColor: color('volume', 'attenuationColor', [1, 1, 1]),
       ior: ior,
       specularIntensity: factor('specular', 'specularFactor', 1),
       specularColor: color('specular', 'specularColorFactor', [
@@ -135,6 +150,8 @@ extension on MaterialDecoder {
       map('specular', 'specularTexture'),
       map('specular', 'specularColorTexture', srgb: true),
       map('anisotropy', 'anisotropyTexture'),
+      map('transmission', 'transmissionTexture'),
+      map('volume', 'thicknessTexture'),
     ]);
     return standard ? recipe : null;
   }

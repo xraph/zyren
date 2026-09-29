@@ -34,7 +34,8 @@ That is a realtime approximation, not a path-traced reference. Hemisphere lights
 remain a diffuse ambient approximation. A material with default physical factors
 matches standard PBR in the native direct-light fixture.
 
-Scene opcode 32 carries sixteen physical floats and eight optional layer maps
+Scene opcode 33 carries sixteen reflectance floats, eight transmission floats
+and ten optional layer maps
 after the standard descriptor. Older opcodes keep their layout. Layer edits participate in delta comparison, so
 they do not reupload geometry. `RenderFeature.physicalMaterials` lets adapters
 reject the family before rendering.
@@ -42,9 +43,10 @@ reject the family before rendering.
 Metal pixel checks cover normal-incidence IOR, colored specular, zero specular,
 clearcoat, sheen, rotated anisotropy, emission and cleanup. The standard PBR,
 environment, shadow, instance and deformation regressions remain part of the
-acceptance run. Transmission and volume remain open.
+acceptance run. [Transmission and volume](transmission.md) add glass refraction
+and absorption through a separate opaque capture.
 
-You can texture all eight layer channels:
+You can texture all ten layer channels:
 
 | Map | Channels | Interpretation |
 | --- | --- | --- |
@@ -56,6 +58,8 @@ You can texture all eight layer channels:
 | `specularIntensityMap` | A | Linear dielectric specular strength |
 | `specularColorMap` | RGB | Color, decoded from sRGB |
 | `anisotropyMap` | RG, B | Tangent direction in [-1, 1], then strength |
+| `transmissionMap` | R | Linear transmission amount |
+| `thicknessMap` | G | Linear thickness multiplier |
 
 Maps multiply their factors. Each map chooses UV0 or UV1 and keeps its sampler.
 Data maps require `rgba8Unorm`; color maps use the texture format's conversion.
@@ -63,15 +67,17 @@ The coat normal has its own lighting frame for direct, area and environment
 reflection. Shared authored tangents must match the normal maps' UV frame;
 without authored tangents, the shader derives a normal-map frame from UVs.
 
-Native pipelines only bind active physical maps. All eight together require 19
-sampled textures per fragment stage, including the fixed standard, environment,
-shadow and area-light bindings. Adapters with a lower limit reject the combination
-before pipeline creation. Maps keep ordinary scene texture ownership and delta
-uploads, including when a layer is removed and later restored.
+Native pipelines only bind active physical maps and share identical sampler
+descriptors. All ten maps require 23 sampled textures per fragment stage, including
+fixed standard, environment, shadow, area and transmission bindings. They need
+eight fixed samplers plus the number of distinct physical-map samplers. Adapter
+limits reject unsupported combinations before uploads without poisoning the
+renderer. Maps keep ordinary texture ownership and delta uploads, including when
+a layer is removed and later restored.
 
 The glTF loader supports required `KHR_materials_ior`, `KHR_materials_specular`,
 `KHR_materials_clearcoat`, `KHR_materials_sheen`, `KHR_materials_anisotropy` and
-`KHR_materials_emissive_strength`. It generates missing tangents through the
+`KHR_materials_emissive_strength`, plus transmission and volume. It generates missing tangents through the
 configured `TangentGenerator`, using the selected normal or anisotropy UV set.
 Color and data uses of one source image receive separate decoded variants.
 Malformed factors, missing UVs and incompatible unlit combinations fail before

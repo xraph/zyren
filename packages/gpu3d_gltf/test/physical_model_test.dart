@@ -64,6 +64,16 @@ void main() {
           'anisotropyTexture': {'index': 0},
         },
         'KHR_materials_emissive_strength': {'emissiveStrength': 7},
+        'KHR_materials_transmission': {
+          'transmissionFactor': .8,
+          'transmissionTexture': {'index': 0},
+        },
+        'KHR_materials_volume': {
+          'thicknessFactor': 2,
+          'thicknessTexture': {'index': 0},
+          'attenuationDistance': 4,
+          'attenuationColor': [.3, .5, .7],
+        },
       });
       final scope = scopeFor(ImageSources(bytes), Images());
       final model = await scope.load(Gltf.asset('physical.glb')).result;
@@ -79,7 +89,13 @@ void main() {
       expect(p.anisotropy, .9);
       expect(p.anisotropyRotation, 1.2);
       expect(p.emissiveIntensity, 7);
-      expect(p.textureMaps.length, 8);
+      expect(p.textureMaps.length, 10);
+      expect(p.transmission, .8);
+      expect(p.thickness, 2);
+      expect(p.attenuationDistance, 4);
+      expect(p.attenuationColor, const Color3(.3, .5, .7));
+      expect(p.transmissionMap!.image, same(p.clearcoatMap!.image));
+      expect(p.thicknessMap!.image, same(p.transmissionMap!.image));
       expect(p.clearcoatMap!.image, same(p.sheenRoughnessMap!.image));
       expect(p.specularColorMap!.image, same(p.sheenColorMap!.image));
       expect(p.specularColorMap!.image, isNot(same(p.clearcoatMap!.image)));
@@ -179,6 +195,15 @@ void main() {
           'KHR_materials_emissive_strength': {'emissiveStrength': -1},
         },
         {'KHR_materials_unlit': {}, 'KHR_materials_clearcoat': {}},
+        {
+          'KHR_materials_volume': {'attenuationDistance': 0},
+        },
+        {
+          'KHR_materials_volume': {'thicknessFactor': -1},
+        },
+        {
+          'KHR_materials_transmission': {'transmissionFactor': 2},
+        },
         {
           'KHR_materials_clearcoat': {
             'clearcoatTexture': {'index': 0, 'texCoord': 1},

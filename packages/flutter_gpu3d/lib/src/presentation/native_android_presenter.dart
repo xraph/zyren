@@ -59,6 +59,9 @@ class NativeAndroidBackend implements NativeGpuBackend {
   @override
   Future<TemporalStats> temporalStats() => _gpu.temporalStats();
 
+  @override
+  Future<TransmissionStats> transmissionStats() => _gpu.transmissionStats();
+
   static Future<NativeAndroidBackend> create({int? runtimeToken}) async {
     if (defaultTargetPlatform != TargetPlatform.android) {
       throw _issue(
@@ -246,6 +249,7 @@ class NativeAndroidBackend implements NativeGpuBackend {
         cpuSubmitTime: clock.elapsed,
         drawCalls:
             submission.scene.drawCalls +
+            submission.scene.transmissionCaptureDraws +
             (submission.temporalAA == null
                 ? 0
                 : submission.scene.temporalMotionDraws + 1) +
@@ -255,6 +259,7 @@ class NativeAndroidBackend implements NativeGpuBackend {
         computeDispatches: submission.graph?.dispatches ?? 0,
         triangles:
             submission.scene.triangles +
+            submission.scene.transmissionCaptureTriangles +
             (submission.temporalAA == null
                 ? 0
                 : submission.scene.triangles + 1) +
