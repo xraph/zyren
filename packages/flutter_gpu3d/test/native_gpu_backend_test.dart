@@ -10,6 +10,8 @@ import 'package:gpu3d/rendering.dart';
 import 'package:flutter_gpu3d/src/presentation/native_android_presenter.dart';
 import 'package:flutter_gpu3d/src/presentation/native_metal_presenter.dart';
 
+import 'support/texture_formats.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   final messenger =
@@ -55,6 +57,7 @@ void main() {
                     args['bytes'] as Uint8List,
                   );
                   final opcode = packet.getUint32(4, Endian.little);
+                  if (opcode == 11) return textureFormatsReply(call, mask: 31);
                   events.add('resource.$opcode');
                   if (opcode == 1) return gate.future;
                   if (releaseFails) {
@@ -78,6 +81,14 @@ void main() {
             });
             final backend = await create();
             expect(backend, isA<GraphBackend>());
+            expect(
+              backend.capabilities.textureFormats,
+              contains(TextureFormat.bc7RgbaUnormSrgb),
+            );
+            expect(
+              backend.capabilities.textureFormats,
+              isNot(contains(TextureFormat.astc4x4Unorm)),
+            );
             final gpu = backend as GraphBackend;
             expect(
               backend.capabilities.features,
@@ -117,7 +128,7 @@ void main() {
             expect(events, ['resource.1']);
             final bytes = ByteData(56)
               ..setUint32(0, 2, Endian.little)
-              ..setUint64(8, 1, Endian.little)
+              ..setUint64(8, 2, Endian.little)
               ..setUint64(16, 32, Endian.little);
             gate.complete({'status': 0, 'bytes': bytes.buffer.asUint8List()});
             await rejected;

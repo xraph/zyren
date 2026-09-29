@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:gpu3d/rendering.dart';
 import 'package:gpu3d/gpu3d.dart'
-    show ResourceScope, ShaderCompiler, GraphCompiler;
+    show ResourceScope, ShaderCompiler, GraphCompiler, TextureFormat;
 import 'package:gpu3d_native/surfaces.dart';
 import 'package:gpu3d_native/gpu3d_native.dart';
 import '../presentation.dart';
@@ -25,6 +25,7 @@ SceneException _deferred() => _issue(
 /// Controller-owned Vulkan renderer. Select through SceneRuntime.nativeAndroid().
 class NativeAndroidBackend implements NativeGpuBackend {
   final int session;
+  Set<TextureFormat> _textureFormats = const {};
   final String adapter;
   final String? driver;
   final _encoder = ScenePacketEncoder(viewId: 1);
@@ -78,11 +79,18 @@ class NativeAndroidBackend implements NativeGpuBackend {
         'create',
         {'deferredAttachment': true},
       ))!;
-      return NativeAndroidBackend._(
+      final backend = NativeAndroidBackend._(
         result['session'] as int,
         result['adapter'] as String,
         result['driverInfo'] as String?,
       );
+      try {
+        backend._textureFormats = await backend._gpu.textureFormats();
+        return backend;
+      } catch (_) {
+        await backend.close();
+        rethrow;
+      }
     } on PlatformException catch (error) {
       throw _issue(
         SceneIssueCodes.backendUnavailable,
@@ -101,6 +109,7 @@ class NativeAndroidBackend implements NativeGpuBackend {
   @override
   DeviceCapabilities get capabilities => DeviceCapabilities(
     name: 'wgpu-native',
+    textureFormats: _textureFormats,
     backend: 'Vulkan',
     adapterName: adapter,
     driverDescription: driver,

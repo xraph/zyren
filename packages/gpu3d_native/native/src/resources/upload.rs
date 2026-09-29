@@ -1,4 +1,4 @@
-use super::{ResourceError, registry::ResourceKey};
+use super::{ResourceError, registry::ResourceKey, texture_format};
 use std::ops::Range;
 
 pub const MAX_BYTES: u64 = 64 * 1024 * 1024;
@@ -36,9 +36,11 @@ impl TextureDescriptor<'_> {
     pub fn byte_length(&self) -> u64 {
         (0..self.mip_levels)
             .map(|m| {
-                (self.width >> m).max(1) as u64
-                    * (self.height >> m).max(1) as u64
-                    * if self.format == 2 { 8 } else { 4 }
+                texture_format::level_bytes(
+                    self.format,
+                    (self.width >> m).max(1),
+                    (self.height >> m).max(1),
+                )
             })
             .sum()
     }
@@ -53,6 +55,7 @@ pub enum Operation<'a> {
     Release(ResourceKey),
     ReadBuffer(ResourceKey, u64, u64),
     Stats,
+    TextureFormats,
     ReadTexture(ResourceKey, u32),
     GenerateMipmaps(ResourceKey, u32),
 }
@@ -139,11 +142,16 @@ impl<'a> Command<'a> {
                     || height > 4096
                     || mip_levels == 0
                     || mip_levels > 32 - width.max(height).leading_zeros()
-                    || format > 2
+                    || format > 8
+                    || (texture_format::compressed(format) && (width % 4 != 0 || height % 4 != 0))
                 {
                     return Err(ResourceError::InvalidCommand);
                 }
-                if usage == 0 || usage & !31 != 0 || (usage & 16 != 0 && format == 1) {
+                if usage == 0
+                    || usage & !31 != 0
+                    || (usage & 16 != 0 && texture_format::srgb(format))
+                    || (texture_format::compressed(format) && usage & 18 != 0)
+                {
                     return Err(ResourceError::InvalidUsage);
                 }
                 let descriptor = TextureDescriptor {
@@ -164,6 +172,7 @@ impl<'a> Command<'a> {
             6 => Operation::Release(r.key()?),
             7 => Operation::ReadBuffer(r.key()?, r.u64()?, r.u64()?),
             8 => Operation::Stats,
+            11 => Operation::TextureFormats,
             9 => Operation::ReadTexture(r.key()?, r.u32()?),
             10 => {
                 let key = r.key()?;

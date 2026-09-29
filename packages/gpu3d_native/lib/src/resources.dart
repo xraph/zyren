@@ -302,6 +302,15 @@ final class _NativeResourceDevice
       ..u32(mipLevel),
     responseBytes: (key as _ResourceKey).texture!.mipByteLength(mipLevel),
   );
+  Future<Set<TextureFormat>> textureFormats() async {
+    final bytes = await _command(11, _ResourcePacket(), responseBytes: 4);
+    final mask = ByteData.sublistView(bytes).getUint32(0, Endian.little);
+    return Set.unmodifiable({
+      for (final format in TextureFormat.values)
+        if (mask & (1 << format.index) != 0) format,
+    });
+  }
+
   Future<ResourceStats> stats() async {
     final data = ByteData.sublistView(
       await _command(8, _ResourcePacket(), responseBytes: 24),

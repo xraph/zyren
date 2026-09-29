@@ -1,4 +1,5 @@
 pub use crate::geometry_update::{AttributeRange, GeometryPatch};
+use crate::resources::texture_format;
 use std::collections::HashSet;
 
 use serde::Deserialize;
@@ -361,7 +362,13 @@ impl SceneTexture {
     }
     pub fn byte_length(&self) -> usize {
         (0..self.mip_count())
-            .map(|m| (self.width >> m).max(1) as usize * (self.height >> m).max(1) as usize * 4)
+            .map(|m| {
+                texture_format::level_bytes(
+                    self.format,
+                    (self.width >> m).max(1),
+                    (self.height >> m).max(1),
+                ) as usize
+            })
             .sum()
     }
     pub fn upload_byte_length(&self) -> usize {
@@ -372,7 +379,12 @@ impl SceneTexture {
             || self.height == 0
             || self.width > 4096
             || self.height > 4096
-            || self.format > 1
+            || self.format == 2
+            || self.format > 8
+            || (texture_format::compressed(self.format)
+                && (!self.width.is_multiple_of(4)
+                    || !self.height.is_multiple_of(4)
+                    || self.mip_generation != 0))
             || self.mip_generation > 2
             || (self.mip_generation != 0 && self.levels.len() != 1)
             || self.levels.is_empty()
@@ -381,8 +393,11 @@ impl SceneTexture {
             return Err("invalid texture extent, format or mip count".into());
         }
         for (mip, level) in self.levels.iter().enumerate() {
-            let size =
-                (self.width >> mip).max(1) as usize * (self.height >> mip).max(1) as usize * 4;
+            let size = texture_format::level_bytes(
+                self.format,
+                (self.width >> mip).max(1),
+                (self.height >> mip).max(1),
+            ) as usize;
             if level.len() != size {
                 return Err("texture mip length does not match its extent".into());
             }

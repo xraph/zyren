@@ -242,3 +242,42 @@ fn mip_command_checks_every_field_and_truncation() {
     trailing.push(0);
     assert!(Command::decode(&packet(10, &trailing)).is_err());
 }
+
+#[test]
+#[ignore = "requires a native Metal, Vulkan or DX12 device"]
+fn compressed_format_admission_is_atomic_and_checks_query_capacity() {
+    let mut renderer = pollster::block_on(Renderer::new()).unwrap();
+    assert_eq!(
+        renderer.resource_command(&packet(11, &[]), 27),
+        Err(ResourceError::InvalidRange)
+    );
+    let reply = renderer.resource_command(&packet(11, &[]), 28).unwrap();
+    let mask = u32::from_le_bytes(reply[24..28].try_into().unwrap());
+    assert_eq!(mask & 7, 7);
+    for format in 3..=8 {
+        let body: Vec<u8> = [8_u32, 8, 4, format, 13, 0]
+            .into_iter()
+            .flat_map(u32::to_le_bytes)
+            .collect();
+        let reply = renderer.resource_command(&packet(3, &body), 56);
+        if mask & (1 << format) == 0 {
+            assert_eq!(reply, Err(ResourceError::InvalidUsage));
+        } else {
+            let reply = reply.unwrap();
+            assert_eq!(stats(&mut renderer), [112, 0, 1]);
+            let key = &reply[24..];
+            let bad: Vec<u8> = [key, &2_u32.to_le_bytes(), &4_u64.to_le_bytes(), &[0; 4]].concat();
+            assert_eq!(
+                renderer.resource_command(&packet(4, &bad), 24),
+                Err(ResourceError::InvalidRange)
+            );
+            let generate = [key, &0_u32.to_le_bytes()].concat();
+            assert_eq!(
+                renderer.resource_command(&packet(10, &generate), 24),
+                Err(ResourceError::InvalidUsage)
+            );
+            renderer.resource_command(&packet(6, key), 24).unwrap();
+        }
+        assert_eq!(stats(&mut renderer), [0, 0, 0]);
+    }
+}

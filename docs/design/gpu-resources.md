@@ -50,7 +50,7 @@ you still need to upload uniforms or read its resources.
 
 Descriptors are immutable CPU values. Creating one allocates no GPU memory.
 Buffer sizes and transfers use bytes; sizes, offsets and transfer lengths require
-four-byte alignment. Textures currently support RGBA8 linear or sRGB, 2D extents,
+four-byte alignment. Textures support RGBA8, RGBA16F and device-supported BC7/ETC2 RGBA8/ASTC 4x4, 2D extents,
 one sample and explicit mip levels. Texture uploads replace one complete mip
 with tightly packed rows. Copies preserve the encoded channels and alpha;
 image decoding, premultiplication and mip generation are separate operations.
@@ -663,3 +663,10 @@ float32 inverse validity and table/slot budgets before GPU ownership changes.
 The native buffer derives padded normal matrices and reflection signs from each
 changed transform. Full uploads count 112 bytes per slot; patches count the
 changed slots only. See [instancing](instancing.md) for public APIs and limits.
+
+Compressed formats have linear and sRGB variants. Query
+`backend.capabilities.textureFormats` before creating one. Four-by-four blocks use
+16 bytes each, and mip tails round up to a whole block. Compressed textures support
+sampled/copy usage and authored mip levels only. Readback returns raw blocks;
+resource statistics count packed block bytes. See [compressed assets](compressed-assets.md)
+for loader configuration and device selection.

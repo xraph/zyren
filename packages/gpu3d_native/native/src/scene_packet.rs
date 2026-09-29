@@ -1,3 +1,4 @@
+use crate::resources::texture_format;
 use crate::scene::{
     AttributeRange, ColorMap, Frame, Geometry, GeometryPatch, IndexFormat, MAX_INDICES, MAX_MESHES,
     MAX_VERTICES, Mesh, SceneTexture,
@@ -340,7 +341,10 @@ impl ScenePacket {
                 || height == 0
                 || width > 4096
                 || height > 4096
-                || format > 1
+                || format == 2
+                || format > 8
+                || (texture_format::compressed(format)
+                    && (width % 4 != 0 || height % 4 != 0 || mip_generation != 0))
                 || mip_generation > 2
                 || (mip_generation != 0 && mips != 1)
                 || mips == 0
@@ -354,7 +358,10 @@ impl ScenePacket {
                 32 - width.max(height).leading_zeros()
             };
             texture_bytes += (0..target_mips)
-                .map(|m| (width >> m).max(1) as usize * (height >> m).max(1) as usize * 4)
+                .map(|m| {
+                    texture_format::level_bytes(format, (width >> m).max(1), (height >> m).max(1))
+                        as usize
+                })
                 .sum::<usize>();
             if texture_bytes > 64 * 1024 * 1024 {
                 return Err("texture residency budget exceeded".into());
@@ -362,7 +369,11 @@ impl ScenePacket {
             let mut levels = Vec::new();
             for mip in 0..mips {
                 let length = r.u32()? as usize;
-                let expected = (width >> mip).max(1) as usize * (height >> mip).max(1) as usize * 4;
+                let expected = texture_format::level_bytes(
+                    format,
+                    (width >> mip).max(1),
+                    (height >> mip).max(1),
+                ) as usize;
                 if length != expected {
                     return Err("texture mip length mismatch".into());
                 }

@@ -28,6 +28,20 @@ final class AssetServices {
     this.onCleanupError,
   });
 
+  /// Starts a separate load pool for a different texture storage policy.
+  AssetServices withTextureDecoder(TextureDecoder decoder) => AssetServices(
+    resolver: resolver,
+    imageDecoder: imageDecoder,
+    textureDecoder: decoder,
+    bufferDecoder: bufferDecoder,
+    meshDecoder: meshDecoder,
+    hdrImageDecoder: hdrImageDecoder,
+    tangentGenerator: tangentGenerator,
+    limits: limits,
+    policy: policy,
+    onCleanupError: onCleanupError,
+  );
+
   static final _pools = Expando<_SharedLoadPool>();
   _SharedLoadPool get _pool => _pools[this] ??= _SharedLoadPool(this);
 }

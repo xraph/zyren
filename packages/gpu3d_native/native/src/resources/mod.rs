@@ -2,6 +2,7 @@ pub mod image_decode;
 mod mipmap;
 pub mod registry;
 mod runtime;
+pub mod texture_format;
 pub mod upload;
 pub use runtime::ResourceStore;
 

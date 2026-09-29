@@ -1,5 +1,8 @@
 use super::{BUDGET, DecodeError, DecodeLimits, MIB};
-use basisu_c_sys::{common::TF_RGBA32, transcoder as basis};
+use basisu_c_sys::{
+    common::{TF_ASTC_LDR_4X4_RGBA, TF_BC7_RGBA, TF_ETC2_RGBA, TF_RGBA32},
+    transcoder as basis,
+};
 use std::sync::Once;
 
 pub mod ffi;
@@ -47,7 +50,7 @@ struct Header {
     srgb: bool,
     payload: usize,
 }
-fn inspect(bytes: &[u8], limits: DecodeLimits) -> Result<Header, DecodeError> {
+fn inspect(bytes: &[u8], limits: DecodeLimits, target: u32) -> Result<Header, DecodeError> {
     if !bytes.starts_with(MAGIC) {
         return Err(DecodeError::UnsupportedFormat);
     }
@@ -201,7 +204,11 @@ fn inspect(bytes: &[u8], limits: DecodeLimits) -> Result<Header, DecodeError> {
                 return Err(DecodeError::InvalidData);
             }
         }
-        payload += w * h * 4;
+        payload += if target == 0 {
+            w * h * 4
+        } else {
+            w.div_ceil(4) * h.div_ceil(4) * 16
+        };
         ranges.push(level);
     }
     ranges.sort_by_key(|r| r.start);
@@ -237,12 +244,24 @@ impl Drop for Handle {
 
 /// Returns width, height, sRGB flag, level count, then length/pixels per level.
 pub fn decode(bytes: &[u8], limits: DecodeLimits) -> Result<Vec<u8>, DecodeError> {
+    transcode(bytes, limits, 0)
+}
+
+/// Target 0: RGBA8, 1: BC7, 2: ETC2 RGBA8, 3: ASTC 4x4. Transfer is retained.
+pub fn transcode(bytes: &[u8], limits: DecodeLimits, target: u32) -> Result<Vec<u8>, DecodeError> {
+    let basis_format = match target {
+        0 => TF_RGBA32,
+        1 => TF_BC7_RGBA,
+        2 => TF_ETC2_RGBA,
+        3 => TF_ASTC_LDR_4X4_RGBA,
+        _ => return Err(DecodeError::UnsupportedFormat),
+    };
     limits.validate()?;
     if bytes.len() as u64 > limits.max_encoded_bytes {
         return Err(DecodeError::LimitExceeded);
     }
     let _reservation = BUDGET.reserve(limits.max_working_bytes)?;
-    let header = inspect(bytes, limits)?;
+    let header = inspect(bytes, limits, target)?;
     INIT.call_once(|| unsafe {
         basis::bt_init();
         basis::bt_enable_debug_printf(0);
@@ -265,7 +284,7 @@ pub fn decode(bytes: &[u8], limits: DecodeLimits) -> Result<Vec<u8>, DecodeError
     for value in [
         header.width,
         header.height,
-        header.srgb as u32,
+        (if target == 0 { 0 } else { target * 2 + 1 }) + header.srgb as u32,
         header.levels,
     ] {
         packet.extend(value.to_le_bytes());
@@ -278,7 +297,12 @@ pub fn decode(bytes: &[u8], limits: DecodeLimits) -> Result<Vec<u8>, DecodeError
         {
             return Err(DecodeError::InvalidData);
         }
-        let len = w * h * 4;
+        let units = if target == 0 {
+            w * h
+        } else {
+            w.div_ceil(4) * h.div_ceil(4)
+        };
+        let len = units * if target == 0 { 4 } else { 16 };
         packet.extend(len.to_le_bytes());
         let offset = packet.len();
         packet.resize(offset + len as usize, 0);
@@ -289,8 +313,8 @@ pub fn decode(bytes: &[u8], limits: DecodeLimits) -> Result<Vec<u8>, DecodeError
                 0,
                 0,
                 packet.as_mut_ptr().add(offset) as u64,
-                w * h,
-                TF_RGBA32,
+                units,
+                basis_format,
                 0,
                 0,
                 0,
@@ -318,6 +342,42 @@ mod tests {
         include_bytes!("../../../../../../test_assets/compression/colors-zstd.ktx2");
     fn u32_at(bytes: &[u8], offset: usize) -> u32 {
         u32::from_le_bytes(bytes[offset..offset + 4].try_into().unwrap())
+    }
+    #[test]
+    fn compressed_targets_keep_all_mip_blocks_with_bounded_output() {
+        let _guard = TEST_LOCK.lock().unwrap();
+        for source in [ETC, UASTC, ZSTD] {
+            for (target, format) in [(1, 4), (2, 6), (3, 8)] {
+                let limits = DecodeLimits {
+                    max_decoded_bytes: 112,
+                    ..DecodeLimits::default()
+                };
+                let packet = transcode(source, limits, target).unwrap();
+                assert_eq!(u32_at(&packet, 8), format);
+                assert_eq!(packet.len(), 144);
+                let mut p = 16;
+                for length in [64, 16, 16, 16] {
+                    assert_eq!(u32_at(&packet, p), length);
+                    p += 4 + length as usize;
+                }
+                assert_eq!(
+                    transcode(
+                        source,
+                        DecodeLimits {
+                            max_decoded_bytes: 111,
+                            ..limits
+                        },
+                        target
+                    )
+                    .unwrap_err(),
+                    DecodeError::LimitExceeded
+                );
+            }
+        }
+        assert_eq!(
+            transcode(UASTC, DecodeLimits::default(), 4).unwrap_err(),
+            DecodeError::UnsupportedFormat
+        );
     }
     #[test]
     fn preserves_linear_transfer_and_checks_orientation() {

@@ -6,6 +6,8 @@ import 'package:gpu3d/gpu3d.dart';
 import 'package:gpu3d/rendering.dart';
 import 'package:flutter_gpu3d/src/presentation/native_android_presenter.dart';
 
+import 'support/texture_formats.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   const channel = MethodChannel('gpu3d/android-surfaces');
@@ -22,6 +24,8 @@ void main() {
     messenger.setMockMethodCallHandler(channel, (call) async {
       final args = call.arguments as Map?;
       switch (call.method) {
+        case 'gpuCommand':
+          return textureFormatsReply(call);
         case 'connect':
           return null;
         case 'create':
@@ -112,6 +116,8 @@ void main() {
       var closes = 0;
       messenger.setMockMethodCallHandler(channel, (call) async {
         switch (call.method) {
+          case 'gpuCommand':
+            return textureFormatsReply(call);
           case 'connect':
             return null;
           case 'create':
@@ -172,6 +178,8 @@ void main() {
     var detached = 0;
     messenger.setMockMethodCallHandler(channel, (call) async {
       switch (call.method) {
+        case 'gpuCommand':
+          return textureFormatsReply(call);
         case 'connect':
           return null;
         case 'create':
@@ -211,6 +219,8 @@ void main() {
     var next = 0;
     messenger.setMockMethodCallHandler(channel, (call) async {
       switch (call.method) {
+        case 'gpuCommand':
+          return textureFormatsReply(call);
         case 'connect':
           return null;
         case 'create':

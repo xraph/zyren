@@ -1,6 +1,7 @@
 use super::{
     ResourceError,
     registry::{ResourceKey, ResourceRegistry, next_registry_id},
+    texture_format,
     upload::{Command, MAX_BYTES, Operation, checked_upload_range},
 };
 use std::time::Duration;
@@ -363,6 +364,7 @@ impl ResourceStore {
         queue: &wgpu::Queue,
         image: &crate::scene::SceneTexture,
     ) -> Result<ResourceKey, ResourceError> {
+        let format = texture_format::require(device, image.format)?;
         let bytes = image.byte_length() as u64;
         self.registry.check_capacity(bytes)?;
         let validation = device.push_error_scope(wgpu::ErrorFilter::Validation);
@@ -378,11 +380,7 @@ impl ResourceStore {
             mip_level_count: image.mip_count(),
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: if image.format == 0 {
-                wgpu::TextureFormat::Rgba8Unorm
-            } else {
-                wgpu::TextureFormat::Rgba8UnormSrgb
-            },
+            format,
             usage: wgpu::TextureUsages::TEXTURE_BINDING
                 | wgpu::TextureUsages::COPY_DST
                 | if image.mip_generation != 0 {
@@ -395,6 +393,7 @@ impl ResourceStore {
         for (mip, pixels) in image.levels.iter().enumerate() {
             let width = (image.width >> mip).max(1);
             let height = (image.height >> mip).max(1);
+            let (extent, row, rows) = texture_format::copy_layout(format, width, height);
             queue.write_texture(
                 wgpu::TexelCopyTextureInfo {
                     texture: &texture,
@@ -405,14 +404,10 @@ impl ResourceStore {
                 pixels,
                 wgpu::TexelCopyBufferLayout {
                     offset: 0,
-                    bytes_per_row: Some(width * 4),
-                    rows_per_image: Some(height),
+                    bytes_per_row: Some(row),
+                    rows_per_image: Some(rows),
                 },
-                wgpu::Extent3d {
-                    width,
-                    height,
-                    depth_or_array_layers: 1,
-                },
+                extent,
             );
         }
         let generated = if image.mip_generation != 0 && image.mip_count() > 1 {
@@ -560,6 +555,7 @@ impl ResourceStore {
         let response_length = match &command.operation {
             Operation::CreateBuffer(_) | Operation::CreateTexture(_) => 32,
             Operation::Stats => 24,
+            Operation::TextureFormats => 4,
             Operation::ReadBuffer(_, _, length) => *length,
             Operation::ReadTexture(key, mip) => {
                 let Resource::Texture {
@@ -573,9 +569,9 @@ impl ResourceStore {
                     return Err(ResourceError::InvalidUsage);
                 };
                 let extent = mip_extent(*width, *height, *mips, *mip)?;
-                extent.width as u64
-                    * extent.height as u64
-                    * u64::from(texture.format().block_copy_size(None).unwrap())
+                let (_, row, rows) =
+                    texture_format::copy_layout(texture.format(), extent.width, extent.height);
+                u64::from(row) * u64::from(rows)
             }
             _ => 0,
         };
@@ -621,6 +617,7 @@ impl ResourceStore {
                 )?)
             }
             Operation::CreateTexture(d) => {
+                let format = texture_format::require(device, d.format)?;
                 self.registry.check_capacity(d.byte_length())?;
                 if d.width > device.limits().max_texture_dimension_2d
                     || d.height > device.limits().max_texture_dimension_2d
@@ -649,11 +646,7 @@ impl ResourceStore {
                     mip_level_count: d.mip_levels,
                     sample_count: 1,
                     dimension: wgpu::TextureDimension::D2,
-                    format: match d.format {
-                        0 => wgpu::TextureFormat::Rgba8Unorm,
-                        1 => wgpu::TextureFormat::Rgba8UnormSrgb,
-                        _ => wgpu::TextureFormat::Rgba16Float,
-                    },
+                    format,
                     usage,
                     view_formats: &[],
                 });
@@ -702,11 +695,9 @@ impl ResourceStore {
                     return Err(ResourceError::InvalidUsage);
                 }
                 let extent = mip_extent(*width, *height, *mips, level)?;
-                if data.len() as u64
-                    != extent.width as u64
-                        * extent.height as u64
-                        * u64::from(texture.format().block_copy_size(None).unwrap())
-                {
+                let (extent, row, rows) =
+                    texture_format::copy_layout(texture.format(), extent.width, extent.height);
+                if data.len() as u64 != u64::from(row) * u64::from(rows) {
                     return Err(ResourceError::InvalidRange);
                 }
                 queue.write_texture(
@@ -719,10 +710,8 @@ impl ResourceStore {
                     data,
                     wgpu::TexelCopyBufferLayout {
                         offset: 0,
-                        bytes_per_row: Some(
-                            extent.width * texture.format().block_copy_size(None).unwrap(),
-                        ),
-                        rows_per_image: Some(extent.height),
+                        bytes_per_row: Some(row),
+                        rows_per_image: Some(rows),
                     },
                     extent,
                 );
@@ -795,11 +784,12 @@ impl ResourceStore {
                     return Err(ResourceError::InvalidUsage);
                 }
                 let extent = mip_extent(*width, *height, *mips, level)?;
-                let row = extent.width * texture.format().block_copy_size(None).unwrap();
+                let (extent, row, rows) =
+                    texture_format::copy_layout(texture.format(), extent.width, extent.height);
                 let stride = row.div_ceil(256) * 256;
                 let staging = device.create_buffer(&wgpu::BufferDescriptor {
                     label: Some("texture readback"),
-                    size: stride as u64 * extent.height as u64,
+                    size: stride as u64 * rows as u64,
                     usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
                     mapped_at_creation: false,
                 });
@@ -816,7 +806,7 @@ impl ResourceStore {
                         layout: wgpu::TexelCopyBufferLayout {
                             offset: 0,
                             bytes_per_row: Some(stride),
-                            rows_per_image: Some(extent.height),
+                            rows_per_image: Some(rows),
                         },
                     },
                     extent,
@@ -828,6 +818,9 @@ impl ResourceStore {
                     .flat_map(|r| r[..row as usize].iter().copied())
                     .collect()
             }
+            Operation::TextureFormats => texture_format::supported_mask(device)
+                .to_le_bytes()
+                .to_vec(),
             Operation::Stats => [
                 self.registry.resident_bytes(),
                 self.uploaded,

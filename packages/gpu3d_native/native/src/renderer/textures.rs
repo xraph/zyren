@@ -45,6 +45,8 @@ impl Renderer {
         let mut count = 0;
         for image in &frame.textures {
             image.validate()?;
+            crate::resources::texture_format::require(&self.device, image.format)
+                .map_err(|_| "texture format is not enabled on this device")?;
             if added.insert(image.id, image).is_some() {
                 return Err("duplicate texture ID".into());
             }
@@ -91,7 +93,7 @@ impl Renderer {
                     )
                     .flatten()
                     .any(|data| data.texture == map.texture)
-                }) && image.format != 0
+                }) && crate::resources::texture_format::srgb(image.format)
                 {
                     return Err("material data maps require linear storage".into());
                 }

@@ -4,6 +4,7 @@ part of 'native_renderer.dart';
 /// Apple surfaces use the same worker and GPU device as explicit capture.
 class NativeBackend implements NativeGpuBackend {
   final NativeRenderer _renderer;
+  Set<TextureFormat> _textureFormats = const {};
   final ScenePacketEncoder _encoder;
   Future<FrameOutput>? _drawing;
   final bool _experimentalAppleSurfaces;
@@ -43,7 +44,7 @@ class NativeBackend implements NativeGpuBackend {
       false,
       viewId: ++_renderer._nextView,
       resources: _resources,
-    );
+    ).._textureFormats = _textureFormats;
   }
 
   @override
@@ -104,10 +105,17 @@ class NativeBackend implements NativeGpuBackend {
     bool experimentalAppleSurfaces = false,
   }) async {
     try {
-      return NativeBackend._(
+      final backend = NativeBackend._(
         await NativeRenderer.create(),
         experimentalAppleSurfaces,
       );
+      try {
+        backend._textureFormats = await backend._resources.textureFormats();
+        return backend;
+      } catch (_) {
+        await backend.close();
+        rethrow;
+      }
     } catch (error) {
       throw SceneException(
         SceneIssue(
@@ -122,6 +130,7 @@ class NativeBackend implements NativeGpuBackend {
 
   DeviceCapabilities get _capabilities => DeviceCapabilities(
     name: 'wgpu-native',
+    textureFormats: _textureFormats,
     features: {
       RenderFeature.indexedMeshes,
       RenderFeature.diffuseLighting,

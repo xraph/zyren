@@ -1,3 +1,5 @@
+import '../resources/texture.dart';
+
 enum RenderFeature {
   indexedMeshes,
   diffuseLighting,
@@ -73,6 +75,9 @@ class DeviceCapabilities {
   final String? backend, adapterName, driverDescription;
   final Set<RenderFeature> features;
   final DeviceLimits limits;
+
+  /// Sampled texture formats enabled on this device. Empty means unknown.
+  final Set<TextureFormat> textureFormats;
   DeviceCapabilities({
     required this.name,
     this.backend,
@@ -80,6 +85,8 @@ class DeviceCapabilities {
     this.driverDescription,
     required Set<RenderFeature> features,
     required this.limits,
-  }) : features = Set.unmodifiable(features);
+    Set<TextureFormat> textureFormats = const {},
+  }) : features = Set.unmodifiable(features),
+       textureFormats = Set.unmodifiable(textureFormats);
   bool supports(RenderFeature feature) => features.contains(feature);
 }

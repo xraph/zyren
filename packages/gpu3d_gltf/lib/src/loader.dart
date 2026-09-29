@@ -169,9 +169,9 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
             fieldPath: path,
           );
           for (final (mipmaps, colorSpace) in variants[entry.key]!) {
-            final expected = colorSpace == ColorSpace.linear
-                ? TextureFormat.rgba8Unorm
-                : TextureFormat.rgba8UnormSrgb;
+            final expected = texture.descriptor.format.withSrgb(
+              colorSpace == ColorSpace.srgb,
+            );
             if (texture.descriptor.format != expected) {
               throw AssetLoadException(
                 AssetLoadError.invalidData,
@@ -181,7 +181,8 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
               );
             }
             final unchanged = mipmaps
-                ? texture.levels.length > 1
+                ? (texture.levels.length > 1 ||
+                      texture.descriptor.format.isCompressed)
                 : texture.levels.length == 1;
             final selected = mipmaps ? texture.levels : [texture.levels.first];
             if (!unchanged) {

@@ -188,6 +188,10 @@ impl Renderer {
         let (device, queue) = adapter
             .request_device(&wgpu::DeviceDescriptor {
                 label: Some("flutter_gpu3d"),
+                required_features: adapter.features()
+                    & (wgpu::Features::TEXTURE_COMPRESSION_BC
+                        | wgpu::Features::TEXTURE_COMPRESSION_ETC2
+                        | wgpu::Features::TEXTURE_COMPRESSION_ASTC),
                 required_limits: wgpu::Limits {
                     max_texture_dimension_2d: crate::scene::MAX_DIMENSION,
                     max_sampled_textures_per_shader_stage: adapter

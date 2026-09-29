@@ -5,7 +5,7 @@ import 'package:flutter/rendering.dart' show PlatformViewHitTestBehavior;
 import 'package:flutter/widgets.dart';
 import 'package:gpu3d/rendering.dart';
 import 'package:gpu3d/gpu3d.dart'
-    show ResourceScope, ShaderCompiler, GraphCompiler;
+    show ResourceScope, ShaderCompiler, GraphCompiler, TextureFormat;
 import 'package:gpu3d_native/surfaces.dart';
 import 'package:gpu3d_native/gpu3d_native.dart';
 import '../presentation.dart';
@@ -28,6 +28,7 @@ SceneException _deferred() => _issue(
 /// Applications select it through SceneRuntime.nativeMetal().
 class NativeMetalBackend implements NativeGpuBackend {
   final int session;
+  Set<TextureFormat> _textureFormats = const {};
   final String adapter;
   final _encoder = ScenePacketEncoder(viewId: 1);
   bool _closed = false;
@@ -79,10 +80,17 @@ class NativeMetalBackend implements NativeGpuBackend {
       final result = (await _channel.invokeMapMethod<Object?, Object?>(
         'create',
       ))!;
-      return NativeMetalBackend._(
+      final backend = NativeMetalBackend._(
         result['session'] as int,
         result['adapter'] as String,
       );
+      try {
+        backend._textureFormats = await backend._gpu.textureFormats();
+        return backend;
+      } catch (_) {
+        await backend.close();
+        rethrow;
+      }
     } on PlatformException catch (error) {
       throw _issue(
         SceneIssueCodes.backendUnavailable,
@@ -95,6 +103,7 @@ class NativeMetalBackend implements NativeGpuBackend {
   @override
   DeviceCapabilities get capabilities => DeviceCapabilities(
     name: 'wgpu-native',
+    textureFormats: _textureFormats,
     backend: 'Metal',
     adapterName: adapter,
     features: {

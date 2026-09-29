@@ -83,6 +83,7 @@ final class NativeGpuServices {
     Future<T> Function(Uint8List bytes) submit,
   ) => _device.submitFrame(submission, packet, submit);
 
+  Future<Set<TextureFormat>> textureFormats() => _device.textureFormats();
   Future<ResourceStats> resourceStats() => _device.stats();
   Future<ShaderStats> shaderStats() => _device.shaderStats();
   Future<GraphCacheStats> graphStats() => _device.graphStats();

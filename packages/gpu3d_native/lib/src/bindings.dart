@@ -129,6 +129,22 @@ external int ktx2Decode(
   Pointer<NativeImageLimits> limits,
   Pointer<NativeTextureBytes> output,
 );
+@Native<
+  Uint32 Function(
+    Pointer<Uint8>,
+    Size,
+    Pointer<NativeImageLimits>,
+    Uint32,
+    Pointer<NativeTextureBytes>,
+  )
+>(symbol: 'fg2_ktx2_transcode', assetId: _asset)
+external int ktx2Transcode(
+  Pointer<Uint8> input,
+  int length,
+  Pointer<NativeImageLimits> limits,
+  int target,
+  Pointer<NativeTextureBytes> output,
+);
 @Native<Void Function(Pointer<NativeTextureBytes>)>(
   symbol: 'fg2_ktx2_free',
   assetId: _asset,

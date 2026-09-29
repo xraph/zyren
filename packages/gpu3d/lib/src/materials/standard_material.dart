@@ -59,12 +59,11 @@ base class StandardMaterial extends MeshMaterial {
       'metallicRoughnessMap': metallicRoughnessMap,
       'occlusionMap': occlusionMap,
     }.entries) {
-      if (entry.value != null &&
-          entry.value!.image.descriptor.format != TextureFormat.rgba8Unorm) {
+      if (entry.value != null && entry.value!.image.descriptor.format.isSrgb) {
         throw ArgumentError.value(
           entry.value,
           entry.key,
-          'Data maps require TextureFormat.rgba8Unorm.',
+          'Data maps require a linear texture format.',
         );
       }
     }

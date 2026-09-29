@@ -9,6 +9,8 @@ import 'package:gpu3d/gpu3d.dart';
 import 'package:gpu3d/rendering.dart';
 import 'package:flutter_gpu3d/src/presentation/native_metal_presenter.dart';
 
+import 'support/texture_formats.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   const channel = MethodChannel('gpu3d/scene-views');
@@ -19,6 +21,8 @@ void main() {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(channel, (call) async {
             switch (call.method) {
+              case 'gpuCommand':
+                return textureFormatsReply(call);
               case 'connect':
                 return null;
               case 'create':
@@ -96,6 +100,8 @@ void main() {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(channel, (call) async {
             switch (call.method) {
+              case 'gpuCommand':
+                return textureFormatsReply(call);
               case 'connect':
                 return null;
               case 'create':

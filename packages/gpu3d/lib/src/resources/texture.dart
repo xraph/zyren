@@ -8,7 +8,38 @@ final class Texture {
 /// Alias for Flutter consumers, whose widget library also exports Texture.
 typedef GpuTexture = Texture;
 
-enum TextureFormat { rgba8Unorm, rgba8UnormSrgb, rgba16Float }
+enum TextureFormat {
+  rgba8Unorm,
+  rgba8UnormSrgb,
+  rgba16Float,
+  bc7RgbaUnorm,
+  bc7RgbaUnormSrgb,
+  etc2Rgba8Unorm,
+  etc2Rgba8UnormSrgb,
+  astc4x4Unorm,
+  astc4x4UnormSrgb;
+
+  bool get isCompressed => index >= 3;
+  bool get isSrgb => this == rgba8UnormSrgb || (isCompressed && index.isEven);
+  int get blockWidth => isCompressed ? 4 : 1;
+  int get blockHeight => blockWidth;
+  int get bytesPerBlock => isCompressed ? 16 : (this == rgba16Float ? 8 : 4);
+
+  /// Reinterprets the same bytes with the selected transfer function.
+  TextureFormat withSrgb(bool srgb) {
+    if (this == rgba16Float) {
+      if (srgb) throw ArgumentError('Float textures have linear storage.');
+      return this;
+    }
+    final linear = isSrgb ? index - 1 : index;
+    return values[linear + (srgb ? 1 : 0)];
+  }
+
+  int levelByteLength(int width, int height) =>
+      ((width + blockWidth - 1) ~/ blockWidth) *
+      ((height + blockHeight - 1) ~/ blockHeight) *
+      bytesPerBlock;
+}
 
 /// Independent channels preserve hidden RGB. Weighted RGB uses alpha coverage
 /// to prevent transparent colors from bleeding into smaller levels.
@@ -51,9 +82,17 @@ final class TextureDescriptor extends ResourceDescriptor<Texture> {
       );
     }
     if (usage.isEmpty) throw ArgumentError('Texture usage must not be empty.');
-    if (usage.contains(TextureUsage.storage) &&
-        format == TextureFormat.rgba8UnormSrgb) {
+    if (usage.contains(TextureUsage.storage) && format.isSrgb) {
       throw ArgumentError('Storage textures require a linear format.');
+    }
+    if (format.isCompressed &&
+        (width % 4 != 0 ||
+            height % 4 != 0 ||
+            usage.contains(TextureUsage.renderAttachment) ||
+            usage.contains(TextureUsage.storage))) {
+      throw ArgumentError(
+        'Compressed textures require block-aligned base dimensions and sampled/copy usage.',
+      );
     }
     if (byteLength > 64 * 1024 * 1024) {
       throw ArgumentError('Texture exceeds 64 MiB.');
@@ -62,9 +101,7 @@ final class TextureDescriptor extends ResourceDescriptor<Texture> {
   int mipByteLength(int level) {
     RangeError.checkValueInInterval(level, 0, mipLevels - 1, 'mipLevel');
     final w = width >> level, h = height >> level;
-    return (w == 0 ? 1 : w) *
-        (h == 0 ? 1 : h) *
-        (format == TextureFormat.rgba16Float ? 8 : 4);
+    return format.levelByteLength(w == 0 ? 1 : w, h == 0 ? 1 : h);
   }
 
   @override

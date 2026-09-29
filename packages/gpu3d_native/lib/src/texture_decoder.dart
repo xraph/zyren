@@ -6,12 +6,33 @@ import 'package:gpu3d/gpu3d.dart';
 import 'bindings.dart' as native;
 import 'texture_packet.dart';
 
-/// CPU Basis Universal transcoding to RGBA8, preserving authored mip levels.
+enum TextureTranscodeTarget { rgba8, bc7, etc2Rgba8, astc4x4 }
+
+/// CPU Basis Universal transcoding, preserving authored mip levels.
 /// Two calls may run per Dart isolate. Native workspace admission is shared
 /// with image decoding; no renderer or GPU device is created.
 final class NativeTextureDecoder implements TextureDecoder {
   static int _active = 0;
-  const NativeTextureDecoder();
+  final TextureTranscodeTarget target;
+  const NativeTextureDecoder({this.target = TextureTranscodeTarget.rgba8});
+
+  /// Chooses from formats enabled on the actual renderer. Unknown capabilities
+  /// use RGBA8. The decoder stays CPU-only and can outlive the device.
+  factory NativeTextureDecoder.forDevice(DeviceCapabilities capabilities) {
+    final formats = capabilities.textureFormats;
+    final target =
+        formats.contains(TextureFormat.astc4x4Unorm) &&
+            formats.contains(TextureFormat.astc4x4UnormSrgb)
+        ? TextureTranscodeTarget.astc4x4
+        : formats.contains(TextureFormat.bc7RgbaUnorm) &&
+              formats.contains(TextureFormat.bc7RgbaUnormSrgb)
+        ? TextureTranscodeTarget.bc7
+        : formats.contains(TextureFormat.etc2Rgba8Unorm) &&
+              formats.contains(TextureFormat.etc2Rgba8UnormSrgb)
+        ? TextureTranscodeTarget.etc2Rgba8
+        : TextureTranscodeTarget.rgba8;
+    return NativeTextureDecoder(target: target);
+  }
   @override
   Set<TextureEncoding> get encodings => const {TextureEncoding.ktx2Basis};
   @override
@@ -30,7 +51,7 @@ final class NativeTextureDecoder implements TextureDecoder {
     _active++;
     try {
       final snapshot = TransferableTypedData.fromList([bytes]);
-      return await _run(snapshot, limits);
+      return await _run(snapshot, limits, target);
     } finally {
       _active--;
     }
@@ -40,14 +61,16 @@ final class NativeTextureDecoder implements TextureDecoder {
 Future<TextureImageData> _run(
   TransferableTypedData input,
   ImageDecodeLimits limits,
+  TextureTranscodeTarget target,
 ) => Isolate.run(
-  () => _decode(input, limits),
+  () => _decode(input, limits, target),
   debugName: 'gpu3d-texture-decode',
 );
 
 TextureImageData _decode(
   TransferableTypedData transfer,
   ImageDecodeLimits limits,
+  TextureTranscodeTarget target,
 ) => using((arena) {
   final bytes = transfer.materialize().asUint8List();
   final input = arena<Uint8>(bytes.length);
@@ -61,7 +84,13 @@ TextureImageData _decode(
       ..maxEncodedBytes = limits.maxEncodedBytes
       ..maxDecodedBytes = limits.maxDecodedBytes
       ..maxWorkingBytes = limits.maxWorkingBytes;
-    final status = native.ktx2Decode(input, bytes.length, options, output);
+    final status = native.ktx2Transcode(
+      input,
+      bytes.length,
+      options,
+      target.index,
+      output,
+    );
     if (status != 0) {
       final code = status >= 1 && status <= ImageDecodeError.values.length
           ? ImageDecodeError.values[status - 1]

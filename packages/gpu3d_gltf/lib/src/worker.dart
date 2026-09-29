@@ -105,7 +105,9 @@ final class GltfWorkers {
               texture.descriptor.width,
               texture.descriptor.height,
               texture.descriptor.format,
-              mipmaps && texture.levels.length == 1,
+              mipmaps &&
+                  texture.levels.length == 1 &&
+                  !texture.descriptor.format.isCompressed,
             ],
             cancellation,
           )
@@ -297,14 +299,23 @@ void _entry((SendPort, List<Object>) request) {
           for (final transfer in args[1] as List<TransferableTypedData>)
             transfer.materialize().asUint8List(),
         ];
-        result = TextureImageData.rgba(
-          width: args[2] as int,
-          height: args[3] as int,
-          pixels: levels.first,
-          mipmaps: levels.sublist(1),
-          format: args[4] as TextureFormat,
-          generateMipmaps: args[5] as bool,
-        );
+        final format = args[4] as TextureFormat;
+        result = format.isCompressed
+            ? TextureImageData.compressed(
+                width: args[2] as int,
+                height: args[3] as int,
+                blocks: levels.first,
+                mipmaps: levels.sublist(1),
+                format: format,
+              )
+            : TextureImageData.rgba(
+                width: args[2] as int,
+                height: args[3] as int,
+                pixels: levels.first,
+                mipmaps: levels.sublist(1),
+                format: args[4] as TextureFormat,
+                generateMipmaps: args[5] as bool,
+              );
       case 'accessors':
         final root = args[1] as Map<String, Object?>;
         final buffers = [

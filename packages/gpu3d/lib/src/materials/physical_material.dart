@@ -166,9 +166,9 @@ final class PhysicalMaterial extends StandardMaterial {
       iridescenceMap,
       iridescenceThicknessMap,
     ].nonNulls) {
-      if (map.image.descriptor.format != TextureFormat.rgba8Unorm) {
+      if (map.image.descriptor.format.isSrgb) {
         throw ArgumentError(
-          'Physical data maps require TextureFormat.rgba8Unorm.',
+          'Physical data maps require a linear texture format.',
         );
       }
     }
