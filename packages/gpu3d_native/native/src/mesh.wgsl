@@ -12,6 +12,7 @@ struct Uniforms {
     emissive: vec4<f32>,
     pbr_maps: vec4<u32>,
     pbr_factors: vec4<f32>,
+    physical: array<vec4<f32>, 4>,
 };
 @group(0) @binding(0) var<uniform> uniforms: Uniforms;
 @group(1) @binding(0) var color_map: texture_2d<f32>;
@@ -168,6 +169,31 @@ fn material_front(front: bool, orientation: f32) -> bool {
     var output = instance_vertex(position, normal, instance);
     output.uv = select(uv0, uv1, uniforms.map_params.x > 0.5);
     output.uv0 = uv0; output.uv1 = uv1;
+    output.tangent = vec4((uniforms.model * instance_matrix(instance) * vec4(tangent.xyz, 0.)).xyz, tangent.w * uniforms.pbr_factors.z * instance.normal0.w);
+    output.color *= color;
+    return output;
+}
+
+@vertex fn vs_standard_tangent_unmapped(@location(0) position: vec3<f32>, @location(1) normal: vec3<f32>,
+    @location(4) tangent: vec4<f32>) -> VertexOutput {
+    var output = textured_vertex(position, normal, vec2(0.), vec2(0.));
+    output.tangent = vec4((uniforms.model * vec4(tangent.xyz, 0.)).xyz, tangent.w * uniforms.pbr_factors.z);
+    return output;
+}
+@vertex fn vs_standard_tangent_colored_unmapped(@location(0) position: vec3<f32>, @location(1) normal: vec3<f32>,
+    @location(4) tangent: vec4<f32>, @location(5) color: vec4<f32>) -> VertexOutput {
+    var output = textured_vertex(position, normal, vec2(0.), vec2(0.));
+    output.color = color;
+    output.tangent = vec4((uniforms.model * vec4(tangent.xyz, 0.)).xyz, tangent.w * uniforms.pbr_factors.z);
+    return output;
+}
+@vertex fn vs_instance_standard_tangent_unmapped(@location(0) position: vec3<f32>, @location(1) normal: vec3<f32>, instance: InstanceInput, @location(4) tangent: vec4<f32>) -> VertexOutput {
+    var output = instance_vertex(position, normal, instance);
+    output.tangent = vec4((uniforms.model * instance_matrix(instance) * vec4(tangent.xyz, 0.)).xyz, tangent.w * uniforms.pbr_factors.z * instance.normal0.w);
+    return output;
+}
+@vertex fn vs_instance_standard_tangent_colored_unmapped(@location(0) position: vec3<f32>, @location(1) normal: vec3<f32>, instance: InstanceInput, @location(4) tangent: vec4<f32>, @location(5) color: vec4<f32>) -> VertexOutput {
+    var output = instance_vertex(position, normal, instance);
     output.tangent = vec4((uniforms.model * instance_matrix(instance) * vec4(tangent.xyz, 0.)).xyz, tangent.w * uniforms.pbr_factors.z * instance.normal0.w);
     output.color *= color;
     return output;

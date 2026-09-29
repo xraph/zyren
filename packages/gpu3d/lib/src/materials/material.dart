@@ -6,6 +6,7 @@ import '../resources/resource_scope.dart' show MeshShaderProgram;
 part 'primitives.dart';
 part 'shader_material.dart';
 part 'standard_material.dart';
+part 'physical_material.dart';
 
 /// Opaque ignores alpha; mask discards below the cutoff; blend uses source-over.
 enum MaterialAlphaMode { opaque, mask, blend }

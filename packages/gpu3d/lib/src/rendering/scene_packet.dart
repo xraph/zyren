@@ -194,7 +194,10 @@ final class ScenePacketEncoder {
         uploadBytes > 64 * 1024 * 1024) {
       throw ArgumentError('Scene resource upload exceeds the frame budget.');
     }
-    final opcode = (submission.colorPipeline?.sampleCount ?? 1) > 1
+    final opcode =
+        scene._meshes.any((m) => (m['pbr'] as Map?)?['physical'] != null)
+        ? 29
+        : (submission.colorPipeline?.sampleCount ?? 1) > 1
         ? 28
         : scene._meshes.any((m) => m['color_visible'] == false)
         ? 27
@@ -492,6 +495,11 @@ final class ScenePacketEncoder {
                 }
               }
             }
+            if (opcode >= 29) {
+              final physical = (material?['physical'] as List?)?.cast<double>();
+              body.u32(physical == null ? 0 : 1);
+              if (physical != null) body.floats(physical);
+            }
           }
         }
       }
@@ -595,7 +603,7 @@ bool _sameMesh(Map<String, Object> a, Map<String, Object> b) {
         leftPbr['occlusion_strength'] != rightPbr['occlusion_strength']) {
       return false;
     }
-    for (final field in _standardMapFields) {
+    for (final field in [..._standardMapFields, 'physical']) {
       final left = (leftPbr[field] as List?) ?? const [],
           right = (rightPbr[field] as List?) ?? const [];
       if (left.length != right.length) return false;

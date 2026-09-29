@@ -70,12 +70,15 @@ fn shade_standard(input: VertexOutput, front: bool, surface: StandardSurface) ->
     let n = select(-surface.normal, surface.normal, front);
     let v = normalized_or(-input.relative_position, n);
     let base = surface.base.rgb;
-    var color = surface.emission + shade_environment(n, v, surface);
+    let physical = uniforms.physical[3].y != 0.;
+    let coat = select(0., coat_fresnel(clamp(dot(n,v),0.,1.)), physical);
+    var color = surface.emission * (1.-coat) + physical_environment(n, v, input.tangent, surface);
     for (var i = 0u; i < lighting.count.y; i++) {
         let light = lighting.hemispheres[i];
         let weight = clamp(dot(n, light.direction.xyz) * 0.5 + 0.5, 0., 1.);
         let irradiance = mix(light.ground.rgb, light.sky_intensity.rgb, weight) * light.sky_intensity.w;
-        color += irradiance * base * (1. - surface.metallic) * (0.96 / 3.141592653589793) * surface.occlusion;
+        let diffuse_weight = select(.96, 1.-maximum3(physical_fresnel(clamp(dot(n,v),0.,1.))), physical);
+        color += irradiance * base * (1. - surface.metallic) * (diffuse_weight / 3.141592653589793) * surface.occlusion * (1.-coat);
     }
     for (var i = 0u; i < lighting.count.x; i++) {
         let light = lighting.lights[i];
@@ -100,7 +103,7 @@ fn shade_standard(input: VertexOutput, front: bool, surface: StandardSurface) ->
                 attenuation *= cone * cone;
             }
         }
-        color += direct_brdf(n, v, l, base, surface.metallic, surface.roughness) * light.color_intensity.rgb * light.color_intensity.w * attenuation
+        color += physical_direct(n, v, l, input.tangent, surface) * light.color_intensity.rgb * light.color_intensity.w * attenuation
             * shadow_visibility(i, input.relative_position, select(-normalized_or(input.normal,n), normalized_or(input.normal,n), front), l);
     }
     return vec4(color, select(1., alpha, mode > 1.5));

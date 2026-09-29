@@ -36,6 +36,7 @@ struct Uniforms {
     emissive: [f32; 4],
     pbr_maps: [u32; 4],
     pbr_factors: [f32; 4],
+    physical: [[f32; 4]; 4],
 }
 
 struct GpuGeometry {
@@ -564,6 +565,23 @@ impl Renderer {
             }
         }
         let (pose_bytes, pose_count) = self.validate_poses(frame)?;
+        for mesh in &frame.meshes {
+            if mesh.anisotropic() {
+                let geometry = frame
+                    .geometries
+                    .iter()
+                    .find(|g| g.id == mesh.geometry)
+                    .or_else(|| {
+                        self.geometries
+                            .get(&mesh.geometry)
+                            .map(|g| g.recipe.as_ref())
+                    })
+                    .ok_or("missing anisotropic geometry")?;
+                if geometry.tangents.is_empty() {
+                    return Err("anisotropy requires geometry tangents".into());
+                }
+            }
+        }
         let (texture_bytes, texture_count) = self.validate_textures(frame)?;
         let (reusable_instances, instance_bytes, instance_count) =
             self.validate_instances(frame)?;
@@ -741,6 +759,17 @@ impl Renderer {
                     }
                 }
                 let uniforms = Uniforms {
+                    physical: {
+                        let p = mesh.pbr.as_ref().and_then(|p| p.physical).unwrap_or([
+                            1.5, 1., 0., 0., 1., 1., 1., 1., 0., 0., 0., 0., 0., 0., 0., 0.,
+                        ]);
+                        [
+                            p[0..4].try_into().unwrap(),
+                            p[4..8].try_into().unwrap(),
+                            p[8..12].try_into().unwrap(),
+                            p[12..16].try_into().unwrap(),
+                        ]
+                    },
                     pbr_maps,
                     pbr_factors: mesh.pbr.as_ref().map_or([0.; 4], |p| {
                         [
@@ -903,8 +932,9 @@ impl Renderer {
                 pass.set_vertex_buffer(0, vertices.slice(..));
                 if mesh.vertex_colors {
                     let textured = mesh.texture_maps().next().is_some();
-                    let tangent =
-                        textured && mesh.pbr.is_some() && !geometry.recipe.tangents.is_empty();
+                    let tangent = (textured || mesh.anisotropic())
+                        && mesh.pbr.is_some()
+                        && !geometry.recipe.tangents.is_empty();
                     pass.set_vertex_buffer(
                         1 + u32::from(textured) + u32::from(tangent),
                         self.resources
@@ -942,17 +972,22 @@ impl Renderer {
                 if let Some(binding) = texture_binding {
                     pass.set_vertex_buffer(1, uv.expect("validated UV buffer").slice(..));
                     pass.set_bind_group(1, binding, &[]);
-                    if mesh.pbr.is_some()
-                        && let Some(tangents) = self.resources.geometry_tangents(geometry.key)
-                    {
-                        pass.set_vertex_buffer(2, tangents.slice(..));
-                    }
+                }
+                if mesh.pbr.is_some()
+                    && (texture_binding.is_some() || mesh.anisotropic())
+                    && let Some(tangents) = self.resources.geometry_tangents(geometry.key)
+                {
+                    pass.set_vertex_buffer(
+                        1 + u32::from(texture_binding.is_some()),
+                        tangents.slice(..),
+                    );
                 }
                 pass.set_index_buffer(indices.slice(..), index_format);
                 if mesh.instances != 0 {
                     let textured = mesh.texture_maps().next().is_some();
-                    let tangent =
-                        textured && mesh.pbr.is_some() && !geometry.recipe.tangents.is_empty();
+                    let tangent = (textured || mesh.anisotropic())
+                        && mesh.pbr.is_some()
+                        && !geometry.recipe.tangents.is_empty();
                     let buffer = self
                         .resources
                         .graph_buffer(self.instances[&mesh.instances].key)

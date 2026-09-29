@@ -685,6 +685,17 @@ class SceneEngine {
           ),
         );
       }
+      if (_hasVisiblePhysicalMaterial(scene, camera.layers) &&
+          !capabilities.supports(RenderFeature.physicalMaterials)) {
+        throw SceneException(
+          SceneIssue(
+            code: SceneIssueCodes.unsupportedFeature,
+            message: 'This backend does not support physical materials.',
+            operation: 'render',
+            requiredFeatures: {RenderFeature.physicalMaterials},
+          ),
+        );
+      }
       _checkDeformation(scene, capabilities, camera.layers);
       final instanceCapacity = _instanceCapacity(scene);
       if (instanceCapacity > 0 &&
@@ -867,6 +878,14 @@ bool _hasVisibleStandardMaterial(Object3D node, LayerMask layers) =>
             node.material is StandardMaterial) ||
         node.children.any(
           (child) => _hasVisibleStandardMaterial(child, layers),
+        ));
+bool _hasVisiblePhysicalMaterial(Object3D node, LayerMask layers) =>
+    node.visible &&
+    ((node is Mesh &&
+            node.layers.intersects(layers) &&
+            node.material is PhysicalMaterial) ||
+        node.children.any(
+          (child) => _hasVisiblePhysicalMaterial(child, layers),
         ));
 int _visibleLightCount(Object3D node, LayerMask layers) => !node.visible
     ? 0

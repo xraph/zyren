@@ -32,7 +32,9 @@ impl PipelineKey {
             instanced: mesh.instances != 0,
             deformed: mesh.pose != 0,
             textured: mesh.texture_maps().next().is_some(),
-            tangent: tangent && mesh.pbr.is_some() && mesh.texture_maps().next().is_some(),
+            tangent: tangent
+                && mesh.pbr.is_some()
+                && (mesh.texture_maps().next().is_some() || mesh.anisotropic()),
             standard: mesh.pbr.is_some(),
             side: mesh.side,
             mirrored: mesh.primitive_kind == 0
@@ -79,6 +81,8 @@ impl MeshPipelines {
                         include_str!("primitives.wgsl"),
                         "\n",
                         include_str!("pbr.wgsl"),
+                        "\n",
+                        include_str!("physical.wgsl"),
                         "\n",
                         include_str!("shadow_sampling.wgsl")
                     )
@@ -234,6 +238,8 @@ impl MeshPipelines {
         }
         let vertex_entry = if key.instanced {
             match (key.tangent, key.textured, key.colored) {
+                (true, false, true) => "vs_instance_standard_tangent_colored_unmapped",
+                (true, false, false) => "vs_instance_standard_tangent_unmapped",
                 (true, _, true) => "vs_instance_standard_tangent_colored",
                 (true, _, false) => "vs_instance_standard_tangent",
                 (_, true, true) => "vs_instance_textured_colored",
@@ -252,6 +258,12 @@ impl MeshPipelines {
                 "vs_point_colored"
             } else {
                 "vs_point"
+            }
+        } else if key.tangent && !key.textured {
+            if key.colored {
+                "vs_standard_tangent_colored_unmapped"
+            } else {
+                "vs_standard_tangent_unmapped"
             }
         } else if key.tangent {
             if key.colored {

@@ -249,6 +249,11 @@ class SceneSnapshot {
             }
             meshShaders[meshes.length] = program;
           }
+          if (node.material case PhysicalMaterial(:final anisotropy)) {
+            if (anisotropy > 0 && geometry.tangents == null) {
+              throw ArgumentError('Anisotropy requires geometry tangents.');
+            }
+          }
           for (final binding in node.material.textureMaps) {
             if ((binding.uvSet == 0 ? geometry.uv0 : geometry.uv1) == null) {
               throw ArgumentError(
@@ -286,6 +291,21 @@ class SceneSnapshot {
                   if (node.material.vertexColors) 'vertex_colors': true,
                   if (node.material case StandardMaterial material)
                     'pbr': <String, Object>{
+                      if (material is PhysicalMaterial)
+                        'physical': <double>[
+                          material.ior,
+                          material.specularIntensity,
+                          material.clearcoat,
+                          material.clearcoatRoughness,
+                          ...material.specularColor.toList(),
+                          material.sheenRoughness,
+                          ...material.sheenColor.toList(),
+                          material.anisotropy,
+                          material.anisotropyRotation,
+                          1,
+                          0,
+                          0,
+                        ],
                       'metallic': material.metallic,
                       'roughness': material.roughness,
                       'normal_scale': material.normalScale,

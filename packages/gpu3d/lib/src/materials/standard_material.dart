@@ -2,7 +2,7 @@ part of 'material.dart';
 
 /// Metallic/roughness material in linear light. Direct lighting uses explicit
 /// scene lights; emission is independent of them.
-final class StandardMaterial extends MeshMaterial {
+base class StandardMaterial extends MeshMaterial {
   final double metallic, roughness, emissiveIntensity;
   final Color3 emissive;
   final TextureMap? normalMap, metallicRoughnessMap, occlusionMap, emissiveMap;

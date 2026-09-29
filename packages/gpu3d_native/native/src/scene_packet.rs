@@ -82,7 +82,7 @@ impl ScenePacket {
             return Err("unsupported scene packet".into());
         }
         let opcode = r.u32()?;
-        if !(10..=28).contains(&opcode) {
+        if !(10..=29).contains(&opcode) {
             return Err("unsupported scene packet".into());
         }
         let textured = opcode >= 11;
@@ -697,6 +697,7 @@ impl ScenePacket {
                         0 => (),
                         1 => {
                             let mut pbr = crate::lighting::StandardMaterial {
+                                physical: None,
                                 metallic: r.floats::<1>()?[0],
                                 roughness: r.floats::<1>()?[0],
                                 emissive: r.floats()?,
@@ -738,6 +739,18 @@ impl ScenePacket {
                             mesh.pbr = Some(pbr);
                         }
                         _ => return Err("invalid standard material flag".into()),
+                    }
+                }
+                if opcode >= 29 {
+                    match r.u32()? {
+                        0 => (),
+                        1 => {
+                            mesh.pbr
+                                .as_mut()
+                                .ok_or("physical material requires PBR")?
+                                .physical = Some(r.floats()?);
+                        }
+                        _ => return Err("invalid physical material flag".into()),
                     }
                 }
                 mesh.validate_material()?;

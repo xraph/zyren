@@ -19,6 +19,7 @@ enum RenderFeature {
   frameGraphs,
   meshShaders,
   standardMaterials,
+  physicalMaterials,
   hdrColor,
   environmentLighting,
   shadows,

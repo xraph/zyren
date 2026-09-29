@@ -130,6 +130,7 @@ class NativeBackend implements NativeGpuBackend {
       RenderFeature.frameGraphs,
       RenderFeature.meshShaders,
       RenderFeature.standardMaterials,
+      RenderFeature.physicalMaterials,
       RenderFeature.hdrColor,
       RenderFeature.environmentLighting,
       RenderFeature.shadows,

@@ -1,0 +1,88 @@
+// Layered reflectance. See docs/design/physical-materials.md for the model.
+fn physical_f0() -> vec3<f32> {
+    let ratio = (uniforms.physical[0].x - 1.) / (uniforms.physical[0].x + 1.);
+    return min(vec3(1.), uniforms.physical[1].rgb * ratio * ratio) * uniforms.physical[0].y;
+}
+fn physical_fresnel(cosine: f32) -> vec3<f32> {
+    let f0 = physical_f0();
+    return f0 + (vec3(uniforms.physical[0].y) - f0) * pow(1. - cosine, 5.);
+}
+fn maximum3(value: vec3<f32>) -> f32 { return max(value.x, max(value.y, value.z)); }
+fn coat_fresnel(cosine: f32) -> f32 {
+    return uniforms.physical[0].z * (.04 + .96 * pow(1. - cosine, 5.));
+}
+fn physical_tangent(n: vec3<f32>, authored: vec4<f32>) -> vec3<f32> {
+    let axis = select(vec3(1.,0.,0.), vec3(0.,1.,0.), abs(n.x) > .9);
+    let t = normalized_or(authored.xyz - n * dot(n, authored.xyz), normalized_or(cross(axis,n),axis));
+    let b = cross(n,t) * select(1., authored.w, abs(authored.w) > .5);
+    return t * cos(uniforms.physical[3].x) + b * sin(uniforms.physical[3].x);
+}
+fn ggx_distribution_visibility(n: vec3<f32>, v: vec3<f32>, l: vec3<f32>, t: vec3<f32>, roughness: f32, anisotropy: f32) -> f32 {
+    let h = normalized_or(v+l,n);
+    let b = cross(n,t);
+    let alpha = max(roughness * roughness, .002025);
+    // Elliptical GGX. At zero anisotropy this reduces to the standard lobe.
+    let at = mix(alpha, 1., anisotropy * anisotropy);
+    let ab = alpha;
+    let nh = max(dot(n,h),0.); let nv = max(dot(n,v),0.); let nl = max(dot(n,l),0.);
+    let q = vec3(dot(t,h)/at, dot(b,h)/ab, nh);
+    let denominator = dot(q,q);
+    let d = 1. / max(3.141592653589793 * at * ab * denominator * denominator, 1e-20);
+    let lambda_v = nl * length(vec3(at * dot(t,v), ab * dot(b,v), nv));
+    let lambda_l = nv * length(vec3(at * dot(t,l), ab * dot(b,l), nl));
+    return d * .5 / max(lambda_v + lambda_l, 1e-12);
+}
+// Three.js r180 Charlie directional-albedo fit, with the irradiance pi folded in.
+// Copyright three.js authors; MIT terms are in THIRD_PARTY_NOTICES.md.
+fn sheen_albedo(cosine: f32, roughness: f32) -> f32 {
+    let r = max(roughness, .045); let r2 = r*r;
+    let a = select(-8.48*r2 + 14.3*r - 9.95, -339.2*r2 + 161.4*r - 25.9, r < .25);
+    let b = select(1.97*r2 - 3.27*r + .72, 44.*r2 - 23.7*r + 3.26, r < .25);
+    let tail = select(.1*(r-.25), 0., r < .25);
+    return clamp(exp(a*cosine+b)+tail,0.,1.);
+}
+fn physical_direct(n: vec3<f32>, v: vec3<f32>, l: vec3<f32>, tangent: vec4<f32>, surface: StandardSurface) -> vec3<f32> {
+    if (uniforms.physical[3].y == 0.) {
+        return direct_brdf(n,v,l,surface.base.rgb,surface.metallic,surface.roughness);
+    }
+    let nl = max(dot(n,l),0.); let nv = max(dot(n,v),0.);
+    if (nl <= 0. || nv <= 0.) { return vec3(0.); }
+    let h = normalized_or(v+l,n); let vh = clamp(dot(v,h),0.,1.);
+    let t = physical_tangent(n,tangent);
+    let dielectric = physical_fresnel(vh);
+    let metal = surface.base.rgb + (vec3(1.)-surface.base.rgb) * pow(1.-vh,5.);
+    let fresnel = mix(dielectric,metal,surface.metallic);
+    let diffuse = (1.-maximum3(dielectric)) * (1.-surface.metallic) * surface.base.rgb / 3.141592653589793;
+    var base = diffuse + fresnel * ggx_distribution_visibility(n,v,l,t,surface.roughness,uniforms.physical[2].w);
+    // Charlie distribution with Neubelt visibility for a soft cloth lobe.
+    let inverse_alpha = 1. / max(uniforms.physical[1].w * uniforms.physical[1].w, .002025);
+    let nh = clamp(dot(n,h),0.,1.);
+    let charlie = (2.+inverse_alpha) * pow(max(1.-nh*nh,0.), inverse_alpha*.5) / (2.*3.141592653589793);
+    let sheen = uniforms.physical[2].rgb;
+    let sheen_energy = maximum3(sheen) * max(sheen_albedo(nv,uniforms.physical[1].w),sheen_albedo(nl,uniforms.physical[1].w));
+    base = base * (1.-sheen_energy) + sheen * charlie / max(4.*(nl+nv-nl*nv),1e-12);
+    let coat = coat_fresnel(vh);
+    return (base * (1.-coat) + vec3(coat * ggx_distribution_visibility(n,v,l,t,uniforms.physical[0].w,0.))) * nl;
+}
+fn physical_environment(n: vec3<f32>, v: vec3<f32>, tangent: vec4<f32>, surface: StandardSurface) -> vec3<f32> {
+    if (uniforms.physical[3].y == 0.) { return shade_environment(n,v,surface); }
+    if (environment.params.x == 0.) { return vec3(0.); }
+    let nv = clamp(dot(n,v),0.,1.);
+    let t = physical_tangent(n,tangent);
+    // Prefiltered GGX IBL uses a bent normal for the stretched reflection.
+    let b = cross(n,t);
+    let bent = normalized_or(cross(cross(b,v),b),n);
+    let reflected = reflect(-v, normalized_or(mix(n,bent,uniforms.physical[2].w * (1.-surface.roughness)),n));
+    let diffuse = textureSampleLevel(diffuse_environment,environment_sampler,environment_uv(n),0.).rgb;
+    let radiance = textureSampleLevel(specular_environment,environment_sampler,environment_uv(reflected),surface.roughness*environment.params.y).rgb;
+    let brdf = textureSampleLevel(environment_brdf,brdf_sampler,vec2(nv,surface.roughness),0.).rg;
+    let f0 = mix(physical_f0(),surface.base.rgb,surface.metallic);
+    let f90 = mix(uniforms.physical[0].y,1.,surface.metallic);
+    var base = (1.-maximum3(physical_fresnel(nv))) * (1.-surface.metallic) * surface.base.rgb * diffuse + radiance * (f0*brdf.x+f90*brdf.y);
+    let sheen = uniforms.physical[2].rgb;
+    let sheen_energy = sheen_albedo(nv,uniforms.physical[1].w);
+    base = base * (1.-maximum3(sheen)*sheen_energy) + sheen * diffuse * sheen_energy;
+    let coat = textureSampleLevel(specular_environment,environment_sampler,environment_uv(reflect(-v,n)),uniforms.physical[0].w*environment.params.y).rgb;
+    let coat_brdf = textureSampleLevel(environment_brdf,brdf_sampler,vec2(nv,uniforms.physical[0].w),0.).rg;
+    return (base * (1.-coat_fresnel(nv)) + coat * uniforms.physical[0].z * (.04*coat_brdf.x+coat_brdf.y)) * environment.params.x * surface.occlusion;
+}

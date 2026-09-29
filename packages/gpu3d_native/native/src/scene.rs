@@ -258,6 +258,13 @@ impl Default for Mesh {
     }
 }
 impl Mesh {
+    pub fn anisotropic(&self) -> bool {
+        self.pbr
+            .as_ref()
+            .and_then(|p| p.physical)
+            .is_some_and(|p| p[11] > 0.)
+    }
+
     pub fn texture_maps(&self) -> impl Iterator<Item = &ColorMap> {
         self.color_map
             .iter()

@@ -6,6 +6,8 @@ pub const MAX_HEMISPHERES: usize = 4;
 #[derive(Clone, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct StandardMaterial {
+    #[serde(default)]
+    pub physical: Option<[f32; 16]>,
     pub metallic: f32,
     pub roughness: f32,
     pub emissive: [f32; 3],
@@ -35,6 +37,15 @@ impl StandardMaterial {
         ]
     }
     pub fn validate(&self) -> Result<(), String> {
+        if let Some(p) = self.physical
+            && (p.iter().any(|v| !v.is_finite())
+                || !(1.0..=10.0).contains(&p[0])
+                || p[1..12].iter().any(|v| !(0.0..=1.0).contains(v))
+                || p[12].abs() > 1e6
+                || p[13..] != [1., 0., 0.])
+        {
+            return Err("invalid physical material parameters".into());
+        }
         for map in self.maps().into_iter().flatten() {
             map.validate()?;
         }
@@ -211,5 +222,43 @@ impl Environment {
             return Err("Invalid environment intensity or rotation".into());
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod physical_tests {
+    use super::StandardMaterial;
+
+    #[test]
+    fn physical_parameters_validate_across_the_json_boundary() {
+        let mut material: StandardMaterial = serde_json::from_value(serde_json::json!({
+            "metallic": 0, "roughness": 1, "emissive": [0,0,0],
+            "physical": [1.5,1,0,0,1,1,1,1,0,0,0,0,0,1,0,0]
+        }))
+        .unwrap();
+        material.validate().unwrap();
+        let good = material.physical.unwrap();
+        for index in 0..16 {
+            for invalid in [f32::NAN, f32::INFINITY] {
+                let mut value = good;
+                value[index] = invalid;
+                material.physical = Some(value);
+                assert!(material.validate().is_err(), "nonfinite slot {index}");
+            }
+        }
+        for (index, invalid) in [
+            (0, 0.9),
+            (0, 11.),
+            (1, -0.1),
+            (11, 1.1),
+            (13, 0.),
+            (14, 1.),
+            (15, 1.),
+        ] {
+            let mut value = good;
+            value[index] = invalid;
+            material.physical = Some(value);
+            assert!(material.validate().is_err(), "invalid slot {index}");
+        }
     }
 }

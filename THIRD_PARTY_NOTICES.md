@@ -31,7 +31,7 @@ PNG/JPEG decoding also uses the pinned Rust crates listed in
 [image decoder dependency licenses](docs/image-decoder-licenses.md). That file
 contains their license and copyright notices for redistribution.
 
-## Three.js tone mapping and curve references
+## Three.js tone mapping, curve and sheen references
 
 The ACES filmic fit in `packages/gpu3d_native/native/src/renderer/output.wgsl`
 follows Three.js, including its viewing exposure adjustment. The Catmull-Rom
@@ -42,6 +42,11 @@ uses Three.js 0.184.0.
 Source: https://github.com/mrdoob/three.js/blob/dev/src/renderers/shaders/ShaderChunk/tonemapping_pars_fragment.glsl.js
 
 Curve source: https://github.com/mrdoob/three.js/blob/r184/src/extras/curves/CatmullRomCurve3.js
+
+The Charlie directional-albedo fit in
+`packages/gpu3d_native/native/src/renderer/physical.wgsl` follows Three.js r180.
+
+Sheen source: https://github.com/mrdoob/three.js/blob/r180/src/renderers/shaders/ShaderChunk/lights_physical_pars_fragment.glsl.js
 
 The MIT License
 
