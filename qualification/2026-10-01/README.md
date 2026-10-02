@@ -4,6 +4,10 @@ Qualification remains partial. You can use the recorded macOS checks to assess
 the tested source snapshots. Android and iOS builds do not establish runtime
 support, and the native narrow-window visual check remains blocked.
 
+The [connected-device follow-up](connected-devices.md) records the later Pixel
+and iPhone attempts. Android now has a reproduced native library load failure;
+the iPhone installs and launches over wireless but has no completed test result.
+
 ## Source and tooling
 
 All work ran in the shared checkout on `main`. The other chats committed and
