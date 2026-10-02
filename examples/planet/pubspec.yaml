@@ -25,6 +25,7 @@ dependencies:
   url_launcher: ^6.3.2
 
 dev_dependencies:
+  crypto: ^3.0.7
   zyren:
     path: ../../packages/zyren
   flutter_test:

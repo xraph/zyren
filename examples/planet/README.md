@@ -79,6 +79,12 @@ image comparisons are still pending, and unregistered scenes stay visible in
 the report. Each run includes file hashes before and after execution; changed
 source or incomplete checks cannot produce a qualified result.
 
+The fixture also hashes each atmosphere table and cloud map it loads. Those
+bytes must match the upstream Git LFS hashes in
+`assets/qualification/source_assets.json`: four atmosphere tables and, for cloud
+scenes, five weather, shape and noise maps. Provider tile content stays outside
+this asset manifest. You still need live provider access for the city geometry.
+
 For the offline cloud, lens and SMAA regression, run:
 
 ```sh

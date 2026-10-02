@@ -37,6 +37,10 @@ def preset_identity(preset):
     return identity(f'storybook/src/{package}/3DTilesRenderer.stories.tsx', name)
 
 
+def asset_manifest():
+    return json.loads((ROOT / 'examples/planet/assets/qualification/source_assets.json').read_text())
+
+
 def catalog():
     inventory = json.loads(INVENTORY.read_text())
     cases = {}
@@ -72,7 +76,7 @@ def snapshot():
 
 
 def validate_response(response, expected):
-    if not isinstance(response, dict) or response.get('schema') != 1:
+    if not isinstance(response, dict) or response.get('schema') != 2:
         raise ValueError('Missing structured native response.')
     if response.get('suite') != 'geospatial-native-stories':
         raise ValueError('Response belongs to another qualification suite.')
@@ -87,6 +91,12 @@ def validate_response(response, expected):
             raise ValueError('A presentation test cannot certify an image comparison.')
         if scene.get('rendering') != 'passed':
             raise ValueError('Only completed per-scene checks belong in scenes.')
+        groups = {'atmosphere', 'clouds'} if '/clouds/' in scene['sourcePath'] else {'atmosphere'}
+        assets = scene.get('assets', [])
+        expected_assets = [{key: asset[key] for key in ('uri', 'sha256', 'bytes')}
+                           for asset in asset_manifest()['assets'] if asset['group'] in groups]
+        if sorted(assets, key=lambda asset: asset['uri']) != sorted(expected_assets, key=lambda asset: asset['uri']):
+            raise ValueError('Loaded assets do not match the pinned source hashes and sizes.')
         if scene.get('backend', '').lower() not in {'metal', 'vulkan', 'dx12', 'direct3d12'}:
             raise ValueError('The scene did not identify a supported native backend.')
         presentations = {

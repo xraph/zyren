@@ -18,10 +18,12 @@ class GoogleTilesLabApp extends StatelessWidget {
   final GlobalKey<GoogleTilesLabState>? labKey;
   final bool clouds;
   final GoogleTilesPreset? initialPreset;
+  final AssetServices assetServices;
   const GoogleTilesLabApp({
     super.key,
     this.labKey,
     this.initialPreset,
+    this.assetServices = SceneRuntime.defaultAssetServices,
     this.clouds = const bool.fromEnvironment('ZYREN_LAB_CLOUDS'),
   });
   @override
@@ -34,6 +36,7 @@ class GoogleTilesLabApp extends StatelessWidget {
       key: labKey,
       clouds: clouds,
       initialPreset: initialPreset,
+      assetServices: assetServices,
     ),
   );
 }
@@ -41,7 +44,13 @@ class GoogleTilesLabApp extends StatelessWidget {
 class GoogleTilesLab extends StatefulWidget {
   final bool clouds;
   final GoogleTilesPreset? initialPreset;
-  const GoogleTilesLab({super.key, this.clouds = false, this.initialPreset});
+  final AssetServices assetServices;
+  const GoogleTilesLab({
+    super.key,
+    this.clouds = false,
+    this.initialPreset,
+    this.assetServices = SceneRuntime.defaultAssetServices,
+  });
   @override
   State<GoogleTilesLab> createState() => GoogleTilesLabState();
 }
@@ -86,10 +95,12 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
               presentation: PresentationPolicy.requireNative,
             ),
             runtime: switch (defaultTargetPlatform) {
-              TargetPlatform.android => const SceneRuntime.nativeAndroid(),
-              TargetPlatform.iOS ||
-              TargetPlatform.macOS => const SceneRuntime.nativeMetal(),
-              _ => const SceneRuntime(),
+              TargetPlatform.android => SceneRuntime.nativeAndroid(
+                assetServices: widget.assetServices,
+              ),
+              TargetPlatform.iOS || TargetPlatform.macOS =>
+                SceneRuntime.nativeMetal(assetServices: widget.assetServices),
+              _ => SceneRuntime(assetServices: widget.assetServices),
             },
           )
           ..use(GeospatialPlugin())
