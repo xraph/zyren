@@ -119,7 +119,22 @@ moving the listener. Stereo orientation, pause, buffer ownership, detached-node
 cleanup, invalid PCM and budgets passed. Analysis is clean. The native device
 probe initialized and closed `Core Audio` successfully without emitting sound.
 Audible playback and non-macOS device checks remain unverified. Capture
-implementation remains pending.
+implementation has passed its first checkpoint. Audio commit: `52f4681`.
+
+Capture: seven tests pass for sampling, cancellation before/after render, scoped
+cleanup, missing capabilities, stale scene revisions, sink/close failures, PNG
+alpha/padding conversion and job limits. Analysis is clean. The native CLI made
+two matching four-frame 64x64 PNG sequences on macOS Metal (Apple M3 Max).
+The first PNG was inspected and contains the fixture geometry. Manifests:
+`/var/folders/5l/q5f0v6j11y357pv60hxyng0m0000gn/T/zyren-capture-orbit-a-RCBjSd/manifest.json`
+and `zyren-capture-orbit-b-7MYQBl/manifest.json` in the same temporary parent.
+The existing planet app remained running; this check used an independent
+headless native session and did not alter that app or a connected device.
+
+Disk space briefly blocked the Flutter launcher stamp write. Capture tests and
+the native CLI completed; subsequent Dart checks use the installed SDK binary
+directly. Shared build caches were left intact.
+
 Agent adapters will follow the now-present shared contract before this checkpoint
 is considered integrated. The milestones above retain the remaining scope.
 
