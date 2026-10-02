@@ -212,3 +212,17 @@ currently fails only on the concurrent devtools adapter's two `zyren_agents`
 imports, whose allowlist update belongs to the interaction owner. Scientific
 package analysis and its own public-import boundary are clean. No unrelated
 allowlist entries were changed here.
+
+
+## Commit and continuation
+
+Implementation commit: `5f38906` (`Add scientific scalar slices and runtime agent
+tools`). It contains only this package, this plan, one workspace member and one
+boundary entry. It was committed locally on `main`; nothing was pushed or merged.
+
+The next implementation milestone is validated irregular surfaces and bounded
+CPU isosurfaces with analytic topology/error fixtures. Continue runtime coverage
+with a real Flutter viewport and human pointer flow before claiming presented
+screen integration. Keep the full vector, streamline, temporal and volume scope
+above; no backend, device, solver or publication claim follows from this
+checkpoint's Metal readback evidence.
