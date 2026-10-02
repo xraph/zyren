@@ -1,0 +1,95 @@
+linux-arm64
+2026-10-02T16:12:50.4065818Z No issues found!
+2026-10-02T16:13:47.8538791Z test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+2026-10-02T16:13:47.8845857Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+2026-10-02T16:15:17.2537572Z 🎉 17 tests passed.
+2026-10-02T16:15:17.6466965Z Package boundaries and Apple ABI header passed.
+2026-10-02T16:19:01.0834404Z ✓ Built build/linux/arm64/debug/bundle/physics_lab
+2026-10-02T16:21:28.4443876Z ✓ Built build/linux/arm64/debug/bundle/physics_lab
+2026-10-02T16:21:39.3355232Z Physics Lab renderer: Vulkan; presentation: readback
+2026-10-02T16:21:39.3825309Z 🎉 1 test passed.
+
+linux-x64
+2026-10-02T16:13:24.0175723Z No issues found!
+2026-10-02T16:14:36.1588957Z test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+2026-10-02T16:14:36.1944886Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+2026-10-02T16:16:44.7495546Z 🎉 17 tests passed.
+2026-10-02T16:16:45.4714053Z Package boundaries and Apple ABI header passed.
+2026-10-02T16:22:02.2981005Z ✓ Built build/linux/x64/debug/bundle/physics_lab
+2026-10-02T16:25:43.6657192Z ✓ Built build/linux/x64/debug/bundle/physics_lab
+2026-10-02T16:25:55.6845276Z Physics Lab renderer: Vulkan; presentation: readback
+2026-10-02T16:25:55.7296116Z 🎉 1 test passed.
+
+macos-arm64
+2026-10-02T16:15:04.0557840Z No issues found!
+2026-10-02T16:16:12.3597340Z test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+2026-10-02T16:16:12.4496940Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+2026-10-02T16:17:47.2136420Z 🎉 17 tests passed.
+2026-10-02T16:17:47.8497990Z Package boundaries and Apple ABI header passed.
+2026-10-02T16:22:31.4641440Z ✓ Built build/macos/Build/Products/Debug/physics_lab.app
+2026-10-02T16:25:21.6656810Z ✓ Built build/macos/Build/Products/Debug/physics_lab.app
+2026-10-02T16:25:31.0313540Z Physics Lab renderer: Metal; presentation: nativeView
+2026-10-02T16:25:31.2148670Z 🎉 1 test passed.
+
+macos-intel
+2026-10-02T16:23:27.4823140Z No issues found!
+2026-10-02T16:27:14.9893260Z test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+2026-10-02T16:27:15.1052930Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+2026-10-02T16:32:38.5259780Z 🎉 17 tests passed.
+2026-10-02T16:32:40.0996150Z Package boundaries and Apple ABI header passed.
+2026-10-02T16:42:56.2738330Z ✓ Built build/macos/Build/Products/Debug/physics_lab.app
+2026-10-02T16:48:25.8940130Z ✓ Built build/macos/Build/Products/Debug/physics_lab.app
+2026-10-02T16:54:13.7368330Z Physics Lab renderer: Metal; presentation: nativeView
+2026-10-02T16:54:13.7379490Z Expected: a numeric value within <0.01> of <2>
+2026-10-02T16:54:13.7381290Z   Actual: <0.0>
+2026-10-02T16:54:13.8109760Z ##[error]0 tests passed, 1 failed.
+
+windows-arm64
+2026-10-02T16:14:40.4071462Z No issues found!
+2026-10-02T16:17:13.2130382Z test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+2026-10-02T16:17:13.3354929Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+2026-10-02T16:20:15.5116619Z 🎉 17 tests passed.
+2026-10-02T16:20:20.3361580Z Package boundaries and Apple ABI header passed.
+2026-10-02T16:29:31.9675558Z √ Built build\windows\arm64\runner\Debug\physics_lab.exe
+2026-10-02T16:35:03.2471511Z √ Built build\windows\arm64\runner\Debug\physics_lab.exe
+2026-10-02T16:35:13.8065914Z Physics Lab renderer: Dx12; presentation: readback
+2026-10-02T16:35:13.9083586Z 🎉 1 test passed.
+
+windows-x64
+2026-10-02T16:14:35.4859779Z No issues found!
+2026-10-02T16:17:04.7135459Z test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+2026-10-02T16:17:04.8022794Z test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+2026-10-02T16:21:32.1829131Z 🎉 17 tests passed.
+2026-10-02T16:21:36.1815769Z Package boundaries and Apple ABI header passed.
+2026-10-02T16:32:59.2154809Z √ Built build\windows\x64\runner\Debug\physics_lab.exe
+2026-10-02T16:40:29.1195508Z √ Built build\windows\x64\runner\Debug\physics_lab.exe
+2026-10-02T16:40:46.3120642Z Physics Lab renderer: Dx12; presentation: readback
+2026-10-02T16:40:46.3819682Z 🎉 1 test passed.
+
+mobile
+2026-10-02T16:30:45.0514290Z ✓ Built build/ios/iphonesimulator/Runner.app
+2026-10-02T16:41:34.7863940Z ✓ Built build/app/outputs/flutter-apk/app-debug.apk
+
+android-x64-failed
+2026-10-02T16:41:20.0495089Z FATAL        | Not enough space to create userdata partition. Available: 5858.15 MB at /home/runner/.android/avd/test.avd, need 7372.80 MB.
+2026-10-02T16:51:23.7783297Z ##[error]Timeout waiting for emulator to boot.
+
+macos-intel-retry
+2026-10-02T17:09:55.0451960Z test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+2026-10-02T17:14:01.8362320Z 🎉 17 tests passed.
+2026-10-02T17:32:36.6749820Z Physics Lab renderer: Metal; presentation: nativeView
+2026-10-02T17:32:36.6812440Z GPU completion failed; recreate this renderer: The requested Wait timed out before the submission
+2026-10-02T17:32:36.6848120Z was completed.
+2026-10-02T17:32:36.7188080Z ##[error]0 tests passed, 1 failed.
+
+android-x64-retry
+2026-10-02T17:03:43.1955737Z Emulator booted.
+The job concluded failure; see runs.json for the tested commit and job URL.
+
+android-x64-prebuilt
+2026-10-02T17:31:40.8954957Z ✓ Built build/app/outputs/flutter-apk/app-debug.apk
+2026-10-02T17:33:44.7330682Z Emulator booted.
+2026-10-02T17:34:25.4713015Z I/flutter ( 2318):   Actual: FlutterError:<A RenderFlex overflowed by 179 pixels on the bottom.>
+2026-10-02T17:34:25.7137936Z I/flutter ( 2318): 00:08 +1 -1: Some tests failed.
+2026-10-02T17:34:25.7473197Z   Actual: FlutterError:<A RenderFlex overflowed by 179 pixels on
+The job concluded failure; see runs.json for the tested commit and job URL.

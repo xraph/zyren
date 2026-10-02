@@ -1,0 +1,26 @@
+{
+  "platform": "windows",
+  "rapier": "0.36.0",
+  "baseline": {
+    "bodies": 0,
+    "worlds": 0
+  },
+  "backend": "Dx12",
+  "ballY": 0.4999312162399292,
+  "debugKinds": [
+    "collider",
+    "joint",
+    "contact"
+  ],
+  "rendererRecreated": true,
+  "resizedTo": [
+    640,
+    400
+  ],
+  "pixelColors": 244,
+  "afterClose": {
+    "bodies": 0,
+    "worlds": 0
+  },
+  "passed": true
+}

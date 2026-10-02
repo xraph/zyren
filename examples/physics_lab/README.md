@@ -40,5 +40,20 @@ runs native rendering and app integration, then uploads the render evidence from
 that run. A runner without a working native graphics backend fails qualification.
 Linux CI uses Mesa software Vulkan, so its result doesn't qualify a physical GPU.
 
+You can dispatch `physics.yml` with `desktop_runner=all` for the full desktop
+matrix and mobile builds, or select one runner for a focused retry. Two separate
+workflows exercise Android x64 with SwiftShader Vulkan and an Intel iOS simulator:
+
+```sh
+gh workflow run physics.yml --ref YOUR_BRANCH -f desktop_runner=all
+gh workflow run physics-android.yml --ref YOUR_BRANCH
+gh workflow run physics-ios-intel.yml --ref YOUR_BRANCH
+```
+
+Android CI builds the integration APK before booting the emulator, then drives
+that binary. The Intel simulator job requires an installed iPhone runtime and
+fails if none is available. Each run still needs a passing test result before its
+platform can be counted as qualified.
+
 See [the completion matrix](../../packages/zyren_physics/COMPLETION.md) for tested
 platforms, linked builds and open hardware checks.
