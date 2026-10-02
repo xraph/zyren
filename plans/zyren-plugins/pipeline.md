@@ -142,4 +142,5 @@ hashes prove byte integrity, not publisher authenticity. The complete plugin is
 not yet qualified for rollout.
 
 Commits: `aa57bba78d63f5eab343f84f9bde4ef5c152b376` contains bundle build/load.
-Cache/runtime/agent checkpoint commit is pending the final review.
+Cache/runtime/agent checkpoint: `a6a0d1011b316b0922dd17ffb739b34cac5e883e`.
+Both commits are local on `main`; nothing was pushed or merged.
