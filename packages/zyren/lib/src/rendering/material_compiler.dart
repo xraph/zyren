@@ -14,6 +14,10 @@ class MeshShaderDescriptor {
   final ShaderBindings bindings;
   final String label, vertexEntryPoint, fragmentEntryPoint;
   final bool requiresUv;
+
+  /// The fragment entry calls the meshClip WGSL helper with its camera-relative
+  /// position. Leave false for shaders without the standard clipping hook.
+  final bool supportsClipping;
   MeshShaderDescriptor({
     required this.program,
     ShaderBindings? bindings,
@@ -21,6 +25,7 @@ class MeshShaderDescriptor {
     this.vertexEntryPoint = 'vertex',
     this.fragmentEntryPoint = 'fragment',
     this.requiresUv = false,
+    this.supportsClipping = false,
   }) : bindings = bindings ?? ShaderBindings(const []);
 }
 
@@ -31,7 +36,18 @@ final class _MaterialPassDescriptor extends PassDescriptor {
         name: descriptor.label,
         program: descriptor.program,
         bindings: descriptor.bindings,
-        reads: descriptor.bindings.entries.map((b) => b.resource).nonNulls,
+        reads: descriptor.bindings.entries
+            .where((b) => b._reads)
+            .map((b) => b.resource)
+            .nonNulls,
+        writes: [
+          ...descriptor.bindings.entries
+              .where((b) => b._writes)
+              .map((b) => b.resource)
+              .nonNulls,
+          if (descriptor case PostProcessDescriptor(target: final target?))
+            target,
+        ],
       );
 }
 
@@ -58,10 +74,17 @@ final class MaterialCompiler {
   Future<MeshShader> compile(MeshShaderDescriptor descriptor) {
     return _run(() async {
       for (final binding in descriptor.bindings.entries) {
-        if (binding.group == 0 || binding._writes) {
+        final screenOutput =
+            descriptor is PostProcessDescriptor &&
+            binding is TextureBinding &&
+            binding.storage &&
+            (binding.visibility == null ||
+                binding.visibility!.length == 1 &&
+                    binding.visibility!.contains(ShaderStage.fragment));
+        if (binding.group == 0 || binding._writes && !screenOutput) {
           throw GraphException(
             GraphErrorCode.invalidBinding,
-            'Mesh materials reserve group 0 and permit readonly user bindings.',
+            'Group 0 is reserved. Only screen effects can write fragment-only storage textures.',
           );
         }
       }

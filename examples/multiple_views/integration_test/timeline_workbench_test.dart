@@ -8,7 +8,7 @@ import '../test/support/workbench_timeline.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
-  testWidgets('native playback delivers markers without readback', (
+  testWidgets('native mixed playback emits markers without readback', (
     tester,
   ) async {
     await tester.pumpWidget(

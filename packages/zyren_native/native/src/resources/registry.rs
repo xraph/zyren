@@ -153,6 +153,30 @@ impl<T> ResourceRegistry<T> {
             }
         }
     }
+    /// Bounded copied metadata, including released entries awaiting retirement.
+    pub fn inspect(&self, limit: usize) -> Vec<(ResourceKey, &T, u64, u32, u64)> {
+        self.slots
+            .iter()
+            .enumerate()
+            .filter_map(|(index, slot)| {
+                slot.entry.as_ref().map(|entry| {
+                    (
+                        ResourceKey {
+                            renderer: self.renderer,
+                            device_generation: self.device_generation,
+                            slot: index as u64,
+                            slot_generation: slot.generation,
+                        },
+                        &entry.value,
+                        entry.bytes,
+                        entry.references,
+                        entry.last_submission,
+                    )
+                })
+            })
+            .take(limit)
+            .collect()
+    }
     pub fn resident_bytes(&self) -> u64 {
         self.resident
     }

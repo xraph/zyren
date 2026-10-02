@@ -7,6 +7,17 @@ void main(List<String> args) {
     'packages/zyren': {'zyren', 'vector_math', 'dart_earcut'},
     'packages/zyren_gltf': {'zyren_gltf', 'zyren'},
     'packages/zyren_geospatial': {'zyren_geospatial', 'zyren'},
+    'packages/zyren_effects': {'zyren_effects', 'zyren'},
+    'packages/zyren_tools': {'zyren_tools', 'zyren'},
+    'packages/zyren_devtools': {'zyren_devtools', 'zyren'},
+    'packages/zyren_timeline': {'zyren_timeline', 'zyren'},
+    'packages/zyren_engineering': {'zyren_engineering', 'zyren'},
+    'packages/zyren_3d_tiles': {
+      'zyren_3d_tiles',
+      'zyren',
+      'zyren_gltf',
+      'zyren_geospatial',
+    },
     'packages/zyren_inspector': {'zyren_inspector', 'flutter', 'flutter_zyren'},
     'examples/shader_lab/effects_plugin': {'shader_lab_effects', 'zyren'},
   };

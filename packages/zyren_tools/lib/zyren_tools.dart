@@ -6,6 +6,7 @@ import 'package:zyren/zyren.dart';
 
 part 'src/transform_gizmo.dart';
 part 'src/scene_section.dart';
+part 'src/section_caps.dart';
 part 'src/scene_outline.dart';
 
 const sceneTools = ServiceKey<SceneToolsPlugin>('zyren.tools');

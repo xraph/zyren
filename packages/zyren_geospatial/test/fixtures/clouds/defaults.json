@@ -1,0 +1,1266 @@
+{
+  "revision": "b012ad06d858fc035d88aacfd73f092f93c994e4",
+  "sourceFiles": [
+    "packages/clouds/src/CloudLayers.ts",
+    "packages/clouds/src/CloudLayer.ts",
+    "packages/clouds/src/DensityProfile.ts",
+    "packages/clouds/src/qualityPresets.ts",
+    "packages/clouds/src/uniforms.ts"
+  ],
+  "layerDefault": {
+    "channel": "r",
+    "altitude": 0,
+    "height": 0,
+    "densityScale": 0.2,
+    "shapeAmount": 1,
+    "shapeDetailAmount": 1,
+    "weatherExponent": 1,
+    "shapeAlteringBias": 0.35,
+    "coverageFilterWidth": 0.6,
+    "densityProfile": {
+      "expTerm": 0,
+      "exponent": 0,
+      "linearTerm": 0.75,
+      "constantTerm": 0.25
+    },
+    "shadow": false
+  },
+  "parameters": {
+    "scatteringCoefficient": 1,
+    "absorptionCoefficient": 0,
+    "coverage": 0.3,
+    "localWeatherTexture": null,
+    "localWeatherRepeat": [
+      100,
+      100
+    ],
+    "localWeatherOffset": [
+      0,
+      0
+    ],
+    "shapeTexture": null,
+    "shapeRepeat": [
+      0.0003,
+      0.0003,
+      0.0003
+    ],
+    "shapeOffset": [
+      0,
+      0,
+      0
+    ],
+    "shapeDetailTexture": null,
+    "shapeDetailRepeat": [
+      0.006,
+      0.006,
+      0.006
+    ],
+    "shapeDetailOffset": [
+      0,
+      0,
+      0
+    ],
+    "turbulenceTexture": null,
+    "turbulenceRepeat": [
+      20,
+      20
+    ],
+    "turbulenceDisplacement": 350
+  },
+  "qualityPresets": {
+    "low": {
+      "resolutionScale": 1,
+      "lightShafts": false,
+      "shapeDetail": false,
+      "turbulence": false,
+      "haze": true,
+      "clouds": {
+        "multiScatteringOctaves": 8,
+        "accurateSunSkyLight": false,
+        "accuratePhaseFunction": false,
+        "maxIterationCount": 200,
+        "minStepSize": 100,
+        "maxStepSize": 1000,
+        "maxRayDistance": 100000,
+        "perspectiveStepScale": 1.01,
+        "minDensity": 0.0001,
+        "minExtinction": 0.0001,
+        "minTransmittance": 0.1,
+        "maxIterationCountToGround": 0,
+        "maxIterationCountToSun": 1,
+        "minSecondaryStepSize": 100,
+        "secondaryStepScale": 2,
+        "maxShadowLengthIterationCount": 500,
+        "minShadowLengthStepSize": 50,
+        "maxShadowLengthRayDistance": 200000
+      },
+      "shadow": {
+        "cascadeCount": 2,
+        "mapSize": [
+          256,
+          256
+        ],
+        "maxIterationCount": 25,
+        "minStepSize": 100,
+        "maxStepSize": 1000,
+        "minDensity": 0.0001,
+        "minExtinction": 0.0001,
+        "minTransmittance": 0.01
+      }
+    },
+    "medium": {
+      "resolutionScale": 1,
+      "lightShafts": false,
+      "shapeDetail": true,
+      "turbulence": false,
+      "haze": true,
+      "clouds": {
+        "multiScatteringOctaves": 8,
+        "accurateSunSkyLight": false,
+        "accuratePhaseFunction": false,
+        "maxIterationCount": 500,
+        "minStepSize": 50,
+        "maxStepSize": 1000,
+        "maxRayDistance": 200000,
+        "perspectiveStepScale": 1.01,
+        "minDensity": 0.0001,
+        "minExtinction": 0.0001,
+        "minTransmittance": 0.01,
+        "maxIterationCountToGround": 1,
+        "maxIterationCountToSun": 2,
+        "minSecondaryStepSize": 100,
+        "secondaryStepScale": 2,
+        "maxShadowLengthIterationCount": 500,
+        "minShadowLengthStepSize": 50,
+        "maxShadowLengthRayDistance": 200000
+      },
+      "shadow": {
+        "cascadeCount": 3,
+        "mapSize": [
+          256,
+          256
+        ],
+        "maxIterationCount": 50,
+        "minStepSize": 100,
+        "maxStepSize": 1000,
+        "minDensity": 0.0001,
+        "minExtinction": 0.0001,
+        "minTransmittance": 0.0001
+      }
+    },
+    "high": {
+      "resolutionScale": 1,
+      "lightShafts": true,
+      "shapeDetail": true,
+      "turbulence": true,
+      "haze": true,
+      "clouds": {
+        "multiScatteringOctaves": 8,
+        "accurateSunSkyLight": true,
+        "accuratePhaseFunction": false,
+        "maxIterationCount": 500,
+        "minStepSize": 50,
+        "maxStepSize": 1000,
+        "maxRayDistance": 200000,
+        "perspectiveStepScale": 1.01,
+        "minDensity": 0.00001,
+        "minExtinction": 0.00001,
+        "minTransmittance": 0.01,
+        "maxIterationCountToGround": 3,
+        "maxIterationCountToSun": 2,
+        "minSecondaryStepSize": 100,
+        "secondaryStepScale": 2,
+        "maxShadowLengthIterationCount": 500,
+        "minShadowLengthStepSize": 50,
+        "maxShadowLengthRayDistance": 200000
+      },
+      "shadow": {
+        "cascadeCount": 3,
+        "mapSize": [
+          512,
+          512
+        ],
+        "maxIterationCount": 50,
+        "minStepSize": 100,
+        "maxStepSize": 1000,
+        "minDensity": 0.00001,
+        "minExtinction": 0.00001,
+        "minTransmittance": 0.0001
+      }
+    },
+    "ultra": {
+      "resolutionScale": 1,
+      "lightShafts": true,
+      "shapeDetail": true,
+      "turbulence": true,
+      "haze": true,
+      "clouds": {
+        "multiScatteringOctaves": 8,
+        "accurateSunSkyLight": true,
+        "accuratePhaseFunction": false,
+        "maxIterationCount": 500,
+        "minStepSize": 10,
+        "maxStepSize": 1000,
+        "maxRayDistance": 200000,
+        "perspectiveStepScale": 1.01,
+        "minDensity": 0.00001,
+        "minExtinction": 0.00001,
+        "minTransmittance": 0.01,
+        "maxIterationCountToGround": 3,
+        "maxIterationCountToSun": 2,
+        "minSecondaryStepSize": 100,
+        "secondaryStepScale": 2,
+        "maxShadowLengthIterationCount": 500,
+        "minShadowLengthStepSize": 50,
+        "maxShadowLengthRayDistance": 200000
+      },
+      "shadow": {
+        "cascadeCount": 3,
+        "mapSize": [
+          1024,
+          1024
+        ],
+        "maxIterationCount": 50,
+        "minStepSize": 100,
+        "maxStepSize": 1000,
+        "minDensity": 0.00001,
+        "minExtinction": 0.00001,
+        "minTransmittance": 0.0001
+      }
+    }
+  },
+  "cases": [
+    {
+      "layers": [
+        {
+          "channel": "r",
+          "altitude": 750,
+          "height": 650,
+          "densityScale": 0.2,
+          "shapeAmount": 1,
+          "shapeDetailAmount": 1,
+          "weatherExponent": 1,
+          "shapeAlteringBias": 0.35,
+          "coverageFilterWidth": 0.6,
+          "densityProfile": {
+            "expTerm": 0,
+            "exponent": 0,
+            "linearTerm": 0.75,
+            "constantTerm": 0.25
+          },
+          "shadow": true
+        },
+        {
+          "channel": "g",
+          "altitude": 1000,
+          "height": 1200,
+          "densityScale": 0.2,
+          "shapeAmount": 1,
+          "shapeDetailAmount": 1,
+          "weatherExponent": 1,
+          "shapeAlteringBias": 0.35,
+          "coverageFilterWidth": 0.6,
+          "densityProfile": {
+            "expTerm": 0,
+            "exponent": 0,
+            "linearTerm": 0.75,
+            "constantTerm": 0.25
+          },
+          "shadow": true
+        },
+        {
+          "channel": "b",
+          "altitude": 7500,
+          "height": 500,
+          "densityScale": 0.003,
+          "shapeAmount": 0.4,
+          "shapeDetailAmount": 0,
+          "weatherExponent": 1,
+          "shapeAlteringBias": 0.35,
+          "coverageFilterWidth": 0.5,
+          "densityProfile": {
+            "expTerm": 0,
+            "exponent": 0,
+            "linearTerm": 0.75,
+            "constantTerm": 0.25
+          },
+          "shadow": false
+        },
+        {
+          "channel": "a",
+          "altitude": 0,
+          "height": 0,
+          "densityScale": 0.2,
+          "shapeAmount": 1,
+          "shapeDetailAmount": 1,
+          "weatherExponent": 1,
+          "shapeAlteringBias": 0.35,
+          "coverageFilterWidth": 0.6,
+          "densityProfile": {
+            "expTerm": 0,
+            "exponent": 0,
+            "linearTerm": 0.75,
+            "constantTerm": 0.25
+          },
+          "shadow": false
+        }
+      ],
+      "values": {
+        "minLayerHeights": [
+          750,
+          1000,
+          7500,
+          0
+        ],
+        "maxLayerHeights": [
+          1400,
+          2200,
+          8000,
+          0
+        ],
+        "minIntervalHeights": [
+          0,
+          2200,
+          0
+        ],
+        "maxIntervalHeights": [
+          750,
+          7500,
+          0
+        ],
+        "densityScales": [
+          0.2,
+          0.2,
+          0.003,
+          0.2
+        ],
+        "shapeAmounts": [
+          1,
+          1,
+          0.4,
+          1
+        ],
+        "shapeDetailAmounts": [
+          1,
+          1,
+          0,
+          1
+        ],
+        "weatherExponents": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "shapeAlteringBiases": [
+          0.35,
+          0.35,
+          0.35,
+          0.35
+        ],
+        "coverageFilterWidths": [
+          0.6,
+          0.6,
+          0.5,
+          0.6
+        ],
+        "minHeight": 750,
+        "maxHeight": 8000,
+        "shadowTopHeight": 2200,
+        "shadowBottomHeight": 750,
+        "shadowLayerMask": [
+          1,
+          1,
+          0,
+          0
+        ],
+        "densityProfile": {
+          "expTerms": {
+            "x": 0,
+            "y": 0,
+            "z": 0,
+            "w": 0
+          },
+          "exponents": {
+            "x": 0,
+            "y": 0,
+            "z": 0,
+            "w": 0
+          },
+          "linearTerms": {
+            "x": 0.75,
+            "y": 0.75,
+            "z": 0.75,
+            "w": 0.75
+          },
+          "constantTerms": {
+            "x": 0.25,
+            "y": 0.25,
+            "z": 0.25,
+            "w": 0.25
+          }
+        }
+      }
+    },
+    {
+      "layers": [
+        {
+          "channel": "r",
+          "altitude": 0,
+          "height": 1,
+          "densityScale": 0.2,
+          "shapeAmount": 1,
+          "shapeDetailAmount": 1,
+          "weatherExponent": 1,
+          "shapeAlteringBias": 0.35,
+          "coverageFilterWidth": 0.6,
+          "densityProfile": {
+            "expTerm": 0,
+            "exponent": 0,
+            "linearTerm": 0.75,
+            "constantTerm": 0.25
+          },
+          "shadow": false
+        },
+        {
+          "channel": "r",
+          "altitude": 2,
+          "height": 1,
+          "densityScale": 0.2,
+          "shapeAmount": 1,
+          "shapeDetailAmount": 1,
+          "weatherExponent": 1,
+          "shapeAlteringBias": 0.35,
+          "coverageFilterWidth": 0.6,
+          "densityProfile": {
+            "expTerm": 0,
+            "exponent": 0,
+            "linearTerm": 0.75,
+            "constantTerm": 0.25
+          },
+          "shadow": false
+        },
+        {
+          "channel": "r",
+          "altitude": 4,
+          "height": 1,
+          "densityScale": 0.2,
+          "shapeAmount": 1,
+          "shapeDetailAmount": 1,
+          "weatherExponent": 1,
+          "shapeAlteringBias": 0.35,
+          "coverageFilterWidth": 0.6,
+          "densityProfile": {
+            "expTerm": 0,
+            "exponent": 0,
+            "linearTerm": 0.75,
+            "constantTerm": 0.25
+          },
+          "shadow": false
+        },
+        {
+          "channel": "r",
+          "altitude": 6,
+          "height": 1,
+          "densityScale": 0.2,
+          "shapeAmount": 1,
+          "shapeDetailAmount": 1,
+          "weatherExponent": 1,
+          "shapeAlteringBias": 0.35,
+          "coverageFilterWidth": 0.6,
+          "densityProfile": {
+            "expTerm": 0,
+            "exponent": 0,
+            "linearTerm": 0.75,
+            "constantTerm": 0.25
+          },
+          "shadow": false
+        }
+      ],
+      "values": {
+        "minLayerHeights": [
+          0,
+          2,
+          4,
+          6
+        ],
+        "maxLayerHeights": [
+          1,
+          3,
+          5,
+          7
+        ],
+        "minIntervalHeights": [
+          1,
+          3,
+          5
+        ],
+        "maxIntervalHeights": [
+          2,
+          4,
+          6
+        ],
+        "densityScales": [
+          0.2,
+          0.2,
+          0.2,
+          0.2
+        ],
+        "shapeAmounts": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "shapeDetailAmounts": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "weatherExponents": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "shapeAlteringBiases": [
+          0.35,
+          0.35,
+          0.35,
+          0.35
+        ],
+        "coverageFilterWidths": [
+          0.6,
+          0.6,
+          0.6,
+          0.6
+        ],
+        "minHeight": 0,
+        "maxHeight": 7,
+        "shadowTopHeight": 0,
+        "shadowBottomHeight": 0,
+        "shadowLayerMask": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "densityProfile": {
+          "expTerms": {
+            "x": 0,
+            "y": 0,
+            "z": 0,
+            "w": 0
+          },
+          "exponents": {
+            "x": 0,
+            "y": 0,
+            "z": 0,
+            "w": 0
+          },
+          "linearTerms": {
+            "x": 0.75,
+            "y": 0.75,
+            "z": 0.75,
+            "w": 0.75
+          },
+          "constantTerms": {
+            "x": 0.25,
+            "y": 0.25,
+            "z": 0.25,
+            "w": 0.25
+          }
+        }
+      }
+    },
+    {
+      "layers": [
+        {
+          "channel": "r",
+          "altitude": 0,
+          "height": 3,
+          "densityScale": 0.2,
+          "shapeAmount": 1,
+          "shapeDetailAmount": 1,
+          "weatherExponent": 1,
+          "shapeAlteringBias": 0.35,
+          "coverageFilterWidth": 0.6,
+          "densityProfile": {
+            "expTerm": 0,
+            "exponent": 0,
+            "linearTerm": 0.75,
+            "constantTerm": 0.25
+          },
+          "shadow": false
+        },
+        {
+          "channel": "r",
+          "altitude": 2,
+          "height": 1,
+          "densityScale": 0.2,
+          "shapeAmount": 1,
+          "shapeDetailAmount": 1,
+          "weatherExponent": 1,
+          "shapeAlteringBias": 0.35,
+          "coverageFilterWidth": 0.6,
+          "densityProfile": {
+            "expTerm": 0,
+            "exponent": 0,
+            "linearTerm": 0.75,
+            "constantTerm": 0.25
+          },
+          "shadow": false
+        },
+        {
+          "channel": "r",
+          "altitude": 4,
+          "height": 2,
+          "densityScale": 0.2,
+          "shapeAmount": 1,
+          "shapeDetailAmount": 1,
+          "weatherExponent": 1,
+          "shapeAlteringBias": 0.35,
+          "coverageFilterWidth": 0.6,
+          "densityProfile": {
+            "expTerm": 0,
+            "exponent": 0,
+            "linearTerm": 0.75,
+            "constantTerm": 0.25
+          },
+          "shadow": false
+        },
+        {
+          "channel": "r",
+          "altitude": 6,
+          "height": 1,
+          "densityScale": 0.2,
+          "shapeAmount": 1,
+          "shapeDetailAmount": 1,
+          "weatherExponent": 1,
+          "shapeAlteringBias": 0.35,
+          "coverageFilterWidth": 0.6,
+          "densityProfile": {
+            "expTerm": 0,
+            "exponent": 0,
+            "linearTerm": 0.75,
+            "constantTerm": 0.25
+          },
+          "shadow": false
+        }
+      ],
+      "values": {
+        "minLayerHeights": [
+          0,
+          2,
+          4,
+          6
+        ],
+        "maxLayerHeights": [
+          3,
+          3,
+          6,
+          7
+        ],
+        "minIntervalHeights": [
+          3,
+          0,
+          0
+        ],
+        "maxIntervalHeights": [
+          4,
+          0,
+          0
+        ],
+        "densityScales": [
+          0.2,
+          0.2,
+          0.2,
+          0.2
+        ],
+        "shapeAmounts": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "shapeDetailAmounts": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "weatherExponents": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "shapeAlteringBiases": [
+          0.35,
+          0.35,
+          0.35,
+          0.35
+        ],
+        "coverageFilterWidths": [
+          0.6,
+          0.6,
+          0.6,
+          0.6
+        ],
+        "minHeight": 0,
+        "maxHeight": 7,
+        "shadowTopHeight": 0,
+        "shadowBottomHeight": 0,
+        "shadowLayerMask": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "densityProfile": {
+          "expTerms": {
+            "x": 0,
+            "y": 0,
+            "z": 0,
+            "w": 0
+          },
+          "exponents": {
+            "x": 0,
+            "y": 0,
+            "z": 0,
+            "w": 0
+          },
+          "linearTerms": {
+            "x": 0.75,
+            "y": 0.75,
+            "z": 0.75,
+            "w": 0.75
+          },
+          "constantTerms": {
+            "x": 0.25,
+            "y": 0.25,
+            "z": 0.25,
+            "w": 0.25
+          }
+        }
+      }
+    },
+    {
+      "layers": [
+        {
+          "channel": "r",
+          "altitude": 0,
+          "height": 3,
+          "densityScale": 0.2,
+          "shapeAmount": 1,
+          "shapeDetailAmount": 1,
+          "weatherExponent": 1,
+          "shapeAlteringBias": 0.35,
+          "coverageFilterWidth": 0.6,
+          "densityProfile": {
+            "expTerm": 0,
+            "exponent": 0,
+            "linearTerm": 0.75,
+            "constantTerm": 0.25
+          },
+          "shadow": false
+        },
+        {
+          "channel": "r",
+          "altitude": 2,
+          "height": 0,
+          "densityScale": 0.2,
+          "shapeAmount": 1,
+          "shapeDetailAmount": 1,
+          "weatherExponent": 1,
+          "shapeAlteringBias": 0.35,
+          "coverageFilterWidth": 0.6,
+          "densityProfile": {
+            "expTerm": 0,
+            "exponent": 0,
+            "linearTerm": 0.75,
+            "constantTerm": 0.25
+          },
+          "shadow": false
+        },
+        {
+          "channel": "r",
+          "altitude": 4,
+          "height": 4,
+          "densityScale": 0.2,
+          "shapeAmount": 1,
+          "shapeDetailAmount": 1,
+          "weatherExponent": 1,
+          "shapeAlteringBias": 0.35,
+          "coverageFilterWidth": 0.6,
+          "densityProfile": {
+            "expTerm": 0,
+            "exponent": 0,
+            "linearTerm": 0.75,
+            "constantTerm": 0.25
+          },
+          "shadow": false
+        },
+        {
+          "channel": "r",
+          "altitude": 6,
+          "height": 1,
+          "densityScale": 0.2,
+          "shapeAmount": 1,
+          "shapeDetailAmount": 1,
+          "weatherExponent": 1,
+          "shapeAlteringBias": 0.35,
+          "coverageFilterWidth": 0.6,
+          "densityProfile": {
+            "expTerm": 0,
+            "exponent": 0,
+            "linearTerm": 0.75,
+            "constantTerm": 0.25
+          },
+          "shadow": false
+        }
+      ],
+      "values": {
+        "minLayerHeights": [
+          0,
+          2,
+          4,
+          6
+        ],
+        "maxLayerHeights": [
+          3,
+          2,
+          8,
+          7
+        ],
+        "minIntervalHeights": [
+          3,
+          0,
+          0
+        ],
+        "maxIntervalHeights": [
+          4,
+          0,
+          0
+        ],
+        "densityScales": [
+          0.2,
+          0.2,
+          0.2,
+          0.2
+        ],
+        "shapeAmounts": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "shapeDetailAmounts": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "weatherExponents": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "shapeAlteringBiases": [
+          0.35,
+          0.35,
+          0.35,
+          0.35
+        ],
+        "coverageFilterWidths": [
+          0.6,
+          0.6,
+          0.6,
+          0.6
+        ],
+        "minHeight": 0,
+        "maxHeight": 8,
+        "shadowTopHeight": 0,
+        "shadowBottomHeight": 0,
+        "shadowLayerMask": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "densityProfile": {
+          "expTerms": {
+            "x": 0,
+            "y": 0,
+            "z": 0,
+            "w": 0
+          },
+          "exponents": {
+            "x": 0,
+            "y": 0,
+            "z": 0,
+            "w": 0
+          },
+          "linearTerms": {
+            "x": 0.75,
+            "y": 0.75,
+            "z": 0.75,
+            "w": 0.75
+          },
+          "constantTerms": {
+            "x": 0.25,
+            "y": 0.25,
+            "z": 0.25,
+            "w": 0.25
+          }
+        }
+      }
+    },
+    {
+      "layers": [
+        {
+          "channel": "r",
+          "altitude": 10,
+          "height": 0,
+          "densityScale": 0.2,
+          "shapeAmount": 1,
+          "shapeDetailAmount": 1,
+          "weatherExponent": 1,
+          "shapeAlteringBias": 0.35,
+          "coverageFilterWidth": 0.6,
+          "densityProfile": {
+            "expTerm": 0,
+            "exponent": 0,
+            "linearTerm": 0.75,
+            "constantTerm": 0.25
+          },
+          "shadow": false
+        },
+        {
+          "channel": "r",
+          "altitude": 10,
+          "height": 0,
+          "densityScale": 0.2,
+          "shapeAmount": 1,
+          "shapeDetailAmount": 1,
+          "weatherExponent": 1,
+          "shapeAlteringBias": 0.35,
+          "coverageFilterWidth": 0.6,
+          "densityProfile": {
+            "expTerm": 0,
+            "exponent": 0,
+            "linearTerm": 0.75,
+            "constantTerm": 0.25
+          },
+          "shadow": false
+        },
+        {
+          "channel": "r",
+          "altitude": 12,
+          "height": 0,
+          "densityScale": 0.2,
+          "shapeAmount": 1,
+          "shapeDetailAmount": 1,
+          "weatherExponent": 1,
+          "shapeAlteringBias": 0.35,
+          "coverageFilterWidth": 0.6,
+          "densityProfile": {
+            "expTerm": 0,
+            "exponent": 0,
+            "linearTerm": 0.75,
+            "constantTerm": 0.25
+          },
+          "shadow": false
+        },
+        {
+          "channel": "r",
+          "altitude": 12,
+          "height": 0,
+          "densityScale": 0.2,
+          "shapeAmount": 1,
+          "shapeDetailAmount": 1,
+          "weatherExponent": 1,
+          "shapeAlteringBias": 0.35,
+          "coverageFilterWidth": 0.6,
+          "densityProfile": {
+            "expTerm": 0,
+            "exponent": 0,
+            "linearTerm": 0.75,
+            "constantTerm": 0.25
+          },
+          "shadow": false
+        }
+      ],
+      "values": {
+        "minLayerHeights": [
+          10,
+          10,
+          12,
+          12
+        ],
+        "maxLayerHeights": [
+          10,
+          10,
+          12,
+          12
+        ],
+        "minIntervalHeights": [
+          10,
+          0,
+          0
+        ],
+        "maxIntervalHeights": [
+          12,
+          0,
+          0
+        ],
+        "densityScales": [
+          0.2,
+          0.2,
+          0.2,
+          0.2
+        ],
+        "shapeAmounts": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "shapeDetailAmounts": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "weatherExponents": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "shapeAlteringBiases": [
+          0.35,
+          0.35,
+          0.35,
+          0.35
+        ],
+        "coverageFilterWidths": [
+          0.6,
+          0.6,
+          0.6,
+          0.6
+        ],
+        "minHeight": 0,
+        "maxHeight": 0,
+        "shadowTopHeight": 0,
+        "shadowBottomHeight": 0,
+        "shadowLayerMask": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "densityProfile": {
+          "expTerms": {
+            "x": 0,
+            "y": 0,
+            "z": 0,
+            "w": 0
+          },
+          "exponents": {
+            "x": 0,
+            "y": 0,
+            "z": 0,
+            "w": 0
+          },
+          "linearTerms": {
+            "x": 0.75,
+            "y": 0.75,
+            "z": 0.75,
+            "w": 0.75
+          },
+          "constantTerms": {
+            "x": 0.25,
+            "y": 0.25,
+            "z": 0.25,
+            "w": 0.25
+          }
+        }
+      }
+    },
+    {
+      "layers": [
+        {
+          "channel": "r",
+          "altitude": 1,
+          "height": 1,
+          "densityScale": 0.2,
+          "shapeAmount": 1,
+          "shapeDetailAmount": 1,
+          "weatherExponent": 1,
+          "shapeAlteringBias": 0.35,
+          "coverageFilterWidth": 0.6,
+          "densityProfile": {
+            "expTerm": 0,
+            "exponent": 0,
+            "linearTerm": 0.75,
+            "constantTerm": 0.25
+          },
+          "shadow": true
+        },
+        {
+          "channel": "r",
+          "altitude": 2,
+          "height": 1,
+          "densityScale": 0.2,
+          "shapeAmount": 1,
+          "shapeDetailAmount": 1,
+          "weatherExponent": 1,
+          "shapeAlteringBias": 0.35,
+          "coverageFilterWidth": 0.6,
+          "densityProfile": {
+            "expTerm": 0,
+            "exponent": 0,
+            "linearTerm": 0.75,
+            "constantTerm": 0.25
+          },
+          "shadow": true
+        },
+        {
+          "channel": "r",
+          "altitude": 3,
+          "height": 1,
+          "densityScale": 0.2,
+          "shapeAmount": 1,
+          "shapeDetailAmount": 1,
+          "weatherExponent": 1,
+          "shapeAlteringBias": 0.35,
+          "coverageFilterWidth": 0.6,
+          "densityProfile": {
+            "expTerm": 0,
+            "exponent": 0,
+            "linearTerm": 0.75,
+            "constantTerm": 0.25
+          },
+          "shadow": false
+        },
+        {
+          "channel": "r",
+          "altitude": 4,
+          "height": 1,
+          "densityScale": 0.2,
+          "shapeAmount": 1,
+          "shapeDetailAmount": 1,
+          "weatherExponent": 1,
+          "shapeAlteringBias": 0.35,
+          "coverageFilterWidth": 0.6,
+          "densityProfile": {
+            "expTerm": 0,
+            "exponent": 0,
+            "linearTerm": 0.75,
+            "constantTerm": 0.25
+          },
+          "shadow": false
+        }
+      ],
+      "values": {
+        "minLayerHeights": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "maxLayerHeights": [
+          2,
+          3,
+          4,
+          5
+        ],
+        "minIntervalHeights": [
+          0,
+          0,
+          0
+        ],
+        "maxIntervalHeights": [
+          0,
+          0,
+          0
+        ],
+        "densityScales": [
+          0.2,
+          0.2,
+          0.2,
+          0.2
+        ],
+        "shapeAmounts": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "shapeDetailAmounts": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "weatherExponents": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "shapeAlteringBiases": [
+          0.35,
+          0.35,
+          0.35,
+          0.35
+        ],
+        "coverageFilterWidths": [
+          0.6,
+          0.6,
+          0.6,
+          0.6
+        ],
+        "minHeight": 1,
+        "maxHeight": 5,
+        "shadowTopHeight": 3,
+        "shadowBottomHeight": 1,
+        "shadowLayerMask": [
+          1,
+          1,
+          0,
+          0
+        ],
+        "densityProfile": {
+          "expTerms": {
+            "x": 0,
+            "y": 0,
+            "z": 0,
+            "w": 0
+          },
+          "exponents": {
+            "x": 0,
+            "y": 0,
+            "z": 0,
+            "w": 0
+          },
+          "linearTerms": {
+            "x": 0.75,
+            "y": 0.75,
+            "z": 0.75,
+            "w": 0.75
+          },
+          "constantTerms": {
+            "x": 0.25,
+            "y": 0.25,
+            "z": 0.25,
+            "w": 0.25
+          }
+        }
+      }
+    }
+  ]
+}

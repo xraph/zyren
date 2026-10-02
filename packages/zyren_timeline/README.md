@@ -41,6 +41,66 @@ You can implement `TimelineTrack` for another property. `prepare` must validate
 without mutation and return an edit that cannot fail. Built-in tracks are sampled
 before any edits are applied. Do not reuse a target across multiple tracks.
 
+## Mixing clips
+
+Use `SceneTimelinePlugin.mixed` when several clips contribute to the same pose:
+
+```dart
+final base = TimelineClip(
+  duration: const Duration(seconds: 2),
+  tracks: [TransformTrack(mesh, [TransformKeyframe(Duration.zero)])],
+);
+final raised = TimelineClip(
+  duration: const Duration(seconds: 2),
+  tracks: [
+    TransformTrack(mesh, [
+      TransformKeyframe(Duration.zero, position: const Vec3(0, 2, 0)),
+    ]),
+  ],
+);
+final lift = TimelineLayer(
+  clip: raised,
+  weights: [
+    ClipWeight(Duration.zero, 0),
+    ClipWeight(const Duration(seconds: 1), 1),
+    ClipWeight(const Duration(seconds: 2), 0),
+  ],
+);
+final timeline = SceneTimelinePlugin.mixed(
+  duration: const Duration(seconds: 2),
+  base: base,
+  layers: [lift],
+);
+controller.use(timeline);
+await controller.ready;
+timeline.seek(const Duration(milliseconds: 500)); // mesh.position.y == 1
+```
+
+Clips copy their built-in `TransformTrack` and `CameraTrack` data. Custom tracks
+and subclasses are rejected. A layer may omit base targets, but every target it
+includes must have the same track type as its base. Track lists and weight keys
+are immutable.
+
+Weight keys use the main timeline's clock, fit its duration, increase strictly
+and have values from zero to one. Endpoint weights hold outside the keys. You
+can query the curve with `layer.weightAt(time)`. A nonnegative `start` shifts the
+clip's local sampling time without shifting its weight curve. Clip time clamps
+to its endpoints; clips can have different durations from the main timeline.
+
+The base supplies unused weight separately for each target. If active layer
+weights exceed one, they normalize and the base contributes nothing. Positions
+and scales average linearly. Active scales must keep matching signs on every
+axis. Across clips, quaternion signs align to the highest-weight pose before
+normalized linear blending; this differs from the spherical interpolation used
+within a track. Visibility comes from the highest-weight pose, with ties going
+to the base, then layers in declaration order. Camera positions, targets and
+normalized up vectors blend before validating the resulting view.
+
+Inactive tracks are not sampled. Invalid active samples or blends leave every
+target and the timeline position unchanged, pause playback and emit no events
+for that advance. Targets retain the normal scene and parent ownership checks.
+Markers stay on the main timeline, so blending does not duplicate them.
+
 ## Playback events
 
 Pass `markers` alongside your tracks and listen to `events`:
@@ -85,5 +145,90 @@ clips. Invalid track samples follow the same event behavior.
 The exported `sceneTimeline` service key belongs to `zyren.timeline`. Cancel your
 `changes` and `events` subscriptions when their consumers close. Pausing a stream
 subscription can buffer notifications. Detach stops playback and retains the
-consumed start state for renderer recovery. Reverse playback, clip mixing,
-imported animation events, skeletal animation and morphs are outside this version.
+consumed start state for renderer recovery. Imported animation events, skeletal animation and morphs are outside this version.
+
+
+## Independent actions
+
+After attaching a mixed timeline, you can run clips on separate clocks:
+
+```dart
+final idle = timeline.createAction(idleClip, weight: 1)..play();
+final walk = timeline.createAction(walkClip);
+idle.crossFadeTo(walk, const Duration(milliseconds: 250));
+```
+
+Actions share the base targets and use the same normalized pose mixer as authored
+layers. `createAction` starts paused at zero weight unless you specify a weight.
+`play` restarts a finished action. `pause` holds its current pose, and `seek`
+clamps its local clock without moving the main timeline or emitting markers.
+An action holds its final pose at completion. Call `dispose` to remove its
+contribution and invalidate its handle.
+
+Use `fadeTo(weight, duration)` to change a contribution. A fade continues while
+its action clock is paused, and interruption starts from the current weight.
+`crossFadeTo` starts the destination without resetting an unfinished clock and
+fades the source to zero. The source clock continues until its endpoint or until
+you pause it. Crossfades require positive duration and actions on the same timeline.
+
+Action clocks and fades use the engine delta. They acquire their own frame demand,
+so you can keep the main timeline paused. Detach stops actions and invalidates
+handles. Failed blends keep the previous scene pose and clocks, stop playback
+and cancel fades. Action clips do not emit markers; markers use the main clock.
+
+## Animation dependencies
+
+The glTF importer currently rejects `animations`, node `skin` and node `weights`
+in its static model profile. Imported animation needs validated sampler/channel
+recipes and stable bindings from imported nodes to scene objects before this
+package can consume it. Imported events also need an explicit source format and
+loop/seek event policy; glTF animation channels alone do not define named events.
+
+Skeletal playback needs joint hierarchies, inverse bind matrices and native skin
+vertex deformation. Morph playback needs imported target deltas and native weight
+bindings. These require importer and renderer work outside this package. Keep
+those changes with their owners, then add timeline adapters and native integration
+checks for their public APIs. Transform and camera actions do not establish skin
+or morph support.
+
+
+## Local looping and reverse playback
+
+Set `loop: true` on a `TimelineLayer` to repeat its clip independently of the main
+clock. `reverse: true` samples from its end toward zero. The layer holds its
+starting endpoint before `start`. A looping reverse layer samples the end at
+an exact loop boundary; a forward layer samples zero. You can inspect the mapping
+with `localTimeAt(time)`. Weight curves always use the main clock.
+
+Actions accept the same `loop` and `reverse` options. Reverse actions start at
+the clip end, retain overshoot across loops and stop at zero when looping is off.
+You can change either flag during playback. Their fades keep moving forward in
+elapsed engine time even when their clip clocks run backward. `sampleTime` on
+an authored layer fixes its local sample and overrides loop/reverse mapping.
+
+The main timeline also accepts `reverse: true`. Reverse playback starts at the
+end, emits markers in descending time order and keeps equal-time markers in
+declaration order. It crosses `[next, previous)`, including end markers when
+starting at the end. A reverse loop emits zero markers before the next loop's
+end markers. Seeking is still silent, and the event limit applies in either
+direction. Set the direction before seeking to its starting endpoint if you
+want to rearm that endpoint's markers.
+
+## Additive layers
+
+Set `additive: true` on a layer or action to apply changes relative to its clip's
+`referenceTime`, which defaults to zero. Additive weights do not consume or
+normalize absolute layer weights. The mixer first resolves absolute poses, then
+applies additive layers in declaration order, followed by actions in creation
+order. This keeps seeking deterministic.
+
+Position deltas add in the target's parent space. Rotation uses a local quaternion
+delta from the reference orientation, interpolated from identity and multiplied
+onto the blended rotation. Scale applies a weighted sample/reference ratio on
+each axis. Its signs must match the reference, and the resulting pose must stay
+finite and nonsingular. Visibility stays with the absolute blend.
+
+Camera position, target and normalized up deltas add relative to the reference
+camera pose. The final view still passes camera validation before any scene edits.
+Choose a reference pose that represents no contribution. A constant clip sampled
+at its reference adds nothing.

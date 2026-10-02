@@ -5,6 +5,7 @@ import 'package:zyren/zyren.dart';
 import 'package:zyren_native/zyren_native.dart';
 import 'package:zyren_geospatial/zyren_geospatial.dart';
 import 'quantized_mesh_fixture.dart';
+import 'terrain_extensions_test.dart' show withMetadata, range;
 
 void main() {
   test(
@@ -14,21 +15,38 @@ void main() {
       addTearDown(() => server.close(force: true));
       var failChildren = true;
       var requests = 0;
+      var extensionHeader = false;
       final bytes = gridMeshFixture();
       server.listen((request) async {
         if (request.uri.path.endsWith('layer.json')) {
           request.response.write(
             jsonEncode({
               'maxzoom': 1,
+              'metadataAvailability': 1,
+              'extensions': ['metadata'],
+              'attribution': 'Dynamic terrain fixture',
               'tiles': ['{z}/{x}/{y}.terrain'],
             }),
           );
         } else {
           requests++;
+          extensionHeader =
+              request.headers.value('accept') ==
+              'application/vnd.quantized-mesh;extensions=metadata';
           if (failChildren && request.uri.path.startsWith('/1/')) {
             request.response.statusCode = 503;
           } else {
-            request.response.add(bytes);
+            final parts = request.uri.pathSegments;
+            final x = int.parse(parts[1]);
+            request.response.add(
+              parts[0] == '0'
+                  ? withMetadata(bytes, {
+                      'available': [
+                        [range(x * 2, 0, x * 2 + 1, 1)],
+                      ],
+                    })
+                  : bytes,
+            );
           }
         }
         await request.response.close();
@@ -64,13 +82,17 @@ void main() {
       );
       try {
         Future<RenderedFrame> settle() async {
+          var idleFrames = 0;
           for (var i = 0; i < 200; i++) {
             final frame = await engine.render(
               elapsed: Duration.zero,
               width: 256,
               height: 192,
             );
-            if (terrain.stats!.activeRequests == 0) return frame;
+            idleFrames = terrain.stats!.activeRequests == 0
+                ? idleFrames + 1
+                : 0;
+            if (idleFrames >= 2) return frame;
             await Future<void>.delayed(const Duration(milliseconds: 5));
           }
           throw StateError('HTTP terrain did not settle.');
@@ -87,6 +109,8 @@ void main() {
         terrain.retryFailed();
         final detailed = await settle();
         expect(terrain.failures, isEmpty);
+        expect(extensionHeader, isTrue);
+        expect(terrain.attributions, ['Dynamic terrain fixture']);
         expect(terrain.visibleCoordinates.every((c) => c.z == 1), isTrue);
         var colored = 0;
         for (var i = 0; i < detailed.pixels.length; i += 4) {

@@ -1,7 +1,8 @@
 part of 'native_renderer.dart';
 
 /// Native scene backends with scoped GPU work and device accounting.
-abstract interface class NativeGpuBackend implements MaterialBackend {
+abstract interface class NativeGpuBackend
+    implements MaterialBackend, GpuDiagnosticsBackend {
   Future<ResourceStats> resourceStats();
   Future<ShaderStats> shaderStats();
   Future<GraphCacheStats> graphStats();
@@ -87,6 +88,11 @@ final class NativeGpuServices {
   ScenePacketEncoder createSceneEncoder({required int viewId}) {
     _checkOpen();
     return ScenePacketEncoder(viewId: viewId, materialDevice: _device);
+  }
+
+  Future<GpuInspection> inspectGpu({int allocationLimit = 128}) {
+    _checkOpen();
+    return _device.inspectGpu(allocationLimit: allocationLimit);
   }
 
   Future<NativeDeviceInfo> deviceInfo() => _device.deviceInfo();

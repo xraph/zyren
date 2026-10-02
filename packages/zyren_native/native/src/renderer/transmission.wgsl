@@ -11,7 +11,9 @@ fn transmission_sample(uv:vec2<f32>, surface_depth:f32) -> vec4<f32> {
     for (var y=0;y<2;y++) { for(var x=0;x<2;x++) {
         let p=low+vec2(x,y);
         if (any(p<vec2(0)) || any(p>=size)) {continue;}
-        if (textureLoad(opaque_depth,p,0)+.00001<surface_depth) {continue;}
+        let depth = textureLoad(opaque_depth,p,0);
+        let foreground = select(depth + .00001 < surface_depth, depth - .00001 > surface_depth, uniforms.clipping.w > .5);
+        if (foreground) {continue;}
         let w=select(1.-fraction.x,fraction.x,x==1)*select(1.-fraction.y,fraction.y,y==1);
         color+=textureLoad(opaque_color,p,0)*w; total+=w;
     }}
@@ -40,7 +42,7 @@ fn transmission_path(input:VertexOutput, n:vec3<f32>, v:vec3<f32>, surface:Stand
         incoming=transmission_sample(straight_uv,input.position.z);
         if (incoming.a<0.) { incoming=vec4(0.); }
         if (environment.params.x>0.) {
-            incoming=vec4(textureSampleLevel(specular_environment,environment_sampler,environment_uv(ray),rough*environment.params.y).rgb*environment.params.x,1.);
+            incoming=vec4(environment_specular(ray,rough)*environment.params.x,1.);
         }
     }
     var absorption=vec3(1.);

@@ -172,12 +172,29 @@ _prepareGraph(GraphDescription graph, GraphDevice device) {
       case _MaterialPassDescriptor(:final descriptor):
         entryPoint(descriptor.vertexEntryPoint, ShaderStage.vertex);
         entryPoint(descriptor.fragmentEntryPoint, ShaderStage.fragment);
+        if (descriptor case PostProcessDescriptor(target: final target?)) {
+          use(target, false, true);
+          final info = target.descriptor as TextureDescriptor;
+          if (info.dimension != TextureDimension.d2 ||
+              info.format != TextureFormat.rgba16Float ||
+              !info.usage.contains(TextureUsage.renderAttachment)) {
+            fail(
+              GraphErrorCode.invalidBinding,
+              'Screen targets require a 2D RGBA16F render attachment.',
+              pass: pass,
+              resource: target,
+            );
+          }
+          command['screenTarget'] = target._key;
+        }
         command.addAll({
           'kind': 'material',
           'vertexEntryPoint': descriptor.vertexEntryPoint,
           'fragmentEntryPoint': descriptor.fragmentEntryPoint,
           'requiresUv': descriptor.requiresUv,
           'screenSpace': descriptor is PostProcessDescriptor,
+          if (descriptor is PostProcessDescriptor)
+            'screenStage': descriptor.stage.index,
         });
       case ComputePassDescriptor():
         entryPoint(pass.entryPoint, ShaderStage.compute);

@@ -168,7 +168,7 @@ impl MeshPipelines {
                     .as_ref()
                     .map_or(0, super::physical_maps::binding_key),
             );
-            if textures + 13 > device.limits().max_sampled_textures_per_shader_stage
+            if textures + 14 > device.limits().max_sampled_textures_per_shader_stage
                 || samplers + 8 > device.limits().max_samplers_per_shader_stage
             {
                 return Err(

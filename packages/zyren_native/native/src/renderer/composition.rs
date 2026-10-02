@@ -444,6 +444,8 @@ impl Renderer {
                 (materials, graph, environment, shadows),
             );
         }
+        let final_color = color;
+        let color = self.outlines.color_target(frame).unwrap_or(color);
         let scene_format = scene_format(frame, format, graph).expect("validated color pipeline");
         let hdr = frame.color_pipeline.is_some();
         let scene_texture = graph
@@ -511,8 +513,14 @@ impl Renderer {
                 ),
             );
         }
-        self.outlines
-            .encode(&self.device, &mut encoder, frame, color, format);
+        self.outlines.encode(
+            &self.device,
+            &mut encoder,
+            frame,
+            final_color,
+            format,
+            surface,
+        );
         encoder
     }
 }

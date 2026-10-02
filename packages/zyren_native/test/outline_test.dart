@@ -8,6 +8,161 @@ import 'package:zyren_native/zyren_native.dart';
 const green = Color3(0, 1, 0), red = Color3(1, 0, 0);
 
 void main() {
+  test(
+    'compatibility renderer declares the rendered alpha convention',
+    () async {
+      final renderer = await NativeRenderer.create();
+      try {
+        final scene = Scene()
+          ..add(
+            Mesh(
+              PlaneGeometry(width: 4, height: 4),
+              UnlitMaterial(
+                color: green,
+                opacity: .5,
+                alphaMode: MaterialAlphaMode.blend,
+              ),
+            ),
+          );
+        for (final hdr in [false, true]) {
+          scene.renderSettings = RenderSettings(hdr: hdr, backgroundAlpha: 0);
+          final frame = await renderer.render(
+            scene,
+            PerspectiveCamera(position: const Vec3(0, 0, 3)),
+            width: 32,
+            height: 32,
+          );
+          expect(
+            frame.alphaMode,
+            hdr ? AlphaMode.premultiplied : AlphaMode.straight,
+          );
+          final pixel = frame.pixels.sublist(
+            (16 * 32 + 16) * 4,
+            (16 * 32 + 16) * 4 + 4,
+          );
+          expect(pixel[1], closeTo(hdr ? 128 : 255, 1));
+          expect(pixel[3], closeTo(128, 1));
+        }
+      } finally {
+        await renderer.dispose();
+      }
+    },
+    skip: Platform.environment['RUN_NATIVE_GPU'] != '1',
+  );
+  test(
+    'translucent outlines preserve straight and associated output colors',
+    () async {
+      final backend = await NativeBackend.create();
+      try {
+        final scene = Scene();
+        final mesh = scene.add(
+          Mesh(
+            PlaneGeometry(),
+            UnlitMaterial(
+              color: green,
+              opacity: .5,
+              alphaMode: MaterialAlphaMode.blend,
+            ),
+          ),
+        );
+        scene.outline = SceneOutline(objects: [mesh], color: red);
+        final camera = OrthographicCamera(
+          verticalSize: 2,
+          near: .1,
+          far: 10,
+          position: const Vec3(0, 0, 3),
+        );
+        for (final effects in [false, true]) {
+          scene.renderSettings = RenderSettings(
+            hdr: effects,
+            backgroundAlpha: 0,
+          );
+          final out =
+              await backend.render(
+                    FrameSubmission.capture(
+                      scene: scene,
+                      camera: camera,
+                      size: PhysicalSize(64, 64),
+                    ),
+                  )
+                  as ReadbackOutput;
+          expect(
+            out.image.alphaMode,
+            effects ? AlphaMode.premultiplied : AlphaMode.straight,
+          );
+          final edge = out.image.pixels.sublist(
+            (32 * 64 + 16) * 4,
+            (32 * 64 + 16) * 4 + 4,
+          );
+          for (final (i, value)
+              in (effects ? [160, 117, 0, 192] : [213, 156, 0, 192]).indexed) {
+            expect(
+              edge[i],
+              closeTo(value, 2),
+              reason: 'effects=$effects edge=$edge',
+            );
+          }
+        }
+      } finally {
+        await backend.close();
+      }
+    },
+    skip: Platform.environment['RUN_NATIVE_GPU'] != '1',
+  );
+  test(
+    'outlines composite alpha written by effects over an opaque clear',
+    () async {
+      final backend = await NativeBackend.create();
+      final shaders = backend.createShaderCompiler();
+      final materials = backend.createMaterialCompiler();
+      try {
+        final effect = await materials.compileEffect(
+          PostProcessDescriptor(
+            program: await shaders.compile(
+              ShaderSource.wgsl('''
+${PostProcessDescriptor.interfaceWgsl}
+@fragment fn fragment(v: ScreenVertex) -> @location(0) vec4<f32> {
+  return textureLoad(sceneColor, vec2<i32>(v.position.xy), 0) * .5;
+}
+'''),
+            ),
+          ),
+        );
+        final scene = Scene()..background = const Color3(0, 0, 0);
+        final mesh = scene.add(
+          Mesh(PlaneGeometry(), UnlitMaterial(color: green)),
+        );
+        scene.outline = SceneOutline(objects: [mesh], color: red, opacity: .5);
+        scene.renderSettings = RenderSettings(effects: [effect]);
+        final out =
+            await backend.render(
+                  FrameSubmission.capture(
+                    scene: scene,
+                    camera: OrthographicCamera(
+                      verticalSize: 2,
+                      near: .1,
+                      far: 10,
+                      position: const Vec3(0, 0, 3),
+                    ),
+                    size: PhysicalSize(64, 64),
+                  ),
+                )
+                as ReadbackOutput;
+        final edge = out.image.pixels.sublist(
+          (32 * 64 + 16) * 4,
+          (32 * 64 + 16) * 4 + 4,
+        );
+        for (final (i, value) in [160, 117, 0, 192].indexed) {
+          expect(edge[i], closeTo(value, 2), reason: '$edge');
+        }
+      } finally {
+        await materials.close();
+        await shaders.close();
+        await backend.close();
+      }
+    },
+    skip: Platform.environment['RUN_NATIVE_GPU'] != '1',
+  );
   for (final strategy in DepthStrategy.values) {
     test(
       '$strategy outlines follow coverage, depth, clipping and materials',
@@ -230,13 +385,13 @@ void main() {
               ),
         ),
       );
-      expect((await backend.graphStats()).targetBytes, 32 * 32 * 4);
+      expect((await backend.graphStats()).targetBytes, 32 * 32 * 8);
       await sibling.render(capture(64));
-      expect((await backend.graphStats()).targetBytes, (32 * 32 + 64 * 64) * 4);
+      expect((await backend.graphStats()).targetBytes, (32 * 32 + 64 * 64) * 8);
       await backend.render(capture(16));
-      expect((await backend.graphStats()).targetBytes, (16 * 16 + 64 * 64) * 4);
+      expect((await backend.graphStats()).targetBytes, (16 * 16 + 64 * 64) * 8);
       await sibling.close();
-      expect((await backend.graphStats()).targetBytes, 16 * 16 * 4);
+      expect((await backend.graphStats()).targetBytes, 16 * 16 * 8);
       scene.outline = null;
       await backend.render(capture(16));
       expect((await backend.graphStats()).targetBytes, 0);

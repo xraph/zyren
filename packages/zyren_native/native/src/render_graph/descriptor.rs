@@ -48,6 +48,8 @@ pub struct Pass {
     pub color: Option<Color>,
     pub requires_uv: Option<bool>,
     pub screen_space: Option<bool>,
+    pub screen_stage: Option<u32>,
+    pub screen_target: Option<Key>,
 }
 #[derive(Deserialize, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[serde(rename_all = "camelCase")]

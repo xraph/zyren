@@ -4,7 +4,10 @@
 import 'parameters.dart';
 import 'quality.dart';
 
-String atmosphereDefinitions(AtmosphereParameters a, AtmosphereQuality q) {
+String atmosphereDefinitions(
+  AtmosphereParameters a,
+  AtmosphereLutDimensions q,
+) {
   String scalar(String name, double value) => 'const $name: f32 = $value;\n';
   String vector(String name, List<double> v) =>
       'const $name = vec3<f32>(${v.join(',')});\n';
@@ -59,13 +62,14 @@ fn sample2(t:texture_2d<f32>,uv:vec2<f32>)->vec3<f32> {
  return mix(mix(textureLoad(t,clamp(i,vec2<i32>(0),hi),0).rgb,textureLoad(t,clamp(i+vec2<i32>(1,0),vec2<i32>(0),hi),0).rgb,f.x),
  mix(textureLoad(t,clamp(i+vec2<i32>(0,1),vec2<i32>(0),hi),0).rgb,textureLoad(t,clamp(i+vec2<i32>(1,1),vec2<i32>(0),hi),0).rgb,f.x),f.y);
 }
-fn sample3(t:texture_3d<f32>,uv:vec3<f32>)->vec3<f32> {
- let size=vec3<i32>(textureDimensions(t));let p=uv*vec3<f32>(size)-.5;let i=vec3<i32>(floor(p));let f=fract(p);let hi=size-1;var sum=vec3<f32>(0.);
+fn sample4(t:texture_3d<f32>,uv:vec3<f32>)->vec4<f32> {
+ let size=vec3<i32>(textureDimensions(t));let p=uv*vec3<f32>(size)-.5;let i=vec3<i32>(floor(p));let f=fract(p);let hi=size-1;var sum=vec4<f32>(0.);
  for(var z=0;z<2;z++){for(var y=0;y<2;y++){for(var x=0;x<2;x++){
  let w=select(1.-f.x,f.x,x==1)*select(1.-f.y,f.y,y==1)*select(1.-f.z,f.z,z==1);
- sum+=textureLoad(t,clamp(i+vec3<i32>(x,y,z),vec3<i32>(0),hi),0).rgb*w;
+ sum+=textureLoad(t,clamp(i+vec3<i32>(x,y,z),vec3<i32>(0),hi),0)*w;
  }}}return sum;
 }
+fn sample3(t:texture_3d<f32>,uv:vec3<f32>)->vec3<f32> {return sample4(t,uv).rgb;}
 fn transmittanceUv(r:f32,mu:f32)->vec2<f32> {
  let h=sqrt((TOP-BOTTOM)*(TOP+BOTTOM));let rho=safeSqrt((r-BOTTOM)*(r+BOTTOM));
  let d=topDistance(r,mu);let dmin=TOP-r;let dmax=rho+h;
@@ -110,10 +114,11 @@ fn scatteringUv(r:f32,mu:f32,mus:f32,nu:f32,ground:bool)->vec4<f32> {
  let dmin=TOP-BOTTOM;let dmax=h;let a=(topDistance(BOTTOM,mus)-dmin)/(dmax-dmin);let cap=(topDistance(BOTTOM,MIN_SUN)-dmin)/(dmax-dmin);
  let us=unitCoord(max(1.-a/cap,0.)/(1.+a),MUS_SIZE);return vec4<f32>((nu+1.)*.5,us,um,ur);
 }
-fn scattering(t:texture_3d<f32>,r:f32,mu:f32,mus:f32,nu:f32,ground:bool)->vec3<f32> {
+fn scattering4(t:texture_3d<f32>,r:f32,mu:f32,mus:f32,nu:f32,ground:bool)->vec4<f32> {
  let uv=scatteringUv(r,mu,mus,nu,ground);let x=uv.x*(NU_SIZE-1.);let i=floor(x);let f=x-i;
- return mix(sample3(t,vec3<f32>((i+uv.y)/NU_SIZE,uv.z,uv.w)),sample3(t,vec3<f32>((i+1.+uv.y)/NU_SIZE,uv.z,uv.w)),f);
+ return mix(sample4(t,vec3<f32>((i+uv.y)/NU_SIZE,uv.z,uv.w)),sample4(t,vec3<f32>((i+1.+uv.y)/NU_SIZE,uv.z,uv.w)),f);
 }
+fn scattering(t:texture_3d<f32>,r:f32,mu:f32,mus:f32,nu:f32,ground:bool)->vec3<f32> {return scattering4(t,r,mu,mus,nu,ground).rgb;}
 fn irradianceUv(r:f32,mus:f32)->vec2<f32> {return vec2<f32>(unitCoord(mus*.5+.5,I_SIZE.x),unitCoord((r-BOTTOM)/(TOP-BOTTOM),I_SIZE.y));}
 fn irradianceCoord(uv:vec2<f32>)->vec2<f32> {return vec2<f32>(BOTTOM+coordUnit(uv.y,I_SIZE.y)*(TOP-BOTTOM),cosine(2.*coordUnit(uv.x,I_SIZE.x)-1.));}
 fn irradiance(t:texture_2d<f32>,r:f32,mus:f32)->vec3<f32> {return sample2(t,irradianceUv(r,mus));}

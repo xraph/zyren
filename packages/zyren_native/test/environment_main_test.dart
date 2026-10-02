@@ -150,6 +150,22 @@ void main() {
           roughness: 1,
         );
         expect((await pixel())[0], lessThan(8));
+        // A tilted, thick slab refracts beyond the capture into the volume sky.
+        // Disable reflection so this measures the transmitted environment alone.
+        mesh.scale = const Vec3(4, 4, 1);
+        mesh.rotateY(math.pi / 4);
+        mesh.material = PhysicalMaterial(
+          transmission: 1,
+          thickness: 20,
+          specularIntensity: 0,
+          roughness: 0,
+        );
+        final skyThroughGlass = await pixel();
+        for (final (i, expected) in [213, 188, 156, 255].indexed) {
+          expect(skyThroughGlass[i], closeTo(expected, 3));
+        }
+        mesh.rotateY(-math.pi / 4);
+        mesh.scale = Vec3.one;
         final directional = Float32List.fromList([
           for (var y = 0; y < 4; y++)
             for (var x = 0; x < 8; x++) ...[

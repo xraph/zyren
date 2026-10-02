@@ -41,6 +41,7 @@ void main() {
 @group(1) @binding(1) var imageSampler: sampler;
 @group(1) @binding(2) var<uniform> tint: vec4<f32>;
 @fragment fn fragment(input: MeshVertex) -> @location(0) vec4<f32> {
+  meshClip(input.relativePosition);
   return meshColor(textureSample(image,imageSampler,input.uv0)*tint);
 }
 ''',
@@ -50,6 +51,7 @@ void main() {
             MeshShaderDescriptor(
               program: program,
               requiresUv: true,
+              supportsClipping: true,
               bindings: ShaderBindings([
                 TextureBinding.sampled(0, image, group: 1),
                 SamplerBinding(1, group: 1),
@@ -88,7 +90,14 @@ void main() {
 
         expect(await center(), [255, 0, 0, 255]);
         scene.clippingPlanes = [ClippingPlane(normal: const Vec3(1, 0, 0))];
-        await expectLater(center(), throwsUnsupportedError);
+        scene.clippingPlanes = [
+          ClippingPlane(normal: const Vec3(1, 0, 0), offset: .5),
+        ];
+        expect(await center(), [0, 0, 0, 255]);
+        scene.clippingPlanes = [
+          ClippingPlane(normal: const Vec3(-1, 0, 0), offset: -.5),
+        ];
+        expect(await center(), [255, 0, 0, 255]);
         mesh.clippingEnabled = false;
         expect(await center(), [255, 0, 0, 255]);
         scene.clippingPlanes = [];

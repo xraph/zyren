@@ -5,6 +5,8 @@ import 'dart:math' as math;
 import 'package:zyren/zyren.dart';
 
 part 'src/timeline_events.dart';
+part 'src/timeline_mixing.dart';
+part 'src/timeline_actions.dart';
 
 const sceneTimeline = ServiceKey<SceneTimelinePlugin>('zyren.timeline');
 
@@ -61,22 +63,29 @@ class TransformTrack extends TimelineTrack {
   Duration get end => keyframes.last.time;
   @override
   void Function() prepare(Duration time) {
+    final pose = _sample(time);
+    return () {
+      target.position = pose.position;
+      target.scale = pose.scale;
+      target.quaternion = pose.rotation;
+      target.visible = pose.visible;
+    };
+  }
+
+  TransformKeyframe _sample(Duration time) {
     final (index, fraction) = _segment(
       keyframes.map((key) => key.time).toList(),
       time,
     );
     final a = keyframes[index],
         b = keyframes[math.min(index + 1, keyframes.length - 1)];
-    final position = _lerp(a.position, b.position, fraction);
-    final scale = _lerp(a.scale, b.scale, fraction);
-    final rotation = _slerp(a.rotation, b.rotation, fraction);
-    final visible = fraction == 1 ? b.visible : a.visible;
-    return () {
-      target.position = position;
-      target.scale = scale;
-      target.quaternion = rotation;
-      target.visible = visible;
-    };
+    return TransformKeyframe(
+      Duration.zero,
+      position: _lerp(a.position, b.position, fraction),
+      scale: _lerp(a.scale, b.scale, fraction),
+      rotation: _slerp(a.rotation, b.rotation, fraction),
+      visible: fraction == 1 ? b.visible : a.visible,
+    );
   }
 }
 
@@ -108,21 +117,27 @@ class CameraTrack extends TimelineTrack {
   Duration get end => keyframes.last.time;
   @override
   void Function() prepare(Duration time) {
+    final pose = _sample(time);
+    return () => target.batch(() {
+      target.position = pose.position;
+      target.target = pose.target;
+      target.up = pose.up;
+    });
+  }
+
+  CameraKeyframe _sample(Duration time) {
     final (index, fraction) = _segment(
       keyframes.map((key) => key.time).toList(),
       time,
     );
     final a = keyframes[index],
         b = keyframes[math.min(index + 1, keyframes.length - 1)];
-    final position = _lerp(a.position, b.position, fraction);
-    final lookAt = _lerp(a.target, b.target, fraction);
-    final up = _lerp(a.up, b.up, fraction);
-    _validateCamera(position, lookAt, up);
-    return () => target.batch(() {
-      target.position = position;
-      target.target = lookAt;
-      target.up = up.normalized();
-    });
+    return CameraKeyframe(
+      Duration.zero,
+      position: _lerp(a.position, b.position, fraction),
+      target: _lerp(a.target, b.target, fraction),
+      up: _lerp(a.up, b.up, fraction).normalized(),
+    );
   }
 }
 
@@ -130,11 +145,19 @@ class CameraTrack extends TimelineTrack {
 class SceneTimelinePlugin extends ScenePlugin {
   @override
   String get id => 'zyren.timeline';
+  TimelineClip? _base;
+  List<TimelineLayer> _layers = const [];
+  final List<TimelineAction> _actions = [];
+  Registration? _actionDemand;
+  bool _actionFirstTick = true;
   final Duration duration;
   final List<TimelineTrack> tracks;
   final List<TimelineMarker> markers;
   final int maxEventsPerAdvance;
-  bool loop;
+  late final List<TimelineMarker> _reverseMarkers = _reverseMarkerOrder(
+    markers,
+  );
+  bool loop, reverse;
   final _changes = StreamController<void>.broadcast();
   final _events = StreamController<TimelineEvent>.broadcast();
   final _parents = Map<Object3D, Object3D?>.identity();
@@ -144,12 +167,37 @@ class SceneTimelinePlugin extends ScenePlugin {
   bool _playing = false, _firstTick = true;
   bool _startPending = true;
   int _loopIndex = 0;
+
+  /// Combines absolute clips with weight curves on this timeline's clock.
+  factory SceneTimelinePlugin.mixed({
+    required Duration duration,
+    required TimelineClip base,
+    Iterable<TimelineLayer> layers = const [],
+    Iterable<TimelineMarker> markers = const [],
+    int maxEventsPerAdvance = 1024,
+    bool loop = false,
+    bool reverse = false,
+  }) {
+    final copied = List<TimelineLayer>.unmodifiable(layers);
+    return SceneTimelinePlugin(
+        duration: duration,
+        tracks: _mixTracks(duration, base, copied),
+        markers: markers,
+        maxEventsPerAdvance: maxEventsPerAdvance,
+        loop: loop,
+        reverse: reverse,
+      )
+      .._base = base
+      .._layers = copied;
+  }
+
   SceneTimelinePlugin({
     required this.duration,
     required Iterable<TimelineTrack> tracks,
     Iterable<TimelineMarker> markers = const [],
     this.maxEventsPerAdvance = 1024,
     this.loop = false,
+    this.reverse = false,
   }) : tracks = List.unmodifiable(tracks),
        markers = List.unmodifiable(markers) {
     if (duration <= Duration.zero) {
@@ -158,6 +206,7 @@ class SceneTimelinePlugin extends ScenePlugin {
     if (maxEventsPerAdvance < 1) {
       throw ArgumentError('The event limit must be positive.');
     }
+    if (reverse) _position = duration;
     final ids = <String>{};
     var previous = Duration.zero;
     for (final marker in this.markers) {
@@ -217,14 +266,14 @@ class SceneTimelinePlugin extends ScenePlugin {
     );
     _applyPose(next);
     _loopIndex = 0;
-    _startPending = next == Duration.zero;
+    _startPending = next == (reverse ? duration : Duration.zero);
   }
 
   void _applyPose(Duration next) {
     final context = _attached;
     try {
       final edits = <void Function()>[];
-      for (final track in tracks) {
+      for (final track in _poseTracks()) {
         _checkTarget(track.target);
         if (!identical(_parents[track.target], track.target.parent)) {
           throw StateError('Track target was reparented after attachment.');
@@ -239,6 +288,11 @@ class SceneTimelinePlugin extends ScenePlugin {
       _position = next;
       _notify();
     } catch (_) {
+      for (final action in _actions) {
+        action._playing = false;
+        action._fade = null;
+      }
+      _syncActionDemand();
       pause();
       rethrow;
     }
@@ -248,8 +302,10 @@ class SceneTimelinePlugin extends ScenePlugin {
     final context = _attached;
     if (_playing) return;
     try {
-      final restart = _position >= duration;
-      final next = restart ? Duration.zero : _position;
+      final restart = reverse
+          ? _position <= Duration.zero
+          : _position >= duration;
+      final next = restart ? (reverse ? duration : Duration.zero) : _position;
       final cycle = restart ? 0 : _loopIndex;
       final pending = _crossedEvents(
         next,
@@ -286,6 +342,38 @@ class SceneTimelinePlugin extends ScenePlugin {
 
   @override
   void beforeRender(PluginContext context, FrameInfo frame) {
+    final snapshots = [for (final action in _actions) action._snapshot()];
+    final active = _actions.any((action) => action._needsFrame);
+    try {
+      if (active && !_actionFirstTick) {
+        if (frame.delta.isNegative) {
+          throw ArgumentError('Playback delta must be nonnegative.');
+        }
+        for (final action in _actions) {
+          action._advance(frame.delta);
+        }
+      }
+      _actionFirstTick = false;
+      if (_playing && !_firstTick) {
+        _advanceMain(context, frame);
+      } else {
+        if (active) _applyPose(_position);
+        if (_playing) _firstTick = false;
+      }
+      _syncActionDemand();
+    } catch (_) {
+      for (var i = 0; i < _actions.length; i++) {
+        _actions[i]._restore(snapshots[i]);
+        _actions[i]._playing = false;
+        _actions[i]._fade = null;
+      }
+      _syncActionDemand();
+      pause();
+      rethrow;
+    }
+  }
+
+  void _advanceMain(PluginContext context, FrameInfo frame) {
     if (!_playing) return;
     if (_firstTick) {
       _firstTick = false;
@@ -296,23 +384,27 @@ class SceneTimelinePlugin extends ScenePlugin {
         throw ArgumentError('Playback delta must be nonnegative.');
       }
       final length = duration.inMicroseconds;
-      final remaining = length - _position.inMicroseconds;
+      final logical = reverse
+          ? length - _position.inMicroseconds
+          : _position.inMicroseconds;
+      final remaining = length - logical;
       final delta = frame.delta.inMicroseconds;
       // Divide before adding so even a large explicit delta cannot overflow.
       var wraps = 0;
-      final Duration next;
+      final Duration forward;
       if (loop) {
         wraps = delta ~/ length;
         final remainder = delta % length;
         if (remainder >= remaining) {
           wraps++;
-          next = Duration(microseconds: remainder - remaining);
+          forward = Duration(microseconds: remainder - remaining);
         } else {
-          next = _position + Duration(microseconds: remainder);
+          forward = Duration(microseconds: logical + remainder);
         }
       } else {
-        next = _position + Duration(microseconds: math.min(delta, remaining));
+        forward = Duration(microseconds: logical + math.min(delta, remaining));
       }
+      final next = reverse ? duration - forward : forward;
       final pending = _crossedEvents(
         _position,
         next,
@@ -324,7 +416,10 @@ class SceneTimelinePlugin extends ScenePlugin {
       _loopIndex += wraps;
       _startPending = false;
       pending.forEach(_events.add);
-      if (!loop && _position >= duration) pause();
+      if (!loop &&
+          (reverse ? _position <= Duration.zero : _position >= duration)) {
+        pause();
+      }
     } catch (_) {
       pause();
       rethrow;
@@ -333,6 +428,14 @@ class SceneTimelinePlugin extends ScenePlugin {
 
   @override
   void detach(PluginContext context) {
+    _actionDemand?.dispose();
+    _actionDemand = null;
+    for (final action in _actions) {
+      action._playing = false;
+      action._fade = null;
+      action._disposed = true;
+    }
+    _actions.clear();
     _context = null;
     pause();
     _parents.clear();

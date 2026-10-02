@@ -46,6 +46,9 @@ class TransformGizmoPlugin extends ScenePlugin {
   /// Radius in parent units for local axes, or world units for world axes.
   final double size;
 
+  /// Draw and pick handles through scene occluders. Defaults to depth testing.
+  final bool alwaysVisible;
+
   /// Optional nominal radius in logical pixels, capped at a third of the shorter
   /// viewport edge. Axes still foreshorten in depth. Omit for scene-unit [size].
   final double? screenSize;
@@ -65,7 +68,7 @@ class TransformGizmoPlugin extends ScenePlugin {
   final _groups = <GizmoMode, Group>{};
   final _handles = <Mesh, GizmoHandle>{};
   final _materials = <GizmoHandle, UnlitMaterial>{};
-  final _activeMaterial = UnlitMaterial(color: Color3.hex(0xffdf85));
+  late final UnlitMaterial _activeMaterial;
   final _raycaster = Raycaster();
   PluginContext? _context;
   SceneToolsPlugin? _tools;
@@ -75,6 +78,7 @@ class TransformGizmoPlugin extends ScenePlugin {
 
   TransformGizmoPlugin({
     this.size = 1.5,
+    this.alwaysVisible = false,
     this.screenSize,
     this.translationSnap = .25,
     this.rotationSnap = math.pi / 12,
@@ -92,6 +96,7 @@ class TransformGizmoPlugin extends ScenePlugin {
         'Gizmo size and snap increments must be finite and positive.',
       );
     }
+    _activeMaterial = _handleMaterial(0xffdf85);
     _buildHandles();
   }
 
@@ -347,7 +352,7 @@ class TransformGizmoPlugin extends ScenePlugin {
     return handle is GizmoAxis ? handle : null;
   }
 
-  /// Returns only a visible handle at the frontmost clipped surface.
+  /// Returns a handle at the frontmost surface, or through occluders when enabled.
   GizmoHandle? hitTestHandle(ViewportPoint point, ViewportMetrics viewport) {
     updateViewport(viewport);
     if (_context == null ||
@@ -367,7 +372,9 @@ class TransformGizmoPlugin extends ScenePlugin {
     )) {
       final depth = _context!.camera.projectPoint(hit.point, viewport.aspect).z;
       if (depth < 0 || depth > 1) continue;
-      return _handles[hit.object];
+      final handle = _handles[hit.object];
+      if (alwaysVisible && handle == null) continue;
+      return handle;
     }
     return null;
   }
@@ -517,6 +524,15 @@ class TransformGizmoPlugin extends ScenePlugin {
     }
   }
 
+  UnlitMaterial _handleMaterial(int color) => UnlitMaterial(
+    color: Color3.hex(color),
+    alphaMode: alwaysVisible
+        ? MaterialAlphaMode.blend
+        : MaterialAlphaMode.opaque,
+    depthTest: !alwaysVisible,
+    depthWrite: alwaysVisible ? DepthWrite.disabled : DepthWrite.automatic,
+  );
+
   void _buildHandles() {
     _frame.add(_visuals);
     final shaft = BoxGeometry(
@@ -532,7 +548,7 @@ class TransformGizmoPlugin extends ScenePlugin {
     final arrow = _cone(size);
     final ring = _ring(size * .85, size * .035);
     for (final axis in GizmoAxis.values) {
-      _materials[axis] = UnlitMaterial(color: Color3.hex(axis.color));
+      _materials[axis] = _handleMaterial(axis.color);
     }
     for (final mode in GizmoMode.values) {
       final group = _visuals.add(Group(name: mode.name));
@@ -549,6 +565,7 @@ class TransformGizmoPlugin extends ScenePlugin {
               geometry,
               _materials[axis]!,
               name: '${mode.name} ${axis.name}',
+              renderOrder: alwaysVisible ? 0x7fffffff : 0,
             ),
           );
           mesh.position = axis.direction * offset;
@@ -568,7 +585,7 @@ class TransformGizmoPlugin extends ScenePlugin {
       }
       if (mode == GizmoMode.translate) {
         for (final plane in GizmoPlane.values) {
-          _materials[plane] = UnlitMaterial(color: Color3.hex(plane.color));
+          _materials[plane] = _handleMaterial(plane.color);
           final normal = plane.perpendicular.direction;
           final pad = group.add(
             Mesh(
@@ -579,6 +596,7 @@ class TransformGizmoPlugin extends ScenePlugin {
               ),
               _materials[plane]!,
               name: 'translate ${plane.name}',
+              renderOrder: alwaysVisible ? 0x7fffffff : 0,
             ),
           );
           pad.position =

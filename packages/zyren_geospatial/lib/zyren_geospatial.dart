@@ -20,9 +20,13 @@ export 'src/astronomy/celestial_directions.dart';
 export 'src/atmosphere/parameters.dart';
 export 'src/atmosphere/quality.dart';
 export 'src/atmosphere/luts.dart';
+export 'src/atmosphere/lighting_sampler.dart';
+export 'src/atmosphere/lighting_plugin.dart';
 export 'src/atmosphere/lut_cache.dart';
 export 'src/atmosphere/star_catalog.dart';
 export 'src/atmosphere/appearance.dart';
+export 'src/atmosphere/aerial_inputs.dart'
+    show AerialPerspectiveInputs, AerialNormalEncoding, AerialNormalSpace;
 export 'src/atmosphere/plugin.dart';
 
 export 'src/terrain/imagery_source.dart'
@@ -33,3 +37,31 @@ export 'src/terrain/imagery_source.dart'
         ImageryUrlScheme;
 export 'src/terrain/imagery_terrain_source.dart'
     show ImageryTerrainSource, ImageryLayer;
+
+export 'src/terrain/terrain_extensions.dart'
+    show
+        TerrainAvailability,
+        TerrainWaterMask,
+        TerrainAvailabilityRange,
+        TerrainAvailabilityMetadata;
+export 'src/terrain/overlay_terrain_source.dart';
+export 'src/atmosphere/table_decoder.dart';
+export 'src/atmosphere/precomputed_source.dart';
+export 'src/atmosphere/spectrum.dart';
+export 'src/clouds/parameters.dart';
+export 'src/clouds/quality.dart';
+export 'src/clouds/texture_generator.dart';
+
+export 'src/clouds/appearance.dart';
+export 'src/clouds/cascades.dart';
+export 'src/clouds/textures.dart';
+export 'src/clouds/texture_source.dart';
+export 'src/atmosphere/cloud_inputs.dart' show AtmosphereCloudInputs;
+export 'src/clouds/plugin.dart';
+
+export 'src/clouds/history.dart'
+    show
+        CloudTemporalSettings,
+        CloudTemporalMode,
+        CloudHistoryStatus,
+        CloudHistoryReset;

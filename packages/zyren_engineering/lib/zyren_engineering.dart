@@ -5,6 +5,8 @@ import 'dart:convert';
 import 'package:zyren/zyren.dart';
 
 part 'src/document.dart';
+part 'src/import.dart';
+part 'src/merge.dart';
 
 const sceneEngineering = ServiceKey<SceneEngineeringPlugin>(
   'zyren.engineering',
@@ -89,6 +91,39 @@ class SceneEngineeringPlugin extends ScenePlugin {
     }
     _bindings[id] = object;
     _notify();
+  }
+
+  /// Refreshes importer records and bindings only after the full import validates.
+  /// Missing source objects retain their review records but become unbound.
+  void rebindImport(EngineeringImport imported) {
+    _attached;
+    final bindings = <String, Object3D>{};
+    final seen = <Object3D>{};
+    for (final entry in imported.entries) {
+      if (!_contains(entry.object)) {
+        throw ArgumentError(
+          'Imported objects must belong to the attached scene.',
+        );
+      }
+      if (!seen.add(entry.object)) {
+        throw ArgumentError('An imported object has more than one source ID.');
+      }
+      bindings[entry.record.id] = entry.object;
+    }
+    final next = EngineeringDocument(
+      id: _document.id,
+      objects: {
+        ..._document.objects,
+        for (final entry in imported.entries) entry.record.id: entry.record,
+      }.values,
+      annotations: _document.annotations.values,
+    );
+    next.encode();
+    restoreVisibility();
+    _bindings
+      ..clear()
+      ..addAll(bindings);
+    _replace(next);
   }
 
   void unbind(String id) {
@@ -240,6 +275,63 @@ class SceneEngineeringPlugin extends ScenePlugin {
       _replace(next);
       _savedRevision = _revision;
       return true;
+    } finally {
+      _busy = false;
+      _notify();
+    }
+  }
+
+  /// Merge against the last acknowledged revision, then conditionally persist.
+  /// After a successful write, keep the returned revision as your next base,
+  /// including after local edits made while the conditional write was in flight.
+  Future<EngineeringSyncResult> synchronize(
+    EngineeringSessionStore store, {
+    required EngineeringRevision base,
+    List<EngineeringConflictResolution> resolutions = const [],
+  }) async {
+    if (_busy) {
+      throw StateError('A review storage operation is already running.');
+    }
+    final revision = _revision, lifetime = _lifetime;
+    final local = _document;
+    _busy = true;
+    _notify();
+    try {
+      final remote = await store.read();
+      final merged = EngineeringMerge(
+        base: base.document,
+        local: local,
+        remote: remote.document,
+        resolutions: resolutions,
+      );
+      if (revision != _revision || lifetime != _lifetime) {
+        throw StateError(
+          'Review changed while synchronizing. Current edits were kept.',
+        );
+      }
+      if (merged.conflicts.isNotEmpty) {
+        return EngineeringSyncResult._(remote, merged.conflicts, false);
+      }
+      final committed = await store.compareAndWrite(
+        expectedVersion: remote.version,
+        document: merged.document!,
+      );
+      if (committed.version == remote.version ||
+          _documentSignature(committed.document) !=
+              _documentSignature(merged.document!)) {
+        throw StateError(
+          'Session store returned a different committed document.',
+        );
+      }
+      if (revision == _revision && lifetime == _lifetime) {
+        restoreVisibility();
+        _bindings.removeWhere(
+          (id, _) => !committed.document.objects.containsKey(id),
+        );
+        _replace(committed.document);
+        _savedRevision = _revision;
+      }
+      return EngineeringSyncResult._(committed, const [], true);
     } finally {
       _busy = false;
       _notify();

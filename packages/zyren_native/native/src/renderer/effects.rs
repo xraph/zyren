@@ -191,7 +191,7 @@ impl Effects {
         {
             self.bloom = Some(bloom::Pipelines::new(device));
         }
-        if frame.settings.spatial_antialiasing != 0 && self.display.is_none() {
+        if self.display.is_none() {
             let shader = device.create_shader_module(wgpu::include_wgsl!("effects_output.wgsl"));
             let bindings = layout(device);
             let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -319,7 +319,7 @@ impl Renderer {
             let mut encoder =
                 self.encode_scene(frame, (output, None, depth), format, size, composition);
             self.outlines
-                .encode(&self.device, &mut encoder, frame, output, format);
+                .encode(&self.device, &mut encoder, frame, output, format, true);
             return encoder;
         }
         let id = frame.binary.as_ref().map_or(0, |v| v.view);
@@ -386,7 +386,7 @@ impl Renderer {
             );
         }
         let uniforms = ScreenUniforms {
-            inverse: Mat4::from_cols_array(&frame.view_projection)
+            inverse: Mat4::from_cols_array(&self.temporal.vp(frame))
                 .inverse()
                 .to_cols_array(),
             viewport: [
@@ -442,17 +442,25 @@ impl Renderer {
                 .materials
                 .resolve(*key)
                 .expect("validated screen shader");
+            if material.screen_stage != 0 {
+                continue;
+            }
             let pipeline = material.screen_pipeline.as_ref().unwrap();
             let next = if current == 1 { 2 } else { 1 };
             let group = bind(pipeline, &view.images[current].view, &buffer);
             draw(
                 &mut encoder,
-                &view.images[next].view,
+                material
+                    .screen_target
+                    .as_ref()
+                    .unwrap_or(&view.images[next].view),
                 pipeline,
                 &group,
                 &material.groups,
             );
-            current = next;
+            if material.screen_target.is_none() {
+                current = next;
+            }
         }
         // History is the custom-effect HDR result, before bloom and output AA.
         // Reusing a display halo as next frame's scene input would add it twice.
@@ -477,7 +485,12 @@ impl Renderer {
             );
             current = next;
         }
-        let output_buffer = if frame.settings.spatial_antialiasing != 0 {
+        let has_display = frame
+            .settings
+            .effects
+            .iter()
+            .any(|key| self.graphs.materials.resolve(*key).unwrap().screen_stage == 1);
+        let output_buffer = if frame.settings.spatial_antialiasing != 0 || has_display {
             // Reuse an HDR ping-pong image for encoded display colors. FXAA can
             // sample it many times without repeating exposure/tone/transfer math.
             let next = if current == 1 { 2 } else { 1 };
@@ -496,11 +509,39 @@ impl Renderer {
         } else {
             buffer
         };
+        for key in &frame.settings.effects {
+            let material = self.graphs.materials.resolve(*key).unwrap();
+            if material.screen_stage != 1 {
+                continue;
+            }
+            let pipeline = material.screen_pipeline.as_ref().unwrap();
+            let next = if current == 1 { 2 } else { 1 };
+            let group = bind(pipeline, &view.images[current].view, &output_buffer);
+            draw(
+                &mut encoder,
+                material
+                    .screen_target
+                    .as_ref()
+                    .unwrap_or(&view.images[next].view),
+                pipeline,
+                &group,
+                &material.groups,
+            );
+            if material.screen_target.is_none() {
+                current = next;
+            }
+        }
         let pipeline = &self.effects.outputs[&format];
         let group = bind(pipeline, &view.images[current].view, &output_buffer);
-        draw(&mut encoder, output, pipeline, &group, &[]);
+        draw(
+            &mut encoder,
+            self.outlines.color_target(frame).unwrap_or(output),
+            pipeline,
+            &group,
+            &[],
+        );
         self.outlines
-            .encode(&self.device, &mut encoder, frame, output, format);
+            .encode(&self.device, &mut encoder, frame, output, format, true);
         encoder
     }
     pub(super) fn accept_history(&mut self, frame: &Frame) {

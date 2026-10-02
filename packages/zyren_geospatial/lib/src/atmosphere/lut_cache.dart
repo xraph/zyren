@@ -3,6 +3,7 @@ import 'package:zyren/zyren.dart';
 import 'parameters.dart';
 import 'quality.dart';
 import 'luts.dart';
+import 'precomputed_source.dart';
 
 /// A lease prevents eviction. Close it after removing effects using its tables.
 final class AtmosphereLutLease {
@@ -41,7 +42,7 @@ class _Entry {
 final class AtmosphereLutCache {
   final GpuScope _scope;
   final int maxEntries;
-  final _entries = <String, _Entry>{};
+  final _entries = <Object, _Entry>{};
   Future<void> _admitting = Future.value();
   Future<void>? _closing;
   bool _closed = false;
@@ -64,13 +65,23 @@ final class AtmosphereLutCache {
   Future<AtmosphereLutLease> acquire({
     required AtmosphereParameters parameters,
     AtmosphereQuality quality = AtmosphereQuality.balanced,
+    PrecomputedAtmosphereSource? source,
     bool Function()? isCancelled,
   }) async {
     _check();
     if (isCancelled?.call() ?? false) {
       throw StateError('Atmosphere request cancelled.');
     }
-    final key = '${quality.key}/${parameters.key}';
+    if (source != null && source.parameters.key != parameters.key) {
+      throw ArgumentError(
+        'Atmosphere parameters must match the imported tables.',
+      );
+    }
+    final key = (
+      source,
+      source == null ? quality.key : 'source-rgba16-v1',
+      parameters.key,
+    );
     final request = _Request(isCancelled);
     final ready = Completer<_Entry>();
     // Serialize admission only. Shared generation and independent consumers can
@@ -94,7 +105,7 @@ final class AtmosphereLutCache {
             await idle.value.scope.close();
             _check();
           }
-          entry = _Entry(_scope.createChild(label: 'atmosphere $key'));
+          entry = _Entry(_scope.createChild(label: 'atmosphere LUT candidate'));
         }
         _entries[key] = entry;
         entry.references++;
@@ -107,7 +118,7 @@ final class AtmosphereLutCache {
     final entry = await ready.future;
     if (!entry.started) {
       entry.started = true;
-      unawaited(_build(key, entry, parameters, quality));
+      unawaited(_build(key, entry, parameters, quality, source));
     }
     try {
       final luts = await entry.completer.future;
@@ -125,27 +136,43 @@ final class AtmosphereLutCache {
   }
 
   Future<void> _build(
-    String key,
+    Object key,
     _Entry entry,
     AtmosphereParameters parameters,
     AtmosphereQuality quality,
+    PrecomputedAtmosphereSource? source,
   ) async {
     GpuScope? workspace;
     try {
-      workspace = entry.scope.createChild(
-        label: 'atmosphere precompute workspace',
-      );
-      final luts = await AtmosphereLuts.generate(
-        resources: entry.scope.resources,
-        workspace: workspace.resources,
-        shaders: workspace.shaders,
-        graphs: workspace.graphs,
-        parameters: parameters,
-        quality: quality,
-        isCancelled: () =>
-            isClosed || entry.requests.every((r) => r.isCancelled),
-      );
-      await workspace.close();
+      bool stopped() => isClosed || entry.requests.every((r) => r.isCancelled);
+      final AtmosphereLuts luts;
+      if (source == null) {
+        workspace = entry.scope.createChild(
+          label: 'atmosphere precompute workspace',
+        );
+        luts = await AtmosphereLuts.generate(
+          resources: entry.scope.resources,
+          workspace: workspace.resources,
+          shaders: workspace.shaders,
+          graphs: workspace.graphs,
+          parameters: parameters,
+          quality: quality,
+          isCancelled: stopped,
+        );
+        await workspace.close();
+      } else {
+        final cancellation = _SourceCancellation(stopped);
+        try {
+          final tables = await source.load(cancellation: cancellation);
+          luts = await AtmosphereLuts.fromPrecomputed(
+            resources: entry.scope.resources,
+            tables: tables,
+            isCancelled: stopped,
+          );
+        } finally {
+          cancellation.close();
+        }
+      }
       _check();
       entry.completer.complete(luts);
     } catch (error, stack) {
@@ -180,5 +207,56 @@ final class AtmosphereLutCache {
     } finally {
       _entries.clear();
     }
+  }
+}
+
+/// Bridges the cache's polling API to resolver cancellation subscriptions.
+final class _SourceCancellation implements LoadCancellation {
+  final bool Function() stopped;
+  final callbacks = <Object, void Function()>{};
+  late final Timer timer;
+  bool _cancelled = false;
+  _SourceCancellation(this.stopped) {
+    timer = Timer.periodic(const Duration(milliseconds: 10), (_) => _poll());
+  }
+  void _poll() {
+    if (_cancelled || !stopped()) return;
+    _cancelled = true;
+    final pending = callbacks.values.toList();
+    callbacks.clear();
+    for (final callback in pending) {
+      try {
+        callback();
+      } catch (_) {
+        /* Cancellation still retires physical work. */
+      }
+    }
+  }
+
+  @override
+  bool get isCancelled {
+    _poll();
+    return _cancelled;
+  }
+
+  @override
+  void throwIfCancelled() {
+    if (isCancelled) throw LoadCancelled();
+  }
+
+  @override
+  Registration onCancel(void Function() callback) {
+    if (isCancelled) {
+      callback();
+      return Registration(() {});
+    }
+    final key = Object();
+    callbacks[key] = callback;
+    return Registration(() => callbacks.remove(key));
+  }
+
+  void close() {
+    timer.cancel();
+    callbacks.clear();
   }
 }

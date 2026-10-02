@@ -1,11 +1,14 @@
 /// Curves map exposed linear HDR light into the display's [0, 1] range.
 enum ToneMapping {
-  linear,
+  none,
   reinhard,
-  acesFilmic;
+  acesFilmic,
+  aces,
+  cineon,
+  agx,
+  neutral;
 
-  static const none = linear;
-  static const aces = acesFilmic;
+  static const linear = none;
 }
 
 /// Enables linear RGBA16Float scene/effect color and terminal tone mapping.

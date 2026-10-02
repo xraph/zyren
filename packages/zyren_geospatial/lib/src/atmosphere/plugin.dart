@@ -5,6 +5,9 @@ import 'package:zyren/zyren.dart';
 import '../astronomy/celestial_directions.dart';
 import '../geodesy.dart';
 import 'appearance.dart';
+import 'aerial_inputs.dart';
+import 'cloud_inputs.dart';
+import 'precomputed_source.dart';
 import 'lut_cache.dart';
 import 'parameters.dart';
 import 'star_catalog.dart';
@@ -18,6 +21,7 @@ const atmosphere = ServiceKey<AtmosphereController>('geospatial.atmosphere');
 final class AtmospherePlugin extends ScenePlugin {
   final DateTime date;
   final AtmosphereParameters parameters;
+  final PrecomputedAtmosphereSource? source;
   final AtmosphereAppearance appearance;
   final Ellipsoid ellipsoid;
   final Mat4 worldToEcef;
@@ -30,6 +34,7 @@ final class AtmospherePlugin extends ScenePlugin {
       _controller ?? (throw StateError('Atmosphere is not attached.'));
   AtmospherePlugin({
     required this.date,
+    this.source,
     AtmosphereParameters? parameters,
     AtmosphereAppearance? appearance,
     this.ellipsoid = Ellipsoid.wgs84,
@@ -38,11 +43,17 @@ final class AtmospherePlugin extends ScenePlugin {
     this.moonMap,
     this.correctAltitude = true,
     this.maxStarResolution = 1024,
-  }) : parameters = parameters ?? AtmosphereParameters.webgpu(),
+  }) : parameters =
+           parameters ?? source?.parameters ?? AtmosphereParameters.webgpu(),
        appearance = appearance ?? AtmosphereAppearance(),
        worldToEcef = worldToEcef ?? Mat4.identity(),
        stars = stars ?? StarCatalog.brightStars() {
     AstronomicalTime(date);
+    if (source != null && this.parameters.key != source!.parameters.key) {
+      throw ArgumentError(
+        'Atmosphere parameters must match the imported tables.',
+      );
+    }
     if (maxStarResolution < 1 || maxStarResolution > 2048) {
       throw ArgumentError.value(maxStarResolution, 'maxStarResolution');
     }
@@ -78,7 +89,11 @@ final class AtmospherePlugin extends ScenePlugin {
     final control = _controller = AtmosphereController._(this, context, owner);
     context.scope.onClose(control._close);
     context.provide(atmosphere, control);
-    await control.setParameters(parameters);
+    if (source == null) {
+      await control.setParameters(parameters);
+    } else {
+      await control.setSource(source!);
+    }
   }
 
   @override
@@ -96,20 +111,33 @@ final class AtmosphereController {
   late DateTime _date = _plugin.date.toUtc();
   late AtmosphereAppearance _appearance = _plugin.appearance;
   late AtmosphereParameters _parameters = _plugin.parameters;
+  PrecomputedAtmosphereSource? _source;
   _AtmosphereCandidate? _active;
+  RetainedAerialInputs? _inputs;
+  RetainedAtmosphereCloudInputs? _cloudInputs;
+  AtmosphereCloudRegistration? _cloudRegistration;
   Future<void> _queue = Future.value();
   bool _closed = false;
   int _width = 1, _height = 1;
+  FrameInfo? _lastFrame;
   AtmosphereController._(this._plugin, this._context, this._owner);
   bool get isClosed => _closed || _owner.isClosed;
   AtmosphereParameters get parameters => _parameters;
+  PrecomputedAtmosphereSource? get source => _source;
+  Mat4 get worldToEcef => _plugin.worldToEcef;
+  Ellipsoid get ellipsoid => _plugin.ellipsoid;
+  bool get correctAltitude => _plugin.correctAltitude;
 
   /// Acquire the current tables for your own atmospheric lighting shader.
   /// Keep the lease until its material retires. A parameter edit leaves existing
   /// leases valid; acquire again when you want the new lighting parameters.
   Future<AtmosphereLutLease> acquireLighting({bool Function()? isCancelled}) {
     _check();
-    return _cache.acquire(parameters: _parameters, isCancelled: isCancelled);
+    return _cache.acquire(
+      parameters: _parameters,
+      source: _source,
+      isCancelled: isCancelled,
+    );
   }
 
   DateTime get date => _date;
@@ -131,7 +159,60 @@ final class AtmosphereController {
     if (isClosed) throw StateError('Atmosphere controller has closed.');
   }
 
-  Future<void> _serial(Future<void> Function() action) {
+  /// Publish screen maps together. An empty value clears all maps. Failure keeps
+  /// the previous effect and retained inputs; caller scopes may close on success.
+  Future<void> setAerialInputs(AerialPerspectiveInputs value) =>
+      _serial(() async {
+        final candidate = await RetainedAerialInputs.retain(_owner, value);
+        try {
+          await _replace(
+            _parameters,
+            _source,
+            _width,
+            _height,
+            null,
+            inputs: candidate.value,
+          );
+          final previous = _inputs;
+          _inputs = candidate;
+          await previous?.scope.close();
+          _context.invalidate();
+        } catch (_) {
+          if (!identical(_inputs, candidate)) await candidate.scope.close();
+          rethrow;
+        }
+      });
+
+  /// Own cloud composition independently of caller normals, masks and overlays.
+  /// Only one cloud producer may hold this registration at a time.
+  Future<AtmosphereCloudRegistration> registerCloudInputs(
+    AtmosphereCloudInputs inputs,
+  ) => _serial(() async {
+    if (_cloudRegistration != null) {
+      throw StateError('Atmosphere already has a cloud producer.');
+    }
+    await _changeCloudInputs(inputs);
+    return _cloudRegistration = AtmosphereCloudRegistration._(this);
+  });
+
+  Future<void> _changeCloudInputs(AtmosphereCloudInputs? inputs) async {
+    final candidate = inputs == null
+        ? null
+        : await RetainedAtmosphereCloudInputs.retain(_owner, inputs);
+    final previous = _cloudInputs;
+    _cloudInputs = candidate;
+    try {
+      await _replace(_parameters, _source, _width, _height, null);
+    } catch (_) {
+      _cloudInputs = previous;
+      await candidate?.scope.close();
+      rethrow;
+    }
+    await previous?.scope.close();
+    _context.invalidate();
+  }
+
+  Future<T> _serial<T>(Future<T> Function() action) {
     final next = _queue.then((_) {
       _check();
       return action();
@@ -140,23 +221,36 @@ final class AtmosphereController {
     return next;
   }
 
+  /// Generate a new atmosphere and replace any imported source after success.
   Future<void> setParameters(
     AtmosphereParameters parameters, {
     bool Function()? isCancelled,
   }) => _serial(() async {
-    await _replace(parameters, _width, _height, isCancelled);
+    await _replace(parameters, null, _width, _height, isCancelled);
     _parameters = parameters;
+    _context.invalidate();
+  });
+
+  /// Load and publish a complete source set. Failure leaves the current view intact.
+  Future<void> setSource(
+    PrecomputedAtmosphereSource source, {
+    bool Function()? isCancelled,
+  }) => _serial(() async {
+    await _replace(source.parameters, source, _width, _height, isCancelled);
     _context.invalidate();
   });
   Future<void> _replace(
     AtmosphereParameters parameters,
+    PrecomputedAtmosphereSource? source,
     int width,
     int height,
-    bool Function()? cancelled,
-  ) async {
+    bool Function()? cancelled, {
+    AerialPerspectiveInputs? inputs,
+  }) async {
     bool stopped() => isClosed || (cancelled?.call() ?? false);
     final lease = await _cache.acquire(
       parameters: parameters,
+      source: source,
       isCancelled: stopped,
     );
     final scope = _owner.createChild(label: 'atmosphere scene');
@@ -168,7 +262,12 @@ final class AtmosphereController {
         _plugin,
         width,
         height,
+        inputs ?? _inputs?.value ?? AerialPerspectiveInputs(),
+        _cloudInputs?.value,
       );
+      if (_lastFrame != null) {
+        await _writeFrame(candidate, _lastFrame!, width, height);
+      }
       if (stopped()) throw StateError('Atmosphere update cancelled.');
       // The previous effect remains registered until the candidate is accepted.
       final previous = _active;
@@ -184,6 +283,7 @@ final class AtmosphereController {
       }
       _active = candidate;
       _parameters = parameters;
+      _source = source;
       if (previous != null) await previous.close();
     } catch (_) {
       if (!identical(_active, candidate)) {
@@ -194,7 +294,8 @@ final class AtmosphereController {
     }
   }
 
-  Future<void> _frame(FrameInfo frame) => _serial(() async {
+  Future<void> _frame(FrameInfo frame) => _serial(() => _prepareFrame(frame));
+  Future<void> _prepareFrame(FrameInfo frame) async {
     final scale = math.min(
       1.0,
       _plugin.maxStarResolution / math.max(frame.width, frame.height),
@@ -202,11 +303,21 @@ final class AtmosphereController {
     final width = math.max(1, (frame.width * scale).round()),
         height = math.max(1, (frame.height * scale).round());
     if (width != _width || height != _height) {
-      await _replace(_parameters, width, height, null);
+      await _replace(_parameters, _source, width, height, null);
       _width = width;
       _height = height;
     }
-    final active = _active!;
+    await _writeFrame(_active!, frame, width, height);
+    _lastFrame = frame;
+  }
+
+  Future<void> _writeFrame(
+    _AtmosphereCandidate active,
+    FrameInfo frame,
+    int width,
+    int height,
+  ) async {
+    final parameters = active.lease.luts.parameters;
     final camera = _context.camera;
     final ecef = _point(_plugin.worldToEcef, camera.position);
     if (ecef.length < 1 || ecef.length > 1e12) {
@@ -220,7 +331,7 @@ final class AtmosphereController {
       corrected =
           ecef -
           surface +
-          _plugin.ellipsoid.surfaceNormal(surface) * _parameters.bottomRadius;
+          _plugin.ellipsoid.surfaceNormal(surface) * parameters.bottomRadius;
     }
     final directions = CelestialDirections.at(_date, observerECEF: ecef);
     final worldInverse = _plugin.worldToEcef.inverted();
@@ -239,10 +350,26 @@ final class AtmosphereController {
       1,
     ]);
     final a = _appearance;
-    final sunScale = _parameters.sunRadianceToLuminance.dot(
+    final sunScale = parameters.sunRadianceToLuminance.dot(
       const Vec3(.2126, .7152, .0722),
     );
     final forward = (camera.target - camera.position).normalized();
+    final right = forward.cross(camera.up).normalized();
+    final up = right.cross(forward);
+    var correction = 0.0;
+    if (a.correctGeometricError) {
+      final height = math.max(0.0, _plugin.ellipsoid.fromEcef(ecef).height);
+      final scale = camera is OrthographicCamera
+          ? (2 * _plugin.ellipsoid.maximumRadius - camera.top - camera.bottom) /
+                ((camera.top - camera.bottom) / camera.zoom)
+          : camera is PerspectiveCamera
+          ? _plugin.ellipsoid.maximumRadius *
+                camera.zoom /
+                (math.tan(camera.fieldOfView / 2) * math.max(height, 1e-9))
+          : double.infinity;
+      correction = ((scale - 41.5) / (13.8 - 41.5)).clamp(0, 1);
+    }
+    final inputs = _inputs?.value;
     final data = Float32List.fromList([
       ...(corrected * .001).storage,
       camera is OrthographicCamera ? 1 : 0,
@@ -264,15 +391,40 @@ final class AtmosphereController {
       ...(directions.eciToEcef * directions.moonFixedToEci).storage,
       ...forward.storage,
       camera is OrthographicCamera ? camera.near : 0,
+      a.transmittance ? 1 : 0,
+      a.inscatter ? 1 : 0,
+      a.sunLight ? 1 : 0,
+      a.skyLight ? 1 : 0,
+      a.albedoScale,
+      a.reconstructNormal ? 1 : 0,
+      correction,
+      _cloudInputs == null ? 0 : 1,
+      inputs?.normal == null ? 0 : inputs!.normalEncoding.index + 1.0,
+      inputs?.lightingMask == null
+          ? -1
+          : inputs!.lightingMaskChannel.toDouble(),
+      inputs?.overlay == null ? 0 : 1,
+      inputs?.normalSpace == AerialNormalSpace.world ? 1 : 0,
+      ...(_plugin.ellipsoid.reciprocalRadiiSquared * 1e6).storage,
+      0,
+      ...((corrected - ecef) * .001 * correction).storage,
+      0,
+      ...right.storage,
+      0,
+      ...up.storage,
+      0,
     ]);
     await active.scope.resources.writeBuffer(active.uniform, data);
     await active.graph.execute();
-  });
+  }
+
   Future<void> _close() async {
     _closed = true;
     _active?.registration?.dispose();
     await _queue;
     await _active?.close();
+    await _inputs?.scope.close();
+    await _cloudInputs?.scope.close();
     await _cache.close();
     await _owner.close();
   }
@@ -316,11 +468,13 @@ final class _AtmosphereCandidate {
     AtmospherePlugin plugin,
     int width,
     int height,
+    AerialPerspectiveInputs inputs,
+    AtmosphereCloudInputs? clouds,
   ) async {
     final resources = scope.resources;
     final uniform = await resources.createBuffer(
       BufferDescriptor(
-        size: 352,
+        size: 464,
         usage: {BufferUsage.uniform, BufferUsage.copyDestination},
       ),
     );
@@ -387,6 +541,21 @@ final class _AtmosphereCandidate {
       ),
     );
     final library = lease.luts.shader();
+    final placeholder = await resources.createTexture(
+      TextureDescriptor(width: 1, height: 1, format: TextureFormat.rgba8Unorm),
+    );
+    await resources.writeTexture(placeholder, Uint8List(4));
+    final maps = <GpuResource<Texture>>[];
+    for (final input in [
+      inputs.normal,
+      inputs.lightingMask,
+      inputs.overlay,
+      clouds?.color,
+      clouds?.depthVelocityShadow,
+      clouds?.transmittance,
+    ]) {
+      maps.add(input == null ? placeholder : await resources.retain(input));
+    }
     final program = await scope.shaders.compile(
       ShaderSource.wgsl(
         PostProcessDescriptor.interfaceWgsl +
@@ -403,9 +572,43 @@ final class _AtmosphereCandidate {
           BufferBinding.uniform(0, uniform, group: 2),
           TextureBinding.sampled(1, target, group: 2),
           TextureBinding.sampled(2, moonTexture, group: 2),
+          for (var i = 0; i < maps.length; i++)
+            TextureBinding.sampled(i + 3, maps[i], group: 2),
         ]),
       ),
     );
     return _AtmosphereCandidate(scope, lease, uniform, graph, effect);
+  }
+}
+
+/// Exclusive cloud inputs. Replacement and close publish complete effects; failed
+/// replacements leave the previous cloud maps installed. Close before retiring
+/// your producer. The atmosphere keeps retained copies until replacement.
+final class AtmosphereCloudRegistration {
+  final AtmosphereController _controller;
+  bool _closed = false;
+  AtmosphereCloudRegistration._(this._controller);
+  bool get isClosed => _closed || _controller.isClosed;
+  Future<void> replace(AtmosphereCloudInputs inputs) =>
+      _controller._serial(() async {
+        if (isClosed || !identical(_controller._cloudRegistration, this)) {
+          throw StateError('Atmosphere cloud registration has closed.');
+        }
+        await _controller._changeCloudInputs(inputs);
+      });
+  Future<void> close() async {
+    if (isClosed) {
+      _closed = true;
+      return;
+    }
+    await _controller._serial(() async {
+      if (!identical(_controller._cloudRegistration, this)) {
+        _closed = true;
+        return;
+      }
+      await _controller._changeCloudInputs(null);
+      _controller._cloudRegistration = null;
+      _closed = true;
+    });
   }
 }

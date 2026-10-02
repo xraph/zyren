@@ -273,6 +273,8 @@ impl MeshStore {
             blend: None,
             requires_uv: None,
             screen_space: None,
+            screen_stage: None,
+            screen_target: None,
         };
         let (pipeline_key, pipeline, groups, resources) =
             scoped(device, &description.label, || {

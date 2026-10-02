@@ -283,100 +283,105 @@ void main() {
     skip: Platform.environment['RUN_NATIVE_GPU'] != '1',
   );
 
-  test(
-    'capture refracts behind glass, blurs rough glass and rejects foreground depth',
-    () async {
-      final backend = await NativeBackend.create();
-      try {
-        final scene = Scene()..background = const Color3(0, 0, 0);
-        final background = scene.add(
-          Mesh(
-            PlaneGeometry(width: 8, height: 8),
-            UnlitMaterial(color: const Color3(1, 0, 0)),
-          )..position = const Vec3(0, 0, -1),
-        );
-        scene.add(
-          Mesh(
-            PlaneGeometry(width: 4, height: 8),
-            UnlitMaterial(color: const Color3(0, 0, 1)),
-          )..position = const Vec3(2, 0, -.9),
-        );
-        final plane = PlaneGeometry(width: 4, height: 4);
-        final normal = const Vec3(-.8, 0, 1).normalized();
-        final geometry = BufferGeometry.fromAttributes(
-          attributes: {
-            ...plane.attributes,
-            VertexSemantic.normal: VertexAttribute(
-              Float32List.fromList([
-                for (var i = 0; i < plane.vertexCount; i++) ...normal.storage,
-              ]),
-              format: VertexFormat.float32x3,
+  for (final strategy in DepthStrategy.values) {
+    test(
+      '$strategy capture refracts behind glass, blurs rough glass and rejects foreground depth',
+      () async {
+        final backend = await NativeBackend.create();
+        try {
+          final scene = Scene()..background = const Color3(0, 0, 0);
+          final background = scene.add(
+            Mesh(
+              PlaneGeometry(width: 8, height: 8),
+              UnlitMaterial(color: const Color3(1, 0, 0)),
+            )..position = const Vec3(0, 0, -1),
+          );
+          scene.add(
+            Mesh(
+              PlaneGeometry(width: 4, height: 8),
+              UnlitMaterial(color: const Color3(0, 0, 1)),
+            )..position = const Vec3(2, 0, -.9),
+          );
+          final plane = PlaneGeometry(width: 4, height: 4);
+          final normal = const Vec3(-.8, 0, 1).normalized();
+          final geometry = BufferGeometry.fromAttributes(
+            attributes: {
+              ...plane.attributes,
+              VertexSemantic.normal: VertexAttribute(
+                Float32List.fromList([
+                  for (var i = 0; i < plane.vertexCount; i++) ...normal.storage,
+                ]),
+                format: VertexFormat.float32x3,
+              ),
+            },
+            indices: plane.indices,
+          );
+          final glass = scene.add(
+            Mesh(
+              geometry,
+              PhysicalMaterial(transmission: 1, ior: 1.5, roughness: 0),
             ),
-          },
-          indices: plane.indices,
-        );
-        final glass = scene.add(
-          Mesh(
-            geometry,
-            PhysicalMaterial(transmission: 1, ior: 1.5, roughness: 0),
-          ),
-        );
-        final camera = PerspectiveCamera(position: const Vec3(0, 0, 3));
-        Future<Uint8List> draw() async =>
-            (await backend.render(
-                      FrameSubmission.capture(
-                        scene: scene,
-                        camera: camera,
-                        size: PhysicalSize(63, 63),
-                        colorPipeline: ColorPipeline(
-                          toneMapping: ToneMapping.linear,
+          );
+          final camera = PerspectiveCamera(
+            position: const Vec3(0, 0, 3),
+            depthStrategy: strategy,
+          );
+          Future<Uint8List> draw() async =>
+              (await backend.render(
+                        FrameSubmission.capture(
+                          scene: scene,
+                          camera: camera,
+                          size: PhysicalSize(63, 63),
+                          colorPipeline: ColorPipeline(
+                            toneMapping: ToneMapping.linear,
+                          ),
                         ),
-                      ),
-                    )
-                    as ReadbackOutput)
-                .image
-                .pixels;
-        final thin = await draw();
-        glass.material = (glass.material as PhysicalMaterial).copyWith(
-          thickness: 1,
-        );
-        final refracted = await draw();
-        final p = (31 * 63 + 29) * 4;
-        expect(thin[p], greaterThan(200));
-        expect(thin[p + 2], lessThan(20));
-        expect(refracted[p + 2], greaterThan(200));
-        expect(refracted[p], lessThan(20));
-        glass.material = (glass.material as PhysicalMaterial).copyWith(
-          thickness: 0,
-          roughness: 1,
-        );
-        final rough = await draw();
-        expect(rough[p + 2], greaterThan(50));
-        expect(rough[p], greaterThan(50));
-        glass.material = (glass.material as PhysicalMaterial).copyWith(
-          thickness: 1,
-          roughness: 0,
-        );
-        final foreground = scene.add(
-          Mesh(
-            PlaneGeometry(width: .25, height: 4),
-            UnlitMaterial(color: const Color3(0, 1, 0)),
-          )..position = const Vec3(.3, 0, 1),
-        );
-        final rejected = await draw();
-        expect(rejected[p + 1], lessThan(10));
-        scene.remove(foreground);
-        background.material = UnlitMaterial(color: const Color3(1, 1, 0));
-        glass.material = (glass.material as PhysicalMaterial).copyWith(
-          thickness: 0,
-        );
-        expect((await draw())[p + 1], greaterThan(200));
-      } on SceneException catch (error) {
-        fail(error.issue.cause.toString());
-      } finally {
-        await backend.close();
-      }
-    },
-    skip: Platform.environment['RUN_NATIVE_GPU'] != '1',
-  );
+                      )
+                      as ReadbackOutput)
+                  .image
+                  .pixels;
+          final thin = await draw();
+          glass.material = (glass.material as PhysicalMaterial).copyWith(
+            thickness: 1,
+          );
+          final refracted = await draw();
+          final p = (31 * 63 + 29) * 4;
+          expect(thin[p], greaterThan(200));
+          expect(thin[p + 2], lessThan(20));
+          expect(refracted[p + 2], greaterThan(200));
+          expect(refracted[p], lessThan(20));
+          glass.material = (glass.material as PhysicalMaterial).copyWith(
+            thickness: 0,
+            roughness: 1,
+          );
+          final rough = await draw();
+          expect(rough[p + 2], greaterThan(50));
+          expect(rough[p], greaterThan(50));
+          glass.material = (glass.material as PhysicalMaterial).copyWith(
+            thickness: 1,
+            roughness: 0,
+          );
+          final foreground = scene.add(
+            Mesh(
+              PlaneGeometry(width: .25, height: 4),
+              UnlitMaterial(color: const Color3(0, 1, 0)),
+            )..position = const Vec3(.3, 0, 1),
+          );
+          final rejected = await draw();
+          expect(rejected[p + 1], lessThan(10));
+          scene.remove(foreground);
+          background.material = UnlitMaterial(color: const Color3(1, 1, 0));
+          glass.material = (glass.material as PhysicalMaterial).copyWith(
+            thickness: 0,
+          );
+          expect((await draw())[p + 1], greaterThan(200));
+        } on SceneException catch (error) {
+          fail(error.issue.cause.toString());
+        } finally {
+          await backend.close();
+        }
+      },
+      skip: Platform.environment['RUN_NATIVE_GPU'] != '1',
+    );
+  }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_zyren/widgets.dart';
 import 'package:planet/google_tiles_lab.dart';
+import 'package:planet/geospatial_presets.dart';
 
 void main() {
   testWidgets('missing access keeps a compact actionable state without a GPU', (
@@ -16,6 +17,23 @@ void main() {
       expect(find.text('Check access'), findsOneWidget);
       expect(find.text('Manhattan'), findsOneWidget);
       expect(find.text('Fuji'), findsOneWidget);
+      await tester.tap(find.text('Fuji'));
+      await tester.pump();
+      final lab = tester.state<GoogleTilesLabState>(
+        find.byType(GoogleTilesLab),
+      );
+      expect(lab.preset, GoogleTilesPreset.fuji);
+      expect(
+        lab.controller.camera.position.distanceTo(lab.controller.camera.target),
+        closeTo(7000, 1e-6),
+      );
+      await tester.tap(find.text('Manhattan'));
+      await tester.pump();
+      expect(lab.preset, GoogleTilesPreset.manhattan);
+      expect(
+        lab.controller.camera.position.distanceTo(lab.controller.camera.target),
+        closeTo(3000, 1e-6),
+      );
       expect(tester.takeException(), isNull);
       await tester.tap(find.text('Check access'));
       await tester.pump();

@@ -181,7 +181,7 @@ impl Renderer {
                 continue;
             };
             let (textures, samplers) = binding_counts(binding_key(material));
-            if textures + 13 > self.device.limits().max_sampled_textures_per_shader_stage
+            if textures + 14 > self.device.limits().max_sampled_textures_per_shader_stage
                 || samplers + 8 > self.device.limits().max_samplers_per_shader_stage
             {
                 return Err(

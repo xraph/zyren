@@ -54,3 +54,308 @@ zero-opacity layers.
 Native tests use local HTTP fixtures for decoding, parent fallback, retry and
 resource cleanup. Provider access and provider-specific requirements need their
 own live qualification.
+
+## Terrain metadata
+
+`QuantizedMeshTerrainSource` supports EPSG:4326/TMS layers with static ranges or
+`metadataAvailability`. Dynamic layers start with two roots. A validated mesh
+response makes its advertised descendants available on the next selection pass;
+`availabilityOf()` distinguishes unknown coverage from an unavailable tile.
+The source requests advertised normals, water masks and metadata through both
+Accept and the extensions query parameter.
+
+Sparse siblings retain their parent. Fill tiles and `parentUrl` layer stacks are
+not supported. Availability is stable for a source version: a changed metadata
+page fails rather than mixing generations. Replace the source when the dataset
+changes. Missing required metadata also fails and follows the normal retry path.
+
+You can set `maxAvailabilityPages` and `maxAvailabilityRanges` when opening a
+source. Defaults are 1,024 pages and 16,384 ranges, retained for the source lifetime
+separately from the tile cache. A full metadata store stops further refinement
+with a limit error. Each mesh also has `maxMetadataBytes` (64 KiB by default) and
+`maxMetadataRanges` (1,024) decoder limits. Payload reservations include masks,
+parsed ranges and credits; temporary JSON parsing is bounded by bytes and depth.
+
+`TerrainTile.waterMask` contains one uniform byte or a north-first 256 by 256
+coverage grid, where 0 is land and 255 is water. Values between them preserve
+soft coastlines. `TerrainTile.availability` retains immutable relative-level
+ranges. Imagery composition preserves both fields and the provider's credits.
+These are CPU values; a water mask alone does not add a reflective water pass.
+
+## Draped overlays
+
+Wrap your imagery source with `OverlayTerrainSource` to tint water and draw
+polygons or lines on the terrain:
+
+```dart
+final source = OverlayTerrainSource(
+  terrain: imageryTerrain,
+  overlays: [
+    WaterTintOverlay(color: Color3.hex(0x247ba0), opacity: 0.6),
+    TerrainPolylineOverlay(
+      points: surveyBoundary,
+      color: Color3.hex(0xffdd55),
+      width: 3,
+    ),
+  ],
+);
+```
+
+Layers draw in list order. `TerrainPolygonOverlay.rings` starts with an outer
+ring, followed by holes. Supply `Geodetic` coordinates; heights are ignored
+because these shapes drape on the existing mesh. Segments are straight in
+longitude/latitude, take the shorter path across the dateline, and clip at tile
+edges. Split paths that span half the globe or more. Polygon filling uses the
+even-odd rule within each ring and subtracts holes.
+
+Line width is in output texture pixels, so its ground width changes with terrain
+level. Lines have round caps and joins. Vector edges use four coverage samples
+per pixel, and all layers blend in linear light. Water tint uses the provider's
+soft coverage mask; without a mask that layer has no effect. It does not animate
+waves or reflections. Picking still returns the terrain mesh.
+
+Use `outputSize` (2-1024, default 256) to set the texture resolution. A source
+accepts up to 64 overlays and 4,096 vertices, subject to `maxSampleTests`
+(default 64 million). The conservative work estimate rejects oversized jobs
+before requesting terrain. Imagery and overlays share two CPU worker slots and
+sixteen queue positions. Geometry, skirts, metadata and credits remain owned by
+the terrain tile. Replace the source to change its immutable overlays.
+
+## Atmosphere table decoding
+
+`AtmosphereTableDecoder` reads raw little-endian RGBA half floats and single-part
+scanline EXR files with RGBA HALF channels, full sampling and NONE, ZIPS or ZIP
+compression. Supply the expected width, height and depth. EXR rows reverse before
+the image is reshaped into volume slices, matching the source loader.
+
+Decoded tables own immutable bytes. Encoded and decoded limits are checked before
+allocation, and ZIP output cannot exceed its declared scanline storage. Invalid
+headers, duplicate channels or chunks, truncated data and nonfinite samples fail
+with a typed load error. Tiled, multipart, deep and other compression profiles
+are unsupported. This decoder does not upload a texture by itself.
+
+The optional reference test uses `ZYREN_SOURCE_LUTS` to compare the five pinned
+binary/EXR pairs. The upstream exports differ by up to one half-float step, so
+that comparison allows one step instead of requiring identical bytes.
+
+To use the upstream tables in a native scene, pass a source to the atmosphere:
+
+```dart
+final source = PrecomputedAtmosphereSource.upstream(services: assetServices);
+final sky = AtmospherePlugin(date: DateTime.utc(2026, 3, 20, 12), source: source);
+```
+
+The pinned upstream source defaults to EXR, packed Mie scattering and a separate
+higher-order table. Use `format: AtmosphereLutFormat.binary` for the raw files.
+Set `combinedScattering: false` to read the full RGB Mie file. Set
+`higherOrderScattering: false` to omit the separate higher-order file; the combined
+scattering table still contains multiple scattering. Each mode preserves the
+upstream interpolation and short-path Mie reconstruction.
+
+For your own files, construct `PrecomputedAtmosphereSource` with a directory URI,
+asset services and the parameters used to compute those files. This layout uses
+256 by 64 transmittance, 64 by 16 irradiance and 256 by 128 by 32 scattering.
+Keep credentials in your resolver. Limits from `AssetServices` apply alongside
+16 MiB per encoded file and 32 MiB per complete encoded or decoded set. Two loads
+run at once per caller isolate, with eight queued loads. Cancellation waits for
+physical reads and CPU decoding to settle before releasing a slot.
+
+Tables upload as RGBA16 float through public resource scopes. The default source
+set uses 16,916,488 GPU bytes, including its unused binding placeholder. Full Mie
+plus a separate higher-order table uses 25,305,088 bytes. Account for active and
+candidate sets when sizing a scene. Cache entries share only within the same
+source instance and device; their keys never contain source URLs.
+
+Use `controller.setSource(source)` to replace tables atomically. A failure keeps
+the active view and existing lighting leases. `setParameters()` switches back to
+GPU precomputation after generation succeeds. `acquireLighting()` returns the
+current set in either mode. Read `luts.dimensions` for both modes; `luts.quality`
+is null for imported tables. Close each lease when its consumers retire.
+
+Native checks compare the upstream GLSL runtime with the actual source assets,
+render sky and aerial perspective with both depth modes, and check replacement,
+cancellation and zero residency after cleanup. Generate the source reference
+records with `python3 tool/atmosphere_reference/source_tables.py <asset-directory>`
+from the repository root. The script verifies the supplied LFS hashes first.
+
+## Automatic atmosphere lighting
+
+Add `AtmosphereLightingPlugin` after your atmosphere to drive native material
+lighting from its current date, observer and tables:
+
+```dart
+plugins: [
+  sky,
+  AtmosphereLightingPlugin(environment: true),
+],
+```
+
+The default mode supplies a sun light and a diffuse sky probe. With
+`environment: true`, native sky capture and GGX convolution also light reflective
+materials, and the separate probe defaults off to avoid adding diffuse sky twice.
+You can disable the sun or select the probe explicitly. The probe reproduces the
+source's hemisphere irradiance function through the core's `HemisphereLight`.
+These lights affect `StandardMaterial`; legacy `DiffuseMaterial` keeps its
+existing simple lighting model.
+
+`AtmosphereLightingSampler` copies the small transmittance and irradiance tables
+once per LUT generation. Its CPU sampling matches the upstream sun/probe helpers,
+including their texel interpolation. Frame updates use those copies. HDR light
+values are split into bounded RGB and an intensity multiplier, preserving energy.
+Adjust `controller.sunIntensity` and `controller.skyIntensity`; the controller
+owns the light colors, directions and physical intensities. You can configure
+shadows through `controller.sunLight`.
+
+The environment captures world-oriented atmospheric radiance with ground enabled
+by default and excludes sun, moon and star disks. It updates after a LUT change,
+a change of the observer's rounded 1 km ECEF cell, or a sun-direction change over
+0.1 degrees. Camera rotation reuses it. You can change these thresholds and the
+bounded capture/convolution settings. Capture height defaults to 64, convolution
+height to 32, with eight roughness slices and 128 samples. CPU lighting tables
+use 278,528 bytes; candidate GPU environments retire after atomic replacement.
+
+`tableReadbacks` counts completed lighting-table reads, and
+`environmentGeneration` counts published sky captures. Changing sky intensity
+reuses the textures. Tests check 48 original helper cases, ECEF/local rendering,
+day/night lighting, metallic reflections, invalidation thresholds, stable-frame
+residency and zero GPU resources after disposal.
+
+## Spectral color integration
+
+Use `SpectralDistribution` for a sampled spectrum over 360-830 nm. You supply
+2-1024 increasing wavelengths and nonnegative power values per nanometre.
+`toXyz()` integrates the piecewise-linear spectrum against the source's CIE 1931
+observer table, using 683 lm/W. `toLinearSrgb()` preserves negative out-of-gamut
+channels so you can choose gamut handling when you display the result.
+
+`Cie1931.matching()` exposes the source's interpolated lookup, including its zero
+endpoints. Reference checks cover 385 wavelengths and five independently
+integrated spectra. This helper does not change the three-channel atmosphere
+precompute.
+
+## Aerial perspective
+
+Use `AtmosphereAppearance` to select `transmittance` and `inscatter` separately.
+`haze: false` disables both without changing their individual settings. For
+unlit albedo, enable `sunLight` or `skyLight` and set `albedoScale` (1 by default).
+Leave relighting off for materials that already compute their lighting.
+
+`reconstructNormal` derives camera-facing surface normals from depth. Otherwise,
+the effect uses radial normals or a supplied normal map. Enable
+`correctGeometricError` to blend positions and normals toward the atmosphere's
+sphere as the globe shrinks on screen, following the source's projected-scale
+thresholds. This correction is off by default to preserve existing scenes.
+
+You can install maps with `controller.setAerialInputs(AerialPerspectiveInputs(
+normal: normals, lightingMask: mask, overlay: overlay))`. Maps use top-left screen
+UVs and linear 2D textures. RGB normals encode `.5 * (normal + 1)` in view space;
+world-space and signed octahedral float normals are also supported. Zero RGB
+normals bypass relighting. Reconstruction takes precedence over the normal map.
+The selected mask channel blends existing radiance with relit albedo.
+
+Overlay RGB must be premultiplied by alpha. The effect composites both color and
+alpha, including on transparent backgrounds. It retains installed maps across
+resize and LUT replacement, so you can close the caller's resource scope once
+installation succeeds. Install an empty `AerialPerspectiveInputs()` to clear
+them. A failed replacement keeps the previous effect active.
+
+## Cloud configuration
+
+`CloudLayers.defaults()` preserves the source's low, middle and high layers, plus
+its disabled fourth weather channel. You can supply up to four immutable
+`CloudLayer` values; height zero disables a layer. Altitudes and heights are in
+metres. Layer gaps and shadow bounds are derived from those intervals.
+
+`CloudParameters` holds weather coverage, medium coefficients, texture repeats,
+offsets and velocities. Volume repeats use inverse metres. Weather and turbulence
+repeats use globe UVs. `CloudQuality.forPreset()` exposes the original low,
+medium, high and ultra raymarch/shadow settings. The default values and interval
+calculations are checked against the original TypeScript. These configuration
+types do not attach a cloud renderer by themselves.
+
+`CloudTextureGenerator(scope).generate(kind)` produces native weather, shape,
+detail and curl-turbulence textures. Default sizes are 512 square, 128 cubed,
+32 cubed and 128 square. You can request smaller sizes. Volumes use single-channel
+float textures; weather and turbulence use linear RGBA8. Keep each returned
+`CloudTexture` until its consumer retains it, then close it when you no longer
+need it. All four defaults occupy 10,005,160 GPU bytes after generation.
+
+Generation admits one job per generator and checks cancellation between batches
+of eight volume slices. Cancellation waits for submitted work before cleanup.
+Temporary shaders, graphs and buffers retire before the result is returned.
+The source sine hash is evaluated once into a pinned 87,552-byte table because
+small CPU/GPU sine differences can change cell positions. Perlin/Worley generation
+and curl evaluation run on the GPU. Tests compare 256 original GLSL samples and
+require identical bytes when you regenerate the same texture on a device.
+
+`CloudTextures` accepts your linear weather, shape, detail and turbulence maps.
+You can retain the set in another GPU scope or generate all four with
+`CloudTextures.generate(scope)`. Weather and turbulence include native mipmaps;
+volume sampling uses repeated trilinear filtering.
+
+`CloudAppearance` keeps source phase, powder and haze settings separate from
+layer density. `CloudShadowCascades.build()` computes the source frustum splits
+and texel-snapped projections in double precision, including orthographic views.
+The internal Beer shadow atlas preserves front depth, mean extinction and the
+optical-depth tail.
+
+Add `CloudPlugin` after `AtmospherePlugin` to render the layers. It generates
+textures when you don't supply them. You can change coverage and appearance on
+the controller, then use `setTextures` or `setQuality` for asynchronous changes
+that keep the current view until the replacement is ready.
+
+```dart
+CloudPlugin(
+  quality: CloudQualityPreset.medium,
+  maxResolution: 384,
+  shadowMapSize: 256,
+)
+```
+
+Clouds clip against scene geometry and use the atmosphere's date, lighting tables
+and world frame. The producer runs before atmosphere composition, which applies
+cloud shadows to direct aerial lighting. High and ultra quality need more memory.
+Set a smaller shadow map when your scene also retains terrain or 3D tiles; failed
+allocations leave the current maps installed. The default 384-pixel target cap
+leaves room for history and resize replacement within the native resource budget.
+If you raise it, budget for both the active and replacement maps.
+
+Temporal reconstruction defaults to the source's 4x4 Bayer upscaling. Use
+`CloudTemporalSettings(mode: CloudTemporalMode.antialias)` for full-resolution
+temporal sampling, or `CloudTemporalMode.off` to inspect a single frame. The
+controller's `setTemporal` replaces those resources atomically. Cloud history
+uses source variance clipping, nearest-depth motion and alpha 0.1; shadow history
+uses nine samples and alpha 0.01, with filtering kept inside each cascade.
+
+Ordinary camera and weather motion retain history. Resize, projection changes,
+large camera moves, time jumps, lighting changes and parameter edits reset it.
+Call `controller.resetHistory()` after a scene cut, or increment your scene's
+`RenderSettings.historyEpoch`. You can inspect `controller.history` to check the
+last reset reason and successful frame count. Static clouds request 16 frames to
+fill the Bayer pattern, then release their frame demand.
+
+For source blue noise, pass the result of
+`CloudBlueNoise.load(services: services, cancellation: cancellation)` as
+`CloudPlugin.blueNoise`. You can also supply the pinned 128x128x64 raw bytes to
+`CloudBlueNoise(bytes)`. A packed read-only buffer holds the samples without using
+another texture slot. Scenes without that asset use deterministic, frame-varying
+interleaved gradient noise.
+
+For the original textures, use `CloudTextureSource.upstream(services: services)`
+with your resolver and image decoder, then call
+`CloudTextures.load(scope, source, cancellation: cancellation)`. You can host the
+same four filenames under your own directory URI. The loader validates the
+512-square weather PNG, 128-cubed shape bytes, 32-cubed detail bytes and 128-square
+turbulence PNG, flips image rows to match the source and uploads complete linear
+textures. Close the returned set after the plugin retains it. Reads, decoding and
+upload respect cancellation, and source errors omit endpoint details.
+
+You can register cloud outputs through `AtmosphereController.registerCloudInputs`.
+The returned registration owns retained color, depth/velocity/shadow-length and
+transmittance maps. Cloud color composites before your aerial overlay. Closing
+that registration leaves your normals, lighting mask and overlay installed.
+
+Cloud transmittance attenuates direct sunlight while preserving skylight. The
+atmosphere shader library also exposes `atmosphereSkyShadow` and
+`atmosphereSegmentShadow`, with shadow lengths in kilometres. Both preserve the
+source's separate handling of higher-order scattering when that table is present.

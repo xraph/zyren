@@ -9,10 +9,37 @@ struct AtmosphereFrame {
  worldToEcef:mat4x4<f32>, eciToWorld:mat4x4<f32>,
  viewProjection:mat4x4<f32>, moonFixedToEcef:mat4x4<f32>,
  forward:vec4<f32>, // world direction, near
+ aerial:vec4<f32>, // transmittance, inscatter, sun light, sky light
+ geometry:vec4<f32>, // albedo scale, reconstruct normal, correction, cloud inputs
+ inputs:vec4<f32>, // normal encoding, mask channel (-1 absent), overlay, world normals
+ inverseRadiiSquared:vec4<f32>, geometryOffset:vec4<f32>,
+ right:vec4<f32>, up:vec4<f32>,
 };
 @group(2) @binding(0) var<uniform> atmosphereFrame:AtmosphereFrame;
 ''';
-const atmosphereCompositeWgsl = r'''
+final atmosphereCompositeWgsl =
+    [
+      for (final (name, slot) in [
+        ('normalImage', 3),
+        ('lightingMaskImage', 4),
+        ('overlayImage', 5),
+        ('cloudImage', 6),
+        ('cloudDepthVelocityShadow', 7),
+        ('cloudTransmission', 8),
+      ])
+        '''
+@group(2) @binding($slot) var $name:texture_2d<f32>;
+fn sample_$name(uv:vec2<f32>)->vec4<f32> {
+ let size=vec2<i32>(textureDimensions($name));let p=uv*vec2<f32>(size)-.5;
+ let i=vec2<i32>(floor(p));let f=fract(p);var value=vec4<f32>(0.);
+ for(var y=0;y<2;y++){for(var x=0;x<2;x++){
+   value+=textureLoad($name,clamp(i+vec2<i32>(x,y),vec2<i32>(0),size-1),0)*
+     select(1.-f.x,f.x,x==1)*select(1.-f.y,f.y,y==1);
+ }}return value;
+}
+''',
+    ].join() +
+    r'''
 @group(2) @binding(1) var starImage:texture_2d<f32>;
 @group(2) @binding(2) var moonImage:texture_2d<f32>;
 fn sampleStarImage(uv:vec2<f32>)->vec3<f32> {
@@ -34,10 +61,34 @@ fn moonColor(uv:vec2<f32>)->vec3<f32> {
 fn diskCoverage(chord:f32,rad:f32,width:f32)->f32 {
  let edge=4.*pow(sin(rad*.5),2.);return 1.-smoothstep(max(0.,edge-width),edge+width,chord);
 }
+fn safeNormal(value:vec3<f32>,fallback:vec3<f32>)->vec3<f32> {
+ let magnitude=length(value);return select(fallback,value/max(magnitude,1e-20),magnitude>1e-10);
+}
+fn octNormal(e:vec2<f32>)->vec3<f32> {
+ var n=vec3<f32>(e,1.-abs(e.x)-abs(e.y));
+ if(n.z<0.){n=vec3<f32>((1.-abs(n.yx))*select(vec2<f32>(-1.),vec2<f32>(1.),n.xy>=vec2<f32>(0.)),n.z);}
+ return safeNormal(n,vec3<f32>(0.,0.,1.));
+}
+fn compositeOverlay(color:vec4<f32>,uv:vec2<f32>)->vec4<f32> {
+ var result=color;
+ if(atmosphereFrame.geometry.w>0.){
+  let clouds=sample_cloudImage(uv);let alpha=clamp(clouds.a,0.,1.);
+  result=vec4<f32>(result.rgb*(1.-alpha)+clouds.rgb,result.a*(1.-alpha)+alpha);
+ }
+ if(atmosphereFrame.inputs.z==0.){return vec4<f32>(clamp(result.rgb,vec3<f32>(0.),vec3<f32>(65504.)),result.a);}
+ let overlay=sample_overlayImage(uv);let alpha=clamp(overlay.a,0.,1.);
+ return vec4<f32>(clamp(result.rgb*(1.-alpha)+overlay.rgb,vec3<f32>(0.),vec3<f32>(65504.)),result.a*(1.-alpha)+alpha);
+}
 @fragment fn fragment(v:ScreenVertex)->@location(0) vec4<f32> {
  let f=atmosphereFrame;let coord=vec2<i32>(v.position.xy);
  let input=textureLoad(sceneColor,coord,0);let depth=textureLoad(sceneDepth,coord,0);
+ var shadowLength=0.;var cloudTransmission=1.;
+ if(f.geometry.w>0.){shadowLength=max(0.,sample_cloudDepthVelocityShadow(v.uv).w);cloudTransmission=clamp(sample_cloudTransmission(v.uv).r,0.,1.);}
  let mid=scenePosition(v.uv,.5);
+ let point=scenePosition(v.uv,depth);
+ // Camera-relative positions avoid ECEF precision loss. Top-left UV reverses Y,
+ // so this cross order faces the camera. Derivatives precede depth branching.
+ let reconstructed=safeNormal(cross(dpdy(point),dpdx(point)),-f.forward.xyz);
  var worldRay=normalize(mid);var origin=f.camera.xyz;
  if(f.camera.w>0.){
    worldRay=f.forward.xyz;
@@ -50,7 +101,7 @@ fn diskCoverage(chord:f32,rad:f32,width:f32)->f32 {
  let sunWidth=max(fwidth(sunChord),1e-10);let moonWidth=max(fwidth(moonChord),1e-10);
  var sky=vec3<f32>(0.);
  if(f.options.z>0.){
-   let air=atmosphereSky(origin,ray,f.sun.xyz,f.options.y>0.);
+   let air=atmosphereSkyShadow(origin,ray,f.sun.xyz,f.options.y>0.,shadowLength,cloudTransmission);
    var distant=sampleStarImage(v.uv);
    if(f.camera.w==0.){
      let solar=SOLAR*SUN_LUMINANCE/(PI*SUN_RADIUS*SUN_RADIUS)*f.sun.w;
@@ -72,18 +123,40 @@ fn diskCoverage(chord:f32,rad:f32,width:f32)->f32 {
    sky=distant*air.transmittance+air.radiance;
  }
  if(sceneDepthIsBackground(depth)){
-   if(f.options.z>0.){return vec4<f32>(clamp(input.rgb+sky*(1.-input.a),vec3<f32>(0.),vec3<f32>(65504.)),1.);}
-   return input;
+   if(f.options.z>0.){return compositeOverlay(vec4<f32>(clamp(input.rgb+sky*(1.-input.a),vec3<f32>(0.),vec3<f32>(65504.)),1.),v.uv);}
+   return compositeOverlay(input,v.uv);
  }
  var foreground=input.rgb;
- if(f.options.x>0.){
-   let point=scenePosition(v.uv,depth);
-   let end=f.camera.xyz+(f.worldToEcef*vec4<f32>(point,0.)).xyz*.001;
-   let air=atmosphereSegment(origin,end,f.sun.xyz);
-   foreground=foreground*air.transmittance+air.radiance*input.a;
+ var end=f.camera.xyz+(f.worldToEcef*vec4<f32>(point,0.)).xyz*.001-f.geometryOffset.xyz;
+ var normal=safeNormal(end,vec3<f32>(0.,0.,1.));var degenerate=false;
+ if(f.geometry.y>0.){normal=(f.worldToEcef*vec4<f32>(reconstructed,0.)).xyz;}
+ else if(f.inputs.x>0.){
+   let encoded=sample_normalImage(v.uv).xyz;degenerate=all(encoded==vec3<f32>(0.));
+   var local=encoded*2.-1.;if(f.inputs.x>1.){local=octNormal(encoded.xy);}
+   var world=local;
+   if(f.inputs.w==0.){world=f.right.xyz*local.x+f.up.xyz*local.y-f.forward.xyz*local.z;}
+   normal=(f.worldToEcef*vec4<f32>(world,0.)).xyz;
  }
- if(f.options.z>0.){return vec4<f32>(clamp(foreground+sky*(1.-input.a),vec3<f32>(0.),vec3<f32>(65504.)),1.);}
- return vec4<f32>(clamp(foreground,vec3<f32>(0.),vec3<f32>(65504.)),input.a);
+ if(f.geometry.z>0.){
+   let sphereNormal=safeNormal(end*f.inverseRadiiSquared.xyz,normal);
+   normal=mix(normal,sphereNormal,f.geometry.z);
+   end=mix(end,sphereNormal*BOTTOM,f.geometry.z);
+ }
+ if((f.aerial.z>0. || f.aerial.w>0.) && !degenerate){
+   var light=vec3<f32>(0.);
+   if(f.aerial.z>0.){light+=atmosphereSunIrradiance(end,normal,f.sun.xyz)*cloudTransmission;}
+   if(f.aerial.w>0.){light+=atmosphereSkyIrradiance(end,normal,f.sun.xyz);}
+   let relit=foreground*(f.geometry.x/PI)*light;
+   var mask=1.;if(f.inputs.y>=0.){mask=clamp(sample_lightingMaskImage(v.uv)[u32(f.inputs.y)],0.,1.);}
+   foreground=mix(foreground,relit,mask);
+ }
+ if(f.options.x>0.){
+   let air=atmosphereSegmentShadow(origin,end,f.sun.xyz,shadowLength);
+   if(f.aerial.x>0.){foreground*=air.transmittance;}
+   if(f.aerial.y>0.){foreground+=air.radiance*input.a;}
+ }
+ if(f.options.z>0.){return compositeOverlay(vec4<f32>(clamp(foreground+sky*(1.-input.a),vec3<f32>(0.),vec3<f32>(65504.)),1.),v.uv);}
+ return compositeOverlay(vec4<f32>(clamp(foreground,vec3<f32>(0.),vec3<f32>(65504.)),input.a),v.uv);
 }
 ''';
 const atmosphereStarsWgsl = r'''

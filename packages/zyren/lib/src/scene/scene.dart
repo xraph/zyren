@@ -538,6 +538,19 @@ final class EffectRegistration extends Registration {
   }
 }
 
+/// Owns the scene's environment slot until disposal restores its settings fallback.
+final class EnvironmentRegistration extends Registration {
+  final void Function(VolumeEnvironmentMap) _replace;
+  EnvironmentRegistration._(super.release, this._replace);
+  void replace(VolumeEnvironmentMap map) {
+    if (isDisposed) throw StateError('Environment registration has closed.');
+    if (map.isClosed) {
+      throw StateError('Environment resource owner has closed.');
+    }
+    _replace(map);
+  }
+}
+
 class Scene extends Object3D {
   List<ClippingPlane> _clippingPlanes = const [];
   SceneOutline? _outline;
@@ -560,7 +573,7 @@ class Scene extends Object3D {
   }
 
   RenderSettings _renderSettings = RenderSettings();
-  final _effects = <Object, ScreenEffect>{};
+  final _effects = <Object, ({int order, ScreenEffect effect})>{};
   final _transparentBackgroundEffects = <Object>{};
 
   /// Effective clear alpha while an effect supplies the visible background.
@@ -575,7 +588,7 @@ class Scene extends Object3D {
   VolumeEnvironmentMap? _environment;
   VolumeEnvironmentMap? get environment =>
       _environment ?? _renderSettings.environment;
-  Registration addEnvironment(VolumeEnvironmentMap map) {
+  EnvironmentRegistration addEnvironment(VolumeEnvironmentMap map) {
     if (map.isClosed) {
       throw StateError('Environment resource owner has closed.');
     }
@@ -586,28 +599,53 @@ class Scene extends Object3D {
     }
     _environment = map;
     _changed();
-    return Registration(() {
-      _environment = null;
-      _changed();
-    });
+    return EnvironmentRegistration._(
+      () {
+        _environment = null;
+        _changed();
+      },
+      (replacement) {
+        _environment = replacement;
+        _changed();
+      },
+    );
   }
 
   RenderSettings get renderSettings => _renderSettings;
-  List<ScreenEffect> get effects =>
-      List.unmodifiable([..._renderSettings.effects, ..._effects.values]);
+  List<ScreenEffect> get effects {
+    final ordered =
+        [
+          for (final effect in _renderSettings.effects)
+            (order: 0, effect: effect),
+          ..._effects.values,
+        ].indexed.toList()..sort((a, b) {
+          final stage = a.$2.effect.stage.index.compareTo(
+            b.$2.effect.stage.index,
+          );
+          if (stage != 0) return stage;
+          final order = a.$2.order.compareTo(b.$2.order);
+          return order == 0 ? a.$1.compareTo(b.$1) : order;
+        });
+    return List.unmodifiable(ordered.map((entry) => entry.$2.effect));
+  }
 
   /// Request a transparent clear when your effect composites its own sky or
   /// backdrop behind scene coverage. Disposing the slot restores the setting.
+  /// HDR effects run before display effects. Within each stage, lower [order]
+  /// values run first. Settings effects have order zero; ties
+  /// retain insertion order, with settings before registered effects.
   EffectRegistration addEffect(
     ScreenEffect effect, {
     bool requiresTransparentBackground = false,
+    int order = 0,
   }) {
+    RangeError.checkValueInInterval(order, -32768, 32767, 'order');
     if (effect.isClosed) throw StateError('Effect owner has closed.');
-    if (effects.length >= 8) {
-      throw StateError('At most eight effects are supported.');
+    if (effects.length >= 32) {
+      throw StateError('At most 32 effects are supported.');
     }
     final key = Object();
-    _effects[key] = effect;
+    _effects[key] = (order: order, effect: effect);
     if (requiresTransparentBackground) _transparentBackgroundEffects.add(key);
     _changed();
     return EffectRegistration._(
@@ -617,15 +655,15 @@ class Scene extends Object3D {
         _changed();
       },
       (replacement) {
-        _effects[key] = replacement;
+        _effects[key] = (order: order, effect: replacement);
         _changed();
       },
     );
   }
 
   set renderSettings(RenderSettings value) {
-    if (value.effects.length + _effects.length > 8) {
-      throw StateError('At most eight effects are supported.');
+    if (value.effects.length + _effects.length > 32) {
+      throw StateError('At most 32 effects are supported.');
     }
     if (identical(value, _renderSettings)) return;
     _renderSettings = value;

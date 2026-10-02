@@ -4,6 +4,13 @@ import 'dart:typed_data';
 /// relative to the pinned WebGPU celestial model; zero hides that source.
 final class AtmosphereAppearance {
   final bool sky, haze, ground;
+  final bool transmittance,
+      inscatter,
+      sunLight,
+      skyLight,
+      reconstructNormal,
+      correctGeometricError;
+  final double albedoScale;
   final double sunIntensity,
       moonIntensity,
       starIntensity,
@@ -13,12 +20,22 @@ final class AtmosphereAppearance {
     this.sky = true,
     this.haze = true,
     this.ground = true,
+    this.transmittance = true,
+    this.inscatter = true,
+    this.sunLight = false,
+    this.skyLight = false,
+    this.reconstructNormal = false,
+    this.correctGeometricError = false,
+    this.albedoScale = 1,
     this.sunIntensity = 1,
     this.moonIntensity = 1,
     this.starIntensity = 1000,
     this.starPointSize = 1,
     this.moonAngularRadius = .0045,
   }) {
+    if (!albedoScale.isFinite || albedoScale < 0 || albedoScale > 65504) {
+      throw ArgumentError.value(albedoScale, 'albedoScale');
+    }
     for (final v in [sunIntensity, moonIntensity, starIntensity]) {
       if (!v.isFinite || v < 0 || v > 100000) {
         throw ArgumentError('Celestial intensity must be in [0, 100000].');
@@ -37,6 +54,13 @@ final class AtmosphereAppearance {
     bool? sky,
     bool? haze,
     bool? ground,
+    bool? transmittance,
+    bool? inscatter,
+    bool? sunLight,
+    bool? skyLight,
+    bool? reconstructNormal,
+    bool? correctGeometricError,
+    double? albedoScale,
     double? sunIntensity,
     double? moonIntensity,
     double? starIntensity,
@@ -46,6 +70,13 @@ final class AtmosphereAppearance {
     sky: sky ?? this.sky,
     haze: haze ?? this.haze,
     ground: ground ?? this.ground,
+    transmittance: transmittance ?? this.transmittance,
+    inscatter: inscatter ?? this.inscatter,
+    sunLight: sunLight ?? this.sunLight,
+    skyLight: skyLight ?? this.skyLight,
+    reconstructNormal: reconstructNormal ?? this.reconstructNormal,
+    correctGeometricError: correctGeometricError ?? this.correctGeometricError,
+    albedoScale: albedoScale ?? this.albedoScale,
     sunIntensity: sunIntensity ?? this.sunIntensity,
     moonIntensity: moonIntensity ?? this.moonIntensity,
     starIntensity: starIntensity ?? this.starIntensity,

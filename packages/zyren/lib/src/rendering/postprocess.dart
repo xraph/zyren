@@ -1,8 +1,30 @@
 part of '../resources/resource_scope.dart';
 
-/// A fullscreen stage reading the preceding linear, premultiplied HDR result.
+/// Selects the color space and position of a fullscreen effect.
+enum PostProcessStage {
+  /// Linear HDR, before bloom, exposure and tone mapping.
+  hdr,
+
+  /// Encoded sRGB after tone mapping, before output antialiasing.
+  display,
+}
+
+/// A fullscreen stage reading the preceding premultiplied result in [stage].
+/// History always contains the HDR result, including in display effects.
+/// User groups may write storage textures from the fragment stage. Later effects
+/// can sample those outputs in the same frame. Allocate the desired dimensions,
+/// write every texel you consume, and retain the effect while its outputs are used.
+/// Binding a texture for both sampling and writing in one stage is rejected.
 final class PostProcessDescriptor extends MeshShaderDescriptor {
+  final PostProcessStage stage;
+
+  /// Optional RGBA16F render attachment. Its extent sets the draw resolution.
+  /// The main color chain remains unchanged; later stages may sample this map.
+  /// Screen uniforms retain the scene viewport; vertex UV spans this target.
+  final GpuResource<Texture>? target;
   PostProcessDescriptor({
+    this.stage = PostProcessStage.hdr,
+    this.target,
     required super.program,
     super.bindings,
     super.label = 'screen effect',
@@ -48,6 +70,8 @@ struct ScreenVertex {
 final class ScreenEffect {
   final MeshShader _shader;
   ScreenEffect._(this._shader);
+  PostProcessStage get stage =>
+      (_shader.descriptor as PostProcessDescriptor).stage;
   bool get isClosed => _shader.isClosed;
   Uint8List encodeForDevice(MaterialDevice device) =>
       _shader.encodeForDevice(device);
@@ -118,10 +142,8 @@ final class RenderSettings {
         backgroundAlpha > 1 ||
         historyEpoch < 0 ||
         historyEpoch > 0xffffffff ||
-        this.effects.length > 8) {
-      throw ArgumentError(
-        'Invalid render settings or more than eight effects.',
-      );
+        this.effects.length > 32) {
+      throw ArgumentError('Invalid render settings or more than 32 effects.');
     }
   }
   RenderSettings copyWith({

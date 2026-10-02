@@ -32,6 +32,9 @@ class NativeRenderer implements SceneRenderer {
       RenderFeatures.alphaMaterials,
       RenderFeatures.portablePrimitives,
       RenderFeatures.materialSidedness,
+      RenderFeature.reversedDepth,
+      RenderFeature.sectionClipping,
+      RenderFeature.selectionOutlines,
     },
     maxDimension: 4096,
   );
@@ -133,6 +136,9 @@ class NativeRenderer implements SceneRenderer {
       submission.size.height,
       uploadedBytes: reply[1] as int,
       residentBytes: reply[2] as int,
+      alphaMode: submission.scene.usesScreenEffects
+          ? AlphaMode.premultiplied
+          : AlphaMode.straight,
     );
   }
 

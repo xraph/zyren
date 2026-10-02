@@ -661,8 +661,9 @@ final class ScenePacketEncoder {
       final bloom = settings.bloom, outline = scene._outline;
       body.json({
         'enabled': screenEnabled,
-        'sample_count':
-            submission.colorPipeline?.sampleCount ?? settings.sampleCount,
+        'sample_count': screenEnabled
+            ? submission.colorPipeline?.sampleCount ?? settings.sampleCount
+            : 1,
         'depth_strategy': submission.camera.depthStrategy.index,
         'spatial_antialiasing': settings.spatialAntialiasing.index,
         'effects': effects.map(key).toList(),

@@ -11,6 +11,11 @@ struct MeshUniforms {
   color_unlit: vec4<f32>, light_ambient: vec4<f32>, map_params: vec4<f32>,
   view_projection: mat4x4<f32>, model: mat4x4<f32>,
   primitive: vec4<f32>, viewport: vec4<f32>,
+  pbr_params: vec4<f32>, emissive: vec4<f32>, pbr_maps: vec4<u32>, pbr_factors: vec4<f32>,
+  physical: array<vec4<f32>, 4>, transmission: array<vec4<f32>, 2>, optical: array<vec4<f32>, 2>,
+  capture_projection: mat4x4<f32>,
+  clipping_planes: array<vec4<f32>, 6>, clipping: vec4<f32>,
+  inverse_view_projection: mat4x4<f32>,
 };
 @group(0) @binding(0) var<uniform> mesh: MeshUniforms;
 struct MeshVertex {
@@ -19,6 +24,11 @@ struct MeshVertex {
   @location(1) uv0: vec2<f32>, @location(2) uv1: vec2<f32>,
   @location(3) relativePosition: vec3<f32>,
 };
+fn meshClip(relativePosition: vec3<f32>) {
+  for (var i = 0u; i < u32(mesh.clipping.x); i++) {
+    if dot(mesh.clipping_planes[i], vec4(relativePosition, 1.)) < 0. { discard; }
+  }
+}
 fn meshColor(color: vec4<f32>) -> vec4<f32> {
   let alpha = color.a * mesh.map_params.y;
   let mode = mesh.map_params.w;

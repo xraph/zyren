@@ -166,7 +166,7 @@ fn color_packets_reject_unknown_curves_nonfinite_exposure_and_truncation() {
         assert!(ScenePacket::decode(&short).is_err());
     }
     for (offset, bits) in [
-        (curve, 3u32),
+        (curve, 7u32),
         (curve + 4, (-1f32).to_bits()),
         (curve + 4, f32::INFINITY.to_bits()),
         (curve + 4, 1e7f32.to_bits()),

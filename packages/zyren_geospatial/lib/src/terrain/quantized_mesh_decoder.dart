@@ -4,18 +4,26 @@ import 'package:zyren/zyren.dart';
 import '../geodesy.dart';
 import '../tiling.dart';
 import 'terrain_tile.dart';
+import 'terrain_extensions.dart';
 
 /// Count limits apply before allocation. Reservations cover final payloads;
 /// bounded parser buffers and geometry construction also use temporary memory.
 final class QuantizedMeshLimits {
   final int maxEncodedBytes, maxVertices, maxTriangles, maxEdgeVertices;
+  final int maxMetadataBytes, maxMetadataRanges;
   QuantizedMeshLimits({
     this.maxEncodedBytes = 1024 * 1024,
     this.maxVertices = 8192,
     this.maxTriangles = 16384,
     this.maxEdgeVertices = 2048,
+    this.maxMetadataBytes = 65536,
+    this.maxMetadataRanges = 1024,
   }) {
-    if (maxEncodedBytes < 128 ||
+    if (maxMetadataBytes < 1 ||
+        maxMetadataBytes > 1024 * 1024 ||
+        maxMetadataRanges < 1 ||
+        maxMetadataRanges > 4096 ||
+        maxEncodedBytes < 128 ||
         maxEncodedBytes > 64 * 1024 * 1024 ||
         maxVertices < 3 ||
         maxVertices > 1000000 ||
@@ -33,7 +41,10 @@ final class QuantizedMeshLimits {
   int get decodedBytes =>
       (maxVertices + maxEdgeVertices) * 32 +
       (maxTriangles * 3 + maxEdgeVertices * 6) * 4 +
-      4;
+      4 +
+      65536 +
+      maxMetadataRanges * 32 +
+      240;
   int get residentBytes =>
       (maxVertices + maxEdgeVertices) * 40 +
       (maxTriangles * 3 + maxEdgeVertices * 6) * 4 +
@@ -159,6 +170,8 @@ final class QuantizedMeshDecoder {
       edges.add(edge);
     }
     Uint8List? octNormals;
+    TerrainWaterMask? waterMask;
+    TerrainAvailabilityMetadata? availability;
     final extensions = <int>{};
     while (reader.remaining != 0) {
       cancellation.throwIfCancelled();
@@ -171,6 +184,25 @@ final class QuantizedMeshDecoder {
           bytes,
           reader.offset,
           reader.offset + length,
+        );
+      }
+      if (id == 2) {
+        if (length != 1 && length != 65536) _invalid();
+        waterMask = TerrainWaterMask(
+          Uint8List.sublistView(bytes, reader.offset, reader.offset + length),
+        );
+      } else if (id == 4) {
+        if (length < 4) _invalid();
+        final jsonLength = reader.data.getUint32(reader.offset, Endian.little);
+        if (jsonLength != length - 4) _invalid();
+        availability = decodeTerrainAvailability(
+          Uint8List.sublistView(
+            bytes,
+            reader.offset + 4,
+            reader.offset + length,
+          ),
+          maxBytes: limits.maxMetadataBytes,
+          maxRanges: limits.maxMetadataRanges,
         );
       }
       reader.skip(length);
@@ -260,6 +292,8 @@ final class QuantizedMeshDecoder {
         pixels: Uint8List.fromList([176, 188, 157, 255]),
       ),
       imageryRectangle: rectangle,
+      waterMask: waterMask,
+      availability: availability,
     );
   }
 }

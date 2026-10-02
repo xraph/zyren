@@ -7,7 +7,7 @@ import '../../../packages/flutter_zyren/test/support/fakes.dart';
 import 'support/workbench_timeline.dart';
 
 void main() {
-  testWidgets('timeline markers fit desktop and narrow playback controls', (
+  testWidgets('timeline mixing and markers fit desktop and narrow controls', (
     tester,
   ) async {
     final backend = FakeBackend();

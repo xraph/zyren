@@ -45,9 +45,6 @@ class NativeMetalBackend implements NativeGpuBackend {
     (args) async => (await request<Map>('gpuCommand', args))!,
   );
   NativeMetalBackend._(this.session, this.adapter);
-  bool get gpuOwnerClosed => _closed;
-  Future<Map> gpuRequest(Map<String, Object> arguments) async =>
-      (await request<Map>('gpu', arguments))!;
 
   @override
   ResourceScope createResourceScope({String label = ''}) =>
@@ -61,6 +58,12 @@ class NativeMetalBackend implements NativeGpuBackend {
   @override
   MaterialCompiler createMaterialCompiler({String label = ''}) =>
       _gpu.createMaterialCompiler(label: label);
+  @override
+  Future<GpuInspection> inspectGpu({int allocationLimit = 128}) {
+    if (_closed) throw StateError('Native view has closed.');
+    return _gpu.inspectGpu(allocationLimit: allocationLimit);
+  }
+
   @override
   Future<ResourceStats> resourceStats() => _gpu.resourceStats();
   @override

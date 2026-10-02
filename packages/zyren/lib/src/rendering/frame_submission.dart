@@ -399,9 +399,11 @@ class SceneSnapshot {
               );
             }
           }
-          if (node.material is ShaderMaterial &&
-              clipping &&
-              scene.clippingPlanes.isNotEmpty) {
+          if (node.material case ShaderMaterial(:final program)
+              when clipping &&
+                  scene.clippingPlanes.isNotEmpty &&
+                  (program is! MeshShader ||
+                      !program.descriptor.supportsClipping)) {
             throw UnsupportedError(
               'Custom materials require clipping in their shader.',
             );

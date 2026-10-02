@@ -27,16 +27,26 @@ integration.
 ## Frame composition
 
 The renderer runs graph preparation, scene rendering, temporal reconstruction,
-graph postprocessing, screen effects, bloom, output conversion and selection
-outlines in that order. Screen effects receive resolved premultiplied HDR color.
+graph postprocessing, HDR screen effects, bloom, tone mapping, display effects,
+output FXAA and selection outlines in that order. HDR effects receive resolved
+premultiplied linear color; display effects receive premultiplied sRGB.
 Graph postprocessing and temporal reconstruction receive straight HDR color;
-the renderer converts alpha conventions at those boundaries.
+the renderer converts alpha conventions at those boundaries. Outlines composite
+in linear light and preserve the declared output alpha convention, including
+when an effect makes an opaque scene translucent.
 
 When you supply a `ColorPipeline`, it controls exposure, tone mapping and the
 sample count. Otherwise, `RenderSettings` supplies those values. Temporal AA
 requires a single-sample HDR color pipeline and built-in triangle materials.
 MSAA remains a separate choice. Reversed depth, clipping and fragment coverage
-are applied consistently to visible, shadow and temporal passes.
+are applied consistently to visible, shadow and temporal passes. Transmission
+uses the active depth convention and supports both environment layouts.
+
+`MeshShader` authors can opt into section clipping with `supportsClipping` and
+call the supplied clipping helper. Other custom shaders reject section clipping
+until they implement that contract. `ToneMapping.linear` aliases `none`; the
+core's original `reinhard` and `acesFilmic` wire values stay stable. The added
+`aces`, `cineon`, `agx` and `neutral` modes use the same enum in both pipelines.
 
 ## Native protocol
 
@@ -52,6 +62,27 @@ material optics with reversed depth, clipping, fragment coverage and outlines.
 
 ## Verification scope
 
+This integration combines the core branch with committed Zyren work through
+`391b642`. Later changes in the primary checkout are outside this pinned merge.
+
 The integration is tested on macOS Metal. Native Android and Windows runtime
 qualification and full Three.js/Takram feature parity remain separate work.
 Passing package tests does not establish those platform or parity claims.
+
+The final integration checks cover 719 core tests, 110 Flutter tests, 197 native
+GPU tests and 199 Rust tests. A further six outline checks include the added
+compatibility-renderer alpha regression. The glTF, tiles, tools, timeline,
+engineering, effects, diagnostics and inspector suites also pass.
+
+Geospatial has 225 passing cases across the package run and the source-asset
+run. The latter verifies the original binary/EXR atmosphere tables, cloud maps,
+lighting updates and shadow transport. All 15 downloaded files matched the
+attached source project's Git LFS hashes. These fixtures remain outside the
+repository; set `ZYREN_SOURCE_LUTS` and `ZYREN_SOURCE_CLOUDS` to run them locally.
+
+Native macOS app checks pass for the physical-material gallery, the atmosphere
+lab and six managed SceneView tests. The atmosphere switches day, dusk, night
+and orbit views and resizes down to 320 logical pixels. Presentation uses zero
+readback bytes. After 100 view lifecycle cycles, sessions, renderers, retiring
+views and held drawables return to zero. Explicit capture remains a separate,
+measured readback operation.

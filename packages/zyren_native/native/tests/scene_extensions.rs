@@ -57,13 +57,13 @@ fn screen_settings_bound_effects_depth_samples_and_output() {
         ("sample_count", json!(2)),
         ("depth_strategy", json!(2)),
         ("spatial_antialiasing", json!(2)),
-        ("tone_mapping", json!(3)),
+        ("tone_mapping", json!(7)),
         ("exposure", json!(-1)),
         ("exposure", json!(1e40)),
         ("background_alpha", json!(1.1)),
         ("camera_origin", json!([0, 0])),
         ("enabled", json!(2)),
-        ("effects", json!(vec![[1, 1, 1, 1]; 9])),
+        ("effects", json!(vec![[1, 1, 1, 1]; 33])),
     ] {
         assert!(
             !valid(&edit(SETTINGS, |v| v[name] = value)),

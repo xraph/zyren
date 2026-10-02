@@ -140,6 +140,23 @@ void main() {
       engine.renderFrame(elapsed: Duration.zero, width: width, height: 13);
 
   test(
+    'shared effects inherit scene HDR without a core color pipeline',
+    () async {
+      final effect = EffectPlugin('scene precision');
+      await start([effect]);
+      engine.scene.renderSettings = RenderSettings(hdr: true);
+      await draw();
+      expect(effect.formats, [TextureFormat.rgba16Float]);
+      engine.scene.renderSettings = RenderSettings();
+      await draw();
+      expect(effect.formats, [
+        TextureFormat.rgba16Float,
+        TextureFormat.rgba8UnormSrgb,
+      ]);
+    },
+  );
+
+  test(
     'shared effects inherit HDR and rebuild only when precision changes',
     () async {
       final effect = EffectPlugin('precision');

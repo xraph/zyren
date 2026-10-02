@@ -327,8 +327,7 @@ impl Mesh {
         if self.shader.is_some() && self.material_shader.is_some() {
             return Err("A mesh requires one shader implementation".into());
         }
-        if (self.shader.is_some() || self.material_shader.is_some())
-            && !self.clipping_planes.is_empty()
+        if self.shader.is_some() && !self.clipping_planes.is_empty()
             || self.clipping_planes.len() > 6
             || self.clipping_planes.iter().any(|p| {
                 p.iter().any(|v| !v.is_finite())
@@ -583,10 +582,10 @@ impl RenderSettings {
             || ![1, 4].contains(&self.sample_count)
             || (self.sample_count != 1 && !self.enabled)
             || self.camera_origin.iter().any(|v| !v.is_finite())
-            || self.effects.len() > 8
-            || self.tone_mapping > 2
+            || self.effects.len() > 32
+            || self.tone_mapping > 6
             || !self.exposure.is_finite()
-            || !(0.0..=65504.).contains(&self.exposure)
+            || !(0.0..=1e6).contains(&self.exposure)
             || !self.background_alpha.is_finite()
             || !(0.0..=1.).contains(&self.background_alpha)
         {
@@ -661,7 +660,7 @@ fn single_sample() -> u32 {
 impl ColorPipeline {
     pub fn validate(&self) -> Result<(), String> {
         if ![1, 4].contains(&self.sample_count)
-            || self.tone_mapping > 2
+            || self.tone_mapping > 6
             || !self.exposure.is_finite()
             || !(0.0..=1e6).contains(&self.exposure)
         {

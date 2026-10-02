@@ -118,6 +118,26 @@ impl MetalCompletion {
         }
         Ok(Self(commands))
     }
+    /// Elapsed GPU execution across this submission's completed command buffers.
+    /// Includes gaps between buffers, excludes CPU encoding and queue wait.
+    pub(crate) fn gpu_time_ns(&self) -> Option<u64> {
+        let mut start = f64::INFINITY;
+        let mut end: f64 = 0.0;
+        for command in &self.0 {
+            if command.status() != MTLCommandBufferStatus::Completed {
+                return None;
+            }
+            let begin = command.GPUStartTime();
+            let finish = command.GPUEndTime();
+            if !begin.is_finite() || !finish.is_finite() || begin <= 0.0 || finish < begin {
+                return None;
+            }
+            start = start.min(begin);
+            end = end.max(finish);
+        }
+        let nanos = (end - start) * 1_000_000_000.0;
+        (nanos.is_finite() && nanos >= 0.0 && nanos < u64::MAX as f64).then_some(nanos as u64)
+    }
     pub(crate) fn check(&self) -> Result<(), String> {
         for command in &self.0 {
             completion_result(

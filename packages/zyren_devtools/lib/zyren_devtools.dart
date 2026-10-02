@@ -2,6 +2,7 @@ library;
 
 import 'dart:collection';
 import 'package:zyren/zyren.dart';
+import 'package:zyren/rendering.dart' show GpuInspection;
 
 const sceneDevtools = ServiceKey<SceneDevtoolsPlugin>('zyren.devtools');
 
@@ -66,6 +67,16 @@ class SceneDevtoolsPlugin extends ScenePlugin {
   void attach(PluginContext context) {
     _context = context;
     context.provide(sceneDevtools, this);
+  }
+
+  /// Returns null when the attached backend has no diagnostic query support.
+  Future<GpuInspection?> inspectGpu({int allocationLimit = 128}) async {
+    final context = _attached;
+    final result = await context.inspectGpu(allocationLimit: allocationLimit);
+    if (!identical(_context, context)) {
+      throw StateError('Inspector detached during query.');
+    }
+    return result;
   }
 
   SceneInspection snapshot() {

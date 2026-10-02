@@ -7,6 +7,127 @@ import 'package:zyren_native/zyren_native.dart';
 
 void main() {
   test(
+    'screen depth reconstruction follows temporal jitter on a sloped plane',
+    () async {
+      final backend = await NativeBackend.create();
+      final shaders = backend.createShaderCompiler();
+      final materials = backend.createMaterialCompiler();
+      try {
+        final effect = await materials.compileEffect(
+          PostProcessDescriptor(
+            program: await shaders.compile(
+              ShaderSource.wgsl('''
+${PostProcessDescriptor.interfaceWgsl}
+@fragment fn fragment(v: ScreenVertex) -> @location(0) vec4<f32> {
+  let p = scenePosition(v.uv, textureLoad(sceneDepth, vec2<i32>(v.position.xy), 0));
+  // Allow subpixel raster precision, well below one jitter step.
+  let onPlane = abs(p.x + p.z + 3.) < .0005;
+  return select(vec4(1.,0.,0.,1.), vec4(0.,1.,0.,1.), onPlane);
+}
+'''),
+            ),
+          ),
+        );
+        for (final depth in DepthStrategy.values) {
+          final scene = Scene()
+            ..renderSettings = RenderSettings(effects: [effect]);
+          scene.add(
+            Mesh(PlaneGeometry(width: 4, height: 4), UnlitMaterial())
+              ..rotateY(math.pi / 4),
+          );
+          final camera = OrthographicCamera(
+            verticalSize: 2,
+            near: .1,
+            far: 10,
+            position: const Vec3(0, 0, 3),
+            depthStrategy: depth,
+          );
+          for (var phase = 0; phase < 8; phase++) {
+            final out =
+                await backend.render(
+                      FrameSubmission.capture(
+                        scene: scene,
+                        camera: camera,
+                        size: PhysicalSize(32, 32),
+                        colorPipeline: ColorPipeline(
+                          toneMapping: ToneMapping.linear,
+                        ),
+                        temporalAA: TemporalAAOptions(),
+                      ),
+                    )
+                    as ReadbackOutput;
+            for (final x in [12, 20]) {
+              expect(
+                out.image.pixels.sublist(
+                  (16 * 32 + x) * 4,
+                  (16 * 32 + x) * 4 + 4,
+                ),
+                [0, 255, 0, 255],
+                reason: '$depth phase $phase',
+              );
+            }
+          }
+        }
+      } finally {
+        await materials.close();
+        await shaders.close();
+        await backend.close();
+      }
+    },
+    skip: Platform.environment['RUN_NATIVE_GPU'] != '1',
+  );
+  test(
+    'core MSAA composes with clipping, outlines and reversed depth',
+    () async {
+      final backend = await NativeBackend.create();
+      try {
+        for (final depth in DepthStrategy.values) {
+          final scene = Scene()..background = const Color3(0, 0, 0);
+          final mesh = scene.add(
+            Mesh(
+              PlaneGeometry(width: 2, height: 2),
+              UnlitMaterial(color: const Color3(0, 1, 0)),
+            ),
+          );
+          scene.clippingPlanes = [ClippingPlane(normal: const Vec3(1, 0, 0))];
+          scene.outline = SceneOutline(
+            objects: [mesh],
+            color: const Color3(1, 0, 0),
+          );
+          final output =
+              await backend.render(
+                    FrameSubmission.capture(
+                      scene: scene,
+                      camera: OrthographicCamera(
+                        verticalSize: 2,
+                        near: .1,
+                        far: 10,
+                        position: const Vec3(0, 0, 3),
+                        depthStrategy: depth,
+                      ),
+                      size: PhysicalSize(32, 32),
+                      colorPipeline: ColorPipeline(
+                        toneMapping: ToneMapping.linear,
+                        sampleCount: 4,
+                      ),
+                    ),
+                  )
+                  as ReadbackOutput;
+          List<int> pixel(int x) => output.image.pixels.sublist(
+            (16 * 32 + x) * 4,
+            (16 * 32 + x) * 4 + 4,
+          );
+          expect(pixel(8), [0, 0, 0, 255]);
+          expect(pixel(24), [0, 255, 0, 255]);
+          expect(pixel(16)[0], greaterThan(150));
+        }
+      } finally {
+        await backend.close();
+      }
+    },
+    skip: Platform.environment['RUN_NATIVE_GPU'] != '1',
+  );
+  test(
     'screen effects, graph, reversed depth, clipping and temporal AA compose',
     () async {
       final backend = await NativeBackend.create();

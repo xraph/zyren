@@ -15,6 +15,8 @@ pub(crate) struct PreparedMaterial {
     pub vertex: String,
     pub fragment: String,
     pub requires_uv: bool,
+    pub screen_stage: u32,
+    pub screen_target: Option<wgpu::TextureView>,
     pub screen_pipeline: Option<wgpu::RenderPipeline>,
     pub(crate) resources: Vec<ResourceKey>,
     program: ResourceKey,
@@ -84,9 +86,6 @@ impl MaterialStore {
     pub fn live(&self) -> u64 {
         self.registry.live_allocations()
     }
-    pub fn contains(&self, value: Key) -> bool {
-        self.registry.resolve(key(value)).is_ok()
-    }
     pub fn resolve(&self, value: Key) -> Result<&PreparedMaterial, ResourceError> {
         self.registry.resolve(key(value))
     }
@@ -117,10 +116,13 @@ impl MaterialStore {
         }
         self.registry.check_capacity(bytes)?;
         let pass = &description.passes[0];
+        let screen = pass.screen_space.unwrap_or(false);
         let prepared = scoped(device, &pass.name, || {
-            if pass.name.is_empty()
+            if (!screen && pass.screen_target.is_some())
+                || pass.screen_stage.is_some_and(|stage| !screen || stage > 1)
+                || pass.name.is_empty()
                 || pass.name.len() > 1024
-                || !pass.writes.is_empty()
+                || (!screen && !pass.writes.is_empty())
                 || !pass.after.is_empty()
                 || pass.color.is_some()
                 || pass.workgroups.is_some()
@@ -131,15 +133,13 @@ impl MaterialStore {
                 || pass.blend.is_some()
                 || pass.bindings.iter().any(|b| {
                     b.group == 0
-                        || matches!(
-                            b.kind,
-                            BindingKind::StorageReadWrite | BindingKind::StorageTexture
-                        )
+                        || b.kind == BindingKind::StorageReadWrite
+                        || (b.kind == BindingKind::StorageTexture && (!screen || b.stages != [1]))
                 })
             {
                 return Err(GraphError::new(
                     "invalidDescriptor",
-                    "Mesh shaders reserve group 0 and allow readonly user bindings",
+                    "Group 0 is reserved; only screen fragments may write storage textures",
                 ));
             }
             let vertex = pass.vertex_entry_point.as_ref().ok_or_else(|| {
@@ -161,23 +161,49 @@ impl MaterialStore {
                     ));
                 }
             }
-            let bindings = bindings::prepare(device, resources, pass)?;
+            let mut bindings = bindings::prepare(device, resources, pass)?;
+            let screen_target = if let Some(target) = pass.screen_target {
+                let texture = resources.graph_texture(key(target))?;
+                if texture.dimension() != wgpu::TextureDimension::D2
+                    || texture.format() != wgpu::TextureFormat::Rgba16Float
+                    || !texture
+                        .usage()
+                        .contains(wgpu::TextureUsages::RENDER_ATTACHMENT)
+                {
+                    return Err(GraphError::new(
+                        "invalidBinding",
+                        "Screen targets require a 2D RGBA16F render attachment",
+                    ));
+                }
+                bindings.use_resource(target, false, true)?;
+                Some(texture.create_view(&wgpu::TextureViewDescriptor {
+                    mip_level_count: Some(1),
+                    usage: Some(wgpu::TextureUsages::RENDER_ATTACHMENT),
+                    ..Default::default()
+                }))
+            } else {
+                None
+            };
             let declared: HashSet<_> = description.resources.iter().map(|r| r.key).collect();
             let inputs: HashSet<_> = description.inputs.iter().copied().collect();
             let reads: HashSet<_> = pass.reads.iter().copied().collect();
+            let writes: HashSet<_> = pass.writes.iter().copied().collect();
+            let bound: HashSet<_> = bindings.reads.union(&bindings.writes).copied().collect();
             if declared.len() != description.resources.len()
+                || inputs.len() != description.inputs.len()
                 || description.resources.iter().any(|r| r.label.len() > 1024)
-                || declared != bindings.reads
-                || inputs != declared
-                || reads != declared
-                || !bindings.writes.is_empty()
+                || declared != bound
+                || inputs != bindings.reads
+                || reads != bindings.reads
+                || writes != bindings.writes
+                || reads.len() != pass.reads.len()
+                || writes.len() != pass.writes.len()
             {
                 return Err(GraphError::new(
                     "accessMismatch",
-                    "Mesh bindings must match their resource declarations",
+                    "Material bindings must match their read and write declarations",
                 ));
             }
-            let screen = pass.screen_space.unwrap_or(false);
             if screen && pass.requires_uv.unwrap_or(false) {
                 return Err(GraphError::new(
                     "invalidDescriptor",
@@ -230,6 +256,8 @@ impl MaterialStore {
                 vertex: vertex.clone(),
                 fragment: fragment.clone(),
                 requires_uv: pass.requires_uv.unwrap_or(false),
+                screen_stage: pass.screen_stage.unwrap_or(0),
+                screen_target,
                 screen_pipeline: None,
                 resources: declared.into_iter().map(key).collect(),
                 program: key(pass.program),

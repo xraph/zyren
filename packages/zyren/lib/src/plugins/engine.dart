@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import '../resources/buffer.dart';
 import '../resources/gpu_scope.dart';
 import 'registration.dart';
+import '../rendering/gpu_diagnostics.dart';
 import 'attachment_scope.dart';
 import '../input/pointer_event.dart';
 import '../rendering/capabilities.dart';
@@ -127,6 +128,22 @@ class PluginContext {
     this._claimEnvironment,
     this._claimTemporal,
   );
+
+  /// Queries the backend only when you request an inspection.
+  Future<GpuInspection?> inspectGpu({int allocationLimit = 128}) async {
+    if (!_active || scope.isClosed) {
+      throw StateError('Plugin context has been detached.');
+    }
+    if (allocationLimit < 1 || allocationLimit > 256) {
+      throw RangeError.range(allocationLimit, 1, 256, 'allocationLimit');
+    }
+    final backend = _backend;
+    return backend is GpuDiagnosticsBackend
+        ? (backend as GpuDiagnosticsBackend).inspectGpu(
+            allocationLimit: allocationLimit,
+          )
+        : null;
+  }
 
   /// Shared preparation and effect contributions, owned by this attachment.
   PluginGraph get graph {
@@ -850,7 +867,7 @@ class SceneEngine {
             await shared.prepare(
               submission.size,
               submission.camera.projection,
-              colorPipeline == null
+              colorPipeline == null && !submission.scene.usesScreenEffects
                   ? TextureFormat.rgba8UnormSrgb
                   : TextureFormat.rgba16Float,
             ),

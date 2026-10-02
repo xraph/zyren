@@ -351,7 +351,11 @@ class _PbrLabState extends State<_PbrLab> {
                             child: Text(switch (entry) {
                               ToneMapping.linear => 'Linear',
                               ToneMapping.reinhard => 'Reinhard',
-                              ToneMapping.acesFilmic => 'ACES',
+                              ToneMapping.acesFilmic => 'ACES Filmic',
+                              ToneMapping.aces => 'ACES',
+                              ToneMapping.cineon => 'Cineon',
+                              ToneMapping.agx => 'AgX',
+                              ToneMapping.neutral => 'Neutral',
                             }),
                           ),
                       ],

@@ -127,6 +127,7 @@ pub struct RendererState {
     counters: RenderCounters,
     last_scene_draws: std::cell::Cell<u64>,
     last_instance_draws: std::cell::Cell<u64>,
+    last_gpu_time_ns: Option<u64>,
     layout: wgpu::BindGroupLayout,
     pbr_layout: wgpu::BindGroupLayout,
     environment_defaults: environment::Defaults,
@@ -328,6 +329,7 @@ impl Renderer {
                 #[cfg(target_vendor = "apple")]
                 drawable_owner: None,
                 failure: None,
+                last_gpu_time_ns: None,
                 counters: RenderCounters::default(),
                 last_scene_draws: std::cell::Cell::new(0),
                 last_instance_draws: std::cell::Cell::new(0),
@@ -410,6 +412,8 @@ impl Renderer {
                 instance_bytes: state.instances.values().map(|i| i.recipe.byte_length() as u64).sum(),
                 instance_uploaded_bytes: state.instance_uploaded_bytes,
                 instance_draw_calls: state.last_instance_draws.get() as usize,
+                last_gpu_time_ns: state.last_gpu_time_ns,
+                submitted_frames: state.counters.submitted_frames,
                 device_info: serde_json::json!({"backend":format!("{:?}",state.backend),"adapterName":state.adapter_name,"sampleCounts":if state.supports_msaa4 {vec![1,4]} else {vec![1]}}),
             },
             bytes,
@@ -881,7 +885,7 @@ impl Renderer {
                             mesh.clipping_planes.len() as f32,
                             mesh.coverage[0],
                             mesh.coverage[1],
-                            0.,
+                            if mesh.reversed_depth { 1. } else { 0. },
                         ],
                         physical: {
                             let p = mesh.pbr.as_ref().and_then(|p| p.physical).unwrap_or([
@@ -1271,6 +1275,7 @@ impl Renderer {
     }
 
     fn wait_for_submission(&mut self, submission: Submission) -> Result<(), String> {
+        self.last_gpu_time_ns = None;
         let result = self
             .device
             .poll(wgpu::PollType::Wait {
@@ -1281,7 +1286,11 @@ impl Renderer {
             .map_err(|error| error.to_string());
         #[cfg(target_vendor = "apple")]
         let result = result.and_then(|()| match submission.metal {
-            Some(completion) => completion.check(),
+            Some(completion) => {
+                completion.check()?;
+                self.last_gpu_time_ns = completion.gpu_time_ns();
+                Ok(())
+            }
             None => Ok(()),
         });
         if result.is_ok() {

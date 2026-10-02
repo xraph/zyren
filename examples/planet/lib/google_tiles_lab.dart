@@ -6,6 +6,7 @@ import 'package:flutter_zyren/widgets.dart' as widgets;
 import 'package:zyren_3d_tiles/zyren_3d_tiles.dart';
 import 'package:zyren_geospatial/zyren_geospatial.dart';
 import 'tile_attribution_bar.dart';
+import 'geospatial_presets.dart';
 import 'zero_state.dart';
 
 void main() => runApp(const GoogleTilesLabApp());
@@ -43,7 +44,8 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
   Future<void>? _loadTask, _closing;
   Future<void> get whenClosed => _closing ?? Future<void>.value();
   Object? get loadError => _error;
-  String _location = 'Manhattan';
+  GoogleTilesPreset _preset = GoogleTilesPreset.manhattan;
+  GoogleTilesPreset get preset => _preset;
 
   @override
   void initState() {
@@ -68,22 +70,14 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
           )
           ..use(GeospatialPlugin())
           ..use(_controls);
-    _view('Manhattan');
+    _view(GoogleTilesPreset.manhattan);
     unawaited(_startLoad());
   }
 
-  void _view(String location) {
-    _location = location;
+  void _view(GoogleTilesPreset preset) {
+    _preset = preset;
     _controls.controls?.cancel();
-    final manhattan = location == 'Manhattan';
-    final coordinate = manhattan
-        ? Geodetic.degrees(-73.9709, 40.7589)
-        : Geodetic.degrees(138.5973, 35.2138);
-    PointOfView(
-      distance: manhattan ? 3000 : 7000,
-      heading: Angle.degrees(manhattan ? -155 : 71),
-      pitch: Angle.degrees(manhattan ? -35 : -31),
-    ).decompose(coordinate.toEcef()).applyTo(controller.camera);
+    preset.applyCamera(controller.camera);
     controller.invalidate();
   }
 
@@ -193,13 +187,13 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
                     'Photorealistic 3D',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                   ),
-                  for (final location in ['Manhattan', 'Fuji'])
+                  for (final preset in GoogleTilesPreset.values)
                     ChoiceChip(
-                      label: Text(location),
-                      selected: _location == location,
+                      label: Text(preset.label),
+                      selected: _preset == preset,
                       onSelected: _loading
                           ? null
-                          : (_) => setState(() => _view(location)),
+                          : (_) => setState(() => _view(preset)),
                     ),
                 ],
               ),

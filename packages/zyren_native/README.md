@@ -73,8 +73,10 @@ alpha and linear/sRGB metadata. You can lower `ImageDecodeLimits` for all mip
 bytes, dimensions and estimated workspace. Two calls may run per Dart isolate;
 native workspace admission is shared with PNG/JPEG decoding. Array, cube, video,
 HDR, custom swizzle and nonstandard orientation textures are outside this
-profile. GPU uploads use RGBA8, so source compression saves transfer bytes but
-does not reduce GPU texture storage. Allocation estimates are not an RSS cap.
+profile. The default decoder produces RGBA8. Use
+`NativeTextureDecoder.forDevice(backend.capabilities)` to retain ASTC, BC7 or ETC2
+blocks when the device supports them. Compressed uploads and mip tails remain
+compressed in GPU storage. Allocation estimates are not an RSS cap.
 
 Worker requests carry a generation and a monotonic request ID. Worker exit or
 error settles every pending request. Stale and duplicate replies are ignored.
@@ -117,11 +119,27 @@ dependencies and limits. Plugins can use attachment-owned `context.resources`,
 The example saves a native compute-to-render heatmap
 as a PNG. Use `GraphDescription.sceneColor` and `output` with a scene submission
 to process scene pixels on the GPU before native presentation. Plugins select the
-compiled graph through an attachment-owned `context.frameGraph` binding. Custom
-mesh materials and automatic resize/history management remain in progress.
+compiled graph through an attachment-owned `context.frameGraph` binding, or use
+`context.graph` to compose plugin contributions with shared resize and history
+management. Both custom mesh material APIs share the same GPU resource owner.
 
 Native platform adapters can use `NativeGpuServices.withTransport` to reuse the
 resource, shader and graph codecs with their existing renderer queue. The Metal
 and Android Flutter presenters use this path. `NativeGpuBackend` provides their
 common graph backend and accounting contract; application plugins still use
 `PluginContext` and public core types.
+
+The [shader guide](https://xraph.com/docs/zyren/shaders) covers custom mesh
+materials and screen effects.
+
+Screen effects can write auxiliary storage textures from their fragment stage.
+Use `TextureBinding.storage` in user groups 1-3, then sample the texture in a later
+effect. Mesh materials and storage buffers remain read-only. The compiler rejects
+sampling and writing the same texture in one stage and retains output resources
+for the effect's lifetime. You control texture dimensions and must write every
+texel the consumer reads.
+
+Register producers with `scene.addEffect(effect, order: -1)` when they must run
+before order-zero effects. Lower values run first, ties preserve insertion order,
+and replacing an effect keeps its order. Render-settings effects have order zero
+and precede registered effects with the same order.

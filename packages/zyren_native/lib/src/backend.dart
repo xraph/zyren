@@ -61,6 +61,12 @@ class NativeBackend implements NativeGpuBackend {
   }
 
   @override
+  Future<GpuInspection> inspectGpu({int allocationLimit = 128}) {
+    if (_closed) throw StateError('Backend has closed.');
+    return _resources.inspectGpu(allocationLimit: allocationLimit);
+  }
+
+  @override
   Future<ResourceStats> resourceStats() => _resources.stats();
 
   @override
