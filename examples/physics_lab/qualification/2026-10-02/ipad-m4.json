@@ -1,0 +1,102 @@
+{
+  "date": "2026-10-02",
+  "source_commit": "2b31fc2b8c4d6e924f7bd3acab9de299ba126062",
+  "source_worktree_clean_before_build": true,
+  "device": {
+    "model": "iPad Pro 13-inch (M4)",
+    "product_type": "iPad16,5",
+    "physical": true,
+    "os": "iPadOS 27.0",
+    "os_build": "24A437",
+    "cpu": "arm64e",
+    "application_architecture": "arm64",
+    "transport": "localNetwork"
+  },
+  "toolchain": {
+    "flutter": "3.47.5",
+    "dart": "3.13.4",
+    "rust": "1.97.1",
+    "rapier": "0.36.0"
+  },
+  "build": {
+    "configuration": "debug",
+    "bundle_id": "dev.xraph.zyren.physicsLab",
+    "xcode_build_seconds": 197.7,
+    "signed": true,
+    "codesign_verify_deep_strict_exit_code": 0,
+    "binary_files": [
+      {
+        "path": "Runner",
+        "sha256": "41aa85071d8dde086a7ae7b6ad21cd2ebf0eb03e2682ecaaa8c45b1f46f51397",
+        "bytes": 92304
+      },
+      {
+        "path": "Runner.debug.dylib",
+        "sha256": "561fd0ea3c55d309c99fc5e25b908f0bbe0a76b0736b336027bb5782930aef64",
+        "bytes": 181648
+      },
+      {
+        "path": "Frameworks/zyren_physics.framework/zyren_physics",
+        "sha256": "d4bfe1e49f71bbfc654244a4d310a458ecb29a260524989ade2129d707227b10",
+        "bytes": 4595536
+      },
+      {
+        "path": "Frameworks/zyren_runtime.framework/zyren_runtime",
+        "sha256": "78cd729c6b106cec71a61e88fd6b71cfc5cda4e3fd2213d0c38d1c46d4bee1b2",
+        "bytes": 9403056
+      },
+      {
+        "path": "Frameworks/App.framework/flutter_assets/kernel_blob.bin",
+        "sha256": "8c6eeaa6a4d9fdacf1c1b9ea7443652e2dfbd130f4cc1d9164cddf875498d556",
+        "bytes": 49670872
+      }
+    ]
+  },
+  "test": {
+    "target": "integration_test/physics_lab_test.dart",
+    "driver": "test_driver/qualification.dart",
+    "description": "native physics, controls, reset, resize and disposal",
+    "result": "passed",
+    "exit_code": 0,
+    "backend": "Metal",
+    "presentation": "nativeView",
+    "test_elapsed_seconds": 42,
+    "driver_elapsed_milliseconds": 105613,
+    "checks": [
+      "scene ready",
+      "gravity",
+      "drop ball",
+      "ray cast",
+      "overlap query",
+      "pause",
+      "snapshot reset",
+      "resume",
+      "kinematic target",
+      "396x800 logical layout",
+      "debug geometry toggle",
+      "disposal returns native body and world counts to baseline"
+    ]
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "result": "interrupted_without_test_result",
+      "detail": "Signed build and install succeeded. Flutter warned that the Dart VM service was not discovered after 75 seconds. The driver was interrupted for a diagnostic retry."
+    },
+    {
+      "attempt": 2,
+      "result": "failed",
+      "same_signed_binary": true,
+      "backend": "Metal",
+      "detail": "The test reached native rendering and gravity, then failed at the Ray cast tap with a duplicate pointer HitTestResult assertion. The log also recorded live device touches."
+    },
+    {
+      "attempt": 3,
+      "result": "passed",
+      "same_signed_binary": true,
+      "detail": "All assertions passed. Live device touches were also logged during this run, but the pointer collision did not recur. No source or test assertions changed between attempts."
+    }
+  ],
+  "post_test_cleanup": "Flutter shutdown reported that the app process no longer existed when sending a termination signal. The integration test had passed its native-count cleanup assertion, and the driver exited 0.",
+  "scope": "Physical iPad qualification only. This does not close the separate iPhone debugger check or Intel simulator execution check."
+}

@@ -27,8 +27,9 @@ and debug cleanup. It uses `qualification/` when you omit the argument, and name
 the image after the backend it measured. You can run the same integration test with an Android device or iOS
 simulator ID. It checks the actual backend and reports the presentation path.
 
-For a wireless iPhone, you need the driver entry point and a published debugger
-port. Unlock the phone and allow the app's Local Network prompt, then run:
+For a wireless iPhone or iPad, you need the driver entry point and a published
+debugger port. Unlock the device and allow the app's Local Network prompt,
+then leave the screen untouched while the test operates the controls:
 
 ```sh
 flutter drive --driver=test_driver/qualification.dart \

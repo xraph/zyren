@@ -1,0 +1,20 @@
+Physical iPad Pro 13-inch (M4), iPadOS 27.0 (24A437)
+Source: 2b31fc2b8c4d6e924f7bd3acab9de299ba126062
+Same signed debug app used for both completed test attempts.
+
+Attempt 2: duplicate pointer failure
+[+29415 ms] flutter: Physics Lab renderer: Metal; presentation: nativeView
+[        ] flutter: Failed assertion: line 414 pos 9: '!_hitTests.containsKey(event.pointer)'
+[   +9 ms] flutter:   Test failed. See exception logs above.
+
+Attempt 3: passed
+[+1583 ms] VMServiceFlutterDriver: Connected to Flutter application.
+[  +23 ms] flutter: Physics Lab renderer: Metal; presentation: nativeView
+[+9882 ms] flutter: 00:42 +1: (tearDownAll)
+[   +3 ms] All tests passed.
+[        ] "flutter drive" took 105,613ms.
+[   +1 ms] exiting with code 0
+
+Live device touches were logged in both completed runs. The retry passed unchanged.
+After the pass, Flutter shutdown reported no such process when sending a termination signal.
+The integration test had already verified native-count cleanup, and the driver exited 0.

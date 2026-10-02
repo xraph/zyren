@@ -16,7 +16,7 @@ These results were measured on 2026-10-02 with Flutter 3.47.5, its bundled Dart
 | Collision, sensor and contact events | Implemented; query transitions survive stepping, removal and snapshot restore; callbacks can remove bound bodies |
 | Snapshots and renderer recovery | Implemented; deterministic replay, stale-handle rejection, failed attachment recovery and native Metal/Vulkan/DX12 renderer recreation |
 | Debug geometry | Implemented; collider, joint and contact geometry appears in the saved native renders |
-| Physics Lab | Implemented; controls, pause/resume, reset, kinematics, narrow layout and disposal pass on macOS arm64, Pixel arm64, an Android x64 emulator, the arm64 iOS simulator, Linux arm64/x64 and Windows arm64/x64 |
+| Physics Lab | Implemented; controls, pause/resume, reset, kinematics, narrow layout and disposal pass on macOS arm64, Pixel arm64, an Android x64 emulator, a physical M4 iPad, the arm64 iOS simulator, Linux arm64/x64 and Windows arm64/x64 |
 
 The package suite passes 17 tests on all six hosted desktop architectures. Its
 six plugin tests use a small renderer test
@@ -33,7 +33,7 @@ workspace package-boundary check also pass.
 | Android armv7 | Native physics library packaged in the debug APK; Rust target check passed | Hardware run open |
 | Android x64 | Native physics library packaged; Rust target check and dedicated integration APK build passed | Vulkan/sharedTexture integration passed with SwiftShader when replaying the saved APK; a prior emulator service loss did not recur |
 | iOS simulator arm64 | Flutter debug app built | iPhone 17 Pro simulator on iOS 26.5 passed the Metal native-view integration test |
-| iOS device arm64 | Signed Flutter debug app built and installed on iPhone 16 Pro | Integration blocked by wireless debugger discovery; signed execution remains unverified |
+| iOS device arm64 | Signed Flutter debug app built and installed on iPad Pro 13-inch (M4) and iPhone 16 Pro | Physical iPad on iPadOS 27 passed Metal/nativeView integration over Wi-Fi; iPhone debugger discovery remains open |
 | iOS simulator x64 | Local Flutter debug app linked and x86_64 slices verified; hosted Xcode build finished | Hosted simulator booted, but Flutter returned no integration result before the 60-minute job timeout; execution remains unverified |
 | Linux arm64 | Flutter debug app linked in Debian 12 container and Ubuntu CI | 17 package tests, Vulkan/readback app integration and native render/recreation/cleanup passed locally and on a native arm64 CI host; physical GPU run open |
 | Linux x64 | Flutter debug app linked in emulated Debian 12 container and Ubuntu CI | 17 package tests, Vulkan/readback app integration and native render/recreation/cleanup passed locally and on an x64 CI host; physical GPU run open |

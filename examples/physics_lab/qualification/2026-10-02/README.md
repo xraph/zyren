@@ -23,6 +23,7 @@ Rust 1.97.1 and Rapier 0.36.0. The package remains unpublished.
 | Hosted Windows arm64/x64 | Linked native-architecture apps, DX12/readback integration and native render/recreation/cleanup passed |
 | Android x64 emulator | Test APK built; Vulkan/sharedTexture app integration passed when replaying the saved APK |
 | Signed iPhone 16 Pro, iOS 27 | Built and installed; wireless debugger discovery timed out before test results |
+| Physical iPad Pro 13-inch (M4), iPadOS 27 | Signed arm64 app and Metal/nativeView integration passed over Wi-Fi |
 | Manual macOS desktop | Ball creation, pause/resume, ray and overlap controls inspected |
 | Narrow layout | Integration test exercised 396 by 800 without Flutter errors; manual capture unverified |
 
@@ -38,6 +39,34 @@ Linux arm64 ran inside Docker on an Apple Silicon host. Its Vulkan adapter was
 `llvmpipe (LLVM 15.0.6, 128 bits)`, Mesa 22.3.6. Linux x64 used Docker's amd64 CPU
 emulation on the same host with llvmpipe's 256-bit variant. These are software
 rendering checks. Physical Linux GPU qualification is still open.
+
+## Physical iPad qualification
+
+The iPad Pro 13-inch (M4), model `iPad16,5`, passed the integration test on
+iPadOS 27.0 (`24A437`). The signed debug app was built from clean commit
+`2b31fc2b8c4d6e924f7bd3acab9de299ba126062`. Its app, physics and renderer
+binaries contain arm64 slices, and strict signature verification passed.
+
+The test reported `Metal; presentation: nativeView` and passed gravity,
+ball creation, ray and overlap queries, pause/resume, snapshot reset,
+kinematic movement, the 396 by 800 layout, debug toggling and disposal back
+to the native-count baseline. The test took 42 seconds; the full driver run
+took about 106 seconds over Wi-Fi. You can inspect the binary hashes and
+assertions in [ipad-m4.json](ipad-m4.json), with selected output in
+[ipad-test-results.txt](ipad-test-results.txt).
+
+The first launch did not discover the debugger and was interrupted for a
+diagnostic retry. That retry connected and rendered through Metal, but failed
+when an automated tap encountered a duplicate pointer identifier. Live device
+touches were recorded during the test. A further run of the same signed app
+passed every assertion without source changes. It also logged device touches,
+but the pointer collision did not recur. Keep the screen untouched during
+automated runs to avoid this interference.
+
+After the pass, Flutter's shutdown reported that the app process had already
+exited when it sent a termination signal. The native-count cleanup assertion
+had passed, and the driver exited with code zero. This physical iPad result
+does not close the separate iPhone debugger or Intel simulator checks.
 
 ## Hosted qualification
 
@@ -194,9 +223,10 @@ The command above linked successfully. The binary records verify the bundled
 physics and renderer frameworks as well as the app executable.
 
 You can use the driver command in the [example README](../../README.md) for a
-wireless iPhone. The signed install completed here, but no pass was recorded
-because Flutter never connected to its debugger. The device needs to be unlocked
-with Local Network access allowed, or connected by USB, before retrying.
+wireless iPhone or iPad. The iPad passed with that driver. The iPhone's signed
+install completed, but no pass was recorded because Flutter never connected
+to its debugger. Unlock the device and allow Local Network access, or connect
+by USB, before retrying.
 
 ## Open checks
 
