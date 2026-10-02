@@ -683,6 +683,10 @@ final class ScenePacketEncoder {
           for (final light in scene._shadowLights)
             [light.index, ...light.worldPosition],
         ],
+        'shadow_world_areas': [
+          for (final light in scene._shadowLights)
+            if (light.areaAxes.isNotEmpty) [light.index, ...light.areaAxes],
+        ],
         'history_epoch': settings.historyEpoch,
         if (bloom != null)
           'bloom': {

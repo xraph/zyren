@@ -22,12 +22,15 @@ final class _ShadowLight {
   final int index, revision;
   final ShadowSettings settings;
   final List<double> worldPosition;
+  final List<double> areaAxes;
   _ShadowLight(
     this.index,
     this.settings,
     this.revision,
-    Iterable<double> position,
-  ) : worldPosition = List.unmodifiable(position);
+    Iterable<double> position, {
+    Iterable<double> areaAxes = const [],
+  }) : worldPosition = List.unmodifiable(position),
+       areaAxes = List.unmodifiable(areaAxes);
 }
 
 /// Immutable camera-relative views. Backends pack them into a bounded atlas.

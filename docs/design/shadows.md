@@ -94,7 +94,10 @@ the selected atlas region to prevent filtering into another light's map.
 Moving your camera reuses point, spot and area maps when their casters and lights
 stay fixed. The cache retains exact float64 world transforms, so even a small
 world edit invalidates depth when the camera moves with it. Rendering still uses
-camera-relative float32 coordinates. Directional cascades, clipped casters and
+camera-relative float32 coordinates. Area emitters also retain their exact world
+half-width and half-height vectors: resizing, scaling or rotating the emitter
+moves its four shadow sample origins and must refresh depth. Directional
+cascades, clipped casters and
 older packets without world metadata keep conservative invalidation.
 
 A successful GPU submission publishes the cached depth state. Disabling all

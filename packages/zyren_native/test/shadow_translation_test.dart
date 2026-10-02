@@ -87,7 +87,8 @@ void main() {
               // that reusing depth did not move the visible shadow.
               var changed = 0;
               for (var i = 0; i < fresh.image.pixels.length; i++) {
-                if ((cached.image.pixels[i] - fresh.image.pixels[i]).abs() > 2) {
+                if ((cached.image.pixels[i] - fresh.image.pixels[i]).abs() >
+                    2) {
                   changed++;
                 }
               }
@@ -112,6 +113,24 @@ void main() {
             after = await backend.shadowStats();
             expect(after.renderedViews, greaterThan(before.renderedViews));
             expect(after.residentBytes, 16 * 1024 * 1024);
+            if (light case RectAreaLight()) {
+              for (final edit in <void Function()>[
+                () => light.width *= 1.5,
+                () => light.height *= 1.5,
+                () => light.rotateZ(.2),
+                () => light.scale = const Vec3(2, 1, 1),
+              ]) {
+                before = after;
+                edit();
+                await draw();
+                after = await backend.shadowStats();
+                expect(
+                  after.renderedViews,
+                  greaterThan(before.renderedViews),
+                  reason: 'area emitter shape moves shadow sample origins',
+                );
+              }
+            }
             scene.clippingPlanes = [
               ClippingPlane(normal: const Vec3(1, 0, 0), offset: origin.x),
             ];

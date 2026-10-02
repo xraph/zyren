@@ -538,6 +538,7 @@ pub struct RenderSettings {
     pub history_epoch: u32,
     pub camera_origin: [f64; 3],
     pub shadow_world_lights: Vec<[f64; 4]>,
+    pub shadow_world_areas: Vec<[f64; 7]>,
     pub environment: Option<EnvironmentMap>,
 }
 impl Default for RenderSettings {
@@ -556,6 +557,7 @@ impl Default for RenderSettings {
             history_epoch: 0,
             camera_origin: [0.; 3],
             shadow_world_lights: Vec::new(),
+            shadow_world_areas: Vec::new(),
             environment: None,
         }
     }
@@ -596,6 +598,17 @@ impl RenderSettings {
             || (self.sample_count != 1 && !self.enabled)
             || self.camera_origin.iter().any(|v| !v.is_finite())
             || self.shadow_world_lights.len() > crate::shadows::MAX_SHADOW_LIGHTS
+            || self.shadow_world_areas.len() > crate::lighting::MAX_AREAS
+            || self.shadow_world_areas.iter().enumerate().any(|(i, area)| {
+                area.iter().any(|v| !v.is_finite())
+                    || area[0].fract() != 0.
+                    || !(crate::lighting::MAX_LIGHTS as f64
+                        ..crate::shadows::MAX_SHADOW_LIGHTS as f64)
+                        .contains(&area[0])
+                    || self.shadow_world_areas[..i]
+                        .iter()
+                        .any(|prior| prior[0] == area[0])
+            })
             || self
                 .shadow_world_lights
                 .iter()
