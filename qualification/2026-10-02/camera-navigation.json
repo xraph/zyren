@@ -1,0 +1,495 @@
+{
+  "date": "2026-10-02",
+  "platform": "macOS Metal",
+  "mode": "profile",
+  "fixCommits": [
+    "d364ad5",
+    "916b88d"
+  ],
+  "nativeProfile": {
+    "suite": "dense-globe-cloud-camera-motion",
+    "passed": true,
+    "providerTiles": false,
+    "proceduralClouds": true,
+    "includesTestHarnessPumping": true,
+    "movingFrames": 48,
+    "medianPresentationMs": 55.55,
+    "p95PresentationMs": 79.901,
+    "samples": [
+      {
+        "frame": 22,
+        "history": 21,
+        "reason": "none",
+        "near": 1.6265152347778042,
+        "far": 180374.71351309947,
+        "uploadedBytes": 0
+      },
+      {
+        "frame": 23,
+        "history": 22,
+        "reason": "none",
+        "near": 1.6271417500125822,
+        "far": 180374.71351309947,
+        "uploadedBytes": 0
+      },
+      {
+        "frame": 24,
+        "history": 23,
+        "reason": "none",
+        "near": 1.6277682652473597,
+        "far": 180374.71351309947,
+        "uploadedBytes": 0
+      },
+      {
+        "frame": 25,
+        "history": 24,
+        "reason": "none",
+        "near": 1.6283947804821377,
+        "far": 180374.71351309947,
+        "uploadedBytes": 0
+      },
+      {
+        "frame": 26,
+        "history": 25,
+        "reason": "none",
+        "near": 1.6290212957169155,
+        "far": 180374.71351309947,
+        "uploadedBytes": 0
+      },
+      {
+        "frame": 27,
+        "history": 26,
+        "reason": "none",
+        "near": 1.6296478109516932,
+        "far": 180374.71351309947,
+        "uploadedBytes": 0
+      },
+      {
+        "frame": 28,
+        "history": 27,
+        "reason": "none",
+        "near": 1.6302743261864712,
+        "far": 180374.71351309947,
+        "uploadedBytes": 0
+      },
+      {
+        "frame": 29,
+        "history": 28,
+        "reason": "none",
+        "near": 1.630900841421249,
+        "far": 180374.71351309947,
+        "uploadedBytes": 0
+      },
+      {
+        "frame": 30,
+        "history": 29,
+        "reason": "none",
+        "near": 1.6315273566560267,
+        "far": 180374.71351309947,
+        "uploadedBytes": 0
+      },
+      {
+        "frame": 31,
+        "history": 30,
+        "reason": "none",
+        "near": 1.6321538718908044,
+        "far": 180374.71351309947,
+        "uploadedBytes": 0
+      },
+      {
+        "frame": 32,
+        "history": 31,
+        "reason": "none",
+        "near": 1.6327803871255822,
+        "far": 180374.71351309947,
+        "uploadedBytes": 0
+      },
+      {
+        "frame": 33,
+        "history": 32,
+        "reason": "none",
+        "near": 1.6334069023603601,
+        "far": 180374.71351309947,
+        "uploadedBytes": 0
+      },
+      {
+        "frame": 34,
+        "history": 33,
+        "reason": "none",
+        "near": 1.6340334175951379,
+        "far": 180374.71351309947,
+        "uploadedBytes": 0
+      },
+      {
+        "frame": 35,
+        "history": 34,
+        "reason": "none",
+        "near": 1.6346599328299156,
+        "far": 180374.71351309947,
+        "uploadedBytes": 0
+      },
+      {
+        "frame": 36,
+        "history": 35,
+        "reason": "none",
+        "near": 1.6352864480646936,
+        "far": 180374.71351309947,
+        "uploadedBytes": 0
+      },
+      {
+        "frame": 37,
+        "history": 36,
+        "reason": "none",
+        "near": 1.6359129632994711,
+        "far": 180374.71351309947,
+        "uploadedBytes": 0
+      },
+      {
+        "frame": 38,
+        "history": 37,
+        "reason": "none",
+        "near": 1.636539478534249,
+        "far": 180374.71351309947,
+        "uploadedBytes": 0
+      },
+      {
+        "frame": 39,
+        "history": 38,
+        "reason": "none",
+        "near": 1.637165993769027,
+        "far": 180374.71351309947,
+        "uploadedBytes": 0
+      },
+      {
+        "frame": 40,
+        "history": 39,
+        "reason": "none",
+        "near": 1.6377925090038046,
+        "far": 180374.71351309947,
+        "uploadedBytes": 0
+      },
+      {
+        "frame": 41,
+        "history": 40,
+        "reason": "none",
+        "near": 1.6384190242385825,
+        "far": 180374.71351309947,
+        "uploadedBytes": 0
+      },
+      {
+        "frame": 42,
+        "history": 41,
+        "reason": "none",
+        "near": 1.6390455394733605,
+        "far": 180374.71351309947,
+        "uploadedBytes": 0
+      },
+      {
+        "frame": 43,
+        "history": 42,
+        "reason": "none",
+        "near": 1.639672054708138,
+        "far": 180374.71351309947,
+        "uploadedBytes": 0
+      },
+      {
+        "frame": 44,
+        "history": 43,
+        "reason": "none",
+        "near": 1.640298569942916,
+        "far": 180374.71351309947,
+        "uploadedBytes": 0
+      },
+      {
+        "frame": 45,
+        "history": 44,
+        "reason": "none",
+        "near": 1.6409250851776938,
+        "far": 180374.71351309947,
+        "uploadedBytes": 0
+      },
+      {
+        "frame": 46,
+        "history": 45,
+        "reason": "none",
+        "near": 1.6415516004124715,
+        "far": 180374.71351309947,
+        "uploadedBytes": 0
+      },
+      {
+        "frame": 47,
+        "history": 46,
+        "reason": "none",
+        "near": 1.6421781156472495,
+        "far": 180374.71351309947,
+        "uploadedBytes": 0
+      },
+      {
+        "frame": 48,
+        "history": 47,
+        "reason": "none",
+        "near": 1.6428046308820272,
+        "far": 180374.71351309947,
+        "uploadedBytes": 0
+      },
+      {
+        "frame": 49,
+        "history": 48,
+        "reason": "none",
+        "near": 1.643431146116805,
+        "far": 180374.71351309947,
+        "uploadedBytes": 0
+      },
+      {
+        "frame": 50,
+        "history": 49,
+        "reason": "none",
+        "near": 1.6440576613515827,
+        "far": 180374.71351309947,
+        "uploadedBytes": 0
+      },
+      {
+        "frame": 51,
+        "history": 50,
+        "reason": "none",
+        "near": 1.6446841765863605,
+        "far": 180374.71351309947,
+        "uploadedBytes": 0
+      },
+      {
+        "frame": 52,
+        "history": 51,
+        "reason": "none",
+        "near": 1.6453106918211384,
+        "far": 180374.71351309947,
+        "uploadedBytes": 0
+      },
+      {
+        "frame": 53,
+        "history": 52,
+        "reason": "none",
+        "near": 1.6459372070559162,
+        "far": 180374.71351309947,
+        "uploadedBytes": 0
+      },
+      {
+        "frame": 54,
+        "history": 53,
+        "reason": "none",
+        "near": 1.646563722290694,
+        "far": 180374.71351309947,
+        "uploadedBytes": 0
+      },
+      {
+        "frame": 55,
+        "history": 54,
+        "reason": "none",
+        "near": 1.647190237525472,
+        "far": 180374.71351309947,
+        "uploadedBytes": 0
+      },
+      {
+        "frame": 56,
+        "history": 55,
+        "reason": "none",
+        "near": 1.6478167527602494,
+        "far": 180374.71351309947,
+        "uploadedBytes": 0
+      },
+      {
+        "frame": 57,
+        "history": 56,
+        "reason": "none",
+        "near": 1.6484432679950274,
+        "far": 180374.71351309947,
+        "uploadedBytes": 0
+      },
+      {
+        "frame": 58,
+        "history": 57,
+        "reason": "none",
+        "near": 1.6490697832298054,
+        "far": 180374.71351309947,
+        "uploadedBytes": 0
+      },
+      {
+        "frame": 59,
+        "history": 58,
+        "reason": "none",
+        "near": 1.6496962984645829,
+        "far": 180374.71351309947,
+        "uploadedBytes": 0
+      },
+      {
+        "frame": 60,
+        "history": 59,
+        "reason": "none",
+        "near": 1.6503228136993608,
+        "far": 180374.71351309947,
+        "uploadedBytes": 0
+      },
+      {
+        "frame": 61,
+        "history": 60,
+        "reason": "none",
+        "near": 1.6509493289341386,
+        "far": 180374.71351309947,
+        "uploadedBytes": 0
+      },
+      {
+        "frame": 62,
+        "history": 61,
+        "reason": "none",
+        "near": 1.6515758441689163,
+        "far": 180374.71351309947,
+        "uploadedBytes": 0
+      },
+      {
+        "frame": 63,
+        "history": 62,
+        "reason": "none",
+        "near": 1.6522023594036943,
+        "far": 180374.71351309947,
+        "uploadedBytes": 0
+      },
+      {
+        "frame": 64,
+        "history": 63,
+        "reason": "none",
+        "near": 1.652828874638472,
+        "far": 180374.71351309947,
+        "uploadedBytes": 0
+      },
+      {
+        "frame": 65,
+        "history": 64,
+        "reason": "none",
+        "near": 1.6534553898732498,
+        "far": 180374.71351309947,
+        "uploadedBytes": 0
+      },
+      {
+        "frame": 66,
+        "history": 65,
+        "reason": "none",
+        "near": 1.6540819051080278,
+        "far": 180374.71351309947,
+        "uploadedBytes": 0
+      },
+      {
+        "frame": 67,
+        "history": 66,
+        "reason": "none",
+        "near": 1.6547084203428053,
+        "far": 180374.71351309947,
+        "uploadedBytes": 0
+      },
+      {
+        "frame": 68,
+        "history": 67,
+        "reason": "none",
+        "near": 1.6553349355775833,
+        "far": 180374.71351309947,
+        "uploadedBytes": 0
+      },
+      {
+        "frame": 69,
+        "history": 68,
+        "reason": "none",
+        "near": 1.655961450812361,
+        "far": 180374.71351309947,
+        "uploadedBytes": 0
+      }
+    ]
+  },
+  "cleanup": {
+    "sessions": 0,
+    "renderers": 0,
+    "retiring": 0,
+    "readbackBytes": 0,
+    "heldDrawables": 0
+  },
+  "syntheticAotBefore": {
+    "navigationMedianMs": 270.17,
+    "navigationP95Ms": 367.659,
+    "cachedMedianMs": 0.012,
+    "cachedP95Ms": 0.015
+  },
+  "limits": [
+    "Native profile uses a dense ellipsoid and procedural clouds, without Google provider tiles.",
+    "Presentation intervals include integration harness pumping and concurrent host workloads.",
+    "Synthetic query timings are not live scene frame rates."
+  ],
+  "syntheticAotAfter": [
+    {
+      "case": "navigation intersectScene",
+      "medianMs": 0.007,
+      "p95Ms": 0.009
+    },
+    {
+      "case": "same ray using retained capture cache",
+      "medianMs": 0.007,
+      "p95Ms": 0.009
+    },
+    {
+      "warmGeometryBuilds": 0,
+      "warmSceneBuilds": 0
+    },
+    {
+      "frame": 0,
+      "near": 1.6265152347778042,
+      "far": 180374.71351309947,
+      "historyReason": "firstFrame",
+      "accumulated": 1
+    },
+    {
+      "frame": 1,
+      "near": 1.6265152347778042,
+      "far": 180374.71351309947,
+      "historyReason": "none",
+      "accumulated": 2
+    },
+    {
+      "frame": 2,
+      "near": 1.6271417500125822,
+      "far": 180374.71351309947,
+      "historyReason": "none",
+      "accumulated": 3
+    },
+    {
+      "frame": 3,
+      "near": 1.6277682652473597,
+      "far": 180374.71351309947,
+      "historyReason": "none",
+      "accumulated": 4
+    },
+    {
+      "frame": 4,
+      "near": 1.6283947804821377,
+      "far": 180374.71351309947,
+      "historyReason": "none",
+      "accumulated": 5
+    },
+    {
+      "frame": 5,
+      "near": 1.6290212957169155,
+      "far": 180374.71351309947,
+      "historyReason": "none",
+      "accumulated": 6
+    },
+    {
+      "frame": 6,
+      "near": 1.6290212957169155,
+      "far": 180374.71351309947,
+      "historyReason": "none",
+      "accumulated": 7
+    },
+    {
+      "frame": 7,
+      "near": 1.6290212957169155,
+      "far": 180374.71351309947,
+      "historyReason": "none",
+      "accumulated": 8
+    }
+  ]
+}
