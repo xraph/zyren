@@ -15,6 +15,9 @@ class MeshShaderDescriptor {
   final String label, vertexEntryPoint, fragmentEntryPoint;
   final bool requiresUv;
 
+  /// Optional explicit native blend state. Null preserves material alpha mode.
+  final RenderBlend? blend;
+
   /// The fragment entry calls the meshClip WGSL helper with its camera-relative
   /// position. Leave false for shaders without the standard clipping hook.
   final bool supportsClipping;
@@ -22,6 +25,7 @@ class MeshShaderDescriptor {
     required this.program,
     ShaderBindings? bindings,
     this.label = 'mesh material',
+    this.blend,
     this.vertexEntryPoint = 'vertex',
     this.fragmentEntryPoint = 'fragment',
     this.requiresUv = false,

@@ -251,6 +251,7 @@ impl MeshPipelines {
                         &self.standard_plain
                     },
                     requires_uv: key.textured,
+                    blend: None,
                     vertex: if key.tangents {
                         "vertex_tangent"
                     } else if key.textured {
@@ -277,6 +278,7 @@ impl MeshPipelines {
                     &self.plain
                 },
                 requires_uv: key.textured,
+                blend: None,
                 vertex: if key.primitive_kind == 1 {
                     "vs_line"
                 } else if key.primitive_kind == 2 {
@@ -301,6 +303,7 @@ struct ShaderPipeline<'a> {
     module: &'a wgpu::ShaderModule,
     layout: &'a wgpu::PipelineLayout,
     requires_uv: bool,
+    blend: Option<crate::render_graph::descriptor::Blend>,
     vertex: &'a str,
     fragment: &'a str,
 }
@@ -330,6 +333,7 @@ fn custom_pipeline(
             module: &material.shader,
             layout: &material.layout,
             requires_uv: material.requires_uv,
+            blend: material.blend,
             vertex: &material.vertex,
             fragment: &material.fragment,
         },
@@ -396,6 +400,8 @@ fn create_pipeline(
                         color: component,
                         alpha: component,
                     })
+                } else if let Some(blend) = shader.blend {
+                    blend.state()
                 } else if key.blend {
                     Some(wgpu::BlendState::ALPHA_BLENDING)
                 } else {

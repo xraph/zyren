@@ -254,6 +254,7 @@ _prepareGraph(GraphDescription graph, GraphDevice device) {
           'vertexEntryPoint': descriptor.vertexEntryPoint,
           'fragmentEntryPoint': descriptor.fragmentEntryPoint,
           'requiresUv': descriptor.requiresUv,
+          if (descriptor.blend != null) 'blend': descriptor.blend!.name,
           'screenSpace': descriptor is PostProcessDescriptor,
           if (descriptor is PostProcessDescriptor)
             'screenStage': descriptor.stage.index,
