@@ -13,6 +13,7 @@ jobs:
       CARGO_PROFILE_DEV_DEBUG: '0'
       CARGO_PROFILE_RELEASE_DEBUG: '0'
       CARGO_INCREMENTAL: '0'
+      CARGO_BUILD_JOBS: '2'
     steps:
       - uses: actions/checkout@v4
       - name: Reserve space for the emulator and native builds
@@ -29,6 +30,18 @@ jobs:
           java-version: '17'
       - run: rustup toolchain install 1.97.1 --profile minimal
       - run: flutter pub get
+      - name: Bound Gradle memory and compile the integration APK
+        working-directory: examples/physics_lab
+        run: |
+          mkdir -p "$HOME/.gradle"
+          cat > "$HOME/.gradle/gradle.properties" <<'PROPERTIES'
+          org.gradle.jvmargs=-Xmx2G -XX:MaxMetaspaceSize=768m -XX:ReservedCodeCacheSize=256m
+          org.gradle.workers.max=2
+          org.gradle.daemon=false
+          kotlin.compiler.execution.strategy=in-process
+          PROPERTIES
+          free -h
+          flutter build apk --debug --target-platform android-x64 --target integration_test/physics_lab_test.dart --dart-define=INTEGRATION_TEST_SHOULD_REPORT_RESULTS_TO_NATIVE=false --no-pub
       - name: Enable emulator acceleration
         run: |
           test -c /dev/kvm
@@ -40,8 +53,9 @@ jobs:
           api-level: 35
           target: google_apis
           arch: x86_64
-          profile: pixel_7_pro
+          profile: pixel_2
           disk-size: 2048M
-          emulator-options: -no-window -no-snapshot -noaudio -no-boot-anim -no-metrics -gpu swiftshader -feature Vulkan -camera-back none -camera-front none
+          ram-size: 2048M
+          emulator-options: -no-window -no-snapshot -noaudio -no-boot-anim -no-metrics -gpu swiftshader -feature Vulkan -skin 480x800 -camera-back none -camera-front none
           working-directory: examples/physics_lab
-          script: flutter test integration_test/physics_lab_test.dart -d emulator-5554 --no-pub
+          script: flutter drive --driver=test_driver/qualification.dart --target=integration_test/physics_lab_test.dart --use-application-binary=build/app/outputs/flutter-apk/app-debug.apk -d emulator-5554 --no-pub
