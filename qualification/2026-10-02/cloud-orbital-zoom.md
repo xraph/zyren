@@ -43,12 +43,29 @@ cloud history are outside this compiled test snapshot.
 | --- | ---: | --- |
 | macOS, Metal | 499 | Passed |
 | iPhone 16 Pro, Metal | 602 | Passed |
+| iPad Pro 13-inch M4, Metal | 651 | Passed |
 
-Both runs reached a camera radius of 27.36 million metres, with the near plane
-at 19.38 million metres. Both completed with zero sessions, renderers, retiring
+All runs reached a camera radius of 27.36 million metres, with the near plane
+at 19.38 million metres. All completed with zero sessions, renderers, retiring
 resources, held drawables and readback bytes. The iPhone test paused while the
 app was in the background, then completed after Planet returned to the foreground.
-The iPad check is pending an unlocked device.
+The iPad ran the same compiled iOS test bundle after it was unlocked.
+
+The normal Google cloud-lab profile app was then restored on iPhone and iPad,
+including main's subsequent cloud-history and raycaster-cache commits. Eleven
+focused frame, cascade and history tests passed together at that revision.
+
+The normal macOS app was rebuilt at `8969bff`, after the density and animation
+controls landed. Its production Dart source digest was unchanged across the
+build and is recorded in the JSON. A copy of the compiled app kept this check
+separate from subsequent builds in the shared checkout.
+
+With live Google tiles, clouds and shadows enabled, the previously failing
+scroll sequence reached a whole-Earth view. Zooming inward and switching from
+Tokyo to Fuji and back also worked without a renderer error or process exit.
+The provider still showed one unavailable tile, and cloud refinement remained
+visible during movement. This check does not establish a fully loaded city,
+visual parity or interactive frame rate.
 
 ## Limits
 
@@ -56,6 +73,8 @@ This fixes the reproduced clipping failure. It does not establish that every
 reported app exit or GPU driver fault has the same cause. Two saved macOS
 process crash reports from earlier runs point to Flutter's accessibility bridge,
 not the cloud renderer. No change to that Flutter engine code is included here.
+The iPhone's latest available Runner report was an earlier debug-build SIGBUS
+at 12:41. No new Runner or Jetsam report was present during this profile check.
 
 Flutter remains pinned to 3.47.5, with Impeller and native Metal enabled. GPU
 execution time and matched Takram performance are not measured by this fixture.

@@ -400,6 +400,209 @@
         "renderers": 0,
         "readbackBytes": 0
       }
+    },
+    {
+      "device": "iPad Pro 13-inch M4",
+      "suite": "cloud-orbital-zoom",
+      "platform": "iOS",
+      "passed": true,
+      "samples": [
+        {
+          "label": "city",
+          "distance": 6371032.84501836,
+          "near": 1.0,
+          "far": 180374.7493126416,
+          "cloudQuality": "high",
+          "shadowsEnabled": true,
+          "shadowQuality": "high",
+          "readbackBytes": 0
+        },
+        {
+          "label": "outward 8",
+          "distance": 6421378.244815687,
+          "near": 28.091298647784473,
+          "far": 811111.7224739732,
+          "cloudQuality": "high",
+          "shadowsEnabled": true,
+          "shadowQuality": "high",
+          "readbackBytes": 0
+        },
+        {
+          "label": "outward 16",
+          "distance": 7584478.358189029,
+          "near": 756.7912392479745,
+          "far": 4125997.338483512,
+          "cloudQuality": "high",
+          "shadowsEnabled": true,
+          "shadowQuality": "high",
+          "readbackBytes": 0
+        },
+        {
+          "label": "outward 24",
+          "distance": 16002028.167028174,
+          "near": 8029356.917028174,
+          "far": 14696237.978931202,
+          "cloudQuality": "high",
+          "shadowsEnabled": true,
+          "shadowQuality": "high",
+          "readbackBytes": 0
+        },
+        {
+          "label": "outward 32",
+          "distance": 27355917.87291615,
+          "near": 19383246.62291615,
+          "far": 26621095.13200851,
+          "cloudQuality": "high",
+          "shadowsEnabled": true,
+          "shadowQuality": "high",
+          "readbackBytes": 0
+        },
+        {
+          "label": "outward 40",
+          "distance": 27355917.87291615,
+          "near": 19383246.62291615,
+          "far": 26621095.13200851,
+          "cloudQuality": "high",
+          "shadowsEnabled": true,
+          "shadowQuality": "high",
+          "readbackBytes": 0
+        },
+        {
+          "label": "outward 48",
+          "distance": 27355917.87291615,
+          "near": 19383246.62291615,
+          "far": 26621095.13200851,
+          "cloudQuality": "high",
+          "shadowsEnabled": true,
+          "shadowQuality": "high",
+          "readbackBytes": 0
+        },
+        {
+          "label": "outward 56",
+          "distance": 27355917.87291615,
+          "near": 19383246.62291615,
+          "far": 26621095.13200851,
+          "cloudQuality": "high",
+          "shadowsEnabled": true,
+          "shadowQuality": "high",
+          "readbackBytes": 0
+        },
+        {
+          "label": "outward 64",
+          "distance": 27355917.87291615,
+          "near": 19383246.62291615,
+          "far": 26621095.13200851,
+          "cloudQuality": "high",
+          "shadowsEnabled": true,
+          "shadowQuality": "high",
+          "readbackBytes": 0
+        },
+        {
+          "label": "space quality high",
+          "distance": 27355917.87291615,
+          "near": 19383246.62291615,
+          "far": 26621095.13200851,
+          "cloudQuality": "high",
+          "shadowsEnabled": false,
+          "shadowQuality": "high",
+          "readbackBytes": 0
+        },
+        {
+          "label": "space quality low",
+          "distance": 27355917.87291615,
+          "near": 19383246.62291615,
+          "far": 26621095.13200851,
+          "cloudQuality": "low",
+          "shadowsEnabled": true,
+          "shadowQuality": "low",
+          "readbackBytes": 0
+        },
+        {
+          "label": "space quality ultra",
+          "distance": 27355917.87291615,
+          "near": 19383246.62291615,
+          "far": 26621095.13200851,
+          "cloudQuality": "ultra",
+          "shadowsEnabled": true,
+          "shadowQuality": "ultra",
+          "readbackBytes": 0
+        },
+        {
+          "label": "touch pinch inward",
+          "distance": 20842417.538852982,
+          "near": 12869746.288852982,
+          "far": 19862043.28136294,
+          "cloudQuality": "high",
+          "shadowsEnabled": true,
+          "shadowQuality": "high",
+          "readbackBytes": 0
+        },
+        {
+          "label": "inward 16",
+          "distance": 6498665.869862835,
+          "near": 76.51317319961744,
+          "far": 1339394.4766337003,
+          "cloudQuality": "high",
+          "shadowsEnabled": true,
+          "shadowQuality": "high",
+          "readbackBytes": 0
+        },
+        {
+          "label": "inward 32",
+          "distance": 6354904.245236884,
+          "near": 1.0,
+          "far": 180374.8463829357,
+          "cloudQuality": "high",
+          "shadowsEnabled": true,
+          "shadowQuality": "high",
+          "readbackBytes": 0
+        },
+        {
+          "label": "inward 48",
+          "distance": 6353463.380587799,
+          "near": 1.0,
+          "far": 180374.84638304866,
+          "cloudQuality": "high",
+          "shadowsEnabled": true,
+          "shadowQuality": "high",
+          "readbackBytes": 0
+        },
+        {
+          "label": "inward 64",
+          "distance": 6353449.053097861,
+          "near": 1.0,
+          "far": 180374.8463830498,
+          "cloudQuality": "high",
+          "shadowsEnabled": true,
+          "shadowQuality": "high",
+          "readbackBytes": 0
+        },
+        {
+          "label": "surface portrait",
+          "distance": 6353449.053097861,
+          "near": 1.0,
+          "far": 180374.8463830498,
+          "cloudQuality": "high",
+          "shadowsEnabled": true,
+          "shadowQuality": "high",
+          "readbackBytes": 0
+        }
+      ],
+      "diagnostics": {
+        "retiring": 0,
+        "presented": 651,
+        "heldDrawables": 0,
+        "sessions": 0,
+        "submitted": 652,
+        "renderers": 0,
+        "readbackBytes": 0
+      }
     }
-  ]
+  ],
+  "normalMacBuild": {
+    "head": "676b95b52b058ba36bae22cf63304b5c7b90bd3e",
+    "librarySourceSha256": "10735e07150a507d8889787524b2079ffe74229fe26b627b7c7b28afa53c0131",
+    "files": 357,
+    "completedHead": "8969bffc9a8a6d95f1f3eabf5c9a39d5784b5056"
+  }
 }
