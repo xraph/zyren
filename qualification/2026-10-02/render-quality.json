@@ -1,0 +1,364 @@
+{
+  "schema": 1,
+  "commits": {
+    "shaderFixes": "ceeead3",
+    "largerProfile": "dd94262",
+    "cloudQualityApi": "3ab4cc6",
+    "deviceControls": "d24c55d"
+  },
+  "checks": {
+    "geospatial": {
+      "passed": 212,
+      "skipped": 21
+    },
+    "planetWidgets": {
+      "passed": 16
+    },
+    "analysis": "passed"
+  },
+  "nativePressureBytes": 67108864,
+  "nativePressureMeaning": "Storage buffer capacity pressure, without a tile provider.",
+  "nativePresentation": {
+    "macOS": {
+      "suite": "geospatial-render-quality",
+      "platform": "macOS",
+      "passed": true,
+      "viewports": [
+        {
+          "logical": [
+            1000.0,
+            700.0
+          ],
+          "physical": [
+            1730,
+            1211
+          ],
+          "backend": "Metal",
+          "device": "desktop",
+          "cloudQuality": "high",
+          "historyFrames": 16,
+          "elapsedMs": 650,
+          "readbackBytes": 0
+        },
+        {
+          "logical": [
+            390.0,
+            700.0
+          ],
+          "physical": [
+            780,
+            1400
+          ],
+          "backend": "Metal",
+          "device": "desktop",
+          "cloudQuality": "high",
+          "historyFrames": 16,
+          "elapsedMs": 1476,
+          "readbackBytes": 0
+        },
+        {
+          "selection": "low",
+          "cloudResolution": [
+            178,
+            320
+          ],
+          "shadowMapSize": 128,
+          "historyFrames": 16,
+          "readbackBytes": 0
+        },
+        {
+          "selection": "medium",
+          "cloudResolution": [
+            285,
+            512
+          ],
+          "shadowMapSize": 128,
+          "historyFrames": 16,
+          "readbackBytes": 0
+        },
+        {
+          "selection": "high",
+          "cloudResolution": [
+            357,
+            640
+          ],
+          "shadowMapSize": 128,
+          "historyFrames": 16,
+          "readbackBytes": 0
+        },
+        {
+          "selection": "ultra",
+          "cloudResolution": [
+            428,
+            768
+          ],
+          "shadowMapSize": 256,
+          "historyFrames": 16,
+          "readbackBytes": 0
+        }
+      ],
+      "diagnostics": {
+        "retiring": 0,
+        "presented": 100,
+        "heldDrawables": 0,
+        "sessions": 0,
+        "submitted": 102,
+        "renderers": 0,
+        "readbackBytes": 0
+      }
+    },
+    "android": {
+      "suite": "geospatial-render-quality",
+      "platform": "android",
+      "passed": true,
+      "viewports": [
+        {
+          "logical": [
+            1000.0,
+            700.0
+          ],
+          "physical": [
+            1499,
+            1049
+          ],
+          "backend": "Vulkan",
+          "device": "phone",
+          "cloudQuality": "medium",
+          "historyFrames": 16,
+          "elapsedMs": 2987,
+          "readbackBytes": 0
+        },
+        {
+          "logical": [
+            390.0,
+            700.0
+          ],
+          "physical": [
+            878,
+            1575
+          ],
+          "backend": "Vulkan",
+          "device": "phone",
+          "cloudQuality": "medium",
+          "historyFrames": 16,
+          "elapsedMs": 12189,
+          "readbackBytes": 0
+        },
+        {
+          "selection": "low",
+          "cloudResolution": [
+            178,
+            320
+          ],
+          "shadowMapSize": 128,
+          "historyFrames": 16,
+          "readbackBytes": 0
+        },
+        {
+          "selection": "medium",
+          "cloudResolution": [
+            285,
+            512
+          ],
+          "shadowMapSize": 128,
+          "historyFrames": 16,
+          "readbackBytes": 0
+        },
+        {
+          "selection": "high",
+          "cloudResolution": [
+            357,
+            640
+          ],
+          "shadowMapSize": 128,
+          "historyFrames": 16,
+          "readbackBytes": 0
+        },
+        {
+          "selection": "ultra",
+          "cloudResolution": [
+            357,
+            640
+          ],
+          "shadowMapSize": 192,
+          "historyFrames": 16,
+          "readbackBytes": 0
+        }
+      ],
+      "diagnostics": {
+        "sessions": 0,
+        "surfaces": 0,
+        "renderers": 0,
+        "retiring": 0,
+        "presented": 103,
+        "readbackBytes": 0
+      }
+    }
+  },
+  "imageComparison": "not run",
+  "remaining": {
+    "orbitalCloudSpeckling": "Still visible in isolated cloud captures; disabled-cloud capture removes it. These checks do not certify a complete visual fix.",
+    "iOSQualityTransitions": "Not rerun on the physical iPhone.",
+    "physicalTabletQuality": "Not run."
+  },
+  "logs": {
+    "coreSuite": "/tmp/zyren-render-quality/geospatial-quality-suite.log",
+    "widgetSuite": "/tmp/zyren-render-quality/planet-device-suite.log",
+    "macOS": "/tmp/zyren-render-quality/macos-device-quality.log",
+    "pixel": "/tmp/zyren-render-quality/pixel-device-quality.log",
+    "pixelInteractiveLaunch": "/tmp/zyren-render-quality/pixel-interactive-launch.log"
+  },
+  "liveTokyo": {
+    "sourceUnchanged": true,
+    "exitCode": 0,
+    "response": {
+      "schema": 2,
+      "suite": "geospatial-native-stories",
+      "platform": "macOS",
+      "passed": true,
+      "cleanup": "passed",
+      "scenes": [
+        {
+          "sourcePath": "storybook/src/clouds/3DTilesRenderer.stories.tsx",
+          "export": "Tokyo",
+          "preset": "tokyo",
+          "rendering": "passed",
+          "comparison": "not run",
+          "backend": "Metal",
+          "adapter": "Apple M3 Max",
+          "presentation": "nativeView",
+          "logicalViewport": [
+            1000.0,
+            584.0
+          ],
+          "physicalViewport": [
+            1894,
+            1106
+          ],
+          "assets": [
+            {
+              "uri": "https://media.githubusercontent.com/media/takram-design-engineering/three-geospatial/45a1c6c1bb9fd38b3680fd120795ff4c32df68ff/packages/clouds/assets/local_weather.png",
+              "bytes": 679653,
+              "sha256": "b84daef855dc5eebcc9b174fe832ba75a98e44b846dde201bce354417cc08031"
+            },
+            {
+              "uri": "https://media.githubusercontent.com/media/takram-design-engineering/three-geospatial/45a1c6c1bb9fd38b3680fd120795ff4c32df68ff/packages/clouds/assets/shape.bin",
+              "bytes": 2097152,
+              "sha256": "ef65cf6156894720c00bf572c49e3e254f8899c4b5158246e5a35a1922e2519c"
+            },
+            {
+              "uri": "https://media.githubusercontent.com/media/takram-design-engineering/three-geospatial/45a1c6c1bb9fd38b3680fd120795ff4c32df68ff/packages/clouds/assets/shape_detail.bin",
+              "bytes": 32768,
+              "sha256": "c09112199c6e0281b74ff5283c11c2943ae082650b9b67978cf5d59ed2956e4f"
+            },
+            {
+              "uri": "https://media.githubusercontent.com/media/takram-design-engineering/three-geospatial/45a1c6c1bb9fd38b3680fd120795ff4c32df68ff/packages/clouds/assets/turbulence.png",
+              "bytes": 49691,
+              "sha256": "ec2b1b0af4a6a6104102b21e58beb300b0a3d334c0281d84fde8c91d322910f9"
+            },
+            {
+              "uri": "https://media.githubusercontent.com/media/takram-design-engineering/three-geospatial/9627216cc50057994c98a2118f3c4a23765d43b9/packages/core/assets/stbn.bin",
+              "bytes": 1048576,
+              "sha256": "51f52f21e5578384585050390821a0a486dcb81e11a716fa7b92fbb6515ba852"
+            },
+            {
+              "uri": "https://media.githubusercontent.com/media/takram-design-engineering/three-geospatial/eac103980f20c0956f2d3215833e73514be08462/packages/atmosphere/assets/higher_order_scattering.bin",
+              "bytes": 8388608,
+              "sha256": "857847f34fc9c856866506015a3d3fc4bd60c18eaf961bde8d6e567df503d6bc"
+            },
+            {
+              "uri": "https://media.githubusercontent.com/media/takram-design-engineering/three-geospatial/eac103980f20c0956f2d3215833e73514be08462/packages/atmosphere/assets/irradiance.bin",
+              "bytes": 8192,
+              "sha256": "126bd4ff0419e04c877639caf9e3cd64a139ae511cf315a23a0c989fc47b51a5"
+            },
+            {
+              "uri": "https://media.githubusercontent.com/media/takram-design-engineering/three-geospatial/eac103980f20c0956f2d3215833e73514be08462/packages/atmosphere/assets/scattering.bin",
+              "bytes": 8388608,
+              "sha256": "82c505fe6e3b7f1995c650cc8a1478f42bd510029bf63845e9485c078aef6617"
+            },
+            {
+              "uri": "https://media.githubusercontent.com/media/takram-design-engineering/three-geospatial/eac103980f20c0956f2d3215833e73514be08462/packages/atmosphere/assets/transmittance.bin",
+              "bytes": 131072,
+              "sha256": "a2a0dd1464048d92e7bfdf385a9108e8d9c3e2748684f1f64523587d5894180a"
+            }
+          ],
+          "inputs": {
+            "longitude": 139.8146,
+            "latitude": 35.7455,
+            "heading": -110.0,
+            "pitch": -9.0,
+            "distance": 1000.0,
+            "exposure": 10.0,
+            "date": "2026-06-19T22:10:44.496Z",
+            "cloudCoverage": 0.35,
+            "cloudWeatherAnimated": true,
+            "deviceProfile": "desktop",
+            "cloudQuality": "high",
+            "cloudMaxResolution": 640,
+            "cloudShadowMapSize": 128
+          },
+          "checks": {
+            "centerPickDistance": 260.8979585753173,
+            "cameraDisplacement": 0.0,
+            "visibleTiles": 77,
+            "tilePayloadBytes": 66357698,
+            "effects": 30,
+            "cloudHistoryFrames": 234,
+            "readbackBytes": 0,
+            "sourceCredits": 1,
+            "retries": 1
+          }
+        }
+      ],
+      "qualityChanges": [
+        {
+          "selection": "Low",
+          "quality": "low",
+          "resolution": [
+            320,
+            187
+          ],
+          "shadowMapSize": 128,
+          "historyFrames": 16
+        },
+        {
+          "selection": "Ultra",
+          "quality": "ultra",
+          "resolution": [
+            768,
+            448
+          ],
+          "shadowMapSize": 256,
+          "historyFrames": 16
+        },
+        {
+          "selection": "Auto",
+          "quality": "high",
+          "resolution": [
+            640,
+            374
+          ],
+          "shadowMapSize": 128,
+          "historyFrames": 16
+        }
+      ],
+      "diagnostics": {
+        "retiring": 0,
+        "presented": 297,
+        "heldDrawables": 0,
+        "sessions": 0,
+        "submitted": 298,
+        "renderers": 0,
+        "readbackBytes": 0
+      }
+    },
+    "interactiveRestoration": {
+      "status": "launched",
+      "exitCode": 0
+    }
+  },
+  "normalAppInput": {
+    "macOS": "CUA clicks selected Ultra, observed Clouds refined, then restored Auto/High.",
+    "pixel": "Normal launch exited 0 after quality testing."
+  }
+}
