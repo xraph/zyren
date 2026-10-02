@@ -120,3 +120,20 @@ accepts up to 64 overlays and 4,096 vertices, subject to `maxSampleTests`
 before requesting terrain. Imagery and overlays share two CPU worker slots and
 sixteen queue positions. Geometry, skirts, metadata and credits remain owned by
 the terrain tile. Replace the source to change its immutable overlays.
+
+## Atmosphere table decoding
+
+`AtmosphereTableDecoder` reads raw little-endian RGBA half floats and single-part
+scanline EXR files with RGBA HALF channels, full sampling and NONE, ZIPS or ZIP
+compression. Supply the expected width, height and depth. EXR rows reverse before
+the image is reshaped into volume slices, matching the source loader.
+
+Decoded tables own immutable bytes. Encoded and decoded limits are checked before
+allocation, and ZIP output cannot exceed its declared scanline storage. Invalid
+headers, duplicate channels or chunks, truncated data and nonfinite samples fail
+with a typed load error. Tiled, multipart, deep and other compression profiles
+are unsupported. This decoder does not upload a texture by itself.
+
+The optional reference test uses `ZYREN_SOURCE_LUTS` to compare the five pinned
+binary/EXR pairs. The upstream exports differ by up to one half-float step, so
+that comparison allows one step instead of requiring identical bytes.

@@ -41,3 +41,4 @@ export 'src/terrain/terrain_extensions.dart'
         TerrainAvailabilityRange,
         TerrainAvailabilityMetadata;
 export 'src/terrain/overlay_terrain_source.dart';
+export 'src/atmosphere/table_decoder.dart';
