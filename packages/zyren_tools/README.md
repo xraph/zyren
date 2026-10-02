@@ -158,11 +158,49 @@ sections.clear();
 
 Plane changes affect native rendering, shadow casters and triangle picking.
 `Object3D.clippingEnabled = false` exempts a subtree; transform handles already
-opt out. Cuts do not generate caps. Use double-sided materials to see interior
-surfaces. Custom shader materials must opt out while clipping is active.
+opt out. Use double-sided materials to see interior surfaces when caps are disabled.
+For custom shader materials, set `MeshShaderDescriptor.supportsClipping` and
+call `meshClip(input.relativePosition)` at the start of your fragment entry,
+using `ShaderMaterial.uniformsWgsl` and `vertexWgsl`. The hook applies all active
+planes in camera-relative coordinates. Shaders without that declaration must
+opt out while clipping is active. You own the hook call, including any vertex
+displacement used by your shader.
 
 `isActive` and `planes` describe the plugin's current session. Subscribe to
 `changes` for controls, and cancel the subscription when the consumer closes.
 An external assignment to `Scene.clippingPlanes` ends session ownership.
 Clearing or detaching then preserves that external state. A subsequent
 `setPlanes` starts a new session and saves those planes for restoration.
+
+To cap a closed convex solid, supply an opaque built-in `capMaterial` and call
+`setCapTargets([mesh])` after attachment. Targets are explicit. Caps use separate
+helper meshes, preserve the source material, and opt out of selection outlines.
+You can inspect `capMeshes`, omit them from exports with `owns`, and read
+`capIssues` when a target cannot be capped.
+
+Caps support one connected, watertight convex triangle shell with at most 4096
+triangles and 12288 vertices. Instanced meshes, expanded primitives and partial
+fragment coverage are not capped. Exact coincident positions weld UV and normal
+seams. Open boundaries,
+non-manifold edges, disconnected shells and concave solids produce no caps;
+near-coincident seams are not welded. Split concave assemblies into convex
+closed solids before using this option. The CPU builder validates face planes
+against vertices, so validation costs grow with both counts.
+
+Up to six planes intersect each cap polygon. Tangent planes produce no cap.
+Transforms include reflected scale and sheared parent chains. Caps refresh before
+rendering after target geometry, transforms, visibility or clipping eligibility
+change. Clearing, detaching or an external plane assignment removes helpers.
+The plugin rebases intersections around each target's pivot before creating GPU
+geometry, keeping small cuts accurate far from the origin. You can also use
+`buildSectionCaps` directly to inspect world-space geometry. Its output stores
+float32 positions, so pass a rebased transform and planes for distant coordinates.
+
+Set `TransformGizmoPlugin(alwaysVisible: true)` to draw and pick handles through
+scene occluders. The default remains depth tested. Overlay handles use the last
+render order in the blended queue and do not write depth. Reserve that render
+order for the gizmo to keep it above your scene. The same setting applies to idle
+and active handles.
+
+Validation: package tests and macOS Metal regressions cover both depth strategies.
+Windows DX12, Linux Vulkan and mobile rendering remain unverified for these tools.
