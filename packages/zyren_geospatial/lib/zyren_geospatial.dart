@@ -51,3 +51,5 @@ export 'src/atmosphere/spectrum.dart';
 export 'src/clouds/parameters.dart';
 export 'src/clouds/quality.dart';
 export 'src/clouds/texture_generator.dart';
+
+export 'src/clouds/appearance.dart';
