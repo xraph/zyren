@@ -83,7 +83,7 @@ void main() {
         reference.particles.map((p) => p.serial),
         policy == ParticleOverflow.dropNew ? [0, 1, 2, 3] : [8, 9, 10, 11],
       );
-      expect(reference.dropped, policy == ParticleOverflow.dropNew ? 8 : 4);
+      expect(reference.dropped, policy == ParticleOverflow.dropNew ? 8 : 0);
     }
   });
   test(

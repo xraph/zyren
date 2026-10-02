@@ -56,6 +56,11 @@ final class ParticlePlugin extends ScenePlugin {
   };
   @override
   Future<void> attach(PluginContext context) async {
+    if (_controller case final previous? when !previous.isClosed) {
+      throw StateError(
+        'Use a separate particle plugin for each attached scene.',
+      );
+    }
     final control = _controller = ParticleController._(
       context,
       context.createGpuScope(label: 'particle systems'),
@@ -99,6 +104,14 @@ final class ParticleController {
       _emitters[name] ??
       (throw ArgumentError.value(name, 'name', 'Unknown emitter.'));
   Future<void> _add(ParticleEmitter emitter) async {
+    if (_emitters.length >= 32 ||
+        _emitters.values.any(
+          (e) => identical(e.emitter.object, emitter.object),
+        )) {
+      throw ArgumentError(
+        'At most 32 independent emitter objects may be attached.',
+      );
+    }
     final existing = _emitters[emitter.name];
     if (existing != null) throw ArgumentError('Emitter already exists.');
     var root = emitter.object;
@@ -110,34 +123,44 @@ final class ParticleController {
       throw ArgumentError('Emitter belongs to another scene.');
     }
     final renderer = await ParticleRenderer.create(_owner, emitter.settings);
-    if (added) _context.scene.add(emitter.object);
-    emitter.object.add(renderer.mesh);
-    if (renderer.ribbon case final ribbon?) emitter.object.add(ribbon);
-    final runtime = _EmitterRuntime(emitter, renderer, added);
-    _emitters[emitter.name] = runtime;
-    if (emitter.autoStart) {
-      runtime.clock.start();
-      if (emitter.settings.prewarm > 0) {
-        final ticks = runtime.clock.advance(
-          emitter.settings.prewarm,
-          maxSteps: 4096,
-        );
-        await renderer.update(
-          ticks,
-          emitter: _world(emitter.object),
-          camera: _world(_context.camera),
-        );
-        while (runtime.clock.pendingSeconds + 1e-12 >=
-            emitter.settings.fixedStep) {
-          await renderer.update(
-            runtime.clock.advance(0, maxSteps: 4096),
-            emitter: _world(emitter.object),
-            camera: _world(_context.camera),
+    try {
+      if (added) _context.scene.add(emitter.object);
+      emitter.object.add(renderer.mesh);
+      if (renderer.ribbon case final ribbon?) emitter.object.add(ribbon);
+      final runtime = _EmitterRuntime(emitter, renderer, added);
+      _emitters[emitter.name] = runtime;
+      if (emitter.autoStart) {
+        runtime.clock.start();
+        if (emitter.settings.prewarm > 0) {
+          final ticks = runtime.clock.advance(
+            emitter.settings.prewarm,
+            maxSteps: 4096,
           );
+          await renderer.update(
+            ticks,
+            emitter: _world(emitter.object),
+            camera: particleCameraTransform(_context.camera),
+          );
+          while (runtime.clock.pendingSeconds + 1e-12 >=
+              emitter.settings.fixedStep) {
+            await renderer.update(
+              runtime.clock.advance(0, maxSteps: 4096),
+              emitter: _world(emitter.object),
+              camera: particleCameraTransform(_context.camera),
+            );
+          }
         }
       }
+      runtime.lastEmission = runtime.clock.tick * emitter.settings.fixedStep;
+      _updateDemand();
+      _context.invalidate();
+    } catch (_) {
+      _emitters.remove(emitter.name);
+      await renderer.close();
+      if (added) emitter.object.parent?.remove(emitter.object);
+      _updateDemand();
+      rethrow;
     }
-    _updateDemand();
   }
 
   Future<void> add(ParticleEmitter emitter) => _serial(() => _add(emitter));
@@ -153,7 +176,10 @@ final class ParticleController {
   });
   Future<void> start(String name) => _serial(() async {
     final e = _get(name);
-    if (e.clock.playback == ParticlePlayback.stopped) await e.renderer.reset();
+    if (e.clock.playback == ParticlePlayback.stopped) {
+      await e.renderer.reset();
+      e.lastEmission = 0;
+    }
     e.clock.start();
     _updateDemand();
     _context.invalidate();
@@ -169,13 +195,17 @@ final class ParticleController {
   Future<void> stop(String name, {bool clear = false}) => _serial(() async {
     final e = _get(name);
     e.clock.stop(clear: clear);
-    if (clear) await e.renderer.reset();
+    if (clear) {
+      e.lastEmission = 0;
+      await e.renderer.reset();
+    }
     _updateDemand();
     _context.invalidate();
   });
   Future<void> reset(String name) => _serial(() async {
     final e = _get(name);
     e.clock.reset();
+    e.lastEmission = 0;
     await e.renderer.reset();
     _updateDemand();
     _context.invalidate();
@@ -190,6 +220,61 @@ final class ParticleController {
   Future<List<ParticleSnapshot>> inspect(String name) =>
       _serial(() => _get(name).renderer.inspect());
 
+  Future<ParticleBounds?> inspectBounds(String name) =>
+      _serial(() => _get(name).renderer.inspectBounds());
+
+  /// Replace settings atomically. The seed restarts and playback state persists.
+  /// Failed compilation or prewarm leaves the current emitter attached.
+  Future<void> configure(
+    String name,
+    ParticleSettings settings,
+  ) => _serial(() async {
+    final previous = _get(name);
+    final definition = ParticleEmitter(
+      name: name,
+      settings: settings,
+      object: previous.emitter.object,
+      autoStart: previous.emitter.autoStart,
+    );
+    final candidate = await ParticleRenderer.create(_owner, settings);
+    final replacement = _EmitterRuntime(definition, candidate, previous.added);
+    try {
+      if (previous.clock.playback != ParticlePlayback.stopped) {
+        replacement.clock.start();
+        if (settings.prewarm > 0) {
+          var ticks = replacement.clock.advance(
+            settings.prewarm,
+            maxSteps: 4096,
+          );
+          while (ticks.isNotEmpty) {
+            await candidate.update(
+              ticks,
+              emitter: _world(definition.object),
+              camera: particleCameraTransform(_context.camera),
+            );
+            ticks = replacement.clock.advance(0, maxSteps: 4096);
+          }
+        }
+        replacement.lastEmission = replacement.clock.tick * settings.fixedStep;
+        if (previous.clock.playback == ParticlePlayback.draining) {
+          replacement.clock.stop();
+        }
+        if (previous.clock.playback == ParticlePlayback.paused) {
+          replacement.clock.pause();
+        }
+      }
+    } catch (_) {
+      await candidate.close();
+      rethrow;
+    }
+    definition.object.add(candidate.mesh);
+    if (candidate.ribbon case final ribbon?) definition.object.add(ribbon);
+    _emitters[name] = replacement;
+    await previous.renderer.close();
+    _updateDemand();
+    _context.invalidate();
+  });
+
   /// Rebuild scoped resources after renderer recovery. GPU state restarts from
   /// the seed; this explicit reset avoids pretending lost device memory survived.
   Future<void> restore(String name) => _serial(() async {
@@ -198,6 +283,7 @@ final class ParticleController {
     final previous = e.renderer;
     e.renderer = candidate;
     e.clock.reset();
+    e.lastEmission = 0;
     e.clock.start();
     e.emitter.object.add(candidate.mesh);
     if (candidate.ribbon case final ribbon?) e.emitter.object.add(ribbon);
@@ -207,11 +293,15 @@ final class ParticleController {
   });
   Future<void> _frame(FrameInfo frame) => _serial(() async {
     for (final e in _emitters.values) {
+      final visible = e.clock.playback != ParticlePlayback.stopped;
+      e.renderer.mesh.visible = visible;
+      e.renderer.ribbon?.visible = visible;
+      if (!visible) continue;
       final ticks = e.clock.advance(frame.delta.inMicroseconds / 1000000);
       await e.renderer.update(
         ticks,
         emitter: _world(e.emitter.object),
-        camera: _world(_context.camera),
+        camera: particleCameraTransform(_context.camera),
       );
       if (ticks.any((tick) => tick.count > 0)) {
         e.lastEmission = e.clock.tick * e.emitter.settings.fixedStep;
@@ -220,6 +310,7 @@ final class ParticleController {
           e.clock.tick * e.emitter.settings.fixedStep >=
               e.lastEmission + e.emitter.settings.lifetime) {
         e.clock.reset();
+        e.lastEmission = 0;
         await e.renderer.reset();
       }
     }
@@ -244,12 +335,27 @@ final class ParticleController {
     _demand?.dispose();
     _demand = null;
     await _queue;
+    final errors = <Object>[];
+    final retiring = [
+      for (final e in _emitters.values)
+        e.renderer.close().then<void>(
+          (_) {},
+          onError: (Object error, StackTrace _) {
+            errors.add(error);
+          },
+        ),
+    ];
     for (final e in _emitters.values) {
-      await e.renderer.close();
       if (e.added) e.emitter.object.parent?.remove(e.emitter.object);
     }
     _emitters.clear();
-    await _owner.close();
+    await Future.wait(retiring);
+    try {
+      await _owner.close();
+    } catch (error) {
+      errors.add(error);
+    }
+    if (errors.isNotEmpty) throw ScopeCleanupException(errors);
   }
 }
 

@@ -1,20 +1,23 @@
 # Particle implementation checks
 
-You can follow implementation and qualification here. A checked implementation
-row does not imply that every native platform has been tested.
+You can follow implementation and qualification here. Platform results apply to
+the named devices. The package remains unpublished.
 
 | Requirement | Implementation | Verification |
 | --- | --- | --- |
-| Validated settings and playback lifecycle | Implemented | Clock regressions pass; plugin lifecycle qualification next |
-| Fixed tick emission, bursts, prewarm, seeds and overflow | Implemented | Eight reference tests pass |
-| Shapes, surface sampling and transform spaces | Implemented | Sphere, cone and transform regressions pass; surface qualification next |
-| Curves, gradients, forces and collisions | Implemented | Curves and collision regressions pass |
-| Native GPU simulation and reference fallback | Implemented | Metal state agrees with reference within 0.00001 |
-| Billboards, stretch, mesh particles and ribbons | Implemented | Billboard and ribbon Metal render passes; remaining modes next |
-| Texture atlas, blending and depth state | Implemented | Additive native material extension implemented; image regressions next |
-| Soft depth intersections | No public mesh depth binding | Unsupported capability must throw |
-| Independent scenes, disposal and restoration | Pending | Pending |
-| Dedicated native examples | Pending | Pending |
-| Tests, analysis, format and workspace boundaries | Pending | Pending |
-| Metal execution and images | Pending | Pending |
-| Vulkan and DX12 execution | Pending | Hardware qualification required |
+| Validated settings and playback lifecycle | Implemented | Clock, pause, resume, drain, reset and reattachment regressions pass |
+| Fixed ticks, bursts, prewarm, seeds and overflow | Implemented | Reference results agree at 30, 60, 120 and 144 Hz |
+| Shapes, surface sampling and transform spaces | Implemented | Native surface images, birth transforms and large world coordinates pass |
+| Curves, gradients, forces and collisions | Implemented | Noise GPU/reference comparison and rebased world collision regressions pass |
+| Native GPU simulation and reference fallback | Implemented | State tolerance 0.00001; 24 native images compare both paths |
+| Billboards, oriented quads, stretch, meshes and ribbons | Implemented | Every appearance and blend combination renders on Metal |
+| Texture atlas, blending, depth and sorting | Implemented | Atlas images, camera reversal and visible depth-write tests pass |
+| Soft depth intersections | Native mesh API has no sampled scene depth binding | Explicit UnsupportedError tested; feature unavailable |
+| Independent scenes, disposal and restoration | Implemented | Two native views, partial attach rollback, atomic configuration and zero resource counters pass |
+| Maximum capacity | Implemented, 65,536 particles | Full-capacity GPU sort and explicit live-count readback pass |
+| Dedicated native examples | Implemented in examples/particles | Final platform qualification in progress |
+| Tests, analysis, format and package boundaries | 19 package tests pass; analysis and format clean | Native material/graph regressions pass; strict Clippy has four unrelated warnings |
+| Metal execution | Verified on Apple M3 Max | Package image tests pass; final app rerun in progress |
+| Android Vulkan execution | Verified on Pixel 9 Pro | App controls passed; final uniform-layout rerun pending |
+| iOS | Simulator build passed | Physical-device execution pending |
+| Linux Vulkan and Windows DX12 | Shared native backend, build targets supplied | No matching hardware in this session |

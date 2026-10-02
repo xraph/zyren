@@ -23,7 +23,9 @@ final class CurveKey {
   final double time, value;
   CurveKey(this.time, this.value) {
     finiteRange(time, 'time', 0, 1);
-    if (!value.isFinite) throw ArgumentError.value(value, 'value');
+    if (!value.isFinite || value.abs() > 1e9) {
+      throw ArgumentError.value(value, 'value');
+    }
   }
 }
 
@@ -100,7 +102,12 @@ abstract interface class ParticleForce {
 final class ConstantParticleForce implements ParticleForce {
   final Vec3 value;
   ConstantParticleForce(this.value) {
-    if (!value.isFinite) throw ArgumentError('Force must be finite.');
+    if (!value.isFinite ||
+        value.x.abs() > 1e9 ||
+        value.y.abs() > 1e9 ||
+        value.z.abs() > 1e9) {
+      throw ArgumentError('Force must fit within 1e9 simulation units.');
+    }
   }
   @override
   Vec3 acceleration(Vec3 position, Vec3 velocity, double time, int seed) =>
@@ -304,6 +311,31 @@ final class ParticleSettings {
         'Velocity, spread and gravity must be finite. Spread must be positive.',
       );
     }
+    for (final vector in [
+      velocity,
+      velocitySpread,
+      gravity,
+      this.shape.min,
+      this.shape.max,
+    ]) {
+      if (!vector.isFinite ||
+          vector.x.abs() > 1e9 ||
+          vector.y.abs() > 1e9 ||
+          vector.z.abs() > 1e9) {
+        throw ArgumentError(
+          'Particle vectors must fit within 1e9 simulation units.',
+        );
+      }
+    }
+    final shapeData = this.shape.gpuData;
+    if (shapeData.isEmpty ||
+        shapeData.length % 4 != 0 ||
+        shapeData.lengthInBytes > 64 * 1024 * 1024 ||
+        shapeData.any((value) => !value.isFinite)) {
+      throw ArgumentError(
+        'Shape GPU data requires finite vec4 records within 64 MiB.',
+      );
+    }
     if (this.forces.length > 16 ||
         this.collisions.length > 12 ||
         this.bursts.length > 256 ||
@@ -316,6 +348,11 @@ final class ParticleSettings {
     if (appearance == ParticleAppearance.mesh && mesh == null ||
         mesh != null && mesh!.topology != GeometryTopology.triangles) {
       throw ArgumentError('Mesh particles require triangle geometry.');
+    }
+    if (appearance == ParticleAppearance.mesh &&
+        texture != null &&
+        !mesh!.attributes.containsKey(VertexSemantic.uv0)) {
+      throw ArgumentError('Textured mesh particles require UV0 coordinates.');
     }
     final vertices = appearance == ParticleAppearance.mesh
         ? mesh!.layout.vertexCount
@@ -331,4 +368,63 @@ final class ParticleSettings {
       );
     }
   }
+}
+
+/// Seeded smooth value noise. Acceleration changes continuously across cells.
+final class NoiseParticleForce implements ParticleForce {
+  final double amplitude, frequency, speed;
+  NoiseParticleForce({
+    this.amplitude = 1,
+    this.frequency = 1,
+    this.speed = .2,
+  }) {
+    finiteRange(amplitude, 'amplitude', 0, 10000);
+    finiteRange(frequency, 'frequency', 0, 10000);
+    finiteRange(speed, 'speed', -10000, 10000);
+  }
+  @override
+  Vec3 acceleration(Vec3 position, Vec3 velocity, double time, int seed) {
+    final p = position * frequency + Vec3.one * (time * speed);
+    final x = p.x.floor(), y = p.y.floor(), z = p.z.floor();
+    double fade(double t) => t * t * (3 - 2 * t);
+    final fx = fade(p.x - x), fy = fade(p.y - y), fz = fade(p.z - z);
+    var rx = 0.0, ry = 0.0, rz = 0.0;
+    for (var a = 0; a < 2; a++) {
+      for (var b = 0; b < 2; b++) {
+        for (var c = 0; c < 2; c++) {
+          final weight =
+              (a == 0 ? 1 - fx : fx) *
+              (b == 0 ? 1 - fy : fy) *
+              (c == 0 ? 1 - fz : fz);
+          final h = particleHash(
+            seed ^
+                ((x + a) & 0xffffffff) ^
+                (((y + b) * 374761393) & 0xffffffff) ^
+                (((z + c) * 668265263) & 0xffffffff),
+          );
+          rx += ((particleHash(h) >> 8) / 16777216 * 2 - 1) * weight;
+          ry +=
+              ((particleHash(h ^ 0x9e3779b9) >> 8) / 16777216 * 2 - 1) * weight;
+          rz +=
+              ((particleHash(h ^ 0x85ebca6b) >> 8) / 16777216 * 2 - 1) * weight;
+        }
+      }
+    }
+    return Vec3(rx, ry, rz) * amplitude;
+  }
+
+  @override
+  String get wgslBody =>
+      '''
+let q=p*$frequency+vec3<f32>(time*$speed); let cell=vec3<i32>(floor(q));
+let fraction=fract(q); let fade=fraction*fraction*(vec3<f32>(3.)-2.*fraction);
+var result=vec3<f32>(0.);
+for(var x=0i;x<2i;x++) { for(var y=0i;y<2i;y++) { for(var z=0i;z<2i;z++) {
+let weight=select(1.-fade.x,fade.x,x==1i)*select(1.-fade.y,fade.y,y==1i)*select(1.-fade.z,fade.z,z==1i);
+let h=hash(seed ^ bitcast<u32>(cell.x+x) ^ (bitcast<u32>(cell.y+y)*374761393u) ^ (bitcast<u32>(cell.z+z)*668265263u));
+let value=vec3<f32>(f32(hash(h)>>8u),f32(hash(h^0x9e3779b9u)>>8u),f32(hash(h^0x85ebca6bu)>>8u))/16777216.*2.-vec3<f32>(1.);
+result+=value*weight;
+} } }
+return result*$amplitude;
+''';
 }

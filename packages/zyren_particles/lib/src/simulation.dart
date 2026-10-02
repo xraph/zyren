@@ -4,6 +4,9 @@ import 'package:zyren/zyren.dart';
 import 'settings.dart';
 import 'shapes.dart';
 
+const particleStateFloats = 24;
+const particleStateBytes = particleStateFloats * 4;
+
 enum ParticlePlayback { stopped, playing, paused, draining }
 
 final class ParticleTick {
@@ -128,7 +131,7 @@ final class ParticleClock {
 /// Inspection snapshot. Reading it allocates, simulation state remains packed.
 final class ParticleSnapshot {
   final int slot, serial;
-  final Vec3 position, velocity;
+  final Vec3 position, velocity, birthScale;
   final double age;
   const ParticleSnapshot({
     required this.slot,
@@ -136,37 +139,44 @@ final class ParticleSnapshot {
     required this.position,
     required this.velocity,
     required this.age,
+    this.birthScale = Vec3.one,
   });
 }
 
 /// Deterministic reference and supported compute-free simulation path.
-/// State layout matches the shader: position/age, velocity/birth, serial/alive.
+/// State layout matches the shader: position/age, velocity/birth, serial/alive,
+/// followed by three birth-transform columns.
 final class ParticleReference {
   final ParticleSettings settings;
   final Float32List state, history;
   int spawned = 0, replaced = 0, dropped = 0;
   ParticleReference(this.settings)
-    : state = Float32List(settings.capacity * 12),
+    : state = Float32List(settings.capacity * particleStateFloats),
       history = Float32List(
         settings.capacity * (settings.trails?.samples ?? 2) * 4,
       );
   int get liveCount {
     var count = 0;
     for (var i = 0; i < settings.capacity; i++) {
-      if (state[i * 12 + 9] != 0) count++;
+      if (state[i * particleStateFloats + 9] != 0) count++;
     }
     return count;
   }
 
   List<ParticleSnapshot> get particles => [
     for (var slot = 0; slot < settings.capacity; slot++)
-      if (state[slot * 12 + 9] != 0)
+      if (state[slot * particleStateFloats + 9] != 0)
         ParticleSnapshot(
           slot: slot,
-          serial: state[slot * 12 + 8].toInt(),
-          position: Vec3.array(state, slot * 12),
-          velocity: Vec3.array(state, slot * 12 + 4),
-          age: state[slot * 12 + 3],
+          serial: state[slot * particleStateFloats + 8].toInt(),
+          position: Vec3.array(state, slot * particleStateFloats),
+          velocity: Vec3.array(state, slot * particleStateFloats + 4),
+          age: state[slot * particleStateFloats + 3],
+          birthScale: Vec3(
+            Vec3.array(state, slot * particleStateFloats + 12).length,
+            Vec3.array(state, slot * particleStateFloats + 16).length,
+            Vec3.array(state, slot * particleStateFloats + 20).length,
+          ),
         ),
   ];
   void reset() {
@@ -175,12 +185,18 @@ final class ParticleReference {
     spawned = replaced = dropped = 0;
   }
 
-  void step(ParticleTick tick, {Mat4? emitterTransform}) {
+  /// [origin] offsets packed positions into world coordinates for forces and
+  /// collision planes. Keep it fixed until reset; local simulation uses zero.
+  void step(
+    ParticleTick tick, {
+    Mat4? emitterTransform,
+    Vec3 origin = Vec3.zero,
+  }) {
     final transform = emitterTransform ?? Mat4.identity();
     final dt = tick.step, samples = settings.trails?.samples ?? 2;
     var accepted = 0;
     for (var slot = 0; slot < settings.capacity; slot++) {
-      final o = slot * 12;
+      final o = slot * particleStateFloats;
       if (state[o + 9] != 0) {
         state[o + 3] = (tick.tick - state[o + 7]) * dt;
         if (state[o + 3] >= settings.lifetime) {
@@ -191,7 +207,7 @@ final class ParticleReference {
               az = settings.gravity.z;
           for (final force in settings.forces) {
             final a = force.acceleration(
-              Vec3.array(state, o),
+              Vec3.array(state, o) + origin,
               Vec3.array(state, o + 4),
               tick.time,
               state[o + 8].toInt(),
@@ -218,7 +234,7 @@ final class ParticleReference {
                 state[o] * n.x +
                 state[o + 1] * n.y +
                 state[o + 2] * n.z +
-                plane.offset;
+                (plane.offset + origin.dot(n));
             if (distance < 0) {
               state[o] -= n.x * distance;
               state[o + 1] -= n.y * distance;
@@ -236,11 +252,13 @@ final class ParticleReference {
         }
       }
       if (tick.count > 0) {
-        // Each slot receives the latest event in this tick. Earlier events have
-        // no integration interval, so replacement can discard them immediately.
+        // Drop keeps the first event for a free slot. Replacement keeps the last;
+        // superseded zero-age events have no integration interval.
         final last = tick.firstSerial + tick.count - 1;
-        final serial = last - ((last - slot) % settings.capacity);
-        if (serial >= tick.firstSerial && serial >= 0) {
+        final serial = settings.overflow == ParticleOverflow.dropNew
+            ? tick.firstSerial + ((slot - tick.firstSerial) % settings.capacity)
+            : last - ((last - slot) % settings.capacity);
+        if (serial >= tick.firstSerial && serial >= 0 && serial <= last) {
           if (state[o + 9] == 0 ||
               settings.overflow == ParticleOverflow.replaceOldest) {
             if (state[o + 9] != 0) replaced++;
@@ -266,7 +284,7 @@ final class ParticleReference {
               position = transformParticlePoint(transform, p);
               v = transformParticlePoint(transform, v, direction: true);
             }
-            state.setRange(o, o + 12, [
+            state.setRange(o, o + particleStateFloats, [
               position.x,
               position.y,
               position.z,
@@ -279,6 +297,7 @@ final class ParticleReference {
               1,
               0,
               0,
+              ...transform.storage.take(12),
             ]);
             spawned++;
             accepted++;
@@ -291,7 +310,13 @@ final class ParticleReference {
       history[h + 2] = state[o + 2];
       history[h + 3] = state[o + 9] == 0 ? 0 : state[o + 7] + 1;
     }
-    dropped += tick.count - accepted;
+    if (settings.overflow == ParticleOverflow.dropNew) {
+      dropped += tick.count - accepted;
+    } else {
+      final superseded = math.max(0, tick.count - settings.capacity);
+      spawned += superseded;
+      replaced += superseded;
+    }
   }
 }
 

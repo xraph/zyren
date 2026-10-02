@@ -43,7 +43,7 @@ void main() {
         await gpu.update(
           ticks,
           emitter: Mat4.identity(),
-          camera: camera.localMatrix,
+          camera: particleCameraTransform(camera),
         );
         final actual = await gpu.inspect(), expected = reference.particles;
         expect(actual.length, expected.length);
