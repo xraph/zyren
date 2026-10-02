@@ -10,7 +10,7 @@ void main(List<String> args) {
     'zyren_tools': {'zyren'},
     'zyren_devtools': {'zyren'},
     'zyren_timeline': {'zyren'},
-    'zyren_engineering': {'zyren'},
+    'zyren_engineering': {'zyren', 'crypto'},
     'zyren_gltf': {'zyren'},
     'zyren_gltf_timeline': {'zyren_gltf', 'zyren_timeline'},
     'zyren_3d_tiles': {'zyren', 'zyren_gltf', 'zyren_geospatial'},
