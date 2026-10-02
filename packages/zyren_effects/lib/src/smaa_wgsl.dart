@@ -1,21 +1,15 @@
 import 'package:zyren/zyren.dart';
 
-const _common =
+final _common =
     '''
 ${PostProcessDescriptor.interfaceWgsl}
-fn loadClamped(image:texture_2d<f32>,p:vec2<i32>)->vec4<f32>{return textureLoad(image,clamp(p,vec2<i32>(0),vec2<i32>(textureDimensions(image))-1),0);}
-fn sampleGl(image:texture_2d<f32>,uv:vec2<f32>)->vec4<f32>{
- let raw=vec2<f32>(uv.x,1.-uv.y)*vec2<f32>(textureDimensions(image))-.5;
- let p=select(raw,round(raw),abs(raw-round(raw))<vec2<f32>(.0001));
- let b=vec2<i32>(floor(p));let f=fract(p);
- return mix(mix(loadClamped(image,b),loadClamped(image,b+vec2<i32>(1,0)),f.x),mix(loadClamped(image,b+vec2<i32>(0,1)),loadClamped(image,b+vec2<i32>(1)),f.x),f.y);
-}
+${_sampling('sceneColor')}
 fn decode(c:vec4<f32>)->vec4<f32>{let v=c.rgb/max(c.a,1e-6);return vec4<f32>(select(v/12.92,pow(max((v+.055)/1.055,vec3<f32>(0.)),vec3<f32>(2.4)),v>vec3<f32>(.04045))*c.a,c.a);}
 fn encode(c:vec4<f32>)->vec4<f32>{let v=c.rgb/max(c.a,1e-6);return vec4<f32>(select(v*12.92,1.055*pow(max(v,vec3<f32>(0.)),vec3<f32>(1./2.4))-.055,v>vec3<f32>(.0031308))*c.a,c.a);}
 fn color(uv:vec2<f32>)->vec4<f32>{
  let p=vec2<f32>(uv.x,1.-uv.y)*vec2<f32>(textureDimensions(sceneColor))-.5;
  let b=vec2<i32>(floor(p));let f=fract(p);
- return mix(mix(decode(loadClamped(sceneColor,b)),decode(loadClamped(sceneColor,b+vec2<i32>(1,0))),f.x),mix(decode(loadClamped(sceneColor,b+vec2<i32>(0,1))),decode(loadClamped(sceneColor,b+vec2<i32>(1))),f.x),f.y);
+ return mix(mix(decode(loadClamped_sceneColor(b)),decode(loadClamped_sceneColor(b+vec2<i32>(1,0))),f.x),mix(decode(loadClamped_sceneColor(b+vec2<i32>(0,1))),decode(loadClamped_sceneColor(b+vec2<i32>(1))),f.x),f.y);
 }
 ''';
 
@@ -41,17 +35,20 @@ String smaaWeightsWgsl(int steps, int diagonal) =>
     '''
 $_common
 @group(1) @binding(0) var edgeImage:texture_2d<f32>;
+${_sampling('edgeImage')}
 @group(1) @binding(1) var areaImage:texture_2d<f32>;
+${_sampling('areaImage')}
 @group(1) @binding(2) var searchImage:texture_2d<f32>;
+${_sampling('searchImage')}
 fn texel()->vec2<f32>{return 1./vec2<f32>(textureDimensions(edgeImage));}
-fn edge(uv:vec2<f32>)->vec2<f32>{return sampleGl(edgeImage,uv).rg;}
+fn edge(uv:vec2<f32>)->vec2<f32>{return sampleGl_edgeImage(uv).rg;}
 fn edgeOffset(uv:vec2<f32>,offset:vec2<f32>)->vec2<f32>{return edge(uv+offset*texel());}
-fn areaSample(uv:vec2<f32>)->vec2<f32>{return sampleGl(areaImage,vec2<f32>(uv.x,1.-uv.y)).rg;}
+fn areaSample(uv:vec2<f32>)->vec2<f32>{return sampleGl_areaImage(vec2<f32>(uv.x,1.-uv.y)).rg;}
 fn sourceRound(v:vec2<f32>)->vec2<f32>{return floor(v+.5);}
 fn searchLength(e:vec2<f32>,offset:f32)->f32{
  let scale=(vec2<f32>(66.,33.)*vec2<f32>(.5,-1.)+vec2<f32>(-1.,1.))/vec2<f32>(64.,16.);
  let bias=(vec2<f32>(66.,33.)*vec2<f32>(offset,1.)+vec2<f32>(.5,-.5))/vec2<f32>(64.,16.);
- let uv=scale*e+bias;return loadClamped(searchImage,vec2<i32>(floor(vec2<f32>(uv.x,1.-uv.y)*vec2<f32>(64.,16.)))).r;
+ let uv=scale*e+bias;return loadClamped_searchImage(vec2<i32>(floor(vec2<f32>(uv.x,1.-uv.y)*vec2<f32>(64.,16.)))).r;
 }
 fn search(start:vec2<f32>,end:f32,axis:u32,direction:f32)->f32{
  var uv=start;var e=select(vec2<f32>(0.,1.),vec2<f32>(1.,0.),axis==1u);
@@ -144,19 +141,32 @@ fn corner(weights:vec2<f32>,coords:vec4<f32>,distance:vec2<f32>,vertical:bool)->
 }
 ''';
 
-const smaaBlendWgsl =
+final smaaBlendWgsl =
     '''
 $_common
 @group(1) @binding(0) var weightImage:texture_2d<f32>;
+${_sampling('weightImage')}
 @fragment fn fragment(v:ScreenVertex)->@location(0) vec4<f32>{
  let uv=vec2<f32>(v.uv.x,1.-v.uv.y);let t=1./vec2<f32>(textureDimensions(weightImage));
- let center=sampleGl(weightImage,uv);
- let a=vec4<f32>(sampleGl(weightImage,uv+vec2<f32>(t.x,0.)).a,sampleGl(weightImage,uv+vec2<f32>(0.,t.y)).g,center.b,center.r);
+ let center=sampleGl_weightImage(uv);
+ let a=vec4<f32>(sampleGl_weightImage(uv+vec2<f32>(t.x,0.)).a,sampleGl_weightImage(uv+vec2<f32>(0.,t.y)).g,center.b,center.r);
  if(dot(a,vec4<f32>(1.))<1e-5){return textureLoad(sceneColor,vec2<i32>(v.position.xy),0);}
  let horizontal=max(a.x,a.z)>max(a.y,a.w);
  let offset=select(vec4<f32>(0.,a.y,0.,a.w),vec4<f32>(a.x,0.,a.z,0.),horizontal);
  var weight=select(a.yw,a.xz,horizontal);weight/=dot(weight,vec2<f32>(1.));
  let coords=offset*vec4<f32>(t,-t)+uv.xyxy;
  return encode(weight.x*color(coords.xy)+weight.y*color(coords.zw));
+}
+''';
+
+// Direct texture references avoid the Pixel Mali compiler's image-argument crash.
+String _sampling(String name) =>
+    '''
+fn loadClamped_$name(p:vec2<i32>)->vec4<f32>{return textureLoad($name,clamp(p,vec2<i32>(0),vec2<i32>(textureDimensions($name))-1),0);}
+fn sampleGl_$name(uv:vec2<f32>)->vec4<f32>{
+ let raw=vec2<f32>(uv.x,1.-uv.y)*vec2<f32>(textureDimensions($name))-.5;
+ let p=select(raw,round(raw),abs(raw-round(raw))<vec2<f32>(.0001));
+ let b=vec2<i32>(floor(p));let f=fract(p);
+ return mix(mix(loadClamped_$name(b),loadClamped_$name(b+vec2<i32>(1,0)),f.x),mix(loadClamped_$name(b+vec2<i32>(0,1)),loadClamped_$name(b+vec2<i32>(1)),f.x),f.y);
 }
 ''';
