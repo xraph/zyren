@@ -30,6 +30,14 @@ final class GeospatialDeviceProfile {
   int get maxPixels => device == CloudDeviceType.phone ? 1572864 : 2097152;
   int get tileBytes =>
       (device == CloudDeviceType.phone ? 48 : 64) * 1024 * 1024;
-  CloudQualitySettings clouds([CloudQualityPreset? preset]) =>
-      CloudQualitySettings.forDevice(device, preset: preset);
+  CloudQualitySettings clouds([
+    CloudQualityPreset? preset,
+    bool shadowsEnabled = true,
+    CloudQualityPreset? shadowPreset,
+  ]) => CloudQualitySettings.forDevice(
+    device,
+    preset: preset,
+    shadowsEnabled: shadowsEnabled,
+    shadowPreset: shadowPreset,
+  );
 }

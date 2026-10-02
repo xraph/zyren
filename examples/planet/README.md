@@ -62,6 +62,11 @@ the pinned cloud maps and blue noise. Use the Clouds selector to choose Auto,
 Low, Medium, High or Ultra. Auto starts phones at Medium and tablets/desktops at
 High. You can change the setting while the scene is running.
 
+Switch **Cloud shadows** off to skip the shadow maps and light shafts while
+keeping the clouds visible. The **Shadows** selector sets Low, Medium, High or
+Ultra independently of cloud quality. Auto follows the Clouds selector. Turning
+shadows off keeps your chosen shadow quality for the next time you enable them.
+
 Phones allow 48 MiB of visible tile payloads; tablets and desktops allow 64 MiB.
 Both scene types use four concurrent tile requests. The screen-error target is eight
 render pixels, so finer tiles can replace the broad parent imagery sooner.

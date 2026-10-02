@@ -64,8 +64,10 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
   late final GeospatialSceneProfile profile;
   late final GeospatialDeviceProfile deviceProfile;
   CloudQualitySelection _quality = CloudQualitySelection.auto;
+  CloudQualitySelection _shadowQuality = CloudQualitySelection.auto;
+  bool _shadowsEnabled = true;
   bool _qualityChanging = false, _initialized = false;
-  CloudQualitySelection? _failedQuality;
+  (CloudQualitySelection, bool, CloudQualitySelection)? _failedQuality;
   StreamSubscription<FrameStats>? _qualityFrames;
   int? _refinement;
   final _controls = PresetGlobeControlsPlugin();
@@ -143,17 +145,27 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
     unawaited(_startLoad());
   }
 
-  Future<void> _setQuality(CloudQualitySelection selection) async {
+  Future<void> _setQuality(
+    CloudQualitySelection selection, {
+    bool? shadowsEnabled,
+    CloudQualitySelection? shadowQuality,
+  }) async {
     if (_qualityChanging) return;
+    final shadows = shadowsEnabled ?? _shadowsEnabled;
+    final shadow = shadowQuality ?? _shadowQuality;
     setState(() {
       _qualityChanging = true;
       _failedQuality = null;
     });
     try {
-      await profile.setCloudQuality(deviceProfile.clouds(selection.preset));
+      await profile.setCloudQuality(
+        deviceProfile.clouds(selection.preset, shadows, shadow.preset),
+      );
       if (mounted) {
         setState(() {
           _quality = selection;
+          _shadowsEnabled = shadows;
+          _shadowQuality = shadow;
           if (_refinement != null) {
             _refinement = math.min(
               16,
@@ -163,7 +175,9 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
         });
       }
     } catch (_) {
-      if (mounted) setState(() => _failedQuality = selection);
+      if (mounted) {
+        setState(() => _failedQuality = (selection, shadows, shadow));
+      }
     } finally {
       if (mounted) setState(() => _qualityChanging = false);
     }
@@ -318,6 +332,42 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
                       ),
                     ),
                   if (widget.clouds)
+                    FilterChip(
+                      key: const ValueKey('cloud-shadows'),
+                      label: const Text('Cloud shadows'),
+                      selected: _shadowsEnabled,
+                      onSelected: _qualityChanging
+                          ? null
+                          : (value) => unawaited(
+                              _setQuality(_quality, shadowsEnabled: value),
+                            ),
+                    ),
+                  if (widget.clouds)
+                    Tooltip(
+                      message: 'Shadow quality. Auto follows cloud quality.',
+                      child: DropdownButton<CloudQualitySelection>(
+                        key: const ValueKey('cloud-shadow-quality'),
+                        value: _shadowQuality,
+                        underline: const SizedBox(),
+                        selectedItemBuilder: (_) => [
+                          for (final choice in CloudQualitySelection.values)
+                            Text('Shadows: ${choice.label}'),
+                        ],
+                        items: [
+                          for (final choice in CloudQualitySelection.values)
+                            DropdownMenuItem(
+                              value: choice,
+                              child: Text(choice.label),
+                            ),
+                        ],
+                        onChanged: _qualityChanging || !_shadowsEnabled
+                            ? null
+                            : (value) => unawaited(
+                                _setQuality(_quality, shadowQuality: value!),
+                              ),
+                      ),
+                    ),
+                  if (widget.clouds)
                     Text(
                       '${deviceProfile.device.name} · ${profile.cloudQuality.preset.name}',
                     ),
@@ -338,7 +388,13 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
                 children: [
                   const Text('Cloud quality could not change.'),
                   TextButton(
-                    onPressed: () => unawaited(_setQuality(selection)),
+                    onPressed: () => unawaited(
+                      _setQuality(
+                        selection.$1,
+                        shadowsEnabled: selection.$2,
+                        shadowQuality: selection.$3,
+                      ),
+                    ),
                     child: const Text('Retry quality'),
                   ),
                 ],

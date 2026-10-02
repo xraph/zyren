@@ -73,6 +73,8 @@ final class GeospatialSceneProfile extends ScenePlugin {
             quality: _cloudQuality.preset,
             maxResolution: _cloudQuality.maxResolution,
             shadowMapSize: _cloudQuality.shadowMapSize,
+            shadowsEnabled: _cloudQuality.shadowsEnabled,
+            shadowQuality: _cloudQuality.shadowPreset,
             shadowFarScale: .25,
           )
         : null;

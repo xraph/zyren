@@ -22,6 +22,18 @@ void main() {
       await tester.tap(find.text('Ultra').last);
       await tester.pumpAndSettle();
       expect(lab.profile.cloudQuality.preset, CloudQualityPreset.ultra);
+      final shadows = find.byKey(const ValueKey('cloud-shadows'));
+      final shadowQuality = find.byKey(const ValueKey('cloud-shadow-quality'));
+      await tester.tap(shadowQuality);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Low').last);
+      await tester.pumpAndSettle();
+      expect(lab.profile.cloudQuality.shadowPreset, CloudQualityPreset.low);
+      expect(lab.profile.cloudQuality.preset, CloudQualityPreset.ultra);
+      await tester.tap(shadows);
+      await tester.pumpAndSettle();
+      expect(lab.profile.cloudQuality.shadowsEnabled, false);
+      expect(tester.widget<DropdownButton>(shadowQuality).onChanged, isNull);
       await tester.tap(control);
       await tester.pumpAndSettle();
       await tester.tap(find.text('Auto').last);
@@ -30,6 +42,12 @@ void main() {
         lab.profile.cloudQuality.preset,
         lab.deviceProfile.clouds().preset,
       );
+      expect(lab.profile.cloudQuality.shadowsEnabled, false);
+      expect(lab.profile.cloudQuality.shadowPreset, CloudQualityPreset.low);
+      await tester.tap(shadows);
+      await tester.pumpAndSettle();
+      expect(lab.profile.cloudQuality.shadowsEnabled, true);
+      expect(lab.profile.cloudQuality.shadowPreset, CloudQualityPreset.low);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
       await lab.whenClosed;
