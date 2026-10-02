@@ -55,14 +55,18 @@ final class Raycaster {
     CameraRay ray, {
     double near = 0,
     double far = double.infinity,
-  }) => _guard(
-    () => Raycaster(
-      near: near,
-      far: far,
-      layers: layers,
-      acceleration: acceleration,
-    ).capture(scene, Ray(ray.origin, ray.direction)).intersectAll(),
-  );
+  }) => _guard(() {
+    if (!near.isFinite || near < 0 || far.isNaN || far < near) {
+      throw ArgumentError('Ray limits require 0 <= near <= far.');
+    }
+    return _capture(
+      scene,
+      Ray(ray.origin, ray.direction),
+      near,
+      far,
+      layers,
+    ).intersectAll();
+  });
 
   RaycastSnapshot capture(Scene scene, Ray ray) =>
       _guard(() => _capture(scene, ray, near, far, layers));

@@ -47,6 +47,47 @@ void sameHits(List<PickResult> a, List<PickResult> b) {
 }
 
 void main() {
+  test('navigation queries retain spatial caches across rays and limits', () {
+    final scene = Scene();
+    final mesh = scene.add(Mesh(grid(16), UnlitMaterial()));
+    final caster = Raycaster(near: 100, far: 200);
+    final ray = Ray(const Vec3(.13, .21, 5), const Vec3(0, 0, -1));
+    final cameraRay = CameraRay(ray.origin, ray.direction);
+    expect(caster.intersectScene(scene, cameraRay).single.distance, 5);
+    final warmed = caster.capture(scene, ray).trace();
+    expect(warmed.statistics.geometryBuilds, 0);
+    expect(warmed.statistics.sceneBuilds, 0);
+    expect(warmed.hits, isEmpty);
+
+    expect(caster.intersectScene(scene, cameraRay, far: 4), isEmpty);
+    expect(caster.intersectScene(scene, cameraRay, near: 6), isEmpty);
+    mesh.position = const Vec3(0, 0, 2);
+    expect(caster.intersectScene(scene, cameraRay).single.distance, 3);
+    final refreshed = caster.capture(scene, ray).trace();
+    expect(refreshed.statistics.geometryBuilds, 0);
+    expect(refreshed.statistics.sceneRefits, 0);
+    expect(refreshed.statistics.modelMatrixInversions, 0);
+
+    caster.clearCache();
+    expect(caster.capture(scene, ray).trace().statistics.geometryBuilds, 1);
+    for (final limits in [(double.nan, 10.0), (-1.0, 10.0), (2.0, 1.0)]) {
+      expect(
+        () => caster.intersectScene(
+          scene,
+          cameraRay,
+          near: limits.$1,
+          far: limits.$2,
+        ),
+        throwsA(
+          isA<SceneException>().having(
+            (error) => error.issue.code,
+            'code',
+            SceneIssueCodes.invalidPickRequest,
+          ),
+        ),
+      );
+    }
+  });
   test('BVH prunes dense triangle work and agrees with the linear oracle', () {
     final scene = Scene()..add(Mesh(grid(64), UnlitMaterial()));
     final accelerated = Raycaster(),
