@@ -1,0 +1,55 @@
+{
+  "device": "iPhone 16 Pro",
+  "os": "iOS 27",
+  "mode": "profile",
+  "implementationCommit": "8341541",
+  "test": "examples/multiple_views/integration_test/gpu_diagnostics_test.dart",
+  "gpuDiagnostics": {
+    "memoryReports": [
+      {
+        "status": "available",
+        "source": "metal.deviceMemory",
+        "scope": "processDevice",
+        "region": "device",
+        "heapIndex": null,
+        "nodeIndex": null,
+        "deviceLocal": null,
+        "unifiedMemory": true,
+        "usageBytes": 95567872,
+        "budgetBytes": null,
+        "recommendedMaxWorkingSetBytes": 5726633984,
+        "usageIsEstimate": false,
+        "budgetIsEstimate": false,
+        "reason": null
+      }
+    ],
+    "allocatorUsedBytes": null,
+    "allocatorReservedBytes": null,
+    "allocatorAllocationCount": null,
+    "allocatorSource": "unavailable",
+    "allocatorAllocations": [],
+    "allocatorTruncated": null,
+    "diagnosticReadbackBytes": 0,
+    "lastSubmissionGpuTimeNs": 1295125,
+    "submittedFrames": 2,
+    "gpuTimeSource": "metal.commandBuffer.startEndTime",
+    "deviceAllocatedBytes": 95567872,
+    "deviceAllocationSource": "metal.currentAllocatedSize",
+    "residentBytes": null,
+    "registryPayloadBytes": 1104,
+    "totalAllocations": 1,
+    "truncated": false,
+    "allocations": [
+      {
+        "id": "1:1:0:1",
+        "kind": "geometry",
+        "payloadBytes": 1104,
+        "references": 1,
+        "lastSubmission": 2
+      }
+    ]
+  },
+  "presentationPath": "nativeView",
+  "cleanupVerified": true,
+  "scenePixelReadbacks": 0
+}

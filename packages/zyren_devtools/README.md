@@ -176,9 +176,13 @@ advertise `VK_EXT_memory_budget`; the test verified the explicit unsupported
 report, retained allocator counters and cleanup. A positive Vulkan budget sample
 still needs a driver that supports the extension. The DXGI implementation and
 its device test type-check for Windows x64, but live DXGI verification still
-requires Windows hardware. The updated iPhone memory-report test is awaiting an
-unlocked device; the earlier iPhone qualification above covers timing and
-allocation counters.
+requires Windows hardware.
+
+The updated iPhone 16 Pro test passed in profile mode on iOS 27. Metal reported
+95,567,872 allocated bytes and a 5,726,633,984-byte recommended working set.
+Scene pixel readbacks and diagnostic GPU readbacks stayed at zero, and renderer,
+drawable and bridge cleanup passed. You can inspect the captured result in
+[the iPhone memory report](qualification/2026-10-02-ios-memory.json).
 
 To qualify the DXGI report on a Windows GPU host, run this from the repository
 root. This test explicitly selects DX12, even if Vulkan is also installed:
