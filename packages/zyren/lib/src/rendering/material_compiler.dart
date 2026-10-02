@@ -18,10 +18,6 @@ class MeshShaderDescriptor {
   /// The fragment entry calls the meshClip WGSL helper with its camera-relative
   /// position. Leave false for shaders without the standard clipping hook.
   final bool supportsClipping;
-
-  /// The fragment entry calls ShaderMaterial.meshClip with its camera-relative
-  /// position. Leave false for shaders without the standard clipping hook.
-  final bool supportsClipping;
   MeshShaderDescriptor({
     required this.program,
     ShaderBindings? bindings,
@@ -29,7 +25,6 @@ class MeshShaderDescriptor {
     this.vertexEntryPoint = 'vertex',
     this.fragmentEntryPoint = 'fragment',
     this.requiresUv = false,
-    this.supportsClipping = false,
     this.supportsClipping = false,
   }) : bindings = bindings ?? ShaderBindings(const []);
 }
