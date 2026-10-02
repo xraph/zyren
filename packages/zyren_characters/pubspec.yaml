@@ -1,0 +1,24 @@
+name: zyren_characters
+description: Imported character animation states using Zyren timeline actions.
+version: 0.1.0
+publish_to: none
+resolution: workspace
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+dependencies:
+  zyren:
+    path: ../zyren
+  zyren_gltf:
+    path: ../zyren_gltf
+  zyren_gltf_timeline:
+    path: ../zyren_gltf_timeline
+  zyren_timeline:
+    path: ../zyren_timeline
+dev_dependencies:
+  test: ^1.29.0
+  zyren_navigation:
+    path: ../zyren_navigation
+  zyren_physics:
+    path: ../zyren_physics
+  zyren_native:
+    path: ../zyren_native

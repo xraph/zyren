@@ -4,6 +4,8 @@ import 'dart:io';
 void main(List<String> args) {
   final root = Directory(args.isEmpty ? '.' : args.single);
   final allowed = <String, Set<String>>{
+    'packages/zyren_navigation': {'zyren_navigation', 'zyren'},
+    'packages/zyren_characters': {'zyren_characters', 'zyren', 'zyren_gltf', 'zyren_gltf_timeline', 'zyren_timeline'},
     'packages/zyren': {'zyren', 'vector_math', 'dart_earcut'},
     'packages/zyren_gltf': {'zyren_gltf', 'zyren'},
     'packages/zyren_geospatial': {'zyren_geospatial', 'zyren'},
