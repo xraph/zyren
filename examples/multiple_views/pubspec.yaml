@@ -24,6 +24,8 @@ dependencies:
     path: ../../packages/flutter_zyren
   path_provider: ^2.1.6
 dev_dependencies:
+  zyren_gltf_timeline:
+    path: ../../packages/zyren_gltf_timeline
   zyren_gltf:
     path: ../../packages/zyren_gltf
   flutter_test:

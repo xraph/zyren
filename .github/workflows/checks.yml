@@ -37,7 +37,7 @@ jobs:
         working-directory: packages/zyren
       - run: dart test
         working-directory: packages/zyren_geospatial
-      - run: dart test packages/zyren_tools/test packages/zyren_devtools/test packages/zyren_timeline/test packages/zyren_engineering/test
+      - run: dart test packages/zyren_tools/test packages/zyren_devtools/test packages/zyren_timeline/test packages/zyren_gltf_timeline/test packages/zyren_engineering/test
       - run: dart test
         working-directory: packages/zyren_gltf
       - run: flutter test

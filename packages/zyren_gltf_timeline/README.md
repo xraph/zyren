@@ -82,3 +82,6 @@ The suite covers imported joint/morph uploads, imported pose crossfades and pose
 restoration, plus authored runtime crossfades, additive actions and reverse looping. It uses explicit readback
 for pixel assertions. macOS checks require Metal. Vulkan and DX12 require their
 respective hosts; a macOS pass does not qualify those backends.
+
+The [qualification record](QUALIFICATION.md) includes the physical Pixel Vulkan
+run, macOS Metal results and commands you can use on another host.

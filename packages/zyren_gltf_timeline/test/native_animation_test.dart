@@ -11,6 +11,20 @@ import '../../zyren_gltf/test/support/animated_fixture.dart';
 List<int> center(FrameOutput output) => (output as ReadbackOutput).image.pixels
     .sublist((15 * 31 + 15) * 4, (15 * 31 + 15) * 4 + 4);
 
+void expectNativeBackend(SceneEngine engine) {
+  final expected = switch (Platform.operatingSystem) {
+    'macos' || 'ios' => 'metal',
+    'android' || 'linux' => 'vulkan',
+    'windows' => 'dx12',
+    _ => throw UnsupportedError('Native animation needs a supported GPU host.'),
+  };
+  expect(engine.capabilities.backend?.toLowerCase(), expected);
+  // ignore: avoid_print
+  print(
+    'NATIVE_ANIMATION backend=${engine.capabilities.backend} adapter=${engine.capabilities.adapterName}',
+  );
+}
+
 void main() {
   test(
     'native imported crossfades blend joints and morph weights before upload',
@@ -30,9 +44,7 @@ void main() {
         plugins: [timeline],
       );
       addTearDown(engine.dispose);
-      if (Platform.isMacOS) {
-        expect(engine.capabilities.backend?.toLowerCase(), 'metal');
-      }
+      expectNativeBackend(engine);
       Future<FrameOutput> draw(Duration delta) => engine.renderFrame(
         elapsed: Duration.zero,
         time: FrameTime(delta: delta),
@@ -78,9 +90,7 @@ void main() {
         plugins: [timeline],
       );
       addTearDown(engine.dispose);
-      if (Platform.isMacOS) {
-        expect(engine.capabilities.backend?.toLowerCase(), 'metal');
-      }
+      expectNativeBackend(engine);
       Future<FrameOutput> draw() =>
           engine.renderFrame(elapsed: Duration.zero, width: 31, height: 31);
       timeline.seek(Duration.zero);
@@ -129,6 +139,7 @@ void main() {
         plugins: [timeline],
       );
       addTearDown(engine.dispose);
+      expectNativeBackend(engine);
       Future<FrameOutput> draw(Duration delta) => engine.renderFrame(
         elapsed: Duration.zero,
         time: FrameTime(delta: delta),
@@ -215,6 +226,7 @@ void main() {
       plugins: [timeline],
     );
     addTearDown(engine.dispose);
+    expectNativeBackend(engine);
     Future<FrameOutput> draw() =>
         engine.renderFrame(elapsed: Duration.zero, width: 31, height: 31);
     timeline.seek(const Duration(milliseconds: 999));
