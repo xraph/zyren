@@ -5,6 +5,7 @@ import 'dart:math' as math;
 import 'package:zyren/zyren.dart';
 
 part 'src/timeline_events.dart';
+part 'src/timeline_mixing.dart';
 
 const sceneTimeline = ServiceKey<SceneTimelinePlugin>('zyren.timeline');
 
@@ -61,22 +62,29 @@ class TransformTrack extends TimelineTrack {
   Duration get end => keyframes.last.time;
   @override
   void Function() prepare(Duration time) {
+    final pose = _sample(time);
+    return () {
+      target.position = pose.position;
+      target.scale = pose.scale;
+      target.quaternion = pose.rotation;
+      target.visible = pose.visible;
+    };
+  }
+
+  TransformKeyframe _sample(Duration time) {
     final (index, fraction) = _segment(
       keyframes.map((key) => key.time).toList(),
       time,
     );
     final a = keyframes[index],
         b = keyframes[math.min(index + 1, keyframes.length - 1)];
-    final position = _lerp(a.position, b.position, fraction);
-    final scale = _lerp(a.scale, b.scale, fraction);
-    final rotation = _slerp(a.rotation, b.rotation, fraction);
-    final visible = fraction == 1 ? b.visible : a.visible;
-    return () {
-      target.position = position;
-      target.scale = scale;
-      target.quaternion = rotation;
-      target.visible = visible;
-    };
+    return TransformKeyframe(
+      Duration.zero,
+      position: _lerp(a.position, b.position, fraction),
+      scale: _lerp(a.scale, b.scale, fraction),
+      rotation: _slerp(a.rotation, b.rotation, fraction),
+      visible: fraction == 1 ? b.visible : a.visible,
+    );
   }
 }
 
@@ -108,21 +116,27 @@ class CameraTrack extends TimelineTrack {
   Duration get end => keyframes.last.time;
   @override
   void Function() prepare(Duration time) {
+    final pose = _sample(time);
+    return () => target.batch(() {
+      target.position = pose.position;
+      target.target = pose.target;
+      target.up = pose.up;
+    });
+  }
+
+  CameraKeyframe _sample(Duration time) {
     final (index, fraction) = _segment(
       keyframes.map((key) => key.time).toList(),
       time,
     );
     final a = keyframes[index],
         b = keyframes[math.min(index + 1, keyframes.length - 1)];
-    final position = _lerp(a.position, b.position, fraction);
-    final lookAt = _lerp(a.target, b.target, fraction);
-    final up = _lerp(a.up, b.up, fraction);
-    _validateCamera(position, lookAt, up);
-    return () => target.batch(() {
-      target.position = position;
-      target.target = lookAt;
-      target.up = up.normalized();
-    });
+    return CameraKeyframe(
+      Duration.zero,
+      position: _lerp(a.position, b.position, fraction),
+      target: _lerp(a.target, b.target, fraction),
+      up: _lerp(a.up, b.up, fraction).normalized(),
+    );
   }
 }
 
@@ -144,6 +158,23 @@ class SceneTimelinePlugin extends ScenePlugin {
   bool _playing = false, _firstTick = true;
   bool _startPending = true;
   int _loopIndex = 0;
+
+  /// Combines absolute clips with weight curves on this timeline's clock.
+  factory SceneTimelinePlugin.mixed({
+    required Duration duration,
+    required TimelineClip base,
+    Iterable<TimelineLayer> layers = const [],
+    Iterable<TimelineMarker> markers = const [],
+    int maxEventsPerAdvance = 1024,
+    bool loop = false,
+  }) => SceneTimelinePlugin(
+    duration: duration,
+    tracks: _mixTracks(duration, base, layers),
+    markers: markers,
+    maxEventsPerAdvance: maxEventsPerAdvance,
+    loop: loop,
+  );
+
   SceneTimelinePlugin({
     required this.duration,
     required Iterable<TimelineTrack> tracks,
