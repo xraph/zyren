@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_zyren/widgets.dart';
 import 'package:planet/google_tiles_lab.dart';
 import 'package:planet/geospatial_presets.dart';
+import 'package:flutter_zyren/flutter_zyren.dart';
 
 void main() {
   testWidgets('missing access keeps a compact actionable state without a GPU', (
@@ -23,6 +24,9 @@ void main() {
         find.byType(GoogleTilesLab),
       );
       expect(lab.preset, GoogleTilesPreset.fuji);
+      expect(lab.controller.scene.renderSettings.toneMapping, ToneMapping.agx);
+      expect(lab.controller.scene.renderSettings.exposure, 10);
+      expect(lab.profile.date, GoogleTilesPreset.fuji.utcDate(year: 2026));
       expect(
         lab.controller.camera.position.distanceTo(lab.controller.camera.target),
         closeTo(7000, 1e-6),

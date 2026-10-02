@@ -12,6 +12,8 @@ dependencies:
     sdk: flutter
   flutter_zyren:
     path: ../../packages/flutter_zyren
+  zyren_effects:
+    path: ../../packages/zyren_effects
   zyren_geospatial:
     path: ../../packages/zyren_geospatial
   zyren_3d_tiles:

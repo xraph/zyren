@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_zyren/flutter_zyren.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:planet/google_tiles_lab.dart';
+import 'package:planet/geospatial_presets.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -20,8 +21,8 @@ void main() {
     final key = GlobalKey<GoogleTilesLabState>();
     await tester.pumpWidget(GoogleTilesLabApp(labKey: key));
     final lab = key.currentState!;
-    final initialPosition = lab.controller.camera.position;
-    final initialTarget = lab.controller.camera.target;
+    var initialPosition = lab.controller.camera.position;
+    var initialTarget = lab.controller.camera.target;
     var frames = 0;
     final subscription = lab.controller.frameStats.listen((frame) {
       expectSync(frame.readbackBytes, 0);
@@ -53,47 +54,69 @@ void main() {
     }
 
     try {
-      await until(
-        () =>
-            frames > 2 &&
-            (lab.tiles?.stats?.visibleTiles ?? 0) > 0 &&
-            lab.tiles!.attributions.isNotEmpty,
-      );
-      var settled = 0;
-      await until(() {
-        if (lab.tiles!.stats!.activeRequests == 0) {
-          settled++;
-        } else {
-          settled = 0;
+      for (final preset in GoogleTilesPreset.values) {
+        if (lab.preset != preset) {
+          await tester.tap(find.text(preset.label));
+          await tester.pump();
+          initialPosition = lab.controller.camera.position;
+          initialTarget = lab.controller.camera.target;
         }
-        return settled > 40;
-      });
-      debugPrint(
-        'Preset displacement: ${lab.controller.camera.position.distanceTo(initialPosition).round()} m.',
-      );
-      expect(lab.tiles!.failures, isEmpty);
-      final viewport = tester.getSize(find.byType(SceneView));
-      final hit = await lab.controller.pick(
-        ViewportPoint(viewport.width / 2, viewport.height / 2),
-      );
-      expect(
-        hit,
-        isNotNull,
-        reason: 'The city center must contain rendered geometry.',
-      );
-      expect(
-        hit!.point.distanceTo(initialTarget),
-        lessThan(5000),
-        reason: 'The loaded surface must be near the Manhattan preset.',
-      );
-      debugPrint(
-        'Visible hierarchy depths: ${lab.tiles!.visibleTileIds.map((id) => id.split('/').length).toSet()}.',
-      );
-      expect(
-        lab.controller.camera.position.distanceTo(initialPosition),
-        lessThan(10000),
-        reason: 'Loading terrain must preserve the city camera pose.',
-      );
+        final beforePreset = frames;
+        lab.controller.invalidate();
+        await until(
+          () =>
+              frames > beforePreset &&
+              (lab.tiles?.stats?.visibleTiles ?? 0) > 0 &&
+              lab.tiles!.attributions.isNotEmpty,
+        );
+        var settled = 0;
+        await until(() {
+          if (lab.tiles!.stats!.activeRequests == 0) {
+            settled++;
+          } else {
+            settled = 0;
+          }
+          return settled > 40;
+        });
+        debugPrint(
+          'Preset displacement: ${lab.controller.camera.position.distanceTo(initialPosition).round()} m.',
+        );
+        expect(lab.tiles!.failures, isEmpty);
+        final viewport = tester.getSize(find.byType(SceneView));
+        final hit = await lab.controller.pick(
+          ViewportPoint(viewport.width / 2, viewport.height / 2),
+        );
+        expect(
+          hit,
+          isNotNull,
+          reason: 'The city center must contain rendered geometry.',
+        );
+        expect(
+          hit!.point.distanceTo(initialTarget),
+          lessThan(5000),
+          reason: 'The loaded surface must be near the ${preset.label} preset.',
+        );
+        debugPrint(
+          'Visible hierarchy depths: ${lab.tiles!.visibleTileIds.map((id) => id.split('/').length).toSet()}.',
+        );
+        expect(
+          lab.controller.camera.position.distanceTo(initialPosition),
+          lessThan(10000),
+          reason: 'Loading terrain must preserve the city camera pose.',
+        );
+        expect(lab.profile.air.controller.date, preset.utcDate(year: 2026));
+        expect(
+          lab.controller.scene.renderSettings.toneMapping,
+          ToneMapping.agx,
+        );
+        expect(lab.controller.scene.renderSettings.exposure, preset.exposure);
+        expect(lab.controller.scene.effects.length, greaterThanOrEqualTo(27));
+        expect(lab.profile.effects.controller.width, lessThanOrEqualTo(640));
+        expect(lab.profile.effects.controller.height, lessThanOrEqualTo(640));
+        debugPrint(
+          '${preset.label} combined scene: ${lab.tiles!.stats!.visibleTiles} tiles, ${lab.controller.scene.effects.length} effects.',
+        );
+      }
       expect(find.text('Google Maps'), findsWidgets);
       expect(find.text('Data sources'), findsOneWidget);
       await tester.binding.setSurfaceSize(const Size(390, 700));

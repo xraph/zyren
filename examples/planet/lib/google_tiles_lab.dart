@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_zyren/flutter_zyren.dart';
@@ -7,25 +8,33 @@ import 'package:zyren_3d_tiles/zyren_3d_tiles.dart';
 import 'package:zyren_geospatial/zyren_geospatial.dart';
 import 'tile_attribution_bar.dart';
 import 'geospatial_presets.dart';
+import 'geospatial_scene.dart';
+import 'preset_globe_controls.dart';
 import 'zero_state.dart';
 
 void main() => runApp(const GoogleTilesLabApp());
 
 class GoogleTilesLabApp extends StatelessWidget {
   final GlobalKey<GoogleTilesLabState>? labKey;
-  const GoogleTilesLabApp({super.key, this.labKey});
+  final bool clouds;
+  const GoogleTilesLabApp({
+    super.key,
+    this.labKey,
+    this.clouds = const bool.fromEnvironment('ZYREN_LAB_CLOUDS'),
+  });
   @override
   Widget build(BuildContext context) => MaterialApp(
     debugShowCheckedModeBanner: false,
     theme: ThemeData.dark(
       useMaterial3: true,
     ).copyWith(visualDensity: VisualDensity.compact),
-    home: GoogleTilesLab(key: labKey),
+    home: GoogleTilesLab(key: labKey, clouds: clouds),
   );
 }
 
 class GoogleTilesLab extends StatefulWidget {
-  const GoogleTilesLab({super.key});
+  final bool clouds;
+  const GoogleTilesLab({super.key, this.clouds = false});
   @override
   State<GoogleTilesLab> createState() => GoogleTilesLabState();
 }
@@ -35,7 +44,8 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
   static const _ionToken = String.fromEnvironment('ZYREN_CESIUM_ION_TOKEN');
   static bool get configured => _googleKey.isNotEmpty || _ionToken.isNotEmpty;
   late final SceneController controller;
-  final _controls = GlobeControlsPlugin();
+  late final GeospatialSceneProfile profile;
+  final _controls = PresetGlobeControlsPlugin();
   Tiles3DProviderSession? _provider;
   AssetScope? _manifest;
   Tiles3DPlugin? tiles;
@@ -70,6 +80,13 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
           )
           ..use(GeospatialPlugin())
           ..use(_controls);
+    profile = GeospatialSceneProfile(
+      services: controller.runtime.assetServices,
+      clouds: widget.clouds,
+    );
+    for (final plugin in profile.plugins) {
+      controller.use(plugin);
+    }
     _view(GoogleTilesPreset.manhattan);
     unawaited(_startLoad());
   }
@@ -77,7 +94,8 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
   void _view(GoogleTilesPreset preset) {
     _preset = preset;
     _controls.controls?.cancel();
-    preset.applyCamera(controller.camera);
+    profile.apply(controller.scene, controller.camera, preset);
+    _controls.resetForPreset();
     controller.invalidate();
   }
 
@@ -232,10 +250,21 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
                       actionLabel: 'Retry connection',
                       onAction: _startLoad,
                     )
-                  : SceneView(
-                      controller: controller,
-                      errorBuilder: (context, issue, retry) =>
-                          ZeroState(error: issue, onRetry: retry),
+                  : LayoutBuilder(
+                      builder: (context, bounds) {
+                        final longest =
+                            math.max(bounds.maxWidth, bounds.maxHeight) *
+                            MediaQuery.devicePixelRatioOf(context);
+                        return SceneView(
+                          controller: controller,
+                          resolutionScale: math.min(
+                            1,
+                            640 / math.max(1, longest),
+                          ),
+                          errorBuilder: (context, issue, retry) =>
+                              ZeroState(error: issue, onRetry: retry),
+                        );
+                      },
                     ),
             ),
             if (_provider case final provider?)
