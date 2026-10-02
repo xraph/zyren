@@ -282,6 +282,14 @@ as well as its automated tests, and include that device, backend and any remaini
 limits when reporting a result. [Native checks](.github/workflows/checks.yml)
 contains the full CI commands.
 
+## Acknowledgements
+
+Zyren's geospatial implementation is inspired by
+[Takram's three-geospatial](https://github.com/takram-design-engineering/three-geospatial).
+Its source code and examples guided our implementation of geospatial maths,
+atmosphere and cloud rendering for Dart and Flutter. Thank you to the
+three-geospatial authors and contributors for sharing that work.
+
 ## Third-party notices
 
 Zyren includes ports and dependencies with their own license requirements.

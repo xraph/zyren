@@ -4,6 +4,12 @@ Geospatial coordinates, globe controls, terrain streaming and atmospheric
 rendering for Zyren's native renderer. Add `GeospatialPlugin` before plugins
 that depend on its ellipsoid reference.
 
+Inspired by [Takram's three-geospatial](https://github.com/takram-design-engineering/three-geospatial),
+whose source code and examples guided our implementation of geospatial maths,
+atmosphere and cloud rendering for Dart and Flutter. Thank you to its authors
+and contributors. See the [third-party notices](../../THIRD_PARTY_NOTICES.md#three-geospatial)
+for attribution and license details for adapted code.
+
 ## Terrain imagery
 
 Wrap your terrain source to apply geographic or Web Mercator imagery:
