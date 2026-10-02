@@ -81,3 +81,42 @@ coverage grid, where 0 is land and 255 is water. Values between them preserve
 soft coastlines. `TerrainTile.availability` retains immutable relative-level
 ranges. Imagery composition preserves both fields and the provider's credits.
 These are CPU values; a water mask alone does not add a reflective water pass.
+
+## Draped overlays
+
+Wrap your imagery source with `OverlayTerrainSource` to tint water and draw
+polygons or lines on the terrain:
+
+```dart
+final source = OverlayTerrainSource(
+  terrain: imageryTerrain,
+  overlays: [
+    WaterTintOverlay(color: Color3.hex(0x247ba0), opacity: 0.6),
+    TerrainPolylineOverlay(
+      points: surveyBoundary,
+      color: Color3.hex(0xffdd55),
+      width: 3,
+    ),
+  ],
+);
+```
+
+Layers draw in list order. `TerrainPolygonOverlay.rings` starts with an outer
+ring, followed by holes. Supply `Geodetic` coordinates; heights are ignored
+because these shapes drape on the existing mesh. Segments are straight in
+longitude/latitude, take the shorter path across the dateline, and clip at tile
+edges. Split paths that span half the globe or more. Polygon filling uses the
+even-odd rule within each ring and subtracts holes.
+
+Line width is in output texture pixels, so its ground width changes with terrain
+level. Lines have round caps and joins. Vector edges use four coverage samples
+per pixel, and all layers blend in linear light. Water tint uses the provider's
+soft coverage mask; without a mask that layer has no effect. It does not animate
+waves or reflections. Picking still returns the terrain mesh.
+
+Use `outputSize` (2-1024, default 256) to set the texture resolution. A source
+accepts up to 64 overlays and 4,096 vertices, subject to `maxSampleTests`
+(default 64 million). The conservative work estimate rejects oversized jobs
+before requesting terrain. Imagery and overlays share two CPU worker slots and
+sixteen queue positions. Geometry, skirts, metadata and credits remain owned by
+the terrain tile. Replace the source to change its immutable overlays.

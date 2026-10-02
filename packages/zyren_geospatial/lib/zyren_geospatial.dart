@@ -40,3 +40,4 @@ export 'src/terrain/terrain_extensions.dart'
         TerrainWaterMask,
         TerrainAvailabilityRange,
         TerrainAvailabilityMetadata;
+export 'src/terrain/overlay_terrain_source.dart';
