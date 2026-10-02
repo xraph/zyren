@@ -452,6 +452,19 @@ final class EffectRegistration extends Registration {
   }
 }
 
+/// Owns the scene's environment slot until disposal restores its settings fallback.
+final class EnvironmentRegistration extends Registration {
+  final void Function(EnvironmentMap) _replace;
+  EnvironmentRegistration._(super.release, this._replace);
+  void replace(EnvironmentMap map) {
+    if (isDisposed) throw StateError('Environment registration has closed.');
+    if (map.isClosed) {
+      throw StateError('Environment resource owner has closed.');
+    }
+    _replace(map);
+  }
+}
+
 class Scene extends Object3D {
   List<ClippingPlane> _clippingPlanes = const [];
   SceneOutline? _outline;
@@ -484,7 +497,7 @@ class Scene extends Object3D {
   EnvironmentMap? _environment;
   EnvironmentMap? get environment =>
       _environment ?? _renderSettings.environment;
-  Registration addEnvironment(EnvironmentMap map) {
+  EnvironmentRegistration addEnvironment(EnvironmentMap map) {
     if (map.isClosed) {
       throw StateError('Environment resource owner has closed.');
     }
@@ -495,10 +508,16 @@ class Scene extends Object3D {
     }
     _environment = map;
     _changed();
-    return Registration(() {
-      _environment = null;
-      _changed();
-    });
+    return EnvironmentRegistration._(
+      () {
+        _environment = null;
+        _changed();
+      },
+      (replacement) {
+        _environment = replacement;
+        _changed();
+      },
+    );
   }
 
   RenderSettings get renderSettings => _renderSettings;
