@@ -5,6 +5,7 @@ import 'package:zyren/zyren.dart';
 import 'package:zyren_gltf/zyren_gltf.dart';
 import 'package:zyren_gltf/src/worker.dart';
 import '../support/fixtures.dart';
+import '../support/animated_fixture.dart';
 
 final class Cancellation implements LoadCancellation {
   final callbacks = <void Function()>{};
@@ -40,7 +41,12 @@ void check(bool value) {
 final class ModelSources implements ByteSourceResolver {
   @override
   Future<ResolvedSource> read(Uri uri, SourceReadContext context) async =>
-      ResolvedSource(effectiveUri: uri, bytes: texturedModel());
+      ResolvedSource(
+        effectiveUri: uri,
+        bytes: uri.path.contains('animated')
+            ? animatedModel(bindPosition: 2)
+            : texturedModel(),
+      );
 }
 
 final class ModelImages implements ImageDecoder {
@@ -52,6 +58,35 @@ final class ModelImages implements ImageDecoder {
 }
 
 Future<void> main() async {
+  final animationScope = AssetScope(
+    services: AssetServices(resolver: ModelSources()),
+  );
+  final animated = await animationScope.load(Gltf.asset('animated.glb')).result;
+  final animatedInstance = animated.instantiate();
+  animatedInstance.preparePose(
+    animation: animated.animations.single,
+    time: const Duration(seconds: 1),
+  )();
+  check(
+    (animatedInstance.nodes[0]!.children.single as Mesh)
+            .geometry
+            .positions
+            .first ==
+        7,
+  );
+  animationScope.release(animated);
+  animatedInstance.preparePose(
+    animation: animatedInstance.animations.single,
+    time: Duration.zero,
+  )();
+  check(
+    (animatedInstance.nodes[0]!.children.single as Mesh)
+            .geometry
+            .positions
+            .first ==
+        -1,
+  );
+  await animationScope.close();
   final token = Cancellation();
   final document = await GltfWorkers.parse(
     Uint8List.fromList(utf8.encode('{"asset":{"version":"2.0"}}')),

@@ -10,6 +10,7 @@ import 'options.dart';
 import 'recipes.dart';
 import 'feature_decoder.dart';
 import 'metadata_decoder.dart';
+import 'animation_decoder.dart';
 
 PreparedModel prepareModel(
   Map<String, Object?> root,
@@ -17,13 +18,6 @@ PreparedModel prepareModel(
   GltfOptions options,
   int maxDecodedBytes,
 ) {
-  if (root.containsKey('animations')) {
-    fail(
-      'animations',
-      'Animated models need the animation profile, which is not yet implemented.',
-      AssetLoadError.unsupportedFeature,
-    );
-  }
   final budget = DecodeBudget(maxDecodedBytes);
   final reader = AccessorReader(
     root,
@@ -45,13 +39,6 @@ PreparedModel prepareModel(
   var primitiveCount = 0;
   for (var m = 0; m < rawMeshes.length; m++) {
     final meshPath = 'meshes[$m]', mesh = object(rawMeshes[m], 'meshes[$m]');
-    if (mesh.containsKey('weights')) {
-      fail(
-        '$meshPath.weights',
-        'Morph targets are not yet supported.',
-        AssetLoadError.unsupportedFeature,
-      );
-    }
     final name = mesh.containsKey('name')
         ? string(mesh['name'], '$meshPath.name')
         : null;
@@ -70,21 +57,15 @@ PreparedModel prepareModel(
           AssetLoadError.limitExceeded,
         );
       }
-      if (primitive.containsKey('targets')) {
-        fail(
-          '$path.targets',
-          'Morph targets are not yet supported.',
-          AssetLoadError.unsupportedFeature,
-        );
-      }
       final attributes = object(primitive['attributes'], '$path.attributes');
       final decoded = <String, DecodedAccessor>{};
       for (final entry in attributes.entries) {
         final semantic = entry.key,
             attributePath = '$path.attributes.$semantic';
-        if (semantic.startsWith('COLOR_') ||
-            semantic.startsWith('JOINTS_') ||
-            semantic.startsWith('WEIGHTS_')) {
+        if (semantic.startsWith('JOINTS_') || semantic.startsWith('WEIGHTS_')) {
+          continue;
+        }
+        if (semantic.startsWith('COLOR_')) {
           fail(
             attributePath,
             'This vertex semantic is not yet supported by the native model profile.',
@@ -315,6 +296,23 @@ PreparedModel prepareModel(
           }
         }
       }
+      final deformation = decodeDeformation(
+        reader,
+        primitive,
+        position.count,
+        flat ? indices : null,
+        path,
+      );
+      final morphCount = deformation?.morphPositions.length ?? 0;
+      final morphWeights = mesh.containsKey('weights')
+          ? [
+              for (final value in array(mesh['weights'], '$meshPath.weights'))
+                number(value, '$meshPath.weights'),
+            ]
+          : List<double>.filled(morphCount, 0);
+      if (morphWeights.length != morphCount) {
+        fail('$meshPath.weights', 'Morph weight count must match targets.');
+      }
       final originalIndices = indices;
       if (flat) {
         budget.reserve(vertexCount * 4, path);
@@ -341,6 +339,20 @@ PreparedModel prepareModel(
           );
         }
       }
+      if (deformation != null &&
+          (primitive.containsKey('extensions') ||
+              attributes.containsKey('_BATCHID'))) {
+        final extensions = primitive['extensions'];
+        if (attributes.containsKey('_BATCHID') ||
+            (extensions is Map &&
+                extensions.containsKey('EXT_mesh_features'))) {
+          fail(
+            path,
+            'Animated feature partitions require separate primitives.',
+            AssetLoadError.unsupportedFeature,
+          );
+        }
+      }
       final partitions = partitionFeatures(
         root,
         primitive,
@@ -355,6 +367,8 @@ PreparedModel prepareModel(
           ),
           material,
           name,
+          deformation: deformation,
+          morphWeights: List.unmodifiable(morphWeights),
         ),
         budget,
         options.limits.maxPrimitives - primitiveCount + 1,
@@ -372,6 +386,59 @@ PreparedModel prepareModel(
     options.limits.maxPrimitives,
     decodedPrimitiveCounts: [for (final mesh in meshes) mesh.length],
   );
+  final skins = decodeSkins(reader, nodes);
+  for (var n = 0; n < nodes.length; n++) {
+    final node = nodes[n];
+    if (node.mesh case final meshIndex?) {
+      final mesh = meshes[meshIndex];
+      final count = mesh.first.deformation?.morphPositions.length ?? 0;
+      if (mesh.any(
+            (p) => (p.deformation?.morphPositions.length ?? 0) != count,
+          ) ||
+          (node.weights != null && node.weights!.length != count)) {
+        fail('nodes[$n].weights', 'Morph counts must match all primitives.');
+      }
+      if (node.skin case final skinIndex?) {
+        for (final primitive in mesh) {
+          final data = primitive.deformation;
+          if (data == null ||
+              data.joints.isEmpty ||
+              data.joints.any((j) => j >= skins[skinIndex].joints.length)) {
+            fail(
+              'nodes[$n].skin',
+              'Skin vertex indices must fit its joint palette.',
+            );
+          }
+        }
+      }
+    } else if (node.skin != null || node.weights != null) {
+      fail('nodes[$n]', 'Skin and weights require a mesh.');
+    }
+  }
+  for (var s = 0; s < scenes.length; s++) {
+    final reachable = <int>{};
+    void visit(int n) {
+      reachable.add(n);
+      for (final child in nodes[n].children) {
+        visit(child);
+      }
+    }
+
+    for (final root in scenes[s].roots) {
+      visit(root);
+    }
+    for (final n in reachable) {
+      if (nodes[n].skin case final skin?) {
+        if (skins[skin].joints.any((j) => !reachable.contains(j))) {
+          fail(
+            'scenes[$s]',
+            'Skin joints must belong to the same selected scene.',
+          );
+        }
+      }
+    }
+  }
+  final animations = decodeAnimations(reader, nodes, meshes);
   return PreparedModel(
     nodes,
     scenes,
@@ -381,6 +448,8 @@ PreparedModel prepareModel(
     List.unmodifiable(issues),
     budget.usedBytes,
     propertyTables,
+    animations: animations,
+    skins: skins,
   );
 }
 

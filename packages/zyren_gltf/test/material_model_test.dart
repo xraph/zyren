@@ -32,7 +32,7 @@ void main() {
     expect(material.alphaCutoff, 1.1);
     expect(material.side, MaterialSide.doubleSided);
   });
-  test('unsupported deformation and color features fail explicitly', () async {
+  test('invalid animation and unsupported features fail', () async {
     for (final bytes in [
       triangleModel(
         changes: {
@@ -70,7 +70,14 @@ void main() {
         load(bytes),
         throwsA(
           isA<AssetLoadException>()
-              .having((e) => e.code, 'code', AssetLoadError.unsupportedFeature)
+              .having(
+                (e) => e.code,
+                'code',
+                anyOf(
+                  AssetLoadError.invalidData,
+                  AssetLoadError.unsupportedFeature,
+                ),
+              )
               .having((e) => e.fieldPath, 'path', isNotNull),
         ),
       );

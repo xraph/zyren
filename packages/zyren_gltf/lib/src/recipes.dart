@@ -1,9 +1,12 @@
 import 'dart:typed_data';
 import 'package:zyren/zyren.dart';
 import 'features.dart';
+import 'animation.dart';
 import 'metadata.dart';
 
 final class PreparedModel {
+  final List<ModelAnimation> animations;
+  final List<ModelSkin> skins;
   final List<NodeRecipe> nodes;
   final List<SceneRecipe> scenes;
   final int? defaultScene;
@@ -20,8 +23,10 @@ final class PreparedModel {
     this.images,
     this.issues,
     this.decodedBytes,
-    this.propertyTables,
-  );
+    this.propertyTables, {
+    this.animations = const [],
+    this.skins = const [],
+  });
 }
 
 final class NodeRecipe {
@@ -31,6 +36,8 @@ final class NodeRecipe {
   final int? mesh;
   final List<int> children;
   final LightRecipe? light;
+  final int? skin;
+  final List<double>? weights;
   const NodeRecipe(
     this.name,
     this.position,
@@ -38,8 +45,10 @@ final class NodeRecipe {
     this.scale,
     this.mesh,
     this.children,
-    this.light,
-  );
+    this.light, {
+    this.skin,
+    this.weights,
+  });
 }
 
 final class SceneRecipe {
@@ -53,11 +62,15 @@ final class PrimitiveRecipe {
   final MaterialRecipe material;
   final String? name;
   final List<ModelFeature> features;
+  final PrimitiveDeformation? deformation;
+  final List<double> morphWeights;
   const PrimitiveRecipe(
     this.geometry,
     this.material,
     this.name, {
     this.features = const [],
+    this.deformation,
+    this.morphWeights = const [],
   });
 }
 

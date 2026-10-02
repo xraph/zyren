@@ -11,6 +11,7 @@ final class ModelSceneInfo {
 final class ModelAsset {
   _SharedModel? _shared;
   final List<ModelSceneInfo> scenes;
+  final List<ModelAnimation> animations;
   final List<SceneIssue> issues;
   final Uri sourceUri;
   final String? copyright;
@@ -27,6 +28,7 @@ final class ModelAsset {
             shared.scenes[i].roots.length,
           ),
       ]),
+      animations = shared.animations,
       issues = shared.issues,
       sourceUri = shared.sourceUri,
       copyright = shared.copyright,
@@ -35,7 +37,7 @@ final class ModelAsset {
 
   /// Uses the declared default scene, or the first scene when none is declared.
   /// Assets with no scenes remain loadable but cannot be instantiated.
-  Group instantiate({String? name, int? sceneIndex}) {
+  ModelInstance instantiate({String? name, int? sceneIndex}) {
     final shared = _shared;
     if (shared == null) {
       throw StateError('The model template has been released.');
@@ -46,25 +48,48 @@ final class ModelAsset {
     final selected = sceneIndex ?? shared.defaultScene ?? 0;
     RangeError.checkValidIndex(selected, shared.scenes, 'sceneIndex');
     final scene = shared.scenes[selected];
+    final bound = <int, Object3D>{};
+    final deformers = <_InstanceDeformer>[];
     Object3D node(int index) {
       final data = shared.nodes[index];
       final object = Group(name: data.name)
         ..position = data.position
         ..quaternion = data.rotation
         ..scale = data.scale;
+      bound[index] = object;
       if (data.light case final light?) {
         object.add(light.instantiate());
       }
       if (data.mesh case final mesh?) {
         for (final primitive in shared.meshes[mesh]) {
-          object.add(
-            ModelMesh(
-              primitive.geometry,
-              primitive.material,
-              name: primitive.name,
-              features: primitive.features,
-            ),
+          final deform = primitive.deformation;
+          final geometry = deform != null || data.skin != null
+              ? BufferGeometry.fromAttributes(
+                  attributes: primitive.geometry.attributes,
+                  indices: primitive.geometry.indices,
+                  indexFormat: primitive.geometry.indexFormat,
+                  topology: primitive.geometry.topology,
+                  dynamic: true,
+                )
+              : primitive.geometry;
+          final meshObject = ModelMesh(
+            geometry,
+            primitive.material,
+            name: primitive.name,
+            features: primitive.features,
           );
+          object.add(meshObject);
+          if (deform != null) {
+            deformers.add(
+              _InstanceDeformer(
+                index,
+                meshObject,
+                primitive,
+                data.weights ?? primitive.morphWeights,
+                data.skin,
+              ),
+            );
+          }
         }
       }
       for (final child in data.children) {
@@ -73,10 +98,17 @@ final class ModelAsset {
       return object;
     }
 
-    final root = Group(name: name ?? scene.name);
+    final root = ModelInstance._(
+      shared,
+      bound,
+      deformers,
+      name: name ?? scene.name,
+    );
     for (final index in scene.roots) {
       root.add(node(index));
     }
+    root._captureParents();
+    root.preparePose()();
     return root;
   }
 
@@ -86,6 +118,8 @@ final class ModelAsset {
 }
 
 final class _SharedModel {
+  final List<ModelAnimation> animations;
+  final List<ModelSkin> skins;
   final List<NodeRecipe> nodes;
   final List<SceneRecipe> scenes;
   final int? defaultScene;
@@ -103,6 +137,8 @@ final class _SharedModel {
     this.sourceUri,
     this.copyright,
     this.propertyTables,
+    this.animations,
+    this.skins,
   );
 }
 
@@ -111,5 +147,14 @@ final class _ModelPrimitive {
   final MeshMaterial material;
   final String? name;
   final List<ModelFeature> features;
-  const _ModelPrimitive(this.geometry, this.material, this.name, this.features);
+  final PrimitiveDeformation? deformation;
+  final List<double> morphWeights;
+  const _ModelPrimitive(
+    this.geometry,
+    this.material,
+    this.name,
+    this.features,
+    this.deformation,
+    this.morphWeights,
+  );
 }

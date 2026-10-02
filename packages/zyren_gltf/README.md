@@ -73,7 +73,8 @@ unknown optional extensions produce warnings and use the core fallback data.
 | `KHR_materials_unlit` | Partial: the listed static features; vertex colors still unsupported |
 | PBR triangle materials, authored tangents, scalar factors and five maps | `standard_model_test`; native PBR and loaded light fixtures |
 | `KHR_lights_punctual` | Directional, point and spot lights, up to sixteen per scene; independent node instances |
-| Animations, skins, morphs, vertex colors and imported cameras | Explicit unsupported-feature error |
+| Animations, skins and morphs | Validated samplers and CPU deformation with native uploads |
+| Vertex colors and imported cameras | Explicit unsupported-feature error |
 | PBR or textured lines/points, UV sets above one, singular or out-of-range native transforms | Explicit unsupported-feature error |
 | `EXT_meshopt_compression` | Attributes, triangle/index sequences and all three filters with a configured `BufferDecoder`; optional extension uses fallback data when no codec is available |
 | `KHR_draco_mesh_compression` | Draco 2.2 meshes through `CompressedMeshDecoder`; triangle strips become triangle lists, attribute IDs and accessor formats are validated |
@@ -140,3 +141,45 @@ features, the [API reference](https://xraph.com/docs/zyren/reference/zyren_gltf/
 for options and signatures, and the
 [glTF specification](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html)
 for the file format.
+
+## Animation, skins and morphs
+
+`ModelAsset.animations` exposes immutable glTF samplers and node/property channels.
+The importer supports STEP, LINEAR and CUBICSPLINE interpolation, including
+quaternion interpolation and cubic tangents measured per second. It validates
+key times, output shapes, duplicate channels, palettes, morph counts and scene
+joint membership before publishing the model.
+
+Each `instantiate()` returns a `ModelInstance` with stable node-index bindings.
+Static geometry stays shared. Deformed geometry belongs to its instance, so two
+instances can seek independently while sharing materials and textures:
+
+```dart
+final instance = model.instantiate();
+scene.add(instance);
+instance.preparePose(
+  animation: model.animations.first,
+  time: const Duration(milliseconds: 500),
+)();
+```
+
+Preparation does not mutate the scene. It samples from the model's initial pose,
+computes morph deltas, then applies joint hierarchy and inverse bind matrices.
+Skins accept paired joint/weight sets, normalize vertex weights and use identity
+inverse bind matrices when none are supplied. Morph position, normal and tangent
+deltas use mesh defaults or node overrides. You can pass `morphWeights` by node
+index for a manual pose; without an animation, current joint transforms are used.
+
+The returned edit applies only after every node and geometry update validates.
+Invalid samples leave the previous pose intact. Nodes must retain their instance
+parents, and animated geometry must retain its instance identity and layout.
+Existing instances and their animations remain usable after releasing the template.
+
+Deformation currently runs in Dart and uploads changed attributes through native
+dynamic geometry. Rendering stays on Metal, Vulkan or DX12. This is CPU skinning,
+with a per-frame vertex cost; GPU palette/morph bindings are not implemented.
+Animated feature partitions must be supplied as separate primitives. The importer
+still rejects camera nodes and vertex colors in its current model profile.
+
+For clocked playback and named Zyren extras events, use the optional
+`zyren_gltf_timeline` adapter. glTF does not define named animation events itself.

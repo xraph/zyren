@@ -6,6 +6,7 @@ import 'buffers.dart';
 import 'data_uri.dart';
 import 'options.dart';
 import 'recipes.dart';
+import 'animation.dart';
 import 'worker.dart';
 import 'meshopt.dart';
 import 'draco.dart';
@@ -15,6 +16,7 @@ import 'metadata.dart';
 import 'metadata_decoder.dart' show structuralMetadataExtension;
 import 'feature_decoder.dart' show meshFeaturesExtension;
 part 'model_asset.dart';
+part 'model_animation_instance.dart';
 
 abstract final class Gltf {
   static AssetRequest<ModelAsset> asset(
@@ -288,6 +290,8 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
               material,
               primitive.name,
               primitive.features,
+              primitive.deformation,
+              primitive.morphWeights,
             ),
           );
           if (++published % 64 == 0) await Future<void>.delayed(Duration.zero);
@@ -319,6 +323,8 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
         source.effectiveUri,
         copyright,
         prepared.propertyTables,
+        prepared.animations,
+        prepared.skins,
       );
       return DecodedAsset(
         create: () => ModelAsset._(shared),

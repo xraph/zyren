@@ -22,7 +22,7 @@ import 'light_decoder.dart';
   final parents = List<int?>.filled(rawNodes.length, null);
   for (var i = 0; i < rawNodes.length; i++) {
     final path = 'nodes[$i]', node = object(rawNodes[i], 'nodes[$i]');
-    for (final key in ['skin', 'weights', 'camera']) {
+    for (final key in ['camera']) {
       if (node.containsKey(key)) {
         fail(
           '$path.$key',
@@ -143,6 +143,15 @@ import 'light_decoder.dart';
         mesh,
         List.unmodifiable(children),
         light,
+        skin: node.containsKey('skin')
+            ? integer(node['skin'], '$path.skin')
+            : null,
+        weights: node.containsKey('weights')
+            ? List.unmodifiable([
+                for (final value in array(node['weights'], '$path.weights'))
+                  number(value, '$path.weights'),
+              ])
+            : null,
       ),
     );
   }
