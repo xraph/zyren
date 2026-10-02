@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "modelVersion": "1539a48a67a5a01ed1fe4c207a5aa1bf68fd2f8b7046be5ee16fa744b890980d",
+  "modelSha256": "1539a48a67a5a01ed1fe4c207a5aa1bf68fd2f8b7046be5ee16fa744b890980d",
+  "sourceSha256": "2db01d5c777097db06a95142f818b942d18100239935707826353eb4bb11f3b4",
+  "sourceFormat": "ifc",
+  "entries": [
+    {
+      "id": "ifc:0J$yPqHBD2TQczIzCWzDNN",
+      "label": "Housing",
+      "properties": {
+        "format": "IFC",
+        "ifcType": "IfcWall",
+        "sourceId": "0J$yPqHBD2TQczIzCWzDNN"
+      },
+      "path": [
+        0
+      ]
+    }
+  ]
+}

@@ -241,3 +241,8 @@ Linux and Windows service/file-lock qualification remain unverified.
 
 Shared review deployment remains unverified until you configure a real service
 and exercise its atomic writes, authentication and access boundaries.
+
+For IFC, STEP and IGES inputs, use the [CAD converter](tool/cad/README.md).
+`EngineeringCadBundle` in `cad_bundle.dart` verifies the GLB digest before you
+load its geometry and bind the sidecar. Native vendor formats require a vendor
+export, and STEP/IGES review granularity is one authored transfer root.

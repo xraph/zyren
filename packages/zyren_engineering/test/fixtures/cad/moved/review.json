@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "modelVersion": "7c36c1318d29eb01f34b75850c6776304f175a78ab20c44db2364d4e29e8d765",
+  "modelSha256": "7c36c1318d29eb01f34b75850c6776304f175a78ab20c44db2364d4e29e8d765",
+  "sourceSha256": "6000e6136b5272db0655a272f89d86d63014a4f7478262acf02ece1d0a21bb09",
+  "sourceFormat": "ifc",
+  "entries": [
+    {
+      "id": "ifc:0J$yPqHBD2TQczIzCWzDNN",
+      "label": "Housing renamed",
+      "properties": {
+        "format": "IFC",
+        "ifcType": "IfcWall",
+        "sourceId": "0J$yPqHBD2TQczIzCWzDNN"
+      },
+      "path": [
+        0
+      ]
+    }
+  ]
+}
