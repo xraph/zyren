@@ -93,9 +93,26 @@ SectionCapResult buildSectionCaps(
   if (visited.length != triangles.length) {
     return fail(SectionCapIssue.openOrNonManifold);
   }
+  // Opposite coincident half-spaces retain a sheet, not a solid interior.
+  for (var i = 0; i < planes.length; i++) {
+    for (var j = i + 1; j < planes.length; j++) {
+      if (planes[i].normal == -planes[j].normal &&
+          planes[i].offset + planes[j].offset >= 0) {
+        return SectionCapResult._([]);
+      }
+    }
+  }
   final caps = <BufferGeometry>[];
   for (var planeIndex = 0; planeIndex < planes.length; planeIndex++) {
     final plane = planes[planeIndex];
+    if (planes
+        .take(planeIndex)
+        .any(
+          (other) =>
+              other.normal == plane.normal && other.offset == plane.offset,
+        )) {
+      continue;
+    }
     final distances = vertices.map(plane.distanceTo).toList();
     // A tangent plane does not expose an interior cross section.
     if (!distances.any((d) => d < -epsilon) ||

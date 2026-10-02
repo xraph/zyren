@@ -16,8 +16,9 @@ class SceneSectionPlugin extends ScenePlugin {
   SceneSectionPlugin({this.capMaterial}) {
     if (capMaterial is ShaderMaterial ||
         capMaterial != null &&
-            capMaterial!.alphaMode != MaterialAlphaMode.opaque) {
-      throw ArgumentError('Caps require an opaque built-in material.');
+            (capMaterial!.alphaMode != MaterialAlphaMode.opaque ||
+                capMaterial!.primitiveKind != 0)) {
+      throw ArgumentError('Caps require an opaque built-in triangle material.');
     }
   }
 
@@ -74,7 +75,13 @@ class SceneSectionPlugin extends ScenePlugin {
     final state = [
       _owned,
       for (final target in _targets)
-        (target, target.geometry.revision, _world(target), eligible(target)),
+        (
+          target,
+          target.geometry.revision,
+          _world(target),
+          eligible(target),
+          target.fragmentCoverage,
+        ),
     ];
     if (_capState is List && _sameCapState(_capState as List, state)) return;
     _removeCaps();

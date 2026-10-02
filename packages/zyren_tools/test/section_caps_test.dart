@@ -85,6 +85,59 @@ void main() {
       expect(plane.distanceTo(Vec3.array(g.positions, i)), closeTo(0, 2e-7));
     }
   });
+  test('cap materials reject expanded primitives before attachment', () {
+    for (final material in [LineMaterial(), PointsMaterial()]) {
+      expect(
+        () => SceneSectionPlugin(capMaterial: material),
+        throwsArgumentError,
+      );
+    }
+  });
+  test(
+    'coverage edits remove caps and restore them when full coverage returns',
+    () async {
+      final source = Mesh(BoxGeometry(), UnlitMaterial());
+      final scene = Scene()..add(source);
+      final sections = SceneSectionPlugin(capMaterial: UnlitMaterial());
+      final engine = await SceneEngine.create(
+        scene: scene,
+        camera: PerspectiveCamera(),
+        rendererFactory: () async => TestRenderer([]),
+        plugins: [sections],
+      );
+      try {
+        sections.setCapTargets([source]);
+        sections.setPlanes([cut]);
+        final original = sections.capMeshes.single;
+        source.fragmentCoverage = FragmentCoverage(upper: .5);
+        await engine.render(width: 8, height: 8, elapsed: Duration.zero);
+        expect(sections.capMeshes, isEmpty);
+        expect(original.parent, isNull);
+        expect(sections.capIssues[source], SectionCapIssue.topology);
+        source.fragmentCoverage = const FragmentCoverage.full();
+        await engine.render(width: 8, height: 8, elapsed: Duration.zero);
+        expect(sections.capMeshes, hasLength(1));
+        expect(sections.capIssues, isEmpty);
+      } finally {
+        await engine.dispose();
+      }
+      expect(source.children, isEmpty);
+    },
+  );
+  test(
+    'coincident planes produce one cap and zero-thickness slices produce none',
+    () {
+      final box = BoxGeometry();
+      expect(
+        buildSectionCaps(box, Mat4.identity(), [cut, cut]).geometries,
+        hasLength(1),
+      );
+      expect(
+        buildSectionCaps(box, Mat4.identity(), [cut, cut.flipped]).geometries,
+        isEmpty,
+      );
+    },
+  );
   test('tangent and outside planes do not add a cap', () {
     for (final offset in [.5, 2.0]) {
       expect(

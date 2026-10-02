@@ -51,6 +51,41 @@ void main() {
             frame.pixels.sublist((16 * 33 + 16) * 4, (16 * 33 + 16) * 4 + 4),
             [0, 255, 0, 255],
           );
+          source.fragmentCoverage = FragmentCoverage(upper: 0);
+          final hidden = await engine.render(
+            width: 33,
+            height: 33,
+            elapsed: Duration.zero,
+          );
+          expect(
+            hidden.pixels.sublist((16 * 33 + 16) * 4, (16 * 33 + 16) * 4 + 4),
+            [0, 0, 0, 255],
+          );
+          expect(sections.capMeshes, isEmpty);
+          source.fragmentCoverage = const FragmentCoverage.full();
+          final restored = await engine.render(
+            width: 33,
+            height: 33,
+            elapsed: Duration.zero,
+          );
+          expect(
+            restored.pixels.sublist((16 * 33 + 16) * 4, (16 * 33 + 16) * 4 + 4),
+            [0, 255, 0, 255],
+          );
+          final cut = ClippingPlane(normal: const Vec3(0, 0, -1));
+          sections.setPlanes([cut, cut]);
+          expect(sections.capMeshes, hasLength(1));
+          sections.setPlanes([cut, cut.flipped]);
+          expect(sections.capMeshes, isEmpty);
+          final sheet = await engine.render(
+            width: 33,
+            height: 33,
+            elapsed: Duration.zero,
+          );
+          expect(
+            sheet.pixels.sublist((16 * 33 + 16) * 4, (16 * 33 + 16) * 4 + 4),
+            [0, 0, 0, 255],
+          );
           sections.clear();
           expect(source.children, isEmpty);
           final whole = await engine.render(

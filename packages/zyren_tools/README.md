@@ -172,7 +172,7 @@ An external assignment to `Scene.clippingPlanes` ends session ownership.
 Clearing or detaching then preserves that external state. A subsequent
 `setPlanes` starts a new session and saves those planes for restoration.
 
-To cap a closed convex solid, supply an opaque built-in `capMaterial` and call
+To cap a closed convex solid, supply an opaque built-in triangle `capMaterial` and call
 `setCapTargets([mesh])` after attachment. Targets are explicit. Caps use separate
 helper meshes, preserve the source material, and opt out of selection outlines.
 You can inspect `capMeshes`, omit them from exports with `owns`, and read
@@ -187,10 +187,12 @@ near-coincident seams are not welded. Split concave assemblies into convex
 closed solids before using this option. The CPU builder validates face planes
 against vertices, so validation costs grow with both counts.
 
-Up to six planes intersect each cap polygon. Tangent planes produce no cap.
+Up to six planes intersect each cap polygon. Coincident planes produce one cap.
+Tangent planes and zero-thickness slices between opposing planes produce no cap.
 Transforms include reflected scale and sheared parent chains. Caps refresh before
-rendering after target geometry, transforms, visibility or clipping eligibility
-change. Clearing, detaching or an external plane assignment removes helpers.
+rendering after target geometry, transforms, visibility, fragment coverage or
+clipping eligibility change. Partial coverage removes caps until you restore full
+coverage. Clearing, detaching or an external plane assignment removes helpers.
 The plugin rebases intersections around each target's pivot before creating GPU
 geometry, keeping small cuts accurate far from the origin. You can also use
 `buildSectionCaps` directly to inspect world-space geometry. Its output stores
