@@ -168,9 +168,9 @@ Checks on 2026-10-02:
   revisions, missing fields, cancellation, removed bodies/models and scope cleanup.
 - Native physics arrival and cleanup remain verified. The particle adapter's
   schemas are verified; its real GPU state/action test has not run.
-- The latest repository-wide boundary guard reports concurrent devtools agent
-  imports missing from its allowlist. The new adapters' dependencies pass the
-  same guard. This shared guard gap is outside these adapter implementations.
+- The repository-wide boundary guard initially reported the shared devtools
+  agent imports missing from its allowlist. The final shared-file request adds
+  only `zyren_agents` to that transport allowlist; it changes no runtime code.
 - One dependency-resolution attempt encountered an XR example before its owner
   had registered it. Resolution passed after that registration completed.
 - Disk exhaustion interrupted temporary adapter preparation. Only this
@@ -188,3 +188,23 @@ The agent providers need the same native qualification before plugin completion.
 The example's command gateway has no undo stack; product hosts must supply their
 normal command history, permission policy and revision updates. Packages remain
 private. No push, merge or publication was performed.
+
+
+### Final shared-file request
+
+Add `zyren_agents` to the `zyren_devtools` allowlist in
+`tool/check_package_boundaries.dart` so the existing transport exercised by the
+MCP test has the same dependency rule as its pubspec. Preserve all concurrent
+entries and serialize the edit and commit under the shared lock.
+
+### Commits and final state
+
+- `892ccf1`: animation states, validated navigation and native Rapier walkthrough.
+- `b20dbe7`: six domain agent adapters, shared viewport enrichment, registry and
+  live stdio MCP checks, and duplicate character-owner rejection.
+- Automated behavior: 13 character tests and 7 navigation tests pass. One native
+  particle GPU test is skipped. Analysis is clean.
+- Live evidence: native Rapier CPU behavior and actual MCP stdio passed. Character
+  presentation and particle GPU actions remain unverified on native devices.
+- Backlog and host requirements remain as listed above. These are useful
+  implementation checkpoints, not complete or published plugins.

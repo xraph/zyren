@@ -23,7 +23,7 @@ void main(List<String> args) {
     'packages/zyren_geospatial': {'zyren_geospatial', 'zyren'},
     'packages/zyren_effects': {'zyren_effects', 'zyren'},
     'packages/zyren_tools': {'zyren_tools', 'zyren'},
-    'packages/zyren_devtools': {'zyren_devtools', 'zyren'},
+    'packages/zyren_devtools': {'zyren_devtools', 'zyren', 'zyren_agents'},
     'packages/zyren_timeline': {'zyren_timeline', 'zyren', 'zyren_agents'},
     'packages/zyren_engineering': {'zyren_engineering', 'zyren', 'crypto'},
     'packages/zyren_particles': {'zyren_particles', 'zyren', 'zyren_agents'},
