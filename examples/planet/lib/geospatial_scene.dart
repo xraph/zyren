@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter_zyren/flutter_zyren.dart';
 import 'package:zyren_geospatial/zyren_geospatial.dart';
 import 'package:zyren_effects/zyren_effects.dart';
@@ -12,10 +13,12 @@ final class GeospatialSceneProfile extends ScenePlugin {
   PluginContext? _context;
   GeospatialSceneProfile({
     required AssetServices services,
-    GoogleTilesPreset preset = GoogleTilesPreset.manhattan,
+    GoogleTilesPreset? preset,
     bool clouds = false,
     PrecomputedAtmosphereSource? source,
-  }) : _preset = preset {
+  }) : _preset =
+           preset ??
+           (clouds ? GoogleTilesPreset.tokyo : GoogleTilesPreset.manhattan) {
     air = AtmospherePlugin(
       date: date,
       source:
@@ -30,7 +33,7 @@ final class GeospatialSceneProfile extends ScenePlugin {
         skyLight: true,
         reconstructNormal: true,
         correctGeometricError: true,
-        albedoScale: .6,
+        albedoScale: clouds ? 2 / math.pi : .6,
       ),
     );
     effects = ScreenEffectsPlugin(
@@ -39,9 +42,19 @@ final class GeospatialSceneProfile extends ScenePlugin {
       ),
     );
     cloudLayer = clouds
-        ? CloudPlugin(maxResolution: 192, shadowMapSize: 128)
+        ? CloudPlugin(
+            parameters: _cloudParameters,
+            quality: CloudQualityPreset.high,
+            maxResolution: 192,
+            shadowMapSize: 128,
+            shadowFarScale: .25,
+          )
         : null;
   }
+  CloudParameters get _cloudParameters => CloudParameters(
+    coverage: _preset.coverage ?? .35,
+    localWeatherVelocity: (.001, 0),
+  );
   DateTime get date =>
       _preset.utcDate(year: GoogleTilesPreset.qualificationYear);
   List<ScenePlugin> get plugins => [air, ?cloudLayer, effects, this];
@@ -63,7 +76,10 @@ final class GeospatialSceneProfile extends ScenePlugin {
     );
     if (_context case final context?) {
       context.service(atmosphere).date = date;
-      cloudLayer?.controller.resetHistory();
+      if (cloudLayer case final layer?) {
+        layer.controller.parameters = _cloudParameters;
+        layer.controller.resetHistory();
+      }
       context.invalidate();
     }
   }
@@ -72,6 +88,9 @@ final class GeospatialSceneProfile extends ScenePlugin {
   void attach(PluginContext context) {
     _context = context;
     context.service(atmosphere).date = date;
+    if (cloudLayer case final layer?) {
+      layer.controller.parameters = _cloudParameters;
+    }
     context.scope.onClose(() {
       _context = null;
     });

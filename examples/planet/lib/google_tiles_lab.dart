@@ -46,6 +46,9 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
   late final SceneController controller;
   late final GeospatialSceneProfile profile;
   final _controls = PresetGlobeControlsPlugin();
+  List<GoogleTilesPreset> get presets => widget.clouds
+      ? GoogleTilesPreset.cloudPresets
+      : GoogleTilesPreset.atmospherePresets;
   Tiles3DProviderSession? _provider;
   AssetScope? _manifest;
   Tiles3DPlugin? tiles;
@@ -87,7 +90,7 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
     for (final plugin in profile.plugins) {
       controller.use(plugin);
     }
-    _view(GoogleTilesPreset.manhattan);
+    _view(presets.first);
     unawaited(_startLoad());
   }
 
@@ -148,7 +151,7 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
           maxRequests: 2,
           maxSelectedTiles: 512,
           maxDecodedBytes: 512 * 1024 * 1024,
-          maxResidentBytes: 32 * 1024 * 1024,
+          maxResidentBytes: (widget.clouds ? 16 : 32) * 1024 * 1024,
           perTileDecodedBytes: 16 * 1024 * 1024,
           perTileResidentBytes: 8 * 1024 * 1024,
         ),
@@ -205,7 +208,7 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
                     'Photorealistic 3D',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                   ),
-                  for (final preset in GoogleTilesPreset.values)
+                  for (final preset in presets)
                     ChoiceChip(
                       label: Text(preset.label),
                       selected: _preset == preset,

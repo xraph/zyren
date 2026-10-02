@@ -30,6 +30,7 @@ final class CloudFrameState {
     required int height,
     required int shadowSize,
     required int cascadeCount,
+    double shadowFarScale = 1,
     int frame = 0,
     Mat4? previousViewProjection,
     Vec3? previousCamera,
@@ -54,6 +55,7 @@ final class CloudFrameState {
       maxFar: math.max(near + 1, math.min(far, 200000)),
       distance: distance,
       splitLambda: .6,
+      farScale: shadowFarScale,
     );
     final forward = (camera.target - camera.position).normalized();
     Mat4 relative(Mat4 matrix, bool isInverse) {

@@ -36,6 +36,7 @@ final class CloudPlugin extends ScenePlugin {
   final CloudBlueNoise? blueNoise;
   final int maxResolution;
   final int? shadowMapSize;
+  final double shadowFarScale;
   CloudController? _controller;
   CloudPlugin({
     CloudParameters? parameters,
@@ -46,9 +47,17 @@ final class CloudPlugin extends ScenePlugin {
     this.blueNoise,
     this.maxResolution = 384,
     this.shadowMapSize,
+    this.shadowFarScale = 1,
   }) : parameters = parameters ?? CloudParameters(),
        appearance = appearance ?? CloudAppearance(),
        temporal = temporal ?? CloudTemporalSettings() {
+    if (!shadowFarScale.isFinite || shadowFarScale <= 0 || shadowFarScale > 1) {
+      throw ArgumentError.value(
+        shadowFarScale,
+        'shadowFarScale',
+        'Must be in (0, 1].',
+      );
+    }
     RangeError.checkValueInInterval(maxResolution, 1, 1024, 'maxResolution');
     if (shadowMapSize != null) {
       RangeError.checkValueInInterval(shadowMapSize!, 1, 1024, 'shadowMapSize');
@@ -338,6 +347,7 @@ final class CloudController {
       height: height,
       shadowSize: candidate.shadow.size,
       cascadeCount: candidate.shadow.quality.shadow.cascadeCount,
+      shadowFarScale: _plugin.shadowFarScale,
       frame: _temporal.mode == CloudTemporalMode.off ? 0 : info.number,
       previousViewProjection: previous?.viewProjection,
       previousCamera: previous?.position,
