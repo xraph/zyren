@@ -235,6 +235,9 @@ final class ScenePacketEncoder {
         settings.environment != null ||
         settings.historyEpoch != 0;
     final extension =
+        scene._shadowLights.any(
+          (light) => light.settings is! DirectionalShadow,
+        ) ||
         screenEnabled ||
         submission.camera.depthStrategy == DepthStrategy.reversed ||
         scene._outline != null ||
@@ -649,6 +652,9 @@ final class ScenePacketEncoder {
           'coverage': mesh['coverage'],
           'outlined': mesh['outlined'],
           'normal_scale_y': (mesh['pbr'] as Map?)?['normal_scale_y'],
+          'shadow_world_model': (mesh['shadow_world_model'] as List).isEmpty
+              ? null
+              : mesh['shadow_world_model'],
         });
       }
     }
@@ -673,6 +679,10 @@ final class ScenePacketEncoder {
         'exposure': submission.colorPipeline?.exposure ?? settings.exposure,
         'background_alpha': scene.backgroundOpacity,
         'camera_origin': submission.camera.origin,
+        'shadow_world_lights': [
+          for (final light in scene._shadowLights)
+            [light.index, ...light.worldPosition],
+        ],
         'history_epoch': settings.historyEpoch,
         if (bloom != null)
           'bloom': {
@@ -833,6 +843,7 @@ bool _sameMesh(Map<String, Object> a, Map<String, Object> b) {
   }
   for (final field in [
     'model',
+    'shadow_world_model',
     'color',
     'colorMap',
     'clippingPlanes',

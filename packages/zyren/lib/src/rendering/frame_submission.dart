@@ -234,7 +234,12 @@ class SceneSnapshot {
         }
         if (node.shadow case final settings?) {
           shadows.add(
-            _ShadowLight(16 + areas.length, settings, node.shadowRevision),
+            _ShadowLight(
+              16 + areas.length,
+              settings,
+              node.shadowRevision,
+              world.getTranslation().storage,
+            ),
           );
         }
         areas.add(
@@ -290,7 +295,12 @@ class SceneSnapshot {
         direction.normalize();
         if (node.shadow case final settings?) {
           shadows.add(
-            _ShadowLight(lights.length, settings, node.shadowRevision),
+            _ShadowLight(
+              lights.length,
+              settings,
+              node.shadowRevision,
+              world.getTranslation().storage,
+            ),
           );
         }
         final position =
@@ -468,6 +478,9 @@ class SceneSnapshot {
                   if (node.castShadow) 'cast_shadow': true,
                   if (node.receiveShadow) 'receive_shadow': true,
                   'model': relative.storage.toList(),
+                  'shadow_world_model': node.castShadow
+                      ? world.storage.toList()
+                      : <double>[],
                   'color': node.material.color.toList(),
                   'unlit': node.material.unlit,
                   if (node.material.vertexColors) 'vertex_colors': true,

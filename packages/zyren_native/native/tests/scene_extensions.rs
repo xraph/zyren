@@ -142,3 +142,41 @@ fn extension_byte_lengths_are_bounded_before_allocation() {
         assert!(!valid(&data));
     }
 }
+
+#[test]
+fn shadow_world_metadata_preserves_precision_and_bounds_light_indices() {
+    let mut model = glam::DMat4::IDENTITY.to_cols_array();
+    model[12] = 6378137.123;
+    let packet = edit(MESH, |v| v["shadow_world_model"] = json!(model));
+    let frame = ScenePacket::decode(&packet).unwrap().resolve(None).unwrap();
+    assert_eq!(frame.meshes[0].shadow_world_model, Some(model));
+    assert!(valid(FIXTURE)); // Older packets omit both optional fields.
+    assert!(!valid(
+        &edit(MESH, |v| v["shadow_world_model"] = json!([1, 2]))
+    ));
+    for lights in [
+        json!([[0.5, 0, 0, 0]]),
+        json!([[-1, 0, 0, 0]]),
+        json!([[20, 0, 0, 0]]),
+        json!([[0, 0, 0, 0], [0, 1, 2, 3]]),
+        json!(vec![[0, 0, 0, 0]; 21]),
+    ] {
+        assert!(!valid(
+            &edit(SETTINGS, |v| v["shadow_world_lights"] = lights)
+        ));
+    }
+    let packet = edit(SETTINGS, |v| {
+        v["shadow_world_lights"] = json!([[0, 6378137.123, 0, 0], [19, 0, 0, 0]]);
+    });
+    let frame = ScenePacket::decode(&packet).unwrap().resolve(None).unwrap();
+    assert_eq!(frame.settings.shadow_world_lights[0][1], 6378137.123);
+    for invalid in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+        let mut mesh = frame.meshes[0].clone();
+        model[12] = invalid;
+        mesh.shadow_world_model = Some(model);
+        assert!(mesh.validate_material().is_err());
+        let mut settings = frame.settings.clone();
+        settings.shadow_world_lights[0][1] = invalid;
+        assert!(settings.validate().is_err());
+    }
+}

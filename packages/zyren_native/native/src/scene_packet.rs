@@ -911,6 +911,7 @@ impl ScenePacket {
                 let extra: crate::scene::MeshExtension =
                     serde_json::from_slice(r.bytes(length)?)
                         .map_err(|e| format!("Invalid mesh extension: {e}"))?;
+                mesh.shadow_world_model = extra.shadow_world_model;
                 mesh.material_shader = extra.material_shader;
                 mesh.clipping_planes = extra.clipping_planes;
                 mesh.coverage = extra.coverage;

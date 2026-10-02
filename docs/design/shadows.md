@@ -91,6 +91,12 @@ redraws all its requested views. Masked depth uses the same UV set, texture,
 sampler, opacity and cutoff as the visible material. Comparison taps clamp to
 the selected atlas region to prevent filtering into another light's map.
 
+Moving your camera reuses point, spot and area maps when their casters and lights
+stay fixed. The cache retains exact float64 world transforms, so even a small
+world edit invalidates depth when the camera moves with it. Rendering still uses
+camera-relative float32 coordinates. Directional cascades, clipped casters and
+older packets without world metadata keep conservative invalidation.
+
 A successful GPU submission publishes the cached depth state. Disabling all
 shadow lights releases the atlas, as does closing its native view. Failed
 admission preserves the existing view, and closing another view lets you retry
@@ -123,6 +129,12 @@ all six point faces, planet-scale origins, geometry edits, mirrored alpha masks,
 opacity, shadow strength and emission. Resource tests check cache reuse,
 explicit refresh, release and recovery from the device atlas limit. Packet
 tests reject malformed fields and every truncated message.
+
+Translation tests compare cached depth with a forced redraw at ordinary and
+Earth-scale origins. Before this cache change, each camera move redrew 6 point
+faces, 1 spot face or 24 area faces. These fixtures now redraw zero faces for
+camera movement alone, with matching visible shadows and unchanged 16 MiB atlas
+residency. This measures avoided depth work, not an end-to-end frame-rate gain.
 
 Cascade fitting and stabilization follow the techniques described in
 [Microsoft's cascaded shadow map guide](https://learn.microsoft.com/en-us/windows/win32/dxtecharts/cascaded-shadow-maps).

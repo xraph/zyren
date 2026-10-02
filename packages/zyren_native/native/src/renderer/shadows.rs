@@ -35,7 +35,7 @@ struct Caster {
     pose: u32,
     instance_count: u32,
     key: crate::resources::registry::ResourceKey,
-    model: [f32; 16],
+    model: [f64; 16],
     side: u32,
     alpha_mode: u32,
     vertex_colors: bool,
@@ -45,6 +45,7 @@ struct Caster {
 }
 #[derive(Clone, PartialEq)]
 struct Signature {
+    world_lights: Option<Vec<[f64; 4]>>,
     frame: ShadowFrame,
     casters: Vec<Caster>,
 }
@@ -478,9 +479,30 @@ impl Renderer {
             // Camera direction selects cascades during sampling. The depth
             // projections already capture every camera change that affects
             // rasterization, so direction alone must not invalidate the atlas.
+            // Local lights have camera-independent depth. Compare their exact
+            // world transforms rather than quantized camera-relative values.
+            // Cascades and clipped casters retain conservative invalidation.
+            let stable_world = frame.shadows.views.iter().all(|view| {
+                view.kind != 0
+                    && frame
+                        .settings
+                        .shadow_world_lights
+                        .iter()
+                        .any(|light| light[0] == view.light_index as f64)
+            }) && frame
+                .meshes
+                .iter()
+                .filter(|m| m.cast_shadow)
+                .all(|m| m.shadow_world_model.is_some() && m.clipping_planes.is_empty());
             let mut depth_frame = frame.shadows.clone();
+            if stable_world {
+                for view in &mut depth_frame.views {
+                    view.view_projection[12..16].fill(0.);
+                }
+            }
             depth_frame.forward = [0.; 3];
             let signature = Signature {
+                world_lights: stable_world.then(|| frame.settings.shadow_world_lights.clone()),
                 frame: depth_frame,
                 casters: frame
                     .meshes
@@ -494,7 +516,11 @@ impl Renderer {
                         pose: m.pose,
                         instance_count: m.instance_count,
                         key: state.geometries[&m.geometry].key,
-                        model: m.model,
+                        model: if stable_world {
+                            m.shadow_world_model.unwrap()
+                        } else {
+                            m.model.map(f64::from)
+                        },
                         side: m.side,
                         alpha_mode: m.alpha_mode,
                         vertex_colors: m.vertex_colors,

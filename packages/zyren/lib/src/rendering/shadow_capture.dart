@@ -21,7 +21,13 @@ final class ShadowView {
 final class _ShadowLight {
   final int index, revision;
   final ShadowSettings settings;
-  _ShadowLight(this.index, this.settings, this.revision);
+  final List<double> worldPosition;
+  _ShadowLight(
+    this.index,
+    this.settings,
+    this.revision,
+    Iterable<double> position,
+  ) : worldPosition = List.unmodifiable(position);
 }
 
 /// Immutable camera-relative views. Backends pack them into a bounded atlas.

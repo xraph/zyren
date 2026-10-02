@@ -179,6 +179,8 @@ impl Geometry {
 #[derive(Clone, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Mesh {
+    #[serde(default)]
+    pub shadow_world_model: Option<[f64; 16]>,
     #[serde(skip)]
     pub reversed_depth: bool,
     #[serde(skip)]
@@ -257,6 +259,8 @@ fn full_coverage() -> [f32; 2] {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct MeshExtension {
+    #[serde(default)]
+    pub shadow_world_model: Option<[f64; 16]>,
     pub material_shader: Option<[u64; 4]>,
     pub clipping_planes: Vec<[f32; 4]>,
     pub coverage: [f32; 2],
@@ -266,6 +270,7 @@ pub(crate) struct MeshExtension {
 impl Default for Mesh {
     fn default() -> Self {
         Self {
+            shadow_world_model: None,
             reversed_depth: false,
             outline_pass: false,
             color_visible: true,
@@ -324,6 +329,12 @@ impl Mesh {
         self.depth_write.unwrap_or(self.alpha_mode != 2)
     }
     pub fn validate_material(&self) -> Result<(), String> {
+        if self
+            .shadow_world_model
+            .is_some_and(|matrix| matrix.iter().any(|v| !v.is_finite()))
+        {
+            return Err("Invalid shadow world transform".into());
+        }
         if self.shader.is_some() && self.material_shader.is_some() {
             return Err("A mesh requires one shader implementation".into());
         }
@@ -526,6 +537,7 @@ pub struct RenderSettings {
     pub background_alpha: f32,
     pub history_epoch: u32,
     pub camera_origin: [f64; 3],
+    pub shadow_world_lights: Vec<[f64; 4]>,
     pub environment: Option<EnvironmentMap>,
 }
 impl Default for RenderSettings {
@@ -543,6 +555,7 @@ impl Default for RenderSettings {
             background_alpha: 1.,
             history_epoch: 0,
             camera_origin: [0.; 3],
+            shadow_world_lights: Vec::new(),
             environment: None,
         }
     }
@@ -582,6 +595,19 @@ impl RenderSettings {
             || ![1, 4].contains(&self.sample_count)
             || (self.sample_count != 1 && !self.enabled)
             || self.camera_origin.iter().any(|v| !v.is_finite())
+            || self.shadow_world_lights.len() > crate::shadows::MAX_SHADOW_LIGHTS
+            || self
+                .shadow_world_lights
+                .iter()
+                .enumerate()
+                .any(|(i, light)| {
+                    light.iter().any(|v| !v.is_finite())
+                        || light[0].fract() != 0.
+                        || !(0.0..crate::shadows::MAX_SHADOW_LIGHTS as f64).contains(&light[0])
+                        || self.shadow_world_lights[..i]
+                            .iter()
+                            .any(|prior| prior[0] == light[0])
+                })
             || self.effects.len() > 32
             || self.tone_mapping > 6
             || !self.exposure.is_finite()
