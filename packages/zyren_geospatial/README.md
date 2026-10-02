@@ -177,3 +177,45 @@ render sky and aerial perspective with both depth modes, and check replacement,
 cancellation and zero residency after cleanup. Generate the source reference
 records with `python3 tool/atmosphere_reference/source_tables.py <asset-directory>`
 from the repository root. The script verifies the supplied LFS hashes first.
+
+## Automatic atmosphere lighting
+
+Add `AtmosphereLightingPlugin` after your atmosphere to drive native material
+lighting from its current date, observer and tables:
+
+```dart
+plugins: [
+  sky,
+  AtmosphereLightingPlugin(environment: true),
+],
+```
+
+The default mode supplies a sun light and a diffuse sky probe. With
+`environment: true`, native sky capture and GGX convolution also light reflective
+materials, and the separate probe defaults off to avoid adding diffuse sky twice.
+You can disable the sun or select the probe explicitly. The probe reproduces the
+source's hemisphere irradiance function through the core's `HemisphereLight`.
+These lights affect `StandardMaterial`; legacy `DiffuseMaterial` keeps its
+existing simple lighting model.
+
+`AtmosphereLightingSampler` copies the small transmittance and irradiance tables
+once per LUT generation. Its CPU sampling matches the upstream sun/probe helpers,
+including their texel interpolation. Frame updates use those copies. HDR light
+values are split into bounded RGB and an intensity multiplier, preserving energy.
+Adjust `controller.sunIntensity` and `controller.skyIntensity`; the controller
+owns the light colors, directions and physical intensities. You can configure
+shadows through `controller.sunLight`.
+
+The environment captures world-oriented atmospheric radiance with ground enabled
+by default and excludes sun, moon and star disks. It updates after a LUT change,
+a change of the observer's rounded 1 km ECEF cell, or a sun-direction change over
+0.1 degrees. Camera rotation reuses it. You can change these thresholds and the
+bounded capture/convolution settings. Capture height defaults to 64, convolution
+height to 32, with eight roughness slices and 128 samples. CPU lighting tables
+use 278,528 bytes; candidate GPU environments retire after atomic replacement.
+
+`tableReadbacks` counts completed lighting-table reads, and
+`environmentGeneration` counts published sky captures. Changing sky intensity
+reuses the textures. Tests check 48 original helper cases, ECEF/local rendering,
+day/night lighting, metallic reflections, invalidation thresholds, stable-frame
+residency and zero GPU resources after disposal.

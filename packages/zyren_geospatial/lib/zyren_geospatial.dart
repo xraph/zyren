@@ -20,6 +20,8 @@ export 'src/astronomy/celestial_directions.dart';
 export 'src/atmosphere/parameters.dart';
 export 'src/atmosphere/quality.dart';
 export 'src/atmosphere/luts.dart';
+export 'src/atmosphere/lighting_sampler.dart';
+export 'src/atmosphere/lighting_plugin.dart';
 export 'src/atmosphere/lut_cache.dart';
 export 'src/atmosphere/star_catalog.dart';
 export 'src/atmosphere/appearance.dart';

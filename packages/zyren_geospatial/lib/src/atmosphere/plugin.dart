@@ -118,6 +118,9 @@ final class AtmosphereController {
   bool get isClosed => _closed || _owner.isClosed;
   AtmosphereParameters get parameters => _parameters;
   PrecomputedAtmosphereSource? get source => _source;
+  Mat4 get worldToEcef => _plugin.worldToEcef;
+  Ellipsoid get ellipsoid => _plugin.ellipsoid;
+  bool get correctAltitude => _plugin.correctAltitude;
 
   /// Acquire the current tables for your own atmospheric lighting shader.
   /// Keep the lease until its material retires. A parameter edit leaves existing
