@@ -1,0 +1,26 @@
+name: physics_lab
+description: Native collision, joint, sensor and kinematic physics laboratory.
+publish_to: none
+version: 0.1.0+1
+resolution: workspace
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_zyren:
+    path: ../../packages/flutter_zyren
+  zyren:
+    path: ../../packages/zyren
+  zyren_native:
+    path: ../../packages/zyren_native
+  zyren_physics:
+    path: ../../packages/zyren_physics
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+flutter:
+  uses-material-design: true

@@ -16,7 +16,7 @@ These results were measured on 2026-10-02 with Flutter 3.47.5, its bundled Dart
 | Collision, sensor and contact events | Implemented; query transitions survive stepping, removal and snapshot restore; callbacks can remove bound bodies |
 | Snapshots and renderer recovery | Implemented; deterministic replay, stale-handle rejection, failed attachment recovery and native Metal renderer recreation |
 | Debug geometry | Implemented; collider, joint and contact geometry appears in the saved Metal render |
-| Physics Lab | Implemented; controls, pause/resume, reset, kinematics, narrow layout and disposal pass on macOS and Android |
+| Physics Lab | Implemented; controls, pause/resume, reset, kinematics, narrow layout and disposal pass on macOS, Android and the iOS simulator |
 
 The package suite passes 17 tests. Its six plugin tests use a small renderer test
 double to exercise lifecycle behavior, while every physics world uses native
@@ -26,12 +26,13 @@ workspace package-boundary check also pass.
 
 | Platform | Build evidence | Execution evidence |
 | --- | --- | --- |
-| macOS arm64 | Flutter debug app and native asset built | 17 package tests, app integration test and Metal render/recreation/cleanup passed |
+| macOS arm64 | Flutter debug app and native asset built | 17 package tests, Metal native-view app integration test and render/recreation/cleanup passed |
 | macOS x64 | Rust target check passed | Hardware run open |
-| Android arm64 | Flutter debug APK built | Pixel 9 Pro native app integration test passed |
-| Android armv7 and x64 | Rust target checks passed | Linked assets and hardware runs open |
-| iOS simulator arm64 | Flutter debug app built | Integration run in progress |
-| iOS device arm64 and simulator x64 | Rust target checks passed | Device build and hardware runs open |
+| Android arm64 | Flutter debug APK built | Pixel 9 Pro Vulkan/shared-texture app integration test passed |
+| Android armv7 and x64 | Native physics libraries packaged in the debug APK; Rust target checks passed | Hardware runs open |
+| iOS simulator arm64 | Flutter debug app built | iPhone 17 Pro simulator on iOS 26.5 passed the Metal native-view integration test |
+| iOS device arm64 | Unsigned Flutter debug app built; Rust target check passed | Signed hardware run open |
+| iOS simulator x64 | Rust target check passed | Linked app and simulator run open |
 | Linux arm64 and x64 | Rust target checks passed | Linked Flutter builds and hardware runs open |
 | Windows arm64 and x64 | Rust target checks passed | Linked Flutter builds and hardware runs open |
 
