@@ -40,7 +40,8 @@ void main() {
     }
     controller.use(_TileSizedPressure());
     var frames = 0;
-    final subscription = controller.frameStats.listen((frame) {
+    final subscription = controller.presentations.listen((sample) {
+      final frame = sample.frame;
       expectSync(frame.readbackBytes, 0);
       expectSync(
         frame.presentationPath,
@@ -126,6 +127,7 @@ void main() {
         for (var i = 0; i < 40; i++) {
           await tick();
         }
+        record('idle observation');
         expect(
           frames,
           stopped,
