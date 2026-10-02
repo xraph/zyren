@@ -113,8 +113,19 @@ Flutter native Metal and Android Vulkan presentation, read-only queries and
 attachment cleanup. Run it on each target device before claiming qualification.
 DX12 needs a Windows runner; passing Metal or Vulkan tests does not qualify it.
 
-The native-view test passed on macOS Metal and a Pixel 9 Pro running Android 17
-on 2026-10-02. Both checks kept scene pixel readbacks at zero and verified
-renderer, presentation surface and bridge cleanup. The Pixel reported a completed
-GPU timestamp sample and a bounded allocator report. iPhone qualification still
-requires an unlocked device; DX12 still requires a Windows runner.
+The native-view test passed on macOS Metal, a Pixel 9 Pro running Android 17,
+and an iPhone 16 Pro running iOS 27 on 2026-10-02. All three checks kept scene
+pixel readbacks at zero and verified renderer, presentation surface and bridge
+cleanup. The Pixel reported a completed GPU timestamp sample and a bounded
+allocator report. The iPhone passed positive Metal GPU timing and device
+allocation checks in profile mode over a wireless connection.
+
+To repeat the iPhone check, run this from `examples/multiple_views` with your
+unlocked device ID:
+
+```sh
+flutter drive --profile --driver=test_driver/qualification.dart \
+  --target=integration_test/gpu_diagnostics_test.dart -d <device-id> --publish-port
+```
+
+DX12 still requires a Windows runner.
