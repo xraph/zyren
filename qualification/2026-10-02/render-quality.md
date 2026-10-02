@@ -43,6 +43,32 @@ refinement state and return to Auto/High. The Pixel normal-app launch succeeds
 after testing. Both devices are left with interactive builds, rather than the
 integration-test binding that discards physical taps.
 
+The physical iPhone 16 Pro and iPad Pro 13-inch (M4), both on OS 27.0, now
+pass the same pressure fixture over wireless. Auto selects Medium on the phone
+and High on the tablet. All four sampling presets finish a 16-frame cycle, and
+both runs dispose with zero sessions, renderers, retiring resources, held
+drawables and readback bytes.
+
+| Device | Landscape scene | Portrait scene | Build mode |
+| --- | --- | --- | --- |
+| iPhone 16 Pro | 1499 by 1049 | 891 by 1600 | Debug |
+| iPad Pro 13-inch (M4) | 1730 by 1211 | 780 by 1400 | Profile |
+
+These Apple results belong to `23561c4`. The source stayed unchanged through
+compilation, and the iPad run used a frozen signed bundle whose SHA256 manifest
+matched afterward. Later shadow and render-target changes in the shared checkout
+need their own device checks. You can inspect the earlier blocked attempts in
+the structured record: lock screens delayed launches, and Xcode symbol extraction
+exhausted host storage. The final iPad run used a direct profile launch and an
+existing-service driver attachment, which avoided the Xcode launcher fallback.
+
+Both devices have the normal interactive profile app installed and launched.
+The iPhone driver's stop warning came after its passing results and zero native
+cleanup counters; replacing the app completed restoration. Physical touch and
+pinch remain unverified here. The Apple pressure fixture does not check live
+provider tiles or a Takram reference image.
+
+
 ## Shader changes and limits of the evidence
 
 Commit `ceeead3` bounds distant cloud marching so a jittered step cannot skip an
@@ -55,10 +81,6 @@ pass removes it. The larger targets and completed history do not establish that
 this visual issue is fully resolved, and no Takram reference-image comparison
 was run. Live city detail can still reach the explicit tile memory limit.
 
-iPhone quality transitions and physical tablet profiles were not rerun here.
-The shared policy tests cover both Android and iOS classification, but those
-tests do not substitute for device results. The separate input qualification
-work retains its iPhone evidence.
 
 ## Repeat the checks
 

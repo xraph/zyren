@@ -193,20 +193,202 @@
         "presented": 103,
         "readbackBytes": 0
       }
+    },
+    "iPhone": {
+      "suite": "geospatial-render-quality",
+      "platform": "iOS",
+      "passed": true,
+      "viewports": [
+        {
+          "logical": [
+            1000.0,
+            700.0
+          ],
+          "physical": [
+            1499,
+            1049
+          ],
+          "backend": "Metal",
+          "device": "phone",
+          "cloudQuality": "medium",
+          "historyFrames": 16,
+          "elapsedMs": 1406,
+          "readbackBytes": 0
+        },
+        {
+          "logical": [
+            390.0,
+            700.0
+          ],
+          "physical": [
+            891,
+            1600
+          ],
+          "backend": "Metal",
+          "device": "phone",
+          "cloudQuality": "medium",
+          "historyFrames": 16,
+          "elapsedMs": 2325,
+          "readbackBytes": 0
+        },
+        {
+          "selection": "low",
+          "cloudResolution": [
+            178,
+            320
+          ],
+          "shadowMapSize": 128,
+          "historyFrames": 16,
+          "readbackBytes": 0
+        },
+        {
+          "selection": "medium",
+          "cloudResolution": [
+            285,
+            512
+          ],
+          "shadowMapSize": 128,
+          "historyFrames": 16,
+          "readbackBytes": 0
+        },
+        {
+          "selection": "high",
+          "cloudResolution": [
+            356,
+            640
+          ],
+          "shadowMapSize": 128,
+          "historyFrames": 16,
+          "readbackBytes": 0
+        },
+        {
+          "selection": "ultra",
+          "cloudResolution": [
+            356,
+            640
+          ],
+          "shadowMapSize": 192,
+          "historyFrames": 16,
+          "readbackBytes": 0
+        }
+      ],
+      "diagnostics": {
+        "retiring": 0,
+        "presented": 102,
+        "heldDrawables": 0,
+        "sessions": 0,
+        "submitted": 103,
+        "renderers": 0,
+        "readbackBytes": 0
+      }
+    },
+    "iPad": {
+      "suite": "geospatial-render-quality",
+      "platform": "iOS",
+      "passed": true,
+      "viewports": [
+        {
+          "logical": [
+            1000.0,
+            700.0
+          ],
+          "physical": [
+            1730,
+            1211
+          ],
+          "backend": "Metal",
+          "device": "tablet",
+          "cloudQuality": "high",
+          "historyFrames": 16,
+          "elapsedMs": 645,
+          "readbackBytes": 0
+        },
+        {
+          "logical": [
+            390.0,
+            700.0
+          ],
+          "physical": [
+            780,
+            1400
+          ],
+          "backend": "Metal",
+          "device": "tablet",
+          "cloudQuality": "high",
+          "historyFrames": 16,
+          "elapsedMs": 1461,
+          "readbackBytes": 0
+        },
+        {
+          "selection": "low",
+          "cloudResolution": [
+            178,
+            320
+          ],
+          "shadowMapSize": 128,
+          "historyFrames": 16,
+          "readbackBytes": 0
+        },
+        {
+          "selection": "medium",
+          "cloudResolution": [
+            285,
+            512
+          ],
+          "shadowMapSize": 128,
+          "historyFrames": 16,
+          "readbackBytes": 0
+        },
+        {
+          "selection": "high",
+          "cloudResolution": [
+            357,
+            640
+          ],
+          "shadowMapSize": 128,
+          "historyFrames": 16,
+          "readbackBytes": 0
+        },
+        {
+          "selection": "ultra",
+          "cloudResolution": [
+            357,
+            640
+          ],
+          "shadowMapSize": 192,
+          "historyFrames": 16,
+          "readbackBytes": 0
+        }
+      ],
+      "diagnostics": {
+        "retiring": 0,
+        "presented": 100,
+        "heldDrawables": 0,
+        "sessions": 0,
+        "submitted": 102,
+        "renderers": 0,
+        "readbackBytes": 0
+      }
     }
   },
   "imageComparison": "not run",
   "remaining": {
     "orbitalCloudSpeckling": "Still visible in isolated cloud captures; disabled-cloud capture removes it. These checks do not certify a complete visual fix.",
-    "iOSQualityTransitions": "Not rerun on the physical iPhone.",
-    "physicalTabletQuality": "Not run."
+    "physicalAppleInput": "Touch and pinch behavior in the restored normal apps has not been verified here.",
+    "liveAppleCity": "Provider tile loading and source-reference image comparison were not rerun in these Apple pressure fixtures."
   },
   "logs": {
     "coreSuite": "/tmp/zyren-render-quality/geospatial-quality-suite.log",
     "widgetSuite": "/tmp/zyren-render-quality/planet-device-suite.log",
     "macOS": "/tmp/zyren-render-quality/macos-device-quality.log",
     "pixel": "/tmp/zyren-render-quality/pixel-device-quality.log",
-    "pixelInteractiveLaunch": "/tmp/zyren-render-quality/pixel-interactive-launch.log"
+    "pixelInteractiveLaunch": "/tmp/zyren-render-quality/pixel-interactive-launch.log",
+    "iPhone": "/tmp/zyren-render-quality/apple-2026-10-02/iphone-device-quality-attempt-2.log",
+    "iPad": "/tmp/zyren-render-quality/apple-2026-10-02/ipad-device-quality-attempt-4.log",
+    "appleAttempts": "/tmp/zyren-render-quality/apple-2026-10-02",
+    "appleNormalBuild": "/tmp/zyren-render-quality/apple-2026-10-02/normal-profile-build.log",
+    "iPhoneNormalLaunch": "/tmp/zyren-render-quality/apple-2026-10-02/iphone-profile-launch-attempt-2.log",
+    "iPadNormalLaunch": "/tmp/zyren-render-quality/apple-2026-10-02/ipad-profile-restore-launch.log"
   },
   "liveTokyo": {
     "sourceUnchanged": true,
@@ -359,6 +541,91 @@
   },
   "normalAppInput": {
     "macOS": "CUA clicks selected Ultra, observed Clouds refined, then restored Auto/High.",
-    "pixel": "Normal launch exited 0 after quality testing."
+    "pixel": "Normal launch exited 0 after quality testing.",
+    "iPhone": "Signed normal profile app installed and launched through devicectl. Physical gestures unverified.",
+    "iPad": "Signed normal profile app restored after the fixture and launched through devicectl. Physical gestures unverified."
+  },
+  "appleQualification": {
+    "sourceHead": "23561c426d2fd6b7937388c1657dc0b54ae18c6b",
+    "sourceDigest": "92b342117d04016970cf60dea8f2723c3e52cd078566746ae415c432e4855b19",
+    "sourceUnchangedThroughCompilation": true,
+    "scope": "These fixtures and restored apps use 23561c4. Subsequent shadow and sized-target changes in the shared checkout are not covered.",
+    "connection": "wireless",
+    "iPhone": {
+      "model": "iPhone 16 Pro",
+      "osVersion": "27.0",
+      "mode": "debug",
+      "exitCode": 0,
+      "sourceUnchangedDuringTest": true,
+      "driverStopWarning": "Failed to stop app after all tests passed; native cleanup counters were zero and the normal app was subsequently replaced and launched.",
+      "normalApp": {
+        "mode": "profile",
+        "installed": true,
+        "launched": true,
+        "runningProcessVerified": true,
+        "processIdentifier": 3820
+      }
+    },
+    "iPad": {
+      "model": "iPad Pro 13-inch (M4)",
+      "osVersion": "27.0",
+      "mode": "profile",
+      "exitCode": 0,
+      "prebuiltBundleDigest": "6afea1a986bbcbd9c7bb7a0b8cf5d8e64a774d067c81b937ecd77f5ef8a53f7c",
+      "bundleUnchanged": true,
+      "launch": "devicectl with IPv6 listening; driver attached to authenticated advertised LAN service URI.",
+      "normalApp": {
+        "mode": "profile",
+        "installed": true,
+        "launched": true,
+        "runningProcessVerified": true,
+        "processIdentifier": 1453
+      }
+    },
+    "earlierAttempts": {
+      "iPhone": [
+        {
+          "status": "blocked before driver connection",
+          "build": "succeeded",
+          "resultMissing": true,
+          "reason": "iPhone requires passcode; wireless VM service was not discovered after 75 seconds. Interrupted to run unlocked iPad.",
+          "interrupted": true,
+          "shellExitCode": 0
+        }
+      ],
+      "iPad": [
+        {
+          "status": "blocked before launch",
+          "build": "succeeded",
+          "resultMissing": true,
+          "reason": "Xcode device support symbol extraction exhausted host storage, then iPad required passcode. No rendering assertion ran.",
+          "interrupted": true,
+          "shellExitCode": 0,
+          "recovery": "Removed only the incomplete iPad16,5 27.0 (24A437) cache created by this attempt; recovered 17 GiB."
+        },
+        {
+          "status": "blocked before driver connection",
+          "mode": "profile",
+          "builtSource": "23561c426d2fd6b7937388c1657dc0b54ae18c6b",
+          "prebuiltBundle": "/tmp/zyren-render-quality/apple-2026-10-02/quality-profile/Runner.app",
+          "reason": "Flutter profile launcher fell back to Xcode, which copied device library symbols. Driver never connected.",
+          "resultMissing": true,
+          "interrupted": true,
+          "shellExitCode": 0
+        },
+        {
+          "status": "driver connection blocked",
+          "reason": "IPv4 service connection timed out; restarted profile app with IPv6 listening and confirmed VM service reachable on LAN.",
+          "resultMissing": true,
+          "interrupted": true
+        }
+      ]
+    },
+    "sourceSnapshotPaths": [
+      "/tmp/zyren-render-quality/apple-2026-10-02/source-before.json",
+      "/tmp/zyren-render-quality/apple-2026-10-02/source-after-iphone.json",
+      "/tmp/zyren-render-quality/apple-2026-10-02/source-after-apple-builds.json"
+    ],
+    "bundleManifestPath": "/tmp/zyren-render-quality/apple-2026-10-02/quality-profile-manifest.json"
   }
 }
