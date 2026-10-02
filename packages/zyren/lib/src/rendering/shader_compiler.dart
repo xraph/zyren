@@ -26,6 +26,7 @@ final class ShaderCompiler {
   final ShaderDevice _device;
   final String label;
   final _owned = <ShaderProgram>[];
+  final _meshes = <MeshShaderProgram>[];
   final _pending = <Future<void>>{};
   final _closedSignal = Completer<void>();
   bool _closed = false;
@@ -43,7 +44,8 @@ final class ShaderCompiler {
     } catch (error, stack) {
       return Future.error(error, stack);
     }
-    final result = Future.sync(operation);
+    final completion = Completer<T>();
+    final result = completion.future;
     late Future<void> settled;
     settled = result
         .then<void>((_) {}, onError: (Object _, StackTrace _) {})
@@ -51,6 +53,9 @@ final class ShaderCompiler {
           _pending.remove(settled);
         });
     _pending.add(settled);
+    Future.sync(
+      operation,
+    ).then(completion.complete, onError: completion.completeError);
     return result;
   }
 
@@ -93,6 +98,14 @@ final class ShaderCompiler {
     try {
       await Future.wait(_pending.toList());
       final errors = <Object>[];
+      for (final mesh in _meshes.reversed) {
+        try {
+          await mesh.close();
+        } catch (error) {
+          errors.add(error);
+        }
+      }
+      _meshes.clear();
       for (final program in _owned.reversed) {
         try {
           await _device.releaseShader(program._key);

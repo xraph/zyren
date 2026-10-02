@@ -10,7 +10,8 @@ void main() {
   test(
     'imported skin and morph timeline seeks silently and reverses imported events',
     () async {
-      final asset = await load(animatedModel()), instance = asset.instantiate();
+      final asset = await load(animatedModel()),
+          instance = asset.instantiate(nativeDeformation: false);
       final scene = Scene()..add(instance);
       final timeline = modelTimeline(
         instance,
@@ -52,7 +53,8 @@ void main() {
   test(
     'instance hierarchy violations stop playback before edits or events',
     () async {
-      final asset = await load(animatedModel()), instance = asset.instantiate();
+      final asset = await load(animatedModel()),
+          instance = asset.instantiate(nativeDeformation: false);
       final scene = Scene()..add(instance);
       final timeline = modelTimeline(instance, asset.animations.single);
       final engine = await SceneEngine.create(

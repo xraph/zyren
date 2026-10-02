@@ -1,11 +1,14 @@
+pub mod ktx2;
 use image::{ColorType, ImageDecoder, ImageError, Limits, codecs::png::PngDecoder};
 use std::{
     io::Cursor,
     sync::atomic::{AtomicU64, Ordering},
 };
 pub mod ffi;
+mod hdr;
 mod jpeg;
-pub mod ktx2;
+mod png;
+pub use hdr::{DecodedHdrImage, decode_hdr};
 
 const MIB: u64 = 1024 * 1024;
 static BUDGET: Budget = Budget::new(256 * MIB);
@@ -157,11 +160,12 @@ pub fn decode(bytes: &[u8], limits: DecodeLimits) -> Result<DecodedImage, Decode
         .max_working_bytes
         .checked_sub(bytes.len() as u64 * 2)
         .ok_or(DecodeError::LimitExceeded)?;
-    let mut decoder: Box<dyn ImageDecoder> = if bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
+    let decoder: Box<dyn ImageDecoder> = if bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
         png_complete(bytes)?;
+        let decoder_budget = png::decoder_budget(bytes, limits, available)?;
         Box::new(PngDecoder::with_limits(
             Cursor::new(bytes),
-            limits.decoder_limits(available),
+            limits.decoder_limits(decoder_budget),
         )?)
     } else if bytes.starts_with(&[0xff, 0xd8]) {
         return decode_jpeg(bytes, limits, available);
@@ -193,7 +197,6 @@ pub fn decode(bytes: &[u8], limits: DecodeLimits) -> Result<DecodedImage, Decode
     if raw_bytes > decoder_budget {
         return Err(DecodeError::LimitExceeded);
     }
-    decoder.set_limits(limits.decoder_limits(decoder_budget))?;
     let mut raw = Vec::new();
     raw.try_reserve_exact(raw_bytes as usize)
         .map_err(|_| DecodeError::LimitExceeded)?;

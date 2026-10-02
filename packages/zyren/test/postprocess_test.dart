@@ -341,7 +341,7 @@ void main() {
         size: PhysicalSize(4, 4),
       ),
     );
-    expect(ByteData.sublistView(packet.bytes).getUint32(4, Endian.little), 26);
+    expect(ByteData.sublistView(packet.bytes).getUint32(4, Endian.little), 36);
     expect(() => RenderSettings(exposure: double.nan), throwsArgumentError);
     expect(() => RenderSettings(backgroundAlpha: 1.1), throwsArgumentError);
     expect(() => RenderSettings(historyEpoch: -1), throwsArgumentError);

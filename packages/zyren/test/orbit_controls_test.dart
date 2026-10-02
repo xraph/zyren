@@ -1,302 +1,387 @@
-import 'dart:convert';
-import 'dart:io';
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:zyren/zyren.dart';
 import 'package:test/test.dart';
+import 'support/fakes.dart';
 
-Vec3 vector(dynamic values) =>
-    Vec3.array((values as List).map((v) => (v as num).toDouble()).toList());
+class OrbitInput implements ViewportInputSource {
+  final bus = StreamController<ScenePointerEvent>.broadcast(sync: true);
+  final interests = <SceneGesture, int>{};
+  @override
+  ViewportMetrics get viewport => ViewportMetrics(logicalWidth, logicalHeight);
+  double logicalWidth = 300;
+  double logicalHeight = 200;
+  @override
+  Stream<ScenePointerEvent> get events => bus.stream;
+  @override
+  Registration registerGesture(SceneGesture gesture) {
+    interests.update(gesture, (n) => n + 1, ifAbsent: () => 1);
+    return Registration(() => interests[gesture] = interests[gesture]! - 1);
+  }
+
+  void send(
+    ScenePointerPhase phase, {
+    double x = 0,
+    double y = 0,
+    double scale = 1,
+    int count = 1,
+    int buttons = 1,
+    Set<SceneModifier> modifiers = const {},
+  }) => bus.add(
+    ScenePointerEvent(
+      point: const ViewportPoint(100, 100),
+      phase: phase,
+      delta: ViewportPoint(x, y),
+      scale: scale,
+      pointerCount: count,
+      buttons: buttons,
+      modifiers: modifiers,
+    ),
+  );
+}
+
+class Harness {
+  final OrbitNavigation controls;
+  final input = OrbitInput();
+  late SceneEngine engine;
+  int demands = 0;
+  Harness(this.controls);
+  Future<void> start([Camera? camera, Scene? scene]) async {
+    engine = await SceneEngine.create(
+      scene: scene ?? Scene(),
+      camera: camera ?? PerspectiveCamera(),
+      plugins: [controls],
+      input: input,
+      rendererFactory: () async => TestRenderer([]),
+      acquireFrameDemand: () {
+        demands++;
+        return Registration(() => demands--);
+      },
+    );
+  }
+
+  Future<void> tick(int ms) async => engine.render(
+    elapsed: Duration.zero,
+    time: FrameTime(
+      elapsed: Duration.zero,
+      delta: Duration(milliseconds: ms),
+    ),
+    width: 4,
+    height: 4,
+  );
+  Future<void> close() async {
+    await engine.dispose();
+    await input.bus.close();
+  }
+}
+
+void closeVector(Vec3 actual, Vec3 expected, [double tolerance = 1e-8]) =>
+    expect(actual.distanceTo(expected), lessThan(tolerance));
 
 void main() {
-  for (final behavior in OrbitBehavior.values) {
-    for (final orthographic in [false, true]) {
-      test(
-        'trackpad intensity and event splitting: $behavior ortho=$orthographic',
-        () {
-          final Camera camera = orthographic
-              ? OrthographicCamera(position: const Vec3(0, 0, 10))
-              : PerspectiveCamera(position: const Vec3(0, 0, 10));
-          final controls = OrbitControls(
-            camera,
-            behavior: behavior,
-            viewport: const ViewportMetrics(800, 600),
-          );
-          addTearDown(controls.dispose);
-          double viewScale() =>
-              orthographic ? 1 / controls.zoom : controls.distance;
-          void scroll(double delta) => controls.handlePointer(
-            ScenePointerEvent(
-              point: const ViewportPoint(400, 300),
-              delta: ViewportPoint(0, delta),
-              phase: ScenePointerPhase.scroll,
-              kind: ScenePointerKind.trackpad,
-            ),
-          );
-          final initial = viewScale();
-          scroll(1);
-          final gentle = viewScale();
-          expect(gentle, greaterThan(initial));
-          controls.reset();
-          scroll(100);
-          final fast = viewScale();
-          expect(fast - initial, greaterThan((gentle - initial) * 90));
-          controls.reset();
-          for (var i = 0; i < 100; i++) {
-            scroll(1);
-          }
-          expect(viewScale(), closeTo(fast, 1e-10));
-          scroll(-100);
-          expect(viewScale(), closeTo(initial, 1e-10));
-        },
+  test('shared scenes retain independent view controls and input', () async {
+    final scene = Scene();
+    final first = Harness(OrbitNavigation(damping: Duration.zero));
+    final second = Harness(OrbitNavigation(damping: Duration.zero));
+    await first.start(null, scene);
+    await second.start(null, scene);
+    try {
+      first.input.send(ScenePointerPhase.scaleStart);
+      first.input.send(ScenePointerPhase.scaleUpdate, x: 30);
+      first.input.send(ScenePointerPhase.scaleEnd);
+      expect(first.engine.camera.position.x, lessThan(0));
+      expect(second.engine.camera.position, const Vec3(0, 0, 5));
+      expect(second.demands, 0);
+      await first.engine.dispose();
+      second.controls.zoomBy(2);
+      closeVector(second.engine.camera.position, const Vec3(0, 0, 10));
+    } finally {
+      await first.close();
+      await second.close();
+    }
+  });
+
+  test(
+    'custom drag bindings and zero extents preserve the input contract',
+    () async {
+      final h = Harness(
+        OrbitNavigation(
+          damping: Duration.zero,
+          dragBinding: (_) => OrbitDragAction.none,
+        ),
       );
-    }
-  }
-  for (final name in ['stdlib_orbit', 'three_orbit']) {
-    final modern = name == 'three_orbit';
-    final fixture =
-        jsonDecode(File('test/fixtures/$name.json').readAsStringSync()) as Map;
-    for (final row in fixture['rows'] as List) {
-      test('$name replay: ${row['kind']} ${row['up']} ${row['name']}', () async {
-        final origin = row['origin'] == null
-            ? Vec3.zero
-            : vector(row['origin']);
-        final Camera camera = row['kind'] == 'perspective'
-            ? PerspectiveCamera(
-                position: origin + const Vec3(4, 6, 10),
-                up: vector(row['up']),
-                near: 1,
-                far: 10000,
-              )
-            : OrthographicCamera(
-                position: origin + const Vec3(4, 6, 10),
-                up: vector(row['up']),
-                left: -8,
-                right: 8,
-                top: 6,
-                bottom: -6,
-                far: 10000,
-              );
-        final controls = OrbitControls(
-          camera,
-          target: origin,
-          behavior: modern ? OrbitBehavior.three184 : OrbitBehavior.stdlib236,
-          viewport: const ViewportMetrics(800, 600),
+      await h.start();
+      try {
+        h.input.send(ScenePointerPhase.scaleStart);
+        h.input.send(ScenePointerPhase.scaleUpdate, x: 50, y: 20);
+        expect(h.engine.camera.position, const Vec3(0, 0, 5));
+        h.input.logicalHeight = 0;
+        h.input.send(ScenePointerPhase.scaleUpdate, scale: 2);
+        expect(h.controls.isInteracting, isFalse);
+        expect(h.demands, 0);
+        expect(h.engine.camera.position, const Vec3(0, 0, 5));
+        expect(() => OrbitLimits(minDistance: 0), throwsArgumentError);
+        expect(() => OrbitLimits(maxDistance: double.nan), throwsArgumentError);
+        expect(() => OrbitLimits(maxPolarAngle: math.pi), throwsArgumentError);
+        expect(
+          () => OrbitNavigation(damping: const Duration(microseconds: -1)),
+          throwsArgumentError,
         );
-        final options = row['options'] as Map;
-        controls.enablePan = options['enablePan'] ?? true;
-        controls.enableZoom = options['enableZoom'] ?? true;
-        controls.enableRotate = options['enableRotate'] ?? true;
-        controls.keyRotateSpeed =
-            (options['keyRotateSpeed'] as num?)?.toDouble() ?? 1;
-        controls.keyPanSpeed =
-            (options['keyPanSpeed'] as num?)?.toDouble() ?? 7;
-        controls.cursor = row['cursor'] == null
-            ? Vec3.zero
-            : vector(row['cursor']);
-        controls.minTargetRadius =
-            (options['minTargetRadius'] as num?)?.toDouble() ?? 0;
-        controls.maxTargetRadius =
-            (options['maxTargetRadius'] as num?)?.toDouble() ?? double.infinity;
-        controls.enableDamping = options['enableDamping'] ?? false;
-        controls.autoRotate = options['autoRotate'] ?? false;
-        controls.zoomToCursor = options['zoomToCursor'] ?? false;
-        controls.screenSpacePanning = options['screenSpacePanning'] ?? true;
-        controls.reverseOrbit = options['reverseOrbit'] ?? false;
-        controls.minDistance =
-            (options['minDistance'] as num?)?.toDouble() ?? 0;
-        controls.maxDistance =
-            (options['maxDistance'] as num?)?.toDouble() ?? double.infinity;
-        controls.minZoom = (options['minZoom'] as num?)?.toDouble() ?? 0;
-        controls.maxZoom =
-            (options['maxZoom'] as num?)?.toDouble() ?? double.infinity;
-        controls.minPolarAngle =
-            (options['minPolarAngle'] as num?)?.toDouble() ??
-            controls.minPolarAngle;
-        controls.maxPolarAngle =
-            (options['maxPolarAngle'] as num?)?.toDouble() ??
-            controls.maxPolarAngle;
-        controls.minAzimuthAngle =
-            (options['minAzimuthAngle'] as num?)?.toDouble() ??
-            controls.minAzimuthAngle;
-        controls.maxAzimuthAngle =
-            (options['maxAzimuthAngle'] as num?)?.toDouble() ??
-            controls.maxAzimuthAngle;
-        controls.rotateSpeed =
-            (options['rotateSpeed'] as num?)?.toDouble() ?? 1;
-        controls.panSpeed = (options['panSpeed'] as num?)?.toDouble() ?? 1;
-        controls.zoomSpeed = (options['zoomSpeed'] as num?)?.toDouble() ?? 1;
-        if (row['map'] == true) {
-          controls.primary = OrbitAction.pan;
-          controls.secondary = OrbitAction.rotate;
-          controls.oneTouch = OrbitAction.pan;
-          controls.twoTouch = OrbitAction.dollyRotate;
-        }
-        controls.update();
-        if (row['origin'] != null) controls.saveState();
-        const tolerance = 1e-8;
-        var maxPositionError = 0.0;
-        final events = <String>[];
-        final subscription = controls.events.listen(
-          (event) => events.add(event.name),
+      } finally {
+        await h.close();
+      }
+    },
+  );
+  test(
+    'unrepresentable pole updates leave the previous camera intact',
+    () async {
+      final h = Harness(
+        OrbitNavigation(
+          damping: Duration.zero,
+          limits: OrbitLimits(minPolarAngle: 1e-12),
+        ),
+      );
+      await h.start();
+      try {
+        final revision = h.engine.camera.revision;
+        expect(() => h.controls.rotateBy(polar: -10), throwsArgumentError);
+        expect(h.engine.camera.revision, revision);
+        expect(h.controls.isSettling, isFalse);
+      } finally {
+        await h.close();
+      }
+    },
+  );
+  test(
+    'programmatic orbit preserves arbitrary up, pan and both projection zooms',
+    () async {
+      final h = Harness(OrbitNavigation(damping: Duration.zero));
+      await h.start(PerspectiveCamera(position: const Vec3(0, 0, 5)));
+      try {
+        h.controls.rotateBy(azimuth: math.pi / 2);
+        closeVector(h.engine.camera.position, const Vec3(5, 0, 0));
+        h.controls.panBy(const Vec3(1, 2, 3));
+        closeVector(h.engine.camera.target, const Vec3(1, 2, 3));
+        h.controls.zoomBy(2);
+        closeVector(h.engine.camera.position, const Vec3(11, 2, 3));
+        expect(h.demands, 0);
+        h.engine.camera = OrthographicCamera(
+          position: const Vec3(5, 0, 0),
+          up: const Vec3(0, 0, 1),
+          zoom: 2,
         );
-        var index = 0;
-        for (final step in row['trace'] as List) {
-          final action = step['action'] as Map;
-          final reason = 'step ${index++}: $action';
-          if (action['upstreamError'] != null) {
-            expect(modern, isTrue);
-            expect(row['name'], 'no-rotate');
-            expect(controls.isInteracting, isFalse);
-            expect(action['upstreamError'], contains('undefined'));
-          }
-          switch (action['type']) {
-            case 'tick':
-              controls.update((action['deltaTime'] as num?)?.toDouble());
-            case 'pan':
-              controls.pan(
-                (action['x'] as num).toDouble(),
-                (action['y'] as num).toDouble(),
-              );
-            case 'rotateLeft':
-              controls.rotateLeft((action['angle'] as num).toDouble());
-            case 'rotateUp':
-              controls.rotateUp((action['angle'] as num).toDouble());
-            case 'save':
-              controls.saveState();
-            case 'reset':
-              controls.reset();
-            case 'polar':
-              controls.setPolarAngle((action['value'] as num).toDouble());
-            case 'azimuth':
-              controls.setAzimuthalAngle((action['value'] as num).toDouble());
-            case 'in':
-              controls.dollyIn((action['factor'] as num).toDouble());
-            case 'out':
-              controls.dollyOut((action['factor'] as num).toDouble());
-            case 'scale':
-              controls.setScale((action['value'] as num).toDouble());
-            case 'resize':
-              controls.viewport = ViewportMetrics(
-                (action['width'] as num).toDouble(),
-                (action['height'] as num).toDouble(),
-              );
-            case 'key':
-              controls.handleKey(
-                SceneKeyEvent(
-                  switch (action['code']) {
-                    'ArrowLeft' => SceneKey.arrowLeft,
-                    'ArrowRight' => SceneKey.arrowRight,
-                    'ArrowDown' => SceneKey.arrowDown,
-                    _ => SceneKey.arrowUp,
-                  },
-                  SceneKeyPhase.down,
-                  modifiers: {
-                    if (action['shift'] == true) SceneModifier.shift,
-                    if (action['ctrl'] == true) SceneModifier.control,
-                    if (action['meta'] == true) SceneModifier.meta,
-                  },
-                ),
-              );
-            default:
-              controls.handlePointer(
-                ScenePointerEvent(
-                  point: ViewportPoint(
-                    (action['x'] as num?)?.toDouble() ?? 0,
-                    (action['y'] as num?)?.toDouble() ?? 0,
-                  ),
-                  phase: switch (action['type']) {
-                    'down' => ScenePointerPhase.down,
-                    'move' => ScenePointerPhase.move,
-                    'up' => ScenePointerPhase.up,
-                    'cancel' => ScenePointerPhase.cancel,
-                    'wheel' => ScenePointerPhase.scroll,
-                    _ => throw StateError('$action'),
-                  },
-                  pointer: action['id'] ?? 1,
-                  kind: action['touch'] == true
-                      ? ScenePointerKind.touch
-                      : ScenePointerKind.mouse,
-                  buttons: switch (action['button'] ?? 0) {
-                    0 => 1,
-                    1 => 4,
-                    _ => 2,
-                  },
-                  modifiers: {
-                    if (action['shift'] == true) SceneModifier.shift,
-                    if (action['ctrl'] == true) SceneModifier.control,
-                    if (action['meta'] == true) SceneModifier.meta,
-                  },
-                  delta: ViewportPoint(
-                    0,
-                    // The native host supplies logical pixels. Translate browser
-                    // line/page units and synthetic pinch wheel events here.
-                    ((action['dy'] as num?)?.toDouble() ?? 0) *
-                        (action['mode'] == 1
-                            ? 16
-                            : action['mode'] == 2
-                            ? 100
-                            : 1) *
-                        (action['pinch'] == true ? 10 : 1),
-                  ),
-                ),
-              );
-          }
-          final positionError = camera.position.distanceTo(
-            vector(step['position']),
-          );
-          if (positionError > maxPositionError) {
-            maxPositionError = positionError;
-          }
-          expect(
-            positionError,
-            lessThan(tolerance),
-            reason: '$reason position',
-          );
-          expect(
-            controls.target.distanceTo(vector(step['target'])),
-            lessThan(tolerance),
-            reason: '$reason target',
-          );
-          expect(
-            controls.zoom,
-            closeTo(step['zoom'], 1e-12),
-            reason: '$reason zoom',
-          );
-          final q = camera.quaternion, expected = step['quaternion'] as List;
-          final dot =
-              q.x * expected[0] +
-              q.y * expected[1] +
-              q.z * expected[2] +
-              q.w * expected[3];
-          // Three's lookAt quaternion can drift from unit length near a
-          // tilted pole. Compare rotations independently of that scale.
-          final expectedLength = math.sqrt(
-            expected.fold<double>(0, (sum, v) => sum + v * v),
-          );
-          final actualLength = math.sqrt(
-            q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w,
-          );
-          // At an Earth-scale orbit pole, nanometer position rounding is
-          // amplified by the nearly parallel view/up vectors into camera roll.
-          final earthPole =
-              modern &&
-              origin.length > 1e6 &&
-              math.min(controls.polarAngle, math.pi - controls.polarAngle) <
-                  2e-6;
-          expect(
-            (dot / (actualLength * expectedLength)).abs(),
-            closeTo(1, earthPole ? 1e-9 : 1e-12),
-            reason: '$reason quaternion',
-          );
-          expect(events, step['events'], reason: '$reason events');
-          events.clear();
+        h.controls.rotateBy(azimuth: math.pi / 2);
+        closeVector(h.engine.camera.position, const Vec3(0, 5, 0));
+        h.controls.zoomBy(2);
+        expect((h.engine.camera as OrthographicCamera).zoom, 1);
+        closeVector(h.engine.camera.position, const Vec3(0, 5, 0));
+      } finally {
+        await h.close();
+      }
+    },
+  );
+  test(
+    'limits clamp poles, distance and zoom without singular view matrices',
+    () async {
+      final h = Harness(
+        OrbitNavigation(
+          damping: Duration.zero,
+          limits: OrbitLimits(
+            minDistance: 2,
+            maxDistance: 8,
+            minZoom: .5,
+            maxZoom: 4,
+            minPolarAngle: .2,
+            maxPolarAngle: 2.5,
+          ),
+        ),
+      );
+      await h.start();
+      try {
+        h.controls.rotateBy(polar: -100);
+        expect(
+          (h.engine.camera.position.normalized()).y,
+          closeTo(math.cos(.2), 1e-12),
+        );
+        h.controls.zoomBy(.0001);
+        expect(h.engine.camera.position.length, closeTo(2, 1e-12));
+        h.controls.zoomBy(1e10);
+        expect(h.engine.camera.position.length, closeTo(8, 1e-12));
+        h.controls.rotateBy(polar: 100);
+        expect(
+          h.engine.camera.position.normalized().y,
+          closeTo(math.cos(2.5), 1e-12),
+        );
+        h.engine.camera.viewProjection(1);
+        h.engine.camera = OrthographicCamera();
+        h.controls.zoomBy(1e8);
+        expect((h.engine.camera as OrthographicCamera).zoom, .5);
+        h.controls.zoomBy(1e-8);
+        expect((h.engine.camera as OrthographicCamera).zoom, 4);
+      } finally {
+        await h.close();
+      }
+    },
+  );
+  test(
+    'won gestures use logical extent and incremental pinch ratios',
+    () async {
+      final h = Harness(OrbitNavigation(damping: Duration.zero));
+      await h.start(PerspectiveCamera(fieldOfView: math.pi / 2));
+      try {
+        h.input.send(ScenePointerPhase.move, x: 50);
+        expect(h.engine.camera.position, const Vec3(0, 0, 5));
+        h.input.send(ScenePointerPhase.scaleStart);
+        h.input.send(ScenePointerPhase.scaleUpdate, x: 50);
+        closeVector(h.engine.camera.position, const Vec3(-5, 0, 0));
+        h.input.send(ScenePointerPhase.scaleEnd);
+        h.controls.reset();
+        h.input.send(ScenePointerPhase.scaleStart, count: 2);
+        h.input.send(ScenePointerPhase.scaleUpdate, x: 20, count: 2, scale: 2);
+        closeVector(h.engine.camera.target, const Vec3(-1, 0, 0));
+        expect(
+          h.engine.camera.position.distanceTo(h.engine.camera.target),
+          closeTo(2.5, 1e-12),
+        );
+        h.input.send(ScenePointerPhase.scaleUpdate, count: 2, scale: 4);
+        expect(
+          h.engine.camera.position.distanceTo(h.engine.camera.target),
+          closeTo(1.25, 1e-12),
+        );
+        h.input.send(ScenePointerPhase.scaleEnd);
+        expect(h.demands, 0);
+      } finally {
+        await h.close();
+      }
+    },
+  );
+  test('damping is time based and eventually releases frame demand', () async {
+    Future<Vec3> sample(int ms, int count) async {
+      final h = Harness(
+        OrbitNavigation(damping: const Duration(milliseconds: 120)),
+      );
+      await h.start();
+      try {
+        h.controls.rotateBy(azimuth: 1);
+        expect(h.demands, 1);
+        await h.tick(5000);
+        expect(
+          h.engine.camera.position,
+          const Vec3(0, 0, 5),
+          reason: 'Do not integrate idle time.',
+        );
+        for (var i = 0; i < count; i++) {
+          await h.tick(ms);
         }
-        await subscription.cancel();
-        controls.dispose();
-        if (row['origin'] != null) {
-          print('Earth orbit maximum position error: $maxPositionError');
+        final value = h.engine.camera.position;
+        for (var i = 0; i < 100; i++) {
+          await h.tick(20);
         }
-      });
+        expect(h.demands, 0);
+        closeVector(
+          h.engine.camera.position,
+          Vec3(5 * math.sin(1), 0, 5 * math.cos(1)),
+          1e-7,
+        );
+        return value;
+      } finally {
+        await h.close();
+      }
     }
-  }
+
+    closeVector(await sample(20, 25), await sample(50, 10));
+  });
+  test(
+    'cancel, disable and camera replacement discard queued motion',
+    () async {
+      final h = Harness(OrbitNavigation());
+      await h.start();
+      try {
+        h.input.send(ScenePointerPhase.scaleStart);
+        h.input.send(ScenePointerPhase.scaleUpdate, x: 20);
+        expect(h.demands, 1);
+        h.input.send(ScenePointerPhase.cancel);
+        await h.tick(30);
+        expect(h.demands, 0);
+        expect(h.engine.camera.position, const Vec3(0, 0, 5));
+        h.controls.rotateBy(azimuth: 1);
+        h.controls.enabled = false;
+        expect(h.input.interests.values.every((n) => n == 0), isTrue);
+        expect(h.demands, 0);
+        h.controls.enabled = true;
+        h.controls.rotateBy(azimuth: 1);
+        final other = PerspectiveCamera(position: const Vec3(1, 2, 3));
+        h.engine.camera = other;
+        await h.tick(50);
+        expect(other.position, const Vec3(1, 2, 3));
+        expect(h.demands, 0);
+        h.controls.rotateBy(azimuth: 1);
+        other.position = const Vec3(3, 4, 5);
+        await h.tick(50);
+        expect(other.position, const Vec3(3, 4, 5));
+        expect(h.demands, 0);
+      } finally {
+        await h.close();
+      }
+      expect(h.demands, 0);
+      expect(h.input.interests.values.every((n) => n == 0), isTrue);
+    },
+  );
+  test(
+    'save/reset restores projection settings and invalid input is atomic',
+    () async {
+      final h = Harness(OrbitNavigation(damping: Duration.zero));
+      final camera = OrthographicCamera(zoom: 2, verticalSize: 3, near: .1);
+      await h.start(camera);
+      try {
+        h.controls.panBy(const Vec3(2, 3, 4));
+        h.controls.saveState();
+        final position = camera.position;
+        camera.frameBounds(
+          Bounds3(const Vec3(-20, -20, -20), const Vec3(20, 20, 20)),
+          aspect: 1,
+        );
+        h.controls.reset();
+        expect(camera.position, position);
+        expect(camera.target, const Vec3(2, 3, 4));
+        expect(camera.zoom, 2);
+        expect(camera.verticalSize, 3);
+        expect(camera.near, .1);
+        expect(camera.far, 1000);
+        final revision = camera.revision;
+        expect(
+          () => h.controls.rotateBy(azimuth: double.nan),
+          throwsArgumentError,
+        );
+        expect(
+          () => h.controls.panBy(const Vec3(double.infinity, 0, 0)),
+          throwsArgumentError,
+        );
+        expect(() => h.controls.zoomBy(0), throwsArgumentError);
+        expect(camera.revision, revision);
+      } finally {
+        await h.close();
+      }
+    },
+  );
+  test(
+    'failed shared attachment leaves the first view controls intact',
+    () async {
+      final controls = OrbitNavigation();
+      final h = Harness(controls);
+      await h.start();
+      try {
+        final other = Harness(controls);
+        await expectLater(other.start(), throwsStateError);
+        await other.input.bus.close();
+        controls.rotateBy(azimuth: 1);
+        expect(h.demands, 1);
+        await h.tick(0);
+        await h.tick(20);
+        expect(h.engine.camera.position.x, greaterThan(0));
+      } finally {
+        await h.close();
+      }
+    },
+  );
 }

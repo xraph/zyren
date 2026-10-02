@@ -147,6 +147,7 @@ class _SceneViewState extends State<SceneView>
             if (_owns) nextWidget.onCreate!(controller);
             controller._attach(_token, 'SceneView#${identityHashCode(this)}');
             _attached = true;
+            controller._logicalSize = _size;
             controller._wakeView = _sync;
             controller._input.onInterestsChanged = _onInterestsChanged;
             controller._closePresentation = _closePresentation;
@@ -338,7 +339,7 @@ class _SceneViewState extends State<SceneView>
       if (previous != null) {
         WidgetsBinding.instance.addPostFrameCallback((_) => _release(previous));
       }
-      controller._presented(frame.stats, time);
+      controller._presented(frame.stats);
     } catch (error, stack) {
       if (mounted && version == _version && !controller.isDisposed) {
         if (error is SceneException &&
@@ -422,10 +423,13 @@ class _SceneViewState extends State<SceneView>
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
       if (!constraints.hasBoundedWidth || !constraints.hasBoundedHeight) {
+        _size = Size.zero;
+        if (_attached) _controller?._logicalSize = Size.zero;
         return const Text('SceneView needs a bounded width and height.');
       }
       if (_size != constraints.biggest) {
         _size = constraints.biggest;
+        if (_attached) _controller?._logicalSize = _size;
         _controller?._scheduler.request();
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) _sync();
@@ -453,7 +457,9 @@ class _SceneViewState extends State<SceneView>
               : _frame?.build(context)) ??
           widget.loadingBuilder?.call(context) ??
           const SizedBox.expand();
-      return _controller?._input.wrap(content, widget.onPointer) ?? content;
+      return SizedBox.expand(
+        child: _controller?._input.wrap(content, widget.onPointer) ?? content,
+      );
     },
   );
   Future<void> _retry() async {

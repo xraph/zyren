@@ -6,6 +6,7 @@ import 'package:flutter_zyren/flutter_zyren.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:model_viewer/main.dart';
+import '../test/support/controls.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -42,7 +43,25 @@ void main() {
           return;
         }
       }
-      fail('Model did not produce a native frame.');
+      fail(
+        'Model did not produce a native frame: '
+        'status=${controller!.status.value}, frames=${frames.length}, '
+        'draws=${frames.isEmpty ? null : frames.last.drawCalls}, '
+        'models=${controller.scene.children.map((node) => node.name).toList()}, '
+        'requests=$requests.',
+      );
+    }
+
+    Future<void> loadWith(Finder control) async {
+      frames.clear();
+      await tester.tap(control);
+      await ready();
+    }
+
+    Future<void> loadExample(String label) async {
+      frames.clear();
+      await chooseExample(tester, label);
+      await ready();
     }
 
     try {
@@ -62,17 +81,13 @@ void main() {
       await tester.drag(find.byType(SceneView), const Offset(50, 20));
       await tester.pump(const Duration(milliseconds: 200));
       expect(controller.camera.position, isNot(initialCamera));
-      frames.clear();
-      await tester.tap(find.text('Relative glTF'));
-      await ready();
+      await loadExample('Relative glTF');
       expect(frames.last.readbackBytes, 0);
       await tester.enterText(
         find.byType(TextField),
         'http://127.0.0.1:${server.port}/assembly.gltf',
       );
-      frames.clear();
-      await tester.tap(find.byTooltip('Load URI'));
-      await ready();
+      await loadWith(find.byTooltip('Load URI'));
       expect(requests, {
         '/assembly.gltf': 1,
         '/assembly.bin': 1,
@@ -80,11 +95,44 @@ void main() {
       });
       expect(frames.last.readbackBytes, 0);
       for (var i = 0; i < 3; i++) {
-        frames.clear();
-        await tester.tap(find.text('Retry'));
-        await ready();
+        await loadWith(find.text('Retry'));
       }
       expect(requests['/assembly.gltf'], 4);
+      await loadExample('PBR model');
+      expect(controller.scene.children.single.name, 'PBR assembly');
+      expect(find.byTooltip('Studio light'), findsNothing);
+      expect(frames.last.readbackBytes, 0);
+      await tester.tap(find.byType(DropdownButton<int>));
+      await tester.pumpAndSettle();
+      await loadWith(find.text('No authored lights').last);
+      expect(find.byTooltip('Studio light'), findsOneWidget);
+      final studio = controller.scene.children.single.children.last;
+      expect(studio.visible, isTrue);
+      await tester.tap(find.byTooltip('Studio light'));
+      await tester.pump();
+      expect(studio.visible, isFalse);
+
+      await loadExample('Colors');
+      expect(controller.scene.children.single.name, 'Vertex color assembly');
+      expect(frames.last.readbackBytes, 0);
+
+      await loadExample('Normal map');
+      expect(controller.scene.children.single.name, 'Normal map assembly');
+      expect(frames.last.readbackBytes, 0);
+      final housing =
+          controller
+                  .scene
+                  .children
+                  .single
+                  .children
+                  .first
+                  .children[1]
+                  .children
+                  .single
+              as Mesh;
+      expect((housing.material as StandardMaterial).normalMap, isNotNull);
+      expect(housing.geometry.attributes[VertexSemantic.tangent], isNotNull);
+
       expect(tester.takeException(), isNull);
     } finally {
       await tester.pumpWidget(const SizedBox());

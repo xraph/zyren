@@ -5,8 +5,8 @@ import 'animation.dart';
 import 'metadata.dart';
 
 final class PreparedModel {
+  final List<SkinRecipe> skins;
   final List<ModelAnimation> animations;
-  final List<ModelSkin> skins;
   final List<NodeRecipe> nodes;
   final List<SceneRecipe> scenes;
   final int? defaultScene;
@@ -16,6 +16,8 @@ final class PreparedModel {
   final int decodedBytes;
   final List<ModelPropertyTable> propertyTables;
   const PreparedModel(
+    this.skins,
+    this.animations,
     this.nodes,
     this.scenes,
     this.defaultScene,
@@ -23,31 +25,28 @@ final class PreparedModel {
     this.images,
     this.issues,
     this.decodedBytes,
-    this.propertyTables, {
-    this.animations = const [],
-    this.skins = const [],
-  });
+    this.propertyTables,
+  );
 }
 
 final class NodeRecipe {
   final String? name;
   final Vec3 position, scale;
   final Quat rotation;
-  final int? mesh;
+  final int? mesh, skin;
+  final List<double> weights;
   final List<int> children;
   final LightRecipe? light;
-  final int? skin;
-  final List<double>? weights;
   const NodeRecipe(
     this.name,
     this.position,
     this.rotation,
     this.scale,
     this.mesh,
-    this.children,
-    this.light, {
+    this.children, {
+    this.light,
     this.skin,
-    this.weights,
+    this.weights = const [],
   });
 }
 
@@ -62,19 +61,24 @@ final class PrimitiveRecipe {
   final MaterialRecipe material;
   final String? name;
   final List<ModelFeature> features;
-  final PrimitiveDeformation? deformation;
-  final List<double> morphWeights;
   const PrimitiveRecipe(
     this.geometry,
     this.material,
     this.name, {
     this.features = const [],
-    this.deformation,
-    this.morphWeights = const [],
   });
 }
 
+final class PhysicalRecipe {
+  final PhysicalMaterial factors;
+  final List<ImageBindingRecipe?> maps;
+  PhysicalRecipe(this.factors, Iterable<ImageBindingRecipe?> maps)
+    : maps = List.unmodifiable(maps);
+}
+
 final class MaterialRecipe {
+  final PhysicalRecipe? physical;
+  final double emissiveIntensity;
   final Color3 color;
   final double opacity, cutoff;
   final MaterialAlphaMode alphaMode;
@@ -88,12 +92,13 @@ final class MaterialRecipe {
       occlusionMap,
       emissiveMap;
   Iterable<ImageBindingRecipe> get maps => [
-    colorMap,
-    normalMap,
-    metallicRoughnessMap,
-    occlusionMap,
-    emissiveMap,
-  ].nonNulls;
+    ?colorMap,
+    ?normalMap,
+    ?metallicRoughnessMap,
+    ?occlusionMap,
+    ?emissiveMap,
+    ...?physical?.maps.nonNulls,
+  ];
   const MaterialRecipe(
     this.color,
     this.opacity,
@@ -102,6 +107,8 @@ final class MaterialRecipe {
     this.side,
     this.colorMap, {
     this.standard = false,
+    this.physical,
+    this.emissiveIntensity = 1,
     this.metallic = 1,
     this.roughness = 1,
     this.normalScale = 1,
@@ -116,14 +123,16 @@ final class MaterialRecipe {
 
 final class ImageBindingRecipe {
   final int source, uvSet;
-  final bool mipmaps, linear;
+  final bool mipmaps;
+  bool get linear => colorSpace == ColorSpace.linear;
   final SamplerDescriptor sampler;
+  final ColorSpace colorSpace;
   const ImageBindingRecipe(
     this.source,
     this.uvSet,
     this.mipmaps,
     this.sampler, {
-    this.linear = false,
+    this.colorSpace = ColorSpace.srgb,
   });
 }
 
@@ -135,12 +144,13 @@ final class ImageRecipe {
 }
 
 final class LightRecipe {
-  final String kind;
+  final String type;
   final String? name;
   final Color3 color;
-  final double intensity, range, inner, outer;
+  final double intensity, inner, outer;
+  final double? range;
   const LightRecipe(
-    this.kind,
+    this.type,
     this.name,
     this.color,
     this.intensity,
@@ -148,7 +158,7 @@ final class LightRecipe {
     this.inner,
     this.outer,
   );
-  Light instantiate() => switch (kind) {
+  PunctualLight instantiate() => switch (type) {
     'directional' => DirectionalLight(
       name: name,
       color: color,
@@ -165,8 +175,14 @@ final class LightRecipe {
       color: color,
       intensity: intensity,
       range: range,
-      angle: outer,
-      penumbra: 1 - inner / outer,
+      innerConeAngle: inner,
+      outerConeAngle: outer,
     ),
   };
+}
+
+final class SkinRecipe {
+  final List<int> joints;
+  final List<Mat4> inverseBindMatrices;
+  const SkinRecipe(this.joints, this.inverseBindMatrices);
 }

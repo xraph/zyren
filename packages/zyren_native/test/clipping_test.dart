@@ -132,7 +132,10 @@ void main() {
         final scene = Scene()
           ..background = const Color3(0, 0, 0)
           ..renderSettings = RenderSettings(toneMapping: ToneMapping.reinhard);
-        scene.add(Mesh(PlaneGeometry(width: 4, height: 4), StandardMaterial()));
+        scene.add(
+          Mesh(PlaneGeometry(width: 4, height: 4), StandardMaterial())
+            ..receiveShadow = true,
+        );
         final blocker = scene.add(
           InstancedMesh(
               PlaneGeometry(width: .4, height: .4),

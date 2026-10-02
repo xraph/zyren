@@ -1,0 +1,122 @@
+import 'dart:convert';
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:flutter_zyren/flutter_zyren.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:integration_test/integration_test.dart';
+import 'package:shader_lab/physical.dart';
+import 'effects_test.dart' show waitForFrame;
+
+void main() {
+  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  testWidgets(
+    'physical glass and area lights present through native AA and resize',
+    (tester) async {
+      await tester.pumpWidget(const PhysicalLabApp());
+      final controller = tester
+          .widget<SceneView>(find.byType(SceneView))
+          .controller!;
+      final issues = <SceneIssue>[];
+      final subscription = controller.issues.listen(issues.add);
+      try {
+        final first = await waitForFrame(
+          tester,
+          controller,
+          (f) => f.drawCalls >= 20 && f.uploadedBytes == 0,
+        );
+        expect(first.readbackBytes, 0);
+        final info = await controller.ready;
+        expect(info.capabilities.textureFormats, isNotEmpty);
+        debugPrint(
+          jsonEncode({
+            'fixture': 'physical-materials',
+            'os': Platform.operatingSystemVersion,
+            'backend': info.backend,
+            'adapter': info.adapterName,
+            'driver': info.driverDescription,
+            'presentation': info.presentationPath.name,
+            'textureFormats': [
+              for (final format in info.capabilities.textureFormats)
+                format.name,
+            ],
+            'sampleCounts': info.sampleCounts.toList(),
+            'presentationReadbackBytes': first.readbackBytes,
+          }),
+        );
+        for (
+          var i = 0;
+          i < 200 && find.textContaining(' B ·').evaluate().isEmpty;
+          i++
+        ) {
+          await tester.pump(const Duration(milliseconds: 20));
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+        }
+        expect(find.textContaining('112 B'), findsOneWidget);
+        for (final label in ['Iridescence', 'Dispersion', 'Area shadows']) {
+          await tester.tap(find.widgetWithText(FilterChip, label));
+          await waitForFrame(
+            tester,
+            controller,
+            (f) => f.readbackBytes == 0 && f.uploadedBytes == 0,
+          );
+        }
+        // Measure the settled viewport after loading and disabling shadows.
+        // One glass mesh: capture N-1, main N, HDR resolve one.
+        final settled = await waitForFrame(
+          tester,
+          controller,
+          (f) => f.uploadedBytes == 0,
+        );
+        final temporalDraws = settled.drawCalls + settled.drawCalls ~/ 2 + 1;
+        tester
+            .widget<Slider>(find.byKey(const ValueKey('Roughness')))
+            .onChanged!(.75);
+        await tester.pump();
+        await waitForFrame(tester, controller, (f) => f.uploadedBytes == 0);
+        await tester.tap(find.widgetWithText(FilterChip, 'Area light'));
+        await waitForFrame(
+          tester,
+          controller,
+          (f) => f.drawCalls == settled.drawCalls,
+        );
+        await tester.tap(find.widgetWithText(FilterChip, 'Temporal AA'));
+        await waitForFrame(
+          tester,
+          controller,
+          (f) => f.drawCalls == temporalDraws,
+        );
+        expect(controller.colorPipeline!.sampleCount, 1);
+        await tester.tap(find.widgetWithText(FilterChip, 'Bloom'));
+        await waitForFrame(
+          tester,
+          controller,
+          (f) => f.drawCalls > temporalDraws,
+        );
+        for (final size in [const Size(320, 640), const Size(960, 720)]) {
+          await tester.binding.setSurfaceSize(size);
+          await tester.pump();
+          await waitForFrame(tester, controller, (f) => f.readbackBytes == 0);
+          expect(
+            tester.getSize(find.byType(SceneView)).height,
+            greaterThan(200),
+          );
+          expect(tester.takeException(), isNull);
+        }
+        await tester.tap(find.widgetWithText(FilterChip, '4× MSAA'));
+        await waitForFrame(
+          tester,
+          controller,
+          (f) => f.drawCalls < temporalDraws,
+        );
+        expect(controller.colorPipeline!.sampleCount, 4);
+        expect(issues.where((i) => i.severity == IssueSeverity.error), isEmpty);
+      } finally {
+        await tester.pumpWidget(const SizedBox());
+        await controller.whenDisposed;
+        await subscription.cancel();
+        await tester.binding.setSurfaceSize(null);
+      }
+    },
+    timeout: const Timeout(Duration(seconds: 120)),
+  );
+}

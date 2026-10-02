@@ -66,7 +66,7 @@ void main() {
           height: 128,
         );
         var red = 0;
-      for (var i = 0; i < frame.pixels.length; i += 4) {
+        for (var i = 0; i < frame.pixels.length; i += 4) {
           if (frame.pixels[i] > 200 &&
               frame.pixels[i + 1] < 20 &&
               frame.pixels[i + 2] < 20) {

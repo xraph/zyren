@@ -133,7 +133,7 @@ void main() {
       camera.depthStrategy = DepthStrategy.standard;
       expect(submission.camera.depthStrategy, DepthStrategy.reversed);
       expect(submission.toNativePacket, throwsUnsupportedError);
-      expect(ScenePacketEncoder(viewId: 1).encode(submission).bytes[4], 29);
+      expect(ScenePacketEncoder(viewId: 1).encode(submission).bytes[4], 36);
     },
   );
 

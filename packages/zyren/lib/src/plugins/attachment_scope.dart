@@ -28,6 +28,7 @@ class AttachmentScope {
       registration.dispose();
       throw StateError('Attachment scope has been closed.');
     }
+    _registrations.removeWhere((entry) => entry.isDisposed);
     _registrations.add(registration);
     return registration;
   }

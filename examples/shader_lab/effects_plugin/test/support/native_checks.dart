@@ -1,0 +1,198 @@
+import 'dart:math' as math;
+import 'package:zyren/zyren.dart';
+import 'package:zyren/rendering.dart';
+import 'package:zyren_native/zyren_native.dart';
+import 'package:shader_lab_effects/shader_lab_effects.dart';
+import 'package:test/test.dart';
+
+int srgb(double linear) =>
+    ((linear <= .0031308
+                ? linear * 12.92
+                : 1.055 * math.pow(linear, 1 / 2.4) - .055) *
+            255)
+        .round();
+
+/// Keep a test observer alive while the engine releases its attachment owners.
+class ObservedBackend implements GraphBackend {
+  final NativeGpuBackend backend;
+  ObservedBackend(this.backend);
+  @override
+  DeviceCapabilities get capabilities => backend.capabilities;
+  @override
+  ResourceScope createResourceScope({String label = ''}) =>
+      backend.createResourceScope(label: label);
+  @override
+  ShaderCompiler createShaderCompiler({String label = ''}) =>
+      backend.createShaderCompiler(label: label);
+  @override
+  GraphCompiler createGraphCompiler({String label = ''}) =>
+      backend.createGraphCompiler(label: label);
+  @override
+  Future<FrameOutput> render(FrameSubmission frame) => backend.render(frame);
+  @override
+  Future<void> close() async {}
+}
+
+Future<void> verifyEffects(NativeGpuBackend backend) async {
+  final effects = EffectsPlugin(
+    options: EffectsOptions(saturation: 0, vignette: 0),
+  );
+  final scene = Scene()..background = const Color3(1, 0, 0);
+  final camera = PerspectiveCamera();
+  final engine = await SceneEngine.create(
+    scene: scene,
+    camera: camera,
+    backendFactory: () async => ObservedBackend(backend),
+    plugins: [effects],
+  );
+  try {
+    Future<ReadbackOutput> draw(int w, int h) async =>
+        await engine.renderFrame(elapsed: Duration.zero, width: w, height: h)
+            as ReadbackOutput;
+    var builds = 0;
+    for (final (w, h) in [(17, 13), (29, 7), (9, 31), (1, 1), (17, 13)]) {
+      final frame = await draw(w, h);
+      for (var i = 0; i < w * h; i++) {
+        for (var c = 0; c < 3; c++) {
+          expect(frame.image.pixels[i * 4 + c], closeTo(srgb(.2126), 2));
+        }
+        expect(frame.image.pixels[i * 4 + 3], 255);
+      }
+      expect(frame.stats.drawCalls, 3);
+      expect(effects.state.graphBuilds, ++builds);
+      expect((await backend.resourceStats()).residentBytes, 16 + 12 * w * h);
+      expect((await backend.graphStats()).liveGraphs, 1);
+    }
+    effects.options = EffectsOptions(saturation: 1, vignette: 1);
+    final vignette = await draw(17, 13);
+    expect(effects.state.graphBuilds, builds);
+    final center = (6 * 17 + 8) * 4;
+    expect(vignette.image.pixels[center], 255);
+    expect(vignette.image.pixels.first, lessThan(115));
+    expect(vignette.image.pixels[1], 0);
+    expect((await backend.graphStats()).cachedPipelines, 2);
+
+    // Spatial passes must only use the current frame after a cut or projection edit.
+    scene.background = const Color3(0, 0, 1);
+    camera.position = const Vec3(4, 3, 8);
+    camera.fieldOfView = Angle.degrees(35);
+    final cut = await draw(17, 13);
+    expect(cut.image.pixels.sublist(center, center + 4), [0, 0, 255, 255]);
+    effects.options = effects.options.copyWith(enabled: false);
+    final bypass = await draw(7, 9);
+    expect(bypass.stats.drawCalls, 0);
+    expect(bypass.image.pixels.sublist(0, 4), [0, 0, 255, 255]);
+    expect(effects.state.graphBuilds, builds);
+    effects.options = EffectsOptions(exposure: -1, vignette: 0);
+    final enabled = await draw(7, 9);
+    expect(enabled.image.pixels[2], closeTo(srgb(.5), 2));
+    expect(effects.state.graphBuilds, builds + 1);
+  } finally {
+    await engine.dispose();
+  }
+  expect(effects.state.availability, EffectsAvailability.detached);
+  expect((await backend.resourceStats()).residentBytes, 0);
+  expect((await backend.graphStats()).liveGraphs, 0);
+  expect((await backend.graphStats()).cachedPipelines, 0);
+  expect((await backend.shaderStats()).livePrograms, 0);
+}
+
+class _InvertPlugin extends ScenePlugin {
+  @override
+  String get id => 'test.invert';
+  late GraphRegistration registration;
+  bool failBuild = false;
+  @override
+  Future<void> attach(PluginContext context) async {
+    final program = await context.shaders.compile(
+      ShaderSource.wgsl('''
+@group(0) @binding(0) var source: texture_2d<f32>;
+@vertex fn vertex(@builtin(vertex_index) i: u32) -> @builtin(position) vec4<f32> {
+  let p = array<vec2<f32>, 3>(vec2(-1., -1.), vec2(3., -1.), vec2(-1., 3.));
+  return vec4(p[i], 0., 1.);
+}
+@fragment fn fragment(@builtin(position) p: vec4<f32>) -> @location(0) vec4<f32> {
+  return vec4(vec3(1.) - textureLoad(source, vec2<i32>(p.xy), 0).rgb, 1.);
+}
+'''),
+    );
+    registration = context.graph.addEffect(
+      name: id,
+      after: {EffectsPlugin.pluginId},
+      build: (frame) async {
+        final output = await frame.createColorTexture(label: 'inverted');
+        if (failBuild) throw StateError('invalid edit');
+        return GraphEffect(
+          output: output,
+          passes: [
+            RenderPassDescriptor(
+              name: id,
+              program: program,
+              color: ColorAttachment(output),
+              bindings: ShaderBindings([
+                TextureBinding.sampled(0, frame.input),
+              ]),
+              reads: [frame.input],
+              writes: [output],
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+Future<void> verifySharedEffects(NativeGpuBackend backend) async {
+  final effects = EffectsPlugin(
+    options: EffectsOptions(exposure: -1, vignette: 0),
+  );
+  final invert = _InvertPlugin();
+  final issues = <SceneIssue>[];
+  final engine = await SceneEngine.create(
+    scene: Scene()..background = const Color3(1, 0, 0),
+    camera: PerspectiveCamera(),
+    backendFactory: () async => ObservedBackend(backend),
+    // Registration order deliberately opposes the effect dependency.
+    plugins: [invert, effects],
+    onIssue: issues.add,
+  );
+  try {
+    Future<ReadbackOutput> draw(int w) async =>
+        await engine.renderFrame(elapsed: Duration.zero, width: w, height: 13)
+            as ReadbackOutput;
+    for (final width in [17, 23]) {
+      final frame = await draw(width);
+      expect(frame.image.pixels[0], closeTo(srgb(.5), 2));
+      expect(frame.image.pixels.sublist(1, 4), [255, 255, 255]);
+      expect(frame.stats.drawCalls, 4);
+      expect((await backend.graphStats()).liveGraphs, 1);
+    }
+    final resident = (await backend.resourceStats()).residentBytes;
+    invert.failBuild = true;
+    invert.registration.invalidate();
+    final preserved = await draw(23);
+    expect(preserved.image.pixels[0], closeTo(srgb(.5), 2));
+    expect(preserved.image.pixels.sublist(1, 4), [255, 255, 255]);
+    expect(issues.single.pluginId, invert.id);
+    expect((await backend.resourceStats()).residentBytes, resident);
+    await draw(23);
+    expect(issues, hasLength(1));
+    invert.failBuild = false;
+    invert.registration.invalidate();
+    await draw(23);
+    effects.options = effects.options.copyWith(enabled: false);
+    final bypass = await draw(23);
+    expect(bypass.image.pixels.sublist(0, 4), [0, 255, 255, 255]);
+    expect(bypass.stats.drawCalls, 2);
+    invert.registration.enabled = false;
+    final plain = await draw(23);
+    expect(plain.image.pixels.sublist(0, 4), [255, 0, 0, 255]);
+    expect(plain.stats.drawCalls, 0);
+    expect((await backend.graphStats()).liveGraphs, 0);
+  } finally {
+    await engine.dispose();
+  }
+  expect((await backend.resourceStats()).residentBytes, 0);
+  expect((await backend.graphStats()).liveGraphs, 0);
+  expect((await backend.shaderStats()).livePrograms, 0);
+}

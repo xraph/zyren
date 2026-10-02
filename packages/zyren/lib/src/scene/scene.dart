@@ -2,9 +2,11 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:vector_math/vector_math_64.dart' as vm;
 import '../geometry/geometry.dart';
+import '../spatial/bounds.dart';
+import 'layer_mask.dart';
 import '../rendering/depth_strategy.dart';
 import '../resources/resource_scope.dart'
-    show RenderSettings, ScreenEffect, EnvironmentMap;
+    show RenderSettings, ScreenEffect, VolumeEnvironmentMap;
 import '../plugins/registration.dart';
 export '../resources/resource_scope.dart' show RenderSettings, ToneMapping;
 import '../materials/material.dart';
@@ -15,7 +17,11 @@ import '../math/vec3.dart';
 import '../math/quat.dart';
 import '../math/mat4.dart';
 part 'revision.dart';
-part '../lights/lights.dart';
+part 'deformation.dart';
+part '../geometry/skin.dart';
+part '../lights/punctual_light.dart';
+part '../lights/hemisphere_light.dart';
+part '../lights/rect_area_light.dart';
 part '../lights/shadow_settings.dart';
 part 'camera_projection.dart';
 part 'primitives.dart';
@@ -25,6 +31,11 @@ part 'scene_outline.dart';
 part 'fragment_coverage.dart';
 
 class Object3D with _Revisioned {
+  static int _nextObjectId = 1;
+
+  /// Stable within this isolate, across scene edits and reparenting.
+  final int id = _nextObjectId++;
+
   final String? name;
   Object3D({this.name});
   Vec3 _position = Vec3.zero, _scale = Vec3.one;
@@ -46,6 +57,14 @@ class Object3D with _Revisioned {
   set clippingEnabled(bool value) {
     if (_clippingEnabled == value) return;
     _clippingEnabled = value;
+    _changed();
+  }
+
+  LayerMask _layers = LayerMask.only(0);
+  LayerMask get layers => _layers;
+  set layers(LayerMask value) {
+    if (value == _layers) return;
+    _layers = value;
     _changed();
   }
 
@@ -118,6 +137,14 @@ class Object3D with _Revisioned {
     }
   }
 
+  Mat4 get worldMatrix {
+    var result = localMatrix;
+    for (var node = parent; node != null; node = node.parent) {
+      result = node.localMatrix * result;
+    }
+    return result;
+  }
+
   Mat4 get localMatrix => Mat4.compose(position, quaternion, scale);
   Object3D translate(Vec3 offset) {
     position = position + offset;
@@ -151,7 +178,45 @@ class Group extends Object3D {
   Group({super.name});
 }
 
-class Mesh extends Object3D {
+class Mesh extends Object3D with _MeshDeformation {
+  bool _frustumCulled = true;
+  Bounds3? _cullingBounds;
+
+  /// Allows camera-frustum rejection of this mesh's color draw.
+  /// Shadow participation and resource ownership are independent.
+  bool get frustumCulled => _frustumCulled;
+  set frustumCulled(bool value) {
+    if (value == _frustumCulled) return;
+    _frustumCulled = value;
+    _changed();
+  }
+
+  /// Optional mesh-local bounds after deformation and instance transforms.
+  /// Null infers built-in triangle bounds. Custom shaders and expanded
+  /// primitives stay visible until you supply conservative bounds here.
+  Bounds3? get cullingBounds => _cullingBounds;
+  set cullingBounds(Bounds3? value) {
+    if (identical(value, _cullingBounds)) return;
+    _cullingBounds = value;
+    _changed();
+  }
+
+  bool _castShadow = false, _receiveShadow = false;
+  bool get castShadow => _castShadow;
+  set castShadow(bool value) {
+    if (_castShadow == value) return;
+    _castShadow = value;
+    _changed();
+  }
+
+  bool get receiveShadow => _receiveShadow;
+  set receiveShadow(bool value) {
+    if (_receiveShadow == value) return;
+    _receiveShadow = value;
+    _changed();
+  }
+
+  @override
   final BufferGeometry geometry;
   MeshMaterial _material;
   FragmentCoverage _fragmentCoverage = const FragmentCoverage.full();
@@ -168,23 +233,6 @@ class Mesh extends Object3D {
   }
 
   int _renderOrder = 0;
-  bool _castShadow = false, _receiveShadow = true;
-  bool get castShadow => _castShadow;
-  set castShadow(bool value) {
-    if (_castShadow != value) {
-      _castShadow = value;
-      _changed();
-    }
-  }
-
-  bool get receiveShadow => _receiveShadow;
-  set receiveShadow(bool value) {
-    if (_receiveShadow != value) {
-      _receiveShadow = value;
-      _changed();
-    }
-  }
-
   Mesh(this.geometry, MeshMaterial material, {super.name, int renderOrder = 0})
     : _material = material {
     _validateMaterial(material);
@@ -207,11 +255,6 @@ class Mesh extends Object3D {
   }
 
   void _validateMaterial(MeshMaterial material) {
-    if (material is ShaderMaterial && !_fragmentCoverage.isFull) {
-      throw UnsupportedError(
-        'Custom shaders do not provide a fragment coverage hook.',
-      );
-    }
     final kind = switch (geometry.topology) {
       GeometryTopology.triangles => 0,
       GeometryTopology.lineSegments || GeometryTopology.lineStrip => 1,
@@ -247,7 +290,41 @@ abstract class Camera extends Object3D {
   set target(Vec3 value);
   Vec3 get up;
   set up(Vec3 value);
-  Mat4 viewProjection(double aspect);
+  Mat4 projectionMatrix(double aspect) {
+    final axes = _cameraAxes(this);
+    final rotation = vm.Matrix4.identity()
+      ..setColumn(0, vm.Vector4(axes.right.x, axes.right.y, axes.right.z, 0))
+      ..setColumn(1, vm.Vector4(axes.up.x, axes.up.y, axes.up.z, 0))
+      ..setColumn(2, vm.Vector4(axes.back.x, axes.back.y, axes.back.z, 0));
+    return Mat4.fromVectorMath(
+      viewProjection(aspect).toVectorMath() * rotation,
+    );
+  }
+
+  Mat4 viewProjection(double aspect) {
+    final projection = projectionMatrix(aspect).toVectorMath();
+    if (!position.isFinite || !target.isFinite || !up.isFinite) {
+      throw ArgumentError('Invalid camera.');
+    }
+    final direction = position - target;
+    if (direction.length2 < 1e-20 || up.length2 < 1e-20) {
+      throw ArgumentError(
+        'Camera needs a distinct target and a nonzero up vector.',
+      );
+    }
+    final z = direction.normalized(), cross = up.cross(direction);
+    if (cross.length2 < 1e-20) {
+      throw ArgumentError(
+        'Camera up must not be parallel to the view direction.',
+      );
+    }
+    final x = cross.normalized(), y = z.cross(x);
+    final view = vm.Matrix4.identity()
+      ..setRow(0, vm.Vector4(x.x, x.y, x.z, 0))
+      ..setRow(1, vm.Vector4(y.x, y.y, y.z, 0))
+      ..setRow(2, vm.Vector4(z.x, z.y, z.z, 0));
+    return Mat4.fromVectorMath(projection * view);
+  }
 
   /// Projects a world point to normalized coordinates, with native depth 0..1.
   Vec3 projectPoint(Vec3 world, double aspect) {
@@ -378,6 +455,33 @@ class PerspectiveCamera extends Camera {
   }
 
   @override
+  Mat4 projectionMatrix(double aspect) {
+    if (!aspect.isFinite || aspect <= 0) {
+      throw ArgumentError.value(aspect, 'aspect');
+    }
+    final f = zoom / math.tan(fieldOfView / 2);
+    final projection = vm.Matrix4.zero()
+      ..setEntry(0, 0, f / aspect)
+      ..setEntry(1, 1, f)
+      ..setEntry(
+        2,
+        2,
+        depthStrategy == DepthStrategy.reversed
+            ? near / (far - near)
+            : far / (near - far),
+      )
+      ..setEntry(
+        2,
+        3,
+        depthStrategy == DepthStrategy.reversed
+            ? near * far / (far - near)
+            : near * far / (near - far),
+      )
+      ..setEntry(3, 2, -1);
+    return Mat4.fromVectorMath(projection);
+  }
+
+  @override
   Mat4 viewProjection(double aspect) {
     if (!aspect.isFinite ||
         aspect <= 0 ||
@@ -412,25 +516,7 @@ class PerspectiveCamera extends Camera {
       ..setRow(0, vm.Vector4(x.x, x.y, x.z, 0))
       ..setRow(1, vm.Vector4(y.x, y.y, y.z, 0))
       ..setRow(2, vm.Vector4(z.x, z.y, z.z, 0));
-    final f = zoom / math.tan(fieldOfView / 2);
-    final projection = vm.Matrix4.zero()
-      ..setEntry(0, 0, f / aspect)
-      ..setEntry(1, 1, f)
-      ..setEntry(
-        2,
-        2,
-        depthStrategy == DepthStrategy.reversed
-            ? near / (far - near)
-            : far / (near - far),
-      )
-      ..setEntry(
-        2,
-        3,
-        depthStrategy == DepthStrategy.reversed
-            ? near * far / (far - near)
-            : near * far / (near - far),
-      )
-      ..setEntry(3, 2, -1);
+    final projection = projectionMatrix(aspect).toVectorMath();
     return Mat4.fromVectorMath(projection * view);
   }
 }
@@ -454,9 +540,9 @@ final class EffectRegistration extends Registration {
 
 /// Owns the scene's environment slot until disposal restores its settings fallback.
 final class EnvironmentRegistration extends Registration {
-  final void Function(EnvironmentMap) _replace;
+  final void Function(VolumeEnvironmentMap) _replace;
   EnvironmentRegistration._(super.release, this._replace);
-  void replace(EnvironmentMap map) {
+  void replace(VolumeEnvironmentMap map) {
     if (isDisposed) throw StateError('Environment registration has closed.');
     if (map.isClosed) {
       throw StateError('Environment resource owner has closed.');
@@ -491,13 +577,18 @@ class Scene extends Object3D {
   final _transparentBackgroundEffects = <Object>{};
 
   /// Effective clear alpha while an effect supplies the visible background.
+  double get backgroundOpacity => _renderSettings.backgroundAlpha;
+  set backgroundOpacity(double value) {
+    renderSettings = renderSettings.copyWith(backgroundAlpha: value);
+  }
+
   double get backgroundAlpha => _transparentBackgroundEffects.isEmpty
       ? _renderSettings.backgroundAlpha
       : 0;
-  EnvironmentMap? _environment;
-  EnvironmentMap? get environment =>
+  VolumeEnvironmentMap? _environment;
+  VolumeEnvironmentMap? get environment =>
       _environment ?? _renderSettings.environment;
-  EnvironmentRegistration addEnvironment(EnvironmentMap map) {
+  EnvironmentRegistration addEnvironment(VolumeEnvironmentMap map) {
     if (map.isClosed) {
       throw StateError('Environment resource owner has closed.');
     }
@@ -579,12 +670,12 @@ class Scene extends Object3D {
     _changed();
   }
 
-  Color3 _background = Color3.hex(0x101722);
+  Color3? _background;
   Vec3 _lightDirection = const Vec3(1, -1, 2);
   double _ambient = .18;
-  Color3 get background => _background;
-  set background(Color3 value) {
-    value.toList();
+  Color3? get background => _background;
+  set background(Color3? value) {
+    value?.toList();
     if (value == _background) return;
     _background = value;
     _changed();
@@ -639,7 +730,6 @@ class Scene extends Object3D {
       final world = parent * node.localMatrix.toVectorMath();
       if (node is Mesh) {
         if (node.castShadow ||
-            !node.receiveShadow ||
             node.material.colorMap != null ||
             node.material is ShaderMaterial ||
             node.material is StandardMaterial) {
@@ -684,7 +774,8 @@ class Scene extends Object3D {
     return {
       'version': 1,
       'view_projection': camera.viewProjection(aspect).storage.toList(),
-      'background': background.toList(),
+      'background': background?.toList() ?? [0.0, 0.0, 0.0],
+      'background_alpha': background == null ? 0.0 : backgroundOpacity,
       'light_direction': lightDirection.storage.toList(),
       'ambient': ambient,
       'geometries': [

@@ -4,6 +4,35 @@ import 'package:zyren/rendering.dart';
 import 'package:test/test.dart';
 
 void main() {
+  test('legacy image adapter packs rows without losing alpha metadata', () {
+    final image = ImageData(
+      pixels: Uint8List.fromList([
+        80,
+        40,
+        20,
+        128,
+        99,
+        99,
+        99,
+        99,
+        40,
+        20,
+        10,
+        64,
+        99,
+        99,
+        99,
+        99,
+      ]),
+      size: PhysicalSize(1, 2),
+      rowStride: 8,
+      alphaMode: AlphaMode.premultiplied,
+    );
+    final frame = RenderedFrame.fromImage(image);
+    expect(frame.alphaMode, AlphaMode.premultiplied);
+    expect(frame.pixels, [80, 40, 20, 128, 40, 20, 10, 64]);
+  });
+
   test(
     'submission freezes transforms, camera and geometry for async rendering',
     () {

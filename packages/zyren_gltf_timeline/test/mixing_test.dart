@@ -13,7 +13,8 @@ void main() {
   test(
     'imported actions crossfade, interrupt and release frame demand',
     () async {
-      final asset = await load(animatedModel()), instance = asset.instantiate();
+      final asset = await load(animatedModel()),
+          instance = asset.instantiate(nativeDeformation: false);
       final scene = Scene()..add(instance);
       final mesh = instance.nodes[0]!.children.single as Mesh;
       final timeline = SceneTimelinePlugin.mixed(
@@ -73,7 +74,8 @@ void main() {
   test(
     'imported additive actions reverse and loop against a fixed reference',
     () async {
-      final asset = await load(animatedModel()), instance = asset.instantiate();
+      final asset = await load(animatedModel()),
+          instance = asset.instantiate(nativeDeformation: false);
       final mesh = instance.nodes[0]!.children.single as Mesh;
       final timeline = SceneTimelinePlugin.mixed(
         duration: end,
@@ -120,7 +122,8 @@ void main() {
   test(
     'authored model layers normalize overweight samples and reject foreign instances',
     () async {
-      final asset = await load(animatedModel()), instance = asset.instantiate();
+      final asset = await load(animatedModel()),
+          instance = asset.instantiate(nativeDeformation: false);
       final mesh = instance.nodes[0]!.children.single as Mesh;
       final rest = modelRestClip(instance),
           clip = modelClip(instance, asset.animations.single);
@@ -151,7 +154,10 @@ void main() {
       expect(mesh.geometry.positions.first, 3);
       expect(
         () => timeline.createAction(
-          modelClip(asset.instantiate(), asset.animations.single),
+          modelClip(
+            asset.instantiate(nativeDeformation: false),
+            asset.animations.single,
+          ),
         ),
         throwsArgumentError,
       );

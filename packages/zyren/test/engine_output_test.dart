@@ -1,8 +1,22 @@
 import 'package:zyren/zyren.dart';
 import 'package:zyren/rendering.dart';
 import 'package:test/test.dart';
+import 'support/fakes.dart';
+import 'dart:typed_data';
 
 void main() {
+  test('legacy renderer alpha metadata survives the engine adapter', () async {
+    final engine = await SceneEngine.create(
+      scene: Scene(),
+      camera: PerspectiveCamera(),
+      rendererFactory: () async => _AlphaRenderer(),
+    );
+    final output =
+        await engine.renderFrame(elapsed: Duration.zero, width: 1, height: 1)
+            as ReadbackOutput;
+    expect(output.image.alphaMode, AlphaMode.premultiplied);
+    await engine.dispose();
+  });
   test(
     'engine preserves surface receipts and gives plugins pixel-free stats',
     () async {
@@ -28,6 +42,22 @@ void main() {
       await engine.dispose();
       expect(backend.closed, isTrue);
     },
+  );
+}
+
+class _AlphaRenderer extends TestRenderer {
+  _AlphaRenderer() : super([]);
+  @override
+  Future<RenderedFrame> render(
+    Scene scene,
+    Camera camera, {
+    required int width,
+    required int height,
+  }) async => RenderedFrame(
+    Uint8List.fromList([64, 0, 0, 128]),
+    1,
+    1,
+    alphaMode: AlphaMode.premultiplied,
   );
 }
 

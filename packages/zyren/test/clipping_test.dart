@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:test/test.dart';
 import 'package:zyren/zyren.dart';
@@ -99,8 +100,11 @@ void main() {
       scene.clippingPlanes = [];
       final encoded = encoder.encode(snapshot);
       final bytes = ByteData.sublistView(encoded.bytes);
-      expect(bytes.getUint32(4, Endian.little), 28);
-      expect(bytes.getFloat32(bytes.lengthInBytes - 4, Endian.little), -.25);
+      expect(bytes.getUint32(4, Endian.little), 36);
+      expect(
+        utf8.decode(encoded.bytes, allowMalformed: true),
+        contains('"clipping_planes":[[1.0,0.0,0.0,-0.25]]'),
+      );
       encoder.accept(encoded);
       final cleared = encoder.encode(capture());
       expect(cleared.changedMeshes, 1);

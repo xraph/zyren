@@ -8,9 +8,13 @@ import 'package:zyren_native/zyren_native.dart';
 import 'package:model_viewer/model_bounds.dart';
 
 /// Explicit native GPU readback for a standalone PNG, without a Flutter window.
-Future<void> main(List<String> args) async {
-  if (args.length != 2) {
-    stderr.writeln('Usage: dart run tool/capture.dart model.glb output.png');
+Future<void> main(List<String> arguments) async {
+  final studio = arguments.contains('--studio');
+  final args = arguments.where((value) => value != '--studio').toList();
+  if (args.length < 2 || args.length > 3) {
+    stderr.writeln(
+      'Usage: dart run tool/capture.dart model.glb output.png [animationSeconds] [--studio]',
+    );
     exitCode = 64;
     return;
   }
@@ -22,16 +26,37 @@ Future<void> main(List<String> args) async {
     services: const AssetServices(
       resolver: NativeSourceResolver(),
       imageDecoder: NativeImageDecoder(),
+      tangentGenerator: NativeTangentGenerator(),
     ),
   );
   final backend = await NativeBackend.create();
   try {
     final model = await assets.load(Gltf.uri(source)).result;
     final root = model.instantiate();
+    if (args.length == 3) {
+      final seconds = double.parse(args[2]);
+      root.mixer
+          .play(root.animations.first)
+          .seek(Duration(microseconds: (seconds * 1e6).round()));
+    }
     final bounds = await modelBounds(root, () => false);
     final scene = Scene()
       ..background = const Color3(.025, .04, .065)
       ..add(root);
+    if (studio) {
+      scene.add(
+        DirectionalLight(intensity: 3)
+          ..rotateY(-.5)
+          ..rotateX(-.5),
+      );
+      scene.add(
+        HemisphereLight(
+          intensity: .7,
+          groundColor: const Color3(.15, .18, .25),
+        ),
+      );
+      stdout.writeln('Capture studio lighting enabled.');
+    }
     final camera = PerspectiveCamera(
       target: bounds.center,
       position:

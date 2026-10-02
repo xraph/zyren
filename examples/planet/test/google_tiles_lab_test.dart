@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_zyren/widgets.dart';
 import 'package:planet/google_tiles_lab.dart';
 import 'package:planet/geospatial_presets.dart';
 import 'package:flutter_zyren/flutter_zyren.dart';

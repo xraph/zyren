@@ -22,7 +22,7 @@ fn coverage_rejects_invalid_ranges_and_custom_shader_bypass() {
     assert!(
         Mesh {
             coverage: [0., 0.5],
-            shader: Some([1, 1, 1, 1]),
+            material_shader: Some([1, 1, 1, 1]),
             ..Default::default()
         }
         .validate_material()

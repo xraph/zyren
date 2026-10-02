@@ -18,6 +18,7 @@ void main() {
     expect(image.generatesMipmaps, isTrue);
     final frame = FrameSubmission.capture(
       scene: Scene()
+        ..background = const Color3(0, 0, 0)
         ..add(
           Mesh(
             PlaneGeometry(),

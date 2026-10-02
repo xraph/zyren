@@ -1,10 +1,10 @@
 import 'package:zyren/zyren.dart';
 import 'accessor.dart';
 import 'checked.dart';
-import 'node_decoder.dart' show numbers;
 import 'options.dart';
 import 'recipes.dart';
 import 'basis.dart';
+part 'physical_decoder.dart';
 
 final class MaterialDecoder {
   final Map<String, Object?> root;
@@ -126,61 +126,50 @@ final class MaterialDecoder {
             '$path.pbrMetallicRoughness.baseColorTexture',
           )
         : null;
-    ImageBindingRecipe? extra(String key, {bool linear = true}) =>
-        standard && material.containsKey(key)
-        ? _texture(material[key], '$path.$key', linear: linear)
+    ImageBindingRecipe? map(
+      Map<String, Object?> owner,
+      String key,
+      String base,
+      ColorSpace space,
+    ) => standard && owner.containsKey(key)
+        ? _texture(owner[key], '$base.$key', colorSpace: space)
         : null;
-    final normal = extra('normalTexture'),
-        occlusion = extra('occlusionTexture'),
-        emission = extra('emissiveTexture', linear: false);
-    final mr = standard && pbr.containsKey('metallicRoughnessTexture')
-        ? _texture(
-            pbr['metallicRoughnessTexture'],
-            '$path.pbrMetallicRoughness.metallicRoughnessTexture',
-            linear: true,
-          )
-        : null;
-    final emissive = numbers(
-      field(material, 'emissiveFactor', [0, 0, 0]),
-      3,
-      '$path.emissiveFactor',
+    final normal = map(material, 'normalTexture', path, ColorSpace.linear);
+    final occlusion = map(
+      material,
+      'occlusionTexture',
+      path,
+      ColorSpace.linear,
     );
-    if (emissive.any((v) => v < 0 || v > 1)) {
-      fail('$path.emissiveFactor', 'Emission must be in [0, 1].');
+    double textureFactor(String key, String fieldName, double maximum) {
+      if (!standard || !material.containsKey(key)) return 1;
+      final info = object(material[key], '$path.$key');
+      final value = number(field(info, fieldName, 1), '$path.$key.$fieldName');
+      if (fieldName == 'strength' && (value < 0 || value > 1)) {
+        fail('$path.$key.$fieldName', 'Occlusion strength must be in [0, 1].');
+      }
+      if (value.abs() > maximum) {
+        fail(
+          '$path.$key.$fieldName',
+          'Texture factor exceeds the native material profile.',
+          AssetLoadError.unsupportedFeature,
+        );
+      }
+      return value;
     }
-    final normalScale = normal == null
-        ? 1.0
-        : number(
-            field(
-              object(material['normalTexture'], '$path.normalTexture'),
-              'scale',
-              1,
-            ),
-            '$path.normalTexture.scale',
-          );
-    final strength = occlusion == null
-        ? 1.0
-        : number(
-            field(
-              object(material['occlusionTexture'], '$path.occlusionTexture'),
-              'strength',
-              1,
-            ),
-            '$path.occlusionTexture.strength',
-          );
-    if (normalScale.abs() > 1e6) {
-      fail(
-        '$path.normalTexture.scale',
-        'Normal scale exceeds the native limit.',
-        AssetLoadError.unsupportedFeature,
-      );
+
+    final emission = standard
+        ? numbers(
+            field(material, 'emissiveFactor', [0, 0, 0]),
+            3,
+            '$path.emissiveFactor',
+          )
+        : [0.0, 0.0, 0.0];
+    if (emission.any((v) => v < 0 || v > 1)) {
+      fail('$path.emissiveFactor', 'Emissive factors must be in [0, 1].');
     }
-    if (strength < 0 || strength > 1) {
-      fail(
-        '$path.occlusionTexture.strength',
-        'Occlusion strength must be in [0, 1].',
-      );
-    }
+    final physical = _physical(extensions, path, standard, unlit);
+    final emissionStrength = _emissionStrength(extensions, path, unlit);
     return _materials[i] = MaterialRecipe(
       Color3(factor[0], factor[1], factor[2]),
       factor[3],
@@ -189,6 +178,8 @@ final class MaterialDecoder {
       doubleSided ? MaterialSide.doubleSided : MaterialSide.front,
       binding,
       standard: standard,
+      physical: physical,
+      emissiveIntensity: emissionStrength,
       metallic: number(
         field(pbr, 'metallicFactor', 1),
         '$path.pbrMetallicRoughness.metallicFactor',
@@ -197,20 +188,25 @@ final class MaterialDecoder {
         field(pbr, 'roughnessFactor', 1),
         '$path.pbrMetallicRoughness.roughnessFactor',
       ),
+      emissive: Color3(emission[0], emission[1], emission[2]),
       normalMap: normal,
-      metallicRoughnessMap: mr,
+      normalScale: textureFactor('normalTexture', 'scale', 1e6),
       occlusionMap: occlusion,
-      emissiveMap: emission,
-      normalScale: normalScale,
-      occlusionStrength: strength,
-      emissive: Color3(emissive[0], emissive[1], emissive[2]),
+      occlusionStrength: textureFactor('occlusionTexture', 'strength', 1),
+      metallicRoughnessMap: map(
+        pbr,
+        'metallicRoughnessTexture',
+        '$path.pbrMetallicRoughness',
+        ColorSpace.linear,
+      ),
+      emissiveMap: map(material, 'emissiveTexture', path, ColorSpace.srgb),
     );
   }
 
   ImageBindingRecipe _texture(
     Object? reference,
     String path, {
-    bool linear = false,
+    ColorSpace colorSpace = ColorSpace.srgb,
   }) {
     final info = object(reference, path);
     final textures = array(field(root, 'textures', const []), 'textures');
@@ -219,7 +215,7 @@ final class MaterialDecoder {
     if (uv > 1) {
       fail(
         '$path.texCoord',
-        'The native color material supports UV0 and UV1.',
+        'Native materials support UV0 and UV1.',
         AssetLoadError.unsupportedFeature,
       );
     }
@@ -339,7 +335,7 @@ final class MaterialDecoder {
             ? TextureFilter.nearest
             : TextureFilter.linear,
       ),
-      linear: linear,
+      colorSpace: colorSpace,
     );
   }
 }

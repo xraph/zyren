@@ -12,6 +12,7 @@ part 'backend.dart';
 part 'resources.dart';
 part 'shaders.dart';
 part 'graphs.dart';
+part 'gpu_services.dart';
 part 'gpu_context.dart';
 
 /// One native GPU device, owned by a persistent worker isolate.
@@ -31,18 +32,9 @@ class NativeRenderer implements SceneRenderer {
       RenderFeatures.alphaMaterials,
       RenderFeatures.portablePrimitives,
       RenderFeatures.materialSidedness,
-      RenderFeature.hdr,
-      RenderFeature.standardMaterials,
-      RenderFeature.punctualLights,
-      RenderFeature.shadowMaps,
-      RenderFeature.instancing,
-      RenderFeature.spatialAntialiasing,
-      RenderFeature.bloom,
       RenderFeature.reversedDepth,
       RenderFeature.sectionClipping,
       RenderFeature.selectionOutlines,
-      if (_deviceInfo.sampleCounts.contains(4))
-        RenderFeature.multisampleAntialiasing,
     },
     maxDimension: 4096,
   );
@@ -68,7 +60,7 @@ class NativeRenderer implements SceneRenderer {
     final value = NativeRenderer._(await WorkerSession.start(renderWorker));
     try {
       value._deviceInfo = await _NativeResourceDevice(
-        _workerTransport(value._worker),
+        _workerGpuSender(value._worker),
       ).deviceInfo();
       return value;
     } catch (_) {
@@ -113,17 +105,27 @@ class NativeRenderer implements SceneRenderer {
 
   Future<RenderedFrame> _renderBinary(
     FrameSubmission submission,
-    ScenePacketEncoder encoder,
-  ) async {
+    ScenePacketEncoder encoder, {
+    _NativeResourceDevice? resources,
+  }) async {
     if (_closed) throw StateError('Renderer has been disposed.');
+    if (resources == null &&
+        (submission.graph != null || submission.scene.meshShaders.isNotEmpty)) {
+      throw UnsupportedError(
+        'Custom scene shaders require a native GPU backend.',
+      );
+    }
     final packet = encoder.encode(submission);
-    final reply =
+    Future<List<Object>> submit(Uint8List bytes) async =>
         await _worker.request('render', [
-              TransferableTypedData.fromList([packet.bytes]),
+              TransferableTypedData.fromList([bytes]),
               submission.size.width,
               submission.size.height,
             ])
             as List<Object>;
+    final reply = resources == null
+        ? await submit(packet.bytes)
+        : await resources.submitFrame(submission, packet.bytes, submit);
     encoder.accept(packet);
     final bytes = (reply[0] as TransferableTypedData)
         .materialize()
@@ -134,6 +136,9 @@ class NativeRenderer implements SceneRenderer {
       submission.size.height,
       uploadedBytes: reply[1] as int,
       residentBytes: reply[2] as int,
+      alphaMode: submission.scene.usesScreenEffects
+          ? AlphaMode.premultiplied
+          : AlphaMode.straight,
     );
   }
 
@@ -149,15 +154,16 @@ class NativeRenderer implements SceneRenderer {
     EncodedScenePacket packet,
     ScenePacketEncoder encoder,
     SurfaceTarget target,
-    int frameId,
-  ) {
+    int frameId, {
+    Uint8List? bytes,
+  }) {
     if (_closed) return Future.error(StateError('Renderer has been disposed.'));
     if (_frame != null) {
       return Future.error(StateError('Only one frame may be in flight.'));
     }
     final future = _worker
         .request('surfaceRender', [
-          TransferableTypedData.fromList([packet.bytes]),
+          TransferableTypedData.fromList([bytes ?? packet.bytes]),
           (target.surface as NativeSurfaceKey).toMessage(),
           target.epoch,
           frameId,

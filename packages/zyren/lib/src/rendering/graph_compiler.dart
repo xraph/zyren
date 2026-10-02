@@ -38,11 +38,15 @@ final class GraphCompiler {
         ),
       );
     }
-    final future = _compile(description);
-    _compiling = future;
-    return future.whenComplete(() {
+    final completion = Completer<CompiledGraph>();
+    final future = completion.future.whenComplete(() {
       _compiling = null;
     });
+    _compiling = future;
+    Future.sync(
+      () => _compile(description),
+    ).then(completion.complete, onError: completion.completeError);
+    return future;
   }
 
   Future<CompiledGraph> _compile(GraphDescription description) async {
@@ -54,6 +58,7 @@ final class GraphCompiler {
       description.label,
       prepared.$2,
       prepared.$3,
+      description,
     );
     if (_closed) {
       await _retire(candidate);
@@ -109,6 +114,12 @@ final class CompiledGraph {
   final String label;
   final List<String> passNames;
   final List<GraphResourceLifetime> lifetimes;
+  final TextureDescriptor? _sceneColor;
+  final int drawCalls, triangles, dispatches;
+
+  /// The first entries in [passNames] execute before scene rendering.
+  final int beforeScenePassCount;
+  bool get isFrameGraph => _sceneColor != null;
   final _pending = <Future<void>>{};
   bool _closed = false;
   Future<void>? _closing;
@@ -118,14 +129,66 @@ final class CompiledGraph {
     this.label,
     Iterable<String> passNames,
     Iterable<GraphResourceLifetime> lifetimes,
-  ) : passNames = List.unmodifiable(passNames),
+    GraphDescription description,
+  ) : _sceneColor = description.sceneColor?.descriptor as TextureDescriptor?,
+      beforeScenePassCount = description.beforeScene.length,
+      drawCalls =
+          description.allPasses.whereType<RenderPassDescriptor>().length +
+          (description.output == null ? 0 : 1),
+      triangles =
+          description.allPasses.whereType<RenderPassDescriptor>().fold(
+            0,
+            (sum, pass) => sum + (pass.vertexCount ~/ 3) * pass.instanceCount,
+          ) +
+          (description.output == null ? 0 : 1),
+      dispatches = description.allPasses
+          .whereType<ComputePassDescriptor>()
+          .length,
+      passNames = List.unmodifiable(passNames),
       lifetimes = List.unmodifiable(lifetimes);
   bool get isClosed => _closed;
   Future<GraphStats> execute() {
+    if (isFrameGraph) {
+      return Future.error(
+        GraphException(
+          GraphErrorCode.invalidDescriptor,
+          'Submit this graph with a scene frame.',
+        ),
+      );
+    }
+    return _run(() => _device.executeGraph(_key));
+  }
+
+  /// Backend adapter contract. Validates device and size, then keeps the opaque
+  /// backend key alive until the submitted frame settles. The key is not a pointer.
+  Future<T> submitFrame<T>(
+    GraphDevice device,
+    PhysicalSize size,
+    Future<T> Function(Object key) submit,
+  ) => _run(() {
+    if (!identical(device, _device)) {
+      throw GraphException(
+        GraphErrorCode.foreignResource,
+        'Graph belongs to another device.',
+      );
+    }
+    final texture = _sceneColor;
+    if (texture == null ||
+        texture.width != size.width ||
+        texture.height != size.height) {
+      throw GraphException(
+        GraphErrorCode.invalidDescriptor,
+        'Compile a frame graph matching the frame dimensions.',
+      );
+    }
+    return submit(_key);
+  });
+
+  Future<T> _run<T>(Future<T> Function() operation) {
     if (_closed) {
       return Future.error(StateError('Compiled graph has closed: $label'));
     }
-    final future = Future.sync(() => _device.executeGraph(_key));
+    final future = Future<T>.microtask(operation);
     late Future<void> settled;
     settled = future
         .then<void>((_) {}, onError: (Object _, StackTrace _) {})

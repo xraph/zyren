@@ -1,6 +1,6 @@
-# Zyren native backend
+# zyren_native
 
-Render Zyren scenes through native Metal, Vulkan or Direct3D 12. Dart build hooks
+Render zyren scenes through native Metal, Vulkan or Direct3D 12. Dart build hooks
 compile the bundled Rust crate. You need Rust and the platform toolchain.
 
 `NativeRenderer` implements the existing scene renderer. `NativeBackend` accepts
@@ -13,11 +13,22 @@ fvm dart run example/resources.dart
 fvm dart run example/shared_views.dart
 fvm dart run example/shader_compiler.dart
 fvm dart run example/render_graph.dart /tmp/native-graph.png
+fvm dart run example/frame_graph.dart /tmp/native-frame-graph.png
 RUN_NATIVE_GPU=1 fvm dart test --concurrency=1
 ```
 
 Run these commands from `packages/zyren_native` so the native build hook refreshes
 the library. The root workspace has no runtime dependencies of its own.
+
+To build a standalone executable with its native library, use:
+
+```sh
+fvm dart build cli -t example/render_graph.dart -o build/graph
+build/graph/bundle/bin/render_graph /tmp/native-graph.png
+```
+
+Distribute the whole `bundle` directory. `dart compile exe` alone does not run
+the native build hook or package its library.
 
 The example renders a red box and prints the centre pixel. GPU tests require a
 compatible device. In PowerShell, set `$env:RUN_NATIVE_GPU = '1'` before running
@@ -38,8 +49,11 @@ releases its scopes and scene references; the last view closes the worker.
 Use `TextureImage.rgba` and `TextureMap` for color textures, UV selection,
 wrap/filter settings and supplied or native-generated mip levels. Set
 `generateMipmaps: true` to build a full chain in linear light on the GPU. `NativeImageDecoder` decodes PNG
-and JPEG on a CPU isolate with bounded admission. Dynamic geometry uploads
-merged attribute ranges while preserving captures held by other views.
+and JPEG on a CPU isolate with bounded admission. For linear float pixels, use
+`NativeHdrImageDecoder` with `HdrImageLoader`. See the
+[HDR asset API](../../docs/design/hdr-assets.md) for limits and upload examples.
+Dynamic geometry uploads merged attribute ranges while preserving captures held
+by other views.
 
 `NativeBufferDecoder` decodes meshopt attributes and indices on a CPU isolate.
 It supports octahedral, quaternion and exponential filters. You can lower its
@@ -59,8 +73,10 @@ alpha and linear/sRGB metadata. You can lower `ImageDecodeLimits` for all mip
 bytes, dimensions and estimated workspace. Two calls may run per Dart isolate;
 native workspace admission is shared with PNG/JPEG decoding. Array, cube, video,
 HDR, custom swizzle and nonstandard orientation textures are outside this
-profile. GPU uploads use RGBA8, so source compression saves transfer bytes but
-does not reduce GPU texture storage. Allocation estimates are not an RSS cap.
+profile. The default decoder produces RGBA8. Use
+`NativeTextureDecoder.forDevice(backend.capabilities)` to retain ASTC, BC7 or ETC2
+blocks when the device supports them. Compressed uploads and mip tails remain
+compressed in GPU storage. Allocation estimates are not an RSS cap.
 
 Worker requests carry a generation and a monotonic request ID. Worker exit or
 error settles every pending request. Stale and duplicate replies are ignored.
@@ -97,10 +113,24 @@ for the API and limits.
 Use `createGraphCompiler()` to execute compute and procedural render passes with
 typed buffer, texture and sampler bindings. Failed edits preserve the active
 graph, and uniform updates reuse its pipelines. The
-[render graph guide](https://xraph.com/docs/zyren/shaders) covers ownership,
-dependencies and limits. The example saves a native compute-to-render heatmap
-as a PNG. The [shader guide](https://xraph.com/docs/zyren/shaders) also covers
-custom mesh materials and screen effects.
+[render graph guide](../../docs/design/render-graphs.md) covers ownership,
+dependencies and limits. Plugins can use attachment-owned `context.resources`,
+`context.shaders` and `context.graphs` without a native backend reference.
+The example saves a native compute-to-render heatmap
+as a PNG. Use `GraphDescription.sceneColor` and `output` with a scene submission
+to process scene pixels on the GPU before native presentation. Plugins select the
+compiled graph through an attachment-owned `context.frameGraph` binding, or use
+`context.graph` to compose plugin contributions with shared resize and history
+management. Both custom mesh material APIs share the same GPU resource owner.
+
+Native platform adapters can use `NativeGpuServices.withTransport` to reuse the
+resource, shader and graph codecs with their existing renderer queue. The Metal
+and Android Flutter presenters use this path. `NativeGpuBackend` provides their
+common graph backend and accounting contract; application plugins still use
+`PluginContext` and public core types.
+
+The [shader guide](https://xraph.com/docs/zyren/shaders) covers custom mesh
+materials and screen effects.
 
 Screen effects can write auxiliary storage textures from their fragment stage.
 Use `TextureBinding.storage` in user groups 1-3, then sample the texture in a later

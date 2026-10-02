@@ -36,7 +36,16 @@ impl GraphStore {
             ));
         }
         self.registry.check_capacity(bytes)?;
+        if description.scene_pass_index > description.passes.len()
+            || (description.scene_pass_index > 0 && description.scene_color.is_none())
+        {
+            return Err(GraphError::new(
+                "invalidDescriptor",
+                "Invalid scene pass boundary",
+            ));
+        }
         self.cache.retain(|_, value| value.strong_count() > 0);
+        let frame = self.prepare_frame(resources, &description)?;
         let result = self.prepare(device, resources, shaders, &description);
         self.cache.retain(|_, value| value.strong_count() > 0);
         let (passes, resource_keys, shader_keys) = result?;
@@ -46,9 +55,12 @@ impl GraphStore {
             return Err(error.into());
         }
         let graph = Arc::new(ScopedGraph {
+            scene_pass_index: description.scene_pass_index,
             passes,
             resources: resource_keys.clone(),
             shaders: shader_keys.clone(),
+            frame,
+            scene_resource: description.scene_color.map(key),
         });
         match self.registry.insert(graph, bytes) {
             Ok(key) => Ok(super::key_value(key)),
@@ -91,7 +103,12 @@ impl GraphStore {
         let mut names = HashSet::new();
         let mut passes = Vec::new();
         let mut shader_keys = HashSet::new();
-        for pass in &description.passes {
+        for (index, pass) in description.passes.iter().enumerate() {
+            if index == description.scene_pass_index
+                && let Some(scene) = description.scene_color
+            {
+                initialized.insert(scene);
+            }
             if pass.screen_target.is_some()
                 || pass.screen_stage.is_some()
                 || pass.screen_space.is_some()
@@ -276,6 +293,16 @@ impl GraphStore {
                         "Pass references resource absent from table",
                     ));
                 }
+                if index < description.scene_pass_index
+                    && description.scene_color.is_some_and(|scene| {
+                        bindings.reads.contains(&scene) || bindings.writes.contains(&scene)
+                    })
+                {
+                    return Err(GraphError::new(
+                        "invalidDescriptor",
+                        "Before-scene passes cannot access scene color",
+                    ));
+                }
                 if let Some(missing) = bindings.reads.difference(&initialized).next() {
                     let mut error = GraphError::new(
                         "uninitializedRead",
@@ -400,13 +427,26 @@ impl GraphStore {
             }
             passes.push(prepared.1);
         }
+        if description.scene_pass_index == description.passes.len()
+            && let Some(scene) = description.scene_color
+        {
+            initialized.insert(scene);
+        }
+        if let Some(output) = description.output
+            && !initialized.contains(&output)
+        {
+            return Err(GraphError::new(
+                "uninitializedRead",
+                "Frame output is uninitialized or discarded",
+            ));
+        }
         let mut resource_keys: Vec<_> = declared_resources.into_iter().map(key).collect();
         resource_keys.sort_by_key(|k| (k.renderer, k.device_generation, k.slot, k.slot_generation));
         Ok((passes, resource_keys, shader_keys.into_iter().collect()))
     }
 }
 
-fn check_entry(
+pub(super) fn check_entry(
     shader: &crate::shaders::CompiledShader,
     name: &str,
     stage: &str,

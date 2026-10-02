@@ -1,7 +1,10 @@
 pub mod compression;
+pub mod deformation;
 pub mod draco;
 pub mod geometry_update;
+pub mod instances;
 pub mod interop;
+pub mod lighting;
 pub mod render_graph;
 pub mod renderer;
 pub mod resources;
@@ -9,6 +12,9 @@ mod retirement;
 pub mod scene;
 pub mod scene_packet;
 pub mod shaders;
+pub mod shadows;
+pub mod tangents;
+pub mod temporal;
 
 use std::{
     cell::RefCell,

@@ -50,3 +50,8 @@ abstract interface class KeyboardInputSource implements InputSource {
   Stream<SceneKeyEvent> get keyEvents;
   Registration registerKeys(Set<SceneKey> keys);
 }
+
+extension ViewportLogicalExtent on ViewportInputSource {
+  double get logicalWidth => viewport.width;
+  double get logicalHeight => viewport.height;
+}

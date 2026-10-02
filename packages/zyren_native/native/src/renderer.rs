@@ -1,3 +1,5 @@
+mod area_lights;
+mod environment;
 use std::{
     collections::{HashMap, HashSet},
     sync::mpsc,
@@ -9,18 +11,23 @@ use glam::Mat4;
 use wgpu::util::DeviceExt;
 
 use crate::scene::{Frame, pixel_len};
+mod composition;
+mod deformation;
 mod draw_order;
 pub(crate) mod effects;
-mod environment;
-pub(crate) mod gpu_diagnostics;
 pub(crate) mod gpu_memory;
 mod instances;
-mod lighting;
+mod materials;
 mod multisample;
 mod outlines;
-pub(crate) mod pipelines;
+mod physical_maps;
+mod pipelines;
 mod shadows;
+mod temporal;
 mod textures;
+mod timing;
+mod transmission;
+pub use shadows::ShadowStats;
 
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
@@ -34,22 +41,24 @@ struct Uniforms {
     model: [f32; 16],
     primitive: [f32; 4],
     viewport: [f32; 4],
-    inverse_view_projection: [f32; 16],
+    pbr_params: [f32; 4],
+    emissive: [f32; 4],
+    pbr_maps: [u32; 4],
+    pbr_factors: [f32; 4],
+    physical: [[f32; 4]; 4],
+    transmission: [[f32; 4]; 2],
+    optical: [[f32; 4]; 2],
+    capture_projection: [f32; 16],
     clipping_planes: [[f32; 4]; 6],
     clipping: [f32; 4],
-}
-
-fn section_planes(mesh: &crate::scene::Mesh) -> [[f32; 4]; 6] {
-    let mut planes = [[0.; 4]; 6];
-    planes[..mesh.clipping_planes.len()].copy_from_slice(&mesh.clipping_planes);
-    planes
+    inverse_view_projection: [f32; 16],
 }
 
 struct GpuGeometry {
+    deformation_bounds: crate::deformation::SourceBounds,
     key: crate::resources::registry::ResourceKey,
     recipe: std::sync::Arc<crate::scene::Geometry>,
     center: glam::Vec3,
-    bounds: [glam::Vec3; 2],
 }
 struct Targets {
     width: u32,
@@ -77,6 +86,7 @@ struct DepthTarget {
 
 struct Submission {
     index: wgpu::SubmissionIndex,
+    timing: Option<timing::Pending>,
     #[cfg(target_vendor = "apple")]
     metal: Option<crate::interop::metal::MetalCompletion>,
 }
@@ -100,17 +110,15 @@ pub struct RendererState {
     #[cfg(target_os = "android")]
     pub(crate) android_generation: u64,
     pipelines: pipelines::MeshPipelines,
+    compositor: composition::Compositor,
     effects: effects::Effects,
-    outlines: outlines::Outlines,
     supports_msaa4: bool,
+    outlines: outlines::Outlines,
+    outline_materials: Vec<Option<crate::render_graph::PreparedMaterial>>,
+    effect_resources: Vec<crate::resources::registry::ResourceKey>,
+    instance_uploaded_bytes: u64,
     texture_layout: wgpu::BindGroupLayout,
-    pbr_layout: wgpu::BindGroupLayout,
-    pbr_texture_layout: wgpu::BindGroupLayout,
-    pbr_white: wgpu::Texture,
-    environment: environment::Environment,
-    shadows: shadows::Shadows,
-    instances: instances::Instances,
-    environment_keys: Vec<crate::resources::registry::ResourceKey>,
+    standard_texture_layout: wgpu::BindGroupLayout,
     textures: HashMap<u32, textures::GpuSceneTexture>,
     #[cfg(any(target_vendor = "apple", target_os = "android"))]
     surface_depth: Option<DepthTarget>,
@@ -120,15 +128,28 @@ pub struct RendererState {
     pub(crate) drawable_owner: Option<crate::interop::metal::DrawableOwner>,
     pub(crate) failure: Option<String>,
     counters: RenderCounters,
+    last_scene_draws: std::cell::Cell<u64>,
+    last_instance_draws: std::cell::Cell<u64>,
     last_gpu_time_ns: Option<u64>,
-    gpu_timer: Option<gpu_diagnostics::GpuTimer>,
+    diagnostic_readback_bytes: u64,
+    gpu_time_source: &'static str,
+    gpu_timer: Option<timing::Timer>,
     layout: wgpu::BindGroupLayout,
+    pbr_layout: wgpu::BindGroupLayout,
+    environment_defaults: environment::Defaults,
+    area_tables: area_lights::Tables,
+    shadows: shadows::ShadowSystem,
     geometries: HashMap<u32, GpuGeometry>,
+    instances: HashMap<u32, instances::GpuInstances>,
+    poses: HashMap<u32, deformation::GpuPose>,
+    deformation_layout: wgpu::BindGroupLayout,
     resources: crate::resources::ResourceStore,
     shaders: crate::shaders::ShaderStore,
     graphs: crate::render_graph::GraphStore,
     views: HashMap<u64, crate::scene_packet::ViewState>,
     targets: Option<Targets>,
+    temporal: temporal::System,
+    transmission: transmission::System,
     pub adapter_name: String,
     pub backend: wgpu::Backend,
     _permit: crate::retirement::DevicePermit,
@@ -184,9 +205,9 @@ impl Renderer {
             .await
             .map_err(|e| format!("no Metal, Vulkan or DX12 adapter: {e}"))?;
         let supports_msaa4 = [
-            effects::HDR,
-            outlines::FORMAT,
+            wgpu::TextureFormat::Rgba16Float,
             wgpu::TextureFormat::Depth32Float,
+            outlines::FORMAT,
         ]
         .iter()
         .all(|format| {
@@ -196,21 +217,20 @@ impl Renderer {
                 .contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X4)
         });
         let info = adapter.get_info();
-        let timestamp_features =
-            wgpu::Features::TIMESTAMP_QUERY | wgpu::Features::TIMESTAMP_QUERY_INSIDE_ENCODERS;
-        let required_features = if info.backend != wgpu::Backend::Metal
-            && adapter.features().contains(timestamp_features)
-        {
-            timestamp_features
-        } else {
-            wgpu::Features::empty()
-        };
         let (device, queue) = adapter
             .request_device(&wgpu::DeviceDescriptor {
                 label: Some("flutter_zyren"),
-                required_features,
+                required_features: (adapter.features()
+                    & (wgpu::Features::TEXTURE_COMPRESSION_BC
+                        | wgpu::Features::TEXTURE_COMPRESSION_ETC2
+                        | wgpu::Features::TEXTURE_COMPRESSION_ASTC))
+                    | timing::features(adapter.features(), info.backend),
                 required_limits: wgpu::Limits {
                     max_texture_dimension_2d: crate::scene::MAX_DIMENSION,
+                    max_sampled_textures_per_shader_stage: adapter
+                        .limits()
+                        .max_sampled_textures_per_shader_stage
+                        .min(32),
                     ..wgpu::Limits::downlevel_defaults()
                 },
                 ..Default::default()
@@ -225,27 +245,66 @@ impl Renderer {
                 ty: wgpu::BindingType::Buffer {
                     ty: wgpu::BufferBindingType::Uniform,
                     has_dynamic_offset: false,
-                    min_binding_size: None,
+                    min_binding_size: wgpu::BufferSize::new(std::mem::size_of::<Uniforms>() as u64),
                 },
                 count: None,
             }],
         });
-        let texture_layout = textures::layout(&device);
-        let pbr_layout = lighting::layout(&device);
-        let pbr_texture_layout = textures::pbr_layout(&device);
-        let pbr_white = textures::white(&device, &queue);
-        let environment = environment::Environment::new(&device);
-        let shadows = shadows::Shadows::new(&device, &texture_layout);
+        let pbr_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("standard material frame"),
+            entries: &[
+                vec![
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: wgpu::BufferSize::new(
+                                std::mem::size_of::<Uniforms>() as u64,
+                            ),
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: wgpu::BufferSize::new(std::mem::size_of::<
+                                crate::lighting::LightingUniform,
+                            >()
+                                as u64),
+                        },
+                        count: None,
+                    },
+                ],
+                environment::layout_entries(),
+                shadows::layout_entries(),
+                area_lights::layout_entries(),
+                transmission::layout_entries(),
+            ]
+            .concat(),
+        });
+        let environment_defaults = environment::Defaults::new(&device);
+        let area_tables = area_lights::Tables::new(&device, &queue);
+        let transmission = transmission::System::new(&device);
+        let texture_layout = textures::layout(&device, 1);
+        let standard_texture_layout = textures::layout(&device, 5);
+        let deformation_layout = deformation::layout(&device);
+        let shadows = shadows::ShadowSystem::new(&device, &texture_layout, &deformation_layout);
         let pipelines = pipelines::MeshPipelines::new(
             &device,
             &layout,
-            &texture_layout,
             &pbr_layout,
-            &pbr_texture_layout,
-            &environment.layout,
+            &texture_layout,
+            &standard_texture_layout,
+            &deformation_layout,
         );
         Ok(Self {
             state: Some(Box::new(RendererState {
+                gpu_timer: timing::Timer::new(&device, &queue),
                 device,
                 queue,
                 #[cfg(target_os = "android")]
@@ -257,15 +316,19 @@ impl Renderer {
                 #[cfg(target_os = "android")]
                 android_generation: 0,
                 pipelines,
+                compositor: composition::Compositor::default(),
                 effects: effects::Effects::default(),
+                supports_msaa4,
                 outlines: outlines::Outlines::default(),
+                outline_materials: vec![],
+                effect_resources: vec![],
+                instance_uploaded_bytes: 0,
                 texture_layout,
+                standard_texture_layout,
                 pbr_layout,
-                pbr_texture_layout,
-                pbr_white,
-                environment,
+                environment_defaults,
+                area_tables,
                 shadows,
-                environment_keys: vec![],
                 textures: HashMap::new(),
                 #[cfg(any(target_vendor = "apple", target_os = "android"))]
                 surface_depth: None,
@@ -275,17 +338,23 @@ impl Renderer {
                 drawable_owner: None,
                 failure: None,
                 last_gpu_time_ns: None,
-                gpu_timer: None,
+                diagnostic_readback_bytes: 0,
+                gpu_time_source: "unavailable",
                 counters: RenderCounters::default(),
+                last_scene_draws: std::cell::Cell::new(0),
+                last_instance_draws: std::cell::Cell::new(0),
                 layout,
                 geometries: HashMap::new(),
+                instances: HashMap::new(),
+                poses: HashMap::new(),
+                deformation_layout,
                 resources: crate::resources::ResourceStore::default(),
                 shaders: crate::shaders::ShaderStore::default(),
                 graphs: crate::render_graph::GraphStore::default(),
-                instances: instances::Instances::default(),
-                supports_msaa4,
                 views: HashMap::new(),
                 targets: None,
+                temporal: temporal::System::default(),
+                transmission,
                 adapter_name: info.name,
                 backend: info.backend,
                 _permit: permit,
@@ -330,9 +399,17 @@ impl Renderer {
     }
 
     pub fn graph_command(&mut self, bytes: &[u8], capacity: usize) -> Result<Vec<u8>, String> {
+        let shadow_stats = self.shadow_stats();
+        let temporal_stats = self.temporal_stats();
+        let transmission_bytes = self.transmission.bytes();
         let state = self.state.as_mut().unwrap();
-        let result = state.graphs.command(
+        state.graphs.command(
             crate::render_graph::GraphContext {
+                shadow_stats,
+                temporal_stats,
+                transmission_bytes,
+                mesh_layout: &state.layout,
+                deformation_layout: &state.deformation_layout,
                 device: &state.device,
                 queue: &state.queue,
                 resources: &mut state.resources,
@@ -340,21 +417,20 @@ impl Renderer {
                 failure: &mut state.failure,
                 engine_layout: &state.layout,
                 target_bytes: state.effects.bytes() + state.outlines.bytes(),
-                shadow_bytes: state.shadows.bytes(),
-                shadow_passes: state.shadows.passes,
-                instance_bytes: state.instances.bytes(),
-                instance_uploaded_bytes: state.instances.uploaded_bytes,
-                instance_draw_calls: state.instances.draws(),
+                shadow_bytes: shadow_stats.resident_bytes,
+                shadow_passes: shadow_stats.rendered_views,
+                instance_bytes: state.instances.values().map(|i| i.recipe.byte_length() as u64).sum(),
+                instance_uploaded_bytes: state.instance_uploaded_bytes,
+                instance_draw_calls: state.last_instance_draws.get() as usize,
                 last_gpu_time_ns: state.last_gpu_time_ns,
-                gpu_timer: &mut state.gpu_timer,
+                gpu_time_source: state.gpu_time_source,
+                diagnostic_readback_bytes: state.diagnostic_readback_bytes,
                 submitted_frames: state.counters.submitted_frames,
-                device_info: serde_json::json!({"backend":format!("{:?}",state.backend),"adapterName":state.adapter_name,"sampleCounts":if state.supports_msaa4 {vec![1,4]} else {vec![1]}}),
+                device_info: serde_json::json!({"backend":format!("{:?}",state.backend),"adapterName":state.adapter_name,"sampleCounts":if state.supports_msaa4 {vec![1,4]} else {vec![1]}, "gpuTimestampQueries":state.gpu_timer.is_some(), "gpuTimestampBufferBytes":if state.gpu_timer.is_some() {32} else {0}}),
             },
             bytes,
             capacity,
-        );
-        state.pipelines.retire_materials(&state.graphs.materials);
-        result
+        )
     }
 
     fn resize(&mut self, width: u32, height: u32) {
@@ -415,6 +491,24 @@ impl Renderer {
     }
 
     pub fn decode_scene(&self, bytes: &[u8]) -> Result<Frame, String> {
+        if let Some(failure) = &self.failure {
+            return Err(failure.clone());
+        }
+        let (bytes, graph, materials, environment) =
+            crate::render_graph::decode_frame_packet(bytes)?;
+        let mut frame = self.decode_plain_scene(bytes)?;
+        frame.graph = graph;
+        frame.environment = environment;
+        for (index, key) in materials {
+            frame
+                .meshes
+                .get_mut(index as usize)
+                .ok_or("Mesh shader index is outside scene")?
+                .shader = Some(key);
+        }
+        Ok(frame)
+    }
+    fn decode_plain_scene(&self, bytes: &[u8]) -> Result<Frame, String> {
         if bytes.starts_with(&2_u32.to_le_bytes()) {
             let packet = crate::scene_packet::ScenePacket::decode(bytes)?;
             let previous = self.views.get(&packet.view());
@@ -431,10 +525,40 @@ impl Renderer {
                     .ok_or("geometry patch CPU budget exceeded")?;
                 frame.geometries.push(patch.apply(&base.recipe)?);
             }
+            bytes += frame
+                .instances
+                .iter()
+                .map(|i| i.transforms.len() * 64)
+                .sum::<usize>();
+            for patch in &frame.instance_patches {
+                let base = self
+                    .instances
+                    .get(&patch.base)
+                    .ok_or("instance patch base is not resident")?;
+                if !previous.is_some_and(|v| v.retained_instances.contains(&patch.base)) {
+                    return Err("instance patch base is not owned by its view".into());
+                }
+                bytes += base.recipe.transforms.len() * 64;
+                if bytes > 64 * 1024 * 1024 {
+                    return Err("instance patch CPU budget exceeded".into());
+                }
+                frame.instances.push(patch.apply(&base.recipe)?);
+            }
+            if bytes > 64 * 1024 * 1024 {
+                return Err("scene CPU budget exceeded".into());
+            }
             Ok(frame)
         } else {
-            serde_json::from_slice(bytes).map_err(|error| format!("invalid scene: {error}"))
+            let mut frame: Frame =
+                serde_json::from_slice(bytes).map_err(|error| format!("invalid scene: {error}"))?;
+            for mesh in &mut frame.meshes {
+                mesh.reversed_depth = frame.settings.reversed_depth();
+            }
+            Ok(frame)
         }
+    }
+    pub fn scene_draw_stats(&self) -> (u64, usize) {
+        (self.last_scene_draws.get(), self.pipelines.len())
     }
     pub fn scene_resource_stats(&self) -> (u64, u64) {
         self.resources.stats()
@@ -444,7 +568,8 @@ impl Renderer {
         self.effects.remove(view);
         self.outlines.remove(view);
         self.shadows.remove(view);
-        self.instances.remove(view);
+        self.temporal.remove(view);
+        self.transmission.remove(view);
         self.evict_geometry()
     }
     fn evict_geometry(&mut self) -> Result<(), String> {
@@ -466,6 +591,8 @@ impl Renderer {
                 .map_err(|e| e.to_string())?;
         }
         self.evict_textures()?;
+        self.evict_instances()?;
+        self.evict_poses()?;
         let state = self.state.as_mut().unwrap();
         state.resources.collect(&state.device).map_err(|e| {
             state.failure = Some(e.to_string());
@@ -508,14 +635,6 @@ impl Renderer {
             }
         }
         frame.validate(&cached)?;
-        self.shadows.admit(frame)?;
-        self.instances.admit(frame)?;
-        self.environment.textures(frame, &self.resources)?;
-        self.environment_keys = frame
-            .settings
-            .environment
-            .as_ref()
-            .map_or(vec![], |e| e.keys.map(environment::key).to_vec());
         for mesh in &frame.meshes {
             let geometry = frame
                 .geometries
@@ -532,24 +651,34 @@ impl Renderer {
                 1 | 2 => 1,
                 _ => 2,
             };
+            if mesh.vertex_colors && (geometry.colors.is_empty() || mesh.shader.is_some()) {
+                return Err("Vertex colors require a color attribute and built-in material".into());
+            }
             if kind != mesh.primitive_kind {
                 return Err("material and geometry topology mismatch".into());
             }
-            if let Some(key) = mesh.shader {
-                let material = self
-                    .graphs
-                    .materials
-                    .resolve(key)
-                    .map_err(|e| e.to_string())?;
-                if material.screen_pipeline.is_some() {
-                    return Err("Mesh cannot use a screen shader".into());
-                }
-                if material.requires_uv && geometry.uv0.is_empty() && geometry.uv1.is_empty() {
-                    return Err("Material shader requires UV attributes".into());
+        }
+        let (pose_bytes, pose_count) = self.validate_poses(frame)?;
+        for mesh in &frame.meshes {
+            if mesh.anisotropic() {
+                let geometry = frame
+                    .geometries
+                    .iter()
+                    .find(|g| g.id == mesh.geometry)
+                    .or_else(|| {
+                        self.geometries
+                            .get(&mesh.geometry)
+                            .map(|g| g.recipe.as_ref())
+                    })
+                    .ok_or("missing anisotropic geometry")?;
+                if geometry.tangents.is_empty() {
+                    return Err("anisotropy requires geometry tangents".into());
                 }
             }
         }
         let (texture_bytes, texture_count) = self.validate_textures(frame)?;
+        let (reusable_instances, instance_bytes, instance_count) =
+            self.validate_instances(frame)?;
         let reusable: HashMap<u32, u32> = frame
             .geometry_patches
             .iter()
@@ -580,7 +709,7 @@ impl Renderer {
             .sum();
         self.resources
             .check_scene_capacity(
-                (bytes + texture_bytes) as u64,
+                (bytes + texture_bytes + instance_bytes + pose_bytes) as u64,
                 frame
                     .geometries
                     .iter()
@@ -588,7 +717,9 @@ impl Renderer {
                         !self.geometries.contains_key(&g.id) && !reusable.contains_key(&g.id)
                     })
                     .count()
-                    + texture_count,
+                    + texture_count
+                    + instance_count
+                    + pose_count,
             )
             .map_err(|e| e.to_string())?;
         // Preflight all CPU validation before any existing ownership changes.
@@ -616,23 +747,20 @@ impl Renderer {
                 if let Some(base) = reusable.get(&geometry.id) {
                     state.geometries.remove(base);
                 }
-                let bounds = draw_order::geometry_bounds(geometry);
                 state.geometries.insert(
                     geometry.id,
                     GpuGeometry {
                         key,
                         recipe: std::sync::Arc::new(geometry.clone()),
-                        center: bounds[0] * 0.5 + bounds[1] * 0.5,
-                        bounds,
+                        center: draw_order::geometry_center(geometry),
+                        deformation_bounds: crate::deformation::SourceBounds::new(geometry),
                     },
                 );
             }
         }
         self.upload_textures(frame)?;
-        let state = self.state.as_mut().unwrap();
-        state
-            .instances
-            .prepare(&state.device, &state.queue, frame, &state.geometries)?;
+        self.upload_instances(frame, &reusable_instances)?;
+        self.upload_poses(frame)?;
         let state = frame
             .binary
             .clone()
@@ -641,10 +769,12 @@ impl Renderer {
                 revision: 0,
                 retained: frame.meshes.iter().map(|m| m.geometry).collect(),
                 meshes: Vec::new(),
+                retained_instances: HashSet::new(),
+                retained_poses: HashSet::new(),
                 retained_textures: frame
                     .meshes
                     .iter()
-                    .flat_map(|m| m.material_maps().map(|map| map.texture))
+                    .flat_map(|m| m.texture_maps().map(|map| map.texture))
                     .collect(),
             });
         self.views.insert(view, state);
@@ -656,137 +786,295 @@ impl Renderer {
         frame: &Frame,
         format: wgpu::TextureFormat,
     ) -> Result<(), String> {
-        self.prepare_shadows(frame)?;
         let state = self.state.as_mut().unwrap();
-        state.pipelines.prepare(
-            &state.device,
-            frame,
-            format,
-            &state.graphs.materials,
-            &state.geometries,
-        )
+        if state.outlines.view(frame).is_some() {
+            state.pipelines.prepare(
+                &state.device,
+                frame,
+                outlines::FORMAT,
+                |id| !state.geometries[&id].recipe.tangents.is_empty(),
+                frame.sample_count(),
+                true,
+            )?;
+        }
+        let geometries = &state.geometries;
+        for samples in if state.transmission.targets.is_some() && frame.sample_count() != 1 {
+            vec![1, frame.sample_count()]
+        } else {
+            vec![frame.sample_count()]
+        } {
+            state
+                .pipelines
+                .prepare(
+                    &state.device,
+                    frame,
+                    format,
+                    |id| !geometries[&id].recipe.tangents.is_empty(),
+                    samples,
+                    false,
+                )
+                .inspect_err(|error| state.failure = Some(error.clone()))?;
+        }
+        Ok(())
     }
 
     fn encode_scene(
         &self,
         frame: &Frame,
-        color_view: &wgpu::TextureView,
-        depth_view: &wgpu::TextureView,
+        attachments: (
+            &wgpu::TextureView,
+            Option<&wgpu::TextureView>,
+            &wgpu::TextureView,
+        ),
         format: wgpu::TextureFormat,
         size: [u32; 2],
-        resolve: Option<&wgpu::TextureView>,
+        composition: (
+            &[Option<crate::render_graph::PreparedMaterial>],
+            Option<&crate::render_graph::FrameGraph>,
+            &environment::PreparedEnvironment,
+            &shadows::PreparedShadows,
+        ),
     ) -> wgpu::CommandEncoder {
-        let vp = Mat4::from_cols_array(&frame.view_projection);
-        let bindings: Vec<_> = frame
-            .meshes
-            .iter()
-            .map(|mesh| {
-                let model = Mat4::from_cols_array(&mesh.model);
-                let uniforms = Uniforms {
-                    inverse_view_projection: vp.inverse().to_cols_array(),
-                    clipping_planes: section_planes(mesh),
-                    clipping: [
-                        mesh.clipping_planes.len() as f32,
-                        mesh.coverage[0],
-                        mesh.coverage[1],
-                        0.,
-                    ],
-                    mvp: (vp * model).to_cols_array(),
-                    normal_matrix: model.inverse().transpose().to_cols_array(),
-                    color_unlit: [
-                        mesh.color[0],
-                        mesh.color[1],
-                        mesh.color[2],
-                        if mesh.unlit { 1.0 } else { 0.0 },
-                    ],
-                    light_ambient: [
-                        frame.light_direction[0],
-                        frame.light_direction[1],
-                        frame.light_direction[2],
-                        frame.ambient,
-                    ],
-                    view_projection: frame.view_projection,
-                    model: mesh.model,
-                    primitive: [
-                        mesh.primitive_size,
-                        mesh.size_units as f32,
-                        mesh.point_shape as f32,
-                        0.,
-                    ],
-                    viewport: [size[0] as f32, size[1] as f32, 0., 0.],
-                    map_params: [
-                        mesh.color_map.as_ref().map_or(0., |map| map.uv_set as f32),
-                        mesh.opacity,
-                        mesh.alpha_cutoff,
-                        mesh.alpha_mode as f32,
-                    ],
-                };
-                let buffer = self
-                    .device
-                    .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                        label: None,
-                        contents: bytemuck::bytes_of(&uniforms),
-                        usage: wgpu::BufferUsages::UNIFORM,
-                    });
-                self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-                    label: None,
-                    layout: &self.layout,
-                    entries: &[wgpu::BindGroupEntry {
+        let (color_view, resolve_target, depth_view) = attachments;
+        let (materials, graph, environment, shadows) = composition;
+        let vp = Mat4::from_cols_array(&self.temporal.vp(frame));
+        let lighting = frame.meshes.iter().any(|m| m.pbr.is_some()).then(|| {
+            self.device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("punctual lights"),
+                    contents: bytemuck::bytes_of(&crate::lighting::LightingUniform::capture(
+                        &frame.lights,
+                        &frame.hemispheres,
+                        &frame.areas,
+                    )),
+                    usage: wgpu::BufferUsages::UNIFORM,
+                })
+        });
+        let make_bindings = |capture: bool| -> Vec<_> {
+            frame
+                .meshes
+                .iter()
+                .map(|mesh| {
+                    let model = Mat4::from_cols_array(&mesh.model);
+                    let mut pbr_maps = [0; 4];
+                    if let Some(pbr) = &mesh.pbr {
+                        for (i, map) in [
+                            mesh.color_map.as_ref(),
+                            pbr.normal_map.as_ref(),
+                            pbr.metallic_roughness_map.as_ref(),
+                            pbr.occlusion_map.as_ref(),
+                            pbr.emissive_map.as_ref(),
+                        ]
+                        .into_iter()
+                        .enumerate()
+                        {
+                            if let Some(map) = map {
+                                pbr_maps[0] |= 1 << i;
+                                pbr_maps[1] |= map.uv_set << i;
+                            }
+                        }
+                    }
+                    if let Some(pbr) = &mesh.pbr {
+                        for (i, map) in pbr.physical_maps.iter().enumerate() {
+                            if let Some(map) = map {
+                                pbr_maps[3] |= map.uv_set << i;
+                            }
+                        }
+                    }
+                    let uniforms = Uniforms {
+                        transmission: {
+                            let t = mesh.pbr.as_ref().map_or([0.; 8], |p| p.transmission);
+                            [t[..4].try_into().unwrap(), t[4..].try_into().unwrap()]
+                        },
+                        optical: {
+                            let o = mesh.pbr.as_ref().map_or([0.; 8], |p| p.optical);
+                            [o[..4].try_into().unwrap(), o[4..].try_into().unwrap()]
+                        },
+                        capture_projection: vp.to_cols_array(),
+                        inverse_view_projection: vp.inverse().to_cols_array(),
+                        clipping_planes: section_planes(mesh),
+                        clipping: [
+                            mesh.clipping_planes.len() as f32,
+                            mesh.coverage[0],
+                            mesh.coverage[1],
+                            if mesh.reversed_depth { 1. } else { 0. },
+                        ],
+                        physical: {
+                            let p = mesh.pbr.as_ref().and_then(|p| p.physical).unwrap_or([
+                                1.5, 1., 0., 0., 1., 1., 1., 1., 0., 0., 0., 0., 0., 0., 0., 0.,
+                            ]);
+                            [
+                                p[0..4].try_into().unwrap(),
+                                p[4..8].try_into().unwrap(),
+                                p[8..12].try_into().unwrap(),
+                                p[12..16].try_into().unwrap(),
+                            ]
+                        },
+                        pbr_maps,
+                        pbr_factors: mesh.pbr.as_ref().map_or([0.; 4], |p| {
+                            [
+                                p.normal_scale,
+                                p.occlusion_strength,
+                                model.determinant().signum(),
+                                p.normal_scale_y,
+                            ]
+                        }),
+                        pbr_params: mesh.pbr.as_ref().map_or([0.; 4], |p| {
+                            [
+                                p.metallic,
+                                p.roughness,
+                                if mesh.receive_shadow { 1. } else { 0. },
+                                0.,
+                            ]
+                        }),
+                        emissive: mesh.pbr.as_ref().map_or([0.; 4], |p| {
+                            [p.emissive[0], p.emissive[1], p.emissive[2], 0.]
+                        }),
+                        mvp: (vp * model).to_cols_array(),
+                        normal_matrix: model.inverse().transpose().to_cols_array(),
+                        color_unlit: [
+                            mesh.color[0],
+                            mesh.color[1],
+                            mesh.color[2],
+                            if mesh.unlit { 1.0 } else { 0.0 },
+                        ],
+                        light_ambient: [
+                            frame.light_direction[0],
+                            frame.light_direction[1],
+                            frame.light_direction[2],
+                            frame.ambient,
+                        ],
+                        view_projection: frame.view_projection,
+                        model: mesh.model,
+                        primitive: [
+                            mesh.primitive_size,
+                            mesh.size_units as f32,
+                            mesh.point_shape as f32,
+                            0.,
+                        ],
+                        viewport: [
+                            size[0] as f32,
+                            size[1] as f32,
+                            if mesh.instances != 0 {
+                                mesh.side as f32
+                            } else {
+                                0.
+                            },
+                            0.,
+                        ],
+                        map_params: [
+                            mesh.color_map.as_ref().map_or(0., |map| map.uv_set as f32),
+                            mesh.opacity,
+                            mesh.alpha_cutoff,
+                            mesh.alpha_mode as f32,
+                        ],
+                    };
+                    let buffer =
+                        self.device
+                            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                                label: None,
+                                contents: bytemuck::bytes_of(&uniforms),
+                                usage: wgpu::BufferUsages::UNIFORM,
+                            });
+                    let mut entries = vec![wgpu::BindGroupEntry {
                         binding: 0,
                         resource: buffer.as_entire_binding(),
-                    }],
+                    }];
+                    if mesh.pbr.is_some() {
+                        entries.push(wgpu::BindGroupEntry {
+                            binding: 1,
+                            resource: lighting.as_ref().unwrap().as_entire_binding(),
+                        });
+                        entries.extend(environment.entries(&self.environment_defaults));
+                        entries.extend(shadows.entries(&self.shadows));
+                        entries.extend(self.area_tables.entries());
+                        entries.extend(self.transmission.entries(capture));
+                    }
+                    self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+                        label: None,
+                        layout: if mesh.pbr.is_some() {
+                            &self.pbr_layout
+                        } else {
+                            &self.layout
+                        },
+                        entries: &entries,
+                    })
                 })
-            })
-            .collect();
-        let lighting = self.lighting_bindings(frame);
+                .collect()
+        };
+        let bindings = make_bindings(false);
+        let capture_bindings = self
+            .transmission
+            .targets
+            .as_ref()
+            .map(|_| make_bindings(true));
         let texture_bindings: Vec<_> = frame
             .meshes
             .iter()
-            .map(|mesh| {
-                if mesh.pbr.is_some() {
-                    Some(self.pbr_texture_binding(mesh))
-                } else {
-                    mesh.color_map.as_ref().map(|map| self.texture_binding(map))
-                }
-            })
+            .map(|mesh| self.texture_binding(mesh))
             .collect();
-        let environment_binding = frame.meshes.iter().any(|m| m.pbr.is_some()).then(|| {
-            self.environment
-                .binding(&self.device, frame, &self.resources)
-        });
+        let physical_bindings: Vec<_> = frame
+            .meshes
+            .iter()
+            .map(|mesh| self.physical_texture_binding(mesh))
+            .collect();
         let mut encoder = self.device.create_command_encoder(&Default::default());
         if let Some(timer) = &self.gpu_timer {
             timer.begin(&mut encoder);
         }
-        self.encode_shadows(frame, &mut encoder);
-        for mask in [false, true] {
-            let (color_view, resolve, format) = if mask {
-                let Some(view) = self.outlines.view(frame) else {
-                    continue;
-                };
+        if let Some(graph) = graph {
+            graph.encode_before(&mut encoder);
+        }
+        shadows.encode(self, frame, &mut encoder);
+        self.last_scene_draws.set(0);
+        self.last_instance_draws.set(0);
+        for (capture, mask) in [(true, false), (false, false), (false, true)] {
+            if mask && self.outlines.view(frame).is_none() {
+                continue;
+            }
+            if capture && self.transmission.targets.is_none() {
+                continue;
+            }
+            let (color_view, resolve_target, depth_view) = if capture {
+                let t = self.transmission.targets.as_ref().unwrap();
+                (&t.color, None, &t.depth)
+            } else {
+                (color_view, resolve_target, depth_view)
+            };
+            let (color_view, resolve_target, format) = if mask {
+                let view = self.outlines.view(frame).unwrap();
                 (view.attachment(), view.resolve(), outlines::FORMAT)
             } else {
-                (color_view, resolve, format)
+                (color_view, resolve_target, format)
             };
+            let bindings = if capture {
+                capture_bindings.as_ref().unwrap()
+            } else {
+                &bindings
+            };
+            let materials = if mask {
+                &self.outline_materials[..]
+            } else if capture {
+                &self.transmission.materials[..]
+            } else {
+                materials
+            };
+            let samples = if capture { 1 } else { frame.sample_count() };
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some(if mask {
-                    "selection coverage"
-                } else {
-                    "native frame"
-                }),
+                label: Some("native frame"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: color_view,
-                    resolve_target: resolve,
+                    resolve_target,
                     depth_slice: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(if mask {
                             wgpu::Color::TRANSPARENT
                         } else {
                             wgpu::Color {
-                                r: frame.background[0] * frame.settings.background_alpha as f64,
-                                g: frame.background[1] * frame.settings.background_alpha as f64,
-                                b: frame.background[2] * frame.settings.background_alpha as f64,
-                                a: frame.settings.background_alpha as f64,
+                                r: frame.background[0] * f64::from(frame.background_alpha),
+                                g: frame.background[1] * f64::from(frame.background_alpha),
+                                b: frame.background[2] * f64::from(frame.background_alpha),
+                                a: f64::from(frame.background_alpha),
                             }
                         }),
                         store: wgpu::StoreOp::Store,
@@ -800,105 +1088,185 @@ impl Renderer {
                         } else {
                             wgpu::LoadOp::Clear(frame.settings.depth_clear())
                         },
-                        store: wgpu::StoreOp::Store,
+                        store: if capture
+                            || frame.temporal.is_some()
+                            || frame.settings.enabled
+                            || self.outlines.view(frame).is_some()
+                        {
+                            wgpu::StoreOp::Store
+                        } else {
+                            wgpu::StoreOp::Discard
+                        },
                     }),
                     stencil_ops: None,
                 }),
                 ..Default::default()
             });
-            let instances = self.instances.view(frame);
-            for draw in &instances.draws {
+            let draws = draw_order::sorted(
+                frame,
+                |mesh| {
+                    if mesh.pose == 0 {
+                        self.geometries[&mesh.geometry].center
+                    } else {
+                        self.poses[&mesh.pose].center
+                    }
+                },
+                |id, index| {
+                    Mat4::from_cols_array(&self.instances[&id].recipe.transforms[index as usize])
+                },
+            );
+            for draw in draws {
+                if mask && !frame.meshes[draw.mesh].outlined {
+                    continue;
+                }
+                if capture
+                    && (frame.meshes[draw.mesh].transmissive()
+                        || frame.meshes[draw.mesh].alpha_mode == 2)
+                {
+                    continue;
+                }
+                self.last_scene_draws.set(self.last_scene_draws.get() + 1);
                 let index = draw.mesh;
                 let mesh = &frame.meshes[index];
-                if mask && !mesh.outlined {
-                    continue;
+                if mesh.instances != 0 {
+                    self.last_instance_draws
+                        .set(self.last_instance_draws.get() + 1);
                 }
                 let binding = &bindings[index];
                 let texture_binding = &texture_bindings[index];
                 let geometry = &self.geometries[&mesh.geometry];
-                pass.set_pipeline(
-                    self.pipelines.get(
-                        pipelines::PipelineKey::new(
-                            format,
-                            mesh,
-                            !geometry.recipe.tangents.is_empty(),
-                            frame.settings.sample_count,
-                            frame.settings.reversed_depth(),
-                        )
-                        .with_mirror(draw.mirrored)
-                        .with_mask(mask),
-                    ),
-                );
+                if let Some(material) = &materials[index] {
+                    material.bind(&mut pass);
+                } else {
+                    pass.set_pipeline(self.pipelines.get(pipelines::PipelineKey::new(
+                        format,
+                        mesh,
+                        !geometry.recipe.tangents.is_empty(),
+                        samples,
+                        mask,
+                    )));
+                }
                 pass.set_bind_group(0, binding, &[]);
-                let (vertices, indices, count, uv, index_format, tangents) =
+                if let Some(physical) = &physical_bindings[index] {
+                    pass.set_bind_group(3, physical, &[]);
+                }
+                let (vertices, indices, count, uv, index_format) =
                     self.resources.geometry(geometry.key);
                 pass.set_vertex_buffer(0, vertices.slice(..));
-                if let Some(binding) = texture_binding {
-                    if mesh.material_maps().next().is_some() {
-                        pass.set_vertex_buffer(1, uv.expect("validated UV buffer").slice(..));
-                    }
-                    pass.set_bind_group(if mesh.pbr.is_some() { 2 } else { 1 }, binding, &[]);
-                }
-                if mesh.pbr.is_some()
-                    && mesh.material_maps().next().is_some()
-                    && let Some(tangents) = tangents
-                {
-                    pass.set_vertex_buffer(2, tangents.slice(..));
-                }
-                if let Some(binding) = &lighting[index] {
-                    pass.set_bind_group(1, binding, &[]);
-                    pass.set_bind_group(
-                        3,
-                        environment_binding
-                            .as_ref()
-                            .expect("standard environment binding"),
-                        &[],
-                    );
-                }
-                if let Some(key) = mesh.shader {
-                    let material = self
-                        .graphs
-                        .materials
-                        .resolve(key)
-                        .expect("validated material shader");
-                    if material.requires_uv {
-                        pass.set_vertex_buffer(
-                            1,
-                            uv.expect("validated material UV buffer").slice(..),
-                        );
-                    }
-                    for (group, binding) in material.groups.iter().enumerate() {
-                        pass.set_bind_group(group as u32 + 1, binding, &[]);
-                    }
-                }
-                pass.set_index_buffer(indices.slice(..), index_format);
-                if draw.instanced {
+                if mesh.vertex_colors {
+                    let textured = mesh.texture_maps().next().is_some();
+                    let tangent = (textured || mesh.anisotropic())
+                        && mesh.pbr.is_some()
+                        && !geometry.recipe.tangents.is_empty();
                     pass.set_vertex_buffer(
-                        3,
-                        instances
-                            .buffer
-                            .as_ref()
-                            .expect("instance buffer")
+                        1 + u32::from(textured) + u32::from(tangent),
+                        self.resources
+                            .geometry_colors(geometry.key)
+                            .expect("validated color buffer")
                             .slice(..),
                     );
                 }
-                pass.draw_indexed(0..count, 0, draw.range.clone());
+                if let Some(material) = &materials[index] {
+                    if material.uv {
+                        pass.set_vertex_buffer(
+                            1,
+                            uv.expect("validated shader UV buffer").slice(..),
+                        );
+                    }
+                    if material.tangent {
+                        pass.set_vertex_buffer(
+                            1 + u32::from(material.uv),
+                            self.resources
+                                .geometry_tangents(geometry.key)
+                                .expect("validated shader tangent buffer")
+                                .slice(..),
+                        );
+                    }
+                    if material.colored {
+                        pass.set_vertex_buffer(
+                            1 + u32::from(material.uv) + u32::from(material.tangent),
+                            self.resources
+                                .geometry_colors(geometry.key)
+                                .expect("validated shader color buffer")
+                                .slice(..),
+                        );
+                    }
+                }
+                if let Some(binding) = texture_binding {
+                    pass.set_vertex_buffer(1, uv.expect("validated UV buffer").slice(..));
+                    pass.set_bind_group(1, binding, &[]);
+                }
+                if mesh.pbr.is_some()
+                    && (texture_binding.is_some() || mesh.anisotropic())
+                    && let Some(tangents) = self.resources.geometry_tangents(geometry.key)
+                {
+                    pass.set_vertex_buffer(
+                        1 + u32::from(texture_binding.is_some()),
+                        tangents.slice(..),
+                    );
+                }
+                pass.set_index_buffer(indices.slice(..), index_format);
+                if mesh.instances != 0 {
+                    let textured = mesh.texture_maps().next().is_some();
+                    let tangent = (textured || mesh.anisotropic())
+                        && mesh.pbr.is_some()
+                        && !geometry.recipe.tangents.is_empty();
+                    let buffer = self
+                        .resources
+                        .graph_buffer(self.instances[&mesh.instances].key)
+                        .expect("validated instance buffer");
+                    let slot = materials[index].as_ref().map_or(
+                        1 + u32::from(textured)
+                            + u32::from(tangent)
+                            + u32::from(mesh.vertex_colors),
+                        |material| {
+                            1 + u32::from(material.uv)
+                                + u32::from(material.tangent)
+                                + u32::from(material.colored)
+                        },
+                    );
+                    pass.set_vertex_buffer(slot, buffer.slice(..));
+                }
+                if mesh.pose != 0 {
+                    pass.set_bind_group(2, &self.poses[&mesh.pose].binding, &[]);
+                }
+                pass.draw_indexed(0..count, 0, draw.instances);
             }
         }
         encoder
     }
 
-    fn submit(&mut self, mut encoder: wgpu::CommandEncoder) -> Result<Submission, String> {
-        if let Some(timer) = &mut self.gpu_timer {
-            timer.end(&mut encoder);
-        }
+    fn submit(
+        &mut self,
+        mut encoder: wgpu::CommandEncoder,
+        graph: Option<&crate::render_graph::FrameGraph>,
+        materials: &[Option<crate::render_graph::PreparedMaterial>],
+        environment: &environment::PreparedEnvironment,
+    ) -> Result<Submission, String> {
+        self.last_gpu_time_ns = None;
+        self.gpu_time_source = "unavailable";
+        let timing = self.gpu_timer.as_ref().map(|timer| timer.end(&mut encoder));
         let index = self.queue.submit([encoder.finish()]);
         let keys: Vec<_> = self
             .geometries
             .values()
             .map(|g| g.key)
             .chain(self.textures.values().map(|t| t.key))
-            .chain(self.environment_keys.iter().copied())
+            .chain(self.instances.values().map(|i| i.key))
+            .chain(self.poses.values().map(|p| p.key))
+            .chain(environment.resources.iter().copied())
+            .chain(self.effect_resources.iter().copied())
+            .chain(
+                materials
+                    .iter()
+                    .flatten()
+                    .flat_map(|m| m.resources.iter().copied()),
+            )
+            .chain(
+                graph
+                    .into_iter()
+                    .flat_map(|g| g.resources().iter().copied()),
+            )
             .collect();
         if let Err(error) = self.resources.scene_submitted(index.clone(), &keys) {
             self.failure = Some(error.to_string());
@@ -919,6 +1287,7 @@ impl Renderer {
         };
         Ok(Submission {
             index,
+            timing,
             #[cfg(target_vendor = "apple")]
             metal,
         })
@@ -939,15 +1308,22 @@ impl Renderer {
             Some(completion) => {
                 completion.check()?;
                 self.last_gpu_time_ns = completion.gpu_time_ns();
+                if self.last_gpu_time_ns.is_some() {
+                    self.gpu_time_source = "metal.commandBuffer.startEndTime";
+                }
                 Ok(())
             }
             None => Ok(()),
         });
         if result.is_ok() {
-            self.resources.scene_completed();
-            if let Some(timer) = &mut self.gpu_timer {
-                timer.completed();
+            if let Some(timing) = submission.timing {
+                self.diagnostic_readback_bytes = self.diagnostic_readback_bytes.saturating_add(16);
+                self.last_gpu_time_ns = timing.nanoseconds();
+                if self.last_gpu_time_ns.is_some() {
+                    self.gpu_time_source = "wgpu.timestampQuery.commandEncoder";
+                }
             }
+            self.resources.scene_completed();
         }
         result.map_err(|error| {
             let message = format!("GPU completion failed; recreate this renderer: {error}");
@@ -965,8 +1341,37 @@ impl Renderer {
         height: u32,
     ) -> Result<(), String> {
         pixel_len(width, height)?;
-        self.prepare_output(frame, [width, height], texture.format())?;
+        self.check_shadows(frame)?;
+        self.check_temporal(frame, [width, height])?;
+        self.check_physical_bindings(frame)?;
+        let graph = self.resolve_frame_graph(frame, width, height)?;
+        let environment = self.prepare_environment(frame, graph.as_ref())?;
+        let materials = self.prepare_materials(frame, texture.format(), graph.as_ref())?;
+        let scene_format = composition::scene_format(frame, texture.format(), graph.as_ref())?;
+        // Attachment rejection must precede scene revisions and reusable-buffer edits.
+        self.prepare_frame_targets(
+            frame,
+            texture.format(),
+            [width, height],
+            graph.as_ref(),
+            true,
+        )?;
+        self.prepare_transmission(frame, scene_format, [width, height], graph.as_ref())?;
         self.prepare_scene(frame)?;
+        self.prepare_pipelines(frame, scene_format)?;
+        self.outline_materials = if self.outlines.view(frame).is_some() {
+            self.prepare_materials_in_format(
+                frame,
+                outlines::FORMAT,
+                None,
+                frame.sample_count(),
+                true,
+            )?
+        } else {
+            vec![]
+        };
+        let shadows = self.prepare_shadows(frame)?;
+        self.prepare_temporal(frame, [width, height])?;
         if self
             .surface_depth
             .as_ref()
@@ -993,47 +1398,63 @@ impl Renderer {
                 _texture: depth,
             });
         }
-        self.prepare_pipelines(
-            frame,
-            if frame.settings.enabled {
-                effects::HDR
-            } else {
-                texture.format()
-            },
-        )?;
         let encoder = self.encode_frame(
             frame,
             &texture.create_view(&Default::default()),
             &self.surface_depth.as_ref().unwrap().view,
             texture.format(),
             [texture.width(), texture.height()],
+            (graph.as_ref(), &materials, true, &environment, &shadows),
         );
         let result = self
-            .submit(encoder)
+            .submit(encoder, graph.as_ref(), &materials, &environment)
             .and_then(|submission| self.wait_for_submission(submission));
         if let Err(error) = result {
             // Stop future submissions and keep the imported resource owned.
             self.failed_surface = Some(texture);
             return Err(error);
         }
+        self.accept_shadows(shadows);
+        self.temporal.accept();
         self.accept_history(frame);
-        self.shadows.accept(frame);
         Ok(())
     }
 
     pub fn render(&mut self, frame: &Frame, width: u32, height: u32) -> Result<Vec<u8>, String> {
         let len = pixel_len(width, height)?;
-        self.prepare_output(frame, [width, height], wgpu::TextureFormat::Rgba8UnormSrgb)?;
-        self.prepare_scene(frame)?;
-        self.resize(width, height);
-        self.prepare_pipelines(
+        self.check_shadows(frame)?;
+        self.check_temporal(frame, [width, height])?;
+        self.check_physical_bindings(frame)?;
+        let graph = self.resolve_frame_graph(frame, width, height)?;
+        let environment = self.prepare_environment(frame, graph.as_ref())?;
+        let materials =
+            self.prepare_materials(frame, wgpu::TextureFormat::Rgba8UnormSrgb, graph.as_ref())?;
+        let scene_format =
+            composition::scene_format(frame, wgpu::TextureFormat::Rgba8UnormSrgb, graph.as_ref())?;
+        self.prepare_frame_targets(
             frame,
-            if frame.settings.enabled {
-                effects::HDR
-            } else {
-                wgpu::TextureFormat::Rgba8UnormSrgb
-            },
+            wgpu::TextureFormat::Rgba8UnormSrgb,
+            [width, height],
+            graph.as_ref(),
+            false,
         )?;
+        self.prepare_transmission(frame, scene_format, [width, height], graph.as_ref())?;
+        self.prepare_scene(frame)?;
+        self.prepare_pipelines(frame, scene_format)?;
+        self.outline_materials = if self.outlines.view(frame).is_some() {
+            self.prepare_materials_in_format(
+                frame,
+                outlines::FORMAT,
+                None,
+                frame.sample_count(),
+                true,
+            )?
+        } else {
+            vec![]
+        };
+        let shadows = self.prepare_shadows(frame)?;
+        self.prepare_temporal(frame, [width, height])?;
+        self.resize(width, height);
         let target = self.targets.as_ref().unwrap();
         let mut encoder = self.encode_frame(
             frame,
@@ -1041,6 +1462,7 @@ impl Renderer {
             &target.depth_view,
             wgpu::TextureFormat::Rgba8UnormSrgb,
             [width, height],
+            (graph.as_ref(), &materials, false, &environment, &shadows),
         );
         encoder.copy_texture_to_buffer(
             target.color.as_image_copy(),
@@ -1060,15 +1482,14 @@ impl Renderer {
         );
         let readback = target.readback.clone();
         let stride = target.stride;
-        let submission = self.submit(encoder)?;
+        let submission = self.submit(encoder, graph.as_ref(), &materials, &environment)?;
         let slice = readback.slice(..);
         let (sender, receiver) = mpsc::sync_channel(1);
         slice.map_async(wgpu::MapMode::Read, move |result| {
             let _ = sender.send(result);
         });
         self.wait_for_submission(submission)?;
-        self.accept_history(frame);
-        self.shadows.accept(frame);
+        self.accept_shadows(shadows);
         let mapped_result = receiver
             .recv_timeout(Duration::from_secs(1))
             .map_err(|error| format!("readback callback failed: {error}"))
@@ -1085,6 +1506,8 @@ impl Renderer {
         drop(mapped);
         readback.unmap();
         self.counters.readback_bytes += pixels.len() as u64;
+        self.temporal.accept();
+        self.accept_history(frame);
         Ok(pixels)
     }
 }
@@ -1155,4 +1578,10 @@ mod metal_timeout_tests {
         }
         assert_eq!(crate::fg_retiring_renderer_count(), 0);
     }
+}
+
+fn section_planes(mesh: &crate::scene::Mesh) -> [[f32; 4]; 6] {
+    let mut planes = [[0.; 4]; 6];
+    planes[..mesh.clipping_planes.len()].copy_from_slice(&mesh.clipping_planes);
+    planes
 }

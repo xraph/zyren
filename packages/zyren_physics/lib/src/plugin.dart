@@ -1,6 +1,5 @@
 import 'dart:math' as math;
 import 'package:zyren/zyren.dart';
-import 'package:zyren/rendering.dart' show FrameStats;
 import 'physics.dart';
 
 const physicsWorldService = ServiceKey<PhysicsWorld>('zyren.physics.world');

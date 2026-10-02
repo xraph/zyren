@@ -29,7 +29,8 @@ void main() {
   test(
     'native imported crossfades blend joints and morph weights before upload',
     () async {
-      final asset = await load(animatedModel()), instance = asset.instantiate();
+      final asset = await load(animatedModel()),
+          instance = asset.instantiate(nativeDeformation: false);
       const end = Duration(seconds: 1);
       final timeline = SceneTimelinePlugin.mixed(
         duration: end,
@@ -78,7 +79,7 @@ void main() {
     'native imported animation uploads deformed geometry and restores a seek',
     () async {
       final asset = await load(animatedModel(bindPosition: 2)),
-          instance = asset.instantiate();
+          instance = asset.instantiate(nativeDeformation: false);
       final scene = Scene()
         ..background = const Color3(0, 0, 0)
         ..add(instance);

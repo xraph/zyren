@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_zyren/flutter_zyren.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:zyren/rendering.dart';
 import 'package:zyren_native/surfaces.dart';
 import 'package:zyren_devtools/gpu_bridge.dart';
 import 'package:zyren_devtools/zyren_devtools.dart';
@@ -112,7 +111,7 @@ void main() {
           greaterThanOrEqualTo(measured.allocatorUsedBytes!),
         );
         expect(measured.allocatorAllocations.length, lessThanOrEqualTo(1));
-        expect(measured.gpuTimeSource, 'wgpu.timestampQuery');
+        expect(measured.gpuTimeSource, 'wgpu.timestampQuery.commandEncoder');
         expect(measured.lastSubmissionGpuTimeNs, greaterThan(0));
         expect(measured.diagnosticReadbackBytes, greaterThanOrEqualTo(16));
         final client = GpuInspectionClient(

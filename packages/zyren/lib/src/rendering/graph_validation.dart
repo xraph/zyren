@@ -2,6 +2,8 @@ part of '../resources/resource_scope.dart';
 
 (GraphDeviceDescription, List<String>, List<GraphResourceLifetime>)
 _prepareGraph(GraphDescription graph, GraphDevice device) {
+  final passes = graph.allPasses.toList();
+  final boundary = graph.beforeScene.length;
   Never fail(
     GraphErrorCode code,
     String message, {
@@ -16,8 +18,8 @@ _prepareGraph(GraphDescription graph, GraphDevice device) {
   bool validLabel(String value) =>
       value.isNotEmpty && utf8.encode(value).length <= 1024;
   if (utf8.encode(graph.label).length > 1024 ||
-      graph.passes.isEmpty ||
-      graph.passes.length > 128) {
+      passes.isEmpty ||
+      passes.length > 128) {
     fail(
       GraphErrorCode.limitExceeded,
       'A graph needs 1 to 128 passes and a label within 1024 UTF-8 bytes.',
@@ -52,13 +54,43 @@ _prepareGraph(GraphDescription graph, GraphDevice device) {
   }
 
   final inputs = {for (final input in graph.inputs) resourceKey(input)};
+  if ((graph.sceneColor == null) != (graph.output == null)) {
+    fail(
+      GraphErrorCode.invalidDescriptor,
+      'A frame graph requires both sceneColor and output.',
+    );
+  }
+  if (boundary > 0 && graph.sceneColor == null) {
+    fail(
+      GraphErrorCode.invalidDescriptor,
+      'Before-scene passes require a scene frame graph.',
+    );
+  }
+  Object? sceneKey, outputKey;
+  if (graph.sceneColor case final scene?) {
+    sceneKey = resourceKey(scene);
+    outputKey = resourceKey(graph.output!);
+    final source = scene.descriptor as TextureDescriptor;
+    final output = graph.output!.descriptor as TextureDescriptor;
+    if (!source.usage.contains(TextureUsage.renderAttachment) ||
+        !output.usage.contains(TextureUsage.sampled) ||
+        source.mipLevels != 1 ||
+        output.mipLevels != 1 ||
+        source.width != output.width ||
+        source.height != output.height) {
+      fail(
+        GraphErrorCode.invalidBinding,
+        'Frame textures need matching dimensions, one mip, renderable scene color and sampled output.',
+      );
+    }
+  }
   final names = <String, int>{};
   final reads = <Set<Object>>[],
       writes = <Set<Object>>[],
       discarded = <Set<Object>>[];
   final commands = <Map<String, Object?>>[];
-  for (var index = 0; index < graph.passes.length; index++) {
-    final pass = graph.passes[index];
+  for (var index = 0; index < passes.length; index++) {
+    final pass = passes[index];
     if (!validLabel(pass.name)) {
       fail(
         GraphErrorCode.invalidDescriptor,
@@ -110,106 +142,12 @@ _prepareGraph(GraphDescription graph, GraphDevice device) {
       if (write) actualWrites.add(key);
     }
 
-    if (pass.bindings.entries.length > 64) {
-      fail(
-        GraphErrorCode.limitExceeded,
-        'A pass supports at most 64 bindings.',
-        pass: pass,
-      );
-    }
-    final slots = <(int, int)>{};
-    final bindings = <Map<String, Object?>>[];
-    for (final binding in pass.bindings.entries) {
-      if (binding.group < 0 ||
-          binding.group >= 4 ||
-          binding.binding < 0 ||
-          binding.binding >= 16 ||
-          !slots.add((binding.group, binding.binding))) {
-        fail(
-          GraphErrorCode.invalidBinding,
-          'Bindings need unique slots in groups 0 to 3, bindings 0 to 15.',
-          pass: pass,
-        );
-      }
-      final supportedStages = pass is ComputePassDescriptor
-          ? {ShaderStage.compute}
-          : {ShaderStage.vertex, ShaderStage.fragment};
-      final visibility =
-          binding.visibility ??
-          (pass is ComputePassDescriptor
-              ? {ShaderStage.compute}
-              : binding._writes
-              ? {ShaderStage.fragment}
-              : {ShaderStage.vertex, ShaderStage.fragment});
-      if (visibility.isEmpty || !supportedStages.containsAll(visibility)) {
-        fail(
-          GraphErrorCode.invalidBinding,
-          'Binding visibility must match the pass stages.',
-          pass: pass,
-        );
-      }
-      final entry = <String, Object?>{
-        'group': binding.group,
-        'binding': binding.binding,
-        'stages': visibility.map((stage) => stage.index).toList()..sort(),
-        'kind': binding._kind,
-      };
-      final resource = binding.resource;
-      if (resource != null) {
-        use(resource, binding._reads, binding._writes);
-        entry['key'] = resource._key;
-      }
-      switch (binding) {
-        case BufferBinding():
-          final descriptor = binding.resource.descriptor as BufferDescriptor;
-          final size = binding.size ?? descriptor.size - binding.offset;
-          final usage = binding.access == BufferBindingAccess.uniform
-              ? BufferUsage.uniform
-              : BufferUsage.storage;
-          if (!descriptor.usage.contains(usage) ||
-              binding.offset < 0 ||
-              binding.offset % 256 != 0 ||
-              size <= 0 ||
-              size % 4 != 0 ||
-              size > descriptor.size ||
-              binding.offset > descriptor.size - size) {
-            fail(
-              GraphErrorCode.invalidBinding,
-              'Buffer binding requires matching usage, a 256-byte aligned offset and a valid four-byte aligned range.',
-              pass: pass,
-              resource: resource,
-            );
-          }
-          entry.addAll({'offset': binding.offset, 'size': size});
-        case TextureBinding():
-          final descriptor = binding.resource.descriptor as TextureDescriptor;
-          final usage = binding.storage
-              ? TextureUsage.storage
-              : TextureUsage.sampled;
-          if (!descriptor.usage.contains(usage) ||
-              binding.mipLevel < 0 ||
-              binding.mipLevels < 1 ||
-              binding.mipLevels > descriptor.mipLevels ||
-              binding.mipLevel > descriptor.mipLevels - binding.mipLevels ||
-              (binding.storage &&
-                  (descriptor.format == TextureFormat.rgba8UnormSrgb ||
-                      binding.mipLevels != 1))) {
-            fail(
-              GraphErrorCode.invalidBinding,
-              'Texture binding usage, mip range or storage format is invalid.',
-              pass: pass,
-              resource: resource,
-            );
-          }
-          entry.addAll({
-            'mipLevel': binding.mipLevel,
-            'mipLevels': binding.mipLevels,
-          });
-        case SamplerBinding():
-          entry['sampler'] = binding.sampler.toPacket();
-      }
-      bindings.add(entry);
-    }
+    final bindings = _encodeShaderBindings(
+      pass.bindings,
+      compute: pass is ComputePassDescriptor,
+      label: pass.name,
+      use: use,
+    );
     void entryPoint(String name, ShaderStage stage) {
       if (!pass.program.entryPoints.any(
         (entry) => entry.name == name && entry.stage == stage,
@@ -349,31 +287,52 @@ _prepareGraph(GraphDescription graph, GraphDevice device) {
         pass: pass,
       );
     }
+    if (index < boundary &&
+        (actualReads.contains(sceneKey) || actualWrites.contains(sceneKey))) {
+      fail(
+        GraphErrorCode.invalidDescriptor,
+        'Before-scene passes cannot access the scene color attachment.',
+        pass: pass,
+        resource: graph.sceneColor,
+      );
+    }
     reads.add(declaredReads);
     writes.add(declaredWrites);
     discarded.add(discard);
     commands.add(command);
   }
-  final edges = List.generate(graph.passes.length, (_) => <int>{});
+  final edges = List.generate(passes.length, (_) => <int>{});
   void edge(int from, int to) {
+    if (from >= boundary && to < boundary) {
+      fail(
+        GraphErrorCode.invalidDescriptor,
+        'A before-scene pass cannot depend on work after the scene.',
+        pass: passes[to],
+      );
+    }
     if (from != to) edges[from].add(to);
   }
 
-  for (var i = 0; i < graph.passes.length; i++) {
-    for (final dependency in graph.passes[i].after) {
+  for (var before = 0; before < boundary; before++) {
+    for (var after = boundary; after < passes.length; after++) {
+      edge(before, after);
+    }
+  }
+  for (var i = 0; i < passes.length; i++) {
+    for (final dependency in passes[i].after) {
       final before = names[dependency];
       if (before == null) {
         fail(
           GraphErrorCode.missingDependency,
           'Unknown dependency $dependency.',
-          pass: graph.passes[i],
+          pass: passes[i],
         );
       }
       if (before == i) {
         fail(
           GraphErrorCode.cycle,
           'A pass cannot depend on itself.',
-          pass: graph.passes[i],
+          pass: passes[i],
         );
       }
       edge(before, i);
@@ -393,12 +352,14 @@ _prepareGraph(GraphDescription graph, GraphDevice device) {
       for (final candidate in producers) {
         if (candidate < reader) producer = candidate;
       }
-      if (producer == null && !inputs.contains(key)) {
+      if (producer == null &&
+          !inputs.contains(key) &&
+          !(key == sceneKey && reader >= boundary)) {
         if (producers.isEmpty || producers.first == reader) {
           fail(
             GraphErrorCode.uninitializedRead,
             'Resource is read before it is initialized.',
-            pass: graph.passes[reader],
+            pass: passes[reader],
             resource: resources[key],
           );
         }
@@ -430,10 +391,10 @@ _prepareGraph(GraphDescription graph, GraphDevice device) {
       if (--incoming[next] == 0) available.add(next);
     }
   }
-  if (order.length != graph.passes.length) {
+  if (order.length != passes.length) {
     final blocked = [
       for (var i = 0; i < incoming.length; i++)
-        if (incoming[i] > 0) graph.passes[i],
+        if (incoming[i] > 0) passes[i],
     ];
     fail(
       GraphErrorCode.cycle,
@@ -441,15 +402,17 @@ _prepareGraph(GraphDescription graph, GraphDevice device) {
       pass: blocked.first,
     );
   }
-  final initialized = {...inputs}, intervals = <Object, (int, int)>{};
+  final initialized = {...inputs},
+      intervals = <Object, (int, int)>{?sceneKey: (boundary - 1, boundary - 1)};
   for (var position = 0; position < order.length; position++) {
+    if (position == boundary && sceneKey != null) initialized.add(sceneKey);
     final index = order[position];
     for (final key in reads[index]) {
       if (!initialized.contains(key)) {
         fail(
           GraphErrorCode.uninitializedRead,
           'Resource contents were discarded before this read.',
-          pass: graph.passes[index],
+          pass: passes[index],
           resource: resources[key],
         );
       }
@@ -460,8 +423,22 @@ _prepareGraph(GraphDescription graph, GraphDevice device) {
       intervals[key] = (intervals[key]?.$1 ?? position, position);
     }
   }
+  if (boundary == order.length && sceneKey != null) initialized.add(sceneKey);
+  if (outputKey != null) {
+    if (!initialized.contains(outputKey)) {
+      fail(
+        GraphErrorCode.uninitializedRead,
+        'Frame output is uninitialized or discarded.',
+        resource: graph.output,
+      );
+    }
+    intervals[outputKey] = (intervals[outputKey]?.$1 ?? -1, order.length);
+  }
   return (
     GraphDeviceDescription({
+      'sceneColor': ?sceneKey,
+      'scenePassIndex': boundary,
+      'output': ?outputKey,
       'label': graph.label,
       'inputs': inputs.toList(),
       'resources': [
@@ -470,7 +447,7 @@ _prepareGraph(GraphDescription graph, GraphDevice device) {
       ],
       'passes': [for (final index in order) commands[index]],
     }),
-    [for (final index in order) graph.passes[index].name],
+    [for (final index in order) passes[index].name],
     [
       for (final entry in intervals.entries)
         GraphResourceLifetime(
@@ -480,4 +457,116 @@ _prepareGraph(GraphDescription graph, GraphDevice device) {
         ),
     ],
   );
+}
+
+List<Map<String, Object?>> _encodeShaderBindings(
+  ShaderBindings values, {
+  required bool compute,
+  required String label,
+  required void Function(GpuResource<Object?>, bool, bool) use,
+}) {
+  Never fail(
+    GraphErrorCode code,
+    String message, {
+    GpuResource<Object?>? resource,
+  }) => throw GraphException(
+    code,
+    message,
+    passName: label,
+    resourceLabel: resource?.label,
+  );
+  if (values.entries.length > 64) {
+    fail(GraphErrorCode.limitExceeded, 'A pass supports at most 64 bindings.');
+  }
+  final slots = <(int, int)>{};
+  final bindings = <Map<String, Object?>>[];
+  for (final binding in values.entries) {
+    if (binding.group < 0 ||
+        binding.group >= 4 ||
+        binding.binding < 0 ||
+        binding.binding >= 16 ||
+        !slots.add((binding.group, binding.binding))) {
+      fail(
+        GraphErrorCode.invalidBinding,
+        'Bindings need unique slots in groups 0 to 3, bindings 0 to 15.',
+      );
+    }
+    final supportedStages = compute
+        ? {ShaderStage.compute}
+        : {ShaderStage.vertex, ShaderStage.fragment};
+    final visibility =
+        binding.visibility ??
+        (compute
+            ? {ShaderStage.compute}
+            : binding._writes
+            ? {ShaderStage.fragment}
+            : {ShaderStage.vertex, ShaderStage.fragment});
+    if (visibility.isEmpty || !supportedStages.containsAll(visibility)) {
+      fail(
+        GraphErrorCode.invalidBinding,
+        'Binding visibility must match the pass stages.',
+      );
+    }
+    final entry = <String, Object?>{
+      'group': binding.group,
+      'binding': binding.binding,
+      'stages': visibility.map((stage) => stage.index).toList()..sort(),
+      'kind': binding._kind,
+    };
+    final resource = binding.resource;
+    if (resource != null) {
+      use(resource, binding._reads, binding._writes);
+      entry['key'] = resource._key;
+    }
+    switch (binding) {
+      case BufferBinding():
+        final descriptor = binding.resource.descriptor as BufferDescriptor;
+        final size = binding.size ?? descriptor.size - binding.offset;
+        final usage = binding.access == BufferBindingAccess.uniform
+            ? BufferUsage.uniform
+            : BufferUsage.storage;
+        if (!descriptor.usage.contains(usage) ||
+            binding.offset < 0 ||
+            binding.offset % 256 != 0 ||
+            size <= 0 ||
+            size % 4 != 0 ||
+            size > descriptor.size ||
+            binding.offset > descriptor.size - size) {
+          fail(
+            GraphErrorCode.invalidBinding,
+            'Buffer binding requires matching usage, a 256-byte aligned offset and a valid four-byte aligned range.',
+            resource: resource,
+          );
+        }
+        entry.addAll({'offset': binding.offset, 'size': size});
+      case TextureBinding():
+        final descriptor = binding.resource.descriptor as TextureDescriptor;
+        final usage = binding.storage
+            ? TextureUsage.storage
+            : TextureUsage.sampled;
+        if (!descriptor.usage.contains(usage) ||
+            binding.mipLevel < 0 ||
+            binding.mipLevels < 1 ||
+            binding.mipLevels > descriptor.mipLevels ||
+            binding.mipLevel > descriptor.mipLevels - binding.mipLevels ||
+            (binding.storage &&
+                (descriptor.format.isSrgb ||
+                    descriptor.format.isCompressed ||
+                    binding.mipLevels != 1))) {
+          fail(
+            GraphErrorCode.invalidBinding,
+            'Texture binding usage, mip range or storage format is invalid.',
+            resource: resource,
+          );
+        }
+        entry.addAll({
+          'mipLevel': binding.mipLevel,
+          'mipLevels': binding.mipLevels,
+        });
+      case SamplerBinding():
+        entry['sampler'] = binding.sampler.toPacket();
+    }
+    bindings.add(entry);
+  }
+  return bindings;
 }

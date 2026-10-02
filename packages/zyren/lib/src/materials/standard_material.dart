@@ -1,104 +1,149 @@
 part of 'material.dart';
 
-/// Isotropic metallic/roughness shading. Emission is linear radiance.
-final class StandardMaterial extends MeshMaterial {
+/// Metallic/roughness material in linear light. Direct lighting uses explicit
+/// scene lights; emission is independent of them.
+base class StandardMaterial extends MeshMaterial {
   final double metallic, roughness, emissiveIntensity;
   final Color3 emissive;
   final TextureMap? normalMap, metallicRoughnessMap, occlusionMap, emissiveMap;
-  final double normalScaleX, normalScaleY, occlusionStrength;
+  final double normalScale, normalScaleY, occlusionStrength;
+  double get normalScaleX => normalScale;
+  @override
+  Iterable<TextureMap> get textureMaps => [
+    ...super.textureMaps,
+    ?normalMap,
+    ?metallicRoughnessMap,
+    ?occlusionMap,
+    ?emissiveMap,
+  ];
   Color3 get baseColor => color;
+  TextureMap? get baseColorMap => colorMap;
   StandardMaterial({
     Color3 baseColor = const Color3(1, 1, 1),
-    this.metallic = 0,
-    this.roughness = 1,
-    this.emissive = const Color3(0, 0, 0),
-    this.emissiveIntensity = 1,
-    super.colorMap,
+    TextureMap? baseColorMap,
     this.normalMap,
     this.metallicRoughnessMap,
     this.occlusionMap,
     this.emissiveMap,
-    this.normalScaleX = 1,
-    this.normalScaleY = 1,
+    double normalScale = 1,
+    double? normalScaleX,
+    double? normalScaleY,
+    Color3? color,
+    TextureMap? colorMap,
     this.occlusionStrength = 1,
+    this.metallic = 0,
+    this.roughness = 1,
+    this.emissive = const Color3(0, 0, 0),
+    this.emissiveIntensity = 1,
     super.side,
     super.alphaMode,
     super.opacity,
     super.alphaCutoff,
     super.depthTest,
+    super.vertexColors,
     super.depthWrite,
-  }) : super(color: baseColor) {
-    emissive.toList();
-    for (final map in [normalMap, metallicRoughnessMap, occlusionMap]) {
-      if (map != null &&
-          map.image.descriptor.format != TextureFormat.rgba8Unorm) {
-        throw ArgumentError(
-          'Normal and scalar maps require linear RGBA8 storage.',
+  }) : normalScale = normalScaleX ?? normalScale,
+       normalScaleY = normalScaleY ?? normalScale,
+       super(color: color ?? baseColor, colorMap: colorMap ?? baseColorMap) {
+    for (final entry in {
+      'metallic': metallic,
+      'roughness': roughness,
+      'occlusionStrength': occlusionStrength,
+    }.entries) {
+      if (!entry.value.isFinite || entry.value < 0 || entry.value > 1) {
+        throw ArgumentError.value(entry.value, entry.key, 'Expected [0, 1].');
+      }
+    }
+    if (![
+      this.normalScale,
+      this.normalScaleY,
+    ].every((v) => v.isFinite && v.abs() <= 1e6)) {
+      throw ArgumentError.value(
+        normalScale,
+        'normalScale',
+        'Expected finite [-1e6, 1e6].',
+      );
+    }
+    for (final entry in {
+      'normalMap': normalMap,
+      'metallicRoughnessMap': metallicRoughnessMap,
+      'occlusionMap': occlusionMap,
+    }.entries) {
+      if (entry.value != null && entry.value!.image.descriptor.format.isSrgb) {
+        throw ArgumentError.value(
+          entry.value,
+          entry.key,
+          'Data maps require a linear texture format.',
         );
       }
     }
-    if (!normalScaleX.isFinite ||
-        !normalScaleY.isFinite ||
-        normalScaleX.abs() > 1e6 ||
-        normalScaleY.abs() > 1e6 ||
-        !occlusionStrength.isFinite ||
-        occlusionStrength < 0 ||
-        occlusionStrength > 1) {
-      throw ArgumentError('Invalid normal scale or occlusion strength.');
-    }
-    if (!metallic.isFinite ||
-        metallic < 0 ||
-        metallic > 1 ||
-        !roughness.isFinite ||
-        roughness < 0 ||
-        roughness > 1 ||
-        !emissiveIntensity.isFinite ||
+    emissive.toList();
+    if (!emissiveIntensity.isFinite ||
         emissiveIntensity < 0 ||
-        emissiveIntensity > 65504) {
-      throw ArgumentError('Invalid standard material factors.');
+        emissiveIntensity > 1e12) {
+      throw ArgumentError.value(
+        emissiveIntensity,
+        'emissiveIntensity',
+        'Expected [0, 1e12].',
+      );
     }
   }
   @override
   bool get unlit => false;
   StandardMaterial copyWith({
     Color3? color,
+    TextureMap? colorMap,
+    Color3? baseColor,
+    TextureMap? baseColorMap,
+    bool clearBaseColorMap = false,
+    TextureMap? normalMap,
+    TextureMap? metallicRoughnessMap,
+    TextureMap? occlusionMap,
+    TextureMap? emissiveMap,
+    bool clearNormalMap = false,
+    bool clearMetallicRoughnessMap = false,
+    bool clearOcclusionMap = false,
+    bool clearEmissiveMap = false,
+    double? normalScale,
+    double? normalScaleX,
+    double? normalScaleY,
+    double? occlusionStrength,
     double? metallic,
     double? roughness,
     Color3? emissive,
     double? emissiveIntensity,
-    TextureMap? colorMap,
-    normalMap,
-    metallicRoughnessMap,
-    occlusionMap,
-    emissiveMap,
-    double? normalScaleX,
-    normalScaleY,
-    occlusionStrength,
     MaterialSide? side,
     MaterialAlphaMode? alphaMode,
     double? opacity,
     double? alphaCutoff,
     bool? depthTest,
+    bool? vertexColors,
     DepthWrite? depthWrite,
   }) => StandardMaterial(
-    baseColor: color ?? this.color,
+    baseColor: color ?? baseColor ?? this.baseColor,
+    baseColorMap: clearBaseColorMap
+        ? null
+        : colorMap ?? baseColorMap ?? this.baseColorMap,
+    normalMap: clearNormalMap ? null : normalMap ?? this.normalMap,
+    metallicRoughnessMap: clearMetallicRoughnessMap
+        ? null
+        : metallicRoughnessMap ?? this.metallicRoughnessMap,
+    occlusionMap: clearOcclusionMap ? null : occlusionMap ?? this.occlusionMap,
+    emissiveMap: clearEmissiveMap ? null : emissiveMap ?? this.emissiveMap,
+    normalScale: normalScale ?? this.normalScale,
+    normalScaleX: normalScaleX ?? normalScale ?? this.normalScaleX,
+    normalScaleY: normalScaleY ?? normalScale ?? this.normalScaleY,
+    occlusionStrength: occlusionStrength ?? this.occlusionStrength,
     metallic: metallic ?? this.metallic,
     roughness: roughness ?? this.roughness,
     emissive: emissive ?? this.emissive,
     emissiveIntensity: emissiveIntensity ?? this.emissiveIntensity,
-    colorMap: colorMap ?? this.colorMap,
-    normalMap: normalMap ?? this.normalMap,
-    metallicRoughnessMap: metallicRoughnessMap ?? this.metallicRoughnessMap,
-    occlusionMap: occlusionMap ?? this.occlusionMap,
-    emissiveMap: emissiveMap ?? this.emissiveMap,
-    normalScaleX: normalScaleX ?? this.normalScaleX,
-    normalScaleY: normalScaleY ?? this.normalScaleY,
-    occlusionStrength: occlusionStrength ?? this.occlusionStrength,
     side: side ?? this.side,
     alphaMode: alphaMode ?? this.alphaMode,
     opacity: opacity ?? this.opacity,
     alphaCutoff: alphaCutoff ?? this.alphaCutoff,
     depthTest: depthTest ?? this.depthTest,
+    vertexColors: vertexColors ?? this.vertexColors,
     depthWrite: depthWrite ?? this.depthWrite,
   );
 }

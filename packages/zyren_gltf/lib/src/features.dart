@@ -15,12 +15,30 @@ final class ModelFeature {
   });
 }
 
+abstract interface class ModelFeatureMesh implements Mesh {
+  List<ModelFeature> get features;
+}
+
 /// An ordinary native mesh whose geometry belongs to these feature identities.
-final class ModelMesh extends Mesh {
+final class ModelMesh extends Mesh implements ModelFeatureMesh {
+  @override
   final List<ModelFeature> features;
   ModelMesh(
     super.geometry,
     super.material, {
+    super.name,
+    required List<ModelFeature> features,
+  }) : features = List.unmodifiable(features);
+}
+
+/// A skinned native mesh carrying the same feature identities as rigid meshes.
+final class ModelSkinnedMesh extends SkinnedMesh implements ModelFeatureMesh {
+  @override
+  final List<ModelFeature> features;
+  ModelSkinnedMesh(
+    super.geometry,
+    super.material, {
+    required super.skin,
     super.name,
     required List<ModelFeature> features,
   }) : features = List.unmodifiable(features);

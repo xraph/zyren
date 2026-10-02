@@ -1,3 +1,4 @@
+export 'viewport_input.dart' show ViewportInputSource, ViewportLogicalExtent;
 import '../plugins/registration.dart';
 import 'viewport_point.dart';
 
@@ -33,7 +34,7 @@ final class ScenePointerEvent {
   final ViewportPoint point, delta;
   final ScenePointerPhase phase;
   final ScenePointerKind kind;
-  final int pointer, buttons;
+  final int pointer, buttons, pointerCount;
   final Set<SceneModifier> modifiers;
   final Duration time;
   final double scale, rotation;
@@ -42,6 +43,7 @@ final class ScenePointerEvent {
     required this.phase,
     this.pointer = 0,
     this.buttons = 0,
+    this.pointerCount = 1,
     this.kind = ScenePointerKind.unknown,
     Set<SceneModifier> modifiers = const {},
     this.time = Duration.zero,

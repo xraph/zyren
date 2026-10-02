@@ -1,6 +1,7 @@
 part of 'material.dart';
 
-/// A scoped WGSL material with the standard mesh transform and render state.
+/// A custom WGSL mesh program. Its shader controls color and alpha output;
+/// side, blending and depth settings control the native raster pipeline.
 final class ShaderMaterial extends MeshMaterial {
   /// Native mesh uniform layout. Model positions are relative to camera origin.
   /// [meshColor] applies color, opacity and alpha mode to a fragment's result.
@@ -10,8 +11,11 @@ struct MeshUniforms {
   color_unlit: vec4<f32>, light_ambient: vec4<f32>, map_params: vec4<f32>,
   view_projection: mat4x4<f32>, model: mat4x4<f32>,
   primitive: vec4<f32>, viewport: vec4<f32>,
-  inverse_view_projection: mat4x4<f32>,
+  pbr_params: vec4<f32>, emissive: vec4<f32>, pbr_maps: vec4<u32>, pbr_factors: vec4<f32>,
+  physical: array<vec4<f32>, 4>, transmission: array<vec4<f32>, 2>, optical: array<vec4<f32>, 2>,
+  capture_projection: mat4x4<f32>,
   clipping_planes: array<vec4<f32>, 6>, clipping: vec4<f32>,
+  inverse_view_projection: mat4x4<f32>,
 };
 @group(0) @binding(0) var<uniform> mesh: MeshUniforms;
 struct MeshVertex {
@@ -49,24 +53,26 @@ ${uv ? ', @location(2) uv0: vec2<f32>, @location(3) uv1: vec2<f32>' : ''}) -> Me
 }
 ''';
 
-  final MeshShader shader;
+  final MeshProgram program;
+  MeshShader? get shader =>
+      program is MeshShader ? program as MeshShader : null;
   ShaderMaterial(
-    this.shader, {
-    Color3 color = const Color3(1, 1, 1),
+    this.program, {
+    Color3? color,
     super.side,
     super.alphaMode,
     super.opacity,
     super.alphaCutoff,
     super.depthTest,
     super.depthWrite,
-  }) : super(color: color) {
-    if (shader.descriptor is PostProcessDescriptor) {
+  }) : super(color: color ?? const Color3(1, 1, 1)) {
+    if (program is MeshShader &&
+        (program as MeshShader).descriptor is PostProcessDescriptor) {
       throw ArgumentError('A fullscreen effect cannot be used on a mesh.');
     }
   }
-  @override
-  bool get unlit => true;
   ShaderMaterial copyWith({
+    MeshProgram? program,
     Color3? color,
     MaterialSide? side,
     MaterialAlphaMode? alphaMode,
@@ -75,7 +81,7 @@ ${uv ? ', @location(2) uv0: vec2<f32>, @location(3) uv1: vec2<f32>' : ''}) -> Me
     bool? depthTest,
     DepthWrite? depthWrite,
   }) => ShaderMaterial(
-    shader,
+    program ?? this.program,
     color: color ?? this.color,
     side: side ?? this.side,
     alphaMode: alphaMode ?? this.alphaMode,
@@ -84,4 +90,7 @@ ${uv ? ', @location(2) uv0: vec2<f32>, @location(3) uv1: vec2<f32>' : ''}) -> Me
     depthTest: depthTest ?? this.depthTest,
     depthWrite: depthWrite ?? this.depthWrite,
   );
+
+  @override
+  bool get unlit => true;
 }

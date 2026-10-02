@@ -59,7 +59,7 @@ void main() {
       expect(() => captured.toNativePacket(), throwsUnsupportedError);
       final encoder = ScenePacketEncoder(viewId: 1);
       final first = encoder.encode(captured);
-      expect(ByteData.sublistView(first.bytes).getUint32(4, Endian.little), 30);
+      expect(ByteData.sublistView(first.bytes).getUint32(4, Endian.little), 36);
       encoder.accept(first);
       mesh.outlineEnabled = false;
       expect(captured.scene.drawCalls, 4);

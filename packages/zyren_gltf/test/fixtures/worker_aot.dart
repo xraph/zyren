@@ -5,7 +5,10 @@ import 'package:zyren/zyren.dart';
 import 'package:zyren_gltf/zyren_gltf.dart';
 import 'package:zyren_gltf/src/worker.dart';
 import '../support/fixtures.dart';
-import '../support/animated_fixture.dart';
+import '../support/pbr_fixture.dart';
+import '../support/animation_fixture.dart';
+import '../support/deformation_fixture.dart';
+import '../support/animated_fixture.dart' as legacy;
 
 final class Cancellation implements LoadCancellation {
   final callbacks = <void Function()>{};
@@ -43,8 +46,22 @@ final class ModelSources implements ByteSourceResolver {
   Future<ResolvedSource> read(Uri uri, SourceReadContext context) async =>
       ResolvedSource(
         effectiveUri: uri,
-        bytes: uri.path.contains('animated')
-            ? animatedModel(bindPosition: 2)
+        bytes: uri.path.endsWith('legacy-animated.glb')
+            ? legacy.animatedModel(bindPosition: 2)
+            : uri.path.endsWith('deformation.glb')
+            ? deformationModel()
+            : uri.path.endsWith('animated.glb')
+            ? animatedModel()
+            : uri.path.endsWith('pbr.glb')
+            ? pbrModel(
+                material: {
+                  'pbrMetallicRoughness': {
+                    'baseColorTexture': {'index': 0},
+                  },
+                  'normalTexture': {'index': 0},
+                  'emissiveTexture': {'index': 0},
+                },
+              )
             : texturedModel(),
       );
 }
@@ -61,26 +78,30 @@ Future<void> main() async {
   final animationScope = AssetScope(
     services: AssetServices(resolver: ModelSources()),
   );
-  final animated = await animationScope.load(Gltf.asset('animated.glb')).result;
-  final animatedInstance = animated.instantiate();
-  animatedInstance.preparePose(
-    animation: animated.animations.single,
+  final legacyAnimated = await animationScope
+      .load(Gltf.asset('legacy-animated.glb'))
+      .result;
+  final legacyAnimatedInstance = legacyAnimated.instantiate(
+    nativeDeformation: false,
+  );
+  legacyAnimatedInstance.preparePose(
+    animation: legacyAnimated.animations.single,
     time: const Duration(seconds: 1),
   )();
   check(
-    (animatedInstance.nodes[0]!.children.single as Mesh)
+    (legacyAnimatedInstance.nodes[0]!.children.single as Mesh)
             .geometry
             .positions
             .first ==
         7,
   );
-  animationScope.release(animated);
-  animatedInstance.preparePose(
-    animation: animatedInstance.animations.single,
+  animationScope.release(legacyAnimated);
+  legacyAnimatedInstance.preparePose(
+    animation: legacyAnimatedInstance.animations.single,
     time: Duration.zero,
   )();
   check(
-    (animatedInstance.nodes[0]!.children.single as Mesh)
+    (legacyAnimatedInstance.nodes[0]!.children.single as Mesh)
             .geometry
             .positions
             .first ==
@@ -168,6 +189,33 @@ Future<void> main() async {
   check(mesh.material.colorMap!.image.id > existingImage.id);
   check(mesh.geometry.vertexCount == 4 && mesh.geometry.indices.length == 6);
   check(mesh.material.side == MaterialSide.front);
+  final pbr = await scope.load(Gltf.asset('pbr.glb')).result;
+  final pbrInstance = pbr.instantiate();
+  final standard =
+      (pbrInstance.children.first.children.single as Mesh).material
+          as StandardMaterial;
+  check(identical(standard.baseColorMap!.image, standard.emissiveMap!.image));
+  check(
+    standard.normalMap!.image.descriptor.format == TextureFormat.rgba8Unorm,
+  );
+  check(
+    standard.baseColorMap!.image.descriptor.format ==
+        TextureFormat.rgba8UnormSrgb,
+  );
+  check(pbrInstance.children.last.children.single is DirectionalLight);
+  final animated = await scope.load(Gltf.asset('animated.glb')).result;
+  final moving = animated.instantiate();
+  moving.mixer.play(moving.animations.single).seek(const Duration(seconds: 1));
+  check(moving.nodes[0]!.position == const Vec3(0, .5, 0));
+  final deformed = (await scope.load(Gltf.asset('deformation.glb')).result)
+      .instantiate();
+  deformed.mixer
+      .play(deformed.animations.single)
+      .seek(const Duration(seconds: 1));
+  final skinned = deformed.nodes[1]!.children.whereType<SkinnedMesh>().single;
+  check(
+    skinned.morphWeights[0] == 1 && skinned.skin.joints[0] == deformed.nodes[2],
+  );
   await scope.close();
   check(model.isReleased && mesh.material.colorMap != null);
   print('AOT glTF workers passed.');

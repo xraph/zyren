@@ -3,18 +3,19 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:zyren/zyren.dart';
 import 'buffers.dart';
+import 'basis.dart';
+import 'draco.dart';
+import 'meshopt.dart';
+import 'animation_decoder.dart';
 import 'data_uri.dart';
 import 'options.dart';
 import 'recipes.dart';
 import 'animation.dart';
+import 'material_decoder.dart' show physicalExtensions, emissionExtension;
 import 'worker.dart';
-import 'meshopt.dart';
-import 'draco.dart';
-import 'basis.dart';
 import 'features.dart';
 import 'metadata.dart';
 import 'metadata_decoder.dart' show structuralMetadataExtension;
-import 'feature_decoder.dart' show meshFeaturesExtension;
 part 'model_asset.dart';
 part 'model_animation_instance.dart';
 part 'model_pose.dart';
@@ -77,9 +78,11 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
         context.cancellation,
         supportedExtensions: {
           'KHR_materials_unlit',
-          'KHR_lights_punctual',
-          meshFeaturesExtension,
+          'EXT_mesh_features',
           structuralMetadataExtension,
+          ...physicalExtensions,
+          emissionExtension,
+          'KHR_lights_punctual',
           if (context.supportsTextureEncoding(TextureEncoding.ktx2Basis))
             basisExtension,
           if (context.supportsMeshEncoding(MeshEncoding.draco)) dracoExtension,
@@ -120,18 +123,18 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
         context.cancellation,
       );
       context.reserveDecodedBytes(prepared.decodedBytes);
-      final variants = <int, Set<(bool, bool)>>{};
+      final variants = <int, Set<(bool, ColorSpace)>>{};
       for (final mesh in prepared.meshes) {
         for (final primitive in mesh) {
           for (final binding in primitive.material.maps) {
-            (variants[binding.source] ??= <(bool, bool)>{}).add((
+            (variants[binding.source] ??= <(bool, ColorSpace)>{}).add((
               binding.mipmaps,
-              binding.linear,
+              binding.colorSpace,
             ));
           }
         }
       }
-      final images = <(int, bool, bool), TextureImage>{};
+      final images = <(int, bool, ColorSpace), TextureImage>{};
       for (final entry in prepared.images.entries) {
         context.cancellation.throwIfCancelled();
         final path = 'images[${entry.key}]', recipe = entry.value;
@@ -173,10 +176,10 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
             encoding: TextureEncoding.ktx2Basis,
             fieldPath: path,
           );
-          for (final (mipmaps, linear) in variants[entry.key]!) {
-            final expected = linear
-                ? TextureFormat.rgba8Unorm
-                : TextureFormat.rgba8UnormSrgb;
+          for (final (mipmaps, colorSpace) in variants[entry.key]!) {
+            final expected = texture.descriptor.format.withSrgb(
+              colorSpace == ColorSpace.srgb,
+            );
             if (texture.descriptor.format != expected) {
               throw AssetLoadException(
                 AssetLoadError.invalidData,
@@ -186,7 +189,8 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
               );
             }
             final unchanged = mipmaps
-                ? texture.levels.length > 1
+                ? (texture.levels.length > 1 ||
+                      texture.descriptor.format.isCompressed)
                 : texture.levels.length == 1;
             final selected = mipmaps ? texture.levels : [texture.levels.first];
             if (!unchanged) {
@@ -202,12 +206,14 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
                     mipmaps,
                     context.cancellation,
                   );
-            images[(entry.key, mipmaps, linear)] = TextureImage.fromData(data);
+            images[(entry.key, mipmaps, colorSpace)] = TextureImage.fromData(
+              data,
+            );
           }
           continue;
         }
         final image = await context.decodeImage(bytes, fieldPath: path);
-        for (final (mipmaps, linear) in variants[entry.key]!) {
+        for (final (mipmaps, colorSpace) in variants[entry.key]!) {
           context.reserveDecodedBytes(
             image.size.width * image.size.height * 4,
             fieldPath: path,
@@ -216,9 +222,11 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
             image,
             mipmaps,
             context.cancellation,
-            linear: linear,
+            colorSpace: colorSpace,
           );
-          images[(entry.key, mipmaps, linear)] = TextureImage.fromData(data);
+          images[(entry.key, mipmaps, colorSpace)] = TextureImage.fromData(
+            data,
+          );
         }
       }
       context.report(LoadProgress(stage: LoadStage.prepare, completedBytes: 0));
@@ -228,44 +236,64 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
         final primitives = <_ModelPrimitive>[];
         for (final primitive in mesh) {
           context.cancellation.throwIfCancelled();
-          final geometry = BufferGeometry.fromData(primitive.geometry),
-              m = primitive.material;
-          TextureMap? map(ImageBindingRecipe? binding) => binding == null
+          var data = primitive.geometry;
+          final m = primitive.material;
+          final tangentMap =
+              m.normalMap ?? m.physical?.maps[2] ?? m.physical?.maps[7];
+          final needsTangent =
+              tangentMap != null || (m.physical?.factors.anisotropy ?? 0) > 0;
+          if (needsTangent &&
+              !data.attributes.containsKey(VertexSemantic.tangent)) {
+            data = await context.generateTangents(
+              data,
+              uvSet: tangentMap?.uvSet ?? 0,
+              fieldPath:
+                  'meshes[${meshes.length}].primitives[${primitives.length}].attributes.TANGENT',
+            );
+          }
+          final geometry = BufferGeometry.fromData(data);
+          TextureMap? texture(ImageBindingRecipe? binding) => binding == null
               ? null
               : TextureMap(
                   image:
                       images[(
                         binding.source,
                         binding.mipmaps,
-                        binding.linear,
+                        binding.colorSpace,
                       )]!,
                   sampler: binding.sampler,
                   uvSet: binding.uvSet,
                 );
-          final MeshMaterial material = switch (geometry.topology) {
+          final map = texture(m.colorMap);
+          final vertexColors = geometry.attributes.containsKey(
+            VertexSemantic.color,
+          );
+          MeshMaterial material = switch (geometry.topology) {
             GeometryTopology.triangles when m.standard => StandardMaterial(
               baseColor: m.color,
+              baseColorMap: map,
               metallic: m.metallic,
               roughness: m.roughness,
-              emissive: m.emissive,
-              normalScaleX: m.normalScale,
-              normalScaleY: m.normalScale,
+              normalMap: texture(m.normalMap),
+              normalScale: m.normalScale,
+              metallicRoughnessMap: texture(m.metallicRoughnessMap),
+              occlusionMap: texture(m.occlusionMap),
               occlusionStrength: m.occlusionStrength,
-              colorMap: map(m.colorMap),
-              normalMap: map(m.normalMap),
-              metallicRoughnessMap: map(m.metallicRoughnessMap),
-              occlusionMap: map(m.occlusionMap),
-              emissiveMap: map(m.emissiveMap),
+              emissive: m.emissive,
+              emissiveIntensity: m.emissiveIntensity,
+              emissiveMap: texture(m.emissiveMap),
               side: m.side,
               opacity: m.opacity,
+              vertexColors: vertexColors,
               alphaMode: m.alphaMode,
               alphaCutoff: m.cutoff,
             ),
             GeometryTopology.triangles => UnlitMaterial(
               color: m.color,
-              colorMap: map(m.colorMap),
+              colorMap: texture(m.colorMap),
               side: m.side,
               opacity: m.opacity,
+              vertexColors: vertexColors,
               alphaMode: m.alphaMode,
               alphaCutoff: m.cutoff,
             ),
@@ -274,6 +302,7 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
               size: 1,
               shape: PointShape.square,
               opacity: m.opacity,
+              vertexColors: vertexColors,
               alphaMode: m.alphaMode,
               alphaCutoff: m.cutoff,
             ),
@@ -281,18 +310,59 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
               color: m.color,
               width: 1,
               opacity: m.opacity,
+              vertexColors: vertexColors,
               alphaMode: m.alphaMode,
               alphaCutoff: m.cutoff,
             ),
           };
+          if (m.physical case final physical?) {
+            if (geometry.topology != GeometryTopology.triangles) {
+              throw AssetLoadException(
+                AssetLoadError.unsupportedFeature,
+                'Physical glTF materials require triangle primitives.',
+                fieldPath:
+                    'meshes[${meshes.length}].primitives[${primitives.length}]',
+              );
+            }
+            final maps = physical.maps.map(texture).toList();
+            material = physical.factors.copyWith(
+              baseColor: m.color,
+              baseColorMap: map,
+              metallic: m.metallic,
+              roughness: m.roughness,
+              normalMap: texture(m.normalMap),
+              normalScale: m.normalScale,
+              metallicRoughnessMap: texture(m.metallicRoughnessMap),
+              occlusionMap: texture(m.occlusionMap),
+              occlusionStrength: m.occlusionStrength,
+              emissive: m.emissive,
+              emissiveIntensity: m.emissiveIntensity,
+              emissiveMap: texture(m.emissiveMap),
+              side: m.side,
+              opacity: m.opacity,
+              vertexColors: vertexColors,
+              alphaMode: m.alphaMode,
+              alphaCutoff: m.cutoff,
+              clearcoatMap: maps[0],
+              clearcoatRoughnessMap: maps[1],
+              clearcoatNormalMap: maps[2],
+              sheenColorMap: maps[3],
+              sheenRoughnessMap: maps[4],
+              specularIntensityMap: maps[5],
+              specularColorMap: maps[6],
+              anisotropyMap: maps[7],
+              transmissionMap: maps[8],
+              thicknessMap: maps[9],
+              iridescenceMap: maps[10],
+              iridescenceThicknessMap: maps[11],
+            );
+          }
           primitives.add(
             _ModelPrimitive(
               geometry,
               material,
               primitive.name,
               primitive.features,
-              primitive.deformation,
-              primitive.morphWeights,
             ),
           );
           if (++published % 64 == 0) await Future<void>.delayed(Duration.zero);
@@ -316,6 +386,8 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
               as String?;
       context.reserveDecodedBytes((copyright?.length ?? 0) * 2);
       final shared = _SharedModel(
+        prepared.skins,
+        prepared.animations,
         prepared.nodes,
         prepared.scenes,
         prepared.defaultScene,
@@ -324,8 +396,6 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
         source.effectiveUri,
         copyright,
         prepared.propertyTables,
-        prepared.animations,
-        prepared.skins,
       );
       return DecodedAsset(
         create: () => ModelAsset._(shared),

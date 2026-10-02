@@ -214,7 +214,7 @@ class Tiles3DLabState extends State<Tiles3DLab> {
                   : SceneView(
                       controller: controller,
                       errorBuilder: (context, issue, retry) =>
-                          ZeroState(error: issue, onRetry: retry),
+                          RendererZeroState(error: issue, onRetry: retry),
                     ),
             ),
             TileAttributionBar(tileCredits: tiles?.attributions ?? const []),

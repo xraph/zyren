@@ -1,4 +1,4 @@
-const cloudBlueNoiseWgsl=r'''
+const cloudBlueNoiseWgsl = r'''
 @group(2) @binding(7) var<storage,read> cloudBlueNoise:array<u32>;
 fn cloudNoise(pixel:vec2<f32>,height:f32)->f32{
  let p=vec2<u32>(u32(pixel.x),u32(height)-1u-u32(pixel.y));

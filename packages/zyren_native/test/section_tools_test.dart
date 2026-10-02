@@ -8,101 +8,94 @@ import 'package:zyren_tools/zyren_tools.dart';
 
 void main() {
   for (final strategy in DepthStrategy.values) {
-    test(
-      '$strategy native caps expose solid interiors and clean up',
-      () async {
-        final scene = Scene()..background = const Color3(0, 0, 0);
-        final source = scene.add(
-          Mesh(
-            BoxGeometry(width: 2, height: 2, depth: 2),
-            UnlitMaterial(
-              color: const Color3(1, 0, 0),
-              side: MaterialSide.front,
-            ),
-          ),
+    test('$strategy native caps expose solid interiors and clean up', () async {
+      final scene = Scene()..background = const Color3(0, 0, 0);
+      final source = scene.add(
+        Mesh(
+          BoxGeometry(width: 2, height: 2, depth: 2),
+          UnlitMaterial(color: const Color3(1, 0, 0), side: MaterialSide.front),
+        ),
+      );
+      final sections = SceneSectionPlugin(
+        capMaterial: UnlitMaterial(color: const Color3(0, 1, 0)),
+      );
+      final engine = await SceneEngine.create(
+        scene: scene,
+        camera: OrthographicCamera(
+          depthStrategy: strategy,
+          left: -1.5,
+          right: 1.5,
+          top: 1.5,
+          bottom: -1.5,
+          near: .1,
+          far: 10,
+          position: const Vec3(0, 0, 4),
+        ),
+        rendererFactory: NativeRenderer.create,
+        plugins: [sections],
+      );
+      try {
+        sections.setCapTargets([source]);
+        sections.setPlanes([ClippingPlane(normal: const Vec3(0, 0, -1))]);
+        final frame = await engine.render(
+          width: 33,
+          height: 33,
+          elapsed: Duration.zero,
         );
-        final sections = SceneSectionPlugin(
-          capMaterial: UnlitMaterial(color: const Color3(0, 1, 0)),
+        expect(
+          frame.pixels.sublist((16 * 33 + 16) * 4, (16 * 33 + 16) * 4 + 4),
+          [0, 255, 0, 255],
         );
-        final engine = await SceneEngine.create(
-          scene: scene,
-          camera: OrthographicCamera(
-            depthStrategy: strategy,
-            left: -1.5,
-            right: 1.5,
-            top: 1.5,
-            bottom: -1.5,
-            near: .1,
-            far: 10,
-            position: const Vec3(0, 0, 4),
-          ),
-          rendererFactory: NativeRenderer.create,
-          plugins: [sections],
+        source.fragmentCoverage = FragmentCoverage(upper: 0);
+        final hidden = await engine.render(
+          width: 33,
+          height: 33,
+          elapsed: Duration.zero,
         );
-        try {
-          sections.setCapTargets([source]);
-          sections.setPlanes([ClippingPlane(normal: const Vec3(0, 0, -1))]);
-          final frame = await engine.render(
-            width: 33,
-            height: 33,
-            elapsed: Duration.zero,
-          );
-          expect(
-            frame.pixels.sublist((16 * 33 + 16) * 4, (16 * 33 + 16) * 4 + 4),
-            [0, 255, 0, 255],
-          );
-          source.fragmentCoverage = FragmentCoverage(upper: 0);
-          final hidden = await engine.render(
-            width: 33,
-            height: 33,
-            elapsed: Duration.zero,
-          );
-          expect(
-            hidden.pixels.sublist((16 * 33 + 16) * 4, (16 * 33 + 16) * 4 + 4),
-            [0, 0, 0, 255],
-          );
-          expect(sections.capMeshes, isEmpty);
-          source.fragmentCoverage = const FragmentCoverage.full();
-          final restored = await engine.render(
-            width: 33,
-            height: 33,
-            elapsed: Duration.zero,
-          );
-          expect(
-            restored.pixels.sublist((16 * 33 + 16) * 4, (16 * 33 + 16) * 4 + 4),
-            [0, 255, 0, 255],
-          );
-          final cut = ClippingPlane(normal: const Vec3(0, 0, -1));
-          sections.setPlanes([cut, cut]);
-          expect(sections.capMeshes, hasLength(1));
-          sections.setPlanes([cut, cut.flipped]);
-          expect(sections.capMeshes, isEmpty);
-          final sheet = await engine.render(
-            width: 33,
-            height: 33,
-            elapsed: Duration.zero,
-          );
-          expect(
-            sheet.pixels.sublist((16 * 33 + 16) * 4, (16 * 33 + 16) * 4 + 4),
-            [0, 0, 0, 255],
-          );
-          sections.clear();
-          expect(source.children, isEmpty);
-          final whole = await engine.render(
-            width: 33,
-            height: 33,
-            elapsed: Duration.zero,
-          );
-          expect(
-            whole.pixels.sublist((16 * 33 + 16) * 4, (16 * 33 + 16) * 4 + 4),
-            [255, 0, 0, 255],
-          );
-        } finally {
-          await engine.dispose();
-        }
-      },
-      skip: Platform.environment['RUN_NATIVE_GPU'] != '1',
-    );
+        expect(
+          hidden.pixels.sublist((16 * 33 + 16) * 4, (16 * 33 + 16) * 4 + 4),
+          [0, 0, 0, 255],
+        );
+        expect(sections.capMeshes, isEmpty);
+        source.fragmentCoverage = const FragmentCoverage.full();
+        final restored = await engine.render(
+          width: 33,
+          height: 33,
+          elapsed: Duration.zero,
+        );
+        expect(
+          restored.pixels.sublist((16 * 33 + 16) * 4, (16 * 33 + 16) * 4 + 4),
+          [0, 255, 0, 255],
+        );
+        final cut = ClippingPlane(normal: const Vec3(0, 0, -1));
+        sections.setPlanes([cut, cut]);
+        expect(sections.capMeshes, hasLength(1));
+        sections.setPlanes([cut, cut.flipped]);
+        expect(sections.capMeshes, isEmpty);
+        final sheet = await engine.render(
+          width: 33,
+          height: 33,
+          elapsed: Duration.zero,
+        );
+        expect(
+          sheet.pixels.sublist((16 * 33 + 16) * 4, (16 * 33 + 16) * 4 + 4),
+          [0, 0, 0, 255],
+        );
+        sections.clear();
+        expect(source.children, isEmpty);
+        final whole = await engine.render(
+          width: 33,
+          height: 33,
+          elapsed: Duration.zero,
+        );
+        expect(
+          whole.pixels.sublist((16 * 33 + 16) * 4, (16 * 33 + 16) * 4 + 4),
+          [255, 0, 0, 255],
+        );
+      } finally {
+        await engine.dispose();
+      }
+    }, skip: Platform.environment['RUN_NATIVE_GPU'] != '1');
     for (final overlay in [false, true]) {
       test(
         '$strategy native gizmo overlay=$overlay follows depth option',

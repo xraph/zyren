@@ -1,4 +1,5 @@
 pub use crate::geometry_update::{AttributeRange, GeometryPatch};
+use crate::resources::texture_format;
 use std::collections::HashSet;
 
 use serde::Deserialize;
@@ -48,6 +49,14 @@ pub struct Geometry {
     pub uv1: Vec<[f32; 2]>,
     #[serde(default)]
     pub tangents: Vec<[f32; 4]>,
+    #[serde(default)]
+    pub colors: Vec<[f32; 4]>,
+    #[serde(default)]
+    pub joints: Vec<[u32; 4]>,
+    #[serde(default)]
+    pub weights: Vec<[f32; 4]>,
+    #[serde(default)]
+    pub morphs: Vec<crate::deformation::MorphTarget>,
 }
 
 impl Geometry {
@@ -61,7 +70,7 @@ impl Geometry {
     }
     pub fn byte_length(&self) -> usize {
         if self.topology != 0 {
-            return self.primitive_count() * 120;
+            return self.primitive_count() * (if self.colors.is_empty() { 120 } else { 248 });
         }
         self.positions.len()
             * (if self.uv0.is_empty() && self.uv1.is_empty() {
@@ -69,16 +78,21 @@ impl Geometry {
             } else {
                 40
             })
-            + self.tangents.len() * 16
             + self.indices.len() * self.index_format.bytes()
+            + self.tangents.len() * 16
+            + self.colors.len() * 16
+            + self.deformation_bytes()
     }
     pub fn cpu_byte_length(&self) -> usize {
         (self.positions.len() + self.normals.len()) * 12
             + (self.uv0.len() + self.uv1.len()) * 8
-            + self.tangents.len() * 16
             + self.indices.len() * 4
+            + self.tangents.len() * 16
+            + self.colors.len() * 16
+            + self.deformation_bytes()
     }
     pub fn validate(&self) -> Result<(), String> {
+        self.validate_deformation()?;
         if self.topology > 3
             || (self.topology != 0
                 && (self.primitive_count() > 250_000
@@ -87,6 +101,28 @@ impl Geometry {
                     || !self.tangents.is_empty()))
         {
             return Err("unsupported primitive topology, attributes or expanded budget".into());
+        }
+        if !self.colors.is_empty()
+            && (self.colors.len() != self.positions.len()
+                || self
+                    .colors
+                    .iter()
+                    .flatten()
+                    .any(|v| !v.is_finite() || !(0.0..=1.0).contains(v)))
+        {
+            return Err("colors need four finite values in [0,1] per vertex".into());
+        }
+        if !self.tangents.is_empty()
+            && (self.tangents.len() != self.positions.len()
+                || self.tangents.iter().any(|t| {
+                    let norm = glam::Vec3::new(t[0], t[1], t[2]).length_squared();
+                    t.iter().any(|v| !v.is_finite())
+                        || !norm.is_finite()
+                        || norm < 1e-12
+                        || t[3].abs() != 1.
+                }))
+        {
+            return Err("tangents need nonzero finite XYZ and handedness -1 or 1".into());
         }
         for uv in [&self.uv0, &self.uv1] {
             if !uv.is_empty()
@@ -143,28 +179,42 @@ impl Geometry {
 #[derive(Clone, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Mesh {
-    #[serde(default = "full_coverage")]
-    pub coverage: [f32; 2],
     #[serde(default)]
-    pub instances: Vec<[f32; 16]>,
+    pub shadow_world_model: Option<[f64; 16]>,
+    #[serde(skip)]
+    pub reversed_depth: bool,
+    #[serde(skip)]
+    pub outline_pass: bool,
+    #[serde(default = "enabled")]
+    pub color_visible: bool,
+    #[serde(default)]
+    pub cast_shadow: bool,
+    #[serde(default)]
+    pub receive_shadow: bool,
+    #[serde(skip)]
+    pub shader: Option<crate::resources::registry::ResourceKey>,
+    #[serde(skip)]
+    pub instances: u32,
+    #[serde(skip)]
+    pub pose: u32,
+    #[serde(skip, default = "one_instance")]
+    pub instance_count: u32,
     pub geometry: u32,
     pub model: [f32; 16],
     pub color: [f32; 3],
     pub unlit: bool,
     #[serde(default)]
+    pub vertex_colors: bool,
+    #[serde(default)]
     pub color_map: Option<ColorMap>,
+    #[serde(default)]
+    pub pbr: Option<crate::lighting::StandardMaterial>,
     #[serde(default)]
     pub alpha_mode: u32,
     #[serde(default)]
     pub side: u32,
     #[serde(default)]
-    pub shader: Option<[u64; 4]>,
-    #[serde(default)]
-    pub pbr: Option<[f32; 6]>,
-    #[serde(default)]
-    pub pbr_maps: [Option<ColorMap>; 4],
-    #[serde(default = "pbr_scales")]
-    pub pbr_scales: [f32; 3],
+    pub material_shader: Option<[u64; 4]>,
     #[serde(default = "one")]
     pub opacity: f32,
     #[serde(default = "half")]
@@ -183,18 +233,15 @@ pub struct Mesh {
     pub size_units: u32,
     #[serde(default)]
     pub point_shape: u32,
-    #[serde(default = "default_shadow_flags")]
-    pub shadow_flags: u32,
     #[serde(default)]
     pub clipping_planes: Vec<[f32; 4]>,
     #[serde(default)]
     pub outlined: bool,
+    #[serde(default = "full_coverage")]
+    pub coverage: [f32; 2],
 }
-fn default_shadow_flags() -> u32 {
-    2
-}
-fn pbr_scales() -> [f32; 3] {
-    [1.; 3]
+fn one_instance() -> u32 {
+    1
 }
 fn one() -> f32 {
     1.
@@ -209,22 +256,40 @@ fn full_coverage() -> [f32; 2] {
     [0., 1.]
 }
 
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct MeshExtension {
+    #[serde(default)]
+    pub shadow_world_model: Option<[f64; 16]>,
+    pub material_shader: Option<[u64; 4]>,
+    pub clipping_planes: Vec<[f32; 4]>,
+    pub coverage: [f32; 2],
+    pub outlined: bool,
+    pub normal_scale_y: Option<f32>,
+}
 impl Default for Mesh {
     fn default() -> Self {
         Self {
-            coverage: full_coverage(),
+            shadow_world_model: None,
+            reversed_depth: false,
+            outline_pass: false,
+            color_visible: true,
+            cast_shadow: false,
+            receive_shadow: false,
+            instances: 0,
+            pose: 0,
+            instance_count: 1,
             geometry: 0,
-            instances: Vec::new(),
+            shader: None,
             model: glam::Mat4::IDENTITY.to_cols_array(),
             color: [1.; 3],
             unlit: false,
+            vertex_colors: false,
             color_map: None,
+            pbr: None,
             alpha_mode: 0,
             side: 0,
-            shader: None,
-            pbr: None,
-            pbr_maps: Default::default(),
-            pbr_scales: pbr_scales(),
+            material_shader: None,
             opacity: 1.,
             alpha_cutoff: 0.5,
             depth_test: true,
@@ -234,81 +299,73 @@ impl Default for Mesh {
             primitive_size: 1.,
             size_units: 0,
             point_shape: 0,
-            shadow_flags: 2,
             clipping_planes: Vec::new(),
             outlined: false,
+            coverage: [0., 1.],
         }
     }
 }
 impl Mesh {
-    pub fn material_maps(&self) -> impl Iterator<Item = &ColorMap> {
-        self.color_map.iter().chain(self.pbr_maps.iter().flatten())
+    pub fn transmissive(&self) -> bool {
+        self.pbr.as_ref().is_some_and(|p| {
+            p.transmission[0] > 0. && (p.metallic < 1. || p.metallic_roughness_map.is_some())
+        })
     }
+
+    pub fn anisotropic(&self) -> bool {
+        self.pbr
+            .as_ref()
+            .and_then(|p| p.physical)
+            .is_some_and(|p| p[11] > 0.)
+    }
+
+    pub fn texture_maps(&self) -> impl Iterator<Item = &ColorMap> {
+        self.color_map
+            .iter()
+            .chain(self.pbr.iter().flat_map(|p| p.maps().into_iter().flatten()))
+    }
+
     pub fn writes_depth(&self) -> bool {
         self.depth_write.unwrap_or(self.alpha_mode != 2)
     }
     pub fn validate_material(&self) -> Result<(), String> {
-        if self.clipping_planes.len() > 6
-            || self.clipping_planes.iter().any(|plane| {
-                plane.iter().any(|value| !value.is_finite())
-                    || (glam::Vec3::new(plane[0], plane[1], plane[2]).length_squared() - 1.).abs()
-                        > 1e-4
+        if self
+            .shadow_world_model
+            .is_some_and(|matrix| matrix.iter().any(|v| !v.is_finite()))
+        {
+            return Err("Invalid shadow world transform".into());
+        }
+        if self.shader.is_some() && self.material_shader.is_some() {
+            return Err("A mesh requires one shader implementation".into());
+        }
+        if self.shader.is_some() && !self.clipping_planes.is_empty()
+            || self.clipping_planes.len() > 6
+            || self.clipping_planes.iter().any(|p| {
+                p.iter().any(|v| !v.is_finite())
+                    || (glam::Vec3::new(p[0], p[1], p[2]).length_squared() - 1.).abs() > 1e-4
             })
         {
-            return Err(
-                "Clipping requires at most six normalized planes".into(),
-            );
+            return Err("Invalid clipping planes".into());
         }
-        if !self.instances.is_empty()
-            && (self.instances.len() > MAX_INSTANCES
-                || self.shader.is_some()
-                || self.primitive_kind != 0)
+        if self.pose != 0 && self.primitive_kind != 0 {
+            return Err("deformation requires triangle materials".into());
+        }
+        if self.instance_count == 0
+            || self.instance_count as usize > crate::instances::MAX_INSTANCES
+            || (self.instances == 0 && self.instance_count != 1)
+            || (self.instances != 0 && self.primitive_kind != 0)
         {
-            return Err("Instances require bounded built-in triangle materials".into());
+            return Err("instancing requires a triangle material and valid count".into());
         }
-        for values in &self.instances {
-            let model = glam::Mat4::from_cols_array(values);
-            if !model.is_finite()
-                || !model.inverse().is_finite()
-                || !model.determinant().is_finite()
-                || model.determinant().abs() < 1e-20
-                || values[3] != 0.
-                || values[7] != 0.
-                || values[11] != 0.
-                || values[15] != 1.
-            {
-                return Err("Invalid affine instance transform".into());
-            }
-        }
-        if self.shadow_flags > 3
-            || (self.shadow_flags & 1 != 0 && (self.shader.is_some() || self.primitive_kind != 0))
-        {
-            return Err("Invalid shadow caster flags or material".into());
-        }
-        if (self.pbr.is_none() && self.pbr_maps.iter().any(Option::is_some))
-            || self.pbr_scales.iter().any(|v| !v.is_finite())
-            || self.pbr_scales[..2].iter().any(|v| v.abs() > 1e6)
-            || !(0.0..=1.).contains(&self.pbr_scales[2])
-        {
-            return Err("Invalid PBR maps or scales".into());
-        }
-        for map in self.material_maps() {
-            map.validate()?;
-        }
-        if let Some(p) = self.pbr
-            && (self.shader.is_some()
+        if let Some(pbr) = &self.pbr {
+            pbr.validate()?;
+            if self.unlit
                 || self.primitive_kind != 0
-                || p.iter().any(|v| !v.is_finite())
-                || p[..2].iter().any(|v| !(0.0..=1.).contains(v))
-                || !(0.0..=65504.).contains(&p[2])
-                || p[3..].iter().any(|v| !(0.0..=1.).contains(v)))
-        {
-            return Err("Invalid PBR material".into());
-        }
-        if self.shader.is_some() && (self.primitive_kind != 0 || self.color_map.is_some()) {
-            return Err(
-                "Custom shaders require triangle geometry and explicit shader bindings".into(),
-            );
+                || self.shader.is_some()
+                || self.material_shader.is_some()
+            {
+                return Err("standard material cannot be unlit, expanded or custom".into());
+            }
         }
         if self.side > 2 || (self.primitive_kind != 0 && self.side != 0) {
             return Err("invalid material side".into());
@@ -327,7 +384,8 @@ impl Mesh {
             || self.coverage[0] < 0.
             || self.coverage[1] > 1.
             || self.coverage[0] > self.coverage[1]
-            || (self.shader.is_some() && self.coverage != [0., 1.])
+            || ((self.shader.is_some() || self.material_shader.is_some())
+                && self.coverage != [0., 1.])
         {
             return Err("invalid or unsupported fragment coverage".into());
         }
@@ -382,7 +440,13 @@ impl SceneTexture {
     }
     pub fn byte_length(&self) -> usize {
         (0..self.mip_count())
-            .map(|m| (self.width >> m).max(1) as usize * (self.height >> m).max(1) as usize * 4)
+            .map(|m| {
+                texture_format::level_bytes(
+                    self.format,
+                    (self.width >> m).max(1),
+                    (self.height >> m).max(1),
+                ) as usize
+            })
             .sum()
     }
     pub fn upload_byte_length(&self) -> usize {
@@ -393,7 +457,12 @@ impl SceneTexture {
             || self.height == 0
             || self.width > 4096
             || self.height > 4096
-            || self.format > 1
+            || self.format == 2
+            || self.format > 8
+            || (texture_format::compressed(self.format)
+                && (!self.width.is_multiple_of(4)
+                    || !self.height.is_multiple_of(4)
+                    || self.mip_generation != 0))
             || self.mip_generation > 2
             || (self.mip_generation != 0 && self.levels.len() != 1)
             || self.levels.is_empty()
@@ -402,8 +471,11 @@ impl SceneTexture {
             return Err("invalid texture extent, format or mip count".into());
         }
         for (mip, level) in self.levels.iter().enumerate() {
-            let size =
-                (self.width >> mip).max(1) as usize * (self.height >> mip).max(1) as usize * 4;
+            let size = texture_format::level_bytes(
+                self.format,
+                (self.width >> mip).max(1),
+                (self.height >> mip).max(1),
+            ) as usize;
             if level.len() != size {
                 return Err("texture mip length does not match its extent".into());
             }
@@ -465,9 +537,8 @@ pub struct RenderSettings {
     pub background_alpha: f32,
     pub history_epoch: u32,
     pub camera_origin: [f64; 3],
+    pub shadow_world_lights: Vec<[f64; 4]>,
     pub environment: Option<EnvironmentMap>,
-    pub shadows: Vec<[f32; 8]>,
-    pub shadow_camera: [f32; 2],
 }
 impl Default for RenderSettings {
     fn default() -> Self {
@@ -484,9 +555,8 @@ impl Default for RenderSettings {
             background_alpha: 1.,
             history_epoch: 0,
             camera_origin: [0.; 3],
+            shadow_world_lights: Vec::new(),
             environment: None,
-            shadows: vec![],
-            shadow_camera: [0.1, 1000.],
         }
     }
 }
@@ -525,10 +595,23 @@ impl RenderSettings {
             || ![1, 4].contains(&self.sample_count)
             || (self.sample_count != 1 && !self.enabled)
             || self.camera_origin.iter().any(|v| !v.is_finite())
+            || self.shadow_world_lights.len() > crate::shadows::MAX_SHADOW_LIGHTS
+            || self
+                .shadow_world_lights
+                .iter()
+                .enumerate()
+                .any(|(i, light)| {
+                    light.iter().any(|v| !v.is_finite())
+                        || light[0].fract() != 0.
+                        || !(0.0..crate::shadows::MAX_SHADOW_LIGHTS as f64).contains(&light[0])
+                        || self.shadow_world_lights[..i]
+                            .iter()
+                            .any(|prior| prior[0] == light[0])
+                })
             || self.effects.len() > 32
             || self.tone_mapping > 6
             || !self.exposure.is_finite()
-            || !(0.0..=65504.).contains(&self.exposure)
+            || !(0.0..=1e6).contains(&self.exposure)
             || !self.background_alpha.is_finite()
             || !(0.0..=1.).contains(&self.background_alpha)
         {
@@ -548,15 +631,29 @@ pub struct OutlineSettings {
 #[derive(Clone, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Frame {
+    #[serde(skip)]
+    pub temporal: Option<crate::temporal::TemporalInput>,
+    #[serde(default)]
+    pub shadows: crate::shadows::ShadowFrame,
+    #[serde(skip)]
+    pub environment: Option<crate::lighting::Environment>,
+    #[serde(default)]
+    pub color_pipeline: Option<ColorPipeline>,
     pub version: u32,
     #[serde(default)]
     pub settings: RenderSettings,
-    #[serde(default)]
-    pub lights: Vec<[f32; 20]>,
     pub view_projection: [f32; 16],
     pub background: [f64; 3],
+    #[serde(default = "one")]
+    pub background_alpha: f32,
     pub light_direction: [f32; 3],
     pub ambient: f32,
+    #[serde(default)]
+    pub lights: Vec<crate::lighting::PunctualLight>,
+    #[serde(default)]
+    pub hemispheres: Vec<crate::lighting::HemisphereLight>,
+    #[serde(default)]
+    pub areas: Vec<crate::lighting::RectAreaLight>,
     pub geometries: Vec<Geometry>,
     pub meshes: Vec<Mesh>,
     #[serde(default)]
@@ -565,29 +662,74 @@ pub struct Frame {
     pub binary: Option<crate::scene_packet::ViewState>,
     #[serde(skip)]
     pub geometry_patches: Vec<GeometryPatch>,
+    #[serde(skip)]
+    pub instances: Vec<crate::instances::Instances>,
+    #[serde(skip)]
+    pub poses: Vec<crate::deformation::Pose>,
+    #[serde(skip)]
+    pub instance_patches: Vec<crate::instances::InstancePatch>,
+    #[serde(skip)]
+    pub graph: Option<crate::resources::registry::ResourceKey>,
 }
 
-impl Frame {
-    pub fn validate(&self, cached: &HashSet<u32>) -> Result<(), String> {
-        validate_shadows(&self.settings, &self.lights)?;
-        self.settings.validate()?;
-        if self.lights.len() > 16
-            || self.lights.iter().any(|l| {
-                l.iter().any(|v| !v.is_finite())
-                    || l[3] < 0.
-                    || l[3] > 3.
-                    || l[3].fract() != 0.
-                    || l[4..7].iter().any(|v| !(0.0..=1.).contains(v))
-                    || !(0.0..=1e12).contains(&l[7])
-                    || !(0.0..=1e12).contains(&l[11])
-                    || glam::Vec3::from_slice(&l[8..11]).length_squared() < 1e-12
-                    || !(0.0..=1.).contains(&l[12])
-                    || !(0.0..=1.).contains(&l[13])
-                    || l[12] < l[13]
-                    || l[16..19].iter().any(|v| !(0.0..=1.).contains(v))
-            })
+#[derive(Clone, Copy, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ColorPipeline {
+    #[serde(default = "single_sample")]
+    pub sample_count: u32,
+    pub tone_mapping: u32,
+    pub exposure: f32,
+}
+fn single_sample() -> u32 {
+    1
+}
+impl ColorPipeline {
+    pub fn validate(&self) -> Result<(), String> {
+        if ![1, 4].contains(&self.sample_count)
+            || self.tone_mapping > 6
+            || !self.exposure.is_finite()
+            || !(0.0..=1e6).contains(&self.exposure)
         {
-            return Err("Invalid physical lights".into());
+            return Err("invalid HDR color pipeline".into());
+        }
+        Ok(())
+    }
+}
+impl Frame {
+    pub fn sample_count(&self) -> u32 {
+        self.color_pipeline
+            .map_or(self.settings.sample_count, |pipeline| pipeline.sample_count)
+    }
+    pub fn validate(&self, cached: &HashSet<u32>) -> Result<(), String> {
+        self.settings.validate()?;
+        self.shadows
+            .validate_with_areas(&self.lights, &self.areas)?;
+        if let Some(temporal) = &self.temporal {
+            temporal.validate(self.meshes.len())?;
+            if self.binary.is_none() || self.color_pipeline.is_none() || self.sample_count() != 1 {
+                return Err("Temporal AA needs a binary scene view and single-sample HDR".into());
+            }
+        }
+        if self.areas.len() > crate::lighting::MAX_AREAS {
+            return Err("scene exceeds area light limit".into());
+        }
+        for light in &self.areas {
+            light.validate()?;
+        }
+        if let Some(pipeline) = self.color_pipeline {
+            pipeline.validate()?;
+        }
+        if self.hemispheres.len() > crate::lighting::MAX_HEMISPHERES {
+            return Err("scene exceeds hemisphere light limit".into());
+        }
+        for light in &self.hemispheres {
+            light.validate()?;
+        }
+        if self.lights.len() > crate::lighting::MAX_LIGHTS {
+            return Err("scene exceeds punctual light limit".into());
+        }
+        for light in &self.lights {
+            light.validate()?;
         }
         if self.version != 1 {
             return Err("unsupported scene protocol version".into());
@@ -596,6 +738,8 @@ impl Frame {
             return Err("scene exceeds the mesh limit".into());
         }
         if self.view_projection.iter().any(|v| !v.is_finite())
+            || !self.background_alpha.is_finite()
+            || !(0.0..=1.0).contains(&self.background_alpha)
             || self
                 .background
                 .iter()
@@ -621,9 +765,7 @@ impl Frame {
         if vertices > MAX_VERTICES || indices > MAX_INDICES {
             return Err("geometry upload exceeds the per-frame budget".into());
         }
-        if self.meshes.iter().map(|m| m.instances.len()).sum::<usize>() > MAX_INSTANCES {
-            return Err("Instance count exceeds the per-view budget".into());
-        }
+
         for mesh in &self.meshes {
             mesh.validate_material()?;
             if !cached.contains(&mesh.geometry) && !added.contains(&mesh.geometry) {
@@ -658,48 +800,4 @@ pub fn pixel_len(width: u32, height: u32) -> Result<usize, String> {
         ));
     }
     Ok(width as usize * height as usize * 4)
-}
-
-pub(crate) fn validate_shadows(
-    settings: &RenderSettings,
-    light_values: &[[f32; 20]],
-) -> Result<(), String> {
-    let clip = settings.shadow_camera;
-    if clip.iter().any(|v| !v.is_finite()) || clip[1] <= clip[0] || settings.shadows.len() > 8 {
-        return Err("Invalid shadow camera or count".into());
-    }
-    let mut lights = HashSet::new();
-    let mut maps = 0;
-    for s in &settings.shadows {
-        if s.iter().any(|v| !v.is_finite())
-            || s[0] < 0.
-            || s[0].fract() != 0.
-            || s[0] as usize >= light_values.len()
-            || !lights.insert(s[0] as usize)
-            || ![128., 256., 512., 1024.].contains(&s[1])
-            || !(1.0..=4.).contains(&s[2])
-            || s[2].fract() != 0.
-            || s[3] <= 0.
-            || s[4] <= s[3]
-            || s[4] > 1e8
-            || !(0.0..=1.).contains(&s[5])
-            || !(0.0..=1e6).contains(&s[6])
-            || !(0.0..=1.).contains(&s[7])
-        {
-            return Err("Invalid shadow descriptor".into());
-        }
-        let light = &light_values[s[0] as usize];
-        let kind = light[3];
-        if (kind != 0. && kind != 2.)
-            || (kind == 2. && (s[2] != 1. || light[13] <= 0. || light[13] >= 1.))
-            || (kind == 0. && s[4].min(clip[1]) <= clip[0].max(0.001))
-        {
-            return Err("Unsupported shadow light or camera range".into());
-        }
-        maps += s[2] as usize;
-    }
-    if maps > 8 {
-        return Err("Too many shadow projections".into());
-    }
-    Ok(())
 }

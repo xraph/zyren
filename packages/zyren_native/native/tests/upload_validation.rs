@@ -116,3 +116,29 @@ fn valid_operations_reject_every_truncation_and_trailing_bytes() {
         assert!(Command::decode(&packet(op, &trailing)).is_err());
     }
 }
+
+#[test]
+fn compressed_descriptors_count_blocks_and_reject_non_sampled_usage() {
+    use zyren_runtime::resources::upload::Operation;
+    for format in 3..=8 {
+        let descriptor = |width: u32, usage: u32| {
+            packet(
+                3,
+                &[width, 8, 4, format, usage, 0]
+                    .into_iter()
+                    .flat_map(u32::to_le_bytes)
+                    .collect::<Vec<_>>(),
+            )
+        };
+        let valid = descriptor(12, 13);
+        let Operation::CreateTexture(d) = Command::decode(&valid).unwrap().operation else {
+            panic!()
+        };
+        assert_eq!(d.byte_length(), 160);
+        assert!(Command::decode(&descriptor(5, 13)).is_err());
+        assert!(Command::decode(&descriptor(12, 15)).is_err());
+        assert!(Command::decode(&descriptor(12, 29)).is_err());
+    }
+    assert!(Command::decode(&packet(11, &[])).is_ok());
+    assert!(Command::decode(&packet(11, &[0])).is_err());
+}

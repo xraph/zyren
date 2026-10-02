@@ -68,3 +68,9 @@ class DecodeBudget {
     usedBytes += bytes;
   }
 }
+
+List<double> numbers(Object? value, int count, String path) {
+  final values = array(value, path);
+  if (values.length != count) fail(path, 'Expected $count components.');
+  return [for (var i = 0; i < count; i++) number(values[i], '$path[$i]')];
+}

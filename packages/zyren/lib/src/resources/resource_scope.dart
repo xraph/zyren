@@ -1,8 +1,15 @@
+import '../rendering/color_pipeline.dart';
+export '../rendering/color_pipeline.dart' show ToneMapping;
 import 'dart:async';
+import '../rendering/mesh_deformation_wgsl.dart';
 import 'dart:convert';
+import 'dart:isolate';
 import 'dart:typed_data';
+import '../assets/hdr_image.dart';
+import '../math/quat.dart';
 import '../plugins/attachment_scope.dart';
 import '../rendering/scene_issue.dart';
+import '../rendering/frame_output.dart';
 import 'buffer.dart';
 import 'texture.dart';
 import 'texture_image.dart';
@@ -12,12 +19,17 @@ part '../rendering/shader_compiler.dart';
 part '../rendering/shader_bindings.dart';
 part '../rendering/pass_descriptor.dart';
 part '../rendering/render_graph.dart';
+part '../rendering/history_swap.dart';
 part '../rendering/graph_compiler.dart';
 part '../rendering/graph_validation.dart';
+part '../rendering/mesh_shader.dart';
 part '../rendering/material_compiler.dart';
 part '../rendering/postprocess.dart';
 part '../rendering/environment_map.dart';
 part '../rendering/environment_shaders.dart';
+part '../lighting/environment_map.dart';
+part '../lighting/environment.dart';
+part '../lighting/environment_shaders.dart';
 
 /// Adapter contract for a single device generation. Keys remain backend-private.
 /// A successful allocation owns one reference. Release waits for GPU retirement.
@@ -67,6 +79,7 @@ final class ResourceScope {
   final ResourceDevice _device;
   final String label;
   final _owned = <GpuResource<Object?>>[];
+  final _children = <ResourceScope>{};
   final _pending = <Future<void>>{};
   final _closedSignal = Completer<void>();
   bool _closed = false;
@@ -76,6 +89,16 @@ final class ResourceScope {
 
   /// Completes when cleanup settles, even if close reports a release failure.
   Future<void> get whenClosed => _closedSignal.future;
+
+  /// Creates an independently closable owner on the same device. Closing this
+  /// scope closes every descendant and drains accepted work throughout the tree.
+  ResourceScope createChild({String label = ''}) {
+    _checkOpen();
+    final child = ResourceScope(_device, label: label);
+    _children.add(child);
+    child.whenClosed.then((_) => _children.remove(child));
+    return child;
+  }
 
   void _checkOpen() {
     if (_closed) throw StateError('Resource scope has closed: $label');
@@ -97,7 +120,8 @@ final class ResourceScope {
     } catch (error, stack) {
       return Future.error(error, stack);
     }
-    final result = Future.sync(operation);
+    final completion = Completer<T>();
+    final result = completion.future;
     late Future<void> settled;
     settled = result
         .then<void>((_) {}, onError: (Object _, StackTrace _) {})
@@ -105,6 +129,10 @@ final class ResourceScope {
           _pending.remove(settled);
         });
     _pending.add(settled);
+    // Register first, while still invoking uploads synchronously to capture data.
+    Future.sync(
+      operation,
+    ).then(completion.complete, onError: completion.completeError);
     return result;
   }
 
@@ -227,15 +255,8 @@ final class ResourceScope {
     GpuResource<Texture> resource, {
     MipmapAlphaFilter alphaFilter = MipmapAlphaFilter.independent,
   }) => _run(() {
-    final descriptor = _texture(resource, 0, TextureUsage.sampled);
+    _texture(resource, 0, TextureUsage.sampled);
     _texture(resource, 0, TextureUsage.renderAttachment);
-    if (descriptor.dimension != TextureDimension.d2 ||
-        (descriptor.format != TextureFormat.rgba8Unorm &&
-            descriptor.format != TextureFormat.rgba8UnormSrgb)) {
-      throw ArgumentError(
-        'Automatic mip generation requires a 2D RGBA8 texture.',
-      );
-    }
     return _device.generateMipmaps(resource._key, alphaFilter);
   });
 
@@ -246,8 +267,17 @@ final class ResourceScope {
 
   Future<void> _close() async {
     try {
-      await Future.wait(_pending.toList());
       final failures = <Object>[];
+      final children = [
+        for (final child in _children.toList())
+          child.close().then<void>(
+            (_) {},
+            onError: (Object error, StackTrace _) {
+              failures.add(error);
+            },
+          ),
+      ];
+      await Future.wait([...children, ..._pending]);
       for (final resource in _owned.reversed) {
         try {
           await _device.release(resource._key);

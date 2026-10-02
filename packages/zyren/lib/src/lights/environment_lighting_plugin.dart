@@ -29,7 +29,9 @@ final class EnvironmentImage {
   Uint8List get bytes => Uint8List.fromList(_pixels.buffer.asUint8List());
 }
 
-const environmentLighting = ServiceKey<EnvironmentMap>('zyren.environment');
+const environmentLighting = ServiceKey<VolumeEnvironmentMap>(
+  'zyren.environment',
+);
 
 /// Owns the source, convolution graph and lookup tables for one native device.
 final class EnvironmentLightingPlugin extends ScenePlugin {
@@ -68,7 +70,7 @@ final class EnvironmentLightingPlugin extends ScenePlugin {
       ),
     );
     await context.resources.writeTexture(source, image.bytes);
-    final result = await EnvironmentMap.generate(
+    final result = await VolumeEnvironmentMap.generate(
       resources: context.resources,
       shaders: context.shaders,
       graphs: context.graphs,
@@ -78,7 +80,7 @@ final class EnvironmentLightingPlugin extends ScenePlugin {
       samples: samples,
       brdfSize: brdfSize,
     );
-    final map = EnvironmentMap(
+    final map = VolumeEnvironmentMap(
       irradiance: result.irradiance,
       specular: result.specular,
       brdf: result.brdf,

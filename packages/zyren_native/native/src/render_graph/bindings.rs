@@ -210,7 +210,13 @@ pub fn prepare(
                         .checked_add(levels)
                         .is_none_or(|end| end > texture.mip_level_count())
                     || (storage
-                        && (texture.format() == wgpu::TextureFormat::Rgba8UnormSrgb || levels != 1))
+                        && (!matches!(
+                            texture.format(),
+                            wgpu::TextureFormat::Rgba8Unorm
+                                | wgpu::TextureFormat::Rgba16Float
+                                | wgpu::TextureFormat::Rgba32Float
+                                | wgpu::TextureFormat::R32Float
+                        ) || levels != 1))
                 {
                     return Err(invalid(
                         "Texture usage, mip range or storage format is invalid",

@@ -28,7 +28,7 @@ void main() {
       );
       final first = capture(), encoder = ScenePacketEncoder(viewId: 500);
       var packet = encoder.encode(first);
-      expect(packet.bytes.buffer.asByteData().getUint32(4, Endian.little), 25);
+      expect(packet.bytes.buffer.asByteData().getUint32(4, Endian.little), 26);
       encoder.accept(packet);
       expect(first.scene.triangles, 4);
       expect(encoder.encode(capture()).changedMeshes, 0);
@@ -46,7 +46,7 @@ void main() {
       );
       packet = encoder.encode(capture());
       expect(packet.changedMeshes, 1);
-      expect(packet.uploadedBytes, 0);
+      expect(packet.uploadedBytes, 128);
       encoder.accept(packet);
       expect(encoder.encode(first).changedMeshes, 1);
       expect(hit.distance, 5);
@@ -75,7 +75,7 @@ void main() {
       final projective = Mat4.identity().storage.toList()..[3] = .1;
       expect(() => mesh.setTransform(0, Mat4(projective)), throwsArgumentError);
       expect(
-        () => InstancedMesh(BoxGeometry(), StandardMaterial(), count: 65537),
+        () => InstancedMesh(BoxGeometry(), StandardMaterial(), count: 100001),
         throwsRangeError,
       );
       final scene = Scene()..add(mesh);
@@ -85,8 +85,8 @@ void main() {
         size: PhysicalSize(8, 8),
       );
       final packet = ScenePacketEncoder(viewId: 1).encode(frame);
-      expect(packet.uploadedBytes, lessThan(4096));
-      expect(packet.bytes.length, lessThan(650000));
+      expect(packet.uploadedBytes, greaterThanOrEqualTo(10000 * 128));
+      expect(packet.bytes.length, lessThan(1400000));
       expect(frame.scene.triangles, 120000);
       final revision = scene.revision;
       mesh.quaternion = Quat.axisAngle(const Vec3(0, 1, 0), math.pi);

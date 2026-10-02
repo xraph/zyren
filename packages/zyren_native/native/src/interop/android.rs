@@ -123,14 +123,20 @@ pub unsafe extern "C" fn fg_android_attach(
             height,
             present_mode: wgpu::PresentMode::Fifo,
             desired_maximum_frame_latency: 2,
-            alpha_mode: [
-                wgpu::CompositeAlphaMode::PreMultiplied,
-                wgpu::CompositeAlphaMode::Inherit,
-                wgpu::CompositeAlphaMode::Opaque,
-            ]
-            .into_iter()
-            .find(|mode| capabilities.alpha_modes.contains(mode))
-            .ok_or("Vulkan surface lacks a supported alpha convention")?,
+            alpha_mode: if capabilities
+                .alpha_modes
+                .contains(&wgpu::CompositeAlphaMode::PreMultiplied)
+            {
+                wgpu::CompositeAlphaMode::PreMultiplied
+            } else if capabilities
+                .alpha_modes
+                .contains(&wgpu::CompositeAlphaMode::Inherit)
+            {
+                // SurfaceProducer consumes RGBA images as Flutter textures.
+                wgpu::CompositeAlphaMode::Inherit
+            } else {
+                return Err("Vulkan surface lacks premultiplied alpha presentation".into());
+            },
             view_formats: vec![],
         };
         // Retain the target before configure, including its panic path.

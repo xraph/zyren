@@ -10,6 +10,8 @@ import 'package:zyren/zyren.dart';
 import 'package:zyren/rendering.dart';
 import 'package:flutter_zyren/src/presentation/native_metal_presenter.dart';
 
+import 'support/texture_formats.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   const channel = MethodChannel('zyren/scene-views');
@@ -32,8 +34,11 @@ void main() {
               'adapter': 'test Metal',
               'driverInfo': 'test driver',
             };
-          case 'gpu':
-            return deviceInfoReply(call.arguments as Map, samples: samples);
+          case 'gpuCommand':
+            if ((call.arguments as Map)['kind'] == 'graph') {
+              return deviceInfoReply(call.arguments as Map, samples: samples);
+            }
+            return textureFormatsReply(call);
           default:
             throw StateError(call.method);
         }
@@ -58,6 +63,8 @@ void main() {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(channel, (call) async {
             switch (call.method) {
+              case 'gpuCommand':
+                return textureFormatsReply(call);
               case 'connect':
                 return null;
               case 'gpu':
@@ -138,6 +145,8 @@ void main() {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(channel, (call) async {
             switch (call.method) {
+              case 'gpuCommand':
+                return textureFormatsReply(call);
               case 'connect':
                 return null;
               case 'gpu':

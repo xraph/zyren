@@ -11,7 +11,7 @@ const magic = [171, 75, 84, 88, 32, 50, 48, 187, 13, 10, 26, 10];
 
 class Textures implements TextureDecoder {
   int calls = 0;
-  bool linear = false, onlyBase = false;
+  bool linear = false, onlyBase = false, compressed = false;
   @override
   Set<TextureEncoding> get encodings => const {TextureEncoding.ktx2Basis};
   @override
@@ -21,6 +21,17 @@ class Textures implements TextureDecoder {
     ImageDecodeLimits limits = const ImageDecodeLimits(),
   }) async {
     calls++;
+    if (compressed) {
+      return TextureImageData.compressed(
+        width: 4,
+        height: 4,
+        blocks: Uint8List(16),
+        mipmaps: onlyBase ? [] : [Uint8List(16), Uint8List(16)],
+        format: linear
+            ? TextureFormat.bc7RgbaUnorm
+            : TextureFormat.bc7RgbaUnormSrgb,
+      );
+    }
     return TextureImageData.rgba(
       width: 4,
       height: 4,
@@ -75,6 +86,35 @@ Future<ModelAsset> load(Uint8List bytes, {Textures? textures, Images? images}) {
 }
 
 void main() {
+  test(
+    'compressed Basis storage retains color, mip selection and base-only sampling',
+    () async {
+      for (final filter in [9728, 9987]) {
+        for (final baseOnly in [false, true]) {
+          final asset = await load(
+            model(filter: filter),
+            textures: Textures()
+              ..compressed = true
+              ..onlyBase = baseOnly,
+          );
+          final image = onlyMesh(asset).material.colorMap!.image;
+          expect(image.descriptor.format, TextureFormat.bc7RgbaUnormSrgb);
+          expect(image.levels.length, filter == 9728 || baseOnly ? 1 : 3);
+          expect(image.generatesMipmaps, false);
+          expect(image.descriptor.byteLength, image.levels.length * 16);
+        }
+      }
+      await expectLater(
+        load(
+          model(),
+          textures: Textures()
+            ..compressed = true
+            ..linear = true,
+        ),
+        throwsA(error(AssetLoadError.invalidData)),
+      );
+    },
+  );
   test('linear Basis data maps keep linear storage', () async {
     final asset = await load(
       model(

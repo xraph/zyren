@@ -133,7 +133,7 @@ class _PlanetPageState extends State<PlanetPage> {
                         }
                       },
                       errorBuilder: (context, issue, retry) =>
-                          ZeroState(error: issue, onRetry: retry),
+                          RendererZeroState(error: issue, onRetry: retry),
                     ),
                   ),
                   const Positioned(

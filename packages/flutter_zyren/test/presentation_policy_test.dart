@@ -1,7 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_zyren/flutter_zyren.dart';
-import 'package:zyren/rendering.dart';
 import 'support/backend_fake.dart';
 import 'support/fakes.dart';
 import 'controller_test.dart' show frames, host, runtime, readback;

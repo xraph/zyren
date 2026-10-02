@@ -6,7 +6,7 @@ use crate::{
     },
     shaders::ShaderStore,
 };
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 pub(crate) struct PreparedMaterial {
     pub shader: wgpu::ShaderModule,
@@ -19,28 +19,73 @@ pub(crate) struct PreparedMaterial {
     pub screen_stage: u32,
     pub screen_target: Option<wgpu::TextureView>,
     pub screen_pipeline: Option<wgpu::RenderPipeline>,
-    resources: Vec<ResourceKey>,
+    pub(crate) resources: Vec<ResourceKey>,
     program: ResourceKey,
 }
+type DrawKey = (
+    Key,
+    wgpu::TextureFormat,
+    u32,
+    u32,
+    u32,
+    bool,
+    bool,
+    bool,
+    bool,
+    bool,
+);
 pub(crate) struct MaterialStore {
+    pipelines: HashMap<DrawKey, super::mesh::PreparedMaterial>,
     registry: ResourceRegistry<PreparedMaterial>,
 }
 impl Default for MaterialStore {
     fn default() -> Self {
         Self {
+            pipelines: HashMap::new(),
             registry: ResourceRegistry::new(next_registry_id(), 1, 8 * 1024 * 1024),
         }
     }
 }
 impl MaterialStore {
+    pub fn prepare(
+        &mut self,
+        device: &wgpu::Device,
+        value: Key,
+        mesh: &crate::scene::Mesh,
+        format: wgpu::TextureFormat,
+        samples: u32,
+    ) -> Result<super::mesh::PreparedMaterial, GraphError> {
+        let material = self.resolve(value)?;
+        let key = (
+            value,
+            format,
+            samples,
+            mesh.side,
+            mesh.alpha_mode,
+            glam::Mat4::from_cols_array(&mesh.model).determinant() < 0.,
+            mesh.depth_test,
+            mesh.writes_depth(),
+            mesh.reversed_depth,
+            mesh.outline_pass,
+        );
+        if let Some(result) = self.pipelines.get(&key) {
+            return Ok(result.clone());
+        }
+        if self.pipelines.len() >= 512 {
+            return Err(GraphError::new(
+                "limitExceeded",
+                "Material pipeline budget exceeded",
+            ));
+        }
+        let result = super::mesh::prepare_external(device, material, mesh, format, samples)?;
+        self.pipelines.insert(key, result.clone());
+        Ok(result)
+    }
     pub fn retain(&mut self, value: Key) -> Result<(), GraphError> {
         self.registry.retain(key(value)).map_err(Into::into)
     }
     pub fn live(&self) -> u64 {
         self.registry.live_allocations()
-    }
-    pub fn contains(&self, value: Key) -> bool {
-        self.registry.resolve(key(value)).is_ok()
     }
     pub fn resolve(&self, value: Key) -> Result<&PreparedMaterial, ResourceError> {
         self.registry.resolve(key(value))
@@ -230,14 +275,13 @@ impl MaterialStore {
                     wgpu::TextureFormat::Rgba16Float,
                 ));
             } else {
-                crate::renderer::pipelines::material_pipeline(
+                super::mesh::prepare_external(
                     device,
                     &material,
-                    wgpu::TextureFormat::Rgba8UnormSrgb,
                     &Default::default(),
+                    wgpu::TextureFormat::Rgba8UnormSrgb,
                     1,
-                    false,
-                );
+                )?;
             }
             Ok(material)
         })?;
@@ -273,6 +317,7 @@ impl MaterialStore {
         shaders.release_graph(&[material.program])?;
         self.registry.release(key(value))?;
         self.registry.retire_completed(0);
+        self.pipelines.retain(|(owner, ..), _| *owner != value);
         Ok(())
     }
 }

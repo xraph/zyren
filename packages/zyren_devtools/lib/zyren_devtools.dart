@@ -2,7 +2,7 @@ library;
 
 import 'dart:collection';
 import 'package:zyren/zyren.dart';
-import 'package:zyren/rendering.dart';
+import 'package:zyren/rendering.dart' show GpuInspection;
 
 const sceneDevtools = ServiceKey<SceneDevtoolsPlugin>('zyren.devtools');
 

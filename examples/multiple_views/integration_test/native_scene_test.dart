@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,6 +13,7 @@ class Probe extends ScenePlugin {
   @override
   String get id => 'native-view-probe';
   final frames = <FrameStats>[];
+  PluginContext? context;
   int before = 0, detached = 0;
   @override
   void beforeRender(PluginContext context, FrameInfo frame) {
@@ -20,6 +22,7 @@ class Probe extends ScenePlugin {
 
   @override
   void afterRender(PluginContext context, FrameInfo info, FrameStats stats) {
+    this.context = context;
     frames.add(stats);
   }
 
@@ -86,6 +89,27 @@ void main() {
       expect(probe.frames.map((f) => f.readbackBytes), everyElement(0));
       expect(probe.frames.first.uploadedBytes, greaterThan(0));
       expect(probe.frames.last.uploadedBytes, 0);
+      final inspection = await probe.context!.inspectGpu();
+      expect(inspection, isNotNull);
+      if (inspection!.gpuTimeSource == 'unavailable') {
+        expect(inspection.lastSubmissionGpuTimeNs, isNull);
+      } else {
+        expect(inspection.lastSubmissionGpuTimeNs, isNotNull);
+        expect(
+          inspection.gpuTimeSource,
+          android
+              ? 'wgpu.timestampQuery.commandEncoder'
+              : 'metal.commandBuffer.startEndTime',
+        );
+      }
+      debugPrint(
+        jsonEncode({
+          'fixture': 'native-presentation-timing',
+          'gpuTimeNs': inspection.lastSubmissionGpuTimeNs,
+          'source': inspection.gpuTimeSource,
+          'pixelReadbackBytes': probe.frames.last.readbackBytes,
+        }),
+      );
       expect(probe.before, greaterThanOrEqualTo(probe.frames.length));
       expect(find.byType(RawImage), findsNothing);
       expect(find.byType(Texture), android ? findsOneWidget : findsNothing);
@@ -302,7 +326,8 @@ void main() {
         ),
         isTrue,
       );
-      expect(frames.first.uploadedBytes, 200);
+      // Four position/normal + UV0/UV1 vertices, six uint16 indices and RGBA.
+      expect(frames.first.uploadedBytes, 4 * (24 + 16) + 6 * 2 + 16);
       expect(frames.first.readbackBytes, 0);
       expect(frames.first.presentationPath, path);
       // Public frame statistics are sampled at most once every 200 ms.
@@ -322,7 +347,10 @@ void main() {
         await tester.tap(find.text(format));
         await until(tester, () => frames.length > count);
         expect(frames.last.uploadedBytes, bytes);
-        expect(find.textContaining('$format ·'), findsOneWidget);
+        expect(
+          find.textContaining(RegExp('^$format [0-9]+×[0-9]+ ·')),
+          findsOneWidget,
+        );
         expect(find.textContaining('failed:'), findsNothing);
       }
       expect(find.byType(RawImage), findsNothing);
@@ -341,7 +369,9 @@ void main() {
   testWidgets(
     'explicit capture returns real RGBA pixels and measured readback',
     (tester) async {
-      final backend = await const SceneRuntime.nativeMetal().backendFactory();
+      final backend = android
+          ? await NativeBackend.create()
+          : await const SceneRuntime.nativeMetal().backendFactory();
       final output =
           await backend.render(
                 FrameSubmission.capture(
@@ -359,9 +389,12 @@ void main() {
       expect(closed['sessions'], 0);
       expect(closed['renderers'], 0);
       expect(closed[ownership], 0);
-      expect(closed['readbackBytes'], 63 * 47 * 4);
-      debugPrint('Explicit native capture: $closed');
+      // Android's standalone capture owns its FFI renderer separately from
+      // SurfaceProducer sessions. Its readback is reported by the output.
+      expect(closed['readbackBytes'], android ? 0 : 63 * 47 * 4);
+      debugPrint(
+        'Explicit native capture: ${output.stats.readbackBytes} bytes; $closed',
+      );
     },
-    skip: Platform.isAndroid,
   );
 }

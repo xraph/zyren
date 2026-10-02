@@ -130,6 +130,9 @@ final class TextureImageData {
     MipmapAlphaFilter mipmapAlphaFilter = MipmapAlphaFilter.independent,
     TextureFormat format = TextureFormat.rgba8UnormSrgb,
   }) {
+    if (format == TextureFormat.rgba16Float || format.isCompressed) {
+      throw ArgumentError("RGBA byte images require RGBA8 storage.");
+    }
     if (generateMipmaps && mipmaps.isNotEmpty) {
       throw ArgumentError('Choose supplied mipmaps or native generation.');
     }
@@ -159,6 +162,43 @@ final class TextureImageData {
       ]),
       generateMipmaps,
       mipmapAlphaFilter,
+    );
+  }
+
+  /// Native blocks, including complete blocks for mip tails smaller than 4x4.
+  /// Supply authored mips; compressed images cannot generate mips on the GPU.
+  factory TextureImageData.compressed({
+    required int width,
+    required int height,
+    required TextureFormat format,
+    required Uint8List blocks,
+    List<Uint8List> mipmaps = const [],
+  }) {
+    if (!format.isCompressed) {
+      throw ArgumentError('A compressed format is required.');
+    }
+    final descriptor = TextureDescriptor(
+      width: width,
+      height: height,
+      mipLevels: 1 + mipmaps.length,
+      format: format,
+    );
+    final sources = [blocks, ...mipmaps];
+    for (var i = 0; i < sources.length; i++) {
+      if (sources[i].length != descriptor.mipByteLength(i)) {
+        throw ArgumentError(
+          'Mip $i must contain tightly packed compression blocks.',
+        );
+      }
+    }
+    return TextureImageData._(
+      descriptor,
+      List.unmodifiable([
+        for (final source in sources)
+          Uint8List.fromList(source).asUnmodifiableView(),
+      ]),
+      false,
+      MipmapAlphaFilter.independent,
     );
   }
   TextureImageData._(

@@ -16,6 +16,8 @@ class SceneRuntime {
     textureDecoder: NativeTextureDecoder(),
     bufferDecoder: NativeBufferDecoder(),
     meshDecoder: NativeMeshDecoder(),
+    hdrImageDecoder: NativeHdrImageDecoder(),
+    tangentGenerator: NativeTangentGenerator(),
   );
   final AssetServices assetServices;
   final Future<RenderBackend> Function() backendFactory;

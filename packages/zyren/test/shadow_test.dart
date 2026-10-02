@@ -7,7 +7,9 @@ void main() {
   test('shadow flags participate in immutable frame deltas', () {
     final scene = Scene();
     final mesh = scene.add(
-      Mesh(BoxGeometry(), StandardMaterial())..castShadow = true,
+      Mesh(BoxGeometry(), StandardMaterial())
+        ..castShadow = true
+        ..receiveShadow = true,
     );
     final light = scene.add(
       DirectionalLight(shadow: ShadowSettings(cascades: 4)),
@@ -33,9 +35,9 @@ void main() {
     light.shadow = null;
     scene.remove(light);
     mesh.castShadow = false;
-    expect(capture().toNativePacket, throwsUnsupportedError);
+    expect(capture().toNativePacket()['meshes'], hasLength(1));
     mesh.material = UnlitMaterial();
-    mesh.receiveShadow = true;
+    mesh.receiveShadow = false;
     expect(capture().toNativePacket()['meshes'], hasLength(1));
   });
   test('shadow settings bound work and reject unsupported light profiles', () {
@@ -63,7 +65,7 @@ void main() {
     );
     expect(capture, throwsUnsupportedError);
     scene.remove(hemi);
-    for (var i = 0; i < 3; i++) {
+    for (var i = 0; i < 17; i++) {
       scene.add(DirectionalLight(shadow: ShadowSettings(cascades: 4)));
     }
     expect(capture, throwsArgumentError);

@@ -39,9 +39,11 @@ class Backend implements ShaderBackend {
 
 class Device implements ShaderDevice {
   Completer<void>? gate;
+  void Function()? onCompile;
   final live = <Object, int>{};
   @override
   Future<ShaderBuild> compileShader(ShaderSource source) async {
+    onCompile?.call();
     await gate?.future;
     if (source.code == 'invalid') {
       throw ShaderCompilationException(source, [
@@ -88,6 +90,23 @@ class Device implements ShaderDevice {
 }
 
 void main() {
+  test(
+    'synchronous adapter closure drains an admitted shader compile',
+    () async {
+      final device = Device()..gate = Completer<void>();
+      final compiler = ShaderCompiler(device);
+      Future<void>? closing;
+      device.onCompile = () {
+        closing = compiler.close();
+      };
+      final pending = compiler.compile(ShaderSource.wgsl('valid'));
+      final rejected = expectLater(pending, throwsStateError);
+      device.gate!.complete();
+      await rejected;
+      await closing;
+      expect(device.live, isEmpty);
+    },
+  );
   test(
     'plugin compilers are lazy attachment owners and close before detach',
     () async {

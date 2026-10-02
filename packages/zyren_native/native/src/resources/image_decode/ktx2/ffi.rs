@@ -1,5 +1,5 @@
 use super::super::ffi::ImageLimits;
-use super::{DecodeError, DecodeLimits, decode};
+use super::{DecodeError, DecodeLimits, transcode};
 
 #[repr(C)]
 pub struct TextureBytes {
@@ -25,6 +25,19 @@ pub unsafe extern "C" fn fg2_ktx2_decode(
     limits: *const ImageLimits,
     output: *mut TextureBytes,
 ) -> u32 {
+    unsafe { fg2_ktx2_transcode(input, length, limits, 0, output) }
+}
+
+/// # Safety
+/// Same pointer ownership contract as `fg2_ktx2_decode`. Target is 0..3.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn fg2_ktx2_transcode(
+    input: *const u8,
+    length: usize,
+    limits: *const ImageLimits,
+    target: u32,
+    output: *mut TextureBytes,
+) -> u32 {
     if output.is_null() {
         return DecodeError::InvalidData as u32;
     }
@@ -42,7 +55,7 @@ pub unsafe extern "C" fn fg2_ktx2_decode(
         if limits.version != 1 {
             return Err(DecodeError::InvalidLimits);
         }
-        let data = decode(
+        let data = transcode(
             unsafe { std::slice::from_raw_parts(input, length) },
             DecodeLimits {
                 max_encoded_bytes: limits.max_encoded_bytes,
@@ -50,6 +63,7 @@ pub unsafe extern "C" fn fg2_ktx2_decode(
                 max_working_bytes: limits.max_working_bytes,
                 max_dimension: limits.max_dimension,
             },
+            target,
         )?
         .into_boxed_slice();
         unsafe {

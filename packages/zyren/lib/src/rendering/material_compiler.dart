@@ -164,7 +164,9 @@ final class MaterialCompiler {
 }
 
 /// A checked shader/layout with independently retained native bindings.
-final class MeshShader {
+final class MeshShader implements MeshProgram {
+  @override
+  MeshShaderGeometry get geometry => MeshShaderGeometry.rigid;
   final MaterialCompiler _compiler;
   final Object _key;
   final MeshShaderDescriptor descriptor;

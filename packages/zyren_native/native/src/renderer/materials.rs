@@ -1,0 +1,96 @@
+use super::Renderer;
+use crate::{
+    render_graph::{FrameGraph, PreparedMaterial},
+    scene::Frame,
+};
+
+impl Renderer {
+    pub(super) fn prepare_materials(
+        &mut self,
+        frame: &Frame,
+        format: wgpu::TextureFormat,
+        graph: Option<&FrameGraph>,
+    ) -> Result<Vec<Option<PreparedMaterial>>, String> {
+        self.prepare_materials_at_samples(frame, format, graph, frame.sample_count())
+    }
+    pub(super) fn prepare_materials_at_samples(
+        &mut self,
+        frame: &Frame,
+        format: wgpu::TextureFormat,
+        graph: Option<&FrameGraph>,
+        samples: u32,
+    ) -> Result<Vec<Option<PreparedMaterial>>, String> {
+        if let Some(failure) = &self.failure {
+            return Err(failure.clone());
+        }
+        let format = super::composition::scene_format(frame, format, graph)?;
+        self.prepare_materials_in_format(frame, format, graph, samples, false)
+    }
+    pub(super) fn prepare_materials_in_format(
+        &mut self,
+        frame: &Frame,
+        format: wgpu::TextureFormat,
+        graph: Option<&FrameGraph>,
+        samples: u32,
+        mask: bool,
+    ) -> Result<Vec<Option<PreparedMaterial>>, String> {
+        let state = self.state.as_mut().unwrap();
+        frame
+            .meshes
+            .iter()
+            .map(|mesh| {
+                let mut mesh = mesh.clone();
+                mesh.outline_pass = mask;
+                let mesh = &mesh;
+                if mesh.shader.is_none() && mesh.material_shader.is_none() {
+                    return Ok(None);
+                }
+                mesh.validate_material()?;
+                let material = if let Some(key) = mesh.shader {
+                    state
+                        .graphs
+                        .meshes
+                        .prepare(&state.device, key, mesh, format, samples)
+                } else {
+                    state.graphs.materials.prepare(
+                        &state.device,
+                        mesh.material_shader.unwrap(),
+                        mesh,
+                        format,
+                        samples,
+                    )
+                }
+                .map_err(|error| {
+                    if error.is_device_failure() {
+                        state.failure = Some(error.to_string());
+                    }
+                    error.to_string()
+                })?;
+                if graph.is_some_and(|g| material.resources.contains(&g.scene_resource)) {
+                    return Err("Mesh shader cannot sample the scene color attachment".into());
+                }
+                let geometry = frame
+                    .geometries
+                    .iter()
+                    .find(|g| g.id == mesh.geometry)
+                    .or_else(|| {
+                        state
+                            .geometries
+                            .get(&mesh.geometry)
+                            .map(|g| g.recipe.as_ref())
+                    })
+                    .ok_or("Mesh shader geometry is absent")?;
+                if material.uv && geometry.uv0.is_empty() && geometry.uv1.is_empty() {
+                    return Err("Mesh shader requires UV geometry".into());
+                }
+                if material.tangent && geometry.tangents.is_empty() {
+                    return Err("Mesh shader requires tangent geometry".into());
+                }
+                if material.colored && geometry.colors.is_empty() {
+                    return Err("Mesh shader requires color geometry".into());
+                }
+                Ok(Some(material))
+            })
+            .collect()
+    }
+}

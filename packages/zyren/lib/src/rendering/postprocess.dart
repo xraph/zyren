@@ -77,20 +77,6 @@ final class ScreenEffect {
       _shader.encodeForDevice(device);
 }
 
-enum ToneMapping {
-  none,
-  reinhard,
-
-  /// Narkowicz ACES approximation, retained for existing scenes.
-  aces,
-  cineon,
-
-  /// Three r184 ACES input/output matrices and RRT/ODT fit.
-  acesFilmic,
-  agx,
-  neutral,
-}
-
 enum SpatialAntialiasing { none, fxaa }
 
 /// A normalized HDR bloom pyramid. Threshold is linear, before exposure.
@@ -134,7 +120,7 @@ final class RenderSettings {
   final double exposure, backgroundAlpha;
   final int historyEpoch, sampleCount;
   final bool hdr;
-  final EnvironmentMap? environment;
+  final VolumeEnvironmentMap? environment;
   RenderSettings({
     Iterable<ScreenEffect> effects = const [],
     this.toneMapping = ToneMapping.none,
@@ -171,7 +157,7 @@ final class RenderSettings {
     int? historyEpoch,
     bool? hdr,
     int? sampleCount,
-    EnvironmentMap? environment,
+    VolumeEnvironmentMap? environment,
   }) => RenderSettings(
     effects: effects ?? this.effects,
     toneMapping: toneMapping ?? this.toneMapping,

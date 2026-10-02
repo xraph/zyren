@@ -6,6 +6,7 @@ import 'geometry_model_test.dart' show onlyMesh;
 import 'model_test.dart' show load;
 import 'image_model_test.dart' show Images, ImageSources, scopeFor;
 import 'support/fixtures.dart';
+import 'tangent_model_test.dart' show TestTangents;
 
 void main() {
   test(
@@ -91,7 +92,7 @@ void main() {
             isA<AssetLoadException>().having(
               (e) => e.fieldPath,
               'path',
-              'meshes[0].primitives[0].attributes',
+              'meshes[0].primitives[0].attributes.TEXCOORD_1',
             ),
           ),
         );
@@ -241,7 +242,8 @@ void main() {
       );
       final images = Images();
       // A single decoder feeds both texture variants.
-      final source = ImageSources(bytes), shared = scopeFor(source, images);
+      final source = ImageSources(bytes),
+          shared = scopeFor(source, images, tangentGenerator: TestTangents());
       final model = await shared.load(Gltf.asset('standard.glb')).result;
       final material = onlyMesh(model).material as StandardMaterial;
       expect(images.calls, 1);

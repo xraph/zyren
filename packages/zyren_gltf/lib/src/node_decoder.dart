@@ -1,16 +1,17 @@
 import 'package:zyren/zyren.dart';
 import 'checked.dart';
 import 'limits.dart';
-import 'recipes.dart';
 import 'light_decoder.dart';
+import 'recipes.dart';
 
 (List<NodeRecipe>, List<SceneRecipe>, int?) decodeNodes(
   Map<String, Object?> root,
   GltfLimits limits,
-  int meshCount,
+  List<List<double>> meshWeights,
+  DecodeBudget budget,
 ) {
+  final lights = LightDecoder(root);
   final rawNodes = array(field(root, 'nodes', const []), 'nodes');
-  final lights = decodeLights(root, limits.maxNodes);
   if (rawNodes.length > limits.maxNodes) {
     fail(
       'nodes',
@@ -35,18 +36,32 @@ import 'light_decoder.dart';
         ? string(node['name'], '$path.name')
         : null;
     final mesh = node.containsKey('mesh')
-        ? index(node['mesh'], meshCount, '$path.mesh')
+        ? index(node['mesh'], meshWeights.length, '$path.mesh')
         : null;
-    LightRecipe? light;
-    final extensions = object(
-      field(node, 'extensions', <String, Object?>{}),
-      '$path.extensions',
-    );
-    if (extensions.containsKey('KHR_lights_punctual')) {
-      final fieldPath = '$path.extensions.KHR_lights_punctual';
-      requireLightExtension(root, fieldPath);
-      final ref = object(extensions['KHR_lights_punctual'], fieldPath);
-      light = lights[index(ref['light'], lights.length, '$fieldPath.light')];
+    final skin = node.containsKey('skin')
+        ? index(
+            node['skin'],
+            array(field(root, 'skins', const []), 'skins').length,
+            '$path.skin',
+          )
+        : null;
+    if (mesh == null && (skin != null || node.containsKey('weights'))) {
+      fail(path, 'Skin and morph weights require a mesh.');
+    }
+    final defaults = mesh == null ? const <double>[] : meshWeights[mesh];
+    budget.reserve(defaults.length * 16, '$path.weights');
+    final weights = node.containsKey('weights')
+        ? numbers(node['weights'], defaults.length, '$path.weights')
+        : defaults;
+    if (node.containsKey('weights') && defaults.isEmpty) {
+      fail('$path.weights', 'Weights require morph targets.');
+    }
+    if (weights.any((v) => v.abs() > 1e6)) {
+      fail(
+        '$path.weights',
+        'Morph weight magnitude exceeds 1e6.',
+        AssetLoadError.limitExceeded,
+      );
     }
     final children = <int>[];
     if (node.containsKey('children')) {
@@ -142,16 +157,9 @@ import 'light_decoder.dart';
         scale,
         mesh,
         List.unmodifiable(children),
-        light,
-        skin: node.containsKey('skin')
-            ? integer(node['skin'], '$path.skin')
-            : null,
-        weights: node.containsKey('weights')
-            ? List.unmodifiable([
-                for (final value in array(node['weights'], '$path.weights'))
-                  number(value, '$path.weights'),
-              ])
-            : null,
+        light: lights.forNode(node, path),
+        skin: skin,
+        weights: List.unmodifiable(weights),
       ),
     );
   }
@@ -228,10 +236,4 @@ import 'light_decoder.dart';
       ? index(root['scene'], scenes.length, 'scene')
       : null;
   return (List.unmodifiable(nodes), List.unmodifiable(scenes), selected);
-}
-
-List<double> numbers(Object? value, int count, String path) {
-  final values = array(value, path);
-  if (values.length != count) fail(path, 'Expected $count components.');
-  return [for (var i = 0; i < count; i++) number(values[i], '$path[$i]')];
 }

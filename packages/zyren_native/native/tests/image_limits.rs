@@ -5,6 +5,39 @@ use image::{
 use zyren_runtime::resources::image_decode::{DecodeError, DecodeLimits, decode};
 static DECODE_TEST: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
+#[test]
+fn png_output_and_decoder_workspace_share_the_working_allowance() {
+    let _serial = DECODE_TEST.lock().unwrap();
+    let bytes = png();
+    // The stream and pixels fit, but the decoder still needs its DEFLATE
+    // window, row buffers and metadata bookkeeping.
+    assert_eq!(
+        decode(
+            &bytes,
+            DecodeLimits {
+                max_working_bytes: bytes.len() as u64 * 2 + 16 + 32 * 1024,
+                ..Default::default()
+            },
+        )
+        .unwrap_err(),
+        DecodeError::LimitExceeded,
+    );
+    let image = decode(
+        &bytes,
+        DecodeLimits {
+            max_working_bytes: 2 * 1024 * 1024,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        image.pixels,
+        [
+            255, 0, 0, 128, 0, 255, 0, 255, 0, 0, 255, 0, 255, 255, 255, 255
+        ]
+    );
+}
+
 fn png() -> Vec<u8> {
     let mut bytes = Vec::new();
     PngEncoder::new(&mut bytes)

@@ -172,7 +172,7 @@ void main() {
       final packet = encoder.encode(frame);
       expect(
         ByteData.sublistView(packet.bytes).getUint32(4, Endian.little),
-        18,
+        36,
       );
       expect(frame.toNativePacket, throwsUnsupportedError);
       expect(

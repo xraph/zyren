@@ -183,7 +183,7 @@ class _DepthLabState extends State<DepthLab> {
                 1 / MediaQuery.devicePixelRatioOf(context),
               ),
               errorBuilder: (context, issue, retry) =>
-                  ZeroState(error: issue, onRetry: retry),
+                  RendererZeroState(error: issue, onRetry: retry),
             ),
           ),
           const Padding(

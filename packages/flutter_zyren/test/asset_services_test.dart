@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter_zyren/flutter_zyren.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -30,6 +32,33 @@ class Loader extends AssetLoader<Value> {
   );
 }
 
+class CompressedLoader extends AssetLoader<Object> {
+  final int kind;
+  CompressedLoader(this.kind);
+  @override
+  Future<DecodedAsset<Object>> decode(
+    ResolvedSource source,
+    AssetDecodeContext context,
+  ) async {
+    final Object value = switch (kind) {
+      0 => await context.decodeBuffer(
+        source.bytes,
+        options: const BufferDecodeOptions(
+          encoding: BufferEncoding.meshopt,
+          count: 3,
+          stride: 12,
+        ),
+      ),
+      1 => await context.decodeMesh(source.bytes, encoding: MeshEncoding.draco),
+      _ => await context.decodeTexture(
+        source.bytes,
+        encoding: TextureEncoding.ktx2Basis,
+      ),
+    };
+    return DecodedAsset(create: () => value, release: (_) {});
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   test('default runtime supplies CPU geometry and texture codecs', () {
@@ -41,6 +70,67 @@ void main() {
       contains(TextureEncoding.ktx2Basis),
     );
   });
+  test(
+    'default services decode compressed bundle assets before a view attaches',
+    () async {
+      var backendStarts = 0;
+      final fixtures = [
+        'triangle.meshopt',
+        'quad-edgebreaker.drc',
+        'colors-uastc.ktx2',
+      ];
+      final bytes = <String, Uint8List>{
+        for (final name in fixtures)
+          name: await File('../../test_assets/compression/$name').readAsBytes(),
+      };
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      messenger.setMockMessageHandler('flutter/assets', (message) async {
+        final name = utf8.decode(
+          message!.buffer.asUint8List(
+            message.offsetInBytes,
+            message.lengthInBytes,
+          ),
+        );
+        return ByteData.sublistView(bytes[name]!);
+      });
+      final controller = SceneController(
+        runtime: SceneRuntime(
+          backendFactory: () async {
+            backendStarts++;
+            throw StateError('Compressed assets do not need a renderer.');
+          },
+        ),
+      );
+      try {
+        for (var kind = 0; kind < fixtures.length; kind++) {
+          final result = await controller.assets
+              .load(
+                AssetRequest(
+                  uri: Uri.parse('asset:///${fixtures[kind]}'),
+                  loader: CompressedLoader(kind),
+                ),
+              )
+              .result;
+          switch (result) {
+            case Uint8List data:
+              expect(data.length, 36);
+            case DecodedMeshData data:
+              expect(data.vertexCount, 4);
+            case TextureImageData data:
+              expect(data.levels.length, 4);
+            default:
+              fail('Unexpected compressed asset result.');
+          }
+        }
+        expect(backendStarts, 0);
+      } finally {
+        controller.dispose();
+        await controller.whenDisposed;
+        messenger.setMockMessageHandler('flutter/assets', null);
+      }
+    },
+  );
   test(
     'detached controllers share CPU services without creating a GPU backend',
     () async {
@@ -158,6 +248,58 @@ void main() {
       await progress;
       bundle.data.complete(Uint8List(4).buffer.asByteData());
       await Future<void>.delayed(Duration.zero);
+    },
+  );
+
+  test(
+    'default services load HDR bundle assets before a view attaches',
+    () async {
+      var backendStarts = 0;
+      final bytes = Uint8List.fromList([
+        ...ascii.encode('#?RADIANCE\nFORMAT=32-bit_rle_rgbe\n\n-Y 1 +X 1\n'),
+        128,
+        64,
+        32,
+        130,
+      ]);
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      messenger.setMockMessageHandler('flutter/assets', (message) async {
+        expect(
+          utf8.decode(
+            message!.buffer.asUint8List(
+              message.offsetInBytes,
+              message.lengthInBytes,
+            ),
+          ),
+          'hdr/default.hdr',
+        );
+        return ByteData.sublistView(bytes);
+      });
+      final controller = SceneController(
+        runtime: SceneRuntime(
+          backendFactory: () async {
+            backendStarts++;
+            throw StateError('HDR assets do not need a renderer.');
+          },
+        ),
+      );
+      try {
+        final image = await controller.assets
+            .load(
+              AssetRequest(
+                uri: Uri.parse('asset:///hdr/default.hdr'),
+                loader: const HdrImageLoader(),
+              ),
+            )
+            .result;
+        expect(image.pixels, [2, 1, .5, 1]);
+        expect(backendStarts, 0);
+      } finally {
+        controller.dispose();
+        await controller.whenDisposed;
+        messenger.setMockMessageHandler('flutter/assets', null);
+      }
     },
   );
 

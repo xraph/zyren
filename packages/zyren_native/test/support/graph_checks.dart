@@ -24,8 +24,8 @@ const _sample = '''
 }
 ''';
 
-Future<void> verifyNativeGraph() async {
-  final backend = await NativeBackend.create();
+Future<void> verifyNativeGraph({NativeGpuBackend? providedBackend}) async {
+  final backend = providedBackend ?? await NativeBackend.create();
   final scope = backend.createResourceScope();
   final reader = backend.createResourceScope();
   final shaders = backend.createShaderCompiler();
@@ -145,8 +145,10 @@ Future<void> verifyNativeGraph() async {
   }
 }
 
-Future<void> verifyNativeGraphBuffers() async {
-  final backend = await NativeBackend.create();
+Future<void> verifyNativeGraphBuffers({
+  NativeGpuBackend? providedBackend,
+}) async {
+  final backend = providedBackend ?? await NativeBackend.create();
   final scope = backend.createResourceScope();
   final compiler = backend.createGraphCompiler();
   try {

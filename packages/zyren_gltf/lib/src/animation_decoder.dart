@@ -1,210 +1,341 @@
+import 'dart:math' as math;
+import 'dart:typed_data';
 import 'package:zyren/zyren.dart';
 import 'accessor.dart';
 import 'animation.dart';
 import 'checked.dart';
-import 'recipes.dart';
+import 'limits.dart';
 
-DecodedAccessor _float(
-  AccessorReader reader,
-  Object? value,
-  String type,
-  String path,
-) {
-  final a = reader.read(
-    index(
-      value,
-      array(field(reader.root, 'accessors', const []), 'accessors').length,
-      path,
-    ),
-  );
-  if (a.type != type || a.componentType != 5126 || a.normalized) {
-    fail(path, 'Expected a float $type accessor.');
-  }
-  return a;
-}
+String animationNodeTarget(int index) => 'node:$index';
 
-List<ModelSkin> decodeSkins(AccessorReader reader, List<NodeRecipe> nodes) {
-  final raw = array(field(reader.root, 'skins', const []), 'skins');
-  final skins = <ModelSkin>[];
-  for (var i = 0; i < raw.length; i++) {
-    final path = 'skins[$i]', skin = object(raw[i], path);
-    final joints = [
-      for (final joint in array(skin['joints'], '$path.joints'))
-        index(joint, nodes.length, '$path.joints'),
-    ];
-    if (joints.isEmpty || joints.toSet().length != joints.length) {
-      fail('$path.joints', 'Skin joints must be nonempty and unique.');
-    }
-    if (skin.containsKey('skeleton')) {
-      index(skin['skeleton'], nodes.length, '$path.skeleton');
-    }
-    reader.budget.reserve(joints.length * 136, path);
-    final matrices = <Mat4>[];
-    if (skin.containsKey('inverseBindMatrices')) {
-      final a = _float(
-        reader,
-        skin['inverseBindMatrices'],
-        'MAT4',
-        '$path.inverseBindMatrices',
-      );
-      if (a.count < joints.length) {
-        fail(path, 'Inverse bind matrix count must match joints.');
-      }
-      for (var j = 0; j < joints.length; j++) {
-        final v = a.values
-            .skip(j * 16)
-            .take(16)
-            .map((v) => v.toDouble())
-            .toList();
-        if (v[3] != 0 || v[7] != 0 || v[11] != 0 || v[15] != 1) {
-          fail(path, 'Inverse bind matrices must be affine.');
-        }
-        final m = Mat4(v);
-        try {
-          m.inverted();
-        } catch (_) {
-          fail(path, 'Inverse bind matrices must be invertible.');
-        }
-        matrices.add(m);
-      }
-    } else {
-      matrices.addAll([for (final _ in joints) Mat4.identity()]);
-    }
-    skins.add(ModelSkin(joints, matrices));
-  }
-  for (var i = 0; i < nodes.length; i++) {
-    if (nodes[i].skin case final skin?) {
-      index(skin, skins.length, 'nodes[$i].skin');
-    }
-  }
-  return List.unmodifiable(skins);
+final class _Sampler {
+  final List<double> times;
+  final DecodedAccessor output;
+  final KeyframeInterpolation interpolation;
+  final String path;
+  const _Sampler(this.times, this.output, this.interpolation, this.path);
 }
 
 List<ModelAnimation> decodeAnimations(
+  Map<String, Object?> root,
   AccessorReader reader,
-  List<NodeRecipe> nodes,
-  List<List<PrimitiveRecipe>> meshes,
+  GltfLimits limits,
+  List<List<double>> meshWeights,
 ) {
-  final raw = array(field(reader.root, 'animations', const []), 'animations');
-  final result = <ModelAnimation>[];
-  for (var i = 0; i < raw.length; i++) {
-    final path = 'animations[$i]', animation = object(raw[i], path);
-    final samplers = array(animation['samplers'], '$path.samplers');
-    final rawChannels = array(animation['channels'], '$path.channels');
-    if (samplers.isEmpty || rawChannels.isEmpty) {
-      fail(path, 'Animation samplers and channels must be nonempty.');
+  final animations = array(field(root, 'animations', const []), 'animations');
+  if (root.containsKey('animations') && animations.isEmpty) {
+    fail('animations', 'Animation arrays must be nonempty when present.');
+  }
+  void bound(int count, int maximum, String path) {
+    if (count > maximum) {
+      fail(
+        path,
+        'Animation data exceeds its configured limit.',
+        AssetLoadError.limitExceeded,
+      );
     }
-    final channels = <ModelAnimationChannel>[], targets = <(int, String)>{};
-    for (var c = 0; c < rawChannels.length; c++) {
-      final p = '$path.channels[$c]', channel = object(rawChannels[c], p);
-      final target = object(channel['target'], '$p.target');
-      final node = index(target['node'], nodes.length, '$p.target.node');
-      final property = string(target['path'], '$p.target.path');
-      final kind = switch (property) {
-        'translation' => ModelAnimationPath.translation,
-        'rotation' => ModelAnimationPath.rotation,
-        'scale' => ModelAnimationPath.scale,
-        'weights' => ModelAnimationPath.weights,
-        _ => null,
-      };
-      if (kind == null) {
-        fail('$p.target.path', 'Unknown animation target path.');
-      }
-      if (!targets.add((node, property))) {
-        fail(p, 'Animation channels must target distinct node properties.');
-      }
-      final rawNode = object(
-        array(reader.root['nodes'], 'nodes')[node],
-        'nodes[$node]',
-      );
-      if (rawNode.containsKey('matrix')) {
-        fail(p, 'Animation channels require TRS nodes.');
-      }
-      var components = kind == ModelAnimationPath.rotation ? 4 : 3;
-      if (kind == ModelAnimationPath.weights) {
-        final mesh = nodes[node].mesh;
-        if (mesh == null) fail(p, 'Weight channels require a mesh.');
-        components = meshes[mesh].first.deformation?.morphPositions.length ?? 0;
-        if (components == 0) fail(p, 'Weight channels require morph targets.');
-      }
-      final samplerIndex = index(
-        channel['sampler'],
-        samplers.length,
-        '$p.sampler',
-      );
-      final sp = '$path.samplers[$samplerIndex]',
-          sampler = object(samplers[samplerIndex], sp);
-      final mode = string(
-        field(sampler, 'interpolation', 'LINEAR'),
-        '$sp.interpolation',
-      );
-      final interpolation = switch (mode) {
-        'STEP' => ModelInterpolation.step,
-        'LINEAR' => ModelInterpolation.linear,
-        'CUBICSPLINE' => ModelInterpolation.cubicSpline,
-        _ => null,
-      };
-      if (interpolation == null) fail(sp, 'Unknown animation interpolation.');
-      final input = _float(reader, sampler['input'], 'SCALAR', '$sp.input');
-      final output = _float(
-        reader,
+  }
+
+  bound(animations.length, limits.maxAnimations, 'animations');
+  final accessors = array(field(root, 'accessors', const []), 'accessors');
+  final nodes = array(field(root, 'nodes', const []), 'nodes');
+  final clips = <ModelAnimation>[];
+  var samplerCount = 0, channelCount = 0, samplerKeys = 0, channelKeys = 0;
+  for (var a = 0; a < animations.length; a++) {
+    final path = 'animations[$a]', animation = object(animations[a], path);
+    final rawSamplers = array(animation['samplers'], '$path.samplers');
+    final channels = array(animation['channels'], '$path.channels');
+    if (rawSamplers.isEmpty || channels.isEmpty) {
+      fail(path, 'Animations need nonempty samplers and channels.');
+    }
+    bound(
+      samplerCount += rawSamplers.length,
+      limits.maxAnimationChannels,
+      '$path.samplers',
+    );
+    bound(
+      channelCount += channels.length,
+      limits.maxAnimationChannels,
+      '$path.channels',
+    );
+    final samplers = <_Sampler>[];
+    for (var s = 0; s < rawSamplers.length; s++) {
+      final sp = '$path.samplers[$s]', sampler = object(rawSamplers[s], sp);
+      final inputIndex = index(sampler['input'], accessors.length, '$sp.input');
+      final outputIndex = index(
         sampler['output'],
-        kind == ModelAnimationPath.weights
-            ? 'SCALAR'
-            : components == 4
-            ? 'VEC4'
-            : 'VEC3',
+        accessors.length,
         '$sp.output',
       );
-      final factor = interpolation == ModelInterpolation.cubicSpline ? 3 : 1;
-      if (output.values.length != input.count * components * factor) {
-        fail(sp, 'Animation output count does not match its input.');
+      final interpolation = switch (field(sampler, 'interpolation', 'LINEAR')) {
+        'STEP' => KeyframeInterpolation.step,
+        'LINEAR' => KeyframeInterpolation.linear,
+        'CUBICSPLINE' => KeyframeInterpolation.cubicSpline,
+        _ => fail('$sp.interpolation', 'Unknown animation interpolation mode.'),
+      };
+      final inputMeta = object(accessors[inputIndex], 'accessors[$inputIndex]');
+      final count = integer(
+        inputMeta['count'],
+        'accessors[$inputIndex].count',
+        min: 1,
+      );
+      bound(samplerKeys += count, limits.maxAnimationKeyframes, '$sp.input');
+      if (interpolation == KeyframeInterpolation.cubicSpline && count < 2) {
+        fail('$sp.input', 'Cubic interpolation requires at least two keys.');
       }
-      reader.budget.reserve((input.count + output.values.length) * 8, sp);
-      final times = input.values.map((v) => v.toDouble()).toList();
-      for (var k = 0; k < times.length; k++) {
-        if (times[k] < 0 ||
-            (k > 0 && times[k] <= times[k - 1]) ||
-            times[k] > 86400 * 365) {
+      final input = reader.read(inputIndex, usage: AccessorUsage.animation);
+      if (input.type != 'SCALAR' ||
+          input.componentType != 5126 ||
+          input.normalized) {
+        fail('$sp.input', 'Animation times require float scalar accessors.');
+      }
+      reader.budget.reserve(count * 8, '$sp.input');
+      final times = <double>[];
+      var previous = -1.0;
+      for (final value in input.values) {
+        final t = value.toDouble();
+        if (t < 0 || t <= previous) {
           fail(
             '$sp.input',
-            'Animation times must increase within a one-year range.',
+            'Animation times must be nonnegative and strictly increasing.',
+          );
+        }
+        if (t > 1e9) {
+          fail(
+            '$sp.input',
+            'Animation time exceeds 1e9 seconds.',
+            AssetLoadError.limitExceeded,
+          );
+        }
+        times.add(t);
+        previous = t;
+      }
+      for (final (key, expected) in [
+        ('min', times.first),
+        ('max', times.last),
+      ]) {
+        final declared = numbers(
+          inputMeta[key],
+          1,
+          'accessors[$inputIndex].$key',
+        );
+        if (Float32List.fromList(declared).single != expected) {
+          fail(
+            'accessors[$inputIndex].$key',
+            'Time bounds do not match the decoded keys.',
           );
         }
       }
-      final values = output.values.map((v) => v.toDouble()).toList();
-      if (kind == ModelAnimationPath.rotation) {
-        for (var k = 0; k < times.length; k++) {
-          final offset = (k * factor + (factor == 3 ? 1 : 0)) * 4;
-          final length = values
-              .skip(offset)
-              .take(4)
-              .fold<double>(0, (sum, v) => sum + v * v);
-          if ((length - 1).abs() > 1e-4) {
-            fail('$sp.output', 'Rotation keys must be unit quaternions.');
-          }
+      final output = reader.read(outputIndex, usage: AccessorUsage.animation);
+      samplers.add(_Sampler(times, output, interpolation, sp));
+    }
+    final tracks = <KeyframeTrack>[];
+    final targets = <(int, String)>{};
+    var duration = 0.0;
+    for (var c = 0; c < channels.length; c++) {
+      final cp = '$path.channels[$c]', channel = object(channels[c], cp);
+      final sampler =
+          samplers[index(channel['sampler'], samplers.length, '$cp.sampler')];
+      final target = object(channel['target'], '$cp.target');
+      final property = string(target['path'], '$cp.target.path');
+      final weights = property == 'weights';
+      if (!['translation', 'rotation', 'scale', 'weights'].contains(property)) {
+        fail('$cp.target.path', 'Unknown animation target path.');
+      }
+      final node = target.containsKey('node')
+          ? index(target['node'], nodes.length, '$cp.target.node')
+          : null;
+      if (node != null) {
+        if (!targets.add((node, property))) {
+          fail(
+            '$cp.target',
+            'An animation cannot target the same node property twice.',
+          );
+        }
+        if (!weights &&
+            object(nodes[node], 'nodes[$node]').containsKey('matrix')) {
+          fail(
+            '$cp.target.node',
+            'Animated nodes must use TRS instead of a matrix.',
+          );
         }
       }
-      channels.add(
-        ModelAnimationChannel(
-          node: node,
-          path: kind,
-          components: components,
-          interpolation: interpolation,
-          times: times,
-          values: values,
-        ),
+      final output = sampler.output, op = '${sampler.path}.output';
+      final rotation = property == 'rotation';
+      final float = output.componentType == 5126 && !output.normalized;
+      final normalizedInteger =
+          [5120, 5121, 5122, 5123].contains(output.componentType) &&
+          output.normalized;
+      if (output.type !=
+              (weights
+                  ? 'SCALAR'
+                  : rotation
+                  ? 'VEC4'
+                  : 'VEC3') ||
+          !(float || ((rotation || weights) && normalizedInteger))) {
+        fail(
+          op,
+          weights
+              ? 'Morph weights require float or normalized integer SCALAR accessors.'
+              : rotation
+              ? 'Rotations require float or normalized integer VEC4 accessors.'
+              : 'Translation and scale require float VEC3 accessors.',
+        );
+      }
+      bound(
+        channelKeys += sampler.times.length,
+        limits.maxAnimationKeyframes,
+        cp,
       );
+      final cubic = sampler.interpolation == KeyframeInterpolation.cubicSpline;
+      final stride = cubic ? 3 : 1;
+      var components = output.components;
+      if (weights) {
+        if (node == null) continue;
+        final metadata = object(nodes[node], 'nodes[$node]');
+        if (!metadata.containsKey('mesh')) {
+          fail(
+            '$cp.target.node',
+            'Weight animation requires a mesh with morph targets.',
+          );
+        }
+        final mesh = index(
+          metadata['mesh'],
+          meshWeights.length,
+          'nodes[$node].mesh',
+        );
+        components = meshWeights[mesh].length;
+        if (components == 0) {
+          fail('$cp.target.node', 'Weight animation requires morph targets.');
+        }
+      }
+      if (output.count !=
+          sampler.times.length * stride * (weights ? components : 1)) {
+        fail(
+          op,
+          'Output count does not match keyframes and target components.',
+        );
+      }
+      if (weights && sampler.times.length * components > 1000000) {
+        fail(
+          op,
+          'Morph animation exceeds one million key components.',
+          AssetLoadError.limitExceeded,
+        );
+      }
+      final data = output.values;
+      for (var k = 0; k < sampler.times.length; k++) {
+        final at = (k * stride + (cubic ? 1 : 0)) * components;
+        if (rotation) {
+          var norm = 0.0;
+          for (var j = 0; j < 4; j++) {
+            norm += data[at + j] * data[at + j];
+          }
+          final tolerance = [5120, 5121].contains(output.componentType)
+              ? .02
+              : normalizedInteger
+              ? .0002
+              : .0001;
+          if ((norm - 1).abs() > tolerance) {
+            fail(op, 'Rotation keys must be unit quaternions.');
+          }
+        } else if (property == 'scale' &&
+            (data[at] == 0 || data[at + 1] == 0 || data[at + 2] == 0)) {
+          fail(
+            op,
+            'Singular scale keys are not yet supported.',
+            AssetLoadError.unsupportedFeature,
+          );
+        }
+      }
+      // A missing node is legal for extension channels. It has no core target.
+      if (node == null) continue;
+      duration = math.max(duration, sampler.times.last);
+      // Bound expanded immutable key objects and lists, including copied times.
+      reader.budget.reserve(
+        sampler.times.length *
+            (16 +
+                stride *
+                    (components * (weights ? 16 : 8) + (weights ? 64 : 40))),
+        cp,
+      );
+      final id = animationNodeTarget(node);
+      final keyOffset = cubic ? 1 : 0;
+      List<Vec3> vectors(int offset) => [
+        for (var k = 0; k < sampler.times.length; k++)
+          Vec3(
+            data[(k * stride + offset) * 3].toDouble(),
+            data[(k * stride + offset) * 3 + 1].toDouble(),
+            data[(k * stride + offset) * 3 + 2].toDouble(),
+          ),
+      ];
+      List<Quat> quaternions(int offset) => [
+        for (var k = 0; k < sampler.times.length; k++)
+          Quat(
+            data[(k * stride + offset) * 4].toDouble(),
+            data[(k * stride + offset) * 4 + 1].toDouble(),
+            data[(k * stride + offset) * 4 + 2].toDouble(),
+            data[(k * stride + offset) * 4 + 3].toDouble(),
+          ),
+      ];
+      if (weights) {
+        List<List<double>> vectors(int offset) => [
+          for (var k = 0; k < sampler.times.length; k++)
+            [
+              for (var j = 0; j < components; j++)
+                data[(k * stride + offset) * components + j].toDouble(),
+            ],
+        ];
+        final values = vectors(keyOffset);
+        if (values.any((v) => v.any((w) => w.abs() > 1e6))) {
+          fail(
+            op,
+            'Morph weight magnitude exceeds 1e6.',
+            AssetLoadError.limitExceeded,
+          );
+        }
+        tracks.add(
+          MorphWeightKeyframeTrack(
+            target: id,
+            times: sampler.times,
+            values: values,
+            interpolation: sampler.interpolation,
+            inTangents: cubic ? vectors(0) : null,
+            outTangents: cubic ? vectors(2) : null,
+          ),
+        );
+      } else if (rotation) {
+        tracks.add(
+          QuaternionKeyframeTrack(
+            target: id,
+            times: sampler.times,
+            values: quaternions(keyOffset),
+            interpolation: sampler.interpolation,
+            inTangents: cubic ? quaternions(0) : null,
+            outTangents: cubic ? quaternions(2) : null,
+          ),
+        );
+      } else {
+        final create = property == 'translation'
+            ? VectorKeyframeTrack.position
+            : VectorKeyframeTrack.scale;
+        tracks.add(
+          create(
+            target: id,
+            times: sampler.times,
+            values: vectors(keyOffset),
+            interpolation: sampler.interpolation,
+            inTangents: cubic ? vectors(0) : null,
+            outTangents: cubic ? vectors(2) : null,
+          ),
+        );
+      }
     }
     final events = <ModelAnimationEvent>[];
     final extras = animation['extras'];
     if (extras is Map && extras.containsKey('zyrenEvents')) {
       final ids = <String>{};
       var previous = -1.0;
-      final end = channels.fold<double>(
-        0,
-        (end, c) => c.times.last > end ? c.times.last : end,
-      );
       for (final value in array(
         extras['zyrenEvents'],
         '$path.extras.zyrenEvents',
@@ -214,7 +345,7 @@ List<ModelAnimation> decodeAnimations(
             id = string(event['id'], path);
         if (time < 0 ||
             time < previous ||
-            time > end ||
+            time > duration ||
             id.trim().isEmpty ||
             !ids.add(id)) {
           fail(
@@ -225,7 +356,7 @@ List<ModelAnimation> decodeAnimations(
         previous = time;
         events.add(
           ModelAnimationEvent(
-            Duration(microseconds: (time * 1000000).round()),
+            Duration(microseconds: (time * 1e6).round()),
             id: id,
             label: event.containsKey('label')
                 ? string(event['label'], path)
@@ -234,141 +365,37 @@ List<ModelAnimation> decodeAnimations(
         );
       }
     }
-    result.add(
-      ModelAnimation(
-        name: animation.containsKey('name')
-            ? string(animation['name'], path)
-            : null,
-        channels: channels,
+    reader.budget.reserve(
+      tracks.fold<int>(
+        0,
+        (bytes, t) =>
+            bytes +
+            t.times.length *
+                (16 +
+                    (t.property == AnimationProperty.rotation
+                            ? 4
+                            : t is MorphWeightKeyframeTrack
+                            ? t.targetCount
+                            : 3) *
+                        (t.interpolation == KeyframeInterpolation.cubicSpline
+                            ? 3
+                            : 1) *
+                        8),
+      ),
+      path,
+    );
+    clips.add(
+      ModelAnimation.fromClip(
+        AnimationClip(
+          name: animation.containsKey('name')
+              ? string(animation['name'], '$path.name')
+              : null,
+          tracks: tracks,
+          durationSeconds: duration,
+        ),
         events: events,
       ),
     );
   }
-  return List.unmodifiable(result);
-}
-
-PrimitiveDeformation? decodeDeformation(
-  AccessorReader reader,
-  Map<String, Object?> primitive,
-  int count,
-  List<int>? expansion,
-  String path,
-) {
-  final attributes = object(primitive['attributes'], '$path.attributes');
-  final targets = array(field(primitive, 'targets', const []), '$path.targets');
-  final positions = <List<double>>[],
-      normals = <List<double>>[],
-      tangents = <List<double>>[];
-  List<double> expand(List<double> values, int size) => expansion == null
-      ? values
-      : [
-          for (final vertex in expansion)
-            ...values.skip(vertex * size).take(size),
-        ];
-  final outputCount = expansion?.length ?? count;
-  reader.budget.reserve(targets.length * outputCount * 9 * 8, path);
-  for (var t = 0; t < targets.length; t++) {
-    final target = object(targets[t], '$path.targets[$t]');
-    if (target.isEmpty ||
-        target.keys.any(
-          (k) => !['POSITION', 'NORMAL', 'TANGENT'].contains(k),
-        )) {
-      fail(path, 'Unknown or empty morph target.');
-    }
-    for (final (key, list) in [
-      ('POSITION', positions),
-      ('NORMAL', normals),
-      ('TANGENT', tangents),
-    ]) {
-      var values = List<double>.filled(count * 3, 0);
-      if (target.containsKey(key)) {
-        if (!attributes.containsKey(key)) {
-          fail(path, 'Morph semantics need matching base attributes.');
-        }
-        final a = _float(reader, target[key], 'VEC3', '$path.targets[$t].$key');
-        if (a.count != count) {
-          fail(path, 'Morph target counts must match base vertices.');
-        }
-        values = a.values.map((v) => v.toDouble()).toList();
-      }
-      list.add(expand(values, 3));
-    }
-  }
-  final joints = <int>[], weights = <double>[];
-  final sets = attributes.keys.where((k) => k.startsWith('JOINTS_')).toList()
-    ..sort(
-      (a, b) => (int.tryParse(a.substring(7)) ?? -1).compareTo(
-        int.tryParse(b.substring(7)) ?? -1,
-      ),
-    );
-  if (attributes.keys.where((k) => k.startsWith('WEIGHTS_')).length !=
-      sets.length) {
-    fail(path, 'Joint and weight sets must pair.');
-  }
-  for (var set = 0; set < sets.length; set++) {
-    if (sets[set] != 'JOINTS_$set' || !attributes.containsKey('WEIGHTS_$set')) {
-      fail(path, 'Joint sets must be consecutive and paired.');
-    }
-  }
-  reader.budget.reserve(outputCount * sets.length * 4 * 16, path);
-  final jointSets = <DecodedAccessor>[], weightSets = <DecodedAccessor>[];
-  for (var set = 0; set < sets.length; set++) {
-    final j = reader.read(
-      index(
-        attributes['JOINTS_$set'],
-        array(reader.root['accessors'], 'accessors').length,
-        path,
-      ),
-      usage: AccessorUsage.vertex,
-    );
-    final w = reader.read(
-      index(
-        attributes['WEIGHTS_$set'],
-        array(reader.root['accessors'], 'accessors').length,
-        path,
-      ),
-      usage: AccessorUsage.vertex,
-    );
-    if (j.type != 'VEC4' ||
-        ![5121, 5123].contains(j.componentType) ||
-        j.normalized ||
-        j.count != count ||
-        w.type != 'VEC4' ||
-        w.count != count ||
-        !((w.componentType == 5126 && !w.normalized) ||
-            ([5121, 5123].contains(w.componentType) && w.normalized))) {
-      fail(path, 'Invalid skin vertex attributes.');
-    }
-    jointSets.add(j);
-    weightSets.add(w);
-  }
-  final vertices = expansion ?? [for (var v = 0; v < count; v++) v];
-  for (final vertex in vertices) {
-    var sum = 0.0;
-    final start = weights.length;
-    for (var set = 0; set < sets.length; set++) {
-      for (var c = 0; c < 4; c++) {
-        final w = weightSets[set].values[vertex * 4 + c].toDouble();
-        if (w < 0) fail(path, 'Skin weights must be nonnegative.');
-        sum += w;
-        joints.add(jointSets[set].values[vertex * 4 + c].toInt());
-        weights.add(w);
-      }
-    }
-    if (sets.isNotEmpty) {
-      if (sum <= 0) fail(path, 'Skin weights must have positive total.');
-      for (var k = start; k < weights.length; k++) {
-        weights[k] /= sum;
-      }
-    }
-  }
-  if (targets.isEmpty && sets.isEmpty) return null;
-  return PrimitiveDeformation(
-    morphPositions: positions,
-    morphNormals: normals,
-    morphTangents: tangents,
-    joints: joints,
-    weights: weights,
-    generatedNormals: expansion != null,
-  );
+  return List.unmodifiable(clips);
 }

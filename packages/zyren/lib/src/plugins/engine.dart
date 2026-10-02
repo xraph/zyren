@@ -1,18 +1,29 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
+import '../resources/buffer.dart';
+import '../resources/gpu_scope.dart';
 import 'registration.dart';
 import '../rendering/gpu_diagnostics.dart';
 import 'attachment_scope.dart';
 import '../input/pointer_event.dart';
 import '../rendering/capabilities.dart';
 import '../rendering/depth_strategy.dart';
+import '../rendering/color_pipeline.dart';
+import '../rendering/temporal_aa_options.dart';
 import '../rendering/scene_issue.dart';
 import '../rendering/renderer.dart';
 import '../rendering/frame_submission.dart';
 import '../rendering/frame_output.dart';
 import '../rendering/render_backend.dart';
 import '../scene/scene.dart';
+import '../scene/layer_mask.dart';
 import '../resources/resource_scope.dart';
-import '../resources/gpu_scope.dart';
+import '../resources/texture.dart';
+part 'plugin_graph.dart';
+part 'texture_history.dart';
+part 'environment_binding.dart';
+part 'temporal_binding.dart';
 
 /// Share one exported key instance between a provider and its dependents.
 class ServiceKey<T extends Object> {
@@ -52,15 +63,45 @@ abstract class ScenePlugin {
   FutureOr<void> detach(PluginContext context) {}
 }
 
+/// One attachment selects the final frame graph for its view. Assign a compiled
+/// replacement in beforeRender after compilation succeeds. A null value disables
+/// effects. The graph's compiler continues to own its resources and lifetime.
+final class FrameGraphBinding {
+  CompiledGraph? _graph;
+  bool _closed = false;
+  FrameGraphBinding._();
+  CompiledGraph? get graph => _graph;
+  set graph(CompiledGraph? value) {
+    if (_closed) throw StateError('Frame graph binding has closed.');
+    if (value != null && (!value.isFrameGraph || value.isClosed)) {
+      throw ArgumentError('Select a live compiled scene frame graph.');
+    }
+    _graph = value;
+  }
+
+  void _close() {
+    _closed = true;
+    _graph = null;
+  }
+}
+
 /// Services belong to this engine, never to a process-wide registry.
 class PluginContext {
   final String _pluginId;
   final RenderBackend? _backend;
   ShaderCompiler? _shaders;
+  MaterialCompiler? _materials;
   ResourceScope? _resources;
   GraphCompiler? _graphs;
-  MaterialCompiler? _materials;
-  GpuScope? _gpuScope;
+
+  FrameGraphBinding? _frameGraph;
+  EnvironmentBinding? _environment;
+  final EnvironmentBinding Function() _claimEnvironment;
+  TemporalBinding? _temporal;
+  final TemporalBinding Function() _claimTemporal;
+  PluginGraph? _graph;
+  final _SharedFrameGraph Function() _claimGraph;
+  final FrameGraphBinding Function() _claimFrameGraph;
   final Scene scene;
   Camera camera;
   final DeviceCapabilities capabilities;
@@ -82,6 +123,10 @@ class PluginContext {
     this._invalidate,
     this._demand,
     this.input,
+    this._claimFrameGraph,
+    this._claimGraph,
+    this._claimEnvironment,
+    this._claimTemporal,
   );
 
   /// Queries the backend only when you request an inspection.
@@ -100,22 +145,63 @@ class PluginContext {
         : null;
   }
 
-  /// Allocations belong to this plugin attachment and close during detachment.
-  ResourceScope get resources {
-    if (!_active || scope.isClosed) {
-      throw StateError('Plugin context has been detached.');
+  /// Shared preparation and effect contributions, owned by this attachment.
+  PluginGraph get graph {
+    _checkAttached();
+    if (_graph case final graph?) return graph;
+    if (!_registering) {
+      throw StateError('Claim shared graph access during attach.');
     }
+    for (final feature in const [
+      RenderFeature.scopedResources,
+      RenderFeature.shaderCompilation,
+      RenderFeature.renderGraphs,
+      RenderFeature.frameGraphs,
+    ]) {
+      if (!capabilities.supports(feature) ||
+          (feature == RenderFeature.renderGraphs &&
+              _backend is! GraphBackend)) {
+        throw _unsupported(
+          feature,
+          'attach',
+          'This backend cannot compose shared frame graphs.',
+        );
+      }
+    }
+    return _graph = PluginGraph._(this, _claimGraph());
+  }
+
+  /// Claim during attach, then select compiled replacements in beforeRender.
+  /// Only one plugin owns final composition; providers can share pass builders
+  /// with other plugins through a typed service.
+  FrameGraphBinding get frameGraph {
+    _checkAttached();
+    if (_frameGraph case final binding?) return binding;
+    if (!_registering) {
+      throw StateError('Claim frame composition during attach.');
+    }
+    if (!capabilities.supports(RenderFeature.frameGraphs)) {
+      throw _unsupported(
+        RenderFeature.frameGraphs,
+        'attach',
+        'This backend cannot compose scene frame graphs.',
+      );
+    }
+    final binding = _claimFrameGraph();
+    scope.keep(Registration(binding._close));
+    return _frameGraph = binding;
+  }
+
+  /// Lazily owns GPU allocations for this attachment on its backend's device.
+  ResourceScope get resources {
+    _checkAttached();
     if (_resources case final resources?) return resources;
     final backend = _backend;
     if (backend is! ResourceBackend) {
-      throw SceneException(
-        SceneIssue(
-          code: SceneIssueCodes.unsupportedFeature,
-          message: 'This backend cannot allocate scoped GPU resources.',
-          operation: 'allocate',
-          pluginId: _pluginId,
-          requiredFeatures: {RenderFeature.scopedResources},
-        ),
+      throw _unsupported(
+        RenderFeature.scopedResources,
+        'allocate',
+        'This backend cannot allocate scoped GPU resources.',
       );
     }
     final resources = backend.createResourceScope(label: _pluginId);
@@ -123,46 +209,35 @@ class PluginContext {
     return _resources = resources;
   }
 
-  /// Owns the plugin's active graph, including failed-replacement preservation.
+  /// Owns one explicitly executed graph per attachment. Failed candidates keep
+  /// the active graph; closing [scope] drains executions and releases ownership.
   GraphCompiler get graphs {
-    if (!_active || scope.isClosed) {
-      throw StateError('Plugin context has been detached.');
-    }
-    if (_graphs case final graphs?) return graphs;
+    _checkAttached();
+    if (_graphs case final compiler?) return compiler;
     final backend = _backend;
     if (backend is! GraphBackend) {
-      throw SceneException(
-        SceneIssue(
-          code: SceneIssueCodes.unsupportedFeature,
-          message: 'This backend cannot execute custom render graphs.',
-          operation: 'graph',
-          pluginId: _pluginId,
-          requiredFeatures: {RenderFeature.renderGraphs},
-        ),
+      throw _unsupported(
+        RenderFeature.renderGraphs,
+        'compile',
+        'This backend cannot compile custom render graphs.',
       );
     }
-    final graphs = backend.createGraphCompiler(label: _pluginId);
-    scope.onClose(graphs.close);
-    return _graphs = graphs;
+    final compiler = backend.createGraphCompiler(label: _pluginId);
+    scope.onClose(compiler.close);
+    return _graphs = compiler;
   }
 
   /// Lazily owns shader programs for this attachment. Closing [scope] stops
   /// compilation and releases its programs after accepted work settles.
   ShaderCompiler get shaders {
-    if (!_active || scope.isClosed) {
-      throw StateError('Plugin context has been detached.');
-    }
+    _checkAttached();
     if (_shaders case final compiler?) return compiler;
     final backend = _backend;
     if (backend is! ShaderBackend) {
-      throw SceneException(
-        SceneIssue(
-          code: SceneIssueCodes.unsupportedFeature,
-          message: 'This backend cannot compile custom shaders.',
-          operation: 'compile',
-          pluginId: _pluginId,
-          requiredFeatures: {RenderFeature.shaderCompilation},
-        ),
+      throw _unsupported(
+        RenderFeature.shaderCompilation,
+        'compile',
+        'This backend cannot compile custom shaders.',
       );
     }
     final compiler = backend.createShaderCompiler(label: _pluginId);
@@ -170,21 +245,33 @@ class PluginContext {
     return _shaders = compiler;
   }
 
-  MaterialCompiler get materials {
-    if (!_active || scope.isClosed) {
-      throw StateError('Plugin context has been detached.');
+  GpuScope createGpuScope({String label = ''}) {
+    _checkAttached();
+    final backend = _backend;
+    if (backend is! MaterialBackend) {
+      throw _unsupported(
+        RenderFeature.shaderMaterials,
+        'allocate',
+        'This backend cannot allocate a GPU scope.',
+      );
     }
+    final result = GpuScope.fromBackend(
+      backend,
+      label: label.isEmpty ? _pluginId : label,
+    );
+    scope.onClose(result.close);
+    return result;
+  }
+
+  MaterialCompiler get materials {
+    _checkAttached();
     if (_materials case final compiler?) return compiler;
     final backend = _backend;
     if (backend is! MaterialBackend) {
-      throw SceneException(
-        SceneIssue(
-          code: SceneIssueCodes.unsupportedFeature,
-          message: 'This backend cannot compile custom mesh materials.',
-          operation: 'material',
-          pluginId: _pluginId,
-          requiredFeatures: {RenderFeature.shaderMaterials},
-        ),
+      throw _unsupported(
+        RenderFeature.shaderMaterials,
+        'compile',
+        'This backend cannot compile mesh materials.',
       );
     }
     final compiler = backend.createMaterialCompiler(label: _pluginId);
@@ -192,37 +279,26 @@ class PluginContext {
     return _materials = compiler;
   }
 
-  /// A separately closeable resource/shader/graph/material lifetime. Use this
-  /// for transactional replacements and caches that must retire before detach.
-  GpuScope createGpuScope({String label = ''}) {
+  void _checkAttached() {
     if (!_active || scope.isClosed) {
       throw StateError('Plugin context has been detached.');
     }
-    final backend = _backend;
-    if (backend is! MaterialBackend) {
-      throw SceneException(
-        SceneIssue(
-          code: SceneIssueCodes.unsupportedFeature,
-          message: 'This backend cannot create complete GPU scopes.',
-          operation: 'allocate',
-          pluginId: _pluginId,
-          requiredFeatures: {
-            RenderFeature.scopedResources,
-            RenderFeature.renderGraphs,
-            RenderFeature.shaderMaterials,
-          },
-        ),
-      );
-    }
-    final root = _gpuScope ??= GpuScope.fromBackend(backend, label: _pluginId);
-    if (root.childCount == 0 && !_gpuCleanupRegistered) {
-      _gpuCleanupRegistered = true;
-      scope.onClose(root.close);
-    }
-    return root.createChild(label: label);
   }
 
-  bool _gpuCleanupRegistered = false;
+  SceneException _unsupported(
+    RenderFeature feature,
+    String operation,
+    String message,
+  ) => SceneException(
+    SceneIssue(
+      code: SceneIssueCodes.unsupportedFeature,
+      message: message,
+      operation: operation,
+      pluginId: _pluginId,
+      requiredFeatures: {feature},
+      limits: capabilities.limits,
+    ),
+  );
 
   void invalidate() {
     if (!_active) throw StateError('Plugin context has been detached.');
@@ -283,16 +359,71 @@ class SceneEngine {
   Camera get camera => _camera;
   set camera(Camera value) {
     if (_closed) throw StateError('Engine has been disposed.');
+    if (identical(_camera, value)) return;
     _camera = value;
+    invalidateHistory();
     for (final (_, context) in _attached) {
       context.camera = value;
     }
+  }
+
+  /// Call after a discontinuous camera move or another temporal discontinuity.
+  void invalidateHistory() {
+    if (_closed) throw StateError('Engine has been disposed.');
+    _sharedGraph?.invalidateHistory();
+    _temporal?.reset();
+  }
+
+  EnvironmentBinding? _environment;
+  TemporalBinding? _temporal;
+  TemporalBinding _claimTemporal(String pluginId) {
+    if (_temporal != null) {
+      throw StateError(
+        'Plugin $pluginId cannot replace the temporal provider.',
+      );
+    }
+    return _temporal = TemporalBinding._();
+  }
+
+  EnvironmentBinding _claimEnvironment(String pluginId) {
+    if (_environment != null) {
+      throw StateError(
+        'Plugin $pluginId cannot replace the environment provider.',
+      );
+    }
+    return _environment = EnvironmentBinding._();
+  }
+
+  FrameGraphBinding? _frameGraph;
+  String? _frameGraphOwner;
+  _SharedFrameGraph? _sharedGraph;
+  _SharedFrameGraph _claimGraph() {
+    if (_frameGraph != null) {
+      throw StateError(
+        'Manual frame composition already belongs to $_frameGraphOwner.',
+      );
+    }
+    return _sharedGraph ??= _SharedFrameGraph(
+      _backend! as GraphBackend,
+      _onIssue,
+    );
+  }
+
+  FrameGraphBinding _claimFrameGraph(String pluginId) {
+    if (_frameGraph != null || _sharedGraph != null) {
+      throw StateError(
+        'Frame composition already belongs to ${_frameGraphOwner ?? 'shared graph plugins'}.',
+      );
+    }
+    _frameGraphOwner = pluginId;
+    return _frameGraph = FrameGraphBinding._();
   }
 
   final SceneRenderer? _renderer;
   final RenderBackend? _backend;
   final List<ScenePlugin> _plugins;
   final Object _owner;
+  final void Function(SceneIssue)? _onIssue;
   final Map<Object, Object> _services = {};
   final List<(ScenePlugin, PluginContext)> _attached = [];
   Future<FrameOutput>? _frame;
@@ -309,6 +440,7 @@ class SceneEngine {
     this._backend,
     this._plugins,
     this._owner,
+    this._onIssue,
   );
   DeviceCapabilities get capabilities =>
       _backend?.capabilities ?? _renderer!.capabilities;
@@ -323,6 +455,7 @@ class SceneEngine {
     InputSource? input,
     AttachmentScope? lifetime,
     void Function()? onInvalidate,
+    void Function(SceneIssue)? onIssue,
     Registration Function()? acquireFrameDemand,
   }) async {
     if ((rendererFactory == null) == (backendFactory == null)) {
@@ -377,7 +510,15 @@ class SceneEngine {
       );
       final renderer = await rendererFactory?.call();
       final backend = await backendFactory?.call();
-      engine = SceneEngine._(scene, camera, renderer, backend, ordered, owner);
+      engine = SceneEngine._(
+        scene,
+        camera,
+        renderer,
+        backend,
+        ordered,
+        owner,
+        onIssue,
+      );
       if (cancelled) throw _cancelled();
       for (final plugin in ordered) {
         final missing = plugin.requiredFeatures.difference(
@@ -408,6 +549,10 @@ class SceneEngine {
           onInvalidate,
           acquireFrameDemand,
           input,
+          () => engine!._claimFrameGraph(plugin.id),
+          () => engine!._claimGraph(),
+          () => engine!._claimEnvironment(plugin.id),
+          () => engine!._claimTemporal(plugin.id),
         );
         engine._attached.add((plugin, context));
         try {
@@ -507,6 +652,9 @@ class SceneEngine {
   }
 
   Future<FrameOutput> renderFrame({
+    double? aspectRatio,
+    ColorPipeline? colorPipeline,
+    CompiledGraph? graph,
     OutputTarget target = const ReadbackTarget(),
     required Duration elapsed,
     FrameTime? time,
@@ -514,6 +662,51 @@ class SceneEngine {
     required int height,
   }) {
     if (_closed) return Future.error(StateError('Engine has been disposed.'));
+    if (colorPipeline != null &&
+        !capabilities.supports(RenderFeature.hdrColor)) {
+      return Future.error(
+        SceneException(
+          SceneIssue(
+            code: SceneIssueCodes.unsupportedFeature,
+            message: "This backend does not support HDR color.",
+            operation: "render",
+            requiredFeatures: {RenderFeature.hdrColor},
+          ),
+        ),
+      );
+    }
+    if (!capabilities.limits.sampleCounts.contains(
+      colorPipeline?.sampleCount ?? 1,
+    )) {
+      return Future.error(
+        SceneException(
+          SceneIssue(
+            code: SceneIssueCodes.unsupportedFeature,
+            message: 'The requested sample count exceeds this backend profile.',
+            operation: 'render',
+            limits: capabilities.limits,
+          ),
+        ),
+      );
+    }
+    if (graph != null && _sharedGraph != null) {
+      return Future.error(
+        StateError(
+          'Explicit frame graphs cannot override shared plugin composition.',
+        ),
+      );
+    }
+    if (graph != null && !capabilities.supports(RenderFeature.frameGraphs)) {
+      return Future.error(
+        SceneException(
+          SceneIssue(
+            code: SceneIssueCodes.unsupportedFeature,
+            message: 'This backend does not support scene frame graphs.',
+            operation: 'render',
+          ),
+        ),
+      );
+    }
     if (_frame != null) {
       return Future.error(StateError('Only one frame may be in flight.'));
     }
@@ -567,17 +760,121 @@ class SceneEngine {
           );
         }
       }
-      final FrameOutput result;
-      if (_backend case final backend?) {
-        result = await backend.render(
-          FrameSubmission.capture(
-            scene: scene,
-            camera: camera,
-            size: PhysicalSize(width, height),
-            time: time ?? FrameTime(elapsed: elapsed, delta: delta),
-            target: target,
+      if (!capabilities.supports(RenderFeature.meshShaders) &&
+          _hasVisibleShaderMaterial(scene, camera.layers)) {
+        throw SceneException(
+          SceneIssue(
+            code: SceneIssueCodes.unsupportedFeature,
+            message: 'This backend does not support mesh shaders.',
+            operation: 'render',
           ),
         );
+      }
+      if (_hasVisibleStandardMaterial(scene, camera.layers) &&
+          !capabilities.supports(RenderFeature.standardMaterials)) {
+        throw SceneException(
+          SceneIssue(
+            code: SceneIssueCodes.unsupportedFeature,
+            message: 'This backend does not support standard materials.',
+            operation: 'render',
+            requiredFeatures: {RenderFeature.standardMaterials},
+          ),
+        );
+      }
+      if (_hasVisiblePhysicalMaterial(scene, camera.layers) &&
+          !capabilities.supports(RenderFeature.physicalMaterials)) {
+        throw SceneException(
+          SceneIssue(
+            code: SceneIssueCodes.unsupportedFeature,
+            message: 'This backend does not support physical materials.',
+            operation: 'render',
+            requiredFeatures: {RenderFeature.physicalMaterials},
+          ),
+        );
+      }
+      final areaCount = _visibleAreaLightCount(scene, camera.layers);
+      if (areaCount > capabilities.limits.maxAreaLights ||
+          (areaCount > 0 &&
+              !capabilities.supports(RenderFeature.areaLighting))) {
+        throw SceneException(
+          SceneIssue(
+            code: SceneIssueCodes.unsupportedFeature,
+            message:
+                'This scene exceeds the backend area-light capability or capacity.',
+            operation: 'render',
+            requiredFeatures: {RenderFeature.areaLighting},
+            limits: capabilities.limits,
+          ),
+        );
+      }
+      _checkDeformation(scene, capabilities, camera.layers);
+      final instanceCapacity = _instanceCapacity(scene);
+      if (instanceCapacity > 0 &&
+          (!capabilities.supports(RenderFeature.instancing) ||
+              instanceCapacity > capabilities.limits.maxInstances)) {
+        throw SceneException(
+          SceneIssue(
+            code: SceneIssueCodes.unsupportedFeature,
+            message:
+                'This scene exceeds the backend instance capability or capacity.',
+            operation: 'render',
+            requiredFeatures: {RenderFeature.instancing},
+            limits: capabilities.limits,
+          ),
+        );
+      }
+      if (_hasVisibleShadows(scene, camera.layers) &&
+          !capabilities.supports(RenderFeature.shadows)) {
+        throw SceneException(
+          SceneIssue(
+            code: SceneIssueCodes.unsupportedFeature,
+            message: 'This backend does not support shadows.',
+            operation: 'render',
+            requiredFeatures: {RenderFeature.shadows},
+          ),
+        );
+      }
+      if (_visibleLightCount(scene, camera.layers) >
+              capabilities.limits.maxPunctualLights ||
+          _visibleHemisphereLightCount(scene, camera.layers) >
+              capabilities.limits.maxHemisphereLights) {
+        throw SceneException(
+          SceneIssue(
+            code: SceneIssueCodes.unsupportedFeature,
+            message: "The scene exceeds this backend's light limits.",
+            operation: 'render',
+            limits: capabilities.limits,
+          ),
+        );
+      }
+      final FrameOutput result;
+      if (_backend case final backend?) {
+        var submission = FrameSubmission.capture(
+          aspectRatio: aspectRatio,
+          scene: scene,
+          camera: camera,
+          size: PhysicalSize(width, height),
+          time: time ?? FrameTime(elapsed: elapsed, delta: delta),
+          target: target,
+          graph: graph ?? _frameGraph?.graph,
+          colorPipeline: colorPipeline,
+          environment: _environment?.environment,
+          temporalAA: _temporal?.options,
+          temporalReset: _temporal?.generation ?? 0,
+        );
+        if (_sharedGraph case final shared?) {
+          submission = submission.withGraph(
+            await shared.prepare(
+              submission.size,
+              submission.camera.projection,
+              colorPipeline == null && !submission.scene.usesScreenEffects
+                  ? TextureFormat.rgba8UnormSrgb
+                  : TextureFormat.rgba16Float,
+            ),
+          );
+        }
+        result = await backend.render(submission);
+        _sharedGraph?.completeFrame(submission.graph);
       } else {
         if (target is! ReadbackTarget) {
           throw StateError(
@@ -594,6 +891,7 @@ class SceneEngine {
           image: ImageData(
             pixels: frame.pixels,
             size: PhysicalSize(frame.width, frame.height),
+            alphaMode: frame.alphaMode,
           ),
           stats: FrameStats(
             frameId: info.number,
@@ -622,6 +920,7 @@ class SceneEngine {
   Future<void> dispose() => _disposal ??= _dispose();
   Future<void> _dispose() async {
     _closed = true;
+    _sharedGraph?.stop();
     final errors = <Object>[];
     for (final (_, context) in _attached.reversed) {
       try {
@@ -634,6 +933,11 @@ class SceneEngine {
       await _frame;
     } catch (_) {
       /* The frame caller receives this error. */
+    }
+    try {
+      await _sharedGraph?.close();
+    } catch (error) {
+      errors.add(error);
     }
     for (final (plugin, context) in _attached.reversed) {
       try {
@@ -672,3 +976,101 @@ SceneException _cancelled([Object? cause]) => SceneException(
     cause: cause,
   ),
 );
+
+bool _hasVisibleShaderMaterial(Object3D node, LayerMask layers) =>
+    node.visible &&
+    ((node is Mesh &&
+            node.layers.intersects(layers) &&
+            node.material is ShaderMaterial) ||
+        node.children.any((child) => _hasVisibleShaderMaterial(child, layers)));
+
+bool _hasVisibleStandardMaterial(Object3D node, LayerMask layers) =>
+    node.visible &&
+    ((node is Mesh &&
+            node.layers.intersects(layers) &&
+            node.material is StandardMaterial) ||
+        node.children.any(
+          (child) => _hasVisibleStandardMaterial(child, layers),
+        ));
+bool _hasVisiblePhysicalMaterial(Object3D node, LayerMask layers) =>
+    node.visible &&
+    ((node is Mesh &&
+            node.layers.intersects(layers) &&
+            node.material is PhysicalMaterial) ||
+        node.children.any(
+          (child) => _hasVisiblePhysicalMaterial(child, layers),
+        ));
+int _visibleLightCount(Object3D node, LayerMask layers) => !node.visible
+    ? 0
+    : (node is PunctualLight && node.layers.intersects(layers) ? 1 : 0) +
+          node.children.fold(
+            0,
+            (sum, child) => sum + _visibleLightCount(child, layers),
+          );
+
+int _visibleAreaLightCount(Object3D node, LayerMask layers) => !node.visible
+    ? 0
+    : (node is RectAreaLight && node.layers.intersects(layers) ? 1 : 0) +
+          node.children.fold(
+            0,
+            (sum, child) => sum + _visibleAreaLightCount(child, layers),
+          );
+int _visibleHemisphereLightCount(Object3D node, LayerMask layers) =>
+    !node.visible
+    ? 0
+    : (node is HemisphereLight && node.layers.intersects(layers) ? 1 : 0) +
+          node.children.fold(
+            0,
+            (sum, child) => sum + _visibleHemisphereLightCount(child, layers),
+          );
+
+bool _hasVisibleShadows(Object3D node, LayerMask layers) =>
+    node.visible &&
+    ((node is PunctualLight &&
+            node.layers.intersects(layers) &&
+            node.shadow != null) ||
+        (node is Mesh &&
+            node.layers.intersects(layers) &&
+            (node.castShadow || node.receiveShadow)) ||
+        node.children.any((child) => _hasVisibleShadows(child, layers)));
+
+int _instanceCapacity(Object3D node) =>
+    (node is InstancedMesh ? node.capacity : 0) +
+    node.children.fold<int>(0, (n, child) => n + _instanceCapacity(child));
+
+void _checkDeformation(
+  Object3D node,
+  DeviceCapabilities capabilities,
+  LayerMask layers,
+) {
+  if (!node.visible) return;
+  if (node is Mesh && node.layers.intersects(layers)) {
+    final required = <RenderFeature>{};
+    if (node is SkinnedMesh &&
+        (!capabilities.supports(RenderFeature.skinning) ||
+            node.skin.joints.length > capabilities.limits.maxJoints)) {
+      required.add(RenderFeature.skinning);
+    }
+    if (node.geometry.morphTargets.isNotEmpty &&
+        (!capabilities.supports(RenderFeature.morphTargets) ||
+            node.geometry.morphTargets.length >
+                capabilities.limits.maxMorphTargets)) {
+      required.add(RenderFeature.morphTargets);
+    }
+    if (required.isNotEmpty) {
+      throw SceneException(
+        SceneIssue(
+          code: SceneIssueCodes.unsupportedFeature,
+          message:
+              'This mesh exceeds the backend deformation capability or limits.',
+          operation: 'render',
+          requiredFeatures: required,
+          limits: capabilities.limits,
+        ),
+      );
+    }
+  }
+  for (final child in node.children) {
+    _checkDeformation(child, capabilities, layers);
+  }
+}

@@ -1,4 +1,4 @@
-# Zyren
+# zyren
 
 A general-purpose 3D scene library for Dart. Build geometry, materials, cameras
 and plugins without depending on Flutter or a native GPU.
@@ -23,7 +23,8 @@ final snapshot = scene.snapshot(camera, 1);
 ```
 
 You can construct and inspect this scene without a Flutter engine. To render
-it, supply a `rendererFactory` to `SceneEngine.create`. Use `zyren_native` for
+it, supply a `backendFactory` to `SceneEngine.create`. Use `NativeBackend.create`
+from `zyren_native` for
 native Metal, Vulkan or Direct3D 12 output, or `flutter_zyren` for Flutter views
 and managed controllers.
 
@@ -46,11 +47,12 @@ Advanced contracts are exported from `package:zyren/rendering.dart`.
 | --- | --- |
 | A Flutter viewport | `flutter_zyren` |
 | Headless native rendering | `zyren_native` |
-| Static glTF/GLB loading | `zyren_gltf` |
+| glTF/GLB loading and animation | `zyren_gltf` |
 | Globe coordinates and terrain | `zyren_geospatial` |
 | 3D Tiles streaming | `zyren_3d_tiles` |
 | Selection and measurements | `zyren_tools` |
 | Authored transform/camera playback | `zyren_timeline` |
+| Fullscreen filters and color grading | `zyren_effects` |
 | Read-only scene inspection | `zyren_devtools` |
 | Stable IDs and review notes | `zyren_engineering` |
 
@@ -58,6 +60,32 @@ Geospatial uses the public core extension points. You can build a model viewer
 without pulling in globe math or terrain.
 
 ## Development status
+
+Advanced output and backend contracts are in `package:zyren/rendering.dart`.
+Scenes default to a transparent canvas. Set `scene.background` for a color fill,
+and `backgroundOpacity` for partial coverage. Mesh materials support opaque, mask
+and blend modes. Physical materials include transmission, iridescence and
+dispersion. Check the integration guide for supported combinations and the
+remaining platform qualification work.
+
+## Vertex colors
+
+You can add `VertexSemantic.color` to `BufferGeometry.fromAttributes` and opt
+in with `UnlitMaterial(vertexColors: true)`. Diffuse, standard, line and point
+materials accept the same flag. Your existing geometry and material can still
+be shared across meshes.
+
+Use float RGB, float RGBA or normalized byte RGBA attributes. Values are linear,
+in [0, 1]. RGB supplies alpha 1. Vertex color multiplies the material's base color
+and base-color map, while emission stays independent. Masked and blended materials
+also multiply vertex alpha by map alpha and opacity; opaque materials ignore alpha.
+
+For dynamic geometry, call `updateAttribute(VertexSemantic.color, values,
+firstVertex: start)`. The values must match the original attribute format.
+Triangle updates upload only affected GPU rows and preserve previously captured
+views. Expanded lines and points upload their full recipe when edited.
+
+See [vertex color usage and limits](../../docs/design/vertex-colors.md).
 
 This is an alpha workspace package with `publish_to: none`. Use it from the
 repository workspace, with the pinned Flutter/Dart toolchain. APIs may change.

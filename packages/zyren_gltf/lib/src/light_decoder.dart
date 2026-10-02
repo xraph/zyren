@@ -1,90 +1,128 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
 import 'package:zyren/zyren.dart';
 import 'checked.dart';
 import 'recipes.dart';
 
-List<LightRecipe> decodeLights(Map<String, Object?> root, int limit) {
-  final extensions = object(
-    field(root, 'extensions', <String, Object?>{}),
-    'extensions',
-  );
-  if (!extensions.containsKey('KHR_lights_punctual')) return const [];
-  const path = 'extensions.KHR_lights_punctual';
-  requireLightExtension(root, path);
-  final raw = array(
-    object(extensions['KHR_lights_punctual'], path)['lights'],
-    '$path.lights',
-  );
-  if (raw.isEmpty || raw.length > limit) {
-    fail(
-      '$path.lights',
-      'Light definitions exceed the bounded profile.',
-      AssetLoadError.limitExceeded,
-    );
-  }
-  return [
-    for (var i = 0; i < raw.length; i++)
-      _light(object(raw[i], '$path.lights[$i]'), '$path.lights[$i]'),
-  ];
-}
+const _extension = 'KHR_lights_punctual';
 
-void requireLightExtension(Map<String, Object?> root, String path) {
-  if (!(root['extensionsUsed'] as List<Object?>? ?? const []).contains(
-    'KHR_lights_punctual',
-  )) {
-    fail(path, 'Light extension is absent from extensionsUsed.');
+final class LightDecoder {
+  final Map<String, Object?> root;
+  late final List<LightRecipe> lights;
+  LightDecoder(this.root) {
+    lights = _read();
   }
-}
 
-LightRecipe _light(Map<String, Object?> value, String path) {
-  final type = string(value['type'], '$path.type');
-  if (!{'directional', 'point', 'spot'}.contains(type)) {
-    fail('$path.type', 'Unknown punctual light type.');
-  }
-  final raw = array(field(value, 'color', [1, 1, 1]), '$path.color');
-  if (raw.length != 3) fail('$path.color', 'Expected three color channels.');
-  final color = [for (var i = 0; i < 3; i++) number(raw[i], '$path.color[$i]')];
-  if (color.any((v) => v < 0 || v > 1)) {
-    fail('$path.color', 'Light color must be in [0, 1].');
-  }
-  final intensity = number(field(value, 'intensity', 1), '$path.intensity');
-  if (intensity < 0 || intensity > 1e12) {
-    fail('$path.intensity', 'Light intensity exceeds the native range.');
-  }
-  final range = value.containsKey('range')
-      ? number(value['range'], '$path.range')
-      : 0.0;
-  if (value.containsKey('range') &&
-      (type == 'directional' || range <= 0 || range > 1e12)) {
-    fail(
-      '$path.range',
-      'Range must be positive and belongs to point or spot lights.',
+  Map<String, Object?>? _extensionOf(Map<String, Object?> owner, String path) {
+    final extensions = object(
+      field(owner, 'extensions', <String, Object?>{}),
+      '${path}extensions',
     );
-  }
-  var inner = 0.0, outer = math.pi / 4;
-  if (type == 'spot') {
-    final spot = object(value['spot'], '$path.spot');
-    inner = number(
-      field(spot, 'innerConeAngle', 0),
-      '$path.spot.innerConeAngle',
-    );
-    outer = number(
-      field(spot, 'outerConeAngle', math.pi / 4),
-      '$path.spot.outerConeAngle',
-    );
-    if (inner < 0 || inner >= outer || outer > math.pi / 2) {
-      fail('$path.spot', 'Spot cones require 0 <= inner < outer <= pi/2.');
+    if (!extensions.containsKey(_extension)) return null;
+    if (!(root['extensionsUsed'] as List<Object?>? ?? const []).contains(
+      _extension,
+    )) {
+      fail(
+        '${path}extensions.$_extension',
+        'Light extension is absent from extensionsUsed.',
+      );
     }
-  } else if (value.containsKey('spot')) {
-    fail('$path.spot', 'Spot parameters require a spot light.');
+    return object(extensions[_extension], '${path}extensions.$_extension');
   }
-  return LightRecipe(
-    type,
-    value.containsKey('name') ? string(value['name'], '$path.name') : null,
-    Color3(color[0], color[1], color[2]),
-    intensity,
-    range,
-    inner,
-    outer,
-  );
+
+  List<LightRecipe> _read() {
+    final extension = _extensionOf(root, '');
+    if (extension == null) return const [];
+    const path = 'extensions.$_extension.lights';
+    final values = array(extension['lights'], path);
+    if (values.isEmpty) {
+      fail(path, 'Light arrays must be nonempty when present.');
+    }
+    return [
+      for (var i = 0; i < values.length; i++)
+        _light(object(values[i], '$path[$i]'), '$path[$i]'),
+    ];
+  }
+
+  LightRecipe? forNode(Map<String, Object?> node, String path) {
+    final extension = _extensionOf(node, '$path.');
+    if (extension == null) return null;
+    return lights[index(
+      extension['light'],
+      lights.length,
+      '$path.extensions.$_extension.light',
+    )];
+  }
+
+  LightRecipe _light(Map<String, Object?> value, String path) {
+    final type = string(value['type'], '$path.type');
+    if (!['directional', 'point', 'spot'].contains(type)) {
+      fail('$path.type', 'Unknown punctual light type.');
+    }
+    final color = numbers(field(value, 'color', [1, 1, 1]), 3, '$path.color');
+    if (color.any((v) => v < 0 || v > 1)) {
+      fail('$path.color', 'Light color must be in [0, 1].');
+    }
+    final intensity = number(field(value, 'intensity', 1), '$path.intensity');
+    if (intensity < 0) {
+      fail('$path.intensity', 'Light intensity must be nonnegative.');
+    }
+    if (intensity > 1e12) {
+      fail(
+        '$path.intensity',
+        'Light intensity exceeds the native profile.',
+        AssetLoadError.unsupportedFeature,
+      );
+    }
+    double? range;
+    if (value.containsKey('range')) {
+      range = number(value['range'], '$path.range');
+      if (range <= 0) fail('$path.range', 'Light range must be positive.');
+      if (range > 1e12 || Float32List.fromList([range]).single == 0) {
+        fail(
+          '$path.range',
+          'Light range exceeds the native profile.',
+          AssetLoadError.unsupportedFeature,
+        );
+      }
+      if (type == 'directional') {
+        fail('$path.range', 'Range requires a point or spot light.');
+      }
+    }
+    var inner = 0.0, outer = math.pi / 4;
+    if (type == 'spot') {
+      final spot = object(value['spot'], '$path.spot');
+      inner = number(
+        field(spot, 'innerConeAngle', 0),
+        '$path.spot.innerConeAngle',
+      );
+      outer = number(
+        field(spot, 'outerConeAngle', math.pi / 4),
+        '$path.spot.outerConeAngle',
+      );
+      if (inner < 0 || inner >= math.pi / 2) {
+        fail(
+          '$path.spot.innerConeAngle',
+          'Inner cone angle must be in [0, pi/2).',
+        );
+      }
+      if (outer <= inner || outer > math.pi / 2) {
+        fail(
+          '$path.spot.outerConeAngle',
+          'Outer cone angle must be greater than inner and at most pi/2.',
+        );
+      }
+    } else if (value.containsKey('spot')) {
+      fail('$path.spot', 'Spot properties require a spot light.');
+    }
+    return LightRecipe(
+      type,
+      value.containsKey('name') ? string(value['name'], '$path.name') : null,
+      Color3(color[0], color[1], color[2]),
+      intensity,
+      range,
+      inner,
+      outer,
+    );
+  }
 }

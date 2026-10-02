@@ -1,191 +1,212 @@
-struct Uniforms {
-    mvp: mat4x4<f32>,
-    normal_matrix: mat4x4<f32>,
-    color_unlit: vec4<f32>,
-    light_ambient: vec4<f32>,
-    map_params: vec4<f32>,
-    view_projection: mat4x4<f32>,
-    model: mat4x4<f32>,
-    primitive: vec4<f32>,
-    viewport: vec4<f32>,
-    inverse_view_projection: mat4x4<f32>,
-    clipping_planes: array<vec4<f32>,6>,
-    clipping: vec4<f32>,
-};
-@group(0) @binding(0) var<uniform> uniforms: Uniforms;
-fn section_clip(point: vec3<f32>) {
-    for (var i = 0u; i < u32(uniforms.clipping.x); i++) {
-        if dot(uniforms.clipping_planes[i], vec4<f32>(point, 1.)) < 0. { discard; }
+@group(0) @binding(15) var volume_environment: texture_3d<f32>;
+struct EnvironmentSettings { params: vec4<f32>, rotation: vec4<f32> };
+@group(0) @binding(2) var<uniform> environment: EnvironmentSettings;
+@group(0) @binding(3) var diffuse_environment: texture_2d<f32>;
+@group(0) @binding(4) var specular_environment: texture_2d<f32>;
+@group(0) @binding(5) var environment_brdf: texture_2d<f32>;
+@group(0) @binding(6) var environment_sampler: sampler;
+@group(0) @binding(7) var brdf_sampler: sampler;
+fn environment_uv(direction: vec3<f32>) -> vec2<f32> {
+    let q = vec4(-environment.rotation.xyz, environment.rotation.w);
+    let local = direction + 2. * cross(q.xyz, cross(q.xyz, direction) + q.w * direction);
+    return vec2(atan2(local.z, local.x) / (2. * 3.141592653589793) + .5, acos(clamp(local.y, -1., 1.)) / 3.141592653589793);
+}
+fn environment_specular(direction: vec3<f32>, roughness: f32) -> vec3<f32> {
+    let uv = environment_uv(direction);
+    if environment.params.z > .5 {
+        let layers = environment.params.y + 1.;
+        return textureSampleLevel(volume_environment, environment_sampler, vec3(uv, (roughness * environment.params.y + .5) / layers), 0.).rgb;
     }
+    return textureSampleLevel(specular_environment, environment_sampler, uv, roughness * environment.params.y).rgb;
+}
+fn shade_environment(n: vec3<f32>, v: vec3<f32>, surface: StandardSurface) -> vec3<f32> {
+    if (environment.params.x == 0.) { return vec3(0.); }
+    let nv = clamp(dot(n,v), 0., 1.);
+    let f0 = mix(vec3(.04), surface.base.rgb, surface.metallic);
+    let dielectric_fresnel = .04 + .96 * pow(1. - nv, 5.);
+    let diffuse = textureSampleLevel(diffuse_environment, environment_sampler, environment_uv(n), 0.).rgb / select(1.,3.141592653589793,environment.params.z>.5);
+    let specular = environment_specular(reflect(-v,n), surface.roughness);
+    let brdf = textureSampleLevel(environment_brdf, brdf_sampler, vec2(nv, surface.roughness), 0.).rg;
+    return ((1. - dielectric_fresnel) * (1. - surface.metallic) * surface.base.rgb * diffuse
+        + specular * (f0 * brdf.x + brdf.y)) * environment.params.x * surface.occlusion;
 }
 
-struct Material { factors: vec4<f32>, emissive: vec4<f32>, scales: vec4<f32>, uvSets: vec4<f32> };
-struct Light { positionKind: vec4<f32>, colorIntensity: vec4<f32>, directionRange: vec4<f32>, cone: vec4<f32>, ground: vec4<f32> };
-struct Lights { count: vec4<f32>, view: vec4<f32>, values: array<Light,16> };
-@group(1) @binding(0) var<uniform> material: Material;
-@group(1) @binding(1) var<uniform> lights: Lights;
-struct ShadowMap { matrix:mat4x4<f32>, rect:vec4<f32>, params:vec4<f32> };
-struct Shadows { camera:vec4<f32>, maps:array<ShadowMap,8> };
-@group(1) @binding(2) var<uniform> shadows:Shadows;
-@group(1) @binding(3) var shadowAtlas:texture_depth_2d;
-@group(1) @binding(4) var shadowSampler:sampler_comparison;
-fn shadowVisibility(light:u32,point:vec3<f32>,normal:vec3<f32>)->f32 {
- if material.factors.w<.5 {return 1.;}
- let texel=1./vec2<f32>(textureDimensions(shadowAtlas));
- for(var i=0u;i<min(u32(shadows.camera.w),8u);i++) {
-   let map=shadows.maps[i];
-   if u32(map.params.x)!=light || (map.params.w>0. && dot(point,shadows.camera.xyz)>map.params.w) {continue;}
-   let p=map.matrix*vec4<f32>(point+normal*map.params.z,1.);
-   if p.w<=0. {return 1.;}
-   let ndc=p.xyz/p.w;let uv=ndc.xy*vec2<f32>(.5,-.5)+.5;
-   if any(uv<vec2<f32>(0.)) || any(uv>vec2<f32>(1.)) || ndc.z<0. || ndc.z>1. {return 1.;}
-   let coord=map.rect.xy+uv*map.rect.zw;
-   var sum=0.;
-   for(var y=-1;y<=1;y++) {for(var x=-1;x<=1;x++) {
-     let sample=clamp(coord+vec2<f32>(f32(x),f32(y))*texel,map.rect.xy+texel*.5,map.rect.xy+map.rect.zw-texel*.5);
-     sum+=textureSampleCompareLevel(shadowAtlas,shadowSampler,sample,ndc.z-map.params.y);
-   }}
-   return sum/9.;
- }
- return 1.;
-}
-@group(2) @binding(0) var baseMap: texture_2d<f32>;
-@group(2) @binding(1) var baseSampler: sampler;
-@group(2) @binding(2) var normalMap: texture_2d<f32>;
-@group(2) @binding(3) var normalSampler: sampler;
-@group(2) @binding(4) var mrMap: texture_2d<f32>;
-@group(2) @binding(5) var mrSampler: sampler;
-@group(2) @binding(6) var aoMap: texture_2d<f32>;
-@group(2) @binding(7) var aoSampler: sampler;
-@group(2) @binding(8) var emissiveMap: texture_2d<f32>;
-@group(2) @binding(9) var emissiveSampler: sampler;
-@group(3) @binding(0) var irradianceMap: texture_2d<f32>;
-@group(3) @binding(1) var specularMap: texture_3d<f32>;
-@group(3) @binding(2) var brdfMap: texture_2d<f32>;
-@group(3) @binding(3) var environmentSampler: sampler;
-@group(3) @binding(4) var<uniform> environment: vec4<f32>;
-fn environmentUv(direction:vec3<f32>)->vec2<f32> {
- let c=cos(environment.y);let s=sin(environment.y);
- let d=vec3<f32>(c*direction.x-s*direction.z,direction.y,s*direction.x+c*direction.z);
- return vec2<f32>(atan2(d.z,d.x)/6.28318530718+.5,acos(clamp(d.y,-1.,1.))/3.14159265359);
-}
-struct PbrVertex { @builtin(position) position: vec4<f32>, @location(0) normal: vec3<f32>, @location(1) point: vec3<f32>, @location(2) uv: vec2<f32>, @location(3) uv1: vec2<f32>, @location(4) tangent: vec4<f32> };
-fn transform(position: vec3<f32>, normal: vec3<f32>) -> PbrVertex {
- var v: PbrVertex;
- v.position = uniforms.mvp * vec4<f32>(position,1.);
- v.normal = (uniforms.normal_matrix * vec4<f32>(normal,0.)).xyz;
- v.point = (uniforms.model * vec4<f32>(position,1.)).xyz;
- v.tangent = vec4<f32>(0.);
- v.uv = vec2<f32>(0.); v.uv1 = vec2<f32>(0.);
- return v;
-}
-@vertex fn vertex(@location(0) position: vec3<f32>, @location(1) normal: vec3<f32>) -> PbrVertex { return transform(position,normal); }
-@vertex fn vertex_textured(@location(0) position: vec3<f32>, @location(1) normal: vec3<f32>, @location(2) uv0: vec2<f32>, @location(3) uv1: vec2<f32>) -> PbrVertex {
- var v = transform(position,normal);
- v.uv = uv0; v.uv1 = uv1;
- return v;
-}
-@vertex fn vertex_tangent(@location(0) position: vec3<f32>, @location(1) normal: vec3<f32>, @location(2) uv0: vec2<f32>, @location(3) uv1: vec2<f32>, @location(4) tangent: vec4<f32>) -> PbrVertex {
- var v=transform(position,normal); v.uv=uv0; v.uv1=uv1;
- let linear=mat3x3<f32>(uniforms.model[0].xyz,uniforms.model[1].xyz,uniforms.model[2].xyz);
- v.tangent=vec4<f32>(linear*tangent.xyz,tangent.w*sign(determinant(linear)));
- return v;
-}
-fn brdf(base: vec3<f32>, metal: f32, rough: f32, n: vec3<f32>, v: vec3<f32>, l: vec3<f32>) -> vec3<f32> {
- let h = normalize(v+l);
- let nl=max(dot(n,l),0.); let nv=max(dot(n,v),0.);
- let nh=max(dot(n,h),0.); let vh=max(dot(v,h),0.);
- let a=rough*rough; let a2=a*a;
- let denom=nh*nh*(a2-1.)+1.;
- let d=a2 / (3.14159265359 * denom*denom);
- let gv=nl*sqrt(a2+(1.-a2)*nv*nv); let gl=nv*sqrt(a2+(1.-a2)*nl*nl);
- let visibility=.5/max(gv+gl,1e-6);
- let f0=mix(vec3<f32>(.04),base,metal);
- let schlick=exp2((-5.55473*vh-6.98316)*vh);
- let f=f0*(1.-schlick)+vec3<f32>(schlick);
- return nl*(base*(1.-metal)/3.14159265359 + f*visibility*d);
+struct PunctualLight {
+    position_kind: vec4<f32>,
+    direction_range: vec4<f32>,
+    color_intensity: vec4<f32>,
+    cone: vec4<f32>,
+};
+struct HemisphereLight { sky_intensity: vec4<f32>, ground: vec4<f32>, direction: vec4<f32> };
+struct AreaLight { position: vec4<f32>, half_width: vec4<f32>, half_height: vec4<f32>, color_intensity: vec4<f32> };
+struct Lighting {
+    count: vec4<u32>,
+    lights: array<PunctualLight, 16>,
+    hemispheres: array<HemisphereLight, 4>,
+    areas: array<AreaLight, 4>,
+};
+@group(0) @binding(1) var<uniform> lighting: Lighting;
+
+fn normalized_or(v: vec3<f32>, fallback: vec3<f32>) -> vec3<f32> {
+    let length_squared = dot(v, v);
+    return select(fallback, v * inverseSqrt(max(length_squared, 1e-20)), length_squared > 1e-20);
 }
 
-fn transformInstance(position:vec3<f32>,normal:vec3<f32>,i:InstanceTransform)->PbrVertex {
- var v:PbrVertex;let point=instanceModel(i)*vec4<f32>(position,1.);
- v.position=uniforms.view_projection*point;v.point=point.xyz;v.normal=instanceNormal(i)*normal;
- return v;
+fn direct_brdf(n: vec3<f32>, v: vec3<f32>, l: vec3<f32>, base: vec3<f32>, metallic: f32, roughness: f32) -> vec3<f32> {
+    let nl = clamp(dot(n, l), 0., 1.);
+    let nv = clamp(dot(n, v), 0., 1.);
+    if (nl <= 0. || nv <= 0.) { return vec3(0.); }
+    let h = normalized_or(l + v, n);
+    let nh = clamp(dot(n, h), 0., 1.);
+    let vh = clamp(dot(v, h), 0., 1.);
+    let alpha = max(roughness * roughness, 0.002025);
+    let a2 = alpha * alpha;
+    // |N x H|^2 avoids cancellation in 1 - (N.H)^2 at glossy peaks.
+    let cross_nh = cross(n, h);
+    let denominator = dot(cross_nh, cross_nh) + a2 * nh * nh;
+    let distribution = a2 / (3.141592653589793 * denominator * denominator);
+    let visibility = 0.5 / max(nl * sqrt(a2 + (1. - a2) * nv * nv)
+        + nv * sqrt(a2 + (1. - a2) * nl * nl), 1e-12);
+    let f0 = mix(vec3(0.04), base, metallic);
+    let fresnel = f0 + (vec3(1.) - f0) * pow(1. - vh, 5.);
+    let dielectric_fresnel = 0.04 + 0.96 * pow(1. - vh, 5.);
+    let diffuse = (1. - dielectric_fresnel) * (1. - metallic) * base / 3.141592653589793;
+    return (diffuse + fresnel * distribution * visibility) * nl;
 }
-@vertex fn vertex_instanced(@location(0) position:vec3<f32>,@location(1) normal:vec3<f32>,i:InstanceTransform)->PbrVertex {return transformInstance(position,normal,i);}
-@vertex fn vertex_textured_instanced(@location(0) position:vec3<f32>,@location(1) normal:vec3<f32>,@location(2) uv0:vec2<f32>,@location(3) uv1:vec2<f32>,i:InstanceTransform)->PbrVertex {
- var v=transformInstance(position,normal,i);v.uv=uv0;v.uv1=uv1;return v;
+
+fn shade_standard(input: VertexOutput, front: bool, original: StandardSurface) -> vec4<f32> {
+    clip_fragment(input.relative_position, input.position.xy);
+    var surface=original;
+    surface.coat_normal=select(-surface.coat_normal,surface.coat_normal,front);
+    if (surface.transmission[0].y>0. && surface.transmission[0].x>0. && surface.metallic<1. && !front) {discard;}
+    let alpha = surface.base.a * uniforms.map_params.y;
+    let mode = uniforms.map_params.w;
+    if (mode > 0.5 && mode < 1.5 && alpha < uniforms.map_params.z) { discard; }
+    let n = select(-surface.normal, surface.normal, front);
+    let v = normalized_or(-input.relative_position, n);
+    let base = surface.base.rgb;
+    let physical = uniforms.physical[3].y != 0.;
+    let coat = select(0., coat_fresnel(clamp(dot(surface.coat_normal,v),0.,1.),surface), physical);
+    var color = surface.emission * (1.-coat) + physical_environment(n, v, input.tangent, surface);
+    for (var i = 0u; i < lighting.count.y; i++) {
+        let light = lighting.hemispheres[i];
+        let weight = clamp(dot(n, light.direction.xyz) * 0.5 + 0.5, 0., 1.);
+        let irradiance = mix(light.ground.rgb, light.sky_intensity.rgb, weight) * light.sky_intensity.w;
+        let diffuse_weight = select(.96, 1.-maximum3(physical_fresnel(clamp(dot(n,v),0.,1.),surface)), physical);
+        color += irradiance * base * (1. - surface.metallic) * (1.-surface.transmission[0].x) * (diffuse_weight / 3.141592653589793) * surface.occlusion * (1.-coat);
+    }
+    for (var i = 0u; i < lighting.count.x; i++) {
+        let light = lighting.lights[i];
+        var l = -light.direction_range.xyz;
+        var attenuation = 1.;
+        if (light.position_kind.w > 0.5) {
+            let offset = light.position_kind.xyz - input.relative_position;
+            let distance_squared = dot(offset, offset);
+            l = normalized_or(offset, n);
+            attenuation = 1. / max(distance_squared, 1e-6);
+            if (light.direction_range.w > 0.) {
+                let ratio_squared = distance_squared / (light.direction_range.w * light.direction_range.w);
+                attenuation *= max(1. - ratio_squared * ratio_squared, 0.);
+            }
+            if (light.position_kind.w > 1.5) {
+                let cosine = dot(-l, light.direction_range.xyz);
+                let width = light.cone.x - light.cone.y;
+                var cone = select(0., 1., cosine >= light.cone.x);
+                if (width > 0.) {
+                    cone = clamp((cosine - light.cone.y) / width, 0., 1.);
+                }
+                attenuation *= cone * cone;
+            }
+        }
+        color += physical_direct(n, v, l, input.tangent, surface) * light.color_intensity.rgb * light.color_intensity.w * attenuation
+            * shadow_visibility(i, input.relative_position, select(-normalized_or(input.normal,n), normalized_or(input.normal,n), front), l);
+    }
+    for (var i = 0u; i < lighting.count.z; i++) {
+        color += shadowed_area(i, input.relative_position, select(-normalized_or(input.normal,n), normalized_or(input.normal,n), front), n, v, input.tangent, surface);
+    }
+    let transmission=physical_transmission(input,n,v,surface);
+    color+=transmission.rgb;
+    let coverage=transmission.a;
+    return vec4(select(color,color/max(coverage,1e-8),mode>1.5),coverage*select(1.,alpha,mode>1.5));
 }
-@vertex fn vertex_tangent_instanced(@location(0) position:vec3<f32>,@location(1) normal:vec3<f32>,@location(2) uv0:vec2<f32>,@location(3) uv1:vec2<f32>,@location(4) tangent:vec4<f32>,i:InstanceTransform)->PbrVertex {
- var v=transformInstance(position,normal,i);v.uv=uv0;v.uv1=uv1;
- let linear=mat3x3<f32>(i.a.xyz,i.b.xyz,i.c.xyz);
- v.tangent=vec4<f32>(linear*tangent.xyz,tangent.w*sign(determinant(linear)));return v;
+
+struct StandardSurface {
+    base: vec4<f32>, normal: vec3<f32>, metallic: f32, roughness: f32,
+    emission: vec3<f32>, occlusion: f32,
+    physical: array<vec4<f32>,4>, coat_normal: vec3<f32>,
+    transmission: array<vec4<f32>,2>,
+    optical: array<vec4<f32>,2>,
+};
+fn standard_surface(input: VertexOutput) -> StandardSurface {
+    var surface: StandardSurface;
+    surface.base = vec4(uniforms.color_unlit.rgb, 1.) * input.color;
+    surface.normal = normalized_or(input.normal, vec3(0.,0.,1.));
+    surface.metallic = uniforms.pbr_params.x;
+    surface.roughness = uniforms.pbr_params.y;
+    surface.emission = uniforms.emissive.rgb;
+    surface.occlusion = 1.;
+    surface.physical = uniforms.physical;
+    surface.transmission = uniforms.transmission;
+    surface.optical = uniforms.optical;
+    surface.coat_normal = surface.normal;
+    return surface;
 }
-fn shade(input: PbrVertex, front: bool, sampleColor: vec4<f32>) -> vec4<f32> {
- let flags=u32(material.scales.w);
- let normalUv=select(input.uv,input.uv1,material.uvSets.x>.5);
- let normalValue=textureSample(normalMap,normalSampler,normalUv).xyz*2.-vec3<f32>(1.);
- let mr=textureSample(mrMap,mrSampler,select(input.uv,input.uv1,material.uvSets.y>.5));
- let ao=textureSample(aoMap,aoSampler,select(input.uv,input.uv1,material.uvSets.z>.5)).r;
- let em=textureSample(emissiveMap,emissiveSampler,select(input.uv,input.uv1,material.uvSets.w>.5)).rgb;
- let dp1=dpdx(input.point); let dp2=dpdy(input.point);
- let duv1=dpdx(normalUv); let duv2=dpdy(normalUv);
- let determinant=duv1.x*duv2.y-duv1.y*duv2.x;
- section_clip(input.point);
- fragment_coverage(input.position.xy, uniforms.clipping.yz);
- let base=uniforms.color_unlit.rgb*sampleColor.rgb;
- let alpha=uniforms.map_params.y*sampleColor.a;
- if uniforms.map_params.w > .5 && uniforms.map_params.w < 1.5 && alpha < uniforms.map_params.z { discard; }
- var n=normalize(select(-input.normal,input.normal,front));
- if (flags&2u)!=0u && (abs(input.tangent.w)>.5 || abs(determinant)>1e-10) {
-   var rawT=input.tangent.xyz;
-   var rawB=cross(normalize(input.normal),rawT)*input.tangent.w;
-   if abs(input.tangent.w)<.5 {
-     rawT=(dp1*duv2.y-dp2*duv1.y)/determinant;
-     rawB=(-dp1*duv2.x+dp2*duv1.x)/determinant;
-   }
-   let projected=rawT-n*dot(n,rawT);
-   if dot(projected,projected)>1e-20 {
-     let t=normalize(projected);
-     let b=cross(n,t)*select(-1.,1.,dot(cross(n,t),rawB)>=0.);
-     let candidate=t*normalValue.x*material.scales.x+b*normalValue.y*material.scales.y+n*normalValue.z;
-     if dot(candidate,candidate)>1e-20 { n=normalize(candidate); }
-   }
- }
- let view=normalize(select(-input.point,lights.view.xyz,lights.view.w > .5));
- let metal=material.factors.x*select(1.,mr.b,(flags&4u)!=0u);
- let rough=max(material.factors.y*select(1.,mr.g,(flags&4u)!=0u),.0525);
- let occlusion=select(1.,mix(1.,ao,material.scales.z),(flags&8u)!=0u);
- var color=material.emissive.rgb * material.factors.z * select(vec3<f32>(1.),em,(flags&16u)!=0u);
- let irradiance=textureSampleLevel(irradianceMap,environmentSampler,environmentUv(n),0.).rgb;
- let slices=f32(textureDimensions(specularMap).z);
- let radiance=textureSampleLevel(specularMap,environmentSampler,vec3<f32>(environmentUv(reflect(-view,n)),(clamp(rough,0.,1.)*(slices-1.)+.5)/slices),0.).rgb;
- let lutSize=vec2<f32>(textureDimensions(brdfMap));
- let lutUv=clamp(vec2<f32>(max(dot(n,view),0.),rough),vec2<f32>(.5)/lutSize,vec2<f32>(1.)-vec2<f32>(.5)/lutSize);
- let lut=textureSampleLevel(brdfMap,environmentSampler,lutUv,0.).rg;
- color+=environment.x*occlusion*(irradiance*base*(1.-metal)/3.14159265359+radiance*(mix(vec3<f32>(.04),base,metal)*lut.x+lut.y));
- for(var i=0u; i<min(u32(lights.count.x),16u); i++) {
-   let light=lights.values[i];
-   let intensity=light.colorIntensity.rgb*light.colorIntensity.w;
-   if light.positionKind.w > 2.5 {
-     let irradiance=mix(light.ground.rgb*light.colorIntensity.w,intensity,dot(n,normalize(light.directionRange.xyz))*.5+.5);
-     color += irradiance * base * (1.-metal) * occlusion / 3.14159265359;
-     continue;
-   }
-   var l=-normalize(light.directionRange.xyz); var attenuation=1.;
-   if light.positionKind.w > .5 {
-     let delta=light.positionKind.xyz-input.point; let distance=length(delta);
-     l=delta/max(distance,1e-6); attenuation=1./max(distance*distance,.01);
-     if light.directionRange.w > 0. { let cutoff=clamp(1.-pow(distance/light.directionRange.w,4.),0.,1.); attenuation *= cutoff*cutoff; }
-     if light.positionKind.w > 1.5 {
-       let angle=dot(-l,normalize(light.directionRange.xyz));
-       attenuation *= select(step(light.cone.y,angle),smoothstep(light.cone.y,light.cone.x+1e-6,angle),light.cone.x > light.cone.y);
-     }
-   }
-   if dot(n,l) > 0. && dot(n,view) > 0. {
-     color += intensity * attenuation * shadowVisibility(i,input.point,n) * brdf(base,metal,rough,n,view,l);
-   }
- }
- return vec4<f32>(clamp(color,vec3<f32>(0.),vec3<f32>(65504.)),select(1.,alpha,uniforms.map_params.w>1.5));
+@group(1) @binding(2) var normal_map: texture_2d<f32>;
+@group(1) @binding(3) var normal_sampler: sampler;
+@group(1) @binding(4) var metallic_roughness_map: texture_2d<f32>;
+@group(1) @binding(5) var metallic_roughness_sampler: sampler;
+@group(1) @binding(6) var occlusion_map: texture_2d<f32>;
+@group(1) @binding(7) var occlusion_sampler: sampler;
+@group(1) @binding(8) var emissive_map: texture_2d<f32>;
+@group(1) @binding(9) var emissive_sampler: sampler;
+fn material_uv(input: VertexOutput, slot: u32) -> vec2<f32> {
+    return select(input.uv0, input.uv1, (uniforms.pbr_maps.y & (1u << slot)) != 0u);
 }
-@fragment fn fragment(input: PbrVertex,@builtin(front_facing) front: bool) -> @location(0) vec4<f32> { return shade(input,front,vec4<f32>(1.)); }
-@fragment fn fragment_textured(input: PbrVertex,@builtin(front_facing) front: bool) -> @location(0) vec4<f32> { return shade(input,front,textureSample(baseMap,baseSampler,select(input.uv,input.uv1,uniforms.map_params.x>.5))); }
+fn mapped_normal(input: VertexOutput, uv: vec2<f32>, sample: vec3<f32>, scale: vec2<f32>) -> vec3<f32> {
+    let n = normalized_or(input.normal, vec3(0.,0.,1.));
+    // Evaluate derivatives before branching on interpolated tangent data.
+    let dx = dpdx(input.relative_position); let dy = dpdy(input.relative_position);
+    let ux = dpdx(uv); let uy = dpdy(uv);
+    let determinant = ux.x * uy.y - ux.y * uy.x;
+    let orientation = select(-1., 1., determinant >= 0.);
+    var raw_t = (dx * uy.y - dy * ux.y) * orientation;
+    let raw_b = (dy * ux.x - dx * uy.x) * orientation;
+    let explicit_t = input.tangent.xyz - n * dot(n, input.tangent.xyz);
+    let has_tangent = abs(input.tangent.w) > 0.5 && dot(explicit_t, explicit_t) > 1e-20;
+    if (has_tangent) { raw_t = explicit_t; }
+    if ((!has_tangent && abs(determinant) < 1e-20) || dot(raw_t,raw_t) < 1e-20) { return n; }
+    let t = normalized_or(raw_t - n * dot(n, raw_t), vec3(1.,0.,0.));
+    var handedness = select(-1., 1., dot(cross(n,t), raw_b) >= 0.);
+    if (has_tangent) { handedness = input.tangent.w; }
+    let b = cross(n,t) * handedness;
+    let encoded = sample * 2. - vec3(1.);
+    let local = encoded * vec3(scale,1.);
+    return normalized_or(t * local.x + b * local.y + n * local.z, n);
+}
+@fragment fn fs_standard(input: VertexOutput, @builtin(front_facing) front: bool) -> @location(0) vec4<f32> {
+    return shade_standard(input, material_front(front, input.orientation), physical_surface(input,standard_surface(input)));
+}
+@fragment fn fs_standard_textured(input: VertexOutput, @builtin(front_facing) front: bool) -> @location(0) vec4<f32> {
+    var surface = standard_surface(input);
+    let flags = uniforms.pbr_maps.x;
+    if ((flags & 1u) != 0u) {
+        surface.base *= textureSample(color_map, color_sampler, material_uv(input,0u));
+    }
+    if ((flags & 2u) != 0u) {
+        let uv = material_uv(input,1u);
+        surface.normal = mapped_normal(input, uv, textureSample(normal_map, normal_sampler, uv).rgb,uniforms.pbr_factors.xw);
+    }
+    if ((flags & 4u) != 0u) {
+        let sample = textureSample(metallic_roughness_map, metallic_roughness_sampler, material_uv(input,2u));
+        surface.metallic *= sample.b;
+        surface.roughness *= sample.g;
+    }
+    if ((flags & 8u) != 0u) {
+        let occlusion = textureSample(occlusion_map, occlusion_sampler, material_uv(input,3u)).r;
+        surface.occlusion = mix(1., occlusion, uniforms.pbr_factors.y);
+    }
+    if ((flags & 16u) != 0u) {
+        surface.emission *= textureSample(emissive_map, emissive_sampler, material_uv(input,4u)).rgb;
+    }
+    return shade_standard(input, material_front(front, input.orientation), physical_surface(input,surface));
+}

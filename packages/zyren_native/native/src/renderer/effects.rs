@@ -192,7 +192,7 @@ impl Effects {
             self.bloom = Some(bloom::Pipelines::new(device));
         }
         if self.display.is_none() {
-            let shader = device.create_shader_module(wgpu::include_wgsl!("output.wgsl"));
+            let shader = device.create_shader_module(wgpu::include_wgsl!("effects_output.wgsl"));
             let bindings = layout(device);
             let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("FXAA display input"),
@@ -202,7 +202,7 @@ impl Effects {
             self.display = Some(pipeline(device, &shader, &layout, "vertex", "display", HDR));
         }
         self.outputs.entry(format).or_insert_with(|| {
-            let shader = device.create_shader_module(wgpu::include_wgsl!("output.wgsl"));
+            let shader = device.create_shader_module(wgpu::include_wgsl!("effects_output.wgsl"));
             let bind_layout = layout(device);
             let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("output conversion"),
@@ -272,6 +272,7 @@ impl Renderer {
         if frame.settings.sample_count == 4 && !self.supports_msaa4 {
             return Err("Four-sample HDR/depth antialiasing is unsupported on this device".into());
         }
+        let mut resources = Vec::new();
         for key in &frame.settings.effects {
             if self
                 .graphs
@@ -284,34 +285,69 @@ impl Renderer {
                 return Err("Screen effects require a fullscreen shader".into());
             }
         }
+        for key in &frame.settings.effects {
+            resources.extend(
+                self.graphs
+                    .materials
+                    .resolve(*key)
+                    .map_err(|e| e.to_string())?
+                    .resources
+                    .iter()
+                    .copied(),
+            );
+        }
         let state = self.state.as_mut().unwrap();
+        state.effect_resources = resources;
         state.effects.prepare(&state.device, frame, size, format)?;
         state.outlines.prepare(&state.device, frame, size, format)
     }
-    pub(super) fn encode_frame(
+    pub(super) fn encode_effects(
         &self,
         frame: &Frame,
         output: &wgpu::TextureView,
         depth: &wgpu::TextureView,
         format: wgpu::TextureFormat,
         size: [u32; 2],
+        composition: (
+            &[Option<crate::render_graph::PreparedMaterial>],
+            Option<&crate::render_graph::FrameGraph>,
+            &environment::PreparedEnvironment,
+            &shadows::PreparedShadows,
+        ),
     ) -> wgpu::CommandEncoder {
         if !frame.settings.enabled {
-            let mut encoder = self.encode_scene(frame, output, depth, format, size, None);
+            let mut encoder =
+                self.encode_scene(frame, (output, None, depth), format, size, composition);
             self.outlines
-                .encode(&self.device, &mut encoder, frame, output, format);
+                .encode(&self.device, &mut encoder, frame, output, format, true);
             return encoder;
         }
         let id = frame.binary.as_ref().map_or(0, |v| v.view);
         let view = &self.effects.views[&id];
+        let graph = composition.1;
+        let graph_scene = graph.map(|g| g.scene_color.create_view(&Default::default()));
+        let output_scene = graph_scene
+            .as_ref()
+            .unwrap_or(&view.images[if frame.temporal.is_some() { 1 } else { 0 }].view);
+        let temporal = self.temporal.targets(frame);
+        let temporal_color = temporal.map(|t| t.0.create_view(&Default::default()));
+        let temporal_depth = temporal.map(|t| t.1.create_view(&Default::default()));
+        let scene_target = temporal_color.as_ref().unwrap_or(output_scene);
+        let depth = temporal_depth.as_ref().unwrap_or(&view.depth.view);
+        let accumulation = self
+            .compositor
+            .accumulation
+            .as_ref()
+            .filter(|_| graph.is_some() || temporal.is_some());
+        let accumulation_view = accumulation.map(|t| t.create_view(&Default::default()));
+        let resolve = accumulation_view.as_ref().unwrap_or(scene_target);
         let mut encoder = if let Some(msaa) = &view.multisample {
             let mut encoder = self.encode_scene(
                 frame,
-                &msaa.color,
-                &msaa.depth,
+                (&msaa.color, Some(resolve), &msaa.depth),
                 HDR,
                 size,
-                Some(&view.images[0].view),
+                composition,
             );
             multisample::resolve(
                 &self.device,
@@ -320,22 +356,37 @@ impl Renderer {
                     .as_ref()
                     .expect("depth resolve pipeline"),
                 &msaa.depth,
-                &view.depth.view,
+                depth,
                 frame.settings.depth_clear(),
             );
             encoder
         } else {
-            self.encode_scene(
-                frame,
-                &view.images[0].view,
-                &view.depth.view,
-                HDR,
-                size,
-                None,
-            )
+            self.encode_scene(frame, (resolve, None, depth), HDR, size, composition)
         };
+        if let Some(accumulation) = accumulation {
+            self.copy_linear_color(&mut encoder, accumulation, scene_target, true, false);
+        }
+        self.encode_temporal(frame, output_scene, &mut encoder);
+        if let Some(graph) = graph {
+            graph.encode(&mut encoder);
+            self.copy_linear_color(
+                &mut encoder,
+                &graph.output,
+                &view.images[0].view,
+                false,
+                true,
+            );
+        } else if temporal.is_some() {
+            self.copy_linear_color(
+                &mut encoder,
+                &view.images[1].texture,
+                &view.images[0].view,
+                false,
+                true,
+            );
+        }
         let uniforms = ScreenUniforms {
-            inverse: Mat4::from_cols_array(&frame.view_projection)
+            inverse: Mat4::from_cols_array(&self.temporal.vp(frame))
                 .inverse()
                 .to_cols_array(),
             viewport: [
@@ -371,7 +422,7 @@ impl Renderer {
                         },
                         wgpu::BindGroupEntry {
                             binding: 1,
-                            resource: wgpu::BindingResource::TextureView(&view.depth.view),
+                            resource: wgpu::BindingResource::TextureView(depth),
                         },
                         wgpu::BindGroupEntry {
                             binding: 2,
@@ -482,9 +533,15 @@ impl Renderer {
         }
         let pipeline = &self.effects.outputs[&format];
         let group = bind(pipeline, &view.images[current].view, &output_buffer);
-        draw(&mut encoder, output, pipeline, &group, &[]);
+        draw(
+            &mut encoder,
+            self.outlines.color_target(frame).unwrap_or(output),
+            pipeline,
+            &group,
+            &[],
+        );
         self.outlines
-            .encode(&self.device, &mut encoder, frame, output, format);
+            .encode(&self.device, &mut encoder, frame, output, format, true);
         encoder
     }
     pub(super) fn accept_history(&mut self, frame: &Frame) {

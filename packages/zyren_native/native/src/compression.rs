@@ -28,16 +28,16 @@ pub unsafe extern "C" fn fg2_meshopt_decode(
 ) -> u32 {
     if input.is_null()
         || output.is_null()
-        || (output as usize) % 4 != 0
+        || !(output as usize).is_multiple_of(4)
         || input_len == 0
         || count == 0
         || stride == 0
         || stride > 256
         || mode > 2
         || filter > 3
-        || (mode == 0 && stride % 4 != 0)
+        || (mode == 0 && !stride.is_multiple_of(4))
         || (mode != 0 && ((stride != 2 && stride != 4) || filter != 0))
-        || (mode == 1 && count % 3 != 0)
+        || (mode == 1 && !count.is_multiple_of(3))
         || (filter == 1 && stride != 4 && stride != 8)
         || (filter == 2 && stride != 8)
     {

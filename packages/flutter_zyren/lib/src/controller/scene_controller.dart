@@ -8,6 +8,7 @@ import 'package:zyren/rendering.dart';
 import '../presentation.dart';
 import '../input/flutter_input_adapter.dart';
 import '../diagnostics/renderer_info.dart';
+import '../diagnostics/presentation_sample.dart';
 import '../presentation/output_presenter.dart';
 import 'scene_runtime.dart';
 import 'scene_status.dart';
@@ -18,9 +19,16 @@ class SceneController {
   final Scene scene;
   Camera _camera;
   final EngineOptions options;
+  ColorPipeline? _colorPipeline;
+  ColorPipeline? get colorPipeline => _colorPipeline;
+  set colorPipeline(ColorPipeline? value) {
+    _checkOpen();
+    _colorPipeline = value;
+    invalidate();
+  }
+
   final SceneRuntime runtime;
   final _input = FlutterInputAdapter();
-  final _raycaster = Raycaster();
   late final AssetScope assets;
   final _registrations = AttachmentScope();
   AttachmentScope _lifetime = AttachmentScope();
@@ -33,6 +41,11 @@ class SceneController {
   final _status = ValueNotifier<SceneStatus>(const SceneDetached(0));
   final _issues = StreamController<SceneIssue>.broadcast();
   final _stats = StreamController<FrameStats>.broadcast();
+  final _presentationClock = Stopwatch()..start();
+  Duration? _previousPresentation;
+  late final _presentations = StreamController<PresentationSample>.broadcast(
+    onListen: () => _previousPresentation = null,
+  );
   final _disposed = Completer<void>();
   Completer<RendererInfo> _ready = Completer();
   Completer<FrameStats> _firstFrame = Completer();
@@ -53,11 +66,22 @@ class SceneController {
   Future<void>? _initialization, _drawing, _failureCleanup, _retrying;
   Object? _viewToken;
   String? _viewLabel;
+  Size _viewportSize = Size.zero;
+  Size get _logicalSize => _viewportSize;
+  set _logicalSize(Size value) {
+    _viewportSize = value;
+    _input.logicalWidth = value.width;
+    _input.logicalHeight = value.height;
+  }
+
+  final _raycaster = Raycaster();
   int _generation = 0;
   bool _closed = false, _visible = false;
   Future<void> Function()? _closePresentation;
   Future<void>? _presentationDisposal, _retiring;
-  Duration? _lastStats;
+  Timer? _statsTimer;
+  FrameStats? _pendingStats;
+  FrameStats? _latestFrameStats;
   void Function()? _wakeView;
   bool _wakeScheduled = false, _automaticRecoveryUsed = false;
   void _scheduleWake() {
@@ -73,8 +97,10 @@ class SceneController {
     Scene? scene,
     Camera? camera,
     this.options = const EngineOptions(),
+    ColorPipeline? colorPipeline,
     SceneRuntime? runtime,
-  }) : scene = scene ?? Scene(),
+  }) : _colorPipeline = colorPipeline,
+       scene = scene ?? Scene(),
        _camera = camera ?? PerspectiveCamera(),
        runtime = runtime ?? const SceneRuntime() {
     options.validate();
@@ -102,7 +128,19 @@ class SceneController {
 
   ValueListenable<SceneStatus> get status => _status;
   Stream<SceneIssue> get issues => _issues.stream;
+
+  /// Samples at most every 200 ms and publishes the last pending frame even
+  /// when demand rendering stops. The first presented frame emits immediately.
   Stream<FrameStats> get frameStats => _stats.stream;
+
+  /// Every accepted presentation, without diagnostic throttling or history.
+  /// Samples are created only while this broadcast stream has listeners.
+  /// Keep listeners short; use [frameStats] for a sampled UI counter.
+  Stream<PresentationSample> get presentations => _presentations.stream;
+
+  /// Most recently presented frame, including one awaiting the sampled stream.
+  /// Remains available while idle or suspended. Failure and disposal clear it.
+  FrameStats? get latestFrameStats => _latestFrameStats;
   Future<RendererInfo> get ready => _ready.future;
   Future<FrameStats> get firstFrame => _firstFrame.future;
   Future<void> get whenDisposed => _disposed.future;
@@ -117,73 +155,48 @@ class SceneController {
     scene.batch(changes);
   }
 
+  /// Selects the nearest triangle using this view's logical coordinates.
+  /// Scene, camera and viewport state are captured synchronously. The future
+  /// returns that captured result even if the scene changes before completion.
+  Future<PickResult?> pick(ViewportPoint point) {
+    try {
+      if (_closed) {
+        throw _exception(
+          SceneIssueCodes.disposed,
+          'SceneController has been disposed.',
+          'pick',
+        );
+      }
+      if (_viewToken == null || _logicalSize.isEmpty) {
+        throw _exception(
+          SceneIssueCodes.invalidPickRequest,
+          'Picking requires an attached view with a positive logical extent.',
+          'pick',
+        );
+      }
+      final snapshot = _raycaster.captureFromCamera(
+        scene,
+        camera,
+        point,
+        logicalWidth: _logicalSize.width,
+        logicalHeight: _logicalSize.height,
+      );
+      return Future<PickResult?>.microtask(snapshot.intersectFirst);
+    } catch (error, stack) {
+      return Future<PickResult?>.error(error, stack);
+    }
+  }
+
   void invalidate() {
     _checkOpen();
     _scheduler.request();
   }
 
-  /// Finds the nearest visible static mesh at a logical viewport point.
-  ///
-  /// Captures the hit synchronously at call time, independent of render scale
-  /// and device pixels. Camera clip planes apply. Outside points return null.
-  /// Throws [SceneException] for disposed, detached or invalid requests.
-  Future<PickResult?> pick(ViewportPoint point) async {
-    if (_closed) {
-      throw _exception(
-        SceneIssueCodes.disposed,
-        'Controller is disposed.',
-        'pick',
-      );
-    }
-    final viewport = _input.viewport;
-    if (_viewToken == null || !viewport.isUsable) {
-      throw _exception(
-        SceneIssueCodes.invalidPickRequest,
-        'Picking requires an attached viewport with nonzero dimensions.',
-        'pick',
-      );
-    }
-    try {
-      final ndc = point.toNdc(
-        logicalWidth: viewport.width,
-        logicalHeight: viewport.height,
-      );
-      if (ndc.x < -1 || ndc.x > 1 || ndc.y < -1 || ndc.y > 1) return null;
-      final camera = _camera;
-      final ray = camera.rayFromNdc(ndc.x, ndc.y, viewport.aspect);
-      final projection = camera.viewProjection(viewport.aspect).storage;
-      final cameraPosition = camera.position;
-      for (final hit in _raycaster.intersectScene(scene, ray)) {
-        final p = hit.point - cameraPosition;
-        final z =
-            projection[2] * p.x +
-            projection[6] * p.y +
-            projection[10] * p.z +
-            projection[14];
-        final w =
-            projection[3] * p.x +
-            projection[7] * p.y +
-            projection[11] * p.z +
-            projection[15];
-        if (!z.isFinite || !w.isFinite) {
-          throw ArgumentError('Intersection exceeds projection range.');
-        }
-        // Reject the perspective eye before division. Roundoff at either
-        // inclusive clip plane must not hide a surface on that boundary.
-        if (w <= 0) continue;
-        final depth = z / w;
-        const tolerance = 1e-14;
-        if (depth >= -tolerance && depth <= 1 + tolerance) return hit;
-      }
-      return null;
-    } on ArgumentError catch (error) {
-      throw _exception(
-        SceneIssueCodes.invalidPickRequest,
-        'Point or camera cannot be used for picking.',
-        'pick',
-        error,
-      );
-    }
+  /// Discards temporal samples after a camera cut, then requests a frame.
+  void invalidateHistory() {
+    _checkOpen();
+    _engine?.invalidateHistory();
+    invalidate();
   }
 
   Registration onUpdate(void Function(FrameTime) callback) {
@@ -246,10 +259,13 @@ class SceneController {
 
   void _detach(Object token) {
     if (!identical(_viewToken, token)) return;
+    _previousPresentation = null;
     _input.suspend();
     _input.viewport = const ViewportMetrics(0, 0);
     _viewToken = null;
     _viewLabel = null;
+    _logicalSize = Size.zero;
+    _input.setActive(false);
     _wakeView = null;
     _visible = false;
     _scheduler.setVisible(false);
@@ -278,8 +294,10 @@ class SceneController {
   }
 
   void _setVisible(bool value) {
+    _input.setActive(value);
     _scheduler.setVisible(value);
     if (_visible == value) return;
+    _previousPresentation = null;
     _visible = value;
     if (_closed || _status.value is SceneFailed || _engine == null) return;
     _status.value = value
@@ -309,6 +327,9 @@ class SceneController {
         input: _input,
         lifetime: _lifetime,
         onInvalidate: _scheduler.request,
+        onIssue: (issue) {
+          if (!_closed && generation == _generation) _issues.add(issue);
+        },
         acquireFrameDemand: _scheduler.acquireDemand,
         backendFactory: () async {
           final backend = await runtime.backendFactory();
@@ -408,6 +429,7 @@ class SceneController {
     if (!_ready.isCompleted) _ready.completeError(exception, stack);
     if (!_firstFrame.isCompleted) _firstFrame.completeError(exception, stack);
     _scheduler.setVisible(false);
+    _clearStats();
     _status.value = SceneFailed(_generation, exception.issue);
     _issues.add(exception.issue);
     final failedEngine = _engine;
@@ -436,6 +458,7 @@ class SceneController {
     OutputTarget target,
   ) {
     final completer = Completer<FrameOutput>();
+    final aspect = _logicalSize.width / _logicalSize.height;
     _drawing = Future<void>.microtask(() async {
       try {
         _checkOpen();
@@ -445,9 +468,11 @@ class SceneController {
         }
         _checkOpen();
         final frame = await _engine!.renderFrame(
+          colorPipeline: _colorPipeline,
           target: target,
           elapsed: time.elapsed,
           time: time,
+          aspectRatio: aspect,
           width: size.width,
           height: size.height,
         );
@@ -459,14 +484,42 @@ class SceneController {
     return completer.future;
   }
 
-  void _presented(FrameStats stats, FrameTime time) {
+  void _presented(FrameStats stats) {
     if (_closed) return;
-    if (!_firstFrame.isCompleted) _firstFrame.complete(stats);
-    if (_lastStats == null ||
-        time.elapsed - _lastStats! >= const Duration(milliseconds: 200)) {
-      _lastStats = time.elapsed;
-      _stats.add(stats);
+    if (_presentations.hasListener) {
+      final elapsed = _presentationClock.elapsed;
+      _presentations.add(
+        PresentationSample(
+          frame: stats,
+          elapsed: elapsed,
+          interval: _previousPresentation == null
+              ? null
+              : elapsed - _previousPresentation!,
+        ),
+      );
+      _previousPresentation = elapsed;
     }
+    _latestFrameStats = stats;
+    if (!_firstFrame.isCompleted) _firstFrame.complete(stats);
+    _pendingStats = stats;
+    if (_statsTimer == null) _publishStats();
+  }
+
+  void _publishStats() {
+    _statsTimer = null;
+    final latest = _pendingStats;
+    _pendingStats = null;
+    if (_closed || latest == null) return;
+    _stats.add(latest);
+    _statsTimer = Timer(const Duration(milliseconds: 200), _publishStats);
+  }
+
+  void _clearStats() {
+    _previousPresentation = null;
+    _statsTimer?.cancel();
+    _statsTimer = null;
+    _pendingStats = null;
+    _latestFrameStats = null;
   }
 
   Future<void> retry() {
@@ -510,6 +563,7 @@ class SceneController {
   void dispose() {
     if (_closed) return;
     _closed = true;
+    _clearStats();
     _scheduler.setVisible(false);
     for (final scope in [_registrations, _lifetime]) {
       try {
@@ -572,5 +626,6 @@ class SceneController {
     }
     unawaited(_issues.close());
     unawaited(_stats.close());
+    unawaited(_presentations.close());
   }
 }

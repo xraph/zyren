@@ -245,7 +245,7 @@ final class AtmosphereLightingController {
       final mapOwner = candidate ?? _environment;
       if (mapOwner != null && mapOwner.map.intensity != _skyIntensity) {
         final old = mapOwner.map;
-        mapOwner.map = EnvironmentMap(
+        mapOwner.map = VolumeEnvironmentMap(
           irradiance: old.irradiance,
           specular: old.specular,
           brdf: old.brdf,
@@ -278,7 +278,7 @@ final class AtmosphereLightingController {
         direct.intensity = directIntensity;
       }
       if (probe != null) {
-        probe.direction = _direction(inverse, value.upECEF);
+        probe.up = _direction(inverse, value.upECEF);
         probe.color = probeColor.$1;
         probe.intensity = probeIntensity;
       }
@@ -356,7 +356,7 @@ double _scaledIntensity(double irradiance, double scale) {
 
 final class _SkyEnvironment {
   final GpuScope scope;
-  EnvironmentMap map;
+  VolumeEnvironmentMap map;
   _SkyEnvironment(this.scope, this.map);
   static Future<_SkyEnvironment> build(
     GpuScope owner,
@@ -436,7 +436,7 @@ struct SkyFrame { origin:vec4<f32>,sun:vec4<f32>,worldToEcef:mat4x4<f32> }
         ),
       );
       await graph.execute();
-      final output = await EnvironmentMap.generate(
+      final output = await VolumeEnvironmentMap.generate(
         resources: scope.resources,
         shaders: workspace.shaders,
         graphs: workspace.graphs,
@@ -449,7 +449,7 @@ struct SkyFrame { origin:vec4<f32>,sun:vec4<f32>,worldToEcef:mat4x4<f32> }
       await workspace.close();
       return _SkyEnvironment(
         scope,
-        EnvironmentMap(
+        VolumeEnvironmentMap(
           irradiance: output.irradiance,
           specular: output.specular,
           brdf: output.brdf,

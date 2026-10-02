@@ -1,5 +1,29 @@
 part of 'geometry.dart';
 
+/// Immutable local bounds of one geometry revision, shared by its instances.
+final class GeometryBounds {
+  final Vec3 minimum, maximum;
+  GeometryBounds._(this.minimum, this.maximum);
+  factory GeometryBounds._capture(List<double> values) {
+    var minX = values[0], minY = values[1], minZ = values[2];
+    var maxX = minX, maxY = minY, maxZ = minZ;
+    for (var i = 3; i < values.length; i += 3) {
+      minX = math.min(minX, values[i]);
+      maxX = math.max(maxX, values[i]);
+      minY = math.min(minY, values[i + 1]);
+      maxY = math.max(maxY, values[i + 1]);
+      minZ = math.min(minZ, values[i + 2]);
+      maxZ = math.max(maxZ, values[i + 2]);
+    }
+    return GeometryBounds._(Vec3(minX, minY, minZ), Vec3(maxX, maxY, maxZ));
+  }
+  List<Vec3> get corners => List.unmodifiable([
+    for (final x in [minimum.x, maximum.x])
+      for (final y in [minimum.y, maximum.y])
+        for (final z in [minimum.z, maximum.z]) Vec3(x, y, z),
+  ]);
+}
+
 final class GeometryRange {
   final VertexSemantic semantic;
   final int firstVertex, vertexCount;
@@ -14,10 +38,12 @@ final class GeometryChange {
 
 /// Immutable CPU data for one geometry revision. Transfer IDs identify versions.
 final class GeometrySnapshot {
+  late final GeometryBounds bounds = GeometryBounds._capture(positions);
   final int id, logicalId, revision;
   final VertexLayout layout;
   final Map<VertexSemantic, VertexAttribute> attributes;
   final List<int> indices;
+  final List<MorphTarget> morphTargets;
   final IndexFormat indexFormat;
   final GeometryTopology topology;
   final List<GeometryChange> history;
@@ -28,11 +54,19 @@ final class GeometrySnapshot {
     required this.layout,
     required Map<VertexSemantic, VertexAttribute> attributes,
     required this.indices,
+    required this.morphTargets,
     required this.indexFormat,
     required this.topology,
     required List<GeometryChange> history,
   }) : attributes = Map.unmodifiable(attributes),
        history = List.unmodifiable(history);
+  List<int>? get joints {
+    final values = attributes[VertexSemantic.joints]?.data;
+    return values is Uint16List ? values : values as Uint32List?;
+  }
+
+  List<double>? get weights =>
+      attributes[VertexSemantic.weights]?.data as Float32List?;
   List<double> get positions =>
       attributes[VertexSemantic.position]!.data as Float32List;
   List<double> get normals =>
@@ -42,6 +76,29 @@ final class GeometrySnapshot {
 
   List<double>? get tangents =>
       attributes[VertexSemantic.tangent]?.data as Float32List?;
+
+  /// Linear RGBA values, normalized and padded once per immutable revision.
+  late final List<double>? colors = _colors();
+  List<double>? _colors() {
+    final attribute = attributes[VertexSemantic.color];
+    if (attribute == null) return null;
+    final values = attribute.data;
+    if (values is Float32List && attribute.format == VertexFormat.float32x4) {
+      return values;
+    }
+    final output = Float32List(layout.vertexCount * 4);
+    final components = attribute.format.components;
+    for (var i = 0; i < layout.vertexCount; i++) {
+      for (var c = 0; c < 4; c++) {
+        output[i * 4 + c] = c >= components
+            ? 1
+            : values is Uint8List
+            ? values[i * components + c] / 255
+            : (values as Float32List)[i * components + c];
+      }
+    }
+    return output.asUnmodifiableView();
+  }
 
   int get primitiveCount => switch (topology) {
     GeometryTopology.triangles => indices.length ~/ 3,
@@ -53,8 +110,11 @@ final class GeometrySnapshot {
       ? positions.length * 8 +
             indices.length * indexFormat.bytesPerIndex +
             (uv0 != null || uv1 != null ? layout.vertexCount * 16 : 0) +
-            (tangents != null ? layout.vertexCount * 16 : 0)
-      : primitiveCount * 120;
+            (tangents == null ? 0 : layout.vertexCount * 16) +
+            (colors == null ? 0 : layout.vertexCount * 16) +
+            (joints == null ? 0 : layout.vertexCount * 32) +
+            morphTargets.length * layout.vertexCount * 36
+      : primitiveCount * (colors == null ? 120 : 248);
 
   /// Null means the base is incompatible or older than the bounded journal.
   List<GeometryRange>? changesSince(GeometrySnapshot base) {
@@ -106,6 +166,15 @@ final class GeometrySnapshot {
     'normals': [
       for (var i = 0; i < normals.length; i += 3) normals.sublist(i, i + 3),
     ],
+    if (tangents != null)
+      'tangents': [
+        for (var i = 0; i < tangents!.length; i += 4)
+          tangents!.sublist(i, i + 4),
+      ],
+    if (colors != null)
+      'colors': [
+        for (var i = 0; i < colors!.length; i += 4) colors!.sublist(i, i + 4),
+      ],
     'indices': indices,
     'index_format': indexFormat.name,
   };

@@ -16,6 +16,7 @@ final class CameraRay {
 /// Positions, target and up follow the same world-space contract as perspective.
 class OrthographicCamera extends Camera {
   Vec3 _target, _up;
+  bool _fitAspect;
   double _left, _right, _bottom, _top, _near, _far, _zoom;
   OrthographicCamera({
     Vec3 position = const Vec3(0, 0, 5),
@@ -28,19 +29,36 @@ class OrthographicCamera extends Camera {
     double near = 0,
     double far = 1000,
     double zoom = 1,
+    double? verticalSize,
     super.depthStrategy,
-  }) : _target = target,
+  }) : _fitAspect = verticalSize != null,
+       _target = target,
        _up = up,
-       _left = left,
-       _right = right,
-       _bottom = bottom,
-       _top = top,
+       _left = verticalSize == null ? left : -verticalSize / 2,
+       _right = verticalSize == null ? right : verticalSize / 2,
+       _bottom = verticalSize == null ? bottom : -verticalSize / 2,
+       _top = verticalSize == null ? top : verticalSize / 2,
        _near = near,
        _far = far,
        _zoom = zoom {
     this.position = position;
     viewProjection(1);
   }
+  double get verticalSize => top - bottom;
+  set verticalSize(double value) {
+    if (!value.isFinite || value <= 0) {
+      throw ArgumentError.value(value, 'verticalSize');
+    }
+    _fitAspect = true;
+    final ratio = value / (top - bottom);
+    final x = (left + right) / 2, y = (top + bottom) / 2;
+    _left = x + (left - x) * ratio;
+    _right = x + (right - x) * ratio;
+    _bottom = y - value / 2;
+    _top = y + value / 2;
+    _changed();
+  }
+
   @override
   Vec3 get target => _target;
   @override
@@ -109,18 +127,12 @@ class OrthographicCamera extends Camera {
   }
 
   @override
-  Mat4 viewProjection(double aspect) {
-    if (!aspect.isFinite || aspect <= 0 || !zoom.isFinite || zoom <= 0) {
-      throw ArgumentError('Invalid orthographic camera aspect or zoom.');
+  Mat4 projectionMatrix(double aspect) {
+    if (!aspect.isFinite || aspect <= 0) {
+      throw ArgumentError.value(aspect, 'aspect');
     }
-    _validateBounds(left, right, bottom, top);
-    _validateClipping(near, far, allowZeroNear: true);
-    final axes = _cameraAxes(this);
-    final view = vm.Matrix4.identity()
-      ..setRow(0, vm.Vector4(axes.right.x, axes.right.y, axes.right.z, 0))
-      ..setRow(1, vm.Vector4(axes.up.x, axes.up.y, axes.up.z, 0))
-      ..setRow(2, vm.Vector4(axes.back.x, axes.back.y, axes.back.z, 0));
-    final width = (right - left) / zoom, height = (top - bottom) / zoom;
+    final height = (top - bottom) / zoom;
+    final width = _fitAspect ? height * aspect : (right - left) / zoom;
     final cx = (left + right) / 2, cy = (bottom + top) / 2;
     final projection = vm.Matrix4.identity()
       ..setEntry(0, 0, 2 / width)
@@ -141,6 +153,22 @@ class OrthographicCamera extends Camera {
             ? far / (far - near)
             : near / (near - far),
       );
+    return Mat4.fromVectorMath(projection);
+  }
+
+  @override
+  Mat4 viewProjection(double aspect) {
+    if (!aspect.isFinite || aspect <= 0 || !zoom.isFinite || zoom <= 0) {
+      throw ArgumentError('Invalid orthographic camera aspect or zoom.');
+    }
+    _validateBounds(left, right, bottom, top);
+    _validateClipping(near, far, allowZeroNear: true);
+    final axes = _cameraAxes(this);
+    final view = vm.Matrix4.identity()
+      ..setRow(0, vm.Vector4(axes.right.x, axes.right.y, axes.right.z, 0))
+      ..setRow(1, vm.Vector4(axes.up.x, axes.up.y, axes.up.z, 0))
+      ..setRow(2, vm.Vector4(axes.back.x, axes.back.y, axes.back.z, 0));
+    final projection = projectionMatrix(aspect).toVectorMath();
     return Mat4.fromVectorMath(projection * view);
   }
 
@@ -148,7 +176,9 @@ class OrthographicCamera extends Camera {
   CameraRay rayFromNdc(double x, double y, double aspect) {
     viewProjection(aspect);
     final axes = _cameraAxes(this);
-    final offsetX = (left + right) / 2 + x * (right - left) / (2 * zoom);
+    final offsetX =
+        (left + right) / 2 +
+        x * (_fitAspect ? (top - bottom) * aspect : right - left) / (2 * zoom);
     final offsetY = (bottom + top) / 2 + y * (top - bottom) / (2 * zoom);
     return CameraRay(
       position + axes.right * offsetX + axes.up * offsetY,

@@ -32,57 +32,60 @@ void main() {
     expect(material.alphaCutoff, 1.1);
     expect(material.side, MaterialSide.doubleSided);
   });
-  test('invalid animation and unsupported features fail', () async {
-    for (final bytes in [
-      triangleModel(
-        changes: {
-          'animations': [{}],
-        },
-      ),
-      triangleModel(
-        changes: {
-          'nodes': [
-            {'mesh': 0, 'skin': 0},
-          ],
-        },
-      ),
-      triangleModel(
-        changes: {
-          'nodes': [
-            {'mesh': 0, 'camera': 0},
-          ],
-        },
-      ),
-      primitiveModel(
-        indices: [0, 1, 2],
-        primitiveChanges: {
-          'targets': [{}],
-        },
-      ),
-      primitiveModel(
-        indices: [0, 1, 2],
-        primitiveChanges: {
-          'attributes': {'POSITION': 0, 'COLOR_0': 0},
-        },
-      ),
-    ]) {
-      await expectLater(
-        load(bytes),
-        throwsA(
-          isA<AssetLoadException>()
-              .having(
-                (e) => e.code,
-                'code',
-                anyOf(
-                  AssetLoadError.invalidData,
-                  AssetLoadError.unsupportedFeature,
-                ),
-              )
-              .having((e) => e.fieldPath, 'path', isNotNull),
+  test(
+    'invalid deformation and unsupported color features fail explicitly',
+    () async {
+      for (final (bytes, code) in [
+        (
+          triangleModel(
+            changes: {
+              'nodes': [
+                {'mesh': 0, 'skin': 0},
+              ],
+            },
+          ),
+          AssetLoadError.invalidData,
         ),
-      );
-    }
-  });
+        (
+          triangleModel(
+            changes: {
+              'nodes': [
+                {'mesh': 0, 'camera': 0},
+              ],
+            },
+          ),
+          AssetLoadError.unsupportedFeature,
+        ),
+        (
+          primitiveModel(
+            indices: [0, 1, 2],
+            primitiveChanges: {
+              'targets': [{}],
+            },
+          ),
+          AssetLoadError.invalidData,
+        ),
+        (
+          primitiveModel(
+            indices: [0, 1, 2],
+            primitiveChanges: {
+              'attributes': {'POSITION': 0, 'COLOR_1': 0},
+            },
+          ),
+          AssetLoadError.unsupportedFeature,
+        ),
+      ]) {
+        await expectLater(
+          load(bytes),
+          throwsA(
+            isA<AssetLoadException>()
+                .having((e) => e.code, 'code', code)
+                .having((e) => e.fieldPath, 'path', isNotNull),
+          ),
+        );
+      }
+    },
+  );
   test(
     'explicit nulls and invalid material fields retain diagnostics',
     () async {
@@ -121,16 +124,18 @@ void main() {
       }
     },
   );
-  test('missing materials use the standard glTF defaults', () async {
+  test('a missing material uses glTF PBR defaults', () async {
     final bytes = editModel(primitiveModel(indices: [0, 1, 2]), (root) {
       ((root['meshes'] as List).first['primitives'] as List).first.remove(
         'material',
       );
     });
-    final standard = onlyMesh(await load(bytes)).material as StandardMaterial;
-    expect(standard.color, const Color3(1, 1, 1));
-    expect(standard.metallic, 1);
-    expect(standard.roughness, 1);
+    final standard = await load(bytes);
+    final material = onlyMesh(standard).material as StandardMaterial;
+    expect(material.baseColor, const Color3(1, 1, 1));
+    expect(material.metallic, 1);
+    expect(material.roughness, 1);
+    expect(standard.issues, isEmpty);
     final model = await load(
       bytes,
       options: const GltfOptions(

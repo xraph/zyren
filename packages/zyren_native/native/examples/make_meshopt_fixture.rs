@@ -52,10 +52,10 @@ fn main() {
         "nodes":[{"mesh":0}],"scenes":[{"nodes":[0]}],"scene":0
     });
     let mut json = serde_json::to_vec(&root).unwrap();
-    while json.len() % 4 != 0 {
+    while !json.len().is_multiple_of(4) {
         json.push(b' ');
     }
-    while encoded.len() % 4 != 0 {
+    while !encoded.len().is_multiple_of(4) {
         encoded.push(0);
     }
     let mut glb = Vec::new();

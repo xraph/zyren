@@ -6,7 +6,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_zyren/flutter_zyren.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:planet/atmosphere_lab.dart';
-import 'package:zyren/rendering.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();

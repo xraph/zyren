@@ -36,6 +36,7 @@ abstract final class SceneIssueCodes {
   static const presentationUnavailable = 'presentationUnavailable';
   static const unsupportedFeature = 'unsupportedFeature';
   static const disposed = 'disposed';
+  static const invalidPickRequest = 'invalidPickRequest';
   static const controllerAlreadyAttached = 'controllerAlreadyAttached';
   static const cleanupFailed = 'cleanupFailed';
   static const pluginDependencyMissing = 'pluginDependencyMissing';
@@ -44,7 +45,6 @@ abstract final class SceneIssueCodes {
   static const deviceLost = 'deviceLost';
   static const renderFailed = 'renderFailed';
   static const frameDeferred = 'frameDeferred';
-  static const invalidPickRequest = 'invalidPickRequest';
 }
 
 class SceneException implements Exception {

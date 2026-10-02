@@ -4,7 +4,7 @@ import 'package:zyren/zyren.dart';
 import 'checked.dart';
 import 'limits.dart';
 
-enum AccessorUsage { generic, vertex, indices, image }
+enum AccessorUsage { generic, vertex, indices, image, animation, skin }
 
 final class DecodedAccessor {
   final TypedData data;
@@ -234,6 +234,13 @@ class AccessorReader {
             'Shared vertex attribute views must define a byte stride.',
           );
         }
+      }
+      if ((usage == AccessorUsage.animation || usage == AccessorUsage.skin) &&
+          (view.stride != null || view.target != null)) {
+        fail(
+          path,
+          'Animation and skin accessors need tightly packed views without a GPU target.',
+        );
       }
       if (usage == AccessorUsage.indices &&
           (view.stride != null || view.target == 34962)) {

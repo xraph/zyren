@@ -2,7 +2,7 @@ part of 'loader.dart';
 
 final class _InstanceDeformer {
   final int node;
-  final ModelMesh mesh;
+  final Mesh mesh;
   final BufferGeometry geometry;
   final _ModelPrimitive source;
   final List<double> initialWeights;
@@ -22,7 +22,42 @@ final class ModelInstance extends Group {
   final Map<int, Object3D> _nodes;
   final List<_InstanceDeformer> _deformers;
   final Map<Object3D, Object3D?> _parents = Map.identity();
-  ModelInstance._(this._template, this._nodes, this._deformers, {super.name});
+  final Map<Mesh, BufferGeometry> _geometries = Map.identity();
+  final Map<int, List<Mesh>> morphTargets;
+  final bool _nativeDeformation;
+  late final List<ModelAnimation> animations = _sceneAnimations(
+    _nodes,
+    _template.animations,
+  );
+  late final AnimationMixer mixer = _createMixer();
+  AnimationMixer _createMixer() {
+    if (!_nativeDeformation && _deformers.isNotEmpty) {
+      throw StateError(
+        'CPU deformation uses prepared poses; instantiate with native deformation for mixer playback.',
+      );
+    }
+    return AnimationMixer(
+      nodes: {
+        for (final e in _nodes.entries) animationNodeTarget(e.key): e.value,
+      },
+      morphTargets: {
+        for (final e in morphTargets.entries)
+          animationNodeTarget(e.key): e.value,
+      },
+    );
+  }
+
+  ModelInstance._(
+    this._template,
+    this._nodes,
+    this._deformers,
+    Map<int, List<Mesh>> morphTargets,
+    this._nativeDeformation, {
+    super.name,
+  }) : morphTargets = Map.unmodifiable({
+         for (final e in morphTargets.entries)
+           e.key: List<Mesh>.unmodifiable(e.value),
+       });
   void _validatePoseOwner(ModelPose pose) {
     if (!identical(pose._template, _template) ||
         pose.nodes.length != _nodes.length ||
@@ -33,14 +68,16 @@ final class ModelInstance extends Group {
     }
   }
 
-  List<ModelAnimation> get animations => _template.animations;
   Map<int, Object3D> get nodes => Map.unmodifiable(_nodes);
   void _captureParents() {
     for (final node in _nodes.values) {
       _parents[node] = node.parent;
     }
-    for (final d in _deformers) {
-      _parents[d.mesh] = d.mesh.parent;
+    for (final node in _nodes.values) {
+      for (final child in node.children.whereType<Mesh>()) {
+        _parents[child] = child.parent;
+        _geometries[child] = child.geometry;
+      }
     }
   }
 
@@ -53,7 +90,9 @@ final class ModelInstance extends Group {
     Duration time = Duration.zero,
     Map<int, List<double>> morphWeights = const {},
   }) {
-    if (animation != null && !_template.animations.contains(animation)) {
+    if (animation != null &&
+        !_template.animations.contains(animation) &&
+        !animations.contains(animation)) {
       throw ArgumentError('Animation belongs to another model template.');
     }
     for (final entry in _parents.entries) {
@@ -72,8 +111,10 @@ final class ModelInstance extends Group {
         scale: useCurrent ? object.scale : authored.scale,
       );
     }
-    for (final d in _deformers) {
-      weights[d.node] = d.initialWeights;
+    for (final entry in _nodes.entries) {
+      if (_template.nodes[entry.key].weights.isNotEmpty) {
+        weights[entry.key] = _template.nodes[entry.key].weights;
+      }
     }
     for (final channel
         in animation?.channels ?? const <ModelAnimationChannel>[]) {
@@ -139,6 +180,11 @@ final class ModelInstance extends Group {
         throw StateError('Model nodes must retain their instance hierarchy.');
       }
     }
+    for (final entry in _geometries.entries) {
+      if (!identical(entry.key.geometry, entry.value)) {
+        throw StateError('Model geometry must retain its instance identity.');
+      }
+    }
     final poses = pose.nodes, weights = pose.weights;
     final worlds = <int, Mat4>{};
     final indices = Map<Object3D, int>.identity()
@@ -185,6 +231,24 @@ final class ModelInstance extends Group {
       }
     }
     final edits = <void Function()>[];
+    if (_nativeDeformation) {
+      for (final entry in weights.entries) {
+        final meshes = morphTargets[entry.key];
+        if (meshes == null ||
+            entry.value.length != _template.nodes[entry.key].weights.length ||
+            entry.value.any((w) => !w.isFinite || w.abs() > 1e6)) {
+          throw ArgumentError(
+            'Morph weights must match the instance and remain finite.',
+          );
+        }
+        for (final mesh in meshes) {
+          if (mesh.morphWeights.length != entry.value.length) {
+            throw StateError('Morph geometry must retain its instance layout.');
+          }
+          edits.add(() => mesh.morphWeights = entry.value);
+        }
+      }
+    }
     for (final d in _deformers) {
       final source = d.source, deform = source.deformation!;
       final geometry = d.mesh.geometry;
@@ -193,7 +257,7 @@ final class ModelInstance extends Group {
           !identical(d.geometry, geometry)) {
         throw StateError('Deformed geometry must retain its instance layout.');
       }
-      final selected = weights[d.node]!;
+      final selected = weights[d.node] ?? const <double>[];
       if (selected.length != deform.morphPositions.length ||
           selected.any((w) => !w.isFinite)) {
         throw ArgumentError(

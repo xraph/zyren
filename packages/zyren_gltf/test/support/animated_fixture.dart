@@ -43,6 +43,8 @@ Uint8List animatedModel({
   final p = floats([-1, -1, 0, 1, -1, 0, 0, 1, 0], 'VEC3', 3, position: true);
   final n = floats([0, 0, 1, 0, 0, 1, 0, 0, 1], 'VEC3', 3);
   final time = floats([0, 1], 'SCALAR', 2);
+  accessors[time]['min'] = [0];
+  accessors[time]['max'] = [1];
   final translation = floats(
     interpolation == 'CUBICSPLINE'
         ? [0, 0, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0]
@@ -70,6 +72,10 @@ Uint8List animatedModel({
     );
   }
   final target = morph ? floats([4, 0, 0, 4, 0, 0, 4, 0, 0], 'VEC3', 3) : null;
+  if (target != null) {
+    accessors[target]['min'] = [4, 0, 0];
+    accessors[target]['max'] = [4, 0, 0];
+  }
   final weight = morph ? floats([0, 1], 'SCALAR', 2) : null;
   final inverseBind = bindPosition == 0
       ? null

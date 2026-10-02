@@ -2,7 +2,11 @@ mod bindings;
 mod compile;
 pub(crate) mod descriptor;
 mod execute;
-pub(crate) mod materials;
+mod frame;
+mod materials;
+mod mesh;
+pub(crate) use frame::{FrameGraph, decode_packet as decode_frame_packet};
+pub(crate) use mesh::PreparedMaterial;
 
 use crate::{
     resources::{
@@ -36,11 +40,16 @@ enum Command {
     ReleaseMaterial { key: Key },
     RetainMaterial { key: Key },
     Compile { description: Description },
+    CompileMesh { description: mesh::Description },
+    ReleaseMesh { key: Key },
     Execute { key: Key },
     Release { key: Key },
     Stats {},
     DeviceInfo {},
     InspectGpu { allocation_limit: usize },
+    ShadowStats {},
+    TemporalStats {},
+    TransmissionStats {},
 }
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -51,6 +60,9 @@ pub struct GraphError {
     resource_label: Option<String>,
 }
 impl GraphError {
+    pub(crate) fn is_device_failure(&self) -> bool {
+        self.code == "deviceFailed"
+    }
     fn new(code: &'static str, message: &str) -> Self {
         Self {
             code,
@@ -62,6 +74,11 @@ impl GraphError {
     fn at(mut self, name: &str) -> Self {
         self.pass_name = Some(name[..name.floor_char_boundary(name.len().min(1024))].into());
         self
+    }
+}
+impl std::fmt::Display for GraphError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "graph.{}: {}", self.code, self.message)
     }
 }
 impl From<ResourceError> for GraphError {
@@ -122,12 +139,16 @@ struct PreparedPass {
     instance_count: u32,
 }
 struct ScopedGraph {
+    scene_pass_index: usize,
     passes: Vec<PreparedPass>,
     resources: Vec<ResourceKey>,
     shaders: Vec<ResourceKey>,
+    frame: Option<(wgpu::Texture, wgpu::Texture)>,
+    scene_resource: Option<ResourceKey>,
 }
 pub struct GraphStore {
     pub(crate) materials: materials::MaterialStore,
+    pub(crate) meshes: mesh::MeshStore,
     registry: ResourceRegistry<Arc<ScopedGraph>>,
     cache: HashMap<PipelineKey, Weak<Pipeline>>,
     compilation_count: u64,
@@ -136,7 +157,8 @@ pub struct GraphStore {
 impl Default for GraphStore {
     fn default() -> Self {
         Self {
-            materials: Default::default(),
+            meshes: mesh::MeshStore::default(),
+            materials: materials::MaterialStore::default(),
             registry: ResourceRegistry::new(next_registry_id(), 1, 16 * 1024 * 1024),
             cache: HashMap::new(),
             compilation_count: 0,
@@ -167,6 +189,11 @@ fn scoped<T>(
 }
 
 pub(crate) struct GraphContext<'a> {
+    pub temporal_stats: (u64, usize),
+    pub transmission_bytes: u64,
+    pub shadow_stats: crate::renderer::ShadowStats,
+    pub mesh_layout: &'a wgpu::BindGroupLayout,
+    pub deformation_layout: &'a wgpu::BindGroupLayout,
     pub device: &'a wgpu::Device,
     pub queue: &'a wgpu::Queue,
     pub resources: &'a mut ResourceStore,
@@ -181,7 +208,8 @@ pub(crate) struct GraphContext<'a> {
     pub instance_draw_calls: usize,
     pub device_info: Value,
     pub last_gpu_time_ns: Option<u64>,
-    pub gpu_timer: &'a mut Option<crate::renderer::gpu_diagnostics::GpuTimer>,
+    pub diagnostic_readback_bytes: u64,
+    pub gpu_time_source: &'static str,
     pub submitted_frames: u64,
 }
 
@@ -193,6 +221,11 @@ impl GraphStore {
         capacity: usize,
     ) -> Result<Vec<u8>, String> {
         let GraphContext {
+            shadow_stats,
+            temporal_stats,
+            transmission_bytes,
+            mesh_layout,
+            deformation_layout,
             device,
             queue,
             resources,
@@ -207,7 +240,8 @@ impl GraphStore {
             instance_draw_calls,
             device_info,
             last_gpu_time_ns,
-            gpu_timer,
+            gpu_time_source,
+            diagnostic_readback_bytes,
             submitted_frames,
         } = context;
         if bytes.len() > MAX_COMMAND_BYTES || capacity != RESPONSE_CAPACITY {
@@ -225,22 +259,41 @@ impl GraphStore {
             ))
         } else {
             match request.command {
-                Command::CompileMaterial { description } => self
-                    .materials
+                Command::CompileMesh { description } => self
+                    .meshes
                     .compile(
-                        device,
-                        resources,
-                        shaders,
-                        engine_layout,
+                        &mut GraphContext {
+                            shadow_stats,
+                            temporal_stats,
+                            transmission_bytes,
+                            device,
+                            queue,
+                            resources,
+                            shaders,
+                            failure,
+                            mesh_layout,
+                            deformation_layout,
+                            engine_layout,
+                            target_bytes,
+                            shadow_bytes,
+                            shadow_passes,
+                            instance_bytes,
+                            instance_uploaded_bytes,
+                            instance_draw_calls,
+                            device_info,
+                            last_gpu_time_ns,
+                            gpu_time_source,
+                            diagnostic_readback_bytes,
+                            submitted_frames,
+                        },
                         description,
                         bytes.len() as u64,
                     )
-                    .map(|key| json!({"key":key})),
-                Command::ReleaseMaterial { key } => self
-                    .materials
-                    .release(device, resources, shaders, key)
+                    .map(|key| json!({"key": key})),
+                Command::ReleaseMesh { key: value } => self
+                    .meshes
+                    .release(device, resources, shaders, key(value))
                     .map(|()| json!({})),
-                Command::RetainMaterial { key } => self.materials.retain(key).map(|()| json!({})),
                 Command::Compile { description } => self
                     .compile(device, resources, shaders, description, bytes.len() as u64)
                     .map(|key| json!({"key": key})),
@@ -250,6 +303,16 @@ impl GraphStore {
                 Command::Release { key: value } => self
                     .release(device, resources, shaders, key(value))
                     .map(|()| json!({})),
+                Command::TransmissionStats {} => {
+                    Ok(json!({"residentBytes":transmission_bytes,"fixedBytes":8}))
+                }
+                Command::TemporalStats {} => Ok(json!({
+                    "residentBytes": temporal_stats.0, "historyViews": temporal_stats.1,
+                })),
+                Command::ShadowStats {} => Ok(json!({
+                    "atlasCount": shadow_stats.atlas_count, "residentBytes": shadow_stats.resident_bytes,
+                    "renderedViews": shadow_stats.rendered_views, "reusedFrames": shadow_stats.reused_frames,
+                })),
                 Command::InspectGpu { allocation_limit } => {
                     if !(1..=256).contains(&allocation_limit) {
                         Err(GraphError::new(
@@ -269,31 +332,6 @@ impl GraphStore {
                         };
                         #[cfg(not(target_vendor = "apple"))]
                         let allocated: Option<u64> = None;
-                        let mut gpu_time = last_gpu_time_ns;
-                        let mut gpu_time_source = if gpu_time.is_some() {
-                            "metal.commandBuffer.startEndTime"
-                        } else {
-                            "unavailable"
-                        };
-                        if device
-                            .features()
-                            .contains(wgpu::Features::TIMESTAMP_QUERY_INSIDE_ENCODERS)
-                        {
-                            let timer = gpu_timer.get_or_insert_with(|| {
-                                crate::renderer::gpu_diagnostics::GpuTimer::new(device)
-                            });
-                            gpu_time = timer.sample(device, queue).map_err(|error| {
-                                *failure = Some(error.clone());
-                                error
-                            })?;
-                            gpu_time_source = if gpu_time.is_some() {
-                                "wgpu.timestampQuery"
-                            } else {
-                                "awaitingInstrumentedSubmission"
-                            };
-                        }
-                        result["diagnosticReadbackBytes"] =
-                            json!(gpu_timer.as_ref().map_or(0, |timer| timer.readback_bytes));
                         let report = device.generate_allocator_report();
                         result["allocatorSource"] = json!(if report.is_some() {
                             "wgpu.suballocator"
@@ -310,7 +348,8 @@ impl GraphStore {
                             "name": &allocation.name[..allocation.name.floor_char_boundary(allocation.name.len().min(128))],
                             "offset": allocation.offset, "size": allocation.size
                         })).collect::<Vec<_>>()).unwrap_or_default());
-                        result["lastSubmissionGpuTimeNs"] = json!(gpu_time);
+                        result["diagnosticReadbackBytes"] = json!(diagnostic_readback_bytes);
+                        result["lastSubmissionGpuTimeNs"] = json!(last_gpu_time_ns);
                         result["submittedFrames"] = json!(submitted_frames);
                         result["gpuTimeSource"] = json!(gpu_time_source);
                         result["deviceAllocatedBytes"] = json!(allocated);
@@ -323,9 +362,28 @@ impl GraphStore {
                     }
                 }
                 Command::DeviceInfo {} => Ok(device_info),
+                Command::CompileMaterial { description } => self
+                    .materials
+                    .compile(
+                        device,
+                        resources,
+                        shaders,
+                        engine_layout,
+                        description,
+                        bytes.len() as u64,
+                    )
+                    .map(|key| json!({"key": key})),
+                Command::RetainMaterial { key } => self.materials.retain(key).map(|()| json!({})),
+                Command::ReleaseMaterial { key } => self
+                    .materials
+                    .release(device, resources, shaders, key)
+                    .map(|()| json!({})),
                 Command::Stats {} => Ok(
-                    json!({"instanceBytes":instance_bytes,"instanceUploadedBytes":instance_uploaded_bytes,"instanceDrawCalls":instance_draw_calls,"shadowBytes":shadow_bytes,"shadowPasses":shadow_passes,"targetBytes": target_bytes, "liveMaterials": self.materials.live(), "liveGraphs": self.registry.live_allocations(), "descriptionBytes": self.registry.resident_bytes(),
-                "cachedPipelines": self.cache.len(), "pipelineCompilations": self.compilation_count, "cacheHits": self.cache_hits}),
+                    json!({"liveGraphs": self.registry.live_allocations(), "descriptionBytes": self.registry.resident_bytes(),
+                "cachedPipelines": self.cache.len(), "pipelineCompilations": self.compilation_count, "cacheHits": self.cache_hits,
+                "targetBytes":target_bytes,"shadowBytes":shadow_bytes,"shadowPasses":shadow_passes,
+                "instanceBytes":instance_bytes,"instanceUploadedBytes":instance_uploaded_bytes,"instanceDrawCalls":instance_draw_calls,"liveMaterials":self.materials.live(),
+                "liveMeshShaders": self.meshes.count(), "meshPipelines": self.meshes.pipelines()}),
                 ),
             }
         };

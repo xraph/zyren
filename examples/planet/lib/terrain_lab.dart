@@ -235,7 +235,7 @@ class _TerrainLabState extends State<TerrainLab> {
                   1 / MediaQuery.devicePixelRatioOf(context),
                 ),
                 errorBuilder: (context, issue, retry) =>
-                    ZeroState(error: issue, onRetry: retry),
+                    RendererZeroState(error: issue, onRetry: retry),
               ),
             ),
             Padding(

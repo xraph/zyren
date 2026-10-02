@@ -111,25 +111,110 @@ final class ModelAnimationEvent {
   const ModelAnimationEvent(this.time, {required this.id, this.label});
 }
 
-final class ModelAnimation {
-  final String? name;
+final class ModelAnimation extends AnimationClip {
   final List<ModelAnimationChannel> channels;
   final List<ModelAnimationEvent> events;
-  late final Duration duration = Duration(
-    microseconds:
-        (channels.fold<double>(
-                  0,
-                  (end, channel) => math.max(end, channel.times.last),
-                ) *
-                1000000)
-            .round(),
-  );
-  ModelAnimation({
-    this.name,
+  factory ModelAnimation({
+    String? name,
     required Iterable<ModelAnimationChannel> channels,
     Iterable<ModelAnimationEvent> events = const [],
-  }) : channels = List.unmodifiable(channels),
-       events = List.unmodifiable(events);
+  }) {
+    final values = List<ModelAnimationChannel>.unmodifiable(channels);
+    return ModelAnimation._(
+      AnimationClip(name: name, tracks: values.map(_channelTrack).toList()),
+      values,
+      List.unmodifiable(events),
+    );
+  }
+  factory ModelAnimation.fromClip(
+    AnimationClip clip, {
+    Iterable<ModelAnimationEvent> events = const [],
+  }) => ModelAnimation._(
+    clip,
+    List.unmodifiable(clip.tracks.map(_trackChannel)),
+    List.unmodifiable(events),
+  );
+  ModelAnimation._(AnimationClip clip, this.channels, this.events)
+    : super(
+        name: clip.name,
+        tracks: clip.tracks,
+        durationSeconds: clip.durationSeconds,
+      );
+}
+
+List<double> _components(Object value) => switch (value) {
+  Vec3 v => [v.x, v.y, v.z],
+  Quat q => [q.x, q.y, q.z, q.w],
+  List<double> weights => weights,
+  _ => throw ArgumentError('Unsupported animation value.'),
+};
+
+ModelAnimationChannel _trackChannel(KeyframeTrack track) {
+  final cubic = track.interpolation == KeyframeInterpolation.cubicSpline;
+  return ModelAnimationChannel(
+    node: int.parse(track.target.substring('node:'.length)),
+    path: ModelAnimationPath.values[track.property.index],
+    components: _components(track.values.first).length,
+    interpolation: ModelInterpolation.values[track.interpolation.index],
+    times: track.times,
+    values: [
+      for (var k = 0; k < track.times.length; k++) ...[
+        if (cubic) ..._components(track.inTangents![k]),
+        ..._components(track.values[k]),
+        if (cubic) ..._components(track.outTangents![k]),
+      ],
+    ],
+  );
+}
+
+KeyframeTrack _channelTrack(ModelAnimationChannel channel) {
+  final cubic = channel.interpolation == ModelInterpolation.cubicSpline;
+  final stride = cubic ? 3 : 1;
+  List<List<double>> values(int slot) => [
+    for (var k = 0; k < channel.times.length; k++)
+      channel.values.sublist(
+        (k * stride + slot) * channel.components,
+        (k * stride + slot + 1) * channel.components,
+      ),
+  ];
+  final target = 'node:${channel.node}';
+  final mode = KeyframeInterpolation.values[channel.interpolation.index];
+  final at = cubic ? 1 : 0;
+  if (channel.path == ModelAnimationPath.weights) {
+    return MorphWeightKeyframeTrack(
+      target: target,
+      times: channel.times,
+      values: values(at),
+      interpolation: mode,
+      inTangents: cubic ? values(0) : null,
+      outTangents: cubic ? values(2) : null,
+    );
+  }
+  if (channel.path == ModelAnimationPath.rotation) {
+    List<Quat> qs(int slot) =>
+        values(slot).map((v) => Quat(v[0], v[1], v[2], v[3])).toList();
+    return QuaternionKeyframeTrack(
+      target: target,
+      times: channel.times,
+      values: qs(at),
+      interpolation: mode,
+      inTangents: cubic ? qs(0) : null,
+      outTangents: cubic ? qs(2) : null,
+    );
+  }
+  List<Vec3> vs(int slot) =>
+      values(slot).map((v) => Vec3(v[0], v[1], v[2])).toList();
+  final create = channel.path == ModelAnimationPath.translation
+      ? VectorKeyframeTrack.position
+      : VectorKeyframeTrack.scale;
+  return create(
+    target: target,
+    times: channel.times,
+    values: vs(at),
+    interpolation: mode,
+    inTangents: cubic ? vs(0) : null,
+    outTangents: cubic ? vs(2) : null,
+  );
 }
 
 final class ModelSkin {

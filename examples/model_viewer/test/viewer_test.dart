@@ -5,8 +5,29 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_zyren/flutter_zyren.dart';
 import 'package:model_viewer/main.dart';
+import 'package:zyren_gltf/zyren_gltf.dart';
+import 'support/controls.dart';
 import '../../../packages/flutter_zyren/test/support/backend_fake.dart';
 import '../../../packages/flutter_zyren/test/support/fakes.dart';
+
+class ViewerBackend extends FakeBackend {
+  @override
+  DeviceCapabilities get capabilities => DeviceCapabilities(
+    name: 'viewer fixture',
+    features: {
+      ...super.capabilities.features,
+      RenderFeature.standardMaterials,
+      RenderFeature.hdr,
+      RenderFeature.spatialAntialiasing,
+    },
+    limits: DeviceLimits(
+      maxTextureDimension2D: maxDimension,
+      maxGeometryBytes: 1000000,
+      maxPunctualLights: 16,
+      maxHemisphereLights: 4,
+    ),
+  );
+}
 
 class Sources implements ByteSourceResolver {
   final data = File('assets/models/assembly.glb').readAsBytesSync();
@@ -31,7 +52,15 @@ class Sources implements ByteSourceResolver {
           'Fixture unavailable',
         );
       }
-      return ResolvedSource(effectiveUri: uri, bytes: data);
+      return ResolvedSource(
+        effectiveUri: uri,
+        bytes:
+            uri.path.endsWith('pbr.glb') ||
+                uri.path.endsWith('colors.glb') ||
+                uri.path.endsWith('animated.glb')
+            ? File('assets/models/${uri.pathSegments.last}').readAsBytesSync()
+            : data,
+      );
     } finally {
       registration.dispose();
     }
@@ -77,9 +106,130 @@ Future<void> remove(WidgetTester tester) async {
 
 void main() {
   testWidgets(
+    'loaded animation controls seek, switch clips and release on replacement',
+    (tester) async {
+      final sources = Sources(), backend = ViewerBackend();
+      await tester.binding.setSurfaceSize(const Size(1000, 700));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        ModelViewerApp(
+          runtime: runtime(sources, backend),
+          autoplayAnimations: false,
+          presentation: PresentationPolicy.readbackOnly,
+        ),
+      );
+      await waitForModel(tester);
+      await chooseExample(tester, 'Animation');
+      await waitForModel(tester);
+      final controller = tester
+          .widget<SceneView>(find.byType(SceneView))
+          .controller!;
+      final instance = controller.scene.children.single as ModelInstance;
+      expect(instance.animations.map((c) => c.name), ['Assembly', 'Pulse']);
+      final original = instance.nodes[2]!.position;
+      final slider = tester.widget<Slider>(
+        find.byKey(const ValueKey('Animation playhead')),
+      );
+      slider.onChanged!(2);
+      await tester.pump();
+      expect(instance.nodes[2]!.position.y, closeTo(.7, 1e-6));
+      await tester.tap(find.byKey(const ValueKey('Animation clip')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Pulse').last);
+      await tester.pumpAndSettle();
+      expect(instance.nodes[2]!.position.x, closeTo(original.x, 1e-6));
+      expect(instance.nodes[2]!.position.y, original.y);
+      tester
+          .widget<Slider>(find.byKey(const ValueKey('Animation playhead')))
+          .onChanged!(2);
+      await tester.pump();
+      expect(instance.nodes[3]!.scale.x, closeTo(1.1, 1e-6));
+      for (final size in [
+        const Size(320, 640),
+        const Size(390, 700),
+        const Size(1000, 700),
+      ]) {
+        await tester.binding.setSurfaceSize(size);
+        await tester.pump();
+        expect(tester.takeException(), isNull);
+        expect(tester.getSize(find.byType(SceneView)).height, greaterThan(240));
+      }
+      await tester.tap(find.byKey(const ValueKey('Animation playback')));
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(instance.mixer.isAdvancing, isTrue);
+      await chooseExample(tester, 'GLB');
+      await waitForModel(tester);
+      expect(instance.mixer.actions, isEmpty);
+      expect(find.byKey(const ValueKey('Animation playback')), findsNothing);
+      expect(tester.takeException(), isNull);
+      await remove(tester);
+      expect(backend.closeCount, 1);
+    },
+  );
+
+  testWidgets('PBR scenes use authored lights or an explicit studio toggle', (
+    tester,
+  ) async {
+    final sources = Sources(), backend = ViewerBackend();
+    await tester.binding.setSurfaceSize(const Size(1000, 700));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      ModelViewerApp(
+        runtime: runtime(sources, backend),
+        presentation: PresentationPolicy.readbackOnly,
+      ),
+    );
+    await waitForModel(tester);
+    await chooseExample(tester, 'PBR model');
+    await waitForModel(tester);
+    final controller = tester
+        .widget<SceneView>(find.byType(SceneView))
+        .controller!;
+    expect(controller.scene.children.single.name, 'PBR assembly');
+    expect(find.byTooltip('Studio light'), findsNothing);
+    expect(backend.submissions.last.scene.drawCalls, 3);
+    await tester.tap(find.byType(DropdownButton<int>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('No authored lights').last);
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Studio light'), findsOneWidget);
+    final studio = controller.scene.children.single.children.last;
+    expect(studio.name, 'Viewer studio');
+    expect(studio.visible, isTrue);
+    await tester.tap(find.byTooltip('Studio light'));
+    await tester.pump();
+    expect(studio.visible, isFalse);
+    for (final size in [const Size(320, 640), const Size(390, 700)]) {
+      await tester.binding.setSurfaceSize(size);
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      expect(tester.getSize(find.byType(SceneView)).height, greaterThan(240));
+    }
+    await chooseExample(tester, 'Colors');
+    await waitForModel(tester);
+    final root = controller.scene.children.single;
+    expect(root.name, 'Vertex color assembly');
+    final meshes = <Mesh>[];
+    void collect(Object3D object) {
+      if (object is Mesh) meshes.add(object);
+      for (final child in object.children) {
+        collect(child);
+      }
+    }
+
+    collect(root);
+    expect(meshes, hasLength(3));
+    expect(
+      meshes.every((m) => m.material.vertexColors && m.geometry.colors != null),
+      isTrue,
+    );
+    expect(tester.takeException(), isNull);
+    await remove(tester);
+  });
+  testWidgets(
     'bundle loading, named scenes and controls fit desktop and narrow layouts',
     (tester) async {
-      final sources = Sources(), backend = FakeBackend();
+      final sources = Sources(), backend = ViewerBackend();
       await tester.binding.setSurfaceSize(const Size(1000, 700));
       addTearDown(() => tester.binding.setSurfaceSize(null));
       await tester.pumpWidget(
@@ -132,7 +282,7 @@ void main() {
     'unknown-length progress, cancellation, URI retry and route removal settle',
     (tester) async {
       final sources = Sources()..gate = Completer<void>();
-      final backend = FakeBackend();
+      final backend = ViewerBackend();
       await tester.pumpWidget(
         ModelViewerApp(
           runtime: runtime(sources, backend),
@@ -160,7 +310,7 @@ void main() {
       await waitForModel(tester);
       expect(sources.reads, 3);
       sources.gate = Completer<void>();
-      await tester.tap(find.text('Relative glTF'));
+      await chooseExample(tester, 'Relative glTF');
       await tester.pump();
       await remove(tester);
       sources.gate!.complete();

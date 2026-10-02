@@ -62,12 +62,14 @@ void main() {
         await render(64, 48);
         final pressure = GpuScope.fromBackend(backend);
         try {
-          await pressure.resources.createBuffer(
-            BufferDescriptor(
-              size: 30 * 1024 * 1024,
-              usage: {BufferUsage.storage},
-            ),
-          );
+          for (var i = 0; i < 7; i++) {
+            await pressure.resources.createBuffer(
+              BufferDescriptor(
+                size: 32 * 1024 * 1024,
+                usage: {BufferUsage.storage},
+              ),
+            );
+          }
           final bytesWithPressure =
               (await backend.resourceStats()).residentBytes;
           await expectLater(

@@ -58,8 +58,8 @@ void main() {
         final expected = (await render(manual)).image.pixels;
         final output = await render(scene);
         expect(output.image.pixels, expected);
-        expect(output.stats.drawCalls, 2);
-        expect((await backend.graphStats()).instanceBytes, 224);
+        expect(output.stats.drawCalls, 1);
+        expect((await backend.graphStats()).instanceBytes, 256);
         final bytes = (await backend.graphStats()).instanceUploadedBytes;
         await render(scene);
         expect((await backend.graphStats()).instanceUploadedBytes, bytes);
@@ -78,7 +78,7 @@ void main() {
         final changed = await render(scene);
         expect(
           (await backend.graphStats()).instanceUploadedBytes - previous,
-          112,
+          128,
         );
         expect(changed.image.pixels, (await render(manual)).image.pixels);
         expect(
@@ -224,7 +224,7 @@ void main() {
 
   test('ten thousand instances share bounded buffers and one draw', () async {
     final backend = await NativeBackend.create();
-    final scene = Scene();
+    final scene = Scene()..background = const Color3(0, 0, 0);
     final mesh = scene.add(
       InstancedMesh(PlaneGeometry(), UnlitMaterial(), count: 10000),
     );
@@ -250,7 +250,7 @@ void main() {
               as ReadbackOutput;
       expect(output.stats.drawCalls, 1);
       final stats = await backend.graphStats();
-      expect(stats.instanceBytes, 1120000);
+      expect(stats.instanceBytes, 1280000);
       expect(stats.instanceDrawCalls, 1);
     } finally {
       await backend.close();
@@ -258,7 +258,7 @@ void main() {
   }, skip: Platform.environment['RUN_NATIVE_GPU'] != '1');
 
   test(
-    'shared instance budgets reject replacements without losing earlier views',
+    'shared instance versions do not duplicate buffers across views',
     () async {
       final backend = await NativeBackend.create();
       final views = [backend, for (var i = 0; i < 9; i++) backend.createView()];
@@ -284,11 +284,11 @@ void main() {
         }
         final previous = await views[9].render(small) as ReadbackOutput;
         final bytes = (await backend.graphStats()).instanceBytes;
-        await expectLater(
-          views[9].render(large),
-          throwsA(isA<SceneException>()),
+        await views[9].render(large);
+        expect(
+          (await backend.graphStats()).instanceBytes,
+          lessThanOrEqualTo(bytes),
         );
-        expect((await backend.graphStats()).instanceBytes, bytes);
         expect(
           (await views[9].render(small) as ReadbackOutput).image.pixels,
           previous.image.pixels,

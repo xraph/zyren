@@ -7,6 +7,8 @@ final class AssetServices {
   final TextureDecoder? textureDecoder;
   final BufferDecoder? bufferDecoder;
   final CompressedMeshDecoder? meshDecoder;
+  final HdrImageDecoder? hdrImageDecoder;
+  final TangentGenerator? tangentGenerator;
   final AssetLimits limits;
   final SourcePolicy policy;
 
@@ -19,10 +21,26 @@ final class AssetServices {
     this.textureDecoder,
     this.bufferDecoder,
     this.meshDecoder,
+    this.hdrImageDecoder,
+    this.tangentGenerator,
     this.limits = const AssetLimits(),
     this.policy = const SourcePolicy(),
     this.onCleanupError,
   });
+
+  /// Starts a separate load pool for a different texture storage policy.
+  AssetServices withTextureDecoder(TextureDecoder decoder) => AssetServices(
+    resolver: resolver,
+    imageDecoder: imageDecoder,
+    textureDecoder: decoder,
+    bufferDecoder: bufferDecoder,
+    meshDecoder: meshDecoder,
+    hdrImageDecoder: hdrImageDecoder,
+    tangentGenerator: tangentGenerator,
+    limits: limits,
+    policy: policy,
+    onCleanupError: onCleanupError,
+  );
 
   static final _pools = Expando<_SharedLoadPool>();
   _SharedLoadPool get _pool => _pools[this] ??= _SharedLoadPool(this);
@@ -33,6 +51,7 @@ final class AssetLimits {
   final int maxSourceBytes, maxTotalSourceBytes, maxSources, maxDecodedBytes;
   final ImageDecodeLimits images;
   final MeshDecodeLimits meshes;
+  final TangentGenerationLimits tangents;
   const AssetLimits({
     this.maxSourceBytes = 32 * 1024 * 1024,
     this.maxTotalSourceBytes = 128 * 1024 * 1024,
@@ -40,6 +59,7 @@ final class AssetLimits {
     this.maxDecodedBytes = 128 * 1024 * 1024,
     this.images = const ImageDecodeLimits(),
     this.meshes = const MeshDecodeLimits(),
+    this.tangents = const TangentGenerationLimits(),
   });
   void validate() {
     for (final (name, value) in [
@@ -52,5 +72,6 @@ final class AssetLimits {
     }
     images.validate();
     meshes.validate();
+    tangents.validate();
   }
 }

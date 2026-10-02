@@ -187,7 +187,7 @@ class _OrbitLabState extends State<OrbitLab> {
                 return SceneView(
                   controller: controller,
                   errorBuilder: (context, issue, retry) =>
-                      ZeroState(error: issue, onRetry: retry),
+                      RendererZeroState(error: issue, onRetry: retry),
                 );
               },
             ),

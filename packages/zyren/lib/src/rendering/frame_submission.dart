@@ -1,17 +1,20 @@
 import 'dart:typed_data';
+import 'dart:convert';
+import 'color_pipeline.dart';
+import 'temporal_aa_options.dart';
 import 'dart:math' as math;
 import 'package:vector_math/vector_math_64.dart' as vm;
 import '../geometry/geometry.dart';
 import '../geometry/vertex_attribute.dart';
 import '../resources/texture_image.dart';
-import '../resources/resource_scope.dart'
-    show MaterialDevice, MeshShader, EnvironmentDevice, SpatialAntialiasing;
 import '../scene/scene.dart';
-import '../math/vec3.dart';
-import 'frame_output.dart';
 import 'depth_strategy.dart';
+import '../math/mat4.dart';
+import '../spatial/frustum.dart';
+import 'frame_output.dart';
+import '../resources/resource_scope.dart';
 part 'scene_packet.dart';
-part 'scene_draws.dart';
+part 'shadow_capture.dart';
 
 class FrameTime {
   final Duration elapsed, delta, rawDelta;
@@ -29,247 +32,554 @@ class FrameTime {
 }
 
 class CameraSnapshot {
-  final List<double> origin, viewProjection;
+  final List<double> origin, viewProjection, projection, forward;
+  final int identity;
   final DepthStrategy depthStrategy;
+  final double targetDistance;
   CameraSnapshot._(
     Iterable<double> origin,
     Iterable<double> viewProjection,
+    Iterable<double> projection,
+    Iterable<double> forward,
+    this.identity,
+    this.targetDistance,
     this.depthStrategy,
-  ) : origin = List.unmodifiable(origin),
-      viewProjection = List.unmodifiable(viewProjection);
+  ) : forward = List.unmodifiable(forward),
+      origin = List.unmodifiable(origin),
+      viewProjection = List.unmodifiable(viewProjection),
+      projection = List.unmodifiable(projection);
 }
 
 /// Captured transforms with shared immutable CPU geometry recipes.
 class SceneSnapshot {
+  final List<_ShadowLight> _shadowLights;
+  bool get hasShadows =>
+      _shadowLights.isNotEmpty ||
+      _meshes.any(
+        (mesh) => mesh['cast_shadow'] == true || mesh['receive_shadow'] == true,
+      );
   final List<Map<String, Object>> _meshes;
+  final List<(int, int)> _identities;
+  final List<Map<String, Object>> _lights, _hemispheres, _areas;
+  bool get hasStandardMaterials => _meshes.any((m) => m.containsKey('pbr'));
+  int get punctualLightCount => _lights.length;
+  int get areaLightCount => _areas.length;
+  int get hemisphereLightCount => _hemispheres.length;
   final Map<int, GeometrySnapshot> _geometries;
+  final Map<int, InstanceSnapshot> _instances;
+  final Map<int, DeformationSnapshot> _poses;
+  bool get hasDeformation => _poses.isNotEmpty;
+  bool get hasInstances => _instances.isNotEmpty;
   final Map<int, TextureImage> _textures;
   final List<double> _background, _light;
   final double _ambient;
   final RenderSettings _settings;
-  final List<List<double>> _lights, _shadows;
-  final List<double> _shadowCamera;
-  final List<double> _viewProjection;
-  final DepthStrategy _depthStrategy;
   final SceneOutline? _outline;
-  bool get hasOutline =>
-      _outline != null && _meshes.any((m) => m['outlined'] == true);
-  late final int drawCalls = _countDraws(this);
-  int get triangles => _meshes.fold<int>(0, (sum, mesh) {
+  final double backgroundOpacity;
+
+  /// One resolve draw converts a transparent scene to straight color.
+  int get alphaResolveDraws => backgroundOpacity < 1 ? 1 : 0;
+  final Map<int, MeshShaderProgram> meshShaders;
+  bool _transmissive(Map<String, Object> mesh) {
+    final pbr = mesh['pbr'] as Map?;
+    return pbr != null &&
+        ((pbr['transmission'] as List?)?.first as num? ?? 0) > 0 &&
+        ((pbr['metallic'] as num) < 1 || pbr['metallic_roughness_map'] != null);
+  }
+
+  bool get hasTransmission =>
+      _meshes.any((m) => m['color_visible'] != false && _transmissive(m));
+  int get transmissionCaptureDraws => hasTransmission
+      ? _meshes
+            .where(
+              (m) =>
+                  m['color_visible'] != false &&
+                  m['alpha_mode'] != 2 &&
+                  !_transmissive(m),
+            )
+            .length
+      : 0;
+  bool get usesScreenEffects => _settings.copyWith(backgroundAlpha: 1).enabled;
+  int get outlineDrawCalls =>
+      _outline != null &&
+          _outline.opacity > 0 &&
+          _meshes.any((m) => m['outlined'] == true)
+      ? 1 +
+            _meshes
+                .where((m) => m['outlined'] == true)
+                .fold<int>(
+                  0,
+                  (n, m) =>
+                      n +
+                      (m['alpha_mode'] == 2 ? m['instance_count'] as int : 1),
+                )
+      : 0;
+  int get drawCalls =>
+      outlineDrawCalls +
+      _meshes.fold(
+        0,
+        (n, mesh) =>
+            n +
+            (mesh['color_visible'] == false
+                ? 0
+                : mesh['alpha_mode'] == 2
+                ? mesh['instance_count'] as int
+                : 1),
+      );
+
+  /// Motion draws batch each visible mesh, including transparent instances.
+  int get temporalMotionDraws =>
+      _meshes.where((mesh) => mesh['color_visible'] != false).length;
+  int get transmissionCaptureTriangles => !hasTransmission
+      ? 0
+      : _meshes.fold(0, (sum, mesh) {
+          if (mesh['color_visible'] == false ||
+              mesh['alpha_mode'] == 2 ||
+              _transmissive(mesh)) {
+            return sum;
+          }
+          final geometry = _geometries[mesh['geometry']]!;
+          return sum +
+              (mesh['instance_count'] as int) *
+                  geometry.primitiveCount *
+                  (geometry.topology == GeometryTopology.triangles ? 1 : 2);
+        });
+  int get triangles => _meshes.fold(0, (sum, mesh) {
+    if (mesh['color_visible'] == false) return sum;
     final geometry = _geometries[mesh['geometry']]!;
     return sum +
-        geometry.primitiveCount *
-            math.max(1, (mesh['instances'] as List).length ~/ 16).toInt() *
+        (mesh['instance_count'] as int) *
+            geometry.primitiveCount *
             (geometry.topology == GeometryTopology.triangles ? 1 : 2);
   });
   SceneSnapshot._(
     this._meshes,
+    this._identities,
+    this._lights,
+    this._hemispheres,
+    this._areas,
     this._geometries,
+    this._instances,
+    this._poses,
     this._textures,
     this._background,
+    this.backgroundOpacity,
     this._light,
     this._ambient,
+    this.meshShaders,
+    this._shadowLights,
     this._settings,
-    this._lights,
-    this._shadows,
-    this._shadowCamera,
-    this._viewProjection,
-    this._depthStrategy,
     this._outline,
   );
-  static SceneSnapshot _capture(
-    Scene scene,
-    Camera camera,
-    List<double> viewProjection,
-  ) {
+  static SceneSnapshot _capture(Scene scene, Camera camera, Frustum frustum) {
     final meshes = <Map<String, Object>>[],
         geometries = <int, GeometrySnapshot>{};
     final textures = <int, TextureImage>{};
-    final lights = <List<double>>[], shadows = <List<double>>[];
-    final planes = <double>[
-      for (final plane in scene.clippingPlanes) ...[
-        ...plane.normal.storage,
-        plane.normal.dot(camera.position) - plane.offset,
-      ],
-    ];
-    if (planes.any(
-      (value) => !value.isFinite || value.abs() > 3.4028234663852886e38,
-    )) {
-      throw ArgumentError(
-        'Camera-relative clipping planes exceed the GPU numeric range.',
-      );
-    }
-    void visit(
-      Object3D node,
-      vm.Matrix4 parent,
-      bool parentVisible,
-      bool parentClipping,
-      bool parentOutlined,
-      bool parentOutlineEnabled,
-    ) {
+    final instances = <int, InstanceSnapshot>{};
+    final poses = <int, DeformationSnapshot>{};
+    var instanceCapacity = 0;
+    final lights = <Map<String, Object>>[];
+    final hemispheres = <Map<String, Object>>[];
+    final areas = <Map<String, Object>>[];
+    final identities = <(int, int)>[];
+    final meshShaders = <int, MeshShaderProgram>{};
+    final shadows = <_ShadowLight>[];
+    void visit(Object3D node, vm.Matrix4 parent, bool parentVisible) {
       final visible = parentVisible && node.visible;
-      final clipping = parentClipping && node.clippingEnabled;
-      final outlineEnabled = parentOutlineEnabled && node.outlineEnabled;
-      final outlined =
-          outlineEnabled &&
-          (parentOutlined || (scene.outline?.objects.contains(node) ?? false));
-      final world = parent * node.localMatrix.toVectorMath();
-      if (node is Light && visible) {
-        final shadow = switch (node) {
-          DirectionalLight l => l.shadow,
-          SpotLight l => l.shadow,
-          _ => null,
-        };
-        if (shadow != null) {
-          if (node is HemisphereLight) {
-            throw UnsupportedError('Hemisphere lights cannot cast shadows.');
-          }
-          shadows.add(
-            List.unmodifiable([
-              lights.length.toDouble(),
-              shadow.resolution.toDouble(),
-              shadow.cascades.toDouble(),
-              shadow.near,
-              shadow.maxDistance,
-              shadow.bias,
-              shadow.normalBias,
-              shadow.splitLambda,
-            ]),
-          );
-          if (shadows.fold(0.0, (sum, s) => sum + s[2]) > 8) {
-            throw ArgumentError(
-              'A view supports at most eight shadow projections.',
-            );
-          }
+      bool enabled(Object3D n, bool Function(Object3D) test) {
+        for (Object3D? current = n; current != null; current = current.parent) {
+          if (!test(current)) return false;
         }
-        final direction = switch (node) {
-          DirectionalLight light => light.direction,
-          SpotLight light => light.direction,
-          _ => const Vec3(0, 0, -1),
-        };
-        final vector = world.transform(
-          vm.Vector4(direction.x, direction.y, direction.z, 0),
-        );
-        final d = vm.Vector3(vector.x, vector.y, vector.z)..normalize();
-        final position =
-            world.getTranslation() - camera.position.toVectorMath();
-        final kind = node is HemisphereLight
-            ? 3.0
-            : node is SpotLight
-            ? 2.0
-            : node is PointLight
-            ? 1.0
-            : 0.0;
-        lights.add(
-          List.unmodifiable([
-            ...position.storage,
-            kind,
-            ...node.color.toList(),
-            node.intensity,
-            ...d.storage,
-            node is PointLight ? node.range : 0.0,
-            node is SpotLight
-                ? math.cos(node.angle * (1 - node.penumbra))
-                : 0.0,
-            node is SpotLight ? math.cos(node.angle) : 0.0,
-            0.0,
-            0.0,
-            ...node is HemisphereLight
-                ? node.groundColor.toList()
-                : [0.0, 0.0, 0.0],
-            0.0,
-          ]),
-        );
-        if (lights.length > 16) {
-          throw ArgumentError(
-            'A scene supports at most sixteen physical lights.',
-          );
+        return true;
+      }
+
+      final clipping = enabled(node, (n) => n.clippingEnabled);
+      var outlined = false;
+      if (enabled(node, (n) => n.outlineEnabled)) {
+        for (
+          Object3D? current = node;
+          current != null;
+          current = current.parent
+        ) {
+          outlined |= scene.outline?.objects.contains(current) ?? false;
         }
       }
-      if (node is Mesh) {
-        final shader = node.material is ShaderMaterial
-            ? (node.material as ShaderMaterial).shader
-            : null;
-        if (shader != null &&
-            shader.descriptor.requiresUv &&
-            node.geometry.uv0 == null &&
-            node.geometry.uv1 == null) {
-          throw ArgumentError('This mesh shader requires UV attributes.');
-        }
-        if (node.castShadow &&
-            (shader != null ||
-                node.geometry.topology != GeometryTopology.triangles)) {
-          throw UnsupportedError(
-            'Shadow casters require triangle geometry with a built-in material.',
+      final matchesLayers = node.layers.intersects(camera.layers);
+      final world = parent * node.localMatrix.toVectorMath();
+      if (visible && matchesLayers && node is RectAreaLight) {
+        if (areas.length >= 4) {
+          throw ArgumentError(
+            'A scene supports at most 4 visible area lights.',
           );
         }
-        final geometry = node.geometry.capture();
-        geometries[geometry.id] = geometry;
-        final map = node.material.colorMap;
-        final standard = node.material is StandardMaterial
-            ? node.material as StandardMaterial
-            : null;
-        final extraMaps = [
-          standard?.normalMap,
-          standard?.metallicRoughnessMap,
-          standard?.occlusionMap,
-          standard?.emissiveMap,
-        ];
-        final maps = [map, ...extraMaps].nonNulls;
-        for (final entry in maps) {
-          textures[entry.image.id] = entry.image;
+        final w =
+            vm.Vector3(
+              world.entry(0, 0),
+              world.entry(1, 0),
+              world.entry(2, 0),
+            ) *
+            (node.width * .5);
+        final h =
+            vm.Vector3(
+              world.entry(0, 1),
+              world.entry(1, 1),
+              world.entry(2, 1),
+            ) *
+            (node.height * .5);
+        final area = w.cross(h).length2;
+        if (!area.isFinite || area < 1e-20) {
+          throw ArgumentError(
+            'Area light transform must define a finite nonzero area.',
+          );
         }
-        if (visible) {
-          for (final entry in maps) {
-            if ((entry.uvSet == 0 ? node.geometry.uv0 : node.geometry.uv1) ==
-                null) {
+        if (node.shadow case final settings?) {
+          shadows.add(
+            _ShadowLight(
+              16 + areas.length,
+              settings,
+              node.shadowRevision,
+              world.getTranslation().storage,
+            ),
+          );
+        }
+        areas.add(
+          _freeze(<String, Object>{
+                'position':
+                    (world.getTranslation() - camera.position.toVectorMath())
+                        .storage
+                        .toList(),
+                'half_width': w.storage.toList(),
+                'half_height': h.storage.toList(),
+                'color': node.color.toList(),
+                'intensity': node.intensity,
+              })
+              as Map<String, Object>,
+        );
+      }
+      if (visible && matchesLayers && node is HemisphereLight) {
+        if (hemispheres.length >= 4) {
+          throw ArgumentError(
+            'A scene supports at most 4 visible hemisphere lights.',
+          );
+        }
+        if (node.shadow != null) {
+          throw UnsupportedError('Hemisphere lights do not cast shadows.');
+        }
+        final direction = world.getRotation() * node.up.toVectorMath();
+        if (!direction.length2.isFinite || direction.length2 < 1e-30) {
+          throw ArgumentError(
+            'Hemisphere direction must be finite and nonzero.',
+          );
+        }
+        direction.normalize();
+        hemispheres.add(
+          _freeze(<String, Object>{
+                'sky_color': node.skyColor.toList(),
+                'ground_color': node.groundColor.toList(),
+                'direction': direction.storage.toList(),
+                'intensity': node.intensity,
+              })
+              as Map<String, Object>,
+        );
+      }
+      if (visible && matchesLayers && node is PunctualLight) {
+        if (lights.length >= 16) {
+          throw ArgumentError(
+            'A scene supports at most 16 visible punctual lights.',
+          );
+        }
+        final direction = world.getRotation() * node.direction.toVectorMath();
+        if (!direction.length2.isFinite || direction.length2 < 1e-30) {
+          throw ArgumentError('Light direction must be finite and nonzero.');
+        }
+        direction.normalize();
+        if (node.shadow case final settings?) {
+          shadows.add(
+            _ShadowLight(
+              lights.length,
+              settings,
+              node.shadowRevision,
+              world.getTranslation().storage,
+            ),
+          );
+        }
+        final position =
+            world.getTranslation() - camera.position.toVectorMath();
+        lights.add(
+          _freeze(<String, Object>{
+                'kind': switch (node) {
+                  DirectionalLight() => 0,
+                  PointLight() => 1,
+                  SpotLight() => 2,
+                },
+                'color': node.color.toList(),
+                'intensity': node.intensity,
+                'position': position.storage.toList(),
+                'direction': direction.storage.toList(),
+                'range': node is PositionalLight ? node.range ?? 0.0 : 0.0,
+                'inner_cos': node is SpotLight
+                    ? math.cos(node.innerConeAngle)
+                    : 1.0,
+                'outer_cos': node is SpotLight
+                    ? math.cos(node.outerConeAngle)
+                    : 0.0,
+              })
+              as Map<String, Object>,
+        );
+      }
+      if (node is Mesh) {
+        final instance = node is InstancedMesh ? node.captureInstances() : null;
+        if (instance != null) {
+          if ((instanceCapacity += instance.capacity) > 100000) {
+            throw ArgumentError(
+              'A scene view supports at most 100000 instance slots.',
+            );
+          }
+          instances[instance.id] = instance;
+        }
+        if (node is SkinnedMesh) {
+          for (final joint in node.skin.joints) {
+            Object3D? owner = joint;
+            while (owner != null && !identical(owner, scene)) {
+              owner = owner.parent;
+            }
+            if (owner == null) {
               throw ArgumentError(
-                'Material map requires UV set ${entry.uvSet}.',
+                'Skin joints must belong to the rendered scene.',
               );
             }
           }
         }
-        if (visible) {
+        final pose = node.captureDeformation();
+        if (pose != null) poses[pose.id] = pose;
+        final geometry = node.geometry.capture();
+        geometries[geometry.id] = geometry;
+        final map = node.material.colorMap;
+        for (final binding in node.material.textureMaps) {
+          textures[binding.image.id] = binding.image;
+        }
+        if (visible &&
+            matchesLayers &&
+            (node is! InstancedMesh || node.count > 0)) {
+          if (node.material.vertexColors && geometry.colors == null) {
+            throw ArgumentError('Vertex colors require a color attribute.');
+          }
+          if (node.material case ShaderMaterial(
+            program: final MeshShaderProgram program,
+          )) {
+            if (program.geometry.usesInstancing != (instance != null) ||
+                program.geometry.usesDeformation != (pose != null)) {
+              throw ArgumentError(
+                'Mesh shader geometry profile ${program.geometry.name} '
+                'does not match this mesh.',
+              );
+            }
+            if (program.isClosed) {
+              throw StateError('Mesh shader has closed: ${program.label}');
+            }
+            if (program.vertexLayout.hasUv &&
+                node.geometry.uv0 == null &&
+                node.geometry.uv1 == null) {
+              throw ArgumentError('This mesh shader requires UV attributes.');
+            }
+            if (program.vertexLayout.hasTangents && geometry.tangents == null) {
+              throw ArgumentError(
+                'This mesh shader requires tangent attributes.',
+              );
+            }
+            if (program.vertexLayout.hasColors && geometry.colors == null) {
+              throw ArgumentError(
+                'This mesh shader requires color attributes.',
+              );
+            }
+            meshShaders[meshes.length] = program;
+          }
+          if (node.material case ShaderMaterial(
+            program: final MeshShader shader,
+          )) {
+            if (shader.isClosed) throw StateError('Mesh shader has closed.');
+            if (shader.descriptor.requiresUv &&
+                geometry.uv0 == null &&
+                geometry.uv1 == null) {
+              throw ArgumentError('Mesh shader requires UV coordinates.');
+            }
+            if (pose != null || instance != null) {
+              throw UnsupportedError(
+                'Use a mesh shader geometry profile for instancing or deformation.',
+              );
+            }
+          }
+          if (node.material case ShaderMaterial(:final program)
+              when clipping &&
+                  scene.clippingPlanes.isNotEmpty &&
+                  (program is! MeshShader ||
+                      !program.descriptor.supportsClipping)) {
+            throw UnsupportedError(
+              'Custom materials require clipping in their shader.',
+            );
+          }
+          if (node.material is ShaderMaterial &&
+              !node.fragmentCoverage.isFull) {
+            throw UnsupportedError(
+              'Fragment coverage requires a built-in material.',
+            );
+          }
+          if (node.material case PhysicalMaterial(:final anisotropy)) {
+            if (anisotropy > 0 && geometry.tangents == null) {
+              throw ArgumentError('Anisotropy requires geometry tangents.');
+            }
+          }
+          for (final binding in node.material.textureMaps) {
+            if ((binding.uvSet == 0 ? geometry.uv0 : geometry.uv1) == null) {
+              throw ArgumentError(
+                'A material map requires UV set ${binding.uvSet}.',
+              );
+            }
+          }
           final relative = world.clone()
             ..setTranslation(
               world.getTranslation() - camera.position.toVectorMath(),
             );
-          if (clipping &&
-              planes.isNotEmpty &&
-              shader != null &&
-              !shader.descriptor.supportsClipping) {
-            throw UnsupportedError(
-              'Custom shader materials must declare a clipping hook or opt out.',
-            );
-          }
+          final bounds =
+              node.cullingBounds ??
+              (node.material is! ShaderMaterial &&
+                      geometry.topology == GeometryTopology.triangles
+                  ? node.bounds
+                  : null);
+          final colorVisible =
+              !node.frustumCulled ||
+              frustum.intersectsBounds(
+                bounds?.transformed(Mat4.fromVectorMath(relative)),
+              );
+          identities.add((node.id, geometry.logicalId));
           meshes.add(
             _freeze(<String, Object>{
-                  'clippingPlanes': clipping ? planes : <double>[],
-                  'outlined': outlined && (scene.outline?.opacity ?? 0) > 0,
-                  'geometry': geometry.id,
-                  'model': relative.storage.toList(),
-                  'instances': node is InstancedMesh
-                      ? [
-                          for (var i = 0; i < node.count; i++)
-                            ..._relativeInstance(
-                              world,
-                              node.transformAt(i).toVectorMath(),
-                              camera.position,
-                            ),
-                        ]
-                      : <double>[],
-                  'color': node.material.color.toList(),
-                  'unlit': node.material.unlit,
-                  'side': node.material.side.index,
-                  'shadowFlags':
-                      (node.castShadow ? 1 : 0) | (node.receiveShadow ? 2 : 0),
-                  'alpha_mode': node.material.alphaMode.index,
-                  'opacity': node.material.opacity,
-                  'alpha_cutoff': node.material.alphaCutoff,
+                  'color_visible': colorVisible,
+                  'clippingPlanes': [
+                    if (clipping)
+                      for (final plane in scene.clippingPlanes) ...[
+                        ...plane.normal.storage,
+                        plane.normal.dot(camera.position) - plane.offset,
+                      ],
+                  ],
+                  'outlined': outlined,
                   'coverage': [
                     node.fragmentCoverage.lower,
                     node.fragmentCoverage.upper,
                   ],
+                  if (node.material case ShaderMaterial(
+                    program: final MeshShader shader,
+                  ))
+                    'shader': shader,
+                  'geometry': geometry.id,
+                  'instances': instance?.id ?? 0,
+                  'pose': pose?.id ?? 0,
+                  'instance_count': node is InstancedMesh ? node.count : 1,
+                  if (node.castShadow) 'cast_shadow': true,
+                  if (node.receiveShadow) 'receive_shadow': true,
+                  'model': relative.storage.toList(),
+                  'shadow_world_model': node.castShadow
+                      ? world.storage.toList()
+                      : <double>[],
+                  'color': node.material.color.toList(),
+                  'unlit': node.material.unlit,
+                  if (node.material.vertexColors) 'vertex_colors': true,
+                  if (node.material case StandardMaterial material)
+                    'pbr': <String, Object>{
+                      if (material is PhysicalMaterial) ...{
+                        if (material.clearcoatMap != null)
+                          'clearcoat_map': material.clearcoatMap!.toPacket(),
+                        if (material.clearcoatRoughnessMap != null)
+                          'clearcoat_roughness_map': material
+                              .clearcoatRoughnessMap!
+                              .toPacket(),
+                        if (material.clearcoatNormalMap != null)
+                          'clearcoat_normal_map': material.clearcoatNormalMap!
+                              .toPacket(),
+                        if (material.sheenColorMap != null)
+                          'sheen_color_map': material.sheenColorMap!.toPacket(),
+                        if (material.sheenRoughnessMap != null)
+                          'sheen_roughness_map': material.sheenRoughnessMap!
+                              .toPacket(),
+                        if (material.specularIntensityMap != null)
+                          'specular_intensity_map': material
+                              .specularIntensityMap!
+                              .toPacket(),
+                        if (material.specularColorMap != null)
+                          'specular_color_map': material.specularColorMap!
+                              .toPacket(),
+                        if (material.anisotropyMap != null)
+                          'anisotropy_map': material.anisotropyMap!.toPacket(),
+                        if (material.transmissionMap != null)
+                          'transmission_map': material.transmissionMap!
+                              .toPacket(),
+                        if (material.thicknessMap != null)
+                          'thickness_map': material.thicknessMap!.toPacket(),
+                        if (material.iridescenceMap != null)
+                          'iridescence_map': material.iridescenceMap!
+                              .toPacket(),
+                        if (material.iridescenceThicknessMap != null)
+                          'iridescence_thickness_map': material
+                              .iridescenceThicknessMap!
+                              .toPacket(),
+                        'optical': <double>[
+                          material.iridescence,
+                          material.iridescenceIor,
+                          material.iridescenceThicknessMinimum,
+                          material.iridescenceThicknessMaximum,
+                          material.dispersion,
+                          0,
+                          0,
+                          0,
+                        ],
+                        'transmission': <double>[
+                          material.transmission,
+                          material.thickness,
+                          material.attenuationDistance.isInfinite
+                              ? 0
+                              : material.attenuationDistance,
+                          0,
+                          ...material.attenuationColor.toList(),
+                          0,
+                        ],
+                        'physical': <double>[
+                          material.ior,
+                          material.specularIntensity,
+                          material.clearcoat,
+                          material.clearcoatRoughness,
+                          ...material.specularColor.toList(maxChannel: 1e6),
+                          material.sheenRoughness,
+                          ...material.sheenColor.toList(),
+                          material.anisotropy,
+                          material.anisotropyRotation,
+                          1,
+                          material.clearcoatNormalScale,
+                          0,
+                        ],
+                      },
+                      'metallic': material.metallic,
+                      'roughness': material.roughness,
+                      'normal_scale': material.normalScale,
+                      'normal_scale_y': material.normalScaleY,
+                      'occlusion_strength': material.occlusionStrength,
+                      if (material.normalMap != null)
+                        'normal_map': material.normalMap!.toPacket(),
+                      if (material.metallicRoughnessMap != null)
+                        'metallic_roughness_map': material.metallicRoughnessMap!
+                            .toPacket(),
+                      if (material.occlusionMap != null)
+                        'occlusion_map': material.occlusionMap!.toPacket(),
+                      if (material.emissiveMap != null)
+                        'emissive_map': material.emissiveMap!.toPacket(),
+                      'emissive': material.emissive
+                          .toList()
+                          .map((v) => v * material.emissiveIntensity)
+                          .toList(),
+                    },
+                  'side': node.material.side.index,
+                  'alpha_mode': node.material.alphaMode.index,
+                  'opacity': node.material.opacity,
+                  'alpha_cutoff': node.material.alphaCutoff,
                   'depth_test': node.material.depthTest,
                   'depth_write': node.material.writesDepth,
                   'render_order': node.renderOrder,
@@ -278,75 +588,54 @@ class SceneSnapshot {
                   'size_units': node.material.sizeUnits.index,
                   'point_shape': node.material.pointShape.index,
                   'colorMap': map?.toPacket() ?? <int>[],
-                  'allImages': maps.map((entry) => entry.image.id).toList(),
-                  'pbrMaps': [
-                    for (final entry in extraMaps) ...[
-                      entry == null ? 0 : 1,
-                      ...?entry?.toPacket(),
-                    ],
-                  ],
-                  'pbrScales': [
-                    standard?.normalScaleX ?? 1.0,
-                    standard?.normalScaleY ?? 1.0,
-                    standard?.occlusionStrength ?? 1.0,
-                  ],
-                  'shader': ?shader,
-                  'pbr': node.material is StandardMaterial
-                      ? [
-                          (node.material as StandardMaterial).metallic,
-                          (node.material as StandardMaterial).roughness,
-                          (node.material as StandardMaterial).emissiveIntensity,
-                          ...(node.material as StandardMaterial).emissive
-                              .toList(),
-                        ]
-                      : <double>[],
                 })
                 as Map<String, Object>,
           );
         }
       }
       for (final child in node.children) {
-        visit(child, world, visible, clipping, outlined, outlineEnabled);
+        visit(child, world, visible);
       }
     }
 
-    visit(scene, vm.Matrix4.identity(), true, true, false, true);
+    visit(scene, vm.Matrix4.identity(), true);
     return SceneSnapshot._(
       List.unmodifiable(meshes),
+      List.unmodifiable(identities),
+      List.unmodifiable(lights),
+      List.unmodifiable(hemispheres),
+      List.unmodifiable(areas),
       Map.unmodifiable(geometries),
+      Map.unmodifiable(instances),
+      Map.unmodifiable(poses),
       Map.unmodifiable(textures),
-      List.unmodifiable(scene.background.toList()),
+      List.unmodifiable(scene.background?.toList() ?? [0.0, 0.0, 0.0]),
+      scene.background == null
+          ? 0.0
+          : Float32List.fromList([scene.backgroundAlpha]).single,
       List.unmodifiable(scene.lightDirection.storage),
       scene.ambient,
+      Map.unmodifiable(meshShaders),
+      List.unmodifiable(shadows),
       scene.renderSettings.copyWith(
-        backgroundAlpha: scene.backgroundAlpha,
         effects: scene.effects,
         environment: scene.environment,
-        hdr:
-            scene.renderSettings.hdr ||
-            meshes.any((m) => (m['pbr'] as List).isNotEmpty) ||
-            lights.isNotEmpty,
       ),
-      List.unmodifiable(lights),
-      List.unmodifiable(shadows),
-      List.unmodifiable(switch (camera) {
-        PerspectiveCamera c => [c.near, c.far],
-        OrthographicCamera c => [c.near, c.far],
-        _ =>
-          shadows.isEmpty
-              ? [.1, 1000.0]
-              : throw UnsupportedError(
-                  'Shadows require a perspective or orthographic camera.',
-                ),
-      }),
-      viewProjection,
-      camera.depthStrategy,
       scene.outline,
     );
   }
 }
 
 class FrameSubmission {
+  /// A graph already counts its final output conversion. Standalone HDR needs one.
+  int get outputConversionDraws =>
+      colorPipeline != null && graph == null ? 1 : 0;
+  final ShadowSnapshot shadows;
+  final CompiledGraph? graph;
+  final ColorPipeline? colorPipeline;
+  final TemporalAAOptions? temporalAA;
+  final int temporalReset;
+  final Environment? environment;
   final SceneSnapshot scene;
   final CameraSnapshot camera;
   final OutputTarget target;
@@ -360,28 +649,55 @@ class FrameSubmission {
     this.size,
     this.time,
     this.cpuBuildTime,
+    this.graph,
+    this.colorPipeline,
+    this.temporalAA,
+    this.temporalReset,
+    this.environment,
+    this.shadows,
   );
 
   /// Captures once so changes made during an asynchronous render affect only
   /// later submissions. This does not allocate a GPU or require Flutter.
+  /// [aspectRatio] preserves the logical viewport when physical pixels round.
+  /// Without it, the projection follows [size].
   factory FrameSubmission.capture({
     required Scene scene,
     required Camera camera,
     required PhysicalSize size,
+    double? aspectRatio,
     OutputTarget target = const ReadbackTarget(),
     FrameTime time = const FrameTime(),
+    CompiledGraph? graph,
+    ColorPipeline? colorPipeline,
+    TemporalAAOptions? temporalAA,
+    int temporalReset = 0,
+    Environment? environment,
   }) {
+    if (temporalReset < 0 ||
+        temporalReset > 0x1fffffffffffff ||
+        (temporalAA != null &&
+            (colorPipeline == null || colorPipeline.sampleCount != 1))) {
+      throw ArgumentError(
+        'Temporal AA needs single-sample HDR and a nonnegative safe reset generation.',
+      );
+    }
     final clock = Stopwatch()..start();
+    final aspect = aspectRatio ?? size.width / size.height;
 
     final cameraSnapshot = CameraSnapshot._(
       camera.position.storage,
-      camera.viewProjection(size.width / size.height).storage,
+      camera.viewProjection(aspect).storage,
+      camera.projectionMatrix(aspect).storage,
+      (camera.target - camera.position).normalized().storage,
+      camera.id,
+      camera.target.distanceTo(camera.position),
       camera.depthStrategy,
     );
     final sceneSnapshot = SceneSnapshot._capture(
       scene,
       camera,
-      cameraSnapshot.viewProjection,
+      Frustum.fromMatrix(Mat4(cameraSnapshot.viewProjection)),
     );
     return FrameSubmission._(
       sceneSnapshot,
@@ -390,30 +706,77 @@ class FrameSubmission {
       size,
       time,
       clock.elapsed,
+      graph,
+      colorPipeline,
+      temporalAA,
+      temporalReset,
+      environment,
+      ShadowSnapshot.capture(sceneSnapshot, camera, aspect),
     );
   }
 
+  /// Selects a compiled graph without recapturing mutable scene or camera state.
+  FrameSubmission withGraph(CompiledGraph? graph) => FrameSubmission._(
+    scene,
+    camera,
+    target,
+    size,
+    time,
+    cpuBuildTime,
+    graph,
+    colorPipeline,
+    temporalAA,
+    temporalReset,
+    environment,
+    shadows,
+  );
+
   /// Compatibility encoder for native v1 adapters. Geometry conversion is lazy.
   Map<String, Object> toNativePacket({Set<int> uploaded = const {}}) {
-    if (scene.hasOutline ||
-        camera.depthStrategy != DepthStrategy.standard ||
-        scene._settings.enabled ||
-        scene._textures.isNotEmpty ||
+    if (camera.depthStrategy != DepthStrategy.standard ||
+        scene._settings.copyWith(backgroundAlpha: 1).enabled ||
+        scene._settings.effects.isNotEmpty ||
+        scene._outline != null ||
         scene._meshes.any(
           (m) =>
-              m.containsKey('shader') ||
+              m['shader'] != null ||
               (m['clippingPlanes'] as List).isNotEmpty ||
-              m['shadowFlags'] != 2 ||
-              (m['instances'] as List).isNotEmpty,
-        )) {
-      throw UnsupportedError('This frame requires binary scene submissions.');
+              (m['coverage'] as List)[0] != 0 ||
+              (m['coverage'] as List)[1] != 1,
+        ) ||
+        temporalAA != null ||
+        graph != null ||
+        environment != null ||
+        scene.meshShaders.isNotEmpty ||
+        scene.hasShadows ||
+        scene.hasInstances ||
+        scene.hasDeformation) {
+      throw UnsupportedError(
+        'Deformation, instancing, shadows and GPU programs require binary native submissions.',
+      );
+    }
+    if (scene._textures.isNotEmpty) {
+      throw UnsupportedError(
+        'Texture materials require binary scene submissions.',
+      );
     }
     return _freeze(<String, Object>{
           'version': 1,
           'view_projection': camera.viewProjection,
           'background': scene._background,
+          'background_alpha': scene.backgroundOpacity,
           'light_direction': scene._light,
           'ambient': scene._ambient,
+          'lights': scene._lights,
+          'hemispheres': scene._hemispheres,
+          if (scene._areas.isNotEmpty) 'areas': scene._areas,
+          if (colorPipeline case final pipeline?)
+            'color_pipeline': {
+              'tone_mapping': pipeline.toneMapping.index,
+              'exposure': pipeline.exposure,
+              if (pipeline.sampleCount != 1)
+                'sample_count': pipeline.sampleCount,
+            },
           'geometries': [
             for (final id in {
               for (final mesh in scene._meshes) mesh['geometry'] as int,
@@ -422,16 +785,7 @@ class FrameSubmission {
           ],
           'meshes': [
             for (final mesh in scene._meshes)
-              Map<String, Object>.from(mesh)
-                ..remove('colorMap')
-                ..remove('pbr')
-                ..remove('pbrMaps')
-                ..remove('pbrScales')
-                ..remove('allImages')
-                ..remove('shadowFlags')
-                ..remove('instances')
-                ..remove('clippingPlanes')
-                ..remove('outlined'),
+              Map<String, Object>.from(mesh)..remove('colorMap'),
           ],
         })
         as Map<String, Object>;
@@ -447,13 +801,3 @@ Object _freeze(Object value) => switch (value) {
   ),
   _ => value,
 };
-
-List<double> _relativeInstance(
-  vm.Matrix4 parent,
-  vm.Matrix4 instance,
-  Vec3 origin,
-) {
-  final world = parent * instance;
-  world.setTranslation(world.getTranslation() - origin.toVectorMath());
-  return world.storage.toList();
-}

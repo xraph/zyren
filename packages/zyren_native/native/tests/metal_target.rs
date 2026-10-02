@@ -131,3 +131,59 @@ fn adapter_counter_observes_actual_renderer_readback() {
     assert_eq!(fg_destroy(handle), 1);
     drop(device);
 }
+
+#[test]
+#[ignore = "requires a native Metal device"]
+fn native_surface_premultiplies_encoded_color_and_capture_stays_straight() {
+    let mut renderer = pollster::block_on(Renderer::new()).unwrap();
+    let device = renderer.metal_device().unwrap();
+    let descriptor = MTLTextureDescriptor::new();
+    unsafe {
+        descriptor.setWidth(8);
+        descriptor.setHeight(8);
+    }
+    descriptor.setPixelFormat(MTLPixelFormat::BGRA8Unorm_sRGB);
+    descriptor.setUsage(MTLTextureUsage::RenderTarget | MTLTextureUsage::ShaderRead);
+    descriptor.setStorageMode(MTLStorageMode::Shared);
+    let texture = device.newTextureWithDescriptor(&descriptor).unwrap();
+    let mut frame: Frame = serde_json::from_value(json!({
+        "version":1, "view_projection":glam::Mat4::IDENTITY.to_cols_array(),
+        "background":[0.25,0.5,0.75], "background_alpha":0.5,
+        "light_direction":[0,0,1], "ambient":1,
+        "geometries":[], "meshes":[]
+    }))
+    .unwrap();
+    for (alpha, expected) in [
+        (0.5, [113, 94, 69, 128]),
+        (0., [0, 0, 0, 0]),
+        (1., [225, 188, 137, 255]),
+        (0.5, [113, 94, 69, 128]),
+    ] {
+        frame.background_alpha = alpha;
+        unsafe { renderer.render_to_metal(&frame, texture.clone()) }.unwrap();
+        let mut pixels = [0_u8; 8 * 8 * 4];
+        unsafe {
+            texture.getBytes_bytesPerRow_fromRegion_mipmapLevel(
+                std::ptr::NonNull::new(pixels.as_mut_ptr().cast()).unwrap(),
+                8 * 4,
+                MTLRegion {
+                    origin: MTLOrigin { x: 0, y: 0, z: 0 },
+                    size: MTLSize {
+                        width: 8,
+                        height: 8,
+                        depth: 1,
+                    },
+                },
+                0,
+            );
+        }
+        for (actual, expected) in pixels[..4].iter().zip(expected) {
+            assert!((i32::from(*actual) - expected).abs() <= 2, "{pixels:?}");
+        }
+    }
+    assert_eq!(renderer.counters().readback_bytes, 0);
+    let straight = renderer.render(&frame, 8, 8).unwrap();
+    for (actual, expected) in straight[..4].iter().zip([137, 188, 225, 128]) {
+        assert!((i32::from(*actual) - expected).abs() <= 2);
+    }
+}

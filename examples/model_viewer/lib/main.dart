@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_zyren/flutter_zyren.dart';
 import 'package:zyren_gltf/zyren_gltf.dart';
 import 'model_bounds.dart';
-import 'widgets/zero_state.dart';
 
 void main() => runApp(
   ModelViewerApp(
@@ -20,29 +19,43 @@ void main() => runApp(
 class ModelViewerApp extends StatelessWidget {
   final SceneRuntime runtime;
   final PresentationPolicy presentation;
+  final bool autoplayAnimations;
   const ModelViewerApp({
     super.key,
     required this.runtime,
     this.presentation = PresentationPolicy.requireNative,
+    this.autoplayAnimations = true,
   });
   @override
   Widget build(BuildContext context) => MaterialApp(
     debugShowCheckedModeBanner: false,
     theme: ThemeData.dark(useMaterial3: true).copyWith(
       visualDensity: VisualDensity.compact,
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          minimumSize: const Size(48, 40),
+        ),
+      ),
       scaffoldBackgroundColor: const Color(0xff101722),
     ),
-    home: ModelViewer(runtime: runtime, presentation: presentation),
+    home: ModelViewer(
+      runtime: runtime,
+      presentation: presentation,
+      autoplayAnimations: autoplayAnimations,
+    ),
   );
 }
 
 class ModelViewer extends StatefulWidget {
   final SceneRuntime runtime;
   final PresentationPolicy presentation;
+  final bool autoplayAnimations;
   const ModelViewer({
     super.key,
     required this.runtime,
     this.presentation = PresentationPolicy.requireNative,
+    this.autoplayAnimations = true,
   });
   @override
   State<ModelViewer> createState() => _ModelViewerState();
@@ -55,7 +68,13 @@ class _ModelViewerState extends State<ModelViewer> {
   LoadTask<ModelAsset>? task;
   StreamSubscription<LoadProgress>? progress;
   ModelAsset? model;
-  Group? instance;
+  ModelInstance? instance;
+  Group? studio;
+  late final AnimationSystem animations;
+  Registration? animationRegistration;
+  AnimationAction? action;
+  int selectedAnimation = 0;
+  StreamSubscription<FrameStats>? frames;
   AssetRequest<ModelAsset>? lastRequest;
   int generation = 0, selectedScene = 0;
   bool busy = false, diagnostic = false;
@@ -71,25 +90,30 @@ class _ModelViewerState extends State<ModelViewer> {
       runtime: widget.runtime,
       options: EngineOptions(presentation: widget.presentation),
     );
+    animations = controller.use(AnimationSystem());
+    frames = controller.frameStats.listen((_) {
+      if (mounted && action != null) setState(() {});
+    });
     controller.scene.background = const Color3(.025, .04, .065);
     controller.scene.renderSettings = RenderSettings(
       toneMapping: ToneMapping.aces,
       spatialAntialiasing: SpatialAntialiasing.fxaa,
     );
-    controller.scene.add(
-      DirectionalLight(
-        direction: const Vec3(-1, -2, -1),
-        intensity: 3,
-        name: 'Studio key',
-      ),
-    );
-    controller.scene.add(HemisphereLight(intensity: .6, name: 'Studio fill'));
     gestures = [
       controller.input.registerGesture(SceneGesture.scale),
       controller.input.registerGesture(SceneGesture.scroll),
     ];
     camera();
-    unawaited(load(bundle('assembly.glb')));
+    unawaited(
+      load(
+        bundle(
+          const String.fromEnvironment(
+            'ZYREN_MODEL',
+            defaultValue: 'assembly.glb',
+          ),
+        ),
+      ),
+    );
   }
 
   GltfOptions get options => GltfOptions(
@@ -168,6 +192,8 @@ class _ModelViewerState extends State<ModelViewer> {
       if (stale(ticket)) return;
       if (instance case final previous?) controller.scene.remove(previous);
       if (model case final previous?) controller.assets.release(previous);
+      configureAnimation(next);
+      configureLighting(next);
       controller.scene.add(next);
       setState(() {
         model = acquired;
@@ -211,6 +237,111 @@ class _ModelViewerState extends State<ModelViewer> {
     }
   }
 
+  void configureAnimation(ModelInstance next) {
+    animationRegistration?.dispose();
+    instance?.mixer.stopAll();
+    action = null;
+    animationRegistration = null;
+    selectedAnimation = next.animations.indexWhere(
+      (clip) => clip.tracks.isNotEmpty,
+    );
+    if (selectedAnimation < 0) return;
+    animationRegistration = animations.add(next.mixer);
+    action = next.mixer.play(next.animations[selectedAnimation]);
+    if (!widget.autoplayAnimations) action!.pause();
+  }
+
+  void selectAnimation(int? index) {
+    if (index == null || instance == null) return;
+    final playing = action?.isPlaying ?? false;
+    instance!.mixer.stopAll();
+    setState(() {
+      selectedAnimation = index;
+      action = instance!.mixer.play(instance!.animations[index]);
+      if (!playing) action!.pause();
+    });
+  }
+
+  Widget animationControls() => Row(
+    children: [
+      SizedBox(
+        width: 100,
+        child: DropdownButton<int>(
+          key: const ValueKey('Animation clip'),
+          isExpanded: true,
+          value: selectedAnimation,
+          onChanged: selectAnimation,
+          items: [
+            for (var i = 0; i < instance!.animations.length; i++)
+              if (instance!.animations[i].tracks.isNotEmpty)
+                DropdownMenuItem(
+                  value: i,
+                  child: Text(
+                    instance!.animations[i].name ?? 'Clip ${i + 1}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+          ],
+        ),
+      ),
+      IconButton(
+        key: const ValueKey('Animation playback'),
+        tooltip: action!.isPlaying ? 'Pause animation' : 'Play animation',
+        onPressed: () => setState(() {
+          if (action!.isPlaying) {
+            action!.pause();
+          } else {
+            action!.resume();
+          }
+        }),
+        icon: Icon(action!.isPlaying ? Icons.pause : Icons.play_arrow),
+      ),
+      Expanded(
+        child: Slider(
+          key: const ValueKey('Animation playhead'),
+          value: action!.timeSeconds,
+          max: math.max(action!.clip.durationSeconds, .001),
+          label: '${action!.timeSeconds.toStringAsFixed(1)} s',
+          onChanged: (value) => setState(
+            () => action!.seek(Duration(microseconds: (value * 1e6).round())),
+          ),
+        ),
+      ),
+      IconButton(
+        tooltip: 'Restart animation',
+        onPressed: () => setState(() => action!.seek(Duration.zero)),
+        icon: const Icon(Icons.replay),
+      ),
+    ],
+  );
+
+  void configureLighting(Group root) {
+    var hasPbr = false, hasLights = false;
+    final pending = <Object3D>[root];
+    while (pending.isNotEmpty) {
+      final object = pending.removeLast();
+      hasPbr |= object is Mesh && object.material is StandardMaterial;
+      hasLights |= object is Light;
+      pending.addAll(object.children);
+    }
+    studio = null;
+    if (hasPbr && !hasLights) {
+      studio = root.add(Group(name: 'Viewer studio'))
+        ..add(
+          DirectionalLight(intensity: 3)
+            ..rotateY(-.5)
+            ..rotateX(-.5),
+        )
+        ..add(
+          HemisphereLight(
+            intensity: .7,
+            groundColor: const Color3(.15, .18, .25),
+          ),
+        );
+    }
+  }
+
   List<String> objectNames(Object3D root) {
     final result = <String>[], pending = [root];
     while (pending.isNotEmpty) {
@@ -246,11 +377,16 @@ class _ModelViewerState extends State<ModelViewer> {
 
   void clear() {
     cancel();
+    animationRegistration?.dispose();
+    animationRegistration = null;
+    instance?.mixer.stopAll();
+    action = null;
     if (instance case final old?) controller.scene.remove(old);
     if (model case final old?) controller.assets.release(old);
     setState(() {
       model = null;
       instance = null;
+      studio = null;
       names = const [];
       error = '';
       status = 'Choose a model';
@@ -270,6 +406,8 @@ class _ModelViewerState extends State<ModelViewer> {
       final bounds = await modelBounds(next, () => stale(ticket));
       if (stale(ticket)) return;
       controller.scene.remove(instance!);
+      configureAnimation(next);
+      configureLighting(next);
       controller.scene.add(next);
       setState(() {
         instance = next;
@@ -331,6 +469,8 @@ class _ModelViewerState extends State<ModelViewer> {
     for (final registration in gestures) {
       registration.dispose();
     }
+    animationRegistration?.dispose();
+    unawaited(frames?.cancel());
     controller.dispose();
     address.dispose();
     super.dispose();
@@ -349,6 +489,15 @@ class _ModelViewerState extends State<ModelViewer> {
                 const Expanded(
                   child: Text('Model viewer', style: TextStyle(fontSize: 20)),
                 ),
+                if (studio != null)
+                  IconButton(
+                    tooltip: 'Studio light',
+                    isSelected: studio!.visible,
+                    onPressed: () =>
+                        setState(() => studio!.visible = !studio!.visible),
+                    icon: const Icon(Icons.light_mode_outlined),
+                    selectedIcon: const Icon(Icons.light_mode),
+                  ),
                 IconButton(
                   tooltip: 'Frame model',
                   onPressed: resetCamera,
@@ -374,6 +523,24 @@ class _ModelViewerState extends State<ModelViewer> {
                     ),
                   ),
                 ),
+                PopupMenuButton<bool>(
+                  tooltip: 'Material mode',
+                  icon: const Icon(Icons.tune),
+                  initialValue: diagnostic,
+                  onSelected: (value) => setState(() => diagnostic = value),
+                  itemBuilder: (_) => [
+                    CheckedPopupMenuItem(
+                      value: false,
+                      checked: !diagnostic,
+                      child: const Text('Native PBR'),
+                    ),
+                    CheckedPopupMenuItem(
+                      value: true,
+                      checked: diagnostic,
+                      child: const Text('Unlit diagnostic'),
+                    ),
+                  ],
+                ),
                 IconButton(
                   tooltip: 'Load URI',
                   onPressed: loadUri,
@@ -381,33 +548,31 @@ class _ModelViewerState extends State<ModelViewer> {
                 ),
               ],
             ),
-            Wrap(
-              spacing: 6,
-              runSpacing: 0,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                TextButton(
-                  onPressed: () => load(bundle('assembly.glb')),
-                  child: const Text('Bundled GLB'),
-                ),
-                TextButton(
-                  onPressed: () => load(bundle('assembly.gltf')),
-                  child: const Text('Relative glTF'),
-                ),
-                FilterChip(
-                  label: const Text('PBR preview'),
-                  selected: diagnostic,
-                  onSelected: (value) => setState(() => diagnostic = value),
-                ),
-              ],
-            ),
             if (diagnostic)
               const Text(
-                'PBR preview uses unlit base color on the next load.',
+                'Diagnostic mode uses unlit base color on the next load.',
                 style: TextStyle(fontSize: 12),
               ),
             Row(
               children: [
+                PopupMenuButton<String>(
+                  tooltip: 'Examples',
+                  icon: const Icon(Icons.view_in_ar),
+                  onSelected: (file) => load(bundle(file)),
+                  itemBuilder: (_) => [
+                    for (final (file, label) in [
+                      ('assembly.glb', 'GLB'),
+                      ('assembly.gltf', 'Relative glTF'),
+                      ('pbr.glb', 'PBR model'),
+                      ('colors.glb', 'Colors'),
+                      ('normal-map.glb', 'Normal map'),
+                      ('animated.glb', 'Animation'),
+                      ('deformation.glb', 'Skin + morph'),
+                      ('deformation-normal.glb', 'Skin + normal map'),
+                    ])
+                      PopupMenuItem(value: file, child: Text(label)),
+                  ],
+                ),
                 Expanded(
                   child:
                       !busy &&
@@ -478,6 +643,7 @@ class _ModelViewerState extends State<ModelViewer> {
                   ),
                 ),
               ),
+            if (action != null) animationControls(),
             if (busy) const LinearProgressIndicator(minHeight: 2),
             Expanded(
               child: Stack(

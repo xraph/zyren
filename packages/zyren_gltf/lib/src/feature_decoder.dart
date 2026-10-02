@@ -204,23 +204,42 @@ List<PrimitiveRecipe> partitionFeatures(
     }
     final attributes = <VertexSemantic, VertexAttribute>{};
     for (final entry in geometry.attributes.entries) {
-      final size = entry.value.format.components;
-      budget.reserve(vertices.length * size * 8, path);
-      final values = Float32List(vertices.length * size);
-      final source = entry.value.data as Float32List;
-      for (final entry in vertices.entries) {
-        values.setRange(
-          entry.value * size,
-          (entry.value + 1) * size,
+      final stride = entry.value.format.stride;
+      budget.reserve(vertices.length * stride * 2, path);
+      final bytes = Uint8List(vertices.length * stride);
+      final data = entry.value.data;
+      final source = data.buffer.asUint8List(
+        data.offsetInBytes,
+        data.lengthInBytes,
+      );
+      for (final vertex in vertices.entries) {
+        bytes.setRange(
+          vertex.value * stride,
+          (vertex.value + 1) * stride,
           source,
-          entry.key * size,
+          vertex.key * stride,
         );
       }
+      final TypedData values = switch (entry.value.format) {
+        VertexFormat.uint16x4 => bytes.buffer.asUint16List(),
+        VertexFormat.uint32x4 => bytes.buffer.asUint32List(),
+        VertexFormat.unorm8x4 => bytes,
+        _ => bytes.buffer.asFloat32List(),
+      };
       attributes[entry.key] = VertexAttribute(
         values,
         format: entry.value.format,
       );
     }
+    List<double>? remapMorph(Float32List? source) {
+      if (source == null) return null;
+      budget.reserve(vertices.length * 3 * 8, path);
+      return [
+        for (final vertex in vertices.keys)
+          ...source.sublist(vertex * 3, vertex * 3 + 3),
+      ];
+    }
+
     final format = vertices.length <= 65536
         ? IndexFormat.uint16
         : IndexFormat.uint32;
@@ -235,6 +254,15 @@ List<PrimitiveRecipe> partitionFeatures(
           indices: [for (final index in indices) vertices[index]!],
           indexFormat: format,
           topology: geometry.topology,
+          morphTargets: [
+            for (final target in geometry.morphTargets)
+              MorphTarget(
+                name: target.name,
+                positions: remapMorph(target.positions),
+                normals: remapMorph(target.normals),
+                tangents: remapMorph(target.tangents),
+              ),
+          ],
         ),
         recipe.material,
         recipe.name,

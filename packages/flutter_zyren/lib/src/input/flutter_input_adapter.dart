@@ -10,6 +10,20 @@ typedef ScenePointerCallback = void Function(ScenePointerEvent event);
 
 /// One controller's input. Events are published only by its attached view.
 class FlutterInputAdapter implements ViewportInputSource, KeyboardInputSource {
+  double get logicalWidth => viewport.width;
+  set logicalWidth(double value) =>
+      viewport = ViewportMetrics(value, viewport.height);
+  double get logicalHeight => viewport.height;
+  set logicalHeight(double value) =>
+      viewport = ViewportMetrics(viewport.width, value);
+  ScenePointerKind _gestureKind = ScenePointerKind.unknown;
+  int _gestureButtons = 0;
+  bool _active = true;
+  void setActive(bool value) {
+    if (!value && _active) suspend();
+    _active = value;
+  }
+
   final _events = StreamController<ScenePointerEvent>.broadcast();
   final _keys = StreamController<SceneKeyEvent>.broadcast();
   final _keyInterests = <SceneKey, int>{};
@@ -62,7 +76,9 @@ class FlutterInputAdapter implements ViewportInputSource, KeyboardInputSource {
   }
 
   KeyEventResult _key(FocusNode node, KeyEvent event) {
-    if (_closed || !node.hasPrimaryFocus) return KeyEventResult.ignored;
+    if (_closed || !_active || !node.hasPrimaryFocus) {
+      return KeyEventResult.ignored;
+    }
     final key = _keyMap[event.logicalKey];
     if (key == null || (_keyInterests[key] ?? 0) == 0) {
       return KeyEventResult.ignored;
@@ -113,7 +129,7 @@ class FlutterInputAdapter implements ViewportInputSource, KeyboardInputSource {
   }
 
   void emit(ScenePointerEvent event, ScenePointerCallback? callback) {
-    if (_closed) return;
+    if (_closed || !_active) return;
     switch (event.phase) {
       case ScenePointerPhase.down:
         _activePointers[event.pointer] = event;
@@ -303,6 +319,8 @@ class FlutterInputAdapter implements ViewportInputSource, KeyboardInputSource {
       final rawTap = wants(SceneGesture.pointerDrag) && wants(SceneGesture.tap);
       var tapped = false;
       if (event is PointerDownEvent) {
+        _gestureKind = convert(event, phase).kind;
+        _gestureButtons = event.buttons;
         _dragTap =
             rawTap && _activePointers.isEmpty && event.buttons == kPrimaryButton
             ? event
@@ -329,6 +347,7 @@ class FlutterInputAdapter implements ViewportInputSource, KeyboardInputSource {
       Offset delta = Offset.zero,
       double scale = 1,
       double rotation = 0,
+      int pointerCount = 0,
     }) => emit(
       ScenePointerEvent(
         point: ViewportPoint(point.dx, point.dy),
@@ -336,6 +355,9 @@ class FlutterInputAdapter implements ViewportInputSource, KeyboardInputSource {
         delta: ViewportPoint(delta.dx, delta.dy),
         scale: scale,
         rotation: rotation,
+        pointerCount: pointerCount,
+        kind: _gestureKind,
+        buttons: _gestureButtons,
         modifiers: modifiers,
       ),
       callback,
@@ -349,6 +371,10 @@ class FlutterInputAdapter implements ViewportInputSource, KeyboardInputSource {
       child: Builder(
         builder: (context) => Listener(
           behavior: HitTestBehavior.opaque,
+          onPointerPanZoomStart: (_) {
+            _gestureKind = ScenePointerKind.trackpad;
+            _gestureButtons = 0;
+          },
           onPointerDown: (event) {
             _stopCoast(cancel: true);
             if (wantsKeyboard) Focus.of(context).requestFocus();
@@ -388,7 +414,48 @@ class FlutterInputAdapter implements ViewportInputSource, KeyboardInputSource {
           },
           child: RawGestureDetector(
             gestures: {
-              if (wants(SceneGesture.scroll))
+              if (wants(SceneGesture.scale))
+                ScaleGestureRecognizer:
+                    GestureRecognizerFactoryWithHandlers<
+                      ScaleGestureRecognizer
+                    >(
+                      () => ScaleGestureRecognizer(
+                        allowedButtonsFilter: (buttons) =>
+                            buttons == kPrimaryButton ||
+                            buttons == kSecondaryButton ||
+                            buttons == kMiddleMouseButton,
+                      ),
+                      (recognizer) {
+                        recognizer
+                          ..onStart = (event) {
+                            gesture(
+                              ScenePointerPhase.scaleStart,
+                              event.localFocalPoint,
+                              pointerCount: event.pointerCount,
+                            );
+                          }
+                          ..onUpdate = (event) {
+                            gesture(
+                              ScenePointerPhase.scaleUpdate,
+                              event.localFocalPoint,
+                              delta: event.focalPointDelta,
+                              scale: event.scale,
+                              rotation: event.rotation,
+                              pointerCount: event.pointerCount,
+                            );
+                          }
+                          ..onEnd = (event) {
+                            gesture(
+                              ScenePointerPhase.scaleEnd,
+                              Offset.zero,
+                              pointerCount: event.pointerCount,
+                            );
+                          };
+                      },
+                    ),
+              if (wants(SceneGesture.scroll) &&
+                  (wants(SceneGesture.pointerDrag) ||
+                      !wants(SceneGesture.scale)))
                 _TrackpadZoomRecognizer:
                     GestureRecognizerFactoryWithHandlers<
                       _TrackpadZoomRecognizer
@@ -410,24 +477,6 @@ class FlutterInputAdapter implements ViewportInputSource, KeyboardInputSource {
                   wants(SceneGesture.tap) && !wants(SceneGesture.pointerDrag)
                   ? (event) =>
                         gesture(ScenePointerPhase.tap, event.localPosition)
-                  : null,
-              onScaleStart: wants(SceneGesture.scale)
-                  ? (event) => gesture(
-                      ScenePointerPhase.scaleStart,
-                      event.localFocalPoint,
-                    )
-                  : null,
-              onScaleUpdate: wants(SceneGesture.scale)
-                  ? (event) => gesture(
-                      ScenePointerPhase.scaleUpdate,
-                      event.localFocalPoint,
-                      delta: event.focalPointDelta,
-                      scale: event.scale,
-                      rotation: event.rotation,
-                    )
-                  : null,
-              onScaleEnd: wants(SceneGesture.scale)
-                  ? (_) => gesture(ScenePointerPhase.scaleEnd, Offset.zero)
                   : null,
               child: child,
             ),

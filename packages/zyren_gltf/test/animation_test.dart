@@ -9,7 +9,8 @@ void main() {
     'imported joints and morphs deform private geometry and seek deterministically',
     () async {
       final asset = await load(animatedModel());
-      final a = asset.instantiate(), b = asset.instantiate();
+      final a = asset.instantiate(nativeDeformation: false),
+          b = asset.instantiate(nativeDeformation: false);
       final mesh = a.nodes[0]!.children.single as Mesh;
       final other = b.nodes[0]!.children.single as Mesh;
       expect(identical(mesh.geometry, other.geometry), isFalse);
@@ -37,7 +38,7 @@ void main() {
 
   test('STEP and CUBICSPLINE retain glTF interpolation semantics', () async {
     final step = await load(animatedModel(morph: false, interpolation: 'STEP'));
-    final instance = step.instantiate();
+    final instance = step.instantiate(nativeDeformation: false);
     instance.preparePose(
       animation: step.animations.single,
       time: const Duration(milliseconds: 999),
@@ -51,7 +52,7 @@ void main() {
     final cubic = await load(
       animatedModel(morph: false, interpolation: 'CUBICSPLINE'),
     );
-    final animated = cubic.instantiate();
+    final animated = cubic.instantiate(nativeDeformation: false);
     animated.preparePose(
       animation: cubic.animations.single,
       time: const Duration(milliseconds: 500),
@@ -62,7 +63,8 @@ void main() {
   test(
     'invalid morph weights and changed joint parents leave the whole pose intact',
     () async {
-      final asset = await load(animatedModel()), instance = asset.instantiate();
+      final asset = await load(animatedModel()),
+          instance = asset.instantiate(nativeDeformation: false);
       final mesh = instance.nodes[0]!.children.single as Mesh;
       final before = mesh.geometry.capture();
       expect(
@@ -112,7 +114,7 @@ void main() {
   );
   test('inverse bind matrices cancel the joint bind pose', () async {
     final asset = await load(animatedModel(bindPosition: 2, morph: false));
-    final instance = asset.instantiate();
+    final instance = asset.instantiate(nativeDeformation: false);
     final mesh = instance.nodes[0]!.children.single as Mesh;
     expect(mesh.geometry.positions.first, -1);
     instance.preparePose(
@@ -137,7 +139,7 @@ void main() {
           },
         ),
       );
-      final instance = asset.instantiate();
+      final instance = asset.instantiate(nativeDeformation: false);
       instance.preparePose(
         animation: asset.animations.single,
         time: const Duration(seconds: 1),
@@ -219,7 +221,7 @@ void main() {
     'skin normals use inverse transpose under nonuniform joint scales',
     () async {
       final asset = await load(animatedModel(morph: false));
-      final instance = asset.instantiate();
+      final instance = asset.instantiate(nativeDeformation: false);
       instance.nodes[1]!.scale = const Vec3(2, 3, 4);
       instance.preparePose()();
       final mesh = instance.nodes[0]!.children.single as Mesh;

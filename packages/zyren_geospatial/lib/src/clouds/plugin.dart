@@ -1,6 +1,5 @@
 import 'dart:math' as math;
 import 'package:zyren/zyren.dart';
-import 'package:zyren/rendering.dart' show FrameStats;
 import '../atmosphere/plugin.dart';
 import '../atmosphere/cloud_inputs.dart';
 import '../atmosphere/lut_cache.dart';

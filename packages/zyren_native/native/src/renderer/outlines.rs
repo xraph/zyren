@@ -7,11 +7,13 @@ pub(super) struct View {
     size: [u32; 2],
     samples: u32,
     mask: wgpu::TextureView,
+    format: wgpu::TextureFormat,
+    background: Option<wgpu::TextureView>,
     multisample: Option<wgpu::TextureView>,
 }
 impl View {
     fn bytes(&self) -> u64 {
-        bytes(self.size, self.samples)
+        bytes(self.size, self.samples, self.background.is_some())
     }
     pub fn attachment(&self) -> &wgpu::TextureView {
         self.multisample.as_ref().unwrap_or(&self.mask)
@@ -20,8 +22,10 @@ impl View {
         self.multisample.as_ref().map(|_| &self.mask)
     }
 }
-fn bytes(size: [u32; 2], samples: u32) -> u64 {
-    size[0] as u64 * size[1] as u64 * if samples == 4 { 20 } else { 4 }
+fn bytes(size: [u32; 2], samples: u32, composite: bool) -> u64 {
+    size[0] as u64
+        * size[1] as u64
+        * (if samples == 4 { 20 } else { 4 } + if composite { 4 } else { 0 })
 }
 fn id(frame: &Frame) -> u64 {
     frame.binary.as_ref().map_or(0, |packet| packet.view)
@@ -30,7 +34,7 @@ fn id(frame: &Frame) -> u64 {
 #[derive(Default)]
 pub(super) struct Outlines {
     views: HashMap<u64, View>,
-    pipelines: HashMap<wgpu::TextureFormat, wgpu::RenderPipeline>,
+    pipelines: HashMap<(wgpu::TextureFormat, bool), wgpu::RenderPipeline>,
 }
 impl Outlines {
     pub fn remove(&mut self, id: u64) {
@@ -41,6 +45,9 @@ impl Outlines {
     }
     pub fn view(&self, frame: &Frame) -> Option<&View> {
         self.views.get(&id(frame))
+    }
+    pub fn color_target(&self, frame: &Frame) -> Option<&wgpu::TextureView> {
+        self.view(frame).and_then(|view| view.background.as_ref())
     }
     pub fn prepare(
         &mut self,
@@ -54,14 +61,17 @@ impl Outlines {
             self.remove(id);
             return Ok(());
         }
-        let samples = frame.settings.sample_count;
+        let samples = frame.sample_count();
+        let composite =
+            frame.background_alpha < 1. || frame.settings.enabled || frame.graph.is_some();
+        let key = (format, composite);
         let other = self.bytes() - self.views.get(&id).map_or(0, View::bytes);
-        if bytes(size, samples) + other > BUDGET {
+        if bytes(size, samples, composite) + other > BUDGET {
             return Err("Outline targets exceed the 64 MiB device target budget".into());
         }
         let validation = device.push_error_scope(wgpu::ErrorFilter::Validation);
         let memory = device.push_error_scope(wgpu::ErrorFilter::OutOfMemory);
-        let pipeline = (!self.pipelines.contains_key(&format)).then(|| {
+        let pipeline = (!self.pipelines.contains_key(&key)).then(|| {
             let shader = device.create_shader_module(wgpu::include_wgsl!("outlines.wgsl"));
             device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
                 label: Some("selection outline overlay"),
@@ -78,7 +88,7 @@ impl Outlines {
                     compilation_options: Default::default(),
                     targets: &[Some(wgpu::ColorTargetState {
                         format,
-                        blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                        blend: (!composite).then_some(wgpu::BlendState::ALPHA_BLENDING),
                         write_mask: wgpu::ColorWrites::ALL,
                     })],
                 }),
@@ -92,9 +102,14 @@ impl Outlines {
         let view = self
             .views
             .get(&id)
-            .is_none_or(|v| v.size != size || v.samples != samples)
+            .is_none_or(|v| {
+                v.size != size
+                    || v.samples != samples
+                    || v.format != format
+                    || v.background.is_some() != composite
+            })
             .then(|| {
-                let make = |sample_count| {
+                let make = |sample_count, format| {
                     device
                         .create_texture(&wgpu::TextureDescriptor {
                             label: Some("selection coverage"),
@@ -106,7 +121,7 @@ impl Outlines {
                             mip_level_count: 1,
                             sample_count,
                             dimension: wgpu::TextureDimension::D2,
-                            format: FORMAT,
+                            format,
                             usage: wgpu::TextureUsages::RENDER_ATTACHMENT
                                 | wgpu::TextureUsages::TEXTURE_BINDING,
                             view_formats: &[],
@@ -116,8 +131,10 @@ impl Outlines {
                 View {
                     size,
                     samples,
-                    mask: make(1),
-                    multisample: (samples == 4).then(|| make(4)),
+                    format,
+                    background: composite.then(|| make(1, format)),
+                    mask: make(1, FORMAT),
+                    multisample: (samples == 4).then(|| make(4, FORMAT)),
                 }
             });
         let mut failure = None;
@@ -133,7 +150,7 @@ impl Outlines {
             self.views.insert(id, view);
         }
         if let Some(pipeline) = pipeline {
-            self.pipelines.insert(format, pipeline);
+            self.pipelines.insert(key, pipeline);
         }
         Ok(())
     }
@@ -145,12 +162,14 @@ impl Outlines {
         frame: &Frame,
         output: &wgpu::TextureView,
         format: wgpu::TextureFormat,
+        associated: bool,
     ) {
         let Some(view) = self.view(frame) else {
             return;
         };
         let style = frame.settings.outline.as_ref().expect("prepared outline");
-        let pipeline = &self.pipelines[&format];
+        let composite = view.background.is_some();
+        let pipeline = &self.pipelines[&(format, composite)];
         let values = [
             style.color[0],
             style.color[1],
@@ -158,8 +177,8 @@ impl Outlines {
             style.color[3],
             style.width as f32,
             if format.is_srgb() { 1. } else { 0. },
-            0.,
-            0.,
+            if composite { 1. } else { 0. },
+            if associated { 1. } else { 0. },
         ];
         let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("outline style"),
@@ -178,6 +197,12 @@ impl Outlines {
                     binding: 1,
                     resource: buffer.as_entire_binding(),
                 },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::TextureView(
+                        view.background.as_ref().unwrap_or(&view.mask),
+                    ),
+                },
             ],
         });
         let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -187,7 +212,11 @@ impl Outlines {
                 resolve_target: None,
                 depth_slice: None,
                 ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Load,
+                    load: if composite {
+                        wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT)
+                    } else {
+                        wgpu::LoadOp::Load
+                    },
                     store: wgpu::StoreOp::Store,
                 },
             })],

@@ -1,3 +1,4 @@
+static TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 mod support {
     pub mod draco_fixture;
 }
@@ -6,6 +7,7 @@ use zyren_runtime::draco::{MeshLimits, decode_draco};
 
 #[test]
 fn draco_ffi_owns_and_clears_packet_memory() {
+    let _guard = TEST_LOCK.lock().unwrap();
     use zyren_runtime::draco::{MeshBytes, fg2_draco_decode, fg2_draco_free};
     let bytes = encoded(10);
     let mut output = MeshBytes {
@@ -51,6 +53,7 @@ fn word(bytes: &[u8], offset: usize) -> u32 {
 
 #[test]
 fn draco_decodes_sequential_and_edgebreaker_with_unique_attribute_ids() {
+    let _guard = TEST_LOCK.lock().unwrap();
     for (speed, method) in [(10, 0), (0, 1)] {
         let encoded = encoded(speed);
         assert_eq!(encoded[8], method);
@@ -77,6 +80,7 @@ fn draco_decodes_sequential_and_edgebreaker_with_unique_attribute_ids() {
 
 #[test]
 fn draco_limits_refuse_counts_and_attribute_output() {
+    let _guard = TEST_LOCK.lock().unwrap();
     for speed in [0, 10] {
         let input = encoded(speed);
         for cap in [
@@ -104,6 +108,7 @@ fn draco_limits_refuse_counts_and_attribute_output() {
 
 #[test]
 fn draco_rejects_truncated_input_and_huge_connectivity_before_decode() {
+    let _guard = TEST_LOCK.lock().unwrap();
     let input = encoded(10);
     for end in 0..input.len() {
         assert!(

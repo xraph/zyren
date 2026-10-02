@@ -1,14 +1,30 @@
 name: shader_lab
+description: Native shader effects through the public Dart plugin API.
 publish_to: none
-description: A separately packaged native HDR effect plugin using public Zyren APIs.
-version: 0.1.0
+version: 0.1.0+1
 resolution: workspace
 environment:
   sdk: '>=3.10.0 <4.0.0'
 dependencies:
+  flutter:
+    sdk: flutter
+  flutter_zyren:
+    path: ../../packages/flutter_zyren
+  zyren_inspector:
+    path: ../../packages/zyren_inspector
   zyren:
     path: ../../packages/zyren
-dev_dependencies:
   zyren_native:
     path: ../../packages/zyren_native
-  test: ^1.25.0
+  shader_lab_effects:
+    path: effects_plugin
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+  test: any
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/colors-uastc.ktx2

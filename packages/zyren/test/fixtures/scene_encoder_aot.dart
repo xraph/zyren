@@ -31,6 +31,21 @@ void main() {
   if (encoder.encode(capture()).uploadedBytes != 0) {
     throw StateError('Hidden geometry was uploaded again.');
   }
+  mesh.position = const Vec3(30, 0, 0);
+  final outside = capture();
+  final culled = encoder.encode(outside);
+  if (outside.scene.drawCalls != 0 ||
+      culled.uploadedBytes != 0 ||
+      ByteData.sublistView(culled.bytes).getUint32(4, Endian.little) != 27) {
+    throw StateError('Culled frame lost visibility or resource retention.');
+  }
+  encoder.accept(culled);
+  mesh.position = const Vec3(1, 0, 0);
+  final restored = encoder.encode(capture());
+  if (restored.uploadedBytes != 0 || restored.changedMeshes != 1) {
+    throw StateError('Restoring a culled mesh did not update its color draw.');
+  }
+  encoder.accept(restored);
   final image = TextureImage.rgba(
     width: 2,
     height: 2,

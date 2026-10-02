@@ -28,7 +28,7 @@ void main() {
     final frozen = capture();
     mesh.fragmentCoverage = const FragmentCoverage.full();
     final faded = encoder.encode(frozen);
-    expect(ByteData.sublistView(faded.bytes).getUint32(4, Endian.little), 31);
+    expect(ByteData.sublistView(faded.bytes).getUint32(4, Endian.little), 36);
     expect(faded.uploadedBytes, 0);
     expect(faded.changedMeshes, 1);
     encoder.accept(faded);

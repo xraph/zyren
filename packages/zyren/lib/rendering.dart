@@ -15,7 +15,13 @@ export 'src/resources/resource_scope.dart'
         ResourceDevice,
         ShaderDevice,
         ShaderBuild,
+        MeshShaderDevice,
+        MeshShaderDeviceDescription,
         GraphDevice,
         GraphDeviceDescription,
         MaterialDevice,
         EnvironmentDevice;
+
+export 'src/rendering/color_pipeline.dart';
+
+export 'src/rendering/temporal_aa_options.dart';

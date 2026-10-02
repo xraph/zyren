@@ -10,6 +10,10 @@ fn triangle() -> Geometry {
         uv0: vec![[0., 0.]; 3],
         uv1: vec![],
         tangents: vec![],
+        colors: vec![],
+        joints: vec![],
+        weights: vec![],
+        morphs: vec![],
     }
 }
 #[test]
@@ -108,8 +112,9 @@ fn expanded_geometry_requires_a_full_recipe_update() {
 }
 
 #[test]
-fn tangent_ranges_preserve_layout_handedness_and_separate_gpu_stream() {
+fn tangent_ranges_keep_handedness_and_use_their_own_buffer() {
     let mut base = triangle();
+    base.tangents = vec![[1., 0., 0., 1.]; 3];
     let mut patch = GeometryPatch {
         id: 8,
         base: 7,
@@ -119,18 +124,43 @@ fn tangent_ranges_preserve_layout_handedness_and_separate_gpu_stream() {
             values: vec![1., 0., 0., -1.],
         }],
     };
-    assert!(patch.apply(&base).is_err());
-    let bytes = base.byte_length();
-    base.tangents = vec![[1., 0., 0., 1.]; 3];
-    assert_eq!(base.byte_length(), bytes + 48);
     let next = patch.apply(&base).unwrap();
-    assert_eq!(base.tangents[1][3], 1.);
-    assert_eq!(next.tangents[1][3], -1.);
+    assert_eq!(next.tangents[1], [1., 0., 0., -1.]);
+    assert_eq!(base.tangents[1], [1., 0., 0., 1.]);
     assert_eq!(patch.gpu_ranges(), vec![(2, 1, 2)]);
     patch.ranges[0].values[3] = 0.;
     assert!(patch.apply(&base).is_err());
     patch.ranges[0].values = vec![0., 0., 0., 1.];
     assert!(patch.apply(&base).is_err());
-    base.tangents.pop();
-    assert!(base.validate().is_err());
+    patch.ranges[0].values = vec![1., 0., 0., 1.];
+    base.tangents.clear();
+    assert!(patch.apply(&base).is_err());
+}
+
+#[test]
+fn color_ranges_validate_rgba_and_keep_their_own_gpu_rows() {
+    let mut base = triangle();
+    base.colors = vec![[1., 0., 0., 1.]; 3];
+    let mut patch = GeometryPatch {
+        id: 8,
+        base: 7,
+        ranges: vec![AttributeRange {
+            semantic: 5,
+            first: 1,
+            values: vec![0.25, 0.5, 0.75, 0.],
+        }],
+    };
+    let next = patch.apply(&base).unwrap();
+    assert_eq!(next.colors[1], [0.25, 0.5, 0.75, 0.]);
+    assert_eq!(base.colors[1], [1., 0., 0., 1.]);
+    assert_eq!(patch.gpu_ranges(), vec![(3, 1, 2)]);
+    assert_eq!(base.byte_length(), 180);
+    assert_eq!(base.cpu_byte_length(), 156);
+    for invalid in [-0.1, 1.1, f32::NAN, f32::INFINITY] {
+        patch.ranges[0].values[3] = invalid;
+        assert!(patch.apply(&base).is_err());
+    }
+    patch.ranges[0].values[3] = 1.;
+    base.colors.clear();
+    assert!(patch.apply(&base).is_err());
 }

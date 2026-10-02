@@ -2,8 +2,9 @@ part of 'native_renderer.dart';
 
 /// Native rendering from a captured submission, without Flutter dependencies.
 /// Apple surfaces use the same worker and GPU device as explicit capture.
-class NativeBackend implements MaterialBackend, GpuDiagnosticsBackend {
+class NativeBackend implements NativeGpuBackend {
   final NativeRenderer _renderer;
+  Set<TextureFormat> _textureFormats = const {};
   late final ScenePacketEncoder _encoder;
   Future<FrameOutput>? _drawing;
   final bool _experimentalAppleSurfaces;
@@ -23,7 +24,7 @@ class NativeBackend implements MaterialBackend, GpuDiagnosticsBackend {
     _NativeResourceDevice? resources,
   }) : _resources =
            resources ??
-           _NativeResourceDevice(_workerTransport(_renderer._worker)) {
+           _NativeResourceDevice(_workerGpuSender(_renderer._worker)) {
     _encoder = ScenePacketEncoder(viewId: viewId, materialDevice: _resources);
   }
 
@@ -45,7 +46,7 @@ class NativeBackend implements MaterialBackend, GpuDiagnosticsBackend {
       false,
       viewId: ++_renderer._nextView,
       resources: _resources,
-    );
+    ).._textureFormats = _textureFormats;
   }
 
   @override
@@ -65,6 +66,7 @@ class NativeBackend implements MaterialBackend, GpuDiagnosticsBackend {
     return _resources.inspectGpu(allocationLimit: allocationLimit);
   }
 
+  @override
   Future<ResourceStats> resourceStats() => _resources.stats();
 
   @override
@@ -78,6 +80,7 @@ class NativeBackend implements MaterialBackend, GpuDiagnosticsBackend {
     return compiler;
   }
 
+  @override
   Future<ShaderStats> shaderStats() => _resources.shaderStats();
 
   @override
@@ -91,8 +94,6 @@ class NativeBackend implements MaterialBackend, GpuDiagnosticsBackend {
     return compiler;
   }
 
-  Future<GraphCacheStats> graphStats() => _resources.graphStats();
-
   @override
   MaterialCompiler createMaterialCompiler({String label = ''}) {
     if (_closed) throw StateError('Backend has closed.');
@@ -102,16 +103,36 @@ class NativeBackend implements MaterialBackend, GpuDiagnosticsBackend {
     return compiler;
   }
 
+  @override
+  Future<GraphCacheStats> graphStats() => _resources.graphStats();
+
+  @override
+  Future<TemporalStats> temporalStats() => _resources.temporalStats();
+
+  @override
+  Future<TransmissionStats> transmissionStats() =>
+      _resources.transmissionStats();
+
+  @override
+  Future<ShadowStats> shadowStats() => _resources.shadowStats();
+
   /// Apple texture registration remains experimental while Flutter's texture
   /// cache prevents prompt buffer retirement. Keep it out of default selection.
   static Future<NativeBackend> create({
     bool experimentalAppleSurfaces = false,
   }) async {
     try {
-      return NativeBackend._(
+      final backend = NativeBackend._(
         await NativeRenderer.create(),
         experimentalAppleSurfaces,
       );
+      try {
+        backend._textureFormats = await backend._resources.textureFormats();
+        return backend;
+      } catch (_) {
+        await backend.close();
+        rethrow;
+      }
     } catch (error) {
       throw SceneException(
         SceneIssue(
@@ -128,7 +149,22 @@ class NativeBackend implements MaterialBackend, GpuDiagnosticsBackend {
     name: 'wgpu-native',
     backend: _renderer._deviceInfo.backend,
     adapterName: _renderer._deviceInfo.adapterName,
+    textureFormats: _textureFormats,
     features: {
+      RenderFeature.shaderMaterials,
+      RenderFeature.postprocessing,
+      RenderFeature.punctualLights,
+      RenderFeature.shadowMaps,
+      RenderFeature.spatialAntialiasing,
+      RenderFeature.bloom,
+      RenderFeature.sectionClipping,
+      if (_renderer._deviceInfo.sampleCounts.contains(4))
+        RenderFeature.multisampleAntialiasing,
+      RenderFeature.floatTextures,
+      RenderFeature.volumeTextures,
+      RenderFeature.hdr,
+      RenderFeature.reversedDepth,
+      RenderFeature.selectionOutlines,
       RenderFeature.indexedMeshes,
       RenderFeature.diffuseLighting,
       RenderFeature.unlitMaterials,
@@ -140,33 +176,35 @@ class NativeBackend implements MaterialBackend, GpuDiagnosticsBackend {
       RenderFeature.materialSidedness,
       RenderFeature.shaderCompilation,
       RenderFeature.renderGraphs,
+      RenderFeature.frameGraphs,
+      RenderFeature.meshShaders,
+      RenderFeature.standardMaterials,
+      RenderFeature.physicalMaterials,
+      RenderFeature.areaLighting,
+      RenderFeature.temporalAntialiasing,
+      RenderFeature.hdrColor,
+      RenderFeature.environmentLighting,
+      RenderFeature.shadows,
+      RenderFeature.instancing,
+      RenderFeature.skinning,
+      RenderFeature.morphTargets,
       RenderFeature.compute,
       RenderFeature.storageTextures,
-      RenderFeature.floatTextures,
-      RenderFeature.volumeTextures,
-      RenderFeature.shaderMaterials,
-      RenderFeature.postprocessing,
-      RenderFeature.hdr,
-      RenderFeature.standardMaterials,
-      RenderFeature.punctualLights,
-      RenderFeature.environmentLighting,
-      RenderFeature.shadowMaps,
-      RenderFeature.instancing,
-      RenderFeature.spatialAntialiasing,
-      RenderFeature.bloom,
-      RenderFeature.reversedDepth,
-      RenderFeature.sectionClipping,
-      RenderFeature.selectionOutlines,
-      if (_renderer._deviceInfo.sampleCounts.contains(4))
-        RenderFeature.multisampleAntialiasing,
       if (_experimentalAppleSurfaces && NativeSurfaces().appleAvailable)
         RenderFeature.sharedTexture,
     },
     limits: DeviceLimits(
       maxTextureDimension2D: 4096,
-      sampleCounts: _renderer._deviceInfo.sampleCounts,
       maxTextureDimension3D: 256,
+      sampleCounts: _renderer._deviceInfo.sampleCounts,
+      maxResidentResourceBytes: 256 * 1024 * 1024,
       maxGeometryBytes: 64 * 1024 * 1024,
+      maxInstances: 100000,
+      maxJoints: 256,
+      maxMorphTargets: 64,
+      maxPunctualLights: 16,
+      maxHemisphereLights: 4,
+      maxAreaLights: 4,
     ),
   );
   @override
@@ -227,11 +265,17 @@ class NativeBackend implements MaterialBackend, GpuDiagnosticsBackend {
     try {
       if (submission.target case final SurfaceTarget target) {
         final packet = _encoder.encode(submission);
-        final pending = _renderer._renderSurfacePacket(
-          packet,
-          _encoder,
-          target,
-          ++_nextFrame,
+        final frameId = ++_nextFrame;
+        final pending = _resources.submitFrame(
+          submission,
+          packet.bytes,
+          (bytes) => _renderer._renderSurfacePacket(
+            packet,
+            _encoder,
+            target,
+            frameId,
+            bytes: bytes,
+          ),
         );
         clock.stop();
         final receipt = await pending;
@@ -246,22 +290,49 @@ class NativeBackend implements MaterialBackend, GpuDiagnosticsBackend {
             presentationPath: PresentationPath.sharedTexture,
             cpuBuildTime: submission.cpuBuildTime,
             cpuSubmitTime: clock.elapsed,
-            drawCalls: submission.scene.drawCalls,
-            triangles: submission.scene.triangles,
+            drawCalls:
+                submission.scene.drawCalls +
+                submission.scene.transmissionCaptureDraws +
+                (submission.temporalAA == null
+                    ? 0
+                    : submission.scene.temporalMotionDraws + 1) +
+                (submission.scene.usesScreenEffects
+                    ? 0
+                    : submission.scene.alphaResolveDraws) +
+                submission.outputConversionDraws +
+                (submission.graph?.drawCalls ?? 0),
+            computeDispatches: submission.graph?.dispatches ?? 0,
+            triangles:
+                submission.scene.triangles +
+                submission.scene.transmissionCaptureTriangles +
+                (submission.temporalAA == null
+                    ? 0
+                    : submission.scene.triangles + 1) +
+                (submission.scene.usesScreenEffects
+                    ? 0
+                    : submission.scene.alphaResolveDraws) +
+                submission.outputConversionDraws +
+                (submission.graph?.triangles ?? 0),
             uploadedBytes: packet.uploadedBytes,
             residentBytes: receipt[2],
             readbackBytes: receipt[3],
           ),
         );
       }
-      final pending = _renderer._renderBinary(submission, _encoder);
+      final pending = _renderer._renderBinary(
+        submission,
+        _encoder,
+        resources: _resources,
+      );
       clock.stop();
       final frame = await pending;
       return ReadbackOutput(
         image: ImageData(
           pixels: frame.pixels,
           size: submission.size,
-          alphaMode: AlphaMode.premultiplied,
+          alphaMode: submission.scene.usesScreenEffects
+              ? AlphaMode.premultiplied
+              : AlphaMode.straight,
         ),
         stats: FrameStats(
           frameId: ++_nextFrame,
@@ -269,8 +340,29 @@ class NativeBackend implements MaterialBackend, GpuDiagnosticsBackend {
           presentationPath: PresentationPath.readback,
           cpuBuildTime: submission.cpuBuildTime,
           cpuSubmitTime: clock.elapsed,
-          drawCalls: submission.scene.drawCalls,
-          triangles: submission.scene.triangles,
+          drawCalls:
+              submission.scene.drawCalls +
+              submission.scene.transmissionCaptureDraws +
+              (submission.temporalAA == null
+                  ? 0
+                  : submission.scene.temporalMotionDraws + 1) +
+              (submission.scene.usesScreenEffects
+                  ? 0
+                  : submission.scene.alphaResolveDraws) +
+              submission.outputConversionDraws +
+              (submission.graph?.drawCalls ?? 0),
+          computeDispatches: submission.graph?.dispatches ?? 0,
+          triangles:
+              submission.scene.triangles +
+              submission.scene.transmissionCaptureTriangles +
+              (submission.temporalAA == null
+                  ? 0
+                  : submission.scene.triangles + 1) +
+              (submission.scene.usesScreenEffects
+                  ? 0
+                  : submission.scene.alphaResolveDraws) +
+              submission.outputConversionDraws +
+              (submission.graph?.triangles ?? 0),
           uploadedBytes: frame.uploadedBytes,
           residentBytes: frame.residentBytes,
           readbackBytes: frame.pixels.length,
@@ -354,16 +446,11 @@ class NativeBackend implements MaterialBackend, GpuDiagnosticsBackend {
     Object? failure;
     StackTrace? failureStack;
     final resourceClosures = [
-      for (final compiler in _materialCompilers.toList())
-        compiler.close().then<void>(
-          (_) {},
-          onError: (Object error, StackTrace stack) {
-            failure ??= error;
-            failureStack ??= stack;
-          },
-        ),
-      for (final compiler in _graphCompilers.toList())
-        compiler.close().then<void>(
+      for (final close in [
+        for (final c in _materialCompilers.toList()) c.close,
+        for (final c in _graphCompilers.toList()) c.close,
+      ])
+        close().then<void>(
           (_) {},
           onError: (Object error, StackTrace stack) {
             failure ??= error;

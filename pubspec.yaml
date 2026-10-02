@@ -4,6 +4,7 @@ environment:
   sdk: '>=3.10.0 <4.0.0'
 workspace:
   - packages/zyren
+  - packages/zyren_inspector
   - packages/zyren_tools
   - packages/zyren_physics
   - packages/zyren_devtools
@@ -23,6 +24,8 @@ workspace:
   - examples/shader_lab
   - examples/particles
   - examples/physics_lab
+  - examples/shader_lab/effects_plugin
+  - examples/shader_lab/effects_plugin/example
 dev_dependencies:
   analyzer: ^13.3.0
   lints: ^6.0.0

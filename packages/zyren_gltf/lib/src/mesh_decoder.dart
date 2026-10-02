@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:zyren/zyren.dart';
 import 'accessor.dart';
 import 'checked.dart';
+import 'deformation_decoder.dart';
 import 'instance_validation.dart';
 import 'material_decoder.dart';
 import 'node_decoder.dart';
@@ -27,12 +28,21 @@ PreparedModel prepareModel(
   );
   final propertyTables = decodePropertyTables(root, reader, budget);
   final rawMeshes = array(field(root, 'meshes', const []), 'meshes');
+  final defaults = decodeMorphDefaults(rawMeshes, budget);
   final (nodes, scenes, selected) = decodeNodes(
     root,
     options.limits,
-    rawMeshes.length,
+    defaults,
+    budget,
   );
-  validateInstances(nodes, scenes, rawMeshes, options.limits.maxPrimitives);
+  validateInstances(
+    nodes,
+    scenes,
+    rawMeshes,
+    options.limits.maxPrimitives,
+    options.limits.maxLights,
+  );
+  final animations = decodeAnimations(root, reader, options.limits, defaults);
   final issues = <SceneIssue>[];
   final materials = MaterialDecoder(root, reader, options, issues);
   final meshes = <List<PrimitiveRecipe>>[];
@@ -62,10 +72,8 @@ PreparedModel prepareModel(
       for (final entry in attributes.entries) {
         final semantic = entry.key,
             attributePath = '$path.attributes.$semantic';
-        if (semantic.startsWith('JOINTS_') || semantic.startsWith('WEIGHTS_')) {
-          continue;
-        }
-        if (semantic.startsWith('COLOR_')) {
+        if ((semantic.startsWith('JOINTS_') && semantic != 'JOINTS_0') ||
+            (semantic.startsWith('WEIGHTS_') && semantic != 'WEIGHTS_0')) {
           fail(
             attributePath,
             'This vertex semantic is not yet supported by the native model profile.',
@@ -76,8 +84,11 @@ PreparedModel prepareModel(
               'POSITION',
               'NORMAL',
               'TANGENT',
+              'COLOR_0',
               'TEXCOORD_0',
               'TEXCOORD_1',
+              'JOINTS_0',
+              'WEIGHTS_0',
             ].contains(semantic) &&
             !semantic.startsWith('_')) {
           fail(
@@ -94,7 +105,9 @@ PreparedModel prepareModel(
           ),
           usage: AccessorUsage.vertex,
         );
-        if (semantic == 'POSITION' || semantic == 'NORMAL') {
+        if (semantic == 'JOINTS_0' || semantic == 'WEIGHTS_0') {
+          validateJointAccessor(a, semantic, attributePath);
+        } else if (semantic == 'POSITION' || semantic == 'NORMAL') {
           if (a.type != 'VEC3' || a.componentType != 5126 || a.normalized) {
             fail(
               attributePath,
@@ -104,6 +117,15 @@ PreparedModel prepareModel(
         } else if (semantic == 'TANGENT') {
           if (a.type != 'VEC4' || a.componentType != 5126 || a.normalized) {
             fail(attributePath, 'Tangents require float VEC4 accessors.');
+          }
+        } else if (semantic == 'COLOR_0') {
+          if (!['VEC3', 'VEC4'].contains(a.type) ||
+              !((a.componentType == 5126 && !a.normalized) ||
+                  ([5121, 5123].contains(a.componentType) && a.normalized))) {
+            fail(
+              attributePath,
+              'Colors require float or normalized unsigned RGB/RGBA accessors.',
+            );
           }
         } else if (semantic.startsWith('TEXCOORD_')) {
           if (a.type != 'VEC2' ||
@@ -191,7 +213,7 @@ PreparedModel prepareModel(
       if (material.standard && topology != GeometryTopology.triangles) {
         fail(
           '$path.material',
-          'PBR points and lines are outside the native model profile.',
+          'Lit points and lines are not yet supported.',
           AssetLoadError.unsupportedFeature,
         );
       }
@@ -205,12 +227,13 @@ PreparedModel prepareModel(
         }
         if (!decoded.containsKey('TEXCOORD_${binding.uvSet}')) {
           fail(
-            '$path.attributes',
+            '$path.attributes.TEXCOORD_${binding.uvSet}',
             'The material requires UV set ${binding.uvSet}.',
           );
         }
       }
       final output = <VertexSemantic, VertexAttribute>{};
+      final originalIndices = List<int>.of(indices);
       final flat =
           topology == GeometryTopology.triangles && suppliedNormals == null;
       final vertexCount = flat ? indices.length : position.count;
@@ -279,11 +302,24 @@ PreparedModel prepareModel(
         }
         attribute(VertexSemantic.normal, normals, VertexFormat.float32x3);
       }
+      if (decoded['COLOR_0'] case final color?) {
+        final values = expanded(color);
+        budget.reserve(vertexCount * 16, path);
+        final colors = Float32List(vertexCount * 4);
+        for (var i = 0; i < vertexCount; i++) {
+          for (var c = 0; c < 4; c++) {
+            colors[i * 4 + c] = c >= color.components
+                ? 1
+                : values[i * color.components + c].clamp(0, 1);
+          }
+        }
+        attribute(VertexSemantic.color, colors, VertexFormat.float32x4);
+      }
       if (topology == GeometryTopology.triangles) {
         if (tangent != null && suppliedNormals != null) {
           attribute(
             VertexSemantic.tangent,
-            expanded(tangent),
+            tangent.data as Float32List,
             VertexFormat.float32x4,
           );
         }
@@ -296,24 +332,40 @@ PreparedModel prepareModel(
           }
         }
       }
-      final deformation = decodeDeformation(
-        reader,
-        primitive,
-        position.count,
+      decodeJointAttributes(
+        decoded,
+        output,
         flat ? indices : null,
+        reader.budget,
         path,
       );
-      final morphCount = deformation?.morphPositions.length ?? 0;
-      final morphWeights = mesh.containsKey('weights')
-          ? [
-              for (final value in array(mesh['weights'], '$meshPath.weights'))
-                number(value, '$meshPath.weights'),
-            ]
-          : List<double>.filled(morphCount, 0);
-      if (morphWeights.length != morphCount) {
-        fail('$meshPath.weights', 'Morph weight count must match targets.');
+      var morphTargets = decodeMorphTargets(
+        root,
+        primitive,
+        mesh,
+        decoded,
+        reader,
+        flat ? indices : null,
+        path,
+        (reference, accessor) => _positionBounds(root, reference, accessor),
+      );
+      if (flat && morphTargets.isNotEmpty) {
+        morphTargets = generateMorphNormals(
+          morphTargets,
+          positions,
+          output[VertexSemantic.normal]!.data as Float32List,
+          budget,
+          path,
+        );
       }
-      final originalIndices = indices;
+      if ((morphTargets.isNotEmpty || decoded.containsKey('JOINTS_0')) &&
+          topology != GeometryTopology.triangles) {
+        fail(
+          path,
+          'Native deformation requires triangle primitives.',
+          AssetLoadError.unsupportedFeature,
+        );
+      }
       if (flat) {
         budget.reserve(vertexCount * 4, path);
         indices = Uint32List(vertexCount);
@@ -339,20 +391,6 @@ PreparedModel prepareModel(
           );
         }
       }
-      if (deformation != null &&
-          (primitive.containsKey('extensions') ||
-              attributes.containsKey('_BATCHID'))) {
-        final extensions = primitive['extensions'];
-        if (attributes.containsKey('_BATCHID') ||
-            (extensions is Map &&
-                extensions.containsKey('EXT_mesh_features'))) {
-          fail(
-            path,
-            'Animated feature partitions require separate primitives.',
-            AssetLoadError.unsupportedFeature,
-          );
-        }
-      }
       final partitions = partitionFeatures(
         root,
         primitive,
@@ -364,11 +402,10 @@ PreparedModel prepareModel(
             indices: indices,
             indexFormat: format,
             topology: topology,
+            morphTargets: morphTargets,
           ),
           material,
           name,
-          deformation: deformation,
-          morphWeights: List.unmodifiable(morphWeights),
         ),
         budget,
         options.limits.maxPrimitives - primitiveCount + 1,
@@ -384,62 +421,13 @@ PreparedModel prepareModel(
     scenes,
     rawMeshes,
     options.limits.maxPrimitives,
+    options.limits.maxLights,
     decodedPrimitiveCounts: [for (final mesh in meshes) mesh.length],
   );
-  final skins = decodeSkins(reader, nodes);
-  for (var n = 0; n < nodes.length; n++) {
-    final node = nodes[n];
-    if (node.mesh case final meshIndex?) {
-      final mesh = meshes[meshIndex];
-      final count = mesh.first.deformation?.morphPositions.length ?? 0;
-      if (mesh.any(
-            (p) => (p.deformation?.morphPositions.length ?? 0) != count,
-          ) ||
-          (node.weights != null && node.weights!.length != count)) {
-        fail('nodes[$n].weights', 'Morph counts must match all primitives.');
-      }
-      if (node.skin case final skinIndex?) {
-        for (final primitive in mesh) {
-          final data = primitive.deformation;
-          if (data == null ||
-              data.joints.isEmpty ||
-              data.joints.any((j) => j >= skins[skinIndex].joints.length)) {
-            fail(
-              'nodes[$n].skin',
-              'Skin vertex indices must fit its joint palette.',
-            );
-          }
-        }
-      }
-    } else if (node.skin != null || node.weights != null) {
-      fail('nodes[$n]', 'Skin and weights require a mesh.');
-    }
-  }
-  for (var s = 0; s < scenes.length; s++) {
-    final reachable = <int>{};
-    void visit(int n) {
-      reachable.add(n);
-      for (final child in nodes[n].children) {
-        visit(child);
-      }
-    }
-
-    for (final root in scenes[s].roots) {
-      visit(root);
-    }
-    for (final n in reachable) {
-      if (nodes[n].skin case final skin?) {
-        if (skins[skin].joints.any((j) => !reachable.contains(j))) {
-          fail(
-            'scenes[$s]',
-            'Skin joints must belong to the same selected scene.',
-          );
-        }
-      }
-    }
-  }
-  final animations = decodeAnimations(reader, nodes, meshes);
+  final skins = decodeSkins(root, nodes, scenes, meshes, reader);
   return PreparedModel(
+    skins,
+    animations,
     nodes,
     scenes,
     selected,
@@ -448,8 +436,6 @@ PreparedModel prepareModel(
     List.unmodifiable(issues),
     budget.usedBytes,
     propertyTables,
-    animations: animations,
-    skins: skins,
   );
 }
 

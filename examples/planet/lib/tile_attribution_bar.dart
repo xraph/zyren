@@ -52,7 +52,12 @@ class TileAttributionBar extends StatelessWidget {
           final text = node.text.replaceAll(RegExp(r'\s+'), ' ').trim();
           if (text.isNotEmpty) result.add(Text(text));
         } else if (node is dom.Element) {
-          if (['script', 'style', 'iframe', 'object'].contains(node.localName)) {
+          if ([
+            'script',
+            'style',
+            'iframe',
+            'object',
+          ].contains(node.localName)) {
             continue;
           }
           if (node.localName == 'img') {

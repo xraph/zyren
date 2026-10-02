@@ -16,6 +16,7 @@ final class LineMaterial extends MeshMaterial {
     super.opacity,
     super.alphaCutoff,
     super.depthTest,
+    super.vertexColors,
     super.depthWrite,
   }) {
     _validateSize(width, widthUnits);
@@ -36,6 +37,7 @@ final class LineMaterial extends MeshMaterial {
     double? opacity,
     double? alphaCutoff,
     bool? depthTest,
+    bool? vertexColors,
     DepthWrite? depthWrite,
   }) => LineMaterial(
     color: color ?? this.color,
@@ -45,6 +47,7 @@ final class LineMaterial extends MeshMaterial {
     opacity: opacity ?? this.opacity,
     alphaCutoff: alphaCutoff ?? this.alphaCutoff,
     depthTest: depthTest ?? this.depthTest,
+    vertexColors: vertexColors ?? this.vertexColors,
     depthWrite: depthWrite ?? this.depthWrite,
   );
 }
@@ -63,6 +66,7 @@ final class PointsMaterial extends MeshMaterial {
     super.opacity,
     super.alphaCutoff,
     super.depthTest,
+    super.vertexColors,
     super.depthWrite,
   }) {
     _validateSize(size, sizeUnits);
@@ -84,6 +88,7 @@ final class PointsMaterial extends MeshMaterial {
     double? opacity,
     double? alphaCutoff,
     bool? depthTest,
+    bool? vertexColors,
     DepthWrite? depthWrite,
   }) => PointsMaterial(
     color: color ?? this.color,
@@ -94,6 +99,7 @@ final class PointsMaterial extends MeshMaterial {
     opacity: opacity ?? this.opacity,
     alphaCutoff: alphaCutoff ?? this.alphaCutoff,
     depthTest: depthTest ?? this.depthTest,
+    vertexColors: vertexColors ?? this.vertexColors,
     depthWrite: depthWrite ?? this.depthWrite,
   );
 }

@@ -2,7 +2,6 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_zyren/flutter_zyren.dart';
-import 'package:zyren/rendering.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:planet/camera_lab.dart';
 

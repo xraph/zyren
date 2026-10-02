@@ -25,7 +25,12 @@ void main() {
                   ),
                 )
                 as ReadbackOutput;
-        expect(frame.image.alphaMode, AlphaMode.premultiplied);
+        expect(
+          frame.image.alphaMode,
+          scene.renderSettings.copyWith(backgroundAlpha: 1).enabled
+              ? AlphaMode.premultiplied
+              : AlphaMode.straight,
+        );
         return frame.image.pixels.sublist(0, 4);
       }
 

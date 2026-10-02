@@ -24,7 +24,7 @@ void main() {
       camera: PerspectiveCamera(),
       size: PhysicalSize(16, 16),
     );
-    expect(capture.toNativePacket, throwsUnsupportedError);
+    expect(capture.toNativePacket()['lights'], hasLength(1));
     expect(ScenePacketEncoder(viewId: 1).encode(capture).bytes, isNotEmpty);
   });
 }

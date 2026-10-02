@@ -3,17 +3,20 @@ import 'capabilities.dart';
 import 'frame_output.dart';
 import '../scene/scene.dart';
 
-/// Tightly packed, top-down RGBA8 pixels. The consumer owns this buffer.
+/// Tightly packed, top-down RGBA8 sRGB pixels with declared alpha representation.
+/// The consumer owns this buffer.
 class RenderedFrame {
   final Uint8List pixels;
   final int width, height;
   final int uploadedBytes, residentBytes;
+  final AlphaMode alphaMode;
   const RenderedFrame(
     this.pixels,
     this.width,
     this.height, {
     this.uploadedBytes = 0,
     this.residentBytes = 0,
+    this.alphaMode = AlphaMode.straight,
   });
   factory RenderedFrame.fromImage(ImageData image) {
     if (image.format != PixelFormat.rgba8 ||
@@ -21,7 +24,12 @@ class RenderedFrame {
       throw ArgumentError('RGBA8 sRGB image required.');
     }
     if (image.rowStride == image.size.width * 4) {
-      return RenderedFrame(image.pixels, image.size.width, image.size.height);
+      return RenderedFrame(
+        image.pixels,
+        image.size.width,
+        image.size.height,
+        alphaMode: image.alphaMode,
+      );
     }
     final packed = Uint8List(image.size.width * image.size.height * 4);
     for (var y = 0; y < image.size.height; y++) {
@@ -32,7 +40,12 @@ class RenderedFrame {
         y * image.rowStride,
       );
     }
-    return RenderedFrame(packed, image.size.width, image.size.height);
+    return RenderedFrame(
+      packed,
+      image.size.width,
+      image.size.height,
+      alphaMode: image.alphaMode,
+    );
   }
 }
 

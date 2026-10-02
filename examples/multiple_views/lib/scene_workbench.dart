@@ -4,7 +4,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_zyren/flutter_zyren.dart';
-import 'package:flutter_zyren/widgets.dart';
 import 'package:zyren_devtools/zyren_devtools.dart';
 import 'package:zyren_engineering/zyren_engineering.dart';
 import 'package:zyren_timeline/zyren_timeline.dart';

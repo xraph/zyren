@@ -1,12 +1,12 @@
 import 'dart:typed_data';
 import '../math/color3.dart';
 import '../resources/texture_image.dart';
-import '../resources/texture.dart' show TextureFormat;
 import '../resources/resource_scope.dart'
-    show MeshShader, PostProcessDescriptor;
+    show MeshProgram, MeshShader, PostProcessDescriptor;
 part 'primitives.dart';
 part 'shader_material.dart';
 part 'standard_material.dart';
+part 'physical_material.dart';
 
 /// Opaque ignores alpha; mask discards below the cutoff; blend uses source-over.
 enum MaterialAlphaMode { opaque, mask, blend }
@@ -22,9 +22,10 @@ sealed class MeshMaterial {
   final Color3 color;
   final MaterialSide side;
   final TextureMap? colorMap;
+  Iterable<TextureMap> get textureMaps => [?colorMap];
   final MaterialAlphaMode alphaMode;
   final double opacity, alphaCutoff;
-  final bool depthTest;
+  final bool depthTest, vertexColors;
   final DepthWrite depthWrite;
   MeshMaterial({
     Color3? color,
@@ -34,10 +35,11 @@ sealed class MeshMaterial {
     this.opacity = 1,
     this.alphaCutoff = .5,
     this.depthTest = true,
+    this.vertexColors = false,
     this.depthWrite = DepthWrite.automatic,
   }) : color =
            color ??
-           (colorMap == null
+           (colorMap == null && !vertexColors
                ? const Color3(.4, .6, .9)
                : const Color3(1, 1, 1)) {
     this.color.toList();
@@ -75,6 +77,7 @@ final class DiffuseMaterial extends MeshMaterial {
     super.opacity,
     super.alphaCutoff,
     super.depthTest,
+    super.vertexColors,
     super.depthWrite,
   });
   @override
@@ -87,6 +90,7 @@ final class DiffuseMaterial extends MeshMaterial {
     double? opacity,
     double? alphaCutoff,
     bool? depthTest,
+    bool? vertexColors,
     DepthWrite? depthWrite,
   }) => DiffuseMaterial(
     color: color ?? this.color,
@@ -96,6 +100,7 @@ final class DiffuseMaterial extends MeshMaterial {
     opacity: opacity ?? this.opacity,
     alphaCutoff: alphaCutoff ?? this.alphaCutoff,
     depthTest: depthTest ?? this.depthTest,
+    vertexColors: vertexColors ?? this.vertexColors,
     depthWrite: depthWrite ?? this.depthWrite,
   );
 }
@@ -109,6 +114,7 @@ final class UnlitMaterial extends MeshMaterial {
     super.opacity,
     super.alphaCutoff,
     super.depthTest,
+    super.vertexColors,
     super.depthWrite,
   });
   @override
@@ -121,6 +127,7 @@ final class UnlitMaterial extends MeshMaterial {
     double? opacity,
     double? alphaCutoff,
     bool? depthTest,
+    bool? vertexColors,
     DepthWrite? depthWrite,
   }) => UnlitMaterial(
     color: color ?? this.color,
@@ -130,6 +137,7 @@ final class UnlitMaterial extends MeshMaterial {
     opacity: opacity ?? this.opacity,
     alphaCutoff: alphaCutoff ?? this.alphaCutoff,
     depthTest: depthTest ?? this.depthTest,
+    vertexColors: vertexColors ?? this.vertexColors,
     depthWrite: depthWrite ?? this.depthWrite,
   );
 }

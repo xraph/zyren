@@ -8,7 +8,8 @@ void validateInstances(
   List<NodeRecipe> nodes,
   List<SceneRecipe> scenes,
   List<Object?> meshes,
-  int limit, {
+  int limit,
+  int lightLimit, {
   List<int>? decodedPrimitiveCounts,
 }) {
   final primitiveCounts =
@@ -34,6 +35,23 @@ void validateInstances(
       );
     }
   }
+  final lightCounts = List<int?>.filled(nodes.length, null);
+  int countLights(int node) => lightCounts[node] ??=
+      (nodes[node].light == null ? 0 : 1) +
+      nodes[node].children.fold<int>(
+        0,
+        (sum, child) => sum + countLights(child),
+      );
+  for (var i = 0; i < scenes.length; i++) {
+    if (scenes[i].roots.fold<int>(0, (sum, root) => sum + countLights(root)) >
+        lightLimit) {
+      fail(
+        'scenes[$i]',
+        'Instantiated light count exceeds the light limit.',
+        AssetLoadError.limitExceeded,
+      );
+    }
+  }
   final children = {for (final node in nodes) ...node.children};
   void visit(int index, Mat4 parent) {
     final node = nodes[index], path = 'nodes[$index]';
@@ -47,7 +65,7 @@ void validateInstances(
         AssetLoadError.unsupportedFeature,
       );
     }
-    if (node.mesh != null) {
+    if (node.mesh != null || node.light != null) {
       final packed = Float32List.fromList(world.storage);
       if (packed.any((value) => !value.isFinite)) {
         fail(

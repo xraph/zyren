@@ -29,7 +29,11 @@ final class VertexLayout {
       VertexSemantic.position ||
       VertexSemantic.normal => {VertexFormat.float32x3},
       VertexSemantic.uv0 || VertexSemantic.uv1 => {VertexFormat.float32x2},
-      VertexSemantic.color => {VertexFormat.float32x4, VertexFormat.unorm8x4},
+      VertexSemantic.color => {
+        VertexFormat.float32x3,
+        VertexFormat.float32x4,
+        VertexFormat.unorm8x4,
+      },
       VertexSemantic.joints => {VertexFormat.uint16x4, VertexFormat.uint32x4},
       _ => {VertexFormat.float32x4},
     };
@@ -53,7 +57,7 @@ final class VertexLayout {
         if (semantic == VertexSemantic.color ||
             semantic == VertexSemantic.weights) {
           var sum = 0.0;
-          for (var j = 0; j < 4; j++) {
+          for (var j = 0; j < attribute.format.components; j++) {
             final value = values[i + j];
             if (value < 0 || value > 1) {
               throw ArgumentError('Colors and weights must be in [0, 1].');

@@ -330,7 +330,9 @@ void main() {
           final scale =
               Ellipsoid.wgs84.maximumRadius /
               (math.tan(camera.fieldOfView / 2) * actualHeight);
-          final amount = ((scale - 41.5) / (13.8 - 41.5)).clamp(0, 1).toDouble();
+          final amount = ((scale - 41.5) / (13.8 - 41.5))
+              .clamp(0, 1)
+              .toDouble();
           final p = mesh.position, inv = Ellipsoid.wgs84.reciprocalRadiiSquared;
           final sphere = Vec3(
             p.x * inv.x,

@@ -62,7 +62,7 @@ indices and fixed float32 attributes. Each edit wakes the native
 view and the displayed revision advances. Materials still render opaquely;
 transparency remains pending.
 
-See [image decoding](https://xraph.com/docs/zyren/reference/design/gpu-resources#decode-image-files) for
+See [image decoding](../../docs/design/gpu-resources.md#decode-image-files) for
 the public API, supported formats and memory limits.
 
 You can inspect face culling and lighting with:

@@ -53,7 +53,7 @@ void main() {
         );
         expect(plugin.controller.settings, same(oldSettings));
         expect(scene.effects.length, 32);
-      expect(scene.effects, containsAll(oldStages));
+        expect(scene.effects, containsAll(oldStages));
         for (final e in extras) {
           e.dispose();
         }

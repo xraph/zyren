@@ -1,4 +1,4 @@
-use super::{ResourceError, registry::ResourceKey};
+use super::{ResourceError, registry::ResourceKey, texture_format};
 use std::ops::Range;
 
 pub const MAX_BYTES: u64 = 64 * 1024 * 1024;
@@ -36,22 +36,17 @@ pub struct TextureDescriptor<'a> {
 }
 impl TextureDescriptor<'_> {
     pub fn texture_format(&self) -> wgpu::TextureFormat {
-        match self.format {
-            0 => wgpu::TextureFormat::Rgba8Unorm,
-            1 => wgpu::TextureFormat::Rgba8UnormSrgb,
-            2 => wgpu::TextureFormat::Rgba16Float,
-            3 => wgpu::TextureFormat::Rgba32Float,
-            4 => wgpu::TextureFormat::R32Float,
-            _ => unreachable!("validated texture format"),
-        }
+        texture_format::native(self.format).expect("validated texture format")
     }
+
     pub fn byte_length(&self) -> u64 {
         (0..self.mip_levels)
             .map(|m| {
-                (self.width >> m).max(1) as u64
-                    * (self.height >> m).max(1) as u64
-                    * (self.depth >> m).max(1) as u64
-                    * self.texture_format().block_copy_size(None).unwrap() as u64
+                texture_format::level_bytes(
+                    self.format,
+                    (self.width >> m).max(1),
+                    (self.height >> m).max(1),
+                ) * u64::from((self.depth >> m).max(1))
             })
             .sum()
     }
@@ -66,6 +61,7 @@ pub enum Operation<'a> {
     Release(ResourceKey),
     ReadBuffer(ResourceKey, u64, u64),
     Stats,
+    TextureFormats,
     ReadTexture(ResourceKey, u32),
     GenerateMipmaps(ResourceKey, u32),
 }
@@ -139,14 +135,14 @@ impl<'a> Command<'a> {
                 Operation::CreateBuffer(BufferDescriptor { size, usage, label })
             }
             2 => Operation::WriteBuffer(r.key()?, r.u64()?, r.payload()?),
-            3 | 11 => {
+            3 | 12 => {
                 let width = r.u32()?;
                 let height = r.u32()?;
                 let mip_levels = r.u32()?;
                 let format = r.u32()?;
                 let usage = r.u32()?;
-                let depth = if opcode == 11 { r.u32()? } else { 1 };
-                let dimension = if opcode == 11 { r.u32()? } else { 0 };
+                let depth = if opcode == 12 { r.u32()? } else { 1 };
+                let dimension = if opcode == 12 { r.u32()? } else { 0 };
                 let label = r.label()?;
                 let maximum = if dimension == 1 { 256 } else { 4096 };
                 if width == 0
@@ -159,14 +155,17 @@ impl<'a> Command<'a> {
                     || (dimension == 0 && depth != 1)
                     || mip_levels == 0
                     || mip_levels > 32 - width.max(height).max(depth).leading_zeros()
-                    || format > (if opcode == 11 { 4 } else { 1 })
+                    || format > 10
+                    || (texture_format::compressed(format)
+                        && (dimension != 0 || width % 4 != 0 || height % 4 != 0))
                 {
                     return Err(ResourceError::InvalidCommand);
                 }
                 if usage == 0
                     || usage & !31 != 0
-                    || (usage & 16 != 0 && format == 1)
                     || (dimension == 1 && usage & 2 != 0)
+                    || (usage & 16 != 0 && texture_format::srgb(format))
+                    || (texture_format::compressed(format) && usage & 18 != 0)
                 {
                     return Err(ResourceError::InvalidUsage);
                 }
@@ -190,6 +189,7 @@ impl<'a> Command<'a> {
             6 => Operation::Release(r.key()?),
             7 => Operation::ReadBuffer(r.key()?, r.u64()?, r.u64()?),
             8 => Operation::Stats,
+            11 => Operation::TextureFormats,
             9 => Operation::ReadTexture(r.key()?, r.u32()?),
             10 => {
                 let key = r.key()?;

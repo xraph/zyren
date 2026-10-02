@@ -4,7 +4,7 @@ part of '../zyren_3d_tiles.dart';
 final class TileFeature3D {
   final ModelFeature identity;
   final Map<String, Object?> properties;
-  final _meshes = <ModelMesh>[];
+  final _meshes = <ModelFeatureMesh>[];
   TileFeature3D._(this.identity, this.properties);
   int? get id => identity.id;
   String? get label => identity.label;
@@ -37,22 +37,22 @@ final class TileStyle3D {
       : feature.label == featureLabel;
 }
 
-typedef _StyleEdit = (ModelMesh, MeshMaterial, bool);
+typedef _StyleEdit = (ModelFeatureMesh, MeshMaterial, bool);
 
 /// A tile instance owns its style state while sharing immutable model resources.
 final class TileModelInstance3D extends _TransformGroup {
   final _features = <TileFeature3D>[];
-  final _original = <ModelMesh, (MeshMaterial, bool)>{};
+  final _original = <ModelFeatureMesh, (MeshMaterial, bool)>{};
   List<TileFeature3D> get features => List.unmodifiable(_features);
   TileModelInstance3D._(
     super.transform,
     Object3D model,
     List<ModelPropertyTable> tables,
     ModelPropertyTable? batch,
-  ){
+  ) {
     final grouped = <(int, String?, int?, int?, bool), TileFeature3D>{};
     void visit(Object3D object) {
-      if (object is ModelMesh) {
+      if (object is ModelFeatureMesh) {
         _original[object] = (object.material, object.visible);
         if (batch != null &&
             batch.count > 0 &&

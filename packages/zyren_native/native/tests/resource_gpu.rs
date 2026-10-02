@@ -82,11 +82,25 @@ fn native_resource_validation_is_atomic_and_does_not_poison_device() {
         &[0; 16]
     );
     assert_eq!(stats(&mut renderer), [16, 0, 1]);
+    // The resident allowance is separate from the per-allocation limit.
+    let mut large = Vec::new();
+    for _ in 0..3 {
+        let reply = renderer
+            .resource_command(&packet(1, &descriptor(64 * 1024 * 1024, 1)), 56)
+            .unwrap();
+        large.push(reply[24..].to_vec());
+    }
     // Native budget applies across allocations, regardless of Dart validation.
     assert_eq!(
         renderer.resource_command(&packet(1, &descriptor(64 * 1024 * 1024, 1)), 56),
         Err(ResourceError::BudgetExceeded)
     );
+    for allocation in large {
+        renderer
+            .resource_command(&packet(6, &allocation), 24)
+            .unwrap();
+    }
+    assert_eq!(stats(&mut renderer), [16, 0, 1]);
     let mut foreign = key.to_vec();
     foreign[0] ^= 128;
     assert_eq!(
@@ -231,45 +245,80 @@ fn mip_command_checks_every_field_and_truncation() {
 
 #[test]
 #[ignore = "requires a native Metal, Vulkan or DX12 device"]
-fn volume_commands_validate_every_field_without_partial_allocation() {
+fn compressed_format_admission_is_atomic_and_checks_query_capacity() {
     let mut renderer = pollster::block_on(Renderer::new()).unwrap();
-    // width, height, mips, format, usage, depth, dimension, label length.
-    let valid = [5_u32, 3, 3, 4, 12, 3, 1, 0];
-    let body: Vec<u8> = valid.into_iter().flat_map(u32::to_le_bytes).collect();
-    for length in 0..body.len() {
-        assert!(
-            renderer
-                .resource_command(&packet(11, &body[..length]), 56)
-                .is_err()
-        );
-    }
-    for (field, value) in [
-        (0, 0),
-        (0, 257),
-        (1, 0),
-        (2, 0),
-        (2, 4),
-        (3, 5),
-        (4, 0),
-        (4, 2),
-        (5, 0),
-        (5, 257),
-        (6, 2),
-        (6, 0),
-    ] {
-        let mut invalid = valid;
-        invalid[field] = value;
-        let bytes: Vec<u8> = invalid.into_iter().flat_map(u32::to_le_bytes).collect();
-        assert!(
-            renderer.resource_command(&packet(11, &bytes), 56).is_err(),
-            "field {field}"
-        );
+    assert_eq!(
+        renderer.resource_command(&packet(11, &[]), 27),
+        Err(ResourceError::InvalidRange)
+    );
+    let reply = renderer.resource_command(&packet(11, &[]), 28).unwrap();
+    let mask = u32::from_le_bytes(reply[24..28].try_into().unwrap());
+    assert_eq!(mask & 7, 7);
+    for format in 3..=8 {
+        let body: Vec<u8> = [8_u32, 8, 4, format, 13, 0]
+            .into_iter()
+            .flat_map(u32::to_le_bytes)
+            .collect();
+        let reply = renderer.resource_command(&packet(3, &body), 56);
+        if mask & (1 << format) == 0 {
+            assert_eq!(reply, Err(ResourceError::InvalidUsage));
+        } else {
+            let reply = reply.unwrap();
+            assert_eq!(stats(&mut renderer), [112, 0, 1]);
+            let key = &reply[24..];
+            let bad: Vec<u8> = [key, &2_u32.to_le_bytes(), &4_u64.to_le_bytes(), &[0; 4]].concat();
+            assert_eq!(
+                renderer.resource_command(&packet(4, &bad), 24),
+                Err(ResourceError::InvalidRange)
+            );
+            let generate = [key, &0_u32.to_le_bytes()].concat();
+            assert_eq!(
+                renderer.resource_command(&packet(10, &generate), 24),
+                Err(ResourceError::InvalidUsage)
+            );
+            renderer.resource_command(&packet(6, key), 24).unwrap();
+        }
         assert_eq!(stats(&mut renderer), [0, 0, 0]);
     }
-    let texture = renderer.resource_command(&packet(11, &body), 56).unwrap();
-    assert_eq!(stats(&mut renderer), [192, 0, 1]);
-    renderer
-        .resource_command(&packet(6, &texture[24..]), 24)
+}
+
+#[test]
+#[ignore = "requires a native Metal, Vulkan or DX12 device"]
+fn a_device_without_enabled_compression_rejects_blocks_before_allocation() {
+    let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+        backends: wgpu::Backends::METAL | wgpu::Backends::VULKAN | wgpu::Backends::DX12,
+        ..wgpu::InstanceDescriptor::new_without_display_handle()
+    });
+    let adapter = pollster::block_on(instance.request_adapter(&Default::default())).unwrap();
+    let (device, queue) = pollster::block_on(adapter.request_device(&Default::default())).unwrap();
+    let mut store = zyren_runtime::resources::ResourceStore::default();
+    let query = store
+        .execute(&device, &queue, &packet(11, &[]), 28)
         .unwrap();
-    assert_eq!(stats(&mut renderer), [0, 0, 0]);
+    assert_eq!(
+        &query[24..28],
+        &((1_u32 << 0) | (1 << 1) | (1 << 2) | (1 << 9) | (1 << 10)).to_le_bytes()
+    );
+    for format in 3..=8 {
+        let body: Vec<u8> = [8_u32, 8, 4, format, 13, 0]
+            .into_iter()
+            .flat_map(u32::to_le_bytes)
+            .collect();
+        assert_eq!(
+            store.execute(&device, &queue, &packet(3, &body), 56),
+            Err(ResourceError::InvalidUsage)
+        );
+    }
+    let stats = store.execute(&device, &queue, &packet(8, &[]), 48).unwrap();
+    assert_eq!(&stats[24..], &[0; 24]);
+    let body: Vec<u8> = [8_u32, 8, 4, 1, 13, 0]
+        .into_iter()
+        .flat_map(u32::to_le_bytes)
+        .collect();
+    let key = store
+        .execute(&device, &queue, &packet(3, &body), 56)
+        .unwrap();
+    store
+        .execute(&device, &queue, &packet(6, &key[24..]), 24)
+        .unwrap();
 }

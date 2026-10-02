@@ -37,7 +37,7 @@ void main() {
       final packet = ScenePacketEncoder(viewId: 1).encode(frame);
       expect(
         ByteData.sublistView(packet.bytes).getUint32(4, Endian.little),
-        27,
+        36,
       );
     },
   );

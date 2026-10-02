@@ -10,7 +10,7 @@ void main() {
     'poses are immutable and prepare one joint and morph deformation',
     () async {
       final asset = await load(animatedModel(bindPosition: 2));
-      final instance = asset.instantiate();
+      final instance = asset.instantiate(nativeDeformation: false);
       final mesh = instance.nodes[0]!.children.single as Mesh;
       final rest = instance.samplePose(initial: true);
       final end = instance.samplePose(
@@ -39,7 +39,7 @@ void main() {
 
   test('joint rotations blend before skinning and keep unit length', () async {
     final asset = await load(animatedModel(morph: false));
-    final instance = asset.instantiate();
+    final instance = asset.instantiate(nativeDeformation: false);
     final mesh = instance.nodes[0]!.children.single as Mesh;
     final rest = instance.samplePose(initial: true);
     instance.nodes[1]!.quaternion = Quat.axisAngle(
@@ -60,7 +60,7 @@ void main() {
     'additive poses use a captured reference for joints and morph weights',
     () async {
       final asset = await load(animatedModel());
-      final instance = asset.instantiate();
+      final instance = asset.instantiate(nativeDeformation: false);
       final mesh = instance.nodes[0]!.children.single as Mesh;
       final rest = instance.samplePose(initial: true);
       ModelPose sample(int ms) => instance.samplePose(
@@ -92,7 +92,7 @@ void main() {
     () async {
       final asset = await load(animatedModel());
       final other = await load(animatedModel());
-      final instance = asset.instantiate();
+      final instance = asset.instantiate(nativeDeformation: false);
       final mesh = instance.nodes[0]!.children.single as Mesh;
       final rest = instance.samplePose(initial: true);
       instance.nodes[1]!.scale = const Vec3(-1, 1, 1);
@@ -111,7 +111,9 @@ void main() {
         throwsArgumentError,
       );
       expect(
-        () => instance.prepareSampledPose(other.instantiate().samplePose()),
+        () => instance.prepareSampledPose(
+          other.instantiate(nativeDeformation: false).samplePose(),
+        ),
         throwsArgumentError,
       );
       expect(instance.nodes[1]!.scale, Vec3.one);

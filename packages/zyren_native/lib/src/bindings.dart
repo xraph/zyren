@@ -129,11 +129,57 @@ external int ktx2Decode(
   Pointer<NativeImageLimits> limits,
   Pointer<NativeTextureBytes> output,
 );
+@Native<
+  Uint32 Function(
+    Pointer<Uint8>,
+    Size,
+    Pointer<NativeImageLimits>,
+    Uint32,
+    Pointer<NativeTextureBytes>,
+  )
+>(symbol: 'fg2_ktx2_transcode', assetId: _asset)
+external int ktx2Transcode(
+  Pointer<Uint8> input,
+  int length,
+  Pointer<NativeImageLimits> limits,
+  int target,
+  Pointer<NativeTextureBytes> output,
+);
 @Native<Void Function(Pointer<NativeTextureBytes>)>(
   symbol: 'fg2_ktx2_free',
   assetId: _asset,
 )
 external void ktx2Free(Pointer<NativeTextureBytes> output);
+
+final class NativeHdrImagePixels extends Struct {
+  @Uint32()
+  external int width;
+  @Uint32()
+  external int height;
+  external Pointer<Float> pixels;
+  @Size()
+  external int length;
+}
+
+@Native<
+  Uint32 Function(
+    Pointer<Uint8>,
+    Size,
+    Pointer<NativeImageLimits>,
+    Pointer<NativeHdrImagePixels>,
+  )
+>(symbol: 'fg2_hdr_image_decode', assetId: _asset)
+external int hdrImageDecode(
+  Pointer<Uint8> input,
+  int length,
+  Pointer<NativeImageLimits> limits,
+  Pointer<NativeHdrImagePixels> output,
+);
+@Native<Void Function(Pointer<NativeHdrImagePixels>)>(
+  symbol: 'fg2_hdr_image_free',
+  assetId: _asset,
+)
+external void hdrImageFree(Pointer<NativeHdrImagePixels> output);
 
 @Native<Uint32 Function()>(symbol: 'fg_abi_version', assetId: _asset)
 external int abiVersion();
@@ -243,3 +289,37 @@ external int sceneResidentBytes(int renderer);
   assetId: _asset,
 )
 external int sceneUploadedBytes(int renderer);
+
+final class NativeTangentLimits extends Struct {
+  @Uint32()
+  external int version;
+  @Uint64()
+  external int maxWorkingBytes;
+  @Uint64()
+  external int maxIterations;
+}
+
+@Native<
+  Uint32 Function(
+    Pointer<Float>,
+    Pointer<Float>,
+    Pointer<Float>,
+    Uint32,
+    Pointer<Uint32>,
+    Uint32,
+    Pointer<NativeTangentLimits>,
+    Pointer<Float>,
+    Size,
+  )
+>(symbol: 'fg2_generate_tangents', assetId: _asset)
+external int generateTangents(
+  Pointer<Float> positions,
+  Pointer<Float> normals,
+  Pointer<Float> uvs,
+  int vertexCount,
+  Pointer<Uint32> indices,
+  int cornerCount,
+  Pointer<NativeTangentLimits> limits,
+  Pointer<Float> output,
+  int outputLength,
+);

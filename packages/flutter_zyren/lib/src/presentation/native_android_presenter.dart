@@ -3,10 +3,18 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:zyren/rendering.dart';
+import 'package:zyren/zyren.dart'
+    show
+        ResourceScope,
+        ShaderCompiler,
+        GraphCompiler,
+        MaterialCompiler,
+        TextureFormat;
 import 'package:zyren_native/surfaces.dart';
+import 'package:zyren_native/zyren_native.dart';
 import '../presentation.dart';
 import 'output_presenter.dart';
-import 'native_gpu_owner.dart';
+import 'native_gpu_transport.dart';
 
 const _channel = MethodChannel('zyren/android-surfaces');
 SceneException _issue(String code, String message, String operation) =>
@@ -20,21 +28,55 @@ SceneException _deferred() => _issue(
 );
 
 /// Controller-owned Vulkan renderer. Select through SceneRuntime.nativeAndroid().
-class NativeAndroidBackend with NativeGpuOwner implements MaterialBackend {
+class NativeAndroidBackend implements NativeGpuBackend {
   final int session;
+  Set<TextureFormat> _textureFormats = const {};
+  Set<int> _sampleCounts = const {1};
   final String adapter;
   final String? driver;
-  late final _encoder = createGpuSceneEncoder(viewId: 1);
+  late final _encoder = _gpu.createSceneEncoder(viewId: 1);
   bool _closed = false;
   int _nextFrame = 0, _nextAttachment = 0;
   Future<FrameOutput>? _drawing;
   Future<void>? _closing;
+  late final _gpu = nativeGpuServices(
+    (args) async => (await request<Map>('gpuCommand', args))!,
+  );
   NativeAndroidBackend._(this.session, this.adapter, this.driver);
+
   @override
-  bool get gpuOwnerClosed => _closed;
+  ResourceScope createResourceScope({String label = ''}) =>
+      _gpu.createResourceScope(label: label);
   @override
-  Future<Map> gpuRequest(Map<String, Object> arguments) async =>
-      (await request<Map>('gpu', arguments))!;
+  ShaderCompiler createShaderCompiler({String label = ''}) =>
+      _gpu.createShaderCompiler(label: label);
+  @override
+  GraphCompiler createGraphCompiler({String label = ''}) =>
+      _gpu.createGraphCompiler(label: label);
+  @override
+  MaterialCompiler createMaterialCompiler({String label = ''}) =>
+      _gpu.createMaterialCompiler(label: label);
+  @override
+  Future<GpuInspection> inspectGpu({int allocationLimit = 128}) {
+    if (_closed) throw StateError('Native view has closed.');
+    return _gpu.inspectGpu(allocationLimit: allocationLimit);
+  }
+
+  @override
+  Future<ResourceStats> resourceStats() => _gpu.resourceStats();
+  @override
+  Future<ShaderStats> shaderStats() => _gpu.shaderStats();
+  @override
+  Future<GraphCacheStats> graphStats() => _gpu.graphStats();
+
+  @override
+  Future<ShadowStats> shadowStats() => _gpu.shadowStats();
+
+  @override
+  Future<TemporalStats> temporalStats() => _gpu.temporalStats();
+
+  @override
+  Future<TransmissionStats> transmissionStats() => _gpu.transmissionStats();
 
   static Future<NativeAndroidBackend> create({int? runtimeToken}) async {
     if (defaultTargetPlatform != TargetPlatform.android) {
@@ -58,7 +100,8 @@ class NativeAndroidBackend with NativeGpuOwner implements MaterialBackend {
         result['driverInfo'] as String?,
       );
       try {
-        await backend.loadGpuCapabilities();
+        backend._textureFormats = await backend._gpu.textureFormats();
+        backend._sampleCounts = (await backend._gpu.deviceInfo()).sampleCounts;
         return backend;
       } catch (_) {
         await backend.close();
@@ -82,10 +125,24 @@ class NativeAndroidBackend with NativeGpuOwner implements MaterialBackend {
   @override
   DeviceCapabilities get capabilities => DeviceCapabilities(
     name: 'wgpu-native',
+    textureFormats: _textureFormats,
     backend: 'Vulkan',
     adapterName: adapter,
     driverDescription: driver,
     features: {
+      if (_sampleCounts.contains(4)) RenderFeature.multisampleAntialiasing,
+      RenderFeature.shaderMaterials,
+      RenderFeature.postprocessing,
+      RenderFeature.punctualLights,
+      RenderFeature.shadowMaps,
+      RenderFeature.spatialAntialiasing,
+      RenderFeature.bloom,
+      RenderFeature.sectionClipping,
+      RenderFeature.floatTextures,
+      RenderFeature.volumeTextures,
+      RenderFeature.hdr,
+      RenderFeature.reversedDepth,
+      RenderFeature.selectionOutlines,
       RenderFeature.sharedTexture,
       RenderFeature.indexedMeshes,
       RenderFeature.diffuseLighting,
@@ -97,29 +154,33 @@ class NativeAndroidBackend with NativeGpuOwner implements MaterialBackend {
       RenderFeature.scopedResources,
       RenderFeature.shaderCompilation,
       RenderFeature.renderGraphs,
+      RenderFeature.frameGraphs,
+      RenderFeature.meshShaders,
+      RenderFeature.standardMaterials,
+      RenderFeature.physicalMaterials,
+      RenderFeature.areaLighting,
+      RenderFeature.temporalAntialiasing,
+      RenderFeature.hdrColor,
+      RenderFeature.environmentLighting,
+      RenderFeature.shadows,
+      RenderFeature.instancing,
+      RenderFeature.skinning,
+      RenderFeature.morphTargets,
       RenderFeature.compute,
       RenderFeature.storageTextures,
-      RenderFeature.floatTextures,
-      RenderFeature.volumeTextures,
-      RenderFeature.shaderMaterials,
-      RenderFeature.postprocessing,
-      RenderFeature.hdr,
-      RenderFeature.standardMaterials,
-      RenderFeature.punctualLights,
-      RenderFeature.environmentLighting,
-      RenderFeature.shadowMaps,
-      RenderFeature.instancing,
-      RenderFeature.spatialAntialiasing,
-      RenderFeature.bloom,
-      RenderFeature.reversedDepth,
-      RenderFeature.selectionOutlines,
-      if (gpuSampleCounts.contains(4)) RenderFeature.multisampleAntialiasing,
     },
     limits: DeviceLimits(
       maxTextureDimension2D: 4096,
-      sampleCounts: gpuSampleCounts,
       maxTextureDimension3D: 256,
+      sampleCounts: _sampleCounts,
+      maxResidentResourceBytes: 256 * 1024 * 1024,
       maxGeometryBytes: 64 * 1024 * 1024,
+      maxInstances: 100000,
+      maxJoints: 256,
+      maxMorphTargets: 64,
+      maxPunctualLights: 16,
+      maxHemisphereLights: 4,
+      maxAreaLights: 4,
     ),
   );
 
@@ -198,14 +259,18 @@ class NativeAndroidBackend with NativeGpuOwner implements MaterialBackend {
     final clock = Stopwatch()..start();
     final packet = _encoder.encode(submission);
     final frame = ++_nextFrame;
-    final pending = request<Map>('render', {
-      'scene': packet.bytes,
-      'frame': frame,
-      'attachment': key.attachment,
-      'epoch': target.epoch,
-      'width': submission.size.width,
-      'height': submission.size.height,
-    });
+    final pending = _gpu.submitFrame(
+      submission,
+      packet.bytes,
+      (bytes) => request<Map>('render', {
+        'scene': bytes,
+        'frame': frame,
+        'attachment': key.attachment,
+        'epoch': target.epoch,
+        'width': submission.size.width,
+        'height': submission.size.height,
+      }),
+    );
     clock.stop();
     final result = (await pending)!;
     if (result['applied'] == true) _encoder.accept(packet);
@@ -221,8 +286,25 @@ class NativeAndroidBackend with NativeGpuOwner implements MaterialBackend {
         presentationPath: PresentationPath.sharedTexture,
         cpuBuildTime: submission.cpuBuildTime,
         cpuSubmitTime: clock.elapsed,
-        drawCalls: submission.scene.drawCalls,
-        triangles: submission.scene.triangles,
+        drawCalls:
+            submission.scene.drawCalls +
+            submission.scene.transmissionCaptureDraws +
+            (submission.temporalAA == null
+                ? 0
+                : submission.scene.temporalMotionDraws + 1) +
+            submission.scene.alphaResolveDraws +
+            submission.outputConversionDraws +
+            (submission.graph?.drawCalls ?? 0),
+        computeDispatches: submission.graph?.dispatches ?? 0,
+        triangles:
+            submission.scene.triangles +
+            submission.scene.transmissionCaptureTriangles +
+            (submission.temporalAA == null
+                ? 0
+                : submission.scene.triangles + 1) +
+            submission.scene.alphaResolveDraws +
+            submission.outputConversionDraws +
+            (submission.graph?.triangles ?? 0),
         readbackBytes: result['readbackBytes'] as int,
         uploadedBytes: packet.uploadedBytes,
       ),
@@ -233,18 +315,11 @@ class NativeAndroidBackend with NativeGpuOwner implements MaterialBackend {
   Future<void> close() => _closing ??= _close();
   Future<void> _close() async {
     _closed = true;
-    final drawing = _drawing;
-    await Future.wait<void>([
-      () async {
-        try {
-          await closeGpuScopes();
-        } finally {
-          await request<void>('close');
-        }
-      }(),
-      if (drawing != null)
-        drawing.then<void>((_) {}, onError: (Object _, StackTrace _) {}),
-    ]);
+    final drawing = _drawing?.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
+    await closeNativeGpuServices(_gpu, () => request<void>('close'), drawing);
   }
 }
 

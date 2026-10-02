@@ -5,7 +5,6 @@ import 'package:zyren/zyren.dart';
 import 'accessor.dart';
 import 'checked.dart';
 import 'metadata.dart';
-import 'node_decoder.dart' show numbers;
 
 const structuralMetadataExtension = 'EXT_structural_metadata';
 

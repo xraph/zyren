@@ -10,6 +10,8 @@ final class EncodedScenePacket {
   final SceneSnapshot _scene;
   final Map<int, GeometrySnapshot> _uploaded;
   final Set<int> _uploadedTextures;
+  final Map<int, InstanceSnapshot> _uploadedInstances;
+  final Map<int, DeformationSnapshot> _uploadedPoses;
   EncodedScenePacket._(
     this.bytes,
     this.uploadedBytes,
@@ -19,6 +21,8 @@ final class EncodedScenePacket {
     this._scene,
     this._uploaded,
     this._uploadedTextures,
+    this._uploadedInstances,
+    this._uploadedPoses,
   );
 }
 
@@ -31,6 +35,8 @@ final class ScenePacketEncoder {
   SceneSnapshot? _previous;
   Map<int, GeometrySnapshot> _uploaded = {};
   Set<int> _uploadedTextures = {};
+  Map<int, InstanceSnapshot> _uploadedInstances = {};
+  Map<int, DeformationSnapshot> _uploadedPoses = {};
   ScenePacketEncoder({required this.viewId, this.materialDevice}) {
     if (viewId <= 0) throw ArgumentError.value(viewId, 'viewId');
   }
@@ -82,13 +88,6 @@ final class ScenePacketEncoder {
     final patches = <_GeometryPatch>[];
     for (final geometry in scene._geometries.values) {
       if (!visible.contains(geometry.id)) continue;
-      if (geometry.attributes.keys.any(
-        (s) => s.index > VertexSemantic.tangent.index,
-      )) {
-        throw UnsupportedError(
-          'This material renderer supports position, normal, UV and tangent attributes.',
-        );
-      }
       if (geometry.topology != GeometryTopology.triangles &&
           (geometry.uv0 != null ||
               geometry.uv1 != null ||
@@ -100,7 +99,10 @@ final class ScenePacketEncoder {
       final base = uploaded[geometry.logicalId];
       if (base?.id == geometry.id) continue;
       final ranges =
-          base == null || geometry.topology != GeometryTopology.triangles
+          base == null ||
+              geometry.topology != GeometryTopology.triangles ||
+              geometry.joints != null ||
+              geometry.morphTargets.isNotEmpty
           ? null
           : geometry.changesSince(base);
       if (base == null || ranges == null) {
@@ -120,12 +122,57 @@ final class ScenePacketEncoder {
     );
     final visibleTextures = {
       for (final mesh in scene._meshes)
-        ...(mesh['allImages'] as List).cast<int>(),
+        if ((mesh['colorMap'] as List).isNotEmpty)
+          (mesh['colorMap'] as List).first as int,
+      for (final mesh in scene._meshes)
+        for (final field in [..._standardMapFields, ..._physicalMapFields])
+          if ((mesh['pbr'] as Map?)?[field] case final List binding)
+            binding.first as int,
     };
     final textures = [
       for (final id in visibleTextures)
         if (!uploadedTextures.contains(id)) scene._textures[id]!,
     ];
+    final instanceLogicalIds = scene._instances.values
+        .map((v) => v.logicalId)
+        .toSet();
+    final uploadedInstances = Map<int, InstanceSnapshot>.of(_uploadedInstances)
+      ..removeWhere((id, _) => !instanceLogicalIds.contains(id));
+    final visibleInstances = scene._meshes.map((m) => m['instances']).toSet();
+    final instanceUploads = <InstanceSnapshot>[];
+    final instancePatches = <(int, InstanceSnapshot, List<InstanceRange>)>[];
+    for (final instance in scene._instances.values) {
+      if (!visibleInstances.contains(instance.id)) continue;
+      final base = uploadedInstances[instance.logicalId];
+      if (base?.id == instance.id) continue;
+      final ranges = base == null ? null : instance.changesSince(base);
+      if (base == null || ranges == null) {
+        instanceUploads.add(instance);
+      } else {
+        instancePatches.add((base.id, instance, ranges));
+      }
+      uploadedInstances[instance.logicalId] = instance;
+    }
+    final ownedInstances = {
+      for (final instance in scene._instances.values)
+        if (uploadedInstances[instance.logicalId] case final uploaded?)
+          uploaded.id,
+    };
+    final poseLogicalIds = scene._poses.values.map((v) => v.logicalId).toSet();
+    final uploadedPoses = Map<int, DeformationSnapshot>.of(_uploadedPoses)
+      ..removeWhere((id, _) => !poseLogicalIds.contains(id));
+    final visiblePoses = scene._meshes.map((m) => m['pose']).toSet();
+    final poseUploads = <DeformationSnapshot>[];
+    for (final pose in scene._poses.values) {
+      if (!visiblePoses.contains(pose.id)) continue;
+      if (uploadedPoses[pose.logicalId]?.id == pose.id) continue;
+      poseUploads.add(pose);
+      uploadedPoses[pose.logicalId] = pose;
+    }
+    final ownedPoses = {
+      for (final pose in scene._poses.values)
+        if (uploadedPoses[pose.logicalId] case final uploaded?) uploaded.id,
+    };
     final updates = <int>[];
     // Choose full replacement before accessing the nullable baseline. Keep this
     // guard explicit for AOT compilation as well as first-frame ownership.
@@ -160,52 +207,87 @@ final class ScenePacketEncoder {
         (sum, level) => sum + level.length,
       );
     }
+    uploadBytes += instanceUploads.fold<int>(
+      0,
+      (n, instance) => n + instance.gpuByteLength,
+    );
+    for (final (_, _, ranges) in instancePatches) {
+      uploadBytes += ranges.fold<int>(0, (n, range) => n + range.count * 128);
+    }
+    uploadBytes += poseUploads.fold<int>(
+      0,
+      (n, pose) => n + pose.gpuByteLength,
+    );
     if (vertices > 1000000 ||
         indices > 3000000 ||
         uploadBytes > 64 * 1024 * 1024) {
       throw ArgumentError('Scene resource upload exceeds the frame budget.');
     }
-    final instanceCount = scene._meshes.fold(
-      0,
-      (sum, mesh) => sum + (mesh['instances'] as List).length ~/ 16,
-    );
-    if (instanceCount > 65536) {
-      throw ArgumentError('A view supports at most 65536 instances.');
-    }
-    final hasTangents = scene._geometries.values.any((g) => g.tangents != null);
-    final opcode =
+    final settings = scene._settings;
+    final screenEnabled =
+        settings.hdr ||
+        settings.effects.isNotEmpty ||
+        settings.bloom != null ||
+        settings.toneMapping != ToneMapping.linear ||
+        settings.exposure != 1 ||
+        settings.sampleCount != 1 ||
+        settings.spatialAntialiasing != SpatialAntialiasing.none ||
+        settings.environment != null ||
+        settings.historyEpoch != 0;
+    final extension =
+        scene._shadowLights.any(
+          (light) => light.settings is! DirectionalShadow,
+        ) ||
+        screenEnabled ||
+        submission.camera.depthStrategy == DepthStrategy.reversed ||
+        scene._outline != null ||
         scene._meshes.any(
           (m) =>
-              (m['coverage'] as List)[0] != 0 ||
-              (m['coverage'] as List)[1] != 1,
-        )
+              m['shader'] != null ||
+              (m['clippingPlanes'] as List).isNotEmpty ||
+              (m['coverage'] as List)[0] != 0.0 ||
+              (m['coverage'] as List)[1] != 1.0 ||
+              (m['pbr'] != null &&
+                  (m['pbr'] as Map)['normal_scale_y'] !=
+                      (m['pbr'] as Map)['normal_scale']),
+        );
+    final opcode = extension
+        ? 36
+        : scene._shadowLights.any((light) => light.settings is AreaShadow)
+        ? 35
+        : scene._meshes.any((m) => (m['pbr'] as Map?)?['physical'] != null)
+        ? 34
+        : submission.temporalAA != null
         ? 31
-        : scene.hasOutline
+        : scene.areaLightCount > 0
         ? 30
-        : submission.camera.depthStrategy == DepthStrategy.reversed
+        : scene._meshes.any((m) => (m['pbr'] as Map?)?['physical'] != null)
         ? 29
-        : scene._meshes.any((m) => (m['clippingPlanes'] as List).isNotEmpty)
+        : (submission.colorPipeline?.sampleCount ?? 1) > 1
         ? 28
-        : scene._settings.bloom != null ||
-              scene._settings.spatialAntialiasing != SpatialAntialiasing.none
+        : scene._meshes.any((m) => m['color_visible'] == false)
         ? 27
-        : scene._settings.sampleCount != 1
+        : scene.hasInstances
         ? 26
-        : instanceCount > 0
+        : scene.hasDeformation ||
+              scene._geometries.values.any(
+                (g) => g.joints != null || g.morphTargets.isNotEmpty,
+              )
         ? 25
-        : scene._shadows.isNotEmpty ||
-              scene._meshes.any((m) => m['shadowFlags'] != 2)
-        ? 24
-        : environment != null
+        : scene._geometries.values.any((g) => g.colors != null) ||
+              scene._meshes.any((m) => m['vertex_colors'] == true)
         ? 23
-        : hasTangents
+        : scene.hasShadows
         ? 22
-        : (scene._lights.isNotEmpty ||
-              scene._meshes.any((m) => (m['pbr'] as List).isNotEmpty))
+        : submission.colorPipeline != null
         ? 21
-        : scene._settings.enabled
+        : scene.hasStandardMaterials ||
+              scene.hemisphereLightCount > 0 ||
+              scene._geometries.values.any((g) => g.tangents != null)
+        ? 20
+        : scene.punctualLightCount > 0
         ? 19
-        : scene._meshes.any((m) => m.containsKey('shader'))
+        : scene.backgroundOpacity < 1
         ? 18
         : scene._meshes.any((m) => m['side'] != 0)
         ? 17
@@ -239,73 +321,122 @@ final class ScenePacketEncoder {
     body.floats(scene._background);
     body.floats(scene._light);
     body.floats([scene._ambient]);
-    body.u32(scene._textures.length);
-    body.u32(textures.length);
-    if (opcode >= 12) body.u32(patches.length);
+    if (opcode >= 18) body.floats([scene.backgroundOpacity]);
     if (opcode >= 19) {
-      body.u32(effects.length);
-      body.u32(scene._settings.toneMapping.index);
-      body.floats([scene._settings.exposure, scene._settings.backgroundAlpha]);
-      body.u32(scene._settings.historyEpoch);
-      for (final component in submission.camera.origin) {
-        body.f64(component);
-      }
-      for (final key in effects) {
-        body.add(key);
+      body.u32(scene._lights.length);
+      for (final light in scene._lights) {
+        body.u32(light['kind'] as int);
+        body.floats((light['color'] as List).cast<double>());
+        body.floats([light['intensity'] as double]);
+        body.floats((light['position'] as List).cast<double>());
+        body.floats((light['direction'] as List).cast<double>());
+        body.floats([
+          light['range'] as double,
+          light['inner_cos'] as double,
+          light['outer_cos'] as double,
+        ]);
       }
     }
     if (opcode >= 20) {
-      body.u32(scene._lights.length);
-      for (final light in scene._lights) {
-        body.floats(light);
+      body.u32(scene._hemispheres.length);
+      for (final light in scene._hemispheres) {
+        body.floats((light['sky_color'] as List).cast<double>());
+        body.floats((light['ground_color'] as List).cast<double>());
+        body.floats((light['direction'] as List).cast<double>());
+        body.floats([light['intensity'] as double]);
       }
     }
-    if (opcode >= 23) {
-      body.u32(environmentKeys == null ? 0 : 1);
-      if (environmentKeys != null) {
-        for (final key in environmentKeys) {
-          body.add(key);
-        }
-        body.floats([environment!.intensity, environment.rotation]);
-      }
-    }
-    if (opcode >= 24) {
-      body.u32(scene._shadows.length);
-      body.floats(scene._shadowCamera);
-      for (final shadow in scene._shadows) {
-        body.floats(shadow);
-      }
-    }
-    if (opcode >= 26) body.u32(scene._settings.sampleCount);
-    if (opcode >= 27) {
-      body.u32(scene._settings.spatialAntialiasing.index);
-      final bloom = scene._settings.bloom;
-      body.u32(bloom == null ? 0 : 1);
-      if (bloom != null) {
-        body.floats([
-          bloom.intensity,
-          bloom.threshold,
-          bloom.softKnee,
-          bloom.scatter,
-        ]);
-        body.u32(bloom.levels);
-      }
-    }
-    if (opcode >= 28) body.u32(scene._settings.enabled ? 1 : 0);
-    if (opcode >= 29) body.u32(submission.camera.depthStrategy.index);
     if (opcode >= 30) {
-      final outline = scene._outline;
-      if (opcode >= 31) body.u32(outline == null ? 0 : 1);
-      if (outline != null) {
-        body.floats([...outline.color.toList(), outline.opacity]);
-        body.u32(outline.width);
+      body.u32(scene._areas.length);
+      for (final light in scene._areas) {
+        for (final field in [
+          'position',
+          'half_width',
+          'half_height',
+          'color',
+        ]) {
+          body.floats((light[field] as List).cast<double>());
+        }
+        body.floats([light['intensity'] as double]);
       }
+    }
+    if (opcode >= 32) body.u32(submission.temporalAA == null ? 0 : 1);
+    if (opcode >= 31 && submission.temporalAA != null) {
+      final options = submission.temporalAA!;
+      body.floats([options.historyWeight, options.depthTolerance]);
+      body.u64(options.maxBytes);
+      body.u64(submission.temporalReset);
+      body.u64(submission.camera.identity);
+      // Float64 origins preserve cut detection at large world coordinates.
+      for (final value in submission.camera.origin) {
+        final bytes = ByteData(8)..setFloat64(0, value, Endian.little);
+        body.add(bytes.buffer.asUint8List());
+      }
+      body.floats(submission.camera.forward);
+      body.floats([submission.camera.targetDistance]);
+      body.floats(submission.camera.projection);
+      body.u32(scene._identities.length);
+      for (final pair in scene._identities) {
+        body.u64(pair.$1);
+        body.u64(pair.$2);
+      }
+    }
+    if (opcode >= 22) body.u32(submission.colorPipeline == null ? 0 : 1);
+    if (opcode >= 21 && submission.colorPipeline != null) {
+      body.u32(submission.colorPipeline!.toneMapping.index);
+      body.floats([submission.colorPipeline!.exposure]);
+      if (opcode >= 28) body.u32(submission.colorPipeline!.sampleCount);
+    }
+    if (opcode >= 22) {
+      body.u32(submission.shadows.views.length);
+      body.floats(submission.shadows.forward);
+      for (final view in submission.shadows.views) {
+        body.integers([
+          view.lightIndex,
+          view.kind,
+          view.resolution,
+          view.revision,
+        ]);
+        body.floats(view.viewProjection);
+        body.floats([
+          view.near,
+          view.far,
+          view.blend,
+          view.settings.strength,
+          view.settings.bias,
+          view.settings.normalBias,
+          view.settings.slopeBias,
+          view.settings.filterRadius,
+        ]);
+      }
+    }
+    body.u32(scene._textures.length);
+    body.u32(textures.length);
+    if (opcode >= 12) body.u32(patches.length);
+    if (opcode >= 24) {
+      body.u32(ownedInstances.length);
+      body.u32(instanceUploads.length);
+      body.u32(instancePatches.length);
+    }
+    if (opcode >= 25) {
+      body.u32(ownedPoses.length);
+      body.u32(poseUploads.length);
     }
     for (final id in owned) {
       body.u32(id);
     }
     for (final id in scene._textures.keys) {
       body.u32(id);
+    }
+    if (opcode >= 24) {
+      for (final id in ownedInstances) {
+        body.u32(id);
+      }
+    }
+    if (opcode >= 25) {
+      for (final id in ownedPoses) {
+        body.u32(id);
+      }
     }
     for (final image in textures) {
       body.u32(image.id);
@@ -332,7 +463,10 @@ final class ScenePacketEncoder {
         (geometry.uv0 == null ? 0 : 1) |
             (geometry.uv1 == null ? 0 : 2) |
             (geometry.indexFormat == IndexFormat.uint16 ? 4 : 0) |
-            (geometry.tangents == null ? 0 : 8),
+            (geometry.tangents == null ? 0 : 8) |
+            (geometry.colors == null ? 0 : 16) |
+            (geometry.joints == null ? 0 : 32) |
+            (geometry.morphTargets.isEmpty ? 0 : 64),
       );
       if (opcode >= 16) body.u32(geometry.topology.index);
       body.floats(geometry.positions);
@@ -341,6 +475,24 @@ final class ScenePacketEncoder {
       if (geometry.uv0 != null) body.floats(geometry.uv0!);
       if (geometry.uv1 != null) body.floats(geometry.uv1!);
       if (geometry.tangents != null) body.floats(geometry.tangents!);
+      if (geometry.colors != null) body.floats(geometry.colors!);
+      if (geometry.joints != null) {
+        body.integers(geometry.joints!);
+        body.floats(geometry.weights!);
+      }
+      if (geometry.morphTargets.isNotEmpty) {
+        body.u32(geometry.morphTargets.length);
+        for (final target in geometry.morphTargets) {
+          body.u32(
+            (target.positions == null ? 0 : 1) |
+                (target.normals == null ? 0 : 2) |
+                (target.tangents == null ? 0 : 4),
+          );
+          if (target.positions != null) body.floats(target.positions!);
+          if (target.normals != null) body.floats(target.normals!);
+          if (target.tangents != null) body.floats(target.tangents!);
+        }
+      }
     }
     for (final patch in patches) {
       body.u32(patch.geometry.id);
@@ -351,14 +503,51 @@ final class ScenePacketEncoder {
         body.u32(range.firstVertex);
         body.u32(range.vertexCount);
         final attribute = patch.geometry.attributes[range.semantic]!;
-        final values = attribute.data as Float32List;
-        final components = attribute.format.components;
+        final values = range.semantic == VertexSemantic.color
+            ? patch.geometry.colors!
+            : attribute.data as Float32List;
+        final components = range.semantic == VertexSemantic.color
+            ? 4
+            : attribute.format.components;
         body.floats(
           values.sublist(
             range.firstVertex * components,
             (range.firstVertex + range.vertexCount) * components,
           ),
         );
+      }
+    }
+    for (final instance in instanceUploads) {
+      body.u32(instance.id);
+      body.u32(instance.capacity);
+      for (var i = 0; i < instance.capacity; i++) {
+        body.floats(instance.transforms[i].storage);
+        body.floats(instance.colors[i].toList());
+      }
+    }
+    for (final (baseId, instance, ranges) in instancePatches) {
+      body.u32(instance.id);
+      body.u32(baseId);
+      body.u32(ranges.length);
+      for (final range in ranges) {
+        body.u32(range.first);
+        body.u32(range.count);
+        for (var i = range.first; i < range.first + range.count; i++) {
+          body.floats(instance.transforms[i].storage);
+          body.floats(instance.colors[i].toList());
+        }
+      }
+    }
+    for (final pose in poseUploads) {
+      body.integers([
+        pose.id,
+        pose.geometry.id,
+        pose.weights.length,
+        pose.matrices.length,
+      ]);
+      body.floats(pose.weights);
+      for (final matrix in pose.matrices) {
+        body.floats(matrix.storage);
       }
     }
     for (final i in updates) {
@@ -386,43 +575,135 @@ final class ScenePacketEncoder {
           body.u32(mesh['size_units'] as int);
           body.u32(mesh['point_shape'] as int);
           if (opcode >= 17) body.u32(mesh['side'] as int);
-          if (opcode >= 18) {
-            final shader = mesh['shader'] as MeshShader?;
-            body.u32(shader == null ? 0 : 1);
-            if (shader != null) {
-              final device = materialDevice;
-              if (device == null) {
-                throw UnsupportedError(
-                  'Custom materials require a material-capable backend.',
-                );
+          if (opcode >= 19) {
+            final material = mesh['pbr'] as Map?;
+            body.u32(material == null ? 0 : 1);
+            if (material != null) {
+              body.floats([
+                material['metallic'] as double,
+                material['roughness'] as double,
+              ]);
+              body.floats((material['emissive'] as List).cast<double>());
+              if (opcode >= 20) {
+                body.floats([
+                  material['normal_scale'] as double,
+                  material['occlusion_strength'] as double,
+                ]);
+                for (final field in _standardMapFields) {
+                  final binding = (material[field] as List?)?.cast<int>();
+                  body.u32(binding == null ? 0 : 1);
+                  if (binding != null) body.integers(binding);
+                }
               }
-              body.add(shader.encodeForDevice(device));
+            }
+            if (opcode >= 29) {
+              final physical = (material?['physical'] as List?)?.cast<double>();
+              body.u32(physical == null ? 0 : 1);
+              if (physical != null) {
+                body.floats(physical);
+                if (opcode >= 33) {
+                  body.floats(
+                    (material!['transmission'] as List).cast<double>(),
+                  );
+                }
+                if (opcode >= 34) {
+                  body.floats((material!['optical'] as List).cast<double>());
+                }
+                if (opcode >= 32) {
+                  for (final field in _physicalMapFields) {
+                    final binding = (material![field] as List?)?.cast<int>();
+                    body.u32(binding == null ? 0 : 1);
+                    if (binding != null) body.integers(binding);
+                  }
+                }
+              }
             }
           }
         }
       }
-      if (opcode >= 20) {
-        final pbr = (mesh['pbr'] as List).cast<double>();
-        body.u32(pbr.isEmpty ? 0 : 1);
-        body.floats(pbr);
-        if (opcode >= 21) {
-          body.integers((mesh['pbrMaps'] as List).cast<int>());
-          body.floats((mesh['pbrScales'] as List).cast<double>());
+      if (opcode >= 22) {
+        body.u32(mesh['cast_shadow'] == true ? 1 : 0);
+        body.u32(mesh['receive_shadow'] == true ? 1 : 0);
+      }
+      if (opcode >= 23) body.u32(mesh['vertex_colors'] == true ? 1 : 0);
+      if (opcode >= 24) {
+        body.u32(mesh['instances'] as int);
+        body.u32(mesh['instance_count'] as int);
+      }
+      if (opcode >= 25) body.u32(mesh['pose'] as int);
+      if (opcode >= 27) body.u32(mesh['color_visible'] == false ? 0 : 1);
+      if (opcode >= 36) {
+        List<int> key(Uint8List bytes) {
+          final d = ByteData.sublistView(bytes);
+          return [
+            for (var i = 0; i < 4; i++) d.getUint64(i * 8, Endian.little),
+          ];
         }
+
+        final shader = mesh['shader'] as MeshShader?;
+        final planes = mesh['clippingPlanes'] as List;
+        body.json({
+          'material_shader': shader == null
+              ? null
+              : key(shader.encodeForDevice(materialDevice!)),
+          'clipping_planes': [
+            for (var i = 0; i < planes.length; i += 4) planes.sublist(i, i + 4),
+          ],
+          'coverage': mesh['coverage'],
+          'outlined': mesh['outlined'],
+          'normal_scale_y': (mesh['pbr'] as Map?)?['normal_scale_y'],
+          'shadow_world_model': (mesh['shadow_world_model'] as List).isEmpty
+              ? null
+              : mesh['shadow_world_model'],
+        });
       }
-      if (opcode >= 24) body.u32(mesh['shadowFlags'] as int);
-      if (opcode >= 25) {
-        final instances = (mesh['instances'] as List).cast<double>();
-        body.u32(instances.length ~/ 16);
-        body.floats(instances);
+    }
+    if (opcode >= 36) {
+      List<int> key(Uint8List bytes) {
+        final d = ByteData.sublistView(bytes);
+        return [for (var i = 0; i < 4; i++) d.getUint64(i * 8, Endian.little)];
       }
-      if (opcode >= 28) {
-        final planes = (mesh['clippingPlanes'] as List).cast<double>();
-        body.u32(planes.length ~/ 4);
-        body.floats(planes);
-      }
-      if (opcode >= 30) body.u32(mesh['outlined'] == true ? 1 : 0);
-      if (opcode >= 31) body.floats((mesh['coverage'] as List).cast<double>());
+
+      final bloom = settings.bloom, outline = scene._outline;
+      body.json({
+        'enabled': screenEnabled,
+        'sample_count': screenEnabled
+            ? submission.colorPipeline?.sampleCount ?? settings.sampleCount
+            : 1,
+        'depth_strategy': submission.camera.depthStrategy.index,
+        'spatial_antialiasing': settings.spatialAntialiasing.index,
+        'effects': effects.map(key).toList(),
+        'tone_mapping':
+            (submission.colorPipeline?.toneMapping ?? settings.toneMapping)
+                .index,
+        'exposure': submission.colorPipeline?.exposure ?? settings.exposure,
+        'background_alpha': scene.backgroundOpacity,
+        'camera_origin': submission.camera.origin,
+        'shadow_world_lights': [
+          for (final light in scene._shadowLights)
+            [light.index, ...light.worldPosition],
+        ],
+        'history_epoch': settings.historyEpoch,
+        if (bloom != null)
+          'bloom': {
+            'intensity': bloom.intensity,
+            'threshold': bloom.threshold,
+            'soft_knee': bloom.softKnee,
+            'scatter': bloom.scatter,
+            'levels': bloom.levels,
+          },
+        if (outline != null)
+          'outline': {
+            'color': [...outline.color.toList(), outline.opacity],
+            'width': outline.width,
+          },
+        if (environment != null)
+          'environment': {
+            'keys': environmentKeys!.map(key).toList(),
+            'intensity': environment.intensity,
+            'rotation': environment.rotation,
+          },
+      });
     }
     final payload = body.finish();
     if (payload.length > 66 * 1024 * 1024 - 24) {
@@ -444,6 +725,8 @@ final class ScenePacketEncoder {
       scene,
       uploaded,
       uploadedTextures,
+      uploadedInstances,
+      uploadedPoses,
     );
   }
 
@@ -456,6 +739,8 @@ final class ScenePacketEncoder {
     _previous = packet._scene;
     _uploaded = packet._uploaded;
     _uploadedTextures = packet._uploadedTextures;
+    _uploadedInstances = packet._uploadedInstances;
+    _uploadedPoses = packet._uploadedPoses;
     _accepted = packet._revision;
   }
 }
@@ -467,14 +752,14 @@ final class _GeometryPatch {
   _GeometryPatch(this.baseId, this.geometry, this.ranges);
   int get uploadedBytes {
     var bytes = 0;
-    for (var buffer = 0; buffer < 3; buffer++) {
+    for (var buffer = 0; buffer < 4; buffer++) {
       final selected = [
         for (final range in ranges)
           if ((range.semantic.index < 2
                   ? 0
-                  : range.semantic == VertexSemantic.tangent
-                  ? 2
-                  : 1) ==
+                  : range.semantic.index < 4
+                  ? 1
+                  : range.semantic.index - 2) ==
               buffer)
             range,
       ]..sort((a, b) => a.firstVertex.compareTo(b.firstVertex));
@@ -490,14 +775,56 @@ final class _GeometryPatch {
   }
 }
 
+const _standardMapFields = [
+  'normal_map',
+  'metallic_roughness_map',
+  'occlusion_map',
+  'emissive_map',
+];
+
 bool _sameMesh(Map<String, Object> a, Map<String, Object> b) {
-  if (!identical(a['shader'], b['shader'])) return false;
+  final leftPbr = a['pbr'] as Map?, rightPbr = b['pbr'] as Map?;
+  if (leftPbr == null || rightPbr == null) {
+    if (leftPbr != rightPbr) return false;
+  } else {
+    if (leftPbr['metallic'] != rightPbr['metallic'] ||
+        leftPbr['roughness'] != rightPbr['roughness'] ||
+        leftPbr['normal_scale'] != rightPbr['normal_scale'] ||
+        leftPbr['normal_scale_y'] != rightPbr['normal_scale_y'] ||
+        leftPbr['occlusion_strength'] != rightPbr['occlusion_strength']) {
+      return false;
+    }
+    for (final field in [
+      ..._standardMapFields,
+      ..._physicalMapFields,
+      'physical',
+      'transmission',
+      'optical',
+    ]) {
+      final left = (leftPbr[field] as List?) ?? const [],
+          right = (rightPbr[field] as List?) ?? const [];
+      if (left.length != right.length) return false;
+      for (var i = 0; i < left.length; i++) {
+        if (left[i] != right[i]) return false;
+      }
+    }
+    for (var i = 0; i < 3; i++) {
+      if ((leftPbr['emissive'] as List)[i] !=
+          (rightPbr['emissive'] as List)[i]) {
+        return false;
+      }
+    }
+  }
   for (final field in [
     'geometry',
+    'shader',
     'outlined',
+    'instances',
+    'pose',
+    'instance_count',
     'unlit',
+    'vertex_colors',
     'side',
-    'shadowFlags',
     'alpha_mode',
     'opacity',
     'alpha_cutoff',
@@ -508,17 +835,17 @@ bool _sameMesh(Map<String, Object> a, Map<String, Object> b) {
     'primitive_size',
     'size_units',
     'point_shape',
+    'cast_shadow',
+    'receive_shadow',
+    'color_visible',
   ]) {
     if (a[field] != b[field]) return false;
   }
   for (final field in [
     'model',
+    'shadow_world_model',
     'color',
     'colorMap',
-    'pbr',
-    'pbrMaps',
-    'pbrScales',
-    'instances',
     'clippingPlanes',
     'coverage',
   ]) {
@@ -533,6 +860,12 @@ bool _sameMesh(Map<String, Object> a, Map<String, Object> b) {
 
 final class _SceneWriter {
   final _bytes = BytesBuilder(copy: false);
+  void json(Map<String, Object?> value) {
+    final bytes = Uint8List.fromList(utf8.encode(jsonEncode(value)));
+    u32(bytes.length);
+    add(bytes);
+  }
+
   void add(Uint8List bytes) => _bytes.add(bytes);
   void u32(int value) {
     if (value < 0 || value > 0xffffffff) {
@@ -586,3 +919,18 @@ final class _SceneWriter {
 
   Uint8List finish() => _bytes.takeBytes();
 }
+
+const _physicalMapFields = [
+  'clearcoat_map',
+  'clearcoat_roughness_map',
+  'clearcoat_normal_map',
+  'sheen_color_map',
+  'sheen_roughness_map',
+  'specular_intensity_map',
+  'specular_color_map',
+  'anisotropy_map',
+  'transmission_map',
+  'thickness_map',
+  'iridescence_map',
+  'iridescence_thickness_map',
+];

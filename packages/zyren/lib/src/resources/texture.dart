@@ -9,23 +9,51 @@ final class Texture {
 typedef GpuTexture = Texture;
 
 enum TextureFormat {
-  rgba8Unorm(4, true),
-  rgba8UnormSrgb(4, true),
-  rgba16Float(8, true),
-  rgba32Float(16, false),
-  r32Float(4, false);
+  rgba8Unorm,
+  rgba8UnormSrgb,
+  rgba16Float,
+  bc7RgbaUnorm,
+  bc7RgbaUnormSrgb,
+  etc2Rgba8Unorm,
+  etc2Rgba8UnormSrgb,
+  astc4x4Unorm,
+  astc4x4UnormSrgb,
+  rgba32Float,
+  r32Float;
 
-  final int bytesPerTexel;
+  bool get isCompressed => index >= 3 && index <= 8;
+  bool get filterable => this != rgba32Float && this != r32Float;
+  int get bytesPerTexel => switch (this) {
+    rgba16Float => 8,
+    rgba32Float => 16,
+    r32Float || rgba8Unorm || rgba8UnormSrgb => 4,
+    _ => throw StateError('Compressed textures use blocks, not texels.'),
+  };
+  bool get isSrgb => this == rgba8UnormSrgb || (isCompressed && index.isEven);
+  int get blockWidth => isCompressed ? 4 : 1;
+  int get blockHeight => blockWidth;
+  int get bytesPerBlock => isCompressed ? 16 : bytesPerTexel;
 
-  /// Whether the portable baseline permits linear sampling.
-  final bool filterable;
-  const TextureFormat(this.bytesPerTexel, this.filterable);
+  /// Reinterprets the same bytes with the selected transfer function.
+  TextureFormat withSrgb(bool srgb) {
+    if (this == rgba16Float || this == rgba32Float || this == r32Float) {
+      if (srgb) throw ArgumentError('Float textures have linear storage.');
+      return this;
+    }
+    final linear = isSrgb ? index - 1 : index;
+    return values[linear + (srgb ? 1 : 0)];
+  }
+
+  int levelByteLength(int width, int height) =>
+      ((width + blockWidth - 1) ~/ blockWidth) *
+      ((height + blockHeight - 1) ~/ blockHeight) *
+      bytesPerBlock;
 }
-
-enum TextureDimension { d2, d3 }
 
 /// Independent channels preserve hidden RGB. Weighted RGB uses alpha coverage
 /// to prevent transparent colors from bleeding into smaller levels.
+enum TextureDimension { d2, d3 }
+
 enum MipmapAlphaFilter { independent, weighted }
 
 enum TextureUsage {
@@ -36,8 +64,8 @@ enum TextureUsage {
   storage,
 }
 
-/// A typed texture. Float formats store linear data without color conversion.
-/// Mip uploads contain tightly packed rows and depth slices, in that order.
+/// A two-dimensional RGBA texture. Float texels use four little-endian float16 values.
+/// Mip uploads contain tightly packed rows and preserve alpha without conversion.
 final class TextureDescriptor extends ResourceDescriptor<Texture> {
   final int width, height, depth, mipLevels;
   final TextureDimension dimension;
@@ -76,13 +104,22 @@ final class TextureDescriptor extends ResourceDescriptor<Texture> {
       );
     }
     if (usage.isEmpty) throw ArgumentError('Texture usage must not be empty.');
+    if (usage.contains(TextureUsage.storage) && format.isSrgb) {
+      throw ArgumentError('Storage textures require a linear format.');
+    }
+    if (format.isCompressed &&
+        (dimension != TextureDimension.d2 ||
+            width % 4 != 0 ||
+            height % 4 != 0 ||
+            usage.contains(TextureUsage.renderAttachment) ||
+            usage.contains(TextureUsage.storage))) {
+      throw ArgumentError(
+        'Compressed textures require block-aligned base dimensions and sampled/copy usage.',
+      );
+    }
     if (dimension == TextureDimension.d3 &&
         usage.contains(TextureUsage.renderAttachment)) {
       throw ArgumentError('Volume textures cannot be color attachments.');
-    }
-    if (usage.contains(TextureUsage.storage) &&
-        format == TextureFormat.rgba8UnormSrgb) {
-      throw ArgumentError('Storage textures require a linear format.');
     }
     if (byteLength > 64 * 1024 * 1024) {
       throw ArgumentError('Texture exceeds 64 MiB.');
@@ -91,10 +128,8 @@ final class TextureDescriptor extends ResourceDescriptor<Texture> {
   int mipByteLength(int level) {
     RangeError.checkValueInInterval(level, 0, mipLevels - 1, 'mipLevel');
     final w = width >> level, h = height >> level, d = depth >> level;
-    return (w == 0 ? 1 : w) *
-        (h == 0 ? 1 : h) *
-        (d == 0 ? 1 : d) *
-        format.bytesPerTexel;
+    return format.levelByteLength(w == 0 ? 1 : w, h == 0 ? 1 : h) *
+        (d == 0 ? 1 : d);
   }
 
   @override

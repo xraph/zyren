@@ -265,7 +265,7 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
                             640 / math.max(1, longest),
                           ),
                           errorBuilder: (context, issue, retry) =>
-                              ZeroState(error: issue, onRetry: retry),
+                              RendererZeroState(error: issue, onRetry: retry),
                         );
                       },
                     ),

@@ -2,8 +2,8 @@ import 'limits.dart';
 
 enum GltfMaterialMode { standard, unlitDiagnostic }
 
-/// Standard mode requires a qualified material path. The current native profile
-/// supports KHR_materials_unlit; diagnostic mode approximates PBR with base color.
+/// Standard mode imports metallic/roughness and KHR_materials_unlit materials.
+/// Diagnostic mode approximates PBR with unlit base color and reports a warning.
 final class GltfOptions {
   final GltfLimits limits;
   final GltfMaterialMode materialMode;

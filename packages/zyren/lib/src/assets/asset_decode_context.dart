@@ -1,6 +1,6 @@
 part of 'asset_scope.dart';
 
-/// Services for a single decode. Reads and CPU decodes are admitted serially
+/// Services for a single decode. Reads and CPU preparation are admitted serially
 /// so concurrent dependencies cannot each spend the same remaining budget.
 final class AssetDecodeContext {
   final AssetServices _services;
@@ -207,14 +207,37 @@ final class AssetDecodeContext {
     _decodedBytes += bytes;
   }
 
-  Future<ImageData> decodeImage(Uint8List bytes, {String? fieldPath}) {
+  Future<ImageData> decodeImage(Uint8List bytes, {String? fieldPath}) =>
+      _decodeImage<ImageData>(
+        bytes,
+        _services.imageDecoder?.decode,
+        (image) => image.pixels.lengthInBytes,
+        'image',
+        fieldPath,
+      );
+
+  Future<HdrImageData> decodeHdrImage(Uint8List bytes, {String? fieldPath}) =>
+      _decodeImage<HdrImageData>(
+        bytes,
+        _services.hdrImageDecoder?.decode,
+        (image) => image.pixels.lengthInBytes,
+        'HDR image',
+        fieldPath,
+      );
+
+  Future<T> _decodeImage<T>(
+    Uint8List bytes,
+    Future<T> Function(Uint8List, {ImageDecodeLimits limits})? decode,
+    int Function(T) byteLength,
+    String kind,
+    String? fieldPath,
+  ) {
     final future = _decodeTail.then((_) async {
       cancellation.throwIfCancelled();
-      final decoder = _services.imageDecoder;
-      if (decoder == null) {
+      if (decode == null) {
         throw AssetLoadException(
           AssetLoadError.unsupportedFeature,
-          'No image decoder is configured.',
+          'No $kind decoder is configured.',
           sourceUri: sourceUri,
           fieldPath: fieldPath,
         );
@@ -230,10 +253,10 @@ final class AssetDecodeContext {
         maxWorkingBytes: imageLimits.maxWorkingBytes,
         maxDimension: imageLimits.maxDimension,
       );
-      late final ImageData image;
+      late final T image;
       try {
         decodeLimits.validateInput(bytes);
-        image = await decoder.decode(bytes, limits: decodeLimits);
+        image = await decode(bytes, limits: decodeLimits);
       } on ImageDecodeException catch (error) {
         throw AssetLoadException(
           switch (error.code) {
@@ -251,7 +274,11 @@ final class AssetDecodeContext {
         );
       }
       cancellation.throwIfCancelled();
-      reserveDecodedBytes(image.pixels.length, fieldPath: fieldPath);
+      final length = byteLength(image);
+      if (length > decodeLimits.maxDecodedBytes) {
+        throw _limit('Decoded image exceeds its byte budget.', fieldPath);
+      }
+      reserveDecodedBytes(length, fieldPath: fieldPath);
       return image;
     });
     _decodeTail = future.then<void>(
@@ -261,6 +288,13 @@ final class AssetDecodeContext {
     return future;
   }
 
+  AssetLoadException _limit(String message, String? fieldPath) =>
+      AssetLoadException(
+        AssetLoadError.limitExceeded,
+        message,
+        sourceUri: sourceUri,
+        fieldPath: fieldPath,
+      );
   Future<Uint8List> decodeBuffer(
     Uint8List bytes, {
     required BufferDecodeOptions options,
@@ -316,14 +350,6 @@ final class AssetDecodeContext {
     );
     return future;
   }
-
-  AssetLoadException _limit(String message, String? fieldPath) =>
-      AssetLoadException(
-        AssetLoadError.limitExceeded,
-        message,
-        sourceUri: sourceUri,
-        fieldPath: fieldPath,
-      );
 
   Future<DecodedMeshData> decodeMesh(
     Uint8List bytes, {

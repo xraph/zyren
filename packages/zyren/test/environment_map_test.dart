@@ -32,7 +32,7 @@ void main() {
       final diffuse = await texture(owner),
           specular = await texture(owner, volume: true),
           brdf = await texture(owner);
-      final map = EnvironmentMap(
+      final map = VolumeEnvironmentMap(
         irradiance: diffuse,
         specular: specular,
         brdf: brdf,
@@ -40,16 +40,24 @@ void main() {
       expect(map.encodeForDevice(device), hasLength(3));
       expect(() => map.encodeForDevice(otherDevice), throwsArgumentError);
       expect(
-        () => EnvironmentMap(irradiance: diffuse, specular: brdf, brdf: brdf),
+        () => VolumeEnvironmentMap(
+          irradiance: diffuse,
+          specular: brdf,
+          brdf: brdf,
+        ),
         throwsArgumentError,
       );
       final alien = await texture(foreign);
       expect(
-        () => EnvironmentMap(irradiance: alien, specular: specular, brdf: brdf),
+        () => VolumeEnvironmentMap(
+          irradiance: alien,
+          specular: specular,
+          brdf: brdf,
+        ),
         throwsArgumentError,
       );
       expect(
-        () => EnvironmentMap(
+        () => VolumeEnvironmentMap(
           irradiance: diffuse,
           specular: specular,
           brdf: brdf,
@@ -57,7 +65,7 @@ void main() {
         ),
         throwsArgumentError,
       );
-      final retained = EnvironmentMap(
+      final retained = VolumeEnvironmentMap(
         irradiance: await surviving.retain(diffuse),
         specular: await surviving.retain(specular),
         brdf: await surviving.retain(brdf),

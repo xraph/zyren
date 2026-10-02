@@ -7,12 +7,12 @@ abstract interface class EnvironmentDevice implements ResourceDevice {
 
 /// Linear diffuse irradiance, GGX radiance slices and a split-sum BRDF table.
 /// Retain all three textures in a surviving scope before closing their owner.
-final class EnvironmentMap {
+final class VolumeEnvironmentMap {
   final GpuResource<Texture> irradiance, specular, brdf;
   final double intensity, rotation;
   bool get isClosed =>
       irradiance.isClosed || specular.isClosed || brdf.isClosed;
-  EnvironmentMap({
+  VolumeEnvironmentMap({
     required this.irradiance,
     required this.specular,
     required this.brdf,
@@ -67,7 +67,7 @@ final class EnvironmentMap {
   /// Computes an equirectangular source using the caller's public graph scopes.
   /// Publish the returned map only after this future succeeds. Failed candidates
   /// remain owned by the supplied resource scope and must be closed by its owner.
-  static Future<EnvironmentMap> generate({
+  static Future<VolumeEnvironmentMap> generate({
     required ResourceScope resources,
     required ShaderCompiler shaders,
     required GraphCompiler graphs,
@@ -168,7 +168,7 @@ final class EnvironmentMap {
       ),
     );
     await graph.execute();
-    return EnvironmentMap(
+    return VolumeEnvironmentMap(
       irradiance: irradiance,
       specular: specular,
       brdf: brdf,
