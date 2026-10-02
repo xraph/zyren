@@ -195,8 +195,25 @@ void main() {
                   ],
                 ]).buffer.asUint8List(),
               );
+              await owner.resources.writeTexture(
+                trans,
+                Float32List.fromList([
+                  for (var y = 0; y < 4; y++)
+                    for (var x = 0; x < 4; x++) ...[
+                      (x * 4 + index % 4 + y * 4 + index ~/ 4) / 32,
+                      0,
+                      0,
+                      0,
+                    ],
+                ]).buffer.asUint8List(),
+              );
               reconstructed = await render(phase);
             }
+            final transmission = ByteData.sublistView(
+              await pass.scope.resources.readTexture(
+                pass.outputs.transmittance,
+              ),
+            );
             for (var y = 4; y < 12; y++) {
               for (var x = 4; x < 12; x++) {
                 expect(
@@ -204,6 +221,12 @@ void main() {
                   closeTo((x + y) / 32, .001),
                   reason:
                       'Bayer detail at ($x, $y) survives different ray depths',
+                );
+                expect(
+                  transmission.getFloat32((y * size + x) * 4, Endian.little),
+                  closeTo((x + y) / 32, .001),
+                  reason:
+                      'Ground transmission at ($x, $y) recovers each Bayer ray',
                 );
               }
             }

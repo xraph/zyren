@@ -75,7 +75,9 @@ final class CloudTemporalPass {
       );
       final publishShader = await scope.shaders.compile(
         ShaderSource.wgsl(
-          PostProcessDescriptor.interfaceWgsl + cloudPublishWgsl,
+          PostProcessDescriptor.interfaceWgsl +
+              cloudTemporalUniformWgsl +
+              cloudPublishWgsl,
           label: 'cloud history publication',
         ),
       );
@@ -91,6 +93,7 @@ final class CloudTemporalPass {
                 TextureBinding.sampled(1, raw.depthVelocityShadow, group: 1),
                 TextureBinding.sampled(2, colors[1 - i], group: 1),
                 TextureBinding.sampled(3, data[1 - i], group: 1),
+                TextureBinding.sampled(4, raw.transmittance, group: 1),
                 TextureBinding.storage(0, colors[i], group: 3),
                 TextureBinding.storage(1, data[i], group: 3),
               ]),
@@ -104,7 +107,8 @@ final class CloudTemporalPass {
               bindings: ShaderBindings([
                 TextureBinding.sampled(0, colors[i], group: 1),
                 TextureBinding.sampled(1, data[i], group: 1),
-                TextureBinding.sampled(2, raw.transmittance, group: 1),
+                TextureBinding.sampled(2, raw.depthVelocityShadow, group: 1),
+                BufferBinding.uniform(8, uniform, group: 2),
                 TextureBinding.storage(0, outputs.color, group: 3),
                 TextureBinding.storage(
                   1,

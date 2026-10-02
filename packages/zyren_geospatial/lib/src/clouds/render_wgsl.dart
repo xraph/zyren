@@ -55,13 +55,23 @@ fn cloudGroundBounce(position:vec3<f32>,normal:vec3<f32>,height:f32,mip:f32,jitt
 struct CloudMarch {color:vec4<f32>,depth:f32};
 fn cloudMarch(origin:vec3<f32>,direction:vec3<f32>,range:vec2<f32>,cosTheta:f32,jitter:f32,startTexels:f32)->CloudMarch{
  var radiance=vec3<f32>(0.);var transmission=1.;var weighted=0.;var weight=0.;var first=-1.;
- let distance=range.y-range.x;var step=CLOUD_MIN_STEP+(CLOUD_STEP_SCALE-1.)*range.x;var next=step*jitter*2.;
+ let distance=range.y-range.x;var step=CLOUD_MIN_STEP+(CLOUD_STEP_SCALE-1.)*range.x;
+ // Perspective growth can exceed an entire layer from orbit. Keep distant
+ // samples within a quarter of the thinnest active layer along this ray.
+ var thickness=CLOUD_MAX_STEP*4.;
+ for(var layer=0u;layer<4u;layer++){
+  let height=cloud.v[1][layer]-cloud.v[0][layer];
+  if(height>0. && cloud.v[2][layer]>0.){thickness=min(thickness,height);}
+ }
+ let radial=max(abs(dot(normalize(origin),direction)),.05);
+ let limit=max(CLOUD_MIN_STEP,min(CLOUD_MAX_STEP,thickness*.25/radial));
+ let distant=step>limit;step=select(step,limit,distant);var next=step*jitter*2.;
  for(var i=0u;i<CLOUD_ITERATIONS;i++){
   if(next>distance){break;}
   let p=origin+direction*next;let height=length(p)-cf.camera.w;let mip=log2(max(1.,startTexels+next*1e-5));
-  if(cloudInGap(height)){step*=CLOUD_STEP_SCALE;next+=mix(step,CLOUD_MAX_STEP,min(1.,mip));continue;}
+  if(cloudInGap(height)){step=select(step*CLOUD_STEP_SCALE,min(step*CLOUD_STEP_SCALE,limit),distant);let advance=mix(step,CLOUD_MAX_STEP,min(1.,mip));next+=select(advance,min(advance,limit),distant);continue;}
   let weather=cloudSampleWeather(p,height,mip,false);
-  if(!any(weather.density>vec4<f32>(CLOUD_MIN_DENSITY))){step*=CLOUD_STEP_SCALE;next+=mix(step,CLOUD_MAX_STEP,min(1.,mip));continue;}
+  if(!any(weather.density>vec4<f32>(CLOUD_MIN_DENSITY))){step=select(step*CLOUD_STEP_SCALE,min(step*CLOUD_STEP_SCALE,limit),distant);let advance=mix(step,CLOUD_MAX_STEP,min(1.,mip));next+=select(advance,min(advance,limit),distant);continue;}
   let medium=cloudSampleMedium(weather,p,mip,jitter);
   if(medium.extinction>CLOUD_MIN_EXTINCTION){
    let light=cloudLight(p,height);let normal=normalize(p);let secondary=cloudOpticalDepth(p,cf.sun.xyz,CLOUD_SUN_ITERATIONS,mip,jitter);
@@ -76,7 +86,7 @@ fn cloudMarch(origin:vec3<f32>,direction:vec3<f32>,range:vec2<f32>,cosTheta:f32,
    radiance+=transmission*integral;transmission*=tr;
    if(first<0.){first=next;}weighted+=next*transmission;weight+=transmission;
   }
-  if(transmission<=CLOUD_MIN_TRANSMITTANCE){break;}step*=CLOUD_STEP_SCALE;next+=step;
+  if(transmission<=CLOUD_MIN_TRANSMITTANCE){break;}step=select(step*CLOUD_STEP_SCALE,min(step*CLOUD_STEP_SCALE,limit),distant);next+=step;
  }
  var depth=first;if(weight>0.){depth=weighted/weight;}
  return CloudMarch(vec4<f32>(radiance,cloudRemap(transmission,1.,CLOUD_MIN_TRANSMITTANCE)),depth);

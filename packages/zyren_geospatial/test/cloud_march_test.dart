@@ -83,7 +83,18 @@ void main() {
               'test/fixtures/clouds/march${preset == CloudQualityPreset.low ? '' : '_${preset.name}'}.json',
             ).readAsStringSync(),
           );
-          final samples = fixture['samples'] as List;
+          final reference = fixture['samples'] as List;
+          final samples = [
+            ...reference,
+            for (final jitter in [0.0, .125, .25, .5, .75, .99])
+              {
+                'origin': [0.0, 0.0, 6361399.0],
+                'direction': [0.0, 0.0, -1.0],
+                'range': [1000000.0, 1000649.0],
+                'jitter': jitter,
+                'texels': 1.0,
+              },
+          ];
           final values = Float32List.fromList([
             for (final s in samples) ...[
               ...(s['origin'] as List).cast<num>().map((v) => v.toDouble()),
@@ -160,6 +171,19 @@ ${cloudRenderWgsl(q).split('fn cloudHaze(').first}
           );
           final errors = List.filled(5, 0.0);
           for (var i = 0; i < samples.length; i++) {
+            if (i >= reference.length) {
+              expect(
+                bytes.getFloat32((i * 8 + 3) * 4, Endian.little),
+                greaterThan(.1),
+                reason:
+                    'A distant 649 metre cloud layer cannot disappear at jitter ${samples[i]['jitter']}',
+              );
+              expect(
+                bytes.getFloat32((i * 8 + 4) * 4, Endian.little),
+                inInclusiveRange(0, 649),
+              );
+              continue;
+            }
             for (var c = 0; c < 5; c++) {
               final actual = bytes.getFloat32((i * 8 + c) * 4, Endian.little),
                   expected = (samples[i]['expected'][c] as num).toDouble();
