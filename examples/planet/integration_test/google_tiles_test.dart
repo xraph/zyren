@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_zyren/flutter_zyren.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:planet/google_tiles_lab.dart';
-import 'package:planet/geospatial_presets.dart';
+import 'package:zyren_geospatial/zyren_geospatial.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -24,13 +24,28 @@ void main() {
     var initialPosition = lab.controller.camera.position;
     var initialTarget = lab.controller.camera.target;
     var frames = 0;
+    final progress = Stopwatch()..start();
+    var reportedAt = 0;
     final subscription = lab.controller.frameStats.listen((frame) {
       expectSync(frame.readbackBytes, 0);
       frames++;
+      if (progress.elapsed.inSeconds - reportedAt >= 5) {
+        reportedAt = progress.elapsed.inSeconds;
+        final history = lab.profile.cloudLayer?.controller.history;
+        debugPrint(
+          'Native progress: frame ${frame.frameId}, '
+          '${lab.tiles?.stats?.visibleTiles} visible, '
+          '${lab.tiles?.stats?.activeRequests} loading; '
+          'cloud history ${history?.accumulatedFrames} (${history?.reason.name}).',
+        );
+      }
     });
     Future<void> until(bool Function() ready) async {
       for (var i = 0; i < 2400; i++) {
         await tester.pump(const Duration(milliseconds: 25));
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 10)),
+        );
         if (lab.loadError != null) {
           fail(
             'Provider initialization failed (${lab.loadError.runtimeType}).',
@@ -54,7 +69,7 @@ void main() {
     }
 
     try {
-      for (final preset in GoogleTilesPreset.values) {
+      for (final preset in lab.presets) {
         if (lab.preset != preset) {
           await tester.tap(find.text(preset.label));
           await tester.pump();
@@ -86,6 +101,10 @@ void main() {
         final hit = await lab.controller.pick(
           ViewportPoint(viewport.width / 2, viewport.height / 2),
         );
+        debugPrint(
+          '${preset.label}: ${lab.tiles!.stats!.visibleTiles} tiles, '
+          '${lab.tiles!.stats!.residentBytes} resident bytes.',
+        );
         expect(
           hit,
           isNotNull,
@@ -113,6 +132,14 @@ void main() {
         expect(lab.controller.scene.effects.length, greaterThanOrEqualTo(27));
         expect(lab.profile.effects.controller.width, lessThanOrEqualTo(640));
         expect(lab.profile.effects.controller.height, lessThanOrEqualTo(640));
+        if (lab.profile.cloudLayer case final cloud?) {
+          expect(cloud.controller.parameters.coverage, preset.coverage);
+          expect(cloud.controller.quality, CloudQualityPreset.high);
+          expect(
+            cloud.controller.history.accumulatedFrames,
+            greaterThanOrEqualTo(16),
+          );
+        }
         debugPrint(
           '${preset.label} combined scene: ${lab.tiles!.stats!.visibleTiles} tiles, ${lab.controller.scene.effects.length} effects.',
         );
@@ -130,6 +157,9 @@ void main() {
       debugPrint(
         'Google native: ${lab.tiles!.stats!.visibleTiles} visible, $frames frames, ${lab.tiles!.attributions.length} source credits.',
       );
+    } catch (error, stack) {
+      debugPrint('Live scene failed before cleanup: $error\n$stack');
+      rethrow;
     } finally {
       await tester.pumpWidget(const SizedBox());
       await lab.whenClosed;
