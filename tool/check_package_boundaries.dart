@@ -5,6 +5,7 @@ void main(List<String> args) {
   final root = Directory(args.isEmpty ? '.' : args.single);
   final allowed = <String, Set<String>>{
     'zyren': {'vector_math'},
+    'zyren_effects': {'zyren'},
     'zyren_geospatial': {'zyren'},
     'zyren_tools': {'zyren'},
     'zyren_devtools': {'zyren'},
