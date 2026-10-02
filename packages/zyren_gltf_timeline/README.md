@@ -83,5 +83,10 @@ restoration, plus authored runtime crossfades, additive actions and reverse loop
 for pixel assertions. macOS checks require Metal. Vulkan and DX12 require their
 respective hosts; a macOS pass does not qualify those backends.
 
-The [qualification record](QUALIFICATION.md) includes the physical Pixel Vulkan
-run, macOS Metal results and commands you can use on another host.
+For production presentation, run
+`examples/multiple_views/integration_test/imported_presentation_test.dart` through
+Flutter on macOS or a connected Android device. It verifies imported animation
+on native surfaces, resizing and resource cleanup with zero pixel readback bytes.
+
+The [qualification record](QUALIFICATION.md) includes physical Pixel Vulkan and
+macOS Metal results, with commands you can use on another host.
