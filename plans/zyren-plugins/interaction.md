@@ -228,5 +228,8 @@ Remaining work and blockers:
   integrated or that the complete interaction plugin is ready for publication.
 
 Commit evidence: `5ddc7ea` contains the first checked shared agent contract and
-viewport slice. The interaction/transport implementation commit is recorded in the
-follow-up evidence update after its scoped commit completes.
+viewport slice. `828955b` contains object interaction, tools/inspector adapters,
+the native example, optional devtools transport, lifecycle fixes and verification
+fixtures. Both are local commits on the existing main branch. Nothing was pushed
+or merged. The remaining root workspace ordering diff belongs to concurrent work
+and was left untouched.
