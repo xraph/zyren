@@ -145,7 +145,7 @@ clips. Invalid track samples follow the same event behavior.
 The exported `sceneTimeline` service key belongs to `zyren.timeline`. Cancel your
 `changes` and `events` subscriptions when their consumers close. Pausing a stream
 subscription can buffer notifications. Detach stops playback and retains the
-consumed start state for renderer recovery. Imported animation events, skeletal animation and morphs are outside this version.
+consumed start state for renderer recovery. Imported model channels and events use the optional `zyren_gltf_timeline` adapter.
 
 
 ## Independent actions
@@ -176,21 +176,17 @@ so you can keep the main timeline paused. Detach stops actions and invalidates
 handles. Failed blends keep the previous scene pose and clocks, stop playback
 and cancel fades. Action clips do not emit markers; markers use the main clock.
 
-## Animation dependencies
+## Imported animation
 
-The glTF importer currently rejects `animations`, node `skin` and node `weights`
-in its static model profile. Imported animation needs validated sampler/channel
-recipes and stable bindings from imported nodes to scene objects before this
-package can consume it. Imported events also need an explicit source format and
-loop/seek event policy; glTF animation channels alone do not define named events.
+Use the optional `zyren_gltf_timeline` package to play imported glTF TRS, skin
+and morph channels. It binds one custom track to a `ModelInstance` and maps
+`extras.zyrenEvents` to main-clock markers. The importer and timeline remain
+independent; you only add the adapter when you need imported playback.
 
-Skeletal playback needs joint hierarchies, inverse bind matrices and native skin
-vertex deformation. Morph playback needs imported target deltas and native weight
-bindings. These require importer and renderer work outside this package. Keep
-those changes with their owners, then add timeline adapters and native integration
-checks for their public APIs. Transform and camera actions do not establish skin
-or morph support.
-
+Imported deformation uses CPU sampling and native dynamic-geometry uploads.
+Its custom instance track does not participate in `TimelineClip` transform/camera
+mixing. GPU skinning and crossfades between imported skeletal poses remain
+separate work.
 
 ## Local looping and reverse playback
 

@@ -13,6 +13,7 @@ workspace:
   - packages/zyren_effects
   - packages/zyren_geospatial
   - packages/zyren_gltf
+  - packages/zyren_gltf_timeline
   - packages/zyren_3d_tiles
   - examples/planet
   - examples/multiple_views

@@ -1,0 +1,18 @@
+name: zyren_gltf_timeline
+description: Optional glTF animation playback through Zyren timeline plugins.
+version: 0.1.0
+publish_to: none
+resolution: workspace
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+dependencies:
+  zyren_gltf:
+    path: ../zyren_gltf
+  zyren_timeline:
+    path: ../zyren_timeline
+dev_dependencies:
+  zyren:
+    path: ../zyren
+  zyren_native:
+    path: ../zyren_native
+  test: ^1.29.0
