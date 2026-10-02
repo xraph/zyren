@@ -118,6 +118,8 @@ final class CloudController {
   late CloudParameters _parameters = _plugin.parameters;
   late CloudAppearance _appearance = _plugin.appearance;
   late CloudQualityPreset _quality = _plugin.quality;
+  late int _maxResolution = _plugin.maxResolution;
+  late int? _shadowMapSize = _plugin.shadowMapSize;
   late CloudTemporalSettings _temporal = _plugin.temporal;
   final _history = CloudHistory();
   int _revision = 0;
@@ -133,6 +135,7 @@ final class CloudController {
   Future<void> _queue = Future.value();
   bool _closed = false;
   int _width = 1, _height = 1;
+  int _viewportWidth = 1, _viewportHeight = 1;
 
   CloudController._(this._plugin, this._context, this._owner, this._atmosphere);
   bool get isClosed => _closed || _owner.isClosed;
@@ -156,6 +159,15 @@ final class CloudController {
   }
 
   CloudQualityPreset get quality => _quality;
+  int get maxResolution => _maxResolution;
+  int? get shadowMapSize => _shadowMapSize;
+  int get width => _width;
+  int get height => _height;
+  CloudQualitySettings get settings => CloudQualitySettings(
+    preset: _quality,
+    maxResolution: _maxResolution,
+    shadowMapSize: _shadowMapSize,
+  );
   CloudTemporalSettings get temporal => _temporal;
   CloudHistoryStatus get history => _history.status;
   void resetHistory() {
@@ -246,14 +258,47 @@ final class CloudController {
     }
     await _replace(value, _textures!.textures, _width, _height);
     _quality = value;
+    _motion();
     _context.invalidate();
   });
+
+  /// Replace sampling quality and target limits together. Failed allocation
+  /// leaves the active settings intact. Successful changes restart refinement.
+  Future<void> setQualitySettings(CloudQualitySettings value) =>
+      _serial(() async {
+        if (value.preset == _quality &&
+            value.maxResolution == _maxResolution &&
+            value.shadowMapSize == _shadowMapSize) {
+          return;
+        }
+        final scale = math.min(
+          1.0,
+          value.maxResolution / math.max(_viewportWidth, _viewportHeight),
+        );
+        final width = math.max(1, (_viewportWidth * scale).round());
+        final height = math.max(1, (_viewportHeight * scale).round());
+        await _replace(
+          value.preset,
+          _textures!.textures,
+          width,
+          height,
+          settings: value,
+        );
+        _quality = value.preset;
+        _maxResolution = value.maxResolution;
+        _shadowMapSize = value.shadowMapSize;
+        _width = width;
+        _height = height;
+        _motion();
+        _context.invalidate();
+      });
   Future<void> _replace(
     CloudQualityPreset quality,
     CloudTextures textures,
     int width,
     int height, {
     CloudTemporalSettings? temporal,
+    CloudQualitySettings? settings,
   }) async {
     final scope = _owner.createChild(label: 'cloud scene');
     AtmosphereLutLease? lease;
@@ -267,7 +312,7 @@ final class CloudController {
         CloudQuality.forPreset(quality),
         width,
         height,
-        _plugin.shadowMapSize,
+        settings != null ? settings.shadowMapSize : _shadowMapSize,
         _atmosphere.source,
         temporal ?? _temporal,
         _blueNoise,
@@ -311,9 +356,11 @@ final class CloudController {
   }
 
   Future<void> _frame(FrameInfo info) => _serial(() async {
+    _viewportWidth = info.width;
+    _viewportHeight = info.height;
     final scale = math.min(
       1.0,
-      _plugin.maxResolution / math.max(info.width, info.height),
+      _maxResolution / math.max(info.width, info.height),
     );
     final width = math.max(1, (info.width * scale).round()),
         height = math.max(1, (info.height * scale).round());

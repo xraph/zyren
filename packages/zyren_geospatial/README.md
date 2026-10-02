@@ -320,6 +320,36 @@ allocations leave the current maps installed. The default 384-pixel target cap
 leaves room for history and resize replacement within the native resource budget.
 If you raise it, budget for both the active and replacement maps.
 
+You can start with a device profile, then override its sampling preset:
+
+```dart
+final settings = CloudQualitySettings.forDevice(CloudDeviceType.phone);
+final layer = CloudPlugin(
+  quality: settings.preset,
+  maxResolution: settings.maxResolution,
+  shadowMapSize: settings.shadowMapSize,
+);
+// After the layer attaches to your scene:
+await layer.controller.setQualitySettings(
+  CloudQualitySettings.forDevice(
+    CloudDeviceType.phone,
+    preset: CloudQualityPreset.high,
+  ),
+);
+```
+
+Phones start at Medium and a 512-pixel cloud edge. Tablets and desktops start at
+High and 640 pixels. Low uses 320 pixels; Ultra allows 640 on mobile devices and
+768 on desktop. These profiles retain the source ray-marching presets while
+bounding shadow maps to 128 pixels, or 192/256 for mobile/desktop Ultra. Choose
+your device class in the application and tune these limits for its GPU and scene.
+
+`setQualitySettings` changes the preset, cloud resolution and shadow-map limit
+together. The controller keeps its previous settings if allocation fails. A
+successful change restarts temporal refinement; selecting the same settings
+preserves history. `setQuality` changes only the sampling preset and retains your
+current limits. You can inspect `settings`, `width` and `height` on the controller.
+
 Temporal reconstruction defaults to the source's 4x4 Bayer upscaling. Use
 `CloudTemporalSettings(mode: CloudTemporalMode.antialias)` for full-resolution
 temporal sampling, or `CloudTemporalMode.off` to inspect a single frame. The

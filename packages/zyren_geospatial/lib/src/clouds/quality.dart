@@ -1,6 +1,52 @@
 // Defaults from the pinned three-geospatial cloud quality presets.
 enum CloudQualityPreset { low, medium, high, ultra }
 
+enum CloudDeviceType { phone, tablet, desktop }
+
+/// Source sampling quality with explicit native texture limits.
+/// A null shadow size uses the selected source preset's map size.
+final class CloudQualitySettings {
+  final CloudQualityPreset preset;
+  final int maxResolution;
+  final int? shadowMapSize;
+  CloudQualitySettings({
+    this.preset = CloudQualityPreset.medium,
+    this.maxResolution = 384,
+    this.shadowMapSize,
+  }) {
+    RangeError.checkValueInInterval(maxResolution, 1, 1024, 'maxResolution');
+    if (shadowMapSize case final size?) {
+      RangeError.checkValueInInterval(size, 1, 1024, 'shadowMapSize');
+    }
+  }
+
+  /// Balanced starting points. Choose your device class explicitly; native
+  /// applications can override these limits for their own GPU and scene budget.
+  factory CloudQualitySettings.forDevice(
+    CloudDeviceType device, {
+    CloudQualityPreset? preset,
+  }) {
+    final selected =
+        preset ??
+        (device == CloudDeviceType.phone
+            ? CloudQualityPreset.medium
+            : CloudQualityPreset.high);
+    return CloudQualitySettings(
+      preset: selected,
+      maxResolution: switch (selected) {
+        CloudQualityPreset.low => 320,
+        CloudQualityPreset.medium => 512,
+        CloudQualityPreset.high => 640,
+        CloudQualityPreset.ultra =>
+          device == CloudDeviceType.desktop ? 768 : 640,
+      },
+      shadowMapSize: selected == CloudQualityPreset.ultra
+          ? (device == CloudDeviceType.desktop ? 256 : 192)
+          : 128,
+    );
+  }
+}
+
 final class CloudMarchQuality {
   final int multiScatteringOctaves;
   final bool accurateSunSkyLight;

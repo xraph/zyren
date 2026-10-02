@@ -152,6 +152,61 @@ void main() {
         clouds.controller.resetHistory();
         await render(47);
         expect(clouds.controller.history.reason, CloudHistoryReset.explicit);
+        await clouds.controller.setQualitySettings(
+          CloudQualitySettings(
+            preset: CloudQualityPreset.medium,
+            maxResolution: 24,
+            shadowMapSize: 8,
+          ),
+        );
+        expect(clouds.controller.quality, CloudQualityPreset.medium);
+        expect(clouds.controller.maxResolution, 24);
+        expect(clouds.controller.shadowMapSize, 8);
+        expect(clouds.controller.width, 24);
+        expect(clouds.controller.height, 24);
+        expect(clouds.controller.history.valid, false);
+        expect(center(await render(47))[3], greaterThan(100));
+        expect(clouds.controller.history.accumulatedFrames, 1);
+        final resizedBytes = (await backend.resourceStats()).residentBytes;
+        await clouds.controller.setQualitySettings(clouds.controller.settings);
+        await render(47);
+        expect(clouds.controller.history.accumulatedFrames, 2);
+        expect((await backend.resourceStats()).residentBytes, resizedBytes);
+        final pressure = owner.createChild(
+          label: 'quality replacement pressure',
+        );
+        try {
+          for (var i = 0; i < 2; i++) {
+            await pressure.resources.createBuffer(
+              BufferDescriptor(
+                size: 64 * 1024 * 1024,
+                usage: {BufferUsage.storage},
+              ),
+            );
+          }
+          final beforeFailure = (await backend.resourceStats()).residentBytes;
+          await expectLater(
+            clouds.controller.setQualitySettings(
+              CloudQualitySettings(
+                preset: CloudQualityPreset.ultra,
+                maxResolution: 1024,
+                shadowMapSize: 1024,
+              ),
+            ),
+            throwsA(isA<Exception>()),
+          );
+          expect(clouds.controller.quality, CloudQualityPreset.medium);
+          expect(clouds.controller.maxResolution, 24);
+          expect(clouds.controller.shadowMapSize, 8);
+          expect((await backend.resourceStats()).residentBytes, beforeFailure);
+          expect(center(await render(47))[3], greaterThan(100));
+        } finally {
+          await pressure.close();
+        }
+        await clouds.controller.setQuality(CloudQualityPreset.low);
+        expect(clouds.controller.maxResolution, 24);
+        expect(clouds.controller.shadowMapSize, 8);
+        await render(47);
         engine.camera = OrthographicCamera(
           position: camera.position,
           target: camera.target,
