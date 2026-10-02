@@ -345,7 +345,9 @@ void main() {
   testWidgets(
     'explicit capture returns real RGBA pixels and measured readback',
     (tester) async {
-      final backend = await const SceneRuntime.nativeMetal().backendFactory();
+      final backend = android
+          ? await NativeBackend.create()
+          : await const SceneRuntime.nativeMetal().backendFactory();
       final output =
           await backend.render(
                 FrameSubmission.capture(
@@ -363,9 +365,12 @@ void main() {
       expect(closed['sessions'], 0);
       expect(closed['renderers'], 0);
       expect(closed[ownership], 0);
-      expect(closed['readbackBytes'], 63 * 47 * 4);
-      debugPrint('Explicit native capture: $closed');
+      // Android's standalone capture owns its FFI renderer separately from
+      // SurfaceProducer sessions. Its readback is reported by the output.
+      expect(closed['readbackBytes'], android ? 0 : 63 * 47 * 4);
+      debugPrint(
+        'Explicit native capture: ${output.stats.readbackBytes} bytes; $closed',
+      );
     },
-    skip: Platform.isAndroid,
   );
 }

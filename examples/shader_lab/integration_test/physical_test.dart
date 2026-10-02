@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_zyren/flutter_zyren.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -25,6 +27,22 @@ void main() {
         expect(first.readbackBytes, 0);
         final info = await controller.ready;
         expect(info.capabilities.textureFormats, isNotEmpty);
+        debugPrint(
+          jsonEncode({
+            'fixture': 'physical-materials',
+            'os': Platform.operatingSystemVersion,
+            'backend': info.backend,
+            'adapter': info.adapterName,
+            'driver': info.driverDescription,
+            'presentation': info.presentationPath.name,
+            'textureFormats': [
+              for (final format in info.capabilities.textureFormats)
+                format.name,
+            ],
+            'sampleCounts': info.sampleCounts.toList(),
+            'presentationReadbackBytes': first.readbackBytes,
+          }),
+        );
         for (
           var i = 0;
           i < 200 && find.textContaining(' B ·').evaluate().isEmpty;

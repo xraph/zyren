@@ -65,8 +65,10 @@ material optics with reversed depth, clipping, fragment coverage and outlines.
 This integration combines the core branch with committed Zyren work through
 `391b642`. Later changes in the primary checkout are outside this pinned merge.
 
-The integration is tested on macOS Metal. Native Android and Windows runtime
-qualification and full Three.js/Takram feature parity remain separate work.
+The integration is tested on macOS Metal and Pixel 9 Pro Vulkan. See the
+[native device report](native-device-qualification.md) for the Android checks and
+the pending iOS, Windows and Linux qualification. Full Three.js/Takram feature
+parity remains separate work.
 Passing package tests does not establish those platform or parity claims.
 
 The final integration checks cover 719 core tests, 110 Flutter tests, 197 native
