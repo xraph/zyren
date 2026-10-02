@@ -6,9 +6,19 @@ resolution: workspace
 environment:
   sdk: '>=3.10.0 <4.0.0'
 dependencies:
+  zyren_effects:
+    path: ../zyren_effects
+  zyren_agents:
+    path: ../zyren_agents
   zyren:
     path: ../zyren
   zyren_native:
     path: ../zyren_native
 dev_dependencies:
+  zyren_audio:
+    path: ../zyren_audio
+  zyren_configurator:
+    path: ../zyren_configurator
+  zyren_devtools:
+    path: ../zyren_devtools
   test: ^1.29.0

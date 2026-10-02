@@ -194,7 +194,7 @@ final class CaptureManager {
     final job = CaptureJob._(id, plan);
     _jobs[id] = job;
     _revision++;
-    job.done = _run(job, prepareFrame, onProgress);
+    job.done = Future(() => _run(job, prepareFrame, onProgress));
     job.done.ignore(); // Hosts can inspect failed jobs before awaiting done.
     return job;
   }
@@ -230,6 +230,7 @@ final class CaptureManager {
     final startRevision = scene.revision;
     var expectedSceneRevision = startRevision;
     job._state = CaptureState.running;
+    _revision++;
     try {
       job._check();
       backend = await openBackend();
@@ -306,8 +307,8 @@ final class CaptureManager {
     try {
       await backend?.close();
     } catch (error, stack) {
-      failure ??= error;
-      trace ??= stack;
+      failure = error;
+      trace = stack;
     }
     try {
       if (failure != null) Error.throwWithStackTrace(failure, trace!);
@@ -332,6 +333,9 @@ final class CaptureManager {
         flush: true,
       );
       job._check();
+      if (scene.revision != expectedSceneRevision) {
+        throw StateError('Scene changed during capture publication.');
+      }
       final artifact = CaptureArtifact(
         job.id,
         directory.path,

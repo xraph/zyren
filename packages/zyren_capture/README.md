@@ -35,3 +35,31 @@ capture, sink/close failures, PNG conversion and job admission. A macOS Metal
 fixture produced two matching four-frame sequences. High-resolution tiling,
 video encoding, depth and object-ID passes remain later milestones. No other
 device capture path has been qualified here.
+
+## Runtime agents and effects
+
+Import `agents.dart` and create `CaptureAgentProvider` with your host-owned
+manager. Use `provider.register(registry)` so disposing that registration also
+cancels jobs started by the provider. Grant `capture.write` in the registry for
+`start` and `cancel`. `jobs` reports progress and completed artifact paths.
+Agents cannot select output directories. Their default limits are 1024 pixels
+per dimension and 120 frames; the host can lower them.
+
+Jobs start on the next event turn. The initial command acknowledges admission,
+then you query progress. Cancellation waits for the current native operation and
+cleanup. Retry keys avoid duplicate starts. A backend close failure remains a
+failed job even if cancellation was also requested.
+
+Import `effects_agents.dart` for an optional `EffectsAgentProvider`. It inspects
+existing scene effects and, when supplied, the `ScreenEffectsController`. The
+`effects.write` scope permits exposure, tone mapping and HDR changes through
+normal scene render settings, with guarded undo. Effect-chain resource controls
+are inspection only in this checkpoint.
+
+`dart run example/agent_scene.dart` starts the existing devtools MCP protocol on
+stdio with configurator, audio, capture, effects and a named viewport provider.
+It creates no network listener. A live MCP check discovered all five providers,
+picked the stable `body` target, applied a color choice and captured changed PNG
+bytes through Metal. Audio controls used the real offline mixer. The example is
+a headless view, so presented-frame correlation and Flutter overlay handling
+remain unknown. Eight capture tests and two agent/effects tests pass.

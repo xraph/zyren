@@ -129,7 +129,8 @@ moving the listener. Stereo orientation, pause, buffer ownership, detached-node
 cleanup, invalid PCM and budgets passed. Analysis is clean. The native device
 probe initialized and closed `Core Audio` successfully without emitting sound.
 Audible playback and non-macOS device checks remain unverified. Capture
-implementation has passed its first checkpoint. Audio commit: `52f4681`.
+implementation has passed its first checkpoint. Audio commits: `52f4681` for
+the native backend and `fdd87ec` for runtime state and playback tools.
 
 Capture: seven tests pass for sampling, cancellation before/after render, scoped
 cleanup, missing capabilities, stale scene revisions, sink/close failures, PNG

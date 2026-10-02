@@ -128,17 +128,22 @@ void main() {
     'cancellation during opening still closes the eventually created session',
     () async {
       final gate = Completer<RenderBackend>(), backend = FixtureBackend();
+      final opening = Completer<void>();
       final capture = CaptureManager(
         scene: Scene(),
         sceneId: 's',
         documentId: 'd',
         outputParent: temp,
-        openBackend: () => gate.future,
+        openBackend: () {
+          opening.complete();
+          return gate.future;
+        },
       );
       final job = capture.start(
         id: 'opening',
         plan: CapturePlan(size: PhysicalSize(2, 2)),
       );
+      await opening.future;
       job.cancel();
       gate.complete(backend);
       await expectLater(job.done, throwsA(isA<CaptureCancelled>()));
@@ -220,6 +225,19 @@ void main() {
     );
     expect(other.closes, 1);
     await broken.close();
+  });
+
+  test('cancellation with failed backend closure remains a failure', () async {
+    final backend = FixtureBackend(failClose: true), capture = manager(backend);
+    final job = capture.start(
+      id: 'cancel-close',
+      plan: CapturePlan(size: PhysicalSize(2, 2), frameCount: 2),
+      onProgress: (_, _) => capture.cancel('cancel-close'),
+    );
+    await expectLater(job.done, throwsStateError);
+    expect(job.state, CaptureState.failed);
+    expect(await temp.list().length, 0);
+    await capture.close();
   });
 
   test('PNG drops row padding and converts premultiplied alpha', () {
