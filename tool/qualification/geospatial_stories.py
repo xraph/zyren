@@ -142,6 +142,45 @@ def run(args):
     args.output.mkdir(parents=True, exist_ok=True)
     if any(args.output.iterdir()):
         raise ValueError('Choose an empty output directory to preserve earlier runs.')
+    restored = 0
+    try:
+        qualified = qualify(args)
+    finally:
+        if args.leave_test_app:
+            state = {'status': 'test app retained'}
+            print('Test app retained. Physical taps and gestures are disabled; '
+                  'use the launch command before interacting with Planet.')
+        else:
+            print('Restoring interactive Planet. See interactive-app.log for progress.', flush=True)
+            restored = launch(args, args.output / 'interactive-app.log')
+            state = {'status': 'launched' if restored == 0 else 'launch failed',
+                     'exitCode': restored}
+        write_json(args.output / 'interactive-app.json', state)
+        print(json.dumps({'interactiveApp': state}))
+    return 0 if qualified == 0 and restored == 0 else 1
+
+
+def launch(args, log_path=None):
+    command = [args.flutter, 'run', '--no-pub', '--no-resident', '-d', args.device,
+               '--target=lib/google_tiles_lab.dart',
+               f'--dart-define=ZYREN_LAB_CLOUDS={str(PRESETS[args.preset][0] == "clouds").lower()}',
+               f'--dart-define-from-file={args.provider_config.resolve()}']
+    if args.ios:
+        command.append('--publish-port')
+    try:
+        if log_path is None:
+            result = subprocess.run(command, cwd=ROOT / 'examples/planet', check=False)
+        else:
+            with log_path.open('w') as log:
+                result = subprocess.run(command, cwd=ROOT / 'examples/planet',
+                                        stdout=log, stderr=subprocess.STDOUT, check=False)
+        return result.returncode
+    except OSError as error:
+        print(f'Could not launch interactive Planet: {error}')
+        return 1
+
+
+def qualify(args):
     revision, _ = catalog()
     before = snapshot()
     command = [args.flutter, 'drive', '--no-pub', '-d', args.device,
@@ -216,12 +255,17 @@ def main():
     commands = parser.add_subparsers(dest='action', required=True)
     commands.add_parser('list')
     runner = commands.add_parser('run')
-    runner.add_argument('--preset', choices=PRESETS, required=True)
-    runner.add_argument('--device', required=True)
-    runner.add_argument('--ios', action='store_true')
-    runner.add_argument('--flutter', default='flutter')
-    runner.add_argument('--provider-config', type=Path, required=True)
+    launcher = commands.add_parser('launch', help='Restore the normal interactive Planet app.')
+    for command in (runner, launcher):
+        command.add_argument('--preset', choices=PRESETS, required=True)
+        command.add_argument('--device', required=True)
+        command.add_argument('--ios', action='store_true')
+        command.add_argument('--flutter', default='flutter')
+        command.add_argument('--provider-config', type=Path, required=True)
     runner.add_argument('--output', type=Path, required=True)
+    runner.add_argument('--leave-test-app', action='store_true',
+                        help='Skip interactive restoration when batching tests. '
+                             'The retained test app ignores physical input.')
     reporter = commands.add_parser('report')
     reporter.add_argument('--output', type=Path, required=True)
     reporter.add_argument('evidence', nargs='*', type=Path)
@@ -231,7 +275,7 @@ def main():
             for key, case in catalog()[1].items():
                 print(f'{key}\t{case["implementation"]}')
             return 0
-        return run(args) if args.action == 'run' else report(args)
+        return {'run': run, 'launch': launch, 'report': report}[args.action](args)
     except (OSError, ValueError, KeyError, TypeError) as error:
         parser.exit(1, f'{error}\n')
 

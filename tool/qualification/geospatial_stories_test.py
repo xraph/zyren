@@ -4,6 +4,7 @@ from pathlib import Path
 import tempfile
 from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
 
 import geospatial_stories as stories
 
@@ -31,6 +32,60 @@ def response():
 
 
 class QualificationTest(unittest.TestCase):
+    def test_run_restores_interactive_app_after_pass_failure_and_exception(self):
+        for outcome in (0, 1, OSError('device disconnected'), KeyboardInterrupt()):
+            with self.subTest(outcome=outcome), tempfile.TemporaryDirectory() as directory:
+                args = SimpleNamespace(output=Path(directory), leave_test_app=False)
+                with patch.object(stories, 'qualify') as qualify, \
+                     patch.object(stories, 'launch', return_value=0) as launch:
+                    if isinstance(outcome, BaseException):
+                        qualify.side_effect = outcome
+                        with self.assertRaises(type(outcome)):
+                            stories.run(args)
+                    else:
+                        qualify.return_value = outcome
+                        self.assertEqual(stories.run(args), outcome)
+                    launch.assert_called_once_with(args, args.output / 'interactive-app.log')
+                    restored = json.loads((args.output / 'interactive-app.json').read_text())
+                    self.assertEqual(restored, {'status': 'launched', 'exitCode': 0})
+
+    def test_restore_failure_is_reported_without_rewriting_test_evidence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            args = SimpleNamespace(output=Path(directory), leave_test_app=False)
+            def qualify(_):
+                (args.output / 'evidence.json').write_text('{"qualified": true}')
+                return 0
+            with patch.object(stories, 'qualify', side_effect=qualify), \
+                 patch.object(stories, 'launch', return_value=1):
+                self.assertEqual(stories.run(args), 1)
+            self.assertTrue(json.loads((args.output / 'evidence.json').read_text())['qualified'])
+            self.assertEqual(json.loads((args.output / 'interactive-app.json').read_text()),
+                             {'status': 'launch failed', 'exitCode': 1})
+
+    def test_leaving_test_app_requires_explicit_option(self):
+        with tempfile.TemporaryDirectory() as directory:
+            args = SimpleNamespace(output=Path(directory), leave_test_app=True)
+            with patch.object(stories, 'qualify', return_value=0), \
+                 patch.object(stories, 'launch') as launch:
+                self.assertEqual(stories.run(args), 0)
+                launch.assert_not_called()
+            self.assertEqual(json.loads((args.output / 'interactive-app.json').read_text()),
+                             {'status': 'test app retained'})
+
+    def test_launch_uses_normal_entrypoint_and_preserves_provider_and_ios_options(self):
+        args = SimpleNamespace(flutter='flutter', device='phone', preset='london',
+                               provider_config=Path('/private/provider.json'), ios=True)
+        with patch.object(stories.subprocess, 'run', return_value=SimpleNamespace(returncode=0)) as run:
+            self.assertEqual(stories.launch(args), 0)
+        command = run.call_args.args[0]
+        self.assertEqual(command[:2], ['flutter', 'run'])
+        self.assertIn('--no-resident', command)
+        self.assertIn('--target=lib/google_tiles_lab.dart', command)
+        self.assertIn('--dart-define=ZYREN_LAB_CLOUDS=true', command)
+        self.assertIn('--dart-define-from-file=/private/provider.json', command)
+        self.assertIn('--publish-port', command)
+        self.assertFalse(any('integration_test' in value for value in command))
+
     def test_atmosphere_scenes_require_only_the_four_atmosphere_tables(self):
         value = response()
         scene = value['scenes'][0]
