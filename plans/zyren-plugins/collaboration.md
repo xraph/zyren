@@ -158,11 +158,10 @@ Checks run on 2026-10-02 with the repository's Flutter 3.47.5 Dart SDK:
   scene graphs at x=2 and revision 2. `agent_scene.dart` discovers two providers,
   returns the housing source ID from a CPU pick, commits scene revision 1 and
   reports an empty geometry query after hiding that object.
-- Package analysis reports no issues. The initial package boundary check passed.
-  The later whole-workspace run currently reports the interaction owner's new
-  `zyren_agents` imports in `zyren_devtools/lib/io.dart` and `lib/agents.dart` as
-  missing from its shared allowlist. Collaboration imports satisfy their entry.
-  This chat has not changed another owner's allowance.
+- `dart analyze packages/zyren_collaboration` reports no issues. Formatting and
+  owned diff checks pass. `dart tool/check_package_boundaries.dart` now passes,
+  including Apple ABI header consistency. An earlier run caught the concurrent
+  devtools allowance update before that owner finished it.
 
 The MCP test uses `TestRenderer` and asserts zero render calls. No native
 presentation or device check has run here. The examples are headless scene hosts,
@@ -183,13 +182,12 @@ cancel a remote engineering write once the store has sent it.
 
 Native point-to-object-to-action evidence is still required. The shared MCP
 transport is exercised with actual subprocess I/O, but it has not been connected
-to a live native viewport in this workstream. The current shared boundary-check
-failure above belongs to concurrent devtools registration work.
+to a live native viewport in this workstream.
 
 Commits: `45da7bd` contains the checked scene-operation checkpoint and
 `486fdfb` adds the shared agent providers, engineering adapter and MCP checks.
-A final recovery check now bounds host permission waits and verifies that a
-stalled callback cannot hold the local authority queue indefinitely.
+`3d83ad8` bounds host permission waits and verifies that a stalled callback
+releases the local authority queue without a late commit.
 
 At agent verification time, the interaction owner's devtools MCP adapter was
 still uncommitted. The MCP test passed against that working-tree integration;
