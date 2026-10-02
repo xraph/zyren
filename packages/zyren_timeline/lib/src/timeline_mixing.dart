@@ -55,17 +55,37 @@ final class TimelineLayer {
   final TimelineClip clip;
   final Duration start;
   final Duration? sampleTime;
+  final bool loop, reverse, additive;
+  final Duration referenceTime;
   final List<ClipWeight> weights;
   TimelineLayer({
     required this.clip,
     required Iterable<ClipWeight> weights,
     this.start = Duration.zero,
     this.sampleTime,
+    this.loop = false,
+    this.reverse = false,
+    this.additive = false,
+    this.referenceTime = Duration.zero,
   }) : weights = List.unmodifiable(weights) {
     if (start.isNegative || (sampleTime?.isNegative ?? false)) {
       throw ArgumentError('Layer start must be nonnegative.');
     }
+    if (referenceTime.isNegative || referenceTime > clip.duration) {
+      throw ArgumentError('Additive reference time must fit the clip.');
+    }
     _validateTimes(this.weights.map((weight) => weight.time));
+  }
+
+  Duration localTimeAt(Duration time) {
+    if (sampleTime != null) return _clipTime(sampleTime!, clip.duration);
+    final elapsed = math.max(0, (time - start).inMicroseconds);
+    final local = loop
+        ? elapsed % clip.duration.inMicroseconds
+        : math.min(elapsed, clip.duration.inMicroseconds);
+    return Duration(
+      microseconds: reverse ? clip.duration.inMicroseconds - local : local,
+    );
   }
 
   double weightAt(Duration time) {
@@ -125,17 +145,19 @@ final class _MixedTrack extends TimelineTrack {
   @override
   void Function() prepare(Duration time) {
     final active = <_WeightedSample>[];
+    final additions = <TimelineLayer>[];
     var total = 0.0;
     for (final layer in layers) {
       final weight = layer.weightAt(time);
       if (weight == 0) continue;
+      if (layer.additive) {
+        additions.add(layer);
+        continue;
+      }
       total += weight;
       active.add((
         track: layer.clip._targets[target]!,
-        time: _clipTime(
-          layer.sampleTime ?? time - layer.start,
-          layer.clip.duration,
-        ),
+        time: layer.localTimeAt(time),
         weight: weight,
       ));
     }
@@ -156,7 +178,10 @@ final class _MixedTrack extends TimelineTrack {
       }
     }
     if (track is TransformTrack) {
-      final pose = _blendTransforms(active);
+      var pose = _blendTransforms(active);
+      for (final layer in additions) {
+        pose = _addTransform(pose, layer, target, time);
+      }
       return () {
         target.position = pose.position;
         target.scale = pose.scale;
@@ -164,7 +189,10 @@ final class _MixedTrack extends TimelineTrack {
         target.visible = pose.visible;
       };
     }
-    final pose = _blendCameras(active);
+    var pose = _blendCameras(active);
+    for (final layer in additions) {
+      pose = _addCamera(pose, layer, target, time);
+    }
     final camera = target as Camera;
     return () => camera.batch(() {
       camera.position = pose.position;
@@ -234,5 +262,56 @@ CameraKeyframe _blendCameras(List<_WeightedSample> active) {
     position: position,
     target: target,
     up: up.normalized(),
+  );
+}
+
+TransformKeyframe _addTransform(
+  TransformKeyframe pose,
+  TimelineLayer layer,
+  Object3D target,
+  Duration time,
+) {
+  final track = layer.clip._targets[target] as TransformTrack;
+  final sample = track._sample(layer.localTimeAt(time));
+  final reference = track._sample(layer.referenceTime);
+  final weight = layer.weightAt(time);
+  double factor(double value, double base) {
+    final ratio = value / base;
+    if (ratio <= 0 || !ratio.isFinite) {
+      throw ArgumentError('Additive scales must match reference signs.');
+    }
+    return 1 + (ratio - 1) * weight;
+  }
+
+  final r = reference.rotation;
+  final delta = Quat(-r.x, -r.y, -r.z, r.w) * sample.rotation;
+  return TransformKeyframe(
+    Duration.zero,
+    position: pose.position + (sample.position - reference.position) * weight,
+    scale: Vec3(
+      pose.scale.x * factor(sample.scale.x, reference.scale.x),
+      pose.scale.y * factor(sample.scale.y, reference.scale.y),
+      pose.scale.z * factor(sample.scale.z, reference.scale.z),
+    ),
+    rotation: pose.rotation * _slerp(Quat.identity, delta, weight),
+    visible: pose.visible,
+  );
+}
+
+CameraKeyframe _addCamera(
+  CameraKeyframe pose,
+  TimelineLayer layer,
+  Object3D target,
+  Duration time,
+) {
+  final track = layer.clip._targets[target] as CameraTrack;
+  final sample = track._sample(layer.localTimeAt(time));
+  final reference = track._sample(layer.referenceTime);
+  final weight = layer.weightAt(time);
+  return CameraKeyframe(
+    Duration.zero,
+    position: pose.position + (sample.position - reference.position) * weight,
+    target: pose.target + (sample.target - reference.target) * weight,
+    up: (pose.up + (sample.up - reference.up) * weight).normalized(),
   );
 }

@@ -25,11 +25,12 @@ final class TimelineEvent {
 }
 
 extension on SceneTimelinePlugin {
-  int _afterMarker(Duration time) {
-    var low = 0, high = markers.length;
+  int _afterMarker(Duration time, List<TimelineMarker> ordered) {
+    var low = 0, high = ordered.length;
     while (low < high) {
       final middle = low + ((high - low) ~/ 2);
-      if (markers[middle].time <= time) {
+      if ((reverse ? duration - ordered[middle].time : ordered[middle].time) <=
+          time) {
         low = middle + 1;
       } else {
         high = middle;
@@ -46,10 +47,13 @@ extension on SceneTimelinePlugin {
     required bool includeStart,
   }) {
     if (markers.isEmpty) return const [];
-    final start = includeStart && previous == Duration.zero
+    final ordered = reverse ? _reverseMarkers : markers;
+    final logicalPrevious = reverse ? duration - previous : previous;
+    final logicalNext = reverse ? duration - next : next;
+    final start = includeStart && logicalPrevious == Duration.zero
         ? 0
-        : _afterMarker(previous);
-    final finish = _afterMarker(next);
+        : _afterMarker(logicalPrevious, ordered);
+    final finish = _afterMarker(logicalNext, ordered);
     final edges = wraps == 0 ? finish - start : markers.length - start + finish;
     // Check division before multiplication to avoid overflow for tiny clips.
     if (edges > maxEventsPerAdvance ||
@@ -62,7 +66,7 @@ extension on SceneTimelinePlugin {
     final result = <TimelineEvent>[];
     void append(int first, int last, int index) {
       for (var i = first; i < last; i++) {
-        result.add(TimelineEvent._(markers[i], index, next));
+        result.add(TimelineEvent._(ordered[i], index, next));
       }
     }
 
@@ -77,4 +81,13 @@ extension on SceneTimelinePlugin {
     }
     return result;
   }
+}
+
+List<TimelineMarker> _reverseMarkerOrder(List<TimelineMarker> markers) {
+  final indexed = [for (var i = 0; i < markers.length; i++) (i, markers[i])];
+  indexed.sort((a, b) {
+    final order = b.$2.time.compareTo(a.$2.time);
+    return order == 0 ? a.$1.compareTo(b.$1) : order;
+  });
+  return List.unmodifiable([for (final entry in indexed) entry.$2]);
 }

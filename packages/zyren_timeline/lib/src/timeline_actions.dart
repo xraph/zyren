@@ -14,8 +14,21 @@ final class TimelineAction {
   Duration _position = Duration.zero, _elapsed = Duration.zero;
   double _weight;
   bool _playing = false, _disposed = false;
+  bool loop, reverse;
+  final bool additive;
+  final Duration referenceTime;
   _ActionFade? _fade;
-  TimelineAction._(this._owner, this.clip, this._weight);
+  TimelineAction._(
+    this._owner,
+    this.clip,
+    this._weight,
+    this.loop,
+    this.reverse,
+    this.additive,
+    this.referenceTime,
+  ) {
+    if (reverse) _position = clip.duration;
+  }
 
   Duration get position => _position;
   double get weight => _weight;
@@ -28,7 +41,17 @@ final class TimelineAction {
 
   void play() {
     _check();
-    if (_position == clip.duration) _position = Duration.zero;
+    final previous = _position;
+    if ((!reverse && _position == clip.duration) ||
+        (reverse && _position == Duration.zero)) {
+      _position = reverse ? clip.duration : Duration.zero;
+    }
+    try {
+      _owner._applyPose(_owner.position);
+    } catch (_) {
+      _position = previous;
+      rethrow;
+    }
     _playing = true;
     _owner._syncActionDemand();
   }
@@ -102,6 +125,9 @@ final class TimelineAction {
       _owner._applyPose(_owner.position);
     } catch (_) {
       _owner._actions.insert(index, this);
+      _playing = false;
+      _fade = null;
+      _owner._syncActionDemand();
       rethrow;
     }
     _disposed = true;
@@ -119,13 +145,23 @@ final class TimelineAction {
 
   void _advance(Duration delta) {
     if (_playing) {
-      _position += Duration(
-        microseconds: math.min(
-          delta.inMicroseconds,
-          (clip.duration - _position).inMicroseconds,
-        ),
-      );
-      if (_position == clip.duration) _playing = false;
+      final length = clip.duration.inMicroseconds;
+      final local = _position.inMicroseconds;
+      final deltaUs = delta.inMicroseconds;
+      if (loop) {
+        final phase = reverse ? length - local : local;
+        final next = (phase + deltaUs % length) % length;
+        _position = Duration(microseconds: reverse ? length - next : next);
+      } else {
+        _position = Duration(
+          microseconds: reverse
+              ? local - math.min(deltaUs, local)
+              : local + math.min(deltaUs, length - local),
+        );
+        if (_position == (reverse ? Duration.zero : clip.duration)) {
+          _playing = false;
+        }
+      }
     }
     final fade = _fade;
     if (fade != null) {
@@ -144,7 +180,14 @@ final class TimelineAction {
 
 extension TimelineActions on SceneTimelinePlugin {
   /// Creates a paused action. Its clip may contain any subset of base targets.
-  TimelineAction createAction(TimelineClip clip, {double weight = 0}) {
+  TimelineAction createAction(
+    TimelineClip clip, {
+    double weight = 0,
+    bool loop = false,
+    bool reverse = false,
+    bool additive = false,
+    Duration referenceTime = Duration.zero,
+  }) {
     _attached;
     final base = _base;
     if (base == null) throw StateError('Actions require a mixed timeline.');
@@ -152,9 +195,22 @@ extension TimelineActions on SceneTimelinePlugin {
       throw ArgumentError('Action weight must fit zero to one.');
     }
     _mixTracks(duration, base, [
-      TimelineLayer(clip: clip, weights: [ClipWeight(Duration.zero, weight)]),
+      TimelineLayer(
+        clip: clip,
+        additive: additive,
+        referenceTime: referenceTime,
+        weights: [ClipWeight(Duration.zero, weight)],
+      ),
     ]);
-    final action = TimelineAction._(this, clip, weight);
+    final action = TimelineAction._(
+      this,
+      clip,
+      weight,
+      loop,
+      reverse,
+      additive,
+      referenceTime,
+    );
     _actions.add(action);
     try {
       _applyPose(position);
@@ -172,6 +228,8 @@ extension TimelineActions on SceneTimelinePlugin {
       for (final action in _actions)
         TimelineLayer(
           clip: action.clip,
+          additive: action.additive,
+          referenceTime: action.referenceTime,
           weights: [ClipWeight(Duration.zero, action.weight)],
           // A constant local clock decouples actions from main-clock seeks.
           sampleTime: action.position,

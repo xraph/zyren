@@ -145,8 +145,7 @@ clips. Invalid track samples follow the same event behavior.
 The exported `sceneTimeline` service key belongs to `zyren.timeline`. Cancel your
 `changes` and `events` subscriptions when their consumers close. Pausing a stream
 subscription can buffer notifications. Detach stops playback and retains the
-consumed start state for renderer recovery. Reverse playback, additive mixing, per-layer looping, imported animation events,
-skeletal animation and morphs are outside this version.
+consumed start state for renderer recovery. Imported animation events, skeletal animation and morphs are outside this version.
 
 
 ## Independent actions
@@ -191,3 +190,45 @@ bindings. These require importer and renderer work outside this package. Keep
 those changes with their owners, then add timeline adapters and native integration
 checks for their public APIs. Transform and camera actions do not establish skin
 or morph support.
+
+
+## Local looping and reverse playback
+
+Set `loop: true` on a `TimelineLayer` to repeat its clip independently of the main
+clock. `reverse: true` samples from its end toward zero. The layer holds its
+starting endpoint before `start`. A looping reverse layer samples the end at
+an exact loop boundary; a forward layer samples zero. You can inspect the mapping
+with `localTimeAt(time)`. Weight curves always use the main clock.
+
+Actions accept the same `loop` and `reverse` options. Reverse actions start at
+the clip end, retain overshoot across loops and stop at zero when looping is off.
+You can change either flag during playback. Their fades keep moving forward in
+elapsed engine time even when their clip clocks run backward. `sampleTime` on
+an authored layer fixes its local sample and overrides loop/reverse mapping.
+
+The main timeline also accepts `reverse: true`. Reverse playback starts at the
+end, emits markers in descending time order and keeps equal-time markers in
+declaration order. It crosses `[next, previous)`, including end markers when
+starting at the end. A reverse loop emits zero markers before the next loop's
+end markers. Seeking is still silent, and the event limit applies in either
+direction. Set the direction before seeking to its starting endpoint if you
+want to rearm that endpoint's markers.
+
+## Additive layers
+
+Set `additive: true` on a layer or action to apply changes relative to its clip's
+`referenceTime`, which defaults to zero. Additive weights do not consume or
+normalize absolute layer weights. The mixer first resolves absolute poses, then
+applies additive layers in declaration order, followed by actions in creation
+order. This keeps seeking deterministic.
+
+Position deltas add in the target's parent space. Rotation uses a local quaternion
+delta from the reference orientation, interpolated from identity and multiplied
+onto the blended rotation. Scale applies a weighted sample/reference ratio on
+each axis. Its signs must match the reference, and the resulting pose must stay
+finite and nonsingular. Visibility stays with the absolute blend.
+
+Camera position, target and normalized up deltas add relative to the reference
+camera pose. The final view still passes camera validation before any scene edits.
+Choose a reference pose that represents no contribution. A constant clip sampled
+at its reference adds nothing.

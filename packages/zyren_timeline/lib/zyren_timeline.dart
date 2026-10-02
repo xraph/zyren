@@ -154,7 +154,10 @@ class SceneTimelinePlugin extends ScenePlugin {
   final List<TimelineTrack> tracks;
   final List<TimelineMarker> markers;
   final int maxEventsPerAdvance;
-  bool loop;
+  late final List<TimelineMarker> _reverseMarkers = _reverseMarkerOrder(
+    markers,
+  );
+  bool loop, reverse;
   final _changes = StreamController<void>.broadcast();
   final _events = StreamController<TimelineEvent>.broadcast();
   final _parents = Map<Object3D, Object3D?>.identity();
@@ -173,6 +176,7 @@ class SceneTimelinePlugin extends ScenePlugin {
     Iterable<TimelineMarker> markers = const [],
     int maxEventsPerAdvance = 1024,
     bool loop = false,
+    bool reverse = false,
   }) {
     final copied = List<TimelineLayer>.unmodifiable(layers);
     return SceneTimelinePlugin(
@@ -181,6 +185,7 @@ class SceneTimelinePlugin extends ScenePlugin {
         markers: markers,
         maxEventsPerAdvance: maxEventsPerAdvance,
         loop: loop,
+        reverse: reverse,
       )
       .._base = base
       .._layers = copied;
@@ -192,6 +197,7 @@ class SceneTimelinePlugin extends ScenePlugin {
     Iterable<TimelineMarker> markers = const [],
     this.maxEventsPerAdvance = 1024,
     this.loop = false,
+    this.reverse = false,
   }) : tracks = List.unmodifiable(tracks),
        markers = List.unmodifiable(markers) {
     if (duration <= Duration.zero) {
@@ -200,6 +206,7 @@ class SceneTimelinePlugin extends ScenePlugin {
     if (maxEventsPerAdvance < 1) {
       throw ArgumentError('The event limit must be positive.');
     }
+    if (reverse) _position = duration;
     final ids = <String>{};
     var previous = Duration.zero;
     for (final marker in this.markers) {
@@ -259,7 +266,7 @@ class SceneTimelinePlugin extends ScenePlugin {
     );
     _applyPose(next);
     _loopIndex = 0;
-    _startPending = next == Duration.zero;
+    _startPending = next == (reverse ? duration : Duration.zero);
   }
 
   void _applyPose(Duration next) {
@@ -295,8 +302,10 @@ class SceneTimelinePlugin extends ScenePlugin {
     final context = _attached;
     if (_playing) return;
     try {
-      final restart = _position >= duration;
-      final next = restart ? Duration.zero : _position;
+      final restart = reverse
+          ? _position <= Duration.zero
+          : _position >= duration;
+      final next = restart ? (reverse ? duration : Duration.zero) : _position;
       final cycle = restart ? 0 : _loopIndex;
       final pending = _crossedEvents(
         next,
@@ -375,23 +384,27 @@ class SceneTimelinePlugin extends ScenePlugin {
         throw ArgumentError('Playback delta must be nonnegative.');
       }
       final length = duration.inMicroseconds;
-      final remaining = length - _position.inMicroseconds;
+      final logical = reverse
+          ? length - _position.inMicroseconds
+          : _position.inMicroseconds;
+      final remaining = length - logical;
       final delta = frame.delta.inMicroseconds;
       // Divide before adding so even a large explicit delta cannot overflow.
       var wraps = 0;
-      final Duration next;
+      final Duration forward;
       if (loop) {
         wraps = delta ~/ length;
         final remainder = delta % length;
         if (remainder >= remaining) {
           wraps++;
-          next = Duration(microseconds: remainder - remaining);
+          forward = Duration(microseconds: remainder - remaining);
         } else {
-          next = _position + Duration(microseconds: remainder);
+          forward = Duration(microseconds: logical + remainder);
         }
       } else {
-        next = _position + Duration(microseconds: math.min(delta, remaining));
+        forward = Duration(microseconds: logical + math.min(delta, remaining));
       }
+      final next = reverse ? duration - forward : forward;
       final pending = _crossedEvents(
         _position,
         next,
@@ -403,7 +416,10 @@ class SceneTimelinePlugin extends ScenePlugin {
       _loopIndex += wraps;
       _startPending = false;
       pending.forEach(_events.add);
-      if (!loop && _position >= duration) pause();
+      if (!loop &&
+          (reverse ? _position <= Duration.zero : _position >= duration)) {
+        pause();
+      }
     } catch (_) {
       pause();
       rethrow;
