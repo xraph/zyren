@@ -1,0 +1,11 @@
+{
+  "capacity": 65536,
+  "creationMicroseconds": 252517,
+  "updateHostMicroseconds": 19949,
+  "dispatches": 138,
+  "uploadedBytes": 448,
+  "residentBytes": 8913136,
+  "liveCountFromExplicitReadback": 65536,
+  "gpuTime": null,
+  "routineReadbackBytes": 0
+}

@@ -15,9 +15,9 @@ the named devices. The package remains unpublished.
 | Soft depth intersections | Native mesh API has no sampled scene depth binding | Explicit UnsupportedError tested; feature unavailable |
 | Independent scenes, disposal and restoration | Implemented | Two native views, partial attach rollback, atomic configuration and zero resource counters pass |
 | Maximum capacity | Implemented, 65,536 particles | Full-capacity GPU sort and explicit live-count readback pass |
-| Dedicated native examples | Implemented in examples/particles | Final platform qualification in progress |
+| Dedicated native examples | Implemented in examples/particles | macOS and Android interaction tests pass at desktop and narrow constraints |
 | Tests, analysis, format and package boundaries | 19 package tests pass; analysis and format clean | Native material/graph regressions pass; strict Clippy has four unrelated warnings |
-| Metal execution | Verified on Apple M3 Max | Package image tests pass; final app rerun in progress |
-| Android Vulkan execution | Verified on Pixel 9 Pro | App controls passed; final uniform-layout rerun pending |
-| iOS | Simulator build passed | Physical-device execution pending |
+| Metal execution | Verified on Apple M3 Max | Package images and final app interaction test pass |
+| Android Vulkan execution | Verified on Pixel 9 Pro | Final app interaction test passes with zero frame readback bytes |
+| iOS | Simulator and signed physical-device builds passed | Physical-device interaction blocked by wireless VM-service discovery |
 | Linux Vulkan and Windows DX12 | Shared native backend, build targets supplied | No matching hardware in this session |

@@ -1,0 +1,82 @@
+name: Native particles
+on:
+  workflow_dispatch:
+    inputs:
+      native_gpu:
+        description: Run Metal checks on a runner with an available GPU
+        type: boolean
+        default: false
+  push:
+    paths:
+      - 'packages/zyren_particles/**'
+      - 'packages/zyren/**'
+      - 'packages/zyren_native/**'
+      - 'packages/flutter_zyren/**'
+      - 'examples/particles/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - '.github/workflows/particles.yml'
+  pull_request:
+    paths:
+      - 'packages/zyren_particles/**'
+      - 'packages/zyren/**'
+      - 'packages/zyren_native/**'
+      - 'packages/flutter_zyren/**'
+      - 'examples/particles/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - '.github/workflows/particles.yml'
+jobs:
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            platform: macos
+          - os: ubuntu-latest
+            platform: linux
+          - os: windows-latest
+            platform: windows
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.5'
+          cache: true
+      - name: Linux build dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
+      - run: rustup toolchain install 1.97.1 --profile minimal --component clippy,rustfmt
+      - run: flutter pub get
+      - run: dart analyze packages/zyren_particles examples/particles
+      - run: dart format --output=none --set-exit-if-changed packages/zyren_particles examples/particles/lib examples/particles/integration_test examples/particles/test_driver
+      - run: dart test --concurrency=1
+        working-directory: packages/zyren_particles
+      - name: Optional native Metal qualification
+        if: runner.os == 'macOS' && inputs.native_gpu == true
+        run: dart test --concurrency=1 --timeout=3m
+        working-directory: packages/zyren_particles
+        env:
+          RUN_NATIVE_GPU: '1'
+      - run: dart run tool/check_package_boundaries.dart
+      - run: flutter build ${{ matrix.platform }} --debug
+        working-directory: examples/particles
+  mobile:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.5'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - run: rustup toolchain install 1.97.1 --profile minimal
+      - run: flutter pub get
+      - run: flutter build ios --simulator --debug --no-codesign
+        working-directory: examples/particles
+      - run: flutter build apk --debug --target-platform android-arm64
+        working-directory: examples/particles

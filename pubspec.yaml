@@ -21,6 +21,7 @@ workspace:
   - examples/multiple_views
   - examples/model_viewer
   - examples/shader_lab
+  - examples/particles
   - examples/physics_lab
 dev_dependencies:
   analyzer: ^13.3.0

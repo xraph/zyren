@@ -1,0 +1,242 @@
+[
+  {
+    "mode": "billboard",
+    "blend": "alpha",
+    "path": "gpu",
+    "litPixels": 373,
+    "residentBytes": 10696,
+    "hostMicroseconds": 23417,
+    "dispatches": 31,
+    "uploadedBytes": 4704
+  },
+  {
+    "mode": "billboard",
+    "blend": "alpha",
+    "path": "reference",
+    "litPixels": 373,
+    "residentBytes": 10696,
+    "hostMicroseconds": 12503,
+    "dispatches": 0,
+    "uploadedBytes": 7392
+  },
+  {
+    "mode": "billboard",
+    "blend": "additive",
+    "path": "gpu",
+    "litPixels": 373,
+    "residentBytes": 10696,
+    "hostMicroseconds": 14260,
+    "dispatches": 21,
+    "uploadedBytes": 4704
+  },
+  {
+    "mode": "billboard",
+    "blend": "additive",
+    "path": "reference",
+    "litPixels": 373,
+    "residentBytes": 10696,
+    "hostMicroseconds": 10375,
+    "dispatches": 0,
+    "uploadedBytes": 7392
+  },
+  {
+    "mode": "billboard",
+    "blend": "opaque",
+    "path": "gpu",
+    "litPixels": 373,
+    "residentBytes": 10696,
+    "hostMicroseconds": 13893,
+    "dispatches": 21,
+    "uploadedBytes": 4704
+  },
+  {
+    "mode": "billboard",
+    "blend": "opaque",
+    "path": "reference",
+    "litPixels": 373,
+    "residentBytes": 10696,
+    "hostMicroseconds": 11274,
+    "dispatches": 0,
+    "uploadedBytes": 7392
+  },
+  {
+    "mode": "oriented",
+    "blend": "alpha",
+    "path": "gpu",
+    "litPixels": 373,
+    "residentBytes": 10696,
+    "hostMicroseconds": 18001,
+    "dispatches": 31,
+    "uploadedBytes": 4704
+  },
+  {
+    "mode": "oriented",
+    "blend": "alpha",
+    "path": "reference",
+    "litPixels": 373,
+    "residentBytes": 10696,
+    "hostMicroseconds": 9144,
+    "dispatches": 0,
+    "uploadedBytes": 7392
+  },
+  {
+    "mode": "oriented",
+    "blend": "additive",
+    "path": "gpu",
+    "litPixels": 373,
+    "residentBytes": 10696,
+    "hostMicroseconds": 14563,
+    "dispatches": 21,
+    "uploadedBytes": 4704
+  },
+  {
+    "mode": "oriented",
+    "blend": "additive",
+    "path": "reference",
+    "litPixels": 373,
+    "residentBytes": 10696,
+    "hostMicroseconds": 7342,
+    "dispatches": 0,
+    "uploadedBytes": 7392
+  },
+  {
+    "mode": "oriented",
+    "blend": "opaque",
+    "path": "gpu",
+    "litPixels": 373,
+    "residentBytes": 10696,
+    "hostMicroseconds": 14977,
+    "dispatches": 21,
+    "uploadedBytes": 4704
+  },
+  {
+    "mode": "oriented",
+    "blend": "opaque",
+    "path": "reference",
+    "litPixels": 373,
+    "residentBytes": 10696,
+    "hostMicroseconds": 7993,
+    "dispatches": 0,
+    "uploadedBytes": 7392
+  },
+  {
+    "mode": "stretched",
+    "blend": "alpha",
+    "path": "gpu",
+    "litPixels": 377,
+    "residentBytes": 10696,
+    "hostMicroseconds": 17376,
+    "dispatches": 31,
+    "uploadedBytes": 4704
+  },
+  {
+    "mode": "stretched",
+    "blend": "alpha",
+    "path": "reference",
+    "litPixels": 377,
+    "residentBytes": 10696,
+    "hostMicroseconds": 8318,
+    "dispatches": 0,
+    "uploadedBytes": 7392
+  },
+  {
+    "mode": "stretched",
+    "blend": "additive",
+    "path": "gpu",
+    "litPixels": 377,
+    "residentBytes": 10696,
+    "hostMicroseconds": 16172,
+    "dispatches": 21,
+    "uploadedBytes": 4704
+  },
+  {
+    "mode": "stretched",
+    "blend": "additive",
+    "path": "reference",
+    "litPixels": 377,
+    "residentBytes": 10696,
+    "hostMicroseconds": 10748,
+    "dispatches": 0,
+    "uploadedBytes": 7392
+  },
+  {
+    "mode": "stretched",
+    "blend": "opaque",
+    "path": "gpu",
+    "litPixels": 377,
+    "residentBytes": 10696,
+    "hostMicroseconds": 13856,
+    "dispatches": 21,
+    "uploadedBytes": 4704
+  },
+  {
+    "mode": "stretched",
+    "blend": "opaque",
+    "path": "reference",
+    "litPixels": 377,
+    "residentBytes": 10696,
+    "hostMicroseconds": 7458,
+    "dispatches": 0,
+    "uploadedBytes": 7392
+  },
+  {
+    "mode": "mesh",
+    "blend": "alpha",
+    "path": "gpu",
+    "litPixels": 434,
+    "residentBytes": 26440,
+    "hostMicroseconds": 15379,
+    "dispatches": 31,
+    "uploadedBytes": 4704
+  },
+  {
+    "mode": "mesh",
+    "blend": "alpha",
+    "path": "reference",
+    "litPixels": 434,
+    "residentBytes": 26440,
+    "hostMicroseconds": 8166,
+    "dispatches": 0,
+    "uploadedBytes": 7392
+  },
+  {
+    "mode": "mesh",
+    "blend": "additive",
+    "path": "gpu",
+    "litPixels": 434,
+    "residentBytes": 26440,
+    "hostMicroseconds": 13326,
+    "dispatches": 21,
+    "uploadedBytes": 4704
+  },
+  {
+    "mode": "mesh",
+    "blend": "additive",
+    "path": "reference",
+    "litPixels": 434,
+    "residentBytes": 26440,
+    "hostMicroseconds": 13561,
+    "dispatches": 0,
+    "uploadedBytes": 7392
+  },
+  {
+    "mode": "mesh",
+    "blend": "opaque",
+    "path": "gpu",
+    "litPixels": 434,
+    "residentBytes": 26440,
+    "hostMicroseconds": 12774,
+    "dispatches": 21,
+    "uploadedBytes": 4704
+  },
+  {
+    "mode": "mesh",
+    "blend": "opaque",
+    "path": "reference",
+    "litPixels": 434,
+    "residentBytes": 26440,
+    "hostMicroseconds": 7302,
+    "dispatches": 0,
+    "uploadedBytes": 7392
+  }
+]
