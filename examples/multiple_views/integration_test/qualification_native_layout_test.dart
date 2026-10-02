@@ -63,8 +63,11 @@ void main() {
       tester.getSize(find.byKey(const ValueKey('timeline'))).width,
       greaterThan(64),
     );
-    await tester.ensureVisible(find.byKey(const ValueKey('part-Cover')));
-    await tester.tap(find.byKey(const ValueKey('part-Cover')));
+    final coverRow = find.byKey(const ValueKey('part-Cover'));
+    await Scrollable.ensureVisible(tester.element(coverRow), alignment: .5);
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(coverRow.hitTestable(), findsOneWidget);
+    await tester.tap(coverRow);
     await tester.pump(const Duration(milliseconds: 250));
     final cover = controller.scene.children.single.children.firstWhere(
       (node) => node.name == 'Cover',
