@@ -61,6 +61,8 @@ parameterizations with open and closed curves. The fixture generator lives in
 Run `flutter run -d macos -t lib/procedural.dart` from `examples/shader_lab` for
 the native geometry gallery with PBR lighting, bloom and MSAA controls.
 
-Shape triangulation with holes, beveled extrusion, subdivision, CSG, text meshes
-and the remaining Three.js geometry utilities are separate work. These factories
-do not establish full geometry or full core parity.
+For shape triangulation, beveled extrusion and subdivision, see
+[shapes and topology](geometry-controls.md). [Text geometry](text-geometry.md)
+builds flat or extruded outlines. CSG and other remaining Three.js geometry
+utilities are separate work. These factories do not establish full geometry or
+full core parity.

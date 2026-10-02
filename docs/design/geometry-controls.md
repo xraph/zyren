@@ -114,4 +114,6 @@ invalid rings, packed attributes, morph expansion, picking through holes,
 control timing and gesture cancellation. Metal fixtures render both flat and
 beveled shapes through the regular scene geometry path. Subdivision tests cover
 hand-calculated boundary/interior weights, closed seams, attributes, malformed
-topology and native silhouette coverage. Text and CSG remain separate work.
+topology and native silhouette coverage. [Text geometry](text-geometry.md) builds
+flat or extruded outline glyphs through the same shape path. CSG remains separate
+work.
