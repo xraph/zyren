@@ -1,0 +1,26 @@
+{
+  "platform": "macos",
+  "architecture": "x86_64",
+  "build": "passed",
+  "execution": "not_run_no_x64_runtime",
+  "binaries": {
+    "MacOS/physics_lab": [
+      "x86_64"
+    ],
+    "MacOS/physics_lab.debug.dylib": [
+      "x86_64"
+    ],
+    "Frameworks/zyren_physics.framework/zyren_physics": [
+      "x86_64"
+    ],
+    "Frameworks/zyren_runtime.framework/zyren_runtime": [
+      "x86_64"
+    ],
+    "Frameworks/flutter_zyren.framework/flutter_zyren": [
+      "x86_64"
+    ],
+    "Frameworks/FlutterMacOS.framework/FlutterMacOS": [
+      "x86_64"
+    ]
+  }
+}

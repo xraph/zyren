@@ -1,0 +1,47 @@
+{
+  "platform": "android",
+  "build": "passed",
+  "execution": {
+    "thisMultiAbiApk": "not_run",
+    "separateDeviceIntegration": "Pixel 9 Pro arm64 passed; see test-results.txt",
+    "armv7AndX64": "not_run_no_device"
+  },
+  "binaries": {
+    "lib/armeabi-v7a/libzyren_physics.so": {
+      "elfMachine": 40,
+      "bits": 32
+    },
+    "lib/armeabi-v7a/libzyren_runtime.so": {
+      "elfMachine": 40,
+      "bits": 32
+    },
+    "lib/armeabi-v7a/libzyren_surface.so": {
+      "elfMachine": 40,
+      "bits": 32
+    },
+    "lib/arm64-v8a/libzyren_physics.so": {
+      "elfMachine": 183,
+      "bits": 64
+    },
+    "lib/arm64-v8a/libzyren_surface.so": {
+      "elfMachine": 183,
+      "bits": 64
+    },
+    "lib/arm64-v8a/libzyren_runtime.so": {
+      "elfMachine": 183,
+      "bits": 64
+    },
+    "lib/x86_64/libzyren_physics.so": {
+      "elfMachine": 62,
+      "bits": 64
+    },
+    "lib/x86_64/libzyren_runtime.so": {
+      "elfMachine": 62,
+      "bits": 64
+    },
+    "lib/x86_64/libzyren_surface.so": {
+      "elfMachine": 62,
+      "bits": 64
+    }
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "platform": "ios_simulator",
+  "architecture": "x86_64",
+  "build": "passed",
+  "execution": "not_run_no_x64_runtime",
+  "binaries": {
+    "Runner": [
+      "x86_64"
+    ],
+    "Runner.debug.dylib": [
+      "x86_64"
+    ],
+    "Frameworks/zyren_physics.framework/zyren_physics": [
+      "x86_64"
+    ],
+    "Frameworks/zyren_runtime.framework/zyren_runtime": [
+      "x86_64"
+    ],
+    "Frameworks/flutter_zyren.framework/flutter_zyren": [
+      "x86_64"
+    ],
+    "Frameworks/Flutter.framework/Flutter": [
+      "x86_64"
+    ]
+  }
+}

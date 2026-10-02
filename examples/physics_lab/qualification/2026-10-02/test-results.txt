@@ -1,0 +1,60 @@
+Selected result lines from the 2026-10-02 qualification logs.
+Full local logs: /tmp/zyren-physics-qualification-20261002/
+
+checks.log
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+No issues found!
+Package boundaries and Apple ABI header passed.
+
+dart-tests.log
+00:00 +17: All tests passed!
+
+macos-integration.log
+✓ Built build/macos/Build/Products/Debug/physics_lab.app
+Physics Lab renderer: Metal; presentation: nativeView
+00:05 +1: All tests passed!
+
+android.log
+✓ Built build/app/outputs/flutter-apk/app-debug.apk
+Physics Lab renderer: Vulkan; presentation: sharedTexture
+00:08 +1: All tests passed!
+
+ios-simulator.log
+Physics Lab renderer: Metal; presentation: nativeView
+00:06 +1: All tests passed!
+
+linux-arm64-tests.log
+00:00 +17: All tests passed!
+
+linux-arm64-build.log
+✓ Built build/linux/arm64/debug/bundle/physics_lab
+
+linux-arm64-runtime.log
+✓ Built build/linux/arm64/debug/bundle/physics_lab
+Physics Lab renderer: Vulkan; presentation: readback
+00:06 +1: All tests passed!
+
+linux-arm64-checks.log
+No issues found!
+Package boundaries and Apple ABI header passed.
+
+linux-x64-tests-build.log
+00:01 +17: All tests passed!
+✓ Built build/linux/x64/debug/bundle/physics_lab
+
+linux-x64-runtime.log
+✓ Built build/linux/x64/debug/bundle/physics_lab
+Physics Lab renderer: Vulkan; presentation: readback
+00:31 +1: All tests passed!
+No issues found!
+Package boundaries and Apple ABI header passed.
+
+macos-x64-build.log
+** BUILD SUCCEEDED **
+
+ios-simulator-x64-build-retry.log
+** BUILD SUCCEEDED **
+
+android-all-abis.log
+✓ Built build/app/outputs/flutter-apk/app-debug.apk

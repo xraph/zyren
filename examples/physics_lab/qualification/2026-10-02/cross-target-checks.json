@@ -1,0 +1,24 @@
+{
+  "rust": "1.97.1",
+  "command": "cargo +1.97.1 check --manifest-path packages/zyren_physics/native/Cargo.toml --target TARGET --locked",
+  "linking": false,
+  "execution": false,
+  "targets": {
+    "x86_64-pc-windows-msvc": {
+      "status": "passed",
+      "result": "Finished `dev` profile [unoptimized + debuginfo] target(s) in 16.68s"
+    },
+    "aarch64-pc-windows-msvc": {
+      "status": "passed",
+      "result": "Finished `dev` profile [unoptimized + debuginfo] target(s) in 13.42s"
+    },
+    "armv7-linux-androideabi": {
+      "status": "passed",
+      "result": "Finished `dev` profile [unoptimized + debuginfo] target(s) in 15.91s"
+    },
+    "x86_64-linux-android": {
+      "status": "passed",
+      "result": "Finished `dev` profile [unoptimized + debuginfo] target(s) in 15.04s"
+    }
+  }
+}

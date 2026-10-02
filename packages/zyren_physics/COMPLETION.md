@@ -14,9 +14,9 @@ These results were measured on 2026-10-02 with Flutter 3.47.5, its bundled Dart
 | Hinge, slider, fixed, spherical, spring and distance | Implemented; native anchor, motor reversal and limit behavior tests. Distance is a maximum-length rope and permits slack |
 | Ray, shape and overlap queries | Implemented; native hit, filter and overlap tests |
 | Collision, sensor and contact events | Implemented; query transitions survive stepping, removal and snapshot restore; callbacks can remove bound bodies |
-| Snapshots and renderer recovery | Implemented; deterministic replay, stale-handle rejection, failed attachment recovery and native Metal renderer recreation |
-| Debug geometry | Implemented; collider, joint and contact geometry appears in the saved Metal render |
-| Physics Lab | Implemented; controls, pause/resume, reset, kinematics, narrow layout and disposal pass on macOS, Android and the iOS simulator |
+| Snapshots and renderer recovery | Implemented; deterministic replay, stale-handle rejection, failed attachment recovery and native Metal/Vulkan renderer recreation |
+| Debug geometry | Implemented; collider, joint and contact geometry appears in the saved native renders |
+| Physics Lab | Implemented; controls, pause/resume, reset, kinematics, narrow layout and disposal pass on macOS arm64, Pixel arm64, the arm64 iOS simulator and Linux arm64/x64 |
 
 The package suite passes 17 tests. Its six plugin tests use a small renderer test
 double to exercise lifecycle behavior, while every physics world uses native
@@ -27,13 +27,14 @@ workspace package-boundary check also pass.
 | Platform | Build evidence | Execution evidence |
 | --- | --- | --- |
 | macOS arm64 | Flutter debug app and native asset built | 17 package tests, Metal native-view app integration test and render/recreation/cleanup passed |
-| macOS x64 | Rust target check passed | Hardware run open |
+| macOS x64 | Flutter debug app linked; app, physics, renderer, plugin and Flutter framework slices verified as x86_64 | Execution open; no Intel host or Rosetta runtime available |
 | Android arm64 | Flutter debug APK built | Pixel 9 Pro Vulkan/shared-texture app integration test passed |
 | Android armv7 and x64 | Native physics libraries packaged in the debug APK; Rust target checks passed | Hardware runs open |
 | iOS simulator arm64 | Flutter debug app built | iPhone 17 Pro simulator on iOS 26.5 passed the Metal native-view integration test |
-| iOS device arm64 | Unsigned Flutter debug app built; Rust target check passed | Signed hardware run open |
-| iOS simulator x64 | Rust target check passed | Linked app and simulator run open |
-| Linux arm64 and x64 | Rust target checks passed | Linked Flutter builds and hardware runs open |
+| iOS device arm64 | Signed Flutter debug app built and installed on iPhone 16 Pro | Integration blocked by wireless debugger discovery; signed execution remains unverified |
+| iOS simulator x64 | Flutter debug app linked; app, physics, renderer, plugin and Flutter framework slices verified as x86_64 | Simulator execution open; no x64 runtime available |
+| Linux arm64 | Flutter debug app linked in Debian 12 container | 17 package tests, Vulkan/readback app integration and native render/recreation/cleanup passed with Mesa software Vulkan; physical GPU run open |
+| Linux x64 | Flutter debug app linked in emulated Debian 12 container | 17 package tests, Vulkan/readback app integration and native render/recreation/cleanup passed under CPU emulation with Mesa software Vulkan; physical GPU run open |
 | Windows arm64 and x64 | Rust target checks passed | Linked Flutter builds and hardware runs open |
 
 The Metal runner saved `qualification/metal-physics.png` and
@@ -43,8 +44,13 @@ pixel colours after recreation at 640 by 400 pixels. Closing the engine and worl
 returned native body and world counts to zero.
 
 The macOS app test checks desktop and 396 by 800 layouts without Flutter errors.
-Manual window inspection remains blocked by the locked Mac. The dedicated CI
-workflow schedules desktop tests/builds and mobile builds; it has not run remotely.
+Manual desktop inspection passed, including ball creation, queries and pause/resume.
+Manual narrow inspection remains unverified because the capture tool kept returning
+the desktop window size. The dedicated CI workflow has arm64/x64 desktop builds,
+native rendering, app integration and mobile builds; it has not run remotely.
 Cross-target Rust checks verify compilation without linking or executing a target
 binary. Open platform rows remain qualification work, so this table does not claim
 full platform rollout readiness.
+
+You can find the rerun evidence and remaining blockers in the
+[2026-10-02 qualification record](../../examples/physics_lab/qualification/2026-10-02/README.md).
