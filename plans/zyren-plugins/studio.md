@@ -166,5 +166,7 @@ Local commits:
 
 - `6b080d8681f568b6538076a2cfff91a3fcfb0e0e`: versioned scenes, editor, saved
   file flow, Studio/viewport agent adapters and authenticated MCP coverage.
-- The follow-up host provider composition and final evidence commit is recorded
-  in the completion message. No push or merge was performed.
+- `8a443ae51b97d5f31e9d03580de8989e7f4ed9dc`: actual timeline and engineering
+  provider composition, five-provider discovery checks and updated evidence.
+
+No push or merge was performed.
