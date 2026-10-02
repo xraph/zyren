@@ -37,6 +37,8 @@ final class CloudPlugin extends ScenePlugin {
   final CloudBlueNoise? blueNoise;
   final int maxResolution;
   final int? shadowMapSize;
+  final bool shadowsEnabled;
+  final CloudQualityPreset? shadowQuality;
   final double shadowFarScale;
   CloudController? _controller;
   CloudPlugin({
@@ -50,6 +52,8 @@ final class CloudPlugin extends ScenePlugin {
     this.blueNoise,
     this.maxResolution = 384,
     this.shadowMapSize,
+    this.shadowsEnabled = true,
+    this.shadowQuality,
     this.shadowFarScale = 1,
   }) : parameters = parameters ?? CloudParameters(),
        appearance = appearance ?? CloudAppearance(),
@@ -120,6 +124,8 @@ final class CloudController {
   late CloudQualityPreset _quality = _plugin.quality;
   late int _maxResolution = _plugin.maxResolution;
   late int? _shadowMapSize = _plugin.shadowMapSize;
+  late bool _shadowsEnabled = _plugin.shadowsEnabled;
+  late CloudQualityPreset? _shadowQuality = _plugin.shadowQuality;
   late CloudTemporalSettings _temporal = _plugin.temporal;
   final _history = CloudHistory();
   int _revision = 0;
@@ -161,12 +167,16 @@ final class CloudController {
   CloudQualityPreset get quality => _quality;
   int get maxResolution => _maxResolution;
   int? get shadowMapSize => _shadowMapSize;
+  bool get shadowsEnabled => _shadowsEnabled;
+  CloudQualityPreset get shadowQuality => _shadowQuality ?? _quality;
   int get width => _width;
   int get height => _height;
   CloudQualitySettings get settings => CloudQualitySettings(
     preset: _quality,
     maxResolution: _maxResolution,
     shadowMapSize: _shadowMapSize,
+    shadowsEnabled: _shadowsEnabled,
+    shadowPreset: _shadowQuality,
   );
   CloudTemporalSettings get temporal => _temporal;
   CloudHistoryStatus get history => _history.status;
@@ -268,7 +278,9 @@ final class CloudController {
       _serial(() async {
         if (value.preset == _quality &&
             value.maxResolution == _maxResolution &&
-            value.shadowMapSize == _shadowMapSize) {
+            value.shadowMapSize == _shadowMapSize &&
+            value.shadowsEnabled == _shadowsEnabled &&
+            value.shadowPreset == _shadowQuality) {
           return;
         }
         final scale = math.min(
@@ -287,6 +299,8 @@ final class CloudController {
         _quality = value.preset;
         _maxResolution = value.maxResolution;
         _shadowMapSize = value.shadowMapSize;
+        _shadowsEnabled = value.shadowsEnabled;
+        _shadowQuality = value.shadowPreset;
         _width = width;
         _height = height;
         _motion();
@@ -309,7 +323,13 @@ final class CloudController {
         scope,
         lease,
         textures,
-        CloudQuality.forPreset(quality),
+        CloudQuality.forPreset(
+          quality,
+          shadowsEnabled: settings?.shadowsEnabled ?? _shadowsEnabled,
+          shadowPreset: settings != null
+              ? settings.shadowPreset
+              : _shadowQuality,
+        ),
         width,
         height,
         settings != null ? settings.shadowMapSize : _shadowMapSize,
@@ -416,6 +436,7 @@ final class CloudController {
       height: height,
       shadowSize: candidate.shadow.size,
       cascadeCount: candidate.shadow.quality.shadow.cascadeCount,
+      shadowsEnabled: candidate.shadow.quality.shadowsEnabled,
       shadowFarScale: _plugin.shadowFarScale,
       frame: _temporal.mode == CloudTemporalMode.off ? 0 : info.number,
       previousViewProjection: previous?.viewProjection,
@@ -541,7 +562,10 @@ final class _CloudCandidate {
             cloudBlueNoiseWgsl +
             cloudTemporalUniformWgsl +
             cloudSamplingWgsl +
-            cloudShadowSamplingWgsl(quality.shadow.cascadeCount) +
+            cloudShadowSamplingWgsl(
+              quality.shadow.cascadeCount,
+              enabled: quality.shadowsEnabled,
+            ) +
             cloudRenderWgsl(quality),
         label: 'volumetric clouds',
       ),
@@ -553,7 +577,8 @@ final class _CloudCandidate {
           ...library.bindings.entries,
           ...shadow.bindings,
           BufferBinding.uniform(8, temporal.uniform, group: 2),
-          TextureBinding.sampled(6, shadow.atlas, group: 2),
+          if (shadow.atlas case final atlas?)
+            TextureBinding.sampled(6, atlas, group: 2),
           TextureBinding.storage(0, color, group: 3),
           TextureBinding.storage(1, data, group: 3),
           TextureBinding.storage(2, transmittance, group: 3),

@@ -2,6 +2,30 @@ import 'package:test/test.dart';
 import 'package:zyren_geospatial/zyren_geospatial.dart';
 
 void main() {
+  test('shadow quality and allocation limits are independent of clouds', () {
+    final settings = CloudQualitySettings.forDevice(
+      CloudDeviceType.desktop,
+      preset: CloudQualityPreset.low,
+      shadowPreset: CloudQualityPreset.ultra,
+      shadowsEnabled: false,
+    );
+    expect(settings.preset, CloudQualityPreset.low);
+    expect(settings.maxResolution, 320);
+    expect(settings.shadowMapSize, 256);
+    expect(settings.shadowsEnabled, false);
+    final quality = CloudQuality.forPreset(
+      CloudQualityPreset.high,
+      shadowPreset: CloudQualityPreset.low,
+      shadowsEnabled: false,
+    );
+    expect(
+      quality.clouds,
+      same(CloudQuality.forPreset(CloudQualityPreset.high).clouds),
+    );
+    expect(quality.shadow.cascadeCount, 2);
+    expect(quality.shadow.maxIterationCount, 25);
+    expect(quality.lightShafts, false);
+  });
   test(
     'device defaults retain the source sampling presets within size limits',
     () {

@@ -30,6 +30,7 @@ final class CloudFrameState {
     required int height,
     required int shadowSize,
     required int cascadeCount,
+    bool shadowsEnabled = true,
     double shadowFarScale = 1,
     int frame = 0,
     Mat4? previousViewProjection,
@@ -45,18 +46,20 @@ final class CloudFrameState {
     final inverse = rotation.inverted();
     final worldSun = cloudVector(inverse, sun).normalized();
     final distance = 1e6 + (1e3 - 1e6) * sun.dot(correctedCamera.normalized());
-    final maps = CloudShadowCascades.build(
-      camera: camera,
-      aspect: aspect,
-      sunDirection: worldSun,
-      count: cascadeCount,
-      mapWidth: shadowSize,
-      mapHeight: shadowSize,
-      maxFar: math.max(near + 1, math.min(far, 200000)),
-      distance: distance,
-      splitLambda: .6,
-      farScale: shadowFarScale,
-    );
+    final maps = shadowsEnabled
+        ? CloudShadowCascades.build(
+            camera: camera,
+            aspect: aspect,
+            sunDirection: worldSun,
+            count: cascadeCount,
+            mapWidth: shadowSize,
+            mapHeight: shadowSize,
+            maxFar: math.max(near + 1, math.min(far, 200000)),
+            distance: distance,
+            splitLambda: .6,
+            farScale: shadowFarScale,
+          )
+        : CloudShadowCascades.disabled(near: near, far: far);
     final forward = (camera.target - camera.position).normalized();
     Mat4 relative(Mat4 matrix, bool isInverse) {
       final m = matrix.storage.toList();

@@ -17,11 +17,11 @@ import 'shadow_temporal.dart';
 final class CloudShadowPass {
   final GpuScope scope;
   final GpuResource<Buffer> media, frame, noise;
-  final GpuResource<Texture> rawAtlas;
+  final GpuResource<Texture>? rawAtlas;
   final CloudShadowTemporal? temporal;
-  GpuResource<Texture> get atlas => temporal?.output ?? rawAtlas;
+  GpuResource<Texture>? get atlas => temporal?.output ?? rawAtlas;
   final CloudTextureSet textures;
-  final CompiledGraph graph;
+  final CompiledGraph? graph;
   final CloudQuality quality;
   final int size;
   CloudShadowPass._(
@@ -85,6 +85,20 @@ final class CloudShadowPass {
         noise,
         blueNoise?.bytes ?? Uint8List(4),
       );
+      if (!quality.shadowsEnabled) {
+        return CloudShadowPass._(
+          scope,
+          media,
+          frame,
+          noise,
+          null,
+          null,
+          textures,
+          null,
+          quality,
+          size,
+        );
+      }
       final atlas = await scope.resources.createTexture(
         TextureDescriptor(
           width: size * quality.shadow.cascadeCount,
@@ -180,9 +194,10 @@ final class CloudShadowPass {
     double elapsed = 0,
     bool historyValid = false,
   }) async {
-    if (state.cascades.cascades.length != quality.shadow.cascadeCount ||
-        state.data[178] != size ||
-        state.data[179] != size) {
+    if (quality.shadowsEnabled &&
+        (state.cascades.cascades.length != quality.shadow.cascadeCount ||
+            state.data[178] != size ||
+            state.data[179] != size)) {
       throw ArgumentError('Cloud frame and shadow atlas dimensions differ.');
     }
     await scope.resources.writeBuffer(
@@ -190,7 +205,7 @@ final class CloudShadowPass {
       cloudMediaUniforms(parameters, appearance, elapsed: elapsed),
     );
     await scope.resources.writeBuffer(frame, state.data);
-    await graph.execute();
+    await graph?.execute();
     await temporal?.render(state, valid: historyValid);
   }
 

@@ -41,6 +41,47 @@ Future<CloudTextures> constantCloudTextures(GpuScope scope) async {
 }
 
 void main() {
+  test('disabled shadows allocate no atlas, graph or shadow history', () async {
+    final backend = await NativeBackend.create();
+    final owner = GpuScope.fromBackend(backend);
+    try {
+      final textures = await constantCloudTextures(owner);
+      final pass = await CloudShadowPass.build(
+        owner,
+        textures,
+        CloudQuality.forPreset(CloudQualityPreset.ultra, shadowsEnabled: false),
+        temporal: true,
+      );
+      expect(pass.atlas, isNull);
+      expect(pass.graph, isNull);
+      expect(pass.temporal, isNull);
+      final camera = PerspectiveCamera(
+        position: const Vec3(0, 0, 6360100),
+        target: const Vec3(0, 10000, 6360100),
+        up: const Vec3(0, 0, 1),
+        near: 1,
+        far: 20000,
+      );
+      final frame = CloudFrameState(
+        camera: camera,
+        worldToEcef: Mat4.identity(),
+        correctedCamera: camera.position,
+        sun: const Vec3(0, 0, 1),
+        aspect: 1,
+        width: 32,
+        height: 32,
+        shadowSize: pass.size,
+        cascadeCount: 4,
+        shadowsEnabled: false,
+      );
+      expect(frame.cascades.cascades, isEmpty);
+      await pass.render(referenceParameters(), CloudAppearance(), frame);
+    } finally {
+      await owner.close();
+      expect((await backend.resourceStats()).residentBytes, 0);
+      await backend.close();
+    }
+  });
   test('Beer shadow rays match the original structured GLSL marcher', () async {
     final backend = await NativeBackend.create();
     final owner = GpuScope.fromBackend(backend);
@@ -206,7 +247,7 @@ ${cloudShadowMarchWgsl(q)}
             frame(),
           );
           final bytes = ByteData.sublistView(
-            await pass.scope.resources.readTexture(pass.atlas),
+            await pass.scope.resources.readTexture(pass.atlas!),
           );
           var occupied = 0;
           for (var i = 0; i < bytes.lengthInBytes; i += 16) {
@@ -239,7 +280,7 @@ ${cloudShadowMarchWgsl(q)}
           frame(),
         );
         final bytes = ByteData.sublistView(
-          await pass.scope.resources.readTexture(pass.atlas),
+          await pass.scope.resources.readTexture(pass.atlas!),
         );
         for (var i = 0; i < bytes.lengthInBytes; i += 4) {
           expect(bytes.getFloat32(i, Endian.little), 0);

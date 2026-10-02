@@ -34,6 +34,8 @@ final class CloudShadowCascades {
     this.near,
     this.far,
   ) : cascades = List.unmodifiable(values);
+  CloudShadowCascades.disabled({required double near, required double far})
+    : this._(const [], near, far);
   factory CloudShadowCascades.build({
     required Camera camera,
     required double aspect,

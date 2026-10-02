@@ -58,8 +58,11 @@ String cloudShadowComputeWgsl(int count) =>
 }
 ''';
 
-String cloudShadowSamplingWgsl(int count) =>
-    '''
+String cloudShadowSamplingWgsl(int count, {bool enabled = true}) => !enabled
+    ? '''
+fn cloudShadowDepth(position:vec3<f32>,offset:f32,radius:f32,jitter:f32)->f32{return 0.;}
+'''
+    : '''
 const CLOUD_CASCADE_COUNT:i32=$count;
 $_shadowSampling
 ''';

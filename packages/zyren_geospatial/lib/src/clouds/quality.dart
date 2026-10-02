@@ -9,10 +9,14 @@ final class CloudQualitySettings {
   final CloudQualityPreset preset;
   final int maxResolution;
   final int? shadowMapSize;
+  final bool shadowsEnabled;
+  final CloudQualityPreset? shadowPreset;
   CloudQualitySettings({
     this.preset = CloudQualityPreset.medium,
     this.maxResolution = 384,
     this.shadowMapSize,
+    this.shadowsEnabled = true,
+    this.shadowPreset,
   }) {
     RangeError.checkValueInInterval(maxResolution, 1, 1024, 'maxResolution');
     if (shadowMapSize case final size?) {
@@ -25,6 +29,8 @@ final class CloudQualitySettings {
   factory CloudQualitySettings.forDevice(
     CloudDeviceType device, {
     CloudQualityPreset? preset,
+    bool shadowsEnabled = true,
+    CloudQualityPreset? shadowPreset,
   }) {
     final selected =
         preset ??
@@ -33,6 +39,8 @@ final class CloudQualitySettings {
             : CloudQualityPreset.high);
     return CloudQualitySettings(
       preset: selected,
+      shadowsEnabled: shadowsEnabled,
+      shadowPreset: shadowPreset,
       maxResolution: switch (selected) {
         CloudQualityPreset.low => 320,
         CloudQualityPreset.medium => 512,
@@ -40,7 +48,7 @@ final class CloudQualitySettings {
         CloudQualityPreset.ultra =>
           device == CloudDeviceType.desktop ? 768 : 640,
       },
-      shadowMapSize: selected == CloudQualityPreset.ultra
+      shadowMapSize: (shadowPreset ?? selected) == CloudQualityPreset.ultra
           ? (device == CloudDeviceType.desktop ? 256 : 192)
           : 128,
     );
@@ -145,6 +153,7 @@ final class CloudQuality {
   final bool lightShafts, shapeDetail, turbulence, haze;
   final CloudMarchQuality clouds;
   final CloudShadowQuality shadow;
+  final bool shadowsEnabled;
   const CloudQuality._({
     required this.resolutionScale,
     required this.lightShafts,
@@ -153,9 +162,26 @@ final class CloudQuality {
     required this.haze,
     required this.clouds,
     required this.shadow,
+    this.shadowsEnabled = true,
   });
-  factory CloudQuality.forPreset(CloudQualityPreset preset) =>
-      _presets[preset.index];
+  factory CloudQuality.forPreset(
+    CloudQualityPreset preset, {
+    bool shadowsEnabled = true,
+    CloudQualityPreset? shadowPreset,
+  }) {
+    final clouds = _presets[preset.index];
+    if (shadowsEnabled && shadowPreset == null) return clouds;
+    return CloudQuality._(
+      resolutionScale: clouds.resolutionScale,
+      lightShafts: shadowsEnabled && clouds.lightShafts,
+      shapeDetail: clouds.shapeDetail,
+      turbulence: clouds.turbulence,
+      haze: clouds.haze,
+      clouds: clouds.clouds,
+      shadow: _presets[(shadowPreset ?? preset).index].shadow,
+      shadowsEnabled: shadowsEnabled,
+    );
+  }
   Map<String, Object> toJson() => {
     'resolutionScale': resolutionScale,
     'lightShafts': lightShafts,

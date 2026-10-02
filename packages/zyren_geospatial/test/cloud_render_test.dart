@@ -90,6 +90,33 @@ void main() {
               : math.pow((value / 255 + .055) / 1.055, 2.4).toDouble();
           expect(linear(shadow[0]), lessThan(linear(lit[0]) * .5));
           expect(shadow[3], 255);
+          final beforeOff = (await backend.resourceStats()).residentBytes;
+          await clouds.controller.setQualitySettings(
+            CloudQualitySettings(
+              preset: CloudQualityPreset.low,
+              maxResolution: 32,
+              shadowMapSize: 32,
+              shadowsEnabled: false,
+              shadowPreset: CloudQualityPreset.ultra,
+            ),
+          );
+          final unshadowed = await render();
+          expect(unshadowed[0], closeTo(lit[0], 2));
+          expect(clouds.controller.shadowsEnabled, false);
+          expect(clouds.controller.shadowQuality, CloudQualityPreset.ultra);
+          expect(clouds.controller.quality, CloudQualityPreset.low);
+          expect(
+            (await backend.resourceStats()).residentBytes,
+            lessThan(beforeOff),
+          );
+          await clouds.controller.setQualitySettings(
+            CloudQualitySettings(
+              preset: CloudQualityPreset.low,
+              maxResolution: 32,
+              shadowMapSize: 32,
+            ),
+          );
+          expect((await render())[0], closeTo(shadow[0], 2));
           air.controller.appearance = air.controller.appearance.copyWith(
             skyLight: true,
           );
