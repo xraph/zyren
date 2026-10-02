@@ -6,6 +6,7 @@ import '../astronomy/celestial_directions.dart';
 import '../geodesy.dart';
 import 'appearance.dart';
 import 'aerial_inputs.dart';
+import 'cloud_inputs.dart';
 import 'precomputed_source.dart';
 import 'lut_cache.dart';
 import 'parameters.dart';
@@ -113,6 +114,8 @@ final class AtmosphereController {
   PrecomputedAtmosphereSource? _source;
   _AtmosphereCandidate? _active;
   RetainedAerialInputs? _inputs;
+  RetainedAtmosphereCloudInputs? _cloudInputs;
+  AtmosphereCloudRegistration? _cloudRegistration;
   Future<void> _queue = Future.value();
   bool _closed = false;
   int _width = 1, _height = 1;
@@ -179,7 +182,36 @@ final class AtmosphereController {
         }
       });
 
-  Future<void> _serial(Future<void> Function() action) {
+  /// Own cloud composition independently of caller normals, masks and overlays.
+  /// Only one cloud producer may hold this registration at a time.
+  Future<AtmosphereCloudRegistration> registerCloudInputs(
+    AtmosphereCloudInputs inputs,
+  ) => _serial(() async {
+    if (_cloudRegistration != null) {
+      throw StateError('Atmosphere already has a cloud producer.');
+    }
+    await _changeCloudInputs(inputs);
+    return _cloudRegistration = AtmosphereCloudRegistration._(this);
+  });
+
+  Future<void> _changeCloudInputs(AtmosphereCloudInputs? inputs) async {
+    final candidate = inputs == null
+        ? null
+        : await RetainedAtmosphereCloudInputs.retain(_owner, inputs);
+    final previous = _cloudInputs;
+    _cloudInputs = candidate;
+    try {
+      await _replace(_parameters, _source, _width, _height, null);
+    } catch (_) {
+      _cloudInputs = previous;
+      await candidate?.scope.close();
+      rethrow;
+    }
+    await previous?.scope.close();
+    _context.invalidate();
+  }
+
+  Future<T> _serial<T>(Future<T> Function() action) {
     final next = _queue.then((_) {
       _check();
       return action();
@@ -230,6 +262,7 @@ final class AtmosphereController {
         width,
         height,
         inputs ?? _inputs?.value ?? AerialPerspectiveInputs(),
+        _cloudInputs?.value,
       );
       if (stopped()) throw StateError('Atmosphere update cancelled.');
       // The previous effect remains registered until the candidate is accepted.
@@ -350,7 +383,7 @@ final class AtmosphereController {
       a.albedoScale,
       a.reconstructNormal ? 1 : 0,
       correction,
-      0,
+      _cloudInputs == null ? 0 : 1,
       inputs?.normal == null ? 0 : inputs!.normalEncoding.index + 1.0,
       inputs?.lightingMask == null
           ? -1
@@ -375,6 +408,7 @@ final class AtmosphereController {
     await _queue;
     await _active?.close();
     await _inputs?.scope.close();
+    await _cloudInputs?.scope.close();
     await _cache.close();
     await _owner.close();
   }
@@ -419,6 +453,7 @@ final class _AtmosphereCandidate {
     int width,
     int height,
     AerialPerspectiveInputs inputs,
+    AtmosphereCloudInputs? clouds,
   ) async {
     final resources = scope.resources;
     final uniform = await resources.createBuffer(
@@ -495,7 +530,14 @@ final class _AtmosphereCandidate {
     );
     await resources.writeTexture(placeholder, Uint8List(4));
     final maps = <GpuResource<Texture>>[];
-    for (final input in [inputs.normal, inputs.lightingMask, inputs.overlay]) {
+    for (final input in [
+      inputs.normal,
+      inputs.lightingMask,
+      inputs.overlay,
+      clouds?.color,
+      clouds?.depthVelocityShadow,
+      clouds?.transmittance,
+    ]) {
       maps.add(input == null ? placeholder : await resources.retain(input));
     }
     final program = await scope.shaders.compile(
@@ -520,5 +562,37 @@ final class _AtmosphereCandidate {
       ),
     );
     return _AtmosphereCandidate(scope, lease, uniform, graph, effect);
+  }
+}
+
+/// Exclusive cloud inputs. Replacement and close publish complete effects; failed
+/// replacements leave the previous cloud maps installed. Close before retiring
+/// your producer. The atmosphere keeps retained copies until replacement.
+final class AtmosphereCloudRegistration {
+  final AtmosphereController _controller;
+  bool _closed = false;
+  AtmosphereCloudRegistration._(this._controller);
+  bool get isClosed => _closed || _controller.isClosed;
+  Future<void> replace(AtmosphereCloudInputs inputs) =>
+      _controller._serial(() async {
+        if (isClosed || !identical(_controller._cloudRegistration, this)) {
+          throw StateError('Atmosphere cloud registration has closed.');
+        }
+        await _controller._changeCloudInputs(inputs);
+      });
+  Future<void> close() async {
+    if (isClosed) {
+      _closed = true;
+      return;
+    }
+    await _controller._serial(() async {
+      if (!identical(_controller._cloudRegistration, this)) {
+        _closed = true;
+        return;
+      }
+      await _controller._changeCloudInputs(null);
+      _controller._cloudRegistration = null;
+      _closed = true;
+    });
   }
 }

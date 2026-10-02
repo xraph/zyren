@@ -299,3 +299,13 @@ and texel-snapped projections in double precision, including orthographic views.
 The internal Beer shadow atlas preserves front depth, mean extinction and the
 optical-depth tail. The screen cloud renderer and temporal resolve remain in
 progress; these utilities do not attach them to a scene.
+
+You can register cloud outputs through `AtmosphereController.registerCloudInputs`.
+The returned registration owns retained color, depth/velocity/shadow-length and
+transmittance maps. Cloud color composites before your aerial overlay. Closing
+that registration leaves your normals, lighting mask and overlay installed.
+
+Cloud transmittance attenuates direct sunlight while preserving skylight. The
+atmosphere shader library also exposes `atmosphereSkyShadow` and
+`atmosphereSegmentShadow`, with shadow lengths in kilometres. Both preserve the
+source's separate handling of higher-order scattering when that table is present.

@@ -36,6 +36,10 @@ fn sphereInterval(origin:vec3<f32>,ray:vec3<f32>,rad:f32)->vec2<f32> {
  let root=safeSqrt(disc);return vec2<f32>(-b-root,-b+root);
 }
 fn atmosphereSky(origin:vec3<f32>,ray:vec3<f32>,sun:vec3<f32>,groundColor:bool)->AtmosphereSample {
+ return atmosphereSkyShadow(origin,ray,sun,groundColor,0.,1.);
+}
+// Shadow length is kilometres; directTransmission attenuates only ground sun.
+fn atmosphereSkyShadow(origin:vec3<f32>,ray:vec3<f32>,sun:vec3<f32>,groundColor:bool,shadowLength:f32,directTransmission:f32)->AtmosphereSample {
  var camera=origin;var r=length(camera);let b=dot(camera,ray);
  let disc=b*b-r*r+TOP*TOP;if(disc<0.){return emptyAtmosphere();}
  let outer=sphereInterval(camera,ray,TOP);
@@ -45,10 +49,22 @@ fn atmosphereSky(origin:vec3<f32>,ray:vec3<f32>,sun:vec3<f32>,groundColor:bool)-
  r=radius(r);let mu=cosine(dot(camera,ray)/r);let mus=cosine(dot(camera,sun)/r);let nu=cosine(dot(ray,sun));
  let ground=hitsGround(r,mu);var tr=transTop(atmosphereTransmittance,r,mu);
  var radiance=totalScattering(r,mu,mus,nu,ground)*SKY_LUMINANCE;
+ if(shadowLength>0.){
+   let d=shadowLength;let rp=radius(safeSqrt(d*d+2.*r*mu*d+r*r));
+   let mup=cosine((r*mu+d)/rp);let musp=cosine((r*mus+d*nu)/rp);
+   let sample=scatteringSample(rp,mup,musp,nu,ground);
+   let shadowTr=transPath(atmosphereTransmittance,r,mu,d,ground);
+   var combined=sample.combined*shadowTr;
+   if(HAS_HIGHER_SCATTERING){
+     let higher=scattering(atmosphereHigher,rp,mup,musp,nu,ground);
+     combined=(sample.combined-higher)*shadowTr+higher;
+   }
+   radiance=(combined*rayPhase(nu)+sample.mie*shadowTr*miePhase(nu))*SKY_LUMINANCE;
+ }
  if(ground){
    if(groundColor){
      let distance=groundDistance(r,mu);let point=camera+ray*distance;let normal=normalize(point);
-     let light=atmosphereSunIrradiance(point,normal,sun)+atmosphereSkyIrradiance(point,normal,sun);
+     let light=atmosphereSunIrradiance(point,normal,sun)*clamp(directTransmission,0.,1.)+atmosphereSkyIrradiance(point,normal,sun);
      radiance+=transPath(atmosphereTransmittance,r,mu,distance,true)*ALBEDO/PI*light;
    }
    tr=vec3<f32>(0.);
@@ -56,6 +72,9 @@ fn atmosphereSky(origin:vec3<f32>,ray:vec3<f32>,sun:vec3<f32>,groundColor:bool)-
  return AtmosphereSample(max(radiance,vec3<f32>(0.)),tr);
 }
 fn atmosphereSegment(origin:vec3<f32>,point:vec3<f32>,sun:vec3<f32>)->AtmosphereSample {
+ return atmosphereSegmentShadow(origin,point,sun,0.);
+}
+fn atmosphereSegmentShadow(origin:vec3<f32>,point:vec3<f32>,sun:vec3<f32>,shadowLength:f32)->AtmosphereSample {
  let offset=point-origin;let distance=length(offset);
  if(distance<=1e-6){return emptyAtmosphere();}let ray=offset/distance;
  let b=dot(origin,ray);let r0=length(origin);
@@ -72,11 +91,18 @@ fn atmosphereSegment(origin:vec3<f32>,point:vec3<f32>,sun:vec3<f32>)->Atmosphere
  let camera=origin+ray*start;let d=end-start;let r=radius(length(camera));
  let mu=cosine(dot(camera,ray)/r);let mus=cosine(dot(camera,sun)/r);let nu=cosine(dot(ray,sun));let ground=hitsGround(r,mu);
  let tr=transPath(atmosphereTransmittance,r,mu,d,ground);
- let rp=radius(safeSqrt(d*d+2.*r*mu*d+r*r));let mup=cosine((r*mu+d)/rp);let musp=cosine((r*mus+d*nu)/rp);
+ let litDistance=max(0.,d-max(shadowLength,0.));
+ let rp=radius(safeSqrt(litDistance*litDistance+2.*r*mu*litDistance+r*r));let mup=cosine((r*mu+litDistance)/rp);let musp=cosine((r*mus+litDistance*nu)/rp);
  let first=scatteringSample(r,mu,mus,nu,ground);
  let last=scatteringSample(rp,mup,musp,nu,ground);
- let combined=first.combined-tr*last.combined;
- var mi=first.mie-tr*last.mie;
+ var shadowTr=tr;if(shadowLength>0.){shadowTr=transPath(atmosphereTransmittance,r,mu,litDistance,ground);}
+ var combined=first.combined-shadowTr*last.combined;
+ if(HAS_HIGHER_SCATTERING && shadowLength>0.){
+   let higherFirst=scattering(atmosphereHigher,r,mu,mus,nu,ground);
+   let higherLast=scattering(atmosphereHigher,rp,mup,musp,nu,ground);
+   combined=(first.combined-higherFirst)-shadowTr*(last.combined-higherLast)+higherFirst-tr*higherLast;
+ }
+ var mi=first.mie-shadowTr*last.mie;
  if(PACKED_MIE){mi=extrapolateMie(vec4<f32>(combined,mi.r));}
  // Retain the source's fade of single Mie scattering under the horizon.
  let radiance=(combined*rayPhase(nu)+mi*miePhase(nu)*smoothstep(0.,.01,mus))*SKY_LUMINANCE;

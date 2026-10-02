@@ -55,3 +55,4 @@ export 'src/clouds/texture_generator.dart';
 export 'src/clouds/appearance.dart';
 export 'src/clouds/cascades.dart';
 export 'src/clouds/textures.dart';
+export 'src/atmosphere/cloud_inputs.dart' show AtmosphereCloudInputs;

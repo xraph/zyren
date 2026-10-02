@@ -6,6 +6,7 @@ import argparse, hashlib, json, os, re, subprocess, tempfile
 parser = argparse.ArgumentParser()
 parser.add_argument('assets', type=Path)
 parser.add_argument('--source', type=Path, default=Path('/Users/rexraphael/Work/TwinOS/three-geospatial-main'))
+parser.add_argument('--shadows', action='store_true')
 args = parser.parse_args()
 root = Path(__file__).resolve().parents[2]
 folder = Path(__file__).parent
@@ -24,6 +25,7 @@ sizes = dict(TRANSMITTANCE_TEXTURE_WIDTH=256, TRANSMITTANCE_TEXTURE_HEIGHT=64,
     IRRADIANCE_TEXTURE_WIDTH=64, IRRADIANCE_TEXTURE_HEIGHT=16)
 base = ''.join(f'#define {key} {value}\n' for key, value in sizes.items())
 base += (folder / 'compat.hpp').read_text()
+base += '\nReducedScatteringTexture higher_order_scattering_texture;\n'
 hashes = {}
 for name in ['common.glsl', 'runtime.glsl']:
     code = (shader / name).read_text()
@@ -42,14 +44,16 @@ for name in ['common.glsl', 'runtime.glsl']:
 base += (folder / 'source_driver.cpp').read_text()
 with tempfile.TemporaryDirectory(prefix='zyren-source-atmosphere-') as directory:
     path = Path(directory)
-    for packed in [True, False]:
+    for packed, higher in ([(p,h) for p in [True,False] for h in [True,False]] if args.shadows else [(True,False),(False,False)]):
         mode = 'packed' if packed else 'full'
-        (path / 'main.cpp').write_text(('#define COMBINED_SCATTERING_TEXTURES\n' if packed else '') + base)
+        if args.shadows: mode += '-shadow-' + ('higher' if higher else 'single')
+        (path / 'main.cpp').write_text(('#define COMBINED_SCATTERING_TEXTURES\n' if packed else '') + ('#define CLOUD_SHADOWS\n' if args.shadows else '') + ('#define HAS_HIGHER_ORDER_SCATTERING_TEXTURE\n' if higher else '') + base)
         subprocess.run(['clang++', '-O2', '-std=c++17', str(path/'main.cpp'), '-o', str(path/'run')], check=True)
         result = json.loads(subprocess.check_output([str(path/'run')], env={**os.environ, 'SOURCE_LUTS': str(args.assets.resolve())}, text=True))
         result['source'] = dict(shaderSha256=hashes, assetSha256=asset_hashes,
             assetCommit='eac103980f20c0956f2d3215833e73514be08462', sizes=sizes,
             precision='CPU double; original GLSL runtime; source half-float tables', packed=packed)
+        if args.shadows: result['source']['higher']=higher
         output = root / f'packages/zyren_geospatial/test/fixtures/atmosphere/scattering-source-{mode}.json'
         output.write_text(json.dumps(result, indent=2) + '\n')
         print(output)

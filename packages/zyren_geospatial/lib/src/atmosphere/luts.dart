@@ -72,6 +72,9 @@ final class AtmosphereLuts {
     }
     source.writeln('const SOURCE_SCATTERING: bool = $sourceScattering;');
     source.writeln('const PACKED_MIE: bool = $combinedScattering;');
+    source.writeln(
+      'const HAS_HIGHER_SCATTERING: bool = $hasHigherOrderScattering;',
+    );
     source.write(atmosphereRuntimeWgsl);
     return AtmosphereShader._(
       specializeAtmosphereTextures(source.toString()),
