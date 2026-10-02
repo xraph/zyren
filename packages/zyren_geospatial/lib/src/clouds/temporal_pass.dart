@@ -48,6 +48,8 @@ final class CloudTemporalPass {
                 TextureUsage.sampled,
                 TextureUsage.storage,
                 TextureUsage.copySource,
+                if (format == TextureFormat.rgba16Float)
+                  TextureUsage.renderAttachment,
               },
             ),
           );
@@ -87,6 +89,7 @@ final class CloudTemporalPass {
           await scope.materials.compileEffect(
             PostProcessDescriptor(
               program: resolveShader,
+              target: colors[i],
               bindings: ShaderBindings([
                 BufferBinding.uniform(8, uniform, group: 2),
                 TextureBinding.sampled(0, raw.color, group: 1),
@@ -94,7 +97,6 @@ final class CloudTemporalPass {
                 TextureBinding.sampled(2, colors[1 - i], group: 1),
                 TextureBinding.sampled(3, data[1 - i], group: 1),
                 TextureBinding.sampled(4, raw.transmittance, group: 1),
-                TextureBinding.storage(0, colors[i], group: 3),
                 TextureBinding.storage(1, data[i], group: 3),
               ]),
             ),
@@ -104,12 +106,12 @@ final class CloudTemporalPass {
           await scope.materials.compileEffect(
             PostProcessDescriptor(
               program: publishShader,
+              target: outputs.color,
               bindings: ShaderBindings([
                 TextureBinding.sampled(0, colors[i], group: 1),
                 TextureBinding.sampled(1, data[i], group: 1),
                 TextureBinding.sampled(2, raw.depthVelocityShadow, group: 1),
                 BufferBinding.uniform(8, uniform, group: 2),
-                TextureBinding.storage(0, outputs.color, group: 3),
                 TextureBinding.storage(
                   1,
                   outputs.depthVelocityShadow,

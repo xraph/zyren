@@ -19,7 +19,6 @@ final cloudResolveWgsl =
 @group(1) @binding(2) var previousColor:texture_2d<f32>;
 @group(1) @binding(3) var previousData:texture_2d<f32>;
 @group(1) @binding(4) var currentTransmission:texture_2d<f32>;
-@group(3) @binding(0) var resolvedColor:texture_storage_2d<rgba16float,write>;
 @group(3) @binding(1) var resolvedData:texture_storage_2d<rgba32float,write>;
 ''' +
     [
@@ -45,7 +44,7 @@ fn cloudClosest(coord:vec2<i32>)->vec4<f32>{
  }}return result;
 }
 @fragment fn fragment(v:ScreenVertex)->@location(0) vec4<f32>{
- let pixel=vec2<i32>(v.position.xy);let original=textureLoad(sceneColor,pixel,0);if(any(pixel>=vec2<i32>(ct.size.xy))){return original;}
+ let pixel=vec2<i32>(v.position.xy);
  let upscale=ct.jitter.z>1.5;let mode=ct.jitter.z;let uv=(vec2<f32>(pixel)+.5)/ct.size.xy;
  let rawSize=vec2<i32>(ct.size.zw);let coord=clamp(select(pixel,pixel/4,upscale),vec2<i32>(0),rawSize-1);
  let current=textureLoad(currentColor,coord,0);let data=textureLoad(currentData,coord,0);let closest=cloudClosest(coord);
@@ -79,26 +78,24 @@ fn cloudClosest(coord:vec2<i32>)->vec4<f32>{
   let clippedTransmission=cloudVariance(vec4<f32>(vec3<f32>(oldTransmission),1.),transmissionFirst,transmissionSecond,5.,gamma).x;
   transmission=mix(clippedTransmission,transmission,select(ct.state.z,0.,upscale));
  }
- textureStore(resolvedColor,pixel,vec4<f32>(max(color.rgb,vec3<f32>(0.)),clamp(color.a,0.,1.)));
  // History only needs depth and shadow length. Its Y channel carries resolved
  // ground transmission; publication restores the current ray's UV velocity.
- textureStore(resolvedData,pixel,vec4<f32>(data.x,clamp(transmission,0.,1.),0.,max(shadow,0.)));return original;
+ textureStore(resolvedData,pixel,vec4<f32>(data.x,clamp(transmission,0.,1.),0.,max(shadow,0.)));
+ return vec4<f32>(max(color.rgb,vec3<f32>(0.)),clamp(color.a,0.,1.));
 }
 ''';
 const cloudPublishWgsl = r'''
 @group(1) @binding(0) var resolvedColor:texture_2d<f32>;
 @group(1) @binding(1) var resolvedData:texture_2d<f32>;
 @group(1) @binding(2) var currentData:texture_2d<f32>;
-@group(3) @binding(0) var publishedColor:texture_storage_2d<rgba16float,write>;
 @group(3) @binding(1) var publishedData:texture_storage_2d<rgba32float,write>;
 @group(3) @binding(2) var publishedTransmission:texture_storage_2d<r32float,write>;
 @fragment fn fragment(v:ScreenVertex)->@location(0) vec4<f32>{
- let pixel=vec2<i32>(v.position.xy);let original=textureLoad(sceneColor,pixel,0);let size=textureDimensions(publishedColor);if(any(pixel>=vec2<i32>(size))){return original;}
+ let pixel=vec2<i32>(v.position.xy);
  let resolved=textureLoad(resolvedData,pixel,0);
  let coord=clamp(select(pixel,pixel/4,ct.jitter.z>1.5),vec2<i32>(0),vec2<i32>(textureDimensions(currentData))-1);
  let motion=textureLoad(currentData,coord,0).yz;
- textureStore(publishedColor,pixel,textureLoad(resolvedColor,pixel,0));
  textureStore(publishedData,pixel,vec4<f32>(resolved.x,motion,resolved.w));
- textureStore(publishedTransmission,pixel,vec4<f32>(resolved.y,0.,0.,0.));return original;
+ textureStore(publishedTransmission,pixel,vec4<f32>(resolved.y,0.,0.,0.));return textureLoad(resolvedColor,pixel,0);
 }
 ''';

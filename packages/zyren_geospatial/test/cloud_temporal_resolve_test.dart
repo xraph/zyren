@@ -42,7 +42,9 @@ void main() {
           size,
           size,
         );
-        final scene = Scene()..renderSettings = RenderSettings(hdr: true);
+        final scene = Scene()
+          ..background = const Color3(1, 0, 1)
+          ..renderSettings = RenderSettings(hdr: true);
         final r = scene.addEffect(pass.resolve[0]),
             p = scene.addEffect(pass.publish[0]);
         final camera = PerspectiveCamera(),
@@ -108,11 +110,18 @@ void main() {
           await pass.prepare(frame, settings);
           r.replace(pass.resolve[pass.pending]);
           p.replace(pass.publish[pass.pending]);
-          await engine.render(
+          final image = await engine.render(
             elapsed: Duration.zero,
-            width: size,
-            height: size,
+            width: size * 3 + 1,
+            height: size * 2 + 1,
           );
+          expect(image.pixels.sublist(0, 4), [255, 0, 255, 255]);
+          expect(image.pixels.sublist(image.pixels.length - 4), [
+            255,
+            0,
+            255,
+            255,
+          ]);
           pass.presented();
           history.present(frame, 0);
           return ByteData.sublistView(

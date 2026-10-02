@@ -131,11 +131,10 @@ fn cloudRanges(origin:vec3<f32>,direction:vec3<f32>)->CloudRanges{
  ranges.haze=vec2<f32>(cf.sun.w,select(high.y,ground.x,hitsGround));
  return ranges;
 }
-@group(3) @binding(0) var cloudColorOutput:texture_storage_2d<rgba16float,write>;
 @group(3) @binding(1) var cloudDataOutput:texture_storage_2d<rgba32float,write>;
 @group(3) @binding(2) var cloudTransmissionOutput:texture_storage_2d<r32float,write>;
 @fragment fn fragment(v:ScreenVertex)->@location(0) vec4<f32>{
- let pixel=vec2<i32>(v.position.xy);let original=textureLoad(sceneColor,pixel,0);
+ let pixel=vec2<i32>(v.position.xy);
  let samplePixel=select(vec2<f32>(pixel),min(vec2<f32>(pixel)*4.+ct.jitter.xy,ct.size.xy-1.),ct.jitter.z>1.5);
  let uv=(samplePixel+.5)/cf.extent.xy;let middle=scenePosition(uv,.5);
  var worldRay=normalize(middle);var relativeOrigin=vec3<f32>(0.);
@@ -145,8 +144,6 @@ fn cloudRanges(origin:vec3<f32>,direction:vec3<f32>)->CloudRanges{
  let globeUv=cloudGlobeUv(origin+ray*max(ranges.clouds.x,0.))*cloud.v[15].xy;
  let coord=globeUv*cf.extent.xy*select(1.,.25,ct.jitter.z>1.5);let dx=dpdx(coord);let dy=dpdy(coord);
  let mip=max(0.,.5*log2(max(1.,max(dot(dx,dx),dot(dy,dy))*.1)))*clamp(.2*(length(origin)-cf.camera.w)/max(cloud.v[14].w,1.),0.,1.);
- // Derivatives execute before the producer's bounded target branch.
- if(any(pixel>=vec2<i32>(ct.size.zw))){return original;}
  let depthPixel=clamp(vec2<i32>(uv*vec2<f32>(textureDimensions(sceneDepth))),vec2<i32>(0),vec2<i32>(textureDimensions(sceneDepth))-1);
  let depth=textureLoad(sceneDepth,depthPixel,0);let background=sceneDepthIsBackground(depth);
  var sceneDistance=cf.extent.z;var scenePoint=origin+ray*sceneDistance;
@@ -174,9 +171,8 @@ fn cloudRanges(origin:vec3<f32>,direction:vec3<f32>)->CloudRanges{
  let relative=relativeOrigin+worldRay*front;let previous=cf.previousViewProjection*vec4<f32>(relative+cf.previousCamera.xyz,1.);
  var velocity=vec2<f32>(0.);if(cf.previousCamera.w>0.&&previous.w>0.){velocity=uv-vec2<f32>(previous.x/previous.w*.5+.5,.5-previous.y/previous.w*.5);}
  var transmission=1.;if(!background||ranges.ground>=0.){transmission=exp(-cloudShadowDepth(scenePoint,0.,cloud.v[24].w,jitter));}
- textureStore(cloudColorOutput,pixel,vec4<f32>(clamp(color.rgb,vec3<f32>(0.),vec3<f32>(65504.)),clamp(color.a,0.,1.)));
  textureStore(cloudDataOutput,pixel,vec4<f32>(front,velocity,shadowLength*.001));
  textureStore(cloudTransmissionOutput,pixel,vec4<f32>(transmission,0.,0.,1.));
- return original;
+ return vec4<f32>(clamp(color.rgb,vec3<f32>(0.),vec3<f32>(65504.)),clamp(color.a,0.,1.));
 }
 ''';

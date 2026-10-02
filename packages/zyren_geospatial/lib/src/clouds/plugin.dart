@@ -535,6 +535,8 @@ final class _CloudCandidate {
               TextureUsage.storage,
               TextureUsage.sampled,
               TextureUsage.copySource,
+              if (format == TextureFormat.rgba16Float)
+                TextureUsage.renderAttachment,
             },
           ),
         );
@@ -573,13 +575,13 @@ final class _CloudCandidate {
     final effect = await scope.materials.compileEffect(
       PostProcessDescriptor(
         program: program,
+        target: color,
         bindings: ShaderBindings([
           ...library.bindings.entries,
           ...shadow.bindings,
           BufferBinding.uniform(8, temporal.uniform, group: 2),
           if (shadow.atlas case final atlas?)
             TextureBinding.sampled(6, atlas, group: 2),
-          TextureBinding.storage(0, color, group: 3),
           TextureBinding.storage(1, data, group: 3),
           TextureBinding.storage(2, transmittance, group: 3),
         ]),
