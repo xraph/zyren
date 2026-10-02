@@ -3,6 +3,8 @@
 You can inspect the exact dependency versions in `native/Cargo.lock`.
 Rapier and Parry are developed by Dimforge. This package links their native Rust
 implementations without changing their source. Upstream licence terms continue to apply.
+The [licences directory](licenses/) contains the dependency licence files supplied
+by their crates. Rapier and Parry use the included Apache 2.0 terms.
 
 | Crate | Version | Licence |
 | --- | --- | --- |

@@ -25,6 +25,17 @@ class _Renderer implements SceneRenderer {
   Future<void> dispose() async {}
 }
 
+class _Writer extends ScenePlugin {
+  final Object3D object;
+  _Writer(this.object);
+  @override
+  String get id => 'competing-writer';
+  @override
+  void beforeRender(PluginContext context, FrameInfo frame) {
+    object.position = const Vec3(20, 0, 0);
+  }
+}
+
 void main() {
   test('bounded stepping, pause, interpolation and competing transforms', () {
     final world = PhysicsWorld(gravity: Vec3.zero);
@@ -126,4 +137,105 @@ void main() {
       world.close();
     }
   });
+
+  test('one world has one driver and failed attachment preserves it', () async {
+    final world = PhysicsWorld(gravity: Vec3.zero);
+    final first = PhysicsPlugin(world: world);
+    final second = PhysicsPlugin(world: world);
+    Future<SceneEngine> create(PhysicsPlugin plugin) => SceneEngine.create(
+      scene: Scene(),
+      camera: PerspectiveCamera(),
+      rendererFactory: () async => _Renderer(),
+      plugins: [plugin],
+    );
+    SceneEngine? engine;
+    try {
+      engine = await create(first);
+      await expectLater(create(second), throwsStateError);
+      expect(() => second.advance(.02), throwsStateError);
+      await engine.render(elapsed: Duration.zero, width: 40, height: 40);
+      await engine.dispose();
+      engine = await create(second);
+      await engine.render(elapsed: Duration.zero, width: 40, height: 40);
+    } finally {
+      await engine?.dispose();
+      world.close();
+    }
+  });
+
+  test('events can remove a body and every associated scene binding', () {
+    final world = PhysicsWorld(gravity: Vec3.zero), scene = Scene();
+    final first = scene.add(Group()), second = scene.add(Group());
+    var callbacks = 0;
+    late final PhysicsPlugin plugin;
+    plugin = PhysicsPlugin(
+      world: world,
+      onEvents: (events) {
+        expect(() => events.clear(), throwsUnsupportedError);
+        if (events.any((e) => e.started)) {
+          callbacks++;
+          plugin.removeBody(first);
+          world.overlap(shape: const SphereShape(4), pose: PhysicsPose());
+        }
+      },
+    );
+    try {
+      world
+          .createBody(kind: BodyKind.fixed)
+          .addCollider(const SphereShape(2), sensor: true);
+      final body = world.createBody();
+      body.addCollider(const SphereShape(.5));
+      plugin.bind(first, body);
+      plugin.bind(second, body);
+      plugin.advance(world.fixedStep);
+      expect(callbacks, 1);
+      expect(body.isAlive, isFalse);
+      plugin.advance(world.fixedStep);
+      expect(world.states, hasLength(1));
+      second.position = const Vec3(5, 0, 0);
+      plugin.advance(world.fixedStep);
+    } finally {
+      plugin.clearBindings();
+      world.close();
+    }
+  });
+
+  test(
+    'later plugin writes fail and the world can attach after failure',
+    () async {
+      final world = PhysicsWorld(), scene = Scene();
+      final object = scene.add(Group()), plugin = PhysicsPlugin(world: world);
+      final body = world.createBody();
+      body.addCollider(const SphereShape(.5));
+      plugin.bind(object, body);
+      SceneEngine? engine;
+      try {
+        engine = await SceneEngine.create(
+          scene: scene,
+          camera: PerspectiveCamera(),
+          rendererFactory: () async => _Renderer(),
+          plugins: [plugin, _Writer(object)],
+        );
+        await expectLater(
+          engine.render(elapsed: Duration.zero, width: 40, height: 40),
+          throwsStateError,
+        );
+        await engine.dispose();
+        plugin.clearBindings();
+        plugin.bind(object, body);
+        engine = await SceneEngine.create(
+          scene: scene,
+          camera: PerspectiveCamera(),
+          rendererFactory: () async => _Renderer(),
+          plugins: [plugin],
+        );
+        await engine.render(elapsed: Duration.zero, width: 40, height: 40);
+        expect(body.isAlive, isTrue);
+      } finally {
+        await engine?.dispose();
+        plugin.clearBindings();
+        world.close();
+      }
+    },
+  );
 }

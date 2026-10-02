@@ -95,8 +95,9 @@ fn shape(v: &Value, depth: usize) -> Result<SharedShape> {
         )),
         "convex" | "mesh" => {
             let points = v["vertices"].as_array().ok_or("vertices missing")?;
-            if points.len() < 4 || points.len() > MAX_ITEMS {
-                return Err("vertex count outside 4..16384".into());
+            let minimum = if v["type"] == "mesh" { 3 } else { 4 };
+            if points.len() < minimum || points.len() > MAX_ITEMS {
+                return Err(format!("vertex count outside {minimum}..16384"));
             }
             let points = points
                 .iter()
@@ -125,6 +126,12 @@ fn shape(v: &Value, depth: usize) -> Result<SharedShape> {
                             out[i] = n as u32;
                         }
                         if out[0] == out[1] || out[1] == out[2] || out[0] == out[2] {
+                            return Err("degenerate triangle".into());
+                        }
+                        let ab = points[out[1] as usize] - points[out[0] as usize];
+                        let ac = points[out[2] as usize] - points[out[0] as usize];
+                        let area = ab.cross(ac).length_squared();
+                        if !area.is_finite() || area == 0.0 {
                             return Err("degenerate triangle".into());
                         }
                         Ok(out)
@@ -162,6 +169,7 @@ struct World {
     colliders: BTreeMap<u64, ColliderHandle>,
     joints: BTreeMap<u64, ImpulseJointHandle>,
     removed_colliders: HashMap<ColliderHandle, u64>,
+    pending_events: Vec<String>,
 }
 impl World {
     fn new(v: &Value) -> Result<Self> {
@@ -170,8 +178,8 @@ impl World {
             ..Default::default()
         };
         physics.integration_parameters.dt = positive(v, "dt", 1.0 / 60.0)?;
-        if physics.integration_parameters.dt > 0.1 {
-            return Err("dt exceeds 0.1 seconds".into());
+        if !(1e-6..=0.1).contains(&physics.integration_parameters.dt) {
+            return Err("dt must be within 0.000001..0.1 seconds".into());
         }
         Ok(Self {
             physics,
@@ -180,10 +188,14 @@ impl World {
             colliders: BTreeMap::new(),
             joints: BTreeMap::new(),
             removed_colliders: HashMap::new(),
+            pending_events: Vec::new(),
         })
     }
     fn alloc(&mut self) -> Result<u64> {
         let n = self.next;
+        if n > i64::MAX as u64 {
+            return Err("handle space exhausted".into());
+        }
         self.next = self.next.checked_add(1).ok_or("handle space exhausted")?;
         Ok(n)
     }
@@ -280,25 +292,17 @@ impl World {
                 Ok(json!(n))
             }
             "step" => {
-                let mut collector = Collector::default();
-                collector.ids.extend(self.removed_colliders.drain());
-                collector
-                    .ids
-                    .extend(self.colliders.iter().map(|(id, h)| (*h, *id)));
-                p.step_with_events(&(), &collector);
-                if collector.overflow.load(Ordering::Relaxed) {
-                    return Err("physics event budget exceeded or unsupported event".into());
-                }
-                if !p.quarantine().is_empty() {
-                    return Err(
-                        "nonfinite simulation state quarantined; restore a valid snapshot".into(),
-                    );
-                }
-                let events = collector
-                    .events
-                    .into_inner()
-                    .map_err(|_| "event lock poisoned")?;
+                let events = self.update_collisions(true)?;
                 Ok(json!({"poses":self.poses(),"events":events}))
+            }
+            "drainEvents" => {
+                let events = self
+                    .pending_events
+                    .iter()
+                    .map(|e| serde_json::from_str(e).map_err(|e| e.to_string()))
+                    .collect::<Result<Vec<Value>>>()?;
+                self.pending_events.clear();
+                Ok(json!(events))
             }
             "poses" => Ok(self.poses()),
             "gravity" => {
@@ -384,8 +388,10 @@ impl World {
                     "sleep" => b.sleep(),
                     "wake" => b.wake_up(true),
                     "damping" => {
-                        b.set_linear_damping(nonnegative(v, "linear", 0.0)?);
-                        b.set_angular_damping(nonnegative(v, "angular", 0.0)?);
+                        let linear = nonnegative(v, "linear", 0.0)?;
+                        let angular = nonnegative(v, "angular", 0.0)?;
+                        b.set_linear_damping(linear);
+                        b.set_angular_damping(angular);
                     }
                     _ => return Err("unsupported body action".into()),
                 }
@@ -449,6 +455,11 @@ impl World {
             "removeBody" => {
                 let n = id(v, "body")?;
                 let h = self.body(v, "body")?;
+                if self.removed_colliders.len() + self.physics.bodies[h].colliders().len()
+                    > MAX_ITEMS
+                {
+                    self.update_collisions(false)?;
+                }
                 for (id, collider) in &self.colliders {
                     if self.physics.colliders[*collider].parent() == Some(h) {
                         self.removed_colliders.insert(*collider, *id);
@@ -464,9 +475,12 @@ impl World {
             }
             "removeCollider" => {
                 let n = id(v, "collider")?;
+                if self.removed_colliders.len() >= MAX_ITEMS {
+                    self.update_collisions(false)?;
+                }
                 let h = self.colliders.remove(&n).ok_or("invalid collider")?;
                 self.removed_colliders.insert(h, n);
-                p.remove_collider(h);
+                self.physics.remove_collider(h);
                 Ok(Value::Null)
             }
             "joint" => self.add_joint(v),
@@ -479,7 +493,16 @@ impl World {
             "query" => self.query(v),
             "debug" => {
                 let mut lines = Lines(Vec::new(), false);
-                p.debug_render(&mut DebugRenderPipeline::default(), &mut lines);
+                p.debug_render(
+                    &mut DebugRenderPipeline::new(
+                        DebugRenderStyle::default(),
+                        DebugRenderMode::COLLIDER_SHAPES
+                            | DebugRenderMode::JOINTS
+                            | DebugRenderMode::CONTACTS
+                            | DebugRenderMode::SOLVER_CONTACTS,
+                    ),
+                    &mut lines,
+                );
                 if lines.1 {
                     return Err("debug line budget exceeded".into());
                 }
@@ -495,8 +518,49 @@ impl World {
             _ => Err("unsupported operation".into()),
         }
     }
+    fn update_collisions(&mut self, simulate: bool) -> Result<Vec<Value>> {
+        let mut collector = Collector::default();
+        collector.ids.extend(self.removed_colliders.drain());
+        collector
+            .ids
+            .extend(self.colliders.iter().map(|(id, h)| (*h, *id)));
+        let pending = self
+            .pending_events
+            .iter()
+            .map(|event| serde_json::from_str(event).map_err(|e| e.to_string()))
+            .collect::<Result<Vec<Value>>>()?;
+        *collector
+            .events
+            .get_mut()
+            .map_err(|_| "event lock poisoned")? = pending;
+        self.pending_events.clear();
+        if simulate {
+            self.physics.step_with_events(&(), &collector);
+        } else {
+            self.physics.detect_collisions(&(), &collector);
+        }
+        let events = collector
+            .events
+            .into_inner()
+            .map_err(|_| "event lock poisoned")?;
+        if collector.overflow.load(Ordering::Relaxed) {
+            self.pending_events = events.iter().map(Value::to_string).collect();
+            return Err("physics event budget exceeded or unsupported event; restore a snapshot or drain events".into());
+        }
+        if simulate {
+            if !self.physics.quarantine().is_empty() {
+                return Err(
+                    "nonfinite simulation state quarantined; restore a valid snapshot".into(),
+                );
+            }
+            Ok(events)
+        } else {
+            self.pending_events = events.iter().map(Value::to_string).collect();
+            Ok(Vec::new())
+        }
+    }
     fn poses(&self) -> Value {
-        json!(self.bodies.iter().map(|(id,h)|{let b=&self.physics.bodies[*h];json!({"body":id,"kind":match b.body_type(){RigidBodyType::Dynamic=>"dynamic",RigidBodyType::Fixed=>"fixed",RigidBodyType::KinematicPositionBased=>"kinematicPosition",RigidBodyType::KinematicVelocityBased=>"kinematicVelocity",RigidBodyType::SoftFrame=>"unsupportedSoftFrame"},"position":b.translation().to_array(),"rotation":b.rotation().to_array(),"velocity":b.linvel().to_array(),"angularVelocity":b.angvel().to_array(),"sleeping":b.is_sleeping(),"mass":b.mass()})}).collect::<Vec<_>>())
+        json!(self.bodies.iter().map(|(id,h)|{let b=&self.physics.bodies[*h];json!({"body":id,"kind":match b.body_type(){RigidBodyType::Dynamic=>"dynamic",RigidBodyType::Fixed=>"fixed",RigidBodyType::KinematicPositionBased=>"kinematicPosition",RigidBodyType::KinematicVelocityBased=>"kinematicVelocity",RigidBodyType::SoftFrame=>"unsupportedSoftFrame"},"position":b.translation().to_array(),"rotation":b.rotation().to_array(),"velocity":b.linvel().to_array(),"angularVelocity":b.angvel().to_array(),"sleeping":b.is_sleeping(),"ccd":b.is_ccd_enabled(),"mass":b.mass()})}).collect::<Vec<_>>())
     }
     fn add_joint(&mut self, v: &Value) -> Result<Value> {
         if self.joints.len() >= MAX_ITEMS {
@@ -554,6 +618,9 @@ impl World {
             if !matches!(kind, "hinge" | "slider" | "spherical") {
                 return Err("joint does not support configured limits/motor".into());
             }
+            if joint.locked_axes.contains(motor_axis.into()) {
+                return Err("motor or limit axis is locked by the joint".into());
+            }
             if kind != "spherical"
                 && motor_axis
                     != if kind == "slider" {
@@ -599,7 +666,7 @@ impl World {
         Ok(json!(n))
     }
     fn query(&mut self, v: &Value) -> Result<Value> {
-        self.physics.detect_collisions(&(), &());
+        self.update_collisions(false)?;
         let mut filter = QueryFilter::default();
         if v["excludeSensors"].as_bool().unwrap_or(false) {
             filter.flags |= QueryFilterFlags::EXCLUDE_SENSORS;
@@ -712,10 +779,10 @@ impl EventHandler for Collector {
 }
 struct Lines(Vec<Value>, bool);
 impl DebugRenderBackend for Lines {
-    fn draw_line(&mut self, _: DebugRenderObject, a: Vector, b: Vector, color: DebugColor) {
+    fn draw_line(&mut self, object: DebugRenderObject, a: Vector, b: Vector, color: DebugColor) {
         if self.0.len() < MAX_ITEMS {
             self.0
-                .push(json!({"a":a.to_array(),"b":b.to_array(),"color":color}));
+                .push(json!({"a":a.to_array(),"b":b.to_array(),"color":color,"kind":match object {DebugRenderObject::Collider(..)|DebugRenderObject::ColliderAabb(..)=>"collider",DebugRenderObject::ImpulseJoint(..)|DebugRenderObject::MultibodyJoint(..)=>"joint",DebugRenderObject::ContactPair(..)=>"contact",DebugRenderObject::RigidBody(..)=>"body",DebugRenderObject::SoftBody(..)=>"softBody"}}));
         } else {
             self.1 = true;
         }
@@ -736,69 +803,83 @@ fn dispatch(v: Value) -> Result<Value> {
         })
         .lock()
         .map_err(|_| "physics registry poisoned")?;
-    match v["op"].as_str().ok_or("operation missing")? {
-        "create" => {
-            if r.worlds.len() >= 256 {
-                return Err("world budget exceeded".into());
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<Value> {
+        match v["op"].as_str().ok_or("operation missing")? {
+            "create" => {
+                if r.worlds.len() >= 256 {
+                    return Err("world budget exceeded".into());
+                }
+                let w = World::new(&v)?;
+                let n = r.next;
+                if n > (usize::MAX as u64).min(i64::MAX as u64) {
+                    return Err("world handle space exhausted".into());
+                }
+                r.next = r
+                    .next
+                    .checked_add(1)
+                    .ok_or("world handle space exhausted")?;
+                r.worlds.insert(n, w);
+                Ok(json!(n))
             }
-            let w = World::new(&v)?;
-            let n = r.next;
-            r.next = r
-                .next
-                .checked_add(1)
-                .ok_or("world handle space exhausted")?;
-            r.worlds.insert(n, w);
-            Ok(json!(n))
+            "close" => {
+                r.worlds.remove(&id(&v, "world")?);
+                Ok(Value::Null)
+            }
+            "restore" => {
+                let n = id(&v, "world")?;
+                if !r.worlds.contains_key(&n) {
+                    return Err("invalid world".into());
+                }
+                let snapshot = &v["snapshot"];
+                if snapshot["version"] != 1 || snapshot["rapier"] != "0.36.0" {
+                    return Err("incompatible snapshot".into());
+                }
+                let bytes: Vec<u8> =
+                    serde_json::from_value(snapshot["bytes"].clone()).map_err(|e| e.to_string())?;
+                if bytes.len() > MAX_BYTES {
+                    return Err("snapshot budget exceeded".into());
+                }
+                use bincode::Options;
+                let world: World = bincode::DefaultOptions::new()
+                    .with_fixint_encoding()
+                    .with_limit(MAX_BYTES as u64)
+                    .reject_trailing_bytes()
+                    .deserialize(&bytes)
+                    .map_err(|e| e.to_string())?;
+                if world.physics.integration_parameters.dt
+                    != r.worlds[&n].physics.integration_parameters.dt
+                {
+                    return Err("snapshot timestep differs from world".into());
+                }
+                if world.bodies.len() > MAX_ITEMS
+                    || world.colliders.len() > MAX_ITEMS
+                    || world.joints.len() > MAX_ITEMS
+                    || world.pending_events.len() > MAX_ITEMS
+                    || world.removed_colliders.len() > MAX_ITEMS
+                {
+                    return Err("snapshot resource budget exceeded".into());
+                }
+                r.worlds.insert(n, world);
+                Ok(Value::Null)
+            }
+            "counts" => Ok(
+                json!({"worlds":r.worlds.len(),"bodies":r.worlds.values().map(|w|w.bodies.len()).sum::<usize>()}),
+            ),
+            _ => r
+                .worlds
+                .get_mut(&id(&v, "world")?)
+                .ok_or("invalid or closed world")?
+                .command(&v),
         }
-        "close" => {
-            r.worlds
-                .remove(&id(&v, "world")?)
-                .ok_or("world already closed")?;
-            Ok(Value::Null)
+    }));
+    match result {
+        Ok(result) => result,
+        Err(_) => {
+            if let Some(id) = v["world"].as_u64() {
+                r.worlds.remove(&id);
+            }
+            Err("native physics panic; affected world released".into())
         }
-        "restore" => {
-            let n = id(&v, "world")?;
-            if !r.worlds.contains_key(&n) {
-                return Err("invalid world".into());
-            }
-            let snapshot = &v["snapshot"];
-            if snapshot["version"] != 1 || snapshot["rapier"] != "0.36.0" {
-                return Err("incompatible snapshot".into());
-            }
-            let bytes: Vec<u8> =
-                serde_json::from_value(snapshot["bytes"].clone()).map_err(|e| e.to_string())?;
-            if bytes.len() > MAX_BYTES {
-                return Err("snapshot budget exceeded".into());
-            }
-            use bincode::Options;
-            let world: World = bincode::DefaultOptions::new()
-                .with_fixint_encoding()
-                .with_limit(MAX_BYTES as u64)
-                .reject_trailing_bytes()
-                .deserialize(&bytes)
-                .map_err(|e| e.to_string())?;
-            if world.physics.integration_parameters.dt
-                != r.worlds[&n].physics.integration_parameters.dt
-            {
-                return Err("snapshot timestep differs from world".into());
-            }
-            if world.bodies.len() > MAX_ITEMS
-                || world.colliders.len() > MAX_ITEMS
-                || world.joints.len() > MAX_ITEMS
-            {
-                return Err("snapshot resource budget exceeded".into());
-            }
-            r.worlds.insert(n, world);
-            Ok(Value::Null)
-        }
-        "counts" => Ok(
-            json!({"worlds":r.worlds.len(),"bodies":r.worlds.values().map(|w|w.bodies.len()).sum::<usize>()}),
-        ),
-        _ => r
-            .worlds
-            .get_mut(&id(&v, "world")?)
-            .ok_or("invalid or closed world")?
-            .command(&v),
     }
 }
 /// Input is a NUL terminated UTF-8 request. The returned string must be freed once.
@@ -819,9 +900,9 @@ pub unsafe extern "C" fn zyren_physics_call(input: *const c_char) -> *mut c_char
         dispatch(v)
     });
     let output = match result {
-        Ok(Ok(v)) => json!({"value":v}),
-        Ok(Err(e)) => json!({"error":e}),
-        Err(_) => json!({"error":"native physics panic"}),
+        Ok(Ok(v)) => json!({"protocol":1,"value":v}),
+        Ok(Err(e)) => json!({"protocol":1,"error":e}),
+        Err(_) => json!({"protocol":1,"error":"native physics panic"}),
     };
     CString::new(output.to_string()).unwrap().into_raw()
 }

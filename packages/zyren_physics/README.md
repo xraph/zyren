@@ -61,6 +61,8 @@ velocity in metres per second and reports seconds to impact. `overlap` reports
 collider IDs. Queries refresh collision detection, so you can query newly inserted
 or teleported colliders before stepping. Filters can exclude a body or sensors and
 apply collision groups. Shape-cast normals use world coordinates.
+Queries retain collision transitions until the next `step()` or `drainEvents()`.
+Use the latter when you need query events without advancing time.
 
 ## Stepping and transform ownership
 
@@ -73,6 +75,9 @@ Queries and body states always use current simulation poses.
 
 A bound object belongs to physics. External pose writes, reparenting and scale
 changes fail explicitly. Unbind before timeline or tools take over its transform.
+An attached world has one plugin driver. A second plugin cannot attach to or
+advance that world until the first detaches. `removeBody(object)` unbinds every
+object sharing the body before removing its native resources.
 Parents may have fixed rigid transforms, and the plugin converts world poses into
 parent-local coordinates. Parent scaling and moving parents are unsupported.
 Build shapes at their intended size; do not scale a bound object. Nested moving
@@ -94,8 +99,8 @@ change bodies in the callback. Event collection and debug geometry are bounded.
 
 ## Snapshots and recovery
 
-`snapshot()` captures native bodies, colliders, constraints, sleep state and solver
-state. `restore()` checks the format, pinned Rapier version and fixed timestep before
+`snapshot()` captures native bodies, colliders, constraints, sleep state, pending
+query events and solver state. `restore()` checks the format, pinned Rapier version and fixed timestep before
 replacing the world. Restore invalidates every existing handle. Use `body(id)` to
 reacquire a body, clear plugin bindings and bind the restored bodies again.
 Only restore snapshots you trust. The serialized solver state is a native engine

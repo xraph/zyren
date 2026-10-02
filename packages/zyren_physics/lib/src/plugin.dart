@@ -1,9 +1,11 @@
 import 'dart:math' as math;
 import 'package:zyren/zyren.dart';
+import 'package:zyren/rendering.dart' show FrameStats;
 import 'physics.dart';
 
 const physicsWorldService = ServiceKey<PhysicsWorld>('zyren.physics.world');
 final _owners = Expando<PhysicsPlugin>('physics transform owner');
+final _worldOwners = Expando<PhysicsPlugin>('physics simulation owner');
 
 /// Fixed-step native simulation. You own [world] and close it after detaching.
 final class PhysicsPlugin extends ScenePlugin {
@@ -71,8 +73,27 @@ final class PhysicsPlugin extends ScenePlugin {
   }
 
   void unbind(Object3D object) {
-    _bindings.remove(object);
+    final binding = _bindings.remove(object);
     if (identical(_owners[object], this)) _owners[object] = null;
+    if (binding != null &&
+        !_bindings.values.any((b) => b.body.id == binding.body.id)) {
+      _previous.remove(binding.body.id);
+      _current.remove(binding.body.id);
+    }
+  }
+
+  /// Unbind all objects using this body, then remove its colliders and joints.
+  void removeBody(Object3D object) {
+    final binding = _bindings[object];
+    if (binding == null) {
+      throw StateError('Object is not bound to this plugin.');
+    }
+    for (final entry in _bindings.entries.toList()) {
+      if (entry.value.body.id == binding.body.id) unbind(entry.key);
+    }
+    binding.body.remove();
+    _previous.remove(binding.body.id);
+    _current.remove(binding.body.id);
   }
 
   /// Call after restoring the world, then bind reacquired bodies.
@@ -90,10 +111,19 @@ final class PhysicsPlugin extends ScenePlugin {
     if (_context != null) {
       throw StateError('Physics plugin is already attached.');
     }
+    final worldOwner = _worldOwners[world];
+    if (worldOwner != null && !identical(worldOwner, this)) {
+      throw StateError(
+        'World is already driven by another attached physics plugin.',
+      );
+    }
     if (world.isClosed) {
       throw StateError('Cannot attach a closed physics world.');
     }
     for (final binding in _bindings.values) {
+      if (!binding.body.isAlive) {
+        throw StateError('Bound body handle is stale.');
+      }
       binding.checkScene(context.scene);
       binding.check();
       final owner = _owners[binding.object];
@@ -101,11 +131,12 @@ final class PhysicsPlugin extends ScenePlugin {
         throw StateError('Object has another physics owner.');
       }
     }
+    _context = context;
     for (final binding in _bindings.values) {
       _owners[binding.object] = this;
     }
     context.provide(physicsWorldService, world);
-    _context = context;
+    _worldOwners[world] = this;
     if (!paused) _demand = context.acquireFrameDemand();
   }
 
@@ -114,7 +145,10 @@ final class PhysicsPlugin extends ScenePlugin {
     if (!seconds.isFinite || seconds < 0) {
       throw ArgumentError('Delta must be finite and nonnegative.');
     }
-    if (paused) return;
+    final worldOwner = _worldOwners[world];
+    if (worldOwner != null && !identical(worldOwner, this)) {
+      throw StateError('World is driven by another physics plugin.');
+    }
     for (final b in _bindings.values) {
       b.check();
       if (!b.body.isAlive) throw StateError('Bound body handle is stale.');
@@ -123,6 +157,7 @@ final class PhysicsPlugin extends ScenePlugin {
         throw StateError('Object has another physics owner.');
       }
     }
+    if (paused) return;
     final states = {for (final state in world.states) state.id: state.pose};
     for (final entry in states.entries) {
       final current = _current[entry.key];
@@ -179,6 +214,13 @@ final class PhysicsPlugin extends ScenePlugin {
     }
   }
 
+  @override
+  void afterRender(PluginContext context, FrameInfo info, FrameStats stats) {
+    for (final binding in _bindings.values) {
+      binding.check();
+    }
+  }
+
   void _removeDebug() {
     final root = _debugRoot;
     if (root != null) root.parent?.remove(root);
@@ -221,6 +263,7 @@ final class PhysicsPlugin extends ScenePlugin {
     _demand?.dispose();
     _demand = null;
     _removeDebug();
+    if (identical(_worldOwners[world], this)) _worldOwners[world] = null;
     _context = null;
     _accumulator = 0;
   }

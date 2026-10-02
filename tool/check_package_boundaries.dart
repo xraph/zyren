@@ -1,12 +1,13 @@
 import 'dart:io';
 
-/// Guard the pure Dart packages against accidental platform dependencies.
+/// Guard package boundaries, including the optional native physics asset.
 void main(List<String> args) {
   final root = Directory(args.isEmpty ? '.' : args.single);
   final allowed = <String, Set<String>>{
     'zyren': {'vector_math'},
     'zyren_effects': {'zyren'},
     'zyren_particles': {'zyren'},
+    'zyren_physics': {'zyren', 'ffi'},
     'zyren_geospatial': {'zyren'},
     'zyren_tools': {'zyren'},
     'zyren_devtools': {'zyren'},
@@ -28,7 +29,7 @@ void main(List<String> args) {
       for (final match in directive.allMatches(file.readAsStringSync())) {
         final uri = match.group(1)!;
         if (uri == 'dart:ui' ||
-            uri == 'dart:ffi' ||
+            uri == 'dart:ffi' && package.key != 'zyren_physics' ||
             uri.startsWith('package:') &&
                 !{
                   package.key,

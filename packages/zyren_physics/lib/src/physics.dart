@@ -17,6 +17,11 @@ Object? _call(Map<String, Object?> request) {
     }
     try {
       final response = jsonDecode(output.cast<Utf8>().toDartString()) as Map;
+      if (response['protocol'] != 1) {
+        throw const PhysicsException(
+          'Incompatible native physics asset. Rebuild with the current package and one Dart SDK.',
+        );
+      }
       if (response['error'] case final String error) {
         throw PhysicsException(error);
       }
@@ -38,7 +43,16 @@ final class PhysicsException implements Exception {
 
 enum BodyKind { fixed, dynamic, kinematicPosition, kinematicVelocity }
 
-enum JointKind { hinge, slider, fixed, spherical, spring, distance }
+enum JointKind {
+  hinge,
+  slider,
+  fixed,
+  spherical,
+  spring,
+
+  /// A maximum-distance rope constraint. The anchors can move closer together.
+  distance,
+}
 
 enum MotorAxis { linearX, angularX, angularY, angularZ }
 
@@ -155,7 +169,7 @@ final class BodyState {
   final BodyKind kind;
   final PhysicsPose pose;
   final Vec3 velocity, angularVelocity;
-  final bool sleeping;
+  final bool sleeping, ccdEnabled;
   final double mass;
   BodyState._(Map data)
     : id = data['body'] as int,
@@ -167,6 +181,7 @@ final class BodyState {
       velocity = _vec(data['velocity']),
       angularVelocity = _vec(data['angularVelocity']),
       sleeping = data['sleeping'] as bool,
+      ccdEnabled = data['ccd'] as bool,
       mass = (data['mass'] as num).toDouble();
 }
 
@@ -250,10 +265,12 @@ final class QueryFilter {
 }
 
 final class DebugLine {
+  final String kind;
   final Vec3 a, b;
   final List<double> color;
   DebugLine._(Map data)
-    : a = _vec(data['a']),
+    : kind = data['kind'] as String,
+      a = _vec(data['a']),
       b = _vec(data['b']),
       color = List.unmodifiable(
         (data['color'] as List).map((x) => (x as num).toDouble()),
@@ -266,8 +283,12 @@ final class PhysicsSnapshot {
 
   /// Snapshots contain native engine state. Restore only snapshots you trust.
   String encode() => _encoded;
-  factory PhysicsSnapshot.decode(String encoded) =>
-      PhysicsSnapshot._(jsonDecode(encoded));
+  factory PhysicsSnapshot.decode(String encoded) {
+    if (encoded.length > 16 * 1024 * 1024) {
+      throw ArgumentError('Snapshot exceeds 16 MiB.');
+    }
+    return PhysicsSnapshot._(jsonDecode(encoded));
+  }
 }
 
 final class PhysicsWorld implements Finalizable {
@@ -337,6 +358,11 @@ final class PhysicsWorld implements Finalizable {
 
   void setGravity(Vec3 value) => _send('gravity', {'value': value.storage});
   PhysicsStep step() => PhysicsStep._(_send('step') as Map);
+
+  /// Consume transitions produced by queries without advancing simulation.
+  List<PhysicsEvent> drainEvents() => List.unmodifiable(
+    (_send('drainEvents') as List).map((e) => PhysicsEvent._(e as Map)),
+  );
   List<BodyState> get states => List.unmodifiable(
     (_send('poses') as List).map((v) => BodyState._(v as Map)),
   );
