@@ -1,0 +1,8 @@
+analyzer:
+  exclude:
+    - build/**
+    - macos/**
+linter:
+  rules:
+    - avoid_print
+    - unawaited_futures

@@ -1,0 +1,27 @@
+name: zyren_engineering_review
+description: Native engineering import and shared review example.
+publish_to: none
+version: 0.1.0+1
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_zyren:
+    path: ../../../flutter_zyren
+  zyren_engineering:
+    path: ../..
+  zyren_gltf:
+    path: ../../../zyren_gltf
+  zyren:
+    path: ../../../zyren
+  file_selector: ^1.0.4
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/demo/
