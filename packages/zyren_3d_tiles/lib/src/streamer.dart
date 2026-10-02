@@ -69,9 +69,12 @@ final class TileFailure3D {
   final String tileId;
   final AssetLoadError code;
   final int attempts;
-  const TileFailure3D._(this.tileId, this.code, this.attempts);
+  final int? httpStatus;
+  const TileFailure3D._(this.tileId, this.code, this.attempts, this.httpStatus);
   @override
-  String toString() => 'Tile $tileId failed (${code.name}, attempt $attempts).';
+  String toString() =>
+      'Tile $tileId failed (${code.name}, '
+      '${httpStatus == null ? '' : 'HTTP $httpStatus, '}attempt $attempts).';
 }
 
 /// CPU content owner. Visible groups belong to this streamer until replacement,
@@ -454,6 +457,7 @@ class Tiles3DStreamer {
               ? error.code
               : AssetLoadError.decodeFailed,
           _attempts[request.node.id]!,
+          error is AssetLoadException ? error.httpStatus : null,
         );
       }
     } finally {

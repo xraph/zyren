@@ -778,6 +778,37 @@ void main() {
     },
   );
   test(
+    'tile failures retain transport status without retaining credential errors',
+    () async {
+      for (final status in [403, 429, 503, null]) {
+        final resolver = MemoryResolver({})
+          ..beforeRead = (_, _) async {
+            throw AssetLoadException(
+              AssetLoadError.sourceFailed,
+              'private-key',
+              sourceUri: Uri.parse('https://tiles.test/private-key'),
+              httpStatus: status,
+            );
+          };
+        final streamer = Tiles3DStreamer(
+          tileset: await source(tile(refine: 'REPLACE', uri: 'model')),
+          services: AssetServices(resolver: resolver),
+        );
+        try {
+          streamer.update(camera(), viewport);
+          await settle(streamer);
+          final failure = streamer.failures.single;
+          expect(failure.httpStatus, status);
+          expect(failure.code, AssetLoadError.sourceFailed);
+          expect(failure.toString(), isNot(contains('private-key')));
+          expect(failure.toString(), isNot(contains('tiles.test')));
+        } finally {
+          await streamer.dispose();
+        }
+      }
+    },
+  );
+  test(
     'failures do not spin and retries stop at the configured attempt count',
     () async {
       final resolver = MemoryResolver({});
