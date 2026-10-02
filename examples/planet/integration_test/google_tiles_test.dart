@@ -251,7 +251,12 @@ void main() {
       expect(find.text('Data sources'), findsOneWidget);
       await tester.binding.setSurfaceSize(const Size(390, 700));
       final before = frames;
-      await until(() => frames > before);
+      await until(() => frames > before + 2);
+      // Allow one pixel of rounding on each dimension.
+      expect(
+        lastFrame!.physicalSize.width * lastFrame!.physicalSize.height,
+        lessThanOrEqualTo(641 * 385),
+      );
       await tester.tap(find.text('Data sources'));
       await tester.pump(const Duration(milliseconds: 350));
       await tester.pump();

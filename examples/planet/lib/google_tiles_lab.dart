@@ -278,15 +278,18 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
                     )
                   : LayoutBuilder(
                       builder: (context, bounds) {
-                        final longest =
-                            math.max(bounds.maxWidth, bounds.maxHeight) *
-                            MediaQuery.devicePixelRatioOf(context);
+                        final ratio = MediaQuery.devicePixelRatioOf(context);
+                        final width = math.max(1, bounds.maxWidth * ratio);
+                        final height = math.max(1, bounds.maxHeight * ratio);
+                        // Replacement effects coexist with the previous frame.
+                        // Bound their area as well as their longest dimension.
+                        final scale = math.min(
+                          640 / math.max(width, height),
+                          math.sqrt((640 * 384) / (width * height)),
+                        );
                         return SceneView(
                           controller: controller,
-                          resolutionScale: math.min(
-                            1,
-                            640 / math.max(1, longest),
-                          ),
+                          resolutionScale: math.min(1, scale),
                           errorBuilder: (context, issue, retry) =>
                               RendererZeroState(error: issue, onRetry: retry),
                         );
