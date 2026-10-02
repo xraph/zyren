@@ -28,6 +28,34 @@ coordinates or an atmosphere. Your model viewer doesn't need to depend on it.
 > availability and device qualification are separate, so check the
 > [platform table](#platforms) before choosing a presentation path.
 
+## In the examples
+
+Native captures from macOS and a Pixel 9 Pro. Open an image for the full-size
+view, or follow its example link to run it yourself.
+
+<table>
+  <tr>
+    <td width="50%">
+      <a href=".github/assets/screenshots/materials-macos.jpg"><img src=".github/assets/screenshots/materials-macos.jpg" alt="Physical materials example on macOS showing thin-film, sheen and glass surfaces with lighting controls" width="100%" /></a>
+      <br /><a href="examples/shader_lab/lib/physical.dart">Physical materials</a> · macOS / Metal
+    </td>
+    <td width="50%">
+      <a href=".github/assets/screenshots/atmosphere-macos.jpg"><img src=".github/assets/screenshots/atmosphere-macos.jpg" alt="Geospatial atmosphere example on macOS showing the illuminated edge of an ellipsoid at dusk" width="100%" /></a>
+      <br /><a href="examples/planet/lib/atmosphere_lab.dart">Atmosphere at dusk</a> · macOS / Metal
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <a href=".github/assets/screenshots/workbench-android.png"><img src=".github/assets/screenshots/workbench-android.png" alt="Scene workbench on Pixel 9 Pro showing a selected pump housing, transform handles, assembly tree and timeline" width="100%" /></a>
+      <br /><a href="examples/multiple_views/lib/scene_workbench.dart">Scene workbench</a> · Android / Vulkan
+    </td>
+    <td width="50%">
+      <a href=".github/assets/screenshots/globe-android.png"><img src=".github/assets/screenshots/globe-android.png" alt="Geospatial globe navigation example on Pixel 9 Pro showing an ellipsoid with geographic markers" width="100%" /></a>
+      <br /><a href="examples/planet/lib/navigation_lab.dart">Globe navigation</a> · Android / Vulkan
+    </td>
+  </tr>
+</table>
+
 ## Quick start
 
 You'll need [FVM](https://fvm.app), Rust through [rustup](https://rustup.rs), and
