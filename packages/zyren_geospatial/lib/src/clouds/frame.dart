@@ -42,6 +42,13 @@ final class CloudFrameState {
     final far = camera is PerspectiveCamera
         ? camera.far
         : (camera as OrthographicCamera).far;
+    if (!shadowFarScale.isFinite || shadowFarScale <= 0 || shadowFarScale > 1) {
+      throw ArgumentError('Invalid cloud shadow far scale.');
+    }
+    // Scale the visible depth interval, since globe controls move near into
+    // orbit. Grow the span budget with near to avoid one-metre shadow slabs.
+    final shadowFar =
+        near + math.min((far - near) * shadowFarScale, math.max(200000, near));
     final rotation = Mat4([...worldToEcef.storage.take(12), 0, 0, 0, 1]);
     final inverse = rotation.inverted();
     final worldSun = cloudVector(inverse, sun).normalized();
@@ -54,10 +61,10 @@ final class CloudFrameState {
             count: cascadeCount,
             mapWidth: shadowSize,
             mapHeight: shadowSize,
-            maxFar: math.max(near + 1, math.min(far, 200000)),
+            maxFar: shadowFar,
             distance: distance,
             splitLambda: .6,
-            farScale: shadowFarScale,
+            farScale: 1,
           )
         : CloudShadowCascades.disabled(near: near, far: far);
     final forward = (camera.target - camera.position).normalized();
