@@ -107,6 +107,7 @@ void main() {
         for (var i = 0; i < 17; i++) {
           camera.position += const Vec3(0, 0, .1);
           camera.target += const Vec3(0, 0, .1);
+          camera.setClippingRange(1 + i * .01, 1e7 - i * 100);
           final frame = await render();
           expect(center(frame)[3], greaterThan(100));
           expect(frame.uploadedBytes, 0);

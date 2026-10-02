@@ -111,14 +111,14 @@ final class CloudHistory {
     final s = settings ?? CloudTemporalSettings(), p = _previous;
     final forward = (camera.target - camera.position).normalized(),
         up = camera.up.normalized();
+    // Clipping changes depth mapping, not projected XY. History uses the
+    // previous view-projection matrix and ray distance for reprojection.
     final projection =
         (camera is PerspectiveCamera
                 ? [
                     0,
                     camera.fieldOfView,
                     camera.zoom,
-                    camera.near,
-                    camera.far,
                     aspect,
                     camera.depthStrategy.index,
                   ]
@@ -130,8 +130,6 @@ final class CloudHistory {
                     camera.bottom,
                     camera.top,
                     camera.zoom,
-                    camera.near,
-                    camera.far,
                     camera.depthStrategy.index,
                   ]
                 : [camera.runtimeType, aspect, camera.depthStrategy.index])

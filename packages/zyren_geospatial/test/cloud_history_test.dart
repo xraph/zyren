@@ -1,10 +1,93 @@
 import 'package:test/test.dart';
 import 'package:zyren/zyren.dart';
+import 'package:zyren_geospatial/zyren_geospatial.dart' show GlobeControls;
 import 'package:zyren_geospatial/src/clouds/history.dart';
 import 'package:zyren_geospatial/src/clouds/frame.dart';
 import 'dart:math' as math;
 
 void main() {
+  test('globe navigation preserves cloud history while clipping adapts', () {
+    for (final depth in DepthStrategy.values) {
+      final history = CloudHistory();
+      final camera = PerspectiveCamera(
+        position: const Vec3(6379137, 0, 0),
+        target: const Vec3(6379137, 0, 1000),
+        up: const Vec3(1, 0, 0),
+        near: 1,
+        far: 1e8,
+        depthStrategy: depth,
+      );
+      final controls = GlobeControls(camera)..adjustHeight = false;
+      addTearDown(controls.dispose);
+      var previousNear = camera.near;
+      for (var i = 0; i < 24; i++) {
+        camera.position += const Vec3(1, 0, 0);
+        camera.target += const Vec3(1, 0, 0);
+        controls.update(1 / 60);
+        expect(camera.near, isNot(previousNear));
+        previousNear = camera.near;
+        final frame = history.begin(
+          camera: camera,
+          aspect: 1,
+          width: 640,
+          height: 640,
+          number: i,
+          elapsed: Duration(microseconds: i * 16667),
+          revision: 0,
+          epoch: 0,
+          sun: const Vec3(1, 0, 0),
+        );
+        expect(frame.valid, i > 0);
+        expect(frame.frames, i + 1);
+        history.present(frame, 0);
+      }
+    }
+  });
+  test('clipping changes preserve history for both camera projections', () {
+    for (final depth in DepthStrategy.values) {
+      for (final Camera camera in [
+        PerspectiveCamera(near: 1, far: 1e7, depthStrategy: depth),
+        OrthographicCamera(near: 1, far: 1e7, depthStrategy: depth),
+      ]) {
+        final history = CloudHistory();
+        var number = 0;
+        CloudHistoryFrame begin() => history.begin(
+          camera: camera,
+          aspect: 1,
+          width: 32,
+          height: 32,
+          number: number,
+          elapsed: Duration(milliseconds: 16 * number++),
+          revision: 0,
+          epoch: 0,
+          sun: const Vec3(1, 0, 0),
+        );
+        final first = begin();
+        history.present(first, 0);
+        switch (camera) {
+          case PerspectiveCamera():
+            camera.setClippingRange(100, 1e6);
+          case OrthographicCamera():
+            camera.setClippingRange(100, 1e6);
+        }
+        final clipped = begin();
+        expect(clipped.valid, isTrue);
+        expect(clipped.frames, 2);
+        expect(
+          clipped.viewProjection.storage,
+          isNot(first.viewProjection.storage),
+        );
+        history.present(clipped, 0);
+        switch (camera) {
+          case PerspectiveCamera():
+            camera.zoom = 2;
+          case OrthographicCamera():
+            camera.zoom = 2;
+        }
+        expect(begin().reason, CloudHistoryReset.projection);
+      }
+    }
+  });
   test(
     'cloud history commits only successful frames and rejects discontinuities',
     () {
