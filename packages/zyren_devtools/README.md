@@ -60,3 +60,37 @@ device and renders a box. To inspect your running host, import `gpu_tools.dart`
 and embed `GpuInspectionTools` with that host's attached inspector. The exported
 `zyren_gpu_inspect` tool shares the inspector's bounded, read-only query. Native
 imports belong to the example; the inspector and adapter need only Dart core.
+
+To inspect a running host, add the bridge after your inspector:
+
+```dart
+import 'package:zyren_devtools/gpu_bridge.dart';
+
+final inspector = SceneDevtoolsPlugin();
+final bridge = GpuInspectionBridge();
+// Pass [inspector, bridge] as the host's scene plugins.
+// Read bridge.endpoint and bridge.sessionToken after attachment succeeds.
+```
+
+Give the CLI the endpoint and token through `ZYREN_GPU_ENDPOINT` and
+`ZYREN_GPU_SESSION_TOKEN`, then run:
+
+```sh
+dart run packages/zyren_devtools/example/gpu_inspect.dart --remote
+# Add --mcp to expose that host's query over stdio.
+```
+
+Remote mode creates no GPU device. You can also use `GpuInspectionClient`
+directly and call `close()` when finished. The client accepts only an explicit
+HTTP endpoint at `127.0.0.1`, bypasses proxies and rejects redirects.
+
+The bridge starts only when you attach its plugin. It listens on an ephemeral
+IPv4 loopback port, requires a random session token and rejects browser origins.
+Requests are limited to 8 KiB, responses to 256 KiB in the client, and only one
+inspection runs at a time. Keep the token private. Detaching closes the listener
+and clears the token through the plugin attachment scope. No measurements or
+allocation lists are cached by the bridge.
+
+The remote CLI/MCP regression runs against a native Metal host, verifies its
+submission count and allocation changes, then checks cleanup. This does not
+qualify Vulkan, DX12 or a Flutter native-view presentation path.

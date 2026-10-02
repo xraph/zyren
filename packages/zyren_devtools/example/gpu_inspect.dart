@@ -3,24 +3,56 @@ import 'dart:io';
 import 'package:zyren/zyren.dart';
 import 'package:zyren_devtools/zyren_devtools.dart';
 import 'package:zyren_devtools/gpu_tools.dart';
+import 'package:zyren_devtools/gpu_bridge.dart';
 import 'package:zyren_native/zyren_native.dart';
 
 /// Run with --mcp for newline JSON-RPC, or without arguments for JSON output.
-/// This example owns a separate device. Embed GpuInspectionTools in your host
-/// to inspect that host's attached renderer instead.
+/// Local mode owns a separate device. Use --remote with the host bridge endpoint
+/// and session token to query your running renderer.
 Future<void> main(List<String> arguments) async {
   final inspector = SceneDevtoolsPlugin();
-  final engine = await SceneEngine.create(
-    scene: Scene()..add(Mesh(BoxGeometry(), UnlitMaterial())),
-    camera: PerspectiveCamera()..position = const Vec3(0, 0, 4),
-    backendFactory: NativeBackend.create,
-    plugins: [inspector],
-  );
+  SceneEngine? engine;
+  GpuInspectionClient? client;
   final tools = GpuInspectionTools(inspector);
+  if (arguments.contains('--remote')) {
+    final endpoint = Platform.environment['ZYREN_GPU_ENDPOINT'];
+    final token = Platform.environment['ZYREN_GPU_SESSION_TOKEN'];
+    if (endpoint == null || token == null) {
+      throw StateError('Set ZYREN_GPU_ENDPOINT and ZYREN_GPU_SESSION_TOKEN.');
+    }
+    client = GpuInspectionClient(
+      endpoint: Uri.parse(endpoint),
+      sessionToken: token,
+    );
+  } else {
+    engine = await SceneEngine.create(
+      scene: Scene()..add(Mesh(BoxGeometry(), UnlitMaterial())),
+      camera: PerspectiveCamera()..position = const Vec3(0, 0, 4),
+      backendFactory: NativeBackend.create,
+      plugins: [inspector],
+    );
+  }
+  Future<Map<String, Object?>> query(
+    String name,
+    Map<String, dynamic> args,
+  ) async {
+    final remote = client;
+    if (remote == null) return tools.call(name, args);
+    if (name != 'zyren_gpu_inspect' ||
+        args.keys.any((key) => key != 'allocationLimit')) {
+      throw ArgumentError('Unknown inspection tool or argument.');
+    }
+    final limit = args['allocationLimit'] ?? 128;
+    if (limit is! int) {
+      throw ArgumentError('allocationLimit must be an integer.');
+    }
+    return remote.inspectGpu(allocationLimit: limit);
+  }
+
   try {
-    await engine.render(elapsed: Duration.zero, width: 32, height: 32);
+    await engine?.render(elapsed: Duration.zero, width: 32, height: 32);
     if (!arguments.contains('--mcp')) {
-      stdout.writeln(jsonEncode(await tools.call('zyren_gpu_inspect', {})));
+      stdout.writeln(jsonEncode(await query('zyren_gpu_inspect', {})));
       return;
     }
     var initialized = false;
@@ -48,7 +80,7 @@ Future<void> main(List<String> arguments) async {
               {
                 'type': 'text',
                 'text': jsonEncode(
-                  await tools.call(
+                  await query(
                     params['name'] as String,
                     params['arguments'] as Map<String, dynamic>? ?? {},
                   ),
@@ -74,6 +106,7 @@ Future<void> main(List<String> arguments) async {
       }
     }
   } finally {
-    await engine.dispose();
+    client?.close();
+    await engine?.dispose();
   }
 }
