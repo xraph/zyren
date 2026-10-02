@@ -69,7 +69,9 @@ class _WorkbenchState extends State<_Workbench> {
   late final SceneController _controller;
   final _tools = SceneToolsPlugin(highlightSelection: false);
   final _outlines = SceneOutlinePlugin(width: 3);
-  final _sections = SceneSectionPlugin();
+  final _sections = SceneSectionPlugin(
+    capMaterial: UnlitMaterial(color: Color3.hex(0xffc875)),
+  );
   int _sectionAxis = 0;
   double _sectionOffset = 0;
   bool _sectionFlipped = false;
@@ -275,6 +277,7 @@ class _WorkbenchState extends State<_Workbench> {
       }
       _pins.clear();
       _pinLeases.clear();
+      _sections.setCapTargets(_parts);
       _tools.select(_parts.first);
       _bindReview();
       if (initial && widget.reviewStore != null) {
@@ -679,6 +682,16 @@ class _WorkbenchState extends State<_Workbench> {
               : null,
           constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
         ),
+        IconButton(
+          key: const ValueKey('gizmo-overlay'),
+          tooltip: 'Always-visible handles',
+          isSelected: _gizmo.alwaysVisible,
+          icon: const Icon(Icons.visibility, size: 20),
+          onPressed: _ready
+              ? () => _edit(() => _gizmo.alwaysVisible = !_gizmo.alwaysVisible)
+              : null,
+          constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+        ),
         _button(
           'Move -X',
           Icons.arrow_back,
@@ -832,6 +845,22 @@ class _WorkbenchState extends State<_Workbench> {
             _sectionOffset.toStringAsFixed(2),
             textAlign: TextAlign.end,
           ),
+        ),
+        IconButton(
+          key: const ValueKey('section-caps'),
+          tooltip: _sections.capIssues.isEmpty
+              ? 'Section caps'
+              : 'Section caps: ${_sections.capIssues.length} unsupported sources',
+          isSelected: _sections.capsEnabled,
+          icon: Icon(
+            _sections.capIssues.isEmpty ? Icons.layers : Icons.warning_amber,
+            size: 20,
+          ),
+          onPressed: _ready
+              ? () =>
+                    _edit(() => _sections.capsEnabled = !_sections.capsEnabled)
+              : null,
+          constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
         ),
         _button(
           'Flip section',
@@ -1027,6 +1056,7 @@ class _WorkbenchState extends State<_Workbench> {
     final nodes = snapshot.nodes.where(
       (node) =>
           !_gizmo.owns(_inspector.objectFor(node.id)!) &&
+          !_sections.owns(_inspector.objectFor(node.id)!) &&
           !_pins.containsValue(_inspector.objectFor(node.id)),
     );
     final selected = _tools.selected;

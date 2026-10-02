@@ -12,6 +12,30 @@ Future<void> exerciseWorkbenchSections(
     }
   }
 
+  Iterable<Object3D> descendants(Object3D node) sync* {
+    for (final child in node.children) {
+      yield child;
+      yield* descendants(child);
+    }
+  }
+
+  Iterable<Object3D> capsInScene() =>
+      descendants(controller.scene).where((node) => node.name == 'Section cap');
+  final caps = find.byKey(const ValueKey('section-caps'));
+  final overlay = find.byKey(const ValueKey('gizmo-overlay'));
+  await tester.tap(overlay);
+  await settle();
+  final overlayEnabled = tester.widget<IconButton>(overlay).isSelected!;
+  final handles = descendants(controller.scene).whereType<Mesh>().where(
+    (mesh) => mesh.name?.startsWith('translate ') ?? false,
+  );
+  expect(handles, isNotEmpty);
+  expect(
+    handles.every((mesh) => mesh.material.depthTest == !overlayEnabled),
+    isTrue,
+  );
+  await tester.tap(overlay);
+  await settle();
   await tester.tap(find.byTooltip('Section view'));
   await settle();
   expect(
@@ -31,6 +55,16 @@ Future<void> exerciseWorkbenchSections(
   expect(controller.scene.clippingPlanes.single.normal, const Vec3(1, 0, 0));
   final slider = find.byKey(const ValueKey('section-offset'));
   final rect = tester.getRect(slider);
+  await tester.tapAt(rect.center);
+  await settle();
+  expect(capsInScene(), isNotEmpty);
+  await tester.tap(caps);
+  await settle();
+  expect(capsInScene(), isEmpty);
+  await tester.tap(caps);
+  await settle();
+  expect(capsInScene(), isNotEmpty);
+
   await tester.tapAt(Offset(rect.left + rect.width * .75, rect.center.dy));
   await settle();
   final offset = controller.scene.clippingPlanes.single.offset;

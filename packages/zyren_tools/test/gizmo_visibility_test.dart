@@ -44,15 +44,26 @@ void main() {
           expect(hit, overlay ? GizmoAxis.x : isNull);
           void inspect(Object3D node) {
             if (node is Mesh && gizmo.owns(node)) {
-              expect(node.material.depthTest, !overlay);
-              expect(node.material.writesDepth, !overlay);
-              expect(node.renderOrder, overlay ? 0x7fffffff : 0);
+              expect(node.material.depthTest, !gizmo.alwaysVisible);
+              expect(node.material.writesDepth, !gizmo.alwaysVisible);
+              expect(node.renderOrder, gizmo.alwaysVisible ? 0x7fffffff : 0);
             }
             for (final child in node.children) {
               inspect(child);
             }
           }
 
+          inspect(scene);
+          gizmo.alwaysVisible = !overlay;
+          inspect(scene);
+          expect(
+            gizmo.hitTestHandle(
+              ViewportPoint((projected.x + 1) * 300, (1 - projected.y) * 300),
+              viewport,
+            ),
+            overlay ? isNull : GizmoAxis.x,
+          );
+          gizmo.alwaysVisible = overlay;
           inspect(scene);
         } finally {
           await engine.dispose();

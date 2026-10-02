@@ -47,7 +47,22 @@ class TransformGizmoPlugin extends ScenePlugin {
   final double size;
 
   /// Draw and pick handles through scene occluders. Defaults to depth testing.
-  final bool alwaysVisible;
+  bool _alwaysVisible;
+  bool get alwaysVisible => _alwaysVisible;
+  set alwaysVisible(bool value) {
+    if (_alwaysVisible == value) return;
+    cancel();
+    _alwaysVisible = value;
+    for (final handle in _materials.keys.toList()) {
+      _materials[handle] = _handleMaterial(handle.color);
+    }
+    _activeMaterial = _handleMaterial(0xffdf85);
+    for (final mesh in _handles.keys) {
+      mesh.renderOrder = value ? 0x7fffffff : 0;
+    }
+    _sync();
+    _context?.invalidate();
+  }
 
   /// Optional nominal radius in logical pixels, capped at a third of the shorter
   /// viewport edge. Axes still foreshorten in depth. Omit for scene-unit [size].
@@ -68,7 +83,7 @@ class TransformGizmoPlugin extends ScenePlugin {
   final _groups = <GizmoMode, Group>{};
   final _handles = <Mesh, GizmoHandle>{};
   final _materials = <GizmoHandle, UnlitMaterial>{};
-  late final UnlitMaterial _activeMaterial;
+  late UnlitMaterial _activeMaterial;
   final _raycaster = Raycaster();
   PluginContext? _context;
   SceneToolsPlugin? _tools;
@@ -78,13 +93,13 @@ class TransformGizmoPlugin extends ScenePlugin {
 
   TransformGizmoPlugin({
     this.size = 1.5,
-    this.alwaysVisible = false,
+    bool alwaysVisible = false,
     this.screenSize,
     this.translationSnap = .25,
     this.rotationSnap = math.pi / 12,
     this.scaleSnap = .1,
     this.onDragChanged,
-  }) {
+  }) : _alwaysVisible = alwaysVisible {
     if ([
           size,
           translationSnap,
