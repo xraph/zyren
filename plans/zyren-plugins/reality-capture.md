@@ -125,3 +125,21 @@ Remaining work includes phases 3 and 4 in full, the existing-plugin enrichment
 adapters, richer source formats, independent point GPU budgets, and qualification
 outside offscreen Metal. The first splat slice is an orthographic color pass and
 does not join normal scene rendering. No package is complete or ready for rollout.
+
+## Local commits and handoff
+
+- `8ef7820`: point-cloud ingestion/render/query path, orthographic Gaussian
+  renderer, shared agent providers, tests, native examples and workspace entries.
+- Shared provider signatures were available in `5ddc7ea`; their owner continues
+  transport and runtime work independently. No shared renderer/native code changed.
+- Final package analysis: no issues. Formatting: 18 Dart files unchanged.
+- Final package suite: 16 tests passed, including two real Metal offscreen tests.
+- Both native examples ran. Their ignored outputs are
+  `artifacts/reality-capture/pointcloud.ppm` and
+  `artifacts/reality-capture/gaussians.ppm`.
+- No live MCP session, interactive Flutter screen, mobile device or DX12 check
+  was performed in this checkpoint. No package was published, pushed or merged.
+
+Workspace registration was staged as an index-only patch for the two owned
+members. Other workspace edits and packages stayed outside this commit. One file
+write failed during disk pressure; retry succeeded without deleting shared data.
