@@ -11,7 +11,7 @@ final class GpuInspectionTools {
     {
       'name': 'zyren_gpu_inspect',
       'description':
-          'Inspect the attached device allocation counter, last scene GPU submission and bounded registry payload metadata.',
+          'Inspect native memory usage and budgets with source and scope, device allocations, last scene GPU submission and bounded registry payload metadata.',
       'inputSchema': {
         'type': 'object',
         'properties': {

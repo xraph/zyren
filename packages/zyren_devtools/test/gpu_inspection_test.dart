@@ -74,6 +74,13 @@ void main() {
         expect(result['residentBytes'], isNull);
         expect(result['submittedFrames'], 1);
         if (backend.capabilities.backend == 'Metal') {
+          final memory = (result['memoryReports'] as List).single as Map;
+          expect(memory['source'], 'metal.deviceMemory');
+          expect(memory['status'], 'available');
+          expect(memory['scope'], 'processDevice');
+          expect(memory['usageBytes'], greaterThan(0));
+          expect(memory['recommendedMaxWorkingSetBytes'], greaterThan(0));
+          expect(memory['budgetBytes'], isNull);
           expect(result['deviceAllocatedBytes'], greaterThan(0));
           expect(result['lastSubmissionGpuTimeNs'], greaterThan(0));
           expect(result['gpuTimeSource'], 'metal.commandBuffer.startEndTime');

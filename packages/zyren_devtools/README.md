@@ -64,6 +64,46 @@ by `allocationLimit`. Names are capped at 128 UTF-8 bytes. Check
 reports remain null with `allocatorSource: unavailable`. These counters do not
 measure physical residency or total device memory.
 
+`memoryReports` exposes native usage and budget queries. Each report carries
+`status`, `source`, `scope` and `region`, with optional `heapIndex`, `nodeIndex`,
+`deviceLocal` and `unifiedMemory` metadata. You can inspect it directly:
+
+```dart
+final inspection = await inspector.inspectGpu();
+for (final memory in inspection?.memoryReports ?? <GpuMemoryReport>[]) {
+  if (memory.status == 'available') {
+    print('${memory.source}: ${memory.usageBytes} / ${memory.budgetBytes}');
+  } else {
+    print('${memory.status}: ${memory.reason}');
+  }
+}
+```
+
+| Source | Scope and measurements |
+| --- | --- |
+| `metal.deviceMemory` | `processDevice`: `usageBytes` reads `currentAllocatedSize`. `recommendedMaxWorkingSetBytes` is approximate performance guidance, available on macOS and iOS 16 or later. `budgetBytes` stays null. |
+| `vulkan.EXT_memory_budget` | `processHeap`: one report per heap, identified by `heapIndex`. `usageBytes` and `budgetBytes` are driver estimates, marked with `usageIsEstimate` and `budgetIsEstimate`. |
+| `dxgi.QueryVideoMemoryInfo` | `processAdapterSegment`: OS-reported usage and budget for each linked node's local and non-local segment. The query resolves the renderer device's adapter LUID. |
+
+Check `status` before using a number. Unsupported queries return `unsupported`
+with a reason; failed DXGI queries return `error` and the HRESULT in `reason`.
+One failed segment does not discard the other segment's report. Missing values
+stay null, while a reported zero stays zero. Older runtimes return an empty list.
+On iOS 13 through 15, the Metal allocation counter remains available and the
+working-set recommendation stays null.
+
+These snapshots can change as other applications allocate memory. Usage can
+exceed the current budget. Keep heap and segment reports separate, and don't add
+them to the device or allocator counters, since their coverage overlaps. The
+memory queries allocate no GPU resources and perform no GPU readback; the timing
+query's diagnostic readbacks are still counted separately. No report measures
+physical residency.
+
+You can compare these fields with the native API definitions:
+[Metal device memory](https://developer.apple.com/documentation/metal/mtldevice/recommendedmaxworkingsetsize),
+[Vulkan memory budgets](https://docs.vulkan.org/spec/latest/chapters/memory.html),
+and [DXGI video memory](https://learn.microsoft.com/en-us/windows/win32/api/dxgi1_4/ns-dxgi1_4-dxgi_query_video_memory_info).
+
 For a native CLI sample:
 
 ```sh
@@ -129,3 +169,21 @@ flutter drive --profile --driver=test_driver/qualification.dart \
 ```
 
 DX12 still requires a Windows runner.
+
+The memory-report additions passed the macOS native-view test and the Dart,
+CLI/MCP and Rust checks. On the Pixel 9 Pro, the Mali-G715 driver does not
+advertise `VK_EXT_memory_budget`; the test verified the explicit unsupported
+report, retained allocator counters and cleanup. A positive Vulkan budget sample
+still needs a driver that supports the extension. The DXGI implementation and
+its device test type-check for Windows x64, but live DXGI verification still
+requires Windows hardware. The updated iPhone memory-report test is awaiting an
+unlocked device; the earlier iPhone qualification above covers timing and
+allocation counters.
+
+To qualify the DXGI report on a Windows GPU host, run this from the repository
+root. This test explicitly selects DX12, even if Vulkan is also installed:
+
+```sh
+cargo test --manifest-path packages/zyren_native/native/Cargo.toml --lib \
+  dx12_memory_reports_query_the_selected_adapter -- --include-ignored --nocapture
+```

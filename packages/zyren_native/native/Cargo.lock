@@ -1464,6 +1464,7 @@ dependencies = [
 name = "zyren_runtime"
 version = "0.1.0"
 dependencies = [
+ "ash",
  "basisu_c_sys",
  "bytemuck",
  "cc",
@@ -1480,6 +1481,7 @@ dependencies = [
  "serde",
  "serde_json",
  "wgpu",
+ "windows",
  "zune-core",
  "zune-jpeg",
 ]

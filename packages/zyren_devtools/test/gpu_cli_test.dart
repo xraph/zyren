@@ -27,6 +27,7 @@ void main() {
       expect(snapshot['residentBytes'], isNull);
       expect(snapshot['submittedFrames'], 1);
       expect(snapshot['allocations'], isA<List>());
+      expect(snapshot['memoryReports'], isNotEmpty);
       if (snapshot['deviceAllocationSource'] == 'metal.currentAllocatedSize') {
         expect(snapshot['deviceAllocatedBytes'], greaterThan(0));
         expect(snapshot['lastSubmissionGpuTimeNs'], greaterThan(0));
@@ -81,6 +82,15 @@ void main() {
               as Map;
       expect((inspection['allocations'] as List).length, lessThanOrEqualTo(1));
       expect(inspection['residentBytes'], isNull);
+      expect(inspection['memoryReports'], isNotEmpty);
+      if (snapshot['deviceAllocationSource'] == 'metal.currentAllocatedSize') {
+        final memory = (inspection['memoryReports'] as List).single as Map;
+        expect(memory['source'], 'metal.deviceMemory');
+        expect(memory['scope'], 'processDevice');
+        expect(memory['usageBytes'], greaterThan(0));
+        expect(memory['recommendedMaxWorkingSetBytes'], greaterThan(0));
+        expect(memory['budgetBytes'], isNull);
+      }
       expect(replies.last['error'], isNotNull);
     },
     skip: Platform.environment['RUN_NATIVE_GPU'] != '1',

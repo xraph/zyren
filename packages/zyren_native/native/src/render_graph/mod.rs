@@ -258,6 +258,8 @@ impl GraphStore {
                         ))
                     } else {
                         let mut result = resources.inspection(allocation_limit);
+                        result["memoryReports"] =
+                            json!(crate::renderer::gpu_memory::inspect(device));
                         #[cfg(target_vendor = "apple")]
                         let allocated = {
                             use objc2_metal::MTLDevice;

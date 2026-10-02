@@ -41,6 +41,14 @@ fn inspection_is_bounded_read_only_and_never_invents_residency() {
         assert_eq!(result["allocations"][0]["references"], 1);
         assert!(result["residentBytes"].is_null());
         if renderer.backend == wgpu::Backend::Metal {
+            let memory = &result["memoryReports"][0];
+            assert_eq!(memory["status"], "available");
+            assert_eq!(memory["scope"], "processDevice");
+            assert_eq!(memory["source"], "metal.deviceMemory");
+            assert!(memory["usageBytes"].as_u64().unwrap() > 0);
+            assert!(memory["recommendedMaxWorkingSetBytes"].as_u64().unwrap() > 0);
+            assert!(memory["budgetBytes"].is_null());
+            assert_eq!(memory["usageIsEstimate"], false);
             assert_eq!(
                 result["deviceAllocationSource"],
                 "metal.currentAllocatedSize"
@@ -48,6 +56,19 @@ fn inspection_is_bounded_read_only_and_never_invents_residency() {
             assert!(result["deviceAllocatedBytes"].as_u64().unwrap() > 0);
         } else {
             assert!(result["deviceAllocatedBytes"].is_null());
+            let reports = result["memoryReports"].as_array().unwrap();
+            assert!(!reports.is_empty());
+            for report in reports {
+                if report["status"] == "available" {
+                    assert!(report["usageBytes"].is_u64());
+                    assert!(report["budgetBytes"].is_u64());
+                    assert!(report["recommendedMaxWorkingSetBytes"].is_null());
+                } else {
+                    assert!(report["reason"].is_string());
+                    assert!(report["usageBytes"].is_null());
+                    assert!(report["budgetBytes"].is_null());
+                }
+            }
         }
     }
     assert_eq!(renderer.counters().readback_bytes, readbacks);

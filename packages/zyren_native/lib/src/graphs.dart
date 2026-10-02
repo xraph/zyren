@@ -164,6 +164,10 @@ mixin _NativeGraphs {
       'allocation_limit': allocationLimit,
     });
     return GpuInspection(
+      memoryReports: ((result['memoryReports'] as List?) ?? []).map(
+        (value) =>
+            GpuMemoryReport.fromJson((value as Map).cast<String, Object?>()),
+      ),
       allocatorUsedBytes: result['allocatorUsedBytes'] as int?,
       allocatorReservedBytes: result['allocatorReservedBytes'] as int?,
       allocatorAllocationCount: result['allocatorAllocationCount'] as int?,

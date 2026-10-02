@@ -242,6 +242,7 @@ void main() {
           (initial['totalAllocations'] as int) + 1,
         );
         expect(remote['residentBytes'], isNull);
+        expect(remote['memoryReports'], isNotEmpty);
         await scope.close();
         final process = await Process.start(
           Platform.resolvedExecutable,
@@ -275,6 +276,11 @@ void main() {
         expect(result['registryPayloadBytes'], initial['registryPayloadBytes']);
         expect(result['submittedFrames'], 2);
         if (backend.capabilities.backend == 'Metal') {
+          final memory = (result['memoryReports'] as List).single as Map;
+          expect(memory['source'], 'metal.deviceMemory');
+          expect(memory['usageBytes'], greaterThan(0));
+          expect(memory['recommendedMaxWorkingSetBytes'], greaterThan(0));
+          expect(memory['budgetBytes'], isNull);
           expect(result['lastSubmissionGpuTimeNs'], greaterThan(0));
           expect(result['deviceAllocatedBytes'], greaterThan(0));
         }

@@ -11,7 +11,7 @@ import 'package:zyren_devtools/gpu_bridge.dart';
 import 'package:zyren_devtools/zyren_devtools.dart';
 
 void main() {
-  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   testWidgets(
     'native-view diagnostics measure the presented device and clean up',
     (tester) async {
@@ -84,7 +84,26 @@ void main() {
       expect(measured.submittedFrames, greaterThan(first.submittedFrames));
       expect(measured.residentBytes, isNull);
       expect(measured.allocations.length, lessThanOrEqualTo(1));
+      expect(measured.memoryReports, isNotEmpty);
       if (android) {
+        for (final memory in measured.memoryReports) {
+          expect(memory.source, 'vulkan.EXT_memory_budget');
+          expect(memory.scope, 'processHeap');
+          if (memory.status == 'available') {
+            expect(memory.heapIndex, isNonNegative);
+            expect(memory.deviceLocal, isNotNull);
+            expect(memory.usageBytes, isNonNegative);
+            expect(memory.budgetBytes, greaterThan(0));
+            expect(memory.usageIsEstimate, isTrue);
+            expect(memory.budgetIsEstimate, isTrue);
+          } else {
+            expect(memory.status, 'unsupported');
+            expect(memory.reason, isNotEmpty);
+            expect(memory.usageBytes, isNull);
+            expect(memory.budgetBytes, isNull);
+          }
+          expect(memory.recommendedMaxWorkingSetBytes, isNull);
+        }
         expect(inspector.capabilities.backend, 'Vulkan');
         expect(measured.allocatorSource, 'wgpu.suballocator');
         expect(measured.allocatorUsedBytes, greaterThan(0));
@@ -109,6 +128,15 @@ void main() {
           client.close();
         }
       } else {
+        final memory = measured.memoryReports.single;
+        expect(memory.status, 'available');
+        expect(memory.source, 'metal.deviceMemory');
+        expect(memory.scope, 'processDevice');
+        expect(memory.usageBytes, greaterThan(0));
+        expect(memory.recommendedMaxWorkingSetBytes, greaterThan(0));
+        expect(memory.usageIsEstimate, isFalse);
+        expect(memory.budgetBytes, isNull);
+        expect(memory.unifiedMemory, isNotNull);
         expect(measured.deviceAllocationSource, 'metal.currentAllocatedSize');
         expect(measured.deviceAllocatedBytes, greaterThan(0));
         expect(measured.gpuTimeSource, 'metal.commandBuffer.startEndTime');
@@ -130,6 +158,12 @@ void main() {
       expect(closed['renderers'], baseline['renderers']);
       expect(closed[android ? 'surfaces' : 'heldDrawables'], 0);
       expect(closed['readbackBytes'], baseline['readbackBytes']);
+      binding.reportData = {
+        'gpuDiagnostics': measured.toJson(),
+        'presentationPath': info.presentationPath.name,
+        'cleanupVerified': true,
+        'scenePixelReadbacks': 0,
+      };
     },
   );
 }

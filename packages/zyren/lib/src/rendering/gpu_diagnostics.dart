@@ -40,7 +40,79 @@ final class GpuAllocatorAllocation {
   };
 }
 
+/// One native memory query, scoped to a device, heap or adapter segment.
+/// Usage and budget are independent snapshots and never physical residency.
+final class GpuMemoryReport {
+  /// `available`, `unsupported` or `error`. Unknown measurements remain null.
+  final String status, source, scope, region;
+  final int? heapIndex, nodeIndex;
+  final bool? deviceLocal, unifiedMemory;
+  final int? usageBytes, budgetBytes;
+
+  /// Metal's approximate performance guidance, separate from an OS budget.
+  /// Null on older OS versions that do not expose the recommendation.
+  final int? recommendedMaxWorkingSetBytes;
+  final bool usageIsEstimate, budgetIsEstimate;
+  final String? reason;
+  const GpuMemoryReport({
+    required this.status,
+    required this.source,
+    required this.scope,
+    required this.region,
+    this.heapIndex,
+    this.nodeIndex,
+    this.deviceLocal,
+    this.unifiedMemory,
+    this.usageBytes,
+    this.budgetBytes,
+    this.recommendedMaxWorkingSetBytes,
+    this.usageIsEstimate = false,
+    this.budgetIsEstimate = false,
+    this.reason,
+  });
+
+  factory GpuMemoryReport.fromJson(Map<String, Object?> json) =>
+      GpuMemoryReport(
+        status: json['status'] as String,
+        source: json['source'] as String,
+        scope: json['scope'] as String,
+        region: json['region'] as String,
+        heapIndex: json['heapIndex'] as int?,
+        nodeIndex: json['nodeIndex'] as int?,
+        deviceLocal: json['deviceLocal'] as bool?,
+        unifiedMemory: json['unifiedMemory'] as bool?,
+        usageBytes: json['usageBytes'] as int?,
+        budgetBytes: json['budgetBytes'] as int?,
+        recommendedMaxWorkingSetBytes:
+            json['recommendedMaxWorkingSetBytes'] as int?,
+        usageIsEstimate: json['usageIsEstimate'] as bool? ?? false,
+        budgetIsEstimate: json['budgetIsEstimate'] as bool? ?? false,
+        reason: json['reason'] as String?,
+      );
+
+  Map<String, Object?> toJson() => {
+    'status': status,
+    'source': source,
+    'scope': scope,
+    'region': region,
+    'heapIndex': heapIndex,
+    'nodeIndex': nodeIndex,
+    'deviceLocal': deviceLocal,
+    'unifiedMemory': unifiedMemory,
+    'usageBytes': usageBytes,
+    'budgetBytes': budgetBytes,
+    'recommendedMaxWorkingSetBytes': recommendedMaxWorkingSetBytes,
+    'usageIsEstimate': usageIsEstimate,
+    'budgetIsEstimate': budgetIsEstimate,
+    'reason': reason,
+  };
+}
+
 final class GpuInspection {
+  /// On-demand backend reports. Regions can overlap with allocator/device
+  /// counters; do not add them together. Empty when an older runtime omits them.
+  final List<GpuMemoryReport> memoryReports;
+
   /// wgpu suballocator used and reserved bytes. Excludes imported resources,
   /// driver overhead and allocations outside this device's suballocator.
   final int? allocatorUsedBytes,
@@ -72,6 +144,7 @@ final class GpuInspection {
   final int registryPayloadBytes, totalAllocations;
   final List<GpuAllocationInfo> allocations;
   GpuInspection({
+    Iterable<GpuMemoryReport> memoryReports = const [],
     this.allocatorUsedBytes,
     this.allocatorReservedBytes,
     this.allocatorAllocationCount,
@@ -87,10 +160,12 @@ final class GpuInspection {
     required this.registryPayloadBytes,
     required this.totalAllocations,
     required Iterable<GpuAllocationInfo> allocations,
-  }) : allocations = List.unmodifiable(allocations),
+  }) : memoryReports = List.unmodifiable(memoryReports),
+       allocations = List.unmodifiable(allocations),
        allocatorAllocations = List.unmodifiable(allocatorAllocations);
   bool get truncated => allocations.length < totalAllocations;
   Map<String, Object?> toJson() => {
+    'memoryReports': memoryReports.map((report) => report.toJson()).toList(),
     'allocatorUsedBytes': allocatorUsedBytes,
     'allocatorReservedBytes': allocatorReservedBytes,
     'allocatorAllocationCount': allocatorAllocationCount,

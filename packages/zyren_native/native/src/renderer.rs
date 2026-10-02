@@ -13,6 +13,7 @@ mod draw_order;
 pub(crate) mod effects;
 mod environment;
 pub(crate) mod gpu_diagnostics;
+pub(crate) mod gpu_memory;
 mod instances;
 mod lighting;
 mod multisample;
