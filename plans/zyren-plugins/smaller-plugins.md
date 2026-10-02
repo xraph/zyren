@@ -146,7 +146,8 @@ Disk space briefly blocked the Flutter launcher stamp write. Capture tests and
 the native CLI completed; subsequent Dart checks use the installed SDK binary
 directly. Shared build caches were left intact.
 
-Capture implementation commit: `41382fe`.
+Capture commits: `41382fe` for native capture jobs and `9e331f7` for runtime
+job/effects tools, MCP example and cancellation failure handling.
 
 Runtime providers: configurator has eight passing tests, audio has six, and
 capture has ten (eight capture lifecycle/PNG checks plus capture-agent and effects
@@ -175,3 +176,30 @@ batch. The milestones above retain the remaining scope.
 
 The shell's default Flutter uses Dart 3.9.2 and cannot resolve this workspace.
 Use `/Users/rexraphael/fvm/versions/3.47.5/bin/flutter` and its matching Dart SDK.
+
+
+## Checkpoint and remaining work
+
+All three first slices and their shared runtime providers are committed locally.
+No package is published or complete. The full phased scope above remains open.
+
+| Package | Domain commit | Agent commit | Passing tests | Live evidence |
+| --- | --- | --- | --- | --- |
+| Configurator | cd0df35 | e676caf | 8 | MCP selection changed native Metal pixels |
+| Audio | 52f4681 | fdd87ec | 6 | Native mixer energy and stereo checks; silent Core Audio startup |
+| Capture | 41382fe | 9e331f7 | 10 | Repeated Metal PNG sequences and real stdio MCP capture jobs |
+
+You can run package checks with the installed Dart SDK at
+`/Users/rexraphael/fvm/versions/3.47.5/bin/cache/dart-sdk/bin/dart`:
+`test --no-chain-stack-traces` from each package, and `analyze` with the three
+package paths from the root. The native examples are `example/native_audio.dart`
+in audio and `example/capture.dart` in capture. The MCP example is
+`packages/zyren_capture/example/agent_scene.dart`.
+
+Remaining qualification: audible playback and interruption handling; physical
+mobile and Windows audio/capture; active Flutter viewport, overlays and presented
+frame correlation. The native MCP fixture has no displayed UI. The effects
+retrofit reads the chain but only changes scene exposure, tone mapping and HDR;
+chain editing and native verification of those controls remain pending. Video,
+depth/object-ID output, high-resolution tiling, streaming audio, occlusion and
+configurator import/hotspot adapters remain separate milestones.
