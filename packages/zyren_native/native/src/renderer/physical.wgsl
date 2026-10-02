@@ -18,19 +18,25 @@ fn physical_tangent(n: vec3<f32>, authored: vec4<f32>, surface: StandardSurface)
     let b = cross(n,t) * select(1., authored.w, abs(authored.w) > .5);
     return t * cos(surface.physical[3].x) + b * sin(surface.physical[3].x);
 }
-fn ggx_distribution_visibility(n: vec3<f32>, v: vec3<f32>, l: vec3<f32>, t: vec3<f32>, roughness: f32, anisotropy: f32) -> f32 {
-    let h = normalized_or(v+l,n);
+struct GgxView {
+    t: vec3<f32>, b: vec3<f32>, at: f32, ab: f32, nv: f32, view_length: f32,
+}
+fn prepare_ggx(n: vec3<f32>, v: vec3<f32>, t: vec3<f32>, roughness: f32, anisotropy: f32) -> GgxView {
     let b = cross(n,t);
     let alpha = max(roughness * roughness, .002025);
     // Elliptical GGX. At zero anisotropy this reduces to the standard lobe.
     let at = mix(alpha, 1., anisotropy * anisotropy);
     let ab = alpha;
-    let nh = max(dot(n,h),0.); let nv = max(dot(n,v),0.); let nl = max(dot(n,l),0.);
-    let q = vec3(dot(t,h)/at, dot(b,h)/ab, nh);
+    let nv = max(dot(n,v),0.);
+    return GgxView(t,b,at,ab,nv,length(vec3(at * dot(t,v), ab * dot(b,v), nv)));
+}
+fn ggx_prepared(n: vec3<f32>, l: vec3<f32>, h: vec3<f32>, view: GgxView) -> f32 {
+    let nh = max(dot(n,h),0.); let nl = max(dot(n,l),0.);
+    let q = vec3(dot(view.t,h)/view.at, dot(view.b,h)/view.ab, nh);
     let denominator = dot(q,q);
-    let d = 1. / max(3.141592653589793 * at * ab * denominator * denominator, 1e-20);
-    let lambda_v = nl * length(vec3(at * dot(t,v), ab * dot(b,v), nv));
-    let lambda_l = nv * length(vec3(at * dot(t,l), ab * dot(b,l), nl));
+    let d = 1. / max(3.141592653589793 * view.at * view.ab * denominator * denominator, 1e-20);
+    let lambda_v = nl * view.view_length;
+    let lambda_l = view.nv * length(vec3(view.at * dot(view.t,l), view.ab * dot(view.b,l), nl));
     return d * .5 / max(lambda_v + lambda_l, 1e-12);
 }
 // Three.js r180 Charlie directional-albedo fit, with the irradiance pi folded in.
@@ -42,34 +48,50 @@ fn sheen_albedo(cosine: f32, roughness: f32) -> f32 {
     let tail = select(.1*(r-.25), 0., r < .25);
     return clamp(exp(a*cosine+b)+tail,0.,1.);
 }
+struct PhysicalView {
+    base: GgxView, coat: GgxView,
+    inverse_sheen_alpha: f32, sheen_view_albedo: f32, coat_fresnel: f32,
+}
+fn prepare_physical(n: vec3<f32>, v: vec3<f32>, tangent: vec4<f32>, surface: StandardSurface) -> PhysicalView {
+    let base = prepare_ggx(n,v,physical_tangent(n,tangent,surface),surface.roughness,surface.physical[2].w);
+    let cn = surface.coat_normal;
+    let coat = prepare_ggx(cn,v,physical_tangent(cn,tangent,surface),surface.physical[0].w,0.);
+    return PhysicalView(base,coat,1. / max(surface.physical[1].w * surface.physical[1].w,.002025),
+        sheen_albedo(base.nv,surface.physical[1].w),coat_fresnel(coat.nv,surface));
+}
+fn physical_direct_prepared(n: vec3<f32>, v: vec3<f32>, l: vec3<f32>, surface: StandardSurface, view: PhysicalView) -> vec3<f32> {
+    let nl = max(dot(n,l),0.); let nv = view.base.nv;
+    let h = normalized_or(v+l,n); let vh = clamp(dot(v,h),0.,1.);
+    var dielectric = vec3(0.);
+    if (surface.metallic < 1.) { dielectric = physical_fresnel(vh,surface); }
+    var fresnel = dielectric;
+    if (surface.metallic > 0.) {
+        let metal_regular = surface.base.rgb + (vec3(1.)-surface.base.rgb) * pow(1.-vh,5.);
+        let metal = iridescent_fresnel(vh,surface.base.rgb,metal_regular,surface);
+        fresnel = mix(dielectric,metal,surface.metallic);
+    }
+    let diffuse = (1.-maximum3(dielectric)) * (1.-surface.metallic) * (1.-surface.transmission[0].x) * surface.base.rgb / 3.141592653589793;
+    var base = diffuse + fresnel * ggx_prepared(n,l,h,view.base);
+    // Charlie distribution with Neubelt visibility for a soft cloth lobe.
+    let inverse_alpha = view.inverse_sheen_alpha;
+    let nh = clamp(dot(n,h),0.,1.);
+    let charlie = (2.+inverse_alpha) * pow(max(1.-nh*nh,0.), inverse_alpha*.5) / (2.*3.141592653589793);
+    let sheen = surface.physical[2].rgb;
+    let sheen_energy = maximum3(sheen) * max(view.sheen_view_albedo,sheen_albedo(nl,surface.physical[1].w));
+    base = base * (1.-sheen_energy) + sheen * charlie / max(4.*(nl+nv-nl*nv),1e-12);
+    let cn = surface.coat_normal;
+    let coat_nv = view.coat.nv; let coat_nl = max(dot(cn,l),0.);
+    let coat = view.coat_fresnel;
+    let base_light = select(vec3(0.),base*nl,nv>0.);
+    let coat_h = normalized_or(v+l,cn);
+    let coating = select(0.,coat * ggx_prepared(cn,l,coat_h,view.coat) * coat_nl,coat_nv>0.);
+    return base_light * (1.-coat) + vec3(coating);
+}
 fn physical_direct(n: vec3<f32>, v: vec3<f32>, l: vec3<f32>, tangent: vec4<f32>, surface: StandardSurface) -> vec3<f32> {
     if (surface.physical[3].y == 0.) {
         return direct_brdf(n,v,l,surface.base.rgb,surface.metallic,surface.roughness);
     }
-    let nl = max(dot(n,l),0.); let nv = max(dot(n,v),0.);
-
-    let h = normalized_or(v+l,n); let vh = clamp(dot(v,h),0.,1.);
-    let t = physical_tangent(n,tangent,surface);
-    let dielectric = physical_fresnel(vh,surface);
-    let metal_regular = surface.base.rgb + (vec3(1.)-surface.base.rgb) * pow(1.-vh,5.);
-    let metal=iridescent_fresnel(vh,surface.base.rgb,metal_regular,surface);
-    let fresnel = mix(dielectric,metal,surface.metallic);
-    let diffuse = (1.-maximum3(dielectric)) * (1.-surface.metallic) * (1.-surface.transmission[0].x) * surface.base.rgb / 3.141592653589793;
-    var base = diffuse + fresnel * ggx_distribution_visibility(n,v,l,t,surface.roughness,surface.physical[2].w);
-    // Charlie distribution with Neubelt visibility for a soft cloth lobe.
-    let inverse_alpha = 1. / max(surface.physical[1].w * surface.physical[1].w, .002025);
-    let nh = clamp(dot(n,h),0.,1.);
-    let charlie = (2.+inverse_alpha) * pow(max(1.-nh*nh,0.), inverse_alpha*.5) / (2.*3.141592653589793);
-    let sheen = surface.physical[2].rgb;
-    let sheen_energy = maximum3(sheen) * max(sheen_albedo(nv,surface.physical[1].w),sheen_albedo(nl,surface.physical[1].w));
-    base = base * (1.-sheen_energy) + sheen * charlie / max(4.*(nl+nv-nl*nv),1e-12);
-    let cn = surface.coat_normal;
-    let coat_nv = max(dot(cn,v),0.); let coat_nl = max(dot(cn,l),0.);
-    let coat = coat_fresnel(coat_nv,surface);
-    let ct = physical_tangent(cn,tangent,surface);
-    let base_light = select(vec3(0.),base*nl,nv>0.);
-    let coating = select(0.,coat * ggx_distribution_visibility(cn,v,l,ct,surface.physical[0].w,0.) * coat_nl,coat_nv>0.);
-    return base_light * (1.-coat) + vec3(coating);
+    return physical_direct_prepared(n,v,l,surface,prepare_physical(n,v,tangent,surface));
 }
 fn physical_environment(n: vec3<f32>, v: vec3<f32>, tangent: vec4<f32>, surface: StandardSurface) -> vec3<f32> {
     if (surface.physical[3].y == 0.) { return shade_environment(n,v,surface); }

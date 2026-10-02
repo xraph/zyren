@@ -41,3 +41,36 @@ Native tests repeat submissions and inspections, check feature admission and
 invalid durations, and verify pixel-readback counters. The device SceneView
 fixture prints its timing source and duration alongside presentation readback.
 Windows runtime qualification still requires a Windows execution target.
+
+## Area-light comparison
+
+From the repository root, run the repeatable readback fixture:
+
+```sh
+dart run packages/zyren_native/tool/physical_area_benchmark.dart /tmp/area-profile
+```
+
+You'll get raw GPU timings, end-to-end capture timings and four RGBA images.
+Each material warms up for 120 frames before 120 measured frames at 512x384.
+The fixture includes clearcoat and sheen, then varies anisotropy and thin film.
+
+On the Apple M3 Max with macOS 27, the longer comparison produced these medians:
+
+| Material | Before, GPU ms | After, GPU ms | Largest RGBA difference |
+| --- | ---: | ---: | ---: |
+| Isotropic | 0.6729 | 0.2470 | 0 |
+| Anisotropic | 1.6264 | 0.5789 | 1 in one byte |
+| Thin film | 2.1258 | 1.2453 | 0 |
+| Anisotropy and thin film | 2.1236 | 1.2503 | 0 |
+
+The baseline uses the shaders from `b216ef8`. The change prepares view-dependent
+GGX, sheen and coat values once per area-light integration and skips Fresnel
+evaluation for a dielectric or metal component with zero weight. All 64 area
+samples remain. Three fixtures match every RGBA byte; the fourth differs in one
+of 786,432 bytes by one step.
+
+Shorter repeated runs varied substantially, including the isotropic control.
+Treat the table as one host's observations, not a portable speedup factor or an
+isolated estimate of each optimization. These are GPU and readback measurements;
+they do not establish native presentation pacing. The 19 native material, map,
+area-shadow, transmission and optics checks also pass after the shader change.

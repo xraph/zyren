@@ -39,12 +39,13 @@ fn anisotropic_area(light: AreaLight, center: vec3<f32>, n: vec3<f32>, v: vec3<f
     let nodes=array<f32,8>(-.960289856,-.796666477,-.52553241,-.183434642,.183434642,.52553241,.796666477,.960289856);
     let weights=array<f32,8>(.101228536,.222381034,.313706646,.362683783,.362683783,.313706646,.222381034,.101228536);
     let area_vector=cross(light.half_width.xyz,light.half_height.xyz);
+    let view=prepare_physical(n,v,tangent,surface);
     var result=vec3(0.);
     for (var y=0u;y<8u;y++) { for (var x=0u;x<8u;x++) {
         let offset=center+light.half_width.xyz*nodes[x]+light.half_height.xyz*nodes[y];
         let r2=dot(offset,offset); let l=offset*inverseSqrt(max(r2,1e-20));
         let solid_angle=max(dot(area_vector,l),0.)/max(r2,1e-20);
-        result+=physical_direct(n,v,l,tangent,surface)*solid_angle*weights[x]*weights[y];
+        result+=physical_direct_prepared(n,v,l,surface,view)*solid_angle*weights[x]*weights[y];
     } }
     return result*light.color_intensity.rgb*light.color_intensity.w;
 }
