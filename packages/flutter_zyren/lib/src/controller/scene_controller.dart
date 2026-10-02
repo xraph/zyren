@@ -8,6 +8,7 @@ import 'package:zyren/rendering.dart';
 import '../presentation.dart';
 import '../input/flutter_input_adapter.dart';
 import '../diagnostics/renderer_info.dart';
+import '../diagnostics/presentation_sample.dart';
 import '../presentation/output_presenter.dart';
 import 'scene_runtime.dart';
 import 'scene_status.dart';
@@ -40,6 +41,11 @@ class SceneController {
   final _status = ValueNotifier<SceneStatus>(const SceneDetached(0));
   final _issues = StreamController<SceneIssue>.broadcast();
   final _stats = StreamController<FrameStats>.broadcast();
+  final _presentationClock = Stopwatch()..start();
+  Duration? _previousPresentation;
+  late final _presentations = StreamController<PresentationSample>.broadcast(
+    onListen: () => _previousPresentation = null,
+  );
   final _disposed = Completer<void>();
   Completer<RendererInfo> _ready = Completer();
   Completer<FrameStats> _firstFrame = Completer();
@@ -126,6 +132,11 @@ class SceneController {
   /// Samples at most every 200 ms and publishes the last pending frame even
   /// when demand rendering stops. The first presented frame emits immediately.
   Stream<FrameStats> get frameStats => _stats.stream;
+
+  /// Every accepted presentation, without diagnostic throttling or history.
+  /// Samples are created only while this broadcast stream has listeners.
+  /// Keep listeners short; use [frameStats] for a sampled UI counter.
+  Stream<PresentationSample> get presentations => _presentations.stream;
 
   /// Most recently presented frame, including one awaiting the sampled stream.
   /// Remains available while idle or suspended. Failure and disposal clear it.
@@ -248,6 +259,7 @@ class SceneController {
 
   void _detach(Object token) {
     if (!identical(_viewToken, token)) return;
+    _previousPresentation = null;
     _input.suspend();
     _input.viewport = const ViewportMetrics(0, 0);
     _viewToken = null;
@@ -285,6 +297,7 @@ class SceneController {
     _input.setActive(value);
     _scheduler.setVisible(value);
     if (_visible == value) return;
+    _previousPresentation = null;
     _visible = value;
     if (_closed || _status.value is SceneFailed || _engine == null) return;
     _status.value = value
@@ -473,6 +486,19 @@ class SceneController {
 
   void _presented(FrameStats stats) {
     if (_closed) return;
+    if (_presentations.hasListener) {
+      final elapsed = _presentationClock.elapsed;
+      _presentations.add(
+        PresentationSample(
+          frame: stats,
+          elapsed: elapsed,
+          interval: _previousPresentation == null
+              ? null
+              : elapsed - _previousPresentation!,
+        ),
+      );
+      _previousPresentation = elapsed;
+    }
     _latestFrameStats = stats;
     if (!_firstFrame.isCompleted) _firstFrame.complete(stats);
     _pendingStats = stats;
@@ -489,6 +515,7 @@ class SceneController {
   }
 
   void _clearStats() {
+    _previousPresentation = null;
     _statsTimer?.cancel();
     _statsTimer = null;
     _pendingStats = null;
@@ -599,5 +626,6 @@ class SceneController {
     }
     unawaited(_issues.close());
     unawaited(_stats.close());
+    unawaited(_presentations.close());
   }
 }

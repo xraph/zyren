@@ -74,3 +74,42 @@ Treat the table as one host's observations, not a portable speedup factor or an
 isolated estimate of each optimization. These are GPU and readback measurements;
 they do not establish native presentation pacing. The 19 native material, map,
 area-shadow, transmission and optics checks also pass after the shader change.
+
+## Presentation pacing
+
+Use the Flutter controller's opt-in stream when you need every presentation:
+
+```dart
+final subscription = controller.presentations.listen((sample) {
+  print(sample.interval?.inMicroseconds);
+  print(sample.frame.readbackBytes);
+});
+// Cancel when you finish measuring. The controller retains no sample history.
+await subscription.cancel();
+```
+
+Each event follows a successful presenter call. Its monotonic elapsed time starts
+at controller creation. The first interval is null when observation begins, or
+after remount, resume or recovery, so time spent suspended does not become a slow
+frame. Idle time in an attached, visible demand-rendered view remains included.
+The existing `frameStats` stream still samples diagnostics every 200 ms.
+
+Presenter acceptance measures application pacing. It does not report the
+display's physical scanout time. Reading this stream does not capture pixels.
+
+From `examples/multiple_views`, run the app benchmark:
+
+```sh
+flutter run -d macos --target lib/presentation_benchmark.dart
+```
+
+You can use a physical iOS or Android device ID in place of `macos`. The app
+warms up for 120 frames, records 120 intervals and disposes its native controller.
+Its JSON report includes raw intervals, GPU timing and ownership after disposal.
+
+The macOS 27 / M3 Max debug run at 512x384 measured 16.667 ms median and 18.253 ms
+p95 acceptance intervals. All 240 presented frames used zero pixel readback.
+Sessions, renderers, held drawables and retiring renderers returned to zero.
+The last GPU submission measured 4.727 ms. This app run is separate from the
+readback comparison above. Bringing the app to the foreground failed, so manual
+visual inspection remains unverified.
