@@ -5,10 +5,12 @@ String specializeAtmosphereTextures(String source) {
   const names = [
     'sample2',
     'sample3',
+    'sample4',
     'transTop',
     'transPath',
     'transSun',
     'scattering',
+    'scattering4',
     'irradiance',
   ];
   final templates = <String, String>{};

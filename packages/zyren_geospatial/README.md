@@ -137,3 +137,43 @@ are unsupported. This decoder does not upload a texture by itself.
 The optional reference test uses `ZYREN_SOURCE_LUTS` to compare the five pinned
 binary/EXR pairs. The upstream exports differ by up to one half-float step, so
 that comparison allows one step instead of requiring identical bytes.
+
+To use the upstream tables in a native scene, pass a source to the atmosphere:
+
+```dart
+final source = PrecomputedAtmosphereSource.upstream(services: assetServices);
+final sky = AtmospherePlugin(date: DateTime.utc(2026, 3, 20, 12), source: source);
+```
+
+The pinned upstream source defaults to EXR, packed Mie scattering and a separate
+higher-order table. Use `format: AtmosphereLutFormat.binary` for the raw files.
+Set `combinedScattering: false` to read the full RGB Mie file. Set
+`higherOrderScattering: false` to omit the separate higher-order file; the combined
+scattering table still contains multiple scattering. Each mode preserves the
+upstream interpolation and short-path Mie reconstruction.
+
+For your own files, construct `PrecomputedAtmosphereSource` with a directory URI,
+asset services and the parameters used to compute those files. This layout uses
+256 by 64 transmittance, 64 by 16 irradiance and 256 by 128 by 32 scattering.
+Keep credentials in your resolver. Limits from `AssetServices` apply alongside
+16 MiB per encoded file and 32 MiB per complete encoded or decoded set. Two loads
+run at once per caller isolate, with eight queued loads. Cancellation waits for
+physical reads and CPU decoding to settle before releasing a slot.
+
+Tables upload as RGBA16 float through public resource scopes. The default source
+set uses 16,916,488 GPU bytes, including its unused binding placeholder. Full Mie
+plus a separate higher-order table uses 25,305,088 bytes. Account for active and
+candidate sets when sizing a scene. Cache entries share only within the same
+source instance and device; their keys never contain source URLs.
+
+Use `controller.setSource(source)` to replace tables atomically. A failure keeps
+the active view and existing lighting leases. `setParameters()` switches back to
+GPU precomputation after generation succeeds. `acquireLighting()` returns the
+current set in either mode. Read `luts.dimensions` for both modes; `luts.quality`
+is null for imported tables. Close each lease when its consumers retire.
+
+Native checks compare the upstream GLSL runtime with the actual source assets,
+render sky and aerial perspective with both depth modes, and check replacement,
+cancellation and zero residency after cleanup. Generate the source reference
+records with `python3 tool/atmosphere_reference/source_tables.py <asset-directory>`
+from the repository root. The script verifies the supplied LFS hashes first.

@@ -1,23 +1,36 @@
 import 'package:zyren/zyren.dart';
 import 'parameters.dart';
+import 'dart:typed_data';
+import 'precomputed_source.dart';
 import 'quality.dart';
 import 'bruneton_wgsl.dart';
 import 'precompute_wgsl.dart';
 import 'runtime_wgsl.dart';
 import 'specialize_textures.dart';
 
-/// Complete immutable RGB lookup set. All outputs use linear RGBA32 float.
+/// Complete immutable lookup set. Generated tables use RGBA32 float; imported
+/// source tables use RGBA16 float.
 /// The supplied scopes own the result and precomputation workspace. Publish the
 /// set only after generation succeeds, and close candidate scopes after failure.
 final class AtmosphereLuts {
   final AtmosphereParameters parameters;
-  final AtmosphereQuality quality;
+
+  /// Null for imported tables, whose dimensions come from the source layout.
+  final AtmosphereQuality? quality;
+  final AtmosphereLutDimensions dimensions;
+  final bool sourceScattering, combinedScattering, hasHigherOrderScattering;
   final Map<String, GpuResource<Texture>> textures;
   AtmosphereLuts._(
     this.parameters,
     this.quality,
-    Map<String, GpuResource<Texture>> textures,
-  ) : textures = Map.unmodifiable(textures);
+    Map<String, GpuResource<Texture>> textures, {
+    this.sourceScattering = false,
+    this.combinedScattering = false,
+    this.hasHigherOrderScattering = true,
+  }) : dimensions = quality == null
+           ? AtmosphereLutDimensions.source
+           : AtmosphereLutDimensions.generated(quality),
+       textures = Map.unmodifiable(textures);
   GpuResource<Texture> get transmittance => textures['transmittance']!;
   GpuResource<Texture> get rayleigh => textures['rayleigh']!;
   GpuResource<Texture> get mie => textures['mie']!;
@@ -42,7 +55,7 @@ final class AtmosphereLuts {
       'atmosphereIrradiance': irradiance,
     };
     final source = StringBuffer(
-      atmosphereDefinitions(parameters, quality) + atmosphereCommonWgsl,
+      atmosphereDefinitions(parameters, dimensions) + atmosphereCommonWgsl,
     );
     final bindings = <ShaderBinding>[];
     var index = firstBinding;
@@ -57,10 +70,64 @@ final class AtmosphereLuts {
       );
       bindings.add(TextureBinding.sampled(index++, entry.value, group: group));
     }
+    source.writeln('const SOURCE_SCATTERING: bool = $sourceScattering;');
+    source.writeln('const PACKED_MIE: bool = $combinedScattering;');
     source.write(atmosphereRuntimeWgsl);
     return AtmosphereShader._(
       specializeAtmosphereTextures(source.toString()),
       ShaderBindings(bindings),
+    );
+  }
+
+  /// Upload into a candidate scope. Its owner must close it on failure.
+  static Future<AtmosphereLuts> fromPrecomputed({
+    required ResourceScope resources,
+    required PrecomputedAtmosphereTables tables,
+    bool Function()? isCancelled,
+  }) async {
+    void check() {
+      if (isCancelled?.call() ?? false) throw LoadCancelled();
+    }
+
+    final textures = <String, GpuResource<Texture>>{};
+    for (final (binding, file) in [
+      ('transmittance', 'transmittance'),
+      ('irradiance', 'irradiance'),
+      ('rayleigh', 'scattering'),
+      ('mie', 'single_mie_scattering'),
+      ('higher', 'higher_order_scattering'),
+    ]) {
+      check();
+      final table = tables.tables[file];
+      final volume =
+          binding == 'rayleigh' || binding == 'mie' || binding == 'higher';
+      final texture = await resources.createTexture(
+        TextureDescriptor(
+          label: 'atmosphere $binding',
+          width: table?.width ?? 1,
+          height: table?.height ?? 1,
+          depth: table?.depth ?? 1,
+          dimension: volume ? TextureDimension.d3 : TextureDimension.d2,
+          format: TextureFormat.rgba16Float,
+          usage: {
+            TextureUsage.sampled,
+            TextureUsage.copyDestination,
+            TextureUsage.copySource,
+          },
+        ),
+      );
+      check();
+      await resources.writeTexture(texture, table?.bytes ?? Uint8List(8));
+      check();
+      textures[binding] = texture;
+    }
+    return AtmosphereLuts._(
+      tables.parameters,
+      null,
+      textures,
+      sourceScattering: true,
+      combinedScattering: tables.combinedScattering,
+      hasHigherOrderScattering: tables.higherOrderScattering,
     );
   }
 
@@ -146,7 +213,11 @@ final class AtmosphereLuts {
     );
     var higherIn = higherA, higherOut = higherB;
     final definitions =
-        atmosphereDefinitions(parameters, q) + atmosphereCommonWgsl;
+        atmosphereDefinitions(
+          parameters,
+          AtmosphereLutDimensions.generated(q),
+        ) +
+        atmosphereCommonWgsl;
     // Execute each dependency stage separately. Cancellation can retire a
     // candidate between submissions without publishing an incomplete LUT set.
     Future<void> pass(

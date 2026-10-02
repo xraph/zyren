@@ -5,6 +5,7 @@ import 'package:zyren/zyren.dart';
 import '../astronomy/celestial_directions.dart';
 import '../geodesy.dart';
 import 'appearance.dart';
+import 'precomputed_source.dart';
 import 'lut_cache.dart';
 import 'parameters.dart';
 import 'star_catalog.dart';
@@ -18,6 +19,7 @@ const atmosphere = ServiceKey<AtmosphereController>('geospatial.atmosphere');
 final class AtmospherePlugin extends ScenePlugin {
   final DateTime date;
   final AtmosphereParameters parameters;
+  final PrecomputedAtmosphereSource? source;
   final AtmosphereAppearance appearance;
   final Ellipsoid ellipsoid;
   final Mat4 worldToEcef;
@@ -30,6 +32,7 @@ final class AtmospherePlugin extends ScenePlugin {
       _controller ?? (throw StateError('Atmosphere is not attached.'));
   AtmospherePlugin({
     required this.date,
+    this.source,
     AtmosphereParameters? parameters,
     AtmosphereAppearance? appearance,
     this.ellipsoid = Ellipsoid.wgs84,
@@ -38,11 +41,17 @@ final class AtmospherePlugin extends ScenePlugin {
     this.moonMap,
     this.correctAltitude = true,
     this.maxStarResolution = 1024,
-  }) : parameters = parameters ?? AtmosphereParameters.webgpu(),
+  }) : parameters =
+           parameters ?? source?.parameters ?? AtmosphereParameters.webgpu(),
        appearance = appearance ?? AtmosphereAppearance(),
        worldToEcef = worldToEcef ?? Mat4.identity(),
        stars = stars ?? StarCatalog.brightStars() {
     AstronomicalTime(date);
+    if (source != null && this.parameters.key != source!.parameters.key) {
+      throw ArgumentError(
+        'Atmosphere parameters must match the imported tables.',
+      );
+    }
     if (maxStarResolution < 1 || maxStarResolution > 2048) {
       throw ArgumentError.value(maxStarResolution, 'maxStarResolution');
     }
@@ -78,7 +87,11 @@ final class AtmospherePlugin extends ScenePlugin {
     final control = _controller = AtmosphereController._(this, context, owner);
     context.scope.onClose(control._close);
     context.provide(atmosphere, control);
-    await control.setParameters(parameters);
+    if (source == null) {
+      await control.setParameters(parameters);
+    } else {
+      await control.setSource(source!);
+    }
   }
 
   @override
@@ -96,6 +109,7 @@ final class AtmosphereController {
   late DateTime _date = _plugin.date.toUtc();
   late AtmosphereAppearance _appearance = _plugin.appearance;
   late AtmosphereParameters _parameters = _plugin.parameters;
+  PrecomputedAtmosphereSource? _source;
   _AtmosphereCandidate? _active;
   Future<void> _queue = Future.value();
   bool _closed = false;
@@ -103,13 +117,18 @@ final class AtmosphereController {
   AtmosphereController._(this._plugin, this._context, this._owner);
   bool get isClosed => _closed || _owner.isClosed;
   AtmosphereParameters get parameters => _parameters;
+  PrecomputedAtmosphereSource? get source => _source;
 
   /// Acquire the current tables for your own atmospheric lighting shader.
   /// Keep the lease until its material retires. A parameter edit leaves existing
   /// leases valid; acquire again when you want the new lighting parameters.
   Future<AtmosphereLutLease> acquireLighting({bool Function()? isCancelled}) {
     _check();
-    return _cache.acquire(parameters: _parameters, isCancelled: isCancelled);
+    return _cache.acquire(
+      parameters: _parameters,
+      source: _source,
+      isCancelled: isCancelled,
+    );
   }
 
   DateTime get date => _date;
@@ -140,16 +159,27 @@ final class AtmosphereController {
     return next;
   }
 
+  /// Generate a new atmosphere and replace any imported source after success.
   Future<void> setParameters(
     AtmosphereParameters parameters, {
     bool Function()? isCancelled,
   }) => _serial(() async {
-    await _replace(parameters, _width, _height, isCancelled);
+    await _replace(parameters, null, _width, _height, isCancelled);
     _parameters = parameters;
+    _context.invalidate();
+  });
+
+  /// Load and publish a complete source set. Failure leaves the current view intact.
+  Future<void> setSource(
+    PrecomputedAtmosphereSource source, {
+    bool Function()? isCancelled,
+  }) => _serial(() async {
+    await _replace(source.parameters, source, _width, _height, isCancelled);
     _context.invalidate();
   });
   Future<void> _replace(
     AtmosphereParameters parameters,
+    PrecomputedAtmosphereSource? source,
     int width,
     int height,
     bool Function()? cancelled,
@@ -157,6 +187,7 @@ final class AtmosphereController {
     bool stopped() => isClosed || (cancelled?.call() ?? false);
     final lease = await _cache.acquire(
       parameters: parameters,
+      source: source,
       isCancelled: stopped,
     );
     final scope = _owner.createChild(label: 'atmosphere scene');
@@ -184,6 +215,7 @@ final class AtmosphereController {
       }
       _active = candidate;
       _parameters = parameters;
+      _source = source;
       if (previous != null) await previous.close();
     } catch (_) {
       if (!identical(_active, candidate)) {
@@ -202,7 +234,7 @@ final class AtmosphereController {
     final width = math.max(1, (frame.width * scale).round()),
         height = math.max(1, (frame.height * scale).round());
     if (width != _width || height != _height) {
-      await _replace(_parameters, width, height, null);
+      await _replace(_parameters, _source, width, height, null);
       _width = width;
       _height = height;
     }

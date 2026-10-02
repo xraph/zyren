@@ -3,11 +3,23 @@
 const atmosphereRuntimeWgsl = r'''
 struct AtmosphereSample { radiance:vec3<f32>, transmittance:vec3<f32> }
 fn emptyAtmosphere()->AtmosphereSample {return AtmosphereSample(vec3<f32>(0.),vec3<f32>(1.));}
+struct ScatteringSample { combined:vec3<f32>, mie:vec3<f32> }
+fn extrapolateMie(value:vec4<f32>)->vec3<f32> {
+ if(value.r<1e-5){return vec3<f32>(0.);}
+ return value.rgb*value.a/value.r*(RAYLEIGH.r/max(MIE.r,1e-30))*(MIE/max(RAYLEIGH,vec3<f32>(1e-30)));
+}
+fn scatteringSample(r:f32,mu:f32,mus:f32,nu:f32,ground:bool)->ScatteringSample {
+ let ray=scattering4(atmosphereRayleigh,r,mu,mus,nu,ground);
+ var combined=ray.rgb;
+ if(!SOURCE_SCATTERING){combined+=scattering(atmosphereHigher,r,mu,mus,nu,ground);}
+ var mi=vec3<f32>(0.);
+ if(PACKED_MIE){mi=extrapolateMie(ray);}
+ else{mi=scattering(atmosphereMie,r,mu,mus,nu,ground);}
+ return ScatteringSample(combined,mi);
+}
 fn totalScattering(r:f32,mu:f32,mus:f32,nu:f32,ground:bool)->vec3<f32> {
- let ray=scattering(atmosphereRayleigh,r,mu,mus,nu,ground);
- let mi=scattering(atmosphereMie,r,mu,mus,nu,ground);
- let higher=scattering(atmosphereHigher,r,mu,mus,nu,ground);
- return (ray+higher)*rayPhase(nu)+mi*miePhase(nu);
+ let value=scatteringSample(r,mu,mus,nu,ground);
+ return value.combined*rayPhase(nu)+value.mie*miePhase(nu);
 }
 fn atmosphereSunIrradiance(point:vec3<f32>,normal:vec3<f32>,sun:vec3<f32>)->vec3<f32> {
  let r=radius(length(point));let mus=cosine(dot(point,sun)/max(length(point),1e-6));
@@ -61,11 +73,13 @@ fn atmosphereSegment(origin:vec3<f32>,point:vec3<f32>,sun:vec3<f32>)->Atmosphere
  let mu=cosine(dot(camera,ray)/r);let mus=cosine(dot(camera,sun)/r);let nu=cosine(dot(ray,sun));let ground=hitsGround(r,mu);
  let tr=transPath(atmosphereTransmittance,r,mu,d,ground);
  let rp=radius(safeSqrt(d*d+2.*r*mu*d+r*r));let mup=cosine((r*mu+d)/rp);let musp=cosine((r*mus+d*nu)/rp);
- let ray0=scattering(atmosphereRayleigh,r,mu,mus,nu,ground);let ray1=scattering(atmosphereRayleigh,rp,mup,musp,nu,ground);
- let high0=scattering(atmosphereHigher,r,mu,mus,nu,ground);let high1=scattering(atmosphereHigher,rp,mup,musp,nu,ground);
- let mie0=scattering(atmosphereMie,r,mu,mus,nu,ground);let mie1=scattering(atmosphereMie,rp,mup,musp,nu,ground);
+ let first=scatteringSample(r,mu,mus,nu,ground);
+ let last=scatteringSample(rp,mup,musp,nu,ground);
+ let combined=first.combined-tr*last.combined;
+ var mi=first.mie-tr*last.mie;
+ if(PACKED_MIE){mi=extrapolateMie(vec4<f32>(combined,mi.r));}
  // Retain the source's fade of single Mie scattering under the horizon.
- let radiance=((ray0+high0-tr*(ray1+high1))*rayPhase(nu)+(mie0-tr*mie1)*miePhase(nu)*smoothstep(0.,.01,mus))*SKY_LUMINANCE;
+ let radiance=(combined*rayPhase(nu)+mi*miePhase(nu)*smoothstep(0.,.01,mus))*SKY_LUMINANCE;
  return AtmosphereSample(max(radiance,vec3<f32>(0.)),tr);
 }
 ''';
