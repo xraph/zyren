@@ -42,6 +42,12 @@ jobs:
           PROPERTIES
           free -h
           flutter build apk --debug --target-platform android-x64 --target integration_test/physics_lab_test.dart --dart-define=INTEGRATION_TEST_SHOULD_REPORT_RESULTS_TO_NATIVE=false --no-pub
+      - name: Save the Android x64 integration APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: physics-android-x64-integration-apk
+          path: examples/physics_lab/build/app/outputs/flutter-apk/app-debug.apk
+          retention-days: 7
       - name: Enable emulator acceleration
         run: |
           test -c /dev/kvm
@@ -58,4 +64,8 @@ jobs:
           ram-size: 2048M
           emulator-options: -no-window -no-snapshot -noaudio -no-boot-anim -no-metrics -gpu swiftshader -feature Vulkan -skin 480x800 -camera-back none -camera-front none
           working-directory: examples/physics_lab
-          script: flutter drive --driver=test_driver/qualification.dart --target=integration_test/physics_lab_test.dart --use-application-binary=build/app/outputs/flutter-apk/app-debug.apk -d emulator-5554 --no-pub
+          script: |
+            adb -s emulator-5554 shell wm density 160
+            adb -s emulator-5554 shell wm size
+            adb -s emulator-5554 shell wm density
+            flutter drive --driver=test_driver/qualification.dart --target=integration_test/physics_lab_test.dart --use-application-binary=build/app/outputs/flutter-apk/app-debug.apk -d emulator-5554 --no-pub
