@@ -6,6 +6,26 @@ measure two surface points and scrub an exploded view. Use your Android device
 ID for native Vulkan presentation. The inspector moves below the canvas on a
 narrow screen and scrolls independently.
 
+The assembly timeline blends a lift clip into the shaft and cover as the parts
+separate. Lift reaches 100% at 1.5 seconds and returns to 0% at 3 seconds. You can
+scrub the same pose repeatedly; the blend uses clip samples, so earlier manual
+edits do not affect it. The compact Lift readout shows the weight, while the
+marker below it reports the last playback event. Scrubbing clears that marker.
+
+This uses `TimelineClip`, `TimelineLayer` and `SceneTimelinePlugin.mixed` from
+[`zyren_timeline`](../../packages/zyren_timeline/README.md). The housing uses only
+the base clip, demonstrating that a layer can affect a subset of the assembly.
+
+The 1 October 2026 mixing revision passed 38 timeline tests and all 15 example
+widget tests, including 1100, 390 and 320 logical-pixel layouts. Its macOS Metal
+integration checked numerical mixed poses, pause/resume, silent scrubbing,
+marker ordering, replay and disposal. All fifteen reported native samples had
+zero readback bytes. Desktop native inspection confirmed the raised, rotated
+cover, its selection outline and the matching Lift readout. Narrow layouts passed
+the widget checks; native window resizing could not be verified because the UI
+automation tool could not locate the window for drag operations. Android, iOS,
+Windows and Linux have not been checked for this revision.
+
 The workbench uses `zyren_tools`, `zyren_devtools` and `zyren_timeline` through
 their public APIs. See [the checkpoint](https://xraph.com/docs/zyren/reference/scene-workbench-checkpoint)
 for verification and remaining features.

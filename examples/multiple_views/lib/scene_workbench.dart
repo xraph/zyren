@@ -77,6 +77,7 @@ class _WorkbenchState extends State<_Workbench> {
   late final TransformGizmoPlugin _gizmo;
   final _inspector = SceneDevtoolsPlugin();
   late final SceneTimelinePlugin _timeline;
+  late final TimelineLayer _lift;
   TimelineEvent? _lastTimelineEvent;
   late final SceneEngineeringPlugin _engineering;
   final _sourceObjects = <String, Object3D>{};
@@ -132,21 +133,8 @@ class _WorkbenchState extends State<_Workbench> {
       'shaft': _parts[1],
       'cover': _parts[2],
     });
-    _timeline = SceneTimelinePlugin(
+    final exploded = TimelineClip(
       duration: const Duration(seconds: 3),
-      markers: [
-        TimelineMarker(Duration.zero, id: 'assembled', label: 'Assembled'),
-        TimelineMarker(
-          const Duration(milliseconds: 1500),
-          id: 'separating',
-          label: 'Separating',
-        ),
-        TimelineMarker(
-          const Duration(seconds: 3),
-          id: 'exploded',
-          label: 'Exploded',
-        ),
-      ],
       tracks: [
         for (var i = 0; i < _parts.length; i++)
           TransformTrack(_parts[i], [
@@ -160,6 +148,44 @@ class _WorkbenchState extends State<_Workbench> {
               ][i],
             ),
           ]),
+      ],
+    );
+    _lift = TimelineLayer(
+      clip: TimelineClip(
+        duration: exploded.duration,
+        tracks: [
+          for (var i = 1; i < _parts.length; i++)
+            TransformTrack(_parts[i], [
+              for (final key
+                  in (exploded.tracks[i] as TransformTrack).keyframes)
+                TransformKeyframe(
+                  key.time,
+                  position: key.position + Vec3(0, i == 1 ? .5 : 1.1, 0),
+                  rotation: i == 2
+                      ? Quat.axisAngle(const Vec3(0, 0, 1), math.pi / 4)
+                      : Quat.identity,
+                ),
+            ]),
+        ],
+      ),
+      weights: [
+        ClipWeight(Duration.zero, 0),
+        ClipWeight(const Duration(milliseconds: 1500), 1),
+        ClipWeight(exploded.duration, 0),
+      ],
+    );
+    _timeline = SceneTimelinePlugin.mixed(
+      duration: exploded.duration,
+      base: exploded,
+      layers: [_lift],
+      markers: [
+        TimelineMarker(Duration.zero, id: 'assembled', label: 'Assembled'),
+        TimelineMarker(
+          const Duration(milliseconds: 1500),
+          id: 'separating',
+          label: 'Separating',
+        ),
+        TimelineMarker(exploded.duration, id: 'exploded', label: 'Exploded'),
       ],
     );
     _gizmo = TransformGizmoPlugin(
@@ -861,6 +887,15 @@ class _WorkbenchState extends State<_Workbench> {
         children: [
           Text(
             '${(_timeline.position.inMilliseconds / 1000).toStringAsFixed(1)} / 3 s',
+          ),
+          Tooltip(
+            message:
+                'Lift clip weight. Peaks halfway through the assembly sequence.',
+            child: Text(
+              'Lift ${(_lift.weightAt(_timeline.position) * 100).round()}%',
+              key: const ValueKey('timeline-mix'),
+              style: Theme.of(context).textTheme.labelSmall,
+            ),
           ),
           if (_lastTimelineEvent case final event?)
             Tooltip(
