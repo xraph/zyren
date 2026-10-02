@@ -54,13 +54,15 @@ final class ClipWeight {
 final class TimelineLayer {
   final TimelineClip clip;
   final Duration start;
+  final Duration? sampleTime;
   final List<ClipWeight> weights;
   TimelineLayer({
     required this.clip,
     required Iterable<ClipWeight> weights,
     this.start = Duration.zero,
+    this.sampleTime,
   }) : weights = List.unmodifiable(weights) {
-    if (start.isNegative) {
+    if (start.isNegative || (sampleTime?.isNegative ?? false)) {
       throw ArgumentError('Layer start must be nonnegative.');
     }
     _validateTimes(this.weights.map((weight) => weight.time));
@@ -130,7 +132,10 @@ final class _MixedTrack extends TimelineTrack {
       total += weight;
       active.add((
         track: layer.clip._targets[target]!,
-        time: _clipTime(time - layer.start, layer.clip.duration),
+        time: _clipTime(
+          layer.sampleTime ?? time - layer.start,
+          layer.clip.duration,
+        ),
         weight: weight,
       ));
     }

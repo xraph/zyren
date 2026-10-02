@@ -145,6 +145,49 @@ clips. Invalid track samples follow the same event behavior.
 The exported `sceneTimeline` service key belongs to `zyren.timeline`. Cancel your
 `changes` and `events` subscriptions when their consumers close. Pausing a stream
 subscription can buffer notifications. Detach stops playback and retains the
-consumed start state for renderer recovery. Reverse playback, additive mixing,
-independently playing actions, runtime crossfade commands, per-layer looping,
-imported animation events, skeletal animation and morphs are outside this version.
+consumed start state for renderer recovery. Reverse playback, additive mixing, per-layer looping, imported animation events,
+skeletal animation and morphs are outside this version.
+
+
+## Independent actions
+
+After attaching a mixed timeline, you can run clips on separate clocks:
+
+```dart
+final idle = timeline.createAction(idleClip, weight: 1)..play();
+final walk = timeline.createAction(walkClip);
+idle.crossFadeTo(walk, const Duration(milliseconds: 250));
+```
+
+Actions share the base targets and use the same normalized pose mixer as authored
+layers. `createAction` starts paused at zero weight unless you specify a weight.
+`play` restarts a finished action. `pause` holds its current pose, and `seek`
+clamps its local clock without moving the main timeline or emitting markers.
+An action holds its final pose at completion. Call `dispose` to remove its
+contribution and invalidate its handle.
+
+Use `fadeTo(weight, duration)` to change a contribution. A fade continues while
+its action clock is paused, and interruption starts from the current weight.
+`crossFadeTo` starts the destination without resetting an unfinished clock and
+fades the source to zero. The source clock continues until its endpoint or until
+you pause it. Crossfades require positive duration and actions on the same timeline.
+
+Action clocks and fades use the engine delta. They acquire their own frame demand,
+so you can keep the main timeline paused. Detach stops actions and invalidates
+handles. Failed blends keep the previous scene pose and clocks, stop playback
+and cancel fades. Action clips do not emit markers; markers use the main clock.
+
+## Animation dependencies
+
+The glTF importer currently rejects `animations`, node `skin` and node `weights`
+in its static model profile. Imported animation needs validated sampler/channel
+recipes and stable bindings from imported nodes to scene objects before this
+package can consume it. Imported events also need an explicit source format and
+loop/seek event policy; glTF animation channels alone do not define named events.
+
+Skeletal playback needs joint hierarchies, inverse bind matrices and native skin
+vertex deformation. Morph playback needs imported target deltas and native weight
+bindings. These require importer and renderer work outside this package. Keep
+those changes with their owners, then add timeline adapters and native integration
+checks for their public APIs. Transform and camera actions do not establish skin
+or morph support.
