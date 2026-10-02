@@ -7,9 +7,16 @@ import 'package:zyren_geospatial/src/clouds/temporal_pass.dart';
 import 'package:zyren_native/zyren_native.dart';
 
 void main() {
-  for (final mode in [CloudTemporalMode.upscale, CloudTemporalMode.antialias]) {
+  for (final (mode, gradient) in [
+    for (final gradient in [false, true])
+      for (final mode in [
+        CloudTemporalMode.upscale,
+        CloudTemporalMode.antialias,
+      ])
+        (mode, gradient),
+  ]) {
     test(
-      '${mode.name} resolves Bayer samples, source alpha and disocclusion',
+      '${mode.name} resolves Bayer samples, source alpha and disocclusion ${gradient ? 'across a depth gradient' : 'at constant depth'}',
       () async {
         final backend = await NativeBackend.create(),
             owner = GpuScope.fromBackend(backend);
@@ -66,7 +73,12 @@ void main() {
           await owner.resources.writeTexture(
             data,
             Float32List.fromList([
-              for (var i = 0; i < 16; i++) ...[depth, 0, 0, 2],
+              for (var i = 0; i < 16; i++) ...[
+                gradient && i == 9 ? depth * .25 : depth,
+                0,
+                0,
+                2,
+              ],
             ]).buffer.asUint8List(),
           );
           await owner.resources.writeTexture(

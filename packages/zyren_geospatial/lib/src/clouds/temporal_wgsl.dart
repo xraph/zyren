@@ -40,7 +40,7 @@ fn cloudClosest(coord:vec2<i32>)->vec4<f32>{
  var accepted=ct.state.x>.5&&mode>.5&&!currentFrame&&all(prevUv>=vec2<f32>(0.))&&all(prevUv<=vec2<f32>(1.));
  if(accepted){
   let previous=cloudBilinear(previousData,prevUv);
-  accepted=abs(previous.x-closest.x)<=max(100.,closest.x*.05);
+  accepted=abs(previous.x-data.x)<=max(100.,data.x*.05);
  }
  if(accepted){
   let history=cloudBilinear(previousColor,prevUv);let oldShadow=cloudBilinear(previousData,prevUv).w;
