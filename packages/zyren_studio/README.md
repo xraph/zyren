@@ -60,7 +60,8 @@ keys cannot apply an edit twice. A full retry ledger rejects new commands until
 you deliberately start another session. Dispose registrations and commands when
 the editor closes or replaces its scene.
 
-The example registers the shared viewport provider beside Studio. It reports
+The example registers the shared viewport, diagnostics, timeline and engineering
+review providers beside Studio. It reports
 camera and viewport dimensions, DPR, active panel, pointer, geometric hover,
 selection, tool mode, blocking overlays and known presenter timing. Triangle hits
 carry Studio IDs and source provenance. Rendered pixel visibility and the scene

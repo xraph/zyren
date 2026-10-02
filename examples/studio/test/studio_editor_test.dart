@@ -55,7 +55,13 @@ void main() {
       final registry = state.agents;
       expect(
         (registry.discover()['providers'] as List).map((p) => p['providerId']),
-        containsAll(['zyren.studio', 'zyren.viewport']),
+        containsAll([
+          'zyren.studio',
+          'zyren.viewport',
+          'zyren.timeline',
+          'zyren.engineering',
+          'zyren.devtools',
+        ]),
       );
       final screen = await registry.call(
         providerId: state.agentProvider.id,
@@ -63,6 +69,7 @@ void main() {
         tool: 'state',
       );
       expect(screen.status, AgentStatus.ok);
+      expect((screen.data['screen'] as Map)['agentProviderGaps'], isEmpty);
       expect((screen.data['screen'] as Map)['pixelVisibility'], 'unknown');
       expect((screen.data['screen'] as Map)['devicePixelRatio'], 1);
       if (size.width == 396) {

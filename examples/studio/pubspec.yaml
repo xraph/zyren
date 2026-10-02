@@ -6,6 +6,8 @@ resolution: workspace
 environment:
   sdk: '>=3.10.0 <4.0.0'
 dependencies:
+  zyren_collaboration:
+    path: ../../packages/zyren_collaboration
   zyren_devtools:
     path: ../../packages/zyren_devtools
   zyren_agents:

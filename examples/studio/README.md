@@ -17,7 +17,8 @@ Preview camera runs the existing timeline service. Stop preview restores your
 working camera. Save, reload and editing are disabled while the preview is active.
 The inspector moves below the viewport at narrow widths.
 
-The host registers Studio and viewport providers in the shared agent registry.
+The host registers Studio, viewport, diagnostics, timeline and engineering review
+providers in the shared agent registry.
 `StudioEditorState.agents` exposes the in-process interface. Agent mutations are
 denied by default. Pass `agentScopes: {'studio.select', 'studio.edit'}` when your
 host grants those actions. Registration and retry history end with the editor
@@ -31,6 +32,9 @@ The console reports a `ZYREN_STUDIO_AGENTS` endpoint and session token. Set thos
 as `ZYREN_DEVTOOLS_ENDPOINT` and `ZYREN_DEVTOOLS_TOKEN` for your MCP client, then
 run `ZYREN_AGENT_TOOLS=1 fvm dart run zyren_devtools:zyren mcp` from the workspace.
 Without `ZYREN_AGENT_EDIT`, inspection remains available and mutations are denied.
+The edit flag also grants `timeline.playback`; preview commands keep the working
+camera available for Stop preview. Engineering reads expose origin, tag and
+material fields. The host denies review mutations and annotation disclosure.
 The bridge closes when its editor session ends. The host also attempts to register
 the shared diagnostics provider; incompatible schemas appear in
 `state.screen.agentProviderGaps`, while the original diagnostic tools remain

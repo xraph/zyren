@@ -58,8 +58,11 @@ explicit texture alpha, shader displacement and line/point limits.
 
 Keep reads passive. Revoke access on disposal and disable edit commands during
 save/reload or preview. Assemble other attached plugin providers only as their
-shared adapters become available. Asset, engineering and timeline semantic
-coverage must remain visible gaps until their actual providers are registered.
+shared adapters become available. The host registers the actual engineering review and timeline providers.
+Engineering reads expose only origin, tag and material properties; annotations
+and mutations remain denied by host policy. Timeline commands require
+`timeline.playback` and use the host's reversible preview state. Asset provider
+coverage remains pending asset import.
 
 ## Shared mutation request
 
@@ -67,12 +70,11 @@ Register `packages/zyren_studio` and `examples/studio` in root `pubspec.yaml`, t
 resolve dependencies under `/tmp/zyren-plugin-expansion.lock`. Preserve entries
 from other chats. No shared source API changes are required for this checkpoint.
 
-Shared adapter finding: `DiagnosticsAgentProvider` currently forwards diagnostic
-schemas containing unsupported keywords into `AgentSchema.check`. Studio catches
-that registration failure and reports it in `screen.agentProviderGaps`; the
-original read-only diagnostics remain available through the existing bridge.
-The interaction owner controls that adapter. Studio must recheck registration
-when the shared schema/adapter fix lands.
+The diagnostics adapter initially failed schema registration. The interaction
+owner's schema fix landed during verification. The latest widget tests discover
+Studio, viewport, diagnostics, timeline and engineering review providers with an
+empty `screen.agentProviderGaps`. Studio keeps that explicit gap report if a
+future optional diagnostics adapter cannot register.
 
 ## Phases and acceptance
 
@@ -108,7 +110,8 @@ Implemented checkpoint:
 - Flutter editor with shared inspector and ZeroState, native gizmos, selection,
   transform history, save/reload with discard confirmation, and timeline camera
   preview. The macOS runner and native integration test are included.
-- Shared-registry Studio and viewport providers, guarded ordinary commands,
+- Shared-registry Studio, viewport, diagnostics, timeline and engineering review
+  providers, guarded ordinary commands,
   bounded node pages, retries, stale-target checks, and disposal. The host reports
   viewport coordinates/DPR, camera, selected/hovered items, active panel/tool,
   blocking overlays, storage state and known presented-frame timing.
@@ -125,7 +128,8 @@ Automated evidence on 2026-10-02:
   examples/studio/test`: 9 passing tests. Coverage includes malformed schemas,
   cyclic/missing hierarchy, source identity, poses, history, rejected unsupported
   edits, file failures, shared-provider schema checks, permissions, retry identity,
-  stale/removed targets, cleanup and 1200x800 / 396x844 widget layouts.
+  stale/removed targets, cleanup, all five host provider registrations, empty
+  provider-gap reports and 1200x800 / 396x844 widget layouts.
 - An actual external `zyren_devtools` MCP CLI process completed initialization,
   tool discovery, a Studio query and a permitted transform through an authenticated
   loopback server. The fixture uses a test renderer; this is transport evidence,
@@ -143,17 +147,14 @@ Native evidence and blockers:
   and narrow native layouts, and preview lifecycle remain unverified. The native
   test is ready to rerun after sufficient disk space is available. Android and iOS
   runners/device checks are pending. Widget layout checks use a substituted viewport.
-- The diagnostics registry adapter currently forwards an unsupported schema
-  keyword. Studio reports the failed optional registration in
-  `state.screen.agentProviderGaps`. Original diagnostics remain available through
-  devtools; fixing that shared adapter belongs to the interaction owner.
 
 Remaining scope:
 
 - Asset and prefab authoring, pipeline bindings/version pins, material editing,
   saved animation/keyframes and authoring history, and isolated live previews.
-- Collaboration authority/epoch adapter and persistence, registered engineering
-  and timeline agent providers, asset diagnostics, and broader native qualification.
+- Collaboration authority/epoch adapter and persistence, engineering edit policy
+  and review authoring, integrated native review/timeline agent checks, asset
+  diagnostics, and broader native qualification.
 - Rich native pixel evidence/capture correlation. Current hits are CPU triangle
   geometry, and the presenter's submitted scene/camera revision is unknown.
 - A registered onboarding provider/walkthrough does not exist here; no inactive
@@ -161,4 +162,9 @@ Remaining scope:
 - The package remains `publish_to: none`. This is a useful first editor checkpoint,
   not a complete plugin or a rollout/publication claim.
 
-Commit IDs will be recorded after the focused implementation commit.
+Local commits:
+
+- `6b080d8681f568b6538076a2cfff91a3fcfb0e0e`: versioned scenes, editor, saved
+  file flow, Studio/viewport agent adapters and authenticated MCP coverage.
+- The follow-up host provider composition and final evidence commit is recorded
+  in the completion message. No push or merge was performed.

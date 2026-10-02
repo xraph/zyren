@@ -13,6 +13,8 @@ import 'package:zyren_studio/commands.dart';
 import 'package:zyren_studio/agents.dart';
 import 'package:zyren_agents/zyren_agents.dart';
 import 'package:zyren_timeline/zyren_timeline.dart';
+import 'package:zyren_timeline/agents.dart';
+import 'package:zyren_collaboration/engineering_agent_provider.dart';
 import 'package:zyren_tools/zyren_tools.dart';
 
 /// Flutter composition lives in the host; documents and reconstruction are Dart.
@@ -53,6 +55,18 @@ class StudioEditorState extends State<StudioEditor> {
   final _canvasKey = GlobalKey();
   int _uiRevision = 0;
   int _commandUiRevision = 0;
+  String? _timelineSignature;
+  int _timelineRevision = 0;
+  int get _timelineAgentRevision {
+    final signature =
+        '${_scene.revision}:${_timeline.position.inMicroseconds}:${_timeline.isPlaying}:${_timeline.loop}:${_timeline.reverse}';
+    if (signature != _timelineSignature) {
+      _timelineSignature = signature;
+      _timelineRevision++;
+    }
+    return _timelineRevision;
+  }
+
   String _activePanel = 'viewport';
   String? _hoveredId;
   ViewportPoint? _pointer;
@@ -148,13 +162,46 @@ class StudioEditorState extends State<StudioEditor> {
         kind == StudioCommandKind.select ? 'studio.select' : 'studio.edit',
       ),
     );
-    _agents = AgentRegistry(grantedScopes: widget.agentScopes);
+    _agents = AgentRegistry(
+      grantedScopes: {'engineering.read', ...widget.agentScopes},
+    );
     _agentProvider = StudioAgentProvider(
       commands: _commands,
       screenContext: _screenContext,
       hostRevision: () => _commandUiRevision,
     );
     _agents.register(_agentProvider);
+    _agents.register(
+      TimelineAgentProvider(
+        timeline: _timeline,
+        instanceId: 'camera-preview',
+        readRevision: () => _timelineAgentRevision,
+        isAvailable: () =>
+            _ready && !_busy && !_modalOpen && !_gizmo.isDragging,
+        runCommand: (name, apply) {
+          final camera = StudioCamera.capture(_scene.camera);
+          apply();
+          _previewCamera ??= camera;
+          _gizmo.enabled = false;
+          _orbit.controls?.enabled = false;
+          _commandUiRevision++;
+          _refresh();
+        },
+      ),
+    );
+    _agents.register(
+      EngineeringReviewAgentProvider(
+        review: _scene.engineering,
+        scene: _scene.scene,
+        instanceId: 'review',
+        authorize: (tool, _) => tool == 'state' || tool == 'object',
+        exposedProperties: (record) => {
+          for (final key in ['origin', 'tag', 'material'])
+            if (record.properties.containsKey(key)) key: record.properties[key],
+        },
+        exposeAnnotation: (_) => false,
+      ),
+    );
     _providerGaps.clear();
     try {
       _agents.register(
