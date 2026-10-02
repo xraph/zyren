@@ -1,0 +1,48 @@
+name: Native physics iOS x64
+on:
+  workflow_dispatch:
+jobs:
+  ios-x64:
+    runs-on: macos-15-intel
+    timeout-minutes: 60
+    env:
+      CARGO_PROFILE_DEV_DEBUG: '0'
+      CARGO_PROFILE_RELEASE_DEBUG: '0'
+      CARGO_INCREMENTAL: '0'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.5'
+          cache: true
+      - run: rustup toolchain install 1.97.1 --profile minimal
+      - run: flutter pub get
+      - name: Boot an available Intel iPhone simulator
+        run: |
+          test "$(uname -m)" = x86_64
+          xcrun simctl list devices available --json > "$RUNNER_TEMP/physics-simulators.json"
+          python3 - <<'PY'
+          import json, os, re
+          from pathlib import Path
+          devices = json.loads(Path(os.environ['RUNNER_TEMP'], 'physics-simulators.json').read_text())['devices']
+          candidates = [
+              (tuple(map(int, re.findall(r'\d+', runtime))), device)
+              for runtime, entries in devices.items() if '.iOS-' in runtime
+              for device in entries if device.get('isAvailable') and device['name'].startswith('iPhone')
+          ]
+          if not candidates:
+              raise SystemExit('No available Intel iOS simulator runtime. Execution remains unqualified.')
+          _, device = max(candidates, key=lambda candidate: (candidate[0], candidate[1]['name']))
+          print(f"Selected {device['name']} ({device['udid']})")
+          with open(os.environ['GITHUB_ENV'], 'a') as output:
+              output.write(f"PHYSICS_SIMULATOR={device['udid']}\n")
+          PY
+      - name: Metal app integration on iOS x64
+        working-directory: examples/physics_lab
+        run: |
+          xcrun simctl boot "$PHYSICS_SIMULATOR"
+          xcrun simctl bootstatus "$PHYSICS_SIMULATOR" -b
+          flutter test integration_test/physics_lab_test.dart -d "$PHYSICS_SIMULATOR" --no-pub
+      - name: Shut down the qualification simulator
+        if: always() && env.PHYSICS_SIMULATOR != ''
+        run: xcrun simctl shutdown "$PHYSICS_SIMULATOR"
