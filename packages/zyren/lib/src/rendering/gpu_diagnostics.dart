@@ -24,8 +24,9 @@ final class GpuAllocationInfo {
 }
 
 final class GpuInspection {
-  /// Last completed scene submission, in nanoseconds. Includes GPU buffer gaps,
-  /// excludes CPU encoding, queue wait, uploads and CPU pixel readback.
+  /// Last completed scene submission, in nanoseconds, from [gpuTimeSource].
+  /// Includes recorded GPU copies and gaps between passes. CPU encoding and
+  /// reading mapped pixels are excluded. Unsupported measurements stay null.
   final int? lastSubmissionGpuTimeNs;
   final int submittedFrames;
   final String gpuTimeSource;

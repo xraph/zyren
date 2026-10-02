@@ -24,6 +24,7 @@ mod pipelines;
 mod shadows;
 mod temporal;
 mod textures;
+mod timing;
 mod transmission;
 pub use shadows::ShadowStats;
 
@@ -84,6 +85,7 @@ struct DepthTarget {
 
 struct Submission {
     index: wgpu::SubmissionIndex,
+    timing: Option<timing::Pending>,
     #[cfg(target_vendor = "apple")]
     metal: Option<crate::interop::metal::MetalCompletion>,
 }
@@ -128,6 +130,8 @@ pub struct RendererState {
     last_scene_draws: std::cell::Cell<u64>,
     last_instance_draws: std::cell::Cell<u64>,
     last_gpu_time_ns: Option<u64>,
+    gpu_time_source: &'static str,
+    gpu_timer: Option<timing::Timer>,
     layout: wgpu::BindGroupLayout,
     pbr_layout: wgpu::BindGroupLayout,
     environment_defaults: environment::Defaults,
@@ -214,10 +218,11 @@ impl Renderer {
         let (device, queue) = adapter
             .request_device(&wgpu::DeviceDescriptor {
                 label: Some("flutter_zyren"),
-                required_features: adapter.features()
+                required_features: (adapter.features()
                     & (wgpu::Features::TEXTURE_COMPRESSION_BC
                         | wgpu::Features::TEXTURE_COMPRESSION_ETC2
-                        | wgpu::Features::TEXTURE_COMPRESSION_ASTC),
+                        | wgpu::Features::TEXTURE_COMPRESSION_ASTC))
+                    | timing::features(adapter.features(), info.backend),
                 required_limits: wgpu::Limits {
                     max_texture_dimension_2d: crate::scene::MAX_DIMENSION,
                     max_sampled_textures_per_shader_stage: adapter
@@ -297,6 +302,7 @@ impl Renderer {
         );
         Ok(Self {
             state: Some(Box::new(RendererState {
+                gpu_timer: timing::Timer::new(&device, &queue),
                 device,
                 queue,
                 #[cfg(target_os = "android")]
@@ -330,6 +336,7 @@ impl Renderer {
                 drawable_owner: None,
                 failure: None,
                 last_gpu_time_ns: None,
+                gpu_time_source: "unavailable",
                 counters: RenderCounters::default(),
                 last_scene_draws: std::cell::Cell::new(0),
                 last_instance_draws: std::cell::Cell::new(0),
@@ -413,8 +420,9 @@ impl Renderer {
                 instance_uploaded_bytes: state.instance_uploaded_bytes,
                 instance_draw_calls: state.last_instance_draws.get() as usize,
                 last_gpu_time_ns: state.last_gpu_time_ns,
+                gpu_time_source: state.gpu_time_source,
                 submitted_frames: state.counters.submitted_frames,
-                device_info: serde_json::json!({"backend":format!("{:?}",state.backend),"adapterName":state.adapter_name,"sampleCounts":if state.supports_msaa4 {vec![1,4]} else {vec![1]}}),
+                device_info: serde_json::json!({"backend":format!("{:?}",state.backend),"adapterName":state.adapter_name,"sampleCounts":if state.supports_msaa4 {vec![1,4]} else {vec![1]}, "gpuTimestampQueries":state.gpu_timer.is_some(), "gpuTimestampBufferBytes":if state.gpu_timer.is_some() {32} else {0}}),
             },
             bytes,
             capacity,
@@ -1007,6 +1015,9 @@ impl Renderer {
             .map(|mesh| self.physical_texture_binding(mesh))
             .collect();
         let mut encoder = self.device.create_command_encoder(&Default::default());
+        if let Some(timer) = &self.gpu_timer {
+            timer.begin(&mut encoder);
+        }
         if let Some(graph) = graph {
             graph.encode_before(&mut encoder);
         }
@@ -1223,11 +1234,14 @@ impl Renderer {
 
     fn submit(
         &mut self,
-        encoder: wgpu::CommandEncoder,
+        mut encoder: wgpu::CommandEncoder,
         graph: Option<&crate::render_graph::FrameGraph>,
         materials: &[Option<crate::render_graph::PreparedMaterial>],
         environment: &environment::PreparedEnvironment,
     ) -> Result<Submission, String> {
+        self.last_gpu_time_ns = None;
+        self.gpu_time_source = "unavailable";
+        let timing = self.gpu_timer.as_ref().map(|timer| timer.end(&mut encoder));
         let index = self.queue.submit([encoder.finish()]);
         let keys: Vec<_> = self
             .geometries
@@ -1269,6 +1283,7 @@ impl Renderer {
         };
         Ok(Submission {
             index,
+            timing,
             #[cfg(target_vendor = "apple")]
             metal,
         })
@@ -1289,11 +1304,20 @@ impl Renderer {
             Some(completion) => {
                 completion.check()?;
                 self.last_gpu_time_ns = completion.gpu_time_ns();
+                if self.last_gpu_time_ns.is_some() {
+                    self.gpu_time_source = "metal.commandBuffer.startEndTime";
+                }
                 Ok(())
             }
             None => Ok(()),
         });
         if result.is_ok() {
+            if let Some(timing) = submission.timing {
+                self.last_gpu_time_ns = timing.nanoseconds();
+                if self.last_gpu_time_ns.is_some() {
+                    self.gpu_time_source = "wgpu.timestampQuery.commandEncoder";
+                }
+            }
             self.resources.scene_completed();
         }
         result.map_err(|error| {

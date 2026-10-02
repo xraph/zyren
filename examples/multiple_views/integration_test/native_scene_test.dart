@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,6 +13,7 @@ class Probe extends ScenePlugin {
   @override
   String get id => 'native-view-probe';
   final frames = <FrameStats>[];
+  PluginContext? context;
   int before = 0, detached = 0;
   @override
   void beforeRender(PluginContext context, FrameInfo frame) {
@@ -20,6 +22,7 @@ class Probe extends ScenePlugin {
 
   @override
   void afterRender(PluginContext context, FrameInfo info, FrameStats stats) {
+    this.context = context;
     frames.add(stats);
   }
 
@@ -86,6 +89,27 @@ void main() {
       expect(probe.frames.map((f) => f.readbackBytes), everyElement(0));
       expect(probe.frames.first.uploadedBytes, greaterThan(0));
       expect(probe.frames.last.uploadedBytes, 0);
+      final inspection = await probe.context!.inspectGpu();
+      expect(inspection, isNotNull);
+      if (inspection!.gpuTimeSource == 'unavailable') {
+        expect(inspection.lastSubmissionGpuTimeNs, isNull);
+      } else {
+        expect(inspection.lastSubmissionGpuTimeNs, isNotNull);
+        expect(
+          inspection.gpuTimeSource,
+          android
+              ? 'wgpu.timestampQuery.commandEncoder'
+              : 'metal.commandBuffer.startEndTime',
+        );
+      }
+      debugPrint(
+        jsonEncode({
+          'fixture': 'native-presentation-timing',
+          'gpuTimeNs': inspection.lastSubmissionGpuTimeNs,
+          'source': inspection.gpuTimeSource,
+          'pixelReadbackBytes': probe.frames.last.readbackBytes,
+        }),
+      );
       expect(probe.before, greaterThanOrEqualTo(probe.frames.length));
       expect(find.byType(RawImage), findsNothing);
       expect(find.byType(Texture), android ? findsOneWidget : findsNothing);

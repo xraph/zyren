@@ -208,6 +208,7 @@ pub(crate) struct GraphContext<'a> {
     pub instance_draw_calls: usize,
     pub device_info: Value,
     pub last_gpu_time_ns: Option<u64>,
+    pub gpu_time_source: &'static str,
     pub submitted_frames: u64,
 }
 
@@ -238,6 +239,7 @@ impl GraphStore {
             instance_draw_calls,
             device_info,
             last_gpu_time_ns,
+            gpu_time_source,
             submitted_frames,
         } = context;
         if bytes.len() > MAX_COMMAND_BYTES || capacity != RESPONSE_CAPACITY {
@@ -278,6 +280,7 @@ impl GraphStore {
                             instance_draw_calls,
                             device_info,
                             last_gpu_time_ns,
+                            gpu_time_source,
                             submitted_frames,
                         },
                         description,
@@ -326,11 +329,7 @@ impl GraphStore {
                         let allocated: Option<u64> = None;
                         result["lastSubmissionGpuTimeNs"] = json!(last_gpu_time_ns);
                         result["submittedFrames"] = json!(submitted_frames);
-                        result["gpuTimeSource"] = json!(if last_gpu_time_ns.is_some() {
-                            "metal.commandBuffer.startEndTime"
-                        } else {
-                            "unavailable"
-                        });
+                        result["gpuTimeSource"] = json!(gpu_time_source);
                         result["deviceAllocatedBytes"] = json!(allocated);
                         result["deviceAllocationSource"] = json!(if allocated.is_some() {
                             "metal.currentAllocatedSize"
