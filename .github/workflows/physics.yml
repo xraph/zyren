@@ -32,9 +32,40 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
+        if: runner.arch != 'ARM64' || runner.os == 'macOS'
         with:
           flutter-version: '3.47.5'
           cache: true
+      - name: Checkout Flutter source for arm64
+        if: runner.arch == 'ARM64' && runner.os != 'macOS'
+        uses: actions/checkout@v4
+        with:
+          repository: flutter/flutter
+          ref: 6a19cca56475dbfba1478ee68d7bd0c2ef891da1
+          path: .ci-flutter
+          persist-credentials: false
+      - name: Bootstrap Linux arm64 Flutter
+        if: runner.arch == 'ARM64' && runner.os == 'Linux'
+        shell: bash
+        run: |
+          git -C .ci-flutter checkout -B stable
+          git -C .ci-flutter tag -f 3.47.5
+          echo "$GITHUB_WORKSPACE/.ci-flutter/bin" >> "$GITHUB_PATH"
+          echo "FLUTTER_ROOT=$GITHUB_WORKSPACE/.ci-flutter" >> "$GITHUB_ENV"
+          .ci-flutter/bin/flutter --version
+      - name: Bootstrap Windows arm64 Flutter
+        if: runner.arch == 'ARM64' && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          if ($env:PROCESSOR_ARCHITECTURE -ne 'ARM64') {
+            throw 'Windows qualification requires a native ARM64 process.'
+          }
+          $flutterSdk = Join-Path $env:GITHUB_WORKSPACE '.ci-flutter'
+          git -C $flutterSdk checkout -B stable
+          git -C $flutterSdk tag -f 3.47.5
+          (Join-Path $flutterSdk 'bin') | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+          "FLUTTER_ROOT=$flutterSdk" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          & (Join-Path $flutterSdk 'bin/flutter.bat') --version
       - name: Linux build dependencies
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev xvfb xauth mesa-vulkan-drivers vulkan-tools
