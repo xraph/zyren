@@ -71,6 +71,349 @@ void main() {
   });
   tearDown(() async => engine.dispose());
 
+  test('version pinned sidecar resolves explicit source keys', () {
+    final source = jsonEncode({
+      'schemaVersion': 1,
+      'modelVersion': 'export-17',
+      'entries': [
+        {
+          'id': 'a',
+          'label': 'Housing',
+          'properties': {},
+          'path': [0],
+        },
+      ],
+    });
+    final imported = EngineeringImport.fromSidecar(
+      root: parent,
+      modelVersion: 'export-17',
+      source: source,
+    );
+    expect(imported.entries.single.object, same(a));
+    expect(imported.entries.single.record.id, 'a');
+    expect(
+      () => EngineeringImport.fromSidecar(
+        root: parent,
+        modelVersion: 'export-18',
+        source: source,
+      ),
+      throwsFormatException,
+    );
+    expect(
+      () => EngineeringImport.fromSidecar(
+        root: Group(),
+        modelVersion: 'export-17',
+        source: source,
+      ),
+      throwsFormatException,
+    );
+  });
+
+  test('import reload rebinds anchors and keeps missing review records', () {
+    review.putAnnotation(note());
+    review.isolate({'a'});
+    final replacement = parent.add(Group()..position = const Vec3(3, 0, 0));
+    review.rebindImport(
+      EngineeringImport([
+        EngineeringImportEntry(
+          record: EngineeringObject(id: 'a', label: 'Renamed housing'),
+          object: replacement,
+        ),
+      ]),
+    );
+    expect(review.objectFor('a'), same(replacement));
+    expect(review.objectFor('b'), isNull);
+    expect(review.document.objects.containsKey('b'), isTrue);
+    expect(review.worldAnchor('note-1')!.x, 3.25);
+    expect(review.isolatedIds, isEmpty);
+  });
+
+  test('invalid import preserves all previous bindings and isolation', () {
+    review.isolate({'a'});
+    expect(
+      () => review.rebindImport(
+        EngineeringImport([
+          EngineeringImportEntry(
+            record: EngineeringObject(id: 'a', label: 'New'),
+            object: b,
+          ),
+          EngineeringImportEntry(
+            record: EngineeringObject(id: 'b', label: 'Bad'),
+            object: Group(),
+          ),
+        ]),
+      ),
+      throwsArgumentError,
+    );
+    expect(review.objectFor('a'), same(a));
+    expect(review.isolatedIds, {'a'});
+    expect(
+      () => EngineeringImport([
+        EngineeringImportEntry(record: seed().objects['a']!, object: a),
+        EngineeringImportEntry(record: seed().objects['a']!, object: b),
+      ]),
+      throwsArgumentError,
+    );
+  });
+
+  test(
+    'three-way merge combines independent notes and detects edit deletion',
+    () {
+      final base = seed();
+      final local = EngineeringDocument(
+        id: base.id,
+        objects: base.objects.values,
+        annotations: [note()],
+      );
+      final remoteNote = EngineeringAnnotation(
+        id: 'remote',
+        objectId: 'b',
+        text: 'Check cover',
+        anchor: const Vec3(0, 0, 0),
+      );
+      final remote = EngineeringDocument(
+        id: base.id,
+        objects: base.objects.values,
+        annotations: [remoteNote],
+      );
+      final merged = EngineeringMerge(base: base, local: local, remote: remote);
+      expect(merged.conflicts, isEmpty);
+      expect(
+        merged.document!.annotations.keys,
+        containsAll(['note-1', 'remote']),
+      );
+      final changed = EngineeringDocument(
+        id: base.id,
+        objects: base.objects.values,
+        annotations: [
+          EngineeringAnnotation(
+            id: 'note-1',
+            objectId: 'a',
+            text: 'Changed',
+            anchor: note().anchor,
+          ),
+        ],
+      );
+      final conflict = EngineeringMerge(
+        base: local,
+        local: changed,
+        remote: base,
+      );
+      expect(conflict.document, isNull);
+      expect(conflict.conflicts.single.id, 'note-1');
+      expect(conflict.conflicts.single.remote, isNull);
+    },
+  );
+
+  test('merge catches deleted object referenced by a concurrent note', () {
+    final base = seed();
+    final local = EngineeringDocument(
+      id: base.id,
+      objects: base.objects.values,
+      annotations: [note()],
+    );
+    final remote = EngineeringDocument(
+      id: base.id,
+      objects: [base.objects['b']!],
+    );
+    expect(
+      EngineeringMerge(
+        base: base,
+        local: local,
+        remote: remote,
+      ).conflicts.single.kind,
+      EngineeringRecordKind.object,
+    );
+  });
+
+  test(
+    'session sync uses remote version and preserves edits during write',
+    () async {
+      final store = SessionStore(seed());
+      final base = store.value;
+      review.putAnnotation(note());
+      store.writeGate = Completer<void>();
+      final pending = review.synchronize(store, base: base);
+      await store.writeStarted.future;
+      review.putObject(EngineeringObject(id: 'a', label: 'Local during write'));
+      store.writeGate!.complete();
+      final result = await pending;
+      expect(result.written, isTrue);
+      expect(store.expected, 'v0');
+      expect(
+        result.revision.document.annotations.containsKey('note-1'),
+        isTrue,
+      );
+      expect(review.document.objects['a']!.label, 'Local during write');
+      expect(review.hasUnsavedChanges, isTrue);
+      final next = await review.synchronize(store, base: result.revision);
+      expect(next.written, isTrue);
+      expect(review.hasUnsavedChanges, isFalse);
+    },
+  );
+
+  test(
+    'session conflict and conditional write failure keep local edits',
+    () async {
+      final store = SessionStore(seed());
+      final base = store.value;
+      review.putObject(EngineeringObject(id: 'a', label: 'Local'));
+      store.value = EngineeringRevision(
+        version: 'v1',
+        document: EngineeringDocument(
+          id: base.document.id,
+          objects: [
+            EngineeringObject(id: 'a', label: 'Remote'),
+            base.document.objects['b']!,
+          ],
+        ),
+      );
+      final conflict = await review.synchronize(store, base: base);
+      expect(conflict.written, isFalse);
+      expect(conflict.conflicts.single.id, 'a');
+      expect(review.document.objects['a']!.label, 'Local');
+      store.value = base;
+      store.failWrite = true;
+      await expectLater(
+        review.synchronize(store, base: base),
+        throwsStateError,
+      );
+      expect(review.document.objects['a']!.label, 'Local');
+      expect(review.isBusy, isFalse);
+    },
+  );
+
+  test(
+    'conflict decisions match exact values and cannot resolve changed remote data',
+    () {
+      final base = seed();
+      EngineeringDocument changed(String label) => EngineeringDocument(
+        id: base.id,
+        objects: [
+          EngineeringObject(id: 'a', label: label),
+          base.objects['b']!,
+        ],
+      );
+      final local = changed('Local'), remote = changed('Remote');
+      final conflict = EngineeringMerge(
+        base: base,
+        local: local,
+        remote: remote,
+      ).conflicts.single;
+      final decision = EngineeringConflictResolution(
+        conflict,
+        EngineeringConflictChoice.local,
+      );
+      final resolved = EngineeringMerge(
+        base: base,
+        local: local,
+        remote: remote,
+        resolutions: [decision],
+      );
+      expect(resolved.document!.objects['a']!.label, 'Local');
+      final stale = EngineeringMerge(
+        base: base,
+        local: local,
+        remote: changed('New remote'),
+        resolutions: [decision],
+      );
+      expect(stale.document, isNull);
+      expect(stale.conflicts, hasLength(1));
+      expect(
+        () => EngineeringMerge(
+          base: base,
+          local: local,
+          remote: remote,
+          resolutions: [decision, decision],
+        ),
+        throwsArgumentError,
+      );
+    },
+  );
+
+  test(
+    'object deletion conflict can retain the part needed by concurrent notes',
+    () {
+      final base = seed();
+      final local = EngineeringDocument(
+        id: base.id,
+        objects: base.objects.values,
+        annotations: [note()],
+      );
+      final remote = EngineeringDocument(
+        id: base.id,
+        objects: [base.objects['b']!],
+      );
+      final conflict = EngineeringMerge(
+        base: base,
+        local: local,
+        remote: remote,
+      ).conflicts.single;
+      final resolved = EngineeringMerge(
+        base: base,
+        local: local,
+        remote: remote,
+        resolutions: [
+          EngineeringConflictResolution(
+            conflict,
+            EngineeringConflictChoice.local,
+          ),
+        ],
+      );
+      expect(resolved.document!.objects.containsKey('a'), isTrue);
+      expect(resolved.document!.annotations.containsKey('note-1'), isTrue);
+    },
+  );
+
+  test(
+    'session applies acknowledged decisions and marks the persisted merge clean',
+    () async {
+      final store = SessionStore(seed());
+      final base = store.value;
+      review.putObject(EngineeringObject(id: 'a', label: 'Local'));
+      store.value = EngineeringRevision(
+        version: 'remote',
+        document: EngineeringDocument(
+          id: base.document.id,
+          objects: [
+            EngineeringObject(id: 'a', label: 'Remote'),
+            base.document.objects['b']!,
+          ],
+        ),
+      );
+      final blocked = await review.synchronize(store, base: base);
+      final result = await review.synchronize(
+        store,
+        base: base,
+        resolutions: [
+          EngineeringConflictResolution(
+            blocked.conflicts.single,
+            EngineeringConflictChoice.local,
+          ),
+        ],
+      );
+      expect(result.written, isTrue);
+      expect(store.value.document.objects['a']!.label, 'Local');
+      expect(review.hasUnsavedChanges, isFalse);
+    },
+  );
+
+  test(
+    'stale session reads and simultaneous file saves preserve current edits',
+    () async {
+      final store = SessionStore(seed())..readGate = Completer<void>();
+      final base = store.value;
+      final pending = review.synchronize(store, base: base);
+      await expectLater(review.save(MemoryStore()), throwsStateError);
+      review.putAnnotation(note());
+      store.readGate!.complete();
+      await expectLater(pending, throwsStateError);
+      expect(store.writes, 0);
+      expect(review.document.annotations.containsKey('note-1'), isTrue);
+      expect(review.isBusy, isFalse);
+    },
+  );
+
   test('records copy metadata and bind stable IDs independently of names', () {
     final properties = <String, Object?>{'tag': 'P-002'};
     final record = EngineeringObject(
@@ -318,4 +661,37 @@ void main() {
     expect(review.objectFor('a'), isNull);
     expect(review.document.objects.length, 2);
   });
+}
+
+class SessionStore implements EngineeringSessionStore {
+  EngineeringRevision value;
+  String? expected;
+  bool failWrite = false;
+  Completer<void>? writeGate, readGate;
+  final writeStarted = Completer<void>();
+  int writes = 0;
+  SessionStore(EngineeringDocument document)
+    : value = EngineeringRevision(version: 'v0', document: document);
+  @override
+  Future<EngineeringRevision> read() async {
+    await readGate?.future;
+    return value;
+  }
+
+  @override
+  Future<EngineeringRevision> compareAndWrite({
+    required String expectedVersion,
+    required EngineeringDocument document,
+  }) async {
+    expected = expectedVersion;
+    if (!writeStarted.isCompleted) writeStarted.complete();
+    await writeGate?.future;
+    if (failWrite || value.version != expectedVersion) {
+      throw StateError('Version conflict');
+    }
+    return value = EngineeringRevision(
+      version: 'v${++writes}',
+      document: document,
+    );
+  }
 }

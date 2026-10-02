@@ -9,4 +9,6 @@ dependencies:
   zyren:
     path: ../zyren
 dev_dependencies:
+  zyren_gltf:
+    path: ../zyren_gltf
   test: ^1.29.0
