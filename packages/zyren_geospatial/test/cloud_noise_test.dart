@@ -50,7 +50,7 @@ fn value(kind:u32,p:vec3<f32>)->vec4<f32>{
         );
         final graph = await owner.graphs.compile(
           GraphDescription(
-          inputs: [hash, output],
+            inputs: [hash, output],
             passes: [
               ComputePassDescriptor(
                 name: 'cloud seams',
@@ -59,7 +59,7 @@ fn value(kind:u32,p:vec3<f32>)->vec4<f32>{
                   BufferBinding.storageReadWrite(0, output),
                   BufferBinding.storageRead(2, hash),
                 ]),
-              reads: [hash, output],
+                reads: [hash, output],
                 writes: [output],
                 workgroups: Workgroups(4),
               ),
@@ -174,9 +174,30 @@ fn value(kind:u32,p:vec3<f32>)->vec4<f32>{
           defaults.add(await generator.generate(kind));
         }
         expect(defaults.map((v) => v.size), [512, 128, 32, 128]);
-        expect((await backend.resourceStats()).residentBytes, 9633792);
+        expect(
+          defaults.map(
+            (v) => (v.texture.descriptor as TextureDescriptor).mipLevels,
+          ),
+          [10, 1, 1, 8],
+        );
+        expect((await backend.resourceStats()).residentBytes, 10005160);
+        final reader = owner.createChild();
+        for (final index in [0, 3]) {
+          final texture = await reader.resources.retain(
+            defaults[index].texture,
+          );
+          final descriptor = texture.descriptor as TextureDescriptor;
+          final last = await reader.resources.readTexture(
+            texture,
+            mipLevel: descriptor.mipLevels - 1,
+          );
+          expect(last.length, 4);
+          expect(last[3], 255);
+          expect(last.take(3).any((v) => v > 0), isTrue);
+        }
+        await reader.close();
         print(
-          'Default cloud texture generation: ${stopwatch.elapsedMilliseconds} ms; 9633792 resident bytes',
+          'Default cloud texture generation: ${stopwatch.elapsedMilliseconds} ms; 10005160 resident bytes',
         );
         for (final texture in defaults) {
           await texture.close();

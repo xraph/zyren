@@ -137,3 +137,7 @@ carried by three-geospatial. These include TileableVolumeNoise, copyright (c)
 2017 Sébastien Hillaire, and GLM noise, copyright (c) 2005 G-Truc Creation.
 Their notices and redistribution terms are in
 [licenses/cloud-noise.txt](licenses/cloud-noise.txt).
+
+Cloud shadow cascade construction follows the supplied CascadedShadowMaps and
+FrustumCorners implementations, derived from three-csm and three.js. The vtHawk
+MIT notice is retained in `licenses/cloud-cascades.txt`.

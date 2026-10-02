@@ -278,7 +278,7 @@ detail and curl-turbulence textures. Default sizes are 512 square, 128 cubed,
 32 cubed and 128 square. You can request smaller sizes. Volumes use single-channel
 float textures; weather and turbulence use linear RGBA8. Keep each returned
 `CloudTexture` until its consumer retains it, then close it when you no longer
-need it. All four defaults occupy 9,633,792 GPU bytes after generation.
+need it. All four defaults occupy 10,005,160 GPU bytes after generation.
 
 Generation admits one job per generator and checks cancellation between batches
 of eight volume slices. Cancellation waits for submitted work before cleanup.
@@ -287,3 +287,15 @@ The source sine hash is evaluated once into a pinned 87,552-byte table because
 small CPU/GPU sine differences can change cell positions. Perlin/Worley generation
 and curl evaluation run on the GPU. Tests compare 256 original GLSL samples and
 require identical bytes when you regenerate the same texture on a device.
+
+`CloudTextures` accepts your linear weather, shape, detail and turbulence maps.
+You can retain the set in another GPU scope or generate all four with
+`CloudTextures.generate(scope)`. Weather and turbulence include native mipmaps;
+volume sampling uses repeated trilinear filtering.
+
+`CloudAppearance` keeps source phase, powder and haze settings separate from
+layer density. `CloudShadowCascades.build()` computes the source frustum splits
+and texel-snapped projections in double precision, including orthographic views.
+The internal Beer shadow atlas preserves front depth, mean extinction and the
+optical-depth tail. The screen cloud renderer and temporal resolve remain in
+progress; these utilities do not attach them to a scene.

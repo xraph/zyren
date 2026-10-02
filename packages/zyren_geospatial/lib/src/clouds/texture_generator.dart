@@ -55,12 +55,14 @@ final class CloudTextureGenerator {
           width: size,
           height: size,
           depth: volume ? size : 1,
+          mipLevels: volume ? 1 : size.bitLength,
           dimension: volume ? TextureDimension.d3 : TextureDimension.d2,
           format: volume ? TextureFormat.r32Float : TextureFormat.rgba8Unorm,
           usage: {
             TextureUsage.sampled,
             TextureUsage.storage,
             TextureUsage.copySource,
+            if (!volume) TextureUsage.renderAttachment,
           },
         ),
       );
@@ -134,6 +136,10 @@ $cloudNoiseWgsl
           Uint32List.fromList([z, 0, 0, 0]),
         );
         await graph.execute();
+        check();
+      }
+      if (!volume) {
+        await scope.resources.generateMipmaps(texture);
         check();
       }
       await work.close();

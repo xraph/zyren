@@ -53,3 +53,5 @@ export 'src/clouds/quality.dart';
 export 'src/clouds/texture_generator.dart';
 
 export 'src/clouds/appearance.dart';
+export 'src/clouds/cascades.dart';
+export 'src/clouds/textures.dart';

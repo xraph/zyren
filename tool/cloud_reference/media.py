@@ -20,6 +20,7 @@ def translate(code):
 code=(folder/'compat.hpp').read_text()+r'''
 using ivec3=int __attribute__((ext_vector_type(3)));
 using bvec3=int __attribute__((ext_vector_type(3)));
+using bvec4=int __attribute__((ext_vector_type(4)));
 using bvec2=int __attribute__((ext_vector_type(2)));
 bvec3 B3(bool a,bool b,bool c){return {int(a),int(b),int(c)};}
 vec2 V2(vec2 v){return v;} vec4 V4(vec4 v){return v;}
@@ -38,6 +39,8 @@ vec4 exp(vec4 a){return {exp(a.x),exp(a.y),exp(a.z),exp(a.w)};}
 vec3 exp(vec3 a){return {exp(a.x),exp(a.y),exp(a.z)};}
 vec4 remapClamped(vec4 x,vec4 a,vec4 b){return saturate((x-a)/(b-a));}
 bool all(bvec2 v){return v.x&&v.y;} bool any(bvec3 v){return v.x||v.y||v.z;}
+bool any(bvec4 v){return v.x||v.y||v.z||v.w;}
+bvec4 greaterThan(vec4 a,vec4 b){return a>b;}
 bvec2 greaterThan(vec2 a,vec2 b){return a>b;}
 bvec3 greaterThan(vec3 a,vec3 b){return a>b;} bvec3 lessThan(vec3 a,vec3 b){return a<b;}
 vec2 dFdx(vec2 v){return V2(1,0);}vec2 dFdy(vec2 v){return V2(0,1);}
@@ -68,6 +71,7 @@ code+=translate(media)
 phase=original('clouds.frag');phase=phase[phase.index('vec2 henyeyGreenstein'):phase.index('float marchOpticalDepth')]
 code+='const vec2 scatterAnisotropy=V2(.7f,-.2f);const float scatterAnisotropyMix=.5f;\n'+translate(phase)
 code+=translate(original('structuredSampling.glsl'))
+baseCode=code
 code+=r'''
 void scalar(float x){if(std::isfinite(x))std::cout<<x;else std::cout<<"null";}
 void values(vec4 v){for(int i=0;i<4;i++){if(i)std::cout<<',';scalar(v[i]);}}
@@ -94,3 +98,24 @@ with tempfile.TemporaryDirectory(prefix='zyren-cloud-media-') as temp:
 output=root/'packages/zyren_geospatial/test/fixtures/clouds/media.json'
 output.write_text(json.dumps({'revision':inventory['revision'],'sourceFiles':loaded,'samples':values},indent=2)+'\n')
 print(f'{len(values)} source media samples')
+
+shadow=original('shadow.frag')
+shadow=shadow[shadow.index('vec4 marchClouds('):shadow.index('void getRayNearFar(')]
+shadowCode=baseCode.replace('#define SHAPE_DETAIL','#define SHADOW').replace('#define TURBULENCE','').replace('vec3 minIntervalHeights=', 'vec4 shadowLayerMask=V4(1,1,0,0);\nvec3 minIntervalHeights=')
+shadowCode+='\nint maxIterationCount=25;float minStepSize=100,maxStepSize=1000,opticalDepthTailScale=2,minDensity=.0001f,minExtinction=.0001f,minTransmittance=.01f,bottomRadius=6360000;\n'
+shadowCode+=translate(shadow)
+shadowCode+=r"""
+int main(){std::cout<<std::setprecision(9)<<"[";weatherValue=V4(1);shapeValue=1;detailValue=0;turbulenceValue=V3(.5f);coverage=.6f;
+for(int i=0;i<16;i++){
+ vec3 origin=V3(0,0,6362200);vec3 direction=normalize(V3((i%4)*.2f,0,-1));float distance=1400+(i/4)*100.f,jitter=(i%7)/7.f,mip=(i%4)*.5f;
+ vec4 value=marchClouds(origin,direction,distance,jitter,mip);
+ if(i)std::cout<<',';std::cout<<"{\"origin\":["<<origin.x<<','<<origin.y<<','<<origin.z<<"],\"direction\":["<<direction.x<<','<<direction.y<<','<<direction.z<<"],\"distance\":"<<distance<<",\"jitter\":"<<jitter<<",\"mip\":"<<mip<<",\"expected\":["<<value.x<<','<<value.y<<','<<value.z<<','<<value.w<<"]}";
+}std::cout<<"]";}
+"""
+with tempfile.TemporaryDirectory(prefix='zyren-shadow-media-') as temp:
+ p=Path(temp);(p/'main.cpp').write_text(shadowCode)
+ subprocess.run(['clang++','-O2','-std=c++17','-ffp-contract=off',str(p/'main.cpp'),'-o',str(p/'run')],check=True)
+ values=json.loads(subprocess.check_output([str(p/'run')],text=True))
+output=root/'packages/zyren_geospatial/test/fixtures/clouds/shadow.json'
+output.write_text(json.dumps({'revision':inventory['revision'],'sourceFiles':loaded,'samples':values},indent=2)+'\n')
+print(f'{len(values)} source shadow rays')
