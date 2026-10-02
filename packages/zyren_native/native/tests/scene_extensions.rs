@@ -180,3 +180,27 @@ fn shadow_world_metadata_preserves_precision_and_bounds_light_indices() {
         assert!(settings.validate().is_err());
     }
 }
+
+#[test]
+fn shadow_area_metadata_bounds_emitter_shape_records() {
+    for areas in [
+        json!([[15, 1, 0, 0, 0, 1, 0]]),
+        json!([[20, 1, 0, 0, 0, 1, 0]]),
+        json!([[16.5, 1, 0, 0, 0, 1, 0]]),
+        json!(vec![[16, 1, 0, 0, 0, 1, 0]; 2]),
+        json!(vec![[16, 1, 0, 0, 0, 1, 0]; 5]),
+        json!([[16, 1, 2]]),
+    ] {
+        assert!(!valid(&edit(SETTINGS, |v| v["shadow_world_areas"] = areas)));
+    }
+    let packet = edit(SETTINGS, |v| {
+        v["shadow_world_areas"] = json!([[16, 0.123456789, 0, 0, 0, 1, 0]])
+    });
+    let frame = ScenePacket::decode(&packet).unwrap().resolve(None).unwrap();
+    assert_eq!(frame.settings.shadow_world_areas[0][1], 0.123456789);
+    for invalid in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+        let mut settings = frame.settings.clone();
+        settings.shadow_world_areas[0][1] = invalid;
+        assert!(settings.validate().is_err());
+    }
+}

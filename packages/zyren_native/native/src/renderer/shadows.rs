@@ -46,6 +46,7 @@ struct Caster {
 #[derive(Clone, PartialEq)]
 struct Signature {
     world_lights: Option<Vec<[f64; 4]>>,
+    world_areas: Option<Vec<[f64; 7]>>,
     frame: ShadowFrame,
     casters: Vec<Caster>,
 }
@@ -484,6 +485,12 @@ impl Renderer {
             // Cascades and clipped casters retain conservative invalidation.
             let stable_world = frame.shadows.views.iter().all(|view| {
                 view.kind != 0
+                    && (view.kind != 3
+                        || frame
+                            .settings
+                            .shadow_world_areas
+                            .iter()
+                            .any(|area| area[0] == view.light_index as f64))
                     && frame
                         .settings
                         .shadow_world_lights
@@ -503,6 +510,7 @@ impl Renderer {
             depth_frame.forward = [0.; 3];
             let signature = Signature {
                 world_lights: stable_world.then(|| frame.settings.shadow_world_lights.clone()),
+                world_areas: stable_world.then(|| frame.settings.shadow_world_areas.clone()),
                 frame: depth_frame,
                 casters: frame
                     .meshes

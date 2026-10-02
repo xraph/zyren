@@ -72,6 +72,7 @@ export 'src/geometry/procedural.dart';
 export 'src/math/curve3.dart';
 export 'src/geometry/shape.dart';
 export 'src/geometry/geometry_utils.dart';
+export 'src/geometry/subdivision.dart';
 export 'src/rendering/temporal_aa_options.dart';
 export 'src/effects/temporal_antialiasing.dart';
 export 'src/lights/environment_lighting_plugin.dart';

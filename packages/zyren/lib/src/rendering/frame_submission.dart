@@ -239,6 +239,7 @@ class SceneSnapshot {
               settings,
               node.shadowRevision,
               world.getTranslation().storage,
+              areaAxes: [...w.storage, ...h.storage],
             ),
           );
         }

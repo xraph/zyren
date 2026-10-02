@@ -2,10 +2,37 @@ import 'dart:typed_data';
 import '../math/vec3.dart';
 import 'geometry.dart';
 import 'morph_target.dart';
+import 'subdivision.dart';
 import 'vertex_attribute.dart';
 
 /// CPU topology operations. Inputs stay unchanged; results own new identities.
 abstract final class GeometryUtils {
+  /// Refines triangle geometry while retaining independent UV and color seams.
+  /// See [subdivideGeometry] for supported topology and worker-isolate use.
+  static BufferGeometry subdivide(
+    BufferGeometry source, {
+    int levels = 1,
+    SubdivisionMode mode = SubdivisionMode.loop,
+    bool weldPositions = true,
+    SubdivisionLimits limits = const SubdivisionLimits(),
+    IndexFormat indexFormat = IndexFormat.uint32,
+  }) => BufferGeometry.fromData(
+    subdivideGeometry(
+      GeometryData(
+        attributes: source.attributes,
+        indices: source.indices,
+        topology: source.topology,
+        morphTargets: source.morphTargets,
+        indexFormat: source.indexFormat,
+      ),
+      levels: levels,
+      mode: mode,
+      weldPositions: weldPositions,
+      limits: limits,
+      indexFormat: indexFormat,
+    ),
+  );
+
   /// Expands every indexed corner, including colors, skin data and morph deltas.
   static BufferGeometry toNonIndexed(
     BufferGeometry source, {
