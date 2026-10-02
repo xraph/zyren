@@ -10,7 +10,7 @@ import geospatial_stories as stories
 
 def response():
     return {
-        'schema': 1, 'suite': 'geospatial-native-stories', 'passed': True,
+        'schema': 2, 'suite': 'geospatial-native-stories', 'passed': True,
         'platform': 'android', 'cleanup': 'passed',
         'diagnostics': dict.fromkeys(
             ['sessions', 'renderers', 'retiring', 'readbackBytes', 'surfaces'], 0),
@@ -20,6 +20,8 @@ def response():
             'comparison': 'not run', 'backend': 'Vulkan', 'presentation': 'sharedTexture',
             'logicalViewport': [1000, 600], 'physicalViewport': [640, 384],
             'inputs': {'cloudCoverage': .35},
+            'assets': [{key: asset[key] for key in ('uri', 'sha256', 'bytes')}
+                       for asset in stories.asset_manifest()['assets']],
             'checks': {'centerPickDistance': 20, 'cameraDisplacement': 0,
                        'visibleTiles': 29, 'tilePayloadBytes': 1000000,
                        'effects': 30, 'sourceCredits': 1, 'readbackBytes': 0,
@@ -29,6 +31,35 @@ def response():
 
 
 class QualificationTest(unittest.TestCase):
+    def test_atmosphere_scenes_require_only_the_four_atmosphere_tables(self):
+        value = response()
+        scene = value['scenes'][0]
+        scene.update(
+            sourcePath='storybook/src/atmosphere/3DTilesRenderer.stories.tsx',
+            export='Manhattan', preset='manhattan',
+            inputs={'cloudCoverage': None},
+            assets=[{key: asset[key] for key in ('uri', 'sha256', 'bytes')}
+                    for asset in stories.asset_manifest()['assets']
+                    if asset['group'] == 'atmosphere'],
+        )
+        self.assertEqual(len(scene['assets']), 4)
+        stories.validate_response(value, stories.preset_identity('manhattan'))
+
+    def test_asset_bytes_must_match_every_required_pinned_input(self):
+        expected = stories.preset_identity('london')
+        for mutate in [
+            lambda value: value['scenes'][0].pop('assets'),
+            lambda value: value['scenes'][0]['assets'].pop(),
+            lambda value: value['scenes'][0]['assets'][0].update(sha256='0' * 64),
+            lambda value: value['scenes'][0]['assets'][0].update(bytes=1),
+            lambda value: value['scenes'][0]['assets'].append(
+                value['scenes'][0]['assets'][0]),
+        ]:
+            value = response()
+            mutate(value)
+            with self.assertRaises(ValueError):
+                stories.validate_response(value, expected)
+
     def test_native_presentation_matches_the_platform(self):
         expected = stories.preset_identity('london')
         for platform, backend, presentation, resource in [

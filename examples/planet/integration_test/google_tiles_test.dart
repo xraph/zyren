@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,6 +8,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:planet/google_tiles_lab.dart';
 import 'package:planet/geospatial_presets.dart';
 import 'package:zyren_geospatial/zyren_geospatial.dart';
+import '../test_support/asset_fingerprints.dart';
 
 void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -24,13 +26,29 @@ void main() {
         ? null
         : GoogleTilesPreset.values.byName(selected);
     final key = GlobalKey<GoogleTilesLabState>();
+    final manifest =
+        jsonDecode(
+              await rootBundle.loadString(
+                'assets/qualification/source_assets.json',
+              ),
+            )
+            as Map<String, dynamic>;
+    final assets =
+        AssetFingerprints(SceneRuntime.defaultAssetServices.resolver, {
+          for (final asset in manifest['assets'] as List)
+            Uri.parse(asset['uri'] as String),
+        });
     await tester.pumpWidget(
-      GoogleTilesLabApp(labKey: key, initialPreset: initial),
+      GoogleTilesLabApp(
+        labKey: key,
+        initialPreset: initial,
+        assetServices: assets.wrap(SceneRuntime.defaultAssetServices),
+      ),
     );
     final lab = key.currentState!;
     final records = <Map<String, Object?>>[];
     final report = <String, dynamic>{
-      'schema': 1,
+      'schema': 2,
       'suite': 'geospatial-native-stories',
       'platform': defaultTargetPlatform.name,
       'passed': false,
@@ -201,6 +219,7 @@ void main() {
             lastFrame!.physicalSize.width,
             lastFrame!.physicalSize.height,
           ],
+          'assets': assets.records,
           'inputs': {
             'longitude': preset.longitude,
             'latitude': preset.latitude,
