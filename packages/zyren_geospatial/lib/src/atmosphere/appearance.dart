@@ -8,9 +8,18 @@ final class AtmosphereAppearance {
       inscatter,
       sunLight,
       skyLight,
+      moonLight,
       reconstructNormal,
       correctGeometricError;
   final double albedoScale;
+
+  /// Surface moonlight, independent of the visible lunar disk's intensity.
+  /// One uses the full-moon irradiance ratio; larger values aid night viewing.
+  final double moonLightIntensity;
+
+  /// Additional night-side irradiance as a fraction of unattenuated sunlight.
+  /// Zero preserves darkness when the Moon is new or below the horizon.
+  final double nightLightIntensity;
   final double sunIntensity,
       moonIntensity,
       starIntensity,
@@ -24,9 +33,12 @@ final class AtmosphereAppearance {
     this.inscatter = true,
     this.sunLight = false,
     this.skyLight = false,
+    this.moonLight = false,
     this.reconstructNormal = false,
     this.correctGeometricError = false,
     this.albedoScale = 1,
+    this.moonLightIntensity = 1,
+    this.nightLightIntensity = 0,
     this.sunIntensity = 1,
     this.moonIntensity = 1,
     this.starIntensity = 1000,
@@ -36,10 +48,20 @@ final class AtmosphereAppearance {
     if (!albedoScale.isFinite || albedoScale < 0 || albedoScale > 65504) {
       throw ArgumentError.value(albedoScale, 'albedoScale');
     }
-    for (final v in [sunIntensity, moonIntensity, starIntensity]) {
+    for (final v in [
+      sunIntensity,
+      moonIntensity,
+      starIntensity,
+      moonLightIntensity,
+    ]) {
       if (!v.isFinite || v < 0 || v > 100000) {
         throw ArgumentError('Celestial intensity must be in [0, 100000].');
       }
+    }
+    if (!nightLightIntensity.isFinite ||
+        nightLightIntensity < 0 ||
+        nightLightIntensity > 1) {
+      throw ArgumentError.value(nightLightIntensity, 'nightLightIntensity');
     }
     if (!starPointSize.isFinite ||
         starPointSize < 1 ||
@@ -58,9 +80,12 @@ final class AtmosphereAppearance {
     bool? inscatter,
     bool? sunLight,
     bool? skyLight,
+    bool? moonLight,
     bool? reconstructNormal,
     bool? correctGeometricError,
     double? albedoScale,
+    double? moonLightIntensity,
+    double? nightLightIntensity,
     double? sunIntensity,
     double? moonIntensity,
     double? starIntensity,
@@ -74,9 +99,12 @@ final class AtmosphereAppearance {
     inscatter: inscatter ?? this.inscatter,
     sunLight: sunLight ?? this.sunLight,
     skyLight: skyLight ?? this.skyLight,
+    moonLight: moonLight ?? this.moonLight,
     reconstructNormal: reconstructNormal ?? this.reconstructNormal,
     correctGeometricError: correctGeometricError ?? this.correctGeometricError,
     albedoScale: albedoScale ?? this.albedoScale,
+    moonLightIntensity: moonLightIntensity ?? this.moonLightIntensity,
+    nightLightIntensity: nightLightIntensity ?? this.nightLightIntensity,
     sunIntensity: sunIntensity ?? this.sunIntensity,
     moonIntensity: moonIntensity ?? this.moonIntensity,
     starIntensity: starIntensity ?? this.starIntensity,

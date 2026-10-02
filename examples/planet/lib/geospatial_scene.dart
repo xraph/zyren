@@ -4,6 +4,23 @@ import 'package:zyren_geospatial/zyren_geospatial.dart';
 import 'package:zyren_effects/zyren_effects.dart';
 import 'geospatial_presets.dart';
 
+/// Natural keeps the lunar irradiance scale. Visible also lifts unlit nights.
+enum MoonlightSelection {
+  off('Off', false, 1, 0),
+  natural('Natural', true, 1, 0),
+  visible('Visible', true, 5000, .02);
+
+  final String label;
+  final bool enabled;
+  final double intensity, nightFill;
+  const MoonlightSelection(
+    this.label,
+    this.enabled,
+    this.intensity,
+    this.nightFill,
+  );
+}
+
 /// Keep native display detail while bounding HDR targets during replacement.
 double geospatialResolutionScale({
   required double width,
@@ -32,6 +49,8 @@ final class GeospatialSceneProfile extends ScenePlugin {
   CloudQualitySettings _cloudQuality;
   double _cloudDensity = 1;
   bool _cloudAnimationEnabled = true;
+  MoonlightSelection _moonlight = MoonlightSelection.visible;
+  bool _nightView = false;
   CloudQualitySettings get cloudQuality => _cloudQuality;
   GeospatialSceneProfile({
     required AssetServices services,
@@ -57,6 +76,9 @@ final class GeospatialSceneProfile extends ScenePlugin {
       appearance: AtmosphereAppearance(
         sunLight: true,
         skyLight: true,
+        moonLight: _moonlight.enabled,
+        moonLightIntensity: _moonlight.intensity,
+        nightLightIntensity: _moonlight.nightFill,
         reconstructNormal: true,
         correctGeometricError: true,
         albedoScale: clouds ? 2 / math.pi : .6,
@@ -87,8 +109,45 @@ final class GeospatialSceneProfile extends ScenePlugin {
     densityMultiplier: _cloudDensity,
     localWeatherVelocity: (.001, 0),
   );
-  DateTime get date =>
-      _preset.utcDate(year: GoogleTilesPreset.qualificationYear);
+  DateTime get date {
+    final original = _preset.utcDate(year: GoogleTilesPreset.qualificationYear);
+    return _nightView
+        ? original.add(
+            Duration(
+              milliseconds: ((23 - _preset.timeOfDay) * 3600000).round(),
+            ),
+          )
+        : original;
+  }
+
+  MoonlightSelection get moonlight => _moonlight;
+  set moonlight(MoonlightSelection value) {
+    if (_moonlight == value) return;
+    _moonlight = value;
+    _updateMoonlight();
+  }
+
+  void _updateMoonlight() {
+    if (_context == null) return;
+    final controller = air.controller;
+    controller.appearance = controller.appearance.copyWith(
+      moonLight: _moonlight.enabled,
+      moonLightIntensity: _moonlight.intensity,
+      nightLightIntensity: _moonlight.nightFill,
+    );
+  }
+
+  bool get nightView => _nightView;
+  set nightView(bool value) {
+    if (_nightView == value) return;
+    _nightView = value;
+    if (_context case final context?) {
+      air.controller.date = date;
+      cloudLayer?.controller.resetHistory();
+      context.invalidate();
+    }
+  }
+
   List<ScenePlugin> get plugins => [air, ?cloudLayer, effects, this];
   double get cloudDensity => _cloudDensity;
   set cloudDensity(double value) {
@@ -152,6 +211,7 @@ final class GeospatialSceneProfile extends ScenePlugin {
       _context = null;
     });
     context.service(atmosphere).date = date;
+    _updateMoonlight();
     if (cloudLayer case final layer?) {
       layer.controller.parameters = _cloudParameters;
       layer.controller.animationEnabled = _cloudAnimationEnabled;

@@ -246,6 +246,32 @@ Use `AtmosphereAppearance` to select `transmittance` and `inscatter` separately.
 unlit albedo, enable `sunLight` or `skyLight` and set `albedoScale` (1 by default).
 Leave relighting off for materials that already compute their lighting.
 
+Enable `moonLight` for surface lighting from the current lunar direction and
+phase. `moonLightIntensity` defaults to 1, using the full-moon irradiance scale
+already used by the sky disk. Larger values help you view night-side albedo at
+daytime exposure. This control is independent of `moonIntensity`, which changes
+the disk. Moonlight uses atmospheric attenuation and surface normals, with a
+Lambert-sphere phase approximation. The solar cloud shadow map is not applied
+to lunar rays.
+
+`nightLightIntensity` adds optional night-side fill as a fraction of sunlight,
+fading out through twilight. It defaults to zero. Set it when you need terrain
+to remain visible with a new Moon or the Moon below the horizon. For example:
+
+```dart
+AtmosphereAppearance(
+  sunLight: true,
+  skyLight: true,
+  moonLight: true,
+  moonLightIntensity: 5000,
+  nightLightIntensity: .02,
+)
+```
+
+This example favors visibility. Set `moonLightIntensity: 1` and
+`nightLightIntensity: 0` for the natural lunar scale. Existing lighting masks
+and normal inputs apply to both controls.
+
 `reconstructNormal` derives camera-facing surface normals from depth. Otherwise,
 the effect uses radial normals or a supplied normal map. Enable
 `correctGeometricError` to blend positions and normals toward the atmosphere's

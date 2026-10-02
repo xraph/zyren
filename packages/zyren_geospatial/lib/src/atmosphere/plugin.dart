@@ -350,6 +350,14 @@ final class AtmosphereController {
       1,
     ]);
     final a = _appearance;
+    // Lambert-sphere phase approximation: full Moon is one, new Moon is zero.
+    // The full-moon solar ratio matches the existing celestial disk model.
+    final phaseAngle = math.acos(
+      (-directions.sunECEF.dot(directions.moonECEF)).clamp(-1.0, 1.0),
+    );
+    final lunarPhase =
+        (math.sin(phaseAngle) + (math.pi - phaseAngle) * math.cos(phaseAngle)) /
+        math.pi;
     final sunScale = parameters.sunRadianceToLuminance.dot(
       const Vec3(.2126, .7152, .0722),
     );
@@ -413,6 +421,10 @@ final class AtmosphereController {
       0,
       ...up.storage,
       0,
+      a.moonLight ? 2.5e-6 * lunarPhase * a.moonLightIntensity : 0,
+      a.nightLightIntensity,
+      a.moonLight || a.nightLightIntensity > 0 ? 1 : 0,
+      0,
     ]);
     await active.scope.resources.writeBuffer(active.uniform, data);
     await active.graph.execute();
@@ -474,7 +486,7 @@ final class _AtmosphereCandidate {
     final resources = scope.resources;
     final uniform = await resources.createBuffer(
       BufferDescriptor(
-        size: 464,
+        size: 480,
         usage: {BufferUsage.uniform, BufferUsage.copyDestination},
       ),
     );

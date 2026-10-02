@@ -307,6 +307,38 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
                           ? null
                           : (_) => setState(() => _view(preset)),
                     ),
+                  Tooltip(
+                    message:
+                        'Natural follows lunar brightness. Visible adds night fill when the Moon is down.',
+                    child: DropdownButton<MoonlightSelection>(
+                      key: const ValueKey('moonlight'),
+                      value: profile.moonlight,
+                      underline: const SizedBox(),
+                      selectedItemBuilder: (_) => [
+                        for (final choice in MoonlightSelection.values)
+                          Text('Moonlight: ${choice.label}'),
+                      ],
+                      items: [
+                        for (final choice in MoonlightSelection.values)
+                          DropdownMenuItem(
+                            value: choice,
+                            child: Text(choice.label),
+                          ),
+                      ],
+                      onChanged: (value) => setState(() {
+                        profile.moonlight = value!;
+                      }),
+                    ),
+                  ),
+                  FilterChip(
+                    key: const ValueKey('night-view'),
+                    label: const Text('Night view'),
+                    selected: profile.nightView,
+                    onSelected: (value) => setState(() {
+                      profile.nightView = value;
+                      _refinement = null;
+                    }),
+                  ),
                   if (widget.clouds)
                     Tooltip(
                       message:
@@ -461,7 +493,7 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
                   ? widgets.ZeroState(
                       title: 'Google Maps access is required',
                       message:
-                          'Configure ZYREN_GOOGLE_MAPS_KEY or ZYREN_CESIUM_ION_TOKEN when you build this lab.',
+                          'Add Google Maps or Cesium Ion access to the build configuration.',
                       actionLabel: 'Check access',
                       onAction: _startLoad,
                     )

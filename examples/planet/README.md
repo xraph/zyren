@@ -128,3 +128,13 @@ flutter drive -d macos --driver=test_driver/integration_test.dart --target=integ
 
 That fixture needs no provider credentials. It checks native presentation,
 temporal history, resizing and resource disposal.
+
+### Night-side tiles
+
+The Google cloud and atmosphere labs default to **Moonlight: Visible**, which
+adds phase-aware lunar lighting and a small night fill so tile detail remains
+visible when the Moon is down. Choose **Natural** for the lunar irradiance scale
+without fill, or **Off** to keep the existing sun and sky relighting. **Night
+view** sets the selected location to 23:00 local solar time; turn it off to return
+to the preset's original time. These choices survive location and cloud quality
+changes. They leave daytime lighting unchanged.

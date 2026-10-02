@@ -14,6 +14,7 @@ struct AtmosphereFrame {
  inputs:vec4<f32>, // normal encoding, mask channel (-1 absent), overlay, world normals
  inverseRadiiSquared:vec4<f32>, geometryOffset:vec4<f32>,
  right:vec4<f32>, up:vec4<f32>,
+ lunar:vec4<f32>, // phase-scaled moon irradiance, night fill, relighting enabled
 };
 @group(2) @binding(0) var<uniform> atmosphereFrame:AtmosphereFrame;
 ''';
@@ -142,10 +143,23 @@ fn compositeOverlay(color:vec4<f32>,uv:vec2<f32>)->vec4<f32> {
    normal=mix(normal,sphereNormal,f.geometry.z);
    end=mix(end,sphereNormal*BOTTOM,f.geometry.z);
  }
- if((f.aerial.z>0. || f.aerial.w>0.) && !degenerate){
+ if((f.aerial.z>0. || f.aerial.w>0. || f.lunar.z>0.) && !degenerate){
    var light=vec3<f32>(0.);
    if(f.aerial.z>0.){light+=atmosphereSunIrradiance(end,normal,f.sun.xyz)*cloudTransmission;}
    if(f.aerial.w>0.){light+=atmosphereSkyIrradiance(end,normal,f.sun.xyz);}
+   if(f.lunar.z>0.){
+     let radial=safeNormal(end,vec3<f32>(0.,0.,1.));
+     let night=1.-smoothstep(-.1,.1,dot(radial,f.sun.xyz));
+     if(night>0.){
+       var extra=SOLAR*SUN_LUMINANCE*f.lunar.y*max(0.,(1.+dot(normal,radial))*.5);
+       if(f.lunar.x>0.){
+         // Solar cloud shadows describe the Sun's ray, not the Moon's ray.
+         extra+=(atmosphereSunIrradiance(end,normal,f.moon.xyz)+
+           atmosphereSkyIrradiance(end,normal,f.moon.xyz))*f.lunar.x;
+       }
+       light+=extra*night;
+     }
+   }
    let relit=foreground*(f.geometry.x/PI)*light;
    var mask=1.;if(f.inputs.y>=0.){mask=clamp(sample_lightingMaskImage(v.uv)[u32(f.inputs.y)],0.,1.);}
    foreground=mix(foreground,relit,mask);
