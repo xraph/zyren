@@ -20,3 +20,4 @@ export 'package:zyren/rendering.dart'
         PresentationPath;
 export 'src/input/flutter_input_adapter.dart' show ScenePointerCallback;
 export 'src/presentation/output_presenter.dart';
+export 'src/declarative/scene_canvas.dart';
