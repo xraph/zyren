@@ -219,3 +219,16 @@ use 278,528 bytes; candidate GPU environments retire after atomic replacement.
 reuses the textures. Tests check 48 original helper cases, ECEF/local rendering,
 day/night lighting, metallic reflections, invalidation thresholds, stable-frame
 residency and zero GPU resources after disposal.
+
+## Spectral color integration
+
+Use `SpectralDistribution` for a sampled spectrum over 360-830 nm. You supply
+2-1024 increasing wavelengths and nonnegative power values per nanometre.
+`toXyz()` integrates the piecewise-linear spectrum against the source's CIE 1931
+observer table, using 683 lm/W. `toLinearSrgb()` preserves negative out-of-gamut
+channels so you can choose gamut handling when you display the result.
+
+`Cie1931.matching()` exposes the source's interpolated lookup, including its zero
+endpoints. Reference checks cover 385 wavelengths and five independently
+integrated spectra. This helper does not change the three-channel atmosphere
+precompute.
