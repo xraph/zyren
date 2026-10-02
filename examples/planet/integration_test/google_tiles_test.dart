@@ -5,10 +5,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_zyren/flutter_zyren.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:planet/google_tiles_lab.dart';
+import 'package:planet/geospatial_presets.dart';
 import 'package:zyren_geospatial/zyren_geospatial.dart';
 
 void main() {
-  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   testWidgets('Google Maps live tiles use native presentation and release', (
     tester,
   ) async {
@@ -18,16 +19,34 @@ void main() {
       reason: 'Provide authorized access through dart-define-from-file.',
     );
     await tester.binding.setSurfaceSize(const Size(1000, 700));
+    const selected = String.fromEnvironment('ZYREN_STORY_PRESET');
+    final initial = selected.isEmpty
+        ? null
+        : GoogleTilesPreset.values.byName(selected);
     final key = GlobalKey<GoogleTilesLabState>();
-    await tester.pumpWidget(GoogleTilesLabApp(labKey: key));
+    await tester.pumpWidget(
+      GoogleTilesLabApp(labKey: key, initialPreset: initial),
+    );
     final lab = key.currentState!;
+    final records = <Map<String, Object?>>[];
+    final report = <String, dynamic>{
+      'schema': 1,
+      'suite': 'geospatial-native-stories',
+      'platform': defaultTargetPlatform.name,
+      'passed': false,
+      'cleanup': 'not run',
+      'scenes': records,
+    };
+    binding.reportData = report;
     var initialPosition = lab.controller.camera.position;
     var initialTarget = lab.controller.camera.target;
     var frames = 0;
+    FrameStats? lastFrame;
     final progress = Stopwatch()..start();
     var reportedAt = 0;
     final subscription = lab.controller.frameStats.listen((frame) {
       expectSync(frame.readbackBytes, 0);
+      lastFrame = frame;
       frames++;
       if (progress.elapsed.inSeconds - reportedAt >= 5) {
         reportedAt = progress.elapsed.inSeconds;
@@ -64,18 +83,27 @@ void main() {
         if (i % 20 == 0) lab.controller.invalidate();
       }
       fail(
-        'Live scene timed out: ${lab.tiles?.stats?.visibleTiles} visible; ${lab.tiles?.failures.map((f) => f.code.name).toSet()}.',
+        'Live scene timed out: ${lab.tiles?.stats?.visibleTiles} visible; ${lab.tiles?.failures.map((f) => '${f.code.name} HTTP ${f.httpStatus}').toSet()}.',
       );
     }
 
     try {
-      for (final preset in lab.presets) {
+      final presets = lab.presets
+          .where((preset) => selected.isEmpty || preset.name == selected)
+          .toList();
+      expect(presets, isNotEmpty, reason: 'Unknown story preset: $selected');
+      for (final preset in presets) {
         if (lab.preset != preset) {
           await tester.tap(find.text(preset.label));
           await tester.pump();
           initialPosition = lab.controller.camera.position;
           initialTarget = lab.controller.camera.target;
         }
+        expect(
+          lab.preset,
+          preset,
+          reason: 'The requested preset must be active.',
+        );
         final beforePreset = frames;
         lab.controller.invalidate();
         await until(
@@ -85,7 +113,21 @@ void main() {
               lab.tiles!.attributions.isNotEmpty,
         );
         var settled = 0;
+        var retries = 0;
+        var retryFrame = frames;
         await until(() {
+          if (lab.tiles!.failures.isNotEmpty &&
+              retries < 2 &&
+              frames > retryFrame + 10) {
+            retries++;
+            retryFrame = frames;
+            debugPrint(
+              '${preset.label}: retry $retries for '
+              '${lab.tiles!.failures.map((failure) => '${failure.code.name} HTTP ${failure.httpStatus}').toSet()}.',
+            );
+            lab.tiles!.retryFailed();
+            settled = 0;
+          }
           if (lab.tiles!.stats!.activeRequests == 0) {
             settled++;
           } else {
@@ -143,6 +185,48 @@ void main() {
         debugPrint(
           '${preset.label} combined scene: ${lab.tiles!.stats!.visibleTiles} tiles, ${lab.controller.scene.effects.length} effects.',
         );
+        final renderer = await lab.controller.ready;
+        records.add({
+          'sourcePath':
+              'storybook/src/${preset.coverage == null ? 'atmosphere' : 'clouds'}/3DTilesRenderer.stories.tsx',
+          'export': preset.label,
+          'preset': preset.name,
+          'rendering': 'passed',
+          'comparison': 'not run',
+          'backend': renderer.backend,
+          'adapter': renderer.adapterName,
+          'presentation': renderer.presentationPath.name,
+          'logicalViewport': [viewport.width, viewport.height],
+          'physicalViewport': [
+            lastFrame!.physicalSize.width,
+            lastFrame!.physicalSize.height,
+          ],
+          'inputs': {
+            'longitude': preset.longitude,
+            'latitude': preset.latitude,
+            'heading': preset.heading,
+            'pitch': preset.pitch,
+            'distance': preset.distance,
+            'exposure': preset.exposure,
+            'date': lab.profile.air.controller.date.toIso8601String(),
+            'cloudCoverage': preset.coverage,
+            'cloudWeatherAnimated': preset.coverage != null,
+          },
+          'checks': {
+            'centerPickDistance': hit.point.distanceTo(initialTarget),
+            'cameraDisplacement': lab.controller.camera.position.distanceTo(
+              initialPosition,
+            ),
+            'visibleTiles': lab.tiles!.stats!.visibleTiles,
+            'tilePayloadBytes': lab.tiles!.stats!.residentBytes,
+            'effects': lab.controller.scene.effects.length,
+            'cloudHistoryFrames':
+                lab.profile.cloudLayer?.controller.history.accumulatedFrames,
+            'readbackBytes': lastFrame!.readbackBytes,
+            'sourceCredits': lab.tiles!.attributions.length,
+            'retries': retries,
+          },
+        });
       }
       expect(find.text('Google Maps'), findsWidgets);
       expect(find.text('Data sources'), findsOneWidget);
@@ -180,5 +264,11 @@ void main() {
       expect(diagnostics![name], 0, reason: name);
     }
     debugPrint('Google native cleanup: $diagnostics');
+    report['cleanup'] = 'passed';
+    report['passed'] = true;
+    report['diagnostics'] = {
+      for (final entry in diagnostics!.entries)
+        entry.key.toString(): entry.value,
+    };
   });
 }

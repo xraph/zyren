@@ -47,10 +47,43 @@ its requests and resources when you close it. The tile resource budget is
 The live integration test uses the same private configuration:
 
 ```sh
-flutter test integration_test/google_tiles_test.dart -d macos --dart-define-from-file=/path/to/private-provider.json
+flutter drive -d macos --driver=test_driver/integration_test.dart --target=integration_test/google_tiles_test.dart --dart-define-from-file=/path/to/private-provider.json
 ```
 
-It checks native presentation, Manhattan geometry, a stable camera, attribution
+It checks native presentation, Manhattan and Fuji geometry, a stable camera, attribution
 at desktop and narrow widths, and cleanup. It needs provider access and a network
 connection. For a local synthetic dataset, run `lib/tiles3d_lab.dart` or its
 `integration_test/tiles3d_streaming_test.dart` test instead.
+
+# Source story qualification
+
+Add `--dart-define=ZYREN_LAB_CLOUDS=true` to open Tokyo, Fuji and London with
+the pinned cloud maps and blue noise. Cloud scenes allow 16 MiB of visible tile
+payloads; atmosphere scenes allow 32 MiB. Both share the native resource limit.
+
+You can run one city and save its inputs and checks from the workspace root:
+
+```sh
+python3 tool/qualification/geospatial_stories.py run --preset london --device macos --provider-config /path/to/private-provider.json --output /tmp/zyren-london-metal
+python3 tool/qualification/geospatial_stories.py report --output /tmp/zyren-story-report.json /tmp/zyren-london-metal/evidence.json
+```
+
+Use a fresh output directory for each run. Pass `--flutter` when Flutter is not
+on your PATH, and `--ios` with an iPhone device ID. The runner keeps phone apps
+installed so you don't have to repeat developer trust after every test.
+
+The report retains all 74 pinned source stories. Five city scenes are registered
+so far. A passing native run records the camera, date, viewport, backend, central
+pick, attribution and cleanup. It does not certify image parity. Full source
+image comparisons are still pending, and unregistered scenes stay visible in
+the report. Each run includes file hashes before and after execution; changed
+source or incomplete checks cannot produce a qualified result.
+
+For the offline cloud, lens and SMAA regression, run:
+
+```sh
+flutter drive -d macos --driver=test_driver/integration_test.dart --target=integration_test/cloud_effects_test.dart
+```
+
+That fixture needs no provider credentials. It checks native presentation,
+temporal history, resizing and resource disposal.
