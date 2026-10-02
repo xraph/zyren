@@ -1,0 +1,116 @@
+{
+  "date": "2026-10-02",
+  "featureCommit": "77d1949",
+  "defaults": {
+    "plugin": {
+      "moonLight": false,
+      "moonLightIntensity": 1,
+      "nightLightIntensity": 0
+    },
+    "planet": {
+      "moonlight": "Visible",
+      "moonLightIntensity": 5000,
+      "nightLightIntensity": 0.02,
+      "nightView": false
+    }
+  },
+  "nativeChecks": {
+    "backend": "Metal",
+    "host": "macOS",
+    "passed": 7,
+    "skipped": 0,
+    "command": "dart test test/moonlight_test.dart test/atmosphere_settings_test.dart test/atmosphere_cloud_inputs_test.dart test/atmosphere_frame_test.dart",
+    "moonlightAssertions": [
+      "Dark albedo becomes lit with moonlight.",
+      "Gibbous phase is dimmer than full Moon.",
+      "Moon disk intensity does not change surface lighting.",
+      "Zero lunar gain returns the dark surface.",
+      "Lighting masks preserve the original radiance.",
+      "Moonlight vanishes with the Moon below the horizon in the vacuum fixture.",
+      "Night fill lifts that below-horizon night surface.",
+      "Night controls leave zenith sunlight and just-above-horizon daylight unchanged.",
+      "Native resident GPU bytes return to zero."
+    ],
+    "note": "The pixel regression uses an unlit plane and generated vacuum atmosphere tables, with CPU pixel readback for assertions. It does not use provider tiles."
+  },
+  "widgetChecks": {
+    "passed": 4,
+    "command": "flutter test --no-pub test/moonlight_controls_test.dart test/cloud_controls_test.dart test/geospatial_scene_test.dart",
+    "viewports": [
+      [
+        1000,
+        700
+      ],
+      [
+        390,
+        700
+      ]
+    ],
+    "checks": [
+      "Lighting selection and Night view respond to input.",
+      "Choices survive location changes.",
+      "Turning Night view off restores the preset time.",
+      "Cloud controls still fit and retain their settings."
+    ]
+  },
+  "analysis": "passed for changed Dart files",
+  "workspaceBoundaryCheck": {
+    "status": "failed",
+    "scope": "concurrent changes outside the moonlight commit",
+    "errors": [
+      "packages/zyren_devtools/lib/io.dart: unexpected dependency package:zyren_agents/zyren_agents.dart",
+      "packages/zyren_devtools/lib/agents.dart: unexpected dependency package:zyren_agents/zyren_agents.dart"
+    ]
+  },
+  "featureSource": {
+    "sourceHead": "4d37137cd3f9a3be4469f02453e8541e5015fe7f",
+    "featureFiles": {
+      "packages/zyren_geospatial/lib/src/atmosphere/appearance.dart": "28a55bdbb481b2eb5e9f83c9c3b078d2f5e5fcd75e1ff9631084523d595a400f",
+      "packages/zyren_geospatial/lib/src/atmosphere/plugin.dart": "2b8a2a5cfde96f8af7272c7314545fb0e905c6e2f174e55d56e184cff305cdb7",
+      "packages/zyren_geospatial/lib/src/atmosphere/scene_wgsl.dart": "a694da5644aa0c233371d995243df131ebf5d79a55fa688294e5abd6780df1b4",
+      "examples/planet/lib/geospatial_scene.dart": "4caaed05d17c92515be553c5f944defacd867d0f713924b640608b40d686eeda",
+      "examples/planet/lib/google_tiles_lab.dart": "e08b011d2b18b4d686ab91ae090583f1e2fb13e123ca9a9ca8b7aa5180534265"
+    }
+  },
+  "builds": {
+    "macos": {
+      "mode": "profile",
+      "target": "lib/google_tiles_lab.dart",
+      "result": "passed",
+      "signatureVerification": "passed",
+      "algorithm": "sha256 over compact JSON of sorted [relativePath, kind, fileSha256 or symlinkTarget] entries",
+      "bundleSha256": "ea3b68c91e2815de1fa6730f6bc13f28a0c404837ef11fedf2dadadc4d204819",
+      "entryCount": 51,
+      "packagingRepair": "Re-sealed the existing ad hoc outer app signature after incremental packaging left an outdated App.framework seal. Preserved identifier, entitlements, requirements, flags and runtime metadata.",
+      "liveLaunch": "pending Mac unlock"
+    },
+    "ios": {
+      "mode": "profile",
+      "target": "lib/google_tiles_lab.dart",
+      "result": "passed",
+      "signatureVerification": "passed",
+      "algorithm": "sha256 over compact JSON of sorted [relativePath, kind, fileSha256 or symlinkTarget] entries",
+      "bundleSha256": "ac1c808e62b442cb81fab970157ae439b5a6a0351f8dc80ed21fd1555f7b559a",
+      "entryCount": 67
+    }
+  },
+  "devices": {
+    "iphone": {
+      "normalAppInstall": "success",
+      "normalAppLaunch": "last attempt blocked by device lock; not retried after final install"
+    },
+    "ipad": {
+      "normalAppInstall": "success",
+      "normalAppLaunch": "last attempt blocked by device lock; not retried after final install"
+    }
+  },
+  "limits": [
+    "Live Google night-side tile inspection is pending because macOS is locked.",
+    "Updated normal iPhone and iPad apps are installed, but launch was denied by the device lock screen.",
+    "Moonlight was not requalified through physical-device rendering on iOS, iPadOS or Android.",
+    "Only the owned feature source hashes were checked across these builds; concurrent workspace changes are included.",
+    "The lunar phase uses a Lambert-sphere approximation; Visible adds intentional brightness and night fill.",
+    "Moonlight is applied to surface relighting, not to cloud-volume scattering."
+  ],
+  "sunriseCorrectionCommit": "4d37137"
+}
