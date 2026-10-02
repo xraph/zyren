@@ -191,3 +191,18 @@ root. This test explicitly selects DX12, even if Vulkan is also installed:
 cargo test --manifest-path packages/zyren_native/native/Cargo.toml --lib \
   dx12_memory_reports_query_the_selected_adapter -- --include-ignored --nocapture
 ```
+
+## AI diagnostics and local tools
+
+`SceneDiagnostics(inspector)` exposes a versioned JSON inspection API, conservative
+blank-scene checks and bounded diagnostic reports. Call `recordIssue` with host
+issues, including initialization failures. No model is required by the package.
+
+The optional `package:zyren_devtools/io.dart` library provides a token-protected
+loopback bridge and a stdio MCP server. The `zyren` executable can inspect the
+same session from your terminal or MCP client. Networking starts only when your
+host explicitly calls `DevtoolsServer.start`; close the server during cleanup.
+
+See [AI setup](guides/README.md) for workbench commands, MCP configuration,
+result limits and a compiled authoring recipe. See the
+[agent guide](guides/AGENT_GUIDE.md) for current API conventions.

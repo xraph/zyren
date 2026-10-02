@@ -1,0 +1,14 @@
+# Zyren
+
+> Native Dart 3D with an optional Flutter host. Local workspace API 0.1.0.
+
+## Authoring
+
+- [Agent guide](packages/zyren_devtools/guides/AGENT_GUIDE.md): Current imports, lifecycle, coordinates and checks.
+- [Compiled recipe](packages/zyren_devtools/example/inspection_recipe.dart): Scene inspection setup tested in CI.
+- [Core API](packages/zyren/lib/zyren.dart): Public Dart exports.
+
+## Live diagnostics
+
+- [AI setup](packages/zyren_devtools/guides/README.md): CLI, MCP and local debug bridge setup.
+- [Devtools](packages/zyren_devtools/README.md): Inspector plugin and optional tools.

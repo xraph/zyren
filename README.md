@@ -259,3 +259,11 @@ contains the full CI commands.
 Zyren includes ports and dependencies with their own license requirements.
 Read [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and the
 [license texts](licenses/) before redistributing those components.
+
+## AI developer tools
+
+You can connect an MCP assistant to the running workbench to inspect objects,
+check blank scenes and examine reported frame costs. The local CLI exposes the
+same read-only tools. See [AI setup](packages/zyren_devtools/guides/README.md)
+for connection details and [the agent guide](packages/zyren_devtools/guides/AGENT_GUIDE.md)
+for the scene API and authoring recipe.

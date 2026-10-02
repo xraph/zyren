@@ -1,5 +1,5 @@
 name: zyren_devtools
-description: Scene inspection and bounded frame diagnostics for Dart 3D scenes.
+description: Scene diagnostics, a local CLI and MCP tools for Dart 3D scenes.
 version: 0.1.0
 publish_to: none
 resolution: workspace
@@ -12,3 +12,5 @@ dev_dependencies:
   zyren_native:
     path: ../zyren_native
   test: ^1.29.0
+executables:
+  zyren:

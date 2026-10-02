@@ -1,8 +1,11 @@
 library;
 
 import 'dart:collection';
+import 'dart:math' as math;
 import 'package:zyren/zyren.dart';
 import 'package:zyren/rendering.dart' show GpuInspection;
+
+part 'src/diagnostics.dart';
 
 const sceneDevtools = ServiceKey<SceneDevtoolsPlugin>('zyren.devtools');
 
@@ -15,6 +18,8 @@ final class SceneNodeInfo {
   final Vec3 position, scale;
   final Quat rotation;
   final int triangles;
+  final BufferGeometry? _geometry;
+  final bool _hasColorMap;
   final Color3? color;
   final bool? unlit;
   SceneNodeInfo._(
@@ -23,7 +28,9 @@ final class SceneNodeInfo {
     required this.parentId,
     required this.depth,
     required this.effectivelyVisible,
-  }) : name = object.name,
+  }) : _geometry = object is Mesh ? object.geometry : null,
+       _hasColorMap = object is Mesh && object.material.colorMap != null,
+       name = object.name,
        isMesh = object is Mesh,
        position = object.position,
        scale = object.scale,
@@ -50,6 +57,7 @@ class SceneDevtoolsPlugin extends ScenePlugin {
   final _ids = Expando<int>('inspector object IDs');
   final _frames = Queue<FrameStats>();
   int _nextId = 1;
+  int _attachment = 0;
   PluginContext? _context;
   SceneDevtoolsPlugin({this.historyLimit = 120}) {
     if (historyLimit < 1) {
@@ -65,6 +73,7 @@ class SceneDevtoolsPlugin extends ScenePlugin {
 
   @override
   void attach(PluginContext context) {
+    _attachment++;
     _context = context;
     context.provide(sceneDevtools, this);
   }
@@ -79,10 +88,24 @@ class SceneDevtoolsPlugin extends ScenePlugin {
     return result;
   }
 
-  SceneInspection snapshot() {
+  SceneInspection snapshot({int? maxNodes}) {
+    if (maxNodes != null && maxNodes < 1) {
+      throw ArgumentError.value(maxNodes, 'maxNodes');
+    }
     final scene = _attached.scene;
     final nodes = <SceneNodeInfo>[];
-    void visit(Object3D object, int? parentId, int depth, bool parentVisible) {
+    final pending = <(Object3D, int?, int, bool)>[
+      for (final child in scene.children.reversed)
+        (child, null, 0, scene.visible),
+    ];
+    while (pending.isNotEmpty) {
+      if (maxNodes != null && nodes.length == maxNodes) {
+        throw const DiagnosticException(
+          'sceneTooLarge',
+          'Scene exceeds the 10000 node inspection budget.',
+        );
+      }
+      final (object, parentId, depth, parentVisible) = pending.removeLast();
       final id = _ids[object] ??= _nextId++;
       final visible = parentVisible && object.visible;
       nodes.add(
@@ -94,13 +117,9 @@ class SceneDevtoolsPlugin extends ScenePlugin {
           effectivelyVisible: visible,
         ),
       );
-      for (final child in object.children) {
-        visit(child, id, depth + 1, visible);
+      for (final child in object.children.reversed) {
+        pending.add((child, id, depth + 1, visible));
       }
-    }
-
-    for (final child in scene.children) {
-      visit(child, null, 0, scene.visible);
     }
     return SceneInspection._(scene.revision, nodes);
   }
