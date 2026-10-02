@@ -3,6 +3,7 @@ publish_to: none
 environment:
   sdk: '>=3.10.0 <4.0.0'
 workspace:
+  - packages/zyren_configurator
   - packages/zyren
   - packages/zyren_inspector
   - packages/zyren_tools
