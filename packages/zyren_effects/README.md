@@ -32,3 +32,22 @@ The native source fixtures also cover 192 Hald interpolation cases, transparent
 coverage, resize, invalid inputs and scoped cleanup.
 
 Run native checks with `RUN_NATIVE_GPU=1 dart test --concurrency=1`.
+
+`TextureBlur.create(gpuScope, input, kind: BlurKind.gaussian)` retains a sampled
+2D input and builds a reusable compute graph. Call `execute()` after writing the
+input, then sample `output`. Gaussian uses two passes at input resolution, with
+a default kernel size of 35. Kawase, mipmap and surface blur use 2 to 8 levels
+(default 4), starting at the source's quarter-resolution output size and rounding
+at each reduction. Surface blur blends each reconstructed level with its matching
+downsample level; `surfaceBlend` defaults to .85.
+
+Inputs are limited to 1024 pixels per axis. Outputs use RGBA16F and preserve
+premultiplied coverage through ordinary linear filtering. Build a replacement
+when input dimensions or settings change; repeated execution reuses its resources.
+If you need readback, retain `output` in your receiving resource scope first.
+
+`GaussianKernel` exposes the pinned source taps for odd sizes from 3 through 63.
+The source truncates its merged tap array for some sizes; sizes 3 and 5 therefore
+produce an identity filter. The port preserves that behavior. Reference tests
+execute the original TSL expressions for 24 constant, impulse and border cases,
+including odd dimensions, and compare native half-float results.
