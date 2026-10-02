@@ -99,9 +99,17 @@ cover discovery, schemas, real actions, stale targets, denied scopes and unload.
 Screen/raycast identity and evidence come from the shared host context. These
 providers must not infer rendered pixel visibility from scene geometry.
 
-Current dependency: the shared registry contract is being implemented. Local
-helpers alone do not establish integration. Real native screen-to-action and MCP
-checks remain required and separate from direct API tests.
+The shared `zyren_agents` contract is now available and all three packages have
+optional `agents.dart` providers. Configurator and audio expose metadata callbacks
+for shared rich hits. Capture uses a registration wrapper that cancels its jobs
+on detach. The optional effects adapter lives in
+`packages/zyren_capture/lib/effects_agents.dart`; it inspects the existing chain
+and controls scene exposure, tone mapping and HDR with guarded undo. Rebuilding
+chain resources through agent tools remains pending.
+
+Direct registry tests and an actual stdio MCP session now pass. The native MCP
+fixture is a headless view. Active Flutter viewport/overlay integration and a
+matching presented-frame screen-to-action flow remain unverified.
 
 ## Current evidence
 
@@ -109,7 +117,8 @@ Configurator first slice is implemented. Seven tests passed with Flutter
 3.47.5's Dart SDK: new-object reload, baseline restoration, invalid choices,
 schema/catalog mismatch, duplicate/dangling rules, conflicting writes and binding
 validation. The executable example saved and restored its selection. Analysis
-passes after resolving two brace lint findings. Rendered appearance is unverified.
+passes after resolving two brace lint findings. The later native MCP check
+verified a material color change in actual Metal readback.
 Configurator commit: `cd0df35`.
 
 Audio now has a real pinned miniaudio backend, native-asset hook, listener and
@@ -135,8 +144,32 @@ Disk space briefly blocked the Flutter launcher stamp write. Capture tests and
 the native CLI completed; subsequent Dart checks use the installed SDK binary
 directly. Shared build caches were left intact.
 
-Agent adapters will follow the now-present shared contract before this checkpoint
-is considered integrated. The milestones above retain the remaining scope.
+Capture implementation commit: `41382fe`.
+
+Runtime providers: configurator has eight passing tests, audio has six, and
+capture has ten (eight capture lifecycle/PNG checks plus capture-agent and effects
+checks). Shared-interface tests cover discovery, schemas, ordinary actions,
+denied scopes, expected revisions, retries, stale targets and deregistration.
+Capture additionally cancels its owned jobs on detach. Analysis passes across
+all three packages. Queries do not change the scene or request continuous frames.
+
+Live MCP: `example/agent_scene.dart` uses the existing devtools stdio protocol.
+Twenty-one actual MCP calls discovered configurator/audio/capture/effects and the
+shared viewport provider. A logical (32,32) hit at DPR 1 returned source ID `body`
+and CPU triangle coverage with pixel visibility unknown. Configurator apply then
+changed a native Metal PNG. SHA-256 before:
+`c56580739321ad8d51cd373e8f580e730ba705bd1fde77b07008f289fa00b019`.
+After: `e5ffbe26a5a144824088369761fdd6454c1621d561debfe7766fea379ad5e8f7`.
+MCP also played/paused the real offline native audio emitter and set scene
+exposure. Full local transcript: `/tmp/zyren-smaller-mcp-evidence.json`.
+This is native readback and MCP evidence, not a displayed Flutter screen check.
+
+The global package-boundary check currently reports two dependencies in the
+interaction owner's in-progress devtools adapter (`io.dart` and `agents.dart`
+import `zyren_agents`). No owned package failed that check. Shared edits stay with
+that owner. Workspace dependency resolution subsequently passed after the XR
+owner registered its example. No dependency lockfile changes belong to this
+batch. The milestones above retain the remaining scope.
 
 The shell's default Flutter uses Dart 3.9.2 and cannot resolve this workspace.
 Use `/Users/rexraphael/fvm/versions/3.47.5/bin/flutter` and its matching Dart SDK.

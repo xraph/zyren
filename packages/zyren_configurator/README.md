@@ -22,3 +22,22 @@ bindings when you load them into a new scene. Catalog migration is explicit.
 Imported material variants, camera presets, hotspots and catalog-service
 adapters remain planned. This first slice has no Flutter controls or device
 qualification requirement; rendered appearance has not been checked here.
+
+## Runtime agents
+
+Import `agents.dart`, create `ConfiguratorAgentProvider` with your controller and
+scene/document IDs, then keep the registration returned by
+`registry.register(provider)` for the attachment lifetime. Dispose it on unload.
+Grant `configurator.write` only through your host registry policy.
+
+Agents can discover `inspect`, paginated `options`, `apply`, `reset` and `undo`.
+The shared registry checks schemas, expected revisions and retry identities.
+`apply` takes a complete array of `{slot, option}` choices. Queries include the
+catalog revision and stable source/runtime target IDs. Removed targets are stale.
+Undo restores the preceding provider selection only while the scene is unchanged.
+
+Pass `provider.metadata` into your shared `AgentViewportProvider` to enrich hits
+with host-bound source IDs and action references. These are catalog facts;
+rendered visibility remains unknown. Reads do not mutate or schedule frames.
+The combined native MCP example lives at
+`../zyren_capture/example/agent_scene.dart`.

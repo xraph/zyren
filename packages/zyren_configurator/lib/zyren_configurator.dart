@@ -199,6 +199,10 @@ final class SceneConfigurator {
   final _baseVisibility = <Object3D, bool>{};
   SavedConfiguration? _current;
   bool _closed = false;
+  int _revision = 0;
+  int get revision => _revision;
+  bool get isClosed => _closed;
+  Map<String, Object3D> get targets => _targets;
 
   SceneConfigurator({
     required this.catalog,
@@ -271,6 +275,7 @@ final class SceneConfigurator {
       entry.key.visible = visibilityWrites[entry.key] ?? entry.value;
     }
     _current = saved;
+    _revision++;
   }
 
   void restore(String source) => apply(SavedConfiguration.decode(source));
@@ -284,6 +289,7 @@ final class SceneConfigurator {
       entry.key.visible = entry.value;
     }
     _current = null;
+    _revision++;
   }
 
   void close() {
