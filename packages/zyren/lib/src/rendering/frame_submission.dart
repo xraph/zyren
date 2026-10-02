@@ -234,9 +234,12 @@ class SceneSnapshot {
             ..setTranslation(
               world.getTranslation() - camera.position.toVectorMath(),
             );
-          if (clipping && planes.isNotEmpty && shader != null) {
+          if (clipping &&
+              planes.isNotEmpty &&
+              shader != null &&
+              !shader.descriptor.supportsClipping) {
             throw UnsupportedError(
-              'Custom shader materials must opt out of scene clipping.',
+              'Custom shader materials must declare a clipping hook or opt out.',
             );
           }
           meshes.add(

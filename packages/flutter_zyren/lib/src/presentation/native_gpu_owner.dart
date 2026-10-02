@@ -6,7 +6,7 @@ import 'package:zyren_native/zyren_native.dart';
 
 /// Shared ownership for channel-backed renderers. Each host serializes GPU
 /// commands with scene rendering on its existing native queue.
-mixin NativeGpuOwner implements MaterialBackend {
+mixin NativeGpuOwner implements MaterialBackend, GpuDiagnosticsBackend {
   bool get gpuOwnerClosed;
   Future<Map> gpuRequest(Map<String, Object> arguments);
   NativeGpuContext? _gpu;
@@ -30,6 +30,10 @@ mixin NativeGpuOwner implements MaterialBackend {
           : NativeGpuReply.failure(status, response['error'] as String);
     });
   }
+
+  @override
+  Future<GpuInspection> inspectGpu({int allocationLimit = 128}) =>
+      _context.inspectGpu(allocationLimit: allocationLimit);
 
   @override
   ResourceScope createResourceScope({String label = ''}) =>

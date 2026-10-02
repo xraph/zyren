@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'registration.dart';
+import '../rendering/gpu_diagnostics.dart';
 import 'attachment_scope.dart';
 import '../input/pointer_event.dart';
 import '../rendering/capabilities.dart';
@@ -82,6 +83,22 @@ class PluginContext {
     this._demand,
     this.input,
   );
+
+  /// Queries the backend only when you request an inspection.
+  Future<GpuInspection?> inspectGpu({int allocationLimit = 128}) async {
+    if (!_active || scope.isClosed) {
+      throw StateError('Plugin context has been detached.');
+    }
+    if (allocationLimit < 1 || allocationLimit > 256) {
+      throw RangeError.range(allocationLimit, 1, 256, 'allocationLimit');
+    }
+    final backend = _backend;
+    return backend is GpuDiagnosticsBackend
+        ? (backend as GpuDiagnosticsBackend).inspectGpu(
+            allocationLimit: allocationLimit,
+          )
+        : null;
+  }
 
   /// Allocations belong to this plugin attachment and close during detachment.
   ResourceScope get resources {

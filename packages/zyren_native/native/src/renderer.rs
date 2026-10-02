@@ -118,6 +118,7 @@ pub struct RendererState {
     pub(crate) drawable_owner: Option<crate::interop::metal::DrawableOwner>,
     pub(crate) failure: Option<String>,
     counters: RenderCounters,
+    last_gpu_time_ns: Option<u64>,
     layout: wgpu::BindGroupLayout,
     geometries: HashMap<u32, GpuGeometry>,
     resources: crate::resources::ResourceStore,
@@ -260,6 +261,7 @@ impl Renderer {
                 #[cfg(target_vendor = "apple")]
                 drawable_owner: None,
                 failure: None,
+                last_gpu_time_ns: None,
                 counters: RenderCounters::default(),
                 layout,
                 geometries: HashMap::new(),
@@ -329,6 +331,8 @@ impl Renderer {
                 instance_bytes: state.instances.bytes(),
                 instance_uploaded_bytes: state.instances.uploaded_bytes,
                 instance_draw_calls: state.instances.draws(),
+                last_gpu_time_ns: state.last_gpu_time_ns,
+                submitted_frames: state.counters.submitted_frames,
                 device_info: serde_json::json!({"backend":format!("{:?}",state.backend),"adapterName":state.adapter_name,"sampleCounts":if state.supports_msaa4 {vec![1,4]} else {vec![1]}}),
             },
             bytes,
@@ -900,6 +904,7 @@ impl Renderer {
     }
 
     fn wait_for_submission(&mut self, submission: Submission) -> Result<(), String> {
+        self.last_gpu_time_ns = None;
         let result = self
             .device
             .poll(wgpu::PollType::Wait {
@@ -910,7 +915,11 @@ impl Renderer {
             .map_err(|error| error.to_string());
         #[cfg(target_vendor = "apple")]
         let result = result.and_then(|()| match submission.metal {
-            Some(completion) => completion.check(),
+            Some(completion) => {
+                completion.check()?;
+                self.last_gpu_time_ns = completion.gpu_time_ns();
+                Ok(())
+            }
             None => Ok(()),
         });
         if result.is_ok() {

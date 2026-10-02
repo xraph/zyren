@@ -414,6 +414,17 @@ impl ResourceStore {
     pub(crate) fn collect(&mut self, device: &wgpu::Device) -> Result<(), ResourceError> {
         self.wait(device)
     }
+    pub(crate) fn inspection(&self, limit: usize) -> serde_json::Value {
+        let allocations: Vec<_> = self.registry.inspect(limit).into_iter().map(
+            |(key, resource, bytes, references, submission)| serde_json::json!({
+                "id": format!("{}:{}:{}:{}", key.renderer, key.device_generation, key.slot, key.slot_generation),
+                "kind": match resource {Resource::Geometry {..} => "geometry", Resource::Buffer {..} => "buffer", Resource::Texture {..} => "texture"},
+                "payloadBytes": bytes, "references": references, "lastSubmission": submission
+            })).collect();
+        serde_json::json!({"registryPayloadBytes": self.registry.resident_bytes(),
+            "totalAllocations": self.registry.live_allocations(), "allocations": allocations,
+            "residentBytes": null})
+    }
     pub(crate) fn stats(&self) -> (u64, u64) {
         (self.registry.resident_bytes(), self.uploaded)
     }

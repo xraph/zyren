@@ -69,6 +69,16 @@ class SceneDevtoolsPlugin extends ScenePlugin {
     context.provide(sceneDevtools, this);
   }
 
+  /// Returns null when the attached backend has no diagnostic query support.
+  Future<GpuInspection?> inspectGpu({int allocationLimit = 128}) async {
+    final context = _attached;
+    final result = await context.inspectGpu(allocationLimit: allocationLimit);
+    if (!identical(_context, context)) {
+      throw StateError('Inspector detached during query.');
+    }
+    return result;
+  }
+
   SceneInspection snapshot() {
     final scene = _attached.scene;
     final nodes = <SceneNodeInfo>[];

@@ -28,7 +28,7 @@ wgpu = { version = "=30.0.1", default-features = false, features = ["std", "park
 
 [target.'cfg(target_vendor = "apple")'.dependencies]
 objc2 = "0.6.4"
-objc2-metal = { version = "0.3.2", default-features = false, features = ["std", "MTLDevice", "MTLResource", "MTLTexture", "MTLPixelFormat", "MTLTypes", "MTLAllocation", "MTLCommandBuffer"] }
+objc2-metal = { version = "0.3.2", default-features = false, features = ["std", "MTLDevice", "MTLResource", "MTLTexture", "MTLPixelFormat", "MTLTypes", "MTLAllocation", "MTLCommandBuffer", "objc2-core-foundation"] }
 
 [target.'cfg(target_vendor = "apple")'.dev-dependencies]
 objc2-core-foundation = { version = "0.3.2", default-features = false, features = ["std", "CFDictionary", "CFNumber", "CFString"] }

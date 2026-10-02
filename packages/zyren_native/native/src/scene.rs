@@ -249,7 +249,6 @@ impl Mesh {
     }
     pub fn validate_material(&self) -> Result<(), String> {
         if self.clipping_planes.len() > 6
-            || (!self.clipping_planes.is_empty() && self.shader.is_some())
             || self.clipping_planes.iter().any(|plane| {
                 plane.iter().any(|value| !value.is_finite())
                     || (glam::Vec3::new(plane[0], plane[1], plane[2]).length_squared() - 1.).abs()
@@ -257,7 +256,7 @@ impl Mesh {
             })
         {
             return Err(
-                "Clipping requires at most six normalized planes and a built-in material".into(),
+                "Clipping requires at most six normalized planes".into(),
             );
         }
         if !self.instances.is_empty()

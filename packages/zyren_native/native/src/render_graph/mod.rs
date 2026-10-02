@@ -40,6 +40,7 @@ enum Command {
     Release { key: Key },
     Stats {},
     DeviceInfo {},
+    InspectGpu { allocation_limit: usize },
 }
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -179,6 +180,8 @@ pub(crate) struct GraphContext<'a> {
     pub instance_uploaded_bytes: u64,
     pub instance_draw_calls: usize,
     pub device_info: Value,
+    pub last_gpu_time_ns: Option<u64>,
+    pub submitted_frames: u64,
 }
 
 impl GraphStore {
@@ -202,6 +205,8 @@ impl GraphStore {
             instance_uploaded_bytes,
             instance_draw_calls,
             device_info,
+            last_gpu_time_ns,
+            submitted_frames,
         } = context;
         if bytes.len() > MAX_COMMAND_BYTES || capacity != RESPONSE_CAPACITY {
             return Err("Invalid graph command capacity".into());
@@ -243,6 +248,39 @@ impl GraphStore {
                 Command::Release { key: value } => self
                     .release(device, resources, shaders, key(value))
                     .map(|()| json!({})),
+                Command::InspectGpu { allocation_limit } => {
+                    if !(1..=256).contains(&allocation_limit) {
+                        Err(GraphError::new(
+                            "limitExceeded",
+                            "Allocation limit must be between 1 and 256",
+                        ))
+                    } else {
+                        let mut result = resources.inspection(allocation_limit);
+                        #[cfg(target_vendor = "apple")]
+                        let allocated = {
+                            use objc2_metal::MTLDevice;
+                            // SAFETY: query only, with no device mutation or escaping HAL borrow.
+                            unsafe { device.as_hal::<wgpu::hal::api::Metal>() }
+                                .map(|hal| hal.raw_device().currentAllocatedSize() as u64)
+                        };
+                        #[cfg(not(target_vendor = "apple"))]
+                        let allocated: Option<u64> = None;
+                        result["lastSubmissionGpuTimeNs"] = json!(last_gpu_time_ns);
+                        result["submittedFrames"] = json!(submitted_frames);
+                        result["gpuTimeSource"] = json!(if last_gpu_time_ns.is_some() {
+                            "metal.commandBuffer.startEndTime"
+                        } else {
+                            "unavailable"
+                        });
+                        result["deviceAllocatedBytes"] = json!(allocated);
+                        result["deviceAllocationSource"] = json!(if allocated.is_some() {
+                            "metal.currentAllocatedSize"
+                        } else {
+                            "unavailable"
+                        });
+                        Ok(result)
+                    }
+                }
                 Command::DeviceInfo {} => Ok(device_info),
                 Command::Stats {} => Ok(
                     json!({"instanceBytes":instance_bytes,"instanceUploadedBytes":instance_uploaded_bytes,"instanceDrawCalls":instance_draw_calls,"shadowBytes":shadow_bytes,"shadowPasses":shadow_passes,"targetBytes": target_bytes, "liveMaterials": self.materials.live(), "liveGraphs": self.registry.live_allocations(), "descriptionBytes": self.registry.resident_bytes(),

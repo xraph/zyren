@@ -155,6 +155,34 @@ mixin _NativeGraphs {
     await _graphCommand({'operation': 'release', 'key': key as _GraphKey});
   }
 
+  Future<GpuInspection> inspectGpu({int allocationLimit = 128}) async {
+    if (allocationLimit < 1 || allocationLimit > 256) {
+      throw RangeError.range(allocationLimit, 1, 256, 'allocationLimit');
+    }
+    final result = await _graphCommand({
+      'operation': 'inspectGpu',
+      'allocation_limit': allocationLimit,
+    });
+    return GpuInspection(
+      lastSubmissionGpuTimeNs: result['lastSubmissionGpuTimeNs'] as int?,
+      submittedFrames: result['submittedFrames'] as int,
+      gpuTimeSource: result['gpuTimeSource'] as String,
+      deviceAllocatedBytes: result['deviceAllocatedBytes'] as int?,
+      deviceAllocationSource: result['deviceAllocationSource'] as String,
+      registryPayloadBytes: result['registryPayloadBytes'] as int,
+      totalAllocations: result['totalAllocations'] as int,
+      allocations: (result['allocations'] as List).map(
+        (value) => GpuAllocationInfo(
+          id: value['id'] as String,
+          kind: value['kind'] as String,
+          payloadBytes: value['payloadBytes'] as int,
+          references: value['references'] as int,
+          lastSubmission: value['lastSubmission'] as int,
+        ),
+      ),
+    );
+  }
+
   Future<NativeDeviceInfo> deviceInfo() async =>
       NativeDeviceInfo._(await _graphCommand({'operation': 'deviceInfo'}));
 

@@ -1,6 +1,8 @@
 /// Advanced backend contracts. Normal scene construction uses zyren.dart.
 library;
 
+export 'src/rendering/gpu_diagnostics.dart';
+
 export 'src/rendering/capabilities.dart';
 export 'src/rendering/frame_output.dart';
 export 'src/rendering/frame_submission.dart';

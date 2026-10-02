@@ -2,7 +2,7 @@ part of 'native_renderer.dart';
 
 /// Native rendering from a captured submission, without Flutter dependencies.
 /// Apple surfaces use the same worker and GPU device as explicit capture.
-class NativeBackend implements MaterialBackend {
+class NativeBackend implements MaterialBackend, GpuDiagnosticsBackend {
   final NativeRenderer _renderer;
   late final ScenePacketEncoder _encoder;
   Future<FrameOutput>? _drawing;
@@ -57,6 +57,12 @@ class NativeBackend implements MaterialBackend {
       _resourceScopes.remove(scope);
     });
     return scope;
+  }
+
+  @override
+  Future<GpuInspection> inspectGpu({int allocationLimit = 128}) {
+    if (_closed) throw StateError('Backend has closed.');
+    return _resources.inspectGpu(allocationLimit: allocationLimit);
   }
 
   Future<ResourceStats> resourceStats() => _resources.stats();

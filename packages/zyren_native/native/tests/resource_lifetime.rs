@@ -53,3 +53,24 @@ fn allocation_batches_preflight_all_bytes_and_slots() {
     );
     assert!(registry.check_batch(128, 65536).is_ok());
 }
+
+#[test]
+fn inspection_includes_pending_retirement_and_does_not_retain_resources() {
+    let mut registry = ResourceRegistry::new(1, 2, 128);
+    let first = registry.insert("buffer", 16).unwrap();
+    let second = registry.insert("texture", 32).unwrap();
+    registry.mark_used(first, 9).unwrap();
+    registry.release(first).unwrap();
+    {
+        let rows = registry.inspect(1);
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0], (first, &"buffer", 16, 0, 9));
+    }
+    registry.retire_completed(8);
+    assert_eq!(registry.inspect(256).len(), 2);
+    registry.retire_completed(9);
+    assert_eq!(registry.inspect(256)[0].0, second);
+    registry.release(second).unwrap();
+    registry.retire_completed(9);
+    assert!(registry.inspect(256).is_empty());
+}

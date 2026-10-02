@@ -63,6 +63,11 @@ final class NativeGpuContext {
 
   Future<NativeDeviceInfo> deviceInfo() => _device.deviceInfo();
 
+  Future<GpuInspection> inspectGpu({int allocationLimit = 128}) {
+    _checkOpen();
+    return _device.inspectGpu(allocationLimit: allocationLimit);
+  }
+
   Future<ResourceStats> resourceStats() => _device.stats();
   MaterialCompiler createMaterialCompiler({String label = ''}) {
     _checkOpen();
