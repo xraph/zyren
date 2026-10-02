@@ -110,8 +110,18 @@ Configurator first slice is implemented. Seven tests passed with Flutter
 schema/catalog mismatch, duplicate/dangling rules, conflicting writes and binding
 validation. The executable example saved and restored its selection. Analysis
 passes after resolving two brace lint findings. Rendered appearance is unverified.
-Audio and capture implementation remains pending. Commit IDs follow after each
-focused package commit. The milestones above retain the remaining scope.
+Configurator commit: `cd0df35`.
+
+Audio now has a real pinned miniaudio backend, native-asset hook, listener and
+bounded PCM emitters. Five native mixer tests pass on macOS. Measured energy was
+0.00499534 at distance 1 and 0.0000500186 at distance 10, then 0.00500610 after
+moving the listener. Stereo orientation, pause, buffer ownership, detached-node
+cleanup, invalid PCM and budgets passed. Analysis is clean. The native device
+probe initialized and closed `Core Audio` successfully without emitting sound.
+Audible playback and non-macOS device checks remain unverified. Capture
+implementation remains pending.
+Agent adapters will follow the now-present shared contract before this checkpoint
+is considered integrated. The milestones above retain the remaining scope.
 
 The shell's default Flutter uses Dart 3.9.2 and cannot resolve this workspace.
 Use `/Users/rexraphael/fvm/versions/3.47.5/bin/flutter` and its matching Dart SDK.

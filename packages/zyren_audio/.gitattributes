@@ -1,0 +1,2 @@
+# Preserve the vendored upstream header byte for byte.
+native/vendor/miniaudio.h -whitespace
