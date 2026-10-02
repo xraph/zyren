@@ -272,3 +272,18 @@ repeats use globe UVs. `CloudQuality.forPreset()` exposes the original low,
 medium, high and ultra raymarch/shadow settings. The default values and interval
 calculations are checked against the original TypeScript. These configuration
 types do not attach a cloud renderer by themselves.
+
+`CloudTextureGenerator(scope).generate(kind)` produces native weather, shape,
+detail and curl-turbulence textures. Default sizes are 512 square, 128 cubed,
+32 cubed and 128 square. You can request smaller sizes. Volumes use single-channel
+float textures; weather and turbulence use linear RGBA8. Keep each returned
+`CloudTexture` until its consumer retains it, then close it when you no longer
+need it. All four defaults occupy 9,633,792 GPU bytes after generation.
+
+Generation admits one job per generator and checks cancellation between batches
+of eight volume slices. Cancellation waits for submitted work before cleanup.
+Temporary shaders, graphs and buffers retire before the result is returned.
+The source sine hash is evaluated once into a pinned 87,552-byte table because
+small CPU/GPU sine differences can change cell positions. Perlin/Worley generation
+and curl evaluation run on the GPU. Tests compare 256 original GLSL samples and
+require identical bytes when you regenerate the same texture on a device.

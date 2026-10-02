@@ -129,3 +129,11 @@ scattering, irradiance and runtime equations carried by the supplied
 three-geospatial snapshot. Copyright (c) 2017 Eric Bruneton and Copyright (c)
 2008 INRIA. The complete redistribution conditions and disclaimer are retained
 in [licenses/bruneton.txt](licenses/bruneton.txt).
+
+## Cloud noise
+
+The optional cloud generators adapt the Perlin, Worley and curl-noise equations
+carried by three-geospatial. These include TileableVolumeNoise, copyright (c)
+2017 Sébastien Hillaire, and GLM noise, copyright (c) 2005 G-Truc Creation.
+Their notices and redistribution terms are in
+[licenses/cloud-noise.txt](licenses/cloud-noise.txt).

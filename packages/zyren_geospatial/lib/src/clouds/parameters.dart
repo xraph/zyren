@@ -75,6 +75,10 @@ final class CloudLayer {
     _range(coverageFilterWidth, 1e-6, 1, 'coverageFilterWidth');
   }
   factory CloudLayer.fromJson(Map<String, dynamic> value) {
+    if (value.containsKey('channel') &&
+        !const ['r', 'g', 'b', 'a'].contains(value['channel'])) {
+      throw ArgumentError.value(value['channel'], 'channel');
+    }
     double n(String key, double fallback) =>
         (value[key] as num?)?.toDouble() ?? fallback;
     final p = value['densityProfile'] as Map?;

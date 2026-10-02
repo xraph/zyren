@@ -81,6 +81,9 @@ void main() {
     }
     expect(() => CloudParameters(coverage: 1.01), throwsArgumentError);
     expect(() => CloudLayer(channel: 4), throwsArgumentError);
+    for (final channel in ['', 'rg', 'red', 'x']) {
+      expect(() => CloudLayer.fromJson({'channel': channel}), throwsArgumentError);
+    }
     expect(
       () => CloudLayer(altitude: 90000, height: 20000),
       throwsArgumentError,
