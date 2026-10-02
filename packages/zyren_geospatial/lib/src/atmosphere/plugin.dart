@@ -5,6 +5,7 @@ import 'package:zyren/zyren.dart';
 import '../astronomy/celestial_directions.dart';
 import '../geodesy.dart';
 import 'appearance.dart';
+import 'aerial_inputs.dart';
 import 'precomputed_source.dart';
 import 'lut_cache.dart';
 import 'parameters.dart';
@@ -111,6 +112,7 @@ final class AtmosphereController {
   late AtmosphereParameters _parameters = _plugin.parameters;
   PrecomputedAtmosphereSource? _source;
   _AtmosphereCandidate? _active;
+  RetainedAerialInputs? _inputs;
   Future<void> _queue = Future.value();
   bool _closed = false;
   int _width = 1, _height = 1;
@@ -153,6 +155,30 @@ final class AtmosphereController {
     if (isClosed) throw StateError('Atmosphere controller has closed.');
   }
 
+  /// Publish screen maps together. An empty value clears all maps. Failure keeps
+  /// the previous effect and retained inputs; caller scopes may close on success.
+  Future<void> setAerialInputs(AerialPerspectiveInputs value) =>
+      _serial(() async {
+        final candidate = await RetainedAerialInputs.retain(_owner, value);
+        try {
+          await _replace(
+            _parameters,
+            _source,
+            _width,
+            _height,
+            null,
+            inputs: candidate.value,
+          );
+          final previous = _inputs;
+          _inputs = candidate;
+          await previous?.scope.close();
+          _context.invalidate();
+        } catch (_) {
+          if (!identical(_inputs, candidate)) await candidate.scope.close();
+          rethrow;
+        }
+      });
+
   Future<void> _serial(Future<void> Function() action) {
     final next = _queue.then((_) {
       _check();
@@ -185,8 +211,9 @@ final class AtmosphereController {
     PrecomputedAtmosphereSource? source,
     int width,
     int height,
-    bool Function()? cancelled,
-  ) async {
+    bool Function()? cancelled, {
+    AerialPerspectiveInputs? inputs,
+  }) async {
     bool stopped() => isClosed || (cancelled?.call() ?? false);
     final lease = await _cache.acquire(
       parameters: parameters,
@@ -202,6 +229,7 @@ final class AtmosphereController {
         _plugin,
         width,
         height,
+        inputs ?? _inputs?.value ?? AerialPerspectiveInputs(),
       );
       if (stopped()) throw StateError('Atmosphere update cancelled.');
       // The previous effect remains registered until the candidate is accepted.
@@ -278,6 +306,22 @@ final class AtmosphereController {
       const Vec3(.2126, .7152, .0722),
     );
     final forward = (camera.target - camera.position).normalized();
+    final right = forward.cross(camera.up).normalized();
+    final up = right.cross(forward);
+    var correction = 0.0;
+    if (a.correctGeometricError) {
+      final height = math.max(0.0, _plugin.ellipsoid.fromEcef(ecef).height);
+      final scale = camera is OrthographicCamera
+          ? (2 * _plugin.ellipsoid.maximumRadius - camera.top - camera.bottom) /
+                ((camera.top - camera.bottom) / camera.zoom)
+          : camera is PerspectiveCamera
+          ? _plugin.ellipsoid.maximumRadius *
+                camera.zoom /
+                (math.tan(camera.fieldOfView / 2) * math.max(height, 1e-9))
+          : double.infinity;
+      correction = ((scale - 41.5) / (13.8 - 41.5)).clamp(0, 1);
+    }
+    final inputs = _inputs?.value;
     final data = Float32List.fromList([
       ...(corrected * .001).storage,
       camera is OrthographicCamera ? 1 : 0,
@@ -299,6 +343,28 @@ final class AtmosphereController {
       ...(directions.eciToEcef * directions.moonFixedToEci).storage,
       ...forward.storage,
       camera is OrthographicCamera ? camera.near : 0,
+      a.transmittance ? 1 : 0,
+      a.inscatter ? 1 : 0,
+      a.sunLight ? 1 : 0,
+      a.skyLight ? 1 : 0,
+      a.albedoScale,
+      a.reconstructNormal ? 1 : 0,
+      correction,
+      0,
+      inputs?.normal == null ? 0 : inputs!.normalEncoding.index + 1.0,
+      inputs?.lightingMask == null
+          ? -1
+          : inputs!.lightingMaskChannel.toDouble(),
+      inputs?.overlay == null ? 0 : 1,
+      inputs?.normalSpace == AerialNormalSpace.world ? 1 : 0,
+      ...(_plugin.ellipsoid.reciprocalRadiiSquared * 1e6).storage,
+      0,
+      ...((corrected - ecef) * .001 * correction).storage,
+      0,
+      ...right.storage,
+      0,
+      ...up.storage,
+      0,
     ]);
     await active.scope.resources.writeBuffer(active.uniform, data);
     await active.graph.execute();
@@ -308,6 +374,7 @@ final class AtmosphereController {
     _active?.registration?.dispose();
     await _queue;
     await _active?.close();
+    await _inputs?.scope.close();
     await _cache.close();
     await _owner.close();
   }
@@ -351,11 +418,12 @@ final class _AtmosphereCandidate {
     AtmospherePlugin plugin,
     int width,
     int height,
+    AerialPerspectiveInputs inputs,
   ) async {
     final resources = scope.resources;
     final uniform = await resources.createBuffer(
       BufferDescriptor(
-        size: 352,
+        size: 464,
         usage: {BufferUsage.uniform, BufferUsage.copyDestination},
       ),
     );
@@ -422,6 +490,14 @@ final class _AtmosphereCandidate {
       ),
     );
     final library = lease.luts.shader();
+    final placeholder = await resources.createTexture(
+      TextureDescriptor(width: 1, height: 1, format: TextureFormat.rgba8Unorm),
+    );
+    await resources.writeTexture(placeholder, Uint8List(4));
+    final maps = <GpuResource<Texture>>[];
+    for (final input in [inputs.normal, inputs.lightingMask, inputs.overlay]) {
+      maps.add(input == null ? placeholder : await resources.retain(input));
+    }
     final program = await scope.shaders.compile(
       ShaderSource.wgsl(
         PostProcessDescriptor.interfaceWgsl +
@@ -438,6 +514,8 @@ final class _AtmosphereCandidate {
           BufferBinding.uniform(0, uniform, group: 2),
           TextureBinding.sampled(1, target, group: 2),
           TextureBinding.sampled(2, moonTexture, group: 2),
+          for (var i = 0; i < maps.length; i++)
+            TextureBinding.sampled(i + 3, maps[i], group: 2),
         ]),
       ),
     );

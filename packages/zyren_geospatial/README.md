@@ -232,3 +232,29 @@ channels so you can choose gamut handling when you display the result.
 endpoints. Reference checks cover 385 wavelengths and five independently
 integrated spectra. This helper does not change the three-channel atmosphere
 precompute.
+
+## Aerial perspective
+
+Use `AtmosphereAppearance` to select `transmittance` and `inscatter` separately.
+`haze: false` disables both without changing their individual settings. For
+unlit albedo, enable `sunLight` or `skyLight` and set `albedoScale` (1 by default).
+Leave relighting off for materials that already compute their lighting.
+
+`reconstructNormal` derives camera-facing surface normals from depth. Otherwise,
+the effect uses radial normals or a supplied normal map. Enable
+`correctGeometricError` to blend positions and normals toward the atmosphere's
+sphere as the globe shrinks on screen, following the source's projected-scale
+thresholds. This correction is off by default to preserve existing scenes.
+
+You can install maps with `controller.setAerialInputs(AerialPerspectiveInputs(
+normal: normals, lightingMask: mask, overlay: overlay))`. Maps use top-left screen
+UVs and linear 2D textures. RGB normals encode `.5 * (normal + 1)` in view space;
+world-space and signed octahedral float normals are also supported. Zero RGB
+normals bypass relighting. Reconstruction takes precedence over the normal map.
+The selected mask channel blends existing radiance with relit albedo.
+
+Overlay RGB must be premultiplied by alpha. The effect composites both color and
+alpha, including on transparent backgrounds. It retains installed maps across
+resize and LUT replacement, so you can close the caller's resource scope once
+installation succeeds. Install an empty `AerialPerspectiveInputs()` to clear
+them. A failed replacement keeps the previous effect active.
