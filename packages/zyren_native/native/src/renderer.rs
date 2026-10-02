@@ -12,6 +12,7 @@ use crate::scene::{Frame, pixel_len};
 mod draw_order;
 pub(crate) mod effects;
 mod environment;
+pub(crate) mod gpu_diagnostics;
 mod instances;
 mod lighting;
 mod multisample;
@@ -119,6 +120,7 @@ pub struct RendererState {
     pub(crate) failure: Option<String>,
     counters: RenderCounters,
     last_gpu_time_ns: Option<u64>,
+    gpu_timer: Option<gpu_diagnostics::GpuTimer>,
     layout: wgpu::BindGroupLayout,
     geometries: HashMap<u32, GpuGeometry>,
     resources: crate::resources::ResourceStore,
@@ -193,9 +195,19 @@ impl Renderer {
                 .contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X4)
         });
         let info = adapter.get_info();
+        let timestamp_features =
+            wgpu::Features::TIMESTAMP_QUERY | wgpu::Features::TIMESTAMP_QUERY_INSIDE_ENCODERS;
+        let required_features = if info.backend != wgpu::Backend::Metal
+            && adapter.features().contains(timestamp_features)
+        {
+            timestamp_features
+        } else {
+            wgpu::Features::empty()
+        };
         let (device, queue) = adapter
             .request_device(&wgpu::DeviceDescriptor {
                 label: Some("flutter_zyren"),
+                required_features,
                 required_limits: wgpu::Limits {
                     max_texture_dimension_2d: crate::scene::MAX_DIMENSION,
                     ..wgpu::Limits::downlevel_defaults()
@@ -262,6 +274,7 @@ impl Renderer {
                 drawable_owner: None,
                 failure: None,
                 last_gpu_time_ns: None,
+                gpu_timer: None,
                 counters: RenderCounters::default(),
                 layout,
                 geometries: HashMap::new(),
@@ -332,6 +345,7 @@ impl Renderer {
                 instance_uploaded_bytes: state.instances.uploaded_bytes,
                 instance_draw_calls: state.instances.draws(),
                 last_gpu_time_ns: state.last_gpu_time_ns,
+                gpu_timer: &mut state.gpu_timer,
                 submitted_frames: state.counters.submitted_frames,
                 device_info: serde_json::json!({"backend":format!("{:?}",state.backend),"adapterName":state.adapter_name,"sampleCounts":if state.supports_msaa4 {vec![1,4]} else {vec![1]}}),
             },
@@ -740,6 +754,9 @@ impl Renderer {
                 .binding(&self.device, frame, &self.resources)
         });
         let mut encoder = self.device.create_command_encoder(&Default::default());
+        if let Some(timer) = &self.gpu_timer {
+            timer.begin(&mut encoder);
+        }
         self.encode_shadows(frame, &mut encoder);
         for mask in [false, true] {
             let (color_view, resolve, format) = if mask {
@@ -870,7 +887,10 @@ impl Renderer {
         encoder
     }
 
-    fn submit(&mut self, encoder: wgpu::CommandEncoder) -> Result<Submission, String> {
+    fn submit(&mut self, mut encoder: wgpu::CommandEncoder) -> Result<Submission, String> {
+        if let Some(timer) = &mut self.gpu_timer {
+            timer.end(&mut encoder);
+        }
         let index = self.queue.submit([encoder.finish()]);
         let keys: Vec<_> = self
             .geometries
@@ -924,6 +944,9 @@ impl Renderer {
         });
         if result.is_ok() {
             self.resources.scene_completed();
+            if let Some(timer) = &mut self.gpu_timer {
+                timer.completed();
+            }
         }
         result.map_err(|error| {
             let message = format!("GPU completion failed; recreate this renderer: {error}");

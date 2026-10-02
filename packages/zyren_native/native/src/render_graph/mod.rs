@@ -181,6 +181,7 @@ pub(crate) struct GraphContext<'a> {
     pub instance_draw_calls: usize,
     pub device_info: Value,
     pub last_gpu_time_ns: Option<u64>,
+    pub gpu_timer: &'a mut Option<crate::renderer::gpu_diagnostics::GpuTimer>,
     pub submitted_frames: u64,
 }
 
@@ -206,6 +207,7 @@ impl GraphStore {
             instance_draw_calls,
             device_info,
             last_gpu_time_ns,
+            gpu_timer,
             submitted_frames,
         } = context;
         if bytes.len() > MAX_COMMAND_BYTES || capacity != RESPONSE_CAPACITY {
@@ -265,13 +267,50 @@ impl GraphStore {
                         };
                         #[cfg(not(target_vendor = "apple"))]
                         let allocated: Option<u64> = None;
-                        result["lastSubmissionGpuTimeNs"] = json!(last_gpu_time_ns);
-                        result["submittedFrames"] = json!(submitted_frames);
-                        result["gpuTimeSource"] = json!(if last_gpu_time_ns.is_some() {
+                        let mut gpu_time = last_gpu_time_ns;
+                        let mut gpu_time_source = if gpu_time.is_some() {
                             "metal.commandBuffer.startEndTime"
                         } else {
                             "unavailable"
+                        };
+                        if device
+                            .features()
+                            .contains(wgpu::Features::TIMESTAMP_QUERY_INSIDE_ENCODERS)
+                        {
+                            let timer = gpu_timer.get_or_insert_with(|| {
+                                crate::renderer::gpu_diagnostics::GpuTimer::new(device)
+                            });
+                            gpu_time = timer.sample(device, queue).map_err(|error| {
+                                *failure = Some(error.clone());
+                                error
+                            })?;
+                            gpu_time_source = if gpu_time.is_some() {
+                                "wgpu.timestampQuery"
+                            } else {
+                                "awaitingInstrumentedSubmission"
+                            };
+                        }
+                        result["diagnosticReadbackBytes"] =
+                            json!(gpu_timer.as_ref().map_or(0, |timer| timer.readback_bytes));
+                        let report = device.generate_allocator_report();
+                        result["allocatorSource"] = json!(if report.is_some() {
+                            "wgpu.suballocator"
+                        } else {
+                            "unavailable"
                         });
+                        result["allocatorUsedBytes"] =
+                            json!(report.as_ref().map(|report| report.total_allocated_bytes));
+                        result["allocatorReservedBytes"] =
+                            json!(report.as_ref().map(|report| report.total_reserved_bytes));
+                        result["allocatorAllocationCount"] =
+                            json!(report.as_ref().map(|report| report.allocations.len()));
+                        result["allocatorAllocations"] = json!(report.as_ref().map(|report| report.allocations.iter().take(allocation_limit).map(|allocation| json!({
+                            "name": &allocation.name[..allocation.name.floor_char_boundary(allocation.name.len().min(128))],
+                            "offset": allocation.offset, "size": allocation.size
+                        })).collect::<Vec<_>>()).unwrap_or_default());
+                        result["lastSubmissionGpuTimeNs"] = json!(gpu_time);
+                        result["submittedFrames"] = json!(submitted_frames);
+                        result["gpuTimeSource"] = json!(gpu_time_source);
                         result["deviceAllocatedBytes"] = json!(allocated);
                         result["deviceAllocationSource"] = json!(if allocated.is_some() {
                             "metal.currentAllocatedSize"

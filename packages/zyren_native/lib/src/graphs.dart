@@ -164,6 +164,19 @@ mixin _NativeGraphs {
       'allocation_limit': allocationLimit,
     });
     return GpuInspection(
+      allocatorUsedBytes: result['allocatorUsedBytes'] as int?,
+      allocatorReservedBytes: result['allocatorReservedBytes'] as int?,
+      allocatorAllocationCount: result['allocatorAllocationCount'] as int?,
+      allocatorSource: result['allocatorSource'] as String? ?? 'unavailable',
+      diagnosticReadbackBytes: result['diagnosticReadbackBytes'] as int? ?? 0,
+      allocatorAllocations: ((result['allocatorAllocations'] as List?) ?? [])
+          .map(
+            (value) => GpuAllocatorAllocation(
+              name: value['name'] as String,
+              offset: value['offset'] as int,
+              size: value['size'] as int,
+            ),
+          ),
       lastSubmissionGpuTimeNs: result['lastSubmissionGpuTimeNs'] as int?,
       submittedFrames: result['submittedFrames'] as int,
       gpuTimeSource: result['gpuTimeSource'] as String,

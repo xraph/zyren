@@ -46,8 +46,23 @@ resource handles. Queries do not retain resources.
 It covers the last scene submission, including gaps between its buffers.
 CPU encoding, queue wait, resource uploads and CPU pixel readback are excluded.
 `submittedFrames` identifies the device submission count, shared across views.
-No timestamp buffers or extra readbacks are required. Vulkan and DX12 report
-allocation and timing measurements as unavailable until implemented and tested.
+Metal needs no timestamp buffers or diagnostic readbacks. On Vulkan and DX12,
+the first query arms two timestamp slots when the adapter supports encoder
+timestamps. A later rendered frame makes a sample available. Each subsequent
+inspection reads 16 bytes on demand, reported by `diagnosticReadbackBytes`.
+`gpuTimeSource` is `awaitingInstrumentedSubmission` before that first instrumented
+frame, or `unavailable` when the adapter lacks timestamp support. The scratch
+resources live only as long as the native renderer and retain no frame history.
+
+`allocatorUsedBytes` and `allocatorReservedBytes` come from wgpu's suballocator
+report on supported Vulkan/DX12 devices. Used bytes cover allocated ranges;
+reserved bytes include unused portions of allocator blocks. Imported resources,
+driver overhead and allocations outside that device's suballocator are excluded.
+`allocatorAllocations` contains names, block-relative offsets and sizes, capped
+by `allocationLimit`. Names are capped at 128 UTF-8 bytes. Check
+`allocatorAllocationCount` and `allocatorTruncated` for omitted entries. Unsupported
+reports remain null with `allocatorSource: unavailable`. These counters do not
+measure physical residency or total device memory.
 
 For a native CLI sample:
 
@@ -92,5 +107,14 @@ and clears the token through the plugin attachment scope. No measurements or
 allocation lists are cached by the bridge.
 
 The remote CLI/MCP regression runs against a native Metal host, verifies its
-submission count and allocation changes, then checks cleanup. This does not
-qualify Vulkan, DX12 or a Flutter native-view presentation path.
+submission count and allocation changes, then checks cleanup. The separate
+`examples/multiple_views/integration_test/gpu_diagnostics_test.dart` exercises
+Flutter native Metal and Android Vulkan presentation, read-only queries and
+attachment cleanup. Run it on each target device before claiming qualification.
+DX12 needs a Windows runner; passing Metal or Vulkan tests does not qualify it.
+
+The native-view test passed on macOS Metal and a Pixel 9 Pro running Android 17
+on 2026-10-02. Both checks kept scene pixel readbacks at zero and verified
+renderer, presentation surface and bridge cleanup. The Pixel reported a completed
+GPU timestamp sample and a bounded allocator report. iPhone qualification still
+requires an unlocked device; DX12 still requires a Windows runner.
