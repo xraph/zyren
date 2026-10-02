@@ -86,12 +86,28 @@ class SceneSectionPlugin extends ScenePlugin {
         continue;
       }
       final world = _world(target);
-      final result = buildSectionCaps(target.geometry, world, planes);
+      // Keep the CPU intersection near the source before float32 conversion.
+      final origin = _point(world, Vec3.zero);
+      final relativeValues = [...world.storage];
+      relativeValues[12] = relativeValues[13] = relativeValues[14] = 0;
+      final relativeWorld = Mat4(relativeValues);
+      final relativePlanes = [
+        for (final plane in planes)
+          ClippingPlane(
+            normal: plane.normal,
+            offset: plane.offset - plane.normal.dot(origin),
+          ),
+      ];
+      final result = buildSectionCaps(
+        target.geometry,
+        relativeWorld,
+        relativePlanes,
+      );
       if (result.issue != null) {
         _issues[target] = result.issue!;
         continue;
       }
-      final inverse = world.inverted();
+      final inverse = relativeWorld.inverted();
       final m = world.storage;
       for (final geometry in result.geometries) {
         final positions = <double>[], normals = <double>[];

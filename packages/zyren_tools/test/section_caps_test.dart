@@ -128,6 +128,14 @@ void main() {
             closeTo(.125, 1e-7),
           );
         }
+        source.position = const Vec3(1000000000, 0, 0);
+        sections.setPlanes([
+          ClippingPlane(normal: const Vec3(1, 0, 0), offset: 1000000000.25),
+        ]);
+        final distant = sections.capMeshes.single.geometry;
+        for (var i = 0; i < distant.positions.length; i += 3) {
+          expect(distant.positions[i], closeTo(-.125, 1e-7));
+        }
         source.visible = false;
         await engine.render(width: 8, height: 8, elapsed: Duration.zero);
         expect(sections.capMeshes, isEmpty);
