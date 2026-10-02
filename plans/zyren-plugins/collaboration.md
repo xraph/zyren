@@ -143,7 +143,7 @@ uses stable and runtime IDs and reports CPU geometry coverage honestly.
 Checks run on 2026-10-02 with the repository's Flutter 3.47.5 Dart SDK:
 
 - `dart test packages/zyren_collaboration/test --reporter expanded` passed all
-  35 tests, including the 18 original operation tests, provider integration and
+  36 tests, including 19 operation/recovery tests, provider integration and
   the MCP subprocess test.
 - The MCP test passed. It launches the actual `zyren_devtools` stdio CLI,
   initializes MCP, discovers both providers, reads a CPU triangle hit, verifies
@@ -186,5 +186,11 @@ transport is exercised with actual subprocess I/O, but it has not been connected
 to a live native viewport in this workstream. The current shared boundary-check
 failure above belongs to concurrent devtools registration work.
 
-Commits: `45da7bd` contains the first checked scene-operation checkpoint. The
-agent-provider checkpoint will be recorded after its focused commit.
+Commits: `45da7bd` contains the checked scene-operation checkpoint and
+`486fdfb` adds the shared agent providers, engineering adapter and MCP checks.
+A final recovery check now bounds host permission waits and verifies that a
+stalled callback cannot hold the local authority queue indefinitely.
+
+At agent verification time, the interaction owner's devtools MCP adapter was
+still uncommitted. The MCP test passed against that working-tree integration;
+reproducing it from committed sources requires the owner's transport commit.

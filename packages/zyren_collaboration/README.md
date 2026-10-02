@@ -62,7 +62,9 @@ intervening edit produces another conflict.
 The host supplies unique operation IDs and a scene epoch. Change the epoch when
 you discard history or replace source assets. Permissions run again at commit,
 including duplicate retries. The local authority serializes async policy checks;
-your callback must not reenter the same authority.
+your callback must not reenter the same authority. Permission callbacks have
+a five-second timeout by default, so a stalled callback releases the queue
+without committing. You can configure a positive timeout up to one minute.
 
 Snapshots allow 10,000 objects and 4 MiB of JSON characters. Operations allow
 4,096 characters. The authority retains up to 4,096 receipts by default and

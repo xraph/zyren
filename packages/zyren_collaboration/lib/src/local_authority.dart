@@ -19,6 +19,7 @@ final class LocalSceneAuthority {
   final SceneReadPermission canRead;
   final SceneWritePermission canWrite;
   final int maxReceipts;
+  final Duration permissionTimeout;
   final _receipts = <(String, String), (String, int)>{};
   final _history = <SceneOperationRecord>[];
   Future<void> _tail = Future<void>.value();
@@ -28,9 +29,16 @@ final class LocalSceneAuthority {
     required this.canRead,
     required this.canWrite,
     this.maxReceipts = 4096,
+    this.permissionTimeout = const Duration(seconds: 5),
   }) : _snapshot = initial {
     if (maxReceipts < 1 || maxReceipts > 100000) {
       throw ArgumentError('Receipt capacity must be between 1 and 100000.');
+    }
+    if (permissionTimeout <= Duration.zero ||
+        permissionTimeout > const Duration(minutes: 1)) {
+      throw ArgumentError(
+        'Permission timeout must be positive and at most one minute.',
+      );
     }
     initial.encode();
   }
@@ -53,8 +61,16 @@ final class LocalSceneAuthority {
     }
   }
 
+  Future<bool> _canRead(String principal) => Future<bool>.sync(
+    () => canRead(principal, _snapshot),
+  ).timeout(permissionTimeout);
+  Future<bool> _canWrite(String principal, SceneOperation operation) =>
+      Future<bool>.sync(
+        () => canWrite(principal, operation, _snapshot),
+      ).timeout(permissionTimeout);
+
   Future<SceneSnapshot> _read(String principal) => _serial(() async {
-    if (!await canRead(principal, _snapshot)) throw const SceneAccessDenied();
+    if (!await _canRead(principal)) throw const SceneAccessDenied();
     return _snapshot;
   });
 
@@ -64,8 +80,7 @@ final class LocalSceneAuthority {
     void Function()? checkBeforeCommit,
   }) => _serial(() async {
     // A successful submission includes the full snapshot, so it needs read access.
-    if (!await canRead(principal, _snapshot) ||
-        !await canWrite(principal, operation, _snapshot)) {
+    if (!await _canRead(principal) || !await _canWrite(principal, operation)) {
       throw const SceneAccessDenied();
     }
     if (operation.sceneId != _snapshot.sceneId ||
@@ -158,7 +173,7 @@ final class LocalSceneConnection
     int afterRevision = 0,
     int limit = 50,
   }) => authority._serial(() async {
-    if (!await authority.canRead(principal, authority._snapshot)) {
+    if (!await authority._canRead(principal)) {
       throw const SceneAccessDenied();
     }
     checkRevision(afterRevision);
@@ -184,7 +199,7 @@ final class LocalSceneConnection
   @override
   Future<bool> allows(SceneOperation operation) => authority._serial(() async {
     final snapshot = authority._snapshot;
-    if (!await authority.canRead(principal, snapshot)) {
+    if (!await authority._canRead(principal)) {
       throw const SceneAccessDenied();
     }
     if (snapshot.sceneId != operation.sceneId ||
@@ -194,6 +209,6 @@ final class LocalSceneConnection
     if (!snapshot.objects.containsKey(operation.objectId)) {
       throw StateError('Unknown source object.');
     }
-    return authority.canWrite(principal, operation, snapshot);
+    return authority._canWrite(principal, operation);
   });
 }

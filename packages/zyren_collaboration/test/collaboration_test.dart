@@ -317,6 +317,29 @@ void main() {
     expect((await server.connect('alice').read()).revision, 1);
   });
 
+  test(
+    'a timed-out permission callback releases the authority queue',
+    () async {
+      final gate = Completer<bool>();
+      final server = LocalSceneAuthority(
+        initial: seed(),
+        permissionTimeout: const Duration(milliseconds: 10),
+        canRead: (_, _) => true,
+        canWrite: (principal, _, _) =>
+            principal == 'stalled' ? gate.future : true,
+      );
+      await expectLater(
+        server.connect('stalled').submit(move('lost', 1)),
+        throwsA(isA<TimeoutException>()),
+      );
+      final accepted = await server.connect('alice').submit(move('next', 2));
+      expect(accepted, isA<SceneOperationAccepted>());
+      expect(accepted.snapshot.revision, 1);
+      gate.complete(true);
+      expect((await server.connect('alice').read()).revision, 1);
+    },
+  );
+
   test('permission failures release the queue', () async {
     var fail = true;
     final server = LocalSceneAuthority(
