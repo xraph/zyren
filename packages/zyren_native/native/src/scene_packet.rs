@@ -114,7 +114,7 @@ impl ScenePacket {
         if opcode >= 19 {
             settings.enabled = true;
             let count = r.u32()?;
-            if count > 8 {
+            if count > 32 {
                 return Err("Too many screen effects".into());
             }
             settings.tone_mapping = r.u32()?;

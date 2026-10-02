@@ -92,6 +92,15 @@ impl GraphStore {
         let mut passes = Vec::new();
         let mut shader_keys = HashSet::new();
         for pass in &description.passes {
+            if pass.screen_target.is_some()
+                || pass.screen_stage.is_some()
+                || pass.screen_space.is_some()
+            {
+                return Err(GraphError::new(
+                    "invalidDescriptor",
+                    "Screen fields require a material",
+                ));
+            }
             if pass.name.is_empty() || pass.name.len() > 1024 || !names.insert(pass.name.clone()) {
                 return Err(GraphError::new(
                     "duplicatePass",

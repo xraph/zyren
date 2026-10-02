@@ -72,3 +72,10 @@ run before output FXAA. `historyColor` always holds the previous HDR result.
 Within each stage, `Scene.addEffect` preserves the requested order and stable
 ties. `ToneMapping.aces` retains the original approximation; `acesFilmic`,
 `cineon`, `agx` and `neutral` follow the Three.js r184 operators.
+
+A `PostProcessDescriptor.target` redirects its draw to a scoped 2D RGBA16F
+render attachment. The main scene-color chain stays unchanged until a later
+effect samples that target and returns its composite. The target sets the draw
+resolution; vertex UV spans it, while `screen.viewport` describes the scene.
+Materials retain their targets and reject aliases with their own bindings.
+A view supports up to 32 screen effects within the existing GPU resource budgets.

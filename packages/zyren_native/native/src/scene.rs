@@ -526,7 +526,7 @@ impl RenderSettings {
             || ![1, 4].contains(&self.sample_count)
             || (self.sample_count != 1 && !self.enabled)
             || self.camera_origin.iter().any(|v| !v.is_finite())
-            || self.effects.len() > 8
+            || self.effects.len() > 32
             || self.tone_mapping > 6
             || !self.exposure.is_finite()
             || !(0.0..=65504.).contains(&self.exposure)

@@ -17,8 +17,14 @@ enum PostProcessStage {
 /// Binding a texture for both sampling and writing in one stage is rejected.
 final class PostProcessDescriptor extends MeshShaderDescriptor {
   final PostProcessStage stage;
+
+  /// Optional RGBA16F render attachment. Its extent sets the draw resolution.
+  /// The main color chain remains unchanged; later stages may sample this map.
+  /// Screen uniforms retain the scene viewport; vertex UV spans this target.
+  final GpuResource<Texture>? target;
   PostProcessDescriptor({
     this.stage = PostProcessStage.hdr,
+    this.target,
     required super.program,
     super.bindings,
     super.label = 'screen effect',
@@ -150,10 +156,8 @@ final class RenderSettings {
         backgroundAlpha > 1 ||
         historyEpoch < 0 ||
         historyEpoch > 0xffffffff ||
-        this.effects.length > 8) {
-      throw ArgumentError(
-        'Invalid render settings or more than eight effects.',
-      );
+        this.effects.length > 32) {
+      throw ArgumentError('Invalid render settings or more than 32 effects.');
     }
   }
   RenderSettings copyWith({

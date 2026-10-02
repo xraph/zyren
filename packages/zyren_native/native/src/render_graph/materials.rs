@@ -16,6 +16,7 @@ pub(crate) struct PreparedMaterial {
     pub fragment: String,
     pub requires_uv: bool,
     pub screen_stage: u32,
+    pub screen_target: Option<wgpu::TextureView>,
     pub screen_pipeline: Option<wgpu::RenderPipeline>,
     resources: Vec<ResourceKey>,
     program: ResourceKey,
@@ -72,7 +73,8 @@ impl MaterialStore {
         let pass = &description.passes[0];
         let screen = pass.screen_space.unwrap_or(false);
         let prepared = scoped(device, &pass.name, || {
-            if pass.screen_stage.is_some_and(|stage| !screen || stage > 1)
+            if (!screen && pass.screen_target.is_some())
+                || pass.screen_stage.is_some_and(|stage| !screen || stage > 1)
                 || pass.name.is_empty()
                 || pass.name.len() > 1024
                 || (!screen && !pass.writes.is_empty())
@@ -114,7 +116,29 @@ impl MaterialStore {
                     ));
                 }
             }
-            let bindings = bindings::prepare(device, resources, pass)?;
+            let mut bindings = bindings::prepare(device, resources, pass)?;
+            let screen_target = if let Some(target) = pass.screen_target {
+                let texture = resources.graph_texture(key(target))?;
+                if texture.dimension() != wgpu::TextureDimension::D2
+                    || texture.format() != wgpu::TextureFormat::Rgba16Float
+                    || !texture
+                        .usage()
+                        .contains(wgpu::TextureUsages::RENDER_ATTACHMENT)
+                {
+                    return Err(GraphError::new(
+                        "invalidBinding",
+                        "Screen targets require a 2D RGBA16F render attachment",
+                    ));
+                }
+                bindings.use_resource(target, false, true)?;
+                Some(texture.create_view(&wgpu::TextureViewDescriptor {
+                    mip_level_count: Some(1),
+                    usage: Some(wgpu::TextureUsages::RENDER_ATTACHMENT),
+                    ..Default::default()
+                }))
+            } else {
+                None
+            };
             let declared: HashSet<_> = description.resources.iter().map(|r| r.key).collect();
             let inputs: HashSet<_> = description.inputs.iter().copied().collect();
             let reads: HashSet<_> = pass.reads.iter().copied().collect();
@@ -188,6 +212,7 @@ impl MaterialStore {
                 fragment: fragment.clone(),
                 requires_uv: pass.requires_uv.unwrap_or(false),
                 screen_stage: pass.screen_stage.unwrap_or(0),
+                screen_target,
                 screen_pipeline: None,
                 resources: declared.into_iter().map(key).collect(),
                 program: key(pass.program),

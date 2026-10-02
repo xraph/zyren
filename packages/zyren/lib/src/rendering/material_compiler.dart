@@ -14,6 +14,10 @@ class MeshShaderDescriptor {
   final ShaderBindings bindings;
   final String label, vertexEntryPoint, fragmentEntryPoint;
   final bool requiresUv;
+
+  /// The fragment entry calls ShaderMaterial.meshClip with its camera-relative
+  /// position. Leave false for shaders without the standard clipping hook.
+  final bool supportsClipping;
   MeshShaderDescriptor({
     required this.program,
     ShaderBindings? bindings,
@@ -21,6 +25,7 @@ class MeshShaderDescriptor {
     this.vertexEntryPoint = 'vertex',
     this.fragmentEntryPoint = 'fragment',
     this.requiresUv = false,
+    this.supportsClipping = false,
   }) : bindings = bindings ?? ShaderBindings(const []);
 }
 
@@ -35,10 +40,14 @@ final class _MaterialPassDescriptor extends PassDescriptor {
             .where((b) => b._reads)
             .map((b) => b.resource)
             .nonNulls,
-        writes: descriptor.bindings.entries
-            .where((b) => b._writes)
-            .map((b) => b.resource)
-            .nonNulls,
+        writes: [
+          ...descriptor.bindings.entries
+              .where((b) => b._writes)
+              .map((b) => b.resource)
+              .nonNulls,
+          if (descriptor case PostProcessDescriptor(target: final target?))
+            target,
+        ],
       );
 }
 

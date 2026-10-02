@@ -550,8 +550,8 @@ class Scene extends Object3D {
   }) {
     RangeError.checkValueInInterval(order, -32768, 32767, 'order');
     if (effect.isClosed) throw StateError('Effect owner has closed.');
-    if (effects.length >= 8) {
-      throw StateError('At most eight effects are supported.');
+    if (effects.length >= 32) {
+      throw StateError('At most 32 effects are supported.');
     }
     final key = Object();
     _effects[key] = (order: order, effect: effect);
@@ -571,8 +571,8 @@ class Scene extends Object3D {
   }
 
   set renderSettings(RenderSettings value) {
-    if (value.effects.length + _effects.length > 8) {
-      throw StateError('At most eight effects are supported.');
+    if (value.effects.length + _effects.length > 32) {
+      throw StateError('At most 32 effects are supported.');
     }
     if (identical(value, _renderSettings)) return;
     _renderSettings = value;

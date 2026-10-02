@@ -11,6 +11,123 @@ class _BufferDevice extends fixture.Device {
 
 void main() {
   test(
+    'screen targets validate usage, format, aliases and ownership',
+    () async {
+      final device = fixture.Device(), foreignDevice = fixture.Device();
+      final resources = ResourceScope(device),
+          foreign = ResourceScope(foreignDevice);
+      final shaders = ShaderCompiler(device),
+          materials = MaterialCompiler(device);
+      try {
+        final program = await shaders.compile(ShaderSource.wgsl('valid'));
+        final target = await resources.createTexture(
+          TextureDescriptor(
+            width: 2,
+            height: 2,
+            format: TextureFormat.rgba16Float,
+            usage: {
+              TextureUsage.sampled,
+              TextureUsage.storage,
+              TextureUsage.renderAttachment,
+            },
+          ),
+        );
+        final valid = await materials.compileEffect(
+          PostProcessDescriptor(program: program, target: target),
+        );
+        expect(valid.isClosed, isFalse);
+        for (final bindings in [
+          ShaderBindings([TextureBinding.sampled(0, target, group: 1)]),
+          ShaderBindings([TextureBinding.storage(0, target, group: 1)]),
+        ]) {
+          await expectLater(
+            materials.compileEffect(
+              PostProcessDescriptor(
+                program: program,
+                target: target,
+                bindings: bindings,
+              ),
+            ),
+            throwsA(
+              isA<GraphException>().having(
+                (v) => v.code,
+                'code',
+                GraphErrorCode.aliasConflict,
+              ),
+            ),
+          );
+        }
+        for (final descriptor in [
+          TextureDescriptor(
+            width: 2,
+            height: 2,
+            format: TextureFormat.rgba8Unorm,
+            usage: {TextureUsage.renderAttachment},
+          ),
+          TextureDescriptor(
+            width: 2,
+            height: 2,
+            format: TextureFormat.rgba16Float,
+          ),
+          TextureDescriptor(
+            width: 2,
+            height: 2,
+            depth: 2,
+            dimension: TextureDimension.d3,
+            format: TextureFormat.rgba16Float,
+          ),
+        ]) {
+          final bad = await resources.createTexture(descriptor);
+          await expectLater(
+            materials.compileEffect(
+              PostProcessDescriptor(program: program, target: bad),
+            ),
+            throwsA(
+              isA<GraphException>().having(
+                (v) => v.code,
+                'code',
+                GraphErrorCode.invalidBinding,
+              ),
+            ),
+          );
+        }
+        final other = await foreign.createTexture(
+          target.descriptor as TextureDescriptor,
+        );
+        await expectLater(
+          materials.compileEffect(
+            PostProcessDescriptor(program: program, target: other),
+          ),
+          throwsA(
+            isA<GraphException>().having(
+              (v) => v.code,
+              'code',
+              GraphErrorCode.foreignResource,
+            ),
+          ),
+        );
+        await resources.close();
+        await expectLater(
+          materials.compileEffect(
+            PostProcessDescriptor(program: program, target: target),
+          ),
+          throwsA(
+            isA<GraphException>().having(
+              (v) => v.code,
+              'code',
+              GraphErrorCode.closedResource,
+            ),
+          ),
+        );
+      } finally {
+        await materials.close();
+        await shaders.close();
+        await resources.close();
+        await foreign.close();
+      }
+    },
+  );
+  test(
     'display stages remain after HDR despite caller order and retention',
     () async {
       final device = fixture.Device();
@@ -180,7 +297,7 @@ void main() {
     },
   );
   test(
-    'effect replacement preserves order and an occupied eighth slot',
+    'effect replacement preserves order and an occupied final slot',
     () async {
       final device = fixture.Device();
       final programs = ShaderCompiler(device),
@@ -193,21 +310,21 @@ void main() {
         PostProcessDescriptor(program: program),
       );
       final scene = Scene()
-        ..renderSettings = RenderSettings(effects: List.filled(6, a));
+        ..renderSettings = RenderSettings(effects: List.filled(30, a));
       final registration = scene.addEffect(a);
       final last = scene.addEffect(a, requiresTransparentBackground: true);
       expect(scene.backgroundAlpha, 0);
       scene.renderSettings = scene.renderSettings.copyWith(backgroundAlpha: .4);
       expect(scene.backgroundAlpha, 0);
       registration.replace(b);
-      expect(scene.effects, [...List.filled(6, a), b, a]);
+      expect(scene.effects, [...List.filled(30, a), b, a]);
       expect(() => scene.addEffect(a), throwsStateError);
       await materials.close();
       expect(() => registration.replace(a), throwsStateError);
-      expect(scene.effects[6], same(b));
+      expect(scene.effects[30], same(b));
       registration.dispose();
       expect(() => registration.replace(b), throwsStateError);
-      expect(scene.effects, hasLength(7));
+      expect(scene.effects, hasLength(31));
       last.dispose();
       expect(scene.backgroundAlpha, .4);
       await programs.close();

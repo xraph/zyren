@@ -399,12 +399,17 @@ impl Renderer {
             let group = bind(pipeline, &view.images[current].view, &buffer);
             draw(
                 &mut encoder,
-                &view.images[next].view,
+                material
+                    .screen_target
+                    .as_ref()
+                    .unwrap_or(&view.images[next].view),
                 pipeline,
                 &group,
                 &material.groups,
             );
-            current = next;
+            if material.screen_target.is_none() {
+                current = next;
+            }
         }
         // History is the custom-effect HDR result, before bloom and output AA.
         // Reusing a display halo as next frame's scene input would add it twice.
@@ -463,12 +468,17 @@ impl Renderer {
             let group = bind(pipeline, &view.images[current].view, &output_buffer);
             draw(
                 &mut encoder,
-                &view.images[next].view,
+                material
+                    .screen_target
+                    .as_ref()
+                    .unwrap_or(&view.images[next].view),
                 pipeline,
                 &group,
                 &material.groups,
             );
-            current = next;
+            if material.screen_target.is_none() {
+                current = next;
+            }
         }
         let pipeline = &self.effects.outputs[&format];
         let group = bind(pipeline, &view.images[current].view, &output_buffer);
