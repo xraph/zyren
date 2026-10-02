@@ -34,6 +34,166 @@ Future<void> settle(Tiles3DStreamer streamer) async {
 }
 
 void main() {
+  const viewport = ViewportMetrics(800, 600);
+  PerspectiveCamera camera([double distance = 50]) => PerspectiveCamera(
+    position: Vec3(0, -distance, 0),
+    target: Vec3.zero,
+    up: const Vec3(0, 0, 1),
+    far: 20000,
+  );
+
+  test(
+    'resident budget counts visible replacement tiles rather than cached ancestors',
+    () async {
+      final resolver = MemoryResolver({
+        for (final name in ['parent', 'a', 'b', 'c', 'd'])
+          '/$name': triangleModel(),
+      });
+      final values = <int>[];
+      late Tiles3DStreamer streamer;
+      streamer = Tiles3DStreamer(
+        tileset: await source(
+          tile(
+            uri: 'parent',
+            refine: 'REPLACE',
+            error: 100,
+            children: [
+              for (final name in ['a', 'b', 'c', 'd']) tile(uri: name),
+            ],
+          ),
+        ),
+        services: AssetServices(resolver: resolver),
+        budget: Tiles3DBudget(
+          maxRequests: 2,
+          maxDecodedBytes: 65536,
+          perTileDecodedBytes: 8192,
+          maxResidentBytes: 4 * 96,
+          perTileResidentBytes: 96,
+        ),
+        onChanged: () {
+          values.add(streamer.stats.residentBytes);
+        },
+      );
+      addTearDown(streamer.dispose);
+      final view = PerspectiveCamera(
+        position: const Vec3(0, -50, 0),
+        up: const Vec3(0, 0, 1),
+      );
+      streamer.update(view, const ViewportMetrics(800, 600));
+      await settle(streamer);
+      streamer.update(view, const ViewportMetrics(800, 600));
+      await settle(streamer);
+      expect(streamer.failures, isEmpty);
+      expect(streamer.visible.keys.toSet(), {'0/0', '0/1', '0/2', '0/3'});
+      expect(values, everyElement(lessThanOrEqualTo(384)));
+      expect(
+        streamer.stats.cachedBytes,
+        greaterThan(streamer.stats.residentBytes),
+      );
+    },
+  );
+
+  test(
+    'residency refines one branch while preserving sibling coverage',
+    () async {
+      final streamer = Tiles3DStreamer(
+        tileset: await source(
+          tile(
+            refine: 'REPLACE',
+            children: [
+              for (final name in ['a', 'b'])
+                tile(
+                  uri: name,
+                  error: name == 'a' ? 100 : 90,
+                  children: [
+                    tile(uri: '${name}1'),
+                    tile(uri: '${name}2'),
+                  ],
+                ),
+            ],
+          ),
+        ),
+        services: AssetServices(
+          resolver: MemoryResolver({
+            for (final name in ['a', 'b', 'a1', 'a2', 'b1', 'b2'])
+              '/$name': triangleModel(),
+          }),
+        ),
+        budget: Tiles3DBudget(
+          maxRequests: 2,
+          maxDecodedBytes: 65536,
+          perTileDecodedBytes: 8192,
+          maxResidentBytes: 3 * 96,
+          perTileResidentBytes: 96,
+        ),
+      );
+      addTearDown(streamer.dispose);
+      streamer.update(camera(), viewport);
+      await settle(streamer);
+      streamer.update(camera(), viewport);
+      expect(streamer.visible.keys.toSet(), {'0/0/0', '0/0/1', '0/1'});
+      expect(streamer.stats.residentBytes, lessThanOrEqualTo(288));
+      expect(streamer.stats.budgetLimited, isTrue);
+    },
+  );
+
+  for (final refinement in ['REPLACE', 'ADD']) {
+    test(
+      '$refinement retains parent when complete children exceed residency',
+      () async {
+        final resolver = MemoryResolver({
+          for (final name in ['parent', 'a', 'b', 'c', 'd', 'e'])
+            '/$name': triangleModel(),
+        });
+        final values = <int>[];
+        late Tiles3DStreamer streamer;
+        streamer = Tiles3DStreamer(
+          tileset: await source(
+            tile(
+              uri: 'parent',
+              refine: refinement,
+              error: 100,
+              children: [
+                for (final name in ['a', 'b', 'c', 'd', 'e']) tile(uri: name),
+              ],
+            ),
+          ),
+          services: AssetServices(resolver: resolver),
+          budget: Tiles3DBudget(
+            maxRequests: 2,
+            maxDecodedBytes: 65536,
+            perTileDecodedBytes: 8192,
+            maxResidentBytes: 4 * 96,
+            perTileResidentBytes: 96,
+          ),
+          fadeDuration: const Duration(milliseconds: 250),
+          onChanged: () {
+            values.add(streamer.stats.residentBytes);
+          },
+        );
+        addTearDown(streamer.dispose);
+        streamer.update(camera(), viewport, elapsed: Duration.zero);
+        await settle(streamer);
+        streamer.update(
+          camera(),
+          viewport,
+          elapsed: const Duration(seconds: 1),
+        );
+        await settle(streamer);
+        expect(streamer.failures, isEmpty);
+        streamer.update(
+          camera(),
+          viewport,
+          elapsed: const Duration(seconds: 2),
+        );
+        expect(resolver.reads.length, 6);
+        expect(streamer.visible.keys, ['0']);
+        expect(streamer.stats.budgetLimited, isTrue);
+        expect(values, everyElement(lessThanOrEqualTo(384)));
+      },
+    );
+  }
+
   test(
     'small sibling groups load incrementally within physical reservations',
     () async {
@@ -388,13 +548,6 @@ void main() {
     expect(resolver.reads, isEmpty);
     expect(streamer.failures.single.code, AssetLoadError.forbiddenReference);
   });
-  const viewport = ViewportMetrics(800, 600);
-  PerspectiveCamera camera([double distance = 50]) => PerspectiveCamera(
-    position: Vec3(0, -distance, 0),
-    target: Vec3.zero,
-    up: const Vec3(0, 0, 1),
-    far: 20000,
-  );
   test(
     'cached camera changes notify once and unchanged frames stay quiet',
     () async {

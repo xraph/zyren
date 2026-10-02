@@ -150,8 +150,6 @@ class Tiles3DStreamer {
   int get _cachedBytes =>
       _cache.values.fold(0, (n, e) => n + e.content.decodedBytes);
   int get _reservedBytes => _active.length * budget.perTileDecodedBytes;
-  int get _cachedResidentBytes =>
-      _cache.values.fold(0, (n, e) => n + e.content.residentBytes);
   int get _reservedResidentBytes =>
       _active.length * budget.perTileResidentBytes;
   Tiles3DStats get stats => Tiles3DStats._(
@@ -182,10 +180,10 @@ class Tiles3DStreamer {
     final previous = _branches.keys.toSet();
     final nodes = <String, TileNode3D>{},
         branches = <String, List<TileNode3D>>{};
-    var cpu = 0, gpu = 0;
+    var cpu = 0;
     _budgetLimited = false;
     bool admit(List<TileNode3D> group) {
-      var groupCpu = 0, groupGpu = 0;
+      var groupCpu = 0;
       for (final node in group) {
         if (node.contentUri == null) continue;
         final cached = _cache[node.id]?.content;
@@ -193,16 +191,13 @@ class Tiles3DStreamer {
         // starts. Charging an entire sibling group here can prevent refinement
         // even when its actual contents fit comfortably in the cache.
         groupCpu += cached?.decodedBytes ?? 0;
-        groupGpu += cached?.residentBytes ?? 0;
       }
       if (nodes.length + group.length > budget.maxSelectedTiles ||
-          cpu + groupCpu > budget.maxDecodedBytes ||
-          gpu + groupGpu > budget.maxResidentBytes) {
+          cpu + groupCpu > budget.maxDecodedBytes) {
         _budgetLimited = true;
         return false;
       }
       cpu += groupCpu;
-      gpu += groupGpu;
       for (final node in group) {
         nodes[node.id] = node;
       }
@@ -330,9 +325,7 @@ class Tiles3DStreamer {
       bool hasRoom() =>
           _cachedBytes + _reservedBytes + budget.perTileDecodedBytes <=
               budget.maxDecodedBytes &&
-          _cachedResidentBytes +
-                  _reservedResidentBytes +
-                  budget.perTileResidentBytes <=
+          _reservedResidentBytes + budget.perTileResidentBytes <=
               budget.maxResidentBytes;
       while (!hasRoom()) {
         final unused = _cache.keys.where(
@@ -483,9 +476,14 @@ class Tiles3DStreamer {
   }
 
   void _refresh() {
+    // Build a coarse cover first. Cached ancestors stay in CPU memory; only
+    // groups in the published cover consume the visible residency allowance.
     (bool, Map<String, Group>) coverage(TileNode3D node) {
       final own = _cache[node.id];
       final group = own?.group;
+      if (group != null && node.refinement == TileRefinement.replace) {
+        return (true, {node.id: group});
+      }
       final children = _branches[node.id];
       if (children != null) {
         var complete = true;
@@ -512,9 +510,69 @@ class Tiles3DStreamer {
       );
     }
 
-    final desired = _selected.containsKey(tileset.root.id)
+    int bytes(Map<String, Group> groups) => groups.keys.fold(
+      0,
+      (total, id) => total + _cache[id]!.content.residentBytes,
+    );
+    var desired = _selected.containsKey(tileset.root.id)
         ? coverage(tileset.root).$2
         : <String, Group>{};
+    if (bytes(desired) > budget.maxResidentBytes) {
+      _budgetLimited = true;
+      final root = _cache[tileset.root.id]?.group;
+      desired = {tileset.root.id: ?root};
+    }
+    var residentBytes = bytes(desired);
+    final pending = desired.keys.toList();
+    final expanded = <String>{};
+    while (pending.isNotEmpty) {
+      pending.sort((a, b) {
+        double error(String id) {
+          final node = _selected[id];
+          return node == null
+              ? 0
+              : node.bounds.screenError(
+                  node.geometricError,
+                  _lastCamera!,
+                  _lastViewport!,
+                );
+        }
+
+        final order = error(b).compareTo(error(a));
+        return order == 0 ? a.compareTo(b) : order;
+      });
+      final id = pending.removeAt(0);
+      if (!desired.containsKey(id) || !expanded.add(id)) continue;
+      final node = _selected[id]!;
+      final children = _branches[id];
+      if (children == null) continue;
+      var complete = true;
+      final found = <String, Group>{};
+      for (final child in children) {
+        final result = coverage(child);
+        complete = complete && result.$1;
+        found.addAll(result.$2);
+      }
+      final replace = node.refinement == TileRefinement.replace;
+      if (replace && !complete) continue;
+      final nextBytes =
+          residentBytes -
+          (replace ? _cache[id]!.content.residentBytes : 0) +
+          bytes({
+            for (final entry in found.entries)
+              if (!desired.containsKey(entry.key)) entry.key: entry.value,
+          });
+      if (nextBytes > budget.maxResidentBytes) {
+        _budgetLimited = true;
+        continue;
+      }
+      // Publish a whole replacement together. Partial siblings cannot remove
+      // their fallback, even when the remaining requests failed or were denied.
+      if (replace) desired.remove(id);
+      desired.addAll(found);
+      residentBytes = nextBytes;
+      pending.addAll(found.keys.where((key) => !expanded.contains(key)));
+    }
     _updateTransition(desired);
   }
 
