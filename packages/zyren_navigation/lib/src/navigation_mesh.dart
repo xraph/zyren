@@ -231,7 +231,9 @@ bool _overlaps(List<int> a, List<int> b, List<Vec3> vs) {
   for (final pair in [(a, b), (b, a)]) {
     for (var i = 0; i < 3; i++) {
       final p = vs[pair.$1[i]], q = vs[pair.$1[(i + 1) % 3]];
-      if (pair.$2.every((j) => _cross(p, q, vs[j]) <= NavigationMesh.tolerance)) {
+      if (pair.$2.every(
+        (j) => _cross(p, q, vs[j]) <= NavigationMesh.tolerance,
+      )) {
         return false;
       }
     }

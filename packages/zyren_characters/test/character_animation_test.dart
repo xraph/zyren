@@ -127,6 +127,31 @@ void main() {
     expect(() => character.transitionTo('idle'), throwsStateError);
     expect(character.weights, isEmpty);
   });
+  test('two character plugins cannot own the same imported instance', () async {
+    await engine.dispose();
+    final other = CharacterAnimationPlugin(
+      timeline: character.timeline,
+      states: character.states,
+      transitions: character.transitions,
+      initialState: 'idle',
+      id: 'other-character',
+    );
+    await expectLater(
+      SceneEngine.create(
+        scene: scene,
+        camera: PerspectiveCamera(),
+        rendererFactory: () async => TestRenderer([]),
+        plugins: [character.timeline, character, other],
+        acquireFrameDemand: () {
+          demands++;
+          return Registration(() => demands--);
+        },
+      ),
+      throwsStateError,
+    );
+    expect(demands, 0);
+    expect(character.isAttached, isFalse);
+  });
   test('engine disposal releases a looping character', () async {
     character.transitionTo('walk');
     await tick(0);

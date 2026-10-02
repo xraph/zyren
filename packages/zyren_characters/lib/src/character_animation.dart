@@ -3,6 +3,10 @@ import 'package:zyren_gltf/zyren_gltf.dart';
 import 'package:zyren_gltf_timeline/zyren_gltf_timeline.dart';
 import 'package:zyren_timeline/zyren_timeline.dart';
 
+final _characterOwners = Expando<CharacterAnimationPlugin>(
+  'character pose owner',
+);
+
 /// A named clip. The host owns decisions such as when to walk or idle.
 final class CharacterState {
   final String id;
@@ -51,6 +55,7 @@ final class CharacterAnimationPlugin extends ScenePlugin {
   final List<CharacterTransition> transitions;
   final String initialState;
   final Map<String, TimelineAction> _actions = {};
+  final Set<Object3D> _targets = Set.identity();
   final Map<(String, String), Duration> _edges = {};
   PluginContext? _context;
   late String _current = initialState;
@@ -86,6 +91,7 @@ final class CharacterAnimationPlugin extends ScenePlugin {
   Set<String> get dependencies => {timeline.id};
   String get currentState => _current;
   bool get isPaused => _paused;
+  bool get isAttached => _context != null;
   Map<String, double> get weights => Map.unmodifiable({
     for (final e in _actions.entries) e.key: e.value.weight,
   });
@@ -106,6 +112,16 @@ final class CharacterAnimationPlugin extends ScenePlugin {
     if (_context != null) throw StateError('Character is already attached.');
     if (!identical(context.service(sceneTimeline), timeline)) {
       throw StateError('Character requires its registered timeline.');
+    }
+    final targets = {
+      for (final state in states) ...state.clip.tracks.map((t) => t.target),
+    };
+    if (targets.any((target) => _characterOwners[target] != null)) {
+      throw StateError('An animation target already has a character owner.');
+    }
+    _targets.addAll(targets);
+    for (final target in targets) {
+      _characterOwners[target] = this;
     }
     _context = context;
     _current = initialState;
@@ -188,6 +204,12 @@ final class CharacterAnimationPlugin extends ScenePlugin {
       }
     } finally {
       _actions.clear();
+      for (final target in _targets) {
+        if (identical(_characterOwners[target], this)) {
+          _characterOwners[target] = null;
+        }
+      }
+      _targets.clear();
       _context = null;
       _paused = false;
     }

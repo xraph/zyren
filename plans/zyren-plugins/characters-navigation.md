@@ -122,9 +122,69 @@ Verification on 2026-10-02 uses Flutter 3.47.5's Dart:
 - Running the native physics test from the workspace root omitted its hook.
   Running from the character package resolves the real native asset and passes.
 
-A local commit is being prepared for this checkpoint. Runtime agent adapters
-are in progress and are required for completion. Phases 2 through 5 remain.
+Checkpoint 1 is committed as `892ccf1`. The agent checkpoint below extends it.
+Phases 2 through 5 remain.
 An existing `physics_lab` macOS process
 was active during reconnaissance, so this chat will not take its device session.
 Native Rapier CPU checks do not establish Metal presentation. Packages remain
 private with `publish_to: none`. No publication is requested.
+
+### Existing-plugin agent adapter edits
+
+Checkpoint 1 is committed as `892ccf1`. The shared provider contract is now
+available, so the next checkpoint implements optional `agents.dart` entry points
+for characters, navigation, timeline, glTF timeline, physics and particles.
+
+Shared edits requested: append `zyren_agents` to each adapter package's pubspec
+and allowlist; create only `lib/agents.dart` in the four existing packages.
+Current status shows no other edits in those packages. Preserve the existing
+facades and runtime implementations. Use the lock for these additive edits.
+
+Hosts supply revision readers and command gateways. A gateway records the normal
+application command/undo policy, checks cancellation immediately before applying,
+and increments the host revision. Frame/external edits must update that revision
+as well. Providers register into an attachment scope and never start a listener.
+Physics movement only submits targets to explicitly exposed kinematic bodies;
+it does not step the world. Particle queries use cached measurements and do not
+force GPU readback. Native particle actions still need a live attached controller.
+
+## Agent checkpoint evidence
+
+Implemented optional providers in `agents.dart` for characters, navigation,
+timeline, imported glTF animation, physics and particles. The walkthrough mounts
+five domain providers plus viewport context in one attachment lifetime. A second
+character plugin now rejects an already-owned animation target.
+
+Checks on 2026-10-02:
+
+- Character package: 13 tests pass; one native particle GPU test is skipped.
+- Navigation package: 7 tests pass, including shared-registry path queries.
+- Analyzer: clean for both packages and all four existing-plugin adapter files.
+- Live stdio MCP subprocess: passes initialization, tools/list, six-provider
+  discovery, enriched character geometry picking, authorized state transition,
+  retry deduplication, rejection of mutation through the query channel, and
+  existing diagnostics. The fixture uses native Rapier and a test renderer.
+- Registry conformance covers passive reads, schemas, permission denial, stale
+  revisions, missing fields, cancellation, removed bodies/models and scope cleanup.
+- Native physics arrival and cleanup remain verified. The particle adapter's
+  schemas are verified; its real GPU state/action test has not run.
+- The latest repository-wide boundary guard reports concurrent devtools agent
+  imports missing from its allowlist. The new adapters' dependencies pass the
+  same guard. This shared guard gap is outside these adapter implementations.
+- One dependency-resolution attempt encountered an XR example before its owner
+  had registered it. Resolution passed after that registration completed.
+- Disk exhaustion interrupted temporary adapter preparation. Only this
+  workstream's disposable test caches were removed; source files were preserved.
+
+No screen presentation, Metal/Vulkan/DX12 character render or native particle
+agent action is claimed. The active native sessions were left alone. The MCP
+geometry result correctly reports rendered pixel visibility and presented-frame
+correlation as unknown. Live screen-to-action qualification is still required.
+
+Remaining work: root-motion extraction, a collision-aware character controller,
+dynamic obstacles, generation and multi-floor navigation, IK, retargeting,
+representative skinned rigs, and native desktop/mobile walkthrough qualification.
+The agent providers need the same native qualification before plugin completion.
+The example's command gateway has no undo stack; product hosts must supply their
+normal command history, permission policy and revision updates. Packages remain
+private. No push, merge or publication was performed.

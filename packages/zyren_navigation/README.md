@@ -33,3 +33,10 @@ agent clearance and obstacle updates remain in the workstream plan.
 
 Run `dart test` from this package directory with the workspace Flutter SDK.
 The character package includes a route-following native physics example.
+
+Import `package:zyren_navigation/agents.dart` for the optional shared runtime
+provider. Register it with an `AgentRegistry` and your attachment scope. Queries
+accept three-component metre coordinates and a visited-triangle budget. Discovery
+states the flat surface, point-agent and clearance limits. You supply a stable
+source ID and an availability callback; replacement requires a new registration.
+The immutable mesh uses revision zero for that registration lifetime.
