@@ -4,6 +4,22 @@ import 'package:zyren_geospatial/zyren_geospatial.dart';
 import 'package:zyren_effects/zyren_effects.dart';
 import 'geospatial_presets.dart';
 
+/// Keep native display detail while bounding HDR targets during replacement.
+double geospatialResolutionScale({
+  required double width,
+  required double height,
+}) {
+  final w = math.max(1.0, width), h = math.max(1.0, height);
+  final scale = math.min(
+    1.0,
+    math.min(1920 / math.max(w, h), math.sqrt((2 * 1024 * 1024) / (w * h))),
+  );
+  if ((w * scale).round() * (h * scale).round() <= 2 * 1024 * 1024) {
+    return scale;
+  }
+  return math.min((w * scale).floor() / w, (h * scale).floor() / h);
+}
+
 /// Shared inputs for the native Google atmosphere and cloud stories.
 final class GeospatialSceneProfile extends ScenePlugin {
   late final AtmospherePlugin air;
@@ -47,7 +63,7 @@ final class GeospatialSceneProfile extends ScenePlugin {
             blueNoiseSource: CloudBlueNoiseSource(services: services),
             parameters: _cloudParameters,
             quality: CloudQualityPreset.high,
-            maxResolution: 192,
+            maxResolution: 640,
             shadowMapSize: 128,
             shadowFarScale: .25,
           )

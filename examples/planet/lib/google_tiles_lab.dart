@@ -169,12 +169,12 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
         fadeDuration: const Duration(milliseconds: 250),
         tileset: tileset,
         services: services,
-        maximumScreenError: 20,
+        maximumScreenError: 8,
         budget: Tiles3DBudget(
-          maxRequests: 2,
+          maxRequests: 4,
           maxSelectedTiles: 512,
           maxDecodedBytes: 512 * 1024 * 1024,
-          maxResidentBytes: (widget.clouds ? 16 : 32) * 1024 * 1024,
+          maxResidentBytes: 64 * 1024 * 1024,
           perTileDecodedBytes: 16 * 1024 * 1024,
           perTileResidentBytes: 8 * 1024 * 1024,
         ),
@@ -279,13 +279,11 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
                   : LayoutBuilder(
                       builder: (context, bounds) {
                         final ratio = MediaQuery.devicePixelRatioOf(context);
-                        final width = math.max(1, bounds.maxWidth * ratio);
-                        final height = math.max(1, bounds.maxHeight * ratio);
-                        // Replacement effects coexist with the previous frame.
-                        // Bound their area as well as their longest dimension.
-                        final scale = math.min(
-                          640 / math.max(width, height),
-                          math.sqrt((640 * 384) / (width * height)),
+                        final width = math.max(1.0, bounds.maxWidth * ratio);
+                        final height = math.max(1.0, bounds.maxHeight * ratio);
+                        final scale = geospatialResolutionScale(
+                          width: width,
+                          height: height,
                         );
                         return SceneView(
                           controller: controller,

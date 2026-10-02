@@ -58,10 +58,14 @@ connection. For a local synthetic dataset, run `lib/tiles3d_lab.dart` or its
 # Source story qualification
 
 Add `--dart-define=ZYREN_LAB_CLOUDS=true` to open Tokyo, Fuji and London with
-the pinned cloud maps and blue noise. Cloud scenes allow 16 MiB of visible tile
-payloads; atmosphere scenes allow 32 MiB. Both share the native resource limit.
-The lab caps its render size at 640 pixels per axis and about 246,000 pixels in
-total. This leaves room for both sets of effect textures during a resize.
+the pinned cloud maps and blue noise. Both scene types allow 64 MiB of visible
+tile payloads and four concurrent tile requests. The screen-error target is eight
+render pixels, so finer tiles can replace the broad parent imagery sooner.
+
+The view keeps your display pixels up to a 1920-pixel edge and 2,097,152 pixels
+in total. Clouds resolve up to 640 pixels. Larger displays still use a bounded
+render target; waiting longer does not lift that limit. The area cap leaves room
+for the old and replacement effect textures during a resize.
 
 You can run one city and save its inputs and checks from the workspace root:
 

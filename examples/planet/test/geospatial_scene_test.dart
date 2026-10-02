@@ -80,7 +80,7 @@ void main() {
         0.0,
       ));
       expect(cloudProfile.air.appearance.albedoScale, 2 / math.pi);
-      expect(cloudProfile.cloudLayer!.maxResolution, 192);
+      expect(cloudProfile.cloudLayer!.maxResolution, 640);
       expect(cloudProfile.cloudLayer!.shadowMapSize, 128);
       expect(cloudProfile.plugins.map((p) => p.id), contains('clouds'));
     },

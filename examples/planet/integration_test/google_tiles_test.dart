@@ -190,8 +190,13 @@ void main() {
         );
         expect(lab.controller.scene.renderSettings.exposure, preset.exposure);
         expect(lab.controller.scene.effects.length, greaterThanOrEqualTo(27));
-        expect(lab.profile.effects.controller.width, lessThanOrEqualTo(640));
-        expect(lab.profile.effects.controller.height, lessThanOrEqualTo(640));
+        expect(lab.profile.effects.controller.width, lessThanOrEqualTo(1920));
+        expect(lab.profile.effects.controller.height, lessThanOrEqualTo(1920));
+        expect(
+          lab.profile.effects.controller.width *
+              lab.profile.effects.controller.height,
+          lessThanOrEqualTo(2097152),
+        );
         if (lab.profile.cloudLayer case final cloud?) {
           expect(cloud.controller.parameters.coverage, preset.coverage);
           expect(cloud.controller.quality, CloudQualityPreset.high);
@@ -252,10 +257,9 @@ void main() {
       await tester.binding.setSurfaceSize(const Size(390, 700));
       final before = frames;
       await until(() => frames > before + 2);
-      // Allow one pixel of rounding on each dimension.
       expect(
         lastFrame!.physicalSize.width * lastFrame!.physicalSize.height,
-        lessThanOrEqualTo(641 * 385),
+        lessThanOrEqualTo(2097152),
       );
       await tester.tap(find.text('Data sources'));
       await tester.pump(const Duration(milliseconds: 350));
