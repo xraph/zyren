@@ -163,11 +163,12 @@ void main() {
     expect(frames, isNotEmpty);
     expect(frames.map((frame) => frame.readbackBytes), everyElement(0));
     expect(tester.getSize(find.byType(SceneView)).height, greaterThan(240));
+    final viewport = tester.view.physicalSize / tester.view.devicePixelRatio;
     debugPrint(
       'SECTION_TOOLS platform=${Platform.operatingSystem} '
       'backend=${rendererInfo.capabilities.backend} '
       'presentation=${rendererInfo.presentationPath.name} '
-      'viewport=${tester.view.physicalSize / tester.view.devicePixelRatio} '
+      'viewport=${viewport.width}x${viewport.height} '
       'frames=${frames.length} depthStrategies=2 contours=concave,cavity '
       'shaderClipping=passed capsControls=passed overlayControls=passed nativeReadbacks=0',
     );
