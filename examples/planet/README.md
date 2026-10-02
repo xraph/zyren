@@ -58,14 +58,28 @@ connection. For a local synthetic dataset, run `lib/tiles3d_lab.dart` or its
 # Source story qualification
 
 Add `--dart-define=ZYREN_LAB_CLOUDS=true` to open Tokyo, Fuji and London with
-the pinned cloud maps and blue noise. Both scene types allow 64 MiB of visible
-tile payloads and four concurrent tile requests. The screen-error target is eight
+the pinned cloud maps and blue noise. Use the Clouds selector to choose Auto,
+Low, Medium, High or Ultra. Auto starts phones at Medium and tablets/desktops at
+High. You can change the setting while the scene is running.
+
+Phones allow 48 MiB of visible tile payloads; tablets and desktops allow 64 MiB.
+Both scene types use four concurrent tile requests. The screen-error target is eight
 render pixels, so finer tiles can replace the broad parent imagery sooner.
 
-The view keeps your display pixels up to a 1920-pixel edge and 2,097,152 pixels
-in total. Clouds resolve up to 640 pixels. Larger displays still use a bounded
-render target; waiting longer does not lift that limit. The area cap leaves room
-for the old and replacement effect textures during a resize.
+| Device | Scene edge / total pixels | Auto cloud edge | Ultra cloud edge |
+| --- | --- | --- | --- |
+| Phone | 1600 / 1,572,864 | 512 | 640 |
+| Tablet | 1920 / 2,097,152 | 640 | 640 |
+| Desktop | 1920 / 2,097,152 | 640 | 768 |
+
+Android and iOS views with a shortest display side of at least 600 logical pixels
+use the tablet profile. Orientation does not change the classification. Desktop
+windows keep the desktop profile at narrow widths.
+
+Larger displays use a bounded render target; waiting longer does not lift that
+limit. The rounded area cap leaves room for old and replacement effect textures
+during a resize. Cloud quality changes restart refinement, and a failed change
+keeps the current setting available with a retry action.
 
 You can run one city and save its inputs and checks from the workspace root:
 
@@ -76,7 +90,11 @@ python3 tool/qualification/geospatial_stories.py report --output /tmp/zyren-stor
 
 Use a fresh output directory for each run. Pass `--flutter` when Flutter is not
 on your PATH, and `--ios` with an iPhone device ID. The runner keeps phone apps
-installed so you don't have to repeat developer trust after every test.
+installed so you don't have to repeat developer trust after every test. After a
+device test, launch a normal app build before checking touch or gestures. Flutter's
+integration-test binding can discard physical input in the retained test app.
+See the [qualification runner guide](../../tool/qualification/README.md) for
+normal-app restoration and launch commands.
 
 The report retains all 74 pinned source stories. Five city scenes are registered
 so far. A passing native run records the camera, date, viewport, backend, central

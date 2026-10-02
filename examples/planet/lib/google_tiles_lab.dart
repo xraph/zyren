@@ -9,6 +9,7 @@ import 'package:zyren_geospatial/zyren_geospatial.dart';
 import 'tile_attribution_bar.dart';
 import 'geospatial_presets.dart';
 import 'geospatial_scene.dart';
+import 'geospatial_device_profile.dart';
 import 'preset_globe_controls.dart';
 import 'zero_state.dart';
 
@@ -61,6 +62,12 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
   static bool get configured => _googleKey.isNotEmpty || _ionToken.isNotEmpty;
   late final SceneController controller;
   late final GeospatialSceneProfile profile;
+  late final GeospatialDeviceProfile deviceProfile;
+  CloudQualitySelection _quality = CloudQualitySelection.auto;
+  bool _qualityChanging = false, _initialized = false;
+  CloudQualitySelection? _failedQuality;
+  StreamSubscription<FrameStats>? _qualityFrames;
+  int? _refinement;
   final _controls = PresetGlobeControlsPlugin();
   List<GoogleTilesPreset> get presets => widget.clouds
       ? GoogleTilesPreset.cloudPresets
@@ -77,8 +84,15 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
   GoogleTilesPreset get preset => _preset;
 
   @override
-  void initState() {
-    super.initState();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_initialized) return;
+    _initialized = true;
+    final view = View.of(context);
+    deviceProfile = GeospatialDeviceProfile.forViewport(
+      defaultTargetPlatform,
+      view.physicalSize.shortestSide / view.devicePixelRatio,
+    );
     final initial = widget.initialPreset ?? presets.first;
     if (!presets.contains(initial)) {
       throw ArgumentError('The initial preset must belong to this lab.');
@@ -109,16 +123,55 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
       services: controller.runtime.assetServices,
       clouds: widget.clouds,
       preset: initial,
+      cloudQuality: deviceProfile.clouds(),
     );
     for (final plugin in profile.plugins) {
       controller.use(plugin);
+    }
+    if (widget.clouds) {
+      _qualityFrames = controller.frameStats.listen((_) {
+        final count = math.min(
+          16,
+          profile.cloudLayer!.controller.history.accumulatedFrames,
+        );
+        if (mounted && count != _refinement) {
+          setState(() => _refinement = count);
+        }
+      });
     }
     _view(initial);
     unawaited(_startLoad());
   }
 
+  Future<void> _setQuality(CloudQualitySelection selection) async {
+    if (_qualityChanging) return;
+    setState(() {
+      _qualityChanging = true;
+      _failedQuality = null;
+    });
+    try {
+      await profile.setCloudQuality(deviceProfile.clouds(selection.preset));
+      if (mounted) {
+        setState(() {
+          _quality = selection;
+          if (_refinement != null) {
+            _refinement = math.min(
+              16,
+              profile.cloudLayer!.controller.history.accumulatedFrames,
+            );
+          }
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _failedQuality = selection);
+    } finally {
+      if (mounted) setState(() => _qualityChanging = false);
+    }
+  }
+
   void _view(GoogleTilesPreset preset) {
     _preset = preset;
+    _refinement = null;
     _controls.controls?.cancel();
     profile.apply(controller.scene, controller.camera, preset);
     _controls.resetForPreset();
@@ -174,7 +227,7 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
           maxRequests: 4,
           maxSelectedTiles: 512,
           maxDecodedBytes: 512 * 1024 * 1024,
-          maxResidentBytes: 64 * 1024 * 1024,
+          maxResidentBytes: deviceProfile.tileBytes,
           perTileDecodedBytes: 16 * 1024 * 1024,
           perTileResidentBytes: 8 * 1024 * 1024,
         ),
@@ -200,6 +253,7 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
 
   @override
   void dispose() {
+    unawaited(_qualityFrames?.cancel());
     controller.dispose();
     _closing = _close();
     unawaited(_closing);
@@ -239,9 +293,56 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
                           ? null
                           : (_) => setState(() => _view(preset)),
                     ),
+                  if (widget.clouds)
+                    Tooltip(
+                      message:
+                          'Cloud sampling quality. Auto uses your device profile.',
+                      child: DropdownButton<CloudQualitySelection>(
+                        key: const ValueKey('cloud-quality'),
+                        value: _quality,
+                        underline: const SizedBox(),
+                        selectedItemBuilder: (_) => [
+                          for (final choice in CloudQualitySelection.values)
+                            Text('Clouds: ${choice.label}'),
+                        ],
+                        items: [
+                          for (final choice in CloudQualitySelection.values)
+                            DropdownMenuItem(
+                              value: choice,
+                              child: Text(choice.label),
+                            ),
+                        ],
+                        onChanged: _qualityChanging
+                            ? null
+                            : (value) => unawaited(_setQuality(value!)),
+                      ),
+                    ),
+                  if (widget.clouds)
+                    Text(
+                      '${deviceProfile.device.name} · ${profile.cloudQuality.preset.name}',
+                    ),
+                  if (_qualityChanging)
+                    const SizedBox.square(
+                      dimension: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  if (_refinement case final frames?)
+                    Text(frames < 16 ? 'Refining clouds…' : 'Clouds refined'),
                 ],
               ),
             ),
+            if (_failedQuality case final selection?)
+              Wrap(
+                spacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  const Text('Cloud quality could not change.'),
+                  TextButton(
+                    onPressed: () => unawaited(_setQuality(selection)),
+                    child: const Text('Retry quality'),
+                  ),
+                ],
+              ),
             if (failures.isNotEmpty)
               Wrap(
                 spacing: 8,
@@ -284,6 +385,8 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
                         final scale = geospatialResolutionScale(
                           width: width,
                           height: height,
+                          maxDimension: deviceProfile.maxDimension,
+                          maxPixels: deviceProfile.maxPixels,
                         );
                         return SceneView(
                           controller: controller,

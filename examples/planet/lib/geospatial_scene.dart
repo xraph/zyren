@@ -8,13 +8,15 @@ import 'geospatial_presets.dart';
 double geospatialResolutionScale({
   required double width,
   required double height,
+  int maxDimension = 1920,
+  int maxPixels = 2097152,
 }) {
   final w = math.max(1.0, width), h = math.max(1.0, height);
   final scale = math.min(
     1.0,
-    math.min(1920 / math.max(w, h), math.sqrt((2 * 1024 * 1024) / (w * h))),
+    math.min(maxDimension / math.max(w, h), math.sqrt(maxPixels / (w * h))),
   );
-  if ((w * scale).round() * (h * scale).round() <= 2 * 1024 * 1024) {
+  if ((w * scale).round() * (h * scale).round() <= maxPixels) {
     return scale;
   }
   return math.min((w * scale).floor() / w, (h * scale).floor() / h);
@@ -27,14 +29,20 @@ final class GeospatialSceneProfile extends ScenePlugin {
   late final CloudPlugin? cloudLayer;
   GoogleTilesPreset _preset;
   PluginContext? _context;
+  CloudQualitySettings _cloudQuality;
+  CloudQualitySettings get cloudQuality => _cloudQuality;
   GeospatialSceneProfile({
     required AssetServices services,
     GoogleTilesPreset? preset,
     bool clouds = false,
     PrecomputedAtmosphereSource? source,
+    CloudQualitySettings? cloudQuality,
   }) : _preset =
            preset ??
-           (clouds ? GoogleTilesPreset.tokyo : GoogleTilesPreset.manhattan) {
+           (clouds ? GoogleTilesPreset.tokyo : GoogleTilesPreset.manhattan),
+       _cloudQuality =
+           cloudQuality ??
+           CloudQualitySettings.forDevice(CloudDeviceType.desktop) {
     air = AtmospherePlugin(
       date: date,
       source:
@@ -62,9 +70,9 @@ final class GeospatialSceneProfile extends ScenePlugin {
             source: CloudTextureSource.upstream(services: services),
             blueNoiseSource: CloudBlueNoiseSource(services: services),
             parameters: _cloudParameters,
-            quality: CloudQualityPreset.high,
-            maxResolution: 640,
-            shadowMapSize: 128,
+            quality: _cloudQuality.preset,
+            maxResolution: _cloudQuality.maxResolution,
+            shadowMapSize: _cloudQuality.shadowMapSize,
             shadowFarScale: .25,
           )
         : null;
@@ -76,6 +84,13 @@ final class GeospatialSceneProfile extends ScenePlugin {
   DateTime get date =>
       _preset.utcDate(year: GoogleTilesPreset.qualificationYear);
   List<ScenePlugin> get plugins => [air, ?cloudLayer, effects, this];
+  Future<void> setCloudQuality(CloudQualitySettings settings) async {
+    if (_context != null && cloudLayer != null) {
+      await cloudLayer!.controller.setQualitySettings(settings);
+    }
+    _cloudQuality = settings;
+  }
+
   @override
   String get id => 'geospatial-scene';
   @override
@@ -103,14 +118,15 @@ final class GeospatialSceneProfile extends ScenePlugin {
   }
 
   @override
-  void attach(PluginContext context) {
+  Future<void> attach(PluginContext context) async {
     _context = context;
-    context.service(atmosphere).date = date;
-    if (cloudLayer case final layer?) {
-      layer.controller.parameters = _cloudParameters;
-    }
     context.scope.onClose(() {
       _context = null;
     });
+    context.service(atmosphere).date = date;
+    if (cloudLayer case final layer?) {
+      layer.controller.parameters = _cloudParameters;
+      await layer.controller.setQualitySettings(_cloudQuality);
+    }
   }
 }

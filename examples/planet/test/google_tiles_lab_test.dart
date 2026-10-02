@@ -3,8 +3,39 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:planet/google_tiles_lab.dart';
 import 'package:planet/geospatial_presets.dart';
 import 'package:flutter_zyren/flutter_zyren.dart';
+import 'package:zyren_geospatial/zyren_geospatial.dart';
 
 void main() {
+  testWidgets('cloud quality selector works before a renderer attaches', (
+    tester,
+  ) async {
+    for (final width in [1000.0, 390.0]) {
+      await tester.binding.setSurfaceSize(Size(width, 700));
+      await tester.pumpWidget(const GoogleTilesLabApp(clouds: true));
+      final lab = tester.state<GoogleTilesLabState>(
+        find.byType(GoogleTilesLab),
+      );
+      final control = find.byKey(const ValueKey('cloud-quality'));
+      expect(control, findsOneWidget);
+      await tester.tap(control);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Ultra').last);
+      await tester.pumpAndSettle();
+      expect(lab.profile.cloudQuality.preset, CloudQualityPreset.ultra);
+      await tester.tap(control);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Auto').last);
+      await tester.pumpAndSettle();
+      expect(
+        lab.profile.cloudQuality.preset,
+        lab.deviceProfile.clouds().preset,
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      await lab.whenClosed;
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
   testWidgets(
     'a selected cloud story initializes its camera and date together',
     (tester) async {

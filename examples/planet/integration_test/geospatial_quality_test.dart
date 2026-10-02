@@ -6,6 +6,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_zyren/flutter_zyren.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:planet/geospatial_scene.dart';
+import 'package:planet/geospatial_device_profile.dart';
+import 'package:zyren_geospatial/zyren_geospatial.dart';
 
 void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -13,6 +15,10 @@ void main() {
     tester,
   ) async {
     final android = defaultTargetPlatform == TargetPlatform.android;
+    final device = GeospatialDeviceProfile.forViewport(
+      defaultTargetPlatform,
+      tester.view.physicalSize.shortestSide / tester.view.devicePixelRatio,
+    );
     final controller = SceneController(
       scene: Scene()
         ..renderSettings = RenderSettings(
@@ -37,6 +43,7 @@ void main() {
     final profile = GeospatialSceneProfile(
       services: controller.runtime.assetServices,
       clouds: true,
+      cloudQuality: device.clouds(),
     );
     for (final plugin in profile.plugins) {
       controller.use(plugin);
@@ -71,6 +78,8 @@ void main() {
                   resolutionScale: geospatialResolutionScale(
                     width: bounds.maxWidth * ratio,
                     height: bounds.maxHeight * ratio,
+                    maxDimension: device.maxDimension,
+                    maxPixels: device.maxPixels,
                   ),
                 );
               },
@@ -105,17 +114,41 @@ void main() {
         final physical = last!.physicalSize;
         expect(math.max(physical.width, physical.height), greaterThan(640));
         expect(physical.width * physical.height, lessThanOrEqualTo(2097152));
+        expect(
+          physical.width * physical.height,
+          lessThanOrEqualTo(device.maxPixels),
+        );
         expect(profile.cloudLayer!.controller.history.valid, true);
         records.add({
           'logical': [size.width, size.height],
           'physical': [physical.width, physical.height],
           'backend': (await controller.ready).backend,
+          'device': device.device.name,
+          'cloudQuality': profile.cloudQuality.preset.name,
           'historyFrames':
               profile.cloudLayer!.controller.history.accumulatedFrames,
           'elapsedMs': first.elapsedMilliseconds,
           'readbackBytes': last!.readbackBytes,
         });
         debugPrint('Geospatial quality: ${records.last}');
+      }
+      for (final quality in CloudQualityPreset.values) {
+        final before = frames;
+        await profile.setCloudQuality(device.clouds(quality));
+        await settle(before);
+        expect(profile.cloudLayer!.controller.quality, quality);
+        records.add({
+          'selection': quality.name,
+          'cloudResolution': [
+            profile.cloudLayer!.controller.width,
+            profile.cloudLayer!.controller.height,
+          ],
+          'shadowMapSize': profile.cloudLayer!.controller.shadowMapSize,
+          'historyFrames':
+              profile.cloudLayer!.controller.history.accumulatedFrames,
+          'readbackBytes': last!.readbackBytes,
+        });
+        debugPrint('Cloud quality change: ${records.last}');
       }
       expect(tester.takeException(), isNull);
     } finally {

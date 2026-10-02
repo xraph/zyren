@@ -199,7 +199,7 @@ void main() {
         );
         if (lab.profile.cloudLayer case final cloud?) {
           expect(cloud.controller.parameters.coverage, preset.coverage);
-          expect(cloud.controller.quality, CloudQualityPreset.high);
+          expect(cloud.controller.quality, lab.deviceProfile.clouds().preset);
           expect(
             cloud.controller.history.accumulatedFrames,
             greaterThanOrEqualTo(16),
@@ -235,6 +235,10 @@ void main() {
             'date': lab.profile.air.controller.date.toIso8601String(),
             'cloudCoverage': preset.coverage,
             'cloudWeatherAnimated': preset.coverage != null,
+            'deviceProfile': lab.deviceProfile.device.name,
+            'cloudQuality': lab.profile.cloudQuality.preset.name,
+            'cloudMaxResolution': lab.profile.cloudQuality.maxResolution,
+            'cloudShadowMapSize': lab.profile.cloudQuality.shadowMapSize,
           },
           'checks': {
             'centerPickDistance': hit.point.distanceTo(initialTarget),
@@ -254,6 +258,34 @@ void main() {
       }
       expect(find.text('Google Maps'), findsWidgets);
       expect(find.text('Data sources'), findsOneWidget);
+      if (lab.profile.cloudLayer case final cloud?) {
+        final changes = <Map<String, Object?>>[];
+        for (final label in ['Low', 'Ultra', 'Auto']) {
+          final expected = label == 'Auto'
+              ? lab.deviceProfile.clouds()
+              : lab.deviceProfile.clouds(
+                  CloudQualityPreset.values.byName(label.toLowerCase()),
+                );
+          await tester.tap(find.byKey(const ValueKey('cloud-quality')));
+          await tester.pump(const Duration(milliseconds: 350));
+          await tester.tap(find.text(label).last);
+          await until(
+            () =>
+                cloud.controller.quality == expected.preset &&
+                cloud.controller.maxResolution == expected.maxResolution &&
+                cloud.controller.history.accumulatedFrames >= 16,
+          );
+          expect(find.text('Cloud quality could not change.'), findsNothing);
+          changes.add({
+            'selection': label,
+            'quality': cloud.controller.quality.name,
+            'resolution': [cloud.controller.width, cloud.controller.height],
+            'shadowMapSize': cloud.controller.shadowMapSize,
+            'historyFrames': cloud.controller.history.accumulatedFrames,
+          });
+        }
+        report['qualityChanges'] = changes;
+      }
       await tester.binding.setSurfaceSize(const Size(390, 700));
       final before = frames;
       await until(() => frames > before + 2);
