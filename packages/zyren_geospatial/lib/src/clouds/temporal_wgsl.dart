@@ -11,18 +11,32 @@ const cloudTemporalUniformWgsl = r'''
 struct CloudTemporal {size:vec4<f32>,state:vec4<f32>,jitter:vec4<f32>};
 @group(2) @binding(8) var<uniform> ct:CloudTemporal;
 ''';
-const cloudResolveWgsl = r'''
+// Direct texture references avoid the Pixel Mali compiler's image-argument crash.
+final cloudResolveWgsl =
+    r'''
 @group(1) @binding(0) var currentColor:texture_2d<f32>;
 @group(1) @binding(1) var currentData:texture_2d<f32>;
 @group(1) @binding(2) var previousColor:texture_2d<f32>;
 @group(1) @binding(3) var previousData:texture_2d<f32>;
 @group(3) @binding(0) var resolvedColor:texture_storage_2d<rgba16float,write>;
 @group(3) @binding(1) var resolvedData:texture_storage_2d<rgba32float,write>;
-fn cloudBilinear(map:texture_2d<f32>,uv:vec2<f32>)->vec4<f32>{
- let size=vec2<i32>(textureDimensions(map));let p=uv*vec2<f32>(size)-.5;let base=vec2<i32>(floor(p));let f=fract(p);var value=vec4<f32>(0.);
- for(var y=0;y<2;y++){for(var x=0;x<2;x++){value+=textureLoad(map,clamp(base+vec2<i32>(x,y),vec2<i32>(0),size-1),0)*select(1.-f.x,f.x,x==1)*select(1.-f.y,f.y,y==1);}}
+''' +
+    [
+      for (final name in [
+        'currentColor',
+        'currentData',
+        'previousColor',
+        'previousData',
+      ])
+        '''
+fn cloudBilinear_$name(uv:vec2<f32>)->vec4<f32>{
+ let size=vec2<i32>(textureDimensions($name));let p=uv*vec2<f32>(size)-.5;let base=vec2<i32>(floor(p));let f=fract(p);var value=vec4<f32>(0.);
+ for(var y=0;y<2;y++){for(var x=0;x<2;x++){value+=textureLoad($name,clamp(base+vec2<i32>(x,y),vec2<i32>(0),size-1),0)*select(1.-f.x,f.x,x==1)*select(1.-f.y,f.y,y==1);}}
  return value;
 }
+''',
+    ].join() +
+    r'''
 fn cloudClosest(coord:vec2<i32>)->vec4<f32>{
  let size=vec2<i32>(textureDimensions(currentData));var result=vec4<f32>(1e30,0.,0.,0.);
  for(var y=-1;y<=1;y++){for(var x=-1;x<=1;x++){
@@ -41,16 +55,16 @@ fn cloudClosest(coord:vec2<i32>)->vec4<f32>{
  // Upscale phases trace different rays within each 4x4 block. Their depths
  // cannot reject one another; source variance clipping handles disocclusion.
  if(accepted&&!upscale){
-  let previous=cloudBilinear(previousData,prevUv);
+  let previous=cloudBilinear_previousData(prevUv);
   accepted=abs(previous.x-data.x)<=max(100.,data.x*.05);
  }
  if(accepted){
-  let history=cloudBilinear(previousColor,prevUv);let oldShadow=cloudBilinear(previousData,prevUv).w;
+  let history=cloudBilinear_previousColor(prevUv);let oldShadow=cloudBilinear_previousData(prevUv).w;
   var first=current;var second=current*current;var shadowFirst=vec4<f32>(vec3<f32>(shadow),1.);var shadowSecond=shadowFirst*shadowFirst;
   let offsets=array<vec2<i32>,4>(vec2<i32>(1,0),vec2<i32>(0,-1),vec2<i32>(0,1),vec2<i32>(-1,0));
   for(var i=0;i<4;i++){
    var c:vec4<f32>;var s:f32;
-   if(upscale){let next=uv+vec2<f32>(offsets[i])/ct.size.zw;c=cloudBilinear(currentColor,next);s=cloudBilinear(currentData,next).w;}
+   if(upscale){let next=uv+vec2<f32>(offsets[i])/ct.size.zw;c=cloudBilinear_currentColor(next);s=cloudBilinear_currentData(next).w;}
    else{let next=clamp(coord+offsets[i],vec2<i32>(0),rawSize-1);c=textureLoad(currentColor,next,0);s=textureLoad(currentData,next,0).w;}
    first+=c;second+=c*c;let sv=vec4<f32>(vec3<f32>(s),1.);shadowFirst+=sv;shadowSecond+=sv*sv;
   }

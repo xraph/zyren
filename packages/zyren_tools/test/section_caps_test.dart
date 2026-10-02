@@ -172,7 +172,7 @@ void main() {
       final engine = await SceneEngine.create(
         scene: scene,
         camera: PerspectiveCamera(),
-        rendererFactory: () async => TestRenderer([]),
+        rendererFactory: () async => _InstanceRenderer(),
         plugins: [sections],
       );
       try {
@@ -260,5 +260,30 @@ void main() {
         await engine.dispose();
       }
     },
+  );
+}
+
+class _InstanceRenderer extends TestRenderer {
+  _InstanceRenderer() : super([]);
+  @override
+  RendererCapabilities get capabilities => _InstanceCapabilities();
+}
+
+class _InstanceCapabilities extends RendererCapabilities {
+  _InstanceCapabilities()
+    : super(
+        name: 'instance test',
+        features: {
+          RenderFeature.indexedMeshes,
+          RenderFeature.rgbaReadback,
+          RenderFeature.instancing,
+        },
+        maxDimension: 64,
+      );
+  @override
+  DeviceLimits get limits => DeviceLimits(
+    maxTextureDimension2D: 64,
+    maxGeometryBytes: 64 * 1024 * 1024,
+    maxInstances: 2,
   );
 }
