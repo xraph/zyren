@@ -47,6 +47,7 @@ final class CloudShadowPass {
             (textures.textures.resources[i].descriptor as TextureDescriptor)
                 .mipLevels,
       ),
+    ...cloudSamplingBindings(textures.textures),
     BufferBinding.uniform(5, frame, group: 2),
     BufferBinding.storageRead(7, noise, group: 2),
   ];
@@ -116,7 +117,7 @@ final class CloudShadowPass {
           cloudMediaMathWgsl(quality) +
               cloudFrameWgsl +
               cloudBlueNoiseWgsl +
-              cloudSamplingWgsl +
+              cloudSamplingShader(maps) +
               cloudShadowMarchWgsl(quality) +
               cloudShadowComputeWgsl(quality.shadow.cascadeCount),
           label: 'cloud Beer shadows',
@@ -147,6 +148,7 @@ final class CloudShadowPass {
                                 as TextureDescriptor)
                             .mipLevels,
                   ),
+                ...cloudSamplingBindings(maps),
                 BufferBinding.uniform(5, frame, group: 2),
                 BufferBinding.storageRead(7, noise, group: 2),
                 TextureBinding.storage(0, atlas, group: 3),

@@ -563,7 +563,7 @@ final class _CloudCandidate {
             cloudFrameWgsl +
             cloudBlueNoiseWgsl +
             cloudTemporalUniformWgsl +
-            cloudSamplingWgsl +
+            cloudSamplingShader(shadow.textures.textures) +
             cloudShadowSamplingWgsl(
               quality.shadow.cascadeCount,
               enabled: quality.shadowsEnabled,

@@ -1,13 +1,51 @@
-// Explicit filtering works for both float volumes and unorm source maps.
-final cloudSamplingWgsl =
+import 'package:zyren/zyren.dart';
+import 'textures.dart';
+
+Set<String> _filteredMaps(CloudTextures maps) => {
+  for (final (name, texture) in [
+    ('cloudWeatherMap', maps.weather),
+    ('cloudTurbulenceMap', maps.turbulence),
+  ])
+    if ((texture.descriptor as TextureDescriptor).format.filterable) name,
+};
+
+List<ShaderBinding> cloudSamplingBindings(CloudTextures maps) => [
+  if (_filteredMaps(maps).isNotEmpty)
+    SamplerBinding(
+      9,
+      group: 2,
+      sampler: const SamplerDescriptor(
+        wrapU: TextureWrap.repeat,
+        wrapV: TextureWrap.repeat,
+      ),
+    ),
+];
+
+String cloudSamplingShader(CloudTextures maps) =>
+    _samplingWgsl(_filteredMaps(maps));
+
+// Float volumes retain explicit filtering because R32Float is unfilterable.
+final cloudSamplingWgsl = _samplingWgsl({});
+
+String _samplingWgsl(Set<String> filtered) =>
     [
+      if (filtered.isNotEmpty)
+        '@group(2) @binding(9) var cloudRepeatSampler:sampler;',
       for (final (name, slot, volume) in [
         ('cloudWeatherMap', 1, false),
         ('cloudShapeMap', 2, true),
         ('cloudDetailMap', 3, true),
         ('cloudTurbulenceMap', 4, false),
       ])
-        '''
+        if (filtered.contains(name))
+          '''
+@group(2) @binding($slot) var $name:texture_2d<f32>;
+fn sample_$name(uv:vec2<f32>,mip:f32)->vec4<f32>{
+ return textureSampleLevel($name,cloudRepeatSampler,uv,mip);
+}
+'''
+        else
+          '''
 @group(2) @binding($slot) var $name:texture_${volume ? '3d' : '2d'}<f32>;
 fn ${name}Level(uv:vec${volume ? 3 : 2}<f32>,level:i32)->vec4<f32>{
  let size=vec${volume ? 3 : 2}<i32>(textureDimensions($name,level));let p=fract(uv)*vec${volume ? 3 : 2}<f32>(size)-.5;
@@ -20,7 +58,9 @@ fn ${name}Level(uv:vec${volume ? 3 : 2}<f32>,level:i32)->vec4<f32>{
 }
 fn sample_$name(uv:vec${volume ? 3 : 2}<f32>,mip:f32)->vec4<f32>{
  let level=clamp(mip,0.,f32(textureNumLevels($name)-1u));let lo=i32(floor(level));let hi=min(lo+1,i32(textureNumLevels($name))-1);
- return mix(${name}Level(uv,lo),${name}Level(uv,hi),fract(level));
+ let lower=${name}Level(uv,lo);
+ if(hi==lo || fract(level)==0.){return lower;}
+ return mix(lower,${name}Level(uv,hi),fract(level));
 }
 ''',
     ].join() +
