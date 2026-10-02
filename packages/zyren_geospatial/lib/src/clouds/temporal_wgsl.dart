@@ -38,7 +38,9 @@ fn cloudClosest(coord:vec2<i32>)->vec4<f32>{
  let bayer=array<i32,16>(0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5);
  let currentFrame=upscale&&bayer[(pixel.y%4)*4+pixel.x%4]==i32(ct.state.y);
  var accepted=ct.state.x>.5&&mode>.5&&!currentFrame&&all(prevUv>=vec2<f32>(0.))&&all(prevUv<=vec2<f32>(1.));
- if(accepted){
+ // Upscale phases trace different rays within each 4x4 block. Their depths
+ // cannot reject one another; source variance clipping handles disocclusion.
+ if(accepted&&!upscale){
   let previous=cloudBilinear(previousData,prevUv);
   accepted=abs(previous.x-data.x)<=max(100.,data.x*.05);
  }

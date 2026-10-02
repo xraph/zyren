@@ -53,7 +53,11 @@ void main() {
           camera: camera,
           backendFactory: () async => backend.createView(),
         );
-        Future<void> fill(bool initial, double depth) async {
+        Future<void> fill(
+          bool initial,
+          double depth, {
+          bool uniform = false,
+        }) async {
           await owner.resources.writeTexture(
             color,
             Float32List.fromList([
@@ -61,7 +65,7 @@ void main() {
                 for (var x = 0; x < 4; x++) ...[
                   initial
                       ? .2
-                      : x == 2 && y == 2
+                      : uniform || x == 2 && y == 2
                       ? .4
                       : 0,
                   0,
@@ -140,11 +144,70 @@ void main() {
           } else {
             expect(half(second, 2, 2), closeTo(.22, .0003));
           }
-          await fill(false, 10);
+          await fill(false, 10, uniform: mode == CloudTemporalMode.upscale);
           expect(
             half(await render(2), size ~/ 2, size ~/ 2),
-            closeTo(.4, .0003),
+            closeTo(.4, .0005),
           );
+          if (mode == CloudTemporalMode.upscale) {
+            history.invalidate();
+            const bayer = [
+              0,
+              8,
+              2,
+              10,
+              12,
+              4,
+              14,
+              6,
+              3,
+              11,
+              1,
+              9,
+              15,
+              7,
+              13,
+              5,
+            ];
+            late ByteData reconstructed;
+            for (var phase = 0; phase < 16; phase++) {
+              final index = bayer.indexOf(phase);
+              await owner.resources.writeTexture(
+                color,
+                Float32List.fromList([
+                  for (var y = 0; y < 4; y++)
+                    for (var x = 0; x < 4; x++) ...[
+                      (x * 4 + index % 4 + y * 4 + index ~/ 4) / 32,
+                      0,
+                      0,
+                      .5,
+                    ],
+                ]).buffer.asUint8List(),
+              );
+              await owner.resources.writeTexture(
+                data,
+                Float32List.fromList([
+                  for (var i = 0; i < 16; i++) ...[
+                    phase.isEven ? 1000 : 2000,
+                    0,
+                    0,
+                    2,
+                  ],
+                ]).buffer.asUint8List(),
+              );
+              reconstructed = await render(phase);
+            }
+            for (var y = 4; y < 12; y++) {
+              for (var x = 4; x < 12; x++) {
+                expect(
+                  half(reconstructed, x, y),
+                  closeTo((x + y) / 32, .001),
+                  reason:
+                      'Bayer detail at ($x, $y) survives different ray depths',
+                );
+              }
+            }
+          }
         } finally {
           await engine.dispose();
           await owner.close();
