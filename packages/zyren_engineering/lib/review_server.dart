@@ -4,35 +4,61 @@ import 'dart:io';
 import 'zyren_engineering.dart';
 
 /// Authorization belongs to the host, with separate read and write decisions.
-/// The server exposes one configured document at /review and binds loopback only.
+/// The server exposes one configured document at /review. Binding defaults to loopback.
 final class EngineeringReviewServer {
   final HttpServer _server;
   final EngineeringSessionStore _store;
   final Future<bool> Function(HttpRequest request, bool write) _authorize;
   final Duration bodyTimeout;
+  final bool _secure;
   EngineeringReviewServer._(
     this._server,
     this._store,
     this._authorize,
     this.bodyTimeout,
+    this._secure,
   ) {
-    _server.listen(_handle);
+    _server.listen(
+      _handle,
+      onError: (Object error, StackTrace stack) {
+        // TLS failures occur before an HTTP request exists.
+        if (error is! HandshakeException && error is! SocketException) {
+          Zone.current.handleUncaughtError(error, stack);
+        }
+      },
+    );
   }
 
   static Future<EngineeringReviewServer> start({
     required EngineeringSessionStore store,
     required Future<bool> Function(HttpRequest request, bool write) authorize,
     int port = 0,
+    InternetAddress? address,
+    SecurityContext? securityContext,
     Duration bodyTimeout = const Duration(seconds: 10),
   }) async {
     if (bodyTimeout <= Duration.zero) {
       throw ArgumentError('Body timeout must be positive.');
     }
-    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, port);
-    return EngineeringReviewServer._(server, store, authorize, bodyTimeout);
+    final bindAddress = address ?? InternetAddress.loopbackIPv4;
+    final server = securityContext == null
+        ? await HttpServer.bind(bindAddress, port)
+        : await HttpServer.bindSecure(bindAddress, port, securityContext);
+    return EngineeringReviewServer._(
+      server,
+      store,
+      authorize,
+      bodyTimeout,
+      securityContext != null,
+    );
   }
 
-  Uri get endpoint => Uri.parse('http://127.0.0.1:${_server.port}/review');
+  Uri get endpoint => Uri(
+    scheme: _secure ? 'https' : 'http',
+    host: _server.address.address,
+    port: _server.port,
+    path: '/review',
+  );
   Future<void> close() => _server.close(force: true);
 
   Future<void> _handle(HttpRequest request) async {

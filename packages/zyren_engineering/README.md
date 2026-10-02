@@ -217,8 +217,9 @@ cleans up its staging directory after writes. A version token changes with each
 successful write and remains valid after restart. Native scene state still stays
 outside the review document.
 
-The service binds only to IPv4 loopback. Hosted access still needs your service
-configuration, TLS transport and application identity integration. Reconnect your
+The local example binds to IPv4 loopback. The [self-hosted deployment](deploy/README.md)
+provides HTTPS through Caddy, persistent storage and separate reader/writer grants.
+You supply the hostname and credentials. Direct TLS is also supported. Reconnect your
 client after restarting the local service; a closed pooled connection can fail
 the first request. Automatic write retries are deliberately left to the host,
 which must read and merge again after a version conflict.
@@ -232,7 +233,7 @@ which must read and merge again after a version conflict.
 | Three-way merge and local edit protection | Yes | Package tests |
 | Authenticated HTTP and conditional-write client | Yes | Loopback HTTP service tests, denial and version conflicts |
 | Persistent loopback shared review service | Yes | macOS: two plugins, conflict decisions, restart, request rejection and file-lock races |
-| Hosted shared review service and access policy | Host supplied | No hosted endpoint or credentials configured |
+| Self-hosted HTTPS service and access policy | Yes | Direct TLS tests and Linux container smoke test through Caddy; public domain not configured |
 | STEP, IGES, IFC or vendor CAD parsing | No | Conversion/parser backend required |
 | Native rendered import review | Existing renderer integration | This workflow has no new native visual qualification |
 

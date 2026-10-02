@@ -1,0 +1,34 @@
+services:
+  review:
+    build:
+      context: ../../..
+      dockerfile: packages/zyren_engineering/deploy/Dockerfile
+    environment:
+      ZYREN_REVIEW_BIND: 0.0.0.0
+      ZYREN_REVIEW_PORT: 8080
+      ZYREN_REVIEW_PROXY: caddy
+    secrets: [review_access]
+    volumes: [review_data:/data]
+    restart: unless-stopped
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+  caddy:
+    image: caddy:2
+    environment:
+      REVIEW_DOMAIN: ${REVIEW_DOMAIN:?Set REVIEW_DOMAIN to your public hostname}
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+    depends_on: [review]
+secrets:
+  review_access:
+    file: ${REVIEW_ACCESS_FILE:?Set REVIEW_ACCESS_FILE to your access JSON path}
+volumes:
+  review_data:
+  caddy_data:
+  caddy_config:

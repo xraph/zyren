@@ -1,0 +1,6 @@
+{$REVIEW_DOMAIN} {
+    request_body {
+        max_size 8MB
+    }
+    reverse_proxy review:8080
+}
