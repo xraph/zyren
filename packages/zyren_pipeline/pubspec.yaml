@@ -7,6 +7,8 @@ environment:
   sdk: '>=3.10.0 <4.0.0'
 dependencies:
   crypto: ^3.0.7
+  zyren_agents:
+    path: ../zyren_agents
   zyren:
     path: ../zyren
   zyren_gltf:

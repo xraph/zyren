@@ -61,12 +61,18 @@ checkpoint.
 ## Dependencies and shared changes
 
 Use public `zyren` asset services and `zyren_gltf`; use the already-resolved
-`crypto` package for SHA-256. No shared core API change is required.
+`crypto` package for SHA-256. No shared core API change is required. The optional `agents.dart` entry point
+uses the published `zyren_agents` provider contract.
 
 Requested shared paths: add `packages/zyren_pipeline` to root `pubspec.yaml` and
 resolve workspace dependencies under `/tmp/zyren-plugin-expansion.lock`. Preserve
 every other workstream's entries and inspect their plans before mutation. Stage
 only the pipeline registration hunk if another registration is uncommitted.
+
+Requested shared verification edit: add `packages/zyren_pipeline` to
+`tool/check_package_boundaries.dart`, allowing only `zyren_pipeline`, `zyren`,
+`zyren_gltf`, `zyren_agents` and `crypto`. Preserve other owners' entries under
+the same lock.
 
 ## Required runtime agent integration
 
@@ -84,16 +90,56 @@ separate acceptance checks.
 
 ## Checkpoint evidence
 
-First implementation: deterministic versioned container, bounded serial build,
-integrity validation, offline glTF validation/load through current codecs,
-immutable source snapshots and a disk round-trip example. Original model bytes
-and the existing CAD identity sidecar survive the container round trip unchanged.
+Implemented:
 
-Pinned SDK: `/Users/rexraphael/fvm/versions/3.47.5/bin`. The default Flutter path
-uses Dart 3.9.2 and cannot resolve this workspace; pinned offline resolution passes.
-`dart analyze packages/zyren_pipeline` passes and the 11 bundle tests pass,
-including the existing converted CAD fixture. Cache and agent checks are next.
-No native/device check or package publication has been performed. Native
-presentation, agent/MCP integration and phases 3 through 6 remain unverified.
-The disk round-trip example passes: two sources, one scene root and zero warnings.
-First implementation commit: this checkpoint commit; exact ID recorded next.
+- Deterministic schema-v1 container, bounded serial build, manifest/payload hashes,
+  offline validation and load through current glTF codecs, immutable source
+  snapshots, original-byte CAD sidecar preservation and disk round-trip example.
+- LRU cache with payload-byte and entry budgets, explicit source/version
+  invalidation and existing-scope lifetime preservation. It is an in-memory
+  offline cache. Oversized admission leaves current entries intact.
+- Bounded CPU validation/load jobs with progress, cancellation, template release,
+  terminal error codes and cleanup. Agent actions call these ordinary commands.
+- Optional `PipelineAgentProvider` registered through `zyren_agents`, eight tools,
+  bounded public schemas, source provenance, budgets, permission scopes, expected
+  revisions and registry retry handling. Attachment disposal unregisters tools
+  and drains runtime resources. Cache ownership stays with the host.
+- Optional glTF import metadata joins source-owned node bindings to the shared
+  viewport provider. Actual triangle picking through the registry carries bundle
+  provenance, temporary runtime IDs and explicit unknown pixel visibility.
+
+Automated evidence, pinned SDK `/Users/rexraphael/fvm/versions/3.47.5/bin`:
+
+- `dart analyze packages/zyren_pipeline`: clean after the example lint fix.
+- `dart test packages/zyren_pipeline/test --reporter expanded`: 24 tests passed.
+  Covers corruption, dependency changes, budgets, cancellation, redirects,
+  sidecar bytes, cache eviction/invalidation, job limits and template release.
+  Shared-registry checks cover discovery/schema validation, permission denial,
+  stale requests, retries, real commands and detach cleanup. A DPR-2 CPU viewport
+  pick returns source provenance; removed runtime targets are rejected.
+- `dart run packages/zyren_pipeline/example/main.dart`: two sources, 436 original
+  bytes, one scene root and zero validation warnings, including disk reload.
+- `dart run packages/zyren_pipeline/example/agent_runtime.dart`: registered tool
+  discovery and a real glTF validation job reach `succeeded` in process.
+- `dart run tool/check_package_boundaries.dart`: pipeline entry is valid. The
+  whole-workspace check currently reports two in-progress agent imports in
+  `zyren_devtools/lib/io.dart` and `lib/agents.dart` against that owner's allowlist.
+  Those files are owned elsewhere and were not rewritten.
+- The default Flutter executable uses Dart 3.9.2 and cannot resolve this workspace.
+  Pinned Flutter 3.47.5 offline resolution passes. No dependency upgrade was made.
+
+Native/device checks: none for this package. CPU parsing and picking do not
+verify Metal/Vulkan/DX12 presentation, texture alpha, custom shader displacement
+or rendered pixel visibility. Live MCP transport has not been exercised with this
+provider; the shared devtools adapter is being implemented by the interaction
+owner. There is no device occupancy conflict because this checkpoint used no GPU
+or device session.
+
+Remaining scope: phases 3 through 6, native viewport-to-action validation, live
+MCP validation, broader optional glTF import metadata coverage, Studio/engineering
+application adapters and publication. Source revisions are host assertions;
+hashes prove byte integrity, not publisher authenticity. The complete plugin is
+not yet qualified for rollout.
+
+Commits: `aa57bba78d63f5eab343f84f9bde4ef5c152b376` contains bundle build/load.
+Cache/runtime/agent checkpoint commit is pending the final review.

@@ -54,7 +54,71 @@ serialized archive bytes. The JSON/base64 format allocates additional working
 memory; those limits are not a process memory cap. Set smaller limits for your
 host. The current path is in memory during build and decode.
 
+## Cache and runtime jobs
+
+`PipelineCache` stores immutable bundles under a payload-byte budget and an entry
+limit. `get` updates LRU order; `peek` and `bundles` leave recency unchanged.
+Call `invalidateSource(sourceId)` when an upstream source changes, or
+`invalidateVersion(version)` to remove one bundle. Oversized admission returns
+false without evicting existing entries. An open scope keeps its pinned bundle
+and decoded assets after eviction.
+
+`PipelineRuntime` adds bounded validation and load jobs. Validation closes its
+CPU templates when it finishes. A load job retains its template until you call
+`release(jobId)` or close the runtime. You can inspect progress and stable error
+codes, cancel running work and await `job.done`. Loading does not insert objects
+into your scene. Your host owns scene commands and undo.
+
+The cache has no disk store or freshness provider. The disk round-trip example
+shows serialization; it is not a persistent cache implementation. Cache byte
+accounting excludes decoded models, metadata and references retained by callers.
+
+## Runtime agent access
+
+Import `package:zyren_pipeline/agents.dart` to register the optional provider with
+the shared `zyren_agents` registry. No network listener is started.
+
+```dart
+final runtime = PipelineRuntime(
+  cache: PipelineCache()..put(restored),
+  services: yourAssetServices,
+);
+final registry = AgentRegistry(grantedScopes: {'pipeline.load'});
+final provider = PipelineAgentProvider(runtime: runtime, instanceId: 'assets');
+final attachment = provider.attach(registry);
+// Query registry.discover(), then call its versioned tools.
+// Dispose the attachment with your plugin and await runtime.close() for cleanup.
+```
+
+The provider exposes `status`, `bundles`, `sources`, `jobs`, `start`, `cancel`,
+`release` and `invalidate-source`. Queries paginate at 16 items per call.
+Source descriptions contain IDs, revisions and hashes. Raw payloads, URIs,
+response headers and decoder exception text stay out of transport results.
+
+Your host grants `pipeline.load` for starting jobs, `pipeline.jobs` for cancel
+and release, and `pipeline.cache.write` for invalidation. Mutations require the
+provider's expected revision and an idempotency key through the registry. They
+call the same runtime methods you use directly. Job progress reports bytes and
+load stages; a later `jobs` query reports the terminal result. Repeated commands
+use the shared registry retry ledger.
+
+Use `PipelineGltfMetadata` from `gltf_metadata.dart` to bind imported node indices
+to your stable source object IDs. Pass `pipelineGltfAgentMetadata(import, object)`
+through the shared viewport provider's metadata callback. A mesh hit inherits
+provenance from its imported ancestor; removed nodes return no enrichment. The
+shared provider supplies scene/document/viewport, camera, logical coordinates,
+DPR and known presented-frame correlation. Runtime object IDs remain temporary.
+Rendered pixel visibility is unknown for this CPU geometry path, including
+texture alpha and custom shader displacement.
+
+Run the registry example from the workspace root:
+
+```sh
+fvm dart run packages/zyren_pipeline/example/agent_runtime.dart
+```
+
 This package stores original bytes. Mesh optimization, LOD generation, compressed
 texture encoding, incremental transform reuse and persistent offline caching are
-tracked in [the workstream plan](../../plans/zyren-plugins/pipeline.md). No native
-presentation check or package publication is implied by the CPU example.
+tracked in [the workstream plan](../../plans/zyren-plugins/pipeline.md). Native
+viewport presentation and live MCP transport have not been verified for this
+provider. Package publication is also pending.
