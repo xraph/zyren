@@ -1,6 +1,11 @@
 name: Native physics Android x64
 on:
   workflow_dispatch:
+    inputs:
+      apk_run_id:
+        description: Optional run ID whose saved integration APK should be replayed
+        type: string
+        default: ''
   push:
     paths: ['packages/zyren_physics/**', 'examples/physics_lab/**', '.github/workflows/physics-android.yml']
   pull_request:
@@ -31,6 +36,7 @@ jobs:
       - run: rustup toolchain install 1.97.1 --profile minimal
       - run: flutter pub get
       - name: Bound Gradle memory and compile the integration APK
+        if: inputs.apk_run_id == ''
         working-directory: examples/physics_lab
         run: |
           mkdir -p "$HOME/.gradle"
@@ -43,11 +49,30 @@ jobs:
           free -h
           flutter build apk --debug --target-platform android-x64 --target integration_test/physics_lab_test.dart --dart-define=INTEGRATION_TEST_SHOULD_REPORT_RESULTS_TO_NATIVE=false --no-pub
       - name: Save the Android x64 integration APK
+        if: inputs.apk_run_id == ''
         uses: actions/upload-artifact@v4
         with:
           name: physics-android-x64-integration-apk
           path: examples/physics_lab/build/app/outputs/flutter-apk/app-debug.apk
           retention-days: 7
+      - name: Download the integration APK for replay
+        if: inputs.apk_run_id != ''
+        uses: actions/download-artifact@v4
+        with:
+          name: physics-android-x64-integration-apk
+          path: examples/physics_lab/build/app/outputs/flutter-apk/
+          run-id: ${{ inputs.apk_run_id }}
+          github-token: ${{ github.token }}
+      - name: Record APK source and host capacity
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APK_RUN_ID: ${{ inputs.apk_run_id || github.run_id }}
+        working-directory: examples/physics_lab
+        run: |
+          mkdir -p qualification/android-ci
+          gh run view "$APK_RUN_ID" --json databaseId,headSha,url > qualification/android-ci/apk-source.json
+          sha256sum build/app/outputs/flutter-apk/app-debug.apk > qualification/android-ci/apk-sha256.txt
+          free -h > qualification/android-ci/memory-before.txt
       - name: Enable emulator acceleration
         run: |
           test -c /dev/kvm
@@ -65,7 +90,24 @@ jobs:
           emulator-options: -no-window -no-snapshot -noaudio -no-boot-anim -no-metrics -gpu swiftshader -feature Vulkan -skin 480x800 -camera-back none -camera-front none
           working-directory: examples/physics_lab
           script: |
+            adb -s emulator-5554 logcat -c
+            adb -s emulator-5554 logcat -v threadtime > qualification/android-ci/logcat.txt 2>&1 < /dev/null &
             adb -s emulator-5554 shell wm density 160
             adb -s emulator-5554 shell wm size
             adb -s emulator-5554 shell wm density
             flutter drive --driver=test_driver/qualification.dart --target=integration_test/physics_lab_test.dart --use-application-binary=build/app/outputs/flutter-apk/app-debug.apk -d emulator-5554 --no-pub
+      - name: Capture host diagnostics
+        if: always()
+        working-directory: examples/physics_lab
+        run: |
+          mkdir -p qualification/android-ci
+          free -h > qualification/android-ci/memory-after.txt
+          df -h > qualification/android-ci/disk-after.txt
+          sudo dmesg -T | tail -n 150 > qualification/android-ci/kernel.txt
+      - name: Save Android diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: physics-android-x64-diagnostics
+          path: examples/physics_lab/qualification/android-ci/
+          retention-days: 7
