@@ -220,7 +220,9 @@ and active handles. You can change `alwaysVisible` after attachment; changing it
 cancels an active drag before updating render state.
 
 Validation: package tests and macOS Metal regressions cover both depth strategies.
-Windows DX12, Linux Vulkan and mobile rendering remain unverified for these tools.
+The Pixel 9 Pro passed native Vulkan contour, shader and workbench checks with
+zero presentation readbacks. iOS, Windows DX12 and Linux Vulkan remain unverified
+for these tools.
 You can review the device results and reproduction commands in the
 [qualification record](qualification/2026-10-02.md).
 

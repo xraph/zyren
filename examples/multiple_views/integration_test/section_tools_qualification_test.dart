@@ -17,9 +17,15 @@ void main() {
     // Offscreen pixel checks intentionally read back. The mounted workbench below
     // separately verifies native presentation with zero frame readbacks.
     final backend = await NativeBackend.create();
+    final expectedBackend = Platform.isAndroid || Platform.isLinux
+        ? 'vulkan'
+        : Platform.isWindows
+        ? 'dx12'
+        : 'metal';
     final shaders = backend.createShaderCompiler();
     final materials = backend.createMaterialCompiler();
     try {
+      expect(backend.capabilities.backend?.toLowerCase(), expectedBackend);
       final program = await shaders.compile(
         ShaderSource.wgsl(
           '${ShaderMaterial.uniformsWgsl}\n${ShaderMaterial.vertexWgsl()}\n'
@@ -145,12 +151,22 @@ void main() {
       if (controller.status.value is SceneReady && frames.isNotEmpty) break;
     }
     expect(controller.status.value, isA<SceneReady>());
+    final rendererInfo = await controller.ready;
+    expect(rendererInfo.capabilities.backend?.toLowerCase(), expectedBackend);
+    expect(
+      rendererInfo.presentationPath,
+      Platform.isAndroid
+          ? PresentationPath.sharedTexture
+          : PresentationPath.nativeView,
+    );
     await exerciseWorkbenchSections(tester, controller);
     expect(frames, isNotEmpty);
     expect(frames.map((frame) => frame.readbackBytes), everyElement(0));
     expect(tester.getSize(find.byType(SceneView)).height, greaterThan(240));
     debugPrint(
       'SECTION_TOOLS platform=${Platform.operatingSystem} '
+      'backend=${rendererInfo.capabilities.backend} '
+      'presentation=${rendererInfo.presentationPath.name} '
       'viewport=${tester.view.physicalSize / tester.view.devicePixelRatio} '
       'frames=${frames.length} depthStrategies=2 contours=concave,cavity '
       'shaderClipping=passed capsControls=passed overlayControls=passed nativeReadbacks=0',
