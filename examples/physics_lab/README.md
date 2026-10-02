@@ -55,5 +55,10 @@ that binary. The Intel simulator job requires an installed iPhone runtime and
 fails if none is available. Each run still needs a passing test result before its
 platform can be counted as qualified.
 
+To investigate an emulator failure, you can replay a saved APK with
+`-f apk_run_id=RUN_ID` when dispatching `physics-android.yml`. The replay records
+the original APK's source commit and SHA-256 alongside Android and host logs.
+It tests that saved app version, even if the workflow branch has newer commits.
+
 See [the completion matrix](../../packages/zyren_physics/COMPLETION.md) for tested
 platforms, linked builds and open hardware checks.

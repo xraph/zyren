@@ -16,12 +16,12 @@ Rust 1.97.1 and Rapier 0.36.0. The package remains unpublished.
 | Pixel 9 Pro, Android 17 | Linked APK and Vulkan/sharedTexture integration passed |
 | Android armv7, arm64 and x64 APK | Physics, renderer and surface libraries packaged; ELF architectures verified |
 | iPhone 17 Pro simulator, iOS 26.5 | Linked app and Metal/nativeView integration passed |
-| iOS simulator x64 | Linked app passed; bundled app and native frameworks verified as x86_64; execution open |
+| iOS simulator x64 | Local linked app and x86_64 slices verified; hosted simulator booted and Xcode build finished, but no integration result before the job timeout |
 | Linux arm64, Debian 12 | Linked app and Vulkan/readback integration passed under Xvfb |
 | Linux x64, Debian 12 | Linked app, Vulkan/readback integration and native render/recreation/cleanup passed under CPU emulation |
 | Hosted Linux arm64/x64 | Linked apps, Vulkan/readback integration and native render/recreation/cleanup passed |
 | Hosted Windows arm64/x64 | Linked native-architecture apps, DX12/readback integration and native render/recreation/cleanup passed |
-| Android x64 emulator | First attempt ran out of disk before boot; retry pending |
+| Android x64 emulator | Test APK built; Vulkan/sharedTexture app integration passed when replaying the saved APK |
 | Signed iPhone 16 Pro, iOS 27 | Built and installed; wireless debugger discovery timed out before test results |
 | Manual macOS desktop | Ball creation, pause/resume, ray and overlap controls inspected |
 | Narrow layout | Integration test exercised 396 by 800 without Flutter errors; manual capture unverified |
@@ -46,7 +46,7 @@ tested `847d041e9d79ac231f2ba9bb9cc0a48adc26f425`. Five desktop jobs and the
 mobile build job passed. Intel macOS passed its package tests and native render,
 then failed the app's kinematic assertion after resume: the position was still
 zero when the test expected two metres. Its original 400 ms pump loop did not
-wait for asynchronous native frames.
+check the renderer's failure state at that assertion.
 
 The [Intel macOS retry](https://github.com/xraph/zyren/actions/runs/37037930833)
 tested `0c01e9f` with a bounded 30-second wait for the same pose assertion and
@@ -70,12 +70,23 @@ The APK built and launched, then failed a layout assertion before renderer
 qualification. The reduced 480 by 800 display had retained the Pixel's high
 density, leaving about 183 by 305 logical pixels. The [next run](https://github.com/xraph/zyren/actions/runs/37041893216) sets
 density to 160 before launch and saves the test APK as an artifact; its result
-is pending.
+was a lost Flutter VM service with ADB reporting the emulator offline. The
+[saved APK replay](https://github.com/xraph/zyren/actions/runs/37043864185) passed
+the full integration test with Vulkan/sharedTexture presentation, including
+controls, reset, kinematics, 396 by 800 layout and native-count cleanup. It used
+the same APK built at `2518cb4`; the replay workflow was at `38c3e96`. The earlier
+service loss did not recur, and its cause remains unconfirmed. The
+[Android result](ci/android-x64.json) records the source run and APK SHA-256.
 Software Vulkan execution does not establish physical Android GPU coverage.
 
 The [Intel iOS simulator run](https://github.com/xraph/zyren/actions/runs/37038863037)
-found an available iPhone simulator on the hosted x86_64 Mac. Its build and Metal
-integration result is pending.
+booted an iPhone SE (3rd generation) on the hosted x86_64 Mac. Xcode finished its
+build at 17:44:50 UTC. Flutter produced no renderer line or integration result
+before the job reached its 60-minute limit at 18:10:58 UTC. GitHub recorded the
+run as cancelled with a maximum-execution-time annotation. Simulator shutdown
+completed. Intel iOS execution remains unverified; this is separate from the
+verified local x86_64 app and framework slices. The
+[timeout record](ci/ios-x64-timeout.json) preserves the job's conclusion and limit.
 
 You can inspect the exact commits, job and step conclusions in
 [ci/runs.json](ci/runs.json), and selected output in
@@ -190,7 +201,8 @@ with Local Network access allowed, or connected by USB, before retrying.
 ## Open checks
 
 Intel macOS app integration needs investigation of the GPU completion timeout.
-Android x64 emulator and Intel iOS simulator execution await their results.
+Intel iOS simulator execution needs investigation of the stall after its Xcode
+build; the hosted attempt timed out without a test result.
 Android armv7 execution needs a matching device. The
 signed iPhone debugger connection and physical GPU coverage described above also
 remain open.

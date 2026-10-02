@@ -93,3 +93,26 @@ android-x64-prebuilt
 2026-10-02T17:34:25.7137936Z I/flutter ( 2318): 00:08 +1 -1: Some tests failed.
 2026-10-02T17:34:25.7473197Z   Actual: FlutterError:<A RenderFlex overflowed by 179 pixels on
 The job concluded failure; see runs.json for the tested commit and job URL.
+
+android-x64-saved-apk-replay
+2026-10-02T17:57:38.2591701Z Physical size: 480x800
+2026-10-02T17:57:38.4113173Z Override density: 160
+2026-10-02T17:58:21.8371669Z I/flutter ( 2316): Physics Lab renderer: Vulkan; presentation: sharedTexture
+2026-10-02T17:58:41.9104424Z I/flutter ( 2316): 00:32 +2: All tests passed!
+2026-10-02T17:58:41.9121180Z All tests passed.
+
+android-x64-density
+2026-10-02T17:49:52.8908605Z adb: device offline
+2026-10-02T17:49:54.9035395Z adb: device offline
+2026-10-02T17:49:56.9162378Z adb: device offline
+2026-10-02T17:49:58.9421480Z adb: device offline
+2026-10-02T17:50:53.8734941Z Physical size: 480x800
+2026-10-02T17:50:53.9937771Z Override density: 160
+2026-10-02T17:51:23.4119023Z getIsolate: (112) Service has disappeared
+2026-10-02T17:51:23.5866452Z adb: device offline
+
+ios-intel
+2026-10-02T17:13:21.7007780Z Selected iPhone SE (3rd generation) (B0784041-4057-4B9E-85B9-5C63C5C0D0B2)
+2026-10-02T17:44:50.5577620Z Xcode build done.                                           1310.1s
+2026-10-02T18:10:58.6498500Z ##[error]The operation was canceled.
+The job has exceeded the maximum execution time of 1h0m0s

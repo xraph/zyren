@@ -1,0 +1,17 @@
+{
+  "passed": false,
+  "executionVerified": false,
+  "run": "https://github.com/xraph/zyren/actions/runs/37038863037",
+  "workflowCommit": "82fef6cd320b3ac193cf201fe39d9cce11858fcb",
+  "conclusion": "cancelled",
+  "annotations": [
+    "The job has exceeded the maximum execution time of 1h0m0s"
+  ],
+  "simulator": "iPhone SE (3rd generation)",
+  "hostArchitecture": "x86_64",
+  "simulatorBootFinished": true,
+  "xcodeBuildFinishedAt": "2026-10-02T17:44:50Z",
+  "cancelledAt": "2026-10-02T18:10:58Z",
+  "integrationResultReturned": false,
+  "simulatorShutdown": "success"
+}

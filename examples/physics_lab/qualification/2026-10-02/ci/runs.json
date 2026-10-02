@@ -299,7 +299,7 @@
       "url": "https://github.com/xraph/zyren/actions/runs/37037930833"
     },
     {
-      "conclusion": "",
+      "conclusion": "cancelled",
       "databaseId": 37038863037,
       "headSha": "82fef6cd320b3ac193cf201fe39d9cce11858fcb",
       "jobs": [
@@ -307,10 +307,10 @@
           "databaseId": 110943737451,
           "name": "ios-x64",
           "url": "https://github.com/xraph/zyren/actions/runs/37038863037/job/110943737451",
-          "status": "in_progress",
-          "conclusion": "",
+          "status": "completed",
+          "conclusion": "cancelled",
           "startedAt": "2026-10-02T17:10:09Z",
-          "completedAt": "0001-01-01T00:00:00Z",
+          "completedAt": "2026-10-02T18:11:24Z",
           "steps": {
             "Set up job": "success",
             "Run actions/checkout@v4": "success",
@@ -318,14 +318,15 @@
             "Run rustup toolchain install 1.97.1 --profile minimal": "success",
             "Run flutter pub get": "success",
             "Boot an available Intel iPhone simulator": "success",
-            "Metal app integration on iOS x64": "",
-            "Shut down the qualification simulator": "",
-            "Post Run subosito/flutter-action@v2": "",
-            "Post Run actions/checkout@v4": ""
+            "Metal app integration on iOS x64": "cancelled",
+            "Shut down the qualification simulator": "success",
+            "Post Run subosito/flutter-action@v2": "success",
+            "Post Run actions/checkout@v4": "success",
+            "Complete job": "success"
           }
         }
       ],
-      "status": "in_progress",
+      "status": "completed",
       "url": "https://github.com/xraph/zyren/actions/runs/37038863037"
     },
     {
@@ -428,7 +429,7 @@
       "url": "https://github.com/xraph/zyren/actions/runs/37039990216"
     },
     {
-      "conclusion": "",
+      "conclusion": "failure",
       "databaseId": 37041893216,
       "headSha": "2518cb4de6b2bcc02a24ccb58ceabe75951a0796",
       "jobs": [
@@ -436,10 +437,10 @@
           "databaseId": 110953755695,
           "name": "android-x64",
           "url": "https://github.com/xraph/zyren/actions/runs/37041893216/job/110953755695",
-          "status": "in_progress",
-          "conclusion": "",
+          "status": "completed",
+          "conclusion": "failure",
           "startedAt": "2026-10-02T17:37:27Z",
-          "completedAt": "0001-01-01T00:00:00Z",
+          "completedAt": "2026-10-02T17:51:27Z",
           "steps": {
             "Set up job": "success",
             "Run actions/checkout@v4": "success",
@@ -448,18 +449,58 @@
             "Run actions/setup-java@v4": "success",
             "Run rustup toolchain install 1.97.1 --profile minimal": "success",
             "Run flutter pub get": "success",
-            "Bound Gradle memory and compile the integration APK": "",
-            "Save the Android x64 integration APK": "",
-            "Enable emulator acceleration": "",
-            "Vulkan app integration on Android x64": "",
-            "Post Run actions/setup-java@v4": "",
-            "Post Run subosito/flutter-action@v2": "",
-            "Post Run actions/checkout@v4": ""
+            "Bound Gradle memory and compile the integration APK": "success",
+            "Save the Android x64 integration APK": "success",
+            "Enable emulator acceleration": "success",
+            "Vulkan app integration on Android x64": "failure",
+            "Post Run actions/setup-java@v4": "success",
+            "Post Run subosito/flutter-action@v2": "success",
+            "Post Run actions/checkout@v4": "success",
+            "Complete job": "success"
           }
         }
       ],
-      "status": "in_progress",
+      "status": "completed",
       "url": "https://github.com/xraph/zyren/actions/runs/37041893216"
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 37043864185,
+      "headSha": "38c3e960de8869767e73d553f46c09f08947e253",
+      "jobs": [
+        {
+          "databaseId": 110960328697,
+          "name": "android-x64",
+          "url": "https://github.com/xraph/zyren/actions/runs/37043864185/job/110960328697",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-02T17:54:28Z",
+          "completedAt": "2026-10-02T17:58:51Z",
+          "steps": {
+            "Set up job": "success",
+            "Run actions/checkout@v4": "success",
+            "Reserve space for the emulator and native builds": "success",
+            "Run subosito/flutter-action@v2": "success",
+            "Run actions/setup-java@v4": "success",
+            "Run rustup toolchain install 1.97.1 --profile minimal": "success",
+            "Run flutter pub get": "success",
+            "Bound Gradle memory and compile the integration APK": "skipped",
+            "Save the Android x64 integration APK": "skipped",
+            "Download the integration APK for replay": "success",
+            "Record APK source and host capacity": "success",
+            "Enable emulator acceleration": "success",
+            "Vulkan app integration on Android x64": "success",
+            "Capture host diagnostics": "success",
+            "Save Android diagnostics": "success",
+            "Post Run actions/setup-java@v4": "success",
+            "Post Run subosito/flutter-action@v2": "success",
+            "Post Run actions/checkout@v4": "success",
+            "Complete job": "success"
+          }
+        }
+      ],
+      "status": "completed",
+      "url": "https://github.com/xraph/zyren/actions/runs/37043864185"
     },
     {
       "conclusion": "failure",

@@ -1,0 +1,41 @@
+{
+  "passed": true,
+  "scope": "Physics Lab integration on an Android x64 emulator",
+  "build": {
+    "databaseId": 37041893216,
+    "headSha": "2518cb4de6b2bcc02a24ccb58ceabe75951a0796",
+    "url": "https://github.com/xraph/zyren/actions/runs/37041893216"
+  },
+  "apkSha256": "d3137ec2d4df127a75a3f0b31ddc4050b7a0357dae2ed0067d27c5e3c6a7973f",
+  "executionRun": "https://github.com/xraph/zyren/actions/runs/37043864185",
+  "executionWorkflowCommit": "38c3e960de8869767e73d553f46c09f08947e253",
+  "buildTarget": "android-x64",
+  "emulator": {
+    "apiLevel": 35,
+    "architecture": "x86_64",
+    "gpuMode": "swiftshader",
+    "physicalSize": [
+      480,
+      800
+    ],
+    "density": 160
+  },
+  "backend": "Vulkan",
+  "presentation": "sharedTexture",
+  "checks": [
+    "native world stepping",
+    "ball creation",
+    "ray cast",
+    "overlap query",
+    "pause and resume",
+    "snapshot reset",
+    "kinematic target",
+    "396 by 800 layout",
+    "debug toggle",
+    "native counts restored after disposal"
+  ],
+  "limitations": [
+    "Software Vulkan does not qualify a physical GPU.",
+    "The same APK lost its VM service and the emulator went offline in the prior run; that failure did not recur in this replay."
+  ]
+}
