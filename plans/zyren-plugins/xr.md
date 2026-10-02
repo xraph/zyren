@@ -141,3 +141,43 @@ so checks must use `/Users/rexraphael/fvm/versions/3.47.5/bin/flutter` or its Da
 No physical XR check has run. Camera
 presentation, calibrated Zyren rendering, depth occlusion, ARCore and OpenXR remain
 unimplemented. The package will remain unpublished (`publish_to: none`).
+
+### Local checkpoint, 2026-10-02
+
+Implementation commit: `7b91fc383fa18c371aa53efb17914446b76d4b17`
+(`feat(xr): add ARKit sessions and scoped agent placement`). It contains only
+this package, example, plan and the two XR workspace entries. Other owners'
+workspace additions and source changes stayed outside the commit.
+
+Verified commands, using the repository's Flutter 3.47.5 SDK:
+
+- `dart analyze packages/zyren_xr`: no issues, including the device probe source.
+- `dart format --output=none --set-exit-if-changed` on the package and example
+  Dart sources: 14 files, no changes.
+- From `packages/zyren_xr`, `flutter test --no-pub test --reporter expanded`:
+  17 tests passed. These use deterministic transport fixtures, including the
+  shared agent registry. They do not execute ARKit.
+- From `packages/zyren_xr/example`, `flutter test --no-pub test --reporter expanded`:
+  two widget tests passed at 320 and 1100 logical pixels.
+- `xcrun swiftc -emit-object -swift-version 5 -target arm64-apple-ios14.0` against
+  the iPhoneOS 27 SDK and Flutter 3.47.5 framework: passed. Object output is
+  `/tmp/zyren-xr-checks/ZyrenXrPlugin.o`.
+- From the example, `flutter build ios --debug --no-codesign --no-pub`: passed.
+  The unsigned app is `packages/zyren_xr/example/build/ios/iphoneos/Runner.app`.
+  Build and test logs are under `/tmp/zyren-xr-checks`.
+- Scoped staged diff check passed before the implementation commit. A broad
+  checkout diff check found whitespace in another owner's boundary script;
+  that file was left untouched.
+
+Physical evidence remains absent. At the final read-only device check, the
+earlier planet console process had ended and the process listing did not show
+that app. No XR app was installed or launched. Free disk space had fallen to
+159 MiB, and no other workstream cache was removed. Use a coordinated device
+window and enough build space for the signed integration probe.
+
+The next required checks are camera allow/deny/retry, permission cancellation,
+normal/limited tracking, interruption/background resume, plane updates/removal,
+anchor add/remove/reset and engine teardown on a physical device. Then exercise
+the registered provider over the shared live MCP transport. Camera textures,
+calibrated rendering, rich screen hits, depth occlusion, ARCore, SPM packaging
+and separately qualified OpenXR remain in the phases above.
