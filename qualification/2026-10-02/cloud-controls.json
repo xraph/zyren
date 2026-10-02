@@ -1,0 +1,573 @@
+{
+  "recordedDate": "2026-10-02",
+  "featureCommits": {
+    "controls": "8969bff",
+    "pausedRefinementScheduling": "2ba98e9",
+    "finalPresentationDrain": "a771806"
+  },
+  "fixture": {
+    "target": "examples/planet/integration_test/cloud_controls_test.dart",
+    "logicalSizes": [
+      [
+        1000,
+        700
+      ],
+      [
+        390,
+        700
+      ]
+    ],
+    "extraGpuBufferBytes": 67108864,
+    "providerTiles": false,
+    "performanceBenchmark": false,
+    "physicalGestureTest": false
+  },
+  "iosBuild": {
+    "sourceHead": "a771806ef5639600b94bfc83626ab06e2e98ba12",
+    "sourceDigest": "7d4f373478e2d8633d4638ea0dd2590247355d1363475d09baaf1ffa746edc9c",
+    "bundleDigest": "4963fd146fe1bf47d6be9dc196078cff35195ecf3cd242939292ae11b08f05ba",
+    "sourceChangesDuringBuild": [],
+    "cloudSourceUnchanged": true,
+    "mode": "profile",
+    "target": "integration_test/cloud_controls_test.dart",
+    "featureFiles": {
+      "packages/zyren/lib/src/scene/scene.dart": "04c7c81c115b767933a3cd230f9d0396e328c77c761c3e338b59eda49e787b18",
+      "packages/zyren_geospatial/lib/src/clouds/plugin.dart": "8b1f42c4830835b29b4443d9efda9ed799102895c4bc0c7be97ff1360837a123",
+      "packages/zyren_geospatial/lib/src/clouds/parameters.dart": "59bca6e0ac3c7b329edbd1eafc60512b52fee80743cea5049178d12e5e109b20",
+      "packages/zyren_geospatial/lib/src/clouds/media_uniforms.dart": "3063a258a31ebdb0e94ae191d7166d157895eb40f25fc006e6d108b9cd2978c1",
+      "examples/planet/lib/geospatial_scene.dart": "c0e2882c998cf348dcba57417db0d167e5b67b551939aae6316fcc40360c69d8",
+      "examples/planet/lib/google_tiles_lab.dart": "2afccfbe5f50f43315dcdf396e437d72da9ee89bc42f05132dcff2b59afc2f0b",
+      "examples/planet/integration_test/cloud_controls_test.dart": "6262b2ca22389dd48066b3f45df0d031a23bdd505d48518ad0262a75e6091581"
+    },
+    "sourceSnapshotFileCount": 1074,
+    "localOverlayAtBuild": [
+      " M packages/flutter_zyren/lib/flutter_zyren.dart",
+      "?? packages/flutter_zyren/lib/src/declarative/",
+      "?? packages/flutter_zyren/test/declarative_scene_test.dart"
+    ],
+    "note": "Source digest includes the local overlay. No tracked or included untracked source changed during compilation. The same frozen signed bundle ran on iPhone and iPad."
+  },
+  "macosBuild": {
+    "runtimeCommit": "2ba98e9",
+    "fixtureCommit": "a771806",
+    "fixtureSha256": "6262b2ca22389dd48066b3f45df0d031a23bdd505d48518ad0262a75e6091581",
+    "note": "Mac was built with the final-presentation drain before that fixture edit was committed. The successful run used a frozen copy of that profile app. No whole-source digest was recorded for Mac."
+  },
+  "focusedChecks": {
+    "coreEffectAndPostprocessTests": 8,
+    "nativeGeospatialControlAndTemporalTests": 4,
+    "planetWidgetTests": 4,
+    "dartAnalysis": "passed for changed core files, geospatial package and selected Planet files",
+    "packageBoundariesAndAppleAbi": "passed"
+  },
+  "runs": [
+    {
+      "device": "desktop",
+      "operatingSystem": "macOS",
+      "backend": "Metal",
+      "mode": "profile",
+      "sourceRecordSha256": "908f2fbd8745f3840aae1f5145dedc8ecf27f2fe23cca3f3f6101e8280538663",
+      "suite": "cloud-density-animation",
+      "platform": "macOS",
+      "passed": true,
+      "samples": [
+        {
+          "label": "paused 1000",
+          "densityMultiplier": 1.0,
+          "animationEnabled": false,
+          "animationElapsedUs": 770694,
+          "historyFrames": 16,
+          "cloudQuality": "high",
+          "presentedFrames": 33,
+          "historyReset": "none"
+        },
+        {
+          "label": "idle observation",
+          "densityMultiplier": 1.0,
+          "animationEnabled": false,
+          "animationElapsedUs": 770694,
+          "historyFrames": 16,
+          "cloudQuality": "high",
+          "presentedFrames": 33,
+          "historyReset": "none"
+        },
+        {
+          "label": "density 0.25",
+          "densityMultiplier": 0.25,
+          "animationEnabled": false,
+          "animationElapsedUs": 770694,
+          "historyFrames": 16,
+          "cloudQuality": "high",
+          "presentedFrames": 49,
+          "historyReset": "none"
+        },
+        {
+          "label": "density 0.0",
+          "densityMultiplier": 0.0,
+          "animationEnabled": false,
+          "animationElapsedUs": 770694,
+          "historyFrames": 16,
+          "cloudQuality": "high",
+          "presentedFrames": 65,
+          "historyReset": "none"
+        },
+        {
+          "label": "density 1.0",
+          "densityMultiplier": 1.0,
+          "animationEnabled": false,
+          "animationElapsedUs": 770694,
+          "historyFrames": 16,
+          "cloudQuality": "high",
+          "presentedFrames": 81,
+          "historyReset": "none"
+        },
+        {
+          "label": "paused quality change",
+          "densityMultiplier": 1.0,
+          "animationEnabled": false,
+          "animationElapsedUs": 770694,
+          "historyFrames": 16,
+          "cloudQuality": "low",
+          "presentedFrames": 97,
+          "historyReset": "none"
+        },
+        {
+          "label": "resumed",
+          "densityMultiplier": 1.0,
+          "animationEnabled": true,
+          "animationElapsedUs": 895696,
+          "historyFrames": 3,
+          "cloudQuality": "low",
+          "presentedFrames": 100,
+          "historyReset": "none"
+        },
+        {
+          "label": "paused 390",
+          "densityMultiplier": 1.0,
+          "animationEnabled": false,
+          "animationElapsedUs": 1654033,
+          "historyFrames": 16,
+          "cloudQuality": "low",
+          "presentedFrames": 134,
+          "historyReset": "none"
+        },
+        {
+          "label": "idle observation",
+          "densityMultiplier": 1.0,
+          "animationEnabled": false,
+          "animationElapsedUs": 1654033,
+          "historyFrames": 16,
+          "cloudQuality": "low",
+          "presentedFrames": 134,
+          "historyReset": "none"
+        },
+        {
+          "label": "density 0.25",
+          "densityMultiplier": 0.25,
+          "animationEnabled": false,
+          "animationElapsedUs": 1654033,
+          "historyFrames": 16,
+          "cloudQuality": "low",
+          "presentedFrames": 150,
+          "historyReset": "none"
+        },
+        {
+          "label": "density 0.0",
+          "densityMultiplier": 0.0,
+          "animationEnabled": false,
+          "animationElapsedUs": 1654033,
+          "historyFrames": 16,
+          "cloudQuality": "low",
+          "presentedFrames": 166,
+          "historyReset": "none"
+        },
+        {
+          "label": "density 1.0",
+          "densityMultiplier": 1.0,
+          "animationEnabled": false,
+          "animationElapsedUs": 1654033,
+          "historyFrames": 16,
+          "cloudQuality": "low",
+          "presentedFrames": 182,
+          "historyReset": "none"
+        },
+        {
+          "label": "paused quality change",
+          "densityMultiplier": 1.0,
+          "animationEnabled": false,
+          "animationElapsedUs": 1654033,
+          "historyFrames": 16,
+          "cloudQuality": "medium",
+          "presentedFrames": 198,
+          "historyReset": "none"
+        },
+        {
+          "label": "resumed",
+          "densityMultiplier": 1.0,
+          "animationEnabled": true,
+          "animationElapsedUs": 1779029,
+          "historyFrames": 3,
+          "cloudQuality": "medium",
+          "presentedFrames": 201,
+          "historyReset": "none"
+        }
+      ],
+      "diagnostics": {
+        "retiring": 0,
+        "presented": 201,
+        "heldDrawables": 0,
+        "sessions": 0,
+        "submitted": 202,
+        "renderers": 0,
+        "readbackBytes": 0
+      }
+    },
+    {
+      "device": "phone",
+      "operatingSystem": "iOS 27",
+      "backend": "Metal",
+      "mode": "profile",
+      "sourceRecordSha256": "4e42e7a1dc87b921f1b36ecf8f4c384f70b6253cd02c8209a1432339d6f2c5da",
+      "suite": "cloud-density-animation",
+      "platform": "iOS",
+      "passed": true,
+      "samples": [
+        {
+          "label": "paused 1000",
+          "densityMultiplier": 1.0,
+          "animationEnabled": false,
+          "animationElapsedUs": 766742,
+          "historyFrames": 16,
+          "cloudQuality": "medium",
+          "presentedFrames": 33,
+          "historyReset": "none"
+        },
+        {
+          "label": "idle observation",
+          "densityMultiplier": 1.0,
+          "animationEnabled": false,
+          "animationElapsedUs": 766742,
+          "historyFrames": 16,
+          "cloudQuality": "medium",
+          "presentedFrames": 33,
+          "historyReset": "none"
+        },
+        {
+          "label": "density 0.25",
+          "densityMultiplier": 0.25,
+          "animationEnabled": false,
+          "animationElapsedUs": 766742,
+          "historyFrames": 16,
+          "cloudQuality": "medium",
+          "presentedFrames": 49,
+          "historyReset": "none"
+        },
+        {
+          "label": "density 0.0",
+          "densityMultiplier": 0.0,
+          "animationEnabled": false,
+          "animationElapsedUs": 766742,
+          "historyFrames": 16,
+          "cloudQuality": "medium",
+          "presentedFrames": 65,
+          "historyReset": "none"
+        },
+        {
+          "label": "density 1.0",
+          "densityMultiplier": 1.0,
+          "animationEnabled": false,
+          "animationElapsedUs": 766742,
+          "historyFrames": 16,
+          "cloudQuality": "medium",
+          "presentedFrames": 81,
+          "historyReset": "none"
+        },
+        {
+          "label": "paused quality change",
+          "densityMultiplier": 1.0,
+          "animationEnabled": false,
+          "animationElapsedUs": 766742,
+          "historyFrames": 16,
+          "cloudQuality": "low",
+          "presentedFrames": 97,
+          "historyReset": "none"
+        },
+        {
+          "label": "resumed",
+          "densityMultiplier": 1.0,
+          "animationEnabled": true,
+          "animationElapsedUs": 933479,
+          "historyFrames": 3,
+          "cloudQuality": "low",
+          "presentedFrames": 100,
+          "historyReset": "none"
+        },
+        {
+          "label": "paused 390",
+          "densityMultiplier": 1.0,
+          "animationEnabled": false,
+          "animationElapsedUs": 1717016,
+          "historyFrames": 16,
+          "cloudQuality": "low",
+          "presentedFrames": 133,
+          "historyReset": "none"
+        },
+        {
+          "label": "idle observation",
+          "densityMultiplier": 1.0,
+          "animationEnabled": false,
+          "animationElapsedUs": 1717016,
+          "historyFrames": 16,
+          "cloudQuality": "low",
+          "presentedFrames": 133,
+          "historyReset": "none"
+        },
+        {
+          "label": "density 0.25",
+          "densityMultiplier": 0.25,
+          "animationEnabled": false,
+          "animationElapsedUs": 1717016,
+          "historyFrames": 16,
+          "cloudQuality": "low",
+          "presentedFrames": 149,
+          "historyReset": "none"
+        },
+        {
+          "label": "density 0.0",
+          "densityMultiplier": 0.0,
+          "animationEnabled": false,
+          "animationElapsedUs": 1717016,
+          "historyFrames": 16,
+          "cloudQuality": "low",
+          "presentedFrames": 165,
+          "historyReset": "none"
+        },
+        {
+          "label": "density 1.0",
+          "densityMultiplier": 1.0,
+          "animationEnabled": false,
+          "animationElapsedUs": 1717016,
+          "historyFrames": 16,
+          "cloudQuality": "low",
+          "presentedFrames": 181,
+          "historyReset": "none"
+        },
+        {
+          "label": "paused quality change",
+          "densityMultiplier": 1.0,
+          "animationEnabled": false,
+          "animationElapsedUs": 1717016,
+          "historyFrames": 16,
+          "cloudQuality": "medium",
+          "presentedFrames": 197,
+          "historyReset": "none"
+        },
+        {
+          "label": "resumed",
+          "densityMultiplier": 1.0,
+          "animationEnabled": true,
+          "animationElapsedUs": 1842053,
+          "historyFrames": 3,
+          "cloudQuality": "medium",
+          "presentedFrames": 200,
+          "historyReset": "none"
+        }
+      ],
+      "diagnostics": {
+        "retiring": 0,
+        "presented": 200,
+        "heldDrawables": 0,
+        "sessions": 0,
+        "submitted": 202,
+        "renderers": 0,
+        "readbackBytes": 0
+      }
+    },
+    {
+      "device": "tablet",
+      "operatingSystem": "iPadOS 27",
+      "backend": "Metal",
+      "mode": "profile",
+      "sourceRecordSha256": "3a7bb879b3898a85250e9c26b9e923fa75c267f3280fa895db15e8201d3feddd",
+      "suite": "cloud-density-animation",
+      "platform": "iOS",
+      "passed": true,
+      "samples": [
+        {
+          "label": "paused 1000",
+          "densityMultiplier": 1.0,
+          "animationEnabled": false,
+          "animationElapsedUs": 775083,
+          "historyFrames": 16,
+          "cloudQuality": "high",
+          "presentedFrames": 33,
+          "historyReset": "none"
+        },
+        {
+          "label": "idle observation",
+          "densityMultiplier": 1.0,
+          "animationEnabled": false,
+          "animationElapsedUs": 775083,
+          "historyFrames": 16,
+          "cloudQuality": "high",
+          "presentedFrames": 33,
+          "historyReset": "none"
+        },
+        {
+          "label": "density 0.25",
+          "densityMultiplier": 0.25,
+          "animationEnabled": false,
+          "animationElapsedUs": 775083,
+          "historyFrames": 16,
+          "cloudQuality": "high",
+          "presentedFrames": 49,
+          "historyReset": "none"
+        },
+        {
+          "label": "density 0.0",
+          "densityMultiplier": 0.0,
+          "animationEnabled": false,
+          "animationElapsedUs": 775083,
+          "historyFrames": 16,
+          "cloudQuality": "high",
+          "presentedFrames": 65,
+          "historyReset": "none"
+        },
+        {
+          "label": "density 1.0",
+          "densityMultiplier": 1.0,
+          "animationEnabled": false,
+          "animationElapsedUs": 775083,
+          "historyFrames": 16,
+          "cloudQuality": "high",
+          "presentedFrames": 81,
+          "historyReset": "none"
+        },
+        {
+          "label": "paused quality change",
+          "densityMultiplier": 1.0,
+          "animationEnabled": false,
+          "animationElapsedUs": 775083,
+          "historyFrames": 16,
+          "cloudQuality": "low",
+          "presentedFrames": 97,
+          "historyReset": "none"
+        },
+        {
+          "label": "resumed",
+          "densityMultiplier": 1.0,
+          "animationEnabled": true,
+          "animationElapsedUs": 900085,
+          "historyFrames": 3,
+          "cloudQuality": "low",
+          "presentedFrames": 100,
+          "historyReset": "none"
+        },
+        {
+          "label": "paused 390",
+          "densityMultiplier": 1.0,
+          "animationEnabled": false,
+          "animationElapsedUs": 1675099,
+          "historyFrames": 16,
+          "cloudQuality": "low",
+          "presentedFrames": 133,
+          "historyReset": "none"
+        },
+        {
+          "label": "idle observation",
+          "densityMultiplier": 1.0,
+          "animationEnabled": false,
+          "animationElapsedUs": 1675099,
+          "historyFrames": 16,
+          "cloudQuality": "low",
+          "presentedFrames": 133,
+          "historyReset": "none"
+        },
+        {
+          "label": "density 0.25",
+          "densityMultiplier": 0.25,
+          "animationEnabled": false,
+          "animationElapsedUs": 1675099,
+          "historyFrames": 16,
+          "cloudQuality": "low",
+          "presentedFrames": 149,
+          "historyReset": "none"
+        },
+        {
+          "label": "density 0.0",
+          "densityMultiplier": 0.0,
+          "animationEnabled": false,
+          "animationElapsedUs": 1675099,
+          "historyFrames": 16,
+          "cloudQuality": "low",
+          "presentedFrames": 165,
+          "historyReset": "none"
+        },
+        {
+          "label": "density 1.0",
+          "densityMultiplier": 1.0,
+          "animationEnabled": false,
+          "animationElapsedUs": 1675099,
+          "historyFrames": 16,
+          "cloudQuality": "low",
+          "presentedFrames": 181,
+          "historyReset": "none"
+        },
+        {
+          "label": "paused quality change",
+          "densityMultiplier": 1.0,
+          "animationEnabled": false,
+          "animationElapsedUs": 1675099,
+          "historyFrames": 16,
+          "cloudQuality": "medium",
+          "presentedFrames": 197,
+          "historyReset": "none"
+        },
+        {
+          "label": "resumed",
+          "densityMultiplier": 1.0,
+          "animationEnabled": true,
+          "animationElapsedUs": 1800288,
+          "historyFrames": 3,
+          "cloudQuality": "medium",
+          "presentedFrames": 200,
+          "historyReset": "none"
+        }
+      ],
+      "diagnostics": {
+        "retiring": 0,
+        "presented": 200,
+        "heldDrawables": 0,
+        "sessions": 0,
+        "submitted": 202,
+        "renderers": 0,
+        "readbackBytes": 0
+      }
+    }
+  ],
+  "normalAppRestoration": {
+    "macOS": {
+      "status": "running",
+      "liveProviderTiles": true,
+      "observedCloudDensity": 0.5,
+      "observedAnimationEnabled": false,
+      "observedRefinement": "Clouds refined"
+    },
+    "iPhone": {
+      "install": "success",
+      "launch": "blocked by device lock"
+    },
+    "iPad": {
+      "install": "success",
+      "launch": "success",
+      "processAlive": true,
+      "processIdentifier": 2368
+    }
+  },
+  "limits": [
+    "Native fixture uses cloud assets and synthetic GPU resource pressure without Google tiles or network load.",
+    "The native runs verify state, refinement, idle behavior and resource cleanup, not FPS or visual parity with Takram.",
+    "Live cloud controls were exercised on the normal Mac Google tiles lab. Physical touch operation on iPhone and iPad was not verified.",
+    "Normal app builds included concurrent local workspace changes; no whole-source digest was recorded for those builds."
+  ]
+}
