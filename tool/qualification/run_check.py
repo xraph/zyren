@@ -18,7 +18,7 @@ def git(*args):
 
 def snapshot():
     paths = git("ls-files", "-z", "--cached", "--others", "--exclude-standard",
-                "packages", "examples/multiple_views", "pubspec.yaml",
+                "packages", "examples", "tool", "pubspec.yaml",
                 "pubspec.lock", ".fvmrc").decode().split("\0")
     hashes = {}
     for name in sorted(set(paths) - {""}):

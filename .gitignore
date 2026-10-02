@@ -16,6 +16,7 @@ target/
 *.iml
 .idea/
 coverage/
+__pycache__/
 artifacts/
 
 # Local engineering notes and documentation sources.
