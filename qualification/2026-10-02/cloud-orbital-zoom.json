@@ -1,0 +1,405 @@
+{
+  "fixCommit": "9084630",
+  "flutterVersion": "3.47.5",
+  "mode": "profile",
+  "backend": "Metal",
+  "testSha256": "c54758ddcab31542e99fe1e54dc2b8b63e261f0ca7e3f08936f537ea01b652c2",
+  "pressureBytes": 67108864,
+  "liveProviderTiles": false,
+  "runs": [
+    {
+      "device": "Mac",
+      "suite": "cloud-orbital-zoom",
+      "platform": "macOS",
+      "passed": true,
+      "samples": [
+        {
+          "label": "city",
+          "distance": 6371032.84501836,
+          "near": 1.0,
+          "far": 180374.7493126416,
+          "cloudQuality": "high",
+          "shadowsEnabled": true,
+          "shadowQuality": "high",
+          "readbackBytes": 0
+        },
+        {
+          "label": "outward 8",
+          "distance": 6421378.508832075,
+          "near": 28.091464058073775,
+          "far": 811113.8140104016,
+          "cloudQuality": "high",
+          "shadowsEnabled": true,
+          "shadowQuality": "high",
+          "readbackBytes": 0
+        },
+        {
+          "label": "outward 16",
+          "distance": 7586295.410399726,
+          "near": 757.9296501403629,
+          "far": 4129333.9297488136,
+          "cloudQuality": "high",
+          "shadowsEnabled": true,
+          "shadowQuality": "high",
+          "readbackBytes": 0
+        },
+        {
+          "label": "outward 24",
+          "distance": 16018662.49276199,
+          "near": 8045991.24276199,
+          "far": 14714344.561218815,
+          "cloudQuality": "high",
+          "shadowsEnabled": true,
+          "shadowQuality": "high",
+          "readbackBytes": 0
+        },
+        {
+          "label": "outward 32",
+          "distance": 27355917.87291615,
+          "near": 19383246.62291615,
+          "far": 26621071.523265805,
+          "cloudQuality": "high",
+          "shadowsEnabled": true,
+          "shadowQuality": "high",
+          "readbackBytes": 0
+        },
+        {
+          "label": "outward 40",
+          "distance": 27355917.87291615,
+          "near": 19383246.62291615,
+          "far": 26621071.523265805,
+          "cloudQuality": "high",
+          "shadowsEnabled": true,
+          "shadowQuality": "high",
+          "readbackBytes": 0
+        },
+        {
+          "label": "outward 48",
+          "distance": 27355917.87291615,
+          "near": 19383246.62291615,
+          "far": 26621071.523265805,
+          "cloudQuality": "high",
+          "shadowsEnabled": true,
+          "shadowQuality": "high",
+          "readbackBytes": 0
+        },
+        {
+          "label": "outward 56",
+          "distance": 27355917.87291615,
+          "near": 19383246.62291615,
+          "far": 26621071.523265805,
+          "cloudQuality": "high",
+          "shadowsEnabled": true,
+          "shadowQuality": "high",
+          "readbackBytes": 0
+        },
+        {
+          "label": "outward 64",
+          "distance": 27355917.87291615,
+          "near": 19383246.62291615,
+          "far": 26621071.523265805,
+          "cloudQuality": "high",
+          "shadowsEnabled": true,
+          "shadowQuality": "high",
+          "readbackBytes": 0
+        },
+        {
+          "label": "space quality high",
+          "distance": 27355917.87291615,
+          "near": 19383246.62291615,
+          "far": 26621071.523265805,
+          "cloudQuality": "high",
+          "shadowsEnabled": false,
+          "shadowQuality": "high",
+          "readbackBytes": 0
+        },
+        {
+          "label": "space quality low",
+          "distance": 27355917.87291615,
+          "near": 19383246.62291615,
+          "far": 26621071.523265805,
+          "cloudQuality": "low",
+          "shadowsEnabled": true,
+          "shadowQuality": "low",
+          "readbackBytes": 0
+        },
+        {
+          "label": "space quality ultra",
+          "distance": 27355917.87291615,
+          "near": 19383246.62291615,
+          "far": 26621071.523265805,
+          "cloudQuality": "ultra",
+          "shadowsEnabled": true,
+          "shadowQuality": "ultra",
+          "readbackBytes": 0
+        },
+        {
+          "label": "touch pinch inward",
+          "distance": 20842546.26351359,
+          "near": 12869875.013513591,
+          "far": 19862154.37702899,
+          "cloudQuality": "high",
+          "shadowsEnabled": true,
+          "shadowQuality": "high",
+          "readbackBytes": 0
+        },
+        {
+          "label": "inward 16",
+          "distance": 6499078.066461719,
+          "near": 76.77142064854168,
+          "far": 1341287.6551394518,
+          "cloudQuality": "high",
+          "shadowsEnabled": true,
+          "shadowQuality": "high",
+          "readbackBytes": 0
+        },
+        {
+          "label": "inward 32",
+          "distance": 6355319.282960415,
+          "near": 1.0,
+          "far": 180374.8460345249,
+          "cloudQuality": "high",
+          "shadowsEnabled": true,
+          "shadowQuality": "high",
+          "readbackBytes": 0
+        },
+        {
+          "label": "inward 48",
+          "distance": 6353878.446786774,
+          "near": 1.0,
+          "far": 180374.84603463806,
+          "cloudQuality": "high",
+          "shadowsEnabled": true,
+          "shadowQuality": "high",
+          "readbackBytes": 0
+        },
+        {
+          "label": "inward 64",
+          "distance": 6353864.005868252,
+          "near": 1.0,
+          "far": 180374.84603463922,
+          "cloudQuality": "high",
+          "shadowsEnabled": true,
+          "shadowQuality": "high",
+          "readbackBytes": 0
+        },
+        {
+          "label": "surface portrait",
+          "distance": 6353864.005868252,
+          "near": 1.0,
+          "far": 180374.84603463922,
+          "cloudQuality": "high",
+          "shadowsEnabled": true,
+          "shadowQuality": "high",
+          "readbackBytes": 0
+        }
+      ],
+      "diagnostics": {
+        "retiring": 0,
+        "presented": 499,
+        "heldDrawables": 0,
+        "sessions": 0,
+        "submitted": 501,
+        "renderers": 0,
+        "readbackBytes": 0
+      }
+    },
+    {
+      "device": "iPhone 16 Pro",
+      "suite": "cloud-orbital-zoom",
+      "platform": "iOS",
+      "passed": true,
+      "samples": [
+        {
+          "label": "city",
+          "distance": 6371032.84501836,
+          "near": 1.0,
+          "far": 180374.7493126416,
+          "cloudQuality": "medium",
+          "shadowsEnabled": true,
+          "shadowQuality": "medium",
+          "readbackBytes": 0
+        },
+        {
+          "label": "outward 8",
+          "distance": 6421378.194813663,
+          "near": 28.091267320754934,
+          "far": 811111.3263585925,
+          "cloudQuality": "medium",
+          "shadowsEnabled": true,
+          "shadowQuality": "medium",
+          "readbackBytes": 0
+        },
+        {
+          "label": "outward 16",
+          "distance": 7586194.219990369,
+          "near": 757.8662528072875,
+          "far": 4129148.1669738297,
+          "cloudQuality": "medium",
+          "shadowsEnabled": true,
+          "shadowQuality": "medium",
+          "readbackBytes": 0
+        },
+        {
+          "label": "outward 24",
+          "distance": 16023575.818359302,
+          "near": 8050904.568359302,
+          "far": 14719699.85056737,
+          "cloudQuality": "medium",
+          "shadowsEnabled": true,
+          "shadowQuality": "medium",
+          "readbackBytes": 0
+        },
+        {
+          "label": "outward 32",
+          "distance": 27355917.87291615,
+          "near": 19383246.62291615,
+          "far": 26621071.892235313,
+          "cloudQuality": "medium",
+          "shadowsEnabled": true,
+          "shadowQuality": "medium",
+          "readbackBytes": 0
+        },
+        {
+          "label": "outward 40",
+          "distance": 27355917.87291615,
+          "near": 19383246.62291615,
+          "far": 26621071.892235313,
+          "cloudQuality": "medium",
+          "shadowsEnabled": true,
+          "shadowQuality": "medium",
+          "readbackBytes": 0
+        },
+        {
+          "label": "outward 48",
+          "distance": 27355917.87291615,
+          "near": 19383246.62291615,
+          "far": 26621071.892235313,
+          "cloudQuality": "medium",
+          "shadowsEnabled": true,
+          "shadowQuality": "medium",
+          "readbackBytes": 0
+        },
+        {
+          "label": "outward 56",
+          "distance": 27355917.87291615,
+          "near": 19383246.62291615,
+          "far": 26621071.892235313,
+          "cloudQuality": "medium",
+          "shadowsEnabled": true,
+          "shadowQuality": "medium",
+          "readbackBytes": 0
+        },
+        {
+          "label": "outward 64",
+          "distance": 27355917.87291615,
+          "near": 19383246.62291615,
+          "far": 26621071.892235313,
+          "cloudQuality": "medium",
+          "shadowsEnabled": true,
+          "shadowQuality": "medium",
+          "readbackBytes": 0
+        },
+        {
+          "label": "space quality high",
+          "distance": 27355917.87291615,
+          "near": 19383246.62291615,
+          "far": 26621071.892235313,
+          "cloudQuality": "high",
+          "shadowsEnabled": false,
+          "shadowQuality": "high",
+          "readbackBytes": 0
+        },
+        {
+          "label": "space quality low",
+          "distance": 27355917.87291615,
+          "near": 19383246.62291615,
+          "far": 26621071.892235313,
+          "cloudQuality": "low",
+          "shadowsEnabled": true,
+          "shadowQuality": "low",
+          "readbackBytes": 0
+        },
+        {
+          "label": "space quality ultra",
+          "distance": 27355917.87291615,
+          "near": 19383246.62291615,
+          "far": 26621071.892235313,
+          "cloudQuality": "ultra",
+          "shadowsEnabled": true,
+          "shadowQuality": "ultra",
+          "readbackBytes": 0
+        },
+        {
+          "label": "touch pinch inward",
+          "distance": 20842544.22449594,
+          "near": 12869872.97449594,
+          "far": 19862152.612155948,
+          "cloudQuality": "medium",
+          "shadowsEnabled": true,
+          "shadowQuality": "medium",
+          "readbackBytes": 0
+        },
+        {
+          "label": "inward 16",
+          "distance": 6499071.537207293,
+          "near": 76.76732997117247,
+          "far": 1341257.663372286,
+          "cloudQuality": "medium",
+          "shadowsEnabled": true,
+          "shadowQuality": "medium",
+          "readbackBytes": 0
+        },
+        {
+          "label": "inward 32",
+          "distance": 6355312.708702165,
+          "near": 1.0,
+          "far": 180374.84603995734,
+          "cloudQuality": "medium",
+          "shadowsEnabled": true,
+          "shadowQuality": "medium",
+          "readbackBytes": 0
+        },
+        {
+          "label": "inward 48",
+          "distance": 6353871.872077468,
+          "near": 1.0,
+          "far": 180374.84604007055,
+          "cloudQuality": "medium",
+          "shadowsEnabled": true,
+          "shadowQuality": "medium",
+          "readbackBytes": 0
+        },
+        {
+          "label": "inward 64",
+          "distance": 6353857.431154426,
+          "near": 1.0,
+          "far": 180374.8460400717,
+          "cloudQuality": "medium",
+          "shadowsEnabled": true,
+          "shadowQuality": "medium",
+          "readbackBytes": 0
+        },
+        {
+          "label": "surface portrait",
+          "distance": 6353857.431154426,
+          "near": 1.0,
+          "far": 180374.8460400717,
+          "cloudQuality": "medium",
+          "shadowsEnabled": true,
+          "shadowQuality": "medium",
+          "readbackBytes": 0
+        }
+      ],
+      "diagnostics": {
+        "retiring": 0,
+        "presented": 602,
+        "heldDrawables": 0,
+        "sessions": 0,
+        "submitted": 603,
+        "renderers": 0,
+        "readbackBytes": 0
+      }
+    }
+  ]
+}
