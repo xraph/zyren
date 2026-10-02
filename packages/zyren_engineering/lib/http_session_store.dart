@@ -2,12 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'zyren_engineering.dart';
 
-/// A service rejected a conditional write. Read and merge again before retrying.
-final class EngineeringVersionConflict implements Exception {
-  const EngineeringVersionConflict();
-  @override
-  String toString() => 'The shared review version changed.';
-}
+export 'zyren_engineering.dart' show EngineeringVersionConflict;
 
 /// HTTP review endpoint: GET and PUT bounded schema-1 JSON with a strong ETag.
 /// PUT must implement atomic If-Match and return the committed document and ETag.

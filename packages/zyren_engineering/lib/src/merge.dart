@@ -1,5 +1,12 @@
 part of '../zyren_engineering.dart';
 
+/// Storage rejected a conditional write. Read and merge again before retrying.
+final class EngineeringVersionConflict implements Exception {
+  const EngineeringVersionConflict();
+  @override
+  String toString() => 'The shared review version changed.';
+}
+
 enum EngineeringRecordKind { object, annotation }
 
 enum EngineeringConflictChoice { base, local, remote }

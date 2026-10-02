@@ -163,6 +163,66 @@ base so a retry merges them correctly. A failed conditional write leaves local
 work untouched. File operations and session operations share the plugin's busy
 lock. Scene transforms, isolation and selection stay outside review JSON.
 
+## Run a local review service
+
+You can run the optional loopback service with your host's authentication token:
+
+```sh
+# Set ZYREN_REVIEW_TOKEN through your host's secret configuration first.
+dart --packages=.dart_tool/package_config.json \
+  packages/zyren_engineering/example/review_service.dart \
+  /absolute/path/review-session.json review-id
+```
+
+Run this from the workspace with its matching Dart SDK after `flutter pub get`.
+The process prints its loopback endpoint and accepts GET and conditional PUT for
+one configured review. It creates an empty review if the session file is missing.
+Restarting preserves both the review and its revision token. SIGINT or SIGTERM
+closes the service. The example token grants read and write access to that review;
+you can replace it with your application's session checks through the server API.
+The process does not generate or print credentials.
+
+```dart
+final server = await EngineeringReviewServer.start(
+  store: repository,
+  authorize: (request, write) => host.authorizeReview(
+    request,
+    documentId: 'review-id',
+    write: write,
+  ),
+);
+```
+
+Import `review_server.dart` for the server and `file_session_store.dart` for
+`FileEngineeringSessionStore`. Your authorization callback decides read and write
+access separately and must validate the caller against the configured document.
+Denied access returns 403. Authorization failures return 500 and leave storage
+untouched. Missing write preconditions return 428, stale versions return 412,
+and malformed reviews or another document ID return 400. Oversized bodies return
+413; the configurable body deadline returns 408. Error responses close the
+connection without waiting for an unread upload.
+
+The file adapter stores a version envelope around the existing review JSON.
+Use a separate session file from `FileEngineeringStore`, which writes plain review
+JSON. Conditional writes serialize in the owning isolate and acquire an advisory
+lock on a stable sibling `.lock` file before checking and replacing the session.
+Use one owning isolate per process for each session file. Other processes can
+participate through the same adapter, but every writer must respect the lock.
+Keep the lock file in place while services run. Direct file writes and multiple
+owning isolates in one process bypass this contract.
+
+You choose the directory and its filesystem permissions. The adapter rejects
+corrupted envelopes and another review ID without overwriting the file, and
+cleans up its staging directory after writes. A version token changes with each
+successful write and remains valid after restart. Native scene state still stays
+outside the review document.
+
+The service binds only to IPv4 loopback. Hosted access still needs your service
+configuration, TLS transport and application identity integration. Reconnect your
+client after restarting the local service; a closed pooled connection can fail
+the first request. Automatic write retries are deliberately left to the host,
+which must read and merge again after a version conflict.
+
 ## Integration status
 
 | Workflow | Implemented | Verified |
@@ -171,9 +231,12 @@ lock. Scene transforms, isolation and selection stay outside review JSON.
 | Bounded review JSON and local file persistence | Yes | Package tests |
 | Three-way merge and local edit protection | Yes | Package tests |
 | Authenticated HTTP and conditional-write client | Yes | Loopback HTTP service tests, denial and version conflicts |
-| Hosted shared review service and access policy | Host supplied | No endpoint or credentials configured |
+| Persistent loopback shared review service | Yes | macOS: two plugins, conflict decisions, restart, request rejection and file-lock races |
+| Hosted shared review service and access policy | Host supplied | No hosted endpoint or credentials configured |
 | STEP, IGES, IFC or vendor CAD parsing | No | Conversion/parser backend required |
 | Native rendered import review | Existing renderer integration | This workflow has no new native visual qualification |
+
+Linux and Windows service/file-lock qualification remain unverified.
 
 Shared review deployment remains unverified until you configure a real service
 and exercise its atomic writes, authentication and access boundaries.
