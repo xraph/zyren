@@ -4,6 +4,12 @@ You can follow all 11 workstreams through nine chats. Eight have dedicated owner
 Configurator, spatial audio and capture share one chat and run in sequence.
 This plan starts implementation; it does not mark any proposed package complete.
 
+Every plugin must support runtime AI agents through the shared
+[agent interface](agent-runtime.md). Agents must be able to discover tools,
+inspect what the user is viewing, obtain rich raycast and semantic context, and
+invoke host-authorized actions. This requirement covers new and existing plugins.
+It is part of completion criteria for every workstream.
+
 ## Workstreams and ownership
 
 | ID | Chat scope | Owned package directories | First useful implementation | Later milestones |
@@ -27,6 +33,11 @@ scientific.md, collaboration.md, studio.md, or smaller-plugins.md.
 
 The dispatch chat owns this README and chats.json. Do not rewrite another
 owner's plan, package or example.
+
+The dispatch chat also owns agent-runtime.md. The interaction chat owns the
+shared packages/zyren_agents contract and optional zyren_devtools transport
+integration. Each workstream owns its providers and assigned existing-plugin
+adapters under that contract. See agent-runtime.md for the coverage map.
 
 ## Start and implementation sequence
 
