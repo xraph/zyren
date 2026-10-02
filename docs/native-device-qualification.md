@@ -1,15 +1,16 @@
 # Native device qualification
 
 The integrated core runs on macOS Metal and Pixel 9 Pro Vulkan. iOS has a
-successful signed device build, but its runtime checks still need an unlocked
-phone. No Windows or Linux execution target was available on 2 October 2026.
+successful signed device build, but installation is blocked by the phone's
+three-app free-development limit. No Windows or Linux execution target was
+available on 2 October 2026.
 These results do not qualify other GPU families or older OS releases.
 
 | Target | Runtime evidence | Status |
 | --- | --- | --- |
 | Pixel 9 Pro, Android 17 API 37, build CP3A.260905.009 | Mali-G715, Vulkan driver v1.r54p3-00eac0.03d8d836cbf5c9f29d765e58a6bdfb98 | Physical gallery and six native SceneView tests pass |
 | macOS 27, Apple M3 Max | Metal | Physical gallery, atmosphere lab and six native SceneView tests passed during core integration |
-| Rex's iPhone, iOS 27.0 (24A437) | Signed native build succeeds | Runtime pending: device requires its passcode and the wireless VM service was not discovered |
+| Rex's iPhone, iOS 27.0 (24A437) | Signed native build succeeds | Runtime pending: Xcode rejects installation because all three free-development app slots are occupied |
 | Windows | No execution target | Unverified |
 | Linux | No execution target | Unverified |
 
@@ -27,6 +28,12 @@ cycles. Sessions, surfaces, renderers and retiring renderers return to zero.
 Explicit capture is separate: a 63x47 red image produces the expected RGBA pixels
 and 11,844 readback bytes. Android's standalone capture uses its FFI renderer;
 SurfaceProducer's presentation readback counter stays zero.
+
+Both Android suites passed again at `5199bc7`, with unchanged source hashes.
+The lifecycle run also measured 156,656 ns through
+`wgpu.timestampQuery.commandEncoder`, while presentation readback remained zero.
+The 100-view test passed with timestamp queries enabled. This is one measured
+submission, not a frame-time average or a claim about display latency.
 
 Three faults surfaced on the physical device. Duplicate JNI API members prevented
 compilation. The codec runtime needed the NDK's separate C++ ABI archive. Finally,
@@ -77,6 +84,15 @@ python3 tool/qualification/run_check.py --output /tmp/zyren-device-run \
 ```
 
 `command.log` contains the actual result; `evidence.json` records the command,
-source hashes, elapsed time and exit code. Device unlock is the remaining iOS
-qualification step. Performance work and broader core features remain separate
-from this device report.
+source hashes, elapsed time and exit code. An interrupted recorder may leave only
+the command log; that is incomplete evidence.
+
+The latest iPhone attempt was unlocked and built successfully in 12.2 seconds.
+Xcode then reported three installed development apps: Physics Lab, TwinOS and
+Planet. Removing one requires the owner's approval because its local app data
+will be deleted. No app has been removed. An earlier gallery run passed while
+source files were changing, so it does not qualify a fixed revision.
+
+Host disk exhaustion also interrupted one Android gallery build and one iOS
+build. After generated-cache cleanup, Android passed and the iOS build succeeded.
+Performance work and broader core features remain separate from this report.
