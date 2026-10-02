@@ -114,6 +114,29 @@ void main() {
             '${effects.controller.width}x${effects.controller.height}.',
           );
         }
+        for (final (enabled, shadowPreset) in [
+          (false, CloudQualityPreset.low),
+          (true, CloudQualityPreset.low),
+          (true, CloudQualityPreset.ultra),
+        ]) {
+          await clouds.controller.setQualitySettings(
+            CloudQualitySettings(
+              preset: CloudQualityPreset.high,
+              maxResolution: 64,
+              shadowMapSize: 16,
+              shadowsEnabled: enabled,
+              shadowPreset: shadowPreset,
+            ),
+          );
+          await settle(frames);
+          expect(clouds.controller.shadowsEnabled, enabled);
+          expect(clouds.controller.shadowQuality, shadowPreset);
+          expect(clouds.controller.quality, CloudQualityPreset.high);
+          expect(scene.effects, hasLength(30));
+          debugPrint(
+            'Cloud shadows: $enabled, ${shadowPreset.name}, $frames native frames.',
+          );
+        }
         expect(tester.takeException(), isNull);
       } finally {
         await tester.pumpWidget(const SizedBox());

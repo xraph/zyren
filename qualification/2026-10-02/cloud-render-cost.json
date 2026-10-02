@@ -1,0 +1,318 @@
+{
+  "backend": "macOS Metal",
+  "flutterSdk": "3.47.5",
+  "fixture": "packages/zyren_geospatial/tool/cloud_render_cost.dart",
+  "includesReadback": true,
+  "dartMode": "JIT",
+  "warmupFrames": 20,
+  "measuredFramesPerCase": 48,
+  "providerTiles": false,
+  "sourceAssets": false,
+  "elapsed": "constant zero",
+  "systemLoadControlled": false,
+  "note": "Planet was closed. Other development builds were not suspended. These are native headless render timings, not interactive app FPS or a Takram comparison.",
+  "runs": [
+    {
+      "revision": "382115e",
+      "run": 1,
+      "samples": [
+        {
+          "shadows": true,
+          "samples": 48,
+          "medianMs": 33.434,
+          "p95Ms": 38.742,
+          "residentBytes": 45010036,
+          "viewport": [
+            1280,
+            720
+          ],
+          "cloudSize": [
+            640,
+            360
+          ],
+          "includesReadback": true
+        },
+        {
+          "shadows": false,
+          "samples": 48,
+          "medianMs": 23.748,
+          "p95Ms": 31.157,
+          "residentBytes": 42650468,
+          "viewport": [
+            1280,
+            720
+          ],
+          "cloudSize": [
+            640,
+            360
+          ],
+          "includesReadback": true
+        }
+      ],
+      "logSha256": "398fd30e6867d6306437f2bcac8b3d4b6acf30f1cc86c8546df4b1e188264e21"
+    },
+    {
+      "revision": "382115e",
+      "run": 2,
+      "samples": [
+        {
+          "shadows": true,
+          "samples": 48,
+          "medianMs": 40.028,
+          "p95Ms": 52.5,
+          "residentBytes": 45010036,
+          "viewport": [
+            1280,
+            720
+          ],
+          "cloudSize": [
+            640,
+            360
+          ],
+          "includesReadback": true
+        },
+        {
+          "shadows": false,
+          "samples": 48,
+          "medianMs": 22.206,
+          "p95Ms": 30.398,
+          "residentBytes": 42650468,
+          "viewport": [
+            1280,
+            720
+          ],
+          "cloudSize": [
+            640,
+            360
+          ],
+          "includesReadback": true
+        }
+      ],
+      "logSha256": "1c63f46799cd71b5fea72c85186406ae63a39ee2c97407dc4731738c2eafaec3"
+    },
+    {
+      "revision": "382115e",
+      "run": 3,
+      "samples": [
+        {
+          "shadows": true,
+          "samples": 48,
+          "medianMs": 31.228,
+          "p95Ms": 37.547,
+          "residentBytes": 45010036,
+          "viewport": [
+            1280,
+            720
+          ],
+          "cloudSize": [
+            640,
+            360
+          ],
+          "includesReadback": true
+        },
+        {
+          "shadows": false,
+          "samples": 48,
+          "medianMs": 23.163,
+          "p95Ms": 30.41,
+          "residentBytes": 42650468,
+          "viewport": [
+            1280,
+            720
+          ],
+          "cloudSize": [
+            640,
+            360
+          ],
+          "includesReadback": true
+        }
+      ],
+      "logSha256": "bb544709e32e513dc96b033d1b5fbd8c7b2866abad4f48b91a4d0e054be195db"
+    },
+    {
+      "revision": "cb9276a",
+      "run": 1,
+      "samples": [
+        {
+          "shadows": true,
+          "samples": 48,
+          "medianMs": 31.541,
+          "p95Ms": 45.181,
+          "residentBytes": 45010036,
+          "viewport": [
+            1280,
+            720
+          ],
+          "cloudSize": [
+            640,
+            360
+          ],
+          "includesReadback": true
+        },
+        {
+          "shadows": false,
+          "samples": 48,
+          "medianMs": 21.825,
+          "p95Ms": 41.014,
+          "residentBytes": 42650468,
+          "viewport": [
+            1280,
+            720
+          ],
+          "cloudSize": [
+            640,
+            360
+          ],
+          "includesReadback": true
+        }
+      ],
+      "logSha256": "a77db4be6b8cfc65fd35eef7eacc64cfb9d98990d0b6c115abd16cf472b5a3ba"
+    },
+    {
+      "revision": "cb9276a",
+      "run": 2,
+      "samples": [
+        {
+          "shadows": true,
+          "samples": 48,
+          "medianMs": 34.257,
+          "p95Ms": 59.713,
+          "residentBytes": 45010036,
+          "viewport": [
+            1280,
+            720
+          ],
+          "cloudSize": [
+            640,
+            360
+          ],
+          "includesReadback": true
+        },
+        {
+          "shadows": false,
+          "samples": 48,
+          "medianMs": 31.621,
+          "p95Ms": 67.02,
+          "residentBytes": 42650468,
+          "viewport": [
+            1280,
+            720
+          ],
+          "cloudSize": [
+            640,
+            360
+          ],
+          "includesReadback": true
+        }
+      ],
+      "logSha256": "3da44b327796aa5cd13c3b468adf124dc72ebf457d140a2d16a36ab9b9b78e21"
+    },
+    {
+      "revision": "cb9276a",
+      "run": 3,
+      "samples": [
+        {
+          "shadows": true,
+          "samples": 48,
+          "medianMs": 24.538,
+          "p95Ms": 28.327,
+          "residentBytes": 45010036,
+          "viewport": [
+            1280,
+            720
+          ],
+          "cloudSize": [
+            640,
+            360
+          ],
+          "includesReadback": true
+        },
+        {
+          "shadows": false,
+          "samples": 48,
+          "medianMs": 17.075,
+          "p95Ms": 25.158,
+          "residentBytes": 42650468,
+          "viewport": [
+            1280,
+            720
+          ],
+          "cloudSize": [
+            640,
+            360
+          ],
+          "includesReadback": true
+        }
+      ],
+      "logSha256": "60b49e73ffa57aaea26e4ea2c2eeeeaef57567bac08f92511cb788624990faa4"
+    }
+  ],
+  "nativePresentation": [
+    {
+      "platform": "macOS Metal",
+      "mode": "profile",
+      "passed": true,
+      "sourceRevision": "051c1b9",
+      "fixtureSha256": "f3efe4bfd4d5115dc937c864fe56ba49245812151b3d9c19e2e5a1f30d90f73d",
+      "fixture": "examples/planet/integration_test/cloud_effects_test.dart",
+      "shadowStates": [
+        "off",
+        "low",
+        "ultra"
+      ],
+      "cloudQuality": "high",
+      "shadowMapSize": 16,
+      "maxCloudResolution": 64,
+      "presented": 101,
+      "readbackBytes": 0,
+      "cleanup": {
+        "sessions": 0,
+        "renderers": 0,
+        "retiring": 0,
+        "heldDrawables": 0
+      },
+      "logSha256": "a6bc8450e44ff42a90ec8664bb85d68e47045de48afa759ef29387978f60f0d8"
+    },
+    {
+      "platform": "Pixel 9 Pro Vulkan",
+      "mode": "profile",
+      "passed": true,
+      "sourceRevision": "051c1b9",
+      "fixtureSha256": "f3efe4bfd4d5115dc937c864fe56ba49245812151b3d9c19e2e5a1f30d90f73d",
+      "fixture": "examples/planet/integration_test/cloud_effects_test.dart",
+      "shadowStates": [
+        "off",
+        "low",
+        "ultra"
+      ],
+      "cloudQuality": "high",
+      "shadowMapSize": 16,
+      "maxCloudResolution": 64,
+      "presented": 104,
+      "readbackBytes": 0,
+      "cleanup": {
+        "sessions": 0,
+        "surfaces": 0,
+        "renderers": 0,
+        "retiring": 0
+      },
+      "logSha256": "643c30fb9173fa151ad3324707df54b94d3d9ba70cc61903d57ab1c3e5e2c77a"
+    }
+  ],
+  "interactiveRestoration": {
+    "macOS": {
+      "target": "lib/google_tiles_lab.dart",
+      "mode": "profile",
+      "clouds": true,
+      "launchExitCode": 0,
+      "observed": "Tokyo geometry and clouds visible; shadow toggle and Low shadow quality accepted mouse input while clouds stayed High"
+    },
+    "Pixel9Pro": {
+      "target": "lib/google_tiles_lab.dart",
+      "mode": "profile",
+      "clouds": true,
+      "launchExitCode": 0,
+      "normalAppProcessConfirmed": true
+    }
+  }
+}
