@@ -17,7 +17,8 @@ the named devices. The package remains unpublished.
 | Maximum capacity | Implemented, 65,536 particles | Full-capacity GPU sort and explicit live-count readback pass |
 | Dedicated native examples | Implemented in examples/particles | macOS and Android interaction tests pass at desktop and narrow constraints |
 | Tests, analysis, format and package boundaries | 19 package tests pass; analysis and format clean | Native material/graph regressions pass; strict Clippy has four unrelated warnings |
+| Example accessibility | Labelled canvas and interactive controls | macOS semantics-enabled test passes; manual AX and final Android accessibility rerun incomplete |
 | Metal execution | Verified on Apple M3 Max | Package images and final app interaction test pass |
 | Android Vulkan execution | Verified on Pixel 9 Pro | Final app interaction test passes with zero frame readback bytes |
-| iOS | Simulator and signed physical-device builds passed | Physical-device interaction blocked by wireless VM-service discovery |
+| iOS | Simulator and signed physical-device builds passed | Physical-device installation blocked by the three-app free-profile limit |
 | Linux Vulkan and Windows DX12 | Shared native backend, build targets supplied | No matching hardware in this session |

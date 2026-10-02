@@ -370,6 +370,9 @@ class ParticleWorkbenchState extends State<ParticleWorkbench> {
               ),
             Expanded(
               child: Semantics(
+                // Present the canvas as one labelled image. Playback controls
+                // retain their own interactive semantics.
+                excludeSemantics: true,
                 container: true,
                 label:
                     'Native particle viewport. Drag to orbit and scroll to zoom.',
