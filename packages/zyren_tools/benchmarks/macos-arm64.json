@@ -1,0 +1,39 @@
+{
+  "os": "macos",
+  "dart": "3.12.1 (stable) (Tue May 26 01:02:21 2026 -0700) on \"macos_arm64\"",
+  "measurements": [
+    {
+      "source_triangles": 3968,
+      "cap_triangles": 190,
+      "samples_us": [
+        53293,
+        47537,
+        227383,
+        39885,
+        22070
+      ]
+    },
+    {
+      "source_triangles": 16128,
+      "cap_triangles": 382,
+      "samples_us": [
+        68363,
+        44013,
+        62777,
+        49154,
+        102501
+      ]
+    },
+    {
+      "source_triangles": 65024,
+      "cap_triangles": 766,
+      "samples_us": [
+        100393,
+        109702,
+        164428,
+        140654,
+        130959
+      ]
+    }
+  ]
+}

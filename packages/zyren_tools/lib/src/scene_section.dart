@@ -9,6 +9,16 @@ class SceneSectionPlugin extends ScenePlugin {
 
   /// Omit to keep section cuts uncapped. Caps use a separate opaque material.
   final MeshMaterial? capMaterial;
+  bool _capsEnabled = true;
+  bool get capsEnabled => _capsEnabled;
+  set capsEnabled(bool value) {
+    if (_capsEnabled == value) return;
+    _capsEnabled = value;
+    if (_context != null) _syncCaps();
+    _context?.invalidate();
+    _changes.add(null);
+  }
+
   final _targets = <Mesh>[];
   final _caps = <Mesh>[];
   final _issues = <Mesh, SectionCapIssue>{};
@@ -58,7 +68,7 @@ class SceneSectionPlugin extends ScenePlugin {
   }
 
   void _syncCaps() {
-    if (!isActive || capMaterial == null) {
+    if (!isActive || capMaterial == null || !capsEnabled) {
       _removeCaps();
       return;
     }
@@ -82,82 +92,99 @@ class SceneSectionPlugin extends ScenePlugin {
           eligible(target),
           target.fragmentCoverage,
         ),
+      for (final target in _targets.whereType<InstancedMesh>())
+        for (var i = 0; i < target.count; i++) target.transformAt(i),
     ];
     if (_capState is List && _sameCapState(_capState as List, state)) return;
     _removeCaps();
     for (final target in _targets.where(eligible)) {
-      if (target is InstancedMesh ||
-          target.material.primitiveKind != 0 ||
+      if (target.material.primitiveKind != 0 ||
           !target.fragmentCoverage.isFull) {
         _issues[target] = SectionCapIssue.topology;
         continue;
       }
-      final world = _world(target);
-      // Keep the CPU intersection near the source before float32 conversion.
-      final origin = _point(world, Vec3.zero);
-      final relativeValues = [...world.storage];
-      relativeValues[12] = relativeValues[13] = relativeValues[14] = 0;
-      final relativeWorld = Mat4(relativeValues);
-      final relativePlanes = [
-        for (final plane in planes)
-          ClippingPlane(
-            normal: plane.normal,
-            offset: plane.offset - plane.normal.dot(origin),
-          ),
-      ];
-      final result = buildSectionCaps(
-        target.geometry,
-        relativeWorld,
-        relativePlanes,
-      );
-      if (result.issue != null) {
-        _issues[target] = result.issue!;
+      final targetWorld = _world(target);
+      final transforms = target is InstancedMesh
+          ? [for (var i = 0; i < target.count; i++) target.transformAt(i)]
+          : [Mat4.identity()];
+      if (target.geometry.indices.length ~/ 3 * transforms.length > 100000) {
+        _issues[target] = SectionCapIssue.complexity;
         continue;
       }
-      final inverse = relativeWorld.inverted();
-      final m = world.storage;
-      for (final geometry in result.geometries) {
-        final positions = <double>[], normals = <double>[];
-        for (var i = 0; i < geometry.positions.length; i += 3) {
-          positions.addAll(
-            _point(inverse, Vec3.array(geometry.positions, i)).storage,
-          );
-          final n = Vec3.array(geometry.normals, i);
-          normals.addAll(
-            Vec3(
-              m[0] * n.x + m[1] * n.y + m[2] * n.z,
-              m[4] * n.x + m[5] * n.y + m[6] * n.z,
-              m[8] * n.x + m[9] * n.y + m[10] * n.z,
-            ).normalized().storage,
-          );
-        }
-        final cap = target.add(
-          Mesh(
-              BufferGeometry(
-                positions: positions,
-                normals: normals,
-                indices: _handedness(world) < 0
-                    ? [
-                        for (
-                          var i = 0;
-                          i < geometry.indices.length;
-                          i += 3
-                        ) ...[
-                          geometry.indices[i],
-                          geometry.indices[i + 2],
-                          geometry.indices[i + 1],
-                        ],
-                      ]
-                    : geometry.indices,
-              ),
-              capMaterial!,
-              name: 'Section cap',
-            )
-            ..clippingEnabled = false
-            ..outlineEnabled = false
-            ..receiveShadow = false,
+      final targetCaps = <Mesh>[];
+      for (final transform in transforms) {
+        final world = targetWorld * transform;
+        // Keep the CPU intersection near the source before float32 conversion.
+        final origin = _point(world, Vec3.zero);
+        final relativeValues = [...world.storage];
+        relativeValues[12] = relativeValues[13] = relativeValues[14] = 0;
+        final relativeWorld = Mat4(relativeValues);
+        final relativePlanes = [
+          for (final plane in planes)
+            ClippingPlane(
+              normal: plane.normal,
+              offset: plane.offset - plane.normal.dot(origin),
+            ),
+        ];
+        final result = buildSectionCaps(
+          target.geometry,
+          relativeWorld,
+          relativePlanes,
         );
-        _caps.add(cap);
+        if (result.issue != null) {
+          _issues[target] = result.issue!;
+          for (final cap in targetCaps) {
+            cap.parent?.remove(cap);
+            _caps.remove(cap);
+          }
+          break;
+        }
+        final inverse = transform * relativeWorld.inverted();
+        final m = targetWorld.storage;
+        for (final geometry in result.geometries) {
+          final positions = <double>[], normals = <double>[];
+          for (var i = 0; i < geometry.positions.length; i += 3) {
+            positions.addAll(
+              _point(inverse, Vec3.array(geometry.positions, i)).storage,
+            );
+            final n = Vec3.array(geometry.normals, i);
+            normals.addAll(
+              Vec3(
+                m[0] * n.x + m[1] * n.y + m[2] * n.z,
+                m[4] * n.x + m[5] * n.y + m[6] * n.z,
+                m[8] * n.x + m[9] * n.y + m[10] * n.z,
+              ).normalized().storage,
+            );
+          }
+          final cap = target.add(
+            Mesh(
+                BufferGeometry(
+                  positions: positions,
+                  normals: normals,
+                  indices: _handedness(targetWorld) < 0
+                      ? [
+                          for (
+                            var i = 0;
+                            i < geometry.indices.length;
+                            i += 3
+                          ) ...[
+                            geometry.indices[i],
+                            geometry.indices[i + 2],
+                            geometry.indices[i + 1],
+                          ],
+                        ]
+                      : geometry.indices,
+                ),
+                capMaterial!,
+                name: 'Section cap',
+              )
+              ..clippingEnabled = false
+              ..outlineEnabled = false
+              ..receiveShadow = false,
+          );
+          _caps.add(cap);
+          targetCaps.add(cap);
+        }
       }
     }
     _capState = state;

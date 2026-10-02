@@ -172,20 +172,34 @@ An external assignment to `Scene.clippingPlanes` ends session ownership.
 Clearing or detaching then preserves that external state. A subsequent
 `setPlanes` starts a new session and saves those planes for restoration.
 
-To cap a closed convex solid, supply an opaque built-in triangle `capMaterial` and call
+To cap a closed solid, supply an opaque built-in triangle `capMaterial` and call
 `setCapTargets([mesh])` after attachment. Targets are explicit. Caps use separate
 helper meshes, preserve the source material, and opt out of selection outlines.
 You can inspect `capMeshes`, omit them from exports with `owns`, and read
-`capIssues` when a target cannot be capped.
+`capIssues` when a target cannot be capped. Set `capsEnabled = false` to hide
+caps while keeping your section session and target list.
 
-Caps support one connected, watertight convex triangle shell with at most 4096
-triangles and 12288 vertices. Instanced meshes, expanded primitives and partial
-fragment coverage are not capped. Exact coincident positions weld UV and normal
-seams. Open boundaries,
-non-manifold edges, disconnected shells and concave solids produce no caps;
-near-coincident seams are not welded. Split concave assemblies into convex
-closed solids before using this option. The CPU builder validates face planes
-against vertices, so validation costs grow with both counts.
+Caps support watertight triangle shells, including concave solids, disconnected
+components and nested cavities. Intersection contours use even-odd filling, so
+nested shells leave holes. Intersecting contours and ambiguous junctions return a
+`topology` issue instead of a partial cap. Open boundaries and non-manifold edges
+return `openOrNonManifold`. Exact coincident positions weld UV and normal seams;
+near-coincident seams are not welded.
+
+Instanced targets produce separate cap helpers for each intersected instance.
+Instance transform edits update those helpers without replacing source slots.
+Expanded primitives and partial fragment coverage do not produce solid caps.
+
+The source budget is 100000 triangles and 300000 vertices. An instanced target's
+combined triangle count must fit that budget. Contour processing is bounded to
+4000000 segment-band checks per plane, with a maximum of 1000000 output triangles.
+Sources above these budgets return `complexity`. Validation visits triangle edges
+once; contour bands preserve holes and concavities without testing every vertex
+against every source face.
+
+Run `example/cap_benchmark.dart` to measure your mesh sizes. The checked-in
+`benchmarks/macos-arm64.json` records five warm samples for each sphere size.
+Timings measure the CPU builder, not native upload, presentation or frame rate.
 
 Up to six planes intersect each cap polygon. Coincident planes produce one cap.
 Tangent planes and zero-thickness slices between opposing planes produce no cap.
@@ -202,7 +216,13 @@ Set `TransformGizmoPlugin(alwaysVisible: true)` to draw and pick handles through
 scene occluders. The default remains depth tested. Overlay handles use the last
 render order in the blended queue and do not write depth. Reserve that render
 order for the gizmo to keep it above your scene. The same setting applies to idle
-and active handles.
+and active handles. You can change `alwaysVisible` after attachment; changing it
+cancels an active drag before updating render state.
 
 Validation: package tests and macOS Metal regressions cover both depth strategies.
 Windows DX12, Linux Vulkan and mobile rendering remain unverified for these tools.
+
+
+The workbench exposes section caps beside the cut controls and always-visible
+handles beside snapping. Helpers stay out of its assembly list. Widget checks
+exercise both options at 1100, 390 and 320 logical pixels.
