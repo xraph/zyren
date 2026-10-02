@@ -1,0 +1,22 @@
+name: zyren_xr
+description: Native XR sessions and tracking contracts for Zyren.
+version: 0.1.0
+publish_to: none
+resolution: workspace
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+  flutter: '>=3.38.0'
+dependencies:
+  zyren_agents:
+    path: ../zyren_agents
+  flutter:
+    sdk: flutter
+dev_dependencies:
+  test: ^1.29.0
+  flutter_test:
+    sdk: flutter
+flutter:
+  plugin:
+    platforms:
+      ios:
+        pluginClass: ZyrenXrPlugin

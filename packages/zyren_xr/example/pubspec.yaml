@@ -1,0 +1,23 @@
+name: zyren_xr_probe
+description: ARKit session and agent placement probe.
+version: 0.1.0
+publish_to: none
+resolution: workspace
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_zyren:
+    path: ../../flutter_zyren
+  zyren_xr:
+    path: ..
+  zyren_agents:
+    path: ../../zyren_agents
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+flutter:
+  uses-material-design: true

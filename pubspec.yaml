@@ -26,6 +26,8 @@ workspace:
   - packages/zyren_gltf
   - packages/zyren_gltf_timeline
   - packages/zyren_3d_tiles
+  - packages/zyren_xr
+  - packages/zyren_xr/example
   - examples/planet
   - examples/multiple_views
   - examples/model_viewer
