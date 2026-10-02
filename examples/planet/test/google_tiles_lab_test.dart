@@ -6,6 +6,32 @@ import 'package:planet/geospatial_presets.dart';
 import 'package:flutter_zyren/flutter_zyren.dart';
 
 void main() {
+  testWidgets(
+    'a selected cloud story initializes its camera and date together',
+    (tester) async {
+      await tester.pumpWidget(
+        const GoogleTilesLabApp(
+          clouds: true,
+          initialPreset: GoogleTilesPreset.london,
+        ),
+      );
+      final lab = tester.state<GoogleTilesLabState>(
+        find.byType(GoogleTilesLab),
+      );
+      expect(lab.preset, GoogleTilesPreset.london);
+      expect(
+        lab.profile.air.date,
+        GoogleTilesPreset.london.utcDate(year: 2026),
+      );
+      expect(lab.profile.date, lab.profile.air.date);
+      expect(
+        lab.controller.camera.position.distanceTo(lab.controller.camera.target),
+        closeTo(GoogleTilesPreset.london.distance, 1e-6),
+      );
+      await tester.pumpWidget(const SizedBox());
+      await lab.whenClosed;
+    },
+  );
   testWidgets('missing access keeps a compact actionable state without a GPU', (
     tester,
   ) async {

@@ -17,9 +17,11 @@ void main() => runApp(const GoogleTilesLabApp());
 class GoogleTilesLabApp extends StatelessWidget {
   final GlobalKey<GoogleTilesLabState>? labKey;
   final bool clouds;
+  final GoogleTilesPreset? initialPreset;
   const GoogleTilesLabApp({
     super.key,
     this.labKey,
+    this.initialPreset,
     this.clouds = const bool.fromEnvironment('ZYREN_LAB_CLOUDS'),
   });
   @override
@@ -28,13 +30,18 @@ class GoogleTilesLabApp extends StatelessWidget {
     theme: ThemeData.dark(
       useMaterial3: true,
     ).copyWith(visualDensity: VisualDensity.compact),
-    home: GoogleTilesLab(key: labKey, clouds: clouds),
+    home: GoogleTilesLab(
+      key: labKey,
+      clouds: clouds,
+      initialPreset: initialPreset,
+    ),
   );
 }
 
 class GoogleTilesLab extends StatefulWidget {
   final bool clouds;
-  const GoogleTilesLab({super.key, this.clouds = false});
+  final GoogleTilesPreset? initialPreset;
+  const GoogleTilesLab({super.key, this.clouds = false, this.initialPreset});
   @override
   State<GoogleTilesLab> createState() => GoogleTilesLabState();
 }
@@ -63,6 +70,10 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
   @override
   void initState() {
     super.initState();
+    final initial = widget.initialPreset ?? presets.first;
+    if (!presets.contains(initial)) {
+      throw ArgumentError('The initial preset must belong to this lab.');
+    }
     controller =
         SceneController(
             scene: Scene()..background = const Color3(.035, .055, .08),
@@ -86,11 +97,12 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
     profile = GeospatialSceneProfile(
       services: controller.runtime.assetServices,
       clouds: widget.clouds,
+      preset: initial,
     );
     for (final plugin in profile.plugins) {
       controller.use(plugin);
     }
-    _view(presets.first);
+    _view(initial);
     unawaited(_startLoad());
   }
 
