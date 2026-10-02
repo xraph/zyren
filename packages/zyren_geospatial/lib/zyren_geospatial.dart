@@ -48,3 +48,5 @@ export 'src/terrain/overlay_terrain_source.dart';
 export 'src/atmosphere/table_decoder.dart';
 export 'src/atmosphere/precomputed_source.dart';
 export 'src/atmosphere/spectrum.dart';
+export 'src/clouds/parameters.dart';
+export 'src/clouds/quality.dart';

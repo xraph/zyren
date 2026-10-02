@@ -258,3 +258,17 @@ alpha, including on transparent backgrounds. It retains installed maps across
 resize and LUT replacement, so you can close the caller's resource scope once
 installation succeeds. Install an empty `AerialPerspectiveInputs()` to clear
 them. A failed replacement keeps the previous effect active.
+
+## Cloud configuration
+
+`CloudLayers.defaults()` preserves the source's low, middle and high layers, plus
+its disabled fourth weather channel. You can supply up to four immutable
+`CloudLayer` values; height zero disables a layer. Altitudes and heights are in
+metres. Layer gaps and shadow bounds are derived from those intervals.
+
+`CloudParameters` holds weather coverage, medium coefficients, texture repeats,
+offsets and velocities. Volume repeats use inverse metres. Weather and turbulence
+repeats use globe UVs. `CloudQuality.forPreset()` exposes the original low,
+medium, high and ultra raymarch/shadow settings. The default values and interval
+calculations are checked against the original TypeScript. These configuration
+types do not attach a cloud renderer by themselves.
