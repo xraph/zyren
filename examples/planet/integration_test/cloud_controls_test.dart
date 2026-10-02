@@ -90,7 +90,9 @@ void main() {
         'historyFrames': clouds.history.accumulatedFrames,
         'cloudQuality': clouds.quality.name,
         'presentedFrames': frames,
+        'historyReset': clouds.history.reason.name,
       });
+      debugPrint('Cloud controls: ${records.last}');
     }
 
     try {

@@ -529,12 +529,15 @@ void _finite(Vec3 value, String name) {
 
 /// Owns one effect slot. Replacements keep its order and do not need a free slot.
 final class EffectRegistration extends Registration {
-  final void Function(ScreenEffect) _replace;
+  final void Function(ScreenEffect, bool) _replace;
   EffectRegistration._(super.release, this._replace);
-  void replace(ScreenEffect effect) {
+
+  /// Use [invalidate] false when rebinding temporal buffers in beforeRender.
+  /// The current frame uses the replacement without scheduling another frame.
+  void replace(ScreenEffect effect, {bool invalidate = true}) {
     if (isDisposed) throw StateError('Effect registration has closed.');
     if (effect.isClosed) throw StateError('Effect owner has closed.');
-    _replace(effect);
+    _replace(effect, invalidate);
   }
 }
 
@@ -654,9 +657,13 @@ class Scene extends Object3D {
         _transparentBackgroundEffects.remove(key);
         _changed();
       },
-      (replacement) {
+      (replacement, invalidate) {
         _effects[key] = (order: order, effect: replacement);
-        _changed();
+        if (invalidate) {
+          _changed();
+        } else {
+          _revision++;
+        }
       },
     );
   }

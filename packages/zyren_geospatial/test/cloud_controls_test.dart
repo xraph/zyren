@@ -74,8 +74,11 @@ void main() {
         shadowMapSize: 16,
       );
       var demand = 0;
+      final scene = Scene()..renderSettings = RenderSettings(hdr: true);
+      var sceneChanges = 0;
+      final changes = scene.changes.listen((_) => sceneChanges++);
       final engine = await SceneEngine.create(
-        scene: Scene()..renderSettings = RenderSettings(hdr: true),
+        scene: scene,
         camera: PerspectiveCamera(
           position: sun * 6360100,
           target: sun * 6363000,
@@ -125,7 +128,24 @@ void main() {
           greaterThanOrEqualTo(16),
         );
         expect(demand, 0);
+        for (var i = 0; i < 16; i++) {
+          milliseconds += 2000;
+          await render();
+        }
+        expect(cloud.controller.animationElapsed, frozen);
+        expect(
+          cloud.controller.history.accumulatedFrames,
+          greaterThanOrEqualTo(16),
+          reason: 'Wall time gaps do not change paused cloud media.',
+        );
+        expect(demand, 0);
+        final beforeIdle = sceneChanges;
         final thickAlpha = center(await render())[3];
+        expect(
+          sceneChanges,
+          beforeIdle,
+          reason: 'Temporal buffer swaps must not request another scene frame.',
+        );
         cloud.controller.parameters = cloud.controller.parameters.copyWith(
           densityMultiplier: .1,
         );
@@ -178,6 +198,7 @@ void main() {
         expect(demand, 0);
       } finally {
         await engine.dispose();
+        await changes.cancel();
         expect(demand, 0);
         expect((await backend.resourceStats()).residentBytes, 0);
         await backend.close();

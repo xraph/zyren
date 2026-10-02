@@ -440,7 +440,7 @@ final class CloudController {
       width: width,
       height: height,
       number: info.number,
-      elapsed: info.elapsed,
+      elapsed: _animationElapsed,
       revision: _revision,
       epoch: _context.scene.renderSettings.historyEpoch,
       sun: sun,
@@ -449,8 +449,14 @@ final class CloudController {
     final previous = history.valid ? _history.previous : null;
     final parameters = _parameters, appearance = _appearance;
     await candidate.temporal.prepare(history, _temporal);
-    _resolve!.replace(candidate.temporal.resolve[candidate.temporal.pending]);
-    _publish!.replace(candidate.temporal.publish[candidate.temporal.pending]);
+    _resolve!.replace(
+      candidate.temporal.resolve[candidate.temporal.pending],
+      invalidate: false,
+    );
+    _publish!.replace(
+      candidate.temporal.publish[candidate.temporal.pending],
+      invalidate: false,
+    );
     final state = CloudFrameState(
       camera: camera,
       worldToEcef: _atmosphere.worldToEcef,

@@ -331,6 +331,9 @@ Paused clouds still refine the image and respond to camera, lighting and quality
 changes. Once the Bayer cycle finishes, they release their continuous frame
 demand. Motion uses accumulated frame delta, so a long pause does not move the
 clouds forward when you resume. `animationElapsed` reports that active time.
+Temporal history uses the same clock, so a wall-time gap does not discard a
+paused cloud image. Camera, lighting and parameter changes still reject stale
+history.
 
 ```dart
 CloudPlugin(
