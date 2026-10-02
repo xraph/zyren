@@ -12,6 +12,9 @@ void main(List<String> args) async {
       input.packageRoot.resolve('native/src/interop/apple_buffer.mm'),
       input.packageRoot.resolve('native/Cargo.lock'),
       input.packageRoot.resolve('native/vendor/wgpu-hal/Cargo.toml'),
+      // Rust's root depfile omits sources inside patched dependencies.
+      input.packageRoot.resolve('native/vendor/wgpu-hal/src/'),
+      input.packageRoot.resolve('native/vendor/wgpu-hal/build.rs'),
       input.packageRoot.resolve('native/rust-toolchain.toml'),
     ]);
     await RustBuilder(

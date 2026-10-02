@@ -149,6 +149,11 @@ pub struct PhysicalDeviceFeatures {
 }
 
 impl PhysicalDeviceFeatures {
+    fn supports_robust_image_access(&self) -> bool {
+        self.robustness2.is_some_and(|f| f.robust_image_access2 != 0)
+            || self.image_robustness.is_some_and(|f| f.robust_image_access != 0)
+    }
+
     pub fn get_core(&self) -> vk::PhysicalDeviceFeatures {
         self.core
     }
@@ -2426,12 +2431,7 @@ impl super::Instance {
             can_present: true,
             //TODO: make configurable
             robust_buffer_access: phd_features.core.robust_buffer_access != 0,
-            robust_image_access: match phd_features.robustness2 {
-                Some(ref f) => f.robust_image_access2 != 0,
-                None => phd_features
-                    .image_robustness
-                    .is_some_and(|ext| ext.robust_image_access != 0),
-            },
+            robust_image_access: phd_features.supports_robust_image_access(),
             robust_buffer_access2: has_robust_buffer_access2,
             robust_image_access2: phd_features
                 .robustness2
@@ -3548,4 +3548,33 @@ fn query_cooperative_matrix_properties(
         result.len()
     );
     result
+}
+
+#[cfg(test)]
+mod image_robustness_tests {
+    use super::*;
+
+    #[test]
+    fn image_robustness_features_remain_independent() {
+        for robustness2 in [None, Some(false), Some(true)] {
+            for image_robustness in [None, Some(false), Some(true)] {
+                let features = PhysicalDeviceFeatures {
+                    robustness2: robustness2.map(|enabled| {
+                        vk::PhysicalDeviceRobustness2FeaturesEXT::default()
+                            .robust_image_access2(enabled)
+                    }),
+                    image_robustness: image_robustness.map(|enabled| {
+                        vk::PhysicalDeviceImageRobustnessFeaturesEXT::default()
+                            .robust_image_access(enabled)
+                    }),
+                    ..Default::default()
+                };
+                assert_eq!(
+                    features.supports_robust_image_access(),
+                    robustness2 == Some(true) || image_robustness == Some(true),
+                    "robustness2={robustness2:?}, image_robustness={image_robustness:?}"
+                );
+            }
+        }
+    }
 }

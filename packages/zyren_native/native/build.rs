@@ -1,4 +1,12 @@
 fn main() {
+    if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("android") {
+        // Basis links libc++ statically. The NDK keeps exception and RTTI
+        // support in a separate archive, which the C linker does not add.
+        // Let the target linker find the archive in its NDK sysroot.
+        println!("cargo:rustc-link-lib=c++abi");
+        // Catch missing codec/runtime symbols during linking, before dlopen.
+        println!("cargo:rustc-link-arg=-Wl,-z,defs");
+    }
     for path in [
         "src/tangents.c",
         "vendor/mikktspace/mikktspace.c",

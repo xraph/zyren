@@ -1,6 +1,6 @@
-# Native dependency patch
+# Native dependency patches
 
-You can inspect the complete local change in
+You can inspect the Metal change in
 [metal-submission-status.patch](metal-submission-status.patch). We retain the
 published `wgpu-hal` 30.0.1 source and its MIT/Apache-2.0 licenses. The original
 crate archive has SHA-256
@@ -22,4 +22,24 @@ tests exercise the real queue path; the status regression covers errors.
 Cargo pins wgpu to `=30.0.1` and applies this source through `[patch.crates-io]`.
 Review the patch, imported texture ownership and GPU regressions together before
 upgrading. Remove the local copy when upstream offers equivalent observable
-submission results. This patch does not alter Vulkan or Direct3D behavior.
+submission results. The Metal patch does not alter Vulkan or Direct3D behavior.
+
+
+## Vulkan image robustness
+
+[vulkan-image-robustness.patch](vulkan-image-robustness.patch) backports the
+capability fix from [wgpu PR 10291](https://github.com/gfx-rs/wgpu/pull/10291).
+You can use hardware image bounds protection when either image robustness
+feature is supported. Advertising robustness2 with its image flag disabled
+must not hide the older supported feature. Software checks remain enabled
+when neither feature is available.
+
+The previous detection triggered a Mali shader compiler crash while compiling
+texture loads through function parameters. The physical-material gallery
+reproduced it on a Pixel 9 Pro running Android 17. With this patch, the same
+gallery passes through Vulkan. The added unit test covers all nine combinations
+of absent, disabled and enabled feature records.
+
+The Dart build hook tracks the vendored source directory as an input. Rust's
+root dependency file does not include patched dependency sources, so changes
+here otherwise leave Flutter's cached native library unchanged.

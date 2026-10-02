@@ -24,9 +24,6 @@ struct Api {
   decltype(&fg2_graph_command) graph = nullptr;
   size_t (*live)() = nullptr;
   size_t (*retiring)() = nullptr;
-  decltype(&fg2_resource_command) resource = nullptr;
-  decltype(&fg2_shader_command) shader = nullptr;
-  decltype(&fg2_graph_command) graph = nullptr;
 } api;
 void *runtime = nullptr;
 void fail(JNIEnv *env, const std::string &message) {
@@ -82,9 +79,6 @@ Java_dev_twinos_zyren_Native_connect(JNIEnv *env, jobject, jlong token) {
   LOAD(graph, "fg2_graph_command")
   LOAD(live, "fg_live_renderer_count")
   LOAD(retiring, "fg_retiring_renderer_count")
-  LOAD(resource, "fg2_resource_command")
-  LOAD(shader, "fg2_shader_command")
-  LOAD(graph, "fg2_graph_command")
 #undef LOAD
   api = candidate;
   // Keep the exact asset loaded while platform callbacks can use its functions.
