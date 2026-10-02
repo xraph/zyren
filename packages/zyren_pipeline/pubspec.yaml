@@ -1,0 +1,15 @@
+name: zyren_pipeline
+description: Versioned asset bundles and offline loading for Zyren.
+version: 0.1.0
+publish_to: none
+resolution: workspace
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+dependencies:
+  crypto: ^3.0.7
+  zyren:
+    path: ../zyren
+  zyren_gltf:
+    path: ../zyren_gltf
+dev_dependencies:
+  test: ^1.29.0

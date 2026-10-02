@@ -27,6 +27,7 @@ workspace:
   - examples/physics_lab
   - examples/shader_lab/effects_plugin
   - examples/shader_lab/effects_plugin/example
+  - packages/zyren_pipeline
 dev_dependencies:
   analyzer: ^13.3.0
   lints: ^6.0.0
