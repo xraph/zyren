@@ -126,96 +126,153 @@ void main() {
       expect(resolver.reads.length, 2);
     },
   );
+  for (final noiseFailure in [false, true]) {
+    test(
+      'plugin source failure closes ${noiseFailure ? 'uploaded maps' : 'initial resources'}',
+      () async {
+        final backend = await NativeBackend.create();
+        final clouds = CloudPlugin(
+          source: source(_Source()..fault = noiseFailure ? '' : 'error'),
+          blueNoiseSource: CloudBlueNoiseSource(
+            services: AssetServices(resolver: _Source()..fault = 'error'),
+          ),
+          maxResolution: 16,
+          shadowMapSize: 16,
+        );
+        try {
+          await expectLater(
+            SceneEngine.create(
+              scene: Scene(),
+              camera: PerspectiveCamera(),
+              backendFactory: () async => backend.createView(),
+              plugins: [
+                AtmospherePlugin(
+                  date: DateTime.utc(2026),
+                  maxStarResolution: 16,
+                ),
+                clouds,
+              ],
+            ),
+            throwsA(isA<AssetLoadException>()),
+          );
+          expect((await backend.resourceStats()).residentBytes, 0);
+        } finally {
+          await backend.close();
+        }
+      },
+    );
+  }
   final path = Platform.environment['ZYREN_SOURCE_CLOUDS'];
-  test(
-    'pinned source cloud maps upload and render with native atmospheric light',
-    () async {
-      final backend = await NativeBackend.create(),
-          owner = GpuScope.fromBackend(backend);
-      final source = CloudTextureSource(
-        baseUri: Directory(path!).uri,
-        services: AssetServices(
-          resolver: NativeSourceResolver(),
-          imageDecoder: NativeImageDecoder(),
-        ),
-      );
-      final loaded = await CloudTextures.load(
-        owner,
-        source,
-        cancellation: CloudCancellation(),
-      );
-      expect((await backend.resourceStats()).residentBytes, 10005160);
-      final date = DateTime.utc(2026, 3, 20, 12),
-          sun = CelestialDirections.at(DateTime.utc(2026, 3, 20, 12)).sunECEF;
-      final air = AtmospherePlugin(
-        date: date,
-        parameters: AtmosphereParameters.legacy(),
-        correctAltitude: false,
-        maxStarResolution: 32,
-        appearance: AtmosphereAppearance(sky: false, haze: false),
-      );
-      final noise = await CloudBlueNoise.load(
-        services: AssetServices(resolver: NativeSourceResolver()),
-        cancellation: CloudCancellation(),
-        uri: Directory(path).uri.resolve('stbn.bin'),
-      );
-      final clouds = CloudPlugin(
-        blueNoise: noise,
-        temporal: CloudTemporalSettings(),
-        parameters: CloudParameters(
-          localWeatherVelocity: (.005, .003),
-          shapeVelocity: const Vec3(.5, 0, 0),
-        ),
-        textures: loaded.textures,
-        quality: CloudQualityPreset.low,
-        maxResolution: 32,
-        shadowMapSize: 16,
-      );
-      final engine = await SceneEngine.create(
-        scene: Scene()..renderSettings = RenderSettings(hdr: true),
-        camera: PerspectiveCamera(
-          position: sun * 6360100,
-          target: sun * 6363000,
-          up: const Vec3(0, 0, 1),
-          near: 1,
-          far: 1e7,
-        ),
-        backendFactory: () async => backend.createView(),
-        plugins: [air, clouds],
-      );
-      try {
-        await loaded.close();
-        await owner.close();
-        for (var i = 0; i < 16; i++) {
-          await engine.render(
-            elapsed: Duration(milliseconds: i * 16),
+  for (final loadByPlugin in [false, true]) {
+    test(
+      'pinned source cloud maps render through ${loadByPlugin ? 'plugin source loading' : 'caller textures'}',
+      () async {
+        final backend = await NativeBackend.create(),
+            owner = GpuScope.fromBackend(backend);
+        final source = CloudTextureSource(
+          baseUri: Directory(path!).uri,
+          services: AssetServices(
+            resolver: NativeSourceResolver(),
+            imageDecoder: NativeImageDecoder(),
+          ),
+        );
+        final loaded = loadByPlugin
+            ? null
+            : await CloudTextures.load(
+                owner,
+                source,
+                cancellation: CloudCancellation(),
+              );
+        expect(
+          (await backend.resourceStats()).residentBytes,
+          loadByPlugin ? 0 : 10005160,
+        );
+        final date = DateTime.utc(2026, 3, 20, 12),
+            sun = CelestialDirections.at(DateTime.utc(2026, 3, 20, 12)).sunECEF;
+        final air = AtmospherePlugin(
+          date: date,
+          parameters: AtmosphereParameters.legacy(),
+          correctAltitude: false,
+          maxStarResolution: 32,
+          appearance: AtmosphereAppearance(sky: false, haze: false),
+        );
+        final noiseSource = CloudBlueNoiseSource(
+          services: AssetServices(resolver: NativeSourceResolver()),
+          uri: Directory(path).uri.resolve('stbn.bin'),
+        );
+        final noise = loadByPlugin
+            ? null
+            : await noiseSource.load(cancellation: CloudCancellation());
+        if (noise != null) {
+          expect(
+            () => CloudPlugin(blueNoise: noise, blueNoiseSource: noiseSource),
+            throwsArgumentError,
+          );
+          expect(
+            () => CloudPlugin(textures: loaded!.textures, source: source),
+            throwsArgumentError,
+          );
+        }
+        final clouds = CloudPlugin(
+          source: loadByPlugin ? source : null,
+          blueNoiseSource: loadByPlugin ? noiseSource : null,
+          blueNoise: noise,
+          temporal: CloudTemporalSettings(),
+          parameters: CloudParameters(
+            localWeatherVelocity: (.005, .003),
+            shapeVelocity: const Vec3(.5, 0, 0),
+          ),
+          textures: loaded?.textures,
+          quality: CloudQualityPreset.low,
+          maxResolution: 32,
+          shadowMapSize: 16,
+        );
+        final engine = await SceneEngine.create(
+          scene: Scene()..renderSettings = RenderSettings(hdr: true),
+          camera: PerspectiveCamera(
+            position: sun * 6360100,
+            target: sun * 6363000,
+            up: const Vec3(0, 0, 1),
+            near: 1,
+            far: 1e7,
+          ),
+          backendFactory: () async => backend.createView(),
+          plugins: [air, clouds],
+        );
+        try {
+          await loaded?.close();
+          await owner.close();
+          for (var i = 0; i < 16; i++) {
+            await engine.render(
+              elapsed: Duration(milliseconds: i * 16),
+              width: 31,
+              height: 31,
+            );
+            expect(clouds.controller.history.accumulatedFrames, i + 1);
+          }
+          final frame = await engine.render(
+            elapsed: Duration(milliseconds: 256),
             width: 31,
             height: 31,
           );
-          expect(clouds.controller.history.accumulatedFrames, i + 1);
+          final alpha = [
+            for (var i = 3; i < frame.pixels.length; i += 4) frame.pixels[i],
+          ];
+          expect(alpha.where((v) => v > 10).length, greaterThan(50));
+          expect(alpha.toSet().length, greaterThan(5));
+        } finally {
+          await owner.close();
+          await engine.dispose();
+          expect((await backend.resourceStats()).residentBytes, 0);
+          await backend.close();
         }
-        final frame = await engine.render(
-          elapsed: Duration(milliseconds: 256),
-          width: 31,
-          height: 31,
-        );
-        final alpha = [
-          for (var i = 3; i < frame.pixels.length; i += 4) frame.pixels[i],
-        ];
-        expect(alpha.where((v) => v > 10).length, greaterThan(50));
-        expect(alpha.toSet().length, greaterThan(5));
-      } finally {
-        await owner.close();
-        await engine.dispose();
-        expect((await backend.resourceStats()).residentBytes, 0);
-        await backend.close();
-      }
-    },
-    skip: path == null
-        ? 'Set ZYREN_SOURCE_CLOUDS for pinned source cloud assets.'
-        : false,
-    timeout: Timeout(Duration(minutes: 3)),
-  );
+      },
+      skip: path == null
+          ? 'Set ZYREN_SOURCE_CLOUDS for pinned source cloud assets.'
+          : false,
+      timeout: Timeout(Duration(minutes: 3)),
+    );
+  }
 }
 
 class CloudCancellation implements LoadCancellation {

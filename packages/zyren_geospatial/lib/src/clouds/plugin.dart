@@ -32,6 +32,8 @@ final class CloudPlugin extends ScenePlugin {
   final CloudAppearance appearance;
   final CloudQualityPreset quality;
   final CloudTemporalSettings temporal;
+  final CloudTextureSource? source;
+  final CloudBlueNoiseSource? blueNoiseSource;
   final CloudTextures? textures;
   final CloudBlueNoise? blueNoise;
   final int maxResolution;
@@ -43,6 +45,8 @@ final class CloudPlugin extends ScenePlugin {
     CloudAppearance? appearance,
     CloudTemporalSettings? temporal,
     this.quality = CloudQualityPreset.medium,
+    this.source,
+    this.blueNoiseSource,
     this.textures,
     this.blueNoise,
     this.maxResolution = 384,
@@ -51,6 +55,12 @@ final class CloudPlugin extends ScenePlugin {
   }) : parameters = parameters ?? CloudParameters(),
        appearance = appearance ?? CloudAppearance(),
        temporal = temporal ?? CloudTemporalSettings() {
+    if (textures != null && source != null ||
+        blueNoise != null && blueNoiseSource != null) {
+      throw ArgumentError(
+        'Choose loaded cloud assets or their source for each input.',
+      );
+    }
     if (!shadowFarScale.isFinite || shadowFarScale <= 0 || shadowFarScale > 1) {
       throw ArgumentError.value(
         shadowFarScale,
@@ -115,6 +125,8 @@ final class CloudController {
   CloudHistoryFrame? _pendingFrame;
   _CloudCandidate? _pendingCandidate;
   CloudTextureSet? _textures;
+  CloudBlueNoise? _blueNoise;
+  final _sourceCancellation = _CloudSourceCancellation();
   _CloudCandidate? _active;
   EffectRegistration? _producer, _resolve, _publish;
   AtmosphereCloudRegistration? _composition;
@@ -182,9 +194,20 @@ final class CloudController {
   }
 
   Future<void> _initialize() => _serial(() async {
-    _textures =
-        await (_plugin.textures?.retain(_owner) ??
-            CloudTextures.generate(_owner, isCancelled: () => isClosed));
+    if (_plugin.source case final source?) {
+      _textures = await CloudTextures.load(
+        _owner,
+        source,
+        cancellation: _sourceCancellation,
+      );
+    } else {
+      _textures =
+          await (_plugin.textures?.retain(_owner) ??
+              CloudTextures.generate(_owner, isCancelled: () => isClosed));
+    }
+    _blueNoise =
+        _plugin.blueNoise ??
+        await _plugin.blueNoiseSource?.load(cancellation: _sourceCancellation);
     await _replace(_quality, _textures!.textures, _width, _height);
     _motion();
   });
@@ -248,7 +271,7 @@ final class CloudController {
         _plugin.shadowMapSize,
         _atmosphere.source,
         temporal ?? _temporal,
-        _plugin.blueNoise,
+        _blueNoise,
       );
       _check();
       if (_composition == null) {
@@ -376,6 +399,7 @@ final class CloudController {
 
   Future<void> _close() async {
     _closed = true;
+    _sourceCancellation.cancel();
     _demand?.dispose();
     await _queue;
     _producer?.dispose();
@@ -506,6 +530,41 @@ final class _CloudCandidate {
       await scope.close();
     } finally {
       await lease.close();
+    }
+  }
+}
+
+final class _CloudSourceCancellation implements LoadCancellation {
+  final _callbacks = <Object, void Function()>{};
+  @override
+  bool isCancelled = false;
+  @override
+  void throwIfCancelled() {
+    if (isCancelled) throw LoadCancelled();
+  }
+
+  @override
+  Registration onCancel(void Function() callback) {
+    if (isCancelled) {
+      callback();
+      return Registration(() {});
+    }
+    final key = Object();
+    _callbacks[key] = callback;
+    return Registration(() => _callbacks.remove(key));
+  }
+
+  void cancel() {
+    if (isCancelled) return;
+    isCancelled = true;
+    final pending = _callbacks.values.toList();
+    _callbacks.clear();
+    for (final callback in pending) {
+      try {
+        callback();
+      } catch (_) {
+        // Cleanup still waits for the physical source request to settle.
+      }
     }
   }
 }

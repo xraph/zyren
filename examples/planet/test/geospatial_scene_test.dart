@@ -70,6 +70,8 @@ void main() {
         services: const SceneRuntime().assetServices,
         clouds: true,
       );
+      expect(cloudProfile.cloudLayer!.source, isNotNull);
+      expect(cloudProfile.cloudLayer!.blueNoiseSource, isNotNull);
       expect(cloudProfile.cloudLayer!.quality, CloudQualityPreset.high);
       expect(cloudProfile.cloudLayer!.shadowFarScale, .25);
       expect(cloudProfile.cloudLayer!.parameters.coverage, .35);

@@ -341,6 +341,22 @@ For source blue noise, pass the result of
 another texture slot. Scenes without that asset use deterministic, frame-varying
 interleaved gradient noise.
 
+You can let the plugin load both pinned asset sets during attachment:
+
+```dart
+CloudPlugin(
+  source: CloudTextureSource.upstream(services: services),
+  blueNoiseSource: CloudBlueNoiseSource(services: services),
+  maxResolution: 192,
+  shadowMapSize: 128,
+  shadowFarScale: .25,
+)
+```
+
+The plugin owns these resources and releases them if initialization fails.
+Choose either `source` or `textures`, and either `blueNoiseSource` or `blueNoise`.
+`shadowFarScale` limits the shadow cascades to that fraction of the camera range.
+
 For the original textures, use `CloudTextureSource.upstream(services: services)`
 with your resolver and image decoder, then call
 `CloudTextures.load(scope, source, cancellation: cancellation)`. You can host the

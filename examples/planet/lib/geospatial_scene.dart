@@ -43,6 +43,8 @@ final class GeospatialSceneProfile extends ScenePlugin {
     );
     cloudLayer = clouds
         ? CloudPlugin(
+            source: CloudTextureSource.upstream(services: services),
+            blueNoiseSource: CloudBlueNoiseSource(services: services),
             parameters: _cloudParameters,
             quality: CloudQualityPreset.high,
             maxResolution: 192,

@@ -211,6 +211,20 @@ abstract final class _Admission {
 AssetLoadException _failure(AssetLoadError code) =>
     AssetLoadException(code, 'Cloud texture source could not be loaded.');
 
+/// Loads pinned STBN samples through your asset services. Override [uri] for
+/// a local fixture or an authorized mirror.
+final class CloudBlueNoiseSource {
+  final AssetServices services;
+  final Uri? uri;
+  const CloudBlueNoiseSource({required this.services, this.uri});
+  Future<CloudBlueNoise> load({required LoadCancellation cancellation}) =>
+      CloudBlueNoise.load(
+        services: services,
+        cancellation: cancellation,
+        uri: uri,
+      );
+}
+
 /// Source STBN samples, 128 by 128 by 64 unsigned bytes. Kept outside textures so
 /// temporal jitter does not consume another sampled-texture binding.
 final class CloudBlueNoise {
