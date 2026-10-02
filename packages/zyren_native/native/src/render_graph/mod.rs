@@ -1,6 +1,6 @@
 mod bindings;
 mod compile;
-mod descriptor;
+pub(crate) mod descriptor;
 mod execute;
 pub(crate) mod materials;
 
