@@ -56,6 +56,10 @@ class SceneToolsPlugin extends ScenePlugin {
   Object3D? get selected => _selected;
   bool get canUndo => _undo.isNotEmpty;
   bool get canRedo => _redo.isNotEmpty;
+
+  /// The object affected by the next history command, if one exists.
+  Object3D? get undoTarget => _undo.lastOrNull?.object;
+  Object3D? get redoTarget => _redo.lastOrNull?.object;
   List<SceneMeasurement> get measurements => List.unmodifiable(_measurements);
   PluginContext get _attached =>
       _context ?? (throw StateError('Attach scene tools before using them.'));

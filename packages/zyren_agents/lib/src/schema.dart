@@ -1,7 +1,7 @@
 part of '../zyren_agents.dart';
 
 /// Deliberately small JSON Schema subset. Unsupported keywords fail at
-/// registration, so a advertised constraint cannot silently go unenforced.
+/// registration, so an advertised constraint cannot silently go unenforced.
 abstract final class AgentSchema {
   static const _keys = {
     'type',
@@ -15,6 +15,8 @@ abstract final class AgentSchema {
     'maxItems',
     'minimum',
     'maximum',
+    'exclusiveMinimum',
+    'exclusiveMaximum',
     'minLength',
     'maxLength',
     'enum',
@@ -37,6 +39,8 @@ abstract final class AgentSchema {
     for (final key in [
       'minimum',
       'maximum',
+      'exclusiveMinimum',
+      'exclusiveMaximum',
       'minLength',
       'maxLength',
       'minItems',
@@ -107,6 +111,12 @@ abstract final class AgentSchema {
       }
     }
     if (value is num) {
+      if (schema['exclusiveMinimum'] case final num min) {
+        if (value <= min) return '$path is below exclusive minimum.';
+      }
+      if (schema['exclusiveMaximum'] case final num max) {
+        if (value >= max) return '$path is above exclusive maximum.';
+      }
       if (schema['minimum'] case final num min) {
         if (value < min) return '$path is below minimum.';
       }

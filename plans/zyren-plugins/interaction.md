@@ -76,8 +76,9 @@ owner. Camera arbitration is milestone 3, not an implied capability of capture.
 
 ## Evidence and remaining work
 
-Implementation and checks are in progress. No native/device check or publication
-has been claimed. Milestones 3 through 7 remain in the backlog.
+Milestones 1 and 2 have an implementation checkpoint. The evidence below records
+automated checks, native Metal/MCP results and remaining qualification.
+Milestones 3 through 7 remain in the backlog. Neither package is published.
 
 ## Runtime agent access, required work
 
@@ -125,7 +126,7 @@ mutations commit. Registration cleanup cancels in-flight calls.
 Next checks: registry discovery/schema conformance; scoped/retried/stale calls;
 viewport and rich triangle queries across cameras, DPR and revisions; optional
 core/tools/inspector provider; MCP adapter preserving all diagnostics annotations;
-then native/MCP evidence. No registry runtime check is claimed yet.
+then native/MCP evidence. Current results are recorded below.
 
 Agent contract checkpoint: 13 Dart tests pass for discovery, schema rejection,
 host permission denial, exact retries, concurrent commands, cancellation,
@@ -133,3 +134,99 @@ detachment, bounded ledgers, stale reads, viewport identity, perspective and
 orthographic picking, DPR/resize, clipping, provenance and frame correlation.
 The implementation uses the repository-pinned Flutter 3.47.5 Dart runtime.
 The shell's default Flutter uses Dart 3.9.2 and cannot resolve this workspace.
+
+Shared devtools edits requested after ownership inspection: add an optional agent
+bridge in `packages/zyren_devtools/lib/agents.dart`; extend `lib/io.dart`,
+`lib/src/mcp.dart`, `bin/zyren.dart` and `pubspec.yaml` compatibly. Default diagnostics
+remain read-only and retain their tool definitions and annotations. Hosts opt in
+with a registry; CLI MCP exposure also requires `ZYREN_AGENT_TOOLS=1`. The registry
+alone grants command scopes. Existing loopback token, origin, byte and rate limits
+remain in force. No other plan claims these transport files.
+
+Shared contract committed as `5ddc7ea`. Initial native occupancy inspection found
+`examples/planet/build/macos/Build/Products/Profile/planet.app` running (PID 35013).
+Do not change that session. CPU/widget checks use this package's own outputs.
+
+Additional compatible introspection requests: `SceneToolsPlugin.undoTarget` and
+`redoTarget` identify the object a history command affects; agent results must not
+substitute the currently selected object. `SceneDevtoolsPlugin.sceneRevision`
+reads the current scene revision without building an inspection snapshot. Status
+and plan inspection found no owner editing those Dart files. These getters expose
+existing state and do not change command behavior or ownership.
+
+
+## Current checkpoint, 2026-10-02
+
+Implemented:
+
+- Object dispatch to the nearest registered target, ancestor bubbling, direct
+  enter/leave, per-pointer hover and exclusive capture. Removal, hidden ancestors,
+  reparenting, handler disposal, input detachment and router disposal clean up
+  capture. Captured drags continue outside the logical viewport.
+- A compact macOS Flutter example with native Metal, real tools selection,
+  undoable dragging, remove/reset, shared ZeroState and a shared scene inspector.
+  Its host reports pointer coordinates and the inspector's blocking overlay.
+- `zyren_agents` schema 1.0, a typed provider registry, paginated discovery, bounded
+  payloads, host scopes, expected provider revisions, exact mutation retries,
+  cooperative cancellation/progress and a shared read conformance harness.
+- Named viewport context and CPU triangle picking with source/runtime identity,
+  geometry, approved semantic/provenance fields, action references and explicit
+  coverage. Perspective/orthographic cameras and logical pixels are tested.
+- Existing tools and inspector/diagnostics adapters. Selection, transforms,
+  undo/redo go through SceneToolsPlugin. History target getters report affected
+  IDs accurately even when another object is selected.
+- Optional agent discovery/query/command tools through the existing loopback,
+  CLI and MCP transport. Default diagnostics retain their read-only annotations.
+
+Automated evidence:
+
+- 70 Dart tests pass across `zyren_agents/test`, `zyren_interaction/test`,
+  `zyren_tools/test/tools_test.dart` and devtools agent, I/O, diagnostics and
+  plugin tests. This includes 19 interaction tests and 14 shared-agent tests.
+- Three Flutter widget tests pass: 1200x800 and 360x640 controls keep more than
+  half the viewport height available, and real public SceneView input exercises
+  hover, capture, transform history and the shared inspector. The widget renderer
+  is substituted; these checks do not establish GPU presentation.
+- `dart analyze` for zyren_agents, zyren_interaction, zyren_devtools and zyren_tools
+  reports no issues. The relevant diff passes whitespace checks.
+
+Live native and MCP evidence:
+
+- `example/integration_test/native_interaction_test.dart` passed on macOS using
+  nativeView presentation and zero readback bytes. It exercises hover, capture,
+  dragging, agent undo, rich picking and disposal against the native renderer.
+- The external `example/tool/native_mcp_probe.py` passed through the real CLI
+  stdio MCP session and authenticated loopback connection to that native app.
+  It verifies discovery, preserved diagnostics annotations, rich picking, permitted
+  selection, exact retry and stale-command rejection.
+- `packages/zyren_interaction/qualification/macos-metal-mcp.json` contains the
+  credential-free result: wgpu-native, Metal, Apple M3 Max, 1600x1000 render size,
+  three registered providers and the final selected runtime ID.
+- FrameStats exposes the presented frame ID/time but not captured scene/camera
+  revisions. The example leaves that correlation unknown. CPU hits leave rendered
+  pixel visibility unknown. The registry does not manufacture exact pixels.
+
+Remaining work and blockers:
+
+- Desktop visual inspection is blocked by the locked Mac. CUA could not unlock
+  it. Native automated presentation passed, but no screenshot or physical pointer
+  check is claimed. The workstream preview app was closed after the attempt.
+- iOS/Android/Windows runners, real touch input and mobile lifecycle checks remain
+  unverified. The supplied runner is macOS only.
+- Gesture arbitration with cameras, keyboard focus, semantics, anchored labels
+  and widget surfaces remain milestones 3 through 7 with the acceptance criteria
+  above. Native GPU object/depth queries, frame-matched image capture, normalized
+  or image coordinate conversions and projected object bounds remain additional
+  agent context work.
+- The direct registry supports cancellable jobs and progress. The optional MCP
+  adapter currently exposes request/response calls; cancellation/progress events,
+  resource subscriptions and durable retry records across registration lifetimes
+  remain transport work. Hosts must keep long operations bounded until then.
+- Plugin-specific providers and existing-plugin retrofits belong to their owners.
+  This checkpoint supplies the shared contract and adapters for core viewport,
+  interaction, tools and inspector/diagnostics. It does not claim every plugin is
+  integrated or that the complete interaction plugin is ready for publication.
+
+Commit evidence: `5ddc7ea` contains the first checked shared agent contract and
+viewport slice. The interaction/transport implementation commit is recorded in the
+follow-up evidence update after its scoped commit completes.

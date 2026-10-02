@@ -65,6 +65,7 @@ class SceneDevtoolsPlugin extends ScenePlugin {
     }
   }
   bool get isAttached => _context != null;
+  int get sceneRevision => _attached.scene.revision;
   List<FrameStats> get frames => List.unmodifiable(_frames);
   DeviceCapabilities get capabilities => _attached.capabilities;
   PluginContext get _attached =>

@@ -206,3 +206,28 @@ host explicitly calls `DevtoolsServer.start`; close the server during cleanup.
 See [AI setup](guides/README.md) for workbench commands, MCP configuration,
 result limits and a compiled authoring recipe. See the
 [agent guide](guides/AGENT_GUIDE.md) for current API conventions.
+
+## Optional runtime agent tools
+
+You can expose a host-owned `AgentRegistry` through the same authenticated loopback
+bridge with `DevtoolsServer.start(diagnostics, agents: registry)`. The default
+server remains read-only. Agent scopes belong to the registry you construct; a
+client cannot grant itself permission through tool arguments.
+
+Set `ZYREN_AGENT_TOOLS=1` alongside the existing endpoint and token when starting
+`dart run zyren_devtools:zyren mcp` to list `agent_discover`, `agent_query` and
+`agent_command`. Discovery returns provider instances and their versioned schemas.
+A query can invoke only a read-only provider tool. Commands require the provider's
+expected revision, an idempotency key and its host-granted scopes. Existing
+diagnostic tools retain their names, schemas and read-only annotations.
+
+Import `package:zyren_devtools/agents.dart` for `DiagnosticsAgentProvider` when
+you want existing scene diagnostics inside the shared registry. Inspector IDs
+remain session-local; rich viewport hits use core runtime IDs and optional source
+IDs separately. Unregister the provider before its inspector detaches.
+
+The bridge keeps the current loopback authentication, origin checks, payload
+limits and rate limits. It starts only when the host requests it. The direct Dart
+registry supports cooperative cancellation and progress for jobs; this first
+transport adapter exposes request/response calls. MCP cancellation, progress
+notifications and resource subscriptions remain to be implemented for long jobs.

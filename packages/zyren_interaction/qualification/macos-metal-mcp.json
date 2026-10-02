@@ -1,0 +1,315 @@
+{
+  "ok": true,
+  "transport": "external CLI stdio MCP to authenticated native host loopback",
+  "providerIds": [
+    "zyren.viewport",
+    "zyren.interaction",
+    "zyren.devtools"
+  ],
+  "renderer": {
+    "schemaVersion": 1,
+    "packageVersion": "0.1.0",
+    "sessionId": "hmujhmu07k-jrr25y:1",
+    "capturedAt": "2026-10-02T21:37:12.681852Z",
+    "attached": true,
+    "name": "wgpu-native",
+    "backend": "Metal",
+    "adapterName": "Apple M3 Max",
+    "driverDescription": null,
+    "features": [
+      "alphaMaterials",
+      "areaLighting",
+      "bloom",
+      "colorTextures",
+      "compute",
+      "diffuseLighting",
+      "environmentLighting",
+      "floatTextures",
+      "frameGraphs",
+      "hdr",
+      "hdrColor",
+      "indexedMeshes",
+      "instancing",
+      "materialSidedness",
+      "meshShaders",
+      "morphTargets",
+      "multisampleAntialiasing",
+      "nativeView",
+      "physicalMaterials",
+      "portablePrimitives",
+      "postprocessing",
+      "punctualLights",
+      "renderGraphs",
+      "reversedDepth",
+      "rgbaReadback",
+      "scopedResources",
+      "sectionClipping",
+      "selectionOutlines",
+      "shaderCompilation",
+      "shaderMaterials",
+      "shadowMaps",
+      "shadows",
+      "skinning",
+      "spatialAntialiasing",
+      "standardMaterials",
+      "storageTextures",
+      "temporalAntialiasing",
+      "unlitMaterials",
+      "volumeTextures"
+    ],
+    "limits": {
+      "maxTextureDimension2D": 4096,
+      "maxGeometryBytes": 67108864,
+      "sampleCounts": [
+        1,
+        4
+      ]
+    }
+  },
+  "viewport": {
+    "schemaVersion": "1.0",
+    "status": "ok",
+    "data": {
+      "sceneId": "interaction-demo",
+      "documentId": "unsaved-demo",
+      "documentRevision": null,
+      "viewportId": "main",
+      "sceneRevision": 8,
+      "camera": {
+        "runtimeId": 2,
+        "revision": 1,
+        "position": [
+          0.0,
+          0.0,
+          6.0
+        ],
+        "target": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "up": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "projection": "orthographic",
+        "projectionMatrix": [
+          0.3125,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.5,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          -0.001,
+          0.0,
+          -0.0,
+          -0.0,
+          -0.0,
+          1.0
+        ],
+        "near": 0.0,
+        "far": 1000.0,
+        "layers": 1,
+        "depthStrategy": "standard"
+      },
+      "viewport": {
+        "coordinateSpace": "viewport-local-logical-top-left",
+        "x": 0,
+        "y": 0,
+        "width": 800.0,
+        "height": 500.0,
+        "devicePixelRatio": 2.0,
+        "usable": true
+      },
+      "sectionPlanes": [],
+      "presentedFrame": {
+        "id": "4",
+        "sceneRevision": null,
+        "cameraRevision": null,
+        "cameraRuntimeId": null,
+        "logicalWidth": null,
+        "logicalHeight": null,
+        "devicePixelRatio": null,
+        "presentedAt": "controller+714443us"
+      },
+      "frameCorrelation": "unknown",
+      "hostState": {
+        "selectedRuntimeId": 3,
+        "hoveredRuntimeIds": [
+          3
+        ],
+        "activeMode": "object-drag",
+        "activeViewport": true,
+        "focus": "unknown",
+        "overlays": [],
+        "pointerBlockedByUi": false,
+        "pointer": {
+          "x": 324.4,
+          "y": 274.0,
+          "kind": "mouse",
+          "coordinateSpace": "viewport-local-logical-top-left"
+        },
+        "captureSupport": "unavailable",
+        "renderSize": {
+          "width": 1600,
+          "height": 1000
+        }
+      },
+      "coverage": {
+        "method": "cpu-triangle-geometry",
+        "renderedPixelVisibility": "unknown",
+        "supported": [
+          "triangle meshes",
+          "instances",
+          "built-in deformation",
+          "material sidedness",
+          "layers",
+          "visibility",
+          "section clipping"
+        ],
+        "unknown": [
+          "texture alpha",
+          "transparent pixel compositing",
+          "custom shader displacement",
+          "line and point footprints",
+          "Flutter overlay interception",
+          "unloaded streaming content"
+        ],
+        "ordering": "distance, scene traversal, instance, triangle"
+      }
+    },
+    "revision": 8,
+    "affectedIds": []
+  },
+  "hit": {
+    "object": {
+      "runtimeId": 3,
+      "runtimeIdLifetime": "Dart isolate",
+      "name": "Orange",
+      "parentPath": [
+        1
+      ],
+      "visible": true,
+      "layers": 1,
+      "position": [
+        -0.8,
+        0.0,
+        0.0
+      ],
+      "worldMatrix": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        -0.8,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "metadata": {
+        "sourceId": "demo:Orange",
+        "semanticType": "demo-box",
+        "owningPlugin": "zyren.interaction",
+        "properties": {},
+        "provenance": {
+          "source": "procedural example"
+        },
+        "availableActions": [
+          "zyren.interaction/main/select",
+          "zyren.interaction/main/translate"
+        ],
+        "trust": "untrusted-scene-data"
+      }
+    },
+    "instanceIndex": null,
+    "worldPoint": [
+      -0.8448000000000001,
+      -0.1120000000000001,
+      0.4000000059604645
+    ],
+    "objectLocalPoint": [
+      -0.04480000000000006,
+      -0.1120000000000001,
+      0.4000000059604645
+    ],
+    "localPointSpace": "object before instance transform",
+    "normal": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "distance": 5.5999999940395355,
+    "units": "scene-units",
+    "triangleIndex": 8,
+    "triangle": [
+      [
+        -1.2000000059604645,
+        -0.4000000059604645,
+        0.4000000059604645
+      ],
+      [
+        -0.39999999403953557,
+        -0.4000000059604645,
+        0.4000000059604645
+      ],
+      [
+        -0.39999999403953557,
+        0.4000000059604645,
+        0.4000000059604645
+      ]
+    ],
+    "barycentric": [
+      0.5559999991655351,
+      0.08399999874830251,
+      0.3600000020861624
+    ],
+    "uv": {
+      "u": 0.4440000008344649,
+      "v": 0.6399999979138377
+    },
+    "renderedPixelVisibility": "unknown"
+  },
+  "finalState": {
+    "schemaVersion": "1.0",
+    "status": "ok",
+    "data": {
+      "selectedRuntimeId": 3,
+      "canUndo": false,
+      "canRedo": true,
+      "registeredCount": 2,
+      "hover": [
+        {
+          "pointer": 23,
+          "runtimeId": 3
+        }
+      ],
+      "capture": [],
+      "truncated": false,
+      "sceneRevision": 10
+    },
+    "revision": 5,
+    "affectedIds": []
+  },
+  "checks": [
+    "preserved read-only annotations",
+    "discovery",
+    "native viewport context",
+    "rich CPU triangle pick",
+    "scoped selection command",
+    "exact retry",
+    "stale rejection"
+  ]
+}

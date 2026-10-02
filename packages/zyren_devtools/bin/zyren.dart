@@ -8,6 +8,7 @@ Future<void> main(List<String> args) async {
     stdout.writeln(
       'Usage: dart run zyren_devtools:zyren <tool> [JSON arguments]\n'
       '       dart run zyren_devtools:zyren mcp\n'
+      'Set ZYREN_AGENT_TOOLS=1 to expose an opt-in host agent registry over MCP.\n'
       'Set ZYREN_DEVTOOLS_ENDPOINT and ZYREN_DEVTOOLS_TOKEN from your debug session.\n'
       'Tools: ${SceneDiagnostics.tools.map((t) => t['name']).join(', ')}',
     );
@@ -35,6 +36,7 @@ Future<void> main(List<String> args) async {
         input: stdin,
         output: stdout.writeln,
         call: client.call,
+        agentsEnabled: Platform.environment['ZYREN_AGENT_TOOLS'] == '1',
       );
     } else {
       final arguments = args.length == 1

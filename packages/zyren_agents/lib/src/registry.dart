@@ -48,7 +48,7 @@ final class AgentRegistry {
     return entry.registration = Registration(() {
       if (!identical(_providers[key], entry)) return;
       _providers.remove(key);
-      for (final cancellation in entry.pending) {
+      for (final cancellation in entry.pending.values) {
         cancellation.cancel();
       }
       entry.retries.clear();
@@ -89,6 +89,7 @@ final class AgentRegistry {
     Map<String, Object?> arguments = const {},
     int? expectedRevision,
     String? idempotencyKey,
+    bool readOnlyOnly = false,
     AgentCancellation? cancellation,
     void Function(double fraction, String message)? onProgress,
   }) async {
@@ -107,6 +108,12 @@ final class AgentRegistry {
     final descriptor = entry.tools[tool];
     if (descriptor == null) {
       return reject(AgentStatus.unsupported, 'Tool is not supported.');
+    }
+    if (readOnlyOnly && !descriptor.readOnly) {
+      return reject(
+        AgentStatus.denied,
+        'This endpoint accepts read-only tools.',
+      );
     }
     Map<String, Object?> input;
     try {
@@ -168,7 +175,15 @@ final class AgentRegistry {
         );
       }
     }
-    final before = entry.provider.revision;
+    int before;
+    try {
+      before = entry.provider.revision;
+    } catch (_) {
+      return reject(
+        AgentStatus.unavailable,
+        'Provider revision is unavailable.',
+      );
+    }
     if (expectedRevision != null && expectedRevision != before) {
       return reject(AgentStatus.stale, 'Provider revision changed.');
     }
@@ -180,7 +195,8 @@ final class AgentRegistry {
       entry.mutating = true;
       entry.retries[idempotencyKey!] = (fingerprint!, completer.future);
     }
-    entry.pending.add(token);
+    final pendingId = Object();
+    entry.pending[pendingId] = token;
     Future<void> execute() async {
       try {
         var result = await entry.provider.invoke(
@@ -198,6 +214,8 @@ final class AgentRegistry {
             AgentStatus.unavailable,
             'Provider detached during the call.',
           );
+        } else if (descriptor.readOnly && token.isCancelled) {
+          result = reject(AgentStatus.cancelled, 'Query was cancelled.');
         } else if (descriptor.readOnly && entry.provider.revision != before) {
           result = reject(AgentStatus.stale, 'State changed during the query.');
         } else if (result.isSuccess) {
@@ -247,7 +265,7 @@ final class AgentRegistry {
           reject(AgentStatus.failed, 'Provider execution failed.'),
         );
       } finally {
-        entry.pending.remove(token);
+        entry.pending.remove(pendingId);
         if (!descriptor.readOnly) entry.mutating = false;
       }
     }
@@ -269,7 +287,7 @@ final class AgentRegistry {
 final class _ProviderEntry {
   final AgentProvider provider;
   final Map<String, AgentTool> tools;
-  final Set<AgentCancellation> pending = {};
+  final Map<Object, AgentCancellation> pending = {};
   final retries = <String, (String, Future<AgentResult>)>{};
   late final Registration registration;
   bool mutating = false;

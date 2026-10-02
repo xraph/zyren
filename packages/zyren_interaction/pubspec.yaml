@@ -1,0 +1,16 @@
+name: zyren_interaction
+description: Object pointer dispatch, hover and capture for Zyren scenes.
+version: 0.1.0
+publish_to: none
+resolution: workspace
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+dependencies:
+  zyren:
+    path: ../zyren
+  zyren_agents:
+    path: ../zyren_agents
+  zyren_tools:
+    path: ../zyren_tools
+dev_dependencies:
+  test: ^1.29.0

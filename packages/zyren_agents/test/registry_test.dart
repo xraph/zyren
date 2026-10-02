@@ -162,6 +162,35 @@ void main() {
     expect(provider.count, 0);
   });
   test(
+    'shared cancellation tokens retain every pending call until detach',
+    () async {
+      final lease = registry.register(provider);
+      final token = AgentCancellation();
+      final firstGate = Completer<void>(), secondGate = Completer<void>();
+      provider.gate = firstGate;
+      final first = registry.call(
+        providerId: provider.id,
+        instanceId: provider.instanceId,
+        tool: 'read',
+        cancellation: token,
+      );
+      provider.gate = secondGate;
+      final second = registry.call(
+        providerId: provider.id,
+        instanceId: provider.instanceId,
+        tool: 'read',
+        cancellation: token,
+      );
+      firstGate.complete();
+      expect((await first).status, AgentStatus.ok);
+      lease.dispose();
+      expect(token.isCancelled, isTrue);
+      secondGate.complete();
+      expect((await second).status, AgentStatus.cancelled);
+    },
+  );
+
+  test(
     'retry budget rejects new writes without evicting old results',
     () async {
       registry.dispose();

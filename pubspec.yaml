@@ -41,6 +41,8 @@ workspace:
   - packages/zyren_studio
   - examples/studio
   - packages/zyren_agents
+  - packages/zyren_interaction
+  - packages/zyren_interaction/example
 dev_dependencies:
   analyzer: ^13.3.0
   lints: ^6.0.0

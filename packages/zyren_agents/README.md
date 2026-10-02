@@ -33,7 +33,7 @@ lifecycle tests. The harness does not establish native or screen correctness.
 
 Schema version is `1.0`. `AgentSchema` supports object, array, string, number,
 integer, boolean and null types; properties, required, additionalProperties,
-items, min/maxItems, minimum/maximum, min/maxLength, enum, title and description.
+items, min/maxItems, minimum/maximum, exclusiveMinimum/exclusiveMaximum, min/maxLength, enum, title and description.
 Unsupported keywords fail when you construct a tool. Schemas and results contain
 JSON-compatible values and are copied into immutable data.
 

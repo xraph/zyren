@@ -6,6 +6,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 import 'zyren_devtools.dart';
+import 'agents.dart';
+import 'package:zyren_agents/zyren_agents.dart';
 
 export 'src/mcp.dart' show serveDevtoolsMcp;
 
@@ -13,16 +15,17 @@ const _requestLimit = 16 * 1024;
 const _responseLimit = 8 * 1024 * 1024;
 const _timeout = Duration(seconds: 5);
 
-/// Authenticated, read-only loopback bridge for one scene diagnostics instance.
+/// Authenticated loopback diagnostics, with an optional host-granted agent registry.
 /// The owner must close this server when its debug session ends.
 final class DevtoolsServer {
   final HttpServer _server;
   final SceneDiagnostics diagnostics;
+  final AgentDevtoolsBridge? agents;
   final String token;
   Future<void>? _closing;
   int _active = 0, _windowCount = 0;
   final _window = Stopwatch()..start();
-  DevtoolsServer._(this._server, this.diagnostics, this.token) {
+  DevtoolsServer._(this._server, this.diagnostics, this.token, this.agents) {
     _server.idleTimeout = _timeout;
     _server.listen(_handle);
   }
@@ -30,13 +33,19 @@ final class DevtoolsServer {
   static Future<DevtoolsServer> start(
     SceneDiagnostics diagnostics, {
     int port = 0,
+    AgentRegistry? agents,
   }) async {
     final random = Random.secure();
     final token = base64UrlEncode(
       List.generate(32, (_) => random.nextInt(256)),
     );
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, port);
-    return DevtoolsServer._(server, diagnostics, token);
+    return DevtoolsServer._(
+      server,
+      diagnostics,
+      token,
+      agents == null ? null : AgentDevtoolsBridge(agents),
+    );
   }
 
   Future<void> _handle(HttpRequest request) async {
@@ -90,10 +99,12 @@ final class DevtoolsServer {
               'Expected name and an optional arguments object.',
             );
           }
-          final result = diagnostics.call(
-            input['name'] as String,
-            (input['arguments'] as Map<String, dynamic>?) ?? const {},
-          );
+          final name = input['name'] as String;
+          final arguments =
+              (input['arguments'] as Map<String, dynamic>?) ?? const {};
+          final result = agents != null && AgentDevtoolsBridge.accepts(name)
+              ? await agents!.call(name, arguments)
+              : diagnostics.call(name, arguments);
           final encoded = utf8.encode(jsonEncode(result));
           if (encoded.length > _responseLimit) {
             throw const DiagnosticException(

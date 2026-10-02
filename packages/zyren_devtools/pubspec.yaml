@@ -8,6 +8,8 @@ environment:
 dependencies:
   zyren:
     path: ../zyren
+  zyren_agents:
+    path: ../zyren_agents
 dev_dependencies:
   zyren_native:
     path: ../zyren_native

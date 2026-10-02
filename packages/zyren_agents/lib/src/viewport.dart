@@ -403,6 +403,7 @@ final class AgentViewportProvider extends AgentProvider {
       'presentedFrame': frame?.toJson(),
       'frameCorrelation': _correlation(camera, metrics, frame),
       'coverage': coverage,
+      'hostState': hostState?.call() ?? const {'availability': 'unknown'},
       'unsupportedPrimitiveCount': nodes
           .where(
             (node) =>
