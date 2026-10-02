@@ -1,5 +1,9 @@
 # Phone qualification rerun, 2026-10-02
 
+The [continued device checks](continued-devices.md) now record passing Pixel
+layout, editing and persisted-review runs, plus the current Apple blockers.
+The entries below describe the earlier attempts.
+
 Both the Pixel 9 Pro over USB and the iPhone 16 Pro over wireless are reachable.
 No device tests were running when qualification started. The iPad and Watch are
 still unavailable. The user requested keeping the iPhone on wireless.

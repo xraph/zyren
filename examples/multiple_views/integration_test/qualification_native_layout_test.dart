@@ -9,17 +9,23 @@ import 'package:zyren/rendering.dart';
 
 import '../test/support/workbench_timeline.dart';
 
-void main() {
-  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+void main() => registerNativeLayoutQualification();
 
-  testWidgets('workbench uses the real native phone viewport and disposes', (
+void registerNativeLayoutQualification({bool tablet = false}) {
+  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  final layout = tablet ? 'tablet' : 'phone';
+
+  testWidgets('workbench uses the real native $layout viewport and disposes', (
     tester,
   ) async {
     expect(Platform.isAndroid || Platform.isIOS, isTrue);
     // Keep the device's viewport. Test surface overrides would mask native size.
     final logical = tester.view.physicalSize / tester.view.devicePixelRatio;
     debugPrint('QUALIFICATION viewport: $logical');
-    expect(logical.width, lessThanOrEqualTo(500));
+    expect(
+      logical.width,
+      tablet ? greaterThanOrEqualTo(700) : lessThanOrEqualTo(500),
+    );
     await tester.pumpWidget(
       SceneWorkbenchApp(
         runtime: Platform.isAndroid
@@ -67,6 +73,13 @@ void main() {
     await Scrollable.ensureVisible(tester.element(coverRow), alignment: .5);
     await tester.pump(const Duration(milliseconds: 100));
     expect(coverRow.hitTestable(), findsOneWidget);
+    final canvas = tester.getRect(find.byType(SceneView));
+    final inspectorRow = tester.getRect(coverRow);
+    if (tablet) {
+      expect(inspectorRow.left, greaterThanOrEqualTo(canvas.right));
+    } else {
+      expect(inspectorRow.top, greaterThanOrEqualTo(canvas.bottom));
+    }
     await tester.tap(coverRow);
     await tester.pump(const Duration(milliseconds: 250));
     final cover = controller.scene.children.single.children.firstWhere(
@@ -76,7 +89,7 @@ void main() {
     await exerciseWorkbenchTimeline(tester);
     expect(frames.map((frame) => frame.readbackBytes), everyElement(0));
     debugPrint(
-      'QUALIFICATION native phone: ${frames.length} samples, '
+      'QUALIFICATION native $layout: ${frames.length} samples, '
       'selection outline, timeline and markers passed, zero readbacks.',
     );
   });
