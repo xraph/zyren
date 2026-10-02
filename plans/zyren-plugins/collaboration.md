@@ -94,10 +94,10 @@ records, notes, isolation and shared synchronization. It must preserve host
 property filtering, authorization and exact engineering version checks. It will
 not create another review server or copy the merge implementation.
 
-The current shared registry is not yet available. Build typed domain queries
-and actions now, then add registration, input/output schemas, cancellation,
-stale-target and disposal checks against its actual API. Discovery through a
-private helper does not count as shared agent support. Correlate source IDs with
+The shared registry signatures are available in `zyren_agents`. Optional
+`agent_provider.dart` and `engineering_agent_provider.dart` entry points now
+use them for registration, schemas, cancellation and stale-target checks. Discovery through a private
+helper does not count as shared agent support. Correlate source IDs with
 runtime objects through explicit bindings; the shared viewport provider owns
 camera, logical-coordinate, pixel-ratio and presented-frame evidence. This
 package makes no rendered-pixel claims.
@@ -105,11 +105,14 @@ package makes no rendered-pixel claims.
 Acceptance requires actual discovery and calls through the common registry,
 authorized edits and undo through normal commands, explicit denial and stale
 results, bounded history, target cleanup, and optional engineering coverage.
-Native point-to-object and live MCP checks remain separate from CPU tests.
+Native point-to-object checks remain separate from CPU geometry and the live
+MCP transport check below. Shared undo still needs a command-history adapter.
 
 ## Dependencies and shared changes
 
-The first slice depends only on `zyren` and the existing `test` dependency.
+The first slice depends on `zyren` and the existing `test` dependency. Optional
+agent entry points now add `zyren_agents` and `zyren_engineering` dependencies;
+the collaboration facade does not import either adapter.
 It does not depend on unfinished pipeline, Studio or interaction APIs.
 
 Requested shared edits: add `packages/zyren_collaboration` to root
@@ -118,20 +121,70 @@ import allowlist to `tool/check_package_boundaries.dart`. These are additive
 workspace registration changes with no public API impact. Check other plans
 and current file contents while holding the lock before applying them.
 
-No core, native, Flutter or engineering API change is required.
+No core, native, Flutter or engineering API change is required. The optional
+providers use the shared contract introduced in `5ddc7ea`. A test-only
+`zyren_devtools` dependency exercises its existing bridge and CLI.
 
 ## Current evidence
 
-The first scene-operation slice is implemented: schema-1 payloads, stable IDs,
-field revisions, serialized host permissions, exact retry receipts, paginated
-history, retained pending edits, explicit conflicts and acknowledged scene
-bindings. The local example runs two scene graphs with a lost reply and conflict.
+The scene-operation slice is implemented: schema-1 payloads, stable IDs, field
+revisions, serialized host permissions, exact retry receipts, paginated history,
+retained pending edits, explicit conflicts and acknowledged scene bindings.
+The local example runs two scene graphs with a lost reply and conflict.
 
-The collaboration test file passed 18 tests on 2026-10-02. Package analysis reported no issues. The package boundary check passed. The
-local example reported a duplicate retry at revision 1, a conflict, and both
-scene graphs at x=2 and revision 2.
-The shared agent contract has now been published in source; provider work follows
-this first checkpoint. No native presentation, device, network, persistence or offline
-reconciliation check has run for this package. The package is not published.
+Both optional providers register through the shared `zyren_agents` interface.
+Collaboration tools inspect scene state, permissions and history, apply edits,
+refresh and resolve conflicts. They check cancellation at the local authority's
+commit point. Engineering tools inspect host-filtered records, edit annotations,
+isolate objects and synchronize through the existing review protocol. Provider
+registration follows plugin attachment cleanup. The shared viewport enrichment
+uses stable and runtime IDs and reports CPU geometry coverage honestly.
 
-Commits: pending the first checked implementation checkpoint.
+Checks run on 2026-10-02 with the repository's Flutter 3.47.5 Dart SDK:
+
+- `dart test packages/zyren_collaboration/test --reporter expanded` passed all
+  35 tests, including the 18 original operation tests, provider integration and
+  the MCP subprocess test.
+- The MCP test passed. It launches the actual `zyren_devtools` stdio CLI,
+  initializes MCP, discovers both providers, reads a CPU triangle hit, verifies
+  read-only command denial, executes an authorized edit and retries it without a
+  second scene revision. Original diagnostics descriptors and inspection still
+  work. No credentials appear in the fixture output.
+- The engineering integration starts `EngineeringReviewServer` on loopback,
+  writes through `HttpEngineeringSessionStore` and reads the result through a
+  fresh `FileEngineeringSessionStore`. This verifies the existing review service
+  integration. It does not establish durable scene-operation storage.
+- `two_clients.dart` reports a duplicate retry at revision 1, a conflict and both
+  scene graphs at x=2 and revision 2. `agent_scene.dart` discovers two providers,
+  returns the housing source ID from a CPU pick, commits scene revision 1 and
+  reports an empty geometry query after hiding that object.
+- Package analysis reports no issues. The initial package boundary check passed.
+  The later whole-workspace run currently reports the interaction owner's new
+  `zyren_agents` imports in `zyren_devtools/lib/io.dart` and `lib/agents.dart` as
+  missing from its shared allowlist. Collaboration imports satisfy their entry.
+  This chat has not changed another owner's allowance.
+
+The MCP test uses `TestRenderer` and asserts zero render calls. No native
+presentation or device check has run here. The examples are headless scene hosts,
+so there is no desktop/narrow UI claim. No package was published or pushed.
+
+## Remaining scope and blockers
+
+The first local scene-operation and runtime-provider checkpoints are usable.
+The full plugin is incomplete. Presence reports unavailable and shared cameras
+remain unsupported. Durable scene snapshots and receipts, HTTPS/WebSocket scene
+transports, offline queues, conditional shared undo, creation/deletion/reparenting,
+material edits and native shared-editor UI remain in phases 3 through 7.
+
+Review conflict resolution continues through the existing host engineering
+workflow. A provider tool for explicit filtered review decisions and integration
+with a shared command/undo stack remain to be designed. The local guard cannot
+cancel a remote engineering write once the store has sent it.
+
+Native point-to-object-to-action evidence is still required. The shared MCP
+transport is exercised with actual subprocess I/O, but it has not been connected
+to a live native viewport in this workstream. The current shared boundary-check
+failure above belongs to concurrent devtools registration work.
+
+Commits: `45da7bd` contains the first checked scene-operation checkpoint. The
+agent-provider checkpoint will be recorded after its focused commit.

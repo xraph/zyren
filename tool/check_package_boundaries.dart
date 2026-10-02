@@ -17,7 +17,7 @@ void main(List<String> args) {
       'zyren_timeline',
       'zyren_agents',
     },
-    'packages/zyren_collaboration': {'zyren_collaboration', 'zyren'},
+    'packages/zyren_collaboration': {'zyren_collaboration', 'zyren', 'zyren_agents', 'zyren_engineering'},
     'packages/zyren': {'zyren', 'vector_math', 'dart_earcut'},
     'packages/zyren_gltf': {'zyren_gltf', 'zyren'},
     'packages/zyren_geospatial': {'zyren_geospatial', 'zyren'},

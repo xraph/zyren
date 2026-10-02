@@ -14,6 +14,9 @@ final class SceneCollaborationBinding {
   late final StreamSubscription<SceneSnapshot> _clientChanges;
   late final StreamSubscription<int> _sceneChanges;
   bool _closed = false;
+  int _revision = 0;
+  int get revision => _revision;
+  bool get isClosed => _closed;
 
   SceneCollaborationBinding({
     required this.scene,
@@ -48,6 +51,7 @@ final class SceneCollaborationBinding {
         );
       }
     }
+    _revision++;
     _bindings
       ..clear()
       ..addAll(bindings);
@@ -61,6 +65,7 @@ final class SceneCollaborationBinding {
     final object = _bindings[id];
     if (object != null &&
         (!_contains(object) || !identical(_parents[id], object.parent))) {
+      _revision++;
       _bindings.remove(id);
       _parents.remove(id);
       return null;
@@ -103,6 +108,7 @@ final class SceneCollaborationBinding {
   Future<void> dispose() async {
     if (_closed) return;
     _closed = true;
+    _revision++;
     _bindings.clear();
     _parents.clear();
     await _clientChanges.cancel();

@@ -7,7 +7,7 @@ This package uses the public Dart scene API. It does not start a network service
 Run the local example from the workspace with the pinned Flutter SDK's Dart:
 
 ```sh
-.fvm/flutter_sdk/bin/dart --packages=.dart_tool/package_config.json \
+fvm dart --packages=.dart_tool/package_config.json \
   packages/zyren_collaboration/example/two_clients.dart
 ```
 
@@ -71,10 +71,82 @@ safe. These receipts and scene changes live in memory only.
 
 `SceneCollaborationQueries` exposes revision-pinned history pages and permission
 previews for concrete operations. A preview never grants a later write. The
-shared agent provider and engineering review adapter are tracked in
-[the workstream plan](../../plans/zyren-plugins/collaboration.md).
+optional providers below expose these queries through the shared agent registry.
 
 Engineering annotations, three-way review merges and review persistence remain
 in `zyren_engineering`. This package edits scene state and does not run physics
 simulation. Durable operation history, presence, shared cameras, network
 adapters, offline queues and a native shared-editor UI remain in the backlog.
+
+
+## Runtime agents
+
+Import `package:zyren_collaboration/agent_provider.dart` to register
+`CollaborationAgentProvider`. In an engine, attach
+`SceneCollaborationAgentPlugin` after `SceneCollaborationPlugin`; the attachment
+scope removes discovery and cancels pending calls when the view detaches.
+You supply the registry, instance ID and document ID.
+
+The provider exposes these tools through `zyren_agents`:
+
+| Tool | Behavior |
+| --- | --- |
+| `state`, `objects` | Read acknowledged revisions, stable IDs, current bindings, pending edits and conflicts. State also reports the authority revision. |
+| `history` | Read accepted operations in revision-pinned pages of up to 50 entries. |
+| `presence` | Report unavailable. The local transport has no presence service. |
+| `check_operation` | Ask the host whether an exact proposed operation is allowed. |
+| `set_transform`, `set_visibility` | Use the ordinary collaboration client and authority checks. |
+| `refresh` | Read shared state and apply it to the bound scene, preserving a pending edit. |
+| `retry_pending` | Retry the exact operation retained after failure. |
+| `keep_local`, `accept_remote` | Resolve a confirmed conflict explicitly. |
+
+You grant `collaboration.read` for queries and both `collaboration.read` and
+`collaboration.write` for actions. The authority still checks its own current
+permissions. Provider revisions include local pending-state and binding changes;
+the shared scene revision is reported separately. Pass the discovered provider
+revision and a unique idempotency key when calling an action.
+
+After a failed transport call, inspect state and call `retry_pending` with a new
+registry key. The registry retains the original call result for its original
+key; the client retains the domain operation ID, so the retry cannot apply that
+edit twice. Agent mutations require `GuardedSceneOperationTransport`, which the
+local authority implements. It checks cancellation and target consistency after
+async permissions and before commit. Other transports report unsupported until
+they implement that contract.
+
+You can pass `provider.metadataFor` into the shared `AgentViewportProvider` after
+your host authorizes metadata exposure. The resulting CPU triangle hits carry
+stable source IDs, runtime IDs and shared revision provenance. The viewport
+provider supplies camera, logical coordinates, device pixel ratio and any known
+presented frame. Pixel visibility stays unknown without matching native evidence.
+
+Run the direct registry example:
+
+```sh
+fvm dart --packages=.dart_tool/package_config.json \
+  packages/zyren_collaboration/example/agent_scene.dart
+```
+
+It discovers two providers, picks a box, hides it through an authorized command
+and verifies the next geometry query is empty. This example has no renderer.
+
+For existing review documents, import
+`package:zyren_collaboration/engineering_agent_provider.dart`.
+`EngineeringReviewAgentProvider` exposes filtered object inspection, annotation
+commands, isolation and optional shared synchronization. You must provide its
+per-call authorization callback, property filter and annotation filter.
+`EngineeringReviewAgentPlugin` ties registration to the engineering attachment.
+
+Review reads require `engineering.read`. Annotation and synchronization actions
+also require `engineering.write`; isolation requires `engineering.view`.
+Synchronization uses your existing `EngineeringSessionStore` and acknowledged
+`EngineeringRevision`, including its conditional writes and three-way merge.
+Conflict results expose IDs only, so private record values cannot leak through
+a merge error. You resolve those conflicts through the host engineering workflow.
+Cancellation checks before a store write cannot undo a remote write already sent.
+
+The tests run a real stdio MCP subprocess through the existing `zyren_devtools`
+bridge, plus loopback HTTP/file review persistence. They use a headless test
+renderer and do not establish native screen presentation. Presence, shared
+cameras, durable scene receipts, network scene transports, offline reconciliation,
+shared undo and native editor UI remain in the workstream backlog.

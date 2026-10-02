@@ -169,3 +169,12 @@ final class SceneRevisionMismatch implements Exception {
   @override
   String toString() => 'Scene revision changed. Refresh the query.';
 }
+
+/// Optional in-process precommit guard for cancellation and scene target checks.
+/// Network adapters need an equivalent server-side cancellation contract.
+abstract interface class GuardedSceneOperationTransport {
+  Future<SceneOperationResult> submitGuarded(
+    SceneOperation operation, {
+    required void Function() checkBeforeCommit,
+  });
+}

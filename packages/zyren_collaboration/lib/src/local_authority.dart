@@ -60,8 +60,9 @@ final class LocalSceneAuthority {
 
   Future<SceneOperationResult> _submit(
     String principal,
-    SceneOperation operation,
-  ) => _serial(() async {
+    SceneOperation operation, {
+    void Function()? checkBeforeCommit,
+  }) => _serial(() async {
     // A successful submission includes the full snapshot, so it needs read access.
     if (!await canRead(principal, _snapshot) ||
         !await canWrite(principal, operation, _snapshot)) {
@@ -71,6 +72,7 @@ final class LocalSceneAuthority {
         operation.epoch != _snapshot.epoch) {
       throw const SceneSessionMismatch();
     }
+    checkBeforeCommit?.call();
     final signature = operation.encode();
     final key = (principal, operation.operationId);
     final receipt = _receipts[key];
@@ -127,7 +129,10 @@ final class LocalSceneAuthority {
 }
 
 final class LocalSceneConnection
-    implements SceneOperationTransport, SceneCollaborationQueries {
+    implements
+        SceneOperationTransport,
+        SceneCollaborationQueries,
+        GuardedSceneOperationTransport {
   final LocalSceneAuthority authority;
   final String principal;
   LocalSceneConnection._(this.authority, this.principal);
@@ -136,6 +141,16 @@ final class LocalSceneConnection
   @override
   Future<SceneOperationResult> submit(SceneOperation operation) =>
       authority._submit(principal, operation);
+
+  @override
+  Future<SceneOperationResult> submitGuarded(
+    SceneOperation operation, {
+    required void Function() checkBeforeCommit,
+  }) => authority._submit(
+    principal,
+    operation,
+    checkBeforeCommit: checkBeforeCommit,
+  );
 
   @override
   Future<SceneHistoryPage> history({

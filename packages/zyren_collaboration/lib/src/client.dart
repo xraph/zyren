@@ -13,6 +13,8 @@ final class SceneCollaborationClient {
   SceneOperation? _pending;
   SceneOperationConflict? _conflict;
   bool _busy = false, _closed = false;
+  int _stateRevision = 0;
+  int get stateRevision => _stateRevision;
 
   SceneCollaborationClient({
     required this.transport,
@@ -30,12 +32,14 @@ final class SceneCollaborationClient {
   bool get isClosed => _closed;
   Stream<SceneSnapshot> get changes => _changes.stream;
 
-  Future<SceneSnapshot> refresh() => _request(() async {
-    final next = await transport.read();
-    _checkOpen();
-    _adopt(next);
-    return _snapshot!;
-  });
+  Future<SceneSnapshot> refresh({void Function()? checkBeforeApply}) =>
+      _request(() async {
+        final next = await transport.read();
+        _checkOpen();
+        checkBeforeApply?.call();
+        _adopt(next);
+        return _snapshot!;
+      });
 
   SceneOperation setTransform(SceneObjectId id, SceneTransform transform) =>
       _prepare(id, SceneField.transform, transform: transform);
@@ -65,24 +69,35 @@ final class SceneCollaborationClient {
       visible: visible,
     );
     operation.encode();
+    _stateRevision++;
     return _pending = operation;
   }
 
-  Future<SceneOperationResult> flush() => _request(() async {
-    final operation = _pending;
-    if (operation == null) throw StateError('No pending scene edit.');
-    final result = await transport.submit(operation);
-    _checkOpen();
-    _validate(result, operation);
-    _adopt(result.snapshot);
-    if (result is SceneOperationAccepted) {
-      _pending = null;
-      _conflict = null;
-    } else {
-      _conflict = result as SceneOperationConflict;
-    }
-    return result;
-  });
+  Future<SceneOperationResult> flush({void Function()? checkBeforeCommit}) =>
+      _request(() async {
+        final operation = _pending;
+        if (operation == null) throw StateError('No pending scene edit.');
+        final SceneOperationResult result;
+        if (checkBeforeCommit == null) {
+          result = await transport.submit(operation);
+        } else if (transport is GuardedSceneOperationTransport) {
+          result = await (transport as GuardedSceneOperationTransport)
+              .submitGuarded(operation, checkBeforeCommit: checkBeforeCommit);
+        } else {
+          throw UnsupportedError('This transport has no precommit guard.');
+        }
+        _checkOpen();
+        _validate(result, operation);
+        _adopt(result.snapshot);
+        if (result is SceneOperationAccepted) {
+          _pending = null;
+          _conflict = null;
+        } else {
+          _conflict = result as SceneOperationConflict;
+        }
+        _stateRevision++;
+        return result;
+      });
 
   /// Discards an edit only after an authority confirmed its conflict.
   /// A transport error is ambiguous: retry it before making this decision.
@@ -93,6 +108,7 @@ final class SceneCollaborationClient {
     }
     _pending = null;
     _conflict = null;
+    _stateRevision++;
   }
 
   /// Keeps the proposed value against the exact revision the host reviewed.
@@ -111,6 +127,7 @@ final class SceneCollaborationClient {
     operation.encode();
     _pending = operation;
     _conflict = null;
+    _stateRevision++;
     return operation;
   }
 
@@ -168,6 +185,7 @@ final class SceneCollaborationClient {
         throw StateError('The object set changed without a new scene epoch.');
       }
     }
+    _stateRevision++;
     _snapshot = value;
     _changes.add(value);
   }
@@ -195,6 +213,7 @@ final class SceneCollaborationClient {
   Future<void> close() async {
     if (_closed) return;
     _closed = true;
+    _stateRevision++;
     await _changes.close();
   }
 }
