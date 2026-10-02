@@ -10,6 +10,25 @@ import 'support/controls.dart';
 import '../../../packages/flutter_zyren/test/support/backend_fake.dart';
 import '../../../packages/flutter_zyren/test/support/fakes.dart';
 
+class ViewerBackend extends FakeBackend {
+  @override
+  DeviceCapabilities get capabilities => DeviceCapabilities(
+    name: 'viewer fixture',
+    features: {
+      ...super.capabilities.features,
+      RenderFeature.standardMaterials,
+      RenderFeature.hdr,
+      RenderFeature.spatialAntialiasing,
+    },
+    limits: DeviceLimits(
+      maxTextureDimension2D: maxDimension,
+      maxGeometryBytes: 1000000,
+      maxPunctualLights: 16,
+      maxHemisphereLights: 4,
+    ),
+  );
+}
+
 class Sources implements ByteSourceResolver {
   final data = File('assets/models/assembly.glb').readAsBytesSync();
   Completer<void>? gate;
@@ -89,7 +108,7 @@ void main() {
   testWidgets(
     'loaded animation controls seek, switch clips and release on replacement',
     (tester) async {
-      final sources = Sources(), backend = FakeBackend();
+      final sources = Sources(), backend = ViewerBackend();
       await tester.binding.setSurfaceSize(const Size(1000, 700));
       addTearDown(() => tester.binding.setSurfaceSize(null));
       await tester.pumpWidget(
@@ -151,7 +170,7 @@ void main() {
   testWidgets('PBR scenes use authored lights or an explicit studio toggle', (
     tester,
   ) async {
-    final sources = Sources(), backend = FakeBackend();
+    final sources = Sources(), backend = ViewerBackend();
     await tester.binding.setSurfaceSize(const Size(1000, 700));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(
@@ -210,7 +229,7 @@ void main() {
   testWidgets(
     'bundle loading, named scenes and controls fit desktop and narrow layouts',
     (tester) async {
-      final sources = Sources(), backend = FakeBackend();
+      final sources = Sources(), backend = ViewerBackend();
       await tester.binding.setSurfaceSize(const Size(1000, 700));
       addTearDown(() => tester.binding.setSurfaceSize(null));
       await tester.pumpWidget(
@@ -223,7 +242,10 @@ void main() {
       final controller = tester
           .widget<SceneView>(find.byType(SceneView))
           .controller!;
-      expect(controller.scene.children.single.name, 'Assembly');
+      expect(
+        controller.scene.children.whereType<Group>().single.name,
+        'Assembly',
+      );
       expect(backend.submissions.last.scene.drawCalls, 3);
       final before = controller.camera.position;
       await tester.drag(find.byType(SceneView), const Offset(40, 20));
@@ -238,7 +260,10 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Single box').last);
       await tester.pumpAndSettle();
-      expect(controller.scene.children.single.name, 'Single box');
+      expect(
+        controller.scene.children.whereType<Group>().single.name,
+        'Single box',
+      );
       for (final size in [const Size(320, 640), const Size(390, 700)]) {
         await tester.binding.setSurfaceSize(size);
         await tester.pump();
@@ -247,7 +272,7 @@ void main() {
       }
       await tester.tap(find.byTooltip('Clear model'));
       await tester.pump();
-      expect(controller.scene.children, isEmpty);
+      expect(controller.scene.children.whereType<Group>(), isEmpty);
       expect(find.text('Load a 3D model'), findsOneWidget);
       await remove(tester);
       expect(backend.closeCount, 1);
@@ -257,7 +282,7 @@ void main() {
     'unknown-length progress, cancellation, URI retry and route removal settle',
     (tester) async {
       final sources = Sources()..gate = Completer<void>();
-      final backend = FakeBackend();
+      final backend = ViewerBackend();
       await tester.pumpWidget(
         ModelViewerApp(
           runtime: runtime(sources, backend),

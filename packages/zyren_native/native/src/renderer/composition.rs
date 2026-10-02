@@ -86,7 +86,7 @@ pub(super) struct Compositor {
         (wgpu::TextureFormat, OutputTransform),
         (wgpu::RenderPipeline, wgpu::BindGroupLayout),
     >,
-    accumulation: Option<wgpu::Texture>,
+    pub(super) accumulation: Option<wgpu::Texture>,
     hdr: Option<wgpu::Texture>,
     multisample: Option<MultisampleTargets>,
 }
@@ -254,8 +254,10 @@ pub(super) fn scene_format(
     format: wgpu::TextureFormat,
     graph: Option<&FrameGraph>,
 ) -> Result<wgpu::TextureFormat, String> {
-    if let Some(pipeline) = frame.color_pipeline {
-        pipeline.validate()?;
+    if frame.settings.enabled || frame.color_pipeline.is_some() {
+        if let Some(pipeline) = frame.color_pipeline {
+            pipeline.validate()?;
+        }
         if graph.is_some_and(|g| {
             g.scene_color.format() != wgpu::TextureFormat::Rgba16Float
                 || g.output.format() != wgpu::TextureFormat::Rgba16Float
@@ -306,6 +308,30 @@ fn target(
     Ok(())
 }
 impl Renderer {
+    pub(super) fn copy_linear_color(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        source: &wgpu::Texture,
+        target: &wgpu::TextureView,
+        unassociate: bool,
+        premultiply: bool,
+    ) {
+        self.compositor.encode(
+            &self.device,
+            encoder,
+            source,
+            target,
+            (
+                wgpu::TextureFormat::Rgba16Float,
+                OutputTransform {
+                    unassociate,
+                    premultiply,
+                    tone_mapping: None,
+                },
+                1.,
+            ),
+        );
+    }
     pub(super) fn resolve_frame_graph(
         &self,
         frame: &Frame,
@@ -325,6 +351,7 @@ impl Renderer {
         graph: Option<&FrameGraph>,
         surface: bool,
     ) -> Result<(), String> {
+        self.prepare_output(frame, size, format)?;
         let scene_format = scene_format(frame, format, graph)?;
         let hdr = frame.color_pipeline.is_some();
         if hdr && u64::from(size[0]) * u64::from(size[1]) * 8 > crate::resources::upload::MAX_BYTES
@@ -337,9 +364,13 @@ impl Renderer {
             &mut state.compositor.multisample,
             scene_format,
             size,
-            frame.sample_count(),
+            if frame.settings.enabled {
+                1
+            } else {
+                frame.sample_count()
+            },
         )?;
-        if hdr && graph.is_none() {
+        if hdr && graph.is_none() && !frame.settings.enabled {
             target(&state.device, &mut state.compositor.hdr, scene_format, size)?;
         } else {
             state.compositor.hdr = None;
@@ -356,12 +387,23 @@ impl Renderer {
                 scene_format,
                 OutputTransform {
                     unassociate: true,
-                    premultiply: surface && graph.is_none() && !hdr,
+                    premultiply: surface && graph.is_none() && !hdr && !frame.settings.enabled,
                     tone_mapping: None,
                 },
             )?;
         } else {
             state.compositor.accumulation = None;
+        }
+        if frame.settings.enabled {
+            state.compositor.prepare(
+                &state.device,
+                scene_format,
+                OutputTransform {
+                    unassociate: false,
+                    premultiply: true,
+                    tone_mapping: None,
+                },
+            )?;
         }
         if graph.is_some() || hdr {
             state.compositor.prepare(
@@ -392,6 +434,16 @@ impl Renderer {
         ),
     ) -> wgpu::CommandEncoder {
         let (graph, materials, surface, environment, shadows) = composition;
+        if frame.settings.enabled {
+            return self.encode_effects(
+                frame,
+                color,
+                depth,
+                format,
+                size,
+                (materials, graph, environment, shadows),
+            );
+        }
         let scene_format = scene_format(frame, format, graph).expect("validated color pipeline");
         let hdr = frame.color_pipeline.is_some();
         let scene_texture = graph
@@ -431,7 +483,7 @@ impl Renderer {
                     scene_format,
                     OutputTransform {
                         unassociate: true,
-                        premultiply: surface && graph.is_none() && !hdr,
+                        premultiply: surface && graph.is_none() && !hdr && !frame.settings.enabled,
                         tone_mapping: None,
                     },
                     1.,
@@ -459,6 +511,8 @@ impl Renderer {
                 ),
             );
         }
+        self.outlines
+            .encode(&self.device, &mut encoder, frame, color, format);
         encoder
     }
 }

@@ -1,4 +1,4 @@
-part of 'orbit_controls.dart';
+part of 'orbit_navigation.dart';
 
 /// Free flight in camera-local axes. Feed keyboard/gamepad state through
 /// setMovement/setRotation; pointer drags look around and the wheel moves.

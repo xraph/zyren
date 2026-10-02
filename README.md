@@ -1,242 +1,261 @@
-# Native Flutter 3D and geospatial
+<p align="center">
+  <img src=".github/assets/zyren-banner.svg" alt="Zyren: native 3D for Dart and Flutter" width="100%" />
+</p>
 
-Build a 3D scene in Dart and render it through Rust and wgpu. The native backends
-are Metal on Apple platforms, Vulkan on Android/Linux and Direct3D 12 on Windows.
-WebGL, OpenGL and browser backends are disabled.
+<p align="center">
+  <a href="https://xraph.com/work/zyren">Project</a> ·
+  <a href="https://xraph.com/docs/zyren">Documentation</a> ·
+  <a href="https://xraph.com/docs/zyren/reference">API reference</a> ·
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#examples">Examples</a> ·
+  <a href="https://github.com/xraph/zyren/issues">Issues</a>
+</p>
 
-The core is a general-purpose Dart 3D library. `zyren_geospatial` is an optional
-plugin built on that core. Three.js-level rendering and scene capabilities are
-the target for the core.
+# Zyren
 
-This is an early implementation. You can render opaque, masked and blended meshes, compose a scene
-graph, move a perspective camera and build an ECEF globe. On macOS and iOS, you
-can opt into direct Metal view presentation through `SceneRuntime.nativeMetal()`.
-On Android API 29 or newer, use `SceneRuntime.nativeAndroid()` for Vulkan
-presentation through Flutter textures. Neither path reads pixels back to the CPU
-during ordinary presentation.
-The portable examples still select explicit RGBA readback. Full Three.js and
-three-geospatial parity is still ahead. Scenes have a [transparent canvas](docs/design/scene-alpha.md)
-by default; assign a background color when you need an opaque fill.
+Build your scene in Dart. Render it on the native GPU.
 
-The [implementation plan](docs/superpowers/plans/2026-09-26-native-3d-program.md)
-sets out the remaining work, tests and platform gates. Read the
-[proposed Dart API](docs/design/native-3d-api.md) for the controller, loading and
-plugin design. Those documents describe the target; the examples below use the
-current alpha API.
+Zyren gives you a general-purpose 3D scene graph, native materials and lighting,
+asset loading, camera controls and Flutter views. Rust and wgpu handle rendering
+through Metal, Vulkan or Direct3D 12. You can use the Dart core on its own, add a
+native renderer for headless work, or put a scene inside your Flutter interface.
 
-## Packages
+Geospatial is optional. Add it when you need a globe, terrain, geographic
+coordinates or an atmosphere. Your model viewer doesn't need to depend on it.
 
-- `zyren` contains the Dart scene graph, geometry, engine and plugin contracts.
-- `zyren_native` supplies the Rust/wgpu backend and native build hook.
-- `flutter_zyren` adds Flutter views and re-exports the common scene API.
-- [`zyren_inspector`](packages/zyren_inspector/README.md) adds optional scene inspection and sampled statistics widgets.
-- `zyren_geospatial` is a Dart-only plugin depending on `zyren`.
+> **Alpha, under active development.** The packages currently use
+> `publish_to: none`; run them from this workspace. APIs can change. Backend
+> availability and device qualification are separate, so check the
+> [platform table](#platforms) before choosing a presentation path.
 
-Flutter callers keep the existing import and native default. Dart-only callers
-can import `zyren` and supply a renderer to `SceneEngine.create`. For native
-headless output, use `zyren_native`; see [backend submissions](docs/extensions.md#captured-backend-submissions).
+## Quick start
 
-`NativeBackend` also provides scoped buffers and textures with binary uploads,
-shared ownership and explicit readback. The [resource API](docs/design/gpu-resources.md)
-documents the implemented operations and limits. Scene geometry now uses the same
-registry and binary packets. Use `NativeBackend.createView()` for independent
-readback views sharing one device, geometry and material images. `TextureImage`
-and `TextureMap` provide opaque color textures with independent sampler settings.
-
-You can also run custom WGSL compute and procedural render passes through
-`NativeBackend.createGraphCompiler()`. The [render graph guide](docs/design/render-graphs.md)
-includes a native heatmap example, typed bindings and graph replacement rules.
-Plugins on `SceneRuntime.nativeMetal()` and `SceneRuntime.nativeAndroid()` can
-allocate and execute graphs on their presenter's device through the context's
-resource, shader and graph services. Frame graphs process scene color through
-compute/render passes and present the result directly on those native views.
-Custom WGSL materials, transactional resize and texture history are available
-through the public plugin API. See the [shader lab](examples/shader_lab/README.md)
-for an independent effects plugin using those services.
-
-## Run the example
-
-You'll need Rust through rustup and the Flutter SDK pinned in `.fvmrc`. The
-example also needs the normal platform tools: Xcode, an Android SDK/NDK, Windows
-Visual Studio C++ tools, or Linux Flutter desktop dependencies.
+You'll need [FVM](https://fvm.app), Rust through [rustup](https://rustup.rs), and
+your platform's Flutter build tools. The workspace pins Flutter in
+[.fvmrc](.fvmrc) and Rust in the [native toolchain file](packages/zyren_native/native/rust-toolchain.toml).
 
 ```sh
+git clone https://github.com/xraph/zyren.git
+cd zyren
 fvm install
 fvm flutter pub get
-cd examples/planet
-fvm flutter run -d macos
-```
-
-Use a connected iOS or Android device ID in place of `macos`. On a Windows host,
-use `windows`; on Linux, use `linux`. Native build hooks compile and bundle Rust
-with the app. The first build downloads the pinned Rust toolchain and target
-standard libraries.
-
-Drag the globe to orbit. Scroll or pinch to zoom, and choose a city to centre
-its geodetic marker. The grid is procedural geometry. No map service, imagery
-download or API key is required.
-
-For a general 3D example, run the app in `examples/multiple_views`. It shares one
-scene across two native renderers. Camera edits stay local to each view; scene
-edits wake both. You can close and reopen the left view while the right stays
-active. The same folder contains small managed and borrowed view examples.
-
-To run those two cameras through native Metal views on Apple platforms:
-
-```sh
 cd examples/multiple_views
 fvm flutter run -d macos -t lib/native_scene_demo.dart
 ```
 
-Use an iOS device ID for the simulator. This runtime is opt-in while physical
-devices, OS input and composition are being qualified. See the
-[Apple checkpoint](docs/apple-presentation-checkpoint.md) for evidence and limits.
+That example shares a Dart scene between two independently controlled native
+views. Replace `macos` with your Android or iOS device ID. The native build hook
+compiles and bundles Rust; the first build needs network access for toolchains.
+On Apple hosts you'll need Xcode. Android builds also need the SDK and NDK.
 
-For the Android Vulkan `SceneView` demo, run
-`flutter run --release -d <device-id> -t lib/native_scene_demo.dart` from the same
-example folder. It uses the same controllers, scene and camera API as the Apple
-demo. `lib/android_surface_demo.dart` remains the lower-level color fixture.
-Android presentation is opt-in while broader device qualification continues.
-See the
-[Android checkpoint](docs/android-presentation-checkpoint.md).
+For Windows or Linux, run `examples/planet/lib/main.dart` using `windows` or
+`linux`. That example explicitly opts into RGBA readback while direct
+presentation on those hosts remains unfinished.
 
-For native texture filtering and wrapping, run
-`fvm flutter run -d macos -t lib/textured_scene_demo.dart` from
-`examples/multiple_views`. Use your Android device ID in place of `macos` on
-Android. You can change the sampler without uploading the image again.
+### Your first scene
 
-## Use the 3D package
-
-Add a path dependency on `packages/flutter_zyren` while working in this checkout.
+Inside a Flutter app in this workspace, depend on `flutter_zyren` using a path
+to `packages/flutter_zyren`. You can copy this widget into your app:
 
 ```dart
+import 'package:flutter/material.dart';
 import 'package:flutter_zyren/flutter_zyren.dart';
 
-final scene = Scene();
-final cube = Mesh(
-  BoxGeometry(),
-  DiffuseMaterial(color: Color3.hex(0x48bdb2)),
-);
-scene.add(cube);
-final camera = PerspectiveCamera(position: Vec3(3, 2, 5));
+class CubeView extends StatelessWidget {
+  const CubeView({super.key});
 
-// Put this inside a SizedBox or an Expanded with bounded dimensions.
-final viewport = SceneView.scene(
-  scene: scene,
-  camera: camera,
-  runtime: const SceneRuntime.nativeMetal(),
-);
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 320,
+      child: SceneView.builder(
+        runtime: const SceneRuntime.nativeMetal(),
+        onCreate: (controller) {
+          controller.scene.add(Mesh(
+            BoxGeometry(),
+            UnlitMaterial(color: Color3.hex(0x497ee8)),
+          ));
+        },
+      ),
+    );
+  }
+}
 ```
 
-This snippet uses the Apple runtime. Select `const SceneRuntime.nativeAndroid()`
-on Android. The default presentation policy is
-`requireNative`, which accepts native views or qualified shared textures.
-`requireSharedTexture` accepts the Android surface path and rejects Metal platform
-views. Android's surface runtime does not yet support explicit pixel capture;
-its capabilities report that limit. On other platforms, explicit
-`readbackOnly` with the default runtime is available for development while the
-direct presentation adapters are built.
+This uses Metal on macOS and iOS. Choose `SceneRuntime.nativeAndroid()` on
+Android. Give the view bounded dimensions. The managed builder owns its scene
+and controller; ordinary Flutter rebuilds retain them. See
+[your first scene](https://xraph.com/docs/zyren/first-scene) for camera setup,
+external controls and cleanup.
 
-`SceneView.builder` and `SceneView.scene` own their controllers. A rebuild keeps
-the scene; changing `sceneKey` replaces it after cleanup. For external controls,
-you can create a `SceneController`, pass it to `SceneView(controller: controller)`
-and call `controller.dispose()` from your State. Borrowed views retain their
-scene and session across unmounts. Static scenes render only after an edit. You can also create a `NativeRenderer` directly,
-await `render`, then await `dispose`.
-Only one frame may be in flight per view. Meshes can share geometry. Create it
-with `dynamic: true` to update position, normal or UV ranges while preserving
-captured frames. Hiding a mesh retains its allocation; removing it from every
-owning view releases it after submitted work completes. Flutter's native view
-presenters still own separate devices. See
-[dynamic geometry](docs/design/gpu-resources.md#dynamic-geometry) for ownership
-and upload rules.
+## What you can build
 
-Colours use linear RGB; `Color3.hex` converts an sRGB hex colour for you. Object
-positions use double precision until the camera origin has been subtracted.
-Local vertex attributes use float32 storage. The current
-materials support diffuse lighting, unlit shading, direct metallic/roughness
-lighting and RGBA color textures.
-See [color textures](docs/design/gpu-resources.md#color-textures) for UVs, samplers
-and supplied mip levels. `NativeImageDecoder` decodes bounded PNG/JPEG inputs.
-Automatic mips and opaque, masked and blended materials are implemented.
-[`StandardMaterial`](docs/design/standard-materials.md) works with directional,
-point, spot and hemisphere lights. It supports normal, metallic/roughness,
-occlusion and emissive maps with independent UV selection and shared images.
-[HDR color and tone mapping](docs/design/color-pipeline.md) preserve bright light
-through effects. [Environment lighting](docs/design/environment-lighting.md)
-adds diffuse and rough specular reflections from HDR panoramas.
-[Native shadows](docs/design/shadows.md) support directional cascades, spot maps
-and six point-light faces.
+| Working area | What you get |
+| --- | --- |
+| Scenes and cameras | Hierarchies, transforms, perspective and orthographic cameras, orbit controls, camera-relative coordinates and CPU picking |
+| Materials and lighting | Unlit, diffuse and metal/roughness materials; PNG/JPEG maps; alpha masks and blending; punctual and environment lights; directional and spot shadows |
+| Native graphics | Shared geometry, instances, scoped GPU buffers and textures, WGSL compilation, compute/render graphs and custom mesh shaders |
+| Screen effects | Linear HDR effects, exposure, tone mapping, bloom, FXAA, and MSAA where the adapter supports it |
+| Model viewing | Static glTF/GLB loading with progress, cancellation, instancing and explicit unsupported-feature errors |
+| Engineering tools | Selection, reversible transforms, measurements, section clipping, outlines, stable object IDs and review notes |
+| Playback | Authored transform and camera tracks with play, pause and scrubbing |
+| Geospatial | WGS84/ECEF coordinates, local east/north/up frames, globe controls, terrain, atmosphere and a bounded 3D Tiles streaming profile |
+| Inspection | Scene hierarchy, transforms, reported capabilities and bounded frame history through `zyren_devtools` |
 
-## Plugins and backends
+These are bounded implementations. Static glTF loading does not include skins,
+morphs or imported animation. The renderer has a documented light, shadow and
+resource budget. Full Three.js and three-geospatial parity remains a target.
+Read the [renderer guide](https://xraph.com/docs/zyren/rendering) and
+[asset limits](https://xraph.com/docs/zyren/assets) for the supported profiles.
 
-Use `ScenePlugin` for lifecycle hooks and typed services. Dependencies determine
-initialization and frame order; teardown runs in reverse and also handles partial
-initialization failures. `SceneRuntime` injects `RenderBackend` and `FramePresenter` factories. Keep their instances scoped to one viewport.
+## Packages
 
-```dart
-final geospatial = GeospatialPlugin();
-final orbit = GlobeOrbitPlugin();
-final globeScene = Scene()
-  ..add(Mesh(geospatial.reference.globeGeometry(), DiffuseMaterial()));
-final globeCamera = PerspectiveCamera(near: 100000, far: 200000000);
-final viewport = SceneView.scene(
-  scene: globeScene,
-  camera: globeCamera,
-  plugins: [geospatial, orbit],
-  options: const EngineOptions(presentation: PresentationPolicy.readbackOnly),
-);
+Start with `flutter_zyren` for Flutter, `zyren` for the Dart scene API, or
+`zyren_native` for headless native output. Add the packages you need.
+
+| Package | Purpose |
+| --- | --- |
+| [`zyren`](packages/zyren) | Pure Dart scene graph, geometry, materials, cameras, assets and plugin contracts |
+| [`flutter_zyren`](packages/flutter_zyren) | Flutter views, controllers, input and native presentation |
+| [`zyren_native`](packages/zyren_native) | Rust/wgpu renderer, FFI, build hooks, GPU resources and shader compilation |
+| [`zyren_gltf`](packages/zyren_gltf) | Static glTF and GLB loading |
+| [`zyren_geospatial`](packages/zyren_geospatial) | Geographic coordinates, globe navigation, terrain and atmosphere |
+| [`zyren_3d_tiles`](packages/zyren_3d_tiles) | Bounded explicit, nested and implicit 3D Tiles streaming |
+| [`zyren_tools`](packages/zyren_tools) | Selection, transforms, undo/redo and measurements |
+| [`zyren_devtools`](packages/zyren_devtools) | Read-only scene inspection and reported frame statistics |
+| [`zyren_timeline`](packages/zyren_timeline) | Transform and camera track playback |
+| [`zyren_engineering`](packages/zyren_engineering) | Stable IDs, metadata, review notes and temporary isolation |
+
+```text
+Your Dart or Flutter application
+  ├── flutter_zyren     views, input and controllers
+  ├── optional plugins glTF, geospatial, tiles, tools, timeline, review
+  └── zyren            scene graph and public extension contracts
+        └── zyren_native adapter → Rust / wgpu → Metal | Vulkan | DX12
 ```
 
-Import `zyren_geospatial` for those two plugins. You can use the core without
-that dependency. See [extensions](docs/extensions.md) for custom plugins,
-services, renderer factories, presentation and ownership rules.
+The diagram shows the rendering path. The core has no native or Flutter
+dependency; you inject a renderer when creating a Dart-only engine. Plugins use
+public core contracts. [Package boundaries](tool/check_package_boundaries.dart)
+are checked in CI.
 
-## Geospatial coordinates
+## Platforms
 
-```dart
-import 'package:zyren_geospatial/zyren_geospatial.dart';
-import 'package:flutter_zyren/flutter_zyren.dart';
+| Host | GPU backend | Flutter presentation | Qualification recorded in this checkout |
+| --- | --- | --- | --- |
+| macOS | Metal | Opt-in native view | Native renderer, presentation and interactive lab checks |
+| iOS | Metal | Opt-in native view | iPhone 16 Pro renderer profile checks; coverage varies by feature |
+| Android | Vulkan | Flutter surface texture, API 29+ | Pixel 9 Pro renderer and presentation checks; broader devices pending |
+| Windows | Direct3D 12 | Explicit RGBA readback | Backend path exists; renderer profile not qualified on this host |
+| Linux | Vulkan | Explicit RGBA readback | Backend path exists; renderer profile not qualified on this host |
+| Web | None | None | Not supported |
 
-final location = Geodetic.degrees(3.3792, 6.5244, 25);
-final ecef = location.toEcef();
-final frame = EastNorthUpFrame(location);
-final tenMetresEast = frame.toEcef(Vec3(10, 0, 0));
-final globe = Mesh(EllipsoidGeometry(), DiffuseMaterial());
+WebGL, OpenGL and WebView rendering are disabled. Native presentation avoids
+ordinary CPU pixel readback. Explicit capture/readback is a separate path with
+copy overhead, and the Android surface runtime does not currently expose pixel
+capture. Inspect runtime capabilities before requesting it.
+
+You can read the [presentation guide](https://xraph.com/docs/zyren/platforms)
+for policies and platform limits. This table summarizes repository evidence;
+it does not claim every feature has been exercised on every device.
+
+## Examples
+
+Run the target from its directory after resolving workspace dependencies.
+Use a connected device ID in place of `macos` for the native mobile labs.
+
+| Example directory | Target | Try it |
+| --- | --- | --- |
+| [`examples/multiple_views`](examples/multiple_views) | `lib/native_scene_demo.dart` | Two native views, one scene, independent cameras |
+| [`examples/multiple_views`](examples/multiple_views) | `lib/scene_workbench.dart` | Select, transform, undo, measure, review and scrub an assembly |
+| [`examples/model_viewer`](examples/model_viewer) | `lib/main.dart` | Load static glTF/GLB models and inspect loader issues |
+| [`examples/shader_lab`](examples/shader_lab) | `lib/main.dart` | Custom shaders and shared rendering resources |
+| [`examples/planet`](examples/planet) | `lib/renderer_lab.dart` | PBR, shadows, instances and screen effects |
+| [`examples/planet`](examples/planet) | `lib/atmosphere_lab.dart` | Day, dusk, night, haze and orbital views |
+| [`examples/planet`](examples/planet) | `lib/navigation_lab.dart` | Native globe navigation |
+| [`examples/planet`](examples/planet) | `lib/tiles3d_lab.dart` | Nested tiles, simulated download failure and retry |
+
+```sh
+cd examples/planet
+fvm flutter run -d macos -t lib/tiles3d_lab.dart
 ```
 
-Angles in the `Geodetic` constructor are radians. Heights and ECEF coordinates
-are metres. ECEF uses Z up; use `Vec3(0, 0, 1)` for your globe camera's up vector.
-The default generic 3D camera uses Y up. The inverse ellipsoid projection rejects
-points near the centre, where this implementation does not provide a reliable
-geodetic inverse.
+The tiles fixture serves local sample data over loopback HTTP. You can exercise
+refinement and recovery without provider credentials. Your own remote sources
+need a resolver, credentials where required, and suitable attribution.
 
-## Checks
+## Coordinates, color and ownership
+
+- Scene positions use doubles until the camera origin is subtracted. Local vertex
+  attributes use float32 storage. Generic 3D cameras use Y up; ECEF uses Z up.
+- `Geodetic.degrees(longitude, latitude, height)` takes longitude first. Heights
+  and ECEF coordinates are metres. The ordinary `Geodetic` constructor uses radians.
+- Colors are linear RGB. `Color3.hex` converts an sRGB hex value for you.
+- Managed views own their controllers. If you pass an external controller,
+  dispose it yourself. Only one frame may be in flight per view.
+- Geometry can be shared. Removing the last owning view retires its resources
+  after submitted GPU work finishes; hiding a mesh retains its allocation.
+
+## Documentation
+
+The public guides live at [xraph.com/docs/zyren](https://xraph.com/docs/zyren).
+You can start with [installation](https://xraph.com/docs/zyren/installation),
+[scenes](https://xraph.com/docs/zyren/first-scene),
+[plugins](https://xraph.com/docs/zyren/plugins), or
+[geospatial](https://xraph.com/docs/zyren/geospatial).
+
+Local docs sources follow the same `docs/content/docs` MDX layout as Forge.
+The root `docs/` directory is intentionally Git-ignored. Public copies are
+imported and committed in `xraph/website`:
+
+```sh
+# From your xraph/website checkout:
+pnpm docs:import /path/to/zyren zyren v0
+pnpm docs:build
+```
+
+The website owns the committed documentation snapshot, navigation, search and
+version routes. The local source tree is not included in a fresh Zyren clone.
+Restore public MDX from `website/content/docs/zyren/v0/` into that local source
+directory when starting from a fresh clone. Keep internal notes outside
+`docs/content/docs` so they cannot enter the public import.
+
+The [API reference](https://xraph.com/docs/zyren/reference) is generated from public
+Dart exports. Refresh it from the Zyren root before importing:
+
+```sh
+fvm dart run tool/generate_api_reference.dart
+```
+
+This writes only API declarations and their Dart documentation to the ignored
+local source. Public feature guides are edited separately.
+
+## Development checks
 
 ```sh
 fvm flutter analyze
-cargo test --manifest-path packages/zyren_native/native/Cargo.toml
-cargo clippy --manifest-path packages/zyren_native/native/Cargo.toml --all-targets -- -D warnings
-fvm dart test packages/zyren/test packages/zyren_geospatial/test
+fvm dart run tool/check_package_boundaries.dart
+cargo test --manifest-path packages/zyren_native/native/Cargo.toml --locked
+cargo clippy --manifest-path packages/zyren_native/native/Cargo.toml --all-targets --locked -- -D warnings
+(cd packages/zyren && fvm dart test)
+(cd packages/zyren_gltf && fvm dart test)
 fvm flutter test packages/flutter_zyren/test examples/multiple_views/test
 ```
 
-On a host with a Metal, Vulkan or DX12 device, run the GPU checks too. A missing
-device fails these checks; it does not silently switch to a browser renderer.
+GPU checks need a compatible native device:
 
 ```sh
-cargo test --manifest-path packages/zyren_native/native/Cargo.toml -- --include-ignored
 cd packages/zyren_native
 RUN_NATIVE_GPU=1 fvm dart test --concurrency=1
-cd ../../examples/planet
-fvm flutter test integration_test/planet_test.dart -d macos
 ```
 
-The FFI tests now run in the Dart VM. Set `RUN_NATIVE_GPU=1` in your shell to
-enable them; the normal CPU suite keeps them opt-in. The native package's build
-hook compiles and bundles Rust for both Dart and Flutter consumers.
+A missing GPU fails a GPU check. Run the affected example on your target device
+as well as its automated tests, and include that device, backend and any remaining
+limits when reporting a result. [Native checks](.github/workflows/checks.yml)
+contains the full CI commands.
 
-See [verification](docs/verification.md) for the checks actually run on each
-platform, [architecture](docs/architecture.md) for ownership and presentation
-details, and the [port inventory](docs/geospatial-port.md) for the remaining
-three-geospatial work.
+## Third-party notices
+
+Zyren includes ports and dependencies with their own license requirements.
+Read [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and the
+[license texts](licenses/) before redistributing those components.

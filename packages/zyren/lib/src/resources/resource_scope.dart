@@ -1,3 +1,5 @@
+import '../rendering/color_pipeline.dart';
+export '../rendering/color_pipeline.dart' show ToneMapping;
 import 'dart:async';
 import '../rendering/mesh_deformation_wgsl.dart';
 import 'dart:convert';
@@ -21,6 +23,10 @@ part '../rendering/history_swap.dart';
 part '../rendering/graph_compiler.dart';
 part '../rendering/graph_validation.dart';
 part '../rendering/mesh_shader.dart';
+part '../rendering/material_compiler.dart';
+part '../rendering/postprocess.dart';
+part '../rendering/environment_map.dart';
+part '../rendering/environment_shaders.dart';
 part '../lighting/environment_map.dart';
 part '../lighting/environment.dart';
 part '../lighting/environment_shaders.dart';

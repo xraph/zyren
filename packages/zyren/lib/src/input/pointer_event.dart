@@ -1,3 +1,4 @@
+export 'viewport_input.dart' show ViewportInputSource, ViewportLogicalExtent;
 import '../plugins/registration.dart';
 import 'viewport_point.dart';
 
@@ -25,7 +26,7 @@ enum ScenePointerKind {
 
 enum SceneModifier { shift, control, alt, meta }
 
-enum SceneGesture { tap, scale, scroll }
+enum SceneGesture { tap, scale, scroll, pointerDrag }
 
 /// Pointer observations use logical units. Scale and rotation come from a won
 /// Flutter gesture; rotation is in radians and scale starts at one.
@@ -57,11 +58,4 @@ abstract interface class InputSource {
 
   /// Interests participate in the host's gesture arena only while registered.
   Registration registerGesture(SceneGesture gesture);
-}
-
-/// Gesture input with the attached viewport's logical extent, before DPR or
-/// render-resolution scaling. Zero dimensions mean no usable attached view.
-abstract interface class ViewportInputSource implements InputSource {
-  double get logicalWidth;
-  double get logicalHeight;
 }

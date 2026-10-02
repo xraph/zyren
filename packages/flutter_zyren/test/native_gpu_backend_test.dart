@@ -11,6 +11,7 @@ import 'package:flutter_zyren/src/presentation/native_android_presenter.dart';
 import 'package:flutter_zyren/src/presentation/native_metal_presenter.dart';
 
 import 'support/texture_formats.dart';
+import 'support/device_info.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -52,6 +53,7 @@ void main() {
                 case 'gpuCommand':
                   final args = call.arguments as Map;
                   expect(args['session'], 7);
+                  if (args['kind'] == 'graph') return deviceInfoReply(args);
                   expect(args['kind'], 'resource');
                   final packet = ByteData.sublistView(
                     args['bytes'] as Uint8List,

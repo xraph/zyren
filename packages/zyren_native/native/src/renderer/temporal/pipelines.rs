@@ -10,6 +10,7 @@ pub(super) struct MotionKey {
     mirrored: bool,
     reactive: bool,
     depth_test: bool,
+    reversed: bool,
 }
 impl MotionKey {
     pub fn new(mesh: &Mesh) -> Self {
@@ -22,6 +23,7 @@ impl MotionKey {
             mirrored: glam::Mat4::from_cols_array(&mesh.model).determinant() < 0.,
             reactive: mesh.alpha_mode == 2 || !mesh.writes_depth(),
             depth_test: mesh.depth_test,
+            reversed: mesh.reversed_depth,
         }
     }
 }
@@ -45,7 +47,7 @@ impl Pipelines {
                 ty: wgpu::BindingType::Buffer {
                     ty: wgpu::BufferBindingType::Uniform,
                     has_dynamic_offset: false,
-                    min_binding_size: wgpu::BufferSize::new(240),
+                    min_binding_size: wgpu::BufferSize::new(416),
                 },
                 count: None,
             }],
@@ -202,7 +204,8 @@ impl Pipelines {
             .replace("deform_vertex", "previous_deform_vertex")
             .replace("@group(2)", "@group(3)");
         let source = format!(
-            "{}\n{}\n{}",
+            "{}\n{}\n{}\n{}",
+            include_str!("../coverage.wgsl"),
             deformation,
             prior,
             include_str!("motion.wgsl").replace("__VERTEX__", &vertex)
@@ -288,7 +291,11 @@ impl Pipelines {
                 depth_compare: Some(if !key.depth_test {
                     wgpu::CompareFunction::Always
                 } else if key.reactive {
-                    wgpu::CompareFunction::LessEqual
+                    if key.reversed {
+                        wgpu::CompareFunction::GreaterEqual
+                    } else {
+                        wgpu::CompareFunction::LessEqual
+                    }
                 } else {
                     wgpu::CompareFunction::Equal
                 }),

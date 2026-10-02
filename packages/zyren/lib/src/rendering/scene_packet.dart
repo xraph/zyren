@@ -30,17 +30,46 @@ final class EncodedScenePacket {
 /// Independent views need independent encoders, even when sharing a device.
 final class ScenePacketEncoder {
   final int viewId;
+  final MaterialDevice? materialDevice;
   int _next = 0, _accepted = 0;
   SceneSnapshot? _previous;
   Map<int, GeometrySnapshot> _uploaded = {};
   Set<int> _uploadedTextures = {};
   Map<int, InstanceSnapshot> _uploadedInstances = {};
   Map<int, DeformationSnapshot> _uploadedPoses = {};
-  ScenePacketEncoder({required this.viewId}) {
+  ScenePacketEncoder({required this.viewId, this.materialDevice}) {
     if (viewId <= 0) throw ArgumentError.value(viewId, 'viewId');
   }
   EncodedScenePacket encode(FrameSubmission submission) {
     final scene = submission.scene;
+    for (final mesh in scene._meshes) {
+      if (mesh['shader'] case final MeshShader shader) {
+        final device = materialDevice;
+        if (device == null) {
+          throw UnsupportedError(
+            'Custom materials require a material-capable backend.',
+          );
+        }
+        shader.encodeForDevice(device);
+      }
+    }
+    final effects = [
+      for (final effect in scene._settings.effects)
+        effect.encodeForDevice(
+          materialDevice ??
+              (throw UnsupportedError(
+                'Effects require a material-capable backend.',
+              )),
+        ),
+    ];
+    final environment = scene._settings.environment;
+    final environmentKeys = environment?.encodeForDevice(
+      materialDevice is EnvironmentDevice
+          ? materialDevice as EnvironmentDevice
+          : throw UnsupportedError(
+              'Environment lighting requires a resource-capable backend.',
+            ),
+    );
     final previous = _previous;
     final topology =
         previous == null ||
@@ -194,8 +223,34 @@ final class ScenePacketEncoder {
         uploadBytes > 64 * 1024 * 1024) {
       throw ArgumentError('Scene resource upload exceeds the frame budget.');
     }
-    final opcode =
-        scene._shadowLights.any((light) => light.settings is AreaShadow)
+    final settings = scene._settings;
+    final screenEnabled =
+        settings.hdr ||
+        settings.effects.isNotEmpty ||
+        settings.bloom != null ||
+        settings.toneMapping != ToneMapping.linear ||
+        settings.exposure != 1 ||
+        settings.sampleCount != 1 ||
+        settings.spatialAntialiasing != SpatialAntialiasing.none ||
+        settings.environment != null ||
+        settings.historyEpoch != 0;
+    final extension =
+        screenEnabled ||
+        submission.camera.depthStrategy == DepthStrategy.reversed ||
+        scene._outline != null ||
+        scene._meshes.any(
+          (m) =>
+              m['shader'] != null ||
+              (m['clippingPlanes'] as List).isNotEmpty ||
+              (m['coverage'] as List)[0] != 0.0 ||
+              (m['coverage'] as List)[1] != 1.0 ||
+              (m['pbr'] != null &&
+                  (m['pbr'] as Map)['normal_scale_y'] !=
+                      (m['pbr'] as Map)['normal_scale']),
+        );
+    final opcode = extension
+        ? 36
+        : scene._shadowLights.any((light) => light.settings is AreaShadow)
         ? 35
         : scene._meshes.any((m) => (m['pbr'] as Map?)?['physical'] != null)
         ? 34
@@ -574,6 +629,70 @@ final class ScenePacketEncoder {
       }
       if (opcode >= 25) body.u32(mesh['pose'] as int);
       if (opcode >= 27) body.u32(mesh['color_visible'] == false ? 0 : 1);
+      if (opcode >= 36) {
+        List<int> key(Uint8List bytes) {
+          final d = ByteData.sublistView(bytes);
+          return [
+            for (var i = 0; i < 4; i++) d.getUint64(i * 8, Endian.little),
+          ];
+        }
+
+        final shader = mesh['shader'] as MeshShader?;
+        final planes = mesh['clippingPlanes'] as List;
+        body.json({
+          'material_shader': shader == null
+              ? null
+              : key(shader.encodeForDevice(materialDevice!)),
+          'clipping_planes': [
+            for (var i = 0; i < planes.length; i += 4) planes.sublist(i, i + 4),
+          ],
+          'coverage': mesh['coverage'],
+          'outlined': mesh['outlined'],
+          'normal_scale_y': (mesh['pbr'] as Map?)?['normal_scale_y'],
+        });
+      }
+    }
+    if (opcode >= 36) {
+      List<int> key(Uint8List bytes) {
+        final d = ByteData.sublistView(bytes);
+        return [for (var i = 0; i < 4; i++) d.getUint64(i * 8, Endian.little)];
+      }
+
+      final bloom = settings.bloom, outline = scene._outline;
+      body.json({
+        'enabled': screenEnabled,
+        'sample_count':
+            submission.colorPipeline?.sampleCount ?? settings.sampleCount,
+        'depth_strategy': submission.camera.depthStrategy.index,
+        'spatial_antialiasing': settings.spatialAntialiasing.index,
+        'effects': effects.map(key).toList(),
+        'tone_mapping':
+            (submission.colorPipeline?.toneMapping ?? settings.toneMapping)
+                .index,
+        'exposure': submission.colorPipeline?.exposure ?? settings.exposure,
+        'background_alpha': scene.backgroundOpacity,
+        'camera_origin': submission.camera.origin,
+        'history_epoch': settings.historyEpoch,
+        if (bloom != null)
+          'bloom': {
+            'intensity': bloom.intensity,
+            'threshold': bloom.threshold,
+            'soft_knee': bloom.softKnee,
+            'scatter': bloom.scatter,
+            'levels': bloom.levels,
+          },
+        if (outline != null)
+          'outline': {
+            'color': [...outline.color.toList(), outline.opacity],
+            'width': outline.width,
+          },
+        if (environment != null)
+          'environment': {
+            'keys': environmentKeys!.map(key).toList(),
+            'intensity': environment.intensity,
+            'rotation': environment.rotation,
+          },
+      });
     }
     final payload = body.finish();
     if (payload.length > 66 * 1024 * 1024 - 24) {
@@ -660,6 +779,7 @@ bool _sameMesh(Map<String, Object> a, Map<String, Object> b) {
     if (leftPbr['metallic'] != rightPbr['metallic'] ||
         leftPbr['roughness'] != rightPbr['roughness'] ||
         leftPbr['normal_scale'] != rightPbr['normal_scale'] ||
+        leftPbr['normal_scale_y'] != rightPbr['normal_scale_y'] ||
         leftPbr['occlusion_strength'] != rightPbr['occlusion_strength']) {
       return false;
     }
@@ -686,6 +806,8 @@ bool _sameMesh(Map<String, Object> a, Map<String, Object> b) {
   }
   for (final field in [
     'geometry',
+    'shader',
+    'outlined',
     'instances',
     'pose',
     'instance_count',
@@ -708,7 +830,13 @@ bool _sameMesh(Map<String, Object> a, Map<String, Object> b) {
   ]) {
     if (a[field] != b[field]) return false;
   }
-  for (final field in ['model', 'color', 'colorMap']) {
+  for (final field in [
+    'model',
+    'color',
+    'colorMap',
+    'clippingPlanes',
+    'coverage',
+  ]) {
     final left = a[field] as List, right = b[field] as List;
     if (left.length != right.length) return false;
     for (var i = 0; i < left.length; i++) {
@@ -720,6 +848,12 @@ bool _sameMesh(Map<String, Object> a, Map<String, Object> b) {
 
 final class _SceneWriter {
   final _bytes = BytesBuilder(copy: false);
+  void json(Map<String, Object?> value) {
+    final bytes = Uint8List.fromList(utf8.encode(jsonEncode(value)));
+    u32(bytes.length);
+    add(bytes);
+  }
+
   void add(Uint8List bytes) => _bytes.add(bytes);
   void u32(int value) {
     if (value < 0 || value > 0xffffffff) {
@@ -753,6 +887,11 @@ final class _SceneWriter {
       buffer.setUint32(i * 4, values[i], Endian.little);
     }
     add(buffer.buffer.asUint8List());
+  }
+
+  void f64(double value) {
+    final bytes = ByteData(8)..setFloat64(0, value, Endian.little);
+    add(bytes.buffer.asUint8List());
   }
 
   void floats(List<double> values) {

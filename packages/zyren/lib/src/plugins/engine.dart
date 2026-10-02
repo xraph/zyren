@@ -2,10 +2,12 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import '../resources/buffer.dart';
+import '../resources/gpu_scope.dart';
 import 'registration.dart';
 import 'attachment_scope.dart';
 import '../input/pointer_event.dart';
 import '../rendering/capabilities.dart';
+import '../rendering/depth_strategy.dart';
 import '../rendering/color_pipeline.dart';
 import '../rendering/temporal_aa_options.dart';
 import '../rendering/scene_issue.dart';
@@ -87,6 +89,7 @@ class PluginContext {
   final String _pluginId;
   final RenderBackend? _backend;
   ShaderCompiler? _shaders;
+  MaterialCompiler? _materials;
   ResourceScope? _resources;
   GraphCompiler? _graphs;
 
@@ -223,6 +226,40 @@ class PluginContext {
     final compiler = backend.createShaderCompiler(label: _pluginId);
     scope.onClose(compiler.close);
     return _shaders = compiler;
+  }
+
+  GpuScope createGpuScope({String label = ''}) {
+    _checkAttached();
+    final backend = _backend;
+    if (backend is! MaterialBackend) {
+      throw _unsupported(
+        RenderFeature.shaderMaterials,
+        'allocate',
+        'This backend cannot allocate a GPU scope.',
+      );
+    }
+    final result = GpuScope.fromBackend(
+      backend,
+      label: label.isEmpty ? _pluginId : label,
+    );
+    scope.onClose(result.close);
+    return result;
+  }
+
+  MaterialCompiler get materials {
+    _checkAttached();
+    if (_materials case final compiler?) return compiler;
+    final backend = _backend;
+    if (backend is! MaterialBackend) {
+      throw _unsupported(
+        RenderFeature.shaderMaterials,
+        'compile',
+        'This backend cannot compile mesh materials.',
+      );
+    }
+    final compiler = backend.createMaterialCompiler(label: _pluginId);
+    scope.onClose(compiler.close);
+    return _materials = compiler;
   }
 
   void _checkAttached() {
@@ -680,6 +717,31 @@ class SceneEngine {
     final future = Future<FrameOutput>.microtask(() async {
       for (final (plugin, context) in _attached) {
         await plugin.beforeRender(context, info);
+      }
+      if (camera.depthStrategy == DepthStrategy.reversed &&
+          !capabilities.supports(RenderFeature.reversedDepth)) {
+        throw SceneException(
+          SceneIssue(
+            code: SceneIssueCodes.unsupportedFeature,
+            message: 'This backend does not support reversed depth.',
+            operation: 'render',
+            requiredFeatures: {RenderFeature.reversedDepth},
+          ),
+        );
+      }
+      if (scene.outline case final outline?) {
+        if (outline.objects.isNotEmpty &&
+            outline.opacity > 0 &&
+            !capabilities.supports(RenderFeature.selectionOutlines)) {
+          throw SceneException(
+            SceneIssue(
+              code: SceneIssueCodes.unsupportedFeature,
+              message: 'This backend does not support selection outlines.',
+              operation: 'render',
+              requiredFeatures: {RenderFeature.selectionOutlines},
+            ),
+          );
+        }
       }
       if (!capabilities.supports(RenderFeature.meshShaders) &&
           _hasVisibleShaderMaterial(scene, camera.layers)) {

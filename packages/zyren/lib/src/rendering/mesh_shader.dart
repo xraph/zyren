@@ -187,12 +187,17 @@ extension MeshShaderCompiler on ShaderCompiler {
 
 /// A device-bound mesh program. Native ownership retains its module and bindings
 /// independently of author scopes until accepted frames finish and it closes.
-final class MeshShaderProgram {
+sealed class MeshProgram {
+  MeshShaderGeometry get geometry;
+}
+
+final class MeshShaderProgram implements MeshProgram {
   final ShaderCompiler _compiler;
   final MeshShaderDevice _device;
   final Object _key;
   final String label;
   final MeshVertexLayout vertexLayout;
+  @override
   final MeshShaderGeometry geometry;
   final _pending = <Future<void>>{};
   bool _closed = false;

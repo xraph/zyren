@@ -9,6 +9,9 @@ struct Uniform {
     params: [f32; 4],
     alpha: [f32; 4],
     raster: [f32; 4],
+    inverse_vp: [f32; 16],
+    planes: [[f32; 4]; 6],
+    clipping: [f32; 4],
 }
 struct Draw {
     mesh: usize,
@@ -39,6 +42,8 @@ fn appearance_matches(a: &Mesh, b: &Mesh) -> bool {
         && a.vertex_colors == b.vertex_colors
         && a.unlit == b.unlit
         && a.side == b.side
+        && a.clipping_planes == b.clipping_planes
+        && a.coverage == b.coverage
 }
 impl Renderer {
     pub(in crate::renderer) fn encode_temporal(
@@ -120,6 +125,16 @@ impl Renderer {
                     f32::from(mesh.color_map.is_some()),
                 ],
                 raster: [mesh.side as f32, 0., 0., 0.],
+                inverse_vp: glam::Mat4::from_cols_array(&candidate.vp)
+                    .inverse()
+                    .to_cols_array(),
+                planes: super::super::section_planes(mesh),
+                clipping: [
+                    mesh.clipping_planes.len() as f32,
+                    mesh.coverage[0],
+                    mesh.coverage[1],
+                    0.,
+                ],
             };
             let buffer = self
                 .device
@@ -290,7 +305,7 @@ impl Renderer {
                 .min((candidate.frame - 1) as f32 / candidate.frame as f32),
             candidate.input.depth_tolerance,
             f32::from(pending.valid),
-            0.,
+            f32::from(frame.settings.reversed_depth()),
         ];
         let params = self
             .device

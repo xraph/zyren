@@ -3,6 +3,7 @@ library;
 
 import 'dart:typed_data';
 import 'dart:async';
+import 'support/device_info.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zyren/zyren.dart';
@@ -14,6 +15,47 @@ import 'support/texture_formats.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   const channel = MethodChannel('zyren/scene-views');
+  final messenger =
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+  test('MSAA feature admission follows the adapter sample counts', () async {
+    addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+    for (final samples in [
+      <int>[1],
+      <int>[1, 4],
+    ]) {
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        switch (call.method) {
+          case 'connect':
+          case 'close':
+            return null;
+          case 'create':
+            return {
+              'session': 1,
+              'adapter': 'test Metal',
+              'driverInfo': 'test driver',
+            };
+          case 'gpuCommand':
+            if ((call.arguments as Map)['kind'] == 'graph') {
+              return deviceInfoReply(call.arguments as Map, samples: samples);
+            }
+            return textureFormatsReply(call);
+          default:
+            throw StateError(call.method);
+        }
+      });
+      final backend = await NativeMetalBackend.create(runtimeToken: 10);
+      expect(
+        backend.capabilities.supports(RenderFeature.multisampleAntialiasing),
+        samples.contains(4),
+      );
+      expect(
+        backend.capabilities.supports(RenderFeature.standardMaterials),
+        isTrue,
+      );
+      expect(backend.capabilities.supports(RenderFeature.bloom), isTrue);
+      await backend.close();
+    }
+  });
   test(
     'superseded applied frames update geometry residency and capture shares it',
     () async {
@@ -25,6 +67,8 @@ void main() {
                 return textureFormatsReply(call);
               case 'connect':
                 return null;
+              case 'gpu':
+                return deviceInfoReply(call.arguments as Map);
               case 'create':
                 return {'session': 1, 'adapter': 'test Metal'};
               case 'prepare':
@@ -50,6 +94,7 @@ void main() {
             .setMockMethodCallHandler(channel, null),
       );
       final backend = await NativeMetalBackend.create(runtimeToken: 10);
+      expect(backend.capabilities.limits.sampleCounts, {1, 4});
       final target = await backend.prepareView(7, PhysicalSize(16, 16));
       final scene = Scene()..add(Mesh(BoxGeometry(), UnlitMaterial()));
       FrameSubmission frame() => FrameSubmission.capture(
@@ -104,6 +149,8 @@ void main() {
                 return textureFormatsReply(call);
               case 'connect':
                 return null;
+              case 'gpu':
+                return deviceInfoReply(call.arguments as Map);
               case 'create':
                 return {'session': 1, 'adapter': 'test Metal'};
               case 'prepare':
@@ -124,6 +171,7 @@ void main() {
             .setMockMethodCallHandler(channel, null),
       );
       final backend = await NativeMetalBackend.create(runtimeToken: 10);
+      expect(backend.capabilities.limits.sampleCounts, {1, 4});
       final target = await backend.prepareView(7, PhysicalSize(16, 16));
       final rendering = backend.render(
         FrameSubmission.capture(

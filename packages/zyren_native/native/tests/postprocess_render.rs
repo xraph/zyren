@@ -1,5 +1,5 @@
-use zyren_runtime::{renderer::Renderer, scene::Frame};
 use serde_json::json;
+use zyren_runtime::{renderer::Renderer, scene::Frame};
 
 fn edge_frame(samples: u32, alpha: f32) -> Frame {
     serde_json::from_value(json!({

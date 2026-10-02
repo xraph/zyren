@@ -1,5 +1,15 @@
 # Scene ownership examples
 
+Run `fvm flutter run -d macos -t lib/scene_workbench.dart` for the plugin
+workbench. You can select assembly parts, edit local transforms, undo and redo,
+measure two surface points and scrub an exploded view. Use your Android device
+ID for native Vulkan presentation. The inspector moves below the canvas on a
+narrow screen and scrolls independently.
+
+The workbench uses `zyren_tools`, `zyren_devtools` and `zyren_timeline` through
+their public APIs. See [the checkpoint](https://xraph.com/docs/zyren/reference/scene-workbench-checkpoint)
+for verification and remaining features.
+
 Run `flutter run -d macos` from this directory. The same app has generated
 runners for iOS, Android, Windows and Linux; those runners still need device
 qualification. No handwritten platform setup is needed for this example.

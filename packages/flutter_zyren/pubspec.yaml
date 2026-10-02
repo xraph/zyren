@@ -1,5 +1,5 @@
 name: flutter_zyren
-description: Flutter views for the native Dart 3D engine.
+description: Flutter views and controllers for the Zyren native 3D engine.
 version: 0.1.0
 publish_to: none
 resolution: workspace

@@ -56,7 +56,7 @@ class _PhysicalLabState extends State<_PhysicalLab> {
       camera: PerspectiveCamera(position: const Vec3(0, 0, 7)),
       colorPipeline: ColorPipeline(sampleCount: 4),
     );
-    controller.use(OrbitControls());
+    controller.use(OrbitNavigation());
     controller.use(EnvironmentLighting(image: studioEnvironment()));
     controller.use(temporal);
     controller.use(effects);

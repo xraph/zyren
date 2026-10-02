@@ -8,7 +8,7 @@
 PRODUCT_NAME = model_viewer
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = dev.zyren.modelViewer
+PRODUCT_BUNDLE_IDENTIFIER = dev.gpu3d.modelViewer
 
 // The copyright displayed in application information
-PRODUCT_COPYRIGHT = Copyright © 2026 dev.zyren. All rights reserved.
+PRODUCT_COPYRIGHT = Copyright © 2026 dev.gpu3d. All rights reserved.

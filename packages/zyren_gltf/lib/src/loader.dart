@@ -12,6 +12,9 @@ import 'options.dart';
 import 'recipes.dart';
 import 'material_decoder.dart' show physicalExtensions, emissionExtension;
 import 'worker.dart';
+import 'features.dart';
+import 'metadata.dart';
+import 'metadata_decoder.dart' show structuralMetadataExtension;
 part 'model_asset.dart';
 
 abstract final class Gltf {
@@ -72,6 +75,8 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
         context.cancellation,
         supportedExtensions: {
           'KHR_materials_unlit',
+          'EXT_mesh_features',
+          structuralMetadataExtension,
           ...physicalExtensions,
           emissionExtension,
           'KHR_lights_punctual',
@@ -282,7 +287,7 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
             ),
             GeometryTopology.triangles => UnlitMaterial(
               color: m.color,
-              colorMap: map,
+              colorMap: texture(m.colorMap),
               side: m.side,
               opacity: m.opacity,
               vertexColors: vertexColors,
@@ -349,7 +354,14 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
               iridescenceThicknessMap: maps[11],
             );
           }
-          primitives.add(_ModelPrimitive(geometry, material, primitive.name));
+          primitives.add(
+            _ModelPrimitive(
+              geometry,
+              material,
+              primitive.name,
+              primitive.features,
+            ),
+          );
           if (++published % 64 == 0) await Future<void>.delayed(Duration.zero);
         }
         meshes.add(List.unmodifiable(primitives));
@@ -366,6 +378,10 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
             resourceLabel: issue.resourceLabel,
           ),
       ]);
+      final copyright =
+          (document.root['asset'] as Map<String, Object?>)['copyright']
+              as String?;
+      context.reserveDecodedBytes((copyright?.length ?? 0) * 2);
       final shared = _SharedModel(
         prepared.skins,
         prepared.animations,
@@ -375,6 +391,8 @@ final class _GltfLoader extends AssetLoader<ModelAsset> {
         List.unmodifiable(meshes),
         issues,
         source.effectiveUri,
+        copyright,
+        prepared.propertyTables,
       );
       return DecodedAsset(
         create: () => ModelAsset._(shared),

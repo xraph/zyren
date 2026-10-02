@@ -75,6 +75,9 @@ GraphDescription swapHistoryTextures(
         entry,
   ]);
   PassDescriptor pass(PassDescriptor p) => switch (p) {
+    _MaterialPassDescriptor() => throw UnsupportedError(
+      'Material passes cannot be used in history graphs.',
+    ),
     ComputePassDescriptor() => ComputePassDescriptor(
       name: p.name,
       program: p.program,

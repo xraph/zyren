@@ -6,6 +6,8 @@ pub fn native(id: u32) -> Result<wgpu::TextureFormat, ResourceError> {
         0 => Rgba8Unorm,
         1 => Rgba8UnormSrgb,
         2 => Rgba16Float,
+        9 => Rgba32Float,
+        10 => R32Float,
         3 => Bc7RgbaUnorm,
         4 => Bc7RgbaUnormSrgb,
         5 => Etc2Rgba8Unorm,
@@ -31,7 +33,13 @@ pub fn level_bytes(id: u32, width: u32, height: u32) -> u64 {
     if compressed(id) {
         u64::from(width.div_ceil(4)) * u64::from(height.div_ceil(4)) * 16
     } else {
-        u64::from(width) * u64::from(height) * if id == 2 { 8 } else { 4 }
+        u64::from(width)
+            * u64::from(height)
+            * match id {
+                2 => 8,
+                9 => 16,
+                _ => 4,
+            }
     }
 }
 pub fn feature(id: u32) -> wgpu::Features {
@@ -50,7 +58,7 @@ pub fn require(device: &wgpu::Device, id: u32) -> Result<wgpu::TextureFormat, Re
     Ok(format)
 }
 pub fn supported_mask(device: &wgpu::Device) -> u32 {
-    (0..=8)
+    (0..=10)
         .filter(|id| device.features().contains(feature(*id)))
         .fold(0, |mask, id| mask | (1 << id))
 }

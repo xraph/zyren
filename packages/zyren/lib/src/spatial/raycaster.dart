@@ -7,6 +7,7 @@ import '../math/vec3.dart';
 import '../rendering/scene_issue.dart';
 import '../scene/layer_mask.dart';
 import '../scene/scene.dart';
+import '../rendering/depth_strategy.dart';
 import 'bounds.dart';
 import 'ray.dart';
 part 'bvh.dart';
@@ -49,6 +50,20 @@ final class Raycaster {
     }
   }
 
+  List<PickResult> intersectScene(
+    Scene scene,
+    CameraRay ray, {
+    double near = 0,
+    double far = double.infinity,
+  }) => _guard(
+    () => Raycaster(
+      near: near,
+      far: far,
+      layers: layers,
+      acceleration: acceleration,
+    ).capture(scene, Ray(ray.origin, ray.direction)).intersectAll(),
+  );
+
   RaycastSnapshot capture(Scene scene, Ray ray) =>
       _guard(() => _capture(scene, ray, near, far, layers));
 
@@ -68,12 +83,24 @@ final class Raycaster {
     final aspect = logicalWidth / logicalHeight;
     final projection = camera.projectionMatrix(aspect);
     final inverse = camera.viewProjection(aspect).inverted();
-    final a = _project(inverse, Vec3(ndc.x, ndc.y, 0));
-    final b = _project(inverse, Vec3(ndc.x, ndc.y, 1));
+    final a = _project(
+      inverse,
+      Vec3(
+        ndc.x,
+        ndc.y,
+        camera.depthStrategy == DepthStrategy.reversed ? 1 : 0,
+      ),
+    );
+    final b = _project(
+      inverse,
+      Vec3(
+        ndc.x,
+        ndc.y,
+        camera.depthStrategy == DepthStrategy.reversed ? 0 : 1,
+      ),
+    );
     final direction = (b - a).normalized();
-    final forward =
-        (_project(inverse, const Vec3(0, 0, 1)) - _project(inverse, Vec3.zero))
-            .normalized();
+    final forward = (camera.target - camera.position).normalized();
     // Perspective rays start at the eye. Orthographic rays start on the
     // camera plane, preserving their lateral offset and world distance.
     final origin = projection.storage[15] == 0
@@ -127,10 +154,13 @@ final class Raycaster {
     // baseline field loads ahead of a guard inside this recursive visitor.
     final previousMeshes = cached?.meshes ?? const <_PickMesh>[];
     final meshes = <_PickMesh>[];
-    void visit(Object3D node, Mat4 parent) {
+    void visit(Object3D node, Mat4 parent, bool parentClipping) {
+      final clipping = parentClipping && node.clippingEnabled;
+      final planes = clipping ? scene.clippingPlanes : const <ClippingPlane>[];
       if (!node.visible) return;
       final world = parent * node.localMatrix;
       if (node is Mesh &&
+          !node.fragmentCoverage.isEmpty &&
           node.layers.intersects(layers) &&
           node.geometry.topology == GeometryTopology.triangles &&
           (node is! InstancedMesh || node.count > 0)) {
@@ -180,7 +210,8 @@ final class Raycaster {
           } else {
             if (identical(old.geometry, geometry) &&
                 identical(old.pose, pose) &&
-                old.side == node.material.side) {
+                old.side == node.material.side &&
+                _samePlanes(old.clippingPlanes, planes)) {
               meshes.add(old);
               continue;
             }
@@ -201,16 +232,17 @@ final class Raycaster {
               instance == null ? null : i,
               world,
               instance,
+              List.unmodifiable(planes),
             ),
           );
         }
       }
       for (final child in node.children) {
-        visit(child, world);
+        visit(child, world, clipping);
       }
     }
 
-    visit(scene, Mat4.identity());
+    visit(scene, Mat4.identity(), true);
     final frozen = List<_PickMesh>.unmodifiable(meshes);
     _BoundsBvh? tree;
     final sameObjects =
@@ -318,7 +350,20 @@ final class RaycastSnapshot {
           throw ArgumentError('Intersection distance is not finite.');
         }
         if (distance < _near || distance > _far) return;
+        if (mesh.clippingPlanes.any((plane) => plane.distanceTo(point) < 0)) {
+          return;
+        }
         final weights = hit.barycentric, uv = mesh.geometry.uv0;
+        final localNormal = (mesh.vertex(b) - mesh.vertex(a))
+            .cross(mesh.vertex(c) - mesh.vertex(a))
+            .normalized();
+        final n = mesh.inverse.storage;
+        final normal = Vec3(
+          n[0] * localNormal.x + n[1] * localNormal.y + n[2] * localNormal.z,
+          n[4] * localNormal.x + n[5] * localNormal.y + n[6] * localNormal.z,
+          n[8] * localNormal.x + n[9] * localNormal.y + n[10] * localNormal.z,
+        ).normalized();
+        final uv1 = mesh.geometry.uv1;
         receive(
           mesh.order,
           PickResult._(
@@ -332,6 +377,19 @@ final class RaycastSnapshot {
               _project(mesh.model, mesh.vertex(b)),
               _project(mesh.model, mesh.vertex(c)),
             ]),
+            normal: normal,
+            uv1: uv1 == null
+                ? null
+                : (
+                    u:
+                        uv1[a * 2] * weights.x +
+                        uv1[b * 2] * weights.y +
+                        uv1[c * 2] * weights.z,
+                    v:
+                        uv1[a * 2 + 1] * weights.x +
+                        uv1[b * 2 + 1] * weights.y +
+                        uv1[c * 2 + 1] * weights.z,
+                  ),
             barycentric: weights,
             sceneRevision: sceneRevision,
             uv: uv == null
@@ -425,17 +483,19 @@ final class RaycastReport {
 
 final class PickResult {
   final Mesh object;
-  final Vec3 point, barycentric;
+  final Vec3 point, normal, barycentric;
 
   /// Frozen world-space triangle vertices, in index order.
   final List<Vec3> triangle;
   final double distance;
   final int triangleIndex, sceneRevision;
   final int? instanceIndex;
-  final ({double u, double v})? uv;
+  final ({double u, double v})? uv, uv1;
   const PickResult._({
     required this.object,
     required this.point,
+    required this.normal,
+    required this.uv1,
     required this.distance,
     required this.triangle,
     required this.triangleIndex,
@@ -454,6 +514,7 @@ final class _PickMesh {
   final DeformationSnapshot? pose;
   final Mat4 model, inverse;
   final Bounds3 bounds;
+  final List<ClippingPlane> clippingPlanes;
   final Mat4 meshWorld;
   final Mat4? instanceTransform;
   late final Bounds3 worldBounds = bounds.transformed(model);
@@ -472,6 +533,7 @@ final class _PickMesh {
     this.instanceIndex,
     this.meshWorld,
     this.instanceTransform,
+    this.clippingPlanes,
   );
   Vec3 vertex(int index) {
     if (this.index case final tree?) {
@@ -520,3 +582,7 @@ T _guard<T>(T Function() operation) {
     );
   }
 }
+
+bool _samePlanes(List<ClippingPlane> a, List<ClippingPlane> b) =>
+    a.length == b.length &&
+    List.generate(a.length, (i) => i).every((i) => identical(a[i], b[i]));

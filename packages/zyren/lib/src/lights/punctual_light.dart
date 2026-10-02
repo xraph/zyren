@@ -40,7 +40,19 @@ sealed class Light extends Object3D {
 /// Directional and spot lights emit along local -Z. Directional intensity is lux;
 /// point and spot intensity is candela.
 sealed class PunctualLight extends Light {
-  PunctualLight({super.color, super.intensity, super.name});
+  Vec3 _direction;
+  PunctualLight({
+    Vec3 direction = const Vec3(0, 0, -1),
+    super.color,
+    super.intensity,
+    super.name,
+  }) : _direction = direction.normalized();
+  Vec3 get direction => _direction;
+  set direction(Vec3 value) {
+    _direction = value.normalized();
+    _changed();
+  }
+
   ShadowSettings? get shadow;
   int _shadowRevision = 0;
   int get shadowRevision => _shadowRevision;
@@ -54,6 +66,7 @@ sealed class PunctualLight extends Light {
   /// Points the emitting -Z axis at a target in parent coordinates.
   @override
   PunctualLight lookAt(Vec3 target) {
+    direction = const Vec3(0, 0, -1);
     super.lookAt(position * 2 - target);
     return this;
   }
@@ -63,35 +76,43 @@ final class DirectionalLight extends PunctualLight {
   DirectionalShadow? _shadow;
   @override
   DirectionalShadow? get shadow => _shadow;
-  set shadow(DirectionalShadow? value) {
+  set shadow(ShadowSettings? settings) {
+    final value = _directionalShadow(settings);
     if (identical(value, _shadow)) return;
     _shadow = value;
     _changed();
   }
 
   DirectionalLight({
-    DirectionalShadow? shadow,
+    ShadowSettings? shadow,
+    super.direction,
     super.color,
     super.intensity,
     super.name,
-  }) : _shadow = shadow;
+  }) : _shadow = _directionalShadow(shadow);
 }
 
 sealed class PositionalLight extends PunctualLight {
   double? _range;
-  PositionalLight({double? range, super.color, super.intensity, super.name})
-    : _range = _validateRange(range);
+  PositionalLight({
+    double? range,
+    super.direction,
+    super.color,
+    super.intensity,
+    super.name,
+  }) : _range = _validateRange(range);
 
   /// Metres; null gives inverse-square falloff without a finite cutoff.
   double? get range => _range;
   set range(double? value) {
-    _validateRange(value);
+    value = _validateRange(value);
     if (value == _range) return;
     _range = value;
     _changed();
   }
 
   static double? _validateRange(double? value) {
+    if (value == 0) return null;
     if (value != null && (!value.isFinite || value <= 0 || value > 1e12)) {
       throw ArgumentError.value(value, 'range', 'Expected (0, 1e12] or null.');
     }
@@ -122,7 +143,11 @@ final class SpotLight extends PositionalLight {
   SpotShadow? _shadow;
   @override
   SpotShadow? get shadow => _shadow;
-  set shadow(SpotShadow? value) {
+  set shadow(ShadowSettings? settings) {
+    final value = _spotShadow(settings);
+    if (value != null && _outer >= math.pi / 2) {
+      throw ArgumentError('Spot shadows need an angle below pi/2.');
+    }
     if (identical(value, _shadow)) return;
     _shadow = value;
     _changed();
@@ -130,18 +155,41 @@ final class SpotLight extends PositionalLight {
 
   double _inner, _outer;
   SpotLight({
-    SpotShadow? shadow,
+    ShadowSettings? shadow,
+    super.direction,
+    double? angle,
+    double? penumbra,
     double innerConeAngle = 0,
     double outerConeAngle = math.pi / 4,
     super.color,
     super.intensity,
     super.range,
     super.name,
-  }) : _shadow = shadow,
-       _inner = innerConeAngle,
-       _outer = outerConeAngle {
+  }) : _shadow = _spotShadow(shadow),
+       _inner = penumbra == null
+           ? innerConeAngle
+           : (angle ?? outerConeAngle) * (1 - penumbra),
+       _outer = angle ?? outerConeAngle {
+    if (penumbra != null &&
+        (!penumbra.isFinite || penumbra < 0 || penumbra > 1)) {
+      throw ArgumentError.value(penumbra, 'penumbra');
+    }
+    if (_shadow != null && _outer >= math.pi / 2) {
+      throw ArgumentError('Spot shadows need an angle below pi/2.');
+    }
     _validateCone(_inner, _outer);
   }
+  double get angle => _outer;
+  set angle(double value) =>
+      setCone(innerConeAngle: value * (1 - penumbra), outerConeAngle: value);
+  double get penumbra => 1 - _inner / _outer;
+  set penumbra(double value) {
+    if (!value.isFinite || value < 0 || value > 1) {
+      throw ArgumentError.value(value, 'penumbra');
+    }
+    setCone(innerConeAngle: _outer * (1 - value), outerConeAngle: _outer);
+  }
+
   double get innerConeAngle => _inner;
   double get outerConeAngle => _outer;
   void setCone({
@@ -149,6 +197,9 @@ final class SpotLight extends PositionalLight {
     required double outerConeAngle,
   }) {
     _validateCone(innerConeAngle, outerConeAngle);
+    if (_shadow != null && outerConeAngle >= math.pi / 2) {
+      throw ArgumentError('Spot shadows need an angle below pi/2.');
+    }
     if (_inner == innerConeAngle && _outer == outerConeAngle) return;
     _inner = innerConeAngle;
     _outer = outerConeAngle;
@@ -159,7 +210,7 @@ final class SpotLight extends PositionalLight {
     if (!inner.isFinite ||
         !outer.isFinite ||
         inner < 0 ||
-        inner >= outer ||
+        inner > outer ||
         outer > math.pi / 2) {
       throw ArgumentError('Cone angles require 0 <= inner < outer <= pi/2.');
     }

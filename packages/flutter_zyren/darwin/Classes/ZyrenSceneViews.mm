@@ -276,6 +276,40 @@ bool matches(const std::shared_ptr<Session> &s, NSDictionary *args) {
     return;
   }
   auto s = found->second;
+  if ([call.method isEqualToString:@"gpu"]) {
+    NSString *operation = args[@"operation"];
+    if (![operation isKindOfClass:NSString.class] ||
+        ![args[@"data"] isKindOfClass:FlutterStandardTypedData.class] || !number(args[@"capacity"])) {
+      result(error(@"invalidCommand", @"A GPU operation, binary data and capacity are required.")); return;
+    }
+    Api::Command command = [operation isEqualToString:@"resource"] ? s->api.resource :
+      [operation isEqualToString:@"shader"] ? s->api.shader : [operation isEqualToString:@"graph"] ? s->api.graph : nullptr;
+    NSData *packet = ((FlutterStandardTypedData *)args[@"data"]).data;
+    int64_t capacity = [args[@"capacity"] longLongValue];
+    bool control = ![operation isEqualToString:@"resource"];
+    if (!command || (control ? (packet.length > 8 * 1024 * 1024 || capacity != 256 * 1024) :
+        (packet.length > 64 * 1024 * 1024 + 2048 || capacity < 24 || capacity > 64 * 1024 * 1024 + 24))) {
+      result(error(@"invalidCommand", @"GPU command exceeds its transfer limits.")); return;
+    }
+    dispatch_async(s->queue, ^{
+      @autoreleasepool {
+        if (s->closed.load()) { dispatch_async(dispatch_get_main_queue(), ^{ result(error(@"disposed", @"Native scene has closed.")); }); return; }
+        NSMutableData *output = [NSMutableData dataWithLength:static_cast<NSUInteger>(capacity)];
+        size_t written = 0;
+        uint32_t status = command(s->renderer, static_cast<const uint8_t *>(packet.bytes), packet.length,
+          static_cast<uint8_t *>(output.mutableBytes), static_cast<size_t>(capacity), &written);
+        if (written > static_cast<size_t>(capacity)) {
+          dispatch_async(dispatch_get_main_queue(), ^{ result(error(@"nativeFailure", @"GPU response exceeded its capacity.")); }); return;
+        }
+        NSString *failure = status == 0 ? @"" : s->api.error();
+        [output setLength:written];
+        dispatch_async(dispatch_get_main_queue(), ^{
+          result(@{@"status": @(status), @"data": [FlutterStandardTypedData typedDataWithBytes:output], @"error": failure});
+        });
+      }
+    });
+    return;
+  }
   if ([call.method isEqualToString:@"close"]) { _sessions.erase(found); close(s, result); return; }
   if ([call.method isEqualToString:@"gpuCommand"]) {
     id kind = args[@"kind"], data = args[@"bytes"];

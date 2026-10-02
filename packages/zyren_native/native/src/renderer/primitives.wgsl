@@ -3,6 +3,7 @@ struct PrimitiveOutput {
     @location(0) corner: vec2<f32>,
     @location(1) @interpolate(flat) circle: u32,
     @location(2) color: vec4<f32>,
+    @location(3) relative_position: vec3<f32>,
 };
 struct ClippedSegment {
     a: vec4<f32>,
@@ -14,9 +15,9 @@ struct ClippedSegment {
 fn clip_segment(a: vec4<f32>, b: vec4<f32>) -> ClippedSegment {
     var first = 0.0;
     var last = 1.0;
-    let starts = vec2<f32>(a.z, a.w - 0.000001);
-    let ends = vec2<f32>(b.z, b.w - 0.000001);
-    for (var plane = 0u; plane < 2u; plane++) {
+    let starts = vec3<f32>(a.z, a.w - a.z, a.w - 0.000001);
+    let ends = vec3<f32>(b.z, b.w - b.z, b.w - 0.000001);
+    for (var plane = 0u; plane < 3u; plane++) {
         let start = starts[plane];
         let end = ends[plane];
         if start < 0.0 && end < 0.0 { return ClippedSegment(a, b, false, 0., 1.); }
@@ -42,7 +43,7 @@ fn camera_up() -> vec3<f32> {
     return normalize(vec3<f32>(vp[0].y, vp[1].y, vp[2].y));
 }
 fn hidden_primitive() -> PrimitiveOutput {
-    return PrimitiveOutput(vec4<f32>(0.0, 0.0, -1.0, 1.0), vec2<f32>(0.0), 0u, vec4(1.));
+    return PrimitiveOutput(vec4<f32>(0.0, 0.0, -1.0, 1.0), vec2<f32>(0.0), 0u, vec4(1.), vec3(0.));
 }
 fn line_vertex(start: vec3<f32>, end: vec3<f32>, vertex: u32, first_color: vec4<f32>, last_color: vec4<f32>) -> PrimitiveOutput {
     let clipped = clip_segment(uniforms.mvp * vec4<f32>(start, 1.0), uniforms.mvp * vec4<f32>(end, 1.0));
@@ -64,11 +65,11 @@ fn line_vertex(start: vec3<f32>, end: vec3<f32>, vertex: u32, first_color: vec4<
         let offset = (right * perpendicular.x + up * perpendicular.y) * corner.y * uniforms.primitive.x * 0.5;
         position += uniforms.view_projection * vec4<f32>(offset, 0.0);
     }
-    return PrimitiveOutput(position, corner, 0u, mix(first_color, last_color, select(clipped.first, clipped.last, corner.x > 0.)));
+    return PrimitiveOutput(position, corner, 0u, mix(first_color, last_color, select(clipped.first, clipped.last, corner.x > 0.)), (uniforms.model * vec4(mix(start,end,select(clipped.first,clipped.last,corner.x>0.)),1.)).xyz);
 }
 fn point_vertex(center: vec3<f32>, vertex: u32, color: vec4<f32>) -> PrimitiveOutput {
     var position = uniforms.mvp * vec4<f32>(center, 1.0);
-    if position.z < 0.0 || position.w < 0.000001 { return hidden_primitive(); }
+    if position.z > position.w || position.z < 0.0 || position.w < 0.000001 { return hidden_primitive(); }
     let corner = quad_corner(vertex);
     if uniforms.primitive.y < 0.5 {
         position = vec4<f32>(position.xy + corner * uniforms.primitive.x / uniforms.viewport.xy * position.w, position.zw);
@@ -76,9 +77,12 @@ fn point_vertex(center: vec3<f32>, vertex: u32, color: vec4<f32>) -> PrimitiveOu
         let offset = (camera_right() * corner.x + camera_up() * corner.y) * uniforms.primitive.x * 0.5;
         position += uniforms.view_projection * vec4<f32>(offset, 0.0);
     }
-    return PrimitiveOutput(position, corner, u32(uniforms.primitive.z), color);
+    return PrimitiveOutput(position, corner, u32(uniforms.primitive.z), color, (uniforms.model * vec4(center,1.)).xyz);
 }
 @fragment fn fs_primitive(input: PrimitiveOutput) -> @location(0) vec4<f32> {
+    let ndc=vec4(input.position.x/uniforms.viewport.x*2.-1., 1.-input.position.y/uniforms.viewport.y*2., input.position.z, 1.);
+    let world=uniforms.inverse_view_projection*ndc;
+    clip_fragment(world.xyz/world.w, input.position.xy);
     if input.circle == 1u && dot(input.corner, input.corner) > 1.0 { discard; }
     return shade(vec3<f32>(0.0, 0.0, 1.0), input.color);
 }

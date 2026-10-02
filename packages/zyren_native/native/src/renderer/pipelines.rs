@@ -16,6 +16,8 @@ pub(super) struct PipelineKey {
     mirrored: bool,
     blend: bool,
     primitive_kind: u32,
+    reversed_depth: bool,
+    depth_equal: bool,
     depth_test: bool,
     depth_write: bool,
 }
@@ -25,6 +27,7 @@ impl PipelineKey {
         mesh: &Mesh,
         tangent: bool,
         sample_count: u32,
+        mask: bool,
     ) -> Self {
         Self {
             format,
@@ -46,8 +49,10 @@ impl PipelineKey {
                 && glam::Mat4::from_cols_array(&mesh.model).determinant() < 0.,
             blend: mesh.alpha_mode == 2,
             primitive_kind: mesh.primitive_kind,
+            reversed_depth: mesh.reversed_depth,
+            depth_equal: mask,
             depth_test: mesh.depth_test,
-            depth_write: mesh.writes_depth(),
+            depth_write: !mask && mesh.writes_depth(),
         }
     }
 }
@@ -143,14 +148,16 @@ impl MeshPipelines {
         format: wgpu::TextureFormat,
         has_tangents: impl Fn(u32) -> bool,
         samples: u32,
+        mask: bool,
     ) -> Result<(), String> {
         if frame.meshes.iter().all(|mesh| {
-            mesh.shader.is_some()
+            (mesh.shader.is_some() || mesh.material_shader.is_some())
                 || self.cache.contains_key(&PipelineKey::new(
                     format,
                     mesh,
                     has_tangents(mesh.geometry),
                     samples,
+                    mask,
                 ))
         }) {
             return Ok(());
@@ -173,10 +180,10 @@ impl MeshPipelines {
         let memory = device.push_error_scope(wgpu::ErrorFilter::OutOfMemory);
         let internal = device.push_error_scope(wgpu::ErrorFilter::Internal);
         for mesh in &frame.meshes {
-            if mesh.shader.is_some() {
+            if mesh.shader.is_some() || mesh.material_shader.is_some() {
                 continue;
             }
-            let key = PipelineKey::new(format, mesh, has_tangents(mesh.geometry), samples);
+            let key = PipelineKey::new(format, mesh, has_tangents(mesh.geometry), samples, mask);
             if key.physical_maps != 0 && !self.physical.contains_key(&key.physical_maps) {
                 self.physical.insert(
                     key.physical_maps,
@@ -382,7 +389,12 @@ impl MeshPipelines {
                 format: wgpu::TextureFormat::Depth32Float,
                 depth_write_enabled: Some(key.depth_write),
                 depth_compare: Some(if key.depth_test {
-                    wgpu::CompareFunction::Less
+                    match (key.reversed_depth, key.depth_equal) {
+                        (true, true) => wgpu::CompareFunction::GreaterEqual,
+                        (true, false) => wgpu::CompareFunction::Greater,
+                        (false, true) => wgpu::CompareFunction::LessEqual,
+                        (false, false) => wgpu::CompareFunction::Less,
+                    }
                 } else {
                     wgpu::CompareFunction::Always
                 }),
@@ -410,6 +422,7 @@ pub(super) fn shader_source(mask: u64) -> String {
             include_str!("../deformation_mesh.wgsl"),
             "\n",
             include_str!("primitives.wgsl"),
+            include_str!("coverage.wgsl"),
             "\n",
             include_str!("pbr.wgsl"),
             "\n",

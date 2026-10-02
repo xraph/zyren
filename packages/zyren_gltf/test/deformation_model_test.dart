@@ -11,6 +11,54 @@ Mesh triangleIn(ModelInstance instance) =>
 
 void main() {
   test(
+    'feature partitions retain skin joints, morph deltas and identity',
+    () async {
+      final model = await load(
+        deformationModel(
+          edit: (root) {
+            root['extensionsUsed'] = ['EXT_mesh_features'];
+            final primitive =
+                (root['meshes'] as List)[0]['primitives'][0] as Map;
+            final attributes = primitive['attributes'] as Map;
+            final accessors = root['accessors'] as List;
+            final position = accessors[attributes['POSITION']] as Map;
+            final views = root['bufferViews'] as List;
+            views.add({
+              ...views[position['bufferView']] as Map,
+              'byteStride': 12,
+            });
+            accessors.add({
+              'bufferView': views.length - 1,
+              'byteOffset': 8,
+              'componentType': 5126,
+              'count': 3,
+              'type': 'SCALAR',
+            });
+            attributes['_FEATURE_ID_0'] = accessors.length - 1;
+            primitive['extensions'] = {
+              'EXT_mesh_features': {
+                'featureIds': [
+                  {'featureCount': 1, 'attribute': 0, 'label': 'part'},
+                ],
+              },
+            };
+          },
+        ),
+      );
+      final instance = model.instantiate();
+      final mesh = triangleIn(instance) as ModelSkinnedMesh;
+      expect(mesh.features.single.id, 0);
+      expect(mesh.features.single.label, 'part');
+      expect(mesh.geometry.morphTargets, hasLength(2));
+      expect(mesh.morphWeights, [.3, .4]);
+      expect(mesh.vertexPosition(0), const Vec3(-4, -1, .7));
+      instance.mixer
+          .play(instance.animations.single)
+          .seek(const Duration(seconds: 1));
+      expect(mesh.morphWeights, [1, 2]);
+    },
+  );
+  test(
     'skin and morph import keep shared geometry and independent instance poses',
     () async {
       final model = await load(deformationModel());

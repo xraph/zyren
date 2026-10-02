@@ -1,7 +1,11 @@
 import 'dart:typed_data';
+import 'device_info.dart';
 import 'package:flutter/services.dart';
 
 Map<String, Object> textureFormatsReply(MethodCall call, {int mask = 7}) {
+  if ((call.arguments as Map)['kind'] == 'graph') {
+    return deviceInfoReply(call.arguments as Map);
+  }
   final request = ByteData.sublistView(
     (call.arguments as Map)['bytes'] as Uint8List,
   );

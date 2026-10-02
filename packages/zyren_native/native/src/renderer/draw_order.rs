@@ -65,7 +65,11 @@ pub(super) fn sorted(
             .then(left.render_order.cmp(&right.render_order))
             .then_with(|| {
                 if blended {
-                    b.depth.total_cmp(&a.depth)
+                    if frame.settings.reversed_depth() {
+                        a.depth.total_cmp(&b.depth)
+                    } else {
+                        b.depth.total_cmp(&a.depth)
+                    }
                 } else {
                     std::cmp::Ordering::Equal
                 }

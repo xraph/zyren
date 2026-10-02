@@ -1,7 +1,7 @@
 part of 'native_renderer.dart';
 
 /// Native scene backends with scoped GPU work and device accounting.
-abstract interface class NativeGpuBackend implements GraphBackend {
+abstract interface class NativeGpuBackend implements MaterialBackend {
   Future<ResourceStats> resourceStats();
   Future<ShaderStats> shaderStats();
   Future<GraphCacheStats> graphStats();
@@ -42,6 +42,7 @@ final class NativeGpuServices {
   final _resources = <ResourceScope>{};
   final _shaders = <ShaderCompiler>{};
   final _graphs = <GraphCompiler>{};
+  final _materials = <MaterialCompiler>{};
   bool _closed = false;
   Future<void>? _closing;
   NativeGpuServices.withTransport(NativeGpuCommandSender send)
@@ -75,6 +76,21 @@ final class NativeGpuServices {
     return compiler;
   }
 
+  MaterialCompiler createMaterialCompiler({String label = ''}) {
+    _checkOpen();
+    final compiler = MaterialCompiler(_device, label: label);
+    _materials.add(compiler);
+    compiler.whenClosed.then((_) => _materials.remove(compiler));
+    return compiler;
+  }
+
+  ScenePacketEncoder createSceneEncoder({required int viewId}) {
+    _checkOpen();
+    return ScenePacketEncoder(viewId: viewId, materialDevice: _device);
+  }
+
+  Future<NativeDeviceInfo> deviceInfo() => _device.deviceInfo();
+
   /// Holds the scene's graph and mesh programs until the native frame completes.
   /// The original scene packet stays immutable.
   Future<T> submitFrame<T>(
@@ -99,6 +115,7 @@ final class NativeGpuServices {
     final errors = <Object>[];
     final work = [
       for (final compiler in _graphs.toList()) compiler.close(),
+      for (final compiler in _materials.toList()) compiler.close(),
       for (final compiler in _shaders.toList()) compiler.close(),
       for (final scope in _resources.toList()) scope.close(),
     ];

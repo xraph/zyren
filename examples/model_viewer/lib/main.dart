@@ -95,6 +95,10 @@ class _ModelViewerState extends State<ModelViewer> {
       if (mounted && action != null) setState(() {});
     });
     controller.scene.background = const Color3(.025, .04, .065);
+    controller.scene.renderSettings = RenderSettings(
+      toneMapping: ToneMapping.aces,
+      spatialAntialiasing: SpatialAntialiasing.fxaa,
+    );
     gestures = [
       controller.input.registerGesture(SceneGesture.scale),
       controller.input.registerGesture(SceneGesture.scroll),
@@ -645,7 +649,14 @@ class _ModelViewerState extends State<ModelViewer> {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  SceneView(controller: controller, onPointer: pointer),
+                  SceneView(
+                    controller: controller,
+                    onPointer: pointer,
+                    resolutionScale: math.min(
+                      1,
+                      1 / MediaQuery.devicePixelRatioOf(context),
+                    ),
+                  ),
                   if (instance == null && !busy && error.isEmpty)
                     ZeroState(
                       title: 'Load a 3D model',

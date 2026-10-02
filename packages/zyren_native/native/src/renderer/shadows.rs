@@ -22,9 +22,14 @@ struct DepthUniform {
     mvp: [f32; 16],
     params: [f32; 4],
     side: [f32; 4],
+    model: [f32; 16],
+    clipping_planes: [[f32; 4]; 6],
+    clipping: [f32; 4],
 }
 #[derive(Clone, PartialEq)]
 struct Caster {
+    clipping_planes: Vec<[f32; 4]>,
+    coverage: [f32; 2],
     geometry: u32,
     instances: u32,
     pose: u32,
@@ -189,6 +194,7 @@ impl ShadowSystem {
                 source: wgpu::ShaderSource::Wgsl(
                     concat!(
                         include_str!("shadow_depth.wgsl"),
+                        include_str!("coverage.wgsl"),
                         "\n",
                         include_str!("../deformation.wgsl"),
                         "\n",
@@ -481,6 +487,8 @@ impl Renderer {
                     .iter()
                     .filter(|m| m.cast_shadow)
                     .map(|m| Caster {
+                        clipping_planes: m.clipping_planes.clone(),
+                        coverage: m.coverage,
                         geometry: m.geometry,
                         instances: m.instances,
                         pose: m.pose,
@@ -562,6 +570,14 @@ impl Renderer {
                         state.shadows.pipelines.insert(key, pipeline);
                     }
                     let params = DepthUniform {
+                        model: mesh.model,
+                        clipping_planes: section_planes(mesh),
+                        clipping: [
+                            mesh.clipping_planes.len() as f32,
+                            mesh.coverage[0],
+                            mesh.coverage[1],
+                            0.,
+                        ],
                         side: [
                             if mesh.instances != 0 {
                                 mesh.side as f32

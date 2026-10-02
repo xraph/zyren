@@ -27,9 +27,6 @@ enum Resource {
     },
     Texture {
         texture: wgpu::Texture,
-        width: u32,
-        height: u32,
-        mips: u32,
         usage: u32,
     },
 }
@@ -73,19 +70,14 @@ fn aligned_range(offset: u64, length: u64, size: u64) -> Result<(), ResourceErro
     }
     Ok(())
 }
-fn mip_extent(
-    width: u32,
-    height: u32,
-    mips: u32,
-    level: u32,
-) -> Result<wgpu::Extent3d, ResourceError> {
-    if level >= mips {
+fn mip_extent(texture: &wgpu::Texture, level: u32) -> Result<wgpu::Extent3d, ResourceError> {
+    if level >= texture.mip_level_count() {
         return Err(ResourceError::InvalidRange);
     }
     Ok(wgpu::Extent3d {
-        width: (width >> level).max(1),
-        height: (height >> level).max(1),
-        depth_or_array_layers: 1,
+        width: (texture.width() >> level).max(1),
+        height: (texture.height() >> level).max(1),
+        depth_or_array_layers: (texture.depth_or_array_layers() >> level).max(1),
     })
 }
 impl ResourceStore {
@@ -431,9 +423,6 @@ impl ResourceStore {
         let key = self.registry.insert(
             Resource::Texture {
                 texture,
-                width: image.width,
-                height: image.height,
-                mips: image.mip_count(),
                 usage: if image.mip_generation != 0 { 11 } else { 9 },
             },
             bytes,
@@ -558,17 +547,10 @@ impl ResourceStore {
             Operation::TextureFormats => 4,
             Operation::ReadBuffer(_, _, length) => *length,
             Operation::ReadTexture(key, mip) => {
-                let Resource::Texture {
-                    texture,
-                    width,
-                    height,
-                    mips,
-                    ..
-                } = self.registry.resolve(*key)?
-                else {
+                let Resource::Texture { texture, .. } = self.registry.resolve(*key)? else {
                     return Err(ResourceError::InvalidUsage);
                 };
-                let extent = mip_extent(*width, *height, *mips, *mip)?;
+                let extent = mip_extent(texture, *mip)?;
                 let (_, row, rows) =
                     texture_format::copy_layout(texture.format(), extent.width, extent.height);
                 u64::from(row) * u64::from(rows)
@@ -619,9 +601,12 @@ impl ResourceStore {
             Operation::CreateTexture(d) => {
                 let format = texture_format::require(device, d.format)?;
                 self.registry.check_capacity(d.byte_length())?;
-                if d.width > device.limits().max_texture_dimension_2d
-                    || d.height > device.limits().max_texture_dimension_2d
-                {
+                let maximum = if d.dimension == 1 {
+                    device.limits().max_texture_dimension_3d
+                } else {
+                    device.limits().max_texture_dimension_2d
+                };
+                if d.width > maximum || d.height > maximum || d.depth > maximum {
                     return Err(ResourceError::InvalidRange);
                 }
                 let flags = [
@@ -636,26 +621,45 @@ impl ResourceStore {
                     .enumerate()
                     .filter(|(i, _)| d.usage & (1 << i) != 0)
                     .fold(wgpu::TextureUsages::empty(), |a, (_, b)| a | b);
+
+                if !format
+                    .guaranteed_format_features(device.features())
+                    .allowed_usages
+                    .contains(usage)
+                {
+                    return Err(ResourceError::InvalidUsage);
+                }
+                let validation = device.push_error_scope(wgpu::ErrorFilter::Validation);
+                let memory = device.push_error_scope(wgpu::ErrorFilter::OutOfMemory);
+                let internal = device.push_error_scope(wgpu::ErrorFilter::Internal);
                 let texture = device.create_texture(&wgpu::TextureDescriptor {
                     label: Some(d.label),
                     size: wgpu::Extent3d {
                         width: d.width,
                         height: d.height,
-                        depth_or_array_layers: 1,
+                        depth_or_array_layers: d.depth,
                     },
                     mip_level_count: d.mip_levels,
                     sample_count: 1,
-                    dimension: wgpu::TextureDimension::D2,
+                    dimension: if d.dimension == 1 {
+                        wgpu::TextureDimension::D3
+                    } else {
+                        wgpu::TextureDimension::D2
+                    },
                     format,
                     usage,
                     view_formats: &[],
                 });
+                let mut failed = false;
+                for scope in [internal, memory, validation] {
+                    failed |= pollster::block_on(scope.pop()).is_some();
+                }
+                if failed {
+                    return Err(ResourceError::DeviceFailed);
+                }
                 key_bytes(self.registry.insert(
                     Resource::Texture {
                         texture,
-                        width: d.width,
-                        height: d.height,
-                        mips: d.mip_levels,
                         usage: d.usage,
                     },
                     d.byte_length(),
@@ -681,23 +685,18 @@ impl ResourceStore {
                 Vec::new()
             }
             Operation::WriteTexture(key, level, data) => {
-                let Resource::Texture {
-                    texture,
-                    width,
-                    height,
-                    mips,
-                    usage,
-                } = self.registry.resolve(key)?
-                else {
+                let Resource::Texture { texture, usage } = self.registry.resolve(key)? else {
                     return Err(ResourceError::InvalidUsage);
                 };
                 if usage & 8 == 0 {
                     return Err(ResourceError::InvalidUsage);
                 }
-                let extent = mip_extent(*width, *height, *mips, level)?;
-                let (extent, row, rows) =
+                let extent = mip_extent(texture, level)?;
+                let depth = extent.depth_or_array_layers;
+                let (mut extent, row, rows) =
                     texture_format::copy_layout(texture.format(), extent.width, extent.height);
-                if data.len() as u64 != u64::from(row) * u64::from(rows) {
+                extent.depth_or_array_layers = depth;
+                if data.len() as u64 != u64::from(row) * u64::from(rows) * u64::from(depth) {
                     return Err(ResourceError::InvalidRange);
                 }
                 queue.write_texture(
@@ -770,26 +769,21 @@ impl ResourceStore {
                 self.readback(device, &staging)?
             }
             Operation::ReadTexture(key, level) => {
-                let Resource::Texture {
-                    texture,
-                    width,
-                    height,
-                    mips,
-                    usage,
-                } = self.registry.resolve(key)?
-                else {
+                let Resource::Texture { texture, usage } = self.registry.resolve(key)? else {
                     return Err(ResourceError::InvalidUsage);
                 };
                 if usage & 4 == 0 {
                     return Err(ResourceError::InvalidUsage);
                 }
-                let extent = mip_extent(*width, *height, *mips, level)?;
-                let (extent, row, rows) =
+                let extent = mip_extent(texture, level)?;
+                let depth = extent.depth_or_array_layers;
+                let (mut extent, row, rows) =
                     texture_format::copy_layout(texture.format(), extent.width, extent.height);
+                extent.depth_or_array_layers = depth;
                 let stride = row.div_ceil(256) * 256;
                 let staging = device.create_buffer(&wgpu::BufferDescriptor {
                     label: Some("texture readback"),
-                    size: stride as u64 * rows as u64,
+                    size: stride as u64 * rows as u64 * depth as u64,
                     usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
                     mapped_at_creation: false,
                 });

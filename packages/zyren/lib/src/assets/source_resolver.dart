@@ -12,24 +12,34 @@ final class ResolvedSource {
   final Uri effectiveUri;
   final Uint8List bytes;
   final String? mediaType;
+
+  /// Response metadata, with lower-case HTTP header names when applicable.
+  final Map<String, String> headers;
   ResolvedSource({
     required this.effectiveUri,
     required Uint8List bytes,
     this.mediaType,
-  }) : bytes = Uint8List.fromList(bytes).asUnmodifiableView();
+    Map<String, String> headers = const {},
+  }) : headers = Map.unmodifiable(headers),
+       bytes = Uint8List.fromList(bytes).asUnmodifiableView();
 }
 
 final class SourceReadContext {
   final int maxBytes;
   final LoadCancellation cancellation;
   final SourcePolicy policy;
+
+  /// Per-read headers. Transports must not forward them across origins.
+  final Map<String, String> headers;
   final void Function(int received, int? total) _onProgress;
   SourceReadContext({
     required this.maxBytes,
     required this.cancellation,
     required this.policy,
+    Map<String, String> headers = const {},
     required void Function(int received, int? total) onProgress,
-  }) : _onProgress = onProgress;
+  }) : headers = Map.unmodifiable(headers),
+       _onProgress = onProgress;
 
   void reportProgress(int received, [int? total]) {
     cancellation.throwIfCancelled();

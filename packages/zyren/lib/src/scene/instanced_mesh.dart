@@ -37,6 +37,7 @@ final class InstancedMesh extends Mesh {
 
   Mat4 getTransform(int index) =>
       _transforms[RangeError.checkValidIndex(index, _transforms, 'index')];
+  Mat4 transformAt(int index) => getTransform(index);
   void setTransform(int index, Mat4 transform) =>
       setTransforms(index, [transform]);
 

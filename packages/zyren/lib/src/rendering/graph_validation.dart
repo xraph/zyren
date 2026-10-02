@@ -169,6 +169,16 @@ _prepareGraph(GraphDescription graph, GraphDevice device) {
       'after': pass.after.toList(),
     };
     switch (pass) {
+      case _MaterialPassDescriptor(:final descriptor):
+        entryPoint(descriptor.vertexEntryPoint, ShaderStage.vertex);
+        entryPoint(descriptor.fragmentEntryPoint, ShaderStage.fragment);
+        command.addAll({
+          'kind': 'material',
+          'vertexEntryPoint': descriptor.vertexEntryPoint,
+          'fragmentEntryPoint': descriptor.fragmentEntryPoint,
+          'requiresUv': descriptor.requiresUv,
+          'screenSpace': descriptor is PostProcessDescriptor,
+        });
       case ComputePassDescriptor():
         entryPoint(pass.entryPoint, ShaderStage.compute);
         final groups = [
@@ -218,6 +228,7 @@ _prepareGraph(GraphDescription graph, GraphDevice device) {
           color.clearColor.alpha,
         ];
         if (!descriptor.usage.contains(TextureUsage.renderAttachment) ||
+            descriptor.dimension != TextureDimension.d2 ||
             color.mipLevel < 0 ||
             color.mipLevel >= descriptor.mipLevels ||
             clear.any(
@@ -238,6 +249,7 @@ _prepareGraph(GraphDescription graph, GraphDevice device) {
           'vertexCount': pass.vertexCount,
           'instanceCount': pass.instanceCount,
           'sampleCount': pass.sampleCount,
+          'blend': pass.blend.name,
           'color': {
             'key': resource._key,
             'mipLevel': color.mipLevel,

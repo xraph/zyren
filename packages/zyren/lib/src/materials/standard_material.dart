@@ -6,7 +6,8 @@ base class StandardMaterial extends MeshMaterial {
   final double metallic, roughness, emissiveIntensity;
   final Color3 emissive;
   final TextureMap? normalMap, metallicRoughnessMap, occlusionMap, emissiveMap;
-  final double normalScale, occlusionStrength;
+  final double normalScale, normalScaleY, occlusionStrength;
+  double get normalScaleX => normalScale;
   @override
   Iterable<TextureMap> get textureMaps => [
     ...super.textureMaps,
@@ -24,7 +25,11 @@ base class StandardMaterial extends MeshMaterial {
     this.metallicRoughnessMap,
     this.occlusionMap,
     this.emissiveMap,
-    this.normalScale = 1,
+    double normalScale = 1,
+    double? normalScaleX,
+    double? normalScaleY,
+    Color3? color,
+    TextureMap? colorMap,
     this.occlusionStrength = 1,
     this.metallic = 0,
     this.roughness = 1,
@@ -37,7 +42,9 @@ base class StandardMaterial extends MeshMaterial {
     super.depthTest,
     super.vertexColors,
     super.depthWrite,
-  }) : super(color: baseColor, colorMap: baseColorMap) {
+  }) : normalScale = normalScaleX ?? normalScale,
+       normalScaleY = normalScaleY ?? normalScale,
+       super(color: color ?? baseColor, colorMap: colorMap ?? baseColorMap) {
     for (final entry in {
       'metallic': metallic,
       'roughness': roughness,
@@ -47,7 +54,10 @@ base class StandardMaterial extends MeshMaterial {
         throw ArgumentError.value(entry.value, entry.key, 'Expected [0, 1].');
       }
     }
-    if (!normalScale.isFinite || normalScale.abs() > 1e6) {
+    if (![
+      this.normalScale,
+      this.normalScaleY,
+    ].every((v) => v.isFinite && v.abs() <= 1e6)) {
       throw ArgumentError.value(
         normalScale,
         'normalScale',
@@ -81,6 +91,8 @@ base class StandardMaterial extends MeshMaterial {
   @override
   bool get unlit => false;
   StandardMaterial copyWith({
+    Color3? color,
+    TextureMap? colorMap,
     Color3? baseColor,
     TextureMap? baseColorMap,
     bool clearBaseColorMap = false,
@@ -93,6 +105,8 @@ base class StandardMaterial extends MeshMaterial {
     bool clearOcclusionMap = false,
     bool clearEmissiveMap = false,
     double? normalScale,
+    double? normalScaleX,
+    double? normalScaleY,
     double? occlusionStrength,
     double? metallic,
     double? roughness,
@@ -106,8 +120,10 @@ base class StandardMaterial extends MeshMaterial {
     bool? vertexColors,
     DepthWrite? depthWrite,
   }) => StandardMaterial(
-    baseColor: baseColor ?? this.baseColor,
-    baseColorMap: clearBaseColorMap ? null : baseColorMap ?? this.baseColorMap,
+    baseColor: color ?? baseColor ?? this.baseColor,
+    baseColorMap: clearBaseColorMap
+        ? null
+        : colorMap ?? baseColorMap ?? this.baseColorMap,
     normalMap: clearNormalMap ? null : normalMap ?? this.normalMap,
     metallicRoughnessMap: clearMetallicRoughnessMap
         ? null
@@ -115,6 +131,8 @@ base class StandardMaterial extends MeshMaterial {
     occlusionMap: clearOcclusionMap ? null : occlusionMap ?? this.occlusionMap,
     emissiveMap: clearEmissiveMap ? null : emissiveMap ?? this.emissiveMap,
     normalScale: normalScale ?? this.normalScale,
+    normalScaleX: normalScaleX ?? normalScale ?? this.normalScaleX,
+    normalScaleY: normalScaleY ?? normalScale ?? this.normalScaleY,
     occlusionStrength: occlusionStrength ?? this.occlusionStrength,
     metallic: metallic ?? this.metallic,
     roughness: roughness ?? this.roughness,

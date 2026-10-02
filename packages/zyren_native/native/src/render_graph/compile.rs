@@ -148,6 +148,12 @@ impl GraphStore {
                 let mut vertex_count = 0;
                 let mut instance_count = 0;
                 let (vertex, fragment, compute) = match pass.kind {
+                    Kind::Material => {
+                        return Err(GraphError::new(
+                            "invalidDescriptor",
+                            "Use the material compiler for mesh shaders",
+                        ));
+                    }
                     Kind::Compute => {
                         if pass.color.is_some()
                             || pass.vertex_entry_point.is_some()
@@ -155,6 +161,7 @@ impl GraphStore {
                             || pass.vertex_count.is_some()
                             || pass.instance_count.is_some()
                             || pass.sample_count.is_some()
+                            || pass.blend.is_some()
                         {
                             return Err(GraphError::new(
                                 "invalidDescriptor",
@@ -195,6 +202,7 @@ impl GraphStore {
                         if !texture
                             .usage()
                             .contains(wgpu::TextureUsages::RENDER_ATTACHMENT)
+                            || texture.dimension() != wgpu::TextureDimension::D2
                             || target.mip_level >= texture.mip_level_count()
                             || target
                                 .clear
@@ -302,6 +310,7 @@ impl GraphStore {
                     fragment: fragment.to_owned(),
                     compute: compute.to_owned(),
                     format,
+                    blend: pass.blend.unwrap_or_default(),
                 };
                 let pipeline = if let Some(pipeline) =
                     self.cache.get(&cache_key).and_then(Weak::upgrade)
@@ -353,7 +362,7 @@ impl GraphStore {
                                     compilation_options: Default::default(),
                                     targets: &[Some(wgpu::ColorTargetState {
                                         format: format.unwrap(),
-                                        blend: None,
+                                        blend: pass.blend.unwrap_or_default().state(),
                                         write_mask: wgpu::ColorWrites::ALL,
                                     })],
                                 }),

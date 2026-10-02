@@ -247,9 +247,17 @@ class _SceneViewState extends State<SceneView>
       });
     }
     if (!visible) {
+      controller._input.suspend();
       _stopTicker();
       return;
     }
+    // Attachment can finish between layouts. Plugins need the last measured
+    // logical size before engine startup, including its first frame.
+    controller._input.viewport = ViewportMetrics(
+      _size.width,
+      _size.height,
+      devicePixelRatio: _dpr,
+    );
     controller._start();
     if (controller._engine != null && controller._scheduler.needsFrame) {
       if (!_ticker.isActive) _ticker.start();
@@ -428,6 +436,11 @@ class _SceneViewState extends State<SceneView>
         });
       }
       final status = _controller?.status.value;
+      _controller?._input.viewport = ViewportMetrics(
+        _size.width,
+        _size.height,
+        devicePixelRatio: _dpr,
+      );
       final issue =
           _localIssue ?? (status is SceneFailed ? status.issue : null);
       if (issue != null) {

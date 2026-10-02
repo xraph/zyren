@@ -8,6 +8,7 @@ pub const MAX_DIMENSION: u32 = 4096;
 pub const MAX_VERTICES: usize = 1_000_000;
 pub const MAX_INDICES: usize = 3_000_000;
 pub const MAX_MESHES: usize = 4096;
+pub const MAX_INSTANCES: usize = 65536;
 
 #[derive(Clone, Copy, Default, PartialEq, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -130,6 +131,16 @@ impl Geometry {
                 return Err("UV attributes need two finite values per vertex".into());
             }
         }
+        if !self.tangents.is_empty()
+            && (self.tangents.len() != self.positions.len()
+                || self.tangents.iter().any(|v| {
+                    v.iter().any(|c| !c.is_finite())
+                        || glam::Vec3::new(v[0], v[1], v[2]).length_squared() < 1e-12
+                        || (v[3] != -1. && v[3] != 1.)
+                }))
+        {
+            return Err("tangents need a nonzero direction and handedness of +/-1".into());
+        }
         if self.positions.is_empty() || self.positions.len() > MAX_VERTICES {
             return Err("geometry vertex count is outside the supported range".into());
         }
@@ -168,6 +179,10 @@ impl Geometry {
 #[derive(Clone, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Mesh {
+    #[serde(skip)]
+    pub reversed_depth: bool,
+    #[serde(skip)]
+    pub outline_pass: bool,
     #[serde(default = "enabled")]
     pub color_visible: bool,
     #[serde(default)]
@@ -196,6 +211,8 @@ pub struct Mesh {
     pub alpha_mode: u32,
     #[serde(default)]
     pub side: u32,
+    #[serde(default)]
+    pub material_shader: Option<[u64; 4]>,
     #[serde(default = "one")]
     pub opacity: f32,
     #[serde(default = "half")]
@@ -214,6 +231,12 @@ pub struct Mesh {
     pub size_units: u32,
     #[serde(default)]
     pub point_shape: u32,
+    #[serde(default)]
+    pub clipping_planes: Vec<[f32; 4]>,
+    #[serde(default)]
+    pub outlined: bool,
+    #[serde(default = "full_coverage")]
+    pub coverage: [f32; 2],
 }
 fn one_instance() -> u32 {
     1
@@ -227,9 +250,24 @@ fn half() -> f32 {
 fn enabled() -> bool {
     true
 }
+fn full_coverage() -> [f32; 2] {
+    [0., 1.]
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct MeshExtension {
+    pub material_shader: Option<[u64; 4]>,
+    pub clipping_planes: Vec<[f32; 4]>,
+    pub coverage: [f32; 2],
+    pub outlined: bool,
+    pub normal_scale_y: Option<f32>,
+}
 impl Default for Mesh {
     fn default() -> Self {
         Self {
+            reversed_depth: false,
+            outline_pass: false,
             color_visible: true,
             cast_shadow: false,
             receive_shadow: false,
@@ -246,6 +284,7 @@ impl Default for Mesh {
             pbr: None,
             alpha_mode: 0,
             side: 0,
+            material_shader: None,
             opacity: 1.,
             alpha_cutoff: 0.5,
             depth_test: true,
@@ -255,6 +294,9 @@ impl Default for Mesh {
             primitive_size: 1.,
             size_units: 0,
             point_shape: 0,
+            clipping_planes: Vec::new(),
+            outlined: false,
+            coverage: [0., 1.],
         }
     }
 }
@@ -282,6 +324,19 @@ impl Mesh {
         self.depth_write.unwrap_or(self.alpha_mode != 2)
     }
     pub fn validate_material(&self) -> Result<(), String> {
+        if self.shader.is_some() && self.material_shader.is_some() {
+            return Err("A mesh requires one shader implementation".into());
+        }
+        if (self.shader.is_some() || self.material_shader.is_some())
+            && !self.clipping_planes.is_empty()
+            || self.clipping_planes.len() > 6
+            || self.clipping_planes.iter().any(|p| {
+                p.iter().any(|v| !v.is_finite())
+                    || (glam::Vec3::new(p[0], p[1], p[2]).length_squared() - 1.).abs() > 1e-4
+            })
+        {
+            return Err("Invalid clipping planes".into());
+        }
         if self.pose != 0 && self.primitive_kind != 0 {
             return Err("deformation requires triangle materials".into());
         }
@@ -294,7 +349,11 @@ impl Mesh {
         }
         if let Some(pbr) = &self.pbr {
             pbr.validate()?;
-            if self.unlit || self.primitive_kind != 0 || self.shader.is_some() {
+            if self.unlit
+                || self.primitive_kind != 0
+                || self.shader.is_some()
+                || self.material_shader.is_some()
+            {
                 return Err("standard material cannot be unlit, expanded or custom".into());
             }
         }
@@ -310,6 +369,15 @@ impl Mesh {
             || (self.primitive_kind != 0 && (self.color_map.is_some() || !self.unlit))
         {
             return Err("invalid primitive material".into());
+        }
+        if self.coverage.iter().any(|v| !v.is_finite())
+            || self.coverage[0] < 0.
+            || self.coverage[1] > 1.
+            || self.coverage[0] > self.coverage[1]
+            || ((self.shader.is_some() || self.material_shader.is_some())
+                && self.coverage != [0., 1.])
+        {
+            return Err("invalid or unsupported fragment coverage".into());
         }
         if self.alpha_mode > 2
             || !self.opacity.is_finite()
@@ -411,6 +479,132 @@ impl SceneTexture {
 
 #[derive(Clone, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct EnvironmentMap {
+    pub keys: [[u64; 4]; 3],
+    pub intensity: f32,
+    pub rotation: f32,
+}
+
+#[derive(Clone, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BloomSettings {
+    pub intensity: f32,
+    pub threshold: f32,
+    pub soft_knee: f32,
+    pub scatter: f32,
+    pub levels: u32,
+}
+impl BloomSettings {
+    fn validate(&self) -> Result<(), String> {
+        if !self.intensity.is_finite()
+            || !(0.0..=16.).contains(&self.intensity)
+            || !self.threshold.is_finite()
+            || !(0.0..=65504.).contains(&self.threshold)
+            || !self.soft_knee.is_finite()
+            || !(0.0..=1.).contains(&self.soft_knee)
+            || !self.scatter.is_finite()
+            || !(0.0..=1.).contains(&self.scatter)
+            || !(1..=6).contains(&self.levels)
+        {
+            return Err("Invalid bloom parameters".into());
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, PartialEq, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct RenderSettings {
+    pub outline: Option<OutlineSettings>,
+    pub enabled: bool,
+    pub sample_count: u32,
+    pub depth_strategy: u32,
+    pub spatial_antialiasing: u32,
+    pub bloom: Option<BloomSettings>,
+    pub effects: Vec<[u64; 4]>,
+    pub tone_mapping: u32,
+    pub exposure: f32,
+    pub background_alpha: f32,
+    pub history_epoch: u32,
+    pub camera_origin: [f64; 3],
+    pub environment: Option<EnvironmentMap>,
+}
+impl Default for RenderSettings {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            outline: None,
+            sample_count: 1,
+            depth_strategy: 0,
+            spatial_antialiasing: 0,
+            bloom: None,
+            effects: vec![],
+            tone_mapping: 0,
+            exposure: 1.,
+            background_alpha: 1.,
+            history_epoch: 0,
+            camera_origin: [0.; 3],
+            environment: None,
+        }
+    }
+}
+impl RenderSettings {
+    pub fn reversed_depth(&self) -> bool {
+        self.depth_strategy == 1
+    }
+    pub fn depth_clear(&self) -> f32 {
+        if self.reversed_depth() { 0. } else { 1. }
+    }
+    pub fn depth_near(&self) -> f32 {
+        if self.reversed_depth() { 1. } else { 0. }
+    }
+    pub fn validate(&self) -> Result<(), String> {
+        if self.outline.as_ref().is_some_and(|o| {
+            !(1..=8).contains(&o.width)
+                || o.color
+                    .iter()
+                    .any(|v| !v.is_finite() || !(0.0..=1.).contains(v))
+        }) {
+            return Err("Invalid outline settings".into());
+        }
+        if self.environment.as_ref().is_some_and(|e| {
+            !e.intensity.is_finite()
+                || !(0.0..=65504.).contains(&e.intensity)
+                || !e.rotation.is_finite()
+        }) {
+            return Err("Invalid environment parameters".into());
+        }
+        if let Some(bloom) = &self.bloom {
+            bloom.validate()?;
+        }
+        if self.depth_strategy > 1
+            || self.spatial_antialiasing > 1
+            || ((self.spatial_antialiasing != 0 || self.bloom.is_some()) && !self.enabled)
+            || ![1, 4].contains(&self.sample_count)
+            || (self.sample_count != 1 && !self.enabled)
+            || self.camera_origin.iter().any(|v| !v.is_finite())
+            || self.effects.len() > 8
+            || self.tone_mapping > 2
+            || !self.exposure.is_finite()
+            || !(0.0..=65504.).contains(&self.exposure)
+            || !self.background_alpha.is_finite()
+            || !(0.0..=1.).contains(&self.background_alpha)
+        {
+            return Err("Invalid render settings".into());
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OutlineSettings {
+    pub color: [f32; 4],
+    pub width: u32,
+}
+
+#[derive(Clone, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Frame {
     #[serde(skip)]
     pub temporal: Option<crate::temporal::TemporalInput>,
@@ -421,6 +615,8 @@ pub struct Frame {
     #[serde(default)]
     pub color_pipeline: Option<ColorPipeline>,
     pub version: u32,
+    #[serde(default)]
+    pub settings: RenderSettings,
     pub view_projection: [f32; 16],
     pub background: [f64; 3],
     #[serde(default = "one")]
@@ -477,9 +673,10 @@ impl ColorPipeline {
 impl Frame {
     pub fn sample_count(&self) -> u32 {
         self.color_pipeline
-            .map_or(1, |pipeline| pipeline.sample_count)
+            .map_or(self.settings.sample_count, |pipeline| pipeline.sample_count)
     }
     pub fn validate(&self, cached: &HashSet<u32>) -> Result<(), String> {
+        self.settings.validate()?;
         self.shadows
             .validate_with_areas(&self.lights, &self.areas)?;
         if let Some(temporal) = &self.temporal {
@@ -543,6 +740,7 @@ impl Frame {
         if vertices > MAX_VERTICES || indices > MAX_INDICES {
             return Err("geometry upload exceeds the per-frame budget".into());
         }
+
         for mesh in &self.meshes {
             mesh.validate_material()?;
             if !cached.contains(&mesh.geometry) && !added.contains(&mesh.geometry) {

@@ -4,7 +4,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:zyren/rendering.dart';
 import 'package:zyren/zyren.dart'
-    show ResourceScope, ShaderCompiler, GraphCompiler, TextureFormat;
+    show
+        ResourceScope,
+        ShaderCompiler,
+        GraphCompiler,
+        MaterialCompiler,
+        TextureFormat;
 import 'package:zyren_native/surfaces.dart';
 import 'package:zyren_native/zyren_native.dart';
 import '../presentation.dart';
@@ -26,9 +31,10 @@ SceneException _deferred() => _issue(
 class NativeAndroidBackend implements NativeGpuBackend {
   final int session;
   Set<TextureFormat> _textureFormats = const {};
+  Set<int> _sampleCounts = const {1};
   final String adapter;
   final String? driver;
-  final _encoder = ScenePacketEncoder(viewId: 1);
+  late final _encoder = _gpu.createSceneEncoder(viewId: 1);
   bool _closed = false;
   int _nextFrame = 0, _nextAttachment = 0;
   Future<FrameOutput>? _drawing;
@@ -37,6 +43,9 @@ class NativeAndroidBackend implements NativeGpuBackend {
     (args) async => (await request<Map>('gpuCommand', args))!,
   );
   NativeAndroidBackend._(this.session, this.adapter, this.driver);
+  bool get gpuOwnerClosed => _closed;
+  Future<Map> gpuRequest(Map<String, Object> arguments) async =>
+      (await request<Map>('gpu', arguments))!;
 
   @override
   ResourceScope createResourceScope({String label = ''}) =>
@@ -47,6 +56,9 @@ class NativeAndroidBackend implements NativeGpuBackend {
   @override
   GraphCompiler createGraphCompiler({String label = ''}) =>
       _gpu.createGraphCompiler(label: label);
+  @override
+  MaterialCompiler createMaterialCompiler({String label = ''}) =>
+      _gpu.createMaterialCompiler(label: label);
   @override
   Future<ResourceStats> resourceStats() => _gpu.resourceStats();
   @override
@@ -86,6 +98,7 @@ class NativeAndroidBackend implements NativeGpuBackend {
       );
       try {
         backend._textureFormats = await backend._gpu.textureFormats();
+        backend._sampleCounts = (await backend._gpu.deviceInfo()).sampleCounts;
         return backend;
       } catch (_) {
         await backend.close();
@@ -114,6 +127,19 @@ class NativeAndroidBackend implements NativeGpuBackend {
     adapterName: adapter,
     driverDescription: driver,
     features: {
+      if (_sampleCounts.contains(4)) RenderFeature.multisampleAntialiasing,
+      RenderFeature.shaderMaterials,
+      RenderFeature.postprocessing,
+      RenderFeature.punctualLights,
+      RenderFeature.shadowMaps,
+      RenderFeature.spatialAntialiasing,
+      RenderFeature.bloom,
+      RenderFeature.sectionClipping,
+      RenderFeature.floatTextures,
+      RenderFeature.volumeTextures,
+      RenderFeature.hdr,
+      RenderFeature.reversedDepth,
+      RenderFeature.selectionOutlines,
       RenderFeature.sharedTexture,
       RenderFeature.indexedMeshes,
       RenderFeature.diffuseLighting,
@@ -142,7 +168,8 @@ class NativeAndroidBackend implements NativeGpuBackend {
     },
     limits: DeviceLimits(
       maxTextureDimension2D: 4096,
-      sampleCounts: {1, 4},
+      maxTextureDimension3D: 256,
+      sampleCounts: _sampleCounts,
       maxResidentResourceBytes: 256 * 1024 * 1024,
       maxGeometryBytes: 64 * 1024 * 1024,
       maxInstances: 100000,

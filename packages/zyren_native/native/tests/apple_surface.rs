@@ -1,9 +1,9 @@
 #![cfg(target_vendor = "apple")]
+use std::mem::size_of;
 use zyren_runtime::{
     fg_create, fg_destroy,
     interop::{abi::*, apple::*},
 };
-use std::mem::size_of;
 
 #[test]
 #[ignore = "requires Metal and IOSurface"]

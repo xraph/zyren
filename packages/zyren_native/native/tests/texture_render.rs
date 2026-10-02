@@ -1,5 +1,5 @@
-use zyren_runtime::{renderer::Renderer, scene::Frame, scene_packet::ScenePacket};
 use serde_json::json;
+use zyren_runtime::{renderer::Renderer, scene::Frame, scene_packet::ScenePacket};
 
 fn image_packet() -> Vec<u8> {
     let mut body = Vec::new();

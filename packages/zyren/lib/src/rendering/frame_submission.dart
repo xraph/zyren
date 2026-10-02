@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:convert';
 import 'color_pipeline.dart';
 import 'temporal_aa_options.dart';
 import 'dart:math' as math;
@@ -7,6 +8,7 @@ import '../geometry/geometry.dart';
 import '../geometry/vertex_attribute.dart';
 import '../resources/texture_image.dart';
 import '../scene/scene.dart';
+import 'depth_strategy.dart';
 import '../math/mat4.dart';
 import '../spatial/frustum.dart';
 import 'frame_output.dart';
@@ -32,6 +34,7 @@ class FrameTime {
 class CameraSnapshot {
   final List<double> origin, viewProjection, projection, forward;
   final int identity;
+  final DepthStrategy depthStrategy;
   final double targetDistance;
   CameraSnapshot._(
     Iterable<double> origin,
@@ -40,6 +43,7 @@ class CameraSnapshot {
     Iterable<double> forward,
     this.identity,
     this.targetDistance,
+    this.depthStrategy,
   ) : forward = List.unmodifiable(forward),
       origin = List.unmodifiable(origin),
       viewProjection = List.unmodifiable(viewProjection),
@@ -69,6 +73,8 @@ class SceneSnapshot {
   final Map<int, TextureImage> _textures;
   final List<double> _background, _light;
   final double _ambient;
+  final RenderSettings _settings;
+  final SceneOutline? _outline;
   final double backgroundOpacity;
 
   /// One resolve draw converts a transparent scene to straight color.
@@ -93,16 +99,33 @@ class SceneSnapshot {
             )
             .length
       : 0;
-  int get drawCalls => _meshes.fold(
-    0,
-    (n, mesh) =>
-        n +
-        (mesh['color_visible'] == false
-            ? 0
-            : mesh['alpha_mode'] == 2
-            ? mesh['instance_count'] as int
-            : 1),
-  );
+  bool get usesScreenEffects => _settings.copyWith(backgroundAlpha: 1).enabled;
+  int get outlineDrawCalls =>
+      _outline != null &&
+          _outline.opacity > 0 &&
+          _meshes.any((m) => m['outlined'] == true)
+      ? 1 +
+            _meshes
+                .where((m) => m['outlined'] == true)
+                .fold<int>(
+                  0,
+                  (n, m) =>
+                      n +
+                      (m['alpha_mode'] == 2 ? m['instance_count'] as int : 1),
+                )
+      : 0;
+  int get drawCalls =>
+      outlineDrawCalls +
+      _meshes.fold(
+        0,
+        (n, mesh) =>
+            n +
+            (mesh['color_visible'] == false
+                ? 0
+                : mesh['alpha_mode'] == 2
+                ? mesh['instance_count'] as int
+                : 1),
+      );
 
   /// Motion draws batch each visible mesh, including transparent instances.
   int get temporalMotionDraws =>
@@ -145,6 +168,8 @@ class SceneSnapshot {
     this._ambient,
     this.meshShaders,
     this._shadowLights,
+    this._settings,
+    this._outline,
   );
   static SceneSnapshot _capture(Scene scene, Camera camera, Frustum frustum) {
     final meshes = <Map<String, Object>>[],
@@ -161,6 +186,24 @@ class SceneSnapshot {
     final shadows = <_ShadowLight>[];
     void visit(Object3D node, vm.Matrix4 parent, bool parentVisible) {
       final visible = parentVisible && node.visible;
+      bool enabled(Object3D n, bool Function(Object3D) test) {
+        for (Object3D? current = n; current != null; current = current.parent) {
+          if (!test(current)) return false;
+        }
+        return true;
+      }
+
+      final clipping = enabled(node, (n) => n.clippingEnabled);
+      var outlined = false;
+      if (enabled(node, (n) => n.outlineEnabled)) {
+        for (
+          Object3D? current = node;
+          current != null;
+          current = current.parent
+        ) {
+          outlined |= scene.outline?.objects.contains(current) ?? false;
+        }
+      }
       final matchesLayers = node.layers.intersects(camera.layers);
       final world = parent * node.localMatrix.toVectorMath();
       if (visible && matchesLayers && node is RectAreaLight) {
@@ -214,11 +257,10 @@ class SceneSnapshot {
             'A scene supports at most 4 visible hemisphere lights.',
           );
         }
-        final direction = vm.Vector3(
-          world.entry(0, 1),
-          world.entry(1, 1),
-          world.entry(2, 1),
-        );
+        if (node.shadow != null) {
+          throw UnsupportedError('Hemisphere lights do not cast shadows.');
+        }
+        final direction = world.getRotation() * node.up.toVectorMath();
         if (!direction.length2.isFinite || direction.length2 < 1e-30) {
           throw ArgumentError(
             'Hemisphere direction must be finite and nonzero.',
@@ -241,11 +283,7 @@ class SceneSnapshot {
             'A scene supports at most 16 visible punctual lights.',
           );
         }
-        final direction = vm.Vector3(
-          -world.entry(0, 2),
-          -world.entry(1, 2),
-          -world.entry(2, 2),
-        );
+        final direction = world.getRotation() * node.direction.toVectorMath();
         if (!direction.length2.isFinite || direction.length2 < 1e-30) {
           throw ArgumentError('Light direction must be finite and nonzero.');
         }
@@ -316,7 +354,9 @@ class SceneSnapshot {
           if (node.material.vertexColors && geometry.colors == null) {
             throw ArgumentError('Vertex colors require a color attribute.');
           }
-          if (node.material case ShaderMaterial(:final program)) {
+          if (node.material case ShaderMaterial(
+            program: final MeshShaderProgram program,
+          )) {
             if (program.geometry.usesInstancing != (instance != null) ||
                 program.geometry.usesDeformation != (pose != null)) {
               throw ArgumentError(
@@ -343,6 +383,34 @@ class SceneSnapshot {
               );
             }
             meshShaders[meshes.length] = program;
+          }
+          if (node.material case ShaderMaterial(
+            program: final MeshShader shader,
+          )) {
+            if (shader.isClosed) throw StateError('Mesh shader has closed.');
+            if (shader.descriptor.requiresUv &&
+                geometry.uv0 == null &&
+                geometry.uv1 == null) {
+              throw ArgumentError('Mesh shader requires UV coordinates.');
+            }
+            if (pose != null || instance != null) {
+              throw UnsupportedError(
+                'Use a mesh shader geometry profile for instancing or deformation.',
+              );
+            }
+          }
+          if (node.material is ShaderMaterial &&
+              clipping &&
+              scene.clippingPlanes.isNotEmpty) {
+            throw UnsupportedError(
+              'Custom materials require clipping in their shader.',
+            );
+          }
+          if (node.material is ShaderMaterial &&
+              !node.fragmentCoverage.isFull) {
+            throw UnsupportedError(
+              'Fragment coverage requires a built-in material.',
+            );
           }
           if (node.material case PhysicalMaterial(:final anisotropy)) {
             if (anisotropy > 0 && geometry.tangents == null) {
@@ -375,6 +443,22 @@ class SceneSnapshot {
           meshes.add(
             _freeze(<String, Object>{
                   'color_visible': colorVisible,
+                  'clippingPlanes': [
+                    if (clipping)
+                      for (final plane in scene.clippingPlanes) ...[
+                        ...plane.normal.storage,
+                        plane.normal.dot(camera.position) - plane.offset,
+                      ],
+                  ],
+                  'outlined': outlined,
+                  'coverage': [
+                    node.fragmentCoverage.lower,
+                    node.fragmentCoverage.upper,
+                  ],
+                  if (node.material case ShaderMaterial(
+                    program: final MeshShader shader,
+                  ))
+                    'shader': shader,
                   'geometry': geometry.id,
                   'instances': instance?.id ?? 0,
                   'pose': pose?.id ?? 0,
@@ -461,6 +545,7 @@ class SceneSnapshot {
                       'metallic': material.metallic,
                       'roughness': material.roughness,
                       'normal_scale': material.normalScale,
+                      'normal_scale_y': material.normalScaleY,
                       'occlusion_strength': material.occlusionStrength,
                       if (material.normalMap != null)
                         'normal_map': material.normalMap!.toPacket(),
@@ -512,11 +597,16 @@ class SceneSnapshot {
       List.unmodifiable(scene.background?.toList() ?? [0.0, 0.0, 0.0]),
       scene.background == null
           ? 0.0
-          : Float32List.fromList([scene.backgroundOpacity]).single,
+          : Float32List.fromList([scene.backgroundAlpha]).single,
       List.unmodifiable(scene.lightDirection.storage),
       scene.ambient,
       Map.unmodifiable(meshShaders),
       List.unmodifiable(shadows),
+      scene.renderSettings.copyWith(
+        effects: scene.effects,
+        environment: scene.environment,
+      ),
+      scene.outline,
     );
   }
 }
@@ -587,6 +677,7 @@ class FrameSubmission {
       (camera.target - camera.position).normalized().storage,
       camera.id,
       camera.target.distanceTo(camera.position),
+      camera.depthStrategy,
     );
     final sceneSnapshot = SceneSnapshot._capture(
       scene,
@@ -627,7 +718,18 @@ class FrameSubmission {
 
   /// Compatibility encoder for native v1 adapters. Geometry conversion is lazy.
   Map<String, Object> toNativePacket({Set<int> uploaded = const {}}) {
-    if (temporalAA != null ||
+    if (camera.depthStrategy != DepthStrategy.standard ||
+        scene._settings.copyWith(backgroundAlpha: 1).enabled ||
+        scene._settings.effects.isNotEmpty ||
+        scene._outline != null ||
+        scene._meshes.any(
+          (m) =>
+              m['shader'] != null ||
+              (m['clippingPlanes'] as List).isNotEmpty ||
+              (m['coverage'] as List)[0] != 0 ||
+              (m['coverage'] as List)[1] != 1,
+        ) ||
+        temporalAA != null ||
         graph != null ||
         environment != null ||
         scene.meshShaders.isNotEmpty ||

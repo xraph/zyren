@@ -15,7 +15,7 @@ EXTERNAL SOURCES:
     :path: Flutter/ephemeral
 
 SPEC CHECKSUMS:
-  flutter_zyren: c2e4461ab0f8adaaadd1c8a39d73b095f5282bf0
+  flutter_zyren: 4457d8bc9f87427e6211c0ccc36dc793fd968a89
   FlutterMacOS: c232990155153907050900a2e175c7773903ba4e
 
 PODFILE CHECKSUM: 1e95c36afbfd1cb6423ceca4de7a8e1b256fb6ac

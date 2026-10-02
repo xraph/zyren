@@ -41,7 +41,7 @@ presenters are documented in the workspace README.
 
 Use `createResourceScope()` for typed buffer and texture allocations on this
 backend's device. Scopes support shared references, binary uploads, explicit
-readback and deterministic close. See [the resource API and protocol](../../docs/design/gpu-resources.md)
+readback and deterministic close. See [GPU resource ownership](https://xraph.com/docs/zyren/gpu-resources)
 for limits and ownership. Scene geometry uses the same registry with binary
 uploads and changed mesh records. `createView()` returns an independent readback
 view sharing the device, geometry revisions and material images. Closing a view
@@ -55,6 +55,27 @@ and JPEG on a CPU isolate with bounded admission. For linear float pixels, use
 Dynamic geometry uploads merged attribute ranges while preserving captures held
 by other views.
 
+`NativeBufferDecoder` decodes meshopt attributes and indices on a CPU isolate.
+It supports octahedral, quaternion and exponential filters. You can lower its
+output budget per call; the native ceiling is 64 MiB, with at most two active
+calls. The decoder creates no GPU device. See the synthetic fixtures in
+`test_assets/compression` and their regeneration command.
+
+`NativeMeshDecoder` returns triangle indices and packed attributes from Draco
+2.2 meshes. Configure `MeshDecodeLimits` to bound vertices, triangles, attribute
+count and decoded bytes. Sequential and EdgeBreaker connectivity run on CPU
+workers, with early header checks before connectivity allocation. These limits
+bound payloads and codec counts, not total process memory.
+
+`NativeTextureDecoder` transcodes two-dimensional KTX2 Basis textures to RGBA8
+on CPU workers. ETC1S, UASTC and Zstd-compressed UASTC retain authored mip levels,
+alpha and linear/sRGB metadata. You can lower `ImageDecodeLimits` for all mip
+bytes, dimensions and estimated workspace. Two calls may run per Dart isolate;
+native workspace admission is shared with PNG/JPEG decoding. Array, cube, video,
+HDR, custom swizzle and nonstandard orientation textures are outside this
+profile. GPU uploads use RGBA8, so source compression saves transfer bytes but
+does not reduce GPU texture storage. Allocation estimates are not an RSS cap.
+
 Worker requests carry a generation and a monotonic request ID. Worker exit or
 error settles every pending request. Stale and duplicate replies are ignored.
 Explicit close remains the normal path; native finalization also releases the
@@ -67,6 +88,13 @@ writes off by default. `Mesh.renderOrder`, `DepthWrite` and `depthTest` let you
 override those choices. Run `lib/material_alpha_demo.dart` from
 `examples/multiple_views` on macOS or Android to try the native material controls.
 
+For opaque transitions, set `Mesh.fragmentCoverage` to `FragmentCoverage(lower:
+0, upper: progress)` and give the outgoing mesh the complementary interval.
+Built-in color, PBR and shadow passes use the same deterministic pixel pattern.
+Coverage edits preserve material alpha and reuse uploaded geometry. Reset with
+`const FragmentCoverage.full()`. Custom shaders do not yet expose this hook;
+geometric picking excludes empty intervals but does not sample the pixel pattern.
+
 Use `Line` with `LineGeometry` for paths, `LineGeometry.segments` for independent
 pairs, and `Points` with `PointGeometry` for circle or square markers. Their
 materials let you choose physical pixel or world sizes. Native triangle expansion
@@ -77,7 +105,7 @@ ends; joins, configurable caps, dashes and textured sprites remain open.
 Use `createShaderCompiler()` or a plugin's `context.shaders` to validate WGSL
 modules on the native worker. Source errors include Dart string locations and
 leave the device usable. Compilers own their programs, and shared views can
-retain them independently. See [shader compilation](../../docs/design/shader-compilation.md)
+retain them independently. See [shader compilation](https://xraph.com/docs/zyren/shaders)
 for the API and limits.
 
 Use `createGraphCompiler()` to execute compute and procedural render passes with

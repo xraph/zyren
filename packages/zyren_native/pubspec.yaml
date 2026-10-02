@@ -1,5 +1,5 @@
 name: zyren_native
-description: Native Metal, Vulkan and Direct3D 12 backend for zyren, powered by Rust.
+description: Native Metal, Vulkan and Direct3D 12 backend for Zyren, powered by Rust.
 version: 0.1.0
 publish_to: none
 resolution: workspace

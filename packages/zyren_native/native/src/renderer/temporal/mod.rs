@@ -135,7 +135,7 @@ impl Renderer {
         if frame
             .meshes
             .iter()
-            .any(|m| m.shader.is_some() || m.primitive_kind != 0)
+            .any(|m| m.shader.is_some() || m.material_shader.is_some() || m.primitive_kind != 0)
         {
             return Err("Temporal AA currently requires built-in triangle materials".into());
         }

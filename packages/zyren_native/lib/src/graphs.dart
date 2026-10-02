@@ -1,5 +1,21 @@
 part of 'native_renderer.dart';
 
+final class NativeDeviceInfo {
+  final String backend, adapterName;
+  final Set<int> sampleCounts;
+  NativeDeviceInfo._(Map value)
+    : backend = value['backend'] as String,
+      adapterName = value['adapterName'] as String,
+      sampleCounts = Set.unmodifiable(
+        (value['sampleCounts'] as List).cast<int>(),
+      );
+}
+
+final class _MaterialKey {
+  final List<int> values;
+  _MaterialKey(List<int> values) : values = List.unmodifiable(values);
+}
+
 /// Internal depth atlases, separate from application-owned resource scopes.
 final class ShadowStats {
   final int atlasCount, residentBytes, renderedViews, reusedFrames;
@@ -32,6 +48,9 @@ final class TemporalStats {
 }
 
 final class GraphCacheStats {
+  final int shadowBytes, shadowPasses;
+  final int instanceBytes, instanceUploadedBytes, instanceDrawCalls;
+  final int liveMaterials, targetBytes;
   final int liveGraphs,
       descriptionBytes,
       cachedPipelines,
@@ -40,6 +59,13 @@ final class GraphCacheStats {
       liveMeshShaders,
       meshPipelines;
   const GraphCacheStats({
+    this.shadowBytes = 0,
+    this.instanceBytes = 0,
+    this.instanceUploadedBytes = 0,
+    this.instanceDrawCalls = 0,
+    this.shadowPasses = 0,
+    this.liveMaterials = 0,
+    this.targetBytes = 0,
     required this.liveGraphs,
     required this.descriptionBytes,
     required this.cachedPipelines,
@@ -67,6 +93,7 @@ Object? _graphEncode(Object? value) => switch (value) {
   ],
   _ShaderKey(:final values) => values,
   _GraphKey(:final values) => values,
+  _MaterialKey(:final values) => values,
   _MeshShaderKey(:final values) => values,
   Map value => {
     for (final entry in value.entries)
@@ -137,6 +164,36 @@ mixin _NativeGraphs {
     return _GraphKey((result['key'] as List<dynamic>).cast<int>());
   }
 
+  Future<Object> compileMaterial(GraphDeviceDescription description) async {
+    final result = await _graphCommand({
+      'operation': 'compileMaterial',
+      'description': description.data,
+    });
+    return _MaterialKey((result['key'] as List<dynamic>).cast<int>());
+  }
+
+  Future<void> releaseMaterial(Object key) async {
+    await _graphCommand({
+      'operation': 'releaseMaterial',
+      'key': key as _MaterialKey,
+    });
+  }
+
+  Future<void> retainMaterial(Object key) async {
+    await _graphCommand({
+      'operation': 'retainMaterial',
+      'key': key as _MaterialKey,
+    });
+  }
+
+  Uint8List encodeMaterialKey(Object key) {
+    final bytes = _ResourcePacket();
+    for (final value in (key as _MaterialKey).values) {
+      bytes.u64(value);
+    }
+    return bytes.finish();
+  }
+
   Future<GraphStats> executeGraph(Object key) async {
     final result = await _graphCommand({
       'operation': 'execute',
@@ -179,9 +236,19 @@ mixin _NativeGraphs {
     );
   }
 
+  Future<NativeDeviceInfo> deviceInfo() async =>
+      NativeDeviceInfo._(await _graphCommand({'operation': 'deviceInfo'}));
+
   Future<GraphCacheStats> graphStats() async {
     final result = await _graphCommand({'operation': 'stats'});
     return GraphCacheStats(
+      shadowBytes: result['shadowBytes'] as int,
+      instanceBytes: result['instanceBytes'] as int,
+      instanceUploadedBytes: result['instanceUploadedBytes'] as int,
+      instanceDrawCalls: result['instanceDrawCalls'] as int,
+      shadowPasses: result['shadowPasses'] as int,
+      liveMaterials: result['liveMaterials'] as int,
+      targetBytes: result['targetBytes'] as int,
       liveGraphs: result['liveGraphs'] as int,
       descriptionBytes: result['descriptionBytes'] as int,
       cachedPipelines: result['cachedPipelines'] as int,

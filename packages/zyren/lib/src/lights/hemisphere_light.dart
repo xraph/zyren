@@ -4,13 +4,24 @@ part of '../scene/scene.dart';
 /// Local +Y points toward the sky. This light does not supply specular reflections.
 final class HemisphereLight extends Light {
   Color3 _groundColor;
+  Vec3 _up;
+  ShadowSettings? shadow;
+  Vec3 get up => _up;
+  set up(Vec3 value) {
+    _up = value.normalized();
+    _changed();
+  }
+
   HemisphereLight({
+    Color3? color,
+    Vec3 up = const Vec3(0, 1, 0),
     Color3 skyColor = const Color3(1, 1, 1),
     Color3 groundColor = const Color3(0, 0, 0),
     super.intensity,
     super.name,
-  }) : _groundColor = groundColor,
-       super(color: skyColor) {
+  }) : _up = up.normalized(),
+       _groundColor = groundColor,
+       super(color: color ?? skyColor) {
     groundColor.toList();
   }
   Color3 get skyColor => color;

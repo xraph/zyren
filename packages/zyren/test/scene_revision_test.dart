@@ -121,4 +121,25 @@ void main() {
     expect(() => Mat4(List.filled(16, 0)).inverted(), throwsArgumentError);
     expect(object.revision, before);
   });
+
+  test(
+    'restoring normalized rotations preserves the exact pose and revision',
+    () {
+      for (final rotation in [
+        Quat.axisAngle(const Vec3(1, 0, 0), .35),
+        const Quat(.13, .37, .71, .23),
+        const Quat(7, -2, 4, 8),
+      ]) {
+        final object = Object3D()..quaternion = rotation;
+        final saved = object.quaternion;
+        final revision = object.revision;
+        expect(saved.toVectorMath().length2, closeTo(1, 1e-15));
+        for (var i = 0; i < 30; i++) {
+          object.quaternion = saved;
+          expect(object.quaternion, saved);
+          expect(object.revision, revision);
+        }
+      }
+    },
+  );
 }

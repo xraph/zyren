@@ -8,8 +8,8 @@ class OrbitInput implements ViewportInputSource {
   final bus = StreamController<ScenePointerEvent>.broadcast(sync: true);
   final interests = <SceneGesture, int>{};
   @override
+  ViewportMetrics get viewport => ViewportMetrics(logicalWidth, logicalHeight);
   double logicalWidth = 300;
-  @override
   double logicalHeight = 200;
   @override
   Stream<ScenePointerEvent> get events => bus.stream;
@@ -41,7 +41,7 @@ class OrbitInput implements ViewportInputSource {
 }
 
 class Harness {
-  final OrbitControls controls;
+  final OrbitNavigation controls;
   final input = OrbitInput();
   late SceneEngine engine;
   int demands = 0;
@@ -81,8 +81,8 @@ void closeVector(Vec3 actual, Vec3 expected, [double tolerance = 1e-8]) =>
 void main() {
   test('shared scenes retain independent view controls and input', () async {
     final scene = Scene();
-    final first = Harness(OrbitControls(damping: Duration.zero));
-    final second = Harness(OrbitControls(damping: Duration.zero));
+    final first = Harness(OrbitNavigation(damping: Duration.zero));
+    final second = Harness(OrbitNavigation(damping: Duration.zero));
     await first.start(null, scene);
     await second.start(null, scene);
     try {
@@ -105,7 +105,7 @@ void main() {
     'custom drag bindings and zero extents preserve the input contract',
     () async {
       final h = Harness(
-        OrbitControls(
+        OrbitNavigation(
           damping: Duration.zero,
           dragBinding: (_) => OrbitDragAction.none,
         ),
@@ -124,7 +124,7 @@ void main() {
         expect(() => OrbitLimits(maxDistance: double.nan), throwsArgumentError);
         expect(() => OrbitLimits(maxPolarAngle: math.pi), throwsArgumentError);
         expect(
-          () => OrbitControls(damping: const Duration(microseconds: -1)),
+          () => OrbitNavigation(damping: const Duration(microseconds: -1)),
           throwsArgumentError,
         );
       } finally {
@@ -136,7 +136,7 @@ void main() {
     'unrepresentable pole updates leave the previous camera intact',
     () async {
       final h = Harness(
-        OrbitControls(
+        OrbitNavigation(
           damping: Duration.zero,
           limits: OrbitLimits(minPolarAngle: 1e-12),
         ),
@@ -155,7 +155,7 @@ void main() {
   test(
     'programmatic orbit preserves arbitrary up, pan and both projection zooms',
     () async {
-      final h = Harness(OrbitControls(damping: Duration.zero));
+      final h = Harness(OrbitNavigation(damping: Duration.zero));
       await h.start(PerspectiveCamera(position: const Vec3(0, 0, 5)));
       try {
         h.controls.rotateBy(azimuth: math.pi / 2);
@@ -184,7 +184,7 @@ void main() {
     'limits clamp poles, distance and zoom without singular view matrices',
     () async {
       final h = Harness(
-        OrbitControls(
+        OrbitNavigation(
           damping: Duration.zero,
           limits: OrbitLimits(
             minDistance: 2,
@@ -226,7 +226,7 @@ void main() {
   test(
     'won gestures use logical extent and incremental pinch ratios',
     () async {
-      final h = Harness(OrbitControls(damping: Duration.zero));
+      final h = Harness(OrbitNavigation(damping: Duration.zero));
       await h.start(PerspectiveCamera(fieldOfView: math.pi / 2));
       try {
         h.input.send(ScenePointerPhase.move, x: 50);
@@ -258,7 +258,7 @@ void main() {
   test('damping is time based and eventually releases frame demand', () async {
     Future<Vec3> sample(int ms, int count) async {
       final h = Harness(
-        OrbitControls(damping: const Duration(milliseconds: 120)),
+        OrbitNavigation(damping: const Duration(milliseconds: 120)),
       );
       await h.start();
       try {
@@ -294,7 +294,7 @@ void main() {
   test(
     'cancel, disable and camera replacement discard queued motion',
     () async {
-      final h = Harness(OrbitControls());
+      final h = Harness(OrbitNavigation());
       await h.start();
       try {
         h.input.send(ScenePointerPhase.scaleStart);
@@ -330,8 +330,8 @@ void main() {
   test(
     'save/reset restores projection settings and invalid input is atomic',
     () async {
-      final h = Harness(OrbitControls(damping: Duration.zero));
-      final camera = OrthographicCamera(zoom: 2, verticalSize: 3);
+      final h = Harness(OrbitNavigation(damping: Duration.zero));
+      final camera = OrthographicCamera(zoom: 2, verticalSize: 3, near: .1);
       await h.start(camera);
       try {
         h.controls.panBy(const Vec3(2, 3, 4));
@@ -367,7 +367,7 @@ void main() {
   test(
     'failed shared attachment leaves the first view controls intact',
     () async {
-      final controls = OrbitControls();
+      final controls = OrbitNavigation();
       final h = Harness(controls);
       await h.start();
       try {

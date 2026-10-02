@@ -139,6 +139,18 @@ impl Renderer {
                 state.failure = Some(e.to_string());
                 e.to_string()
             })?;
+            state.instance_uploaded_bytes += frame
+                .instance_patches
+                .iter()
+                .find(|p| p.id == instance.id)
+                .map_or(instance.byte_length() as u64, |p| {
+                    p.ranges
+                        .iter()
+                        .map(|r| {
+                            r.transforms.len() as u64 * crate::instances::INSTANCE_STRIDE as u64
+                        })
+                        .sum()
+                });
             if let Some(base) = reusable.get(&instance.id) {
                 state.instances.remove(base);
             }

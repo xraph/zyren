@@ -1,5 +1,5 @@
-use zyren_runtime::{renderer::Renderer, scene::Frame};
 use serde_json::{Value, json};
+use zyren_runtime::{renderer::Renderer, scene::Frame};
 
 fn frame_json() -> Value {
     let identity = glam::Mat4::IDENTITY.to_cols_array();

@@ -4,6 +4,7 @@
     output.orientation = 1.;
     output.alpha = 1.;
     output.position = depth.mvp * vec4(d.position, 1.);
+    output.relative_position = (depth.model * vec4(d.position, 1.)).xyz;
     output.uv = vec2(0.);
     return output;
 }
@@ -14,6 +15,7 @@
     output.orientation = 1.;
     output.alpha = 1.;
     output.position = depth.mvp * vec4(d.position, 1.);
+    output.relative_position = (depth.model * vec4(d.position, 1.)).xyz;
     output.uv = select(uv0, uv1, depth.params.w > .5);
     return output;
 }
@@ -23,6 +25,7 @@
     var output: DepthOutput;
     output.orientation = 1.;
     output.position = depth.mvp * vec4(d.position, 1.);
+    output.relative_position = (depth.model * vec4(d.position, 1.)).xyz;
     output.alpha = color.a;
     return output;
 }
@@ -32,6 +35,7 @@
     var output: DepthOutput;
     output.orientation = 1.;
     output.position = depth.mvp * vec4(d.position, 1.);
+    output.relative_position = (depth.model * vec4(d.position, 1.)).xyz;
     output.uv = select(uv0, uv1, depth.params.w > .5);
     output.alpha = color.a;
     return output;
@@ -41,6 +45,7 @@
     let d = deform_vertex(index, position, vec3(0.,0.,1.), vec4(1.,0.,0.,1.));
     var output: DepthOutput;
     output.position = depth.mvp * mat4x4(instance.model0, instance.model1, instance.model2, instance.model3) * vec4(d.position, 1.);
+    output.relative_position = (depth.model * mat4x4(instance.model0, instance.model1, instance.model2, instance.model3) * vec4(d.position, 1.)).xyz;
     output.orientation = instance.normal0.w;
     output.alpha = 1.;
     return output;
@@ -50,6 +55,7 @@
     let d = deform_vertex(index, position, vec3(0.,0.,1.), vec4(1.,0.,0.,1.));
     var output: DepthOutput;
     output.position = depth.mvp * mat4x4(instance.model0, instance.model1, instance.model2, instance.model3) * vec4(d.position, 1.);
+    output.relative_position = (depth.model * mat4x4(instance.model0, instance.model1, instance.model2, instance.model3) * vec4(d.position, 1.)).xyz;
     output.orientation = instance.normal0.w;
     output.alpha = 1.;
     output.uv = select(uv0, uv1, depth.params.w > .5);
@@ -60,6 +66,7 @@
     let d = deform_vertex(index, position, vec3(0.,0.,1.), vec4(1.,0.,0.,1.));
     var output: DepthOutput;
     output.position = depth.mvp * mat4x4(instance.model0, instance.model1, instance.model2, instance.model3) * vec4(d.position, 1.);
+    output.relative_position = (depth.model * mat4x4(instance.model0, instance.model1, instance.model2, instance.model3) * vec4(d.position, 1.)).xyz;
     output.orientation = instance.normal0.w;
     output.alpha = color.a;
     return output;
@@ -69,6 +76,7 @@
     let d = deform_vertex(index, position, vec3(0.,0.,1.), vec4(1.,0.,0.,1.));
     var output: DepthOutput;
     output.position = depth.mvp * mat4x4(instance.model0, instance.model1, instance.model2, instance.model3) * vec4(d.position, 1.);
+    output.relative_position = (depth.model * mat4x4(instance.model0, instance.model1, instance.model2, instance.model3) * vec4(d.position, 1.)).xyz;
     output.orientation = instance.normal0.w;
     output.alpha = color.a;
     output.uv = select(uv0, uv1, depth.params.w > .5);

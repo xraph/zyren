@@ -2,6 +2,13 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:vector_math/vector_math_64.dart' as vm;
 import '../geometry/geometry.dart';
+import '../spatial/bounds.dart';
+import 'layer_mask.dart';
+import '../rendering/depth_strategy.dart';
+import '../resources/resource_scope.dart'
+    show RenderSettings, ScreenEffect, VolumeEnvironmentMap;
+import '../plugins/registration.dart';
+export '../resources/resource_scope.dart' show RenderSettings, ToneMapping;
 import '../materials/material.dart';
 import '../math/color3.dart';
 export '../materials/material.dart';
@@ -9,29 +16,50 @@ export '../math/color3.dart';
 import '../math/vec3.dart';
 import '../math/quat.dart';
 import '../math/mat4.dart';
-import '../spatial/bounds.dart';
-import 'layer_mask.dart';
-part 'orthographic_camera.dart';
 part 'revision.dart';
-part 'primitives.dart';
-part 'instanced_mesh.dart';
 part 'deformation.dart';
 part '../geometry/skin.dart';
 part '../lights/punctual_light.dart';
 part '../lights/hemisphere_light.dart';
 part '../lights/rect_area_light.dart';
 part '../lights/shadow_settings.dart';
+part 'camera_projection.dart';
+part 'primitives.dart';
+part 'instanced_mesh.dart';
+part 'clipping_plane.dart';
+part 'scene_outline.dart';
+part 'fragment_coverage.dart';
 
 class Object3D with _Revisioned {
   static int _nextObjectId = 1;
 
   /// Stable within this isolate, across scene edits and reparenting.
   final int id = _nextObjectId++;
+
   final String? name;
   Object3D({this.name});
   Vec3 _position = Vec3.zero, _scale = Vec3.one;
   Quat _quaternion = Quat.identity;
   bool _visible = true;
+  bool _clippingEnabled = true;
+  bool _outlineEnabled = true;
+
+  /// False excludes this subtree from inherited scene outlines.
+  bool get outlineEnabled => _outlineEnabled;
+  set outlineEnabled(bool value) {
+    if (_outlineEnabled == value) return;
+    _outlineEnabled = value;
+    _changed();
+  }
+
+  /// False exempts this object and its descendants from scene section planes.
+  bool get clippingEnabled => _clippingEnabled;
+  set clippingEnabled(bool value) {
+    if (_clippingEnabled == value) return;
+    _clippingEnabled = value;
+    _changed();
+  }
+
   LayerMask _layers = LayerMask.only(0);
   LayerMask get layers => _layers;
   set layers(LayerMask value) {
@@ -109,7 +137,6 @@ class Object3D with _Revisioned {
     }
   }
 
-  Mat4 get localMatrix => Mat4.compose(position, quaternion, scale);
   Mat4 get worldMatrix {
     var result = localMatrix;
     for (var node = parent; node != null; node = node.parent) {
@@ -118,6 +145,7 @@ class Object3D with _Revisioned {
     return result;
   }
 
+  Mat4 get localMatrix => Mat4.compose(position, quaternion, scale);
   Object3D translate(Vec3 offset) {
     position = position + offset;
     return this;
@@ -191,6 +219,19 @@ class Mesh extends Object3D with _MeshDeformation {
   @override
   final BufferGeometry geometry;
   MeshMaterial _material;
+  FragmentCoverage _fragmentCoverage = const FragmentCoverage.full();
+  FragmentCoverage get fragmentCoverage => _fragmentCoverage;
+  set fragmentCoverage(FragmentCoverage value) {
+    if (!value.isFull && _material is ShaderMaterial) {
+      throw UnsupportedError(
+        'Custom shaders do not provide a fragment coverage hook.',
+      );
+    }
+    if (_fragmentCoverage == value) return;
+    _fragmentCoverage = value;
+    _changed();
+  }
+
   int _renderOrder = 0;
   Mesh(this.geometry, MeshMaterial material, {super.name, int renderOrder = 0})
     : _material = material {
@@ -235,11 +276,31 @@ class Mesh extends Object3D with _MeshDeformation {
 }
 
 abstract class Camera extends Object3D {
+  Camera({DepthStrategy depthStrategy = DepthStrategy.standard})
+    : _depthStrategy = depthStrategy;
+  DepthStrategy _depthStrategy;
+  DepthStrategy get depthStrategy => _depthStrategy;
+  set depthStrategy(DepthStrategy value) {
+    if (_depthStrategy == value) return;
+    _depthStrategy = value;
+    _changed();
+  }
+
   Vec3 get target;
   set target(Vec3 value);
   Vec3 get up;
   set up(Vec3 value);
-  Mat4 projectionMatrix(double aspect);
+  Mat4 projectionMatrix(double aspect) {
+    final axes = _cameraAxes(this);
+    final rotation = vm.Matrix4.identity()
+      ..setColumn(0, vm.Vector4(axes.right.x, axes.right.y, axes.right.z, 0))
+      ..setColumn(1, vm.Vector4(axes.up.x, axes.up.y, axes.up.z, 0))
+      ..setColumn(2, vm.Vector4(axes.back.x, axes.back.y, axes.back.z, 0));
+    return Mat4.fromVectorMath(
+      viewProjection(aspect).toVectorMath() * rotation,
+    );
+  }
+
   Mat4 viewProjection(double aspect) {
     final projection = projectionMatrix(aspect).toVectorMath();
     if (!position.isFinite || !target.isFinite || !up.isFinite) {
@@ -264,11 +325,32 @@ abstract class Camera extends Object3D {
       ..setRow(2, vm.Vector4(z.x, z.y, z.z, 0));
     return Mat4.fromVectorMath(projection * view);
   }
+
+  /// Projects a world point to normalized coordinates, with native depth 0..1.
+  Vec3 projectPoint(Vec3 world, double aspect) {
+    _finite(world, 'world');
+    return _transformPoint(viewProjection(aspect), world - position);
+  }
+
+  /// Converts normalized coordinates with native depth 0..1 into world space.
+  Vec3 unprojectPoint(Vec3 normalized, double aspect) {
+    _finite(normalized, 'normalized');
+    return position +
+        _transformPoint(viewProjection(aspect).inverted(), normalized);
+  }
+
+  /// Returns a world ray through NDC X/Y. Custom projections start at near.
+  CameraRay rayFromNdc(double x, double y, double aspect) {
+    final inverse = viewProjection(aspect).inverted();
+    final near = _transformPoint(inverse, Vec3(x, y, depthStrategy.nearDepth));
+    final far = _transformPoint(inverse, Vec3(x, y, depthStrategy.farDepth));
+    return CameraRay(position + near, far - near);
+  }
 }
 
 class PerspectiveCamera extends Camera {
   Vec3 _target, _up;
-  double _fieldOfView, _near, _far;
+  double _fieldOfView, _near, _far, _zoom;
   PerspectiveCamera({
     Vec3 position = const Vec3(0, 0, 5),
     Vec3 target = Vec3.zero,
@@ -276,11 +358,14 @@ class PerspectiveCamera extends Camera {
     double fieldOfView = 50 * math.pi / 180,
     double near = .1,
     double far = 1000,
+    double zoom = 1,
+    super.depthStrategy,
   }) : _target = target,
        _up = up,
        _fieldOfView = fieldOfView,
        _near = near,
-       _far = far {
+       _far = far,
+       _zoom = zoom {
     this.position = position;
     viewProjection(1);
   }
@@ -336,6 +421,33 @@ class PerspectiveCamera extends Camera {
     _changed();
   }
 
+  double get zoom => _zoom;
+  set zoom(double value) {
+    if (!value.isFinite || value <= 0) throw ArgumentError.value(value, 'zoom');
+    if (_zoom == value) return;
+    _zoom = value;
+    _changed();
+  }
+
+  /// Changes both clipping planes atomically, including disjoint ranges.
+  void setClippingRange(double near, double far) {
+    _validateClipping(near, far, allowZeroNear: false);
+    if (_near == near && _far == far) return;
+    _near = near;
+    _far = far;
+    _changed();
+  }
+
+  @override
+  CameraRay rayFromNdc(double x, double y, double aspect) {
+    viewProjection(aspect);
+    final axes = _cameraAxes(this), tangent = math.tan(fieldOfView / 2) / zoom;
+    return CameraRay(
+      position,
+      axes.right * (x * tangent * aspect) + axes.up * (y * tangent) - axes.back,
+    );
+  }
+
   @override
   PerspectiveCamera lookAt(Vec3 target) {
     this.target = target;
@@ -344,6 +456,33 @@ class PerspectiveCamera extends Camera {
 
   @override
   Mat4 projectionMatrix(double aspect) {
+    if (!aspect.isFinite || aspect <= 0) {
+      throw ArgumentError.value(aspect, 'aspect');
+    }
+    final f = zoom / math.tan(fieldOfView / 2);
+    final projection = vm.Matrix4.zero()
+      ..setEntry(0, 0, f / aspect)
+      ..setEntry(1, 1, f)
+      ..setEntry(
+        2,
+        2,
+        depthStrategy == DepthStrategy.reversed
+            ? near / (far - near)
+            : far / (near - far),
+      )
+      ..setEntry(
+        2,
+        3,
+        depthStrategy == DepthStrategy.reversed
+            ? near * far / (far - near)
+            : near * far / (near - far),
+      )
+      ..setEntry(3, 2, -1);
+    return Mat4.fromVectorMath(projection);
+  }
+
+  @override
+  Mat4 viewProjection(double aspect) {
     if (!aspect.isFinite ||
         aspect <= 0 ||
         !fieldOfView.isFinite ||
@@ -351,18 +490,34 @@ class PerspectiveCamera extends Camera {
         fieldOfView >= math.pi ||
         !near.isFinite ||
         !far.isFinite ||
+        !zoom.isFinite ||
+        zoom <= 0 ||
         near <= 0 ||
-        far <= near) {
-      throw ArgumentError('Invalid perspective projection.');
+        far <= near ||
+        !position.isFinite ||
+        !target.isFinite ||
+        !up.isFinite) {
+      throw ArgumentError('Invalid perspective camera.');
     }
-    final f = 1 / math.tan(fieldOfView / 2);
-    final projection = vm.Matrix4.zero()
-      ..setEntry(0, 0, f / aspect)
-      ..setEntry(1, 1, f)
-      ..setEntry(2, 2, far / (near - far))
-      ..setEntry(2, 3, near * far / (near - far))
-      ..setEntry(3, 2, -1);
-    return Mat4.fromVectorMath(projection);
+    final direction = position - target;
+    if (direction.length2 < 1e-20 || up.length2 < 1e-20) {
+      throw ArgumentError(
+        'Camera needs a distinct target and a nonzero up vector.',
+      );
+    }
+    final z = direction.normalized(), cross = up.cross(direction);
+    if (cross.length2 < 1e-20) {
+      throw ArgumentError(
+        'Camera up must not be parallel to the view direction.',
+      );
+    }
+    final x = cross.normalized(), y = z.cross(x);
+    final view = vm.Matrix4.identity()
+      ..setRow(0, vm.Vector4(x.x, x.y, x.z, 0))
+      ..setRow(1, vm.Vector4(y.x, y.y, y.z, 0))
+      ..setRow(2, vm.Vector4(z.x, z.y, z.z, 0));
+    final projection = projectionMatrix(aspect).toVectorMath();
+    return Mat4.fromVectorMath(projection * view);
   }
 }
 
@@ -372,29 +527,119 @@ void _finite(Vec3 value, String name) {
   }
 }
 
+/// Owns one effect slot. Replacements keep its order and do not need a free slot.
+final class EffectRegistration extends Registration {
+  final void Function(ScreenEffect) _replace;
+  EffectRegistration._(super.release, this._replace);
+  void replace(ScreenEffect effect) {
+    if (isDisposed) throw StateError('Effect registration has closed.');
+    if (effect.isClosed) throw StateError('Effect owner has closed.');
+    _replace(effect);
+  }
+}
+
 class Scene extends Object3D {
+  List<ClippingPlane> _clippingPlanes = const [];
+  SceneOutline? _outline;
+  SceneOutline? get outline => _outline;
+  set outline(SceneOutline? value) {
+    if (identical(value, _outline)) return;
+    _outline = value;
+    _changed();
+  }
+
+  /// Up to six world-space half-spaces, intersected without generating caps.
+  List<ClippingPlane> get clippingPlanes => _clippingPlanes;
+  set clippingPlanes(List<ClippingPlane> value) {
+    if (identical(value, _clippingPlanes)) return;
+    if (value.length > 6) {
+      throw ArgumentError('A scene supports at most six clipping planes.');
+    }
+    _clippingPlanes = List.unmodifiable(value);
+    _changed();
+  }
+
+  RenderSettings _renderSettings = RenderSettings();
+  final _effects = <Object, ScreenEffect>{};
+  final _transparentBackgroundEffects = <Object>{};
+
+  /// Effective clear alpha while an effect supplies the visible background.
+  double get backgroundOpacity => _renderSettings.backgroundAlpha;
+  set backgroundOpacity(double value) {
+    renderSettings = renderSettings.copyWith(backgroundAlpha: value);
+  }
+
+  double get backgroundAlpha => _transparentBackgroundEffects.isEmpty
+      ? _renderSettings.backgroundAlpha
+      : 0;
+  VolumeEnvironmentMap? _environment;
+  VolumeEnvironmentMap? get environment =>
+      _environment ?? _renderSettings.environment;
+  Registration addEnvironment(VolumeEnvironmentMap map) {
+    if (map.isClosed) {
+      throw StateError('Environment resource owner has closed.');
+    }
+    if (_environment != null) {
+      throw StateError(
+        'A lighting plugin already owns this scene environment.',
+      );
+    }
+    _environment = map;
+    _changed();
+    return Registration(() {
+      _environment = null;
+      _changed();
+    });
+  }
+
+  RenderSettings get renderSettings => _renderSettings;
+  List<ScreenEffect> get effects =>
+      List.unmodifiable([..._renderSettings.effects, ..._effects.values]);
+
+  /// Request a transparent clear when your effect composites its own sky or
+  /// backdrop behind scene coverage. Disposing the slot restores the setting.
+  EffectRegistration addEffect(
+    ScreenEffect effect, {
+    bool requiresTransparentBackground = false,
+  }) {
+    if (effect.isClosed) throw StateError('Effect owner has closed.');
+    if (effects.length >= 8) {
+      throw StateError('At most eight effects are supported.');
+    }
+    final key = Object();
+    _effects[key] = effect;
+    if (requiresTransparentBackground) _transparentBackgroundEffects.add(key);
+    _changed();
+    return EffectRegistration._(
+      () {
+        _effects.remove(key);
+        _transparentBackgroundEffects.remove(key);
+        _changed();
+      },
+      (replacement) {
+        _effects[key] = replacement;
+        _changed();
+      },
+    );
+  }
+
+  set renderSettings(RenderSettings value) {
+    if (value.effects.length + _effects.length > 8) {
+      throw StateError('At most eight effects are supported.');
+    }
+    if (identical(value, _renderSettings)) return;
+    _renderSettings = value;
+    _changed();
+  }
+
   Color3? _background;
-  double _backgroundOpacity = 1;
   Vec3 _lightDirection = const Vec3(1, -1, 2);
   double _ambient = .18;
-
-  /// Null leaves the canvas transparent. A color fills the canvas.
   Color3? get background => _background;
   set background(Color3? value) {
     value?.toList();
     if (value == _background) return;
     _background = value;
-    _changed();
-  }
-
-  /// Coverage of [background], from zero to one. Null backgrounds stay clear.
-  double get backgroundOpacity => _backgroundOpacity;
-  set backgroundOpacity(double value) {
-    if (!value.isFinite || value < 0 || value > 1) {
-      throw ArgumentError.value(value, 'backgroundOpacity');
-    }
-    if (value == _backgroundOpacity) return;
-    _backgroundOpacity = value;
     _changed();
   }
 
@@ -425,23 +670,31 @@ class Scene extends Object3D {
     double aspect, {
     Set<int> uploaded = const {},
   }) {
+    if (camera.depthStrategy != DepthStrategy.standard) {
+      throw UnsupportedError(
+        'Reversed depth requires binary scene submissions.',
+      );
+    }
+    if (renderSettings.enabled || _effects.isNotEmpty || environment != null) {
+      throw UnsupportedError(
+        'Postprocessing requires binary scene submissions.',
+      );
+    }
     final meshes = <Map<String, Object>>[];
     final geometries = <int, GeometrySnapshot>{};
     void visit(Object3D node, vm.Matrix4 parent) {
       if (!node.visible) return;
-      if (node.layers.intersects(camera.layers) &&
-          (node is Light ||
-              (node is Mesh && node.material is StandardMaterial))) {
+      if (node is Light) {
         throw UnsupportedError(
-          'Standard materials and light objects require FrameSubmission.capture.',
+          'Physical lights require binary scene submissions.',
         );
       }
       final world = parent * node.localMatrix.toVectorMath();
-      if (node is Mesh && node.layers.intersects(camera.layers)) {
-        if (node.castShadow || node.receiveShadow) {
-          throw UnsupportedError('Shadows require binary scene submissions.');
-        }
-        if (node.material.colorMap != null) {
+      if (node is Mesh) {
+        if (node.castShadow ||
+            node.material.colorMap != null ||
+            node.material is ShaderMaterial ||
+            node.material is StandardMaterial) {
           throw UnsupportedError(
             'Texture materials require binary scene submissions.',
           );
@@ -459,6 +712,10 @@ class Scene extends Object3D {
           'alpha_mode': node.material.alphaMode.index,
           'opacity': node.material.opacity,
           'alpha_cutoff': node.material.alphaCutoff,
+          'coverage': [
+            node.fragmentCoverage.lower,
+            node.fragmentCoverage.upper,
+          ],
           'depth_test': node.material.depthTest,
           'depth_write': node.material.writesDepth,
           'render_order': node.renderOrder,

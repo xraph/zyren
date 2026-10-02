@@ -1,9 +1,9 @@
 use glam::{Mat3, Mat4, Quat, Vec3};
+use wgpu::util::DeviceExt;
 use zyren_runtime::{
     deformation::{MorphTarget, Pose},
     scene::Geometry,
 };
-use wgpu::util::DeviceExt;
 
 fn geometry() -> Geometry {
     let mut g: Geometry = serde_json::from_value(serde_json::json!({"id":1,

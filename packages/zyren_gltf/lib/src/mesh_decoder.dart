@@ -10,6 +10,8 @@ import 'material_decoder.dart';
 import 'node_decoder.dart';
 import 'options.dart';
 import 'recipes.dart';
+import 'feature_decoder.dart';
+import 'metadata_decoder.dart';
 
 PreparedModel prepareModel(
   Map<String, Object?> root,
@@ -24,6 +26,7 @@ PreparedModel prepareModel(
     limits: options.limits,
     budget: budget,
   );
+  final propertyTables = decodePropertyTables(root, reader, budget);
   final rawMeshes = array(field(root, 'meshes', const []), 'meshes');
   final defaults = decodeMorphDefaults(rawMeshes, budget);
   final (nodes, scenes, selected) = decodeNodes(
@@ -135,7 +138,9 @@ PreparedModel prepareModel(
           }
         }
         decoded[semantic] = a;
-        if (semantic.startsWith('_')) {
+        if (semantic.startsWith('_') &&
+            semantic != '_BATCHID' &&
+            !semantic.startsWith('_FEATURE_ID_')) {
           issues.add(
             SceneIssue(
               code: 'gltf.unusedAttribute',
@@ -228,6 +233,7 @@ PreparedModel prepareModel(
         }
       }
       final output = <VertexSemantic, VertexAttribute>{};
+      final originalIndices = List<int>.of(indices);
       final flat =
           topology == GeometryTopology.triangles && suppliedNormals == null;
       final vertexCount = flat ? indices.length : position.count;
@@ -385,7 +391,11 @@ PreparedModel prepareModel(
           );
         }
       }
-      primitives.add(
+      final partitions = partitionFeatures(
+        root,
+        primitive,
+        decoded,
+        originalIndices,
         PrimitiveRecipe(
           GeometryData(
             attributes: output,
@@ -397,10 +407,23 @@ PreparedModel prepareModel(
           material,
           name,
         ),
+        budget,
+        options.limits.maxPrimitives - primitiveCount + 1,
+        path,
       );
+      primitiveCount += partitions.length - 1;
+      primitives.addAll(partitions);
     }
     meshes.add(List.unmodifiable(primitives));
   }
+  validateInstances(
+    nodes,
+    scenes,
+    rawMeshes,
+    options.limits.maxPrimitives,
+    options.limits.maxLights,
+    decodedPrimitiveCounts: [for (final mesh in meshes) mesh.length],
+  );
   final skins = decodeSkins(root, nodes, scenes, meshes, reader);
   return PreparedModel(
     skins,
@@ -412,6 +435,7 @@ PreparedModel prepareModel(
     Map.unmodifiable(materials.images),
     List.unmodifiable(issues),
     budget.usedBytes,
+    propertyTables,
   );
 }
 

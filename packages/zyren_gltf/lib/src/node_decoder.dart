@@ -213,6 +213,25 @@ import 'recipes.dart';
       ),
     );
   }
+  for (var i = 0; i < scenes.length; i++) {
+    var count = 0;
+    void countLights(int node) {
+      if (nodes[node].light != null && ++count > 16) {
+        fail(
+          'scenes[$i]',
+          'A native scene supports at most sixteen punctual lights.',
+          AssetLoadError.limitExceeded,
+        );
+      }
+      for (final child in nodes[node].children) {
+        countLights(child);
+      }
+    }
+
+    for (final root in scenes[i].roots) {
+      countLights(root);
+    }
+  }
   final selected = root.containsKey('scene')
       ? index(root['scene'], scenes.length, 'scene')
       : null;

@@ -67,11 +67,15 @@ class RendererCapabilities extends DeviceCapabilities {
   RendererCapabilities({
     required super.name,
     required super.features,
+    super.backend,
+    super.adapterName,
+    Set<int> sampleCounts = const {1},
     required int maxDimension,
     int maxGeometryBytes = 64 * 1024 * 1024,
   }) : super(
          limits: DeviceLimits(
            maxTextureDimension2D: maxDimension,
+           sampleCounts: sampleCounts,
            maxGeometryBytes: maxGeometryBytes,
          ),
        );

@@ -1,5 +1,5 @@
 name: zyren
-description: General purpose Dart 3D scene, geometry and plugin contracts.
+description: Zyren, a native 3D engine with scene, geometry and plugin APIs for Dart.
 version: 0.1.0
 publish_to: none
 resolution: workspace

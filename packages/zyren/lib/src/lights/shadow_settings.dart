@@ -5,7 +5,32 @@ part of '../scene/scene.dart';
 sealed class ShadowSettings {
   final int resolution;
   final double bias, normalBias, slopeBias, filterRadius, strength;
-  ShadowSettings({
+  factory ShadowSettings({
+    int resolution = 512,
+    int cascades = 1,
+    double near = .1,
+    double maxDistance = 100,
+    double splitLambda = .5,
+    double cascadeBlend = .1,
+    double bias = .0005,
+    double normalBias = .02,
+    double slopeBias = .002,
+    double filterRadius = 1,
+    double strength = 1,
+  }) => _SharedShadow(
+    resolution: resolution,
+    cascades: cascades,
+    near: near,
+    maxDistance: maxDistance,
+    splitLambda: splitLambda,
+    cascadeBlend: cascadeBlend,
+    bias: bias,
+    normalBias: normalBias,
+    slopeBias: slopeBias,
+    filterRadius: filterRadius,
+    strength: strength,
+  );
+  ShadowSettings._({
     this.resolution = 512,
     this.bias = .0005,
     this.normalBias = .02,
@@ -51,7 +76,7 @@ final class DirectionalShadow extends ShadowSettings {
     super.slopeBias,
     super.filterRadius,
     super.strength,
-  }) {
+  }) : super._() {
     RangeError.checkValueInInterval(cascades, 1, 4, 'cascades');
     if (!distance.isFinite ||
         distance <= 0 ||
@@ -103,7 +128,7 @@ sealed class PositionalShadow extends ShadowSettings {
     super.slopeBias,
     super.filterRadius,
     super.strength,
-  }) {
+  }) : super._() {
     if (!near.isFinite ||
         !far.isFinite ||
         near <= 0 ||
@@ -213,3 +238,69 @@ final class AreaShadow extends PositionalShadow {
     strength: strength ?? this.strength,
   );
 }
+
+final class _SharedShadow extends ShadowSettings {
+  final int cascades;
+  final double near, maxDistance, splitLambda, cascadeBlend;
+  _SharedShadow({
+    required this.cascades,
+    required this.near,
+    required this.maxDistance,
+    required this.splitLambda,
+    required this.cascadeBlend,
+    super.resolution,
+    super.bias,
+    super.normalBias,
+    super.slopeBias,
+    super.filterRadius,
+    super.strength,
+  }) : super._() {
+    if (!near.isFinite ||
+        near <= 0 ||
+        !maxDistance.isFinite ||
+        maxDistance <= near) {
+      throw ArgumentError('Shadow range requires 0 < near < maxDistance.');
+    }
+    directional();
+  }
+  DirectionalShadow directional() => DirectionalShadow(
+    cascades: cascades,
+    distance: maxDistance,
+    splitLambda: splitLambda,
+    blend: cascadeBlend,
+    resolution: resolution,
+    bias: bias,
+    normalBias: normalBias,
+    slopeBias: slopeBias,
+    filterRadius: filterRadius,
+    strength: strength,
+  );
+  SpotShadow spot() {
+    if (cascades != 1) throw ArgumentError('Spot shadows use one view.');
+    return SpotShadow(
+      near: near,
+      far: maxDistance,
+      resolution: resolution,
+      bias: bias,
+      normalBias: normalBias,
+      slopeBias: slopeBias,
+      filterRadius: filterRadius,
+      strength: strength,
+    );
+  }
+}
+
+DirectionalShadow? _directionalShadow(ShadowSettings? value) => switch (value) {
+  null => null,
+  DirectionalShadow shadow => shadow,
+  _SharedShadow shadow => shadow.directional(),
+  _ => throw ArgumentError(
+    'Directional lights require directional shadow settings.',
+  ),
+};
+SpotShadow? _spotShadow(ShadowSettings? value) => switch (value) {
+  null => null,
+  SpotShadow shadow => shadow,
+  _SharedShadow shadow => shadow.spot(),
+  _ => throw ArgumentError('Spot lights require spot shadow settings.'),
+};

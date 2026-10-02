@@ -64,15 +64,19 @@ final class ShadowSnapshot {
       );
     }
 
-    final centre = unproject(0, 0, 0);
+    final centre = unproject(0, 0, camera.depthStrategy.nearDepth);
     final forward = (unproject(0, 0, .5) - centre).normalized();
     final cameraNear = math.max(1e-5, centre.dot(forward));
     final cameraFar = camera is PerspectiveCamera
         ? camera.far
-        : unproject(0, 0, 1).dot(forward);
+        : unproject(0, 0, camera.depthStrategy.farDepth).dot(forward);
     final rays = [
       for (final x in [-1.0, 1.0])
-        for (final y in [-1.0, 1.0]) (unproject(x, y, 0), unproject(x, y, .5)),
+        for (final y in [-1.0, 1.0])
+          (
+            unproject(x, y, camera.depthStrategy.nearDepth),
+            unproject(x, y, .5),
+          ),
     ];
     List<vm.Vector3> plane(double depth) => [
       for (final (a, b) in rays)

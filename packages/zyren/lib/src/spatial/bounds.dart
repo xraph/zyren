@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import '../math/mat4.dart';
+import '../scene/scene.dart' show CameraRay;
 import '../math/vec3.dart';
 
 /// Immutable axis-aligned bounds. Empty bounds contain no points.
@@ -30,6 +31,32 @@ final class Bounds3 {
             for (final y in [minimum.y, maximum.y])
               for (final z in [minimum.z, maximum.z]) Vec3(x, y, z),
         ]);
+  ({double near, double far})? intersectRay(
+    CameraRay ray, {
+    double near = 0,
+    double far = double.infinity,
+  }) {
+    if (!near.isFinite || near < 0 || far.isNaN || far < near) {
+      throw ArgumentError('Invalid ray range.');
+    }
+    if (isEmpty) return null;
+    for (final (o, d, low, high) in [
+      (ray.origin.x, ray.direction.x, minimum.x, maximum.x),
+      (ray.origin.y, ray.direction.y, minimum.y, maximum.y),
+      (ray.origin.z, ray.direction.z, minimum.z, maximum.z),
+    ]) {
+      if (d == 0) {
+        if (o < low || o > high) return null;
+        continue;
+      }
+      final a = (low - o) / d, b = (high - o) / d;
+      near = math.max(near, math.min(a, b));
+      far = math.min(far, math.max(a, b));
+      if (near > far) return null;
+    }
+    return (near: near, far: far);
+  }
+
   bool contains(Vec3 point) =>
       !isEmpty &&
       point.isFinite &&

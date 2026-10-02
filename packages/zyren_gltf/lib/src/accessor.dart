@@ -99,6 +99,23 @@ class AccessorReader {
     }
   }
 
+  Uint8List metadataBytes(Object? reference, int alignment, String path) {
+    final view = _views[index(reference, _views.length, path)];
+    if (view.target != null ||
+        view.stride != null ||
+        view.offset % alignment != 0) {
+      fail(
+        path,
+        'Metadata views must be unstrided and aligned to their components.',
+      );
+    }
+    return Uint8List.sublistView(
+      buffers[view.buffer],
+      view.offset,
+      view.offset + view.length,
+    ).asUnmodifiableView();
+  }
+
   Uint8List imageBytes(Object? reference, String path) {
     final i = index(reference, _views.length, path),
         view = _views[index(reference, _views.length, path)];

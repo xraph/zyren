@@ -109,10 +109,24 @@ final class AssetDecodeContext {
     required Uri relativeTo,
     String? fieldPath,
   }) {
+    final uri = resolveReference(
+      reference,
+      relativeTo: relativeTo,
+      fieldPath: fieldPath,
+    );
+    return _read(uri, fieldPath: fieldPath);
+  }
+
+  /// Validates a deferred resource reference without downloading its content.
+  Uri resolveReference(
+    String reference, {
+    required Uri relativeTo,
+    String? fieldPath,
+  }) {
     cancellation.throwIfCancelled();
     final uri = relativeTo.resolve(reference);
     _services.policy.validate(relativeTo, uri, fieldPath: fieldPath);
-    return _read(uri, fieldPath: fieldPath);
+    return uri;
   }
 
   Future<ResolvedSource> _read(Uri uri, {String? fieldPath}) {
@@ -163,6 +177,7 @@ final class AssetDecodeContext {
         throw AssetLoadException(
           error.code,
           error.issue.message,
+          httpStatus: error.httpStatus,
           sourceUri: error.issue.sourceUri ?? uri,
           fieldPath: error.fieldPath ?? fieldPath,
           cause: error,

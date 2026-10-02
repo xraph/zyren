@@ -80,8 +80,8 @@ fn physical_environment(n: vec3<f32>, v: vec3<f32>, tangent: vec4<f32>, surface:
     let b = cross(n,t);
     let bent = normalized_or(cross(cross(b,v),b),n);
     let reflected = reflect(-v, normalized_or(mix(n,bent,surface.physical[2].w * (1.-surface.roughness)),n));
-    let diffuse = textureSampleLevel(diffuse_environment,environment_sampler,environment_uv(n),0.).rgb;
-    let radiance = textureSampleLevel(specular_environment,environment_sampler,environment_uv(reflected),surface.roughness*environment.params.y).rgb;
+    let diffuse = textureSampleLevel(diffuse_environment,environment_sampler,environment_uv(n),0.).rgb / select(1.,3.141592653589793,environment.params.z>.5);
+    let radiance = environment_specular(reflected,surface.roughness);
     let brdf = textureSampleLevel(environment_brdf,brdf_sampler,vec2(nv,surface.roughness),0.).rg;
     let f0 = mix(physical_f0(surface),surface.base.rgb,surface.metallic);
     let f90 = mix(surface.physical[0].y,1.,surface.metallic);
@@ -95,7 +95,7 @@ fn physical_environment(n: vec3<f32>, v: vec3<f32>, tangent: vec4<f32>, surface:
     let sheen_energy = sheen_albedo(nv,surface.physical[1].w);
     base = base * (1.-maximum3(sheen)*sheen_energy) + sheen * diffuse * sheen_energy;
     let coat_nv = clamp(dot(surface.coat_normal,v),0.,1.);
-    let coat = textureSampleLevel(specular_environment,environment_sampler,environment_uv(reflect(-v,surface.coat_normal)),surface.physical[0].w*environment.params.y).rgb;
+    let coat = environment_specular(reflect(-v,surface.coat_normal),surface.physical[0].w);
     let coat_brdf = textureSampleLevel(environment_brdf,brdf_sampler,vec2(coat_nv,surface.physical[0].w),0.).rg;
     return (base * (1.-coat_fresnel(coat_nv,surface)) + coat * surface.physical[0].z * (.04*coat_brdf.x+coat_brdf.y)) * environment.params.x * surface.occlusion;
 }

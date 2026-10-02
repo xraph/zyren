@@ -43,7 +43,13 @@ Future<List<Uint8List>> resolveBuffers(
         fail('$path.uri', 'Only the first GLB buffer can omit its URI.');
       }
       if (length > binary.length ||
-          binary.length - length > 3 ||
+          binary.length - length >
+              ((document.root['extensionsUsed'] as List?)?.contains(
+                        'EXT_structural_metadata',
+                      ) ==
+                      true
+                  ? 7
+                  : 3) ||
           binary.skip(length).any((value) => value != 0)) {
         fail(
           '$path.byteLength',

@@ -1,5 +1,5 @@
-use zyren_runtime::renderer::Renderer;
 use serde_json::{Value, json};
+use zyren_runtime::renderer::Renderer;
 
 const CAPACITY: usize = 256 * 1024;
 const VALID: &str = "@compute @workgroup_size(8, 4, 1) fn main() {}";

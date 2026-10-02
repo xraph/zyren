@@ -1,5 +1,7 @@
 import 'dart:typed_data';
 import 'package:zyren/zyren.dart';
+import 'features.dart';
+import 'metadata.dart';
 
 final class PreparedModel {
   final List<SkinRecipe> skins;
@@ -11,6 +13,7 @@ final class PreparedModel {
   final Map<int, ImageRecipe> images;
   final List<SceneIssue> issues;
   final int decodedBytes;
+  final List<ModelPropertyTable> propertyTables;
   const PreparedModel(
     this.skins,
     this.animations,
@@ -21,6 +24,7 @@ final class PreparedModel {
     this.images,
     this.issues,
     this.decodedBytes,
+    this.propertyTables,
   );
 }
 
@@ -55,7 +59,13 @@ final class PrimitiveRecipe {
   final GeometryData geometry;
   final MaterialRecipe material;
   final String? name;
-  const PrimitiveRecipe(this.geometry, this.material, this.name);
+  final List<ModelFeature> features;
+  const PrimitiveRecipe(
+    this.geometry,
+    this.material,
+    this.name, {
+    this.features = const [],
+  });
 }
 
 final class PhysicalRecipe {
@@ -113,6 +123,7 @@ final class MaterialRecipe {
 final class ImageBindingRecipe {
   final int source, uvSet;
   final bool mipmaps;
+  bool get linear => colorSpace == ColorSpace.linear;
   final SamplerDescriptor sampler;
   final ColorSpace colorSpace;
   const ImageBindingRecipe(

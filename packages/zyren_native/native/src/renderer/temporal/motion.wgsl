@@ -3,6 +3,7 @@ struct MotionUniform {
     params: vec4<f32>, // valid history, previous instance count, alpha mode, alpha cutoff
     alpha: vec4<f32>, // opacity, UV set, reactive, has map
     raster: vec4<f32>, // material side
+    inverse_vp: mat4x4<f32>, planes: array<vec4<f32>,6>, clipping: vec4<f32>,
 };
 @group(0) @binding(0) var<uniform> uniforms: MotionUniform;
 @group(1) @binding(0) var color_map: texture_2d<f32>;
@@ -15,6 +16,7 @@ struct Output {
     @location(3) alpha: f32,
     @location(4) @interpolate(flat) valid: f32,
     @location(5) @interpolate(flat) orientation: f32,
+    @location(6) relative: vec3<f32>,
 };
 struct Instance {
     @location(4) current0:vec4<f32>,@location(5) current1:vec4<f32>,@location(6) current2:vec4<f32>,@location(7) current3:vec4<f32>,
@@ -24,11 +26,15 @@ struct Instance {
 fn vertex_data(position:vec3<f32>,previous:vec3<f32>,uv0:vec2<f32>,uv1:vec2<f32>,alpha:f32,instance:u32) -> Output {
     let clip=uniforms.current_mvp*vec4(position,1.);
     return Output(clip,uniforms.previous_mvp*vec4(previous,1.),uniforms.unjittered_mvp*vec4(position,1.),select(uv0,uv1,uniforms.alpha.y>.5),alpha,
-        uniforms.params.x*select(0.,1.,f32(instance)<uniforms.params.y),1.);
+        uniforms.params.x*select(0.,1.,f32(instance)<uniforms.params.y),1.,(uniforms.inverse_vp*clip).xyz);
 }
 // The vertex entry below is generated from the active geometry layout.
 __VERTEX__
 @fragment fn fragment(input:Output,@builtin(front_facing) front:bool) -> @location(0) vec4<f32> {
+    for(var i=0u;i<u32(uniforms.clipping.x);i++) {
+        if(dot(uniforms.planes[i],vec4(input.relative,1.))<0.) { discard; }
+    }
+    fragment_coverage(input.position.xy,uniforms.clipping.yz);
     let facing=select(!front,front,input.orientation>0.);
     if((uniforms.raster.x==1. && !facing)||(uniforms.raster.x==2. && facing)){discard;}
     var alpha=input.alpha*uniforms.alpha.x;

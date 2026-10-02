@@ -14,8 +14,11 @@ use crate::scene::{Frame, pixel_len};
 mod composition;
 mod deformation;
 mod draw_order;
+pub(crate) mod effects;
 mod instances;
 mod materials;
+mod multisample;
+mod outlines;
 mod physical_maps;
 mod pipelines;
 mod shadows;
@@ -44,6 +47,9 @@ struct Uniforms {
     transmission: [[f32; 4]; 2],
     optical: [[f32; 4]; 2],
     capture_projection: [f32; 16],
+    clipping_planes: [[f32; 4]; 6],
+    clipping: [f32; 4],
+    inverse_view_projection: [f32; 16],
 }
 
 struct GpuGeometry {
@@ -102,6 +108,12 @@ pub struct RendererState {
     pub(crate) android_generation: u64,
     pipelines: pipelines::MeshPipelines,
     compositor: composition::Compositor,
+    effects: effects::Effects,
+    supports_msaa4: bool,
+    outlines: outlines::Outlines,
+    outline_materials: Vec<Option<crate::render_graph::PreparedMaterial>>,
+    effect_resources: Vec<crate::resources::registry::ResourceKey>,
+    instance_uploaded_bytes: u64,
     texture_layout: wgpu::BindGroupLayout,
     standard_texture_layout: wgpu::BindGroupLayout,
     textures: HashMap<u32, textures::GpuSceneTexture>,
@@ -114,6 +126,7 @@ pub struct RendererState {
     pub(crate) failure: Option<String>,
     counters: RenderCounters,
     last_scene_draws: std::cell::Cell<u64>,
+    last_instance_draws: std::cell::Cell<u64>,
     layout: wgpu::BindGroupLayout,
     pbr_layout: wgpu::BindGroupLayout,
     environment_defaults: environment::Defaults,
@@ -184,6 +197,18 @@ impl Renderer {
             })
             .await
             .map_err(|e| format!("no Metal, Vulkan or DX12 adapter: {e}"))?;
+        let supports_msaa4 = [
+            wgpu::TextureFormat::Rgba16Float,
+            wgpu::TextureFormat::Depth32Float,
+            outlines::FORMAT,
+        ]
+        .iter()
+        .all(|format| {
+            adapter
+                .get_texture_format_features(*format)
+                .flags
+                .contains(wgpu::TextureFormatFeatureFlags::MULTISAMPLE_X4)
+        });
         let info = adapter.get_info();
         let (device, queue) = adapter
             .request_device(&wgpu::DeviceDescriptor {
@@ -283,6 +308,12 @@ impl Renderer {
                 android_generation: 0,
                 pipelines,
                 compositor: composition::Compositor::default(),
+                effects: effects::Effects::default(),
+                supports_msaa4,
+                outlines: outlines::Outlines::default(),
+                outline_materials: vec![],
+                effect_resources: vec![],
+                instance_uploaded_bytes: 0,
                 texture_layout,
                 standard_texture_layout,
                 pbr_layout,
@@ -299,6 +330,7 @@ impl Renderer {
                 failure: None,
                 counters: RenderCounters::default(),
                 last_scene_draws: std::cell::Cell::new(0),
+                last_instance_draws: std::cell::Cell::new(0),
                 layout,
                 geometries: HashMap::new(),
                 instances: HashMap::new(),
@@ -371,6 +403,14 @@ impl Renderer {
                 resources: &mut state.resources,
                 shaders: &mut state.shaders,
                 failure: &mut state.failure,
+                engine_layout: &state.layout,
+                target_bytes: state.effects.bytes() + state.outlines.bytes(),
+                shadow_bytes: shadow_stats.resident_bytes,
+                shadow_passes: shadow_stats.rendered_views,
+                instance_bytes: state.instances.values().map(|i| i.recipe.byte_length() as u64).sum(),
+                instance_uploaded_bytes: state.instance_uploaded_bytes,
+                instance_draw_calls: state.last_instance_draws.get() as usize,
+                device_info: serde_json::json!({"backend":format!("{:?}",state.backend),"adapterName":state.adapter_name,"sampleCounts":if state.supports_msaa4 {vec![1,4]} else {vec![1]}}),
             },
             bytes,
             capacity,
@@ -493,7 +533,12 @@ impl Renderer {
             }
             Ok(frame)
         } else {
-            serde_json::from_slice(bytes).map_err(|error| format!("invalid scene: {error}"))
+            let mut frame: Frame =
+                serde_json::from_slice(bytes).map_err(|error| format!("invalid scene: {error}"))?;
+            for mesh in &mut frame.meshes {
+                mesh.reversed_depth = frame.settings.reversed_depth();
+            }
+            Ok(frame)
         }
     }
     pub fn scene_draw_stats(&self) -> (u64, usize) {
@@ -504,6 +549,8 @@ impl Renderer {
     }
     pub fn close_scene_view(&mut self, view: u64) -> Result<(), String> {
         self.views.remove(&view);
+        self.effects.remove(view);
+        self.outlines.remove(view);
         self.shadows.remove(view);
         self.temporal.remove(view);
         self.transmission.remove(view);
@@ -724,6 +771,16 @@ impl Renderer {
         format: wgpu::TextureFormat,
     ) -> Result<(), String> {
         let state = self.state.as_mut().unwrap();
+        if state.outlines.view(frame).is_some() {
+            state.pipelines.prepare(
+                &state.device,
+                frame,
+                outlines::FORMAT,
+                |id| !state.geometries[&id].recipe.tangents.is_empty(),
+                frame.sample_count(),
+                true,
+            )?;
+        }
         let geometries = &state.geometries;
         for samples in if state.transmission.targets.is_some() && frame.sample_count() != 1 {
             vec![1, frame.sample_count()]
@@ -738,6 +795,7 @@ impl Renderer {
                     format,
                     |id| !geometries[&id].recipe.tangents.is_empty(),
                     samples,
+                    false,
                 )
                 .inspect_err(|error| state.failure = Some(error.clone()))?;
         }
@@ -817,6 +875,14 @@ impl Renderer {
                             [o[..4].try_into().unwrap(), o[4..].try_into().unwrap()]
                         },
                         capture_projection: vp.to_cols_array(),
+                        inverse_view_projection: vp.inverse().to_cols_array(),
+                        clipping_planes: section_planes(mesh),
+                        clipping: [
+                            mesh.clipping_planes.len() as f32,
+                            mesh.coverage[0],
+                            mesh.coverage[1],
+                            0.,
+                        ],
                         physical: {
                             let p = mesh.pbr.as_ref().and_then(|p| p.physical).unwrap_or([
                                 1.5, 1., 0., 0., 1., 1., 1., 1., 0., 0., 0., 0., 0., 0., 0., 0.,
@@ -834,7 +900,7 @@ impl Renderer {
                                 p.normal_scale,
                                 p.occlusion_strength,
                                 model.determinant().signum(),
-                                0.,
+                                p.normal_scale_y,
                             ]
                         }),
                         pbr_params: mesh.pbr.as_ref().map_or([0.; 4], |p| {
@@ -942,7 +1008,11 @@ impl Renderer {
         }
         shadows.encode(self, frame, &mut encoder);
         self.last_scene_draws.set(0);
-        for capture in [true, false] {
+        self.last_instance_draws.set(0);
+        for (capture, mask) in [(true, false), (false, false), (false, true)] {
+            if mask && self.outlines.view(frame).is_none() {
+                continue;
+            }
             if capture && self.transmission.targets.is_none() {
                 continue;
             }
@@ -952,12 +1022,20 @@ impl Renderer {
             } else {
                 (color_view, resolve_target, depth_view)
             };
+            let (color_view, resolve_target, format) = if mask {
+                let view = self.outlines.view(frame).unwrap();
+                (view.attachment(), view.resolve(), outlines::FORMAT)
+            } else {
+                (color_view, resolve_target, format)
+            };
             let bindings = if capture {
                 capture_bindings.as_ref().unwrap()
             } else {
                 &bindings
             };
-            let materials = if capture {
+            let materials = if mask {
+                &self.outline_materials[..]
+            } else if capture {
                 &self.transmission.materials[..]
             } else {
                 materials
@@ -970,11 +1048,15 @@ impl Renderer {
                     resolve_target,
                     depth_slice: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: frame.background[0] * f64::from(frame.background_alpha),
-                            g: frame.background[1] * f64::from(frame.background_alpha),
-                            b: frame.background[2] * f64::from(frame.background_alpha),
-                            a: f64::from(frame.background_alpha),
+                        load: wgpu::LoadOp::Clear(if mask {
+                            wgpu::Color::TRANSPARENT
+                        } else {
+                            wgpu::Color {
+                                r: frame.background[0] * f64::from(frame.background_alpha),
+                                g: frame.background[1] * f64::from(frame.background_alpha),
+                                b: frame.background[2] * f64::from(frame.background_alpha),
+                                a: f64::from(frame.background_alpha),
+                            }
                         }),
                         store: wgpu::StoreOp::Store,
                     },
@@ -982,8 +1064,16 @@ impl Renderer {
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
                     view: depth_view,
                     depth_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(1.0),
-                        store: if capture || frame.temporal.is_some() {
+                        load: if mask {
+                            wgpu::LoadOp::Load
+                        } else {
+                            wgpu::LoadOp::Clear(frame.settings.depth_clear())
+                        },
+                        store: if capture
+                            || frame.temporal.is_some()
+                            || frame.settings.enabled
+                            || self.outlines.view(frame).is_some()
+                        {
                             wgpu::StoreOp::Store
                         } else {
                             wgpu::StoreOp::Discard
@@ -1007,6 +1097,9 @@ impl Renderer {
                 },
             );
             for draw in draws {
+                if mask && !frame.meshes[draw.mesh].outlined {
+                    continue;
+                }
                 if capture
                     && (frame.meshes[draw.mesh].transmissive()
                         || frame.meshes[draw.mesh].alpha_mode == 2)
@@ -1016,6 +1109,10 @@ impl Renderer {
                 self.last_scene_draws.set(self.last_scene_draws.get() + 1);
                 let index = draw.mesh;
                 let mesh = &frame.meshes[index];
+                if mesh.instances != 0 {
+                    self.last_instance_draws
+                        .set(self.last_instance_draws.get() + 1);
+                }
                 let binding = &bindings[index];
                 let texture_binding = &texture_bindings[index];
                 let geometry = &self.geometries[&mesh.geometry];
@@ -1027,6 +1124,7 @@ impl Renderer {
                         mesh,
                         !geometry.recipe.tangents.is_empty(),
                         samples,
+                        mask,
                     )));
                 }
                 pass.set_bind_group(0, binding, &[]);
@@ -1135,6 +1233,7 @@ impl Renderer {
             .chain(self.instances.values().map(|i| i.key))
             .chain(self.poses.values().map(|p| p.key))
             .chain(environment.resources.iter().copied())
+            .chain(self.effect_resources.iter().copied())
             .chain(
                 materials
                     .iter()
@@ -1222,6 +1321,17 @@ impl Renderer {
         self.prepare_transmission(frame, scene_format, [width, height], graph.as_ref())?;
         self.prepare_scene(frame)?;
         self.prepare_pipelines(frame, scene_format)?;
+        self.outline_materials = if self.outlines.view(frame).is_some() {
+            self.prepare_materials_in_format(
+                frame,
+                outlines::FORMAT,
+                None,
+                frame.sample_count(),
+                true,
+            )?
+        } else {
+            vec![]
+        };
         let shadows = self.prepare_shadows(frame)?;
         self.prepare_temporal(frame, [width, height])?;
         if self
@@ -1268,6 +1378,7 @@ impl Renderer {
         }
         self.accept_shadows(shadows);
         self.temporal.accept();
+        self.accept_history(frame);
         Ok(())
     }
 
@@ -1292,6 +1403,17 @@ impl Renderer {
         self.prepare_transmission(frame, scene_format, [width, height], graph.as_ref())?;
         self.prepare_scene(frame)?;
         self.prepare_pipelines(frame, scene_format)?;
+        self.outline_materials = if self.outlines.view(frame).is_some() {
+            self.prepare_materials_in_format(
+                frame,
+                outlines::FORMAT,
+                None,
+                frame.sample_count(),
+                true,
+            )?
+        } else {
+            vec![]
+        };
         let shadows = self.prepare_shadows(frame)?;
         self.prepare_temporal(frame, [width, height])?;
         self.resize(width, height);
@@ -1347,6 +1469,7 @@ impl Renderer {
         readback.unmap();
         self.counters.readback_bytes += pixels.len() as u64;
         self.temporal.accept();
+        self.accept_history(frame);
         Ok(pixels)
     }
 }
@@ -1417,4 +1540,10 @@ mod metal_timeout_tests {
         }
         assert_eq!(crate::fg_retiring_renderer_count(), 0);
     }
+}
+
+fn section_planes(mesh: &crate::scene::Mesh) -> [[f32; 4]; 6] {
+    let mut planes = [[0.; 4]; 6];
+    planes[..mesh.clipping_planes.len()].copy_from_slice(&mesh.clipping_planes);
+    planes
 }

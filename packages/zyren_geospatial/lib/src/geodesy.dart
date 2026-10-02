@@ -4,8 +4,7 @@ import 'package:zyren/zyren.dart';
 /// Longitude and latitude in radians; height in metres above the ellipsoid.
 class Geodetic {
   final double longitude, latitude, height;
-  Geodetic(double longitude, this.latitude, [this.height = 0])
-    : longitude = (longitude + math.pi) % (2 * math.pi) - math.pi {
+  Geodetic(this.longitude, this.latitude, [this.height = 0]) {
     if (!longitude.isFinite ||
         !latitude.isFinite ||
         !height.isFinite ||
@@ -22,6 +21,30 @@ class Geodetic {
   ]) => Geodetic(longitude * math.pi / 180, latitude * math.pi / 180, height);
   double get longitudeDegrees => longitude * 180 / math.pi;
   double get latitudeDegrees => latitude * 180 / math.pi;
+
+  /// Matches upstream's explicit single-turn adjustment below -pi.
+  Geodetic normalized() => Geodetic(
+    longitude < -math.pi ? longitude + 2 * math.pi : longitude,
+    latitude,
+    height,
+  );
+  Geodetic copyWith({double? longitude, double? latitude, double? height}) =>
+      Geodetic(
+        longitude ?? this.longitude,
+        latitude ?? this.latitude,
+        height ?? this.height,
+      );
+  factory Geodetic.fromList(List<double> values, [int offset = 0]) =>
+      Geodetic(values[offset], values[offset + 1], values[offset + 2]);
+  List<double> toList() => [longitude, latitude, height];
+  @override
+  bool operator ==(Object other) =>
+      other is Geodetic &&
+      longitude == other.longitude &&
+      latitude == other.latitude &&
+      height == other.height;
+  @override
+  int get hashCode => Object.hash(longitude, latitude, height);
   Vec3 toEcef({Ellipsoid ellipsoid = Ellipsoid.wgs84}) =>
       ellipsoid.toEcef(this);
 }
@@ -37,6 +60,62 @@ class Ellipsoid {
     }
     return Ellipsoid._(x, y, z);
   }
+  double get minimumRadius => math.min(x, math.min(y, z));
+  double get maximumRadius => math.max(x, math.max(y, z));
+  double get flattening => 1 - minimumRadius / maximumRadius;
+  double get eccentricitySquared =>
+      1 - minimumRadius * minimumRadius / (maximumRadius * maximumRadius);
+  double get eccentricity => math.sqrt(eccentricitySquared);
+  Vec3 get reciprocalRadii => Vec3(1 / x, 1 / y, 1 / z);
+  Vec3 get reciprocalRadiiSquared =>
+      Vec3(1 / (x * x), 1 / (y * y), 1 / (z * z));
+
+  /// Basis used by upstream PointOfView at an ECEF position.
+  /// At an exact pole, choose longitude zero because longitude is undefined.
+  ({Vec3 east, Vec3 north, Vec3 up}) eastNorthUpVectors(Vec3 position) {
+    final up = surfaceNormal(position);
+    final horizontal = Vec3(-position.y, position.x, 0);
+    final east = horizontal.length2 == 0
+        ? const Vec3(0, 1, 0)
+        : horizontal.normalized();
+    return (east: east, north: up.cross(east).normalized(), up: up);
+  }
+
+  Mat4 eastNorthUpFrame(Vec3 position) {
+    final basis = eastNorthUpVectors(position);
+    return _basisMatrix(basis.east, basis.north, basis.up, position);
+  }
+
+  Mat4 northUpEastFrame(Vec3 position) {
+    final basis = eastNorthUpVectors(position);
+    return _basisMatrix(basis.north, basis.up, basis.east, position);
+  }
+
+  Vec3 osculatingSphereCenter(Vec3 surfacePosition, double radius) {
+    if (x != y) {
+      throw ArgumentError(
+        'An osculating sphere requires equal equatorial radii.',
+      );
+    }
+    if (!radius.isFinite) throw ArgumentError.value(radius, 'radius');
+    return surfacePosition - surfaceNormal(surfacePosition) * radius;
+  }
+
+  Vec3 normalAtHorizon(Vec3 position, Vec3 direction) {
+    if (x != y) {
+      throw ArgumentError('Horizon normals require equal equatorial radii.');
+    }
+    _finite(position);
+    _finite(direction);
+    final a2 = x * x, b2 = z * z;
+    final t =
+        ((position.x * direction.x + position.y * direction.y) / a2 +
+            position.z * direction.z / b2) /
+        ((position.x * position.x + position.y * position.y) / a2 +
+            position.z * position.z / b2);
+    return surfaceNormal(position - direction * t);
+  }
+
   Vec3 toEcef(Geodetic coordinate) {
     final c = math.cos(coordinate.latitude);
     final normal = Vec3(
@@ -49,9 +128,12 @@ class Ellipsoid {
     return point + normal * coordinate.height;
   }
 
-  /// Bounded Newton projection. Near-centre positions have no reliable inverse.
-  Vec3 projectOnSurface(Vec3 position) {
+  /// Bounded Newton projection with upstream's radial fallback near the center.
+  Vec3 projectOnSurface(Vec3 position, {double centerTolerance = .1}) {
     _finite(position);
+    if (!centerTolerance.isFinite || centerTolerance < 0) {
+      throw ArgumentError.value(centerTolerance, 'centerTolerance');
+    }
     final inverse = Vec3(1 / (x * x), 1 / (y * y), 1 / (z * z));
     final squares = Vec3(
       position.x * position.x * inverse.x,
@@ -59,12 +141,13 @@ class Ellipsoid {
       position.z * position.z * inverse.z,
     );
     final norm = squares.x + squares.y + squares.z;
-    if (!norm.isFinite || norm < .1) {
+    if (!norm.isFinite || norm == 0) {
       throw ArgumentError(
-        'Geodetic projection is undefined near the ellipsoid centre.',
+        'Geodetic projection is undefined at the ellipsoid center.',
       );
     }
     final ratio = math.sqrt(1 / norm);
+    if (norm < centerTolerance) return position * ratio;
     final gradient = Vec3(
       position.x * ratio * inverse.x,
       position.y * ratio * inverse.y,
@@ -77,7 +160,7 @@ class Ellipsoid {
           sz = 1 / (1 + lambda * inverse.z);
       final error =
           squares.x * sx * sx + squares.y * sy * sy + squares.z * sz * sz - 1;
-      if (error.abs() < 1e-13) {
+      if (error.abs() <= 1e-12) {
         return Vec3(position.x * sx, position.y * sy, position.z * sz);
       }
       final derivative =
@@ -137,6 +220,25 @@ class Ellipsoid {
     return origin + direction * (near >= 0 ? near : far);
   }
 }
+
+Mat4 _basisMatrix(Vec3 first, Vec3 second, Vec3 third, Vec3 position) => Mat4([
+  first.x,
+  first.y,
+  first.z,
+  0,
+  second.x,
+  second.y,
+  second.z,
+  0,
+  third.x,
+  third.y,
+  third.z,
+  0,
+  position.x,
+  position.y,
+  position.z,
+  1,
+]);
 
 /// East/north/up frame with a double precision ECEF origin, including at poles.
 class EastNorthUpFrame {

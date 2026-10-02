@@ -16,6 +16,7 @@ pub struct ViewState {
     pub retained_poses: HashSet<u32>,
 }
 pub struct ScenePacket {
+    settings: crate::scene::RenderSettings,
     temporal: Option<crate::temporal::TemporalInput>,
     shadows: crate::shadows::ShadowFrame,
     view: u64,
@@ -85,7 +86,7 @@ impl ScenePacket {
             return Err("unsupported scene packet".into());
         }
         let opcode = r.u32()?;
-        if !(10..=35).contains(&opcode) {
+        if !(10..=36).contains(&opcode) {
             return Err("unsupported scene packet".into());
         }
         let textured = opcode >= 11;
@@ -783,6 +784,7 @@ impl ScenePacket {
                                 roughness: r.floats::<1>()?[0],
                                 emissive: r.floats()?,
                                 normal_scale: 1.,
+                                normal_scale_y: 1.,
                                 occlusion_strength: 1.,
                                 normal_map: None,
                                 metallic_roughness_map: None,
@@ -791,6 +793,7 @@ impl ScenePacket {
                             };
                             if opcode >= 20 {
                                 pbr.normal_scale = r.floats::<1>()?[0];
+                                pbr.normal_scale_y = pbr.normal_scale;
                                 pbr.occlusion_strength = r.floats::<1>()?[0];
                                 for map in [
                                     &mut pbr.normal_map,
@@ -900,12 +903,43 @@ impl ScenePacket {
                     _ => return Err("Invalid color visibility flag".into()),
                 };
             }
+            if opcode >= 36 {
+                let length = r.u32()? as usize;
+                if length > 4096 {
+                    return Err("Mesh extension exceeds byte budget".into());
+                }
+                let extra: crate::scene::MeshExtension =
+                    serde_json::from_slice(r.bytes(length)?)
+                        .map_err(|e| format!("Invalid mesh extension: {e}"))?;
+                mesh.material_shader = extra.material_shader;
+                mesh.clipping_planes = extra.clipping_planes;
+                mesh.coverage = extra.coverage;
+                mesh.outlined = extra.outlined;
+                if let Some(pbr) = &mut mesh.pbr {
+                    pbr.normal_scale_y = extra.normal_scale_y.unwrap_or(pbr.normal_scale);
+                }
+                mesh.validate_material()?;
+            }
             updates.push((index, mesh));
         }
+        let settings = if opcode >= 36 {
+            let length = r.u32()? as usize;
+            if length > 16384 {
+                return Err("Frame extension exceeds byte budget".into());
+            }
+            let settings: crate::scene::RenderSettings =
+                serde_json::from_slice(r.bytes(length)?)
+                    .map_err(|e| format!("Invalid frame extension: {e}"))?;
+            settings.validate()?;
+            settings
+        } else {
+            Default::default()
+        };
         if r.offset != data.len() {
             return Err("trailing scene bytes".into());
         }
         Ok(Self {
+            settings,
             shadows,
             view,
             revision,
@@ -988,6 +1022,9 @@ impl ScenePacket {
         {
             return Err("visible poses must be owned and uploads referenced".into());
         }
+        for mesh in &mut meshes {
+            mesh.reversed_depth = self.settings.reversed_depth();
+        }
         let binary = Some(ViewState {
             view: self.view,
             revision: self.revision,
@@ -998,6 +1035,7 @@ impl ScenePacket {
             retained_poses: self.retained_poses,
         });
         Ok(Frame {
+            settings: self.settings,
             temporal: self.temporal,
             environment: None,
             shadows: self.shadows,

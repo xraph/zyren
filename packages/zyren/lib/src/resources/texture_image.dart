@@ -136,6 +136,10 @@ final class TextureImageData {
     if (generateMipmaps && mipmaps.isNotEmpty) {
       throw ArgumentError('Choose supplied mipmaps or native generation.');
     }
+    if (format != TextureFormat.rgba8Unorm &&
+        format != TextureFormat.rgba8UnormSrgb) {
+      throw ArgumentError('RGBA images require an eight-bit RGBA format.');
+    }
     final descriptor = TextureDescriptor(
       width: width,
       height: height,

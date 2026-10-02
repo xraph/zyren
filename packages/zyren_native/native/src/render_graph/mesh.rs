@@ -32,6 +32,8 @@ struct State {
     side: u32,
     mirrored: bool,
     blend: bool,
+    reversed_depth: bool,
+    outline_pass: bool,
     depth_test: bool,
     depth_write: bool,
 }
@@ -43,8 +45,10 @@ impl State {
             side: mesh.side,
             mirrored: glam::Mat4::from_cols_array(&mesh.model).determinant() < 0.,
             blend: mesh.alpha_mode == 2,
+            reversed_depth: mesh.reversed_depth,
+            outline_pass: mesh.outline_pass,
             depth_test: mesh.depth_test,
-            depth_write: mesh.writes_depth(),
+            depth_write: !mesh.outline_pass && mesh.writes_depth(),
         }
     }
 }
@@ -74,6 +78,7 @@ struct Program {
     resources: Vec<ResourceKey>,
     shader: ResourceKey,
 }
+#[derive(Clone)]
 pub(crate) struct PreparedMaterial {
     pipeline: Arc<Pipeline>,
     groups: Vec<Option<wgpu::BindGroup>>,
@@ -186,7 +191,12 @@ fn create_pipeline(
             format: wgpu::TextureFormat::Depth32Float,
             depth_write_enabled: Some(state.depth_write),
             depth_compare: Some(if state.depth_test {
-                wgpu::CompareFunction::Less
+                match (state.reversed_depth, state.outline_pass) {
+                    (true, true) => wgpu::CompareFunction::GreaterEqual,
+                    (true, false) => wgpu::CompareFunction::Greater,
+                    (false, true) => wgpu::CompareFunction::LessEqual,
+                    (false, false) => wgpu::CompareFunction::Less,
+                }
             } else {
                 wgpu::CompareFunction::Always
             }),
@@ -260,6 +270,9 @@ impl MeshStore {
             instance_count: None,
             sample_count: None,
             color: None,
+            blend: None,
+            requires_uv: None,
+            screen_space: None,
         };
         let (pipeline_key, pipeline, groups, resources) =
             scoped(device, &description.label, || {
@@ -442,4 +455,50 @@ impl MeshStore {
             colored: program.key.colored,
         })
     }
+}
+
+pub(super) fn prepare_external(
+    device: &wgpu::Device,
+    material: &super::materials::PreparedMaterial,
+    mesh: &Mesh,
+    format: wgpu::TextureFormat,
+    samples: u32,
+) -> Result<PreparedMaterial, GraphError> {
+    if material.screen_pipeline.is_some()
+        || mesh.instances != 0
+        || mesh.pose != 0
+        || mesh.primitive_kind != 0
+    {
+        return Err(GraphError::new(
+            "invalidDescriptor",
+            "This material requires rigid triangle geometry",
+        ));
+    }
+    let key = PipelineKey {
+        module: material.shader.clone(),
+        bindings: vec![],
+        vertex: material.vertex.clone(),
+        fragment: material.fragment.clone(),
+        uv: material.requires_uv,
+        tangent: false,
+        colored: false,
+        instanced: false,
+        deformed: false,
+        state: State::new(format, mesh, samples),
+    };
+    let pipeline = scoped(device, "mesh material", || {
+        Ok(Arc::new(Pipeline {
+            native: create_pipeline(device, &key, &material.layout),
+            layout: material.layout.clone(),
+            groups: vec![],
+        }))
+    })?;
+    Ok(PreparedMaterial {
+        pipeline,
+        groups: material.groups.iter().cloned().map(Some).collect(),
+        resources: material.resources.clone(),
+        uv: material.requires_uv,
+        tangent: false,
+        colored: false,
+    })
 }

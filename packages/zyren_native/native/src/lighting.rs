@@ -21,6 +21,8 @@ pub struct StandardMaterial {
     #[serde(default = "one")]
     pub normal_scale: f32,
     #[serde(default = "one")]
+    pub normal_scale_y: f32,
+    #[serde(default = "one")]
     pub occlusion_strength: f32,
     #[serde(default)]
     pub normal_map: Option<crate::scene::ColorMap>,
@@ -98,7 +100,11 @@ impl StandardMaterial {
         for map in self.maps().into_iter().flatten() {
             map.validate()?;
         }
-        if !self.normal_scale.is_finite() || self.normal_scale.abs() > 1e6 {
+        if !self.normal_scale.is_finite()
+            || self.normal_scale.abs() > 1e6
+            || !self.normal_scale_y.is_finite()
+            || self.normal_scale_y.abs() > 1e6
+        {
             return Err("invalid normal scale".into());
         }
         if [self.metallic, self.roughness, self.occlusion_strength]

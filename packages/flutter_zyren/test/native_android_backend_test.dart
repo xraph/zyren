@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'support/device_info.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -18,6 +19,44 @@ void main() {
     debugDefaultTargetPlatformOverride = null;
     messenger.setMockMethodCallHandler(channel, null);
   });
+  test('MSAA feature admission follows the adapter sample counts', () async {
+    for (final samples in [
+      <int>[1],
+      <int>[1, 4],
+    ]) {
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        switch (call.method) {
+          case 'connect':
+          case 'close':
+            return null;
+          case 'create':
+            return {
+              'session': 1,
+              'adapter': 'test Android',
+              'driverInfo': 'test driver',
+            };
+          case 'gpuCommand':
+            if ((call.arguments as Map)['kind'] == 'graph') {
+              return deviceInfoReply(call.arguments as Map, samples: samples);
+            }
+            return textureFormatsReply(call);
+          default:
+            throw StateError(call.method);
+        }
+      });
+      final backend = await NativeAndroidBackend.create(runtimeToken: 10);
+      expect(
+        backend.capabilities.supports(RenderFeature.multisampleAntialiasing),
+        samples.contains(4),
+      );
+      expect(
+        backend.capabilities.supports(RenderFeature.standardMaterials),
+        isTrue,
+      );
+      expect(backend.capabilities.supports(RenderFeature.bloom), isTrue);
+      await backend.close();
+    }
+  });
   test('applied superseded frames retain geometry through remount', () async {
     final packets = <ByteData>[];
     final detached = <int>[];
@@ -28,6 +67,8 @@ void main() {
           return textureFormatsReply(call);
         case 'connect':
           return null;
+        case 'gpu':
+          return deviceInfoReply(call.arguments as Map);
         case 'create':
           return {
             'session': 1,
@@ -55,6 +96,7 @@ void main() {
       }
     });
     final backend = await NativeAndroidBackend.create(runtimeToken: 10);
+    expect(backend.capabilities.limits.sampleCounts, {1, 4});
     final factory = const NativeAndroidPresenterFactory();
     final presenter = factory.create(backend);
     final scene = Scene()..add(Mesh(BoxGeometry(), UnlitMaterial()));
@@ -120,6 +162,8 @@ void main() {
             return textureFormatsReply(call);
           case 'connect':
             return null;
+          case 'gpu':
+            return deviceInfoReply(call.arguments as Map);
           case 'create':
             return {'session': 1, 'adapter': 'test Vulkan', 'driverInfo': ''};
           case 'prepare':
@@ -134,6 +178,7 @@ void main() {
         }
       });
       final backend = await NativeAndroidBackend.create(runtimeToken: 10);
+      expect(backend.capabilities.limits.sampleCounts, {1, 4});
       final presenter = const NativeAndroidPresenterFactory().create(backend);
       final target = await presenter.prepare(PhysicalSize(16, 16));
       final submission = FrameSubmission.capture(
@@ -182,6 +227,8 @@ void main() {
           return textureFormatsReply(call);
         case 'connect':
           return null;
+        case 'gpu':
+          return deviceInfoReply(call.arguments as Map);
         case 'create':
           return {'session': 1, 'adapter': 'Vulkan'};
         case 'prepare':
@@ -196,6 +243,7 @@ void main() {
       }
     });
     final backend = await NativeAndroidBackend.create(runtimeToken: 10);
+    expect(backend.capabilities.limits.sampleCounts, {1, 4});
     final presenter = const NativeAndroidPresenterFactory().create(backend);
     final pending = presenter.prepare(PhysicalSize(16, 16));
     final rejected = expectLater(
@@ -223,6 +271,8 @@ void main() {
           return textureFormatsReply(call);
         case 'connect':
           return null;
+        case 'gpu':
+          return deviceInfoReply(call.arguments as Map);
         case 'create':
           return {'session': ++next, 'adapter': 'Vulkan'};
         case 'prepare':

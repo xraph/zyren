@@ -16,6 +16,9 @@ struct Uniforms {
     transmission: array<vec4<f32>,2>,
     optical: array<vec4<f32>,2>,
     capture_projection: mat4x4<f32>,
+    clipping_planes: array<vec4<f32>, 6>,
+    clipping: vec4<f32>,
+    inverse_view_projection: mat4x4<f32>,
 };
 @group(0) @binding(0) var<uniform> uniforms: Uniforms;
 @group(1) @binding(0) var color_map: texture_2d<f32>;
@@ -103,10 +106,12 @@ fn shade(normal: vec3<f32>, sample_color: vec4<f32>) -> vec4<f32> {
 }
 
 @fragment fn fs_textured(input: VertexOutput, @builtin(front_facing) front: bool) -> @location(0) vec4<f32> {
+    clip_fragment(input.relative_position, input.position.xy);
     return shade(select(-input.normal, input.normal, material_front(front, input.orientation)), textureSample(color_map, color_sampler, input.uv) * input.color);
 }
 
 @fragment fn fs_main(input: VertexOutput, @builtin(front_facing) front: bool) -> @location(0) vec4<f32> {
+    clip_fragment(input.relative_position, input.position.xy);
     return shade(select(-input.normal, input.normal, material_front(front, input.orientation)), input.color);
 }
 
@@ -205,4 +210,11 @@ fn material_front(front: bool, orientation: f32) -> bool {
     output.tangent = vec4((uniforms.model * instance_matrix(instance) * vec4(tangent.xyz, 0.)).xyz, tangent.w * uniforms.pbr_factors.z * instance.normal0.w);
     output.color *= color;
     return output;
+}
+
+fn clip_fragment(position: vec3<f32>, pixel: vec2<f32>) {
+    fragment_coverage(pixel, uniforms.clipping.yz);
+    for (var i=0u; i<u32(uniforms.clipping.x); i++) {
+        if dot(uniforms.clipping_planes[i],vec4(position,1.)) < 0. { discard; }
+    }
 }

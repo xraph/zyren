@@ -1,147 +1,23 @@
-# Native shader lab
+# Shader lab
 
-Run the demo to change exposure, saturation and vignette on a native scene. Drag
-to orbit, pinch or scroll to zoom, and change resolution to exercise texture
-replacement. Switch effects off to compare the original scene.
-The middle box uses a custom WGSL material. Change Stripes to update its uniform
-without compiling another pipeline. The Effects switch controls post-processing;
-the mesh material remains active.
+Use `ShaderLabPlugin` to add two native HDR passes to a scene. The first changes
+gain through a uniform buffer. The second adds a small spatial glow around
+values above one. Set the scene's tone mapping before presentation.
 
-```sh
-fvm flutter pub get
-fvm flutter run -d macos
-# Or select an Android device running API 29 or newer.
-fvm flutter run -d DEVICE_ID
-```
+A dependent plugin can require `shader-lab` and obtain `shaderLabControls` from
+its `PluginContext`. Call `setGain(value)` to upload a new parameter and request
+a frame. Attachment cleanup removes both effects and closes their GPU owners.
 
-The app requires native presentation. Metal is selected on Apple platforms and
-Vulkan on Android. The other platform folders are scaffolds, not platform
-qualification. Windows and Linux still need their own build and device checks.
-
-The separately packaged [effects plugin](effects_plugin/README.md) imports only
-the public Dart core API. Its two spatial render passes run after the scene on
-the same GPU device. Choose History 50% or 90% to add the separate temporal blend
-plugin, then move the camera to see the retained pixels. The adjacent reset button
-discards that history. The blend runs continuously while enabled and uses
-alpha-weighted linear color. The PBR lab below uses the new HDR color pipeline.
-TAA and motion/depth rejection remain later renderer work.
-
-The Scale selector scales each physical dimension. Lower it for large or
-high-density windows: transactional resize needs space for both texture sets
-until the new graph replaces the old one. Each enabled history also needs two
-textures. The native resource budget is 64 MiB.
-
-```sh
-fvm flutter test test/app_test.dart
-fvm flutter test integration_test/effects_test.dart -d macos
-cd effects_plugin
-RUN_NATIVE_GPU=1 fvm dart test --concurrency=1
-cd example
-fvm dart run render.dart /tmp/shader-lab.png
-fvm dart build cli --target=render.dart --output=/tmp/shader-lab-cli
-```
-
-The integration checks shader pixels, native presentation with zero readback,
-controls, resize, history pixels/reset, compute history and cleanup. The standalone Dart command saves an explicit
-readback image for inspection; it is not the app's presentation path.
-
-## PBR lab
-
-Run the separate material demo with native presentation:
-
-```sh
-fvm flutter run -d macos -t lib/pbr.dart
-fvm flutter run --release -d DEVICE_ID -t lib/pbr.dart
-fvm flutter test test/pbr_app_test.dart
-fvm flutter test integration_test/pbr_test.dart -d macos
-fvm flutter test integration_test/pbr_pixels_test.dart -d DEVICE_ID
-```
-
-The grid shares one sphere geometry across 12 materials. Roughness increases
-left to right (`0.1`, `0.35`, `0.65`, `1`); metallic increases top to bottom (`0`,
-`0.5`, `1`). Light changes directional intensity in lux. Angle rotates that light
-around Y in radians. A blue point light adds a fixed fill. Ambient controls the
-hemisphere light. Exposure adjusts the HDR multiplier; the adjacent selector
-chooses ACES, Reinhard or Linear tone mapping. Textures switches the shared base-color, normal, packed
-occlusion/roughness/metallic and emissive images on or off. The maps multiply the
-grid's material factors. Light edits redraw without uploading geometry or images;
-re-enabling released texture maps uploads their pixels again.
-
-An analytic HDR studio panorama supplies environment lighting without a download.
-Select Environment in the header to edit Sky intensity and Rotation. Those edits
-reuse the prepared diffuse and specular maps. See
-[environment lighting](../../docs/design/environment-lighting.md) for image
-loading, quality settings and procedural sources.
-
-The integration checks reference pixels, point falloff, narrow spot cones,
-texture masks, negative scale, emission, resource cleanup and native presentation
-with zero readback. See [standard materials](../../docs/design/standard-materials.md)
-for the implemented parameters and remaining renderer work. `pbr_pixels_test`
-runs the native readback assertions, including environment convolution, BRDF
-quadrature and custom-material/effect composition, without mounting a viewport. Keep that result
-separate from `pbr_test`, which also verifies Flutter controls and presentation.
-
-## Animation lab
-
-Play two independently bound copies of one clip. Select Left or Right to pause,
-seek, reverse or change its loop mode. Both paused models stop requesting frames.
-The scene and clip also run in standalone Dart; see
-[the animation API](../../docs/design/animation.md).
-
-```sh
-fvm flutter run -d macos -t lib/animation.dart
-fvm flutter run --release -d DEVICE_ID -t lib/animation.dart
-fvm flutter test test/animation_app_test.dart
-fvm flutter test integration_test/animation_test.dart -d DEVICE_ID
-```
-
-This demo animates scene transforms. Run `lib/geometry.dart` for custom shader
-skinning, morph targets, instance colors and triangle selection.
-
-## Culling lab
-
-Pan across 61 meshes sharing one box geometry. You can toggle frustum culling or
-switch projection in the header. The footer reports color draws and uploaded
-bytes; camera movement reuses the geometry already on the GPU.
-Use **Frame all boxes** to fit the whole row, or tap a box and choose **Frame
-selected box**. The fit follows projection changes and window resizing. Moving
-the pan slider returns to the close camera view with its original clip range.
-Drag to orbit, use a secondary/Shift drag to pan, and scroll or pinch to zoom.
-The reset button beside the pan slider restores the controls' saved view.
-Damping settles back to demand rendering after you finish a gesture. See
-[orbit controls](../../docs/design/orbit-controls.md) for bindings and limits.
-Open **Inspect scene** beside the pan slider to search the hierarchy, select a
-box and inspect its transform, renderer status and last presented frame. The
-panel uses the optional [inspector package](../../packages/zyren_inspector/README.md).
-The canvas keeps its size while the panel is open. Opening, selecting and closing
-do not request rendering; **Frame inspected box** moves the camera explicitly.
-Close the panel with its close button, Escape or back navigation. Keyboard focus
-returns to **Inspect scene**.
-
-```sh
-fvm flutter run --release -d macos -t lib/culling.dart
-fvm flutter run --release -d DEVICE_ID -t lib/culling.dart
-fvm flutter test test/culling_app_test.dart
-fvm flutter test integration_test/culling_test.dart -d macos
-```
-
-Presentation requires native Metal or Vulkan on the qualified hosts. See
-[frustum culling](../../docs/design/frustum-culling.md) for shader bounds,
-instance batches, shadows and resource lifetime.
+Run `RUN_NATIVE_GPU=1 fvm dart test` in this directory for the standalone native
+consumer. Planet's native graph integration test also installs this package on
+the presentation device. See [the effect contract](https://xraph.com/docs/zyren/reference/design/scene-effects)
+for color, history and allocation limits.
 
 
-## Physical material gallery
-
-Run `fvm flutter run -d macos -t lib/physical.dart` for clearcoat, sheen and
-refractive glass with rectangular area lighting. Roughness and thickness controls
-update the glass; AA and bloom switches use the native renderer. The compact
-controls wrap on narrow screens. The integration fixture checks material edits,
-area lighting, MSAA/TAA/bloom switching and 320/960-pixel layouts without
-presentation readback:
-
-```sh
-fvm flutter test integration_test/physical_test.dart -d macos
-```
-
-See [transmission](../../docs/design/transmission.md) for capture budgets and the
-limits of refraction from a visible scene image.
+`RendererFixture` combines standard materials, a generated HDR environment,
+directional and spot shadows, 64 mirrored instances and an emissive source.
+`RendererProfilePlugin` enables ACES, FXAA, bloom and four samples when supported.
+The standalone test shares this scene across two views and checks resource cleanup.
+`tool/renderer_benchmark.dart` records explicit readback timings; set `RENDERER_RGBA`
+to save its last 512x384 RGBA frame. Planet's `renderer_lab.dart` presents the same
+fixture through the native host. See [renderer profiles](https://xraph.com/docs/zyren/reference/renderer-capabilities).

@@ -4,11 +4,15 @@ import 'package:flutter/material.dart';
 class ZeroState extends StatelessWidget {
   final String title, message;
   final Widget? action;
+  final String? actionLabel;
+  final VoidCallback? onAction;
   const ZeroState({
     super.key,
     required this.title,
     required this.message,
     this.action,
+    this.actionLabel,
+    this.onAction,
   });
   @override
   Widget build(BuildContext context) => Align(
@@ -26,6 +30,8 @@ class ZeroState extends StatelessWidget {
             Text(title, style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 4),
             Text(message),
+            if (action == null && actionLabel != null && onAction != null)
+              TextButton(onPressed: onAction, child: Text(actionLabel!)),
             if (action != null) ...[const SizedBox(height: 8), action!],
           ],
         ),

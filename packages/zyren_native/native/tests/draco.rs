@@ -2,8 +2,8 @@ static TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 mod support {
     pub mod draco_fixture;
 }
-use zyren_runtime::draco::{MeshLimits, decode_draco};
 use support::draco_fixture::encoded;
+use zyren_runtime::draco::{MeshLimits, decode_draco};
 
 #[test]
 fn draco_ffi_owns_and_clears_packet_memory() {

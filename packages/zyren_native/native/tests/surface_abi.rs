@@ -1,5 +1,5 @@
-use zyren_runtime::interop::abi::*;
 use std::mem::size_of;
+use zyren_runtime::interop::abi::*;
 
 fn error() -> Fg2Error {
     Fg2Error::default()

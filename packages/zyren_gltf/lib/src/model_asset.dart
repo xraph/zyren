@@ -14,6 +14,8 @@ final class ModelAsset {
   final List<AnimationClip> animations;
   final List<SceneIssue> issues;
   final Uri sourceUri;
+  final String? copyright;
+  final List<ModelPropertyTable> propertyTables;
   final int? defaultSceneIndex;
   bool get isReleased => _shared == null;
   ModelAsset._(_SharedModel shared)
@@ -29,6 +31,8 @@ final class ModelAsset {
       ]),
       issues = shared.issues,
       sourceUri = shared.sourceUri,
+      copyright = shared.copyright,
+      propertyTables = shared.propertyTables,
       defaultSceneIndex = shared.defaultScene;
 
   /// Uses the declared default scene, or the first scene when none is declared.
@@ -76,15 +80,17 @@ final class ModelAsset {
               });
         for (final primitive in shared.meshes[mesh]) {
           final object = skin == null
-              ? Mesh(
+              ? ModelMesh(
                   primitive.geometry,
                   primitive.material,
+                  features: primitive.features,
                   name: primitive.name,
                 )
-              : SkinnedMesh(
+              : ModelSkinnedMesh(
                   primitive.geometry,
                   primitive.material,
                   skin: skin,
+                  features: primitive.features,
                   name: primitive.name,
                 );
           if (object.morphWeights.isNotEmpty) {
@@ -169,6 +175,8 @@ final class _SharedModel {
   final List<List<_ModelPrimitive>> meshes;
   final List<SceneIssue> issues;
   final Uri sourceUri;
+  final String? copyright;
+  final List<ModelPropertyTable> propertyTables;
   const _SharedModel(
     this.skins,
     this.animations,
@@ -178,6 +186,8 @@ final class _SharedModel {
     this.meshes,
     this.issues,
     this.sourceUri,
+    this.copyright,
+    this.propertyTables,
   );
 }
 
@@ -185,5 +195,6 @@ final class _ModelPrimitive {
   final BufferGeometry geometry;
   final MeshMaterial material;
   final String? name;
-  const _ModelPrimitive(this.geometry, this.material, this.name);
+  final List<ModelFeature> features;
+  const _ModelPrimitive(this.geometry, this.material, this.name, this.features);
 }

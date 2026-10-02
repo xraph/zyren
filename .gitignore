@@ -4,6 +4,7 @@
 build/
 target/
 .cxx/
+.kotlin/
 **/ephemeral/
 **/Flutter/Generated.xcconfig
 **/Flutter/flutter_export_environment.sh
@@ -16,3 +17,6 @@ target/
 .idea/
 coverage/
 artifacts/
+
+# Local engineering notes and documentation sources.
+/docs/

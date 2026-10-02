@@ -1,5 +1,5 @@
-use zyren_runtime::{renderer::Renderer, resources::ResourceError};
 use serde_json::{Value, json};
+use zyren_runtime::{renderer::Renderer, resources::ResourceError};
 const CAPACITY: usize = 256 * 1024;
 fn request(command: Value) -> Vec<u8> {
     serde_json::to_vec(&json!({"version": 1, "request": 7, "command": command})).unwrap()

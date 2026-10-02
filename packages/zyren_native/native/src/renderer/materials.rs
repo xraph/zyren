@@ -24,25 +24,48 @@ impl Renderer {
             return Err(failure.clone());
         }
         let format = super::composition::scene_format(frame, format, graph)?;
+        self.prepare_materials_in_format(frame, format, graph, samples, false)
+    }
+    pub(super) fn prepare_materials_in_format(
+        &mut self,
+        frame: &Frame,
+        format: wgpu::TextureFormat,
+        graph: Option<&FrameGraph>,
+        samples: u32,
+        mask: bool,
+    ) -> Result<Vec<Option<PreparedMaterial>>, String> {
         let state = self.state.as_mut().unwrap();
         frame
             .meshes
             .iter()
             .map(|mesh| {
-                let Some(key) = mesh.shader else {
+                let mut mesh = mesh.clone();
+                mesh.outline_pass = mask;
+                let mesh = &mesh;
+                if mesh.shader.is_none() && mesh.material_shader.is_none() {
                     return Ok(None);
-                };
+                }
                 mesh.validate_material()?;
-                let material = state
-                    .graphs
-                    .meshes
-                    .prepare(&state.device, key, mesh, format, samples)
-                    .map_err(|error| {
-                        if error.is_device_failure() {
-                            state.failure = Some(error.to_string());
-                        }
-                        error.to_string()
-                    })?;
+                let material = if let Some(key) = mesh.shader {
+                    state
+                        .graphs
+                        .meshes
+                        .prepare(&state.device, key, mesh, format, samples)
+                } else {
+                    state.graphs.materials.prepare(
+                        &state.device,
+                        mesh.material_shader.unwrap(),
+                        mesh,
+                        format,
+                        samples,
+                    )
+                }
+                .map_err(|error| {
+                    if error.is_device_failure() {
+                        state.failure = Some(error.to_string());
+                    }
+                    error.to_string()
+                })?;
                 if graph.is_some_and(|g| material.resources.contains(&g.scene_resource)) {
                     return Err("Mesh shader cannot sample the scene color attachment".into());
                 }

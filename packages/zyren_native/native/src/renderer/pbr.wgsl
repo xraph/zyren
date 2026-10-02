@@ -1,3 +1,4 @@
+@group(0) @binding(15) var volume_environment: texture_3d<f32>;
 struct EnvironmentSettings { params: vec4<f32>, rotation: vec4<f32> };
 @group(0) @binding(2) var<uniform> environment: EnvironmentSettings;
 @group(0) @binding(3) var diffuse_environment: texture_2d<f32>;
@@ -10,13 +11,21 @@ fn environment_uv(direction: vec3<f32>) -> vec2<f32> {
     let local = direction + 2. * cross(q.xyz, cross(q.xyz, direction) + q.w * direction);
     return vec2(atan2(local.z, local.x) / (2. * 3.141592653589793) + .5, acos(clamp(local.y, -1., 1.)) / 3.141592653589793);
 }
+fn environment_specular(direction: vec3<f32>, roughness: f32) -> vec3<f32> {
+    let uv = environment_uv(direction);
+    if environment.params.z > .5 {
+        let layers = environment.params.y + 1.;
+        return textureSampleLevel(volume_environment, environment_sampler, vec3(uv, (roughness * environment.params.y + .5) / layers), 0.).rgb;
+    }
+    return textureSampleLevel(specular_environment, environment_sampler, uv, roughness * environment.params.y).rgb;
+}
 fn shade_environment(n: vec3<f32>, v: vec3<f32>, surface: StandardSurface) -> vec3<f32> {
     if (environment.params.x == 0.) { return vec3(0.); }
     let nv = clamp(dot(n,v), 0., 1.);
     let f0 = mix(vec3(.04), surface.base.rgb, surface.metallic);
     let dielectric_fresnel = .04 + .96 * pow(1. - nv, 5.);
-    let diffuse = textureSampleLevel(diffuse_environment, environment_sampler, environment_uv(n), 0.).rgb;
-    let specular = textureSampleLevel(specular_environment, environment_sampler, environment_uv(reflect(-v,n)), surface.roughness * environment.params.y).rgb;
+    let diffuse = textureSampleLevel(diffuse_environment, environment_sampler, environment_uv(n), 0.).rgb / select(1.,3.141592653589793,environment.params.z>.5);
+    let specular = environment_specular(reflect(-v,n), surface.roughness);
     let brdf = textureSampleLevel(environment_brdf, brdf_sampler, vec2(nv, surface.roughness), 0.).rg;
     return ((1. - dielectric_fresnel) * (1. - surface.metallic) * surface.base.rgb * diffuse
         + specular * (f0 * brdf.x + brdf.y)) * environment.params.x * surface.occlusion;
@@ -66,6 +75,7 @@ fn direct_brdf(n: vec3<f32>, v: vec3<f32>, l: vec3<f32>, base: vec3<f32>, metall
 }
 
 fn shade_standard(input: VertexOutput, front: bool, original: StandardSurface) -> vec4<f32> {
+    clip_fragment(input.relative_position, input.position.xy);
     var surface=original;
     surface.coat_normal=select(-surface.coat_normal,surface.coat_normal,front);
     if (surface.transmission[0].y>0. && surface.transmission[0].x>0. && surface.metallic<1. && !front) {discard;}
@@ -152,7 +162,7 @@ fn standard_surface(input: VertexOutput) -> StandardSurface {
 fn material_uv(input: VertexOutput, slot: u32) -> vec2<f32> {
     return select(input.uv0, input.uv1, (uniforms.pbr_maps.y & (1u << slot)) != 0u);
 }
-fn mapped_normal(input: VertexOutput, uv: vec2<f32>, sample: vec3<f32>, scale: f32) -> vec3<f32> {
+fn mapped_normal(input: VertexOutput, uv: vec2<f32>, sample: vec3<f32>, scale: vec2<f32>) -> vec3<f32> {
     let n = normalized_or(input.normal, vec3(0.,0.,1.));
     // Evaluate derivatives before branching on interpolated tangent data.
     let dx = dpdx(input.relative_position); let dy = dpdy(input.relative_position);
@@ -170,7 +180,7 @@ fn mapped_normal(input: VertexOutput, uv: vec2<f32>, sample: vec3<f32>, scale: f
     if (has_tangent) { handedness = input.tangent.w; }
     let b = cross(n,t) * handedness;
     let encoded = sample * 2. - vec3(1.);
-    let local = encoded * vec3(scale,scale,1.);
+    let local = encoded * vec3(scale,1.);
     return normalized_or(t * local.x + b * local.y + n * local.z, n);
 }
 @fragment fn fs_standard(input: VertexOutput, @builtin(front_facing) front: bool) -> @location(0) vec4<f32> {
@@ -184,7 +194,7 @@ fn mapped_normal(input: VertexOutput, uv: vec2<f32>, sample: vec3<f32>, scale: f
     }
     if ((flags & 2u) != 0u) {
         let uv = material_uv(input,1u);
-        surface.normal = mapped_normal(input, uv, textureSample(normal_map, normal_sampler, uv).rgb,uniforms.pbr_factors.x);
+        surface.normal = mapped_normal(input, uv, textureSample(normal_map, normal_sampler, uv).rgb,uniforms.pbr_factors.xw);
     }
     if ((flags & 4u) != 0u) {
         let sample = textureSample(metallic_roughness_map, metallic_roughness_sampler, material_uv(input,2u));

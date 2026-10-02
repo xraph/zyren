@@ -5,7 +5,7 @@ part of 'native_renderer.dart';
 class NativeBackend implements NativeGpuBackend {
   final NativeRenderer _renderer;
   Set<TextureFormat> _textureFormats = const {};
-  final ScenePacketEncoder _encoder;
+  late final ScenePacketEncoder _encoder;
   Future<FrameOutput>? _drawing;
   final bool _experimentalAppleSurfaces;
   bool _closed = false;
@@ -15,6 +15,7 @@ class NativeBackend implements NativeGpuBackend {
   final _resourceScopes = <ResourceScope>{};
   final _shaderCompilers = <ShaderCompiler>{};
   final _graphCompilers = <GraphCompiler>{};
+  final _materialCompilers = <MaterialCompiler>{};
   final _NativeResourceDevice _resources;
   NativeBackend._(
     this._renderer,
@@ -23,8 +24,9 @@ class NativeBackend implements NativeGpuBackend {
     _NativeResourceDevice? resources,
   }) : _resources =
            resources ??
-           _NativeResourceDevice(_workerGpuSender(_renderer._worker)),
-       _encoder = ScenePacketEncoder(viewId: viewId);
+           _NativeResourceDevice(_workerGpuSender(_renderer._worker)) {
+    _encoder = ScenePacketEncoder(viewId: viewId, materialDevice: _resources);
+  }
 
   /// An independent view that shares this device and its immutable geometry.
   /// Closing either view preserves the other view's scenes and resource scopes.
@@ -87,6 +89,15 @@ class NativeBackend implements NativeGpuBackend {
   }
 
   @override
+  MaterialCompiler createMaterialCompiler({String label = ''}) {
+    if (_closed) throw StateError('Backend has closed.');
+    final compiler = MaterialCompiler(_resources, label: label);
+    _materialCompilers.add(compiler);
+    compiler.whenClosed.then((_) => _materialCompilers.remove(compiler));
+    return compiler;
+  }
+
+  @override
   Future<GraphCacheStats> graphStats() => _resources.graphStats();
 
   @override
@@ -130,8 +141,24 @@ class NativeBackend implements NativeGpuBackend {
 
   DeviceCapabilities get _capabilities => DeviceCapabilities(
     name: 'wgpu-native',
+    backend: _renderer._deviceInfo.backend,
+    adapterName: _renderer._deviceInfo.adapterName,
     textureFormats: _textureFormats,
     features: {
+      RenderFeature.shaderMaterials,
+      RenderFeature.postprocessing,
+      RenderFeature.punctualLights,
+      RenderFeature.shadowMaps,
+      RenderFeature.spatialAntialiasing,
+      RenderFeature.bloom,
+      RenderFeature.sectionClipping,
+      if (_renderer._deviceInfo.sampleCounts.contains(4))
+        RenderFeature.multisampleAntialiasing,
+      RenderFeature.floatTextures,
+      RenderFeature.volumeTextures,
+      RenderFeature.hdr,
+      RenderFeature.reversedDepth,
+      RenderFeature.selectionOutlines,
       RenderFeature.indexedMeshes,
       RenderFeature.diffuseLighting,
       RenderFeature.unlitMaterials,
@@ -162,7 +189,8 @@ class NativeBackend implements NativeGpuBackend {
     },
     limits: DeviceLimits(
       maxTextureDimension2D: 4096,
-      sampleCounts: {1, 4},
+      maxTextureDimension3D: 256,
+      sampleCounts: _renderer._deviceInfo.sampleCounts,
       maxResidentResourceBytes: 256 * 1024 * 1024,
       maxGeometryBytes: 64 * 1024 * 1024,
       maxInstances: 100000,
@@ -262,7 +290,9 @@ class NativeBackend implements NativeGpuBackend {
                 (submission.temporalAA == null
                     ? 0
                     : submission.scene.temporalMotionDraws + 1) +
-                submission.scene.alphaResolveDraws +
+                (submission.scene.usesScreenEffects
+                    ? 0
+                    : submission.scene.alphaResolveDraws) +
                 submission.outputConversionDraws +
                 (submission.graph?.drawCalls ?? 0),
             computeDispatches: submission.graph?.dispatches ?? 0,
@@ -272,7 +302,9 @@ class NativeBackend implements NativeGpuBackend {
                 (submission.temporalAA == null
                     ? 0
                     : submission.scene.triangles + 1) +
-                submission.scene.alphaResolveDraws +
+                (submission.scene.usesScreenEffects
+                    ? 0
+                    : submission.scene.alphaResolveDraws) +
                 submission.outputConversionDraws +
                 (submission.graph?.triangles ?? 0),
             uploadedBytes: packet.uploadedBytes,
@@ -289,7 +321,13 @@ class NativeBackend implements NativeGpuBackend {
       clock.stop();
       final frame = await pending;
       return ReadbackOutput(
-        image: ImageData(pixels: frame.pixels, size: submission.size),
+        image: ImageData(
+          pixels: frame.pixels,
+          size: submission.size,
+          alphaMode: submission.scene.usesScreenEffects
+              ? AlphaMode.premultiplied
+              : AlphaMode.straight,
+        ),
         stats: FrameStats(
           frameId: ++_nextFrame,
           physicalSize: submission.size,
@@ -302,7 +340,9 @@ class NativeBackend implements NativeGpuBackend {
               (submission.temporalAA == null
                   ? 0
                   : submission.scene.temporalMotionDraws + 1) +
-              submission.scene.alphaResolveDraws +
+              (submission.scene.usesScreenEffects
+                  ? 0
+                  : submission.scene.alphaResolveDraws) +
               submission.outputConversionDraws +
               (submission.graph?.drawCalls ?? 0),
           computeDispatches: submission.graph?.dispatches ?? 0,
@@ -312,7 +352,9 @@ class NativeBackend implements NativeGpuBackend {
               (submission.temporalAA == null
                   ? 0
                   : submission.scene.triangles + 1) +
-              submission.scene.alphaResolveDraws +
+              (submission.scene.usesScreenEffects
+                  ? 0
+                  : submission.scene.alphaResolveDraws) +
               submission.outputConversionDraws +
               (submission.graph?.triangles ?? 0),
           uploadedBytes: frame.uploadedBytes,
@@ -398,8 +440,11 @@ class NativeBackend implements NativeGpuBackend {
     Object? failure;
     StackTrace? failureStack;
     final resourceClosures = [
-      for (final compiler in _graphCompilers.toList())
-        compiler.close().then<void>(
+      for (final close in [
+        for (final c in _materialCompilers.toList()) c.close,
+        for (final c in _graphCompilers.toList()) c.close,
+      ])
+        close().then<void>(
           (_) {},
           onError: (Object error, StackTrace stack) {
             failure ??= error;

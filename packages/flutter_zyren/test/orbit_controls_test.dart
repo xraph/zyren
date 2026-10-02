@@ -24,7 +24,7 @@ void main() {
   testWidgets('trackpad pan and pinch change the view without orbiting', (
     tester,
   ) async {
-    final controls = OrbitControls(damping: Duration.zero);
+    final controls = OrbitNavigation(damping: Duration.zero);
     final controller = SceneController(
       options: readback,
       runtime: runtime(FakeBackend()),
@@ -72,7 +72,7 @@ void main() {
     tester,
   ) async {
     final backend = FakeBackend();
-    final controls = OrbitControls();
+    final controls = OrbitNavigation();
     final controller = SceneController(
       options: readback,
       runtime: runtime(backend),
@@ -223,7 +223,7 @@ void main() {
   testWidgets(
     'disabled orbit yields to scroll parent and wheel interest returns when enabled',
     (tester) async {
-      final controls = OrbitControls(enabled: false, damping: Duration.zero);
+      final controls = OrbitNavigation(enabled: false, damping: Duration.zero);
       final controller = SceneController(
         options: readback,
         runtime: runtime(FakeBackend()),
@@ -307,7 +307,7 @@ void main() {
       Vec3? baseline;
       for (final scale in [.5, 1.0]) {
         tester.view.devicePixelRatio = 1.5;
-        final controls = OrbitControls(damping: Duration.zero);
+        final controls = OrbitNavigation(damping: Duration.zero);
         final controller = SceneController(
           options: readback,
           runtime: runtime(FakeBackend()..maxDimension = 1000),

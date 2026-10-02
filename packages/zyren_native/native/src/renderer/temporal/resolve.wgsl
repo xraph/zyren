@@ -14,6 +14,7 @@ struct Result { @location(0) color: vec4<f32>, @location(1) history: vec4<f32>, 
 @fragment fn fragment(@builtin(position) pixel: vec4<f32>) -> Result {
     let size=vec2<i32>(textureDimensions(current)); let p=vec2<i32>(pixel.xy);
     let c=associated(textureLoad(current,p,0)); let z=textureLoad(depth,p,0);
+    let reversed=params.settings.w>.5;
     var lo=c; var hi=c;
     var selected=textureLoad(motion,p,0); var nearest=z;
     let reactive=selected.w<0.;
@@ -23,14 +24,14 @@ struct Result { @location(0) color: vec4<f32>, @location(1) history: vec4<f32>, 
         let neighbor=associated(textureLoad(current,q,0));
         lo=min(lo,neighbor);hi=max(hi,neighbor);
         let candidate=textureLoad(depth,q,0);
-        if(candidate<nearest) { nearest=candidate;selected=textureLoad(motion,q,0); }
+        if(select((candidate < nearest), (candidate > nearest), reversed)) { nearest=candidate;selected=textureLoad(motion,q,0); }
     } }
     let uv=pixel.xy/vec2<f32>(size);
     // Motion stores a UV displacement, predicted previous depth and validity.
     var previous=uv+selected.xy;
     var expected=selected.z;
     var valid=selected.w>.5;
-    if(nearest>=1.) { previous=uv; expected=1.; valid=true; }
+    if(select((nearest >= 1.), (nearest <= 0.), reversed)) { previous=uv; expected=select(1.,0.,reversed); valid=true; }
     valid=valid && !reactive;
     valid=valid && params.settings.z>.5 && all(previous>=vec2(0.)) && all(previous<vec2(1.));
     let coordinate=previous*vec2<f32>(size)-vec2(.5);
@@ -41,7 +42,7 @@ struct Result { @location(0) color: vec4<f32>, @location(1) history: vec4<f32>, 
     for(var y=0;y<2;y++) { for(var x=0;x<2;x++) {
         let q=clamp(base+vec2(x,y),vec2(0),size-vec2(1));
         let z_old=textureLoad(history_depth,q,0).r;
-        let tolerance=max(1e-6,params.settings.y*max(1.-expected,1e-4));
+        let tolerance=max(1e-6,params.settings.y*max(select(1.-expected,expected,reversed),1e-4));
         let w=select(1.-fraction.x,fraction.x,x==1)*select(1.-fraction.y,fraction.y,y==1);
         depth_match=depth_match || (w>.01 && abs(z_old-expected)<=tolerance);
         history_color+=textureLoad(history,q,0)*w;

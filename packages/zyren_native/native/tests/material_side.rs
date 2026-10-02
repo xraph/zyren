@@ -1,8 +1,8 @@
+use serde_json::json;
 use zyren_runtime::{
     renderer::Renderer,
     scene::{Frame, Mesh},
 };
-use serde_json::json;
 
 #[test]
 fn material_side_checks_wire_values_and_expanded_primitives() {

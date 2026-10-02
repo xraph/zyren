@@ -1,5 +1,5 @@
-use zyren_runtime::{renderer::Renderer, resources::registry::ResourceKey, scene::Frame};
 use serde_json::{Value, json};
+use zyren_runtime::{renderer::Renderer, resources::registry::ResourceKey, scene::Frame};
 
 const CAPACITY: usize = 256 * 1024;
 fn request(command: Value) -> Vec<u8> {

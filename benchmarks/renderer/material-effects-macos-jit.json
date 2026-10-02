@@ -1,0 +1,48 @@
+{
+  "backend": "Metal",
+  "adapter": "Apple M3 Max",
+  "host": "Version 27.0 (Build 26A428)",
+  "release": false,
+  "size": [
+    512,
+    384
+  ],
+  "profiles": [
+    {
+      "profile": "HDR single sample",
+      "endToEndReadbackMicros": [
+        3616,
+        3937,
+        3528,
+        3700,
+        3120,
+        2754,
+        2724,
+        2934
+      ],
+      "targetBytes": 7077888,
+      "instanceBytes": 7168,
+      "instanceDrawCalls": 2,
+      "shadowBytes": 4194304,
+      "shadowPasses": 3
+    },
+    {
+      "profile": "MSAA4 + FXAA + bloom",
+      "endToEndReadbackMicros": [
+        3228,
+        2666,
+        3151,
+        3293,
+        3281,
+        3480,
+        3351,
+        3195
+      ],
+      "targetBytes": 17562624,
+      "instanceBytes": 7168,
+      "instanceDrawCalls": 2,
+      "shadowBytes": 4194304,
+      "shadowPasses": 3
+    }
+  ]
+}

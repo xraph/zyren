@@ -45,7 +45,7 @@ class _CullingLab extends StatefulWidget {
 
 class _CullingLabState extends State<_CullingLab> {
   late final SceneController controller;
-  final orbit = OrbitControls();
+  final orbit = OrbitNavigation();
   late final List<Mesh> meshes;
   StreamSubscription<FrameStats>? subscription;
   FrameStats? stats;

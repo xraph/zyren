@@ -38,6 +38,70 @@ void main() {
   );
 
   test(
+    'request credentials stay on their original origin and response metadata is immutable',
+    () async {
+      final headers = {'Authorization': 'Bearer fixture-secret'};
+      final context = SourceReadContext(
+        maxBytes: 32,
+        cancellation: LiveCancellation(),
+        policy: const RedirectPolicy(),
+        headers: headers,
+        onProgress: (_, _) {},
+      );
+      headers['Authorization'] = 'changed';
+      final received = <String?>[];
+      server.listen((request) async {
+        received.add(request.headers.value('Authorization'));
+        if (request.uri.path == '/start') {
+          await request.response.redirect(root.resolve('same'));
+        } else if (request.uri.path == '/same') {
+          await request.response.redirect(
+            Uri.parse('http://localhost:${server.port}/other'),
+          );
+        } else {
+          request.response.headers.set('Cache-Control', 'private, max-age=10');
+          request.response.headers.set('ETag', 'fixture-v1');
+          request.response.add([1, 2]);
+          await request.response.close();
+        }
+      });
+      final result = await const NativeSourceResolver().read(
+        root.resolve('start'),
+        context,
+      );
+      expect(received, [
+        'Bearer fixture-secret',
+        'Bearer fixture-secret',
+        null,
+      ]);
+      expect(result.headers['cache-control'], 'private, max-age=10');
+      expect(result.headers['etag'], 'fixture-v1');
+      expect(() => result.headers.clear(), throwsUnsupportedError);
+      expect(() => context.headers.clear(), throwsUnsupportedError);
+    },
+  );
+
+  test(
+    'HTTP status survives scoped load wrapping for bounded provider refresh',
+    () async {
+      server.listen((request) async {
+        request.response.statusCode = 401;
+        await request.response.close();
+      });
+      await expectLater(
+        load('denied').result,
+        throwsA(
+          isA<AssetLoadException>().having(
+            (e) => e.httpStatus,
+            'HTTP status',
+            401,
+          ),
+        ),
+      );
+    },
+  );
+
+  test(
     'HTTP redirects retain effective URI and bounded unknown-length progress',
     () async {
       server.listen((request) async {
@@ -214,4 +278,19 @@ void main() {
       await directory.delete(recursive: true);
     }
   });
+}
+
+class RedirectPolicy extends SourcePolicy {
+  const RedirectPolicy();
+  @override
+  void validate(Uri from, Uri to, {String? fieldPath}) {}
+}
+
+class LiveCancellation implements LoadCancellation {
+  @override
+  bool get isCancelled => false;
+  @override
+  void throwIfCancelled() {}
+  @override
+  Registration onCancel(void Function() callback) => Registration(() {});
 }

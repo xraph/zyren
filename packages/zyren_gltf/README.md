@@ -166,6 +166,24 @@ normals, generated tangent seam copies and owned copies. Image accounting includ
 color-space/mip variant. These are payload limits, not a process-memory ceiling. Renderers
 apply their own frame upload and GPU residency budgets when a model is drawn.
 
+Flutter's default asset services include the native meshopt decoder. For a Dart
+application, pass `NativeBufferDecoder()` as `AssetServices.bufferDecoder`.
+Decoded views count against the job budget before accessor conversion. Fallback
+buffers marked by meshopt are skipped when you configure the codec.
+
+For Basis textures, pass `NativeTextureDecoder()` as `AssetServices.textureDecoder`.
+Flutter includes it by default. Authored mip levels and alpha survive CPU
+transcoding to RGBA8. A texture with one source level gets generated mips when
+its sampler requests them. The material usage must agree with the texture's
+linear/sRGB metadata. Native storage is RGBA8; compressed GPU uploads, arrays,
+cubes, video, HDR, custom swizzles and alternate orientations are unsupported.
+
+For Draco, use `NativeMeshDecoder()` as `AssetServices.meshDecoder`. Flutter
+includes it by default. Declared position bounds may include quantization
+padding; decoded vertices must remain inside that range, and the model uses
+their actual bounds. The independent Khronos Box fixture checks Draco loading
+and native tile rendering alongside the generated sequential/EdgeBreaker quads.
+
 Each caller isolate admits two workers and sixteen queued jobs. Large buffers use
 transferable inputs and isolate-exit results. Workers prepare immutable geometry
 and image data; renderer identities are assigned on the caller. Errors include

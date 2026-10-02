@@ -1,7 +1,7 @@
 Pod::Spec.new do |s|
   s.name = 'flutter_zyren'
   s.version = '0.1.0'
-  s.summary = 'Native GPU texture presentation for Flutter.'
+  s.summary = 'Native GPU presentation for Zyren Flutter views.'
   s.description = s.summary
   s.homepage = 'https://github.com/xraph'
   s.license = { :type => 'Unspecified' }

@@ -30,11 +30,25 @@ enum RenderFeature {
   instancing,
   skinning,
   morphTargets,
+  floatTextures,
+  volumeTextures,
+  shaderMaterials,
+  postprocessing,
+  hdr,
+  punctualLights,
+  shadowMaps,
+  multisampleAntialiasing,
+  spatialAntialiasing,
+  bloom,
+  sectionClipping,
+  reversedDepth,
+  selectionOutlines,
 }
 
 /// Limits enforced by the backend, even if the adapter can allocate more.
 class DeviceLimits {
   final int maxTextureDimension2D;
+  final int maxTextureDimension3D;
   final int maxGeometryBytes;
   final int maxPunctualLights, maxHemisphereLights, maxInstances, maxAreaLights;
   final int maxJoints, maxMorphTargets;
@@ -44,6 +58,7 @@ class DeviceLimits {
   final Set<int> sampleCounts;
   DeviceLimits({
     required this.maxTextureDimension2D,
+    this.maxTextureDimension3D = 0,
     required this.maxGeometryBytes,
     this.maxResidentResourceBytes,
     this.maxInstances = 0,
@@ -55,6 +70,7 @@ class DeviceLimits {
     Set<int> sampleCounts = const {1},
   }) : sampleCounts = Set.unmodifiable(sampleCounts) {
     if (maxTextureDimension2D < 1 ||
+        maxTextureDimension3D < 0 ||
         maxGeometryBytes < 1 ||
         (maxResidentResourceBytes != null && maxResidentResourceBytes! < 1) ||
         maxInstances < 0 ||

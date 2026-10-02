@@ -5,7 +5,12 @@ import 'package:flutter/rendering.dart' show PlatformViewHitTestBehavior;
 import 'package:flutter/widgets.dart';
 import 'package:zyren/rendering.dart';
 import 'package:zyren/zyren.dart'
-    show ResourceScope, ShaderCompiler, GraphCompiler, TextureFormat;
+    show
+        ResourceScope,
+        ShaderCompiler,
+        GraphCompiler,
+        MaterialCompiler,
+        TextureFormat;
 import 'package:zyren_native/surfaces.dart';
 import 'package:zyren_native/zyren_native.dart';
 import '../presentation.dart';
@@ -29,8 +34,9 @@ SceneException _deferred() => _issue(
 class NativeMetalBackend implements NativeGpuBackend {
   final int session;
   Set<TextureFormat> _textureFormats = const {};
+  Set<int> _sampleCounts = const {1};
   final String adapter;
-  final _encoder = ScenePacketEncoder(viewId: 1);
+  late final _encoder = _gpu.createSceneEncoder(viewId: 1);
   bool _closed = false;
   int _nextFrame = 0, _nextAttachment = 0;
   Future<FrameOutput>? _drawing;
@@ -39,6 +45,9 @@ class NativeMetalBackend implements NativeGpuBackend {
     (args) async => (await request<Map>('gpuCommand', args))!,
   );
   NativeMetalBackend._(this.session, this.adapter);
+  bool get gpuOwnerClosed => _closed;
+  Future<Map> gpuRequest(Map<String, Object> arguments) async =>
+      (await request<Map>('gpu', arguments))!;
 
   @override
   ResourceScope createResourceScope({String label = ''}) =>
@@ -49,6 +58,9 @@ class NativeMetalBackend implements NativeGpuBackend {
   @override
   GraphCompiler createGraphCompiler({String label = ''}) =>
       _gpu.createGraphCompiler(label: label);
+  @override
+  MaterialCompiler createMaterialCompiler({String label = ''}) =>
+      _gpu.createMaterialCompiler(label: label);
   @override
   Future<ResourceStats> resourceStats() => _gpu.resourceStats();
   @override
@@ -86,6 +98,7 @@ class NativeMetalBackend implements NativeGpuBackend {
       );
       try {
         backend._textureFormats = await backend._gpu.textureFormats();
+        backend._sampleCounts = (await backend._gpu.deviceInfo()).sampleCounts;
         return backend;
       } catch (_) {
         await backend.close();
@@ -107,6 +120,19 @@ class NativeMetalBackend implements NativeGpuBackend {
     backend: 'Metal',
     adapterName: adapter,
     features: {
+      if (_sampleCounts.contains(4)) RenderFeature.multisampleAntialiasing,
+      RenderFeature.shaderMaterials,
+      RenderFeature.postprocessing,
+      RenderFeature.punctualLights,
+      RenderFeature.shadowMaps,
+      RenderFeature.spatialAntialiasing,
+      RenderFeature.bloom,
+      RenderFeature.sectionClipping,
+      RenderFeature.floatTextures,
+      RenderFeature.volumeTextures,
+      RenderFeature.hdr,
+      RenderFeature.reversedDepth,
+      RenderFeature.selectionOutlines,
       RenderFeature.nativeView,
       RenderFeature.rgbaReadback,
       RenderFeature.indexedMeshes,
@@ -136,7 +162,8 @@ class NativeMetalBackend implements NativeGpuBackend {
     },
     limits: DeviceLimits(
       maxTextureDimension2D: 4096,
-      sampleCounts: {1, 4},
+      maxTextureDimension3D: 256,
+      sampleCounts: _sampleCounts,
       maxResidentResourceBytes: 256 * 1024 * 1024,
       maxGeometryBytes: 64 * 1024 * 1024,
       maxInstances: 100000,
@@ -298,6 +325,7 @@ class NativeMetalBackend implements NativeGpuBackend {
       return ReadbackOutput(
         image: ImageData(
           pixels: result['pixels'] as Uint8List,
+          alphaMode: AlphaMode.premultiplied,
           size: submission.size,
         ),
         stats: stats,

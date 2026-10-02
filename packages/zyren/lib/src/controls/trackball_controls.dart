@@ -1,8 +1,8 @@
-part of 'orbit_controls.dart';
+part of 'orbit_navigation.dart';
 
 /// Free orbital rotation with roll and no world-up pole restriction.
 /// Pan, dolly, pinch, damping, save/reset and gesture ownership match orbit.
-final class TrackballControls extends OrbitControls {
+final class TrackballControls extends OrbitNavigation {
   @override
   String get id => 'zyren.trackball';
   Quat _rotation = Quat.identity;

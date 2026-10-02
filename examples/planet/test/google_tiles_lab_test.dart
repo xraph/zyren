@@ -1,0 +1,27 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_zyren/widgets.dart';
+import 'package:planet/google_tiles_lab.dart';
+
+void main() {
+  testWidgets('missing access keeps a compact actionable state without a GPU', (
+    tester,
+  ) async {
+    for (final width in [1000.0, 390.0]) {
+      await tester.binding.setSurfaceSize(Size(width, 700));
+      await tester.pumpWidget(const GoogleTilesLabApp());
+      await tester.pump();
+      expect(find.byType(ZeroState), findsOneWidget);
+      expect(find.text('Google Maps access is required'), findsOneWidget);
+      expect(find.text('Check access'), findsOneWidget);
+      expect(find.text('Manhattan'), findsOneWidget);
+      expect(find.text('Fuji'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.tap(find.text('Check access'));
+      await tester.pump();
+      expect(find.text('Google Maps access is required'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+}

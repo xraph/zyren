@@ -231,6 +231,7 @@ pub unsafe extern "C" fn fg_android_info(handle: u64, buffer: *mut u8, capacity:
         let bytes = serde_json::to_vec(&serde_json::json!({
             "backend": format!("{:?}", info.backend), "adapter": info.name,
             "driver": info.driver, "driverInfo": info.driver_info,
+            "alphaMode": target.map(|t| format!("{:?}", t.config.alpha_mode)),
             "format": target.map(|t| format!("{:?}", t.config.format)),
             "requestedFrameLatency": target.map(|t| t.config.desired_maximum_frame_latency),
             "readbackBytes": renderer.counters().readback_bytes,

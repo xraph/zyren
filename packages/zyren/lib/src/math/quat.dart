@@ -21,6 +21,9 @@ final class Quat {
     if (!isFinite || !q.length2.isFinite || q.length2 < 1e-30) {
       throw ArgumentError('Rotation must be finite and nonzero.');
     }
+    // Re-normalizing a unit quaternion can oscillate between adjacent doubles.
+    // Preserve already-normalized poses so assignment and history are stable.
+    if ((q.length2 - 1).abs() <= 1e-15) return this;
     q.normalize();
     return Quat.fromVectorMath(q);
   }

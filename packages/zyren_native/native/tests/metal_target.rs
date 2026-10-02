@@ -1,5 +1,4 @@
 #![cfg(target_vendor = "apple")]
-use zyren_runtime::{renderer::Renderer, scene::Frame};
 use objc2_core_foundation::{CFDictionary, CFNumber};
 use objc2_io_surface::{
     IOSurfaceRef, kIOSurfaceBytesPerElement, kIOSurfaceBytesPerRow, kIOSurfaceHeight,
@@ -10,6 +9,7 @@ use objc2_metal::{
     MTLTextureDescriptor, MTLTextureUsage,
 };
 use serde_json::json;
+use zyren_runtime::{renderer::Renderer, scene::Frame};
 
 #[test]
 #[ignore = "requires a native Metal device"]
@@ -92,11 +92,11 @@ fn renders_into_consumer_texture_without_readback() {
 #[test]
 #[ignore = "requires a native Metal device"]
 fn adapter_counter_observes_actual_renderer_readback() {
+    use objc2::{rc::Retained, runtime::ProtocolObject};
     use zyren_runtime::{
         fg_create, fg_destroy, fg_render,
         interop::metal::{fg_metal_copy_device, fg_metal_readback_bytes},
     };
-    use objc2::{rc::Retained, runtime::ProtocolObject};
     let handle = fg_create();
     assert_ne!(handle, 0);
     let device = unsafe {

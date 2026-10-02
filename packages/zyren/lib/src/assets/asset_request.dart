@@ -59,11 +59,15 @@ enum AssetLoadError {
 final class AssetLoadException extends SceneException {
   final AssetLoadError code;
   final String? fieldPath;
+
+  /// Transport status, when the failure originated from an HTTP response.
+  final int? httpStatus;
   AssetLoadException(
     this.code,
     String message, {
     Uri? sourceUri,
     this.fieldPath,
+    this.httpStatus,
     Object? cause,
   }) : super(
          SceneIssue(
