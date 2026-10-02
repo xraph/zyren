@@ -125,6 +125,10 @@ void main() {
         final clouds = profile.cloudLayer!.controller;
         final frozen = clouds.animationElapsed;
         record('paused ${size.width.toInt()}');
+        // Drain a presentation already submitted when the cloud demand ends.
+        for (var i = 0; i < 40; i++) {
+          await tick();
+        }
         final stopped = frames;
         for (var i = 0; i < 40; i++) {
           await tick();
