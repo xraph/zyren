@@ -44,6 +44,42 @@ additional context. Both operations limit their output payload to 64 MiB.
 regenerate tangents before using anisotropy or an authored tangent normal map.
 Morph geometry requires updated deltas before normal regeneration.
 
+For a rounded control mesh, you can subdivide its triangles:
+
+```dart
+final rounded = GeometryUtils.subdivide(BoxGeometry(), levels: 2);
+final dense = GeometryUtils.subdivide(
+  geometry,
+  mode: SubdivisionMode.linear,
+  limits: const SubdivisionLimits(maxTriangles: 20000),
+);
+```
+
+Loop mode moves vertices and recomputes smooth area-weighted normals. It uses
+the [Loop refinement rules described by PBRT](https://www.pbr-book.org/3ed-2018/Shapes/Subdivision_Surfaces),
+with interior weights of 3/16 for valence three and 3/(8n) otherwise. You get
+the refined mesh after the requested number of steps, without a final projection
+to the infinite limit surface. Linear mode preserves your surface and interpolates
+authored normals. Both modes interpolate UV0, UV1 and colors independently on
+each face, so UV seams stay separate even when positions are shared.
+
+Exact position welding is enabled by default. It closes duplicated face seams
+such as those on `BoxGeometry`; set `weldPositions: false` if coincident vertices
+belong to separate surfaces. Inputs must have consistent triangle winding and
+manifold vertex fans. Boundaries are allowed. Duplicate or degenerate triangles,
+disconnected fans and float32 precision collapse fail, but intersections between
+otherwise valid faces are not tested. Skin and morph bindings are rejected.
+Tangents are removed and need regeneration.
+
+Each level makes four times as many triangles. You can request zero to six
+levels, with at most 100000 input vertices. The default output limit is 100000
+triangles and 64 MiB of vertex/index payload; `SubdivisionLimits` lets you lower
+the byte budget or set a triangle cap up to 250000. These are checked before
+refinement. Dart topology storage uses additional heap memory. Output corners
+are expanded to preserve face attributes, and must fit the chosen index format.
+For worker-isolate preparation, call `subdivideGeometry(geometryData, ...)`
+and construct `BufferGeometry.fromData` on the receiving isolate.
+
 Choose one controls plugin per view:
 
 ```dart
@@ -76,5 +112,6 @@ replacement or an external pose edit discards pending movement.
 Tests cover triangulated area, closed extrusion volume and outward normals,
 invalid rings, packed attributes, morph expansion, picking through holes,
 control timing and gesture cancellation. Metal fixtures render both flat and
-beveled shapes through the regular scene geometry path. Text, CSG and subdivision
-remain separate geometry work.
+beveled shapes through the regular scene geometry path. Subdivision tests cover
+hand-calculated boundary/interior weights, closed seams, attributes, malformed
+topology and native silhouette coverage. Text and CSG remain separate work.
