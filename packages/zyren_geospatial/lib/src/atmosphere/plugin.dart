@@ -119,6 +119,7 @@ final class AtmosphereController {
   Future<void> _queue = Future.value();
   bool _closed = false;
   int _width = 1, _height = 1;
+  FrameInfo? _lastFrame;
   AtmosphereController._(this._plugin, this._context, this._owner);
   bool get isClosed => _closed || _owner.isClosed;
   AtmosphereParameters get parameters => _parameters;
@@ -264,6 +265,9 @@ final class AtmosphereController {
         inputs ?? _inputs?.value ?? AerialPerspectiveInputs(),
         _cloudInputs?.value,
       );
+      if (_lastFrame != null) {
+        await _writeFrame(candidate, _lastFrame!, width, height);
+      }
       if (stopped()) throw StateError('Atmosphere update cancelled.');
       // The previous effect remains registered until the candidate is accepted.
       final previous = _active;
@@ -290,7 +294,8 @@ final class AtmosphereController {
     }
   }
 
-  Future<void> _frame(FrameInfo frame) => _serial(() async {
+  Future<void> _frame(FrameInfo frame) => _serial(() => _prepareFrame(frame));
+  Future<void> _prepareFrame(FrameInfo frame) async {
     final scale = math.min(
       1.0,
       _plugin.maxStarResolution / math.max(frame.width, frame.height),
@@ -302,7 +307,17 @@ final class AtmosphereController {
       _width = width;
       _height = height;
     }
-    final active = _active!;
+    await _writeFrame(_active!, frame, width, height);
+    _lastFrame = frame;
+  }
+
+  Future<void> _writeFrame(
+    _AtmosphereCandidate active,
+    FrameInfo frame,
+    int width,
+    int height,
+  ) async {
+    final parameters = active.lease.luts.parameters;
     final camera = _context.camera;
     final ecef = _point(_plugin.worldToEcef, camera.position);
     if (ecef.length < 1 || ecef.length > 1e12) {
@@ -316,7 +331,7 @@ final class AtmosphereController {
       corrected =
           ecef -
           surface +
-          _plugin.ellipsoid.surfaceNormal(surface) * _parameters.bottomRadius;
+          _plugin.ellipsoid.surfaceNormal(surface) * parameters.bottomRadius;
     }
     final directions = CelestialDirections.at(_date, observerECEF: ecef);
     final worldInverse = _plugin.worldToEcef.inverted();
@@ -335,7 +350,7 @@ final class AtmosphereController {
       1,
     ]);
     final a = _appearance;
-    final sunScale = _parameters.sunRadianceToLuminance.dot(
+    final sunScale = parameters.sunRadianceToLuminance.dot(
       const Vec3(.2126, .7152, .0722),
     );
     final forward = (camera.target - camera.position).normalized();
@@ -401,7 +416,8 @@ final class AtmosphereController {
     ]);
     await active.scope.resources.writeBuffer(active.uniform, data);
     await active.graph.execute();
-  });
+  }
+
   Future<void> _close() async {
     _closed = true;
     _active?.registration?.dispose();

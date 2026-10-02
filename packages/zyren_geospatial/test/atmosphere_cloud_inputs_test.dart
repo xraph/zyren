@@ -7,6 +7,82 @@ import 'aerial_perspective_test.dart' show center, encoded;
 
 void main() {
   test(
+    'invalid frame during cloud replacement preserves the active composition',
+    () async {
+      final backend = await NativeBackend.create(),
+          owner = GpuScope.fromBackend(backend);
+      Future<GpuResource<Texture>> image(List<double> values) async {
+        final texture = await owner.resources.createTexture(
+          TextureDescriptor(
+            width: 1,
+            height: 1,
+            format: TextureFormat.rgba32Float,
+          ),
+        );
+        await owner.resources.writeTexture(
+          texture,
+          Float32List.fromList(values).buffer.asUint8List(),
+        );
+        return texture;
+      }
+
+      final red = await image([.2, 0, 0, .5]),
+          green = await image([0, .2, 0, .5]),
+          data = await image([1000, 0, 0, 0]),
+          trans = await image([1, 0, 0, 0]);
+      final plugin = AtmospherePlugin(
+        date: DateTime.utc(2026, 3, 20, 12),
+        parameters: AtmosphereParameters.legacy(),
+        correctAltitude: false,
+        maxStarResolution: 32,
+        appearance: AtmosphereAppearance(sky: false, haze: false),
+      );
+      final camera = PerspectiveCamera(
+        position: const Vec3(0, 0, 6361000),
+        target: const Vec3(0, 0, 6362000),
+        near: 1,
+        far: 1e7,
+      );
+      final engine = await SceneEngine.create(
+        scene: Scene()..renderSettings = RenderSettings(hdr: true),
+        camera: camera,
+        backendFactory: () async => backend.createView(),
+        plugins: [plugin],
+      );
+      Future<List<int>> render() async => center(
+        await engine.render(elapsed: Duration.zero, width: 17, height: 17),
+      );
+      try {
+        final reg = await plugin.controller.registerCloudInputs(
+          AtmosphereCloudInputs(
+            color: red,
+            depthVelocityShadow: data,
+            transmittance: trans,
+          ),
+        );
+        final before = await render(), position = camera.position;
+        camera.position = Vec3.zero;
+        await expectLater(
+          reg.replace(
+            AtmosphereCloudInputs(
+              color: green,
+              depthVelocityShadow: data,
+              transmittance: trans,
+            ),
+          ),
+          throwsArgumentError,
+        );
+        camera.position = position;
+        expect(await render(), before);
+      } finally {
+        await engine.dispose();
+        await owner.close();
+        expect((await backend.resourceStats()).residentBytes, 0);
+        await backend.close();
+      }
+    },
+  );
+  test(
     'cloud transmission shadows direct aerial light while retaining skylight',
     () async {
       final backend = await NativeBackend.create();

@@ -1,5 +1,6 @@
 import 'package:zyren/zyren.dart';
 import 'texture_generator.dart';
+import 'texture_source.dart';
 
 /// Linear cloud maps. Weather/turbulence use RGBA 2D images; shape/detail use
 /// repeated 3D volumes. Installation retains the maps independently of your scope.
@@ -80,6 +81,60 @@ final class CloudTextures {
             isCancelled: isCancelled,
           )).texture,
       ];
+      return CloudTextureSet._(
+        scope,
+        CloudTextures(
+          weather: maps[0],
+          shape: maps[1],
+          detail: maps[2],
+          turbulence: maps[3],
+        ),
+      );
+    } catch (_) {
+      await scope.close();
+      rethrow;
+    }
+  }
+
+  /// Load and upload a complete source set. Close the result after your renderer
+  /// retains it. Image bytes stay linear and use the source's bottom-first rows.
+  static Future<CloudTextureSet> load(
+    GpuScope owner,
+    CloudTextureSource source, {
+    required LoadCancellation cancellation,
+  }) async {
+    final data = await source.load(cancellation: cancellation);
+    cancellation.throwIfCancelled();
+    final scope = owner.createChild(label: 'source cloud textures');
+    try {
+      final maps = <GpuResource<Texture>>[];
+      for (final map in data.maps) {
+        cancellation.throwIfCancelled();
+        final volume = map.depth > 1;
+        final texture = await scope.resources.createTexture(
+          TextureDescriptor(
+            width: map.width,
+            height: map.height,
+            depth: map.depth,
+            dimension: volume ? TextureDimension.d3 : TextureDimension.d2,
+            mipLevels: volume ? 1 : map.width.bitLength,
+            format: volume ? TextureFormat.r32Float : TextureFormat.rgba8Unorm,
+            usage: {
+              TextureUsage.sampled,
+              TextureUsage.copyDestination,
+              TextureUsage.copySource,
+              if (!volume) TextureUsage.renderAttachment,
+            },
+          ),
+        );
+        await scope.resources.writeTexture(texture, map.bytes);
+        cancellation.throwIfCancelled();
+        if (!volume) {
+          await scope.resources.generateMipmaps(texture);
+        }
+        cancellation.throwIfCancelled();
+        maps.add(texture);
+      }
       return CloudTextureSet._(
         scope,
         CloudTextures(

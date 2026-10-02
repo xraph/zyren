@@ -297,8 +297,36 @@ volume sampling uses repeated trilinear filtering.
 layer density. `CloudShadowCascades.build()` computes the source frustum splits
 and texel-snapped projections in double precision, including orthographic views.
 The internal Beer shadow atlas preserves front depth, mean extinction and the
-optical-depth tail. The screen cloud renderer and temporal resolve remain in
-progress; these utilities do not attach them to a scene.
+optical-depth tail.
+
+Add `CloudPlugin` after `AtmospherePlugin` to render the layers. It generates
+textures when you don't supply them. You can change coverage and appearance on
+the controller, then use `setTextures` or `setQuality` for asynchronous changes
+that keep the current view until the replacement is ready.
+
+```dart
+CloudPlugin(
+  quality: CloudQualityPreset.medium,
+  maxResolution: 512,
+  shadowMapSize: 256,
+)
+```
+
+Clouds clip against scene geometry and use the atmosphere's date, lighting tables
+and world frame. The producer runs before atmosphere composition, which applies
+cloud shadows to direct aerial lighting. High and ultra quality need more memory.
+Set a smaller shadow map when your scene also retains terrain or 3D tiles; failed
+allocations leave the current maps installed. Temporal reconstruction is still
+pending.
+
+For the original textures, use `CloudTextureSource.upstream(services: services)`
+with your resolver and image decoder, then call
+`CloudTextures.load(scope, source, cancellation: cancellation)`. You can host the
+same four filenames under your own directory URI. The loader validates the
+512-square weather PNG, 128-cubed shape bytes, 32-cubed detail bytes and 128-square
+turbulence PNG, flips image rows to match the source and uploads complete linear
+textures. Close the returned set after the plugin retains it. Reads, decoding and
+upload respect cancellation, and source errors omit endpoint details.
 
 You can register cloud outputs through `AtmosphereController.registerCloudInputs`.
 The returned registration owns retained color, depth/velocity/shadow-length and

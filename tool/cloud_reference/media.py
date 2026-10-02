@@ -119,3 +119,45 @@ with tempfile.TemporaryDirectory(prefix='zyren-shadow-media-') as temp:
 output=root/'packages/zyren_geospatial/test/fixtures/clouds/shadow.json'
 output.write_text(json.dumps({'revision':inventory['revision'],'sourceFiles':loaded,'samples':values},indent=2)+'\n')
 print(f'{len(values)} source shadow rays')
+
+primary=original('clouds.frag')
+primary=primary[primary.index('float marchOpticalDepth('):primary.index('#ifdef SHADOW_LENGTH\n\nfloat marchShadowLength(')]
+# Lower the source's eight-octave preprocessor loop for this scalar host.
+primary=primary.replace('i < 12','i < 8')
+primaryCode=baseCode.replace('#define SHAPE_DETAIL','').replace('#define TURBULENCE','')+r'''
+#define POWDER
+#define MULTI_SCATTERING_OCTAVES 8
+#define UNROLLED_LOOP_INDEX 0
+#define METER_TO_LENGTH_UNIT .001f
+float remapClamped(float x,float a,float b){return saturate((x-a)/(b-a));}
+vec3 mix(vec3 a,vec3 b,float t){return a*(1-t)+b*t;}
+vec3 sunDirection=V3(0,0,1);
+int maxIterationCount=200,maxIterationCountToSun=1,maxIterationCountToGround=0;
+float minStepSize=100,maxStepSize=1000,maxRayDistance=100000,perspectiveStepScale=1.01f,minDensity=.0001f,minExtinction=.0001f,minTransmittance=.1f;
+float minSecondaryStepSize=100,secondaryStepScale=2,bottomRadius=6360000,minHeight=750,maxHeight=8000,shadowTopHeight=2200;
+float skyLightScale=1,groundBounceScale=1,powderScale=.8f,powderExponent=150,maxShadowFilterRadius=6;
+GroundIrradiance vGroundIrradiance={V3(1,.9f,.8f),V3(.2f,.3f,.4f)};
+CloudsIrradiance vCloudsIrradiance={V3(1,.9f,.8f),V3(.2f,.3f,.4f),V3(1,.9f,.8f),V3(.2f,.3f,.4f)};
+float sampleShadowOpticalDepth(vec3 p,float d,float r,float jitter){return 0;}
+'''+translate(primary)
+primaryCode+=r'''
+int main(){std::cout<<std::setprecision(9)<<"[";weatherValue=V4(1);shapeValue=1;detailValue=0;turbulenceValue=V3(.5f);coverage=.6f;
+for(int i=0;i<24;i++){
+ vec3 origin=V3(0,0,6360750);vec3 direction=normalize(V3((i%4)*.2f,0,1));vec2 range=V2((i/8)*100.f,2000+(i/8)*100.f);float jitter=(i%7)/7.f,texels=pow(2.f,(i%4)*.5f),depth;ivec3 count={0,0,0};
+ vec4 value=marchClouds(origin,direction,range,dot(direction,sunDirection),jitter,texels,depth,count);
+ if(i)std::cout<<',';std::cout<<"{\"origin\":["<<origin.x<<','<<origin.y<<','<<origin.z<<"],\"direction\":["<<direction.x<<','<<direction.y<<','<<direction.z<<"],\"range\":["<<range.x<<','<<range.y<<"],\"jitter\":"<<jitter<<",\"texels\":"<<texels<<",\"expected\":["<<value.x<<','<<value.y<<','<<value.z<<','<<value.w<<','<<depth<<"]}";
+}std::cout<<"]";}
+'''
+for preset in ['low','medium']:
+ selected=primaryCode
+ if preset=='medium':
+  selected='#define SHAPE_DETAIL\n'+selected.replace('#define POWDER','#define POWDER\n#define GROUND_BOUNCE')
+  selected=selected.replace('maxIterationCount=200,maxIterationCountToSun=1,maxIterationCountToGround=0','maxIterationCount=500,maxIterationCountToSun=2,maxIterationCountToGround=1').replace('minStepSize=100,maxStepSize=1000,maxRayDistance=100000','minStepSize=50,maxStepSize=1000,maxRayDistance=200000').replace('minTransmittance=.1f','minTransmittance=.01f')
+ with tempfile.TemporaryDirectory(prefix='zyren-cloud-march-') as temp:
+  p=Path(temp);(p/'main.cpp').write_text(selected)
+  subprocess.run(['clang++','-O2','-std=c++17','-ffp-contract=off',str(p/'main.cpp'),'-o',str(p/'run')],check=True)
+  values=json.loads(subprocess.check_output([str(p/'run')],text=True))
+ name='march' if preset=='low' else 'march_'+preset
+ output=root/('packages/zyren_geospatial/test/fixtures/clouds/'+name+'.json')
+ output.write_text(json.dumps({'revision':inventory['revision'],'sourceFiles':loaded,'lighting':f'Constant sun [1,.9,.8] and sky [.2,.3,.4]; no Beer-map optical depth; source {preset} preset','samples':values},indent=2)+'\n')
+ print(f'{len(values)} source {preset} cloud rays')
