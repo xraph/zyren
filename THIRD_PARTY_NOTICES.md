@@ -148,9 +148,13 @@ MIT notice is retained in `licenses/cloud-cascades.txt`.
 
 ## postprocessing
 
-The Hald tetrahedral interpolation shader is a WGSL adaptation of
-postprocessing 6.39.1 LUT3DEffect. The reference fixtures execute its original
-GLSL. These ports are altered versions, not the original software.
+The Hald interpolation, lens blur and SMAA shaders are WGSL adaptations of
+postprocessing 6.39.1. SMAA includes its original area and search lookup images.
+The reference fixtures execute the original GLSL. These ports are altered
+versions, not the original software.
+
+The original SMAA authors' notice is retained in `licenses/smaa.txt`.
+Source: https://github.com/iryoku/smaa
 
 Source: https://github.com/pmndrs/postprocessing
 
