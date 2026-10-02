@@ -5,7 +5,7 @@ import 'package:zyren/zyren.dart';
 import 'package:zyren_native/zyren_native.dart';
 import 'package:zyren_physics/zyren_physics.dart';
 
-Future<void> main() async {
+Future<void> main(List<String> arguments) async {
   final baseline = PhysicsWorld.nativeCounts;
   final world = PhysicsWorld(),
       scene = Scene()..background = const Color3(.04, .06, .09);
@@ -77,7 +77,11 @@ Future<void> main() async {
       rendererFactory: NativeRenderer.create,
       plugins: [plugin],
     );
-    evidence['backend'] = engine.capabilities.backend;
+    final backend = engine.capabilities.backend;
+    if (backend == null || !{'Metal', 'Vulkan', 'Dx12'}.contains(backend)) {
+      throw StateError('Unsupported native backend: $backend');
+    }
+    evidence['backend'] = backend;
     RenderedFrame? frame;
     for (var i = 0; i <= 120; i++) {
       frame = await engine.render(
@@ -128,8 +132,12 @@ Future<void> main() async {
     if ((body.state.pose.position.y - .5).abs() > .05) {
       throw StateError('Native ball did not settle on ground.');
     }
-    final destination = Directory('qualification')..createSync();
-    File('${destination.path}/metal-physics.png').writeAsBytesSync(_png(frame));
+    final destination = Directory(
+      arguments.isEmpty ? 'qualification' : arguments.single,
+    )..createSync(recursive: true);
+    File(
+      '${destination.path}/${backend.toLowerCase()}-physics.png',
+    ).writeAsBytesSync(_png(frame));
     await engine.dispose();
     engine = null;
     if (scene.children.any((node) => node.name == 'Physics debug')) {
