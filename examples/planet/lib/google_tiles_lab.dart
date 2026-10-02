@@ -368,6 +368,46 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
                       ),
                     ),
                   if (widget.clouds)
+                    Tooltip(
+                      message:
+                          'Thin all cloud layers without changing coverage.',
+                      child: SizedBox(
+                        width: 220,
+                        child: Row(
+                          children: [
+                            Text(
+                              'Density ${(profile.cloudDensity * 100).round()}%',
+                            ),
+                            Expanded(
+                              child: Slider(
+                                key: const ValueKey('cloud-density'),
+                                value: profile.cloudDensity,
+                                divisions: 20,
+                                label:
+                                    '${(profile.cloudDensity * 100).round()}%',
+                                semanticFormatterCallback: (value) =>
+                                    '${(value * 100).round()} percent cloud density',
+                                onChanged: (value) => setState(() {
+                                  profile.cloudDensity = value;
+                                  _refinement = null;
+                                }),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  if (widget.clouds)
+                    FilterChip(
+                      key: const ValueKey('cloud-animation'),
+                      label: const Text('Animate clouds'),
+                      selected: profile.cloudAnimationEnabled,
+                      onSelected: (value) => setState(() {
+                        profile.cloudAnimationEnabled = value;
+                        _refinement = null;
+                      }),
+                    ),
+                  if (widget.clouds)
                     Text(
                       '${deviceProfile.device.name} · ${profile.cloudQuality.preset.name}',
                     ),

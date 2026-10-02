@@ -30,6 +30,8 @@ final class GeospatialSceneProfile extends ScenePlugin {
   GoogleTilesPreset _preset;
   PluginContext? _context;
   CloudQualitySettings _cloudQuality;
+  double _cloudDensity = 1;
+  bool _cloudAnimationEnabled = true;
   CloudQualitySettings get cloudQuality => _cloudQuality;
   GeospatialSceneProfile({
     required AssetServices services,
@@ -70,6 +72,7 @@ final class GeospatialSceneProfile extends ScenePlugin {
             source: CloudTextureSource.upstream(services: services),
             blueNoiseSource: CloudBlueNoiseSource(services: services),
             parameters: _cloudParameters,
+            animationEnabled: _cloudAnimationEnabled,
             quality: _cloudQuality.preset,
             maxResolution: _cloudQuality.maxResolution,
             shadowMapSize: _cloudQuality.shadowMapSize,
@@ -81,11 +84,34 @@ final class GeospatialSceneProfile extends ScenePlugin {
   }
   CloudParameters get _cloudParameters => CloudParameters(
     coverage: _preset.coverage ?? .35,
+    densityMultiplier: _cloudDensity,
     localWeatherVelocity: (.001, 0),
   );
   DateTime get date =>
       _preset.utcDate(year: GoogleTilesPreset.qualificationYear);
   List<ScenePlugin> get plugins => [air, ?cloudLayer, effects, this];
+  double get cloudDensity => _cloudDensity;
+  set cloudDensity(double value) {
+    if (!value.isFinite || value < 0 || value > 1) {
+      throw ArgumentError.value(value, 'cloudDensity', 'Must be in [0, 1].');
+    }
+    if (_cloudDensity == value) return;
+    if (_context != null && cloudLayer != null) {
+      cloudLayer!.controller.parameters = cloudLayer!.controller.parameters
+          .copyWith(densityMultiplier: value);
+    }
+    _cloudDensity = value;
+  }
+
+  bool get cloudAnimationEnabled => _cloudAnimationEnabled;
+  set cloudAnimationEnabled(bool value) {
+    if (_cloudAnimationEnabled == value) return;
+    if (_context != null && cloudLayer != null) {
+      cloudLayer!.controller.animationEnabled = value;
+    }
+    _cloudAnimationEnabled = value;
+  }
+
   Future<void> setCloudQuality(CloudQualitySettings settings) async {
     if (_context != null && cloudLayer != null) {
       await cloudLayer!.controller.setQualitySettings(settings);
@@ -128,6 +154,7 @@ final class GeospatialSceneProfile extends ScenePlugin {
     context.service(atmosphere).date = date;
     if (cloudLayer case final layer?) {
       layer.controller.parameters = _cloudParameters;
+      layer.controller.animationEnabled = _cloudAnimationEnabled;
       await layer.controller.setQualitySettings(_cloudQuality);
     }
   }

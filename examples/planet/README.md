@@ -67,6 +67,12 @@ keeping the clouds visible. The **Shadows** selector sets Low, Medium, High or
 Ultra independently of cloud quality. Auto follows the Clouds selector. Turning
 shadows off keeps your chosen shadow quality for the next time you enable them.
 
+Move **Density** from 100% toward 0% to thin all cloud layers. Coverage and the
+relative density of each layer stay the same. Switch **Animate clouds** off to
+freeze their current position. The image still finishes refining, then stops
+requesting continuous frames. Turn it on to resume with the same velocities.
+Both controls keep your choices when you change a location or quality preset.
+
 Phones allow 48 MiB of visible tile payloads; tablets and desktops allow 64 MiB.
 Both scene types use four concurrent tile requests. The screen-error target is eight
 render pixels, so finer tiles can replace the broad parent imagery sooner.

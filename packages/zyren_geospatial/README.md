@@ -304,6 +304,28 @@ textures when you don't supply them. You can change coverage and appearance on
 the controller, then use `setTextures` or `setQuality` for asynchronous changes
 that keep the current view until the replacement is ready.
 
+Use `CloudParameters.densityMultiplier` to thin every layer while preserving its
+relative density, altitude and coverage. The default is 1; 0 removes layer
+extinction. Values from 0 through 100 are accepted. Cloud rendering and cloud
+shadows share this multiplier; the separate haze settings stay unchanged.
+
+You can pause weather, shape and detail motion with `animationEnabled: false`
+when you create the plugin, or change it on the attached controller:
+
+```dart
+layer.controller.parameters = layer.controller.parameters.copyWith(
+  densityMultiplier: .5,
+);
+layer.controller.animationEnabled = false;
+// Resume from the frozen cloud position with the same velocities.
+layer.controller.animationEnabled = true;
+```
+
+Paused clouds still refine the image and respond to camera, lighting and quality
+changes. Once the Bayer cycle finishes, they release their continuous frame
+demand. Motion uses accumulated frame delta, so a long pause does not move the
+clouds forward when you resume. `animationElapsed` reports that active time.
+
 ```dart
 CloudPlugin(
   quality: CloudQualityPreset.medium,

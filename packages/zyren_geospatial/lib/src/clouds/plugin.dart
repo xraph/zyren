@@ -31,6 +31,7 @@ final class CloudPlugin extends ScenePlugin {
   final CloudAppearance appearance;
   final CloudQualityPreset quality;
   final CloudTemporalSettings temporal;
+  final bool animationEnabled;
   final CloudTextureSource? source;
   final CloudBlueNoiseSource? blueNoiseSource;
   final CloudTextures? textures;
@@ -46,6 +47,7 @@ final class CloudPlugin extends ScenePlugin {
     CloudAppearance? appearance,
     CloudTemporalSettings? temporal,
     this.quality = CloudQualityPreset.medium,
+    this.animationEnabled = true,
     this.source,
     this.blueNoiseSource,
     this.textures,
@@ -127,6 +129,9 @@ final class CloudController {
   late bool _shadowsEnabled = _plugin.shadowsEnabled;
   late CloudQualityPreset? _shadowQuality = _plugin.shadowQuality;
   late CloudTemporalSettings _temporal = _plugin.temporal;
+  late bool _animationEnabled = _plugin.animationEnabled;
+  Duration _animationElapsed = Duration.zero;
+  bool _skipAnimationDelta = false;
   final _history = CloudHistory();
   int _revision = 0;
   CloudHistoryFrame? _pendingFrame;
@@ -163,6 +168,22 @@ final class CloudController {
     _history.invalidate(CloudHistoryReset.parameters);
     _context.invalidate();
   }
+
+  /// Pauses weather, shape and detail motion without changing their velocities.
+  bool get animationEnabled => _animationEnabled;
+  set animationEnabled(bool value) {
+    _check();
+    if (value == _animationEnabled) return;
+    _animationEnabled = value;
+    _skipAnimationDelta = true;
+    _revision++;
+    _history.invalidate(CloudHistoryReset.parameters);
+    _motion();
+    _context.invalidate();
+  }
+
+  /// Active cloud motion time, excluding paused time and bounded by frame delta.
+  Duration get animationElapsed => _animationElapsed;
 
   CloudQualityPreset get quality => _quality;
   int get maxResolution => _maxResolution;
@@ -234,9 +255,10 @@ final class CloudController {
   });
   void _motion() {
     final moving =
-        _parameters.localWeatherVelocity != (0.0, 0.0) ||
-        _parameters.shapeVelocity != Vec3.zero ||
-        _parameters.shapeDetailVelocity != Vec3.zero;
+        _animationEnabled &&
+        (_parameters.localWeatherVelocity != (0.0, 0.0) ||
+            _parameters.shapeVelocity != Vec3.zero ||
+            _parameters.shapeDetailVelocity != Vec3.zero);
     if (moving ||
         (_temporal.mode != CloudTemporalMode.off &&
             _history.status.accumulatedFrames < 16)) {
@@ -376,6 +398,10 @@ final class CloudController {
   }
 
   Future<void> _frame(FrameInfo info) => _serial(() async {
+    if (_animationEnabled && !_skipAnimationDelta) {
+      _animationElapsed += info.delta;
+    }
+    _skipAnimationDelta = false;
     _viewportWidth = info.width;
     _viewportHeight = info.height;
     final scale = math.min(
@@ -446,7 +472,7 @@ final class CloudController {
       parameters,
       appearance,
       state,
-      elapsed: info.elapsed.inMicroseconds / 1e6,
+      elapsed: _animationElapsed.inMicroseconds / 1e6,
       historyValid: history.valid,
     );
     _pendingFrame = history;

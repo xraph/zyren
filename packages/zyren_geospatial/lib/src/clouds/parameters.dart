@@ -189,6 +189,10 @@ final class CloudLayers {
 /// Repeats are per metre for volumes and per globe UV for weather/turbulence.
 final class CloudParameters {
   final CloudLayers layers;
+
+  /// Multiplies every active layer's density. One preserves the layer defaults.
+  /// Zero removes layer extinction; coverage, altitude and haze stay separate.
+  final double densityMultiplier;
   final double coverage,
       scatteringCoefficient,
       absorptionCoefficient,
@@ -206,6 +210,7 @@ final class CloudParameters {
   CloudParameters({
     CloudLayers? layers,
     this.coverage = .3,
+    this.densityMultiplier = 1,
     this.scatteringCoefficient = 1,
     this.absorptionCoefficient = 0,
     this.turbulenceDisplacement = 350,
@@ -221,6 +226,7 @@ final class CloudParameters {
     this.shapeDetailVelocity = Vec3.zero,
   }) : layers = layers ?? CloudLayers.defaults() {
     _range(coverage, 0, 1, 'coverage');
+    _range(densityMultiplier, 0, 100, 'densityMultiplier');
     _range(scatteringCoefficient, 0, 100, 'scatteringCoefficient');
     _range(absorptionCoefficient, 0, 100, 'absorptionCoefficient');
     _range(turbulenceDisplacement, 0, 100000, 'turbulenceDisplacement');
@@ -247,4 +253,42 @@ final class CloudParameters {
       _range(value, -1e6, 1e6, 'offset or velocity');
     }
   }
+
+  /// Keeps layer density ratios and motion when changing individual controls.
+  CloudParameters copyWith({
+    CloudLayers? layers,
+    double? coverage,
+    double? densityMultiplier,
+    double? scatteringCoefficient,
+    double? absorptionCoefficient,
+    double? turbulenceDisplacement,
+    (double, double)? localWeatherRepeat,
+    (double, double)? localWeatherOffset,
+    (double, double)? localWeatherVelocity,
+    (double, double)? turbulenceRepeat,
+    Vec3? shapeRepeat,
+    Vec3? shapeOffset,
+    Vec3? shapeVelocity,
+    Vec3? shapeDetailRepeat,
+    Vec3? shapeDetailOffset,
+    Vec3? shapeDetailVelocity,
+  }) => CloudParameters(
+    layers: layers ?? this.layers,
+    coverage: coverage ?? this.coverage,
+    densityMultiplier: densityMultiplier ?? this.densityMultiplier,
+    scatteringCoefficient: scatteringCoefficient ?? this.scatteringCoefficient,
+    absorptionCoefficient: absorptionCoefficient ?? this.absorptionCoefficient,
+    turbulenceDisplacement:
+        turbulenceDisplacement ?? this.turbulenceDisplacement,
+    localWeatherRepeat: localWeatherRepeat ?? this.localWeatherRepeat,
+    localWeatherOffset: localWeatherOffset ?? this.localWeatherOffset,
+    localWeatherVelocity: localWeatherVelocity ?? this.localWeatherVelocity,
+    turbulenceRepeat: turbulenceRepeat ?? this.turbulenceRepeat,
+    shapeRepeat: shapeRepeat ?? this.shapeRepeat,
+    shapeOffset: shapeOffset ?? this.shapeOffset,
+    shapeVelocity: shapeVelocity ?? this.shapeVelocity,
+    shapeDetailRepeat: shapeDetailRepeat ?? this.shapeDetailRepeat,
+    shapeDetailOffset: shapeDetailOffset ?? this.shapeDetailOffset,
+    shapeDetailVelocity: shapeDetailVelocity ?? this.shapeDetailVelocity,
+  );
 }

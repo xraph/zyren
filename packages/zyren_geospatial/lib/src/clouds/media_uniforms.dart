@@ -14,7 +14,8 @@ Float32List cloudMediaUniforms(
   return Float32List.fromList([
     for (final l in layers) l.altitude,
     for (final l in layers) l.altitude + l.height,
-    for (final l in layers) l.height > 0 ? l.densityScale : 0,
+    for (final l in layers)
+      l.height > 0 ? l.densityScale * p.densityMultiplier : 0,
     for (final l in layers) l.shapeAmount,
     for (final l in layers) l.shapeDetailAmount,
     for (final l in layers) l.weatherExponent,
