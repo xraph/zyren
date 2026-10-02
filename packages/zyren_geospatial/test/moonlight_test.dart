@@ -154,14 +154,26 @@ void main() {
         plugin.controller.appearance = moon.copyWith(nightLightIntensity: .02);
         expect((await render())[0], greaterThan(10));
 
-        view(quarter.sunECEF);
-        final dayWithFill = await render();
-        plugin.controller.appearance = noMoon;
-        expect(
-          await render(),
-          dayWithFill,
-          reason: 'Night controls retain daylight.',
-        );
+        final tangent =
+            (quarter.moonECEF -
+                    quarter.sunECEF * quarter.moonECEF.dot(quarter.sunECEF))
+                .normalized();
+        for (final daylight in [
+          quarter.sunECEF,
+          (tangent + quarter.sunECEF * .01).normalized(),
+        ]) {
+          view(daylight);
+          plugin.controller.appearance = moon.copyWith(
+            nightLightIntensity: .02,
+          );
+          final dayWithFill = await render();
+          plugin.controller.appearance = noMoon;
+          expect(
+            await render(),
+            dayWithFill,
+            reason: 'Night controls retain daylight, including sunrise.',
+          );
+        }
       } finally {
         await engine.dispose();
         await owner.close();

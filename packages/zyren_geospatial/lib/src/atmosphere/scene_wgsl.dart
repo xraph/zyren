@@ -149,7 +149,7 @@ fn compositeOverlay(color:vec4<f32>,uv:vec2<f32>)->vec4<f32> {
    if(f.aerial.w>0.){light+=atmosphereSkyIrradiance(end,normal,f.sun.xyz);}
    if(f.lunar.z>0.){
      let radial=safeNormal(end,vec3<f32>(0.,0.,1.));
-     let night=1.-smoothstep(-.1,.1,dot(radial,f.sun.xyz));
+     let night=1.-smoothstep(-.1,0.,dot(radial,f.sun.xyz));
      if(night>0.){
        var extra=SOLAR*SUN_LUMINANCE*f.lunar.y*max(0.,(1.+dot(normal,radial))*.5);
        if(f.lunar.x>0.){
