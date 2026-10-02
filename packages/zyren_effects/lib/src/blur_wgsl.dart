@@ -1,9 +1,12 @@
+import 'package:zyren/zyren.dart';
+
 String blurShader(
   String mode,
   List<double> weights,
   List<double> offsets,
-  double blend,
-) {
+  double blend, {
+  bool screen = false,
+}) {
   String pair(int i) =>
       'color+=(sample(uv+delta*${offsets[i]})+sample(uv-delta*${offsets[i]}))*${weights[i]};';
   final body = switch (mode) {
@@ -17,32 +20,35 @@ return color;''',
     'mipmapDown' =>
       'return (sample(uv)+diagonal(uv,texel))*.125+axes(uv,texel*2.)*.0625+diagonal(uv,texel*2.)*.03125;',
     'mipmapUp' => 'return tent(uv,texel);',
-    'surfaceDown' =>
-      '''var color=sample(uv)/18.;
+    'surfaceDown' || 'lensDown' =>
+      '''var color=sample(uv)*${mode == 'lensDown' ? '.05556' : '(1./18.)'};
 for(var y=-1;y<=1;y+=2){for(var x=-1;x<=1;x+=2){
  let d=vec2<f32>(f32(x),f32(y))*texel;
- color+=border(uv+d)*.125+border(uv+d*2.)/18.;
+ color+=border(uv+d)*.125+border(uv+d*2.)*${mode == 'lensDown' ? '.05556' : '(1./18.)'};
 }}
-color+=(border(uv+vec2<f32>(texel.x*2.,0.))+border(uv-vec2<f32>(texel.x*2.,0.))+border(uv+vec2<f32>(0.,texel.y*2.))+border(uv-vec2<f32>(0.,texel.y*2.)))/18.;
+color+=(border(uv+vec2<f32>(texel.x*2.,0.))+border(uv-vec2<f32>(texel.x*2.,0.))+border(uv+vec2<f32>(0.,texel.y*2.))+border(uv-vec2<f32>(0.,texel.y*2.)))*${mode == 'lensDown' ? '.05556' : '(1./18.)'};
 return color;''',
-    'surfaceUp' => 'return mix(sampleHigh(uv),tent(uv,texel),$blend);',
+    'surfaceUp' ||
+    'lensUp' => 'return mix(sampleHigh(uv),tent(uv,texel),$blend);',
     _ => throw ArgumentError.value(mode, 'mode'),
   };
+  final group = screen ? 1 : 0;
   return '''
-@group(0) @binding(0) var inputImage:texture_2d<f32>;
-@group(0) @binding(2) var outputImage:texture_storage_2d<rgba16float,write>;
+${screen ? PostProcessDescriptor.interfaceWgsl : ''}
+@group($group) @binding(0) var inputImage:texture_2d<f32>;
+${screen ? '' : '@group(0) @binding(2) var outputImage:texture_storage_2d<rgba16float,write>;'}
 ${_sample('inputImage', 'sample')}
-${mode == 'surfaceUp' ? '@group(0) @binding(1) var highImage:texture_2d<f32>;${_sample('highImage', 'sampleHigh')}' : ''}
+${mode == 'surfaceUp' || mode == 'lensUp' ? '@group($group) @binding(1) var highImage:texture_2d<f32>;${_sample('highImage', 'sampleHigh')}' : ''}
 fn diagonal(uv:vec2<f32>,d:vec2<f32>)->vec4<f32>{return sample(uv+d)+sample(uv-d)+sample(uv+vec2<f32>(d.x,-d.y))+sample(uv+vec2<f32>(-d.x,d.y));}
 fn axes(uv:vec2<f32>,d:vec2<f32>)->vec4<f32>{return sample(uv+vec2<f32>(d.x,0.))+sample(uv-vec2<f32>(d.x,0.))+sample(uv+vec2<f32>(0.,d.y))+sample(uv-vec2<f32>(0.,d.y));}
 fn border(uv:vec2<f32>)->vec4<f32>{return select(vec4<f32>(0.),sample(uv),all(uv>=vec2<f32>(0.))&&all(uv<=vec2<f32>(1.)));}
 fn tent(uv:vec2<f32>,d:vec2<f32>)->vec4<f32>{return sample(uv)*.25+axes(uv,d)*.125+diagonal(uv,d)*.0625;}
 fn blurPixel(uv:vec2<f32>)->vec4<f32>{let texel=1./vec2<f32>(textureDimensions(inputImage));$body}
-@compute @workgroup_size(8,8) fn main(@builtin(global_invocation_id) id:vec3<u32>){
+${screen ? '@fragment fn fragment(v:ScreenVertex)->@location(0) vec4<f32>{return blurPixel(v.uv);}' : '''@compute @workgroup_size(8,8) fn main(@builtin(global_invocation_id) id:vec3<u32>){
  let size=textureDimensions(outputImage);if(any(id.xy>=size)){return;}
  let uv=(vec2<f32>(id.xy)+.5)/vec2<f32>(size);
  textureStore(outputImage,vec2<i32>(id.xy),blurPixel(uv));
-}
+}'''}
 ''';
 }
 
