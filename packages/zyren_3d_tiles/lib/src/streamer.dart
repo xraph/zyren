@@ -150,6 +150,10 @@ class Tiles3DStreamer {
   int get _cachedBytes =>
       _cache.values.fold(0, (n, e) => n + e.content.decodedBytes);
   int get _reservedBytes => _active.length * budget.perTileDecodedBytes;
+  int get _cachedResidentBytes =>
+      _cache.values.fold(0, (n, e) => n + e.content.residentBytes);
+  int get _reservedResidentBytes =>
+      _active.length * budget.perTileResidentBytes;
   Tiles3DStats get stats => Tiles3DStats._(
     _selected.length,
     _visible.length,
@@ -185,8 +189,11 @@ class Tiles3DStreamer {
       for (final node in group) {
         if (node.contentUri == null) continue;
         final cached = _cache[node.id]?.content;
-        groupCpu += cached?.decodedBytes ?? budget.perTileDecodedBytes;
-        groupGpu += cached?.residentBytes ?? budget.perTileResidentBytes;
+        // Unknown payloads reserve their full limits when a physical request
+        // starts. Charging an entire sibling group here can prevent refinement
+        // even when its actual contents fit comfortably in the cache.
+        groupCpu += cached?.decodedBytes ?? 0;
+        groupGpu += cached?.residentBytes ?? 0;
       }
       if (nodes.length + group.length > budget.maxSelectedTiles ||
           cpu + groupCpu > budget.maxDecodedBytes ||
@@ -320,16 +327,22 @@ class Tiles3DStreamer {
           )) {
         continue;
       }
-      while (_cachedBytes + _reservedBytes + budget.perTileDecodedBytes >
-          budget.maxDecodedBytes) {
+      bool hasRoom() =>
+          _cachedBytes + _reservedBytes + budget.perTileDecodedBytes <=
+              budget.maxDecodedBytes &&
+          _cachedResidentBytes +
+                  _reservedResidentBytes +
+                  budget.perTileResidentBytes <=
+              budget.maxResidentBytes;
+      while (!hasRoom()) {
         final unused = _cache.keys.where(
           (id) => !_selected.containsKey(id) && !_holdsVisible(id),
         );
         if (unused.isEmpty) break;
         _evict(unused.first);
       }
-      if (_cachedBytes + _reservedBytes + budget.perTileDecodedBytes >
-          budget.maxDecodedBytes) {
+      if (!hasRoom()) {
+        _budgetLimited = true;
         continue;
       }
       final tracker = _TrackedResolver(

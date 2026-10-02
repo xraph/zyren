@@ -35,6 +35,60 @@ Future<void> settle(Tiles3DStreamer streamer) async {
 
 void main() {
   test(
+    'small sibling groups load incrementally within physical reservations',
+    () async {
+      final resolver = MemoryResolver({
+        for (final name in ['parent', 'a', 'b', 'c', 'd'])
+          '/$name': triangleModel(),
+      });
+      var inFlight = 0, peak = 0;
+      resolver.beforeRead = (_, _) async {
+        inFlight++;
+        if (inFlight > peak) peak = inFlight;
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+        inFlight--;
+      };
+      final streamer = Tiles3DStreamer(
+        tileset: await source(
+          tile(
+            uri: 'parent',
+            refine: 'REPLACE',
+            error: 100,
+            children: [
+              for (final name in ['a', 'b', 'c', 'd']) tile(uri: name),
+            ],
+          ),
+        ),
+        services: AssetServices(resolver: resolver),
+        budget: Tiles3DBudget(
+          maxRequests: 4,
+          maxDecodedBytes: 65536,
+          perTileDecodedBytes: 8192,
+          maxResidentBytes: 4096,
+          perTileResidentBytes: 2048,
+        ),
+      );
+      addTearDown(streamer.dispose);
+      final view = PerspectiveCamera(
+        position: const Vec3(0, -50, 0),
+        up: const Vec3(0, 0, 1),
+      );
+      streamer.update(view, const ViewportMetrics(800, 600));
+      await settle(streamer);
+      streamer.update(view, const ViewportMetrics(800, 600));
+      await settle(streamer);
+      expect(streamer.visible.keys.toSet(), {'0/0', '0/1', '0/2', '0/3'});
+      expect(resolver.reads.toSet(), {'/parent', '/a', '/b', '/c', '/d'});
+      expect(peak, 2, reason: 'GPU reservations must limit physical reads.');
+      expect(
+        streamer.stats.cachedBytes + streamer.stats.reservedBytes,
+        lessThanOrEqualTo(65536),
+      );
+      expect(streamer.stats.residentBytes, lessThanOrEqualTo(4096));
+    },
+  );
+
+  test(
     'visible attribution follows parent fallback and excludes cached invisible tiles',
     () async {
       final resolver = MemoryResolver({
