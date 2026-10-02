@@ -7,3 +7,4 @@ export 'src/dithering.dart';
 export 'src/blur.dart';
 export 'src/lens.dart';
 export 'src/smaa.dart';
+export 'src/plugin.dart';
