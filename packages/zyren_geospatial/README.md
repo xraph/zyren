@@ -307,7 +307,7 @@ that keep the current view until the replacement is ready.
 ```dart
 CloudPlugin(
   quality: CloudQualityPreset.medium,
-  maxResolution: 512,
+  maxResolution: 384,
   shadowMapSize: 256,
 )
 ```
@@ -316,8 +316,30 @@ Clouds clip against scene geometry and use the atmosphere's date, lighting table
 and world frame. The producer runs before atmosphere composition, which applies
 cloud shadows to direct aerial lighting. High and ultra quality need more memory.
 Set a smaller shadow map when your scene also retains terrain or 3D tiles; failed
-allocations leave the current maps installed. Temporal reconstruction is still
-pending.
+allocations leave the current maps installed. The default 384-pixel target cap
+leaves room for history and resize replacement within the native resource budget.
+If you raise it, budget for both the active and replacement maps.
+
+Temporal reconstruction defaults to the source's 4x4 Bayer upscaling. Use
+`CloudTemporalSettings(mode: CloudTemporalMode.antialias)` for full-resolution
+temporal sampling, or `CloudTemporalMode.off` to inspect a single frame. The
+controller's `setTemporal` replaces those resources atomically. Cloud history
+uses source variance clipping, nearest-depth motion and alpha 0.1; shadow history
+uses nine samples and alpha 0.01, with filtering kept inside each cascade.
+
+Ordinary camera and weather motion retain history. Resize, projection changes,
+large camera moves, time jumps, lighting changes and parameter edits reset it.
+Call `controller.resetHistory()` after a scene cut, or increment your scene's
+`RenderSettings.historyEpoch`. You can inspect `controller.history` to check the
+last reset reason and successful frame count. Static clouds request 16 frames to
+fill the Bayer pattern, then release their frame demand.
+
+For source blue noise, pass the result of
+`CloudBlueNoise.load(services: services, cancellation: cancellation)` as
+`CloudPlugin.blueNoise`. You can also supply the pinned 128x128x64 raw bytes to
+`CloudBlueNoise(bytes)`. A packed read-only buffer holds the samples without using
+another texture slot. Scenes without that asset use deterministic, frame-varying
+interleaved gradient noise.
 
 For the original textures, use `CloudTextureSource.upstream(services: services)`
 with your resolver and image decoder, then call

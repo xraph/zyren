@@ -130,6 +130,7 @@ ${cloudRenderWgsl(q).split('fn cloudHaze(').first}
           final resources = <GpuResource>[
             pass.media,
             pass.frame,
+            pass.noise,
             ...pass.textures.textures.resources,
             input,
             output,

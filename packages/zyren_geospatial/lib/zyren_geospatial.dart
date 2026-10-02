@@ -58,3 +58,10 @@ export 'src/clouds/textures.dart';
 export 'src/clouds/texture_source.dart';
 export 'src/atmosphere/cloud_inputs.dart' show AtmosphereCloudInputs;
 export 'src/clouds/plugin.dart';
+
+export 'src/clouds/history.dart'
+    show
+        CloudTemporalSettings,
+        CloudTemporalMode,
+        CloudHistoryStatus,
+        CloudHistoryReset;

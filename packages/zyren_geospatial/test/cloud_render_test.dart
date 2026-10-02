@@ -56,6 +56,7 @@ void main() {
         ),
       );
       final clouds = CloudPlugin(
+        temporal: CloudTemporalSettings(mode: CloudTemporalMode.off),
         textures: textures,
         parameters: uniformClouds(0),
         appearance: CloudAppearance(hazeDensityScale: 0),
@@ -150,6 +151,7 @@ void main() {
               ),
             ),
             CloudPlugin(
+              temporal: CloudTemporalSettings(mode: CloudTemporalMode.off),
               textures: localMaps,
               parameters: uniformClouds(1),
               appearance: CloudAppearance(hazeDensityScale: 0),
@@ -201,6 +203,7 @@ void main() {
         appearance: AtmosphereAppearance(sky: false, haze: false),
       );
       final clouds = CloudPlugin(
+        temporal: CloudTemporalSettings(mode: CloudTemporalMode.off),
         quality: CloudQualityPreset.low,
         maxResolution: 32,
         shadowMapSize: 16,
@@ -260,6 +263,7 @@ void main() {
         appearance: AtmosphereAppearance(sky: false, haze: false),
       );
       final clouds = CloudPlugin(
+        temporal: CloudTemporalSettings(mode: CloudTemporalMode.off),
         textures: textures,
         parameters: uniformClouds(1),
         appearance: CloudAppearance(hazeDensityScale: 0),

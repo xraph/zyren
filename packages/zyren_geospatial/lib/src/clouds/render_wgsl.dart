@@ -126,16 +126,17 @@ fn cloudRanges(origin:vec3<f32>,direction:vec3<f32>)->CloudRanges{
 @group(3) @binding(2) var cloudTransmissionOutput:texture_storage_2d<r32float,write>;
 @fragment fn fragment(v:ScreenVertex)->@location(0) vec4<f32>{
  let pixel=vec2<i32>(v.position.xy);let original=textureLoad(sceneColor,pixel,0);
- let uv=(vec2<f32>(pixel)+.5)/cf.extent.xy;let middle=scenePosition(uv,.5);
+ let samplePixel=select(vec2<f32>(pixel),min(vec2<f32>(pixel)*4.+ct.jitter.xy,ct.size.xy-1.),ct.jitter.z>1.5);
+ let uv=(samplePixel+.5)/cf.extent.xy;let middle=scenePosition(uv,.5);
  var worldRay=normalize(middle);var relativeOrigin=vec3<f32>(0.);
  if(cf.forward.w>0.){worldRay=cf.forward.xyz;relativeOrigin=scenePosition(uv,sceneNearDepth())-worldRay*cf.sun.w;}
  let origin=cloudEcef(relativeOrigin);let ray=normalize((cf.worldToEcef*vec4<f32>(worldRay,0.)).xyz);
  var ranges=cloudRanges(origin,ray);
  let globeUv=cloudGlobeUv(origin+ray*max(ranges.clouds.x,0.))*cloud.v[15].xy;
- let coord=globeUv*cf.extent.xy;let dx=dpdx(coord);let dy=dpdy(coord);
+ let coord=globeUv*cf.extent.xy*select(1.,.25,ct.jitter.z>1.5);let dx=dpdx(coord);let dy=dpdy(coord);
  let mip=max(0.,.5*log2(max(1.,max(dot(dx,dx),dot(dy,dy))*.1)))*clamp(.2*(length(origin)-cf.camera.w)/max(cloud.v[14].w,1.),0.,1.);
  // Derivatives execute before the producer's bounded target branch.
- if(any(pixel>=vec2<i32>(cf.extent.xy))){return original;}
+ if(any(pixel>=vec2<i32>(ct.size.zw))){return original;}
  let depthPixel=clamp(vec2<i32>(uv*vec2<f32>(textureDimensions(sceneDepth))),vec2<i32>(0),vec2<i32>(textureDimensions(sceneDepth))-1);
  let depth=textureLoad(sceneDepth,depthPixel,0);let background=sceneDepthIsBackground(depth);
  var sceneDistance=cf.extent.z;var scenePoint=origin+ray*sceneDistance;
@@ -143,7 +144,7 @@ fn cloudRanges(origin:vec3<f32>,direction:vec3<f32>)->CloudRanges{
   let relative=scenePosition(uv,depth);scenePoint=cloudEcef(relative);sceneDistance=max(0.,dot(relative-relativeOrigin,worldRay));
   ranges.clouds.y=min(ranges.clouds.y,sceneDistance);ranges.shadow.y=min(ranges.shadow.y,sceneDistance);ranges.haze.y=min(ranges.haze.y,sceneDistance);
  }else if(ranges.ground>=0.){scenePoint=origin+ray*ranges.ground;}
- let jitter=cloudJitter(vec2<f32>(pixel));let cosTheta=dot(cf.sun.xyz,ray);
+ let jitter=cloudNoise(vec2<f32>(pixel),ct.size.w);let cosTheta=dot(cf.sun.xyz,ray);
  var color=vec4<f32>(0.);var front=sceneDistance;var hit=false;
  if(all(ranges.clouds>=vec2<f32>(0.))&&ranges.clouds.y>=ranges.clouds.x){
   let marched=cloudMarch(origin+ray*ranges.clouds.x,ray,ranges.clouds,cosTheta,jitter,exp2(mip));color=marched.color;

@@ -154,7 +154,18 @@ void main() {
         maxStarResolution: 32,
         appearance: AtmosphereAppearance(sky: false, haze: false),
       );
+      final noise = await CloudBlueNoise.load(
+        services: AssetServices(resolver: NativeSourceResolver()),
+        cancellation: CloudCancellation(),
+        uri: Directory(path).uri.resolve('stbn.bin'),
+      );
       final clouds = CloudPlugin(
+        blueNoise: noise,
+        temporal: CloudTemporalSettings(),
+        parameters: CloudParameters(
+          localWeatherVelocity: (.005, .003),
+          shapeVelocity: const Vec3(.5, 0, 0),
+        ),
         textures: loaded.textures,
         quality: CloudQualityPreset.low,
         maxResolution: 32,
@@ -175,8 +186,16 @@ void main() {
       try {
         await loaded.close();
         await owner.close();
+        for (var i = 0; i < 16; i++) {
+          await engine.render(
+            elapsed: Duration(milliseconds: i * 16),
+            width: 31,
+            height: 31,
+          );
+          expect(clouds.controller.history.accumulatedFrames, i + 1);
+        }
         final frame = await engine.render(
-          elapsed: Duration.zero,
+          elapsed: Duration(milliseconds: 256),
           width: 31,
           height: 31,
         );

@@ -210,3 +210,60 @@ abstract final class _Admission {
 
 AssetLoadException _failure(AssetLoadError code) =>
     AssetLoadException(code, 'Cloud texture source could not be loaded.');
+
+/// Source STBN samples, 128 by 128 by 64 unsigned bytes. Kept outside textures so
+/// temporal jitter does not consume another sampled-texture binding.
+final class CloudBlueNoise {
+  final Uint8List bytes;
+  CloudBlueNoise(Uint8List bytes) : bytes = _copy(bytes);
+  static Uint8List _copy(Uint8List bytes) {
+    if (bytes.length != 1048576) {
+      throw ArgumentError('Cloud blue noise requires 128x128x64 bytes.');
+    }
+    return Uint8List.fromList(bytes).asUnmodifiableView();
+  }
+
+  static Future<CloudBlueNoise> load({
+    required AssetServices services,
+    required LoadCancellation cancellation,
+    Uri? uri,
+  }) => _Admission.run(() async {
+    services.limits.validate();
+    final target =
+        uri ??
+        Uri.parse(
+          'https://media.githubusercontent.com/media/takram-design-engineering/three-geospatial/9627216cc50057994c98a2118f3c4a23765d43b9/packages/core/assets/stbn.bin',
+        );
+    final limits = services.limits;
+    if (limits.maxSourceBytes < 1048576 ||
+        limits.maxTotalSourceBytes < 1048576 ||
+        limits.maxDecodedBytes < 1048576) {
+      throw _failure(AssetLoadError.limitExceeded);
+    }
+    try {
+      services.policy.validate(target, target);
+      final result = await services.resolver.read(
+        target,
+        SourceReadContext(
+          maxBytes: 1048576,
+          cancellation: cancellation,
+          policy: services.policy,
+          onProgress: (_, _) {},
+        ),
+      );
+      cancellation.throwIfCancelled();
+      services.policy.validate(target, result.effectiveUri);
+      if (result.bytes.length != 1048576) {
+        throw _failure(AssetLoadError.invalidData);
+      }
+      return CloudBlueNoise(result.bytes);
+    } on LoadCancelled {
+      rethrow;
+    } on AssetLoadException catch (e) {
+      throw _failure(e.code);
+    } catch (_) {
+      cancellation.throwIfCancelled();
+      throw _failure(AssetLoadError.sourceFailed);
+    }
+  }, cancellation);
+}

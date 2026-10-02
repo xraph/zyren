@@ -52,7 +52,7 @@ String cloudShadowComputeWgsl(int count) =>
  if(top.y>=0. && cloud.v[20].w>cloud.v[20].z){
   let near=max(0.,top.x);let far=select(bottom,1e6,bottom<0.);
   let mips=array<f32,4>(0.,.5,1.,2.);
-  result=cloudMarchShadow(origin+direction*near,direction,max(0.,far-near),cloudJitter(vec2<f32>(pixel)),mips[cascade]);
+  result=cloudMarchShadow(origin+direction*near,direction,max(0.,far-near),cloudNoise(vec2<f32>(pixel),f32(size.y)),mips[cascade]);
  }
  textureStore(shadowOutput,vec2<i32>(id.xy),result);
 }

@@ -16,6 +16,11 @@ import 'media_wgsl.dart';
 import 'sampling_wgsl.dart';
 import 'shadow_wgsl.dart';
 import 'render_wgsl.dart';
+import 'history.dart';
+import 'temporal_pass.dart';
+import 'temporal_wgsl.dart';
+import 'blue_noise_wgsl.dart';
+import 'texture_source.dart';
 
 const clouds = ServiceKey<CloudController>('geospatial.clouds');
 
@@ -26,19 +31,24 @@ final class CloudPlugin extends ScenePlugin {
   final CloudParameters parameters;
   final CloudAppearance appearance;
   final CloudQualityPreset quality;
+  final CloudTemporalSettings temporal;
   final CloudTextures? textures;
+  final CloudBlueNoise? blueNoise;
   final int maxResolution;
   final int? shadowMapSize;
   CloudController? _controller;
   CloudPlugin({
     CloudParameters? parameters,
     CloudAppearance? appearance,
+    CloudTemporalSettings? temporal,
     this.quality = CloudQualityPreset.medium,
     this.textures,
-    this.maxResolution = 512,
+    this.blueNoise,
+    this.maxResolution = 384,
     this.shadowMapSize,
   }) : parameters = parameters ?? CloudParameters(),
-       appearance = appearance ?? CloudAppearance() {
+       appearance = appearance ?? CloudAppearance(),
+       temporal = temporal ?? CloudTemporalSettings() {
     RangeError.checkValueInInterval(maxResolution, 1, 1024, 'maxResolution');
     if (shadowMapSize != null) {
       RangeError.checkValueInInterval(shadowMapSize!, 1, 1024, 'shadowMapSize');
@@ -90,23 +100,28 @@ final class CloudController {
   late CloudParameters _parameters = _plugin.parameters;
   late CloudAppearance _appearance = _plugin.appearance;
   late CloudQualityPreset _quality = _plugin.quality;
+  late CloudTemporalSettings _temporal = _plugin.temporal;
+  final _history = CloudHistory();
+  int _revision = 0;
+  CloudHistoryFrame? _pendingFrame;
+  _CloudCandidate? _pendingCandidate;
   CloudTextureSet? _textures;
   _CloudCandidate? _active;
-  EffectRegistration? _producer;
+  EffectRegistration? _producer, _resolve, _publish;
   AtmosphereCloudRegistration? _composition;
   Registration? _demand;
   Future<void> _queue = Future.value();
   bool _closed = false;
   int _width = 1, _height = 1;
-  Mat4? _previousProjection, _pendingProjection;
-  Vec3? _previousCamera, _pendingCamera;
+
   CloudController._(this._plugin, this._context, this._owner, this._atmosphere);
   bool get isClosed => _closed || _owner.isClosed;
   CloudParameters get parameters => _parameters;
   set parameters(CloudParameters value) {
     _check();
     _parameters = value;
-    _previousProjection = null;
+    _revision++;
+    _history.invalidate(CloudHistoryReset.parameters);
     _motion();
     _context.invalidate();
   }
@@ -115,11 +130,33 @@ final class CloudController {
   set appearance(CloudAppearance value) {
     _check();
     _appearance = value;
-    _previousProjection = null;
+    _revision++;
+    _history.invalidate(CloudHistoryReset.parameters);
     _context.invalidate();
   }
 
   CloudQualityPreset get quality => _quality;
+  CloudTemporalSettings get temporal => _temporal;
+  CloudHistoryStatus get history => _history.status;
+  void resetHistory() {
+    _check();
+    _history.invalidate();
+    _motion();
+    _context.invalidate();
+  }
+
+  Future<void> setTemporal(CloudTemporalSettings settings) => _serial(() async {
+    await _replace(
+      _quality,
+      _textures!.textures,
+      _width,
+      _height,
+      temporal: settings,
+    );
+    _temporal = settings;
+    _motion();
+    _context.invalidate();
+  });
   void _check() {
     if (isClosed) {
       throw StateError('Cloud controller has closed.');
@@ -147,7 +184,9 @@ final class CloudController {
         _parameters.localWeatherVelocity != (0.0, 0.0) ||
         _parameters.shapeVelocity != Vec3.zero ||
         _parameters.shapeDetailVelocity != Vec3.zero;
-    if (moving) {
+    if (moving ||
+        (_temporal.mode != CloudTemporalMode.off &&
+            _history.status.accumulatedFrames < 16)) {
       _demand ??= _context.acquireFrameDemand();
     } else {
       _demand?.dispose();
@@ -182,8 +221,9 @@ final class CloudController {
     CloudQualityPreset quality,
     CloudTextures textures,
     int width,
-    int height,
-  ) async {
+    int height, {
+    CloudTemporalSettings? temporal,
+  }) async {
     final scope = _owner.createChild(label: 'cloud scene');
     AtmosphereLutLease? lease;
     _CloudCandidate? candidate;
@@ -198,6 +238,8 @@ final class CloudController {
         height,
         _plugin.shadowMapSize,
         _atmosphere.source,
+        temporal ?? _temporal,
+        _plugin.blueNoise,
       );
       _check();
       if (_composition == null) {
@@ -210,9 +252,23 @@ final class CloudController {
       } else {
         _producer!.replace(candidate.effect);
       }
+      if (_resolve == null) {
+        _resolve = _context.scene.addEffect(
+          candidate.temporal.resolve[0],
+          order: -90,
+        );
+        _publish = _context.scene.addEffect(
+          candidate.temporal.publish[0],
+          order: -80,
+        );
+      } else {
+        _resolve!.replace(candidate.temporal.resolve[0]);
+        _publish!.replace(candidate.temporal.publish[0]);
+      }
       final previous = _active;
       _active = candidate;
-      _previousProjection = null;
+      _revision++;
+      _history.invalidate(CloudHistoryReset.parameters);
       await previous?.close();
     } catch (_) {
       if (!identical(_active, candidate)) {
@@ -250,33 +306,62 @@ final class CloudController {
               _atmosphere.parameters.bottomRadius;
     }
     final candidate = _active!;
+    final sun = CelestialDirections.at(
+      _atmosphere.date,
+      observerECEF: ecef,
+    ).sunECEF;
+    final history = _history.begin(
+      camera: camera,
+      aspect: info.width / info.height,
+      width: width,
+      height: height,
+      number: info.number,
+      elapsed: info.elapsed,
+      revision: _revision,
+      epoch: _context.scene.renderSettings.historyEpoch,
+      sun: sun,
+      settings: _temporal,
+    );
+    final previous = history.valid ? _history.previous : null;
+    final parameters = _parameters, appearance = _appearance;
+    await candidate.temporal.prepare(history, _temporal);
+    _resolve!.replace(candidate.temporal.resolve[candidate.temporal.pending]);
+    _publish!.replace(candidate.temporal.publish[candidate.temporal.pending]);
     final state = CloudFrameState(
       camera: camera,
       worldToEcef: _atmosphere.worldToEcef,
       correctedCamera: corrected,
-      sun: CelestialDirections.at(_atmosphere.date, observerECEF: ecef).sunECEF,
+      sun: sun,
       bottomRadius: _atmosphere.parameters.bottomRadius,
       aspect: info.width / info.height,
       width: width,
       height: height,
       shadowSize: candidate.shadow.size,
       cascadeCount: candidate.shadow.quality.shadow.cascadeCount,
-      frame: info.number,
-      previousViewProjection: _previousProjection,
-      previousCamera: _previousCamera,
+      frame: _temporal.mode == CloudTemporalMode.off ? 0 : info.number,
+      previousViewProjection: previous?.viewProjection,
+      previousCamera: previous?.position,
     );
     await candidate.shadow.render(
-      _parameters,
-      _appearance,
+      parameters,
+      appearance,
       state,
       elapsed: info.elapsed.inMicroseconds / 1e6,
+      historyValid: history.valid,
     );
-    _pendingProjection = camera.viewProjection(info.width / info.height);
-    _pendingCamera = camera.position;
+    _pendingFrame = history;
+    _pendingCandidate = candidate;
   });
   void _presented() {
-    _previousProjection = _pendingProjection;
-    _previousCamera = _pendingCamera;
+    final frame = _pendingFrame, candidate = _pendingCandidate;
+    if (frame != null && identical(candidate, _active)) {
+      _history.present(frame, _revision);
+      candidate!.temporal.presented();
+      candidate.shadow.presented();
+      _motion();
+    }
+    _pendingFrame = null;
+    _pendingCandidate = null;
   }
 
   Future<void> _close() async {
@@ -284,6 +369,8 @@ final class CloudController {
     _demand?.dispose();
     await _queue;
     _producer?.dispose();
+    _resolve?.dispose();
+    _publish?.dispose();
     try {
       await _composition?.close();
     } finally {
@@ -301,6 +388,7 @@ final class _CloudCandidate {
   final CloudShadowPass shadow;
   final ScreenEffect effect;
   final AtmosphereCloudInputs inputs;
+  final CloudTemporalPass temporal;
   _CloudCandidate(
     this.scope,
     this.lease,
@@ -308,6 +396,7 @@ final class _CloudCandidate {
     this.shadow,
     this.effect,
     this.inputs,
+    this.temporal,
   );
   static Future<_CloudCandidate> build(
     GpuScope scope,
@@ -318,18 +407,28 @@ final class _CloudCandidate {
     int height,
     int? shadowMapSize,
     PrecomputedAtmosphereSource? source,
+    CloudTemporalSettings settings,
+    CloudBlueNoise? blueNoise,
   ) async {
     final shadow = await CloudShadowPass.build(
       scope,
       textures,
       quality,
       mapSize: shadowMapSize,
+      blueNoise: blueNoise,
+      temporal: settings.mode != CloudTemporalMode.off,
     );
+    final rawWidth = settings.mode == CloudTemporalMode.upscale
+            ? (width + 3) ~/ 4
+            : width,
+        rawHeight = settings.mode == CloudTemporalMode.upscale
+            ? (height + 3) ~/ 4
+            : height;
     Future<GpuResource<Texture>> target(TextureFormat format) =>
         scope.resources.createTexture(
           TextureDescriptor(
-            width: width,
-            height: height,
+            width: rawWidth,
+            height: rawHeight,
             format: format,
             usage: {
               TextureUsage.storage,
@@ -346,6 +445,12 @@ final class _CloudCandidate {
       depthVelocityShadow: data,
       transmittance: transmittance,
     );
+    final temporal = await CloudTemporalPass.build(
+      scope,
+      inputs,
+      width,
+      height,
+    );
     final library = lease.luts.shader();
     final program = await scope.shaders.compile(
       ShaderSource.wgsl(
@@ -353,6 +458,8 @@ final class _CloudCandidate {
             library.source +
             cloudMediaMathWgsl(quality) +
             cloudFrameWgsl +
+            cloudBlueNoiseWgsl +
+            cloudTemporalUniformWgsl +
             cloudSamplingWgsl +
             cloudShadowSamplingWgsl(quality.shadow.cascadeCount) +
             cloudRenderWgsl(quality),
@@ -365,6 +472,7 @@ final class _CloudCandidate {
         bindings: ShaderBindings([
           ...library.bindings.entries,
           ...shadow.bindings,
+          BufferBinding.uniform(8, temporal.uniform, group: 2),
           TextureBinding.sampled(6, shadow.atlas, group: 2),
           TextureBinding.storage(0, color, group: 3),
           TextureBinding.storage(1, data, group: 3),
@@ -372,7 +480,15 @@ final class _CloudCandidate {
         ]),
       ),
     );
-    return _CloudCandidate(scope, lease, source, shadow, effect, inputs);
+    return _CloudCandidate(
+      scope,
+      lease,
+      source,
+      shadow,
+      effect,
+      temporal.outputs,
+      temporal,
+    );
   }
 
   Future<void> close() async {
