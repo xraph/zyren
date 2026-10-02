@@ -1,6 +1,6 @@
 # zyren_gltf
 
-Load static glTF models into ordinary `zyren` scene objects. This optional package
+Load glTF models and animations into ordinary `zyren` scene objects. This optional package
 uses the public Dart core and can decode models without Flutter or a GPU device.
 
 ```dart
@@ -80,6 +80,35 @@ unknown optional extensions produce warnings and use the core fallback data.
 | `KHR_draco_mesh_compression` | Draco 2.2 meshes through `CompressedMeshDecoder`; triangle strips become triangle lists, attribute IDs and accessor formats are validated |
 | `KHR_texture_basisu` | KTX2 ETC1S/UASTC through `TextureDecoder`, including Zstd, authored mips and PNG/JPEG fallback when optional |
 | Sparse overrides on Draco accessors and other required extensions | Explicit unsupported-feature error |
+
+## Animation poses
+
+You can sample a clip without changing the instance:
+
+```dart
+final pose = instance.samplePose(
+  animation: model.animations.first,
+  time: const Duration(milliseconds: 500),
+);
+instance.prepareSampledPose(pose)();
+```
+
+`ModelPose` holds immutable local transforms and morph weights. Use
+`samplePose(initial: true)` for the imported rest pose. With no animation and
+`initial: false`, sampling reads current node transforms; unspecified morph
+weights always use the imported defaults.
+
+`prepareBlendedPose` accepts absolute `ModelPoseContribution` values and optional
+additive contributions with captured reference poses. It blends transforms and
+weights before deforming geometry, normalizes positive absolute weights, and
+validates the result before returning an apply closure. Weights must be finite
+and between zero and one. At least one absolute contribution must be positive.
+Scale signs must agree in absolute blends and with the reference for additive
+blends. Poses can be shared between instances of the same template and scene.
+
+For frame clocks, crossfades, loops, reverse playback and imported events, add
+`zyren_gltf_timeline`. Deformation currently runs on the CPU with native geometry
+uploads. GPU deformation is not implemented.
 
 ## Feature identity
 

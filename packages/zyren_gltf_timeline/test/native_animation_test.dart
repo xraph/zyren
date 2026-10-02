@@ -13,6 +13,56 @@ List<int> center(FrameOutput output) => (output as ReadbackOutput).image.pixels
 
 void main() {
   test(
+    'native imported crossfades blend joints and morph weights before upload',
+    () async {
+      final asset = await load(animatedModel()), instance = asset.instantiate();
+      const end = Duration(seconds: 1);
+      final timeline = SceneTimelinePlugin.mixed(
+        duration: end,
+        base: modelRestClip(instance),
+      );
+      final engine = await SceneEngine.create(
+        scene: Scene()
+          ..background = const Color3(0, 0, 0)
+          ..add(instance),
+        camera: PerspectiveCamera(),
+        backendFactory: NativeBackend.create,
+        plugins: [timeline],
+      );
+      addTearDown(engine.dispose);
+      if (Platform.isMacOS) {
+        expect(engine.capabilities.backend?.toLowerCase(), 'metal');
+      }
+      Future<FrameOutput> draw(Duration delta) => engine.renderFrame(
+        elapsed: Duration.zero,
+        time: FrameTime(delta: delta),
+        width: 31,
+        height: 31,
+      );
+      final rest = timeline.createAction(modelRestClip(instance), weight: 1);
+      final moving = timeline.createAction(
+        modelClip(instance, asset.animations.single),
+      );
+      expect(center(await draw(Duration.zero)), [255, 0, 0, 255]);
+      rest.crossFadeTo(moving, end);
+      moving.pause();
+      moving.seek(end);
+      await draw(Duration.zero);
+      final half = await draw(const Duration(milliseconds: 500));
+      final mesh = instance.nodes[0]!.children.single as Mesh;
+      expect(mesh.geometry.positions.first, 3);
+      expect(half.stats.uploadedBytes, greaterThan(0));
+      expect(center(half), [0, 0, 0, 255]);
+      moving.crossFadeTo(rest, end);
+      rest.pause();
+      await draw(Duration.zero);
+      expect(center(await draw(end)), [255, 0, 0, 255]);
+      expect((await draw(Duration.zero)).stats.uploadedBytes, 0);
+    },
+    skip: Platform.environment['RUN_NATIVE_GPU'] != '1',
+  );
+
+  test(
     'native imported animation uploads deformed geometry and restores a seek',
     () async {
       final asset = await load(animatedModel(bindPosition: 2)),

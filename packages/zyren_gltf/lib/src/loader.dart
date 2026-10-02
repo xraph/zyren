@@ -17,6 +17,7 @@ import 'metadata_decoder.dart' show structuralMetadataExtension;
 import 'feature_decoder.dart' show meshFeaturesExtension;
 part 'model_asset.dart';
 part 'model_animation_instance.dart';
+part 'model_pose.dart';
 
 abstract final class Gltf {
   static AssetRequest<ModelAsset> asset(

@@ -183,10 +183,20 @@ and morph channels. It binds one custom track to a `ModelInstance` and maps
 `extras.zyrenEvents` to main-clock markers. The importer and timeline remain
 independent; you only add the adapter when you need imported playback.
 
-Imported deformation uses CPU sampling and native dynamic-geometry uploads.
-Its custom instance track does not participate in `TimelineClip` transform/camera
-mixing. GPU skinning and crossfades between imported skeletal poses remain
-separate work.
+Use `modelClip(instance, animation)` and `modelRestClip(instance)` to mix imported
+poses through authored layers or runtime actions. The adapter blends joint TRS
+and morph weights before one CPU deformation and native dynamic-geometry upload.
+Imported actions support crossfades, additive references, loops and reverse
+playback. GPU skinning and morph kernels are not implemented.
+
+You can extend the mixer with `BlendableTimelineTrack`. Return an immutable
+snapshot that preserves its target and duration, and accept only compatible
+tracks in `canBlendWith`. `prepareBlend` receives normalized absolute samples
+and ordered additive samples with reference times. It must validate the whole
+result without changing scene state, then return one infallible apply closure.
+The mixer prepares every target before applying any edits. Custom tracks are
+responsible for declaring all state they own through their target and keeping
+other writers away from that state.
 
 ## Local looping and reverse playback
 

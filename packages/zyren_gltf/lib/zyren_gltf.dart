@@ -2,7 +2,14 @@ library;
 
 export 'src/limits.dart';
 export 'src/options.dart';
-export 'src/loader.dart' show Gltf, ModelAsset, ModelSceneInfo, ModelInstance;
+export 'src/loader.dart'
+    show
+        Gltf,
+        ModelAsset,
+        ModelSceneInfo,
+        ModelInstance,
+        ModelPose,
+        ModelPoseContribution;
 
 export 'src/features.dart';
 export 'src/metadata.dart';

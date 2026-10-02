@@ -1,6 +1,30 @@
 part of '../zyren_timeline.dart';
 
-/// A copied set of built-in absolute transform or camera tracks.
+/// An immutable custom pose track that can join the timeline's action mixer.
+/// Copies must retain the target and duration. Preparation must not mutate state.
+abstract class BlendableTimelineTrack extends TimelineTrack {
+  BlendableTimelineTrack snapshot();
+  bool canBlendWith(BlendableTimelineTrack other);
+  void Function() prepareBlend(
+    List<TimelineBlendSample> absolute,
+    List<TimelineBlendSample> additive,
+  );
+}
+
+/// A weighted local sample, with a reference time for additive contributions.
+final class TimelineBlendSample {
+  final BlendableTimelineTrack track;
+  final Duration time, referenceTime;
+  final double weight;
+  const TimelineBlendSample(
+    this.track,
+    this.time,
+    this.weight, {
+    this.referenceTime = Duration.zero,
+  });
+}
+
+/// A copied set of built-in tracks or opt-in blendable custom tracks.
 final class TimelineClip {
   final Duration duration;
   final List<TimelineTrack> tracks;
@@ -32,8 +56,20 @@ TimelineTrack _copyTrack(TimelineTrack track) {
     final source = track as CameraTrack;
     return CameraTrack(source.target, source.keyframes);
   }
+  if (track is BlendableTimelineTrack) {
+    final copy = track.snapshot();
+    if (!identical(copy.target, track.target) ||
+        copy.end != track.end ||
+        !track.canBlendWith(copy) ||
+        !copy.canBlendWith(track)) {
+      throw ArgumentError(
+        'A blendable snapshot must preserve target, duration and compatibility.',
+      );
+    }
+    return copy;
+  }
   throw ArgumentError(
-    'Mixed clips require built-in transform or camera tracks.',
+    'Mixed clips require built-in or BlendableTimelineTrack tracks.',
   );
 }
 
@@ -110,7 +146,12 @@ List<TimelineTrack> _mixTracks(
       throw ArgumentError('Layer weight keys must fit the timeline duration.');
     }
     for (final track in layer.clip.tracks) {
-      if (base._targets[track.target]?.runtimeType != track.runtimeType) {
+      final baseline = base._targets[track.target];
+      final compatible =
+          baseline is BlendableTimelineTrack && track is BlendableTimelineTrack
+          ? baseline.canBlendWith(track) && track.canBlendWith(baseline)
+          : baseline?.runtimeType == track.runtimeType;
+      if (!compatible) {
         throw ArgumentError(
           'Layer tracks must match a base target and track type.',
         );
@@ -176,6 +217,27 @@ final class _MixedTrack extends TimelineTrack {
           weight: sample.weight / total,
         );
       }
+    }
+    if (track case final BlendableTimelineTrack custom) {
+      return custom.prepareBlend(
+        List.unmodifiable([
+          for (final sample in active)
+            TimelineBlendSample(
+              sample.track as BlendableTimelineTrack,
+              sample.time,
+              sample.weight,
+            ),
+        ]),
+        List.unmodifiable([
+          for (final layer in additions)
+            TimelineBlendSample(
+              layer.clip._targets[target]! as BlendableTimelineTrack,
+              layer.localTimeAt(time),
+              layer.weightAt(time),
+              referenceTime: layer.referenceTime,
+            ),
+        ]),
+      );
     }
     if (track is TransformTrack) {
       var pose = _blendTransforms(active);

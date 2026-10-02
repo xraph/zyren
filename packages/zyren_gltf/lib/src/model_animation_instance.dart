@@ -23,6 +23,16 @@ final class ModelInstance extends Group {
   final List<_InstanceDeformer> _deformers;
   final Map<Object3D, Object3D?> _parents = Map.identity();
   ModelInstance._(this._template, this._nodes, this._deformers, {super.name});
+  void _validatePoseOwner(ModelPose pose) {
+    if (!identical(pose._template, _template) ||
+        pose.nodes.length != _nodes.length ||
+        _nodes.keys.any((key) => !pose.nodes.containsKey(key))) {
+      throw ArgumentError(
+        'The sampled pose belongs to another model or scene.',
+      );
+    }
+  }
+
   List<ModelAnimation> get animations => _template.animations;
   Map<int, Object3D> get nodes => Map.unmodifiable(_nodes);
   void _captureParents() {
@@ -34,9 +44,11 @@ final class ModelInstance extends Group {
     }
   }
 
-  /// Validates the whole pose before returning an edit. No events are emitted.
-  /// With no animation, samples current joint transforms and supplied weights.
-  void Function() preparePose({
+  /// Samples local transforms and morph weights without deforming geometry.
+  /// With no animation, uses current transforms unless [initial] is true.
+  /// Unspecified weights use the imported defaults. No events are emitted.
+  ModelPose samplePose({
+    bool initial = false,
     ModelAnimation? animation,
     Duration time = Duration.zero,
     Map<int, List<double>> morphWeights = const {},
@@ -52,11 +64,12 @@ final class ModelInstance extends Group {
     final poses = <int, ({Vec3 position, Quat rotation, Vec3 scale})>{};
     final weights = <int, List<double>>{};
     for (final entry in _nodes.entries) {
-      final initial = _template.nodes[entry.key], object = entry.value;
+      final authored = _template.nodes[entry.key], object = entry.value;
+      final useCurrent = animation == null && !initial;
       poses[entry.key] = (
-        position: animation == null ? object.position : initial.position,
-        rotation: animation == null ? object.quaternion : initial.rotation,
-        scale: animation == null ? object.scale : initial.scale,
+        position: useCurrent ? object.position : authored.position,
+        rotation: useCurrent ? object.quaternion : authored.rotation,
+        scale: useCurrent ? object.scale : authored.scale,
       );
     }
     for (final d in _deformers) {
@@ -92,6 +105,41 @@ final class ModelInstance extends Group {
       }
     }
     weights.addAll(morphWeights);
+    return ModelPose._(_template, poses, weights);
+  }
+
+  /// Blends joint TRS and morph weights, then deforms the resulting pose once.
+  void Function() prepareBlendedPose(
+    Iterable<ModelPoseContribution> absolute, {
+    Iterable<ModelPoseContribution> additive = const [],
+  }) {
+    final weighted = List<ModelPoseContribution>.of(absolute);
+    final additions = List<ModelPoseContribution>.of(additive);
+    for (final entry in [...weighted, ...additions]) {
+      _validatePoseOwner(entry.pose);
+      if (entry.reference case final reference?) _validatePoseOwner(reference);
+    }
+    return prepareSampledPose(_blendModelPoses(weighted, additions));
+  }
+
+  /// Prepares animation and deformation as one scene edit.
+  void Function() preparePose({
+    ModelAnimation? animation,
+    Duration time = Duration.zero,
+    Map<int, List<double>> morphWeights = const {},
+  }) => prepareSampledPose(
+    samplePose(animation: animation, time: time, morphWeights: morphWeights),
+  );
+
+  /// Validates an immutable pose before applying transforms or vertex updates.
+  void Function() prepareSampledPose(ModelPose pose) {
+    _validatePoseOwner(pose);
+    for (final entry in _parents.entries) {
+      if (!identical(entry.key.parent, entry.value)) {
+        throw StateError('Model nodes must retain their instance hierarchy.');
+      }
+    }
+    final poses = pose.nodes, weights = pose.weights;
     final worlds = <int, Mat4>{};
     final indices = Map<Object3D, int>.identity()
       ..addEntries(_nodes.entries.map((e) => MapEntry(e.value, e.key)));
