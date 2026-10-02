@@ -1,0 +1,34 @@
+name: zyren_studio_example
+description: Compact native Zyren scene editor.
+version: 0.1.0+1
+publish_to: none
+resolution: workspace
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+dependencies:
+  zyren_devtools:
+    path: ../../packages/zyren_devtools
+  zyren_agents:
+    path: ../../packages/zyren_agents
+  flutter:
+    sdk: flutter
+  flutter_zyren:
+    path: ../../packages/flutter_zyren
+  zyren_studio:
+    path: ../../packages/zyren_studio
+  zyren_inspector:
+    path: ../../packages/zyren_inspector
+  zyren_timeline:
+    path: ../../packages/zyren_timeline
+  zyren_tools:
+    path: ../../packages/zyren_tools
+  zyren_engineering:
+    path: ../../packages/zyren_engineering
+  path_provider: ^2.1.6
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+flutter:
+  uses-material-design: true

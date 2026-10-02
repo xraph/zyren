@@ -1,0 +1,20 @@
+name: zyren_studio
+description: Versioned authored scenes composed with Zyren editing and review tools.
+version: 0.1.0
+publish_to: none
+resolution: workspace
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+dependencies:
+  zyren_agents:
+    path: ../zyren_agents
+  zyren:
+    path: ../zyren
+  zyren_tools:
+    path: ../zyren_tools
+  zyren_engineering:
+    path: ../zyren_engineering
+dev_dependencies:
+  zyren_devtools:
+    path: ../zyren_devtools
+  test: ^1.29.0
