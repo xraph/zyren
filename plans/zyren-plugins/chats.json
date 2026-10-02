@@ -1,0 +1,91 @@
+{
+  "plannedOn": "2026-10-02",
+  "projectId": "f6200633-eb04-4a51-873e-c63af8cd131f",
+  "workspace": "/Users/rexraphael/Work/TwinOS/flutter-geospatial",
+  "planCommit": "fbd121a",
+  "chats": [
+    {
+      "key": "pipeline",
+      "title": "Zyren asset pipeline",
+      "workstreams": [
+        1
+      ],
+      "threadId": "01a0fe60-aa9b-70e2-b948-8d8f128e53a0",
+      "hostId": "local"
+    },
+    {
+      "key": "interaction",
+      "title": "Zyren scene interaction",
+      "workstreams": [
+        2
+      ],
+      "threadId": "01a0fe60-b2cb-7842-849a-31d326fb0625",
+      "hostId": "local"
+    },
+    {
+      "key": "xr",
+      "title": "Zyren native AR and XR",
+      "workstreams": [
+        4
+      ],
+      "threadId": "01a0fe60-b7bb-7e91-82da-8765bf8d48fe",
+      "hostId": "local"
+    },
+    {
+      "key": "reality-capture",
+      "title": "Zyren point clouds and splats",
+      "workstreams": [
+        5
+      ],
+      "threadId": "01a0fe60-bc6f-72d2-a140-f0100ae0e9f4",
+      "hostId": "local"
+    },
+    {
+      "key": "characters-navigation",
+      "title": "Zyren characters and navigation",
+      "workstreams": [
+        6
+      ],
+      "threadId": "01a0fe60-c130-7e63-8505-313eb040bc5f",
+      "hostId": "local"
+    },
+    {
+      "key": "scientific",
+      "title": "Zyren scientific visualization",
+      "workstreams": [
+        8
+      ],
+      "threadId": "01a0fe60-c605-72f1-9940-9288a17b9f70",
+      "hostId": "local"
+    },
+    {
+      "key": "collaboration",
+      "title": "Zyren scene collaboration",
+      "workstreams": [
+        9
+      ],
+      "threadId": "01a0fe60-c9e1-71f1-b206-f8683e4ee508",
+      "hostId": "local"
+    },
+    {
+      "key": "studio",
+      "title": "Zyren Studio editor",
+      "workstreams": [
+        10
+      ],
+      "threadId": "01a0fe60-ce20-7e71-9159-baeceff3c337",
+      "hostId": "local"
+    },
+    {
+      "key": "smaller-plugins",
+      "title": "Zyren configurator, audio and capture",
+      "workstreams": [
+        3,
+        7,
+        11
+      ],
+      "threadId": "01a0fe60-d19e-7522-989e-0cb72567f745",
+      "hostId": "local"
+    }
+  ]
+}
