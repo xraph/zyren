@@ -64,3 +64,11 @@ repository workspace, with the pinned Flutter/Dart toolchain. APIs may change.
 Run `fvm dart test` from this package after resolving workspace dependencies.
 The [workspace README](../../README.md) covers native tools, runnable examples,
 platform qualification and third-party notices.
+
+Screen effects declare `PostProcessStage.hdr` (the default) or
+`PostProcessStage.display`. HDR effects run before bloom, exposure and tone
+mapping. Display effects receive premultiplied sRGB after those operations and
+run before output FXAA. `historyColor` always holds the previous HDR result.
+Within each stage, `Scene.addEffect` preserves the requested order and stable
+ties. `ToneMapping.aces` retains the original approximation; `acesFilmic`,
+`cineon`, `agx` and `neutral` follow the Three.js r184 operators.

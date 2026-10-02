@@ -528,6 +528,10 @@ class Scene extends Object3D {
             (order: 0, effect: effect),
           ..._effects.values,
         ].indexed.toList()..sort((a, b) {
+          final stage = a.$2.effect.stage.index.compareTo(
+            b.$2.effect.stage.index,
+          );
+          if (stage != 0) return stage;
           final order = a.$2.order.compareTo(b.$2.order);
           return order == 0 ? a.$1.compareTo(b.$1) : order;
         });
@@ -536,7 +540,8 @@ class Scene extends Object3D {
 
   /// Request a transparent clear when your effect composites its own sky or
   /// backdrop behind scene coverage. Disposing the slot restores the setting.
-  /// Lower [order] values run first. Settings effects have order zero; ties
+  /// HDR effects run before display effects. Within each stage, lower [order]
+  /// values run first. Settings effects have order zero; ties
   /// retain insertion order, with settings before registered effects.
   EffectRegistration addEffect(
     ScreenEffect effect, {

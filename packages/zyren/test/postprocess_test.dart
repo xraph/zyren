@@ -11,6 +11,36 @@ class _BufferDevice extends fixture.Device {
 
 void main() {
   test(
+    'display stages remain after HDR despite caller order and retention',
+    () async {
+      final device = fixture.Device();
+      final shaders = ShaderCompiler(device),
+          owner = MaterialCompiler(device),
+          keeper = MaterialCompiler(device);
+      final program = await shaders.compile(ShaderSource.wgsl('valid'));
+      final hdr = await owner.compileEffect(
+        PostProcessDescriptor(program: program),
+      );
+      final display = await owner.compileEffect(
+        PostProcessDescriptor(
+          program: program,
+          stage: PostProcessStage.display,
+        ),
+      );
+      final retained = await keeper.retainEffect(display);
+      final scene = Scene()
+        ..renderSettings = RenderSettings(effects: [display, hdr]);
+      scene.addEffect(retained, order: -100);
+      expect(scene.effects, [hdr, retained, display]);
+      await owner.close();
+      expect(retained.stage, PostProcessStage.display);
+      expect(retained.isClosed, isFalse);
+      await keeper.close();
+      await shaders.close();
+      expect(device.materials, isEmpty);
+    },
+  );
+  test(
     'ordered screen stages keep stable ties and replacement ownership',
     () async {
       final device = fixture.Device();

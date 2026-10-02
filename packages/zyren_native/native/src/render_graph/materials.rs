@@ -15,6 +15,7 @@ pub(crate) struct PreparedMaterial {
     pub vertex: String,
     pub fragment: String,
     pub requires_uv: bool,
+    pub screen_stage: u32,
     pub screen_pipeline: Option<wgpu::RenderPipeline>,
     resources: Vec<ResourceKey>,
     program: ResourceKey,
@@ -71,7 +72,8 @@ impl MaterialStore {
         let pass = &description.passes[0];
         let screen = pass.screen_space.unwrap_or(false);
         let prepared = scoped(device, &pass.name, || {
-            if pass.name.is_empty()
+            if pass.screen_stage.is_some_and(|stage| !screen || stage > 1)
+                || pass.name.is_empty()
                 || pass.name.len() > 1024
                 || (!screen && !pass.writes.is_empty())
                 || !pass.after.is_empty()
@@ -185,6 +187,7 @@ impl MaterialStore {
                 vertex: vertex.clone(),
                 fragment: fragment.clone(),
                 requires_uv: pass.requires_uv.unwrap_or(false),
+                screen_stage: pass.screen_stage.unwrap_or(0),
                 screen_pipeline: None,
                 resources: declared.into_iter().map(key).collect(),
                 program: key(pass.program),

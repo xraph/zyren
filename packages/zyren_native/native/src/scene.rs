@@ -527,7 +527,7 @@ impl RenderSettings {
             || (self.sample_count != 1 && !self.enabled)
             || self.camera_origin.iter().any(|v| !v.is_finite())
             || self.effects.len() > 8
-            || self.tone_mapping > 2
+            || self.tone_mapping > 6
             || !self.exposure.is_finite()
             || !(0.0..=65504.).contains(&self.exposure)
             || !self.background_alpha.is_finite()

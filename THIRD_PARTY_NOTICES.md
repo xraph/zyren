@@ -51,7 +51,9 @@ ports its OrbitControls implementation. The standard material shader adapts its
 scalar GGX, correlated Smith and Schlick functions, with numerical fixtures
 extracted from the same pinned release. The native FXAA pass adapts its
 FXAAShader, which credits NVIDIA, Jasper Flick and Dave Hoskins. FXAA reference
-fixtures evaluate that release's display-space equations. Its MIT license follows.
+fixtures evaluate that release's display-space equations. Native Cineon, ACES
+Filmic, AgX and Neutral tone mapping also port its GLSL, with fixtures executing
+the original shader functions. Its MIT license follows.
 
 Source: https://github.com/mrdoob/three.js
 

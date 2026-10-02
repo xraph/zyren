@@ -240,6 +240,8 @@ _prepareGraph(GraphDescription graph, GraphDevice device) {
           'fragmentEntryPoint': descriptor.fragmentEntryPoint,
           'requiresUv': descriptor.requiresUv,
           'screenSpace': descriptor is PostProcessDescriptor,
+          if (descriptor is PostProcessDescriptor)
+            'screenStage': descriptor.stage.index,
         });
       case ComputePassDescriptor():
         entryPoint(pass.entryPoint, ShaderStage.compute);

@@ -1,12 +1,24 @@
 part of '../resources/resource_scope.dart';
 
-/// A fullscreen stage reading the preceding linear, premultiplied HDR result.
+/// Selects the color space and position of a fullscreen effect.
+enum PostProcessStage {
+  /// Linear HDR, before bloom, exposure and tone mapping.
+  hdr,
+
+  /// Encoded sRGB after tone mapping, before output antialiasing.
+  display,
+}
+
+/// A fullscreen stage reading the preceding premultiplied result in [stage].
+/// History always contains the HDR result, including in display effects.
 /// User groups may write storage textures from the fragment stage. Later effects
 /// can sample those outputs in the same frame. Allocate the desired dimensions,
 /// write every texel you consume, and retain the effect while its outputs are used.
 /// Binding a texture for both sampling and writing in one stage is rejected.
 final class PostProcessDescriptor extends MeshShaderDescriptor {
+  final PostProcessStage stage;
   PostProcessDescriptor({
+    this.stage = PostProcessStage.hdr,
     required super.program,
     super.bindings,
     super.label = 'screen effect',
@@ -52,12 +64,26 @@ struct ScreenVertex {
 final class ScreenEffect {
   final MeshShader _shader;
   ScreenEffect._(this._shader);
+  PostProcessStage get stage =>
+      (_shader.descriptor as PostProcessDescriptor).stage;
   bool get isClosed => _shader.isClosed;
   Uint8List encodeForDevice(MaterialDevice device) =>
       _shader.encodeForDevice(device);
 }
 
-enum ToneMapping { none, reinhard, aces }
+enum ToneMapping {
+  none,
+  reinhard,
+
+  /// Narkowicz ACES approximation, retained for existing scenes.
+  aces,
+  cineon,
+
+  /// Three r184 ACES input/output matrices and RRT/ODT fit.
+  acesFilmic,
+  agx,
+  neutral,
+}
 
 enum SpatialAntialiasing { none, fxaa }
 

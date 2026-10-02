@@ -191,7 +191,7 @@ impl Effects {
         {
             self.bloom = Some(bloom::Pipelines::new(device));
         }
-        if frame.settings.spatial_antialiasing != 0 && self.display.is_none() {
+        if self.display.is_none() {
             let shader = device.create_shader_module(wgpu::include_wgsl!("output.wgsl"));
             let bindings = layout(device);
             let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -391,6 +391,9 @@ impl Renderer {
                 .materials
                 .resolve(*key)
                 .expect("validated screen shader");
+            if material.screen_stage != 0 {
+                continue;
+            }
             let pipeline = material.screen_pipeline.as_ref().unwrap();
             let next = if current == 1 { 2 } else { 1 };
             let group = bind(pipeline, &view.images[current].view, &buffer);
@@ -426,7 +429,12 @@ impl Renderer {
             );
             current = next;
         }
-        let output_buffer = if frame.settings.spatial_antialiasing != 0 {
+        let has_display = frame
+            .settings
+            .effects
+            .iter()
+            .any(|key| self.graphs.materials.resolve(*key).unwrap().screen_stage == 1);
+        let output_buffer = if frame.settings.spatial_antialiasing != 0 || has_display {
             // Reuse an HDR ping-pong image for encoded display colors. FXAA can
             // sample it many times without repeating exposure/tone/transfer math.
             let next = if current == 1 { 2 } else { 1 };
@@ -445,6 +453,23 @@ impl Renderer {
         } else {
             buffer
         };
+        for key in &frame.settings.effects {
+            let material = self.graphs.materials.resolve(*key).unwrap();
+            if material.screen_stage != 1 {
+                continue;
+            }
+            let pipeline = material.screen_pipeline.as_ref().unwrap();
+            let next = if current == 1 { 2 } else { 1 };
+            let group = bind(pipeline, &view.images[current].view, &output_buffer);
+            draw(
+                &mut encoder,
+                &view.images[next].view,
+                pipeline,
+                &group,
+                &material.groups,
+            );
+            current = next;
+        }
         let pipeline = &self.effects.outputs[&format];
         let group = bind(pipeline, &view.images[current].view, &output_buffer);
         draw(&mut encoder, output, pipeline, &group, &[]);
