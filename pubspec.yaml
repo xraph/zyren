@@ -5,6 +5,7 @@ environment:
 workspace:
   - packages/zyren
   - packages/zyren_tools
+  - packages/zyren_physics
   - packages/zyren_devtools
   - packages/zyren_timeline
   - packages/zyren_engineering
@@ -20,6 +21,7 @@ workspace:
   - examples/multiple_views
   - examples/model_viewer
   - examples/shader_lab
+  - examples/physics_lab
 dev_dependencies:
   analyzer: ^13.3.0
   lints: ^6.0.0
