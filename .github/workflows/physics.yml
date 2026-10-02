@@ -1,6 +1,19 @@
 name: Native physics
 on:
   workflow_dispatch:
+    inputs:
+      desktop_runner:
+        description: Desktop runner to qualify, or all desktop and mobile builds
+        type: choice
+        default: all
+        options:
+          - all
+          - macos-15
+          - macos-15-intel
+          - ubuntu-24.04
+          - ubuntu-24.04-arm
+          - windows-latest
+          - windows-11-arm
   push:
     paths: ['packages/zyren_physics/**', 'examples/physics_lab/**', '.github/workflows/physics.yml']
   pull_request:
@@ -12,22 +25,11 @@ jobs:
       CARGO_PROFILE_DEV_DEBUG: '0'
       CARGO_PROFILE_RELEASE_DEBUG: '0'
       CARGO_INCREMENTAL: '0'
+      PHYSICS_PLATFORM: ${{ startsWith(matrix.os, 'macos') && 'macos' || startsWith(matrix.os, 'windows') && 'windows' || 'linux' }}
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - os: macos-15
-            platform: macos
-          - os: macos-15-intel
-            platform: macos
-          - os: ubuntu-24.04
-            platform: linux
-          - os: ubuntu-24.04-arm
-            platform: linux
-          - os: windows-latest
-            platform: windows
-          - os: windows-11-arm
-            platform: windows
+        os: ${{ fromJSON(inputs.desktop_runner && inputs.desktop_runner != 'all' && format('["{0}"]', inputs.desktop_runner) || '["macos-15", "macos-15-intel", "ubuntu-24.04", "ubuntu-24.04-arm", "windows-latest", "windows-11-arm"]') }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -79,7 +81,7 @@ jobs:
       - run: dart test --concurrency=1
         working-directory: packages/zyren_physics
       - run: dart run tool/check_package_boundaries.dart
-      - run: flutter build ${{ matrix.platform }} --debug
+      - run: flutter build ${{ env.PHYSICS_PLATFORM }} --debug
         working-directory: examples/physics_lab
       - name: Native render and cleanup
         run: dart run tool/qualify.dart qualification/ci
@@ -90,7 +92,7 @@ jobs:
         working-directory: examples/physics_lab
       - name: Desktop app integration
         if: runner.os != 'Linux'
-        run: flutter test integration_test/physics_lab_test.dart -d ${{ matrix.platform }} --no-pub
+        run: flutter test integration_test/physics_lab_test.dart -d ${{ env.PHYSICS_PLATFORM }} --no-pub
         working-directory: examples/physics_lab
       - name: Save render evidence
         if: always()
@@ -99,6 +101,7 @@ jobs:
           name: physics-${{ matrix.os }}
           path: examples/physics_lab/qualification/ci/
   mobile:
+    if: github.event_name != 'workflow_dispatch' || inputs.desktop_runner == 'all'
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4

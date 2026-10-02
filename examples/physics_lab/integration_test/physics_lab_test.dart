@@ -14,6 +14,11 @@ void main() {
     final baseline = PhysicsWorld.nativeCounts;
     await tester.pumpWidget(const PhysicsLabApp());
     final state = tester.state<PhysicsLabState>(find.byType(PhysicsLab));
+    var presentedFrames = 0;
+    final frameSubscription = state.controller.frameStats.listen((_) {
+      presentedFrames++;
+    });
+    addTearDown(frameSubscription.cancel);
     addTearDown(() async {
       await tester.pumpWidget(const SizedBox());
       await state.controller.whenDisposed;
@@ -87,11 +92,25 @@ void main() {
     await tester.tap(find.text('Resume'));
     await tester.pump();
     expect(state.physics.paused, isFalse);
+    final framesBeforeTarget = presentedFrames;
     state.mover.setTarget(PhysicsPose(position: const Vec3(2, .4, 2)));
-    for (var i = 0; i < 20; i++) {
-      await tester.pump(const Duration(milliseconds: 20));
+    final targetWait = Stopwatch()..start();
+    while ((state.mover.state.pose.position.x - 2).abs() >= .01 &&
+        targetWait.elapsed < const Duration(seconds: 30)) {
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(tester.takeException(), isNull);
+      if (state.controller.status.value case SceneFailed(:final issue)) {
+        fail(issue.message);
+      }
     }
-    expect(state.mover.state.pose.position.x, closeTo(2, .01));
+    expect(
+      state.mover.state.pose.position.x,
+      closeTo(2, .01),
+      reason:
+          'Kinematic target after resume: '
+          '${presentedFrames - framesBeforeTarget} presented frames in '
+          '${targetWait.elapsedMilliseconds} ms.',
+    );
     tester.view.physicalSize = const Size(396, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
