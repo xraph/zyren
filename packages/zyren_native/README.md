@@ -101,3 +101,15 @@ graph, and uniform updates reuse its pipelines. The
 dependencies and limits. The example saves a native compute-to-render heatmap
 as a PNG. The [shader guide](https://xraph.com/docs/zyren/shaders) also covers
 custom mesh materials and screen effects.
+
+Screen effects can write auxiliary storage textures from their fragment stage.
+Use `TextureBinding.storage` in user groups 1-3, then sample the texture in a later
+effect. Mesh materials and storage buffers remain read-only. The compiler rejects
+sampling and writing the same texture in one stage and retains output resources
+for the effect's lifetime. You control texture dimensions and must write every
+texel the consumer reads.
+
+Register producers with `scene.addEffect(effect, order: -1)` when they must run
+before order-zero effects. Lower values run first, ties preserve insertion order,
+and replacing an effect keeps its order. Render-settings effects have order zero
+and precede registered effects with the same order.

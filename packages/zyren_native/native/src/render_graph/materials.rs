@@ -69,10 +69,11 @@ impl MaterialStore {
         }
         self.registry.check_capacity(bytes)?;
         let pass = &description.passes[0];
+        let screen = pass.screen_space.unwrap_or(false);
         let prepared = scoped(device, &pass.name, || {
             if pass.name.is_empty()
                 || pass.name.len() > 1024
-                || !pass.writes.is_empty()
+                || (!screen && !pass.writes.is_empty())
                 || !pass.after.is_empty()
                 || pass.color.is_some()
                 || pass.workgroups.is_some()
@@ -83,15 +84,13 @@ impl MaterialStore {
                 || pass.blend.is_some()
                 || pass.bindings.iter().any(|b| {
                     b.group == 0
-                        || matches!(
-                            b.kind,
-                            BindingKind::StorageReadWrite | BindingKind::StorageTexture
-                        )
+                        || b.kind == BindingKind::StorageReadWrite
+                        || (b.kind == BindingKind::StorageTexture && (!screen || b.stages != [1]))
                 })
             {
                 return Err(GraphError::new(
                     "invalidDescriptor",
-                    "Mesh shaders reserve group 0 and allow readonly user bindings",
+                    "Group 0 is reserved; only screen fragments may write storage textures",
                 ));
             }
             let vertex = pass.vertex_entry_point.as_ref().ok_or_else(|| {
@@ -117,19 +116,23 @@ impl MaterialStore {
             let declared: HashSet<_> = description.resources.iter().map(|r| r.key).collect();
             let inputs: HashSet<_> = description.inputs.iter().copied().collect();
             let reads: HashSet<_> = pass.reads.iter().copied().collect();
+            let writes: HashSet<_> = pass.writes.iter().copied().collect();
+            let bound: HashSet<_> = bindings.reads.union(&bindings.writes).copied().collect();
             if declared.len() != description.resources.len()
+                || inputs.len() != description.inputs.len()
                 || description.resources.iter().any(|r| r.label.len() > 1024)
-                || declared != bindings.reads
-                || inputs != declared
-                || reads != declared
-                || !bindings.writes.is_empty()
+                || declared != bound
+                || inputs != bindings.reads
+                || reads != bindings.reads
+                || writes != bindings.writes
+                || reads.len() != pass.reads.len()
+                || writes.len() != pass.writes.len()
             {
                 return Err(GraphError::new(
                     "accessMismatch",
-                    "Mesh bindings must match their resource declarations",
+                    "Material bindings must match their read and write declarations",
                 ));
             }
-            let screen = pass.screen_space.unwrap_or(false);
             if screen && pass.requires_uv.unwrap_or(false) {
                 return Err(GraphError::new(
                     "invalidDescriptor",

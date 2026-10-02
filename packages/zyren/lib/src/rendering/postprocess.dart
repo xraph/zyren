@@ -1,6 +1,10 @@
 part of '../resources/resource_scope.dart';
 
 /// A fullscreen stage reading the preceding linear, premultiplied HDR result.
+/// User groups may write storage textures from the fragment stage. Later effects
+/// can sample those outputs in the same frame. Allocate the desired dimensions,
+/// write every texel you consume, and retain the effect while its outputs are used.
+/// Binding a texture for both sampling and writing in one stage is rejected.
 final class PostProcessDescriptor extends MeshShaderDescriptor {
   PostProcessDescriptor({
     required super.program,

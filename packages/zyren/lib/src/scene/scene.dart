@@ -487,7 +487,7 @@ class Scene extends Object3D {
   }
 
   RenderSettings _renderSettings = RenderSettings();
-  final _effects = <Object, ScreenEffect>{};
+  final _effects = <Object, ({int order, ScreenEffect effect})>{};
   final _transparentBackgroundEffects = <Object>{};
 
   /// Effective clear alpha while an effect supplies the visible background.
@@ -521,21 +521,35 @@ class Scene extends Object3D {
   }
 
   RenderSettings get renderSettings => _renderSettings;
-  List<ScreenEffect> get effects =>
-      List.unmodifiable([..._renderSettings.effects, ..._effects.values]);
+  List<ScreenEffect> get effects {
+    final ordered =
+        [
+          for (final effect in _renderSettings.effects)
+            (order: 0, effect: effect),
+          ..._effects.values,
+        ].indexed.toList()..sort((a, b) {
+          final order = a.$2.order.compareTo(b.$2.order);
+          return order == 0 ? a.$1.compareTo(b.$1) : order;
+        });
+    return List.unmodifiable(ordered.map((entry) => entry.$2.effect));
+  }
 
   /// Request a transparent clear when your effect composites its own sky or
   /// backdrop behind scene coverage. Disposing the slot restores the setting.
+  /// Lower [order] values run first. Settings effects have order zero; ties
+  /// retain insertion order, with settings before registered effects.
   EffectRegistration addEffect(
     ScreenEffect effect, {
     bool requiresTransparentBackground = false,
+    int order = 0,
   }) {
+    RangeError.checkValueInInterval(order, -32768, 32767, 'order');
     if (effect.isClosed) throw StateError('Effect owner has closed.');
     if (effects.length >= 8) {
       throw StateError('At most eight effects are supported.');
     }
     final key = Object();
-    _effects[key] = effect;
+    _effects[key] = (order: order, effect: effect);
     if (requiresTransparentBackground) _transparentBackgroundEffects.add(key);
     _changed();
     return EffectRegistration._(
@@ -545,7 +559,7 @@ class Scene extends Object3D {
         _changed();
       },
       (replacement) {
-        _effects[key] = replacement;
+        _effects[key] = (order: order, effect: replacement);
         _changed();
       },
     );
