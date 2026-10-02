@@ -101,7 +101,7 @@ void main() {
           await engine.dispose();
         }
       },
-      skip: !Platform.isMacOS || Platform.environment['RUN_NATIVE_GPU'] != '1',
+      skip: Platform.environment['RUN_NATIVE_GPU'] != '1',
     );
     for (final overlay in [false, true]) {
       test(
@@ -157,8 +157,7 @@ void main() {
             await engine.dispose();
           }
         },
-        skip:
-            !Platform.isMacOS || Platform.environment['RUN_NATIVE_GPU'] != '1',
+        skip: Platform.environment['RUN_NATIVE_GPU'] != '1',
       );
     }
   }
