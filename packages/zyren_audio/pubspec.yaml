@@ -6,6 +6,8 @@ resolution: workspace
 environment:
   sdk: '>=3.10.0 <4.0.0'
 dependencies:
+  zyren_agents:
+    path: ../zyren_agents
   zyren:
     path: ../zyren
   ffi: ^2.1.4

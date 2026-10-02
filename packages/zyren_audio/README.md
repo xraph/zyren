@@ -33,3 +33,22 @@ See [the upstream manual](https://miniaud.io/docs/manual/index.html) for the
 engine API and [the retained license](native/vendor/LICENSE) for redistribution.
 The vendored header comes from tag `0.11.23`, SHA-256
 `7e4f3f13c8fe66df2080ac3dd12a89193e3c2463cb7f067c798abd7331cd8ee6`.
+
+## Runtime agents
+
+Import `agents.dart` and register `AudioAgentProvider` with your shared host
+registry. Supply scene/document identity and grant `audio.write` for playback
+commands. Keep and dispose the registration with the scene attachment, then close
+your engine when its owner unloads.
+
+`inspect` returns listener pose, native backend, PCM budgets and a page of emitter
+states. `play`, `pause` and `configure` use existing emitter IDs, expected
+revisions and registry retry keys. Agents cannot load arbitrary paths or URLs.
+Transport controls do not provide undo; your host can record persistent emitter
+settings as ordinary application commands.
+
+`provider.metadata` enriches shared viewport hits with emitter IDs and playback
+actions. Tests use the actual offline native engine through `AgentRegistry`,
+including denial, malformed arguments, retries and removed scene targets.
+The combined example at `../zyren_capture/example/agent_scene.dart` uses the
+existing devtools MCP transport and keeps offline audio explicit.

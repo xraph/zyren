@@ -119,7 +119,8 @@ schema/catalog mismatch, duplicate/dangling rules, conflicting writes and bindin
 validation. The executable example saved and restored its selection. Analysis
 passes after resolving two brace lint findings. The later native MCP check
 verified a material color change in actual Metal readback.
-Configurator commit: `cd0df35`.
+Configurator commits: `cd0df35` for the domain slice and `e676caf` for runtime
+agent tools, metadata and guarded undo.
 
 Audio now has a real pinned miniaudio backend, native-asset hook, listener and
 bounded PCM emitters. Five native mixer tests pass on macOS. Measured energy was
