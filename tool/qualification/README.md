@@ -101,3 +101,29 @@ to reproduce the former phone default after Auto changed to Low.
 The target uses the normal app binding, so it accepts physical input. Avoid
 touching the view during collection. When finished, restore your usual launch
 with the `launch` command above.
+
+### Device export without a VM connection
+
+If the VM service cannot connect, build the same profile target with a fresh
+`--dart-define=PLANET_NAVIGATION_RUN_ID=ipad-run-1`. The target starts one route
+after launch and writes its raw result to
+`tmp/planet-navigation/ipad-run-1.json` inside the app container. Optional defines
+`PLANET_NAVIGATION_VARIANT` and `PLANET_NAVIGATION_WEATHER` use the same values as
+the collector. Reports retain foreground checks, interrupted samples and native
+timings. VM CPU samples remain unavailable. Use a new run ID for each build;
+existing reports are preserved, and export only publishes a completed file.
+
+On an attached iOS device, retrieve and import it from the repository root:
+
+```sh
+xcrun devicectl device copy from --device DEVICE_ID \
+  --domain-type appDataContainer --domain-identifier dev.twinos.planet \
+  --source tmp/planet-navigation/ipad-run-1.json \
+  --destination /tmp/ipad-run-1.json
+fvm dart run tool/qualification/import_navigation_report.dart \
+  /tmp/ipad-run-1.json /tmp/ipad-run-1
+```
+
+The importer requires an empty output directory and produces the same
+`frames.json` and `summary.json` as the VM collector. A missing report is an
+unmeasured run, not a pass. Remove the autorun define when restoring normal use.

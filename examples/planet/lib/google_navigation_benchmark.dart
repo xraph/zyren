@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as developer;
+import 'dart:io';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -9,6 +10,7 @@ import 'package:zyren_geospatial/zyren_geospatial.dart';
 import 'geospatial_presets.dart';
 import 'google_tiles_lab.dart';
 import 'navigation_benchmark_stats.dart';
+import 'navigation_device_report.dart';
 import 'navigation_failure_report.dart';
 import 'preset_globe_controls.dart';
 
@@ -62,6 +64,37 @@ final class _NavigationBenchmark {
         jsonEncode({'running': _running, 'stage': _stage, 'result': _result}),
       );
     });
+    const runId = String.fromEnvironment('PLANET_NAVIGATION_RUN_ID');
+    if (runId.isNotEmpty) unawaited(_runOnDevice(runId));
+  }
+
+  Future<void> _runOnDevice(String runId) async {
+    const variant = String.fromEnvironment(
+      'PLANET_NAVIGATION_VARIANT',
+      defaultValue: 'auto',
+    );
+    const weather = String.fromEnvironment(
+      'PLANET_NAVIGATION_WEATHER',
+      defaultValue: 'animated',
+    );
+    if (![
+          'auto',
+          'low',
+          'medium',
+          'high',
+          'shadowsOff',
+          'sparse',
+        ].contains(variant) ||
+        !['animated', 'fixed'].contains(weather)) {
+      throw ArgumentError('Unknown variant or weather mode.');
+    }
+    _running = true;
+    await _run(variant, fixedWeather: weather == 'fixed');
+    await saveNavigationDeviceReport(
+      Directory('${Directory.systemTemp.path}/planet-navigation'),
+      runId,
+      _result!,
+    );
   }
 
   void _check() {
