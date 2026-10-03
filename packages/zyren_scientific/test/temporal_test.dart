@@ -120,6 +120,18 @@ void main() {
       index: 0,
       coordinateTolerance: 0,
     );
+    expect(
+      () => ScientificSliceTrack(
+        target: Group(),
+        window: track.window,
+        transfer: track.transfer,
+        axis: track.axis,
+        index: track.index,
+        coordinateTolerance: 0,
+        secondsPerTimeUnit: 1e-9,
+      ),
+      throwsArgumentError,
+    );
     final edit = track.prepare(const Duration(seconds: 1));
     expect(parent.children, isEmpty);
     edit();
@@ -130,5 +142,6 @@ void main() {
     expect(track.sample!.grid.valueAt(0, 0, 0), 2);
     track.dispose();
     expect(parent.children, isEmpty);
+    expect(() => track.prepare(Duration.zero), throwsStateError);
   });
 }

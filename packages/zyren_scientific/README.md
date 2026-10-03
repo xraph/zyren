@@ -135,6 +135,7 @@ a loaded `TemporalScalarWindow` and a stable scene parent. Add it to the shared
 `SceneTimelinePlugin` to reuse playback, seeking and frame demand. Preparation
 builds a candidate without editing the scene. Dispose the track when your host
 unloads its geometry, and dispose the timeline through its owning engine.
+The adapter rejects time spans that collapse below its microsecond clock precision.
 
 Temporal scalar changes do not animate an independent static vector field. Agent
 metadata reports the two sources and their time status separately.

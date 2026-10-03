@@ -35,8 +35,12 @@ final class ScientificSliceTrack extends TimelineTrack {
         (window.last.key.time - window.first.key.time) *
         secondsPerTimeUnit *
         1e6;
-    if (!micros.isFinite || micros > 9007199254740991) {
-      throw ArgumentError('Timeline duration exceeds exact microseconds.');
+    if (!micros.isFinite ||
+        micros > 9007199254740991 ||
+        (window.last.key.time > window.first.key.time && micros < .5)) {
+      throw ArgumentError(
+        'Timeline duration exceeds or collapses at microsecond precision.',
+      );
     }
     prepare(Duration.zero);
   }

@@ -76,8 +76,8 @@ results. The lab has no browser or readback fallback.
 
 Earlier local commits: `5f38906` scalar slices and runtime tools, `ef3234c`
 checkpoint evidence, `72406a0` bounded surfaces, `e44a04c` vectors/streamlines,
-and `3352fb1` temporal sources/shared timeline. The final volume, field agent and
-Flutter qualification commits are recorded when their checks finish.
+and `3352fb1` temporal sources/shared timeline. `bcd93d9` adds native volume rendering, field commands, the Flutter lab and
+qualification evidence. All commits are local on `main`.
 
 The requested scientific representations have implementation and available-device
 checks. Windows DX12 numerical qualification still needs a Windows machine.
@@ -87,10 +87,10 @@ iOS sessions, so this workstream does not claim iPhone/iPad qualification.
 Comprehensive accessibility, undo/history integration and publication are not
 established by these rendering checks. Nothing has been pushed or published.
 
-The latest workspace boundary run reports two unrelated imports in
-`packages/zyren_pointclouds/lib/geospatial_agents.dart`: `zyren_geospatial` and
-`zyren_3d_tiles`. Scientific's allowed public dependencies pass. Leave the
-point-cloud owner's allowlist decision with that workstream.
+The final workspace package boundary check passes. The point-cloud workstream
+resolved the unrelated imports reported by the earlier run. Scientific analysis
+has no diagnostics. The timeline adapter also rejects time spans that collapse
+below its microsecond clock precision, with a focused regression check.
 
 Pixel follow-up: two complete native presentation runs passed. The last rerun
 passed GPU numerics but paused at the viewport test with the device's screensaver
