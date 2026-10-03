@@ -3,6 +3,9 @@
 Run game sessions through the existing Rapier world and PhysicsPlugin. The game
 session owns the fixed clock. PhysicsPlugin must use `externallyDriven: true`.
 A world belongs to one GameSimulation until that simulation closes.
+Native sessions support 10 through 240 Hz, within Rapier's existing fixed-step
+range. Pure GameSession clocks still support 1 through 240 Hz. A supplied
+PhysicsPlugin must admit at least one full game step through `maxFrameDelta`.
 
 ```dart
 final simulation = GameSimulation(project: compiledProject, seed: 7);

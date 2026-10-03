@@ -18,6 +18,9 @@ final class GameSimulation {
     int maxCatchUpSteps = 8,
     Set<String> availableCapabilities = const {},
   }) {
+    if (project.fixedHz < 10) {
+      throw ArgumentError('Native game rates must be within 10..240 Hz.');
+    }
     final missing = project.capabilityRequirements
         .where((c) => !availableCapabilities.contains(c))
         .toList();
@@ -33,6 +36,7 @@ final class GameSimulation {
           world: PhysicsWorld(fixedStep: 1.0 / project.fixedHz),
           externallyDriven: true,
           interpolate: false,
+          maxFrameDelta: 1.0 / project.fixedHz,
         );
     try {
       if (plugin.world.isClosed) throw StateError('Physics world is closed.');
@@ -41,6 +45,9 @@ final class GameSimulation {
       }
       if ((plugin.world.fixedStep - 1.0 / project.fixedHz).abs() > 1e-12) {
         throw ArgumentError('Physics and compiled game rates differ.');
+      }
+      if (plugin.maxFrameDelta < 1.0 / project.fixedHz) {
+        throw ArgumentError('Physics frame delta must admit a full game step.');
       }
       if (_simulationOwners[plugin.world] != null) {
         throw StateError('World already belongs to a game simulation.');

@@ -1,10 +1,81 @@
 import 'package:test/test.dart';
 import 'package:zyren/zyren.dart';
+import 'package:zyren_game/zyren_game.dart';
 import 'package:zyren_game_native/zyren_game_native.dart';
 import 'package:zyren_physics/zyren_physics.dart';
 import 'support/native_game_fixture.dart';
 
 void main() {
+  test('native rates below 10 Hz reject before creating a world', () {
+    for (final hz in [1, 2, 3]) {
+      expect(
+        () => GameSimulation(project: testProject(fixedHz: hz), seed: 1),
+        throwsArgumentError,
+      );
+    }
+  });
+  test(
+    'one game tick produces one native step at 10, 30, 60 and 240 Hz',
+    () async {
+      for (final hz in [10, 30, 60, 240]) {
+        final simulation = GameSimulation(
+          project: testProject(fixedHz: hz),
+          seed: 1,
+        );
+        final body = simulation.world.createBody(velocity: const Vec3(1, 0, 0));
+        body.addCollider(const SphereShape(.1));
+        try {
+          simulation.step();
+          expect(simulation.session.tick, 1);
+          expect(body.state.pose.position.x, closeTo(1 / hz, .00001));
+          simulation.step();
+          expect(simulation.session.tick, 2);
+          expect(body.state.pose.position.x, closeTo(2 / hz, .00001));
+        } finally {
+          await simulation.close();
+        }
+      }
+    },
+  );
+  test(
+    'small injected clamps reject before physics ownership or pause changes',
+    () async {
+      final world = PhysicsWorld(gravity: Vec3.zero);
+      final physics = PhysicsPlugin(
+        world: world,
+        externallyDriven: true,
+        maxFrameDelta: .001,
+      );
+      physics.paused = true;
+      final session = GameSession(project: testProject(), seed: 1);
+      final driver = GamePhysicsDriver(physics);
+      try {
+        expect(
+          () =>
+              GameSimulation(project: testProject(), seed: 1, physics: physics),
+          throwsArgumentError,
+        );
+        expect(() => driver.start(session), throwsArgumentError);
+        expect(physics.paused, isTrue);
+        expect(world.isClosed, isFalse);
+        final valid = GameSimulation(
+          project: testProject(),
+          seed: 1,
+          physics: PhysicsPlugin(world: world, externallyDriven: true),
+        );
+        try {
+          valid.step();
+          expect(valid.session.tick, 1);
+        } finally {
+          await valid.close();
+        }
+      } finally {
+        driver.dispose(session);
+        await session.close();
+        world.close();
+      }
+    },
+  );
   test(
     'single clock produces 60 physical steps at 30, 60 and 120 rendered Hz',
     () async {

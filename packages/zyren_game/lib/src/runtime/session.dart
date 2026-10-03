@@ -14,7 +14,7 @@ final class GameSession {
   final Queue<void Function(GameSession)> _mutations = Queue();
   final Map<int, void Function()> _stateListeners = {};
   List<GameCommand<Object>> _currentCommands = const [];
-  int _tick = 0, _epoch = 0, _listenerId = 0;
+  int _tick = 0, _epoch = 0, _listenerId = 0, _nextSystemStart = 0;
   bool _initialized = false,
       _stepping = false,
       _paused = false,
@@ -101,15 +101,17 @@ final class GameSession {
   }
 
   void _start() {
-    if (_initialized) return;
-    _initialized = true;
-    final level = project.levels.singleWhere(
-      (l) => l.id == project.project.startupLevel,
-    );
-    for (final entity in level.entities) {
-      entities.spawn(entity.id, components: entity.components);
+    if (!_initialized) {
+      _initialized = true;
+      final level = project.levels.singleWhere(
+        (l) => l.id == project.project.startupLevel,
+      );
+      for (final entity in level.entities) {
+        entities.spawn(entity.id, components: entity.components);
+      }
     }
-    for (final system in _systems) {
+    while (_nextSystemStart < _systems.length && !_paused && !_closed) {
+      final system = _systems[_nextSystemStart++];
       if (_removed.contains(system.id)) continue;
       _started.add(system);
       system.start(this);
@@ -123,6 +125,7 @@ final class GameSession {
     _stepping = true;
     try {
       _start();
+      if (_closed || _paused) return;
       _tick++;
       final mutations = _mutations.toList();
       _mutations.clear();
@@ -138,8 +141,7 @@ final class GameSession {
       }
       _notify();
     } catch (error) {
-      _fault = error;
-      invalidatePending();
+      _fail(error);
       rethrow;
     } finally {
       _stepping = false;
@@ -156,8 +158,11 @@ final class GameSession {
     if (_paused) return 0;
     final due = clock.admit(seconds);
     var count = 0;
-    for (; count < due && !_paused && !_closed; count++) {
+    for (; count < due && !_paused && !_closed;) {
+      final previousTick = _tick;
       step();
+      if (_tick == previousTick) break;
+      count++;
     }
     return count;
   }
@@ -175,10 +180,16 @@ final class GameSession {
     if (_paused) return;
     _paused = true;
     invalidatePending();
-    for (final system in _started.reversed) {
-      if (!_removed.contains(system.id)) system.pause(this);
+    try {
+      for (final system in _started.reversed) {
+        if (_closed || !_paused) break;
+        if (!_removed.contains(system.id)) system.pause(this);
+      }
+      _notify();
+    } catch (error) {
+      _fail(error);
+      rethrow;
     }
-    _notify();
   }
 
   void resume() {
@@ -186,10 +197,28 @@ final class GameSession {
     if (!_paused) return;
     invalidatePending();
     _paused = false;
-    for (final system in _started) {
-      if (!_removed.contains(system.id)) system.resume(this);
+    try {
+      for (final system in _started) {
+        if (_closed || _paused) break;
+        if (!_removed.contains(system.id)) system.resume(this);
+      }
+      _notify();
+    } catch (error) {
+      _fail(error);
+      rethrow;
     }
-    _notify();
+  }
+
+  void _fail(Object error) {
+    _fault ??= error;
+    _paused = true;
+    invalidatePending();
+    // Preserve the initiating failure while notifying every state observer.
+    for (final id in _stateListeners.keys.toList()) {
+      try {
+        _stateListeners[id]?.call();
+      } catch (_) {}
+    }
   }
 
   Future<void> close() {

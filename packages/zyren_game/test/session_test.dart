@@ -26,6 +26,7 @@ class Probe extends GameSystem {
   final Set<String> dependencies;
   final List<String> calls;
   final void Function(GameSession)? update;
+  final void Function(GameSession)? onStart, onPause, onResume;
   final bool failStart;
   Probe(
     this.id,
@@ -33,12 +34,16 @@ class Probe extends GameSystem {
     this.calls, {
     this.dependencies = const {},
     this.update,
+    this.onStart,
+    this.onPause,
+    this.onResume,
     this.failStart = false,
   });
   @override
   void start(GameSession session) {
     calls.add('start:$id');
     if (failStart) throw StateError('attach');
+    onStart?.call(session);
   }
 
   @override
@@ -48,9 +53,17 @@ class Probe extends GameSystem {
   }
 
   @override
-  void pause(GameSession session) => calls.add('pause:$id');
+  void pause(GameSession session) {
+    calls.add('pause:$id');
+    onPause?.call(session);
+  }
+
   @override
-  void resume(GameSession session) => calls.add('resume:$id');
+  void resume(GameSession session) {
+    calls.add('resume:$id');
+    onResume?.call(session);
+  }
+
   @override
   Future<void> dispose(GameSession session) async {
     calls.add('close:$id');
@@ -58,6 +71,119 @@ class Probe extends GameSystem {
 }
 
 void main() {
+  test(
+    'startup pause defers remaining systems without advancing a tick',
+    () async {
+      final calls = <String>[];
+      final session = GameSession(
+        project: recipe(),
+        seed: 1,
+        systems: [
+          Probe('first', GamePhase.commands, calls, onStart: (s) => s.pause()),
+          Probe('second', GamePhase.physics, calls),
+        ],
+      );
+      expect(session.advance(1 / 60), 0);
+      expect(session.tick, 0);
+      expect(calls, ['start:first', 'pause:first']);
+      final actor = session.entities.entities.single.handle;
+      session.resume();
+      session.step();
+      expect(session.entities.entities.single.handle, actor);
+      expect(session.tick, 1);
+      expect(calls, [
+        'start:first',
+        'pause:first',
+        'resume:first',
+        'start:second',
+        'first:1',
+        'second:1',
+      ]);
+      await session.close();
+      expect(calls.sublist(calls.length - 2), ['close:second', 'close:first']);
+    },
+  );
+  test(
+    'startup close prevents later attachment and tick advancement',
+    () async {
+      final calls = <String>[];
+      final session = GameSession(
+        project: recipe(),
+        seed: 1,
+        systems: [
+          Probe(
+            'first',
+            GamePhase.commands,
+            calls,
+            onStart: (s) {
+              s.close();
+            },
+          ),
+          Probe('second', GamePhase.physics, calls),
+        ],
+      );
+      session.step();
+      expect(session.tick, 0);
+      expect(calls, ['start:first']);
+      await session.close();
+      expect(calls, ['start:first', 'close:first']);
+      expect(session.entities.length, 0);
+    },
+  );
+  for (final transition in ['pause', 'resume']) {
+    test(
+      '$transition hook failures stop ticks, discard work and remain closable',
+      () async {
+        final calls = <String>[];
+        final failure = StateError('$transition failure');
+        final session = GameSession(
+          project: recipe(),
+          seed: 1,
+          systems: [
+            Probe(
+              'first',
+              GamePhase.commands,
+              calls,
+              onResume: transition == 'resume' ? (_) => throw failure : null,
+            ),
+            Probe(
+              'second',
+              GamePhase.physics,
+              calls,
+              onPause: transition == 'pause' ? (_) => throw failure : null,
+            ),
+          ],
+        );
+        session.step();
+        if (transition == 'resume') session.pause();
+        final actor = session.entities.entities.single.handle;
+        session.commands.enqueue(
+          GameCommand(actor, 2, 'jump'),
+          session.entities,
+        );
+        session.enqueueMutation((s) => calls.add('mutation'));
+        var notifications = 0;
+        session.listenState(() => notifications++);
+        expect(
+          transition == 'pause' ? session.pause : session.resume,
+          throwsA(same(failure)),
+        );
+        expect(session.fault, same(failure));
+        expect(session.paused, isTrue);
+        expect(session.commands.length, 0);
+        expect(notifications, 1);
+        expect(() => session.step(), throwsStateError);
+        expect(() => session.advance(1), throwsStateError);
+        expect(() => session.resume(), throwsStateError);
+        expect(calls, isNot(contains('mutation')));
+        await session.close();
+        expect(calls.sublist(calls.length - 2), [
+          'close:second',
+          'close:first',
+        ]);
+      },
+    );
+  }
   test(
     'ordered phases and dependencies execute once per integer tick',
     () async {

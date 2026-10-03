@@ -17,9 +17,15 @@ final class GamePhysicsDriver extends GameSystem {
   GamePhase get phase => GamePhase.physics;
   @override
   void start(GameSession session) {
+    if (session.fixedHz < 10) {
+      throw ArgumentError('Native game rates must be within 10..240 Hz.');
+    }
     if (physics.world.isClosed) throw StateError('Physics world is closed.');
     if ((physics.world.fixedStep - session.stepSeconds).abs() > 1e-12) {
       throw ArgumentError('Physics and game fixed rates must match.');
+    }
+    if (physics.maxFrameDelta < session.stepSeconds) {
+      throw ArgumentError('Physics frame delta must admit a full game step.');
     }
     if (_session != null || _driverOwners[physics.world] != null) {
       throw StateError('Physics world already has a game driver.');
