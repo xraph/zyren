@@ -21,6 +21,7 @@ import '../scene/layer_mask.dart';
 import '../resources/resource_scope.dart';
 import '../resources/texture.dart';
 part 'plugin_graph.dart';
+part 'plugin_updates.dart';
 part 'texture_history.dart';
 part 'environment_binding.dart';
 part 'temporal_binding.dart';
@@ -351,7 +352,7 @@ class EngineInitializationException implements Exception {
   String toString() => 'Engine initialization failed: $cause ($cleanupError)';
 }
 
-/// Owns a renderer and an immutable plugin configuration, with no widget state.
+/// Owns one renderer and a reconciled plugin configuration, with no widget state.
 class SceneEngine {
   static final _owners = Expando<Object>('ScenePlugin owner');
   final Scene scene;
@@ -371,13 +372,13 @@ class SceneEngine {
   void invalidateHistory() {
     if (_closed) throw StateError('Engine has been disposed.');
     _sharedGraph?.invalidateHistory();
-    _temporal?.reset();
+    if (_temporal?._closed == false) _temporal!.reset();
   }
 
   EnvironmentBinding? _environment;
   TemporalBinding? _temporal;
   TemporalBinding _claimTemporal(String pluginId) {
-    if (_temporal != null) {
+    if (_temporal != null && !_temporal!._closed) {
       throw StateError(
         'Plugin $pluginId cannot replace the temporal provider.',
       );
@@ -386,7 +387,7 @@ class SceneEngine {
   }
 
   EnvironmentBinding _claimEnvironment(String pluginId) {
-    if (_environment != null) {
+    if (_environment != null && !_environment!._closed) {
       throw StateError(
         'Plugin $pluginId cannot replace the environment provider.',
       );
@@ -398,7 +399,7 @@ class SceneEngine {
   String? _frameGraphOwner;
   _SharedFrameGraph? _sharedGraph;
   _SharedFrameGraph _claimGraph() {
-    if (_frameGraph != null) {
+    if (_frameGraph != null && !_frameGraph!._closed) {
       throw StateError(
         'Manual frame composition already belongs to $_frameGraphOwner.',
       );
@@ -410,7 +411,8 @@ class SceneEngine {
   }
 
   FrameGraphBinding _claimFrameGraph(String pluginId) {
-    if (_frameGraph != null || _sharedGraph != null) {
+    if ((_frameGraph != null && !_frameGraph!._closed) ||
+        _sharedGraph != null) {
       throw StateError(
         'Frame composition already belongs to ${_frameGraphOwner ?? 'shared graph plugins'}.',
       );
@@ -421,7 +423,13 @@ class SceneEngine {
 
   final SceneRenderer? _renderer;
   final RenderBackend? _backend;
-  final List<ScenePlugin> _plugins;
+  List<ScenePlugin> _plugins;
+  final InputSource? _input;
+  final void Function()? _onInvalidate;
+  final Registration Function()? _acquireFrameDemand;
+  Future<void> _pluginUpdates = Future.value();
+  int _pendingPluginUpdates = 0;
+  static final _hookZone = Object();
   final Object _owner;
   final void Function(SceneIssue)? _onIssue;
   final Map<Object, Object> _services = {};
@@ -441,6 +449,9 @@ class SceneEngine {
     this._plugins,
     this._owner,
     this._onIssue,
+    this._input,
+    this._onInvalidate,
+    this._acquireFrameDemand,
   );
   DeviceCapabilities get capabilities =>
       _backend?.capabilities ?? _renderer!.capabilities;
@@ -518,6 +529,9 @@ class SceneEngine {
         ordered,
         owner,
         onIssue,
+        input,
+        onInvalidate,
+        acquireFrameDemand,
       );
       if (cancelled) throw _cancelled();
       for (final plugin in ordered) {
@@ -557,7 +571,7 @@ class SceneEngine {
         engine._attached.add((plugin, context));
         try {
           attaching = true;
-          await plugin.attach(context);
+          await engine._hook(() => plugin.attach(context));
           if (cancelled) throw _cancelled();
         } finally {
           context._registering = false;
@@ -662,6 +676,17 @@ class SceneEngine {
     required int height,
   }) {
     if (_closed) return Future.error(StateError('Engine has been disposed.'));
+    if (_pendingPluginUpdates > 0) {
+      return Future.error(
+        SceneException(
+          SceneIssue(
+            code: SceneIssueCodes.frameDeferred,
+            message: 'Plugin reconciliation is pending. Retry the frame.',
+            operation: 'render',
+          ),
+        ),
+      );
+    }
     if (colorPipeline != null &&
         !capabilities.supports(RenderFeature.hdrColor)) {
       return Future.error(
@@ -733,7 +758,7 @@ class SceneEngine {
     _lastElapsed = elapsed;
     final future = Future<FrameOutput>.microtask(() async {
       for (final (plugin, context) in _attached) {
-        await plugin.beforeRender(context, info);
+        await _hook(() => plugin.beforeRender(context, info));
       }
       if (camera.depthStrategy == DepthStrategy.reversed &&
           !capabilities.supports(RenderFeature.reversedDepth)) {
@@ -907,7 +932,7 @@ class SceneEngine {
         );
       }
       for (final (plugin, context) in _attached) {
-        await plugin.afterRender(context, info, result.stats);
+        await _hook(() => plugin.afterRender(context, info, result.stats));
       }
       return result;
     });
@@ -916,6 +941,14 @@ class SceneEngine {
       _frame = null;
     });
   }
+
+  /// Reconcile a complete desired graph without replacing the renderer.
+  /// Validation happens before detaching anything. On attachment failure,
+  /// newly attached candidates are removed and unaffected plugins remain.
+  /// Inspect [pluginIds] for the actual configuration, then retry explicitly.
+  /// Calls from this engine's plugin hooks are rejected to avoid deadlocks.
+  Future<void> updatePlugins(List<ScenePlugin> plugins) =>
+      _queuePlugins(plugins);
 
   Future<void> dispose() => _disposal ??= _dispose();
   Future<void> _dispose() async {
@@ -929,6 +962,7 @@ class SceneEngine {
         // whenClosed reports synchronous and asynchronous cleanup together.
       }
     }
+    await _pluginUpdates;
     try {
       await _frame;
     } catch (_) {
@@ -946,7 +980,7 @@ class SceneEngine {
         errors.add(error);
       }
       try {
-        await plugin.detach(context);
+        await _hook(() => plugin.detach(context));
       } catch (error) {
         errors.add(error);
       } finally {
