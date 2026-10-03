@@ -155,7 +155,7 @@ void main() {
         'ok',
       );
       expect(scene.objects['box']!.position, const Vec3(3, 2, 1));
-      expect(scene.tools.canUndo, isTrue);
+      expect(scene.canUndo, isTrue);
       await process.stdin.close();
       expect(await process.exitCode.timeout(const Duration(seconds: 5)), 0);
       expect(await stderr, isEmpty);

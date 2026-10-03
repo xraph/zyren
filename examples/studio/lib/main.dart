@@ -6,6 +6,7 @@ import 'package:zyren_studio/io.dart';
 import 'package:zyren_studio/zyren_studio.dart';
 import 'fixture.dart';
 import 'studio_editor.dart';
+import 'studio_assets.dart';
 
 void main() => runApp(const StudioApp());
 
@@ -33,13 +34,38 @@ class _OpenStudio extends StatefulWidget {
 }
 
 class _OpenStudioState extends State<_OpenStudio> {
-  late Future<(StudioStore, StudioDocument, String, bool)> _opening = _open();
-  Future<(StudioStore, StudioDocument, String, bool)> _open() async {
+  late Future<
+    (
+      StudioStore,
+      StudioDocument,
+      String,
+      bool,
+      StudioPipelineAssets,
+      StudioAssetScope,
+    )
+  >
+  _opening = _open();
+  Future<
+    (
+      StudioStore,
+      StudioDocument,
+      String,
+      bool,
+      StudioPipelineAssets,
+      StudioAssetScope,
+    )
+  >
+  _open() async {
     final directory = await getApplicationSupportDirectory();
     final file = File('${directory.path}/studio-scene.json');
     final store = FileStudioStore(file: file, documentId: 'studio-scene');
     final document = await store.read();
-    return (store, document ?? starterScene(), file.path, document != null);
+    final assets = StudioPipelineAssets(
+      Directory('${directory.path}/studio-assets'),
+    );
+    final value = document ?? starterScene();
+    final scope = await StudioAssetScope.load(value, assets);
+    return (store, value, file.path, document != null, assets, scope);
   }
 
   @override
@@ -61,10 +87,12 @@ class _OpenStudioState extends State<_OpenStudio> {
       if (!snapshot.hasData) {
         return const Scaffold(body: Center(child: CircularProgressIndicator()));
       }
-      final (store, document, location, saved) = snapshot.data!;
+      final (store, document, location, saved, assets, scope) = snapshot.data!;
       return StudioEditor(
         document: document,
         store: store,
+        assetResolver: assets,
+        assetScope: scope,
         saveLocation: location,
         initiallySaved: saved,
         enableAgentTransport: const bool.fromEnvironment('ZYREN_AI_DX'),

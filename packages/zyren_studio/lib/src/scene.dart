@@ -2,7 +2,9 @@ part of '../zyren_studio.dart';
 
 /// Reconstructs owned content without serializing renderer helpers or runtime IDs.
 final class StudioScene {
-  final StudioDocument document;
+  StudioDocument _document;
+  StudioDocument get document => _document;
+  final StudioHistory history = StudioHistory();
   final StudioAssetScope? assets;
   final _assetMembers = <Object3D>{};
   final _assetSources = <Object3D, (String, String)>{};
@@ -13,7 +15,7 @@ final class StudioScene {
   late final PerspectiveCamera camera = document.camera.createCamera();
   final SceneToolsPlugin tools = SceneToolsPlugin(highlightSelection: false);
   late final SceneEngineeringPlugin engineering = SceneEngineeringPlugin(
-    document: document.review,
+    document: _review(),
   );
   final Map<String, Object3D> _objects = {};
   final Map<String, BufferGeometry> _geometries = {};
@@ -60,7 +62,7 @@ final class StudioScene {
     return _revision;
   }
 
-  StudioScene(this.document, {this.assets}) {
+  StudioScene(StudioDocument document, {this.assets}) : _document = document {
     scene.background = Color3.hex(0x14242b);
     scene.add(content);
     for (final node in document.expandedNodes.values) {
@@ -114,6 +116,7 @@ final class StudioScene {
     for (final node in document.expandedNodes.values) {
       (_objects[node.parentId] ?? content).add(_objects[node.id]!);
     }
+    engineering.document.encode();
   }
 
   Map<String, Object3D> get objects => Map.unmodifiable(_objects);
@@ -152,35 +155,160 @@ final class StudioScene {
       ? '$nodeId:$sourceId'
       : sourceId;
 
-  /// Call after every engine attachment, including native renderer recovery.
-  void bindReview() {
-    void bind(String nodeId, String sourceId, Object3D object) {
+  EngineeringDocument _review() {
+    final records = {...document.review.objects};
+    void record(String nodeId, String sourceId) {
       final id = reviewIdFor(nodeId, sourceId);
-      if (!engineering.document.objects.containsKey(id)) {
-        final source = engineering.document.objects[sourceId];
-        engineering.putObject(
-          EngineeringObject(
-            id: id,
-            label: source?.label ?? sourceId,
-            properties: {
-              ...?source?.properties,
-              'sourceId': sourceId,
-              'instanceId': nodeId,
-            },
-          ),
-        );
-      }
-      engineering.bind(id, object);
+      final source = records[sourceId];
+      records.putIfAbsent(
+        id,
+        () => EngineeringObject(
+          id: id,
+          label: source?.label ?? sourceId,
+          properties: {
+            ...?source?.properties,
+            'sourceId': sourceId,
+            'instanceId': nodeId,
+          },
+        ),
+      );
     }
 
     for (final node in document.expandedNodes.values) {
+      if (node.sourceId != null) record(node.id, node.sourceId!);
+    }
+    for (final source in _assetSources.values) {
+      record(source.$1, source.$2);
+    }
+    return EngineeringDocument(
+      id: document.id,
+      objects: records.values,
+      annotations: document.review.annotations.values,
+    );
+  }
+
+  /// Call after every engine attachment, including native renderer recovery.
+  void bindReview() {
+    for (final node in document.expandedNodes.values) {
       if (node.sourceId != null) {
-        bind(node.id, node.sourceId!, _objects[node.id]!);
+        engineering.bind(
+          reviewIdFor(node.id, node.sourceId!),
+          _objects[node.id]!,
+        );
       }
     }
     for (final entry in _assetSources.entries) {
-      bind(entry.value.$1, entry.value.$2, entry.key);
+      engineering.bind(reviewIdFor(entry.value.$1, entry.value.$2), entry.key);
     }
+  }
+
+  void edit(void Function() action) {
+    final before = capture();
+    action();
+    recordEdit(before);
+  }
+
+  void recordEdit(StudioDocument before) {
+    history.record(before, capture());
+    tools.clearHistory();
+  }
+
+  bool get canUndo => history.canUndo || tools.canUndo;
+  bool get canRedo => history.canRedo || tools.canRedo;
+  bool undo() =>
+      history.canUndo ? history.undo(capture(), _apply) : tools.undo();
+  bool redo() =>
+      history.canRedo ? history.redo(capture(), _apply) : tools.redo();
+
+  /// Reconstruct first, then swap owned content while keeping the renderer alive.
+  void apply(StudioDocument next) => edit(() => _apply(next));
+
+  void _apply(StudioDocument next) {
+    capture();
+    if (next.id != document.id || engineering.isBusy) {
+      throw StateError('Document identity changed or review storage is busy.');
+    }
+    Map<String, Object?> recipe(StudioNode node) => node.toJson()
+      ..remove('position')
+      ..remove('rotation')
+      ..remove('scale')
+      ..remove('visible')
+      ..remove('overrides');
+    final sameRecipes =
+        jsonEncode(document.assets.map((a) => a.toJson()).toList()) ==
+            jsonEncode(next.assets.map((a) => a.toJson()).toList()) &&
+        jsonEncode(
+              document.expandedNodes.map(
+                (id, node) => MapEntry(id, recipe(node)),
+              ),
+            ) ==
+            jsonEncode(
+              next.expandedNodes.map((id, node) => MapEntry(id, recipe(node))),
+            );
+    if (sameRecipes) {
+      engineering.replaceDocument(next.review, expected: engineering.document);
+      scene.batch(() {
+        for (final node in next.expandedNodes.values) {
+          final object = _objects[node.id]!;
+          object.position = node.position;
+          object.scale = node.scale;
+          object.quaternion = node.rotation;
+          object.visible = node.visible;
+        }
+        _document = next;
+      });
+      if (engineering.isAttached) bindReview();
+      return;
+    }
+    final rebuilt = StudioScene(next, assets: assets);
+    final resolved = rebuilt.capture();
+    final selectedId = idFor(tools.selected);
+    if (engineering.isAttached) {
+      for (final id in engineering.document.objects.keys) {
+        engineering.unbind(id);
+      }
+    }
+    engineering.replaceDocument(
+      resolved.review,
+      expected: engineering.document,
+    );
+    if (tools.selected != null) tools.select(null);
+    tools.clearHistory();
+    scene.batch(() {
+      for (final child in content.children.toList()) {
+        content.remove(child);
+      }
+      for (final child in rebuilt.content.children.toList()) {
+        content.add(child);
+      }
+      _objects
+        ..clear()
+        ..addAll(rebuilt._objects);
+      _geometries
+        ..clear()
+        ..addAll(rebuilt._geometries);
+      _materials
+        ..clear()
+        ..addAll(rebuilt._materials);
+      _geometryRevisions
+        ..clear()
+        ..addAll(rebuilt._geometryRevisions);
+      _assetMembers
+        ..clear()
+        ..addAll(rebuilt._assetMembers);
+      _assetSources
+        ..clear()
+        ..addAll(rebuilt._assetSources);
+      _assetStates
+        ..clear()
+        ..addAll(rebuilt._assetStates);
+      _recipes
+        ..clear()
+        ..addAll(rebuilt._recipes);
+      _document = resolved;
+    });
+    if (engineering.isAttached) bindReview();
+    if (_objects[selectedId] case final selected?) tools.select(selected);
   }
 
   /// Supported edits replace immutable material values through one owned path.

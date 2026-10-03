@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' show PointerDeviceKind;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_zyren/flutter_zyren.dart';
 import 'package:integration_test/integration_test.dart';
@@ -11,6 +12,8 @@ import 'package:zyren_studio/io.dart';
 import 'package:zyren_studio/zyren_studio.dart';
 import 'package:zyren_studio_example/fixture.dart';
 import 'package:zyren_studio_example/studio_editor.dart';
+import 'package:zyren_studio_example/studio_assets.dart';
+import 'package:zyren_studio_example/studio_preview.dart';
 
 void main() {
   const externalMcp = bool.fromEnvironment('STUDIO_NATIVE_MCP');
@@ -28,6 +31,33 @@ void main() {
         file: File('${directory.path}/scene.json'),
         documentId: 'studio-scene',
       );
+      final assetResolver = StudioPipelineAssets(
+        Directory('${directory.path}/assets'),
+      );
+      final bytes = await rootBundle.load('assets/assembly.glb');
+      final imported = await assetResolver.importBytes(
+        bytes.buffer.asUint8List(bytes.offsetInBytes, bytes.lengthInBytes),
+        'assembly.glb',
+        id: 'fixture-model',
+        cancellation: StudioCancellation(),
+      );
+      final nativeDocument = starterScene().copyWith(
+        assets: [imported],
+        nodes: [
+          ...starterScene().nodes,
+          StudioNode(
+            id: 'imported-model',
+            label: 'Imported assembly',
+            kind: StudioNodeKind.asset,
+            assetId: imported.id,
+            position: const Vec3(-4, 0, 0),
+          ),
+        ],
+      );
+      final assetScope = await StudioAssetScope.load(
+        nativeDocument,
+        assetResolver,
+      );
       final key = GlobalKey<StudioEditorState>();
       final width = ValueNotifier<double>(1000);
       addTearDown(width.dispose);
@@ -41,7 +71,9 @@ void main() {
                 width: value,
                 child: StudioEditor(
                   key: key,
-                  document: starterScene(),
+                  document: nativeDocument,
+                  assetScope: assetScope,
+                  assetResolver: assetResolver,
                   store: store,
                   saveLocation: store.file.path,
                   enableAgentTransport: externalMcp,
@@ -327,6 +359,126 @@ void main() {
         tool: 'state',
       );
       expect((narrow.data['screen'] as Map)['logicalRect']['width'], 396);
+      var authorSequence = 0;
+      Future<AgentResult> author(String tool, Map<String, Object?> args) {
+        final entry = (state.agents.discover()['providers'] as List)
+            .singleWhere((p) => p['providerId'] == 'zyren.studio-authoring');
+        return state.agents.call(
+          providerId: entry['providerId'] as String,
+          instanceId: entry['instanceId'] as String,
+          tool: tool,
+          arguments: args,
+          expectedRevision: entry['revision'] as int,
+          idempotencyKey: 'native-author-${authorSequence++}',
+        );
+      }
+
+      expect(
+        (await author('set_material', {
+          'targetId': 'block',
+          'kind': 'standard',
+          'color': 0xff6622,
+          'metallic': .5,
+        })).status,
+        AgentStatus.ok,
+      );
+      await tester.pump(const Duration(milliseconds: 150));
+      expect(
+        (state.agentProvider.commands.scene.objects['block'] as Mesh).material,
+        isA<StandardMaterial>(),
+      );
+      expect(
+        (await author('record_pose', {
+          'targetId': 'block',
+          'clipId': 'move',
+          'microseconds': 0,
+          'durationMicroseconds': 1000000,
+        })).status,
+        AgentStatus.ok,
+      );
+      final move = await state.agents.call(
+        providerId: 'zyren.studio',
+        instanceId: state.agentProvider.instanceId,
+        tool: 'transform',
+        expectedRevision: state.agentProvider.revision,
+        idempotencyKey: 'native-animation-pose',
+        arguments: {
+          'targetId': 'block',
+          'position': [1.25, 0, 0],
+        },
+      );
+      expect(move.status, AgentStatus.ok);
+      expect(
+        (await author('record_pose', {
+          'targetId': 'block',
+          'clipId': 'move',
+          'microseconds': 1000000,
+          'durationMicroseconds': 1000000,
+        })).status,
+        AgentStatus.ok,
+      );
+      final authored = state.agentProvider.commands.scene.capture().encode();
+      for (var index = 0; index < 3; index++) {
+        await tester.tap(find.byTooltip('Author scene'));
+        await tester.pump(const Duration(milliseconds: 250));
+        await tester.tap(find.text('Preview latest clip'));
+        await tester.pump(const Duration(milliseconds: 250));
+        final previewView = find.descendant(
+          of: find.byType(StudioPreview),
+          matching: find.byType(SceneView),
+        );
+        final deadline = DateTime.now().add(const Duration(seconds: 30));
+        while (DateTime.now().isBefore(deadline) &&
+            (previewView.evaluate().isEmpty ||
+                tester
+                        .widget<SceneView>(previewView)
+                        .controller!
+                        .latestFrameStats ==
+                    null)) {
+          await tester.pump(const Duration(milliseconds: 50));
+        }
+        expect(previewView, findsOneWidget);
+        final previewController = tester
+            .widget<SceneView>(previewView)
+            .controller!;
+        expect(
+          (await previewController.ready).presentationPath,
+          PresentationPath.nativeView,
+        );
+        expect(previewController.latestFrameStats!.readbackBytes, 0);
+        final slider = tester.widget<Slider>(find.byType(Slider));
+        slider.onChanged!(500000);
+        await tester.pump(const Duration(milliseconds: 100));
+        final previewBlock = descendants(
+          previewController.scene,
+        ).singleWhere((n) => n.name == 'Block');
+        expect(previewBlock.position.x, closeTo(.75, .001));
+        await tester.tap(find.text('Close preview'));
+        await tester.pump(const Duration(milliseconds: 300));
+        await previewController.whenDisposed;
+        expect(state.agentProvider.commands.scene.capture().encode(), authored);
+        expect(tester.takeException(), isNull);
+      }
+      expect(
+        (await author('make_prefab', {
+          'targetId': 'base',
+          'prefabId': 'platform',
+        })).status,
+        AgentStatus.ok,
+      );
+      expect(
+        (await author('instance_prefab', {
+          'id': 'platform-copy',
+          'prefabId': 'platform',
+        })).status,
+        AgentStatus.ok,
+      );
+      await tester.tap(find.text('Save'));
+      await until(() => find.text('Scene saved').evaluate().isNotEmpty);
+      final savedAuthoring = (await store.read())!;
+      expect(savedAuthoring.prefabs.single.id, 'platform');
+      expect(savedAuthoring.clips.single.tracks['block']!.length, 2);
+      expect(savedAuthoring.assets.single.reference, imported.reference);
       final finalController = controller();
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(milliseconds: 250));

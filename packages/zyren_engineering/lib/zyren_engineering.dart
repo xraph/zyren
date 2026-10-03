@@ -250,6 +250,23 @@ class SceneEngineeringPlugin extends ScenePlugin {
     _notify();
   }
 
+  /// Restores an editor snapshot only if its current review has not changed.
+  void replaceDocument(
+    EngineeringDocument next, {
+    required EngineeringDocument expected,
+  }) {
+    if (_busy || !identical(expected, _document)) {
+      throw StateError('Review changed or a storage operation is running.');
+    }
+    if (next.id != _document.id) {
+      throw ArgumentError('Review belongs to another document.');
+    }
+    next.encode();
+    restoreVisibility();
+    _bindings.removeWhere((id, _) => !next.objects.containsKey(id));
+    _replace(next);
+  }
+
   /// Replaces data only after a complete read, validation and stale-read check.
   Future<bool> load(EngineeringStore store) async {
     if (_busy) {

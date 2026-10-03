@@ -372,6 +372,7 @@ class SceneTimelinePlugin extends ScenePlugin {
   void _tick(PluginContext context, FrameInfo frame) {
     final snapshots = [for (final action in _actions) action._snapshot()];
     final active = _actions.any((action) => action._needsFrame);
+    if (!_playing && !active) return;
     try {
       if (active && !_actionFirstTick) {
         if (frame.delta.isNegative) {

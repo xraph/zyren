@@ -6,6 +6,9 @@ resolution: workspace
 environment:
   sdk: '>=3.10.0 <4.0.0'
 dependencies:
+  zyren_pipeline:
+    path: ../../packages/zyren_pipeline
+  file_selector: ^1.1.0
   zyren_collaboration:
     path: ../../packages/zyren_collaboration
   zyren_devtools:
@@ -34,3 +37,5 @@ dev_dependencies:
     sdk: flutter
 flutter:
   uses-material-design: true
+  assets:
+    - assets/assembly.glb

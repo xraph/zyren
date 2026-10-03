@@ -11,16 +11,23 @@ import 'package:zyren_inspector/zyren_inspector.dart';
 import 'package:zyren_studio/zyren_studio.dart';
 import 'package:zyren_studio/commands.dart';
 import 'package:zyren_studio/agents.dart';
+import 'package:zyren_studio/authoring_agents.dart';
 import 'package:zyren_agents/zyren_agents.dart';
 import 'package:zyren_timeline/zyren_timeline.dart';
 import 'package:zyren_timeline/agents.dart';
 import 'package:zyren_collaboration/engineering_agent_provider.dart';
 import 'package:zyren_tools/zyren_tools.dart';
+import 'package:zyren_engineering/zyren_engineering.dart';
+import 'studio_assets.dart';
+import 'authoring_dialogs.dart';
+import 'studio_preview.dart';
 
 /// Flutter composition lives in the host; documents and reconstruction are Dart.
 class StudioEditor extends StatefulWidget {
   final StudioDocument document;
   final StudioStore store;
+  final StudioAssetScope? assetScope;
+  final StudioPipelineAssets? assetResolver;
   final String saveLocation;
   final bool initiallySaved;
   final SceneRuntime runtime;
@@ -31,6 +38,8 @@ class StudioEditor extends StatefulWidget {
     super.key,
     required this.document,
     required this.store,
+    this.assetScope,
+    this.assetResolver,
     required this.saveLocation,
     this.initiallySaved = false,
     this.runtime = const SceneRuntime.nativeMetal(),
@@ -44,6 +53,9 @@ class StudioEditor extends StatefulWidget {
 
 class StudioEditorState extends State<StudioEditor> {
   late StudioScene _scene;
+  late final StudioAssetScope _assets = widget.assetScope ?? StudioAssetScope();
+  StudioCancellation? _loadCancellation;
+  StudioDocument? _gestureBefore;
   late AgentRegistry _agents;
   late StudioAgentProvider _agentProvider;
   late StudioCommands _commands;
@@ -111,7 +123,7 @@ class StudioEditorState extends State<StudioEditor> {
   }
 
   void _install(StudioDocument document) {
-    _scene = StudioScene(document);
+    _scene = StudioScene(document, assets: _assets);
     _boundGeneration = null;
     _hoveredId = null;
     _pointer = null;
@@ -120,6 +132,12 @@ class StudioEditorState extends State<StudioEditor> {
     _gizmo = TransformGizmoPlugin(
       screenSize: 80,
       onDragChanged: (active) {
+        if (active) {
+          _gestureBefore = _scene.capture();
+        } else if (_gestureBefore case final before?) {
+          _gestureBefore = null;
+          _scene.recordEdit(before);
+        }
         _orbit.controls?.enabled = !active;
         _commandUiRevision++;
         _refresh();
@@ -127,7 +145,7 @@ class StudioEditorState extends State<StudioEditor> {
     );
     _scene.registerHelper(_gizmo.owns);
     final pose = document.camera;
-    _timeline = _CameraPreviewTimeline(
+    _timeline = SceneTimelinePlugin(
       duration: const Duration(seconds: 3),
       tracks: [
         CameraTrack(_scene.camera, [
@@ -179,6 +197,18 @@ class StudioEditorState extends State<StudioEditor> {
       hostRevision: () => _commandUiRevision,
     );
     _agents.register(_agentProvider);
+    _agents.register(
+      StudioAuthoringAgentProvider(
+        scene: _scene,
+        instanceId: _commands.sessionId,
+        isAvailable: () => _editing,
+        hostRevision: () => _commandUiRevision,
+        onChanged: () {
+          _commandUiRevision++;
+          _refresh();
+        },
+      ),
+    );
     _agents.register(
       TimelineAgentProvider(
         timeline: _timeline,
@@ -244,11 +274,9 @@ class StudioEditorState extends State<StudioEditor> {
             : AgentPresentedFrame(id: _presented!.frame.frameId.toString()),
         metadata: (object) {
           final id = _scene.idFor(object);
-          final node = document.nodes
-              .where((node) => node.id == id)
-              .firstOrNull;
+          final node = _scene.document.expandedNodes[id];
           return AgentObjectMetadata(
-            sourceId: node?.sourceId,
+            sourceId: _scene.sourceFor(object)?.$2 ?? node?.sourceId,
             semanticType: node?.kind.name ?? 'editor-helper',
             owningPlugin: 'zyren.studio',
             properties: {
@@ -330,7 +358,7 @@ class StudioEditorState extends State<StudioEditor> {
     }
   }
 
-  void _release() {
+  Future<void> _release() {
     final server = _agentServer;
     _agentServer = null;
     if (server != null) unawaited(server.close());
@@ -342,11 +370,13 @@ class StudioEditorState extends State<StudioEditor> {
     }
     _subscriptions.clear();
     _controller.dispose();
+    return _controller.whenDisposed;
   }
 
   @override
   void dispose() {
-    _release();
+    _loadCancellation?.cancel();
+    unawaited(_release().then((_) => _assets.close()));
     super.dispose();
   }
 
@@ -379,6 +409,7 @@ class StudioEditorState extends State<StudioEditor> {
         _notice = 'Scene saved';
         _error = false;
       });
+      await _pruneAssets();
     } catch (error) {
       if (mounted) {
         setState(() {
@@ -435,8 +466,13 @@ class StudioEditorState extends State<StudioEditor> {
         return;
       }
       // Validate reconstruction before retiring the active controller.
-      StudioScene(document).capture();
-      _release();
+      if (widget.assetResolver != null) {
+        await _assets.prepare(document, widget.assetResolver!);
+      }
+      if (!mounted) return;
+      StudioScene(document, assets: _assets).capture();
+      await _release();
+      if (!mounted) return;
       _install(document);
       setState(() {
         _session++;
@@ -478,6 +514,236 @@ class StudioEditorState extends State<StudioEditor> {
     }
   });
 
+  String _newId(String prefix) =>
+      '$prefix-${DateTime.now().microsecondsSinceEpoch}';
+
+  Future<void> _pruneAssets() async {
+    final current = _scene.capture();
+    final history = _scene.history.documents.toList();
+    await _assets.retain([current, ...history]);
+    await widget.assetResolver?.retainPins([
+      current,
+      ...history,
+      if (_saved != null) StudioDocument.decode(_saved!),
+    ]);
+  }
+
+  Future<void> _applyAuthoring(StudioDocument document) async {
+    final resolver = widget.assetResolver;
+    if (resolver != null) {
+      _loadCancellation = StudioCancellation();
+      await _assets.prepare(
+        document,
+        resolver,
+        cancellation: _loadCancellation,
+      );
+    }
+    if (!mounted) return;
+    _scene.apply(document);
+    await _pruneAssets();
+  }
+
+  Future<void> _author(String action) async {
+    if (!_editing) return;
+    final selectedId = _scene.idFor(_selected);
+    final before = _scene.capture();
+    setState(() {
+      _modalOpen = true;
+      _notice = null;
+      _error = false;
+    });
+    try {
+      StudioDocument? next;
+      switch (action) {
+        case 'box':
+          next = StudioAuthoring.addBox(before, id: _newId('box'));
+        case 'remove':
+          next = StudioAuthoring.remove(before, selectedId!);
+        case 'prefab':
+          next = StudioAuthoring.createPrefab(
+            before,
+            selectedId!,
+            prefabId: _newId('prefab'),
+          );
+        case 'instance':
+          next = StudioAuthoring.instancePrefab(
+            before,
+            before.prefabs.last.id,
+            id: _newId('instance'),
+          );
+        case 'material':
+          next = await studioMaterialDialog(context, before, selectedId!);
+        case 'keyframe':
+          next = await studioKeyframeDialog(context, before, selectedId!);
+        case 'review':
+          final source = before.expandedNodes[selectedId]?.sourceId;
+          if (source == null) {
+            throw StateError('Select an object with a source record.');
+          }
+          next = await studioReviewDialog(
+            context,
+            before,
+            _scene.reviewIdFor(selectedId!, source),
+          );
+        case 'preview':
+          await showDialog<void>(
+            context: context,
+            builder: (_) => StudioPreview(
+              document: before,
+              resolver: widget.assetResolver,
+              runtime: widget.runtime,
+              clipId: before.clips.last.id,
+            ),
+          );
+        case 'clear-history':
+          _scene.history.clear();
+          _scene.tools.clearHistory();
+          await _pruneAssets();
+        case 'import' || 'reimport':
+          setState(() => _busy = true);
+          final existing = action == 'reimport'
+              ? before.assets.singleWhere(
+                  (a) => a.id == before.expandedNodes[selectedId]!.assetId,
+                )
+              : null;
+          _loadCancellation = StudioCancellation();
+          final imported = await widget.assetResolver!.choose(
+            id: existing?.id ?? _newId('asset'),
+            replacing: existing,
+            cancellation: _loadCancellation!,
+          );
+          if (imported != null) {
+            final nodeId = _newId('model');
+            final sourceId = '$nodeId:root';
+            next = before.copyWith(
+              assets: [
+                ...before.assets.where((a) => a.id != imported.id),
+                imported,
+              ],
+              nodes: [
+                ...before.nodes,
+                if (existing == null)
+                  StudioNode(
+                    id: nodeId,
+                    label: imported.label,
+                    kind: StudioNodeKind.asset,
+                    assetId: imported.id,
+                    sourceId: sourceId,
+                  ),
+              ],
+              review: existing != null
+                  ? before.review
+                  : EngineeringDocument(
+                      id: before.id,
+                      objects: [
+                        ...before.review.objects.values,
+                        EngineeringObject(
+                          id: sourceId,
+                          label: imported.label,
+                          properties: {
+                            'origin': imported.reference['uri'],
+                            'assetId': imported.id,
+                          },
+                        ),
+                      ],
+                      annotations: before.review.annotations.values,
+                    ),
+            );
+          }
+      }
+      if (next != null && mounted) {
+        setState(() => _busy = true);
+        await _applyAuthoring(next);
+      }
+    } on LoadCancelled {
+      if (mounted) {
+        setState(() => _notice = 'Import cancelled. Your scene is unchanged.');
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _notice = '$error';
+          _error = true;
+        });
+      }
+    } finally {
+      _loadCancellation = null;
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _modalOpen = false;
+          _commandUiRevision++;
+        });
+      }
+    }
+  }
+
+  Widget _authoringMenu() {
+    final node = _scene.document.expandedNodes[_scene.idFor(_selected)];
+    return PopupMenuButton<String>(
+      tooltip: 'Author scene',
+      enabled: _editing,
+      onSelected: _author,
+      icon: const Icon(Icons.add_box_outlined),
+      itemBuilder: (_) => [
+        const PopupMenuItem(value: 'box', child: Text('Add box')),
+        PopupMenuItem(
+          value: 'import',
+          enabled: widget.assetResolver != null,
+          child: const Text('Import GLB or bundle'),
+        ),
+        PopupMenuItem(
+          value: 'reimport',
+          enabled: widget.assetResolver != null && node?.assetId != null,
+          child: const Text('Reimport selected asset'),
+        ),
+        PopupMenuItem(
+          value: 'material',
+          enabled:
+              node?.kind == StudioNodeKind.box ||
+              node?.kind == StudioNodeKind.asset,
+          child: const Text('Edit material'),
+        ),
+        PopupMenuItem(
+          value: 'prefab',
+          enabled:
+              node != null &&
+              !_scene.document.prefabOwners.containsKey(node.id),
+          child: const Text('Make prefab'),
+        ),
+        PopupMenuItem(
+          value: 'instance',
+          enabled: _scene.document.prefabs.isNotEmpty,
+          child: const Text('Instance latest prefab'),
+        ),
+        PopupMenuItem(
+          value: 'keyframe',
+          enabled: node != null,
+          child: const Text('Record animation pose'),
+        ),
+        PopupMenuItem(
+          value: 'preview',
+          enabled: _scene.document.clips.isNotEmpty,
+          child: const Text('Preview latest clip'),
+        ),
+        PopupMenuItem(
+          value: 'review',
+          enabled: node?.sourceId != null,
+          child: const Text('Engineering notes'),
+        ),
+        PopupMenuItem(
+          value: 'remove',
+          enabled: node != null,
+          child: const Text('Remove selected'),
+        ),
+        const PopupMenuItem(
+          value: 'clear-history',
+          child: Text('Clear history and release unused assets'),
+        ),
+      ],
+    );
+  }
+
   Widget _button(String label, IconData icon, VoidCallback? action) =>
       TextButton.icon(
         onPressed: action,
@@ -503,9 +769,11 @@ class StudioEditorState extends State<StudioEditor> {
                 Icons.add,
                 _editing
                     ? () => _edit(
-                        () => _scene.tools.transform(
-                          selected,
-                          position: selected.position + const Vec3(.25, 0, 0),
+                        () => _scene.edit(
+                          () => _scene.tools.transform(
+                            selected,
+                            position: selected.position + const Vec3(.25, 0, 0),
+                          ),
                         ),
                       )
                     : null,
@@ -714,16 +982,12 @@ class StudioEditorState extends State<StudioEditor> {
                 _button(
                   'Undo',
                   Icons.undo,
-                  _editing && _scene.tools.canUndo
-                      ? () => _edit(_scene.tools.undo)
-                      : null,
+                  _editing && _scene.canUndo ? () => _edit(_scene.undo) : null,
                 ),
                 _button(
                   'Redo',
                   Icons.redo,
-                  _editing && _scene.tools.canRedo
-                      ? () => _edit(_scene.tools.redo)
-                      : null,
+                  _editing && _scene.canRedo ? () => _edit(_scene.redo) : null,
                 ),
               ],
             ),
@@ -747,6 +1011,7 @@ class StudioEditorState extends State<StudioEditor> {
                   _previewCamera == null ? Icons.play_arrow : Icons.stop,
                   _ready && !_busy ? _preview : null,
                 ),
+                _authoringMenu(),
                 if (_previewCamera != null)
                   Text(
                     '${(_timeline.position.inMilliseconds / 1000).toStringAsFixed(1)} / 3 s',
@@ -754,6 +1019,11 @@ class StudioEditorState extends State<StudioEditor> {
               ],
             ),
           ),
+          if (_busy && _loadCancellation != null)
+            TextButton(
+              onPressed: () => _loadCancellation?.cancel(),
+              child: const Text('Cancel import'),
+            ),
           if (_notice != null)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -806,15 +1076,4 @@ class StudioEditorState extends State<StudioEditor> {
       ),
     ),
   );
-}
-
-// This host has only main-clock camera tracks. Seeking applies immediately;
-// paused previews need no action-clock tick or repeated scene invalidation.
-class _CameraPreviewTimeline extends SceneTimelinePlugin {
-  _CameraPreviewTimeline({required super.duration, required super.tracks});
-
-  @override
-  void beforeRender(PluginContext context, FrameInfo frame) {
-    if (isPlaying) super.beforeRender(context, frame);
-  }
 }

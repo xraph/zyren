@@ -1,6 +1,7 @@
 import 'package:zyren/zyren.dart';
 import 'package:zyren_agents/zyren_agents.dart';
 import 'commands.dart';
+import 'zyren_studio.dart';
 
 /// Optional shared-registry adapter. The host controls scopes and screen context.
 final class StudioAgentProvider extends AgentProvider {
@@ -23,8 +24,8 @@ final class StudioAgentProvider extends AgentProvider {
       commands.scene.revision + commands.sequence + hostRevision();
   @override
   Map<String, Object?> get capabilities => {
-    'documentSchemaVersion': 1,
-    'nodeKinds': ['group', 'box'],
+    'documentSchemaVersion': StudioDocument.schemaVersion,
+    'nodeKinds': StudioNodeKind.values.map((k) => k.name).toList(),
     'commands': ['select', 'transform', 'undo', 'redo'],
     'storage': 'host-owned',
     'pixelVisibility': 'unknown',
@@ -69,7 +70,7 @@ final class StudioAgentProvider extends AgentProvider {
         'type': 'object',
         'additionalProperties': false,
         'properties': {
-          'offset': {'type': 'integer', 'minimum': 0, 'maximum': 1000},
+          'offset': {'type': 'integer', 'minimum': 0, 'maximum': 10000},
           'limit': {'type': 'integer', 'minimum': 1, 'maximum': 50},
         },
       },
@@ -131,7 +132,7 @@ final class StudioAgentProvider extends AgentProvider {
         data: {
           'documentId': commands.scene.document.id,
           'title': commands.scene.document.title,
-          'documentSchemaVersion': 1,
+          'documentSchemaVersion': StudioDocument.schemaVersion,
           'commands': commands.inspect(),
           'screen': screenContext(),
         },
@@ -140,32 +141,34 @@ final class StudioAgentProvider extends AgentProvider {
     if (tool == 'nodes') {
       final offset = arguments['offset'] as int? ?? 0;
       final limit = arguments['limit'] as int? ?? 50;
-      final nodes = commands.scene.document.nodes.skip(offset).take(limit).map((
-        node,
-      ) {
-        final object = commands.scene.objects[node.id]!;
-        return <String, Object?>{
-          'id': node.id,
-          'sourceId': node.sourceId,
-          'runtimeId': object.id,
-          'label': node.label,
-          'kind': node.kind.name,
-          'parentId': commands.scene.idFor(object.parent),
-          'position': object.position.storage,
-          'scale': object.scale.storage,
-          'rotation': [
-            object.quaternion.x,
-            object.quaternion.y,
-            object.quaternion.z,
-            object.quaternion.w,
-          ],
-          'visible': object.visible,
-          'selected': identical(object, commands.scene.tools.selected),
-          'provenance': node.sourceId == null
-              ? 'authored'
-              : 'engineering-record',
-        };
-      }).toList();
+      final nodes = commands.scene.document.expandedNodes.values
+          .skip(offset)
+          .take(limit)
+          .map((node) {
+            final object = commands.scene.objects[node.id]!;
+            return <String, Object?>{
+              'id': node.id,
+              'sourceId': node.sourceId,
+              'runtimeId': object.id,
+              'label': node.label,
+              'kind': node.kind.name,
+              'parentId': commands.scene.idFor(object.parent),
+              'position': object.position.storage,
+              'scale': object.scale.storage,
+              'rotation': [
+                object.quaternion.x,
+                object.quaternion.y,
+                object.quaternion.z,
+                object.quaternion.w,
+              ],
+              'visible': object.visible,
+              'selected': identical(object, commands.scene.tools.selected),
+              'provenance': node.sourceId == null
+                  ? 'authored'
+                  : 'engineering-record',
+            };
+          })
+          .toList();
       return AgentResult(
         nodes.isEmpty ? AgentStatus.empty : AgentStatus.ok,
         revision: revision,

@@ -2,6 +2,9 @@ import 'dart:convert';
 import 'package:test/test.dart';
 import 'package:zyren/zyren.dart';
 import 'package:zyren_studio/zyren_studio.dart';
+import 'package:zyren_studio/animation.dart';
+import 'package:zyren_engineering/zyren_engineering.dart';
+import '../../zyren/test/support/fakes.dart';
 
 StudioDocument prefabDocument() => StudioDocument(
   id: 'authoring',
@@ -58,6 +61,159 @@ StudioDocument prefabDocument() => StudioDocument(
 );
 
 void main() {
+  test(
+    'one history restores transforms, structure, materials, clips and review',
+    () async {
+      final scene = StudioScene(
+        StudioDocument(
+          id: 'history',
+          title: 'History',
+          nodes: [StudioNode(id: 'box', label: 'Box')],
+        ),
+      );
+      final engine = await SceneEngine.create(
+        scene: scene.scene,
+        camera: scene.camera,
+        rendererFactory: () async => TestRenderer([]),
+        plugins: [scene.tools, scene.engineering],
+      );
+      addTearDown(engine.dispose);
+      final box = scene.objects['box']!;
+      scene.edit(
+        () => scene.tools.transform(box, position: const Vec3(2, 0, 0)),
+      );
+      expect(scene.undo(), isTrue);
+      expect(scene.objects['box'], same(box));
+      expect(box.position.x, 0);
+      expect(scene.redo(), isTrue);
+      scene.apply(
+        StudioAuthoring.updateNode(
+          scene.capture(),
+          'box',
+          StudioOverride(
+            material: StudioMaterial(
+              kind: StudioMaterialKind.standard,
+              metallic: .8,
+            ),
+          ),
+        ),
+      );
+      expect((scene.objects['box'] as Mesh).material, isA<StandardMaterial>());
+      expect(scene.undo(), isTrue);
+      expect((scene.objects['box'] as Mesh).material, isA<DiffuseMaterial>());
+      expect(scene.redo(), isTrue);
+      scene.apply(
+        StudioAuthoring.createPrefab(
+          scene.capture(),
+          'box',
+          prefabId: 'assembly',
+        ),
+      );
+      expect(scene.objects.keys, contains('box/box'));
+      scene.apply(
+        StudioAuthoring.instancePrefab(scene.capture(), 'assembly', id: 'copy'),
+      );
+      expect(scene.objects.keys, contains('copy/box'));
+      expect(scene.undo(), isTrue);
+      expect(scene.objects.keys, isNot(contains('copy')));
+      expect(scene.redo(), isTrue);
+      final clip = StudioAuthoring.putKeyframe(
+        scene.capture(),
+        clipId: 'move',
+        nodeId: 'box/box',
+        frame: StudioKeyframe(microseconds: 0, position: Vec3.zero),
+        durationMicroseconds: 1000000,
+      );
+      scene.apply(clip);
+      expect(scene.undo(), isTrue);
+      expect(scene.document.clips, isEmpty);
+      expect(scene.redo(), isTrue);
+      final current = scene.capture();
+      scene.apply(
+        current.copyWith(
+          review: EngineeringDocument(
+            id: current.id,
+            objects: [EngineeringObject(id: 'source', label: 'Source')],
+            annotations: [
+              EngineeringAnnotation(
+                id: 'note',
+                objectId: 'source',
+                text: 'Check fit',
+                anchor: Vec3.zero,
+              ),
+            ],
+          ),
+        ),
+      );
+      expect(scene.engineering.document.annotations.length, 1);
+      expect(scene.undo(), isTrue);
+      expect(scene.engineering.document.annotations, isEmpty);
+      expect(scene.redo(), isTrue);
+      expect(scene.engineering.document.annotations['note']!.text, 'Check fit');
+      scene.objects['box']!.position = const Vec3(99, 0, 0);
+      expect(scene.undo, throwsStateError);
+    },
+  );
+
+  test(
+    'authored preview sampling is deterministic and idle ticks do not invalidate',
+    () async {
+      final document = prefabDocument();
+      final editor = StudioScene(document);
+      final preview = StudioScene(document);
+      final timeline = studioTimeline(preview, 'move');
+      var invalidations = 0;
+      final engine = await SceneEngine.create(
+        scene: preview.scene,
+        camera: preview.camera,
+        rendererFactory: () async => TestRenderer([]),
+        plugins: [timeline],
+        onInvalidate: () => invalidations++,
+      );
+      addTearDown(engine.dispose);
+      timeline.seek(const Duration(milliseconds: 500));
+      expect(preview.objects['one/inner/part']!.position.x, 1.5);
+      expect(editor.objects['one/inner/part']!.position.x, 0);
+      await engine.render(elapsed: Duration.zero, width: 8, height: 8);
+      final before = invalidations;
+      await engine.render(
+        elapsed: const Duration(milliseconds: 20),
+        width: 8,
+        height: 8,
+      );
+      expect(invalidations, before);
+      timeline.seek(Duration.zero);
+      timeline.seek(const Duration(milliseconds: 500));
+      expect(preview.objects['one/inner/part']!.position.x, 1.5);
+      expect(editor.capture().encode(), document.encode());
+    },
+  );
+
+  test(
+    'engineering replacement rejects stale snapshots and preserves current notes',
+    () {
+      final initial = EngineeringDocument(id: 'review');
+      final plugin = SceneEngineeringPlugin(document: initial);
+      plugin.putObject(EngineeringObject(id: 'part', label: 'Part'));
+      expect(
+        () => plugin.replaceDocument(initial, expected: initial),
+        throwsStateError,
+      );
+      expect(plugin.document.objects.keys, ['part']);
+      final expected = plugin.document;
+      expect(
+        () => plugin.replaceDocument(
+          EngineeringDocument(id: 'other'),
+          expected: expected,
+        ),
+        throwsArgumentError,
+      );
+      expect(plugin.document, same(expected));
+      plugin.replaceDocument(initial, expected: expected);
+      expect(plugin.document.objects, isEmpty);
+    },
+  );
+
   test(
     'v1 documents migrate and v2 definitions survive capture without flattening',
     () {

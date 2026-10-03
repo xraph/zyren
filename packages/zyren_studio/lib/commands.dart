@@ -47,8 +47,8 @@ final class StudioCommands {
     'revision': revision,
     'sceneRevision': scene.scene.revision,
     'selectedId': scene.idFor(scene.tools.selected),
-    'canUndo': scene.tools.canUndo,
-    'canRedo': scene.tools.canRedo,
+    'canUndo': scene.canUndo,
+    'canRedo': scene.canRedo,
     'available': !_closed && isAvailable(),
     'allowedActions': [
       for (final kind in StudioCommandKind.values)
@@ -149,21 +149,23 @@ final class StudioCommands {
             'Transform requires a target and at least one component.',
           );
         }
-        scene.tools.transform(
-          target,
-          position: position,
-          rotation: rotation,
-          scale: scale,
+        scene.edit(
+          () => scene.tools.transform(
+            target,
+            position: position,
+            rotation: rotation,
+            scale: scale,
+          ),
         );
       case StudioCommandKind.undo:
-        if (!scene.tools.undo()) {
+        if (!scene.undo()) {
           throw const StudioCommandException(
             StudioCommandFailure.unavailable,
             'No edit to undo.',
           );
         }
       case StudioCommandKind.redo:
-        if (!scene.tools.redo()) {
+        if (!scene.redo()) {
           throw const StudioCommandException(
             StudioCommandFailure.unavailable,
             'No edit to redo.',

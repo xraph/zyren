@@ -9,6 +9,8 @@ part 'src/document.dart';
 part 'src/authoring_data.dart';
 part 'src/scene.dart';
 part 'src/assets.dart';
+part 'src/history.dart';
+part 'src/authoring.dart';
 
 /// The host chooses a storage location and keeps credentials outside the scene.
 abstract interface class StudioStore {

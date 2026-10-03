@@ -3,12 +3,104 @@ import 'package:zyren/zyren.dart';
 import 'package:zyren_agents/zyren_agents.dart';
 import 'package:zyren_tools/zyren_tools.dart';
 import 'package:zyren_studio/agents.dart';
+import 'package:zyren_studio/authoring_agents.dart';
 import 'package:zyren_studio/commands.dart';
 import 'package:zyren_studio/zyren_studio.dart';
 import '../../zyren/test/support/fakes.dart';
 import 'studio_test.dart' show fixture;
 
 void main() {
+  test(
+    'authoring provider shares history, enforces grants, retries and stale revisions',
+    () async {
+      final scene = StudioScene(fixture());
+      final engine = await SceneEngine.create(
+        scene: scene.scene,
+        camera: scene.camera,
+        rendererFactory: () async => TestRenderer([]),
+        plugins: [scene.tools, scene.engineering],
+      );
+      addTearDown(engine.dispose);
+      var available = true;
+      final provider = StudioAuthoringAgentProvider(
+        scene: scene,
+        instanceId: 'authoring',
+        isAvailable: () => available,
+        hostRevision: () => 0,
+        onChanged: () {},
+      );
+      final registry = AgentRegistry(grantedScopes: {'studio.edit'})
+        ..register(provider);
+      addTearDown(registry.dispose);
+      expect(
+        await AgentConformance.checkRead(
+          registry: registry,
+          provider: provider,
+          tool: 'definitions',
+        ),
+        isEmpty,
+      );
+      final denied = AgentRegistry()..register(provider);
+      addTearDown(denied.dispose);
+      final arguments = <String, Object?>{
+        'targetId': 'box',
+        'kind': 'standard',
+        'color': 0xabcdef,
+        'metallic': .6,
+      };
+      expect(
+        (await denied.call(
+          providerId: provider.id,
+          instanceId: provider.instanceId,
+          tool: 'set_material',
+          arguments: arguments,
+          expectedRevision: provider.revision,
+          idempotencyKey: 'denied',
+        )).status,
+        AgentStatus.denied,
+      );
+      final before = provider.revision;
+      Future<AgentResult> edit() => registry.call(
+        providerId: provider.id,
+        instanceId: provider.instanceId,
+        tool: 'set_material',
+        arguments: arguments,
+        expectedRevision: before,
+        idempotencyKey: 'material',
+      );
+      expect((await edit()).status, AgentStatus.ok);
+      final after = scene.capture().encode();
+      expect((await edit()).status, AgentStatus.ok);
+      expect(scene.capture().encode(), after);
+      expect((scene.objects['box'] as Mesh).material, isA<StandardMaterial>());
+      expect(
+        (await registry.call(
+          providerId: provider.id,
+          instanceId: provider.instanceId,
+          tool: 'remove',
+          arguments: {'targetId': 'box'},
+          expectedRevision: before,
+          idempotencyKey: 'stale',
+        )).status,
+        AgentStatus.stale,
+      );
+      expect(scene.undo(), isTrue);
+      expect((scene.objects['box'] as Mesh).material, isA<DiffuseMaterial>());
+      available = false;
+      expect(
+        (await registry.call(
+          providerId: provider.id,
+          instanceId: provider.instanceId,
+          tool: 'add_box',
+          arguments: {'id': 'new'},
+          expectedRevision: provider.revision,
+          idempotencyKey: 'busy',
+        )).status,
+        AgentStatus.unavailable,
+      );
+    },
+  );
+
   test(
     'shared registry discovers reads, permissions, edits, retries and disposal',
     () async {

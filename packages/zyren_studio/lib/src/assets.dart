@@ -24,7 +24,7 @@ final class StudioAssetInstance {
 final class StudioAssetScope {
   final _templates = <String, (String, StudioAssetTemplate)>{};
   bool _closed = false;
-  StudioAssetScope._();
+  StudioAssetScope();
   int get templateCount => _templates.length;
   bool get isClosed => _closed;
 
@@ -33,16 +33,9 @@ final class StudioAssetScope {
     StudioAssetResolver resolver, {
     LoadCancellation? cancellation,
   }) async {
-    final token = cancellation ?? StudioCancellation();
-    final scope = StudioAssetScope._();
+    final scope = StudioAssetScope();
     try {
-      final used = document.expandedNodes.values.map((n) => n.assetId).toSet();
-      for (final asset in document.assets.where((a) => used.contains(a.id))) {
-        token.throwIfCancelled();
-        final template = await resolver.load(asset, token);
-        scope._templates[asset.id] = (jsonEncode(asset.toJson()), template);
-        token.throwIfCancelled();
-      }
+      await scope.prepare(document, resolver, cancellation: cancellation);
       return scope;
     } catch (_) {
       await scope.close();
@@ -50,8 +43,60 @@ final class StudioAssetScope {
     }
   }
 
+  /// Stage missing pins atomically. The host prunes entries after history changes.
+  Future<void> prepare(
+    StudioDocument document,
+    StudioAssetResolver resolver, {
+    LoadCancellation? cancellation,
+  }) async {
+    if (_closed) throw StateError('Asset scope is closed.');
+    final token = cancellation ?? StudioCancellation();
+    final pending = <String, (String, StudioAssetTemplate)>{};
+    try {
+      final used = document.expandedNodes.values.map((n) => n.assetId).toSet();
+      for (final asset in document.assets.where((a) => used.contains(a.id))) {
+        token.throwIfCancelled();
+        final key = jsonEncode(asset.toJson());
+        if (_templates.containsKey(key)) continue;
+        if (_templates.length + pending.length >= 64) {
+          throw StateError(
+            'Asset history reached 64 templates. Clear history before importing more.',
+          );
+        }
+        final template = await resolver.load(asset, token);
+        pending[key] = (key, template);
+        token.throwIfCancelled();
+        if (_closed) throw StateError('Asset scope closed during loading.');
+      }
+      _templates.addAll(pending);
+    } catch (_) {
+      for (final entry in pending.values) {
+        await entry.$2.close();
+      }
+      rethrow;
+    }
+  }
+
+  Future<void> retain(Iterable<StudioDocument> documents) async {
+    final keep = <String>{};
+    for (final document in documents) {
+      final used = document.expandedNodes.values.map((n) => n.assetId).toSet();
+      keep.addAll(
+        document.assets
+            .where((a) => used.contains(a.id))
+            .map((a) => jsonEncode(a.toJson())),
+      );
+    }
+    final removed = _templates.keys
+        .where((key) => !keep.contains(key))
+        .toList();
+    for (final key in removed) {
+      await _templates.remove(key)!.$2.close();
+    }
+  }
+
   StudioAssetInstance instantiate(StudioAsset asset) {
-    final entry = _templates[asset.id];
+    final entry = _templates[jsonEncode(asset.toJson())];
     if (_closed || entry == null || entry.$1 != jsonEncode(asset.toJson())) {
       throw StateError(
         'Load the exact asset descriptor before reconstruction.',

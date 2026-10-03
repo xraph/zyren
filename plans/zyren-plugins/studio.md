@@ -264,3 +264,62 @@ adapter are the next increment; this document change does not qualify those flow
 Checks: scoped analysis passes. All 13 package/widget tests pass, including v1
 migration, nested prefab/material round trips, malformed definitions, immutable
 asset pins and cancelled scope cleanup. Native authoring checks remain pending.
+
+## Shared authoring API request
+
+Studio needs `SceneEngineeringPlugin.replaceDocument(next, expected: current)` in
+`packages/zyren_engineering/lib/zyren_engineering.dart`. It should validate the
+same document ID, size and current identity, reject a storage operation in flight,
+restore isolation and remove bindings whose records disappeared before replacing
+review data. This lets document undo restore annotations synchronously without
+creating a second engineering merge protocol. Existing load and synchronization
+behavior stays intact.
+
+Neither engineering nor timeline has working-tree edits at this check. No other
+program plan requests this API. The paused timeline fix can now be limited to an
+early return from `_tick` when both the main clock and every action are idle.
+Explicit commands still notify, and active fades retain their normal frame path.
+Both shared changes need regression checks before the Studio host adopts them.
+
+## Authoring and preview increment
+
+The editor now imports GLB and Pipeline bundles through the native file picker,
+loads exact cached pins, and retains templates needed by current undo history.
+You can reimport an asset while keeping its root instance and review record.
+Imports with explicit subobject source maps require an updated map when their
+pin changes; the picker reports that requirement instead of guessing identities.
+The CPU template pool stops at 64 entries. Clearing history releases unused
+entries, while disk pins retain the saved document and current history.
+
+The authoring menu adds boxes, converts subtrees to prefabs, instances the latest
+prefab, edits supported materials, records poses in clips, removes subtrees and
+edits engineering notes. One bounded history covers those edits and normal gizmo
+transforms. The authoring agent provider exposes the same validated mutations,
+with host grants, revision checks and shared-registry retry receipts.
+
+Clip preview reconstructs the document with a separate asset scope, scene and
+native controller. Closing it waits for renderer disposal before releasing its
+templates. The shared timeline idle fix removes the earlier camera-only guard.
+Engineering's expected-document replacement API lets history restore notes while
+rejecting stale review data or a storage operation already in flight.
+
+Checks on 2026-10-03:
+
+- Scoped analysis passes. The 17 package/widget tests passed together, followed
+  by both agent tests passing after adding the authoring-provider grant, retry,
+  stale-revision and shared-history regression.
+- All 97 timeline and engineering tests pass with the pinned Dart test runner.
+  Their subprocess tests require Dart; running those CLI tests inside Flutter's
+  test VM injects VM-service output and produces unrelated subprocess timeouts.
+- The macOS native/MCP runner passes on Apple M3 Max, Metal, native-view
+  presentation and zero readback bytes. The scenario loads the textured assembly
+  GLB, edits material and clip data, samples the clip halfway in three independent
+  previews, waits for each preview controller to dispose, verifies unchanged
+  authored state, instances a prefab and verifies saved pins, clips and prefabs.
+- Existing native pick, real gizmo drag, agent guard/retry/denial, undo/redo,
+  idle-frame settling, save/reload and 396-pixel layout checks still pass.
+
+Remaining work includes collaboration sessions and recovery, source-map reimport
+controls, editable keyframe removal/retiming, asset diagnostics, registered
+onboarding, Android/iOS qualification and release validation. Current native
+picks still report unknown pixel visibility and frame correlation.
