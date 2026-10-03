@@ -1,20 +1,54 @@
 part of '../levels.dart';
 
-GameAuthoring createGameDevelopmentAuthoring({GameRuleLibrary? rules}) {
+GameAuthoring createGameDevelopmentAuthoring({
+  GameRuleLibrary? rules,
+  GameRegistry? registry,
+}) {
   final library = rules ?? GameRuleLibrary();
-  final registry = GameRegistry();
-  registerGameComponentCodecs(registry);
-  registerGameLevelCodecs(registry);
-  registry.registerComponent(
+  final codecs = registry ?? GameRegistry();
+  registerGameComponentCodecs(codecs);
+  registerGameLevelCodecs(codecs);
+  codecs.registerComponent(
     GameRuleComponentCodec(library.actions, library.predicates),
   );
-  registry.registerComponent(
+  codecs.registerComponent(
     GameStateMachineComponentCodec(library.actions, library.predicates),
   );
   return GameAuthoring(
-    registry,
+    codecs,
     descriptors: [
       ...createGameComponentCatalog(),
+      GameComponentDescriptor(
+        type: 'game.character-rig',
+        label: 'Character animation rig',
+        dependencies: {'game.character', 'game.collider'},
+        defaults: GameCharacterRigDefinition(
+          rootMotionNode: 0,
+          movingClip: 'walk',
+        ).toJson(),
+        fields: const [
+          GameFieldDescriptor(
+            'rootMotionNode',
+            'Root motion node',
+            GameFieldKind.integer,
+            minimum: 0,
+            maximum: 1000000,
+          ),
+          GameFieldDescriptor('movingClip', 'Moving clip', GameFieldKind.text),
+          GameFieldDescriptor(
+            'idleClip',
+            'Idle clip (optional)',
+            GameFieldKind.text,
+            required: false,
+          ),
+          GameFieldDescriptor(
+            'visualOffset',
+            'Visual offset',
+            GameFieldKind.vector,
+            unit: 'm',
+          ),
+        ],
+      ),
       GameComponentDescriptor(
         type: 'game.state-machine',
         label: 'State machine',

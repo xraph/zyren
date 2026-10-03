@@ -135,7 +135,7 @@ final class CharacterAnimationPlugin extends ScenePlugin {
   @override
   void attach(PluginContext context) {
     if (_context != null) throw StateError('Character is already attached.');
-    if (!identical(context.service(sceneTimeline), timeline)) {
+    if (!identical(context.service(timeline.serviceKey), timeline)) {
       throw StateError('Character requires its registered timeline.');
     }
     final targets = {

@@ -144,7 +144,12 @@ class CameraTrack extends TimelineTrack {
 /// Absolute scene playback. Paused timelines do not request continuous frames.
 class SceneTimelinePlugin extends ScenePlugin {
   @override
-  String get id => 'zyren.timeline';
+  final String id;
+
+  /// A named timeline can coexist with other independently driven timelines.
+  late final ServiceKey<SceneTimelinePlugin> serviceKey = id == 'zyren.timeline'
+      ? sceneTimeline
+      : ServiceKey<SceneTimelinePlugin>(id);
   TimelineClip? _base;
   List<TimelineLayer> _layers = const [];
   final List<TimelineAction> _actions = [];
@@ -194,6 +199,7 @@ class SceneTimelinePlugin extends ScenePlugin {
 
   /// Combines absolute clips with weight curves on this timeline's clock.
   factory SceneTimelinePlugin.mixed({
+    String id = 'zyren.timeline',
     required Duration duration,
     required TimelineClip base,
     Iterable<TimelineLayer> layers = const [],
@@ -204,6 +210,7 @@ class SceneTimelinePlugin extends ScenePlugin {
   }) {
     final copied = List<TimelineLayer>.unmodifiable(layers);
     return SceneTimelinePlugin(
+        id: id,
         duration: duration,
         tracks: _mixTracks(duration, base, copied),
         markers: markers,
@@ -216,6 +223,7 @@ class SceneTimelinePlugin extends ScenePlugin {
   }
 
   SceneTimelinePlugin({
+    this.id = 'zyren.timeline',
     required this.duration,
     required Iterable<TimelineTrack> tracks,
     Iterable<TimelineMarker> markers = const [],
@@ -224,6 +232,9 @@ class SceneTimelinePlugin extends ScenePlugin {
     this.reverse = false,
   }) : tracks = List.unmodifiable(tracks),
        markers = List.unmodifiable(markers) {
+    if (id.trim().isEmpty) {
+      throw ArgumentError('Timeline ID must not be empty.');
+    }
     if (duration <= Duration.zero) {
       throw ArgumentError('Timeline duration must be positive.');
     }
@@ -268,7 +279,7 @@ class SceneTimelinePlugin extends ScenePlugin {
       _checkTarget(track.target);
       _parents[track.target] = track.target.parent;
     }
-    context.provide(sceneTimeline, this);
+    context.provide(serviceKey, this);
   }
 
   void _checkTarget(Object3D target) {

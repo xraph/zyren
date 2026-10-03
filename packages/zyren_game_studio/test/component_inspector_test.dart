@@ -40,6 +40,78 @@ StudioEditorHostController host(
 
 void main() {
   testWidgets(
+    'optional rig clip clears to the rest pose while required names remain required',
+    (tester) async {
+      final edits = createGameDevelopmentAuthoring();
+      var rig = GameCharacterRigDefinition(
+        rootMotionNode: 0,
+        movingClip: 'walk',
+        idleClip: 'idle',
+      ).toJson();
+      final descriptor = edits.descriptors['game.character-rig']!.fields
+          .singleWhere((f) => f.name == 'idleClip');
+      var changes = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: GameComponentField(
+              descriptor: descriptor,
+              value: rig['idleClip'],
+              origin: GameFieldOrigin.authored,
+              entities: const [],
+              enabled: true,
+              onChanged: (value) {
+                rig = {...rig, 'idleClip': value};
+                changes++;
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.enterText(find.byType(TextFormField), '');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pump();
+      expect(changes, 1);
+      expect(GameCharacterRigDefinition.fromJson(rig).idleClip, isNull);
+      expect(find.textContaining('invalid value'), findsNothing);
+      expect(
+        edits.descriptors['game.character-rig']!.fields
+            .singleWhere((f) => f.name == 'movingClip')
+            .validate(null),
+        isNotNull,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+  testWidgets('optional entity target can be explicitly cleared', (
+    tester,
+  ) async {
+    Object? selected = 'actor';
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: GameComponentField(
+            descriptor: const GameFieldDescriptor(
+              'target',
+              'Target',
+              GameFieldKind.entity,
+              required: false,
+            ),
+            value: selected,
+            origin: GameFieldOrigin.authored,
+            entities: [GameEntityRecord(id: 'actor')],
+            enabled: true,
+            onChanged: (value) => selected = value,
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.byTooltip('Clear Target'));
+    expect(selected, isNull);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
     'structured values retain inherited overridden and missing labels',
     (tester) async {
       for (final origin in [

@@ -4,6 +4,43 @@ import 'package:zyren_game/zyren_game.dart';
 
 void main() {
   test(
+    'character rig mappings round trip and reject invalid roots or clips',
+    () {
+      final registry = GameRegistry();
+      registerGameLevelCodecs(registry);
+      final rig = GameCharacterRigDefinition(
+        rootMotionNode: 3,
+        movingClip: 'run',
+      );
+      final restored =
+          registry.construct(
+                GameComponentRecord('game.character-rig', 1, rig.toJson()),
+              )
+              as GameCharacterRigDefinition;
+      expect(restored.rootMotionNode, 3);
+      expect(restored.movingClip, 'run');
+      expect(restored.visualOffset.y, -.8);
+      expect(restored.idleClip, isNull);
+      expect(
+        () =>
+            GameCharacterRigDefinition(rootMotionNode: -1, movingClip: 'walk'),
+        throwsArgumentError,
+      );
+      expect(
+        () => GameCharacterRigDefinition(rootMotionNode: 0, movingClip: '  '),
+        throwsArgumentError,
+      );
+      expect(
+        () => GameCharacterRigDefinition(
+          rootMotionNode: 0,
+          movingClip: 'walk',
+          visualOffset: Vec3(double.nan, 0, 0),
+        ),
+        throwsArgumentError,
+      );
+    },
+  );
+  test(
     'authored state graphs repeat explicitly and transition guards are typed',
     () {
       final library = GameRuleLibrary();

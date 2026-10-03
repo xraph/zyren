@@ -4,6 +4,53 @@ enum GameColliderShape { box, capsule, sphere }
 
 enum GameBodyMotion { fixed, dynamic, kinematic }
 
+/// Names the imported clips and root that drive an existing character motor.
+final class GameCharacterRigDefinition {
+  final int rootMotionNode;
+  final String movingClip;
+  final String? idleClip;
+  final Vec3 visualOffset;
+  GameCharacterRigDefinition({
+    required this.rootMotionNode,
+    required this.movingClip,
+    this.idleClip,
+    this.visualOffset = const Vec3(0, -.8, 0),
+  }) {
+    bool validName(String value) =>
+        value.trim().isNotEmpty && value.length <= 256;
+    if (rootMotionNode < 0 ||
+        rootMotionNode > 1000000 ||
+        !validName(movingClip) ||
+        (idleClip != null && !validName(idleClip!)) ||
+        !visualOffset.isFinite ||
+        visualOffset.storage.any((v) => v.abs() > 1000)) {
+      throw ArgumentError('Invalid character rig mapping.');
+    }
+  }
+  Map<String, Object?> toJson() => {
+    'rootMotionNode': rootMotionNode,
+    'movingClip': movingClip,
+    if (idleClip != null) 'idleClip': idleClip,
+    'visualOffset': visualOffset.storage,
+  };
+  factory GameCharacterRigDefinition.fromJson(Map<String, Object?> data) {
+    final offset = _list(data['visualOffset']);
+    if (offset.length != 3) {
+      throw const FormatException('Expected three visual offset values.');
+    }
+    return GameCharacterRigDefinition(
+      rootMotionNode: data['rootMotionNode'] as int,
+      movingClip: data['movingClip'] as String,
+      idleClip: data['idleClip'] as String?,
+      visualOffset: Vec3(
+        (offset[0] as num).toDouble(),
+        (offset[1] as num).toDouble(),
+        (offset[2] as num).toDouble(),
+      ),
+    );
+  }
+}
+
 /// Metres, kilograms and unitless contact coefficients consumed by native hosts.
 final class GameColliderDefinition {
   final GameColliderShape shape;
@@ -80,6 +127,12 @@ final class GameColliderDefinition {
 
 /// Definitions remain data; hosts use their existing level manager and physics.
 void registerGameLevelCodecs(GameRegistry registry) {
+  registry.registerComponent(
+    _GameDefinitionCodec<GameCharacterRigDefinition>(
+      'game.character-rig',
+      GameCharacterRigDefinition.fromJson,
+    ),
+  );
   registry.registerComponent(
     _GameDefinitionCodec<GameColliderDefinition>(
       'game.collider',

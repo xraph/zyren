@@ -55,3 +55,24 @@ The audio fixture ran the real native offline mixer and verified that muting or
 closing playback leaves hearing events intact. The effects fixture ran an actual
 `NativeBackend` particle burst and verified disposal. These macOS checks establish
 the integration paths, not mobile support or a sustained device frame budget.
+
+## Authored levels and imported characters
+
+Import `runtime.dart` for `GameLevelRuntime` and `scene.dart` for
+`GameRuntimeScene`. The scene loader reconstructs compiled nodes and asks your
+asset loader for each pinned model. Give the runtime those objects and its asset
+leases, then attach `runtime.plugins` to your existing engine. Close the engine
+before the runtime. Studio play and exported games use this same bootstrap.
+
+For an imported character, add `game.character`, `game.collider` and
+`game.character-rig`. The rig names a top-level glTF root node, one moving clip,
+an optional idle clip and the model's visual offset from its body. Import
+`animation.dart` and pass `createGameCharacterAnimation` as `animationFactory`.
+A primitive actor keeps its primitive controller. An imported actor needs an
+explicit valid rig mapping before play can start.
+
+Each imported actor gets its own named timeline and character state. Root motion
+is stripped from every visual clip and sent through the existing CharacterMotor
+and Rapier controller once per game step. A bad clip name reports the available
+clips so you can repair the component and retry. Two imported actors, independent
+animation clocks, failed rig loading and retry are covered by native tests.

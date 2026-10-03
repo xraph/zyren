@@ -266,7 +266,17 @@ class GameComponentField extends StatelessWidget {
             : descriptor.choices;
         return DropdownButtonFormField<String>(
           isExpanded: true,
-          decoration: decoration,
+          decoration: descriptor.required
+              ? decoration
+              : decoration.copyWith(
+                  suffixIcon: IconButton(
+                    tooltip: 'Clear ${descriptor.label}',
+                    onPressed: enabled && value != null
+                        ? () => onChanged(null)
+                        : null,
+                    icon: const Icon(Icons.clear, size: 18),
+                  ),
+                ),
           initialValue: choices.contains(value) ? value as String : null,
           items: choices
               .map(
@@ -354,6 +364,7 @@ class GameComponentField extends StatelessWidget {
   }
 
   Object? _parse(String text) => switch (descriptor.kind) {
+    GameFieldKind.text when !descriptor.required && text.trim().isEmpty => null,
     GameFieldKind.integer => int.tryParse(text),
     GameFieldKind.number => double.tryParse(text),
     _ => text,
