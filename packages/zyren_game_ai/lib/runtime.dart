@@ -297,7 +297,15 @@ final class GameLevelAi {
         : actor.definition.createActions().spec;
     final valid =
         frame != null &&
-        frame.readings.every((reading) => reading.state == SensorState.known);
+        frame.readings.every(
+          (reading) =>
+              reading.state == SensorState.known ||
+              // Hidden or unadmitted targets keep their validity bits clear.
+              // This is a trained observation, not a broken sensor.
+              reading.sensorId == 'vision' &&
+                  reading.state == SensorState.unknown &&
+                  reading.reason == 'partial-catalog-coverage',
+        );
     return BrainContext(
       identity: actor.identity,
       tick: session.tick,
@@ -509,6 +517,14 @@ final class GameLevelAi {
           )
           .toList(),
       'observation': actor.frame?.tensor.float32Values,
+      'sensors': [
+        for (final reading in actor.frame?.readings ?? <SensorReading>[])
+          {
+            'id': reading.sensorId,
+            'state': reading.state.name,
+            'reason': reading.reason,
+          },
+      ],
       'completedDecisions': completedDecisions,
       'fallbackTicks': fallbackTicks,
       'scriptedTicks': scriptedTicks,

@@ -48,6 +48,15 @@ final class HybridBrain implements GameBrain {
     if (next != null && !_skills.containsKey(next)) {
       throw StateError('Unregistered hybrid skill.');
     }
+    final schema = _schemas[next];
+    // Masks belong to a particular discrete schema. Command-based skills have
+    // no branches; another discrete schema needs its own caller-supplied mask.
+    if (schema != null &&
+        schema.branches.isNotEmpty &&
+        context.legality != null &&
+        schema.hash != context.actionSpec.hash) {
+      throw ArgumentError('Hybrid action mask belongs to another schema.');
+    }
     if (next != _active) {
       final previous = _skills[_active];
       previous?.reset(BrainReset(_identity, BrainResetReason.manual));
@@ -77,9 +86,9 @@ final class HybridBrain implements GameBrain {
         beliefs: context.beliefs,
         goals: [goal],
         validTargets: context.validTargets,
-        actionSpec: _schemas[next]!,
+        actionSpec: schema!,
         utilityInputs: context.utilityInputs,
-        legality: context.legality,
+        legality: schema.branches.isEmpty ? null : context.legality,
       ),
     );
   }
