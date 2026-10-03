@@ -1,0 +1,43 @@
+{
+  "version": "1.23.2",
+  "apiVersion": 23,
+  "source": "https://github.com/microsoft/onnxruntime/tree/v1.23.2",
+  "artifacts": {
+    "macos-arm64": {
+      "url": "https://github.com/microsoft/onnxruntime/releases/download/v1.23.2/onnxruntime-osx-arm64-1.23.2.tgz",
+      "sha256": "b4d513ab2b26f088c66891dbbc1408166708773d7cc4163de7bdca0e9bbb7856",
+      "directory": "onnxruntime-osx-arm64-1.23.2",
+      "library": "lib/libonnxruntime.1.23.2.dylib"
+    },
+    "macos-x64": {
+      "url": "https://github.com/microsoft/onnxruntime/releases/download/v1.23.2/onnxruntime-osx-x86_64-1.23.2.tgz",
+      "sha256": "d10359e16347b57d9959f7e80a225a5b4a66ed7d7e007274a15cae86836485a6",
+      "directory": "onnxruntime-osx-x86_64-1.23.2",
+      "library": "lib/libonnxruntime.1.23.2.dylib"
+    },
+    "linux-arm64": {
+      "url": "https://github.com/microsoft/onnxruntime/releases/download/v1.23.2/onnxruntime-linux-aarch64-1.23.2.tgz",
+      "sha256": "7c63c73560ed76b1fac6cff8204ffe34fe180e70d6582b5332ec094810241e5c",
+      "directory": "onnxruntime-linux-aarch64-1.23.2",
+      "library": "lib/libonnxruntime.so.1.23.2"
+    },
+    "linux-x64": {
+      "url": "https://github.com/microsoft/onnxruntime/releases/download/v1.23.2/onnxruntime-linux-x64-1.23.2.tgz",
+      "sha256": "1fa4dcaef22f6f7d5cd81b28c2800414350c10116f5fdd46a2160082551c5f9b",
+      "directory": "onnxruntime-linux-x64-1.23.2",
+      "library": "lib/libonnxruntime.so.1.23.2"
+    },
+    "windows-arm64": {
+      "url": "https://github.com/microsoft/onnxruntime/releases/download/v1.23.2/onnxruntime-win-arm64-1.23.2.zip",
+      "sha256": "1cfe88b6435df3b5fb0e9f6bd7d6f5df1e887b6174de7f6e2a47bab956f3f168",
+      "directory": "onnxruntime-win-arm64-1.23.2",
+      "library": "lib/onnxruntime.dll"
+    },
+    "windows-x64": {
+      "url": "https://github.com/microsoft/onnxruntime/releases/download/v1.23.2/onnxruntime-win-x64-1.23.2.zip",
+      "sha256": "0b38df9af21834e41e73d602d90db5cb06dbd1ca618948b8f1d66d607ac9f3cd",
+      "directory": "onnxruntime-win-x64-1.23.2",
+      "library": "lib/onnxruntime.dll"
+    }
+  }
+}

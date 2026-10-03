@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "id": "lstm_step",
+  "modelFile": "lstm_step.onnx",
+  "sha256": "5fd37fb37a053ec659d5fd2f8438fd51c0999640dd4e0b0777d5ab5e9c9f644e",
+  "opset": 17,
+  "runtimeVersion": "1.23.2",
+  "providers": [
+    "cpu"
+  ],
+  "maxModelBytes": 8388608,
+  "inputs": [
+    {
+      "name": "observation",
+      "dtype": "float32",
+      "shape": [
+        -1,
+        4
+      ],
+      "maxShape": [
+        64,
+        4
+      ]
+    },
+    {
+      "name": "hidden",
+      "dtype": "float32",
+      "shape": [
+        -1,
+        8
+      ],
+      "maxShape": [
+        64,
+        8
+      ]
+    },
+    {
+      "name": "cell",
+      "dtype": "float32",
+      "shape": [
+        -1,
+        8
+      ],
+      "maxShape": [
+        64,
+        8
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "name": "action",
+      "dtype": "float32",
+      "shape": [
+        -1,
+        2
+      ],
+      "maxShape": [
+        64,
+        2
+      ]
+    },
+    {
+      "name": "next_hidden",
+      "dtype": "float32",
+      "shape": [
+        -1,
+        8
+      ],
+      "maxShape": [
+        64,
+        8
+      ]
+    },
+    {
+      "name": "next_cell",
+      "dtype": "float32",
+      "shape": [
+        -1,
+        8
+      ],
+      "maxShape": [
+        64,
+        8
+      ]
+    }
+  ],
+  "recurrent": {
+    "hidden": "next_hidden",
+    "cell": "next_cell"
+  },
+  "provenance": "Locally generated deterministic probe, seed 7; no pretrained weights."
+}

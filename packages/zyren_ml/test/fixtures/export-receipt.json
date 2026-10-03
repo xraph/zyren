@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "torch": "2.8.0",
+  "onnx": "1.19.1",
+  "onnxruntime": "1.23.2",
+  "opset": 17,
+  "seed": 7,
+  "provider": "CPUExecutionProvider",
+  "models": [
+    {
+      "model": "linear",
+      "sha256": "076a0857b626d1ceefb7f07f70b943afc960934b0653128d629344c0be203c75",
+      "maxAbsoluteError": 0.0,
+      "bytes": 274,
+      "recurrentSteps": 0
+    },
+    {
+      "model": "lstm_step",
+      "sha256": "5fd37fb37a053ec659d5fd2f8438fd51c0999640dd4e0b0777d5ab5e9c9f644e",
+      "maxAbsoluteError": 5.960464477539063e-08,
+      "bytes": 3689,
+      "recurrentSteps": 1000
+    },
+    {
+      "model": "cnn_step",
+      "sha256": "cd3662c699485997f01d0690925169f08b8f723a39be7a92b61689aa0da7cf68",
+      "maxAbsoluteError": 2.9802322387695312e-08,
+      "bytes": 1471,
+      "recurrentSteps": 0
+    }
+  ],
+  "scope": "Python ONNX export/inference probe; Dart native bridge verified separately."
+}
