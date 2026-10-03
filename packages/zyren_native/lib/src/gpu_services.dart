@@ -4,6 +4,7 @@ part of 'native_renderer.dart';
 abstract interface class NativeGpuBackend
     implements MaterialBackend, GpuDiagnosticsBackend {
   Future<ResourceStats> resourceStats();
+  Future<void> configureResourceBudget(int bytes);
   Future<ShaderStats> shaderStats();
   Future<GraphCacheStats> graphStats();
   Future<ShadowStats> shadowStats();
@@ -107,6 +108,12 @@ final class NativeGpuServices {
 
   Future<Set<TextureFormat>> textureFormats() => _device.textureFormats();
   Future<ResourceStats> resourceStats() => _device.stats();
+  int get resourceBudgetBytes => _device.resourceBudgetBytes;
+  Future<void> configureResourceBudget(int bytes) {
+    _checkOpen();
+    return _device.configureBudget(bytes);
+  }
+
   Future<ShaderStats> shaderStats() => _device.shaderStats();
   Future<GraphCacheStats> graphStats() => _device.graphStats();
   Future<ShadowStats> shadowStats() => _device.shadowStats();

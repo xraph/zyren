@@ -24,26 +24,50 @@ class SceneRuntime {
   final PresenterFactory presenterFactory;
   final SurfacePresenterFactory? surfacePresenterFactory;
   final SurfacePresenterFactory? nativeViewPresenterFactory;
+  final int? resourceBudgetBytes;
 
   /// Opt-in Vulkan SurfaceProducer runtime for Android API 29 or newer.
-  const SceneRuntime.nativeAndroid({this.assetServices = defaultAssetServices})
-    : backendFactory = NativeAndroidBackend.create,
-      presenterFactory = ImageFramePresenter.create,
-      surfacePresenterFactory = const NativeAndroidPresenterFactory(),
-      nativeViewPresenterFactory = null;
+  const SceneRuntime.nativeAndroid({
+    this.assetServices = defaultAssetServices,
+    this.resourceBudgetBytes,
+  }) : backendFactory = NativeAndroidBackend.create,
+       presenterFactory = ImageFramePresenter.create,
+       surfacePresenterFactory = const NativeAndroidPresenterFactory(),
+       nativeViewPresenterFactory = null;
 
   /// Opt-in Metal platform view runtime for macOS and iOS.
-  const SceneRuntime.nativeMetal({this.assetServices = defaultAssetServices})
-    : backendFactory = NativeMetalBackend.create,
-      presenterFactory = ImageFramePresenter.create,
-      surfacePresenterFactory = null,
-      nativeViewPresenterFactory = const NativeMetalPresenterFactory();
+  const SceneRuntime.nativeMetal({
+    this.assetServices = defaultAssetServices,
+    this.resourceBudgetBytes,
+  }) : backendFactory = NativeMetalBackend.create,
+       presenterFactory = ImageFramePresenter.create,
+       surfacePresenterFactory = null,
+       nativeViewPresenterFactory = const NativeMetalPresenterFactory();
 
   const SceneRuntime({
     this.assetServices = defaultAssetServices,
+    this.resourceBudgetBytes,
     this.nativeViewPresenterFactory,
     this.surfacePresenterFactory = const NativeTexturePresenterFactory(),
     this.backendFactory = NativeBackend.create,
     this.presenterFactory = ImageFramePresenter.create,
   });
+
+  Future<RenderBackend> createBackend() async {
+    final backend = await backendFactory();
+    try {
+      if (resourceBudgetBytes case final bytes?) {
+        if (backend is! NativeGpuBackend) {
+          throw UnsupportedError(
+            'Resource budgets require a native GPU backend.',
+          );
+        }
+        await backend.configureResourceBudget(bytes);
+      }
+      return backend;
+    } catch (_) {
+      await backend.close();
+      rethrow;
+    }
+  }
 }

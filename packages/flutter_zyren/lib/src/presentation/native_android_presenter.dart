@@ -65,6 +65,9 @@ class NativeAndroidBackend implements NativeGpuBackend {
   @override
   Future<ResourceStats> resourceStats() => _gpu.resourceStats();
   @override
+  Future<void> configureResourceBudget(int bytes) =>
+      _gpu.configureResourceBudget(bytes);
+  @override
   Future<ShaderStats> shaderStats() => _gpu.shaderStats();
   @override
   Future<GraphCacheStats> graphStats() => _gpu.graphStats();
@@ -173,7 +176,7 @@ class NativeAndroidBackend implements NativeGpuBackend {
       maxTextureDimension2D: 4096,
       maxTextureDimension3D: 256,
       sampleCounts: _sampleCounts,
-      maxResidentResourceBytes: 256 * 1024 * 1024,
+      maxResidentResourceBytes: _gpu.resourceBudgetBytes,
       maxGeometryBytes: 64 * 1024 * 1024,
       maxInstances: 100000,
       maxJoints: 256,

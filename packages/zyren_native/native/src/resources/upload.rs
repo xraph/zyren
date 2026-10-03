@@ -62,6 +62,7 @@ pub enum Operation<'a> {
     ReadBuffer(ResourceKey, u64, u64),
     Stats,
     TextureFormats,
+    ConfigureBudget(u64),
     ReadTexture(ResourceKey, u32),
     GenerateMipmaps(ResourceKey, u32),
 }
@@ -190,6 +191,13 @@ impl<'a> Command<'a> {
             7 => Operation::ReadBuffer(r.key()?, r.u64()?, r.u64()?),
             8 => Operation::Stats,
             11 => Operation::TextureFormats,
+            13 => {
+                let bytes = r.u64()?;
+                if !(16 * 1024 * 1024..=1024 * 1024 * 1024).contains(&bytes) {
+                    return Err(ResourceError::InvalidRange);
+                }
+                Operation::ConfigureBudget(bytes)
+            }
             9 => Operation::ReadTexture(r.key()?, r.u32()?),
             10 => {
                 let key = r.key()?;

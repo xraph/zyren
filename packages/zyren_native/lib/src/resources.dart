@@ -154,6 +154,18 @@ final class _NativeResourceDevice
 
   int _nextRequest = 0;
   _NativeResourceDevice(this._send);
+  int resourceBudgetBytes = 256 * 1024 * 1024;
+  Future<void> configureBudget(int bytes) async {
+    RangeError.checkValueInInterval(
+      bytes,
+      16 * 1024 * 1024,
+      1024 * 1024 * 1024,
+      'resourceBudgetBytes',
+    );
+    await _command(13, _ResourcePacket()..u64(bytes));
+    resourceBudgetBytes = bytes;
+  }
+
   @override
   Future<NativeGpuReply> _submit(
     NativeGpuCommand kind,

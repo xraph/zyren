@@ -123,6 +123,14 @@ compiled graph through an attachment-owned `context.frameGraph` binding, or use
 `context.graph` to compose plugin contributions with shared resize and history
 management. Both custom mesh material APIs share the same GPU resource owner.
 
+You can call `configureResourceBudget(bytes)` before loading a large scene.
+The default registry allowance is 256 MiB; explicit limits range from 16 MiB to
+1 GiB. A reduction below live payload bytes fails without changing the limit.
+This counts registry payloads. Frame targets, driver allocations and physical
+GPU residency are separate. In Flutter, pass `resourceBudgetBytes` to
+`SceneRuntime.nativeMetal` or `SceneRuntime.nativeAndroid` to configure the
+controller's native session before plugins attach.
+
 Native platform adapters can use `NativeGpuServices.withTransport` to reuse the
 resource, shader and graph codecs with their existing renderer queue. The Metal
 and Android Flutter presenters use this path. `NativeGpuBackend` provides their

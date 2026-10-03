@@ -68,6 +68,11 @@ class NativeBackend implements NativeGpuBackend {
 
   @override
   Future<ResourceStats> resourceStats() => _resources.stats();
+  @override
+  Future<void> configureResourceBudget(int bytes) {
+    if (_closed) throw StateError('Backend has closed.');
+    return _resources.configureBudget(bytes);
+  }
 
   @override
   ShaderCompiler createShaderCompiler({String label = ''}) {
@@ -197,7 +202,7 @@ class NativeBackend implements NativeGpuBackend {
       maxTextureDimension2D: 4096,
       maxTextureDimension3D: 256,
       sampleCounts: _renderer._deviceInfo.sampleCounts,
-      maxResidentResourceBytes: 256 * 1024 * 1024,
+      maxResidentResourceBytes: _resources.resourceBudgetBytes,
       maxGeometryBytes: 64 * 1024 * 1024,
       maxInstances: 100000,
       maxJoints: 256,

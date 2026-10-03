@@ -51,6 +51,13 @@ impl<T> ResourceRegistry<T> {
         }
         self.check_batch(bytes, 1)
     }
+    pub fn configure_limit(&mut self, bytes: u64) -> Result<(), ResourceError> {
+        if bytes < self.resident {
+            return Err(ResourceError::BudgetExceeded);
+        }
+        self.limit = bytes;
+        Ok(())
+    }
     pub fn check_batch(&self, bytes: u64, count: usize) -> Result<(), ResourceError> {
         let available = 65536 - self.slots.len()
             + self

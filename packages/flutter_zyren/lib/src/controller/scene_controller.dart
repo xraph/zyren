@@ -332,7 +332,7 @@ class SceneController {
         },
         acquireFrameDemand: _scheduler.acquireDemand,
         backendFactory: () async {
-          final backend = await runtime.backendFactory();
+          final backend = await runtime.createBackend();
           if (_closed || generation != _generation) {
             await backend.close();
             throw _exception(

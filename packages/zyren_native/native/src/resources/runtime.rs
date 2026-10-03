@@ -826,6 +826,10 @@ impl ResourceStore {
             Operation::TextureFormats => texture_format::supported_mask(device)
                 .to_le_bytes()
                 .to_vec(),
+            Operation::ConfigureBudget(bytes) => {
+                self.registry.configure_limit(bytes)?;
+                Vec::new()
+            }
             Operation::Stats => [
                 self.registry.resident_bytes(),
                 self.uploaded,
