@@ -102,6 +102,7 @@ final class _NavigationBenchmark {
           ? 'release'
           : 'debug',
       'preset': 'tokyo',
+      'lifecycle': WidgetsBinding.instance.lifecycleState?.name,
       'phases': phases,
       'passed': false,
     };
@@ -166,6 +167,7 @@ final class _NavigationBenchmark {
           throw StateError('No rendered city geometry under the route pivot.');
         }
         final start = controller.camera.position;
+        final renderSize = controller.latestFrameStats!.physicalSize;
         var displacement = 0.0;
         final samples = <Map<String, Object?>>[];
         final clock = Stopwatch();
@@ -228,27 +230,32 @@ final class _NavigationBenchmark {
         });
         _stage = 'measuring $phase';
         clock.start();
+        Object? phaseFailure;
         try {
           while (clock.elapsed < const Duration(seconds: 12)) {
             await Future<void>.delayed(const Duration(milliseconds: 100));
             _check();
           }
+        } catch (error) {
+          phaseFailure = error;
         } finally {
           motion.dispose();
-          controls.cancel();
+          if (identical(navigation.controls, controls)) controls.cancel();
           await subscription.cancel();
         }
-        final frame = controller.latestFrameStats!;
         final summary = summarizeNavigationFrames(samples);
         phases.add({
           'name': phase,
           ...summary,
           'maxCameraDisplacementM': displacement,
           'viewport': [viewport.width, viewport.height],
-          'renderSize': [frame.physicalSize.width, frame.physicalSize.height],
+          'renderSize': [renderSize.width, renderSize.height],
           'failedTiles': lab.tiles!.failures.length,
+          'completed': phaseFailure == null,
+          if (phaseFailure != null) 'error': phaseFailure.toString(),
           'samples': samples,
         });
+        if (phaseFailure != null) throw phaseFailure;
         if (samples.length < 2 ||
             samples.any((s) => s['readbackBytes'] != 0 || s['visible'] == 0)) {
           throw StateError(
@@ -270,6 +277,25 @@ final class _NavigationBenchmark {
     } finally {
       demand?.dispose();
       navigation.controls?.cancel();
+      report['lifecycleAtEnd'] = WidgetsBinding.instance.lifecycleState?.name;
+      if (controller.status.value case SceneFailed(:final issue)) {
+        report['rendererFailure'] = {
+          'code': issue.code,
+          'operation': issue.operation,
+          'causeType': issue.cause.runtimeType.toString(),
+          'uploadBudgetExceeded': issue.message.contains(
+            'Scene resource upload exceeds the frame budget.',
+          ),
+        };
+      }
+      report['tileFailures'] = [
+        for (final failure in lab.tiles?.failures ?? [])
+          {
+            'code': failure.code.name,
+            'httpStatus': failure.httpStatus,
+            'attempts': failure.attempts,
+          },
+      ];
       _result = report;
       _running = false;
     }
