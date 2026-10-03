@@ -9,7 +9,7 @@ typedef DiagnosticCall =
       Map<String, Object?> arguments,
     );
 
-/// Tools-only MCP 2025-11-25 over newline-delimited UTF-8 stdio.
+/// Diagnostics and optional agent tools/resources over MCP 2025-11-25 over newline-delimited UTF-8 stdio.
 /// EOF ends the session. Notifications never receive a response.
 Future<void> serveDevtoolsMcp({
   required Stream<List<int>> input,
@@ -18,6 +18,39 @@ Future<void> serveDevtoolsMcp({
   bool agentsEnabled = false,
 }) async {
   var state = 0;
+  const changesUri = 'zyren://agents/changes';
+  Timer? subscriptionTimer;
+  var subscribed = false, polling = false, closed = false, changesCursor = 0;
+  Future<Map<String, dynamic>> changes([int after = 0]) async {
+    final data = await call('agent_changes', {'after': after, 'limit': 64});
+    return Map<String, dynamic>.from(data['agentChanges'] as Map);
+  }
+
+  Future<void> pollChanges() async {
+    if (!subscribed || polling || closed) return;
+    polling = true;
+    try {
+      final data = await changes(changesCursor);
+      final head = data['headCursor'] as int;
+      if (subscribed &&
+          !closed &&
+          (head != changesCursor || data['gap'] == true)) {
+        changesCursor = head;
+        output(
+          jsonEncode({
+            'jsonrpc': '2.0',
+            'method': 'notifications/resources/updated',
+            'params': {'uri': changesUri},
+          }),
+        );
+      }
+    } catch (_) {
+      // A later bounded poll retries transport failures; never invent a change.
+    } finally {
+      polling = false;
+    }
+  }
+
   final tools = [
     ...SceneDiagnostics.tools,
     if (agentsEnabled) ...AgentDevtoolsBridge.tools,
@@ -90,7 +123,10 @@ Future<void> serveDevtoolsMcp({
           id,
           result: {
             'protocolVersion': '2025-11-25',
-            'capabilities': {'tools': <String, Object?>{}},
+            'capabilities': {
+              'tools': <String, Object?>{},
+              if (agentsEnabled) 'resources': {'subscribe': true},
+            },
             'serverInfo': {
               'name': 'zyren-devtools',
               'version': SceneDiagnostics.packageVersion,
@@ -104,6 +140,81 @@ Future<void> serveDevtoolsMcp({
       }
       if (state != 2) {
         reply(id, code: -32002, message: 'Initialize the MCP session first.');
+        continue;
+      }
+      if (agentsEnabled && method.startsWith('resources/')) {
+        if (method == 'resources/list') {
+          if (params.isNotEmpty) {
+            reply(
+              id,
+              code: -32602,
+              message: 'This resource list has no cursor.',
+            );
+            continue;
+          }
+          reply(
+            id,
+            result: {
+              'resources': [
+                {
+                  'uri': changesUri,
+                  'name': 'agent-changes',
+                  'description':
+                      'Bounded registration, command and job changes. Imported labels remain untrusted data.',
+                  'mimeType': 'application/json',
+                },
+              ],
+            },
+          );
+        } else if (method == 'resources/templates/list') {
+          reply(id, result: {'resourceTemplates': <Object?>[]});
+        } else if (!{
+          'resources/read',
+          'resources/subscribe',
+          'resources/unsubscribe',
+        }.contains(method)) {
+          reply(id, code: -32601, message: 'Method not found.');
+        } else if (params['uri'] != changesUri ||
+            params.keys.any((key) => key != 'uri')) {
+          reply(id, code: -32002, message: 'Resource not found.');
+        } else {
+          try {
+            if (method == 'resources/unsubscribe') {
+              subscribed = false;
+              subscriptionTimer?.cancel();
+              subscriptionTimer = null;
+              reply(id, result: <String, Object?>{});
+            } else {
+              final snapshot = await changes();
+              final head = snapshot['headCursor'] as int;
+              if (method == 'resources/subscribe') {
+                changesCursor = head;
+                subscribed = true;
+                subscriptionTimer ??= Timer.periodic(
+                  const Duration(milliseconds: 500),
+                  (_) => unawaited(pollChanges()),
+                );
+                reply(id, result: <String, Object?>{});
+              } else {
+                final recent = head > 64 ? await changes(head - 64) : snapshot;
+                reply(
+                  id,
+                  result: {
+                    'contents': [
+                      {
+                        'uri': changesUri,
+                        'mimeType': 'application/json',
+                        'text': jsonEncode(recent),
+                      },
+                    ],
+                  },
+                );
+              }
+            }
+          } catch (_) {
+            reply(id, code: -32603, message: 'Resource is unavailable.');
+          }
+        }
         continue;
       }
       if (method == 'tools/list') {
@@ -164,6 +275,10 @@ Future<void> serveDevtoolsMcp({
       code: -32700,
       message: 'Invalid UTF-8 or message exceeds 16 KiB. Closing session.',
     );
+  } finally {
+    closed = true;
+    subscribed = false;
+    subscriptionTimer?.cancel();
   }
 }
 

@@ -111,5 +111,9 @@ cancels all jobs on close. A cancellation request does not imply rollback or
 completion before the provider acknowledges it.
 
 `agent_changes` reads up to 64 events after a cursor from a 128-event buffer.
-Refresh discovery and state when `gap` is true. This is an explicit polling feed,
-not an MCP resource subscription. Direct callers can subscribe to registry changes.
+Refresh discovery and state when `gap` is true. The CLI also exposes
+`zyren://agents/changes` through MCP resource list/read and
+subscribe/unsubscribe. It polls the authenticated feed every 500 ms while subscribed,
+sends resource-updated notifications and stops polling on unsubscribe or EOF.
+Resource reads include the latest 64 events. Direct callers can subscribe to registry
+changes. The resource wire format follows the [MCP resource specification](https://modelcontextprotocol.io/specification/2025-11-25/server/resources).

@@ -9,8 +9,10 @@ part 'src/agent_jobs.dart';
 
 final class AgentDevtoolsBridge {
   final AgentRegistry registry;
-  late final _AgentJobs _jobs = _AgentJobs(registry);
-  AgentDevtoolsBridge(this.registry);
+  late final _AgentJobs _jobs;
+  AgentDevtoolsBridge(this.registry) {
+    _jobs = _AgentJobs(registry);
+  }
   void dispose() => _jobs.dispose();
   static const _string = {'type': 'string', 'minLength': 1, 'maxLength': 96};
   static const _callProperties = {

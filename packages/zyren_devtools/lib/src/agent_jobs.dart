@@ -106,6 +106,7 @@ final class _AgentJobs {
       return _envelope({
         'agentChanges': {
           'events': events,
+          'headCursor': _cursor,
           'nextCursor': events.isEmpty ? _cursor : events.last['cursor'],
           'gap':
               after > _cursor ||
