@@ -34,6 +34,13 @@ abstract class SceneNode<T extends Object3D> extends StatefulWidget {
   final List<Widget> children;
   final void Function(T object, FrameTime time)? onFrame;
   final void Function(PickResult hit)? onTap;
+  final void Function(SceneObjectEvent event)? onPointerEnter,
+      onPointerLeave,
+      onPointerDown,
+      onPointerMove,
+      onPointerUp,
+      onPointerCancel,
+      onClick;
   const SceneNode({
     super.key,
     this.name,
@@ -45,6 +52,13 @@ abstract class SceneNode<T extends Object3D> extends StatefulWidget {
     this.children = const [],
     this.onFrame,
     this.onTap,
+    this.onPointerEnter,
+    this.onPointerLeave,
+    this.onPointerDown,
+    this.onPointerMove,
+    this.onPointerUp,
+    this.onPointerCancel,
+    this.onClick,
   });
   T createObject();
   void updateObject(T object, covariant SceneNode<T>? previous) {}
@@ -140,7 +154,7 @@ class _SceneNodeState<T extends Object3D> extends State<SceneNode<T>> {
 
   void _syncCallbacks() {
     if (!_attached) return;
-    _host!._setTap(object, widget.onTap);
+    _host!.events.set(object, widget);
     if (widget.onFrame == null) {
       _frame?.dispose();
       _frame = null;
@@ -183,7 +197,7 @@ class _SceneNodeState<T extends Object3D> extends State<SceneNode<T>> {
         next.quaternion = object.quaternion;
         next.visible = object.visible;
       }
-      _host?._setTap(object, null);
+      _host?.events.remove(object);
       _parent?.remove(object);
       _nodeOwners[object] = null;
       object = next;
@@ -204,7 +218,7 @@ class _SceneNodeState<T extends Object3D> extends State<SceneNode<T>> {
     _frame?.dispose();
     _frame = null;
     if (_attached) {
-      _host?._setTap(object, null);
+      _host?.events.remove(object);
       _parent?.remove(object);
       _nodeOwners[object] = null;
       widget.ref?._clear(this);
@@ -246,6 +260,13 @@ class GroupNode extends SceneNode<Group> {
     super.children,
     super.onFrame,
     super.onTap,
+    super.onPointerEnter,
+    super.onPointerLeave,
+    super.onPointerDown,
+    super.onPointerMove,
+    super.onPointerUp,
+    super.onPointerCancel,
+    super.onClick,
   });
   @override
   Group createObject() => Group(name: name);
@@ -272,6 +293,13 @@ class MeshNode extends SceneNode<Mesh> {
     super.children,
     super.onFrame,
     super.onTap,
+    super.onPointerEnter,
+    super.onPointerLeave,
+    super.onPointerDown,
+    super.onPointerMove,
+    super.onPointerUp,
+    super.onPointerCancel,
+    super.onClick,
   });
   @override
   Mesh createObject() => Mesh(geometry.create(), material.create(), name: name);
@@ -304,6 +332,13 @@ class ObjectNode<T extends Object3D> extends SceneNode<T> {
     super.children,
     super.onFrame,
     super.onTap,
+    super.onPointerEnter,
+    super.onPointerLeave,
+    super.onPointerDown,
+    super.onPointerMove,
+    super.onPointerUp,
+    super.onPointerCancel,
+    super.onClick,
   });
   @override
   T createObject() => object;

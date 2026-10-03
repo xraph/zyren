@@ -165,6 +165,13 @@ class ModelNode extends StatelessWidget {
   final Widget Function(BuildContext context, ModelInstance instance)? builder;
   final void Function(ModelInstance instance, FrameTime time)? onFrame;
   final void Function(PickResult hit)? onTap;
+  final void Function(SceneObjectEvent event)? onPointerEnter,
+      onPointerLeave,
+      onPointerDown,
+      onPointerMove,
+      onPointerUp,
+      onPointerCancel,
+      onClick;
   final SceneAssetLoadingBuilder? loadingBuilder;
   final SceneAssetErrorBuilder? errorBuilder;
   final AssetCache? cache;
@@ -183,6 +190,13 @@ class ModelNode extends StatelessWidget {
     this.builder,
     this.onFrame,
     this.onTap,
+    this.onPointerEnter,
+    this.onPointerLeave,
+    this.onPointerDown,
+    this.onPointerMove,
+    this.onPointerUp,
+    this.onPointerCancel,
+    this.onClick,
     this.loadingBuilder,
     this.errorBuilder,
     this.cache,
@@ -262,6 +276,13 @@ class _MountedModelState extends State<_MountedModel> {
       visible: node.visible,
       onFrame: node.onFrame,
       onTap: node.onTap,
+      onPointerEnter: node.onPointerEnter,
+      onPointerLeave: node.onPointerLeave,
+      onPointerDown: node.onPointerDown,
+      onPointerMove: node.onPointerMove,
+      onPointerUp: node.onPointerUp,
+      onPointerCancel: node.onPointerCancel,
+      onClick: node.onClick,
       children: [
         ...node.children,
         if (node.builder != null) node.builder!(context, instance),

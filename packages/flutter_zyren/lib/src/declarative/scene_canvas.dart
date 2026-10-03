@@ -3,12 +3,14 @@ import 'package:flutter/widgets.dart';
 import 'package:zyren/zyren.dart';
 import '../controller/scene_controller.dart';
 import '../controller/scene_runtime.dart';
+import '../input/flutter_input_adapter.dart';
 import 'scene_specs.dart';
 
 export 'scene_specs.dart';
 export 'scene_assets.dart';
 export 'scene_selector.dart';
 part 'scene_nodes.dart';
+part 'scene_events.dart';
 part 'scene_plugins.dart';
 
 /// A native viewport with a declarative scene tree and an optional Flutter overlay.
@@ -35,6 +37,10 @@ class SceneCanvas extends StatefulWidget {
   final void Function(SceneIssue issue)? onError;
   final double resolutionScale;
 
+  /// A click with no registered event target, even if geometry was intersected.
+  /// Navigation can own the pointer. Blocked overlays suppress this callback.
+  final ScenePointerCallback? onPointerMissed;
+
   const SceneCanvas({
     super.key,
     this.children = const [],
@@ -54,6 +60,7 @@ class SceneCanvas extends StatefulWidget {
     this.errorBuilder,
     this.onError,
     this.resolutionScale = 1,
+    this.onPointerMissed,
   });
 
   @override
@@ -70,9 +77,7 @@ class _SceneCanvasState extends State<SceneCanvas> {
   OrbitControlsPlugin? _orbitPlugin;
   bool _pluginSyncPending = false;
   List<ScenePlugin>? _lastDesiredPlugins;
-  final taps = <Object3D, void Function(PickResult)>{};
-  Registration? _tapInterest;
-  bool _tapSyncPending = false;
+  late final _SceneEventDispatcher events;
 
   @override
   void initState() {
@@ -84,6 +89,11 @@ class _SceneCanvasState extends State<SceneCanvas> {
         scene: Scene()..background = widget.background,
         options: widget.options,
         runtime: widget.runtime,
+      );
+      events = _SceneEventDispatcher(
+        controller,
+        (event) => widget.onPointerMissed?.call(event),
+        () => widget.onPointerMissed != null,
       );
       widget.onCreated?.call(controller);
       _imperativePlugins = controller.requestedPlugins;
@@ -98,6 +108,7 @@ class _SceneCanvasState extends State<SceneCanvas> {
   @override
   void didUpdateWidget(SceneCanvas oldWidget) {
     super.didUpdateWidget(oldWidget);
+    events._syncInterests();
     if (widget.assetCache != oldWidget.assetCache ||
         widget.runtime != oldWidget.runtime ||
         _sessionOptions(widget.options) != _sessionOptions(oldWidget.options)) {
@@ -188,70 +199,9 @@ class _SceneCanvasState extends State<SceneCanvas> {
     value.maxFramesInFlight,
   );
 
-  void _setTap(Object3D object, void Function(PickResult)? callback) {
-    if (callback == null) {
-      taps.remove(object);
-    } else {
-      taps[object] = callback;
-    }
-    // SceneView is a sibling of the scene tree. Notify it after Flutter build.
-    if (_tapSyncPending) return;
-    _tapSyncPending = true;
-    scheduleMicrotask(_syncTapInterest);
-  }
-
-  void _syncTapInterest() {
-    _tapSyncPending = false;
-    if (!mounted || controller.isDisposed) return;
-    if (taps.isEmpty) {
-      _tapInterest?.dispose();
-      _tapInterest = null;
-    } else if (_tapInterest == null && !controller.isDisposed) {
-      _tapInterest = controller.input.registerGesture(SceneGesture.tap);
-    }
-  }
-
-  void _onPointer(ScenePointerEvent event) {
-    if (event.phase != ScenePointerPhase.tap || taps.isEmpty) return;
-    controller
-        .pick(event.point)
-        .then((hit) {
-          if (!mounted || controller.isDisposed || hit == null) return;
-          // A queued pick cannot target an object removed before delivery.
-          Object3D? root = hit.object;
-          while (root?.parent != null) {
-            root = root!.parent;
-          }
-          if (!identical(root, controller.scene)) return;
-          for (
-            Object3D? object = hit.object;
-            object != null;
-            object = object.parent
-          ) {
-            final callback = taps[object];
-            if (callback != null) {
-              callback(hit);
-              break;
-            }
-          }
-        })
-        .catchError((Object error, StackTrace stack) {
-          if (!mounted || controller.isDisposed) return;
-          FlutterError.reportError(
-            FlutterErrorDetails(
-              exception: error,
-              stack: stack,
-              library: 'flutter_zyren',
-              context: ErrorDescription('while dispatching a scene tap'),
-            ),
-          );
-        });
-  }
-
   @override
   void dispose() {
-    _tapInterest?.dispose();
-    taps.clear();
+    if (_controller != null) events.dispose();
     _controller?.dispose();
     if (widget.assetCache == null) assetCache.dispose();
     super.dispose();
@@ -268,13 +218,15 @@ class _SceneCanvasState extends State<SceneCanvas> {
           fit: StackFit.expand,
           children: [
             Offstage(child: _SceneChildren(children: widget.children)),
-            SceneView(
-              controller: controller,
-              resolutionScale: widget.resolutionScale,
-              loadingBuilder: widget.loadingBuilder,
-              errorBuilder: widget.errorBuilder,
-              onError: widget.onError,
-              onPointer: _onPointer,
+            MouseRegion(
+              onExit: (_) => events.exit(),
+              child: SceneView(
+                controller: controller,
+                resolutionScale: widget.resolutionScale,
+                loadingBuilder: widget.loadingBuilder,
+                errorBuilder: widget.errorBuilder,
+                onError: widget.onError,
+              ),
             ),
             if (widget.overlay != null) widget.overlay!,
           ],
