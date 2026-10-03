@@ -20,6 +20,7 @@ final class GameStateMachine {
   final List<GameStateTransition> transitions;
   final GameEntityHandle actor;
   final int epoch, stepBudget, queueCapacity;
+  final Set<String> repeatStates;
   final Map<String, Object> _services;
   final Map<String, _RuleOperation> _predicates;
   String _state;
@@ -29,6 +30,18 @@ final class GameStateMachine {
   int _lastTick = -1;
   bool _closed = false;
   String get state => _state;
+  BehaviorStatus get status => _runner.status;
+
+  /// Restore only at construction, before any action or transition has run.
+  void restoreTerminalStatus(BehaviorStatus value) {
+    if (_lastTick != -1 || _closed || value == BehaviorStatus.running) {
+      throw StateError(
+        'A terminal state can only be restored before its first tick.',
+      );
+    }
+    _runner._status = value;
+  }
+
   GameStateMachine({
     required Map<String, GameRuleProgram> states,
     required List<GameStateTransition> transitions,
@@ -37,17 +50,20 @@ final class GameStateMachine {
     required this.epoch,
     required GamePredicateRegistry predicates,
     Map<String, Object> services = const {},
+    Set<String> repeatStates = const {},
     this.stepBudget = 64,
     this.queueCapacity = 256,
   }) : states = Map.unmodifiable(states),
        transitions = List.unmodifiable(transitions),
+       repeatStates = Set.unmodifiable(repeatStates),
        _state = initial,
        _services = Map.unmodifiable(services),
        _predicates = Map.unmodifiable(predicates._operations) {
     if (states.isEmpty ||
         states.length > 64 ||
         !states.containsKey(initial) ||
-        transitions.length > 256) {
+        transitions.length > 256 ||
+        !states.keys.toSet().containsAll(repeatStates)) {
       throw const FormatException(
         'Invalid state machine bounds or initial state.',
       );
@@ -135,6 +151,10 @@ final class GameStateMachine {
       }
       _events.addAll(events);
       _commands.addAll(commands);
+      if (result != BehaviorStatus.running && repeatStates.contains(_state)) {
+        _runner.close();
+        _runner = _newRunner(states[_state]!);
+      }
       return result;
     } catch (error, stack) {
       try {

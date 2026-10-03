@@ -41,6 +41,12 @@ part 'src/runtime/diagnostics.dart';
 part 'src/gameplay/possession.dart';
 
 part 'src/definitions/character.dart';
+
 part 'src/definitions/vehicle.dart';
+
 part 'src/definitions/wheel.dart';
+
 part 'src/definitions/components.dart';
+part 'src/definitions/level.dart';
+part 'src/gameplay/rule_library.dart';
+part 'src/gameplay/state_machine_definition.dart';

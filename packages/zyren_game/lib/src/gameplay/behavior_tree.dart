@@ -118,6 +118,9 @@ final class _RuleOperation {
 
 final class GameActionRegistry {
   final Map<String, _RuleOperation> _operations = {};
+  Map<String, Map<String, GamePortType>> get ports => Map.unmodifiable({
+    for (final entry in _operations.entries) entry.key: entry.value.ports,
+  });
   void register(
     String id, {
     Map<String, GamePortType> ports = const {},
@@ -134,6 +137,9 @@ final class GameActionRegistry {
 
 final class GamePredicateRegistry {
   final Map<String, _RuleOperation> _operations = {};
+  Map<String, Map<String, GamePortType>> get ports => Map.unmodifiable({
+    for (final entry in _operations.entries) entry.key: entry.value.ports,
+  });
   void register(
     String id, {
     Map<String, GamePortType> ports = const {},

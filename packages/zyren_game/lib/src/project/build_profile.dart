@@ -20,6 +20,12 @@ final class GameBuildProfile {
     'fixedHz': fixedHz,
     'capabilities': capabilities,
   };
+  factory GameBuildProfile.fromJson(Map<String, Object?> data) =>
+      GameBuildProfile(
+        id: _string(data['id']),
+        fixedHz: _integer(data['fixedHz']),
+        capabilities: _list(data['capabilities']).map(_string).toList(),
+      );
 }
 
 /// Runtime asset pins contain no editor or Pipeline objects.
