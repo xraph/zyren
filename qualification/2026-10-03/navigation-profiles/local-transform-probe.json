@@ -1,0 +1,31 @@
+{
+  "scope": "AOT unchanged local transforms only; not end-to-end navigation FPS",
+  "beforeSource": "54110571",
+  "afterChange": "93ff5f36",
+  "before": {
+    "scope": "AOT unchanged local matrix reads only, not navigation FPS",
+    "objects": 1000,
+    "readsPerRepeat": 2000000,
+    "microseconds": [
+      413181,
+      423348,
+      405476,
+      404492,
+      405787
+    ],
+    "checksum": 5044950000.0
+  },
+  "after": {
+    "scope": "AOT unchanged local matrix reads only, not navigation FPS",
+    "objects": 1000,
+    "readsPerRepeat": 2000000,
+    "microseconds": [
+      15886,
+      16084,
+      15981,
+      16511,
+      16114
+    ],
+    "checksum": 5044950000.0
+  }
+}

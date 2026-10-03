@@ -1,5 +1,9 @@
 # Live Google Tiles navigation
 
+Follow-up GPU profiles, cloud comparisons and upload-staging results are in
+[Live navigation profiles](navigation-profiles.md). The measurements below
+remain the earlier baseline.
+
 The live runs exposed three problems we could fix without changing scene detail:
 
 - Image decoders reject a third concurrent decode as busy. Asset loading treated
