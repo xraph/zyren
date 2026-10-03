@@ -1,13 +1,24 @@
 import 'package:flutter/material.dart';
 import 'studio_theme.dart';
 
-enum StudioDock { left, right, rightLower, bottom }
+enum StudioDock { left, leftLower, right, rightLower, bottom }
 
 class StudioPane {
   final String id, title;
   final IconData icon;
   final Widget child;
-  const StudioPane(this.id, this.title, this.icon, this.child);
+  final StudioDock? defaultDock;
+  final bool initiallyOpen;
+  final int order;
+  const StudioPane(
+    this.id,
+    this.title,
+    this.icon,
+    this.child, {
+    this.defaultDock,
+    this.initiallyOpen = false,
+    this.order = 0,
+  });
 }
 
 /// Stable stack slots keep native surfaces and in-flight conversations alive.
@@ -28,32 +39,55 @@ class StudioWorkspace extends StatefulWidget {
 }
 
 class _StudioWorkspaceState extends State<StudioWorkspace> {
-  late final Map<String, StudioDock> _docks = {
-    for (final p in widget.panes)
-      p.id: p.id == 'inspector' && widget.initialPane == 'agent'
+  StudioDock _defaultDock(StudioPane p) =>
+      p.defaultDock ??
+      (p.id == 'inspector' && widget.initialPane == 'agent'
           ? StudioDock.rightLower
           : p.id == 'animation'
           ? StudioDock.bottom
           : p.id == 'scene' || p.id == 'assets'
           ? StudioDock.left
-          : StudioDock.right,
+          : StudioDock.right);
+  late final Map<String, StudioDock> _docks = {
+    for (final p in widget.panes) p.id: _defaultDock(p),
   };
-  late final Map<StudioDock, String?> _active = {
-    StudioDock.left: 'scene',
-    StudioDock.right: widget.initialPane,
-    StudioDock.rightLower:
-        widget.initialPane == 'agent' &&
-            widget.panes.any((p) => p.id == 'inspector')
-        ? 'inspector'
-        : null,
-    StudioDock.bottom: null,
-  };
+  late final List<String> _order = (List<StudioPane>.of(
+    widget.panes,
+  )..sort((a, b) => a.order.compareTo(b.order))).map((p) => p.id).toList();
+  late final Map<StudioDock, String?> _active = _defaults();
+  Map<StudioDock, String?> _defaults() {
+    final result = {
+      for (final dock in StudioDock.values) dock: null as String?,
+    };
+    for (final p in widget.panes) {
+      if (p.id == 'scene' ||
+          p.id == widget.initialPane ||
+          (p.id == 'inspector' && widget.initialPane == 'agent') ||
+          p.initiallyOpen) {
+        result[_defaultDock(p)] ??= p.id;
+      }
+    }
+    return result;
+  }
+
+  late String? _focusedPane = widget.initialPane;
   String? _narrowPane;
-  bool _narrowInitialized = false;
+  bool _narrowInitialized = false, _dragging = false;
   double _left = 260, _right = 280, _bottom = 200;
-  double _rightSplit = .5;
+  double _rightSplit = .5, _leftSplit = .5;
   bool _isRight(StudioDock? dock) =>
       dock == StudioDock.right || dock == StudioDock.rightLower;
+  bool _isLeft(StudioDock? dock) =>
+      dock == StudioDock.left || dock == StudioDock.leftLower;
+  String _dockName(StudioDock dock) => switch (dock) {
+    StudioDock.leftLower => 'lower left',
+    StudioDock.rightLower => 'lower right',
+    _ => dock.name,
+  };
+  void _focus(String id) {
+    if (_focusedPane != id) setState(() => _focusedPane = id);
+    widget.onActivePanel?.call(id);
+  }
 
   @override
   void didUpdateWidget(covariant StudioWorkspace oldWidget) {
@@ -63,15 +97,13 @@ class _StudioWorkspaceState extends State<StudioWorkspace> {
       throw StateError('Duplicate workspace pane ID.');
     }
     _docks.removeWhere((id, _) => !ids.contains(id));
+    _order.removeWhere((id) => !ids.contains(id));
     for (final pane in widget.panes) {
-      _docks.putIfAbsent(
-        pane.id,
-        () => pane.id == 'animation'
-            ? StudioDock.bottom
-            : pane.id == 'scene' || pane.id == 'assets'
-            ? StudioDock.left
-            : StudioDock.right,
-      );
+      if (!_docks.containsKey(pane.id)) {
+        _docks[pane.id] = _defaultDock(pane);
+        _order.add(pane.id);
+        if (pane.initiallyOpen) _active[_docks[pane.id]!] ??= pane.id;
+      }
     }
     for (final dock in StudioDock.values) {
       if (_active[dock] != null && !ids.contains(_active[dock])) {
@@ -81,13 +113,19 @@ class _StudioWorkspaceState extends State<StudioWorkspace> {
     if (_narrowPane != null && !ids.contains(_narrowPane)) _narrowPane = null;
   }
 
-  void _move(String id, StudioDock dock) => setState(() {
+  void _move(String id, StudioDock dock, {String? before}) => setState(() {
+    if (!_docks.containsKey(id) || before == id) return;
+    _order.remove(id);
+    final index = before == null ? -1 : _order.indexOf(before);
+    _order.insert(index < 0 ? _order.length : index, id);
+    _focusedPane = id;
     for (final side in StudioDock.values) {
       if (_active[side] == id) _active[side] = null;
     }
     _docks[id] = dock;
     _active[dock] = id;
     _narrowPane = id;
+    widget.onActivePanel?.call(id);
   });
 
   Widget _header(StudioPane pane, bool narrow) => SizedBox(
@@ -98,6 +136,8 @@ class _StudioWorkspaceState extends State<StudioWorkspace> {
         Expanded(
           child: Draggable<String>(
             data: pane.id,
+            onDragStarted: () => setState(() => _dragging = true),
+            onDragEnd: (_) => setState(() => _dragging = false),
             feedback: Material(
               elevation: 4,
               child: Padding(
@@ -127,11 +167,7 @@ class _StudioWorkspaceState extends State<StudioWorkspace> {
             for (final dock in StudioDock.values)
               PopupMenuItem(
                 value: dock,
-                child: Text(
-                  dock == StudioDock.rightLower
-                      ? 'Move to lower right'
-                      : 'Move to ${dock.name}',
-                ),
+                child: Text('Move to ${_dockName(dock)}'),
               ),
           ],
           icon: Icon(Icons.more_vert, semanticLabel: 'Dock ${pane.title}'),
@@ -152,6 +188,114 @@ class _StudioWorkspaceState extends State<StudioWorkspace> {
     ),
   );
 
+  Widget _railIcon(StudioPane pane) {
+    final palette = StudioPalette.of(context);
+    final open = _active[_docks[pane.id]] == pane.id;
+    final focused = open && _focusedPane == pane.id;
+    return Draggable<String>(
+      key: ValueKey('rail-icon-${pane.id}'),
+      data: pane.id,
+      onDragStarted: () => setState(() => _dragging = true),
+      onDragEnd: (_) => setState(() => _dragging = false),
+      feedback: Material(
+        color: palette.selection,
+        borderRadius: BorderRadius.circular(5),
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: Icon(pane.icon, size: 18),
+        ),
+      ),
+      child: DragTarget<String>(
+        onWillAcceptWithDetails: (d) => d.data != pane.id,
+        onAcceptWithDetails: (d) =>
+            _move(d.data, _docks[pane.id]!, before: pane.id),
+        builder: (_, candidates, _) => Container(
+          decoration: BoxDecoration(
+            border: candidates.isEmpty
+                ? null
+                : Border(top: BorderSide(color: palette.accent, width: 2)),
+          ),
+          margin: const EdgeInsets.symmetric(vertical: 3),
+          child: IconButton(
+            tooltip: pane.title,
+            isSelected: open,
+            style: IconButton.styleFrom(
+              backgroundColor: focused
+                  ? palette.accent
+                  : open
+                  ? palette.border
+                  : Colors.transparent,
+              foregroundColor: focused
+                  ? (palette.dark ? Colors.black : Colors.white)
+                  : palette.muted,
+            ),
+            onPressed: () => setState(() {
+              final dock = _docks[pane.id]!;
+              _active[dock] = open ? null : pane.id;
+              _focusedPane = open ? null : pane.id;
+              if (!open) widget.onActivePanel?.call(pane.id);
+            }),
+            icon: Icon(pane.icon, size: 17, semanticLabel: pane.title),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _railGroup(StudioDock dock) {
+    final panes = {for (final pane in widget.panes) pane.id: pane};
+    return DragTarget<String>(
+      key: ValueKey('rail-drop-${dock.name}'),
+      onAcceptWithDetails: (d) => _move(d.data, dock),
+      builder: (_, candidates, _) => Container(
+        width: 36,
+        constraints: BoxConstraints(minHeight: _dragging ? 48 : 8),
+        decoration: BoxDecoration(
+          color: candidates.isEmpty
+              ? Colors.transparent
+              : StudioPalette.of(context).selection,
+          borderRadius: BorderRadius.circular(5),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final id in _order)
+              if (_docks[id] == dock && panes[id] != null)
+                _railIcon(panes[id]!),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _railDivider() => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+    child: Divider(
+      color: StudioPalette.of(context).muted.withValues(alpha: .35),
+    ),
+  );
+
+  void _resetLayout() => setState(() {
+    for (final p in widget.panes) {
+      _docks[p.id] = _defaultDock(p);
+    }
+    _order
+      ..clear()
+      ..addAll(
+        (List<StudioPane>.of(
+          widget.panes,
+        )..sort((a, b) => a.order.compareTo(b.order))).map((p) => p.id),
+      );
+    _active
+      ..clear()
+      ..addAll(_defaults());
+    _focusedPane = widget.initialPane;
+    _rightSplit = _leftSplit = .5;
+    _left = 260;
+    _right = 280;
+    _bottom = 200;
+  });
+
   Widget _rail(bool narrow, {bool right = false}) => Material(
     color: StudioPalette.of(context).chrome,
     child: narrow
@@ -161,8 +305,14 @@ class _StudioWorkspaceState extends State<StudioWorkspace> {
               children: [
                 for (final p in widget.panes)
                   TextButton.icon(
-                    onPressed: () => setState(
-                      () => _narrowPane = _narrowPane == p.id ? null : p.id,
+                    onPressed: () => setState(() {
+                      _narrowPane = _narrowPane == p.id ? null : p.id;
+                      _focusedPane = p.id;
+                    }),
+                    style: TextButton.styleFrom(
+                      backgroundColor: _narrowPane == p.id
+                          ? StudioPalette.of(context).selection
+                          : null,
                     ),
                     icon: Icon(p.icon, size: 16),
                     label: Text(p.title),
@@ -172,56 +322,27 @@ class _StudioWorkspaceState extends State<StudioWorkspace> {
           )
         : Column(
             children: [
-              for (final p in widget.panes.where(
-                (p) => right ? _isRight(_docks[p.id]) : !_isRight(_docks[p.id]),
-              ))
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 3),
-                  child: IconButton(
-                    tooltip: p.title,
-                    style: IconButton.styleFrom(
-                      backgroundColor: _active[_docks[p.id]] == p.id
-                          ? StudioPalette.of(context).border
-                          : Colors.transparent,
-                    ),
-                    isSelected: _active[_docks[p.id]] == p.id,
-                    onPressed: () => setState(() {
-                      final side = _docks[p.id]!;
-                      _active[side] = _active[side] == p.id ? null : p.id;
-                    }),
-                    icon: Icon(p.icon, size: 17, semanticLabel: p.title),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _railGroup(right ? StudioDock.right : StudioDock.left),
+                      _railDivider(),
+                      _railGroup(
+                        right ? StudioDock.rightLower : StudioDock.leftLower,
+                      ),
+                    ],
                   ),
                 ),
-              const Spacer(),
+              ),
               if (!right)
                 IconButton(
                   tooltip: 'Reset layout',
-                  icon: const Icon(Icons.view_quilt_outlined, size: 19),
-                  onPressed: () => setState(() {
-                    for (final p in widget.panes) {
-                      _docks[p.id] =
-                          p.id == 'inspector' && widget.initialPane == 'agent'
-                          ? StudioDock.rightLower
-                          : p.id == 'animation'
-                          ? StudioDock.bottom
-                          : p.id == 'scene' || p.id == 'assets'
-                          ? StudioDock.left
-                          : StudioDock.right;
-                    }
-                    _active[StudioDock.left] = 'scene';
-                    _active[StudioDock.right] = widget.initialPane;
-                    _active[StudioDock.rightLower] =
-                        widget.initialPane == 'agent' &&
-                            widget.panes.any((p) => p.id == 'inspector')
-                        ? 'inspector'
-                        : null;
-                    _rightSplit = .5;
-                    _active[StudioDock.bottom] = null;
-                    _left = 260;
-                    _right = 280;
-                    _bottom = 200;
-                  }),
+                  onPressed: _resetLayout,
+                  icon: const Icon(Icons.more_horiz, size: 18),
                 ),
+              if (!right) ...[_railDivider(), _railGroup(StudioDock.bottom)],
             ],
           ),
   );
@@ -241,7 +362,10 @@ class _StudioWorkspaceState extends State<StudioWorkspace> {
           ? 160.0
           : 260.0;
       final leftMaximum = c.maxWidth * .32;
-      final left = !narrow && _active[StudioDock.left] != null
+      final left =
+          !narrow &&
+              (_active[StudioDock.left] != null ||
+                  _active[StudioDock.leftLower] != null)
           ? _left.clamp(leftMinimum, leftMaximum)
           : 0.0;
       final right =
@@ -261,6 +385,11 @@ class _StudioWorkspaceState extends State<StudioWorkspace> {
           _active[StudioDock.right] != null &&
           _active[StudioDock.rightLower] != null;
       final rightTopHeight = (bodyHeight - gap) * _rightSplit;
+      final splitLeft =
+          !narrow &&
+          _active[StudioDock.left] != null &&
+          _active[StudioDock.leftLower] != null;
+      final leftTopHeight = (bodyHeight - gap) * _leftSplit;
       Widget resize(bool vertical, void Function(DragUpdateDetails) update) =>
           MouseRegion(
             cursor: vertical
@@ -274,7 +403,7 @@ class _StudioWorkspaceState extends State<StudioWorkspace> {
                 child: Container(
                   width: vertical ? 1 : null,
                   height: vertical ? null : 1,
-                  color: Colors.transparent,
+                  color: StudioPalette.of(context).muted.withValues(alpha: .3),
                 ),
               ),
             ),
@@ -306,17 +435,19 @@ class _StudioWorkspaceState extends State<StudioWorkspace> {
                 return Positioned(
                   left: isBottom
                       ? rail
-                      : dock == StudioDock.left
+                      : _isLeft(dock)
                       ? rail
                       : c.maxWidth - rail - right,
                   top: isBottom
                       ? top + bodyHeight + gap
                       : splitRight && dock == StudioDock.rightLower
                       ? top + rightTopHeight + gap
+                      : splitLeft && dock == StudioDock.leftLower
+                      ? top + leftTopHeight + gap
                       : top,
                   width: isBottom
                       ? c.maxWidth - rail * 2
-                      : dock == StudioDock.left
+                      : _isLeft(dock)
                       ? (left == 0 ? 260 : left)
                       : (right == 0 ? 280 : right),
                   height: isBottom
@@ -325,6 +456,10 @@ class _StudioWorkspaceState extends State<StudioWorkspace> {
                       ? (dock == StudioDock.right
                             ? rightTopHeight
                             : bodyHeight - rightTopHeight - gap)
+                      : splitLeft && _isLeft(dock)
+                      ? (dock == StudioDock.left
+                            ? leftTopHeight
+                            : bodyHeight - leftTopHeight - gap)
                       : bodyHeight,
                   child: Offstage(
                     offstage: !visible,
@@ -339,10 +474,14 @@ class _StudioWorkspaceState extends State<StudioWorkspace> {
                             _header(pane, narrow),
                             const Divider(height: 1),
                             Expanded(
-                              child: Listener(
-                                onPointerDown: (_) =>
-                                    widget.onActivePanel?.call(pane.id),
-                                child: pane.child,
+                              child: Focus(
+                                onFocusChange: (hasFocus) {
+                                  if (hasFocus) _focus(pane.id);
+                                },
+                                child: Listener(
+                                  onPointerDown: (_) => _focus(pane.id),
+                                  child: pane.child,
+                                ),
                               ),
                             ),
                           ],
@@ -352,6 +491,24 @@ class _StudioWorkspaceState extends State<StudioWorkspace> {
                   ),
                 );
               },
+            ),
+          if (splitLeft)
+            Positioned(
+              key: const ValueKey('resize-left-split'),
+              left: rail,
+              top: top + leftTopHeight,
+              width: left,
+              height: gap,
+              child: resize(
+                false,
+                (d) => setState(
+                  () => _leftSplit =
+                      (_leftSplit + d.delta.dy / (bodyHeight - gap)).clamp(
+                        .3,
+                        .7,
+                      ),
+                ),
+              ),
             ),
           if (splitRight)
             Positioned(
@@ -407,7 +564,7 @@ class _StudioWorkspaceState extends State<StudioWorkspace> {
           if (!narrow && bottom > 0)
             Positioned(
               left: rail,
-              right: 0,
+              right: rail,
               bottom: bottom,
               height: 6,
               child: resize(
@@ -435,29 +592,29 @@ class _StudioWorkspaceState extends State<StudioWorkspace> {
               height: c.maxHeight,
               child: _rail(false, right: true),
             ),
-          if (!narrow)
-            for (final dock in [
-              StudioDock.left,
-              StudioDock.right,
-              StudioDock.bottom,
-            ])
+          if (!narrow && _dragging)
+            for (final dock in StudioDock.values)
               Positioned(
-                left: dock == StudioDock.right ? null : rail,
-                right: dock == StudioDock.left ? null : rail,
-                top: dock == StudioDock.bottom ? null : 0,
+                key: ValueKey('edge-drop-${dock.name}'),
+                left: _isRight(dock) ? null : rail,
+                right: _isLeft(dock) ? null : rail,
+                top: dock == StudioDock.bottom
+                    ? null
+                    : (dock == StudioDock.leftLower ||
+                          dock == StudioDock.rightLower)
+                    ? top + bodyHeight / 2
+                    : top,
                 bottom: dock == StudioDock.bottom ? 0 : null,
                 width: dock == StudioDock.bottom ? null : 22,
-                height: dock == StudioDock.bottom ? 22 : bodyHeight,
+                height: dock == StudioDock.bottom ? 22 : bodyHeight / 2,
                 child: DragTarget<String>(
                   onAcceptWithDetails: (d) => _move(d.data, dock),
-                  builder: (_, candidates, _) => IgnorePointer(
-                    child: ColoredBox(
-                      color: candidates.isEmpty
-                          ? Colors.transparent
-                          : Theme.of(
-                              context,
-                            ).colorScheme.primary.withValues(alpha: .25),
-                    ),
+                  builder: (_, candidates, _) => ColoredBox(
+                    color: candidates.isEmpty
+                        ? Colors.transparent
+                        : StudioPalette.of(
+                            context,
+                          ).accent.withValues(alpha: .25),
                   ),
                 ),
               ),

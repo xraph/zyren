@@ -155,4 +155,80 @@ void main() {
     expect(find.byKey(const ValueKey('resize-right-split')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+  testWidgets(
+    'rail icons drag into both lower corners and bottom while preserving state',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(1280, 800);
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final agent = GlobalKey();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: StudioWorkspace(
+              canvas: const Text('Viewport'),
+              initialPane: 'agent',
+              panes: [
+                const StudioPane(
+                  'scene',
+                  'Scene',
+                  Icons.folder,
+                  Text('Scene tree'),
+                ),
+                const StudioPane(
+                  'assets',
+                  'Assets',
+                  Icons.inventory,
+                  Text('Asset list'),
+                ),
+                StudioPane('agent', 'Agent', Icons.chat, _Counter(key: agent)),
+              ],
+            ),
+          ),
+        ),
+      );
+      final original = agent.currentState;
+      Future<void> move(String id, String dock) async {
+        final gesture = await tester.startGesture(
+          tester.getCenter(find.byKey(ValueKey('rail-icon-$id'))),
+        );
+        await gesture.moveBy(const Offset(12, 24));
+        await tester.pump();
+        await gesture.moveTo(
+          tester.getCenter(find.byKey(ValueKey('rail-drop-$dock'))),
+        );
+        await tester.pump();
+        await gesture.up();
+        await tester.pumpAndSettle();
+      }
+
+      await move('agent', 'leftLower');
+      expect(find.byKey(const ValueKey('resize-left-split')), findsOneWidget);
+      expect(tester.getTopLeft(find.byTooltip('Hide Agent')).dx, lessThan(400));
+      expect(agent.currentState, same(original));
+      await move('assets', 'right');
+      await move('agent', 'rightLower');
+      expect(find.byKey(const ValueKey('resize-right-split')), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.byTooltip('Hide Agent')).dx,
+        greaterThan(800),
+      );
+      await move('agent', 'bottom');
+      expect(
+        tester.getTopLeft(find.byTooltip('Hide Agent')).dy,
+        greaterThan(500),
+      );
+      expect(
+        tester.getTopLeft(find.byKey(const ValueKey('rail-icon-agent'))).dy,
+        greaterThan(700),
+      );
+      final icon = tester.widget<IconButton>(
+        find.byWidgetPredicate((w) => w is IconButton && w.tooltip == 'Agent'),
+      );
+      expect(icon.isSelected, isTrue);
+      expect(agent.currentState, same(original));
+      expect(tester.takeException(), isNull);
+    },
+  );
 }

@@ -14,6 +14,9 @@ final lease = host.register(StudioEditorContribution(
       id: 'project.problems',
       title: 'Problems',
       icon: Icons.error_outline,
+      defaultDock: StudioEditorDock.rightLower,
+      initiallyOpen: true,
+      order: 10,
       builder: (_, _) => StudioEditorProblems(controller: host),
     ));
   },
@@ -52,6 +55,7 @@ You can register these surfaces:
 | Registration | Use |
 | --- | --- |
 | `registerPanel` | A pane the existing workspace can dock and hide |
+| `registerPlacement` | Display coordinates and validated conversion to local scene positions |
 | `registerInspector` | A conditional section appended to the selected-object inspector |
 | `registerAssetKind` | A file extension and importer using the host's asset workflow |
 | `registerCommand` | An enabled predicate, optional shortcut and handler |
@@ -79,6 +83,30 @@ including conflicts with the host's reserved shortcuts. Plain shortcuts decline
 text-entry events before Flutter consumes them. Detaching a focused pane restores
 focus to the viewport, and the host preserves viewport widget state as
 contributions come and go.
+
+## Panel placement and coordinate systems
+
+Panels can suggest `defaultDock` (`left`, `leftLower`, `right`, `rightLower` or
+`bottom`), `initiallyOpen` and a numeric `order`. `StudioEditorHost` passes these
+through its pane descriptors. Your workspace decides how to honor them; the
+Studio example applies defaults on attachment and lets you drag tools afterward.
+Only one tool can be active in each dock slot.
+
+Register a `StudioEditorPlacement` to replace position controls for a matching
+selection. Supply three labels, units, decimal precision, an `applies` predicate,
+and `toDisplay` / `toLocal` conversions. The highest applicable priority wins,
+with ID ordering as a deterministic tie-breaker. `placementForSelection` returns
+a binding only while the contributing runtime is ready.
+
+The conversion input and output must be finite. Your plugin owns coordinate
+range checks, CRS, origin, parent transforms and any units conversion. The host
+must write the converted local position through its existing edit/history path.
+A conversion error should remain visible and must not update the object. Removing
+the contribution removes its placement controls and invalidates its bindings.
+
+The Studio example includes `geospatial_placement.dart`, an optional WGS84
+adapter with parent-aware conversion, range validation and undo coverage. The
+shared package has no geospatial dependency.
 
 ## Runtime providers and cleanup
 

@@ -121,6 +121,11 @@ final class StudioEditorContext {
     return _host._register(_host._panels, panel.id, panel, this);
   }
 
+  Registration registerPlacement(StudioEditorPlacement placement) {
+    _check();
+    return _host._register(_host._placements, placement.id, placement, this);
+  }
+
   Registration registerInspector(StudioEditorInspector inspector) {
     _check();
     return _host._register(_host._inspectors, inspector.id, inspector, this);

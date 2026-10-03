@@ -21,6 +21,7 @@ final class StudioEditorHostController extends ChangeNotifier {
   final Set<String> _reservedShortcuts;
   final _contributions = <String, _ContributionLease>{};
   final _panels = <String, _Owned<StudioEditorPanel>>{};
+  final _placements = <String, _Owned<StudioEditorPlacement>>{};
   final _inspectors = <String, _Owned<StudioEditorInspector>>{};
   final _assetKinds = <String, _Owned<StudioEditorAssetKind>>{};
   final _commands = <String, _Owned<StudioEditorCommand>>{};
@@ -46,6 +47,26 @@ final class StudioEditorHostController extends ChangeNotifier {
 
   List<String> get contributionIds => List.unmodifiable(_contributions.keys);
   List<String> get panelIds => List.unmodifiable(_panels.keys);
+  List<String> get placementIds => List.unmodifiable(_placements.keys);
+  StudioEditorPlacementBinding? get placementForSelection {
+    final candidates =
+        _placements.values
+            .where(
+              (entry) =>
+                  entry.context.isActive &&
+                  entry.context._owner.runtimeReady &&
+                  entry.value.applies(entry.context),
+            )
+            .toList()
+          ..sort((a, b) {
+            final priority = b.value.priority.compareTo(a.value.priority);
+            return priority != 0 ? priority : a.value.id.compareTo(b.value.id);
+          });
+    if (candidates.isEmpty) return null;
+    final entry = candidates.first;
+    return StudioEditorPlacementBinding._(entry.value, entry.context);
+  }
+
   List<String> get inspectorIds => List.unmodifiable(_inspectors.keys);
   List<String> get assetKindIds => List.unmodifiable(_assetKinds.keys);
   List<String> get commandIds => List.unmodifiable(_commands.keys);

@@ -21,15 +21,23 @@ final class StudioEditorContribution {
   }
 }
 
+enum StudioEditorDock { left, leftLower, right, rightLower, bottom }
+
 final class StudioEditorPanel {
   final String id, title;
   final IconData icon;
   final StudioEditorWidgetBuilder builder;
+  final StudioEditorDock defaultDock;
+  final bool initiallyOpen;
+  final int order;
   StudioEditorPanel({
     required String id,
     required this.title,
     required this.icon,
     required this.builder,
+    this.defaultDock = StudioEditorDock.right,
+    this.initiallyOpen = false,
+    this.order = 0,
   }) : id = _editorId(id);
 }
 
@@ -133,4 +141,58 @@ final class StudioEditorPlayFactory {
     required this.supports,
     required this.create,
   }) : id = _editorId(id);
+}
+
+/// Converts local scene positions to a plugin's display coordinates and back.
+/// The plugin owns CRS, origin, parent transforms and range validation.
+final class StudioEditorPlacement {
+  final String id, title;
+  final List<String> labels, units;
+  final int precision, priority;
+  final bool Function(StudioEditorContext) applies;
+  final Vec3 Function(StudioEditorContext, Vec3) toDisplay, toLocal;
+  StudioEditorPlacement({
+    required String id,
+    required this.title,
+    required List<String> labels,
+    List<String> units = const ['', '', ''],
+    this.precision = 3,
+    this.priority = 0,
+    required this.applies,
+    required this.toDisplay,
+    required this.toLocal,
+  }) : id = _editorId(id),
+       labels = List.unmodifiable(labels),
+       units = List.unmodifiable(units) {
+    if (labels.length != 3 ||
+        labels.any((s) => s.trim().isEmpty) ||
+        units.length != 3 ||
+        precision < 0 ||
+        precision > 12) {
+      throw ArgumentError(
+        'Placement needs three axes and 0 to 12 decimal places.',
+      );
+    }
+  }
+}
+
+final class StudioEditorPlacementBinding {
+  final StudioEditorPlacement definition;
+  final StudioEditorContext _context;
+  StudioEditorPlacementBinding._(this.definition, this._context);
+  Vec3 _convert(Vec3 value, Vec3 Function(StudioEditorContext, Vec3) convert) {
+    _context._check();
+    if (!_context._owner.runtimeReady) {
+      throw StateError('Placement plugin is unavailable.');
+    }
+    if (!value.isFinite) throw ArgumentError('Coordinates must be finite.');
+    final result = convert(_context, value);
+    if (!result.isFinite) {
+      throw ArgumentError('Converted coordinates must be finite.');
+    }
+    return result;
+  }
+
+  Vec3 toDisplay(Vec3 local) => _convert(local, definition.toDisplay);
+  Vec3 toLocal(Vec3 display) => _convert(display, definition.toLocal);
 }

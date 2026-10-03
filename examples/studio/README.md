@@ -16,16 +16,23 @@ There is no browser renderer.
 
 The default editor uses the compact dockable workspace from the design study,
 with GoLand-style inset panels, two tool rails and a document tab above the
-viewport. Scene, Assets and Animation start on the left rail. Properties, Agent,
-Plugins and Diagnostics start on the right. Most text is 11–12 logical pixels;
+viewport. Scene and Assets start at the upper left; Animation sits at the bottom
+left and opens the bottom panel. Properties, Agent, Plugins and Diagnostics start
+on the right. Most text is 11–12 logical pixels;
 panel headers are 32 pixels high. Light and dark themes share the same density.
-Agent and Properties open in separate right-hand panels. Drag their shared gutter
-to change the split; hiding either panel gives the other the full column. The
-viewport background follows your light or dark theme.
+Both rails have upper and lower groups separated by a horizontal line. Agent
+and Properties start in separate right-hand panels. Drag the shared gutter to
+change the split; hiding either panel gives the other the full column.
 
-Drag a panel header to an edge, or use its docking menu to move it left, right or below the viewport.
-Drag dividers to resize. Close a panel to give the viewport more room; its rail
-button restores it. Reset layout restores the default arrangement.
+Drag a rail icon into another group or before another icon to move and reorder
+it. You can also drag a panel header to a corner or use its docking menu. The
+bottom-left group opens panels below the workspace. Blue marks the focused tool;
+other open tools retain a muted highlight. Close a panel to give the viewport more
+room, then use its rail button to restore it. Reset layout restores the defaults.
+
+The native viewport keeps the scene world color in both interface themes. Its
+depth-tested world grid and colored axes follow the camera, stay outside saved
+content and do not intercept object picks.
 
 Docking preserves the native viewport and agent conversation. You can search
 the scene tree, edit position and scale in Properties, open the material editor,
@@ -38,6 +45,30 @@ currently last for the open editor session.
 The Plugins panel lists the actual registry and each provider's available tools.
 Imported glTF instances publish node and clip inspection automatically. Reimport,
 undo and redo retire obsolete model registrations and bind the current instances.
+
+## Plugin panel and placement configuration
+
+Pass optional editor contributions to `StudioEditor.editorContributions`.
+A registered `StudioEditorPanel` can set `defaultDock`, `initiallyOpen` and `order`.
+The workspace uses those preferences on attachment and preserves your subsequent
+panel moves. See `flutter_zyren_studio` for the contribution lifecycle.
+
+`geospatial_placement.dart` provides an opt-in WGS84 placement contribution:
+
+```dart
+editorContributions: [
+  geospatialPlacementContribution(
+    origin: Geodetic.degrees(-87.63, 41.88, 180),
+  ),
+],
+```
+
+Use your project's saved origin here. The adapter maps east/up/south scene axes
+to an east/north/up frame, accounts for parent transforms, and edits longitude,
+latitude and ellipsoid altitude through the existing undo history. Invalid
+latitude and longitude values are rejected. Removing the contribution restores
+XYZ controls. This adapter does not load map tiles or persist a project origin;
+your geospatial plugin owns those workflows.
 
 ## Editing
 

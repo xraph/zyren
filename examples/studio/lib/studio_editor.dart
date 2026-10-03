@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'studio_lighting.dart';
+import 'studio_grid.dart';
 import 'studio_workspace.dart';
 import 'package:flutter_zyren_studio/flutter_zyren_studio.dart';
 import 'studio_theme.dart';
@@ -224,6 +225,7 @@ class StudioEditorState extends State<StudioEditor> {
       ),
     );
     _useBasePlugin(_scene.tools);
+    _useBasePlugin(StudioGridPlugin());
     _useBasePlugin(SceneOutlinePlugin());
     _useBasePlugin(_gizmo);
     _useBasePlugin(_orbit);
@@ -1028,6 +1030,7 @@ class StudioEditorState extends State<StudioEditor> {
   Widget _inspector() => StudioProperties(
     key: ValueKey(_scene.idFor(_selected)),
     object: _selected,
+    placement: _contributionHost?.placementForSelection,
     sections: [
       if (_contributionHost != null)
         StudioEditorInspectorSections(controller: _contributionHost!),
@@ -1561,7 +1564,6 @@ class StudioEditorState extends State<StudioEditor> {
 
   Widget _viewportEditor(BuildContext context) {
     final palette = StudioPalette.of(context);
-    _scene.scene.background = Color3.hex(palette.dark ? 0x191b1e : 0xf7f8fa);
     return Column(
       children: [
         Container(
@@ -1847,6 +1849,11 @@ class StudioEditorState extends State<StudioEditor> {
                                 pane.title,
                                 pane.icon,
                                 pane.child,
+                                defaultDock: StudioDock.values.byName(
+                                  pane.defaultDock.name,
+                                ),
+                                initiallyOpen: pane.initiallyOpen,
+                                order: pane.order,
                               ),
                           ],
                         ),

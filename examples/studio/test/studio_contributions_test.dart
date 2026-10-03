@@ -52,8 +52,10 @@ void main() {
                 StudioEditorPanel(
                   id: 'game.test.panel',
                   title: 'Game tools',
+                  defaultDock: StudioEditorDock.leftLower,
+                  initiallyOpen: true,
                   icon: Icons.sports_esports,
-                  builder: (_, __) =>
+                  builder: (_, _) =>
                       const TextField(key: ValueKey('game.test.field')),
                 ),
               );
@@ -61,6 +63,15 @@ void main() {
           ),
         );
         await tester.pump();
+        if (width > 600) {
+          expect(find.byKey(const ValueKey('game.test.field')), findsOneWidget);
+          expect(
+            tester.getTopLeft(find.byTooltip('Hide Game tools')).dx,
+            lessThan(400),
+          );
+          await tester.tap(find.byTooltip('Hide Game tools'));
+          await tester.pump();
+        }
         final pane = width > 600
             ? find.byTooltip('Game tools')
             : find.text('Game tools');

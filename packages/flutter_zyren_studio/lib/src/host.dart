@@ -5,7 +5,18 @@ final class StudioEditorPane {
   final String id, title;
   final IconData icon;
   final Widget child;
-  const StudioEditorPane(this.id, this.title, this.icon, this.child);
+  final StudioEditorDock defaultDock;
+  final bool initiallyOpen;
+  final int order;
+  const StudioEditorPane(
+    this.id,
+    this.title,
+    this.icon,
+    this.child, {
+    this.defaultDock = StudioEditorDock.right,
+    this.initiallyOpen = false,
+    this.order = 0,
+  });
 }
 
 typedef StudioEditorWorkspaceBuilder =
@@ -85,6 +96,9 @@ class _StudioEditorHostState extends State<StudioEditorHost> {
               entry: entry,
               fallbackFocus: _viewportFocus,
             ),
+            defaultDock: entry.value.defaultDock,
+            initiallyOpen: entry.value.initiallyOpen,
+            order: entry.value.order,
           ),
       ];
       return Shortcuts(
