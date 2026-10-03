@@ -17,6 +17,54 @@ void main() {
   const channel = MethodChannel('zyren/scene-views');
   final messenger =
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+  test(
+    'native device loss reaches the controller without hiding other errors',
+    () async {
+      addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        switch (call.method) {
+          case 'connect':
+          case 'close':
+            return null;
+          case 'create':
+            return {'session': 1, 'adapter': 'test Metal'};
+          case 'gpuCommand':
+            if ((call.arguments as Map)['kind'] == 'graph') {
+              return deviceInfoReply(call.arguments as Map);
+            }
+            return textureFormatsReply(call);
+          case 'fault':
+            throw PlatformException(
+              code: (call.arguments as Map)['failureCode'] as String,
+              message: 'Native failure',
+            );
+          default:
+            throw StateError(call.method);
+        }
+      });
+      final backend = await NativeMetalBackend.create(runtimeToken: 10);
+      try {
+        for (final (code, expected) in [
+          ('deviceLost', SceneIssueCodes.deviceLost),
+          ('frameDeferred', SceneIssueCodes.frameDeferred),
+          ('validationFailed', SceneIssueCodes.renderFailed),
+        ]) {
+          await expectLater(
+            backend.request('fault', {'failureCode': code}),
+            throwsA(
+              isA<SceneException>().having(
+                (e) => e.issue.code,
+                'code',
+                expected,
+              ),
+            ),
+          );
+        }
+      } finally {
+        await backend.close();
+      }
+    },
+  );
   test('MSAA feature admission follows the adapter sample counts', () async {
     addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
     for (final samples in [

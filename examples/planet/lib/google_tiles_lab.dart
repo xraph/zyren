@@ -112,6 +112,7 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
             ),
             options: const EngineOptions(
               presentation: PresentationPolicy.requireNative,
+              recovery: RecoveryPolicy.automaticOnce,
             ),
             runtime: switch (defaultTargetPlatform) {
               TargetPlatform.android => SceneRuntime.nativeAndroid(
@@ -144,6 +145,10 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
         return {
           'preset': _preset.name,
           'status': controller.status.value.runtimeType.toString(),
+          'issueCode': switch (controller.status.value) {
+            SceneFailed(:final issue) => issue.code,
+            _ => null,
+          },
           'moonlight': profile.moonlight.name,
           'night': profile.nightView,
           'camera': controller.camera.position.storage,

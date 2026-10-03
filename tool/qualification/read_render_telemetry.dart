@@ -34,6 +34,7 @@ Future<void> main(List<String> args) async {
       print(
         jsonEncode({
           'status': data['status'],
+          'issueCode': data['issueCode'],
           'preset': data['preset'],
           'moonlight': data['moonlight'],
           'night': data['night'],
@@ -42,7 +43,9 @@ Future<void> main(List<String> args) async {
           'tiles': data['visibleTiles'],
           'loading': data['loadingTiles'],
           'samples': samples.length,
-          'presentedFps': span == 0 ? null : (samples.length - 1) * 1e6 / span,
+          'presentedFps': span == 0 || data['status'] != 'SceneReady'
+              ? null
+              : (samples.length - 1) * 1e6 / span,
         }),
       );
       return;

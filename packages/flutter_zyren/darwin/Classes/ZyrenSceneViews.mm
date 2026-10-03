@@ -1,4 +1,5 @@
 #import "ZyrenSceneViews.h"
+#import "ZyrenRendererFailure.h"
 #import <Metal/Metal.h>
 #import <QuartzCore/CAMetalLayer.h>
 #include <algorithm>
@@ -415,7 +416,7 @@ bool matches(const std::shared_ptr<Session> &s, NSDictionary *args) {
         const bool ready = ok && !s->closed.load() && (capture || s->epoch.load() == epoch);
         if (ready && drawable) { s->pending = drawable; s->pendingFrame = frame; }
         else if (drawable) held.fetch_sub(1);
-        if (failure) { result(error(@"renderFailed", failure)); return; }
+        if (failure) { result(error(ZyrenRendererFailureCode(failure), failure)); return; }
         if (capture && ready) result(@{@"applied": @YES, @"ready": @YES, @"readbackBytes": @(bytes), @"pixels": [FlutterStandardTypedData typedDataWithBytes:pixels]});
         else result(@{@"applied": @(ok), @"ready": @(ready), @"readbackBytes": @(bytes)});
       });

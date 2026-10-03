@@ -155,6 +155,9 @@ its root after a focus change. This compatibility hook uses internal Flutter
 selectors and needs live accessibility checks when you upgrade the SDK.
 The root parser passes tests against the current engine ABI; focus and control
 qualification for this guard remains pending while the Mac is locked.
+Planet makes one automatic recovery attempt when the native renderer explicitly
+requires recreation after a GPU failure. A repeated failure stays visible with
+the renderer retry action.
 Qualification builds can enable
 `ZYREN_RENDER_TELEMETRY=true` and inspect `ext.planet.renderStatus` with
 `tool/qualification/read_render_telemetry.dart`. This measures accepted native
