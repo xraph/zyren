@@ -8,6 +8,7 @@ final class GamePlayContribution {
   final SceneRuntime runtime;
   final RendererFactory? fixtureRendererFactory;
   final ModelAssetResolver? modelResolver;
+  final ModelManifestResolver? modelManifestResolver;
   final Map<String, MlModelManifest> modelManifests;
   final GamePlayAnimationFactory? animationFactory;
   final SpatialAudio Function(StudioScene)? audioFactory;
@@ -23,6 +24,7 @@ final class GamePlayContribution {
     this.runtime = const SceneRuntime(),
     this.fixtureRendererFactory,
     this.modelResolver,
+    this.modelManifestResolver,
     this.modelManifests = const {},
     this.animationFactory,
     this.audioFactory,
@@ -63,6 +65,7 @@ final class GamePlayContribution {
                 fixtureRendererFactory: fixtureRendererFactory,
                 assetResolver: context.assets,
                 modelResolver: modelResolver,
+                modelManifestResolver: modelManifestResolver,
                 modelManifests: modelManifests,
                 animationFactory: animationFactory,
                 audioFactory: audioFactory,

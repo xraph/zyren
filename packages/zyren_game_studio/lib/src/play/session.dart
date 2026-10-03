@@ -14,6 +14,7 @@ final class GamePlaySession extends ChangeNotifier
   final SceneRuntime runtime;
   final StudioAssetResolver? assetResolver;
   final ModelAssetResolver? modelResolver;
+  final ModelManifestResolver? modelManifestResolver;
   final Map<String, MlModelManifest> modelManifests;
   final SpatialAudio Function(StudioScene)? audioFactory;
   final GamePlayAnimationFactory? animationFactory;
@@ -30,6 +31,7 @@ final class GamePlaySession extends ChangeNotifier
     this.runtime = const SceneRuntime(),
     this.assetResolver,
     this.modelResolver,
+    this.modelManifestResolver,
     Map<String, MlModelManifest> modelManifests = const {},
     this.audioFactory,
     this.animationFactory,
@@ -198,7 +200,7 @@ final class GamePlaySession extends ChangeNotifier
       _checkLaunch(generation);
       _scene = StudioScene(runtimeDocument, assets: _assets);
       if (project.project.modelReferences.isNotEmpty) {
-        if (modelResolver == null ||
+        if ((modelResolver == null && modelManifestResolver == null) ||
             modelManifests.keys
                 .toSet()
                 .difference(project.project.modelReferences.keys.toSet())
@@ -210,7 +212,10 @@ final class GamePlaySession extends ChangeNotifier
             'Provide the exact authored model manifests and resolver.',
           );
         }
-        _models = MlModelCache(resolver: modelResolver!);
+        _models = MlModelCache(
+          resolver: modelResolver,
+          manifestResolver: modelManifestResolver,
+        );
         for (final entry in modelManifests.entries) {
           final pin = PipelineAssetReference.fromJson(
             Map<String, Object?>.from(
@@ -232,9 +237,11 @@ final class GamePlaySession extends ChangeNotifier
         }
       } else {
         _models = MlModelCache(
-          resolver:
-              modelResolver ??
-              ((_) async => throw StateError('No model is authored.')),
+          resolver: modelManifestResolver != null
+              ? null
+              : modelResolver ??
+                    ((_) async => throw StateError('No model is authored.')),
+          manifestResolver: modelManifestResolver,
         );
       }
       _checkLaunch(generation);

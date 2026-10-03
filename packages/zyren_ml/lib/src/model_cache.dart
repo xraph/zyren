@@ -10,6 +10,10 @@ import 'runtime.dart';
 import 'tensor.dart';
 import 'worker.dart';
 
+/// Resolves identical filenames in separate, content-pinned model artifacts.
+typedef ModelManifestResolver =
+    Future<Uint8List> Function(MlModelManifest model);
+
 final class MlCapacityException implements Exception {
   const MlCapacityException(this.message);
   final String message;
@@ -45,11 +49,15 @@ final class _Resident {
 /// Retains native sessions and in-flight references, never model asset bytes.
 final class MlModelCache {
   MlModelCache({
-    required this.resolver,
+    this.resolver,
+    this.manifestResolver,
     MlInferenceWorker? worker,
     this.maxResidentModels = 8,
     this.maxModelWeightsBytes = 64 * 1024 * 1024,
   }) : worker = worker ?? MlWorker() {
+    if ((resolver == null) == (manifestResolver == null)) {
+      throw ArgumentError('Provide one model asset or manifest resolver.');
+    }
     if (maxResidentModels <= 0 ||
         maxResidentModels > 8 ||
         maxModelWeightsBytes <= 0 ||
@@ -59,7 +67,8 @@ final class MlModelCache {
       );
     }
   }
-  final ModelAssetResolver resolver;
+  final ModelAssetResolver? resolver;
+  final ModelManifestResolver? manifestResolver;
   final MlInferenceWorker worker;
   final int maxResidentModels;
   final int maxModelWeightsBytes;
@@ -119,7 +128,11 @@ final class MlModelCache {
         } else {
           Uint8List bytes;
           try {
-            bytes = Uint8List.fromList(await resolver(model.modelFile));
+            bytes = Uint8List.fromList(
+              await (manifestResolver != null
+                  ? manifestResolver!(model)
+                  : resolver!(model.modelFile)),
+            );
           } catch (e) {
             throw MlLoadException(
               MlRunStatus.unavailable,

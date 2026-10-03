@@ -115,6 +115,12 @@ cache uses an exact encoded manifest pin for each model hash and rejects a
 conflicting duplicate pin. An oversized new model fails before any current
 session is evicted. Eviction needs both lease and in-flight counts to reach zero.
 
+For several bundles that each name their weights `actor.onnx`, supply
+`manifestResolver` instead of `resolver`. The callback receives the complete
+manifest, so you can select the bundle by `manifest.sha256`. Supply exactly one
+resolver. The cache copies the returned bytes and checks their hash before it
+loads a session, regardless of which resolver you use.
+
 `cancel(id)` removes a queued request or suppresses an in-flight result. Closing
 joins active native work before releasing sessions and transfer buffers. It does
 not kill an isolate while ORT is using its buffers. An unresponsive native call
