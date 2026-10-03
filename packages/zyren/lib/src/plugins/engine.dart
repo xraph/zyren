@@ -135,6 +135,16 @@ class PluginContext {
     this._claimTemporal,
   );
 
+  /// Whether this call is inside an active beforeRender hook for this engine
+  /// and this exact frame. Async work loses permission when its hook returns.
+  bool isPreparingFrame(FrameInfo frame) {
+    final preparation = Zone.current[SceneEngine._preparationZone];
+    return preparation is _FramePreparation &&
+        preparation.active &&
+        identical(preparation.services, _services) &&
+        identical(preparation.frame, frame);
+  }
+
   /// Queries the backend only when you request an inspection.
   Future<GpuInspection?> inspectGpu({int allocationLimit = 128}) async {
     if (!_active || scope.isClosed) {
@@ -439,6 +449,7 @@ class SceneEngine {
   Future<void> _pluginUpdates = Future.value();
   int _pendingPluginUpdates = 0;
   static final _hookZone = Object();
+  static final _preparationZone = Object();
   final Object _owner;
   final void Function(SceneIssue)? _onIssue;
   final Map<Object, Object> _services = {};
@@ -772,7 +783,15 @@ class SceneEngine {
     _lastElapsed = elapsed;
     final future = Future<FrameOutput>.microtask(() async {
       for (final (plugin, context) in _attached) {
-        await _hook(() => plugin.beforeRender(context, info));
+        final preparation = _FramePreparation(context._services, info);
+        try {
+          await runZoned(
+            () => _hook(() => plugin.beforeRender(context, info)),
+            zoneValues: {_preparationZone: preparation},
+          );
+        } finally {
+          preparation.active = false;
+        }
       }
       if (camera.depthStrategy == DepthStrategy.reversed &&
           !capabilities.supports(RenderFeature.reversedDepth)) {
@@ -1168,4 +1187,11 @@ void _checkDeformation(
   for (final child in node.renderChildren) {
     _checkDeformation(child, capabilities, layers);
   }
+}
+
+final class _FramePreparation {
+  final Map<Object, Object> services;
+  final FrameInfo frame;
+  bool active = true;
+  _FramePreparation(this.services, this.frame);
 }

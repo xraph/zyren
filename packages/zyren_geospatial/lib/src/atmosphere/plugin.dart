@@ -102,7 +102,15 @@ class AtmospherePlugin extends ScenePlugin {
     } else {
       await control.setSource(source!);
     }
+    control._bindCandidate(control._active);
   }
+
+  @override
+  Future<void> afterRender(
+    PluginContext context,
+    FrameInfo info,
+    FrameStats stats,
+  ) => controller._presented(info, stats);
 
   @override
   Future<void> beforeRender(PluginContext context, FrameInfo frame) =>
@@ -110,7 +118,8 @@ class AtmospherePlugin extends ScenePlugin {
 }
 
 /// Date and appearance updates invalidate the view without regenerating LUTs.
-/// Parameter updates are serialized with frame preparation and publish atomically.
+/// Parameter updates allocate atomically. Scene bindings change during frame
+/// preparation, while public settings describe the accepted request.
 final class AtmosphereController {
   final AtmospherePlugin _plugin;
   final PluginContext _context;
@@ -120,10 +129,14 @@ final class AtmosphereController {
   late AtmosphereAppearance _appearance = _plugin.appearance;
   late AtmosphereParameters _parameters = _plugin.parameters;
   PrecomputedAtmosphereSource? _source;
-  _AtmosphereCandidate? _active;
+  _AtmosphereCandidate? _active, _bound, _displayed;
+  final _candidates = <_AtmosphereCandidate>{};
+  FrameInfo? _submittedFrame;
+  _AtmosphereCandidate? _submittedCandidate, _submittedDisplayed;
   RetainedAerialInputs? _inputs;
   RetainedAtmosphereCloudInputs? _cloudInputs;
   AtmosphereCloudRegistration? _cloudRegistration;
+  final _preparedClouds = <PreparedAtmosphereCloudInputs>{};
   Future<void> _queue = Future.value();
   bool _closed = false;
   bool _enabled = true;
@@ -131,18 +144,6 @@ final class AtmosphereController {
   set enabled(bool value) {
     _check();
     if (_enabled == value) return;
-    final active = _active;
-    if (active != null) {
-      if (value) {
-        active.registration = _context.scene.addEffect(
-          active.effect,
-          requiresTransparentBackground: true,
-        );
-      } else {
-        active.registration?.dispose();
-        active.registration = null;
-      }
-    }
     _enabled = value;
     _context.invalidate();
   }
@@ -276,58 +277,149 @@ final class AtmosphereController {
     bool Function()? cancelled, {
     AerialPerspectiveInputs? inputs,
   }) async {
+    final replacements =
+        <PreparedAtmosphereCloudInputs, _AtmosphereCandidate>{};
+    _AtmosphereCandidate? candidate;
+    try {
+      candidate = await _buildCandidate(
+        parameters,
+        source,
+        width,
+        height,
+        cancelled,
+        inputs ?? _inputs?.value ?? AerialPerspectiveInputs(),
+        _cloudInputs?.value,
+      );
+      for (final prepared in _preparedClouds) {
+        replacements[prepared] = await _buildCandidate(
+          parameters,
+          source,
+          width,
+          height,
+          cancelled,
+          inputs ?? _inputs?.value ?? AerialPerspectiveInputs(),
+          prepared._inputs.value,
+        );
+      }
+    } catch (_) {
+      await candidate?.close();
+      for (final value in replacements.values) {
+        await value.close();
+      }
+      rethrow;
+    }
+    _acceptCandidate(candidate);
+    _parameters = parameters;
+    _source = source;
+    final retired = <_AtmosphereCandidate>[];
+    for (final entry in replacements.entries) {
+      retired.add(entry.key._candidate);
+      entry.key._candidate = entry.value;
+    }
+    await _retireCandidates();
+    for (final value in retired) {
+      await value.close();
+    }
+  }
+
+  Future<_AtmosphereCandidate> _buildCandidate(
+    AtmosphereParameters parameters,
+    PrecomputedAtmosphereSource? source,
+    int width,
+    int height,
+    bool Function()? cancelled,
+    AerialPerspectiveInputs inputs,
+    AtmosphereCloudInputs? clouds,
+  ) async {
     bool stopped() => isClosed || (cancelled?.call() ?? false);
     final lease = await _cache.acquire(
       parameters: parameters,
       source: source,
       isCancelled: stopped,
     );
-    final scope = _owner.createChild(label: 'atmosphere scene');
-    _AtmosphereCandidate? candidate;
+    GpuScope? scope;
     try {
-      candidate = await _AtmosphereCandidate.build(
+      scope = _owner.createChild(label: 'atmosphere scene');
+      final candidate = await _AtmosphereCandidate.build(
         scope,
         lease,
         _plugin,
         width,
         height,
-        inputs ?? _inputs?.value ?? AerialPerspectiveInputs(),
-        _cloudInputs?.value,
+        inputs,
+        clouds,
       );
       if (_lastFrame != null) {
         await _writeFrame(candidate, _lastFrame!, width, height);
       }
       if (stopped()) throw StateError('Atmosphere update cancelled.');
-      // The previous effect remains registered until the candidate is accepted.
-      final previous = _active;
-      if (!_enabled) {
-        candidate.registration = null;
-      } else if (previous?.registration == null) {
-        candidate.registration = _context.scene.addEffect(
-          candidate.effect,
-          requiresTransparentBackground: true,
-        );
-      } else {
-        previous!.registration!.replace(candidate.effect);
-        candidate.registration = previous.registration;
-        previous.registration = null;
-      }
-      _active = candidate;
-      _parameters = parameters;
-      _source = source;
-      if (previous != null) await previous.close();
+      return candidate;
     } catch (_) {
-      if (!identical(_active, candidate)) {
-        await scope.close();
-        await lease.close();
-      }
+      await scope?.close();
+      await lease.close();
       rethrow;
     }
   }
 
+  void _acceptCandidate(_AtmosphereCandidate candidate) {
+    _active = candidate;
+    _candidates.add(candidate);
+  }
+
+  void _bindCandidate(_AtmosphereCandidate? candidate) {
+    if (identical(candidate, _bound)) return;
+    final previous = _bound;
+    if (candidate == null) {
+      previous?.registration?.dispose();
+      previous?.registration = null;
+    } else if (previous?.registration == null) {
+      candidate.registration = _context.scene.addEffect(
+        candidate.effect,
+        requiresTransparentBackground: true,
+      );
+    } else {
+      previous!.registration!.replace(candidate.effect);
+      candidate.registration = previous.registration;
+      previous.registration = null;
+    }
+    _bound = candidate;
+  }
+
+  Future<void> _retireCandidates() async {
+    final retained = {
+      _active,
+      _bound,
+      _displayed,
+      _submittedCandidate,
+      _submittedDisplayed,
+    };
+    for (final candidate in _candidates.toList()) {
+      if (!retained.contains(candidate)) {
+        _candidates.remove(candidate);
+        await candidate.close();
+      }
+    }
+  }
+
+  Future<void> _presented(FrameInfo frame, FrameStats stats) =>
+      _serial(() async {
+        if (!identical(frame, _submittedFrame)) {
+          throw StateError(
+            'Atmosphere receipt does not match its prepared frame.',
+          );
+        }
+        _displayed = stats.admission?.candidateReady == false
+            ? _submittedDisplayed
+            : _submittedCandidate;
+        _submittedFrame = null;
+        _submittedCandidate = _submittedDisplayed = null;
+        await _retireCandidates();
+      });
+
   Future<void> _frame(FrameInfo frame) => _serial(() => _prepareFrame(frame));
   Future<void> _prepareFrame(FrameInfo frame) async {
-    if (!_enabled) return;
+    _submittedFrame = null;
+    _submittedCandidate = _submittedDisplayed = null;
     final scale = math.min(
       1.0,
       _plugin.maxStarResolution / math.max(frame.width, frame.height),
@@ -339,8 +431,19 @@ final class AtmosphereController {
       _width = width;
       _height = height;
     }
-    await _writeFrame(_active!, frame, width, height);
-    _lastFrame = frame;
+    _bindCandidate(_enabled ? _active : null);
+    final active = _bound;
+    if (active != null) {
+      await _writeFrame(active, frame, active.width, active.height);
+    }
+    final displayed = _displayed;
+    if (displayed != null && !identical(displayed, active)) {
+      await _writeFrame(displayed, frame, displayed.width, displayed.height);
+    }
+    _lastFrame = _submittedFrame = frame;
+    _submittedCandidate = active;
+    _submittedDisplayed = displayed;
+    await _retireCandidates();
   }
 
   Future<void> _writeFrame(
@@ -401,7 +504,7 @@ final class AtmosphereController {
           : double.infinity;
       correction = ((scale - 41.5) / (13.8 - 41.5)).clamp(0, 1);
     }
-    final inputs = _inputs?.value;
+    final inputs = active.inputs;
     final data = Float32List.fromList([
       ...(corrected * .001).storage,
       camera is OrthographicCamera ? 1 : 0,
@@ -430,13 +533,11 @@ final class AtmosphereController {
       a.albedoScale,
       a.reconstructNormal ? 1 : 0,
       correction,
-      _cloudInputs == null ? 0 : 1,
-      inputs?.normal == null ? 0 : inputs!.normalEncoding.index + 1.0,
-      inputs?.lightingMask == null
-          ? -1
-          : inputs!.lightingMaskChannel.toDouble(),
-      inputs?.overlay == null ? 0 : 1,
-      inputs?.normalSpace == AerialNormalSpace.world ? 1 : 0,
+      active.hasClouds ? 1 : 0,
+      inputs.normal == null ? 0 : inputs.normalEncoding.index + 1.0,
+      inputs.lightingMask == null ? -1 : inputs.lightingMaskChannel.toDouble(),
+      inputs.overlay == null ? 0 : 1,
+      inputs.normalSpace == AerialNormalSpace.world ? 1 : 0,
       ...(_plugin.ellipsoid.reciprocalRadiiSquared * 1e6).storage,
       0,
       ...((corrected - ecef) * .001 * correction).storage,
@@ -456,9 +557,15 @@ final class AtmosphereController {
 
   Future<void> _close() async {
     _closed = true;
-    _active?.registration?.dispose();
+    _bound?.registration?.dispose();
     await _queue;
-    await _active?.close();
+    for (final candidate in _candidates) {
+      await candidate.close();
+    }
+    _candidates.clear();
+    for (final prepared in _preparedClouds.toList()) {
+      await prepared._dispose();
+    }
     await _inputs?.scope.close();
     await _cloudInputs?.scope.close();
     await _cache.close();
@@ -481,6 +588,9 @@ final class _AtmosphereCandidate {
   final GpuResource<Buffer> uniform;
   final CompiledGraph graph;
   final ScreenEffect effect;
+  final AerialPerspectiveInputs inputs;
+  final bool hasClouds;
+  final int width, height;
   EffectRegistration? registration;
   _AtmosphereCandidate(
     this.scope,
@@ -488,6 +598,10 @@ final class _AtmosphereCandidate {
     this.uniform,
     this.graph,
     this.effect,
+    this.inputs,
+    this.hasClouds,
+    this.width,
+    this.height,
   );
   Future<void> close() async {
     registration?.dispose();
@@ -613,7 +727,17 @@ final class _AtmosphereCandidate {
         ]),
       ),
     );
-    return _AtmosphereCandidate(scope, lease, uniform, graph, effect);
+    return _AtmosphereCandidate(
+      scope,
+      lease,
+      uniform,
+      graph,
+      effect,
+      inputs,
+      clouds != null,
+      width,
+      height,
+    );
   }
 }
 
@@ -625,6 +749,44 @@ final class AtmosphereCloudRegistration {
   bool _closed = false;
   AtmosphereCloudRegistration._(this._controller);
   bool get isClosed => _closed || _controller.isClosed;
+
+  /// Allocate a complete replacement without changing scene bindings. Publish
+  /// it during your frame preparation, or close it when the request is abandoned.
+  Future<PreparedAtmosphereCloudInputs> prepare(AtmosphereCloudInputs inputs) =>
+      _controller._serial(() async {
+        _check();
+        final retained = await RetainedAtmosphereCloudInputs.retain(
+          _controller._owner,
+          inputs,
+        );
+        try {
+          final candidate = await _controller._buildCandidate(
+            _controller._parameters,
+            _controller._source,
+            _controller._width,
+            _controller._height,
+            null,
+            _controller._inputs?.value ?? AerialPerspectiveInputs(),
+            retained.value,
+          );
+          final prepared = PreparedAtmosphereCloudInputs._(
+            this,
+            retained,
+            candidate,
+          );
+          _controller._preparedClouds.add(prepared);
+          return prepared;
+        } catch (_) {
+          await retained.scope.close();
+          rethrow;
+        }
+      });
+  void _check() {
+    if (isClosed || !identical(_controller._cloudRegistration, this)) {
+      throw StateError('Atmosphere cloud registration has closed.');
+    }
+  }
+
   Future<void> replace(AtmosphereCloudInputs inputs) =>
       _controller._serial(() async {
         if (isClosed || !identical(_controller._cloudRegistration, this)) {
@@ -643,8 +805,70 @@ final class AtmosphereCloudRegistration {
         return;
       }
       await _controller._changeCloudInputs(null);
+      for (final prepared in _controller._preparedClouds.toList()) {
+        await prepared._dispose();
+      }
       _controller._cloudRegistration = null;
       _closed = true;
     });
+  }
+}
+
+/// A prepared cloud composition. Publish from an awaited beforeRender hook after
+/// the atmosphere hook, passing that same frame. Publication consumes the token.
+/// Preparation allocates GPU resources; publication only updates existing work.
+final class PreparedAtmosphereCloudInputs {
+  final AtmosphereCloudRegistration _registration;
+  final RetainedAtmosphereCloudInputs _inputs;
+  _AtmosphereCandidate _candidate;
+  bool _finished = false;
+  PreparedAtmosphereCloudInputs._(
+    this._registration,
+    this._inputs,
+    this._candidate,
+  );
+  AtmosphereController get _controller => _registration._controller;
+  bool get isClosed => _finished || _registration.isClosed;
+
+  Future<void> publish(FrameInfo frame) => _controller._serial(() async {
+    if (!_controller._context.isPreparingFrame(frame) ||
+        !identical(frame, _controller._submittedFrame)) {
+      throw StateError(
+        'Publish cloud inputs during the same engine frame preparation.',
+      );
+    }
+    _registration._check();
+    if (_finished) {
+      throw StateError('Prepared cloud inputs were already consumed.');
+    }
+    await _controller._writeFrame(
+      _candidate,
+      frame,
+      _candidate.width,
+      _candidate.height,
+    );
+    _controller._acceptCandidate(_candidate);
+    _controller._bindCandidate(_controller._enabled ? _candidate : null);
+    _controller._submittedCandidate = _controller._bound;
+    final inputs = _controller._cloudInputs;
+    _controller._cloudInputs = _inputs;
+    _finished = true;
+    _controller._preparedClouds.remove(this);
+    await _controller._retireCandidates();
+    await inputs?.scope.close();
+    _controller._context.invalidate();
+  });
+
+  Future<void> close() async {
+    if (isClosed) return;
+    await _controller._serial(_dispose);
+  }
+
+  Future<void> _dispose() async {
+    if (_finished) return;
+    _finished = true;
+    _controller._preparedClouds.remove(this);
+    await _candidate.close();
+    await _inputs.scope.close();
   }
 }

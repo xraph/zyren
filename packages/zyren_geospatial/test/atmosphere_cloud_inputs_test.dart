@@ -43,11 +43,12 @@ void main() {
         near: 1,
         far: 1e7,
       );
+      final publisher = _CloudPublisher();
       final engine = await SceneEngine.create(
         scene: Scene()..renderSettings = RenderSettings(hdr: true),
         camera: camera,
         backendFactory: () async => backend.createView(),
-        plugins: [plugin],
+        plugins: [plugin, publisher],
       );
       Future<List<int>> render() async => center(
         await engine.render(elapsed: Duration.zero, width: 17, height: 17),
@@ -74,6 +75,39 @@ void main() {
         );
         camera.position = position;
         expect(await render(), before);
+        final replacement = AtmosphereCloudInputs(
+          color: green,
+          depthVelocityShadow: data,
+          transmittance: trans,
+        );
+        final discarded = await reg.prepare(replacement);
+        expect(await render(), before);
+        await expectLater(
+          discarded.publish(publisher.lastFrame!),
+          throwsStateError,
+        );
+        await discarded.close();
+        await discarded.close();
+        expect(discarded.isClosed, isTrue);
+        final prepared = await reg.prepare(replacement);
+        await plugin.controller.setAerialInputs(
+          AerialPerspectiveInputs(overlay: red),
+        );
+        publisher.pending = prepared;
+        final changed = await render();
+        expect(changed[0], greaterThan(0));
+        expect(changed[1], greaterThan(0));
+        expect(prepared.isClosed, isTrue);
+        publisher.pending = prepared;
+        await expectLater(render(), throwsStateError);
+        await prepared.close();
+        final closing = await reg.prepare(replacement);
+        await reg.close();
+        expect(closing.isClosed, isTrue);
+        await closing.close();
+        final again = await plugin.controller.registerCloudInputs(replacement);
+        // Leave a live pending token to prove controller disposal owns it.
+        await again.prepare(replacement);
       } finally {
         await engine.dispose();
         await owner.close();
@@ -273,4 +307,20 @@ void main() {
       }
     },
   );
+}
+
+final class _CloudPublisher extends ScenePlugin {
+  PreparedAtmosphereCloudInputs? pending;
+  FrameInfo? lastFrame;
+  @override
+  String get id => 'prepared-cloud-publisher';
+  @override
+  Set<String> get dependencies => {'atmosphere'};
+  @override
+  Future<void> beforeRender(PluginContext context, FrameInfo frame) async {
+    lastFrame = frame;
+    final value = pending;
+    pending = null;
+    if (value != null) await value.publish(frame);
+  }
 }

@@ -10,18 +10,92 @@ import 'package:zyren_geospatial/zyren_geospatial.dart';
 import 'package:zyren_native/zyren_native.dart';
 
 void main() {
-  for (final pause in ['hook', 'backend', 'receipt', 'aborted']) {
+  test(
+    'composition allocation failure rejects the cloud setter atomically',
+    () async {
+      final f = await _Fixture.create();
+      try {
+        await f.compare(await f.render(f.actual));
+        final before = (await f.device.resourceStats()).residentBytes;
+        final settings = f.subject.controller.settings;
+        for (var attempt = 0; attempt < 3; attempt++) {
+          f.backend.failAtmosphereAllocation = true;
+          await expectLater(
+            f.subject.controller.setQualitySettings(_settings(24)),
+            throwsA(isA<ResourceException>()),
+          );
+          expect(f.backend.bytesAtRejectedAllocation, greaterThan(before));
+          expect(f.subject.controller.quality, settings.preset);
+          expect(f.subject.controller.maxResolution, settings.maxResolution);
+          expect(f.subject.controller.width, 32);
+          expect((await f.device.resourceStats()).residentBytes, before);
+          await f.compare(await f.render(f.actual));
+        }
+        await f.subject.controller.setQualitySettings(_settings(24));
+        await f.reference.controller.setQualitySettings(_settings(24));
+        await f.compare(await f.render(f.actual));
+        expect(f.subject.controller.adaptiveDiagnostics['effectiveWidth'], 24);
+        await f.save('allocation');
+      } finally {
+        await f.close();
+      }
+    },
+  );
+  test(
+    'pending compositions rebuild atomically with atmosphere inputs',
+    () async {
+      final f = await _Fixture.create();
+      try {
+        await f.compare(await f.render(f.actual));
+        await f.subject.controller.setQualitySettings(_settings(24));
+        await f.reference.controller.setQualitySettings(_settings(24));
+        final overlay = await f.overlay();
+        final before = (await f.device.resourceStats()).residentBytes;
+        f.backend.rejectAtmosphereAllocationAfter = 2;
+        await expectLater(
+          f.atmosphere.controller.setAerialInputs(overlay),
+          throwsA(isA<ResourceException>()),
+        );
+        expect(f.backend.bytesAtRejectedAllocation, greaterThan(before));
+        expect((await f.device.resourceStats()).residentBytes, before);
+        expect(f.subject.controller.width, 24);
+        await f.compare(await f.render(f.actual));
+        await f.subject.controller.setQualitySettings(_settings(16));
+        await f.reference.controller.setQualitySettings(_settings(16));
+        await f.atmosphere.controller.setAerialInputs(overlay);
+        await f.referenceAtmosphere.controller.setAerialInputs(overlay);
+        await f.compare(await f.render(f.actual));
+        expect(f.subject.controller.adaptiveDiagnostics['effectiveWidth'], 16);
+        await f.save('rebuild');
+      } finally {
+        await f.close();
+      }
+    },
+  );
+  for (final pause in [
+    'hook',
+    'backend',
+    'receipt',
+    'aborted',
+    'atmosphere',
+    'atmosphere_resize',
+    'ordinary',
+  ]) {
     test(
       'cloud replacement during $pause keeps the captured candidate alive',
       () async {
-        final f = await _Fixture.create();
+        final f = await _Fixture.create(
+          sky: pause.startsWith('atmosphere'),
+          emptyClouds: pause == 'atmosphere_resize',
+        );
         try {
           await f.compare(await f.render(f.actual));
-          if (pause != 'hook') {
+          if (pause != 'hook' && pause != 'ordinary') {
             await f.subject.controller.setQualitySettings(_settings(24));
             await f.reference.controller.setQualitySettings(_settings(24));
           }
-          final gate = pause == 'hook' || pause == 'aborted'
+          final gate =
+              pause == 'hook' || pause == 'aborted' || pause == 'ordinary'
               ? f.hook.pause
               : f.backend.pause;
           gate.arm();
@@ -30,6 +104,11 @@ void main() {
           // In the hook case A has been prepared but capture has not happened.
           // In the backend case B has rendered, but its receipt is still pending.
           await f.subject.controller.setQualitySettings(_settings(16));
+          AerialPerspectiveInputs? overlay;
+          if (pause == 'ordinary') {
+            overlay = await f.overlay();
+            await f.atmosphere.controller.setAerialInputs(overlay);
+          }
           if (pause == 'receipt') f.receipt.fail = true;
           if (pause == 'aborted') f.hook.fail = true;
           gate.release.complete();
@@ -56,17 +135,34 @@ void main() {
           }
           expect(
             f.subject.controller.adaptiveDiagnostics['effectiveWidth'],
-            pause == 'hook' || pause == 'aborted' ? 32 : 24,
+            pause == 'hook' || pause == 'aborted' || pause == 'ordinary'
+                ? 32
+                : 24,
           );
           expect(f.subject.controller.width, 16);
           f.addUploads();
           for (var i = 0; i < 16; i++) {
-            f.camera.position += const Vec3(0, 0, 1);
-            f.camera.target += const Vec3(.1, 0, 1);
+            if (pause == 'atmosphere' && i == 6) {
+              f.viewportWidth = f.viewportHeight = 35;
+            }
+            if (pause == 'atmosphere_resize' && i == 6) f.viewportWidth = 49;
+            f.camera.position += Vec3(
+              0,
+              0,
+              pause.startsWith('atmosphere') ? 10000 : 1,
+            );
+            f.camera.target += Vec3(
+              pause.startsWith('atmosphere') ? 100 : .1,
+              0,
+              pause.startsWith('atmosphere') ? 10000 : 1,
+            );
             final output = await f.render(f.actual);
             if (output.stats.admission!.candidateReady &&
                 f.reference.controller.width != 16) {
               await f.reference.controller.setQualitySettings(_settings(16));
+              if (overlay != null) {
+                await f.referenceAtmosphere.controller.setAerialInputs(overlay);
+              }
             }
             await f.compare(output);
           }
@@ -144,12 +240,32 @@ final class _PausedBackend implements MaterialBackend {
   final NativeBackend native;
   final pause = _Pause();
   FrameOutput? lastOutput;
+  bool failAtmosphereAllocation = false;
+  int? bytesAtRejectedAllocation;
+  int rejectAtmosphereAllocationAfter = 0;
   _PausedBackend(this.native);
   @override
   DeviceCapabilities get capabilities => native.capabilities;
   @override
-  ResourceScope createResourceScope({String label = ''}) =>
-      native.createResourceScope(label: label);
+  ResourceScope createResourceScope({String label = ''}) {
+    if (label == 'atmosphere scene' &&
+        rejectAtmosphereAllocationAfter > 0 &&
+        --rejectAtmosphereAllocationAfter == 0) {
+      failAtmosphereAllocation = true;
+    }
+    if (label == 'atmosphere scene' && failAtmosphereAllocation) {
+      failAtmosphereAllocation = false;
+      return ResourceScope(
+        _RejectedAllocation(() async {
+          bytesAtRejectedAllocation =
+              (await native.resourceStats()).residentBytes;
+        }),
+        label: label,
+      );
+    }
+    return native.createResourceScope(label: label);
+  }
+
   @override
   ShaderCompiler createShaderCompiler({String label = ''}) =>
       native.createShaderCompiler(label: label);
@@ -176,6 +292,7 @@ final class _Fixture {
   final Scene scene;
   final PerspectiveCamera camera;
   final CloudPlugin subject, reference;
+  final AtmospherePlugin atmosphere, referenceAtmosphere;
   final SceneEngine actual, control;
   final _Hook hook, controlHook;
   final _ReceiptHook receipt;
@@ -183,6 +300,7 @@ final class _Fixture {
   final records = <Map<String, Object?>>[];
   final images = <(Uint8List, Uint8List)>[];
   int number = 0;
+  int viewportWidth = 33, viewportHeight = 33;
   _Fixture(
     this.device,
     this.owner,
@@ -190,6 +308,8 @@ final class _Fixture {
     this.camera,
     this.subject,
     this.reference,
+    this.atmosphere,
+    this.referenceAtmosphere,
     this.actual,
     this.control,
     this.hook,
@@ -197,7 +317,10 @@ final class _Fixture {
     this.receipt,
     this.backend,
   );
-  static Future<_Fixture> create() async {
+  static Future<_Fixture> create({
+    bool sky = false,
+    bool emptyClouds = false,
+  }) async {
     final device = await NativeBackend.create(),
         owner = GpuScope.fromBackend(device);
     final maps = await CloudTextures.generate(owner, size: 8);
@@ -214,6 +337,7 @@ final class _Fixture {
       textures: maps.textures,
       parameters: CloudParameters(
         coverage: .8,
+        densityMultiplier: emptyClouds ? 0 : 1,
         localWeatherVelocity: (.003, .001),
         shapeVelocity: const Vec3(1, 0, 0),
       ),
@@ -227,7 +351,7 @@ final class _Fixture {
       parameters: AtmosphereParameters.legacy(),
       correctAltitude: false,
       maxStarResolution: 16,
-      appearance: AtmosphereAppearance(sky: false, haze: false),
+      appearance: AtmosphereAppearance(sky: sky, haze: sky),
     );
     final subject = clouds(),
         reference = clouds(),
@@ -238,17 +362,18 @@ final class _Fixture {
       device.createView()..configureSceneUploadBudget(1500),
     );
     final scene = Scene()..renderSettings = RenderSettings(hdr: true);
+    final atmosphere = air(), referenceAtmosphere = air();
     final actual = await SceneEngine.create(
       scene: scene,
       camera: camera,
       backendFactory: () async => backend,
-      plugins: [air(), receipt, subject, hook],
+      plugins: [atmosphere, receipt, subject, hook],
     );
     final control = await SceneEngine.create(
       scene: Scene()..renderSettings = RenderSettings(hdr: true),
       camera: camera,
       backendFactory: () async => device.createView(),
-      plugins: [air(), reference, controlHook],
+      plugins: [referenceAtmosphere, reference, controlHook],
     );
     return _Fixture(
       device,
@@ -257,6 +382,8 @@ final class _Fixture {
       camera,
       subject,
       reference,
+      atmosphere,
+      referenceAtmosphere,
       actual,
       control,
       hook,
@@ -269,8 +396,8 @@ final class _Fixture {
   Future<ReadbackOutput> render(SceneEngine engine) async =>
       await engine.renderFrame(
             elapsed: Duration(milliseconds: number * 16),
-            width: 33,
-            height: 33,
+            width: viewportWidth,
+            height: viewportHeight,
           )
           as ReadbackOutput;
   Future<void> compare(ReadbackOutput output) async {
@@ -284,6 +411,8 @@ final class _Fixture {
     }
     records.add({
       'frame': number++,
+      'width': viewportWidth,
+      'height': viewportHeight,
       'ready': output.stats.admission!.candidateReady,
       'maxDifference': difference,
       'subject': subject.controller.adaptiveDiagnostics,
@@ -299,6 +428,17 @@ final class _Fixture {
       subject.controller.adaptiveDiagnostics['presentedHistoryFrames'],
       reference.controller.history.accumulatedFrames,
     );
+  }
+
+  Future<AerialPerspectiveInputs> overlay() async {
+    final texture = await owner.resources.createTexture(
+      TextureDescriptor(width: 1, height: 1, format: TextureFormat.rgba32Float),
+    );
+    await owner.resources.writeTexture(
+      texture,
+      Float32List.fromList([.1, 0, 0, .3]).buffer.asUint8List(),
+    );
+    return AerialPerspectiveInputs(overlay: texture);
   }
 
   void addUploads() {
@@ -342,4 +482,20 @@ final class _Fixture {
     expect((await device.resourceStats()).residentBytes, 0);
     await device.close();
   }
+}
+
+final class _RejectedAllocation implements ResourceDevice {
+  final Future<void> Function() beforeReject;
+  _RejectedAllocation(this.beforeReject);
+  @override
+  Future<Object> createBuffer(BufferDescriptor descriptor) async {
+    await beforeReject();
+    throw const ResourceException(
+      ResourceErrorCode.budgetExceeded,
+      'injected atmosphere composition allocation failure',
+    );
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

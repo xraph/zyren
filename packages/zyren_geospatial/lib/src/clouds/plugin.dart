@@ -398,6 +398,7 @@ final class CloudController {
         temporal ?? _temporal,
         _blueNoise,
       );
+      candidate.composition = await _composition?.prepare(candidate.inputs);
       _check();
       _active = candidate;
       _candidates.add(candidate);
@@ -405,6 +406,7 @@ final class CloudController {
       await _retireCandidates();
     } catch (_) {
       if (!identical(_active, candidate)) {
+        await candidate?.composition?.close();
         await scope.close();
         await lease?.close();
       }
@@ -415,12 +417,12 @@ final class CloudController {
   // Registration changes happen only during frame preparation. Setters can
   // prepare a new request while later hooks or the backend await, but cannot
   // change the candidate that the engine is about to capture.
-  Future<void> _bind(_CloudCandidate candidate) async {
+  Future<void> _bind(_CloudCandidate candidate, [FrameInfo? frame]) async {
     if (identical(_bound, candidate)) return;
     if (_composition == null) {
       _composition = await _atmosphere.registerCloudInputs(candidate.inputs);
     } else {
-      await _composition!.replace(candidate.inputs);
+      await candidate.composition!.publish(frame!);
     }
     if (_producer == null) {
       _producer = _context.scene.addEffect(candidate.effect, order: -100);
@@ -479,7 +481,7 @@ final class CloudController {
       _height = height;
     }
     final candidate = _active!;
-    await _bind(candidate);
+    await _bind(candidate, info);
     final frame = await _prepareCandidate(candidate, info);
     final displayed = _displayed;
     final displayedFrame = displayed == null
@@ -644,6 +646,7 @@ final class _CloudCandidate {
   final AtmosphereCloudInputs inputs;
   final CloudTemporalPass temporal;
   final CloudTemporalSettings settings;
+  PreparedAtmosphereCloudInputs? composition;
   final history = CloudHistory();
   int rayStride = 4, shadowCadence = 1;
   _CloudCandidate(
@@ -757,6 +760,7 @@ final class _CloudCandidate {
   }
 
   Future<void> close() async {
+    await composition?.close();
     try {
       await scope.close();
     } finally {
