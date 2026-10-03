@@ -9,20 +9,25 @@ enum TextureFilter { nearest, linear }
 /// Sampling is independent of image storage and may vary between materials.
 final class SamplerDescriptor {
   final TextureWrap wrapU, wrapV;
+
+  /// Depth addressing for volume samplers. Material images use U and V only.
+  final TextureWrap wrapW;
   final TextureFilter minFilter, magFilter, mipFilter;
   const SamplerDescriptor({
     this.wrapU = TextureWrap.clampToEdge,
     this.wrapV = TextureWrap.clampToEdge,
+    this.wrapW = TextureWrap.clampToEdge,
     this.minFilter = TextureFilter.linear,
     this.magFilter = TextureFilter.linear,
     this.mipFilter = TextureFilter.linear,
   });
-  List<int> toPacket() => [
+  List<int> toPacket({bool volume = false}) => [
     wrapU.index,
     wrapV.index,
     minFilter.index,
     magFilter.index,
     mipFilter.index,
+    if (volume) wrapW.index,
   ];
 }
 

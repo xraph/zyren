@@ -73,7 +73,7 @@ pub struct Binding {
     pub size: Option<u64>,
     pub mip_level: Option<u32>,
     pub mip_levels: Option<u32>,
-    pub sampler: Option<[u32; 5]>,
+    pub sampler: Option<Vec<u32>>,
 }
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]

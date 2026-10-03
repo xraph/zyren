@@ -267,8 +267,14 @@ pub fn prepare(
                 }
                 let data = binding
                     .sampler
+                    .as_ref()
                     .ok_or_else(|| invalid("Sampler descriptor missing"))?;
-                if data[0] > 2 || data[1] > 2 || data[2..].iter().any(|v| *v > 1) {
+                if !(data.len() == 5 || data.len() == 6)
+                    || data[0] > 2
+                    || data[1] > 2
+                    || data[2..5].iter().any(|v| *v > 1)
+                    || data.get(5).is_some_and(|v| *v > 2)
+                {
                     return Err(invalid("Invalid sampler descriptor"));
                 }
                 let wrap = |index: u32| {
@@ -285,10 +291,11 @@ pub fn prepare(
                         wgpu::FilterMode::Linear
                     }
                 };
-                layout_key.filtering = data[2..].contains(&1);
+                layout_key.filtering = data[2..5].contains(&1);
                 let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
                     address_mode_u: wrap(data[0]),
                     address_mode_v: wrap(data[1]),
+                    address_mode_w: wrap(data.get(5).copied().unwrap_or(0)),
                     min_filter: filter(data[2]),
                     mag_filter: filter(data[3]),
                     mipmap_filter: if data[4] == 0 {

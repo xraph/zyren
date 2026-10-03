@@ -564,7 +564,7 @@ List<Map<String, Object?>> _encodeShaderBindings(
           'mipLevels': binding.mipLevels,
         });
       case SamplerBinding():
-        entry['sampler'] = binding.sampler.toPacket();
+        entry['sampler'] = binding.sampler.toPacket(volume: true);
     }
     bindings.add(entry);
   }
