@@ -1,0 +1,16 @@
+name: zyren_game_native
+description: Native simulation driver for Zyren game sessions.
+version: 0.1.0
+publish_to: none
+resolution: workspace
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+dependencies:
+  zyren:
+    path: ../zyren
+  zyren_game:
+    path: ../zyren_game
+  zyren_physics:
+    path: ../zyren_physics
+dev_dependencies:
+  test: ^1.29.0

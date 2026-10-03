@@ -37,6 +37,62 @@ class _Writer extends ScenePlugin {
 }
 
 void main() {
+  test(
+    'external driver advances once per game tick at every render cadence',
+    () async {
+      for (final renderHz in [30, 60, 120]) {
+        final world = PhysicsWorld(gravity: Vec3.zero);
+        final body = world.createBody(velocity: const Vec3(1, 0, 0));
+        body.addCollider(const SphereShape(.1));
+        var steps = 0;
+        final plugin = PhysicsPlugin(
+          world: world,
+          externallyDriven: true,
+          interpolate: false,
+          beforeStep: (_) => steps++,
+        );
+        final scene = Scene();
+        final object = scene.add(Group());
+        plugin.bind(object, body);
+        final engine = await SceneEngine.create(
+          scene: scene,
+          camera: PerspectiveCamera(),
+          rendererFactory: () async => _Renderer(),
+          plugins: [plugin],
+        );
+        try {
+          await engine.render(elapsed: Duration.zero, width: 8, height: 8);
+          for (var frame = 1; frame <= renderHz; frame++) {
+            final due = frame * 60 ~/ renderHz;
+            while (steps < due) {
+              plugin.advance(world.fixedStep);
+            }
+            final position = body.state.pose.position;
+            await engine.render(
+              elapsed: Duration(
+                microseconds: (frame * 1000000 / renderHz).round(),
+              ),
+              width: 8,
+              height: 8,
+            );
+            expect(body.state.pose.position, position);
+          }
+          expect(steps, 60);
+          expect(body.state.pose.position.x, closeTo(1, .001));
+          plugin.paused = true;
+          plugin.advance(world.fixedStep);
+          expect(steps, 60);
+          plugin.paused = false;
+          plugin.advance(world.fixedStep);
+          expect(steps, 61);
+        } finally {
+          await engine.dispose();
+          plugin.clearBindings();
+          world.close();
+        }
+      }
+    },
+  );
   test('bounded stepping, pause, interpolation and competing transforms', () {
     final world = PhysicsWorld(gravity: Vec3.zero);
     final plugin = PhysicsPlugin(

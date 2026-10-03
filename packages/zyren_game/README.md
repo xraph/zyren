@@ -117,3 +117,27 @@ fvm dart run tool/check_package_boundaries.dart
 These checks cover Dart contracts. Studio compilation, scene attachment,
 fixed-step sessions and native device qualification have separate integration
 work and tests.
+
+## Run a session
+
+Compile a validated `GameProject` into `CompiledGameProject`, then create a
+`GameSession` with a seed and your registered systems. `step()` advances one tick.
+`advance(seconds)` admits realtime elapsed time with a bounded catch-up budget.
+Read `droppedSeconds` when the host cannot keep up. The compiled recipe pins the
+fixed rate, component versions, required system versions and artifact hashes.
+
+Systems run in commands, decisions, controllers, physics, rules, sensors and
+diagnostics order. Dependencies must exist and cannot point to a later phase.
+Startup failures still receive reverse-order disposal when you call `close()`.
+Removing a system stops its callbacks immediately; its resources remain owned
+until session close. A system with active dependents cannot be removed.
+
+Queue structural changes through `enqueueMutation`. Changes enqueued from a
+mutation run on the next tick. Pause and resume clear pending commands and
+increment the session epoch so asynchronous consumers can reject old results.
+Drain the bounded event journal after each host frame or training step. Every
+catch-up tick keeps its events, including events raised by another listener.
+
+Use `zyren_game_native` when the session needs Rapier. Its driver reuses the
+existing physics accumulator and root-motion hook. Pure project tools and game
+rules do not need a renderer or native library.

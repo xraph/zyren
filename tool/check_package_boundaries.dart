@@ -4,6 +4,9 @@ import 'dart:io';
 void main(List<String> args) {
   final root = Directory(args.isEmpty ? '.' : args.single);
   final allowed = <String, Set<String>>{
+    'packages/zyren_ml': {'zyren_ml', 'ffi', 'crypto', 'zyren_agents'},
+    'packages/zyren_game': {'zyren_game', 'zyren', 'zyren_agents'},
+    'packages/zyren_game_native': {'zyren_game_native', 'zyren_game', 'zyren_physics', 'zyren'},
     'packages/zyren_studio': {'zyren_studio', 'zyren', 'zyren_agents', 'zyren_tools', 'zyren_timeline', 'zyren_engineering'},
     'packages/zyren_scientific': {'zyren_scientific', 'zyren', 'zyren_agents', 'zyren_timeline'},
     'packages/zyren_pipeline': {
@@ -61,7 +64,7 @@ void main(List<String> args) {
       for (final match in directive.allMatches(file.readAsStringSync())) {
         final uri = match.group(1)!;
         if (uri == 'dart:ui' ||
-            uri == 'dart:ffi' && !{'packages/zyren_physics', 'packages/zyren_pointclouds'}.contains(package.key) ||
+            uri == 'dart:ffi' && !{'packages/zyren_physics', 'packages/zyren_pointclouds', 'packages/zyren_ml'}.contains(package.key) ||
             uri.startsWith('package:') &&
                 !package.value.contains(uri.substring(8).split('/').first)) {
           failures.add('${file.path}: unexpected dependency $uri');

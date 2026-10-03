@@ -12,6 +12,9 @@ final class PhysicsPlugin extends ScenePlugin {
   final int maxCatchUpSteps;
   final double maxFrameDelta;
   final bool interpolate;
+
+  /// An external simulation clock calls [advance]; render callbacks only present.
+  final bool externallyDriven;
   bool debug;
   final void Function(List<PhysicsEvent>)? onEvents;
 
@@ -30,6 +33,7 @@ final class PhysicsPlugin extends ScenePlugin {
     this.maxCatchUpSteps = 8,
     this.maxFrameDelta = .25,
     this.interpolate = true,
+    this.externallyDriven = false,
     this.debug = false,
     this.onEvents,
     this.beforeStep,
@@ -51,7 +55,7 @@ final class PhysicsPlugin extends ScenePlugin {
       _demand?.dispose();
       _demand = null;
     } else if (_context case final context?) {
-      _demand ??= context.acquireFrameDemand();
+      if (!externallyDriven) _demand ??= context.acquireFrameDemand();
       context.invalidate();
     }
   }
@@ -140,7 +144,7 @@ final class PhysicsPlugin extends ScenePlugin {
     }
     context.provide(physicsWorldService, world);
     _worldOwners[world] = this;
-    if (!paused) _demand = context.acquireFrameDemand();
+    if (!paused && !externallyDriven) _demand = context.acquireFrameDemand();
   }
 
   /// Advance with seconds. Events are delivered after native stepping and poses.
@@ -199,11 +203,14 @@ final class PhysicsPlugin extends ScenePlugin {
       );
     }
     if (events.isNotEmpty) onEvents?.call(List.unmodifiable(events));
+    if (externallyDriven && steps > 0) _context?.invalidate();
   }
 
   @override
   void beforeRender(PluginContext context, FrameInfo frame) {
-    advance(frame.delta.inMicroseconds / Duration.microsecondsPerSecond);
+    if (!externallyDriven) {
+      advance(frame.delta.inMicroseconds / Duration.microsecondsPerSecond);
+    }
     if (debug) {
       if (!context.capabilities.features.contains(
         RenderFeature.portablePrimitives,
