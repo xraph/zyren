@@ -1,5 +1,18 @@
 import 'package:zyren/zyren.dart';
 
+Object? _textureIdentity(TextureMap? map) => map == null
+    ? null
+    : (
+        map.image,
+        map.uvSet,
+        map.sampler.wrapU,
+        map.sampler.wrapV,
+        map.sampler.wrapW,
+        map.sampler.minFilter,
+        map.sampler.magFilter,
+        map.sampler.mipFilter,
+      );
+
 /// Immutable geometry descriptions. Equal descriptions reuse the CPU geometry.
 sealed class SceneGeometry {
   const SceneGeometry();
@@ -71,15 +84,41 @@ final class _GeometryValue extends SceneGeometry {
   BufferGeometry create() => geometry;
 }
 
-/// Const-friendly material descriptions. Use [SceneMaterial.value] for maps,
-/// shaders, physical materials, lines, points and other engine material options.
+/// Immutable material descriptions. Texture maps borrow caller-owned images.
 sealed class SceneMaterial {
   const SceneMaterial();
-  const factory SceneMaterial.unlit({Color3 color}) = _Unlit;
+  const factory SceneMaterial.unlit({
+    Color3 color,
+    TextureMap? colorMap,
+    MaterialSide side,
+    MaterialAlphaMode alphaMode,
+    double opacity,
+    double alphaCutoff,
+    bool depthTest,
+    bool vertexColors,
+    DepthWrite depthWrite,
+  }) = _Unlit;
   const factory SceneMaterial.standard({
     Color3 color,
     double metallic,
     double roughness,
+    TextureMap? colorMap,
+    MaterialSide side,
+    MaterialAlphaMode alphaMode,
+    double opacity,
+    double alphaCutoff,
+    bool depthTest,
+    bool vertexColors,
+    DepthWrite depthWrite,
+    TextureMap? normalMap,
+    TextureMap? metallicRoughnessMap,
+    TextureMap? occlusionMap,
+    TextureMap? emissiveMap,
+    double normalScale,
+    double normalScaleY,
+    double occlusionStrength,
+    Color3 emissive,
+    double emissiveIntensity,
   }) = _Standard;
   const factory SceneMaterial.value(MeshMaterial material) = _MaterialValue;
   Object get _identity;
@@ -95,26 +134,140 @@ sealed class SceneMaterial {
 
 final class _Unlit extends SceneMaterial {
   final Color3 color;
-  const _Unlit({this.color = const Color3(.4, .6, .9)});
+  final TextureMap? colorMap;
+  final MaterialSide side;
+  final MaterialAlphaMode alphaMode;
+  final double opacity;
+  final double alphaCutoff;
+  final bool depthTest;
+  final bool vertexColors;
+  final DepthWrite depthWrite;
+  const _Unlit({
+    this.color = const Color3(.4, .6, .9),
+    this.colorMap,
+    this.side = MaterialSide.doubleSided,
+    this.alphaMode = MaterialAlphaMode.opaque,
+    this.opacity = 1,
+    this.alphaCutoff = .5,
+    this.depthTest = true,
+    this.vertexColors = false,
+    this.depthWrite = DepthWrite.automatic,
+  });
   @override
-  Object get _identity => color;
+  Object get _identity => (
+    color,
+    _textureIdentity(colorMap),
+    side,
+    alphaMode,
+    opacity,
+    alphaCutoff,
+    depthTest,
+    vertexColors,
+    depthWrite,
+  );
   @override
-  MeshMaterial create() => UnlitMaterial(color: color);
+  MeshMaterial create() => UnlitMaterial(
+    color: color,
+    colorMap: colorMap,
+    side: side,
+    alphaMode: alphaMode,
+    opacity: opacity,
+    alphaCutoff: alphaCutoff,
+    depthTest: depthTest,
+    vertexColors: vertexColors,
+    depthWrite: depthWrite,
+  );
 }
 
 final class _Standard extends SceneMaterial {
   final Color3 color;
-  final double metallic, roughness;
+  final double metallic;
+  final double roughness;
+  final TextureMap? colorMap;
+  final MaterialSide side;
+  final MaterialAlphaMode alphaMode;
+  final double opacity;
+  final double alphaCutoff;
+  final bool depthTest;
+  final bool vertexColors;
+  final DepthWrite depthWrite;
+  final TextureMap? normalMap;
+  final TextureMap? metallicRoughnessMap;
+  final TextureMap? occlusionMap;
+  final TextureMap? emissiveMap;
+  final double normalScale;
+  final double normalScaleY;
+  final double occlusionStrength;
+  final Color3 emissive;
+  final double emissiveIntensity;
   const _Standard({
     this.color = const Color3(1, 1, 1),
     this.metallic = 0,
     this.roughness = 1,
+    this.colorMap,
+    this.side = MaterialSide.doubleSided,
+    this.alphaMode = MaterialAlphaMode.opaque,
+    this.opacity = 1,
+    this.alphaCutoff = .5,
+    this.depthTest = true,
+    this.vertexColors = false,
+    this.depthWrite = DepthWrite.automatic,
+    this.normalMap,
+    this.metallicRoughnessMap,
+    this.occlusionMap,
+    this.emissiveMap,
+    this.normalScale = 1,
+    this.normalScaleY = 1,
+    this.occlusionStrength = 1,
+    this.emissive = const Color3(0, 0, 0),
+    this.emissiveIntensity = 1,
   });
   @override
-  Object get _identity => (color, metallic, roughness);
+  Object get _identity => (
+    color,
+    metallic,
+    roughness,
+    _textureIdentity(colorMap),
+    side,
+    alphaMode,
+    opacity,
+    alphaCutoff,
+    depthTest,
+    vertexColors,
+    depthWrite,
+    _textureIdentity(normalMap),
+    _textureIdentity(metallicRoughnessMap),
+    _textureIdentity(occlusionMap),
+    _textureIdentity(emissiveMap),
+    normalScale,
+    normalScaleY,
+    occlusionStrength,
+    emissive,
+    emissiveIntensity,
+  );
   @override
-  MeshMaterial create() =>
-      StandardMaterial(color: color, metallic: metallic, roughness: roughness);
+  MeshMaterial create() => StandardMaterial(
+    color: color,
+    metallic: metallic,
+    roughness: roughness,
+    colorMap: colorMap,
+    side: side,
+    alphaMode: alphaMode,
+    opacity: opacity,
+    alphaCutoff: alphaCutoff,
+    depthTest: depthTest,
+    vertexColors: vertexColors,
+    depthWrite: depthWrite,
+    normalMap: normalMap,
+    metallicRoughnessMap: metallicRoughnessMap,
+    occlusionMap: occlusionMap,
+    emissiveMap: emissiveMap,
+    normalScale: normalScale,
+    normalScaleY: normalScaleY,
+    occlusionStrength: occlusionStrength,
+    emissive: emissive,
+    emissiveIntensity: emissiveIntensity,
+  );
 }
 
 final class _MaterialValue extends SceneMaterial {

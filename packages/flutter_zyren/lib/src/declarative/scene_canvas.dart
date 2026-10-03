@@ -9,9 +9,11 @@ import 'scene_specs.dart';
 export 'scene_specs.dart';
 export 'scene_assets.dart';
 export 'scene_selector.dart';
+export 'scene_animation.dart';
 part 'scene_nodes.dart';
 part 'scene_events.dart';
 part 'scene_plugins.dart';
+part 'scene_rendering.dart';
 
 /// A native viewport with a declarative scene tree and an optional Flutter overlay.
 /// You can compose scene children with ordinary StatelessWidget/StatefulWidget
@@ -21,6 +23,7 @@ class SceneCanvas extends StatefulWidget {
   final Widget? overlay;
   final SceneCamera camera;
   final Color3? background;
+  final ColorPipeline? colorPipeline;
   final EngineOptions options;
   final SceneRuntime? runtime;
 
@@ -47,6 +50,7 @@ class SceneCanvas extends StatefulWidget {
     this.overlay,
     this.camera = const SceneCamera.perspective(),
     this.background,
+    this.colorPipeline,
     this.options = const EngineOptions(),
     this.runtime,
     this.assetCache,
@@ -88,6 +92,7 @@ class _SceneCanvasState extends State<SceneCanvas> {
         camera: widget.camera.create(),
         scene: Scene()..background = widget.background,
         options: widget.options,
+        colorPipeline: widget.colorPipeline,
         runtime: widget.runtime,
       );
       events = _SceneEventDispatcher(
@@ -109,6 +114,9 @@ class _SceneCanvasState extends State<SceneCanvas> {
   void didUpdateWidget(SceneCanvas oldWidget) {
     super.didUpdateWidget(oldWidget);
     events._syncInterests();
+    if (widget.colorPipeline != oldWidget.colorPipeline) {
+      controller.colorPipeline = widget.colorPipeline;
+    }
     if (widget.assetCache != oldWidget.assetCache ||
         widget.runtime != oldWidget.runtime ||
         _sessionOptions(widget.options) != _sessionOptions(oldWidget.options)) {

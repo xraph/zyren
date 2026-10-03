@@ -362,6 +362,16 @@ class DirectionalLightNode extends SceneNode<DirectionalLight> {
     super.visible,
     super.ref,
     super.onFrame,
+    super.scale,
+    super.children,
+    super.onTap,
+    super.onPointerEnter,
+    super.onPointerLeave,
+    super.onPointerDown,
+    super.onPointerMove,
+    super.onPointerUp,
+    super.onPointerCancel,
+    super.onClick,
   });
   @override
   DirectionalLight createObject() => DirectionalLight(
@@ -379,5 +389,296 @@ class DirectionalLightNode extends SceneNode<DirectionalLight> {
     if (previous == null || direction != previous.direction) {
       object.direction = direction;
     }
+  }
+}
+
+class PointLightNode extends SceneNode<PointLight> {
+  final Color3 color;
+  final double intensity;
+  final double? range;
+  final PointShadow? shadow;
+  const PointLightNode({
+    super.key,
+    super.name,
+    super.position,
+    super.scale,
+    super.quaternion,
+    super.visible,
+    super.ref,
+    super.children,
+    super.onFrame,
+    super.onTap,
+    super.onPointerEnter,
+    super.onPointerLeave,
+    super.onPointerDown,
+    super.onPointerMove,
+    super.onPointerUp,
+    super.onPointerCancel,
+    super.onClick,
+    this.color = const Color3(1, 1, 1),
+    this.intensity = 1,
+    this.range,
+    this.shadow,
+  });
+  @override
+  PointLight createObject() => PointLight(
+    name: name,
+    color: color,
+    intensity: intensity,
+    range: range,
+    shadow: shadow,
+  );
+  @override
+  void updateObject(PointLight object, PointLightNode? previous) {
+    if (previous == null || color != previous.color) object.color = color;
+    if (previous == null || intensity != previous.intensity) {
+      object.intensity = intensity;
+    }
+    if (previous == null || range != previous.range) object.range = range;
+    if (previous == null || shadow != previous.shadow) object.shadow = shadow;
+  }
+}
+
+class SpotLightNode extends SceneNode<SpotLight> {
+  final Color3 color;
+  final double intensity;
+  final double? range;
+  final SpotShadow? shadow;
+  final Vec3 direction;
+  final double innerConeAngle;
+  final double outerConeAngle;
+  const SpotLightNode({
+    super.key,
+    super.name,
+    super.position,
+    super.scale,
+    super.quaternion,
+    super.visible,
+    super.ref,
+    super.children,
+    super.onFrame,
+    super.onTap,
+    super.onPointerEnter,
+    super.onPointerLeave,
+    super.onPointerDown,
+    super.onPointerMove,
+    super.onPointerUp,
+    super.onPointerCancel,
+    super.onClick,
+    this.color = const Color3(1, 1, 1),
+    this.intensity = 1,
+    this.range,
+    this.shadow,
+    this.direction = const Vec3(0, 0, -1),
+    this.innerConeAngle = 0,
+    this.outerConeAngle = 0.7853981633974483,
+  });
+  @override
+  SpotLight createObject() => SpotLight(
+    name: name,
+    color: color,
+    intensity: intensity,
+    range: range,
+    shadow: shadow,
+    direction: direction,
+    innerConeAngle: innerConeAngle,
+    outerConeAngle: outerConeAngle,
+  );
+  @override
+  void updateObject(SpotLight object, SpotLightNode? previous) {
+    if (previous == null || color != previous.color) object.color = color;
+    if (previous == null || intensity != previous.intensity) {
+      object.intensity = intensity;
+    }
+    if (previous == null || range != previous.range) object.range = range;
+    if (previous == null || shadow != previous.shadow) object.shadow = shadow;
+    if (previous == null || direction != previous.direction) {
+      object.direction = direction;
+    }
+    object.setCone(
+      innerConeAngle: innerConeAngle,
+      outerConeAngle: outerConeAngle,
+    );
+  }
+}
+
+class HemisphereLightNode extends SceneNode<HemisphereLight> {
+  final Color3 skyColor;
+  final Color3 groundColor;
+  final double intensity;
+  final Vec3 up;
+  const HemisphereLightNode({
+    super.key,
+    super.name,
+    super.position,
+    super.scale,
+    super.quaternion,
+    super.visible,
+    super.ref,
+    super.children,
+    super.onFrame,
+    super.onTap,
+    super.onPointerEnter,
+    super.onPointerLeave,
+    super.onPointerDown,
+    super.onPointerMove,
+    super.onPointerUp,
+    super.onPointerCancel,
+    super.onClick,
+    this.skyColor = const Color3(1, 1, 1),
+    this.groundColor = const Color3(0, 0, 0),
+    this.intensity = 1,
+    this.up = const Vec3(0, 1, 0),
+  });
+  @override
+  HemisphereLight createObject() => HemisphereLight(
+    name: name,
+    skyColor: skyColor,
+    groundColor: groundColor,
+    intensity: intensity,
+    up: up,
+  );
+  @override
+  void updateObject(HemisphereLight object, HemisphereLightNode? previous) {
+    if (previous == null || skyColor != previous.skyColor) {
+      object.skyColor = skyColor;
+    }
+    if (previous == null || groundColor != previous.groundColor) {
+      object.groundColor = groundColor;
+    }
+    if (previous == null || intensity != previous.intensity) {
+      object.intensity = intensity;
+    }
+    if (previous == null || up != previous.up) object.up = up;
+  }
+}
+
+class RectAreaLightNode extends SceneNode<RectAreaLight> {
+  final Color3 color;
+  final double intensity;
+  final double width;
+  final double height;
+  final AreaShadow? shadow;
+  const RectAreaLightNode({
+    super.key,
+    super.name,
+    super.position,
+    super.scale,
+    super.quaternion,
+    super.visible,
+    super.ref,
+    super.children,
+    super.onFrame,
+    super.onTap,
+    super.onPointerEnter,
+    super.onPointerLeave,
+    super.onPointerDown,
+    super.onPointerMove,
+    super.onPointerUp,
+    super.onPointerCancel,
+    super.onClick,
+    this.color = const Color3(1, 1, 1),
+    this.intensity = 1,
+    this.width = 1,
+    this.height = 1,
+    this.shadow,
+  });
+  @override
+  RectAreaLight createObject() => RectAreaLight(
+    name: name,
+    color: color,
+    intensity: intensity,
+    width: width,
+    height: height,
+    shadow: shadow,
+  );
+  @override
+  void updateObject(RectAreaLight object, RectAreaLightNode? previous) {
+    if (previous == null || color != previous.color) object.color = color;
+    if (previous == null || intensity != previous.intensity) {
+      object.intensity = intensity;
+    }
+    if (previous == null || width != previous.width) object.width = width;
+    if (previous == null || height != previous.height) object.height = height;
+    if (previous == null || shadow != previous.shadow) object.shadow = shadow;
+  }
+}
+
+/// Capacity changes replace storage. Lists are copied to protect retained updates.
+class InstancedMeshNode extends SceneNode<InstancedMesh> {
+  final SceneGeometry geometry;
+  final SceneMaterial material;
+  final int capacity, count;
+  final List<Mat4> transforms;
+  final List<Color3> colors;
+  final bool castShadow, receiveShadow;
+  final int renderOrder;
+  InstancedMeshNode({
+    super.key,
+    super.name,
+    super.position,
+    super.scale,
+    super.quaternion,
+    super.visible,
+    super.ref,
+    super.children,
+    super.onFrame,
+    super.onTap,
+    super.onPointerEnter,
+    super.onPointerLeave,
+    super.onPointerDown,
+    super.onPointerMove,
+    super.onPointerUp,
+    super.onPointerCancel,
+    super.onClick,
+    required this.geometry,
+    this.material = const SceneMaterial.unlit(),
+    required this.capacity,
+    required this.count,
+    List<Mat4> transforms = const [],
+    List<Color3> colors = const [],
+    this.castShadow = false,
+    this.receiveShadow = false,
+    this.renderOrder = 0,
+  }) : transforms = List.unmodifiable(transforms),
+       colors = List.unmodifiable(colors);
+  @override
+  InstancedMesh createObject() => InstancedMesh(
+    geometry.create(),
+    material.create(),
+    count: capacity,
+    name: name,
+  );
+  @override
+  bool shouldRecreate(InstancedMeshNode previous) =>
+      super.shouldRecreate(previous) ||
+      geometry != previous.geometry ||
+      capacity != previous.capacity;
+  @override
+  void updateObject(InstancedMesh object, InstancedMeshNode? previous) {
+    RangeError.checkValueInInterval(count, 0, capacity, 'count');
+    if (transforms.length > capacity || colors.length > capacity) {
+      throw RangeError('Instance data exceeds capacity.');
+    }
+    object.setTransforms(0, transforms);
+    object.setColors(0, colors);
+    // A removed supplied entry returns to the default rather than retaining stale data.
+    for (
+      var i = transforms.length;
+      i < (previous?.transforms.length ?? 0);
+      i++
+    ) {
+      if (i < capacity) object.setTransform(i, Mat4.identity());
+    }
+    for (var i = colors.length; i < (previous?.colors.length ?? 0); i++) {
+      if (i < capacity) object.setColor(i, const Color3(1, 1, 1));
+    }
+    object.count = count;
+    if (previous != null && material != previous.material) {
+      object.material = material.create();
+    }
+    object.castShadow = castShadow;
+    object.receiveShadow = receiveShadow;
+    object.renderOrder = renderOrder;
   }
 }
