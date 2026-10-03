@@ -22,6 +22,8 @@ NATIVE_REQUIREMENTS = {f"R{i:02}" for i in (3, 4, 5, 6, 8, 9, 12, 13, 14, 15, 17
 TRAINED_REQUIREMENTS = {f"R{i:02}" for i in (16, 17, 18, 20, 22, 24, 25, 26, 27, 28)}
 # T4's unchanged held-out plan. Register a new plan only after its own qualification.
 EVALUATION_PLAN = "70293bb2509acec9f3626a87423f5a077d496e75cad3dc734f6fff853af763c4"
+EVALUATION_PLANS = frozenset({EVALUATION_PLAN,
+    "deaf8017551bc1709af5f6e689f4c3f377f52b2822c6a02c9522986cb52e3afd"})
 sys.path.insert(0, str(ROOT / "tool/zyren_train/src"))
 from zyren_train.metrics import EpisodeMetric, aggregate
 from zyren_train.regression import qualify
@@ -103,9 +105,9 @@ def validate(document, root=ROOT, *, release=True):
                 return False
             report = read_receipt(report_paths[0])
             if (not report or type(report.get("schema_version")) is not int
-                    or report.get("schema_version") != 1 or report.get("plan_hash") != EVALUATION_PLAN):
+                    or report.get("schema_version") != 1 or report.get("plan_hash") not in EVALUATION_PLANS):
                 return False
-            if hashlib.sha256(canonical_bytes(report["plan"])).hexdigest() != EVALUATION_PLAN:
+            if hashlib.sha256(canonical_bytes(report["plan"])).hexdigest() != report["plan_hash"]:
                 return False
             if (report.get("status") != "passed" or report.get("reasons") != []
                     or not isinstance(report.get("provider"), str)

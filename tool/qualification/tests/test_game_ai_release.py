@@ -170,6 +170,23 @@ class ReleaseEvidenceTest(unittest.TestCase):
                 self.set_quality(quality)
                 self.assertTrue(release.validate(self.document, self.root))
 
+    def test_audited_worker_revision_retains_original_quality_cases(self):
+        report = copy.deepcopy(self.report)
+        plan = report['plan']
+        plan['id'] = 'game-lab-held-out-v1-artifact-3a46eec02cc1'
+        plan['worker_sha256'] = '3a46eec02cc1e0cce4ef6fe3a09b4b09febb5f0746f11523c7407964be5c88fb'
+        plan['revision'] = {'case_content_hash': 'b5a7eff352c517411b818b741e82c0a75bf330f254f78764fe2e43f307872f47', 'reason': 'original executable overwritten during sequence-probe rebuild', 'supersedes': '70293bb2509acec9f3626a87423f5a077d496e75cad3dc734f6fff853af763c4'}
+        report['plan_hash'] = 'deaf8017551bc1709af5f6e689f4c3f377f52b2822c6a02c9522986cb52e3afd'
+        report['worker_sha256'] = plan['worker_sha256']
+        quality = copy.deepcopy(self.quality)
+        quality['evaluation'] = self.write_receipt('revision-evaluation.json', report)
+        self.set_quality(quality)
+        self.assertEqual(release.validate(self.document, self.root), [])
+        plan['cases'][0]['seeds'][0] += 1
+        quality['evaluation'] = self.write_receipt('changed-revision.json', report)
+        self.set_quality(quality)
+        self.assertTrue(release.validate(self.document, self.root))
+
     def test_dart_native_model_parity_is_required(self):
         for changes in ({'source': 'python-onnxruntime'}, {'status': 'skipped'},
                         {'modelSha256': '0' * 64}, {'maxAbsoluteError': 1.0}):
