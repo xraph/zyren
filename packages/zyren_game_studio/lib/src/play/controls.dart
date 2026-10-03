@@ -12,6 +12,8 @@ final class GamePlayContribution {
   final GamePlayAnimationFactory? animationFactory;
   final SpatialAudio Function(StudioScene)? audioFactory;
   final List<GameSystem> Function(GamePlaySession)? systemFactory;
+  final Future<GameRuntimeResourceLease?> Function(GamePlaySession)?
+  prepareRuntime;
   final Future<void> Function(StudioEditorContext)? importAssets;
   final Set<String> capabilities;
   final Map<String, Set<String>> editableFields;
@@ -25,6 +27,7 @@ final class GamePlayContribution {
     this.animationFactory,
     this.audioFactory,
     this.systemFactory,
+    this.prepareRuntime,
     this.importAssets,
     this.capabilities = const {},
     this.editableFields = const {},
@@ -64,6 +67,7 @@ final class GamePlayContribution {
                 animationFactory: animationFactory,
                 audioFactory: audioFactory,
                 systemFactory: systemFactory,
+                prepareRuntime: prepareRuntime,
                 capabilities: capabilities,
               );
               try {

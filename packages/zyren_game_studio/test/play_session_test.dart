@@ -9,6 +9,7 @@ import 'package:zyren_audio/zyren_audio.dart';
 import 'package:zyren_physics/zyren_physics.dart';
 import 'package:zyren_pipeline/zyren_pipeline.dart';
 import 'package:zyren_game/zyren_game.dart';
+import 'package:zyren_game_native/runtime.dart';
 import 'package:zyren_game_studio/levels.dart';
 import 'package:zyren_game_studio/play.dart';
 import 'package:zyren_game_studio/authoring.dart';
@@ -72,6 +73,55 @@ CompiledGameProject compile(StudioDocument d, GameAuthoring a) {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  test(
+    'stop drains runtime preparation before releasing native owners',
+    () async {
+      final authoring = createGameDevelopmentAuthoring();
+      final document = GameTemplate(
+        GameTemplateKind.exploration,
+        authoring,
+      ).create(projectId: 'prepare-cancel').document;
+      final entered = Completer<void>(), release = Completer<void>();
+      var renderers = 0, preparationCloses = 0;
+      late PhysicsWorld world;
+      final play = GamePlaySession(
+        authoredScene: StudioScene(document),
+        fixtureRendererFactory: () async {
+          renderers++;
+          return TestRenderer();
+        },
+        prepareRuntime: (play) async {
+          world = play.world!;
+          entered.complete();
+          await release.future;
+          expect(world.isClosed, isFalse);
+          return GameRuntimeResourceLease(
+            close: () {
+              expect(world.isClosed, isFalse);
+              preparationCloses++;
+            },
+          );
+        },
+      );
+      final launching = expectLater(
+        play.start(compile(document, authoring)),
+        throwsA(isA<LoadCancelled>()),
+      );
+      await entered.future;
+      var stopped = false;
+      final stopping = play.stop().then((_) => stopped = true);
+      await Future<void>.delayed(Duration.zero);
+      expect(stopped, isFalse);
+      release.complete();
+      await launching;
+      await stopping;
+      expect(world.isClosed, isTrue);
+      expect(renderers, 0);
+      expect(preparationCloses, 1);
+      expect(play.world, isNull);
+      play.dispose();
+    },
+  );
   test(
     'three real native sessions own independent worlds, models and unchanged authoring',
     () async {

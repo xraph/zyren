@@ -18,6 +18,8 @@ final class GamePlaySession extends ChangeNotifier
   final SpatialAudio Function(StudioScene)? audioFactory;
   final GamePlayAnimationFactory? animationFactory;
   final List<GameSystem> Function(GamePlaySession)? systemFactory;
+  final Future<GameRuntimeResourceLease?> Function(GamePlaySession)?
+  prepareRuntime;
   final RendererFactory? fixtureRendererFactory;
   final int seed;
   final Set<String> capabilities;
@@ -32,6 +34,7 @@ final class GamePlaySession extends ChangeNotifier
     this.audioFactory,
     this.animationFactory,
     this.systemFactory,
+    this.prepareRuntime,
     this.fixtureRendererFactory,
     this.seed = 1,
     this.capabilities = const {},
@@ -52,6 +55,7 @@ final class GamePlaySession extends ChangeNotifier
   SpatialAudio? _audio;
   SpatialAudio? get audio => _audio;
   GameLevelRuntime? _levelRuntime;
+  GameRuntimeResourceLease? _preparedRuntime;
   GameLevelRuntime? get levelRuntime => _levelRuntime;
   GameSimulation? get _simulation => _levelRuntime?.simulation;
   GameSimulation? get simulation => _simulation;
@@ -257,6 +261,8 @@ final class GamePlaySession extends ChangeNotifier
       );
       await native.initialize();
       _checkLaunch(generation);
+      _preparedRuntime = await prepareRuntime?.call(this);
+      _checkLaunch(generation);
       _audio = audioFactory?.call(_scene!);
       final plugins = native.plugins;
       if (fixtureRendererFactory != null) {
@@ -437,6 +443,11 @@ final class GamePlaySession extends ChangeNotifier
       await engine?.dispose();
     });
     final native = _levelRuntime;
+    await cleanup(() async {
+      final prepared = _preparedRuntime;
+      _preparedRuntime = null;
+      await prepared?.close();
+    });
     await cleanup(() async {
       await native?.close();
     });
