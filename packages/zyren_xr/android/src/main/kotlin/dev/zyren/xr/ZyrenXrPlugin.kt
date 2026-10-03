@@ -36,7 +36,7 @@ class ZyrenXrPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAw
     private val epochs = XrEpochs()
     private var runningEpoch = -1L
     private val frameClock = XrFrameClock()
-    private var pendingStart: Pair<Map<String, Any?>, MethodChannel.Result>? = null
+    private val permissionStart = XrPermissionRequest<Pair<Map<String, Any?>, MethodChannel.Result>>()
     private var installRequested = false
     private var permissionRequested = false
     // Everything below is confined to worker, including ARCore and GPU ownership.
@@ -80,20 +80,31 @@ class ZyrenXrPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAw
     override fun onDetachedFromActivity() = detachActivity()
     override fun onDetachedFromActivityForConfigChanges() = detachActivity()
     override fun onReattachedToActivityForConfigChanges(b: ActivityPluginBinding) = onAttachedToActivity(b)
-    override fun onActivityPaused(a: Activity) { if (a === activity) { epochs.invalidate(); active = false; cancelStart(); worker.execute { pause() } } }
-    override fun onActivityResumed(a: Activity) { if (a === activity) active = true }
+    override fun onActivityPaused(a: Activity) {
+        if (a === activity) {
+            epochs.invalidate(); active = false
+            // Our permission dialog pauses the activity without stopping it.
+            worker.execute { pause() }
+        }
+    }
+    override fun onActivityResumed(a: Activity) {
+        if (a === activity) {
+            active = true
+            permissionStart.resume()?.let { beginStart(it.first, it.second) }
+        }
+    }
     override fun onActivityCreated(a: Activity, b: Bundle?) {}
     override fun onActivityStarted(a: Activity) {}
-    override fun onActivityStopped(a: Activity) {}
+    override fun onActivityStopped(a: Activity) { if (a === activity) cancelStart() }
     override fun onActivitySaveInstanceState(a: Activity, b: Bundle) {}
     override fun onActivityDestroyed(a: Activity) {}
-    private fun cancelStart() { pendingStart?.second?.error("cancelled", "Session start was cancelled by the activity lifecycle.", null); pendingStart = null }
+    private fun cancelStart() { permissionStart.cancel()?.second?.error("cancelled", "Session start was cancelled by the activity lifecycle.", null) }
     private fun permission(): String = if (context.checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) "authorized" else if (permissionRequested || context.getSharedPreferences("zyren_xr", Context.MODE_PRIVATE).getBoolean("cameraRequested", false)) "denied" else "notDetermined"
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grants: IntArray): Boolean {
         if (requestCode != permissionRequest) return false
-        val pending = pendingStart ?: return true
-        pendingStart = null
-        if (permission() != "authorized") pending.second.error("permissionDenied", "Camera access was denied. Allow Camera in app settings or retry.", null)
+        val authorized = permission() == "authorized"
+        val pending = permissionStart.resolve(authorized, active) ?: return true
+        if (!authorized) pending.second.error("permissionDenied", "Camera access was denied. Allow Camera in app settings or retry.", null)
         else beginStart(pending.first, pending.second)
         return true
     }
@@ -156,7 +167,7 @@ class ZyrenXrPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAw
         if (args["sessionId"] != sessionId || sessionId == null) { result.error("invalidSession", "The XR session has been released.", null); return }
         val a = activity
         if (a == null || !active) { result.error("appInactive", "Start XR from an active activity.", null); return }
-        if (pendingStart != null) { result.error("busy", "A camera permission request is pending.", null); return }
+        if (permissionStart.pending) { result.error("busy", "A camera permission request is pending.", null); return }
         try {
             if (ArCoreApk.getInstance().requestInstall(a, !installRequested) == ArCoreApk.InstallStatus.INSTALL_REQUESTED) {
                 installRequested = true; result.error("installRequested", "Complete Google Play Services for AR installation, then retry.", null); return
@@ -172,7 +183,7 @@ class ZyrenXrPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAw
             result.error(code, e.message, null); return
         }
         if (permission() != "authorized") {
-            pendingStart = args to result; permissionRequested = true
+            permissionStart.begin(args to result); permissionRequested = true
             context.getSharedPreferences("zyren_xr", Context.MODE_PRIVATE).edit().putBoolean("cameraRequested", true).apply()
             a.requestPermissions(arrayOf(Manifest.permission.CAMERA), permissionRequest); return
         }
