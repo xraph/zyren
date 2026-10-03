@@ -224,8 +224,10 @@ wrap and scroll at narrow widths and large text sizes while retaining canvas
 space. Focus order follows the visible controls; sliders announce their units.
 
 The example uses 0.1 m volume sampling, matching its synthetic grid spacing. This
-keeps a full-resolution iPad canvas within the existing pixel-sample work limit.
-Its iOS host keeps the screen awake while the lab is foregrounded.
+keeps sampling within the existing pixel-sample work limit. Large canvases render
+at up to two million pixels to keep HDR targets below their memory ceiling.
+Controls and picking retain full logical-canvas coordinates. Its iOS host keeps
+the screen awake while the lab is foregrounded.
 
 ## Runtime agents
 
@@ -276,8 +278,11 @@ integration_test/scientific_test.dart` for numerical GPU checks and native
 presentation checks. The lab requires native presentation, so an unsupported
 platform fails visibly without choosing a browser or readback fallback.
 
-See [qualification](qualification/2026-10-02.md) for measured errors, Metal and
-Vulkan device results, and remaining platform limits. Windows DX12 and Linux
-remain unqualified. The current shared Flutter plugin registers Android, iOS and
+See [qualification](qualification/2026-10-02.md) for measured errors and initial
+Metal/Vulkan results, the [Pixel recheck](qualification/2026-10-03.md) for agent
+picking, and [integration checks](qualification/integration-2026-10-03.md) for
+history, accessibility and Apple devices. Human VoiceOver listening remains
+unverified. Windows DX12 and Linux remain unqualified. The current shared Flutter
+plugin registers Android, iOS and
 macOS platforms; generated desktop runners alone do not add a Windows/Linux
 presenter. This package has not been published.

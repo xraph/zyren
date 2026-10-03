@@ -2,8 +2,8 @@
 
 You can use the scientific package for scalar slices, isosurfaces, irregular
 surfaces, vector glyphs, streamlines, temporal scalar data and native GPU volume
-rendering. Metal on macOS and Vulkan on Pixel have numerical and Flutter
-presentation evidence. Windows DX12 remains unqualified, and the shared Flutter
+rendering. Metal on macOS, iPhone and iPad and Vulkan on Pixel have numerical and
+Flutter presentation evidence. Windows DX12 remains unqualified, and the shared Flutter
 plugin currently has no registered Windows or Linux native presenter.
 
 This chat owns `packages/zyren_scientific`, its package-local examples and this
@@ -24,7 +24,9 @@ staged changes remain untouched. No push or merge is authorized.
 | Timeline | Optional `ScientificSliceTrack` using the shared timeline and stable scene parent | Atomic prepare, native seek, pause/detach demand release |
 | Volume | Native RGBA32F 3D texture, manual trilinear sampling, opacity per reference length, HDR ray compositing, opaque depth and six clipping planes | Metal and Pixel Vulkan analytic fixtures, reversed depth, missing voxels, work limits and resource cleanup |
 | Runtime agents | Shared field provider, rich source/units/time metadata, pick joins and authorized commands | Denial, grants, retries, stale state, cancellation, lifecycle tests and live stdio MCP |
-| Flutter | Native lab with all representations, temporal seek, source picks, shared ZeroState and compact controls | macOS nativeView and Pixel sharedTexture, zero readback bytes; desktop/narrow layouts |
+| Flutter | Native lab with all representations, temporal seek, source picks, shared ZeroState and compact controls | macOS/iPhone/iPad nativeView and Pixel sharedTexture, zero readback bytes; desktop/narrow layouts |
+| History | Bounded immutable source/settings snapshots, shared UI/agent undo and redo | Temporal restore, failure/cancellation, budgets, grants, retry and native restored-image checks |
+| Accessibility | Labelled controls, semantic sampling, keyboard history and camera buttons | Six widget checks, native macOS tree inspection and Apple integration actions; human VoiceOver listening unverified |
 
 Streamlines follow a steady vector field by arc length. They are not pathlines
 through evolving velocity data. Temporal scalar changes do not animate a separate
@@ -82,9 +84,8 @@ qualification evidence. All commits are local on `main`.
 The requested scientific representations have implementation and available-device
 checks. Windows DX12 numerical qualification still needs a Windows machine.
 Windows/Linux Flutter presentation also needs a shared platform presenter; runner
-scaffolding alone does not supply one. Other chats currently own the connected
-iOS sessions, so this workstream does not claim iPhone/iPad qualification.
-The integration follow-up below adds undo/history and accessibility checks.
+scaffolding alone does not supply one. The integration follow-up below adds
+undo/history, accessibility checks and Apple device qualification.
 Publication remains separate. Nothing has been pushed or published.
 
 The final workspace package boundary check passes. The point-cloud workstream
@@ -127,14 +128,26 @@ three coordinate names and values, changing scalar/vector readouts, and all
 seven camera actions. This is direct accessibility-tree and interaction evidence;
 a human VoiceOver listening walkthrough remains unverified.
 
-Physical Apple checks are in progress. The first iPad run passed the numerical
-Metal fixtures and five presented modes, then correctly rejected the volume's
-full-resolution work estimate. The lab now samples at its source-grid spacing
-(0.1 m), retaining the existing budget. The corrected full device run is pending.
-The iPhone build installs, but its launch has been blocked by the device relocking.
+The iPhone 16 Pro passed all four tests on Metal, including all six presented
+modes, history, semantic actions, keyboard redo, recovery and source-cell picking.
+The first iPad run passed the numerical Metal fixtures and five presented modes,
+then rejected the volume's full-resolution work estimate. The lab now samples at
+its source-grid spacing (0.1 m). A coordinated retry exposed the HDR target-memory
+ceiling on its 2752 by 1632 canvas. The lab now renders up to two million pixels
+through `SceneView.resolutionScale`, preserving logical input coordinates and both
+safety ceilings. Commit `7d3f953c` contains this cap. Final macOS, iPhone and iPad
+runs all passed four tests. The iPad volume frame rendered at 1836 by 1089 with
+zero readback bytes; its agent pick joined triangle 855 to source cell 5031 on a
+1376 by 768 logical canvas at DPR 2.
+
+Commits `eecb93ac` and `587d4938` add accessible controls, focus restoration,
+failed-preview rollback and sequential registration of the native fixtures in the
+Flutter runner. See the [integration report](../../packages/zyren_scientific/qualification/integration-2026-10-03.md)
+for the verification matrix, exact evidence paths and remaining limits.
 
 The user authorized removing installed apps for signing access. Physics Lab and
 the inactive App Flutter development build were removed from the iPad. The test
 artifact reuses Physics Lab's valid development profile under a temporary bundle
 alias; the checked-in scientific bundle identifier is unchanged. Nothing has
-been pushed or published.
+been pushed or published. The temporary Scientific app was removed from both
+Apple devices after testing, and the other device users received release notices.
