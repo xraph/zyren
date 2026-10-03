@@ -2,6 +2,7 @@ library;
 
 export 'package:zyren/zyren.dart' hide SceneEngine, Texture;
 export 'package:zyren_native/zyren_native.dart';
+export 'package:zyren_gltf/zyren_gltf.dart';
 export 'src/engine.dart';
 export 'src/presentation.dart';
 export 'src/controller/scene_controller.dart';

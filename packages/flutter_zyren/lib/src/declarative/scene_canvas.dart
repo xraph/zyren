@@ -6,6 +6,7 @@ import '../controller/scene_runtime.dart';
 import 'scene_specs.dart';
 
 export 'scene_specs.dart';
+export 'scene_assets.dart';
 part 'scene_nodes.dart';
 
 /// A native viewport with a declarative scene tree and an optional Flutter overlay.
@@ -18,6 +19,9 @@ class SceneCanvas extends StatefulWidget {
   final Color3? background;
   final EngineOptions options;
   final SceneRuntime? runtime;
+
+  /// Optional caller-owned cache. The canvas disposes only its default cache.
+  final AssetCache? assetCache;
   final bool orbitControls;
   final void Function(SceneController controller)? onCreated;
   final SceneLoadingBuilder? loadingBuilder;
@@ -33,6 +37,7 @@ class SceneCanvas extends StatefulWidget {
     this.background,
     this.options = const EngineOptions(),
     this.runtime,
+    this.assetCache,
     this.orbitControls = false,
     this.onCreated,
     this.loadingBuilder,
@@ -46,6 +51,7 @@ class SceneCanvas extends StatefulWidget {
 }
 
 class _SceneCanvasState extends State<SceneCanvas> {
+  late final AssetCache assetCache;
   SceneController? _controller;
   SceneController get controller => _controller!;
   Object? _creationError;
@@ -56,6 +62,7 @@ class _SceneCanvasState extends State<SceneCanvas> {
   @override
   void initState() {
     super.initState();
+    assetCache = widget.assetCache ?? AssetCache();
     try {
       _controller = SceneController(
         camera: widget.camera.create(),
@@ -74,11 +81,12 @@ class _SceneCanvasState extends State<SceneCanvas> {
   @override
   void didUpdateWidget(SceneCanvas oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.runtime != oldWidget.runtime ||
+    if (widget.assetCache != oldWidget.assetCache ||
+        widget.runtime != oldWidget.runtime ||
         _sessionOptions(widget.options) != _sessionOptions(oldWidget.options) ||
         widget.orbitControls != oldWidget.orbitControls) {
       throw FlutterError(
-        'SceneCanvas runtime, options and orbitControls configure its session. '
+        'SceneCanvas runtime, options, assetCache and orbitControls configure its session. '
         'Keep them stable, or give SceneCanvas a new Key to start a new session.',
       );
     }
@@ -163,6 +171,7 @@ class _SceneCanvasState extends State<SceneCanvas> {
     _tapInterest?.dispose();
     taps.clear();
     _controller?.dispose();
+    if (widget.assetCache == null) assetCache.dispose();
     super.dispose();
   }
 
@@ -195,6 +204,8 @@ class _SceneCanvasState extends State<SceneCanvas> {
 
 /// Access the controller from a scene component or canvas overlay.
 abstract final class SceneScope {
+  static AssetCache assetCacheOf(BuildContext context) =>
+      _SceneHost.of(context).assetCache;
   static SceneController of(BuildContext context) =>
       _SceneHost.of(context).controller;
 }

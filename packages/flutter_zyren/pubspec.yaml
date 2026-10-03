@@ -11,6 +11,8 @@ dependencies:
     sdk: flutter
   zyren:
     path: ../zyren
+  zyren_gltf:
+    path: ../zyren_gltf
   zyren_native:
     path: ../zyren_native
 dev_dependencies:
