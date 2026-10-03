@@ -2,7 +2,13 @@ part of '../../zyren_game.dart';
 
 sealed class GameGameplayCommand {
   final String receipt;
-  GameGameplayCommand(String receipt) : receipt = _id(receipt);
+  final int sequence;
+  GameGameplayCommand(String receipt, {required this.sequence})
+    : receipt = _id(receipt) {
+    if (sequence < 0 || sequence > 0x1fffffffffffff) {
+      throw ArgumentError('Invalid gameplay receipt sequence.');
+    }
+  }
 }
 
 final class GameTransferItem extends GameGameplayCommand {
@@ -11,6 +17,7 @@ final class GameTransferItem extends GameGameplayCommand {
   final GameEntityHandle to;
   GameTransferItem(
     super.receipt, {
+    required super.sequence,
     required this.item,
     required this.count,
     required this.to,
@@ -19,18 +26,29 @@ final class GameTransferItem extends GameGameplayCommand {
 
 final class GameUseAbility extends GameGameplayCommand {
   final String ability;
-  GameUseAbility(super.receipt, this.ability);
+  GameUseAbility(super.receipt, this.ability, {required super.sequence}) {
+    _id(ability);
+  }
 }
 
 final class GameInteract extends GameGameplayCommand {
   final String interaction;
-  GameInteract(super.receipt, this.interaction);
+  GameInteract(super.receipt, this.interaction, {required super.sequence}) {
+    _id(interaction);
+  }
 }
 
 final class GameCreditObjective extends GameGameplayCommand {
   final String objective;
   final int count;
-  GameCreditObjective(super.receipt, this.objective, {this.count = 1});
+  GameCreditObjective(
+    super.receipt,
+    this.objective, {
+    required super.sequence,
+    this.count = 1,
+  }) {
+    _id(objective);
+  }
 }
 
 final class GameGameplayResult {
@@ -50,15 +68,32 @@ abstract interface class GameReachService {
   bool inReach(GameEntityHandle actor, GameEntityHandle target);
 }
 
+/// A monotonic per-actor high-water mark survives save/restore with constant space.
+final class GameReceiptCursor {
+  int _sequence;
+  int get sequence => _sequence;
+  GameReceiptCursor([int sequence = -1]) : _sequence = sequence {
+    if (sequence < -1 || sequence > 0x1fffffffffffff) {
+      throw const FormatException('Invalid receipt cursor.');
+    }
+  }
+  Map<String, Object?> toJson() => {'sequence': sequence};
+  factory GameReceiptCursor.fromJson(Map<String, Object?> data) =>
+      GameReceiptCursor(_integer(data['sequence']));
+}
+
 final class GameActorRules {
   final Inventory inventory;
   final Map<String, Ability> abilities;
   final ObjectiveTracker? objectives;
+  final GameReceiptCursor receipts;
   GameActorRules({
     required this.inventory,
     Map<String, Ability> abilities = const {},
     this.objectives,
-  }) : abilities = Map.unmodifiable(abilities) {
+    GameReceiptCursor? receipts,
+  }) : abilities = Map.unmodifiable(abilities),
+       receipts = receipts ?? GameReceiptCursor() {
     if (abilities.length > 64 ||
         abilities.entries.any((e) => e.key != e.value.id)) {
       throw ArgumentError('Invalid actor ability map.');
@@ -66,6 +101,7 @@ final class GameActorRules {
   }
   List<GameComponentRecord> snapshot() => [
     GameComponentRecord('game.inventory', 1, inventory.toJson()),
+    GameComponentRecord('game.receipts', 1, receipts.toJson()),
     GameComponentRecord(
       'game.abilities',
       1,
@@ -117,7 +153,6 @@ final class GameGameplaySystem extends GameSystem {
   GameActorRules? actor(GameEntityHandle actor) => _actors[actor];
   @override
   void fixedUpdate(GameSession session) {
-    final seen = <(GameEntityHandle, String)>{};
     for (final actor in _actors.keys.toList()) {
       final rules = _actors[actor]!;
       if (!session.entities.isAlive(actor)) {
@@ -137,56 +172,55 @@ final class GameGameplaySystem extends GameSystem {
     }
     for (final command in session.currentCommands) {
       final payload = command.payload;
-      if (payload is! GameGameplayCommand ||
-          !seen.add((command.target, payload.receipt))) {
+      if (payload is! GameGameplayCommand) continue;
+      final rules = _actors[command.target];
+      if (rules == null || payload.sequence <= rules.receipts.sequence) {
         continue;
       }
       if (!session.events.canEmit) {
         throw StateError('Gameplay event backpressure.');
       }
-      final rules = _actors[command.target];
       var accepted = false;
       Object? detail;
-      if (rules != null) {
-        switch (payload) {
-          case GameTransferItem():
-            final receiver = _actors[payload.to];
-            if (receiver != null && session.entities.isAlive(payload.to)) {
-              accepted = rules.inventory.transfer(
-                item: payload.item,
-                count: payload.count,
-                to: receiver.inventory,
-              );
-            }
-          case GameUseAbility():
-            final activation = rules.abilities[payload.ability]?.tryActivate(
-              actor: command.target,
-              inventory: rules.inventory,
-              tick: session.tick,
+      switch (payload) {
+        case GameTransferItem():
+          final receiver = _actors[payload.to];
+          if (receiver != null && session.entities.isAlive(payload.to)) {
+            accepted = rules.inventory.transfer(
+              item: payload.item,
+              count: payload.count,
+              to: receiver.inventory,
             );
-            accepted = activation != null;
-            detail = activation;
-          case GameInteract():
-            final interaction = interactions[payload.interaction];
-            if (interaction != null && reach != null) {
-              accepted = interaction.tryApply(
-                actor: command.target,
-                entities: session.entities,
-                inventory: rules.inventory,
+          }
+        case GameUseAbility():
+          final activation = rules.abilities[payload.ability]?.tryActivate(
+            actor: command.target,
+            inventory: rules.inventory,
+            tick: session.tick,
+          );
+          accepted = activation != null;
+          detail = activation;
+        case GameInteract():
+          final interaction = interactions[payload.interaction];
+          if (interaction != null && reach != null) {
+            accepted = interaction.tryApply(
+              actor: command.target,
+              entities: session.entities,
+              inventory: rules.inventory,
+              receipt: payload.receipt,
+              inReach: reach!.inReach(command.target, interaction.target),
+            );
+          }
+        case GameCreditObjective():
+          accepted =
+              rules.objectives?.credit(
+                payload.objective,
                 receipt: payload.receipt,
-                inReach: reach!.inReach(command.target, interaction.target),
-              );
-            }
-          case GameCreditObjective():
-            accepted =
-                rules.objectives?.credit(
-                  payload.objective,
-                  receipt: payload.receipt,
-                  count: payload.count,
-                ) ??
-                false;
-        }
+                count: payload.count,
+              ) ??
+              false;
       }
+      rules.receipts._sequence = payload.sequence;
       session.events.emit(
         session.tick,
         GameGameplayResult(command.target, payload.receipt, accepted, detail),

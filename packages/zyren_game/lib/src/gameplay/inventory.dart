@@ -91,6 +91,12 @@ Map<String, int> _itemMap(Object? value) =>
 
 void registerGameplayComponents(GameRegistry registry) {
   registry.registerComponent(
+    _GameplayCodec<GameReceiptCursor>(
+      'game.receipts',
+      GameReceiptCursor.fromJson,
+    ),
+  );
+  registry.registerComponent(
     _GameplayCodec<Inventory>('game.inventory', Inventory.fromJson),
   );
   registry.registerComponent(

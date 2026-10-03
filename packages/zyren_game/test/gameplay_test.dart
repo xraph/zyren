@@ -33,6 +33,7 @@ void main() {
       rules.bind(receiver, GameActorRules(inventory: bag));
       final transfer = GameTransferItem(
         'receipt1',
+        sequence: 1,
         item: 'key',
         count: 1,
         to: receiver,
@@ -51,12 +52,32 @@ void main() {
         hasLength(1),
       );
       game.commands.enqueue(
-        GameCommand(actor, game.tick + 1, GameUseAbility('ability1', 'dash')),
+        GameCommand(actor, game.tick + 1, transfer),
+        game.entities,
+      );
+      game.step();
+      expect(
+        bag.count('key'),
+        1,
+        reason: 'a retried receipt on another tick must not spend twice',
+      );
+      expect(
+        game.events.drain().where((e) => e.payload is GameGameplayResult),
+        isEmpty,
+      );
+      game.commands.enqueue(
+        GameCommand(
+          actor,
+          game.tick + 1,
+          GameUseAbility('ability1', 'dash', sequence: 2),
+        ),
         game.entities,
       );
       game.step();
       expect(ability.active, isNotNull);
       final records = actorRules.snapshot();
+      final receipt = records.singleWhere((r) => r.type == 'game.receipts');
+      expect(GameReceiptCursor.fromJson(receipt.data).sequence, 2);
       final saved = records.singleWhere((r) => r.type == 'game.abilities');
       expect(
         GameAbilityCollection.fromJson(

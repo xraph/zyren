@@ -152,8 +152,10 @@ in-flight execution while retaining the next allowed tick.
 
 Use one `GameActorRules` per live actor and bind it to `GameGameplaySystem` after
 session startup. Enqueue `GameTransferItem`, `GameUseAbility`, `GameInteract` or
-`GameCreditObjective` with an application tick of `session.tick + 1`. Commands with
-the same actor and receipt in that tick produce one result. Interactions require
+`GameCreditObjective` with an application tick of `session.tick + 1`. Every command carries a required monotonic `sequence` for its actor. Repeated or
+older sequences produce no further cost or result, including across ticks and
+save/restore. The actor stores a constant-size receipt cursor. Start a new actor
+generation for a new command stream; do not reuse old sequence numbers. Interactions require
 a registered `GameReachService`; stale actor or target generations cannot spend
 items. Objective receipts prevent repeated credit across ticks and snapshots.
 

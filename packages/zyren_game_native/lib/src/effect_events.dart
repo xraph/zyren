@@ -22,12 +22,17 @@ final class GameEffectEvent {
   }
 }
 
+final class _EffectBinding {
+  final String emitter;
+  _EffectBinding(this.emitter);
+}
+
 /// Bounded event delivery; ParticleController retains simulation and GPU ownership.
 final class GameEffectEvents {
   final ParticleController particles;
   final int capacity;
   final void Function(Object error) onError;
-  final Map<String, String> _bindings = {};
+  final Map<String, _EffectBinding> _bindings = {};
   final Set<String> _receipts = {};
   late final GameEventSubscription _subscription;
   Future<void> _queue = Future.value();
@@ -54,14 +59,17 @@ final class GameEffectEvents {
     required this.onError,
     this.capacity = 128,
   }) {
-    if (scope.isClosed || particles.isClosed || capacity < 1 || capacity > 1024) {
+    if (scope.isClosed ||
+        particles.isClosed ||
+        capacity < 1 ||
+        capacity > 1024) {
       throw ArgumentError('Invalid effect owner or limits.');
     }
     _subscription = events.listen((event) {
       if (_closed || event.payload is! GameEffectEvent) return;
       final effect = event.payload as GameEffectEvent;
-      final name = _bindings[effect.effect];
-      if (name == null) return;
+      final binding = _bindings[effect.effect];
+      if (binding == null) return;
       if (event.tick < _tick) {
         _report(StateError('Stale game effect tick.'));
         return;
@@ -79,8 +87,8 @@ final class GameEffectEvents {
       _pending++;
       _queue = _queue.then((_) async {
         try {
-          if (!_closed && _bindings[effect.effect] == name) {
-            await particles.burst(name, effect.count);
+          if (!_closed && identical(_bindings[effect.effect], binding)) {
+            await particles.burst(binding.emitter, effect.count);
           }
         } catch (error) {
           _report(error);
@@ -98,13 +106,14 @@ final class GameEffectEvents {
         effect.length > 128 ||
         _bindings.containsKey(effect) ||
         _bindings.length >= 128 ||
-        _bindings.containsValue(emitterName) ||
+        _bindings.values.any((b) => b.emitter == emitterName) ||
         !particles.names.contains(emitterName)) {
       throw StateError('Invalid or duplicate game effect binding.');
     }
-    _bindings[effect] = emitterName;
+    final binding = _EffectBinding(emitterName);
+    _bindings[effect] = binding;
     return Registration(() {
-      if (_bindings[effect] == emitterName) _bindings.remove(effect);
+      if (identical(_bindings[effect], binding)) _bindings.remove(effect);
     });
   }
 
@@ -116,7 +125,7 @@ final class GameEffectEvents {
       try {
         await _queue;
       } finally {
-        final names = _bindings.values.toList();
+        final names = _bindings.values.map((b) => b.emitter).toList();
         _bindings.clear();
         if (!particles.isClosed) {
           for (final name in names) {

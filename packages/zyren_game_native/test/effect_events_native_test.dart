@@ -40,11 +40,25 @@ void main() {
         onError: errors.add,
         capacity: 2,
       );
-      effects.bind('impact', 'spark');
+      final firstBinding = effects.bind('impact', 'spark');
       try {
+        events.emit(
+          0,
+          GameEffectEvent(id: 'retired-binding', effect: 'impact', count: 7),
+        );
+        firstBinding.dispose();
+        effects.bind('impact', 'spark');
+        await effects.settled;
+        await engine.render(elapsed: Duration.zero, width: 32, height: 32);
+        await engine.render(
+          elapsed: const Duration(milliseconds: 20),
+          width: 32,
+          height: 32,
+        );
+        expect(await plugin.controller.inspect('spark'), isEmpty);
         final event = GameEffectEvent(id: 'hit-1', effect: 'impact', count: 3);
-        events.emit(0, event);
-        events.emit(0, event);
+        events.emit(1, event);
+        events.emit(1, event);
         await effects.settled;
         await engine.render(elapsed: Duration.zero, width: 32, height: 32);
         await engine.render(
