@@ -201,4 +201,54 @@ void main() {
       );
     },
   );
+  test(
+    'camera profile pins controller-compatible forward and rejects parallel up',
+    () async {
+      final entities = GameEntityTable();
+      final entity = entities.spawn('observer');
+      final sensor = CameraSensor(
+        CameraProfile(width: 2, height: 1),
+        openBackend: () async => FixtureBackend(),
+      );
+      addTearDown(sensor.close);
+      final snapshot = SensorSnapshot(
+        episodeId: 'direction',
+        tick: 1,
+        worldRevision: 0,
+        entities: [SensorEntity(handle: entity, pose: PhysicsPose())],
+        colliders: {},
+        currentRevision: () => 0,
+        geometryLoaded: (_, _) => true,
+      );
+      final captured = await sensor.capture(
+        snapshot: snapshot,
+        entity: entity,
+        scene: Scene(),
+      );
+      expect(captured.receipt.camera.forward, [0, 0, 1]);
+      expect(sensor.profile.toJson()['forward'], [0, 0, 1]);
+      final sideProfile = CameraProfile(
+        width: 2,
+        height: 1,
+        forward: const Vec3(1, 0, 0),
+      );
+      expect(sideProfile.hash, isNot(sensor.profile.hash));
+      final side = CameraSensor(
+        sideProfile,
+        openBackend: () async => FixtureBackend(),
+      );
+      addTearDown(side.close);
+      final sideways = await side.capture(
+        snapshot: snapshot,
+        entity: entity,
+        scene: Scene(),
+      );
+      expect(sideways.receipt.camera.forward, [1, 0, 0]);
+      expect(() => CameraProfile(forward: Vec3.zero), throwsArgumentError);
+      expect(
+        () => CameraProfile(forward: const Vec3(0, 1, 0)),
+        throwsArgumentError,
+      );
+    },
+  );
 }

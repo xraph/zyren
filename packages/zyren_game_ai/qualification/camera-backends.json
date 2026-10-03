@@ -20,26 +20,84 @@
       "resizeRecreationOwnedBuffers": true,
       "submittedGpuCancellation": true,
       "cnnDueTickNativeCharacter": true,
+      "cameraForward": [
+        0,
+        0,
+        -1
+      ],
+      "cameraUp": [
+        0,
+        1,
+        0
+      ],
       "classMask": "unsupported",
       "customScreenEffectDepth": "unsupported",
       "temporalAaDepth": "unsupported",
       "frameGraphDepth": "unsupported",
       "nativeCameraTests": 6,
       "latencySamples": [
-        {"tick":1,"captureMicros":15964,"gpuMicros":7241,"nativeMapAndPackNs":11792,"preprocessMicros":3706,"inferenceMicros":2801,"mlWorkerRoundTripMicros":4962,"totalMicros":488216},
-        {"tick":2,"captureMicros":1719,"gpuMicros":344,"nativeMapAndPackNs":9917,"preprocessMicros":2062,"inferenceMicros":485,"mlWorkerRoundTripMicros":707,"totalMicros":7266},
-        {"tick":3,"captureMicros":1550,"gpuMicros":266,"nativeMapAndPackNs":6459,"preprocessMicros":4092,"inferenceMicros":510,"mlWorkerRoundTripMicros":714,"totalMicros":8786}
+        {
+          "tick": 1,
+          "captureMicros": 15778,
+          "gpuMicros": 7248,
+          "nativeMapAndPackNs": 5375,
+          "preprocessMicros": 3527,
+          "inferenceMicros": 2880,
+          "mlWorkerRoundTripMicros": 4839,
+          "totalMicros": 412729
+        },
+        {
+          "tick": 2,
+          "captureMicros": 1729,
+          "gpuMicros": 312,
+          "nativeMapAndPackNs": 1916,
+          "preprocessMicros": 1789,
+          "inferenceMicros": 472,
+          "mlWorkerRoundTripMicros": 656,
+          "totalMicros": 6776
+        },
+        {
+          "tick": 3,
+          "captureMicros": 2058,
+          "gpuMicros": 312,
+          "nativeMapAndPackNs": 2375,
+          "preprocessMicros": 2138,
+          "inferenceMicros": 494,
+          "mlWorkerRoundTripMicros": 625,
+          "totalMicros": 6950
+        }
       ]
     },
-    {"platform":"Linux","backend":"Vulkan","status":"not-run","reason":"No device available in this macOS session."},
-    {"platform":"Windows","backend":"DX12","status":"not-run","reason":"No device available in this macOS session."},
-    {"platform":"iOS","backend":"Metal","status":"not-run","reason":"No physical device capture, native packaging or transfer qualification."},
-    {"platform":"Android","backend":"Vulkan","status":"not-run","reason":"No physical device capture, native packaging or transfer qualification; Flutter Android presenter does not expose existing explicit capture."}
+    {
+      "platform": "Linux",
+      "backend": "Vulkan",
+      "status": "not-run",
+      "reason": "No device available in this macOS session."
+    },
+    {
+      "platform": "Windows",
+      "backend": "DX12",
+      "status": "not-run",
+      "reason": "No device available in this macOS session."
+    },
+    {
+      "platform": "iOS",
+      "backend": "Metal",
+      "status": "not-run",
+      "reason": "No physical device capture, native packaging or transfer qualification."
+    },
+    {
+      "platform": "Android",
+      "backend": "Vulkan",
+      "status": "not-run",
+      "reason": "No physical device capture, native packaging or transfer qualification; Flutter Android presenter does not expose existing explicit capture."
+    }
   ],
   "timingScope": {
-    "gpuMicros":"Native GPU submission timing, including capture copies.",
-    "nativeMapAndPackNs":"Native mapped-buffer packing after completion; excludes FFI and isolate transfer.",
-    "mlWorkerRoundTripMicros":"Worker round trip including transfer and scheduling, not an isolated transfer measurement.",
-    "totalMicros":"Snapshot, capture, preprocessing and actual inference completion; cold run includes initialization."
+    "gpuMicros": "Native GPU submission timing, including capture copies.",
+    "nativeMapAndPackNs": "Native mapped-buffer packing after completion; excludes FFI and isolate transfer.",
+    "mlWorkerRoundTripMicros": "Worker round trip including transfer and scheduling, not an isolated transfer measurement.",
+    "totalMicros": "Snapshot, capture, preprocessing and actual inference completion; cold run includes initialization.",
+    "captureMicros": "Capture through receipt-owned buffer copying; includes asynchronous native completion and host transfer."
   }
 }

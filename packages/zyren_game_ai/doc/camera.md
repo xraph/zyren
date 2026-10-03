@@ -3,7 +3,10 @@
 Create a `CameraSensor` with a `CameraProfile` and an owned backend factory, then
 register it with your `SensorRegistry`. `capture` takes a service-side snapshot,
 an observer handle and a scene. It builds the camera from the captured body pose,
-rotation and configured local eye offset. Await capture before assembling the
+rotation and configured local eye offset. The default local forward is +Z,
+matching character and vehicle motion, with +Y up. Pin `forward` and `up` when
+your authored camera convention differs; both axes must be finite, nonzero and
+nonparallel. Await capture before assembling the
 observation if your host can hold that simulation tick.
 
 The sensor accepts pixels only for the same episode, entity generation, world
@@ -24,7 +27,7 @@ contract; camera encoders use `[batch, channels, height, width]`.
 ## Format pins
 
 `CameraProfile.toJson()` and its hash pin dimensions, NCHW layout, RGB channel
-order, sRGB bytes, affine normalization, eye offset, projection, clipping range,
+order, sRGB bytes, affine normalization, eye offset, projection, local forward/up, clipping range,
 cadence and latency. RGB normalization is `(byte / 255 - mean) / std`.
 Premultiplied color is unassociated first; transparent zero-alpha color is zero.
 No resize or color-space conversion happens silently.
@@ -53,12 +56,13 @@ its real native CPU worker. Another test commits that camera policy only at its
 declared due tick and sends the decoded intent to the real character controller.
 This deterministic probe is execution evidence, not a trained task policy.
 
-Two warm 84x84 decisions measured 7.266 and 8.786 milliseconds end to end; the
-cold decision took 488.216 milliseconds. GPU submission timing was 0.344 and
-0.266 milliseconds. Native mapping/packing was 9.917 and 6.459 microseconds,
-preprocessing 2.062 and 4.092 milliseconds, and native CNN execution 0.485 and
-0.510 milliseconds. Worker round trip includes ML transfer and scheduling;
-native mapping/packing excludes FFI and isolate copies. Three samples cannot
+Two warm 84x84 decisions measured 6.776 and 6.950 milliseconds end to end; the
+cold decision took 412.729 milliseconds. GPU submission timing was 0.312 and
+0.312 milliseconds. Native mapping/packing was 1.916 and 2.375 microseconds,
+preprocessing 1.789 and 2.138 milliseconds, and native CNN execution 0.472 and
+0.494 milliseconds. Worker round trip includes ML transfer and scheduling;
+capture includes receipt-owned buffer copying, and native mapping/packing
+excludes FFI and isolate copies. Three samples cannot
 establish a frame-time guarantee.
 
 Class masks are unsupported. No material-color replacement or shader-only label

@@ -8,14 +8,18 @@ work. Request RGB or RGB plus depth, then await `pool.capture(request)`.
 
 The receipt pairs your request ID and tick with the native frame ID, scene
 revision, dimensions, immutable camera matrices, pixel conventions and session
-resource generation. Its buffers belong to the receipt. Native targets reuse
+resource generation. Its buffers belong to the receipt. Capture copies tightly packed RGBA
+and independent depth/mask storage, so a custom backend cannot mutate a published
+receipt through retained input arrays. Native targets reuse
 allocations at equal dimensions; resize replaces the target after prior work
 completes. Old receipts remain valid after resize or pool disposal.
 
 The pool serializes submissions and bounds pending count and requested buffer
-bytes, including depth validity. Native workspace memory uses the renderer's
-separate limits. Cancellation cannot free or reuse a target under a live GPU
-submission. `close` cancels publication and awaits completion before closing the
+bytes, including depth validity. The byte budget covers outstanding requested
+output payload, not all process allocations. Copying can temporarily keep the original backend buffers and one
+receipt copy alive together. Native workspace memory uses the renderer's
+separate limits, and you must bound your retained completed receipt history.
+Cancellation cannot free or reuse a target under a live GPU submission. `close` cancels publication and awaits completion before closing the
 backend. `recreate` drains cancelled work, closes the old backend and increments
 the resource generation. New work is rejected during recreation or after close.
 Failed startup can be recreated without producing another unhandled error.

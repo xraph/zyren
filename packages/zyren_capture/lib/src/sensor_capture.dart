@@ -76,7 +76,7 @@ final class SensorCaptureReceipt {
     SensorCaptureRequest request,
     ReadbackOutput output,
     this.resourceGeneration,
-    this.elapsed,
+    Stopwatch clock,
   ) : requestId = request.id,
       tick = request.tick,
       frameId = output.stats.frameId,
@@ -84,9 +84,10 @@ final class SensorCaptureReceipt {
       far = request.far,
       sceneRevision = request.sceneRevision,
       camera = request.submission.camera,
-      image = output.image,
-      depth = output.depth,
-      stats = output.stats;
+      image = _copySensorImage(output.image),
+      depth = _copySensorDepth(output.depth),
+      stats = output.stats,
+      elapsed = clock.elapsed;
   int get width => image.size.width;
   int get height => image.size.height;
   ColorSpace get colorSpace => image.colorSpace;
@@ -191,12 +192,7 @@ final class SensorCapturePool {
             'Sensor output does not match the captured request.',
           );
         }
-        return SensorCaptureReceipt._(
-          request,
-          output,
-          _generation,
-          clock.elapsed,
-        );
+        return SensorCaptureReceipt._(request, output, _generation, clock);
       } finally {
         _pending.remove(request.id);
         _bytes -= request.bufferBytes;
@@ -252,3 +248,26 @@ final class SensorCapturePool {
     await _closeBackend();
   }
 }
+
+ImageData _copySensorImage(ImageData image) {
+  final row = image.size.width * 4;
+  final pixels = Uint8List(row * image.size.height);
+  for (var y = 0; y < image.size.height; y++) {
+    pixels.setRange(y * row, (y + 1) * row, image.pixels, y * image.rowStride);
+  }
+  return ImageData(
+    pixels: pixels,
+    size: image.size,
+    format: image.format,
+    colorSpace: image.colorSpace,
+    alphaMode: image.alphaMode,
+  );
+}
+
+DepthData? _copySensorDepth(DepthData? depth) => depth == null
+    ? null
+    : DepthData(
+        size: depth.size,
+        metres: Float32List.fromList(depth.metres),
+        validity: Uint8List.fromList(depth.validity),
+      );

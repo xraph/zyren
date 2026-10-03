@@ -7,7 +7,7 @@ final class CameraProfile {
   final bool depth;
   final List<double> mean, std;
   final double maxMetres, fieldOfView, near, far;
-  final Vec3 offset;
+  final Vec3 offset, forward, up;
   CameraProfile({
     this.width = 84,
     this.height = 84,
@@ -21,7 +21,11 @@ final class CameraProfile {
     this.near = .1,
     this.far = 1000,
     this.offset = Vec3.zero,
-  }) : mean = List.unmodifiable(mean),
+    Vec3 forward = const Vec3(0, 0, 1),
+    Vec3 up = const Vec3(0, 1, 0),
+  }) : forward = _cameraAxis(forward),
+       up = _cameraAxis(up),
+       mean = List.unmodifiable(mean),
        std = List.unmodifiable(std) {
     _bounded(width, 128, 'width');
     _bounded(height, 128, 'height');
@@ -37,7 +41,8 @@ final class CameraProfile {
         !maxMetres.isFinite ||
         maxMetres <= 0 ||
         maxMetres > 100000 ||
-        !offset.isFinite) {
+        !offset.isFinite ||
+        this.forward.cross(this.up).length < 1e-6) {
       throw ArgumentError('Invalid camera normalization.');
     }
     PerspectiveCamera(fieldOfView: fieldOfView, near: near, far: far);
@@ -65,6 +70,8 @@ final class CameraProfile {
     'near': near,
     'far': far,
     'offset': offset.storage,
+    'forward': forward.storage,
+    'up': up.storage,
   };
   MlTensor preprocess(ImageData image, [DepthData? distances]) {
     if (image.size.width != width ||
@@ -143,4 +150,11 @@ final class CameraPolicyEncoder implements PolicyObservationEncoder {
       profile.width,
     ], reading.values);
   }
+}
+
+Vec3 _cameraAxis(Vec3 axis) {
+  if (!axis.isFinite || !axis.length.isFinite || axis.length < 1e-6) {
+    throw ArgumentError('Camera axes must be finite and nonzero.');
+  }
+  return axis.normalized();
 }

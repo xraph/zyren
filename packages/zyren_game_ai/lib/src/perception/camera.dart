@@ -99,8 +99,8 @@ final class CameraSensor implements GameSensor {
         actor.pose.position + actor.pose.rotation.rotate(profile.offset);
     final camera = PerspectiveCamera(
       position: origin,
-      target: origin + actor.pose.rotation.rotate(const Vec3(0, 0, -1)),
-      up: actor.pose.rotation.rotate(const Vec3(0, 1, 0)),
+      target: origin + actor.pose.rotation.rotate(profile.forward),
+      up: actor.pose.rotation.rotate(profile.up),
       fieldOfView: profile.fieldOfView,
       near: profile.near,
       far: profile.far,

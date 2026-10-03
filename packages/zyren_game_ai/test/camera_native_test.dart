@@ -216,7 +216,7 @@ void main() {
         currentTick: () => tick,
       );
       final sensor = CameraSensor(
-        CameraProfile(),
+        CameraProfile(forward: const Vec3(0, 0, -1)),
         openBackend: NativeBackend.create,
       );
       addTearDown(sensor.close);
@@ -312,7 +312,7 @@ void main() {
         currentTick: () => tick,
       );
       final sensor = CameraSensor(
-        CameraProfile(),
+        CameraProfile(forward: const Vec3(0, 0, -1)),
         openBackend: NativeBackend.create,
       );
       addTearDown(ml.close);

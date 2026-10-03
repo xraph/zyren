@@ -1,8 +1,35 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:test/test.dart';
 import 'package:zyren/zyren.dart';
+import 'package:zyren/rendering.dart';
 import 'package:zyren_capture/sensors.dart';
 import 'capture_test.dart' show FixtureBackend;
+
+final class MutableSensorBackend extends FixtureBackend {
+  final pixels = Uint8List(8 * 8 * 4);
+  final metres = Float32List(8 * 8)..fillRange(0, 8 * 8, 5);
+  final validity = Uint8List(8 * 8)..fillRange(0, 8 * 8, 1);
+  @override
+  DeviceCapabilities get capabilities => DeviceCapabilities(
+    name: 'retained-buffer-fixture',
+    features: {RenderFeature.rgbaReadback, RenderFeature.metricDepthReadback},
+    limits: super.capabilities.limits,
+  );
+  @override
+  Future<FrameOutput> render(FrameSubmission submission) async {
+    final original = await super.render(submission) as ReadbackOutput;
+    return ReadbackOutput(
+      image: ImageData(size: submission.size, pixels: pixels),
+      depth: DepthData(
+        size: submission.size,
+        metres: metres,
+        validity: validity,
+      ),
+      stats: original.stats,
+    );
+  }
+}
 
 void main() {
   SensorCaptureRequest request(int tick, {bool depth = false}) =>
@@ -124,6 +151,31 @@ void main() {
       expect((await pool.capture(request(2))).resourceGeneration, 1);
       await pool.close();
       expect(backend.closes, 1);
+    },
+  );
+  test(
+    'receipt copies bounded backend-retained image depth and mask storage',
+    () async {
+      final backend = MutableSensorBackend();
+      final pool = SensorCapturePool(
+        openBackend: () async => backend,
+        maxBytes: 8 * 8 * 9,
+      );
+      addTearDown(pool.close);
+      final receipt = await pool.capture(request(1, depth: true));
+      backend.pixels[0] = 255;
+      backend.metres[0] = 9;
+      backend.validity[0] = 0;
+      expect(receipt.image.pixels[0], 0);
+      expect(receipt.depth!.metresAt(0, 0), 5);
+      expect(receipt.depth!.validAt(0, 0), true);
+      expect(
+        receipt.image.pixels.length +
+            receipt.depth!.metres.length * 4 +
+            receipt.depth!.validity.length,
+        8 * 8 * 9,
+      );
+      expect(pool.reservedBytes, 0);
     },
   );
 }
