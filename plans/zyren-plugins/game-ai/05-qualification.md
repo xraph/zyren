@@ -156,6 +156,8 @@ Its release evaluator accepts passed/failed/blocked/notApplicable statuses,
 requires a reason for notApplicable, and treats absent records as incomplete.
 
 - [ ] Add CI jobs for pure Dart contracts, Flutter editor/widgets, native ML fixtures, Python protocol/training/export smoke checks, package boundaries and artifact parity. Run native package tests sequentially within a shared workspace; use isolated CI jobs for platforms.
+- [ ] Recheck the [reuse audit](reuse-audit.md) against the implementation diff. Keep authored prefabs/history in Studio, pointer ownership in Input/Interaction, rendering in existing Flutter scene widgets, bundles/cache/build jobs in Pipeline, agent workflows in Agents and reusable camera capture in Capture. New types must identify their game/ML responsibility or extend the existing owner.
+- [ ] Run the affected existing suites as integration gates: Studio authoring/history and editor workflow, input/interaction arbitration and Flutter overlays, Pipeline bundles/cache/build runtime, character/physics/navigation, Capture and Agents workflow/provider guards. Record exact commands and results. This planning audit inspected source and test cases but did not run these suites.
 - [ ] Keep device/performance jobs explicit and opt-in where hardware is required. They must upload receipts on failure. A skipped native job cannot satisfy a required target in the completion evaluator.
 
 ```python

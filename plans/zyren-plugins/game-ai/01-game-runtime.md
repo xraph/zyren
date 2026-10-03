@@ -20,14 +20,14 @@ engine adapters in `zyren_game_native` and Flutter input/HUD/lifecycle in
 - Training calls `step`, never a render callback.
 - Stay on the active branch and preserve concurrent work.
 - Use Flutter 3.47.5 through FVM and commit only owned, checked files.
-- All APIs introduced below are proposed APIs, not current exports.
+- New game APIs below are proposals. Existing APIs and their owners are listed in the [reuse audit](reuse-audit.md).
 
 ## Review focus
 
 - A pooled entity reuses an ID while an old command is queued: reject the old generation (G1).
 - A rendered frame and training loop both request physics: advance exactly once (G2).
 - A controller disconnects while throttle is held: clear intent and apply the authored brake fallback (G3/G5).
-- A prefab references another entity inside itself: instantiate independent references (G1/G7).
+- A compiled spawn template references another entity inside itself: instantiate independent references (G1/G7). Studio owns authored prefab expansion.
 - A save references a removed item or incompatible model: retain the active session and report the incompatible references (G7).
 
 ## File responsibilities
@@ -41,7 +41,7 @@ updates its package README/API exports alongside the working feature.
 ### G1: project, entity and component contracts
 
 Files: create `packages/zyren_game/pubspec.yaml`, `lib/zyren_game.dart`,
-`lib/src/project/{project,component,registry,prefab}.dart`,
+`lib/src/project/{project,component,registry,spawn_template}.dart`,
 `lib/src/runtime/{entity,command_queue}.dart`, `test/project_test.dart`,
 `test/entity_test.dart` and `README.md`. Modify root `pubspec.yaml` and
 `tool/check_package_boundaries.dart` under the shared lock.
@@ -50,12 +50,16 @@ Interfaces: `GameEntityHandle(String id, int generation)`;
 `GameComponentRecord(String type, int version, Map<String,Object?> data)`;
 `GameRegistry.registerComponent(GameComponentCodec codec)`;
 `GameProject.decode(String source, GameRegistry registry)`;
-`GameProject.encode()`; `GamePrefab.instantiate(String instanceId)`.
+`GameProject.encode()`; `GameSpawnTemplate.instantiate(String instanceId)`.
 `GameComponentCodec` declares type/version, validate, migrate, local references
 and factory. `GameCommandQueue` admits a bounded typed command with its target
 handle and application tick. `GameEntityTable` owns spawn/despawn/generation.
+`GameSpawnTemplate` is a flat compiled recipe for runtime spawning. It contains
+no authored inheritance, nested prefab resolver or editor overrides. G7 compiles
+existing `StudioPrefab` instances through `StudioDocument.expandedNodes` and
+`prefabOwners`; G1 can test flat recipes without depending on Studio.
 
-- [ ] Add round-trip, duplicate-ID, cyclic-prefab, dangling-reference and version migration tests. Use a two-entity prefab with a local target link and instantiate it twice. Its target IDs must differ across instances.
+- [ ] Add round-trip, duplicate-ID, dangling-reference and version migration tests. Use a two-entity compiled spawn recipe with a local target link and instantiate it twice. Its target IDs must differ across instances. G7 tests Studio prefab validation and compiler remapping.
 
 ```dart
 final table = GameEntityTable();
@@ -68,7 +72,7 @@ expect(table.isAlive(next), isTrue);
 ```
 
 - [ ] Run `fvm dart test test/project_test.dart test/entity_test.dart` in `packages/zyren_game`; confirm the missing contracts fail.
-- [ ] Implement immutable records and bounded registry validation. Begin with limits of 10,000 runtime entities, 64 components/entity and 4,096 queued commands, all configurable downward. Resolve prefab-local references through an instance map before constructing entities.
+- [ ] Implement immutable records and bounded registry validation. Begin with limits of 10,000 runtime entities, 64 components/entity and 4,096 queued commands, all configurable downward. Resolve compiled local references through an instance map before constructing entities. Reuse `ScenePlugin` services and scopes for scene attachment; game system phases only govern simulation work.
 
 ```dart
 String instantiatedId(String instance, String local) => '$instance/$local';
@@ -115,6 +119,12 @@ expect(world.body(ball.id).state.pose, before);
 - [ ] Run `fvm dart test test/session_test.dart` in `zyren_game` and `fvm dart test --concurrency=1 test/driver_test.dart` in `zyren_game_native`; verify the new external-driver test fails before the physics change.
 - [ ] Implement the phase order from the design and external ownership checks. Runtime clocks use integer ticks; call `PhysicsPlugin.advance(1.0 / fixedHz)` exactly once per tick and invoke character root motion through `beforeStep`. Training uses this same driver without a renderer.
 
+`PhysicsPlugin.advance` already contains the physics accumulator. Retain it.
+`CharacterMotor.advance` currently accepts `Duration`, while `beforeStep` supplies
+seconds. Convert at that boundary and test the existing fixed-step tolerance;
+never feed rounded microseconds back into the physics clock. If animation drift
+needs a more precise API, extend `zyren_characters` in that task with its owner.
+
 ```dart
 if (!externallyDriven) {
   advance(frame.delta.inMicroseconds / Duration.microsecondsPerSecond);
@@ -126,33 +136,41 @@ if (!externallyDriven) {
 
 ### G3: input, lifecycle and HUD bindings
 
-Files: create `packages/zyren_game/lib/src/input/{action_map,intent,router}.dart`,
+Files: create `packages/zyren_game/lib/src/input/{action_map,intent,action_state}.dart`,
 `packages/flutter_zyren_game/pubspec.yaml`, `lib/flutter_zyren_game.dart`,
-`lib/src/{game_view,input_adapter,gamepad_adapter,lifecycle,hud}.dart`,
+`lib/src/{game_binding,input_adapter,gamepad_adapter,lifecycle,hud}.dart`,
 `test/input_test.dart`, `test/lifecycle_test.dart` and platform gamepad bridge
 sources under `macos/`, `ios/`, `android/`, `windows/`, `linux/` as required by
 the selected audited controller backend. Record the exact backend before adding it.
 
-Interfaces: `GameInputMap`, `GameInputRouter`, `GameIntent`,
-`GameInputRouter.releaseAll(String deviceId)`, `GameView`, `GameHud`,
-`GamepadAdapter.events`; `GameLifecycleBinding` owns focus/background transitions.
+Interfaces: `GameInputMap`, `GameActionState`, `GameIntent`,
+`GameActionState.releaseAll(String deviceId)`, `GameSceneBinding`, `GameHud`,
+`GamepadAdapter.events`; `GameLifecycleBinding` translates host focus/background state.
 Input events carry device, action, value, timestamp and consumed status.
+`GameActionState` maps accepted device input into semantic actions. The existing
+`InputRouter.forSource` owns pointer arbitration, blocking and cancellation;
+`SceneInteractionRouter` owns object capture and focus. Compose `SceneCanvas` or
+`SceneView`, `SceneInteractionOverlay` and ordinary Flutter HUD widgets. Keep
+renderer lifecycle and scene asset caching in their current packages.
+For native audio focus, extract/reuse the Capture Lab's `LabAudioSession` and
+platform interruption bridges with the audio owner. The game binding translates
+that state into pause and input release without another focus policy.
 
 - [ ] Test rebinding, dead zones, held-button release, pointer capture, touch cancellation, device disconnect and text-field focus. Add a fixture where a text field consumes WASD while play is visible.
 
 ```dart
-router.setAxis(deviceId: 'pad-1', action: 'throttle', value: 1);
-router.releaseAll('pad-1');
-expect(router.axis('throttle'), 0);
-expect(router.pressed('jump'), isFalse);
+actions.setAxis(deviceId: 'pad-1', action: 'throttle', value: 1);
+actions.releaseAll('pad-1');
+expect(actions.axis('throttle'), 0);
+expect(actions.pressed('jump'), isFalse);
 ```
 
 - [ ] Run `fvm flutter test test/input_test.dart test/lifecycle_test.dart --no-pub` in `flutter_zyren_game` after locked dependency resolution; confirm the new cases fail.
-- [ ] Implement input priority as modal/text > editor tools > active game. On pause/background, release all devices, invalidate queued decisions, suspend audio and stop frame demand. Resume from fresh input state. HUD listens to bounded immutable game state, not a full scene rebuild each tick.
+- [ ] Register the game input adapter with the existing router and focus scopes so modals/text and editor tools retain precedence. Use its `block`, `cancelAll` and registration disposal rather than a second pointer owner map. On pause/background, release semantic actions, invalidate queued decisions, suspend audio and stop frame demand. Resume from fresh input state. HUD listens to bounded immutable game state; scene-derived overlays reuse `SceneSelector` where applicable.
 
 ```dart
 if (!hasGameFocus || lifecyclePaused) {
-  router.releaseAll(deviceId);
+  actions.releaseAll(deviceId);
   return;
 }
 ```
@@ -173,6 +191,12 @@ Interfaces: `CharacterIntent(moveX, moveZ, lookYaw, lookPitch, jump, interact)`;
 `InteractionQuery.available(GameEntityHandle actor)` returns bounded candidates.
 `GameCharacterController` adapts the existing `CharacterMotor`; it never animates
 physics-owned transforms directly.
+Reuse `CharacterAnimationPlugin`, root motion, IK, retargeting and the existing
+kinematic controller. Camera adapters reuse orbit/fly/trackball controls where
+appropriate, framing helpers and Timeline `CameraTrack`. New work is actor
+following, chase constraints and collision handling. `CameraTransitionManager`
+only supplies perspective/orthographic transitions; it is not a generic pose
+blend. Object interaction uses the existing interaction router and physics queries.
 
 - [ ] Test slopes, stairs, moving platforms, collision-blocked root motion, jumps, possession changes, camera obstruction and a target disappearing between selection and interaction.
 
@@ -246,6 +270,13 @@ expect(fullBag.count('key'), 0);
 - [ ] Run focused game/native tests and confirm failed transfers leave both inventories unchanged.
 - [ ] Implement validate-then-commit actions. Emit typed events once per command receipt; schedule cooldowns in ticks and cancel graph actions on entity removal. Bind audio and particle effects through their existing engines and scopes.
 
+Gameplay rule graphs are separate from the existing character animation graph
+and Timeline clips. Reuse those for animation and cutscenes. Route cosmetic
+material/visibility variants and authored viewpoint presets through Configurator
+when a game uses them; inventory quantities and ability effects remain game data.
+Keep streaming, spatial attenuation, Doppler and playback suspension in Audio,
+and fixed-step particle simulation in Particles.
+
 ```dart
 if (!costs.available(actor) || tick < nextAllowedTick) return false;
 costs.consume(actor);
@@ -275,6 +306,13 @@ S1's Studio extension codec for G1 component records; `GameProjectCompiler.compi
 `GameReplay`, `GameLevelManager.load`, `GamePool`, `GameAgentProvider`.
 `GameBuildResult` has ready/failed/cancelled status, diagnostics and an optional
 artifact only for ready. `GameSave` pins schemas, project/model/build identities.
+The artifact is a typed game recipe inside an existing `PipelineBundle` resource.
+Register compiler work through `PipelineBuildRecipe`/`PipelineBuildRuntime` and
+reuse incremental transforms, hashes, file cache, limits and asset references.
+The compiler expands Studio prefabs and remaps component references through S1's
+codec. Authored saves use `PipelineStudioStore`; runtime saves remain game state.
+Inject an asset resolver into the game runtime so it need not import the editor
+or Pipeline. Native ML session caching is distinct from Pipeline's byte cache.
 
 - [ ] Test interrupted level loads, asset hash mismatch, partial native initialization, save migration, missing items/models, restore after pooling and 50 load/unload cycles. Compare play/training accepted action logs using the same build and seed.
 
@@ -285,7 +323,7 @@ expect(session.save().encode(), before);
 ```
 
 - [ ] Run game, compiler and native lifetime tests sequentially. Capture baseline resource counts before the repeated unload fixture.
-- [ ] Compile resolved asset references and component data into a complete immutable artifact, validate capabilities before activation, and atomically swap prepared levels. Save by staging and rename. Reset pooled components, beliefs, input and physics handles; increment entity generations. Diagnostic agents use host-granted scopes/revisions and existing transport.
+- [ ] Compile existing expanded Studio nodes, resolved asset references and component data into the game recipe. Package it through Pipeline and validate capabilities before activation; atomically swap prepared levels. Save runtime state by staging and rename. Reset pooled components, beliefs, input and physics handles; increment entity generations. Publish game counters through existing Devtools diagnostics/history and attach `GameAgentProvider` through shared scoped registration and transport.
 
 ```dart
 final candidate = await levelManager.prepare(reference);

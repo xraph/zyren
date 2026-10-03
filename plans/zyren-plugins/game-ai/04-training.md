@@ -221,8 +221,13 @@ Interfaces: `export_actor(checkpoint, output_dir)`, `ModelBundleManifest`,
 `compare_sequence`, `quantize_candidate`; artifact files include actor ONNX,
 observation/action schemas, normalization, recurrent-state layout, manifest,
 license/provenance and evaluation receipt. Hash every file and reject extras.
+`ModelBundleManifest` describes the policy files and their semantics; it is not
+a new archive format. Python exports a validated directory. The G7/S6 host adapter
+imports it as Pipeline resources and uses the existing bundle builder, limits,
+cache and offline resolver. Reuse Pipeline archive validation for shipped bundles;
+Python validates its own export paths and model manifest.
 
-- [ ] Test actor-only export, dynamic batch bounds, reset/carry state, tensor ordering, missing normalization, malformed archives, incompatible controllers and path traversal. Compare at least 1,000 recorded recurrent steps with Python/native float inference.
+- [ ] Test actor-only export, dynamic batch bounds, reset/carry state, tensor ordering, missing normalization, incompatible controllers and export path traversal. Exercise malformed archives through the existing Pipeline importer in G7/S6. Compare at least 1,000 recorded recurrent steps with Python/native float inference.
 
 ```python
 np.testing.assert_allclose(native_action, torch_action, atol=1e-5, rtol=1e-4)

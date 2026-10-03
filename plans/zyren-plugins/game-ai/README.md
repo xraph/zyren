@@ -12,6 +12,7 @@ and device checks were not rerun for this planning change.
 
 | Document | What you get | Task IDs |
 | --- | --- | --- |
+| [Existing plugin reuse audit](reuse-audit.md) | Current owners, duplication removed and the remaining game/ML gaps | Applies to all tasks |
 | [Design and contracts](design.md) | Scope, package boundaries, saved data, simulation and model contracts | Requirements R01-R32 |
 | [Game runtime](01-game-runtime.md) | Reusable game development APIs, native actors, vehicles, rules and saves | G1-G7 |
 | [Studio integration](02-studio-editor.md) | Editor extension API, component authoring, play mode, AI tools and export | S1-S7 |
@@ -31,6 +32,9 @@ names in the plans are proposals; existing APIs are identified in the source aud
 - Studio is the authoring host. Game tools contribute to its hierarchy,
   inspectors, asset library, commands, viewport and history. You do not maintain
   another editor or another scene graph.
+- Existing plugins own authored prefabs/history, pointer arbitration, scene
+  widgets, asset bundles/caches, agent workflows and capture infrastructure.
+  Game tasks extend those APIs. The reuse audit records the exact boundaries.
 - The generic ML plugin loads and executes versioned models. Gameplay sensors,
   goals, memory and action decoding belong in a separate game adapter.
 - Structured sensors and actual camera perception are both in scope. Shipping
@@ -147,8 +151,12 @@ trailers.
 The planning commit records the specification and task breakdown only. Implementation
 commits and qualification evidence belong in this table as each milestone lands.
 
-Planning checks passed for seven linked documents, 32 uniquely assigned tasks,
+Planning checks passed for eight linked documents, 32 uniquely assigned tasks,
 32 mapped requirements and an acyclic task dependency graph. Local links, code
 fences, embedded JSON/Python syntax and prose dash constraints were checked.
 These checks validate the plan's structure; they do not establish implementation,
 model quality or device performance.
+
+The reuse audit inventories all 30 current packages and records ten areas where
+the tasks now reuse or extend an existing owner. Recheck those source boundaries
+before implementation, especially the active Studio and renderer work.

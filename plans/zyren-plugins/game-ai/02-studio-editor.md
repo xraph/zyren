@@ -48,7 +48,7 @@ Interfaces: `StudioExtensionRecord(namespace, schemaVersion, required, data)`;
 `applyOverrides`; `StudioExtensionRegistry`; `StudioDocument.extensions`;
 `StudioAuthoring.updateExtension(StudioDocument, StudioExtensionRecord)`.
 Record payloads remain JSON-compatible immutable values with byte/depth limits.
-The concurrent modeling work already uses schema 3. Plan schema 4, preserve those
+The current document implementation uses schema 3. Plan schema 4, preserve those
 primitive kinds and re-read the version before implementation under the shared lock.
 
 - [ ] Test schema 1/2/3 migration, schema 4 round-trip, unknown optional/required codecs, oversized payloads, invalid node links and extension edits through undo/redo. Include the schema-3 sphere/cylinder/cone/torus/plane kinds.
@@ -83,6 +83,10 @@ Files: create `packages/flutter_zyren_studio/pubspec.yaml`,
 `test/contribution_test.dart`, `test/host_regression_test.dart`;
 modify `examples/studio/lib/{studio_editor.dart,main.dart}` incrementally.
 Extract existing shared composition with its tests before adding game UI.
+The concurrent `studio_workspace.dart` already supplies dockable panes and keeps
+the native canvas mounted. Re-read its current implementation and tests with the
+Studio owner before extraction. S2 adds contribution registration around that
+workspace, preserving its docking, theme, agent panel and responsive layout.
 
 Interfaces: `StudioEditorContribution` exposes ID/version and `attach`;
 `StudioEditorContext` provides command/history, selection, asset, viewport,
@@ -94,6 +98,9 @@ document codecs stay in `zyren_studio`.
 Compose `StudioAgentExtension` and `StudioAgentExtensionContext` for runtime
 provider/plugin attachment. Do not create a second competing provider lifetime.
 The editor registry uses the existing `AttachmentScope.keep` for registrations.
+Use `AgentRegistryPlugin` and `AgentProviderPlugin` for scene provider attachment.
+Panel/inspector registrations are the editor-specific gap; provider lifecycle,
+permissions, transport and command review stay in Agents and Studio.
 
 - [ ] Test duplicate IDs, dependency cycles, attach failure rollback, detach with an open panel, keyboard shortcut conflicts and focus restoration. Preserve the example's current review and collaboration behaviors.
 
@@ -118,6 +125,10 @@ scope.keep(context.registerInspector(inspector));
 - [ ] Commit as `feat(studio): expose reusable editor contributions`.
 
 ### S3: components, prefabs and game authoring
+
+Extend `StudioPrefab`, `StudioAuthoring` and document history with component
+overrides through S1's codec. Keep one authored prefab format and one undo stack.
+G1's flat spawn recipes are compiler output, not a second editor prefab system.
 
 Files: extend `packages/zyren_game_studio/pubspec.yaml` from G7;
 create `lib/zyren_game_studio.dart`,
@@ -235,6 +246,10 @@ are separate commands. States: unavailable/queued/running/stopping/completed/
 failed/cancelled. Status comes from process receipts, not a UI timer.
 `TrainingAgentProvider` uses the shared registry with independent scopes for
 inspect/start/stop, current revisions and retry keys. It calls this same runner.
+Reuse `StudioAgentPanel`, `AgentWorkflow`, `AgentModelConfiguration` and
+`HttpAgentModel` for external assistant conversations. This task adds policy
+artifact, sensor and training views; it does not add another chat client or LLM
+provider SDK. Register training tools through the existing provider lifecycle.
 
 - [ ] Test a missing worker, incompatible model, reordered observation schema, process crash, lost subprocess connection, stale evaluation, failed checkpoint resume and cancelled import. Add a tour-start test resolving each live anchor.
 
@@ -268,6 +283,10 @@ Interfaces: `GameBuildCommands` calls G7's compiler/exporter;
 operation protocol; `GameStudioAgentProvider` uses the shared `AgentRegistry`.
 Build start requires its own host scope and current document revision. S6 owns
 model activation and training tools when those features become available.
+Build jobs use `PipelineBuildRuntime`; authored persistence uses
+`PipelineStudioStore` and `StudioPersistenceAgentProvider`. Preserve the Agents
+provider registration identity as well as expected revision during review, so a
+replacement provider cannot receive a previously approved command.
 
 - [ ] Test conflicting component fields, structural edits during a session, lost grants, duplicate build requests and agent disposal. A denied command must not create a build job or output directory.
 
@@ -278,7 +297,7 @@ expect(runner.activeJobs, isEmpty);
 ```
 
 - [ ] Run build/collaboration/agent tests against actual file artifacts and the existing local authority. Record remote-protocol limitations independently.
-- [ ] Add component patch operations only where the shared collaboration protocol supports atomic revision checks and inverse history. Otherwise require leaving collaboration for that edit, with the limitation visible. Show build validation, dependency pins, native capabilities and output path together. Reuse current MCP job/cancellation support.
+- [ ] Extend the existing collaboration authority/protocol for component patches with atomic revision checks and inverse history, or require leaving collaboration for those edits and show the limitation. Current transform/visibility operations do not establish component support. Reuse its offline queue, presence and history. Show Pipeline build validation, dependency pins, native capabilities and output path together. Reuse current MCP job/cancellation support.
 - [ ] Export a game, close Studio, load the artifact offline in the Flutter example and perform an external MCP inspect/edit/undo/build sequence with denied and stale variants.
 - [ ] Commit as `feat(studio): export game projects and expose guarded tools`.
 

@@ -36,8 +36,10 @@ PyTorch export fixtures supplied by the training toolkit.
 
 `zyren_ml` contains manifests, tensors, native bridge, sessions and scheduling.
 `zyren_game_ai/src/perception` contains sensors and observation assembly;
-`src/brain` contains memory, goals and policies. Renderer changes are confined to
-generic capture resources. No ML dependency enters `zyren` or `zyren_native`.
+`src/brain` contains memory, goals and policies. `zyren_capture` owns reusable
+camera capture scheduling and pools. Renderer changes are confined to missing
+generic output/readback capabilities. No ML dependency enters `zyren`,
+`zyren_capture` or `zyren_native`. See the [reuse audit](reuse-audit.md).
 
 ### A1: manifest, real native inference and export feasibility
 
@@ -57,6 +59,10 @@ Interfaces: `MlModelManifest.decode/encode`, `MlTensor(dtype, shape, bytes)`,
 `MlRunResult` distinguishes ok/invalid/unsupported/unavailable/cancelled/failed.
 `MlRunOptions` supplies deadline, request ID and cancellation; no native pointer
 escapes the owner. Start with float32/int64/bool tensors and bounded batch shapes.
+Existing `AgentModel.complete` and `HttpAgentModel` execute external text/tool
+workflows. They do not supply this tensor/session ABI. Keep their provider clients,
+conversation history and approval flow in Agents; add only native tensor inference
+here. Load model bytes through the injected resolver instead of another asset cache.
 
 - [ ] Generate tiny linear, one-step LSTM and CNN fixtures with known inputs/outputs in `tool/zyren_train/scripts/export_probe.py`. Verify actual PyTorch-to-ONNX export and native loading before fixing the opset/runtime pins. Record those exact versions in a probe receipt.
 
@@ -80,6 +86,10 @@ enum ZyrenMlStatus { ZYREN_ML_OK = 0, ZYREN_ML_INVALID = 1,
 - [ ] Commit as `feat(ml): execute versioned models through native ONNX Runtime`. Record any recurrent export blocker before dependent policy tasks begin; a feed-forward fixture alone does not close the recurrent probe.
 
 ### A2: workers, batching and model resource lifetime
+
+`MlModelCache` retains loaded native sessions and in-flight references. Pipeline
+already caches artifact bytes, and Flutter caches scene assets. Reuse those at
+their boundaries; do not create another download, disk or decoded scene cache.
 
 Files: create `packages/zyren_ml/lib/src/{worker,scheduler,model_cache,provider,diagnostics}.dart`,
 `test/{scheduler,lifetime,provider}_test.dart`.
@@ -141,6 +151,12 @@ expect(frame.schemaHash, spec.hash);
 
 - [ ] Run perception tests against real Rapier queries where occlusion is physical. Pure math tests cover cone/range boundaries independently. Include a paired-world fixture whose observable geometry is identical but hidden actor positions differ.
 - [ ] Capture one consistent post-physics snapshot. Use spatial filtering, local transforms and sorted bounded candidates before ray queries. Apply explicit sensor material/layer rules; return unknown when required geometry or query budget is unavailable. Hearing uses game events and its declared uncertainty; ambient playback does not grant world knowledge.
+
+Use existing Physics ray/shape/overlap queries and Navigation surfaces/followers.
+The new work defines observation limits, cadence, uncertainty and knowledge
+filtering. Interaction ray hits and label visibility can aid tooling but are not
+proof of rendered visibility. Do not duplicate collision acceleration structures,
+navigation baking or the spatial audio mixer for perception.
 
 ```dart
 final local = inverseSensorPose.transformPoint(target.position);
@@ -219,10 +235,11 @@ if (decision.episodeId != episodeId ||
 
 ### A6: native camera sensors and visual policies
 
-Files: create `packages/zyren_game_ai/lib/src/perception/{camera,camera_pool,image_preprocess}.dart`,
+Files: create `packages/zyren_game_ai/lib/src/perception/{camera,image_preprocess}.dart`,
 `test/{camera_contract,camera_native}_test.dart`;
-create `packages/zyren/lib/src/rendering/sensor_capture.dart` and export it publicly;
-modify `packages/zyren/lib/src/rendering/{capabilities,frame_submission}.dart`,
+extend `packages/zyren_capture` with `lib/sensors.dart`,
+`lib/src/sensor_capture.dart` and `test/sensor_capture_test.dart`;
+modify `packages/zyren/lib/src/rendering/{capabilities,frame_output}.dart`,
 `packages/zyren_native/lib/src/{native_renderer,backend}.dart`,
 `packages/zyren_native/native/src/{renderer.rs,render_graph/frame.rs}` minimally;
 create `packages/zyren_native/native/src/renderer/sensor_capture.rs`.
@@ -231,8 +248,14 @@ Update the native ABI headers and Apple copies together if the public protocol c
 Interfaces: `SensorCaptureRequest` pins scene snapshot/tick/camera/output format;
 `SensorCaptureReceipt` contains request/frame IDs, camera matrices, tick, dimensions,
 color/depth conventions and resource lifetime; `SensorCapturePool.capture` returns
-bounded RGB/depth tensors. Capabilities report RGB/depth/class separately.
+bounded typed image/depth buffers from `zyren_capture`, without ML tensor types.
+Reuse `FrameSubmission.capture`, its immutable camera/scene snapshots and the
+existing `ReadbackTarget`/`ReadbackOutput` and native backend. Extend these contracts
+only for missing outputs. Capabilities report RGB/depth/class separately.
 `CameraSensor` implements A3's sensor interface and never reads the user's display.
+Its preprocessing adapter converts capture buffers into A1 tensors. Existing PNG,
+turntable, tiled and video capture stays in Capture. XR depth is physical
+environment input and cannot substitute for a virtual NPC camera's depth output.
 
 - [ ] Run an early feasibility probe for offscreen RGB/depth on each renderer before committing training architecture to a particular format. Add known-plane depth, occluded colored object, skin deformation, resize, cancelled capture and renderer recreation tests.
 
@@ -245,7 +268,7 @@ expect(depth.metresAt(center), closeTo(knownPlaneDistance, .01));
 ```
 
 - [ ] Verify existing code reports unsupported depth instead of fabricated zeros before implementing the new target/readback path. Record the mobile capture gap separately from macOS color support.
-- [ ] Add persistent native offscreen target pools, compatible scene snapshot retention, GPU fences and bounded asynchronous readback. Define RGB channel order, color space, normalization, metric depth and invalid-depth masks in the manifest. Render actual scene materials for RGB. A separate class-mask pass must reproduce declared coverage rules and expose unsupported shader effects.
+- [ ] Extend Capture with a persistent sensor session using existing frame snapshots, native resources and synchronization. Add target pooling and missing depth/class readback in the owning renderer path without duplicating frame submission or native backend ownership. Define RGB channel order, color space, normalization, metric depth and invalid-depth masks in the manifest. Render actual scene materials for RGB. A separate class-mask pass must reproduce declared coverage rules and expose unsupported shader effects.
 
 ```dart
 final value = ((channel / 255.0) - mean[channelIndex]) / std[channelIndex];
@@ -264,6 +287,9 @@ Files: create `packages/zyren_game_ai/lib/src/brain/{team,communication,policy_g
 
 Interfaces: `GameTeam`, `TeamMessage`, `CommunicationProfile`, `PolicyGroup`;
 `GameAiAgentProvider` and `MlAgentProvider` use the existing shared registry.
+Attach through `AgentRegistryPlugin`/`AgentProviderPlugin` where scene hosted,
+or the existing registry registration scope in a renderer-free worker. Reuse
+Devtools telemetry/history and current CLI/MCP transport and job handling.
 Actor-to-actor messages and external developer tooling are separate capabilities.
 Messages carry sender, recipient/team, tick, observation provenance and expiry.
 
@@ -283,8 +309,9 @@ expect(identical(policyGroup.stateFor(a), policyGroup.stateFor(b)), isFalse);
 ## Verification and shared requests
 
 A1 registers `zyren_ml` and its `dart:ffi` exception in the boundary checker. A3
-registers `zyren_game_ai`. A6 requests only generic sensor targets, native frame
-receipts and readback from the renderer owner. Keep ML types out of those APIs.
+registers `zyren_game_ai`. A6 extends Capture and requests only missing generic
+targets/outputs/readback from the renderer owner. Reuse native frame receipts
+and snapshots. Keep ML types out of those APIs.
 Existing capture jobs remain usable and retain their current ownership semantics.
 
 Run native tests from their owning package directories, sequentially. Compare

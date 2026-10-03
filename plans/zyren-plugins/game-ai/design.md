@@ -9,35 +9,26 @@ timing budgets below are initial acceptance targets, not measured capability.
 
 ## Source audit
 
-| Existing source | Reuse | Gap this program owns |
+The [reuse audit](reuse-audit.md) inventories all 30 existing packages and maps
+source APIs to the game/AI tasks. Read it before implementing a new service.
+
+| Existing owner | Reuse | Gap this program owns |
 | --- | --- | --- |
-| `packages/zyren/lib/src/plugins/engine.dart` | `ScenePlugin`, lifecycle, typed services and resource scopes | Game simulation lifecycle and a single simulation clock |
-| `packages/zyren_physics/lib/src/plugin.dart` | `PhysicsPlugin.advance`, `beforeStep`, transform bindings and cleanup | Explicit external stepping mode that cannot also advance in `beforeRender` |
-| `packages/zyren_physics/lib/src/physics.dart` | Native Rapier bodies, queries, joints, fixed stepping and snapshots | Wheeled vehicle adapter, replay policy and runtime entity mapping |
-| `packages/zyren_characters/README.md` | Character motor, root motion, IK, retargeting and animation transitions | Player/NPC intent routing and gameplay ownership |
-| `packages/zyren_navigation/README.md` | Generated surfaces, clearance, obstacles and route followers | Game-controlled updates, interaction destinations and sensor knowledge boundaries |
-| `packages/zyren_studio/lib/src/document.dart` | Stable node IDs, prefabs, asset pins and immutable documents; concurrent schema 3 adds primitives | General versioned document extensions and component overrides in the next compatible schema |
-| `packages/zyren_studio/lib/src/history.dart` | Unified document history | Extension data in the same undo/redo transactions |
-| `examples/studio/lib/studio_editor.dart` | Working Flutter editor composition, inspector, selection and command gates | Reusable editor contribution API and game panels |
-| `packages/zyren_studio/lib/agent_extensions.dart` | Concurrent `StudioAgentExtension` and scoped provider/plugin lifetime | Reuse that contract for game tooling; extend the editor separately for panels and authoring |
-| `examples/studio/lib/studio_preview.dart` | Separate scene and asset scope for preview | Game play sessions, pause/step, runtime inspectors and selective apply-back |
-| `packages/zyren_pipeline/README.md` | Pinned assets, offline bundles, cache and build receipts | Validated game/model artifacts and a runtime project compiler adapter |
-| `packages/zyren_audio/README.md` | Native spatial playback and host-controlled focus | Gameplay sound events for hearing and a Flutter focus adapter |
-| `packages/zyren_capture/README.md` | Native color capture and capability reporting | Persistent sensor targets; public depth/object-class outputs are currently missing |
-| `packages/flutter_zyren/lib/src/widgets/zero_state.dart` | Shared illustrated `ZeroState` | Game-specific copy, illustrations and recovery actions |
-| `packages/flutter_zyren/lib/src/widgets/onboarding_provider.dart` | Registered `OnboardingProvider` walkthroughs | Registered game and AI authoring walkthroughs |
-| `packages/zyren_agents/README.md` and `lib/workflow.dart` | Scoped inspection/commands, MCP and concurrent external model/tool workflows | Game, model and training providers; NPC control still uses the separate runtime contract |
+| Core and Flutter scene packages | Scene graph, `ScenePlugin`, services/scopes, input arbitration, scene widgets, frame snapshots and asset cache | Game actions, runtime entities and simulation phases |
+| Physics, Characters and Navigation | Rapier queries/stepping, character motor/root motion/IK, animation graph, navigation baking/followers | External clock ownership, actor intent adapters and wheeled vehicles |
+| Interaction and its Flutter adapter | Object routing, pointer capture/focus, anchors and overlays | Gameplay eligibility and semantic input bindings |
+| Studio and its Flutter example | Schema 3, prefabs/overrides/history, previews, persistence, agent extensions and current docking work | Versioned component extensions, contribution registration and isolated game play |
+| Pipeline | Bundle format, pins/hashes, incremental transforms, caches, build jobs and `PipelineStudioStore` | Game compilation and policy-file import adapters |
+| Agents and Devtools | Scoped providers, review/cancellation, CLI/MCP, `AgentWorkflow`, external HTTP model clients and diagnostics | Game/training providers and local native tensor inference |
+| Audio, Particles, Effects and Timeline | Spatial playback/streams, focus example, particle simulation, postprocessing and authored animation | Gameplay events, lifecycle bindings and hearing semantics |
+| Capture and native renderer | Native color capture, immutable frame submission, backend and readback | Persistent sensor scheduling/pools and missing virtual depth/class outputs |
+| Configurator and Collaboration | Appearance variants/viewpoints, transform/visibility operations, offline queue and authority/history | Optional appearance adapters and component patch support in the existing protocol |
 
-The current capture API starts an isolated capture job and writes PNGs. It is not
-a per-agent real-time camera sensor. A6 must implement and qualify that path.
-Existing Studio collaboration covers a subset of edits; game component conflicts
-need explicit support before concurrent editing is advertised.
-
-Studio schema 3, primitive modeling and agent-extension files were active concurrent
-edits during the final audit. They were read for compatibility, not changed or
-verified by this planning work. S1 targets schema 4 based on that snapshot and must
-re-read the current schema before reserving its version. Never overwrite schema 3
-or discard its new primitive kinds to add game components.
+Existing source is not a device qualification result. The audit reviewed source
+and relevant test cases without rerunning package tests. Studio schema 3 and
+agent workflows are present; `studio_workspace.dart` was concurrent work at the
+audit snapshot. S1 must re-read the document version before reserving schema 4,
+and S2 must coordinate extraction with the workspace owner.
 
 ## Requirements and task coverage
 
@@ -81,10 +72,10 @@ or discard its new primitive kinds to add game components.
 | Proposed package or tool | Owns | Allowed direct project dependencies |
 | --- | --- | --- |
 | `zyren_game` | Project/runtime data, entities, components, systems, input contracts, rules, saves and replay contracts | `zyren`; optional agent adapter may use `zyren_agents` |
-| `zyren_game_native` | Scene presentation adapter, native physics, character/vehicle controllers, navigation, audio and effects integration | `zyren_game`, `zyren`, `zyren_physics`, `zyren_characters`, `zyren_navigation`, `zyren_timeline`, `zyren_gltf`, `zyren_gltf_timeline`, `zyren_audio`, `zyren_particles` |
+| `zyren_game_native` | Scene presentation adapter, native physics, character/vehicle controllers, navigation, audio and effects integration | `zyren_game`, `zyren`, `zyren_physics`, `zyren_characters`, `zyren_navigation`, `zyren_timeline`, `zyren_gltf`, `zyren_gltf_timeline`, `zyren_audio`, `zyren_particles`, `zyren_interaction`; optional appearance adapter: `zyren_configurator` |
 | `zyren_ml` | Tensor/model contracts, native ONNX Runtime bridge, workers and diagnostics | `ffi`, native build tooling; optional adapter may use `zyren_agents` |
-| `zyren_game_ai` | Perception, beliefs, goals, behavior assets, action contracts and policy scheduling | `zyren_game`, `zyren_game_native`, `zyren_ml`, `zyren`, `zyren_agents` |
-| `flutter_zyren_game` | Flutter game host, input adapters, lifecycle, HUD bindings and gamepad platform bridge | `flutter_zyren`, `zyren_game`, `zyren_game_native` |
+| `zyren_game_ai` | Perception, beliefs, goals, behavior assets, action contracts and policy scheduling | `zyren_game`, `zyren_game_native`, `zyren_ml`, `zyren`, `zyren_agents`, `zyren_capture` |
+| `flutter_zyren_game` | Flutter game host, input adapters, lifecycle, HUD bindings and gamepad platform bridge | `zyren`, `flutter_zyren`, `flutter_zyren_interaction`, `zyren_interaction`, `zyren_game`, `zyren_game_native` |
 | `flutter_zyren_studio` | Reusable editor contribution host extracted from the existing example | Flutter, `flutter_zyren`, `zyren_studio`, existing inspector/tools dependencies |
 | `zyren_game_studio` | Dart project compiler/asset adapters and Flutter game/AI contributions | `zyren_studio`, `flutter_zyren_studio`, game packages, `zyren_pipeline`, `zyren_ml`, `zyren_agents` |
 | `tool/zyren_train` | Python environments, algorithms, datasets, export and evaluation | Python packages locked by T1; worker executable supplied by game project |
@@ -131,11 +122,13 @@ physics handles and imported source IDs remain separate mappings.
 input maps, component schemas, behavior/model references, build profiles and
 capability requirements. `GameLevel` stores entities and their component records
 against one pinned scene identity. Cross-level references use project/level/entity
-triples. Prefab-local references remap on instantiation. Unknown required
-components block play/export without losing their authored data.
+triples. Studio owns authored prefabs and their overrides. The compiler consumes
+`expandedNodes`/`prefabOwners`, remaps component references, then emits flat
+`GameSpawnTemplate` recipes for runtime spawn identity. Unknown required components
+block play/export without losing their authored data.
 
-Studio's next schema, planned as version 4 after the active version-3 modeling
-change, adds an `extensions` map of namespaced versioned payloads. Read schema
+Studio's next schema, planned as version 4 after the existing version 3, adds an
+`extensions` map of namespaced versioned payloads. Read schema
 1, 2 and 3, write schema 4. `zyren.game` stores the project/level component
 records; `zyren.game_ai` stores sensor, brain, model and training references.
 Keep model weights and demonstrations out of document JSON. Component overrides
@@ -166,7 +159,10 @@ The project compiler validates the entire dependency set before replacing a
 working play session. It returns `CompiledGameProject`, a runtime asset independent
 of Studio widgets and documents. Export includes a typed artifact manifest,
 source hashes, schema/compiler versions, asset/model pins and required native
-capabilities. A failed build leaves the previous build selectable.
+capabilities. Store the recipe and model files as resources in the existing
+`PipelineBundle`; reuse Pipeline build jobs, transforms, caches and limits.
+The runtime receives an asset resolver, keeping Studio and Pipeline imports at
+the host/compiler boundary. A failed build leaves the previous build selectable.
 
 ## Simulation contract
 
@@ -202,7 +198,10 @@ Cross-platform bitwise physics or inference equivalence is not promised.
 `PhysicsPlugin` gets an explicit external driver mode. Its existing automatic
 mode remains the default. An externally driven instance never advances from
 `beforeRender`, and a game session never also calls `PhysicsWorld.step` behind
-that plugin. `CharacterMotor.advance` runs once in the existing `beforeStep` hook.
+that plugin. Retain the existing physics accumulator. `CharacterMotor.advance`
+runs once in the existing `beforeStep` hook. Its current argument is `Duration`;
+convert seconds at that boundary within the motor's fixed-step tolerance and test
+animation drift separately. Physics time continues to use unrounded seconds.
 
 ## Game development features
 
@@ -217,6 +216,11 @@ Input actions support move/look, buttons, rebinding, dead zones and device chang
 Text entry, modals and editor gizmos consume input before a play session. Touch
 controls are editable Flutter widgets. Desktop/mobile gamepad access has an
 explicit native adapter and device qualification, with disconnected-device state.
+`GameActionState` maps accepted inputs. Existing `InputRouter` and
+`SceneInteractionRouter` retain pointer ownership, cancellation and focus.
+`GameSceneBinding` composes `SceneCanvas`/`SceneView` and interaction overlays.
+Reuse the Capture Lab audio-focus bridge with its owner when extracting lifecycle
+support. Keep native view lifecycle and scene asset caching in Flutter Zyren.
 
 Camera rigs provide first-person, third-person orbit/follow and vehicle chase,
 including obstruction handling. Character and vehicle possession routes one
@@ -224,12 +228,17 @@ intent producer to a controller at a time. Collision-aware character movement
 uses the current capsule/root-motion implementation. A wheel controller uses
 Rapier ray contacts, suspension, tire forces, engine/brake force and steering;
 wheel visuals follow the solved controller state. Document its handling limits.
+Reuse existing camera controls and framing for navigation and Timeline tracks for
+authored poses. Actor follow/chase constraints are new. The current
+`CameraTransitionManager` covers perspective/orthographic transitions only.
 
 Rules and behaviors reference registered typed Dart actions and predicates.
 Provide a state machine and bounded behavior tree for common game logic, plus
 utility scores for selecting goals. Saved graphs cannot execute arbitrary source
 code. AOT builds compile registered systems; code changes restart play as needed.
 Data-only hot reload is transactional and limited to compatible component fields.
+Character animation graphs, Timeline, Audio and Particles remain their owners'
+systems. Optional cosmetic/loadout appearance changes reuse Configurator variants.
 
 Inventory has typed items, stack limits and transactional transfers. Abilities
 declare costs, cooldowns, targets and effects. Objectives subscribe to typed
@@ -286,6 +295,12 @@ a start-training action as available when the required worker/toolchain is absen
 
 ## ML and perception contracts
 
+Agents already supports external LLM/tool workflows through `AgentWorkflow`,
+`AgentModel.complete` and `HttpAgentModel`. Studio reuses that assistant UI and
+provider configuration. `zyren_ml` supplies the missing in-process tensor/session
+ABI for game policies. Its cache holds loaded native sessions, while Pipeline
+owns model artifact bytes and offline resolution.
+
 `MlModelManifest` defines input/output tensors, dtype, shape bounds, preprocessing,
 model/opset/runtime pins, supported providers, recurrent state tensors, artifact
 hashes and limits. `MlRuntime.load` produces `MlSession`; `MlSession.run` accepts a
@@ -333,8 +348,12 @@ it is outside the shipped reflex/control path and this release's required scope.
 
 Camera sensors are a required second observation profile. Start with configurable
 84x84 RGB and metric depth for training trials. Produce offscreen native targets
-from a frozen simulation snapshot and return camera/tick/frame receipts. Define
-near/far clipping, color space, channel order, aspect, alpha and sky depth exactly.
+through an extended `zyren_capture` sensor API over existing `FrameSubmission`
+snapshots and native readback. Capture owns persistent pools and image/depth
+buffers; the AI adapter owns conversion to model tensors. XR environment depth
+is physical sensor input, not virtual game camera output. Return camera/tick/frame
+receipts. Define near/far clipping, color space, channel order, aspect, alpha and
+sky depth exactly.
 Semantic class masks are a separate optional channel; instance IDs remain debug
 or teacher data unless the observation spec explicitly permits them.
 
