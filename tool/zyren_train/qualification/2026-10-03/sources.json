@@ -1,0 +1,107 @@
+{
+  "schema_version": 1,
+  "sources": [
+    {
+      "historical_path": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/.superpowers/sdd/README/task-T4-training-improved/guard-expert-7",
+      "path": "demonstrations/guard/guard-expert-7",
+      "manifest_sha256": "d76fb4d6cdf63c63aa799811d74554900d8c0b2f29807b08a66fb376382ce561",
+      "use": "train-and-parity"
+    },
+    {
+      "historical_path": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/.superpowers/sdd/README/task-T4-training-improved/guard-expert-11",
+      "path": "demonstrations/guard/guard-expert-11",
+      "manifest_sha256": "b1218fdd344e8606e3fd4379203377f542f3de6856e5aaaba4af7f5b72d455b8",
+      "use": "train-and-parity"
+    },
+    {
+      "historical_path": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/.superpowers/sdd/README/task-T4-training-improved/guard-expert-19",
+      "path": "demonstrations/guard/guard-expert-19",
+      "manifest_sha256": "f6ca267b99c9c1ea2e696c0e7128e0c9ed110e327bca3805fe91564a3f8e60eb",
+      "use": "train-and-parity"
+    },
+    {
+      "historical_path": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/.superpowers/sdd/README/task-T4-training-improved/guard-expert-23",
+      "path": "demonstrations/guard/guard-expert-23",
+      "manifest_sha256": "e2e0be6e346b646acc88afc289fc3e99841090d7c91a604051df0fd54baade0b",
+      "use": "train-and-parity"
+    },
+    {
+      "historical_path": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/.superpowers/sdd/README/task-T4-training/guard-scripted",
+      "path": "demonstrations/guard/guard-scripted",
+      "manifest_sha256": "96b865665e3bba0ae0023f950a8789940707f735e5bf80cbdefe0ffff2c975f3",
+      "use": "parity-and-calibration-only"
+    },
+    {
+      "historical_path": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/.superpowers/sdd/README/task-T4-training-hazards/vehicle-static-obstacles-7",
+      "path": "demonstrations/vehicle/vehicle-static-obstacles-7",
+      "manifest_sha256": "cff92be86bbe6bf27e2d35c3f9cb079b6685deffff95a89adf966a76c6e40348",
+      "use": "train-and-parity"
+    },
+    {
+      "historical_path": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/.superpowers/sdd/README/task-T4-training-hazards/vehicle-static-obstacles-11",
+      "path": "demonstrations/vehicle/vehicle-static-obstacles-11",
+      "manifest_sha256": "7d32bc2de70d5e3830591716378fbebc986f5010333e99f760a364adcb516815",
+      "use": "train-and-parity"
+    },
+    {
+      "historical_path": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/.superpowers/sdd/README/task-T4-training-hazards/vehicle-static-obstacles-19",
+      "path": "demonstrations/vehicle/vehicle-static-obstacles-19",
+      "manifest_sha256": "14bbb3ce1c32d85493b4b923de231dfb867639c78c39bd1ee0294602e3f27bab",
+      "use": "train-and-parity"
+    },
+    {
+      "historical_path": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/.superpowers/sdd/README/task-T4-training-hazards/vehicle-static-obstacles-23",
+      "path": "demonstrations/vehicle/vehicle-static-obstacles-23",
+      "manifest_sha256": "a118c1ccfb977805f5eb6d4d0a8cb0e2d3cd9545c5b82184735ce32b04572117",
+      "use": "train-and-parity"
+    },
+    {
+      "historical_path": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/.superpowers/sdd/README/task-T4-training-hazards/vehicle-moving-hazards-7",
+      "path": "demonstrations/vehicle/vehicle-moving-hazards-7",
+      "manifest_sha256": "adbcee04f94738699c5f76ba5c78a5390127a23a0570e3d9dc8670987cd55239",
+      "use": "train-and-parity"
+    },
+    {
+      "historical_path": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/.superpowers/sdd/README/task-T4-training-hazards/vehicle-moving-hazards-11",
+      "path": "demonstrations/vehicle/vehicle-moving-hazards-11",
+      "manifest_sha256": "8a0de8ca9b7813ea2d8718a1bf1b1baea0c1eae78b291182e682a787edd26ff7",
+      "use": "train-and-parity"
+    },
+    {
+      "historical_path": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/.superpowers/sdd/README/task-T4-training-hazards/vehicle-moving-hazards-19",
+      "path": "demonstrations/vehicle/vehicle-moving-hazards-19",
+      "manifest_sha256": "ba413454e233fc9438a86ed19f29e5454babca65ec57dd235672cdb44a3c3acc",
+      "use": "train-and-parity"
+    },
+    {
+      "historical_path": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/.superpowers/sdd/README/task-T4-training-hazards/vehicle-moving-hazards-23",
+      "path": "demonstrations/vehicle/vehicle-moving-hazards-23",
+      "manifest_sha256": "2a3c95200422c076f4f4fc52831cbb37bbdfc26eeee02553096f368670af77f6",
+      "use": "train-and-parity"
+    },
+    {
+      "historical_path": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/.superpowers/sdd/README/task-T4-training-hazards/vehicle-task-combinations-7",
+      "path": "demonstrations/vehicle/vehicle-task-combinations-7",
+      "manifest_sha256": "8c94f4adadb6373acd5773529f83f3c15105a7821028781b39f034111128957f",
+      "use": "train-and-parity"
+    },
+    {
+      "historical_path": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/.superpowers/sdd/README/task-T4-training-hazards/vehicle-task-combinations-11",
+      "path": "demonstrations/vehicle/vehicle-task-combinations-11",
+      "manifest_sha256": "bb464278ec7e2498ec5b8e2cda2f64955bfa910616a4b737fb90feb363ba3e5c",
+      "use": "train-and-parity"
+    },
+    {
+      "historical_path": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/.superpowers/sdd/README/task-T4-training-hazards/vehicle-task-combinations-19",
+      "path": "demonstrations/vehicle/vehicle-task-combinations-19",
+      "manifest_sha256": "53d54eece6fecdd1940425f396617eb786e6dc3affb30da944a547e1065a2a00",
+      "use": "train-and-parity"
+    },
+    {
+      "historical_path": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/.superpowers/sdd/README/task-T4-training-hazards/vehicle-task-combinations-23",
+      "path": "demonstrations/vehicle/vehicle-task-combinations-23",
+      "manifest_sha256": "09e2f94453f3b58bde1c8fa1cf67ce1b077b58a0a57783d4dc9340b72669c882",
+      "use": "train-and-parity"
+    }
+  ]
+}

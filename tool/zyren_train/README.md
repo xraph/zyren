@@ -115,3 +115,29 @@ The plan pins the prepared executable, copied native libraries, full test scenar
 Every requested slot remains in the report, including failed and cancelled episodes. Reward and physical task success have separate aggregates. The release gate requires 200 episodes per family across at least 20 layout seeds, guard success of 90% with a Wilson lower bound of 85%, vehicle success of 95% with a lower bound of 90%, and vehicle collisions in at most 2% of requested episodes. Paired hidden worlds, reward exploit checks and the listed stress distributions must all run. Missing evidence fails the gate.
 
 Delayed sensor receipts and missed decisions use the shared fallback without advancing recurrent state. Evaluation runs the real Rapier, character motor and ray-wheel vehicle paths. It does not initialize a renderer. A failed quality receipt cannot authorize model activation, even when every episode completed and unit tests passed.
+
+
+## Native policy export
+
+You can export a verified checkpoint to a new candidate directory:
+
+```sh
+zyren-train export --config /absolute/config.json --run /absolute/run \
+  --schema-info /absolute/native-schema-info.json --output /new/candidate
+```
+
+The schema info is the worker's observation schema, action schema and action space. Export checks those hashes against the training config. The actor graph contains the observation normalization and carries hidden/cell state through explicit inputs and outputs. Reset both to zero for a new episode. The value head, optimizer and exploration variance stay in the training checkpoint.
+
+A candidate cannot activate. First run the immutable held-out plan against its ONNX hash, then compare at least 1,000 recorded recurrent steps through the native runtime and shared controller decoder. Publish only after both checks pass:
+
+```sh
+zyren-train publish --candidate /absolute/candidate \
+  --evaluation /absolute/onnx-evaluation.json --native-parity /absolute/native-parity.json \
+  --output /new/accepted-policy
+```
+
+The accepted directory has eight hashed resources and `bundle.json`. Extra files, missing normalization, changed schemas, incompatible controller mappings and tampered resources fail validation. Pipeline owns archive building and import. We do not add a second archive format.
+
+`quantize_candidate` creates a separate int8 QDQ candidate from an accepted float directory. Calibration reads verified training recordings only. Run the same held-out plan again, retain the original collision and integrity gates, and reject more than two percentage points of success loss against the accepted float model. Quantization reports model bytes separately. App binary and working-memory deltas remain unknown until measured in the target host.
+
+For int8 publication, pass `--precision int8 --baseline-bundle /absolute/accepted-float-policy`. The publisher embeds and verifies the float baseline manifest and full evaluation receipt, then recomputes success loss against the exact candidate report. A quantized model cannot borrow the float model's acceptance marker. Host support must validate this proof before activation.

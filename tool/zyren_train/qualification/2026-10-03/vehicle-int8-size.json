@@ -1,0 +1,11 @@
+{
+  "accepted": false,
+  "precision": "int8",
+  "model_sha256": "ef0c8052fd79e3bb893650fb4fdd766160dd71afe0e7df81f16822652cc9ea67",
+  "baseline_model_bytes": 604425,
+  "model_bytes": 182480,
+  "model_delta_bytes": -421945,
+  "app_binary_delta_bytes": null,
+  "working_memory_delta_bytes": null,
+  "path": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/.superpowers/sdd/README/task-T5-int8/vehicle"
+}

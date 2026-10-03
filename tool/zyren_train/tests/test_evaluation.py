@@ -48,3 +48,22 @@ def test_subprocess_registers_test_worlds_and_proves_native_metrics(worker_comma
     assert report.data['hidden_state_leaks']==0 and report.data['reward_exploits']==0
     assert report.data['status']=='failed'  # Four physical episodes do not satisfy the release gate.
     assert compare_baseline(report,report)['families']['guard']['success_rate_delta']==0
+
+
+def test_artifact_revision_preserves_case_content_and_lineage():
+    import hashlib,copy,pytest
+    from pathlib import Path
+    from zyren_train.evaluate import EvaluationPlan
+    from zyren_train.scenario import canonical_bytes
+    value=EvaluationPlan.load(Path(__file__).resolve().parents[3]/'tool/zyren_train/configs/evaluation.yaml').data
+    original=EvaluationPlan.from_dict(value)
+    content={key:value[key] for key in ('cases','paired_worlds','targets','training_scenario_hashes')}
+    value.update(id=value['id']+'-revision',worker_sha256='a'*64)
+    value['revision']={'supersedes':original.hash,'reason':'original executable overwritten during sequence-probe rebuild','case_content_hash':hashlib.sha256(canonical_bytes(content)).hexdigest()}
+    revised=EvaluationPlan.from_dict(value)
+    assert revised.hash!=original.hash and revised.data['cases']==original.data['cases']
+    forged=copy.deepcopy(value);forged['cases'][0]['seeds'][0]+=99
+    with pytest.raises(ValueError,match='lineage'):EvaluationPlan.from_dict(forged)
+    for malformed in (None,[],{'supersedes':'x'}):
+        forged=copy.deepcopy(value);forged['revision']=malformed
+        with pytest.raises(ValueError):EvaluationPlan.from_dict(forged)

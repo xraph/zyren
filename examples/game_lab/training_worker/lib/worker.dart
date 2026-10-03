@@ -5,6 +5,7 @@ import 'dart:isolate';
 import 'dart:typed_data';
 import 'package:zyren_game/training.dart';
 import 'native_scenario.dart';
+import 'policy_probe.dart';
 import 'task_scenarios.dart';
 
 void _environmentMain(Map<String, Object?> config) {
@@ -162,6 +163,10 @@ final class _IsolateEndpoint implements TrainingEnvironmentEndpoint {
 }
 
 Future<void> runTrainingWorker(List<String> args) async {
+  if (args.length == 2 && args.first == '--policy-sequence') {
+    await runPolicySequence(args[1]);
+    return;
+  }
   if (args.contains('--scenario-specs') ||
       args.contains('--evaluation-specs')) {
     final evaluation = args.contains('--evaluation-specs');

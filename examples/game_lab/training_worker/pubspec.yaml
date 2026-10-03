@@ -13,6 +13,8 @@ dependencies:
     path: ../../../packages/zyren_game_ai
   zyren_game_native:
     path: ../../../packages/zyren_game_native
+  zyren_ml:
+    path: ../../../packages/zyren_ml
   zyren_physics:
     path: ../../../packages/zyren_physics
   zyren_characters:

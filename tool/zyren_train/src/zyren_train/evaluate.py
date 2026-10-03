@@ -19,12 +19,16 @@ class EvaluationPlan:
     encoded: bytes
     @classmethod
     def from_dict(cls,value):
-        if set(value)!={'schema_version','id','cases','paired_worlds','targets','training_scenario_hashes','worker_sha256','worker_native_sha256'} or value['schema_version']!=1 or type(value['schema_version']) is not int or value['targets']!=TARGETS: raise ValueError('Evaluation schema or immutable target changed')
+        if set(value)-{'revision'}!={'schema_version','id','cases','paired_worlds','targets','training_scenario_hashes','worker_sha256','worker_native_sha256'} or value['schema_version']!=1 or type(value['schema_version']) is not int or value['targets']!=TARGETS: raise ValueError('Evaluation schema or immutable target changed')
         if not isinstance(value['id'],str) or not value['id'] or len(value['id'])>128 or not value['cases'] or len(value['cases'])>64: raise ValueError('Invalid evaluation identity/case budget')
         canonical_bytes(value)
         import re
         hashes=value['training_scenario_hashes']
         if not isinstance(hashes,list) or len(hashes)>1000 or len(set(hashes))!=len(hashes) or any(not isinstance(h,str) or not re.fullmatch('[0-9a-f]{64}',h) for h in hashes): raise ValueError('Training lineage pins differ')
+        if 'revision' in value:
+            revision=value['revision']
+            content={key:value[key] for key in ('cases','paired_worlds','targets','training_scenario_hashes')}
+            if not isinstance(revision,dict) or set(revision)!={'supersedes','reason','case_content_hash'} or not re.fullmatch('[0-9a-f]{64}',revision['supersedes']) or revision['reason']!='original executable overwritten during sequence-probe rebuild' or revision['case_content_hash']!=hashlib.sha256(canonical_bytes(content)).hexdigest():raise ValueError('Evaluation artifact revision lineage differs')
         identifiers=set(); content=set(); schemas=set(); requested=0
         for case in value['cases']:
             if set(case)!={'id','family','scenario','seeds','stress','coverage'} or case['id'] in identifiers or case['family'] not in TARGETS: raise ValueError('Evaluation case identity differs')
@@ -59,8 +63,14 @@ class EvaluationPlan:
 
 class PreparedEvaluationWorker:
     def __init__(self,command,cwd,plan): self.command=list(command);self.cwd=cwd;self.plan=plan
+    def verify(self):
+        actual={'worker_sha256':hashlib.sha256(Path(self.command[0]).read_bytes()).hexdigest(),'worker_native_sha256':worker_native_hashes(self.command[0])}
+        self.artifact_after=actual
+        if any(actual[key]!=self.plan.data[key] for key in actual):raise ValueError('Evaluation worker changed during run')
+        return actual
     def __call__(self):
         from .worker import Worker
+        self.artifact_before=self.verify()
         if len(self.command)!=1 or hashlib.sha256(Path(self.command[0]).read_bytes()).hexdigest()!=self.plan.data['worker_sha256'] or worker_native_hashes(self.command[0])!=self.plan.data['worker_native_sha256']: raise ValueError('Evaluation worker artifact bytes differ')
         return Worker(self.command,cwd=self.cwd,run_id=self.plan.hash[:24])
 
@@ -239,7 +249,11 @@ def evaluate(model_bundle,plan,worker_factory,*,cancelled=lambda:False,auxiliary
             try: leaks=_paired(candidate,worker,plan);exploits=_exploits(worker,plan,'guard')+_exploits(worker,plan,'vehicle')
             except Exception:failures+=1
     finally:
-        if worker is not None:worker.close()
+        if worker is not None:
+            worker.close()
+            if hasattr(worker_factory,'verify'):
+                try:worker_factory.verify()
+                except Exception:failures+=1
     exits=[] if worker is None else [worker.process.returncode]
     return _finish(candidate,plan,episodes,failures,leaks,exploits,coverage,exits,{key:sorted(value) for key,value in evidence.items()})
 
@@ -275,3 +289,38 @@ def compare_baseline(candidate,baseline):
             'families':{f:{'requested':left['metrics'][f]['requested'],'success_rate_delta':left['metrics'][f]['success_rate']-right['metrics'][f]['success_rate'],
                            'collision_rate_delta':left['metrics'][f]['collision_rate']-right['metrics'][f]['collision_rate'],
                            'reward_delta':left['metrics'][f]['reward_sum']-right['metrics'][f]['reward_sum']} for f in TARGETS}}
+
+
+class OnnxCandidate:
+    """Exact actor bytes evaluated with CPU ONNX Runtime and native controllers."""
+    def __init__(self,directory):
+        import onnxruntime as ort
+        from .export import runtime_schema_hash
+        folder=Path(directory);model=(folder/'actor.onnx').read_bytes();manifest=decode_json_bytes((folder/'model.json').read_bytes(),65536)
+        self.model_hash=hashlib.sha256(model).hexdigest();self.provider=f'python-onnxruntime-{ort.__version__}-cpu'
+        if manifest['sha256']!=self.model_hash or manifest['runtimeVersion']!=ort.__version__ or manifest['providers']!=['cpu']:raise ValueError('ONNX candidate artifact/provider differs')
+        self.observation=decode_json_bytes((folder/'observation.json').read_bytes(),65536);self.action=decode_json_bytes((folder/'action.json').read_bytes(),65536)
+        self.pins=(runtime_schema_hash(self.observation),runtime_schema_hash(self.action));self.width=sum(f['width'] for f in self.observation['fields']);self.nvec=[len(branch['choices']) for branch in self.action['branches']]
+        self.session=ort.InferenceSession(model,providers=['CPUExecutionProvider']);self.state=None;self.reset()
+    def reset(self):self.state=(np.zeros((1,128),dtype=np.float32),np.zeros((1,128),dtype=np.float32))
+    def bind(self,info):
+        if (info['observation_schema_hash'],info['action_schema_hash'])!=self.pins:raise ValueError('ONNX actor/controller profile differs')
+    def act(self,observation,info):
+        self.bind(info);observation=np.asarray(observation,dtype=np.float32).reshape(1,-1)
+        if observation.shape!=(1,self.width):raise ValueError('ONNX actor width differs')
+        values=self.session.run(None,{'observation':observation,'hidden':self.state[0],'cell':self.state[1]})
+        if len(values)!=3 or any(not np.isfinite(v).all() for v in values):raise ValueError('Invalid ONNX actor output')
+        scores,hidden,cell=values
+        if hidden.shape!=(1,128) or cell.shape!=(1,128):raise ValueError('ONNX recurrent shape differs')
+        if self.nvec:
+            if scores.shape!=(1,sum(self.nvec)) or len(info['legality'])!=len(self.nvec):raise ValueError('ONNX logits/mask binding differs')
+            choices=[];offset=0
+            for size,mask,fallback in zip(self.nvec,info['legality'],self.action['fallbackDiscrete']):
+                if len(mask)!=size or not all(type(value) is bool for value in mask) or not mask[fallback]:raise ValueError('ONNX legal fallback differs')
+                choices.append(int(np.argmax(np.where(mask,scores[0,offset:offset+size],-np.finfo(np.float32).max))));offset+=size
+            action=np.asarray(choices,dtype=np.int64)
+        else:
+            if scores.shape!=(1,len(self.action['continuous'])):raise ValueError('ONNX continuous head differs')
+            action=scores[0].copy()
+        self.state=(hidden,cell);return action
+    def hidden_snapshot(self):return tuple(torch.tensor(value) for value in self.state)

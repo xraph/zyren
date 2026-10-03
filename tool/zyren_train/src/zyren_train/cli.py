@@ -44,7 +44,35 @@ def main(argv=None):
     evaluation.add_argument('--guard-run',type=Path,required=True);evaluation.add_argument('--vehicle-config',type=Path,required=True)
     evaluation.add_argument('--vehicle-run',type=Path,required=True);evaluation.add_argument('--output',type=Path,required=True)
     evaluation.add_argument('--baseline-output',type=Path,required=True);evaluation.add_argument('--comparison-output',type=Path,required=True)
+    exporting=commands.add_parser('export')
+    exporting.add_argument('--config',type=Path,required=True);exporting.add_argument('--run',type=Path,required=True)
+    exporting.add_argument('--schema-info',type=Path,required=True);exporting.add_argument('--output',type=Path,required=True)
+    publishing=commands.add_parser('publish')
+    publishing.add_argument('--candidate',type=Path,required=True);publishing.add_argument('--evaluation',type=Path,required=True)
+    publishing.add_argument('--native-parity',type=Path,required=True);publishing.add_argument('--output',type=Path,required=True)
+    publishing.add_argument('--precision',choices=['float32','int8'],default='float32');publishing.add_argument('--baseline-bundle',type=Path)
+    onnx_evaluation=commands.add_parser('evaluate-onnx')
+    onnx_evaluation.add_argument('--plan',type=Path,required=True);onnx_evaluation.add_argument('--worker',required=True)
+    onnx_evaluation.add_argument('--cwd',type=Path,required=True);onnx_evaluation.add_argument('--guard',type=Path,required=True)
+    onnx_evaluation.add_argument('--vehicle',type=Path,required=True);onnx_evaluation.add_argument('--output',type=Path,required=True)
     args = parser.parse_args(argv)
+    if args.command=='evaluate-onnx':
+        from .evaluate import EvaluationPlan,PreparedEvaluationWorker,FamilyCandidate,OnnxCandidate,evaluate
+        plan=EvaluationPlan.load(args.plan);factory=PreparedEvaluationWorker([str(Path(args.worker).resolve())],args.cwd,plan)
+        report=evaluate(FamilyCandidate({'guard':OnnxCandidate(args.guard),'vehicle':OnnxCandidate(args.vehicle)}),plan,factory)
+        report.write(args.output);print(json.dumps({'status':report.data['status'],'report_hash':report.hash,'before':factory.artifact_before,'after':factory.artifact_after},indent=2));return
+    if args.command=='export':
+        from .export import ActorCheckpoint,export_actor
+        from .train import TrainingConfig
+        checkpoint=ActorCheckpoint.load(TrainingConfig.load(args.config),args.run,decode_json_bytes(args.schema_info.read_bytes(),65536))
+        print(json.dumps(export_actor(checkpoint,args.output),indent=2));return
+    if args.command=='publish':
+        from .bundle import publish_actor
+        from .report import EvaluationReport
+        report=EvaluationReport.from_dict(decode_json_bytes(args.evaluation.read_bytes(),16_777_216))
+        parity=decode_json_bytes(args.native_parity.read_bytes(),65536)
+        manifest=publish_actor(args.candidate,args.output,report,parity,precision=args.precision,baseline_bundle=args.baseline_bundle)
+        print(json.dumps({'bundle_hash':manifest.hash,'model_sha256':manifest.data['model_sha256'],'path':str(args.output)},indent=2));return
     if args.command=='evaluate':
         import signal,torch
         from .evaluate import EvaluationPlan,FamilyCandidate,StructuredCandidate,ScriptedCandidate,PreparedEvaluationWorker,evaluate,compare_baseline

@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "model_sha256": "5fd37fb37a053ec659d5fd2f8438fd51c0999640dd4e0b0777d5ab5e9c9f644e",
+  "steps": 1000,
+  "max_absolute_error": 1.1920928955078125e-07,
+  "atol": 1e-05,
+  "rtol": 0.0001,
+  "provider": "native-onnxruntime-1.23.2-cpu",
+  "completed_runs": 1000,
+  "live_sessions": 0,
+  "live_results": 0,
+  "typed_controller_steps": 0,
+  "input_sequence_hash": "19bc620a76c83c800b6176f49608d094ae64d5913fe5717fe866f85de7adeb27",
+  "native_worker_sha256": "e16a257a8b763a55bbc65550d12dad3f8d264556da1ce476805fd51ac72262d2",
+  "native_asset_sha256": {
+    "lib/libonnxruntime.dylib": "a4474284498c8c4fc678b3897ab3b411bce69c3a3bd329e0298be97468c21786",
+    "lib/libzyren_audio.dylib": "988ce7fa7c19f670c34dcea3df0fa8034b9b1bfde070255dbcef2a7387fd576b",
+    "lib/libzyren_ml.dylib": "50b6a0c3baccaf7a1e825fb8c7b0fc3235741189ab4821910cde1c359618f484",
+    "lib/libzyren_physics.dylib": "c741c5a1b4d35f6c9fdeea0edfce764909d24ee82a38228a5c67b1c828333e11",
+    "lib/libzyren_runtime.dylib": "c89995e089af980cba95827c74f7dd1530c230b413dc92561d77ae68c81999ee"
+  },
+  "status": "passed"
+}

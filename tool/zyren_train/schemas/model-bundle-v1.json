@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "zyren/model-bundle-v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "family", "model_sha256", "source_checkpoint_sha256", "observation_schema_hash", "action_schema_hash", "controller_mapping", "evaluation_report_hash", "evaluation_plan_hash", "files", "policy", "precision", "provider", "accepted"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"},
+    "family": {"enum": ["guard", "vehicle"]},
+    "model_sha256": {"$ref": "#/$defs/hash"},
+    "source_checkpoint_sha256": {"$ref": "#/$defs/hash"},
+    "observation_schema_hash": {"$ref": "#/$defs/hash"},
+    "action_schema_hash": {"$ref": "#/$defs/hash"},
+    "controller_mapping": {"enum": ["character-discrete-v1", "vehicle-pedals-v1"]},
+    "evaluation_report_hash": {"$ref": "#/$defs/hash"},
+    "evaluation_plan_hash": {"$ref": "#/$defs/hash"},
+    "files": {"type": "array", "minItems": 8, "maxItems": 8, "items": {"type": "object", "additionalProperties": false, "required": ["path", "sha256", "bytes"], "properties": {"path": {"enum": ["actor.onnx", "model.json", "observation.json", "action.json", "normalization.json", "recurrent.json", "provenance.json", "evaluation.json"]}, "sha256": {"$ref": "#/$defs/hash"}, "bytes": {"type": "integer", "minimum": 1, "maximum": 16777216}}}},
+    "policy": {"type": "object", "additionalProperties": false, "required": ["observation_input", "continuous_output", "discrete_output", "recurrent", "cadence_ticks", "latency_ticks", "max_hold_ticks"], "properties": {"observation_input": {"const": "observation"}, "continuous_output": {"enum": [null, "action"]}, "discrete_output": {"enum": [null, "logits"]}, "recurrent": {"const": {"hidden": "next_hidden", "cell": "next_cell"}}, "cadence_ticks": {"const": 1}, "latency_ticks": {"const": 1}, "max_hold_ticks": {"const": 0}}},
+    "precision": {"enum": ["float32", "int8", "float16"]},
+    "provider": {"const": "cpu"},
+    "accepted": {"const": true}
+  },
+  "$defs": {"hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+}
