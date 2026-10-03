@@ -83,6 +83,57 @@ nonfinite values and excessive nesting or size before publication. Keep source
 credentials in your resolver. The codec stores configuration; persistent resource
 caching and offline regions are separate services.
 
+## Built-in layer adapters
+
+Use `TerrainExtension` for independently owned terrain sources, with optional
+imagery layers that participate in the headless layer controller:
+
+```dart
+final geospatial = GeospatialPlugin(extensions: [
+  TerrainExtension(
+    id: 'ground',
+    source: elevationSource,
+    imagery: [
+      GeoImageryLayer(id: 'survey-imagery', source: surveyImagery),
+    ],
+  ),
+  AtmosphereExtension(id: 'sky', date: DateTime.utc(2026, 3, 20, 12)),
+  GlobeCameraExtension(id: 'camera'),
+]);
+```
+
+`ground`, `survey-imagery` and `sky` are layer IDs. Adapter plugin IDs use the
+extension prefix, so two terrain extensions can retain separate sources, groups,
+failures and caches. `TerrainExtension.pick` returns geodetic hits with stable
+layer/tile IDs and source revision. It honors query policy, including explicit
+queries of hidden retained data.
+
+Change imagery opacity and sibling order through the controller. The existing
+CPU imagery worker recomposes an immutable source generation. Old coverage stays
+visible while the replacement loads or fails. Replacement bytes count against the
+terrain budget; when there is not enough room for both generations, the previous
+coverage stays visible and streaming statistics report the budget limit. Imagery
+layer readiness follows the composed terrain result, with credits limited to that
+imagery source. Elevation layers do not advertise opacity.
+
+`setImageryStack` accepts an increasing revision for application-owned stacks.
+Use the registered imagery layers when you want the layer controller to own that
+stack. Obsolete loads are cancelled. Retry source failures with
+`TerrainExtension.retryFailed()`.
+
+Hiding terrain retains its CPU tile cache by default and stops view-driven loads.
+The release policy clears it. Removing the layer stops its rendering and queries.
+Hiding an atmosphere layer removes its screen effect while retaining its lighting
+tables for sampling, and showing it restores the effect. These APIs use the
+existing native renderers and do not create a layer panel.
+
+Standalone `TerrainPlugin`, `GlobeControlsPlugin` and `AtmospherePlugin`
+constructors retain their original IDs and behavior. Do not install a standalone
+plugin alongside its equivalent extension. Atmosphere and the default camera rig
+have exclusive providers. Cloud integrations that require the standalone
+`atmosphere` plugin ID need an explicitly compatible adapter before using the
+namespaced atmosphere extension.
+
 ## Terrain imagery
 
 Wrap your terrain source to apply geographic or Web Mercator imagery:

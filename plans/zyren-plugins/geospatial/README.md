@@ -11,7 +11,7 @@ native spectral simulation and physical buoyancy required here.
 
 | Order | Plan | Tasks | Current status |
 | --- | --- | --- | --- |
-| 1 | [Extension host, layers and world services](01-foundation-plan.md) | F1-F5 | F1-F2 implemented and checked; F3 next |
+| 1 | [Extension host, layers and world services](01-foundation-plan.md) | F1-F5 | F1-F3 implemented and checked; F4 next |
 | 2 | [Persistent caching and offline regions](02-offline-plan.md) | D1-D4 | Queued for sequential execution |
 | 3 | [Native professional ocean](03-ocean-plan.md) | W1-W12 | Queued for sequential execution |
 
@@ -59,3 +59,9 @@ configuration restore ownership, plus 10 extension lifecycle tests and 4 legacy
 plugin tests. Analysis passed. The current repository boundary check reports an
 unrelated concurrent `zyren_studio/lib/streaming.dart` import of `crypto`. Layer
 state is headless; renderer adapters are the next task.
+
+F3 checks: 100 targeted layer, streaming, terrain, imagery, overlay, extension and
+legacy atmosphere tests passed. Native fixtures verified imagery opacity and
+ordering at 192x128 and 96x160, hidden cache retention, atmosphere visibility and
+owned resource cleanup. No water rendering or mobile/Windows qualification is
+claimed by these results. Analysis passed.

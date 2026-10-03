@@ -239,10 +239,10 @@ owns one terrain adapter and its layer. `AtmosphereExtension` wraps one existing
 Add an optional instance ID to terrain with its old ID as the default. The wrapper
 must preserve each plugin's actual context, source and resource ownership.
 
-- [ ] Write a two-terrain fixture using two `ProceduralTerrainSource` instances
+- [x] Write a two-terrain fixture using two `ProceduralTerrainSource` instances
   and the existing terrain test setup. Check distinct IDs/groups, source errors
   confined to one layer, visible attribution and pick-to-layer mapping.
-- [ ] Drive the same objects from layer changes:
+- [x] Drive the same objects from layer changes:
 
 ```dart
 final revision = geospatial.layers.revision;
@@ -255,13 +255,13 @@ geospatial.layers.transact(revision, (edit) {
   The fixture defines `geospatial` with terrain IDs `coast` and `survey`.
   Assert the coast group stops rendering and picking according to policy while
   its cached content and simulation service remain independently retained.
-- [ ] Add an explicit imagery-stack revision setter on the adapter. Recompose
+- [x] Add an explicit imagery-stack revision setter on the adapter. Recompose
   imagery through the existing worker and cancel obsolete generations. Opacity
   changes cannot mutate immutable source data in place. Preserve parent coverage
   until new child content is ready and preserve the previous material on failure.
-- [ ] Run terrain/imagery/overlay suites and one native layer fixture at two
+- [x] Run terrain/imagery/overlay suites and one native layer fixture at two
   viewport sizes. Check detach leaves no owned scene objects or native resources.
-- [ ] Document standalone compatibility and commit `feat(geospatial): connect terrain and atmosphere layers`.
+- [x] Document standalone compatibility and commit `feat(geospatial): connect terrain and atmosphere layers`.
 
 ## Task 4: F4 World frames and single-owner simulation time
 

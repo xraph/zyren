@@ -41,6 +41,15 @@ void validateGeospatialExtension(
     );
   }
   for (final plugin in plugins) {
+    if (plugin is GeospatialExtension &&
+        !identical(plugin, extension) &&
+        extension.exclusiveCapabilities
+            .intersection(plugin.exclusiveCapabilities)
+            .isNotEmpty) {
+      throw StateError(
+        '${extension.id} and ${plugin.id} provide the same exclusive capability.',
+      );
+    }
     if (extension.incompatiblePluginIds.contains(plugin.id)) {
       throw StateError('${extension.id} cannot coexist with ${plugin.id}.');
     }

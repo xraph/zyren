@@ -18,6 +18,10 @@ class TileScheduler<T extends TileContent> {
   final _attempts = <TileCoordinate, int>{};
   TileSelection _selection = TileSelection();
   Map<TileCoordinate, T> _visible = const {};
+  Map<TileCoordinate, T> _retained = const {};
+  bool _replacementBudgetLimited = false;
+  bool _selectionReady = false;
+  bool get retainingPreviousSource => _retained.isNotEmpty;
   var _generation = 0;
   bool _disposed = false;
   TileScheduler({
@@ -39,7 +43,8 @@ class TileScheduler<T extends TileContent> {
   Set<TileCoordinate> get selected => Set.unmodifiable(_selection.nodes.keys);
   List<TileFailure> get failures => List.unmodifiable(_failures.values);
   int get _cachedBytes =>
-      _cache.values.fold(0, (sum, data) => sum + data.decodedBytes);
+      _cache.values.fold(0, (sum, data) => sum + data.decodedBytes) +
+      _retained.values.fold(0, (sum, data) => sum + data.decodedBytes);
   int get _reservedBytes =>
       _active.fold(0, (sum, request) => sum + request.metadata.decodedBytes);
   TileStreamingStats get stats => TileStreamingStats(
@@ -52,7 +57,7 @@ class TileScheduler<T extends TileContent> {
       0,
       (sum, data) => sum + data.residentBytes,
     ),
-    budgetLimited: _selection.budgetLimited,
+    budgetLimited: _selection.budgetLimited || _replacementBudgetLimited,
   );
 
   void update(Camera camera, ViewportMetrics viewport) {
@@ -67,6 +72,7 @@ class TileScheduler<T extends TileContent> {
       _selection.branches.keys.toSet(),
     );
     _selection = next;
+    _selectionReady = true;
     for (final request in _active) {
       if (!next.nodes.containsKey(request.metadata.coordinate)) {
         request.cancel.cancel();
@@ -82,7 +88,7 @@ class TileScheduler<T extends TileContent> {
     _pump();
   }
 
-  void replaceSource(TileSource<T> source) {
+  void replaceSource(TileSource<T> source, {bool retainVisible = false}) {
     _checkOpen();
     if (source.identity.isEmpty) {
       throw ArgumentError('Source identity must be nonempty.');
@@ -91,12 +97,14 @@ class TileScheduler<T extends TileContent> {
     for (final request in _active) {
       request.cancel.cancel();
     }
+    _retained = retainVisible ? _visible : const {};
     _source = source;
     _cache.clear();
     _failures.clear();
     _attempts.clear();
     _selection = TileSelection();
-    _visible = const {};
+    _selectionReady = false;
+    _visible = _retained;
     onChanged?.call();
   }
 
@@ -112,6 +120,7 @@ class TileScheduler<T extends TileContent> {
 
   void _pump() {
     if (_disposed) return;
+    _replacementBudgetLimited = false;
     for (final metadata in _selection.nodes.values) {
       if (_active.length >= budget.maxRequests) break;
       final tile = metadata.coordinate;
@@ -132,6 +141,7 @@ class TileScheduler<T extends TileContent> {
       }
       if (_cachedBytes + _reservedBytes + metadata.decodedBytes >
           budget.maxDecodedBytes) {
+        _replacementBudgetLimited = true;
         continue;
       }
       final request = _Request<T>(_source, metadata, _generation);
@@ -187,6 +197,7 @@ class TileScheduler<T extends TileContent> {
       _selection.nodes.containsKey(request.metadata.coordinate);
 
   void _refreshVisible() {
+    if (!_selectionReady && _retained.isNotEmpty) return;
     Map<TileCoordinate, T>? coverage(TileCoordinate tile) {
       final children = _selection.branches[tile];
       if (children != null) {
@@ -206,9 +217,22 @@ class TileScheduler<T extends TileContent> {
       return data == null ? null : {tile: data};
     }
 
-    _visible = Map.unmodifiable({
-      for (final root in _selection.roots) ...?coverage(root),
-    });
+    final next = <TileCoordinate, T>{};
+    var complete = !_selection.budgetLimited || _selection.roots.isNotEmpty;
+    for (final root in _selection.roots) {
+      final found = coverage(root);
+      if (found == null) {
+        complete = false;
+      } else {
+        next.addAll(found);
+      }
+    }
+    if (_retained.isNotEmpty && !complete) {
+      _visible = _retained;
+    } else {
+      _retained = const {};
+      _visible = Map.unmodifiable(next);
+    }
   }
 
   void dispose() {
@@ -218,6 +242,7 @@ class TileScheduler<T extends TileContent> {
       request.cancel.cancel();
     }
     _cache.clear();
+    _retained = const {};
     _visible = const {};
     _selection = TileSelection();
     _failures.clear();

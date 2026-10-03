@@ -21,6 +21,9 @@ abstract class GeospatialExtension extends ScenePlugin {
   /// Legacy singleton plugins that cannot coexist with this extension.
   Set<String> get incompatiblePluginIds => const {};
 
+  /// Singleton providers that cannot be installed by two extensions.
+  Set<String> get exclusiveCapabilities => const {};
+
   GeospatialContext? _context;
   FutureOr<void> attachGeospatial(GeospatialContext context);
   FutureOr<void> beforeGeospatialRender(

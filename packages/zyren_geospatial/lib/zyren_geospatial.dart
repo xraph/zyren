@@ -74,3 +74,7 @@ export 'src/layers/controller.dart';
 export 'src/layers/change.dart';
 export 'src/layers/codec.dart';
 export 'src/layers/selection.dart';
+
+export 'src/extensions/terrain_extension.dart';
+export 'src/extensions/atmosphere_extension.dart';
+export 'src/extensions/camera_extension.dart';

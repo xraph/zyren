@@ -19,7 +19,9 @@ const atmosphere = ServiceKey<AtmosphereController>('geospatial.atmosphere');
 /// Optional native sky, celestial bodies and depth-based aerial perspective.
 /// Scene positions use metres. [worldToEcef] accepts a rigid local world frame;
 /// identity means the scene already uses ECEF coordinates. One instance per view.
-final class AtmospherePlugin extends ScenePlugin {
+class AtmospherePlugin extends ScenePlugin {
+  final String instanceId;
+  final Set<String> additionalDependencies;
   final DateTime date;
   final AtmosphereParameters parameters;
   final PrecomputedAtmosphereSource? source;
@@ -35,6 +37,8 @@ final class AtmospherePlugin extends ScenePlugin {
       _controller ?? (throw StateError('Atmosphere is not attached.'));
   AtmospherePlugin({
     required this.date,
+    this.instanceId = 'atmosphere',
+    Set<String> additionalDependencies = const {},
     this.source,
     AtmosphereParameters? parameters,
     AtmosphereAppearance? appearance,
@@ -44,7 +48,8 @@ final class AtmospherePlugin extends ScenePlugin {
     this.moonMap,
     this.correctAltitude = true,
     this.maxStarResolution = 1024,
-  }) : parameters =
+  }) : additionalDependencies = Set.unmodifiable(additionalDependencies),
+       parameters =
            parameters ?? source?.parameters ?? AtmosphereParameters.webgpu(),
        appearance = appearance ?? AtmosphereAppearance(),
        worldToEcef = worldToEcef ?? Mat4.identity(),
@@ -71,7 +76,9 @@ final class AtmospherePlugin extends ScenePlugin {
     }
   }
   @override
-  String get id => 'atmosphere';
+  String get id => instanceId;
+  @override
+  Set<String> get dependencies => additionalDependencies;
   @override
   Set<RenderFeature> get requiredFeatures => {
     RenderFeature.scopedResources,
@@ -119,6 +126,27 @@ final class AtmosphereController {
   AtmosphereCloudRegistration? _cloudRegistration;
   Future<void> _queue = Future.value();
   bool _closed = false;
+  bool _enabled = true;
+  bool get enabled => _enabled;
+  set enabled(bool value) {
+    _check();
+    if (_enabled == value) return;
+    final active = _active;
+    if (active != null) {
+      if (value) {
+        active.registration = _context.scene.addEffect(
+          active.effect,
+          requiresTransparentBackground: true,
+        );
+      } else {
+        active.registration?.dispose();
+        active.registration = null;
+      }
+    }
+    _enabled = value;
+    _context.invalidate();
+  }
+
   int _width = 1, _height = 1;
   FrameInfo? _lastFrame;
   AtmosphereController._(this._plugin, this._context, this._owner);
@@ -272,13 +300,15 @@ final class AtmosphereController {
       if (stopped()) throw StateError('Atmosphere update cancelled.');
       // The previous effect remains registered until the candidate is accepted.
       final previous = _active;
-      if (previous == null) {
+      if (!_enabled) {
+        candidate.registration = null;
+      } else if (previous?.registration == null) {
         candidate.registration = _context.scene.addEffect(
           candidate.effect,
           requiresTransparentBackground: true,
         );
       } else {
-        previous.registration!.replace(candidate.effect);
+        previous!.registration!.replace(candidate.effect);
         candidate.registration = previous.registration;
         previous.registration = null;
       }
@@ -297,6 +327,7 @@ final class AtmosphereController {
 
   Future<void> _frame(FrameInfo frame) => _serial(() => _prepareFrame(frame));
   Future<void> _prepareFrame(FrameInfo frame) async {
+    if (!_enabled) return;
     final scale = math.min(
       1.0,
       _plugin.maxStarResolution / math.max(frame.width, frame.height),

@@ -19,6 +19,13 @@ final class GeoLayerController {
   Stream<GeoLayerChange> get changes => _changes.stream;
   bool get isDisposed => _closed;
 
+  GeoLayer? findLayer(String id) {
+    for (final layer in _snapshot) {
+      if (layer.id == id) return layer;
+    }
+    return null;
+  }
+
   GeoLayer layer(String id) => _snapshot.firstWhere(
     (layer) => layer.id == id,
     orElse: () => throw ArgumentError.value(id, 'id', 'Unknown layer'),
@@ -324,6 +331,8 @@ final class GeoLayerEdit {
       _replace(id, _layer(id).copyWith(policies: policies));
   void setStatus(String id, GeoLayerStatus status) =>
       _replace(id, _layer(id).copyWith(status: status));
+  void setStyleRevision(String id, String revision) =>
+      _replace(id, _layer(id).copyWith(styleRevision: revision));
   void setSource(
     String id, {
     required String reference,
