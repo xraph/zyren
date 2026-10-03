@@ -16,3 +16,6 @@ part 'src/runtime/clock.dart';
 part 'src/runtime/events.dart';
 part 'src/runtime/system.dart';
 part 'src/runtime/session.dart';
+part 'src/input/action_map.dart';
+part 'src/input/action_state.dart';
+part 'src/input/intent.dart';
