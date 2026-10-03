@@ -86,6 +86,7 @@ void _restoreRuntime(GameLevelRuntime owner, GameSave save) {
     session.restore(save);
     committed = true;
     final state = owner._restoredNative!;
+    owner._releaseActorControls();
     for (final input in owner._inputs.values) {
       input.releaseEveryDevice();
     }
@@ -121,7 +122,7 @@ void _restoreRuntime(GameLevelRuntime owner, GameSave save) {
               ?.handle;
     owner._controlled = handle(state.controlled);
     owner._selection = handle(state.selection);
-    if (!session.paused) owner._restoreControl();
+    if (!session.paused && owner._controlled != null) owner._restoreControl();
     GameVehiclePresentationSystem(owner._vehicles!).fixedUpdate(session);
     for (final rig in owner._cameras) {
       rig.follow(owner._controlled);

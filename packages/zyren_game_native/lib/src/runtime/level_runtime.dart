@@ -69,6 +69,29 @@ final class GameLevelRuntime {
   final _actorRegistrations = <void Function()>[];
   final _restoredListeners = <void Function()>[];
   final _active = <String, bool>{};
+  final _actorControls = <GameEntityHandle, GameRuntimeActorControl>{};
+  final _primitiveIntents = <GameEntityHandle, CharacterIntent>{};
+  int _nextActorControl = 0;
+  GameRuntimeActorControl? acquireActorControl(GameEntityHandle actor) =>
+      _acquireActorControl(this, actor);
+  PhysicsCollider? resolveCollider(GameEntityHandle actor) =>
+      resolveBody(actor) == null ? null : _colliders[actor.id];
+  bool? actorGrounded(GameEntityHandle actor) {
+    if (resolveBody(actor) == null) return null;
+    return _characters[actor]?.grounded ??
+        _primitiveCharacters[actor]?.grounded ??
+        (_vehicleControllers[actor] == null
+            ? null
+            : _vehicleControllers[actor]!.telemetry.groundedWheels > 0);
+  }
+
+  void _releaseActorControls() {
+    for (final control in _actorControls.values.toList()) {
+      control.dispose();
+    }
+    _primitiveIntents.clear();
+  }
+
   GameSave save() => _saveRuntime(this);
   void restore(GameSave save) => _restoreRuntime(this, save);
   Registration listenRestored(void Function() callback) {
@@ -276,6 +299,7 @@ final class GameLevelRuntime {
             _vehicles!,
             _PlaySetup(this),
             _PlayInput(this),
+            _PrimitiveControllers(this),
             GameVehiclePresentationSystem(_vehicles!),
             _PlayCamera(this),
             _RuntimeResources(this),
@@ -409,6 +433,15 @@ final class GameLevelRuntime {
             }
           }
         }
+        // A collision query refreshes authored mass and query proxies without
+        // advancing Rapier. Vehicle forces must not depend on a prior motor query.
+        if (_bodies.isNotEmpty) {
+          world.rayCast(
+            origin: Vec3.zero,
+            direction: const Vec3(0, 1, 0),
+            maxDistance: .001,
+          );
+        }
         for (final entity in level.entities) {
           if (!entity.components.any((c) => c.type == 'game.vehicle') &&
               !_animations.containsKey(entity.id)) {
@@ -504,6 +537,7 @@ final class GameLevelRuntime {
     }
     root.visible = active;
     _active[handle.id] = active;
+    if (!active) _actorControls[handle]?.dispose();
 
     if (!_restoringCheckpoint) _publish();
   }
@@ -571,6 +605,7 @@ final class GameLevelRuntime {
   Future<void> close() => _closing ??= _close();
   Future<void> _close() async {
     _closed = true;
+    _releaseActorControls();
     Object? first;
     StackTrace? trace;
     Future<void> cleanup(FutureOr<void> Function() operation) async {
@@ -653,14 +688,13 @@ final class _PrimitiveCharacter {
   double verticalSpeed = 0;
   bool grounded = false;
   _PrimitiveCharacter(this.controller, this.definition);
-  void advance(GameActionState? input, double seconds) {
-    var direction = Vec3(
-      _actionAxis(input, 'move.x'),
-      0,
-      _actionAxis(input, 'move.z'),
-    );
+  void advance(CharacterIntent intent, double seconds) {
+    var direction = Quat.axisAngle(
+      const Vec3(0, 1, 0),
+      intent.lookYaw,
+    ).rotate(Vec3(intent.moveX, 0, intent.moveZ));
     if (direction.length > 1) direction = direction.normalized();
-    if (_actionPressed(input, 'jump') && grounded) {
+    if (intent.jump && grounded) {
       verticalSpeed = definition.jumpSpeed;
     }
     verticalSpeed = math.max(-50, verticalSpeed - 9.81 * seconds);
@@ -837,6 +871,7 @@ final class _PlaySetup extends GameSystem {
             return body != null && owner.exitPlacement(actor, target) != null;
           },
           acquireControl: (actor) {
+            owner._actorControls[target]?.dispose();
             final vehicle = owner._vehicleControllers[target];
             if (vehicle != null) {
               final lease = vehicle.acquireControl(actor);
@@ -912,14 +947,17 @@ final class _PlayInput extends GameSystem {
   GamePhase get phase => GamePhase.commands;
   @override
   void fixedUpdate(GameSession session) {
-    for (final entry in owner._primitiveCharacters.entries) {
-      entry.value.advance(
-        entry.key == owner._controlled &&
-                owner._inputActor != null &&
-                owner._possession?.seatOf(owner._inputActor!) == entry.key.id
-            ? owner.actions
-            : null,
-        session.stepSeconds,
+    for (final actor in owner._primitiveCharacters.keys) {
+      if (actor != owner._controlled) continue;
+      final input =
+          owner._inputActor != null &&
+              owner._possession?.seatOf(owner._inputActor!) == actor.id
+          ? owner.actions
+          : null;
+      owner._primitiveIntents[actor] = CharacterIntent(
+        moveX: _actionAxis(input, 'move.x'),
+        moveZ: _actionAxis(input, 'move.z'),
+        jump: _actionPressed(input, 'jump'),
       );
     }
     for (final entry in owner._characters.entries) {
@@ -955,6 +993,7 @@ final class _PlayInput extends GameSystem {
 
   @override
   void pause(GameSession session) {
+    owner._releaseActorControls();
     for (final input in owner._inputs.values) {
       input.releaseEveryDevice();
     }

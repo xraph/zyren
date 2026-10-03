@@ -13,3 +13,5 @@ import 'zyren_game_native.dart';
 
 part 'src/runtime/level_runtime.dart';
 part 'src/runtime/save.dart';
+
+part 'src/runtime/actor_control.dart';
