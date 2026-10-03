@@ -87,14 +87,21 @@ Regenerate the checked-in SPIR-V header with
 `python3 tool/build_shaders.py /path/to/ndk/shader-tools/host/glslc`.
 Add `--check` to verify that the header matches the GLSL source.
 
-The initial Pixel run completed 31 portrait camera/scene frames with zero camera
-and renderer readback reported by the device. The next orientation check exposed
-the virtual-display rotation issue described above. The corrected repeat was
-blocked by the device's secure keyguard. Visual alignment, corrected rotation,
-resize, depth occlusion, tracking/placement, permission denial/retry and the
-Play Services installation flow still require physical qualification. The
-subsequent retirement, device feature-chain and lifecycle fixes have build and
-unit-test coverage only. The earlier portrait run does not qualify those fixes.
+The Pixel now passes portrait/landscape presentation, Flutter/native viewport
+sizes, resize, bounded leases and zero camera/native readback. It also passes a
+fresh permission grant, denial followed by explicit retry, and backgrounding
+with a retained frame followed by explicit restart. The native rotation fix
+defers swapchain creation while window and calibration dimensions disagree.
+
+Native placement and depth remain unqualified. The native-hit run found no plane
+in 90 seconds; the depth run returned `depthUnavailable` because raw depth and
+confidence were absent. Visual alignment, foreground occlusion, Play Services
+installation, Activity/engine teardown and sustained performance still need
+physical checks. See the [qualification record](../qualification/2026-10-03.md).
+
+The build enables flexible page sizes. All eight arm64 APK libraries pass 16 KB
+ELF and zip alignment checks, but the available Pixel uses 4 KB pages. You still
+need a 16 KB device to qualify that runtime configuration.
 
 ARCore documents the native buffer ownership contract in its
 [Vulkan guide](https://developers.google.com/ar/develop/c/vulkan) and the depth
