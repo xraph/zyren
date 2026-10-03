@@ -60,6 +60,24 @@ void main() {
     },
   );
 
+  test(
+    'raycast freshness uses host observation independently of raw sensor time',
+    () {
+      final message = hitMessage()
+        ..['sensorTimestamp'] = 1000000.0
+        ..['queryTimestamp'] = 12.1;
+      final result = XrRaycastResult.fromMessage(message);
+      expect(result.sensorTimestamp, 1000000.0);
+      expect(result.queryTimestamp, 12.1);
+      message['queryTimestamp'] = 12.6;
+      expect(() => XrRaycastResult.fromMessage(message), throwsFormatException);
+      message['queryTimestamp'] = 11.9;
+      expect(() => XrRaycastResult.fromMessage(message), throwsFormatException);
+      message['queryTimestamp'] = double.nan;
+      expect(() => XrRaycastResult.fromMessage(message), throwsFormatException);
+    },
+  );
+
   test('raycast binds a native result to the exact presented frame', () async {
     var wrongFrame = false;
     final transport = RecordingTransport()

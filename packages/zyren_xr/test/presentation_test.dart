@@ -73,6 +73,29 @@ void main() {
       expect(presenter.isRendering, isFalse);
     },
   );
+  test(
+    'native depth staging stays distinct from camera readback diagnostics',
+    () async {
+      transport.handler = (method, args) => method == 'presentFrame'
+          ? {
+              ...calibration,
+              'presented': true,
+              'cameraReadbackBytes': 0,
+              'nativeReadbackBytes': 0,
+              'depthUploadBytes': 4096,
+              'depthConfidenceMinimum': 128,
+            }
+          : reply(method, args);
+      await presenter.render(scene());
+      expect(presenter.diagnostics!['depthUploadBytes'], 4096);
+      expect(presenter.diagnostics!['cameraReadbackBytes'], 0);
+      expect(presenter.diagnostics!['depthConfidenceMinimum'], 128);
+      transport.handler = reply;
+      await presenter.render(scene());
+      expect(presenter.diagnostics!['depthUploadBytes'], isNull);
+    },
+  );
+
   test('presented scene revision belongs to the captured submission', () async {
     final world = scene();
     final capturedRevision = world.revision;

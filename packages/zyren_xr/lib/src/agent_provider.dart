@@ -426,6 +426,7 @@ final class XrAgentProvider extends AgentProvider {
             'presentedFrameId': result.frameId,
             'frameTimestamp': result.frameTimestamp,
             'sensorTimestamp': result.sensorTimestamp,
+            'queryTimestamp': result.queryTimestamp,
             'coverage': 'native-plane-geometry-estimate',
           },
         );

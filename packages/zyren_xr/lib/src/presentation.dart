@@ -208,6 +208,8 @@ final class XrPresentationController extends ChangeNotifier {
           for (final key in [
             'cameraReadbackBytes',
             'nativeReadbackBytes',
+            'depthUploadBytes',
+            'depthConfidenceMinimum',
             'inFlightLimit',
             'heldCameraFrames',
             'drawableLimit',

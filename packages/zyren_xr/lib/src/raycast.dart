@@ -30,6 +30,10 @@ final class XrRaycastResult {
   final String presenterId;
   final int frameId, epoch, sessionRevision, originEpoch, omittedHits;
   final double frameTimestamp, sensorTimestamp;
+
+  /// Observation time of the frame used for the raycast, on the adapter clock.
+  /// Raw sensor time can have a different timebase on ARCore.
+  final double queryTimestamp;
   final List<XrRaycastHit> hits;
   XrRaycastResult.fromMessage(Object? value) : this._(messageMap(value));
   XrRaycastResult._(Map<Object?, Object?> map)
@@ -41,6 +45,8 @@ final class XrRaycastResult {
       omittedHits = _integer(map, 'omittedHits'),
       frameTimestamp = (map['frameTimestamp'] as num).toDouble(),
       sensorTimestamp = (map['sensorTimestamp'] as num).toDouble(),
+      queryTimestamp =
+          ((map['queryTimestamp'] ?? map['sensorTimestamp']) as num).toDouble(),
       hits = List.unmodifiable(
         (map['hits'] as List).map(XrRaycastHit.fromMessage),
       ) {
@@ -49,8 +55,10 @@ final class XrRaycastResult {
         !frameTimestamp.isFinite ||
         frameTimestamp < 0 ||
         !sensorTimestamp.isFinite ||
-        sensorTimestamp < frameTimestamp ||
-        sensorTimestamp - frameTimestamp > .5 ||
+        sensorTimestamp < 0 ||
+        !queryTimestamp.isFinite ||
+        queryTimestamp < frameTimestamp ||
+        queryTimestamp - frameTimestamp > .5 ||
         map['coverage'] != 'native-plane-geometry-estimate') {
       throw const FormatException('Invalid native raycast result.');
     }
