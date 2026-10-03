@@ -6,6 +6,7 @@
 
 // The application's name. By default this is also the title of the Flutter window.
 PRODUCT_NAME = planet
+SWIFT_OBJC_BRIDGING_HEADER = Runner/Runner-Bridging-Header.h
 
 // The application's bundle identifier
 PRODUCT_BUNDLE_IDENTIFIER = dev.twinos.planet

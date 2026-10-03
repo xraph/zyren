@@ -149,7 +149,13 @@ changes. Lunar lighting also reaches cloud volumes. Night view increases the
 star catalogue brightness and uses a 2048-pixel star target, so bright stars can
 remain visible between clouds. Daytime returns to the original star intensity.
 
-The selectors remain on the page. Qualification builds can enable
+The selectors stay on the page and wrap on narrow screens. The Mac runner guards
+Flutter 3.47.5's accessibility bridge against partial updates arriving before
+its root after a focus change. This compatibility hook uses internal Flutter
+selectors and needs live accessibility checks when you upgrade the SDK.
+The root parser passes tests against the current engine ABI; focus and control
+qualification for this guard remains pending while the Mac is locked.
+Qualification builds can enable
 `ZYREN_RENDER_TELEMETRY=true` and inspect `ext.planet.renderStatus` with
 `tool/qualification/read_render_telemetry.dart`. This measures accepted native
 presentations; the slower diagnostics stream is unsuitable for frame-rate checks.
