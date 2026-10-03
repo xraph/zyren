@@ -1,0 +1,22 @@
+name: flutter_zyren_audio
+description: Flutter audio focus and foreground policy for native playback hosts.
+version: 0.1.0
+publish_to: none
+resolution: workspace
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+  flutter: '>=3.38.0'
+dependencies:
+  flutter:
+    sdk: flutter
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: dev.zyren.audio_focus
+        pluginClass: AudioFocusPlugin
+      ios:
+        pluginClass: AudioFocusPlugin

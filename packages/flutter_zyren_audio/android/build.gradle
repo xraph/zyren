@@ -1,0 +1,14 @@
+group = 'dev.zyren.audio_focus'
+version = '1.0'
+buildscript {
+    repositories { google(); mavenCentral() }
+    dependencies { classpath 'com.android.tools.build:gradle:9.1.0' }
+}
+apply plugin: 'com.android.library'
+kotlin { compilerOptions { jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17 } }
+android {
+    namespace = 'dev.zyren.audio_focus'
+    compileSdk = 36
+    defaultConfig { minSdk = 26 }
+    compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
+}

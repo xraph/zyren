@@ -8,6 +8,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_zyren_audio:
+    path: ../../../flutter_zyren_audio
   flutter_zyren:
     path: ../../../flutter_zyren
   zyren:

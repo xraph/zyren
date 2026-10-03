@@ -5,7 +5,7 @@ import 'package:smaller_plugins_lab/audio_session.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  const channel = MethodChannel('zyren/smaller-lab/audio-session');
+  const channel = MethodChannel('zyren/audio-session');
   test(
     'focus denial, late grants and foreground resume obey host intent',
     () async {
@@ -26,8 +26,9 @@ void main() {
         onError: (e) => fail('$e'),
         mobile: true,
       );
-      addTearDown(() {
+      addTearDown(() async {
         session.dispose();
+        await session.released;
         messenger.setMockMethodCallHandler(channel, null);
       });
       expect(await session.play(), true);
