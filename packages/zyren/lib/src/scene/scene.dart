@@ -70,8 +70,10 @@ class Object3D with _Revisioned {
 
   Object3D? _parent;
   final List<Object3D> _children = [];
+  List<Object3D>? _childSnapshot;
   Object3D? get parent => _parent;
-  List<Object3D> get children => List.unmodifiable(_children);
+  List<Object3D> get children =>
+      _childSnapshot ??= List.unmodifiable(_children);
   Vec3 get position => _position;
   set position(Vec3 value) {
     _finite(value, 'position');
@@ -125,6 +127,7 @@ class Object3D with _Revisioned {
     if (identical(child.parent, this)) return child;
     child._parent?.remove(child);
     _children.add(child);
+    _childSnapshot = null;
     child._parent = this;
     _changed();
     return child;
@@ -132,6 +135,7 @@ class Object3D with _Revisioned {
 
   void remove(Object3D child) {
     if (_children.remove(child)) {
+      _childSnapshot = null;
       child._parent = null;
       _changed();
     }

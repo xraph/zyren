@@ -4,6 +4,28 @@ import 'package:zyren/zyren.dart';
 import 'package:test/test.dart';
 
 void main() {
+  test('child snapshots reuse storage until membership changes', () {
+    final parent = Group(), other = Group(), child = Group();
+    parent.add(child);
+    final first = parent.children;
+    expect(parent.children, same(first));
+    child.position = const Vec3(1, 2, 3);
+    parent.add(child);
+    parent.remove(other);
+    expect(parent.children, same(first));
+    expect(() => first.clear(), throwsUnsupportedError);
+    final empty = other.children;
+    other.add(child);
+    expect(parent.children, isEmpty);
+    expect(other.children, [child]);
+    expect(other.children, isNot(same(empty)));
+    expect(first, [child]);
+    expect(empty, isEmpty);
+    final moved = other.children;
+    other.remove(child);
+    expect(other.children, isEmpty);
+    expect(moved, [child]);
+  });
   test('reparenting preserves a tree and rejects cycles', () {
     final root = Scene(), a = Object3D(), b = Object3D();
     root.add(a);
