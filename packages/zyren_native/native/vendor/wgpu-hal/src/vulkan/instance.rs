@@ -253,6 +253,17 @@ impl super::Instance {
         if cfg!(target_os = "android") {
             // VK_KHR_android_surface
             extensions.push(khr::android_surface::NAME);
+            let maintenance = [
+                ext::surface_maintenance1::NAME,
+                khr::get_surface_capabilities2::NAME,
+            ];
+            if maintenance.iter().all(|name| {
+                instance_extensions
+                    .iter()
+                    .any(|available| available.extension_name_as_c_str() == Ok(*name))
+            }) {
+                extensions.extend(maintenance);
+            }
         }
         if cfg!(target_os = "windows") {
             // VK_KHR_win32_surface

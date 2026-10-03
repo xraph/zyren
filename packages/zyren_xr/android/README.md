@@ -2,7 +2,9 @@
 
 You need Android API 27 or later, Google Play Services for AR, camera permission,
 and a Vulkan 1.1 device with Android hardware-buffer imports, foreign queue
-ownership and sampler YCbCr conversion. The plugin checks those Vulkan features
+ownership, sampler YCbCr conversion and `VK_EXT_swapchain_maintenance1`. The
+last extension supplies presentation fences for safe surface retirement. Its
+instance dependencies must also be available. The plugin checks these capabilities
 on the renderer's actual device. ARCore can still reject the requested camera
 configuration.
 
@@ -26,8 +28,10 @@ Scene packets and GPU resource commands use the Dart-loaded native runtime, foun
 by its runtime token. Camera and transparent scene color are composed on that
 same Vulkan device. Foreign queue ownership transfers bracket camera sampling;
 the completion fence precedes buffer release. Only one camera frame is retained.
-An unexpected retirement error retains the frame resources and makes disposal
-retryable.
+Each swapchain image owns its render-finished semaphore and presentation fence.
+An acquisition fence also covers failures before the first queue submission.
+An unexpected retirement error retains the surface, swapchain and frame resources
+and makes disposal retryable. Device idle alone does not retire presentation.
 
 The Activity's default display supplies rotation because Flutter may host the
 SurfaceView in a virtual display whose rotation remains zero. Calibration uses
@@ -42,7 +46,13 @@ placement. Native surface changes must retire before the next surface is used.
 Request depth explicitly. ARCore must support automatic depth, and each retained
 camera frame must have raw depth and confidence images with the exact same native
 timestamp. Missing or older data returns `depthUnavailable` or `staleDepth`.
-The accepted camera frame is at most 250 milliseconds old when acquired.
+The camera observation is at most 250 milliseconds old when acquired and is
+checked again before depth compute and scene submission. This measures time since
+the plugin first observed that raw sensor timestamp, not camera exposure latency.
+Repeated sensor frames keep their original observation time. `timestamp` and
+`depthTimestamp` use the host monotonic clock; `sensorTimestamp` and
+`depthSensorTimestamp` preserve the raw ARCore clock separately. Raw timestamp
+equality is checked in integer nanoseconds before either value is converted.
 
 Raw depth and confidence use a bounded CPU staging path. It packs each millimetre
 depth value and confidence byte into one 32-bit value and reports the upload size
@@ -61,7 +71,8 @@ temperature null because ARCore does not report a measured temperature here.
 
 From the example's Android directory, run `./gradlew :zyren_xr:testDebugUnitTest`
 with Android Studio's Java runtime. The geometry tests cover rigid transforms,
-handedness and invalid anchor input. Run the example's `presentation_test.dart`
+handedness and invalid anchor input. Lifecycle tests cover pause/resume leases,
+stale view callbacks, repeated frame age and invalidation after scene rendering. Run the example's `presentation_test.dart`
 on an unlocked Pixel for camera, rotation, resize and disposal checks.
 `native_agents_test.dart` covers native placement through the shared agent tools;
 set `XR_TEST_DEPTH=true` for its depth path. You need a lit scene with trackable
@@ -81,8 +92,14 @@ and renderer readback reported by the device. The next orientation check exposed
 the virtual-display rotation issue described above. The corrected repeat was
 blocked by the device's secure keyguard. Visual alignment, corrected rotation,
 resize, depth occlusion, tracking/placement, permission denial/retry and the
-Play Services installation flow still require physical qualification.
+Play Services installation flow still require physical qualification. The
+subsequent retirement, device feature-chain and lifecycle fixes have build and
+unit-test coverage only. The earlier portrait run does not qualify those fixes.
 
 ARCore documents the native buffer ownership contract in its
 [Vulkan guide](https://developers.google.com/ar/develop/c/vulkan) and the depth
 acquisition methods in the [Frame reference](https://developers.google.com/ar/reference/java/com/google/ar/core/Frame).
+
+Presentation ownership follows the Vulkan [semaphore reuse guide](https://docs.vulkan.org/guide/latest/swapchain_semaphore_reuse.html).
+Camera imports always use the [external format capabilities](https://docs.vulkan.org/refpages/latest/refpages/source/VkAndroidHardwareBufferFormatPropertiesANDROID.html)
+reported for the hardware buffer, including when a concrete format is also reported.

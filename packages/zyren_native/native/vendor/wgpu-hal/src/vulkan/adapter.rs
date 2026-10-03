@@ -61,6 +61,8 @@ pub struct PhysicalDeviceFeatures {
     /// Features provided by `VK_KHR_sampler_ycbcr_conversion`, promoted to Vulkan 1.1.
     sampler_ycbcr_conversion: Option<vk::PhysicalDeviceSamplerYcbcrConversionFeatures<'static>>,
 
+    swapchain_maintenance1: Option<vk::PhysicalDeviceSwapchainMaintenance1FeaturesEXT<'static>>,
+
     /// Features provided by `VK_EXT_texture_compression_astc_hdr`, promoted to Vulkan 1.3.
     astc_hdr: Option<vk::PhysicalDeviceTextureCompressionASTCHDRFeaturesEXT<'static>>,
 
@@ -150,8 +152,11 @@ pub struct PhysicalDeviceFeatures {
 
 impl PhysicalDeviceFeatures {
     fn supports_robust_image_access(&self) -> bool {
-        self.robustness2.is_some_and(|f| f.robust_image_access2 != 0)
-            || self.image_robustness.is_some_and(|f| f.robust_image_access != 0)
+        self.robustness2
+            .is_some_and(|f| f.robust_image_access2 != 0)
+            || self
+                .image_robustness
+                .is_some_and(|f| f.robust_image_access != 0)
     }
 
     pub fn get_core(&self) -> vk::PhysicalDeviceFeatures {
@@ -177,6 +182,12 @@ impl PhysicalDeviceFeatures {
             info = info.push_next(feature);
         }
         if let Some(ref mut feature) = self.multiview {
+            info = info.push_next(feature);
+        }
+        if let Some(ref mut feature) = self.sampler_ycbcr_conversion {
+            info = info.push_next(feature);
+        }
+        if let Some(ref mut feature) = self.swapchain_maintenance1 {
             info = info.push_next(feature);
         }
         if let Some(ref mut feature) = self.astc_hdr {
@@ -441,6 +452,17 @@ impl PhysicalDeviceFeatures {
             } else {
                 None
             },
+            swapchain_maintenance1: enabled_extensions
+                .contains(&ext::swapchain_maintenance1::NAME)
+                .then(|| {
+                    vk::PhysicalDeviceSwapchainMaintenance1FeaturesEXT::default()
+                        .swapchain_maintenance1(
+                            phd_features
+                                .swapchain_maintenance1
+                                .as_ref()
+                                .is_some_and(|f| f.swapchain_maintenance1 != 0),
+                        )
+                }),
             astc_hdr: if enabled_extensions.contains(&ext::texture_compression_astc_hdr::NAME) {
                 Some(
                     vk::PhysicalDeviceTextureCompressionASTCHDRFeaturesEXT::default()
@@ -2059,6 +2081,12 @@ impl super::InstanceShared {
                 features2 = features2.push_next(next);
             }
 
+            if capabilities.supports_extension(ext::swapchain_maintenance1::NAME) {
+                let next = features
+                    .swapchain_maintenance1
+                    .insert(vk::PhysicalDeviceSwapchainMaintenance1FeaturesEXT::default());
+                features2 = features2.push_next(next);
+            }
             if capabilities.supports_extension(ext::descriptor_indexing::NAME) {
                 let next = features
                     .descriptor_indexing
@@ -2535,7 +2563,7 @@ impl super::Adapter {
     }
 
     pub fn required_device_extensions(&self, features: wgt::Features) -> Vec<&'static CStr> {
-        let (supported_extensions, unsupported_extensions) = self
+        let (mut supported_extensions, unsupported_extensions) = self
             .phd_capabilities
             .get_required_extensions(features)
             .iter()
@@ -2547,6 +2575,26 @@ impl super::Adapter {
             log::debug!("Missing extensions: {unsupported_extensions:?}");
         }
 
+        if cfg!(target_os = "android")
+            && self
+                .instance
+                .extensions()
+                .contains(&ext::surface_maintenance1::NAME)
+            && self
+                .instance
+                .extensions()
+                .contains(&khr::get_surface_capabilities2::NAME)
+            && self
+                .phd_capabilities
+                .supports_extension(ext::swapchain_maintenance1::NAME)
+            && self
+                .phd_features
+                .swapchain_maintenance1
+                .as_ref()
+                .is_some_and(|f| f.swapchain_maintenance1 != 0)
+        {
+            supported_extensions.push(ext::swapchain_maintenance1::NAME);
+        }
         log::debug!("Supported extensions: {supported_extensions:?}");
         supported_extensions
     }
@@ -3574,6 +3622,35 @@ fn query_cooperative_matrix_properties(
 #[cfg(test)]
 mod image_robustness_tests {
     use super::*;
+
+    #[test]
+    fn camera_features_reach_device_creation_chain() {
+        let mut features = PhysicalDeviceFeatures {
+            sampler_ycbcr_conversion: Some(
+                vk::PhysicalDeviceSamplerYcbcrConversionFeatures::default()
+                    .sampler_ycbcr_conversion(true),
+            ),
+            swapchain_maintenance1: Some(
+                vk::PhysicalDeviceSwapchainMaintenance1FeaturesEXT::default()
+                    .swapchain_maintenance1(true),
+            ),
+            ..Default::default()
+        };
+        let info = features.add_to_device_create(vk::DeviceCreateInfo::default());
+        let mut node = info.p_next.cast::<vk::BaseInStructure>();
+        let mut found = Vec::new();
+        while !node.is_null() {
+            unsafe {
+                found.push((*node).s_type);
+                node = (*node).p_next;
+            }
+        }
+        assert!(
+            found.contains(&vk::StructureType::PHYSICAL_DEVICE_SAMPLER_YCBCR_CONVERSION_FEATURES)
+        );
+        assert!(found
+            .contains(&vk::StructureType::PHYSICAL_DEVICE_SWAPCHAIN_MAINTENANCE_1_FEATURES_EXT));
+    }
 
     #[test]
     fn image_robustness_features_remain_independent() {

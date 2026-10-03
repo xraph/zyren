@@ -262,8 +262,12 @@ pub unsafe extern "C" fn fg_android_vulkan_context(handle: u64, output: *mut u64
         let extensions = device.enabled_device_extensions();
         if !extensions.contains(&ash::android::external_memory_android_hardware_buffer::NAME)
             || !extensions.contains(&ash::ext::queue_family_foreign::NAME)
+            || !extensions.contains(&ash::ext::swapchain_maintenance1::NAME)
         {
-            return Err("Vulkan device lacks Android hardware-buffer imports".into());
+            return Err(
+                "Vulkan device lacks Android hardware-buffer imports or presentation retirement"
+                    .into(),
+            );
         }
         let instance = device.shared_instance().raw_instance();
         let mut ycbcr = ash::vk::PhysicalDeviceSamplerYcbcrConversionFeatures::default();

@@ -11,11 +11,18 @@
 #include <array>
 #include <algorithm>
 #include <cstring>
+#include <time.h>
 #include "shaders.h"
 
 namespace {
 void check(VkResult r, const char* operation) { if (r != VK_SUCCESS) throw std::runtime_error(std::string(operation)+": "+std::to_string(r)); }
 void fail(JNIEnv* env, const std::exception& e) { env->ThrowNew(env->FindClass("java/lang/IllegalStateException"),e.what()); }
+struct StaleDepth : std::runtime_error { StaleDepth():std::runtime_error("staleDepth: Retained depth observation exceeded 250 milliseconds.") {} };
+void requireDepthFresh(uint64_t deadline) {
+ if(!deadline) return;
+ timespec now{}; if(clock_gettime(CLOCK_BOOTTIME,&now)!=0) throw std::runtime_error("Depth clock unavailable.");
+ if(static_cast<uint64_t>(now.tv_sec)*1'000'000'000+now.tv_nsec>deadline) throw StaleDepth();
+}
 struct Search { uint64_t token; void* library=nullptr; };
 int findRuntime(dl_phdr_info* info,size_t,void* opaque) {
  auto& s=*static_cast<Search*>(opaque); if(!info->dlpi_name || !*info->dlpi_name) return 0;
@@ -78,7 +85,9 @@ struct Presenter {
  ANativeWindow* window=nullptr; VkSurfaceKHR surface=VK_NULL_HANDLE; VkSwapchainKHR swapchain=VK_NULL_HANDLE;
  VkFormat format=VK_FORMAT_UNDEFINED; uint32_t width=0,height=0,index=0;
  VkCommandPool commandPool=VK_NULL_HANDLE; VkCommandBuffer command=VK_NULL_HANDLE;
- VkSemaphore acquired=VK_NULL_HANDLE,finished=VK_NULL_HANDLE; VkFence fence=VK_NULL_HANDLE;
+ VkSemaphore acquired=VK_NULL_HANDLE; VkFence fence=VK_NULL_HANDLE,acquireFence=VK_NULL_HANDLE;
+ std::vector<VkSemaphore> finished; std::vector<VkFence> presentFences; std::vector<bool> presenting;
+ bool presentationUnknown=false,acquisitionPending=false;
  std::vector<VkImage> images; std::vector<VkImageView> views;
  bool pending=false,failed=false;
  std::unique_ptr<FrameResources> failedResources;
@@ -88,33 +97,54 @@ struct Presenter {
   try {
    VkCommandPoolCreateInfo pool{VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO}; pool.queueFamilyIndex=family; pool.flags=VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT; check(vkCreateCommandPool(device,&pool,nullptr,&commandPool),"command pool");
    VkCommandBufferAllocateInfo alloc{VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO}; alloc.commandPool=commandPool; alloc.level=VK_COMMAND_BUFFER_LEVEL_PRIMARY; alloc.commandBufferCount=1; check(vkAllocateCommandBuffers(device,&alloc,&command),"command buffer");
-   VkSemaphoreCreateInfo sem{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO}; check(vkCreateSemaphore(device,&sem,nullptr,&acquired),"acquire semaphore"); check(vkCreateSemaphore(device,&sem,nullptr,&finished),"present semaphore");
-   VkFenceCreateInfo fi{VK_STRUCTURE_TYPE_FENCE_CREATE_INFO}; check(vkCreateFence(device,&fi,nullptr,&fence),"completion fence");
+   VkSemaphoreCreateInfo sem{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO}; check(vkCreateSemaphore(device,&sem,nullptr,&acquired),"acquire semaphore");
+   VkFenceCreateInfo fi{VK_STRUCTURE_TYPE_FENCE_CREATE_INFO}; check(vkCreateFence(device,&fi,nullptr,&fence),"completion fence"); check(vkCreateFence(device,&fi,nullptr,&acquireFence),"acquisition fence");
   } catch(...) { cleanup(); throw; }
  }
  ~Presenter() { cleanup(); }
- bool canDestroy() {
+ bool gpuRetired() {
   auto result=vkDeviceWaitIdle(device);
   return result==VK_SUCCESS || result==VK_ERROR_DEVICE_LOST;
  }
- void cleanup() {
-  if(!device) return; vkDeviceWaitIdle(device); failedResources.reset(); detach();
-  if(fence) vkDestroyFence(device,fence,nullptr); if(acquired) vkDestroySemaphore(device,acquired,nullptr); if(finished) vkDestroySemaphore(device,finished,nullptr); if(commandPool) vkDestroyCommandPool(device,commandPool,nullptr); device=VK_NULL_HANDLE;
+ void retire() {
+  auto idle=vkDeviceWaitIdle(device);
+  if(idle==VK_ERROR_DEVICE_LOST) return;
+  check(idle,"Vulkan retirement pending; retry disposal");
+  if(presentationUnknown) throw std::runtime_error("Presentation retirement is unknown; surface owner retained.");
+  if(acquisitionPending) {
+   auto result=vkWaitForFences(device,1,&acquireFence,VK_TRUE,1'000'000'000);
+   if(result==VK_ERROR_DEVICE_LOST) return;
+   check(result,"Acquisition retirement pending; retry disposal");
+  }
+  // Device idle does not prove that the presentation engine consumed its waits.
+  for(size_t i=0;i<presentFences.size();i++) if(presenting[i]) {
+   auto result=vkWaitForFences(device,1,&presentFences[i],VK_TRUE,1'000'000'000);
+   if(result==VK_ERROR_DEVICE_LOST) return;
+   check(result,"Presentation retirement pending; retry disposal");
+  }
  }
- void detach() {
-  if(device) vkDeviceWaitIdle(device);
+ void releaseSurface() {
+  failedResources.reset();
   for(auto view:views) vkDestroyImageView(device,view,nullptr); views.clear(); images.clear();
+  for(auto sem:finished) vkDestroySemaphore(device,sem,nullptr); finished.clear();
+  for(auto f:presentFences) vkDestroyFence(device,f,nullptr); presentFences.clear(); presenting.clear();
   if(swapchain) vkDestroySwapchainKHR(device,swapchain,nullptr); swapchain=VK_NULL_HANDLE;
   if(surface) vkDestroySurfaceKHR(instance,surface,nullptr); surface=VK_NULL_HANDLE;
-  if(window) ANativeWindow_release(window); window=nullptr; pending=false;
+  if(window) ANativeWindow_release(window); window=nullptr; pending=false; acquisitionPending=false;
  }
+ // Called only before any submission (constructor failure) or after retire().
+ void cleanup() {
+  if(!device) return; releaseSurface();
+  if(fence) vkDestroyFence(device,fence,nullptr); if(acquireFence) vkDestroyFence(device,acquireFence,nullptr); if(acquired) vkDestroySemaphore(device,acquired,nullptr); if(commandPool) vkDestroyCommandPool(device,commandPool,nullptr); device=VK_NULL_HANDLE;
+ }
+ void detach() { retire(); releaseSurface(); }
  uint32_t memoryType(uint32_t bits,VkMemoryPropertyFlags flags=0) {
   VkPhysicalDeviceMemoryProperties properties; vkGetPhysicalDeviceMemoryProperties(physical,&properties);
   for(uint32_t i=0;i<properties.memoryTypeCount;i++) if((bits&(1u<<i)) && (properties.memoryTypes[i].propertyFlags&flags)==flags) return i;
   throw std::runtime_error("No compatible Vulkan memory type.");
  }
  void attach(ANativeWindow* w,uint32_t requestedWidth,uint32_t requestedHeight) {
-  detach(); window=w;
+  try { detach(); } catch(...) { if(w) ANativeWindow_release(w); throw; } window=w;
   if(!w) return;
   if(requestedWidth==0 || requestedHeight==0 || requestedWidth>4096 || requestedHeight>4096) throw std::runtime_error("Invalid camera surface dimensions.");
   VkAndroidSurfaceCreateInfoKHR info{VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR}; info.window=w; check(vkCreateAndroidSurfaceKHR(instance,&info,nullptr,&surface),"Android surface");
@@ -130,7 +160,13 @@ struct Presenter {
   swap.compositeAlpha=VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR; if(!(caps.supportedCompositeAlpha&swap.compositeAlpha)) swap.compositeAlpha=VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR;
   swap.presentMode=VK_PRESENT_MODE_FIFO_KHR; swap.clipped=VK_TRUE; check(vkCreateSwapchainKHR(device,&swap,nullptr,&swapchain),"swapchain");
   check(vkGetSwapchainImagesKHR(device,swapchain,&count,nullptr),"swapchain images"); images.resize(count); check(vkGetSwapchainImagesKHR(device,swapchain,&count,images.data()),"swapchain images");
-  for(auto image:images) views.push_back(view(image,format));
+  for(auto image:images) {
+   views.push_back(view(image,format));
+   VkSemaphoreCreateInfo sem{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO}; VkSemaphore ready;
+   check(vkCreateSemaphore(device,&sem,nullptr,&ready),"image presentation semaphore"); finished.push_back(ready);
+   VkFenceCreateInfo info{VK_STRUCTURE_TYPE_FENCE_CREATE_INFO}; VkFence done;
+   check(vkCreateFence(device,&info,nullptr,&done),"image presentation fence"); presentFences.push_back(done); presenting.push_back(false);
+  }
  }
  VkImageView view(VkImage image,VkFormat f,void* next=nullptr) {
   VkImageViewCreateInfo ci{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO}; ci.pNext=next; ci.image=image; ci.viewType=VK_IMAGE_VIEW_TYPE_2D; ci.format=f; ci.subresourceRange={VK_IMAGE_ASPECT_COLOR_BIT,0,1,0,1}; VkImageView out; check(vkCreateImageView(device,&ci,nullptr,&out),"image view"); return out;
@@ -146,21 +182,21 @@ struct Presenter {
   if(!getProperties) throw std::runtime_error("Android hardware-buffer import function is unavailable.");
   VkAndroidHardwareBufferFormatPropertiesANDROID fp{VK_STRUCTURE_TYPE_ANDROID_HARDWARE_BUFFER_FORMAT_PROPERTIES_ANDROID}; VkAndroidHardwareBufferPropertiesANDROID properties{VK_STRUCTURE_TYPE_ANDROID_HARDWARE_BUFFER_PROPERTIES_ANDROID}; properties.pNext=&fp;
   check(getProperties(device,buffer,&properties),"hardware buffer properties");
-  if(!(fp.formatFeatures&VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT)) throw std::runtime_error("Camera hardware buffer cannot be sampled.");
-  VkExternalFormatANDROID external{VK_STRUCTURE_TYPE_EXTERNAL_FORMAT_ANDROID}; external.externalFormat=fp.format==VK_FORMAT_UNDEFINED?fp.externalFormat:0;
+  if(!fp.externalFormat || !(fp.formatFeatures&VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT)) throw std::runtime_error("Camera hardware buffer cannot be sampled.");
+  VkExternalFormatANDROID external{VK_STRUCTURE_TYPE_EXTERNAL_FORMAT_ANDROID}; external.externalFormat=fp.externalFormat;
   VkExternalMemoryImageCreateInfo ext{VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO}; ext.handleTypes=VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID; ext.pNext=&external;
-  VkImageCreateInfo ci{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO}; ci.pNext=&ext; ci.imageType=VK_IMAGE_TYPE_2D; ci.format=fp.format; ci.extent={desc.width,desc.height,1}; ci.mipLevels=1; ci.arrayLayers=1; ci.samples=VK_SAMPLE_COUNT_1_BIT; ci.tiling=VK_IMAGE_TILING_OPTIMAL; ci.usage=VK_IMAGE_USAGE_SAMPLED_BIT; ci.sharingMode=VK_SHARING_MODE_EXCLUSIVE;
+  VkImageCreateInfo ci{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO}; ci.pNext=&ext; ci.imageType=VK_IMAGE_TYPE_2D; ci.format=VK_FORMAT_UNDEFINED; ci.extent={desc.width,desc.height,1}; ci.mipLevels=1; ci.arrayLayers=1; ci.samples=VK_SAMPLE_COUNT_1_BIT; ci.tiling=VK_IMAGE_TILING_OPTIMAL; ci.usage=VK_IMAGE_USAGE_SAMPLED_BIT; ci.sharingMode=VK_SHARING_MODE_EXCLUSIVE;
   check(vkCreateImage(device,&ci,nullptr,&camera.image.image),"camera import image");
   VkImportAndroidHardwareBufferInfoANDROID imported{VK_STRUCTURE_TYPE_IMPORT_ANDROID_HARDWARE_BUFFER_INFO_ANDROID}; imported.buffer=buffer;
   VkMemoryDedicatedAllocateInfo dedicated{VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO}; dedicated.image=camera.image.image; dedicated.pNext=&imported;
   VkMemoryAllocateInfo alloc{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO}; alloc.pNext=&dedicated; alloc.allocationSize=properties.allocationSize; alloc.memoryTypeIndex=memoryType(properties.memoryTypeBits);
   check(vkAllocateMemory(device,&alloc,nullptr,&camera.image.memory),"camera imported memory"); check(vkBindImageMemory(device,camera.image.image,camera.image.memory,0),"camera memory bind");
-  VkSamplerYcbcrConversionCreateInfo conversion{VK_STRUCTURE_TYPE_SAMPLER_YCBCR_CONVERSION_CREATE_INFO}; conversion.pNext=&external; conversion.format=fp.format; conversion.ycbcrModel=fp.suggestedYcbcrModel; conversion.ycbcrRange=fp.suggestedYcbcrRange; conversion.components=fp.samplerYcbcrConversionComponents; conversion.xChromaOffset=fp.suggestedXChromaOffset; conversion.yChromaOffset=fp.suggestedYChromaOffset; conversion.chromaFilter=VK_FILTER_NEAREST;
+  VkSamplerYcbcrConversionCreateInfo conversion{VK_STRUCTURE_TYPE_SAMPLER_YCBCR_CONVERSION_CREATE_INFO}; conversion.pNext=&external; conversion.format=VK_FORMAT_UNDEFINED; conversion.ycbcrModel=fp.suggestedYcbcrModel; conversion.ycbcrRange=fp.suggestedYcbcrRange; conversion.components=fp.samplerYcbcrConversionComponents; conversion.xChromaOffset=fp.suggestedXChromaOffset; conversion.yChromaOffset=fp.suggestedYChromaOffset; conversion.chromaFilter=VK_FILTER_NEAREST;
   auto convert = reinterpret_cast<PFN_vkCreateSamplerYcbcrConversion>(vkGetDeviceProcAddr(device,"vkCreateSamplerYcbcrConversion"));
   if(!convert || !vkGetDeviceProcAddr(device,"vkDestroySamplerYcbcrConversion")) throw std::runtime_error("Vulkan YCbCr conversion functions are unavailable.");
   check(convert(device,&conversion,nullptr,&camera.conversion),"camera YCbCr conversion");
   VkSamplerYcbcrConversionInfo converted{VK_STRUCTURE_TYPE_SAMPLER_YCBCR_CONVERSION_INFO}; converted.conversion=camera.conversion;
-  camera.image.view=view(camera.image.image,fp.format,&converted);
+  camera.image.view=view(camera.image.image,VK_FORMAT_UNDEFINED,&converted);
   VkSamplerCreateInfo sampler{VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO}; sampler.pNext=&converted; sampler.magFilter=VK_FILTER_NEAREST; sampler.minFilter=VK_FILTER_NEAREST; sampler.mipmapMode=VK_SAMPLER_MIPMAP_MODE_NEAREST; sampler.addressModeU=sampler.addressModeV=sampler.addressModeW=VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE; sampler.maxLod=0;
   check(vkCreateSampler(device,&sampler,nullptr,&camera.sampler),"camera sampler");
  }
@@ -190,7 +226,7 @@ struct Presenter {
  void barrier(VkImage image,VkImageLayout oldLayout,VkImageLayout newLayout,VkAccessFlags src,VkAccessFlags dst,uint32_t from=VK_QUEUE_FAMILY_IGNORED,uint32_t to=VK_QUEUE_FAMILY_IGNORED) {
   VkImageMemoryBarrier b{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER}; b.srcAccessMask=src; b.dstAccessMask=dst; b.oldLayout=oldLayout; b.newLayout=newLayout; b.srcQueueFamilyIndex=from; b.dstQueueFamilyIndex=to; b.image=image; b.subresourceRange={VK_IMAGE_ASPECT_COLOR_BIT,0,1,0,1}; vkCmdPipelineBarrier(command,VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,0,0,nullptr,0,nullptr,1,&b);
  }
- void initializeDepth(FrameResources& resources,const uint8_t* bytes,size_t size,uint32_t sensorWidth,uint32_t sensorHeight,const float* calibration) {
+ void initializeDepth(FrameResources& resources,const uint8_t* bytes,size_t size,uint32_t sensorWidth,uint32_t sensorHeight,const float* calibration,uint64_t deadline) {
   if(sensorWidth==0 || sensorHeight==0 || sensorWidth>2048 || sensorHeight>2048 || size!=static_cast<size_t>(sensorWidth)*sensorHeight*4) throw std::runtime_error("Invalid depth dimensions.");
   auto& source=resources.source; auto& target=resources.projected; auto& d=resources.depthDraw; auto& depth=resources.depth;
   auto allocate=[&](Buffer& b,VkDeviceSize length,VkBufferUsageFlags usage,bool host) {
@@ -222,19 +258,29 @@ struct Presenter {
   imageBarrier.srcAccessMask=VK_ACCESS_TRANSFER_WRITE_BIT; imageBarrier.dstAccessMask=VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT|VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT; imageBarrier.oldLayout=VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL; imageBarrier.newLayout=VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL; vkCmdPipelineBarrier(command,VK_PIPELINE_STAGE_TRANSFER_BIT,VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,0,0,nullptr,0,nullptr,1,&imageBarrier);
   check(vkEndCommandBuffer(command),"depth end"); check(vkResetFences(device,1,&fence),"depth reset fence"); VkSubmitInfo submit{VK_STRUCTURE_TYPE_SUBMIT_INFO}; submit.commandBufferCount=1; submit.pCommandBuffers=&command;
   // Keep staging resources alive on every submission failure path.
+  requireDepthFresh(deadline);
   try { check(vkQueueSubmit(queue,1,&submit,fence),"depth submit"); check(vkWaitForFences(device,1,&fence,VK_TRUE,UINT64_MAX),"depth completion"); }
   catch(...) { vkDeviceWaitIdle(device); throw; }
  }
- void draw(AHardwareBuffer* buffer,const float* uv,const uint8_t* packet,size_t size,const uint8_t* depthBytes,size_t depthSize,uint32_t depthWidth,uint32_t depthHeight,const float* depthCalibration) {
+ void draw(AHardwareBuffer* buffer,const float* uv,const uint8_t* packet,size_t size,const uint8_t* depthBytes,size_t depthSize,uint32_t depthWidth,uint32_t depthHeight,const float* depthCalibration,uint64_t depthDeadline) {
   if(failed || pending || !swapchain) throw std::runtime_error("Camera presenter is unavailable or has a pending frame.");
   auto resources=std::make_unique<FrameResources>(device);
   auto& camera=resources->camera; auto& scene=resources->scene; auto& depth=resources->depth; auto& d=resources->draw;
   try {
    importCamera(camera,buffer); makeScene(scene);
-   if(depthSize) initializeDepth(*resources,depthBytes,depthSize,depthWidth,depthHeight,depthCalibration);
+   if(depthSize) initializeDepth(*resources,depthBytes,depthSize,depthWidth,depthHeight,depthCalibration,depthDeadline);
+   requireDepthFresh(depthDeadline);
    runtime.require(runtime.render(runtime.renderer,packet,size,reinterpret_cast<uint64_t>(device),reinterpret_cast<uint64_t>(scene.image),reinterpret_cast<uint64_t>(depth.image),width,height));
-   auto acquiredResult=vkAcquireNextImageKHR(device,swapchain,UINT64_MAX,acquired,VK_NULL_HANDLE,&index);
+   check(vkResetFences(device,1,&acquireFence),"reset acquisition fence");
+   auto acquiredResult=vkAcquireNextImageKHR(device,swapchain,UINT64_MAX,acquired,acquireFence,&index);
    if(acquiredResult!=VK_SUBOPTIMAL_KHR) check(acquiredResult,"acquire camera drawable");
+   acquisitionPending=true;
+   check(vkWaitForFences(device,1,&acquireFence,VK_TRUE,UINT64_MAX),"drawable acquisition completion");
+   acquisitionPending=false;
+   if(presenting[index]) {
+    check(vkWaitForFences(device,1,&presentFences[index],VK_TRUE,UINT64_MAX),"previous image presentation");
+    presenting[index]=false;
+   }
    pipeline(d,camera,scene);
    check(vkResetCommandBuffer(command,0),"reset commands"); VkCommandBufferBeginInfo begin{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO}; begin.flags=VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT; check(vkBeginCommandBuffer(command,&begin),"begin commands");
    barrier(camera.image.image,VK_IMAGE_LAYOUT_GENERAL,VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,0,VK_ACCESS_SHADER_READ_BIT,VK_QUEUE_FAMILY_FOREIGN_EXT,family);
@@ -242,13 +288,16 @@ struct Presenter {
    VkRenderPassBeginInfo pass{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO}; pass.renderPass=d.pass; pass.framebuffer=d.framebuffer; pass.renderArea={{0,0},{width,height}}; vkCmdBeginRenderPass(command,&pass,VK_SUBPASS_CONTENTS_INLINE); vkCmdBindPipeline(command,VK_PIPELINE_BIND_POINT_GRAPHICS,d.pipeline); vkCmdBindDescriptorSets(command,VK_PIPELINE_BIND_POINT_GRAPHICS,d.layout,0,1,&d.descriptors,0,nullptr);
    float calibration[8]={uv[2]-uv[0],uv[4]-uv[0],uv[0],0,uv[3]-uv[1],uv[5]-uv[1],uv[1],0}; vkCmdPushConstants(command,d.layout,VK_SHADER_STAGE_FRAGMENT_BIT,0,sizeof(calibration),calibration); vkCmdDraw(command,3,1,0,0); vkCmdEndRenderPass(command);
    barrier(camera.image.image,VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,VK_IMAGE_LAYOUT_GENERAL,VK_ACCESS_SHADER_READ_BIT,0,family,VK_QUEUE_FAMILY_FOREIGN_EXT);
-   check(vkEndCommandBuffer(command),"end commands"); check(vkResetFences(device,1,&fence),"reset fence"); VkPipelineStageFlags wait=VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT; VkSubmitInfo submit{VK_STRUCTURE_TYPE_SUBMIT_INFO}; submit.waitSemaphoreCount=1; submit.pWaitSemaphores=&acquired; submit.pWaitDstStageMask=&wait; submit.commandBufferCount=1; submit.pCommandBuffers=&command; submit.signalSemaphoreCount=1; submit.pSignalSemaphores=&finished;
+   check(vkEndCommandBuffer(command),"end commands"); check(vkResetFences(device,1,&fence),"reset fence"); VkPipelineStageFlags wait=VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT; VkSubmitInfo submit{VK_STRUCTURE_TYPE_SUBMIT_INFO}; submit.waitSemaphoreCount=1; submit.pWaitSemaphores=&acquired; submit.pWaitDstStageMask=&wait; submit.commandBufferCount=1; submit.pCommandBuffers=&command; submit.signalSemaphoreCount=1; submit.pSignalSemaphores=&finished[index];
    check(vkQueueSubmit(queue,1,&submit,fence),"camera submit"); check(vkWaitForFences(device,1,&fence,VK_TRUE,UINT64_MAX),"camera GPU completion"); pending=true;
+  } catch(const StaleDepth&) {
+   if(!gpuRetired()) { failed=true; failedResources=std::move(resources); }
+   throw;
   } catch(...) {
    failed=true;
    // An unexpected idle error gives no proof of GPU retirement. Keep every
    // borrowed image, staging buffer and camera reference until a later retry.
-   if(!canDestroy()) failedResources=std::move(resources);
+   if(!gpuRetired()) failedResources=std::move(resources);
    throw;
   }
  }
@@ -256,35 +305,36 @@ struct Presenter {
   // A completed but revoked drawable must never reach presentation. Recreate
   // the swapchain to release its acquired image and the unconsumed semaphore.
   auto retained=window; if(retained) ANativeWindow_acquire(retained);
-  auto w=width,h=height; detach();
-  vkDestroySemaphore(device,finished,nullptr); finished=VK_NULL_HANDLE;
-  VkSemaphoreCreateInfo ci{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
-  check(vkCreateSemaphore(device,&ci,nullptr,&finished),"retire presentation semaphore");
-  attach(retained,w,h);
+  auto w=width,h=height; attach(retained,w,h);
  }
  void publish() {
   if(!pending || failed) throw std::runtime_error("No completed camera frame.");
-  VkPresentInfoKHR present{VK_STRUCTURE_TYPE_PRESENT_INFO_KHR}; present.waitSemaphoreCount=1; present.pWaitSemaphores=&finished; present.swapchainCount=1; present.pSwapchains=&swapchain; present.pImageIndices=&index;
+  check(vkResetFences(device,1,&presentFences[index]),"reset presentation fence");
+  VkSwapchainPresentFenceInfoEXT completion{VK_STRUCTURE_TYPE_SWAPCHAIN_PRESENT_FENCE_INFO_EXT}; completion.swapchainCount=1; completion.pFences=&presentFences[index];
+  VkPresentInfoKHR present{VK_STRUCTURE_TYPE_PRESENT_INFO_KHR}; present.pNext=&completion; present.waitSemaphoreCount=1; present.pWaitSemaphores=&finished[index]; present.swapchainCount=1; present.pSwapchains=&swapchain; present.pImageIndices=&index;
   auto result=vkQueuePresentKHR(queue,&present); pending=false;
-  // Completion covers the presentation semaphore before it can be reused.
-  check(vkQueueWaitIdle(queue),"presentation completion"); if(result!=VK_SUBOPTIMAL_KHR) check(result,"camera present");
+  // These results enqueue the waits, including the rejected presentation cases.
+  presenting[index]=result==VK_SUCCESS || result==VK_SUBOPTIMAL_KHR || result==VK_ERROR_OUT_OF_DATE_KHR || result==VK_ERROR_SURFACE_LOST_KHR || result==VK_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT;
+  if(!presenting[index] && result!=VK_ERROR_OUT_OF_HOST_MEMORY && result!=VK_ERROR_OUT_OF_DEVICE_MEMORY && result!=VK_ERROR_DEVICE_LOST) presentationUnknown=true;
+  if(result!=VK_SUCCESS && result!=VK_SUBOPTIMAL_KHR) { failed=true; check(result,"camera present"); }
  }
+
 };
 Presenter& get(jlong handle) { if(!handle) throw std::runtime_error("Camera presenter is closed."); return *reinterpret_cast<Presenter*>(handle); }
 }
 extern "C" JNIEXPORT jlong JNICALL Java_dev_zyren_xr_XrNative_create(JNIEnv* env,jobject,jlong token) { try { return reinterpret_cast<jlong>(new Presenter(static_cast<uint64_t>(token))); } catch(const std::exception& e) { fail(env,e); return 0; } }
 extern "C" JNIEXPORT void JNICALL Java_dev_zyren_xr_XrNative_destroy(JNIEnv* env,jobject,jlong handle) {
- try { auto& p=get(handle); if(!p.canDestroy()) throw std::runtime_error("Vulkan retirement is pending; retry presenter disposal."); delete &p; }
+ try { auto& p=get(handle); p.retire(); delete &p; }
  catch(const std::exception& e) { fail(env,e); }
 }
 extern "C" JNIEXPORT void JNICALL Java_dev_zyren_xr_XrNative_surface(JNIEnv* env,jobject,jlong handle,jobject surface,jint width,jint height) { try { get(handle).attach(surface?ANativeWindow_fromSurface(env,surface):nullptr,width,height); } catch(const std::exception& e) { fail(env,e); } }
-extern "C" JNIEXPORT void JNICALL Java_dev_zyren_xr_XrNative_render(JNIEnv* env,jobject,jlong handle,jobject buffer,jfloatArray uv,jbyteArray packet,jbyteArray depth,jint depthWidth,jint depthHeight,jfloatArray depthCalibration) {
+extern "C" JNIEXPORT void JNICALL Java_dev_zyren_xr_XrNative_render(JNIEnv* env,jobject,jlong handle,jobject buffer,jfloatArray uv,jbyteArray packet,jbyteArray depth,jint depthWidth,jint depthHeight,jfloatArray depthCalibration,jlong depthDeadline) {
  try {
   if(!buffer || !uv || env->GetArrayLength(uv)!=6 || !packet || env->GetArrayLength(packet)==0 || env->GetArrayLength(packet)>128*1024*1024) throw std::runtime_error("Invalid camera frame input.");
   float coords[6]; env->GetFloatArrayRegion(uv,0,6,coords); std::vector<uint8_t> bytes(env->GetArrayLength(packet)); env->GetByteArrayRegion(packet,0,bytes.size(),reinterpret_cast<jbyte*>(bytes.data()));
   auto hardware=AHardwareBuffer_fromHardwareBuffer(env,buffer); if(!hardware) throw std::runtime_error("Invalid camera hardware buffer."); std::vector<uint8_t> depthData; float dc[12]={};
   if(depth) { auto length=env->GetArrayLength(depth); if(length<1 || length>2048*2048*4 || !depthCalibration || env->GetArrayLength(depthCalibration)!=12) throw std::runtime_error("Invalid depth input."); depthData.resize(length); env->GetByteArrayRegion(depth,0,length,reinterpret_cast<jbyte*>(depthData.data())); env->GetFloatArrayRegion(depthCalibration,0,12,dc); }
-  get(handle).draw(hardware,coords,bytes.data(),bytes.size(),depthData.data(),depthData.size(),depthWidth,depthHeight,dc);
+  get(handle).draw(hardware,coords,bytes.data(),bytes.size(),depthData.data(),depthData.size(),depthWidth,depthHeight,dc,static_cast<uint64_t>(depthDeadline));
  } catch(const std::exception& e) { fail(env,e); }
 }
 extern "C" JNIEXPORT void JNICALL Java_dev_zyren_xr_XrNative_publish(JNIEnv* env,jobject,jlong handle) { try { get(handle).publish(); } catch(const std::exception& e) { fail(env,e); } }

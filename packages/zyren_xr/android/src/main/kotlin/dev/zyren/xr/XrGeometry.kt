@@ -30,10 +30,10 @@ internal object XrGeometry {
         val indices=(1 until count-1).flatMap { listOf(0,it+1,it) }
         return mapOf("planeId" to id,"sessionRevision" to revision,"frameTimestamp" to timestamp,"transform" to p.centerPose.values(),"vertices" to vertices,"boundary" to vertices,"indices" to indices)
     }
-    fun raycast(frame: Frame, presenter: XrVulkanPresenter, args: Map<String,Any?>, revision: Int, origin: Int, id: (Plane)->String): Map<String,Any?> {
+    fun raycast(frame: Frame, presenter: XrVulkanPresenter, args: Map<String,Any?>, revision: Int, origin: Int, observedTimestamp: Double, id: (Plane)->String): Map<String,Any?> {
         val c=presenter.presentedCalibration ?: throw XrFailure("staleFrame","Render a camera view before raycasting.")
         val timestamp=c["timestamp"] as Double
-        requireXr(args["frameId"]==c["frameId"] && args["epoch"]==c["epoch"] && c["revision"]==revision && frame.timestamp/1e9>=timestamp && frame.timestamp/1e9-timestamp<=.5,"staleFrame","The presented camera frame is stale.")
+        requireXr(args["frameId"]==c["frameId"] && args["epoch"]==c["epoch"] && c["revision"]==revision && observedTimestamp>=timestamp && observedTimestamp-timestamp<=.5,"staleFrame","The presented camera frame is stale.")
         val x=(args["x"] as? Number)?.toDouble() ?: Double.NaN; val y=(args["y"] as? Number)?.toDouble() ?: Double.NaN
         requireXr(x.isFinite() && y.isFinite() && x>=0 && y>=0 && x<c["logicalWidth"] as Double && y<c["logicalHeight"] as Double,"invalidArguments","Point lies outside the viewport.")
         // Use the presented pose/projection, not a later camera orientation.
@@ -46,6 +46,6 @@ internal object XrGeometry {
         requireXr(norm.isFinite() && norm>0,"invalidCalibration","Camera ray is invalid.")
         for(i in 0..2) ray[i]/=norm
         val hits=frame.hitTest(pose.translation,0,ray,0).filter { val p=it.trackable; p is Plane && p.trackingState==TrackingState.TRACKING && p.isPoseInPolygon(it.hitPose) && p.subsumedBy==null }
-        return mapOf("presenterId" to presenter.id,"frameId" to c["frameId"],"epoch" to c["epoch"],"frameTimestamp" to timestamp,"sensorTimestamp" to frame.timestamp/1e9,"sessionRevision" to revision,"originEpoch" to origin,"coverage" to "native-plane-geometry-estimate","omittedHits" to (hits.size-16).coerceAtLeast(0),"hits" to hits.take(16).map { mapOf("planeId" to id(it.trackable as Plane),"transform" to it.hitPose.values(),"distance" to it.distance.toDouble()) })
+        return mapOf("presenterId" to presenter.id,"frameId" to c["frameId"],"epoch" to c["epoch"],"frameTimestamp" to timestamp,"sensorTimestamp" to frame.timestamp/1e9,"queryTimestamp" to observedTimestamp,"sessionRevision" to revision,"originEpoch" to origin,"coverage" to "native-plane-geometry-estimate","omittedHits" to (hits.size-16).coerceAtLeast(0),"hits" to hits.take(16).map { mapOf("planeId" to id(it.trackable as Plane),"transform" to it.hitPose.values(),"distance" to it.distance.toDouble()) })
     }
 }

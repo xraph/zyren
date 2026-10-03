@@ -33,7 +33,9 @@ class ZyrenXrPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAw
     private var binding: ActivityPluginBinding? = null
     @Volatile private var activity: Activity? = null
     @Volatile private var active = false
-    private val surfaceGeneration = java.util.concurrent.atomic.AtomicLong()
+    private val epochs = XrEpochs()
+    private var runningEpoch = -1L
+    private val frameClock = XrFrameClock()
     private var pendingStart: Pair<Map<String, Any?>, MethodChannel.Result>? = null
     private var installRequested = false
     private var permissionRequested = false
@@ -69,7 +71,7 @@ class ZyrenXrPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAw
         b.activity.application.registerActivityLifecycleCallbacks(this)
     }
     private fun detachActivity() {
-        active = false; cancelStart()
+        epochs.invalidate(); active = false; cancelStart()
         binding?.removeRequestPermissionsResultListener(this)
         activity?.application?.unregisterActivityLifecycleCallbacks(this)
         binding = null; activity = null
@@ -78,7 +80,7 @@ class ZyrenXrPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAw
     override fun onDetachedFromActivity() = detachActivity()
     override fun onDetachedFromActivityForConfigChanges() = detachActivity()
     override fun onReattachedToActivityForConfigChanges(b: ActivityPluginBinding) = onAttachedToActivity(b)
-    override fun onActivityPaused(a: Activity) { if (a === activity) { active = false; cancelStart(); worker.execute { pause() } } }
+    override fun onActivityPaused(a: Activity) { if (a === activity) { epochs.invalidate(); active = false; cancelStart(); worker.execute { pause() } } }
     override fun onActivityResumed(a: Activity) { if (a === activity) active = true }
     override fun onActivityCreated(a: Activity, b: Bundle?) {}
     override fun onActivityStarted(a: Activity) {}
@@ -126,7 +128,7 @@ class ZyrenXrPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAw
             if (owner != null) { result.error("busy", "Another XR session owns the camera.", null); return }
             owner = this
         }
-        if (call.method == "dispose" || call.method == "pause") { cancelStart() }
+        if (call.method == "dispose" || call.method == "pause") { epochs.invalidate(); cancelStart() }
         submit(result) {
             when (call.method) {
                 "capabilities" -> capabilities()
@@ -174,9 +176,10 @@ class ZyrenXrPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAw
             context.getSharedPreferences("zyren_xr", Context.MODE_PRIVATE).edit().putBoolean("cameraRequested", true).apply()
             a.requestPermissions(arrayOf(Manifest.permission.CAMERA), permissionRequest); return
         }
+        val startEpoch = epochs.lifecycle()
         submit(result) {
             checkSession(args)
-            requireXr(active, "appInactive", "The activity left the foreground.")
+            requireXr(active && epochs.current(startEpoch), "appInactive", "The activity left the foreground.")
             val required = listOf("horizontalPlanes", "verticalPlanes", "lightEstimation", "requireCameraPresentation", "requireDepthOcclusion", "resetTracking")
             requireXr(required.all { args[it] is Boolean }, "invalidArguments", "Session configuration is incomplete.")
             requireXr(state != "running" || args["resetTracking"] == true, "invalidState", "Pause before reconfiguring or reset tracking.")
@@ -199,7 +202,8 @@ class ZyrenXrPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAw
                 }
                 lightEstimationMode = if (args["lightEstimation"] == true) Config.LightEstimationMode.AMBIENT_INTENSITY else Config.LightEstimationMode.DISABLED
             }
-            s.configure(configuration); s.resume(); state = "running"; frame = null; revision++; failure = null
+            s.configure(configuration); s.resume(); runningEpoch = startEpoch; state = "running"; frame = null; revision++; failure = null
+            if (!epochs.current(startEpoch)) { pause(); throw XrFailure("appInactive", "The activity changed during session start.") }
             null
         }
     }
@@ -209,12 +213,12 @@ class ZyrenXrPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAw
         if (sessionId != null) { state = "paused"; revision++ }
     }
     private fun close() {
-        pause(); presenter?.close(); presenter = null
+        pause(); presenter?.close(); presenter = null; epochs.register(null)
         anchors.values.forEach { it.detach() }; anchors.clear(); planes.clear()
         session?.close(); session = null; sessionId = null; failure = null
     }
     private fun update(): Frame {
-        requireXr(state == "running" && active, "trackingUnavailable", "The camera session is paused.")
+        requireXr(state == "running" && active && epochs.current(runningEpoch), "trackingUnavailable", "The camera session is paused.")
         val p = presenter
         if (p?.hasLease == true) {
             requireXr(SystemClock.elapsedRealtimeNanos()-frameReceived < 500_000_000L, "trackingUnavailable", "The retained camera frame is stale.")
@@ -222,7 +226,7 @@ class ZyrenXrPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAw
         }
         p?.let { session!!.setDisplayGeometry(it.rotation, it.width.coerceAtLeast(1), it.height.coerceAtLeast(1)) }
         val f = session!!.update()
-        if (f.timestamp != frame?.timestamp) frameReceived = SystemClock.elapsedRealtimeNanos()
+        frameReceived = frameClock.observe(f.timestamp, SystemClock.elapsedRealtimeNanos())
         frame = f
         requireXr(f.timestamp != 0L && SystemClock.elapsedRealtimeNanos() - frameReceived < 500_000_000L, "trackingUnavailable", "No fresh camera frame is available.")
         return f
@@ -235,35 +239,40 @@ class ZyrenXrPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAw
             "createPresenter" -> {
                 requireXr(presenter == null, "busy", "A presenter already exists.")
                 val p = XrVulkanPresenter((args["runtime"] as? Number)?.toLong() ?: throw XrFailure("invalidArguments", "Runtime token is required."))
-                presenter = p; return mapOf("presenterId" to p.id)
+                presenter = p; epochs.register(p.id); return mapOf("presenterId" to p.id)
             }
-            "addAnchor" -> {
-                checkRevision(args); val f = fresh()
+            "addAnchor" -> return epochs.guarded(runningEpoch) {
+                checkRevision(args); fresh()
                 if (args.containsKey("expectedPresenterId") || args.containsKey("expectedPresentationEpoch")) {
                     val p = presenter
-                    requireXr(p != null && args["expectedPresenterId"] == p.id && p.matchesEpoch(args["expectedPresentationEpoch"], surfaceGeneration.get()), "staleFrame", "The presented viewport changed before placement.")
+                    requireXr(p != null && args["expectedPresenterId"] == p.id && p.matchesEpoch(args["expectedPresentationEpoch"], epochs.surface()), "staleFrame", "The presented viewport changed before placement.")
                 }
-                (args["expectedFrameTimestamp"] as? Number)?.toDouble()?.let { requireXr(it.isFinite() && it <= f.timestamp / 1e9 && f.timestamp / 1e9 - it < 0.5, "staleFrame", "Placement frame is stale.") }
+                (args["expectedFrameTimestamp"] as? Number)?.toDouble()?.let { requireXr(it.isFinite() && it <= frameReceived / 1e9 && frameReceived / 1e9 - it < 0.5, "staleFrame", "Placement frame is stale.") }
                 requireXr(anchors.size < 128, "anchorLimit", "Remove an anchor before adding another.")
                 val pose = XrGeometry.pose(args["transform"])
                 val anchor = session!!.createAnchor(pose); val id = UUID.randomUUID().toString(); anchors[id] = anchor
-                presenter?.revoke(); revision++; return mapOf("anchorId" to id)
+                presenter?.revoke(); revision++; mapOf("anchorId" to id)
             }
             "removeAnchor" -> {
                 checkRevision(args); val anchor = anchors.remove(args["anchorId"]) ?: throw XrFailure("unknownAnchor", "Anchor is not part of this session.")
                 anchor.detach(); presenter?.revoke(); revision++; return null
             }
-            "planeGeometry" -> { checkRevision(args); val f = fresh(); val plane = planes.entries.firstOrNull { it.value == args["planeId"] }?.key ?: throw XrFailure("unknownPlane", "The plane is no longer available."); return XrGeometry.geometry(plane, args["planeId"] as String, revision, f.timestamp / 1e9) }
+            "planeGeometry" -> { checkRevision(args); fresh(); val plane = planes.entries.firstOrNull { it.value == args["planeId"] }?.key ?: throw XrFailure("unknownPlane", "The plane is no longer available."); return XrGeometry.geometry(plane, args["planeId"] as String, revision, frameReceived / 1e9) }
         }
         val p = presenter ?: throw XrFailure("invalidPresenter", "Create a presenter first.")
         requireXr(args["presenterId"] == p.id, "invalidPresenter", "The presenter has been released.")
         return when (method) {
-            "closePresenter" -> { p.close(); presenter = null; null }
-            "acquireFrame" -> p.acquire(update().also { requireXr(!depthEnabled || SystemClock.elapsedRealtimeNanos()-frameReceived <=250_000_000L,"staleDepth","Depth frame is older than 250 milliseconds.") }, revision, (args["near"] as? Number)?.toDouble() ?: 0.01, (args["far"] as? Number)?.toDouble() ?: 1000.0, depthEnabled)
+            "closePresenter" -> { p.close(); presenter = null; epochs.register(null); null }
+            "acquireFrame" -> p.acquire(update().also { requireXr(!depthEnabled || SystemClock.elapsedRealtimeNanos()-frameReceived <=250_000_000L,"staleDepth","Depth frame is older than 250 milliseconds.") }, revision, (args["near"] as? Number)?.toDouble() ?: 0.01, (args["far"] as? Number)?.toDouble() ?: 1000.0, depthEnabled, frameReceived).also { if (!epochs.current(runningEpoch)) { p.cancel(); throw XrFailure("frameDeferred", "The activity changed during acquisition.") } }
             "cancelFrame" -> { p.cancel((args["frameId"] as Number).toInt()); null }
-            "presentFrame" -> p.present(args, revision) { active && state == "running" && p.generation == surfaceGeneration.get() }
+            "presentFrame" -> p.present(args, revision,
+                { active && state == "running" && epochs.current(runningEpoch) && p.generation == epochs.surface() },
+                { publish -> epochs.guarded(runningEpoch) {
+                    requireXr(active && p.generation == epochs.surface(), "frameDeferred", "The presented viewport changed.")
+                    publish()
+                } })
             "gpuCommand" -> p.command(args)
-            "raycast" -> { checkRevision(args); val f = fresh(); XrGeometry.raycast(f, p, args, revision, originEpoch, ::planeId) }
+            "raycast" -> { checkRevision(args); val f = fresh(); XrGeometry.raycast(f, p, args, revision, originEpoch, frameReceived / 1e9, ::planeId) }
             else -> throw XrFailure("unsupportedMethod", "Unknown XR operation: $method")
         }
     }
@@ -277,21 +286,22 @@ class ZyrenXrPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAw
         val c = f.camera; val intrinsics = c.imageIntrinsics; val focal = intrinsics.focalLength; val center = intrinsics.principalPoint
         val available = session!!.getAllTrackables(Plane::class.java).filter { it.trackingState == TrackingState.TRACKING && it.subsumedBy == null }
         planes.keys.retainAll(available.toSet())
-        val value = mutableMapOf<String, Any?>("timestamp" to f.timestamp / 1e9, "cameraTransform" to c.pose.values(),
+        val value = mutableMapOf<String, Any?>("timestamp" to frameReceived / 1e9, "sensorTimestamp" to f.timestamp / 1e9, "cameraTransform" to c.pose.values(),
             "tracking" to if (c.trackingState == TrackingState.TRACKING) "normal" else if (c.trackingState == TrackingState.PAUSED) "limited" else "unavailable",
             "trackingReason" to c.trackingFailureReason.name.lowercase(),
             "intrinsics" to listOf(focal[0].toDouble(), 0.0, 0.0, 0.0, focal[1].toDouble(), 0.0, center[0].toDouble(), center[1].toDouble(), 1.0),
             "imageWidth" to intrinsics.imageDimensions[0], "imageHeight" to intrinsics.imageDimensions[1],
-            "anchors" to anchors.filterValues { it.trackingState == TrackingState.TRACKING }.map { (id, a) -> mapOf("id" to id, "transform" to a.pose.values()) },
+            "anchors" to anchors.filterValues { it.trackingState != TrackingState.STOPPED }.map { (id, a) -> mapOf("id" to id, "tracking" to if (a.trackingState == TrackingState.TRACKING) "normal" else "limited", "transform" to a.pose.values()) },
             "planes" to available.take(128).map { p -> mapOf("id" to planeId(p), "transform" to p.centerPose.values(), "alignment" to if (p.type == Plane.Type.VERTICAL) "vertical" else "horizontal", "center" to listOf(0.0,0.0,0.0), "extent" to listOf(p.extentX.toDouble(),0.0,p.extentZ.toDouble())) },
             "omittedPlanes" to (available.size - 128).coerceAtLeast(0))
         if (f.lightEstimate.state == LightEstimate.State.VALID) value["light"] = mapOf("ambientIntensity" to f.lightEstimate.pixelIntensity.toDouble(), "colorTemperature" to null, "intensityUnit" to "relative-gamma", "colorCorrection" to FloatArray(4).also { f.lightEstimate.getColorCorrection(it, 0) }.map { it.toDouble() })
+        out["nativeTimestamp"] = SystemClock.elapsedRealtimeNanos() / 1e9
         out["frame"] = value; return out
     }
     internal fun surface(id: String, surface: Surface?, width: Int, height: Int, density: Float, rotation: Int) {
         @Suppress("DEPRECATION")
         val displayRotation = activity?.windowManager?.defaultDisplay?.rotation ?: rotation
-        val generation = surfaceGeneration.incrementAndGet()
+        val generation = epochs.changeSurface(id) ?: return
         worker.execute { try { presenter?.takeIf { it.id == id }?.surface(surface, width, height, density, displayRotation, generation) } catch (e: Exception) { failure = mapOf("code" to "surfaceUnavailable", "message" to (e.message ?: "Camera surface unavailable")); pause() } }
     }
 }

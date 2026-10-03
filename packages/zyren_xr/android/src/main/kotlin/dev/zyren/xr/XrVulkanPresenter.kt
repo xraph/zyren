@@ -17,7 +17,7 @@ internal object XrNative {
     external fun create(token: Long): Long
     external fun destroy(handle: Long)
     external fun surface(handle: Long, surface: Surface?, width: Int, height: Int)
-    external fun render(handle: Long, buffer: HardwareBuffer, uv: FloatArray, packet: ByteArray, depth: ByteArray?, depthWidth: Int, depthHeight: Int, depthCalibration: FloatArray?)
+    external fun render(handle: Long, buffer: HardwareBuffer, uv: FloatArray, packet: ByteArray, depth: ByteArray?, depthWidth: Int, depthHeight: Int, depthCalibration: FloatArray?, depthDeadline: Long)
     external fun readback(handle: Long): Long
     external fun publish(handle: Long)
     external fun discard(handle: Long)
@@ -43,6 +43,7 @@ internal class XrVulkanPresenter(token: Long) {
     private var depthWidth = 0
     private var depthHeight = 0
     private var depthCalibration: FloatArray? = null
+    private var observedNanos = 0L
     private var lease: Map<String, Any?>? = null
     var presentedCalibration: Map<String, Any?>? = null; private set
     val hasLease: Boolean get() = lease != null
@@ -52,7 +53,7 @@ internal class XrVulkanPresenter(token: Long) {
         revoke(); this.generation = generation; this.width = width; this.height = height; this.density = density; this.rotation = rotation
         XrNative.surface(native, surface, width, height)
     }
-    fun acquire(frame: Frame, revision: Int, near: Double, far: Double, depthEnabled: Boolean): Map<String, Any?> {
+    fun acquire(frame: Frame, revision: Int, near: Double, far: Double, depthEnabled: Boolean, observedNanos: Long): Map<String, Any?> {
         requireXr(available && !hasLease, "busy", "A camera frame is already retained.")
         requireXr(width in 1..4096 && height in 1..4096, "frameDeferred", "The camera surface is not attached at a supported size.")
         requireXr(near.isFinite() && far.isFinite() && near > 0 && far > near, "invalidArguments", "Invalid clipping range.")
@@ -61,7 +62,9 @@ internal class XrVulkanPresenter(token: Long) {
         for (column in 0..3) projection[column*4+2] = (projection[column*4+2]+projection[column*4+3])*.5f
         val coords = FloatArray(6)
         frame.transformCoordinates2d(Coordinates2d.VIEW_NORMALIZED, floatArrayOf(0f,0f,1f,0f,0f,1f), Coordinates2d.TEXTURE_NORMALIZED, coords)
+        this.observedNanos = observedNanos
         var depthTimestamp: Double? = null
+        var depthSensorTimestamp: Double? = null
         if (depthEnabled) {
             try {
                 frame.acquireRawDepthImage16Bits().use { image ->
@@ -79,7 +82,7 @@ internal class XrVulkanPresenter(token: Long) {
                             val quality = cb.get(y*c.rowStride+x*c.pixelStride).toInt() and 255
                             data.putInt(mm or (quality shl 16))
                         }
-                        depth = data.array(); depthTimestamp = image.timestamp/1e9
+                        depth = data.array(); depthTimestamp = observedNanos/1e9; depthSensorTimestamp = image.timestamp/1e9
                         val mapping = FloatArray(6)
                         frame.transformCoordinates2d(Coordinates2d.VIEW_NORMALIZED,floatArrayOf(0f,0f,1f,0f,0f,1f),Coordinates2d.IMAGE_NORMALIZED,mapping)
                         depthCalibration = floatArrayOf(mapping[2]-mapping[0],mapping[4]-mapping[0],mapping[0],0f,
@@ -96,27 +99,30 @@ internal class XrVulkanPresenter(token: Long) {
         requireXr(kotlin.math.abs(det) > 1e-6, "invalidCalibration", "Camera display transform is singular.")
         val a=(coords[5]-coords[1])/det; val b=-(coords[3]-coords[1])/det
         val c=-(coords[4]-coords[0])/det; val d=(coords[2]-coords[0])/det
-        val calibration = mapOf<String, Any?>("frameId" to ++nextFrame, "timestamp" to frame.timestamp/1e9,
+        val calibration = mapOf<String, Any?>("frameId" to ++nextFrame, "timestamp" to observedNanos/1e9, "sensorTimestamp" to frame.timestamp/1e9,
             "revision" to revision, "epoch" to epoch, "projection" to projection.map { it.toDouble() },
             "cameraTransform" to frame.camera.displayOrientedPose.values(), "logicalWidth" to width/density.toDouble(),
             "logicalHeight" to height/density.toDouble(), "devicePixelRatio" to density.toDouble(),
             "pixelWidth" to width, "pixelHeight" to height, "orientation" to intArrayOf(1,3,2,4)[rotation], "near" to near, "far" to far,
-            "depthEnabled" to depthEnabled, "depthTimestamp" to depthTimestamp,
+            "depthEnabled" to depthEnabled, "depthTimestamp" to depthTimestamp, "depthSensorTimestamp" to depthSensorTimestamp,
             "displayTransform" to listOf(a.toDouble(), b.toDouble(), c.toDouble(), d.toDouble(), (-a*coords[0]-c*coords[1]).toDouble(),(-b*coords[0]-d*coords[1]).toDouble()))
         lease = calibration; return calibration
     }
     fun cancel(frameId: Int? = null) { if (frameId == null || lease?.get("frameId") == frameId) { buffer?.close(); buffer = null; uv = null; depth = null; depthCalibration = null; lease = null } }
     fun matchesEpoch(value: Any?, generation: Long): Boolean = !closed && width > 0 && height > 0 && value == epoch && this.generation == generation
-    fun present(args: Map<String, Any?>, revision: Int, active: () -> Boolean): Map<String, Any?> {
+    fun present(args: Map<String, Any?>, revision: Int, active: () -> Boolean, publish: (() -> Unit) -> Unit): Map<String, Any?> {
         val frame = lease
         requireXr(frame != null && args["frameId"] == frame["frameId"] && args["revision"] == revision && frame["revision"] == revision && active(), "frameDeferred", "The camera lease or session changed.")
         try {
-            XrNative.render(native, buffer!!, uv!!, args["packet"] as? ByteArray ?: throw XrFailure("invalidArguments", "Scene packet is missing."), depth, depthWidth, depthHeight, depthCalibration)
-            if (!active()) { XrNative.discard(native); return frame!! + mapOf("applied" to true, "presented" to false) }
-            XrNative.publish(native); presented++; presentedCalibration = frame
+            requireXr(depth == null || android.os.SystemClock.elapsedRealtimeNanos()-observedNanos <= 250_000_000L, "staleDepth", "The retained depth observation is older than 250 milliseconds.")
+            XrNative.render(native, buffer!!, uv!!, args["packet"] as? ByteArray ?: throw XrFailure("invalidArguments", "Scene packet is missing."), depth, depthWidth, depthHeight, depthCalibration, if (depth != null) observedNanos+250_000_000L else 0L)
+            if (!publishRenderedFrame(active, { publish { XrNative.publish(native) } }, { XrNative.discard(native) })) {
+                return frame!! + mapOf("applied" to true, "presented" to false)
+            }
+            presented++; presentedCalibration = frame
             return frame!! + mapOf("applied" to true, "presented" to true, "cameraReadbackBytes" to 0L,
                 "nativeReadbackBytes" to XrNative.readback(native), "depthUploadBytes" to (depth?.size ?: 0), "depthConfidenceMinimum" to 128, "inFlightLimit" to 1, "heldCameraFrames" to 0, "drawableLimit" to 2, "presentedFrames" to presented)
-        } catch (e: IllegalStateException) { failed = true; throw e } finally { cancel() }
+        } catch (e: IllegalStateException) { if (e.message?.startsWith("staleDepth:") == true) throw XrFailure("staleDepth", e.message!!); failed = true; throw e } finally { cancel() }
     }
     fun command(args: Map<String, Any?>): Map<String, Any?> {
         val kind = listOf("resource", "shader", "graph").indexOf(args["kind"])
