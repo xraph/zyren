@@ -10,6 +10,79 @@ atmosphere and cloud rendering for Dart and Flutter. Thank you to its authors
 and contributors. See the [third-party notices](../../THIRD_PARTY_NOTICES.md#three-geospatial)
 for attribution and license details for adapted code.
 
+## Extensions and headless layers
+
+Install `geospatial.scenePlugins` when you configure extensions. The list retains
+plugin identity across builds, and composition validation rejects missing adapters
+before creating a renderer or detaching your current plugins.
+
+```dart
+class SurveyExtension extends GeospatialExtension {
+  @override
+  String get localId => 'survey';
+
+  @override
+  void attachGeospatial(GeospatialContext context) {
+    context.registerLayer(GeoLayer(
+      id: 'survey',
+      owner: id,
+      kind: 'survey',
+      capabilities: {GeoLayerCapability.query},
+    ));
+  }
+}
+
+final geospatial = GeospatialPlugin(extensions: [SurveyExtension()]);
+// Pass geospatial.scenePlugins to SceneEngine or SceneCanvas.
+```
+
+This registers layer metadata. Your extension supplies its rendering and queries
+through its own core `sceneContext`. If you expose ordinary scene plugin adapters,
+give them IDs beneath the extension ID, make them depend on it, and return stable
+instances from `adapters`. Each receives its own attachment scope.
+
+Call `context.provide(GeoServiceKey<YourType>('name', 1), service)` for an optional
+capability. Consumers use `context.find(key)` and can subscribe to
+`registry.capabilityChanges` through their attachment scope. Required dependencies
+use full scene plugin IDs. Detaching a provider withdraws only its registrations;
+failed updates expose the surviving IDs through `PluginUpdateException`.
+
+You can control layers without building any widgets:
+
+```dart
+final layers = geospatial.layers;
+layers.transact(layers.revision, (edit) {
+  edit.setVisible('survey', false);
+  edit.select([GeoFeatureId('survey', 'point-42')]);
+});
+```
+
+Transactions publish one immutable revision. Stale revisions, invalid parents,
+cycles and unsupported opacity leave the previous snapshot intact. Selection holds
+layer/feature IDs and clears removed references in the same transaction. Sibling
+order does not override depth testing. Group opacity multiplies child opacity and
+requires every affected content layer to support it.
+
+Visibility, query access and readiness are separate. Hidden layers retain data
+and continue simulation by default; set `GeoLayerPolicies` explicitly when your
+adapter supports another policy. Queries can opt into hidden content. Distance,
+scale and time filters affect `visibleAt`; they do not advance simulation or infer
+that a source is ready. Coverage can be unknown, and dateline bounds retain their
+crossing. `empty`, `unavailable` and `failed` remain distinct data states.
+
+Use `layers.beginLoad(id)` to guard source completions. A superseded, cancelled or
+removed generation returns false from `publish`. Scope layer registrations through
+`context.registerLayer` so a partial attachment failure removes owned layers.
+
+`GeoLayerCodec(layers)` encodes and restores JSON configuration. Register a
+`GeoLayerConfigurationCodec<T>` for each custom kind and provide one-step schema
+migrations. Unknown kinds and unsupported versions retain their original
+configuration with a diagnostic and unavailable data state. Saved readiness is
+never treated as a completed load. Documents reject credentials, live handles,
+nonfinite values and excessive nesting or size before publication. Keep source
+credentials in your resolver. The codec stores configuration; persistent resource
+caching and offline regions are separate services.
+
 ## Terrain imagery
 
 Wrap your terrain source to apply geographic or Web Mercator imagery:

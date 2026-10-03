@@ -68,3 +68,9 @@ export 'src/clouds/history.dart'
         CloudTemporalMode,
         CloudHistoryStatus,
         CloudHistoryReset;
+
+export 'src/layers/layer.dart';
+export 'src/layers/controller.dart';
+export 'src/layers/change.dart';
+export 'src/layers/codec.dart';
+export 'src/layers/selection.dart';

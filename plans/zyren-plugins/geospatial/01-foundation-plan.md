@@ -183,7 +183,7 @@ whole controller document. `GeoFeatureHit` carries layer ID, feature ID, geodeti
 position, source revision and opaque host metadata. Selection stores stable IDs,
 never mesh handles, and drops removed references in the same transaction.
 
-- [ ] Write and run the failing transaction test:
+- [x] Write and run the failing transaction test:
 
 ```dart
 test('cycles leave layer state and revision unchanged', () {
@@ -199,7 +199,7 @@ test('cycles leave layer state and revision unchanged', () {
 });
 ```
 
-- [ ] Clone into a candidate, validate IDs/parents/capabilities/finite values,
+- [x] Clone into a candidate, validate IDs/parents/capabilities/finite values,
   resolve effective state, then publish once. Use ancestor multiplication for
   opacity and ancestor conjunction for visibility. Reject stale revisions.
 
@@ -215,13 +215,13 @@ publish(List.unmodifiable(candidate), revision + 1);
   implementation members of the named files, not additional public entry points.
   Tests also cover invalid sibling moves, inherited hidden state, unsupported
   opacity, mixed success/failure batches and disposal during notification.
-- [ ] Implement codec versioning and reject nonfinite/oversized documents before
+- [x] Implement codec versioning and reject nonfinite/oversized documents before
   publication. Unknown plugin configurations remain unresolved with their original
   configuration retained. Round-trip IDs, ordering, source versions and policies;
   explicitly reject embedded credentials and live objects.
-- [ ] Run all layer tests and analyzer. Verify selection invalidation, bounds
+- [x] Run all layer tests and analyzer. Verify selection invalidation, bounds
   across the antimeridian and explicit unavailable versus empty states.
-- [ ] Update package usage documentation and commit `feat(geospatial): manage layers through atomic transactions`.
+- [x] Update package usage documentation and commit `feat(geospatial): manage layers through atomic transactions`.
 
 ## Task 3: F3 Connect layers to existing terrain, imagery and atmosphere
 

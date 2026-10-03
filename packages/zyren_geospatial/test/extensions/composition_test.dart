@@ -80,6 +80,41 @@ Future<SceneEngine> create(
 
 void main() {
   test(
+    'layer registrations clean up after partial attach and restart',
+    () async {
+      final geo = GeospatialPlugin();
+      final good = _Extension(
+        'good',
+        onAttach: (c) {
+          c.registerLayer(
+            GeoLayer(id: 'good', owner: 'geospatial.ext.good', kind: 'group'),
+          );
+        },
+      );
+      final broken = _Extension(
+        'broken',
+        onAttach: (c) {
+          c.registerLayer(
+            GeoLayer(id: 'bad', owner: 'geospatial.ext.broken', kind: 'group'),
+          );
+          throw StateError('attach failed');
+        },
+      );
+      final engine = await create([geo, good]);
+      await expectLater(
+        engine.updatePlugins([geo, good, broken]),
+        throwsA(isA<PluginUpdateException>()),
+      );
+      expect(geo.layers.snapshot.map((layer) => layer.id), ['good']);
+      await engine.dispose();
+      expect(geo.layers.snapshot, isEmpty);
+      final restart = await create([geo, good]);
+      expect(geo.layers.snapshot.single.id, 'good');
+      await restart.dispose();
+    },
+  );
+
+  test(
     'adapters require expansion, identity and compatible legacy composition',
     () async {
       final extension = _Wrapped();

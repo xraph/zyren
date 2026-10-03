@@ -1,6 +1,7 @@
 import 'package:zyren/zyren.dart';
 import 'ellipsoid_geometry.dart';
 import 'geodesy.dart';
+import 'layers/controller.dart';
 import 'extensions/extension.dart';
 import 'extensions/registry.dart';
 import 'extensions/composition.dart';
@@ -33,6 +34,7 @@ class GeospatialReference {
 class GeospatialPlugin extends ScenePlugin {
   static const pluginId = 'geospatial';
   final GeospatialReference reference;
+  final GeoLayerController layers = GeoLayerController();
   final GeoExtensionRegistry registry = GeoExtensionRegistry();
   final List<GeospatialExtension> extensions;
   late final List<ScenePlugin> scenePlugins = List.unmodifiable([
