@@ -6,6 +6,7 @@ resolution: workspace
 environment:
   sdk: '>=3.10.0 <4.0.0'
 dependencies:
+  cupertino_icons: ^1.0.9
   flutter_zyren_studio:
     path: ../../packages/flutter_zyren_studio
   crypto: ^3.0.7

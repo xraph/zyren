@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'studio_lighting.dart';
 import 'studio_workspace.dart';
 import 'package:flutter_zyren_studio/flutter_zyren_studio.dart';
@@ -1013,6 +1014,12 @@ class StudioEditorState extends State<StudioEditor> {
 
   Widget _button(String label, IconData icon, VoidCallback? action) =>
       TextButton.icon(
+        style: TextButton.styleFrom(
+          textStyle: const TextStyle(fontSize: 11),
+          minimumSize: const Size(28, 28),
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
         onPressed: action,
         icon: Icon(icon, size: 15),
         label: Text(label),
@@ -1554,10 +1561,12 @@ class StudioEditorState extends State<StudioEditor> {
 
   Widget _viewportEditor(BuildContext context) {
     final palette = StudioPalette.of(context);
+    _scene.scene.background = Color3.hex(palette.dark ? 0x191b1e : 0xf7f8fa);
     return Column(
       children: [
         Container(
-          height: 30,
+          height: 34,
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
           decoration: BoxDecoration(
             color: palette.panel,
             border: Border(bottom: BorderSide(color: palette.border)),
@@ -1566,12 +1575,13 @@ class StudioEditorState extends State<StudioEditor> {
             children: [
               Flexible(
                 child: Container(
-                  height: 30,
+                  height: 26,
                   padding: const EdgeInsets.symmetric(horizontal: 10),
                   decoration: BoxDecoration(
-                    color: palette.raised,
-                    border: Border(
-                      bottom: BorderSide(color: palette.accent, width: 2),
+                    color: palette.selection,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(
+                      color: palette.accent.withValues(alpha: .4),
                     ),
                   ),
                   child: Row(
@@ -1613,7 +1623,7 @@ class StudioEditorState extends State<StudioEditor> {
         ),
         Container(
           width: double.infinity,
-          color: palette.raised,
+          color: palette.panel,
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
           child: Wrap(
             spacing: 2,
@@ -1676,8 +1686,24 @@ class StudioEditorState extends State<StudioEditor> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SizedBox(
-            height: 38,
+          Container(
+            height: 40,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: Theme.of(context).brightness == Brightness.light
+                    ? [
+                        const Color(0xffdceee3),
+                        StudioPalette.of(context).chrome,
+                        StudioPalette.of(context).chrome,
+                      ]
+                    : [
+                        const Color(0xff293a33),
+                        StudioPalette.of(context).chrome,
+                        StudioPalette.of(context).chrome,
+                      ],
+                stops: const [0, .4, 1],
+              ),
+            ),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10),
               child: Row(
@@ -1688,13 +1714,18 @@ class StudioEditorState extends State<StudioEditor> {
                       width: 20,
                       height: 20,
                       decoration: BoxDecoration(
-                        color: StudioPalette.of(context).selection,
+                        color: const Color(0xff55a778),
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: Icon(
-                        Icons.view_in_ar_outlined,
-                        size: 14,
-                        color: StudioPalette.of(context).accent,
+                      child: const Center(
+                        child: Text(
+                          'ZS',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -1771,19 +1802,19 @@ class StudioEditorState extends State<StudioEditor> {
                             StudioPane(
                               'scene',
                               'Scene',
-                              Icons.account_tree_outlined,
+                              CupertinoIcons.folder,
                               _scenePane(),
                             ),
                             StudioPane(
                               'assets',
                               'Assets',
-                              Icons.inventory_2_outlined,
+                              CupertinoIcons.archivebox,
                               _assetsPane(),
                             ),
                             StudioPane(
                               'inspector',
                               'Properties',
-                              Icons.tune,
+                              CupertinoIcons.slider_horizontal_3,
                               _inspector(),
                             ),
                             StudioPane(
@@ -1795,7 +1826,7 @@ class StudioEditorState extends State<StudioEditor> {
                             StudioPane(
                               'agent',
                               'Agent',
-                              Icons.auto_awesome_outlined,
+                              CupertinoIcons.chat_bubble_2,
                               _agentPane(),
                             ),
                             StudioPane(
@@ -1834,16 +1865,20 @@ class StudioEditorState extends State<StudioEditor> {
                     color: _ready ? Colors.green : Colors.orange,
                   ),
                   const SizedBox(width: 6),
-                  Text(
-                    _busy
-                        ? 'Working...'
-                        : _previewCamera != null
-                        ? 'Camera preview'
-                        : _dirty
-                        ? 'Unsaved changes'
-                        : 'Saved',
-                    key: const ValueKey('save-status'),
-                    style: Theme.of(context).textTheme.labelSmall,
+                  Flexible(
+                    child: Text(
+                      _busy
+                          ? 'Working...'
+                          : _previewCamera != null
+                          ? 'Camera preview'
+                          : _dirty
+                          ? 'Unsaved changes'
+                          : 'Saved',
+                      key: const ValueKey('save-status'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(

@@ -6,14 +6,14 @@ class StudioPalette {
   const StudioPalette(this.dark);
   factory StudioPalette.of(BuildContext context) =>
       StudioPalette(Theme.of(context).brightness == Brightness.dark);
-  Color get chrome => Color(dark ? 0xff25272b : 0xffe9ecf0);
-  Color get panel => Color(dark ? 0xff191b1e : 0xfffafbfc);
-  Color get raised => Color(dark ? 0xff27292d : 0xfff0f2f5);
-  Color get text => Color(dark ? 0xffdfe1e5 : 0xff242832);
-  Color get muted => Color(dark ? 0xff9299a5 : 0xff626a78);
-  Color get border => Color(dark ? 0xff303237 : 0xffd9dde3);
-  Color get accent => Color(dark ? 0xff8aa8ff : 0xff315fbd);
-  Color get selection => Color(dark ? 0xff334261 : 0xffe3ebfc);
+  Color get chrome => Color(dark ? 0xff25272b : 0xffe9e9ed);
+  Color get panel => Color(dark ? 0xff191b1e : 0xffffffff);
+  Color get raised => Color(dark ? 0xff27292d : 0xfff4f4f5);
+  Color get text => Color(dark ? 0xffdfe1e5 : 0xff202124);
+  Color get muted => Color(dark ? 0xff9299a5 : 0xff777c88);
+  Color get border => Color(dark ? 0xff303237 : 0xffe7e7ed);
+  Color get accent => Color(dark ? 0xff8aa8ff : 0xff3574f0);
+  Color get selection => Color(dark ? 0xff334261 : 0xffe2ebff);
   Color get positive => Color(dark ? 0xff9fc3ac : 0xff326745);
 }
 
@@ -40,6 +40,8 @@ ThemeData studioTheme(Brightness brightness) {
   );
   return ThemeData(
     useMaterial3: true,
+    fontFamily: ".AppleSystemUIFont",
+    fontFamilyFallback: const ["Segoe UI", "Arial"],
     brightness: brightness,
     visualDensity: VisualDensity.compact,
     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,

@@ -92,4 +92,67 @@ void main() {
       expect(find.text('Count 1'), findsOneWidget);
     },
   );
+  testWidgets('right panels stack, resize and expand without losing state', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1280, 800);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final properties = GlobalKey();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StudioWorkspace(
+            canvas: const Text('Viewport'),
+            initialPane: 'agent',
+            panes: [
+              const StudioPane(
+                'scene',
+                'Scene',
+                Icons.folder_outlined,
+                Text('Hierarchy'),
+              ),
+              const StudioPane(
+                'agent',
+                'Agent',
+                Icons.chat_outlined,
+                Text('Conversation'),
+              ),
+              StudioPane(
+                'inspector',
+                'Properties',
+                Icons.tune,
+                _Counter(key: properties),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    final state = properties.currentState;
+    expect(
+      tester.getTopLeft(find.text('Conversation')).dy,
+      lessThan(tester.getTopLeft(find.text('Count 0')).dy),
+    );
+    await tester.drag(
+      find.byKey(const ValueKey('resize-right-split')),
+      const Offset(0, 60),
+    );
+    await tester.pump();
+    expect(properties.currentState, same(state));
+    await tester.tap(find.byTooltip('Hide Agent'));
+    await tester.pump();
+    expect(find.text('Conversation'), findsNothing);
+    expect(
+      tester.getTopLeft(find.byTooltip('Hide Properties')).dy,
+      lessThan(100),
+    );
+    expect(properties.currentState, same(state));
+    await tester.tap(find.byTooltip('Agent'));
+    await tester.pump();
+    expect(find.text('Conversation'), findsOneWidget);
+    expect(find.byKey(const ValueKey('resize-right-split')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }

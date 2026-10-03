@@ -18,7 +18,11 @@ The default editor uses the compact dockable workspace from the design study,
 with GoLand-style inset panels, two tool rails and a document tab above the
 viewport. Scene, Assets and Animation start on the left rail. Properties, Agent,
 Plugins and Diagnostics start on the right. Most text is 11–12 logical pixels;
-panel headers are 30 pixels high. Light and dark themes share the same density.
+panel headers are 32 pixels high. Light and dark themes share the same density.
+Agent and Properties open in separate right-hand panels. Drag their shared gutter
+to change the split; hiding either panel gives the other the full column. The
+viewport background follows your light or dark theme.
+
 Drag a panel header to an edge, or use its docking menu to move it left, right or below the viewport.
 Drag dividers to resize. Close a panel to give the viewport more room; its rail
 button restores it. Reset layout restores the default arrangement.
