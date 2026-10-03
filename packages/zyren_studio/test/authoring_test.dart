@@ -277,7 +277,7 @@ void main() {
         jsonDecode(
           StudioDocument.decode(jsonEncode(old)).encode(),
         )['schemaVersion'],
-        2,
+        StudioDocument.schemaVersion,
       );
       final doc = StudioDocument.decode(prefabDocument().encode());
       final scene = StudioScene(doc);

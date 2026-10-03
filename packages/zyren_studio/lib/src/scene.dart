@@ -68,12 +68,8 @@ final class StudioScene {
     scene.add(content);
     for (final node in document.expandedNodes.values) {
       final Object3D object;
-      if (node.kind == StudioNodeKind.box) {
-        final geometry = BoxGeometry(
-          width: node.size.x,
-          height: node.size.y,
-          depth: node.size.z,
-        );
+      if (node.kind.isPrimitive) {
+        final geometry = studioPrimitiveGeometry(node.kind, node.size);
         _geometries[node.id] = geometry;
         final material = (node.material ?? StudioMaterial(color: node.color))
             .create();
@@ -327,7 +323,7 @@ final class StudioScene {
         document.expandedNodes[id]!.kind == StudioNodeKind.group ||
         document.expandedNodes[id]!.kind == StudioNodeKind.prefab) {
       throw ArgumentError(
-        'Select a box or imported asset to edit its material.',
+        'Select a primitive or imported asset to edit its material.',
       );
     }
     void apply(Object3D object) {

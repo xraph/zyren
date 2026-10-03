@@ -97,3 +97,26 @@ unknown.
 
 See [qualification](qualification.md) for checks, device evidence and release
 blockers. This package remains private and uses workspace path dependencies.
+
+## Modeling and agent extensions
+
+`modeling_agents.dart` exposes atomic batches of up to 64 groups or primitives,
+primitive resizing and an articulated humanoid blockout. You can create boxes,
+spheres, cylinders, cones, tori and planes. Dimensions are baked into geometry;
+node transforms remain editable. Changes use document history and survive
+save/reload, material edits and prefab reconstruction.
+
+The character blockout has explicit neck, shoulder, elbow, hip and knee pivots.
+Use the existing transform and clip tools to pose and animate it. It is made of
+primitives. It does not supply a skinned mesh, humanoid retargeting or IK.
+Those capabilities belong to the character plugin and its runtime bindings.
+
+Documents save as schema version 3. Readers accept versions 1 and 2; old readers
+must be upgraded before opening version 3 documents.
+
+`agent_extensions.dart` lets a Studio host attach plugin runtime instances and
+register their providers in the shared scene registry. The host supplies scopes,
+availability and lifetime cleanup. `persistence_agents.dart` adds reviewed saves
+through the host store. Future morphing tools can register through the same
+extension or engine service; their plugin must own deformation history and saved
+state. No morphing implementation is included here.

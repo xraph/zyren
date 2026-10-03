@@ -276,7 +276,7 @@ final class StudioAuthoringAgentProvider extends AgentProvider {
             doubleSided: arguments['doubleSided'] as bool? ?? false,
           );
           final kind = doc.expandedNodes[targetId]?.kind;
-          if (kind != StudioNodeKind.box && kind != StudioNodeKind.asset) {
+          if (kind?.isPrimitive != true && kind != StudioNodeKind.asset) {
             return AgentResult(AgentStatus.invalid);
           }
           next = StudioAuthoring.updateNode(

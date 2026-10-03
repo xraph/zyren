@@ -1,6 +1,27 @@
 part of '../zyren_studio.dart';
 
-enum StudioNodeKind { group, box, asset, prefab }
+enum StudioNodeKind {
+  group,
+  box,
+  asset,
+  prefab,
+  sphere,
+  cylinder,
+  cone,
+  torus,
+  plane,
+}
+
+extension StudioPrimitiveKind on StudioNodeKind {
+  bool get isPrimitive => const {
+    StudioNodeKind.box,
+    StudioNodeKind.sphere,
+    StudioNodeKind.cylinder,
+    StudioNodeKind.cone,
+    StudioNodeKind.torus,
+    StudioNodeKind.plane,
+  }.contains(this);
+}
 
 /// An authored instance ID survives rebuilding; sourceId belongs to the importer.
 final class StudioNode {
@@ -211,7 +232,7 @@ final class StudioCamera {
 
 /// Saved authoring data. Version-one documents migrate when read and next saved.
 final class StudioDocument {
-  static const schemaVersion = 2;
+  static const schemaVersion = 3;
   static const maxCharacters = 4 * 1024 * 1024;
   static const maxNodes = 1000;
   static const maxDepth = 64;
@@ -423,7 +444,8 @@ final class StudioDocument {
     try {
       final root = jsonDecode(source) as Map<String, dynamic>;
       if (root['schemaVersion'] != schemaVersion &&
-          root['schemaVersion'] != 1) {
+          root['schemaVersion'] != 1 &&
+          root['schemaVersion'] != 2) {
         throw const FormatException('Unsupported Studio schema version.');
       }
       final nodes = root['nodes'] as List;
