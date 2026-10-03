@@ -144,3 +144,24 @@ not yet qualified for rollout.
 Commits: `aa57bba78d63f5eab343f84f9bde4ef5c152b376` contains bundle build/load.
 Cache/runtime/agent checkpoint: `a6a0d1011b316b0922dd17ffb739b34cac5e883e`.
 Both commits are local on `main`; nothing was pushed or merged.
+
+## Incremental and disk-cache checkpoint
+
+Phases 3 and the persistent storage portion of phase 6 are implemented. Transform
+receipts include input hashes, revisions, locations, media types, immutable
+options and pinned tool versions. Reloaded receipts reuse unchanged outputs;
+changed dependencies rebuild their dependents, removed steps disappear, and a
+cancelled build cannot publish its late result. Original source bytes are retained.
+
+The optional file cache uses flushed temporary files and atomic rename, persistent
+pins, archive-byte and entry budgets, hash validation, LRU eviction and telemetry.
+A per-directory queue and file lock serialize cooperating processes. Recovery
+removes abandoned temporary files and orphan pins, reports corrupt archives and
+prunes interrupted evictions. Unpin remains possible after a budget reduction.
+The cache requires local filesystem locking and rename semantics; directory fsync
+and power-loss durability are not claimed.
+
+Verification: 34 package tests pass, including separate-process cache contention,
+receipt reload, dependency propagation, immutable recipes, cancellation, corrupted
+archives, pin survival, reduced budgets and stale output removal. Package analysis
+is clean. Mesh/texture preparation and native/application integration remain open.

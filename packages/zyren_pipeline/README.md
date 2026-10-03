@@ -69,9 +69,29 @@ CPU templates when it finishes. A load job retains its template until you call
 codes, cancel running work and await `job.done`. Loading does not insert objects
 into your scene. Your host owns scene commands and undo.
 
-The cache has no disk store or freshness provider. The disk round-trip example
-shows serialization; it is not a persistent cache implementation. Cache byte
-accounting excludes decoded models, metadata and references retained by callers.
+Import `io.dart` for `FilePipelineCache`. Give it a dedicated directory, archive
+byte budget and bundle limit. It writes through flushed temporary files and
+atomic rename, serializes cooperating processes with a directory lock, recovers
+interrupted writes, checks hashes on reload and persists pins across restarts.
+Pinned bundles resist budget eviction; explicit invalidation still removes them.
+`onEvent` reports storage, eviction, corruption and recovery. Local filesystem
+rename and locking semantics are required. This is not a network filesystem or
+power-loss durability guarantee. Accounting excludes caller-held and decoded data.
+
+## Incremental preparation
+
+`PipelineIncrementalBuilder` reads current source bytes, then runs your explicit
+`PipelineTransform` dependency graph in deterministic order. Each transform names
+its tool version, options, input IDs and output URI. Its fingerprint includes
+input hashes, revisions, media types and locations. Keep transforms pure and pin
+all encoder settings. A callback must honor its cancellation token and output
+budget; the builder checks both before publishing the new bundle.
+
+Original resources remain intact alongside derivatives and a build receipt.
+`PipelineBuildResult.restore(bundle)` restores reuse evidence after disk reload.
+Only outputs with the same recipe fingerprint are reused. Removed steps disappear
+from the next bundle. A receipt establishes integrity, not publisher trust.
+There is no source freshness shortcut: original bytes are reread on every build.
 
 ## Runtime agent access
 
@@ -117,8 +137,8 @@ Run the registry example from the workspace root:
 fvm dart run packages/zyren_pipeline/example/agent_runtime.dart
 ```
 
-This package stores original bytes. Mesh optimization, LOD generation, compressed
-texture encoding, incremental transform reuse and persistent offline caching are
+This package retains original bytes alongside declared derivatives. Mesh optimization, LOD generation, compressed
+texture encoding and application integration are
 tracked in [the workstream plan](../../plans/zyren-plugins/pipeline.md). Native
 viewport presentation and live MCP transport have not been verified for this
 provider. Package publication is also pending.
