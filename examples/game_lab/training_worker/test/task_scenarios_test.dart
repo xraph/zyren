@@ -5,6 +5,41 @@ import 'package:zyren_game_lab_training_worker/task_scenarios.dart';
 
 void main() {
   test(
+    'all authored curriculum stages run real physics with shared profiles',
+    () async {
+      final env = GameTrainingEnvironment(
+        runId: 'curriculum',
+        environmentId: 'curriculum',
+        scenarios: taskScenarioCatalog(),
+      );
+      addTearDown(env.close);
+      final builds = <String>{};
+      for (final family in ['guard', 'vehicle']) {
+        for (final stage in trainingCurriculumStages) {
+          final id = '$family-$stage';
+          var result = await env.reset(seed: 7, scenario: id);
+          final spec = result.info['scenario_spec'] as Map;
+          expect((spec['settings'] as Map)['curriculum_stage'], stage);
+          builds.add(spec['game_build_hash'] as String);
+          for (var i = 0; i < 70; i++) {
+            result = await env.step({
+              'actor': Float32List.fromList(
+                (result.info['baseline_action'] as List).cast<double>(),
+              ),
+            });
+          }
+          expect(
+            result.observations['actor']!.length,
+            family == 'guard' ? 14 : 10,
+          );
+          expect(result.info['physics_backend'], 'rapier');
+        }
+      }
+      expect(builds.length, 10);
+    },
+  );
+
+  test(
     'real guard motor baseline pursues then investigates captured position',
     () async {
       final env = GameTrainingEnvironment(

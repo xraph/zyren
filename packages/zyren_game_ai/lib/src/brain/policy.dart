@@ -19,7 +19,8 @@ final class PolicyContract {
   final ObservationSpec observation;
   final ActionDecoder decoder;
   final PolicyObservationEncoder encoder;
-  final String observationInput, continuousOutput;
+  final String observationInput;
+  final String? continuousOutput;
   final String? discreteOutput;
   final int latencyTicks, cadenceTicks, maxHoldTicks, maxHiddenBytes;
   PolicyContract({
@@ -57,11 +58,13 @@ final class PolicyContract {
               s.name != observationInput &&
               !model.recurrent.containsKey(s.name),
         ) ||
-        output == null ||
-        output.dtype != MlDtype.float32 ||
-        output.shape.length != 2 ||
-        output.shape[1] != decoder.spec.continuous.length ||
-        model.recurrent.containsValue(continuousOutput) ||
+        (decoder.spec.continuous.isEmpty
+            ? continuousOutput != null
+            : output == null ||
+                  output.dtype != MlDtype.float32 ||
+                  output.shape.length != 2 ||
+                  output.shape[1] != decoder.spec.continuous.length ||
+                  model.recurrent.containsValue(continuousOutput)) ||
         (encoder is FramePolicyEncoder &&
             (input.shape.length != 2 || input.shape[1] != observation.width)) ||
         observation.latencyTicks != latencyTicks ||
@@ -77,6 +80,7 @@ final class PolicyContract {
         (n, b) => n + b.choices.length,
       );
       if (discrete == null ||
+          model.recurrent.containsValue(discreteOutput) ||
           discrete.shape.length != 2 ||
           !(discrete.dtype == MlDtype.int64 &&
                   discrete.shape[1] == decoder.spec.branches.length ||
@@ -113,14 +117,18 @@ final class PolicyContract {
   };
 
   PolicyAction? _action(MlTensorMap tensors, List<List<bool>>? legality) {
-    final continuous = tensors[continuousOutput];
-    final expected = model.outputs.firstWhere(
-      (s) => s.name == continuousOutput,
-    );
-    if (continuous == null ||
-        continuous.shape.firstOrNull != 1 ||
-        !expected.accepts(continuous)) {
-      return null;
+    var continuousValues = <double>[];
+    if (continuousOutput != null) {
+      final continuous = tensors[continuousOutput];
+      final expected = model.outputs.firstWhere(
+        (s) => s.name == continuousOutput,
+      );
+      if (continuous == null ||
+          continuous.shape.firstOrNull != 1 ||
+          !expected.accepts(continuous)) {
+        return null;
+      }
+      continuousValues = continuous.float32Values;
     }
     final choices = <int>[];
     if (discreteOutput != null) {
@@ -153,7 +161,7 @@ final class PolicyContract {
         }
       }
     }
-    final result = PolicyAction(continuous.float32Values, choices);
+    final result = PolicyAction(continuousValues, choices);
     return decoder.decode(result, legality: legality) == null ? null : result;
   }
 }

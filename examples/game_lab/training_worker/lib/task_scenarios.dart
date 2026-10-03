@@ -44,8 +44,11 @@ PhysicsBody _box(PhysicsWorld world, Vec3 center, Vec3 half) =>
     )..addCollider(BoxShape(half));
 
 /// Pursuit becomes investigation after an authored opaque wall closes sight.
-GameTrainingScenario guardScenario() => GameTrainingScenario(
-  id: 'guard',
+GameTrainingScenario guardScenario({
+  String id = 'guard',
+  String stage = 'occlusion',
+}) => GameTrainingScenario(
+  id: id,
   split: TrainingSplit.training,
   maxSteps: 240,
   create: (seed, episode) async {
@@ -72,6 +75,16 @@ GameTrainingScenario guardScenario() => GameTrainingScenario(
       final collider = body.addCollider(
         const CapsuleShape(halfHeight: .5, radius: .3),
       );
+      PhysicsBody? hazard;
+      if (stage == 'static-obstacles' || stage == 'task-combinations') {
+        _box(world, const Vec3(.8, .5, 2), const Vec3(.5, .5, .4));
+      }
+      if (stage == 'moving-hazards' || stage == 'task-combinations') {
+        hazard = world.createBody(
+          kind: BodyKind.kinematicPosition,
+          pose: PhysicsPose(position: const Vec3(-2, .6, 3)),
+        )..addCollider(const BoxShape(Vec3(.4, .6, .4)));
+      }
       final targetBody = world.createBody(
         kind: BodyKind.fixed,
         pose: PhysicsPose(position: const Vec3(0, .81, 6)),
@@ -111,7 +124,7 @@ GameTrainingScenario guardScenario() => GameTrainingScenario(
       final commands = _TaskCommands();
       final owner = GameSimulation(
         project: _project(
-          'guard-pursuit-v1',
+          id == 'guard' ? 'guard-pursuit-v1' : 'guard-$stage-v1',
           ['actor', 'target'],
           {'training.task-actions': 1},
         ),
@@ -143,20 +156,7 @@ GameTrainingScenario guardScenario() => GameTrainingScenario(
       );
       registration = motors.register(controller, root);
       final decoder = ActionDecoder.characterDiscrete();
-      final profile = SensorProfile(
-        materials: {SensorMaterial.unknown: SensorMaterialRule.block},
-        range: 15,
-        halfAngleRadians: math.pi,
-        maxEntities: 1,
-        maxCandidates: 1,
-        queryBudget: 4,
-      );
-      final assembler = ObservationAssembler(
-        registry: SensorRegistry()
-          ..register(BodySensor(maxSpeed: 10))
-          ..register(VisionSensor(profile)),
-        profile: profile,
-      );
+      final assembler = TrainingProfiles.guard();
       final script = ScriptedBrain(
         identity: BrainIdentity(
           episodeId: episode,
@@ -206,10 +206,17 @@ GameTrainingScenario guardScenario() => GameTrainingScenario(
       };
       Map<String, Float32List> observe() {
         // Occluder placement is a registered scenario event, not a policy input.
-        if (owner.session.tick >= 61 && wall == null) {
+        if ((stage == 'occlusion' || stage == 'task-combinations') &&
+            owner.session.tick >= 61 &&
+            wall == null) {
           wall = _box(world, const Vec3(0, 1, 4), const Vec3(2, 1, .15));
           // The wall metadata defaults to blocking through the authored opaque profile.
         }
+        hazard?.setTarget(
+          PhysicsPose(
+            position: Vec3(math.sin(owner.session.tick * .04) * 2, .6, 3),
+          ),
+        );
         final snapshot = SensorSnapshot.fromSimulation(
           episodeId: episode,
           worldRevision: owner.session.tick,
@@ -294,7 +301,7 @@ GameTrainingScenario guardScenario() => GameTrainingScenario(
       }
 
       final pinnedScenario = _scenarioSpec(
-        'guard',
+        id,
         seed,
         owner.session.project.buildId,
         assembler.spec.hash,
@@ -311,6 +318,7 @@ GameTrainingScenario guardScenario() => GameTrainingScenario(
           'map': 'guard-arena-v1',
           'occluder_tick': 61,
           'fixed_hz': 50,
+          if (id != 'guard') 'curriculum_stage': stage,
         },
       );
       return GameTrainingInstance(
@@ -355,6 +363,7 @@ GameTrainingScenario guardScenario() => GameTrainingScenario(
           'renderer': null,
           'observation_width': assembler.spec.width,
           'observation_schema': assembler.spec.toJson(),
+          'action_schema': decoder.spec.toJson(),
         },
       );
     } catch (_) {
@@ -389,8 +398,11 @@ final class _TaskCommands extends GameSystem {
   }
 }
 
-GameTrainingScenario vehicleScenario() => GameTrainingScenario(
-  id: 'vehicle',
+GameTrainingScenario vehicleScenario({
+  String id = 'vehicle',
+  String stage = 'static-obstacles',
+}) => GameTrainingScenario(
+  id: id,
   split: TrainingSplit.training,
   maxSteps: 240,
   create: (seed, episode) async {
@@ -400,7 +412,19 @@ GameTrainingScenario vehicleScenario() => GameTrainingScenario(
     GameVehicleRegistration? registration;
     try {
       _box(world, const Vec3(0, -.1, 0), const Vec3(100, .1, 100));
-      _box(world, const Vec3(0, .5, 12), const Vec3(2, .5, .25));
+      if (stage != 'empty-arena') {
+        _box(world, const Vec3(0, .5, 12), const Vec3(2, .5, .25));
+      }
+      if (stage == 'occlusion' || stage == 'task-combinations') {
+        _box(world, const Vec3(2, 1, 8), const Vec3(.25, 1, 2));
+      }
+      PhysicsBody? hazard;
+      if (stage == 'moving-hazards' || stage == 'task-combinations') {
+        hazard = world.createBody(
+          kind: BodyKind.kinematicPosition,
+          pose: PhysicsPose(position: const Vec3(-3, .5, 7)),
+        )..addCollider(const BoxShape(Vec3(.6, .5, .6)));
+      }
       final body = world.createBody(
         pose: PhysicsPose(position: const Vec3(0, .8, 0)),
         mass: 400,
@@ -431,7 +455,7 @@ GameTrainingScenario vehicleScenario() => GameTrainingScenario(
       final commands = _TaskCommands();
       final owner = GameSimulation(
         project: _project(
-          'vehicle-braking-v1',
+          id == 'vehicle' ? 'vehicle-braking-v1' : 'vehicle-$stage-v1',
           ['actor'],
           {
             'training.task-actions': 1,
@@ -460,19 +484,7 @@ GameTrainingScenario vehicleScenario() => GameTrainingScenario(
         wheelVisuals: [for (var i = 0; i < 4; i++) root.add(Group())],
       );
       final decoder = ActionDecoder.vehiclePedals();
-      final profile = SensorProfile(
-        range: 20,
-        maxEntities: 1,
-        maxCandidates: 1,
-        queryBudget: 4,
-        materials: {SensorMaterial.unknown: SensorMaterialRule.block},
-      );
-      final assembler = ObservationAssembler(
-        registry: SensorRegistry()
-          ..register(BodySensor(maxSpeed: 30))
-          ..register(RaySensor(profile, directions: [const Vec3(0, 0, 1)])),
-        profile: profile,
-      );
+      final assembler = TrainingProfiles.vehicle();
       final script = ScriptedBrain(
         identity: BrainIdentity(
           episodeId: episode,
@@ -494,6 +506,11 @@ GameTrainingScenario vehicleScenario() => GameTrainingScenario(
         applied = actual.action.continuous;
       };
       Map<String, Float32List> observe() {
+        hazard?.setTarget(
+          PhysicsPose(
+            position: Vec3(math.sin(owner.session.tick * .03) * 3, .5, 7),
+          ),
+        );
         final snapshot = SensorSnapshot.fromSimulation(
           episodeId: episode,
           worldRevision: owner.session.tick,
@@ -540,7 +557,7 @@ GameTrainingScenario vehicleScenario() => GameTrainingScenario(
       }
 
       final pinnedScenario = _scenarioSpec(
-        'vehicle',
+        id,
         seed,
         owner.session.project.buildId,
         assembler.spec.hash,
@@ -560,6 +577,7 @@ GameTrainingScenario vehicleScenario() => GameTrainingScenario(
           'turn_until_tick': 100,
           'brake_from_tick': 160,
           'fixed_hz': 50,
+          if (id != 'vehicle') 'curriculum_stage': stage,
         },
       );
       return GameTrainingInstance(
@@ -599,6 +617,7 @@ GameTrainingScenario vehicleScenario() => GameTrainingScenario(
           'renderer': null,
           'observation_width': assembler.spec.width,
           'observation_schema': assembler.spec.toJson(),
+          'action_schema': decoder.spec.toJson(),
           'vehicle_speed': controller.telemetry.velocity.length,
           'grounded_wheels': controller.telemetry.groundedWheels,
         },
@@ -628,7 +647,9 @@ Map<String, Object?> _scenarioSpec(
   'game_build_hash': build,
   'observation_schema_hash': observation,
   'action_schema_hash': action,
-  'callback_id': id == 'guard' ? 'guard.pursuit' : 'vehicle.braking-turning',
+  'callback_id': id.startsWith('guard')
+      ? 'guard.pursuit'
+      : 'vehicle.braking-turning',
   'reward_terms': [
     {'id': 'task.progress', 'cap': 1.0},
   ],
@@ -638,4 +659,21 @@ Map<String, Object?> _scenarioSpec(
   'latency_ticks': 1,
   'assets': assets,
   'settings': settings,
+};
+
+const trainingCurriculumStages = [
+  'empty-arena',
+  'static-obstacles',
+  'occlusion',
+  'moving-hazards',
+  'task-combinations',
+];
+
+Map<String, GameTrainingScenario> taskScenarioCatalog() => {
+  'guard': guardScenario(),
+  'vehicle': vehicleScenario(),
+  for (final stage in trainingCurriculumStages)
+    'guard-$stage': guardScenario(id: 'guard-$stage', stage: stage),
+  for (final stage in trainingCurriculumStages)
+    'vehicle-$stage': vehicleScenario(id: 'vehicle-$stage', stage: stage),
 };

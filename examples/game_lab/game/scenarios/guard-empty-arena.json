@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "id": "guard-empty-arena",
+  "partition": "train",
+  "game_build_hash": "df60c51db259ff00c8f5f1414961f65900e4cbb8b677e4b897e2542419729e46",
+  "observation_schema_hash": "94553fa5b89ad851a55261daed6345b93118a03aa6cb7651456863179fe280e8",
+  "action_schema_hash": "6e6b9dbb58f142debce27e25d278131fa6c690870eb27caa1f7837c01291fe88",
+  "callback_id": "guard.pursuit",
+  "reward_terms": [
+    {
+      "id": "task.progress",
+      "cap": 1.0
+    }
+  ],
+  "seed": 7,
+  "max_steps": 240,
+  "control_cadence": 1,
+  "latency_ticks": 1,
+  "assets": [
+    {
+      "id": "guard-skin",
+      "source": "repository-authored",
+      "license": "LicenseRef-Repository-Authored",
+      "hash": "00db0658ba6f75ebf80074095fec2c0e080cdc665b955f78b9debc29d0ceadb5"
+    }
+  ],
+  "settings": {
+    "map": "guard-arena-v1",
+    "occluder_tick": 61,
+    "fixed_hz": 50,
+    "curriculum_stage": "empty-arena"
+  }
+}

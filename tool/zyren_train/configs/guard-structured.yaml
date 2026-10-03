@@ -1,0 +1,271 @@
+{
+  "schema_version": 1,
+  "seed": 7,
+  "device": "cpu",
+  "algorithm": "recurrent_ppo",
+  "network": {
+    "hidden_sizes": [
+      128,
+      128
+    ],
+    "lstm_hidden_size": 128
+  },
+  "optimizer": {
+    "learning_rate": 0.0003,
+    "epochs": 4,
+    "gamma": 0.99,
+    "gae_lambda": 0.95,
+    "clip": 0.2,
+    "entropy": 0.01,
+    "value": 0.5,
+    "max_grad_norm": 0.5
+  },
+  "rollout": {
+    "environments": 8,
+    "steps": 128
+  },
+  "total_steps": 200000,
+  "checkpoint_every_steps": 10000,
+  "evaluation_every_steps": 10000,
+  "scenarios": [
+    {
+      "schema_version": 1,
+      "id": "guard-empty-arena",
+      "partition": "train",
+      "game_build_hash": "df60c51db259ff00c8f5f1414961f65900e4cbb8b677e4b897e2542419729e46",
+      "observation_schema_hash": "94553fa5b89ad851a55261daed6345b93118a03aa6cb7651456863179fe280e8",
+      "action_schema_hash": "6e6b9dbb58f142debce27e25d278131fa6c690870eb27caa1f7837c01291fe88",
+      "callback_id": "guard.pursuit",
+      "reward_terms": [
+        {
+          "id": "task.progress",
+          "cap": 1.0
+        }
+      ],
+      "seed": 7,
+      "max_steps": 240,
+      "control_cadence": 1,
+      "latency_ticks": 1,
+      "assets": [
+        {
+          "id": "guard-skin",
+          "source": "repository-authored",
+          "license": "LicenseRef-Repository-Authored",
+          "hash": "00db0658ba6f75ebf80074095fec2c0e080cdc665b955f78b9debc29d0ceadb5"
+        }
+      ],
+      "settings": {
+        "map": "guard-arena-v1",
+        "occluder_tick": 61,
+        "fixed_hz": 50,
+        "curriculum_stage": "empty-arena"
+      }
+    },
+    {
+      "schema_version": 1,
+      "id": "guard-static-obstacles",
+      "partition": "train",
+      "game_build_hash": "b0dc63204c96d910e7eb99bcaec2eb8f8c4f1e35f019dba8063b6171d8442975",
+      "observation_schema_hash": "94553fa5b89ad851a55261daed6345b93118a03aa6cb7651456863179fe280e8",
+      "action_schema_hash": "6e6b9dbb58f142debce27e25d278131fa6c690870eb27caa1f7837c01291fe88",
+      "callback_id": "guard.pursuit",
+      "reward_terms": [
+        {
+          "id": "task.progress",
+          "cap": 1.0
+        }
+      ],
+      "seed": 7,
+      "max_steps": 240,
+      "control_cadence": 1,
+      "latency_ticks": 1,
+      "assets": [
+        {
+          "id": "guard-skin",
+          "source": "repository-authored",
+          "license": "LicenseRef-Repository-Authored",
+          "hash": "00db0658ba6f75ebf80074095fec2c0e080cdc665b955f78b9debc29d0ceadb5"
+        }
+      ],
+      "settings": {
+        "map": "guard-arena-v1",
+        "occluder_tick": 61,
+        "fixed_hz": 50,
+        "curriculum_stage": "static-obstacles"
+      }
+    },
+    {
+      "schema_version": 1,
+      "id": "guard-occlusion",
+      "partition": "train",
+      "game_build_hash": "d196f1eae6364e2685db861add6476ec240b84179f2bf1dfb5fca352116b1f56",
+      "observation_schema_hash": "94553fa5b89ad851a55261daed6345b93118a03aa6cb7651456863179fe280e8",
+      "action_schema_hash": "6e6b9dbb58f142debce27e25d278131fa6c690870eb27caa1f7837c01291fe88",
+      "callback_id": "guard.pursuit",
+      "reward_terms": [
+        {
+          "id": "task.progress",
+          "cap": 1.0
+        }
+      ],
+      "seed": 7,
+      "max_steps": 240,
+      "control_cadence": 1,
+      "latency_ticks": 1,
+      "assets": [
+        {
+          "id": "guard-skin",
+          "source": "repository-authored",
+          "license": "LicenseRef-Repository-Authored",
+          "hash": "00db0658ba6f75ebf80074095fec2c0e080cdc665b955f78b9debc29d0ceadb5"
+        }
+      ],
+      "settings": {
+        "map": "guard-arena-v1",
+        "occluder_tick": 61,
+        "fixed_hz": 50,
+        "curriculum_stage": "occlusion"
+      }
+    },
+    {
+      "schema_version": 1,
+      "id": "guard-moving-hazards",
+      "partition": "train",
+      "game_build_hash": "0935e38faf06ca48eb0f8a9ce9d1d65cdae38ac07bf6d164b4f95f1f041c1540",
+      "observation_schema_hash": "94553fa5b89ad851a55261daed6345b93118a03aa6cb7651456863179fe280e8",
+      "action_schema_hash": "6e6b9dbb58f142debce27e25d278131fa6c690870eb27caa1f7837c01291fe88",
+      "callback_id": "guard.pursuit",
+      "reward_terms": [
+        {
+          "id": "task.progress",
+          "cap": 1.0
+        }
+      ],
+      "seed": 7,
+      "max_steps": 240,
+      "control_cadence": 1,
+      "latency_ticks": 1,
+      "assets": [
+        {
+          "id": "guard-skin",
+          "source": "repository-authored",
+          "license": "LicenseRef-Repository-Authored",
+          "hash": "00db0658ba6f75ebf80074095fec2c0e080cdc665b955f78b9debc29d0ceadb5"
+        }
+      ],
+      "settings": {
+        "map": "guard-arena-v1",
+        "occluder_tick": 61,
+        "fixed_hz": 50,
+        "curriculum_stage": "moving-hazards"
+      }
+    },
+    {
+      "schema_version": 1,
+      "id": "guard-task-combinations",
+      "partition": "train",
+      "game_build_hash": "fd76bdf1e115a2689b3bc67dcdbd87133451ce2d7cc16e9ac63aa0fa3735bfe3",
+      "observation_schema_hash": "94553fa5b89ad851a55261daed6345b93118a03aa6cb7651456863179fe280e8",
+      "action_schema_hash": "6e6b9dbb58f142debce27e25d278131fa6c690870eb27caa1f7837c01291fe88",
+      "callback_id": "guard.pursuit",
+      "reward_terms": [
+        {
+          "id": "task.progress",
+          "cap": 1.0
+        }
+      ],
+      "seed": 7,
+      "max_steps": 240,
+      "control_cadence": 1,
+      "latency_ticks": 1,
+      "assets": [
+        {
+          "id": "guard-skin",
+          "source": "repository-authored",
+          "license": "LicenseRef-Repository-Authored",
+          "hash": "00db0658ba6f75ebf80074095fec2c0e080cdc665b955f78b9debc29d0ceadb5"
+        }
+      ],
+      "settings": {
+        "map": "guard-arena-v1",
+        "occluder_tick": 61,
+        "fixed_hz": 50,
+        "curriculum_stage": "task-combinations"
+      }
+    },
+    {
+      "schema_version": 1,
+      "id": "guard",
+      "partition": "train",
+      "game_build_hash": "abf11331d967bb0534ee37472d431262ff85e67875e1220bbc89d72dd41423df",
+      "observation_schema_hash": "94553fa5b89ad851a55261daed6345b93118a03aa6cb7651456863179fe280e8",
+      "action_schema_hash": "6e6b9dbb58f142debce27e25d278131fa6c690870eb27caa1f7837c01291fe88",
+      "callback_id": "guard.pursuit",
+      "reward_terms": [
+        {
+          "id": "task.progress",
+          "cap": 1.0
+        }
+      ],
+      "seed": 7,
+      "max_steps": 240,
+      "control_cadence": 1,
+      "latency_ticks": 1,
+      "assets": [
+        {
+          "id": "guard-skin",
+          "source": "repository-authored",
+          "license": "LicenseRef-Repository-Authored",
+          "hash": "00db0658ba6f75ebf80074095fec2c0e080cdc665b955f78b9debc29d0ceadb5"
+        }
+      ],
+      "settings": {
+        "map": "guard-arena-v1",
+        "occluder_tick": 61,
+        "fixed_hz": 50
+      }
+    }
+  ],
+  "curriculum": [
+    {
+      "name": "empty-arena",
+      "scenario": "guard-empty-arena",
+      "after_steps": 0
+    },
+    {
+      "name": "static-obstacles",
+      "scenario": "guard-static-obstacles",
+      "after_steps": 40000
+    },
+    {
+      "name": "occlusion",
+      "scenario": "guard-occlusion",
+      "after_steps": 80000
+    },
+    {
+      "name": "moving-hazards",
+      "scenario": "guard-moving-hazards",
+      "after_steps": 120000
+    },
+    {
+      "name": "task-combinations",
+      "scenario": "guard-task-combinations",
+      "after_steps": 160000
+    }
+  ],
+  "rewards": {
+    "task.progress": 1
+  },
+  "datasets": {
+    "train": [
+      "recordings/guard-scripted"
+    ],
+    "validation": [],
+    "test": []
+  },
+  "bc_epochs": 2,
+  "worker_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "worker_native_sha256": {
+    "lib/placeholder": "0000000000000000000000000000000000000000000000000000000000000000"
+  }
+}

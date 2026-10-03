@@ -3,6 +3,19 @@ import 'package:zyren_game_ai/zyren_game_ai.dart';
 import 'package:zyren_game_native/zyren_game_native.dart';
 
 void main() {
+  test('structured public profiles preserve trained schema pins', () {
+    expect(TrainingProfiles.guard().spec.width, 14);
+    expect(
+      TrainingProfiles.guard().spec.hash,
+      '94553fa5b89ad851a55261daed6345b93118a03aa6cb7651456863179fe280e8',
+    );
+    expect(TrainingProfiles.vehicle().spec.width, 10);
+    expect(
+      TrainingProfiles.vehicle().spec.hash,
+      '6edf858db0367d7e604350996ec01ee558128d9c6d4ecf9efc444403e4e33d4b',
+    );
+  });
+
   test(
     'character branches and typed intent share deployed mapping and masks',
     () {

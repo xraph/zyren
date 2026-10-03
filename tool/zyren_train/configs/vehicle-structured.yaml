@@ -1,0 +1,277 @@
+{
+  "schema_version": 1,
+  "seed": 7,
+  "device": "cpu",
+  "algorithm": "recurrent_ppo",
+  "network": {
+    "hidden_sizes": [
+      128,
+      128
+    ],
+    "lstm_hidden_size": 128
+  },
+  "optimizer": {
+    "learning_rate": 0.0003,
+    "epochs": 4,
+    "gamma": 0.99,
+    "gae_lambda": 0.95,
+    "clip": 0.2,
+    "entropy": 0.01,
+    "value": 0.5,
+    "max_grad_norm": 0.5
+  },
+  "rollout": {
+    "environments": 8,
+    "steps": 128
+  },
+  "total_steps": 200000,
+  "checkpoint_every_steps": 10000,
+  "evaluation_every_steps": 10000,
+  "scenarios": [
+    {
+      "schema_version": 1,
+      "id": "vehicle-empty-arena",
+      "partition": "train",
+      "game_build_hash": "71a1f98b16c309bffd57e29cc81649ea783048e89f4cf7603ec85092f61b7922",
+      "observation_schema_hash": "6edf858db0367d7e604350996ec01ee558128d9c6d4ecf9efc444403e4e33d4b",
+      "action_schema_hash": "5ddc05b677886554f244b33b0f48ddb74c8fe98dbc30053379cde4aa7f199d10",
+      "callback_id": "vehicle.braking-turning",
+      "reward_terms": [
+        {
+          "id": "task.progress",
+          "cap": 1.0
+        }
+      ],
+      "seed": 7,
+      "max_steps": 240,
+      "control_cadence": 1,
+      "latency_ticks": 1,
+      "assets": [
+        {
+          "id": "ray-wheel-buggy",
+          "source": "repository-authored",
+          "license": "LicenseRef-Repository-Authored",
+          "hash": "4cc9a000db7cfd822c8cec8ae311a1cd9186f799bcfed27c5b6d2f2ae405b465"
+        }
+      ],
+      "settings": {
+        "map": "vehicle-arena-v1",
+        "turn_until_tick": 100,
+        "brake_from_tick": 160,
+        "fixed_hz": 50,
+        "curriculum_stage": "empty-arena"
+      }
+    },
+    {
+      "schema_version": 1,
+      "id": "vehicle-static-obstacles",
+      "partition": "train",
+      "game_build_hash": "b87ad69885a3cc2cb2ae85cbd4ff5264785731e98f04e56f708b6a12db14f029",
+      "observation_schema_hash": "6edf858db0367d7e604350996ec01ee558128d9c6d4ecf9efc444403e4e33d4b",
+      "action_schema_hash": "5ddc05b677886554f244b33b0f48ddb74c8fe98dbc30053379cde4aa7f199d10",
+      "callback_id": "vehicle.braking-turning",
+      "reward_terms": [
+        {
+          "id": "task.progress",
+          "cap": 1.0
+        }
+      ],
+      "seed": 7,
+      "max_steps": 240,
+      "control_cadence": 1,
+      "latency_ticks": 1,
+      "assets": [
+        {
+          "id": "ray-wheel-buggy",
+          "source": "repository-authored",
+          "license": "LicenseRef-Repository-Authored",
+          "hash": "4cc9a000db7cfd822c8cec8ae311a1cd9186f799bcfed27c5b6d2f2ae405b465"
+        }
+      ],
+      "settings": {
+        "map": "vehicle-arena-v1",
+        "turn_until_tick": 100,
+        "brake_from_tick": 160,
+        "fixed_hz": 50,
+        "curriculum_stage": "static-obstacles"
+      }
+    },
+    {
+      "schema_version": 1,
+      "id": "vehicle-occlusion",
+      "partition": "train",
+      "game_build_hash": "9bbc4e8c79df83b0396afee021c2e7c2b0e8071dd34ae4b85176ccbd32372cb9",
+      "observation_schema_hash": "6edf858db0367d7e604350996ec01ee558128d9c6d4ecf9efc444403e4e33d4b",
+      "action_schema_hash": "5ddc05b677886554f244b33b0f48ddb74c8fe98dbc30053379cde4aa7f199d10",
+      "callback_id": "vehicle.braking-turning",
+      "reward_terms": [
+        {
+          "id": "task.progress",
+          "cap": 1.0
+        }
+      ],
+      "seed": 7,
+      "max_steps": 240,
+      "control_cadence": 1,
+      "latency_ticks": 1,
+      "assets": [
+        {
+          "id": "ray-wheel-buggy",
+          "source": "repository-authored",
+          "license": "LicenseRef-Repository-Authored",
+          "hash": "4cc9a000db7cfd822c8cec8ae311a1cd9186f799bcfed27c5b6d2f2ae405b465"
+        }
+      ],
+      "settings": {
+        "map": "vehicle-arena-v1",
+        "turn_until_tick": 100,
+        "brake_from_tick": 160,
+        "fixed_hz": 50,
+        "curriculum_stage": "occlusion"
+      }
+    },
+    {
+      "schema_version": 1,
+      "id": "vehicle-moving-hazards",
+      "partition": "train",
+      "game_build_hash": "56e2345004c6ebb53b5cbd87903346feb7674c210a9ad4ae94f941f2b17fd026",
+      "observation_schema_hash": "6edf858db0367d7e604350996ec01ee558128d9c6d4ecf9efc444403e4e33d4b",
+      "action_schema_hash": "5ddc05b677886554f244b33b0f48ddb74c8fe98dbc30053379cde4aa7f199d10",
+      "callback_id": "vehicle.braking-turning",
+      "reward_terms": [
+        {
+          "id": "task.progress",
+          "cap": 1.0
+        }
+      ],
+      "seed": 7,
+      "max_steps": 240,
+      "control_cadence": 1,
+      "latency_ticks": 1,
+      "assets": [
+        {
+          "id": "ray-wheel-buggy",
+          "source": "repository-authored",
+          "license": "LicenseRef-Repository-Authored",
+          "hash": "4cc9a000db7cfd822c8cec8ae311a1cd9186f799bcfed27c5b6d2f2ae405b465"
+        }
+      ],
+      "settings": {
+        "map": "vehicle-arena-v1",
+        "turn_until_tick": 100,
+        "brake_from_tick": 160,
+        "fixed_hz": 50,
+        "curriculum_stage": "moving-hazards"
+      }
+    },
+    {
+      "schema_version": 1,
+      "id": "vehicle-task-combinations",
+      "partition": "train",
+      "game_build_hash": "5ccdb02004319d838fe22c38577e202fcb0c56e6d41951b4c101a89da5018142",
+      "observation_schema_hash": "6edf858db0367d7e604350996ec01ee558128d9c6d4ecf9efc444403e4e33d4b",
+      "action_schema_hash": "5ddc05b677886554f244b33b0f48ddb74c8fe98dbc30053379cde4aa7f199d10",
+      "callback_id": "vehicle.braking-turning",
+      "reward_terms": [
+        {
+          "id": "task.progress",
+          "cap": 1.0
+        }
+      ],
+      "seed": 7,
+      "max_steps": 240,
+      "control_cadence": 1,
+      "latency_ticks": 1,
+      "assets": [
+        {
+          "id": "ray-wheel-buggy",
+          "source": "repository-authored",
+          "license": "LicenseRef-Repository-Authored",
+          "hash": "4cc9a000db7cfd822c8cec8ae311a1cd9186f799bcfed27c5b6d2f2ae405b465"
+        }
+      ],
+      "settings": {
+        "map": "vehicle-arena-v1",
+        "turn_until_tick": 100,
+        "brake_from_tick": 160,
+        "fixed_hz": 50,
+        "curriculum_stage": "task-combinations"
+      }
+    },
+    {
+      "schema_version": 1,
+      "id": "vehicle",
+      "partition": "train",
+      "game_build_hash": "b48e485c7e1760c07f5684b4c49d3e528bdaca7365cc8abba4a22bd66110bff8",
+      "observation_schema_hash": "6edf858db0367d7e604350996ec01ee558128d9c6d4ecf9efc444403e4e33d4b",
+      "action_schema_hash": "5ddc05b677886554f244b33b0f48ddb74c8fe98dbc30053379cde4aa7f199d10",
+      "callback_id": "vehicle.braking-turning",
+      "reward_terms": [
+        {
+          "id": "task.progress",
+          "cap": 1.0
+        }
+      ],
+      "seed": 7,
+      "max_steps": 240,
+      "control_cadence": 1,
+      "latency_ticks": 1,
+      "assets": [
+        {
+          "id": "ray-wheel-buggy",
+          "source": "repository-authored",
+          "license": "LicenseRef-Repository-Authored",
+          "hash": "4cc9a000db7cfd822c8cec8ae311a1cd9186f799bcfed27c5b6d2f2ae405b465"
+        }
+      ],
+      "settings": {
+        "map": "vehicle-arena-v1",
+        "turn_until_tick": 100,
+        "brake_from_tick": 160,
+        "fixed_hz": 50
+      }
+    }
+  ],
+  "curriculum": [
+    {
+      "name": "empty-arena",
+      "scenario": "vehicle-empty-arena",
+      "after_steps": 0
+    },
+    {
+      "name": "static-obstacles",
+      "scenario": "vehicle-static-obstacles",
+      "after_steps": 40000
+    },
+    {
+      "name": "occlusion",
+      "scenario": "vehicle-occlusion",
+      "after_steps": 80000
+    },
+    {
+      "name": "moving-hazards",
+      "scenario": "vehicle-moving-hazards",
+      "after_steps": 120000
+    },
+    {
+      "name": "task-combinations",
+      "scenario": "vehicle-task-combinations",
+      "after_steps": 160000
+    }
+  ],
+  "rewards": {
+    "task.progress": 1
+  },
+  "datasets": {
+    "train": [
+      "recordings/vehicle-scripted"
+    ],
+    "validation": [],
+    "test": []
+  },
+  "bc_epochs": 2,
+  "worker_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "worker_native_sha256": {
+    "lib/placeholder": "0000000000000000000000000000000000000000000000000000000000000000"
+  }
+}

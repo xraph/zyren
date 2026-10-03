@@ -62,3 +62,41 @@ abstract final class TrainingActions {
     ], []);
   }
 }
+
+/// Public structured sensor bindings shared by native training and game hosts.
+abstract final class TrainingProfiles {
+  static SensorProfile guardProfile() => SensorProfile(
+    materials: {SensorMaterial.unknown: SensorMaterialRule.block},
+    range: 15,
+    halfAngleRadians: math.pi,
+    maxEntities: 1,
+    maxCandidates: 1,
+    queryBudget: 4,
+  );
+  static ObservationAssembler guard() {
+    final profile = guardProfile();
+    return ObservationAssembler(
+      registry: SensorRegistry()
+        ..register(BodySensor(maxSpeed: 10))
+        ..register(VisionSensor(profile)),
+      profile: profile,
+    );
+  }
+
+  static SensorProfile vehicleProfile() => SensorProfile(
+    range: 20,
+    maxEntities: 1,
+    maxCandidates: 1,
+    queryBudget: 4,
+    materials: {SensorMaterial.unknown: SensorMaterialRule.block},
+  );
+  static ObservationAssembler vehicle() {
+    final profile = vehicleProfile();
+    return ObservationAssembler(
+      registry: SensorRegistry()
+        ..register(BodySensor(maxSpeed: 30))
+        ..register(RaySensor(profile, directions: [const Vec3(0, 0, 1)])),
+      profile: profile,
+    );
+  }
+}

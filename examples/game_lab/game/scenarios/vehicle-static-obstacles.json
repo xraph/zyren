@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "id": "vehicle-static-obstacles",
+  "partition": "train",
+  "game_build_hash": "b87ad69885a3cc2cb2ae85cbd4ff5264785731e98f04e56f708b6a12db14f029",
+  "observation_schema_hash": "6edf858db0367d7e604350996ec01ee558128d9c6d4ecf9efc444403e4e33d4b",
+  "action_schema_hash": "5ddc05b677886554f244b33b0f48ddb74c8fe98dbc30053379cde4aa7f199d10",
+  "callback_id": "vehicle.braking-turning",
+  "reward_terms": [
+    {
+      "id": "task.progress",
+      "cap": 1.0
+    }
+  ],
+  "seed": 7,
+  "max_steps": 240,
+  "control_cadence": 1,
+  "latency_ticks": 1,
+  "assets": [
+    {
+      "id": "ray-wheel-buggy",
+      "source": "repository-authored",
+      "license": "LicenseRef-Repository-Authored",
+      "hash": "4cc9a000db7cfd822c8cec8ae311a1cd9186f799bcfed27c5b6d2f2ae405b465"
+    }
+  ],
+  "settings": {
+    "map": "vehicle-arena-v1",
+    "turn_until_tick": 100,
+    "brake_from_tick": 160,
+    "fixed_hz": 50,
+    "curriculum_stage": "static-obstacles"
+  }
+}

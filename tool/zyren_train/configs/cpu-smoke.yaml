@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "seed": 7,
+  "device": "cpu",
+  "algorithm": "recurrent_ppo",
+  "network": {
+    "hidden_sizes": [
+      128,
+      128
+    ],
+    "lstm_hidden_size": 128
+  },
+  "optimizer": {
+    "learning_rate": 0.0003,
+    "epochs": 2,
+    "gamma": 0.99,
+    "gae_lambda": 0.95,
+    "clip": 0.2,
+    "entropy": 0.01,
+    "value": 0.5,
+    "max_grad_norm": 0.5
+  },
+  "rollout": {
+    "environments": 1,
+    "steps": 16
+  },
+  "total_steps": 32,
+  "checkpoint_every_steps": 16,
+  "evaluation_every_steps": 1000,
+  "scenarios": [
+    {
+      "schema_version": 1,
+      "id": "guard",
+      "partition": "train",
+      "game_build_hash": "abf11331d967bb0534ee37472d431262ff85e67875e1220bbc89d72dd41423df",
+      "observation_schema_hash": "94553fa5b89ad851a55261daed6345b93118a03aa6cb7651456863179fe280e8",
+      "action_schema_hash": "6e6b9dbb58f142debce27e25d278131fa6c690870eb27caa1f7837c01291fe88",
+      "callback_id": "guard.pursuit",
+      "reward_terms": [
+        {
+          "id": "task.progress",
+          "cap": 1.0
+        }
+      ],
+      "seed": 7,
+      "max_steps": 240,
+      "control_cadence": 1,
+      "latency_ticks": 1,
+      "assets": [
+        {
+          "id": "guard-skin",
+          "source": "repository-authored",
+          "license": "LicenseRef-Repository-Authored",
+          "hash": "00db0658ba6f75ebf80074095fec2c0e080cdc665b955f78b9debc29d0ceadb5"
+        }
+      ],
+      "settings": {
+        "map": "guard-arena-v1",
+        "occluder_tick": 61,
+        "fixed_hz": 50
+      }
+    }
+  ],
+  "curriculum": [
+    {
+      "name": "occlusion",
+      "scenario": "guard",
+      "after_steps": 0
+    }
+  ],
+  "rewards": {
+    "task.progress": 1
+  },
+  "datasets": {
+    "train": [],
+    "validation": [],
+    "test": []
+  },
+  "bc_epochs": 0,
+  "worker_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "worker_native_sha256": {
+    "lib/placeholder": "0000000000000000000000000000000000000000000000000000000000000000"
+  }
+}

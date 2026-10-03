@@ -31,7 +31,45 @@ def main(argv=None):
     replay=commands.add_parser('replay')
     replay.add_argument('--worker',required=True); replay.add_argument('--cwd',type=Path,required=True)
     replay.add_argument('--recording',type=Path,required=True)
+    training=commands.add_parser('train')
+    training.add_argument('--config',type=Path,required=True); training.add_argument('--worker',required=True)
+    training.add_argument('--cwd',type=Path,required=True); training.add_argument('--run',type=Path,required=True)
+    training.add_argument('--resume',action='store_true'); training.add_argument('--stop-after-updates',type=int)
+    configure=commands.add_parser('configure')
+    configure.add_argument('--template',type=Path,required=True); configure.add_argument('--worker',required=True)
+    configure.add_argument('--output',type=Path,required=True)
     args = parser.parse_args(argv)
+    if args.command=='configure':
+        from .train import TrainingConfig,worker_native_hashes
+        data=decode_json_bytes(args.template.read_bytes())
+        data['worker_sha256']=hashlib.sha256(Path(args.worker).resolve().read_bytes()).hexdigest()
+        data['worker_native_sha256']=worker_native_hashes(args.worker)
+        config=TrainingConfig.from_dict(data)
+        args.output.parent.mkdir(parents=True,exist_ok=True)
+        with args.output.open('xb') as stream: stream.write(config.encoded+b'\n')
+        print(json.dumps({'config_hash':config.hash,'path':str(args.output)},indent=2)); return
+    if args.command=='train':
+        import signal
+        from .train import TrainingConfig,WorkerPool,train
+        from .run_manifest import RunDirectory
+        if args.stop_after_updates is not None and args.stop_after_updates<1: parser.error('stop-after-updates must be positive')
+        config=TrainingConfig.load(args.config); run=RunDirectory(args.run,config.hash,resume=args.resume)
+        stop=[False]; prior={}
+        def request_stop(signum,frame): stop[0]=True
+        for signum in (signal.SIGINT,signal.SIGTERM):
+            prior[signum]=signal.signal(signum,request_stop)
+        pool=None
+        try:
+            pool=WorkerPool([str(Path(args.worker).resolve())],cwd=args.cwd,config=config)
+            result=train(config,pool,run,resume=args.resume,stop_after_updates=args.stop_after_updates,cancelled=lambda:stop[0])
+            print(json.dumps(result,indent=2))
+        except BaseException as error:
+            if pool is None: run.append('failed',error=str(error)[:4096],workers_closed=True,worker_exit_codes=[])
+            raise
+        finally:
+            if pool is not None: pool.close()
+            for signum,handler in prior.items(): signal.signal(signum,handler)
+        return
     if args.command == 'doctor':
         print(json.dumps(doctor(args.worker), indent=2))
         return

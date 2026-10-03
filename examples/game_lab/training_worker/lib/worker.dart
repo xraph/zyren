@@ -14,11 +14,7 @@ void _environmentMain(Map<String, Object?> config) {
     runId: config['run'] as String,
     environmentId: config['env'] as String,
     purpose: TrainingSplit.values.byName(config['purpose'] as String),
-    scenarios: {
-      'native-body': nativeBodyScenario(),
-      'guard': guardScenario(),
-      'vehicle': vehicleScenario(),
-    },
+    scenarios: {'native-body': nativeBodyScenario(), ...taskScenarioCatalog()},
   );
   final endpoint = LocalTrainingEndpoint(environment);
   parent.send(receive.sendPort);
@@ -166,11 +162,11 @@ Future<void> runTrainingWorker(List<String> args) async {
     final env = GameTrainingEnvironment(
       runId: 'scenario-specs',
       environmentId: 'scenario-specs',
-      scenarios: {'guard': guardScenario(), 'vehicle': vehicleScenario()},
+      scenarios: taskScenarioCatalog(),
     );
     try {
       final specs = <Object?>[];
-      for (final id in ['guard', 'vehicle']) {
+      for (final id in taskScenarioCatalog().keys) {
         specs.add(
           (await env.reset(seed: 7, scenario: id)).info['scenario_spec'],
         );
