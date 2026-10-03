@@ -195,6 +195,7 @@ final class PolicyBrain implements GameBrain {
   ObservationFrame? _frame;
   Future<BrainDecision?>? _pending;
   String? _requestId;
+  MlRequest? _activeRequest;
   int _serial = 0, _sequence = 0, _lastDecisionTick = -1;
   bool _closed = false;
   PolicyFailure? lastFailure;
@@ -221,6 +222,7 @@ final class PolicyBrain implements GameBrain {
   }
   bool get hasPending => _pending != null || decisions.hasStaged;
   Future<BrainDecision?>? get pending => _pending;
+  MlRequest? get activeRequest => _activeRequest;
   @override
   void observe(ObservationFrame frame) {
     if (_closed) throw StateError('Policy brain is closed.');
@@ -305,6 +307,7 @@ final class PolicyBrain implements GameBrain {
       deadline: deadline,
       tensors: {contract.observationInput: encoded, ...state.tensors},
     );
+    _activeRequest = request;
     final job = _run(
       request,
       who,
@@ -379,6 +382,7 @@ final class PolicyBrain implements GameBrain {
       if (serial == _serial && _requestId == request.id) {
         _pending = null;
         _requestId = null;
+        _activeRequest = null;
       }
     }
   }
@@ -439,6 +443,7 @@ final class PolicyBrain implements GameBrain {
     _lastDecisionTick = -1;
     _pending = null;
     _requestId = null;
+    _activeRequest = null;
     decisions.invalidatePending();
   }
 
