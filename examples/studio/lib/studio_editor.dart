@@ -1,5 +1,5 @@
+import 'studio_settings.dart';
 import 'package:flutter/cupertino.dart' show CupertinoIcons;
-import 'studio_lighting.dart';
 import 'studio_grid.dart';
 import 'studio_workspace.dart';
 import 'package:flutter_zyren_studio/flutter_zyren_studio.dart';
@@ -42,6 +42,8 @@ import 'package:zyren_agents/plugins.dart';
 
 /// Flutter composition lives in the host; documents and reconstruction are Dart.
 class StudioEditor extends StatefulWidget {
+  final Future<bool> Function(String action, StudioDocument document)?
+  onFileAction;
   final StudioDocument document;
   final StudioStore store;
   final StudioAssetScope? assetScope;
@@ -61,6 +63,7 @@ class StudioEditor extends StatefulWidget {
   const StudioEditor({
     super.key,
     required this.document,
+    this.onFileAction,
     required this.store,
     this.assetScope,
     this.collaborationDirectory,
@@ -136,6 +139,7 @@ class StudioEditorState extends State<StudioEditor> {
 
   late SceneController _controller;
   late TransformGizmoPlugin _gizmo;
+  late StudioGridPlugin _grid;
   late OrbitControlsPlugin _orbit;
   late SceneTimelinePlugin _timeline;
   final _subscriptions = <StreamSubscription<dynamic>>[];
@@ -175,7 +179,6 @@ class StudioEditorState extends State<StudioEditor> {
     _basePlugins.clear();
     _agentPanelKey = GlobalKey();
     _scene = StudioScene(document, assets: _assets);
-    addStudioLighting(_scene.scene);
     _boundGeneration = null;
     _hoveredId = null;
     _pointer = null;
@@ -183,6 +186,7 @@ class StudioEditorState extends State<StudioEditor> {
     _orbit = OrbitControlsPlugin();
     _gizmo = TransformGizmoPlugin(
       alwaysVisible: true,
+      fitToSelection: true,
       screenSize: 80,
       onDragChanged: (active) {
         if (active) {
@@ -226,7 +230,8 @@ class StudioEditorState extends State<StudioEditor> {
       ),
     );
     _useBasePlugin(_scene.tools);
-    _useBasePlugin(StudioGridPlugin());
+    _grid = StudioGridPlugin();
+    _useBasePlugin(_grid);
     _useBasePlugin(SceneOutlinePlugin());
     _useBasePlugin(_gizmo);
     _useBasePlugin(_orbit);
@@ -591,6 +596,97 @@ class StudioEditorState extends State<StudioEditor> {
     _loadCancellation?.cancel();
     unawaited(_release().then((_) => _assets.close()));
     super.dispose();
+  }
+
+  Future<void> _fileAction(String action) async {
+    if (widget.onFileAction == null || _busy) return;
+    if ((action == 'new' || action == 'open') && _dirty) {
+      final decision = await showDialog<String>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Save scene changes?'),
+          content: const Text(
+            'Save your current scene before opening another one.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, 'discard'),
+              child: const Text('Discard'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, 'save'),
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      );
+      if (decision == null || !mounted) return;
+      if (decision == 'save') {
+        await _save();
+        if (_dirty || !mounted) return;
+      }
+    }
+    setState(() {
+      _busy = true;
+      _notice = null;
+    });
+    try {
+      final completed = await widget.onFileAction!(action, _scene.capture());
+      if (mounted && completed && action == 'export') {
+        setState(() => _notice = 'Runtime scene exported.');
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = true;
+          _notice = 'File action failed: $error';
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _settings() async {
+    if (!_editing) return;
+    setState(() => _modalOpen = true);
+    try {
+      final value = await showStudioSettings(
+        context,
+        current: StudioViewSettings(
+          environment: _scene.document.environment,
+          fieldOfView: _scene.camera.fieldOfView,
+          near: _scene.camera.near,
+          far: _scene.camera.far,
+          handleSize: _gizmo.screenSize ?? 80,
+          grid: _grid.root.visible,
+          fitHandles: _gizmo.fitToSelection,
+          snap: _gizmo.snapEnabled,
+          worldSpace: _gizmo.space == GizmoSpace.world,
+        ),
+        theme: widget.themeMode,
+        onThemeChanged: widget.onThemeChanged,
+        onAgentSettings: () => _agentPanelKey.currentState?.openSettings(),
+      );
+      if (value != null && mounted) {
+        _scene.apply(_scene.capture().copyWith(environment: value.environment));
+        _scene.camera.fieldOfView = value.fieldOfView;
+        _scene.camera.near = value.near;
+        _scene.camera.far = value.far;
+        _grid.root.visible = value.grid;
+        _gizmo.fitToSelection = value.fitHandles;
+        _gizmo.screenSize = value.handleSize;
+        _gizmo.snapEnabled = value.snap;
+        _gizmo.space = value.worldSpace ? GizmoSpace.world : GizmoSpace.local;
+        _controller.invalidate();
+      }
+    } finally {
+      if (mounted) setState(() => _modalOpen = false);
+    }
   }
 
   void _edit(void Function() action) {
@@ -1032,6 +1128,32 @@ class StudioEditorState extends State<StudioEditor> {
     key: ValueKey(_scene.idFor(_selected)),
     object: _selected,
     placement: _contributionHost?.placementForSelection,
+    onRotation: _editing && _selected != null
+        ? (value) => _edit(
+            () => _scene.edit(
+              () => _scene.tools.transform(_selected!, rotation: value),
+            ),
+          )
+        : null,
+    onVisible: _editing && _selected != null
+        ? (value) => _edit(() => _scene.edit(() => _selected!.visible = value))
+        : null,
+    material: _selected is Mesh
+        ? (_scene.capture().expandedNodes[_scene.idFor(_selected)]!.material ??
+              StudioMaterial(
+                color: _scene
+                    .document
+                    .expandedNodes[_scene.idFor(_selected)]!
+                    .color,
+              ))
+        : null,
+    onMaterialChanged: _editing && _selected is Mesh
+        ? (value) => _edit(
+            () => _scene.edit(
+              () => _scene.setMaterial(_scene.idFor(_selected)!, value),
+            ),
+          )
+        : null,
     sections: [
       if (_contributionHost != null)
         StudioEditorInspectorSections(controller: _contributionHost!),
@@ -1741,6 +1863,25 @@ class StudioEditorState extends State<StudioEditor> {
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                   ),
+                  if (widget.onFileAction != null)
+                    PopupMenuButton<String>(
+                      tooltip: 'File',
+                      icon: const Icon(Icons.folder_open_outlined, size: 18),
+                      onSelected: _fileAction,
+                      enabled: !_busy && _previewCamera == null,
+                      itemBuilder: (_) => const [
+                        PopupMenuItem(value: 'new', child: Text('New scene…')),
+                        PopupMenuItem(
+                          value: 'open',
+                          child: Text('Open scene…'),
+                        ),
+                        PopupMenuItem(value: 'saveAs', child: Text('Save as…')),
+                        PopupMenuItem(
+                          value: 'export',
+                          child: Text('Export runtime scene…'),
+                        ),
+                      ],
+                    ),
                   Tooltip(
                     key: _saveKey,
                     message: widget.saveLocation,
@@ -1762,8 +1903,7 @@ class StudioEditorState extends State<StudioEditor> {
                       Icons.settings_outlined,
                       semanticLabel: 'Studio settings',
                     ),
-                    onPressed: () =>
-                        _agentPanelKey.currentState?.openSettings(),
+                    onPressed: _editing ? _settings : null,
                   ),
                 ],
               ),

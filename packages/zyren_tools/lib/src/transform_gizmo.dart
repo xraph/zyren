@@ -66,7 +66,19 @@ class TransformGizmoPlugin extends ScenePlugin {
 
   /// Optional nominal radius in logical pixels, capped at a third of the shorter
   /// viewport edge. Axes still foreshorten in depth. Omit for scene-unit [size].
-  final double? screenSize;
+  double? _screenSize;
+  double? get screenSize => _screenSize;
+  set screenSize(double? value) {
+    if (value != null && (!value.isFinite || value <= 0)) {
+      throw ArgumentError.value(value, 'screenSize');
+    }
+    cancel();
+    _screenSize = value;
+    _sync();
+    _context?.invalidate();
+  }
+
+  bool fitToSelection;
   final double translationSnap, rotationSnap, scaleSnap;
   final void Function(bool dragging)? onDragChanged;
   bool snapEnabled = false;
@@ -94,19 +106,21 @@ class TransformGizmoPlugin extends ScenePlugin {
   TransformGizmoPlugin({
     this.size = 1.5,
     bool alwaysVisible = false,
-    this.screenSize,
+    double? screenSize,
+    this.fitToSelection = false,
     this.translationSnap = .25,
     this.rotationSnap = math.pi / 12,
     this.scaleSnap = .1,
     this.onDragChanged,
-  }) : _alwaysVisible = alwaysVisible {
+  }) : _alwaysVisible = alwaysVisible,
+       _screenSize = screenSize {
     if ([
           size,
           translationSnap,
           rotationSnap,
           scaleSnap,
         ].any((value) => !value.isFinite || value <= 0) ||
-        (screenSize != null && (!screenSize!.isFinite || screenSize! <= 0))) {
+        (screenSize != null && (!screenSize.isFinite || screenSize <= 0))) {
       throw ArgumentError(
         'Gizmo size and snap increments must be finite and positive.',
       );
@@ -280,10 +294,33 @@ class TransformGizmoPlugin extends ScenePlugin {
     try {
       final projected = camera.projectPoint(pivot, viewport.aspect);
       if (projected.z < 0 || projected.z > 1) return null;
-      final pixels = math.min(
+      var pixels = math.min(
         screenSize!,
         math.min(viewport.width, viewport.height) / 3,
       );
+      if (fitToSelection) {
+        var radius = 0.0;
+        void measure(Object3D node) {
+          if (!node.visible || owns(node)) return;
+          if (node is Mesh) {
+            for (final corner
+                in node.bounds.transformed(_world(node)).corners) {
+              final p = camera.projectPoint(corner, viewport.aspect);
+              if (p.z >= 0 && p.z <= 1) {
+                final dx = (p.x - projected.x) * viewport.width / 2;
+                final dy = (p.y - projected.y) * viewport.height / 2;
+                radius = math.max(radius, math.sqrt(dx * dx + dy * dy));
+              }
+            }
+          }
+          for (final child in node.children) {
+            measure(child);
+          }
+        }
+
+        measure(selected);
+        pixels = (radius * 1.15).clamp(math.min(32, pixels), pixels);
+      }
       final offset = camera.unprojectPoint(
         Vec3(
           projected.x,

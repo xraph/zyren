@@ -1,3 +1,4 @@
+import 'package:zyren_studio/streaming.dart';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:file_selector/file_selector.dart';
@@ -36,6 +37,39 @@ final class StudioPipelineAssets implements StudioAssetResolver {
       cancellation: cancellation,
     );
     return _Template(asset, loaded);
+  }
+
+  Future<Map<String, Uint8List>> packageResources(
+    StudioDocument document,
+  ) async {
+    final result = <String, Uint8List>{};
+    for (final asset in document.assets) {
+      if (asset.provider != 'zyren.pipeline') {
+        throw StateError('No export adapter for ${asset.provider}.');
+      }
+      final pin = PipelineAssetReference.fromJson(
+        asset.reference,
+      ).bundleVersion;
+      final bundle = await cache.get(pin);
+      if (bundle == null) {
+        throw StateError('Missing pinned asset ${asset.label}.');
+      }
+      result[pin] = bundle.encode();
+    }
+    return result;
+  }
+
+  Future<void> importPackage(ZyrenSceneStream stream) async {
+    for (final pin
+        in (stream.manifest['resources'] as Map).keys.cast<String>()) {
+      final bundle = PipelineBundle.decode(await stream.readResource(pin));
+      if (bundle.version != pin) {
+        throw const FormatException('Asset version differs from scene pin.');
+      }
+      if (!await cache.put(bundle, pin: true)) {
+        throw StateError('Asset cache is full.');
+      }
+    }
   }
 
   Future<void> retainPins(Iterable<StudioDocument> documents) async {

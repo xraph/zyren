@@ -1,4 +1,8 @@
 import 'dart:io';
+import 'package:zyren_studio/io.dart';
+import 'package:zyren_studio/streaming.dart';
+import 'package:zyren_pipeline/studio.dart';
+import 'package:zyren_pipeline/zyren_pipeline.dart';
 import 'package:zyren_studio_example/studio_model_bindings.dart';
 import 'package:flutter_zyren/flutter_zyren.dart';
 import 'package:zyren_engineering/zyren_engineering.dart';
@@ -39,6 +43,41 @@ void main() {
           ),
         ],
       );
+      final output = ZyrenFileStore(
+        File('${temp.path}/export/scene.zyren'),
+        resources: assets.packageResources,
+      );
+      await output.export(doc);
+      final fresh = StudioPipelineAssets(Directory('${temp.path}/fresh'));
+      final stream = await output.openStream();
+      await fresh.importPackage(stream);
+      final portable = await stream.readDocument();
+      await stream.close();
+      expect(portable.assets.single.reference, asset.reference);
+      final portableScope = await StudioAssetScope.load(portable, fresh);
+      expect(
+        StudioScene(portable, assets: portableScope).objects['model']!.children,
+        isNotEmpty,
+      );
+      await portableScope.close();
+      late ZyrenSceneStream runtime;
+      runtime = await ZyrenSceneStream.open(
+        output.file.uri,
+        read: ZyrenFileStore.readBytes,
+        assets: PipelineStudioAssetResolver(
+          PipelineAssetLibrary(
+            services: SceneRuntime.defaultAssetServices,
+            readBundle: (pin, _) async =>
+                PipelineBundle.decode(await runtime.readResource(pin)),
+          ),
+        ),
+      );
+      await runtime.loadAll();
+      expect(
+        runtime.loaded.values.single.objects['model']!.children,
+        isNotEmpty,
+      );
+      await runtime.close();
       final scope = await StudioAssetScope.load(doc, assets);
       addTearDown(scope.close);
       final scene = StudioScene(doc, assets: scope);

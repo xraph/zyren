@@ -1,3 +1,5 @@
+import 'package:file_selector/file_selector.dart';
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_zyren/flutter_zyren.dart';
@@ -52,6 +54,26 @@ class _OpenStudioState extends State<_OpenStudio> {
     )
   >
   _opening = _open();
+  int _session = 0;
+  final _sceneFolders = <String>{};
+  Future<bool> _accessSceneFolder(String path) async {
+    if (!Platform.isMacOS) return true;
+    final parent = await File(path).parent.resolveSymbolicLinks();
+    if (_sceneFolders.contains(parent)) return true;
+    final selected = await getDirectoryPath(
+      initialDirectory: parent,
+      confirmButtonText: 'Use scene folder',
+    );
+    if (selected == null) return false;
+    if (await Directory(selected).resolveSymbolicLinks() != parent) {
+      throw StateError(
+        'Select the folder containing the .zyren file and its chunks and assets.',
+      );
+    }
+    _sceneFolders.add(parent);
+    return true;
+  }
+
   Future<
     (
       StudioStore,
@@ -62,15 +84,36 @@ class _OpenStudioState extends State<_OpenStudio> {
       StudioAssetScope,
     )
   >
-  _open() async {
+  _open([String? path]) async {
     final directory = await getApplicationSupportDirectory();
-    final file = File('${directory.path}/studio-scene.json');
-    final store = FileStudioStore(file: file, documentId: 'studio-scene');
-    final document = await store.read();
+    final file = File(path ?? '${directory.path}/studio-scene.zyren');
     final assets = StudioPipelineAssets(
       Directory('${directory.path}/studio-assets'),
     );
-    final value = document ?? starterScene();
+    final store = ZyrenFileStore(file, resources: assets.packageResources);
+    final document = await store.read();
+    if (document != null) {
+      final root =
+          jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+      if (root['format'] == 'zyren.scene') {
+        final stream = await store.openStream();
+        try {
+          await assets.importPackage(stream);
+        } finally {
+          await stream.close();
+        }
+      }
+    }
+    final legacy = path == null && document == null
+        ? await FileStudioStore(
+            file: File('${directory.path}/studio-scene.json'),
+            documentId: 'studio-scene',
+          ).read()
+        : null;
+    if (path != null && document == null) {
+      throw StateError('Scene file was not found.');
+    }
+    final value = document ?? legacy ?? starterScene();
     final scope = await StudioAssetScope.load(value, assets);
     return (store, value, file.path, document != null, assets, scope);
   }
@@ -96,6 +139,75 @@ class _OpenStudioState extends State<_OpenStudio> {
       }
       final (store, document, location, saved, assets, scope) = snapshot.data!;
       return StudioEditor(
+        key: ValueKey((location, _session)),
+        onFileAction: (action, current) async {
+          String? path;
+          if (action == 'open') {
+            path = (await openFile(
+              acceptedTypeGroups: const [
+                XTypeGroup(
+                  label: 'Zyren scenes',
+                  extensions: ['zyren', 'json'],
+                  uniformTypeIdentifiers: ['public.data'],
+                ),
+              ],
+            ))?.path;
+          } else {
+            path = (await getSaveLocation(
+              suggestedName: action == 'export'
+                  ? '${current.id}.runtime.zyren'
+                  : action == 'new'
+                  ? 'untitled.zyren'
+                  : '${current.id}.zyren',
+              acceptedTypeGroups: const [
+                XTypeGroup(
+                  label: 'Zyren scene',
+                  extensions: ['zyren'],
+                  uniformTypeIdentifiers: ['public.data'],
+                ),
+              ],
+            ))?.path;
+          }
+          if (path == null) return false;
+          if (action != 'open' && !path.toLowerCase().endsWith('.zyren')) {
+            path += '.zyren';
+          }
+          if (action == 'export' && path == location) {
+            throw StateError('Choose a different file for the runtime export.');
+          }
+          if (!await _accessSceneFolder(path)) return false;
+          final target = ZyrenFileStore(
+            File(path),
+            resources: assets.packageResources,
+          );
+          if (action == 'export') {
+            await target.export(current);
+            return true;
+          }
+          if (action == 'new') {
+            await target.write(
+              StudioDocument(
+                id: 'scene-${DateTime.now().microsecondsSinceEpoch}',
+                title: File(
+                  path,
+                ).uri.pathSegments.last.replaceAll('.zyren', ''),
+                nodes: const [],
+              ),
+            );
+          } else if (action == 'saveAs') {
+            await target.write(current);
+          }
+          final next = await _open(path);
+          if (!mounted) {
+            await next.$6.close();
+            return false;
+          }
+          setState(() {
+            _session++;
+            _opening = Future.value(next);
+          });
+          return true;
+        },
         showAgentInitially: true,
         themeMode: widget.themeMode,
         onThemeChanged: widget.onThemeChanged,

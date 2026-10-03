@@ -1,3 +1,4 @@
+import 'studio_material_editor.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_zyren/flutter_zyren.dart';
 import 'package:zyren_studio/zyren_studio.dart';
@@ -10,119 +11,36 @@ Future<StudioDocument?> studioMaterialDialog(
 ) async {
   final node = document.expandedNodes[id]!;
   final value = node.material ?? StudioMaterial(color: node.color);
-  var kind = value.kind;
-  var doubleSided = value.doubleSided;
-  final fields = <String, TextEditingController>{
-    'Color (hex)': TextEditingController(
-      text: value.color.toRadixString(16).padLeft(6, '0'),
-    ),
-    'Opacity': TextEditingController(text: '${value.opacity}'),
-    'Metallic': TextEditingController(text: '${value.metallic}'),
-    'Roughness': TextEditingController(text: '${value.roughness}'),
-    'Emissive (hex)': TextEditingController(
-      text: value.emissive.toRadixString(16).padLeft(6, '0'),
-    ),
-    'Emissive intensity': TextEditingController(
-      text: '${value.emissiveIntensity}',
-    ),
-  };
-  String? error;
-  try {
-    return await showDialog<StudioDocument>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, update) => AlertDialog(
-          title: Text('Material: ${node.label}'),
-          content: SizedBox(
-            width: 360,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  DropdownButtonFormField<StudioMaterialKind>(
-                    initialValue: kind,
-                    decoration: const InputDecoration(labelText: 'Shading'),
-                    items: [
-                      for (final value in StudioMaterialKind.values)
-                        DropdownMenuItem(value: value, child: Text(value.name)),
-                    ],
-                    onChanged: (value) => update(() => kind = value!),
-                  ),
-                  for (final entry in fields.entries)
-                    TextField(
-                      controller: entry.value,
-                      decoration: InputDecoration(labelText: entry.key),
-                      keyboardType: TextInputType.text,
-                    ),
-                  CheckboxListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Double sided'),
-                    value: doubleSided,
-                    onChanged: (value) => update(() => doubleSided = value!),
-                  ),
-                  if (error != null)
-                    Text(
-                      error!,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
-                      ),
-                    ),
-                ],
-              ),
-            ),
+  return showDialog<StudioDocument>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text('Material: ${node.label}'),
+      content: SizedBox(
+        width: 360,
+        child: SingleChildScrollView(
+          child: StudioMaterialEditor(
+            value: value,
+            onApply: (material) {
+              Navigator.pop(
+                context,
+                StudioAuthoring.updateNode(
+                  document,
+                  id,
+                  StudioOverride(material: material),
+                ),
+              );
+            },
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () {
-                try {
-                  final material = StudioMaterial(
-                    kind: kind,
-                    doubleSided: doubleSided,
-                    color: int.parse(
-                      fields['Color (hex)']!.text.replaceFirst('#', ''),
-                      radix: 16,
-                    ),
-                    emissive: int.parse(
-                      fields['Emissive (hex)']!.text.replaceFirst('#', ''),
-                      radix: 16,
-                    ),
-                    opacity: double.parse(fields['Opacity']!.text),
-                    metallic: double.parse(fields['Metallic']!.text),
-                    roughness: double.parse(fields['Roughness']!.text),
-                    emissiveIntensity: double.parse(
-                      fields['Emissive intensity']!.text,
-                    ),
-                  );
-                  Navigator.pop(
-                    context,
-                    StudioAuthoring.updateNode(
-                      document,
-                      id,
-                      StudioOverride(material: material),
-                    ),
-                  );
-                } catch (_) {
-                  update(
-                    () => error =
-                        'Use six-digit colors, values from 0 to 1, and emissive intensity from 0 to 1000.',
-                  );
-                }
-              },
-              child: const Text('Apply material'),
-            ),
-          ],
         ),
       ),
-    );
-  } finally {
-    for (final field in fields.values) {
-      field.dispose();
-    }
-  }
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+      ],
+    ),
+  );
 }
 
 Future<StudioDocument?> studioKeyframeDialog(

@@ -39,6 +39,8 @@ dependencies:
     path: ../../packages/zyren_engineering
   path_provider: ^2.1.6
 dev_dependencies:
+  zyren:
+    path: ../../packages/zyren
   flutter_test:
     sdk: flutter
   integration_test:

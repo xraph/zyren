@@ -96,6 +96,23 @@ void main() {
   });
   tearDown(() => engine.dispose());
 
+  test(
+    'selection fit responds to object scale and camera with bounded screen size',
+    () async {
+      gizmo.fitToSelection = true;
+      await render();
+      final small = projectedXTip();
+      mesh.scale = const Vec3(8, 8, 8);
+      await render();
+      final large = projectedXTip();
+      expect(large, greaterThan(small));
+      expect(large, lessThanOrEqualTo(96 * 1.13));
+      camera.position = const Vec3(0, 0, 100);
+      await render();
+      expect(projectedXTip(), lessThan(large));
+      expect(projectedXTip(), greaterThanOrEqualTo(31));
+    },
+  );
   test('screen size rejects zero, negative and nonfinite radii', () {
     for (final value in [0.0, -1.0, double.nan, double.infinity]) {
       expect(

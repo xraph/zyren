@@ -1,4 +1,3 @@
-import 'studio_lighting.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_zyren/flutter_zyren.dart';
@@ -48,7 +47,6 @@ class _StudioPreviewState extends State<StudioPreview> {
       }
       _cancel.throwIfCancelled();
       final scene = StudioScene(widget.document, assets: scope);
-      addStudioLighting(scene.scene);
       final timeline = studioTimeline(scene, widget.clipId);
       final controller = SceneController(
         scene: scene.scene,

@@ -1,3 +1,6 @@
+import 'dart:math' as math;
+import 'package:zyren_studio/zyren_studio.dart';
+import 'studio_material_editor.dart';
 import 'package:flutter_zyren_studio/flutter_zyren_studio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_zyren/flutter_zyren.dart';
@@ -7,6 +10,10 @@ class StudioProperties extends StatelessWidget {
   final List<Widget> sections;
   final StudioEditorPlacementBinding? placement;
   final ValueChanged<Vec3>? onPosition, onScale;
+  final ValueChanged<Quat>? onRotation;
+  final ValueChanged<bool>? onVisible;
+  final StudioMaterial? material;
+  final ValueChanged<StudioMaterial>? onMaterialChanged;
   final VoidCallback? onMaterial, onPose, onNudge;
   const StudioProperties({
     super.key,
@@ -14,6 +21,10 @@ class StudioProperties extends StatelessWidget {
     this.sections = const [],
     this.placement,
     this.onPosition,
+    this.onRotation,
+    this.onVisible,
+    this.material,
+    this.onMaterialChanged,
     this.onScale,
     this.onMaterial,
     this.onPose,
@@ -54,7 +65,13 @@ class StudioProperties extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 14),
+        SwitchListTile.adaptive(
+          dense: true,
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Visible'),
+          value: selected.visible,
+          onChanged: onVisible,
+        ),
         Text('Transform', style: Theme.of(context).textTheme.titleSmall),
         const SizedBox(height: 8),
         _VectorFields(
@@ -82,18 +99,32 @@ class StudioProperties extends StatelessWidget {
           label: 'Scale',
           value: selected.scale,
           onChanged: onScale,
+          validate: (v) => v.x == 0 || v.y == 0 || v.z == 0 ? 'Nonzero' : null,
         ),
         const SizedBox(height: 10),
-        Text(
-          'Rotation (quaternion)',
-          style: Theme.of(context).textTheme.labelSmall,
-        ),
-        const SizedBox(height: 4),
-        Text(
-          [q.x, q.y, q.z, q.w].map((v) => v.toStringAsFixed(3)).join('   '),
-          style: Theme.of(context).textTheme.bodySmall,
+        _VectorFields(
+          label: 'Rotation (degrees)',
+          value: rotationDegrees(q),
+          onChanged: onRotation == null
+              ? null
+              : (value) => onRotation!(rotationFromDegrees(value)),
         ),
         const SizedBox(height: 10),
+        Wrap(
+          spacing: 4,
+          children: [
+            TextButton(
+              onPressed: onRotation == null
+                  ? null
+                  : () => onRotation!(Quat.identity),
+              child: const Text('Reset rotation'),
+            ),
+            TextButton(
+              onPressed: onScale == null ? null : () => onScale!(Vec3.one),
+              child: const Text('Reset scale'),
+            ),
+          ],
+        ),
         if (placement == null)
           Text(
             'X ${selected.position.x.toStringAsFixed(2)}  Y ${selected.position.y.toStringAsFixed(2)}  Z ${selected.position.z.toStringAsFixed(2)}',
@@ -123,6 +154,12 @@ class StudioProperties extends StatelessWidget {
             ),
           ],
         ),
+        if (material != null && onMaterialChanged != null)
+          StudioMaterialEditor(
+            key: ValueKey(material!.toJson().toString()),
+            value: material!,
+            onApply: onMaterialChanged!,
+          ),
         Text(
           'Changes use the scene’s undo history.',
           style: Theme.of(context).textTheme.bodySmall,
@@ -201,3 +238,25 @@ class _VectorFields extends StatelessWidget {
     );
   }
 }
+
+/// Intrinsic XYZ Euler controls in degrees; quaternions remain the saved value.
+Vec3 rotationDegrees(Quat rotation) {
+  final q = rotation.normalized();
+  final m02 = 2 * (q.x * q.z + q.y * q.w);
+  final y = math.asin(m02.clamp(-1.0, 1.0));
+  final x = m02.abs() < .9999999
+      ? math.atan2(2 * (q.x * q.w - q.y * q.z), 1 - 2 * (q.x * q.x + q.y * q.y))
+      : math.atan2(
+          2 * (q.y * q.z + q.x * q.w),
+          1 - 2 * (q.x * q.x + q.z * q.z),
+        );
+  final z = m02.abs() < .9999999
+      ? math.atan2(2 * (q.z * q.w - q.x * q.y), 1 - 2 * (q.y * q.y + q.z * q.z))
+      : 0.0;
+  return Vec3(x, y, z) * (180 / math.pi);
+}
+
+Quat rotationFromDegrees(Vec3 value) =>
+    Quat.axisAngle(const Vec3(1, 0, 0), value.x * math.pi / 180) *
+    Quat.axisAngle(const Vec3(0, 1, 0), value.y * math.pi / 180) *
+    Quat.axisAngle(const Vec3(0, 0, 1), value.z * math.pi / 180);

@@ -36,12 +36,12 @@ depth-tested world grid and colored axes follow the camera, stay outside saved
 content and do not intercept object picks.
 
 Docking preserves the native viewport and agent conversation. You can search
-the scene tree, edit position and scale in Properties, open the material editor,
+the scene tree, edit position, XYZ rotation in degrees and scale in Properties, adjust materials,
 or record a pose. Transform edits share the existing undo history. Diagnostics
 keeps renderer details and the complete runtime hierarchy in its own panel.
-Narrow windows use a horizontal panel switcher and one bottom panel. Studio settings includes
-System, Light and Dark appearance and your model connection. Layout changes
-currently last for the open editor session.
+Narrow windows use a horizontal panel switcher and one bottom panel. Studio settings includes appearance, saved scene lighting and background, camera
+FOV and clipping, grid visibility, gizmo size, coordinate space and snapping.
+Layout and tool preferences last for the open editor session.
 
 The Plugins panel lists the actual registry and each provider's available tools.
 Imported glTF instances publish node and clip inspection automatically. Reimport,
@@ -84,9 +84,9 @@ The Authoring menu adds boxes and pinned GLB/bundle imports, creates prefab
 instances, edits materials and engineering notes, records poses, manages clip
 keys and opens independent previews. Clip keys can be retimed or removed.
 Reducing a clip's duration cannot discard keys. Local authoring shares one
-bounded undo history. The host supplies identical directional and hemisphere
-preview lighting in the editor and clip previews. These helper lights are not
-authored scene data.
+bounded undo history. Scene lighting and background are saved with your document and used by both the
+editor and clip previews. Gizmos fit the projected selection bounds, with a
+minimum handle size and a configurable maximum, and update as the camera moves.
 
 Imports are decoded before their bundle is pinned. Enter stable source keys and
 model node indices in the source-map dialog, or leave it blank for instance-level
@@ -95,8 +95,11 @@ mappings remain saved but unbound. Asset diagnostics checks the actual saved pin
 decodes each available model and validates its source map. Failed checks, missing
 resources and cancellation have distinct results; Retry checks runs them again.
 
-Save writes `studio-scene.json` in the application's support directory. Hover
-Save to see its path. Reload asks before discarding unsaved changes and prepares
+Save writes `studio-scene.zyren` in the application's support directory. Existing
+JSON saves migrate when you save. Hover Save to see its path. The File menu lets
+you create an empty scene, open a scene, save a copy, or export a runtime scene.
+Open and New ask you to save or discard outstanding edits. On macOS, select the
+containing scene folder when prompted so the sandbox can access companion files. Reload asks before discarding unsaved changes and prepares
 the replacement before retiring the current controller. The first launch opens
 an assembly fixture when no save exists. Asset pins needed by the saved document
 or undo history remain retained. Clear history releases unused history assets.
@@ -192,3 +195,65 @@ See [workflow coverage](AGENT_WORKFLOW.md) for plugin bindings, protocol checks,
 character limitations and the future morphing extension path. The separate
 `lib/mock/main.dart` remains a design study; the integrated workspace and working
 agent are in `lib/main.dart`.
+
+## Streamed runtime scenes
+
+Use File > Export runtime scene to write a `.zyren` manifest with relative
+`chunks/` and `assets/` companions. Keep those folders beside the manifest when
+you move it. Asset bundles carry their original version pins; every referenced
+file has a byte limit and SHA-256 check. Authoring saves also retain the original
+prefab definitions so you can keep editing instances after reopening.
+
+The lossless export resolves ordinary prefab overrides, drops unused asset
+references, and compresses independent root hierarchies into chunks. Scenes with
+animation or plugin data stay together to preserve cross-object references.
+Required plugin codecs must be registered before their chunks can load.
+
+You can use `ZyrenRuntimeScene` from `lib/runtime_scene.dart` in a Flutter host:
+
+```dart
+ZyrenRuntimeScene(
+  key: ValueKey(sceneUri),
+  uri: sceneUri,
+  read: ZyrenFileStore.readBytes,
+  onSelection: (object) => selectObject(object),
+  onChunkLoaded: (controller, chunk) => installScenePlugins(controller, chunk),
+)
+```
+
+Supply your selection and plugin handlers here. The example installs orbit and
+picking tools and loads roots progressively. Your host owns animation playback,
+plugin runtime installation and application-specific interactions. Use a new
+widget key when switching files. `onReady` exposes the controller and stream;
+`loadChunk` and `unloadChunk` let a host schedule individual roots. Retire render
+references before unloading their resource scopes.
+
+The file reader supports local scenes. For Flutter assets or HTTP, provide a
+`ZyrenRead` callback that enforces the supplied byte limit during transport and
+honors cancellation. Network scheduling and HTTP delivery have not been qualified.
+
+The saved camera, lighting, transforms and materials drive the same native
+renderer in Studio and the runtime. Editor grids, selections and gizmos are
+editing aids and are excluded. Export does not simplify geometry or lower
+texture quality. Flutter release builds compile the host application; `.zyren`
+files remain prepared scene data. Export speed, frame-rate gains and large-scene
+memory savings have not been benchmarked.
+
+For the minimal native consumer, pass an accessible exported file:
+
+```sh
+fvm flutter run -d macos -t lib/runtime_main.dart --dart-define=ZYREN_SCENE=/absolute/path/scene.runtime.zyren
+```
+
+The export pixel check runs separately from widget tests, from this example directory:
+
+```sh
+RUN_NATIVE_GPU=1 fvm flutter test --no-pub test/native_export_test.dart
+```
+
+On 2026-10-03, the native Metal check matched all RGBA pixels for a saved-camera
+scene containing diffuse and standard materials. The live macOS editor also
+saved a migrated scene, exported it with companion files, and reopened the
+export. Tests cover a real GLB transferred to a fresh cache, prefab animation
+references, required plugin records, corrupt chunks and cancelled loads. These
+checks do not establish device parity or performance at production scene sizes.
