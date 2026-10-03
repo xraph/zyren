@@ -395,9 +395,9 @@ If you raise it, budget for both the active and replacement maps.
 
 `maxResolution` accepts up to 4096 pixels. `maxPixels` bounds the total cloud
 target area independently of orientation and defaults to 1,048,576 pixels.
-Device defaults choose Medium at 768 pixels on phones, High at 1152 on tablets,
-and High at 1280 on desktops. Their pixel budgets are 589,824, 921,600 and
-1,048,576 respectively. You can override either limit for your scene and device.
+Device defaults choose Medium at 768 pixels on phones, High at 1536 on tablets,
+and High at 1920 on desktops. Their pixel budgets are 589,824, 1,572,864 and
+2,097,152 respectively. You can override either limit for your scene and device.
 
 You can start with a device profile, then override its sampling preset:
 
@@ -418,9 +418,9 @@ await layer.controller.setQualitySettings(
 );
 ```
 
-Phones start at Medium and a 512-pixel cloud edge. Tablets and desktops start at
-High and 640 pixels. Low uses 320 pixels; Ultra allows 640 on mobile devices and
-768 on desktop. These profiles retain the source ray-marching presets while
+Low uses a 512-pixel cloud edge. Ultra allows 1920 pixels on phones, 2560 on
+tablets and 4096 on desktop, with area limits of 2, 4 and 8 Mi pixels respectively.
+Targets also stay within the scene viewport. These profiles retain the source ray-marching presets while
 bounding shadow maps to 128 pixels, or 192/256 for mobile/desktop Ultra. Choose
 your device class in the application and tune these limits for its GPU and scene.
 

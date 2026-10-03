@@ -64,24 +64,34 @@ final class CloudQualitySettings {
       preset: selected,
       shadowsEnabled: shadowsEnabled,
       shadowPreset: shadowPreset,
-      maxPixels: switch (device) {
-        CloudDeviceType.phone => 589824,
-        CloudDeviceType.tablet => 921600,
-        CloudDeviceType.desktop => 1048576,
+      maxPixels: switch (selected) {
+        CloudQualityPreset.low => 262144,
+        CloudQualityPreset.medium =>
+          device == CloudDeviceType.phone ? 589824 : 1048576,
+        CloudQualityPreset.high => switch (device) {
+          CloudDeviceType.phone => 1048576,
+          CloudDeviceType.tablet => 1572864,
+          CloudDeviceType.desktop => 2097152,
+        },
+        CloudQualityPreset.ultra => switch (device) {
+          CloudDeviceType.phone => 2097152,
+          CloudDeviceType.tablet => 4194304,
+          CloudDeviceType.desktop => 8388608,
+        },
       },
       maxResolution: switch (selected) {
         CloudQualityPreset.low => 512,
         CloudQualityPreset.medium =>
           device == CloudDeviceType.phone ? 768 : 1024,
         CloudQualityPreset.high => switch (device) {
-          CloudDeviceType.phone => 960,
-          CloudDeviceType.tablet => 1152,
-          CloudDeviceType.desktop => 1280,
+          CloudDeviceType.phone => 1152,
+          CloudDeviceType.tablet => 1536,
+          CloudDeviceType.desktop => 1920,
         },
         CloudQualityPreset.ultra => switch (device) {
-          CloudDeviceType.phone => 1024,
-          CloudDeviceType.tablet => 1280,
-          CloudDeviceType.desktop => 1536,
+          CloudDeviceType.phone => 1920,
+          CloudDeviceType.tablet => 2560,
+          CloudDeviceType.desktop => 4096,
         },
       },
       shadowMapSize: (shadowPreset ?? selected) == CloudQualityPreset.ultra

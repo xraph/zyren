@@ -34,7 +34,7 @@ void main() {
       expect(desktop.resourceBudgetBytes, 768 * 1024 * 1024);
       expect(desktop.selectedTiles, 1024);
       expect(desktop.decodedTileBytes, 1024 * 1024 * 1024);
-      expect(desktop.clouds(CloudQualityPreset.ultra).maxResolution, 1536);
+      expect(desktop.clouds(CloudQualityPreset.ultra).maxResolution, 4096);
     },
   );
 }

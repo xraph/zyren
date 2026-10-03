@@ -82,13 +82,14 @@ selection count, decoded data or visible payloads exceed the profile's allowance
 
 | Device | Scene edge / total pixels | Auto cloud edge | Ultra cloud edge |
 | --- | --- | --- | --- |
-| Phone | 1600 / 1,572,864 | 768 | 1024 |
-| Tablet | 1920 / 2,097,152 | 1152 | 1280 |
-| Desktop | 1920 / 2,097,152 | 1280 | 1536 |
+| Phone | 1600 / 1,572,864 | 768 | 1920 |
+| Tablet | 1920 / 2,097,152 | 1536 | 2560 |
+| Desktop | 1920 / 2,097,152 | 1920 | 4096 |
 
-Cloud targets also cap total pixels at 589,824 on phones, 921,600 on tablets and
-1,048,576 on desktops. The library accepts explicit limits up to a 4096-pixel
-edge when your application has budgeted for larger targets.
+Auto cloud targets cap total pixels at 589,824 on phones, 1,572,864 on tablets
+and 2,097,152 on desktops. Ultra raises those ceilings to 2,097,152, 4,194,304
+and 8,388,608 pixels. A cloud target never exceeds the scene viewport, so the
+scene's own limits still apply. Larger cloud targets cost more GPU time.
 
 Android and iOS views with a shortest display side of at least 600 logical pixels
 use the tablet profile. Orientation does not change the classification. Desktop
@@ -148,8 +149,7 @@ changes. Lunar lighting also reaches cloud volumes. Night view increases the
 star catalogue brightness and uses a 2048-pixel star target, so bright stars can
 remain visible between clouds. Daytime returns to the original star intensity.
 
-The selectors remain on the page to avoid the macOS Flutter accessibility crash
-seen when opening dropdown routes. Qualification builds can enable
+The selectors remain on the page. Qualification builds can enable
 `ZYREN_RENDER_TELEMETRY=true` and inspect `ext.planet.renderStatus` with
 `tool/qualification/read_render_telemetry.dart`. This measures accepted native
 presentations; the slower diagnostics stream is unsuitable for frame-rate checks.
