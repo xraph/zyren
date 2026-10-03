@@ -387,7 +387,10 @@ class Tiles3DStreamer {
       }
       if (!hasRoom()) {
         _budgetLimited = true;
-        continue;
+        // Every request reserves the same limits. After unused tiles have been
+        // evicted, later nodes cannot fit either. Avoid rescanning the full
+        // cache for each blocked node on every animated frame.
+        break;
       }
       final tracker = _TrackedResolver(
         services.resolver,
