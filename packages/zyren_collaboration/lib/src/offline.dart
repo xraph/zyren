@@ -87,7 +87,11 @@ final class OfflineSceneQueue {
     required this.sceneId,
     required this.epoch,
     required this.ownerId,
-  });
+  }) {
+    checkText(sceneId, 'sceneId');
+    checkText(epoch, 'epoch');
+    checkText(ownerId, 'ownerId');
+  }
   String _encode(OfflineSceneState state) => jsonEncode({
     ...jsonDecode(state.encode()) as Map<String, dynamic>,
     'ownerId': ownerId,
@@ -213,12 +217,23 @@ final class OfflineSceneQueue {
     }
   }
 
-  Future<void> acceptRemote() => _resolve(null);
-  Future<void> keepLocal(String newOperationId) => _resolve(newOperationId);
-  Future<void> _resolve(String? newId) => store.transact((current) async {
+  Future<void> acceptRemote({required SceneOperationConflict reviewed}) =>
+      _resolve(null, reviewed);
+  Future<void> keepLocal(
+    String newOperationId, {
+    required SceneOperationConflict reviewed,
+  }) => _resolve(newOperationId, reviewed);
+  Future<void> _resolve(
+    String? newId,
+    SceneOperationConflict reviewed,
+  ) => store.transact((current) async {
     final state = _state(current), conflict = _state(current).conflict;
     if (conflict == null) {
       throw StateError('No confirmed conflict. Retry uncertain writes first.');
+    }
+    if (conflict.operation.encode() != reviewed.operation.encode() ||
+        conflict.snapshot.encode() != reviewed.snapshot.encode()) {
+      throw const SceneRevisionMismatch();
     }
     final pending = state.pending.skip(1).toList();
     if (newId != null) {

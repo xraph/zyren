@@ -98,6 +98,7 @@ The provider exposes these tools through `zyren_agents`:
 | `presence` | Read current leased sessions and shared camera poses when the host supplies a presence service. |
 | `undo` | Prepare your conditional inverse, then use the normal guarded commit path. |
 | `offline_state`, `reconcile` | Inspect or retry a host-supplied durable outbox. Reconciliation stops at a conflict. |
+| `offline_keep_local`, `offline_accept_remote` | Resolve an outbox conflict pinned to the reviewed operation and scene/field revisions. |
 | `follow_camera`, `stop_following` | Explicitly follow or release a leased camera with `collaboration.camera` scope. |
 | `check_operation` | Ask the host whether an exact proposed operation is allowed. |
 | `set_transform`, `set_visibility` | Use the ordinary collaboration client and authority checks. |
@@ -150,11 +151,12 @@ Conflict results expose IDs only, so private record values cannot leak through
 a merge error. You resolve those conflicts through the host engineering workflow.
 Cancellation checks before a store write cannot undo a remote write already sent.
 
-The tests run a real stdio MCP subprocess through the existing `zyren_devtools`
-bridge, plus loopback HTTP/file review persistence. They use a headless test
-renderer and do not establish native screen presentation. Presence, shared
-cameras, durable scene receipts, network scene transports, offline reconciliation,
-shared undo and native editor UI remain in the workstream backlog.
+The Dart MCP test runs the existing `zyren_devtools` CLI against a headless
+host. The separate macOS example connects the same bridge to two native Metal
+viewports and checks it through an external MCP process. See
+[the native example](example/native_app/README.md) and
+[qualification evidence](qualification/2026-10-02.md) for the verified paths,
+committed shared dependency check and remaining device limits.
 
 ## Durable and network hosts
 
@@ -193,8 +195,9 @@ requires reconciliation first. This avoids inventing field revisions offline.
 
 `reconcile` retries saved bytes, saves each acknowledgement, and stops at the
 first conflict or failure. Read `lastError` for denial, epoch change, capacity
-or an uncertain reply. `keepLocal(newId)` uses the exact conflict revision;
-`acceptRemote` discards only an authority-confirmed conflict. Neither method can
+or an uncertain reply. `keepLocal(newId, reviewed: conflict)` uses the exact conflict revision;
+`acceptRemote(reviewed: conflict)` discards only that confirmed conflict.
+Both reject a decision when another queue owner has changed the reviewed state. Neither method can
 discard an uncertain write. Source keys include your asset version and the
 scene epoch, so replaced assets require an explicit host migration decision.
 

@@ -75,6 +75,10 @@ void main() {
       final library = await Isolate.resolvePackageUri(
         Uri.parse('package:zyren_devtools/zyren_devtools.dart'),
       );
+      final expectedRoot = Platform.environment['ZYREN_EXPECT_SHARED_ROOT'];
+      if (expectedRoot != null) {
+        expect(library!.toFilePath(), startsWith(expectedRoot));
+      }
       final executable = File.fromUri(
         library!.resolve('../bin/zyren.dart'),
       ).path;

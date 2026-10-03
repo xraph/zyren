@@ -97,6 +97,51 @@ void main() {
       expect(client.snapshot!.objects[id]!.visible, isTrue);
       expect((await call('offline_state')).status, AgentStatus.ok);
       expect((await call('reconcile', {}, true)).status, AgentStatus.ok);
+      final checkpoint = (await queue.read()).snapshot;
+      await queue.enqueue(
+        SceneOperation(
+          sceneId: 's',
+          epoch: 'e',
+          operationId: 'queued',
+          objectId: id,
+          expectedRevision: checkpoint.objects[id]!.visibilityRevision,
+          field: SceneField.visibility,
+          visible: false,
+        ),
+      );
+      await authority
+          .connect('bob')
+          .submit(
+            SceneOperation(
+              sceneId: 's',
+              epoch: 'e',
+              operationId: 'remote',
+              objectId: id,
+              expectedRevision: checkpoint.objects[id]!.visibilityRevision,
+              field: SceneField.visibility,
+              visible: true,
+            ),
+          );
+      expect((await call('reconcile', {}, true)).status, AgentStatus.ok);
+      final conflict = (await queue.read()).conflict!;
+      expect(
+        (await call('offline_keep_local', {
+          'operationId': 'queued',
+          'sceneRevision': conflict.snapshot.revision,
+          'fieldRevision': conflict.actualRevision - 1,
+        }, true)).status,
+        AgentStatus.stale,
+      );
+      expect(
+        (await call('offline_keep_local', {
+          'operationId': 'queued',
+          'sceneRevision': conflict.snapshot.revision,
+          'fieldRevision': conflict.actualRevision,
+        }, true)).status,
+        AgentStatus.ok,
+      );
+      expect((await call('reconcile', {}, true)).status, AgentStatus.ok);
+      expect(client.snapshot!.objects[id]!.visible, isFalse);
       expect((await call('stop_following', {}, true)).status, AgentStatus.ok);
       expect(follower.sessionId, isNull);
     },

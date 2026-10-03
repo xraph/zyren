@@ -1,0 +1,27 @@
+name: zyren_collaboration_example
+description: Native shared scene editing with durable storage and offline recovery.
+version: 0.1.0+1
+publish_to: none
+resolution: workspace
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_zyren:
+    path: ../../../flutter_zyren
+  zyren:
+    path: ../../../zyren
+  zyren_collaboration:
+    path: ../..
+  zyren_agents:
+    path: ../../../zyren_agents
+  zyren_devtools:
+    path: ../../../zyren_devtools
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+flutter:
+  uses-material-design: true

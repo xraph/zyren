@@ -1,230 +1,97 @@
-# Collaboration
+# Collaboration workstream
 
-You can follow the scene collaboration work here. This chat owns
-`packages/zyren_collaboration` and its examples. Work stays on `main` and uses
-`/tmp/zyren-plugin-expansion.lock` for shared edits, dependency resolution and
-Git operations.
+Chat `01a0fe60-c9e1-71f1-b206-f8683e4ee508` owns
+`packages/zyren_collaboration` and this plan. Work stays on `main`, preserves
+concurrent edits and uses `/tmp/zyren-plugin-expansion.lock` for shared changes,
+dependency resolution and Git operations. No push, merge or publication occurred.
 
-## Source audit
+## Source audit and decisions
 
-The engineering review protocol already covers these workflows:
+Engineering already provides source IDs, annotation records, exact three-way
+review merges, conditional session storage and authenticated HTTP review
+services. Collaboration reuses those through its optional engineering provider.
+It does not introduce another review protocol. Durable scene operations use a
+separate ledger because transform/visibility revisions and retry receipts are
+not engineering annotation records.
 
-- `lib/src/document.dart` stores source object IDs and anchored review notes.
-- `lib/src/merge.dart` provides whole-record three-way merges. A conflict choice
-  applies only to the exact base, local and remote values you reviewed.
-- `EngineeringSessionStore.compareAndWrite` rejects stale revision tokens.
-- `FileEngineeringSessionStore` queues writes, locks across processes and
-  replaces the saved envelope atomically. `FileEngineeringStore` alone does
-  not coordinate shared writers.
-- `HttpEngineeringSessionStore` sends conditional writes with strong ETags.
-  `EngineeringReviewServer` enforces host authorization, bounds bodies and
-  supports HTTPS. Existing engineering tests cover these services.
-- `EngineeringImport` and its sidecars bind source IDs after import. Display
-  names and `Object3D.id` cannot serve as persistent IDs.
+Scene bindings use the public Zyren graph, immutable vectors, attachment scopes
+and invalidation. Stable `(source, key)` IDs and a host-owned scene epoch survive
+reload. Display names and runtime IDs cannot identify saved objects. Replacing
+source assets or discarding history requires a new epoch and an explicit host
+migration decision.
 
-The core exports immutable `Vec3` and `Quat`, `Object3D` transform/visibility
-setters, `ScenePlugin`, attachment scopes and frame invalidation. Collaboration
-can use those APIs without changing the renderer or importing engineering into
-the general-purpose core.
+One authority serializes field replacements, current permission checks, retry
+receipts and operation history. Independent fields can commit independently.
+Conflicting edits return their exact current field revision. A new decision gets
+a new operation ID; retries keep the original ID and bytes.
 
-## Decisions
+## Implemented behavior
 
-The first slice edits transforms and visibility on an existing object set.
-You supply stable `(source, key)` IDs and a scene session epoch. The epoch must
-change whenever you discard the operation history or replace the source model.
-Each operation carries schema version 1, scene identity, epoch, operation ID,
-target ID and the field revision observed when you prepared the edit.
+- `LocalSceneAuthority` supports serialized, bounded authorization, field
+  revisions, exact receipts, revision-pinned history and permission previews.
+- `DurableSceneAuthority` replays a versioned ledger within a transactional store.
+  `FileSceneDocumentStore` uses an isolate queue, a process advisory lock and
+  flushed staged replacement. The ledger retains authors, undo relationships
+  and all accepted receipts up to configured capacity. Unknown schemas and
+  invalid histories fail closed.
+- Shared undo prepares and submits a conditional inverse. The same author and
+  ordinary write permissions are required. Intervening field changes conflict.
+  Undoing an inverse supports conditional redo.
+- HTTP and WebSocket services bind authenticated principals and reauthorize each
+  message. They require TLS outside loopback and bound requests, socket counts
+  and pending work. Clients own credential callbacks, deadlines and cleanup.
+  Socket invalidations are coalesced; reconnect occurs on the next request.
+- Presence uses expiring sessions, monotonic sequences, bounded capacity and rate
+  limits. Camera poses include perspective/orthographic projection state and
+  never increment the durable scene revision. Following is explicit and ends
+  on expiry, departure or local navigation.
+- The persistent offline outbox pins principal identity and scene epoch. It
+  saves exact operations before sending, retains ambiguous results and stops
+  at conflicts. Conflict decisions must match the reviewed operation and full
+  snapshot, including across queue instances. Denial, epoch change and capacity
+  errors remain inspectable. One pending decision per field avoids invented
+  offline revisions; the queue holds up to 256 operations.
+- Shared runtime providers expose scene state, source/runtime bindings, history,
+  permissions, guarded edits, conditional undo, presence, camera following,
+  outbox inspection/reconciliation and exact offline conflict decisions. The
+  optional engineering adapter keeps its existing host-filtered review workflow.
+- The macOS example composes two native viewports, file storage, HTTP edits,
+  WebSocket updates, leases, offline conflicts, undo and the shared MCP bridge.
+  It uses the shared ZeroState for opening failures and a compact responsive UI.
 
-One authority serializes accepted operations. Revisions are tracked per field,
-so independent edits survive concurrent submission. Conflicting edits return
-the proposed operation and current state. Keeping a local edit creates a new
-operation against the exact reported field revision; another intervening edit
-must conflict again. We do not silently pick a winner.
+## Verification
 
-The host supplies read and write permission callbacks and binds authenticated
-principals to transports. Credentials never enter the scene document. A bounded
-receipt table remembers accepted operation IDs for retries after lost replies.
-It rejects new operations when full; dropping old receipts would allow a retry
-to execute twice. Durable receipt retention belongs to the persistence phase.
+The baseline checkpoints are `45da7bd`, `486fdfb`, `3d83ad8` and `f720d98`.
+Durable operations and conditional undo are in `d81a171`. Network sessions,
+presence, cameras, persistent outboxes and their agent adapters are in `02de23d2`.
+The final native-example commit also tightens reviewed offline decisions.
 
-Engineering review documents keep their existing merge and storage protocol.
-Scene operations do not encode annotations or replace that HTTP service. A
-future host can run both services with the same source identity mapping and
-authorization provider. Collaborative editing does not own physics ticks,
-prediction, rollback or authoritative multiplayer simulation.
+All 46 Dart tests pass, including separate-process file writers, restart/lost
+reply recovery, HTTPS/WSS trust checks, revoked credentials, socket reconnect,
+lease expiry and shared agent calls. Analysis and formatting pass. The global
+boundary check passed earlier, but its final repeat reports concurrent
+`zyren_pointclouds/lib/geospatial_agents.dart` imports of `zyren_geospatial` and
+`zyren_3d_tiles` outside the current allowlist. No collaboration violation was
+reported. The native Metal integration and external MCP subprocess probe pass
+on Apple M3 Max with two native views and zero readback bytes. Visible desktop
+and narrow layouts were inspected, including an edit through the native controls.
 
-## Phases and acceptance
+The previous MCP check depended on an uncommitted adapter. That adapter is now
+committed in `828955b8`. The final 46-test suite, native test and external probe
+were rerun with `zyren_agents` and `zyren_devtools` exported from that commit,
+independent of newer working-tree changes. See
+`packages/zyren_collaboration/qualification/2026-10-02.md` and the committed
+structured MCP evidence for details and exact qualification limits.
 
-1. Implement versioned scene operations and the local authority. Check stable
-   identity, strict finite transforms, bounded codecs, independent edits,
-   same-field conflicts, exact retry identity, read/write denial, revoked
-   permissions, async races and full receipt capacity.
-2. Add a client with retained pending operations after transport failure and a
-   scene plugin that applies acknowledged snapshots. Run two clients with real
-   Zyren scene graphs. Check lost replies, retry, explicit conflict resolution,
-   stale replies, reload binding and detach during an in-flight request.
-3. Add durable snapshots and operation receipts through a transactional host
-   store. Validate restart recovery, multi-process conditional writes, schema
-   migration, history retention and crash boundaries. Reuse engineering review
-   storage for review data. Do not create a second review protocol.
-4. Add HTTPS and WebSocket transport adapters with host-owned credentials,
-   reconnect, deadlines, payload limits and backpressure. Verify two processes,
-   TLS, denied access, interrupted replies and retry against the durable store.
-5. Add presence and shared cameras as expiring session data. Check disconnect
-   expiry, sequence ordering, rate limits and opt-in camera following. Camera
-   updates must not produce persistent object-edit revisions.
-6. Add durable offline queues and reconciliation. Pin the scene epoch and
-   source versions, surface deleted or remapped objects, retain rejected edits
-   for inspection and require fresh decisions when conflicts change.
-7. Extend scene edits to creation, deletion, reparenting and material changes
-   after Studio and pipeline contracts exist. Add resource ownership checks,
-   undo as conditional inverse operations and permissions per action. Verify
-   desktop and narrow native UI before claiming a complete shared editor.
+## Remaining scope
 
-## Required runtime agent access
+The seven requested capabilities are implemented and qualified on macOS as
+specified above. The full collaborative editor still lacks creation, deletion,
+reparenting and material edits pending source/resource contracts. Engineering
+review conflict decisions remain in the existing host workflow.
 
-Agent integration is part of completion. Follow `agent-runtime.md` and the
-interaction owner's versioned `zyren_agents` contract. This package will expose
-scene and field revisions, pending edits and conflicts, paginated accepted
-operation history, presence coverage and host-permitted actions. Presence must
-report unavailable until an actual presence service exists.
-
-The optional engineering provider will call the existing review APIs for object
-records, notes, isolation and shared synchronization. It must preserve host
-property filtering, authorization and exact engineering version checks. It will
-not create another review server or copy the merge implementation.
-
-The shared registry signatures are available in `zyren_agents`. Optional
-`agent_provider.dart` and `engineering_agent_provider.dart` entry points now
-use them for registration, schemas, cancellation and stale-target checks. Discovery through a private
-helper does not count as shared agent support. Correlate source IDs with
-runtime objects through explicit bindings; the shared viewport provider owns
-camera, logical-coordinate, pixel-ratio and presented-frame evidence. This
-package makes no rendered-pixel claims.
-
-Acceptance requires actual discovery and calls through the common registry,
-authorized edits and undo through normal commands, explicit denial and stale
-results, bounded history, target cleanup, and optional engineering coverage.
-Native point-to-object checks remain separate from CPU geometry and the live
-MCP transport check below. Shared undo still needs a command-history adapter.
-
-## Dependencies and shared changes
-
-The first slice depends on `zyren` and the existing `test` dependency. Optional
-agent entry points now add `zyren_agents` and `zyren_engineering` dependencies;
-the collaboration facade does not import either adapter.
-It does not depend on unfinished pipeline, Studio or interaction APIs.
-
-Requested shared edits: add `packages/zyren_collaboration` to root
-`pubspec.yaml`, refresh dependency resolution, and add the package's public
-import allowlist to `tool/check_package_boundaries.dart`. These are additive
-workspace registration changes with no public API impact. Check other plans
-and current file contents while holding the lock before applying them.
-
-No core, native, Flutter or engineering API change is required. The optional
-providers use the shared contract introduced in `5ddc7ea`. A test-only
-`zyren_devtools` dependency exercises its existing bridge and CLI.
-
-## Current evidence
-
-The scene-operation slice is implemented: schema-1 payloads, stable IDs, field
-revisions, serialized host permissions, exact retry receipts, paginated history,
-retained pending edits, explicit conflicts and acknowledged scene bindings.
-The local example runs two scene graphs with a lost reply and conflict.
-
-Both optional providers register through the shared `zyren_agents` interface.
-Collaboration tools inspect scene state, permissions and history, apply edits,
-refresh and resolve conflicts. They check cancellation at the local authority's
-commit point. Engineering tools inspect host-filtered records, edit annotations,
-isolate objects and synchronize through the existing review protocol. Provider
-registration follows plugin attachment cleanup. The shared viewport enrichment
-uses stable and runtime IDs and reports CPU geometry coverage honestly.
-
-Checks run on 2026-10-02 with the repository's Flutter 3.47.5 Dart SDK:
-
-- `dart test packages/zyren_collaboration/test --reporter expanded` passed all
-  36 tests, including 19 operation/recovery tests, provider integration and
-  the MCP subprocess test.
-- The MCP test passed. It launches the actual `zyren_devtools` stdio CLI,
-  initializes MCP, discovers both providers, reads a CPU triangle hit, verifies
-  read-only command denial, executes an authorized edit and retries it without a
-  second scene revision. Original diagnostics descriptors and inspection still
-  work. No credentials appear in the fixture output.
-- The engineering integration starts `EngineeringReviewServer` on loopback,
-  writes through `HttpEngineeringSessionStore` and reads the result through a
-  fresh `FileEngineeringSessionStore`. This verifies the existing review service
-  integration. It does not establish durable scene-operation storage.
-- `two_clients.dart` reports a duplicate retry at revision 1, a conflict and both
-  scene graphs at x=2 and revision 2. `agent_scene.dart` discovers two providers,
-  returns the housing source ID from a CPU pick, commits scene revision 1 and
-  reports an empty geometry query after hiding that object.
-- `dart analyze packages/zyren_collaboration` reports no issues. Formatting and
-  owned diff checks pass. `dart tool/check_package_boundaries.dart` now passes,
-  including Apple ABI header consistency. An earlier run caught the concurrent
-  devtools allowance update before that owner finished it.
-
-The MCP test uses `TestRenderer` and asserts zero render calls. No native
-presentation or device check has run here. The examples are headless scene hosts,
-so there is no desktop/narrow UI claim. No package was published or pushed.
-
-## Remaining scope and blockers
-
-The first local scene-operation and runtime-provider checkpoints are usable.
-The full plugin is incomplete. Presence reports unavailable and shared cameras
-remain unsupported. Durable scene snapshots and receipts, HTTPS/WebSocket scene
-transports, offline queues, conditional shared undo, creation/deletion/reparenting,
-material edits and native shared-editor UI remain in phases 3 through 7.
-
-Review conflict resolution continues through the existing host engineering
-workflow. A provider tool for explicit filtered review decisions and integration
-with a shared command/undo stack remain to be designed. The local guard cannot
-cancel a remote engineering write once the store has sent it.
-
-Native point-to-object-to-action evidence is still required. The shared MCP
-transport is exercised with actual subprocess I/O, but it has not been connected
-to a live native viewport in this workstream.
-
-Commits: `45da7bd` contains the checked scene-operation checkpoint and
-`486fdfb` adds the shared agent providers, engineering adapter and MCP checks.
-`3d83ad8` bounds host permission waits and verifies that a stalled callback
-releases the local authority queue without a late commit.
-
-At agent verification time, the interaction owner's devtools MCP adapter was
-still uncommitted. The MCP test passed against that working-tree integration;
-reproducing it from committed sources requires the owner's transport commit.
-
-## Extension requested on 2026-10-02
-
-We will finish durable scene operations, HTTP and WebSocket clients, leased
-presence, explicit camera following, a persistent offline outbox and conditional
-shared undo. The interaction owner's devtools adapter is now committed in
-`828955b`; the new checks can use committed transport code.
-
-The durable store keeps the initial snapshot and accepted operations with their
-host-bound authors. Atomic replacement and a process lock protect the ledger.
-Restoring the authority replays and validates that ledger before serving it.
-Receipts are retained with the history, and capacity exhaustion rejects writes.
-Undo submits an inverse against the exact revision being undone. It uses the
-same permission callback and preserves the original operation relationship.
-
-Presence uses bounded, expiring sessions and monotonic sequences. Shared camera
-poses travel with presence, never with durable object edits. Following requires
-an explicit choice and ends on local navigation, departure or expiry. Network
-clients use host-supplied authentication and bounded requests. A persistent
-outbox saves exact operations before sending, retains ambiguous results and
-stops for explicit decisions on conflicts or a changed scene epoch.
-
-A native Flutter example will exercise the durable server, both transports,
-reconciliation, undo and camera following. Native presentation, logical picks,
-agent mutations and compact desktop/narrow layouts will be checked separately.
-Creation, deletion, reparenting and material editing remain separate work until
-their source/resource contracts are available.
-
-The durable checkpoint is committed in `d81a171`. The network, presence, camera,
-undo preparation and offline outbox extensions pass 46 Dart tests. These include
-independent writer processes, trusted HTTPS/WSS and untrusted-certificate denial,
-socket reconnect, revoked credentials, file restart after a lost acknowledgement,
-renewed conflicts, lease ordering/expiry and shared agent calls. The native
-example is being qualified separately. It adds
-`packages/zyren_collaboration/example/native_app` to the workspace without
-changing shared runtime contracts.
+The file adapter is a bounded local ledger, not a distributed storage service.
+One owning isolate per process is required, and power-loss durability is not
+claimed. Remote writes cannot be cancelled after dispatch. Other native devices
+and backends remain unqualified. Exact presented-frame revision correlation and
+rendered-pixel visibility remain unknown rather than inferred from CPU picks.

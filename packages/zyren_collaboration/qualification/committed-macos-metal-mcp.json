@@ -1,0 +1,415 @@
+{
+  "ok": true,
+  "sharedSourceRevision": "828955b83dab24c83dc51b94327d375383e9312a",
+  "transport": "external CLI stdio MCP to authenticated native host loopback",
+  "providerIds": [
+    "zyren.collaboration",
+    "zyren.viewport",
+    "zyren.devtools"
+  ],
+  "renderer": {
+    "schemaVersion": 1,
+    "packageVersion": "0.1.0",
+    "sessionId": "hmuur3xx85-1o6v4ir:1",
+    "capturedAt": "2026-10-03T04:25:51.041084Z",
+    "attached": true,
+    "name": "wgpu-native",
+    "backend": "Metal",
+    "adapterName": "Apple M3 Max",
+    "driverDescription": null,
+    "features": [
+      "alphaMaterials",
+      "areaLighting",
+      "bloom",
+      "colorTextures",
+      "compute",
+      "diffuseLighting",
+      "environmentLighting",
+      "floatTextures",
+      "frameGraphs",
+      "hdr",
+      "hdrColor",
+      "indexedMeshes",
+      "instancing",
+      "materialSidedness",
+      "meshShaders",
+      "morphTargets",
+      "multisampleAntialiasing",
+      "nativeView",
+      "physicalMaterials",
+      "portablePrimitives",
+      "postprocessing",
+      "punctualLights",
+      "renderGraphs",
+      "reversedDepth",
+      "rgbaReadback",
+      "scopedResources",
+      "sectionClipping",
+      "selectionOutlines",
+      "shaderCompilation",
+      "shaderMaterials",
+      "shadowMaps",
+      "shadows",
+      "skinning",
+      "spatialAntialiasing",
+      "standardMaterials",
+      "storageTextures",
+      "temporalAntialiasing",
+      "unlitMaterials",
+      "volumeTextures"
+    ],
+    "limits": {
+      "maxTextureDimension2D": 4096,
+      "maxGeometryBytes": 67108864,
+      "sampleCounts": [
+        1,
+        4
+      ]
+    }
+  },
+  "viewport": {
+    "schemaVersion": "1.0",
+    "status": "ok",
+    "data": {
+      "sceneId": "shared-demo",
+      "documentId": "shared-demo",
+      "documentRevision": 4,
+      "viewportId": "main",
+      "sceneRevision": 6,
+      "camera": {
+        "runtimeId": 3,
+        "revision": 2,
+        "position": [
+          2.5,
+          1.5999999999999999,
+          5.0
+        ],
+        "target": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "up": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "projection": "perspective",
+        "projectionMatrix": [
+          2.444737889380897,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          2.1445069205095586,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          -1.000100010001,
+          -1.0,
+          0.0,
+          0.0,
+          -0.10001000100010002,
+          0.0
+        ],
+        "near": 0.1,
+        "far": 1000.0,
+        "layers": 1,
+        "depthStrategy": "standard"
+      },
+      "viewport": {
+        "coordinateSpace": "viewport-local-logical-top-left",
+        "x": 0,
+        "y": 0,
+        "width": 400.0,
+        "height": 456.0,
+        "devicePixelRatio": 2.0,
+        "usable": true
+      },
+      "sectionPlanes": [],
+      "presentedFrame": {
+        "id": "6",
+        "sceneRevision": null,
+        "cameraRevision": null,
+        "cameraRuntimeId": null,
+        "logicalWidth": null,
+        "logicalHeight": null,
+        "devicePixelRatio": null,
+        "presentedAt": "controller+2681687us"
+      },
+      "frameCorrelation": "unknown",
+      "imageMapping": null,
+      "windowOrigin": null,
+      "hostState": {
+        "offline": false,
+        "pending": 0,
+        "cameraFollowing": "alice-2ebd77c4633e4096e48401d1055f2780",
+        "activeViewport": true,
+        "focus": "unknown",
+        "overlays": []
+      },
+      "coverage": {
+        "method": "cpu-triangle-geometry",
+        "renderedPixelVisibility": "unknown",
+        "supported": [
+          "triangle meshes",
+          "instances",
+          "built-in deformation",
+          "material sidedness",
+          "layers",
+          "visibility",
+          "section clipping"
+        ],
+        "unknown": [
+          "texture alpha",
+          "transparent pixel compositing",
+          "custom shader displacement",
+          "line and point footprints",
+          "Flutter overlay interception",
+          "unloaded streaming content"
+        ],
+        "ordering": "distance, scene traversal, instance, triangle"
+      }
+    },
+    "revision": 6,
+    "affectedIds": []
+  },
+  "hit": {
+    "object": {
+      "runtimeId": 2,
+      "runtimeIdLifetime": "Dart isolate",
+      "name": "Housing",
+      "parentPath": [
+        1
+      ],
+      "visible": true,
+      "layers": 1,
+      "position": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "worldMatrix": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "projectedBounds": {
+        "method": "projected-world-aabb",
+        "renderedPixelVisibility": "unknown",
+        "coordinateSpace": "viewport-local-logical-top-left",
+        "cameraRuntimeId": 3,
+        "cameraRevision": 2,
+        "layerMatch": true,
+        "status": "ok",
+        "rectangle": {
+          "left": 146.30189869851122,
+          "top": 181.31690026697999,
+          "right": 250.166880352619,
+          "bottom": 282.6396798150598
+        },
+        "intersectsViewport": true,
+        "sectionClipping": "inside",
+        "coverage": "built-in deformation and instances; shader displacement and primitive pixel widths unknown"
+      },
+      "metadata": {
+        "sourceId": "{\"source\":\"demo-box@1\",\"key\":\"housing\"}",
+        "semanticType": null,
+        "owningPlugin": "zyren.collaboration",
+        "properties": {
+          "transformRevision": 4,
+          "visibilityRevision": 0
+        },
+        "provenance": {
+          "sceneId": "shared-demo",
+          "documentId": "shared-demo",
+          "epoch": "asset-1",
+          "source": "demo-box@1",
+          "key": "housing",
+          "sceneRevision": 4
+        },
+        "availableActions": [
+          "zyren.collaboration/main/check_operation",
+          "zyren.collaboration/main/set_transform",
+          "zyren.collaboration/main/set_visibility"
+        ],
+        "trust": "untrusted-scene-data"
+      }
+    },
+    "instanceIndex": null,
+    "worldPoint": [
+      0.22499999403953552,
+      0.1439999961853029,
+      0.44999998807907104
+    ],
+    "objectLocalPoint": [
+      0.22499999403953552,
+      0.1439999961853029,
+      0.44999998807907104
+    ],
+    "localPointSpace": "object before instance transform",
+    "normal": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "distance": 5.291319414541988,
+    "units": "scene-units",
+    "triangleIndex": 8,
+    "triangle": [
+      [
+        -0.44999998807907104,
+        -0.44999998807907104,
+        0.44999998807907104
+      ],
+      [
+        0.44999998807907104,
+        -0.44999998807907104,
+        0.44999998807907104
+      ],
+      [
+        0.44999998807907104,
+        0.44999998807907104,
+        0.44999998807907104
+      ]
+    ],
+    "barycentric": [
+      0.2499999999999999,
+      0.09000000000000029,
+      0.6599999999999998
+    ],
+    "uv": {
+      "u": 0.7500000000000001,
+      "v": 0.3400000000000002
+    },
+    "renderedPixelVisibility": "unknown"
+  },
+  "finalState": {
+    "schemaVersion": "1.0",
+    "status": "ok",
+    "data": {
+      "sceneId": "shared-demo",
+      "documentId": "shared-demo",
+      "epoch": "asset-1",
+      "sceneRevision": 6,
+      "remoteSceneRevision": 6,
+      "objectCount": 1
+    },
+    "revision": 22,
+    "affectedIds": []
+  },
+  "presence": {
+    "schemaVersion": "1.0",
+    "status": "ok",
+    "data": {
+      "participants": [
+        {
+          "sessionId": "bob-2ebd77c4633e4096e48401d1055f2780",
+          "label": "Bob",
+          "sequence": 5,
+          "expiresAt": "2026-10-03T04:26:18.695426Z",
+          "camera": {
+            "position": [
+              2.0,
+              1.4,
+              5.0
+            ],
+            "target": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "up": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "depth": "standard",
+            "kind": "perspective",
+            "fov": 0.8726646259971648,
+            "near": 0.1,
+            "far": 1000.0,
+            "zoom": 1.0
+          },
+          "selection": {
+            "source": "demo-box@1",
+            "key": "housing"
+          }
+        },
+        {
+          "sessionId": "alice-2ebd77c4633e4096e48401d1055f2780",
+          "label": "Alice",
+          "sequence": 6,
+          "expiresAt": "2026-10-03T04:26:18.705729Z",
+          "camera": {
+            "position": [
+              2.5,
+              1.5999999999999999,
+              5.0
+            ],
+            "target": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "up": [
+              0.0,
+              1.0,
+              0.0
+            ],
+            "depth": "standard",
+            "kind": "perspective",
+            "fov": 0.8726646259971648,
+            "near": 0.1,
+            "far": 1000.0,
+            "zoom": 1.0
+          },
+          "selection": {
+            "source": "demo-box@1",
+            "key": "housing"
+          }
+        }
+      ],
+      "following": "alice-2ebd77c4633e4096e48401d1055f2780"
+    },
+    "revision": 22,
+    "affectedIds": []
+  },
+  "outbox": {
+    "schemaVersion": "1.0",
+    "status": "ok",
+    "data": {
+      "schemaVersion": 1,
+      "snapshot": "{\"schemaVersion\":1,\"sceneId\":\"shared-demo\",\"epoch\":\"asset-1\",\"revision\":3,\"objects\":[{\"id\":{\"source\":\"demo-box@1\",\"key\":\"housing\"},\"transform\":{\"position\":[0.6,0.0,0.0],\"rotation\":[0.0,0.0,0.0,1.0],\"scale\":[1.0,1.0,1.0]},\"visible\":true,\"transformRevision\":3,\"visibilityRevision\":0}]}",
+      "pending": []
+    },
+    "revision": 22,
+    "affectedIds": []
+  },
+  "checks": [
+    "preserved read-only annotations",
+    "discovery",
+    "native viewport context",
+    "rich CPU triangle pick",
+    "scoped visibility command",
+    "conditional shared undo",
+    "presence",
+    "durable outbox",
+    "exact retry",
+    "stale rejection"
+  ]
+}

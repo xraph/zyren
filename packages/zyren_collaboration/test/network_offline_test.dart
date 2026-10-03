@@ -149,17 +149,31 @@ void main() {
       await host.connect('bob').submit(visible('remote', 1, false));
       state = await queue().reconcile();
       expect(state.conflict!.actualRevision, 2);
-      await queue().keepLocal('decision');
+      await queue().keepLocal('decision', reviewed: state.conflict!);
       await host.connect('bob').submit(visible('intervening', 2, false));
       expect((await queue().reconcile()).conflict!.actualRevision, 3);
-      await queue().acceptRemote();
+      await expectLater(
+        queue().acceptRemote(reviewed: state.conflict!),
+        throwsA(isA<SceneRevisionMismatch>()),
+      );
+      await queue().acceptRemote(reviewed: (await queue().read()).conflict!);
       expect((await queue().read()).pending, isEmpty);
       await queue().enqueue(visible('last', 3, true));
       lost.denied = true;
       state = await queue().reconcile();
       expect(state.lastError, 'denied');
       expect(state.pending, hasLength(1));
-      await expectLater(queue().acceptRemote(), throwsStateError);
+      await expectLater(
+        queue().acceptRemote(
+          reviewed:
+              state.conflict ??
+              SceneOperationConflict(
+                operation: visible('dummy', 0, true),
+                snapshot: state.snapshot,
+              ),
+        ),
+        throwsStateError,
+      );
       final other = OfflineSceneQueue(
         store: FileSceneDocumentStore(File('${dir.path}/outbox')),
         transport: lost,
@@ -168,6 +182,14 @@ void main() {
         epoch: 'two',
       );
       await expectLater(other.read(), throwsA(isA<SceneSessionMismatch>()));
+      final foreign = OfflineSceneQueue(
+        store: FileSceneDocumentStore(File('${dir.path}/outbox')),
+        transport: lost,
+        ownerId: 'bob',
+        sceneId: 'scene',
+        epoch: 'one',
+      );
+      await expectLater(foreign.read(), throwsA(isA<SceneAccessDenied>()));
     },
   );
   test(

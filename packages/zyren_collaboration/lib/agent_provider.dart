@@ -162,6 +162,22 @@ final class CollaborationAgentProvider extends AgentProvider {
       readOnly: false,
       requiredScopes: {'collaboration.read', 'collaboration.write'},
     ),
+    for (final name in ['offline_keep_local', 'offline_accept_remote'])
+      AgentTool(
+        name: name,
+        description: 'Resolve the exact persistent conflict you reviewed.',
+        inputSchema: agentObject(
+          {
+            'operationId': agentText,
+            'sceneRevision': agentRevision,
+            'fieldRevision': agentRevision,
+          },
+          required: ['operationId', 'sceneRevision', 'fieldRevision'],
+        ),
+        outputSchema: agentData,
+        readOnly: false,
+        requiredScopes: {'collaboration.read', 'collaboration.write'},
+      ),
     AgentTool(
       name: 'follow_camera',
       description:
@@ -409,6 +425,28 @@ final class CollaborationAgentProvider extends AgentProvider {
       }
       if (context.expectedRevision != revision) {
         return AgentResult(AgentStatus.stale, message: 'Client state changed.');
+      }
+      if (tool == 'offline_keep_local' || tool == 'offline_accept_remote') {
+        if (offline == null) return AgentResult(AgentStatus.unavailable);
+        final state = await offline!.read();
+        final conflict = state.conflict;
+        context.checkCancelled();
+        if (context.expectedRevision != revision ||
+            conflict == null ||
+            conflict.operation.operationId != arguments['operationId'] ||
+            state.snapshot.revision != arguments['sceneRevision'] ||
+            conflict.actualRevision != arguments['fieldRevision']) {
+          throw const SceneRevisionMismatch();
+        }
+        if (tool == 'offline_keep_local') {
+          await offline!.keepLocal(
+            client.nextOperationId(),
+            reviewed: conflict,
+          );
+        } else {
+          await offline!.acceptRemote(reviewed: conflict);
+        }
+        return _ok({'pending': (await offline!.read()).pending.length});
       }
       if (tool == 'reconcile') {
         if (offline == null) return AgentResult(AgentStatus.unavailable);

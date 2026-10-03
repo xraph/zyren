@@ -7,6 +7,7 @@ workspace:
   - packages/zyren_pointclouds
   - packages/zyren_capture
   - packages/zyren_collaboration
+  - packages/zyren_collaboration/example/native_app
   - packages/zyren_audio
   - packages/zyren_characters
   - packages/zyren_navigation
