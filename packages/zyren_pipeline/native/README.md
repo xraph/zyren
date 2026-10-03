@@ -32,8 +32,8 @@ The cache metric is a simulated 16-entry vertex cache, not a GPU measurement.
 
 Texture preparation accepts straight-alpha RGBA8 and emits ETC1S or UASTC KTX2.
 Color transfer, quality, effort and clamp mip generation are explicit. Encoding
-uses one thread and disables UASTC Zstd for deterministic output with the existing
-runtime codec profile. Alpha channels are retained; mip filtering is independent
+uses one thread and disables UASTC Zstd for repeatable local builds with the
+existing runtime codec profile. Cross-architecture byte identity is unverified. Alpha channels are retained; mip filtering is independent
 per channel and does not preserve alpha-test coverage. Keep original pixels in
 your bundle for rebuilding or different preparation policies. Choose runtime
 transcode targets from actual device capabilities, with RGBA8 as the fallback.

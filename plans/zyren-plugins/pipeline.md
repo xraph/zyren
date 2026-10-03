@@ -108,7 +108,7 @@ Pinned Dart/Flutter: `/Users/rexraphael/fvm/versions/3.47.5/bin`.
   Device-selected ASTC and RGBA fallback match in the sampled interior region.
   These fixture results do not establish a general Hausdorff or pixel error bound.
 - Texture tests cover ETC1S/UASTC, sRGB/linear transfer, transparent/opaque alpha
-  endpoints, authored mip count, deterministic encoding and CPU transcoding to
+  endpoints, authored mip count, repeatable local encoding and CPU transcoding to
   RGBA8, BC7, ETC2 and ASTC. Coverage-preserving alpha-test mips are unsupported.
 - Live stdio MCP process passes initialize/discovery, native-backed scene setup,
   source-ID pick, read-only denial, real invalidation, retries, stale revisions,
@@ -145,4 +145,7 @@ Pinned Dart/Flutter: `/Users/rexraphael/fvm/versions/3.47.5/bin`.
 - `74d07e5`: pinned preparation, build jobs, shared agent adapters and application
   stores, with native readback and live MCP evidence.
 
-The owned native lab is committed after its build and analysis checks.
+- `d5e477b0`: native lab, reproducible fixture, platform builds and qualification
+  checklist.
+
+All pipeline changes are committed locally on `main`. Nothing was pushed or merged.
