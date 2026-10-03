@@ -8,6 +8,11 @@ import 'package:crypto/crypto.dart';
 import 'package:zyren_ml/zyren_ml.dart';
 import 'zyren_game_ai.dart';
 
+const structuredModelEvaluationPlanHashes = {
+  '70293bb2509acec9f3626a87423f5a077d496e75cad3dc734f6fff853af763c4',
+  'deaf8017551bc1709af5f6e689f4c3f377f52b2822c6a02c9522986cb52e3afd',
+};
+
 bool _artifactDigest(Object? value) =>
     value is String && RegExp(r'^[0-9a-f]{64}$').hasMatch(value);
 Object? _artifactFrozen(Object? value) {
@@ -26,6 +31,7 @@ final class ModelEvaluation {
   final String modelHash, observationHash, actionHash, receiptHash, planHash;
   final List<Map<String, Object?>> cases;
   final bool accepted;
+  final String provider;
   final int fixedHz;
   final String? supersededPlanHash;
   ModelEvaluation._({
@@ -35,6 +41,7 @@ final class ModelEvaluation {
     required this.receiptHash,
     required this.planHash,
     required this.accepted,
+    required this.provider,
     required this.fixedHz,
     this.supersededPlanHash,
     required List<Map<String, Object?>> cases,
@@ -244,6 +251,7 @@ final class ModelEvaluation {
       receiptHash: receiptHash,
       planHash: data['plan_hash'] as String,
       accepted: accepted,
+      provider: data['provider'] as String,
       fixedHz: fixedHz!,
       supersededPlanHash: (plan['revision'] as Map?)?['supersedes'] as String?,
       cases: [
@@ -546,6 +554,19 @@ final class ModelArtifact {
       observationHash: observation.hash,
       actionHash: decoder.spec.hash,
     );
+    if (![
+      'python-onnxruntime-${model.runtimeVersion}-cpu',
+      'native-onnxruntime-${model.runtimeVersion}-cpu',
+    ].contains(evaluation.provider)) {
+      throw FormatException(
+        'Accepted artifact requires an exact ONNX provider.',
+      );
+    }
+    if (!structuredModelEvaluationPlanHashes.contains(evaluation.planHash)) {
+      throw FormatException(
+        'Structured model evaluation plan is not registered.',
+      );
+    }
     if (!evaluation.accepted ||
         evaluation.planHash != data['evaluation_plan_hash']) {
       throw FormatException('Model has no exact accepted evaluation.');

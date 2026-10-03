@@ -15,7 +15,10 @@ String digest(List<int> bytes) => sha256.convert(bytes).toString();
 final class CodecFixture {
   final files = <String, Uint8List>{};
   late final Map<String, Object?> bundle;
-  CodecFixture({bool syntheticModelEvaluation = true}) {
+  CodecFixture({
+    bool syntheticModelEvaluation = true,
+    bool syntheticOnnxProvider = true,
+  }) {
     final root = Directory('packages/zyren_game_ai').existsSync()
         ? ''
         : '../../';
@@ -59,6 +62,9 @@ final class CodecFixture {
         'sourceHash': normalizationHash,
       },
     );
+    if (syntheticOnnxProvider) {
+      report['provider'] = 'python-onnxruntime-1.23.2-cpu';
+    }
     if (syntheticModelEvaluation) report['family_model_hashes']['guard'] = hash;
     files.addAll({
       'actor.onnx': bytes,
@@ -158,7 +164,10 @@ void main() {
   test(
     'actual checkpoint report cannot establish acceptance of another model',
     () {
-      final f = CodecFixture(syntheticModelEvaluation: false);
+      final f = CodecFixture(
+        syntheticModelEvaluation: false,
+        syntheticOnnxProvider: false,
+      );
       expect(
         () => ModelArtifact.decode(f.manifest, f.files),
         throwsA(
@@ -171,6 +180,19 @@ void main() {
       );
     },
   );
+  test('Torch quality cannot qualify ONNX by relabeling the model SHA', () {
+    final f = CodecFixture(syntheticOnnxProvider: false);
+    expect(
+      () => ModelArtifact.decode(f.manifest, f.files),
+      throwsA(
+        isA<FormatException>().having(
+          (e) => e.message,
+          'reason',
+          contains('ONNX provider'),
+        ),
+      ),
+    );
+  });
   test(
     'bundle rejects missing resources, altered hashes and invalid normalization',
     () {
