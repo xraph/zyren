@@ -1,7 +1,11 @@
 # Studio qualification, 2026-10-03
 
-You can use the editor locally with the pinned Flutter 3.47.5 SDK. Public package
-release and full platform qualification are incomplete for the reasons below.
+You can use the editor locally with the pinned Flutter 3.47.5 SDK. Functional
+signoff passes on the tested M3 Max/macOS 27 Metal and Pixel 9 Pro/Android 17
+Vulkan configurations. Public release and iPhone/iPad qualification remain
+blocked for the reasons below.
+
+The signoff fixes are recorded in local commit `66feb2f`.
 
 | Area | Implementation | Current evidence |
 | --- | --- | --- |
@@ -14,17 +18,19 @@ release and full platform qualification are incomplete for the reasons below.
 | Agents | Shared scene, authoring, viewport, diagnostics, timeline, review and disk asset status providers; collaboration on attachment | Schema/grant/retry/stale tests pass; real external MCP flow passes on Metal |
 | Presented state | Submitted scene/camera/viewport metadata reaches the presenter receipt | Delayed-render mutation regression and native correlation pass; pixel visibility remains unknown |
 | Onboarding | Shared registry with Studio ID and three live anchors | Starts, advances and finishes at desktop/narrow widget sizes and in native runs |
-| macOS | Native Metal view | M3 Max native integration and external MCP pass with zero frame readback |
+| macOS | Native Metal view | M3 Max native integration and external MCP pass with zero frame readback; normal dark-theme desktop review passes |
 | Android | Native Vulkan shared texture | Physical Pixel 9 Pro, Android 17/API 37 integration passes with zero frame readback |
-| iOS | Generated runner and native Metal runtime | Unsigned debug build passes; physical launch blocked by signing |
+| iOS | Generated runner and native Metal runtime | Unsigned debug build passes; physical launch blocked by Apple's App ID limit and missing profile |
 | Publication | Example, README, changelog and package-local test support | Dry-run blocked by license and five path dependencies; package remains private |
 
 ## Verification
 
-The combined Studio/example and rendering regression command passed all 30 tests:
+The combined Studio/example, inspector and rendering regression command passed
+all 36 tests:
 
 ```sh
 fvm flutter test --no-pub packages/zyren_studio/test examples/studio/test \
+  packages/zyren_inspector/test \
   packages/zyren/test/engine_output_test.dart packages/zyren/test/frame_submission_test.dart
 ```
 
@@ -53,13 +59,32 @@ clipping; the orange standard material and textured import are visible. This
 capture uses the integration fixture's light theme, not the launcher's dark theme.
 [Pixel fixture](../../examples/studio/qualification/pixel-studio.png).
 
+Signoff caught a native-test assumption that the editor always fits 396 logical
+pixels. The assertion now checks the constrained editor width after safe-area
+insets, then checks the agent's viewport rectangle against the same value.
+Widget coverage exercises 1,200, 396 and 328 logical pixels, including saving,
+reload failures and the tour.
+
+The normal macOS launcher was reviewed in its dark theme. Native presentation,
+the Author scene menu, search, the illustrated empty state and clear-search
+recovery work. The tour opens, shows keyboard focus, advances with the keyboard
+and closes with Escape. Authoring and hierarchy disclosure buttons now expose
+explicit names in the native accessibility tree. Flutter semantics tests check
+the search, disclosure and clear-button names. This is a visual and keyboard
+smoke check. The native inspection tool exposes the search field's value without
+its label, so VoiceOver labeling remains unverified. A full VoiceOver/TalkBack
+audit has not been performed.
+
 ## Resource measurements
 
 After each of three authored previews closed, the main editor's GPU registry
 reported four allocations and 3,260 payload bytes, matching its pre-preview
-values. Metal reported 98,942,976 device-allocated bytes after every close in the
-recorded run. That is the Metal device counter, not physical residency. Android
-reported null for device allocation. Both reported null physical residency.
+values. The final Metal rerun reported 134,004,736 device-allocated bytes after
+every close. An earlier run in the same signoff reported 129,679,360,
+160,415,744 and 160,415,744 bytes, so the device counter did not always return to
+its first checkpoint. This is the process-wide Metal device counter, not
+physical residency or a measurement isolated to Studio. Android reported null
+for device allocation. Both reported null physical residency.
 
 Each preview waited for its own controller to dispose before releasing its asset
 scope. The authored document stayed unchanged. These observations establish the
@@ -68,17 +93,21 @@ Android or long-duration workloads.
 
 ## Remaining external and service limitations
 
-- Xcode reports no account and no development provisioning profile for
-  `dev.zyren.zyrenStudioExample`. The attached iPhone/iPad are not qualified by the
-  unsigned build. Configure signing and rerun the native test on each device.
-- Direct desktop visual and accessibility review remains blocked by the locked
-  Mac. Automated desktop and narrow layout assertions passed. Windows and Linux
-  runners and device qualification are outside this example's current targets.
+- A valid Apple Development identity is now available. The physical iPhone run
+  reaches Apple, which rejects creation of `dev.zyren.zyrenStudioExample` because
+  the account has reached its limit of 10 App IDs in seven days. No development
+  profile exists for that bundle. iPhone launch fails; iPad launch remains
+  unverified under the same missing-profile prerequisite. Provision the Studio
+  bundle when the account allows it, then run the native test on both devices.
+- Windows and Linux runners and device qualification are outside this example's
+  current targets.
 - Public release needs a project license decision and released, compatible
   versions of `zyren`, `zyren_agents`, `zyren_tools`, `zyren_timeline` and
   `zyren_engineering`. The workspace keeps path dependencies and
-  `publish_to: none`. Publisher access has not been verified. Nothing was pushed
-  or published. Android release builds still use the generated development
+  `publish_to: none`. The fresh publication dry-run exits 65 with exactly six
+  errors: the missing LICENSE and those five path dependencies. Publisher
+  access has not been verified. Nothing was pushed or published. Android release
+  builds still use the generated development
   signing configuration; distribution signing is not configured.
 - Remote collaboration agent mutations needing an atomic precommit cancellation
   guard are hidden because the existing network transport lacks that contract.

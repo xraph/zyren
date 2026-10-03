@@ -13,14 +13,25 @@ and changelog describe schema 2. The historical checkpoints below are retained
 as an implementation record; use this status and the qualification file for the
 current result.
 
-The combined Studio/example/rendering regression suite passes 30 tests. Scoped
-analysis and package boundaries pass. macOS Metal plus external MCP and physical
-Pixel Vulkan native flows pass. Three preview cycles preserve the document and
-tracked GPU allocations. The unsigned iOS build passes, but physical launch is
-blocked by Xcode account/provisioning. Direct desktop visual/accessibility review
-is blocked by the locked Mac. Publication is blocked by the project license
-choice and five path dependencies. Remote guarded agent writes remain limited
-by the collaboration transport contract; review notes remain local.
+Functional signoff passes for local development on the tested M3 Max/macOS 27
+Metal and physical Pixel 9 Pro/Android 17 Vulkan configurations. The combined
+Studio/example/inspector/rendering regression suite passes 36 tests. Scoped
+analysis and package boundaries pass, as do macOS native presentation and
+external MCP. Three preview cycles preserve the document and tracked GPU
+allocations. Device allocation counters vary across runs; physical residency
+remains unknown.
+
+The normal dark-theme desktop, keyboard tour, search recovery and native button
+names were reviewed. Signoff fixes add explicit semantic names and replace the
+native test's fixed-width assumption with the actual constrained viewport.
+Automated layout coverage includes 328 and 396 logical pixels. Full assistive
+technology qualification remains unverified.
+
+The unsigned iOS build passes. A valid signing identity is now present, but
+Apple's App ID creation limit prevents provisioning the Studio bundle for the
+physical iPhone/iPad. Publication still fails on the project license choice and
+five path dependencies. Remote guarded agent writes remain limited by the
+collaboration transport contract; review notes remain local.
 
 See `packages/zyren_studio/qualification.md` for exact device, memory-counter and
 release limits. No cross-platform or public-release completion is claimed.
