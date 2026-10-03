@@ -5,7 +5,8 @@ import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'studio_grid.dart';
 import 'studio_workspace.dart';
 import 'package:flutter_zyren_studio/flutter_zyren_studio.dart';
-import 'package:zyren_game_studio/zyren_game_studio.dart';
+import 'studio_game.dart';
+import 'package:zyren_game_studio/export.dart';
 import 'studio_theme.dart';
 import 'studio_properties.dart';
 import 'studio_model_bindings.dart';
@@ -103,6 +104,10 @@ class StudioEditorState extends State<StudioEditor> {
   StudioCancellation? _loadCancellation;
   StudioDocument? _gestureBefore;
   Registration? _collaborationRegistration;
+  StudioCollaborationSession? _gameCollaborationSession;
+  late final _gameCollaboration = GameCollaborationAdapter(
+    connectedClient: () => _gameCollaborationSession?.client,
+  );
   late AgentRegistry _agents;
   StudioModelBindings? _modelBindings;
   late StudioAgentProvider _agentProvider;
@@ -479,7 +484,24 @@ class StudioEditorState extends State<StudioEditor> {
     );
     host.registerAll([
       if (!widget.editorContributions.any((c) => c.id == 'zyren.game-editor'))
-        GameStudioContribution(createGameAuthoring()).contribution,
+        ...studioGameContributions(
+          runtime: widget.runtime,
+          assets: widget.assetResolver,
+          collaboration: _gameCollaboration,
+          leaveSession: () async {
+            await _gameCollaborationSession?.close();
+            _gameCollaborationSession = null;
+            _collaborationRegistration?.dispose();
+            _collaborationRegistration = null;
+            _refresh();
+          },
+          importAssets: widget.assetResolver == null
+              ? null
+              : () => _author('import'),
+        ).where(
+          (builtIn) =>
+              !widget.editorContributions.any((c) => c.id == builtIn.id),
+        ),
       ...widget.editorContributions,
     ]);
     _controller.status.addListener(_statusChanged);
@@ -850,6 +872,9 @@ class StudioEditorState extends State<StudioEditor> {
   }
 
   Future<void> _applyAuthoring(StudioDocument document) async {
+    final scene = _scene;
+    final revision = scene.revision;
+    _gameCollaboration.guardDocument(scene.capture(), document);
     final resolver = widget.assetResolver;
     if (resolver != null) {
       _loadCancellation = StudioCancellation();
@@ -859,7 +884,13 @@ class StudioEditorState extends State<StudioEditor> {
         cancellation: _loadCancellation,
       );
     }
-    if (!mounted) return;
+    if (!mounted || !identical(_scene, scene)) {
+      throw StateError('The editor closed or reloaded while preparing the edit.');
+    }
+    if (scene.revision != revision) {
+      throw StateError('The scene changed while preparing the edit. Retry it.');
+    }
+    _gameCollaboration.guardDocument(_scene.capture(), document);
     _scene.apply(document);
     await _pruneAssets();
   }
@@ -885,6 +916,7 @@ class StudioEditorState extends State<StudioEditor> {
               scene: _scene,
               directory: widget.collaborationDirectory,
               onSession: (session) {
+                _gameCollaborationSession = session;
                 _collaborationRegistration?.dispose();
                 _collaborationRegistration = null;
                 if (session != null) {

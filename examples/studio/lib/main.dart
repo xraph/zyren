@@ -225,6 +225,8 @@ class _OpenStudioState extends State<_OpenStudio> {
           'studio.select',
           'studio.edit',
           'studio.save',
+          'game.read',
+          'game.build',
           'timeline.playback',
           'collaboration.read',
           'collaboration.write',
