@@ -196,6 +196,45 @@ void main() {
   );
 
   test(
+    'superseded staged assets stay counted until the next native receipt',
+    () async {
+      final services = AssetServices(
+        resolver: MemoryResolver({
+          for (final n in ['old', 'next', 'last']) '/$n': triangleModel(),
+        }),
+      );
+      final streamer = Tiles3DStreamer(
+        tileset: await source(tile(uri: 'old', refine: 'REPLACE')),
+        services: services,
+        trackPublication: true,
+      );
+      addTearDown(streamer.dispose);
+      streamer.update(camera(50), viewport);
+      await settle(streamer);
+      streamer.beginFrame();
+      streamer.completeFrame(receipt(streamer, true));
+      final one = streamer.stats.residentBytes;
+      streamer.replaceTileset(
+        await source(tile(uri: 'next', refine: 'REPLACE')),
+      );
+      streamer.update(camera(50), viewport);
+      await settle(streamer);
+      streamer.beginFrame();
+      streamer.completeFrame(receipt(streamer, false));
+      expect(streamer.stats.residentBytes, one * 2);
+      streamer.replaceTileset(
+        await source(tile(uri: 'last', refine: 'REPLACE')),
+      );
+      streamer.update(camera(50), viewport);
+      await settle(streamer);
+      expect(streamer.stats.residentBytes, one * 3);
+      streamer.beginFrame();
+      streamer.completeFrame(receipt(streamer, true));
+      expect(streamer.stats.residentBytes, one);
+    },
+  );
+
+  test(
     'near-capacity navigation publishes a complete coarse bridge first',
     () async {
       Map<String, Object?> side(String uri, double x) =>

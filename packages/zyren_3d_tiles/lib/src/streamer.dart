@@ -152,7 +152,7 @@ class Tiles3DStreamer {
   final TileVisibilityPolicy? visibilityPolicy;
   final _TileMotion? _motion;
   final bool trackPublication;
-  Map<String, Group> _displayed = {}, _submitted = {};
+  Map<String, Group> _displayed = {}, _submitted = {}, _staged = {};
   Set<(int, int)> _submittedIdentities = {};
   Map<String, TileNode3D> _prefetch = {};
   final _prefetched = <String>{};
@@ -300,7 +300,12 @@ class Tiles3DStreamer {
     _active.length,
     _cachedBytes,
     _reservedBytes,
-    _resident({..._visible.values, ..._displayed.values, ..._submitted.values}),
+    _resident({
+      ..._visible.values,
+      ..._displayed.values,
+      ..._submitted.values,
+      ..._staged.values,
+    }),
     _budgetLimited,
     _prefetched.length,
     _prefetchBytes,
@@ -513,10 +518,17 @@ class Tiles3DStreamer {
               _submittedIdentities,
             ))) {
       _displayed = Map.of(_submitted);
+      _staged = {};
+    } else if (!admission.candidateReady) {
+      _staged = Map.of(_submitted);
     }
     _submitted = {};
     final held = {
-      for (final group in {..._displayed.values, ..._visible.values})
+      for (final group in {
+        ..._displayed.values,
+        ..._visible.values,
+        ..._staged.values,
+      })
         _owners[group]?.scope,
     };
     _retired.removeWhere((entry) {
@@ -598,7 +610,11 @@ class Tiles3DStreamer {
     }
     _tileset = tileset;
     final retainedScopes = {
-      for (final group in {..._displayed.values, ..._submitted.values})
+      for (final group in {
+        ..._displayed.values,
+        ..._submitted.values,
+        ..._staged.values,
+      })
         _owners[group]?.scope,
     };
     for (final entry in _cache.values) {
@@ -964,13 +980,21 @@ class Tiles3DStreamer {
       final bridgeFitsDetail =
           bytes({...bridge, ...desired}) <= budget.maxResidentBytes;
       final overlapFits =
-          _resident({..._displayed.values, ...desired.values}) <=
+          _resident({
+            ..._displayed.values,
+            ..._staged.values,
+            ...desired.values,
+          }) <=
           budget.maxResidentBytes;
       if (!bridgeFitsDetail || !overlapFits) {
         _budgetLimited = true;
         desired =
             bridge.isNotEmpty &&
-                _resident({..._displayed.values, ...bridge.values}) <=
+                _resident({
+                      ..._displayed.values,
+                      ..._staged.values,
+                      ...bridge.values,
+                    }) <=
                     budget.maxResidentBytes
             ? bridge
             : Map.of(_displayed);
@@ -985,7 +1009,8 @@ class Tiles3DStreamer {
   bool _holdsVisible(String id) =>
       (fadeDuration > Duration.zero && _visible.containsKey(id)) ||
       _displayed.containsKey(id) ||
-      _submitted.containsKey(id);
+      _submitted.containsKey(id) ||
+      _staged.containsKey(id);
 
   void _cover(Group group, FragmentCoverage coverage) {
     void visit(Object3D object) {
@@ -1145,6 +1170,7 @@ class Tiles3DStreamer {
     _visible = {};
     _displayed = {};
     _submitted = {};
+    _staged = {};
     _prefetch = {};
     _prefetched.clear();
     _expiredPrefetch.clear();
