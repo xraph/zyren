@@ -44,6 +44,7 @@ final class TerrainExtension extends GeospatialExtension {
   );
   GeospatialContext? _geo;
   Object? _lastStatus, _lastImagery;
+  GeoLayerStatus? _publishedStatus;
   int _imageryRevision = 0;
   TerrainExtension({
     required String id,
@@ -221,7 +222,10 @@ final class TerrainExtension extends GeospatialExtension {
       terrain.source.identity,
       _imageryRevision,
     );
-    if (key == _lastStatus) return;
+    if (key == _lastStatus &&
+        identical(geo.layers.layer(layerId).status, _publishedStatus)) {
+      return;
+    }
     _lastStatus = key;
     final status = GeoLayerStatus(
       lifecycle: GeoLayerLifecycle.attached,
@@ -235,6 +239,7 @@ final class TerrainExtension extends GeospatialExtension {
               retryable: true,
             ),
     );
+    _publishedStatus = status;
     geo.layers.transact(geo.layers.revision, (edit) {
       edit.setStatus(layerId, status);
       edit.setStyleRevision(layerId, '$_imageryRevision');
@@ -261,6 +266,7 @@ final class TerrainExtension extends GeospatialExtension {
   void detachGeospatial(GeospatialContext context) {
     _geo = null;
     _lastStatus = null;
+    _publishedStatus = null;
     _lastImagery = null;
   }
 }

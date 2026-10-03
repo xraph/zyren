@@ -13,6 +13,33 @@ GeoLayerConfigurationCodec<int> terrainCodec() =>
     );
 
 void main() {
+  test(
+    'restored definitions can be adopted once with real runtime capabilities',
+    () {
+      final source = GeoLayerController();
+      source.register(
+        GeoLayer(id: 'a', owner: 'test', kind: 'terrain', visible: false),
+      );
+      final target = GeoLayerController();
+      GeoLayerCodec(target).decode(GeoLayerCodec(source).encode());
+      final runtime = GeoLayer(
+        id: 'a',
+        owner: 'test',
+        kind: 'terrain',
+        capabilities: {GeoLayerCapability.query},
+      );
+      final claim = target.register(runtime, adoptRestored: true);
+      expect(target.layer('a').visible, isFalse);
+      expect(target.layer('a').capabilities, {GeoLayerCapability.query});
+      expect(
+        () => target.register(runtime, adoptRestored: true),
+        throwsStateError,
+      );
+      claim.dispose();
+      expect(target.snapshot, isEmpty);
+    },
+  );
+
   test('restoring configuration retains matching ownership registrations', () {
     final layers = GeoLayerController();
     final token = layers.register(

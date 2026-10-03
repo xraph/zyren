@@ -7,20 +7,124 @@ import 'geodesy.dart';
 final class GeospatialCameraPose {
   final Vec3 position, target, up, surfaceUp;
   final Quat quaternion;
+  final GeoPerspectiveLens? lens;
   const GeospatialCameraPose({
     required this.position,
     required this.target,
     required this.up,
     required this.surfaceUp,
     required this.quaternion,
+    this.lens,
   });
 
+  factory GeospatialCameraPose.fromCamera(Camera camera) =>
+      GeospatialCameraPose(
+        position: camera.position,
+        target: camera.target,
+        up: camera.up,
+        surfaceUp: camera.up,
+        quaternion: _poseRotation(camera.position, camera.target, camera.up),
+        lens: camera is PerspectiveCamera
+            ? GeoPerspectiveLens.fromCamera(camera)
+            : null,
+      );
+
+  GeospatialCameraPose copyWith({
+    Vec3? position,
+    Vec3? target,
+    Vec3? up,
+    Vec3? surfaceUp,
+    GeoPerspectiveLens? lens,
+  }) {
+    final p = position ?? this.position,
+        t = target ?? this.target,
+        u = up ?? this.up;
+    final result = GeospatialCameraPose(
+      position: p,
+      target: t,
+      up: u,
+      surfaceUp: surfaceUp ?? this.surfaceUp,
+      quaternion: _poseRotation(p, t, u),
+      lens: lens ?? this.lens,
+    );
+    result.validate();
+    return result;
+  }
+
+  void validate() {
+    if (!position.isFinite ||
+        !target.isFinite ||
+        !up.isFinite ||
+        !surfaceUp.isFinite ||
+        !quaternion.isFinite ||
+        (position - target).length2 < 1e-20 ||
+        up.length2 < 1e-20 ||
+        up.cross(position - target).length2 < 1e-20) {
+      throw ArgumentError('A camera pose needs finite, independent view axes.');
+    }
+    quaternion.normalized();
+    lens?.validate();
+  }
+
   void applyTo(Camera camera) {
+    validate();
+    if (lens != null && camera is! PerspectiveCamera) {
+      throw UnsupportedError('A perspective lens needs a perspective camera.');
+    }
+    if (lens case final value?) value.applyTo(camera as PerspectiveCamera);
     camera.position = position;
     camera.target = target;
     camera.up = up;
     camera.quaternion = quaternion;
   }
+}
+
+/// Optional projection state for managed rigs. PointOfView leaves it unchanged.
+final class GeoPerspectiveLens {
+  final double near, far, fieldOfView, zoom;
+  final DepthStrategy depthStrategy;
+  const GeoPerspectiveLens({
+    required this.near,
+    required this.far,
+    required this.fieldOfView,
+    this.zoom = 1,
+    this.depthStrategy = DepthStrategy.standard,
+  });
+  factory GeoPerspectiveLens.fromCamera(PerspectiveCamera camera) =>
+      GeoPerspectiveLens(
+        near: camera.near,
+        far: camera.far,
+        fieldOfView: camera.fieldOfView,
+        zoom: camera.zoom,
+        depthStrategy: camera.depthStrategy,
+      );
+  void validate() {
+    if (![near, far, fieldOfView, zoom].every((v) => v.isFinite) ||
+        near <= 0 ||
+        far <= near ||
+        zoom <= 0 ||
+        fieldOfView <= 0 ||
+        fieldOfView >= math.pi) {
+      throw ArgumentError('Invalid perspective lens.');
+    }
+  }
+
+  void applyTo(PerspectiveCamera camera) {
+    validate();
+    if (far > camera.far) camera.far = far;
+    if (near < camera.near) camera.near = near;
+    camera.near = near;
+    camera.far = far;
+    camera.fieldOfView = fieldOfView;
+    camera.zoom = zoom;
+    camera.depthStrategy = depthStrategy;
+  }
+}
+
+Quat _poseRotation(Vec3 position, Vec3 target, Vec3 up) {
+  final backward = (position - target).normalized();
+  final right = up.cross(backward).normalized();
+  return _rotation(right, backward.cross(right), backward);
 }
 
 /// Heading is measured from local east toward north, in radians. Positive

@@ -23,6 +23,7 @@ dependencies:
     path: ../shader_lab
   html: ^0.15.7
   url_launcher: ^6.3.2
+  path_provider: ^2.1.6
 
 dev_dependencies:
   zyren_game:

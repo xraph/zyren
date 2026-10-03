@@ -83,6 +83,64 @@ nonfinite values and excessive nesting or size before publication. Keep source
 credentials in your resolver. The codec stores configuration; persistent resource
 caching and offline regions are separate services.
 
+## Cameras and visual contributions
+
+Install as many `GlobeCameraExtension` instances as your view needs, then call
+`geospatial.cameras.activate('detail')` to switch. The first attached rig starts
+active. Each rig keeps its own camera state; switching cancels the old gesture
+owner before the new rig accepts input. Removing the active rig selects the
+remaining rig with the first sorted ID. Legacy standalone controls still work,
+but cannot share a view with these managed rigs.
+Managed globe rigs currently require a perspective camera.
+
+You can modify a pose without owning another frame loop:
+
+```dart
+context.sceneContext.scope.keep(context.cameras.registerModifier(
+  'inspection-offset',
+  20,
+  (pose) => pose.copyWith(position: pose.position + offset),
+  components: {GeoCameraComponent.position},
+));
+```
+
+Lower priorities run first. Equal priorities use the modifier ID, so registration
+order cannot change the result. The controller rejects edits to undeclared
+components, applies the active rig's constraints and validates the complete pose
+before publication. Globe rigs use the existing terrain-clearance query after
+modifiers. Their base pose remains independent of visual offsets, avoiding drift
+across frames. `GeoCameraRig` lets you install another rig through an ordinary
+scene plugin and publish only while its ID is active.
+
+`GeoVisualRegistry` keeps versioned `GeoVisualStyle` configuration separate from
+image effects. Keep style registration tokens in your attachment scope. Add real
+GPU work with `visuals.addEffect`, `addCompute` or `addRender`, passing your own
+`PluginContext` and a `GeoVisualPass`. These methods register with the existing
+shared native graph and return a scoped `GeoVisualRegistration`; you can toggle
+`enabled` or invalidate a changed layout without taking ownership of composition.
+
+Pass contracts declare required native features, depth convention, alpha handling,
+output lifetime and exclusive capabilities. Shader colour values are linear.
+Names and dependency sets must agree with GPU descriptors, and explicit dependency
+edges stay within one graph stage. Install named dependencies through the same
+registry. Validation rejects missing passes, cycles and conflicting owners;
+core still checks resources, hazards and final composition ownership. The native
+fixture in `test/extensions/native_visual_test.dart` executes two ordered colour
+passes and verifies their output and cleanup at two sizes.
+
+Open **Layer lab** from the Planet example, or run
+`flutter run -d macos -t lib/layers/main.dart` inside `examples/planet`.
+You can switch cameras, hide either terrain layer or the sky, fail and retry the
+east source, then save your layout. Restart the view to restore it from the app's
+support directory. This uses procedural regional terrain, with no provider key.
+The geospatial package itself stays free of widgets and platform storage paths.
+
+Extensions can claim matching restored definitions once through
+`context.registerLayer`. Saved visibility, ordering, filters and policies survive;
+capabilities and readiness come from the real adapter. Resolve a different source
+or configuration before installing its extension. Registration rejects mismatches
+rather than labelling old renderer data as the restored source.
+
 ## World frames and simulation time
 
 `GeospatialPlugin` provides `clock`, `worldFrame` and `heightProvider`, also

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:zyren/zyren.dart';
 import 'layer.dart';
 import 'change.dart';
@@ -8,6 +9,7 @@ import 'selection.dart';
 final class GeoLayerController {
   List<GeoLayer> _snapshot = const [];
   Map<String, Object> _identities = {};
+  final _claims = <String, Object>{};
   final _loads = <String, Object>{};
   GeoSelection _selection = GeoSelection([]);
   int _revision = 0;
@@ -73,6 +75,9 @@ final class GeoLayerController {
             before[id]?.sourceReference != after[id]?.sourceReference ||
             before[id]?.sourceRevision != after[id]?.sourceRevision,
       );
+      _claims.removeWhere(
+        (id, _) => !identical(_identities[id], edit._identities[id]),
+      );
       _snapshot = List.unmodifiable(next);
       _identities = edit._identities;
       _selection = GeoSelection(edit._selection);
@@ -130,11 +135,53 @@ final class GeoLayerController {
     }
   }
 
-  Registration register(GeoLayer value) {
-    transact(revision, (e) => e.add(value));
+  Registration register(GeoLayer value, {bool adoptRestored = false}) {
+    final restored = findLayer(value.id);
+    if (_claims.containsKey(value.id)) {
+      throw StateError('Layer ${value.id} is already claimed.');
+    }
+    if (restored != null && adoptRestored) {
+      if (restored.owner != value.owner ||
+          restored.kind != value.kind ||
+          restored.sourceReference != value.sourceReference ||
+          restored.configurationVersion != value.configurationVersion ||
+          jsonEncode(restored.configuration) !=
+              jsonEncode(value.configuration)) {
+        throw StateError(
+          'Resolve restored layer ${value.id} with its matching source and configuration.',
+        );
+      }
+      final adopted = GeoLayer(
+        id: value.id,
+        owner: value.owner,
+        kind: value.kind,
+        parentId: restored.parentId,
+        visible: restored.visible,
+        queryable: restored.queryable,
+        opacity: restored.opacity,
+        capabilities: value.capabilities,
+        status: value.status,
+        policies: restored.policies,
+        filter: restored.filter,
+        sourceReference: value.sourceReference,
+        sourceRevision: value.sourceRevision,
+        styleRevision: restored.styleRevision,
+        configuration: value.configuration,
+        configurationVersion: value.configurationVersion,
+      );
+      transact(revision, (e) => e._replace(value.id, adopted));
+    } else {
+      transact(revision, (e) => e.add(value));
+    }
+    final claim = _claims[value.id] = Object();
     final identity = _identities[value.id];
     return Registration(() {
-      if (_closed || !identical(_identities[value.id], identity)) return;
+      if (_closed ||
+          !identical(_identities[value.id], identity) ||
+          !identical(_claims[value.id], claim)) {
+        return;
+      }
+      _claims.remove(value.id);
       // A foreign layer can outlive this registration. Keep it under the old
       // parent rather than deleting another extension's content.
       transact(revision, (e) {

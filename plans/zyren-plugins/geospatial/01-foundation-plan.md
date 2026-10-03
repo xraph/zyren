@@ -340,10 +340,10 @@ Interfaces: `GeoCameraController.activate(String rigId)`,
 `GeoVisualRegistry` registers versioned styles and named pass dependencies against
 the existing graph; `validate()` rejects cycles and conflicting exclusive owners.
 
-- [ ] Test a deterministic pose chain with two modifiers, reversed registration
+- [x] Test a deterministic pose chain with two modifiers, reversed registration
   order and one active rig. Equal priorities resolve by stable ID, not callback
   arrival. Detach removes only its registration.
-- [ ] Define the composition explicitly:
+- [x] Define the composition explicitly:
 
 ```dart
 var pose = activeRig.pose;
@@ -356,13 +356,13 @@ pose.applyTo(camera);
   `activeRig.pose`, `orderedModifiers` and the target `camera` are controller
   internals. Modifiers cannot install their own frame loops. Picking/collision
   constraints run before the final pose publication, using existing controls.
-- [ ] Build a native Planet example with two layers, atmosphere, a camera switch,
+- [x] Build a native Planet example with two layers, atmosphere, a camera switch,
   source failure/retry and persisted layer configuration. Put controls in the
   application and keep geospatial free of widgets. Reuse the current theme and
   compact controls; do not create a sidebar dependency.
-- [ ] Run package tests/analyzer/boundary checks and the example on desktop and
+- [x] Run package tests/analyzer/boundary checks and the example on desktop and
   a narrow native viewport. Record screen evidence and unresolved device checks.
-- [ ] Commit `feat(geospatial): expose camera and visual extension services`.
+- [x] Commit `feat(geospatial): expose camera and visual extension services`.
 
 ## Completion review
 

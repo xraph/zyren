@@ -48,6 +48,10 @@ void main() {
         );
         expect(light(day), greaterThan(1000));
         expect(geo.layers.layer('sky').status.data, GeoLayerDataState.ready);
+        final codec = GeoLayerCodec(geo.layers);
+        codec.decode(codec.encode());
+        await engine.render(elapsed: Duration.zero, width: 64, height: 48);
+        expect(geo.layers.layer('sky').status.data, GeoLayerDataState.ready);
         geo.layers.setVisible('sky', false);
         final hidden = await engine.render(
           elapsed: Duration.zero,

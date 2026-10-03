@@ -66,7 +66,7 @@ Future<void> settleLayers(
 
 void main() {
   test(
-    'camera extension owns its controls and rejects competing default rigs',
+    'camera extension owns its controls and rejects legacy competing rigs',
     () async {
       final camera = GlobeCameraExtension(id: 'camera');
       final geo = GeospatialPlugin(extensions: [camera]);
@@ -80,17 +80,12 @@ void main() {
       await engine.dispose();
       expect(camera.camera.controls, isNull);
       var allocated = false;
-      final invalid = GeospatialPlugin(
-        extensions: [
-          camera,
-          GlobeCameraExtension(id: 'second'),
-        ],
-      );
+      final invalid = GeospatialPlugin(extensions: [camera]);
       await expectLater(
         SceneEngine.create(
           scene: Scene(),
           camera: layerCamera(),
-          plugins: invalid.scenePlugins,
+          plugins: [...invalid.scenePlugins, GlobeControlsPlugin()],
           rendererFactory: () async {
             allocated = true;
             return LayerTestRenderer();
@@ -99,6 +94,34 @@ void main() {
         throwsStateError,
       );
       expect(allocated, isFalse);
+    },
+  );
+
+  test(
+    'live layout restore republishes readiness from attached terrain',
+    () async {
+      final terrain = TerrainExtension(id: 'a', source: ControlledTerrain());
+      final geo = GeospatialPlugin(extensions: [terrain]);
+      final engine = await SceneEngine.create(
+        scene: Scene(),
+        camera: layerCamera(),
+        plugins: geo.scenePlugins,
+        rendererFactory: () async => LayerTestRenderer(),
+      );
+      try {
+        await settleLayers(engine, [terrain]);
+        expect(geo.layers.layer('a').status.data, GeoLayerDataState.ready);
+        final codec = GeoLayerCodec(geo.layers);
+        codec.decode(codec.encode());
+        expect(
+          geo.layers.layer('a').status.data,
+          GeoLayerDataState.unavailable,
+        );
+        await settleLayers(engine, [terrain]);
+        expect(geo.layers.layer('a').status.data, GeoLayerDataState.ready);
+      } finally {
+        await engine.dispose();
+      }
     },
   );
 

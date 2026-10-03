@@ -5,6 +5,8 @@ import 'layers/controller.dart';
 import 'world/reference.dart';
 import 'world/time.dart';
 import 'extensions/extension.dart';
+import 'extensions/camera_controller.dart';
+import 'extensions/visual_registry.dart';
 import 'extensions/registry.dart';
 import 'extensions/composition.dart';
 
@@ -49,6 +51,11 @@ class GeospatialPlugin extends ScenePlugin {
         sourceRevision:
             'ellipsoid:${reference.ellipsoid.x},${reference.ellipsoid.y},${reference.ellipsoid.z}',
       );
+  final GeoVisualRegistry visuals = GeoVisualRegistry();
+  late final GeoCameraController cameras = GeoCameraController(
+    validatePose: (pose) =>
+        visuals.validate(depthStrategy: pose.lens?.depthStrategy),
+  );
   final GeoLayerController layers = GeoLayerController();
   final GeoExtensionRegistry registry = GeoExtensionRegistry();
   final List<GeospatialExtension> extensions;
@@ -72,6 +79,9 @@ class GeospatialPlugin extends ScenePlugin {
   @override
   void validateComposition(List<ScenePlugin> plugins) =>
       validateGeospatialHost(this, plugins);
+  @override
+  void beforeRender(PluginContext context, FrameInfo frame) =>
+      visuals.validate(depthStrategy: context.camera.depthStrategy);
   @override
   void attach(PluginContext context) {
     context.provide(geospatialReference, reference);

@@ -1,6 +1,8 @@
 import 'package:zyren/zyren.dart';
 import '../geospatial_plugin.dart';
 import 'registry.dart';
+import 'camera_controller.dart';
+import 'visual_registry.dart';
 import '../layers/controller.dart';
 import '../layers/layer.dart';
 import '../world/reference.dart';
@@ -11,13 +13,15 @@ final class GeospatialContext {
   final PluginContext sceneContext;
   final GeospatialPlugin host;
   const GeospatialContext({required this.sceneContext, required this.host});
+  GeoVisualRegistry get visuals => host.visuals;
+  GeoCameraController get cameras => host.cameras;
   GeoWorldFrame get worldFrame => host.worldFrame;
   GeoSimulationClock get clock => host.clock;
   GeoHeightProvider get heightProvider => host.heightProvider;
   GeoLayerController get layers => host.layers;
   Registration registerLayer(GeoLayer layer) {
     _requireActive();
-    return sceneContext.scope.keep(layers.register(layer));
+    return sceneContext.scope.keep(layers.register(layer, adoptRestored: true));
   }
 
   GeospatialReference get reference => host.reference;

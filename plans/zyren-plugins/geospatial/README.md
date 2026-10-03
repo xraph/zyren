@@ -11,8 +11,8 @@ native spectral simulation and physical buoyancy required here.
 
 | Order | Plan | Tasks | Current status |
 | --- | --- | --- | --- |
-| 1 | [Extension host, layers and world services](01-foundation-plan.md) | F1-F5 | F1-F4 implemented and checked; F5 next |
-| 2 | [Persistent caching and offline regions](02-offline-plan.md) | D1-D4 | Queued for sequential execution |
+| 1 | [Extension host, layers and world services](01-foundation-plan.md) | F1-F5 | F1-F5 implemented; native Metal checks recorded |
+| 2 | [Persistent caching and offline regions](02-offline-plan.md) | D1-D4 | D1 next |
 | 3 | [Native professional ocean](03-ocean-plan.md) | W1-W12 | Queued for sequential execution |
 
 Navigation/traffic, flight and orbital simulation remain in the approved platform
@@ -72,3 +72,9 @@ produced 60 physics steps, and camera-only frames changed neither. Analysis pass
 Clock and system ownership remain reserved until pending asynchronous work drains.
 Time standards are labelled; leap-second conversion and ephemeris data are not
 provided. The concurrent Studio boundary issue recorded above remains.
+
+F5 adds managed camera rigs, ordered pose modifiers, versioned styles and actual
+native graph registrations. The Planet layer lab covers source failure/retry and
+persisted layout with a native application test at wide and narrow sizes. See
+[foundation evidence](foundation-evidence.md) for commands, screen observations,
+interface adjustments and unresolved platform checks.

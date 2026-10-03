@@ -83,3 +83,6 @@ export 'src/world/external_clock.dart';
 export 'src/world/simulation.dart';
 export 'src/world/sample.dart';
 export 'src/world/reference.dart';
+
+export 'src/extensions/camera_controller.dart';
+export 'src/extensions/visual_registry.dart';

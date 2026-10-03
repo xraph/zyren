@@ -88,6 +88,20 @@ final class AtmosphereExtension extends GeospatialExtension {
 
   @override
   void beforeGeospatialRender(GeospatialContext context, FrameInfo frame) {
+    final layer = context.layers.findLayer(localId);
+    if (layer?.owner == id &&
+        layer!.status.lifecycle != GeoLayerLifecycle.attached) {
+      context.layers.transact(
+        context.layers.revision,
+        (edit) => edit.setStatus(
+          localId,
+          GeoLayerStatus(
+            lifecycle: GeoLayerLifecycle.attached,
+            data: GeoLayerDataState.ready,
+          ),
+        ),
+      );
+    }
     atmosphere.controller.enabled =
         context.layers.findLayer(localId)?.owner == id &&
         context.layers.effectiveVisible(localId);

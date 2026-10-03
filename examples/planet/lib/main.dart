@@ -4,11 +4,13 @@ import 'package:zyren_geospatial/zyren_geospatial.dart';
 import 'package:flutter_zyren/flutter_zyren.dart';
 import 'planet_scene.dart';
 import 'zero_state.dart';
+import 'layers/layers_lab.dart';
 
 void main() => runApp(const PlanetApp());
 
 class PlanetApp extends StatelessWidget {
-  const PlanetApp({super.key});
+  final Widget home;
+  const PlanetApp({super.key, this.home = const PlanetPage()});
   @override
   Widget build(BuildContext context) => MaterialApp(
     debugShowCheckedModeBanner: false,
@@ -19,7 +21,7 @@ class PlanetApp extends StatelessWidget {
         brightness: Brightness.dark,
       ),
     ),
-    home: const PlanetPage(),
+    home: home,
   );
 }
 
@@ -102,6 +104,15 @@ class _PlanetPageState extends State<PlanetPage> {
                         ),
                       ],
                     ),
+                  ),
+                  IconButton(
+                    tooltip: 'Layer lab',
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const LayersLab(),
+                      ),
+                    ),
+                    icon: const Icon(Icons.layers_outlined),
                   ),
                   IconButton(
                     tooltip: orbit.rotating ? 'Pause rotation' : 'Rotate globe',
