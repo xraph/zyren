@@ -11,6 +11,15 @@ import 'package:zyren_timeline/zyren_timeline.dart';
 import 'package:zyren_game/zyren_game.dart';
 import 'package:zyren_physics/zyren_physics.dart';
 
+export 'package:zyren_game/zyren_game.dart'
+    show
+        GameCharacterDefinition,
+        VehicleDefinition,
+        WheelDefinition,
+        GameCameraMode,
+        GameCameraDefinition,
+        GameInteractionDefinition;
+
 part 'src/physics_driver.dart';
 part 'src/simulation.dart';
 part 'src/scene_plugin.dart';
@@ -22,6 +31,5 @@ part 'src/interaction_query.dart';
 part 'src/sound_event.dart';
 
 part 'src/vehicle/definition.dart';
-part 'src/vehicle/wheel.dart';
 part 'src/vehicle/controller.dart';
 part 'src/vehicle/telemetry.dart';

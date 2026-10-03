@@ -4,6 +4,7 @@ library;
 import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:zyren/zyren.dart';
@@ -38,3 +39,8 @@ part 'src/runtime/replay.dart';
 part 'src/runtime/diagnostics.dart';
 
 part 'src/gameplay/possession.dart';
+
+part 'src/definitions/character.dart';
+part 'src/definitions/vehicle.dart';
+part 'src/definitions/wheel.dart';
+part 'src/definitions/components.dart';

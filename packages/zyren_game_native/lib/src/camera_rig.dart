@@ -1,7 +1,5 @@
 part of '../zyren_game_native.dart';
 
-enum GameCameraMode { firstPerson, thirdPerson, vehicle }
-
 /// Actor following uses native shape queries; it does not advance simulation.
 final class GameCameraRig {
   final Camera camera;
@@ -39,6 +37,35 @@ final class GameCameraRig {
         vehicleDistance > 100) {
       throw ArgumentError('Invalid camera rig constraints.');
     }
+  }
+  factory GameCameraRig.fromDefinition({
+    required Camera camera,
+    required GameSession session,
+    required PhysicsWorld world,
+    required PhysicsBody? Function(GameEntityHandle actor) resolveBody,
+    required GameCameraDefinition definition,
+  }) {
+    final rig = GameCameraRig(
+      camera: camera,
+      session: session,
+      world: world,
+      resolveBody: resolveBody,
+      mode: definition.mode,
+      radius: definition.radius,
+      eyeHeight: definition.eyeHeight,
+      thirdPersonDistance: definition.thirdPersonDistance,
+      vehicleDistance: definition.vehicleDistance,
+    );
+    if (definition.target != null) {
+      final actor = session.entities.entities
+          .where((e) => e.handle.id == definition.target)
+          .firstOrNull;
+      if (actor == null) {
+        throw StateError('Camera authored target is unavailable.');
+      }
+      rig.follow(actor.handle);
+    }
+    return rig;
   }
   void follow(GameEntityHandle? actor) {
     if (actor != null &&

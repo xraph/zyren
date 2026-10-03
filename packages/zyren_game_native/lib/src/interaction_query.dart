@@ -65,6 +65,25 @@ final class InteractionQuery {
       throw ArgumentError('Invalid interaction bounds.');
     }
   }
+  factory InteractionQuery.fromDefinition({
+    required GameSession session,
+    required PhysicsWorld world,
+    required SceneInteractionRouter router,
+    required PhysicsBody? Function(GameEntityHandle actor) resolveBody,
+    required GameInteractionDefinition definition,
+    GameEntityHandle? Function()? pointerActor,
+    bool Function(GameEntityHandle actor, GameEntityHandle target)? canInteract,
+  }) => InteractionQuery(
+    session: session,
+    world: world,
+    router: router,
+    resolveBody: resolveBody,
+    pointerActor: pointerActor,
+    canInteract: canInteract,
+    reach: definition.reach,
+    maxCandidates: definition.maxCandidates,
+    maxTargets: definition.maxTargets,
+  );
   Registration register({
     required GameEntityHandle target,
     required Object3D object,
