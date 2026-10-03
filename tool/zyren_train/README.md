@@ -42,7 +42,7 @@ You can train separate structured character and vehicle policies through the
 prepared native worker. The schema supplies the input width. Both networks use
 MLP(128,128), LSTM(128), an action head and a value head. Character branches use
 captured legality for sampling, probability and entropy. Vehicle actions use a
-bounded continuous distribution; the shared native decoder gives braking
+censored Normal distribution with exact probability mass at the action bounds; the shared native decoder gives braking
 priority. Physical mappings stay in TrainingActions.
 
 Start with the CPU smoke configuration after building the worker as documented
@@ -76,7 +76,7 @@ cloning, normalization or the curriculum.
 The full recipes progress through empty arenas, static obstacles, occlusion,
 moving hazards and combined tasks at episode boundaries. Each stage resolves to
 a registered native scenario with its own build and content pins. Thresholds,
-seeds, network, optimizer, rewards and worker bytes belong to the run config.
+seeds, network, optimizer, rewards and worker bytes and policy distribution identity belong to the run config.
 Reward terms are capped; success, collision and progress counters remain
 separate. Evaluation-due receipts require the T4 held-out evaluator and carry no
 acceptance result.

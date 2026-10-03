@@ -37,3 +37,20 @@ def test_export_masked_scores_match_training_mode_and_stay_finite():
     distribution=MaskedBranches(logits,[3,2],masks,[1,1])
     assert torch.equal(scores,distribution.masked_logits)
     assert distribution.mode().tolist()==[[2,1]] and torch.isfinite(scores).all()
+
+
+def test_censored_brake_zero_mass_and_boundary_tails_are_finite():
+    from zyren_train.policies.masked_recurrent import CensoredBox
+    torch.manual_seed(7)
+    mean=torch.tensor([[0.,.8,-.2]]*1024,requires_grad=True)
+    distribution=CensoredBox(mean,torch.zeros(3),[-1,0,0],[1,1,1])
+    actions=distribution.sample()
+    assert ((actions[:,1]>0)&(actions[:,2]==0)).any()
+    assert ((actions[:,1]>0)&(actions[:,2]>0)).any()
+    endpoints=torch.tensor([[-1.,0.,0.],[1.,1.,1.]])
+    tails=CensoredBox(torch.zeros(2,3),torch.zeros(3),[-1,0,0],[1,1,1]).log_prob(endpoints)
+    assert torch.isfinite(tails).all()
+    assert torch.allclose(tails[0],torch.special.log_ndtr(torch.tensor(-1.))+2*torch.special.log_ndtr(torch.tensor(0.)))
+    entropy=distribution.entropy()
+    assert torch.isfinite(distribution.log_prob(actions)).all() and torch.isfinite(entropy).all()
+    entropy.mean().backward(); assert torch.isfinite(mean.grad).all()

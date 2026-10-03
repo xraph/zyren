@@ -52,3 +52,14 @@ def test_active_run_rejects_second_trainer_and_reserved_receipt_fields(tmp_path)
     with pytest.raises(ValueError,match='active'): other.acquire()
     with pytest.raises(ValueError,match='Reserved'): run.append('running',sha256='not-a-chain')
     run.release(); other.acquire(); other.release()
+
+
+def test_checkpoint_distribution_pin_rejects_previous_sampler(worker_command,tmp_path):
+    import json,hashlib
+    config=configuration(worker_command,scenario='vehicle',steps=8)
+    run=RunDirectory(tmp_path/'run',config.hash); pool=WorkerPool(worker_command,cwd=ROOT/'examples/game_lab/training_worker',config=config)
+    train(config,pool,run)
+    pointer=run.path/'checkpoint.json'; meta=json.loads(pointer.read_text()); path=run.path/meta['file']
+    state=torch.load(path,weights_only=True); state['policy_distribution']='squashed-normal-v1'; torch.save(state,path)
+    meta['sha256']=hashlib.sha256(path.read_bytes()).hexdigest(); pointer.write_text(json.dumps(meta))
+    with pytest.raises(ValueError,match='distribution'): TrainingCheckpoint.load(run,config.hash)

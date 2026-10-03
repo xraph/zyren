@@ -104,3 +104,25 @@ def test_changed_native_asset_pin_is_rejected_before_launch(worker_command):
     name=next(iter(data['worker_native_sha256'])); data['worker_native_sha256'][name]='0'*64
     config=TrainingConfig.from_dict(data)
     with pytest.raises(ValueError,match='asset bytes'): WorkerPool(worker_command,cwd=ROOT/'examples/game_lab/training_worker',config=config)
+
+
+def test_learned_vehicle_distribution_can_accelerate_with_brake_zero(worker,worker_command):
+    import numpy as np
+    from zyren_train.gym_env import ZyrenEnv
+    policy=StructuredPolicy(10,{'kind':'box','low':[-1,0,0],'high':[1,1,1]})
+    torch.manual_seed(7)
+    with torch.no_grad():
+        policy.action_head.weight.zero_(); policy.action_head.bias.copy_(torch.tensor([0.,.8,-.5])); policy.log_std.fill_(-2)
+    env=ZyrenEnv(worker,scenario='vehicle',observation_width=None); observation,info=env.reset(seed=7)
+    hidden=policy.initial_state(1); zero_brake=0; positive_brake=0
+    for tick in range(100):
+        with torch.no_grad():
+            output,_,hidden=policy.step(torch.tensor(observation).unsqueeze(0),hidden,torch.tensor([tick==0]))
+            action=policy.distribution(output).sample()[0].numpy()
+        observation,_,_,_,info=env.step(action)
+        if action[2]==0 and action[1]>0: zero_brake+=1; assert info['accepted_action'][1]>0
+        elif action[2]>0: positive_brake+=1; assert info['accepted_action'][1]==0
+    assert zero_brake>0 and info['physics_position'][2]>1
+    env.step(np.array([0.,.8,.5],dtype=np.float32))
+    assert env._info['accepted_action']==[0.,0.,.5]
+    env.close()

@@ -8,7 +8,7 @@ ROOT=Path(__file__).resolve().parents[3]
 
 def configuration(command,*,scenario='guard',steps=16,datasets=None,bc_epochs=0):
     spec=ScenarioSpec.from_dict(__import__('json').loads((ROOT/f'examples/game_lab/game/scenarios/{scenario}.json').read_text()))
-    return TrainingConfig.from_dict({'schema_version':1,'seed':7,'device':'cpu','algorithm':'recurrent_ppo',
+    return TrainingConfig.from_dict({'schema_version':1,'policy_distribution':'masked-categorical-v1' if scenario=='guard' else 'censored-normal-v1','seed':7,'device':'cpu','algorithm':'recurrent_ppo',
         'network':{'hidden_sizes':[128,128],'lstm_hidden_size':128},
         'optimizer':{'learning_rate':.0003,'epochs':2,'gamma':.99,'gae_lambda':.95,'clip':.2,'entropy':.01,'value':.5,'max_grad_norm':.5},
         'rollout':{'environments':1,'steps':8},'total_steps':steps,'checkpoint_every_steps':8,'evaluation_every_steps':1000,

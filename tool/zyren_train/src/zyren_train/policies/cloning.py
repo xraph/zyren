@@ -9,7 +9,7 @@ def cloning_loss(policy,observations,actions,episode_starts,masks,valid):
     if policy.nvec:
         loss=-policy.distribution(outputs,masks).log_prob(actions)
     else:
-        predicted=policy.distribution(outputs).mode()
+        predicted=outputs
         loss=(predicted-actions).square().mean(-1)
     return loss[valid].mean()
 

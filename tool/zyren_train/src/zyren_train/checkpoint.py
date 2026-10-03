@@ -17,7 +17,7 @@ class TrainingCheckpoint:
     def save(run,*,policy,optimizer,steps,updates,curriculum,normalization,config_hash,source_pins):
         rng=np.random.get_state()
         state={'version':1,'config_hash':config_hash,'steps':steps,'updates':updates,
-               'model':policy.state_dict(),'optimizer':optimizer.state_dict(),
+               'policy_distribution':policy.distribution_id,'model':policy.state_dict(),'optimizer':optimizer.state_dict(),
                'torch_rng':torch.get_rng_state(),'python_rng':random.getstate(),
                'numpy_rng':(rng[0],rng[1].tolist(),rng[2],rng[3],rng[4]),
                'curriculum':curriculum,'normalization':normalization,'source_pins':source_pins,
@@ -44,6 +44,7 @@ class TrainingCheckpoint:
         if not path.is_file() or path.stat().st_size>100_663_296 or hashlib.sha256(path.read_bytes()).hexdigest()!=data['sha256']: raise ValueError('Checkpoint hash differs')
         state=torch.load(path,map_location='cpu',weights_only=True)
         if state['version']!=1 or state['config_hash']!=config_hash or state['steps']!=data['steps'] or state['updates']!=data['updates'] or state['environment_restore']!='reset-boundary': raise ValueError('Checkpoint pins differ')
+        if state.get('policy_distribution') not in ('masked-categorical-v1','censored-normal-v1'): raise ValueError('Checkpoint policy distribution is missing or incompatible')
         if any(not torch.isfinite(value).all() for value in state['model'].values()): raise ValueError('Nonfinite checkpoint weights')
         return state
     @staticmethod

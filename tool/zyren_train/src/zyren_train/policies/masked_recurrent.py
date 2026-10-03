@@ -53,3 +53,25 @@ class SquashedBox:
     def entropy(self):
         # Monte Carlo entropy of the transformed distribution, including Jacobian.
         return -self.log_prob(self.sample())
+
+
+class CensoredBox:
+    """Clamped Normal, including probability masses at exact controller bounds."""
+    def __init__(self,mean,log_std,low,high):
+        self.low=torch.as_tensor(low,dtype=mean.dtype,device=mean.device)
+        self.high=torch.as_tensor(high,dtype=mean.dtype,device=mean.device)
+        if mean.shape[-1]!=len(low) or len(low)!=len(high) or not (self.low<self.high).all() or not torch.isfinite(mean).all(): raise ValueError('Continuous bounds differ')
+        self.normal=Normal(mean,log_std.clamp(-5,2).exp())
+    def sample(self): return self.normal.sample().clamp(self.low,self.high)
+    def mode(self): return self.normal.mean.clamp(self.low,self.high)
+    def log_prob(self,actions):
+        if actions.shape!=self.normal.mean.shape or not torch.isfinite(actions).all() or (actions<self.low).any() or (actions>self.high).any(): raise ValueError('Continuous action outside shared bounds')
+        lower=torch.special.log_ndtr((self.low-self.normal.mean)/self.normal.stddev)
+        upper=torch.special.log_ndtr((self.normal.mean-self.high)/self.normal.stddev)
+        density=self.normal.log_prob(actions)
+        return torch.where(actions==self.low,lower,torch.where(actions==self.high,upper,density)).sum(-1)
+    def entropy(self):
+        probability=self.log_prob(self.sample())
+        # Score-function gradient includes the endpoint probability masses.
+        surrogate=-(probability.detach()+1)*probability
+        return -probability.detach()+surrogate-surrogate.detach()

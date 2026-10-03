@@ -1,7 +1,7 @@
 """Generated-width MLP128,128 and LSTM128, with independent action contracts."""
 import torch
 from torch import nn
-from .masked_recurrent import MaskedBranches, SquashedBox
+from .masked_recurrent import MaskedBranches, CensoredBox
 
 
 class StructuredPolicy(nn.Module):
@@ -9,6 +9,7 @@ class StructuredPolicy(nn.Module):
         super().__init__()
         if type(width) is not int or not 1<=width<=16384: raise ValueError('Generated observation width is invalid')
         self.width=width; self.action_space=dict(action_space); self.fallback=list(fallback or [])
+        self.distribution_id='masked-categorical-v1' if action_space['kind']=='multi_discrete' else 'censored-normal-v1'
         if action_space['kind']=='multi_discrete':
             self.nvec=list(action_space['nvec']); outputs=sum(self.nvec)
             if not self.nvec or len(self.nvec)>128 or any(type(n) is not int or not 1<=n<=256 for n in self.nvec) or len(self.fallback)!=len(self.nvec): raise ValueError('Invalid branch schema')
@@ -43,4 +44,4 @@ class StructuredPolicy(nn.Module):
         if self.nvec:
             if masks is None: raise ValueError('Captured legality masks are required')
             return MaskedBranches(output,self.nvec,masks,self.fallback)
-        return SquashedBox(output,self.log_std,self.action_space['low'],self.action_space['high'])
+        return CensoredBox(output,self.log_std,self.action_space['low'],self.action_space['high'])
