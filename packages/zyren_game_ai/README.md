@@ -127,3 +127,24 @@ both controller decoders. Native camera RGB/depth and real CNN execution are qua
 See [camera observations](doc/camera.md) for profile pins, due-tick controller
 execution and measured latency. Class masks and unqualified desktop/mobile
 backends retain their separate gaps.
+
+Paused sessions can preserve committed recurrent tensors with
+`brain.synchronize(..., preserveCommittedState: true)`. Use this only for a
+host-owned pause or resume. Normal ownership and episode changes reset state.
+Held actions and queued decisions always clear.
+
+Await `brain.quiesce()` before `snapshotCommitted(tick: ...)`. Quiescence pauses
+admission and waits for invalidated inference to finish. A checkpoint refuses
+pending or staged work. `PolicyBrainCheckpoint.encode/decode` caps its JSON and
+little-endian tensor storage, and `restoreCommitted` validates the contract,
+model, memory profile and fresh actor mapping before changing state. Seed the
+restored game and control epochs through that call, then preserve state when
+resuming. Historical belief positions retain their observation frame and age.
+You must retain the captured observer pose when translating them to world space.
+
+Scripted checkpoints retain historical memory and rebuild the bounded runner on
+its next decision. They do not serialize a custom selector or behavior runner's
+program counter. Restore each known hybrid child first, then call
+`restoreActiveSkill(identity: ..., activeSkill: ...)` so the first decision in the
+same learned skill keeps its recurrent state. Custom hybrid skills need their
+own explicit checkpoint contract.

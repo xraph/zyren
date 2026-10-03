@@ -188,6 +188,7 @@ final class DecisionScheduler {
     required int gameEpoch,
     required int controlEpoch,
     required bool paused,
+    bool preserveCommittedState = false,
   }) {
     if (gameEpoch < 0 || controlEpoch < 0) {
       throw ArgumentError('Invalid ownership epoch.');
@@ -195,18 +196,26 @@ final class DecisionScheduler {
     if (this.gameEpoch != gameEpoch ||
         this.controlEpoch != controlEpoch ||
         this.paused != paused) {
-      invalidatePending();
+      invalidatePending(
+        preserveState:
+            preserveCommittedState ||
+            this.gameEpoch == gameEpoch && this.controlEpoch == controlEpoch,
+      );
     }
     _gameEpoch = gameEpoch;
     _controlEpoch = controlEpoch;
     _paused = paused;
   }
 
-  void invalidatePending() {
+  void invalidatePending({bool preserveState = false}) {
     _staged = null;
     _last = null;
     _lastAcceptedTick = -1;
-    state.reset();
+    if (preserveState) {
+      state._invalidateEpoch();
+    } else {
+      state.reset();
+    }
     currentAction = decoder.fallback;
   }
 

@@ -202,6 +202,8 @@ final class PolicyBrain implements GameBrain {
   late final DecisionScheduler decisions;
   ObservationFrame? _frame;
   Future<BrainDecision?>? _pending;
+  final Set<Future<BrainDecision?>> _actualJobs = {};
+  Future<void>? _closing;
   String? _requestId;
   MlRequest? _activeRequest;
   int _serial = 0, _sequence = 0, _lastDecisionTick = -1;
@@ -327,6 +329,18 @@ final class PolicyBrain implements GameBrain {
       masks,
       target,
     );
+    _actualJobs.add(job);
+    // Attach both paths so bookkeeping never creates an unhandled error future.
+    unawaited(
+      job.then<void>(
+        (_) {
+          _actualJobs.remove(job);
+        },
+        onError: (Object _, StackTrace _) {
+          _actualJobs.remove(job);
+        },
+      ),
+    );
     _pending = job;
     return job;
   }
@@ -431,20 +445,27 @@ final class PolicyBrain implements GameBrain {
     required int gameEpoch,
     required int controlEpoch,
     required bool paused,
+    bool preserveCommittedState = false,
   }) {
     if (decisions.gameEpoch != gameEpoch ||
         decisions.controlEpoch != controlEpoch ||
         decisions.paused != paused) {
-      invalidatePending();
+      invalidatePending(
+        preserveState:
+            preserveCommittedState ||
+            decisions.gameEpoch == gameEpoch &&
+                decisions.controlEpoch == controlEpoch,
+      );
     }
     decisions.synchronize(
       gameEpoch: gameEpoch,
       controlEpoch: controlEpoch,
       paused: paused,
+      preserveCommittedState: preserveCommittedState,
     );
   }
 
-  void invalidatePending() {
+  void invalidatePending({bool preserveState = false}) {
     if (_requestId != null) ml.cancel(_requestId!);
     _serial++;
     _frame = null;
@@ -452,7 +473,7 @@ final class PolicyBrain implements GameBrain {
     _pending = null;
     _requestId = null;
     _activeRequest = null;
-    decisions.invalidatePending();
+    decisions.invalidatePending(preserveState: preserveState);
   }
 
   @override
@@ -470,14 +491,27 @@ final class PolicyBrain implements GameBrain {
     _lastDecisionTick = -1;
   }
 
+  /// Flush queued decisions while retaining committed state. Await before saving.
+  Future<void> quiesce() async {
+    invalidatePending(preserveState: true);
+    decisions.synchronize(
+      gameEpoch: decisions.gameEpoch,
+      controlEpoch: decisions.controlEpoch,
+      paused: true,
+      preserveCommittedState: true,
+    );
+    await Future.wait(_actualJobs.toList());
+  }
+
   @override
-  Future<void> close() async {
-    if (_closed) return;
+  Future<void> close() => _closing ??= _close();
+  Future<void> _close() async {
     _closed = true;
-    final waiting = _pending;
-    invalidatePending();
-    _frame = null;
-    memory.reset(BrainReset(identity, BrainResetReason.despawned));
-    await waiting;
+    try {
+      await quiesce();
+    } finally {
+      state.reset();
+      memory.reset(BrainReset(identity, BrainResetReason.despawned));
+    }
   }
 }

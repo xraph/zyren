@@ -38,6 +38,24 @@ final class PolicyState {
     return true;
   }
 
+  PolicyStateSnapshot snapshot() =>
+      PolicyStateSnapshot._(model.sha256, version, tensors);
+
+  void validateSnapshot(PolicyStateSnapshot snapshot) {
+    if (snapshot.modelHash != model.sha256 || !accepts(snapshot.tensors)) {
+      throw ArgumentError('Incompatible recurrent state snapshot.');
+    }
+  }
+
+  void restoreSnapshot(PolicyStateSnapshot snapshot) {
+    validateSnapshot(snapshot);
+    _tensors = snapshot.tensors;
+    _version = snapshot.version;
+    _epoch++;
+  }
+
+  void _invalidateEpoch() => _epoch++;
+
   void reset() {
     final next = <String, MlTensor>{};
     var bytes = 0;
