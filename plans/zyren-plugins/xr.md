@@ -77,6 +77,10 @@ The plugin pauses on backgrounding and requires an explicit start to resume.
    swapchain ownership, per-eye views, predicted display time, reference spaces,
    actions and device loss. Metal/Vulkan/DX12 support depends on the runtime and
    extension set. Mobile AR does not establish headset support.
+   The [OpenXR design](../../packages/zyren_xr/docs/openxr.md) now defines this
+   boundary, including runtime-selected device adoption, frame timing, swapchain
+   ownership, reference spaces and agent correlation. It is a design deliverable.
+   No headset backend or runtime/device qualification is claimed.
 
 ## Shared dependencies and requests
 
