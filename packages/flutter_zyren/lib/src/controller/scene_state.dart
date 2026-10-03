@@ -32,6 +32,33 @@ class SceneState {
   final List<String> pluginIds;
   final SceneIssue? pluginIssue;
   SceneState({
+    required Camera camera,
+    required Vec3 cameraPosition,
+    required Vec3 cameraTarget,
+    required Vec3 cameraUp,
+    required int cameraRevision,
+    required SceneViewport viewport,
+    required Object3D? selection,
+    required SceneStatus status,
+    required RendererInfo? renderer,
+    required FrameStats? frameStats,
+    required Iterable<String> pluginIds,
+    required SceneIssue? pluginIssue,
+  }) : this._(
+         camera: camera,
+         cameraPosition: cameraPosition,
+         cameraTarget: cameraTarget,
+         cameraUp: cameraUp,
+         cameraRevision: cameraRevision,
+         viewport: viewport,
+         selection: selection,
+         status: status,
+         renderer: renderer,
+         frameStats: frameStats,
+         pluginIssue: pluginIssue,
+         pluginIds: List.unmodifiable(pluginIds),
+       );
+  SceneState._({
     required this.camera,
     required this.cameraPosition,
     required this.cameraTarget,
@@ -42,9 +69,9 @@ class SceneState {
     required this.status,
     required this.renderer,
     required this.frameStats,
-    required Iterable<String> pluginIds,
     required this.pluginIssue,
-  }) : pluginIds = List.unmodifiable(pluginIds);
+    required this.pluginIds,
+  });
 
   bool _sameValues(SceneState other) =>
       identical(camera, other.camera) &&

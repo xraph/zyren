@@ -72,7 +72,16 @@ class SceneController {
     return _selection;
   }
 
-  SceneState _captureState() => SceneState(
+  List<String> _snapshotPluginIds = const [];
+  List<String> _stablePluginIds() {
+    final current = pluginIds;
+    if (!listEquals(current, _snapshotPluginIds)) {
+      _snapshotPluginIds = List.unmodifiable(current);
+    }
+    return _snapshotPluginIds;
+  }
+
+  SceneState _captureState() => SceneState._(
     camera: camera,
     cameraPosition: camera.position,
     cameraTarget: camera.target,
@@ -83,7 +92,7 @@ class SceneController {
     status: _status.value,
     renderer: _info,
     frameStats: _latestFrameStats,
-    pluginIds: pluginIds,
+    pluginIds: _stablePluginIds(),
     pluginIssue: _pluginIssue,
   );
   void _publishState() => _state.publish();

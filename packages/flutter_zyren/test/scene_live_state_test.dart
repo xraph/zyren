@@ -305,6 +305,7 @@ void main() {
         options: readback,
       );
       var positionBuilds = 0, identityBuilds = 0, selectionBuilds = 0;
+      var pluginBuilds = 0;
       Widget selector<T>(T Function(SceneState) select, VoidCallback built) =>
           SceneSelector<T>(
             controller: controller,
@@ -322,6 +323,7 @@ void main() {
               selector((s) => s.cameraPosition, () => positionBuilds++),
               selector((s) => s.camera, () => identityBuilds++),
               selector((s) => s.selection, () => selectionBuilds++),
+              selector((s) => s.pluginIds, () => pluginBuilds++),
             ],
           ),
         ),
@@ -333,6 +335,7 @@ void main() {
       expect(controller.state.value.frameStats, isNotNull);
       final before = controller.state.value;
       final oldPosition = before.cameraPosition;
+      final initialPluginBuilds = pluginBuilds;
       final p = positionBuilds, i = identityBuilds, s = selectionBuilds;
       controller.camera.position = const Vec3(2, 3, 4);
       expect(controller.state.value.cameraPosition, const Vec3(2, 3, 4));
@@ -341,6 +344,11 @@ void main() {
       expect(identityBuilds, i);
       expect(selectionBuilds, s);
       expect(before.cameraPosition, oldPosition);
+      expect(pluginBuilds, initialPluginBuilds);
+      expect(controller.state.value.pluginIds, same(before.pluginIds));
+      await controller.setPlugins([TestPlugin("selected-plugin", [])]);
+      await frames(tester);
+      expect(pluginBuilds, initialPluginBuilds + 1);
       final group = Group();
       controller.scene.add(group);
       controller.selection = group;

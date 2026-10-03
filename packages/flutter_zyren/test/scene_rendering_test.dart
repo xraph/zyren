@@ -312,41 +312,51 @@ void main() {
       expect(second.mixer.actions, isEmpty);
     },
   );
-  testWidgets('a later imperative animation owner produces a scene error', (
-    tester,
-  ) async {
-    final asset = (await tester.runAsync(() => load(animatedModel())))!;
-    final instance = asset.instantiate();
-    final backend = AnimationReferenceBackend();
-    late SceneController controller;
-    await tester.pumpWidget(
-      host(
-        SceneCanvas(
-          runtime: runtime(backend),
-          options: readback,
-          onCreated: (value) => controller = value,
-          children: [
-            ObjectNode(
-              object: instance,
-              children: [ModelAnimationNode(instance: instance)],
-            ),
-          ],
+  testWidgets(
+    'a competing animation action fails and recovers after stop and retry',
+    (tester) async {
+      final asset = (await tester.runAsync(() => load(animatedModel())))!;
+      final instance = asset.instantiate();
+      final backend = AnimationReferenceBackend();
+      late SceneController controller;
+      await tester.pumpWidget(
+        host(
+          SceneCanvas(
+            runtime: runtime(backend),
+            options: readback,
+            onCreated: (value) => controller = value,
+            children: [
+              ObjectNode(
+                object: instance,
+                children: [ModelAnimationNode(instance: instance)],
+              ),
+            ],
+          ),
         ),
-      ),
-    );
-    await frames(tester);
-    final extra = instance.mixer.play(instance.animations.single);
-    await frames(tester);
-    expect(controller.status.value, isA<SceneFailed>());
-    expect(
-      (controller.status.value as SceneFailed).issue.message,
-      contains('playback owner'),
-    );
-    extra.stop();
-    await tester.pumpWidget(const SizedBox());
-    await frames(tester);
-    expect(instance.mixer.actions, isEmpty);
-  });
+      );
+      await frames(tester);
+      final extra = instance.mixer.play(instance.animations.single);
+      await frames(tester);
+      expect(controller.status.value, isA<SceneFailed>());
+      expect(
+        (controller.status.value as SceneFailed).issue.message,
+        contains('playback owner'),
+      );
+      extra.stop();
+      expect(instance.mixer.actions, hasLength(1));
+      final owned = instance.mixer.actions.single;
+      final beforeRetry = owned.time;
+      await controller.retry();
+      await frames(tester);
+      expect(controller.status.value, isA<SceneReady>());
+      expect(instance.mixer.actions.single, same(owned));
+      expect(owned.time, isNot(beforeRetry));
+      expect(instance.mixer.isAdvancing, isTrue);
+      await tester.pumpWidget(const SizedBox());
+      await frames(tester);
+      expect(instance.mixer.actions, isEmpty);
+    },
+  );
   testWidgets(
     'environment and effects attach real resource and graph paths and dispose',
     (tester) async {
