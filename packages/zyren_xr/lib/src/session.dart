@@ -68,12 +68,16 @@ final class XrSession {
     XrPose pose, {
     int? expectedRevision,
     double? expectedFrameTimestamp,
+    String? expectedPresenterId,
+    int? expectedPresentationEpoch,
   }) async {
     final response = messageMap(
       await _invoke('addAnchor', {
         'transform': pose.matrix,
         'expectedRevision': ?expectedRevision,
         'expectedFrameTimestamp': ?expectedFrameTimestamp,
+        'expectedPresenterId': ?expectedPresenterId,
+        'expectedPresentationEpoch': ?expectedPresentationEpoch,
       }),
     );
     return messageString(response, 'anchorId');

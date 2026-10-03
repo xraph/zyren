@@ -96,6 +96,8 @@ final class XrPlacementCommands {
     required int expectedSessionRevision,
     required double expectedFrameTimestamp,
     required void Function() checkCurrent,
+    String? expectedPresenterId,
+    int? expectedPresentationEpoch,
   }) async {
     _begin(expectedRevision);
     try {
@@ -120,6 +122,8 @@ final class XrPlacementCommands {
         pose,
         expectedRevision: expectedSessionRevision,
         expectedFrameTimestamp: expectedFrameTimestamp,
+        expectedPresenterId: expectedPresenterId,
+        expectedPresentationEpoch: expectedPresentationEpoch,
       );
       _undo.add(anchor);
       _revision++;
@@ -457,7 +461,17 @@ final class XrAgentProvider extends AgentProvider {
           expectedRevision: context.expectedRevision!,
           expectedSessionRevision: saved.$1.sessionRevision,
           expectedFrameTimestamp: saved.$1.frameTimestamp,
-          checkCurrent: checkCurrent,
+          expectedPresenterId: saved.$1.presenterId,
+          expectedPresentationEpoch: saved.$1.epoch,
+          checkCurrent: () {
+            checkCurrent();
+            if (view().calibration?.epoch != saved.$1.epoch) {
+              throw const XrException(
+                'staleFrame',
+                'The camera viewport changed.',
+              );
+            }
+          },
         );
         _hits.clear();
       } else if (tool == 'place_anchor') {

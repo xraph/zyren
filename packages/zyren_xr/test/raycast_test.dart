@@ -8,6 +8,7 @@ import 'calibration_test.dart' show calibrationMessage;
 import 'fixtures.dart';
 
 Map<String, Object?> hitMessage() => {
+  'presenterId': 'presenter-1',
   'frameId': 1,
   'epoch': 1,
   'frameTimestamp': 12.0,
@@ -99,7 +100,7 @@ void main() {
         ..current = snapshotMessage(revision: 3);
       final session = await XrSession.create(transport);
       final calibration = XrCalibration.fromMessage(calibrationMessage());
-      final view = XrViewBinding(
+      XrViewBinding makeView(XrCalibration calibration) => XrViewBinding(
         sceneId: 'scene',
         documentId: 'doc',
         viewportId: 'view',
@@ -112,6 +113,7 @@ void main() {
         presentedSceneRevision: 2,
         calibration: calibration,
       );
+      var view = makeView(calibration);
       final commands = XrPlacementCommands(session);
       final provider = XrAgentProvider(
         instanceId: 'test',
@@ -172,6 +174,11 @@ void main() {
       );
       expect(retry.status, AgentStatus.ok);
       expect(transport.calls.where((c) => c.$1 == 'addAnchor'), hasLength(1));
+      final anchorArgs = transport.calls
+          .singleWhere((c) => c.$1 == 'addAnchor')
+          .$2;
+      expect(anchorArgs['expectedPresenterId'], 'presenter-1');
+      expect(anchorArgs['expectedPresentationEpoch'], 1);
       final fresh = await query();
       transport.current = snapshotMessage(revision: 4);
       expect(
@@ -189,6 +196,28 @@ void main() {
         )).status,
         AgentStatus.stale,
       );
+      transport.handler = (method, _) {
+        if (method == 'snapshot') {
+          view = makeView(
+            XrCalibration.fromMessage(calibrationMessage(epoch: 2)),
+          );
+          return snapshotMessage(revision: 3);
+        }
+        return null;
+      };
+      final resized = await registry.call(
+        providerId: provider.id,
+        instanceId: provider.instanceId,
+        tool: 'place_hit',
+        arguments: {
+          ...args,
+          'hitToken': ((fresh.data['hits'] as List).single as Map)['hitToken'],
+        },
+        expectedRevision: 1,
+        idempotencyKey: 'resized-during-snapshot',
+      );
+      expect(resized.status, AgentStatus.stale);
+      expect(transport.calls.where((c) => c.$1 == 'addAnchor'), hasLength(1));
       registry.dispose();
       provider.dispose();
       await session.dispose();

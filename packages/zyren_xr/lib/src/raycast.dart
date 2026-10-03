@@ -27,12 +27,14 @@ final class XrRaycastHit {
 }
 
 final class XrRaycastResult {
+  final String presenterId;
   final int frameId, epoch, sessionRevision, originEpoch, omittedHits;
   final double frameTimestamp, sensorTimestamp;
   final List<XrRaycastHit> hits;
   XrRaycastResult.fromMessage(Object? value) : this._(messageMap(value));
   XrRaycastResult._(Map<Object?, Object?> map)
-    : frameId = _integer(map, 'frameId'),
+    : presenterId = messageString(map, 'presenterId'),
+      frameId = _integer(map, 'frameId'),
       epoch = _integer(map, 'epoch'),
       sessionRevision = _integer(map, 'sessionRevision'),
       originEpoch = _integer(map, 'originEpoch'),
@@ -42,7 +44,8 @@ final class XrRaycastResult {
       hits = List.unmodifiable(
         (map['hits'] as List).map(XrRaycastHit.fromMessage),
       ) {
-    if (hits.length > 16 ||
+    if (presenterId.isEmpty ||
+        hits.length > 16 ||
         !frameTimestamp.isFinite ||
         frameTimestamp < 0 ||
         !sensorTimestamp.isFinite ||

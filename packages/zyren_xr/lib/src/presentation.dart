@@ -77,6 +77,7 @@ final class XrPresentationController extends ChangeNotifier {
     );
     if (_closed ||
         !identical(_presented, calibration) ||
+        result.presenterId != presenterId ||
         result.frameId != calibration.frameId ||
         result.epoch != calibration.epoch ||
         result.frameTimestamp != calibration.timestamp ||

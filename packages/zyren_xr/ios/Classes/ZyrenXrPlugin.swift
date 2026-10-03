@@ -145,8 +145,10 @@ public final class ZyrenXrPlugin: NSObject, FlutterPlugin, ARSessionDelegate {
             result(error("staleFrame", "Render a fresh view before raycasting.")); return
         }
         do {
-            result(try XrRaycasts.query(session: session!, calibration: calibration, x: x, y: y,
-                sensorTimestamp: frame.timestamp, revision: revision, originEpoch: originEpoch))
+            var hits = try XrRaycasts.query(session: session!, calibration: calibration, x: x, y: y,
+                sensorTimestamp: frame.timestamp, revision: revision, originEpoch: originEpoch)
+            hits["presenterId"] = presenter.id
+            result(hits)
         } catch { result(XrMetalPresenter.error(error)) }
     }
 
@@ -379,6 +381,14 @@ public final class ZyrenXrPlugin: NSObject, FlutterPlugin, ARSessionDelegate {
     }
 
     private func addAnchor(_ args: [String: Any], result: @escaping FlutterResult) {
+        if args["expectedPresenterId"] != nil || args["expectedPresentationEpoch"] != nil {
+            if let view = presenter?.view { presenter?.layout(view) }
+            guard let presenter = presenter, presenter.view?.window != nil,
+                  args["expectedPresenterId"] as? String == presenter.id,
+                  args["expectedPresentationEpoch"] as? Int == presenter.epoch else {
+                result(error("staleFrame", "The camera presentation changed before placement.")); return
+            }
+        }
         guard checkRevision(args, result: result) else { return }
         guard let frame = usableFrame(), case .normal = frame.camera.trackingState,
               ProcessInfo.processInfo.systemUptime - frame.timestamp < 0.5 else {
