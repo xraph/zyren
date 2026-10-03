@@ -306,3 +306,13 @@ The first retry hit a transient missing file in concurrent Flutter work. A secon
 run built cleanly and supplies the recorded result. The log is
 `/tmp/zyren-character-iphone-clean-retry.log`. This resolves the iPhone gate above.
 The iPad still requires a passcode; Windows DX12 and Linux remain untested.
+
+### iPad install attempt, 2026-10-03
+
+The iPad is now unlocked. Character Lab built cleanly in 25.7 seconds and its
+bundle passed strict recursive signature verification. Direct CoreDevice
+installation rejected it because the device already has three apps installed
+with a free developer profile. The app has not launched, so iPad presentation
+remains unverified. An existing app slot must be freed before retrying. Removing
+an app also removes its local data; no existing app was removed by this attempt.
+The diagnostic is recorded in `/tmp/zyren-character-ipad-install.txt`.

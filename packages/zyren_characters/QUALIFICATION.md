@@ -32,7 +32,7 @@ length, pause/resume, removal, visible surface presentation and resource cleanup
 | macOS 27.0.1, Apple silicon, Metal | Passed | 48 frames; 1800x1074 to 780x1092; 456 fixed steps; zero presentation readback bytes |
 | Pixel 9 Pro, Android 17/API 37, Vulkan | Passed | 48 frames; 2025x1024 to 878x1013; 453 fixed steps; zero presentation readback bytes |
 | iPhone 16 Pro, iOS 27.0, Metal | Passed | 49 frames; 2700x1281 to 1170x1266; 453 fixed steps; zero presentation readback bytes |
-| iPad Pro 13-inch M4, iOS 27.0 | Not run | Device reported a passcode requirement. |
+| iPad Pro 13-inch M4, iOS 27.0 | Blocked before launch | Clean build and signature verification pass. Installation exceeds the device's three-app limit for a free developer profile. |
 | Windows DX12 | Not run | No Windows GPU host or registered runner available. |
 | Linux Vulkan | Not run | No Linux presentation run performed. |
 
@@ -56,6 +56,12 @@ run built cleanly in 19.0 seconds, installed and launched in 22.7 seconds, and
 passed the full test in 15 seconds. Its log is
 `/tmp/zyren-character-iphone-clean-retry.log`. This supersedes the earlier iPhone
 session failure. The iPad still reported that a passcode was required on this retry.
+
+After the iPad was unlocked on 2026-10-03, its build passed in 25.7 seconds and
+`codesign --verify --deep --strict` passed. Direct CoreDevice installation then
+reported that all three free developer profile app slots were occupied. The app
+has not launched on iPad, so no iPad rendering or cleanup result is claimed.
+The install diagnostic is in `/tmp/zyren-character-ipad-install.txt`.
 
 ![Native Metal render of the skinned rigs and obstacle](qualification/character-lab-metal.png)
 
@@ -119,7 +125,7 @@ key interval 32 times; pathological cubic spins need denser authored keys. Rigs
 require positive uniform ancestor scales and explicit joint mappings. Retargeting
 does not transfer morph expressions or infer a humanoid skeleton.
 
-iPad still needs a completed device run after unlocking. Windows and Linux need
-their own native runs. The tested procedural
+iPad needs an available developer app slot and a completed device run. Windows
+and Linux need their own native runs. The tested procedural
 bipeds do not qualify arbitrary production rigs, full-body IK or crowd avoidance.
 No publication, push or merge is part of this qualification.
