@@ -31,7 +31,7 @@ void main() {
         reason: 'A physical ARKit device is required.',
       );
       expect(capabilities.cameraPresentation, isTrue);
-      expect(capabilities.depthOcclusion, isFalse);
+      expect(capabilities.depthOcclusion, capabilities.sceneDepthHardware);
       final session = await XrSession.create(transport);
       final registry = AgentRegistry(grantedScopes: {'xr.place'});
       XrAgentProvider? provider;

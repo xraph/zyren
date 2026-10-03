@@ -18,3 +18,4 @@ export 'src/models.dart'
 export 'src/session.dart';
 
 export 'src/calibration.dart';
+export 'src/scene_bindings.dart';

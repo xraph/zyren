@@ -16,6 +16,8 @@ public final class ZyrenXrPlugin: NSObject, FlutterPlugin, ARSessionDelegate {
     private var startRevision = 0
     private var runTimestamp = 0.0
     private var revision = 0
+    private var originEpoch = 0
+    private var depthEnabled = false
     private var failure: [String: Any]?
     private var appAnchors: [UUID: ARAnchor] = [:]
     private var backgroundObserver: NSObjectProtocol?
@@ -70,6 +72,8 @@ public final class ZyrenXrPlugin: NSObject, FlutterPlugin, ARSessionDelegate {
             sessionId = UUID().uuidString
             state = "ready"
             revision = 0
+            originEpoch = 0
+            depthEnabled = false
             failure = nil
             Self.owner = self
             result(["sessionId": sessionId!]); return
@@ -140,7 +144,8 @@ public final class ZyrenXrPlugin: NSObject, FlutterPlugin, ARSessionDelegate {
                 result(error("trackingUnavailable", "No fresh ARKit frame is available.")); return
             }
             do { result(try presenter.acquire(frame: frame, revision: revision,
-                near: args["near"] as? Double ?? 0.01, far: args["far"] as? Double ?? 1000)) }
+                near: args["near"] as? Double ?? 0.01, far: args["far"] as? Double ?? 1000,
+                depthEnabled: depthEnabled)) }
             catch { result(XrMetalPresenter.error(error)) }
         case "cancelFrame": presenter.cancel(args["frameId"] as? Int ?? -1); result(nil)
         case "presentFrame":
@@ -167,7 +172,8 @@ public final class ZyrenXrPlugin: NSObject, FlutterPlugin, ARSessionDelegate {
             "planeDetection": tracking, "anchors": tracking,
             "lightEstimation": tracking,
             "sceneDepthHardware": tracking && ARWorldTrackingConfiguration.supportsFrameSemantics(.sceneDepth),
-            "cameraPresentation": tracking, "depthOcclusion": false,
+            "cameraPresentation": tracking,
+            "depthOcclusion": tracking && ARWorldTrackingConfiguration.supportsFrameSemantics(.sceneDepth),
             "cameraPermission": permissionName()
         ]
     }
@@ -197,8 +203,8 @@ public final class ZyrenXrPlugin: NSObject, FlutterPlugin, ARSessionDelegate {
               let reset = args["resetTracking"] as? Bool else {
             result(error("invalidArguments", "The session configuration is incomplete.")); return
         }
-        guard !depth else {
-            result(error("unsupportedFeature", "Depth occlusion is not available.")); return
+        guard !depth || ARWorldTrackingConfiguration.supportsFrameSemantics(.sceneDepth) else {
+            result(error("unsupportedFeature", "This device does not provide scene depth.")); return
         }
         guard state != "running" || reset else {
             result(error("invalidState", "Pause before reconfiguring, or explicitly reset tracking.")); return
@@ -215,6 +221,7 @@ public final class ZyrenXrPlugin: NSObject, FlutterPlugin, ARSessionDelegate {
         let configuration = ARWorldTrackingConfiguration()
         configuration.worldAlignment = .gravity
         configuration.isLightEstimationEnabled = light
+        if depth { configuration.frameSemantics.insert(.sceneDepth) }
         if horizontal { configuration.planeDetection.insert(.horizontal) }
         if vertical { configuration.planeDetection.insert(.vertical) }
         pendingStart = result
@@ -240,10 +247,12 @@ public final class ZyrenXrPlugin: NSObject, FlutterPlugin, ARSessionDelegate {
             if reset {
                 options = [.resetTracking, .removeExistingAnchors]
                 self.appAnchors.removeAll()
+                self.originEpoch += 1
             }
             // Prevent currentFrame from a previous run appearing as fresh tracking.
             self.runTimestamp = ProcessInfo.processInfo.systemUptime
             self.state = "running"
+            self.depthEnabled = depth
             self.revision += 1
             session.run(configuration, options: options)
             completion(nil)
@@ -297,6 +306,7 @@ public final class ZyrenXrPlugin: NSObject, FlutterPlugin, ARSessionDelegate {
 
     private func snapshot() -> [String: Any] {
         var response: [String: Any] = [
+            "sessionId": sessionId!, "originEpoch": originEpoch,
             "state": state, "revision": revision, "nativeTimestamp": ProcessInfo.processInfo.systemUptime
         ]
         if let failure = failure { response["failure"] = failure }

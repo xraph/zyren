@@ -10,6 +10,7 @@ final class XrMetalRuntime {
     typealias Destroy = @convention(c) (UInt64) -> UInt32
     typealias Device = @convention(c) (UInt64) -> UnsafeMutableRawPointer?
     typealias Render = @convention(c) (UInt64, UnsafePointer<UInt8>?, Int, UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> UInt32
+    typealias RenderTargets = @convention(c) (UInt64, UnsafePointer<UInt8>?, Int, UnsafeMutableRawPointer?, UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> UInt32
     typealias Command = @convention(c) (UInt64, UnsafePointer<UInt8>?, Int, UnsafeMutablePointer<UInt8>?, Int, UnsafeMutablePointer<Int>?) -> UInt32
     typealias LastError = @convention(c) (UnsafeMutablePointer<UInt8>?, Int) -> Int
     let library: UnsafeMutableRawPointer
@@ -17,6 +18,7 @@ final class XrMetalRuntime {
     let device: MTLDevice
     let readback: Readback
     let render: Render
+    let renderTargets: RenderTargets
     let destroy: Destroy
     let lastError: LastError
     let commands: [String: Command]
@@ -40,6 +42,7 @@ final class XrMetalRuntime {
             destroy = try symbol("fg_destroy", Destroy.self)
             readback = try symbol("fg_metal_readback_bytes", Readback.self)
             render = try symbol("fg_metal_render_texture", Render.self)
+            renderTargets = try symbol("fg_metal_render_targets", RenderTargets.self)
             lastError = try symbol("fg_last_error", LastError.self)
             commands = try ["resource": symbol("fg2_resource_command", Command.self),
                             "shader": symbol("fg2_shader_command", Command.self),
@@ -82,4 +85,5 @@ struct XrMetalFailure: Error {
     let code: String
     let message: String
     init(_ code: String, _ message: String) { self.code = code; self.message = message }
+    var retryableFrame: Bool { ["frameDeferred", "staleDepth", "depthUnavailable"].contains(code) }
 }

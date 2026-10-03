@@ -175,6 +175,8 @@ final class XrFrame {
 }
 
 final class XrSnapshot {
+  final String? sessionId;
+  final int originEpoch;
   final XrSessionState state;
   final int revision;
   final XrFrame? frame;
@@ -182,7 +184,11 @@ final class XrSnapshot {
   final double nativeTimestamp;
   XrSnapshot.fromMessage(Object? value) : this._(messageMap(value));
   XrSnapshot._(Map<Object?, Object?> m)
-    : revision = messageInt(m, 'revision'),
+    : sessionId = m['sessionId'] as String?,
+      originEpoch = m.containsKey('originEpoch')
+          ? messageInt(m, 'originEpoch')
+          : 0,
+      revision = messageInt(m, 'revision'),
       state = messageEnum(m, 'state', XrSessionState.values),
       nativeTimestamp = messageNumber(m, 'nativeTimestamp'),
       frame = m['frame'] == null ? null : XrFrame.fromMessage(m['frame']),

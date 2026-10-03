@@ -29,6 +29,22 @@ Map<String, Object?> calibrationMessage({
 };
 
 void main() {
+  test('depth calibration must describe the captured camera timestamp', () {
+    final message = calibrationMessage()
+      ..['depthEnabled'] = true
+      ..['depthTimestamp'] = 12.0;
+    expect(XrCalibration.fromMessage(message).depthEnabled, isTrue);
+    message['depthTimestamp'] = 11.9;
+    expect(
+      () => XrCalibration.fromMessage(message),
+      throwsA(isA<XrException>()),
+    );
+    message.remove('depthTimestamp');
+    expect(
+      () => XrCalibration.fromMessage(message),
+      throwsA(isA<XrException>()),
+    );
+  });
   for (final landscape in [false, true]) {
     test(
       'calibrated ${landscape ? 'landscape' : 'portrait'} camera keeps camera-relative translation',

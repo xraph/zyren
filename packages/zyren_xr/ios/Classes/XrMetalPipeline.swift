@@ -8,6 +8,7 @@ final class XrMetalPipeline {
     let pipeline: MTLRenderPipelineState
     var cache: CVMetalTextureCache?
     var virtualColor: MTLTexture?
+    var depthPipeline: XrDepthPipeline?
     init(token: UInt64) throws {
         runtime = try XrMetalRuntime(token: token)
         guard let queue = runtime.device.makeCommandQueue() else { throw XrMetalFailure("metalUnavailable", "Cannot create a Metal command queue.") }
@@ -22,7 +23,8 @@ final class XrMetalPipeline {
             throw XrMetalFailure("cameraImport", "Cannot create the camera texture cache.")
         }
     }
-    func draw(frame: ARFrame, transform: CGAffineTransform, drawable: CAMetalDrawable, packet: Data) throws {
+    func draw(frame: ARFrame, transform: CGAffineTransform, projection: simd_float4x4,
+              depthEnabled: Bool, drawable: CAMetalDrawable, packet: Data) throws {
         let image = frame.capturedImage
         let format = CVPixelBufferGetPixelFormatType(image)
         guard CVPixelBufferGetPlaneCount(image) == 2,
@@ -46,10 +48,21 @@ final class XrMetalPipeline {
             virtualColor = runtime.device.makeTexture(descriptor: descriptor)
         }
         guard let virtualColor = virtualColor else { throw XrMetalFailure("metalUnavailable", "Cannot allocate the virtual color target.") }
+        var depthLease: XrDepthLease?
+        if depthEnabled {
+            if depthPipeline == nil { depthPipeline = try XrDepthPipeline(device: runtime.device) }
+            depthLease = try depthPipeline!.prepare(frame: frame, transform: transform, projection: projection,
+                width: width, height: height, cache: cache!, queue: queue)
+        }
         try packet.withUnsafeBytes { bytes in
-            try runtime.check(runtime.render(runtime.renderer, bytes.bindMemory(to: UInt8.self).baseAddress, packet.count,
-                Unmanaged.passUnretained(virtualColor as AnyObject).toOpaque(),
-                Unmanaged.passUnretained(virtualColor as AnyObject).toOpaque()))
+            let color = Unmanaged.passUnretained(virtualColor as AnyObject).toOpaque()
+            if let depth = depthLease {
+                try runtime.check(runtime.renderTargets(runtime.renderer, bytes.bindMemory(to: UInt8.self).baseAddress,
+                    packet.count, color, Unmanaged.passUnretained(depth.target as AnyObject).toOpaque(), color))
+            } else {
+                try runtime.check(runtime.render(runtime.renderer, bytes.bindMemory(to: UInt8.self).baseAddress,
+                    packet.count, color, color))
+            }
         }
         guard let command = queue.makeCommandBuffer() else { throw XrMetalFailure("metalUnavailable", "Cannot allocate a camera command buffer.") }
         let pass = MTLRenderPassDescriptor()
@@ -78,7 +91,7 @@ final class XrMetalPipeline {
         encoder.endEncoding()
         command.commit()
         command.waitUntilCompleted()
-        withExtendedLifetime((frame, y, cbcr)) {}
+        withExtendedLifetime((frame, y, cbcr, depthLease)) {}
         if command.status != .completed { throw XrMetalFailure("metalCommand", command.error?.localizedDescription ?? "Camera composition failed.") }
     }
     private static let shader = """

@@ -32,6 +32,8 @@ final class XrMetalPresenter {
         let epoch: Int
         let revision: Int
         let transform: CGAffineTransform
+        let projection: simd_float4x4
+        let depthEnabled: Bool
         let calibration: [String: Any]
     }
     let id = UUID().uuidString
@@ -89,7 +91,7 @@ final class XrMetalPresenter {
         closed = true; revoke(); view?.presenter = nil; view = nil
         worker.async { self.pipeline = nil; DispatchQueue.main.async { completion(nil) } }
     }
-    func acquire(frame: ARFrame, revision: Int, near: Double, far: Double) throws -> [String: Any] {
+    func acquire(frame: ARFrame, revision: Int, near: Double, far: Double, depthEnabled: Bool) throws -> [String: Any] {
         if let view = view { layout(view) }
         guard !closed, !busy, lease == nil else { throw XrMetalFailure("busy", "A camera frame is already retained or the presenter is closed.") }
         guard logical.width > 0, logical.height > 0, logical.width * scale <= 4096,
@@ -106,9 +108,11 @@ final class XrMetalPresenter {
             "epoch": epoch, "projection": matrix(projection), "cameraTransform": matrix(pose),
             "logicalWidth": logical.width, "logicalHeight": logical.height, "devicePixelRatio": scale,
             "pixelWidth": Int((logical.width * scale).rounded()), "pixelHeight": Int((logical.height * scale).rounded()),
-            "orientation": orientation.rawValue, "near": near, "far": far,
+            "orientation": orientation.rawValue, "near": near, "far": far, "depthEnabled": depthEnabled,
+            "depthTimestamp": depthEnabled ? frame.timestamp : NSNull(),
             "displayTransform": [transform.a, transform.b, transform.c, transform.d, transform.tx, transform.ty]]
-        lease = Lease(id: nextFrame, frame: frame, epoch: epoch, revision: revision, transform: transform, calibration: calibration)
+        lease = Lease(id: nextFrame, frame: frame, epoch: epoch, revision: revision, transform: transform,
+            projection: projection, depthEnabled: depthEnabled, calibration: calibration)
         return calibration
     }
     func cancel(_ frameId: Int) { if !busy && lease?.id == frameId { lease = nil } }
@@ -130,17 +134,18 @@ final class XrMetalPresenter {
                     throw XrMetalFailure("frameDeferred", "The drawable dimensions changed after calibration.")
                 }
                 drawable = target
-                try pipeline.draw(frame: lease.frame, transform: lease.transform, drawable: target, packet: packet)
+                try pipeline.draw(frame: lease.frame, transform: lease.transform, projection: lease.projection,
+                    depthEnabled: lease.depthEnabled, drawable: target, packet: packet)
                 nativeReadback = pipeline.runtime.readback(pipeline.runtime.renderer)
             } catch {
                 failure = error
-                if (error as? XrMetalFailure)?.code != "frameDeferred" { self.pipeline = nil }
+                if (error as? XrMetalFailure)?.retryableFrame != true { self.pipeline = nil }
             }
             DispatchQueue.main.async {
                 self.busy = false
                 self.lease = nil
                 if let failure = failure {
-                    if (failure as? XrMetalFailure)?.code != "frameDeferred" { self.closed = true }
+                    if (failure as? XrMetalFailure)?.retryableFrame != true { self.closed = true }
                     completion(Self.error(failure)); return
                 }
                 if let view = self.view { self.layout(view) }

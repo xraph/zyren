@@ -9,9 +9,13 @@ final class XrCalibration {
   final Mat4 projection;
   final XrPose cameraPose;
   final List<double> displayTransform;
+  final bool depthEnabled;
+  final double? depthTimestamp;
   XrCalibration.fromMessage(Object? value) : this._(messageMap(value));
   XrCalibration._(Map<Object?, Object?> map)
-    : frameId = (map['frameId'] as num).toInt(),
+    : depthEnabled = map['depthEnabled'] == true,
+      depthTimestamp = (map['depthTimestamp'] as num?)?.toDouble(),
+      frameId = (map['frameId'] as num).toInt(),
       revision = (map['revision'] as num).toInt(),
       epoch = (map['epoch'] as num).toInt(),
       pixelWidth = (map['pixelWidth'] as num).toInt(),
@@ -33,7 +37,9 @@ final class XrCalibration {
       displayTransform = List.unmodifiable(
         (map['displayTransform'] as List).cast<num>().map((v) => v.toDouble()),
       ) {
-    if (pixelWidth < 1 ||
+    if ((depthEnabled &&
+            (depthTimestamp == null || depthTimestamp != timestamp)) ||
+        pixelWidth < 1 ||
         pixelHeight < 1 ||
         pixelWidth > 4096 ||
         pixelHeight > 4096 ||

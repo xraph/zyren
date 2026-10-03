@@ -1,5 +1,18 @@
 # zyren_xr
 
+You can request scene-depth occlusion with
+`XrConfiguration(requireDepthOcclusion: true)` on a supported ARKit device.
+Depth and confidence textures stay native. Frames older than 250 ms or missing
+depth fail with a retryable error; low-confidence pixels leave virtual geometry
+unoccluded. This uses standard projected depth with a single sample. Screen
+effects, temporal rendering, MSAA and transmission capture are not supported by
+the supplied-depth path. Physical occlusion remains unqualified.
+
+Use `XrSceneBindings` to attach your scene objects to native anchor IDs. Keep
+your application source ID on the binding and pass the snapshot's session ID
+and origin epoch when updating it. Tracking loss hides content. An origin reset
+or observed anchor removal detaches it without disposing your mesh resources.
+
 Use `zyren_xr` to run an ARKit world-tracking session and inspect its camera pose,
 tracking quality, local anchors, planes and ambient light. You'll need a physical
 ARKit device and iOS 14 or later. The Metal camera path compiles for iOS; physical camera alignment and lifecycle
@@ -132,9 +145,9 @@ manifest links the FlutterFramework dependency supplied by the Flutter tool.
 
 ## Current limits
 
-`cameraPresentation` reports ARKit support. `depthOcclusion` remains false, and
-requiring depth fails explicitly. `sceneDepthHardware` reports hardware support;
-this camera API does not deliver depth buffers. Use transparent scenes without
+`cameraPresentation` reports ARKit support. `depthOcclusion` and
+`sceneDepthHardware` report scene-depth hardware support. You must request depth
+when starting the session; missing depth frames fail explicitly. Use transparent scenes without
 screen effects. The color path supports 8-bit bi-planar SDR images and rejects
 unsupported image formats or YCbCr matrices. HDR camera transfer and wide-gamut
 color qualification remain outside this implementation.
@@ -144,7 +157,7 @@ Metal test checks YCbCr range and alpha composition on macOS. Neither establishe
 physical camera alignment, iPhone/iPad lifecycle behavior, or visual quality.
 Run `example/integration_test/presentation_test.dart` on each device, then check
 portrait and landscape alignment against real surfaces. The existing session probe
-covers tracking and agent commands. Depth occlusion, screen raycasts, ARCore's
+covers tracking and agent commands. Physical depth qualification, screen raycasts, ARCore's
 Vulkan adapter and OpenXR remain separate work.
 
 See the [workstream plan](../../plans/zyren-plugins/xr.md) for remaining device
