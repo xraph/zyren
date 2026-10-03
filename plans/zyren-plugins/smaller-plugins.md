@@ -291,3 +291,132 @@ for reproducible offline export. Automatic velocity estimation, geometric
 occlusion/filtering, Android audio focus, iOS interruptions/route changes and
 additional backends remain later work. The shared Flutter fixture will wire app
 lifecycle to the explicit engine methods.
+
+Audio implementation commit: `01e00e4`. The provider now also accepts a host
+`playbackAllowed` guard. A ninth native test proves that `audio.write` cannot
+bypass denied platform focus. The quiet playback CLI's brace lint is fixed.
+The package and combined fixture pass analysis with no issues.
+
+## Continuation evidence and remaining milestones
+
+Capture now supports tiled perspective output (up to 8192 pixels per axis and
+32 megapixels), alpha-preserving PNG assembly, and cancellation between tiles.
+The Metal fixture matched a nine-tile 96x80 image against its full render byte
+for byte. Transparent background and opaque geometry alpha passed. A 4097x16
+capture exercised output beyond the previous dimension limit. Tiled jobs reject
+screen-space effects, bloom, spatial AA and outlines until overlap/composition
+support exists. Lighting/shadow seams and large practical memory workloads need
+further native qualification.
+
+Effects agents rebuild SMAA, dithering, lens controls and grading parameters
+through ScreenEffectsController. Native tests verify rebuild, pixels after
+exposure changes, guarded undo, denied access, invalid input and zero retained
+GPU bytes after disposal. A concurrent color edit during asynchronous chain undo
+is preserved and returns a stale result. External settings identity also changes
+provider revision before the first render, when the controller has no generation
+yet.
+
+The optional local FFmpeg adapter exports opaque H.264 MP4 from completed PNGs.
+It validates sequence order and even dimensions, reports bounded diagnostics,
+limits runtime and cleans only private partial output. `ffprobe` confirmed four
+frames at 12 fps. Cancellation before launch and during encoder progress, failed
+encoder exit and input preservation passed. A separate `capture.video` provider
+exposes admission, progress, cancellation and history with host-owned paths.
+Provider scope, retry and detach cancellation tests pass. Mobile video encoding,
+alpha video, audio muxing and alternate encoders remain later milestones.
+
+The capture package has 16 passing tests with `RUN_NATIVE_GPU=1 RUN_FFMPEG=1` on
+macOS Metal. The displayed Flutter lab uses a native view at DPR 2. Its clean
+integration run passed viewport hits, frame matching/stale rejection, selection,
+four effect stages, overlay reporting, 360 logical-pixel layout, native audio
+cursor suspension/resume and teardown. A separate visual run showed the red
+body turning blue after a real MCP command. Fifteen stdio MCP calls passed;
+the transcript is `/tmp/zyren-smaller-displayed-mcp.json`. CUA inspection during
+that visual run caused an extra platform semantics handle at teardown. The clean
+run without CUA passed; the earlier visual run is not recorded as a clean suite.
+
+The Android arm64 APK builds, including the actual miniaudio native library and
+AudioFocusRequest/route-loss callbacks. A Dart host-policy test passes focus
+denial, late grants, foreground reacquisition, paused intent and a late native
+failure after disposal. The iOS example wires AVAudioSession interruption and
+route callbacks. Its unsigned device build passes after switching the miniaudio
+iOS translation unit to Objective-C and linking Foundation/AVFoundation. These
+callbacks still need physical-device qualification. The Pixel initially ran the
+XR probe; the final check found the Pixel and iPad running planet benchmarks. We
+did not replace either session. Human audibility remains unverified pending a
+listener response. Initial native builds hit disk exhaustion, then
+passed after space became available; no other owner's cache was deleted.
+
+### Shared API requests and backlog
+
+- Depth/object-ID: propose capability flags in
+  `packages/zyren/lib/src/rendering/capabilities.dart`, requested auxiliary
+  attachments in `frame_submission.dart`, typed readback planes in
+  `frame_output.dart`, and matching native packet/renderer passes. Depth needs
+  units, projection/reversed-Z metadata and a defined missing value. Object IDs
+  need an integer attachment plus a per-frame mapping to source/runtime/instance
+  IDs, including transparency and MSAA semantics. Native rendering owners must
+  review this additive contract before implementation. No shared renderer files
+  were edited for this checkpoint.
+- Configurator: ModelAsset still lacks public decoded variant-material bindings.
+  The implemented metadata adapter accepts explicit host bindings. Direct glTF
+  and pipeline/interaction adapters remain open, as do durable saved camera/view
+  selections and catalog service examples. Camera presets and hotspot projection
+  exist; richer hotspot interaction/overlay policies stay with the host.
+- Audio: physical Android/iOS/Windows output, audible left/right/far cues,
+  real phone-call and route recovery, geometric occlusion with filtering,
+  automatic scene velocity estimation and optional backend adapters remain open.
+  Streaming seeks are asynchronous; PCM seeks cover deterministic offline use.
+- Capture: depth/object-ID, tiled screen effects/lighting qualification, HDR/EXR,
+  mobile capture, Windows qualification and codec/backend expansion remain open.
+- The shared scope remains domain-independent and native-only. No plugin is
+  published or ready for unrestricted rollout.
+
+## Current checkpoint, 2026-10-03
+
+The clean macOS integration suite passed again after the mobile focus policy was
+wired. It also checks concurrent bridge-start calls share one server and removes
+only the private rendezvous directory at teardown. The test drives foreground
+and background state explicitly because the macOS driver sometimes starts the
+window in the background. Real OS interruption delivery remains unverified.
+A separate normal-app visual check confirmed desktop controls, wrapped
+controls at 360 logical pixels and the native blue-to-red material change. The
+normal app was closed after inspection. The displayed pick is a raycast against
+the scene correlated to a presented frame; it is not an object-ID attachment.
+
+Checks used Flutter 3.47.5 and its bundled Dart SDK:
+
+- Configurator: 11 tests passed and analysis clean.
+- Audio: 9 tests passed against the native miniaudio library. Core Audio device
+  transport advanced, stopped during suspension and resumed. Human listening
+  confirmation is still missing.
+- Capture: 16 tests passed with `RUN_NATIVE_GPU=1 RUN_FFMPEG=1`, including Metal
+  tile equivalence, alpha, effects resources, concurrent undo and actual MP4
+  encoding inspected by ffprobe.
+- Flutter lab: host audio-session policy test and macOS integration test passed.
+  The native presentation path was `nativeView`, DPR 2, with a correlated frame
+  and four effects stages. Live stdio MCP recorded 15 successful calls.
+- Android arm64 debug APK and unsigned iOS device app built. Neither build
+  establishes physical playback, interruptions, routing or mobile capture.
+- Analysis of all three owned packages and the Flutter example passed.
+  `dart run tool/check_package_boundaries.dart` passed package boundaries and
+  the Apple ABI header check.
+
+The installed FFmpeg is optional and remains outside package dependencies.
+No shared renderer API was changed. The only shared-file edit is the Flutter
+example's workspace registration. The backlog above remains in scope for later
+checkpoints, with native auxiliary-output contracts owned by the renderer work.
+
+Local continuation commits:
+
+- `06b74ce`: imported configurator variant metadata, camera presets and hotspots.
+- `01e00e4`: native audio streaming, timeline controls and lifecycle methods.
+- `7ff9083`: host audio focus guard and the iOS Objective-C build correction.
+- `8638b32`: tiled native capture, video export and effects-chain editing.
+- `b5eb8cb`: displayed Flutter fixture, platform audio callbacks, live MCP probe
+  and isolated workspace registration.
+
+All commits are local. No push, merge or publication was performed. Physical
+mobile and audible qualification remain blocked by occupied devices and missing
+human listening confirmation. The other listed milestones remain planned work;
+this checkpoint does not establish complete cross-platform plugins.
