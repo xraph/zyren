@@ -16,6 +16,7 @@ final class XrException implements Exception {
 
 final class XrCapabilities {
   final String platform;
+  final String? availability;
   final bool worldTracking, planeDetection, anchors, lightEstimation;
   final bool sceneDepthHardware, cameraPresentation, depthOcclusion;
   final XrCameraPermission cameraPermission;
@@ -24,6 +25,7 @@ final class XrCapabilities {
 
   XrCapabilities._(Map<Object?, Object?> m)
     : platform = messageString(m, 'platform'),
+      availability = m['availability'] as String?,
       worldTracking = messageBool(m, 'worldTracking'),
       planeDetection = messageBool(m, 'planeDetection'),
       anchors = messageBool(m, 'anchors'),

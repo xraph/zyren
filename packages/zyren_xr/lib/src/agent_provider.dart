@@ -235,6 +235,7 @@ final class XrAgentProvider extends AgentProvider {
   @override
   Map<String, Object?> get capabilities => {
     'platform': deviceCapabilities.platform,
+    'availability': deviceCapabilities.availability,
     'worldTracking': deviceCapabilities.worldTracking,
     'sceneDepthHardware': deviceCapabilities.sceneDepthHardware,
     'cameraPresentation': deviceCapabilities.cameraPresentation,
