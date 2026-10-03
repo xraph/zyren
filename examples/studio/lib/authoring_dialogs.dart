@@ -322,3 +322,198 @@ Future<StudioDocument?> studioReviewDialog(
     text.dispose();
   }
 }
+
+Future<StudioDocument?> studioClipsDialog(
+  BuildContext context,
+  StudioDocument document,
+) async {
+  var draft = document;
+  var clipId = draft.clips.first.id;
+  String? error;
+  return showDialog<StudioDocument>(
+    context: context,
+    builder: (context) => StatefulBuilder(
+      builder: (context, update) {
+        final clip = draft.clips.where((c) => c.id == clipId).firstOrNull;
+        void edit(StudioDocument Function() change) {
+          try {
+            final next = change();
+            update(() {
+              draft = next;
+              error = null;
+            });
+          } catch (failure) {
+            update(() => error = '$failure');
+          }
+        }
+
+        Future<int?> time(String title, int initial) async {
+          final text = TextEditingController(text: '${initial / 1000000}');
+          try {
+            return await showDialog<int>(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: Text(title),
+                content: TextField(
+                  controller: text,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: const InputDecoration(labelText: 'Seconds'),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Cancel'),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      final value = double.tryParse(text.text);
+                      if (value != null && value.isFinite) {
+                        Navigator.pop(context, (value * 1000000).round());
+                      }
+                    },
+                    child: const Text('Apply'),
+                  ),
+                ],
+              ),
+            );
+          } finally {
+            text.dispose();
+          }
+        }
+
+        return AlertDialog(
+          title: const Text('Animation clips'),
+          content: SizedBox(
+            width: 460,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (draft.clips.isEmpty)
+                    const ZeroState(
+                      title: 'No clips',
+                      message:
+                          'Apply to remove the last clip, or cancel to keep it.',
+                    ),
+                  if (draft.clips.isNotEmpty)
+                    DropdownButton<String>(
+                      isExpanded: true,
+                      value: clip?.id,
+                      hint: const Text('Choose clip'),
+                      items: [
+                        for (final c in draft.clips)
+                          DropdownMenuItem(value: c.id, child: Text(c.label)),
+                      ],
+                      onChanged: (value) => update(() => clipId = value!),
+                    ),
+                  if (clip != null) ...[
+                    Wrap(
+                      spacing: 4,
+                      children: [
+                        TextButton(
+                          onPressed: () async {
+                            final value = await time(
+                              'Clip duration',
+                              clip.durationMicroseconds,
+                            );
+                            if (value != null) {
+                              edit(
+                                () => StudioAuthoring.resizeClip(
+                                  draft,
+                                  clip.id,
+                                  value,
+                                ),
+                              );
+                            }
+                          },
+                          child: Text(
+                            'Duration ${clip.durationMicroseconds / 1000000}s',
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () => edit(
+                            () => draft.copyWith(
+                              clips: draft.clips.where((c) => c.id != clip.id),
+                            ),
+                          ),
+                          child: const Text('Remove clip'),
+                        ),
+                      ],
+                    ),
+                    for (final track in clip.tracks.entries) ...[
+                      Text(draft.expandedNodes[track.key]?.label ?? track.key),
+                      for (final frame in track.value)
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                '${frame.microseconds / 1000000}s  (${frame.position.x}, ${frame.position.y}, ${frame.position.z})',
+                                maxLines: 2,
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: 'Retime key',
+                              icon: const Icon(Icons.schedule),
+                              onPressed: () async {
+                                final value = await time(
+                                  'Move key',
+                                  frame.microseconds,
+                                );
+                                if (value != null) {
+                                  edit(
+                                    () => StudioAuthoring.editKeyframe(
+                                      draft,
+                                      clipId: clip.id,
+                                      nodeId: track.key,
+                                      microseconds: frame.microseconds,
+                                      moveToMicroseconds: value,
+                                    ),
+                                  );
+                                }
+                              },
+                            ),
+                            IconButton(
+                              tooltip: 'Remove key',
+                              icon: const Icon(Icons.delete_outline),
+                              onPressed: () => edit(
+                                () => StudioAuthoring.editKeyframe(
+                                  draft,
+                                  clipId: clip.id,
+                                  nodeId: track.key,
+                                  microseconds: frame.microseconds,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                    ],
+                  ],
+                  if (error != null)
+                    Text(
+                      error!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, draft),
+              child: const Text('Apply clips'),
+            ),
+          ],
+        );
+      },
+    ),
+  );
+}

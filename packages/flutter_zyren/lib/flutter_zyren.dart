@@ -22,3 +22,4 @@ export 'package:zyren/rendering.dart'
 export 'src/input/flutter_input_adapter.dart' show ScenePointerCallback;
 export 'src/presentation/output_presenter.dart';
 export 'src/declarative/scene_canvas.dart';
+export 'src/widgets/onboarding_provider.dart';

@@ -154,14 +154,22 @@ Future<void> verify(McpClient client, Map point) async {
   );
   require(screen['pixelVisibility'] == 'unknown', 'Pixel evidence overstated.');
   require(screen['presentedFrame'] != null, 'No native frame was presented.');
+  require(
+    screen['presentedFrame']['sceneRevision'] is int &&
+        screen['presentedFrame']['cameraRevision'] is int,
+    'Submitted source revisions are missing.',
+  );
   final pick = await query('zyren.viewport', 'main', 'pick', {
     'x': point['x'],
     'y': point['y'],
     'limit': 32,
   });
   require(
-    pick['data']['frameCorrelation'] == 'unknown',
-    'Frame correlation overstated.',
+    [
+      'matches-current-state',
+      'differs-from-current-state',
+    ].contains(pick['data']['frameCorrelation']),
+    'Submitted frame correlation is missing.',
   );
   final hits = pick['data']['hits'] as List;
   final block = hits.firstWhere(

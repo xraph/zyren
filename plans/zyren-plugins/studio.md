@@ -3,6 +3,28 @@
 You can follow the editor work here. This checkpoint owns `packages/zyren_studio`
 and `examples/studio`. It does not change the declarative Flutter API.
 
+## Current status, 2026-10-03
+
+The remaining Studio implementation now includes source-map reimport, asset
+checks and its actual disk-library agent provider, imported-instance selection,
+editable clips, durable collaboration/recovery, shared registered onboarding,
+submitted-frame correlation and Android/iOS runners. The package README, example
+and changelog describe schema 2. The historical checkpoints below are retained
+as an implementation record; use this status and the qualification file for the
+current result.
+
+The combined Studio/example/rendering regression suite passes 30 tests. Scoped
+analysis and package boundaries pass. macOS Metal plus external MCP and physical
+Pixel Vulkan native flows pass. Three preview cycles preserve the document and
+tracked GPU allocations. The unsigned iOS build passes, but physical launch is
+blocked by Xcode account/provisioning. Direct desktop visual/accessibility review
+is blocked by the locked Mac. Publication is blocked by the project license
+choice and five path dependencies. Remote guarded agent writes remain limited
+by the collaboration transport contract; review notes remain local.
+
+See `packages/zyren_studio/qualification.md` for exact device, memory-counter and
+release limits. No cross-platform or public-release completion is claimed.
+
 ## Source audit and decisions
 
 - `SceneToolsPlugin` already provides selection, bounded undo/redo and transform
@@ -323,3 +345,40 @@ Remaining work includes collaboration sessions and recovery, source-map reimport
 controls, editable keyframe removal/retiming, asset diagnostics, registered
 onboarding, Android/iOS qualification and release validation. Current native
 picks still report unknown pixel visibility and frame correlation.
+
+## Submitted-frame correlation request
+
+Add optional `FrameSource` metadata to `FrameStats` in
+`packages/zyren/lib/src/rendering/frame_output.dart`, and preserve output payloads
+when replacing their stats. `packages/zyren/lib/src/plugins/engine.dart` should
+record scene and camera revisions around its synchronous submission capture,
+then attach those values to that submission's returned frame. Leave legacy
+renderers and captures that mutate their source uncorrelated.
+
+`packages/flutter_zyren/lib/src/controller/scene_controller.dart` should add the
+logical viewport and DPR used for that render before the presenter reports it.
+Export the metadata through `packages/zyren/lib/zyren.dart`. This is additive:
+existing stats constructors keep null source metadata. Studio can then populate
+the existing `AgentPresentedFrame` fields. Matching revisions establish submitted
+state correlation only; they do not prove pixel visibility or display scanout.
+
+These paths have no working-tree edits at this check. Other plans record missing
+correlation but do not request an overlapping implementation. Regression checks
+must cover source mutation during an asynchronous render and preserve native
+surface/frame receipts.
+
+## Onboarding provider request
+
+No shared onboarding registry exists in `flutter_zyren`. Add an exported,
+optional `OnboardingProvider` in its widgets directory. It registers walkthrough
+IDs with actual widget anchors, validates an anchor before starting each step,
+and keeps navigation and focus inside a dismissible dialog. Studio will register
+its saved-scene walkthrough and expose it from the toolbar and empty state.
+Nothing starts automatically. These shared paths have no current edits.
+
+## Package boundary coverage
+
+Add Studio to `tool/check_package_boundaries.dart` with only its five declared
+Zyren dependencies. Apply the existing public-import check to it as well. The
+checker currently omits this package, so a passing workspace check alone does
+not establish Studio's boundary. The shared checker is clean at this request.

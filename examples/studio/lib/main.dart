@@ -97,7 +97,14 @@ class _OpenStudioState extends State<_OpenStudio> {
         initiallySaved: saved,
         enableAgentTransport: const bool.fromEnvironment('ZYREN_AI_DX'),
         agentScopes: const bool.fromEnvironment('ZYREN_AGENT_EDIT')
-            ? const {'studio.select', 'studio.edit', 'timeline.playback'}
+            ? const {
+                'studio.select',
+                'studio.edit',
+                'timeline.playback',
+                'collaboration.read',
+                'collaboration.write',
+                'collaboration.camera',
+              }
             : const {},
         runtime: Platform.isAndroid
             ? const SceneRuntime.nativeAndroid()

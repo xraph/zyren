@@ -1,5 +1,7 @@
+import 'studio_lighting.dart';
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:zyren_devtools/zyren_devtools.dart';
 import 'package:zyren_devtools/io.dart';
@@ -21,12 +23,17 @@ import 'package:zyren_engineering/zyren_engineering.dart';
 import 'studio_assets.dart';
 import 'authoring_dialogs.dart';
 import 'studio_preview.dart';
+import 'studio_collaboration.dart';
+import 'collaboration_dialog.dart';
+import 'asset_dialogs.dart';
+import 'asset_agents.dart';
 
 /// Flutter composition lives in the host; documents and reconstruction are Dart.
 class StudioEditor extends StatefulWidget {
   final StudioDocument document;
   final StudioStore store;
   final StudioAssetScope? assetScope;
+  final Directory? collaborationDirectory;
   final StudioPipelineAssets? assetResolver;
   final String saveLocation;
   final bool initiallySaved;
@@ -39,6 +46,7 @@ class StudioEditor extends StatefulWidget {
     required this.document,
     required this.store,
     this.assetScope,
+    this.collaborationDirectory,
     this.assetResolver,
     required this.saveLocation,
     this.initiallySaved = false,
@@ -56,15 +64,21 @@ class StudioEditorState extends State<StudioEditor> {
   late final StudioAssetScope _assets = widget.assetScope ?? StudioAssetScope();
   StudioCancellation? _loadCancellation;
   StudioDocument? _gestureBefore;
+  Registration? _collaborationRegistration;
   late AgentRegistry _agents;
   late StudioAgentProvider _agentProvider;
   late StudioCommands _commands;
   DevtoolsServer? _agentServer;
   late SceneDiagnostics _diagnostics;
+  late SceneDevtoolsPlugin _gpuInspector;
+  Future<Map<String, Object?>?> inspectGpu() async =>
+      (await _gpuInspector.inspectGpu())?.toJson();
   final _providerGaps = <String>[];
   AgentRegistry get agents => _agents;
   StudioAgentProvider get agentProvider => _agentProvider;
   final _canvasKey = GlobalKey();
+  final _authorKey = GlobalKey();
+  final _saveKey = GlobalKey();
   int _uiRevision = 0;
   int _commandUiRevision = 0;
   String? _timelineSignature;
@@ -124,6 +138,7 @@ class StudioEditorState extends State<StudioEditor> {
 
   void _install(StudioDocument document) {
     _scene = StudioScene(document, assets: _assets);
+    addStudioLighting(_scene.scene);
     _boundGeneration = null;
     _hoveredId = null;
     _pointer = null;
@@ -178,7 +193,7 @@ class StudioEditorState extends State<StudioEditor> {
     _controller.use(_orbit);
     _controller.use(_timeline);
     _controller.use(_scene.engineering);
-    final inspector = _controller.use(SceneDevtoolsPlugin());
+    final inspector = _gpuInspector = _controller.use(SceneDevtoolsPlugin());
     _diagnostics = SceneDiagnostics(inspector);
     _commands = StudioCommands(
       scene: _scene,
@@ -189,7 +204,11 @@ class StudioEditorState extends State<StudioEditor> {
       ),
     );
     _agents = AgentRegistry(
-      grantedScopes: {'engineering.read', ...widget.agentScopes},
+      grantedScopes: {
+        'engineering.read',
+        'collaboration.read',
+        ...widget.agentScopes,
+      },
     );
     _agentProvider = StudioAgentProvider(
       commands: _commands,
@@ -197,6 +216,15 @@ class StudioEditorState extends State<StudioEditor> {
       hostRevision: () => _commandUiRevision,
     );
     _agents.register(_agentProvider);
+    if (widget.assetResolver case final resolver?) {
+      _agents.register(
+        StudioAssetsAgentProvider(
+          scene: _scene,
+          assets: resolver,
+          instanceId: _commands.sessionId,
+        ),
+      );
+    }
     _agents.register(
       StudioAuthoringAgentProvider(
         scene: _scene,
@@ -271,7 +299,15 @@ class StudioEditorState extends State<StudioEditor> {
         hostState: _screenContext,
         presentedFrame: () => _presented == null
             ? null
-            : AgentPresentedFrame(id: _presented!.frame.frameId.toString()),
+            : AgentPresentedFrame(
+                id: _presented!.frame.frameId.toString(),
+                sceneRevision: _presented!.frame.source?.sceneRevision,
+                cameraRevision: _presented!.frame.source?.cameraRevision,
+                cameraRuntimeId: _presented!.frame.source?.cameraRuntimeId,
+                logicalWidth: _presented!.frame.source?.logicalWidth,
+                logicalHeight: _presented!.frame.source?.logicalHeight,
+                devicePixelRatio: _presented!.frame.source?.devicePixelRatio,
+              ),
         metadata: (object) {
           final id = _scene.idFor(object);
           final node = _scene.document.expandedNodes[id];
@@ -398,22 +434,27 @@ class StudioEditorState extends State<StudioEditor> {
 
   Future<void> _save() async {
     setState(() => _busy = true);
+    var written = false;
     try {
       _gizmo.cancel();
       final document = _scene.capture();
       final encoded = document.encode();
       await widget.store.write(document);
       if (!mounted) return;
+      _saved = encoded;
+      written = true;
+      await _pruneAssets();
+      if (!mounted) return;
       setState(() {
-        _saved = encoded;
         _notice = 'Scene saved';
         _error = false;
       });
-      await _pruneAssets();
     } catch (error) {
       if (mounted) {
         setState(() {
-          _notice = 'Save failed: $error';
+          _notice = written
+              ? 'Scene saved; asset cleanup failed: $error'
+              : 'Save failed: $error';
           _error = true;
         });
       }
@@ -555,6 +596,26 @@ class StudioEditorState extends State<StudioEditor> {
     try {
       StudioDocument? next;
       switch (action) {
+        case 'collaboration':
+          await showDialog<void>(
+            context: context,
+            barrierDismissible: false,
+            builder: (_) => StudioCollaborationDialog(
+              scene: _scene,
+              directory: widget.collaborationDirectory,
+              onSession: (session) {
+                _collaborationRegistration?.dispose();
+                _collaborationRegistration = null;
+                if (session != null) {
+                  _collaborationRegistration = _agents.register(
+                    StudioCollaborationAgentProvider(session),
+                  );
+                }
+                _commandUiRevision++;
+                _refresh();
+              },
+            ),
+          );
         case 'box':
           next = StudioAuthoring.addBox(before, id: _newId('box'));
         case 'remove':
@@ -573,10 +634,22 @@ class StudioEditorState extends State<StudioEditor> {
           );
         case 'material':
           next = await studioMaterialDialog(context, before, selectedId!);
+        case 'assets':
+          await showDialog<void>(
+            context: context,
+            builder: (_) => StudioAssetsDialog(
+              document: before,
+              resolver: widget.assetResolver!,
+            ),
+          );
+        case 'clips':
+          next = await studioClipsDialog(context, before);
         case 'keyframe':
           next = await studioKeyframeDialog(context, before, selectedId!);
         case 'review':
-          final source = before.expandedNodes[selectedId]?.sourceId;
+          final source =
+              _scene.selectedSource?.$2 ??
+              before.expandedNodes[selectedId]?.sourceId;
           if (source == null) {
             throw StateError('Select an object with a source record.');
           }
@@ -610,6 +683,8 @@ class StudioEditorState extends State<StudioEditor> {
           final imported = await widget.assetResolver!.choose(
             id: existing?.id ?? _newId('asset'),
             replacing: existing,
+            mapSources: (nodes, previous) =>
+                studioSourceMapDialog(context, nodes, previous),
             cancellation: _loadCancellation!,
           );
           if (imported != null) {
@@ -687,6 +762,10 @@ class StudioEditorState extends State<StudioEditor> {
       icon: const Icon(Icons.add_box_outlined),
       itemBuilder: (_) => [
         const PopupMenuItem(value: 'box', child: Text('Add box')),
+        const PopupMenuItem(
+          value: 'collaboration',
+          child: Text('Shared session'),
+        ),
         PopupMenuItem(
           value: 'import',
           enabled: widget.assetResolver != null,
@@ -696,6 +775,11 @@ class StudioEditorState extends State<StudioEditor> {
           value: 'reimport',
           enabled: widget.assetResolver != null && node?.assetId != null,
           child: const Text('Reimport selected asset'),
+        ),
+        PopupMenuItem(
+          value: 'assets',
+          enabled: widget.assetResolver != null,
+          child: const Text('Asset diagnostics'),
         ),
         PopupMenuItem(
           value: 'material',
@@ -722,13 +806,18 @@ class StudioEditorState extends State<StudioEditor> {
           child: const Text('Record animation pose'),
         ),
         PopupMenuItem(
+          value: 'clips',
+          enabled: _scene.document.clips.isNotEmpty,
+          child: const Text('Manage animation clips'),
+        ),
+        PopupMenuItem(
           value: 'preview',
           enabled: _scene.document.clips.isNotEmpty,
           child: const Text('Preview latest clip'),
         ),
         PopupMenuItem(
           value: 'review',
-          enabled: node?.sourceId != null,
+          enabled: _scene.selectedSource != null || node?.sourceId != null,
           child: const Text('Engineering notes'),
         ),
         PopupMenuItem(
@@ -751,7 +840,16 @@ class StudioEditorState extends State<StudioEditor> {
         label: Text(label),
       );
 
-  Widget _inspector() => Column(
+  Widget _inspector() => LayoutBuilder(
+    builder: (context, constraints) => SingleChildScrollView(
+      child: SizedBox(
+        height: constraints.maxHeight < 440 ? 440 : constraints.maxHeight,
+        child: _inspectorContents(),
+      ),
+    ),
+  );
+
+  Widget _inspectorContents() => Column(
     children: [
       if (_selected case final selected?)
         Padding(
@@ -818,9 +916,21 @@ class StudioEditorState extends State<StudioEditor> {
         ZeroState(
           title: 'Your scene is empty',
           message:
-              'Reload a saved document with authored groups or boxes to start editing.',
-          actionLabel: 'Reload saved scene',
-          onAction: !_busy ? _reload : null,
+              'Add a box or import a model from Authoring to start editing.',
+          action: Builder(
+            builder: (context) => Wrap(
+              children: [
+                TextButton(
+                  onPressed: _editing ? () => _author('box') : null,
+                  child: const Text('Add box'),
+                ),
+                TextButton(
+                  onPressed: !_busy ? () => _tour(context) : null,
+                  child: const Text('Take a tour'),
+                ),
+              ],
+            ),
+          ),
         ),
     ],
   );
@@ -910,11 +1020,17 @@ class StudioEditorState extends State<StudioEditor> {
           : {
               'id': presented.frame.frameId,
               'elapsedMicroseconds': presented.elapsed.inMicroseconds,
-              'sceneRevision': null,
+              'sceneRevision': presented.frame.source?.sceneRevision,
+              'cameraRevision': presented.frame.source?.cameraRevision,
+              'cameraRuntimeId': presented.frame.source?.cameraRuntimeId,
+              'logicalWidth': presented.frame.source?.logicalWidth,
+              'logicalHeight': presented.frame.source?.logicalHeight,
+              'devicePixelRatio': presented.frame.source?.devicePixelRatio,
               'width': presented.frame.physicalSize.width,
               'height': presented.frame.physicalSize.height,
-              'correlation':
-                  'presenter accepted frame; submitted scene revision unavailable',
+              'correlation': presented.frame.source == null
+                  ? 'unknown'
+                  : 'submitted-state',
             },
       'pixelVisibility': 'unknown',
       'agentProviderGaps': List<String>.of(_providerGaps),
@@ -940,8 +1056,43 @@ class StudioEditorState extends State<StudioEditor> {
     },
   );
 
+  Future<void> _tour(BuildContext context) async {
+    setState(() => _modalOpen = true);
+    try {
+      await OnboardingProvider.of(context).start(context, 'studio.saved-scene');
+    } finally {
+      if (mounted) setState(() => _modalOpen = false);
+    }
+  }
+
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => OnboardingProvider(
+    walkthroughs: {
+      'studio.saved-scene': [
+        WalkthroughStep(
+          anchor: _canvasKey,
+          title: 'Select and place objects',
+          message:
+              'Pick an object in the native viewport. Drag its gizmo to move, rotate or scale it. Imported parts select their saved instance.',
+        ),
+        WalkthroughStep(
+          anchor: _authorKey,
+          title: 'Build your scene',
+          message:
+              'Authoring adds boxes and pinned models, makes prefab instances, edits materials and clips, and opens shared sessions. Source maps keep imported review notes attached to the right parts.',
+        ),
+        WalkthroughStep(
+          anchor: _saveKey,
+          title: 'Keep your changes',
+          message:
+              'Save stores your scene, asset pins, clips and notes. Undo restores local edits. Shared sessions use conditional history so another person’s changes are never silently overwritten.',
+        ),
+      ],
+    },
+    child: Builder(builder: _buildEditor),
+  );
+
+  Widget _buildEditor(BuildContext context) => Scaffold(
     body: SafeArea(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -967,6 +1118,7 @@ class StudioEditorState extends State<StudioEditor> {
                   key: const ValueKey('save-status'),
                 ),
                 Tooltip(
+                  key: _saveKey,
                   message: widget.saveLocation,
                   child: _button(
                     'Save',
@@ -1011,7 +1163,12 @@ class StudioEditorState extends State<StudioEditor> {
                   _previewCamera == null ? Icons.play_arrow : Icons.stop,
                   _ready && !_busy ? _preview : null,
                 ),
-                _authoringMenu(),
+                KeyedSubtree(key: _authorKey, child: _authoringMenu()),
+                _button(
+                  'Tour',
+                  Icons.help_outline,
+                  !_busy && !_modalOpen ? () => _tour(context) : null,
+                ),
                 if (_previewCamera != null)
                   Text(
                     '${(_timeline.position.inMilliseconds / 1000).toStringAsFixed(1)} / 3 s',

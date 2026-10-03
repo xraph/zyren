@@ -6,6 +6,12 @@ import 'package:zyren_pipeline/zyren_pipeline.dart';
 import 'package:zyren_pipeline/io.dart';
 import 'package:zyren_studio/zyren_studio.dart';
 
+typedef StudioSourceMapping =
+    Future<Map<String, int>?> Function(
+      Map<int, String> nodes,
+      Map<String, int> previous,
+    );
+
 /// Native host adapter. The document keeps Pipeline's exact descriptor unchanged.
 final class StudioPipelineAssets implements StudioAssetResolver {
   final FilePipelineCache cache;
@@ -51,6 +57,7 @@ final class StudioPipelineAssets implements StudioAssetResolver {
   Future<StudioAsset?> choose({
     required String id,
     StudioAsset? replacing,
+    StudioSourceMapping? mapSources,
     required LoadCancellation cancellation,
   }) async {
     final file = await openFile(
@@ -74,6 +81,7 @@ final class StudioPipelineAssets implements StudioAssetResolver {
       file.name,
       id: id,
       replacing: replacing,
+      mapSources: mapSources,
       cancellation: cancellation,
     );
   }
@@ -83,6 +91,7 @@ final class StudioPipelineAssets implements StudioAssetResolver {
     String filename, {
     required String id,
     StudioAsset? replacing,
+    StudioSourceMapping? mapSources,
     required LoadCancellation cancellation,
   }) async {
     final PipelineBundle bundle;
@@ -115,16 +124,37 @@ final class StudioPipelineAssets implements StudioAssetResolver {
       reference,
       cancellation: cancellation,
     );
+    var sources = replacing?.sourceNodes ?? <String, int>{};
     try {
       // Node indices are tied to an exact pin. Reimport requires an explicit new
       // source map for imported subobject bindings; root instance IDs remain stable.
       if (replacing != null &&
           replacing.sourceNodes.isNotEmpty &&
+          mapSources == null &&
           reference.bundleVersion != replacing.reference['bundleVersion']) {
         throw StateError(
           'This asset has source-node bindings. Supply an updated source map before reimporting it.',
         );
       }
+      final model = loaded.instantiate();
+      if (mapSources != null) {
+        final result = await mapSources({
+          for (final node in model.nodes.entries)
+            node.key: node.value.name ?? '',
+        }, sources);
+        if (result == null) throw LoadCancelled();
+        sources = result;
+      }
+      if (sources.values.any((index) => !model.nodes.containsKey(index))) {
+        throw StateError('A source mapping refers to an absent model node.');
+      }
+      StudioAsset(
+        id: id,
+        label: filename,
+        provider: 'zyren.pipeline',
+        reference: reference.toJson(),
+        sourceNodes: sources,
+      );
       cancellation.throwIfCancelled();
       if (!await cache.put(bundle, pin: true, cancellation: cancellation)) {
         throw StateError('The pinned asset cache is full.');
@@ -137,7 +167,7 @@ final class StudioPipelineAssets implements StudioAssetResolver {
       label: filename,
       provider: 'zyren.pipeline',
       reference: reference.toJson(),
-      sourceNodes: replacing?.sourceNodes ?? const {},
+      sourceNodes: sources,
     );
   }
 }
