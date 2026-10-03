@@ -241,7 +241,7 @@ final class Raycaster {
           );
         }
       }
-      for (final child in node.children) {
+      for (final child in node.pickChildren) {
         visit(child, world, clipping);
       }
     }

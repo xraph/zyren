@@ -29,6 +29,7 @@ part 'instanced_mesh.dart';
 part 'clipping_plane.dart';
 part 'scene_outline.dart';
 part 'fragment_coverage.dart';
+part 'publication_group.dart';
 
 class Object3D with _Revisioned {
   static int _nextObjectId = 1;
@@ -77,6 +78,12 @@ class Object3D with _Revisioned {
   Object3D? get parent => _parent;
   List<Object3D> get children =>
       _childSnapshot ??= List.unmodifiable(_children);
+
+  /// Children included in candidate render submissions.
+  List<Object3D> get renderChildren => children;
+
+  /// Children used for CPU queries of the displayed cover.
+  List<Object3D> get pickChildren => children;
   Vec3 get position => _position;
   set position(Vec3 value) {
     _finite(value, 'position');
@@ -165,6 +172,7 @@ class Object3D with _Revisioned {
     }
     return _localMatrix!;
   }
+
   Object3D translate(Vec3 offset) {
     position = position + offset;
     return this;

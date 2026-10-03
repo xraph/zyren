@@ -40,6 +40,7 @@ export 'src/rendering/frame_output.dart'
         ColorSpace,
         AlphaMode,
         FrameStats,
+        SceneAdmission,
         FrameSource;
 export 'src/resources/buffer.dart';
 export 'src/resources/texture.dart';

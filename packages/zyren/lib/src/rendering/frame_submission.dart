@@ -595,7 +595,7 @@ class SceneSnapshot {
           );
         }
       }
-      for (final child in node.children) {
+      for (final child in node.renderChildren) {
         visit(child, world, visible);
       }
     }

@@ -1058,14 +1058,16 @@ bool _hasVisibleShaderMaterial(Object3D node, LayerMask layers) =>
     ((node is Mesh &&
             node.layers.intersects(layers) &&
             node.material is ShaderMaterial) ||
-        node.children.any((child) => _hasVisibleShaderMaterial(child, layers)));
+        node.renderChildren.any(
+          (child) => _hasVisibleShaderMaterial(child, layers),
+        ));
 
 bool _hasVisibleStandardMaterial(Object3D node, LayerMask layers) =>
     node.visible &&
     ((node is Mesh &&
             node.layers.intersects(layers) &&
             node.material is StandardMaterial) ||
-        node.children.any(
+        node.renderChildren.any(
           (child) => _hasVisibleStandardMaterial(child, layers),
         ));
 bool _hasVisiblePhysicalMaterial(Object3D node, LayerMask layers) =>
@@ -1073,13 +1075,13 @@ bool _hasVisiblePhysicalMaterial(Object3D node, LayerMask layers) =>
     ((node is Mesh &&
             node.layers.intersects(layers) &&
             node.material is PhysicalMaterial) ||
-        node.children.any(
+        node.renderChildren.any(
           (child) => _hasVisiblePhysicalMaterial(child, layers),
         ));
 int _visibleLightCount(Object3D node, LayerMask layers) => !node.visible
     ? 0
     : (node is PunctualLight && node.layers.intersects(layers) ? 1 : 0) +
-          node.children.fold(
+          node.renderChildren.fold(
             0,
             (sum, child) => sum + _visibleLightCount(child, layers),
           );
@@ -1087,7 +1089,7 @@ int _visibleLightCount(Object3D node, LayerMask layers) => !node.visible
 int _visibleAreaLightCount(Object3D node, LayerMask layers) => !node.visible
     ? 0
     : (node is RectAreaLight && node.layers.intersects(layers) ? 1 : 0) +
-          node.children.fold(
+          node.renderChildren.fold(
             0,
             (sum, child) => sum + _visibleAreaLightCount(child, layers),
           );
@@ -1095,7 +1097,7 @@ int _visibleHemisphereLightCount(Object3D node, LayerMask layers) =>
     !node.visible
     ? 0
     : (node is HemisphereLight && node.layers.intersects(layers) ? 1 : 0) +
-          node.children.fold(
+          node.renderChildren.fold(
             0,
             (sum, child) => sum + _visibleHemisphereLightCount(child, layers),
           );
@@ -1108,11 +1110,14 @@ bool _hasVisibleShadows(Object3D node, LayerMask layers) =>
         (node is Mesh &&
             node.layers.intersects(layers) &&
             (node.castShadow || node.receiveShadow)) ||
-        node.children.any((child) => _hasVisibleShadows(child, layers)));
+        node.renderChildren.any((child) => _hasVisibleShadows(child, layers)));
 
 int _instanceCapacity(Object3D node) =>
     (node is InstancedMesh ? node.capacity : 0) +
-    node.children.fold<int>(0, (n, child) => n + _instanceCapacity(child));
+    node.renderChildren.fold<int>(
+      0,
+      (n, child) => n + _instanceCapacity(child),
+    );
 
 void _checkDeformation(
   Object3D node,
@@ -1146,7 +1151,7 @@ void _checkDeformation(
       );
     }
   }
-  for (final child in node.children) {
+  for (final child in node.renderChildren) {
     _checkDeformation(child, capabilities, layers);
   }
 }
