@@ -232,6 +232,59 @@ void main() {
       expect(recipe.entities.first.components.single.data['target'], 'target');
     },
   );
+  test(
+    'slash and percent IDs remain independent across compiled instances',
+    () {
+      final recipe = GameSpawnTemplate(
+        id: 'overlapping-paths',
+        registry: registry(),
+        entities: [
+          entity('c', [
+            GameComponentRecord('game.link', 2, {'target': 'b/c'}),
+          ]),
+          entity('b/c', [
+            GameComponentRecord('game.link', 2, {'target': 'c'}),
+          ]),
+          entity('b%2Fc', [
+            GameComponentRecord('game.link', 2, {'target': 'c'}),
+          ]),
+        ],
+      );
+      final table = GameEntityTable();
+      for (final instanceId in ['a/b', 'a', 'a%2Fb']) {
+        final spawned = recipe.instantiate(instanceId);
+        final encodedInstance = Uri.encodeComponent(instanceId);
+        expect(spawned.map((record) => record.id), [
+          '$encodedInstance/c',
+          '$encodedInstance/b%2Fc',
+          '$encodedInstance/b%252Fc',
+        ]);
+        final ids = spawned.map((record) => record.id).toSet();
+        for (final record in spawned) {
+          final handle = table.spawn(record.id, components: record.components);
+          expect(table.isAlive(handle), isTrue);
+          final target = record.components.single.data['target'] as String;
+          expect(ids, contains(target));
+          expect(recipe.construct(record), [target]);
+        }
+        final reconstructed = GameEntityRecord.fromJson(spawned.first.toJson());
+        expect(() => recipe.construct(reconstructed), throwsStateError);
+      }
+      expect(table.length, 9);
+      expect(recipe.entities[1].id, 'b/c');
+      expect(recipe.entities.first.components.single.data['target'], 'b/c');
+      expect(() => recipe.construct(recipe.entities.first), throwsStateError);
+      final other = GameSpawnTemplate(
+        id: 'other-template',
+        registry: registry(),
+        entities: recipe.entities,
+      );
+      expect(
+        () => recipe.construct(other.instantiate('a/b').first),
+        throwsStateError,
+      );
+    },
+  );
   test('factories require a remapped entity from this template', () {
     final recipe = GameSpawnTemplate(
       id: 'guard',

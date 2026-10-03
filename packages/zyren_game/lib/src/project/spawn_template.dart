@@ -22,8 +22,10 @@ final class GameSpawnTemplate {
 
   List<GameEntityRecord> instantiate(String instanceId) {
     _id(instanceId);
+    final encodedInstance = Uri.encodeComponent(instanceId);
     final instanceMap = <String, String>{
-      for (final entity in entities) entity.id: _id('$instanceId/${entity.id}'),
+      for (final entity in entities)
+        entity.id: _id('$encodedInstance/${Uri.encodeComponent(entity.id)}'),
     };
     // All IDs exist before any reference is rewritten or any factory can run.
     final result = entities
