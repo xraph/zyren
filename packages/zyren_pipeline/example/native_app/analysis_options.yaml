@@ -3,4 +3,5 @@ analyzer:
     - build/**
     - android/**
     - macos/**
+    - ios/**
 include: ../../../../analysis_options.yaml

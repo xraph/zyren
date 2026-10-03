@@ -26,6 +26,9 @@ void main() {
         i++
       ) {
         await tester.pump(const Duration(milliseconds: 100));
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 30)),
+        );
       }
       expect(state.error, isNull);
       expect(state.busy, isFalse);
@@ -40,6 +43,9 @@ void main() {
         i++
       ) {
         await tester.pump(const Duration(milliseconds: 100));
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 30)),
+        );
       }
       expect(state.controller.latestFrameStats!.frameId, greaterThan(before));
     }
@@ -56,12 +62,7 @@ void main() {
     state.controller.invalidate();
     await nextFrame(before);
     final info = (state.controller.status.value as SceneReady).info;
-    expect(
-      info.presentationPath,
-      Platform.isAndroid
-          ? PresentationPath.nativeView
-          : PresentationPath.sharedTexture,
-    );
+    expect(info.presentationPath, PresentationPath.nativeView);
     expect(state.mesh!.geometry.capture().primitiveCount, 128);
     final metrics = (state.controller.input as ViewportInputSource).viewport;
     final picked = await state.registry.call(
@@ -110,6 +111,8 @@ void main() {
     );
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
-    await state.controller.whenDisposed;
+    await tester.runAsync(
+      () => state.controller.whenDisposed.timeout(const Duration(seconds: 15)),
+    );
   });
 }

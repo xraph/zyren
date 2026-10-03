@@ -15,12 +15,14 @@ Run this app from its directory:
 ```sh
 fvm flutter run --no-pub -d macos
 fvm flutter test --no-pub integration_test/pipeline_test.dart -d macos
-fvm flutter test --no-pub integration_test/pipeline_test.dart -d 47121FDAP002C7
+fvm flutter test --no-pub integration_test/pipeline_test.dart -d <device-id>
+fvm flutter build ios --debug --no-pub --no-codesign
 ```
 
-Use your own device ID for the last command. Wait until other qualification jobs
-release the device. The app requires native Metal shared-texture presentation on
-macOS or native Vulkan presentation on Android. There is no browser fallback.
+Use your own device ID for mobile tests. Configure your development team in the
+iOS Runner project before installing a signed build. Wait until other qualification jobs
+release the device. The app requires native Metal view presentation on
+macOS/iOS or native Vulkan presentation on Android. There is no browser fallback.
 
 Evict cache removes the bundled source from the registered runtime cache and the
 local file cache. Your current mesh remains usable. Reload then shows the shared
