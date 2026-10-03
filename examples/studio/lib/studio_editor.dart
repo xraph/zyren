@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'studio_grid.dart';
 import 'studio_workspace.dart';
 import 'package:flutter_zyren_studio/flutter_zyren_studio.dart';
+import 'package:zyren_game_studio/zyren_game_studio.dart';
 import 'studio_theme.dart';
 import 'studio_properties.dart';
 import 'studio_model_bindings.dart';
@@ -474,7 +475,11 @@ class StudioEditorState extends State<StudioEditor> {
             controller.setPlugins([...basePlugins, ...plugins]),
       ),
     );
-    host.registerAll(widget.editorContributions);
+    host.registerAll([
+      if (!widget.editorContributions.any((c) => c.id == 'zyren.game-editor'))
+        GameStudioContribution(createGameAuthoring()).contribution,
+      ...widget.editorContributions,
+    ]);
     _controller.status.addListener(_statusChanged);
     _subscriptions.addAll([
       _agents.changes.listen((_) => _refresh()),

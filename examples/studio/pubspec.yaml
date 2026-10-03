@@ -6,6 +6,8 @@ resolution: workspace
 environment:
   sdk: '>=3.10.0 <4.0.0'
 dependencies:
+  zyren_game_studio:
+    path: ../../packages/zyren_game_studio
   zyren_geospatial:
     path: ../../packages/zyren_geospatial
   cupertino_icons: ^1.0.9
