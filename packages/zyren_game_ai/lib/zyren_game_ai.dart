@@ -1,0 +1,42 @@
+/// Versioned observations and bounded knowledge-filtered game sensors.
+library;
+
+import 'dart:convert';
+import 'dart:math' as math;
+import 'package:crypto/crypto.dart';
+import 'package:zyren/zyren.dart';
+import 'package:zyren_game/zyren_game.dart';
+import 'package:zyren_game_native/zyren_game_native.dart';
+import 'package:zyren_ml/zyren_ml.dart';
+import 'package:zyren_physics/zyren_physics.dart';
+
+part 'src/contracts/observation.dart';
+part 'src/contracts/action.dart';
+part 'src/contracts/sensor_profile.dart';
+part 'src/contracts/frame.dart';
+part 'src/perception/snapshot.dart';
+part 'src/perception/registry.dart';
+part 'src/perception/vision.dart';
+part 'src/perception/rays.dart';
+part 'src/perception/grid.dart';
+part 'src/perception/hearing.dart';
+part 'src/perception/body.dart';
+part 'src/perception/affordance.dart';
+part 'src/perception/assembler.dart';
+
+void _name(String value) {
+  if (value.trim().isEmpty || value.length > 128) {
+    throw ArgumentError('Invalid identifier.');
+  }
+}
+
+void _bounded(int value, int max, String name, {bool zero = false}) {
+  if (value < (zero ? 0 : 1) || value > max) {
+    throw RangeError.value(value, name);
+  }
+}
+
+String _hash(Object value) =>
+    sha256.convert(utf8.encode(jsonEncode(value))).toString();
+Vec3 _local(Quat rotation, Vec3 vector) =>
+    Quat(-rotation.x, -rotation.y, -rotation.z, rotation.w).rotate(vector);

@@ -1,0 +1,113 @@
+# Zyren Game AI
+
+Build observations from the game sensors phase, then send the frame's immutable
+float32 tensor to your policy. You get ordered schema hashes, bounded slots and
+validity masks. Physics stays in Rapier.
+
+```dart
+final profile = SensorProfile(range: 20, maxEntities: 8);
+final sensors = SensorRegistry()
+  ..register(VisionSensor(profile))
+  ..register(BodySensor())
+  ..register(HearingSensor(profile));
+final assembler = ObservationAssembler(registry: sensors, profile: profile);
+
+final snapshot = SensorSnapshot.fromSimulation(
+  episodeId: episodeId,
+  simulation: simulation,
+  worldRevision: revision,
+  bindings: liveBodies,
+  characters: characterControllers,
+  colliders: sensorColliderMetadata,
+  sounds: gameplaySoundEvents,
+  currentRevision: () => revision,
+  geometryLoaded: loadedQueryDomain,
+);
+final frame = assembler.build(snapshot, observer);
+// Pin assembler.spec.hash in the policy manifest.
+// frame.tensor contains normalized values, followed by their validity masks.
+```
+
+Use `GamePerceptionSystem` to capture once per tick after physics and rules. Pass
+a closure for its simulation reference when constructing the system before the
+simulation. Every observer samples the same captured body states. The capture
+callback must return the current game tick; live entity generations are checked
+before publication, and the simulation adapter removes retired body bindings.
+
+Your revision callback must change whenever query geometry changes. Capture
+collider classifications, sound events and body mappings from that same revision,
+and keep the native world stable until synchronous assembly finishes. A mismatch
+invalidates readings. `geometryLoaded` must conservatively cover the entire query
+domain: the ray segment, or the grid cell's bounding volume. Missing streamed
+geometry produces unknown data with zero validity, including when a native ray
+finds no collider.
+
+Vision uses an actor-local cone and range check, sorts candidates by stable ID,
+then makes bounded native ray queries. Slots contain visible targets only. Empty
+slots are zeroed and masked. You can inspect an unknown reading without gaining
+the hidden candidate's identity or transform. This is structured collider
+visibility; it does not establish rendered pixel visibility.
+
+Classify every relevant collider. Opaque surfaces block by default. Glass,
+foliage, smoke and unclassified hits are unknown until you declare a block or pass
+rule. Pass-through surfaces consume extra queries, including their exit surface.
+Layer filtering follows Rapier collision groups, and sensor colliders are
+excluded. Moving doors use the current physical pose. Visual smoke, deforming
+meshes and other effects need matching authored sensing geometry or conservative
+unknown coverage. An absent collider is not optical visibility evidence.
+
+`RaySensor` reports native hit distances. `GridSensor` uses native overlap
+queries for authored local cells. Neither builds an acceleration structure.
+`BodySensor` reports local velocity and the controller's captured grounded flag;
+missing grounding stays invalid. `AffordanceSensor` consumes the observing
+controller's declared legality values. Navigation remains with the existing
+character controller and follower. Supply only allowed route knowledge when you
+turn navigation state into an affordance.
+
+Hearing consumes `GameSoundEvent` independently of speaker playback. Muting audio
+doesn't remove gameplay events. `SensorSoundSample.fromEvent` drops source entity
+identity before sampling. The service computes range attenuation and a declared
+obstruction gain, then emits category, local bearing sector, distance band, event
+age and obstruction. Exact source positions and continuous amplitudes never enter
+the frame. `HeardSound` includes the bearing uncertainty and distance interval.
+There is no source ID or position field in the result.
+
+`LastSeenSensor.remember(frame)` keeps one bounded prior visible frame. Its
+coordinates remain in the observer's local frame at capture, with the original
+observation tick. They never follow hidden target movement. Episode changes,
+observer generation changes and TTL expiry invalidate that history. This small
+adapter is not a belief store; A4 owns memory and communication rules.
+
+Observation and action schemas encode field order, units, bounds and affine
+normalization. Sensor configuration hashes also pin cone/material/layer rules,
+cadence, hearing bins, ray directions and grid layout. Frames carry episode,
+entity generation, tick, world revision and schema identity. Action schemas include
+continuous controller bounds, discrete choices, legality masks and a validated
+fallback. You still enforce an action in its controller when applying it.
+
+You can register a custom `GameSensor` with its schema, cadence and query budget.
+The registry rejects duplicates, changed schemas and malformed readings. Extension
+code is trusted host code and must respect its declared query budget and knowledge
+rules. Diagnostics report actual built-in query counts, candidate counts, state
+and unknown reasons for tooling; diagnostic candidate counts are excluded from
+policy tensors. Rebuild the assembler after changing registrations.
+
+Limits are explicit: 64 sensors, 4096 aggregate declared queries per observer,
+4096 candidates per sensor, 256 entity slots, 256 rays/grid cells, 64 hearing
+slots, 16384 snapshot entities and 4096 sound inputs. Defaults are smaller.
+Schemas cap field width at 4096 and total tensor width at 16384; the assembler
+includes its validity fields in that schema. Configure actor cadence and budgets
+for your host. These bounds are not a measured frame-time guarantee.
+
+Run package checks with FVM:
+
+```sh
+fvm dart analyze packages/zyren_game_ai
+cd packages/zyren_game_ai
+fvm dart test --concurrency=1
+```
+
+The native perception tests use real Rapier queries on macOS arm64. They cover
+physical occlusion and compare identical policy tensors while hidden actor
+positions change. Rendering, mobile devices, vehicle sensing and persistent
+camera observations retain their separate qualification tasks.
