@@ -260,3 +260,11 @@ The affine plane matches within 2e-6 scalar units and normals within 1e-6.
 Exact threshold equality, missing cells, cancellation, geometry budgets and
 irregular connectivity validation pass. Native surface presentation follows in
 the combined device qualification; these checks establish CPU geometry only.
+
+Vector and streamline checks: four tests pass for transformed component bases,
+trilinear missing-data rules, constant/divergent fields, circular flow,
+determinism, cancellation and work/geometry limits. One full circle has endpoint
+error 3.403798572e-9 m and maximum accepted local error 4.585611771e-10 m.
+Domain, missing-data and stagnation termination remain explicit results. Glyphs
+reject an excessive requested count instead of silently reducing the sample set.
+Surface implementation is committed as `72406a0`.
