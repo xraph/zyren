@@ -279,8 +279,8 @@ Asset failures use the shared retry state. Controls wrap on narrow windows.
 
 The declarative API is not a claim of full React Three Fiber or Drei parity.
 Reference tests establish API behavior; native platform qualification is separate.
-The integration test checks native presentation with zero readbacks. A macOS run
-does not qualify Android, iOS, Linux, Windows, Vulkan or DX12 behavior.
-
-See [the macOS integration record](qualification/2026-10-03-declarative.md) for
-the tested scene, reference checks and qualification limits.
+The integration test checks native presentation with zero readbacks. See the
+[macOS record](qualification/2026-10-03-declarative.md) and the
+[Pixel and iPhone record](qualification/2026-10-03-declarative-mobile.md) for the
+tested devices, commands and limits. These runs do not qualify every device or
+render option. Linux, Windows and DX12 remain unqualified for this scene.

@@ -56,5 +56,6 @@ Use the FVM binaries shown above for these commands. The final `flutter test
 exposed an orbit lifecycle cancellation failure; commit `cce2ec5` corrected the
 input adapter and extended its regression coverage before that final run.
 
-Android, iOS, Linux, Windows, Vulkan and DX12 were not qualified by this task.
-Reference tests do not replace those device runs.
+This macOS run did not qualify Android, iOS, Linux, Windows, Vulkan or DX12.
+The subsequent [Pixel and iPhone runs](2026-10-03-declarative-mobile.md) cover the
+listed mobile devices. Reference tests do not replace device runs.
