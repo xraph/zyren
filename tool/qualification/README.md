@@ -32,3 +32,50 @@ Keep physical input disabled during automated tests so an accidental touch
 cannot alter their results. Check real input separately in the normal app:
 switch cities, drag the scene, pinch on a phone and scroll on a trackpad. Watch
 the camera move; an injected gesture test alone cannot verify this path.
+
+# Live navigation timing
+
+Run the Google cloud lab with the normal Flutter binding in profile mode. You
+need the same private provider configuration as the interactive lab. From
+`examples/planet`, start a connected native device:
+
+```sh
+fvm flutter run --profile -d macos --target=lib/google_navigation_benchmark.dart --vmservice-out-file=/tmp/planet-navigation-vm.json --dart-define-from-file=/path/to/private-provider.json
+```
+
+Keep that process attached. From the workspace root, collect a run into an empty
+directory:
+
+```sh
+fvm dart run tool/qualification/navigation_benchmark.dart /tmp/planet-navigation-vm.json /tmp/planet-navigation-macos-auto auto
+```
+
+Use your device ID for Pixel, iPhone or iPad. iOS still uses your signing and
+device trust settings. Keep the device unlocked, the app visible and its thermal
+state stable. Run devices sequentially so builds do not compete with the Mac's
+measurement. Record the source revision, viewport and device with each run.
+
+Each run waits for live Tokyo tiles and cloud history to settle, then measures
+12 seconds each of stationary rendering, orbit, surface drag and wheel zoom.
+Motion follows elapsed wall time through the same globe controls used by the
+app. These injected inputs measure control and renderer work; they do not
+measure touch latency or certify physical gesture handling. Each phase resets
+the Tokyo camera and requires rendered geometry at its pivot.
+
+`summary.json` contains presentation FPS, nearest-rank median/p95/p99 frame
+intervals, stalls, CPU timings and available GPU timings. `frames.json` retains
+the individual frames, tile requests, uploads and cloud history. Missing GPU
+timings stay null. Presentation FPS measures frames accepted by the native
+presenter, not the display's physical scanout. GPU timings cover the backend's
+reported submission; they cannot account for every upload or effect graph wait.
+The app's current frame cap is recorded in the report.
+
+The `auto` variant keeps device defaults. You can also run `low`, `shadowsOff`
+or `sparse` (75% sparsity) to identify cloud costs. These variants change image
+quality or content. Keep those tradeoffs explicit when comparing results, and
+repeat `auto` after an experiment to check for cache or thermal drift. Different
+device defaults and viewport sizes are different workloads.
+
+The target uses the normal app binding, so it accepts physical input. Avoid
+touching the view during collection. When finished, restore your usual launch
+with the `launch` command above.
