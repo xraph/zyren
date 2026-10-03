@@ -47,6 +47,29 @@ class FailingFactoryLoader extends ModelLoader {
   }
 }
 
+class JoinedFailureLoader extends ModelLoader {
+  @override
+  Future<DecodedAsset<Template>> decode(
+    ResolvedSource source,
+    AssetDecodeContext context,
+  ) async {
+    final decoded = await super.decode(source, context);
+    final firstRecipe = decodes == 1;
+    var deliveries = 0;
+    return DecodedAsset(
+      create: () {
+        deliveries++;
+        if (firstRecipe && (deliveries == 3 || deliveries > 4)) {
+          throw StateError('joined factory fixture');
+        }
+        return decoded.create();
+      },
+      release: decoded.release,
+      dispose: decoded.dispose,
+    );
+  }
+}
+
 AssetRequest<Template> request(
   ModelLoader loader, [
   String path = 'one',
@@ -297,6 +320,113 @@ void main() {
     await scope.close();
     cache.dispose();
   });
+
+  test(
+    'joined factory failure invalidates every cache and immediate retry decodes again',
+    () async {
+      final loader = JoinedFailureLoader(), resolver = Resolver();
+      final services = AssetServices(resolver: resolver);
+      final sharedCache = AssetCache(),
+          otherCache = AssetCache(),
+          laterCache = AssetCache();
+      final caches = [sharedCache, otherCache, sharedCache, laterCache];
+      final scopes = [
+        for (final cache in caches)
+          AssetScope(services: services, cache: cache),
+      ];
+      final tasks = [for (final scope in scopes) scope.load(request(loader))];
+      List<int>? lengthsAtRetry;
+      int? disposalsAtRetry;
+      var failures = 0;
+      final retry = tasks[2].result.then<Template>(
+        (_) => throw StateError('expected factory failure'),
+        onError: (Object error, StackTrace stack) {
+          expect(error, isA<AssetLoadException>());
+          failures++;
+          lengthsAtRetry = [
+            sharedCache.length,
+            otherCache.length,
+            laterCache.length,
+          ];
+          disposalsAtRetry = loader.disposals;
+          return scopes[2].load(request(loader)).result;
+        },
+      );
+      final values = await Future.wait([
+        tasks[0].result,
+        tasks[1].result,
+        tasks[3].result,
+        retry,
+      ]);
+      expect(failures, 1);
+      expect(lengthsAtRetry, [0, 0, 0]);
+      expect(disposalsAtRetry, 1);
+      expect(loader.decodes, 2);
+      expect(resolver.reads, 2);
+      expect(values[0].shared, same(values[1].shared));
+      expect(values[0].shared, same(values[2].shared));
+      expect(values[3].shared, isNot(same(values[0].shared)));
+      for (final value in values) {
+        expect(value.released, isFalse);
+        expect(value.instantiate(), isNotNull);
+      }
+      expect(otherCache.length, 0);
+      expect(laterCache.length, 0);
+      await scopes[0].close();
+      expect(values[0].released, isTrue);
+      expect(values.skip(1).every((value) => !value.released), isTrue);
+      expect(values[3].instantiate(), isNotNull);
+      await scopes[2].close();
+      expect(values[3].released, isTrue);
+      expect(values[1].released, isFalse);
+      expect(values[2].released, isFalse);
+      expect(values[1].instantiate(), isNotNull);
+      for (final scope in scopes) {
+        await scope.close();
+      }
+      for (final cache in [sharedCache, otherCache, laterCache]) {
+        cache.dispose();
+        cache.dispose();
+      }
+      expect(loader.releases, 4);
+      expect(loader.disposals, 2);
+    },
+  );
+
+  test(
+    'cached factory failure invalidates the shared recipe in other caches',
+    () async {
+      final loader = FailingFactoryLoader(),
+          services = AssetServices(resolver: Resolver());
+      final caches = [AssetCache(), AssetCache()];
+      final scopes = [
+        for (final cache in caches)
+          AssetScope(services: services, cache: cache),
+      ];
+      final values = await Future.wait([
+        for (final scope in scopes) scope.load(request(loader)).result,
+      ]);
+      loader.failCreate = true;
+      await expectLater(
+        scopes.first.load(request(loader)).result,
+        throwsA(isA<AssetLoadException>()),
+      );
+      expect(caches.map((cache) => cache.length), [0, 0]);
+      expect(loader.disposals, 1);
+      expect(values.every((value) => !value.released), isTrue);
+      loader.failCreate = false;
+      await scopes.last.load(request(loader)).result;
+      expect(loader.decodes, 2);
+      for (final scope in scopes) {
+        await scope.close();
+      }
+      for (final cache in caches) {
+        cache.dispose();
+      }
+      expect(loader.disposals, 2);
+      expect(loader.releases, 3);
+    },
+  );
 
   test('failed work is retried and disposed caches reject new work', () async {
     final resolver = Resolver()..fail = true;

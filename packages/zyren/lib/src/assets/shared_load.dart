@@ -42,7 +42,7 @@ class _SharedLoadPool {
           );
           final succeeded = task.deliver(cached.decoded);
           if (!succeeded && task._deliveryFailed) {
-            scope.cache?._discard(services, key, cached);
+            cached.invalidate();
           }
         } finally {
           release();
@@ -144,11 +144,14 @@ class _SharedLoad<T extends Object> {
       recipe = _DecodedRecipe(
         decoded,
         pool,
+        key,
         decoded.decodedBytes ?? context.decodedBytes,
       );
       for (final task in List.of(consumers)) {
         final cache = task.scope.cache;
-        if (task.deliver(decoded) && cache != null) {
+        final succeeded = task.deliver(decoded);
+        if (task._deliveryFailed) recipe.invalidate();
+        if (succeeded && cache != null) {
           cache._put(pool.services, key, recipe, task.cacheGeneration);
         }
       }

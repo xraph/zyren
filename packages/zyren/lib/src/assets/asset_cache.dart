@@ -44,6 +44,7 @@ class AssetCache {
     int generation,
   ) {
     if (_disposed ||
+        entry._invalidated ||
         generation != _generation ||
         entry.bytes > maxDecodedBytes) {
       return;
@@ -52,10 +53,12 @@ class AssetCache {
     final old = _entries.remove(cacheKey);
     if (old != null) {
       _decodedBytes -= old.bytes;
+      old._caches.remove(this);
       old.release();
     }
     entry.retain();
     _entries[cacheKey] = entry;
+    entry._caches.add(this);
     _decodedBytes += entry.bytes;
     while (_entries.length > maxEntries || _decodedBytes > maxDecodedBytes) {
       _remove(_entries.keys.first);
@@ -74,6 +77,7 @@ class AssetCache {
     final entry = _entries.remove(key);
     if (entry == null) return;
     _decodedBytes -= entry.bytes;
+    entry._caches.remove(this);
     entry.release();
   }
 
@@ -104,9 +108,21 @@ class AssetCache {
 class _DecodedRecipe<T extends Object> {
   final DecodedAsset<T> decoded;
   final _SharedLoadPool pool;
+  final _LoadKey key;
   final int bytes;
+  final _caches = Set<AssetCache>.identity();
+  bool _invalidated = false;
   int _holds = 1;
-  _DecodedRecipe(this.decoded, this.pool, this.bytes);
+  _DecodedRecipe(this.decoded, this.pool, this.key, this.bytes);
+
+  void invalidate() {
+    if (_invalidated) return;
+    _invalidated = true;
+    for (final cache in List.of(_caches)) {
+      cache._discard(pool.services, key, this);
+    }
+  }
+
   void retain() => _holds++;
   void release() {
     if (--_holds == 0) pool.cleanup(decoded.dispose);
