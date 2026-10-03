@@ -221,6 +221,25 @@ impl Cache {
         }
         Ok(())
     }
+    pub fn invalidate_textures(&mut self, textures: &[&wgpu::Texture]) {
+        for view in self.views.values_mut() {
+            // Removing the whole binding releases both the comparison handles
+            // and the bind group that owns the same GPU texture references.
+            view.bindings.retain(|_, binding| {
+                !binding.resources.iter().any(|(_, resource)| {
+                    matches!(resource, Resource::Texture(view) if textures.contains(&view.texture()))
+                })
+            });
+            view.textures
+                .retain(|texture, _| !textures.contains(&texture));
+        }
+    }
+    #[cfg(test)]
+    pub fn references_texture(&self, texture: &wgpu::Texture) -> bool {
+        self.views.values().any(|view| {
+            view.textures.contains_key(texture) || view.bindings.values().any(|binding| binding.resources.iter().any(|(_, resource)| matches!(resource, Resource::Texture(view) if view.texture() == texture)))
+        })
+    }
     pub fn finish(&mut self, profile: &mut Profile) {
         if let Some(view) = self.views.get_mut(&self.current) {
             view.bindings.retain(|_, v| v.used == self.epoch);

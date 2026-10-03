@@ -50,9 +50,14 @@ impl System {
             ],
         }
     }
-    pub fn remove(&mut self, view: u64) {
+    fn retire_targets(&mut self, cache: &mut super::draw_cache::Cache) {
+        if let Some(targets) = self.targets.take() {
+            cache.invalidate_textures(&[targets.color.texture(), targets.depth.texture()]);
+        }
+    }
+    pub fn remove(&mut self, view: u64, cache: &mut super::draw_cache::Cache) {
         if self.targets.as_ref().is_some_and(|t| t.owner == view) {
-            self.targets = None;
+            self.retire_targets(cache);
             self.materials.clear();
         }
     }
@@ -102,8 +107,11 @@ impl Renderer {
             .iter()
             .any(|m| m.color_visible && m.transmissive())
         {
-            self.transmission.targets = None;
-            self.transmission.materials.clear();
+            let state = self.state.as_mut().unwrap();
+            state
+                .transmission
+                .retire_targets(&mut state.draw_cache.borrow_mut());
+            state.transmission.materials.clear();
             return Ok(());
         }
         let owner = frame.binary.as_ref().map_or(0, |b| b.view);
@@ -136,7 +144,11 @@ impl Renderer {
             if let Some(error) = error {
                 return Err(error.to_string());
             }
-            self.transmission.targets = Some(candidate);
+            let state = self.state.as_mut().unwrap();
+            state
+                .transmission
+                .retire_targets(&mut state.draw_cache.borrow_mut());
+            state.transmission.targets = Some(candidate);
         }
         self.transmission.targets.as_mut().unwrap().owner = owner;
         self.transmission.materials = materials;
@@ -168,6 +180,120 @@ fn allocation(format: wgpu::TextureFormat, size: [u32; 2], retained: u64) -> Res
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    #[ignore = "requires a native Metal, Vulkan or DX12 device"]
+    fn retired_transmission_textures_are_not_retained_by_any_cached_view() {
+        let mut renderer = pollster::block_on(Renderer::new()).unwrap();
+        let identity = glam::Mat4::IDENTITY.to_cols_array();
+        let mut frame: Frame = serde_json::from_value(serde_json::json!({
+            "version":1,"view_projection":identity,"background":[0,0,0],
+            "light_direction":[0,0,1],"ambient":0.2,
+            "geometries":[{"id":1,"positions":[[-0.8,-0.8,0.4],[0.8,-0.8,0.4],[0,0.8,0.4]],"normals":[[0,0,1],[0,0,1],[0,0,1]],"indices":[0,1,2]}],
+            "meshes":[{"geometry":1,"model":identity,"color":[1,0,0],"unlit":false,"pbr":{"metallic":0,"roughness":1,"emissive":[0.25,0,0]}},
+            {"geometry":1,"model":identity,"color":[1,1,1],"unlit":false,"pbr":{"metallic":0,"roughness":0.1,"emissive":[0,0,0],"physical":[1.5,1,0,0,1,1,1,1,0,0,0,0,0,1,1,0],"transmission":[1,0,0,0,1,1,1,0]}}]
+        })).unwrap();
+        let set_view = |frame: &mut Frame, view| {
+            frame.binary = Some(crate::scene_packet::ViewState {
+                view,
+                revision: 1,
+                retained: [1].into_iter().collect(),
+                meshes: frame.meshes.clone(),
+                retained_textures: Default::default(),
+                retained_instances: Default::default(),
+                retained_poses: Default::default(),
+            });
+        };
+        let mut last_hash = 0;
+        for view in 1..=4 {
+            let old = renderer
+                .transmission
+                .targets
+                .as_ref()
+                .map(|t| [t.color.texture().clone(), t.depth.texture().clone()]);
+            set_view(&mut frame, view);
+            let size = 2047 + view as u32;
+            last_hash = crc32fast::hash(&renderer.render(&frame, size, size).unwrap());
+            frame.geometries.clear();
+            assert_eq!(
+                renderer.transmission.bytes(),
+                u64::from(size) * u64::from(size) * 8
+            );
+            let mut cache = renderer.draw_cache.borrow_mut();
+            if let Some(old) = old {
+                for texture in old {
+                    assert!(
+                        !cache.references_texture(&texture),
+                        "retired target is retained by a cached view"
+                    );
+                }
+            }
+            let targets = renderer.transmission.targets.as_ref().unwrap();
+            assert!(cache.references_texture(targets.color.texture()));
+            assert!(cache.references_texture(targets.depth.texture()));
+            // Also retain an alias view, so invalidation must match underlying
+            // textures rather than just the original texture-view handles.
+            cache.texture(targets.color.texture());
+            cache.texture(targets.depth.texture());
+        }
+        let old = {
+            let targets = renderer.transmission.targets.as_ref().unwrap();
+            [
+                targets.color.texture().clone(),
+                targets.depth.texture().clone(),
+            ]
+        };
+        let retained_bytes = renderer.transmission.bytes();
+        assert!(
+            renderer
+                .render(&frame, 4096, 4096)
+                .unwrap_err()
+                .contains("Transmission capture exceeds")
+        );
+        assert_eq!(renderer.transmission.bytes(), retained_bytes);
+        let targets = renderer.transmission.targets.as_ref().unwrap();
+        assert_eq!(targets.color.texture(), &old[0]);
+        assert_eq!(targets.depth.texture(), &old[1]);
+        for texture in &old {
+            assert!(renderer.draw_cache.borrow().references_texture(texture));
+        }
+        assert_eq!(
+            crc32fast::hash(&renderer.render(&frame, 2051, 2051).unwrap()),
+            last_hash
+        );
+        assert_eq!(renderer.profile.borrow().draw_preparation_buffers, 0);
+        assert_eq!(renderer.profile.borrow().draw_preparation_bind_groups, 0);
+        frame.meshes[1].pbr.as_mut().unwrap().transmission[0] = 0.;
+        set_view(&mut frame, 5);
+        renderer.render(&frame, 31, 31).unwrap();
+        assert_eq!(renderer.transmission.bytes(), 0);
+        for texture in old {
+            assert!(!renderer.draw_cache.borrow().references_texture(&texture));
+        }
+        frame.meshes[1].pbr.as_mut().unwrap().transmission[0] = 1.;
+        for view in [6, 7] {
+            set_view(&mut frame, view);
+            renderer.render(&frame, 31, 31).unwrap();
+        }
+        let old = {
+            let targets = renderer.transmission.targets.as_ref().unwrap();
+            [
+                targets.color.texture().clone(),
+                targets.depth.texture().clone(),
+            ]
+        };
+        renderer.close_scene_view(7).unwrap();
+        assert_eq!(renderer.transmission.bytes(), 0);
+        for texture in old {
+            assert!(
+                !renderer.draw_cache.borrow().references_texture(&texture),
+                "closing the active owner left target references in an earlier view"
+            );
+        }
+        for view in 1..=6 {
+            renderer.close_scene_view(view).unwrap();
+        }
+        assert_eq!(renderer.scene_resource_stats().0, 0);
+    }
     #[test]
     fn capture_admission_counts_depth_and_resize_overlap() {
         let format = wgpu::TextureFormat::Rgba16Float;

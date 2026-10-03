@@ -630,7 +630,10 @@ impl Renderer {
         self.outlines.remove(view);
         self.shadows.remove(view);
         self.temporal.remove(view);
-        self.transmission.remove(view);
+        let state = self.state.as_mut().unwrap();
+        state
+            .transmission
+            .remove(view, &mut state.draw_cache.borrow_mut());
         self.evict_geometry()
     }
     fn evict_geometry(&mut self) -> Result<(), String> {

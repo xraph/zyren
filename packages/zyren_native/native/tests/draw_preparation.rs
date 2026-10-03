@@ -168,10 +168,7 @@ fn more_than_eight_views_evict_cache_without_evicting_published_assets() {
     assert_eq!(renderer.scene_resource_stats().0, 0);
     assert_eq!(profile(&mut renderer)["drawCacheEntries"], 0);
 }
-#[test]
-#[ignore = "requires a native Metal, Vulkan or DX12 device"]
-fn transmission_keeps_distinct_pass_bindings_and_rebuilds_on_target_resize() {
-    let mut renderer = pollster::block_on(Renderer::new()).unwrap();
+fn transmission_fixture() -> Frame {
     let mut frame = fixture(2);
     frame.meshes[0].unlit = false;
     frame.meshes[0].pbr = Some(
@@ -180,6 +177,13 @@ fn transmission_keeps_distinct_pass_bindings_and_rebuilds_on_target_resize() {
     frame.meshes[1].unlit = false;
     frame.meshes[1].model[14] = -0.1;
     frame.meshes[1].pbr = Some(serde_json::from_value(json!({"metallic":0,"roughness":0.1,"emissive":[0,0,0],"physical":[1.5,1,0,0,1,1,1,1,0,0,0,0,0,1,1,0],"transmission":[1,0,0,0,1,1,1,0]})).unwrap());
+    frame
+}
+#[test]
+#[ignore = "requires a native Metal, Vulkan or DX12 device"]
+fn transmission_keeps_distinct_pass_bindings_and_rebuilds_on_target_resize() {
+    let mut renderer = pollster::block_on(Renderer::new()).unwrap();
+    let mut frame = transmission_fixture();
     let pixels = renderer.render(&frame, 31, 31).unwrap();
     let cold = profile(&mut renderer);
     assert_eq!(cold["drawPreparationBuffers"], 6); // 3 mesh pass slots + environment, lights, shadow sampling.
@@ -426,6 +430,50 @@ fn cache_reclamation_admits_ninth_view_and_changed_slots_without_mutating_reject
         .resource_command(&packet(6, &allocation), 24)
         .unwrap();
     for id in 1..=9 {
+        renderer.close_scene_view(id).unwrap();
+    }
+    assert_eq!(renderer.scene_resource_stats().0, 0);
+    assert_eq!(profile(&mut renderer)["drawCacheEntries"], 0);
+}
+
+#[test]
+#[ignore = "requires a native Metal, Vulkan or DX12 device"]
+fn transmission_target_retirement_invalidates_other_views_but_reuses_uniforms() {
+    let mut renderer = pollster::block_on(Renderer::new()).unwrap();
+    let mut frame = transmission_fixture();
+    let mut per_view_entries = 0;
+    for (index, size) in [31, 47, 63, 79].into_iter().enumerate() {
+        view(&mut frame, index as u64 + 1);
+        renderer.render(&frame, size, size).unwrap();
+        frame.geometries.clear();
+        let p = profile(&mut renderer);
+        if index == 0 {
+            per_view_entries = p["drawCacheEntries"].as_u64().unwrap();
+        }
+        // Only the active view's two main groups may retain the active pair.
+        // Earlier capture groups and uniform slots remain cached independently.
+        assert_eq!(
+            p["drawCacheEntries"],
+            (index as u64 + 1) * per_view_entries - 2 * index as u64
+        );
+    }
+    view(&mut frame, 1);
+    let pixels = renderer.render(&frame, 79, 79).unwrap();
+    let p = profile(&mut renderer);
+    assert_eq!(p["drawPreparationBuffers"], 0);
+    assert_eq!(p["drawPreparationBindGroups"], 2);
+    assert_eq!(renderer.render(&frame, 79, 79).unwrap(), pixels);
+    assert_warm(&mut renderer, 3);
+    frame.meshes[1].pbr.as_mut().unwrap().transmission[0] = 0.;
+    view(&mut frame, 5);
+    renderer.render(&frame, 31, 31).unwrap();
+    frame.meshes[1].pbr.as_mut().unwrap().transmission[0] = 1.;
+    view(&mut frame, 2);
+    renderer.render(&frame, 31, 31).unwrap();
+    let p = profile(&mut renderer);
+    assert_eq!(p["drawPreparationBuffers"], 0);
+    assert_eq!(p["drawPreparationBindGroups"], 2);
+    for id in 1..=5 {
         renderer.close_scene_view(id).unwrap();
     }
     assert_eq!(renderer.scene_resource_stats().0, 0);
