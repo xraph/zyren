@@ -878,6 +878,7 @@ class SceneEngine {
       }
       final FrameOutput result;
       if (_backend case final backend?) {
+        final sceneRevision = scene.revision, cameraRevision = camera.revision;
         var submission = FrameSubmission.capture(
           aspectRatio: aspectRatio,
           scene: scene,
@@ -891,6 +892,14 @@ class SceneEngine {
           temporalAA: _temporal?.options,
           temporalReset: _temporal?.generation ?? 0,
         );
+        final source =
+            sceneRevision == scene.revision && cameraRevision == camera.revision
+            ? FrameSource(
+                sceneRevision: sceneRevision,
+                cameraRevision: cameraRevision,
+                cameraRuntimeId: camera.id,
+              )
+            : null;
         if (_sharedGraph case final shared?) {
           submission = submission.withGraph(
             await shared.prepare(
@@ -902,7 +911,10 @@ class SceneEngine {
             ),
           );
         }
-        result = await backend.render(submission);
+        final rendered = await backend.render(submission);
+        result = source == null
+            ? rendered
+            : rendered.withStats(rendered.stats.withSource(source));
         _sharedGraph?.completeFrame(submission.graph);
       } else {
         if (target is! ReadbackTarget) {

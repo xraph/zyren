@@ -39,7 +39,8 @@ export 'src/rendering/frame_output.dart'
         PixelFormat,
         ColorSpace,
         AlphaMode,
-        FrameStats;
+        FrameStats,
+        FrameSource;
 export 'src/resources/buffer.dart';
 export 'src/resources/texture.dart';
 export 'src/resources/texture_image.dart';

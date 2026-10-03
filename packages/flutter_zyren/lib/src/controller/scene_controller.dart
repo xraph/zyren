@@ -603,7 +603,8 @@ class SceneController {
     OutputTarget target,
   ) {
     final completer = Completer<FrameOutput>();
-    final aspect = _logicalSize.width / _logicalSize.height;
+    final logicalSize = _logicalSize, dpr = _devicePixelRatio;
+    final aspect = logicalSize.width / logicalSize.height;
     _drawing = Future<void>.microtask(() async {
       try {
         _checkOpen();
@@ -623,7 +624,20 @@ class SceneController {
           width: size.width,
           height: size.height,
         );
-        completer.complete(frame);
+        final source = frame.stats.source;
+        completer.complete(
+          source == null
+              ? frame
+              : frame.withStats(
+                  frame.stats.withSource(
+                    source.withViewport(
+                      logicalWidth: logicalSize.width,
+                      logicalHeight: logicalSize.height,
+                      devicePixelRatio: dpr,
+                    ),
+                  ),
+                ),
+        );
       } catch (error, stack) {
         completer.completeError(error, stack);
       }

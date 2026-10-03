@@ -74,7 +74,34 @@ class ImageData {
 
 /// Unavailable native measurements remain null. CPU timings cover Dart snapshot
 /// construction and encoding, not driver work. Upload bytes count geometry, instance and texture data.
+/// Immutable source state of a submitted frame, not a pixel visibility claim.
+final class FrameSource {
+  final int sceneRevision, cameraRevision, cameraRuntimeId;
+  final double? logicalWidth, logicalHeight, devicePixelRatio;
+  const FrameSource({
+    required this.sceneRevision,
+    required this.cameraRevision,
+    required this.cameraRuntimeId,
+    this.logicalWidth,
+    this.logicalHeight,
+    this.devicePixelRatio,
+  });
+  FrameSource withViewport({
+    required double logicalWidth,
+    required double logicalHeight,
+    required double devicePixelRatio,
+  }) => FrameSource(
+    sceneRevision: sceneRevision,
+    cameraRevision: cameraRevision,
+    cameraRuntimeId: cameraRuntimeId,
+    logicalWidth: logicalWidth,
+    logicalHeight: logicalHeight,
+    devicePixelRatio: devicePixelRatio,
+  );
+}
+
 class FrameStats {
+  final FrameSource? source;
   final int frameId, surfaceEpoch, drawCalls, triangles, readbackBytes;
   final int uploadedBytes, coalescedFrames, droppedFrames, computeDispatches;
   final int? residentBytes;
@@ -83,6 +110,7 @@ class FrameStats {
   final Duration cpuBuildTime, cpuSubmitTime;
   final Duration? gpuTime;
   const FrameStats({
+    this.source,
     required this.frameId,
     required this.physicalSize,
     required this.presentationPath,
@@ -99,11 +127,39 @@ class FrameStats {
     this.residentBytes,
     this.gpuTime,
   });
+  FrameStats withSource(FrameSource source) => FrameStats(
+    source: source,
+    frameId: frameId,
+    physicalSize: physicalSize,
+    presentationPath: presentationPath,
+    cpuBuildTime: cpuBuildTime,
+    cpuSubmitTime: cpuSubmitTime,
+    drawCalls: drawCalls,
+    triangles: triangles,
+    readbackBytes: readbackBytes,
+    uploadedBytes: uploadedBytes,
+    surfaceEpoch: surfaceEpoch,
+    computeDispatches: computeDispatches,
+    coalescedFrames: coalescedFrames,
+    droppedFrames: droppedFrames,
+    residentBytes: residentBytes,
+    gpuTime: gpuTime,
+  );
 }
 
 sealed class FrameOutput {
   final FrameStats stats;
   const FrameOutput(this.stats);
+  FrameOutput withStats(FrameStats stats) => switch (this) {
+    ReadbackOutput(:final image) => ReadbackOutput(image: image, stats: stats),
+    PresentedOutput(:final surface, :final epoch, :final frameId) =>
+      PresentedOutput(
+        surface: surface,
+        epoch: epoch,
+        frameId: frameId,
+        stats: stats,
+      ),
+  };
 }
 
 final class ReadbackOutput extends FrameOutput {
