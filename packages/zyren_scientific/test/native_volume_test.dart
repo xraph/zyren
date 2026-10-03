@@ -31,8 +31,15 @@ ScientificVolumeSettings volumeSettings({
   coordinateTolerance: 1e-5,
   scalarTolerance: 1e-6,
 );
-void main({bool? native}) {
-  test(
+void main({
+  bool? native,
+  void Function(String, dynamic Function(), {Object? skip})? register,
+}) {
+  final runTest =
+      register ??
+      (String name, dynamic Function() body, {Object? skip}) =>
+          test(name, body, skip: skip);
+  runTest(
     'volume validates work, float precision and physical sampling limits',
     () {
       expect(() => volumeSettings(step: 1e-6), throwsArgumentError);
@@ -61,7 +68,7 @@ void main({bool? native}) {
       );
     },
   );
-  test(
+  runTest(
     'native volume analytic opacity, ramp, depth, clipping and resource lifetime',
     () async {
       final backend = await NativeBackend.create();
@@ -198,7 +205,7 @@ void main({bool? native}) {
     },
     skip: !(native ?? (Platform.environment['RUN_NATIVE_GPU'] == '1')),
   );
-  test(
+  runTest(
     'native scientific timeline releases demand and volume plugin detaches',
     () async {
       final backend = await NativeBackend.create();

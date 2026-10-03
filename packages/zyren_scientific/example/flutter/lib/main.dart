@@ -36,6 +36,7 @@ class ScientificWorkbenchState extends State<ScientificWorkbench> {
   ScientificFieldView? field;
   FrameStats? stats;
   final _canvasKey = GlobalKey();
+  final _keyboardScope = FocusScopeNode(debugLabel: 'Scientific workbench');
   StreamSubscription<FrameStats>? subscription;
   String selected = 'Slice';
   String? error, pick;
@@ -148,19 +149,33 @@ class ScientificWorkbenchState extends State<ScientificWorkbench> {
       if (mounted) {
         setState(() {
           error = null;
-          _syncView();
+          _syncView(force: true);
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
           error = e.toString();
-          _syncView();
+          _syncView(force: true);
         });
       }
     } finally {
-      if (mounted) setState(() => busy = false);
+      if (mounted) {
+        setState(() => busy = false);
+        _restoreKeyboardFocus();
+      }
     }
+  }
+
+  void _restoreKeyboardFocus() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _keyboardScope.requestFocus();
+    });
+  }
+
+  void closeProbe() {
+    setState(() => showProbe = false);
+    _restoreKeyboardFocus();
   }
 
   Future<void> select(String label) async {
@@ -193,6 +208,7 @@ class ScientificWorkbenchState extends State<ScientificWorkbench> {
 
   @override
   void dispose() {
+    _keyboardScope.dispose();
     subscription?.cancel();
     agents.dispose();
     unawaited(() async {
@@ -203,9 +219,11 @@ class ScientificWorkbenchState extends State<ScientificWorkbench> {
     super.dispose();
   }
 
-  void _syncView() {
+  void _syncView({bool force = false}) {
     final view = field;
-    if (view == null || view.isDisposed || _shownRevision == view.revision) {
+    if (view == null ||
+        view.isDisposed ||
+        (!force && _shownRevision == view.revision)) {
       return;
     }
     _shownRevision = view.revision;
@@ -296,7 +314,8 @@ class ScientificWorkbenchState extends State<ScientificWorkbench> {
             moveHistory(true),
       },
       child: FocusTraversalGroup(
-        child: Focus(
+        child: FocusScope(
+          node: _keyboardScope,
           autofocus: true,
           child: Scaffold(
             body: SafeArea(
@@ -362,8 +381,7 @@ class ScientificWorkbenchState extends State<ScientificWorkbench> {
                                 unit: view.grid.coordinateUnit.symbol,
                                 sample: sampleValue,
                                 enabled: !busy,
-                                onClose: () =>
-                                    setState(() => showProbe = false),
+                                onClose: closeProbe,
                               ),
                             if (error != null)
                               Semantics(

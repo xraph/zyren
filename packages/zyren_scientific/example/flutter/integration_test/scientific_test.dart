@@ -12,7 +12,14 @@ import '../../../test/native_volume_test.dart' as volume_checks;
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
-  volume_checks.main(native: true);
+  volume_checks.main(
+    native: true,
+    register: (name, body, {skip}) {
+      testWidgets(name, (tester) async {
+        await body();
+      }, skip: skip as bool?);
+    },
+  );
   testWidgets('native scientific modes, temporal seek, picking and compact layouts', (
     tester,
   ) async {
@@ -26,6 +33,9 @@ void main() {
             .pump(const Duration(milliseconds: 100))
             .timeout(const Duration(seconds: 15));
         if (state.error != null) fail(state.error!);
+        if (state.viewport.status.value case SceneFailed(:final issue)) {
+          fail('Native presentation failed: ${issue.message}');
+        }
         if (!state.busy && state.stats != null) return;
       }
       fail('Native scientific view did not become ready.');
@@ -33,22 +43,30 @@ void main() {
 
     await ready();
     for (final mode in ScientificWorkbenchState.modes.keys) {
-      final before = state.stats!.frameId;
+      final before = state.viewport.latestFrameStats!.frameId;
       final changed = state.selected != mode;
       await tester.ensureVisible(find.byKey(ValueKey('mode-$mode')));
       await tester.tap(find.byKey(ValueKey('mode-$mode')));
       await ready();
-      for (
-        var i = 0;
-        changed && i < 100 && state.stats!.frameId == before;
-        i++
-      ) {
+      final frameDeadline = DateTime.now().add(const Duration(seconds: 30));
+      while (changed &&
+          (state.viewport.latestFrameStats?.frameId ?? before) <= before &&
+          DateTime.now().isBefore(frameDeadline)) {
         await tester.pump(const Duration(milliseconds: 50));
+        if (state.viewport.status.value case SceneFailed(:final issue)) {
+          fail('Native $mode presentation failed: ${issue.message}');
+        }
       }
+      print(
+        'SCIENTIFIC_FRAME_WAIT mode=$mode before=$before latest=${state.viewport.latestFrameStats?.frameId} status=${state.viewport.status.value.runtimeType} step=${state.volume.controller.settings?.sampleDistance}',
+      );
       expect(state.selected, mode);
-      if (changed) expect(state.stats!.frameId, greaterThan(before));
-      expect(state.stats!.readbackBytes, 0);
-      expect(state.stats!.presentationPath, isNot(PresentationPath.readback));
+      if (changed) {
+        expect(state.viewport.latestFrameStats!.frameId, greaterThan(before));
+      }
+      final presented = state.viewport.latestFrameStats!;
+      expect(presented.readbackBytes, 0);
+      expect(presented.presentationPath, isNot(PresentationPath.readback));
       expect(tester.takeException(), isNull);
       if (mode == 'Temporal') {
         await state.seek(.5);
@@ -56,7 +74,7 @@ void main() {
         expect(state.field!.time!.time, .5);
       }
       print(
-        'SCIENTIFIC_PRESENTED mode=$mode path=${state.stats!.presentationPath.name} frame=${state.stats!.frameId} readback=${state.stats!.readbackBytes} size=${state.stats!.physicalSize.width}x${state.stats!.physicalSize.height}',
+        'SCIENTIFIC_PRESENTED mode=$mode path=${presented.presentationPath.name} frame=${presented.frameId} readback=${presented.readbackBytes} size=${presented.physicalSize.width}x${presented.physicalSize.height}',
       );
     }
     await state.moveHistory(false);
@@ -102,9 +120,13 @@ void main() {
       undo.owner!.performAction(undo.id, SemanticsAction.tap);
       await ready();
       expect(state.selected, 'Temporal');
+      print(
+        'SCIENTIFIC_KEYBOARD before focus=${FocusManager.instance.primaryFocus?.debugLabel} ancestors=${FocusManager.instance.primaryFocus?.ancestors.map((n) => n.debugLabel).toList()} busy=${state.busy} redo=${state.field!.canRedo}',
+      );
       await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
       await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
-      await tester.sendKeyEvent(LogicalKeyboardKey.keyZ);
+      final handledRedo = await tester.sendKeyEvent(LogicalKeyboardKey.keyZ);
+      print('SCIENTIFIC_KEYBOARD handled=$handledRedo busy=${state.busy}');
       await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
       await ready();
@@ -184,12 +206,34 @@ void main() {
     expect(state.field!.revision, current + 1);
     state.viewport.invalidate();
     await tester.pump(const Duration(milliseconds: 200));
+    final historyBeforeError = state.field!.history;
+    final thresholdBeforeError = state.field!.describe()['threshold'];
+    state.threshold = 999;
+    await state.act(
+      () => state.field!.configure(
+        expectedRevision: state.field!.revision,
+        threshold: double.nan,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Scientific view failed'), findsOneWidget);
+    expect(state.field!.history, historyBeforeError);
+    expect(state.threshold, thresholdBeforeError);
+    await tester.ensureVisible(find.text('Retry'));
+    await tester.tap(find.text('Retry'));
+    await ready();
+    expect(find.text('Scientific view failed'), findsNothing);
     await state.field!.configure(
       expectedRevision: state.field!.revision,
       threshold: 500,
     );
     state.viewport.invalidate();
     await tester.pump(const Duration(milliseconds: 300));
+    final emptyDeadline = DateTime.now().add(const Duration(seconds: 10));
+    while (find.text('No geometry at these settings').evaluate().isEmpty &&
+        DateTime.now().isBefore(emptyDeadline)) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
     expect(find.text('No geometry at these settings'), findsOneWidget);
     await tester.tap(find.text('Show slice'));
     await ready();
