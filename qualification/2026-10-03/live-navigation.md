@@ -33,7 +33,7 @@ not physical display scanout. Inputs follow the same globe controls as the app.
 | MacBook Pro, M3 Max, 128 GB | 21.5 stationary FPS, 59.2 ms p95 interval, 1600 × 792 render target | Stationary phase only. Rotation stopped on the scene upload budget. |
 | iPad Pro 13-inch, M4 | 30.0 stationary FPS, 35.0 ms p95 interval, 1880 × 1115 render target | Stationary phase only. Rotation hit the same upload failure. |
 | Pixel 9 Pro, Mali-G715 | Initial run found tile decode failures | Another chat's XR probe took the foreground during the post-fix attempt. No valid FPS result. |
-| iPhone 16 Pro | Device detected | Passcode required. No live benchmark run. |
+| iPhone 16 Pro, A18 Pro | 40.0 and 11.5 stationary FPS on two foreground runs, 1206 × 798 render target | Both runs stopped during rotation on the upload budget. Final fixes included. |
 
 The stationary numbers above include the decoder retry fix. They precede the
 child snapshot and lunar history fixes. GPU timing was unavailable in these
@@ -41,6 +41,31 @@ Metal native-view samples. Readback was zero. All stationary frames reported
 tile-budget pressure, so these measurements do not describe unrestricted detail.
 Both runs reported resumed lifecycle at their start and failure boundaries;
 they preceded continuous foreground checking.
+
+### iPhone follow-up
+
+The iPhone was later unlocked and available while the iPad remained reserved for
+Scientific Lab. Both iPhone runs used the same installed profile binary, all three
+fixes, Medium clouds at 768 × 508, shadows enabled and zero sparsity. Foreground
+checks remained satisfied throughout each attempt.
+
+Both stationary phases held 146 visible tiles, 167 draw calls and 291,753
+triangles. Yet stationary FPS fell from 40.0 to 11.5 on the repeat, with p95 frame
+intervals of 26.6 and 94.5 ms. We have not isolated the cause of that variance.
+Thermal state and resource behavior after renderer recovery need measurements;
+neither is established as the cause here.
+
+Rotation failed within its first second on both attempts. The collector retained
+12 and 14 frames, including roughly 38.5 and 34.9 MiB of uploads before failure.
+Most of those frames had only one coarse fallback tile visible, compared with
+146 while stationary. This records the loss of detail during movement, but the
+short rotation intervals cannot qualify navigation FPS.
+
+Cloud history did not reset in either rotation attempt and continued accumulating.
+No tile decode failures were reported. Those observations support the fixes on a
+live phone, without establishing sustained navigation performance. Source and
+compiled-bundle hashes are saved with the evidence; concurrent source changes
+were not hot-reloaded into the installed AOT binary.
 
 A second Mac route completed before the final two fixes, but the app reported
 an inactive lifecycle. It is diagnostic evidence only:
@@ -62,7 +87,7 @@ the devices currently used by XR work.
 
 ## Remaining navigation failure
 
-The Mac and iPad both reached `Scene resource upload exceeds the frame budget`
+The Mac, iPad and iPhone reached `Scene resource upload exceeds the frame budget`
 when rotating. The encoder rejects a submission above 64 MiB of uploaded
 payload, one million new vertices or three million new indices. These limits
 are separate from the scene's residency allowance. A large visibility or LOD
@@ -99,13 +124,19 @@ The checkout and devices were shared with other work. Thermal state was not
 held constant, and no matched Takram browser run was captured.
 
 Use the [navigation collector instructions](../../tool/qualification/README.md#live-navigation-timing)
-for the rerun. Unlock the iPhone, reserve the Pixel and iPad, and keep Planet
-foregrounded on the Mac. Repeat Auto after each Low, shadows-off or 75% sparsity
+for the rerun. Reserve the Pixel and iPad, keep the iPhone unlocked, and keep
+Planet foregrounded on the Mac. Repeat Auto after each Low, shadows-off or 75% sparsity
 experiment. Those comparisons are still pending; this report makes no measured
 FPS improvement claim for the final fixes.
 
 The normal Mac cloud lab was restored with all three fixes. Its first launch
 hit the same upload limit; a second launch showed live Tokyo geometry, 340
 visible tiles and refined clouds. This confirms the normal app is rendering
-again, not that the intermittent failure is resolved. Mobile foreground apps
-were left to the active XR checks.
+again, not that the intermittent failure is resolved. The Pixel and iPad were
+left to their other device checks.
+
+After the iPhone follow-up, rebuilding the normal target failed in the Rust
+renderer while concurrent renderer edits were in progress. The installed Planet
+benchmark build was relaunched successfully instead. It uses the normal Flutter
+input binding and starts without running a benchmark. Physical gestures and a
+completed scene were not rechecked after that relaunch.
