@@ -40,6 +40,9 @@ class Object3D with _Revisioned {
   Object3D({this.name});
   Vec3 _position = Vec3.zero, _scale = Vec3.one;
   Quat _quaternion = Quat.identity;
+  Mat4? _localMatrix;
+  Vec3? _matrixPosition, _matrixScale;
+  Quat? _matrixQuaternion;
   bool _visible = true;
   bool _clippingEnabled = true;
   bool _outlineEnabled = true;
@@ -149,7 +152,19 @@ class Object3D with _Revisioned {
     return result;
   }
 
-  Mat4 get localMatrix => Mat4.compose(position, quaternion, scale);
+  Mat4 get localMatrix {
+    final p = position, q = quaternion, s = scale;
+    if (_localMatrix == null ||
+        p != _matrixPosition ||
+        q != _matrixQuaternion ||
+        s != _matrixScale) {
+      _localMatrix = Mat4.compose(p, q, s);
+      _matrixPosition = p;
+      _matrixQuaternion = q;
+      _matrixScale = s;
+    }
+    return _localMatrix!;
+  }
   Object3D translate(Vec3 offset) {
     position = position + offset;
     return this;
