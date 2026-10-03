@@ -103,11 +103,20 @@ final class XrPose {
 }
 
 final class XrLightEstimate {
-  final double ambientIntensity, colorTemperature;
+  final double ambientIntensity;
+  final double? colorTemperature;
+  final String intensityUnit;
+  final List<double>? colorCorrection;
   XrLightEstimate.fromMessage(Object? value) : this._(messageMap(value));
   XrLightEstimate._(Map<Object?, Object?> m)
     : ambientIntensity = messageNumber(m, 'ambientIntensity'),
-      colorTemperature = messageNumber(m, 'colorTemperature');
+      colorTemperature = m['colorTemperature'] == null
+          ? null
+          : messageNumber(m, 'colorTemperature'),
+      intensityUnit = m['intensityUnit'] as String? ?? 'lumens',
+      colorCorrection = m['colorCorrection'] == null
+          ? null
+          : List.unmodifiable(messageNumbers(m, 'colorCorrection', 4));
 }
 
 final class XrAnchor {

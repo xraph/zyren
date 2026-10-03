@@ -14,6 +14,8 @@ dependencies:
     path: ../../flutter_zyren
   zyren_xr:
     path: ..
+  zyren_devtools:
+    path: ../../zyren_devtools
   zyren_agents:
     path: ../../zyren_agents
 dev_dependencies:

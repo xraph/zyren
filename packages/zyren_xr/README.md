@@ -89,9 +89,12 @@ once ARKit accepts an anchor, use its returned ID or the undo command to remove 
 The host supplies `XrViewBinding`, including scene/document/viewport IDs, camera
 identity, logical rectangle, DPR, scene revision and the scene-from-session rigid
 transform. Supply presented frame metadata only when you know it. XR sensor
-frames do not prove which pixels your user saw, and this checkpoint reports
-screen-to-XR raycasting as unsupported. It does not synthesize source IDs for
-planes or anchors.
+frames do not prove which pixels your user saw. When you supply the presenter's
+`raycast` callback and current calibration, `screen_raycast` returns bounded native
+plane hits. `place_hit` accepts a returned token and uses the same scoped command
+and undo history. A native presenter/epoch guard rejects placement after resize or
+reattachment, including changes while a call is pending. Source IDs for native
+planes remain unknown; a plane estimate does not prove pixel visibility.
 
 Unregister the provider before calling its `dispose`. Then dispose the session
 when its owner closes. The provider does not own the camera session and never
@@ -143,6 +146,36 @@ queue. Pause, resize, interruption and disposal reject obsolete leases.
 Both CocoaPods and Swift Package Manager use the same Swift sources. The SPM
 manifest links the FlutterFramework dependency supplied by the Flutter tool.
 
+## Plane geometry and lighting
+
+Call `presenter.raycast(x, y)` with viewport-local logical coordinates after a
+successful presentation. The result carries the presented frame, viewport epoch,
+native session revision, sensor timestamp and bounded plane intersections. Stale
+frames and changed viewports fail explicitly. `session.planeGeometry` returns a
+bounded mesh in plane-local coordinates; apply its pose and your scene origin.
+`toGeometry()` creates an ordinary Zyren `BufferGeometry`.
+
+Add `XrAmbientLighting.light` to your scene and update the adapter with each fresh
+snapshot. You choose `neutralIntensityLux`, which maps the camera's neutral
+estimate to your scene's diffuse light level. ARKit reports an estimated lumen
+value with 1000 as neutral. ARCore reports gamma-space relative intensity and RGB
+correction, without a measured color temperature. The adapter preserves that
+boundary, converts ARCore correction to linear color and disables its light for
+missing, stale or invalid input. It does not create specular reflections or an
+environment map. Blackbody color is an approximation using the analytic CIE fit
+from [Wyman, Sloan and Shirley](https://jcgt.org/published/0002/02/01/).
+See [Apple's intensity definition](https://developer.apple.com/documentation/arkit/arlightestimate/ambientintensity)
+and [ARCore's light-estimate contract](https://developers.google.com/ar/reference/java/com/google/ar/core/LightEstimate)
+for the source units and color space.
+
+The example has tap placement, anchor scene bindings, depth selection and origin
+reset. Start it with `--dart-define=XR_DEVTOOLS=true` to enable the shared devtools
+loopback listener. Its endpoint and temporary token are printed to the local debug
+log. Set `XR_DEVTOOLS_TOKEN` and run `example/tool/mcp.dart` against that endpoint
+to use the shared MCP stdio bridge. Android hosts can forward port 8796 with adb.
+This host registers XR agent tools; a separate scene inspector is not attached.
+Close the probe session to close its listener and revoke its token.
+
 ## Current limits
 
 `cameraPresentation` reports ARKit support. `depthOcclusion` and
@@ -157,8 +190,9 @@ Metal test checks YCbCr range and alpha composition on macOS. Neither establishe
 physical camera alignment, iPhone/iPad lifecycle behavior, or visual quality.
 Run `example/integration_test/presentation_test.dart` on each device, then check
 portrait and landscape alignment against real surfaces. The existing session probe
-covers tracking and agent commands. Physical depth qualification, screen raycasts, ARCore's
-Vulkan adapter and OpenXR remain separate work.
+covers tracking and agent commands. The iPhone session probe has passed normal tracking, registered-provider placement
+and undo, pause and disposal. Camera alignment, physical depth occlusion, rich
+native hits over live MCP and the Android path still need device qualification.
 
 See the [workstream plan](../../plans/zyren-plugins/xr.md) for remaining device
 checks and renderer dependencies. This package is not published.

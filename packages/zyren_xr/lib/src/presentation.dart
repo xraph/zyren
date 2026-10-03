@@ -45,11 +45,13 @@ final class XrPresentationController extends ChangeNotifier {
   bool _closed = false, _gpuCleanupDone = false, _nativeClosed = false;
   (Object, StackTrace)? _gpuCleanupFailure;
   XrCalibration? _presented;
+  int? _presentedSceneRevision;
   Map<String, Object?>? _diagnostics;
 
   /// Counters from the last successful native presentation, or null before one.
   Map<String, Object?>? get diagnostics => _diagnostics;
   XrCalibration? get presentedCalibration => _presented;
+  int? get presentedSceneRevision => _presentedSceneRevision;
   bool get isRendering => _frame != null;
 
   /// Raycasts from the last presented camera, in viewport-local logical pixels.
@@ -159,6 +161,7 @@ final class XrPresentationController extends ChangeNotifier {
       final calibration = XrCalibration.fromMessage(raw);
       if (_closed) throw StateError('The XR presenter is closing.');
       final camera = XrCamera(calibration, sceneFromSession: transform);
+      final sceneRevision = scene.revision;
       final submission = FrameSubmission.capture(
         scene: scene,
         camera: camera,
@@ -200,6 +203,7 @@ final class XrPresentationController extends ChangeNotifier {
       final presented = XrCalibration.fromMessage(receipt);
       if (!_closed) {
         _presented = presented;
+        _presentedSceneRevision = sceneRevision;
         _diagnostics = Map.unmodifiable({
           for (final key in [
             'cameraReadbackBytes',
@@ -246,6 +250,7 @@ final class XrPresentationController extends ChangeNotifier {
         await _invoke('closePresenter');
         _nativeClosed = true;
         _presented = null;
+        _presentedSceneRevision = null;
         _diagnostics = null;
       } catch (error) {
         // Only native retirement can still be retried after GPU cleanup settles.

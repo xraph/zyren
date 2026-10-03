@@ -589,6 +589,8 @@ final class XrAgentProvider extends AgentProvider {
                   ? null
                   : {
                       'ambientIntensity': frame.light!.ambientIntensity,
+                      'intensityUnit': frame.light!.intensityUnit,
+                      'colorCorrectionGamma': frame.light!.colorCorrection,
                       'colorTemperatureKelvin': frame.light!.colorTemperature,
                       'provenance':
                           '${deviceCapabilities.platform}-ambient-estimate',

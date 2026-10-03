@@ -20,3 +20,4 @@ export 'src/session.dart';
 export 'src/calibration.dart';
 export 'src/scene_bindings.dart';
 export 'src/raycast.dart';
+export 'src/lighting.dart';

@@ -1,8 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_zyren/widgets.dart';
 import 'package:zyren_agents/zyren_agents.dart';
+import 'package:zyren_devtools/io.dart';
+import 'package:zyren_devtools/zyren_devtools.dart';
 import 'package:zyren/zyren.dart' as z;
 import 'package:zyren_xr/agents.dart';
 import 'package:zyren_xr/flutter.dart';
@@ -37,14 +40,21 @@ class _XrProbePageState extends State<XrProbePage> {
   AgentRegistry? _registry;
   Timer? _timer, _renderTimer;
   XrPresentationController? _presentation;
+  DevtoolsServer? _devtools;
+  XrSceneBindings? _bindings;
+  final _anchorRoot = z.Group();
+  final _lighting = XrAmbientLighting(neutralIntensityLux: 400);
+  bool _depth = false;
   final _cube = z.Mesh(
     z.BoxGeometry(width: .1, height: .1, depth: .1),
-    z.UnlitMaterial(color: const z.Color3(1, .45, .1)),
+    z.StandardMaterial(color: const z.Color3(1, .45, .1)),
   )..position = const z.Vec3(0, 0, -.5);
   late final _scene = z.Scene()
     ..background = null
     ..backgroundOpacity = 0
-    ..add(_cube);
+    ..add(_cube)
+    ..add(_anchorRoot)
+    ..add(_lighting.light);
   bool _busy = false, _polling = false;
   String? _error, _lastAction;
   int _command = 0;
@@ -72,8 +82,12 @@ class _XrProbePageState extends State<XrProbePage> {
       return;
     }
     _session = session;
-    await session.start();
-    if (_capabilities!.cameraPresentation && _presentation == null) {
+    await session.start(
+      configuration: XrConfiguration(requireDepthOcclusion: _depth),
+    );
+    if ((_capabilities!.cameraPresentation ||
+            _capabilities!.platform == 'arcore') &&
+        _presentation == null) {
       final presenter = await XrPresentationController.create(
         session: session,
         transport: widget.transport,
@@ -101,41 +115,65 @@ class _XrProbePageState extends State<XrProbePage> {
             sceneId: 'xr-probe',
             documentId: 'unsaved-probe',
             viewportId: 'session-inspector',
-            cameraId: 'arkit-sensor',
-            sceneRevision: 0,
-            logicalRect: [0, 0, media.size.width, media.size.height],
-            devicePixelRatio: media.devicePixelRatio,
+            cameraId: 'native-camera',
+            sceneRevision: _scene.revision,
+            logicalRect: [
+              0,
+              0,
+              _presentation?.presentedCalibration?.logicalWidth ??
+                  media.size.width,
+              _presentation?.presentedCalibration?.logicalHeight ??
+                  media.size.height,
+            ],
+            devicePixelRatio:
+                _presentation?.presentedCalibration?.devicePixelRatio ??
+                media.devicePixelRatio,
             sceneFromSession: XrPose.identity(),
+            calibration: _presentation?.presentedCalibration,
+            presentedFrameId: _presentation?.presentedCalibration?.frameId,
+            presentedSceneRevision: _presentation?.presentedSceneRevision,
           );
         },
         allowPlacement: true,
+        raycast: _presentation?.raycast,
       );
       _registry!.register(_provider!);
+      if (const bool.fromEnvironment('XR_DEVTOOLS')) {
+        _devtools = await DevtoolsServer.start(
+          SceneDiagnostics(SceneDevtoolsPlugin()),
+          agents: _registry,
+          port: const int.fromEnvironment(
+            'XR_DEVTOOLS_PORT',
+            defaultValue: 8796,
+          ),
+        );
+        debugPrint(
+          'XR_DEVTOOLS ${jsonEncode({'endpoint': _devtools!.endpoint.toString(), 'token': _devtools!.token})}',
+        );
+      }
     }
     _timer ??= Timer.periodic(
       const Duration(milliseconds: 250),
       (_) => _poll(),
     );
-    await _poll();
+    await _poll(force: true);
   }
 
   Future<void> _render() async {
     final presenter = _presentation;
     if (presenter == null ||
+        _busy ||
         presenter.isRendering ||
         _snapshot?.state != XrSessionState.running) {
       return;
     }
     try {
-      final anchors = _snapshot?.frame?.anchors;
-      if (anchors != null && anchors.isNotEmpty) {
-        final pose = anchors.last.pose.matrix;
-        _cube.position = z.Vec3(pose[12], pose[13], pose[14]);
-      }
       await presenter.render(_scene);
     } on XrException catch (error) {
       if (error.code == 'frameDeferred' ||
           error.code == 'trackingUnavailable' ||
+          error.code == 'depthUnavailable' ||
+          error.code == 'staleDepth' ||
           error.code == 'busy') {
         return;
       }
@@ -147,13 +185,36 @@ class _XrProbePageState extends State<XrProbePage> {
     }
   }
 
-  Future<void> _poll() async {
+  Future<void> _poll({bool force = false}) async {
     final session = _session;
-    if (_polling || session == null) return;
+    if (_polling || session == null || (_busy && !force)) return;
     _polling = true;
     try {
       final snapshot = await session.snapshot();
       if (mounted && identical(session, _session)) {
+        _lighting.update(snapshot);
+        if (snapshot.sessionId == session.id) {
+          _bindings ??= XrSceneBindings(
+            sessionId: session.id,
+            root: _anchorRoot,
+            originEpoch: snapshot.originEpoch,
+          );
+          _bindings!.update(snapshot);
+          if (snapshot.frame case final frame?) {
+            for (final anchor in frame.anchors) {
+              if (_bindings!.bindings.any((b) => b.anchorId == anchor.id)) {
+                continue;
+              }
+              _bindings!.bind(
+                anchorId: anchor.id,
+                object: z.Mesh(_cube.geometry, _cube.material),
+                sourceId: 'probe:cube-template',
+              );
+            }
+            _bindings!.update(snapshot);
+          }
+          _cube.visible = _bindings!.bindings.isEmpty;
+        }
         setState(() => _snapshot = snapshot);
       }
     } catch (error) {
@@ -169,7 +230,7 @@ class _XrProbePageState extends State<XrProbePage> {
     final provider = _provider!;
     final snapshot = await _session!.snapshot();
     final args = <String, Object?>{
-      'sceneRevision': 0,
+      'sceneRevision': _scene.revision,
       'viewportId': 'session-inspector',
     };
     if (!undo) {
@@ -205,7 +266,50 @@ class _XrProbePageState extends State<XrProbePage> {
             '${undo ? 'Removed' : 'Placed'} ${result.affectedIds.join(', ')}',
       );
     }
-    await _poll();
+    await _poll(force: true);
+  }
+
+  Future<void> _placeScreen(Offset point) async {
+    final presenter = _presentation!, provider = _provider!;
+    final deadline = DateTime.now().add(const Duration(seconds: 5));
+    while (presenter.isRendering && DateTime.now().isBefore(deadline)) {
+      await Future<void>.delayed(const Duration(milliseconds: 16));
+    }
+    await presenter.render(_scene);
+    final query = await _registry!.call(
+      providerId: provider.id,
+      instanceId: provider.instanceId,
+      tool: 'screen_raycast',
+      arguments: {'x': point.dx, 'y': point.dy},
+    );
+    if (!query.isSuccess) {
+      throw StateError('${query.status.name}: ${query.message}');
+    }
+    final hits = query.data['hits'] as List;
+    if (hits.isEmpty) {
+      setState(
+        () => _lastAction =
+            'No detected surface at this point. Move the camera and try again.',
+      );
+      return;
+    }
+    final placed = await _registry!.call(
+      providerId: provider.id,
+      instanceId: provider.instanceId,
+      tool: 'place_hit',
+      arguments: {
+        'hitToken': (hits.first as Map)['hitToken'],
+        'sceneRevision': _scene.revision,
+        'viewportId': 'session-inspector',
+      },
+      expectedRevision: provider.revision,
+      idempotencyKey: 'probe-${_command++}',
+    );
+    if (!placed.isSuccess) {
+      throw StateError('${placed.status.name}: ${placed.message}');
+    }
+    setState(() => _lastAction = 'Placed ${placed.affectedIds.join(', ')}');
+    await _poll(force: true);
   }
 
   Future<void> _release() async {
@@ -213,6 +317,8 @@ class _XrProbePageState extends State<XrProbePage> {
     _timer = null;
     _renderTimer?.cancel();
     _renderTimer = null;
+    await _devtools?.close();
+    _devtools = null;
     final presentation = _presentation;
     _presentation = null;
     await presentation?.close();
@@ -221,6 +327,9 @@ class _XrProbePageState extends State<XrProbePage> {
     _registry = null;
     _provider?.dispose();
     _provider = null;
+    _bindings?.dispose();
+    _bindings = null;
+    _cube.visible = true;
     final session = _session;
     _session = null;
     _snapshot = null;
@@ -252,7 +361,7 @@ class _XrProbePageState extends State<XrProbePage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'ARKit camera and a 10 cm cube. Place an anchor to move the cube.',
+              'Native camera and 10 cm cubes. Tap a detected surface to place one.',
             ),
             const SizedBox(height: 8),
             Wrap(
@@ -268,7 +377,7 @@ class _XrProbePageState extends State<XrProbePage> {
                       ? null
                       : () => _perform(() async {
                           await _session!.pause();
-                          await _poll();
+                          await _poll(force: true);
                         }),
                   child: const Text('Pause'),
                 ),
@@ -285,6 +394,27 @@ class _XrProbePageState extends State<XrProbePage> {
                   child: const Text('Place anchor'),
                 ),
                 OutlinedButton(
+                  onPressed: _busy || !running
+                      ? null
+                      : () => _perform(() async {
+                          await _session!.start(
+                            configuration: XrConfiguration(
+                              requireDepthOcclusion: _depth,
+                            ),
+                            resetTracking: true,
+                          );
+                          await _poll(force: true);
+                        }),
+                  child: const Text('Reset origin'),
+                ),
+                FilterChip(
+                  label: const Text('Depth'),
+                  selected: _depth,
+                  onSelected: _busy || running
+                      ? null
+                      : (value) => setState(() => _depth = value),
+                ),
+                OutlinedButton(
                   onPressed: _busy || !(_provider?.commands.canUndo ?? false)
                       ? null
                       : () => _perform(() => _placement(undo: true)),
@@ -298,7 +428,14 @@ class _XrProbePageState extends State<XrProbePage> {
               SizedBox(
                 height: 300,
                 width: double.infinity,
-                child: XrCameraView(controller: _presentation!),
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTapUp: _busy
+                      ? null
+                      : (event) =>
+                            _perform(() => _placeScreen(event.localPosition)),
+                  child: XrCameraView(controller: _presentation!),
+                ),
               ),
               if (_presentation!.presentedCalibration case final calibration?)
                 Text(
@@ -325,8 +462,8 @@ class _XrProbePageState extends State<XrProbePage> {
                     ? 'Session not started'
                     : 'Session ${snapshot.state.name}',
                 message: running
-                    ? 'Waiting for the first ARKit frame.'
-                    : 'Start on a physical ARKit device to inspect tracking. Accept camera access when prompted.',
+                    ? 'Waiting for the first camera frame.'
+                    : 'Start on a supported physical device to inspect tracking. Accept camera access when prompted.',
                 actionLabel: running ? null : 'Start session',
                 onAction: _busy || running ? null : () => _perform(_start),
               ),
@@ -345,14 +482,15 @@ class _XrProbePageState extends State<XrProbePage> {
                 'Anchors ${frame.anchors.length} / planes ${frame.planes.length} / omitted ${frame.omittedPlanes}',
               ),
               Text(
-                'Depth hardware ${_capabilities?.sceneDepthHardware} / depth occlusion false',
+                'Depth hardware ${_capabilities?.sceneDepthHardware} / depth occlusion $_depth',
               ),
               Text(
                 'Agent tools ${_provider!.tools.length} / command revision ${_provider!.revision}',
               ),
               if (frame.light != null)
                 Text(
-                  'Ambient ${frame.light!.ambientIntensity.toStringAsFixed(0)} / ${frame.light!.colorTemperature.toStringAsFixed(0)} K',
+                  'Ambient ${frame.light!.ambientIntensity.toStringAsFixed(2)} ${frame.light!.intensityUnit}'
+                  '${frame.light!.colorTemperature == null ? '' : ' / ${frame.light!.colorTemperature!.toStringAsFixed(0)} K'}',
                 ),
             ],
             if (_lastAction != null)

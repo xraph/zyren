@@ -73,6 +73,17 @@ void main() {
       expect(presenter.isRendering, isFalse);
     },
   );
+  test('presented scene revision belongs to the captured submission', () async {
+    final world = scene();
+    final capturedRevision = world.revision;
+    transport.handler = (method, args) {
+      if (method == 'presentFrame') world.add(Group());
+      return reply(method, args);
+    };
+    await presenter.render(world);
+    expect(presenter.presentedSceneRevision, capturedRevision);
+    expect(world.revision, isNot(capturedRevision));
+  });
   test(
     'encoding or calibration failure cancels acquired native image',
     () async {

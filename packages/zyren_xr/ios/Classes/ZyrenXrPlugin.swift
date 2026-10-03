@@ -374,7 +374,7 @@ public final class ZyrenXrPlugin: NSObject, FlutterPlugin, ARSessionDelegate {
         if let reason = tracking.1 { value["trackingReason"] = reason }
         if let light = frame.lightEstimate {
             value["light"] = ["ambientIntensity": light.ambientIntensity,
-                              "colorTemperature": light.ambientColorTemperature]
+                              "colorTemperature": light.ambientColorTemperature, "intensityUnit": "lumens"]
         }
         response["frame"] = value
         return response
