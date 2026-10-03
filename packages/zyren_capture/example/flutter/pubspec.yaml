@@ -1,0 +1,33 @@
+name: smaller_plugins_lab
+description: Native configurator, spatial audio and capture qualification.
+version: 0.1.0+1
+publish_to: none
+resolution: workspace
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_zyren:
+    path: ../../../flutter_zyren
+  zyren:
+    path: ../../../zyren
+  zyren_agents:
+    path: ../../../zyren_agents
+  zyren_audio:
+    path: ../../../zyren_audio
+  zyren_configurator:
+    path: ../../../zyren_configurator
+  zyren_capture:
+    path: ../..
+  zyren_devtools:
+    path: ../../../zyren_devtools
+  zyren_effects:
+    path: ../../../zyren_effects
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+flutter:
+  uses-material-design: true
