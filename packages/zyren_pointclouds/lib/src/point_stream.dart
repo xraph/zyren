@@ -151,6 +151,8 @@ final class PointCloudStreamPlugin extends ScenePlugin {
   final bool closeStreamOnDetach;
   final _clouds = <String, ScenePointCloud>{};
   Registration? _changes;
+  AttachmentScope _lifetime = AttachmentScope();
+  Registration onClose(void Function() callback) => _lifetime.onClose(callback);
   bool _dirty = true;
   int _streamRevision = -1;
   PointCloudFilter _filter = PointCloudFilter();
@@ -164,9 +166,12 @@ final class PointCloudStreamPlugin extends ScenePlugin {
        material = material ?? PointsMaterial();
   @override
   String get id => 'zyren.pointclouds.stream.$instanceId';
+  bool get hasPendingUpdate => _dirty || _streamRevision != stream.revision;
+  int filterRevision = 0;
   PointCloudFilter get filter => _filter;
   set filter(PointCloudFilter value) {
     _filter = value;
+    filterRevision++;
     _dirty = true;
     _invalidate?.call();
   }
@@ -175,6 +180,11 @@ final class PointCloudStreamPlugin extends ScenePlugin {
   Map<String, ScenePointCloud> get visibleClouds => Map.unmodifiable(_clouds);
   @override
   void attach(PluginContext context) {
+    if (stream.isClosed) {
+      throw StateError('Cannot attach a closed point stream.');
+    }
+    if (_lifetime.isClosed) _lifetime = AttachmentScope();
+    _dirty = true;
     _invalidate = context.invalidate;
     context.scene.add(object);
     _changes = stream.onChanged(() {
@@ -243,6 +253,8 @@ final class PointCloudStreamPlugin extends ScenePlugin {
 
   @override
   Future<void> detach(PluginContext context) async {
+    _lifetime.close();
+    await _lifetime.whenClosed;
     _changes?.dispose();
     _changes = null;
     _invalidate = null;

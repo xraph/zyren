@@ -2,22 +2,40 @@ import 'package:zyren/zyren.dart';
 import 'package:zyren_agents/zyren_agents.dart';
 import 'zyren_splats.dart';
 
-/// Appearance estimates for source Gaussians in a named orthographic viewport.
+/// Appearance estimates for source Gaussians in a named viewport.
 /// Hosts may inspect source data before a GPU renderer is available.
 final class GaussianAgentProvider extends AgentProvider {
-  final GaussianCloudData data;
+  final GaussianCloudData Function() _data;
+  GaussianCloudData get data => _data();
+  final int Function()? _dataRevision;
+  final bool Function()? _enabled;
   final Object3D object;
   final Vec3 sourceOrigin;
+  final double minimumPixelVariance;
   final AgentViewportProvider view;
   @override
   final String instanceId;
   GaussianAgentProvider({
-    required this.data,
+    required GaussianCloudData data,
     required this.object,
     required this.view,
     required this.instanceId,
     this.sourceOrigin = Vec3.zero,
-  });
+    this.minimumPixelVariance = 0,
+  }) : _data = (() => data),
+       _dataRevision = null,
+       _enabled = null;
+
+  GaussianAgentProvider._scene(
+    GaussianSplatPlugin renderer, {
+    required this.view,
+    required this.instanceId,
+  }) : _data = (() => renderer.data),
+       _dataRevision = (() => renderer.dataRevision),
+       _enabled = (() => renderer.enabled),
+       object = renderer.object,
+       sourceOrigin = Vec3.zero,
+       minimumPixelVariance = renderer.minimumPixelVariance;
 
   factory GaussianAgentProvider.forRenderer(
     GaussianSplatRenderer renderer, {
@@ -31,12 +49,22 @@ final class GaussianAgentProvider extends AgentProvider {
     instanceId: instanceId,
   );
 
+  factory GaussianAgentProvider.forScene(
+    GaussianSplatPlugin renderer, {
+    required AgentViewportProvider view,
+    required String instanceId,
+  }) => GaussianAgentProvider._scene(
+    renderer,
+    view: view,
+    instanceId: instanceId,
+  );
+
   @override
   String get id => 'zyren.splats';
   @override
   String get version => '0.1.0';
   @override
-  int get revision => view.revision;
+  int get revision => view.revision + (_dataRevision?.call() ?? 0);
 
   /// Bind disposal to your attachment scope or renderer's onClose callback.
   Registration register(
@@ -55,7 +83,7 @@ final class GaussianAgentProvider extends AgentProvider {
 
   @override
   Map<String, Object?> get capabilities => const {
-    'method': 'orthographic-Gaussian-opacity-estimate',
+    'method': 'projected-Gaussian-opacity-estimate',
     'renderedPixelVisibility': 'unknown',
     'measurementSurface': false,
     'sorting': 'mean-depth-back-to-front',
@@ -66,7 +94,8 @@ final class GaussianAgentProvider extends AgentProvider {
     'tiles3dContext': 'unavailable',
   };
   @override
-  late final List<AgentTool> tools = List.unmodifiable([
+  List<AgentTool> get tools => supportedTools;
+  static final List<AgentTool> supportedTools = List.unmodifiable([
     AgentTool(
       name: 'inspect',
       description:
@@ -99,7 +128,7 @@ final class GaussianAgentProvider extends AgentProvider {
   ) {
     context.checkCancelled();
     Object3D root = object;
-    var visible = true;
+    var visible = _enabled?.call() ?? true;
     for (Object3D? node = object; node != null; node = node.parent) {
       visible = visible && node.visible;
       root = node;
@@ -124,7 +153,6 @@ final class GaussianAgentProvider extends AgentProvider {
       'availableActions': <String>[],
       'unknowns': [
         'scene occlusion',
-        'perspective projection',
         'native screen presentation',
         'Flutter overlays',
         'section clipping',
@@ -157,12 +185,6 @@ final class GaussianAgentProvider extends AgentProvider {
         );
       }
     }
-    if (camera is! OrthographicCamera) {
-      return AgentResult(
-        AgentStatus.unsupported,
-        message: 'Gaussian estimates require an orthographic camera.',
-      );
-    }
     if (!metrics.isUsable ||
         !metrics.devicePixelRatio.isFinite ||
         metrics.devicePixelRatio <= 0) {
@@ -194,6 +216,7 @@ final class GaussianAgentProvider extends AgentProvider {
             size: PhysicalSize(width, height),
             transform: object.worldMatrix,
             sourceOrigin: sourceOrigin,
+            minimumPixelVariance: minimumPixelVariance,
           )
         : <ProjectedGaussian>[];
     final hits = <Map<String, Object?>>[];
@@ -214,8 +237,8 @@ final class GaussianAgentProvider extends AgentProvider {
         'sourceMean': _vector(p.source.mean),
         'estimatedOpacity': alpha,
         'meanDepth': p.depth,
-        'sourceUri': data.sourceUri.toString(),
-        'sourceVersion': data.sourceVersion,
+        'sourceUri': data.identityAt(p.dataIndex).$1.toString(),
+        'sourceVersion': data.identityAt(p.dataIndex).$2,
         'runtimeId': object.id,
         'classification': null,
         'measurementSurface': false,

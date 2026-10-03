@@ -4,7 +4,7 @@ import 'gaussian.dart';
 
 /// One projected covariance, retaining its original source record index.
 final class ProjectedGaussian {
-  final int recordIndex;
+  final int recordIndex, dataIndex;
   final Vec3 center;
   final double depth, xx, xy, yy;
   final GaussianSplat source;
@@ -15,8 +15,9 @@ final class ProjectedGaussian {
     this.xx,
     this.xy,
     this.yy,
-    this.source,
-  );
+    this.source, {
+    this.dataIndex = 0,
+  });
   double get determinant => xx * yy - xy * xy;
   double get extentX => 3 * math.sqrt(xx);
   double get extentY => 3 * math.sqrt(yy);
@@ -28,20 +29,24 @@ final class ProjectedGaussian {
   }
 }
 
-/// Orthographic projection only. Depth clipping uses each Gaussian's center.
+/// Perspective or orthographic covariance using the projection Jacobian.
+/// Depth clipping uses each Gaussian mean; intersecting volumes use mean order.
 /// [transform] maps source coordinates minus [sourceOrigin] into world space.
 List<ProjectedGaussian> projectGaussians(
   GaussianCloudData data, {
-  required OrthographicCamera camera,
+  required Camera camera,
   required PhysicalSize size,
   Mat4? transform,
   Vec3 sourceOrigin = Vec3.zero,
+  double minimumPixelVariance = 0,
 }) {
+  if (!minimumPixelVariance.isFinite || minimumPixelVariance < 0) {
+    throw ArgumentError('Pixel variance must be finite and nonnegative.');
+  }
   final model = transform ?? Mat4.identity();
   final combined = camera.viewProjection(size.width / size.height) * model;
   final m = combined.storage;
-  final x = Vec3(m[0], m[4], m[8]) * (size.width / 2);
-  final y = Vec3(m[1], m[5], m[9]) * (size.height / 2);
+  final v = camera.viewProjection(size.width / size.height).storage;
   final forward = (camera.target - camera.position).normalized();
   final result = <ProjectedGaussian>[];
   final t = model.storage;
@@ -52,12 +57,24 @@ List<ProjectedGaussian> projectGaussians(
       t[1] * p.x + t[5] * p.y + t[9] * p.z + t[13],
       t[2] * p.x + t[6] * p.y + t[10] * p.z + t[14],
     );
-    final center = camera.projectPoint(world, size.width / size.height);
+    final r = world - camera.position;
+    final clipX = v[0] * r.x + v[4] * r.y + v[8] * r.z + v[12];
+    final clipY = v[1] * r.x + v[5] * r.y + v[9] * r.z + v[13];
+    final clipZ = v[2] * r.x + v[6] * r.y + v[10] * r.z + v[14];
+    final w = v[3] * r.x + v[7] * r.y + v[11] * r.z + v[15];
+    if (w <= 1e-10 || !w.isFinite) continue;
+    final center = Vec3(clipX / w, clipY / w, clipZ / w);
+    if (!center.isFinite) continue;
+    final rowW = Vec3(m[3], m[7], m[11]);
+    final x =
+        (Vec3(m[0], m[4], m[8]) - rowW * (clipX / w)) * (size.width / (2 * w));
+    final y =
+        (Vec3(m[1], m[5], m[9]) - rowW * (clipY / w)) * (size.height / (2 * w));
     if (center.z < 0 || center.z > 1 || splat.opacity == 0) continue;
     final covariance = splat.covariance;
-    final xx = covariance.bilinear(x, x),
+    final xx = covariance.bilinear(x, x) + minimumPixelVariance,
         xy = covariance.bilinear(x, y),
-        yy = covariance.bilinear(y, y);
+        yy = covariance.bilinear(y, y) + minimumPixelVariance;
     final determinant = xx * yy - xy * xy;
     if ([xx, xy, yy, determinant].any((v) => !v.isFinite) ||
         xx <= 0 ||
@@ -69,19 +86,20 @@ List<ProjectedGaussian> projectGaussians(
     }
     result.add(
       ProjectedGaussian(
-        i,
+        data.identityAt(i).$3,
         center,
         (world - camera.position).dot(forward),
         xx,
         xy,
         yy,
         splat,
+        dataIndex: i,
       ),
     );
   }
   result.sort((a, b) {
     final depth = b.depth.compareTo(a.depth);
-    return depth == 0 ? a.recordIndex.compareTo(b.recordIndex) : depth;
+    return depth == 0 ? a.dataIndex.compareTo(b.dataIndex) : depth;
   });
   return List.unmodifiable(result);
 }

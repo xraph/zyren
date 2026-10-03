@@ -6,6 +6,54 @@ import 'package:zyren_splats/agents.dart';
 
 void main() {
   test(
+    'scene provider follows replacement source data and disabled state',
+    () async {
+      GaussianCloudData cloud(String version) => GaussianCloudData(
+        sourceUri: Uri.parse('memory:dynamic'),
+        sourceVersion: version,
+        splats: [
+          GaussianSplat(
+            mean: Vec3.zero,
+            covariance: GaussianCovariance(xx: .04, yy: .01, zz: .01),
+            color: const Color3(1, 0, 0),
+          ),
+        ],
+      );
+      final renderer = GaussianSplatPlugin(data: cloud('first'));
+      final scene = Scene()..add(renderer.object);
+      final view = AgentViewportProvider(
+        sceneId: 's',
+        documentId: 'd',
+        instanceId: 'v',
+        scene: scene,
+        camera: PerspectiveCamera.new,
+        viewport: () => const ViewportMetrics(100, 100),
+      );
+      final provider = GaussianAgentProvider.forScene(
+        renderer,
+        view: view,
+        instanceId: 'g',
+      );
+      final registry = AgentRegistry()..register(provider);
+      Future<AgentResult> estimate() => registry.call(
+        providerId: provider.id,
+        instanceId: 'g',
+        tool: 'estimate',
+        arguments: {'x': 50, 'y': 50},
+      );
+      final before = provider.revision;
+      renderer.data = cloud('second');
+      expect(provider.revision, greaterThan(before));
+      final result = await estimate();
+      expect(result.status, AgentStatus.ok);
+      expect((result.data['hits'] as List).single['sourceVersion'], 'second');
+      renderer.enabled = false;
+      expect((await estimate()).status, AgentStatus.empty);
+      registry.dispose();
+    },
+  );
+
+  test(
     'shared provider reports bounded appearance estimates and unknown pixel coverage',
     () async {
       final scene = Scene(),
@@ -75,7 +123,7 @@ void main() {
         AgentStatus.unavailable,
       );
       camera = PerspectiveCamera();
-      expect((await estimate()).status, AgentStatus.unsupported);
+      expect((await estimate()).status, AgentStatus.ok);
       scene.remove(object);
       expect((await estimate()).status, AgentStatus.stale);
       lifetime.close();

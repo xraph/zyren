@@ -186,6 +186,7 @@ final class PointCloudAgentProvider extends AgentProvider {
           'distance': hit.distance,
           'raySeparation': hit.raySeparation,
           'classification': cloud.data.classificationAt(hit.dataIndex),
+          'sourceAttributes': cloud.data.attributesAt(hit.dataIndex),
           'sourceUri': hit.identity.$1.toString(),
           'sourceVersion': hit.identity.$2,
           'runtimeId': cloud.object.id,

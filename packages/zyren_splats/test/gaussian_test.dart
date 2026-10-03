@@ -79,6 +79,80 @@ void main() {
       1,
     ));
   });
+  test(
+    'perspective Jacobian matches finite differences under an affine transform',
+    () {
+      final camera = PerspectiveCamera(
+        position: const Vec3(2, 1, 6),
+        target: Vec3.zero,
+      );
+      final transform = Mat4.compose(
+        const Vec3(.4, -.2, .1),
+        Quat.axisAngle(const Vec3(0, 1, 0), .3),
+        const Vec3(2, 1, .7),
+      );
+      final mean = const Vec3(.5, .3, -1);
+      final covariance = GaussianCovariance(
+        xx: .04,
+        yy: .03,
+        zz: .02,
+        xy: .005,
+        xz: .002,
+        yz: .001,
+      );
+      final cloud = data([splat(mean, covariance: covariance)]);
+      final p = projectGaussians(
+        cloud,
+        camera: camera,
+        size: PhysicalSize(320, 240),
+        transform: transform,
+      ).single;
+      Vec3 world(Vec3 v) {
+        final m = transform.storage;
+        return Vec3(
+          m[0] * v.x + m[4] * v.y + m[8] * v.z + m[12],
+          m[1] * v.x + m[5] * v.y + m[9] * v.z + m[13],
+          m[2] * v.x + m[6] * v.y + m[10] * v.z + m[14],
+        );
+      }
+
+      final dx = <double>[], dy = <double>[];
+      for (final axis in [
+        const Vec3(1, 0, 0),
+        const Vec3(0, 1, 0),
+        const Vec3(0, 0, 1),
+      ]) {
+        final a = camera.projectPoint(world(mean + axis * 1e-5), 320 / 240);
+        final b = camera.projectPoint(world(mean - axis * 1e-5), 320 / 240);
+        dx.add((a.x - b.x) / (2e-5) * 160);
+        dy.add((a.y - b.y) / (2e-5) * 120);
+      }
+      final x = Vec3(dx[0], dx[1], dx[2]), y = Vec3(dy[0], dy[1], dy[2]);
+      expect(p.xx, closeTo(covariance.bilinear(x, x), 1e-6));
+      expect(p.xy, closeTo(covariance.bilinear(x, y), 1e-6));
+      expect(p.yy, closeTo(covariance.bilinear(y, y), 1e-6));
+    },
+  );
+  test(
+    'perspective clips behind-camera and near means, retains subset identity',
+    () {
+      final source = data([
+        splat(const Vec3(0, 0, 7)),
+        splat(const Vec3(0, 0, 4.95)),
+        splat(Vec3.zero),
+      ]);
+      final subset = source.select([2, 0, 1]);
+      final p = projectGaussians(
+        subset,
+        camera: PerspectiveCamera(near: .1),
+        size: PhysicalSize(100, 100),
+      );
+      expect(p.length, 1);
+      expect(p.single.recordIndex, 2);
+      expect(p.single.dataIndex, 0);
+      expect(subset.identityAt(p.single.dataIndex).$3, 2);
+    },
+  );
   test('bounded iterable consumption stops before unbounded ingestion', () {
     var consumed = 0;
     Iterable<GaussianSplat> records() sync* {

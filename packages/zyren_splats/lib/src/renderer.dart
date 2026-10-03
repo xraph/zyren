@@ -3,7 +3,7 @@ import 'package:zyren/zyren.dart';
 import 'gaussian.dart';
 import 'projection.dart';
 
-/// Native offscreen orthographic Gaussians with CPU covariance projection/sorting.
+/// Native offscreen Gaussians with CPU covariance projection/sorting.
 /// Attach [object] for scene transforms and identity; call [render] explicitly.
 /// This color-only pass does not render or depth-test other scene geometry.
 final class GaussianSplatRenderer {
@@ -36,7 +36,7 @@ final class GaussianSplatRenderer {
     final scope = owner.createChild(label: 'Gaussian splats');
     try {
       final shader = await scope.shaders.compile(
-        ShaderSource.wgsl(_wgsl, label: 'orthographic Gaussians'),
+        ShaderSource.wgsl(_wgsl, label: 'projected Gaussians'),
       );
       final origin = data.splats.first.mean;
       return GaussianSplatRenderer._(
@@ -57,7 +57,7 @@ final class GaussianSplatRenderer {
   Registration onClose(void Function() callback) => _lifetime.onClose(callback);
 
   Future<ImageData> render({
-    required OrthographicCamera camera,
+    required Camera camera,
     required PhysicalSize size,
   }) {
     if (isClosed) {

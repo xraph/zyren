@@ -11,6 +11,10 @@ dependencies:
   native_toolchain_rust: ^1.0.7
   zyren:
     path: ../zyren
+  zyren_geospatial:
+    path: ../zyren_geospatial
+  zyren_3d_tiles:
+    path: ../zyren_3d_tiles
   zyren_agents:
     path: ../zyren_agents
 dev_dependencies:

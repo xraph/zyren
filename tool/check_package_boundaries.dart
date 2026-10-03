@@ -29,8 +29,8 @@ void main(List<String> args) {
     'packages/zyren_timeline': {'zyren_timeline', 'zyren', 'zyren_agents'},
     'packages/zyren_engineering': {'zyren_engineering', 'zyren', 'crypto'},
     'packages/zyren_particles': {'zyren_particles', 'zyren', 'zyren_agents'},
-    'packages/zyren_pointclouds': {'zyren_pointclouds', 'zyren', 'zyren_agents', 'ffi'},
-    'packages/zyren_splats': {'zyren_splats', 'zyren', 'zyren_agents'},
+    'packages/zyren_pointclouds': {'zyren_pointclouds', 'zyren', 'zyren_agents', 'ffi', 'zyren_geospatial', 'zyren_3d_tiles'},
+    'packages/zyren_splats': {'zyren_splats', 'zyren', 'zyren_agents', 'zyren_pointclouds'},
     'packages/zyren_physics': {'zyren_physics', 'zyren', 'ffi', 'zyren_agents'},
     'packages/zyren_gltf_timeline': {
       'zyren_gltf_timeline',

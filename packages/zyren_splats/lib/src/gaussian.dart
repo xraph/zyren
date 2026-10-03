@@ -96,12 +96,19 @@ final class GaussianCloudData {
   final Uri sourceUri;
   final String sourceVersion;
   final List<GaussianSplat> splats;
-  GaussianCloudData._(this.sourceUri, this.sourceVersion, this.splats);
+  final List<(Uri, String, int)> _identities;
+  GaussianCloudData._(
+    this.sourceUri,
+    this.sourceVersion,
+    this.splats,
+    this._identities,
+  );
   factory GaussianCloudData({
     required Uri sourceUri,
     required String sourceVersion,
     required Iterable<GaussianSplat> splats,
     SplatLimits limits = const SplatLimits(),
+    List<(Uri, String, int)>? sourceIdentities,
   }) {
     limits.validate();
     if (!sourceUri.hasScheme ||
@@ -118,15 +125,43 @@ final class GaussianCloudData {
       records.add(splat);
     }
     if (records.isEmpty) throw ArgumentError('A Gaussian cloud needs records.');
+    final identities =
+        sourceIdentities ??
+        List.generate(records.length, (i) => (sourceUri, sourceVersion, i));
+    if (identities.length != records.length ||
+        identities.toSet().length != records.length ||
+        identities.any(
+          (id) =>
+              !id.$1.hasScheme ||
+              id.$1.hasFragment ||
+              id.$2.isEmpty ||
+              id.$2.length > 1024 ||
+              id.$3 < 0,
+        )) {
+      throw ArgumentError(
+        'Every Gaussian needs a unique, valid source identity.',
+      );
+    }
     return GaussianCloudData._(
       sourceUri,
       sourceVersion,
       List.unmodifiable(records),
+      List.unmodifiable(identities),
+    );
+  }
+
+  GaussianCloudData select(Iterable<int> indices) {
+    final selected = indices.toList();
+    return GaussianCloudData(
+      sourceUri: sourceUri,
+      sourceVersion: sourceVersion,
+      splats: selected.map((i) => splats[i]),
+      sourceIdentities: selected.map(identityAt).toList(),
     );
   }
 
   (Uri, String, int) identityAt(int index) {
     RangeError.checkValidIndex(index, splats);
-    return (sourceUri, sourceVersion, index);
+    return _identities[index];
   }
 }
