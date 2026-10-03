@@ -316,8 +316,13 @@ impl Renderer {
         ),
     ) -> wgpu::CommandEncoder {
         if !frame.settings.enabled {
-            let mut encoder =
-                self.encode_scene(frame, (output, None, depth), format, size, composition);
+            let mut encoder = self.encode_scene(
+                frame,
+                (output, None, depth, false),
+                format,
+                size,
+                composition,
+            );
             self.outlines
                 .encode(&self.device, &mut encoder, frame, output, format, true);
             return encoder;
@@ -344,7 +349,7 @@ impl Renderer {
         let mut encoder = if let Some(msaa) = &view.multisample {
             let mut encoder = self.encode_scene(
                 frame,
-                (&msaa.color, Some(resolve), &msaa.depth),
+                (&msaa.color, Some(resolve), &msaa.depth, false),
                 HDR,
                 size,
                 composition,
@@ -361,7 +366,7 @@ impl Renderer {
             );
             encoder
         } else {
-            self.encode_scene(frame, (resolve, None, depth), HDR, size, composition)
+            self.encode_scene(frame, (resolve, None, depth, false), HDR, size, composition)
         };
         if let Some(accumulation) = accumulation {
             self.copy_linear_color(&mut encoder, accumulation, scene_target, true, false);

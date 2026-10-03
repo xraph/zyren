@@ -124,6 +124,8 @@ pub struct RendererState {
     surface_depth: Option<DepthTarget>,
     #[cfg(any(target_vendor = "apple", target_os = "android"))]
     failed_surface: Option<wgpu::Texture>,
+    #[cfg(any(target_vendor = "apple", target_os = "android"))]
+    failed_surface_depth: Option<wgpu::Texture>,
     #[cfg(target_vendor = "apple")]
     pub(crate) drawable_owner: Option<crate::interop::metal::DrawableOwner>,
     pub(crate) failure: Option<String>,
@@ -334,6 +336,8 @@ impl Renderer {
                 surface_depth: None,
                 #[cfg(any(target_vendor = "apple", target_os = "android"))]
                 failed_surface: None,
+                #[cfg(any(target_vendor = "apple", target_os = "android"))]
+                failed_surface_depth: None,
                 #[cfg(target_vendor = "apple")]
                 drawable_owner: None,
                 failure: None,
@@ -825,6 +829,7 @@ impl Renderer {
             &wgpu::TextureView,
             Option<&wgpu::TextureView>,
             &wgpu::TextureView,
+            bool,
         ),
         format: wgpu::TextureFormat,
         size: [u32; 2],
@@ -835,7 +840,7 @@ impl Renderer {
             &shadows::PreparedShadows,
         ),
     ) -> wgpu::CommandEncoder {
-        let (color_view, resolve_target, depth_view) = attachments;
+        let (color_view, resolve_target, depth_view, load_depth) = attachments;
         let (materials, graph, environment, shadows) = composition;
         let vp = Mat4::from_cols_array(&self.temporal.vp(frame));
         let lighting = frame.meshes.iter().any(|m| m.pbr.is_some()).then(|| {
@@ -1083,12 +1088,13 @@ impl Renderer {
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
                     view: depth_view,
                     depth_ops: Some(wgpu::Operations {
-                        load: if mask {
+                        load: if mask || (load_depth && !capture) {
                             wgpu::LoadOp::Load
                         } else {
                             wgpu::LoadOp::Clear(frame.settings.depth_clear())
                         },
-                        store: if capture
+                        store: if load_depth
+                            || capture
                             || frame.temporal.is_some()
                             || frame.settings.enabled
                             || self.outlines.view(frame).is_some()
@@ -1340,7 +1346,22 @@ impl Renderer {
         width: u32,
         height: u32,
     ) -> Result<(), String> {
+        self.render_to_surface_with_depth(frame, texture, None, width, height)
+    }
+
+    #[cfg(any(target_vendor = "apple", target_os = "android"))]
+    pub(crate) fn render_to_surface_with_depth(
+        &mut self,
+        frame: &Frame,
+        texture: wgpu::Texture,
+        initialized_depth: Option<wgpu::Texture>,
+        width: u32,
+        height: u32,
+    ) -> Result<(), String> {
         pixel_len(width, height)?;
+        if initialized_depth.is_some() {
+            Self::check_external_depth_frame(frame)?;
+        }
         self.check_shadows(frame)?;
         self.check_temporal(frame, [width, height])?;
         self.check_physical_bindings(frame)?;
@@ -1372,10 +1393,11 @@ impl Renderer {
         };
         let shadows = self.prepare_shadows(frame)?;
         self.prepare_temporal(frame, [width, height])?;
-        if self
-            .surface_depth
-            .as_ref()
-            .is_none_or(|target| target.width != width || target.height != height)
+        if initialized_depth.is_none()
+            && self
+                .surface_depth
+                .as_ref()
+                .is_none_or(|target| target.width != width || target.height != height)
         {
             let depth = self.device.create_texture(&wgpu::TextureDescriptor {
                 label: Some("shared frame depth"),
@@ -1398,13 +1420,25 @@ impl Renderer {
                 _texture: depth,
             });
         }
+        let supplied_depth = initialized_depth
+            .as_ref()
+            .map(|depth| depth.create_view(&Default::default()));
         let encoder = self.encode_frame(
             frame,
             &texture.create_view(&Default::default()),
-            &self.surface_depth.as_ref().unwrap().view,
+            supplied_depth
+                .as_ref()
+                .unwrap_or_else(|| &self.surface_depth.as_ref().unwrap().view),
             texture.format(),
             [texture.width(), texture.height()],
-            (graph.as_ref(), &materials, true, &environment, &shadows),
+            (
+                graph.as_ref(),
+                &materials,
+                true,
+                &environment,
+                &shadows,
+                initialized_depth.is_some(),
+            ),
         );
         let result = self
             .submit(encoder, graph.as_ref(), &materials, &environment)
@@ -1412,11 +1446,25 @@ impl Renderer {
         if let Err(error) = result {
             // Stop future submissions and keep the imported resource owned.
             self.failed_surface = Some(texture);
+            self.failed_surface_depth = initialized_depth;
             return Err(error);
         }
         self.accept_shadows(shadows);
         self.temporal.accept();
         self.accept_history(frame);
+        Ok(())
+    }
+
+    /// Supplied depth must remain the main scene attachment for every draw.
+    #[cfg(any(target_vendor = "apple", target_os = "android"))]
+    pub(crate) fn check_external_depth_frame(frame: &Frame) -> Result<(), String> {
+        if frame.settings.enabled
+            || frame.temporal.is_some()
+            || frame.sample_count() != 1
+            || frame.meshes.iter().any(|mesh| mesh.transmissive())
+        {
+            return Err("initialized external depth does not support effects, temporal rendering, multisampling or transmission capture".into());
+        }
         Ok(())
     }
 
@@ -1462,7 +1510,14 @@ impl Renderer {
             &target.depth_view,
             wgpu::TextureFormat::Rgba8UnormSrgb,
             [width, height],
-            (graph.as_ref(), &materials, false, &environment, &shadows),
+            (
+                graph.as_ref(),
+                &materials,
+                false,
+                &environment,
+                &shadows,
+                false,
+            ),
         );
         encoder.copy_texture_to_buffer(
             target.color.as_image_copy(),

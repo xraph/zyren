@@ -431,9 +431,10 @@ impl Renderer {
             bool,
             &super::environment::PreparedEnvironment,
             &super::shadows::PreparedShadows,
+            bool,
         ),
     ) -> wgpu::CommandEncoder {
-        let (graph, materials, surface, environment, shadows) = composition;
+        let (graph, materials, surface, environment, shadows, load_depth) = composition;
         if frame.settings.enabled {
             return self.encode_effects(
                 frame,
@@ -470,6 +471,7 @@ impl Renderer {
                 multisample_color.as_ref().unwrap_or(resolve),
                 multisample.map(|_| resolve),
                 multisample_depth.as_ref().unwrap_or(depth),
+                load_depth,
             ),
             scene_format,
             size,

@@ -8,9 +8,9 @@ use objc2_metal::{
     MTLTextureType, MTLTextureUsage,
 };
 
-/// Keeps the display pool's lease alive through failed GPU retirement.
+/// Keeps an adapter's texture lease alive through failed GPU retirement.
 pub(crate) struct DrawableOwner(#[allow(dead_code)] Retained<AnyObject>);
-// SAFETY: callers pass a Metal drawable whose retain/release is thread safe.
+// SAFETY: callers pass an owner whose retain/release is thread safe.
 // The object is never messaged here; Renderer serializes all GPU access.
 unsafe impl Send for DrawableOwner {}
 
@@ -60,6 +60,42 @@ pub unsafe extern "C" fn fg_metal_render_texture(
     texture: *mut std::ffi::c_void,
     owner: *mut std::ffi::c_void,
 ) -> u32 {
+    unsafe { render_metal(handle, json, length, texture, std::ptr::null_mut(), owner) }
+}
+
+/// Renders with caller-initialized Depth32Float in the frame's depth convention.
+/// Color and depth must have matching dimensions on the renderer's Metal device.
+/// Effects, temporal rendering, MSAA and transmission capture are rejected.
+///
+/// # Safety
+/// The packet is readable for `length` bytes. All Objective-C pointers are live
+/// and support thread-safe retain/release. The caller must finish GPU writes to
+/// every depth pixel before calling and grant exclusive access to both textures.
+/// Access returns only on success; on failure dispose the renderer and wait for
+/// retirement. `owner` retains any external producer backing the two textures.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn fg_metal_render_targets(
+    handle: u64,
+    packet: *const u8,
+    length: usize,
+    color: *mut std::ffi::c_void,
+    initialized_depth: *mut std::ffi::c_void,
+    owner: *mut std::ffi::c_void,
+) -> u32 {
+    if initialized_depth.is_null() {
+        return crate::guard(|| Err::<u32, String>("initialized depth is required".into()));
+    }
+    unsafe { render_metal(handle, packet, length, color, initialized_depth, owner) }
+}
+
+unsafe fn render_metal(
+    handle: u64,
+    json: *const u8,
+    length: usize,
+    texture: *mut std::ffi::c_void,
+    initialized_depth: *mut std::ffi::c_void,
+    owner: *mut std::ffi::c_void,
+) -> u32 {
     crate::guard(|| {
         if json.is_null()
             || texture.is_null()
@@ -87,8 +123,10 @@ pub unsafe extern "C" fn fg_metal_render_texture(
         ));
         let texture =
             unsafe { Retained::retain(texture.cast::<ProtocolObject<dyn MTLTexture>>()) }.unwrap();
+        let depth =
+            unsafe { Retained::retain(initialized_depth.cast::<ProtocolObject<dyn MTLTexture>>()) };
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| unsafe {
-            renderer.render_to_metal(&frame, texture)
+            renderer.render_to_metal_with_depth(&frame, texture, depth)
         }))
         .unwrap_or_else(|_| Err("Metal drawable rendering panicked".into()));
         match result {
@@ -180,7 +218,38 @@ impl Renderer {
         frame: &Frame,
         texture: Retained<ProtocolObject<dyn MTLTexture>>,
     ) -> Result<(), String> {
+        unsafe { self.render_to_metal_with_depth(frame, texture, None) }
+    }
+
+    /// Render into an adapter's color target and optional initialized depth.
+    ///
+    /// # Safety
+    /// Both textures obey `render_to_metal`'s ownership contract. Depth has been
+    /// fully initialized by a completed producer and uses the frame's projection
+    /// and depth convention. No producer or consumer may access either texture
+    /// until success, or renderer retirement after failure.
+    pub unsafe fn render_to_metal_with_depth(
+        &mut self,
+        frame: &Frame,
+        texture: Retained<ProtocolObject<dyn MTLTexture>>,
+        depth: Option<Retained<ProtocolObject<dyn MTLTexture>>>,
+    ) -> Result<(), String> {
         let device = self.metal_device()?;
+        if let Some(depth) = &depth {
+            Self::check_external_depth_frame(frame)?;
+            if Retained::as_ptr(&depth.device()) != Retained::as_ptr(&device)
+                || depth.textureType() != MTLTextureType::Type2D
+                || depth.pixelFormat() != MTLPixelFormat::Depth32Float
+                || depth.mipmapLevelCount() != 1
+                || depth.arrayLength() != 1
+                || depth.sampleCount() != 1
+                || depth.width() != texture.width()
+                || depth.height() != texture.height()
+                || !depth.usage().contains(MTLTextureUsage::RenderTarget)
+            {
+                return Err("initialized depth must match the color size and renderer device with a Depth32Float render-target layout".into());
+            }
+        }
         if Retained::as_ptr(&texture.device()) != Retained::as_ptr(&device)
             || texture.textureType() != MTLTextureType::Type2D
             || texture.pixelFormat() != MTLPixelFormat::BGRA8Unorm_sRGB
@@ -237,7 +306,50 @@ impl Renderer {
                     wgpu::TextureUses::UNINITIALIZED,
                 )
         };
-        self.render_to_surface(frame, imported, width, height)
+        let depth = depth.map(|depth| {
+            // SAFETY: layout and device were checked above. The caller observes
+            // producer completion before transfer and initializes every pixel.
+            let raw = unsafe {
+                wgpu::hal::metal::Device::texture_from_raw(
+                    depth,
+                    wgpu::TextureFormat::Depth32Float,
+                    MTLTextureType::Type2D,
+                    1,
+                    1,
+                    wgpu::hal::CopyExtent {
+                        width,
+                        height,
+                        depth: 1,
+                    },
+                    None,
+                )
+            };
+            let descriptor = wgpu::TextureDescriptor {
+                label: Some("Apple initialized depth"),
+                size,
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Depth32Float,
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                view_formats: &[],
+            };
+            // SAFETY: the descriptor matches the retained Metal texture, whose
+            // initialized contents must be loaded rather than cleared.
+            unsafe {
+                self.device
+                    .create_texture_from_hal::<wgpu::hal::api::Metal>(
+                        raw,
+                        &descriptor,
+                        wgpu::TextureUses::DEPTH_STENCIL_WRITE,
+                    )
+            }
+        });
+        if depth.is_some() {
+            self.render_to_surface_with_depth(frame, imported, depth, width, height)
+        } else {
+            self.render_to_surface(frame, imported, width, height)
+        }
     }
 }
 

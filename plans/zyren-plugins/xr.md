@@ -80,6 +80,16 @@ The plugin pauses on backgrounding and requires an explicit start to resume.
 
 ## Shared dependencies and requests
 
+- Phase 4 request, 2026-10-02: add a compatible native Metal entry point in
+  `packages/zyren_native/native/src/interop/metal.rs` for a caller-owned color
+  texture and initialized Depth32Float texture. Pass the depth load choice through
+  `src/renderer.rs`, `src/renderer/composition.rs` and `src/renderer/effects.rs`.
+  Existing callers keep clearing their own depth. The new path validates device,
+  dimensions and layout, retains both textures through completion, and rejects
+  render modes that replace the supplied depth target. Native GPU tests belong in
+  `tests/metal_target.rs`. These paths have no pending edits or overlapping
+  requests in the other plugin plans at this audit. ARKit data stays in this plugin.
+
 - `pubspec.yaml`: add `packages/zyren_xr` and its package-local example under the
   shared lock after re-reading other owners' entries. Resolve dependencies under
   the same lock. No core import or public API changes are needed for phase 1.

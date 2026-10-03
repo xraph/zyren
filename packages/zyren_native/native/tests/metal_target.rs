@@ -187,3 +187,116 @@ fn native_surface_premultiplies_encoded_color_and_capture_stays_straight() {
         assert!((i32::from(*actual) - expected).abs() <= 2);
     }
 }
+
+#[test]
+#[ignore = "requires a native Metal device"]
+fn initialized_depth_occludes_opaque_and_blended_geometry() {
+    use objc2_metal::{
+        MTLCommandBuffer, MTLCommandEncoder, MTLCommandQueue, MTLLoadAction,
+        MTLRenderPassDescriptor, MTLStoreAction,
+    };
+    let mut renderer = pollster::block_on(Renderer::new()).unwrap();
+    let device = renderer.metal_device().unwrap();
+    let queue = device.newCommandQueue().unwrap();
+    let descriptor = MTLTextureDescriptor::new();
+    unsafe {
+        descriptor.setWidth(16);
+        descriptor.setHeight(16);
+    }
+    descriptor.setPixelFormat(MTLPixelFormat::BGRA8Unorm_sRGB);
+    descriptor.setUsage(MTLTextureUsage::RenderTarget | MTLTextureUsage::ShaderRead);
+    descriptor.setStorageMode(MTLStorageMode::Shared);
+    let color = device.newTextureWithDescriptor(&descriptor).unwrap();
+    descriptor.setPixelFormat(MTLPixelFormat::Depth32Float);
+    descriptor.setStorageMode(MTLStorageMode::Private);
+    let depth = device.newTextureWithDescriptor(&descriptor).unwrap();
+    let initialize = |value: f64| {
+        let pass = MTLRenderPassDescriptor::new();
+        let attachment = pass.depthAttachment();
+        attachment.setTexture(Some(&depth));
+        attachment.setLoadAction(MTLLoadAction::Clear);
+        attachment.setStoreAction(MTLStoreAction::Store);
+        attachment.setClearDepth(value);
+        let command = queue.commandBuffer().unwrap();
+        let encoder = command.renderCommandEncoderWithDescriptor(&pass).unwrap();
+        encoder.endEncoding();
+        command.commit();
+        command.waitUntilCompleted();
+        assert_eq!(
+            command.status(),
+            objc2_metal::MTLCommandBufferStatus::Completed
+        );
+        assert!(command.error().is_none());
+    };
+    let pixel = || {
+        let mut pixels = [0u8; 16 * 16 * 4];
+        unsafe {
+            color.getBytes_bytesPerRow_fromRegion_mipmapLevel(
+                std::ptr::NonNull::new(pixels.as_mut_ptr().cast()).unwrap(),
+                64,
+                MTLRegion {
+                    origin: MTLOrigin { x: 0, y: 0, z: 0 },
+                    size: MTLSize {
+                        width: 16,
+                        height: 16,
+                        depth: 1,
+                    },
+                },
+                0,
+            );
+        }
+        pixels[(8 * 16 + 8) * 4..(8 * 16 + 8) * 4 + 4].to_vec()
+    };
+    let identity = glam::Mat4::IDENTITY.to_cols_array();
+    let mut frame: Frame = serde_json::from_value(json!({
+        "version":1, "view_projection":identity, "background":[0,0,0],
+        "background_alpha":0, "light_direction":[0,0,1], "ambient":1,
+        "geometries":[{"id":1,"positions":[[-1,-1,0.4],[1,-1,0.4],[0,1,0.4]],
+            "normals":[[0,0,1],[0,0,1],[0,0,1]],"indices":[0,1,2]}],
+        "meshes":[{"geometry":1,"model":identity,"color":[1,0,0],"unlit":true}]
+    }))
+    .unwrap();
+    for alpha in [1., 0.5] {
+        frame.meshes[0].opacity = alpha;
+        frame.meshes[0].alpha_mode = if alpha < 1. { 2 } else { 0 };
+        for (prefill, visible) in [(0.2, false), (0.8, true), (0.2, false)] {
+            initialize(prefill);
+            unsafe {
+                renderer.render_to_metal_with_depth(&frame, color.clone(), Some(depth.clone()))
+            }
+            .unwrap();
+            frame.geometries.clear();
+            let value = pixel();
+            if visible {
+                assert!(value[2] > 100 && value[3] > 100, "{value:?}");
+            } else {
+                assert_eq!(value, [0, 0, 0, 0]);
+            }
+        }
+    }
+    // The ordinary entry point must clear its own depth after imported frames.
+    unsafe { renderer.render_to_metal(&frame, color.clone()) }.unwrap();
+    assert!(pixel()[2] > 100);
+    frame.settings.depth_strategy = 1;
+    frame.meshes[0].reversed_depth = true;
+    for (prefill, visible) in [(0.2, true), (0.8, false)] {
+        initialize(prefill);
+        unsafe { renderer.render_to_metal_with_depth(&frame, color.clone(), Some(depth.clone())) }
+            .unwrap();
+        assert_eq!(pixel()[2] > 100, visible);
+    }
+    let submitted = renderer.counters().submitted_frames;
+    descriptor.setPixelFormat(MTLPixelFormat::RGBA8Unorm);
+    let invalid = device.newTextureWithDescriptor(&descriptor).unwrap();
+    assert!(
+        unsafe { renderer.render_to_metal_with_depth(&frame, color.clone(), Some(invalid)) }
+            .is_err()
+    );
+    frame.settings.enabled = true;
+    assert!(
+        unsafe { renderer.render_to_metal_with_depth(&frame, color.clone(), Some(depth.clone())) }
+            .is_err()
+    );
+    assert_eq!(renderer.counters().submitted_frames, submitted);
+    assert_eq!(renderer.counters().readback_bytes, 0);
+}
