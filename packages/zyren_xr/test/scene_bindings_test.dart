@@ -7,8 +7,12 @@ XrSnapshot snapshot({
   String tracking = 'normal',
   bool anchor = true,
   int revision = 1,
+  int originEpoch = 0,
+  String sessionId = 'session',
 }) => XrSnapshot.fromMessage({
   'state': 'running',
+  'sessionId': sessionId,
+  'originEpoch': originEpoch,
   'revision': revision,
   'nativeTimestamp': 10.1,
   'frame': {
@@ -31,6 +35,25 @@ XrSnapshot snapshot({
 });
 
 void main() {
+  test('rejected ancestor binding preserves the caller hierarchy', () {
+    final object = Group(), root = Group();
+    object.add(root);
+    final bindings = XrSceneBindings(
+      sessionId: 'session',
+      root: root,
+      originEpoch: 0,
+    );
+    expect(
+      () => bindings.bind(anchorId: 'anchor', object: object),
+      throwsArgumentError,
+    );
+    expect(object.parent, isNull);
+    expect(root.parent, same(object));
+    expect(root.children, isEmpty);
+    expect(bindings.bindings, isEmpty);
+    bindings.dispose();
+    expect(root.parent, same(object));
+  });
   test(
     'anchor preserves object/source identity through parent transforms and tracking loss',
     () {
@@ -53,24 +76,15 @@ void main() {
         0,
         1,
       ]);
-      bindings.update(
-        snapshot(),
-        sessionId: 'session',
-        originEpoch: 0,
-        sceneFromSession: source,
-      );
+      bindings.update(snapshot(), sceneFromSession: source);
       expect(object.worldMatrix.storage.sublist(12, 15), [22, 4, 4]);
       expect(binding.runtimeObjectId, object.id);
       expect(binding.sourceId, 'asset:pump');
       expect(binding.tracked, isTrue);
-      bindings.update(
-        snapshot(tracking: 'limited'),
-        sessionId: 'session',
-        originEpoch: 0,
-      );
+      bindings.update(snapshot(tracking: 'limited'));
       expect(binding.tracked, isFalse);
       expect(bindings.bindings, hasLength(1));
-      bindings.update(snapshot(), sessionId: 'session', originEpoch: 0);
+      bindings.update(snapshot());
       expect(binding.tracked, isTrue);
       bindings.dispose();
       expect(object.parent, isNull);
@@ -88,39 +102,17 @@ void main() {
         originEpoch: 0,
       );
       bindings.bind(anchorId: 'anchor', object: object);
-      expect(
-        bindings.update(
-          snapshot(anchor: false),
-          sessionId: 'session',
-          originEpoch: 0,
-        ),
-        isEmpty,
-      );
+      expect(bindings.update(snapshot(anchor: false)), isEmpty);
       expect(bindings.bindings, hasLength(1));
-      bindings.update(snapshot(), sessionId: 'session', originEpoch: 0);
-      expect(
-        bindings.update(
-          snapshot(anchor: false),
-          sessionId: 'session',
-          originEpoch: 0,
-        ),
-        ['anchor'],
-      );
+      bindings.update(snapshot());
+      expect(bindings.update(snapshot(anchor: false)), ['anchor']);
       expect(object.parent, isNull);
       bindings.bind(anchorId: 'anchor', object: object);
-      expect(
-        bindings.update(
-          snapshot(revision: 2),
-          sessionId: 'session',
-          originEpoch: 1,
-        ),
-        ['anchor'],
-      );
+      expect(bindings.update(snapshot(revision: 2, originEpoch: 1)), [
+        'anchor',
+      ]);
       expect(root.children, isEmpty);
-      expect(
-        () => bindings.update(snapshot(), sessionId: 'session', originEpoch: 0),
-        throwsA(isA<XrException>()),
-      );
+      expect(() => bindings.update(snapshot()), throwsA(isA<XrException>()));
     },
   );
 
@@ -133,14 +125,11 @@ void main() {
     );
     bindings.bind(anchorId: 'anchor', object: object);
     expect(
-      () => bindings.update(snapshot(), sessionId: 'other', originEpoch: 0),
+      () => bindings.update(snapshot(sessionId: 'other')),
       throwsA(isA<XrException>()),
     );
     root.scale = const Vec3(2, 1, 1);
-    expect(
-      () => bindings.update(snapshot(), sessionId: 'session', originEpoch: 0),
-      throwsArgumentError,
-    );
+    expect(() => bindings.update(snapshot()), throwsArgumentError);
     expect(bindings.bindings.single.tracked, isFalse);
     expect(
       () => bindings.bind(anchorId: 'other', object: object),

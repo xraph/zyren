@@ -46,6 +46,15 @@ final class XrSceneBindings {
     if (object.parent != null || identical(object, root)) {
       throw ArgumentError('Detach the object before assigning its XR owner.');
     }
+    for (
+      Object3D? ancestor = root;
+      ancestor != null;
+      ancestor = ancestor.parent
+    ) {
+      if (identical(ancestor, object)) {
+        throw ArgumentError('An XR binding cannot contain its scene root.');
+      }
+    }
     if (_bindings.length >= 128) {
       throw const XrException('anchorLimit', 'Scene anchor bindings are full.');
     }
@@ -57,16 +66,12 @@ final class XrSceneBindings {
     return binding;
   }
 
-  /// Returns removed anchor IDs. Supply the identity/epoch from the same native
-  /// snapshot; a session UUID is never reused as the application's source ID.
-  List<String> update(
-    XrSnapshot snapshot, {
-    required String sessionId,
-    required int originEpoch,
-    XrPose? sceneFromSession,
-  }) {
+  /// Returns removed anchor IDs. The native snapshot supplies session identity
+  /// and origin epoch; neither is an application source ID.
+  List<String> update(XrSnapshot snapshot, {XrPose? sceneFromSession}) {
     _checkOpen();
-    if (sessionId != this.sessionId ||
+    final originEpoch = snapshot.originEpoch;
+    if (snapshot.sessionId != sessionId ||
         originEpoch < _originEpoch ||
         snapshot.revision < _lastRevision) {
       throw const XrException('staleOrigin', 'The binding origin is stale.');

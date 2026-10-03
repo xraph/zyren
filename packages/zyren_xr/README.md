@@ -9,8 +9,8 @@ effects, temporal rendering, MSAA and transmission capture are not supported by
 the supplied-depth path. Physical occlusion remains unqualified.
 
 Use `XrSceneBindings` to attach your scene objects to native anchor IDs. Keep
-your application source ID on the binding and pass the snapshot's session ID
-and origin epoch when updating it. Tracking loss hides content. An origin reset
+your application source ID on the binding. Updates validate the native snapshot's
+session ID and origin epoch. Tracking loss hides content. An origin reset
 or observed anchor removal detaches it without disposing your mesh resources.
 
 Use `zyren_xr` to run an ARKit world-tracking session and inspect its camera pose,
