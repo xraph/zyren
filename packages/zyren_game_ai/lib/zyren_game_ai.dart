@@ -32,6 +32,8 @@ part 'src/perception/assembler.dart';
 
 part 'src/brain/memory.dart';
 part 'src/brain/belief.dart';
+part 'src/brain/team.dart';
+part 'src/brain/communication.dart';
 part 'src/brain/goal.dart';
 part 'src/brain/brain.dart';
 part 'src/brain/utility.dart';
@@ -41,6 +43,7 @@ part 'src/brain/action_decoder.dart';
 part 'src/brain/training_actions.dart';
 part 'src/brain/policy_state.dart';
 part 'src/brain/policy.dart';
+part 'src/brain/policy_group.dart';
 part 'src/brain/hybrid.dart';
 part 'src/brain/decision_scheduler.dart';
 
