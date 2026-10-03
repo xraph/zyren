@@ -7,12 +7,16 @@ import 'package:zyren_3d_tiles/zyren_3d_tiles.dart';
 /// Native credits for the current viewport, with full text available on narrow views.
 class TileAttributionBar extends StatelessWidget {
   final bool googleMaps;
+  final bool expanded;
+  final bool showSourcesButton;
   final List<String> tileCredits;
   final List<TileAttribution3D> providerCredits;
   final Future<bool> Function(Uri)? onOpenLink;
   const TileAttributionBar({
     super.key,
     this.googleMaps = false,
+    this.expanded = false,
+    this.showSourcesButton = true,
     this.tileCredits = const [],
     this.providerCredits = const [],
     this.onOpenLink,
@@ -104,34 +108,33 @@ class TileAttributionBar extends StatelessWidget {
     );
   }
 
+  Widget _details(BuildContext context) => DefaultTextStyle.merge(
+    style: const TextStyle(fontSize: 13),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (googleMaps)
+          const Padding(
+            padding: EdgeInsets.only(bottom: 8),
+            child: Text('Google Maps'),
+          ),
+        if (tileCredits.isNotEmpty) SelectableText(tileCredits.join('; ')),
+        for (final credit in providerCredits)
+          Wrap(
+            spacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: _credit(context, credit),
+          ),
+      ],
+    ),
+  );
+
   void _sources(BuildContext context) => showDialog<void>(
     context: context,
     builder: (dialog) => AlertDialog(
       title: const Text('Data sources'),
-      content: SingleChildScrollView(
-        child: DefaultTextStyle.merge(
-          style: const TextStyle(fontSize: 13),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (googleMaps)
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 8),
-                  child: Text('Google Maps'),
-                ),
-              if (tileCredits.isNotEmpty)
-                SelectableText(tileCredits.join('; ')),
-              for (final credit in providerCredits)
-                Wrap(
-                  spacing: 4,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: _credit(dialog, credit),
-                ),
-            ],
-          ),
-        ),
-      ),
+      content: SingleChildScrollView(child: _details(dialog)),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(dialog),
@@ -146,10 +149,11 @@ class TileAttributionBar extends StatelessWidget {
     if (!googleMaps && tileCredits.isEmpty && providerCredits.isEmpty) {
       return const SizedBox.shrink();
     }
+    if (expanded) return _details(context);
     return Material(
       color: const Color(0xff101820),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         child: DefaultTextStyle.merge(
           style: const TextStyle(fontSize: 12, color: Colors.white),
           child: LayoutBuilder(
@@ -183,10 +187,11 @@ class TileAttributionBar extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                    TextButton(
-                      onPressed: () => _sources(context),
-                      child: const Text('Data sources'),
-                    ),
+                    if (showSourcesButton)
+                      TextButton(
+                        onPressed: () => _sources(context),
+                        child: const Text('Data sources'),
+                      ),
                   ],
                 ),
               ],

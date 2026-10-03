@@ -1,3 +1,4 @@
+import 'lab_test_controls.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:planet/google_tiles_lab.dart';
@@ -14,21 +15,28 @@ void main() {
     for (final width in [1000.0, 390.0]) {
       await tester.binding.setSurfaceSize(Size(width, 700));
       await tester.pumpWidget(const GoogleTilesLabApp(clouds: true));
+      await openLabControls(tester);
       final lab = tester.state<GoogleTilesLabState>(
         find.byType(GoogleTilesLab),
       );
       final control = find.byKey(const ValueKey('cloud-quality'));
       expect(control, findsOneWidget);
-      await tester.tap(find.byKey(const ValueKey('cloud-quality-ultra')));
+      await tapLabControl(
+        tester,
+        find.byKey(const ValueKey('cloud-quality-ultra')),
+      );
       await tester.pumpAndSettle();
       expect(lab.profile.cloudQuality.preset, CloudQualityPreset.ultra);
       final shadows = find.byKey(const ValueKey('cloud-shadows'));
       final shadowQuality = find.byKey(const ValueKey('cloud-shadow-quality'));
-      await tester.tap(find.byKey(const ValueKey('cloud-shadow-quality-low')));
+      await tapLabControl(
+        tester,
+        find.byKey(const ValueKey('cloud-shadow-quality-low')),
+      );
       await tester.pumpAndSettle();
       expect(lab.profile.cloudQuality.shadowPreset, CloudQualityPreset.low);
       expect(lab.profile.cloudQuality.preset, CloudQualityPreset.ultra);
-      await tester.tap(shadows);
+      await tapLabControl(tester, shadows);
       await tester.pumpAndSettle();
       expect(lab.profile.cloudQuality.shadowsEnabled, false);
       expect(
@@ -37,7 +45,10 @@ void main() {
             .onChanged,
         isNull,
       );
-      await tester.tap(find.byKey(const ValueKey('cloud-quality-auto')));
+      await tapLabControl(
+        tester,
+        find.byKey(const ValueKey('cloud-quality-auto')),
+      );
       await tester.pumpAndSettle();
       expect(
         lab.profile.cloudQuality.preset,
@@ -45,7 +56,7 @@ void main() {
       );
       expect(lab.profile.cloudQuality.shadowsEnabled, false);
       expect(lab.profile.cloudQuality.shadowPreset, CloudQualityPreset.low);
-      await tester.tap(shadows);
+      await tapLabControl(tester, shadows);
       await tester.pumpAndSettle();
       expect(lab.profile.cloudQuality.shadowsEnabled, true);
       expect(lab.profile.cloudQuality.shadowPreset, CloudQualityPreset.low);
@@ -87,13 +98,14 @@ void main() {
     for (final width in [1000.0, 390.0]) {
       await tester.binding.setSurfaceSize(Size(width, 700));
       await tester.pumpWidget(const GoogleTilesLabApp());
+      await openLabControls(tester);
       await tester.pump();
       expect(find.byType(ZeroState), findsOneWidget);
       expect(find.text('Google Maps access is required'), findsOneWidget);
       expect(find.text('Check access'), findsOneWidget);
       expect(find.text('Manhattan'), findsOneWidget);
       expect(find.text('Fuji'), findsOneWidget);
-      await tester.tap(find.text('Fuji'));
+      await tapLabControl(tester, find.text('Fuji'));
       await tester.pump();
       final lab = tester.state<GoogleTilesLabState>(
         find.byType(GoogleTilesLab),
@@ -106,7 +118,7 @@ void main() {
         lab.controller.camera.position.distanceTo(lab.controller.camera.target),
         closeTo(7000, 1e-6),
       );
-      await tester.tap(find.text('Manhattan'));
+      await tapLabControl(tester, find.text('Manhattan'));
       await tester.pump();
       expect(lab.preset, GoogleTilesPreset.manhattan);
       expect(
@@ -114,6 +126,8 @@ void main() {
         closeTo(3000, 1e-6),
       );
       expect(tester.takeException(), isNull);
+      await tester.tap(find.byKey(const ValueKey('panel-close')));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Check access'));
       await tester.pump();
       expect(find.text('Google Maps access is required'), findsOneWidget);

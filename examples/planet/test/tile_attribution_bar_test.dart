@@ -49,6 +49,40 @@ void main() {
     },
   );
 
+  testWidgets('inline source details keep links without opening a popup', (
+    tester,
+  ) async {
+    final opened = <Uri>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: TileAttributionBar(
+            expanded: true,
+            googleMaps: true,
+            tileCredits: const ['Alpha', 'Beta'],
+            providerCredits: const [
+              TileAttribution3D(
+                html: '<a href="https://cesium.com/">Cesium</a>',
+                collapsible: true,
+              ),
+            ],
+            onOpenLink: (uri) async {
+              opened.add(uri);
+              return true;
+            },
+          ),
+        ),
+      ),
+    );
+    expect(find.text('Alpha; Beta'), findsOneWidget);
+    expect(find.text('Google Maps'), findsOneWidget);
+    expect(find.text('Data sources'), findsNothing);
+    await tester.tap(find.text('Cesium'));
+    expect(opened, [Uri.parse('https://cesium.com/')]);
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('provider markup cannot execute or create non-HTTPS links', (
     tester,
   ) async {

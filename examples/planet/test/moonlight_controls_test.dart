@@ -1,3 +1,4 @@
+import 'lab_test_controls.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:planet/geospatial_scene.dart';
@@ -11,6 +12,7 @@ void main() {
     for (final width in [1000.0, 390.0]) {
       await tester.binding.setSurfaceSize(Size(width, 700));
       await tester.pumpWidget(const GoogleTilesLabApp(clouds: true));
+      await openLabControls(tester);
       final lab = tester.state<GoogleTilesLabState>(
         find.byType(GoogleTilesLab),
       );
@@ -23,24 +25,27 @@ void main() {
       expect(lab.profile.air.maxStarResolution, greaterThanOrEqualTo(1920));
       final daytime = lab.profile.date;
       expect(lab.profile.starIntensity, 1000);
-      await tester.tap(night);
+      await tapLabControl(tester, night);
       await tester.pumpAndSettle();
       expect(lab.profile.nightView, true);
       expect(lab.profile.starIntensity, 50000);
       expect(lab.profile.date, isNot(daytime));
-      await tester.tap(find.byKey(const ValueKey('moonlight-natural')));
+      await tapLabControl(
+        tester,
+        find.byKey(const ValueKey('moonlight-natural')),
+      );
       await tester.pumpAndSettle();
       expect(lab.profile.moonlight, MoonlightSelection.natural);
-      await tester.tap(find.text('London'));
+      await tapLabControl(tester, find.text('London'));
       await tester.pumpAndSettle();
       expect(lab.profile.moonlight, MoonlightSelection.natural);
       expect(lab.profile.nightView, true);
       expect(tester.widget<FilterChip>(night).selected, true);
-      await tester.tap(night);
+      await tapLabControl(tester, night);
       await tester.pumpAndSettle();
       expect(lab.profile.date, lab.preset.utcDate(year: 2026));
       expect(lab.profile.starIntensity, 1000);
-      await tester.tap(find.byKey(const ValueKey('moonlight-off')));
+      await tapLabControl(tester, find.byKey(const ValueKey('moonlight-off')));
       await tester.pumpAndSettle();
       expect(lab.profile.moonlight, MoonlightSelection.off);
       expect(tester.takeException(), isNull);

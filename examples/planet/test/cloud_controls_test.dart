@@ -1,3 +1,4 @@
+import 'lab_test_controls.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:planet/google_tiles_lab.dart';
@@ -9,6 +10,7 @@ void main() {
     for (final width in [1000.0, 390.0]) {
       await tester.binding.setSurfaceSize(Size(width, 700));
       await tester.pumpWidget(const GoogleTilesLabApp(clouds: true));
+      await openLabControls(tester);
       final lab = tester.state<GoogleTilesLabState>(
         find.byType(GoogleTilesLab),
       );
@@ -21,26 +23,39 @@ void main() {
       expect(tester.widget<Slider>(density).value, 1);
       expect(tester.widget<Slider>(sparsity).value, 0);
       expect(tester.widget<FilterChip>(animation).selected, true);
-      await tester.tap(density);
+      await tapLabControl(tester, density);
       await tester.pumpAndSettle();
       expect(tester.widget<Slider>(density).value, closeTo(.5, .06));
       expect(lab.profile.cloudDensity, closeTo(.5, .06));
-      await tester.tap(sparsity);
+      await tapLabControl(tester, sparsity);
       await tester.pumpAndSettle();
       expect(tester.widget<Slider>(sparsity).value, closeTo(.5, .06));
       expect(lab.profile.cloudSparsity, closeTo(.5, .06));
       expect(lab.profile.cloudDensity, closeTo(.5, .06));
-      await tester.tap(animation);
+      await tapLabControl(tester, animation);
       await tester.pumpAndSettle();
       expect(tester.widget<FilterChip>(animation).selected, false);
       expect(lab.profile.cloudAnimationEnabled, false);
-      await tester.tap(find.text('London'));
+      await tapLabControl(tester, find.text('London'));
       await tester.pumpAndSettle();
       expect(tester.widget<Slider>(density).value, closeTo(.5, .06));
       expect(tester.widget<Slider>(sparsity).value, closeTo(.5, .06));
       expect(tester.widget<FilterChip>(animation).selected, false);
-      await tester.tap(find.byKey(const ValueKey('cloud-quality-low')));
+      await tapLabControl(
+        tester,
+        find.byKey(const ValueKey('cloud-quality-low')),
+      );
       await tester.pumpAndSettle();
+      expect(tester.widget<Slider>(density).value, closeTo(.5, .06));
+      expect(tester.widget<Slider>(sparsity).value, closeTo(.5, .06));
+      expect(tester.widget<FilterChip>(animation).selected, false);
+      await tester.tap(find.byKey(const ValueKey('panel-close')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('cloud-density')), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('info-toggle')));
+      await tester.pumpAndSettle();
+      expect(find.text('Data sources'), findsOneWidget);
+      await openLabControls(tester);
       expect(tester.widget<Slider>(density).value, closeTo(.5, .06));
       expect(tester.widget<Slider>(sparsity).value, closeTo(.5, .06));
       expect(tester.widget<FilterChip>(animation).selected, false);

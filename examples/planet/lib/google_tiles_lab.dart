@@ -14,6 +14,7 @@ import 'preset_globe_controls.dart';
 import 'zero_state.dart';
 import 'rendering_choices.dart';
 import 'render_telemetry.dart';
+import 'photorealistic_layout.dart';
 
 void main() => runApp(const GoogleTilesLabApp());
 
@@ -335,280 +336,306 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
     await _loadTask;
   }
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _section(String title, List<Widget> children) => Padding(
+    padding: const EdgeInsets.only(bottom: 16),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Semantics(
+          header: true,
+          child: Text(title, style: Theme.of(context).textTheme.titleSmall),
+        ),
+        const SizedBox(height: 6),
+        ...children,
+      ],
+    ),
+  );
+
+  Widget _cloudSlider({
+    required String name,
+    required String hint,
+    required double value,
+    required ValueChanged<double> onChanged,
+  }) => Tooltip(
+    message: hint,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('$name ${(value * 100).round()}%'),
+        Slider(
+          key: ValueKey('cloud-${name.toLowerCase()}'),
+          value: value,
+          divisions: 20,
+          label: '${(value * 100).round()}%',
+          semanticFormatterCallback: (value) =>
+              '${(value * 100).round()} percent cloud ${name.toLowerCase()}',
+          onChanged: (value) => setState(() {
+            onChanged(value);
+            _refinement = null;
+          }),
+        ),
+      ],
+    ),
+  );
+
+  Widget _controlsPanel() => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      _section('Location', [
+        Wrap(
+          spacing: 6,
+          children: [
+            for (final preset in presets)
+              ChoiceChip(
+                showCheckmark: false,
+                visualDensity: VisualDensity.standard,
+                label: Text(preset.label),
+                selected: _preset == preset,
+                onSelected: _loading
+                    ? null
+                    : (_) => setState(() => _view(preset)),
+              ),
+          ],
+        ),
+      ]),
+      _section('Lighting', [
+        Tooltip(
+          message:
+              'Natural follows lunar brightness. Visible adds night fill when the Moon is down.',
+          child: RenderingChoices<MoonlightSelection>(
+            key: const ValueKey('moonlight'),
+            label: 'Moonlight',
+            selected: profile.moonlight,
+            choices: MoonlightSelection.values,
+            choiceLabel: (choice) => choice.label,
+            onChanged: (value) => setState(() => profile.moonlight = value),
+          ),
+        ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: FilterChip(
+            showCheckmark: false,
+            visualDensity: VisualDensity.standard,
+            key: const ValueKey('night-view'),
+            label: const Text('Night view'),
+            selected: profile.nightView,
+            onSelected: (value) => setState(() {
+              profile.nightView = value;
+              _refinement = null;
+            }),
+          ),
+        ),
+      ]),
+      if (widget.clouds)
+        _section('Clouds', [
+          Tooltip(
+            message: 'Cloud sampling quality. Auto uses your device profile.',
+            child: RenderingChoices<CloudQualitySelection>(
+              key: const ValueKey('cloud-quality'),
+              label: 'Quality',
+              selected: _quality,
+              choices: CloudQualitySelection.values,
+              choiceLabel: (choice) => choice.label,
+              onChanged: _qualityChanging
+                  ? null
+                  : (value) => unawaited(_setQuality(value)),
+            ),
+          ),
+          _cloudSlider(
+            name: 'Density',
+            hint: 'Thin all cloud layers without changing coverage.',
+            value: profile.cloudDensity,
+            onChanged: (value) => profile.cloudDensity = value,
+          ),
+          _cloudSlider(
+            name: 'Sparsity',
+            hint:
+                'Reduce cloud coverage. 0% keeps the location preset; 100% clears the cloud layers.',
+            value: profile.cloudSparsity,
+            onChanged: (value) => profile.cloudSparsity = value,
+          ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: FilterChip(
+              showCheckmark: false,
+              visualDensity: VisualDensity.standard,
+              key: const ValueKey('cloud-animation'),
+              label: const Text('Animate clouds'),
+              selected: profile.cloudAnimationEnabled,
+              onSelected: (value) => setState(() {
+                profile.cloudAnimationEnabled = value;
+                _refinement = null;
+              }),
+            ),
+          ),
+          Wrap(
+            spacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              if (_qualityChanging)
+                const SizedBox.square(
+                  dimension: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              if (_refinement case final frames?)
+                Text(frames < 16 ? 'Refining clouds…' : 'Clouds refined'),
+            ],
+          ),
+        ]),
+      if (widget.clouds)
+        _section('Shadows', [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: FilterChip(
+              showCheckmark: false,
+              visualDensity: VisualDensity.standard,
+              key: const ValueKey('cloud-shadows'),
+              label: const Text('Cloud shadows'),
+              selected: _shadowsEnabled,
+              onSelected: _qualityChanging
+                  ? null
+                  : (value) =>
+                        unawaited(_setQuality(_quality, shadowsEnabled: value)),
+            ),
+          ),
+          Tooltip(
+            message: 'Shadow quality. Auto follows cloud quality.',
+            child: RenderingChoices<CloudQualitySelection>(
+              key: const ValueKey('cloud-shadow-quality'),
+              label: 'Quality',
+              selected: _shadowQuality,
+              choices: CloudQualitySelection.values,
+              choiceLabel: (choice) => choice.label,
+              onChanged: _qualityChanging || !_shadowsEnabled
+                  ? null
+                  : (value) =>
+                        unawaited(_setQuality(_quality, shadowQuality: value)),
+            ),
+          ),
+        ]),
+      if (_failedQuality case final selection?) ...[
+        const Text('Cloud quality could not change.'),
+        TextButton(
+          onPressed: () => unawaited(
+            _setQuality(
+              selection.$1,
+              shadowsEnabled: selection.$2,
+              shadowQuality: selection.$3,
+            ),
+          ),
+          child: const Text('Retry quality'),
+        ),
+      ],
+    ],
+  );
+
+  Widget _infoPanel() {
     final stats = tiles?.stats;
     final failures = tiles?.failures ?? const <TileFailure3D>[];
-    return Scaffold(
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: Wrap(
-                spacing: 8,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  const Text(
-                    'Photorealistic 3D',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-                  ),
-                  for (final preset in presets)
-                    ChoiceChip(
-                      showCheckmark: false,
-                      label: Text(preset.label),
-                      selected: _preset == preset,
-                      onSelected: _loading
-                          ? null
-                          : (_) => setState(() => _view(preset)),
-                    ),
-                  Tooltip(
-                    message:
-                        'Natural follows lunar brightness. Visible adds night fill when the Moon is down.',
-                    child: RenderingChoices<MoonlightSelection>(
-                      key: const ValueKey('moonlight'),
-                      label: 'Moonlight',
-                      selected: profile.moonlight,
-                      choices: MoonlightSelection.values,
-                      choiceLabel: (choice) => choice.label,
-                      onChanged: (value) => setState(() {
-                        profile.moonlight = value;
-                      }),
-                    ),
-                  ),
-                  FilterChip(
-                    showCheckmark: false,
-                    key: const ValueKey('night-view'),
-                    label: const Text('Night view'),
-                    selected: profile.nightView,
-                    onSelected: (value) => setState(() {
-                      profile.nightView = value;
-                      _refinement = null;
-                    }),
-                  ),
-                  if (widget.clouds)
-                    Tooltip(
-                      message:
-                          'Cloud sampling quality. Auto uses your device profile.',
-                      child: RenderingChoices<CloudQualitySelection>(
-                        key: const ValueKey('cloud-quality'),
-                        label: 'Clouds',
-                        selected: _quality,
-                        choices: CloudQualitySelection.values,
-                        choiceLabel: (choice) => choice.label,
-                        onChanged: _qualityChanging
-                            ? null
-                            : (value) => unawaited(_setQuality(value)),
-                      ),
-                    ),
-                  if (widget.clouds)
-                    FilterChip(
-                      showCheckmark: false,
-                      key: const ValueKey('cloud-shadows'),
-                      label: const Text('Cloud shadows'),
-                      selected: _shadowsEnabled,
-                      onSelected: _qualityChanging
-                          ? null
-                          : (value) => unawaited(
-                              _setQuality(_quality, shadowsEnabled: value),
-                            ),
-                    ),
-                  if (widget.clouds)
-                    Tooltip(
-                      message: 'Shadow quality. Auto follows cloud quality.',
-                      child: RenderingChoices<CloudQualitySelection>(
-                        key: const ValueKey('cloud-shadow-quality'),
-                        label: 'Shadows',
-                        selected: _shadowQuality,
-                        choices: CloudQualitySelection.values,
-                        choiceLabel: (choice) => choice.label,
-                        onChanged: _qualityChanging || !_shadowsEnabled
-                            ? null
-                            : (value) => unawaited(
-                                _setQuality(_quality, shadowQuality: value),
-                              ),
-                      ),
-                    ),
-                  if (widget.clouds)
-                    Tooltip(
-                      message:
-                          'Thin all cloud layers without changing coverage.',
-                      child: SizedBox(
-                        width: 220,
-                        child: Row(
-                          children: [
-                            Text(
-                              'Density ${(profile.cloudDensity * 100).round()}%',
-                            ),
-                            Expanded(
-                              child: Slider(
-                                key: const ValueKey('cloud-density'),
-                                value: profile.cloudDensity,
-                                divisions: 20,
-                                label:
-                                    '${(profile.cloudDensity * 100).round()}%',
-                                semanticFormatterCallback: (value) =>
-                                    '${(value * 100).round()} percent cloud density',
-                                onChanged: (value) => setState(() {
-                                  profile.cloudDensity = value;
-                                  _refinement = null;
-                                }),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  if (widget.clouds)
-                    Tooltip(
-                      message:
-                          'Reduce cloud coverage. 0% keeps the location preset; 100% clears the cloud layers.',
-                      child: SizedBox(
-                        width: 220,
-                        child: Row(
-                          children: [
-                            Text(
-                              'Sparsity ${(profile.cloudSparsity * 100).round()}%',
-                            ),
-                            Expanded(
-                              child: Slider(
-                                key: const ValueKey('cloud-sparsity'),
-                                value: profile.cloudSparsity,
-                                divisions: 20,
-                                label:
-                                    '${(profile.cloudSparsity * 100).round()}%',
-                                semanticFormatterCallback: (value) =>
-                                    '${(value * 100).round()} percent cloud sparsity',
-                                onChanged: (value) => setState(() {
-                                  profile.cloudSparsity = value;
-                                  _refinement = null;
-                                }),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  if (widget.clouds)
-                    FilterChip(
-                      showCheckmark: false,
-                      key: const ValueKey('cloud-animation'),
-                      label: const Text('Animate clouds'),
-                      selected: profile.cloudAnimationEnabled,
-                      onSelected: (value) => setState(() {
-                        profile.cloudAnimationEnabled = value;
-                        _refinement = null;
-                      }),
-                    ),
-                  if (widget.clouds)
-                    Text(
-                      '${deviceProfile.device.name} · ${profile.cloudQuality.preset.name}',
-                    ),
-                  if (_qualityChanging)
-                    const SizedBox.square(
-                      dimension: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  if (_refinement case final frames?)
-                    Text(frames < 16 ? 'Refining clouds…' : 'Clouds refined'),
-                ],
-              ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _section('Tiles', [
+          Text(
+            _loading
+                ? 'Connecting to tiles…'
+                : !configured
+                ? 'Provider access is not configured.'
+                : _error != null
+                ? 'Provider connection failed.'
+                : '${stats?.visibleTiles ?? 0} tiles · ${stats?.activeRequests ?? 0} loading',
+          ),
+          if (stats?.budgetLimited ?? false)
+            const Text('Detail limited by tile budget'),
+          if (failures.isNotEmpty) ...[
+            Text(
+              '${failures.length} tiles unavailable',
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
             ),
-            if (_failedQuality case final selection?)
-              Wrap(
-                spacing: 8,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  const Text('Cloud quality could not change.'),
-                  TextButton(
-                    onPressed: () => unawaited(
-                      _setQuality(
-                        selection.$1,
-                        shadowsEnabled: selection.$2,
-                        shadowQuality: selection.$3,
-                      ),
-                    ),
-                    child: const Text('Retry quality'),
-                  ),
-                ],
-              ),
-            if (failures.isNotEmpty)
-              Wrap(
-                spacing: 8,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  Text(
-                    '${failures.length} tiles unavailable',
-                    style: const TextStyle(color: Colors.amber),
-                  ),
-                  TextButton(
-                    onPressed: tiles!.retryFailed,
-                    child: const Text('Retry tiles'),
-                  ),
-                ],
-              ),
-            Expanded(
-              child: _loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : !configured
-                  ? widgets.ZeroState(
-                      title: 'Google Maps access is required',
-                      message:
-                          'Add Google Maps or Cesium Ion access to the build configuration.',
-                      actionLabel: 'Check access',
-                      onAction: _startLoad,
-                    )
-                  : _error != null
-                  ? widgets.ZeroState(
-                      title: 'Google Maps could not load',
-                      message:
-                          'Check provider access and your network connection.',
-                      actionLabel: 'Retry connection',
-                      onAction: _startLoad,
-                    )
-                  : LayoutBuilder(
-                      builder: (context, bounds) {
-                        final ratio = MediaQuery.devicePixelRatioOf(context);
-                        final width = math.max(1.0, bounds.maxWidth * ratio);
-                        final height = math.max(1.0, bounds.maxHeight * ratio);
-                        final scale = geospatialResolutionScale(
-                          width: width,
-                          height: height,
-                          maxDimension: deviceProfile.maxDimension,
-                          maxPixels: deviceProfile.maxPixels,
-                        );
-                        return SceneView(
-                          controller: controller,
-                          resolutionScale: math.min(1, scale),
-                          errorBuilder: (context, issue, retry) =>
-                              RendererZeroState(error: issue, onRetry: retry),
-                        );
-                      },
-                    ),
-            ),
-            if (_provider case final provider?)
-              TileAttributionBar(
-                googleMaps: provider.isGoogleMaps,
-                tileCredits: tiles?.attributions ?? const [],
-                providerCredits: provider.attributions,
-              ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: Wrap(
-                spacing: 12,
-                children: [
-                  Text(
-                    '${stats?.visibleTiles ?? 0} tiles · ${stats?.activeRequests ?? 0} loading',
-                  ),
-                  if (stats?.budgetLimited ?? false)
-                    const Text('Detail limited by tile budget'),
-                ],
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                onPressed: tiles!.retryFailed,
+                child: const Text('Retry tiles'),
               ),
             ),
           ],
-        ),
-      ),
+        ]),
+        if (widget.clouds)
+          _section('Rendering', [
+            Text(
+              '${deviceProfile.device.name} · ${profile.cloudQuality.preset.name} clouds',
+            ),
+          ]),
+        _section('Data sources', [
+          if (_provider case final provider?)
+            TileAttributionBar(
+              expanded: true,
+              googleMaps: provider.isGoogleMaps,
+              tileCredits: tiles?.attributions ?? const [],
+              providerCredits: provider.attributions,
+            )
+          else
+            const Text('Source credits appear when the provider connects.'),
+        ]),
+      ],
     );
   }
+
+  Widget _scene() => _loading
+      ? const Center(child: CircularProgressIndicator())
+      : !configured
+      ? widgets.ZeroState(
+          title: 'Google Maps access is required',
+          message:
+              'Add Google Maps or Cesium Ion access to the build configuration.',
+          actionLabel: 'Check access',
+          onAction: _startLoad,
+        )
+      : _error != null
+      ? widgets.ZeroState(
+          title: 'Google Maps could not load',
+          message: 'Check provider access and your network connection.',
+          actionLabel: 'Retry connection',
+          onAction: _startLoad,
+        )
+      : LayoutBuilder(
+          builder: (context, bounds) {
+            final ratio = MediaQuery.devicePixelRatioOf(context);
+            final scale = geospatialResolutionScale(
+              width: math.max(1.0, bounds.maxWidth * ratio),
+              height: math.max(1.0, bounds.maxHeight * ratio),
+              maxDimension: deviceProfile.maxDimension,
+              maxPixels: deviceProfile.maxPixels,
+            );
+            return SceneView(
+              controller: controller,
+              resolutionScale: math.min(1, scale),
+              errorBuilder: (context, issue, retry) =>
+                  RendererZeroState(error: issue, onRetry: retry),
+            );
+          },
+        );
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    body: SafeArea(
+      child: PhotorealisticLayout(
+        scene: _scene(),
+        controls: _controlsPanel(),
+        info: _infoPanel(),
+        controlsNeedAttention: _failedQuality != null,
+        infoNeedsAttention:
+            _error != null || (tiles?.failures.isNotEmpty ?? false),
+        attribution: _provider == null
+            ? null
+            : TileAttributionBar(
+                googleMaps: _provider!.isGoogleMaps,
+                tileCredits: tiles?.attributions ?? const [],
+                providerCredits: _provider!.attributions,
+                showSourcesButton: false,
+              ),
+      ),
+    ),
+  );
 }
