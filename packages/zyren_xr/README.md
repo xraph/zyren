@@ -96,6 +96,11 @@ and undo history. A native presenter/epoch guard rejects placement after resize 
 reattachment, including changes while a call is pending. Source IDs for native
 planes remain unknown; a plane estimate does not prove pixel visibility.
 
+Call `commands.synchronize(snapshot)` from your host's snapshot loop to discard
+undo history after a native origin reset. Commands and inspection also reconcile
+the epoch. The first inspection after a reset can return `stale` because that
+reconciliation changes the provider revision; repeat inspection for fresh state.
+
 Unregister the provider before calling its `dispose`. Then dispose the session
 when its owner closes. The provider does not own the camera session and never
 opens an MCP listener; the shared devtools transport belongs to the host.

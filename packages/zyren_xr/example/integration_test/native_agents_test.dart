@@ -176,7 +176,7 @@ void main() {
             }
           }
           if (selected == null) {
-            await Future<void>.delayed(const Duration(milliseconds: 80));
+            await Future<void>.delayed(const Duration(milliseconds: 200));
           }
         }
         expect(
@@ -276,7 +276,9 @@ void main() {
         expect(reset.originEpoch, greaterThan(snapshot.originEpoch));
         expect(bindings!.bindings, isEmpty);
         await frame();
-        final afterReset = await query('inspect');
+        var afterReset = await query('inspect');
+        if (afterReset['status'] == 'stale')
+          afterReset = await query('inspect');
         expect(afterReset['status'], 'ok');
         expect(provider!.commands.canUndo, isFalse);
         final resetUndo = await command(

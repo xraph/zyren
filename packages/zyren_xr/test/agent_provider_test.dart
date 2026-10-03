@@ -200,6 +200,60 @@ void main() {
       expect(transport.calls.where((c) => c.$1 == 'addAnchor'), isEmpty);
     },
   );
+  test('inspection retries after reconciling a reset revision', () async {
+    expect((await place()).status, AgentStatus.ok);
+    transport.current = snapshotMessage(revision: 2)..['originEpoch'] = 1;
+    Future<AgentResult> inspect() => registry.call(
+      providerId: provider.id,
+      instanceId: provider.instanceId,
+      tool: 'inspect',
+    );
+    expect((await inspect()).status, AgentStatus.stale);
+    final fresh = await inspect();
+    expect(fresh.status, AgentStatus.ok);
+    expect(fresh.revision, 2);
+    expect(fresh.data['availableActions'], ['place_anchor']);
+  });
+
+  for (final undo in [false, true]) {
+    test(
+      'reset during native ${undo ? 'undo' : 'placement'} cannot restore old history',
+      () async {
+        if (undo) expect((await place()).status, AgentStatus.ok);
+        final pending = Completer<Object?>(), submitted = Completer<void>();
+        transport.handler = (method, _) {
+          if (method == 'snapshot') return snapshotMessage();
+          if (method == (undo ? 'removeAnchor' : 'addAnchor')) {
+            submitted.complete();
+            return pending.future;
+          }
+          return null;
+        };
+        final Future<String> command;
+        if (undo) {
+          command = commands.undo(expectedRevision: 1, checkCurrent: () {});
+        } else {
+          command = commands.place(
+            pose: XrPose.identity(),
+            expectedRevision: 0,
+            expectedSessionRevision: 1,
+            expectedFrameTimestamp: 12,
+            checkCurrent: () {},
+          );
+        }
+        await submitted.future;
+        commands.synchronize(
+          XrSnapshot.fromMessage(
+            snapshotMessage(revision: 2)..['originEpoch'] = 1,
+          ),
+        );
+        pending.complete(undo ? null : {'anchorId': 'anchor-1'});
+        expect(await command, 'anchor-1');
+        expect(commands.canUndo, isFalse);
+        expect(commands.revision, undo ? 3 : 2);
+      },
+    );
+  }
 
   test(
     'cancellation and unregister during query release the registry',

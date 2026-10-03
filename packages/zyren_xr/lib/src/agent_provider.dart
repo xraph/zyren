@@ -145,7 +145,7 @@ final class XrPlacementCommands {
         expectedPresenterId: expectedPresenterId,
         expectedPresentationEpoch: expectedPresentationEpoch,
       );
-      _undo.add(anchor);
+      if (_originEpoch == snapshot.originEpoch) _undo.add(anchor);
       _revision++;
       return anchor;
     } finally {
@@ -168,7 +168,7 @@ final class XrPlacementCommands {
       }
       final id = _undo.last;
       await session.removeAnchor(id, expectedRevision: snapshot.revision);
-      _undo.removeLast();
+      if (_originEpoch == snapshot.originEpoch) _undo.removeLast();
       _revision++;
       return id;
     } finally {
