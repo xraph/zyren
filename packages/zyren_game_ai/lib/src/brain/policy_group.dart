@@ -21,7 +21,7 @@ final class PolicyGroup {
     this.maxRewardEvents = 4096,
   }) {
     _name(episodeId);
-    _bounded(maxActors, 64, 'policy actors');
+    _bounded(maxActors, 256, 'policy actors');
     _bounded(maxStateBytes, 32 * 1024 * 1024, 'group state bytes');
     _bounded(maxRewardEvents, 4096, 'reward event ledger');
   }

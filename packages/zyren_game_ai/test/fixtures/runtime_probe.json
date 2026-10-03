@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "id": "runtime-probe",
+  "modelFile": "runtime_probe.onnx",
+  "sha256": "966cbcfa1777fadccfb8600aa550cc8c7d02a7282fff3c3e2ee3b23284bcbf58",
+  "opset": 17,
+  "runtimeVersion": "1.23.2",
+  "providers": [
+    "cpu"
+  ],
+  "maxModelBytes": 1048576,
+  "inputs": [
+    {
+      "name": "observation",
+      "dtype": "float32",
+      "shape": [
+        -1,
+        14
+      ],
+      "maxShape": [
+        64,
+        14
+      ]
+    },
+    {
+      "name": "hidden",
+      "dtype": "float32",
+      "shape": [
+        -1,
+        2
+      ],
+      "maxShape": [
+        64,
+        2
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "name": "logits",
+      "dtype": "float32",
+      "shape": [
+        -1,
+        22
+      ],
+      "maxShape": [
+        64,
+        22
+      ]
+    },
+    {
+      "name": "next_hidden",
+      "dtype": "float32",
+      "shape": [
+        -1,
+        2
+      ],
+      "maxShape": [
+        64,
+        2
+      ]
+    }
+  ],
+  "recurrent": {
+    "hidden": "next_hidden"
+  },
+  "provenance": "Deterministic runtime test fixture. No task acceptance or training claim."
+}

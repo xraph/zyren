@@ -162,3 +162,38 @@ the selected family. A host must use that rate, or reject the model for its curr
 runtime. Cadence and latency are one tick. An audited plan revision retains its
 superseded hash and checks the unchanged case-content hash. A checkpoint report
 cannot qualify a different exported ONNX artifact.
+
+## Native game actors
+
+Import `package:zyren_game_ai/runtime.dart` to bind authored `game.ai` components
+through `GameLevelAi`. Register its `systems` with `GameLevelRuntime`, then await
+`warmup()` before attaching the scene engine. The host supplies evaluated policy
+contracts keyed by model SHA256, the fixed simulation rate from each acceptance
+receipt, and one shared `MlModelCache`. The AI owner drains and closes that cache.
+Use `manifestResolver` when several model artifacts contain `actor.onnx`.
+
+The adapter reads native physics snapshots after the simulation step. Its next
+decision goes through the existing character or vehicle controller lease.
+Inactive entities do not produce fresh observations. Hearing produces approximate
+historical beliefs; the brain inspector does not read hidden target positions.
+User possession, deactivation and entity replacement revoke NPC control.
+
+You can author a scripted, learned or hybrid brain. A hybrid actor can use its
+scripted baseline when a model is missing or incompatible, and inspection reports
+the model failure and fallback counters. A learned-only actor rejects that launch.
+`ModelArtifact` in the optional `artifact.dart` entrypoint validates accepted
+export bytes before the host constructs a `GameRuntimePolicy`.
+
+Call `await ai.save()` or `await ai.restore(save)` at the host boundary. These
+operations pause the game and drain inference. Resume explicitly after inspection.
+Checkpoints preserve committed recurrent tensors and bounded memories, remap live
+references to fresh entity generations, and rebuild the scripted runner from its
+beliefs. Custom behavior interpreter program counters are outside this codec.
+Native scene topology must satisfy the native runtime's checkpoint contract.
+
+The native regression exercises 144 actors sharing one model across batches of
+at most 64 slots. Each actor retains private recurrent state. The optional actor
+and queue ceiling is 256, with the existing 32 MiB queue and state budgets.
+This capacity check does not establish a sustained frame rate or device profile.
+The ONNX fixture used by that regression is deterministic test data, not a trained
+or accepted gameplay model.

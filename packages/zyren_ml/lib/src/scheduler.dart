@@ -118,7 +118,7 @@ final class MlScheduler {
     this.batchWait = const Duration(milliseconds: 2),
   }) {
     if (maxQueuedRequests <= 0 ||
-        maxQueuedRequests > 64 ||
+        maxQueuedRequests > 256 ||
         maxQueuedBytes <= 0 ||
         maxQueuedBytes > 32 * 1024 * 1024 ||
         maxBatchSlots <= 0 ||
