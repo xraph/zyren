@@ -2,6 +2,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_zyren/flutter_zyren.dart';
+import 'package:flutter_zyren/src/input/flutter_input_adapter.dart';
 import 'support/backend_fake.dart';
 import 'controller_test.dart' show frames, readback, runtime;
 
@@ -12,8 +13,10 @@ Future<void> disposeController(
   controller.dispose();
   var disposed = false;
   controller.whenDisposed.then((_) => disposed = true);
-  for (var i = 0; i < 20 && !disposed; i++) {
-    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+  for (var i = 0; i < 30 && !disposed; i++) {
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 1)),
+    );
     await tester.pump();
   }
   expect(disposed, isTrue);
@@ -21,6 +24,50 @@ Future<void> disposeController(
 }
 
 void main() {
+  test('accepted scale cancels once without raw pointer ownership', () async {
+    final input = FlutterInputAdapter();
+    final events = <ScenePointerEvent>[];
+    final subscription = input.events.listen(events.add);
+    const point = ViewportPoint(20, 30);
+    void emit(ScenePointerPhase phase) => input.emit(
+      ScenePointerEvent(
+        point: point,
+        kind: ScenePointerKind.touch,
+        phase: phase,
+      ),
+      null,
+    );
+    emit(ScenePointerPhase.scaleStart);
+    emit(ScenePointerPhase.scaleUpdate);
+    input.setActive(false);
+    input.suspend();
+    input.setActive(true);
+    emit(ScenePointerPhase.scaleUpdate);
+    emit(ScenePointerPhase.scaleEnd);
+    emit(ScenePointerPhase.scaleStart);
+    emit(ScenePointerPhase.scaleUpdate);
+    input.close();
+    await Future<void>.delayed(Duration.zero);
+    expect(events.map((event) => event.phase), [
+      ScenePointerPhase.scaleStart,
+      ScenePointerPhase.scaleUpdate,
+      ScenePointerPhase.cancel,
+      ScenePointerPhase.scaleStart,
+      ScenePointerPhase.scaleUpdate,
+      ScenePointerPhase.cancel,
+    ]);
+    expect(
+      events
+          .where((event) => event.phase == ScenePointerPhase.cancel)
+          .every(
+            (event) =>
+                event.point == point && event.kind == ScenePointerKind.touch,
+          ),
+      isTrue,
+    );
+    await subscription.cancel();
+  });
+
   testWidgets('trackpad pan and pinch change the view without orbiting', (
     tester,
   ) async {
@@ -302,7 +349,7 @@ void main() {
     },
   );
   testWidgets(
-    'orbit motion ignores render resolution and suspends on lifecycle loss',
+    'orbit scale gestures cancel on suspension and detach without resuming stale input',
     (tester) async {
       Vec3? baseline;
       for (final scale in [.5, 1.0]) {
@@ -341,18 +388,39 @@ void main() {
             lessThan(1e-9),
           );
         }
+        expect(controls.isInteracting, isTrue);
         tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
         await tester.pump();
         expect(controls.isInteracting, isFalse);
         final stopped = controller.camera.position;
         await g.moveBy(const Offset(20, 0));
-        await g.up();
         await tester.pump();
         expect(controller.camera.position, stopped);
         tester.binding.handleAppLifecycleStateChanged(
           AppLifecycleState.resumed,
         );
+        await tester.pump();
+        // Flutter can still send updates from the cancelled recognizer sequence.
+        await g.moveBy(const Offset(20, 0));
+        await g.up();
+        await tester.pump();
+        expect(controller.camera.position, stopped);
+        expect(controls.isInteracting, isFalse);
+        final fresh = await tester.startGesture(origin + const Offset(80, 100));
+        await fresh.moveBy(const Offset(40, 0));
+        await tester.pump();
+        await fresh.moveBy(const Offset(10, 0));
+        await tester.pump();
+        expect(controls.isInteracting, isTrue);
+        expect(controller.camera.position, isNot(stopped));
         await tester.pumpWidget(const SizedBox());
+        await tester.pump();
+        expect(controls.isInteracting, isFalse);
+        final detached = controller.camera.position;
+        await fresh.moveBy(const Offset(10, 0));
+        await fresh.up();
+        await tester.pump();
+        expect(controller.camera.position, detached);
         await disposeController(tester, controller);
         tester.view.resetDevicePixelRatio();
       }

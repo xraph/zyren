@@ -37,6 +37,7 @@ class FlutterInputAdapter
   double _coastVelocity = 0;
   Duration _coastElapsed = Duration.zero, _coastStart = Duration.zero;
   PointerDownEvent? _dragTap;
+  ScenePointerEvent? _scaleGesture;
   @override
   ViewportMetrics viewport = const ViewportMetrics(0, 0);
   @override
@@ -147,6 +148,14 @@ class FlutterInputAdapter
   void emit(ScenePointerEvent event, ScenePointerCallback? callback) {
     if (_closed || !_active) return;
     switch (event.phase) {
+      case ScenePointerPhase.scaleStart:
+        _scaleGesture = event;
+      case ScenePointerPhase.scaleUpdate:
+        if (_scaleGesture == null) return;
+        _scaleGesture = event;
+      case ScenePointerPhase.scaleEnd:
+        if (_scaleGesture == null) return;
+        _scaleGesture = null;
       case ScenePointerPhase.down:
         _activePointers[event.pointer] = event;
       case ScenePointerPhase.move:
@@ -168,6 +177,20 @@ class FlutterInputAdapter
     _dragTap = null;
     cancelKeys();
     _cancelTrackpads();
+    // A scale recognizer can own the arena after raw pointer observation has
+    // ended. Cancel its accepted gesture independently of those raw pointers.
+    final scale = _scaleGesture;
+    _scaleGesture = null;
+    if (scale != null) {
+      emit(
+        ScenePointerEvent(
+          point: scale.point,
+          kind: scale.kind,
+          phase: ScenePointerPhase.cancel,
+        ),
+        null,
+      );
+    }
     for (final event in _activePointers.values.toList()) {
       emit(
         ScenePointerEvent(
