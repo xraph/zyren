@@ -42,34 +42,52 @@ final class SensorSnapshot {
   final int Function() _revision;
   final bool Function(Vec3 from, Vec3 to) _geometryLoaded;
   final List<SensorSoundSample> _sounds;
-  SensorSnapshot({
-    required this.episodeId,
-    required this.tick,
-    required this.worldRevision,
+  factory SensorSnapshot({
+    required String episodeId,
+    required int tick,
+    required int worldRevision,
     required Iterable<SensorEntity> entities,
     required Map<int, SensorCollider> colliders,
     PhysicsWorld? world,
     required int Function() currentRevision,
     required bool Function(Vec3, Vec3) geometryLoaded,
     List<SensorSoundSample> sounds = const [],
-  }) : entities = Map.unmodifiable({for (final e in entities) e.handle: e}),
-       colliders = Map.unmodifiable(colliders),
-       _world = world,
-       _revision = currentRevision,
-       _geometryLoaded = geometryLoaded,
-       _sounds = List.unmodifiable(sounds) {
+  }) {
     _name(episodeId);
     if (tick < 0 ||
         worldRevision < 0 ||
-        this.entities.length > 16384 ||
         colliders.length > 65536 ||
         sounds.length > 4096) {
       throw ArgumentError('Snapshot limit exceeded.');
     }
-    if (this.entities.length != entities.length) {
+    final bounded = _sensorBoundedCopy(entities, 16384);
+    final byHandle = {for (final e in bounded) e.handle: e};
+    if (byHandle.length != bounded.length) {
       throw ArgumentError('Duplicate snapshot entity.');
     }
+    return SensorSnapshot._(
+      episodeId,
+      tick,
+      worldRevision,
+      Map.unmodifiable(byHandle),
+      Map.unmodifiable(colliders),
+      world,
+      currentRevision,
+      geometryLoaded,
+      List.unmodifiable(sounds),
+    );
   }
+  SensorSnapshot._(
+    this.episodeId,
+    this.tick,
+    this.worldRevision,
+    this.entities,
+    this.colliders,
+    this._world,
+    this._revision,
+    this._geometryLoaded,
+    this._sounds,
+  );
 
   /// Adapt live game and character handles without reading each body separately.
   factory SensorSnapshot.fromSimulation({
@@ -84,6 +102,9 @@ final class SensorSnapshot {
     Map<GameEntityHandle, List<double>> affordances = const {},
     List<GameSoundEvent> sounds = const [],
   }) {
+    if (bindings.length > 16384 || sounds.length > 4096) {
+      throw ArgumentError('Snapshot input limit exceeded.');
+    }
     final live = <GameEntityHandle, PhysicsBody>{
       for (final e in bindings.entries)
         if (simulation.session.entities.isAlive(e.key)) e.key: e.value,
@@ -134,6 +155,11 @@ final class SensorSnapshot {
     Map<GameEntityHandle, List<double>> affordances = const {},
     List<SensorSoundSample> sounds = const [],
   }) {
+    if (bindings.length > 16384 ||
+        colliders.length > 65536 ||
+        sounds.length > 4096) {
+      throw ArgumentError('Snapshot input limit exceeded.');
+    }
     final states = {for (final state in world.states) state.id: state};
     final captured = <SensorEntity>[];
     for (final entry in bindings.entries) {
@@ -278,3 +304,17 @@ _RayResult _ray(
   }
   return _RayResult(SensorState.known, false, distance);
 }
+
+List<T> _sensorBoundedCopy<T>(Iterable<T> source, int limit) {
+  final copied = <T>[];
+  for (final item in source) {
+    if (copied.length == limit) {
+      throw ArgumentError('Sensor iterable limit exceeded.');
+    }
+    copied.add(item);
+  }
+  return copied;
+}
+
+int _catalogQuota(int total, int slots, int slot) =>
+    total ~/ slots + (slot < total % slots ? 1 : 0);

@@ -12,7 +12,10 @@ final class VisionSensor extends _MeasuredSensor {
   @override
   ObservationSpec get schema => ObservationSpec(
     id: id,
-    configurationHash: profile.hash,
+    configurationHash: _hash({
+      'profile': profile.hash,
+      'allocation': 'stable-catalog-v1',
+    }),
     range: profile.range,
     maxEntities: profile.maxEntities,
     cadenceTicks: cadenceTicks,
@@ -39,21 +42,17 @@ final class VisionSensor extends _MeasuredSensor {
         provenance: SensorProvenance.visible,
       );
     }
+    // Catalog admission is independent of hidden transforms.
     final candidates =
-        snapshot.entities.values
-            .where(
-              (e) =>
-                  e.handle != entity &&
-                  profile.contains(
-                    _local(
-                      actor.pose.rotation,
-                      e.pose.position - actor.pose.position,
-                    ),
-                  ),
-            )
-            .toList()
-          ..sort((a, b) => a.handle.id.compareTo(b.handle.id));
-    final budget = _QueryBudget(queryBudget);
+        snapshot.entities.values.where((e) => e.handle != entity).toList()
+          ..sort((a, b) {
+            final id = a.handle.id.compareTo(b.handle.id);
+            return id == 0
+                ? a.handle.generation.compareTo(b.handle.generation)
+                : id;
+          });
+    final admitted = candidates.take(profile.maxCandidates).toList();
+    var queriesUsed = 0;
     final visible = <ObservedEntity>[];
     var state = SensorState.known;
     String? reason;
@@ -61,7 +60,19 @@ final class VisionSensor extends _MeasuredSensor {
       state = SensorState.unknown;
       reason = 'candidate-budget';
     }
-    for (final candidate in candidates.take(profile.maxCandidates)) {
+    for (var slot = 0; slot < admitted.length; slot++) {
+      final candidate = admitted[slot];
+      final budget = _QueryBudget(
+        _catalogQuota(queryBudget, admitted.length, slot),
+      );
+      if (!profile.contains(
+        _local(
+          actor.pose.rotation,
+          candidate.pose.position - actor.pose.position,
+        ),
+      )) {
+        continue;
+      }
       if (visible.length >= profile.maxEntities) break;
       final hit = _ray(
         snapshot,
@@ -71,6 +82,7 @@ final class VisionSensor extends _MeasuredSensor {
         budget,
         target: candidate.handle,
       );
+      queriesUsed += budget.used;
       if (hit.state != SensorState.known) {
         state = hit.state;
         reason = hit.reason;
@@ -90,18 +102,23 @@ final class VisionSensor extends _MeasuredSensor {
         );
       }
     }
+    final coverageState = state == SensorState.unavailable
+        ? state
+        : visible.length < candidates.length
+        ? SensorState.unknown
+        : state;
     lastDiagnostics = SensorDiagnostics(
       id,
       snapshot.tick,
       state,
-      queriesUsed: budget.used,
+      queriesUsed: queriesUsed,
       candidatesConsidered: math.min(candidates.length, profile.maxCandidates),
       reason: reason,
     );
     return SensorReading(
       sensorId: id,
       tick: snapshot.tick,
-      state: state,
+      state: coverageState,
       provenance: SensorProvenance.visible,
       values: [
         for (var i = 0; i < profile.maxEntities; i++)
@@ -114,7 +131,9 @@ final class VisionSensor extends _MeasuredSensor {
           ...List.filled(3, i < visible.length ? 1 : 0),
       ],
       entities: visible,
-      reason: reason,
+      reason: coverageState == SensorState.unknown
+          ? 'partial-catalog-coverage'
+          : reason,
     );
   }
 }

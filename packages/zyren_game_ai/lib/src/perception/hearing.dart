@@ -83,6 +83,7 @@ final class HearingSensor extends _MeasuredSensor {
     id: id,
     configurationHash: _hash({
       'profile': profile.hash,
+      'allocation': 'stable-catalog-v1',
       'maxSounds': maxSounds,
       'bearingSectors': bearingSectors,
       'distanceBands': distanceBands,
@@ -125,25 +126,31 @@ final class HearingSensor extends _MeasuredSensor {
               (sound) =>
                   categories.contains(sound.category) &&
                   sound.tick <= snapshot.tick &&
-                  snapshot.tick - sound.tick <= ttlTicks &&
-                  sound.position.distanceTo(actor.pose.position) <=
-                      math.min(sound.range, profile.range),
+                  snapshot.tick - sound.tick <= ttlTicks,
             )
             .toList()
           ..sort((a, b) {
             final t = b.tick.compareTo(a.tick);
             return t == 0 ? a.id.compareTo(b.id) : t;
           });
-    final budget = _QueryBudget(queryBudget), values = <double>[];
+    final values = <double>[];
+    final admitted = candidates.take(profile.maxCandidates).toList();
+    var queriesUsed = 0;
     final heard = <HeardSound>[];
     var state = SensorState.known;
     String? reason;
-    for (final sound in candidates.take(profile.maxCandidates)) {
+    for (var slot = 0; slot < admitted.length; slot++) {
+      final sound = admitted[slot];
+      final budget = _QueryBudget(
+        _catalogQuota(queryBudget, admitted.length, slot),
+      );
       if (values.length >= maxSounds * 5) break;
       final distance = sound.position.distanceTo(actor.pose.position);
+      if (distance > math.min(sound.range, profile.range)) continue;
       final unobstructed = sound.loudness * (1 - distance / sound.range);
       if (unobstructed <= 0 || unobstructed < minLoudness) continue;
       final hit = _ray(snapshot, actor, sound.position, profile, budget);
+      queriesUsed += budget.used;
       if (hit.state != SensorState.known) {
         state = hit.state;
         reason = hit.reason;
@@ -188,23 +195,30 @@ final class HearingSensor extends _MeasuredSensor {
     while (values.length < maxSounds * 5) {
       values.add(0);
     }
+    final coverageState = state == SensorState.unavailable
+        ? state
+        : heard.length < candidates.length
+        ? SensorState.unknown
+        : state;
     lastDiagnostics = SensorDiagnostics(
       id,
       snapshot.tick,
       state,
-      queriesUsed: budget.used,
+      queriesUsed: queriesUsed,
       candidatesConsidered: math.min(candidates.length, profile.maxCandidates),
       reason: reason,
     );
     return SensorReading(
       sensorId: id,
       tick: snapshot.tick,
-      state: state,
+      state: coverageState,
       provenance: SensorProvenance.audible,
       sounds: heard,
       values: values,
       validity: [for (var i = 0; i < values.length; i++) i < known ? 1 : 0],
-      reason: reason,
+      reason: coverageState == SensorState.unknown
+          ? 'partial-catalog-coverage'
+          : reason,
     );
   }
 

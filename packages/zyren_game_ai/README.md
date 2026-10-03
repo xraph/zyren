@@ -42,8 +42,14 @@ domain: the ray segment, or the grid cell's bounding volume. Missing streamed
 geometry produces unknown data with zero validity, including when a native ray
 finds no collider.
 
-Vision uses an actor-local cone and range check, sorts candidates by stable ID,
-then makes bounded native ray queries. Slots contain visible targets only. Empty
+Vision reserves independent ray quotas against a stable catalog sorted by entity
+ID and generation before applying actor-local cone and range checks. Hearing
+reserves against its timestamp/ID catalog before checking hidden source range or
+attenuation. Unused quotas are not reassigned. Hidden motion therefore cannot
+consume a visible or audible peer's quota. Slots contain visible targets only. Catalog caps and small per-slot budgets
+produce partial coverage. A reading stays unknown while any catalog entry remains
+unobserved, with a generic partial-coverage reason; actual query failure details
+remain service diagnostics. Empty
 slots are zeroed and masked. You can inspect an unknown reading without gaining
 the hidden candidate's identity or transform. This is structured collider
 visibility; it does not establish rendered pixel visibility.

@@ -146,7 +146,7 @@ final class GamePerceptionSystem extends GameSystem {
     if (snapshot.tick != session.tick) {
       throw StateError('Snapshot must identify the post-physics tick.');
     }
-    final handles = actors().toList();
+    final handles = _sensorBoundedCopy(actors(), 4096);
     if (handles.length > 4096) {
       throw StateError('Perception actor limit exceeded.');
     }
