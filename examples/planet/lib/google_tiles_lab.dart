@@ -172,6 +172,10 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
           'decodedTileBytes': stats?.cachedBytes,
           'tilePayloadBytes': stats?.residentBytes,
           'budgetLimited': stats?.budgetLimited,
+          'prefetchedTiles': stats?.prefetchedTiles,
+          'prefetchBytes': stats?.prefetchBytes,
+          'displayedTiles': stats?.displayedTiles,
+          'effectiveTileScreenError': stats?.effectiveScreenError,
           'failedTiles': tiles?.failures.length,
           'tileFailureCodes': {
             for (final code in AssetLoadError.values)
@@ -287,12 +291,16 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
           .result;
       if (!mounted) return;
       tiles = Tiles3DPlugin(
-        fadeDuration: const Duration(milliseconds: 250),
+        motionPolicy: const Tiles3DMotionPolicy(),
+        visibilityPolicy: (bounds, camera) => const EllipsoidHorizon()
+            .isSphereVisible(camera.position, bounds.center, bounds.radius),
         tileset: tileset,
         services: services,
         maximumScreenError: 8,
         budget: Tiles3DBudget(
           maxRequests: deviceProfile.tileRequests,
+          maxPrefetchRequests: 1,
+          maxPrefetchBytes: 16 * 1024 * 1024,
           maxSelectedTiles: deviceProfile.selectedTiles,
           maxDecodedBytes: deviceProfile.decodedTileBytes,
           maxResidentBytes: deviceProfile.tileBytes,
