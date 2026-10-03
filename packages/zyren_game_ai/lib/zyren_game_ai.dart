@@ -24,6 +24,14 @@ part 'src/perception/body.dart';
 part 'src/perception/affordance.dart';
 part 'src/perception/assembler.dart';
 
+part 'src/brain/memory.dart';
+part 'src/brain/belief.dart';
+part 'src/brain/goal.dart';
+part 'src/brain/brain.dart';
+part 'src/brain/utility.dart';
+part 'src/brain/skill.dart';
+part 'src/brain/scripted.dart';
+
 void _name(String value) {
   if (value.trim().isEmpty || value.length > 128) {
     throw ArgumentError('Invalid identifier.');
