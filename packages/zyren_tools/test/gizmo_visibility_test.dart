@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:test/test.dart';
 import 'package:zyren/zyren.dart';
 import 'package:zyren_tools/zyren_tools.dart';
@@ -65,6 +66,47 @@ void main() {
           );
           gizmo.alwaysVisible = overlay;
           inspect(scene);
+          gizmo.mode = GizmoMode.rotate;
+          ViewportPoint ringPoint(double angle) {
+            final p = camera.projectPoint(
+              Vec3(1.275 * math.cos(angle), 1.275 * math.sin(angle), 0),
+              1,
+            );
+            return ViewportPoint((p.x + 1) * 300, (1 - p.y) * 300);
+          }
+
+          final start = ringPoint(math.pi / 4);
+          expect(
+            gizmo.hitTestHandle(start, viewport),
+            overlay ? GizmoAxis.z : isNull,
+          );
+          if (overlay) {
+            gizmo.handlePointer(
+              ScenePointerEvent(
+                phase: ScenePointerPhase.down,
+                point: start,
+                pointer: 1,
+                kind: ScenePointerKind.mouse,
+                buttons: 1,
+              ),
+              viewport,
+            );
+            expect(gizmo.isDragging, isTrue);
+            gizmo.handlePointer(
+              ScenePointerEvent(
+                phase: ScenePointerPhase.up,
+                point: ringPoint(math.pi / 4 + .4),
+                pointer: 1,
+                kind: ScenePointerKind.mouse,
+                buttons: 1,
+              ),
+              viewport,
+            );
+            expect(selected.quaternion.z, closeTo(math.sin(.2), 1e-6));
+            expect(gizmo.isDragging, isFalse);
+            expect(tools.undo(), isTrue);
+            expect(selected.quaternion, Quat.identity);
+          }
         } finally {
           await engine.dispose();
         }

@@ -182,6 +182,7 @@ class StudioEditorState extends State<StudioEditor> {
     _presented = null;
     _orbit = OrbitControlsPlugin();
     _gizmo = TransformGizmoPlugin(
+      alwaysVisible: true,
       screenSize: 80,
       onDragChanged: (active) {
         if (active) {

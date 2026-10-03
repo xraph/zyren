@@ -191,7 +191,6 @@ class _StudioWorkspaceState extends State<StudioWorkspace> {
   Widget _railIcon(StudioPane pane) {
     final palette = StudioPalette.of(context);
     final open = _active[_docks[pane.id]] == pane.id;
-    final focused = open && _focusedPane == pane.id;
     return Draggable<String>(
       key: ValueKey('rail-icon-${pane.id}'),
       data: pane.id,
@@ -220,12 +219,8 @@ class _StudioWorkspaceState extends State<StudioWorkspace> {
             tooltip: pane.title,
             isSelected: open,
             style: IconButton.styleFrom(
-              backgroundColor: focused
-                  ? palette.accent
-                  : open
-                  ? palette.border
-                  : Colors.transparent,
-              foregroundColor: focused
+              backgroundColor: open ? palette.accent : Colors.transparent,
+              foregroundColor: open
                   ? (palette.dark ? Colors.black : Colors.white)
                   : palette.muted,
             ),
@@ -399,13 +394,7 @@ class _StudioWorkspaceState extends State<StudioWorkspace> {
               behavior: HitTestBehavior.opaque,
               onHorizontalDragUpdate: vertical ? update : null,
               onVerticalDragUpdate: vertical ? null : update,
-              child: Center(
-                child: Container(
-                  width: vertical ? 1 : null,
-                  height: vertical ? null : 1,
-                  color: StudioPalette.of(context).muted.withValues(alpha: .3),
-                ),
-              ),
+              child: const SizedBox.expand(),
             ),
           );
       return Stack(

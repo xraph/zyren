@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zyren_studio_example/studio_workspace.dart';
+import 'package:zyren_studio_example/studio_theme.dart';
 
 class _Counter extends StatefulWidget {
   const _Counter({super.key});
@@ -18,6 +19,58 @@ class _CounterState extends State<_Counter> {
 }
 
 void main() {
+  for (final brightness in Brightness.values) {
+    testWidgets('open rail tools stay highlighted in $brightness', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(1280, 800);
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: studioTheme(brightness),
+          home: Scaffold(
+            body: StudioWorkspace(
+              canvas: const TextButton(
+                onPressed: null,
+                child: Text('Viewport'),
+              ),
+              initialPane: 'agent',
+              panes: const [
+                StudioPane('scene', 'Scene', Icons.folder, Text('Scene tree')),
+                StudioPane('agent', 'Agent', Icons.chat, TextField()),
+              ],
+            ),
+          ),
+        ),
+      );
+      Color? color(String title) => tester
+          .widget<IconButton>(
+            find.byWidgetPredicate(
+              (w) => w is IconButton && w.tooltip == title,
+            ),
+          )
+          .style!
+          .backgroundColor!
+          .resolve({});
+      final palette = StudioPalette.of(
+        tester.element(find.byType(StudioWorkspace)),
+      );
+      expect(color('Scene'), palette.accent);
+      expect(color('Agent'), palette.accent);
+      await tester.tap(find.byType(TextField));
+      await tester.pump();
+      await tester.tap(find.text('Viewport'));
+      await tester.pump();
+      expect(color('Scene'), palette.accent);
+      expect(color('Agent'), palette.accent);
+      await tester.tap(find.byTooltip('Hide Agent'));
+      await tester.pump();
+      expect(color('Scene'), palette.accent);
+      expect(color('Agent'), Colors.transparent);
+    });
+  }
   testWidgets(
     'dock, hide, resize and narrow layout retain panel and viewport state',
     (tester) async {

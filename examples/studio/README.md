@@ -26,9 +26,10 @@ change the split; hiding either panel gives the other the full column.
 
 Drag a rail icon into another group or before another icon to move and reorder
 it. You can also drag a panel header to a corner or use its docking menu. The
-bottom-left group opens panels below the workspace. Blue marks the focused tool;
-other open tools retain a muted highlight. Close a panel to give the viewport more
-room, then use its rail button to restore it. Reset layout restores the defaults.
+bottom-left group opens panels below the workspace. Blue marks every open tool,
+including while you work in the viewport. Panel gutters stay clear and retain
+their resize targets. Close a panel to give the viewport more room, then use its
+rail button to restore it. Reset layout restores the defaults.
 
 The native viewport keeps the scene world color in both interface themes. Its
 depth-tested world grid and colored axes follow the camera, stay outside saved
@@ -73,8 +74,11 @@ your geospatial plugin owns those workflows.
 ## Editing
 
 Pick an object in the viewport or inspector. Its native gizmo moves, rotates or
-scales it; `X +0.25` provides a precise local edit. Imported meshes select their
-saved instance while retaining the clicked part's source identity for review.
+scales it. Choose the rotation tool in the viewport toolbar, then drag a colored
+ring. Studio handles draw and receive pointer input through object surfaces, so
+occluded axes remain usable. `X +0.25` provides a precise local edit. Imported
+meshes select their saved instance while retaining the clicked part's source
+identity for review.
 
 The Authoring menu adds boxes and pinned GLB/bundle imports, creates prefab
 instances, edits materials and engineering notes, records poses, manages clip
