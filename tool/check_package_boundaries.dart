@@ -4,6 +4,7 @@ import 'dart:io';
 void main(List<String> args) {
   final root = Directory(args.isEmpty ? '.' : args.single);
   final allowed = <String, Set<String>>{
+    'examples/studio': {'zyren_studio_example', 'flutter', 'flutter_zyren', 'flutter_zyren_studio', 'desktop_drop', 'file_selector', 'path_provider', 'crypto', 'zyren_studio', 'zyren_engineering', 'zyren_pipeline', 'zyren_tools', 'zyren_agents', 'zyren_gltf_timeline', 'zyren_timeline', 'zyren_collaboration', 'zyren_game', 'zyren_game_native', 'zyren_game_studio', 'zyren_game_ai', 'zyren_ml', 'zyren_audio', 'zyren_devtools', 'zyren_inspector', 'zyren_geospatial'},
     'examples/game_lab': {'zyren_game_lab', 'flutter', 'flutter_zyren', 'flutter_zyren_game', 'zyren', 'zyren_game', 'zyren_game_native', 'zyren_game_ai', 'zyren_ml', 'zyren_pipeline', 'zyren_gltf', 'zyren_native', 'zyren_physics', 'zyren_audio', 'zyren_interaction', 'crypto'},
     'examples/game_lab/training_worker': {'zyren_game_lab_training_worker', 'zyren_ml', 'zyren_game', 'zyren_game_native', 'zyren_game_ai', 'zyren_physics', 'zyren', 'zyren_characters', 'zyren_gltf', 'zyren_gltf_timeline', 'zyren_timeline', 'crypto'},
     'packages/zyren_game_studio': {'zyren_game_studio', 'zyren', 'crypto', 'zyren_game', 'zyren_studio', 'zyren_pipeline', 'flutter', 'flutter_zyren', 'flutter_zyren_studio', 'zyren_agents', 'zyren_navigation', 'zyren_game_native', 'zyren_physics', 'zyren_characters', 'zyren_audio', 'zyren_ml', 'flutter_zyren_game', 'zyren_interaction', 'zyren_game_ai', 'zyren_collaboration', 'zyren_devtools'},
