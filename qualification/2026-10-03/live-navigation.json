@@ -1,0 +1,640 @@
+{
+  "schema": 1,
+  "date": "2026-10-03",
+  "suite": "live Google photorealistic tiles with clouds",
+  "provider": "Google Photorealistic 3D Tiles through Cesium Ion; credentials excluded",
+  "flutter": "3.47.5",
+  "buildMode": "profile",
+  "nativeOnly": true,
+  "scene": "Tokyo",
+  "completeAllDeviceQualification": false,
+  "source": {
+    "branch": "main",
+    "initialBenchmarkCommit": "edf38f98d787b8306a48db640bbadefc303f163f",
+    "fixes": [
+      "184bf65d",
+      "8cb7f563",
+      "7e72b088"
+    ],
+    "note": "Shared checkout with concurrent work; device runs were not isolated revision or thermal comparisons."
+  },
+  "method": {
+    "phaseSeconds": 12,
+    "phases": [
+      "stationary",
+      "rotate",
+      "drag",
+      "zoom"
+    ],
+    "fps": "accepted native presentations per elapsed span",
+    "route": "wall-time sine through GlobeControls",
+    "physicalInputLatencyMeasured": false,
+    "gpuTime": "unavailable on the recorded Metal native-view runs"
+  },
+  "runs": [
+    {
+      "id": "mac-fixed-auto-1",
+      "device": "MacBook Pro M3 Max, 128 GB",
+      "changes": "decoder retry",
+      "qualification": "partial_failure",
+      "note": "Stationary phase completed; renderer upload budget stopped rotation.",
+      "trace": "mac-fixed-auto-1.json.gz",
+      "traceSha256": "1b4c681aaeaf29d913aadc4b51855881dbc3c42625d46daea4f536f29107e6fb",
+      "cloudResetReasons": {
+        "stationary": {
+          "none": 258
+        }
+      },
+      "report": {
+        "schema": 1,
+        "suite": "live-google-navigation",
+        "variant": "auto",
+        "platform": "macOS",
+        "buildMode": "profile",
+        "preset": "tokyo",
+        "lifecycle": "resumed",
+        "phases": [
+          {
+            "name": "stationary",
+            "frames": 258,
+            "spanMs": 11957.942000000005,
+            "presentedFps": 21.491992518445056,
+            "intervalMs": {
+              "count": 257,
+              "median": 47.503,
+              "p95": 59.156,
+              "p99": 68.624,
+              "max": 75.199
+            },
+            "over16_7ms": 257,
+            "over33ms": 245,
+            "over100ms": 0,
+            "buildMs": {
+              "count": 258,
+              "median": 5.482,
+              "p95": 8.478,
+              "p99": 11.03,
+              "max": 12.109
+            },
+            "submitMs": {
+              "count": 258,
+              "median": 0.896,
+              "p95": 2.176,
+              "p99": 3.375,
+              "max": 16.81
+            },
+            "gpuMs": null,
+            "maxCameraDisplacementM": 0.0,
+            "viewport": [
+              800.0,
+              396.0
+            ],
+            "renderSize": [
+              1600,
+              792
+            ],
+            "failedTiles": 0,
+            "framesWhileLoading": 0,
+            "framesBudgetLimited": 258,
+            "uploadedBytes": 0,
+            "cloudHistoryResets": 0
+          }
+        ],
+        "passed": false,
+        "backend": "Metal",
+        "adapter": "Apple M3 Max",
+        "presentation": "nativeView",
+        "deviceProfile": "desktop",
+        "fpsLimit": 60,
+        "initialReadyMs": 10680,
+        "settings": {
+          "quality": "high",
+          "shadows": true,
+          "sparsity": 0.0,
+          "cloudSize": [
+            1600,
+            792
+          ],
+          "resourceBudgetBytes": 805306368,
+          "tileBudgetBytes": 402653184
+        },
+        "error": "Bad state: Renderer failed: renderFailed.",
+        "lifecycleAtEnd": "resumed",
+        "tileFailures": [],
+        "cpuSampleCount": 7585
+      }
+    },
+    {
+      "id": "ipad-fixed-auto-1",
+      "device": "iPad Pro 13-inch M4",
+      "changes": "decoder retry",
+      "qualification": "partial_failure",
+      "note": "Stationary phase completed; renderer upload budget stopped rotation. Disposed-control cleanup obscured the phase error in this collector revision.",
+      "trace": "ipad-fixed-auto-1.json.gz",
+      "traceSha256": "170814244fa4397f1000082301512aa51b789a2194fbca626161883972120eb2",
+      "cloudResetReasons": {
+        "stationary": {
+          "none": 360
+        }
+      },
+      "report": {
+        "schema": 1,
+        "suite": "live-google-navigation",
+        "variant": "auto",
+        "platform": "iOS",
+        "buildMode": "profile",
+        "preset": "tokyo",
+        "lifecycle": "resumed",
+        "phases": [
+          {
+            "name": "stationary",
+            "frames": 360,
+            "spanMs": 11970.755999999996,
+            "presentedFps": 29.989751691538956,
+            "intervalMs": {
+              "count": 359,
+              "median": 33.311,
+              "p95": 34.977,
+              "p99": 35.7,
+              "max": 38.056
+            },
+            "over16_7ms": 359,
+            "over33ms": 173,
+            "over100ms": 0,
+            "buildMs": {
+              "count": 360,
+              "median": 1.888,
+              "p95": 1.991,
+              "p99": 2.236,
+              "max": 3.051
+            },
+            "submitMs": {
+              "count": 360,
+              "median": 0.452,
+              "p95": 0.515,
+              "p99": 0.557,
+              "max": 1.22
+            },
+            "gpuMs": null,
+            "maxCameraDisplacementM": 0.0,
+            "viewport": [
+              1376.0,
+              816.0
+            ],
+            "renderSize": [
+              1880,
+              1115
+            ],
+            "failedTiles": 0,
+            "completed": true,
+            "framesWhileLoading": 0,
+            "framesBudgetLimited": 360,
+            "uploadedBytes": 0,
+            "cloudHistoryResets": 0
+          }
+        ],
+        "passed": false,
+        "backend": "Metal",
+        "adapter": "Apple M4 GPU",
+        "presentation": "nativeView",
+        "deviceProfile": "tablet",
+        "fpsLimit": 60,
+        "initialReadyMs": 2041,
+        "settings": {
+          "quality": "high",
+          "shadows": true,
+          "sparsity": 0.0,
+          "cloudSize": [
+            1536,
+            911
+          ],
+          "resourceBudgetBytes": 536870912,
+          "tileBudgetBytes": 201326592
+        },
+        "error": "Bad state: Environment controls are disposed.",
+        "lifecycleAtEnd": "resumed",
+        "rendererFailure": {
+          "code": "renderFailed",
+          "operation": "render",
+          "causeType": "ArgumentError",
+          "uploadBudgetExceeded": true
+        },
+        "tileFailures": [],
+        "cpuSampleCount": 4173
+      }
+    },
+    {
+      "id": "mac-fixed-auto-2",
+      "device": "MacBook Pro M3 Max, 128 GB",
+      "changes": "decoder retry",
+      "qualification": "diagnostic_only",
+      "note": "Full route completed, but lifecycle was inactive. Excluded from foreground performance qualification.",
+      "trace": "mac-fixed-auto-2.json.gz",
+      "traceSha256": "ea634812b4806655b380afa4b4867dddfc085cd93a9f56dca5a29a5d7cea6cb6",
+      "cloudResetReasons": {
+        "stationary": {
+          "none": 258
+        },
+        "rotate": {
+          "none": 1,
+          "lighting": 201
+        },
+        "drag": {
+          "none": 1,
+          "lighting": 161
+        },
+        "zoom": {
+          "none": 1,
+          "lighting": 184
+        }
+      },
+      "report": {
+        "schema": 1,
+        "suite": "live-google-navigation",
+        "variant": "auto",
+        "platform": "macOS",
+        "buildMode": "profile",
+        "preset": "tokyo",
+        "lifecycle": "inactive",
+        "phases": [
+          {
+            "name": "stationary",
+            "frames": 258,
+            "spanMs": 11996.729000000003,
+            "presentedFps": 21.422506084783606,
+            "intervalMs": {
+              "count": 257,
+              "median": 49.391,
+              "p95": 57.48,
+              "p99": 61.875,
+              "max": 62.993
+            },
+            "over16_7ms": 257,
+            "over33ms": 237,
+            "over100ms": 0,
+            "buildMs": {
+              "count": 258,
+              "median": 5.08,
+              "p95": 6.424,
+              "p99": 9.346,
+              "max": 10.011
+            },
+            "submitMs": {
+              "count": 258,
+              "median": 0.859,
+              "p95": 2.101,
+              "p99": 2.353,
+              "max": 2.962
+            },
+            "gpuMs": null,
+            "maxCameraDisplacementM": 0.0,
+            "viewport": [
+              800.0,
+              396.0
+            ],
+            "renderSize": [
+              1600,
+              792
+            ],
+            "failedTiles": 0,
+            "completed": true,
+            "framesWhileLoading": 0,
+            "framesBudgetLimited": 258,
+            "uploadedBytes": 0,
+            "cloudHistoryResets": 0
+          },
+          {
+            "name": "rotate",
+            "frames": 202,
+            "spanMs": 11999.652,
+            "presentedFps": 16.75048576408716,
+            "intervalMs": {
+              "count": 201,
+              "median": 39.713,
+              "p95": 200.123,
+              "p99": 273.039,
+              "max": 566.558
+            },
+            "over16_7ms": 201,
+            "over33ms": 149,
+            "over100ms": 25,
+            "buildMs": {
+              "count": 202,
+              "median": 0.204,
+              "p95": 1.451,
+              "p99": 4.773,
+              "max": 8.201
+            },
+            "submitMs": {
+              "count": 202,
+              "median": 0.22,
+              "p95": 3.935,
+              "p99": 16.859,
+              "max": 22.831
+            },
+            "gpuMs": null,
+            "maxCameraDisplacementM": 1120.6475735944143,
+            "viewport": [
+              800.0,
+              396.0
+            ],
+            "renderSize": [
+              1600,
+              792
+            ],
+            "failedTiles": 0,
+            "completed": true,
+            "framesWhileLoading": 200,
+            "framesBudgetLimited": 164,
+            "uploadedBytes": 151143448,
+            "cloudHistoryResets": 201
+          },
+          {
+            "name": "drag",
+            "frames": 162,
+            "spanMs": 12003.309999999994,
+            "presentedFps": 13.412966923290332,
+            "intervalMs": {
+              "count": 161,
+              "median": 73.38,
+              "p95": 97.061,
+              "p99": 114.721,
+              "max": 115.824
+            },
+            "over16_7ms": 161,
+            "over33ms": 161,
+            "over100ms": 8,
+            "buildMs": {
+              "count": 162,
+              "median": 5.492,
+              "p95": 11.354,
+              "p99": 12.779,
+              "max": 13.092
+            },
+            "submitMs": {
+              "count": 162,
+              "median": 3.514,
+              "p95": 9.126,
+              "p99": 16.36,
+              "max": 17.855
+            },
+            "gpuMs": null,
+            "maxCameraDisplacementM": 132.10132461186487,
+            "viewport": [
+              800.0,
+              396.0
+            ],
+            "renderSize": [
+              1600,
+              792
+            ],
+            "failedTiles": 0,
+            "completed": true,
+            "framesWhileLoading": 156,
+            "framesBudgetLimited": 162,
+            "uploadedBytes": 178128104,
+            "cloudHistoryResets": 161
+          },
+          {
+            "name": "zoom",
+            "frames": 185,
+            "spanMs": 12063.471999999998,
+            "presentedFps": 15.252656946524187,
+            "intervalMs": {
+              "count": 184,
+              "median": 63.375,
+              "p95": 87.933,
+              "p99": 102.538,
+              "max": 122.656
+            },
+            "over16_7ms": 184,
+            "over33ms": 184,
+            "over100ms": 2,
+            "buildMs": {
+              "count": 185,
+              "median": 4.939,
+              "p95": 10.909,
+              "p99": 19.557,
+              "max": 20.373
+            },
+            "submitMs": {
+              "count": 185,
+              "median": 2.761,
+              "p95": 5.887,
+              "p99": 12.267,
+              "max": 16.844
+            },
+            "gpuMs": null,
+            "maxCameraDisplacementM": 57.516148612043345,
+            "viewport": [
+              800.0,
+              396.0
+            ],
+            "renderSize": [
+              1600,
+              792
+            ],
+            "failedTiles": 0,
+            "completed": true,
+            "framesWhileLoading": 111,
+            "framesBudgetLimited": 185,
+            "uploadedBytes": 65597662,
+            "cloudHistoryResets": 184
+          }
+        ],
+        "passed": true,
+        "backend": "Metal",
+        "adapter": "Apple M3 Max",
+        "presentation": "nativeView",
+        "deviceProfile": "desktop",
+        "fpsLimit": 60,
+        "initialReadyMs": 2047,
+        "settings": {
+          "quality": "high",
+          "shadows": true,
+          "sparsity": 0.0,
+          "cloudSize": [
+            1600,
+            792
+          ],
+          "resourceBudgetBytes": 805306368,
+          "tileBudgetBytes": 402653184
+        },
+        "lifecycleAtEnd": "inactive",
+        "tileFailures": [],
+        "cpuSampleCount": 12208
+      }
+    },
+    {
+      "id": "ipad-auto-1",
+      "device": "iPad Pro 13-inch M4",
+      "changes": "before decoder retry",
+      "qualification": "rejected",
+      "note": "Tile decode failures remained before measurement.",
+      "trace": "ipad-auto-1.json.gz",
+      "traceSha256": "a3c745e643d877bb00e6e9a7de1375920e0fb3bf0675761e9fdb7159e5000931",
+      "cloudResetReasons": {},
+      "report": {
+        "schema": 1,
+        "suite": "live-google-navigation",
+        "variant": "auto",
+        "platform": "iOS",
+        "buildMode": "profile",
+        "preset": "tokyo",
+        "phases": [],
+        "passed": false,
+        "backend": "Metal",
+        "adapter": "Apple M4 GPU",
+        "presentation": "nativeView",
+        "deviceProfile": "tablet",
+        "fpsLimit": 60,
+        "initialReadyMs": 2048,
+        "settings": {
+          "quality": "high",
+          "shadows": true,
+          "sparsity": 0.0,
+          "cloudSize": [
+            1536,
+            866
+          ],
+          "resourceBudgetBytes": 536870912,
+          "tileBudgetBytes": 201326592
+        },
+        "error": "Bad state: Tile failures remain before the measurement.",
+        "cpuSampleCount": 3504
+      }
+    },
+    {
+      "id": "pixel-auto-1",
+      "device": "Pixel 9 Pro, Mali-G715",
+      "changes": "before decoder retry",
+      "qualification": "rejected",
+      "note": "Tile decode failures remained before measurement.",
+      "trace": "pixel-auto-1.json.gz",
+      "traceSha256": "d71ecf716d3f942731cb73b52f8f43a39bdf6161127b52c43644111a145354eb",
+      "cloudResetReasons": {},
+      "report": {
+        "schema": 1,
+        "suite": "live-google-navigation",
+        "variant": "auto",
+        "platform": "android",
+        "buildMode": "profile",
+        "preset": "tokyo",
+        "phases": [],
+        "passed": false,
+        "backend": "Vulkan",
+        "adapter": "Mali-G715",
+        "presentation": "sharedTexture",
+        "deviceProfile": "phone",
+        "fpsLimit": 60,
+        "initialReadyMs": 2064,
+        "settings": {
+          "quality": "medium",
+          "shadows": true,
+          "sparsity": 0.0,
+          "cloudSize": [
+            768,
+            698
+          ],
+          "resourceBudgetBytes": 402653184,
+          "tileBudgetBytes": 134217728
+        },
+        "error": "Bad state: Tile failures remain before the measurement.",
+        "cpuSampleCount": 1422
+      }
+    },
+    {
+      "id": "mac-final-auto-1",
+      "device": "MacBook Pro M3 Max, 128 GB",
+      "changes": "all three fixes",
+      "qualification": "rejected",
+      "note": "Foreground check rejected the inactive application.",
+      "trace": "mac-final-auto-1.json.gz",
+      "traceSha256": "d689a32d318414f12125381543492ae2ee45b6285370c0a952e5d2901d980fcf",
+      "cloudResetReasons": {},
+      "report": {
+        "schema": 1,
+        "suite": "live-google-navigation",
+        "variant": "auto",
+        "platform": "macOS",
+        "buildMode": "profile",
+        "preset": "tokyo",
+        "lifecycle": "inactive",
+        "phases": [],
+        "passed": false,
+        "backend": "Metal",
+        "adapter": "Apple M3 Max",
+        "presentation": "nativeView",
+        "deviceProfile": "desktop",
+        "fpsLimit": 60,
+        "error": "Bad state: The benchmark app lost the foreground.",
+        "lifecycleAtEnd": "inactive",
+        "tileFailures": [],
+        "cpuSampleCount": 1
+      }
+    },
+    {
+      "id": "mac-final-auto-2",
+      "device": "MacBook Pro M3 Max, 128 GB",
+      "changes": "all three fixes",
+      "qualification": "rejected",
+      "note": "Foreground check rejected the inactive application after focus attempts.",
+      "trace": "mac-final-auto-2.json.gz",
+      "traceSha256": "b71071371f8d9810e8a40079d655afd3d68d54a2d743b464b8084b7c0d04733d",
+      "cloudResetReasons": {},
+      "report": {
+        "schema": 1,
+        "suite": "live-google-navigation",
+        "variant": "auto",
+        "platform": "macOS",
+        "buildMode": "profile",
+        "preset": "tokyo",
+        "lifecycle": "inactive",
+        "phases": [],
+        "passed": false,
+        "backend": "Metal",
+        "adapter": "Apple M3 Max",
+        "presentation": "nativeView",
+        "deviceProfile": "desktop",
+        "fpsLimit": 60,
+        "error": "Bad state: The benchmark app lost the foreground.",
+        "lifecycleAtEnd": "inactive",
+        "tileFailures": [],
+        "cpuSampleCount": 298
+      }
+    }
+  ],
+  "blocked": [
+    {
+      "device": "Pixel 9 Pro",
+      "reason": "XR probe took the foreground during the post-fix attempt; no post-fix FPS qualified."
+    },
+    {
+      "device": "iPhone 16 Pro",
+      "reason": "Device reports passcodeRequired; no live benchmark run."
+    },
+    {
+      "device": "iPad Pro M4",
+      "reason": "Later runs shared the device with active XR qualification; final fixes not rebenchmarked."
+    },
+    {
+      "device": "MacBook Pro M3 Max",
+      "reason": "Final build reports inactive lifecycle despite focus attempts; foreground comparison pending."
+    }
+  ],
+  "verification": {
+    "assetAdmissionAndBudgets": 22,
+    "tilesStreaming": 21,
+    "sceneRaycastAndFrustum": 19,
+    "cloudHistoryControlsAndNativeTemporal": 10,
+    "benchmarkStatistics": 2,
+    "staticAnalysis": "passed on changed sources and tests",
+    "planetSuiteWithNativeGpu": 20,
+    "initialPlanetSuite": "19 passed; atmosphere fixture could not start native backend without RUN_NATIVE_GPU=1. Full rerun with the flag passed."
+  },
+  "openDefects": [
+    "Intermittent scene upload frame budget failure during navigation.",
+    "Flutter macOS accessibility bridge crash reproduced before measurement; existing compatibility hook is insufficient."
+  ],
+  "comparisonToTakram": "No matched browser run was captured; no parity or speed ratio claimed."
+}

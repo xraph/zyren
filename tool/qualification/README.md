@@ -54,6 +54,9 @@ Use your device ID for Pixel, iPhone or iPad. iOS still uses your signing and
 device trust settings. Keep the device unlocked, the app visible and its thermal
 state stable. Run devices sequentially so builds do not compete with the Mac's
 measurement. Record the source revision, viewport and device with each run.
+The collector rejects a run when Flutter reports that the app lost foreground
+focus. Give each device to one test at a time. An inactive or interrupted run
+can help diagnose a failure, but cannot qualify navigation performance.
 
 Each run waits for live Tokyo tiles and cloud history to settle, then measures
 12 seconds each of stationary rendering, orbit, surface drag and wheel zoom.
@@ -69,6 +72,9 @@ timings stay null. Presentation FPS measures frames accepted by the native
 presenter, not the display's physical scanout. GPU timings cover the backend's
 reported submission; they cannot account for every upload or effect graph wait.
 The app's current frame cap is recorded in the report.
+Failed phases retain their available samples and carry `completed: false`.
+Do not compare their FPS with a full phase. A new run retries a failed renderer
+and resets the Tokyo camera before collecting data.
 
 The `auto` variant keeps device defaults. You can also run `low`, `shadowsOff`
 or `sparse` (75% sparsity) to identify cloud costs. These variants change image

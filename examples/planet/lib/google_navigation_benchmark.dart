@@ -54,6 +54,9 @@ final class _NavigationBenchmark {
   }
 
   void _check() {
+    if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
+      throw StateError('The benchmark app lost the foreground.');
+    }
     if (lab.loadError != null) {
       throw StateError(
         'Provider initialization failed (${lab.loadError.runtimeType}).',
@@ -117,8 +120,15 @@ final class _NavigationBenchmark {
         );
       }
       _stage = 'loading';
+      if (controller.status.value is SceneFailed) await controller.retry();
       await controller.firstFrame.timeout(const Duration(minutes: 3));
       final info = await controller.ready;
+      lab.profile.apply(
+        controller.scene,
+        controller.camera,
+        GoogleTilesPreset.tokyo,
+      );
+      navigation.resetForPreset();
       report.addAll({
         'backend': info.backend,
         'adapter': info.adapterName,
