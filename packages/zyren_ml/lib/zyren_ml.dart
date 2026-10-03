@@ -6,3 +6,8 @@ export 'src/result.dart';
 export 'src/runtime.dart';
 export 'src/session.dart' show MlSession;
 export 'src/tensor.dart';
+export 'src/diagnostics.dart';
+export 'src/model_cache.dart';
+export 'src/scheduler.dart';
+export 'src/worker.dart' show MlInferenceWorker, MlWorker, MlWorkerEvent;
+export 'src/provider.dart';

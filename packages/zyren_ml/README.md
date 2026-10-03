@@ -62,17 +62,82 @@ the outputs before exposing copied bytes. Closing a session is idempotent. A
 native finalizer also releases an abandoned session, but you should close it
 explicitly so cleanup has a known time.
 
-## Scheduling limits
+## Scheduled inference
 
-Inference runs synchronously on the calling isolate in A1. The returned Future
-does not move ORT work to another isolate. Deadlines and cancellation are checked
-before execution and before outputs are accepted; they cannot interrupt a native
-call already in progress. A2 owns worker scheduling and bounded queues. You
-should account for this when choosing an inference interval on a UI isolate.
+Use `MlScheduler` when your calling isolate also drives a UI or render loop. Its
+worker owns native session handles in a dedicated isolate. You supply the model
+resolver and current simulation tick, with no scene-engine dependency.
 
-The byte limits validate model assets and boundary tensors. They do not cap
-ONNX Runtime's internal allocator or execution time. The supplied models are
-local deterministic probes, not trained policies.
+```dart
+final cache = MlModelCache(
+  resolver: (path) => File('test/fixtures/$path').readAsBytes(),
+);
+var tick = 42;
+final scheduler = MlScheduler(cache: cache, currentTick: () => tick);
+try {
+  final outcome = await scheduler.submit(MlRequest(
+    id: 'actor-7/tick-42',
+    model: manifest,
+    modelHash: manifest.sha256,
+    actorToken: 'episode-3/actor-7/generation-1',
+    observationTick: tick,
+    applicationTick: tick + 1,
+    deadlineTick: tick + 1,
+    tensors: {'observation': MlTensor.float32([1, 4], [1, 2, 3, 4])},
+  ));
+  if (outcome.status == MlOutcomeStatus.ok) {
+    print(outcome.tensors['action']!.float32Values);
+  }
+} finally {
+  await scheduler.close();
+}
+```
+
+Each scheduled actor occupies one input row. The scheduler batches compatible
+manifest pins and shapes, including every recurrent tensor. `MlBatchMap` keeps
+request IDs and original native row indices, so cancelling a middle actor cannot
+move another actor's output into its place. Actor tokens stay on the host. Check
+that token and the model/tick metadata against your current episode before
+applying an outcome.
+
+Defaults are 64 queued requests, 32 MiB of queued tensor payload, 64 batch slots,
+eight resident sessions and 64 MiB of serialized ONNX model bytes. You can lower
+those limits. One batch runs at a time by default; a worker's native command loop
+remains serial even if you raise the scheduler's bounded dispatch count. Pending
+worker commands and transferred input bytes are also bounded. The default batch
+wait is two milliseconds, configured up to 100 milliseconds. It uses the host
+event loop, so host stalls can delay the timer; diagnostics record actual queue
+time and late results are rejected against your deadline tick and wall clock.
+
+`MlModelCache.acquire/release` manages native-session leases and in-flight
+references. It does not retain source model bytes or create a disk cache. The
+cache uses an exact encoded manifest pin for each model hash and rejects a
+conflicting duplicate pin. An oversized new model fails before any current
+session is evicted. Eviction needs both lease and in-flight counts to reach zero.
+
+`cancel(id)` removes a queued request or suppresses an in-flight result. Closing
+joins active native work before releasing sessions and transfer buffers. It does
+not kill an isolate while ORT is using its buffers. An unresponsive native call
+therefore delays close; there is no unsafe forced-release timeout.
+
+Low-level `MlSession.run` still executes synchronously on its owner isolate.
+Deadlines are checked before native preparation, immediately before the call and
+before outputs are accepted. Cancellation cannot interrupt ORT. The scheduled
+API performs shape admission on the host and validates finite values inside the
+worker, keeping large numerical scans off the UI isolate. Host tensor packing
+and transfer still cost time; this is not a Flutter frame-budget qualification.
+
+`MlProviderProbe` loads and runs the exact graph twice through a worker. You get
+CPU load/cold/warm timings and, when you provide reference outputs, a numerical
+parity result. CoreML and other accelerated providers fail explicitly until
+qualified. A failed probe reports unknown unsupported-operator information as
+null, and a successful load reports an empty list. CPU selection is explicit.
+
+The byte limits cover model assets and boundary tensors. They do not cap ONNX
+Runtime's internal allocator or execution time. Native arenas, recurrent state
+and sensor storage have separate nullable diagnostic fields. Native live-handle
+and run counters are process-wide; resident-model counts belong to each worker.
+The supplied models are local deterministic probes, not trained policies.
 
 ## Native packaging and qualification
 
@@ -94,10 +159,13 @@ qualified. GPU providers are not enabled.
 fvm dart analyze
 fvm dart test --concurrency=1
 fvm dart run tool/native_probe.dart
+fvm dart run tool/scheduler_probe.dart
 ```
 
 The test suite compares linear and CNN outputs against PyTorch and carries LSTM
 state through 1,000 reference steps, including a reset halfway through. It also
-checks integer/boolean batches, rejection paths and repeated cleanup. The probe
-prints native handle counts and process RSS. Exact native allocation and GPU
+checks integer/boolean batches, rejection paths and repeated cleanup. A native four-MatMul stress graph verifies cancellation
+and disposal only after the ORT active-run counter confirms compute is running.
+Timer callbacks remain responsive on the calling isolate. The probes print
+native handle counts, process RSS and separate queue/load/run times. Exact native allocation and GPU
 residency remain unknown, represented as null.

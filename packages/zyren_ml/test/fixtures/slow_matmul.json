@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "id": "slow_matmul",
+  "modelFile": "slow_matmul.onnx",
+  "sha256": "668092f098eeaec45b9a3045f2471a623564aac84480ac00f3c18c7e5c8acdc2",
+  "opset": 17,
+  "runtimeVersion": "1.23.2",
+  "providers": [
+    "cpu"
+  ],
+  "maxModelBytes": 8388608,
+  "inputs": [
+    {
+      "name": "observation",
+      "dtype": "float32",
+      "shape": [
+        -1,
+        1024,
+        1024
+      ],
+      "maxShape": [
+        3,
+        1024,
+        1024
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "name": "action",
+      "dtype": "float32",
+      "shape": [
+        -1,
+        1024,
+        1024
+      ],
+      "maxShape": [
+        3,
+        1024,
+        1024
+      ]
+    }
+  ],
+  "recurrent": {},
+  "provenance": "Locally generated four-MatMul scheduling stress graph, no stored weights or pretrained model."
+}

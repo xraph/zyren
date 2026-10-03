@@ -16,10 +16,12 @@ final class MlNativeDiagnostics {
     required this.liveSessions,
     required this.liveResults,
     required this.completedRuns,
+    required this.activeRuns,
   });
   final int liveSessions;
   final int liveResults;
   final int completedRuns;
+  final int activeRuns;
 }
 
 final class MlRuntime {
@@ -79,5 +81,6 @@ final class MlRuntime {
     liveSessions: nativeLiveSessions(),
     liveResults: nativeLiveResults(),
     completedRuns: nativeCompletedRuns(),
+    activeRuns: nativeActiveRuns(),
   );
 }

@@ -53,7 +53,7 @@ final class MlTensorSpec {
   final List<int> shape;
   final List<int> maxShape;
 
-  bool accepts(MlTensor tensor) {
+  bool accepts(MlTensor tensor, {bool requireFinite = true}) {
     if (tensor.dtype != dtype || tensor.shape.length != shape.length) {
       return false;
     }
@@ -63,7 +63,7 @@ final class MlTensorSpec {
         return false;
       }
     }
-    return tensor.isFinite;
+    return !requireFinite || tensor.isFinite;
   }
 
   Map<String, Object> toJson() => {

@@ -97,4 +97,7 @@ external int nativeLiveResults();
 @Native<Int64 Function()>(assetId: _shim, symbol: 'zyren_ml_completed_runs')
 external int nativeCompletedRuns();
 
+@Native<Int64 Function()>(assetId: _shim, symbol: 'zyren_ml_active_runs')
+external int nativeActiveRuns();
+
 final sessionFinalizer = NativeFinalizer(Native.addressOf(nativeClose));

@@ -13,6 +13,11 @@ constexpr size_t kMaxModelBytes = 64 * 1024 * 1024;
 constexpr size_t kMaxTensors = 64;
 std::atomic<int64_t> sessions{0}, results{0};
 std::atomic<int64_t> completed_runs{0};
+std::atomic<int64_t> active_runs{0};
+struct ActiveRun {
+  ActiveRun() { ++active_runs; }
+  ~ActiveRun() { --active_runs; }
+};
 
 void message(char* dest, size_t size, const char* text) noexcept {
   if (dest && size) {
@@ -159,9 +164,12 @@ int32_t zyren_ml_run(ZyrenMlSession* state, const char* const* names,
     for (size_t i = 0; i < output_count; ++i)
       if (!output_names[i]) throw std::invalid_argument("Missing output name.");
     auto result = std::make_unique<ZyrenMlResult>(api, output_count);
-    check(api, api->Run(state->session, nullptr, names, inputs.values.data(), count,
-                       output_names, output_count, result->values.data()));
-    ++completed_runs;
+    {
+      ActiveRun active;
+      check(api, api->Run(state->session, nullptr, names, inputs.values.data(), count,
+                         output_names, output_count, result->values.data()));
+      ++completed_runs;
+    }
     // Inspect all outputs before returning any storage to Dart.
     total_bytes = 0;
     for (size_t i = 0; i < output_count; ++i) {
@@ -221,4 +229,5 @@ void zyren_ml_result_close(ZyrenMlResult* result) { delete result; }
 int64_t zyren_ml_live_sessions() { return sessions.load(); }
 int64_t zyren_ml_live_results() { return results.load(); }
 int64_t zyren_ml_completed_runs() { return completed_runs.load(); }
+int64_t zyren_ml_active_runs() { return active_runs.load(); }
 }
