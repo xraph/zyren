@@ -10,6 +10,9 @@ final class GameTrainingInstance {
   final Map<String, Float32List> Function() observe;
   final String observationSchemaHash, actionSchemaHash;
   final int actionWidth;
+  final bool Function(Float32List) acceptAction;
+  final Map<String, Object?> actionSpace;
+  final bool supportsSnapshot;
   final Iterable<GameEntityHandle> Function() actors;
   final Future<void> Function()? beforeStep;
   final double Function() reward;
@@ -23,13 +26,26 @@ final class GameTrainingInstance {
     required this.observationSchemaHash,
     required this.actionSchemaHash,
     required this.actionWidth,
+    bool Function(Float32List)? acceptAction,
+    Map<String, Object?>? actionSpace,
+    this.supportsSnapshot = true,
     Iterable<GameEntityHandle> Function()? actors,
     this.beforeStep,
     this.info,
     double Function()? reward,
     bool Function()? terminal,
     bool Function()? success,
-  }) : actors =
+  }) : acceptAction =
+           acceptAction ?? ((v) => v.every((n) => n >= -1 && n <= 1)),
+       actionSpace = _demoFreeze(
+         actionSpace ??
+             {
+               'kind': 'box',
+               'low': List.filled(actionWidth, -1.0),
+               'high': List.filled(actionWidth, 1.0),
+             },
+       ),
+       actors =
            actors ?? (() => session.entities.entities.map((e) => e.handle)),
        reward = reward ?? (() => 0),
        terminal = terminal ?? (() => false),
@@ -168,7 +184,8 @@ final class GameTrainingEnvironment {
         actionByActor.values.any(
           (v) =>
               v.length != current.actionWidth ||
-              v.any((x) => !x.isFinite || x < -1 || x > 1),
+              v.any((x) => !x.isFinite) ||
+              !current.acceptAction(v),
         )) {
       throw ArgumentError('Invalid actor actions.');
     }
@@ -253,6 +270,8 @@ final class GameTrainingEnvironment {
         'observation_schema_hash': current.observationSchemaHash,
         'action_schema_hash': current.actionSchemaHash,
         'action_width': current.actionWidth,
+        'action_space': current.actionSpace,
+        'supports_snapshot': current.supportsSnapshot,
         'success': !_failed && terminated && current.success(),
         'worker_failed': false,
         'accepted_steps': _steps,
@@ -269,7 +288,11 @@ final class GameTrainingEnvironment {
   }
 
   Map<String, Object?> snapshot() {
-    if (_closed || _busy || _instance == null || _failed) {
+    if (_closed ||
+        _busy ||
+        _instance == null ||
+        _failed ||
+        !_instance!.supportsSnapshot) {
       throw StateError('Environment cannot snapshot.');
     }
     return {
@@ -285,6 +308,7 @@ final class GameTrainingEnvironment {
   Future<GameTrainingResult> restore(Map<String, Object?> snapshot) =>
       _exclusive(() async {
         if (_instance == null ||
+            !_instance!.supportsSnapshot ||
             snapshot['scenario'] != _scenario!.id ||
             snapshot['episode_id'] != episodeId) {
           throw StateError('Snapshot environment identity differs.');

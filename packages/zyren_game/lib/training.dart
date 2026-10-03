@@ -4,8 +4,11 @@ library;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
+import 'package:crypto/crypto.dart' as crypto;
 import 'zyren_game.dart';
 
 part 'src/training/protocol.dart';
 part 'src/training/environment.dart';
 part 'src/training/supervisor.dart';
+
+part 'src/training/demonstration.dart';

@@ -12,14 +12,17 @@ class ZyrenVectorEnv(gym.vector.VectorEnv):
         if not 1 <= len(environments) <= 256 or len({e.environment_id for e in environments}) != len(environments):
             raise ValueError('independent environment identities are required')
         self.envs, self.num_envs = list(environments), len(environments)
-        self.single_action_space = environments[0].action_space
-        self.single_observation_space = environments[0].observation_space
-        if any(e.action_space != self.single_action_space or e.observation_space != self.single_observation_space for e in environments):
+        self._refresh_spaces()
+        self._pool = ThreadPoolExecutor(max_workers=min(32, self.num_envs))
+        self.closed = False
+
+    def _refresh_spaces(self):
+        self.single_action_space = self.envs[0].action_space
+        self.single_observation_space = self.envs[0].observation_space
+        if any(e.action_space != self.single_action_space or e.observation_space != self.single_observation_space for e in self.envs):
             raise ValueError('vector spaces must match')
         self.action_space = batch_space(self.single_action_space, self.num_envs)
         self.observation_space = batch_space(self.single_observation_space, self.num_envs)
-        self._pool = ThreadPoolExecutor(max_workers=min(32, self.num_envs))
-        self.closed = False
 
     def reset(self, *, seed=None, options=None):
         seeds = [None] * self.num_envs if seed is None else ([seed + i for i in range(self.num_envs)] if isinstance(seed, int) else list(seed))
@@ -27,6 +30,7 @@ class ZyrenVectorEnv(gym.vector.VectorEnv):
             raise ValueError('vector seed count differs')
         futures = [self._pool.submit(e.reset, seed=s, options=options) for e, s in zip(self.envs, seeds)]
         results = [f.result() for f in futures]
+        self._refresh_spaces()
         return np.stack([r[0] for r in results]), {'individual': np.array([r[1] for r in results], dtype=object)}
 
     def step(self, actions):

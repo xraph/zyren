@@ -15,16 +15,26 @@ class ZyrenEnv(gym.Env):
         self.worker, self.environment_id, self.scenario = worker, environment_id, scenario
         self.purpose, self.actor_id = purpose, actor_id
         self.action_space = gym.spaces.Box(-1, 1, shape=(action_width,), dtype=np.float32)
-        self.observation_space = gym.spaces.Box(-np.inf, np.inf, shape=(observation_width,), dtype=np.float32)
+        self._observation_width = observation_width
+        self.observation_space = gym.spaces.Box(-np.inf, np.inf, shape=(observation_width or 0,), dtype=np.float32)
         self._info, self._observation, self._ready, self._closed = {}, None, False, False
         self.observation_schema_hash = None
         self.action_schema_hash = self.build_id = None
+        self._action_contract = None
 
     def _update(self, frame):
         h = frame.header
         if h['actor_ids'] != [self.actor_id] or h['environment_id'] != self.environment_id:
             raise ProtocolError('environment actor identity differs')
         observation = frame.array(f'observation.{self.actor_id}')
+        if self._observation_width is None:
+            spec=h.get('observation_schema'); fields=spec.get('fields') if isinstance(spec,dict) else None
+            if not isinstance(fields,list) or not fields or len(fields)>256 or any(not isinstance(f,dict) or type(f.get('width')) is not int or not 1<=f['width']<=65536 for f in fields):
+                raise ProtocolError('generated observation schema is missing')
+            width=sum(f['width'] for f in fields)
+            if not 1<=width<=131072: raise ProtocolError('observation width exceeds budget')
+            self._observation_width=width
+            self.observation_space=gym.spaces.Box(-np.inf,np.inf,shape=(width,),dtype=np.float32)
         if observation.dtype != np.dtype('<f4') or observation.shape != self.observation_space.shape or not np.isfinite(observation).all():
             raise ProtocolError('observation dtype or shape differs')
         schema = h['observation_schema_hash']
@@ -35,6 +45,26 @@ class ZyrenEnv(gym.Env):
             if not isinstance(h.get(key), str) or not h[key] or (pin is not None and pin != h[key]):
                 raise ProtocolError('action schema or game build changed')
             setattr(self, key, h[key])
+        contract=h.get('action_space')
+        if contract is not None:
+            if self._action_contract is not None and contract!=self._action_contract:
+                raise ProtocolError('action space contract changed')
+            if contract.get('kind')=='multi_discrete':
+                values=contract.get('nvec')
+                if not isinstance(values,list) or any(type(v) is not int for v in values): raise ProtocolError('discrete branch dimensions must be integers')
+                nvec=np.asarray(values,dtype=np.int64)
+                if nvec.ndim!=1 or len(nvec)!=h['action_width'] or (nvec<1).any() or (nvec>256).any():
+                    raise ProtocolError('invalid discrete branches')
+                self.action_space=gym.spaces.MultiDiscrete(nvec)
+            elif contract.get('kind')=='box':
+                low=np.asarray(contract.get('low'),dtype=np.float32); high=np.asarray(contract.get('high'),dtype=np.float32)
+                if low.shape!=(h['action_width'],) or high.shape!=low.shape or not np.isfinite(low).all() or not np.isfinite(high).all() or (low>=high).any():
+                    raise ProtocolError('invalid continuous bounds')
+                self.action_space=gym.spaces.Box(low,high,dtype=np.float32)
+            else: raise ProtocolError('unknown action space')
+            self._action_contract=json.loads(json.dumps(contract))
+        expected_split={'training':'training','validation':'validation','test':'test'}.get(self.purpose)
+        if h.get('split') is not None and h['split']!=expected_split: raise ProtocolError('scenario partition differs')
         self.observation_schema_hash = schema
         self._info, self._observation = dict(h), observation
         return observation.copy(), dict(h)
@@ -57,14 +87,15 @@ class ZyrenEnv(gym.Env):
     def step(self, action):
         if not self._ready or self._closed:
             raise RuntimeError('reset is required before step')
-        action = np.asarray(action, dtype=np.float32)
+        action = np.asarray(action)
+        if isinstance(self.action_space,gym.spaces.Box): action=action.astype(np.float32)
         if not self.action_space.contains(action) or not np.isfinite(action).all():
             raise ValueError('action is outside its declared space')
         before = self._info
         try:
             frame = self.worker.call('step', environment_id=self.environment_id,
                                      episode_id=before['episode_id'], actor_ids=before['actor_ids'],
-                                     tick=before['tick'], actor_generations=before['actor_generations'], arrays={f'action.{self.actor_id}': action})
+                                     tick=before['tick'], actor_generations=before['actor_generations'], arrays={f'action.{self.actor_id}': action.astype(np.float32)})
             if frame.header['episode_id'] != before['episode_id'] or frame.header['tick'] != before['tick'] + 1:
                 raise ProtocolError('episode or tick response differs')
             obs, info = self._update(frame)

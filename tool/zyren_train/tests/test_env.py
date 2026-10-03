@@ -77,3 +77,18 @@ def test_single_actor_adapter_pins_game_and_action_identity():
                     {'actor_ids': ['actor', 'ground'], 'actor_generations': {'actor': 1, 'ground': 1}}):
         with pytest.raises(ProtocolError):
             env._update(frame(**changes))
+
+
+def test_generated_discrete_space_and_input_width_are_pinned():
+    import gymnasium as gym
+    from zyren_train.protocol import Frame
+    from test_protocol import header
+    env=ZyrenEnv(None,observation_width=None)
+    h=dict(header(),observation_schema_hash='obs',action_schema_hash='act',build_id='build',action_width=6,
+           observation_schema={'fields':[{'width':7},{'width':7}]},
+           action_space={'kind':'multi_discrete','nvec':[5,5,5,3,2,2]})
+    env._update(Frame.from_arrays(h,{'observation.actor':np.zeros(14,dtype=np.float32)}))
+    assert env.observation_space.shape==(14,) and isinstance(env.action_space,gym.spaces.MultiDiscrete)
+    with pytest.raises(ProtocolError):
+        env._update(Frame.from_arrays(dict(h,action_space={'kind':'multi_discrete','nvec':[5,5,5,3,2,3]}),
+                                      {'observation.actor':np.zeros(14,dtype=np.float32)}))

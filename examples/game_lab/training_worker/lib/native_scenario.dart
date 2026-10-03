@@ -85,6 +85,7 @@ GameTrainingScenario nativeBodyScenario({
           'physics_position': body.state.pose.position.storage,
           'physics_backend': 'rapier',
           'renderer': null,
+          'observation_schema': assembler.spec.toJson(),
         },
       );
     } catch (_) {

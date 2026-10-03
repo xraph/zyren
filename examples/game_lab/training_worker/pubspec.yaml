@@ -4,6 +4,7 @@ resolution: workspace
 environment:
   sdk: '>=3.10.0 <4.0.0'
 dependencies:
+  crypto: ^3.0.7
   zyren:
     path: ../../../packages/zyren
   zyren_game:
@@ -14,6 +15,14 @@ dependencies:
     path: ../../../packages/zyren_game_native
   zyren_physics:
     path: ../../../packages/zyren_physics
+  zyren_characters:
+    path: ../../../packages/zyren_characters
+  zyren_gltf:
+    path: ../../../packages/zyren_gltf
+  zyren_gltf_timeline:
+    path: ../../../packages/zyren_gltf_timeline
+  zyren_timeline:
+    path: ../../../packages/zyren_timeline
 dev_dependencies:
   test: ^1.30.0
   lints: ^6.0.0

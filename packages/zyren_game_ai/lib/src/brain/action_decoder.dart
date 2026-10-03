@@ -18,12 +18,14 @@ final class DecodedAction {
 /// Explicit normalized controller schemas. The motor owns speed and steering limits.
 final class ActionDecoder {
   final ActionSpec spec;
-  final bool driver, look, jump;
+  final bool driver, look, jump, discreteCharacter, pedals;
   ActionDecoder._(
     this.spec, {
     this.driver = false,
     this.look = false,
     this.jump = false,
+    this.discreteCharacter = false,
+    this.pedals = false,
   });
   factory ActionDecoder.character({bool look = false, bool jump = false}) =>
       ActionDecoder._(
@@ -54,6 +56,10 @@ final class ActionDecoder {
     ),
     driver: true,
   );
+  factory ActionDecoder.characterDiscrete() =>
+      ActionDecoder._(TrainingActions.character, discreteCharacter: true);
+  factory ActionDecoder.vehiclePedals() =>
+      ActionDecoder._(TrainingActions.vehicle, driver: true, pedals: true);
   DecodedAction get fallback =>
       decode(PolicyAction(spec.fallbackContinuous, spec.fallbackDiscrete))!;
   DecodedAction? decode(PolicyAction action, {List<List<bool>>? legality}) {
@@ -61,6 +67,31 @@ final class ActionDecoder {
       return null;
     }
     final v = action.continuous;
+    if (discreteCharacter) {
+      final d = action.discrete;
+      final intent = CharacterIntent(
+        moveX: TrainingActions.movementBins[d[0]],
+        moveZ: TrainingActions.movementBins[d[1]],
+        lookYaw: TrainingActions.movementBins[d[2]] * math.pi,
+        lookPitch: TrainingActions.pitchBins[d[3]] * math.pi / 2,
+        jump: d[4] == 1,
+        interact: d[5] == 1,
+      );
+      intent.validate();
+      return DecodedAction._(action, character: intent);
+    }
+    if (pedals) {
+      final intent = VehicleIntent(
+        steer: v[0],
+        throttle: v[2] > 0 ? 0 : v[1],
+        brake: v[2],
+      );
+      intent.validate();
+      return DecodedAction._(
+        PolicyAction([intent.steer, intent.throttle, intent.brake], []),
+        vehicle: intent,
+      );
+    }
     if (driver) {
       final intent = VehicleIntent(
         steer: v[0],

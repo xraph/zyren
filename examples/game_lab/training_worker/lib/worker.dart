@@ -5,6 +5,7 @@ import 'dart:isolate';
 import 'dart:typed_data';
 import 'package:zyren_game/training.dart';
 import 'native_scenario.dart';
+import 'task_scenarios.dart';
 
 void _environmentMain(Map<String, Object?> config) {
   final parent = config['parent'] as SendPort;
@@ -13,7 +14,11 @@ void _environmentMain(Map<String, Object?> config) {
     runId: config['run'] as String,
     environmentId: config['env'] as String,
     purpose: TrainingSplit.values.byName(config['purpose'] as String),
-    scenarios: {'native-body': nativeBodyScenario()},
+    scenarios: {
+      'native-body': nativeBodyScenario(),
+      'guard': guardScenario(),
+      'vehicle': vehicleScenario(),
+    },
   );
   final endpoint = LocalTrainingEndpoint(environment);
   parent.send(receive.sendPort);
@@ -157,6 +162,26 @@ final class _IsolateEndpoint implements TrainingEnvironmentEndpoint {
 }
 
 Future<void> runTrainingWorker(List<String> args) async {
+  if (args.contains('--scenario-specs')) {
+    final env = GameTrainingEnvironment(
+      runId: 'scenario-specs',
+      environmentId: 'scenario-specs',
+      scenarios: {'guard': guardScenario(), 'vehicle': vehicleScenario()},
+    );
+    try {
+      final specs = <Object?>[];
+      for (final id in ['guard', 'vehicle']) {
+        specs.add(
+          (await env.reset(seed: 7, scenario: id)).info['scenario_spec'],
+        );
+      }
+      stdout.writeln(jsonEncode(specs));
+    } finally {
+      await env.close();
+    }
+    return;
+  }
+
   if (args.contains('--fixture-log')) {
     final env = GameTrainingEnvironment(
       runId: 'reference',

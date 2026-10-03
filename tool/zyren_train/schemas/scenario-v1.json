@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Zyren scenario v1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "partition",
+    "game_build_hash",
+    "observation_schema_hash",
+    "action_schema_hash",
+    "callback_id",
+    "seed",
+    "max_steps",
+    "control_cadence",
+    "latency_ticks",
+    "reward_terms",
+    "assets",
+    "settings"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.:/-]{1,256}$"
+    },
+    "partition": {
+      "enum": [
+        "train",
+        "validation",
+        "test"
+      ]
+    },
+    "game_build_hash": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.:/-]{1,256}$"
+    },
+    "observation_schema_hash": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.:/-]{1,256}$"
+    },
+    "action_schema_hash": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.:/-]{1,256}$"
+    },
+    "callback_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.:/-]{1,256}$"
+    },
+    "seed": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "max_steps": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10000000
+    },
+    "control_cadence": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000
+    },
+    "latency_ticks": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000
+    },
+    "reward_terms": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "cap"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.:/-]{1,256}$"
+          },
+          "cap": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 1000
+          }
+        }
+      }
+    },
+    "assets": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "source",
+          "license",
+          "hash"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.:/-]{1,256}$"
+          },
+          "source": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.:/-]{1,256}$"
+          },
+          "license": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.:/-]{1,256}$"
+          },
+          "hash": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.:/-]{1,256}$"
+          }
+        }
+      }
+    },
+    "settings": {
+      "type": "object"
+    }
+  }
+}

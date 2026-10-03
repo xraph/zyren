@@ -75,7 +75,11 @@ final class RaySensor extends _MeasuredSensor {
       state: state,
       provenance: SensorProvenance.geometry,
       values: hits
-          .map((h) => h.state == SensorState.known ? h.distance : 0.0)
+          .map(
+            (h) => h.state == SensorState.known
+                ? h.distance.clamp(0.0, profile.range)
+                : 0.0,
+          )
           .toList(),
       validity: hits.map((h) => h.state == SensorState.known ? 1 : 0).toList(),
     );

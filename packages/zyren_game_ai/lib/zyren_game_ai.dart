@@ -38,6 +38,7 @@ part 'src/brain/utility.dart';
 part 'src/brain/skill.dart';
 part 'src/brain/scripted.dart';
 part 'src/brain/action_decoder.dart';
+part 'src/brain/training_actions.dart';
 part 'src/brain/policy_state.dart';
 part 'src/brain/policy.dart';
 part 'src/brain/hybrid.dart';
