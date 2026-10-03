@@ -101,6 +101,10 @@ impl Renderer {
                         .views
                         .iter()
                         .any(|(id, v)| *id != view && v.retained_instances.contains(&patch.base))
+                    && !self
+                        .staging
+                        .values()
+                        .any(|v| v.retained_instances.contains(&patch.base))
             })
             .map(|p| (p.id, p.base))
             .collect();

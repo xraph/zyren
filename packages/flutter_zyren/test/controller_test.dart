@@ -23,6 +23,33 @@ SceneRuntime runtime(FakeBackend backend) => SceneRuntime(
 );
 
 void main() {
+  testWidgets('one invalidation finishes admission and returns to idle', (
+    tester,
+  ) async {
+    final backend = _AdmissionBackend();
+    final controller = SceneController(
+      options: readback,
+      runtime: runtime(backend),
+    );
+    await tester.pumpWidget(host(SceneView(controller: controller)));
+    await frames(tester);
+    final initial = backend.submissions.length;
+    expect(initial, greaterThan(0));
+    await frames(tester);
+    expect(backend.submissions.length, initial);
+    backend.remaining = 2;
+    controller.invalidate();
+    await frames(tester);
+    expect(backend.submissions.length, initial + 3);
+    expect(backend.remaining, 0);
+    await frames(tester);
+    expect(backend.submissions.length, initial + 3);
+    controller.dispose();
+    await tester.pumpWidget(const SizedBox());
+    await controller.whenDisposed;
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'asynchronous plugin cancellation remains observable through whenDisposed',
     (tester) async {
@@ -244,4 +271,34 @@ void main() {
     await controller.whenDisposed;
     await tester.pumpWidget(const SizedBox());
   });
+}
+
+class _AdmissionBackend extends FakeBackend {
+  int remaining = 0;
+  @override
+  Future<FrameOutput> render(FrameSubmission submission) async {
+    final output = await super.render(submission);
+    final ready = remaining == 0;
+    if (!ready) remaining--;
+    return output.withStats(
+      FrameStats(
+        frameId: output.stats.frameId,
+        physicalSize: output.stats.physicalSize,
+        presentationPath: output.stats.presentationPath,
+        cpuBuildTime: output.stats.cpuBuildTime,
+        cpuSubmitTime: output.stats.cpuSubmitTime,
+        drawCalls: output.stats.drawCalls,
+        triangles: output.stats.triangles,
+        readbackBytes: output.stats.readbackBytes,
+        uploadedBytes: 0,
+        admission: SceneAdmission(
+          candidateReady: ready,
+          publishedRevision: 1,
+          uploadBacklogBytes: remaining,
+          stagedBytes: ready ? 0 : 1,
+          presentedIdentities: [],
+        ),
+      ),
+    );
+  }
 }

@@ -23,6 +23,82 @@ BufferGeometry largeGeometry(int count) {
 }
 
 void main() {
+  for (final instanced in [false, true]) {
+    test(
+      'staged ${instanced ? "instances" : "geometry"} survive another view patch',
+      () async {
+        final owner = await NativeBackend.create();
+        final stagingView = owner.createView();
+        try {
+          final camera = PerspectiveCamera();
+          FrameSubmission capture(Scene scene) => FrameSubmission.capture(
+            scene: scene,
+            camera: camera,
+            size: PhysicalSize(16, 16),
+          );
+          final geometry = BufferGeometry(
+            positions: [-1, -1, 0, 1, -1, 0, 0, 1, 0],
+            normals: [0, 0, 1, 0, 0, 1, 0, 0, 1],
+            indices: [0, 1, 2],
+            dynamic: true,
+          );
+          final material = UnlitMaterial(color: const Color3(1, 0, 0));
+          final mesh = instanced
+              ? InstancedMesh(geometry, material, count: 1)
+              : Mesh(geometry, material);
+          final scene = Scene()..add(mesh);
+          final original = await owner.render(capture(scene)) as ReadbackOutput;
+          final old = Scene()
+            ..add(
+              Mesh(BoxGeometry(), UnlitMaterial(color: const Color3(0, 1, 0))),
+            );
+          final previous =
+              await stagingView.render(capture(old)) as ReadbackOutput;
+          final candidate = Scene()
+            ..add(instanced ? mesh : Mesh(geometry, material));
+          for (var i = 0; i < 2; i++) {
+            candidate.add(
+              Mesh(largeGeometry(600000), UnlitMaterial())
+                ..position = Vec3(100.0 + i, 0, 0),
+            );
+          }
+          final fixedCandidate = capture(candidate);
+          final staged =
+              await stagingView.render(fixedCandidate) as ReadbackOutput;
+          expect(staged.stats.admission!.candidateReady, isFalse);
+          expect(staged.image.pixels, previous.image.pixels);
+          if (instanced) {
+            scene.add(mesh);
+            (mesh as InstancedMesh).setTransform(
+              0,
+              Mat4.compose(const Vec3(10, 0, 0), Quat.identity, Vec3.one),
+            );
+          } else {
+            geometry.updateAttribute(
+              VertexSemantic.position,
+              Float32List.fromList([9, -1, 0, 11, -1, 0, 10, 1, 0]),
+            );
+          }
+          final patched = await owner.render(capture(scene)) as ReadbackOutput;
+          expect(patched.image.pixels, isNot(original.image.pixels));
+          final published =
+              await stagingView.render(fixedCandidate) as ReadbackOutput;
+          expect(published.stats.admission!.candidateReady, isTrue);
+          expect(published.image.pixels, original.image.pixels);
+          await stagingView.close();
+          await owner.render(capture(Scene()));
+          expect((await owner.resourceStats()).residentBytes, 0);
+        } on SceneException catch (error) {
+          fail('${error.issue}: ${error.issue.cause}');
+        } finally {
+          await stagingView.close();
+          await owner.close();
+        }
+      },
+      skip: Platform.environment['RUN_NATIVE_GPU'] != '1',
+    );
+  }
+
   test(
     'native staging keeps the published cover while camera moves and recovers on reversal',
     () async {

@@ -9,10 +9,12 @@ void main() {
     final backend = SurfaceBackend();
     final scene = Scene();
     final camera = PerspectiveCamera();
+    var requests = 0;
     final engine = await SceneEngine.create(
       scene: scene,
       camera: camera,
       backendFactory: () async => backend,
+      onInvalidate: () => requests++,
     );
     Future<FrameOutput> draw() => engine.renderFrame(
       elapsed: Duration.zero,
@@ -28,6 +30,7 @@ void main() {
       presentedIdentities: [],
     );
     final old = await draw();
+    expect(requests, 0);
     scene.background = const Color3(1, 0, 0);
     camera.position = const Vec3(1, 0, 5);
     backend.admission = SceneAdmission(
@@ -38,6 +41,7 @@ void main() {
       presentedIdentities: [],
     );
     final staging = await draw();
+    expect(requests, 1);
     expect(
       staging.stats.source!.sceneRevision,
       old.stats.source!.sceneRevision,
@@ -51,6 +55,7 @@ void main() {
       presentedIdentities: [],
     );
     final published = await draw();
+    expect(requests, 1);
     expect(published.stats.source!.sceneRevision, scene.revision);
     await engine.dispose();
   });

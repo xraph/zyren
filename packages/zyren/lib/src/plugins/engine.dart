@@ -964,6 +964,9 @@ class SceneEngine {
       for (final (plugin, context) in _attached) {
         await _hook(() => plugin.afterRender(context, info, result.stats));
       }
+      if (!_closed && result.stats.admission?.candidateReady == false) {
+        _onInvalidate?.call();
+      }
       return result;
     });
     _frame = future;
