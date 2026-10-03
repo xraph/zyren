@@ -95,8 +95,27 @@ class _GameActionButtonState extends State<GameActionButton> {
   final int _id = _nextDevice++;
   final Set<int> _pointers = {};
   bool _held = false;
+  GameEventSubscription? _subscription;
+  int _releaseRevision = 0;
   String get _device => '${widget.deviceId}:$_id';
+  @override
+  void initState() {
+    super.initState();
+    _bind();
+  }
+
+  void _bind() {
+    _releaseRevision = widget.actions.releaseRevision;
+    _subscription = widget.actions.listen(() {
+      if (_releaseRevision == widget.actions.releaseRevision) return;
+      _releaseRevision = widget.actions.releaseRevision;
+      _held = false;
+      _pointers.clear();
+    });
+  }
+
   void _set(bool pressed) {
+    if (pressed && !widget.actions.enabled) return;
     if (_held == pressed) return;
     _held = pressed;
     widget.actions.setButton(
@@ -123,14 +142,17 @@ class _GameActionButtonState extends State<GameActionButton> {
     if (oldWidget.actions != widget.actions ||
         oldWidget.action != widget.action ||
         oldWidget.deviceId != widget.deviceId) {
+      _subscription?.cancel();
       oldWidget.actions.releaseAll('${oldWidget.deviceId}:$_id');
       _held = false;
       _pointers.clear();
+      _bind();
     }
   }
 
   @override
   void dispose() {
+    _subscription?.cancel();
     widget.actions.releaseAll(_device);
     super.dispose();
   }
@@ -155,15 +177,16 @@ class _GameActionButtonState extends State<GameActionButton> {
     child: Listener(
       behavior: HitTestBehavior.opaque,
       onPointerDown: (event) {
+        if (!widget.actions.enabled) return;
         _pointers.add(event.pointer);
         _set(true);
       },
       onPointerUp: (event) {
-        _pointers.remove(event.pointer);
+        if (!_pointers.remove(event.pointer)) return;
         if (_pointers.isEmpty) _set(false);
       },
       onPointerCancel: (event) {
-        _pointers.remove(event.pointer);
+        if (!_pointers.remove(event.pointer)) return;
         if (_pointers.isEmpty) _set(false);
       },
       child: Semantics(
@@ -207,6 +230,31 @@ class _GameAxisPadState extends State<GameAxisPad> {
   late final String _device = 'touch-pad:${identityHashCode(this)}';
   final _keys = <LogicalKeyboardKey>{};
   Offset _pointer = Offset.zero;
+  bool _dragging = false;
+  GameEventSubscription? _subscription;
+  int _releaseRevision = 0;
+  @override
+  void initState() {
+    super.initState();
+    _bind();
+  }
+
+  void _bind() {
+    _releaseRevision = widget.actions.releaseRevision;
+    _subscription = widget.actions.listen(() {
+      if (_releaseRevision == widget.actions.releaseRevision) return;
+      _releaseRevision = widget.actions.releaseRevision;
+      _reset();
+      if (mounted) setState(() {});
+    });
+  }
+
+  void _reset() {
+    _keys.clear();
+    _pointer = Offset.zero;
+    _dragging = false;
+  }
+
   Offset get _value => Offset(
     (_pointer.dx +
             (_keys.contains(LogicalKeyboardKey.arrowRight) ? 1 : 0) -
@@ -218,6 +266,7 @@ class _GameAxisPadState extends State<GameAxisPad> {
         .clamp(-1.0, 1.0),
   );
   void _publish() {
+    if (!widget.actions.enabled) return;
     widget.actions.setAxis(
       deviceId: _device,
       action: widget.xAction,
@@ -232,6 +281,7 @@ class _GameAxisPadState extends State<GameAxisPad> {
   }
 
   void _move(Offset position) {
+    if (!widget.actions.enabled || !_dragging) return;
     final center = widget.extent / 2;
     var value = Offset(
       (position.dx - center) / center,
@@ -243,7 +293,13 @@ class _GameAxisPadState extends State<GameAxisPad> {
   }
 
   void _cancel() {
-    _keys.clear();
+    _reset();
+    _publish();
+  }
+
+  void _endDrag() {
+    if (!_dragging) return;
+    _dragging = false;
     _pointer = Offset.zero;
     _publish();
   }
@@ -254,14 +310,16 @@ class _GameAxisPadState extends State<GameAxisPad> {
     if (oldWidget.actions != widget.actions ||
         oldWidget.xAction != widget.xAction ||
         oldWidget.yAction != widget.yAction) {
+      _subscription?.cancel();
       oldWidget.actions.releaseAll(_device);
-      _keys.clear();
-      _pointer = Offset.zero;
+      _reset();
+      _bind();
     }
   }
 
   @override
   void dispose() {
+    _subscription?.cancel();
     widget.actions.releaseAll(_device);
     super.dispose();
   }
@@ -276,6 +334,7 @@ class _GameAxisPadState extends State<GameAxisPad> {
         if (!focus) _cancel();
       },
       onKeyEvent: (_, event) {
+        if (!widget.actions.enabled) return KeyEventResult.ignored;
         final arrows = {
           LogicalKeyboardKey.arrowLeft,
           LogicalKeyboardKey.arrowRight,
@@ -292,16 +351,14 @@ class _GameAxisPadState extends State<GameAxisPad> {
         return KeyEventResult.handled;
       },
       child: GestureDetector(
-        onPanStart: (event) => _move(event.localPosition),
+        onPanStart: (event) {
+          if (!widget.actions.enabled) return;
+          _dragging = true;
+          _move(event.localPosition);
+        },
         onPanUpdate: (event) => _move(event.localPosition),
-        onPanEnd: (_) {
-          _pointer = Offset.zero;
-          _publish();
-        },
-        onPanCancel: () {
-          _pointer = Offset.zero;
-          _publish();
-        },
+        onPanEnd: (_) => _endDrag(),
+        onPanCancel: _endDrag,
         child: SizedBox.square(
           dimension: widget.extent,
           child: Stack(
@@ -338,6 +395,7 @@ class _GameAxisPadState extends State<GameAxisPad> {
                           .clamp(-1.0, 1.0)
                           .toStringAsFixed(1),
                       onIncrease: () {
+                        if (!widget.actions.enabled) return;
                         _pointer = Offset(
                           (_pointer.dx + .1).clamp(-1.0, 1.0),
                           _pointer.dy,
@@ -345,6 +403,7 @@ class _GameAxisPadState extends State<GameAxisPad> {
                         _publish();
                       },
                       onDecrease: () {
+                        if (!widget.actions.enabled) return;
                         _pointer = Offset(
                           (_pointer.dx - .1).clamp(-1.0, 1.0),
                           _pointer.dy,
@@ -366,6 +425,7 @@ class _GameAxisPadState extends State<GameAxisPad> {
                           .clamp(-1.0, 1.0)
                           .toStringAsFixed(1),
                       onIncrease: () {
+                        if (!widget.actions.enabled) return;
                         _pointer = Offset(
                           _pointer.dx,
                           (_pointer.dy + .1).clamp(-1.0, 1.0),
@@ -373,6 +433,7 @@ class _GameAxisPadState extends State<GameAxisPad> {
                         _publish();
                       },
                       onDecrease: () {
+                        if (!widget.actions.enabled) return;
                         _pointer = Offset(
                           _pointer.dx,
                           (_pointer.dy - .1).clamp(-1.0, 1.0),

@@ -40,7 +40,10 @@ final class GameLifecycleBinding extends WidgetsBindingObserver {
     }
     _resumeSession = false;
     actions.enabled =
-        !session.paused && !session.isClosed && session.fault == null;
+        !session.paused &&
+        !session.isClosed &&
+        session.fault == null &&
+        router?.blocked != true;
   }
 
   GameLifecycleBinding({

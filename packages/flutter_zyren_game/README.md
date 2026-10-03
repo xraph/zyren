@@ -27,7 +27,9 @@ GameSceneBinding(
 
 `GameActionButton` and `GameAxisPad` provide touch, keyboard and semantic actions.
 They release held controls on cancellation or removal. `GameInputMap` handles
-bindings and dead zones. Rebinding releases the previous values. Consumed events,
+bindings and dead zones. Global releases and rebinding also discard the widgets'
+held keys and pointers. An interrupted drag needs a new pan start before it can
+move again. Disabled controls ignore new input. Consumed events,
 old timestamps and excess device/control counts are rejected by the game layer.
 
 Editor tools and object interactions retain priority through the existing
@@ -39,7 +41,7 @@ invalidates pending decisions. This also works for games without audio.
 When you supply audio focus, use the shared `AudioFocusSession.play()` policy.
 A permanent native focus loss waits for a new Play request. Returning to the app
 cannot override an explicit game pause, and stale focus grants cannot resume a
-newer background session.
+newer background session. Returning to the app also preserves active modal blocks.
 
 ## Controller backend
 
@@ -52,7 +54,9 @@ transport is introduced.
 Controls use the backend's normalized names, such as `axis.leftStickX`,
 `axis.leftStickY`, `button.a` and `button.leftShoulder`. Bind these in your input
 map. Listen to `GamepadAdapter.events` errors or provide `onGamepadError`; device
-failures clear held values and remain visible.
+failures clear held values and remain visible. The adapter stamps events with its
+own monotonic microsecond clock on receipt, preserving arrival order across the
+backends' different native clocks.
 
 Android hosts must forward input from a `GamepadsCompatibleActivity`. The
 repository's Game Lab `MainActivity.kt` contains that host integration. Follow the
@@ -67,6 +71,10 @@ nested modal blocks, touch cancellation, accessible keyboard activation,
 controller disconnect and stale discovery, immutable HUD updates, background
 suspension, silent games and late audio focus grants. Capture Lab's compatibility
 test also exercises the extracted shared audio policy.
+
+Regressions cover modal blocks across foreground restoration, global releases
+while keys or pointers remain down, ignored disabled button presses, interrupted
+drags, and fresh controller releases after a backend clock moves backwards.
 
 Physical controller connect/disconnect, touch devices and native accessibility
 checks are pending device qualification. Mocked events prove adapter behavior;

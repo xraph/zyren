@@ -20,6 +20,8 @@ final class GamepadAdapter {
   final Map<String, GamepadConnection> _devices = {};
   final Map<String, bool> _changesDuringList = {};
   final List<StreamSubscription<Object?>> _subscriptions = [];
+  final _clock = Stopwatch()..start();
+  int _lastTimestamp = -1;
   bool _started = false, _closed = false, _listing = false;
   Object? error;
   Stream<GameInputEvent> get events => _events.stream;
@@ -49,7 +51,9 @@ final class GamepadAdapter {
               ? 'button.${event.button!.name}'
               : 'axis.${event.axis!.name}',
           value: event.value,
-          timestamp: event.timestamp * 1000,
+          // Platform clocks have different units and may use wall time.
+          // The adapter stamps arrival order below with its monotonic clock.
+          timestamp: 0,
         ),
       ),
       connections: native.Gamepads.connectionEvents.map(
@@ -89,8 +93,19 @@ final class GamepadAdapter {
       _source.listen((event) {
         if (_closed || !_devices.containsKey(event.deviceId)) return;
         try {
-          input.accept(event);
-          _events.add(event);
+          final elapsed = _clock.elapsedMicroseconds;
+          _lastTimestamp = elapsed > _lastTimestamp
+              ? elapsed
+              : _lastTimestamp + 1;
+          final received = GameInputEvent(
+            deviceId: event.deviceId,
+            control: event.control,
+            value: event.value,
+            timestamp: _lastTimestamp,
+            consumed: event.consumed,
+          );
+          input.accept(received);
+          _events.add(received);
         } catch (failure) {
           _failed(failure);
         }

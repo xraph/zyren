@@ -30,6 +30,11 @@ final class GameActionState {
   }
 
   int _revision = 0, _listenerId = 0, _directTime = 0;
+  int _releaseRevision = 0;
+
+  /// Changes whenever all input is released or the action map is rebound.
+  /// Hosts use this to discard their local held keys and gesture state.
+  int get releaseRevision => _releaseRevision;
   GameActionState(this._map, {this.maxDevices = 32}) {
     _limit(maxDevices, 64, 'maxDevices');
   }
@@ -163,9 +168,9 @@ final class GameActionState {
   }
 
   void releaseEveryDevice() {
-    if (_devices.isEmpty) return;
     _devices.clear();
     _presses.clear();
+    _releaseRevision++;
     _changed();
   }
 
@@ -173,6 +178,7 @@ final class GameActionState {
     _devices.clear();
     _presses.clear();
     _map = map;
+    _releaseRevision++;
     _changed();
   }
 }

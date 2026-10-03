@@ -152,4 +152,34 @@ void main() {
       messenger.setMockMethodCallHandler(channel, null);
     },
   );
+  test('foreground restoration preserves a live modal router block', () async {
+    final game = fixture.session();
+    final actions = fixture.actions();
+    final source = fixture.InputFixture();
+    final input = GameInputAdapter(actions: actions, source: source)
+      ..setFocus(true);
+    final stateSubscription = game.listenState(
+      () => input.setEnabled(!game.paused && !game.isClosed),
+    );
+    final lifecycle = GameLifecycleBinding(
+      session: game,
+      actions: actions,
+      router: input.router,
+      observe: false,
+    );
+    final block = input.router.block();
+    await lifecycle.setForeground(false);
+    await lifecycle.setForeground(true);
+    expect(game.paused, isFalse);
+    expect(actions.enabled, isFalse);
+    actions.setAxis(deviceId: 'touch', action: 'move', value: 1);
+    expect(actions.axis('move'), 0);
+    block.dispose();
+    expect(actions.enabled, isTrue);
+    stateSubscription.cancel();
+    lifecycle.dispose();
+    input.dispose();
+    await game.close();
+    await source.source.close();
+  });
 }

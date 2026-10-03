@@ -266,4 +266,153 @@ void main() {
       expect(state.pressed('jump'), isFalse);
     },
   );
+  testWidgets('a release clears pad keys while focus remains', (tester) async {
+    final state = GameActionState(
+      GameInputMap(
+        actions: [GameActionDefinition('x'), GameActionDefinition('y')],
+        bindings: [],
+      ),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: GameAxisPad(
+            actions: state,
+            xAction: 'x',
+            yAction: 'y',
+            label: 'Move',
+          ),
+        ),
+      ),
+    );
+    final gestureFinder = find.descendant(
+      of: find.byType(GameAxisPad),
+      matching: find.byType(GestureDetector),
+    );
+    Focus.of(tester.element(gestureFinder)).requestFocus();
+    await tester.pump();
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowRight);
+    expect(state.axis('x'), 1);
+    state.enabled = false;
+    state.enabled = true;
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowUp);
+    expect(state.axis('x'), 0);
+    expect(state.axis('y'), 1);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowRight);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowUp);
+    await tester.pumpWidget(const SizedBox());
+  });
+  testWidgets(
+    'an old drag cannot republish after release until a new pan starts',
+    (tester) async {
+      final state = GameActionState(
+        GameInputMap(
+          actions: [GameActionDefinition('x'), GameActionDefinition('y')],
+          bindings: [],
+        ),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: GameAxisPad(
+              actions: state,
+              xAction: 'x',
+              yAction: 'y',
+              label: 'Move',
+            ),
+          ),
+        ),
+      );
+      final center = tester.getCenter(find.byType(GameAxisPad));
+      final old = await tester.startGesture(center);
+      await old.moveBy(const Offset(30, 0));
+      expect(state.axis('x'), greaterThan(0));
+      state.releaseEveryDevice();
+      await old.moveBy(const Offset(0, 20));
+      expect(state.axis('x'), 0);
+      expect(state.axis('y'), 0);
+      await old.cancel();
+      final fresh = await tester.startGesture(center);
+      await fresh.moveBy(const Offset(25, 0));
+      expect(state.axis('x'), greaterThan(0));
+      await fresh.cancel();
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+  testWidgets(
+    'button release resets old pointers and disabled downs are ignored',
+    (tester) async {
+      final state = actions();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: GameActionButton(
+              actions: state,
+              action: 'jump',
+              label: 'Jump',
+            ),
+          ),
+        ),
+      );
+      final center = tester.getCenter(find.text('Jump'));
+      final old = await tester.startGesture(center, pointer: 21);
+      expect(state.pressed('jump'), isTrue);
+      state.enabled = false;
+      final ignored = await tester.startGesture(center, pointer: 22);
+      state.enabled = true;
+      final fresh = await tester.startGesture(center, pointer: 23);
+      expect(state.pressed('jump'), isTrue);
+      await old.cancel();
+      await fresh.up();
+      expect(state.pressed('jump'), isFalse);
+      await ignored.cancel();
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+  test('raw controller clock rollback cannot reject a fresh release', () async {
+    final source = InputFixture();
+    final state = actions();
+    final input = GameInputAdapter(actions: state, source: source)
+      ..setFocus(true);
+    final events = StreamController<GameInputEvent>.broadcast(sync: true);
+    final connections = StreamController<GamepadConnection>.broadcast(
+      sync: true,
+    );
+    final adapter = GamepadAdapter(
+      input: input,
+      source: events.stream,
+      connections: connections.stream,
+      listDevices: () async => [
+        const GamepadConnection('pad', 'Controller', true),
+      ],
+    );
+    await adapter.start();
+    final received = <GameInputEvent>[];
+    final subscription = adapter.events.listen(received.add);
+    events.add(
+      GameInputEvent(
+        deviceId: 'pad',
+        control: 'axis.leftStickX',
+        value: 1,
+        timestamp: 9000,
+      ),
+    );
+    expect(state.axis('move'), 1);
+    events.add(
+      GameInputEvent(
+        deviceId: 'pad',
+        control: 'axis.leftStickX',
+        value: 0,
+        timestamp: 8000,
+      ),
+    );
+    expect(state.axis('move'), 0);
+    expect(received[1].timestamp, greaterThan(received[0].timestamp));
+    await subscription.cancel();
+    await adapter.dispose();
+    input.dispose();
+    await events.close();
+    await connections.close();
+    await source.source.close();
+  });
 }

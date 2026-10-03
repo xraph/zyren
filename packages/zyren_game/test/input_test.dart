@@ -178,4 +178,20 @@ void main() {
     state.setAxis(deviceId: 'two', action: 'move', value: 1);
     expect(state.axis('move'), 1);
   });
+  test(
+    'global release and rebind publish an epoch even when values are empty',
+    () {
+      final state = GameActionState(bindings());
+      final epochs = <int>[];
+      final subscription = state.listen(
+        () => epochs.add(state.releaseRevision),
+      );
+      final before = state.releaseRevision;
+      state.releaseEveryDevice();
+      state.releaseEveryDevice();
+      state.rebind(bindings());
+      expect(epochs, [before + 1, before + 2, before + 3]);
+      subscription.cancel();
+    },
+  );
 }
