@@ -6,7 +6,7 @@ import 'package:zyren_studio/agents.dart';
 import 'package:zyren_studio/authoring_agents.dart';
 import 'package:zyren_studio/commands.dart';
 import 'package:zyren_studio/zyren_studio.dart';
-import '../../zyren/test/support/fakes.dart';
+import 'support/renderer.dart';
 import 'studio_test.dart' show fixture;
 
 void main() {

@@ -4,6 +4,7 @@ import 'dart:io';
 void main(List<String> args) {
   final root = Directory(args.isEmpty ? '.' : args.single);
   final allowed = <String, Set<String>>{
+    'packages/zyren_studio': {'zyren_studio', 'zyren', 'zyren_agents', 'zyren_tools', 'zyren_timeline', 'zyren_engineering'},
     'packages/zyren_scientific': {'zyren_scientific', 'zyren', 'zyren_agents', 'zyren_timeline'},
     'packages/zyren_pipeline': {
       'zyren_pipeline', 'zyren', 'zyren_gltf', 'zyren_agents', 'crypto',
@@ -66,7 +67,8 @@ void main(List<String> args) {
           failures.add('${file.path}: unexpected dependency $uri');
         }
         if ((package.key == 'examples/shader_lab/effects_plugin' ||
-                package.key == 'packages/zyren_inspector') &&
+                package.key == 'packages/zyren_inspector' ||
+                package.key == 'packages/zyren_studio') &&
             (uri.startsWith('package:zyren/src/') ||
                 uri.startsWith('package:flutter_zyren/src/') ||
                 !uri.contains(':') &&

@@ -5,7 +5,7 @@ import 'package:zyren/zyren.dart';
 import 'package:zyren_engineering/zyren_engineering.dart';
 import 'package:zyren_studio/zyren_studio.dart';
 import 'package:zyren_studio/io.dart';
-import '../../zyren/test/support/fakes.dart';
+import 'support/renderer.dart';
 
 StudioDocument fixture() => StudioDocument(
   id: 'study',

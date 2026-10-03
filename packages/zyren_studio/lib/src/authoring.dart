@@ -196,4 +196,70 @@ abstract final class StudioAuthoring {
       clips: [...document.clips.where((c) => c.id != clipId), clip],
     );
   }
+
+  /// Retime or remove an exact key. Validation leaves the input untouched.
+  static StudioDocument editKeyframe(
+    StudioDocument document, {
+    required String clipId,
+    required String nodeId,
+    required int microseconds,
+    int? moveToMicroseconds,
+  }) {
+    final clip = document.clips.singleWhere((c) => c.id == clipId);
+    final frames = clip.tracks[nodeId];
+    if (frames == null) throw ArgumentError('Unknown animation track.');
+    final frame = frames.singleWhere((f) => f.microseconds == microseconds);
+    if (moveToMicroseconds != microseconds &&
+        frames.any((f) => f.microseconds == moveToMicroseconds)) {
+      throw ArgumentError('A key already occupies that time.');
+    }
+    final edited = frames.where((f) => f != frame).toList();
+    if (moveToMicroseconds != null) {
+      edited.add(
+        StudioKeyframe(
+          microseconds: moveToMicroseconds,
+          position: frame.position,
+          scale: frame.scale,
+          rotation: frame.rotation,
+          visible: frame.visible,
+        ),
+      );
+    }
+    edited.sort((a, b) => a.microseconds.compareTo(b.microseconds));
+    final tracks = {...clip.tracks}..remove(nodeId);
+    if (edited.isNotEmpty) tracks[nodeId] = edited;
+    return document.copyWith(
+      clips: [
+        for (final c in document.clips)
+          if (c.id != clipId)
+            c
+          else if (tracks.isNotEmpty)
+            StudioClip(
+              id: c.id,
+              label: c.label,
+              durationMicroseconds: c.durationMicroseconds,
+              tracks: tracks,
+            ),
+      ],
+    );
+  }
+
+  static StudioDocument resizeClip(
+    StudioDocument document,
+    String clipId,
+    int microseconds,
+  ) => document.copyWith(
+    clips: [
+      for (final clip in document.clips)
+        if (clip.id != clipId)
+          clip
+        else
+          StudioClip(
+            id: clip.id,
+            label: clip.label,
+            durationMicroseconds: microseconds,
+            tracks: clip.tracks,
+          ),
+    ],
+  );
 }

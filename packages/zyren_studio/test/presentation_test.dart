@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:test/test.dart';
 import 'package:zyren/zyren.dart';
 import 'package:zyren/rendering.dart';
-import '../../zyren/test/support/fakes.dart';
+import 'support/renderer.dart';
 
 void main() {
   test(

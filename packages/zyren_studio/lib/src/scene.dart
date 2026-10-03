@@ -13,7 +13,8 @@ final class StudioScene {
   final Scene scene = Scene();
   final Group content = Group(name: 'Authored scene');
   late final PerspectiveCamera camera = document.camera.createCamera();
-  final SceneToolsPlugin tools = SceneToolsPlugin(highlightSelection: false);
+  late final SceneToolsPlugin tools = _StudioTools(this);
+  (String, String)? selectedSource;
   late final SceneEngineeringPlugin engineering = SceneEngineeringPlugin(
     document: _review(),
   );
@@ -263,6 +264,7 @@ final class StudioScene {
     final rebuilt = StudioScene(next, assets: assets);
     final resolved = rebuilt.capture();
     final selectedId = idFor(tools.selected);
+    final previousSource = selectedSource;
     if (engineering.isAttached) {
       for (final id in engineering.document.objects.keys) {
         engineering.unbind(id);
@@ -308,7 +310,13 @@ final class StudioScene {
       _document = resolved;
     });
     if (engineering.isAttached) bindReview();
-    if (_objects[selectedId] case final selected?) tools.select(selected);
+    if (_objects[selectedId] case final selected?) {
+      final sourceObject = _assetSources.entries
+          .where((entry) => entry.value == previousSource)
+          .firstOrNull
+          ?.key;
+      tools.select(sourceObject ?? selected);
+    }
   }
 
   /// Supported edits replace immutable material values through one owned path.
@@ -438,5 +446,19 @@ final class StudioScene {
       camera: StudioCamera.capture(camera),
       review: engineering.document,
     );
+  }
+}
+
+/// Keep gizmos on authored instances while retaining picked source provenance.
+final class _StudioTools extends SceneToolsPlugin {
+  final StudioScene studio;
+  _StudioTools(this.studio) : super(highlightSelection: false);
+
+  @override
+  void select(Object3D? object) {
+    final id = studio.idFor(object);
+    final source = object == null ? null : studio.sourceFor(object);
+    super.select(id == null ? null : studio.objects[id]);
+    studio.selectedSource = source;
   }
 }

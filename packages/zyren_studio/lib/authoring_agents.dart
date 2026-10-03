@@ -135,6 +135,38 @@ final class StudioAuthoringAgentProvider extends AgentProvider {
       ['targetId', 'clipId', 'microseconds', 'durationMicroseconds'],
     ),
     _tool(
+      'edit_keyframe',
+      'Remove an exact key or move it to an unoccupied time.',
+      {
+        'clipId': _text,
+        'targetId': _text,
+        'microseconds': {
+          'type': 'integer',
+          'minimum': 0,
+          'maximum': 86400000000,
+        },
+        'moveToMicroseconds': {
+          'type': 'integer',
+          'minimum': 0,
+          'maximum': 86400000000,
+        },
+      },
+      ['clipId', 'targetId', 'microseconds'],
+    ),
+    _tool(
+      'resize_clip',
+      'Change clip duration without discarding keys.',
+      {
+        'clipId': _text,
+        'microseconds': {
+          'type': 'integer',
+          'minimum': 1,
+          'maximum': 86400000000,
+        },
+      },
+      ['clipId', 'microseconds'],
+    ),
+    _tool(
       'remove_clip',
       'Remove a clip through the editor history.',
       {'clipId': _text},
@@ -267,6 +299,20 @@ final class StudioAuthoringAgentProvider extends AgentProvider {
               visible: node.visible,
             ),
             durationMicroseconds: arguments['durationMicroseconds'] as int,
+          );
+        case 'edit_keyframe':
+          next = StudioAuthoring.editKeyframe(
+            doc,
+            clipId: arguments['clipId'] as String,
+            nodeId: targetId!,
+            microseconds: arguments['microseconds'] as int,
+            moveToMicroseconds: arguments['moveToMicroseconds'] as int?,
+          );
+        case 'resize_clip':
+          next = StudioAuthoring.resizeClip(
+            doc,
+            arguments['clipId'] as String,
+            arguments['microseconds'] as int,
           );
         case 'remove_clip':
           next = doc.copyWith(

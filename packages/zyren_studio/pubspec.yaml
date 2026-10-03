@@ -1,6 +1,7 @@
 name: zyren_studio
 description: Versioned authored scenes composed with Zyren editing and review tools.
 version: 0.1.0
+repository: https://github.com/xraph/zyren/tree/main/packages/zyren_studio
 publish_to: none
 resolution: workspace
 environment:

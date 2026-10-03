@@ -4,7 +4,7 @@ import 'package:zyren/zyren.dart';
 import 'package:zyren_studio/zyren_studio.dart';
 import 'package:zyren_studio/animation.dart';
 import 'package:zyren_engineering/zyren_engineering.dart';
-import '../../zyren/test/support/fakes.dart';
+import 'support/renderer.dart';
 
 StudioDocument prefabDocument() => StudioDocument(
   id: 'authoring',
@@ -61,6 +61,49 @@ StudioDocument prefabDocument() => StudioDocument(
 );
 
 void main() {
+  test(
+    'key edits reject collisions and truncation without changing the original',
+    () {
+      final doc = prefabDocument();
+      final encoded = doc.encode();
+      expect(
+        () => StudioAuthoring.editKeyframe(
+          doc,
+          clipId: 'move',
+          nodeId: 'one/inner/part',
+          microseconds: 0,
+          moveToMicroseconds: 1000000,
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => StudioAuthoring.resizeClip(doc, 'move', 500000),
+        throwsArgumentError,
+      );
+      expect(doc.encode(), encoded);
+      var next = StudioAuthoring.editKeyframe(
+        doc,
+        clipId: 'move',
+        nodeId: 'one/inner/part',
+        microseconds: 0,
+        moveToMicroseconds: 200000,
+      );
+      expect(next.clips.single.tracks.values.single.first.microseconds, 200000);
+      next = StudioAuthoring.editKeyframe(
+        next,
+        clipId: 'move',
+        nodeId: 'one/inner/part',
+        microseconds: 200000,
+      );
+      next = StudioAuthoring.editKeyframe(
+        next,
+        clipId: 'move',
+        nodeId: 'one/inner/part',
+        microseconds: 1000000,
+      );
+      expect(next.clips, isEmpty);
+    },
+  );
   test(
     'one history restores transforms, structure, materials, clips and review',
     () async {
@@ -389,6 +432,26 @@ void main() {
       final imported = scene.objects['model']!.children.single.children.single;
       expect(scene.idFor(imported), 'model');
       expect(scene.sourceFor(imported), ('model', 'cad-part'));
+      final engine = await SceneEngine.create(
+        scene: scene.scene,
+        camera: scene.camera,
+        rendererFactory: () async => TestRenderer([]),
+        plugins: [scene.tools, scene.engineering],
+      );
+      addTearDown(engine.dispose);
+      scene.tools.select(imported);
+      expect(scene.tools.selected, same(scene.objects['model']));
+      expect(scene.selectedSource, ('model', 'cad-part'));
+      scene.edit(
+        () => scene.tools.transform(
+          scene.tools.selected!,
+          position: const Vec3(2, 0, 0),
+        ),
+      );
+      expect(scene.capture().nodes.single.position.x, 2);
+      expect(imported.position, Vec3.zero);
+      expect(scene.undo(), isTrue);
+      expect(scene.capture().nodes.single.position.x, 0);
       scene.setMaterial(
         'model',
         StudioMaterial(kind: StudioMaterialKind.unlit, color: 0x123456),
