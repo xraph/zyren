@@ -41,3 +41,24 @@ with host-bound source IDs and action references. These are catalog facts;
 rendered visibility remains unknown. Reads do not mutate or schedule frames.
 The combined native MCP example lives at
 `../zyren_capture/example/agent_scene.dart`.
+
+## Imported variants and viewpoints
+
+Use `material_variants.dart` to turn a glTF `KHR_materials_variants` document
+into a catalog slot. Supply every instance of each `(mesh, primitive)` through
+`targets` and map material indices to your decoded material IDs. Labels are
+metadata; saved choices use `variant:0`, `variant:1`, and the catalog revision.
+If you reorder source variants, change that revision. The adapter restores each
+primitive's baseline when the selected variant has no mapping.
+
+The adapter consumes the
+[Khronos extension](https://raw.githubusercontent.com/KhronosGroup/glTF/main/extensions/2.0/Khronos/KHR_materials_variants/README.md).
+It does not decode a GLB or allocate materials. The current glTF loader does not
+expose decoded variant materials, so your asset layer must supply these bindings.
+
+Use `viewpoints.dart` for validated perspective camera presets and hotspots
+anchored to source targets. Pass the views, active camera and viewport callback
+to `ConfiguratorAgentProvider` to expose `viewpoints` and `camera` tools. Camera
+writes require `configurator.camera`. Hotspot coordinates use logical pixels and
+include frustum membership; pixel visibility remains unknown. Your application
+still decides which overlays block interaction and where catalog data is stored.

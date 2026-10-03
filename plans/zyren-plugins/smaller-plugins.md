@@ -203,3 +203,71 @@ retrofit reads the chain but only changes scene exposure, tone mapping and HDR;
 chain editing and native verification of those controls remain pending. Video,
 depth/object-ID output, high-resolution tiling, streaming audio, occlusion and
 configurator import/hotspot adapters remain separate milestones.
+
+## Continuation plan (2026-10-03)
+
+The next checkpoint extends the existing packages in the same order. The prior
+commit IDs above describe the starting point, not this continuation's results.
+
+### Configurator acceptance
+
+- Import `KHR_materials_variants` mappings through explicit source primitive and
+  material bindings. Preserve variant indices as stable IDs, reject malformed or
+  ambiguous mappings before changing a scene, and restore unmapped primitives.
+- Add validated camera presets and source-bound hotspots. Project hotspots with
+  the active camera and viewport; do not claim pixel visibility from projection.
+- Verify saved variant selection against a reconstructed model and exercise the
+  public tools in a displayed Flutter fixture with blocking overlay state.
+- Application catalog hooks remain host-owned catalogs, bindings and persistence.
+  No pricing, credential or permission service belongs in the renderer.
+
+### Audio acceptance
+
+- Keep the pinned miniaudio backend. Add explicit native engine suspend/resume,
+  file streaming/decoding with bounded voices, deterministic seeking, and host
+  occlusion gain. Cover cleanup and failed file opens with the real native mixer.
+- Add transform-derived velocity/Doppler and a deterministic timeline helper.
+  Bound invalid time steps and reset velocity after suspension or seeking.
+- Exercise low-volume spatial output and lifecycle recovery on available native
+  devices. Record device initialization, playback progress and human audibility
+  separately. Mobile audio focus/route interruptions need platform event wiring.
+- Additional backend adapters remain a separate compatibility milestone until a
+  second backend is needed and its device matrix can be qualified.
+
+### Capture and effects acceptance
+
+- Rebuild the existing ScreenEffectsController through agent tools. Preserve
+  host-owned LUTs, support bounded lens/SMAA/dither settings, guarded undo,
+  denied/stale requests and resource cleanup. Verify native pixels and resources.
+- Add an optional local FFmpeg video adapter for completed image sequences, with
+  explicit frame rate, cancellation, exit diagnostics and private output cleanup.
+  Keep encoding outside the renderer and report alpha/container limitations.
+- Inspect native projection and readback APIs before high-resolution tiling or
+  depth/object-ID work. Implement only outputs backed by existing native passes;
+  record exact shared API proposals for unsupported outputs.
+- Build a compact macOS/Android/iOS Flutter qualification example under
+  zyren_capture. Correlate submitted scene/camera snapshots with presentation
+  callbacks, then verify viewport hit, configuration action, effects edits and
+  overlay reporting through the shared registry and live MCP bridge.
+
+### Dependencies and device occupancy
+
+No shared core mutation is planned. The example needs a workspace entry in root
+pubspec.yaml; acquire the shared lock, re-read current entries and resolve once.
+All code and fixture changes stay in the three assigned packages. Shared effects
+and viewport APIs are consumed without editing their owners' files.
+
+At audit, character and pipeline Flutter drivers targeted the connected iPhone.
+Studio had a running macOS process. Leave those sessions alone. The connected
+Pixel 9 Pro can be used only after checking its foreground app and active drivers.
+Free disk space was about 2.2 GiB, so native build capacity may limit qualification.
+
+Configurator continuation: added validated glTF variant metadata import with
+bounded mapping counts, per-instance source bindings and baseline fallback;
+validated perspective presets; world-space hotspot projection; optional provider
+queries and a separately scoped camera action. The glTF loader does not expose
+variant material resources, so direct ModelAsset decoding integration remains a
+shared dependency. This adapter consumes host-provided decoded bindings.
+
+Configurator checks: 11 package tests passed; package analysis reports no issues.
+Displayed verification will use the combined fixture after the audio/capture work.

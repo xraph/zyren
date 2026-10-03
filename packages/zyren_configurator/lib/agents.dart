@@ -1,6 +1,7 @@
 import 'package:zyren/zyren.dart';
 import 'package:zyren_agents/zyren_agents.dart';
 import 'zyren_configurator.dart';
+import 'viewpoints.dart';
 
 Map<String, Object?> _object(
   Map<String, Object?> properties, [
@@ -18,6 +19,9 @@ const _output = {'type': 'object'};
 final class ConfiguratorAgentProvider extends AgentProvider {
   final SceneConfigurator controller;
   final Scene scene;
+  final ConfigurationViewpoints? viewpoints;
+  final PerspectiveCamera? camera;
+  final ViewportMetrics Function()? viewport;
   final String sceneId, documentId;
   @override
   final String instanceId;
@@ -29,26 +33,42 @@ final class ConfiguratorAgentProvider extends AgentProvider {
     required this.sceneId,
     required this.documentId,
     required this.instanceId,
+    this.viewpoints,
+    this.camera,
+    this.viewport,
   });
   AgentObjectMetadata? metadata(Object3D object) {
-    final matches = controller.targets.entries.where((entry) => identical(entry.value, object));
-    if (matches.isEmpty || !_attached(object) || controller.isClosed) return null;
-    return AgentObjectMetadata(sourceId: matches.first.key, owningPlugin: id,
-      properties: {'catalogId': controller.catalog.id, 'catalogRevision': controller.catalog.revision},
+    final matches = controller.targets.entries.where(
+      (entry) => identical(entry.value, object),
+    );
+    if (matches.isEmpty || !_attached(object) || controller.isClosed) {
+      return null;
+    }
+    return AgentObjectMetadata(
+      sourceId: matches.first.key,
+      owningPlugin: id,
+      properties: {
+        'catalogId': controller.catalog.id,
+        'catalogRevision': controller.catalog.revision,
+      },
       provenance: {'binding': 'host-provided stable catalog target'},
-      actions: ['$id/$instanceId/inspect', '$id/$instanceId/apply']);
+      actions: ['$id/$instanceId/inspect', '$id/$instanceId/apply'],
+    );
   }
+
   @override
   String get id => 'zyren_configurator';
   @override
   String get version => '0.1.0';
   @override
-  int get revision => controller.revision + scene.revision;
+  int get revision =>
+      (controller.revision + scene.revision) + (camera?.revision ?? 0);
   @override
   Map<String, Object?> get capabilities => {
     'sceneId': sceneId,
     'documentId': documentId,
     'stableTargetIds': true,
+    'viewpoints': viewpoints != null && camera != null && viewport != null,
     'undo': 'last provider selection, if unchanged',
     'pixelVisibility': 'unknown',
   };
@@ -103,6 +123,24 @@ final class ConfiguratorAgentProvider extends AgentProvider {
         },
       ],
     ),
+    if (viewpoints != null && camera != null && viewport != null) ...[
+      AgentTool(
+        name: 'viewpoints',
+        description:
+            'List camera presets and project source-bound hotspots in the active viewport.',
+        inputSchema: _object({}),
+        outputSchema: _output,
+      ),
+      AgentTool(
+        name: 'camera',
+        description:
+            'Apply a validated camera preset to the active perspective camera.',
+        inputSchema: _object({'id': _string}, ['id']),
+        outputSchema: _output,
+        readOnly: false,
+        requiredScopes: {'configurator.camera'},
+      ),
+    ],
     for (final action in ['reset', 'undo'])
       AgentTool(
         name: action,
@@ -139,6 +177,50 @@ final class ConfiguratorAgentProvider extends AgentProvider {
       return AgentResult(
         AgentStatus.stale,
         message: 'A configuration target was removed.',
+      );
+    }
+    if (tool == 'viewpoints' || tool == 'camera') {
+      final views = viewpoints, activeCamera = camera, metrics = viewport;
+      if (views == null || activeCamera == null || metrics == null) {
+        return AgentResult(
+          AgentStatus.unavailable,
+          message: 'No active camera/viewport bindings.',
+        );
+      }
+      if (views.targets.values.any((node) => !_attached(node))) {
+        return AgentResult(
+          AgentStatus.stale,
+          message: 'A hotspot target was removed.',
+        );
+      }
+      if (tool == 'camera') {
+        final preset = views.presets[arguments['id']];
+        if (preset == null) {
+          return AgentResult(
+            AgentStatus.stale,
+            message: 'Unknown camera preset.',
+          );
+        }
+        preset.apply(activeCamera);
+        return AgentResult(
+          AgentStatus.ok,
+          revision: revision,
+          affectedIds: [preset.id],
+        );
+      }
+      if (!metrics().isUsable) {
+        return AgentResult(
+          AgentStatus.unavailable,
+          message: 'Viewport is not mounted.',
+        );
+      }
+      return AgentResult(
+        AgentStatus.ok,
+        revision: revision,
+        data: {
+          'presets': views.presets.keys.toList(),
+          'hotspots': views.project(activeCamera, metrics()),
+        },
       );
     }
     final catalog = controller.catalog;
