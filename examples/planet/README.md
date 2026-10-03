@@ -67,11 +67,15 @@ keeping the clouds visible. The **Shadows** selector sets Low, Medium, High or
 Ultra independently of cloud quality. Auto follows the Clouds selector. Turning
 shadows off keeps your chosen shadow quality for the next time you enable them.
 
+Move **Sparsity** toward 100% for fewer clouds. At 0% you keep the location's
+preset coverage; 100% clears the cloud layers and their shadows. This leaves
+the density settings and atmospheric haze unchanged.
+
 Move **Density** from 100% toward 0% to thin all cloud layers. Coverage and the
 relative density of each layer stay the same. Switch **Animate clouds** off to
 freeze their current position. The image still finishes refining, then stops
 requesting continuous frames. Turn it on to resume with the same velocities.
-Both controls keep your choices when you change a location or quality preset.
+These controls keep your choices when you change a location or quality preset.
 
 Phones allow 128 MiB of tile payloads, tablets 192 MiB and desktops 384 MiB.
 The native resource limits are 384, 512 and 768 MiB respectively. Phones load six

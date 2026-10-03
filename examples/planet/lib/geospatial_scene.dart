@@ -48,6 +48,7 @@ final class GeospatialSceneProfile extends ScenePlugin {
   PluginContext? _context;
   CloudQualitySettings _cloudQuality;
   double _cloudDensity = 1;
+  double _cloudSparsity = 0;
   bool _cloudAnimationEnabled = true;
   MoonlightSelection _moonlight = MoonlightSelection.visible;
   bool _nightView = false;
@@ -108,6 +109,7 @@ final class GeospatialSceneProfile extends ScenePlugin {
   CloudParameters get _cloudParameters => CloudParameters(
     coverage: _preset.coverage ?? .35,
     densityMultiplier: _cloudDensity,
+    sparsity: _cloudSparsity,
     localWeatherVelocity: (.001, 0),
   );
   DateTime get date {
@@ -164,6 +166,19 @@ final class GeospatialSceneProfile extends ScenePlugin {
           .copyWith(densityMultiplier: value);
     }
     _cloudDensity = value;
+  }
+
+  double get cloudSparsity => _cloudSparsity;
+  set cloudSparsity(double value) {
+    if (!value.isFinite || value < 0 || value > 1) {
+      throw ArgumentError.value(value, 'cloudSparsity', 'Must be in [0, 1].');
+    }
+    if (_cloudSparsity == value) return;
+    if (_context != null && cloudLayer != null) {
+      cloudLayer!.controller.parameters = cloudLayer!.controller.parameters
+          .copyWith(sparsity: value);
+    }
+    _cloudSparsity = value;
   }
 
   bool get cloudAnimationEnabled => _cloudAnimationEnabled;

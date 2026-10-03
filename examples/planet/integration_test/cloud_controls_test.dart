@@ -11,7 +11,7 @@ import 'package:zyren_geospatial/zyren_geospatial.dart';
 
 void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
-  testWidgets('native clouds freeze, refine, change density and resume', (
+  testWidgets('native clouds freeze, refine, change density and sparsity', (
     tester,
   ) async {
     final android = defaultTargetPlatform == TargetPlatform.android;
@@ -23,8 +23,12 @@ void main() {
       scene: Scene(),
       camera: PerspectiveCamera(near: 1, far: 1e9),
       runtime: android
-          ? const SceneRuntime.nativeAndroid()
-          : const SceneRuntime.nativeMetal(),
+          ? SceneRuntime.nativeAndroid(
+              resourceBudgetBytes: device.resourceBudgetBytes,
+            )
+          : SceneRuntime.nativeMetal(
+              resourceBudgetBytes: device.resourceBudgetBytes,
+            ),
       options: const EngineOptions(
         presentation: PresentationPolicy.requireNative,
       ),
@@ -51,7 +55,7 @@ void main() {
     });
     final records = <Map<String, Object?>>[];
     binding.reportData = {
-      'suite': 'cloud-density-animation',
+      'suite': 'cloud-density-sparsity-animation',
       'platform': defaultTargetPlatform.name,
       'device': device.device.name,
       'passed': false,
@@ -85,6 +89,8 @@ void main() {
       records.add({
         'label': label,
         'densityMultiplier': clouds.parameters.densityMultiplier,
+        'sparsity': clouds.parameters.sparsity,
+        'effectiveCoverage': clouds.parameters.effectiveCoverage,
         'animationEnabled': clouds.animationEnabled,
         'animationElapsedUs': clouds.animationElapsed.inMicroseconds,
         'historyFrames': clouds.history.accumulatedFrames,
@@ -146,6 +152,18 @@ void main() {
           expect(clouds.animationElapsed, frozen);
           record('density $density');
         }
+        for (final sparsity in [.5, 1.0, .75]) {
+          profile.cloudSparsity = sparsity;
+          await advance(frames);
+          expect(clouds.parameters.sparsity, sparsity);
+          expect(clouds.parameters.densityMultiplier, 1);
+          expect(
+            clouds.parameters.effectiveCoverage,
+            closeTo(clouds.parameters.coverage * (1 - sparsity), 1e-8),
+          );
+          expect(clouds.animationElapsed, frozen);
+          record('sparsity $sparsity');
+        }
         await profile.setCloudQuality(
           device.clouds(
             size.width == 1000
@@ -156,7 +174,19 @@ void main() {
         await advance(frames);
         expect(clouds.animationEnabled, false);
         expect(clouds.animationElapsed, frozen);
+        expect(clouds.parameters.sparsity, .75);
         record('paused quality change');
+        profile.apply(
+          controller.scene,
+          controller.camera,
+          GoogleTilesPreset.cloudFuji,
+        );
+        await advance(frames);
+        expect(clouds.parameters.sparsity, .75);
+        expect(clouds.parameters.effectiveCoverage, closeTo(.1, 1e-8));
+        expect(clouds.parameters.densityMultiplier, 1);
+        expect(clouds.animationElapsed, frozen);
+        record('sparse location change');
         profile.cloudAnimationEnabled = true;
         await advance(frames, refine: false);
         expect(clouds.animationElapsed, greaterThan(frozen));

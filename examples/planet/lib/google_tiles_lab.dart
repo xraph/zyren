@@ -158,6 +158,8 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
           'cloudPreset': cloud?.quality.name,
           'animation': profile.cloudAnimationEnabled,
           'density': profile.cloudDensity,
+          'sparsity': profile.cloudSparsity,
+          'effectiveCoverage': cloud?.parameters.effectiveCoverage,
           'visibleTiles': stats?.visibleTiles,
           'selectedTiles': stats?.selectedTiles,
           'loadingTiles': stats?.activeRequests,
@@ -445,6 +447,36 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
                                     '${(value * 100).round()} percent cloud density',
                                 onChanged: (value) => setState(() {
                                   profile.cloudDensity = value;
+                                  _refinement = null;
+                                }),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  if (widget.clouds)
+                    Tooltip(
+                      message:
+                          'Reduce cloud coverage. 0% keeps the location preset; 100% clears the cloud layers.',
+                      child: SizedBox(
+                        width: 220,
+                        child: Row(
+                          children: [
+                            Text(
+                              'Sparsity ${(profile.cloudSparsity * 100).round()}%',
+                            ),
+                            Expanded(
+                              child: Slider(
+                                key: const ValueKey('cloud-sparsity'),
+                                value: profile.cloudSparsity,
+                                divisions: 20,
+                                label:
+                                    '${(profile.cloudSparsity * 100).round()}%',
+                                semanticFormatterCallback: (value) =>
+                                    '${(value * 100).round()} percent cloud sparsity',
+                                onChanged: (value) => setState(() {
+                                  profile.cloudSparsity = value;
                                   _refinement = null;
                                 }),
                               ),
