@@ -31,6 +31,8 @@ class SceneObjectEvent {
   void releasePointer() => _release();
 }
 
+enum _SceneDispatchPhase { enter, leave, down, move, up, cancel, click }
+
 class _SceneEventDispatcher {
   final SceneController controller;
   final ScenePointerCallback missed;
@@ -178,7 +180,14 @@ class _SceneEventDispatcher {
       final previous = _hover[hoverKey] ?? {};
       for (final entry in previous.entries.toList()) {
         if (!targets.containsKey(entry.key)) {
-          _deliver('leave', event, entry.key, null, hits, ray);
+          _deliver(
+            _SceneDispatchPhase.leave,
+            event,
+            entry.key,
+            null,
+            hits,
+            ray,
+          );
         }
       }
       var boundary = _hoverStops[hoverKey];
@@ -197,7 +206,14 @@ class _SceneEventDispatcher {
       for (final entry in targets.entries) {
         entered[entry.key] = entry.value;
         if (!previous.containsKey(entry.key) &&
-            _deliver('enter', event, entry.key, entry.value, hits, ray)) {
+            _deliver(
+              _SceneDispatchPhase.enter,
+              event,
+              entry.key,
+              entry.value,
+              hits,
+              ray,
+            )) {
           _hoverStops[hoverKey] = (
             entry.key,
             _nodes[entry.key]?.onPointerEnter,
@@ -209,7 +225,14 @@ class _SceneEventDispatcher {
       }
       for (final entry in previous.entries) {
         if (!entered.containsKey(entry.key) && targets.containsKey(entry.key)) {
-          _deliver('leave', event, entry.key, null, hits, ray);
+          _deliver(
+            _SceneDispatchPhase.leave,
+            event,
+            entry.key,
+            null,
+            hits,
+            ray,
+          );
         }
       }
       _hover[hoverKey] = entered;
@@ -228,15 +251,15 @@ class _SceneEventDispatcher {
       }
     }
     final phase = switch (event.phase) {
-      ScenePointerPhase.down => 'down',
-      ScenePointerPhase.move => 'move',
-      ScenePointerPhase.up => 'up',
-      ScenePointerPhase.cancel => 'cancel',
-      ScenePointerPhase.tap => 'click',
-      _ => '',
+      ScenePointerPhase.down => _SceneDispatchPhase.down,
+      ScenePointerPhase.move => _SceneDispatchPhase.move,
+      ScenePointerPhase.up => _SceneDispatchPhase.up,
+      ScenePointerPhase.cancel => _SceneDispatchPhase.cancel,
+      ScenePointerPhase.tap => _SceneDispatchPhase.click,
+      _ => null,
     };
     var moveStopped = false;
-    if (phase.isNotEmpty) {
+    if (phase != null) {
       for (final entry in targets.entries.toList()) {
         final hit = hits
             .where((h) => identical(h.object, entry.value.object))
@@ -257,7 +280,14 @@ class _SceneEventDispatcher {
               for (final target in hovered.keys.toList()) {
                 if (blocked) {
                   hovered.remove(target);
-                  _deliver('leave', event, target, null, hits, ray);
+                  _deliver(
+                    _SceneDispatchPhase.leave,
+                    event,
+                    target,
+                    null,
+                    hits,
+                    ray,
+                  );
                 }
                 if (identical(target, entry.key)) blocked = true;
               }
@@ -282,14 +312,21 @@ class _SceneEventDispatcher {
         _hoverStops.remove(hoverKey);
         for (final entry
             in previous?.entries ?? <MapEntry<Object3D, PickResult>>[]) {
-          _deliver('leave', event, entry.key, null, hits, ray);
+          _deliver(
+            _SceneDispatchPhase.leave,
+            event,
+            entry.key,
+            null,
+            hits,
+            ray,
+          );
         }
       }
     }
   }
 
   bool _deliver(
-    String phase,
+    _SceneDispatchPhase phase,
     ScenePointerEvent raw,
     Object3D target,
     PickResult? hit,
@@ -315,17 +352,16 @@ class _SceneEventDispatcher {
       () => _captures.remove(raw.pointer),
     );
     final callback = switch (phase) {
-      'enter' => node.onPointerEnter,
-      'leave' => node.onPointerLeave,
-      'down' => node.onPointerDown,
-      'move' => node.onPointerMove,
-      'up' => node.onPointerUp,
-      'cancel' => node.onPointerCancel,
-      'click' => node.onClick,
-      _ => null,
+      _SceneDispatchPhase.enter => node.onPointerEnter,
+      _SceneDispatchPhase.leave => node.onPointerLeave,
+      _SceneDispatchPhase.down => node.onPointerDown,
+      _SceneDispatchPhase.move => node.onPointerMove,
+      _SceneDispatchPhase.up => node.onPointerUp,
+      _SceneDispatchPhase.cancel => node.onPointerCancel,
+      _SceneDispatchPhase.click => node.onClick,
     };
     callback?.call(event);
-    if (phase == 'click' &&
+    if (phase == _SceneDispatchPhase.click &&
         !event._stopped &&
         hit != null &&
         _nodes.containsKey(target)) {
@@ -345,7 +381,14 @@ class _SceneEventDispatcher {
       }
       final (ray, _) = _pick(raw);
       for (final entry in _hover.remove(pointer)!.entries) {
-        _deliver('leave', raw, entry.key, null, const [], ray);
+        _deliver(
+          _SceneDispatchPhase.leave,
+          raw,
+          entry.key,
+          null,
+          const [],
+          ray,
+        );
       }
     }
   }

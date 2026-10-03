@@ -537,6 +537,7 @@ class SceneController {
       }
       _engine = engine;
       _engine!.camera = camera;
+      _pluginIssue = null;
       if (!_ready.isCompleted) _ready.complete(_info!);
       _status.value = _viewToken == null
           ? SceneDetached(generation)

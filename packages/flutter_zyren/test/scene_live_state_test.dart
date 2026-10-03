@@ -547,16 +547,18 @@ void main() {
     },
   );
   testWidgets(
-    'a queued update reports failed initialization instead of claiming attachment',
+    'a queued update retains failure until corrected initialization recovers',
     (tester) async {
       final gate = Completer<void>();
       final backend = FakeBackend();
+      var attempts = 0, failRecovery = true;
       final controller = SceneController(
         options: readback,
         runtime: SceneRuntime(
+          presenterFactory: () => TestPresenter('recovery', backend.events),
           backendFactory: () async {
             await gate.future;
-            return backend;
+            return attempts++ == 0 ? backend : FakeBackend();
           },
         ),
       );
@@ -569,7 +571,15 @@ void main() {
       );
       await tester.pumpWidget(host(SceneView(controller: controller)));
       await frames(tester);
-      final updated = controller.setPlugins([TestPlugin('next', [])]);
+      final updated = controller.setPlugins([
+        TestPlugin(
+          'next',
+          [],
+          onAttach: (_) {
+            if (failRecovery) throw StateError('replacement attachment failed');
+          },
+        ),
+      ]);
       final failed = expectLater(updated, throwsA(isA<SceneException>()));
       gate.complete();
       await frames(tester);
@@ -577,6 +587,33 @@ void main() {
       expect(controller.status.value, isA<SceneFailed>());
       expect(controller.pluginIssue, isNotNull);
       expect(backend.closeCount, 1);
+      final initialIssue = controller.pluginIssue;
+      await controller.retry();
+      await frames(tester);
+      expect(controller.status.value, isA<SceneFailed>());
+      expect(
+        (controller.status.value as SceneFailed).issue.message,
+        contains('replacement attachment failed'),
+      );
+      expect(controller.pluginIssue, same(initialIssue));
+      expect(controller.state.value.pluginIssue, same(initialIssue));
+      var sawReady = false;
+      SceneIssue? issueWhenReady;
+      controller.status.addListener(() {
+        if (controller.status.value is SceneReady) {
+          sawReady = true;
+          issueWhenReady = controller.pluginIssue;
+        }
+      });
+      failRecovery = false;
+      await controller.retry();
+      await frames(tester);
+      expect(controller.status.value, isA<SceneReady>());
+      expect(sawReady, isTrue);
+      expect(issueWhenReady, isNull);
+      expect(controller.pluginIds, ['next']);
+      expect(controller.pluginIssue, isNull);
+      expect(controller.state.value.pluginIssue, isNull);
       await tester.pumpWidget(const SizedBox());
       controller.dispose();
       await frames(tester);
