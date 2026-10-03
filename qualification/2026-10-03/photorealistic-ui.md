@@ -38,3 +38,35 @@ The final panel-sizing adjustment was checked in the rendered widget captures.
 Physical phone/tablet touch checks were not repeated, and their installed apps
 were preserved. No rendering-performance or GPU-stability claim comes from
 these UI checks.
+
+## Mobile installation
+
+You can now open the updated photorealistic example as Planet on the iPhone,
+iPad and Pixel. The responsive UI from `b7215698` was built with Flutter 3.47.5
+in profile mode, using `lib/google_tiles_lab.dart`, clouds enabled and the
+existing local Google Tiles configuration. Builds used the shared main worktree,
+which also contained concurrent changes, so these are not clean-commit artifacts.
+
+The signed iOS build and ARM64 Android build passed. The iOS signature passed
+`codesign --verify --deep --strict`. Updates used `devicectl device install app`
+and `adb install -r`, without uninstalling the existing apps.
+
+| Device | Install | Launch | Process check |
+| --- | --- | --- | --- |
+| iPhone 16 Pro | Passed | Passed | PID 13843 remained alive after 136 seconds |
+| iPad Pro 13 M4 | Passed | Passed | PID 5080 remained alive after 133 seconds |
+| Pixel 9 Pro | Passed | Cold launch passed | PID 26752 remained alive after 36 seconds |
+
+The apps remain installed. These checks establish installation and process
+survival. Physical touch, rendered mobile layouts, live tile loading and GPU
+stability were not qualified again during this installation.
+
+Frozen packages and install/launch records are under
+`/tmp/planet-responsive-mobile-20261003/`. Build logs are
+`/tmp/planet-responsive-ios-install-build.log` and
+`/tmp/planet-responsive-android-install-build.log`.
+
+SHA-256 of the iOS `Frameworks/App.framework/App` executable:
+`146600d514396f082c45e5225a8ec6e9ae16224976679cfffca3055c3d9486d2`.
+SHA-256 of the Android APK:
+`fe25e440159cb5428ab94a180a1c8df92db7742f284216a1c27a9008b413f1c8`.
