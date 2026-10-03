@@ -144,28 +144,34 @@ void main() {
     cache.dispose();
   });
 
-  test('clear and dispose during decode forbid late cache admission', () async {
-    for (final dispose in [false, true]) {
-      final loader = SizedLoader(4)..pause = Completer<void>();
-      final services = AssetServices(resolver: Resolver());
-      final cache = AssetCache();
-      final scope = AssetScope(services: services, cache: cache);
-      final task = scope.load(request(loader));
-      await loader.decoded.future;
-      if (dispose) {
+  test(
+    'clear, evict and dispose during decode forbid late cache admission',
+    () async {
+      for (final action in ['clear', 'evict', 'dispose']) {
+        final loader = SizedLoader(4)..pause = Completer<void>();
+        final services = AssetServices(resolver: Resolver());
+        final cache = AssetCache();
+        final scope = AssetScope(services: services, cache: cache);
+        final task = scope.load(request(loader));
+        await loader.decoded.future;
+        switch (action) {
+          case 'dispose':
+            cache.dispose();
+          case 'clear':
+            cache.clear();
+          case 'evict':
+            cache.evict(services, request(loader));
+        }
+        loader.pause!.complete();
+        final value = await task.result;
+        expect(value.released, isFalse);
+        expect(cache.length, 0);
+        expect(loader.disposals, 1);
+        await scope.close();
         cache.dispose();
-      } else {
-        cache.clear();
       }
-      loader.pause!.complete();
-      final value = await task.result;
-      expect(value.released, isFalse);
-      expect(cache.length, 0);
-      expect(loader.disposals, 1);
-      await scope.close();
-      cache.dispose();
-    }
-  });
+    },
+  );
 
   test(
     'cached delivery survives eviction and immediate cancellation releases its hold',
