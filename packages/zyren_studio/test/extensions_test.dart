@@ -98,7 +98,10 @@ void main() {
       old['schemaVersion'] = version;
       old.remove('extensions');
       final restored = StudioDocument.decode(jsonEncode(old));
-      expect(jsonDecode(restored.encode())['schemaVersion'], 4);
+      expect(
+        jsonDecode(restored.encode())['schemaVersion'],
+        StudioDocument.schemaVersion,
+      );
       expect(restored.extensions, isEmpty);
     }
     final payload = <String, Object?>{
@@ -606,7 +609,7 @@ void main() {
         registry: StudioExtensionRegistry()..register(LinksCodec()),
       );
       final saved = StudioScene(extended).capture().encode();
-      expect(jsonDecode(saved)['schemaVersion'], 4);
+      expect(jsonDecode(saved)['schemaVersion'], StudioDocument.schemaVersion);
       expect(
         StudioScene(StudioDocument.decode(saved)).capture().encode(),
         saved,

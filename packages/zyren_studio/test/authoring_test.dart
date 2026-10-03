@@ -203,7 +203,7 @@ void main() {
     () async {
       final document = prefabDocument();
       final editor = StudioScene(document);
-      final preview = StudioScene(document);
+      final preview = StudioScene(document, includeEnvironment: false);
       final timeline = studioTimeline(preview, 'move');
       var invalidations = 0;
       final engine = await SceneEngine.create(

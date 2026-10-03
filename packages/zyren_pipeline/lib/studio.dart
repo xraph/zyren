@@ -95,3 +95,49 @@ final class _DocumentSource implements ByteSourceResolver {
     );
   }
 }
+
+/// Shared resolver for Studio and Flutter applications loading pinned bundles.
+final class PipelineStudioAssetResolver implements StudioAssetResolver {
+  final PipelineAssetLibrary library;
+  PipelineStudioAssetResolver(this.library);
+  @override
+  Future<StudioAssetTemplate> load(
+    StudioAsset asset,
+    LoadCancellation cancellation,
+  ) async {
+    if (asset.provider != 'zyren.pipeline') {
+      throw StateError('Unsupported asset provider ${asset.provider}.');
+    }
+    return _StudioTemplate(
+      asset,
+      await library.loadGltf(
+        PipelineAssetReference.fromJson(asset.reference),
+        cancellation: cancellation,
+      ),
+    );
+  }
+}
+
+final class _StudioTemplate implements StudioAssetTemplate {
+  final StudioAsset asset;
+  final PipelineLoadedAsset loaded;
+  _StudioTemplate(this.asset, this.loaded);
+  @override
+  StudioAssetInstance instantiate() {
+    final model = loaded.instantiate();
+    final sources = <String, Object3D>{};
+    for (final entry in asset.sourceNodes.entries) {
+      final node = model.nodes[entry.value];
+      if (node == null) {
+        throw StateError(
+          'Saved source node ${entry.key} is absent from the pinned model.',
+        );
+      }
+      sources[entry.key] = node;
+    }
+    return StudioAssetInstance(model, sources: sources);
+  }
+
+  @override
+  Future<void> close() => loaded.close();
+}

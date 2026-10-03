@@ -12,6 +12,14 @@ final class StudioScene {
   final _assetStates = <Object3D, String>{};
   final _recipes = <String, StudioMaterial>{};
   final Scene scene = Scene();
+  final bool includeEnvironment;
+  Group? _lighting;
+  void _syncEnvironment() {
+    _lighting?.parent?.remove(_lighting!);
+    scene.background = Color3.hex(document.environment.background);
+    if (includeEnvironment) _lighting = document.environment.apply(scene);
+  }
+
   final Group content = Group(name: 'Authored scene');
   late final PerspectiveCamera camera = document.camera.createCamera();
   late final SceneToolsPlugin tools = _StudioTools(this);
@@ -56,6 +64,7 @@ final class StudioScene {
       'materials': _recipes.map((key, value) => MapEntry(key, value.toJson())),
       'review': engineering.document.encode(),
       'camera': StudioCamera.capture(camera).toJson(),
+      'environment': document.environment.toJson(),
       'extensions': document.extensions.map(
         (key, value) => MapEntry(key, value.toJson()),
       ),
@@ -70,11 +79,12 @@ final class StudioScene {
   StudioScene(
     StudioDocument document, {
     this.assets,
+    this.includeEnvironment = true,
     StudioExtensionRegistry? extensionRegistry,
   }) : _document = document,
        extensionRegistry = extensionRegistry ?? StudioExtensionRegistry() {
     this.extensionRegistry.validateDocument(document);
-    scene.background = Color3.hex(0x14242b);
+    _syncEnvironment();
     scene.add(content);
     for (final node in document.expandedNodes.values) {
       final Object3D object;
@@ -263,7 +273,11 @@ final class StudioScene {
           object.quaternion = node.rotation;
           object.visible = node.visible;
         }
+        final environmentChanged =
+            jsonEncode(document.environment.toJson()) !=
+            jsonEncode(next.environment.toJson());
         _document = next;
+        if (environmentChanged) _syncEnvironment();
       });
       if (engineering.isAttached) bindReview();
       return;
@@ -271,6 +285,7 @@ final class StudioScene {
     final rebuilt = StudioScene(
       next,
       assets: assets,
+      includeEnvironment: includeEnvironment,
       extensionRegistry: extensionRegistry,
     );
     final resolved = rebuilt.capture();
@@ -319,6 +334,7 @@ final class StudioScene {
         ..clear()
         ..addAll(rebuilt._recipes);
       _document = resolved;
+      _syncEnvironment();
     });
     if (engineering.isAttached) bindReview();
     if (_objects[selectedId] case final selected?) {

@@ -245,13 +245,14 @@ final class StudioCamera {
 
 /// Saved authoring data. Version-one documents migrate when read and next saved.
 final class StudioDocument {
-  static const schemaVersion = 4;
+  static const schemaVersion = 5;
   static const maxCharacters = 4 * 1024 * 1024;
   static const maxNodes = 1000;
   static const maxDepth = 64;
   final String id, title;
   final List<StudioNode> nodes;
   final StudioCamera camera;
+  final StudioEnvironment environment;
   final EngineeringDocument review;
   final List<StudioAsset> assets;
   final List<StudioPrefab> prefabs;
@@ -265,6 +266,7 @@ final class StudioDocument {
     required this.title,
     required Iterable<StudioNode> nodes,
     StudioCamera? camera,
+    StudioEnvironment? environment,
     EngineeringDocument? review,
     Iterable<StudioAsset> assets = const [],
     Iterable<StudioPrefab> prefabs = const [],
@@ -272,6 +274,7 @@ final class StudioDocument {
     Map<String, StudioExtensionRecord> extensions = const {},
   }) : nodes = List.unmodifiable(nodes),
        camera = camera ?? StudioCamera(),
+       environment = environment ?? StudioEnvironment(),
        review = review ?? EngineeringDocument(id: id),
        assets = List.unmodifiable(assets),
        prefabs = List.unmodifiable(prefabs),
@@ -427,6 +430,7 @@ final class StudioDocument {
   StudioDocument copyWith({
     Iterable<StudioNode>? nodes,
     StudioCamera? camera,
+    StudioEnvironment? environment,
     EngineeringDocument? review,
     Iterable<StudioAsset>? assets,
     Iterable<StudioPrefab>? prefabs,
@@ -438,6 +442,7 @@ final class StudioDocument {
     title: title ?? this.title,
     nodes: nodes ?? this.nodes,
     camera: camera ?? this.camera,
+    environment: environment ?? this.environment,
     review: review ?? this.review,
     assets: assets ?? this.assets,
     prefabs: prefabs ?? this.prefabs,
@@ -452,6 +457,7 @@ final class StudioDocument {
       'title': title,
       'nodes': nodes.map((node) => node.toJson()).toList(),
       'camera': camera.toJson(),
+      'environment': environment.toJson(),
       'review': jsonDecode(review.encode()),
       'assets': assets.map((a) => a.toJson()).toList(),
       'prefabs': prefabs.map((p) => p.toJson()).toList(),
@@ -476,7 +482,8 @@ final class StudioDocument {
       if (root['schemaVersion'] != schemaVersion &&
           root['schemaVersion'] != 1 &&
           root['schemaVersion'] != 2 &&
-          root['schemaVersion'] != 3) {
+          root['schemaVersion'] != 3 &&
+          root['schemaVersion'] != 4) {
         throw const FormatException('Unsupported Studio schema version.');
       }
       final nodes = root['nodes'] as List;
@@ -490,6 +497,11 @@ final class StudioDocument {
           (node) => StudioNode.fromJson(node as Map<String, dynamic>),
         ),
         camera: StudioCamera.fromJson(root['camera'] as Map<String, dynamic>),
+        environment: root['environment'] == null
+            ? StudioEnvironment()
+            : StudioEnvironment.fromJson(
+                root['environment'] as Map<String, dynamic>,
+              ),
         review: EngineeringDocument.decode(jsonEncode(root['review'])),
         assets: (root['assets'] as List? ?? []).map(
           (a) => StudioAsset.fromJson(a as Map<String, dynamic>),
