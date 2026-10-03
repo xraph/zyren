@@ -1,8 +1,53 @@
 # Native XR
 
-You can use this workstream to follow the ARKit session implementation and the
-remaining ARCore and renderer work. The first checkpoint targets iOS 14 or later.
-It does not qualify camera presentation, depth occlusion or headset support.
+You can use this workstream to track native XR implementation and qualification.
+The package remains unpublished until its required device checks pass.
+
+## Current status, 2026-10-03
+
+| Phase | Implementation | Verification still required |
+| --- | --- | --- |
+| 1. ARKit session | Native lifecycle, tracking, anchors, planes and light are implemented. The iPhone session/provider placement, undo, pause and disposal probe passed. | Physical denial/retry, permission cancellation, interruption and engine teardown. |
+| 2. Camera | Same-device Metal camera import, calibrated scene rendering, orientation/resize leases and zero-readback diagnostics are implemented. | iPhone/iPad portrait and landscape alignment and lifecycle. The first presenter creation failed; a signed channel-token conversion bug was fixed, but the device retry is pending. |
+| 3. Scene integration | Bounded plane geometry, calibrated raycasts, scene/source bindings and scoped hit placement are implemented. | Native rich hit, tracking loss, reset and re-entry on device. |
+| 4. Depth and light | ARKit scene depth/confidence import, supplied native depth target and ambient adapter are implemented. Actual macOS Metal fixtures verify projection/confidence and scene occlusion. | Physical occlusion, stale/unsupported depth and device lighting behavior. Environment probes remain a later integration. |
+| 5. ARCore | Native ARCore lifecycle, Vulkan camera, raw depth and shared agent contracts are implemented, and independent GPU and lifecycle reviews have approved their corrections. | Pixel camera/depth, availability/install, permission denial/retry and lifecycle. |
+| 6. OpenXR | Separate lifecycle/device/swapchain design is committed in `1e5f280`. | No headset adapter or runtime qualification is claimed by this design milestone. |
+
+The live native agent probe uses the shared MCP codec and authenticated loopback
+HTTP transport. It is written, but it has not run on a device. The host-side stdio
+bridge uses the same devtools implementation. Unit fixtures do not establish live
+MCP or native raycast acceptance.
+
+Current implementation commits: `963a896` (initialized Metal depth targets),
+`36835eaf` and `9872a833` (camera and cleanup fixes), `9b62373b` and `90f055ae`
+(depth and scene bindings), `0591fe7` and `bd5c416` (raycasts and atomic placement
+guards), `7d0cd47` (ambient lighting, example flows and native agent probes),
+`6cf0f1f` and `a3e9c1f` (ARCore and native review fixes), `07f0d93` and `80eefe8`
+(cleanup and retry), `131b9d2` (individual anchor tracking), and `e0884d4` and
+`7b020f1` (separate sensor clocks and depth diagnostics).
+
+Checks: all 56 package and example tests pass, including the 320 and 1100 pixel
+widget layouts, presented scene revision and reset races during native mutation
+awaits. Dart analysis, package boundaries and all iOS Swift sources pass. The
+full native-agent iOS profile probe builds successfully, including plugin linkage;
+the unsigned build is not a device run. Four actual Metal
+renderer tests and 24 depth shader pixel comparisons passed on macOS. These
+checks do not qualify iPhone, iPad or Pixel camera alignment.
+
+Device logs are under `/tmp/zyren-xr-checks`. The iPhone session pass is in
+`physical-session-profile.log`. The camera failure and build retry are retained
+in the presentation logs. Apple device availability remains pending; an available
+device window has been requested. The first Pixel run presented 31 camera/scene
+frames and passed zero-readback assertions before a
+landscape orientation failure. Rotation handling was corrected, but the repeat
+run was blocked by the Pixel's secure lock screen. The latest read-only check
+finds it unlocked, with the Planet qualification chat actively using it. Device
+coordination is pending; no active run was interrupted.
+
+See the [qualification record](../../packages/zyren_xr/qualification/2026-10-03.md)
+for the current test matrix. The source/device audit below records the initial
+starting point, not the current implementation.
 
 ## Source and device audit
 
@@ -66,7 +111,7 @@ The plugin pauses on backgrounding and requires an explicit start to resume.
    depth comparison against Zyren's depth convention. Feed ambient estimates and
    later environment probes into existing light/material APIs. Accept only after
    physical occlusion, confidence rejection, stale depth and unsupported-device
-   checks. Ambient lux is not an environment map.
+   checks. An ambient estimate is not an environment map.
 5. ARCore: implement install/availability and Activity permission lifecycle,
    tracking, anchors, planes and light estimates behind the same contract. Use
    AR_TEXTURE_UPDATE_MODE_EXPOSE_HARDWARE_BUFFER and Vulkan AHardwareBuffer import,
@@ -83,6 +128,30 @@ The plugin pauses on backgrounding and requires an explicit start to resume.
    No headset backend or runtime/device qualification is claimed.
 
 ## Shared dependencies and requests
+
+- Android review request, 2026-10-03: query and optionally enable Vulkan
+  swapchain maintenance and its instance dependencies in vendored wgpu-hal
+  `vulkan/adapter.rs` and `vulkan/instance.rs`. Chain the queried YCbCr and
+  maintenance features into device creation. Expose the enabled capability in
+  `interop/android.rs`; only XR presentation requires it. Present fences and
+  per-image semaphores must prove display retirement before surface destruction.
+  These exact shared paths were clean and had no competing plan request.
+
+- Phase 5 request, 2026-10-02: add generic Vulkan context and external-image
+  rendering entry points in `zyren_native/native/src/interop/android.rs`.
+  The camera compositor borrows the renderer's Vulkan device and renders the
+  scene into a caller-owned RGBA8 sRGB image with synchronous completion. Enable
+  Android hardware-buffer, foreign queue and sampler YCbCr conversion support in
+  the vendored Vulkan adapter only after checking the device's extensions and
+  features. Validate device identity, image format, dimensions, ownership and
+  failure retirement. ARCore and camera conversion stay in the XR Android plugin.
+  The new external-image entry point also accepts an optional initialized D32Float
+  image for metric depth occlusion. Existing Android and Metal entry points stay
+  compatible. Depth and confidence retain their own timestamps and diagnostics;
+  any native staging must be reported separately from camera import/readback.
+  Add one renderer helper to release retained failed external targets only after
+  Android proves queue idle or device loss. Other wait failures retain those
+  targets through renderer retirement.
 
 - Phase 4 request, 2026-10-02: add a compatible native Metal entry point in
   `packages/zyren_native/native/src/interop/metal.rs` for a caller-owned color
@@ -121,7 +190,10 @@ capabilities. Host-supplied scene/document/viewport identity, logical rectangle,
 DPR, scene revision and scene-from-session transform accompany the sensor data.
 Presented frame and presented scene revision stay null when unknown. Plane
 estimates and session UUIDs do not establish persistent source identity or
-rendered pixels. Screen-to-XR raycasting remains explicitly unsupported.
+rendered pixels. Calibrated raycasting is available when the host supplies the presenter's raycast
+callback and current calibration. Hit tokens retain presented camera identity,
+viewport epoch, session revision and timestamp. Native placement checks the
+presenter and epoch immediately before mutation.
 
 Placement checks the provider revision, host view identity and scene revision,
 then native session revision and a frame no older than 500 ms. ARKit checks
@@ -132,12 +204,14 @@ accepted placement; its returned ID remains the recovery target.
 
 Current acceptance: shared registry discovery and schema checks, real provider
 query/action code exercised against deterministic transport fixtures, scope
-denial, stale origin/frame/view, idempotent retry, undo and cancellation. Required
-remaining acceptance: a physical session through this provider, actual MCP
-transport, calibrated view correlation and a native rich hit followed by a
-permitted placement. This plugin is incomplete until those checks pass.
+denial, stale origin/frame/view, idempotent retry, undo and cancellation. The physical iPhone session/provider probe has passed. Required remaining
+acceptance: actual MCP transport, calibrated view correlation and a native rich
+hit followed by a permitted placement. This plugin is incomplete until those checks pass.
 
-## Checkpoint evidence
+## Historical checkpoint evidence before camera implementation
+
+The following records the initial session-only checkpoint. Use the current status
+above for implementation and device evidence.
 
 All 17 package tests pass, including Flutter method-channel behavior. The
 example widget tests pass at 320 and 1100 logical pixels. The physical integration

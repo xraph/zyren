@@ -1,22 +1,26 @@
 # zyren_xr
 
 You can request scene-depth occlusion with
-`XrConfiguration(requireDepthOcclusion: true)` on a supported ARKit device.
-Depth and confidence textures stay native. Frames older than 250 ms or missing
-depth fail with a retryable error; low-confidence pixels leave virtual geometry
+`XrConfiguration(requireDepthOcclusion: true)` on a supported ARKit or ARCore device.
+ARKit imports depth and confidence textures directly. ARCore stages depth and
+confidence in native memory and reports those upload bytes separately. Missing
+depth or a retained frame older than 250 ms fails with a retryable error; low-confidence pixels leave virtual geometry
 unoccluded. This uses standard projected depth with a single sample. Screen
 effects, temporal rendering, MSAA and transmission capture are not supported by
 the supplied-depth path. Physical occlusion remains unqualified.
 
 Use `XrSceneBindings` to attach your scene objects to native anchor IDs. Keep
 your application source ID on the binding. Updates validate the native snapshot's
-session ID and origin epoch. Tracking loss hides content. An origin reset
+session ID and origin epoch. Camera or individual anchor tracking loss hides content until tracking recovers. An origin reset
 or observed anchor removal detaches it without disposing your mesh resources.
 
-Use `zyren_xr` to run an ARKit world-tracking session and inspect its camera pose,
-tracking quality, local anchors, planes and ambient light. You'll need a physical
-ARKit device and iOS 14 or later. The Metal camera path compiles for iOS; physical camera alignment and lifecycle
-behavior still need qualification on iPhone and iPad.
+Use `zyren_xr` to run a native ARKit or ARCore world-tracking session and inspect
+its camera pose, tracking quality, local anchors, planes and ambient light.
+ARKit needs a physical supported device and iOS 14 or later. ARCore needs Android
+API 27 or later and a compatible Vulkan device. Read the
+[Android setup and qualification notes](android/README.md) before using that
+adapter. Camera alignment and the full lifecycle still need physical qualification
+on iPhone, iPad and Pixel.
 
 ```dart
 import 'package:zyren_xr/flutter.dart';
@@ -34,20 +38,26 @@ try {
 }
 ```
 
-Add `NSCameraUsageDescription` to your host's Info.plist before starting. Capability
+On iOS, add `NSCameraUsageDescription` to your host's Info.plist before starting. Capability
 queries do not prompt. `start` requests permission when needed and reports denial,
 restriction and missing configuration as separate `XrException.code` values.
 Only one Zyren XR session can own the camera across Flutter engines.
 
 The Dart-only `zyren_xr.dart` entry point imports no Flutter libraries. You can
 test your session behavior with an `XrTransport` fixture while the iOS plugin
-uses a real `ARSession`. The fixture does not establish native tracking.
+uses a real `ARSession` and Android uses ARCore with Vulkan hardware-buffer camera
+import. The fixture does not establish native tracking.
 
 ## Session data
 
 `snapshot()` reads the latest frame without retaining a queue of camera images.
 Inspect session state, tracking quality and frame age before using its pose.
-`nativeTimestamp` and frame timestamps use the native monotonic clock in seconds.
+`nativeTimestamp` and frame `timestamp` use the same adapter clock in seconds.
+On ARCore, each new sensor frame receives its first host observation time. Repeated
+reads of the same sensor frame keep that time, so they cannot make it fresh again.
+The optional `sensorTimestamp` preserves the raw sensor timebase. Host observation
+age does not measure camera exposure latency. Native depth matching still compares
+the raw camera and depth timestamps before accepting them.
 Paused, interrupted and failed sessions return no usable frame. Failed ARKit
 sessions need disposal and recreation. Backgrounding pauses the session; call
 `start` when you're ready to resume.
@@ -58,7 +68,7 @@ they are not a calibrated projection for your Flutter viewport.
 
 `addAnchor` accepts a rigid session-space pose when tracking is normal and fresh.
 You can own at most 128 app anchors. Plane snapshots include at most 128 planes
-and report `omittedPlanes` when ARKit has more. IDs are local ARKit UUIDs. Bind
+and report `omittedPlanes` when more planes exist. IDs are local native anchor identities. Bind
 your scene's source IDs separately, and rebuild those bindings after
 `start(resetTracking: true)` removes the previous origin's anchors.
 
@@ -79,12 +89,13 @@ host's `AgentRegistry`. The package-local example shows the full setup.
   checks the expected provider, scene and native session revisions. Pass a
   session-space `transform`, `frameTimestamp` and `viewportId` from inspection.
 - `undo_placement` removes the last anchor placed through those commands. A
-  native reset or an independently removed anchor makes that undo stale.
+  native reset clears obsolete undo history after snapshot reconciliation. An
+  independently removed anchor makes that undo stale.
 
 Set `allowPlacement: true` only when your application permits it, and grant the
 scope in the host registry. Mutations also require an idempotency key so a retry
 does not create another anchor. Cancellation stops work before native submission;
-once ARKit accepts an anchor, use its returned ID or the undo command to remove it.
+once the native session accepts an anchor, use its returned ID or the undo command to remove it.
 
 The host supplies `XrViewBinding`, including scene/document/viewport IDs, camera
 identity, logical rectangle, DPR, scene revision and the scene-from-session rigid
@@ -127,10 +138,10 @@ print('${calibration.frameId}: ${calibration.pixelWidth} x ${calibration.pixelHe
 // When the view closes, await presenter.close() before session.dispose().
 ```
 
-The controller acquires an ARFrame and its viewport projection together. Its
+The controller acquires a native camera frame and its viewport projection together. Its
 camera uses the view's interface orientation, crop and pixel dimensions. Supply
 `sceneFromSession` when your scene has another rigid origin; scale and shear are
-rejected because ARKit positions and the clipping range use metres.
+rejected because native positions and the clipping range use metres.
 
 `presentedCalibration` updates after native rendering and presentation succeed.
 It includes the frame ID, timestamp, session revision, viewport epoch, projection,
@@ -183,12 +194,19 @@ Close the probe session to close its listener and revoke its token.
 
 ## Current limits
 
-`cameraPresentation` reports ARKit support. `depthOcclusion` and
-`sceneDepthHardware` report scene-depth hardware support. You must request depth
+On iOS, `cameraPresentation` reports ARKit support; `depthOcclusion` and
+`sceneDepthHardware` report scene-depth hardware support. On Android, camera and
+depth renderer capabilities become available only after the presenter probes the
+actual Vulkan device. `availability` retains ARCore's exact runtime state, including
+missing or outdated Play Services. You must request depth
 when starting the session; missing depth frames fail explicitly. Use transparent scenes without
-screen effects. The color path supports 8-bit bi-planar SDR images and rejects
-unsupported image formats or YCbCr matrices. HDR camera transfer and wide-gamut
+screen effects. The iOS color path supports 8-bit bi-planar SDR images and rejects
+unsupported image formats or YCbCr matrices. Android validates its hardware buffer
+format and external YCbCr sampling capabilities. HDR camera transfer and wide-gamut
 color qualification remain outside this implementation.
+
+Read the [qualification record](qualification/2026-10-03.md) for checked commands,
+review fixes and the remaining physical acceptance matrix.
 
 The CPU tests verify camera transforms and controller failure handling. A synthetic
 Metal test checks YCbCr range and alpha composition on macOS. Neither establishes
