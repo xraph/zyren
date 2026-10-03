@@ -137,8 +137,56 @@ Run the registry example from the workspace root:
 fvm dart run packages/zyren_pipeline/example/agent_runtime.dart
 ```
 
-This package retains original bytes alongside declared derivatives. Mesh optimization, LOD generation, compressed
-texture encoding and application integration are
-tracked in [the workstream plan](../../plans/zyren-plugins/pipeline.md). Native
-viewport presentation and live MCP transport have not been verified for this
-provider. Package publication is also pending.
+## Mesh and texture preparation
+
+Import `preparation.dart` and configure `PipelinePreparer` with the pinned native
+worker's absolute path. See [worker setup](native/README.md). `mesh` reorders one
+material/source primitive and can generate a static LOD. `lods` derives each
+requested level from the original snapshot so approximation does not accumulate.
+Results retain every vertex attribute and report index bytes, quadric error and
+simulated cache efficiency. Exact triangle mappings are available for lossless
+reordering. Skin, morph and explicit per-face identities keep full topology.
+
+`texture` encodes ETC1S or UASTC KTX2 and validates the output with your existing
+`TextureDecoder`. Supply straight-alpha RGBA8, explicit transfer function and mip
+policy. At runtime, `NativeTextureDecoder.forDevice` chooses a supported block
+format; the default decoder produces RGBA8. CPU transcode support alone does not
+qualify a device. Prepared bundles mark their processing as `derived`; original
+schema-v1 archives keep their existing version hashes.
+
+Use these APIs inside pure incremental transforms. Their tool pin is exported as
+`pipelinePreparationVersion`. The [fixture builder](example/prepare_fixture.dart)
+shows the complete build and produces the bundle used by the native app.
+
+## Build jobs and application adapters
+
+`PipelineBuildRuntime` runs host-registered, versioned recipes with active-job,
+retained-job and retained-payload budgets. An optional publication callback writes
+to your durable store before success. It must honor cancellation before its commit
+point and throw when admission fails. A build can succeed even when the memory
+cache declines it; `job.cached` reports that separately. Forget completed jobs to
+release their retained outputs.
+
+Import `build_agents.dart` for `PipelineBuildAgentProvider`. Its `recipes`, `jobs`,
+`start`, `cancel` and `forget` tools use the shared registry. Hosts grant
+`pipeline.build` and `pipeline.jobs`. Revision guards, retry keys and attachment
+cleanup apply here too. Agents choose a registered recipe ID; they cannot submit
+shell commands, executable paths or arbitrary URLs.
+
+`engineering.dart` loads a CAD model and identity sidecar through existing offline
+glTF services after `EngineeringCadBundle` verifies their SHA-256 pairing. Add its
+instance to your scene, then pass its `imported` bindings to
+`SceneEngineeringPlugin.rebindImport`. Close the returned model's scope when done.
+
+`studio.dart` implements the existing `StudioStore` contract. Read first, then
+write captured documents through the host's atomic compare-and-write callback.
+Document IDs and review/source identities survive reload. This adapter saves the
+current Studio schema. Imported-mesh asset slots are not yet part of that schema.
+
+The [native lab](example/native_app/README.md) exercises preparation, disk reload,
+source picking and cache actions. The [MCP example](example/mcp_runtime.dart) uses
+the existing devtools stdio transport; pass `--native` to include native readback.
+No separate MCP protocol or server is implemented here.
+
+Current device evidence and remaining qualification are recorded in the
+[workstream plan](../../plans/zyren-plugins/pipeline.md). Publication remains pending.

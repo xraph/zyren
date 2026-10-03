@@ -1,167 +1,148 @@
 # Asset pipeline
 
-You can build this workstream in `packages/zyren_pipeline`. Its example stays
-inside that package. Shared core and native renderer files are outside this
-checkpoint.
+Implementation lives in `packages/zyren_pipeline`; its examples stay inside that
+package. The public APIs, persistent cache, pinned preparation worker, agent
+providers and optional application adapters are implemented. Broad rollout is
+still gated by the device and Studio schema checks listed below.
 
 ## Source audit and decisions
 
-- `AssetScope` owns cancellation and decoded CPU resources. `AssetServices`
-  shares in-flight work by URI, request version, result type and loader options.
-  Completed requests are not cached. Reuse those services for loading.
-- `zyren_gltf` already parses glTF/GLB, resolves relative dependencies and
-  delegates meshopt, Draco and Basis decoding to configured codecs. The pipeline
-  will supply bytes through `ByteSourceResolver`, without another asset parser.
-- Engineering import uses source-owned IDs and a version-pinned sidecar. Preserve
-  every input byte, including metadata and sidecars, and keep source ID, source
-  revision, requested URI and effective URI in the bundle manifest. A bundle
-  digest is a separate identity from the source revision.
-- The first format is a bounded JSON container with base64 payloads and SHA-256
-  hashes. Serialization is deterministic. You must declare the full resource
-  set; glTF validation through an offline resolver detects missing dependencies.
-  Response headers are not serialized. Hosts must supply stable source URIs
-  without secrets in query parameters.
-- Bundles contain original bytes. No optimization or texture conversion is
-  claimed. Runtime codec support remains a requirement for compressed inputs.
-- Each opened bundle gets its own resolver and asset service pool. Loads stay
-  pinned to an immutable bundle snapshot; cache eviction cannot dispose assets
-  still owned by a scope.
+- Reuse `AssetScope`, `AssetServices`, `ByteSourceResolver` and `zyren_gltf` for
+  cancellation, scoped CPU resources, parsing, relative dependencies and codecs.
+  The pipeline adds immutable byte bundles and explicit preparation recipes.
+- Preserve source IDs, revisions, requested/effective URIs and exact original
+  bytes. Store derivatives beside originals with receipts. Bundle hashes prove
+  integrity, not publisher authenticity. Hosts supply URIs without secrets.
+- Keep schema-v1 original archive hashes compatible. The manifest processing
+  marker distinguishes original resources from prepared bundles. Both variants
+  validate manifest and payload hashes on decode.
+- Incremental fingerprints include source digests, revisions, locations, media
+  types, deeply immutable options and pinned tool versions. Reread original
+  bytes on every build. No unverified source freshness shortcut is used.
+- Use meshopt 0.6.2 and basisu_c_sys 0.9.1 in a private CPU worker, pinned with
+  Rust 1.97.1 and Cargo.lock. Reuse existing runtime codecs and native backends.
+  The renderer ABI and other owners' packages are unchanged.
+- Keep each material/source primitive separate. Preserve vertex values, seams,
+  attributes and deformation data. Static LODs retain source-object identity;
+  exact source-triangle mappings apply only to lossless reordering. Skin/morph
+  inputs and explicit per-face identities keep their full topology.
+- Reuse `EngineeringCadBundle`, `EngineeringImport` and `StudioStore`. Studio
+  currently saves groups and boxes; do not invent a parallel imported-mesh schema.
+- Native Metal, Vulkan and DX12 remain the rendering targets. There is no browser,
+  WebView, OpenGL or software renderer fallback in the native example.
 
-## Phases and acceptance
+## Phase status
 
-1. Build, validate and load a versioned bundle. Require unique source IDs and
-   requested URIs, nonempty source revisions, bounded source counts and bytes,
-   hashes for each resource and the complete manifest, deterministic serialization,
-   and rejection of unsupported schemas or changed payloads. Load a real glTF
-   fixture and its external buffer through existing asset services. Test missing
-   dependencies, malformed models, cancellation, redirects and cleanup. Keep
-   engineering sidecars byte-for-byte intact. Add a runnable package example.
-2. Add bounded in-memory offline cache with explicit source-ID and bundle-version
-   invalidation, LRU eviction and accounting. Test revised dependencies, old pinned
-   scopes, misses, oversized admission and eviction. Persistent disk caching is a
-   later step, with atomic writes, corruption recovery and process-safe budgets.
-3. Incremental builds. Store dependency hashes and transform/tool versions, reuse
-   unchanged outputs, propagate changes through the dependency graph, and test
-   interrupted builds and removal of stale dependencies. Reading source bytes is
-   still required unless a trusted revision provider can establish freshness.
-4. Mesh optimization and LOD. Use explicit adapters to existing codec/tooling APIs;
-   preserve material seams, feature IDs, source mappings, skinning and animation.
-   Record error bounds and before/after sizes. Acceptance needs geometric fixtures,
-   stable picking IDs and native visual comparisons. Decoder availability alone
-   does not establish an encoder or simplifier.
-5. Compressed texture preparation. Pin encoder and target profiles, preserve color
-   space, alpha and mip semantics, and validate outputs with existing texture
-   codecs. Check native Metal/Vulkan/DX12 capabilities and fallback profiles using
-   actual devices. No browser backend.
-6. Persistent offline cache and integration. Add disk byte budgets, pinning,
-   recovery, cancellation and eviction telemetry. Integrate optional Studio and
-   engineering adapters after their public interfaces settle. Verify application
-   reload and device presentation independently of CPU bundle checks.
+| Phase | Implemented behavior | Verification boundary |
+| --- | --- | --- |
+| 1. Versioned build/load | Deterministic bounded bundle, hash checks, original CAD sidecar bytes, offline glTF validation/loading and scoped lifetime | CPU fixtures, malformed inputs, missing dependencies, redirects and cancellation pass |
+| 2. Memory cache | Payload/entry budgets, LRU, source/version invalidation and pinned scope lifetime | Admission, eviction and old-scope behavior pass |
+| 3. Incremental builds | Dependency graph, recipe receipts, reload/reuse, change propagation, removed outputs and cancellation | Rebuild/reuse, immutable options, cycles, bounds and interrupted builds pass |
+| 4. Mesh preparation | Cache reordering, exact lossless triangle mapping, attribute-aware static LOD, protected deformation/face identities and error/size receipts | Geometry fixtures and Metal pixel comparison pass; arbitrary animated LOD simplification is deliberately unsupported |
+| 5. Texture preparation | ETC1S/UASTC, explicit transfer/quality/mips, codec validation and device-selected transcode targets | All four CPU target formats pass; Metal ASTC/RGBA comparison passes; Vulkan/DX12 device qualification remains open |
+| 6. Persistence/integration | Locked atomic file cache, persistent pins, recovery, budgets, telemetry, Studio store and verified CAD import adapters | Independent-process writes and application document reload pass; lab builds for macOS/Android, live presentation checks remain open |
 
-## Dependencies and shared changes
+## Runtime agents
 
-Use public `zyren` asset services and `zyren_gltf`; use the already-resolved
-`crypto` package for SHA-256. No shared core API change is required. The optional `agents.dart` entry point
-uses the published `zyren_agents` provider contract.
+`PipelineAgentProvider` exposes bundle/source provenance, budgets, validation/load
+jobs, cancellation, release and invalidation. `PipelineBuildAgentProvider` exposes
+host-registered recipe IDs, pinned versions, bounded build jobs and receipts.
+Agents cannot supply executable paths, shell commands or arbitrary source URIs.
+Both providers use the shared registry's scopes, expected revisions, retry ledger,
+schemas and disposal contract. Ordinary commands remain usable without agents.
 
-Requested shared paths: add `packages/zyren_pipeline` to root `pubspec.yaml` and
-resolve workspace dependencies under `/tmp/zyren-plugin-expansion.lock`. Preserve
-every other workstream's entries and inspect their plans before mutation. Stage
-only the pipeline registration hunk if another registration is uncommitted.
+Build admission includes concurrent publication reservations and a retained-payload
+budget. Publication failures remain failures. A successful build whose memory
+cache declines admission reports `cached: false`. Durable publication belongs to
+the host and must fail explicitly when its store rejects an archive.
 
-Requested shared verification edit: add `packages/zyren_pipeline` to
-`tool/check_package_boundaries.dart`, allowing only `zyren_pipeline`, `zyren`,
-`zyren_gltf`, `zyren_agents` and `crypto`. Preserve other owners' entries under
-the same lock.
+Imported glTF metadata joins source-owned node bindings to the shared viewport
+provider. Native and CPU picks retain temporary runtime IDs separately from stable
+source identities. Rendered pixel visibility stays unknown. The native lab records
+accepted presentation IDs, but the controller event does not expose captured
+scene/camera revisions, so it cannot claim exact frame correlation.
 
-## Required runtime agent integration
+The MCP example uses `serveDevtoolsMcp` and `AgentDevtoolsBridge` from the existing
+devtools package. No second transport implementation was introduced.
 
-Follow `agent-runtime.md` and the interaction owner's `zyren_agents` contract.
-Expose bounded bundle/source provenance, validation outcomes, load/cache jobs,
-limits and explicit invalidation through an optional provider entry point. Use
-host-granted scopes and expected revisions for mutations. Keep ordinary asset
-services and existing read-only diagnostics intact. glTF metadata enrichment must
-use public model/instance APIs and host-supplied stable source bindings, without
-inventing persistent IDs from runtime nodes. The shared viewport provider owns
-frame/camera/pixel correlation; pipeline provenance cannot establish rendered
-visibility. Discovery, schema checks, stale requests, cancellation and disposal
-are required automated checks. Native viewport and live MCP evidence remain
-separate acceptance checks.
+## Persistence guarantees
 
-## Checkpoint evidence
+The optional file cache requires a dedicated directory on a local filesystem.
+Flushed temporary files and atomic rename publish archives; a per-directory queue
+and file lock serialize cooperating processes. Pins survive reload. Recovery
+removes abandoned writes and orphan pins, reports corruption and prunes interrupted
+evictions. Unpinning remains available after budget reduction. Archive and pin
+symlinks are rejected. Explicit invalidation can remove pinned entries.
 
-Implemented:
+Budgets cover serialized archives or retained bundle payloads as documented. They
+do not cover caller-held references, decoded models or total process RSS. Directory
+fsync, power-loss durability and network-filesystem semantics are not claimed.
 
-- Deterministic schema-v1 container, bounded serial build, manifest/payload hashes,
-  offline validation and load through current glTF codecs, immutable source
-  snapshots, original-byte CAD sidecar preservation and disk round-trip example.
-- LRU cache with payload-byte and entry budgets, explicit source/version
-  invalidation and existing-scope lifetime preservation. It is an in-memory
-  offline cache. Oversized admission leaves current entries intact.
-- Bounded CPU validation/load jobs with progress, cancellation, template release,
-  terminal error codes and cleanup. Agent actions call these ordinary commands.
-- Optional `PipelineAgentProvider` registered through `zyren_agents`, eight tools,
-  bounded public schemas, source provenance, budgets, permission scopes, expected
-  revisions and registry retry handling. Attachment disposal unregisters tools
-  and drains runtime resources. Cache ownership stays with the host.
-- Optional glTF import metadata joins source-owned node bindings to the shared
-  viewport provider. Actual triangle picking through the registry carries bundle
-  provenance, temporary runtime IDs and explicit unknown pixel visibility.
+## Optional integration and shared changes
 
-Automated evidence, pinned SDK `/Users/rexraphael/fvm/versions/3.47.5/bin`:
+- `engineering.dart`: verifies GLB/sidecar SHA-256 pairing, loads through existing
+  offline services and returns `EngineeringImport` bindings for the shared review
+  plugin. Byte-pair mismatch fails before import.
+- `studio.dart`: implements the shared store with document identity checks and a
+  host-provided atomic compare-and-write callback. Disk reload preserves authored
+  transforms and review/source identities. Stale saves are rejected.
+- `example/native_app`: prepared fixture, original/LOD controls, native texture
+  decoding, persistent cache reload, registered source picking, eviction, shared
+  ZeroState and restore. It requires native presentation.
+- Shared edits are limited to pipeline workspace registration, the owned lab's
+  registration and the pipeline package's dependency allowlist. All shared edits
+  and commits use `/tmp/zyren-plugin-expansion.lock`. Other work remains untouched.
 
-- `dart analyze packages/zyren_pipeline`: clean after the example lint fix.
-- `dart test packages/zyren_pipeline/test --reporter expanded`: 24 tests passed.
-  Covers corruption, dependency changes, budgets, cancellation, redirects,
-  sidecar bytes, cache eviction/invalidation, job limits and template release.
-  Shared-registry checks cover discovery/schema validation, permission denial,
-  stale requests, retries, real commands and detach cleanup. A DPR-2 CPU viewport
-  pick returns source provenance; removed runtime targets are rejected.
-- `dart run packages/zyren_pipeline/example/main.dart`: two sources, 436 original
-  bytes, one scene root and zero validation warnings, including disk reload.
-- `dart run packages/zyren_pipeline/example/agent_runtime.dart`: registered tool
-  discovery and a real glTF validation job reach `succeeded` in process.
-- `dart run tool/check_package_boundaries.dart`: pipeline entry is valid. The
-  whole-workspace check currently reports two in-progress agent imports in
-  `zyren_devtools/lib/io.dart` and `lib/agents.dart` against that owner's allowlist.
-  Those files are owned elsewhere and were not rewritten.
-- The default Flutter executable uses Dart 3.9.2 and cannot resolve this workspace.
-  Pinned Flutter 3.47.5 offline resolution passes. No dependency upgrade was made.
+## Verification, 2026-10-02
 
-Native/device checks: none for this package. CPU parsing and picking do not
-verify Metal/Vulkan/DX12 presentation, texture alpha, custom shader displacement
-or rendered pixel visibility. Live MCP transport has not been exercised with this
-provider; the shared devtools adapter is being implemented by the interaction
-owner. There is no device occupancy conflict because this checkpoint used no GPU
-or device session.
+Pinned Dart/Flutter: `/Users/rexraphael/fvm/versions/3.47.5/bin`.
 
-Remaining scope: phases 3 through 6, native viewport-to-action validation, live
-MCP validation, broader optional glTF import metadata coverage, Studio/engineering
-application adapters and publication. Source revisions are host assertions;
-hashes prove byte integrity, not publisher authenticity. The complete plugin is
-not yet qualified for rollout.
+- Package analysis passes. The package-boundary/Apple ABI check passed earlier;
+  its latest run reports two concurrent point-cloud geospatial imports outside
+  that owner's allowlist. The pipeline entry remains valid.
+- Full package run with native preparation enabled: 48 tests pass; the separate
+  native GPU test is skipped in that run. Three Rust tests and strict Clippy pass.
+- Native GPU test passed separately on Apple M3 Max, Metal. The planar fixture
+  reduces 512 triangles to 128, reported object-space quadric error
+  `0.00006846557516837493`. Original and LOD readback pixels match exactly.
+  Device-selected ASTC and RGBA fallback match in the sampled interior region.
+  These fixture results do not establish a general Hausdorff or pixel error bound.
+- Texture tests cover ETC1S/UASTC, sRGB/linear transfer, transparent/opaque alpha
+  endpoints, authored mip count, deterministic encoding and CPU transcoding to
+  RGBA8, BC7, ETC2 and ASTC. Coverage-preserving alpha-test mips are unsupported.
+- Live stdio MCP process passes initialize/discovery, native-backed scene setup,
+  source-ID pick, read-only denial, real invalidation, retries, stale revisions,
+  resulting cache state and EOF cleanup. This is native readback, not app display.
+- CAD pairing/import reload and Studio document disk reload/stale-save tests pass.
+- macOS debug app and Android debug APK builds pass. The generated fixture version
+  is `06690ebeaaed7fcd497be409d750ead4729818f48e8e8b0d6406b9a7dc1216c2`.
+- An earlier process-cache test timed out because child `dart run` commands waited
+  on concurrent native build hooks. It now invokes the cache-only Dart script
+  with the resolved package config; the independent-process contention test passes.
 
-Commits: `aa57bba78d63f5eab343f84f9bde4ef5c152b376` contains bundle build/load.
-Cache/runtime/agent checkpoint: `a6a0d1011b316b0922dd17ffb739b34cac5e883e`.
-Both commits are local on `main`; nothing was pushed or merged.
+## Remaining qualification and blockers
 
-## Incremental and disk-cache checkpoint
+- Native lab presentation and its desktop/narrow rendered layouts are unverified.
+  Other scientific, interaction and planet chats hold macOS presentation sessions.
+  The connected Pixel `47121FDAP002C7` was then claimed by the interaction test.
+  The pipeline's pending test was stopped during build before device launch.
+  Existing sessions were not stopped or replaced.
+- Run `integration_test/pipeline_test.dart` on the free macOS/Pixel sessions. It
+  checks native presentation, source picking, LOD switching, eviction, visible
+  cache miss and restoration. Then inspect screenshots at desktop/narrow sizes.
+- Windows/DX12, Linux/Vulkan and Apple mobile device qualification have not run.
+- Studio imported-mesh asset slots require its owner's public schema. The adapter
+  persists today's supported documents and does not claim imported-asset editing.
+- Package publication remains pending. No push, merge or release was requested.
 
-Phases 3 and the persistent storage portion of phase 6 are implemented. Transform
-receipts include input hashes, revisions, locations, media types, immutable
-options and pinned tool versions. Reloaded receipts reuse unchanged outputs;
-changed dependencies rebuild their dependents, removed steps disappear, and a
-cancelled build cannot publish its late result. Original source bytes are retained.
+## Local commits
 
-The optional file cache uses flushed temporary files and atomic rename, persistent
-pins, archive-byte and entry budgets, hash validation, LRU eviction and telemetry.
-A per-directory queue and file lock serialize cooperating processes. Recovery
-removes abandoned temporary files and orphan pins, reports corrupt archives and
-prunes interrupted evictions. Unpin remains possible after a budget reduction.
-The cache requires local filesystem locking and rename semantics; directory fsync
-and power-loss durability are not claimed.
+- `aa57bba78d63f5eab343f84f9bde4ef5c152b376`: original bundle build/load.
+- `a6a0d1011b316b0922dd17ffb739b34cac5e883e`: cache/runtime/agent checkpoint.
+- `2bdbf39c0371c4a3bce7db109095e906f5809cd2`: checkpoint evidence.
+- `6c65064`: incremental builds and persistent offline cache.
 
-Verification: 34 package tests pass, including separate-process cache contention,
-receipt reload, dependency propagation, immutable recipes, cancellation, corrupted
-archives, pin survival, reduced budgets and stale output removal. Package analysis
-is clean. Mesh/texture preparation and native/application integration remain open.
+- `74d07e5`: pinned preparation, build jobs, shared agent adapters and application
+  stores, with native readback and live MCP evidence.
+
+The owned native lab is committed after its build and analysis checks.

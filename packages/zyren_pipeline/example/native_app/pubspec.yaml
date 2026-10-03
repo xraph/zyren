@@ -1,0 +1,29 @@
+name: zyren_pipeline_lab
+description: Native pipeline preparation and offline reload example.
+publish_to: none
+version: 0.1.0+1
+resolution: workspace
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_zyren:
+    path: ../../../flutter_zyren
+  zyren:
+    path: ../../../zyren
+  zyren_native:
+    path: ../../../zyren_native
+  zyren_agents:
+    path: ../../../zyren_agents
+  zyren_pipeline:
+    path: ../..
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/fixture.zybundle

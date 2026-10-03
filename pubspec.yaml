@@ -39,6 +39,7 @@ workspace:
   - examples/shader_lab/effects_plugin
   - examples/shader_lab/effects_plugin/example
   - packages/zyren_pipeline
+  - packages/zyren_pipeline/example/native_app
   - packages/zyren_studio
   - examples/studio
   - packages/zyren_agents
