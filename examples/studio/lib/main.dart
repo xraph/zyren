@@ -7,28 +7,35 @@ import 'package:zyren_studio/zyren_studio.dart';
 import 'fixture.dart';
 import 'studio_editor.dart';
 import 'studio_assets.dart';
+import 'studio_theme.dart';
 
 void main() => runApp(const StudioApp());
 
-class StudioApp extends StatelessWidget {
+class StudioApp extends StatefulWidget {
   const StudioApp({super.key});
+  @override
+  State<StudioApp> createState() => _StudioAppState();
+}
+
+class _StudioAppState extends State<StudioApp> {
+  ThemeMode mode = ThemeMode.system;
   @override
   Widget build(BuildContext context) => MaterialApp(
     debugShowCheckedModeBanner: false,
-    theme: ThemeData(
-      useMaterial3: true,
-      visualDensity: VisualDensity.compact,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: const Color(0xff78dace),
-        brightness: Brightness.dark,
-      ),
+    theme: studioTheme(Brightness.light),
+    darkTheme: studioTheme(Brightness.dark),
+    themeMode: mode,
+    home: _OpenStudio(
+      themeMode: mode,
+      onThemeChanged: (value) => setState(() => mode = value),
     ),
-    home: const _OpenStudio(),
   );
 }
 
 class _OpenStudio extends StatefulWidget {
-  const _OpenStudio();
+  final ThemeMode themeMode;
+  final ValueChanged<ThemeMode> onThemeChanged;
+  const _OpenStudio({required this.themeMode, required this.onThemeChanged});
   @override
   State<_OpenStudio> createState() => _OpenStudioState();
 }
@@ -89,23 +96,28 @@ class _OpenStudioState extends State<_OpenStudio> {
       }
       final (store, document, location, saved, assets, scope) = snapshot.data!;
       return StudioEditor(
+        showAgentInitially: true,
+        themeMode: widget.themeMode,
+        onThemeChanged: widget.onThemeChanged,
         document: document,
         store: store,
         assetResolver: assets,
         assetScope: scope,
         saveLocation: location,
         initiallySaved: saved,
-        enableAgentTransport: const bool.fromEnvironment('ZYREN_AI_DX'),
-        agentScopes: const bool.fromEnvironment('ZYREN_AGENT_EDIT')
-            ? const {
-                'studio.select',
-                'studio.edit',
-                'timeline.playback',
-                'collaboration.read',
-                'collaboration.write',
-                'collaboration.camera',
-              }
-            : const {},
+        enableAgentTransport:
+            const bool.fromEnvironment('ZYREN_AI_DX') &&
+            const bool.fromEnvironment('ZYREN_AGENT_EDIT'),
+        // The built-in chat reviews each mutation. Debug transport is separately opt-in.
+        agentScopes: const {
+          'studio.select',
+          'studio.edit',
+          'studio.save',
+          'timeline.playback',
+          'collaboration.read',
+          'collaboration.write',
+          'collaboration.camera',
+        },
         runtime: Platform.isAndroid
             ? const SceneRuntime.nativeAndroid()
             : const SceneRuntime.nativeMetal(),

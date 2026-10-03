@@ -88,7 +88,9 @@ fvm flutter run -d macos --dart-define=ZYREN_AI_DX=true --dart-define=ZYREN_AGEN
 The console reports a `ZYREN_STUDIO_AGENTS` endpoint and token. Set these as
 `ZYREN_DEVTOOLS_ENDPOINT` and `ZYREN_DEVTOOLS_TOKEN` for your MCP client, then run
 `ZYREN_AGENT_TOOLS=1 fvm dart run zyren_devtools:zyren mcp` from the workspace.
-Without the edit flag, mutations remain denied. Treat the token as a credential.
+The debug bridge starts only when both flags are set. Its clients receive the
+host-granted scopes, so keep the endpoint and token private. Built-in chat does
+not need either flag and reviews its mutations in the Agent panel.
 
 ## Checks
 
@@ -110,3 +112,20 @@ imports, previews, collaboration and onboarding. Submitted-frame correlation
 describes submitted state; pixel visibility remains unknown. See the
 [qualification record](../../packages/zyren_studio/qualification.md) for exact
 platform evidence and blocked checks.
+
+## Built-in agent
+
+The Agent tab uses your configured LLM to discover and call attached plugin
+tools. Open its Settings control, choose the protocol, enter the base URL and
+model ID, and supply an API key if the endpoint requires one. System, Light and
+Dark appearance are available in the same dialog. The profile is saved without
+credentials; keys stay in memory for the current editor session.
+
+You can ask it to build shapes, assemble a character blockout, edit materials,
+record poses and save the scene. Every mutation pauses with its concrete tool
+arguments for review. Stop cancels the run; Undo uses Studio's existing history.
+The Attached tools control shows what is actually registered.
+
+See [workflow coverage](AGENT_WORKFLOW.md) for plugin bindings, protocol checks,
+character limitations and the future morphing extension path. The separate
+`lib/mock/main.dart` remains a design study; the working agent is in `lib/main.dart`.
