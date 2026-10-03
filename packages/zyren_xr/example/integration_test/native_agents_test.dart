@@ -11,7 +11,8 @@ import 'package:zyren_xr/agents.dart';
 import 'package:zyren_xr/flutter.dart';
 
 void main() {
-  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  binding.framePolicy = LiveTestWidgetsFlutterBindingFramePolicy.fullyLive;
   testWidgets('native rich hit and placement over shared MCP and HTTP', (
     tester,
   ) async {
