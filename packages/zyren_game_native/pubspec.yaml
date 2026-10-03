@@ -8,6 +8,8 @@ environment:
 dependencies:
   zyren:
     path: ../zyren
+  zyren_gltf:
+    path: ../zyren_gltf
   zyren_game:
     path: ../zyren_game
   zyren_physics:
@@ -27,8 +29,6 @@ dependencies:
 dev_dependencies:
   zyren_native:
     path: ../zyren_native
-  zyren_gltf:
-    path: ../zyren_gltf
   zyren_gltf_timeline:
     path: ../zyren_gltf_timeline
   test: ^1.29.0
