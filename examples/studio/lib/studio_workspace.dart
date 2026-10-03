@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'studio_theme.dart';
 
 enum StudioDock { left, right, bottom }
 
@@ -42,7 +43,7 @@ class _StudioWorkspaceState extends State<StudioWorkspace> {
   };
   String? _narrowPane;
   bool _narrowInitialized = false;
-  double _left = 218, _right = 340, _bottom = 250;
+  double _left = 210, _right = 300, _bottom = 200;
 
   void _move(String id, StudioDock dock) => setState(() {
     for (final side in StudioDock.values) {
@@ -54,7 +55,7 @@ class _StudioWorkspaceState extends State<StudioWorkspace> {
   });
 
   Widget _header(StudioPane pane, bool narrow) => SizedBox(
-    height: 32,
+    height: 30,
     child: Row(
       children: [
         const SizedBox(width: 8),
@@ -70,13 +71,13 @@ class _StudioWorkspaceState extends State<StudioWorkspace> {
             ),
             child: Row(
               children: [
-                Icon(pane.icon, size: 15),
-                const SizedBox(width: 6),
                 Flexible(
-                  child: Text(pane.title, overflow: TextOverflow.ellipsis),
+                  child: Text(
+                    pane.title,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
                 ),
-                const SizedBox(width: 6),
-                const Icon(Icons.drag_indicator, size: 14),
               ],
             ),
           ),
@@ -90,10 +91,7 @@ class _StudioWorkspaceState extends State<StudioWorkspace> {
             for (final dock in StudioDock.values)
               PopupMenuItem(value: dock, child: Text('Move to ${dock.name}')),
           ],
-          icon: Icon(
-            Icons.space_dashboard_outlined,
-            semanticLabel: 'Dock ${pane.title}',
-          ),
+          icon: Icon(Icons.more_horiz, semanticLabel: 'Dock ${pane.title}'),
         ),
         IconButton(
           tooltip: 'Hide ${pane.title}',
@@ -105,14 +103,14 @@ class _StudioWorkspaceState extends State<StudioWorkspace> {
               _active[_docks[pane.id]!] = null;
             }
           }),
-          icon: Icon(Icons.close, semanticLabel: 'Hide ${pane.title}'),
+          icon: Icon(Icons.remove, semanticLabel: 'Hide ${pane.title}'),
         ),
       ],
     ),
   );
 
-  Widget _rail(bool narrow) => Material(
-    color: Theme.of(context).colorScheme.surfaceContainerLow,
+  Widget _rail(bool narrow, {bool right = false}) => Material(
+    color: StudioPalette.of(context).chrome,
     child: narrow
         ? SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -131,36 +129,49 @@ class _StudioWorkspaceState extends State<StudioWorkspace> {
           )
         : Column(
             children: [
-              for (final p in widget.panes)
-                IconButton(
-                  tooltip: p.title,
-                  isSelected: _active[_docks[p.id]] == p.id,
-                  onPressed: () => setState(() {
-                    final side = _docks[p.id]!;
-                    _active[side] = _active[side] == p.id ? null : p.id;
-                  }),
-                  icon: Icon(p.icon, size: 19, semanticLabel: p.title),
+              for (final p in widget.panes.where(
+                (p) => right
+                    ? _docks[p.id] == StudioDock.right
+                    : _docks[p.id] != StudioDock.right,
+              ))
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 3),
+                  child: IconButton(
+                    tooltip: p.title,
+                    style: IconButton.styleFrom(
+                      backgroundColor: _active[_docks[p.id]] == p.id
+                          ? StudioPalette.of(context).raised
+                          : Colors.transparent,
+                    ),
+                    isSelected: _active[_docks[p.id]] == p.id,
+                    onPressed: () => setState(() {
+                      final side = _docks[p.id]!;
+                      _active[side] = _active[side] == p.id ? null : p.id;
+                    }),
+                    icon: Icon(p.icon, size: 17, semanticLabel: p.title),
+                  ),
                 ),
               const Spacer(),
-              IconButton(
-                tooltip: 'Reset layout',
-                icon: const Icon(Icons.view_quilt_outlined, size: 19),
-                onPressed: () => setState(() {
-                  for (final p in widget.panes) {
-                    _docks[p.id] = p.id == 'animation'
-                        ? StudioDock.bottom
-                        : p.id == 'scene' || p.id == 'assets'
-                        ? StudioDock.left
-                        : StudioDock.right;
-                  }
-                  _active[StudioDock.left] = 'scene';
-                  _active[StudioDock.right] = widget.initialPane;
-                  _active[StudioDock.bottom] = null;
-                  _left = 218;
-                  _right = 340;
-                  _bottom = 250;
-                }),
-              ),
+              if (!right)
+                IconButton(
+                  tooltip: 'Reset layout',
+                  icon: const Icon(Icons.view_quilt_outlined, size: 19),
+                  onPressed: () => setState(() {
+                    for (final p in widget.panes) {
+                      _docks[p.id] = p.id == 'animation'
+                          ? StudioDock.bottom
+                          : p.id == 'scene' || p.id == 'assets'
+                          ? StudioDock.left
+                          : StudioDock.right;
+                    }
+                    _active[StudioDock.left] = 'scene';
+                    _active[StudioDock.right] = widget.initialPane;
+                    _active[StudioDock.bottom] = null;
+                    _left = 210;
+                    _right = 300;
+                    _bottom = 200;
+                  }),
+                ),
             ],
           ),
   );
@@ -173,8 +184,9 @@ class _StudioWorkspaceState extends State<StudioWorkspace> {
         _narrowPane = widget.initialPane;
         _narrowInitialized = true;
       }
-      final rail = narrow ? 0.0 : 40.0;
-      final top = narrow ? 36.0 : 0.0;
+      final rail = narrow ? 0.0 : 34.0;
+      final gap = narrow ? 0.0 : 6.0;
+      final top = narrow ? 32.0 : 4.0;
       final leftMinimum = {'scene', 'assets'}.contains(_active[StudioDock.left])
           ? 160.0
           : 260.0;
@@ -190,7 +202,7 @@ class _StudioWorkspaceState extends State<StudioWorkspace> {
           : (_active[StudioDock.bottom] == null
                 ? 0.0
                 : _bottom.clamp(150.0, c.maxHeight * .6));
-      final bodyHeight = c.maxHeight - top - bottom;
+      final bodyHeight = c.maxHeight - top - bottom - gap;
       final border = Theme.of(context).dividerColor;
       Widget resize(bool vertical, void Function(DragUpdateDetails) update) =>
           MouseRegion(
@@ -213,11 +225,17 @@ class _StudioWorkspaceState extends State<StudioWorkspace> {
       return Stack(
         children: [
           Positioned(
-            left: rail + left,
+            left: rail + left + (left > 0 ? gap : 0),
             top: top,
-            right: right,
-            bottom: bottom,
-            child: widget.canvas,
+            right: rail + right + (right > 0 ? gap : 0),
+            bottom: bottom + gap,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(narrow ? 0 : 8),
+              child: Material(
+                color: StudioPalette.of(context).panel,
+                child: widget.canvas,
+              ),
+            ),
           ),
           for (final pane in widget.panes)
             Builder(
@@ -233,19 +251,23 @@ class _StudioWorkspaceState extends State<StudioWorkspace> {
                       ? rail
                       : dock == StudioDock.left
                       ? rail
-                      : c.maxWidth - right,
-                  top: isBottom ? top + bodyHeight : top,
+                      : c.maxWidth - rail - right,
+                  top: isBottom ? top + bodyHeight + gap : top,
                   width: isBottom
-                      ? c.maxWidth - rail
+                      ? c.maxWidth - rail * 2
                       : dock == StudioDock.left
-                      ? (left == 0 ? 218 : left)
-                      : (right == 0 ? 340 : right),
-                  height: isBottom ? (bottom == 0 ? 250 : bottom) : bodyHeight,
+                      ? (left == 0 ? 210 : left)
+                      : (right == 0 ? 300 : right),
+                  height: isBottom
+                      ? (bottom == 0 ? 200 : bottom) - gap
+                      : bodyHeight,
                   child: Offstage(
                     offstage: !visible,
                     child: TickerMode(
                       enabled: visible,
                       child: Material(
+                        borderRadius: BorderRadius.circular(narrow ? 0 : 8),
+                        clipBehavior: Clip.antiAlias,
                         color: Theme.of(context).colorScheme.surface,
                         child: Column(
                           children: [
@@ -269,7 +291,7 @@ class _StudioWorkspaceState extends State<StudioWorkspace> {
           if (!narrow && left > 0)
             Positioned(
               key: const ValueKey('resize-left'),
-              left: rail + left - 3,
+              left: rail + left,
               top: top,
               bottom: bottom,
               width: 6,
@@ -285,7 +307,7 @@ class _StudioWorkspaceState extends State<StudioWorkspace> {
             ),
           if (!narrow && right > 0)
             Positioned(
-              right: right - 3,
+              right: rail + right,
               top: top,
               bottom: bottom,
               width: 6,
@@ -303,7 +325,7 @@ class _StudioWorkspaceState extends State<StudioWorkspace> {
             Positioned(
               left: rail,
               right: 0,
-              bottom: bottom - 3,
+              bottom: bottom,
               height: 6,
               child: resize(
                 false,
@@ -323,10 +345,18 @@ class _StudioWorkspaceState extends State<StudioWorkspace> {
             child: _rail(narrow),
           ),
           if (!narrow)
+            Positioned(
+              right: 0,
+              top: 0,
+              width: rail,
+              height: c.maxHeight,
+              child: _rail(false, right: true),
+            ),
+          if (!narrow)
             for (final dock in StudioDock.values)
               Positioned(
                 left: dock == StudioDock.right ? null : rail,
-                right: dock == StudioDock.left ? null : 0,
+                right: dock == StudioDock.left ? null : rail,
                 top: dock == StudioDock.bottom ? null : 0,
                 bottom: dock == StudioDock.bottom ? 0 : null,
                 width: dock == StudioDock.bottom ? null : 22,

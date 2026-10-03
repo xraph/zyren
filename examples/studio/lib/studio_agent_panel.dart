@@ -281,7 +281,7 @@ class StudioAgentPanelState extends State<StudioAgentPanel> {
             children: [
               Expanded(
                 child: Text(
-                  configuration?.model ?? 'Studio Agent',
+                  configuration?.model ?? 'No model configured',
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontSize: 12),
                 ),
@@ -291,7 +291,7 @@ class StudioAgentPanelState extends State<StudioAgentPanel> {
                 onPressed: _tools,
                 icon: const Icon(
                   Icons.extension_outlined,
-                  size: 17,
+                  size: 15,
                   semanticLabel: 'Attached tools',
                 ),
               ),
@@ -300,7 +300,7 @@ class StudioAgentPanelState extends State<StudioAgentPanel> {
                 onPressed: running ? null : _settings,
                 icon: const Icon(
                   Icons.settings_outlined,
-                  size: 17,
+                  size: 15,
                   semanticLabel: 'Agent settings',
                 ),
               ),
@@ -315,7 +315,7 @@ class StudioAgentPanelState extends State<StudioAgentPanel> {
                       }),
                 icon: const Icon(
                   Icons.add_comment_outlined,
-                  size: 17,
+                  size: 15,
                   semanticLabel: 'New conversation',
                 ),
               ),
@@ -328,9 +328,9 @@ class StudioAgentPanelState extends State<StudioAgentPanel> {
               ? _approval(pending!)
               : events.isEmpty
               ? ZeroState(
-                  title: 'Build with your scene tools',
+                  title: 'Build with Agent',
                   message:
-                      'Create shapes, assemble characters, edit materials and animate poses. The agent discovers tools from every attached plugin.',
+                      'Create shapes, edit materials and animate your scene with attached plugin tools.',
                   actionLabel: configuration == null
                       ? 'Configure LLM'
                       : 'Show attached tools',

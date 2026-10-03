@@ -1,5 +1,7 @@
 import 'studio_lighting.dart';
 import 'studio_workspace.dart';
+import 'studio_theme.dart';
+import 'studio_properties.dart';
 import 'studio_model_bindings.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -130,6 +132,7 @@ class StudioEditorState extends State<StudioEditor> {
   int? _boundGeneration;
   int _session = 0;
   final _collapsedNodes = <String>{};
+  final _sceneSearch = TextEditingController();
   bool get _ready => _controller.status.value is SceneReady;
   bool get _editing =>
       _ready &&
@@ -516,6 +519,7 @@ class StudioEditorState extends State<StudioEditor> {
 
   @override
   void dispose() {
+    _sceneSearch.dispose();
     _loadCancellation?.cancel();
     unawaited(_release().then((_) => _assets.close()));
     super.dispose();
@@ -724,12 +728,17 @@ class StudioEditorState extends State<StudioEditor> {
         case 'box':
           next = StudioAuthoring.addBox(before, id: _newId('box'));
         case 'remove':
-          next = StudioAuthoring.remove(before, selectedId!);
+          next = StudioAuthoring.remove(
+            before,
+            selectedId!,
+            registry: _scene.extensionRegistry,
+          );
         case 'prefab':
           next = StudioAuthoring.createPrefab(
             before,
             selectedId!,
             prefabId: _newId('prefab'),
+            registry: _scene.extensionRegistry,
           );
         case 'instance':
           next = StudioAuthoring.instancePrefab(
@@ -941,63 +950,63 @@ class StudioEditorState extends State<StudioEditor> {
   Widget _button(String label, IconData icon, VoidCallback? action) =>
       TextButton.icon(
         onPressed: action,
-        icon: Icon(icon, size: 18),
+        icon: Icon(icon, size: 15),
         label: Text(label),
       );
 
-  Widget _inspector() => LayoutBuilder(
-    builder: (context, constraints) => SingleChildScrollView(
-      child: SizedBox(
-        height: constraints.maxHeight < 440 ? 440 : constraints.maxHeight,
-        child: _inspectorContents(),
-      ),
-    ),
+  Widget _inspector() => StudioProperties(
+    key: ValueKey(_scene.idFor(_selected)),
+    object: _selected,
+    onPosition: _editing && _selected != null
+        ? (value) => _edit(
+            () => _scene.edit(
+              () => _scene.tools.transform(_selected!, position: value),
+            ),
+          )
+        : null,
+    onScale: _editing && _selected != null
+        ? (value) => _edit(
+            () => _scene.edit(
+              () => _scene.tools.transform(_selected!, scale: value),
+            ),
+          )
+        : null,
+    onMaterial:
+        _editing &&
+            _selected != null &&
+            (_scene
+                        .document
+                        .expandedNodes[_scene.idFor(_selected)]
+                        ?.kind
+                        .isPrimitive ==
+                    true ||
+                _scene.document.expandedNodes[_scene.idFor(_selected)]?.kind ==
+                    StudioNodeKind.asset)
+        ? () => _author('material')
+        : null,
+    onPose: _editing && _selected != null ? () => _author('keyframe') : null,
+    onNudge: _editing && _selected != null
+        ? () => _edit(
+            () => _scene.edit(
+              () => _scene.tools.transform(
+                _selected!,
+                position: _selected!.position + const Vec3(.25, 0, 0),
+              ),
+            ),
+          )
+        : null,
   );
 
-  Widget _inspectorContents() => Column(
-    children: [
-      if (_selected case final selected?)
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          child: Wrap(
-            spacing: 4,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              Text(
-                'X ${selected.position.x.toStringAsFixed(2)}  Y ${selected.position.y.toStringAsFixed(2)}  Z ${selected.position.z.toStringAsFixed(2)}',
-                key: const ValueKey('selection-position'),
-              ),
-              _button(
-                'X +0.25',
-                Icons.add,
-                _editing
-                    ? () => _edit(
-                        () => _scene.edit(
-                          () => _scene.tools.transform(
-                            selected,
-                            position: selected.position + const Vec3(.25, 0, 0),
-                          ),
-                        ),
-                      )
-                    : null,
-              ),
-            ],
-          ),
-        ),
-      Expanded(
-        child: SceneInspector(
-          controller: _controller,
-          selectedObject: _scene.tools.selected,
-          onSelectionChanged: _editing
-              ? (object) => _edit(
-                  () => _scene.tools.select(
-                    _scene.idFor(object) == null ? null : object,
-                  ),
-                )
-              : null,
-        ),
-      ),
-    ],
+  Widget _diagnosticsPane() => SceneInspector(
+    controller: _controller,
+    selectedObject: _scene.tools.selected,
+    onSelectionChanged: _editing
+        ? (object) => _edit(
+            () => _scene.tools.select(
+              _scene.idFor(object) == null ? null : object,
+            ),
+          )
+        : null,
   );
 
   Widget _canvasContents() => Stack(
@@ -1232,14 +1241,28 @@ class StudioEditorState extends State<StudioEditor> {
     for (final node in _scene.document.expandedNodes.values) {
       children.putIfAbsent(node.parentId, () => []).add(node);
     }
+    final query = _sceneSearch.text.trim().toLowerCase();
+    final matches = <String>{};
+    if (query.isNotEmpty) {
+      for (final node in _scene.document.expandedNodes.values) {
+        if (!node.label.toLowerCase().contains(query)) continue;
+        StudioNode? current = node;
+        while (current != null && matches.add(current.id)) {
+          current = _scene.document.expandedNodes[current.parentId];
+        }
+      }
+    }
+    final rowHeight = (MediaQuery.textScalerOf(context).scale(12) * 1.3 + 6)
+        .clamp(26.0, double.infinity);
     final rows = <Widget>[];
     void visit(String? parent, int depth) {
       for (final node in children[parent] ?? <StudioNode>[]) {
+        if (query.isNotEmpty && !matches.contains(node.id)) continue;
         final branch = children.containsKey(node.id);
         final collapsed = _collapsedNodes.contains(node.id);
         rows.add(
           SizedBox(
-            height: 32,
+            height: rowHeight,
             child: Material(
               color: _scene.idFor(_selected) == node.id
                   ? Theme.of(context).colorScheme.primaryContainer
@@ -1279,7 +1302,7 @@ class StudioEditorState extends State<StudioEditor> {
                             )
                           : null,
                       child: SizedBox(
-                        height: 32,
+                        height: rowHeight,
                         child: Row(
                           children: [
                             Icon(
@@ -1307,14 +1330,39 @@ class StudioEditorState extends State<StudioEditor> {
             ),
           ),
         );
-        if (!collapsed) visit(node.id, depth + 1);
+        if (!collapsed || query.isNotEmpty) visit(node.id, depth + 1);
       }
     }
 
     visit(null, 0);
-    return ListView(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      children: rows,
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: TextField(
+            controller: _sceneSearch,
+            style: const TextStyle(fontSize: 11),
+            onChanged: (_) => setState(() {}),
+            decoration: const InputDecoration(
+              hintText: 'Search scene',
+              prefixIcon: Icon(Icons.search, size: 14),
+            ),
+          ),
+        ),
+        Expanded(
+          child: rows.isEmpty
+              ? ZeroState(
+                  title: 'No matching objects',
+                  message: 'Try another name or clear the search.',
+                  actionLabel: 'Clear search',
+                  onAction: () => setState(_sceneSearch.clear),
+                )
+              : ListView(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  children: rows,
+                ),
+        ),
+      ],
     );
   }
 
@@ -1436,99 +1484,183 @@ class StudioEditorState extends State<StudioEditor> {
     );
   }
 
+  Widget _viewportEditor(BuildContext context) {
+    final palette = StudioPalette.of(context);
+    return Column(
+      children: [
+        Container(
+          height: 30,
+          decoration: BoxDecoration(
+            color: palette.panel,
+            border: Border(bottom: BorderSide(color: palette.border)),
+          ),
+          child: Row(
+            children: [
+              Flexible(
+                child: Container(
+                  height: 30,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  decoration: BoxDecoration(
+                    color: palette.raised,
+                    border: Border(
+                      bottom: BorderSide(color: palette.accent, width: 2),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.view_in_ar_outlined,
+                        size: 13,
+                        color: palette.accent,
+                      ),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          File(widget.saveLocation).uri.pathSegments.last,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Icon(
+                        _dirty ? Icons.circle : Icons.check,
+                        size: _dirty ? 5 : 12,
+                        color: palette.muted,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const Spacer(),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Text(
+                  'Perspective',
+                  style: Theme.of(context).textTheme.labelSmall,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Container(
+          width: double.infinity,
+          color: palette.raised,
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          child: Wrap(
+            spacing: 2,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              for (final mode in GizmoMode.values)
+                IconButton(
+                  tooltip: mode.name,
+                  isSelected: _gizmo.mode == mode,
+                  style: IconButton.styleFrom(
+                    backgroundColor: _gizmo.mode == mode
+                        ? palette.selection
+                        : Colors.transparent,
+                  ),
+                  onPressed: _editing
+                      ? () => _edit(() => _gizmo.mode = mode)
+                      : null,
+                  icon: Icon(switch (mode) {
+                    GizmoMode.translate => Icons.open_with,
+                    GizmoMode.rotate => Icons.rotate_right,
+                    GizmoMode.scale => Icons.aspect_ratio,
+                  }, semanticLabel: mode.name),
+                ),
+              const SizedBox(width: 4),
+              _button(
+                'Undo',
+                Icons.undo,
+                _editing && _scene.canUndo ? () => _edit(_scene.undo) : null,
+              ),
+              _button(
+                'Redo',
+                Icons.redo,
+                _editing && _scene.canRedo ? () => _edit(_scene.redo) : null,
+              ),
+              _button(
+                _previewCamera == null ? 'Preview camera' : 'Stop preview',
+                _previewCamera == null ? Icons.play_arrow : Icons.stop,
+                _ready && !_busy ? _preview : null,
+              ),
+              KeyedSubtree(key: _authorKey, child: _authoringMenu()),
+              _button(
+                'Tour',
+                Icons.help_outline,
+                !_busy && !_modalOpen ? () => _tour(context) : null,
+              ),
+            ],
+          ),
+        ),
+        Expanded(child: _canvas()),
+      ],
+    );
+  }
+
   Widget _buildEditor(BuildContext context) => Scaffold(
     body: SafeArea(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
-            child: Wrap(
-              spacing: 8,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                const Icon(Icons.view_in_ar_outlined, size: 19),
-                Text(
-                  _scene.document.title,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                Text(
-                  _busy
-                      ? 'Working...'
-                      : _previewCamera != null
-                      ? 'Camera preview'
-                      : _dirty
-                      ? 'Unsaved changes'
-                      : 'Saved',
-                  key: const ValueKey('save-status'),
-                ),
-                Tooltip(
-                  key: _saveKey,
-                  message: widget.saveLocation,
-                  child: _button(
-                    'Save',
-                    Icons.save_outlined,
-                    !_busy && _previewCamera == null ? _save : null,
+          SizedBox(
+            height: 38,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: Row(
+                children: [
+                  if (Platform.isMacOS) const SizedBox(width: 70),
+                  if (MediaQuery.sizeOf(context).width >= 500) ...[
+                    Container(
+                      width: 20,
+                      height: 20,
+                      decoration: BoxDecoration(
+                        color: StudioPalette.of(context).selection,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Icon(
+                        Icons.view_in_ar_outlined,
+                        size: 14,
+                        color: StudioPalette.of(context).accent,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  Expanded(
+                    child: Text(
+                      _scene.document.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
                   ),
-                ),
-                _button(
-                  'Reload',
-                  Icons.folder_open,
-                  !_busy && _previewCamera == null ? _reload : null,
-                ),
-                _button(
-                  'Undo',
-                  Icons.undo,
-                  _editing && _scene.canUndo ? () => _edit(_scene.undo) : null,
-                ),
-                _button(
-                  'Redo',
-                  Icons.redo,
-                  _editing && _scene.canRedo ? () => _edit(_scene.redo) : null,
-                ),
-                IconButton(
-                  tooltip: 'Studio settings',
-                  icon: const Icon(
-                    Icons.settings_outlined,
-                    semanticLabel: 'Studio settings',
+                  Tooltip(
+                    key: _saveKey,
+                    message: widget.saveLocation,
+                    child: _button(
+                      'Save',
+                      Icons.save_outlined,
+                      !_busy && _previewCamera == null ? _save : null,
+                    ),
                   ),
-                  onPressed: () => _agentPanelKey.currentState?.openSettings(),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Wrap(
-              spacing: 4,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                for (final mode in GizmoMode.values)
-                  ChoiceChip(
-                    visualDensity: VisualDensity.compact,
-                    padding: EdgeInsets.zero,
-                    label: Text(mode.name),
-                    selected: _gizmo.mode == mode,
-                    onSelected: _editing
-                        ? (_) => _edit(() => _gizmo.mode = mode)
-                        : null,
+                  _button(
+                    'Reload',
+                    Icons.folder_open,
+                    !_busy && _previewCamera == null ? _reload : null,
                   ),
-                _button(
-                  _previewCamera == null ? 'Preview camera' : 'Stop preview',
-                  _previewCamera == null ? Icons.play_arrow : Icons.stop,
-                  _ready && !_busy ? _preview : null,
-                ),
-                KeyedSubtree(key: _authorKey, child: _authoringMenu()),
-                _button(
-                  'Tour',
-                  Icons.help_outline,
-                  !_busy && !_modalOpen ? () => _tour(context) : null,
-                ),
-                if (_previewCamera != null)
-                  Text(
-                    '${(_timeline.position.inMilliseconds / 1000).toStringAsFixed(1)} / 3 s',
+                  const SizedBox(width: 4),
+                  IconButton(
+                    tooltip: 'Studio settings',
+                    icon: const Icon(
+                      Icons.settings_outlined,
+                      semanticLabel: 'Studio settings',
+                    ),
+                    onPressed: () =>
+                        _agentPanelKey.currentState?.openSettings(),
                   ),
-              ],
+                ],
+              ),
             ),
           ),
           if (_busy && _loadCancellation != null)
@@ -1549,7 +1681,7 @@ class StudioEditorState extends State<StudioEditor> {
           const Divider(height: 1),
           Expanded(
             child: StudioWorkspace(
-              canvas: _canvas(),
+              canvas: _viewportEditor(context),
               initialPane: widget.showAgentInitially ? 'agent' : 'inspector',
               onActivePanel: (panel) {
                 _activePanel = panel;
@@ -1568,7 +1700,13 @@ class StudioEditorState extends State<StudioEditor> {
                   Icons.inventory_2_outlined,
                   _assetsPane(),
                 ),
-                StudioPane('inspector', 'Inspector', Icons.tune, _inspector()),
+                StudioPane('inspector', 'Properties', Icons.tune, _inspector()),
+                StudioPane(
+                  'diagnostics',
+                  'Diagnostics',
+                  Icons.monitor_heart_outlined,
+                  _diagnosticsPane(),
+                ),
                 StudioPane(
                   'agent',
                   'Agent',
@@ -1592,7 +1730,7 @@ class StudioEditorState extends State<StudioEditor> {
           ),
           const Divider(height: 1),
           SizedBox(
-            height: 24,
+            height: 22,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10),
               child: Row(
@@ -1603,6 +1741,18 @@ class StudioEditorState extends State<StudioEditor> {
                     color: _ready ? Colors.green : Colors.orange,
                   ),
                   const SizedBox(width: 6),
+                  Text(
+                    _busy
+                        ? 'Working...'
+                        : _previewCamera != null
+                        ? 'Camera preview'
+                        : _dirty
+                        ? 'Unsaved changes'
+                        : 'Saved',
+                    key: const ValueKey('save-status'),
+                    style: Theme.of(context).textTheme.labelSmall,
+                  ),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       _ready ? 'Native renderer' : 'Renderer waiting',
@@ -1615,7 +1765,6 @@ class StudioEditorState extends State<StudioEditor> {
                     style: Theme.of(context).textTheme.labelSmall,
                   ),
                   const SizedBox(width: 12),
-                  Text('Zyren', style: const TextStyle(fontSize: 11)),
                 ],
               ),
             ),

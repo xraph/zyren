@@ -14,14 +14,20 @@ There is no browser renderer.
 
 ## Workspace
 
-The default editor now uses the compact dockable workspace. Scene, Assets,
-Inspector, Agent, Animation and Plugins share the side rail. Drag a panel header
-to an edge, or use its docking menu to move it left, right or below the viewport.
+The default editor uses the compact dockable workspace from the design study,
+with GoLand-style inset panels, two tool rails and a document tab above the
+viewport. Scene, Assets and Animation start on the left rail. Properties, Agent,
+Plugins and Diagnostics start on the right. Most text is 11–12 logical pixels;
+panel headers are 30 pixels high. Light and dark themes share the same density.
+Drag a panel header to an edge, or use its docking menu to move it left, right or below the viewport.
 Drag dividers to resize. Close a panel to give the viewport more room; its rail
 button restores it. Reset layout restores the default arrangement.
 
-Docking preserves the native viewport and agent conversation. Narrow windows
-use a horizontal panel switcher and one bottom panel. Studio settings includes
+Docking preserves the native viewport and agent conversation. You can search
+the scene tree, edit position and scale in Properties, open the material editor,
+or record a pose. Transform edits share the existing undo history. Diagnostics
+keeps renderer details and the complete runtime hierarchy in its own panel.
+Narrow windows use a horizontal panel switcher and one bottom panel. Studio settings includes
 System, Light and Dark appearance and your model connection. Layout changes
 currently last for the open editor session.
 
