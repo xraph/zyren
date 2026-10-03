@@ -75,8 +75,11 @@ handedness and invalid anchor input. Lifecycle tests cover pause/resume leases,
 stale view callbacks, repeated frame age and invalidation after scene rendering. Run the example's `presentation_test.dart`
 on an unlocked Pixel for camera, rotation, resize and disposal checks.
 `native_agents_test.dart` covers native placement through the shared agent tools;
-set `XR_TEST_DEPTH=true` for its depth path. You need a lit scene with trackable
-surfaces, and raw depth may require moving the device.
+set `XR_TEST_DEPTH=true` for its depth path. Use `depth_test.dart` to check depth
+presentation and stale-lease recovery independently of native plane detection.
+Both probes keep Flutter frames running so the native camera view stays live.
+You need a lit scene with trackable surfaces, and raw depth may require moving
+the device.
 
 The permission probe is `android_permissions_test.dart`. Revoke Camera for the
 probe app, deny its first system prompt, then grant Camera after the
@@ -94,9 +97,12 @@ with a retained frame followed by explicit restart. The native rotation fix
 defers swapchain creation while window and calibration dimensions disagree.
 
 Native placement and depth remain unqualified. The native-hit run found no plane
-in 90 seconds; the depth run returned `depthUnavailable` because raw depth and
-confidence were absent. Visual alignment, foreground occlusion, Play Services
-installation, Activity/engine teardown and sustained performance still need
+in 90 seconds. Its live feed showed a plain ceiling and ARCore reported
+`insufficient_features`. The independent depth run also returned
+`depthUnavailable` after 90 seconds because raw depth and confidence were absent.
+Shared MCP discovery, inspection and mutation denial passed. Visual alignment,
+foreground occlusion, Play Services installation, Activity/engine teardown and
+sustained performance still need
 physical checks. See the [qualification record](../qualification/2026-10-03.md).
 
 The build enables flexible page sizes. All eight arm64 APK libraries pass 16 KB

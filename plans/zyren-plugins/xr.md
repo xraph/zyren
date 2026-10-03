@@ -10,17 +10,18 @@ acceptance is still incomplete, so the package remains unpublished.
 
 | Phase | Implementation and checked behavior | Verification still required |
 | --- | --- | --- |
-| 1. ARKit session | Lifecycle, tracking, anchors, planes and light are implemented. iPhone session/provider placement, undo, pause/disposal and retained-frame background/restart probes passed. | Physical denial/retry, permission cancellation, interruption and engine teardown. |
-| 2. Camera | Metal import, calibrated scene rendering and zero-readback diagnostics are implemented. iPhone and Pixel portrait/landscape presentation, viewport dimensions, resize, bounded leases and pause/disposal passed. | Visual alignment; all iPad checks, blocked by its free-profile app limit. |
-| 3. Scene integration | Bounded geometry, calibrated raycasts, scene/source bindings and scoped hit placement are implemented. iPhone live MCP discovery, inspection and mutation denial passed. | Both phones detected no plane within the native-hit window. Rich hit placement, tracking loss, reset and re-entry remain pending. |
-| 4. Depth and light | Native ARKit depth/confidence and ambient adapters are implemented. Four real Metal renderer tests and 24 depth shader comparisons passed. | Physical occlusion, stale/unsupported depth and device lighting behavior. Pixel returned depthUnavailable. Environment probes remain a later integration. |
+| 1. ARKit session | Lifecycle, tracking, anchors, planes and light are implemented. iPhone session/provider placement, undo and pause/disposal passed. Both Apple devices pass retained-frame background/restart. | Physical denial/retry, permission cancellation, interruption and engine teardown. |
+| 2. Camera | Metal import, calibrated scene rendering and zero-readback diagnostics are implemented. iPhone, fullscreen iPad and Pixel portrait/landscape presentation, viewport dimensions, resize, bounded leases and pause/disposal passed. | Visual alignment and iPad multitasking. |
+| 3. Scene integration | Bounded geometry, calibrated raycasts, scene/source bindings and scoped hit placement are implemented. iPad native MCP hit placement, retry, plane geometry, scene binding, undo and reset passed. Both phones pass discovery, inspection and mutation denial. | Both phones detected no plane within the native-hit window. Physical anchor loss/recovery and relocalization remain pending. |
+| 4. Depth and light | Native ARKit depth/confidence and ambient adapters are implemented. Four real Metal renderer tests, 24 depth shader comparisons and iPhone/iPad native depth presentation/stale-frame recovery passed. | Physical occlusion, confidence rejection, unsupported depth and device lighting behavior. Pixel returned depthUnavailable. Environment probes remain a later integration. |
 | 5. ARCore | Vulkan camera/raw depth, lifecycle and shared agents are implemented. Pixel camera/resize, fresh permission grant, deny/retry and retained-frame background/restart passed. | Native placement/depth, AR service installation flow, Activity/engine teardown, GPU failure retirement and sustained performance. |
 | 6. OpenXR | Separate lifecycle/device/swapchain design is committed in `1e5f280`. | No headset adapter or runtime qualification is claimed by this design milestone. |
 
 The native agent probe traverses the shared MCP codec and authenticated loopback
-HTTP transport. Its discovery/inspect/denial stage now passes on iPhone. That
-phone remained at limited tracking with zero planes, and the Pixel native-hit
-run also found no plane. Neither run establishes permitted native hit placement.
+HTTP transport. The iPad now passes the full native hit, placement, retry,
+geometry, scene/source binding, undo and reset flow. Both phones pass its
+discovery/inspect/denial stage. The iPhone reached normal tracking but found no
+plane, and the Pixel reported insufficient features while viewing a plain ceiling.
 The host-side stdio bridge uses the same devtools implementation.
 
 The resumed device runs exposed Android ELF alignment, permission-dialog pause
@@ -35,11 +36,15 @@ linkage. All eight arm64 APK libraries pass 16 KB ELF alignment and APK zip
 alignment, but the available Pixel runs with 4 KB pages. No 16 KB device runtime
 qualification is claimed.
 
-The iPad installation failed because Physics Lab, Planet and the TwinOS app
-already occupy the three free-profile slots. No app was removed. Both phones
-need a usable tracked scene for remaining placement and depth checks. The Pixel
-had no raw depth/confidence in the depth probe, which returned the required typed
-error without establishing occlusion.
+The iPad installation now succeeds. Commit `222f0104` lets the fullscreen example
+rotate on iPad and keeps live Flutter frames running in the native-agent probe.
+Commit `092b11e1` fixes an in-process ARKit calibration numeric mismatch that
+blocked native raycasts. Its regression and the iPad MCP device probe pass.
+
+The independent depth probe in `03415c46` passes on iPhone and iPad: 16 native
+depth frames per device, zero camera/native readback, stale-frame rejection and
+fresh-frame recovery. The iPad retained-frame background/restart probe also passes. The Pixel still has no raw depth/confidence. Physical foreground
+occlusion and confidence rejection remain unqualified.
 
 See the [qualification record](../../packages/zyren_xr/qualification/2026-10-03.md)
 for logs and the full acceptance matrix. The source/device audit below records
@@ -201,9 +206,11 @@ accepted placement; its returned ID remains the recovery target.
 Current acceptance: shared registry discovery and schema checks, real provider
 query/action code exercised against deterministic transport fixtures, scope
 denial, stale origin/frame/view, idempotent retry, undo and cancellation. The
-physical iPhone session/provider probe and live MCP discovery/inspect/denial stage
-have passed. Calibrated visual correlation and a native rich hit followed by a
-permitted placement remain pending. This plugin is incomplete until those checks pass.
+physical iPhone session/provider probe and both phones' live MCP
+discovery/inspect/denial stage have passed. The iPad also passes a native rich hit,
+permitted placement, retry, geometry, scene/source binding, undo and reset.
+Calibrated visual correlation and physical tracking-loss recovery remain pending.
+The plugin remains unpublished until required device acceptance passes.
 
 ## Historical checkpoint evidence before camera implementation
 
