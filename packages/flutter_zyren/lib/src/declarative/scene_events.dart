@@ -40,6 +40,7 @@ class _SceneEventDispatcher {
   final _captures = <int, (Object3D, PickResult?)>{};
   final _hover = <int, Map<Object3D, PickResult>>{};
   final _routed = Expando<bool>();
+  final _hoverStops = <int, (Object3D, Object?, bool)>{};
   final _lastHover = <int, ScenePointerEvent>{};
   Registration? _router, _interest, _tap;
   bool _syncPending = false;
@@ -134,6 +135,7 @@ class _SceneEventDispatcher {
 
   void remove(Object3D object) {
     _nodes.remove(object);
+    _hoverStops.removeWhere((_, stop) => identical(stop.$1, object));
     _captures.removeWhere((_, c) => identical(c.$1, object));
     for (final hover in _hover.values) {
       hover.remove(object);
@@ -176,7 +178,19 @@ class _SceneEventDispatcher {
       final previous = _hover[hoverKey] ?? {};
       for (final entry in previous.entries.toList()) {
         if (!targets.containsKey(entry.key)) {
-          _deliver('leave', event, entry.key, entry.value, hits, ray);
+          _deliver('leave', event, entry.key, null, hits, ray);
+        }
+      }
+      var boundary = _hoverStops[hoverKey];
+      if (boundary != null) {
+        final node = _nodes[boundary.$1];
+        final callback = boundary.$3
+            ? node?.onPointerEnter
+            : node?.onPointerMove;
+        if (!targets.containsKey(boundary.$1) ||
+            !identical(callback, boundary.$2)) {
+          _hoverStops.remove(hoverKey);
+          boundary = null;
         }
       }
       final entered = <Object3D, PickResult>{};
@@ -184,8 +198,14 @@ class _SceneEventDispatcher {
         entered[entry.key] = entry.value;
         if (!previous.containsKey(entry.key) &&
             _deliver('enter', event, entry.key, entry.value, hits, ray)) {
+          _hoverStops[hoverKey] = (
+            entry.key,
+            _nodes[entry.key]?.onPointerEnter,
+            true,
+          );
           break;
         }
+        if (identical(entry.key, boundary?.$1)) break;
       }
       for (final entry in previous.entries) {
         if (!entered.containsKey(entry.key) && targets.containsKey(entry.key)) {
@@ -215,13 +235,42 @@ class _SceneEventDispatcher {
       ScenePointerPhase.tap => 'click',
       _ => '',
     };
+    var moveStopped = false;
     if (phase.isNotEmpty) {
       for (final entry in targets.entries.toList()) {
         final hit = hits
             .where((h) => identical(h.object, entry.value.object))
             .firstOrNull;
-        if (_deliver(phase, event, entry.key, hit, hits, ray)) break;
+        if (_deliver(phase, event, entry.key, hit, hits, ray)) {
+          if (event.phase == ScenePointerPhase.move) {
+            moveStopped = true;
+            if (_hoverStops[hoverKey]?.$3 != true) {
+              _hoverStops[hoverKey] = (
+                entry.key,
+                _nodes[entry.key]?.onPointerMove,
+                false,
+              );
+            }
+            final hovered = _hover[hoverKey];
+            if (hovered != null && hovered.containsKey(entry.key)) {
+              var blocked = false;
+              for (final target in hovered.keys.toList()) {
+                if (blocked) {
+                  hovered.remove(target);
+                  _deliver('leave', event, target, null, hits, ray);
+                }
+                if (identical(target, entry.key)) blocked = true;
+              }
+            }
+          }
+          break;
+        }
       }
+    }
+    if (event.phase == ScenePointerPhase.move &&
+        !moveStopped &&
+        _hoverStops[hoverKey]?.$3 == false) {
+      _hoverStops.remove(hoverKey);
     }
     if (event.phase == ScenePointerPhase.up ||
         event.phase == ScenePointerPhase.cancel) {
@@ -230,6 +279,7 @@ class _SceneEventDispatcher {
           event.kind == ScenePointerKind.touch) {
         final previous = _hover.remove(hoverKey);
         _lastHover.remove(hoverKey);
+        _hoverStops.remove(hoverKey);
         for (final entry
             in previous?.entries ?? <MapEntry<Object3D, PickResult>>[]) {
           _deliver('leave', event, entry.key, null, hits, ray);
@@ -287,6 +337,7 @@ class _SceneEventDispatcher {
   void exit() {
     if (_disposed || controller.isDisposed) return;
     for (final pointer in _hover.keys.toList()) {
+      _hoverStops.remove(pointer);
       final raw = _lastHover.remove(pointer);
       if (raw == null) {
         _hover.remove(pointer);
@@ -306,6 +357,7 @@ class _SceneEventDispatcher {
     _activePointers.clear();
     _hover.clear();
     _lastHover.clear();
+    _hoverStops.clear();
     _tap?.dispose();
     _router?.dispose();
     _interest?.dispose();

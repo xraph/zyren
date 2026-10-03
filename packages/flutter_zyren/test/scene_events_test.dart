@@ -305,6 +305,132 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await frames(tester);
   });
+  testWidgets('hover stop persists and handler replacement releases boundary', (
+    tester,
+  ) async {
+    late SceneController controller;
+    final calls = <String>[];
+    final rt = runtime(FakeBackend());
+    void stop(SceneObjectEvent e) {
+      calls.add('near');
+      e.stopPropagation();
+    }
+
+    Widget tree(bool block) => host(
+      SceneCanvas(
+        options: readback,
+        runtime: rt,
+        onCreated: (c) => controller = c,
+        children: [
+          GroupNode(
+            onPointerEnter: (_) => calls.add('parent'),
+            children: [
+              MeshNode(
+                geometry: SceneGeometry.box(),
+                onPointerEnter: block ? stop : null,
+              ),
+              MeshNode(
+                position: const Vec3(0, 0, -2),
+                geometry: SceneGeometry.box(),
+                onPointerEnter: (_) => calls.add('far'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+    await tester.pumpWidget(tree(true));
+    await frames(tester);
+    void hover() => (controller.input as FlutterInputAdapter).emit(
+      ScenePointerEvent(
+        kind: ScenePointerKind.mouse,
+        point: const ViewportPoint(32, 32),
+        phase: ScenePointerPhase.hover,
+      ),
+      null,
+    );
+    hover();
+    hover();
+    hover();
+    await tester.pump();
+    expect(calls, ['near']);
+    await tester.pumpWidget(tree(false));
+    await tester.pump();
+    hover();
+    await tester.pump();
+    expect(calls, ['near', 'parent', 'far']);
+    await tester.pumpWidget(const SizedBox());
+    await frames(tester);
+  });
+  testWidgets(
+    'move stop evicts deeper hover and leave uses current empty hit metadata',
+    (tester) async {
+      late SceneController controller;
+      final calls = <String>[];
+      SceneObjectEvent? left;
+      var block = false;
+      await tester.pumpWidget(
+        host(
+          SceneCanvas(
+            options: readback,
+            runtime: runtime(FakeBackend()),
+            onCreated: (c) => controller = c,
+            children: [
+              MeshNode(
+                geometry: SceneGeometry.box(),
+                onPointerEnter: (_) => calls.add('near'),
+                onPointerLeave: (e) => left = e,
+                onPointerMove: (e) {
+                  if (block) e.stopPropagation();
+                },
+              ),
+              MeshNode(
+                position: const Vec3(0, 0, -2),
+                geometry: SceneGeometry.box(),
+                onPointerEnter: (_) => calls.add('far'),
+                onPointerLeave: (_) => calls.add('farLeave'),
+              ),
+            ],
+          ),
+        ),
+      );
+      await frames(tester);
+      void emit(ScenePointerPhase phase, ViewportPoint point) =>
+          (controller.input as FlutterInputAdapter).emit(
+            ScenePointerEvent(
+              pointer: 1,
+              kind: ScenePointerKind.mouse,
+              point: point,
+              phase: phase,
+            ),
+            null,
+          );
+      emit(ScenePointerPhase.hover, const ViewportPoint(32, 32));
+      await tester.pump();
+      expect(calls, ['near', 'far']);
+      emit(ScenePointerPhase.down, const ViewportPoint(32, 32));
+      block = true;
+      emit(ScenePointerPhase.move, const ViewportPoint(32, 32));
+      await tester.pump();
+      expect(calls, ['near', 'far', 'farLeave']);
+      emit(ScenePointerPhase.move, const ViewportPoint(32, 32));
+      emit(ScenePointerPhase.hover, const ViewportPoint(32, 32));
+      await tester.pump();
+      expect(calls, ['near', 'far', 'farLeave']);
+      final point = const ViewportPoint(0, 0);
+      final expectedRay = controller.capturePick(point).ray;
+      emit(ScenePointerPhase.move, point);
+      await tester.pump();
+      expect(left, isNotNull);
+      expect(left!.intersection, isNull);
+      expect(left!.hitObject, isNull);
+      expect(left!.intersections, isEmpty);
+      expect(left!.ray.origin, expectedRay.origin);
+      expect(left!.ray.direction, expectedRay.direction);
+      await tester.pumpWidget(const SizedBox());
+      await frames(tester);
+    },
+  );
 }
 
 late SceneRuntime sceneRuntime;
