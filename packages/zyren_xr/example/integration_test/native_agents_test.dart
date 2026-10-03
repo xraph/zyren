@@ -277,8 +277,9 @@ void main() {
         expect(bindings!.bindings, isEmpty);
         await frame();
         var afterReset = await query('inspect');
-        if (afterReset['status'] == 'stale')
+        if (afterReset['status'] == 'stale') {
           afterReset = await query('inspect');
+        }
         expect(afterReset['status'], 'ok');
         expect(provider!.commands.canUndo, isFalse);
         final resetUndo = await command(

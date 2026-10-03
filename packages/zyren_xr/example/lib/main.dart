@@ -97,6 +97,7 @@ class _XrProbePageState extends State<XrProbePage> {
         return;
       }
       setState(() => _presentation = presenter);
+      _capabilities = await XrSession.capabilities(widget.transport);
       _renderTimer = Timer.periodic(
         const Duration(milliseconds: 16),
         (_) => _render(),
@@ -483,7 +484,7 @@ class _XrProbePageState extends State<XrProbePage> {
                 'Anchors ${frame.anchors.length} / planes ${frame.planes.length} / omitted ${frame.omittedPlanes}',
               ),
               Text(
-                'Depth hardware ${_capabilities?.sceneDepthHardware} / depth occlusion $_depth',
+                'Depth requested $_depth / presented ${_presentation?.presentedCalibration?.depthEnabled ?? 'unknown'}',
               ),
               Text(
                 'Agent tools ${_provider!.tools.length} / command revision ${_provider!.revision}',

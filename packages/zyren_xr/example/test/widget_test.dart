@@ -19,7 +19,10 @@ void main() {
       await tester.pump();
       await tester.pump();
       expect(find.text('running / normal'), findsOneWidget);
-      expect(find.textContaining('depth occlusion false'), findsOneWidget);
+      expect(
+        find.textContaining('Depth requested false / presented unknown'),
+        findsOneWidget,
+      );
       expect(tester.takeException(), isNull);
       await tester.tap(find.text('Release'));
       await tester.pump();
