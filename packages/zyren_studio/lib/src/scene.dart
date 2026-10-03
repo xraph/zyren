@@ -6,6 +6,7 @@ final class StudioScene {
   StudioDocument get document => _document;
   final StudioHistory history = StudioHistory();
   final StudioAssetScope? assets;
+  final StudioExtensionRegistry extensionRegistry;
   final _assetMembers = <Object3D>{};
   final _assetSources = <Object3D, (String, String)>{};
   final _assetStates = <Object3D, String>{};
@@ -55,6 +56,9 @@ final class StudioScene {
       'materials': _recipes.map((key, value) => MapEntry(key, value.toJson())),
       'review': engineering.document.encode(),
       'camera': StudioCamera.capture(camera).toJson(),
+      'extensions': document.extensions.map(
+        (key, value) => MapEntry(key, value.toJson()),
+      ),
     });
     if (_fingerprint != fingerprint) {
       _fingerprint = fingerprint;
@@ -63,7 +67,13 @@ final class StudioScene {
     return _revision;
   }
 
-  StudioScene(StudioDocument document, {this.assets}) : _document = document {
+  StudioScene(
+    StudioDocument document, {
+    this.assets,
+    StudioExtensionRegistry? extensionRegistry,
+  }) : _document = document,
+       extensionRegistry = extensionRegistry ?? StudioExtensionRegistry() {
+    this.extensionRegistry.validateDocument(document);
     scene.background = Color3.hex(0x14242b);
     scene.add(content);
     for (final node in document.expandedNodes.values) {
@@ -222,6 +232,7 @@ final class StudioScene {
 
   void _apply(StudioDocument next) {
     capture();
+    extensionRegistry.validateEdit(document, next);
     if (next.id != document.id || engineering.isBusy) {
       throw StateError('Document identity changed or review storage is busy.');
     }
@@ -257,7 +268,11 @@ final class StudioScene {
       if (engineering.isAttached) bindReview();
       return;
     }
-    final rebuilt = StudioScene(next, assets: assets);
+    final rebuilt = StudioScene(
+      next,
+      assets: assets,
+      extensionRegistry: extensionRegistry,
+    );
     final resolved = rebuilt.capture();
     final selectedId = idFor(tools.selected);
     final previousSource = selectedSource;

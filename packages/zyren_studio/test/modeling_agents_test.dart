@@ -113,14 +113,14 @@ void main() {
       );
     },
   );
-  test('version 2 scenes are readable and save as version 3', () {
+  test('version 2 scenes are readable and save in the current format', () {
     final encoded = scene.capture().encode().replaceFirst(
-      '"schemaVersion":3',
+      '"schemaVersion":${StudioDocument.schemaVersion}',
       '"schemaVersion":2',
     );
     expect(
       StudioDocument.decode(encoded).encode(),
-      contains('"schemaVersion":3'),
+      contains('"schemaVersion":${StudioDocument.schemaVersion}'),
     );
   });
 }

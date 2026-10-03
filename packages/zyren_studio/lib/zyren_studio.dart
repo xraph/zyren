@@ -6,6 +6,7 @@ import 'package:zyren_engineering/zyren_engineering.dart';
 import 'package:zyren_tools/zyren_tools.dart';
 
 part 'src/document.dart';
+part 'src/extensions.dart';
 part 'src/authoring_data.dart';
 part 'src/scene.dart';
 part 'src/assets.dart';

@@ -232,7 +232,7 @@ final class StudioCamera {
 
 /// Saved authoring data. Version-one documents migrate when read and next saved.
 final class StudioDocument {
-  static const schemaVersion = 3;
+  static const schemaVersion = 4;
   static const maxCharacters = 4 * 1024 * 1024;
   static const maxNodes = 1000;
   static const maxDepth = 64;
@@ -243,6 +243,7 @@ final class StudioDocument {
   final List<StudioAsset> assets;
   final List<StudioPrefab> prefabs;
   final List<StudioClip> clips;
+  final Map<String, StudioExtensionRecord> extensions;
   late final Map<String, StudioNode> expandedNodes;
   late final Map<String, String> prefabOwners;
 
@@ -255,12 +256,22 @@ final class StudioDocument {
     Iterable<StudioAsset> assets = const [],
     Iterable<StudioPrefab> prefabs = const [],
     Iterable<StudioClip> clips = const [],
+    Map<String, StudioExtensionRecord> extensions = const {},
   }) : nodes = List.unmodifiable(nodes),
        camera = camera ?? StudioCamera(),
        review = review ?? EngineeringDocument(id: id),
        assets = List.unmodifiable(assets),
        prefabs = List.unmodifiable(prefabs),
-       clips = List.unmodifiable(clips) {
+       clips = List.unmodifiable(clips),
+       extensions = Map.unmodifiable(extensions) {
+    if (extensions.length > 64 ||
+        extensions.entries.any((e) => e.key != e.value.namespace) ||
+        extensions.values.fold<int>(0, (n, value) => n + value.byteLength) >
+            1024 * 1024) {
+      throw ArgumentError(
+        'Invalid extension identities or total payload budget.',
+      );
+    }
     _text(id, 'Document ID');
     if (!RegExp(r'^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,95}$').hasMatch(id)) {
       throw ArgumentError(
@@ -407,6 +418,7 @@ final class StudioDocument {
     Iterable<StudioAsset>? assets,
     Iterable<StudioPrefab>? prefabs,
     Iterable<StudioClip>? clips,
+    Map<String, StudioExtensionRecord>? extensions,
     String? title,
   }) => StudioDocument(
     id: id,
@@ -417,6 +429,7 @@ final class StudioDocument {
     assets: assets ?? this.assets,
     prefabs: prefabs ?? this.prefabs,
     clips: clips ?? this.clips,
+    extensions: extensions ?? this.extensions,
   );
 
   String encode() {
@@ -430,6 +443,10 @@ final class StudioDocument {
       'assets': assets.map((a) => a.toJson()).toList(),
       'prefabs': prefabs.map((p) => p.toJson()).toList(),
       'clips': clips.map((c) => c.toJson()).toList(),
+      if (extensions.isNotEmpty)
+        'extensions': extensions.map(
+          (key, record) => MapEntry(key, record.toJson()),
+        ),
     });
     if (result.length > maxCharacters) {
       throw StateError('Scene exceeds size limit.');
@@ -445,7 +462,8 @@ final class StudioDocument {
       final root = jsonDecode(source) as Map<String, dynamic>;
       if (root['schemaVersion'] != schemaVersion &&
           root['schemaVersion'] != 1 &&
-          root['schemaVersion'] != 2) {
+          root['schemaVersion'] != 2 &&
+          root['schemaVersion'] != 3) {
         throw const FormatException('Unsupported Studio schema version.');
       }
       final nodes = root['nodes'] as List;
@@ -465,6 +483,12 @@ final class StudioDocument {
         ),
         prefabs: (root['prefabs'] as List? ?? []).map(
           (p) => StudioPrefab.fromJson(p as Map<String, dynamic>),
+        ),
+        extensions: (root['extensions'] as Map<String, dynamic>? ?? {}).map(
+          (key, value) => MapEntry(
+            key,
+            StudioExtensionRecord.fromJson(key, value as Map<String, dynamic>),
+          ),
         ),
         clips: (root['clips'] as List? ?? []).map(
           (c) => StudioClip.fromJson(c as Map<String, dynamic>),

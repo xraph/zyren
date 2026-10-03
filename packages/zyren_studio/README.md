@@ -19,7 +19,7 @@ final restored = StudioScene(StudioDocument.decode(saved));
 
 ## Documents and edits
 
-Schema 2 reads schema 1 files and writes the current format. You get groups,
+Schema 4 reads schema 1, 2 and 3 files and writes the current format. You get groups,
 boxes, imported instances, nested prefabs with explicit overrides, perspective
 cameras and the existing `EngineeringDocument` format. Names and runtime IDs
 are never persistence keys. Imported source keys remain separate from authored
@@ -111,8 +111,8 @@ Use the existing transform and clip tools to pose and animate it. It is made of
 primitives. It does not supply a skinned mesh, humanoid retargeting or IK.
 Those capabilities belong to the character plugin and its runtime bindings.
 
-Documents save as schema version 3. Readers accept versions 1 and 2; old readers
-must be upgraded before opening version 3 documents.
+Documents save as schema version 4. Readers accept versions 1, 2 and 3; old readers
+must be upgraded before opening version 4 documents.
 
 `agent_extensions.dart` lets a Studio host attach plugin runtime instances and
 register their providers in the shared scene registry. The host supplies scopes,
@@ -120,3 +120,22 @@ availability and lifetime cleanup. `persistence_agents.dart` adds reviewed saves
 through the host store. Future morphing tools can register through the same
 extension or engine service; their plugin must own deformation history and saved
 state. No morphing implementation is included here.
+
+## Document extensions
+
+Keep plugin authoring data in `StudioDocument.extensions`, keyed by namespace.
+Each `StudioExtensionRecord` declares its own schema version and whether the
+runtime requires it. Studio saves unknown payloads unchanged. A required missing
+codec blocks activation when you call `validateDocument(requireSupported: true)`.
+
+Register a `StudioExtensionCodec` for validation, node references, explicit
+migration, reference remapping and field overrides. Pass that registry to
+`StudioScene` and structural `StudioAuthoring` commands. Prefab conversion remaps
+references through the codec; deletion rejects dangling links. An unknown codec
+blocks structural edits that could invalidate its references. Transform edits
+and lossless save remain available.
+
+Extension changes share the document's revision and undo history. Payloads are
+immutable finite JSON, with 16 nesting levels, 512 KiB per record, 64 namespaces
+and 1 MiB total extension data. Migration returns a new document and never changes
+the original. Keep weights, asset bytes and demonstrations in your asset store.

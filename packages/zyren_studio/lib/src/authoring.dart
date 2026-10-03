@@ -2,6 +2,18 @@ part of '../zyren_studio.dart';
 
 /// Immutable edits validate the complete next document before touching a scene.
 abstract final class StudioAuthoring {
+  static StudioDocument updateExtension(
+    StudioDocument document,
+    StudioExtensionRecord record, {
+    StudioExtensionRegistry? registry,
+  }) {
+    final next = document.copyWith(
+      extensions: {...document.extensions, record.namespace: record},
+    );
+    (registry ?? StudioExtensionRegistry()).validateDocument(next);
+    return next;
+  }
+
   static StudioDocument addBox(
     StudioDocument document, {
     required String id,
@@ -44,7 +56,11 @@ abstract final class StudioAuthoring {
     );
   }
 
-  static StudioDocument remove(StudioDocument document, String id) {
+  static StudioDocument remove(
+    StudioDocument document,
+    String id, {
+    StudioExtensionRegistry? registry,
+  }) {
     if (!document.expandedNodes.containsKey(id)) {
       throw ArgumentError('Unknown node.');
     }
@@ -76,16 +92,19 @@ abstract final class StudioAuthoring {
         );
       }
     }
-    return document.copyWith(
+    final next = document.copyWith(
       nodes: document.nodes.where((n) => !removed.contains(n.id)),
       clips: clips,
     );
+    (registry ?? StudioExtensionRegistry()).validateEdit(document, next);
+    return next;
   }
 
   static StudioDocument createPrefab(
     StudioDocument document,
     String id, {
     required String prefabId,
+    StudioExtensionRegistry? registry,
   }) {
     if (document.prefabOwners.containsKey(id)) {
       throw ArgumentError('Select an authored instance.');
@@ -134,7 +153,7 @@ abstract final class StudioAuthoring {
       rotation: root.rotation,
       scale: root.scale,
     );
-    return document.copyWith(
+    final next = document.copyWith(
       nodes: [
         for (final node in document.nodes)
           if (node.id == id)
@@ -151,6 +170,17 @@ abstract final class StudioAuthoring {
           nodes: definitions,
         ),
       ],
+    );
+    final remapping = {
+      for (final node in document.expandedNodes.values)
+        if (selected.contains(node.id) ||
+            selected.any((id) => node.id.startsWith('$id/')))
+          node.id: '$id/${node.id}',
+    };
+    return (registry ?? StudioExtensionRegistry()).remapDocument(
+      document,
+      next,
+      remapping,
     );
   }
 
