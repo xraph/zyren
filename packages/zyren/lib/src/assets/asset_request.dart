@@ -3,7 +3,7 @@ import 'asset_scope.dart';
 import 'source_resolver.dart';
 
 /// A typed source and decoder. [version] separates in-flight work for explicit
-/// content revisions; completed requests are not cached automatically.
+/// content revisions. Scopes cache completed recipes only when you supply a cache.
 final class AssetRequest<T extends Object> {
   final Uri uri;
   final AssetLoader<T> loader;
@@ -17,6 +17,17 @@ final class AssetRequest<T extends Object> {
       );
     }
   }
+  @override
+  bool operator ==(Object other) =>
+      other is AssetRequest<T> &&
+      runtimeType == other.runtimeType &&
+      uri == other.uri &&
+      version == other.version &&
+      loader.runtimeType == other.loader.runtimeType &&
+      loader.cacheKey == other.loader.cacheKey;
+  @override
+  int get hashCode =>
+      Object.hash(T, uri, version, loader.runtimeType, loader.cacheKey);
 }
 
 /// Optional format decoders depend only on core CPU services.
@@ -39,11 +50,18 @@ final class DecodedAsset<T extends Object> {
   final T Function() create;
   final void Function(T) release;
   final void Function()? dispose;
+
+  /// Recipe storage size. Null uses the decode context accounting.
+  final int? decodedBytes;
   const DecodedAsset({
     required this.create,
     required this.release,
     this.dispose,
+    this.decodedBytes,
   });
+
+  /// Releases a delivered result, including when a request widens its type.
+  void releaseValue(T value) => release(value);
 }
 
 enum AssetLoadError {

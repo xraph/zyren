@@ -2,6 +2,14 @@ part of 'asset_scope.dart';
 
 typedef _LoadKey = (Uri, String?, Type, Type, Object);
 
+_LoadKey _loadKey<T extends Object>(AssetRequest<T> request) => (
+  request.uri,
+  request.version,
+  T,
+  request.loader.runtimeType,
+  request.loader.cacheKey,
+);
+
 class _SharedLoadPool {
   final AssetServices services;
   final _jobs = <_LoadKey, Object>{};
@@ -12,13 +20,36 @@ class _SharedLoadPool {
     AssetRequest<T> request,
     AssetScope scope,
   ) {
-    final key = (
-      request.uri,
-      request.version,
-      T,
-      request.loader.runtimeType,
-      request.loader.cacheKey,
-    );
+    final key = _loadKey(request);
+    final cached = scope.cache?._get<T>(services, key);
+    if (cached != null) {
+      cached.retain();
+      var released = false;
+      void release() {
+        if (released) return;
+        released = true;
+        cached.release();
+      }
+
+      final task = _AssetTask<T>(scope, this, request.uri, release);
+      scheduleMicrotask(() {
+        try {
+          task.report(
+            LoadProgress(
+              stage: LoadStage.prepare,
+              completedBytes: cached.bytes,
+            ),
+          );
+          final succeeded = task.deliver(cached.decoded);
+          if (!succeeded && task._deliveryFailed) {
+            scope.cache?._discard(services, key, cached);
+          }
+        } finally {
+          release();
+        }
+      });
+      return task;
+    }
     var job = _jobs[key] as _SharedLoad<T>?;
     if (job == null) {
       job = _SharedLoad<T>(this, key, request);
@@ -83,6 +114,7 @@ class _SharedLoad<T extends Object> {
 
   Future<void> start() async {
     DecodedAsset<T>? decoded;
+    _DecodedRecipe<T>? recipe;
     try {
       cancellation.throwIfCancelled();
       final context = AssetDecodeContext._(
@@ -96,6 +128,12 @@ class _SharedLoad<T extends Object> {
       report(LoadProgress(stage: LoadStage.decode, completedBytes: 0));
       decoded = await request.loader.decode(source, context);
       cancellation.throwIfCancelled();
+      if ((decoded.decodedBytes ?? 0) < 0) {
+        throw AssetLoadException(
+          AssetLoadError.invalidData,
+          'Decoded recipe size must be nonnegative.',
+        );
+      }
       pool.forget(key, this);
       report(
         LoadProgress(
@@ -103,8 +141,16 @@ class _SharedLoad<T extends Object> {
           completedBytes: context.decodedBytes,
         ),
       );
+      recipe = _DecodedRecipe(
+        decoded,
+        pool,
+        decoded.decodedBytes ?? context.decodedBytes,
+      );
       for (final task in List.of(consumers)) {
-        task.deliver(decoded);
+        final cache = task.scope.cache;
+        if (task.deliver(decoded) && cache != null) {
+          cache._put(pool.services, key, recipe, task.cacheGeneration);
+        }
       }
     } catch (error, stack) {
       pool.forget(key, this);
@@ -122,7 +168,11 @@ class _SharedLoad<T extends Object> {
       }
     } finally {
       consumers.clear();
-      pool.cleanup(decoded?.dispose);
+      if (recipe != null) {
+        recipe.release();
+      } else {
+        pool.cleanup(decoded?.dispose);
+      }
       cancellation.finish();
     }
   }
@@ -136,7 +186,10 @@ class _AssetTask<T extends Object> implements LoadTask<T> {
   final _result = Completer<T>();
   final _progress = StreamController<LoadProgress>.broadcast();
   bool _settled = false;
-  _AssetTask(this.scope, this.pool, this.sourceUri, this._onCancel) {
+  bool _deliveryFailed = false;
+  final int cacheGeneration;
+  _AssetTask(this.scope, this.pool, this.sourceUri, this._onCancel)
+    : cacheGeneration = scope.cache?._generation ?? 0 {
     _result.future.then<void>((_) {}, onError: (Object _, StackTrace _) {});
   }
   @override
@@ -147,26 +200,27 @@ class _AssetTask<T extends Object> implements LoadTask<T> {
     if (!_settled) _progress.add(value);
   }
 
-  void deliver(DecodedAsset<T> decoded) {
-    if (_settled) return;
+  bool deliver(DecodedAsset<T> decoded) {
+    if (_settled) return false;
     try {
       if (scope.isClosed) {
         cancel();
-        return;
+        return false;
       }
       final value = decoded.create();
       // A loader callback may synchronously close the scope or cancel its task.
       if (_settled || scope.isClosed) {
-        pool.cleanup(() => decoded.release(value));
+        pool.cleanup(() => decoded.releaseValue(value));
         cancel();
-        return;
+        return false;
       }
-      final release = decoded.release;
-      scope._retain(value, () => release(value));
+      scope._retain(value, () => decoded.releaseValue(value));
       _settled = true;
       _result.complete(value);
       unawaited(_progress.close());
+      return true;
     } catch (error, stack) {
+      _deliveryFailed = true;
       fail(
         error is AssetLoadException || error is LoadCancelled
             ? error
@@ -178,6 +232,7 @@ class _AssetTask<T extends Object> implements LoadTask<T> {
               ),
         stack,
       );
+      return false;
     }
   }
 

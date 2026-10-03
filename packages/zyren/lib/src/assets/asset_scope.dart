@@ -22,16 +22,18 @@ part 'asset_services.dart';
 part 'asset_tangents.dart';
 part 'asset_decode_context.dart';
 part 'shared_load.dart';
+part 'asset_cache.dart';
 
 /// Owns load cancellation and retained CPU assets. Source decoding is supplied
 /// by optional loaders; this scope does not imply a built-in format decoder.
 class AssetScope {
   final AssetServices services;
+  final AssetCache? cache;
   final _pending = <LoadTask<Object?>>{};
   final _assets = Map<Object, List<void Function()>>.identity();
   bool _closed = false;
   Future<void>? _closing;
-  AssetScope({this.services = const AssetServices()});
+  AssetScope({this.services = const AssetServices(), this.cache});
   bool get isClosed => _closed;
 
   LoadTask<T> load<T extends Object>(AssetRequest<T> request) {
