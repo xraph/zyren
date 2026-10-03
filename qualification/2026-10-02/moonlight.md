@@ -31,8 +31,24 @@ commit; those files were preserved.
 The normal Mac and iOS profile apps built successfully. Both bundles passed
 signature verification after the Mac app's outer ad hoc seal was refreshed,
 preserving its existing metadata. The signed iOS app was installed on iPhone and
-iPad. Their lock screens denied launch. macOS was also locked, so the live Google
-night-side visual check remains pending.
+iPad. After unlocking, both apps launched successfully and their processes
+remained alive. This confirms normal app startup, without a physical touch or
+moonlight image check on either device.
+
+The Mac app restarted after unlocking. Its bundle digest still matched the
+recorded build. Live Tokyo tiles rendered in daylight, then Night view rendered
+with Visible moonlight selected. Terrain and building detail remained visible;
+the interface reported 75 tiles, none loading and detail limited by the memory
+budget. Keyboard navigation activated Night view because coordinate automation
+could not target the window.
+
+The subsequent dropdown comparison was interrupted by a Mac process crash.
+`planet-2026-10-02-201028.ips` records `EXC_BAD_ACCESS` at address `0x48` in
+`flutter::AccessibilityBridge::CreateRemoveReparentedNodesUpdate()`, followed by
+`CommitUpdates()` and `FlutterViewController updateSemantics:`. It occurred while
+interacting with the cloud quality dropdown after Night view. Off and Natural
+were not visually compared. The normal app was restarted afterward; this run
+does not establish reliable Mac control operation or identify a GPU driver loss.
 
 The JSON records the compiled bundle digests and unchanged feature-file hashes.
 Other concurrent workspace changes are included in these builds. This check

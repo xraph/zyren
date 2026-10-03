@@ -82,7 +82,7 @@
       "bundleSha256": "ea3b68c91e2815de1fa6730f6bc13f28a0c404837ef11fedf2dadadc4d204819",
       "entryCount": 51,
       "packagingRepair": "Re-sealed the existing ad hoc outer app signature after incremental packaging left an outdated App.framework seal. Preserved identifier, entitlements, requirements, flags and runtime metadata.",
-      "liveLaunch": "pending Mac unlock"
+      "liveLaunch": "success after unlock; restarted after accessibility crash"
     },
     "ios": {
       "mode": "profile",
@@ -97,20 +97,54 @@
   "devices": {
     "iphone": {
       "normalAppInstall": "success",
-      "normalAppLaunch": "last attempt blocked by device lock; not retried after final install"
+      "normalAppLaunch": "success after unlock",
+      "observedRunning": true,
+      "processIdentifier": 7222
     },
     "ipad": {
       "normalAppInstall": "success",
-      "normalAppLaunch": "last attempt blocked by device lock; not retried after final install"
+      "normalAppLaunch": "success after unlock",
+      "observedRunning": true,
+      "processIdentifier": 3003
     }
   },
   "limits": [
-    "Live Google night-side tile inspection is pending because macOS is locked.",
-    "Updated normal iPhone and iPad apps are installed, but launch was denied by the device lock screen.",
+    "Visible moonlight was observed on live Google night tiles on Mac; Off and Natural remain visually unverified because a subsequent dropdown interaction crashed Flutter accessibility.",
+    "Normal iPhone and iPad apps launched and remained running after unlock; their physical touch controls and moonlight images were not inspected.",
     "Moonlight was not requalified through physical-device rendering on iOS, iPadOS or Android.",
     "Only the owned feature source hashes were checked across these builds; concurrent workspace changes are included.",
     "The lunar phase uses a Lambert-sphere approximation; Visible adds intentional brightness and night fill.",
     "Moonlight is applied to surface relighting, not to cloud-volume scattering."
   ],
-  "sunriseCorrectionCommit": "4d37137"
+  "sunriseCorrectionCommit": "4d37137",
+  "liveMacCheck": {
+    "status": "partial: Visible night rendering observed; remaining interaction interrupted by accessibility crash",
+    "bundleDigestMatchesRecordedBuild": true,
+    "preset": "Tokyo",
+    "provider": "Google Maps 3D Tiles",
+    "input": "keyboard navigation through native app controls",
+    "observations": [
+      "Daylight tiles and clouds rendered.",
+      "Night view activated with Visible moonlight selected.",
+      "Terrain and building detail remained visible at night.",
+      "The interface showed 75 tiles, zero loading and detail limited by memory budget."
+    ],
+    "unverified": [
+      "Off and Natural visual comparison",
+      "Reliable control operation without accessibility crash"
+    ],
+    "crash": {
+      "report": "planet-2026-10-02-201028.ips",
+      "exception": "EXC_BAD_ACCESS",
+      "address": "0x48",
+      "signal": "SIGSEGV",
+      "topFrames": [
+        "flutter::AccessibilityBridge::CreateRemoveReparentedNodesUpdate()",
+        "flutter::AccessibilityBridge::CommitUpdates()",
+        "-[FlutterViewController updateSemantics:]"
+      ],
+      "context": "Interacting with the cloud quality dropdown after Night view; automation could not target the window with coordinate input."
+    },
+    "recovery": "Normal Mac app restarted after the crash."
+  }
 }
