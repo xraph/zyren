@@ -5,71 +5,71 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_zyren/flutter_zyren.dart';
 import '../studio_lighting.dart';
-
-const paper = Color(0xff25262a);
-const ink = Color(0xffdfe1e5);
-const muted = Color(0xff9299a5);
-const line = Color(0xff34363b);
-const blue = Color(0xff8aa8ff);
-const selectedFill = Color(0xff334261);
+import 'settings.dart';
 
 void main() => runApp(const StudioMockApp());
 
-class StudioMockApp extends StatelessWidget {
+class StudioMockApp extends StatefulWidget {
   final bool nativeViewport;
   const StudioMockApp({super.key, this.nativeViewport = true});
   @override
+  State<StudioMockApp> createState() => _StudioMockAppState();
+}
+
+class _StudioMockAppState extends State<StudioMockApp> {
+  ThemeMode mode = ThemeMode.system;
+  @override
   Widget build(BuildContext context) => MaterialApp(
     debugShowCheckedModeBanner: false,
-    theme: ThemeData(
-      useMaterial3: true,
-      visualDensity: VisualDensity.compact,
-      scaffoldBackgroundColor: paper,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: blue,
-        brightness: Brightness.dark,
-        surface: paper,
-      ),
-      textTheme: const TextTheme(
-        bodyMedium: TextStyle(fontSize: 13, color: ink),
-        bodySmall: TextStyle(fontSize: 11, color: muted),
-        titleSmall: TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: ink,
-        ),
-      ),
-      dividerTheme: const DividerThemeData(color: line, space: 1, thickness: 1),
-      inputDecorationTheme: InputDecorationTheme(
-        isDense: true,
-        filled: true,
-        fillColor: paper,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 10,
-          vertical: 10,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(5),
-          borderSide: BorderSide.none,
-        ),
-      ),
-      iconTheme: const IconThemeData(size: 17, color: muted),
-      tooltipTheme: const TooltipThemeData(
-        waitDuration: Duration(milliseconds: 450),
-      ),
+    theme: studioTheme(Brightness.light),
+    darkTheme: studioTheme(Brightness.dark),
+    themeMode: mode,
+    home: StudioMock(
+      nativeViewport: widget.nativeViewport,
+      themeMode: mode,
+      onThemeChanged: (value) => setState(() => mode = value),
     ),
-    home: StudioMock(nativeViewport: nativeViewport),
   );
 }
 
 class StudioMock extends StatefulWidget {
   final bool nativeViewport;
-  const StudioMock({super.key, required this.nativeViewport});
+  final ThemeMode themeMode;
+  final ValueChanged<ThemeMode> onThemeChanged;
+  const StudioMock({
+    super.key,
+    required this.nativeViewport,
+    required this.themeMode,
+    required this.onThemeChanged,
+  });
   @override
   State<StudioMock> createState() => _StudioMockState();
 }
 
 class _StudioMockState extends State<StudioMock> {
+  StudioPalette get palette => StudioPalette.of(context);
+  Color get paper => palette.panel;
+  Color get ink => palette.text;
+  Color get muted => palette.muted;
+  Color get line => palette.border;
+  Color get blue => palette.accent;
+  Color get selectedFill => palette.selection;
+  AgentProfile? agentProfile;
+  bool exampleVisible = false;
+
+  Future<void> _settings() async {
+    final result = await showDialog<AgentProfile>(
+      context: context,
+      builder: (_) => StudioSettings(
+        profile: agentProfile,
+        themeMode: widget.themeMode,
+        onThemeChanged: widget.onThemeChanged,
+        narrowPreview: phonePreview,
+      ),
+    );
+    if (result != null && mounted) setState(() => agentProfile = result);
+  }
+
   final search = TextEditingController();
   final scene = Scene()..background = Color3.hex(0x283444);
   final parts = <String, Mesh>{};
@@ -342,13 +342,13 @@ class _StudioMockState extends State<StudioMock> {
   );
   Widget _label(
     String text, {
-    Color color = muted,
+    Color? color,
     double size = 11,
     FontWeight weight = FontWeight.normal,
   }) => Text(
     text,
     overflow: TextOverflow.ellipsis,
-    style: TextStyle(fontSize: size, color: color, fontWeight: weight),
+    style: TextStyle(fontSize: size, color: color ?? muted, fontWeight: weight),
   );
   IconData _panelIcon(String panel) => switch (panel) {
     'Scene' => Icons.account_tree_outlined,
@@ -411,7 +411,7 @@ class _StudioMockState extends State<StudioMock> {
     side,
     Container(
       width: 35,
-      color: const Color(0xff1e1f22),
+      color: palette.chrome,
       child: Column(
         children: [
           const SizedBox(height: 5),
@@ -461,7 +461,7 @@ class _StudioMockState extends State<StudioMock> {
       child: Container(
         width: side == 'bottom' ? null : 4,
         height: side == 'bottom' ? 4 : null,
-        color: const Color(0xff1e1f22),
+        color: palette.chrome,
       ),
     ),
   );
@@ -473,7 +473,7 @@ class _StudioMockState extends State<StudioMock> {
         children: [
           Container(
             height: 33,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               border: Border(bottom: BorderSide(color: line)),
             ),
             padding: const EdgeInsets.only(left: 10, right: 3),
@@ -499,7 +499,7 @@ class _StudioMockState extends State<StudioMock> {
                           _label(name, color: ink, weight: FontWeight.w600),
                           if (name == 'Agent') ...[
                             const SizedBox(width: 7),
-                            _label('Preview', size: 10),
+                            _label('Built-in', size: 10),
                           ],
                         ],
                       ),
@@ -552,7 +552,7 @@ class _StudioMockState extends State<StudioMock> {
 
   Widget _header(bool narrow) => Container(
     height: 40,
-    color: const Color(0xff1e1f22),
+    color: palette.chrome,
     padding: const EdgeInsets.symmetric(horizontal: 10),
     child: Row(
       children: [
@@ -563,7 +563,7 @@ class _StudioMockState extends State<StudioMock> {
             color: const Color(0xff486ba8),
             borderRadius: BorderRadius.circular(5),
           ),
-          child: const Icon(Icons.view_in_ar, size: 15, color: Colors.white),
+          child: Icon(Icons.view_in_ar, size: 15, color: Colors.white),
         ),
         const SizedBox(width: 9),
         if (!narrow) ...[
@@ -575,6 +575,7 @@ class _StudioMockState extends State<StudioMock> {
         Expanded(
           child: _label('Drive assembly', color: ink, weight: FontWeight.w500),
         ),
+        _icon(Icons.settings_outlined, 'Settings', _settings),
         _label('UI mock', size: 10),
         const SizedBox(width: 12),
         _icon(
@@ -589,26 +590,26 @@ class _StudioMockState extends State<StudioMock> {
     children: [
       Container(
         height: 34,
-        color: const Color(0xff202125),
+        color: palette.chrome,
         child: Row(
           children: [
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               height: 34,
-              decoration: const BoxDecoration(
-                color: Color(0xff2b2d30),
+              decoration: BoxDecoration(
+                color: palette.raised,
                 border: Border(bottom: BorderSide(color: blue, width: 2)),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.view_in_ar_outlined, size: 13, color: blue),
+                  Icon(Icons.view_in_ar_outlined, size: 13, color: blue),
                   const SizedBox(width: 7),
                   _label('drive.zyren', color: ink),
                   const SizedBox(width: 16),
                   if (time > 0)
-                    const Icon(Icons.circle, size: 6, color: blue)
+                    Icon(Icons.circle, size: 6, color: blue)
                   else
-                    const Icon(Icons.close, size: 12, color: muted),
+                    Icon(Icons.close, size: 12, color: muted),
                 ],
               ),
             ),
@@ -623,7 +624,7 @@ class _StudioMockState extends State<StudioMock> {
       Container(
         height: 33,
         padding: const EdgeInsets.symmetric(horizontal: 6),
-        color: const Color(0xff2b2d30),
+        color: palette.raised,
         child: Row(
           children: [
             for (final entry in [
@@ -663,7 +664,7 @@ class _StudioMockState extends State<StudioMock> {
                 child: Row(
                   children: [
                     _label('View', size: 10),
-                    const Icon(Icons.expand_more, size: 13),
+                    Icon(Icons.expand_more, size: 13),
                   ],
                 ),
               ),
@@ -711,7 +712,7 @@ class _StudioMockState extends State<StudioMock> {
                     const SizedBox(width: 8),
                     _label('Y', color: const Color(0xff8ebfa2), size: 10),
                     const SizedBox(width: 8),
-                    _label('Z', color: blue, size: 10),
+                    _label('Z', color: const Color(0xff8aa8ff), size: 10),
                   ],
                 ),
               ),
@@ -743,10 +744,10 @@ class _StudioMockState extends State<StudioMock> {
             controller: search,
             onChanged: (_) => setState(() {}),
             style: const TextStyle(fontSize: 11),
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               hintText: 'Filter objects',
               prefixIcon: Icon(Icons.search, size: 14),
-              fillColor: Color(0xff25262a),
+              fillColor: paper,
               contentPadding: EdgeInsets.zero,
             ),
           ),
@@ -775,11 +776,7 @@ class _StudioMockState extends State<StudioMock> {
                               size: 15,
                             ),
                             const SizedBox(width: 4),
-                            const Icon(
-                              Icons.layers_outlined,
-                              size: 13,
-                              color: muted,
-                            ),
+                            Icon(Icons.layers_outlined, size: 13, color: muted),
                             const SizedBox(width: 7),
                             _label(
                               'Drive assembly',
@@ -821,7 +818,7 @@ class _StudioMockState extends State<StudioMock> {
                                             child: _label(
                                               name,
                                               color: selection == name
-                                                  ? const Color(0xffd8e4ff)
+                                                  ? ink
                                                   : ink,
                                               size: 11,
                                             ),
@@ -852,7 +849,7 @@ class _StudioMockState extends State<StudioMock> {
         Container(
           height: 27,
           padding: const EdgeInsets.symmetric(horizontal: 10),
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             border: Border(top: BorderSide(color: line)),
           ),
           child: Row(
@@ -919,194 +916,255 @@ class _StudioMockState extends State<StudioMock> {
   );
   Widget _agentContent() => Column(
     children: [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(9, 4, 4, 4),
+        child: Row(
+          children: [
+            Icon(Icons.tune, size: 13, color: muted),
+            const SizedBox(width: 6),
+            Expanded(
+              child: _label(
+                agentProfile?.model ?? 'Choose your model',
+                color: ink,
+              ),
+            ),
+            _label(
+              agentProfile == null ? 'Not configured' : 'Unverified',
+              size: 10,
+            ),
+            _icon(Icons.settings_outlined, 'Agent settings', _settings),
+          ],
+        ),
+      ),
+      const Divider(),
       Container(
         padding: const EdgeInsets.all(9),
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           border: Border(bottom: BorderSide(color: line)),
         ),
         child: Row(
           children: [
-            const Icon(Icons.attach_file, size: 13),
+            Icon(Icons.attach_file, size: 13),
             const SizedBox(width: 5),
             Expanded(child: _label('drive.zyren / $selection', size: 10)),
           ],
         ),
       ),
       Expanded(
-        child: ListView(
-          padding: const EdgeInsets.all(12),
-          children: [
-            _label('Example request', size: 10),
-            const SizedBox(height: 7),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: const Color(0xff30333a),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                request,
-                style: const TextStyle(fontSize: 12, height: 1.5),
-              ),
-            ),
-            const SizedBox(height: 18),
-            Row(
-              children: [
-                const Icon(Icons.auto_awesome_outlined, size: 14, color: blue),
-                const SizedBox(width: 7),
-                _label('Agent preview', color: ink, weight: FontWeight.w600),
-              ],
-            ),
-            const SizedBox(height: 9),
-            const Text(
-              'Separate the end shield, coupling and shaft. Keep the base and motor in place.',
-              style: TextStyle(
-                fontSize: 12,
-                height: 1.6,
-                color: Color(0xffb5bbc5),
-              ),
-            ),
-            const SizedBox(height: 14),
-            if (proposal)
-              Container(
-                decoration: BoxDecoration(
-                  border: Border.all(color: line),
-                  borderRadius: BorderRadius.circular(5),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+        child: !exampleVisible
+            ? ZeroState(
+                title: agentProfile == null
+                    ? 'Configure your agent'
+                    : 'Start with your scene',
+                message: agentProfile == null
+                    ? 'Studio provides the agent workspace and scene tools. Choose your LLM in Settings.'
+                    : 'Your model profile is saved for this preview. Live requests are not connected in this UI mock.',
+                action: Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.all(10),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.difference_outlined,
-                            size: 14,
-                            color: blue,
-                          ),
-                          const SizedBox(width: 7),
-                          Expanded(
-                            child: _label(
-                              applied
-                                  ? 'Applied to preview'
-                                  : '3 proposed changes',
-                              color: ink,
-                              weight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
+                    _button(
+                      agentProfile == null ? 'Configure LLM' : 'Edit model',
+                      _settings,
+                      primary: true,
+                      icon: Icons.settings_outlined,
                     ),
-                    const Divider(),
-                    for (final edit in [
-                      ('End shield', '+0.26'),
-                      ('Coupling', '+0.44'),
-                      ('Drive shaft', '+0.60'),
-                    ])
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 7,
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(child: _label(edit.$1)),
-                            _label(
-                              'X ${edit.$2}',
-                              color: const Color(0xff9fc3ac),
-                              size: 10,
-                            ),
-                          ],
-                        ),
-                      ),
-                    const Divider(),
-                    Padding(
-                      padding: const EdgeInsets.all(7),
-                      child: Wrap(
-                        spacing: 4,
-                        children: [
-                          if (!applied)
-                            _button(
-                              'Apply preview',
-                              () {
-                                _seek(2);
-                                setState(() => applied = true);
-                              },
-                              primary: true,
-                              icon: Icons.check,
-                            )
-                          else
-                            _button('Undo', () {
-                              _seek(0);
-                              setState(() => applied = false);
-                            }, icon: Icons.undo),
-                          _button('Discard', () {
-                            if (applied) _seek(0);
-                            setState(() {
-                              proposal = false;
-                              applied = false;
-                            });
-                          }),
-                        ],
-                      ),
+                    _button(
+                      'Try example',
+                      () => setState(() => exampleVisible = true),
                     ),
                   ],
                 ),
               )
-            else
-              _button(
-                'Show example proposal',
-                () => setState(() => proposal = true),
-                icon: Icons.add,
-              ),
-            const SizedBox(height: 12),
-            _label('Mock conversation. No connected model.', size: 10),
-          ],
-        ),
-      ),
-      Container(
-        margin: const EdgeInsets.all(9),
-        decoration: BoxDecoration(
-          color: const Color(0xff2c2e33),
-          border: Border.all(color: const Color(0xff454952)),
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Column(
-          children: [
-            TextField(
-              controller: prompt,
-              minLines: 2,
-              maxLines: 3,
-              style: const TextStyle(fontSize: 12),
-              decoration: const InputDecoration(
-                hintText: 'Ask about this scene…',
-                filled: false,
-                contentPadding: EdgeInsets.all(10),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(5, 0, 5, 5),
-              child: Row(
+            : ListView(
+                padding: const EdgeInsets.all(12),
                 children: [
-                  _icon(Icons.add, 'Include selected object', () {
-                    prompt.text = 'Explain $selection in this assembly';
-                  }),
-                  Expanded(child: _label('Selected object', size: 10)),
-                  _icon(Icons.arrow_upward, 'Preview agent request', () {
-                    if (prompt.text.trim().isEmpty) return;
-                    setState(() {
-                      request = prompt.text.trim();
-                      proposal = true;
-                      prompt.clear();
-                    });
-                  }, active: true),
+                  _label('Example request', size: 10),
+                  const SizedBox(height: 7),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: palette.raised,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      request,
+                      style: const TextStyle(fontSize: 12, height: 1.5),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    children: [
+                      Icon(Icons.auto_awesome_outlined, size: 14, color: blue),
+                      const SizedBox(width: 7),
+                      _label(
+                        'Agent preview',
+                        color: ink,
+                        weight: FontWeight.w600,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 9),
+                  Text(
+                    'Separate the end shield, coupling and shaft. Keep the base and motor in place.',
+                    style: TextStyle(fontSize: 12, height: 1.6, color: muted),
+                  ),
+                  const SizedBox(height: 14),
+                  if (proposal)
+                    Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: line),
+                        borderRadius: BorderRadius.circular(5),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(10),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.difference_outlined,
+                                  size: 14,
+                                  color: blue,
+                                ),
+                                const SizedBox(width: 7),
+                                Expanded(
+                                  child: _label(
+                                    applied
+                                        ? 'Applied to preview'
+                                        : '3 proposed changes',
+                                    color: ink,
+                                    weight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Divider(),
+                          for (final edit in [
+                            ('End shield', '+0.26'),
+                            ('Coupling', '+0.44'),
+                            ('Drive shaft', '+0.60'),
+                          ])
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 7,
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(child: _label(edit.$1)),
+                                  _label(
+                                    'X ${edit.$2}',
+                                    color: palette.positive,
+                                    size: 10,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          const Divider(),
+                          Padding(
+                            padding: const EdgeInsets.all(7),
+                            child: Wrap(
+                              spacing: 4,
+                              children: [
+                                if (!applied)
+                                  _button(
+                                    'Apply preview',
+                                    () {
+                                      _seek(2);
+                                      setState(() => applied = true);
+                                    },
+                                    primary: true,
+                                    icon: Icons.check,
+                                  )
+                                else
+                                  _button('Undo', () {
+                                    _seek(0);
+                                    setState(() => applied = false);
+                                  }, icon: Icons.undo),
+                                _button('Discard', () {
+                                  if (applied) _seek(0);
+                                  setState(() {
+                                    proposal = false;
+                                    applied = false;
+                                  });
+                                }),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    _button(
+                      'Show example proposal',
+                      () => setState(() => proposal = true),
+                      icon: Icons.add,
+                    ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Example response. No LLM request sent.',
+                    style: TextStyle(fontSize: 10, color: muted),
+                  ),
                 ],
               ),
-            ),
-          ],
-        ),
       ),
+      if (exampleVisible)
+        Container(
+          margin: const EdgeInsets.all(9),
+          decoration: BoxDecoration(
+            color: palette.raised,
+            border: Border.all(color: line),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Column(
+            children: [
+              TextField(
+                controller: prompt,
+                minLines: 2,
+                maxLines: 3,
+                style: const TextStyle(fontSize: 12),
+                decoration: InputDecoration(
+                  hintText: agentProfile == null
+                      ? 'Configure your LLM to start…'
+                      : 'Ask about this scene…',
+                  filled: false,
+                  contentPadding: EdgeInsets.all(10),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(5, 0, 5, 5),
+                child: Row(
+                  children: [
+                    _icon(Icons.add, 'Include selected object', () {
+                      prompt.text = 'Explain $selection in this assembly';
+                    }),
+                    Expanded(
+                      child: _label('Review changes before applying', size: 10),
+                    ),
+                    _icon(Icons.arrow_upward, 'Preview agent request', () {
+                      if (agentProfile == null) {
+                        _settings();
+                        return;
+                      }
+                      if (prompt.text.trim().isEmpty) return;
+                      if (applied) _seek(0);
+                      setState(() {
+                        request = prompt.text.trim();
+                        exampleVisible = true;
+                        proposal = true;
+                        applied = false;
+                        prompt.clear();
+                      });
+                    }, active: true),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
     ],
   );
   Widget _section(String title, List<Widget> children) => Padding(
@@ -1116,7 +1174,7 @@ class _StudioMockState extends State<StudioMock> {
       children: [
         Row(
           children: [
-            const Icon(Icons.expand_more, size: 13),
+            Icon(Icons.expand_more, size: 13),
             const SizedBox(width: 5),
             _label(title, color: ink, weight: FontWeight.w600),
           ],
@@ -1132,7 +1190,7 @@ class _StudioMockState extends State<StudioMock> {
         padding: const EdgeInsets.all(12),
         child: Row(
           children: [
-            const Icon(Icons.view_in_ar_outlined, color: blue, size: 18),
+            Icon(Icons.view_in_ar_outlined, color: blue, size: 18),
             const SizedBox(width: 8),
             Expanded(
               child: _label(selection, color: ink, weight: FontWeight.w600),
@@ -1218,7 +1276,7 @@ class _StudioMockState extends State<StudioMock> {
                       ),
                     ),
                     child: color == value
-                        ? const Icon(Icons.check, size: 13, color: Colors.white)
+                        ? Icon(Icons.check, size: 13, color: Colors.white)
                         : null,
                   ),
                 ),
@@ -1275,7 +1333,7 @@ class _StudioMockState extends State<StudioMock> {
                   ][i].toStringAsFixed(2),
                   style: const TextStyle(fontSize: 11),
                   decoration: InputDecoration(
-                    fillColor: const Color(0xff303238),
+                    fillColor: palette.raised,
                     prefixText: '${['X', 'Y', 'Z'][i]} ',
                     prefixStyle: TextStyle(
                       fontSize: 10,
@@ -1318,9 +1376,9 @@ class _StudioMockState extends State<StudioMock> {
         controller: noteInput,
         maxLines: 3,
         style: const TextStyle(fontSize: 12),
-        decoration: const InputDecoration(
+        decoration: InputDecoration(
           hintText: 'Add a note',
-          fillColor: Color(0xff303238),
+          fillColor: palette.raised,
         ),
       ),
       const SizedBox(height: 8),
@@ -1391,11 +1449,11 @@ class _StudioMockState extends State<StudioMock> {
         ),
         child: Row(
           children: [
-            const Icon(Icons.diamond_outlined, size: 9, color: blue),
+            Icon(Icons.diamond_outlined, size: 9, color: blue),
             const SizedBox(width: 7),
-            _label('Pose', color: const Color(0xffafc3f0), size: 10),
+            _label('Pose', color: blue, size: 10),
             const Spacer(),
-            const Icon(Icons.diamond, size: 8, color: blue),
+            Icon(Icons.diamond, size: 8, color: blue),
           ],
         ),
       ),
@@ -1404,7 +1462,7 @@ class _StudioMockState extends State<StudioMock> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    backgroundColor: const Color(0xff161719),
+    backgroundColor: palette.chrome,
     body: SafeArea(
       child: Center(
         child: ConstrainedBox(
@@ -1491,14 +1549,10 @@ class _StudioMockState extends State<StudioMock> {
                   Container(
                     height: 22,
                     padding: const EdgeInsets.symmetric(horizontal: 9),
-                    color: const Color(0xff1e1f22),
+                    color: palette.chrome,
                     child: Row(
                       children: [
-                        const Icon(
-                          Icons.circle,
-                          size: 5,
-                          color: Color(0xff91ad99),
-                        ),
+                        Icon(Icons.circle, size: 5, color: Color(0xff91ad99)),
                         const SizedBox(width: 6),
                         _label('Local preview', size: 10),
                         if (!narrow) ...[
