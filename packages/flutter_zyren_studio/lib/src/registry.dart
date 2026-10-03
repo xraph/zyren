@@ -36,6 +36,7 @@ final class StudioEditorHostController extends ChangeNotifier {
   int _commandSequence = 0, _playEpoch = 0;
   String? _startingFactory, _activeFactory;
   StudioEditorPlaySession? _playSession;
+  Future<void>? _playStopping;
   Object? lastError;
 
   StudioEditorHostController({
@@ -346,6 +347,11 @@ final class StudioEditorHostController extends ChangeNotifier {
 
   Future<void> startPlay(String id) async {
     _check();
+    if (_playStopping != null) {
+      throw StateError(
+        'Wait for the previous play session to finish stopping.',
+      );
+    }
     final entry = _playFactories[id];
     final document = services.scene.capture();
     if (entry == null ||
@@ -384,14 +390,31 @@ final class StudioEditorHostController extends ChangeNotifier {
     }
   }
 
-  Future<void> stopPlay() async {
+  Future<void> stopPlay() {
     ++_playEpoch;
     _startingFactory = null;
     _activeFactory = null;
+    final stopping = _playStopping;
+    if (stopping != null) return stopping;
     final old = _playSession;
     _playSession = null;
-    if (old != null) await old.close();
-    _changed();
+    final complete = Completer<void>();
+    final result = _playStopping = complete.future;
+    Future<void>.sync(() async {
+      if (old != null) await old.close();
+    }).then<void>(
+      (_) {
+        if (identical(_playStopping, result)) _playStopping = null;
+        _changed();
+        complete.complete();
+      },
+      onError: (Object error, StackTrace stack) {
+        if (identical(_playStopping, result)) _playStopping = null;
+        _changed();
+        complete.completeError(error, stack);
+      },
+    );
+    return result;
   }
 
   Future<void> pausePlay() async {
