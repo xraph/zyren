@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:planet/google_tiles_lab.dart';
 import 'package:planet/geospatial_presets.dart';
+import 'package:planet/geospatial_device_profile.dart';
+import 'package:planet/rendering_choices.dart';
 import 'package:flutter_zyren/flutter_zyren.dart';
 import 'package:zyren_geospatial/zyren_geospatial.dart';
 
@@ -17,26 +19,25 @@ void main() {
       );
       final control = find.byKey(const ValueKey('cloud-quality'));
       expect(control, findsOneWidget);
-      await tester.tap(control);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Ultra').last);
+      await tester.tap(find.byKey(const ValueKey('cloud-quality-ultra')));
       await tester.pumpAndSettle();
       expect(lab.profile.cloudQuality.preset, CloudQualityPreset.ultra);
       final shadows = find.byKey(const ValueKey('cloud-shadows'));
       final shadowQuality = find.byKey(const ValueKey('cloud-shadow-quality'));
-      await tester.tap(shadowQuality);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Low').last);
+      await tester.tap(find.byKey(const ValueKey('cloud-shadow-quality-low')));
       await tester.pumpAndSettle();
       expect(lab.profile.cloudQuality.shadowPreset, CloudQualityPreset.low);
       expect(lab.profile.cloudQuality.preset, CloudQualityPreset.ultra);
       await tester.tap(shadows);
       await tester.pumpAndSettle();
       expect(lab.profile.cloudQuality.shadowsEnabled, false);
-      expect(tester.widget<DropdownButton>(shadowQuality).onChanged, isNull);
-      await tester.tap(control);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Auto').last);
+      expect(
+        tester
+            .widget<RenderingChoices<CloudQualitySelection>>(shadowQuality)
+            .onChanged,
+        isNull,
+      );
+      await tester.tap(find.byKey(const ValueKey('cloud-quality-auto')));
       await tester.pumpAndSettle();
       expect(
         lab.profile.cloudQuality.preset,

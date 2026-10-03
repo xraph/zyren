@@ -19,33 +19,33 @@ class RenderingChoices<T extends Enum> extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(
     mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Text('$label:', style: const TextStyle(fontSize: 14)),
+      Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: Text('$label:', style: const TextStyle(fontSize: 14)),
+      ),
       const SizedBox(width: 4),
       Flexible(
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (final choice in choices)
-                ChoiceChip(
-                  key: ValueKey('${(key as ValueKey).value}-${choice.name}'),
-                  label: Text(
-                    choiceLabel(choice),
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                  selected: choice == selected,
-                  onSelected: onChanged == null
-                      ? null
-                      : (_) => onChanged!(choice),
-                  visualDensity: VisualDensity.compact,
-                  showCheckmark: false,
-                  padding: EdgeInsets.zero,
-                  labelPadding: const EdgeInsets.symmetric(horizontal: 6),
+        child: Wrap(
+          children: [
+            for (final choice in choices)
+              ChoiceChip(
+                key: ValueKey('${(key as ValueKey).value}-${choice.name}'),
+                label: Text(
+                  choiceLabel(choice),
+                  style: const TextStyle(fontSize: 12),
                 ),
-            ],
-          ),
+                selected: choice == selected,
+                onSelected: onChanged == null
+                    ? null
+                    : (_) => onChanged!(choice),
+                visualDensity: VisualDensity.compact,
+                showCheckmark: false,
+                padding: EdgeInsets.zero,
+                labelPadding: const EdgeInsets.symmetric(horizontal: 6),
+              ),
+          ],
         ),
       ),
     ],
