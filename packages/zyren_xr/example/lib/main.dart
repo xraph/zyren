@@ -58,7 +58,7 @@ class _XrProbePageState extends State<XrProbePage> {
     ..add(_lighting.light);
   bool _busy = false, _polling = false;
   String? _error, _lastAction;
-  int _command = 0;
+  int _command = 0, _pollGeneration = 0;
 
   Future<void> _perform(Future<void> Function() action) async {
     setState(() {
@@ -191,9 +191,12 @@ class _XrProbePageState extends State<XrProbePage> {
     final session = _session;
     if (_polling || session == null || (_busy && !force)) return;
     _polling = true;
+    final generation = _pollGeneration;
     try {
       final snapshot = await session.snapshot();
-      if (mounted && identical(session, _session)) {
+      if (mounted &&
+          identical(session, _session) &&
+          generation == _pollGeneration) {
         _lighting.update(snapshot);
         if (snapshot.sessionId == session.id) {
           _provider?.commands.synchronize(snapshot);
@@ -221,7 +224,9 @@ class _XrProbePageState extends State<XrProbePage> {
         setState(() => _snapshot = snapshot);
       }
     } catch (error) {
-      if (mounted && identical(session, _session)) {
+      if (mounted &&
+          identical(session, _session) &&
+          generation == _pollGeneration) {
         setState(() => _error = '$error');
       }
     } finally {
@@ -316,6 +321,9 @@ class _XrProbePageState extends State<XrProbePage> {
   }
 
   Future<void> _release() async {
+    _pollGeneration++;
+    _snapshot = null;
+    _lastAction = null;
     _timer?.cancel();
     _timer = null;
     _renderTimer?.cancel();
