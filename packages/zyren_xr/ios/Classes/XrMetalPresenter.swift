@@ -103,15 +103,11 @@ final class XrMetalPresenter {
         let projection = frame.camera.projectionMatrix(for: orientation, viewportSize: logical, zNear: near, zFar: far)
         let pose = frame.camera.viewMatrix(for: orientation).inverse
         let transform = frame.displayTransform(for: orientation, viewportSize: logical)
-        func matrix(_ value: simd_float4x4) -> [Double] { (0..<4).flatMap { c in (0..<4).map { Double(value[c][$0]) } } }
         nextFrame += 1
-        let calibration: [String: Any] = ["frameId": nextFrame, "timestamp": frame.timestamp, "revision": revision,
-            "epoch": epoch, "projection": matrix(projection), "cameraTransform": matrix(pose),
-            "logicalWidth": logical.width, "logicalHeight": logical.height, "devicePixelRatio": scale,
-            "pixelWidth": Int((logical.width * scale).rounded()), "pixelHeight": Int((logical.height * scale).rounded()),
-            "orientation": orientation.rawValue, "near": near, "far": far, "depthEnabled": depthEnabled,
-            "depthTimestamp": depthEnabled ? frame.timestamp : NSNull(),
-            "displayTransform": [transform.a, transform.b, transform.c, transform.d, transform.tx, transform.ty]]
+        let calibration = XrCalibration.values(frameId: nextFrame, timestamp: frame.timestamp,
+            revision: revision, epoch: epoch, projection: projection, cameraTransform: pose,
+            logical: logical, scale: scale, orientation: orientation.rawValue, near: near, far: far,
+            depthEnabled: depthEnabled, displayTransform: transform)
         lease = Lease(id: nextFrame, frame: frame, epoch: epoch, revision: revision, transform: transform,
             projection: projection, depthEnabled: depthEnabled, calibration: calibration)
         return calibration
