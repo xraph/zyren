@@ -2,3 +2,5 @@
 library;
 
 export 'src/navigation_mesh.dart';
+export 'src/navigation_bake.dart';
+export 'src/navigation_world.dart';

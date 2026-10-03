@@ -6,6 +6,10 @@ resolution: workspace
 environment:
   sdk: '>=3.10.0 <4.0.0'
 dependencies:
+  zyren_pipeline:
+    path: ../zyren_pipeline
+  zyren_gltf:
+    path: ../zyren_gltf
   zyren_agents:
     path: ../zyren_agents
   zyren:

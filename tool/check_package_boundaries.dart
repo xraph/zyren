@@ -9,7 +9,7 @@ void main(List<String> args) {
       'zyren_pipeline', 'zyren', 'zyren_gltf', 'zyren_agents', 'crypto',
       'zyren_engineering', 'zyren_studio',
     },
-    'packages/zyren_navigation': {'zyren_navigation', 'zyren', 'zyren_agents'},
+    'packages/zyren_navigation': {'zyren_navigation', 'zyren', 'zyren_agents', 'zyren_pipeline', 'zyren_gltf'},
     'packages/zyren_characters': {
       'zyren_characters',
       'zyren',
