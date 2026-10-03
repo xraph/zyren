@@ -20,3 +20,8 @@ part 'src/character_intent.dart';
 part 'src/camera_rig.dart';
 part 'src/interaction_query.dart';
 part 'src/sound_event.dart';
+
+part 'src/vehicle/definition.dart';
+part 'src/vehicle/wheel.dart';
+part 'src/vehicle/controller.dart';
+part 'src/vehicle/telemetry.dart';

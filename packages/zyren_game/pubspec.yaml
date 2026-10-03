@@ -8,5 +8,10 @@ environment:
 dependencies:
   zyren:
     path: ../zyren
+  crypto: ^3.0.6
+  zyren_agents:
+    path: ../zyren_agents
+  zyren_devtools:
+    path: ../zyren_devtools
 dev_dependencies:
   test: ^1.29.0

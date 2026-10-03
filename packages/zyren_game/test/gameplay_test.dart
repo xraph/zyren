@@ -17,6 +17,92 @@ GameSession rulesSession(GameGameplaySystem rules) => GameSession(
 );
 void main() {
   test(
+    'live gameplay save restores costs cooldowns and receipt cursor with fresh handles',
+    () async {
+      final rules = GameGameplaySystem();
+      final game = rulesSession(rules)..step();
+      final actor = game.entities.spawn('actor');
+      final receiver = game.entities.spawn('bag');
+      rules.bind(
+        actor,
+        GameActorRules(
+          inventory: Inventory(capacity: 8, items: {'key': 2, 'mana': 3}),
+          abilities: {
+            'dash': Ability(
+              id: 'dash',
+              cooldownTicks: 30,
+              durationTicks: 3,
+              costs: {'mana': 1},
+            ),
+          },
+        ),
+      );
+      rules.bind(receiver, GameActorRules(inventory: Inventory(capacity: 4)));
+      game.commands.enqueue(
+        GameCommand(
+          actor,
+          game.tick + 1,
+          GameTransferItem(
+            'key1',
+            sequence: 1,
+            item: 'key',
+            count: 1,
+            to: receiver,
+          ),
+        ),
+        game.entities,
+      );
+      game.commands.enqueue(
+        GameCommand(
+          actor,
+          game.tick + 1,
+          GameUseAbility('dash1', 'dash', sequence: 2),
+        ),
+        game.entities,
+      );
+      game.step();
+      final save = GameSave.decode(game.save().encode());
+      final cooldown = rules.actor(actor)!.abilities['dash']!.nextAllowedTick;
+      game.step();
+      game.restore(save);
+      final restored = game.entities.entities
+          .singleWhere((e) => e.handle.id == 'actor')
+          .handle;
+      final bag = game.entities.entities
+          .singleWhere((e) => e.handle.id == 'bag')
+          .handle;
+      expect(game.entities.isAlive(actor), isFalse);
+      expect(rules.actor(actor), isNull);
+      expect(rules.actor(restored)!.inventory.count('mana'), 2);
+      expect(rules.actor(restored)!.abilities['dash']!.active, isNull);
+      expect(
+        rules.actor(restored)!.abilities['dash']!.nextAllowedTick,
+        cooldown,
+      );
+      game.commands.enqueue(
+        GameCommand(
+          restored,
+          game.tick + 1,
+          GameTransferItem('key1', sequence: 1, item: 'key', count: 1, to: bag),
+        ),
+        game.entities,
+      );
+      game.commands.enqueue(
+        GameCommand(
+          restored,
+          game.tick + 1,
+          GameUseAbility('dash2', 'dash', sequence: 3),
+        ),
+        game.entities,
+      );
+      game.step();
+      expect(rules.actor(bag)!.inventory.count('key'), 1);
+      expect(rules.actor(restored)!.inventory.count('mana'), 2);
+      expect(rules.actor(restored)!.receipts.sequence, 3);
+      await game.close();
+    },
+  );
+  test(
     'session applies each receipt once and cancels removed actor abilities',
     () async {
       final rules = GameGameplaySystem();

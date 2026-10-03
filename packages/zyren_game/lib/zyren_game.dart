@@ -4,6 +4,9 @@ library;
 import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
+import 'dart:typed_data';
+import 'package:crypto/crypto.dart';
+import 'package:zyren/zyren.dart';
 
 part 'src/project/component.dart';
 part 'src/project/registry.dart';
@@ -27,3 +30,11 @@ part 'src/gameplay/interaction.dart';
 part 'src/gameplay/behavior_tree.dart';
 part 'src/gameplay/state_machine.dart';
 part 'src/gameplay/systems.dart';
+part 'src/project/build_profile.dart';
+part 'src/runtime/level_manager.dart';
+part 'src/runtime/pool.dart';
+part 'src/runtime/save_game.dart';
+part 'src/runtime/replay.dart';
+part 'src/runtime/diagnostics.dart';
+
+part 'src/gameplay/possession.dart';

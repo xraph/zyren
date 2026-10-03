@@ -1,0 +1,29 @@
+name: zyren_game_studio
+description: Dart game compiler over Studio documents and Pipeline bundles.
+version: 0.1.0
+publish_to: none
+resolution: workspace
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_zyren:
+    path: ../flutter_zyren
+  flutter_zyren_studio:
+    path: ../flutter_zyren_studio
+  zyren_agents:
+    path: ../zyren_agents
+  crypto: ^3.0.6
+  zyren:
+    path: ../zyren
+  zyren_game:
+    path: ../zyren_game
+  zyren_studio:
+    path: ../zyren_studio
+  zyren_pipeline:
+    path: ../zyren_pipeline
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  test: ^1.29.0

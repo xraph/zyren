@@ -115,13 +115,16 @@ final class GameActorRules {
 /// Applies typed commands once per receipt at the shared rules phase.
 final class GameGameplaySystem extends GameSystem {
   final GameReachService? reach;
-  final Map<String, GameInteraction> interactions;
+  final Map<String, GameInteraction> _interactions;
+  Map<String, GameInteraction> get interactions =>
+      Map.unmodifiable(_interactions);
   final Map<GameEntityHandle, GameActorRules> _actors = {};
   GameSession? _session;
+  GameEventSubscription? _stateRegistration;
   GameGameplaySystem({
     this.reach,
     Map<String, GameInteraction> interactions = const {},
-  }) : interactions = Map.unmodifiable(interactions) {
+  }) : _interactions = Map.of(interactions) {
     if (interactions.length > 1024 ||
         interactions.entries.any((e) => e.key != e.value.id)) {
       throw ArgumentError('Invalid gameplay interactions.');
@@ -137,6 +140,9 @@ final class GameGameplaySystem extends GameSystem {
       throw StateError('Gameplay systems have one session owner.');
     }
     _session = session;
+    _stateRegistration = session.registerStateCodec(
+      GameGameplayStateCodec(this),
+    );
   }
 
   void bind(GameEntityHandle actor, GameActorRules rules) {
@@ -241,6 +247,8 @@ final class GameGameplaySystem extends GameSystem {
   void dispose(GameSession session) {
     pause(session);
     _actors.clear();
+    _stateRegistration?.cancel();
+    _stateRegistration = null;
     _session = null;
   }
 }
@@ -331,4 +339,123 @@ final class GameBehaviorSystem extends GameSystem {
       _session = null;
     }
   }
+}
+
+/// Restores live rule instances against the replacement table's fresh generations.
+final class GameGameplayStateCodec
+    extends GameStateCodec<GamePreparedGameplay> {
+  final GameGameplaySystem system;
+  GameGameplayStateCodec(this.system);
+  @override
+  String get id => 'game.rules';
+  @override
+  int get version => 1;
+  @override
+  Map<String, Object?> capture(GameSession session) => {
+    'actors': {
+      for (final entry in system._actors.entries)
+        if (session.entities.isAlive(entry.key))
+          entry.key.id: {
+            'inventory': entry.value.inventory.toJson(),
+            'receipts': entry.value.receipts.toJson(),
+            'abilities': GameAbilityCollection(entry.value.abilities).toJson(),
+            if (entry.value.objectives != null)
+              'objectives': entry.value.objectives!.toJson(),
+          },
+    },
+    'interactions': {
+      for (final entry in system._interactions.entries)
+        if (session.entities.isAlive(entry.value.target))
+          entry.key: {
+            'target': entry.value.target.id,
+            'requiredItems': entry.value.requiredItems,
+            'consumeItems': entry.value.consumeItems,
+            'receiptCapacity': entry.value.receiptCapacity,
+            'receipts': entry.value._receipts.toList(),
+          },
+    },
+  };
+  @override
+  GamePreparedGameplay prepare(GameSession session, Map<String, Object?> data) {
+    final actors = _map(data['actors']),
+        interactions = _map(data['interactions']);
+    if (actors.length > session.entities.limits.maxEntities ||
+        interactions.length > 1024) {
+      throw const FormatException('Gameplay state exceeds limits.');
+    }
+    final rules = actors.map((id, value) {
+      final fields = _map(value);
+      return MapEntry(
+        _id(id),
+        GameActorRules(
+          inventory: Inventory.fromJson(_map(fields['inventory'])),
+          receipts: GameReceiptCursor.fromJson(_map(fields['receipts'])),
+          abilities: GameAbilityCollection.fromJson(
+            _map(fields['abilities']),
+          ).abilities,
+          objectives: fields['objectives'] == null
+              ? null
+              : ObjectiveTracker.fromJson(_map(fields['objectives'])),
+        ),
+      );
+    });
+    final staged = interactions.map((id, value) {
+      final fields = _map(value);
+      final rule = GameInteraction(
+        id: id,
+        target: GameEntityHandle(_string(fields['target']), 1),
+        requiredItems: _itemMap(fields['requiredItems']),
+        consumeItems: fields['consumeItems'] as bool,
+        receiptCapacity: _integer(fields['receiptCapacity']),
+      );
+      final receipts = _list(
+        fields['receipts'],
+      ).map((v) => _id(_string(v))).toList();
+      if (receipts.length > rule.receiptCapacity ||
+          receipts.toSet().length != receipts.length) {
+        throw const FormatException('Invalid interaction receipts.');
+      }
+      rule._receipts.addAll(receipts);
+      return MapEntry(id, rule);
+    });
+    return GamePreparedGameplay(rules, staged);
+  }
+
+  @override
+  void commit(GameSession session, GamePreparedGameplay prepared) {
+    final actors = <GameEntityHandle, GameActorRules>{};
+    for (final entry in prepared.actors.entries) {
+      final entity = session.entities._entities[entry.key];
+      if (entity == null) throw StateError('Saved gameplay actor is missing.');
+      actors[entity.handle] = entry.value;
+    }
+    final interactions = <String, GameInteraction>{};
+    for (final entry in prepared.interactions.entries) {
+      final source = entry.value;
+      final entity = session.entities._entities[source.target.id];
+      if (entity == null) {
+        throw StateError('Saved interaction target is missing.');
+      }
+      interactions[entry.key] = GameInteraction(
+        id: source.id,
+        target: entity.handle,
+        requiredItems: source.requiredItems,
+        consumeItems: source.consumeItems,
+        receiptCapacity: source.receiptCapacity,
+      ).._receipts.addAll(source._receipts);
+    }
+    system.pause(session);
+    system._actors
+      ..clear()
+      ..addAll(actors);
+    system._interactions
+      ..clear()
+      ..addAll(interactions);
+  }
+}
+
+final class GamePreparedGameplay {
+  final Map<String, GameActorRules> actors;
+  final Map<String, GameInteraction> interactions;
+  GamePreparedGameplay(this.actors, this.interactions);
 }

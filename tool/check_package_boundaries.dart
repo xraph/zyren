@@ -4,11 +4,13 @@ import 'dart:io';
 void main(List<String> args) {
   final root = Directory(args.isEmpty ? '.' : args.single);
   final allowed = <String, Set<String>>{
+    'packages/zyren_game_studio': {'zyren_game_studio', 'zyren', 'crypto', 'zyren_game', 'zyren_studio', 'zyren_pipeline', 'flutter', 'flutter_zyren', 'flutter_zyren_studio', 'zyren_agents'},
+    'packages/zyren_game_ai': {'zyren_game_ai', 'crypto', 'zyren', 'zyren_game', 'zyren_game_native', 'zyren_ml', 'zyren_physics'},
     'packages/flutter_zyren_audio': {'flutter_zyren_audio', 'flutter'},
     'packages/flutter_zyren_game': {'flutter_zyren_game', 'flutter', 'flutter_zyren', 'flutter_zyren_audio', 'flutter_zyren_interaction', 'zyren', 'zyren_game', 'gamepads'},
     'packages/flutter_zyren_studio': {'flutter_zyren_studio', 'flutter', 'flutter_zyren', 'zyren', 'zyren_studio', 'zyren_agents'},
     'packages/zyren_ml': {'zyren_ml', 'ffi', 'crypto', 'zyren_agents'},
-    'packages/zyren_game': {'zyren_game', 'zyren', 'zyren_agents'},
+    'packages/zyren_game': {'zyren_game', 'zyren', 'zyren_agents', 'zyren_devtools', 'crypto'},
     'packages/zyren_game_native': {'zyren_game_native', 'zyren_game', 'zyren_physics', 'zyren', 'zyren_characters', 'zyren_interaction', 'zyren_navigation', 'zyren_timeline', 'zyren_audio', 'zyren_particles'},
     'packages/zyren_studio': {'zyren_studio', 'zyren', 'zyren_agents', 'zyren_tools', 'zyren_timeline', 'zyren_engineering'},
     'packages/zyren_scientific': {'zyren_scientific', 'zyren', 'zyren_agents', 'zyren_timeline'},
