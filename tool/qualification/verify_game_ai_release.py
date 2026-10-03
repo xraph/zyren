@@ -111,7 +111,7 @@ def validate(document, root=ROOT, *, release=True):
                 return False
             if (report.get("status") != "passed" or report.get("reasons") != []
                     or not isinstance(report.get("provider"), str)
-                    or not all(re.fullmatch(r"(?:python|native)-onnxruntime-[0-9.]+-cpu", part)
+                    or not all(part in {"python-onnxruntime-1.23.2-cpu", "native-onnxruntime-1.23.2-cpu"}
                                for part in report["provider"].split(";"))):
                 return False
             families = {"guard", "vehicle"}

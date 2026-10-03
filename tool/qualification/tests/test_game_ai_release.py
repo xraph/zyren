@@ -2,6 +2,7 @@ import copy
 import hashlib
 import importlib.util
 import json
+import re
 from pathlib import Path
 import tempfile
 import unittest
@@ -169,6 +170,19 @@ class ReleaseEvidenceTest(unittest.TestCase):
                 quality['evaluation'] = self.write_receipt('bad-evaluation.json', report)
                 self.set_quality(quality)
                 self.assertTrue(release.validate(self.document, self.root))
+
+    def test_public_runtime_plan_registry_and_provider_match_release_gate(self):
+        source = (release.ROOT / 'packages/zyren_game_ai/lib/artifact.dart').read_text()
+        body = re.search(r'structuredModelEvaluationPlanHashes\s*=\s*\{(.*?)\};', source, re.S)
+        self.assertIsNotNone(body)
+        self.assertEqual(set(re.findall(r"'[0-9a-f]{64}'", body.group(1))),
+                         {"'" + value + "'" for value in release.EVALUATION_PLANS})
+        report = copy.deepcopy(self.report)
+        report['provider'] = 'python-onnxruntime-1.24.0-cpu'
+        quality = copy.deepcopy(self.quality)
+        quality['evaluation'] = self.write_receipt('provider-evaluation.json', report)
+        self.set_quality(quality)
+        self.assertTrue(release.validate(self.document, self.root))
 
     def test_audited_worker_revision_retains_original_quality_cases(self):
         report = copy.deepcopy(self.report)
