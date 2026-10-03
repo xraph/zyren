@@ -13,6 +13,7 @@ use std::{
     time::Duration,
 };
 const MAX_PENDING_SUBMISSIONS: usize = 32;
+const MAX_PENDING_WRITES: usize = 256;
 struct PendingSubmission {
     serial: u64,
     graph: bool,
@@ -67,6 +68,9 @@ pub struct ResourceStore {
     observations: VecDeque<PendingSubmission>,
     mipmaps: super::mipmap::MipmapGenerator,
     telemetry: Telemetry,
+    pending_write_queue: Option<wgpu::Queue>,
+    pending_write_bytes: u64,
+    pending_write_count: usize,
 }
 impl Default for ResourceStore {
     fn default() -> Self {
@@ -80,6 +84,9 @@ impl Default for ResourceStore {
             observations: VecDeque::new(),
             mipmaps: Default::default(),
             telemetry: Default::default(),
+            pending_write_queue: None,
+            pending_write_bytes: 0,
+            pending_write_count: 0,
         }
     }
 }
@@ -140,6 +147,21 @@ impl ResourceStore {
         device: &wgpu::Device,
         keys: &[ResourceKey],
     ) -> Result<(), ResourceError> {
+        let mut releases = std::collections::HashMap::new();
+        for key in keys {
+            *releases.entry(*key).or_insert(0_u32) += 1;
+        }
+        let mut closes_resource = false;
+        for (key, count) in releases {
+            let references = self.registry.references(key)?;
+            if count > references {
+                return Err(ResourceError::StaleKey);
+            }
+            closes_resource |= count == references;
+        }
+        if closes_resource {
+            self.flush_writes(device)?;
+        }
         self.poll_completed(device)?;
         for key in keys {
             self.registry.release(*key)?;
@@ -534,6 +556,7 @@ impl ResourceStore {
             .checked_add(1)
             .ok_or(ResourceError::DeviceFailed)?;
         self.pending = Some(index);
+        self.writes_submitted();
         for key in keys {
             self.registry.mark_used(*key, self.serial)?;
         }
@@ -579,7 +602,46 @@ impl ResourceStore {
         Ok(())
     }
     pub(crate) fn shutdown(&mut self, device: &wgpu::Device) -> Result<(), ResourceError> {
+        self.flush_writes(device)?;
         self.wait(device)
+    }
+    fn flush_writes(&mut self, device: &wgpu::Device) -> Result<(), ResourceError> {
+        if let Some(queue) = self.pending_write_queue.clone() {
+            self.submit(device, &queue, [])?;
+        }
+        Ok(())
+    }
+    fn prepare_write(&mut self, device: &wgpu::Device, bytes: u64) -> Result<(), ResourceError> {
+        if self.pending_write_bytes.saturating_add(bytes) > MAX_BYTES
+            || self.pending_write_count >= MAX_PENDING_WRITES
+        {
+            self.flush_writes(device)?;
+        }
+        Ok(())
+    }
+    fn record_write(
+        &mut self,
+        queue: &wgpu::Queue,
+        key: ResourceKey,
+        bytes: u64,
+    ) -> Result<(), ResourceError> {
+        // The next queue submission consumes these writes. Retain resources
+        // against that future serial even when their owner closes first.
+        let serial = self
+            .serial
+            .checked_add(1)
+            .ok_or(ResourceError::DeviceFailed)?;
+        self.registry.mark_used(key, serial)?;
+        self.pending_write_queue
+            .get_or_insert_with(|| queue.clone());
+        self.pending_write_bytes += bytes;
+        self.pending_write_count += 1;
+        Ok(())
+    }
+    fn writes_submitted(&mut self) {
+        self.pending_write_queue = None;
+        self.pending_write_bytes = 0;
+        self.pending_write_count = 0;
     }
     pub(crate) fn poll_completed(&mut self, device: &wgpu::Device) -> Result<(), ResourceError> {
         device
@@ -611,6 +673,8 @@ impl ResourceStore {
             "graphGpuMeasuredSubmissionCount": self.telemetry.graph_gpu_samples,
             "gpuTimeSource": if self.telemetry.gpu_time_ns.is_some() { "metal.commandBuffer.startEndTime" } else { "unavailable" },
             "uploadedBytes": self.uploaded,
+            "pendingWriteBytes": self.pending_write_bytes,
+            "pendingWriteCount": self.pending_write_count,
         })
     }
     pub(crate) fn stats(&self) -> (u64, u64) {
@@ -631,6 +695,7 @@ impl ResourceStore {
             .checked_add(1)
             .ok_or(ResourceError::DeviceFailed)?;
         let index = queue.submit(commands);
+        self.writes_submitted();
         self.telemetry.submissions += 1;
         #[cfg(target_vendor = "apple")]
         let metal = crate::interop::metal::MetalCompletion::capture(queue)
@@ -837,9 +902,10 @@ impl ResourceStore {
                     return Err(ResourceError::InvalidUsage);
                 }
                 aligned_range(offset, data.len() as u64, *size)?;
-                queue.write_buffer(buffer, offset, data);
-                self.submit(device, queue, [])?;
-                self.registry.mark_used(key, self.serial)?;
+                let buffer = buffer.clone();
+                self.prepare_write(device, data.len() as u64)?;
+                queue.write_buffer(&buffer, offset, data);
+                self.record_write(queue, key, data.len() as u64)?;
                 self.uploaded = self.uploaded.saturating_add(data.len() as u64);
                 Vec::new()
             }
@@ -858,9 +924,11 @@ impl ResourceStore {
                 if data.len() as u64 != u64::from(row) * u64::from(rows) * u64::from(depth) {
                     return Err(ResourceError::InvalidRange);
                 }
+                let texture = texture.clone();
+                self.prepare_write(device, data.len() as u64)?;
                 queue.write_texture(
                     wgpu::TexelCopyTextureInfo {
-                        texture,
+                        texture: &texture,
                         mip_level: level,
                         origin: wgpu::Origin3d::ZERO,
                         aspect: wgpu::TextureAspect::All,
@@ -873,8 +941,7 @@ impl ResourceStore {
                     },
                     extent,
                 );
-                self.submit(device, queue, [])?;
-                self.registry.mark_used(key, self.serial)?;
+                self.record_write(queue, key, data.len() as u64)?;
                 self.uploaded = self.uploaded.saturating_add(data.len() as u64);
                 Vec::new()
             }
@@ -898,6 +965,8 @@ impl ResourceStore {
                 Vec::new()
             }
             Operation::Release(key) => {
+                self.registry.resolve(key)?;
+                self.flush_writes(device)?;
                 self.registry.release(key)?;
                 self.wait(device)?;
                 Vec::new()
