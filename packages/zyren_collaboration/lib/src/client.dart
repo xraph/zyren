@@ -25,6 +25,32 @@ final class SceneCollaborationClient {
     checkText(sceneId, 'sceneId');
     checkText(epoch, 'epoch');
   }
+
+  /// Restore an acknowledged checkpoint and an exact unsent or uncertain edit.
+  factory SceneCollaborationClient.restore({
+    required SceneOperationTransport transport,
+    required SceneSnapshot snapshot,
+    SceneOperation? pending,
+    required String Function() nextOperationId,
+  }) {
+    final client = SceneCollaborationClient(
+      transport: transport,
+      sceneId: snapshot.sceneId,
+      epoch: snapshot.epoch,
+      nextOperationId: nextOperationId,
+    );
+    client._adopt(snapshot);
+    if (pending != null) {
+      if (pending.sceneId != snapshot.sceneId ||
+          pending.epoch != snapshot.epoch ||
+          !snapshot.objects.containsKey(pending.objectId)) {
+        throw const SceneSessionMismatch();
+      }
+      client._pending = pending;
+    }
+    return client;
+  }
+
   SceneSnapshot? get snapshot => _snapshot;
   SceneOperation? get pending => _pending;
   SceneOperationConflict? get conflict => _conflict;
@@ -40,6 +66,20 @@ final class SceneCollaborationClient {
         _adopt(next);
         return _snapshot!;
       });
+
+  /// Queue an authority-prepared inverse or an exact host operation.
+  void queueOperation(SceneOperation operation) {
+    _checkIdle();
+    if (_pending != null) throw StateError('Resolve the pending edit first.');
+    if (operation.sceneId != sceneId ||
+        operation.epoch != epoch ||
+        !(_snapshot?.objects.containsKey(operation.objectId) ?? false)) {
+      throw const SceneSessionMismatch();
+    }
+    operation.encode();
+    _pending = operation;
+    _stateRevision++;
+  }
 
   SceneOperation setTransform(SceneObjectId id, SceneTransform transform) =>
       _prepare(id, SceneField.transform, transform: transform);

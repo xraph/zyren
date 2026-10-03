@@ -13,3 +13,5 @@ export 'src/local_authority.dart';
 export 'src/client.dart';
 export 'src/scene_plugin.dart';
 export 'src/durable_authority.dart';
+export 'src/presence.dart';
+export 'src/offline.dart';

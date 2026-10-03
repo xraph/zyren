@@ -2,7 +2,8 @@
 
 You can share transform and visibility edits between scene clients, resolve
 conflicts explicitly and retry a lost reply without applying the edit twice.
-This package uses the public Dart scene API. It does not start a network service.
+This package uses the public Dart scene API. Your host can attach a durable
+authority and explicitly start its HTTP or WebSocket service.
 
 Run the local example from the workspace with the pinned Flutter SDK's Dart:
 
@@ -13,8 +14,7 @@ fvm dart --packages=.dart_tool/package_config.json \
 
 The example creates two scene graphs, loses a reply after committing an edit,
 retries it, resolves a competing move and checks that both graphs agree. It runs
-without a renderer. Native presentation and multi-process networking need
-separate verification.
+without a renderer. The native example and network tests provide separate runtime checks.
 
 ## Connect a scene
 
@@ -48,7 +48,7 @@ and transport lifetimes.
 Source keys survive reloads. Names and runtime object IDs do not. Rebinding
 validates every replacement before changing the mapping; removed or reparented
 objects become unbound until you provide a new mapping. Local transforms assume
-the same imported parent layout on every client. Cameras use a separate future
+the same imported parent layout on every client. Cameras use the separate presence
 sharing channel and cannot bind as editable objects here.
 
 ## Conflicts, permissions and limits
@@ -69,7 +69,8 @@ without committing. You can configure a positive timeout up to one minute.
 Snapshots allow 10,000 objects and 4 MiB of JSON characters. Operations allow
 4,096 characters. The authority retains up to 4,096 receipts by default and
 rejects new edits when full. It keeps existing receipts so old retries remain
-safe. These receipts and scene changes live in memory only.
+safe. The local authority keeps these in memory. Use `DurableSceneAuthority` with
+`FileSceneDocumentStore` to retain the ledger and receipts across restarts.
 
 `SceneCollaborationQueries` exposes revision-pinned history pages and permission
 previews for concrete operations. A preview never grants a later write. The
@@ -77,8 +78,7 @@ optional providers below expose these queries through the shared agent registry.
 
 Engineering annotations, three-way review merges and review persistence remain
 in `zyren_engineering`. This package edits scene state and does not run physics
-simulation. Durable operation history, presence, shared cameras, network
-adapters, offline queues and a native shared-editor UI remain in the backlog.
+simulation. Creation, deletion, reparenting and material changes remain separate work.
 
 
 ## Runtime agents
@@ -95,7 +95,10 @@ The provider exposes these tools through `zyren_agents`:
 | --- | --- |
 | `state`, `objects` | Read acknowledged revisions, stable IDs, current bindings, pending edits and conflicts. State also reports the authority revision. |
 | `history` | Read accepted operations in revision-pinned pages of up to 50 entries. |
-| `presence` | Report unavailable. The local transport has no presence service. |
+| `presence` | Read current leased sessions and shared camera poses when the host supplies a presence service. |
+| `undo` | Prepare your conditional inverse, then use the normal guarded commit path. |
+| `offline_state`, `reconcile` | Inspect or retry a host-supplied durable outbox. Reconciliation stops at a conflict. |
+| `follow_camera`, `stop_following` | Explicitly follow or release a leased camera with `collaboration.camera` scope. |
 | `check_operation` | Ask the host whether an exact proposed operation is allowed. |
 | `set_transform`, `set_visibility` | Use the ordinary collaboration client and authority checks. |
 | `refresh` | Read shared state and apply it to the bound scene, preserving a pending edit. |
@@ -152,3 +155,67 @@ bridge, plus loopback HTTP/file review persistence. They use a headless test
 renderer and do not establish native screen presentation. Presence, shared
 cameras, durable scene receipts, network scene transports, offline reconciliation,
 shared undo and native editor UI remain in the workstream backlog.
+
+## Durable and network hosts
+
+Import `file_store.dart` for `FileSceneDocumentStore` and `network.dart` for
+`SceneCollaborationServer`, `HttpSceneTransport` and `WebSocketSceneTransport`.
+The server requires a host authentication callback, rechecks it for each socket
+message, and requires TLS outside loopback. Clients take fresh authentication
+headers from your callback. They never follow HTTP redirects with credentials.
+An optional `HttpClient` lets you configure a private certificate authority.
+
+A durable authority serializes a bounded operation ledger inside the store
+transaction. It replays and validates that ledger on read, so this adapter fits
+bounded review sessions rather than unbounded event streams. All writers must
+use the same file adapter, one owning isolate per process and a local filesystem.
+The sibling lock file must remain in place. A staged file is flushed and renamed;
+process restarts are supported, but directory fsync and power-loss guarantees
+are outside this adapter. Unknown archive schemas and corrupt history fail
+closed. There is no lossy receipt pruning or implicit migration.
+
+WebSocket clients emit coalesced invalidations on `changes`. Read again to
+obtain authenticated state. A failed socket rejects pending requests; the next
+request reconnects with fresh credentials. A host can poll during idle periods
+to detect writes from another server process. Each socket admits at most 16
+pending requests, and the server limits open sockets. Requests have deadlines
+and bodies are bounded. After a timed-out write, retry its exact operation.
+Network transports do not claim the in-process cancellation guard: once a
+request is dispatched, the remote authority may commit it.
+
+## Offline decisions and shared undo
+
+`OfflineSceneQueue` saves exact operations before dispatch. Give each principal
+and asset epoch its own store and `ownerId`; reuse that host-owned ID on restart.
+The queue checks that identity before exposing data. It accepts up to 256 edits,
+with one outstanding decision per object field. A second edit to that field
+requires reconciliation first. This avoids inventing field revisions offline.
+
+`reconcile` retries saved bytes, saves each acknowledgement, and stops at the
+first conflict or failure. Read `lastError` for denial, epoch change, capacity
+or an uncertain reply. `keepLocal(newId)` uses the exact conflict revision;
+`acceptRemote` discards only an authority-confirmed conflict. Neither method can
+discard an uncertain write. Source keys include your asset version and the
+scene epoch, so replaced assets require an explicit host migration decision.
+
+`SceneUndoTransport.prepareUndo` returns an inverse of your accepted edit.
+Submit it through the ordinary client to retain pending retries and cancellation
+checks. `undo` combines preparation and submission. A changed field causes a
+conflict; another participant's edits cannot be undone by this author policy.
+Undoing an accepted inverse provides conditional redo. History retains the
+`undoOfRevision` relationship, and ordinary write permissions apply again.
+
+## Presence and cameras
+
+`ScenePresenceAuthority` keeps bounded leases, sequences and rate limits outside
+the durable ledger. Call `publishPresence` periodically with a unique session ID
+and a strictly increasing sequence, then `leave` on clean departure. Unexpected
+disconnects expire after the configured lease. Reusing a session ID across
+principals is denied while its lease or departure tombstone exists.
+
+`SharedSceneCamera` supports perspective and orthographic poses, clipping,
+zoom and projection bounds. The receiving viewport keeps its own aspect ratio.
+`SharedCameraFollower` follows only after `follow`, rejects old updates, and
+stops on departure, expiry or `stop`. Wire local navigation to `stop` and call
+`update` after polling or socket invalidation. Its expiry timer also runs when
+the network is unavailable. Camera changes never create durable edit revisions.

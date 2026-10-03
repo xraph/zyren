@@ -188,6 +188,10 @@ abstract interface class GuardedSceneOperationTransport {
 
 /// Undo is a conditional inverse with the same write policy as an ordinary edit.
 abstract interface class SceneUndoTransport {
+  Future<SceneOperation> prepareUndo({
+    required int revision,
+    required String operationId,
+  });
   Future<SceneOperationResult> undo({
     required int revision,
     required String operationId,

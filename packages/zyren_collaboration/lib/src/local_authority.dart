@@ -230,37 +230,40 @@ final class LocalSceneAuthority {
     return authority;
   }
 
-  Future<SceneOperationResult> _undo(
+  Future<SceneOperation> _inverse(
     String principal,
     int revision,
     String operationId,
-  ) => _serial(() async {
+  ) async {
     if (!await _canRead(principal)) throw const SceneAccessDenied();
     final index = _history.indexWhere((entry) => entry.revision == revision);
     if (index < 0 || _authors[index] != principal) {
       throw const SceneAccessDenied();
     }
-    final original = _history[index].operation;
-    final before = _before[index];
-    return _submitNow(
-      principal,
-      SceneOperation(
-        sceneId: _snapshot.sceneId,
-        epoch: _snapshot.epoch,
-        operationId: operationId,
-        objectId: original.objectId,
-        expectedRevision: revision,
-        field: original.field,
-        undoOfRevision: revision,
-        transform: original.field == SceneField.transform
-            ? before.transform
-            : null,
-        visible: original.field == SceneField.visibility
-            ? before.visible
-            : null,
-      ),
+    final original = _history[index].operation, before = _before[index];
+    return SceneOperation(
+      sceneId: _snapshot.sceneId,
+      epoch: _snapshot.epoch,
+      operationId: operationId,
+      objectId: original.objectId,
+      expectedRevision: revision,
+      field: original.field,
+      undoOfRevision: revision,
+      transform: original.field == SceneField.transform
+          ? before.transform
+          : null,
+      visible: original.field == SceneField.visibility ? before.visible : null,
     );
-  });
+  }
+
+  Future<SceneOperationResult> _undo(
+    String principal,
+    int revision,
+    String operationId,
+  ) => _serial(
+    () async =>
+        _submitNow(principal, await _inverse(principal, revision, operationId)),
+  );
 }
 
 final class LocalSceneConnection
@@ -272,6 +275,13 @@ final class LocalSceneConnection
   final LocalSceneAuthority authority;
   final String principal;
   LocalSceneConnection._(this.authority, this.principal);
+  @override
+  Future<SceneOperation> prepareUndo({
+    required int revision,
+    required String operationId,
+  }) => authority._serial(
+    () => authority._inverse(principal, revision, operationId),
+  );
   @override
   Future<SceneOperationResult> undo({
     required int revision,

@@ -10,6 +10,9 @@ final class CollaborationAgentProvider extends AgentProvider {
   final SceneCollaborationClient client;
   final SceneCollaborationBinding? binding;
   final SceneCollaborationQueries? queries;
+  final ScenePresenceTransport? presence;
+  final OfflineSceneQueue? offline;
+  final SharedCameraFollower? cameraFollower;
   final String documentId;
   @override
   final String instanceId;
@@ -18,6 +21,9 @@ final class CollaborationAgentProvider extends AgentProvider {
     required this.instanceId,
     required this.documentId,
     this.binding,
+    this.presence,
+    this.offline,
+    this.cameraFollower,
     SceneCollaborationQueries? queries,
   }) : queries =
            queries ??
@@ -42,9 +48,10 @@ final class CollaborationAgentProvider extends AgentProvider {
     'documentId': documentId,
     'epoch': client.epoch,
     'history': queries != null,
-    'presence': 'unavailable',
-    'sharedCameras': 'unsupported',
-    'durableOfflineQueue': false,
+    'presence': presence == null ? 'unavailable' : 'leased',
+    'sharedCameras': cameraFollower == null ? 'unsupported' : 'opt-in',
+    'durableOfflineQueue': offline != null,
+    'sharedUndo': client.transport is SceneUndoTransport,
     'guardedActions': client.transport is GuardedSceneOperationTransport,
     'viewportEvidence':
         'Use the shared viewport provider for frame and camera context.',
@@ -133,6 +140,47 @@ final class CollaborationAgentProvider extends AgentProvider {
         required: ['allowed', 'operationId'],
       ),
       requiredScopes: {'collaboration.read'},
+    ),
+    _action(
+      'undo',
+      'Undo your accepted edit only while its field revision is unchanged.',
+      agentObject({'revision': agentRevision}, required: ['revision']),
+    ),
+    AgentTool(
+      name: 'offline_state',
+      description: 'Inspect the persistent outbox and exact conflicts.',
+      inputSchema: agentObject({}),
+      outputSchema: agentData,
+      requiredScopes: {'collaboration.read'},
+    ),
+    AgentTool(
+      name: 'reconcile',
+      description:
+          'Retry saved operations without rebasing and stop on conflict.',
+      inputSchema: agentObject({}),
+      outputSchema: agentData,
+      readOnly: false,
+      requiredScopes: {'collaboration.read', 'collaboration.write'},
+    ),
+    AgentTool(
+      name: 'follow_camera',
+      description:
+          'Explicitly follow a currently leased camera. Local navigation stops following.',
+      inputSchema: agentObject(
+        {'sessionId': agentText},
+        required: ['sessionId'],
+      ),
+      outputSchema: agentData,
+      readOnly: false,
+      requiredScopes: {'collaboration.read', 'collaboration.camera'},
+    ),
+    AgentTool(
+      name: 'stop_following',
+      description: 'Stop following a shared camera.',
+      inputSchema: agentObject({}),
+      outputSchema: agentData,
+      readOnly: false,
+      requiredScopes: {'collaboration.read', 'collaboration.camera'},
     ),
     _action(
       'set_transform',
@@ -296,7 +344,20 @@ final class CollaborationAgentProvider extends AgentProvider {
             if (offset + page.length < snapshot.objects.length)
               'nextOffset': offset + page.length,
           });
+        case 'offline_state':
+          if (offline == null) return AgentResult(AgentStatus.unavailable);
+          final state = await offline!.read();
+          context.checkCancelled();
+          return _ok(jsonDecode(state.encode()) as Map<String, dynamic>);
         case 'presence':
+          if (presence != null) {
+            final participants = await presence!.participants();
+            context.checkCancelled();
+            return _ok({
+              'participants': participants.map((p) => p.toJson()).toList(),
+              'following': cameraFollower?.sessionId,
+            });
+          }
           return AgentResult(
             AgentStatus.unavailable,
             message:
@@ -349,6 +410,45 @@ final class CollaborationAgentProvider extends AgentProvider {
       if (context.expectedRevision != revision) {
         return AgentResult(AgentStatus.stale, message: 'Client state changed.');
       }
+      if (tool == 'reconcile') {
+        if (offline == null) return AgentResult(AgentStatus.unavailable);
+        context.checkCancelled();
+        final state = await offline!.reconcile(
+          checkBeforeSend: context.checkCancelled,
+        );
+        context.checkCancelled();
+        await client.refresh(checkBeforeApply: context.checkCancelled);
+        return _ok(jsonDecode(state.encode()) as Map<String, dynamic>);
+      }
+      if (tool == 'follow_camera' || tool == 'stop_following') {
+        if (cameraFollower == null || presence == null) {
+          return AgentResult(AgentStatus.unavailable);
+        }
+        if (tool == 'stop_following') {
+          cameraFollower!.stop();
+          return _ok({'following': null});
+        }
+        final participants = await presence!.participants();
+        context.checkCancelled();
+        if (context.expectedRevision != revision) {
+          throw const SceneRevisionMismatch();
+        }
+        final session = arguments['sessionId'] as String;
+        if (!participants.any(
+          (p) =>
+              p.sessionId == session &&
+              p.camera != null &&
+              p.expiresAt.isAfter(DateTime.now()),
+        )) {
+          return AgentResult(
+            AgentStatus.unavailable,
+            message: 'Participant has no current camera lease.',
+          );
+        }
+        cameraFollower!.follow(session);
+        cameraFollower!.update(participants);
+        return _ok({'following': cameraFollower!.sessionId});
+      }
       if (tool == 'refresh') {
         final before = revision;
         await client.refresh(
@@ -377,6 +477,23 @@ final class CollaborationAgentProvider extends AgentProvider {
         );
       }
       switch (tool) {
+        case 'undo':
+          if (client.transport is! SceneUndoTransport) {
+            return AgentResult(AgentStatus.unsupported);
+          }
+          final before = revision;
+          final operation = await (client.transport as SceneUndoTransport)
+              .prepareUndo(
+                revision: arguments['revision'] as int,
+                operationId: client.nextOperationId(),
+              );
+          context.checkCancelled();
+          if (revision != before) throw const SceneRevisionMismatch();
+          if (binding != null &&
+              binding!.objectFor(operation.objectId) == null) {
+            throw const SceneRevisionMismatch();
+          }
+          client.queueOperation(operation);
         case 'set_transform':
         case 'set_visibility':
           final target = SceneObjectId(

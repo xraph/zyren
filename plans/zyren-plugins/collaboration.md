@@ -219,3 +219,12 @@ reconciliation, undo and camera following. Native presentation, logical picks,
 agent mutations and compact desktop/narrow layouts will be checked separately.
 Creation, deletion, reparenting and material editing remain separate work until
 their source/resource contracts are available.
+
+The durable checkpoint is committed in `d81a171`. The network, presence, camera,
+undo preparation and offline outbox extensions pass 46 Dart tests. These include
+independent writer processes, trusted HTTPS/WSS and untrusted-certificate denial,
+socket reconnect, revoked credentials, file restart after a lost acknowledgement,
+renewed conflicts, lease ordering/expiry and shared agent calls. The native
+example is being qualified separately. It adds
+`packages/zyren_collaboration/example/native_app` to the workspace without
+changing shared runtime contracts.

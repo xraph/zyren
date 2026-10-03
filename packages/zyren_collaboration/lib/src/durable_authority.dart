@@ -123,6 +123,14 @@ final class DurableSceneConnection
     guard: checkBeforeCommit,
   );
   @override
+  Future<SceneOperation> prepareUndo({
+    required int revision,
+    required String operationId,
+  }) => authority._run(
+    principal,
+    (c) => c.prepareUndo(revision: revision, operationId: operationId),
+  );
+  @override
   Future<SceneOperationResult> undo({
     required int revision,
     required String operationId,
