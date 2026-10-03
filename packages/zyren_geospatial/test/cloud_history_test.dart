@@ -6,6 +6,40 @@ import 'package:zyren_geospatial/src/clouds/frame.dart';
 import 'dart:math' as math;
 
 void main() {
+  test('lunar history tolerates parallax but rejects lighting edits', () {
+    final history = CloudHistory();
+    final camera = PerspectiveCamera();
+    CloudHistoryFrame begin({
+      int number = 2,
+      double lunar = 1e-4,
+      double fill = 0,
+      Vec3? moon = const Vec3(0, 1, 0),
+    }) => history.begin(
+      camera: camera,
+      aspect: 1,
+      width: 64,
+      height: 64,
+      number: number,
+      elapsed: Duration.zero,
+      revision: 0,
+      epoch: 0,
+      sun: const Vec3(1, 0, 0),
+      moon: moon,
+      lunarIrradiance: lunar,
+      nightLightIntensity: fill,
+    );
+    history.present(begin(number: 1), 0);
+    expect(begin(lunar: 1.00001e-4).reason, CloudHistoryReset.none);
+    expect(begin(lunar: 1.02e-4).reason, CloudHistoryReset.lighting);
+    expect(begin(fill: .1).reason, CloudHistoryReset.lighting);
+    expect(begin(moon: const Vec3(0, 0, 1)).reason, CloudHistoryReset.lighting);
+    expect(begin(moon: null, lunar: 0).reason, CloudHistoryReset.lighting);
+    expect(
+      begin().reason,
+      CloudHistoryReset.none,
+      reason: 'Unpresented lighting changes must not become the baseline.',
+    );
+  });
   test('globe navigation preserves cloud history while clipping adapts', () {
     for (final depth in DepthStrategy.values) {
       final history = CloudHistory();

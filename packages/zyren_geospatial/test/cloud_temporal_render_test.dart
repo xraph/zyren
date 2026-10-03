@@ -91,7 +91,12 @@ void main() {
             parameters: AtmosphereParameters.legacy(),
             correctAltitude: false,
             maxStarResolution: 32,
-            appearance: AtmosphereAppearance(sky: false, haze: false),
+            appearance: AtmosphereAppearance(
+              sky: false,
+              haze: false,
+              moonLight: true,
+              moonLightIntensity: 10000,
+            ),
           ),
           clouds,
           failing,

@@ -53,6 +53,8 @@ final class CloudHistoryStatus {
 
 final class CloudHistoryFrame {
   final Vec3 position, forward, up, sun;
+  final Vec3? moon;
+  final double lunarIrradiance, nightLightIntensity;
   final Mat4 viewProjection;
   final String projection;
   final int width, height, number, revision, epoch, generation, frames;
@@ -64,6 +66,9 @@ final class CloudHistoryFrame {
     this.forward,
     this.up,
     this.sun,
+    this.moon,
+    this.lunarIrradiance,
+    this.nightLightIntensity,
     this.viewProjection,
     this.projection,
     this.width,
@@ -106,6 +111,9 @@ final class CloudHistory {
     required int revision,
     required int epoch,
     required Vec3 sun,
+    Vec3? moon,
+    double lunarIrradiance = 0,
+    double nightLightIntensity = 0,
     CloudTemporalSettings? settings,
   }) {
     final s = settings ?? CloudTemporalSettings(), p = _previous;
@@ -147,7 +155,13 @@ final class CloudHistory {
           : elapsed < p.elapsed ||
                 (elapsed - p.elapsed).inMicroseconds > 1e6 * s.maxElapsed
           ? CloudHistoryReset.time
-          : sun.dot(p.sun) < .99995
+          : sun.dot(p.sun) < .99995 ||
+                (moon == null) != (p.moon == null) ||
+                (moon != null &&
+                    p.moon != null &&
+                    moon.dot(p.moon!) < .99995) ||
+                nightLightIntensity != p.nightLightIntensity ||
+                _irradianceChanged(lunarIrradiance, p.lunarIrradiance)
           ? CloudHistoryReset.lighting
           : (camera.position - p.position).length > s.maxTranslation ||
                 forward.dot(p.forward) < math.cos(s.maxRotation) ||
@@ -163,6 +177,9 @@ final class CloudHistory {
       forward,
       up,
       sun,
+      moon,
+      lunarIrradiance,
+      nightLightIntensity,
       camera.viewProjection(aspect),
       projection,
       width,
@@ -177,6 +194,11 @@ final class CloudHistory {
       reason,
     );
   }
+
+  // Observer parallax changes lunar phase slightly during navigation. Temporal
+  // blending follows those changes; only a jump above 0.1% discards history.
+  static bool _irradianceChanged(double a, double b) =>
+      (a - b).abs() > math.max(1e-12, math.max(a.abs(), b.abs()) * .001);
 
   void present(CloudHistoryFrame frame, int revision) {
     if (frame.generation != _generation || frame.revision != revision) {

@@ -142,7 +142,6 @@ final class CloudController {
   _CloudCandidate? _pendingCandidate;
   CloudTextureSet? _textures;
   CloudBlueNoise? _blueNoise;
-  (double, double)? _lunarLighting;
   final _sourceCancellation = _CloudSourceCancellation();
   _CloudCandidate? _active;
   EffectRegistration? _producer, _resolve, _publish;
@@ -436,13 +435,11 @@ final class CloudController {
     final sun = directions.sunECEF;
     final lunar = lunarIrradianceScale(directions, _atmosphere.appearance);
     final nightFill = _atmosphere.appearance.nightLightIntensity;
-    final lighting = (lunar, nightFill);
-    if (_lunarLighting != null && _lunarLighting != lighting) {
-      _history.invalidate(CloudHistoryReset.lighting);
-    }
-    _lunarLighting = lighting;
     final history = _history.begin(
       camera: camera,
+      moon: lunar > 0 ? directions.moonECEF : null,
+      lunarIrradiance: lunar,
+      nightLightIntensity: nightFill,
       aspect: info.width / info.height,
       width: width,
       height: height,
