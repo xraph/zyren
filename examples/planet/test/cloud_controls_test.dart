@@ -30,10 +30,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.widget<Slider>(density).value, closeTo(.5, .06));
       expect(tester.widget<FilterChip>(animation).selected, false);
-      final quality = find.byKey(const ValueKey('cloud-quality'));
-      await tester.tap(quality);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Low').last);
+      await tester.tap(find.byKey(const ValueKey('cloud-quality-low')));
       await tester.pumpAndSettle();
       expect(tester.widget<Slider>(density).value, closeTo(.5, .06));
       expect(tester.widget<FilterChip>(animation).selected, false);

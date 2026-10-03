@@ -41,8 +41,8 @@ uses the shared globe controls for surface navigation and orbital zoom.
 
 Credits follow the visible tiles. You can open Data sources for the full text
 on a narrow screen. Provider content stays in memory, and the scene releases
-its requests and resources when you close it. The tile resource budget is
-32 MiB, leaving room within the native store for replacement uploads.
+its requests and resources when you close it. Device profiles reserve native
+resources for tile refinement and replacement uploads.
 
 The live integration test uses the same private configuration:
 
@@ -73,15 +73,21 @@ freeze their current position. The image still finishes refining, then stops
 requesting continuous frames. Turn it on to resume with the same velocities.
 Both controls keep your choices when you change a location or quality preset.
 
-Phones allow 48 MiB of visible tile payloads; tablets and desktops allow 64 MiB.
-Both scene types use four concurrent tile requests. The screen-error target is eight
-render pixels, so finer tiles can replace the broad parent imagery sooner.
+Phones allow 128 MiB of tile payloads, tablets 192 MiB and desktops 384 MiB.
+The native resource limits are 384, 512 and 768 MiB respectively. Phones load six
+tiles concurrently; tablets and desktops load eight. The screen-error target is
+eight render pixels. A memory warning means the selected detail still exceeds
+the profile's allowance.
 
 | Device | Scene edge / total pixels | Auto cloud edge | Ultra cloud edge |
 | --- | --- | --- | --- |
-| Phone | 1600 / 1,572,864 | 512 | 640 |
-| Tablet | 1920 / 2,097,152 | 640 | 640 |
-| Desktop | 1920 / 2,097,152 | 640 | 768 |
+| Phone | 1600 / 1,572,864 | 768 | 1024 |
+| Tablet | 1920 / 2,097,152 | 1152 | 1280 |
+| Desktop | 1920 / 2,097,152 | 1280 | 1536 |
+
+Cloud targets also cap total pixels at 589,824 on phones, 921,600 on tablets and
+1,048,576 on desktops. The library accepts explicit limits up to a 4096-pixel
+edge when your application has budgeted for larger targets.
 
 Android and iOS views with a shortest display side of at least 600 logical pixels
 use the tablet profile. Orientation does not change the classification. Desktop
@@ -137,4 +143,12 @@ visible when the Moon is down. Choose **Natural** for the lunar irradiance scale
 without fill, or **Off** to keep the existing sun and sky relighting. **Night
 view** sets the selected location to 23:00 local solar time; turn it off to return
 to the preset's original time. These choices survive location and cloud quality
-changes. They leave daytime lighting unchanged.
+changes. Lunar lighting also reaches cloud volumes. Night view increases the
+star catalogue brightness and uses a 2048-pixel star target, so bright stars can
+remain visible between clouds. Daytime returns to the original star intensity.
+
+The selectors remain on the page to avoid the macOS Flutter accessibility crash
+seen when opening dropdown routes. Qualification builds can enable
+`ZYREN_RENDER_TELEMETRY=true` and inspect `ext.planet.renderStatus` with
+`tool/qualification/read_render_telemetry.dart`. This measures accepted native
+presentations; the slower diagnostics stream is unsuitable for frame-rate checks.

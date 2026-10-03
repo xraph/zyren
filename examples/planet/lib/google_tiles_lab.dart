@@ -12,6 +12,8 @@ import 'geospatial_scene.dart';
 import 'geospatial_device_profile.dart';
 import 'preset_globe_controls.dart';
 import 'zero_state.dart';
+import 'rendering_choices.dart';
+import 'render_telemetry.dart';
 
 void main() => runApp(const GoogleTilesLabApp());
 
@@ -70,6 +72,7 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
   (CloudQualitySelection, bool, CloudQualitySelection)? _failedQuality;
   StreamSubscription<FrameStats>? _qualityFrames;
   int? _refinement;
+  RenderTelemetry? _telemetry;
   final _controls = PresetGlobeControlsPlugin();
   List<GoogleTilesPreset> get presets => widget.clouds
       ? GoogleTilesPreset.cloudPresets
@@ -113,9 +116,13 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
             runtime: switch (defaultTargetPlatform) {
               TargetPlatform.android => SceneRuntime.nativeAndroid(
                 assetServices: widget.assetServices,
+                resourceBudgetBytes: deviceProfile.resourceBudgetBytes,
               ),
-              TargetPlatform.iOS || TargetPlatform.macOS =>
-                SceneRuntime.nativeMetal(assetServices: widget.assetServices),
+              TargetPlatform.iOS ||
+              TargetPlatform.macOS => SceneRuntime.nativeMetal(
+                assetServices: widget.assetServices,
+                resourceBudgetBytes: deviceProfile.resourceBudgetBytes,
+              ),
               _ => SceneRuntime(assetServices: widget.assetServices),
             },
           )
@@ -129,6 +136,30 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
     );
     for (final plugin in profile.plugins) {
       controller.use(plugin);
+    }
+    if (const bool.fromEnvironment('ZYREN_RENDER_TELEMETRY')) {
+      _telemetry = RenderTelemetry(controller, () async {
+        final stats = tiles?.stats;
+        final cloud = profile.cloudLayer?.controller;
+        return {
+          'preset': _preset.name,
+          'status': controller.status.value.runtimeType.toString(),
+          'moonlight': profile.moonlight.name,
+          'night': profile.nightView,
+          'camera': controller.camera.position.storage,
+          'target': controller.camera.target.storage,
+          'cloudSize': cloud == null ? null : [cloud.width, cloud.height],
+          'cloudFrames': cloud?.history.accumulatedFrames,
+          'cloudPreset': cloud?.quality.name,
+          'animation': profile.cloudAnimationEnabled,
+          'density': profile.cloudDensity,
+          'visibleTiles': stats?.visibleTiles,
+          'loadingTiles': stats?.activeRequests,
+          'tilePayloadBytes': stats?.residentBytes,
+          'budgetLimited': stats?.budgetLimited,
+          'failedTiles': tiles?.failures.length,
+        };
+      });
     }
     if (widget.clouds) {
       _qualityFrames = controller.frameStats.listen((_) {
@@ -238,7 +269,7 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
         services: services,
         maximumScreenError: 8,
         budget: Tiles3DBudget(
-          maxRequests: 4,
+          maxRequests: deviceProfile.tileRequests,
           maxSelectedTiles: 512,
           maxDecodedBytes: 512 * 1024 * 1024,
           maxResidentBytes: deviceProfile.tileBytes,
@@ -267,6 +298,7 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
 
   @override
   void dispose() {
+    unawaited(_telemetry?.close());
     unawaited(_qualityFrames?.cancel());
     controller.dispose();
     _closing = _close();
@@ -288,6 +320,7 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
     return Scaffold(
       body: SafeArea(
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -301,6 +334,7 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
                   ),
                   for (final preset in presets)
                     ChoiceChip(
+                      showCheckmark: false,
                       label: Text(preset.label),
                       selected: _preset == preset,
                       onSelected: _loading
@@ -310,27 +344,19 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
                   Tooltip(
                     message:
                         'Natural follows lunar brightness. Visible adds night fill when the Moon is down.',
-                    child: DropdownButton<MoonlightSelection>(
+                    child: RenderingChoices<MoonlightSelection>(
                       key: const ValueKey('moonlight'),
-                      value: profile.moonlight,
-                      underline: const SizedBox(),
-                      selectedItemBuilder: (_) => [
-                        for (final choice in MoonlightSelection.values)
-                          Text('Moonlight: ${choice.label}'),
-                      ],
-                      items: [
-                        for (final choice in MoonlightSelection.values)
-                          DropdownMenuItem(
-                            value: choice,
-                            child: Text(choice.label),
-                          ),
-                      ],
+                      label: 'Moonlight',
+                      selected: profile.moonlight,
+                      choices: MoonlightSelection.values,
+                      choiceLabel: (choice) => choice.label,
                       onChanged: (value) => setState(() {
-                        profile.moonlight = value!;
+                        profile.moonlight = value;
                       }),
                     ),
                   ),
                   FilterChip(
+                    showCheckmark: false,
                     key: const ValueKey('night-view'),
                     label: const Text('Night view'),
                     selected: profile.nightView,
@@ -343,28 +369,20 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
                     Tooltip(
                       message:
                           'Cloud sampling quality. Auto uses your device profile.',
-                      child: DropdownButton<CloudQualitySelection>(
+                      child: RenderingChoices<CloudQualitySelection>(
                         key: const ValueKey('cloud-quality'),
-                        value: _quality,
-                        underline: const SizedBox(),
-                        selectedItemBuilder: (_) => [
-                          for (final choice in CloudQualitySelection.values)
-                            Text('Clouds: ${choice.label}'),
-                        ],
-                        items: [
-                          for (final choice in CloudQualitySelection.values)
-                            DropdownMenuItem(
-                              value: choice,
-                              child: Text(choice.label),
-                            ),
-                        ],
+                        label: 'Clouds',
+                        selected: _quality,
+                        choices: CloudQualitySelection.values,
+                        choiceLabel: (choice) => choice.label,
                         onChanged: _qualityChanging
                             ? null
-                            : (value) => unawaited(_setQuality(value!)),
+                            : (value) => unawaited(_setQuality(value)),
                       ),
                     ),
                   if (widget.clouds)
                     FilterChip(
+                      showCheckmark: false,
                       key: const ValueKey('cloud-shadows'),
                       label: const Text('Cloud shadows'),
                       selected: _shadowsEnabled,
@@ -377,25 +395,16 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
                   if (widget.clouds)
                     Tooltip(
                       message: 'Shadow quality. Auto follows cloud quality.',
-                      child: DropdownButton<CloudQualitySelection>(
+                      child: RenderingChoices<CloudQualitySelection>(
                         key: const ValueKey('cloud-shadow-quality'),
-                        value: _shadowQuality,
-                        underline: const SizedBox(),
-                        selectedItemBuilder: (_) => [
-                          for (final choice in CloudQualitySelection.values)
-                            Text('Shadows: ${choice.label}'),
-                        ],
-                        items: [
-                          for (final choice in CloudQualitySelection.values)
-                            DropdownMenuItem(
-                              value: choice,
-                              child: Text(choice.label),
-                            ),
-                        ],
+                        label: 'Shadows',
+                        selected: _shadowQuality,
+                        choices: CloudQualitySelection.values,
+                        choiceLabel: (choice) => choice.label,
                         onChanged: _qualityChanging || !_shadowsEnabled
                             ? null
                             : (value) => unawaited(
-                                _setQuality(_quality, shadowQuality: value!),
+                                _setQuality(_quality, shadowQuality: value),
                               ),
                       ),
                     ),
@@ -431,6 +440,7 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
                     ),
                   if (widget.clouds)
                     FilterChip(
+                      showCheckmark: false,
                       key: const ValueKey('cloud-animation'),
                       label: const Text('Animate clouds'),
                       selected: profile.cloudAnimationEnabled,

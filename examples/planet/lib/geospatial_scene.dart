@@ -72,7 +72,7 @@ final class GeospatialSceneProfile extends ScenePlugin {
             services: services,
             format: AtmosphereLutFormat.binary,
           ),
-      maxStarResolution: 256,
+      maxStarResolution: 2048,
       appearance: AtmosphereAppearance(
         sunLight: true,
         skyLight: true,
@@ -97,6 +97,7 @@ final class GeospatialSceneProfile extends ScenePlugin {
             animationEnabled: _cloudAnimationEnabled,
             quality: _cloudQuality.preset,
             maxResolution: _cloudQuality.maxResolution,
+            maxPixels: _cloudQuality.maxPixels,
             shadowMapSize: _cloudQuality.shadowMapSize,
             shadowsEnabled: _cloudQuality.shadowsEnabled,
             shadowQuality: _cloudQuality.shadowPreset,
@@ -121,6 +122,7 @@ final class GeospatialSceneProfile extends ScenePlugin {
   }
 
   MoonlightSelection get moonlight => _moonlight;
+  double get starIntensity => _nightView ? 50000 : 1000;
   set moonlight(MoonlightSelection value) {
     if (_moonlight == value) return;
     _moonlight = value;
@@ -134,6 +136,7 @@ final class GeospatialSceneProfile extends ScenePlugin {
       moonLight: _moonlight.enabled,
       moonLightIntensity: _moonlight.intensity,
       nightLightIntensity: _moonlight.nightFill,
+      starIntensity: starIntensity,
     );
   }
 
@@ -143,6 +146,7 @@ final class GeospatialSceneProfile extends ScenePlugin {
     _nightView = value;
     if (_context case final context?) {
       air.controller.date = date;
+      _updateMoonlight();
       cloudLayer?.controller.resetHistory();
       context.invalidate();
     }
