@@ -211,6 +211,22 @@ history with zero. Hard ceilings are 256 entries and 64 MiB. Payload accounting
 excludes VM overhead, loader caches, temporary geometry and native copies. Closing
 a view releases its history. History is session-local and has no disk persistence.
 
+## Accessible Flutter controls
+
+The lab provides Undo/Redo buttons and Ctrl/Cmd+Z, with Shift for redo. A slider
+drag commits one history entry when you release it. Agent changes refresh the
+same controls, including thresholds outside the usual demonstration range.
+
+Use Camera controls for labelled rotation, zoom and reset buttons. Sample source
+opens an inline panel with adjustable X/Y/Z coordinates and a live scalar/vector
+readout. You can inspect source values without pointing at geometry. Controls
+wrap and scroll at narrow widths and large text sizes while retaining canvas
+space. Focus order follows the visible controls; sliders announce their units.
+
+The example uses 0.1 m volume sampling, matching its synthetic grid spacing. This
+keeps a full-resolution iPad canvas within the existing pixel-sample work limit.
+Its iOS host keeps the screen awake while the lab is foregrounded.
+
 ## Runtime agents
 
 Import `package:zyren_scientific/agents.dart` and register your `ScientificFieldView`

@@ -61,7 +61,7 @@ Volume settings cap ray steps and viewport pixel-sample work before rendering.
 Payload accounting excludes caller allocations, temporary copies, VM overhead and
 native copies. Physical GPU residency was not measured.
 
-The 35-test package suite and analysis pass. The sphere fixture's maximum radius
+The 40-test package suite and analysis pass. The sphere fixture's maximum radius
 error is 0.008038175 m on a 0.125 m lattice, with a closed oriented manifold and
 Euler characteristic 2. The circular streamline endpoint error is
 3.403798572e-9 m. Metal and Pixel Vulkan volume fixtures agree within two 8-bit
@@ -84,8 +84,8 @@ checks. Windows DX12 numerical qualification still needs a Windows machine.
 Windows/Linux Flutter presentation also needs a shared platform presenter; runner
 scaffolding alone does not supply one. Other chats currently own the connected
 iOS sessions, so this workstream does not claim iPhone/iPad qualification.
-Comprehensive accessibility, undo/history integration and publication are not
-established by these rendering checks. Nothing has been pushed or published.
+The integration follow-up below adds undo/history and accessibility checks.
+Publication remains separate. Nothing has been pushed or published.
 
 The final workspace package boundary check passes. The point-cloud workstream
 resolved the unrelated imports reported by the earlier run. Scientific analysis
@@ -101,3 +101,40 @@ waits and explicit pick/completion markers. Static analysis passed. The other
 device users received a release notice after completion. The Windows-host question
 remains open. See the [completed recheck](../../packages/zyren_scientific/qualification/2026-10-03.md)
 for the command, results and evidence locations.
+
+## Integration and Apple device completion
+
+Commit `07d6b34` adds bounded scientific configuration history to the field and
+slice views. UI and shared agent tools use the same revision-checked undo/redo
+operations. Immutable source snapshots preserve temporal values without reloading
+a changed external source. Count and payload limits bound retained history; failed
+or cancelled preparation leaves both the active view and history unchanged.
+The existing tools history handles synchronous object transforms, and Studio's
+history handles its own document type, so neither can own these async field swaps.
+
+The Flutter lab exposes labelled undo/redo controls, Ctrl/Cmd+Z shortcuts,
+semantic slider values and inline source sampling and camera controls. Agent
+changes refresh the same UI. Six widget accessibility tests pass: Android/iOS
+target sizes, labels, contrast, selected/enabled states, semantic actions,
+keyboard activation and layouts through 300% text. The four-test macOS native
+suite passes, including volume undo/redo, source queries, picking, commands,
+empty-state recovery, narrow/desktop layouts and teardown.
+
+Native macOS accessibility inspection exposed tooltip-only icon labels and a
+Flutter modal-route AXTree update failure. Explicit icon labels and inline
+controls resolve these issues in the lab. The final native tree exposes all
+three coordinate names and values, changing scalar/vector readouts, and all
+seven camera actions. This is direct accessibility-tree and interaction evidence;
+a human VoiceOver listening walkthrough remains unverified.
+
+Physical Apple checks are in progress. The first iPad run passed the numerical
+Metal fixtures and five presented modes, then correctly rejected the volume's
+full-resolution work estimate. The lab now samples at its source-grid spacing
+(0.1 m), retaining the existing budget. The corrected full device run is pending.
+The iPhone build installs, but its launch has been blocked by the device relocking.
+
+The user authorized removing installed apps for signing access. Physics Lab and
+the inactive App Flutter development build were removed from the iPad. The test
+artifact reuses Physics Lab's valid development profile under a temporary bundle
+alias; the checked-in scientific bundle identifier is unchanged. Nothing has
+been pushed or published.

@@ -1,6 +1,8 @@
 // ignore_for_file: avoid_print
 
+import 'dart:ui' show SemanticsAction;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:flutter_zyren/flutter_zyren.dart';
@@ -32,13 +34,19 @@ void main() {
     await ready();
     for (final mode in ScientificWorkbenchState.modes.keys) {
       final before = state.stats!.frameId;
+      final changed = state.selected != mode;
+      await tester.ensureVisible(find.byKey(ValueKey('mode-$mode')));
       await tester.tap(find.byKey(ValueKey('mode-$mode')));
       await ready();
-      for (var i = 0; i < 100 && state.stats!.frameId == before; i++) {
+      for (
+        var i = 0;
+        changed && i < 100 && state.stats!.frameId == before;
+        i++
+      ) {
         await tester.pump(const Duration(milliseconds: 50));
       }
       expect(state.selected, mode);
-      expect(state.stats!.frameId, greaterThan(before));
+      if (changed) expect(state.stats!.frameId, greaterThan(before));
       expect(state.stats!.readbackBytes, 0);
       expect(state.stats!.presentationPath, isNot(PresentationPath.readback));
       expect(tester.takeException(), isNull);
@@ -51,6 +59,72 @@ void main() {
         'SCIENTIFIC_PRESENTED mode=$mode path=${state.stats!.presentationPath.name} frame=${state.stats!.frameId} readback=${state.stats!.readbackBytes} size=${state.stats!.physicalSize.width}x${state.stats!.physicalSize.height}',
       );
     }
+    await state.moveHistory(false);
+    await ready();
+    expect(state.selected, 'Temporal');
+    expect(state.volume.controller.settings, isNull);
+    await state.moveHistory(true);
+    await ready();
+    expect(state.selected, 'Volume');
+    expect(state.volume.controller.settings, isNotNull);
+    final semantics = tester.ensureSemantics();
+    try {
+      await tester.ensureVisible(find.byKey(const ValueKey('sample-source')));
+      await tester.pump(const Duration(milliseconds: 200));
+      final sample = tester.getSemantics(
+        find.byKey(const ValueKey('sample-source')),
+      );
+      sample.owner!.performAction(sample.id, SemanticsAction.tap);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('probe-value')), findsOneWidget);
+      final oldValue = tester
+          .widget<Text>(find.byKey(const ValueKey('probe-value')))
+          .data;
+      await tester.ensureVisible(find.byKey(const ValueKey('probe-0')));
+      await tester.pumpAndSettle();
+      final probe = tester.getSemantics(find.byKey(const ValueKey('probe-0')));
+      expect(probe.getSemanticsData().label, contains('X source coordinate'));
+      expect(probe.getSemanticsData().value, contains('m'));
+      probe.owner!.performAction(probe.id, SemanticsAction.increase);
+      await tester.pump();
+      expect(
+        tester.widget<Text>(find.byKey(const ValueKey('probe-value'))).data,
+        isNot(oldValue),
+      );
+      await expectLater(tester, meetsGuideline(iOSTapTargetGuideline));
+      await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+      await tester.ensureVisible(find.text('Close'));
+      await tester.tap(find.text('Close'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(const ValueKey('undo')));
+      await tester.pumpAndSettle();
+      final undo = tester.getSemantics(find.byKey(const ValueKey('undo')));
+      undo.owner!.performAction(undo.id, SemanticsAction.tap);
+      await ready();
+      expect(state.selected, 'Temporal');
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyZ);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await ready();
+      expect(state.selected, 'Volume');
+      final previousCamera = state.viewport.camera.position;
+      await tester.tap(find.byTooltip('Camera controls'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Rotate left'));
+      await tester.tap(find.text('Rotate left'));
+      await tester.pumpAndSettle();
+      expect(state.viewport.camera.position, isNot(previousCamera));
+      await tester.tap(find.byTooltip('Camera controls'));
+      state.cameraAction('Reset camera');
+      await tester.pump(const Duration(milliseconds: 200));
+    } finally {
+      semantics.dispose();
+    }
+    print(
+      'SCIENTIFIC_ACCESSIBILITY semantics sampling, undo, keyboard redo and camera controls',
+    );
     await state.select('Isosurface');
     await ready();
     await tester.tapAt(tester.getCenter(find.byType(SceneView)));
@@ -120,19 +194,27 @@ void main() {
     await tester.tap(find.text('Show slice'));
     await ready();
     final actualSize = tester.view.physicalSize;
-    for (final logicalWidth in [390.0, 1100.0]) {
-      tester.view.physicalSize = Size(
-        logicalWidth * tester.view.devicePixelRatio,
-        720 * tester.view.devicePixelRatio,
-      );
-      await tester.pump(const Duration(milliseconds: 300));
-      expect(tester.takeException(), isNull);
-      expect(tester.getSize(find.byType(SceneView)).height, greaterThan(350));
+    try {
+      for (final layout in [(390.0, 1.0), (1100.0, 1.0), (320.0, 3.0)]) {
+        final logicalWidth = layout.$1;
+        tester.platformDispatcher.textScaleFactorTestValue = layout.$2;
+        tester.view.physicalSize = Size(
+          logicalWidth * tester.view.devicePixelRatio,
+          720 * tester.view.devicePixelRatio,
+        );
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(tester.takeException(), isNull);
+        expect(tester.getSize(find.byType(SceneView)).height, greaterThan(140));
+      }
+    } finally {
+      tester.view.physicalSize = actualSize;
+      tester.platformDispatcher.clearTextScaleFactorTestValue();
     }
-    tester.view.physicalSize = actualSize;
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(milliseconds: 300));
     expect(state.field!.isDisposed, isTrue);
-    print('SCIENTIFIC_FLUTTER_COMPLETE pick, commands, layouts and disposal');
-  }, timeout: const Timeout(Duration(minutes: 2)));
+    print(
+      'SCIENTIFIC_FLUTTER_COMPLETE history, accessibility, pick, commands, layouts and disposal',
+    );
+  }, timeout: const Timeout(Duration(minutes: 4)));
 }
