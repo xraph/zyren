@@ -200,3 +200,52 @@ Shadow caster preparation, effects and custom graph bindings have their own
 paths. Reusing a GPU uniform buffer also does not eliminate native staging
 allocations: wgpu allocates staging memory for `queue.write_buffer`. Read write
 calls and bytes alongside object reuse counts when you compare workloads.
+
+## Opaque ordering and automatic batches
+
+You can keep separate mesh objects for picking and attribution. The native
+renderer groups compatible opaque triangle meshes into instance draws while
+retaining every source identity in `SceneAdmission.presentedIdentities`.
+
+Explicit `renderOrder` values take priority. Within each order, the renderer uses
+64-draw windows to group material and pipeline state within coarse depth bands.
+It only swaps draws whose projected bounds prove they cannot produce ambiguous
+overlap. Coplanar ties keep their source order. Transparent instances keep their
+global depth order.
+
+Automatic batches require matching geometry, material bindings, clipping and
+render state. Depth-disabled draws, draws without depth writes, custom shaders,
+deformation, explicit instances, outlined meshes, transmission materials and
+partial coverage use ordinary draws. Native temporal AA also uses ordinary draws
+so motion history keeps its source correspondence. Cloud reconstruction alone
+does not enable native temporal AA.
+
+The renderer caps automatic instances at 32,768 transforms (4 MiB) and 256 batches,
+with at most 64 source meshes per batch. A single cached plan retains at most
+4,096 source meshes. Camera changes rebuild the ordering; unchanged frames reuse
+the plan after checking source resource generations. The optional buffer shares
+the native allocation budget and retires after its last submission completes.
+Required scene and plugin allocations can reclaim it, and rendering falls back
+to ordinary draws when a batch buffer cannot fit.
+
+### Read executed counters
+
+`NativeFrameProfile.executedMeshDraws` counts the draws encoded for the scene,
+transmission capture and outline mask. `opaqueBatchDraws` counts automatic batch
+draws in those passes, while `batchedSourceDraws` counts their original mesh draws.
+The corresponding pass entries expose `drawCalls`. Pipeline and bind-group
+switch counters cover the same passes, including custom material bindings.
+They do not include shadow, motion, graph or postprocessing commands.
+
+`FrameStats.drawCalls` uses this native mesh count plus the existing output and
+graph accounting. Older runtimes keep the packet estimate. You can check
+`drawPlanReuses` to distinguish a warm plan from a rebuild, and
+`automaticInstanceUploadBytes` to see internal transform uploads. The latter is
+included in native `profile.uploadBytes`; `FrameStats.uploadedBytes` continues to
+report packet uploads. A camera move can rebuild ordering without uploading
+unchanged transforms.
+
+Compare equal-content frames when you measure these counters. Readback timings
+include synchronization and copying, so a small fixture does not establish
+foreground device FPS. GPU timings remain null when the backend cannot measure
+them.

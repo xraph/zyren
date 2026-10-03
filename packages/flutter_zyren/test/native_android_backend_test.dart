@@ -33,10 +33,13 @@ void main() {
           case 'create':
             return {'session': 1, 'adapter': 'test native'};
           case 'gpu':
-            return deviceInfoReply(call.arguments as Map);
+            return deviceInfoReply(call.arguments as Map, executedMeshDraws: 1);
           case 'gpuCommand':
             if ((call.arguments as Map)['kind'] == 'graph') {
-              return deviceInfoReply(call.arguments as Map);
+              return deviceInfoReply(
+                call.arguments as Map,
+                executedMeshDraws: 1,
+              );
             }
             return textureFormatsReply(call);
           case 'prepare':
@@ -92,6 +95,8 @@ void main() {
         expect(staged.stats.drawCalls, initial.stats.drawCalls);
         final published = await draw(candidate);
         expect(published.stats.admission!.candidateReady, isTrue);
+        expect(published.stats.profile!.executedMeshDraws, 1);
+        expect(published.stats.drawCalls, initial.stats.drawCalls);
         expect(published.stats.admission!.presentedIdentities.length, 2);
         expect(
           published.stats.uploadedBytes,

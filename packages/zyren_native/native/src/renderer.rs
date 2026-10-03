@@ -13,6 +13,7 @@ use glam::Mat4;
 use wgpu::util::DeviceExt;
 
 use crate::scene::{Frame, pixel_len};
+mod batching;
 mod composition;
 mod deformation;
 mod draw_cache;
@@ -62,6 +63,7 @@ struct GpuGeometry {
     key: crate::resources::registry::ResourceKey,
     recipe: std::sync::Arc<crate::scene::Geometry>,
     center: glam::Vec3,
+    bounds: batching::Bounds,
 }
 struct Targets {
     width: u32,
@@ -142,6 +144,7 @@ pub struct RendererState {
     gpu_timer: Option<timing::Timer>,
     profile: std::cell::RefCell<timing::Profile>,
     draw_cache: std::cell::RefCell<draw_cache::Cache>,
+    batches: batching::Batches,
     layout: wgpu::BindGroupLayout,
     pbr_layout: wgpu::BindGroupLayout,
     environment_defaults: environment::Defaults,
@@ -355,6 +358,7 @@ impl Renderer {
                 failure: None,
                 profile: Default::default(),
                 draw_cache: Default::default(),
+                batches: Default::default(),
                 last_gpu_time_ns: None,
                 diagnostic_readback_bytes: 0,
                 gpu_time_source: "unavailable",
@@ -607,6 +611,7 @@ impl Renderer {
         self.resources.stats()
     }
     pub fn close_scene_view(&mut self, view: u64) -> Result<(), String> {
+        self.close_batches(view)?;
         let keys = self.draw_cache.borrow_mut().remove(view);
         for key in keys {
             self.resources
@@ -843,6 +848,7 @@ impl Renderer {
                         key,
                         recipe: std::sync::Arc::new(geometry.clone()),
                         center: draw_order::geometry_center(geometry),
+                        bounds: batching::Bounds::geometry(geometry),
                         deformation_bounds: crate::deformation::SourceBounds::new(geometry),
                     },
                 );
@@ -892,8 +898,7 @@ impl Renderer {
                 frame,
                 outlines::FORMAT,
                 |id| !state.geometries[&id].recipe.tangents.is_empty(),
-                frame.sample_count(),
-                true,
+                (frame.sample_count(), true, &HashSet::new()),
             )?;
         }
         let geometries = &state.geometries;
@@ -909,8 +914,11 @@ impl Renderer {
                     frame,
                     format,
                     |id| !geometries[&id].recipe.tangents.is_empty(),
-                    samples,
-                    false,
+                    (
+                        samples,
+                        false,
+                        &state.batches.leaders.keys().copied().collect(),
+                    ),
                 )
                 .inspect_err(|error| state.failure = Some(error.clone()))?;
         }
@@ -918,6 +926,7 @@ impl Renderer {
     }
 
     pub(crate) fn begin_profile(&mut self) {
+        self.resources.pin_batch(false);
         *self.profile.borrow_mut() = timing::Profile {
             status: if self.failure.is_some() {
                 "failed"
@@ -935,9 +944,12 @@ impl Renderer {
     }
     #[cfg(target_vendor = "apple")]
     pub(crate) fn reject_frame(&mut self) {
+        self.resources.pin_batch(false);
         self.profile.borrow_mut().status = "failed";
     }
     pub(crate) fn fail_frame(&mut self, error: String) -> String {
+        self.resources.pin_batch(false);
+        let _ = self.clear_batches();
         self.clear_draw_cache();
         self.failure = Some(error.clone());
         self.last_gpu_time_ns = None;
@@ -1005,8 +1017,10 @@ impl Renderer {
                 .meshes
                 .iter()
                 .enumerate()
-                .map(|(index, mesh)| {
-                    if !mesh.color_visible
+                .map(|(index, source)| {
+                    let mesh = self.batches.leaders.get(&index).map_or(source, |b| &b.mesh);
+                    if self.batches.skipped.contains(&index)
+                        || !mesh.color_visible
                         || (capture && (mesh.transmissive() || mesh.alpha_mode == 2))
                     {
                         return None;
@@ -1111,7 +1125,7 @@ impl Renderer {
                         viewport: [
                             size[0] as f32,
                             size[1] as f32,
-                            if mesh.instances != 0 {
+                            if mesh.instances != 0 || self.batches.leaders.contains_key(&index) {
                                 mesh.side as f32
                             } else {
                                 0.
@@ -1199,6 +1213,14 @@ impl Renderer {
         }
         self.last_scene_draws.set(0);
         self.last_instance_draws.set(0);
+        {
+            let mut p = self.profile.borrow_mut();
+            p.executed_mesh_draws = Some(0);
+            p.opaque_batch_draws = Some(0);
+            p.batched_source_draws = Some(0);
+            p.pipeline_switches = Some(0);
+            p.bind_group_switches = Some(0);
+        }
         for (capture, mask) in [(true, false), (false, false), (false, true)] {
             if mask && self.outlines.view(frame).is_none() {
                 continue;
@@ -1214,6 +1236,12 @@ impl Renderer {
                 timing::Pass::Scene
             };
             self.begin_pass(&mut encoder, pass_kind);
+            self.profile
+                .borrow_mut()
+                .passes
+                .get_mut(timing::PASSES[pass_kind as usize])
+                .unwrap()
+                .draw_calls = Some(0);
             let (color_view, resolve_target, depth_view) = if capture {
                 let t = self.transmission.targets.as_ref().unwrap();
                 (&t.color, None, &t.depth)
@@ -1283,20 +1311,12 @@ impl Renderer {
                 }),
                 ..Default::default()
             });
-            let draws = draw_order::sorted(
-                frame,
-                |mesh| {
-                    if mesh.pose == 0 {
-                        self.geometries[&mesh.geometry].center
-                    } else {
-                        self.poses[&mesh.pose].center
-                    }
-                },
-                |id, index| {
-                    Mat4::from_cols_array(&self.instances[&id].recipe.transforms[index as usize])
-                },
-            );
-            for draw in draws {
+            let mut previous_pipeline = None;
+            let mut previous_bindings: [Option<&wgpu::BindGroup>; 4] = [None; 4];
+            for draw in &self.batches.order {
+                if self.batches.skipped.contains(&draw.mesh) {
+                    continue;
+                }
                 if mask && !frame.meshes[draw.mesh].outlined {
                     continue;
                 }
@@ -1308,8 +1328,9 @@ impl Renderer {
                 }
                 self.last_scene_draws.set(self.last_scene_draws.get() + 1);
                 let index = draw.mesh;
-                let mesh = &frame.meshes[index];
-                if mesh.instances != 0 {
+                let batch = self.batches.leaders.get(&index);
+                let mesh = batch.map_or(&frame.meshes[index], |b| &b.mesh);
+                if mesh.instances != 0 || batch.is_some() {
                     self.last_instance_draws
                         .set(self.last_instance_draws.get() + 1);
                 }
@@ -1318,18 +1339,56 @@ impl Renderer {
                 let geometry = &self.geometries[&mesh.geometry];
                 if let Some(material) = &materials[index] {
                     material.bind(&mut pass);
+                    *self
+                        .profile
+                        .borrow_mut()
+                        .bind_group_switches
+                        .as_mut()
+                        .unwrap() += material.bind_group_count();
+                    previous_pipeline = None;
+                    previous_bindings = [None; 4];
+                    *self
+                        .profile
+                        .borrow_mut()
+                        .pipeline_switches
+                        .as_mut()
+                        .unwrap() += 1;
                 } else {
-                    pass.set_pipeline(self.pipelines.get(pipelines::PipelineKey::new(
+                    let key = pipelines::PipelineKey::new(
                         format,
                         mesh,
                         !geometry.recipe.tangents.is_empty(),
                         samples,
                         mask,
-                    )));
+                    )
+                    .automatic(batch.is_some());
+                    if previous_pipeline != Some(key) {
+                        pass.set_pipeline(self.pipelines.get(key));
+                        previous_pipeline = Some(key);
+                        previous_bindings = [None; 4];
+                        *self
+                            .profile
+                            .borrow_mut()
+                            .pipeline_switches
+                            .as_mut()
+                            .unwrap() += 1;
+                    }
                 }
-                pass.set_bind_group(0, binding, &[]);
-                if let Some(physical) = &physical_bindings[index] {
-                    pass.set_bind_group(3, physical, &[]);
+                for (slot, binding) in [(0, Some(binding)), (3, physical_bindings[index].as_ref())]
+                {
+                    let Some(binding) = binding else {
+                        continue;
+                    };
+                    if previous_bindings[slot] != Some(binding) {
+                        pass.set_bind_group(slot as u32, binding, &[]);
+                        previous_bindings[slot] = Some(binding);
+                        *self
+                            .profile
+                            .borrow_mut()
+                            .bind_group_switches
+                            .as_mut()
+                            .unwrap() += 1;
+                    }
                 }
                 let (vertices, indices, count, uv, index_format) =
                     self.resources.geometry(geometry.key);
@@ -1375,7 +1434,16 @@ impl Renderer {
                 }
                 if let Some(binding) = texture_binding {
                     pass.set_vertex_buffer(1, uv.expect("validated UV buffer").slice(..));
-                    pass.set_bind_group(1, binding, &[]);
+                    if previous_bindings[1] != Some(binding) {
+                        pass.set_bind_group(1, binding, &[]);
+                        previous_bindings[1] = Some(binding);
+                        *self
+                            .profile
+                            .borrow_mut()
+                            .bind_group_switches
+                            .as_mut()
+                            .unwrap() += 1;
+                    }
                 }
                 if mesh.pbr.is_some()
                     && (texture_binding.is_some() || mesh.anisotropic())
@@ -1387,14 +1455,18 @@ impl Renderer {
                     );
                 }
                 pass.set_index_buffer(indices.slice(..), index_format);
-                if mesh.instances != 0 {
+                if mesh.instances != 0 || batch.is_some() {
                     let textured = mesh.texture_maps().next().is_some();
                     let tangent = (textured || mesh.anisotropic())
                         && mesh.pbr.is_some()
                         && !geometry.recipe.tangents.is_empty();
                     let buffer = self
                         .resources
-                        .graph_buffer(self.instances[&mesh.instances].key)
+                        .graph_buffer(if batch.is_some() {
+                            self.batches.key.unwrap()
+                        } else {
+                            self.instances[&mesh.instances].key
+                        })
                         .expect("validated instance buffer");
                     let slot = materials[index].as_ref().map_or(
                         1 + u32::from(textured)
@@ -1409,9 +1481,32 @@ impl Renderer {
                     pass.set_vertex_buffer(slot, buffer.slice(..));
                 }
                 if mesh.pose != 0 {
-                    pass.set_bind_group(2, &self.poses[&mesh.pose].binding, &[]);
+                    let binding = &self.poses[&mesh.pose].binding;
+                    if previous_bindings[2] != Some(binding) {
+                        pass.set_bind_group(2, binding, &[]);
+                        previous_bindings[2] = Some(binding);
+                        *self
+                            .profile
+                            .borrow_mut()
+                            .bind_group_switches
+                            .as_mut()
+                            .unwrap() += 1;
+                    }
                 }
-                pass.draw_indexed(0..count, 0, draw.instances);
+                let instances = batch.map_or_else(|| draw.instances.clone(), |b| b.range.clone());
+                pass.draw_indexed(0..count, 0, instances);
+                let mut profile = self.profile.borrow_mut();
+                *profile.executed_mesh_draws.as_mut().unwrap() += 1;
+                *profile
+                    .passes
+                    .get_mut(timing::PASSES[pass_kind as usize])
+                    .unwrap()
+                    .draw_calls
+                    .get_or_insert(0) += 1;
+                if let Some(batch) = batch {
+                    *profile.opaque_batch_draws.as_mut().unwrap() += 1;
+                    *profile.batched_source_draws.as_mut().unwrap() += batch.range.len() as u64;
+                }
             }
             drop(pass);
             self.end_pass(&mut encoder, pass_kind);
@@ -1441,6 +1536,7 @@ impl Renderer {
             .chain(self.instances.values().map(|i| i.key))
             .chain(self.poses.values().map(|p| p.key))
             .chain(self.draw_cache.borrow().keys())
+            .chain(self.batches.key)
             .chain(environment.resources.iter().copied())
             .chain(self.effect_resources.iter().copied())
             .chain(self.compositor.resized.iter().flat_map(|t| t.keys))
@@ -1585,7 +1681,6 @@ impl Renderer {
         self.prepare_frame_targets(frame, texture.format(), render_size, graph.as_ref(), true)?;
         self.prepare_transmission(frame, scene_format, render_size, graph.as_ref())?;
         self.prepare_scene(frame)?;
-        self.prepare_pipelines(frame, scene_format)?;
         self.outline_materials = if self.outlines.view(frame).is_some() {
             self.prepare_materials_in_format(
                 frame,
@@ -1600,6 +1695,8 @@ impl Renderer {
         let environment = environment.prepare(self, frame);
         let shadows = self.prepare_shadows(frame)?;
         self.prepare_temporal(frame, render_size)?;
+        self.prepare_batches(frame)?;
+        self.prepare_pipelines(frame, scene_format)?;
         self.commit_scene(frame)?;
         if initialized_depth.is_none()
             && self
@@ -1635,6 +1732,7 @@ impl Renderer {
             Some(prepare_started.elapsed().as_nanos() as u64);
         self.profile.borrow_mut().upload_bytes =
             self.resources.stats().1.saturating_sub(upload_before);
+        self.resources.pin_batch(true);
         let encode_started = std::time::Instant::now();
         let encoder = self.encode_frame(
             frame,
@@ -1757,7 +1855,6 @@ impl Renderer {
         )?;
         self.prepare_transmission(frame, scene_format, render_size, graph.as_ref())?;
         self.prepare_scene(frame)?;
-        self.prepare_pipelines(frame, scene_format)?;
         self.outline_materials = if self.outlines.view(frame).is_some() {
             self.prepare_materials_in_format(
                 frame,
@@ -1772,6 +1869,8 @@ impl Renderer {
         let environment = environment.prepare(self, frame);
         let shadows = self.prepare_shadows(frame)?;
         self.prepare_temporal(frame, render_size)?;
+        self.prepare_batches(frame)?;
+        self.prepare_pipelines(frame, scene_format)?;
         self.commit_scene(frame)?;
         self.resize(width, height);
         if depth {
@@ -1781,6 +1880,7 @@ impl Renderer {
             Some(prepare_started.elapsed().as_nanos() as u64);
         self.profile.borrow_mut().upload_bytes =
             self.resources.stats().1.saturating_sub(upload_before);
+        self.resources.pin_batch(true);
         let encode_started = std::time::Instant::now();
         self.sensor_depth_capture = depth;
         let target = self.targets.as_ref().unwrap();

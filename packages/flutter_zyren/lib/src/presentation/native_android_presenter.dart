@@ -311,8 +311,10 @@ class NativeAndroidBackend
         admission: _encoder.admission,
         gpuTime: profile.gpuTime,
         drawCalls:
-            submission.scene.drawCalls +
-            submission.scene.transmissionCaptureDraws +
+            profile.sceneDrawCalls(
+              submission.scene.drawCalls +
+                  submission.scene.transmissionCaptureDraws,
+            ) +
             (submission.temporalAA == null
                 ? 0
                 : submission.scene.temporalMotionDraws + 1) +

@@ -61,6 +61,8 @@ struct Telemetry {
 
 pub struct ResourceStore {
     registry: ResourceRegistry<Resource>,
+    optional_batch: Option<ResourceKey>,
+    batch_pinned: bool,
     serial: u64,
     uploaded: u64,
     pending: Option<wgpu::SubmissionIndex>,
@@ -77,6 +79,8 @@ impl Default for ResourceStore {
         let renderer = next_registry_id();
         Self {
             registry: ResourceRegistry::new(renderer, 1, MAX_RESIDENT_BYTES),
+            optional_batch: None,
+            batch_pinned: false,
             serial: 0,
             uploaded: 0,
             pending: None,
@@ -185,25 +189,56 @@ impl ResourceStore {
         }
         Ok(())
     }
+    pub(crate) fn register_batch(&mut self, key: Option<ResourceKey>) {
+        self.optional_batch = key;
+    }
+    pub(crate) fn pin_batch(&mut self, pinned: bool) {
+        self.batch_pinned = pinned;
+    }
+    pub(crate) fn batch_is_live(&self, key: ResourceKey) -> bool {
+        self.registry.references(key).is_ok_and(|n| n > 0)
+    }
+    pub(crate) fn release_batch(&mut self, key: ResourceKey) -> Result<(), ResourceError> {
+        if self.batch_is_live(key) {
+            self.release_scene_resource(key)?;
+        }
+        self.registry
+            .retire_completed(self.completed.load(Ordering::Acquire));
+        Ok(())
+    }
     pub(crate) fn check_scene_capacity(
-        &self,
+        &mut self,
         bytes: u64,
         count: usize,
     ) -> Result<(), ResourceError> {
-        self.registry.check_batch(bytes, count)
+        self.check_scene_capacity_after_release(bytes, count, &[])
     }
     pub(crate) fn check_scene_capacity_after_release(
-        &self,
+        &mut self,
         bytes: u64,
         count: usize,
         keys: &[ResourceKey],
     ) -> Result<(), ResourceError> {
-        self.registry.check_batch_after_release(
-            bytes,
-            count,
-            keys,
-            self.completed.load(Ordering::Acquire),
-        )
+        let completed = self.completed.load(Ordering::Acquire);
+        let original = self
+            .registry
+            .check_batch_after_release(bytes, count, keys, completed);
+        if original.is_ok() || self.batch_pinned {
+            return original;
+        }
+        let Some(key) = self
+            .optional_batch
+            .filter(|key| self.registry.uniquely_completed(*key, completed))
+        else {
+            return original;
+        };
+        let mut reclaimed = keys.to_vec();
+        reclaimed.push(key);
+        self.registry
+            .check_batch_after_release(bytes, count, &reclaimed, completed)?;
+        // Only the registry owns the optional buffer. Encoding borrows it while pinned.
+        self.release_batch(key)?;
+        Ok(())
     }
     pub(crate) fn insert_geometry(
         &mut self,
@@ -212,7 +247,7 @@ impl ResourceStore {
     ) -> Result<ResourceKey, ResourceError> {
         use wgpu::util::DeviceExt;
         let bytes = geometry.byte_length() as u64;
-        self.registry.check_capacity(bytes)?;
+        self.check_scene_capacity(bytes, 1)?;
         let mut vertices: Vec<[f32; 6]> = geometry
             .positions
             .iter()
@@ -424,7 +459,7 @@ impl ResourceStore {
         device: &wgpu::Device,
         size: u64,
     ) -> Result<(ResourceKey, wgpu::Buffer), ResourceError> {
-        self.registry.check_capacity(size)?;
+        self.check_scene_capacity(size, 1)?;
         let validation = device.push_error_scope(wgpu::ErrorFilter::Validation);
         let memory = device.push_error_scope(wgpu::ErrorFilter::OutOfMemory);
         let internal = device.push_error_scope(wgpu::ErrorFilter::Internal);
@@ -463,7 +498,7 @@ impl ResourceStore {
         if bytes > MAX_BYTES {
             return Err(ResourceError::BudgetExceeded);
         }
-        self.registry.check_capacity(bytes)?;
+        self.check_scene_capacity(bytes, 1)?;
         let validation = device.push_error_scope(wgpu::ErrorFilter::Validation);
         let memory = device.push_error_scope(wgpu::ErrorFilter::OutOfMemory);
         let internal = device.push_error_scope(wgpu::ErrorFilter::Internal);
@@ -505,7 +540,7 @@ impl ResourceStore {
     ) -> Result<ResourceKey, ResourceError> {
         let format = texture_format::require(device, image.format)?;
         let bytes = image.byte_length() as u64;
-        self.registry.check_capacity(bytes)?;
+        self.check_scene_capacity(bytes, 1)?;
         let validation = device.push_error_scope(wgpu::ErrorFilter::Validation);
         let memory = device.push_error_scope(wgpu::ErrorFilter::OutOfMemory);
         let internal = device.push_error_scope(wgpu::ErrorFilter::Internal);
@@ -589,6 +624,9 @@ impl ResourceStore {
         texture
     }
     pub(crate) fn release_scene_resource(&mut self, key: ResourceKey) -> Result<(), ResourceError> {
+        if self.optional_batch == Some(key) {
+            self.optional_batch = None;
+        }
         self.registry.release(key)
     }
     pub(crate) fn scene_submitted(
@@ -608,6 +646,7 @@ impl ResourceStore {
         Ok(())
     }
     pub(crate) fn scene_completed(&mut self) -> Result<(), ResourceError> {
+        self.batch_pinned = false;
         self.pending = None;
         self.completed.store(self.serial, Ordering::Release);
         self.observe_completed()
@@ -835,10 +874,10 @@ impl ResourceStore {
         }
         let body = match command.operation {
             Operation::CreateBuffer(d) => {
-                self.registry.check_capacity(d.size)?;
                 if d.size > device.limits().max_buffer_size {
                     return Err(ResourceError::InvalidRange);
                 }
+                self.check_scene_capacity(d.size, 1)?;
                 let flags = [
                     wgpu::BufferUsages::VERTEX,
                     wgpu::BufferUsages::INDEX,
@@ -869,7 +908,6 @@ impl ResourceStore {
             }
             Operation::CreateTexture(d) => {
                 let format = texture_format::require(device, d.format)?;
-                self.registry.check_capacity(d.byte_length())?;
                 let maximum = if d.dimension == 1 {
                     device.limits().max_texture_dimension_3d
                 } else {
@@ -878,6 +916,7 @@ impl ResourceStore {
                 if d.width > maximum || d.height > maximum || d.depth > maximum {
                     return Err(ResourceError::InvalidRange);
                 }
+                self.check_scene_capacity(d.byte_length(), 1)?;
                 let flags = [
                     wgpu::TextureUsages::TEXTURE_BINDING,
                     wgpu::TextureUsages::RENDER_ATTACHMENT,
@@ -1128,5 +1167,68 @@ mod telemetry_tests {
         store.telemetry.graph_gpu_samples = 1;
         assert_eq!(store.telemetry()["gpuTimeNs"], 100);
         assert_eq!(store.telemetry()["graphGpuTimeNs"], 100);
+    }
+}
+
+#[cfg(test)]
+mod batch_capacity_tests {
+    use super::*;
+    fn create(size: u64) -> Vec<u8> {
+        let body = [
+            size.to_le_bytes().as_slice(),
+            48_u32.to_le_bytes().as_slice(),
+            0_u32.to_le_bytes().as_slice(),
+        ]
+        .concat();
+        [
+            2_u32.to_le_bytes().as_slice(),
+            1_u32.to_le_bytes().as_slice(),
+            1_u64.to_le_bytes().as_slice(),
+            (body.len() as u64).to_le_bytes().as_slice(),
+            &body,
+        ]
+        .concat()
+    }
+    #[test]
+    #[ignore = "requires a native GPU"]
+    fn optional_batch_reclaim_obeys_complete_request_pin_and_submission_ownership() {
+        let renderer = pollster::block_on(crate::renderer::Renderer::new()).unwrap();
+        let mut store = ResourceStore::default();
+        store.registry.configure_limit(1024).unwrap();
+        let key = store
+            .insert_instance_values(&renderer.device, &[0.; 128])
+            .unwrap();
+        store.register_batch(Some(key));
+        store.pin_batch(true);
+        assert_eq!(
+            store.execute(&renderer.device, &renderer.queue, &create(768), 56),
+            Err(ResourceError::BudgetExceeded)
+        );
+        assert!(store.batch_is_live(key));
+        store.pin_batch(false);
+        assert_eq!(
+            store.execute(&renderer.device, &renderer.queue, &create(2048), 56),
+            Err(ResourceError::BudgetExceeded)
+        );
+        assert!(store.batch_is_live(key));
+        store.registry.retain(key).unwrap();
+        assert_eq!(
+            store.execute(&renderer.device, &renderer.queue, &create(768), 56),
+            Err(ResourceError::BudgetExceeded)
+        );
+        store.registry.release(key).unwrap();
+        store.registry.mark_used(key, 1).unwrap();
+        assert_eq!(
+            store.execute(&renderer.device, &renderer.queue, &create(768), 56),
+            Err(ResourceError::BudgetExceeded)
+        );
+        store.completed.store(1, Ordering::Release);
+        let reply = store
+            .execute(&renderer.device, &renderer.queue, &create(768), 56)
+            .unwrap();
+        assert_eq!(reply.len(), 56);
+        assert!(!store.batch_is_live(key));
+        assert_eq!(store.registry.resident_bytes(), 768);
+        assert!(store.optional_batch.is_none());
     }
 }

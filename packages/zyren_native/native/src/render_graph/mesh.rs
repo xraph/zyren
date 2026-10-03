@@ -89,6 +89,9 @@ pub(crate) struct PreparedMaterial {
     pub colored: bool,
 }
 impl PreparedMaterial {
+    pub(crate) fn bind_group_count(&self) -> u64 {
+        self.groups.iter().flatten().count() as u64
+    }
     pub fn bind(&self, pass: &mut wgpu::RenderPass<'_>) {
         pass.set_pipeline(&self.pipeline.native);
         for (index, group) in self.groups.iter().enumerate() {

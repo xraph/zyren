@@ -50,9 +50,6 @@ impl Renderer {
                 count += 1;
             }
         }
-        self.resources
-            .check_scene_capacity(reserved, count)
-            .map_err(|e| format!("candidate and published cover exceed resident capacity: {e}"))?;
         let mut actual = Vec::new();
         for geometry in &frame.geometries {
             geometry.validate()?;
@@ -129,6 +126,9 @@ impl Renderer {
         if bytes > 64 * 1024 * 1024 {
             return Err("staging upload exceeds frame budget".into());
         }
+        self.resources
+            .check_scene_capacity(reserved, count)
+            .map_err(|e| format!("candidate and published cover exceed resident capacity: {e}"))?;
         let mut owned = self
             .staging
             .get(&admission.view)
@@ -158,6 +158,7 @@ impl Renderer {
                         key,
                         recipe: std::sync::Arc::new(geometry.clone()),
                         center: draw_order::geometry_center(geometry),
+                        bounds: batching::Bounds::geometry(geometry),
                         deformation_bounds: crate::deformation::SourceBounds::new(geometry),
                     },
                 );

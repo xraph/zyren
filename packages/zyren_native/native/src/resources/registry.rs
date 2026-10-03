@@ -150,6 +150,10 @@ impl<T> ResourceRegistry<T> {
     pub fn references(&self, key: ResourceKey) -> Result<u32, ResourceError> {
         Ok(self.entry(key)?.references)
     }
+    pub(crate) fn uniquely_completed(&self, key: ResourceKey, completed: u64) -> bool {
+        self.entry(key)
+            .is_ok_and(|entry| entry.references == 1 && entry.last_submission <= completed)
+    }
     pub fn retain(&mut self, key: ResourceKey) -> Result<(), ResourceError> {
         let references = self
             .entry(key)?

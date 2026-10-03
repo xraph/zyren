@@ -11,15 +11,21 @@ impl ResourceStore {
         device: &wgpu::Device,
         instances: &Instances,
     ) -> Result<ResourceKey, ResourceError> {
-        let size = instances.byte_length() as u64;
-        self.registry.check_capacity(size)?;
+        self.insert_instance_values(device, &instances.gpu_values(0..instances.transforms.len()))
+    }
+    pub(crate) fn insert_instance_values(
+        &mut self,
+        device: &wgpu::Device,
+        values: &[f32],
+    ) -> Result<ResourceKey, ResourceError> {
+        let size = std::mem::size_of_val(values) as u64;
+        self.check_scene_capacity(size, 1)?;
         let validation = device.push_error_scope(wgpu::ErrorFilter::Validation);
         let memory = device.push_error_scope(wgpu::ErrorFilter::OutOfMemory);
         let internal = device.push_error_scope(wgpu::ErrorFilter::Internal);
-        let values = instances.gpu_values(0..instances.transforms.len());
         let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("mesh instances"),
-            contents: bytemuck::cast_slice(&values),
+            contents: bytemuck::cast_slice(values),
             usage: wgpu::BufferUsages::VERTEX
                 | wgpu::BufferUsages::COPY_SRC
                 | wgpu::BufferUsages::COPY_DST,
@@ -53,7 +59,7 @@ impl ResourceStore {
     ) -> Result<ResourceKey, ResourceError> {
         let size = instances.byte_length() as u64;
         if !reuse {
-            self.registry.check_capacity(size)?;
+            self.check_scene_capacity(size, 1)?;
         }
         let old = self.graph_buffer(base)?;
         if old.size() != size {

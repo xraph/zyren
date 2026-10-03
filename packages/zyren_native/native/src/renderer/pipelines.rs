@@ -22,6 +22,13 @@ pub(super) struct PipelineKey {
     depth_write: bool,
 }
 impl PipelineKey {
+    pub(super) fn automatic(mut self, enabled: bool) -> Self {
+        if enabled {
+            self.instanced = true;
+            self.mirrored = false;
+        }
+        self
+    }
     pub(super) fn new(
         format: wgpu::TextureFormat,
         mesh: &Mesh,
@@ -147,18 +154,15 @@ impl MeshPipelines {
         frame: &Frame,
         format: wgpu::TextureFormat,
         has_tangents: impl Fn(u32) -> bool,
-        samples: u32,
-        mask: bool,
+        options: (u32, bool, &std::collections::HashSet<usize>),
     ) -> Result<(), String> {
-        if frame.meshes.iter().all(|mesh| {
+        let (samples, mask, automatic) = options;
+        if frame.meshes.iter().enumerate().all(|(index, mesh)| {
             (mesh.shader.is_some() || mesh.material_shader.is_some())
-                || self.cache.contains_key(&PipelineKey::new(
-                    format,
-                    mesh,
-                    has_tangents(mesh.geometry),
-                    samples,
-                    mask,
-                ))
+                || self.cache.contains_key(
+                    &PipelineKey::new(format, mesh, has_tangents(mesh.geometry), samples, mask)
+                        .automatic(automatic.contains(&index)),
+                )
         }) {
             return Ok(());
         }
@@ -179,11 +183,12 @@ impl MeshPipelines {
         let validation = device.push_error_scope(wgpu::ErrorFilter::Validation);
         let memory = device.push_error_scope(wgpu::ErrorFilter::OutOfMemory);
         let internal = device.push_error_scope(wgpu::ErrorFilter::Internal);
-        for mesh in &frame.meshes {
+        for (index, mesh) in frame.meshes.iter().enumerate() {
             if mesh.shader.is_some() || mesh.material_shader.is_some() {
                 continue;
             }
-            let key = PipelineKey::new(format, mesh, has_tangents(mesh.geometry), samples, mask);
+            let key = PipelineKey::new(format, mesh, has_tangents(mesh.geometry), samples, mask)
+                .automatic(automatic.contains(&index));
             if key.physical_maps != 0 && !self.physical.contains_key(&key.physical_maps) {
                 self.physical.insert(
                     key.physical_maps,

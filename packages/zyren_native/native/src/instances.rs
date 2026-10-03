@@ -109,3 +109,23 @@ impl InstancePatch {
         Ok(next)
     }
 }
+
+/// Native batches use the same matrix layout without entering the packet ID map.
+pub(crate) fn transform_values(transforms: &[[f32; 16]]) -> Vec<f32> {
+    let mut values = Vec::with_capacity(transforms.len() * 32);
+    for transform in transforms {
+        let matrix = Mat4::from_cols_array(transform);
+        let normal = matrix.inverse().transpose();
+        values.extend_from_slice(transform);
+        values.extend_from_slice(&[
+            normal.x_axis.x,
+            normal.x_axis.y,
+            normal.x_axis.z,
+            matrix.determinant().signum(),
+        ]);
+        values.extend_from_slice(&[normal.y_axis.x, normal.y_axis.y, normal.y_axis.z, 0.]);
+        values.extend_from_slice(&[normal.z_axis.x, normal.z_axis.y, normal.z_axis.z, 0.]);
+        values.extend_from_slice(&[1.; 4]);
+    }
+    values
+}

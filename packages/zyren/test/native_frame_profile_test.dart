@@ -23,8 +23,14 @@ void main() {
         'drawCacheEntries': 6,
         'drawCacheUniformBytes': 1536,
         'uploadBytes': 1024,
+        'executedMeshDraws': 4,
+        'opaqueBatchDraws': 2,
+        'batchedSourceDraws': 20,
+        'pipelineSwitches': 3,
+        'bindGroupSwitches': 4,
+        'automaticInstanceUploadBytes': 2560,
         'passes': {
-          'scene': {'executed': true, 'gpuTimeNs': null},
+          'scene': {'executed': true, 'gpuTimeNs': null, 'drawCalls': 4},
           'transmission': {'executed': false, 'gpuTimeNs': null},
         },
         'resources': {'submissionCount': 4, 'gpuTimeNs': null},
@@ -32,8 +38,24 @@ void main() {
       final profile = NativeFrameProfile.fromJson(json);
       expect(profile.toJson(), json);
       expect(profile.drawUniformWriteBytes, 16);
+      expect(profile.sceneDrawCalls(20), 4);
+      expect(profile.passes['scene']!.drawCalls, 4);
+      expect(profile.automaticInstanceUploadBytes, 2560);
+      final outlined = Map<String, Object?>.of(json)
+        ..['passes'] = {
+          'outlines': {'executed': true, 'gpuTimeNs': null},
+        };
+      expect(NativeFrameProfile.fromJson(outlined).sceneDrawCalls(20), 5);
+      outlined['status'] = 'failed';
+      expect(NativeFrameProfile.fromJson(outlined).sceneDrawCalls(20), 20);
       final legacy = Map<String, Object?>.of(json);
       for (final key in [
+        'executedMeshDraws',
+        'opaqueBatchDraws',
+        'batchedSourceDraws',
+        'pipelineSwitches',
+        'bindGroupSwitches',
+        'automaticInstanceUploadBytes',
         'drawUniformReuses',
         'drawUniformWriteCalls',
         'drawUniformWriteBytes',
@@ -45,6 +67,8 @@ void main() {
       }
       final unknown = NativeFrameProfile.fromJson(legacy);
       expect(unknown.drawUniformWriteCalls, isNull);
+      expect(unknown.executedMeshDraws, isNull);
+      expect(unknown.sceneDrawCalls(20), 20);
       expect(unknown.drawCacheUniformBytes, isNull);
       expect(unknown.toJson(), legacy);
       expect(profile.gpuTime, const Duration(microseconds: 4567));

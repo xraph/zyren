@@ -13,7 +13,7 @@ impl ResourceStore {
         geometry: &Geometry,
     ) -> Result<ResourceKey, ResourceError> {
         let size = pose.byte_length() as u64;
-        self.registry.check_capacity(size)?;
+        self.check_scene_capacity(size, 1)?;
         let validation = device.push_error_scope(wgpu::ErrorFilter::Validation);
         let memory = device.push_error_scope(wgpu::ErrorFilter::OutOfMemory);
         let internal = device.push_error_scope(wgpu::ErrorFilter::Internal);

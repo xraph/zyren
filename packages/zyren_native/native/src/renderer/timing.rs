@@ -66,6 +66,13 @@ pub(super) struct Profile {
     pub draw_uniform_skipped_writes: Option<u64>,
     pub draw_cache_entries: Option<u64>,
     pub draw_cache_uniform_bytes: Option<u64>,
+    pub draw_plan_reuses: Option<u64>,
+    pub executed_mesh_draws: Option<u64>,
+    pub opaque_batch_draws: Option<u64>,
+    pub batched_source_draws: Option<u64>,
+    pub pipeline_switches: Option<u64>,
+    pub bind_group_switches: Option<u64>,
+    pub automatic_instance_upload_bytes: Option<u64>,
     pub upload_bytes: u64,
     pub upload_backlog_bytes: u64,
     pub staged_bytes: u64,
@@ -75,6 +82,7 @@ pub(super) struct Profile {
 #[derive(Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct PassSample {
+    pub draw_calls: Option<u64>,
     pub executed: bool,
     pub gpu_time_ns: Option<u64>,
 }
@@ -98,6 +106,13 @@ impl Default for Profile {
             draw_uniform_skipped_writes: None,
             draw_cache_entries: None,
             draw_cache_uniform_bytes: None,
+            draw_plan_reuses: None,
+            executed_mesh_draws: None,
+            opaque_batch_draws: None,
+            batched_source_draws: None,
+            pipeline_switches: None,
+            bind_group_switches: None,
+            automatic_instance_upload_bytes: None,
             upload_bytes: 0,
             upload_backlog_bytes: 0,
             staged_bytes: 0,
@@ -108,6 +123,7 @@ impl Default for Profile {
                     (
                         name,
                         PassSample {
+                            draw_calls: None,
                             executed: false,
                             gpu_time_ns: None,
                         },

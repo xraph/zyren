@@ -4,6 +4,7 @@ import 'dart:typed_data';
 Map<String, Object> deviceInfoReply(
   Map arguments, {
   List<int> samples = const [1, 4],
+  int? executedMeshDraws,
 }) {
   final request =
       jsonDecode(
@@ -31,6 +32,7 @@ Map<String, Object> deviceInfoReply(
       'drawPreparationBindGroups': 0,
       'drawCacheReuses': null,
       'uploadBytes': 0,
+      'executedMeshDraws': ?executedMeshDraws,
       'passes': {
         'scene': {'executed': true, 'gpuTimeNs': null},
       },

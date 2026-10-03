@@ -200,6 +200,13 @@ final class GpuInspection {
 /// Resource counters are device-lifetime observations, independent of scene work.
 final class NativeFrameProfile {
   final String status, gpuTimeSource;
+  final int? drawPlanReuses,
+      executedMeshDraws,
+      opaqueBatchDraws,
+      batchedSourceDraws,
+      pipelineSwitches,
+      bindGroupSwitches,
+      automaticInstanceUploadBytes;
   final int? uploadBacklogBytes, stagedBytes;
   final int? drawUniformReuses,
       drawUniformWriteCalls,
@@ -221,7 +228,15 @@ final class NativeFrameProfile {
   final Map<String, NativePassTiming> passes;
   final Map<String, Object?> resources;
   NativeFrameProfile.fromJson(Map<String, Object?> json)
-    : drawUniformReuses = json['drawUniformReuses'] as int?,
+    : drawPlanReuses = json['drawPlanReuses'] as int?,
+      executedMeshDraws = json['executedMeshDraws'] as int?,
+      opaqueBatchDraws = json['opaqueBatchDraws'] as int?,
+      batchedSourceDraws = json['batchedSourceDraws'] as int?,
+      pipelineSwitches = json['pipelineSwitches'] as int?,
+      bindGroupSwitches = json['bindGroupSwitches'] as int?,
+      automaticInstanceUploadBytes =
+          json['automaticInstanceUploadBytes'] as int?,
+      drawUniformReuses = json['drawUniformReuses'] as int?,
       drawUniformWriteCalls = json['drawUniformWriteCalls'] as int?,
       drawUniformWriteBytes = json['drawUniformWriteBytes'] as int?,
       drawUniformSkippedWrites = json['drawUniformSkippedWrites'] as int?,
@@ -254,6 +269,13 @@ final class NativeFrameProfile {
         (json['resources'] as Map? ?? {}).cast<String, Object?>(),
       );
 
+  /// Actual scene, transmission and outline work, including the outline composite.
+  /// Older native runtimes keep the caller's packet estimate.
+  int sceneDrawCalls(int fallback) =>
+      status == 'complete' && executedMeshDraws != null
+      ? executedMeshDraws! + (passes['outlines']?.executed == true ? 1 : 0)
+      : fallback;
+
   /// Additional output draw when a retained graph uses its original size.
   int get resizeCompositeDraws =>
       passes['resizeComposite']?.executed == true ? 1 : 0;
@@ -261,6 +283,15 @@ final class NativeFrameProfile {
   Duration? get gpuTime =>
       gpuTimeNs == null ? null : Duration(microseconds: gpuTimeNs! ~/ 1000);
   Map<String, Object?> toJson() => {
+    if (drawPlanReuses != null) 'drawPlanReuses': drawPlanReuses,
+    if (executedMeshDraws != null) 'executedMeshDraws': executedMeshDraws,
+    if (opaqueBatchDraws != null) 'opaqueBatchDraws': opaqueBatchDraws,
+    if (batchedSourceDraws != null) 'batchedSourceDraws': batchedSourceDraws,
+    if (pipelineSwitches != null) 'pipelineSwitches': pipelineSwitches,
+    if (bindGroupSwitches != null) 'bindGroupSwitches': bindGroupSwitches,
+    if (automaticInstanceUploadBytes != null)
+      'automaticInstanceUploadBytes': automaticInstanceUploadBytes,
+
     if (drawUniformReuses != null) 'drawUniformReuses': drawUniformReuses,
     if (drawUniformWriteCalls != null)
       'drawUniformWriteCalls': drawUniformWriteCalls,
@@ -294,11 +325,14 @@ final class NativeFrameProfile {
 /// An absent pass has executed=false. An unmeasured executed pass stays null.
 final class NativePassTiming {
   final bool executed;
+  final int? drawCalls;
   final int? gpuTimeNs;
   NativePassTiming.fromJson(Map<String, Object?> json)
-    : executed = json['executed'] as bool,
+    : drawCalls = json['drawCalls'] as int?,
+      executed = json['executed'] as bool,
       gpuTimeNs = json['gpuTimeNs'] as int?;
   Map<String, Object?> toJson() => {
+    if (drawCalls != null) 'drawCalls': drawCalls,
     'executed': executed,
     'gpuTimeNs': gpuTimeNs,
   };
