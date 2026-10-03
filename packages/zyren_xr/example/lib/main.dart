@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_zyren/widgets.dart';
 import 'package:zyren_agents/zyren_agents.dart';
+import 'package:zyren/zyren.dart' as z;
 import 'package:zyren_xr/agents.dart';
 import 'package:zyren_xr/flutter.dart';
 
@@ -34,7 +35,16 @@ class _XrProbePageState extends State<XrProbePage> {
   XrCapabilities? _capabilities;
   XrAgentProvider? _provider;
   AgentRegistry? _registry;
-  Timer? _timer;
+  Timer? _timer, _renderTimer;
+  XrPresentationController? _presentation;
+  final _cube = z.Mesh(
+    z.BoxGeometry(width: .1, height: .1, depth: .1),
+    z.UnlitMaterial(color: const z.Color3(1, .45, .1)),
+  )..position = const z.Vec3(0, 0, -.5);
+  late final _scene = z.Scene()
+    ..background = null
+    ..backgroundOpacity = 0
+    ..add(_cube);
   bool _busy = false, _polling = false;
   String? _error, _lastAction;
   int _command = 0;
@@ -63,6 +73,21 @@ class _XrProbePageState extends State<XrProbePage> {
     }
     _session = session;
     await session.start();
+    if (_capabilities!.cameraPresentation && _presentation == null) {
+      final presenter = await XrPresentationController.create(
+        session: session,
+        transport: widget.transport,
+      );
+      if (!mounted || !identical(session, _session)) {
+        await presenter.close();
+        return;
+      }
+      setState(() => _presentation = presenter);
+      _renderTimer = Timer.periodic(
+        const Duration(milliseconds: 16),
+        (_) => _render(),
+      );
+    }
     if (!mounted) return;
     _registry ??= AgentRegistry(grantedScopes: {'xr.place'});
     if (_provider == null) {
@@ -92,6 +117,34 @@ class _XrProbePageState extends State<XrProbePage> {
       (_) => _poll(),
     );
     await _poll();
+  }
+
+  Future<void> _render() async {
+    final presenter = _presentation;
+    if (presenter == null ||
+        presenter.isRendering ||
+        _snapshot?.state != XrSessionState.running) {
+      return;
+    }
+    try {
+      final anchors = _snapshot?.frame?.anchors;
+      if (anchors != null && anchors.isNotEmpty) {
+        final pose = anchors.last.pose.matrix;
+        _cube.position = z.Vec3(pose[12], pose[13], pose[14]);
+      }
+      await presenter.render(_scene);
+    } on XrException catch (error) {
+      if (error.code == 'frameDeferred' ||
+          error.code == 'trackingUnavailable' ||
+          error.code == 'busy') {
+        return;
+      }
+      _renderTimer?.cancel();
+      if (mounted) setState(() => _error = '$error');
+    } catch (error) {
+      _renderTimer?.cancel();
+      if (mounted) setState(() => _error = '$error');
+    }
   }
 
   Future<void> _poll() async {
@@ -158,6 +211,12 @@ class _XrProbePageState extends State<XrProbePage> {
   Future<void> _release() async {
     _timer?.cancel();
     _timer = null;
+    _renderTimer?.cancel();
+    _renderTimer = null;
+    final presentation = _presentation;
+    _presentation = null;
+    await presentation?.close();
+    presentation?.dispose();
     _registry?.dispose();
     _registry = null;
     _provider?.dispose();
@@ -193,7 +252,7 @@ class _XrProbePageState extends State<XrProbePage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'ARKit tracking and agent placement. Camera presentation is unavailable.',
+              'ARKit camera and a 10 cm cube. Place an anchor to move the cube.',
             ),
             const SizedBox(height: 8),
             Wrap(
@@ -234,6 +293,18 @@ class _XrProbePageState extends State<XrProbePage> {
               ],
             ),
             if (_busy) const LinearProgressIndicator(),
+            if (_presentation != null) ...[
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 300,
+                width: double.infinity,
+                child: XrCameraView(controller: _presentation!),
+              ),
+              if (_presentation!.presentedCalibration case final calibration?)
+                Text(
+                  'Presented ${calibration.frameId} / ${calibration.pixelWidth} × ${calibration.pixelHeight} / revision ${calibration.revision}',
+                ),
+            ],
             if (_error != null)
               ZeroState(
                 title: 'XR request failed',

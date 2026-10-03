@@ -11,6 +11,6 @@ Pod::Spec.new do |s|
   s.dependency 'Flutter'
   s.platform = :ios, '14.0'
   s.swift_version = '5.0'
-  s.frameworks = 'ARKit', 'AVFoundation'
+  s.frameworks = 'ARKit', 'AVFoundation', 'Metal', 'QuartzCore', 'CoreVideo'
   s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES' }
 end

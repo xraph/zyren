@@ -3,3 +3,4 @@ library;
 
 export 'zyren_xr.dart';
 export 'src/flutter_transport.dart';
+export 'src/presentation.dart';

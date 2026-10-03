@@ -1,4 +1,4 @@
-/// Session data and lifecycle without Flutter or renderer imports.
+/// Session data and lifecycle without Flutter imports.
 library;
 
 export 'src/models.dart'
@@ -16,3 +16,5 @@ export 'src/models.dart'
         XrSnapshot,
         XrTrackingState;
 export 'src/session.dart';
+
+export 'src/calibration.dart';

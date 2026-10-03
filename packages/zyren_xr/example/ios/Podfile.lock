@@ -3,26 +3,20 @@ PODS:
   - flutter_zyren (0.1.0):
     - Flutter
     - FlutterMacOS
-  - zyren_xr (0.1.0):
-    - Flutter
 
 DEPENDENCIES:
   - Flutter (from `Flutter`)
   - flutter_zyren (from `.symlinks/plugins/flutter_zyren/darwin`)
-  - zyren_xr (from `.symlinks/plugins/zyren_xr/ios`)
 
 EXTERNAL SOURCES:
   Flutter:
     :path: Flutter
   flutter_zyren:
     :path: ".symlinks/plugins/flutter_zyren/darwin"
-  zyren_xr:
-    :path: ".symlinks/plugins/zyren_xr/ios"
 
 SPEC CHECKSUMS:
   Flutter: 71a624a5bc0c04062bf19101d501e466baf2fb47
   flutter_zyren: 4457d8bc9f87427e6211c0ccc36dc793fd968a89
-  zyren_xr: cd6cb74d0d8d0555840f2be593e5ee61e50e3d8a
 
 PODFILE CHECKSUM: 3ba3a73b1b12adcf321a227a745625fe0888cc82
 

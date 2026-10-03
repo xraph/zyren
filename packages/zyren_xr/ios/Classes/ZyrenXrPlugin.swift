@@ -7,6 +7,8 @@ public final class ZyrenXrPlugin: NSObject, FlutterPlugin, ARSessionDelegate {
     // All access occurs on the main queue, including ARSession delegate callbacks.
     // A second Flutter engine must not start a competing camera session.
     private static weak var owner: ZyrenXrPlugin?
+    private var presenter: XrMetalPresenter?
+    private var creatingPresenter = false
     private var session: ARSession?
     private var sessionId: String?
     private var state = "ready"
@@ -27,6 +29,7 @@ public final class ZyrenXrPlugin: NSObject, FlutterPlugin, ARSessionDelegate {
         registrar.addMethodCallDelegate(instance, channel: channel)
         // Publishing opts into detachFromEngine, including hot restart teardown.
         registrar.publish(instance)
+        registrar.register(XrMetalViewFactory(instance), withId: "dev.zyren.xr/metal.v1")
         instance.backgroundObserver = NotificationCenter.default.addObserver(
             forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main
         ) { [weak instance] _ in instance?.pause() }
@@ -73,16 +76,19 @@ public final class ZyrenXrPlugin: NSObject, FlutterPlugin, ARSessionDelegate {
         case "dispose":
             // A repeated disposal after release is harmless.
             if session == nil { result(nil); return }
-        case "start", "pause", "snapshot", "addAnchor", "removeAnchor": break
+        case "start", "pause", "snapshot", "addAnchor", "removeAnchor",
+             "createPresenter", "closePresenter", "acquireFrame", "cancelFrame", "presentFrame", "gpuCommand": break
         default: result(FlutterMethodNotImplemented); return
         }
         guard let id = args["sessionId"] as? String, id == sessionId, session != nil else {
             result(error("invalidSession", "The XR session has been released or replaced.")); return
         }
         switch call.method {
+        case "createPresenter", "closePresenter", "acquireFrame", "cancelFrame", "presentFrame", "gpuCommand":
+            presentation(call.method, args, result: result)
         case "start": start(args, result: result)
         case "pause": pause(); result(nil)
-        case "dispose": close(); result(nil)
+        case "dispose": close(result)
         case "snapshot": result(snapshot())
         case "addAnchor": addAnchor(args, result: result)
         case "removeAnchor":
@@ -92,8 +98,64 @@ public final class ZyrenXrPlugin: NSObject, FlutterPlugin, ARSessionDelegate {
                 result(error("unknownAnchor", "The anchor does not belong to this session.")); return
             }
             session?.remove(anchor: anchor)
+            presenter?.revoke()
             revision += 1
             result(nil)
+        default: result(FlutterMethodNotImplemented)
+        }
+    }
+
+    func attach(_ view: XrMetalView, presenterId: String) {
+        if presenter?.id == presenterId { presenter?.attach(view) }
+    }
+
+    private func presentation(_ method: String, _ args: [String: Any], result: @escaping FlutterResult) {
+        if method == "createPresenter" {
+            guard presenter == nil, !creatingPresenter, let token = args["runtime"] as? UInt64 else {
+                result(error("busy", "A camera presenter exists or the runtime token is missing.")); return
+            }
+            creatingPresenter = true
+            let owner = sessionId
+            XrMetalPresenter.create(token: token) { outcome in
+                self.creatingPresenter = false
+                switch outcome {
+                case .failure(let issue): result(XrMetalPresenter.error(issue))
+                case .success(let created):
+                    guard self.sessionId == owner, self.session != nil else {
+                        created.close { _ in result(self.error("disposed", "The session closed during presenter creation.")) }; return
+                    }
+                    self.presenter = created
+                    result(["presenterId": created.id])
+                }
+            }
+            return
+        }
+        guard let presenter = presenter, args["presenterId"] as? String == presenter.id else {
+            result(error("invalidPresenter", "The camera presenter has been released or replaced.")); return
+        }
+        switch method {
+        case "closePresenter": self.presenter = nil; presenter.close(result)
+        case "acquireFrame":
+            guard let frame = usableFrame(), ProcessInfo.processInfo.systemUptime - frame.timestamp < 0.5 else {
+                result(error("trackingUnavailable", "No fresh ARKit frame is available.")); return
+            }
+            do { result(try presenter.acquire(frame: frame, revision: revision,
+                near: args["near"] as? Double ?? 0.01, far: args["far"] as? Double ?? 1000)) }
+            catch { result(XrMetalPresenter.error(error)) }
+        case "cancelFrame": presenter.cancel(args["frameId"] as? Int ?? -1); result(nil)
+        case "presentFrame":
+            guard let data = args["packet"] as? FlutterStandardTypedData,
+                  let frameId = args["frameId"] as? Int, let expected = args["revision"] as? Int else {
+                result(error("invalidArguments", "A scene packet and camera lease are required.")); return
+            }
+            presenter.present(frameId: frameId, revision: expected, packet: data.data,
+                currentRevision: { [weak self] in self?.state == "running" ? self?.revision : nil }, completion: result)
+        case "gpuCommand":
+            guard let data = args["bytes"] as? FlutterStandardTypedData, let kind = args["kind"] as? String,
+                  let capacity = args["capacity"] as? Int else {
+                result(error("invalidArguments", "A GPU command is required.")); return
+            }
+            presenter.command(kind: kind, data: data.data, capacity: capacity, completion: result)
         default: result(FlutterMethodNotImplemented)
         }
     }
@@ -105,7 +167,7 @@ public final class ZyrenXrPlugin: NSObject, FlutterPlugin, ARSessionDelegate {
             "planeDetection": tracking, "anchors": tracking,
             "lightEstimation": tracking,
             "sceneDepthHardware": tracking && ARWorldTrackingConfiguration.supportsFrameSemantics(.sceneDepth),
-            "cameraPresentation": false, "depthOcclusion": false,
+            "cameraPresentation": tracking, "depthOcclusion": false,
             "cameraPermission": permissionName()
         ]
     }
@@ -135,8 +197,8 @@ public final class ZyrenXrPlugin: NSObject, FlutterPlugin, ARSessionDelegate {
               let reset = args["resetTracking"] as? Bool else {
             result(error("invalidArguments", "The session configuration is incomplete.")); return
         }
-        guard !camera, !depth else {
-            result(error("unsupportedFeature", "Camera presentation and depth occlusion require renderer integration.")); return
+        guard !depth else {
+            result(error("unsupportedFeature", "Depth occlusion is not available.")); return
         }
         guard state != "running" || reset else {
             result(error("invalidState", "Pause before reconfiguring, or explicitly reset tracking.")); return
@@ -148,6 +210,8 @@ public final class ZyrenXrPlugin: NSObject, FlutterPlugin, ARSessionDelegate {
         guard UIApplication.shared.applicationState == .active else {
             result(error("appInactive", "Start XR while the application is active.")); return
         }
+        _ = camera
+        presenter?.revoke()
         let configuration = ARWorldTrackingConfiguration()
         configuration.worldAlignment = .gravity
         configuration.isLightEstimationEnabled = light
@@ -206,10 +270,13 @@ public final class ZyrenXrPlugin: NSObject, FlutterPlugin, ARSessionDelegate {
         cancelStart()
         session?.pause()
         if state != "failed" { state = "paused" }
+        presenter?.revoke()
         revision += 1
     }
 
-    private func close() {
+    private func close(_ completion: FlutterResult? = nil) {
+        let retiring = presenter
+        presenter = nil
         cancelStart()
         session?.delegate = nil
         session?.pause()
@@ -218,6 +285,8 @@ public final class ZyrenXrPlugin: NSObject, FlutterPlugin, ARSessionDelegate {
         appAnchors.removeAll()
         failure = nil
         if Self.owner === self { Self.owner = nil }
+        if let retiring = retiring { retiring.close { value in completion?(value) } }
+        else { completion?(nil) }
     }
 
     private func usableFrame() -> ARFrame? {
@@ -282,6 +351,7 @@ public final class ZyrenXrPlugin: NSObject, FlutterPlugin, ARSessionDelegate {
         let anchor = ARAnchor(transform: transform)
         appAnchors[anchor.identifier] = anchor
         session?.add(anchor: anchor)
+        presenter?.revoke()
         revision += 1
         result(["anchorId": anchor.identifier.uuidString])
     }
@@ -291,6 +361,7 @@ public final class ZyrenXrPlugin: NSObject, FlutterPlugin, ARSessionDelegate {
         cancelStart()
         session.pause()
         state = "failed"
+        presenter?.revoke()
         revision += 1
         let native = error as NSError
         failure = ["code": "nativeFailure", "message": native.localizedDescription,
@@ -300,6 +371,7 @@ public final class ZyrenXrPlugin: NSObject, FlutterPlugin, ARSessionDelegate {
     public func sessionWasInterrupted(_ session: ARSession) {
         guard session === self.session, state == "running" else { return }
         state = "interrupted"
+        presenter?.revoke()
         revision += 1
     }
 
@@ -308,6 +380,7 @@ public final class ZyrenXrPlugin: NSObject, FlutterPlugin, ARSessionDelegate {
         // Require the app to choose whether to resume its origin or reset it.
         session.pause()
         state = "paused"
+        presenter?.revoke()
         revision += 1
     }
 

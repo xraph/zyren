@@ -14,8 +14,9 @@ and clears the timer. Start again to create a fresh session.
 
 Place anchor uses the shared registry with the host's `xr.place` grant. It places
 an anchor half a metre along the sensor camera's forward axis. Undo removes it.
-This app has no camera compositing or virtual geometry, so those controls only
-verify native anchor state and command routing.
+The native camera view draws a 10 cm orange cube. Placement moves it to the latest
+anchor. The initial cube sits half a metre along the session origin's negative Z
+axis, so it may leave the view as you move.
 
 You can run the physical probe with:
 
@@ -28,6 +29,12 @@ checks capability reporting, tracking, shared provider inspection, placement,
 undo, pause and release. It does not qualify planes, lighting accuracy, rendered
 alignment, depth occlusion, screen raycasts or live MCP. Read the workstream plan
 for those remaining checks.
+
+Use `integration_test/presentation_test.dart` for the camera path. It requests
+portrait and landscape orientations, renders 30 frames in each, resizes the view,
+checks native readback and lease counters, then pauses and releases the session.
+You still need a visual alignment check against real surfaces on both iPhone and
+iPad. A passing synthetic or build check does not establish that alignment.
 
 For CPU checks, run `flutter test --no-pub test`. These tests use a transport
 fixture to check the rendered layout at 320 and 1100 logical pixels; they do not

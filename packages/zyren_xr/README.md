@@ -2,8 +2,8 @@
 
 Use `zyren_xr` to run an ARKit world-tracking session and inspect its camera pose,
 tracking quality, local anchors, planes and ambient light. You'll need a physical
-ARKit device and iOS 14 or later. This checkpoint compiles for iOS; physical XR
-behavior still needs qualification.
+ARKit device and iOS 14 or later. The Metal camera path compiles for iOS; physical camera alignment and lifecycle
+behavior still need qualification on iPhone and iPad.
 
 ```dart
 import 'package:zyren_xr/flutter.dart';
@@ -84,17 +84,68 @@ Unregister the provider before calling its `dispose`. Then dispose the session
 when its owner closes. The provider does not own the camera session and never
 opens an MCP listener; the shared devtools transport belongs to the host.
 
+## Camera presentation
+
+Create an `XrPresentationController` after starting the session, then mount its
+`XrCameraView`. Request frames when your UI needs them. Only one frame can be in
+flight, so skip a request while `isRendering` is true.
+
+```dart
+import 'package:zyren/zyren.dart';
+import 'package:zyren_xr/flutter.dart';
+
+final presenter = await XrPresentationController.create(session: session);
+final scene = Scene()
+  ..background = null
+  ..backgroundOpacity = 0
+  ..add(Mesh(BoxGeometry(width: .1, height: .1, depth: .1), UnlitMaterial())
+    ..position = const Vec3(0, 0, -.5));
+// Mount XrCameraView(controller: presenter) in your Flutter layout first.
+final calibration = await presenter.render(scene);
+print('${calibration.frameId}: ${calibration.pixelWidth} x ${calibration.pixelHeight}');
+// When the view closes, await presenter.close() before session.dispose().
+```
+
+The controller acquires an ARFrame and its viewport projection together. Its
+camera uses the view's interface orientation, crop and pixel dimensions. Supply
+`sceneFromSession` when your scene has another rigid origin; scale and shear are
+rejected because ARKit positions and the clipping range use metres.
+
+`presentedCalibration` updates after native rendering and presentation succeed.
+It includes the frame ID, timestamp, session revision, viewport epoch, projection,
+camera pose, display transform, logical dimensions and DPR. You can use it to
+correlate your view metadata with the presented image. `diagnostics` reports the
+native renderer's readback counter and the camera lease limits. These values are
+null before the first successful presentation. You can also use `gpu` for scoped
+resources, shader compilation and native GPU inspection.
+
+The iOS adapter imports the captured Y and CbCr planes through CVMetalTextureCache,
+converts full or video range with the image's YCbCr matrix, and applies ARKit's
+inverse display transform. It retains the ARFrame and both texture wrappers until
+GPU work finishes. Camera pixels stay native. The scene renders into an sRGB Metal
+texture on the existing Zyren runtime's device, then the compositor blends the
+virtual color with the camera. Resource commands and rendering share one serial
+queue. Pause, resize, interruption and disposal reject obsolete leases.
+
+Both CocoaPods and Swift Package Manager use the same Swift sources. The SPM
+manifest links the FlutterFramework dependency supplied by the Flutter tool.
+
 ## Current limits
 
-Camera presentation and depth occlusion report false. Requesting either as a
-required feature fails explicitly. `sceneDepthHardware` only reports hardware
-support; this plugin does not deliver depth buffers yet.
+`cameraPresentation` reports ARKit support. `depthOcclusion` remains false, and
+requiring depth fails explicitly. `sceneDepthHardware` reports hardware support;
+this camera API does not deliver depth buffers. Use transparent scenes without
+screen effects. The color path supports 8-bit bi-planar SDR images and rejects
+unsupported image formats or YCbCr matrices. HDR camera transfer and wide-gamut
+color qualification remain outside this implementation.
 
-Camera compositing needs Metal image-plane import, YCbCr conversion, calibrated
-projection and GPU lifetime synchronization. Depth needs an aligned depth and
-confidence pass. ARCore's Vulkan adapter and OpenXR remain planned. Native
-rendering stays Metal, Vulkan or DX12.
+The CPU tests verify camera transforms and controller failure handling. A synthetic
+Metal test checks YCbCr range and alpha composition on macOS. Neither establishes
+physical camera alignment, iPhone/iPad lifecycle behavior, or visual quality.
+Run `example/integration_test/presentation_test.dart` on each device, then check
+portrait and landscape alignment against real surfaces. The existing session probe
+covers tracking and agent commands. Depth occlusion, screen raycasts, ARCore's
+Vulkan adapter and OpenXR remain separate work.
 
-Run the diagnostic app in `example` when a physical iPhone is free. See the
-[workstream plan](../../plans/zyren-plugins/xr.md) for device checks, renderer
-dependencies and the complete backlog. This package is not published.
+See the [workstream plan](../../plans/zyren-plugins/xr.md) for remaining device
+checks and renderer dependencies. This package is not published.
