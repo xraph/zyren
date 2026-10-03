@@ -133,6 +133,8 @@ class StudioAgentPanelState extends State<StudioAgentPanel> {
     if (mounted) setState(() {});
   }
 
+  Future<void> openSettings() => _settings();
+
   Future<void> _settings() async {
     if (running) return;
     final result = await showDialog<AgentModelConfiguration>(
@@ -287,12 +289,20 @@ class StudioAgentPanelState extends State<StudioAgentPanel> {
               IconButton(
                 tooltip: 'Attached tools',
                 onPressed: _tools,
-                icon: const Icon(Icons.extension_outlined, size: 17),
+                icon: const Icon(
+                  Icons.extension_outlined,
+                  size: 17,
+                  semanticLabel: 'Attached tools',
+                ),
               ),
               IconButton(
                 tooltip: 'Agent settings',
                 onPressed: running ? null : _settings,
-                icon: const Icon(Icons.settings_outlined, size: 17),
+                icon: const Icon(
+                  Icons.settings_outlined,
+                  size: 17,
+                  semanticLabel: 'Agent settings',
+                ),
               ),
               IconButton(
                 tooltip: 'New conversation',
@@ -303,7 +313,11 @@ class StudioAgentPanelState extends State<StudioAgentPanel> {
                         events.clear();
                         status = 'New conversation';
                       }),
-                icon: const Icon(Icons.add_comment_outlined, size: 17),
+                icon: const Icon(
+                  Icons.add_comment_outlined,
+                  size: 17,
+                  semanticLabel: 'New conversation',
+                ),
               ),
             ],
           ),
@@ -412,6 +426,7 @@ class StudioAgentPanelState extends State<StudioAgentPanel> {
                 onPressed: running ? _stop : _send,
                 icon: Icon(
                   running ? Icons.stop_circle_outlined : Icons.arrow_upward,
+                  semanticLabel: running ? 'Stop agent' : 'Send request',
                 ),
               ),
             ],
@@ -489,7 +504,7 @@ class _AgentSettingsState extends State<_AgentSettings> {
                 const SizedBox(height: 14),
               ],
               DropdownButtonFormField<AgentModelProtocol>(
-                  isExpanded: true,
+                isExpanded: true,
                 initialValue: protocol,
                 decoration: const InputDecoration(labelText: 'LLM protocol'),
                 items: const [

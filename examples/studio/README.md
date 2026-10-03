@@ -12,6 +12,23 @@ The Android and iOS runners use the same editor. Select a connected device with
 and a development profile for `dev.zyren.zyrenStudioExample`.
 There is no browser renderer.
 
+## Workspace
+
+The default editor now uses the compact dockable workspace. Scene, Assets,
+Inspector, Agent, Animation and Plugins share the side rail. Drag a panel header
+to an edge, or use its docking menu to move it left, right or below the viewport.
+Drag dividers to resize. Close a panel to give the viewport more room; its rail
+button restores it. Reset layout restores the default arrangement.
+
+Docking preserves the native viewport and agent conversation. Narrow windows
+use a horizontal panel switcher and one bottom panel. Studio settings includes
+System, Light and Dark appearance and your model connection. Layout changes
+currently last for the open editor session.
+
+The Plugins panel lists the actual registry and each provider's available tools.
+Imported glTF instances publish node and clip inspection automatically. Reimport,
+undo and redo retire obsolete model registrations and bind the current instances.
+
 ## Editing
 
 Pick an object in the viewport or inspector. Its native gizmo moves, rotates or
@@ -128,4 +145,5 @@ The Attached tools control shows what is actually registered.
 
 See [workflow coverage](AGENT_WORKFLOW.md) for plugin bindings, protocol checks,
 character limitations and the future morphing extension path. The separate
-`lib/mock/main.dart` remains a design study; the working agent is in `lib/main.dart`.
+`lib/mock/main.dart` remains a design study; the integrated workspace and working
+agent are in `lib/main.dart`.

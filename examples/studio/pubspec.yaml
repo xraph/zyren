@@ -7,6 +7,8 @@ environment:
   sdk: '>=3.10.0 <4.0.0'
 dependencies:
   crypto: ^3.0.7
+  zyren_gltf_timeline:
+    path: ../../packages/zyren_gltf_timeline
   zyren_pipeline:
     path: ../../packages/zyren_pipeline
   file_selector: ^1.1.0

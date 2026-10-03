@@ -1,8 +1,9 @@
 # Studio agent workflow
 
-Open `lib/main.dart` for the working native editor. The Agent tab uses a real
-model connection and the same domain commands as the editor. The separate
-layout mock remains available at `lib/mock/main.dart`.
+Open `lib/main.dart` for the dockable native editor. The Agent panel uses your
+model connection and the same domain commands as the editor. Moving or hiding
+the panel retains its conversation. The Plugins panel lists live registrations.
+The earlier design study remains available at `lib/mock/main.dart`.
 
 ## Runtime path
 
@@ -36,6 +37,7 @@ Replies arrive per model step; token streaming is not implemented.
 | --- | --- | --- |
 | Scene selection, transforms, undo and redo | `StudioAgentProvider` | Existing registry and editor tests |
 | Materials, prefabs, visibility, authored clips | `StudioAuthoringAgentProvider` | Existing authoring tests |
+| Imported glTF nodes and clips | `StudioModelBindings` and `ModelAnimationAgentProvider` | Real GLB inspection, reimport retirement and undo rebinding |
 | Asset pins and diagnostics | `StudioAssetsAgentProvider` | Existing real GLB import test |
 | Primitive modeling and character blockouts | `StudioModelingAgentProvider` | Round-trip, atomicity, undo/redo and native character creation |
 | Persistence | `StudioPersistenceAgentProvider` | Native reviewed save and reload |
@@ -55,7 +57,7 @@ They are **not live-qualified Studio integrations** in this change.
 | Domain | Host binding still needed |
 | --- | --- |
 | Characters and locomotion | Imported clips, rig/motor, pose ownership and command/history gateway |
-| glTF animation | Imported model instance and animation timeline |
+| glTF animation playback | Node and clip inspection is bound; imported playback still needs isolated pose ownership |
 | Physics | Attached physics world, bodies and native simulation ownership |
 | Particles | Active emitters and particle controller |
 | Audio | Audio engine, loaded sources and playback ownership |
@@ -81,6 +83,12 @@ Each entry declares host-granted scopes and an attach callback. The callback can
 attach runtime plugins with `context.usePlugin`, register providers with
 `context.register`, and retain cleanup registrations with `context.keep`.
 It receives the active `StudioScene`, availability check and change notification.
+Studio stages provider registrations and attaches their binding after the declared
+runtime plugins. Failed engine attachment rolls back those registrations. Detach
+and recovery retire old identities, and recovery publishes fresh registrations.
+A disposed provider lease also retires an active registration immediately. Host
+resources close after the controller drains its native work. Duplicate plugin IDs
+are rejected before adding any plugins from that extension.
 Use public APIs and bind to authored IDs. Do not keep object references across a
 structural reconstruction without re-resolving them.
 
@@ -117,10 +125,15 @@ fvm flutter test --no-pub examples/studio/test
 fvm dart tool/check_package_boundaries.dart
 ```
 
-The core suite passed 51 tests before the additional engine lifecycle test; that
-lifecycle test also passed. All 11 Studio tests passed, including configuration,
-review and actual modeling calls at 1280, 396 and 328 logical pixels. The macOS
-debug build and package-boundary checks passed.
+The docked editor passes 12 Studio tests, including configuration, review and
+actual modeling calls at 1280, 396 and 328 logical pixels. Dock/hide/narrow tests
+check panel and viewport identity. Four extension lifecycle tests cover failed attachment rollback, deferred
+registration, recovery, immediate lease retirement and cleanup failure draining.
+The imported GLB test checks inspection, stale provider retirement and rebinding.
+The macOS debug build and package boundaries passed. A native Metal session
+verified the loaded scene, desktop and compact workspace layouts, docking and
+appearance switching. The narrow 396 px and 328 px checks use widget tests;
+other native devices have not been checked for the redesigned shell.
 
 A native macOS Metal session used an explicitly labeled local protocol fixture
 to discover providers across two pages, inspect modeling tools, review character

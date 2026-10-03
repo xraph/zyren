@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:zyren_studio_example/studio_model_bindings.dart';
 import 'package:flutter_zyren/flutter_zyren.dart';
 import 'package:zyren_engineering/zyren_engineering.dart';
 import 'package:zyren_agents/zyren_agents.dart';
@@ -49,6 +50,20 @@ void main() {
         instanceId: 'assets',
       );
       registry.register(provider);
+      final bindings = StudioModelBindings(scene, registry)..synchronize();
+      addTearDown(bindings.dispose);
+      Map modelProvider() => (registry.discover()['providers'] as List)
+          .cast<Map>()
+          .singleWhere((p) => p['providerId'] == 'zyren.gltf-animation');
+      final firstBinding = modelProvider();
+      final rig = await registry.call(
+        providerId: 'zyren.gltf-animation',
+        instanceId: firstBinding['instanceId'] as String,
+        tool: 'inspect',
+        arguments: {'collection': 'nodes'},
+      );
+      expect(rig.status, AgentStatus.ok);
+      expect(rig.data['total'], greaterThan(0));
       expect(
         await AgentConformance.checkRead(
           registry: registry,
@@ -103,6 +118,18 @@ void main() {
       final next = saved.copyWith(assets: [updated]);
       await scope.prepare(next, assets);
       scene.apply(next);
+      bindings.synchronize();
+      expect(
+        modelProvider()['registrationId'],
+        isNot(firstBinding['registrationId']),
+      );
+      final retired = await registry.call(
+        providerId: 'zyren.gltf-animation',
+        instanceId: firstBinding['instanceId'] as String,
+        tool: 'inspect',
+        arguments: {'collection': 'nodes'},
+      );
+      expect(retired.status, AgentStatus.unavailable);
       expect(scene.objects.keys, ['model']);
       expect(
         scene.capture().review.annotations['note']!.objectId,
@@ -113,6 +140,8 @@ void main() {
         'Keep this source note',
       );
       expect(scene.undo(), isTrue);
+      bindings.synchronize();
+      expect(modelProvider(), isNotNull);
       expect(scene.capture().assets.single.reference, asset.reference);
       expect(scene.redo(), isTrue);
       expect(scene.capture().assets.single.reference, updated.reference);
