@@ -14,7 +14,11 @@ void _environmentMain(Map<String, Object?> config) {
     runId: config['run'] as String,
     environmentId: config['env'] as String,
     purpose: TrainingSplit.values.byName(config['purpose'] as String),
-    scenarios: {'native-body': nativeBodyScenario(), ...taskScenarioCatalog()},
+    scenarios: {
+      'native-body': nativeBodyScenario(),
+      ...taskScenarioCatalog(),
+      ...evaluationScenarioCatalog(),
+    },
   );
   final endpoint = LocalTrainingEndpoint(environment);
   parent.send(receive.sendPort);
@@ -158,15 +162,21 @@ final class _IsolateEndpoint implements TrainingEnvironmentEndpoint {
 }
 
 Future<void> runTrainingWorker(List<String> args) async {
-  if (args.contains('--scenario-specs')) {
+  if (args.contains('--scenario-specs') ||
+      args.contains('--evaluation-specs')) {
+    final evaluation = args.contains('--evaluation-specs');
+    final catalog = evaluation
+        ? evaluationScenarioCatalog()
+        : taskScenarioCatalog();
     final env = GameTrainingEnvironment(
       runId: 'scenario-specs',
       environmentId: 'scenario-specs',
-      scenarios: taskScenarioCatalog(),
+      purpose: evaluation ? TrainingSplit.test : TrainingSplit.training,
+      scenarios: catalog,
     );
     try {
       final specs = <Object?>[];
-      for (final id in taskScenarioCatalog().keys) {
+      for (final id in catalog.keys) {
         specs.add(
           (await env.reset(seed: 7, scenario: id)).info['scenario_spec'],
         );

@@ -96,3 +96,22 @@ controller/animation state snapshots are not qualified. Model and optimizer
 steps continue; environment and recurrent state reset. Numerical reproduction
 of an uninterrupted trajectory is not claimed. A CPU smoke run proves the
 training path, not policy quality, exported-model parity or device gameplay.
+
+## Held-out evaluation
+
+You can run the selected evaluation plan against verified guard and vehicle checkpoints:
+
+```sh
+zyren-train evaluate --plan configs/evaluation.yaml \
+  --worker /absolute/path/to/prepared/train_worker --cwd /absolute/path/to/training_worker \
+  --guard-config /absolute/path/to/guard-config.json --guard-run /absolute/path/to/guard-run \
+  --vehicle-config /absolute/path/to/vehicle-config.json --vehicle-run /absolute/path/to/vehicle-run \
+  --output /new/learned-evaluation.json --baseline-output /new/scripted-evaluation.json \
+  --comparison-output /new/comparison.json
+```
+
+The plan pins the prepared executable, copied native libraries, full test scenarios and fixed episode seeds. Select it before evaluating. A rebuilt worker changes the plan hash; earlier receipts retain their embedded plan. You must not move test scenarios or observations into training data.
+
+Every requested slot remains in the report, including failed and cancelled episodes. Reward and physical task success have separate aggregates. The release gate requires 200 episodes per family across at least 20 layout seeds, guard success of 90% with a Wilson lower bound of 85%, vehicle success of 95% with a lower bound of 90%, and vehicle collisions in at most 2% of requested episodes. Paired hidden worlds, reward exploit checks and the listed stress distributions must all run. Missing evidence fails the gate.
+
+Delayed sensor receipts and missed decisions use the shared fallback without advancing recurrent state. Evaluation runs the real Rapier, character motor and ray-wheel vehicle paths. It does not initialize a renderer. A failed quality receipt cannot authorize model activation, even when every episode completed and unit tests passed.

@@ -38,7 +38,34 @@ def main(argv=None):
     configure=commands.add_parser('configure')
     configure.add_argument('--template',type=Path,required=True); configure.add_argument('--worker',required=True)
     configure.add_argument('--output',type=Path,required=True)
+    evaluation=commands.add_parser('evaluate')
+    evaluation.add_argument('--plan',type=Path,required=True);evaluation.add_argument('--worker',required=True)
+    evaluation.add_argument('--cwd',type=Path,required=True);evaluation.add_argument('--guard-config',type=Path,required=True)
+    evaluation.add_argument('--guard-run',type=Path,required=True);evaluation.add_argument('--vehicle-config',type=Path,required=True)
+    evaluation.add_argument('--vehicle-run',type=Path,required=True);evaluation.add_argument('--output',type=Path,required=True)
+    evaluation.add_argument('--baseline-output',type=Path,required=True);evaluation.add_argument('--comparison-output',type=Path,required=True)
     args = parser.parse_args(argv)
+    if args.command=='evaluate':
+        import signal,torch
+        from .evaluate import EvaluationPlan,FamilyCandidate,StructuredCandidate,ScriptedCandidate,PreparedEvaluationWorker,evaluate,compare_baseline
+        from .train import TrainingConfig
+        from .scenario import canonical_bytes
+        torch.set_num_threads(1);plan=EvaluationPlan.load(args.plan)
+        candidate=FamilyCandidate({'guard':StructuredCandidate(TrainingConfig.load(args.guard_config),args.guard_run),'vehicle':StructuredCandidate(TrainingConfig.load(args.vehicle_config),args.vehicle_run)})
+        factory=PreparedEvaluationWorker([str(Path(args.worker).resolve())],args.cwd,plan)
+        stop=[False];prior={}
+        def request_stop(signum,frame):stop[0]=True
+        for signum in (signal.SIGINT,signal.SIGTERM):prior[signum]=signal.signal(signum,request_stop)
+        try:
+            report=evaluate(candidate,plan,factory,cancelled=lambda:stop[0]);report.write(args.output)
+            baseline=evaluate(ScriptedCandidate(),plan,factory,cancelled=lambda:stop[0]);baseline.write(args.baseline_output)
+            comparison=compare_baseline(report,baseline)
+            args.comparison_output.parent.mkdir(parents=True,exist_ok=True)
+            with args.comparison_output.open('xb') as stream:stream.write(canonical_bytes(comparison))
+            print(json.dumps({'status':report.data['status'],'report_hash':report.hash,'baseline_report_hash':baseline.hash,'comparison':comparison},indent=2))
+        finally:
+            for signum,handler in prior.items():signal.signal(signum,handler)
+        return
     if args.command=='configure':
         from .train import TrainingConfig,worker_native_hashes
         data=decode_json_bytes(args.template.read_bytes())

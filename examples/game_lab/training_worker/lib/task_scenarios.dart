@@ -37,19 +37,34 @@ CompiledGameProject _project(
   fixedHz: 50,
 );
 
-PhysicsBody _box(PhysicsWorld world, Vec3 center, Vec3 half) =>
-    world.createBody(
-      kind: BodyKind.fixed,
-      pose: PhysicsPose(position: center),
-    )..addCollider(BoxShape(half));
+PhysicsBody _box(
+  PhysicsWorld world,
+  Vec3 center,
+  Vec3 half, {
+  double friction = .5,
+  Set<int>? capture,
+}) {
+  final body = world.createBody(
+    kind: BodyKind.fixed,
+    pose: PhysicsPose(position: center),
+  );
+  final collider = body.addCollider(BoxShape(half), friction: friction);
+  capture?.add(collider.id);
+  return body;
+}
 
 /// Pursuit becomes investigation after an authored opaque wall closes sight.
 GameTrainingScenario guardScenario({
   String id = 'guard',
   String stage = 'occlusion',
+  TrainingSplit split = TrainingSplit.training,
+  bool heldOut = false,
+  double targetSpeed = 0,
+  int occluderTick = 61,
+  double? hiddenTargetX,
 }) => GameTrainingScenario(
   id: id,
-  split: TrainingSplit.training,
+  split: split,
   maxSteps: 240,
   create: (seed, episode) async {
     final world = PhysicsWorld(fixedStep: .02);
@@ -61,7 +76,15 @@ GameTrainingScenario guardScenario({
     Registration? connection, registration;
     ScriptedBrain? brain;
     try {
-      _box(world, const Vec3(0, -.5, 0), const Vec3(20, .5, 20));
+      final ground = <int>{};
+      final friction = heldOut ? .35 + (seed % 7) * .05 : .5;
+      _box(
+        world,
+        const Vec3(0, -.5, 0),
+        const Vec3(20, .5, 20),
+        friction: friction,
+        capture: ground,
+      );
       final source = await assets.load(Gltf.asset('skin.gltf')).result;
       final model = source.instantiate(nativeDeformation: false);
       final scene = Scene(), root = Group();
@@ -85,9 +108,14 @@ GameTrainingScenario guardScenario({
           pose: PhysicsPose(position: const Vec3(-2, .6, 3)),
         )..addCollider(const BoxShape(Vec3(.4, .6, .4)));
       }
+      final targetOrigin = Vec3(
+        hiddenTargetX ?? (heldOut ? (seed % 5 - 2) * .5 : 0),
+        .81,
+        heldOut ? 6 + (seed % 7) * .1 : 6,
+      );
       final targetBody = world.createBody(
-        kind: BodyKind.fixed,
-        pose: PhysicsPose(position: const Vec3(0, .81, 6)),
+        kind: targetSpeed == 0 ? BodyKind.fixed : BodyKind.kinematicPosition,
+        pose: PhysicsPose(position: targetOrigin),
       );
       final targetCollider = targetBody.addCollider(const SphereShape(.25));
       final timeline = SceneTimelinePlugin.mixed(
@@ -207,10 +235,23 @@ GameTrainingScenario guardScenario({
       Map<String, Float32List> observe() {
         // Occluder placement is a registered scenario event, not a policy input.
         if ((stage == 'occlusion' || stage == 'task-combinations') &&
-            owner.session.tick >= 61 &&
+            owner.session.tick >= occluderTick &&
             wall == null) {
-          wall = _box(world, const Vec3(0, 1, 4), const Vec3(2, 1, .15));
+          wall = _box(
+            world,
+            Vec3(0, 1, hiddenTargetX == null ? 4 : 2),
+            Vec3(hiddenTargetX == null ? 2 : 12, 1, .15),
+          );
           // The wall metadata defaults to blocking through the authored opaque profile.
+        }
+        if (targetSpeed != 0) {
+          targetBody.setTarget(
+            PhysicsPose(
+              position:
+                  targetOrigin +
+                  Vec3(0, 0, targetSpeed * owner.session.tick * .02),
+            ),
+          );
         }
         hazard?.setTarget(
           PhysicsPose(
@@ -306,6 +347,7 @@ GameTrainingScenario guardScenario({
         owner.session.project.buildId,
         assembler.spec.hash,
         decoder.spec.hash,
+        partition: split.name == 'training' ? 'train' : split.name,
         assets: [
           {
             'id': 'guard-skin',
@@ -316,9 +358,14 @@ GameTrainingScenario guardScenario({
         ],
         settings: {
           'map': 'guard-arena-v1',
-          'occluder_tick': 61,
+          'occluder_tick': occluderTick,
           'fixed_hz': 50,
           if (id != 'guard') 'curriculum_stage': stage,
+          if (heldOut) 'held_out_layout': 'guard-evaluation-v1',
+          if (heldOut) 'friction_range': [.35, .65],
+          if (heldOut) 'target_offset_domain': [-1.0, 1.0],
+          if (targetSpeed != 0) 'target_speed': targetSpeed,
+          'hidden_target_x': ?hiddenTargetX,
         },
       );
       return GameTrainingInstance(
@@ -358,6 +405,12 @@ GameTrainingScenario guardScenario({
           'delay_ticks': 1,
           'reward_terms': {'task.progress': progress},
           'task_mode': mode,
+          'collision':
+              motor.lastMovement?.contacts.any(
+                (contact) => !ground.contains(contact.collider),
+              ) ??
+              false,
+          'physics_friction': friction,
           'physics_position': body.state.pose.position.storage,
           'physics_backend': 'rapier',
           'renderer': null,
@@ -401,9 +454,11 @@ final class _TaskCommands extends GameSystem {
 GameTrainingScenario vehicleScenario({
   String id = 'vehicle',
   String stage = 'static-obstacles',
+  TrainingSplit split = TrainingSplit.training,
+  bool heldOut = false,
 }) => GameTrainingScenario(
   id: id,
-  split: TrainingSplit.training,
+  split: split,
   maxSteps: 240,
   create: (seed, episode) async {
     final world = PhysicsWorld(fixedStep: .02);
@@ -411,9 +466,18 @@ GameTrainingScenario vehicleScenario({
     ScriptedBrain? brain;
     GameVehicleRegistration? registration;
     try {
-      _box(world, const Vec3(0, -.1, 0), const Vec3(100, .1, 100));
+      final ground = <int>{};
+      final friction = heldOut ? .35 + (seed % 7) * .05 : .5;
+      final barrierZ = heldOut ? 11 + (seed % 5) * .5 : 12.0;
+      _box(
+        world,
+        const Vec3(0, -.1, 0),
+        const Vec3(100, .1, 100),
+        friction: friction,
+        capture: ground,
+      );
       if (stage != 'empty-arena') {
-        _box(world, const Vec3(0, .5, 12), const Vec3(2, .5, .25));
+        _box(world, Vec3(0, .5, barrierZ), const Vec3(2, .5, .25));
       }
       if (stage == 'occlusion' || stage == 'task-combinations') {
         _box(world, const Vec3(2, 1, 8), const Vec3(.25, 1, 2));
@@ -434,7 +498,10 @@ GameTrainingScenario vehicleScenario({
         angularDamping: .15,
         ccd: true,
       );
-      body.addCollider(const BoxShape(Vec3(.8, .25, 1.2)), density: 0);
+      final chassis = body.addCollider(
+        const BoxShape(Vec3(.8, .25, 1.2)),
+        density: 0,
+      );
       final definition = VehicleDefinition(
         wheels: [
           for (final x in [-.7, .7])
@@ -446,10 +513,22 @@ GameTrainingScenario vehicleScenario({
               ),
         ],
       );
+      var collision = false;
       final physics = PhysicsPlugin(
         world: world,
         externallyDriven: true,
         interpolate: false,
+        onEvents: (events) {
+          collision |= events.any(
+            (event) =>
+                event.kind == 'collision' &&
+                event.started &&
+                (event.collider1 == chassis.id ||
+                    event.collider2 == chassis.id) &&
+                !ground.contains(event.collider1) &&
+                !ground.contains(event.collider2),
+          );
+        },
       );
       final vehicles = GameVehicleSystem(world: world, physics: physics);
       final commands = _TaskCommands();
@@ -562,6 +641,7 @@ GameTrainingScenario vehicleScenario({
         owner.session.project.buildId,
         assembler.spec.hash,
         decoder.spec.hash,
+        partition: split.name == 'training' ? 'train' : split.name,
         assets: [
           {
             'id': 'ray-wheel-buggy',
@@ -578,6 +658,9 @@ GameTrainingScenario vehicleScenario({
           'brake_from_tick': 160,
           'fixed_hz': 50,
           if (id != 'vehicle') 'curriculum_stage': stage,
+          if (heldOut) 'held_out_layout': 'vehicle-evaluation-v1',
+          if (heldOut) 'friction_range': [.35, .65],
+          if (heldOut) 'barrier_z_domain': [11.0, 13.0],
         },
       );
       return GameTrainingInstance(
@@ -619,6 +702,8 @@ GameTrainingScenario vehicleScenario({
           'observation_schema': assembler.spec.toJson(),
           'action_schema': decoder.spec.toJson(),
           'vehicle_speed': controller.telemetry.velocity.length,
+          'collision': collision,
+          'physics_friction': friction,
           'grounded_wheels': controller.telemetry.groundedWheels,
         },
       );
@@ -640,10 +725,11 @@ Map<String, Object?> _scenarioSpec(
   String action, {
   required List<Map<String, Object?>> assets,
   required Map<String, Object?> settings,
+  String partition = 'train',
 }) => {
   'schema_version': 1,
   'id': id,
-  'partition': 'train',
+  'partition': partition,
   'game_build_hash': build,
   'observation_schema_hash': observation,
   'action_schema_hash': action,
@@ -676,4 +762,44 @@ Map<String, GameTrainingScenario> taskScenarioCatalog() => {
     'guard-$stage': guardScenario(id: 'guard-$stage', stage: stage),
   for (final stage in trainingCurriculumStages)
     'vehicle-$stage': vehicleScenario(id: 'vehicle-$stage', stage: stage),
+};
+
+Map<String, GameTrainingScenario> evaluationScenarioCatalog() => {
+  'guard-evaluation': guardScenario(
+    id: 'guard-evaluation',
+    split: TrainingSplit.test,
+    heldOut: true,
+  ),
+  'guard-memory': guardScenario(
+    id: 'guard-memory',
+    split: TrainingSplit.test,
+    heldOut: true,
+    targetSpeed: .3,
+    occluderTick: 41,
+  ),
+  'vehicle-evaluation': vehicleScenario(
+    id: 'vehicle-evaluation',
+    split: TrainingSplit.test,
+    heldOut: true,
+  ),
+  'vehicle-recovery': vehicleScenario(
+    id: 'vehicle-recovery',
+    split: TrainingSplit.test,
+    heldOut: true,
+    stage: 'task-combinations',
+  ),
+  'guard-paired-left': guardScenario(
+    id: 'guard-paired-left',
+    split: TrainingSplit.test,
+    heldOut: true,
+    hiddenTargetX: -3,
+    occluderTick: 0,
+  ),
+  'guard-paired-right': guardScenario(
+    id: 'guard-paired-right',
+    split: TrainingSplit.test,
+    heldOut: true,
+    hiddenTargetX: 3,
+    occluderTick: 0,
+  ),
 };
