@@ -12,5 +12,17 @@ dependencies:
     path: ../zyren_game
   zyren_physics:
     path: ../zyren_physics
+  zyren_characters:
+    path: ../zyren_characters
+  zyren_interaction:
+    path: ../zyren_interaction
+  zyren_navigation:
+    path: ../zyren_navigation
+  zyren_timeline:
+    path: ../zyren_timeline
 dev_dependencies:
+  zyren_gltf:
+    path: ../zyren_gltf
+  zyren_gltf_timeline:
+    path: ../zyren_gltf_timeline
   test: ^1.29.0

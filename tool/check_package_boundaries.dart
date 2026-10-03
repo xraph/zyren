@@ -9,7 +9,7 @@ void main(List<String> args) {
     'packages/flutter_zyren_studio': {'flutter_zyren_studio', 'flutter', 'flutter_zyren', 'zyren', 'zyren_studio', 'zyren_agents'},
     'packages/zyren_ml': {'zyren_ml', 'ffi', 'crypto', 'zyren_agents'},
     'packages/zyren_game': {'zyren_game', 'zyren', 'zyren_agents'},
-    'packages/zyren_game_native': {'zyren_game_native', 'zyren_game', 'zyren_physics', 'zyren'},
+    'packages/zyren_game_native': {'zyren_game_native', 'zyren_game', 'zyren_physics', 'zyren', 'zyren_characters', 'zyren_interaction', 'zyren_navigation', 'zyren_timeline'},
     'packages/zyren_studio': {'zyren_studio', 'zyren', 'zyren_agents', 'zyren_tools', 'zyren_timeline', 'zyren_engineering'},
     'packages/zyren_scientific': {'zyren_scientific', 'zyren', 'zyren_agents', 'zyren_timeline'},
     'packages/zyren_pipeline': {
