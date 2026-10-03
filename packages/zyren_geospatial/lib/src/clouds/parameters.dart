@@ -193,6 +193,14 @@ final class CloudParameters {
   /// Multiplies every active layer's density. One preserves the layer defaults.
   /// Zero removes layer extinction; coverage, altitude and haze stay separate.
   final double densityMultiplier;
+
+  /// Reduces weather coverage: zero keeps [coverage], one clears the layers.
+  /// Layer density coefficients, altitude and haze stay unchanged.
+  final double sparsity;
+
+  /// Weather coverage after applying [sparsity].
+  double get effectiveCoverage => coverage * (1 - sparsity);
+
   final double coverage,
       scatteringCoefficient,
       absorptionCoefficient,
@@ -211,6 +219,7 @@ final class CloudParameters {
     CloudLayers? layers,
     this.coverage = .3,
     this.densityMultiplier = 1,
+    this.sparsity = 0,
     this.scatteringCoefficient = 1,
     this.absorptionCoefficient = 0,
     this.turbulenceDisplacement = 350,
@@ -227,6 +236,7 @@ final class CloudParameters {
   }) : layers = layers ?? CloudLayers.defaults() {
     _range(coverage, 0, 1, 'coverage');
     _range(densityMultiplier, 0, 100, 'densityMultiplier');
+    _range(sparsity, 0, 1, 'sparsity');
     _range(scatteringCoefficient, 0, 100, 'scatteringCoefficient');
     _range(absorptionCoefficient, 0, 100, 'absorptionCoefficient');
     _range(turbulenceDisplacement, 0, 100000, 'turbulenceDisplacement');
@@ -259,6 +269,7 @@ final class CloudParameters {
     CloudLayers? layers,
     double? coverage,
     double? densityMultiplier,
+    double? sparsity,
     double? scatteringCoefficient,
     double? absorptionCoefficient,
     double? turbulenceDisplacement,
@@ -276,6 +287,7 @@ final class CloudParameters {
     layers: layers ?? this.layers,
     coverage: coverage ?? this.coverage,
     densityMultiplier: densityMultiplier ?? this.densityMultiplier,
+    sparsity: sparsity ?? this.sparsity,
     scatteringCoefficient: scatteringCoefficient ?? this.scatteringCoefficient,
     absorptionCoefficient: absorptionCoefficient ?? this.absorptionCoefficient,
     turbulenceDisplacement:

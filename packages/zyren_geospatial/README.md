@@ -353,12 +353,19 @@ relative density, altitude and coverage. The default is 1; 0 removes layer
 extinction. Values from 0 through 100 are accepted. Cloud rendering and cloud
 shadows share this multiplier; the separate haze settings stay unchanged.
 
+Use `CloudParameters.sparsity` to reduce how much of the sky has clouds. You can
+set it from 0 to 1: 0 keeps your base coverage, and 1 clears the cloud layers.
+The renderer uses `effectiveCoverage`, calculated as `coverage * (1 - sparsity)`,
+for both clouds and their shadows. Layer density coefficients and haze stay
+unchanged. The default is 0, so existing presets keep their coverage.
+
 You can pause weather, shape and detail motion with `animationEnabled: false`
 when you create the plugin, or change it on the attached controller:
 
 ```dart
 layer.controller.parameters = layer.controller.parameters.copyWith(
   densityMultiplier: .5,
+  sparsity: .5,
 );
 layer.controller.animationEnabled = false;
 // Resume from the frozen cloud position with the same velocities.

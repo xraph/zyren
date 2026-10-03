@@ -217,6 +217,34 @@ ${cloudMediaMathWgsl(CloudQuality.forPreset(CloudQualityPreset.high))}
         print(
           'Cloud media max error $maxMediaError; structured ECEF plane offset max error $maxPlaneError m',
         );
+        int occupied(ByteData data) => [
+          for (var n = 0; n < samples.length; n++)
+            for (var layer = 0; layer < 4; layer++)
+              data.getFloat32((n * 24 + 6 + layer) * 4, Endian.little),
+        ].where((density) => density > 1e-6).length;
+        final originalCount = occupied(result);
+        expect(originalCount, greaterThan(0));
+        for (final sparsity in [.5, 1.0, 0.0]) {
+          await owner.resources.writeBuffer(
+            uniform,
+            cloudMediaUniforms(
+              referenceParameters().copyWith(sparsity: sparsity),
+              CloudAppearance(),
+            ),
+          );
+          await graph.execute();
+          final reduced = ByteData.sublistView(
+            await owner.resources.readBuffer(output),
+          );
+          final count = occupied(reduced);
+          if (sparsity == 1) {
+            expect(count, 0);
+          } else if (sparsity == 0) {
+            expect(count, originalCount);
+          } else {
+            expect(count, inExclusiveRange(0, originalCount));
+          }
+        }
       } finally {
         await owner.close();
         expect((await backend.resourceStats()).residentBytes, 0);

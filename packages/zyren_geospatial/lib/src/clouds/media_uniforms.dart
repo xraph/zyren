@@ -35,7 +35,7 @@ Float32List cloudMediaUniforms(
     p.localWeatherOffset.$1 + p.localWeatherVelocity.$1 * elapsed,
     p.localWeatherOffset.$2 + p.localWeatherVelocity.$2 * elapsed,
     ...p.shapeRepeat.storage,
-    p.coverage,
+    p.effectiveCoverage,
     ...(p.shapeOffset + p.shapeVelocity * elapsed).storage,
     p.scatteringCoefficient,
     ...p.shapeDetailRepeat.storage,

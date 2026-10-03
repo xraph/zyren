@@ -90,6 +90,11 @@ void main() {
               : math.pow((value / 255 + .055) / 1.055, 2.4).toDouble();
           expect(linear(shadow[0]), lessThan(linear(lit[0]) * .5));
           expect(shadow[3], 255);
+          clouds.controller.parameters = uniformClouds(1).copyWith(sparsity: 1);
+          final cleared = await render();
+          expect(cleared[0], closeTo(lit[0], 2));
+          expect(cleared[3], 255);
+          clouds.controller.parameters = uniformClouds(1);
           final beforeOff = (await backend.resourceStats()).residentBytes;
           await clouds.controller.setQualitySettings(
             CloudQualitySettings(

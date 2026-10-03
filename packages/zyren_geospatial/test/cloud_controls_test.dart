@@ -9,6 +9,42 @@ import 'aerial_perspective_test.dart' show center;
 
 void main() {
   test(
+    'sparsity reduces preset coverage independently of density and motion',
+    () {
+      final original = CloudParameters(
+        coverage: .6,
+        densityMultiplier: .25,
+        localWeatherVelocity: (.001, -.002),
+      );
+      expect(original.sparsity, 0);
+      expect(original.effectiveCoverage, .6);
+      final sparse = original.copyWith(sparsity: .75);
+      expect(sparse.coverage, .6);
+      expect(sparse.effectiveCoverage, closeTo(.15, 1e-8));
+      expect(
+        sparse.copyWith(coverage: .4).effectiveCoverage,
+        closeTo(.1, 1e-8),
+      );
+      expect(sparse.copyWith(densityMultiplier: .5).sparsity, .75);
+      expect(identical(original.layers, sparse.layers), isTrue);
+      final before = cloudMediaUniforms(
+        original,
+        CloudAppearance(),
+        elapsed: 4,
+      );
+      final after = cloudMediaUniforms(sparse, CloudAppearance(), elapsed: 4);
+      for (var i = 0; i < before.length; i++) {
+        expect(after[i], closeTo(before[i] * (i == 67 ? .25 : 1), 1e-7));
+      }
+      expect(original.copyWith(sparsity: 1).effectiveCoverage, 0);
+      expect(CloudParameters(coverage: 0, sparsity: .5).effectiveCoverage, 0);
+      for (final invalid in [-.01, 1.01, double.nan, double.infinity]) {
+        expect(() => original.copyWith(sparsity: invalid), throwsArgumentError);
+      }
+    },
+  );
+
+  test(
     'density reduction preserves layer proportions, coverage and motion',
     () {
       final original = CloudParameters(
@@ -163,6 +199,15 @@ void main() {
         }
         expect(demand, 0);
         expect(cloud.controller.animationElapsed, frozen);
+        cloud.controller.parameters = cloud.controller.parameters.copyWith(
+          densityMultiplier: .4,
+          sparsity: 1,
+        );
+        expect(demand, 1);
+        for (var i = 0; i < 16; i++) {
+          expect(center(await render()), [0, 0, 0, 0]);
+        }
+        expect(demand, 0);
         await cloud.controller.setQualitySettings(
           CloudQualitySettings(
             preset: CloudQualityPreset.medium,
@@ -171,7 +216,12 @@ void main() {
           ),
         );
         expect(cloud.controller.animationEnabled, false);
-        expect(cloud.controller.parameters.densityMultiplier, 0);
+        expect(cloud.controller.parameters.densityMultiplier, .4);
+        expect(cloud.controller.parameters.sparsity, 1);
+        cloud.controller.parameters = cloud.controller.parameters.copyWith(
+          sparsity: 0,
+        );
+        expect(center(await render())[3], greaterThan(0));
         milliseconds += 60000;
         cloud.controller.animationEnabled = true;
         expect(demand, 1);
