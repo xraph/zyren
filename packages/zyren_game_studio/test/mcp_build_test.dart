@@ -35,7 +35,7 @@ void main() {
         extensionRegistry: StudioExtensionRegistry()..register(authoring.codec),
       );
       final registry = AgentRegistry(
-        grantedScopes: {'studio.edit', 'game.build'},
+        grantedScopes: {'studio.edit', 'game.read', 'game.build'},
       );
       final target = File('${directory.path}/exports/mcp.zygame');
       final builds = GameBuildCommands(

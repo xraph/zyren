@@ -56,6 +56,7 @@ final class GameStudioAgentProvider extends AgentProvider {
     for (final name in ['inspect', 'jobs'])
       AgentTool(
         name: name,
+        requiredScopes: {'game.read'},
         description:
             'Inspect game build validation, pins, capabilities and host output.',
         inputSchema: const {

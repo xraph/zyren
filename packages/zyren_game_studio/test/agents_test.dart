@@ -34,7 +34,28 @@ void main() {
           publishes++;
         },
       );
-      final registry = AgentRegistry(grantedScopes: {'game.build'});
+      final noReadRegistry = AgentRegistry(grantedScopes: {'game.build'});
+      final noRead = GameStudioAgentProvider(
+        commands: commands(),
+        instanceId: 'denied',
+      );
+      final noReadLease = noRead.attach(noReadRegistry);
+      for (final tool in ['inspect', 'jobs']) {
+        final result = await noReadRegistry.call(
+          providerId: noRead.id,
+          instanceId: noRead.instanceId,
+          tool: tool,
+        );
+        expect(result.status, AgentStatus.denied);
+        expect(result.data, isEmpty);
+      }
+      expect(noRead.commands.jobs, isEmpty);
+      noReadLease.dispose();
+      await noRead.commands.close();
+      noReadRegistry.dispose();
+      final registry = AgentRegistry(
+        grantedScopes: {'game.read', 'game.build'},
+      );
       final first = GameStudioAgentProvider(
         commands: commands(),
         instanceId: 'tools',
@@ -94,6 +115,30 @@ void main() {
       expect(started.status, AgentStatus.ok, reason: started.message);
       await next.commands.jobs.single.done;
       expect(publishes, 1);
+      final longKey = List.filled(128, 'k').join();
+      final reviewedRevision = next.revision;
+      final longStarted = await registry.call(
+        providerId: next.id,
+        instanceId: next.instanceId,
+        tool: 'build',
+        expectedRevision: reviewedRevision,
+        idempotencyKey: longKey,
+        arguments: args,
+      );
+      expect(longStarted.status, AgentStatus.ok, reason: longStarted.message);
+      await next.commands.jobs.last.done;
+      final retried = await registry.call(
+        providerId: next.id,
+        instanceId: next.instanceId,
+        tool: 'build',
+        expectedRevision: reviewedRevision,
+        idempotencyKey: longKey,
+        arguments: args,
+      );
+      expect(retried.status, AgentStatus.ok, reason: retried.message);
+      expect(retried.data, longStarted.data);
+      expect(next.commands.jobs, hasLength(2));
+      expect(publishes, 2);
       secondLease.dispose();
       await next.commands.close();
       registry.dispose();
@@ -126,7 +171,7 @@ void main() {
         published = true;
       },
     );
-    final registry = AgentRegistry(grantedScopes: {'game.build'});
+    final registry = AgentRegistry(grantedScopes: {'game.read', 'game.build'});
     final provider = GameStudioAgentProvider(
       commands: commands,
       instanceId: 'tools',
