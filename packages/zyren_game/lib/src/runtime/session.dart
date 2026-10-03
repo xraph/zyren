@@ -4,6 +4,7 @@ part of '../../zyren_game.dart';
 final class GameSession {
   final CompiledGameProject project;
   final int seed;
+  final String levelId;
   final GameClock clock;
   final GameEntityTable entities;
   final GameCommandQueue<Object> commands;
@@ -13,6 +14,9 @@ final class GameSession {
   final Set<String> _removed = {};
   final Queue<void Function(GameSession)> _mutations = Queue();
   final Map<int, void Function()> _stateListeners = {};
+  final Map<String, GameStateCodec<Object>> _stateCodecs = {};
+  bool _restoring = false;
+  int _revision = 0;
   List<GameCommand<Object>> _currentCommands = const [];
   int _tick = 0, _epoch = 0, _listenerId = 0, _nextSystemStart = 0;
   bool _initialized = false,
@@ -24,10 +28,12 @@ final class GameSession {
   GameSession({
     required this.project,
     required this.seed,
+    String? levelId,
     int? fixedHz,
     int maxCatchUpSteps = 8,
     List<GameSystem> systems = const [],
-  }) : clock = GameClock(
+  }) : levelId = levelId ?? project.project.startupLevel,
+       clock = GameClock(
          fixedHz: fixedHz ?? project.fixedHz,
          maxCatchUpSteps: maxCatchUpSteps,
        ),
@@ -35,6 +41,9 @@ final class GameSession {
        commands = GameCommandQueue(limits: project.project.registry.limits),
        events = GameEventBus(),
        _systems = _orderSystems(systems) {
+    if (!project.levels.any((l) => l.id == this.levelId)) {
+      throw StateError('Session level is missing.');
+    }
     if (clock.fixedHz != project.fixedHz) {
       throw ArgumentError(
         'Session and compiled project fixed rates must match.',
@@ -49,6 +58,7 @@ final class GameSession {
     }
   }
   int get tick => _tick;
+  int get revision => _revision;
   int get epoch => _epoch;
   int get fixedHz => clock.fixedHz;
   double get stepSeconds => clock.stepSeconds;
@@ -68,12 +78,14 @@ final class GameSession {
   }
 
   void _notify() {
+    _revision++;
     for (final id in _stateListeners.keys.toList()) {
       _stateListeners[id]?.call();
     }
   }
 
   void _requireOpen() {
+    if (_restoring) throw StateError('Session is staging a restore.');
     if (_closed) throw StateError('Session is closed.');
     if (_fault != null) throw StateError('Session has failed: $_fault');
   }
@@ -103,9 +115,7 @@ final class GameSession {
   void _start() {
     if (!_initialized) {
       _initialized = true;
-      final level = project.levels.singleWhere(
-        (l) => l.id == project.project.startupLevel,
-      );
+      final level = project.levels.singleWhere((l) => l.id == levelId);
       for (final entity in level.entities) {
         entities.spawn(entity.id, components: entity.components);
       }
@@ -169,6 +179,8 @@ final class GameSession {
 
   /// Invalidates asynchronous decisions without changing the simulation tick.
   void invalidatePending() {
+    if (_restoring) throw StateError('Session is staging a restore.');
+    _revision++;
     _epoch++;
     commands.clear();
     _mutations.clear();
@@ -222,6 +234,7 @@ final class GameSession {
   }
 
   Future<void> close() {
+    if (_restoring) throw StateError('Session is staging a restore.');
     if (_closing case final closing?) return closing;
     _closed = true;
     invalidatePending();
@@ -238,6 +251,7 @@ final class GameSession {
         }
       }
       _started.clear();
+      _stateCodecs.clear();
       events.close();
       for (final entity in entities.entities) {
         entities.despawn(entity.handle);
@@ -251,5 +265,200 @@ final class GameSession {
         Error.throwWithStackTrace(firstError, firstStack!);
       }
     });
+  }
+
+  GameEventSubscription registerStateCodec(GameStateCodec<Object> codec) {
+    _requireOpen();
+    _id(codec.id);
+    if (codec.version < 1 ||
+        _stateCodecs.containsKey(codec.id) ||
+        _stateCodecs.length >= 256) {
+      throw StateError('Invalid or duplicate runtime state codec.');
+    }
+    _stateCodecs[codec.id] = codec;
+    return GameEventSubscription._(() {
+      if (_restoring) throw StateError('Cannot unregister during restore.');
+      if (identical(_stateCodecs[codec.id], codec)) {
+        _stateCodecs.remove(codec.id);
+      }
+    });
+  }
+
+  GameSave save() {
+    _requireOpen();
+    if (_stepping) throw StateError('Save requires a tick boundary.');
+    final authored = project.levels
+        .singleWhere((l) => l.id == levelId)
+        .entities;
+    return GameSave(
+      projectId: project.id,
+      buildId: project.buildId,
+      levelId: levelId,
+      projectSchema: project.project.schemaVersion,
+      seed: seed,
+      tick: tick,
+      paused: paused,
+      entities: _initialized
+          ? entities.entities
+                .map(
+                  (e) => GameEntityRecord(
+                    id: e.handle.id,
+                    nodeId: authored
+                        .where((a) => a.id == e.handle.id)
+                        .firstOrNull
+                        ?.nodeId,
+                    components: e.components,
+                  ),
+                )
+                .toList()
+          : authored,
+      models: project.project.modelReferences,
+      state: {
+        for (final codec in _stateCodecs.values) codec.id: codec.capture(this),
+      },
+      codecVersions: {
+        for (final codec in _stateCodecs.values) codec.id: codec.version,
+      },
+    );
+  }
+
+  /// Prepare all replacements and rollback stages before committing live state.
+  void restore(GameSave save) {
+    _requireOpen();
+    if (_stepping) throw StateError('Restore requires a tick boundary.');
+    if (save.projectId != project.id ||
+        save.buildId != project.buildId ||
+        save.levelId != levelId ||
+        save.projectSchema != project.project.schemaVersion ||
+        save.seed != seed ||
+        jsonEncode(_canonicalGameJson(save.models)) !=
+            jsonEncode(_canonicalGameJson(project.project.modelReferences)) ||
+        save.codecVersions.length != _stateCodecs.length ||
+        save.codecVersions.entries.any(
+          (e) => _stateCodecs[e.key]?.version != e.value,
+        )) {
+      throw StateError('Save identity or required runtime codecs differ.');
+    }
+    final records = _validateEntities(save.entities, project.project.registry);
+    if (records.any(
+      (e) => e.components.any(
+        (c) => c.required && !project.project.registry.supports(c),
+      ),
+    )) {
+      throw StateError('Save requires missing components.');
+    }
+    final beforeEntities = Map<String, GameRuntimeEntity>.of(
+      entities._entities,
+    );
+    final beforeGenerations = Map<String, int>.of(entities._generations);
+    final beforeHighWater = entities._highWater;
+    final checkpoint = (
+      tick: _tick,
+      epoch: _epoch,
+      paused: _paused,
+      initialized: _initialized,
+      accumulator: clock._accumulator,
+      dropped: clock.droppedSeconds,
+      lastTick: commands._lastTick,
+    );
+    final beforeCommands = commands._commands.toList(),
+        beforeMutations = _mutations.toList();
+    final replacement = GameEntityTable(limits: entities.limits);
+    replacement._generations.addAll(beforeGenerations);
+    replacement._highWater = beforeHighWater;
+    for (final record in records) {
+      replacement.spawn(record.id, components: record.components);
+    }
+    final originals = <String, Object>{}, candidates = <String, Object>{};
+    final committed = <String>[];
+    _restoring = true;
+    void recoverRuntime() {
+      entities._entities
+        ..clear()
+        ..addAll(beforeEntities);
+      entities._generations
+        ..clear()
+        ..addAll(beforeGenerations);
+      entities._highWater = beforeHighWater;
+      _tick = checkpoint.tick;
+      _epoch = checkpoint.epoch;
+      _paused = checkpoint.paused;
+      _initialized = checkpoint.initialized;
+      clock._accumulator = checkpoint.accumulator;
+      clock.droppedSeconds = checkpoint.dropped;
+      commands._commands
+        ..clear()
+        ..addAll(beforeCommands);
+      commands._lastTick = checkpoint.lastTick;
+      _mutations
+        ..clear()
+        ..addAll(beforeMutations);
+    }
+
+    Object? rollbackFailure;
+    try {
+      for (final codec in _stateCodecs.values) {
+        originals[codec.id] = codec.prepare(this, _json(codec.capture(this)));
+        candidates[codec.id] = codec.prepare(this, _map(save.state[codec.id]));
+      }
+      entities._entities
+        ..clear()
+        ..addAll(replacement._entities);
+      entities._generations
+        ..clear()
+        ..addAll(replacement._generations);
+      entities._highWater = replacement._highWater;
+      _tick = save.tick;
+      _epoch++;
+      _paused = save.paused;
+      _initialized = true;
+      clock.reset();
+      commands.clear();
+      commands._lastTick = save.tick;
+      _mutations.clear();
+      for (final codec in _stateCodecs.values) {
+        committed.add(codec.id); // A failing commit may have partially mutated.
+        codec.commit(this, candidates[codec.id]!);
+      }
+    } catch (error, stack) {
+      recoverRuntime();
+      for (final id in committed.reversed) {
+        try {
+          _stateCodecs[id]!.commit(this, originals[id]!);
+          originals.remove(id);
+        } catch (e) {
+          rollbackFailure ??= e;
+        }
+      }
+      for (final entry in candidates.entries) {
+        try {
+          _stateCodecs[entry.key]!.discard(entry.value);
+        } catch (e) {
+          rollbackFailure ??= e;
+        }
+      }
+      _restoring = false;
+      if (rollbackFailure != null) {
+        _fail(StateError('Restore rollback failed: $rollbackFailure'));
+      }
+      Error.throwWithStackTrace(error, stack);
+    } finally {
+      for (final entry in originals.entries) {
+        try {
+          _stateCodecs[entry.key]!.discard(entry.value);
+        } catch (e) {
+          rollbackFailure ??= e;
+        }
+      }
+      _restoring = false;
+      if (rollbackFailure != null && _fault == null) {
+        _fail(StateError('Restore staging cleanup failed: $rollbackFailure'));
+      }
+    }
+    if (rollbackFailure != null) {
+      _fail(StateError('Restore staging cleanup failed: $rollbackFailure'));
+      throw StateError('Restore staging cleanup failed.');
+    }
+    _notify();
   }
 }
