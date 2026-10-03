@@ -1,0 +1,19 @@
+name: zyren_game_lab_training_worker
+publish_to: none
+resolution: workspace
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+dependencies:
+  zyren:
+    path: ../../../packages/zyren
+  zyren_game:
+    path: ../../../packages/zyren_game
+  zyren_game_ai:
+    path: ../../../packages/zyren_game_ai
+  zyren_game_native:
+    path: ../../../packages/zyren_game_native
+  zyren_physics:
+    path: ../../../packages/zyren_physics
+dev_dependencies:
+  test: ^1.30.0
+  lints: ^6.0.0

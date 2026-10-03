@@ -8,7 +8,11 @@ dependencies = [
   "torch==2.8.0",
   "onnx==1.19.1",
   "onnxruntime==1.23.2",
+  "gymnasium==1.2.1",
 ]
+
+[project.scripts]
+zyren-train = "zyren_train.cli:main"
 
 [dependency-groups]
 dev = ["pytest==8.4.2"]
