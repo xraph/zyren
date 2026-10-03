@@ -6,12 +6,14 @@ class Tiles3DPlugin extends ScenePlugin {
   final Tiles3DBudget? budget;
   final double maximumScreenError;
   final Duration fadeDuration;
+  final TileVisibilityPolicy? visibilityPolicy;
+  final Tiles3DMotionPolicy? motionPolicy;
   final GltfOptions options;
   TileStyle3D? _style;
   TileStyle3D? get style => _style;
   final void Function(Tiles3DStats)? onChanged;
   Tiles3DStreamer? _streamer;
-  Group? _group;
+  PublicationGroup? _group;
   PluginContext? _context;
   Tiles3DPlugin({
     required Tileset3D tileset,
@@ -19,6 +21,8 @@ class Tiles3DPlugin extends ScenePlugin {
     this.budget,
     this.maximumScreenError = 8,
     this.fadeDuration = Duration.zero,
+    this.visibilityPolicy,
+    this.motionPolicy,
     this.options = const GltfOptions(),
     this.onChanged,
     TileStyle3D? style,
@@ -27,11 +31,12 @@ class Tiles3DPlugin extends ScenePlugin {
   @override
   String get id => 'tiles3d';
   Tiles3DStats? get stats => _streamer?.stats;
+  bool get isAwaitingPublication => _streamer?.isAwaitingPublication ?? false;
   bool get isTransitioning => _streamer?.isTransitioning ?? false;
   List<String> get attributions => _streamer?.attributions ?? const [];
   List<TileFailure3D> get failures => _streamer?.failures ?? const [];
   Set<String> get visibleTileIds =>
-      Set.unmodifiable(_streamer?.visible.keys ?? const <String>[]);
+      Set.unmodifiable(_streamer?.displayed.keys ?? const <String>[]);
   @override
   void attach(PluginContext context) {
     _context = context;
@@ -43,21 +48,22 @@ class Tiles3DPlugin extends ScenePlugin {
       style: _style,
       maximumScreenError: maximumScreenError,
       fadeDuration: fadeDuration,
+      visibilityPolicy: visibilityPolicy,
+      motionPolicy: motionPolicy,
+      trackPublication: true,
       onChanged: () {
-        _sync();
         context.invalidate();
         final stats = this.stats;
         if (stats != null) onChanged?.call(stats);
       },
     );
-    _group = Group(name: '3D Tiles');
+    _group = PublicationGroup(name: '3D Tiles');
     context.scene.add(_group!);
   }
 
   void replaceTileset(Tileset3D tileset) {
     _tileset = tileset;
     _streamer?.replaceTileset(tileset);
-    _sync();
     _context?.invalidate();
   }
 
@@ -97,19 +103,22 @@ class Tiles3DPlugin extends ScenePlugin {
     );
     _streamer!.update(context.camera, viewport, elapsed: frame.elapsed);
     _sync();
-    if (isTransitioning) context.invalidate();
+    _streamer!.beginFrame();
+    if (_streamer!.needsUpdate) context.invalidate();
   }
 
   void _sync() {
     final group = _group, streamer = _streamer;
     if (group == null || streamer == null) return;
-    final visible = streamer.visible.values.toSet();
-    for (final child in group.children) {
-      if (!visible.contains(child)) group.remove(child);
-    }
-    for (final child in visible) {
-      if (child.parent != group) group.add(child);
-    }
+    group.stage(streamer.visible.values);
+    group.publish(streamer.displayed.values);
+  }
+
+  @override
+  void afterRender(PluginContext context, FrameInfo info, FrameStats stats) {
+    _streamer!.completeFrame(stats.admission);
+    _sync();
+    onChanged?.call(_streamer!.stats);
   }
 
   @override

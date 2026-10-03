@@ -17,6 +17,7 @@ part 'src/external_content.dart';
 part 'src/implicit.dart';
 part 'src/subtree.dart';
 part 'src/streamer.dart';
+part 'src/motion.dart';
 part 'src/plugin.dart';
 part 'src/provider.dart';
 part 'src/freshness.dart';

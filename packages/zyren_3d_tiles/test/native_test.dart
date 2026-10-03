@@ -54,7 +54,10 @@ void main() {
                 width: 256,
                 height: 192,
               );
-              if (tiles.stats!.activeRequests == 0) return frame;
+              if (tiles.stats!.activeRequests == 0 &&
+                  !tiles.isAwaitingPublication) {
+                return frame;
+              }
               await Future<void>.delayed(const Duration(milliseconds: 5));
             }
             throw StateError('3D Tiles did not settle.');
@@ -79,7 +82,10 @@ void main() {
           expect(colored, greaterThan(500));
           await engine.render(elapsed: Duration.zero, width: 130, height: 250);
           tiles.replaceTileset(tileset);
-          expect(tiles.visibleTileIds, isEmpty);
+          expect(
+            tiles.visibleTileIds,
+            isNotEmpty,
+          ); // Retained until publication.
           await settle();
           print(
             '3D Tiles Metal: $colored pixels; ${tiles.visibleTileIds.length} detail tiles; ${fixture.requests} HTTP content requests.',

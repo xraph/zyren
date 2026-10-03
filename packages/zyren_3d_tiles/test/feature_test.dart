@@ -14,11 +14,18 @@ List<Mesh> featureMeshes(Object3D root) => [
 ];
 
 Uint8List batchModel({
+  String? copyright,
   Map<String, Object?>? properties,
   int count = 2,
   Uint8List? batchBinary,
 }) {
-  final model = featureModel(legacy: true);
+  final model = featureModel(
+    legacy: true,
+    changes: {
+      if (copyright != null)
+        'asset': {'version': '2.0', 'copyright': copyright},
+    },
+  );
   List<int> paddedJson(Object value, int start) {
     final bytes = utf8.encode(jsonEncode(value));
     return [...bytes, ...List.filled((8 - (start + bytes.length) % 8) % 8, 32)];

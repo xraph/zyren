@@ -5,6 +5,10 @@ final class TileFeature3D {
   final ModelFeature identity;
   final Map<String, Object?> properties;
   final _meshes = <ModelFeatureMesh>[];
+  List<String> _attributions = const [];
+
+  /// Source credits retained by this feature, including deferred pick results.
+  List<String> get attributions => _attributions;
   TileFeature3D._(this.identity, this.properties);
   int? get id => identity.id;
   String? get label => identity.label;

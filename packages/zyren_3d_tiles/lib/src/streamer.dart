@@ -51,8 +51,12 @@ final class Tiles3DBudget {
       maxResidentBytes,
       perTileDecodedBytes,
       perTileResidentBytes;
+  final int maxPrefetchRequests, maxPrefetchTiles, maxPrefetchBytes;
   Tiles3DBudget({
     this.maxRequests = 4,
+    this.maxPrefetchRequests = 0,
+    this.maxPrefetchTiles = 8,
+    this.maxPrefetchBytes = 8 * 1024 * 1024,
     this.maxSelectedTiles = 256,
     this.maxAttempts = 3,
     this.maxDecodedBytes = 64 * 1024 * 1024,
@@ -69,6 +73,9 @@ final class Tiles3DBudget {
       RangeError.checkValueInInterval(value, 1, 0x7fffffff);
     }
     RangeError.checkValueInInterval(maxRequests, 1, 64);
+    RangeError.checkValueInInterval(maxPrefetchRequests, 0, maxRequests - 1);
+    RangeError.checkValueInInterval(maxPrefetchTiles, 0, 256);
+    RangeError.checkValueInInterval(maxPrefetchBytes, 0, 0x7fffffff);
     RangeError.checkValueInInterval(maxSelectedTiles, 1, 32768);
     RangeError.checkValueInInterval(maxAttempts, 1, 100);
     if (perTileDecodedBytes > maxDecodedBytes ||
@@ -88,6 +95,8 @@ final class Tiles3DStats {
       reservedBytes,
       residentBytes;
   final bool budgetLimited;
+  final int prefetchedTiles, prefetchBytes, displayedTiles;
+  final double effectiveScreenError;
   const Tiles3DStats._(
     this.selectedTiles,
     this.visibleTiles,
@@ -96,6 +105,10 @@ final class Tiles3DStats {
     this.reservedBytes,
     this.residentBytes,
     this.budgetLimited,
+    this.prefetchedTiles,
+    this.prefetchBytes,
+    this.displayedTiles,
+    this.effectiveScreenError,
   );
   Object get _values => (
     selectedTiles,
@@ -105,6 +118,10 @@ final class Tiles3DStats {
     reservedBytes,
     residentBytes,
     budgetLimited,
+    prefetchedTiles,
+    prefetchBytes,
+    displayedTiles,
+    effectiveScreenError,
   );
 }
 
@@ -132,9 +149,33 @@ class Tiles3DStreamer {
   TileStyle3D? get style => _style;
   final double maximumScreenError;
   final Duration fadeDuration;
+  final TileVisibilityPolicy? visibilityPolicy;
+  final _TileMotion? _motion;
+  final bool trackPublication;
+  Map<String, Group> _displayed = {}, _submitted = {};
+  Set<(int, int)> _submittedIdentities = {};
+  Map<String, TileNode3D> _prefetch = {};
+  final _prefetched = <String>{};
+  final _expiredPrefetch = <String>{};
+  bool get isAwaitingPublication =>
+      trackPublication &&
+      (_visible.length != _displayed.length ||
+          _visible.entries.any(
+            (entry) => !identical(_displayed[entry.key], entry.value),
+          ));
+  bool get needsUpdate => isTransitioning || (_motion?.pending ?? false);
+  double get effectiveScreenError => maximumScreenError * (_motion?.scale ?? 1);
+  Map<String, Group> get displayed =>
+      Map.unmodifiable(trackPublication ? _displayed : _visible);
+  bool _isVisible(TileNode3D node, Camera camera, ViewportMetrics viewport) =>
+      node.bounds.isVisible(camera, viewport) &&
+      (visibilityPolicy?.call(node.bounds, camera) ?? true);
   final void Function()? onChanged;
   final DateTime Function() _clock;
   final _cache = <String, _LoadedTile>{};
+  final _retired = <_LoadedTile>[];
+  final _owners = Expando<_LoadedTile>();
+  final _featureOwners = Expando<TileModelInstance3D>();
   final _active = <_TileRequest>{};
   final _failures = <String, TileFailure3D>{}, _attempts = <String, int>{};
   Map<String, TileNode3D> _selected = {};
@@ -168,12 +209,17 @@ class Tiles3DStreamer {
     TileStyle3D? style,
     this.maximumScreenError = 8,
     this.fadeDuration = Duration.zero,
+    this.visibilityPolicy,
+    Tiles3DMotionPolicy? motionPolicy,
+    this.trackPublication = false,
     this.onChanged,
     DateTime Function()? clock,
-  }) : _tileset = tileset,
+  }) : _motion = motionPolicy == null ? null : _TileMotion(motionPolicy),
+       _tileset = tileset,
        _style = style,
        _clock = clock ?? DateTime.now,
        budget = budget ?? Tiles3DBudget() {
+    motionPolicy?._validate();
     services.limits.validate();
     options.limits.validate();
     if (fadeDuration.isNegative || fadeDuration > const Duration(seconds: 5)) {
@@ -193,8 +239,8 @@ class Tiles3DStreamer {
   /// Sorted and deduplicated source credits for the geometry currently visible.
   List<String> get attributions {
     final values = <String>{};
-    for (final id in _visible.keys) {
-      final copyright = _cache[id]?.content.model?.copyright;
+    for (final group in displayed.values) {
+      final copyright = _owners[group]?.content.model?.copyright;
       if (copyright == null) continue;
       values.addAll(
         copyright.split(';').map((s) => s.trim()).where((s) => s.isNotEmpty),
@@ -204,19 +250,62 @@ class Tiles3DStreamer {
   }
 
   List<TileFailure3D> get failures => List.unmodifiable(_failures.values);
-  int get _cachedBytes =>
-      _cache.values.fold(0, (n, e) => n + e.content.decodedBytes);
+  int get _cachedBytes => {
+    ..._cache.values.map((e) => e.content),
+    ..._retired.map((e) => e.content),
+  }.fold(0, (n, e) => n + e.decodedBytes);
   int get _reservedBytes => _active.length * budget.perTileDecodedBytes;
   int get _reservedResidentBytes =>
       _active.length * budget.perTileResidentBytes;
+  int get _prefetchBytes =>
+      _prefetched.fold(
+        0,
+        (n, id) => n + (_cache[id]?.content.decodedBytes ?? 0),
+      ) +
+      _active.where((r) => r.prefetch).length * budget.perTileDecodedBytes;
+  final _resourceFootprints = Expando<Map<Object, int>>();
+  int _resident(Iterable<Group> groups) {
+    final assets = <Object, int>{};
+    for (final group in groups) {
+      var footprint = _resourceFootprints[group];
+      if (footprint == null) {
+        footprint = <Object, int>{};
+        void visit(Object3D node) {
+          if (node is Mesh) {
+            footprint![node.geometry] = node.geometry.capture().gpuByteLength;
+            for (final map in node.material.textureMaps) {
+              final image = map.image;
+              footprint[image] = math.max(
+                image.descriptor.byteLength,
+                image.levels.fold<int>(0, (n, l) => n + l.length),
+              );
+            }
+          }
+          for (final child in node.children) {
+            visit(child);
+          }
+        }
+
+        visit(group);
+        _resourceFootprints[group] = footprint;
+      }
+      assets.addAll(footprint);
+    }
+    return assets.values.fold(0, (a, b) => a + b);
+  }
+
   Tiles3DStats get stats => Tiles3DStats._(
     _selected.length,
     _visible.length,
     _active.length,
     _cachedBytes,
     _reservedBytes,
-    _visible.keys.fold(0, (n, id) => n + _cache[id]!.content.residentBytes),
+    _resident({..._visible.values, ..._displayed.values, ..._submitted.values}),
     _budgetLimited,
+    _prefetched.length,
+    _prefetchBytes,
+    displayed.length,
+    effectiveScreenError,
   );
 
   void update(Camera camera, ViewportMetrics viewport, {Duration? elapsed}) {
@@ -228,6 +317,7 @@ class Tiles3DStreamer {
     }
     if (time < _elapsed) _finishTransition();
     _elapsed = time;
+    if (_motion?.update(camera, time) ?? false) _selectionDirty = true;
     final sameView =
         identical(camera, _lastCamera) &&
         camera.revision == _selectionCameraRevision &&
@@ -250,6 +340,18 @@ class Tiles3DStreamer {
         }
         if (fading || before != stats._values) _notify();
         return;
+      }
+    }
+    // Speculative content must still be reusable when it enters the real view.
+    // Retire external metadata before traversing identities derived from it.
+    for (final id in _prefetched.toList()) {
+      final node = _prefetch[id], entry = _cache[id];
+      if (node != null &&
+          entry != null &&
+          !entry.freshness.reusable(_clock()) &&
+          _isVisible(node, camera, viewport)) {
+        _evict(id);
+        _expiredPrefetch.add(id);
       }
     }
     _screenErrors.clear();
@@ -288,9 +390,9 @@ class Tiles3DStreamer {
       final error = _screenError(b).compareTo(_screenError(a));
       return error == 0 ? a.id.compareTo(b.id) : error;
     });
-    if (root.bounds.isVisible(camera, viewport) &&
+    if (_isVisible(root, camera, viewport) &&
         root.bounds.screenError(tileset.geometricError, camera, viewport) >
-            maximumScreenError &&
+            effectiveScreenError &&
         admit([root])) {
       queue.add(root);
     }
@@ -299,7 +401,7 @@ class Tiles3DStreamer {
       final external = _cache[node.id]?.content.hierarchy;
       if (node.children.isEmpty && external == null) continue;
       final threshold =
-          maximumScreenError * (previous.contains(node.id) ? 0.8 : 1);
+          effectiveScreenError * (previous.contains(node.id) ? 0.8 : 1);
       if (external == null &&
           node.contentUri != null &&
           _screenError(node) <= threshold) {
@@ -314,26 +416,54 @@ class Tiles3DStreamer {
                               camera,
                               viewport,
                             ) >
-                            maximumScreenError
+                            effectiveScreenError
                   ? [external.root]
                   : <TileNode3D>[])
-              .where((n) => n.bounds.isVisible(camera, viewport))
+              .where((n) => _isVisible(n, camera, viewport))
               .toList();
       if (!admit(children)) continue;
       branches[node.id] = children;
       queue.addAll(children);
     }
     _selected = nodes;
+    _updatePrefetch(camera, viewport);
+    _prefetched.removeAll(nodes.keys);
+    _prefetched.addAll(
+      _prefetch.keys.where(
+        (id) => _cache.containsKey(id) && !_holdsVisible(id),
+      ),
+    );
+    _expiredPrefetch.removeWhere(
+      (id) => !_prefetch.containsKey(id) && !nodes.containsKey(id),
+    );
     _discardInactive();
     _branches = branches;
     for (final request in _active) {
-      if (!nodes.containsKey(request.node.id)) {
-        request.cancelled = true;
-        request.task.cancel();
+      final id = request.node.id;
+      if (nodes.containsKey(id)) {
+        request.prefetch = false;
+      } else {
+        final mayPrefetch =
+            _prefetch.containsKey(id) &&
+            (request.prefetch ||
+                (_active.where((r) => r.prefetch).length <
+                        budget.maxPrefetchRequests &&
+                    _prefetchBytes + budget.perTileDecodedBytes <=
+                        budget.maxPrefetchBytes));
+        if (mayPrefetch) {
+          request.prefetch = true;
+        } else {
+          request.cancelled = true;
+          request.task.cancel();
+        }
       }
     }
-    _failures.removeWhere((id, _) => !nodes.containsKey(id));
-    _attempts.removeWhere((id, _) => !nodes.containsKey(id));
+    _failures.removeWhere(
+      (id, _) => !nodes.containsKey(id) && !_prefetch.containsKey(id),
+    );
+    _attempts.removeWhere(
+      (id, _) => !nodes.containsKey(id) && !_prefetch.containsKey(id),
+    );
     for (final id in nodes.keys) {
       final value = _cache.remove(id);
       if (value != null) _cache[id] = value;
@@ -354,6 +484,110 @@ class Tiles3DStreamer {
     }
   }
 
+  /// Pins the exact candidate whose frame is about to be submitted.
+  void beginFrame() {
+    _submitted = Map.of(_visible);
+    _submittedIdentities = {};
+    void visit(Object3D node) {
+      if (!node.visible) return;
+      if (node is Mesh &&
+          (node.layers.intersects(_lastCamera?.layers ?? LayerMask.all))) {
+        _submittedIdentities.add((node.id, node.geometry.id));
+      }
+      for (final child in node.renderChildren) {
+        visit(child);
+      }
+    }
+
+    for (final group in _submitted.values) {
+      visit(group);
+    }
+  }
+
+  /// An absent receipt uses synchronous-renderer compatibility. It does not
+  /// establish native upload readiness. Failed frames must not call this method.
+  void completeFrame(SceneAdmission? admission) {
+    if (admission == null ||
+        (admission.candidateReady &&
+            admission.presentedIdentities.toSet().containsAll(
+              _submittedIdentities,
+            ))) {
+      _displayed = Map.of(_submitted);
+    }
+    _submitted = {};
+    final held = {
+      for (final group in {..._displayed.values, ..._visible.values})
+        _owners[group]?.scope,
+    };
+    _retired.removeWhere((entry) {
+      if (held.contains(entry.scope)) return false;
+      unawaited(entry.scope.close());
+      return true;
+    });
+    _refresh();
+    _discardInactive();
+    _pump();
+  }
+
+  void _updatePrefetch(Camera camera, ViewportMetrics viewport) {
+    _prefetch = {};
+    final motion = _motion;
+    if (motion == null ||
+        budget.maxPrefetchRequests == 0 ||
+        budget.maxPrefetchTiles == 0) {
+      return;
+    }
+    final adjacent = motion._cameraCopy(camera, camera.position, camera.target);
+    if (adjacent is PerspectiveCamera) {
+      adjacent.fieldOfView = math.min(
+        math.pi - .01,
+        adjacent.fieldOfView * motion.policy.adjacentScale,
+      );
+    } else if (adjacent is OrthographicCamera) {
+      adjacent.zoom /= motion.policy.adjacentScale;
+    }
+    final views = [if (motion.predicted != null) motion.predicted!, adjacent];
+    final queue = <TileNode3D>[tileset.root];
+    var visited = 0, decoded = 0;
+    for (
+      var i = 0;
+      i < queue.length && visited++ < budget.maxSelectedTiles;
+      i++
+    ) {
+      final node = queue[i];
+      final view = views
+          .where((v) => _isVisible(node, v, viewport))
+          .firstOrNull;
+      if (view == null) continue;
+      final external = _cache[node.id]?.content.hierarchy;
+      final children = external == null ? node.children : [external.root];
+      if (children.isNotEmpty &&
+          (node.contentUri == null ||
+              external != null ||
+              node.bounds.screenError(node.geometricError, view, viewport) >
+                  effectiveScreenError)) {
+        queue.addAll(children);
+      }
+      if (!_selected.containsKey(node.id) && node.contentUri != null) {
+        final bytes = _holdsVisible(node.id)
+            ? 0
+            : (_cache[node.id]?.content.decodedBytes ?? 0);
+        if (decoded + bytes > budget.maxPrefetchBytes) continue;
+        decoded += bytes;
+        _prefetch[node.id] = node;
+        if (_prefetch.length >= budget.maxPrefetchTiles) break;
+      }
+    }
+    // Fresh inactive prefetch still counts against its separate allowance.
+    for (final id in _prefetched.toList()) {
+      if (!_prefetch.containsKey(id) &&
+          !_selected.containsKey(id) &&
+          !_holdsVisible(id)) {
+        _evict(id);
+      }
+    }
+  }
+
   void replaceTileset(Tileset3D tileset) {
     _checkOpen();
     _finishTransition();
@@ -363,13 +597,28 @@ class Tiles3DStreamer {
       request.task.cancel();
     }
     _tileset = tileset;
+    final retainedScopes = {
+      for (final group in {..._displayed.values, ..._submitted.values})
+        _owners[group]?.scope,
+    };
     for (final entry in _cache.values) {
-      unawaited(entry.scope.close());
+      if (trackPublication && retainedScopes.contains(entry.scope)) {
+        _retired.add(entry);
+      } else {
+        unawaited(entry.scope.close());
+      }
     }
     _cache.clear();
     _selected = {};
     _branches = {};
     _visible = {};
+    if (!trackPublication) {
+      _displayed = {};
+      _submitted = {};
+    }
+    _prefetch = {};
+    _prefetched.clear();
+    _expiredPrefetch.clear();
     _failures.clear();
     _attempts.clear();
     _lastCamera = null;
@@ -390,7 +639,7 @@ class Tiles3DStreamer {
 
   void _pump() {
     if (_disposed) return;
-    for (final node in _selected.values) {
+    for (final node in [..._selected.values, ..._prefetch.values]) {
       if (_active.length >= budget.maxRequests) break;
       if (node.contentUri == null ||
           _cache.containsKey(node.id) ||
@@ -400,6 +649,15 @@ class Tiles3DStreamer {
           )) {
         continue;
       }
+      final prefetch = !_selected.containsKey(node.id);
+      if (prefetch &&
+          (_expiredPrefetch.contains(node.id) ||
+              _active.where((r) => r.prefetch).length >=
+                  budget.maxPrefetchRequests ||
+              _prefetchBytes + budget.perTileDecodedBytes >
+                  budget.maxPrefetchBytes)) {
+        continue;
+      }
       bool hasRoom() =>
           _cachedBytes + _reservedBytes + budget.perTileDecodedBytes <=
               budget.maxDecodedBytes &&
@@ -407,7 +665,10 @@ class Tiles3DStreamer {
               budget.maxResidentBytes;
       while (!hasRoom()) {
         final unused = _cache.keys.where(
-          (id) => !_selected.containsKey(id) && !_holdsVisible(id),
+          (id) =>
+              !_selected.containsKey(id) &&
+              !_holdsVisible(id) &&
+              (!prefetch || !_prefetch.containsKey(id)),
         );
         if (unused.isEmpty) break;
         _evict(unused.first);
@@ -464,6 +725,7 @@ class Tiles3DStreamer {
           ),
         ),
       );
+      request.prefetch = prefetch;
       _active.add(request);
       _attempts[node.id] = (_attempts[node.id] ?? 0) + 1;
       unawaited(_load(request));
@@ -475,13 +737,32 @@ class Tiles3DStreamer {
   void setStyle(TileStyle3D? style) {
     if (_disposed) throw StateError('The tile streamer is disposed.');
     final edits = <_StyleEdit>[];
-    for (final entry in _cache.values) {
-      if (entry.group case final group?) {
+    final replacements = <String, _LoadedTile>{};
+    for (final entry in _cache.entries) {
+      final group = entry.value.group;
+      if (group == null) continue;
+      if (trackPublication) {
+        final copy = entry.value.content.model!.instantiate(
+          transform: group._matrix,
+        );
+        edits.addAll(copy._prepareStyle(style));
+        replacements[entry.key] = _LoadedTile(
+          entry.value.scope,
+          entry.value.content,
+          copy,
+          entry.value.freshness,
+        );
+      } else {
         edits.addAll(group._prepareStyle(style));
       }
     }
     _applyStyle(edits);
+    for (final entry in replacements.entries) {
+      _cache[entry.key] = entry.value;
+      _indexFeatures(entry.value);
+    }
     _style = style;
+    if (trackPublication) _refresh();
     _notify();
   }
 
@@ -490,7 +771,15 @@ class Tiles3DStreamer {
     int featureSet = 0,
     String? featureLabel,
   }) {
-    for (final group in _visible.values) {
+    final capturedOwner = _featureOwners[pick.object];
+    if (capturedOwner != null) {
+      return capturedOwner.featureFor(
+        pick,
+        featureSet: featureSet,
+        featureLabel: featureLabel,
+      );
+    }
+    for (final group in displayed.values) {
       final feature = (group as TileModelInstance3D).featureFor(
         pick,
         featureSet: featureSet,
@@ -501,10 +790,30 @@ class Tiles3DStreamer {
     return null;
   }
 
+  void _indexFeatures(_LoadedTile entry) {
+    final group = entry.group;
+    if (group == null) return;
+    _owners[group] = entry;
+    final credits =
+        (entry.content.model?.copyright ?? '')
+            .split(';')
+            .map((s) => s.trim())
+            .where((s) => s.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
+    for (final feature in group.features) {
+      feature._attributions = List.unmodifiable(credits);
+      for (final mesh in feature._meshes) {
+        _featureOwners[mesh] = group;
+      }
+    }
+  }
+
   bool _accepts(_TileRequest r) =>
       !_disposed &&
       r.generation == _generation &&
-      _selected.containsKey(r.node.id) &&
+      (_selected.containsKey(r.node.id) || _prefetch.containsKey(r.node.id)) &&
       !r.cancelled;
   Future<void> _load(_TileRequest request) async {
     var retained = false, hierarchyChanged = false;
@@ -525,6 +834,10 @@ class Tiles3DStreamer {
         group,
         request.tracker.freshness,
       );
+      _indexFeatures(_cache[request.node.id]!);
+      if (!_selected.containsKey(request.node.id)) {
+        _prefetched.add(request.node.id);
+      }
       _selectionDirty = true;
       hierarchyChanged = content.hierarchy != null;
       retained = true;
@@ -593,10 +906,7 @@ class Tiles3DStreamer {
       );
     }
 
-    int bytes(Map<String, Group> groups) => groups.keys.fold(
-      0,
-      (total, id) => total + _cache[id]!.content.residentBytes,
-    );
+    int bytes(Map<String, Group> groups) => _resident(groups.values);
     var desired = _selected.containsKey(tileset.root.id)
         ? coverage(tileset.root).$2
         : <String, Group>{};
@@ -605,7 +915,7 @@ class Tiles3DStreamer {
       final root = _cache[tileset.root.id]?.group;
       desired = {tileset.root.id: ?root};
     }
-    var residentBytes = bytes(desired);
+    final coarse = Map<String, Group>.of(desired);
     double error(String id) {
       final node = _selected[id];
       return node == null ? 0 : _screenError(node);
@@ -619,7 +929,8 @@ class Tiles3DStreamer {
     while (pending.isNotEmpty) {
       final id = pending.removeFirst();
       if (!desired.containsKey(id) || !expanded.add(id)) continue;
-      final node = _selected[id]!;
+      final node = _selected[id];
+      if (node == null) continue;
       final children = _branches[id];
       if (children == null) continue;
       var complete = true;
@@ -631,13 +942,10 @@ class Tiles3DStreamer {
       }
       final replace = node.refinement == TileRefinement.replace;
       if (replace && !complete) continue;
-      final nextBytes =
-          residentBytes -
-          (replace ? _cache[id]!.content.residentBytes : 0) +
-          bytes({
-            for (final entry in found.entries)
-              if (!desired.containsKey(entry.key)) entry.key: entry.value,
-          });
+      final next = {...desired};
+      if (replace) next.remove(id);
+      next.addAll(found);
+      final nextBytes = bytes(next);
       if (nextBytes > budget.maxResidentBytes) {
         _budgetLimited = true;
         continue;
@@ -646,14 +954,38 @@ class Tiles3DStreamer {
       // their fallback, even when the remaining requests failed or were denied.
       if (replace) desired.remove(id);
       desired.addAll(found);
-      residentBytes = nextBytes;
+
       pending.addAll(found.keys.where((key) => !expanded.contains(key)));
+    }
+    if (trackPublication) {
+      // Keep enough room for a complete coarse bridge while refining. This is
+      // headroom within the existing allowance, not an increased resource cap.
+      final bridge = coarse;
+      final bridgeFitsDetail =
+          bytes({...bridge, ...desired}) <= budget.maxResidentBytes;
+      final overlapFits =
+          _resident({..._displayed.values, ...desired.values}) <=
+          budget.maxResidentBytes;
+      if (!bridgeFitsDetail || !overlapFits) {
+        _budgetLimited = true;
+        desired =
+            bridge.isNotEmpty &&
+                _resident({..._displayed.values, ...bridge.values}) <=
+                    budget.maxResidentBytes
+            ? bridge
+            : Map.of(_displayed);
+      }
+      if (desired.isEmpty && _selected.isNotEmpty && _displayed.isNotEmpty) {
+        desired = Map.of(_displayed);
+      }
     }
     _updateTransition(desired);
   }
 
   bool _holdsVisible(String id) =>
-      fadeDuration > Duration.zero && _visible.containsKey(id);
+      (fadeDuration > Duration.zero && _visible.containsKey(id)) ||
+      _displayed.containsKey(id) ||
+      _submitted.containsKey(id);
 
   void _cover(Group group, FragmentCoverage coverage) {
     void visit(Object3D object) {
@@ -693,7 +1025,7 @@ class Tiles3DStreamer {
     if (transition == null) {
       final unchanged =
           desired.length == _visible.length &&
-          desired.keys.every(_visible.containsKey);
+          desired.entries.every((e) => identical(_visible[e.key], e.value));
       if (unchanged) return;
       final union = {..._visible, ...desired};
       bool related(String a, String b) =>
@@ -748,6 +1080,8 @@ class Tiles3DStreamer {
   }
 
   void _evict(String id) {
+    if (_holdsVisible(id)) return;
+    _prefetched.remove(id);
     final entry = _cache.remove(id);
     if (entry == null) return;
     _selectionDirty = true;
@@ -773,6 +1107,7 @@ class Tiles3DStreamer {
         .where(
           (entry) =>
               !_selected.containsKey(entry.key) &&
+              !_prefetch.containsKey(entry.key) &&
               !_holdsVisible(entry.key) &&
               (provider || !entry.value.freshness.reusable(now)),
         )
@@ -802,11 +1137,17 @@ class Tiles3DStreamer {
       request.task.cancel();
     }
     final waits = [
-      for (final entry in _cache.values) entry.scope.close(),
+      for (final entry in [..._cache.values, ..._retired]) entry.scope.close(),
       for (final request in _active) request.done.future,
     ];
     _cache.clear();
+    _retired.clear();
     _visible = {};
+    _displayed = {};
+    _submitted = {};
+    _prefetch = {};
+    _prefetched.clear();
+    _expiredPrefetch.clear();
     _selected = {};
     _screenErrors.clear();
     _branches = {};
@@ -841,7 +1182,7 @@ final class _TileRequest {
   final _TrackedResolver tracker;
   final LoadTask<_StreamContent> task;
   final done = Completer<void>();
-  bool cancelled = false;
+  bool cancelled = false, prefetch = false;
   _TileRequest(this.node, this.generation, this.scope, this.tracker, this.task);
 }
 

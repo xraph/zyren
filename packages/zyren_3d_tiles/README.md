@@ -11,7 +11,51 @@ viewport aspect for culling. Touch dimensions and raw device pixel ratio do not
 set the detail level. If you drive `Tiles3DStreamer` directly, pass viewport
 metrics with the rendered pixel height and the projection's aspect ratio.
 
-You can enable refinement fades when attaching the plugin:
+The default transition retains the displayed cover until a complete replacement
+has decoded and its native uploads have published. Each frame shows a complete
+cover. Picks and attribution follow that displayed cover, including while uploads
+are staged. Style updates build separate instances so they cannot hide displayed
+features early. A deferred pick retains its feature properties and source credits
+through `featureFor(pick).attributions`.
+
+You can opt into motion selection and a separate CPU prefetch allowance:
+
+```dart
+final tiles = Tiles3DPlugin(
+  tileset: tileset,
+  services: services,
+  motionPolicy: const Tiles3DMotionPolicy(),
+  budget: Tiles3DBudget(maxPrefetchRequests: 1),
+  visibilityPolicy: (bounds, camera) => const EllipsoidHorizon()
+      .isSphereVisible(camera.position, bounds.center, bounds.radius),
+);
+```
+
+The horizon callback is optional. Import `EllipsoidHorizon` from
+`zyren_geospatial`. The Earth helper expects ECEF bounds and uses
+an ellipsoid lowered by 12 km to stay conservative around terrain. Local datasets
+can leave the callback unset or provide their own world-space policy.
+
+Motion prediction lasts 200 ms, looks no further than a quarter of the camera's
+target distance, and resets on reversals or large turns. Adjacent prefetch widens
+the view by 15 percent. The pixel-error target rises smoothly up to twice your
+configured value during motion and recovers over 300 ms. On-demand views request
+those settling frames, then return to idle without an animation plugin.
+
+Visible requests run first. Prefetch reserves at most one request with the above
+budget, eight tiles and 8 MiB of decoded data, all within the existing request and
+CPU limits. Set `maxPrefetchBytes` to at least `perTileDecodedBytes` to admit a
+prefetch request. Decoded prefetch is not GPU readiness. `prefetchBytes` includes
+physical requests that have been cancelled but have not finished draining.
+
+The resident allowance counts shared assets once across displayed and candidate
+covers. Refinement keeps room for a cached complete coarse cover. When two detail
+covers cannot overlap, that coarse cover can publish first and release the old
+resources. If no complete bridge fits, the old cover remains and `budgetLimited`
+is true. This cannot guarantee coverage after an arbitrary camera teleport.
+These byte counts describe resource payloads, not measured physical GPU memory.
+
+You can still enable explicit refinement fades when attaching the plugin:
 
 ```dart
 final tiles = Tiles3DPlugin(
@@ -27,10 +71,10 @@ and authored materials. A camera reversal finishes the current transition
 before starting the next one. Leaving coverage, replacing the tileset or
 disposing the plugin clears the transition.
 
-Fades default to zero for immediate replacement. Durations can be up to five
+Fades default to zero for a stable replacement after publication. Durations can be up to five
 seconds. The scheduler admits outgoing and incoming groups only when their
 combined residency and tile count fit `Tiles3DBudget`; otherwise it switches
-directly to complete coverage. `isTransitioning` reports active fades. If you
+to complete coverage after admission. `isTransitioning` reports active fades. If you
 drive `Tiles3DStreamer` directly, pass monotonically increasing `elapsed` to
 `update` for deterministic playback, or omit it to use its stopwatch.
 
@@ -68,3 +112,10 @@ feature lines are unsupported. Legacy batch tables support JSON values and
 aligned binary scalar/vector columns, with count, range and finite-value checks.
 Batch-table hierarchy extensions are unsupported. Modern property-table limits
 are documented in `zyren_gltf`.
+
+If you drive a streamer directly, CPU-only selection remains the default. With
+`trackPublication: true`, call `beginFrame()` for the exact candidate you submit
+and `completeFrame(stats.admission)` only after successful rendering. A null
+receipt preserves synchronous renderer compatibility; it does not confirm native
+readiness. Retain the old state on a render failure. `Tiles3DPlugin` manages these
+calls and its `PublicationGroup` for you.
