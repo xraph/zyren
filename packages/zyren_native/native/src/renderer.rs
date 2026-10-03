@@ -603,7 +603,7 @@ impl Renderer {
         self.evict_instances()?;
         self.evict_poses()?;
         let state = self.state.as_mut().unwrap();
-        state.resources.collect(&state.device).map_err(|e| {
+        state.resources.poll_completed(&state.device).map_err(|e| {
             state.failure = Some(e.to_string());
             e.to_string()
         })
@@ -1410,7 +1410,7 @@ impl Renderer {
                     self.gpu_time_source = "wgpu.timestampQuery.commandEncoder";
                 }
             }
-            self.resources.scene_completed();
+            self.resources.scene_completed().map_err(|e| e.to_string())?;
             let mut profile = self.profile.borrow_mut();
             profile.gpu_time_ns = self.last_gpu_time_ns;
             profile.gpu_time_source = self.gpu_time_source;

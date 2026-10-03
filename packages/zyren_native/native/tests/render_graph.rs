@@ -199,6 +199,11 @@ fn native_graph_validation_retains_owners_and_rejects_forged_access() {
         graph(&mut renderer, json!({"operation": "execute", "key": key}))["result"]["dispatches"],
         1
     );
+    let telemetry = graph(&mut renderer, json!({"operation": "frameProfile"}));
+    assert_eq!(
+        telemetry["result"]["resources"]["cpuCompletionWaitNs"], 0,
+        "graph submission must not wait for GPU completion"
+    );
     let pixels = renderer
         .resource_command(
             &packet(

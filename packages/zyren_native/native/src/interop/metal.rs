@@ -162,6 +162,10 @@ unsafe fn render_metal(
 }
 
 pub(crate) struct MetalCompletion(Vec<Retained<ProtocolObject<dyn MTLCommandBuffer>>>);
+// SAFETY: these retained, submitted command buffers are never encoded or
+// committed here. Renderer serializes status queries and transfers ownership
+// only to its retirement thread; Metal retain/release supports either thread.
+unsafe impl Send for MetalCompletion {}
 impl MetalCompletion {
     pub(crate) fn capture(queue: &wgpu::Queue) -> Result<Self, String> {
         // SAFETY: the renderer serializes submission and capture. Only retained

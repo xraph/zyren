@@ -4,7 +4,21 @@ use super::{
     texture_format,
     upload::{Command, MAX_BYTES, Operation, checked_upload_range},
 };
-use std::time::Duration;
+use std::{
+    collections::VecDeque,
+    sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+    },
+    time::Duration,
+};
+const MAX_PENDING_SUBMISSIONS: usize = 32;
+struct PendingSubmission {
+    serial: u64,
+    graph: bool,
+    #[cfg(target_vendor = "apple")]
+    metal: crate::interop::metal::MetalCompletion,
+}
 mod deformation;
 mod instances;
 mod scene_updates;
@@ -49,6 +63,8 @@ pub struct ResourceStore {
     serial: u64,
     uploaded: u64,
     pending: Option<wgpu::SubmissionIndex>,
+    completed: Arc<AtomicU64>,
+    observations: VecDeque<PendingSubmission>,
     mipmaps: super::mipmap::MipmapGenerator,
     telemetry: Telemetry,
 }
@@ -60,6 +76,8 @@ impl Default for ResourceStore {
             serial: 0,
             uploaded: 0,
             pending: None,
+            completed: Arc::new(AtomicU64::new(0)),
+            observations: VecDeque::new(),
             mipmaps: Default::default(),
             telemetry: Default::default(),
         }
@@ -122,11 +140,12 @@ impl ResourceStore {
         device: &wgpu::Device,
         keys: &[ResourceKey],
     ) -> Result<(), ResourceError> {
-        self.wait(device)?;
+        self.poll_completed(device)?;
         for key in keys {
             self.registry.release(*key)?;
         }
-        self.registry.retire_completed(self.serial);
+        self.registry
+            .retire_completed(self.completed.load(Ordering::Acquire));
         Ok(())
     }
     pub(crate) fn execute_graph(
@@ -136,25 +155,13 @@ impl ResourceStore {
         keys: &[ResourceKey],
         commands: wgpu::CommandBuffer,
     ) -> Result<(), ResourceError> {
-        let before = self.telemetry.gpu_time_ns.unwrap_or(0);
-        let submission_before = self.telemetry.submissions;
-        let samples_before = self.telemetry.gpu_samples;
-        let result = self.submit(device, queue, [commands]);
-        self.telemetry.graph_submissions += self.telemetry.submissions - submission_before;
-        if result.is_ok() && self.telemetry.gpu_samples > samples_before {
-            self.telemetry.graph_gpu_samples += 1;
-            self.telemetry.graph_gpu_time_ns = self.telemetry.gpu_time_ns.map(|total| {
-                self.telemetry
-                    .graph_gpu_time_ns
-                    .unwrap_or(0)
-                    .saturating_add(total.saturating_sub(before))
-            });
-        }
-        result?;
+        self.submit(device, queue, [commands])?;
+        self.telemetry.graph_submissions += 1;
+        self.observations.back_mut().unwrap().graph = true;
         for key in keys {
             self.registry.mark_used(*key, self.serial)?;
         }
-        self.wait(device)
+        Ok(())
     }
     pub(crate) fn check_scene_capacity(
         &self,
@@ -486,12 +493,50 @@ impl ResourceStore {
         }
         Ok(())
     }
-    pub(crate) fn scene_completed(&mut self) {
+    pub(crate) fn scene_completed(&mut self) -> Result<(), ResourceError> {
         self.pending = None;
-        self.registry.retire_completed(self.serial);
+        self.completed.store(self.serial, Ordering::Release);
+        self.observe_completed()
     }
-    pub(crate) fn collect(&mut self, device: &wgpu::Device) -> Result<(), ResourceError> {
-        self.wait(device)
+    fn observe_completed(&mut self) -> Result<(), ResourceError> {
+        let completed = self.completed.load(Ordering::Acquire);
+        while self
+            .observations
+            .front()
+            .is_some_and(|p| p.serial <= completed)
+        {
+            let observation = self.observations.pop_front().unwrap();
+            #[cfg(target_vendor = "apple")]
+            {
+                observation
+                    .metal
+                    .check()
+                    .map_err(|_| ResourceError::DeviceFailed)?;
+                if let Some(ns) = observation.metal.gpu_time_ns() {
+                    self.telemetry.gpu_samples += 1;
+                    self.telemetry.gpu_time_ns =
+                        Some(self.telemetry.gpu_time_ns.unwrap_or(0).saturating_add(ns));
+                    if observation.graph {
+                        self.telemetry.graph_gpu_samples += 1;
+                        self.telemetry.graph_gpu_time_ns = Some(
+                            self.telemetry
+                                .graph_gpu_time_ns
+                                .unwrap_or(0)
+                                .saturating_add(ns),
+                        );
+                    }
+                }
+            }
+            let _ = observation;
+        }
+        self.registry.retire_completed(completed);
+        Ok(())
+    }
+    pub(crate) fn poll_completed(&mut self, device: &wgpu::Device) -> Result<(), ResourceError> {
+        device
+            .poll(wgpu::PollType::Poll)
+            .map_err(|_| ResourceError::DeviceFailed)?;
+        self.observe_completed()
     }
     pub(crate) fn inspection(&self, limit: usize) -> serde_json::Value {
         let allocations: Vec<_> = self.registry.inspect(limit).into_iter().map(
@@ -528,6 +573,10 @@ impl ResourceStore {
         queue: &wgpu::Queue,
         commands: impl IntoIterator<Item = wgpu::CommandBuffer>,
     ) -> Result<(), ResourceError> {
+        self.poll_completed(device)?;
+        if self.observations.len() >= MAX_PENDING_SUBMISSIONS {
+            self.wait(device)?;
+        }
         self.serial = self
             .serial
             .checked_add(1)
@@ -535,29 +584,19 @@ impl ResourceStore {
         let index = queue.submit(commands);
         self.telemetry.submissions += 1;
         #[cfg(target_vendor = "apple")]
-        {
-            let metal = crate::interop::metal::MetalCompletion::capture(queue)
-                .map_err(|_| ResourceError::DeviceFailed)?;
-            let wait_started = std::time::Instant::now();
-            let completion = device
-                .poll(wgpu::PollType::Wait {
-                    submission_index: Some(index.clone()),
-                    timeout: Some(Duration::from_secs(2)),
-                })
-                .map_err(|_| ResourceError::DeviceFailed);
-            self.telemetry.completion_wait_ns = self
-                .telemetry
-                .completion_wait_ns
-                .saturating_add(wait_started.elapsed().as_nanos() as u64);
-            completion?;
-            metal.check().map_err(|_| ResourceError::DeviceFailed)?;
-            if let Some(ns) = metal.gpu_time_ns() {
-                self.telemetry.gpu_samples += 1;
-                self.telemetry.gpu_time_ns =
-                    Some(self.telemetry.gpu_time_ns.unwrap_or(0).saturating_add(ns));
-            }
-        }
-        let _ = device;
+        let metal = crate::interop::metal::MetalCompletion::capture(queue)
+            .map_err(|_| ResourceError::DeviceFailed)?;
+        self.observations.push_back(PendingSubmission {
+            serial: self.serial,
+            graph: false,
+            #[cfg(target_vendor = "apple")]
+            metal,
+        });
+        let completed = self.completed.clone();
+        let serial = self.serial;
+        queue.on_submitted_work_done(move || {
+            completed.fetch_max(serial, Ordering::Release);
+        });
         self.pending = Some(index);
         Ok(())
     }
@@ -577,8 +616,8 @@ impl ResourceStore {
             completion?;
         }
         self.pending = None;
-        self.registry.retire_completed(self.serial);
-        Ok(())
+        self.completed.store(self.serial, Ordering::Release);
+        self.observe_completed()
     }
     fn readback(
         &mut self,
