@@ -4,6 +4,7 @@ import 'cloud.dart';
 
 final class PointCloudHit {
   final (Uri, String, int) identity;
+  final int dataIndex;
   final Vec3 sourcePoint, worldPoint;
   final double distance, raySeparation;
   const PointCloudHit(
@@ -11,8 +12,9 @@ final class PointCloudHit {
     this.sourcePoint,
     this.worldPoint,
     this.distance,
-    this.raySeparation,
-  );
+    this.raySeparation, {
+    this.dataIndex = 0,
+  });
 }
 
 /// A scoped native marker object. Close removes it from its current parent.
@@ -132,6 +134,7 @@ final class ScenePointCloud {
           world,
           distance,
           separation,
+          dataIndex: i,
         );
       }
     }

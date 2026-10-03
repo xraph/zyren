@@ -185,7 +185,7 @@ final class PointCloudAgentProvider extends AgentProvider {
           'worldPoint': _vector(hit.worldPoint),
           'distance': hit.distance,
           'raySeparation': hit.raySeparation,
-          'classification': cloud.data.classificationAt(hit.identity.$3),
+          'classification': cloud.data.classificationAt(hit.dataIndex),
           'sourceUri': hit.identity.$1.toString(),
           'sourceVersion': hit.identity.$2,
           'runtimeId': cloud.object.id,

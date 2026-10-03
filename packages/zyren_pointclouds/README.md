@@ -66,3 +66,49 @@ unknown. The direct registry flow has CPU and Metal offscreen tests. A live MCP
 host, geospatial/3D Tiles enrichment and authorized command integration still need
 verification. Run `fvm dart run packages/zyren_pointclouds/example/native.dart`
 for a native marker image and a source query; it writes `pointcloud.ppm`.
+
+## Native LAS, LAZ and E57
+
+Import `package:zyren_pointclouds/native.dart` and use
+`NativePointCloudLoader(sourceVersion: 'your-version')` with the same asset scope
+as the XYZ loader. You can also call `parse(bytes, sourceUri: uri)` directly.
+The worker isolate decodes native files and checks cancellation between records.
+Cancellation drains the worker before releasing its native job.
+
+LAS 1.0 through 1.4 and LAZ retain double coordinates after scale/offset,
+classification, flags, intensity, returns, RGB, GPS time, NIR, extra bytes and
+waveform references when present. Metadata retains VLR/EVLR records and CRS WKT.
+Waveform sample payloads are not decoded. Units stay unknown unless you interpret
+the source CRS. Chunked LAZ requires a valid chunk table; declared chunks and
+layer lengths are checked before the decoder allocates their buffers.
+
+E57 retains scan GUIDs, poses, prototypes and raw attribute values. Cartesian or
+spherical positions are converted to file coordinates with the scan pose applied.
+Coordinates use metres. Invalid positional records are counted and omitted; the
+remaining samples retain their original flattened record ordinals. `scanIndex`
+and `scanRecordIndex` resolve each point back to its scan. Raw scaled integers
+stay available with their prototype scale/offset. Intensity stays float64.
+
+`identityAt` returns the source ordinal. It may differ from the local data index.
+`select` preserves that identity and the associated attributes. `PointCloudHit`
+exposes both the source identity and `dataIndex` for local attribute lookup.
+
+The default limits admit 250,000 declared records, 32 MiB of source bytes, 6 MiB
+of coordinates, 32 MiB of encoded attributes, 4 MiB of metadata and 64 MiB of
+native output. Attribute-heavy sources can reach the byte limit first. These are
+payload limits, not measurements of total process memory. Isolate transfer,
+parser state and Dart objects require additional memory. The asset decoder
+reserves its output ceiling before allocation; use smaller per-chunk limits when
+loading several chunks concurrently.
+
+Run native-hook tests from this package directory:
+
+```sh
+dart test --concurrency=1
+cargo test --manifest-path native/Cargo.toml --locked
+cargo clippy --manifest-path native/Cargo.toml --all-targets --locked -- -D warnings
+```
+
+The synthetic fixture source, licence and regeneration command live in
+`test/fixtures/README.md`. Decoder dependency licences are in
+`THIRD_PARTY_NOTICES.md` and `licenses`.

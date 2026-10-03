@@ -3,6 +3,34 @@
 You can follow both packages here. This work owns `packages/zyren_pointclouds`,
 `packages/zyren_splats` and their package examples. Neither package is published.
 
+## Completion run, 2026-10-02
+
+The requested remaining scope is now active. Work will proceed in these checked
+commits: native LAS/LAZ/E57 ingestion and source attributes; bounded spatial
+streaming/LOD for points and Gaussians; perspective covariance and scene depth
+compositing; geospatial/3D Tiles providers; then live MCP and mobile qualification.
+Each step must preserve stable source ordinals and expose actual residency and
+query coverage through the shared agent interface.
+
+Native decoding will live under this package's `native` and `hook` directories,
+using pinned Rust LAS/LAZ and E57 readers. The public Dart data model stays CPU-only;
+`native.dart` is an optional entry point. Imported CRS, scale/offset, scan identity
+and return attributes must remain source metadata. Tests must exercise real encoded
+LAS, LAZ and E57 bytes, cancellation and limits, not just injected decoded points.
+
+Scene compositing will use the public mesh shader API, including scene depth and
+alpha blending. No native renderer edit is planned. Perspective queries use the
+same projected covariance as rendering and retain the appearance-only distinction.
+Streaming acceptance includes bounded CPU/GPU admission, request cancellation,
+stale-load rejection, eviction, failure/retry and source-preserving LOD selections.
+
+Shared edit requests: register one package-local qualification app in
+`pubspec.yaml`, resolve dependencies, and add optional decoder FFI allowances for
+this package to `tool/check_package_boundaries.dart`. These edits use the shared
+lock and must preserve other owners' entries. Devices are checked for occupancy
+before qualification. A discoverable wireless device is not a successful build,
+launch or native qualification result.
+
 ## Source audit and decisions
 
 The audit on 2026-10-02 found native `PointGeometry`, `PointsMaterial` and point
@@ -143,3 +171,20 @@ does not join normal scene rendering. No package is complete or ready for rollou
 Workspace registration was staged as an index-only patch for the two owned
 members. Other workspace edits and packages stayed outside this commit. One file
 write failed during disk pressure; retry succeeded without deleting shared data.
+
+### Native source formats, completion run
+
+Implemented a package-owned Rust asset for LAS/LAZ/E57, with an isolate decoder,
+record-loop cancellation and native job cleanup. Header, section, LAZ chunk-table
+and layered-buffer checks precede decoder allocation. Point data now preserves
+source ordinals, immutable attributes and metadata through subset selection.
+Scene hits carry a local data index separately from their source identity.
+
+Synthetic encoded LAS 1.4 formats 3 and 7, compressed LAZ and multi-scan E57 cover
+large-coordinate precision, return/classification/RGB metadata, WKT, scan poses,
+invalid-record gaps, cancellation and malformed/over-budget inputs. Fixtures are
+owned under the repository licence and have a reproducible generator. Native
+source import is qualified on the macOS host; mobile import is still pending.
+Chunked LAZ requires a chunk table. LAS waveform references are retained, but
+waveform sample payloads are not decoded. Payload budgets exclude parser and Dart
+object overhead; no total-process-memory bound is claimed.
