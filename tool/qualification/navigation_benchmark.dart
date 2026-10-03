@@ -4,6 +4,7 @@ import 'dart:io';
 // The workspace resolves Flutter's VM service client.
 // ignore: depend_on_referenced_packages
 import 'package:vm_service/vm_service_io.dart';
+import 'navigation_benchmark_capture.dart';
 
 Future<void> main(List<String> args) async {
   if (args.length != 3) {
@@ -76,42 +77,25 @@ Future<void> main(List<String> args) async {
         stdout.writeln(previousStage);
       }
       if (data['running'] == false && data['result'] is Map) {
-        final report = Map<String, dynamic>.from(data['result'] as Map);
-        final end = (await service.getVMTimelineMicros()).timestamp!;
-        try {
-          final cpu = await service.getCpuSamples(
-            isolateId,
-            start,
-            end - start,
-          );
-          File(
-            '${output.path}/cpu-samples.json',
-          ).writeAsStringSync(jsonEncode(cpu.json));
-          report['cpuSampleCount'] = cpu.sampleCount;
-        } catch (error) {
-          report['cpuProfileError'] = error.runtimeType.toString();
-        }
-        File(
-          '${output.path}/frames.json',
-        ).writeAsStringSync(jsonEncode(report));
-        for (final phase in report['phases'] as List) {
-          final samples = phase.remove('samples') as List;
-          phase['framesWhileLoading'] = samples
-              .where((s) => (s['loading'] as int) > 0)
-              .length;
-          phase['framesBudgetLimited'] = samples
-              .where((s) => s['budgetLimited'] == true)
-              .length;
-          phase['uploadedBytes'] = samples.fold<int>(
-            0,
-            (sum, s) => sum + (s['uploadedBytes'] as int),
-          );
-          phase['cloudHistoryResets'] = samples
-              .where((s) => s['cloudReset'] != 'none')
-              .length;
-        }
-        File('${output.path}/summary.json').writeAsStringSync(
-          '${const JsonEncoder.withIndent('  ').convert(report)}\n',
+        final report = await saveNavigationReport(
+          output: output,
+          report: Map<String, dynamic>.from(data['result'] as Map),
+          captureCpu: () async {
+            final end = (await service.getVMTimelineMicros()).timestamp!;
+            final oldest = end - const Duration(seconds: 30).inMicroseconds;
+            final captureStart = start > oldest ? start : oldest;
+            final cpu = await service.getCpuSamples(
+              isolateId!,
+              captureStart,
+              end - captureStart,
+            );
+            return Map<String, dynamic>.from(cpu.json!)
+              ..['captureWindow'] = {
+                'startMicros': captureStart,
+                'endMicros': end,
+                'mayIncludeLoading': true,
+              };
+          },
         );
         stdout.writeln(jsonEncode(report));
         if (report['passed'] != true) exitCode = 1;

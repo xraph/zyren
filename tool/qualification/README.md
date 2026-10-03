@@ -72,6 +72,11 @@ timings stay null. Presentation FPS measures frames accepted by the native
 presenter, not the display's physical scanout. GPU timings cover the backend's
 reported submission; they cannot account for every upload or effect graph wait.
 The app's current frame cap is recorded in the report.
+The collector saves both reports before requesting an optional CPU profile.
+That request covers at most the final 30 seconds and times out after 10 seconds;
+its recorded window may include loading or settling. A missing CPU profile does
+not discard frame results. Check `cpuProfileStatus` and `cpuProfileError` before
+using the profile, and keep partial frame results separate from complete phases.
 Failed phases retain their available samples and carry `completed: false`.
 Do not compare their FPS with a full phase. A new run retries a failed renderer
 and resets the Tokyo camera before collecting data.

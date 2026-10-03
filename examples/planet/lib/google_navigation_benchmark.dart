@@ -9,6 +9,7 @@ import 'package:zyren_geospatial/zyren_geospatial.dart';
 import 'geospatial_presets.dart';
 import 'google_tiles_lab.dart';
 import 'navigation_benchmark_stats.dart';
+import 'navigation_failure_report.dart';
 import 'preset_globe_controls.dart';
 
 void main() {
@@ -290,8 +291,15 @@ final class _NavigationBenchmark {
       report['error'] = error.toString();
       _stage = 'failed';
     } finally {
-      demand?.dispose();
-      navigation.controls?.cancel();
+      try {
+        demand?.dispose();
+        navigation.controls?.cancel();
+      } catch (error) {
+        report['cleanupError'] = error.runtimeType.toString();
+        report['passed'] = false;
+        report['error'] ??= 'Benchmark controls could not be released.';
+        _stage = 'failed';
+      }
       report['lifecycleAtEnd'] = WidgetsBinding.instance.lifecycleState?.name;
       if (controller.status.value case SceneFailed(:final issue)) {
         report['rendererFailure'] = {
@@ -310,14 +318,7 @@ final class _NavigationBenchmark {
       report['allPhasesComplete'] =
           phases.length == 4 &&
           phases.every((phase) => phase['completed'] == true);
-      report['tileFailures'] = [
-        for (final failure in lab.tiles?.failures ?? [])
-          {
-            'code': failure.code.name,
-            'httpStatus': failure.httpStatus,
-            'attempts': failure.attempts,
-          },
-      ];
+      report['tileFailures'] = navigationTileFailures(lab.tiles?.failures);
       _result = report;
       _running = false;
     }
