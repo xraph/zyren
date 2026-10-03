@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'capabilities.dart';
 import 'frame_output.dart';
+import 'gpu_diagnostics.dart';
 import '../scene/scene.dart';
 
 /// Tightly packed, top-down RGBA8 sRGB pixels with declared alpha representation.
@@ -10,6 +11,7 @@ class RenderedFrame {
   final int width, height;
   final int uploadedBytes, residentBytes;
   final AlphaMode alphaMode;
+  final NativeFrameProfile? profile;
   const RenderedFrame(
     this.pixels,
     this.width,
@@ -17,6 +19,7 @@ class RenderedFrame {
     this.uploadedBytes = 0,
     this.residentBytes = 0,
     this.alphaMode = AlphaMode.straight,
+    this.profile,
   });
   factory RenderedFrame.fromImage(ImageData image) {
     if (image.format != PixelFormat.rgba8 ||

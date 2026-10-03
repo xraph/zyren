@@ -136,6 +136,7 @@ pub struct RendererState {
     diagnostic_readback_bytes: u64,
     gpu_time_source: &'static str,
     gpu_timer: Option<timing::Timer>,
+    profile: std::cell::RefCell<timing::Profile>,
     layout: wgpu::BindGroupLayout,
     pbr_layout: wgpu::BindGroupLayout,
     environment_defaults: environment::Defaults,
@@ -341,6 +342,7 @@ impl Renderer {
                 #[cfg(target_vendor = "apple")]
                 drawable_owner: None,
                 failure: None,
+                profile: Default::default(),
                 last_gpu_time_ns: None,
                 diagnostic_readback_bytes: 0,
                 gpu_time_source: "unavailable",
@@ -407,6 +409,8 @@ impl Renderer {
         let temporal_stats = self.temporal_stats();
         let transmission_bytes = self.transmission.bytes();
         let state = self.state.as_mut().unwrap();
+        let mut frame_profile = serde_json::to_value(&*state.profile.borrow()).unwrap();
+        frame_profile["resources"] = state.resources.telemetry();
         state.graphs.command(
             crate::render_graph::GraphContext {
                 shadow_stats,
@@ -430,7 +434,8 @@ impl Renderer {
                 gpu_time_source: state.gpu_time_source,
                 diagnostic_readback_bytes: state.diagnostic_readback_bytes,
                 submitted_frames: state.counters.submitted_frames,
-                device_info: serde_json::json!({"backend":format!("{:?}",state.backend),"adapterName":state.adapter_name,"sampleCounts":if state.supports_msaa4 {vec![1,4]} else {vec![1]}, "gpuTimestampQueries":state.gpu_timer.is_some(), "gpuTimestampBufferBytes":if state.gpu_timer.is_some() {32} else {0}}),
+                frame_profile,
+                device_info: serde_json::json!({"backend":format!("{:?}",state.backend),"adapterName":state.adapter_name,"sampleCounts":if state.supports_msaa4 {vec![1,4]} else {vec![1]}, "gpuTimestampQueries":state.gpu_timer.is_some(), "gpuTimestampBufferBytes":if state.gpu_timer.is_some() {timing::BUFFER_BYTES * 2} else {0}}),
             },
             bytes,
             capacity,
@@ -822,6 +827,31 @@ impl Renderer {
         Ok(())
     }
 
+    fn begin_profile(&mut self) {
+        *self.profile.borrow_mut() = timing::Profile {
+            status: "pending",
+            ..Default::default()
+        };
+        self.last_gpu_time_ns = None;
+        self.gpu_time_source = "unavailable";
+    }
+    fn begin_pass(&self, encoder: &mut wgpu::CommandEncoder, pass: timing::Pass) {
+        self.profile
+            .borrow_mut()
+            .passes
+            .get_mut(timing::PASSES[pass as usize])
+            .unwrap()
+            .executed = true;
+        if let Some(timer) = &self.gpu_timer {
+            timer.begin_pass(encoder, pass);
+        }
+    }
+    fn end_pass(&self, encoder: &mut wgpu::CommandEncoder, pass: timing::Pass) {
+        if let Some(timer) = &self.gpu_timer {
+            timer.end_pass(encoder, pass);
+        }
+    }
+
     fn encode_scene(
         &self,
         frame: &Frame,
@@ -974,6 +1004,7 @@ impl Renderer {
                             mesh.alpha_mode as f32,
                         ],
                     };
+                    self.profile.borrow_mut().draw_preparation_buffers += 1;
                     let buffer =
                         self.device
                             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -995,6 +1026,7 @@ impl Renderer {
                         entries.extend(self.area_tables.entries());
                         entries.extend(self.transmission.entries(capture));
                     }
+                    self.profile.borrow_mut().draw_preparation_bind_groups += 1;
                     self.device.create_bind_group(&wgpu::BindGroupDescriptor {
                         label: None,
                         layout: if mesh.pbr.is_some() {
@@ -1007,6 +1039,9 @@ impl Renderer {
                 })
                 .collect()
         };
+        if lighting.is_some() {
+            self.profile.borrow_mut().draw_preparation_buffers += 1;
+        }
         let bindings = make_bindings(false);
         let capture_bindings = self
             .transmission
@@ -1023,14 +1058,25 @@ impl Renderer {
             .iter()
             .map(|mesh| self.physical_texture_binding(mesh))
             .collect();
+        self.profile.borrow_mut().draw_preparation_bind_groups +=
+            texture_bindings.iter().filter(|v| v.is_some()).count() as u64
+                + physical_bindings.iter().filter(|v| v.is_some()).count() as u64;
         let mut encoder = self.device.create_command_encoder(&Default::default());
         if let Some(timer) = &self.gpu_timer {
             timer.begin(&mut encoder);
         }
-        if let Some(graph) = graph {
+        if let Some(graph) = graph.filter(|graph| graph.has_before()) {
+            self.begin_pass(&mut encoder, timing::Pass::ResourceGraphBefore);
             graph.encode_before(&mut encoder);
+            self.end_pass(&mut encoder, timing::Pass::ResourceGraphBefore);
+        }
+        if shadows.renders() {
+            self.begin_pass(&mut encoder, timing::Pass::Shadows);
         }
         shadows.encode(self, frame, &mut encoder);
+        if shadows.renders() {
+            self.end_pass(&mut encoder, timing::Pass::Shadows);
+        }
         self.last_scene_draws.set(0);
         self.last_instance_draws.set(0);
         for (capture, mask) in [(true, false), (false, false), (false, true)] {
@@ -1040,6 +1086,14 @@ impl Renderer {
             if capture && self.transmission.targets.is_none() {
                 continue;
             }
+            let pass_kind = if capture {
+                timing::Pass::Transmission
+            } else if mask {
+                timing::Pass::OutlineMask
+            } else {
+                timing::Pass::Scene
+            };
+            self.begin_pass(&mut encoder, pass_kind);
             let (color_view, resolve_target, depth_view) = if capture {
                 let t = self.transmission.targets.as_ref().unwrap();
                 (&t.color, None, &t.depth)
@@ -1238,6 +1292,8 @@ impl Renderer {
                 }
                 pass.draw_indexed(0..count, 0, draw.instances);
             }
+            drop(pass);
+            self.end_pass(&mut encoder, pass_kind);
         }
         encoder
     }
@@ -1279,6 +1335,7 @@ impl Renderer {
             return Err(error.to_string());
         }
         self.counters.submitted_frames += 1;
+        self.profile.borrow_mut().submission_count += 1;
         #[cfg(target_vendor = "apple")]
         let metal = if self.backend == wgpu::Backend::Metal {
             match crate::interop::metal::MetalCompletion::capture(&self.queue) {
@@ -1301,6 +1358,7 @@ impl Renderer {
 
     fn wait_for_submission(&mut self, submission: Submission) -> Result<(), String> {
         self.last_gpu_time_ns = None;
+        let wait_started = std::time::Instant::now();
         let result = self
             .device
             .poll(wgpu::PollType::Wait {
@@ -1321,19 +1379,35 @@ impl Renderer {
             }
             None => Ok(()),
         });
+        self.profile.borrow_mut().cpu_completion_wait_ns =
+            Some(wait_started.elapsed().as_nanos() as u64);
         if result.is_ok() {
             if let Some(timing) = submission.timing {
-                self.diagnostic_readback_bytes = self.diagnostic_readback_bytes.saturating_add(16);
-                self.last_gpu_time_ns = timing.nanoseconds();
+                self.diagnostic_readback_bytes = self
+                    .diagnostic_readback_bytes
+                    .saturating_add(timing.copied_bytes());
+                let measured = timing.read(&mut self.profile.borrow_mut());
+                self.last_gpu_time_ns = measured;
                 if self.last_gpu_time_ns.is_some() {
                     self.gpu_time_source = "wgpu.timestampQuery.commandEncoder";
                 }
             }
             self.resources.scene_completed();
+            let mut profile = self.profile.borrow_mut();
+            profile.status = "complete";
+            profile.gpu_time_ns = self.last_gpu_time_ns;
+            profile.gpu_time_source = self.gpu_time_source;
         }
         result.map_err(|error| {
             let message = format!("GPU completion failed; recreate this renderer: {error}");
             self.failure = Some(message.clone());
+            let mut profile = self.profile.borrow_mut();
+            profile.status = "failed";
+            profile.gpu_time_ns = None;
+            profile.gpu_time_source = "unavailable";
+            for pass in profile.passes.values_mut() {
+                pass.gpu_time_ns = None;
+            }
             message
         })
     }
@@ -1365,6 +1439,9 @@ impl Renderer {
         width: u32,
         height: u32,
     ) -> Result<(), String> {
+        self.begin_profile();
+        let prepare_started = std::time::Instant::now();
+        let upload_before = self.resources.stats().1;
         pixel_len(width, height)?;
         if initialized_depth.is_some() {
             Self::check_external_depth_frame(frame)?;
@@ -1430,6 +1507,11 @@ impl Renderer {
         let supplied_depth = initialized_depth
             .as_ref()
             .map(|depth| depth.create_view(&Default::default()));
+        self.profile.borrow_mut().cpu_prepare_ns =
+            Some(prepare_started.elapsed().as_nanos() as u64);
+        self.profile.borrow_mut().upload_bytes =
+            self.resources.stats().1.saturating_sub(upload_before);
+        let encode_started = std::time::Instant::now();
         let encoder = self.encode_frame(
             frame,
             &texture.create_view(&Default::default()),
@@ -1447,6 +1529,7 @@ impl Renderer {
                 initialized_depth.is_some(),
             ),
         );
+        self.profile.borrow_mut().cpu_encode_ns = Some(encode_started.elapsed().as_nanos() as u64);
         let result = self
             .submit(encoder, graph.as_ref(), &materials, &environment)
             .and_then(|submission| self.wait_for_submission(submission));
@@ -1476,6 +1559,9 @@ impl Renderer {
     }
 
     pub fn render(&mut self, frame: &Frame, width: u32, height: u32) -> Result<Vec<u8>, String> {
+        self.begin_profile();
+        let prepare_started = std::time::Instant::now();
+        let upload_before = self.resources.stats().1;
         let len = pixel_len(width, height)?;
         self.check_shadows(frame)?;
         self.check_temporal(frame, [width, height])?;
@@ -1510,6 +1596,11 @@ impl Renderer {
         let shadows = self.prepare_shadows(frame)?;
         self.prepare_temporal(frame, [width, height])?;
         self.resize(width, height);
+        self.profile.borrow_mut().cpu_prepare_ns =
+            Some(prepare_started.elapsed().as_nanos() as u64);
+        self.profile.borrow_mut().upload_bytes =
+            self.resources.stats().1.saturating_sub(upload_before);
+        let encode_started = std::time::Instant::now();
         let target = self.targets.as_ref().unwrap();
         let mut encoder = self.encode_frame(
             frame,
@@ -1544,6 +1635,7 @@ impl Renderer {
         );
         let readback = target.readback.clone();
         let stride = target.stride;
+        self.profile.borrow_mut().cpu_encode_ns = Some(encode_started.elapsed().as_nanos() as u64);
         let submission = self.submit(encoder, graph.as_ref(), &materials, &environment)?;
         let slice = readback.slice(..);
         let (sender, receiver) = mpsc::sync_channel(1);
@@ -1619,6 +1711,16 @@ mod metal_timeout_tests {
         assert!(
             result.is_err(),
             "GPU wait must expire before the timer releases it"
+        );
+        assert_eq!(renderer.profile.borrow().status, "failed");
+        assert!(renderer.profile.borrow().gpu_time_ns.is_none());
+        assert!(
+            renderer
+                .profile
+                .borrow()
+                .passes
+                .values()
+                .all(|pass| pass.gpu_time_ns.is_none())
         );
         assert!(
             renderer.failed_surface.is_some(),

@@ -18,6 +18,40 @@ String _lastError() {
   }
 }
 
+Map<String, Object?> _frameProfile(int handle) {
+  final bytes = utf8.encode(
+    jsonEncode({
+      'version': 1,
+      'request': 0,
+      'command': {'operation': 'frameProfile'},
+    }),
+  );
+  final input = calloc<Uint8>(bytes.length), output = calloc<Uint8>(256 * 1024);
+  final written = calloc<Size>();
+  try {
+    input.asTypedList(bytes.length).setAll(0, bytes);
+    if (native.graphCommand(
+              handle,
+              input,
+              bytes.length,
+              output,
+              256 * 1024,
+              written,
+            ) !=
+            0 ||
+        written.value > 256 * 1024) {
+      throw StateError(_lastError());
+    }
+    return (jsonDecode(utf8.decode(output.asTypedList(written.value)))['result']
+            as Map)
+        .cast<String, Object?>();
+  } finally {
+    calloc.free(input);
+    calloc.free(output);
+    calloc.free(written);
+  }
+}
+
 final class _NativeOwner implements Finalizable {
   static final _finalizer = NativeFinalizer(Native.addressOf(native.finalize));
   final int handle;
@@ -129,7 +163,7 @@ void renderWorker(WorkerBootstrap start) {
                 .materialize()
                 .asUint8List(),
           );
-          reply(true, <int>[0, ...receipt]);
+          reply(true, <Object>[0, ...receipt, _frameProfile(owner.handle)]);
         } on NativeSurfaceException catch (error) {
           reply(true, <int>[error.code]);
         }
@@ -167,6 +201,7 @@ void renderWorker(WorkerBootstrap start) {
           ]),
           native.sceneUploadedBytes(owner.handle) - before,
           native.sceneResidentBytes(owner.handle),
+          _frameProfile(owner.handle),
         ]);
       } finally {
         calloc.free(input);

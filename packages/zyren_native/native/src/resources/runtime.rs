@@ -33,12 +33,24 @@ enum Resource {
 /// Aggregate admission includes old and candidate graphs during replacement.
 pub const MAX_RESIDENT_BYTES: u64 = 256 * 1024 * 1024;
 
+#[derive(Default)]
+struct Telemetry {
+    submissions: u64,
+    graph_submissions: u64,
+    completion_wait_ns: u64,
+    gpu_time_ns: Option<u64>,
+    graph_gpu_time_ns: Option<u64>,
+    gpu_samples: u64,
+    graph_gpu_samples: u64,
+}
+
 pub struct ResourceStore {
     registry: ResourceRegistry<Resource>,
     serial: u64,
     uploaded: u64,
     pending: Option<wgpu::SubmissionIndex>,
     mipmaps: super::mipmap::MipmapGenerator,
+    telemetry: Telemetry,
 }
 impl Default for ResourceStore {
     fn default() -> Self {
@@ -49,6 +61,7 @@ impl Default for ResourceStore {
             uploaded: 0,
             pending: None,
             mipmaps: Default::default(),
+            telemetry: Default::default(),
         }
     }
 }
@@ -123,7 +136,21 @@ impl ResourceStore {
         keys: &[ResourceKey],
         commands: wgpu::CommandBuffer,
     ) -> Result<(), ResourceError> {
-        self.submit(device, queue, [commands])?;
+        let before = self.telemetry.gpu_time_ns.unwrap_or(0);
+        let submission_before = self.telemetry.submissions;
+        let samples_before = self.telemetry.gpu_samples;
+        let result = self.submit(device, queue, [commands]);
+        self.telemetry.graph_submissions += self.telemetry.submissions - submission_before;
+        if result.is_ok() && self.telemetry.gpu_samples > samples_before {
+            self.telemetry.graph_gpu_samples += 1;
+            self.telemetry.graph_gpu_time_ns = self.telemetry.gpu_time_ns.map(|total| {
+                self.telemetry
+                    .graph_gpu_time_ns
+                    .unwrap_or(0)
+                    .saturating_add(total.saturating_sub(before))
+            });
+        }
+        result?;
         for key in keys {
             self.registry.mark_used(*key, self.serial)?;
         }
@@ -477,6 +504,21 @@ impl ResourceStore {
             "totalAllocations": self.registry.live_allocations(), "allocations": allocations,
             "residentBytes": null})
     }
+    // Device-lifetime resource queue observations. Scene submissions are
+    // excluded; uploads, mip generation, readbacks and standalone graphs overlap.
+    pub(crate) fn telemetry(&self) -> serde_json::Value {
+        serde_json::json!({
+            "submissionCount": self.telemetry.submissions,
+            "graphSubmissionCount": self.telemetry.graph_submissions,
+            "cpuCompletionWaitNs": self.telemetry.completion_wait_ns,
+            "gpuTimeNs": self.telemetry.gpu_time_ns.filter(|_| self.telemetry.gpu_samples == self.telemetry.submissions),
+            "gpuMeasuredSubmissionCount": self.telemetry.gpu_samples,
+            "graphGpuTimeNs": self.telemetry.graph_gpu_time_ns.filter(|_| self.telemetry.graph_gpu_samples == self.telemetry.graph_submissions),
+            "graphGpuMeasuredSubmissionCount": self.telemetry.graph_gpu_samples,
+            "gpuTimeSource": if self.telemetry.gpu_time_ns.is_some() { "metal.commandBuffer.startEndTime" } else { "unavailable" },
+            "uploadedBytes": self.uploaded,
+        })
+    }
     pub(crate) fn stats(&self) -> (u64, u64) {
         (self.registry.resident_bytes(), self.uploaded)
     }
@@ -491,17 +533,29 @@ impl ResourceStore {
             .checked_add(1)
             .ok_or(ResourceError::DeviceFailed)?;
         let index = queue.submit(commands);
+        self.telemetry.submissions += 1;
         #[cfg(target_vendor = "apple")]
         {
             let metal = crate::interop::metal::MetalCompletion::capture(queue)
                 .map_err(|_| ResourceError::DeviceFailed)?;
-            device
+            let wait_started = std::time::Instant::now();
+            let completion = device
                 .poll(wgpu::PollType::Wait {
                     submission_index: Some(index.clone()),
                     timeout: Some(Duration::from_secs(2)),
                 })
-                .map_err(|_| ResourceError::DeviceFailed)?;
+                .map_err(|_| ResourceError::DeviceFailed);
+            self.telemetry.completion_wait_ns = self
+                .telemetry
+                .completion_wait_ns
+                .saturating_add(wait_started.elapsed().as_nanos() as u64);
+            completion?;
             metal.check().map_err(|_| ResourceError::DeviceFailed)?;
+            if let Some(ns) = metal.gpu_time_ns() {
+                self.telemetry.gpu_samples += 1;
+                self.telemetry.gpu_time_ns =
+                    Some(self.telemetry.gpu_time_ns.unwrap_or(0).saturating_add(ns));
+            }
         }
         let _ = device;
         self.pending = Some(index);
@@ -509,12 +563,18 @@ impl ResourceStore {
     }
     fn wait(&mut self, device: &wgpu::Device) -> Result<(), ResourceError> {
         if let Some(pending) = &self.pending {
-            device
+            let wait_started = std::time::Instant::now();
+            let completion = device
                 .poll(wgpu::PollType::Wait {
                     submission_index: Some(pending.clone()),
                     timeout: Some(Duration::from_secs(2)),
                 })
-                .map_err(|_| ResourceError::DeviceFailed)?;
+                .map_err(|_| ResourceError::DeviceFailed);
+            self.telemetry.completion_wait_ns = self
+                .telemetry
+                .completion_wait_ns
+                .saturating_add(wait_started.elapsed().as_nanos() as u64);
+            completion?;
         }
         self.pending = None;
         self.registry.retire_completed(self.serial);
@@ -846,5 +906,25 @@ impl ResourceStore {
         response.extend((body.len() as u64).to_le_bytes());
         response.extend(body);
         Ok(response)
+    }
+}
+
+#[cfg(test)]
+mod telemetry_tests {
+    use super::*;
+    #[test]
+    fn incomplete_resource_gpu_coverage_stays_null() {
+        let mut store = ResourceStore::default();
+        store.telemetry.submissions = 2;
+        store.telemetry.gpu_samples = 1;
+        store.telemetry.gpu_time_ns = Some(100);
+        store.telemetry.graph_submissions = 1;
+        store.telemetry.graph_gpu_time_ns = Some(100);
+        assert!(store.telemetry()["gpuTimeNs"].is_null());
+        assert!(store.telemetry()["graphGpuTimeNs"].is_null());
+        store.telemetry.gpu_samples = 2;
+        store.telemetry.graph_gpu_samples = 1;
+        assert_eq!(store.telemetry()["gpuTimeNs"], 100);
+        assert_eq!(store.telemetry()["graphGpuTimeNs"], 100);
     }
 }

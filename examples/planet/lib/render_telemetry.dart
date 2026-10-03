@@ -21,6 +21,7 @@ final class RenderTelemetry {
         'buildUs': frame.cpuBuildTime.inMicroseconds,
         'submitUs': frame.cpuSubmitTime.inMicroseconds,
         'gpuUs': frame.gpuTime?.inMicroseconds,
+        'profile': frame.profile?.toJson(),
         'readbackBytes': frame.readbackBytes,
         'size': [frame.physicalSize.width, frame.physicalSize.height],
       });

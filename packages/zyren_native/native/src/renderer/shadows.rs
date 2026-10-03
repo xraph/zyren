@@ -366,6 +366,9 @@ pub(super) struct PreparedShadows {
     signature: Option<Signature>,
 }
 impl PreparedShadows {
+    pub(super) fn renders(&self) -> bool {
+        self.signature.is_some()
+    }
     pub fn entries<'a>(&'a self, system: &'a ShadowSystem) -> [wgpu::BindGroupEntry<'a>; 3] {
         [
             wgpu::BindGroupEntry {

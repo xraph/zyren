@@ -10,43 +10,47 @@ Map<String, Object> deviceInfoReply(
             utf8.decode((arguments['bytes'] ?? arguments['data']) as Uint8List),
           )
           as Map;
-  if ((request['command'] as Map)['operation'] != 'deviceInfo') {
+  final operation = (request['command'] as Map)['operation'];
+  final Map<String, Object?> result;
+  if (operation == 'deviceInfo') {
+    result = {
+      'backend': 'test',
+      'adapterName': 'test adapter',
+      'sampleCounts': samples,
+    };
+  } else if (operation == 'frameProfile') {
+    result = {
+      'status': 'complete',
+      'cpuPrepareNs': 1000,
+      'cpuEncodeNs': 2000,
+      'cpuCompletionWaitNs': 3000,
+      'gpuTimeNs': null,
+      'gpuTimeSource': 'unavailable',
+      'submissionCount': 1,
+      'drawPreparationBuffers': 0,
+      'drawPreparationBindGroups': 0,
+      'drawCacheReuses': null,
+      'uploadBytes': 0,
+      'passes': {
+        'scene': {'executed': true, 'gpuTimeNs': null},
+      },
+      'resources': {},
+    };
+  } else {
     throw StateError('Unexpected GPU command');
   }
-  return {
-    'status': 0,
-    if (arguments.containsKey('bytes'))
-      'bytes': _deviceBytes(arguments, samples),
-    'data': Uint8List.fromList(
-      utf8.encode(
-        jsonEncode({
-          'version': 1,
-          'request': request['request'],
-          'result': {
-            'backend': 'test',
-            'adapterName': 'test adapter',
-            'sampleCounts': samples,
-          },
-        }),
-      ),
-    ),
-  };
-}
-
-Uint8List _deviceBytes(Map arguments, List<int> samples) {
-  final request =
-      jsonDecode(utf8.decode(arguments['bytes'] as Uint8List)) as Map;
-  return Uint8List.fromList(
+  final data = Uint8List.fromList(
     utf8.encode(
       jsonEncode({
         'version': 1,
         'request': request['request'],
-        'result': {
-          'backend': 'test',
-          'adapterName': 'test adapter',
-          'sampleCounts': samples,
-        },
+        'result': result,
       }),
     ),
   );
+  return {
+    'status': 0,
+    if (arguments.containsKey('bytes')) 'bytes': data,
+    'data': data,
+  };
 }

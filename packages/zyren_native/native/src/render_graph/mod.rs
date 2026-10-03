@@ -46,6 +46,7 @@ enum Command {
     Release { key: Key },
     Stats {},
     DeviceInfo {},
+    FrameProfile {},
     InspectGpu { allocation_limit: usize },
     ShadowStats {},
     TemporalStats {},
@@ -211,6 +212,7 @@ pub(crate) struct GraphContext<'a> {
     pub diagnostic_readback_bytes: u64,
     pub gpu_time_source: &'static str,
     pub submitted_frames: u64,
+    pub frame_profile: Value,
 }
 
 impl GraphStore {
@@ -243,6 +245,7 @@ impl GraphStore {
             gpu_time_source,
             diagnostic_readback_bytes,
             submitted_frames,
+            frame_profile,
         } = context;
         if bytes.len() > MAX_COMMAND_BYTES || capacity != RESPONSE_CAPACITY {
             return Err("Invalid graph command capacity".into());
@@ -285,6 +288,7 @@ impl GraphStore {
                             gpu_time_source,
                             diagnostic_readback_bytes,
                             submitted_frames,
+                            frame_profile,
                         },
                         description,
                         bytes.len() as u64,
@@ -350,6 +354,7 @@ impl GraphStore {
                         })).collect::<Vec<_>>()).unwrap_or_default());
                         result["diagnosticReadbackBytes"] = json!(diagnostic_readback_bytes);
                         result["lastSubmissionGpuTimeNs"] = json!(last_gpu_time_ns);
+                        result["frameProfile"] = frame_profile;
                         result["submittedFrames"] = json!(submitted_frames);
                         result["gpuTimeSource"] = json!(gpu_time_source);
                         result["deviceAllocatedBytes"] = json!(allocated);
@@ -361,6 +366,7 @@ impl GraphStore {
                         Ok(result)
                     }
                 }
+                Command::FrameProfile {} => Ok(frame_profile),
                 Command::DeviceInfo {} => Ok(device_info),
                 Command::CompileMaterial { description } => self
                     .materials

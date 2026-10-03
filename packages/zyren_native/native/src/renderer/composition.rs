@@ -478,6 +478,7 @@ impl Renderer {
             (materials, graph, environment, shadows),
         );
         if let Some(accumulation) = accumulation {
+            self.begin_pass(&mut encoder, super::timing::Pass::AlphaResolve);
             self.compositor.encode(
                 &self.device,
                 &mut encoder,
@@ -494,11 +495,27 @@ impl Renderer {
                 ),
             );
         }
+        if accumulation.is_some() {
+            self.end_pass(&mut encoder, super::timing::Pass::AlphaResolve);
+        }
+        if frame.temporal.is_some() {
+            self.begin_pass(&mut encoder, super::timing::Pass::Temporal);
+        }
         self.encode_temporal(frame, output_scene_target, &mut encoder);
+        if frame.temporal.is_some() {
+            self.end_pass(&mut encoder, super::timing::Pass::Temporal);
+        }
         if let Some(graph) = graph {
+            if graph.has_after() {
+                self.begin_pass(&mut encoder, super::timing::Pass::ResourceGraphAfter);
+            }
             graph.encode(&mut encoder);
+            if graph.has_after() {
+                self.end_pass(&mut encoder, super::timing::Pass::ResourceGraphAfter);
+            }
         }
         if let Some(output) = graph.map(|g| &g.output).or(self.compositor.hdr.as_ref()) {
+            self.begin_pass(&mut encoder, super::timing::Pass::Output);
             self.compositor.encode(
                 &self.device,
                 &mut encoder,
@@ -515,6 +532,12 @@ impl Renderer {
                 ),
             );
         }
+        if graph.is_some() || self.compositor.hdr.is_some() {
+            self.end_pass(&mut encoder, super::timing::Pass::Output);
+        }
+        if self.outlines.view(frame).is_some() {
+            self.begin_pass(&mut encoder, super::timing::Pass::Outlines);
+        }
         self.outlines.encode(
             &self.device,
             &mut encoder,
@@ -523,6 +546,9 @@ impl Renderer {
             format,
             surface,
         );
+        if self.outlines.view(frame).is_some() {
+            self.end_pass(&mut encoder, super::timing::Pass::Outlines);
+        }
         encoder
     }
 }

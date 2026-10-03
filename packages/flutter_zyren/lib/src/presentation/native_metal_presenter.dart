@@ -299,6 +299,7 @@ class NativeMetalBackend implements NativeGpuBackend {
     final result = (await pending)!;
     if (result['applied'] == true) _encoder.accept(packet);
     if (result['ready'] != true) throw _deferred();
+    final profile = _closed ? null : await _gpu.frameProfile();
     final stats = FrameStats(
       frameId: frame,
       surfaceEpoch: target is SurfaceTarget ? target.epoch : 0,
@@ -308,6 +309,8 @@ class NativeMetalBackend implements NativeGpuBackend {
           : PresentationPath.nativeView,
       cpuBuildTime: submission.cpuBuildTime,
       cpuSubmitTime: clock.elapsed,
+      profile: profile,
+      gpuTime: profile?.gpuTime,
       drawCalls:
           submission.scene.drawCalls +
           submission.scene.transmissionCaptureDraws +

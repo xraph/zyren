@@ -96,6 +96,17 @@ Future<void> verifyNativeGraph({NativeGpuBackend? providedBackend}) async {
       GraphDescription(passes: [sample(), write(red)]),
     );
     await baseline.execute();
+    final resourcesProfile =
+        (await backend.inspectGpu()).frameProfile!.resources;
+    expect(resourcesProfile['graphSubmissionCount'], 1);
+    expect(resourcesProfile['submissionCount'], greaterThanOrEqualTo(1));
+    expect(resourcesProfile['cpuCompletionWaitNs'], isA<int>());
+    if (resourcesProfile['gpuTimeSource'] ==
+        'metal.commandBuffer.startEndTime') {
+      expect(resourcesProfile['gpuTimeNs'], greaterThanOrEqualTo(0));
+      expect(resourcesProfile['graphGpuTimeNs'], greaterThanOrEqualTo(0));
+    }
+
     expect(await reader.readTexture(output), [
       for (var i = 0; i < 64 * 64; i++) ...[255, 0, 0, 255],
     ]);

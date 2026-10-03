@@ -108,7 +108,7 @@ fn completed_frame_timing_does_not_count_as_pixel_readback() {
     let queries = info["result"]["gpuTimestampQueries"].as_bool().unwrap();
     assert_eq!(
         info["result"]["gpuTimestampBufferBytes"],
-        if queries { 32 } else { 0 }
+        if queries { 384 } else { 0 }
     );
     for frame_index in 1..=32 {
         assert_eq!(renderer.render(&frame, 8, 8).unwrap().len(), 256);
@@ -129,7 +129,60 @@ fn completed_frame_timing_does_not_count_as_pixel_readback() {
             assert!(result["lastSubmissionGpuTimeNs"].is_null());
             assert_eq!(source, "unavailable");
         }
-        assert_eq!(inspect(&mut renderer, 1)["result"], result);
+        let repeated = inspect(&mut renderer, 1)["result"].clone();
+        for field in [
+            "frameProfile",
+            "lastSubmissionGpuTimeNs",
+            "submittedFrames",
+            "diagnosticReadbackBytes",
+            "registryPayloadBytes",
+        ] {
+            assert_eq!(repeated[field], result[field]);
+        }
         assert_eq!(renderer.counters().readback_bytes, frame_index * 256);
     }
+}
+
+#[test]
+#[ignore = "requires a native Metal, Vulkan or DX12 device"]
+fn frame_profile_is_bounded_and_clears_stale_measurements_on_rejection() {
+    let mut renderer = pollster::block_on(Renderer::new()).unwrap();
+    let frame = serde_json::from_value(json!({
+        "version":1,"view_projection":glam::Mat4::IDENTITY.to_cols_array(),
+        "background":[1,0,0],"light_direction":[0,0,1],"ambient":0.2,
+        "geometries":[],"meshes":[]
+    }))
+    .unwrap();
+    let profile = |renderer: &mut Renderer| {
+        let bytes = serde_json::to_vec(&json!({"version":1,"request":1,
+            "command":{"operation":"frameProfile"}}))
+        .unwrap();
+        let result: Value =
+            serde_json::from_slice(&renderer.graph_command(&bytes, 256 * 1024).unwrap()).unwrap();
+        result["result"].clone()
+    };
+    assert_eq!(profile(&mut renderer)["status"], "unavailable");
+    for _ in 0..32 {
+        renderer.render(&frame, 8, 8).unwrap();
+        let p = profile(&mut renderer);
+        assert_eq!(p["status"], "complete");
+        assert_eq!(p["submissionCount"], 1);
+        assert!(p["cpuPrepareNs"].is_u64());
+        assert!(p["cpuEncodeNs"].is_u64());
+        assert!(p["cpuCompletionWaitNs"].is_u64());
+        assert_eq!(p["passes"].as_object().unwrap().len(), 11);
+        assert_eq!(p["passes"]["scene"]["executed"], true);
+        assert_eq!(p["passes"]["transmission"]["executed"], false);
+        assert_eq!(p["passes"]["shadows"]["executed"], false);
+        if renderer.backend == wgpu::Backend::Metal {
+            assert!(p["gpuTimeNs"].is_u64());
+            assert!(p["passes"]["scene"]["gpuTimeNs"].is_null());
+        }
+    }
+    assert!(renderer.render(&frame, 0, 8).is_err());
+    let p = profile(&mut renderer);
+    assert_eq!(p["status"], "pending");
+    assert!(p["gpuTimeNs"].is_null());
+    assert!(p["cpuPrepareNs"].is_null());
+    assert_eq!(p["submissionCount"], 0);
 }

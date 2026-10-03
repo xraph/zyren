@@ -369,11 +369,27 @@ impl Renderer {
             self.encode_scene(frame, (resolve, None, depth, false), HDR, size, composition)
         };
         if let Some(accumulation) = accumulation {
+            self.begin_pass(&mut encoder, super::timing::Pass::AlphaResolve);
             self.copy_linear_color(&mut encoder, accumulation, scene_target, true, false);
         }
+        if accumulation.is_some() {
+            self.end_pass(&mut encoder, super::timing::Pass::AlphaResolve);
+        }
+        if frame.temporal.is_some() {
+            self.begin_pass(&mut encoder, super::timing::Pass::Temporal);
+        }
         self.encode_temporal(frame, output_scene, &mut encoder);
+        if frame.temporal.is_some() {
+            self.end_pass(&mut encoder, super::timing::Pass::Temporal);
+        }
         if let Some(graph) = graph {
+            if graph.has_after() {
+                self.begin_pass(&mut encoder, super::timing::Pass::ResourceGraphAfter);
+            }
             graph.encode(&mut encoder);
+            if graph.has_after() {
+                self.end_pass(&mut encoder, super::timing::Pass::ResourceGraphAfter);
+            }
             self.copy_linear_color(
                 &mut encoder,
                 &graph.output,
@@ -390,6 +406,7 @@ impl Renderer {
                 true,
             );
         }
+        self.begin_pass(&mut encoder, super::timing::Pass::Effects);
         let uniforms = ScreenUniforms {
             inverse: Mat4::from_cols_array(&self.temporal.vp(frame))
                 .inverse()
@@ -545,8 +562,15 @@ impl Renderer {
             &group,
             &[],
         );
+        self.end_pass(&mut encoder, super::timing::Pass::Effects);
+        if self.outlines.view(frame).is_some() {
+            self.begin_pass(&mut encoder, super::timing::Pass::Outlines);
+        }
         self.outlines
             .encode(&self.device, &mut encoder, frame, output, format, true);
+        if self.outlines.view(frame).is_some() {
+            self.end_pass(&mut encoder, super::timing::Pass::Outlines);
+        }
         encoder
     }
     pub(super) fn accept_history(&mut self, frame: &Frame) {

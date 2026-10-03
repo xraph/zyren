@@ -134,6 +134,9 @@ class NativeRenderer implements SceneRenderer {
       bytes,
       submission.size.width,
       submission.size.height,
+      profile: NativeFrameProfile.fromJson(
+        (reply[3] as Map).cast<String, Object?>(),
+      ),
       uploadedBytes: reply[1] as int,
       residentBytes: reply[2] as int,
       alphaMode: submission.scene.usesScreenEffects
@@ -150,7 +153,7 @@ class NativeRenderer implements SceneRenderer {
     }
   }
 
-  Future<List<int>> _renderSurfacePacket(
+  Future<List<Object>> _renderSurfacePacket(
     EncodedScenePacket packet,
     ScenePacketEncoder encoder,
     SurfaceTarget target,
@@ -169,13 +172,13 @@ class NativeRenderer implements SceneRenderer {
           frameId,
         ])
         .then((value) {
-          final receipt = value as List<int>;
+          final receipt = (value as List).cast<Object>();
           if (receipt.first == 0 || receipt.first == 14) {
             encoder.accept(packet);
           }
           if (receipt.first != 0) {
             throw NativeSurfaceException(
-              receipt.first,
+              receipt.first as int,
               'Surface submission was not published.',
             );
           }

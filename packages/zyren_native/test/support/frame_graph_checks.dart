@@ -66,6 +66,12 @@ Future<void> verifyFrameGraph({
             )
             as ReadbackOutput;
     final first = await render();
+    final profile = first.stats.profile!;
+    expect(profile.status, 'complete');
+    expect(profile.passes['resourceGraphAfter']!.executed, isTrue);
+    expect(profile.passes['scene']!.executed, isTrue);
+    expect(profile.passes['output']!.executed, isTrue);
+    expect(profile.submissionCount, 1);
     expect(first.stats.drawCalls, compute ? 2 : 3);
     expect(first.stats.computeDispatches, compute ? 1 : 0);
     expect(first.stats.triangles, compute ? 2 : 3);

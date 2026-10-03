@@ -39,7 +39,12 @@ void main() {
         ]);
         expect(readback.stats.readbackBytes, 63 * 47 * 4);
         expect(readback.stats.triangles, 12);
-        expect(readback.stats.gpuTime, isNull);
+        expect(readback.stats.profile!.status, 'complete');
+        expect(readback.stats.profile!.passes['scene']!.executed, isTrue);
+        if (backend.capabilities.backend == 'Metal') {
+          expect(readback.stats.gpuTime, isNotNull);
+          expect(readback.stats.profile!.passes['scene']!.gpuTimeNs, isNull);
+        }
         expect(
           backend.capabilities.supports(RenderFeature.sharedTexture),
           isFalse,

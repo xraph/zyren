@@ -284,17 +284,22 @@ class NativeBackend implements NativeGpuBackend {
         );
         clock.stop();
         final receipt = await pending;
+        final profile = NativeFrameProfile.fromJson(
+          (receipt[4] as Map).cast<String, Object?>(),
+        );
         return PresentedOutput(
           surface: target.surface,
-          epoch: receipt[0],
-          frameId: receipt[1],
+          epoch: receipt[0] as int,
+          frameId: receipt[1] as int,
           stats: FrameStats(
-            frameId: receipt[1],
-            surfaceEpoch: receipt[0],
+            frameId: receipt[1] as int,
+            surfaceEpoch: receipt[0] as int,
             physicalSize: submission.size,
             presentationPath: PresentationPath.sharedTexture,
             cpuBuildTime: submission.cpuBuildTime,
             cpuSubmitTime: clock.elapsed,
+            profile: profile,
+            gpuTime: profile.gpuTime,
             drawCalls:
                 submission.scene.drawCalls +
                 submission.scene.transmissionCaptureDraws +
@@ -319,8 +324,8 @@ class NativeBackend implements NativeGpuBackend {
                 submission.outputConversionDraws +
                 (submission.graph?.triangles ?? 0),
             uploadedBytes: packet.uploadedBytes,
-            residentBytes: receipt[2],
-            readbackBytes: receipt[3],
+            residentBytes: receipt[2] as int,
+            readbackBytes: receipt[3] as int,
           ),
         );
       }
@@ -345,6 +350,8 @@ class NativeBackend implements NativeGpuBackend {
           presentationPath: PresentationPath.readback,
           cpuBuildTime: submission.cpuBuildTime,
           cpuSubmitTime: clock.elapsed,
+          profile: frame.profile,
+          gpuTime: frame.profile?.gpuTime,
           drawCalls:
               submission.scene.drawCalls +
               submission.scene.transmissionCaptureDraws +

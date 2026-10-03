@@ -130,6 +130,7 @@ final class GpuInspection {
   final int? lastSubmissionGpuTimeNs;
   final int submittedFrames;
   final String gpuTimeSource;
+  final NativeFrameProfile? frameProfile;
 
   /// Metal device currentAllocatedSize in this process, including other
   /// renderers and views sharing that Metal device.
@@ -155,6 +156,7 @@ final class GpuInspection {
     this.lastSubmissionGpuTimeNs,
     this.submittedFrames = 0,
     this.gpuTimeSource = 'unavailable',
+    this.frameProfile,
     this.deviceAllocatedBytes,
     this.residentBytes,
     required this.deviceAllocationSource,
@@ -181,6 +183,7 @@ final class GpuInspection {
     'lastSubmissionGpuTimeNs': lastSubmissionGpuTimeNs,
     'submittedFrames': submittedFrames,
     'gpuTimeSource': gpuTimeSource,
+    'frameProfile': frameProfile?.toJson(),
     'deviceAllocatedBytes': deviceAllocatedBytes,
     'deviceAllocationSource': deviceAllocationSource,
     'residentBytes': residentBytes,
@@ -188,5 +191,77 @@ final class GpuInspection {
     'totalAllocations': totalAllocations,
     'truncated': truncated,
     'allocations': allocations.map((a) => a.toJson()).toList(),
+  };
+}
+
+/// Native scene work from one completed frame. Nanoseconds preserve sub-microsecond
+/// samples. Preparation and encoding are CPU intervals; completion wait can overlap
+/// GPU execution. Named pass intervals are contained in gpuTimeNs. Do not add them.
+/// Resource counters are device-lifetime observations, independent of scene work.
+final class NativeFrameProfile {
+  final String status, gpuTimeSource;
+  final int? cpuPrepareNs,
+      cpuEncodeNs,
+      cpuCompletionWaitNs,
+      gpuTimeNs,
+      drawCacheReuses;
+  final int submissionCount,
+      drawPreparationBuffers,
+      drawPreparationBindGroups,
+      uploadBytes;
+  final Map<String, NativePassTiming> passes;
+  final Map<String, Object?> resources;
+  NativeFrameProfile.fromJson(Map<String, Object?> json)
+    : status = json['status'] as String,
+      cpuPrepareNs = json['cpuPrepareNs'] as int?,
+      cpuEncodeNs = json['cpuEncodeNs'] as int?,
+      cpuCompletionWaitNs = json['cpuCompletionWaitNs'] as int?,
+      gpuTimeNs = json['gpuTimeNs'] as int?,
+      gpuTimeSource = json['gpuTimeSource'] as String,
+      submissionCount = json['submissionCount'] as int,
+      drawPreparationBuffers = json['drawPreparationBuffers'] as int,
+      drawPreparationBindGroups = json['drawPreparationBindGroups'] as int,
+      drawCacheReuses = json['drawCacheReuses'] as int?,
+      uploadBytes = json['uploadBytes'] as int,
+      passes = Map.unmodifiable(
+        (json['passes'] as Map).map(
+          (key, value) => MapEntry(
+            key as String,
+            NativePassTiming.fromJson((value as Map).cast<String, Object?>()),
+          ),
+        ),
+      ),
+      resources = Map.unmodifiable(
+        (json['resources'] as Map? ?? {}).cast<String, Object?>(),
+      );
+  Duration? get gpuTime =>
+      gpuTimeNs == null ? null : Duration(microseconds: gpuTimeNs! ~/ 1000);
+  Map<String, Object?> toJson() => {
+    'status': status,
+    'cpuPrepareNs': cpuPrepareNs,
+    'cpuEncodeNs': cpuEncodeNs,
+    'cpuCompletionWaitNs': cpuCompletionWaitNs,
+    'gpuTimeNs': gpuTimeNs,
+    'gpuTimeSource': gpuTimeSource,
+    'submissionCount': submissionCount,
+    'drawPreparationBuffers': drawPreparationBuffers,
+    'drawPreparationBindGroups': drawPreparationBindGroups,
+    'drawCacheReuses': drawCacheReuses,
+    'uploadBytes': uploadBytes,
+    'passes': passes.map((key, value) => MapEntry(key, value.toJson())),
+    'resources': resources,
+  };
+}
+
+/// An absent pass has executed=false. An unmeasured executed pass stays null.
+final class NativePassTiming {
+  final bool executed;
+  final int? gpuTimeNs;
+  NativePassTiming.fromJson(Map<String, Object?> json)
+    : executed = json['executed'] as bool,
+      gpuTimeNs = json['gpuTimeNs'] as int?;
+  Map<String, Object?> toJson() => {
+    'executed': executed,
+    'gpuTimeNs': gpuTimeNs,
   };
 }

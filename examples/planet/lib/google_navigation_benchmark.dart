@@ -193,6 +193,7 @@ final class _NavigationBenchmark {
             'buildUs': f.cpuBuildTime.inMicroseconds,
             'submitUs': f.cpuSubmitTime.inMicroseconds,
             'gpuUs': f.gpuTime?.inMicroseconds,
+            'profile': f.profile?.toJson(),
             'drawCalls': f.drawCalls,
             'triangles': f.triangles,
             'uploadedBytes': f.uploadedBytes,
@@ -253,6 +254,22 @@ final class _NavigationBenchmark {
           if (identical(navigation.controls, controls)) controls.cancel();
           await subscription.cancel();
         }
+        if (samples.length < 2 ||
+            samples.any((s) => s['readbackBytes'] != 0 || s['visible'] == 0)) {
+          phaseFailure ??= StateError(
+            'The phase did not sustain native city presentations.',
+          );
+        }
+        if (phase != 'stationary' && displacement < 1) {
+          phaseFailure ??= StateError(
+            'The navigation input did not move the camera.',
+          );
+        }
+        if (lab.tiles!.failures.isNotEmpty) {
+          phaseFailure ??= StateError(
+            'Tile failures occurred during navigation.',
+          );
+        }
         final summary = summarizeNavigationFrames(samples);
         phases.add({
           'name': phase,
@@ -266,18 +283,6 @@ final class _NavigationBenchmark {
           'samples': samples,
         });
         if (phaseFailure != null) throw phaseFailure;
-        if (samples.length < 2 ||
-            samples.any((s) => s['readbackBytes'] != 0 || s['visible'] == 0)) {
-          throw StateError(
-            'The phase did not sustain native city presentations.',
-          );
-        }
-        if (phase != 'stationary' && displacement < 1) {
-          throw StateError('The navigation input did not move the camera.');
-        }
-        if (lab.tiles!.failures.isNotEmpty) {
-          throw StateError('Tile failures occurred during navigation.');
-        }
       }
       report['passed'] = true;
       _stage = 'complete';
@@ -298,6 +303,13 @@ final class _NavigationBenchmark {
           ),
         };
       }
+      report['completePhaseNames'] = [
+        for (final phase in phases)
+          if (phase['completed'] == true) phase['name'],
+      ];
+      report['allPhasesComplete'] =
+          phases.length == 4 &&
+          phases.every((phase) => phase['completed'] == true);
       report['tileFailures'] = [
         for (final failure in lab.tiles?.failures ?? [])
           {

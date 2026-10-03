@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'gpu_diagnostics.dart';
 
 class PhysicalSize {
   final int width, height;
@@ -109,6 +110,7 @@ class FrameStats {
   final PresentationPath presentationPath;
   final Duration cpuBuildTime, cpuSubmitTime;
   final Duration? gpuTime;
+  final NativeFrameProfile? profile;
   const FrameStats({
     this.source,
     required this.frameId,
@@ -126,6 +128,7 @@ class FrameStats {
     this.droppedFrames = 0,
     this.residentBytes,
     this.gpuTime,
+    this.profile,
   });
   FrameStats withSource(FrameSource source) => FrameStats(
     source: source,
@@ -144,6 +147,7 @@ class FrameStats {
     droppedFrames: droppedFrames,
     residentBytes: residentBytes,
     gpuTime: gpuTime,
+    profile: profile,
   );
 }
 

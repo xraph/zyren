@@ -9,6 +9,12 @@ pub(crate) struct FrameGraph {
     pub scene_resource: ResourceKey,
 }
 impl FrameGraph {
+    pub fn has_before(&self) -> bool {
+        self.graph.scene_pass_index != 0
+    }
+    pub fn has_after(&self) -> bool {
+        self.graph.scene_pass_index != self.graph.passes.len()
+    }
     pub fn resources(&self) -> &[ResourceKey] {
         &self.graph.resources
     }

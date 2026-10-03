@@ -114,6 +114,7 @@ final class NativeGpuServices {
     return _device.configureBudget(bytes);
   }
 
+  Future<NativeFrameProfile> frameProfile() => _device.frameProfile();
   Future<ShaderStats> shaderStats() => _device.shaderStats();
   Future<GraphCacheStats> graphStats() => _device.graphStats();
   Future<ShadowStats> shadowStats() => _device.shadowStats();

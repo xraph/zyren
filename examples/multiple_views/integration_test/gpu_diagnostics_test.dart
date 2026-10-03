@@ -72,7 +72,19 @@ void main() {
         info.presentationPath,
         android ? PresentationPath.sharedTexture : PresentationPath.nativeView,
       );
+      final frameProfile = controller.latestFrameStats!.profile!;
+      expect(frameProfile.status, 'complete');
+      expect(frameProfile.submissionCount, 1);
+      expect(frameProfile.cpuPrepareNs, isNonNegative);
+      expect(frameProfile.cpuEncodeNs, isNonNegative);
+      expect(frameProfile.cpuCompletionWaitNs, isNonNegative);
+      expect(frameProfile.passes['scene']!.executed, isTrue);
+      if (!android) {
+        expect(controller.latestFrameStats!.gpuTime, isNotNull);
+        expect(frameProfile.passes['scene']!.gpuTimeNs, isNull);
+      }
       final first = (await inspector.inspectGpu(allocationLimit: 1))!;
+      expect(first.frameProfile!.status, 'complete');
       expect(first.residentBytes, isNull);
       expect(first.registryPayloadBytes, greaterThan(0));
       final previous = inspector.frames.length;

@@ -27,6 +27,34 @@ Map<String, Object?> summarizeNavigationFrames(
     for (final frame in frames)
       if (frame[key] case final num value) value / 1000,
   ]);
+  final profiles = [
+    for (final frame in frames)
+      if (frame['profile'] case final Map profile)
+        if (profile['status'] == 'complete') profile,
+  ];
+  Map<String, Object?>? native(String key, [double divisor = 1000000]) =>
+      _distribution([
+        for (final profile in profiles)
+          if (profile[key] case final num value) value / divisor,
+      ]);
+  final passNames = {
+    for (final profile in profiles)
+      if (profile['passes'] case final Map passes)
+        ...passes.keys.cast<String>(),
+  };
+  // Resource deltas cover the interval between the first and last collected
+  // profiles. Work before the first presentation is excluded.
+  final firstResources = profiles.isEmpty
+      ? null
+      : profiles.first['resources'] as Map?;
+  final lastResources = profiles.isEmpty
+      ? null
+      : profiles.last['resources'] as Map?;
+  num? resourceDelta(String key) {
+    final first = firstResources?[key], last = lastResources?[key];
+    return first is num && last is num && last >= first ? last - first : null;
+  }
+
   final span = intervals.fold<double>(0, (sum, value) => sum + value);
   return {
     'frames': frames.length,
@@ -39,5 +67,35 @@ Map<String, Object?> summarizeNavigationFrames(
     'buildMs': timing('buildUs'),
     'submitMs': timing('submitUs'),
     'gpuMs': timing('gpuUs'),
+    'nativeProfileCount': profiles.length,
+    'nativeProfileMissingFrames': frames.length - profiles.length,
+    'resourcePhaseDelta': {
+      for (final key in [
+        'submissionCount',
+        'graphSubmissionCount',
+        'cpuCompletionWaitNs',
+        'gpuTimeNs',
+        'graphGpuTimeNs',
+        'uploadedBytes',
+      ])
+        key: resourceDelta(key),
+    },
+    'nativePrepareMs': native('cpuPrepareNs'),
+    'nativeEncodeMs': native('cpuEncodeNs'),
+    'nativeWaitMs': native('cpuCompletionWaitNs'),
+    'submissionCount': native('submissionCount', 1),
+    'drawPreparationBuffers': native('drawPreparationBuffers', 1),
+    'drawPreparationBindGroups': native('drawPreparationBindGroups', 1),
+    'drawCacheReuses': native('drawCacheReuses', 1),
+    'uploadBytes': native('uploadBytes', 1),
+    'passes': {
+      for (final name in passNames)
+        name: _distribution([
+          for (final profile in profiles)
+            if (profile['passes'] case final Map passes)
+              if (passes[name] case final Map pass)
+                if (pass['gpuTimeNs'] case final num value) value / 1000000,
+        ]),
+    },
   };
 }

@@ -210,6 +210,13 @@ mixin _NativeGraphs {
     await _graphCommand({'operation': 'release', 'key': key as _GraphKey});
   }
 
+  Future<NativeFrameProfile> frameProfile() async =>
+      NativeFrameProfile.fromJson(
+        (await _graphCommand({
+          'operation': 'frameProfile',
+        })).cast<String, Object?>(),
+      );
+
   Future<GpuInspection> inspectGpu({int allocationLimit = 128}) async {
     if (allocationLimit < 1 || allocationLimit > 256) {
       throw RangeError.range(allocationLimit, 1, 256, 'allocationLimit');
@@ -236,6 +243,11 @@ mixin _NativeGraphs {
               size: value['size'] as int,
             ),
           ),
+      frameProfile: result['frameProfile'] == null
+          ? null
+          : NativeFrameProfile.fromJson(
+              (result['frameProfile'] as Map).cast<String, Object?>(),
+            ),
       lastSubmissionGpuTimeNs: result['lastSubmissionGpuTimeNs'] as int?,
       submittedFrames: result['submittedFrames'] as int,
       gpuTimeSource: result['gpuTimeSource'] as String,

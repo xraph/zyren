@@ -279,6 +279,7 @@ class NativeAndroidBackend implements NativeGpuBackend {
     final result = (await pending)!;
     if (result['applied'] == true) _encoder.accept(packet);
     if (_closed || result['presented'] != true) throw _deferred();
+    final profile = await _gpu.frameProfile();
     return PresentedOutput(
       surface: key,
       epoch: target.epoch,
@@ -290,6 +291,8 @@ class NativeAndroidBackend implements NativeGpuBackend {
         presentationPath: PresentationPath.sharedTexture,
         cpuBuildTime: submission.cpuBuildTime,
         cpuSubmitTime: clock.elapsed,
+        profile: profile,
+        gpuTime: profile.gpuTime,
         drawCalls:
             submission.scene.drawCalls +
             submission.scene.transmissionCaptureDraws +
