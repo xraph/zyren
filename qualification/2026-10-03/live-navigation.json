@@ -29,7 +29,7 @@
     "fps": "accepted native presentations per elapsed span",
     "route": "wall-time sine through GlobeControls",
     "physicalInputLatencyMeasured": false,
-    "gpuTime": "unavailable on the recorded Metal native-view runs"
+    "gpuTime": "Unavailable on recorded Metal native-view and Vulkan shared-texture runs."
   },
   "runs": [
     {
@@ -1032,16 +1032,258 @@
         "tileFailures": [],
         "cpuSampleCount": 7013
       }
+    },
+    {
+      "id": "pixel-baseline-auto-2",
+      "device": "Pixel 9 Pro, Mali-G715",
+      "changes": "decoder retry; installed build predates child snapshot and lunar history fixes",
+      "qualification": "partial_failure",
+      "note": "Stationary phase completed; upload budget stopped rotation after four frames. External foreground and thermal checks sampled roughly every five seconds.",
+      "compiledBundle": {
+        "installedApkSha256": "2e6a2a9004f9a656b73959eb097ffc30efbe81b06d5aab9b40e89b1beb526a7d",
+        "localApkSha256": "2e6a2a9004f9a656b73959eb097ffc30efbe81b06d5aab9b40e89b1beb526a7d",
+        "match": true
+      },
+      "collectorCommit": "f83b0e3d",
+      "trace": "pixel-baseline-auto-2.json.gz",
+      "traceSha256": "176c4c3e77453c54809f37a4e3c5b51a2790e63b2fbcdd67e2414d4e377adb15",
+      "environmentChecks": [
+        {
+          "at": "2026-10-03T17:11:11.089455+00:00",
+          "resumedActivity": "topResumedActivity=ActivityRecord{77818880 u0 dev.twinos.planet/.MainActivity t7147}",
+          "thermalStatus": "Thermal Status: 0"
+        },
+        {
+          "at": "2026-10-03T17:11:16.273873+00:00",
+          "resumedActivity": "topResumedActivity=ActivityRecord{77818880 u0 dev.twinos.planet/.MainActivity t7147}",
+          "thermalStatus": "Thermal Status: 0"
+        },
+        {
+          "at": "2026-10-03T17:11:21.508407+00:00",
+          "resumedActivity": "topResumedActivity=ActivityRecord{77818880 u0 dev.twinos.planet/.MainActivity t7147}",
+          "thermalStatus": "Thermal Status: 0"
+        },
+        {
+          "at": "2026-10-03T17:11:26.762607+00:00",
+          "resumedActivity": "topResumedActivity=ActivityRecord{77818880 u0 dev.twinos.planet/.MainActivity t7147}",
+          "thermalStatus": "Thermal Status: 0"
+        },
+        {
+          "at": "2026-10-03T17:11:32.004685+00:00",
+          "resumedActivity": "topResumedActivity=ActivityRecord{77818880 u0 dev.twinos.planet/.MainActivity t7147}",
+          "thermalStatus": "Thermal Status: 0"
+        },
+        {
+          "at": "2026-10-03T17:11:37.281127+00:00",
+          "resumedActivity": "topResumedActivity=ActivityRecord{77818880 u0 dev.twinos.planet/.MainActivity t7147}",
+          "thermalStatus": "Thermal Status: 0"
+        }
+      ],
+      "cloudResetReasons": {
+        "stationary": {
+          "none": 91
+        },
+        "rotate": {
+          "none": 1,
+          "lighting": 3
+        }
+      },
+      "frameRanges": {
+        "stationary": {
+          "visible": {
+            "min": 143,
+            "max": 143
+          },
+          "selected": {
+            "min": 512,
+            "max": 512
+          },
+          "drawCalls": {
+            "min": 169,
+            "max": 169
+          },
+          "triangles": {
+            "min": 299099,
+            "max": 299099
+          },
+          "readbackBytes": {
+            "min": 0,
+            "max": 0
+          },
+          "cloudHistory": {
+            "min": 44,
+            "max": 134
+          }
+        },
+        "rotate": {
+          "visible": {
+            "min": 1,
+            "max": 145
+          },
+          "selected": {
+            "min": 512,
+            "max": 512
+          },
+          "drawCalls": {
+            "min": 2,
+            "max": 170
+          },
+          "triangles": {
+            "min": 225,
+            "max": 299099
+          },
+          "readbackBytes": {
+            "min": 0,
+            "max": 0
+          },
+          "cloudHistory": {
+            "min": 1,
+            "max": 32
+          }
+        }
+      },
+      "report": {
+        "schema": 1,
+        "suite": "live-google-navigation",
+        "variant": "auto",
+        "platform": "android",
+        "buildMode": "profile",
+        "preset": "tokyo",
+        "lifecycle": "resumed",
+        "phases": [
+          {
+            "name": "stationary",
+            "frames": 91,
+            "spanMs": 11805.860999999995,
+            "presentedFps": 7.623332173739809,
+            "intervalMs": {
+              "count": 90,
+              "median": 133.83,
+              "p95": 153.815,
+              "p99": 160.181,
+              "max": 160.181
+            },
+            "over16_7ms": 90,
+            "over33ms": 90,
+            "over100ms": 84,
+            "buildMs": {
+              "count": 91,
+              "median": 5.538,
+              "p95": 9.994,
+              "p99": 10.359,
+              "max": 10.359
+            },
+            "submitMs": {
+              "count": 91,
+              "median": 1.209,
+              "p95": 2.298,
+              "p99": 3.79,
+              "max": 3.79
+            },
+            "gpuMs": null,
+            "maxCameraDisplacementM": 0.0,
+            "viewport": [
+              426.6666666666667,
+              428.0
+            ],
+            "renderSize": [
+              960,
+              963
+            ],
+            "failedTiles": 0,
+            "completed": true,
+            "framesWhileLoading": 0,
+            "framesBudgetLimited": 91,
+            "uploadedBytes": 0,
+            "cloudHistoryResets": 0
+          },
+          {
+            "name": "rotate",
+            "frames": 4,
+            "spanMs": 853.5999999999999,
+            "presentedFps": 3.5145267104029996,
+            "intervalMs": {
+              "count": 3,
+              "median": 184.674,
+              "p95": 502.015,
+              "p99": 502.015,
+              "max": 502.015
+            },
+            "over16_7ms": 3,
+            "over33ms": 3,
+            "over100ms": 3,
+            "buildMs": {
+              "count": 4,
+              "median": 5.729,
+              "p95": 7.731,
+              "p99": 7.731,
+              "max": 7.731
+            },
+            "submitMs": {
+              "count": 4,
+              "median": 2.212,
+              "p95": 46.411,
+              "p99": 46.411,
+              "max": 46.411
+            },
+            "gpuMs": null,
+            "maxCameraDisplacementM": 149.32977846728704,
+            "viewport": [
+              426.6666666666667,
+              428.0
+            ],
+            "renderSize": [
+              960,
+              963
+            ],
+            "failedTiles": 0,
+            "completed": false,
+            "error": "Bad state: Renderer failed: renderFailed.",
+            "framesWhileLoading": 3,
+            "framesBudgetLimited": 4,
+            "uploadedBytes": 21271882,
+            "cloudHistoryResets": 3
+          }
+        ],
+        "passed": false,
+        "backend": "Vulkan",
+        "adapter": "Mali-G715",
+        "presentation": "sharedTexture",
+        "deviceProfile": "phone",
+        "fpsLimit": 60,
+        "initialReadyMs": 2051,
+        "settings": {
+          "quality": "medium",
+          "shadows": true,
+          "sparsity": 0.0,
+          "cloudSize": [
+            766,
+            768
+          ],
+          "resourceBudgetBytes": 402653184,
+          "tileBudgetBytes": 134217728
+        },
+        "error": "Bad state: Renderer failed: renderFailed.",
+        "lifecycleAtEnd": "resumed",
+        "rendererFailure": {
+          "code": "renderFailed",
+          "operation": "render",
+          "causeType": "ArgumentError",
+          "uploadBudgetExceeded": true
+        },
+        "tileFailures": [],
+        "cpuProfileError": "RPCError"
+      }
     }
   ],
   "blocked": [
     {
       "device": "Pixel 9 Pro",
-      "reason": "XR probe took the foreground during the post-fix attempt; no post-fix FPS qualified."
+      "reason": "Foreground decoder-fix baseline completed stationary measurement; rotation failed on the scene upload budget. Final fixes and quality comparisons remain unmeasured."
     },
     {
       "device": "iPad Pro M4",
-      "reason": "Later runs shared the device with active XR qualification; final fixes not rebenchmarked."
+      "reason": "Device released after Scientific qualification. Final fixes not rebenchmarked; renderer and collector changes remain in progress in another chat."
     },
     {
       "device": "MacBook Pro M3 Max",
@@ -1063,7 +1305,7 @@
     "initialPlanetSuite": "19 passed; atmosphere fixture could not start native backend without RUN_NATIVE_GPU=1. Full rerun with the flag passed."
   },
   "openDefects": [
-    "Intermittent scene upload frame budget failure during navigation.",
+    "Scene upload frame budget failure reproduced during navigation on Mac, iPad, iPhone and Pixel.",
     "Flutter macOS accessibility bridge crash reproduced before measurement; existing compatibility hook is insufficient."
   ],
   "comparisonToTakram": "No matched browser run was captured; no parity or speed ratio claimed.",
@@ -1076,7 +1318,7 @@
       "retry": "Live city geometry visible, 340 tiles, clouds refined; 8 requests still loading.",
       "navigationRequalified": false
     },
-    "mobile": "Pixel and iPad foreground work was not interrupted.",
+    "mobile": "iPad reservation respected. Pixel benchmark detached and installed Planet app relaunched after the follow-up.",
     "iPhone": {
       "requestedTarget": "lib/google_tiles_lab.dart",
       "buildMode": "profile",
@@ -1086,6 +1328,12 @@
       "binding": "normal WidgetsFlutterBinding; benchmark runs only on explicit service command",
       "installedAppRelaunch": "devicectl launch succeeded",
       "sceneAndPhysicalGesturesRechecked": false
+    },
+    "Pixel": {
+      "installedTarget": "lib/google_navigation_benchmark.dart",
+      "binding": "normal WidgetsFlutterBinding; no benchmark running",
+      "sceneRechecked": "Live Tokyo geometry and refined clouds visible; 149 tiles. After Retry tiles, zero active requests and six unavailable tiles remained. Failure cause not captured; measured benchmark had zero tile failures.",
+      "physicalGesturesRechecked": false
     }
   },
   "iphoneFollowupSource": {

@@ -32,15 +32,39 @@ not physical display scanout. Inputs follow the same globe controls as the app.
 | --- | --- | --- |
 | MacBook Pro, M3 Max, 128 GB | 21.5 stationary FPS, 59.2 ms p95 interval, 1600 × 792 render target | Stationary phase only. Rotation stopped on the scene upload budget. |
 | iPad Pro 13-inch, M4 | 30.0 stationary FPS, 35.0 ms p95 interval, 1880 × 1115 render target | Stationary phase only. Rotation hit the same upload failure. |
-| Pixel 9 Pro, Mali-G715 | Initial run found tile decode failures | Another chat's XR probe took the foreground during the post-fix attempt. No valid FPS result. |
+| Pixel 9 Pro, Mali-G715 | 7.6 stationary FPS, 153.8 ms p95 interval, 960 × 963 render target | Decoder fix included. Rotation stopped after four frames on the upload budget. |
 | iPhone 16 Pro, A18 Pro | 40.0 and 11.5 stationary FPS on two foreground runs, 1206 × 798 render target | Both runs stopped during rotation on the upload budget. Final fixes included. |
 
-The stationary numbers above include the decoder retry fix. They precede the
-child snapshot and lunar history fixes. GPU timing was unavailable in these
-Metal native-view samples. Readback was zero. All stationary frames reported
-tile-budget pressure, so these measurements do not describe unrestricted detail.
-Both runs reported resumed lifecycle at their start and failure boundaries;
-they preceded continuous foreground checking.
+All stationary results include the decoder retry fix. The Mac, iPad and Pixel
+builds precede the child snapshot and lunar history fixes; the iPhone includes
+both. GPU timing was unavailable in these samples. Readback was zero. All
+stationary frames reported tile-budget pressure, so these measurements do not
+describe unrestricted detail. The Mac and iPad reported resumed lifecycle at
+their start and failure boundaries but preceded continuous foreground checking.
+
+### Pixel follow-up
+
+Once the XR run had ended, we relaunched the installed Planet profile build.
+Its APK hash matched the saved build. This kept the run independent of the
+renderer and collector edits underway in the shared checkout.
+
+The stationary phase presented 91 frames at 7.6 FPS with 143 visible tiles.
+Rotation stopped on the upload budget after four frames, with visibility
+falling as low as one tile. Three of those four frames reset cloud history for
+lighting, consistent with this build predating the lunar history fix. There
+were no tile decode failures or readbacks. The short rotation sample cannot
+qualify navigation FPS.
+
+Android reported Planet as the resumed activity and thermal status 0 at all six
+external checks, roughly five seconds apart. The app also reported resumed
+lifecycle at both boundaries. These checks do not establish constant GPU
+clocks or continuous foreground coverage. CPU profile retrieval failed with an
+RPC error, and GPU timing was unavailable.
+
+After collection, the installed Planet app was relaunched with no benchmark
+running. Tokyo geometry and refined clouds were visible. A retry left six tiles
+unavailable with zero active requests; the cause was not captured. That later
+restoration is separate from the measured run, which reported no tile failures.
 
 ### iPhone follow-up
 
@@ -87,7 +111,7 @@ the devices currently used by XR work.
 
 ## Remaining navigation failure
 
-The Mac, iPad and iPhone reached `Scene resource upload exceeds the frame budget`
+The Mac, iPad, iPhone and Pixel reached `Scene resource upload exceeds the frame budget`
 when rotating. The encoder rejects a submission above 64 MiB of uploaded
 payload, one million new vertices or three million new indices. These limits
 are separate from the scene's residency allowance. A large visibility or LOD
@@ -124,8 +148,8 @@ The checkout and devices were shared with other work. Thermal state was not
 held constant, and no matched Takram browser run was captured.
 
 Use the [navigation collector instructions](../../tool/qualification/README.md#live-navigation-timing)
-for the rerun. Reserve the Pixel and iPad, keep the iPhone unlocked, and keep
-Planet foregrounded on the Mac. Repeat Auto after each Low, shadows-off or 75% sparsity
+for the rerun. Check exclusive device availability, keep the iPhone unlocked,
+and keep Planet foregrounded on the Mac. Repeat Auto after each Low, shadows-off or 75% sparsity
 experiment. Those comparisons are still pending; this report makes no measured
 FPS improvement claim for the final fixes.
 
