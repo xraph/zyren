@@ -95,3 +95,9 @@ One owning isolate per process is required, and power-loss durability is not
 claimed. Remote writes cannot be cancelled after dispatch. Other native devices
 and backends remain unqualified. Exact presented-frame revision correlation and
 rendered-pixel visibility remain unknown rather than inferred from CPU picks.
+
+Current local checkpoints: `d81a1710` (durable ledger and undo), `02de23d2`
+(network sessions, leases and outbox), and `2cda8e36` (native example, committed
+bridge qualification and exact offline decisions). Owned implementation paths
+are clean after those commits. The global point-cloud boundary failures above
+remain outside this workstream.
