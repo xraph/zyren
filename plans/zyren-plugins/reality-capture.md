@@ -188,3 +188,15 @@ source import is qualified on the macOS host; mobile import is still pending.
 Chunked LAZ requires a chunk table. LAS waveform references are retained, but
 waveform sample payloads are not decoded. Payload budgets exclude parser and Dart
 object overhead; no total-process-memory bound is claimed.
+
+### Spatial streaming, completion run
+
+The generic streamer and point scene adapter now implement frustum/screen-error
+selection, atomic replacement with resident ancestors, cancellation and stale-result
+disposal, reservations held through drain, explicit failure/retry, cache eviction
+and separate decoded/GPU/cache payload ceilings. The offline octree keeps original
+source ordinals. Point filters affect both display and queries. Five transition
+tests passed, including delayed sibling loads, a cancelled request that finishes
+after returning to the same view, over-budget payload disposal and retry, coarse
+fallback under pressure, and source-preserving filtered queries. Native streaming
+scene and mobile checks remain part of the final qualification run.

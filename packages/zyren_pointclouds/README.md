@@ -112,3 +112,34 @@ cargo clippy --manifest-path native/Cargo.toml --all-targets --locked -- -D warn
 The synthetic fixture source, licence and regeneration command live in
 `test/fixtures/README.md`. Decoder dependency licences are in
 `THIRD_PARTY_NOTICES.md` and `licenses`.
+
+## Spatial streaming and source filters
+
+`streaming.dart` exposes `SpatialChunk`, `SpatialStreamer` and
+`PointCloudStreamPlugin`. Supply a versioned spatial hierarchy and an asynchronous
+loader that honours the supplied cancellation signal. Each manifest node declares
+its bounds, geometric error and decoded/GPU payload ceilings. The loader reports
+actual payload counts; exceeding a reservation rejects and disposes that result.
+
+Selection uses frustum bounds and projected screen error. A resident ancestor
+stays visible until its selected children are ready. Requests outside the current
+cut are cancelled, but keep their decoded reservation until they drain. Late
+results are disposed. Failed chunks stay failed until you call `retryFailed`.
+When a budget cannot admit refinement, the coarse representation remains visible
+and `budgetLimited` is true.
+
+Decoded data, visible GPU payload and inactive decoded cache have separate limits.
+Active ancestor data counts against the decoded budget. It is retained for
+fallback, so allow room for both parent and children during a transition. These
+counts exclude renderer cache overhead and do not establish physical GPU residency.
+
+`PointCloudOctree.fromData` builds a bounded offline hierarchy from an existing
+cloud. Its coarse levels keep original source samples. It retains those chunks in
+memory and is intended for preprocessing and small scenes; use a storage-backed
+loader to release source payloads on eviction in a large scene.
+
+The scene plugin attaches native point objects for the visible cut and invalidates
+its viewport when loading changes. It holds no continuous frame demand after
+settling. `PointCloudFilter` applies classification, intensity and withheld-state
+filters to both the native geometry and source queries. An empty filtered chunk
+produces no drawable or queryable points.
