@@ -63,3 +63,45 @@ def test_checkpoint_distribution_pin_rejects_previous_sampler(worker_command,tmp
     state=torch.load(path,weights_only=True); state['policy_distribution']='squashed-normal-v1'; torch.save(state,path)
     meta['sha256']=hashlib.sha256(path.read_bytes()).hexdigest(); pointer.write_text(json.dumps(meta))
     with pytest.raises(ValueError,match='distribution'): TrainingCheckpoint.load(run,config.hash)
+
+
+def test_resumed_immediate_cancel_reuses_exact_checkpoint_and_optimizer(worker_command,tmp_path):
+    config=configuration(worker_command,steps=24)
+    run=RunDirectory(tmp_path/'run',config.hash); first=WorkerPool(worker_command,cwd=ROOT/'examples/game_lab/training_worker',config=config)
+    stopped=train(config,first,run,stop_after_updates=1)
+    original=TrainingCheckpoint.load(run,config.hash)
+    resumed=RunDirectory(run.path,config.hash,resume=True); second=WorkerPool(worker_command,cwd=ROOT/'examples/game_lab/training_worker',config=config)
+    final=train(config,second,resumed,resume=True,cancelled=lambda:True)
+    restored=TrainingCheckpoint.load(resumed,config.hash)
+    assert final['state']=='cancelled' and final['steps']==8 and final['updates']==1
+    assert final['checkpoint']==stopped['checkpoint'] and final['checkpoint_sha256']==stopped['checkpoint_sha256']
+    assert final['worker_exit_codes']==[0]
+    assert torch.equal(original['model']['action_head.weight'],restored['model']['action_head.weight'])
+    assert max(float(v['step']) for v in original['optimizer']['state'].values())==max(float(v['step']) for v in restored['optimizer']['state'].values())
+
+
+@pytest.mark.parametrize('boundary',['epoch','sequence'])
+def test_cloning_cancels_at_sequence_boundary_and_resumes_without_replay(worker,worker_command,tmp_path,boundary):
+    import numpy as np
+    from zyren_train.gym_env import ZyrenEnv
+    from zyren_train.scenario import ScenarioSpec
+    from zyren_train.demonstration import DemonstrationRecorder,record_episode
+    env=ZyrenEnv(worker,scenario='guard',observation_width=None); _,info=env.reset(seed=7)
+    recording=tmp_path/'recording'; recorder=DemonstrationRecorder(recording,scenario=ScenarioSpec.from_dict(info['scenario_spec']),session_id='bc-cancel',run_id=worker.run_id,environment_id=env.environment_id,source='scripted',model_hash='scripted-v1')
+    record_episode(env,recorder,lambda obs,receipt:np.asarray(receipt['baseline_action'],dtype=np.int64),seed=7)
+    if boundary=='sequence': record_episode(env,recorder,lambda obs,receipt:np.asarray(receipt['baseline_action'],dtype=np.int64),seed=7)
+    recorder.finalize(); env.close()
+    config=configuration(worker_command,steps=8,datasets={'train':[str(recording)],'validation':[],'test':[]},bc_epochs=3)
+    run=RunDirectory(tmp_path/'run',config.hash); pool=WorkerPool(worker_command,cwd=ROOT/'examples/game_lab/training_worker',config=config)
+    calls=[0]
+    def cancel(): calls[0]+=1; return calls[0]>=3
+    stopped=train(config,pool,run,cancelled=cancel)
+    before=TrainingCheckpoint.load(run,config.hash)
+    assert stopped['state']=='cancelled' and before['steps']==0 and before['cloning_progress']==({'epoch':1,'sequence':0,'complete':False} if boundary=='epoch' else {'epoch':0,'sequence':1,'complete':False})
+    assert max(float(v['step']) for v in before['optimizer']['state'].values())==1
+    resumed=RunDirectory(run.path,config.hash,resume=True); pool=WorkerPool(worker_command,cwd=ROOT/'examples/game_lab/training_worker',config=config)
+    final=train(config,pool,resumed,resume=True); after=TrainingCheckpoint.load(resumed,config.hash)
+    assert final['state']=='completed' and after['cloning_progress']['complete']
+    assert max(float(v['step']) for v in after['optimizer']['state'].values())==(5 if boundary=='epoch' else 8) # Each completed BC sequence counts once, plus2 PPO updates.
+    epochs=[r['epoch'] for r in resumed.read_receipts() if r.get('phase')=='behavior-cloning']
+    assert epochs==[0,1,2] and final['worker_exit_codes']==[0]

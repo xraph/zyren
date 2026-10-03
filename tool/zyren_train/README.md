@@ -83,8 +83,11 @@ acceptance result.
 
 Run receipts append a hash chain to `receipts.jsonl`. `checkpoint.json` points to
 an atomic hash-verified checkpoint containing model, optimizer, RNG,
-normalization, source hashes and curriculum. A run has one active trainer. Stop
+normalization, source hashes, curriculum and cloning epoch/sequence progress. A run has one active trainer. Stop
 requests save a checkpoint, close the supervisor and report `cancelled`.
+Cloning checks cancellation at sequence and epoch boundaries. Resume continues
+its optimizer from the next unfinished sequence. An immediate resumed stop
+reuses the verified checkpoint when no optimization occurred.
 Completion reports `completed` only after worker cleanup succeeds. Worker or
 storage failures report `failed` when receipt storage remains available.
 

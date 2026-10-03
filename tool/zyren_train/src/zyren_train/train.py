@@ -182,10 +182,15 @@ def recurrent_ppo(config,pool,run,*,resume=False,stop_after_updates=None,cancell
         source_pins={name:[manifest.hash for _,manifest in part.recordings] for name,part in parts.items()}
         normalizer=ObservationNormalizer.fit(parts['train']) if 'train' in parts else None
         norm=None if normalizer is None else dict(normalizer.__dict__)
+        changed=False; bc_cancelled=False
+        cloning_progress={'epoch':0,'sequence':0,'complete':data['bc_epochs']==0}
         state=TrainingCheckpoint.load(run,config.hash) if resume else None
         if state is not None:
             if state['normalization']!=norm or state.get('source_pins')!=source_pins: raise ValueError('Resume source data or normalization changed')
             steps,updates=state['steps'],state['updates']; curriculum.restore(state['curriculum'])
+            checkpoint=TrainingCheckpoint(run.path/state['_checkpoint_file'],state['_checkpoint_sha256'],steps)
+            cloning_progress=dict(state.get('cloning_progress',{'epoch':data['bc_epochs'],'sequence':0,'complete':True}))
+            if set(cloning_progress)!={'epoch','sequence','complete'} or type(cloning_progress['epoch']) is not int or not 0<=cloning_progress['epoch']<=data['bc_epochs'] or type(cloning_progress['sequence']) is not int or not 0<=cloning_progress['sequence']<=100000 or type(cloning_progress['complete']) is not bool or cloning_progress['complete']!=(cloning_progress['epoch']==data['bc_epochs']): raise ValueError('Cloning checkpoint progress differs')
         scenario=curriculum.at_boundary(steps)
         for index in range(len(pool.envs)): pool.reset(index,scenario,data['seed']+steps+index)
         first=pool.infos[0]; width=sum(field['width'] for field in first['observation_schema']['fields'])
@@ -201,18 +206,25 @@ def recurrent_ppo(config,pool,run,*,resume=False,stop_after_updates=None,cancell
                    environment_restore='reset-boundary',numerical_reproducibility=False,source_pins=source_pins,
                    observation_schema_hash=first['observation_schema_hash'],action_schema_hash=first['action_schema_hash'],
                    generated_observation_width=width,policy_distribution=policy.distribution_id,worker_sha256=data['worker_sha256'],worker_native_sha256=data['worker_native_sha256'])
-        if state is None and data['bc_epochs']:
-            for epoch in range(data['bc_epochs']):
-                losses=[]
-                for sequence in training_sequences(parts['train'],policy):
+        if not cloning_progress['complete']:
+            for epoch in range(cloning_progress['epoch'],data['bc_epochs']):
+                if cancelled(): bc_cancelled=True; break
+                losses=[]; sequences=0
+                for index,sequence in enumerate(training_sequences(parts['train'],policy)):
+                    sequences+=1
+                    if index<cloning_progress['sequence']: continue
+                    if cancelled(): bc_cancelled=True; break
                     optimizer.zero_grad(); loss=cloning_loss(policy,*sequence)
                     if not torch.isfinite(loss): raise ValueError('Cloning action violates captured legality')
                     loss.backward(); torch.nn.utils.clip_grad_norm_(policy.parameters(),data['optimizer']['max_grad_norm'],error_if_nonfinite=True); optimizer.step(); losses.append(float(loss.detach()))
-                if not losses: raise ValueError('Cloning partition is empty')
-                run.append('running',phase='behavior-cloning',epoch=epoch,loss=sum(losses)/len(losses),steps=steps,updates=updates)
+                    cloning_progress['sequence']=index+1; changed=True
+                if bc_cancelled: break
+                if not sequences or cloning_progress['sequence']!=sequences: raise ValueError('Cloning partition sequence coverage differs')
+                cloning_progress={'epoch':epoch+1,'sequence':0,'complete':epoch+1==data['bc_epochs']}; changed=True
+                run.append('running',phase='behavior-cloning',epoch=epoch,loss=None if not losses else sum(losses)/len(losses),steps=steps,updates=updates,sequences=sequences)
         count=len(pool.envs); hidden=policy.initial_state(count); starts=torch.ones(count,dtype=torch.bool); since_checkpoint=steps; since_evaluation=steps
         invocation_updates=0
-        while steps<data['total_steps'] and not cancelled():
+        while steps<data['total_steps'] and not bc_cancelled and not cancelled():
             length=min(data['rollout']['steps'],(data['total_steps']-steps)//count)
             initial=tuple(value.detach().clone() for value in hidden)
             rows=[]; legal_rows=[]
@@ -237,23 +249,23 @@ def recurrent_ppo(config,pool,run,*,resume=False,stop_after_updates=None,cancell
             observation,action,episode_starts,logprob,values,rewards,dones=columns
             masks=[torch.stack([row[b] for row in legal_rows]) for b in range(len(policy.nvec))] if policy.nvec else None
             metrics=_ppo_update(policy,optimizer,(observation,action,episode_starts,masks,logprob,values,rewards,dones,bootstrap,initial),data['optimizer'])
-            updates+=1; invocation_updates+=1
+            updates+=1; invocation_updates+=1; changed=True
             run.append('running',phase='ppo-update',steps=steps,updates=updates,metrics=metrics,outcomes=ledger.snapshot(),curriculum=curriculum.snapshot())
             # T4 owns calibrated held-out evaluation. This due receipt never claims a pass.
             if steps-since_evaluation>=data['evaluation_every_steps']:
                 run.append('running',phase='evaluation-due',steps=steps,qualified=None,reason='held-out evaluator required'); since_evaluation=steps
             stop=stop_after_updates is not None and invocation_updates>=stop_after_updates
             if steps-since_checkpoint>=data['checkpoint_every_steps'] or stop or steps>=data['total_steps'] or cancelled():
-                checkpoint=TrainingCheckpoint.save(run,policy=policy,optimizer=optimizer,steps=steps,updates=updates,curriculum=curriculum.snapshot(),normalization=norm,config_hash=config.hash,source_pins=source_pins)
+                checkpoint=TrainingCheckpoint.save(run,policy=policy,optimizer=optimizer,steps=steps,updates=updates,curriculum=curriculum.snapshot(),normalization=norm,config_hash=config.hash,source_pins=source_pins,cloning_progress=cloning_progress)
                 run.append('running',phase='checkpoint',steps=steps,updates=updates,file=checkpoint.path.name,checkpoint_sha256=checkpoint.sha256,environment_restore='reset-boundary')
-                since_checkpoint=steps
+                since_checkpoint=steps; changed=False
             if stop: break
         status='completed' if steps>=data['total_steps'] else 'cancelled'
-        if checkpoint is None or checkpoint.steps!=steps:
-            checkpoint=TrainingCheckpoint.save(run,policy=policy,optimizer=optimizer,steps=steps,updates=updates,curriculum=curriculum.snapshot(),normalization=norm,config_hash=config.hash,source_pins=source_pins)
+        if checkpoint is None or checkpoint.steps!=steps or changed:
+            checkpoint=TrainingCheckpoint.save(run,policy=policy,optimizer=optimizer,steps=steps,updates=updates,curriculum=curriculum.snapshot(),normalization=norm,config_hash=config.hash,source_pins=source_pins,cloning_progress=cloning_progress)
         pool.close()
         if any(code!=0 for code in pool.exit_codes): raise RuntimeError('Worker cleanup failed')
-        return run.append(status,steps=steps,updates=updates,checkpoint=checkpoint.path.name,checkpoint_sha256=checkpoint.sha256,worker_exit_codes=pool.exit_codes,workers_closed=pool.closed,policy_quality=None,numerical_reproducibility=False)
+        return run.append(status,steps=steps,updates=updates,checkpoint=checkpoint.path.name,checkpoint_sha256=checkpoint.sha256,worker_exit_codes=pool.exit_codes,workers_closed=pool.closed,policy_quality=None,numerical_reproducibility=False,cloning_progress=cloning_progress)
     except BaseException as error:
         pool.close()
         run.append('cancelled' if isinstance(error,KeyboardInterrupt) else 'failed',steps=steps,updates=updates,error=str(error)[:4096],workers_closed=pool.closed,worker_exit_codes=pool.exit_codes)
