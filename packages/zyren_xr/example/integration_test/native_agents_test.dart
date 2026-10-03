@@ -162,6 +162,7 @@ void main() {
         expect(denied['status'], 'denied');
         debugPrint('XR_NATIVE_MCP_DISCOVERY_INSPECT_DENIAL_PASS');
         Map? selected;
+        Map? lastRaycast;
         final deadline = DateTime.now().add(const Duration(seconds: 90));
         var reportAt = DateTime.now();
         while (selected == null && DateTime.now().isBefore(deadline)) {
@@ -176,6 +177,7 @@ void main() {
               'x': c.logicalWidth * point[0],
               'y': c.logicalHeight * point[1],
             });
+            lastRaycast = hits;
             if (hits['status'] == 'ok' &&
                 (hits['data']['hits'] as List).isNotEmpty) {
               selected = (hits['data']['hits'] as List).first as Map;
@@ -186,7 +188,7 @@ void main() {
             if (DateTime.now().isAfter(reportAt)) {
               final snapshot = await session.snapshot();
               debugPrint(
-                'XR_NATIVE_WAITING_FOR_PLANE ${jsonEncode({'tracking': snapshot.frame?.tracking.name, 'trackingReason': snapshot.frame?.trackingReason, 'planes': snapshot.frame?.planes.length})}',
+                'XR_NATIVE_WAITING_FOR_PLANE ${jsonEncode({'tracking': snapshot.frame?.tracking.name, 'trackingReason': snapshot.frame?.trackingReason, 'planes': snapshot.frame?.planes.length, 'raycastStatus': lastRaycast?['status'], 'raycastMessage': lastRaycast?['message']})}',
               );
               reportAt = DateTime.now().add(const Duration(seconds: 10));
             }
@@ -197,7 +199,8 @@ void main() {
           selected,
           isNotNull,
           reason:
-              'Move the camera toward a textured surface until a native plane is detected.',
+              'No native plane hit. Last raycast: ${lastRaycast?['status']}: '
+              '${lastRaycast?['message']}. Move the camera toward a textured surface.',
         );
         final hit = selected!;
         expect(hit['pixelVisibility'], 'unknown');
