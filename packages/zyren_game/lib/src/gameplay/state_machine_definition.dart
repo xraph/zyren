@@ -130,6 +130,18 @@ final class GameStateMachineComponentCodec
         ], reference.targetId);
       }
     }
+    for (var i = 0; i < definition.transitions.length; i++) {
+      final transition = definition.transitions[i];
+      if (transition.predicate == 'game.within' ||
+          transition.predicate == 'game.is-controlling') {
+        yield GameLocalReference([
+          'transitions',
+          i,
+          'arguments',
+          'target',
+        ], _string(transition.arguments['target']));
+      }
+    }
   }
 
   @override

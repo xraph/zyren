@@ -5,7 +5,10 @@ and objective components through the existing Studio inspector. Edits use the
 same validated commands and undo history as the agent tools.
 
 Register `GameStudioContribution(createGameAuthoring()).contribution` with the
-shared `StudioEditorHostController`. The Studio example registers it by default.
+shared `StudioEditorHostController` for the component catalog. For level templates
+and behavior tools, use `createGameDevelopmentAuthoring` and register
+`GameLevelStudioContribution` with the same rule library. See [level authoring](doc/levels.md).
+The Studio example registers the game development contributions by default.
 Import `authoring.dart` or `catalog.dart` for document tools that do not use
 Flutter widgets. Import `compiler.dart` for the Pipeline compiler and export.
 

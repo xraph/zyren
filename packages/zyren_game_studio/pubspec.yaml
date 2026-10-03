@@ -6,6 +6,22 @@ resolution: workspace
 environment:
   sdk: '>=3.10.0 <4.0.0'
 dependencies:
+  zyren_interaction:
+    path: ../zyren_interaction
+  zyren_game_native:
+    path: ../zyren_game_native
+  zyren_physics:
+    path: ../zyren_physics
+  zyren_characters:
+    path: ../zyren_characters
+  zyren_audio:
+    path: ../zyren_audio
+  zyren_ml:
+    path: ../zyren_ml
+  flutter_zyren_game:
+    path: ../flutter_zyren_game
+  zyren_navigation:
+    path: ../zyren_navigation
   flutter:
     sdk: flutter
   flutter_zyren:
