@@ -148,8 +148,12 @@ final class XrPlane {
 }
 
 final class XrFrame {
-  /// Seconds on ARKit's monotonic clock, not a wall-clock date.
+  /// Seconds on the adapter clock used by XrSnapshot.nativeTimestamp.
+  /// ARCore maps each new sensor frame to its first host observation time.
   final double timestamp;
+
+  /// Raw sensor seconds when its timebase differs from the adapter clock.
+  final double? sensorTimestamp;
   final XrPose cameraPose;
   final XrTrackingState tracking;
   final String? trackingReason;
@@ -163,6 +167,9 @@ final class XrFrame {
   XrFrame.fromMessage(Object? value) : this._(messageMap(value));
   XrFrame._(Map<Object?, Object?> m)
     : timestamp = messageNumber(m, 'timestamp'),
+      sensorTimestamp = m['sensorTimestamp'] == null
+          ? null
+          : messageNumber(m, 'sensorTimestamp'),
       cameraPose = XrPose(messageNumbers(m, 'cameraTransform', 16)),
       tracking = messageEnum(m, 'tracking', XrTrackingState.values),
       trackingReason = m['trackingReason'] == null

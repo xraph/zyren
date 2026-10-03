@@ -11,10 +11,15 @@ final class XrCalibration {
   final List<double> displayTransform;
   final bool depthEnabled;
   final double? depthTimestamp;
+
+  /// Raw sensor seconds. These do not share the host clock on ARCore.
+  final double? sensorTimestamp, depthSensorTimestamp;
   XrCalibration.fromMessage(Object? value) : this._(messageMap(value));
   XrCalibration._(Map<Object?, Object?> map)
     : depthEnabled = map['depthEnabled'] == true,
       depthTimestamp = (map['depthTimestamp'] as num?)?.toDouble(),
+      sensorTimestamp = (map['sensorTimestamp'] as num?)?.toDouble(),
+      depthSensorTimestamp = (map['depthSensorTimestamp'] as num?)?.toDouble(),
       frameId = (map['frameId'] as num).toInt(),
       revision = (map['revision'] as num).toInt(),
       epoch = (map['epoch'] as num).toInt(),
@@ -39,6 +44,11 @@ final class XrCalibration {
       ) {
     if ((depthEnabled &&
             (depthTimestamp == null || depthTimestamp != timestamp)) ||
+        (sensorTimestamp != null && !sensorTimestamp!.isFinite) ||
+        (depthSensorTimestamp != null && !depthSensorTimestamp!.isFinite) ||
+        (depthEnabled &&
+            (sensorTimestamp != null || depthSensorTimestamp != null) &&
+            sensorTimestamp != depthSensorTimestamp) ||
         pixelWidth < 1 ||
         pixelHeight < 1 ||
         pixelWidth > 4096 ||

@@ -30,6 +30,16 @@ void main() {
     expect(() => snapshot.frame!.intrinsics[0] = 0, throwsUnsupportedError);
   });
 
+  test('raw sensor clock does not change host observation age', () {
+    final message = snapshotMessage();
+    (message['frame'] as Map)['sensorTimestamp'] = 1000000.0;
+    final snapshot = XrSnapshot.fromMessage(message);
+    expect(snapshot.frame!.sensorTimestamp, 1000000.0);
+    expect(snapshot.frame!.ageAt(snapshot.nativeTimestamp), closeTo(.1, 1e-9));
+    (message['frame'] as Map)['sensorTimestamp'] = double.nan;
+    expect(() => XrSnapshot.fromMessage(message), throwsFormatException);
+  });
+
   test('pause and disposal can cancel a pending permission request', () async {
     final transport = RecordingTransport();
     final session = await XrSession.create(transport);

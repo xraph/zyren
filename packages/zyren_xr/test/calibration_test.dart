@@ -45,6 +45,27 @@ void main() {
       throwsA(isA<XrException>()),
     );
   });
+  test('mapped depth clocks preserve raw camera and depth agreement', () {
+    final message = calibrationMessage()
+      ..['depthEnabled'] = true
+      ..['depthTimestamp'] = 12.0
+      ..['sensorTimestamp'] = 1000000.0
+      ..['depthSensorTimestamp'] = 1000000.0;
+    final calibration = XrCalibration.fromMessage(message);
+    expect(calibration.timestamp, 12.0);
+    expect(calibration.sensorTimestamp, 1000000.0);
+    message['depthSensorTimestamp'] = 999999.9;
+    expect(
+      () => XrCalibration.fromMessage(message),
+      throwsA(isA<XrException>()),
+    );
+    message.remove('depthSensorTimestamp');
+    expect(
+      () => XrCalibration.fromMessage(message),
+      throwsA(isA<XrException>()),
+    );
+  });
+
   for (final landscape in [false, true]) {
     test(
       'calibrated ${landscape ? 'landscape' : 'portrait'} camera keeps camera-relative translation',

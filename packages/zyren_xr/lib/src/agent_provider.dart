@@ -57,6 +57,7 @@ final class XrViewBinding {
     'calibratedViewportProjection': calibration?.projection.storage,
     'presentedCameraTransform': calibration?.cameraPose.matrix,
     'presentedTimestamp': calibration?.timestamp,
+    'presentedSensorTimestamp': calibration?.sensorTimestamp,
     'presentationEpoch': calibration?.epoch,
   };
 
@@ -571,6 +572,7 @@ final class XrAgentProvider extends AgentProvider {
           ? null
           : {
               'timestamp': frame.timestamp,
+              'sensorTimestamp': frame.sensorTimestamp,
               'ageSeconds': frame.ageAt(s.nativeTimestamp),
               'tracking': frame.tracking.name,
               'trackingReason': frame.trackingReason,
