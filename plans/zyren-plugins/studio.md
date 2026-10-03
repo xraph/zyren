@@ -210,5 +210,7 @@ Local commits:
   file flow, Studio/viewport agent adapters and authenticated MCP coverage.
 - `8a443ae51b97d5f31e9d03580de8989e7f4ed9dc`: actual timeline and engineering
   provider composition, five-provider discovery checks and updated evidence.
+- `d166196cc839eba4abc85b21c32b60a9cc286c73`: native MCP qualification, gizmo
+  command guards, idle camera previews, lifecycle checks and updated runbook.
 
 No push or merge was performed.
