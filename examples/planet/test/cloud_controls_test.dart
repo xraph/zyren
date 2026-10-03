@@ -14,6 +14,7 @@ void main() {
       final lab = tester.state<GoogleTilesLabState>(
         find.byType(GoogleTilesLab),
       );
+      expect(lab.profile.cloudAdaptive, true);
       final density = find.byKey(const ValueKey('cloud-density'));
       final sparsity = find.byKey(const ValueKey('cloud-sparsity'));
       final animation = find.byKey(const ValueKey('cloud-animation'));
@@ -49,6 +50,13 @@ void main() {
       expect(tester.widget<Slider>(density).value, closeTo(.5, .06));
       expect(tester.widget<Slider>(sparsity).value, closeTo(.5, .06));
       expect(tester.widget<FilterChip>(animation).selected, false);
+      expect(lab.profile.cloudAdaptive, false);
+      await tapLabControl(
+        tester,
+        find.byKey(const ValueKey('cloud-quality-auto')),
+      );
+      await tester.pumpAndSettle();
+      expect(lab.profile.cloudAdaptive, true);
       await tester.tap(find.byKey(const ValueKey('panel-close')));
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('cloud-density')), findsNothing);

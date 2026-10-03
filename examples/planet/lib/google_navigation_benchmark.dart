@@ -116,6 +116,7 @@ final class _NavigationBenchmark {
 
   Object get _sceneSettings => (
     lab.profile.cloudQuality,
+    lab.profile.cloudAdaptive,
     lab.profile.cloudSparsity,
     lab.profile.cloudDensity,
     lab.profile.cloudAnimationEnabled,
@@ -294,6 +295,7 @@ final class _NavigationBenchmark {
             'budgetLimited': tiles.budgetLimited,
             'cloudHistory': cloud.history.accumulatedFrames,
             'cloudReset': cloud.history.reason.name,
+            'cloudAdaptive': cloud.adaptiveDiagnostics,
           });
         });
         if (phase == 'rotate' || phase == 'drag') {

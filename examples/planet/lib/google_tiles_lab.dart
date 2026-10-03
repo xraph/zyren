@@ -162,6 +162,7 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
           'cloudSize': cloud == null ? null : [cloud.width, cloud.height],
           'cloudFrames': cloud?.history.accumulatedFrames,
           'cloudPreset': cloud?.quality.name,
+          'cloudAdaptive': cloud?.adaptiveDiagnostics,
           'animation': profile.cloudAnimationEnabled,
           'density': profile.cloudDensity,
           'sparsity': profile.cloudSparsity,
@@ -218,6 +219,7 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
     try {
       await profile.setCloudQuality(
         deviceProfile.clouds(selection.preset, shadows, shadow.preset),
+        adaptive: selection == CloudQualitySelection.auto,
       );
       if (mounted) {
         setState(() {
@@ -437,7 +439,8 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
       if (widget.clouds)
         _section('Clouds', [
           Tooltip(
-            message: 'Cloud sampling quality. Auto uses your device profile.',
+            message:
+                'Auto starts with your device profile and adapts to measured scene GPU pressure.',
             child: RenderingChoices<CloudQualitySelection>(
               key: const ValueKey('cloud-quality'),
               label: 'Quality',

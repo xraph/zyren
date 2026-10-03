@@ -50,6 +50,8 @@ final class GeospatialSceneProfile extends ScenePlugin {
   double _cloudDensity = 1;
   double _cloudSparsity = 0;
   bool _cloudAnimationEnabled = true;
+  bool _cloudAdaptive = true;
+  bool get cloudAdaptive => _cloudAdaptive;
   MoonlightSelection _moonlight = MoonlightSelection.visible;
   bool _nightView = false;
   CloudQualitySettings get cloudQuality => _cloudQuality;
@@ -97,6 +99,7 @@ final class GeospatialSceneProfile extends ScenePlugin {
             parameters: _cloudParameters,
             animationEnabled: _cloudAnimationEnabled,
             quality: _cloudQuality.preset,
+            sceneFrameBudget: CloudSceneFrameBudget(),
             maxResolution: _cloudQuality.maxResolution,
             maxPixels: _cloudQuality.maxPixels,
             shadowMapSize: _cloudQuality.shadowMapSize,
@@ -190,11 +193,18 @@ final class GeospatialSceneProfile extends ScenePlugin {
     _cloudAnimationEnabled = value;
   }
 
-  Future<void> setCloudQuality(CloudQualitySettings settings) async {
+  Future<void> setCloudQuality(
+    CloudQualitySettings settings, {
+    bool adaptive = false,
+  }) async {
     if (_context != null && cloudLayer != null) {
       await cloudLayer!.controller.setQualitySettings(settings);
+      cloudLayer!.controller.setSceneFrameBudget(
+        adaptive ? CloudSceneFrameBudget() : null,
+      );
     }
     _cloudQuality = settings;
+    _cloudAdaptive = adaptive;
   }
 
   @override
@@ -235,6 +245,9 @@ final class GeospatialSceneProfile extends ScenePlugin {
       layer.controller.parameters = _cloudParameters;
       layer.controller.animationEnabled = _cloudAnimationEnabled;
       await layer.controller.setQualitySettings(_cloudQuality);
+      layer.controller.setSceneFrameBudget(
+        _cloudAdaptive ? CloudSceneFrameBudget() : null,
+      );
     }
   }
 }
