@@ -275,6 +275,7 @@ void main() {
         );
         expect(model.nodes[0]!.position.z, closeTo(0, 1e-5));
         runtime.setEntityActive(actor, false);
+        expect(runtime.isEntityActive(actor), isFalse);
         expect(control.isActive, isFalse);
         expect(runtime.acquireActorControl(actor), isNull);
         expect(
@@ -282,9 +283,11 @@ void main() {
           throwsStateError,
         );
         runtime.setEntityActive(actor, true);
+        expect(runtime.isEntityActive(actor), isTrue);
         final fresh = runtime.acquireActorControl(actor)!;
         expect(fresh.generation, greaterThan(control.generation));
         runtime.simulation!.session.entities.despawn(actor);
+        expect(runtime.isEntityActive(actor), isFalse);
         expect(fresh.isActive, isFalse);
         expect(runtime.resolveCollider(actor), isNull);
         expect(() => runtime!.save(), throwsFormatException);

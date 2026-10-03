@@ -74,6 +74,10 @@ final class GameLevelRuntime {
   int _nextActorControl = 0;
   GameRuntimeActorControl? acquireActorControl(GameEntityHandle actor) =>
       _acquireActorControl(this, actor);
+  bool isEntityActive(GameEntityHandle actor) =>
+      !_closed &&
+      _simulation?.session.entities.isAlive(actor) == true &&
+      _active[actor.id] != false;
   PhysicsCollider? resolveCollider(GameEntityHandle actor) =>
       resolveBody(actor) == null ? null : _colliders[actor.id];
   bool? actorGrounded(GameEntityHandle actor) {
