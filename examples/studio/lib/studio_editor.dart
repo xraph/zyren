@@ -1,5 +1,6 @@
 import 'studio_lighting.dart';
 import 'studio_workspace.dart';
+import 'package:flutter_zyren_studio/flutter_zyren_studio.dart';
 import 'studio_theme.dart';
 import 'studio_properties.dart';
 import 'studio_model_bindings.dart';
@@ -50,6 +51,7 @@ class StudioEditor extends StatefulWidget {
   final Set<String> agentScopes;
   final bool enableAgentTransport;
   final List<StudioAgentExtension> agentExtensions;
+  final List<StudioEditorContribution> editorContributions;
   final bool showAgentInitially;
   final ThemeMode themeMode;
   final ValueChanged<ThemeMode>? onThemeChanged;
@@ -67,6 +69,7 @@ class StudioEditor extends StatefulWidget {
     this.agentScopes = const {},
     this.enableAgentTransport = false,
     this.agentExtensions = const [],
+    this.editorContributions = const [],
     this.showAgentInitially = false,
     this.themeMode = ThemeMode.system,
     this.onThemeChanged,
@@ -78,6 +81,14 @@ class StudioEditor extends StatefulWidget {
 
 class StudioEditorState extends State<StudioEditor> {
   late StudioScene _scene;
+  StudioEditorHostController? _contributionHost;
+  StudioEditorHostController get editorHost => _contributionHost!;
+  final _basePlugins = <ScenePlugin>[];
+  T _useBasePlugin<T extends ScenePlugin>(T plugin) {
+    _basePlugins.add(plugin);
+    return _controller.use(plugin);
+  }
+
   GlobalKey<StudioAgentPanelState> _agentPanelKey = GlobalKey();
   final _agentExtensionScopes = <StudioAgentExtensionContext>[];
   late final StudioAssetScope _assets = widget.assetScope ?? StudioAssetScope();
@@ -159,6 +170,7 @@ class StudioEditorState extends State<StudioEditor> {
   }
 
   void _install(StudioDocument document) {
+    _basePlugins.clear();
     _agentPanelKey = GlobalKey();
     _scene = StudioScene(document, assets: _assets);
     addStudioLighting(_scene.scene);
@@ -210,13 +222,13 @@ class StudioEditorState extends State<StudioEditor> {
         presentation: PresentationPolicy.requireNative,
       ),
     );
-    _controller.use(_scene.tools);
-    _controller.use(SceneOutlinePlugin());
-    _controller.use(_gizmo);
-    _controller.use(_orbit);
-    _controller.use(_timeline);
-    _controller.use(_scene.engineering);
-    final inspector = _gpuInspector = _controller.use(SceneDevtoolsPlugin());
+    _useBasePlugin(_scene.tools);
+    _useBasePlugin(SceneOutlinePlugin());
+    _useBasePlugin(_gizmo);
+    _useBasePlugin(_orbit);
+    _useBasePlugin(_timeline);
+    _useBasePlugin(_scene.engineering);
+    final inspector = _gpuInspector = _useBasePlugin(SceneDevtoolsPlugin());
     _diagnostics = SceneDiagnostics(inspector);
     _commands = StudioCommands(
       scene: _scene,
@@ -234,7 +246,7 @@ class StudioEditorState extends State<StudioEditor> {
         for (final extension in widget.agentExtensions) ...extension.scopes,
       },
     );
-    _controller.use(AgentRegistryPlugin(_agents));
+    _useBasePlugin(AgentRegistryPlugin(_agents));
     _agentProvider = StudioAgentProvider(
       commands: _commands,
       screenContext: _screenContext,
@@ -404,7 +416,7 @@ class StudioEditorState extends State<StudioEditor> {
           }
         }
         for (final plugin in [...plugins, binding]) {
-          _controller.use(plugin);
+          _useBasePlugin(plugin);
         }
         _agentExtensionScopes.add(scope);
       } catch (_) {
@@ -419,6 +431,41 @@ class StudioEditorState extends State<StudioEditor> {
     if (widget.enableAgentTransport && kDebugMode) {
       unawaited(_startAgentTransport(_agents, _diagnostics));
     }
+    final controller = _controller;
+    final basePlugins = List<ScenePlugin>.unmodifiable(_basePlugins);
+    final host = _contributionHost = StudioEditorHostController(
+      reservedPanelIds: const {
+        'scene',
+        'assets',
+        'inspector',
+        'diagnostics',
+        'agent',
+        'animation',
+        'plugins',
+      },
+      services: StudioEditorServices(
+        scene: _scene,
+        commands: _commands,
+        agents: _agents,
+        assets: widget.assetResolver,
+        viewportController: controller,
+        isAvailable: () => _editing,
+        viewportSnapshot: _screenContext,
+        capabilities: () => {
+          ...widget.agentScopes,
+          if (_ready) 'scene.attached',
+          if (widget.assetResolver != null) 'studio.assets',
+        },
+        applyDocument: _applyAuthoring,
+        onChanged: () {
+          _commandUiRevision++;
+          _refresh();
+        },
+        installRuntimePlugins: (plugins) =>
+            controller.setPlugins([...basePlugins, ...plugins]),
+      ),
+    );
+    host.registerAll(widget.editorContributions);
     _controller.status.addListener(_statusChanged);
     _subscriptions.addAll([
       _agents.changes.listen((_) => _refresh()),
@@ -456,6 +503,7 @@ class StudioEditorState extends State<StudioEditor> {
   void _refresh() {
     if (!mounted || _refreshQueued) return;
     _uiRevision++;
+    _contributionHost?.refresh();
     _refreshQueued = true;
     SchedulerBinding.instance.addPostFrameCallback((_) {
       _refreshQueued = false;
@@ -489,7 +537,23 @@ class StudioEditorState extends State<StudioEditor> {
     }
   }
 
-  Future<void> _release() {
+  Future<void> _release() async {
+    final contributionHost = _contributionHost;
+    _contributionHost = null;
+    if (contributionHost != null) {
+      try {
+        await contributionHost.close();
+      } catch (error, stack) {
+        FlutterError.reportError(
+          FlutterErrorDetails(
+            exception: error,
+            stack: stack,
+            library: 'Zyren Studio',
+            context: ErrorDescription('while detaching editor contributions'),
+          ),
+        );
+      }
+    }
     _agentPanelKey.currentState?.cancelForDetach();
     _modelBindings?.dispose();
     _modelBindings = null;
@@ -506,7 +570,7 @@ class StudioEditorState extends State<StudioEditor> {
     }
     _subscriptions.clear();
     _controller.dispose();
-    return _controller.whenDisposed.whenComplete(() {
+    await _controller.whenDisposed.whenComplete(() {
       for (final scope in extensionScopes) {
         try {
           scope.dispose();
@@ -957,6 +1021,10 @@ class StudioEditorState extends State<StudioEditor> {
   Widget _inspector() => StudioProperties(
     key: ValueKey(_scene.idFor(_selected)),
     object: _selected,
+    sections: [
+      if (_contributionHost != null)
+        StudioEditorInspectorSections(controller: _contributionHost!),
+    ],
     onPosition: _editing && _selected != null
         ? (value) => _edit(
             () => _scene.edit(
@@ -1586,6 +1654,10 @@ class StudioEditorState extends State<StudioEditor> {
                 _ready && !_busy ? _preview : null,
               ),
               KeyedSubtree(key: _authorKey, child: _authoringMenu()),
+              if (_contributionHost != null) ...[
+                StudioEditorCreationTools(controller: _contributionHost!),
+                StudioEditorPlayControls(controller: _contributionHost!),
+              ],
               _button(
                 'Tour',
                 Icons.help_outline,
@@ -1680,53 +1752,74 @@ class StudioEditorState extends State<StudioEditor> {
             ),
           const Divider(height: 1),
           Expanded(
-            child: StudioWorkspace(
-              canvas: _viewportEditor(context),
-              initialPane: widget.showAgentInitially ? 'agent' : 'inspector',
-              onActivePanel: (panel) {
-                _activePanel = panel;
-                _uiRevision++;
-              },
-              panes: [
-                StudioPane(
-                  'scene',
-                  'Scene',
-                  Icons.account_tree_outlined,
-                  _scenePane(),
-                ),
-                StudioPane(
-                  'assets',
-                  'Assets',
-                  Icons.inventory_2_outlined,
-                  _assetsPane(),
-                ),
-                StudioPane('inspector', 'Properties', Icons.tune, _inspector()),
-                StudioPane(
-                  'diagnostics',
-                  'Diagnostics',
-                  Icons.monitor_heart_outlined,
-                  _diagnosticsPane(),
-                ),
-                StudioPane(
-                  'agent',
-                  'Agent',
-                  Icons.auto_awesome_outlined,
-                  _agentPane(),
-                ),
-                StudioPane(
-                  'animation',
-                  'Animation',
-                  Icons.movie_outlined,
-                  _animationPane(),
-                ),
-                StudioPane(
-                  'plugins',
-                  'Plugins',
-                  Icons.extension_outlined,
-                  _pluginsPane(),
-                ),
-              ],
-            ),
+            child: _contributionHost == null
+                ? const Center(child: CircularProgressIndicator())
+                : StudioEditorHost(
+                    controller: _contributionHost!,
+                    viewport: _viewportEditor(context),
+                    workspaceBuilder: (context, contributed, viewport) =>
+                        StudioWorkspace(
+                          canvas: viewport,
+                          initialPane: widget.showAgentInitially
+                              ? 'agent'
+                              : 'inspector',
+                          onActivePanel: (panel) {
+                            _activePanel = panel;
+                            _uiRevision++;
+                          },
+                          panes: [
+                            StudioPane(
+                              'scene',
+                              'Scene',
+                              Icons.account_tree_outlined,
+                              _scenePane(),
+                            ),
+                            StudioPane(
+                              'assets',
+                              'Assets',
+                              Icons.inventory_2_outlined,
+                              _assetsPane(),
+                            ),
+                            StudioPane(
+                              'inspector',
+                              'Properties',
+                              Icons.tune,
+                              _inspector(),
+                            ),
+                            StudioPane(
+                              'diagnostics',
+                              'Diagnostics',
+                              Icons.monitor_heart_outlined,
+                              _diagnosticsPane(),
+                            ),
+                            StudioPane(
+                              'agent',
+                              'Agent',
+                              Icons.auto_awesome_outlined,
+                              _agentPane(),
+                            ),
+                            StudioPane(
+                              'animation',
+                              'Animation',
+                              Icons.movie_outlined,
+                              _animationPane(),
+                            ),
+                            StudioPane(
+                              'plugins',
+                              'Plugins',
+                              Icons.extension_outlined,
+                              _pluginsPane(),
+                            ),
+                            for (final pane in contributed)
+                              StudioPane(
+                                pane.id,
+                                pane.title,
+                                pane.icon,
+                                pane.child,
+                              ),
+                          ],
+                        ),
+                  ),
           ),
           const Divider(height: 1),
           SizedBox(

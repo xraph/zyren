@@ -45,6 +45,32 @@ class _StudioWorkspaceState extends State<StudioWorkspace> {
   bool _narrowInitialized = false;
   double _left = 210, _right = 300, _bottom = 200;
 
+  @override
+  void didUpdateWidget(covariant StudioWorkspace oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final ids = widget.panes.map((pane) => pane.id).toSet();
+    if (ids.length != widget.panes.length) {
+      throw StateError('Duplicate workspace pane ID.');
+    }
+    _docks.removeWhere((id, _) => !ids.contains(id));
+    for (final pane in widget.panes) {
+      _docks.putIfAbsent(
+        pane.id,
+        () => pane.id == 'animation'
+            ? StudioDock.bottom
+            : pane.id == 'scene' || pane.id == 'assets'
+            ? StudioDock.left
+            : StudioDock.right,
+      );
+    }
+    for (final dock in StudioDock.values) {
+      if (_active[dock] != null && !ids.contains(_active[dock])) {
+        _active[dock] = null;
+      }
+    }
+    if (_narrowPane != null && !ids.contains(_narrowPane)) _narrowPane = null;
+  }
+
   void _move(String id, StudioDock dock) => setState(() {
     for (final side in StudioDock.values) {
       if (_active[side] == id) _active[side] = null;

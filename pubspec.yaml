@@ -3,6 +3,7 @@ publish_to: none
 environment:
   sdk: '>=3.10.0 <4.0.0'
 workspace:
+  - packages/flutter_zyren_studio
   - packages/zyren_game
   - packages/zyren_game_native
   - packages/zyren_ml

@@ -4,6 +4,7 @@ import 'dart:io';
 void main(List<String> args) {
   final root = Directory(args.isEmpty ? '.' : args.single);
   final allowed = <String, Set<String>>{
+    'packages/flutter_zyren_studio': {'flutter_zyren_studio', 'flutter', 'flutter_zyren', 'zyren', 'zyren_studio', 'zyren_agents'},
     'packages/zyren_ml': {'zyren_ml', 'ffi', 'crypto', 'zyren_agents'},
     'packages/zyren_game': {'zyren_game', 'zyren', 'zyren_agents'},
     'packages/zyren_game_native': {'zyren_game_native', 'zyren_game', 'zyren_physics', 'zyren'},

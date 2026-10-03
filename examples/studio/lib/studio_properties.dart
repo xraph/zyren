@@ -3,11 +3,13 @@ import 'package:flutter_zyren/flutter_zyren.dart';
 
 class StudioProperties extends StatelessWidget {
   final Object3D? object;
+  final List<Widget> sections;
   final ValueChanged<Vec3>? onPosition, onScale;
   final VoidCallback? onMaterial, onPose, onNudge;
   const StudioProperties({
     super.key,
     required this.object,
+    this.sections = const [],
     this.onPosition,
     this.onScale,
     this.onMaterial,
@@ -98,6 +100,7 @@ class StudioProperties extends StatelessWidget {
           'Changes use the scene’s undo history.',
           style: Theme.of(context).textTheme.bodySmall,
         ),
+        ...sections,
       ],
     );
   }
