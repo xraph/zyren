@@ -101,7 +101,8 @@ final class _TileMotion {
     _position = camera.position;
     _forward = forward;
     _sampled = time;
-    pending = _moved != null && time - _moved! < policy.settle;
+    pending =
+        _moved != null && (time - _moved! < policy.settle || predicted != null);
     return scale != oldScale || !identical(predicted, oldPrediction) || changed;
   }
 

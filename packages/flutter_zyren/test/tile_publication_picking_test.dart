@@ -5,6 +5,7 @@ import 'package:zyren/rendering.dart';
 import 'package:zyren_3d_tiles/zyren_3d_tiles.dart';
 import '../../zyren_3d_tiles/test/fixtures.dart';
 import '../../zyren_3d_tiles/test/feature_test.dart' show batchModel;
+import '../../zyren_3d_tiles/test/motion_test.dart' show at;
 import 'support/backend_fake.dart';
 import 'controller_test.dart' show frames, readback, runtime, host;
 
@@ -47,6 +48,106 @@ class _Backend extends FakeBackend {
 }
 
 void main() {
+  testWidgets('prediction expires after SSE settles and the controller idles', (
+    tester,
+  ) async {
+    final resolver = MemoryResolver({
+      '/manifest': tilesetBytes(
+        tile(
+            refine: 'REPLACE',
+            children: [at('visible', 0), at('predicted', 24)],
+          )
+          ..['boundingVolume'] = {
+            'sphere': [0, 0, 0, 100],
+          },
+      ),
+      '/visible': triangleModel(),
+      '/predicted': triangleModel(),
+    });
+    final services = AssetServices(resolver: resolver);
+    final assets = AssetScope(services: services);
+    final tileset = await assets
+        .load(Tiles3D.tileset(Uri.parse('asset:///manifest')))
+        .result;
+    final scene = Scene();
+    final backend = _Backend()
+      ..scene = scene
+      ..additionalFeatures = {RenderFeature.standardMaterials};
+    final camera = OrthographicCamera(
+      position: const Vec3(0, -50, 0),
+      up: const Vec3(0, 0, 1),
+      left: -10,
+      right: 10,
+      top: 10,
+      bottom: -10,
+    );
+    final controller = SceneController(
+      scene: scene,
+      camera: camera,
+      options: readback,
+      runtime: runtime(backend),
+    );
+    final tiles = Tiles3DPlugin(
+      tileset: tileset,
+      services: services,
+      motionPolicy: const Tiles3DMotionPolicy(
+        prediction: Duration(seconds: 1),
+        settle: Duration(milliseconds: 50),
+      ),
+      budget: Tiles3DBudget(
+        maxRequests: 2,
+        maxPrefetchRequests: 1,
+        maxPrefetchTiles: 1,
+        maxPrefetchBytes: 1024,
+        perTileDecodedBytes: 1024,
+      ),
+    );
+    controller.use(tiles);
+    Future<void> tick() async {
+      await tester.pump(const Duration(milliseconds: 40));
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 10)),
+      );
+    }
+
+    await tester.pumpWidget(host(SceneView(controller: controller)));
+    try {
+      for (var i = 0; i < 50 && tiles.visibleTileIds.isEmpty; i++) {
+        await tick();
+      }
+      expect(tiles.visibleTileIds, {'0/0'});
+      expect(resolver.reads, isNot(contains('/predicted')));
+      camera.position = const Vec3(1, -50, 0);
+      camera.target = const Vec3(1, 0, 0);
+      await tick();
+      camera.position = const Vec3(5, -50, 0);
+      camera.target = const Vec3(5, 0, 0);
+      for (var i = 0; i < 6; i++) {
+        await tick();
+      }
+      expect(tiles.stats!.activeRequests, 0);
+      expect(tiles.stats!.effectiveScreenError, 8);
+      expect(tiles.stats!.prefetchedTiles, 1);
+      expect(resolver.reads.where((p) => p == '/predicted').length, 1);
+      for (var i = 0; i < 24; i++) {
+        await tick();
+      }
+      expect(tiles.stats!.prefetchedTiles, 0);
+      expect(tiles.stats!.prefetchBytes, 0);
+      final settled = backend.submissions.length;
+      for (var i = 0; i < 6; i++) {
+        await tick();
+      }
+      expect(backend.submissions.length, settled);
+    } finally {
+      await tester.pumpWidget(const SizedBox());
+      controller.dispose();
+      await frames(tester);
+      await controller.whenDisposed;
+      await tester.runAsync(assets.close);
+    }
+    expect(tester.takeException(), isNull);
+  });
   testWidgets(
     'controller picks displayed tiles through staging, style changes and publication',
     (tester) async {

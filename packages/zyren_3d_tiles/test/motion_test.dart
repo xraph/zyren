@@ -11,6 +11,39 @@ Map<String, Object?> at(String uri, double x) =>
         'sphere': [x, 0, 0, 1],
       };
 void main() {
+  test('prediction keeps updates alive beyond SSE settlement', () async {
+    final streamer = Tiles3DStreamer(
+      tileset: await source(tile(uri: 'a', refine: 'REPLACE')),
+      services: AssetServices(
+        resolver: MemoryResolver({'/a': triangleModel()}),
+      ),
+      motionPolicy: const Tiles3DMotionPolicy(
+        prediction: Duration(seconds: 1),
+        settle: Duration(milliseconds: 50),
+      ),
+    );
+    addTearDown(streamer.dispose);
+    final view = OrthographicCamera(
+      position: const Vec3(0, -50, 0),
+      up: const Vec3(0, 0, 1),
+    );
+    void update(int ms) => streamer.update(
+      view,
+      const ViewportMetrics(100, 100),
+      elapsed: Duration(milliseconds: ms),
+    );
+    update(0);
+    view.position = const Vec3(1, -50, 0);
+    view.target = const Vec3(1, 0, 0);
+    update(40);
+    update(90);
+    expect(streamer.effectiveScreenError, 8);
+    expect(streamer.needsUpdate, isTrue);
+    update(1039);
+    expect(streamer.needsUpdate, isTrue);
+    update(1040);
+    expect(streamer.needsUpdate, isFalse);
+  });
   test(
     'adjacent and predicted work is bounded, visible-first and expires after reversal',
     () async {
