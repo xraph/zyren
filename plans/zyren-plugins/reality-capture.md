@@ -17,10 +17,10 @@ adapters, live MCP and mobile qualification.
 | Geospatial | Declared ECEF/ENU/affine source mapping; shared reference frame for scene placement and source evidence | Geodetic round trip and original-source ray query |
 | 3D Tiles | Live loading/LOD/budget context; declared tile associations verified against resident feature identities and properties | Loaded B3DM feature properties, missing/evicted mappings and revision guards |
 | Agents and MCP | Shared registry, viewport context, source-aware point and Gaussian queries, scoped point filter/undo/retry | Registry tests and live shared stdio MCP, including denial, identical retry, stale revision and EOF cleanup |
-| Native qualification | macOS Metal and physical Pixel 9 Pro Vulkan | Package and Flutter integration checks; desktop and narrow visual review |
-| iPhone | Unsigned device build succeeds; signed deployment blocked | Apple App ID quota and missing app provisioning profile, unchanged after unlocking |
+| Native qualification | macOS/iPhone Metal and physical Pixel 9 Pro Vulkan | Package and Flutter integration checks; desktop and narrow visual review |
+| iPhone | 3 integration tests pass on physical iPhone 16 Pro, iOS 27.0 | Both camera pixel cases, native imports, streaming, controls, semantics, reattachment and cleanup |
 | iPad | Wireless deployment reaches signing; device tests blocked | Same App ID quota and missing profile; `flutter drive --publish-port` supports the wireless test path |
-| iPhone signing workaround | Temporary app signed with an existing demo profile; strict signature check passes | Installation hits the separate three-app limit; temporary XR replacement awaits approval |
+| iPhone signing workaround | User-approved temporary reuse of the XR profile and installed identity | No new App ID; tests passed; saved XR build reinstalled and identity verified |
 
 The detailed platform record is
 `packages/zyren_pointclouds/qualification/2026-10-03.md`. It separates actual pixels,
@@ -96,19 +96,19 @@ The qualification app uses that model and disposes its retained streams after th
 controller drains. The Gaussian renderer recreates its attachment scope and GPU
 resources when reattached. Forced physical device loss is not a qualified scenario.
 
-macOS Metal and Pixel Vulkan are separate evidence. iPhone and iPad deployment are blocked
-by the current signing account's maximum of ten new App IDs per seven days and no
-profile for this app. Unlocking the phone does not resolve that account limit.
-An unsigned iOS build succeeds, but cannot establish on-device rendering. The iPad
-retry used `flutter drive --publish-port` over Wi-Fi and reached the same signing
-failure. Windows/DX12 and Linux GPUs remain unverified.
+macOS Metal, iPhone Metal and Pixel Vulkan are separate evidence. Registration of
+this app's own bundle ID is still blocked by the signing account's App ID quota.
+The iPad retry reached that failure; iPad, Windows/DX12 and Linux GPUs remain
+unverified.
 
-A temporary iPhone build now uses an existing development profile and matching
-demo bundle ID without changing the project identity. Local signature verification
-passes. Installation is blocked by the three free-profile apps already on the
-phone. A second signed copy can temporarily occupy the XR demo's slot, with a
-saved signed XR build for restoration; that replacement awaits user approval.
-No mobile pass follows from signature verification alone.
+The passing iPhone test used an existing profile and the XR demo's installed
+identity with the user's approval, keeping the project's identity unchanged.
+The signed bundle came from the fresh `Debug-iphoneos` output; the legacy
+`iphoneos` output was stale. USB debug testing passed with DDS and port publication
+disabled. Flutter removed the temporary app during cleanup, then the saved signed
+XR build was reinstalled and its name/version verified. App-container restoration
+was not verified. The evidence record includes artifact hashes and the failed
+launches; it does not qualify later concurrent renderer edits.
 
 Higher-order spherical harmonics, PLY import, GPU sorting and large-dataset
 performance qualification remain future work. This completion run does not claim
@@ -123,6 +123,9 @@ host command.
 - `dc5cbfe`: bounded spatial streaming and source-preserving point LOD.
 - `f2b6ee6`: perspective Gaussian scenes, streamed providers, format and geospatial adapters.
 - `4637d07`: fresh Gaussian attachment scopes and repeated native resource cleanup.
+- `e9670b4`: macOS/Pixel scenes, native imports and live shared MCP qualification.
+- `088bb05`: wireless driver and initial iPad signing evidence.
+- `6fa3f054`: existing-profile signing and the separate installed-app limit.
 
 Qualification and lifecycle follow-ups stay in focused local commits. Nothing is
 pushed, merged or published by this task. Checks ran in the concurrent workspace;

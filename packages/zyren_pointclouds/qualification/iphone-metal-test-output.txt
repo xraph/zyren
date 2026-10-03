@@ -1,0 +1,10 @@
+00:00 +0: scene Gaussian depth, clipping and transforms (orthographic)
+Gaussian scene backend: Metal
+00:01 +1: scene Gaussian depth, clipping and transforms (perspective)
+Gaussian scene backend: Metal
+00:01 +2: native imports, streamed points, perspective splats, controls and cleanup
+REALITY_CAPTURE_QUALIFICATION {"backend":"Metal","imports":{"survey.las":3,"survey.laz":3,"survey14.laz":3,"scans.e57":4},"points":{"selectedChunks":16,"visibleChunks":16,"activeRequests":0,"decodedBytes":11130,"reservedBytes":0,"cachedBytes":0,"gpuPayloadBytes":3072,"physicalGpuResidentBytes":null,"budgetLimited":false},"gaussians":{"selectedChunks":16,"visibleChunks":16,"activeRequests":0,"decodedBytes":5824,"reservedBytes":0,"cachedBytes":0,"gpuPayloadBytes":6624,"physicalGpuResidentBytes":null,"budgetLimited":false},"projected":36,"readbackBytes":0,"filter":"passed","section":"passed","semantics":"passed"}
+REALITY_CAPTURE_CLEANUP passed
+00:06 +3: (tearDownAll)
+00:06 +4: All tests passed!
+Host driver: All tests passed.

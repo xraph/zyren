@@ -1,0 +1,72 @@
+{
+  "backend": "Metal",
+  "imports": {
+    "survey.las": 3,
+    "survey.laz": 3,
+    "survey14.laz": 3,
+    "scans.e57": 4
+  },
+  "points": {
+    "selectedChunks": 16,
+    "visibleChunks": 16,
+    "activeRequests": 0,
+    "decodedBytes": 11130,
+    "reservedBytes": 0,
+    "cachedBytes": 0,
+    "gpuPayloadBytes": 3072,
+    "physicalGpuResidentBytes": null,
+    "budgetLimited": false
+  },
+  "gaussians": {
+    "selectedChunks": 16,
+    "visibleChunks": 16,
+    "activeRequests": 0,
+    "decodedBytes": 5824,
+    "reservedBytes": 0,
+    "cachedBytes": 0,
+    "gpuPayloadBytes": 6624,
+    "physicalGpuResidentBytes": null,
+    "budgetLimited": false
+  },
+  "projected": 36,
+  "readbackBytes": 0,
+  "filter": "passed",
+  "section": "passed",
+  "semantics": "passed",
+  "device": {
+    "model": "iPhone 16 Pro",
+    "os": "iOS 27.0",
+    "osBuild": "24A437",
+    "transport": "USB"
+  },
+  "buildMode": "debug",
+  "testTarget": "integration_test/capture_test.dart",
+  "testCount": 3,
+  "testExitCode": 0,
+  "cleanup": "passed",
+  "pixelTests": [
+    "orthographic depth, clipping and transforms",
+    "perspective depth, clipping and transforms"
+  ],
+  "pluginReattachment": "passed",
+  "freshBackendRendererRecreation": "passed",
+  "signing": {
+    "projectBundleId": "dev.zyren.realityCapture",
+    "temporaryBundleId": "dev.zyren.xr.zyrenXrProbe",
+    "existingProfile": true,
+    "newAppIdRegistered": false
+  },
+  "restoration": {
+    "installExitCode": 0,
+    "verifiedName": "Zyren Xr Probe",
+    "verifiedVersion": "0.1.0",
+    "verifiedBuild": "0.1.0",
+    "temporaryAppUninstalledByFlutterDrive": true,
+    "appDataPreservationVerified": false
+  },
+  "signedArtifactSha256": {
+    "Frameworks/App.framework/flutter_assets/kernel_blob.bin": "34d1b45364f90fd731fa772f13bdb511c8d9bdfe12279934cc602437a235999c",
+    "Frameworks/zyren_runtime.framework/zyren_runtime": "c6c7615e6396f70e9482955e7b405295c6ebb918b6c1c2ef53f44dbf4bfd2e02",
+    "Frameworks/zyren_pointclouds.framework/zyren_pointclouds": "abf076a89398890f500efef17adf699696489a73c9ed4e7b127b483bae949eb6"
+  }
+}

@@ -71,7 +71,7 @@ match the app's bundle ID and entitlements, and remain valid. Sign a copy of the
 generated app, keeping this project's bundle ID unchanged. Then run that copy:
 
 ```sh
-fvm flutter drive --no-pub --publish-port \
+fvm flutter drive --no-pub --publish-port --keep-app-running \
   --driver=test_driver/integration_test.dart \
   --target=integration_test/capture_test.dart \
   --use-application-binary=/absolute/path/RealityCapture.app -d <device-id>
@@ -79,7 +79,15 @@ fvm flutter drive --no-pub --publish-port \
 
 Personal Team accounts also allow only three installed development apps per device.
 Reusing an installed identity replaces that app, so coordinate with its owner and
-save a signed restoration build first. The evidence record tracks both limits.
+save a signed restoration build first. `--keep-app-running` prevents the driver's
+default uninstall on completion; stop the test process and reinstall the saved
+build over it when you're done. The evidence record tracks both limits.
+
+For the qualified USB iPhone run, `--no-dds --no-publish-port` resolved the debugger
+connection. Build with `--target=integration_test/capture_test.dart` and sign the
+fresh output. In this run Xcode wrote it to `build/ios/Debug-iphoneos/Runner.app`,
+while `build/ios/iphoneos/Runner.app` still held the normal lab. Verify the test
+entry point before using a prebuilt bundle.
 
 See [the evidence record](../../qualification/2026-10-03.md) for tested devices and
-the iPhone and iPad signing blocker. Device discovery alone does not establish qualification.
+the iPhone signing workaround and remaining iPad blocker.
