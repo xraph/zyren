@@ -1,0 +1,378 @@
+{
+  "schemaVersion": 1,
+  "cases": {
+    "action.stale": {
+      "condition": "Command targets replaced generation",
+      "expectedStatus": "rejected",
+      "preservedIdentities": [
+        "session",
+        "epoch",
+        "revision",
+        "handles",
+        "queued",
+        "fault"
+      ],
+      "cleanupCounters": [
+        "liveSessions"
+      ],
+      "recoveryAction": "refresh_actor_generation",
+      "status": "passed",
+      "evidence": {
+        "path": "tool/qualification/receipts/game-core.json",
+        "sha256": "7ef92b6e37890cc0faa1de451a1c2272d171ed81ade29fab01be29614d020e77"
+      }
+    },
+    "cancellation": {
+      "condition": "Native job or play preparation cancelled while pending",
+      "expectedStatus": "rejected",
+      "preservedIdentities": [
+        "identity"
+      ],
+      "cleanupCounters": [
+        "owners"
+      ],
+      "recoveryAction": "retry",
+      "status": "blocked",
+      "reason": "Existing package regressions have not yet emitted a consolidated identity and cleanup receipt for this case."
+    },
+    "editor.conflict": {
+      "condition": "Concurrent authored edit invalidates prepared transaction",
+      "expectedStatus": "rejected",
+      "preservedIdentities": [
+        "identity"
+      ],
+      "cleanupCounters": [
+        "owners"
+      ],
+      "recoveryAction": "retry",
+      "status": "blocked",
+      "reason": "Existing package regressions have not yet emitted a consolidated identity and cleanup receipt for this case."
+    },
+    "entity.removed": {
+      "condition": "Command targets removed actor",
+      "expectedStatus": "rejected",
+      "preservedIdentities": [
+        "session",
+        "epoch",
+        "revision",
+        "handles",
+        "queued",
+        "fault"
+      ],
+      "cleanupCounters": [
+        "liveSessions"
+      ],
+      "recoveryAction": "resolve_live_actor",
+      "status": "passed",
+      "evidence": {
+        "path": "tool/qualification/receipts/game-core.json",
+        "sha256": "7ef92b6e37890cc0faa1de451a1c2272d171ed81ade29fab01be29614d020e77"
+      }
+    },
+    "leakage.hearing-uncertainty": {
+      "condition": "Audible-only actor identity/position unavailable",
+      "expectedStatus": "rejected",
+      "preservedIdentities": [
+        "identity"
+      ],
+      "cleanupCounters": [
+        "owners"
+      ],
+      "recoveryAction": "retry",
+      "status": "blocked",
+      "reason": "Existing package regressions have not yet emitted a consolidated identity and cleanup receipt for this case."
+    },
+    "leakage.hidden-position": {
+      "condition": "Unobserved target positions differ in paired worlds",
+      "expectedStatus": "rejected",
+      "preservedIdentities": [
+        "identity"
+      ],
+      "cleanupCounters": [
+        "owners"
+      ],
+      "recoveryAction": "retry",
+      "status": "blocked",
+      "reason": "Existing package regressions have not yet emitted a consolidated identity and cleanup receipt for this case."
+    },
+    "leakage.lost-sight": {
+      "condition": "Sight lost and historical memory retained without live updates",
+      "expectedStatus": "rejected",
+      "preservedIdentities": [
+        "identity"
+      ],
+      "cleanupCounters": [
+        "owners"
+      ],
+      "recoveryAction": "retry",
+      "status": "blocked",
+      "reason": "Existing package regressions have not yet emitted a consolidated identity and cleanup receipt for this case."
+    },
+    "leakage.pool-replacement": {
+      "condition": "Batched/pooled result completes after actor replacement",
+      "expectedStatus": "rejected",
+      "preservedIdentities": [
+        "identity"
+      ],
+      "cleanupCounters": [
+        "owners"
+      ],
+      "recoveryAction": "retry",
+      "status": "blocked",
+      "reason": "Existing package regressions have not yet emitted a consolidated identity and cleanup receipt for this case."
+    },
+    "leakage.stale-nav": {
+      "condition": "Navigation result targets removed or replaced obstacle",
+      "expectedStatus": "rejected",
+      "preservedIdentities": [
+        "identity"
+      ],
+      "cleanupCounters": [
+        "owners"
+      ],
+      "recoveryAction": "retry",
+      "status": "blocked",
+      "reason": "Existing package regressions have not yet emitted a consolidated identity and cleanup receipt for this case."
+    },
+    "leakage.teacher-input": {
+      "condition": "Teacher-only fields excluded from actor observation",
+      "expectedStatus": "rejected",
+      "preservedIdentities": [
+        "identity"
+      ],
+      "cleanupCounters": [
+        "owners"
+      ],
+      "recoveryAction": "retry",
+      "status": "blocked",
+      "reason": "Existing package regressions have not yet emitted a consolidated identity and cleanup receipt for this case."
+    },
+    "model.hash": {
+      "condition": "Model bytes differ from manifest SHA256",
+      "expectedStatus": "rejected",
+      "preservedIdentities": [
+        "identity"
+      ],
+      "cleanupCounters": [
+        "owners"
+      ],
+      "recoveryAction": "retry",
+      "status": "blocked",
+      "reason": "Existing package regressions have not yet emitted a consolidated identity and cleanup receipt for this case."
+    },
+    "model.operator": {
+      "condition": "Unsupported ONNX operator",
+      "expectedStatus": "rejected",
+      "preservedIdentities": [
+        "identity"
+      ],
+      "cleanupCounters": [
+        "owners"
+      ],
+      "recoveryAction": "retry",
+      "status": "blocked",
+      "reason": "Existing package regressions have not yet emitted a consolidated identity and cleanup receipt for this case."
+    },
+    "model.schema": {
+      "condition": "Model schema signature mismatch",
+      "expectedStatus": "rejected",
+      "preservedIdentities": [
+        "identity"
+      ],
+      "cleanupCounters": [
+        "owners"
+      ],
+      "recoveryAction": "retry",
+      "status": "blocked",
+      "reason": "Existing package regressions have not yet emitted a consolidated identity and cleanup receipt for this case."
+    },
+    "prefab.cycle": {
+      "condition": "Cyclic authored prefab graph",
+      "expectedStatus": "rejected",
+      "preservedIdentities": [
+        "identity"
+      ],
+      "cleanupCounters": [
+        "owners"
+      ],
+      "recoveryAction": "retry",
+      "status": "blocked",
+      "reason": "Existing package regressions have not yet emitted a consolidated identity and cleanup receipt for this case."
+    },
+    "project.malformed": {
+      "condition": "Malformed project JSON",
+      "expectedStatus": "rejected",
+      "preservedIdentities": [
+        "session",
+        "epoch",
+        "revision",
+        "handles",
+        "queued",
+        "fault"
+      ],
+      "cleanupCounters": [
+        "liveSessions"
+      ],
+      "recoveryAction": "retry_valid_project",
+      "status": "passed",
+      "evidence": {
+        "path": "tool/qualification/receipts/game-core.json",
+        "sha256": "7ef92b6e37890cc0faa1de451a1c2272d171ed81ade29fab01be29614d020e77"
+      }
+    },
+    "project.oversized": {
+      "condition": "Oversized component payload",
+      "expectedStatus": "rejected",
+      "preservedIdentities": [
+        "session",
+        "epoch",
+        "revision",
+        "handles",
+        "queued",
+        "fault"
+      ],
+      "cleanupCounters": [
+        "liveSessions"
+      ],
+      "recoveryAction": "retry_bounded_project",
+      "status": "passed",
+      "evidence": {
+        "path": "tool/qualification/receipts/game-core.json",
+        "sha256": "7ef92b6e37890cc0faa1de451a1c2272d171ed81ade29fab01be29614d020e77"
+      }
+    },
+    "queue.saturated": {
+      "condition": "Bounded command or inference queue full",
+      "expectedStatus": "rejected",
+      "preservedIdentities": [
+        "session",
+        "epoch",
+        "revision",
+        "handles",
+        "queued",
+        "fault"
+      ],
+      "cleanupCounters": [
+        "liveSessions"
+      ],
+      "recoveryAction": "drain_and_retry",
+      "status": "passed",
+      "evidence": {
+        "path": "tool/qualification/receipts/game-core.json",
+        "sha256": "7ef92b6e37890cc0faa1de451a1c2272d171ed81ade29fab01be29614d020e77"
+      }
+    },
+    "renderer.loss": {
+      "condition": "Native renderer fails with owners in flight",
+      "expectedStatus": "rejected",
+      "preservedIdentities": [
+        "identity"
+      ],
+      "cleanupCounters": [
+        "owners"
+      ],
+      "recoveryAction": "retry",
+      "status": "blocked",
+      "reason": "Existing package regressions have not yet emitted a consolidated identity and cleanup receipt for this case."
+    },
+    "save.failed": {
+      "condition": "Later state codec commit rejects restore",
+      "expectedStatus": "rejected",
+      "preservedIdentities": [
+        "session",
+        "epoch",
+        "revision",
+        "handles",
+        "queued",
+        "fault"
+      ],
+      "cleanupCounters": [
+        "liveSessions"
+      ],
+      "recoveryAction": "retry_compatible_restore",
+      "status": "passed",
+      "evidence": {
+        "path": "tool/qualification/receipts/game-core.json",
+        "sha256": "7ef92b6e37890cc0faa1de451a1c2272d171ed81ade29fab01be29614d020e77"
+      }
+    },
+    "sensor.unknown": {
+      "condition": "Unloaded geometry or unavailable native query",
+      "expectedStatus": "rejected",
+      "preservedIdentities": [
+        "identity"
+      ],
+      "cleanupCounters": [
+        "owners"
+      ],
+      "recoveryAction": "retry",
+      "status": "blocked",
+      "reason": "Existing package regressions have not yet emitted a consolidated identity and cleanup receipt for this case."
+    },
+    "tools.cancel": {
+      "condition": "Guarded external build or training cancellation",
+      "expectedStatus": "rejected",
+      "preservedIdentities": [
+        "identity"
+      ],
+      "cleanupCounters": [
+        "owners"
+      ],
+      "recoveryAction": "retry",
+      "status": "blocked",
+      "reason": "Existing package regressions have not yet emitted a consolidated identity and cleanup receipt for this case."
+    },
+    "tools.denied": {
+      "condition": "Caller lacks required provider scope",
+      "expectedStatus": "rejected",
+      "preservedIdentities": [
+        "identity"
+      ],
+      "cleanupCounters": [
+        "owners"
+      ],
+      "recoveryAction": "retry",
+      "status": "blocked",
+      "reason": "Existing package regressions have not yet emitted a consolidated identity and cleanup receipt for this case."
+    },
+    "tools.dispose": {
+      "condition": "Provider detaches while external request is pending",
+      "expectedStatus": "rejected",
+      "preservedIdentities": [
+        "identity"
+      ],
+      "cleanupCounters": [
+        "owners"
+      ],
+      "recoveryAction": "retry",
+      "status": "blocked",
+      "reason": "Existing package regressions have not yet emitted a consolidated identity and cleanup receipt for this case."
+    },
+    "tools.retry": {
+      "condition": "Exact idempotency key retried after completion",
+      "expectedStatus": "rejected",
+      "preservedIdentities": [
+        "identity"
+      ],
+      "cleanupCounters": [
+        "owners"
+      ],
+      "recoveryAction": "retry",
+      "status": "blocked",
+      "reason": "Existing package regressions have not yet emitted a consolidated identity and cleanup receipt for this case."
+    },
+    "worker.crash": {
+      "condition": "Native worker/process exits while request pending",
+      "expectedStatus": "rejected",
+      "preservedIdentities": [
+        "identity"
+      ],
+      "cleanupCounters": [
+        "owners"
+      ],
+      "recoveryAction": "retry",
+      "status": "blocked",
+      "reason": "Existing package regressions have not yet emitted a consolidated identity and cleanup receipt for this case."
+    }
+  }
+}

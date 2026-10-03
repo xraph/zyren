@@ -1,0 +1,247 @@
+{
+  "schemaVersion": 1,
+  "cases": {
+    "project.malformed": {
+      "before": {
+        "session": "{\"schemaVersion\":2,\"projectId\":\"g\",\"projectSchema\":1,\"buildId\":\"3eb7a636ca5bed00579e0342663a76d152df27ed152172db77e5386caeb4151c\",\"levelId\":\"l\",\"seed\":7,\"tick\":1,\"paused\":false,\"entities\":[{\"id\":\"actor\",\"components\":[]}],\"models\":{},\"state\":{},\"codecVersions\":{}}",
+        "epoch": 0,
+        "revision": 1,
+        "handles": [
+          "actor@1"
+        ],
+        "queued": 0,
+        "fault": null
+      },
+      "after": {
+        "session": "{\"schemaVersion\":2,\"projectId\":\"g\",\"projectSchema\":1,\"buildId\":\"3eb7a636ca5bed00579e0342663a76d152df27ed152172db77e5386caeb4151c\",\"levelId\":\"l\",\"seed\":7,\"tick\":1,\"paused\":false,\"entities\":[{\"id\":\"actor\",\"components\":[]}],\"models\":{},\"state\":{},\"codecVersions\":{}}",
+        "epoch": 0,
+        "revision": 1,
+        "handles": [
+          "actor@1"
+        ],
+        "queued": 0,
+        "fault": null
+      },
+      "status": "passed",
+      "actualStatus": "rejected",
+      "cleanupCounters": {
+        "before": {
+          "liveSessions": 0
+        },
+        "after": {
+          "liveSessions": 0
+        }
+      },
+      "recovery": {
+        "action": "retry_valid_project",
+        "status": "passed"
+      },
+      "execution": {
+        "kind": "pure",
+        "exitCode": 0,
+        "command": "fvm dart --packages=.dart_tool/package_config.json packages/zyren_game/test/failure_matrix_test.dart"
+      }
+    },
+    "project.oversized": {
+      "before": {
+        "session": "{\"schemaVersion\":2,\"projectId\":\"g\",\"projectSchema\":1,\"buildId\":\"3eb7a636ca5bed00579e0342663a76d152df27ed152172db77e5386caeb4151c\",\"levelId\":\"l\",\"seed\":7,\"tick\":1,\"paused\":false,\"entities\":[{\"id\":\"actor\",\"components\":[]}],\"models\":{},\"state\":{},\"codecVersions\":{}}",
+        "epoch": 0,
+        "revision": 1,
+        "handles": [
+          "actor@1"
+        ],
+        "queued": 0,
+        "fault": null
+      },
+      "after": {
+        "session": "{\"schemaVersion\":2,\"projectId\":\"g\",\"projectSchema\":1,\"buildId\":\"3eb7a636ca5bed00579e0342663a76d152df27ed152172db77e5386caeb4151c\",\"levelId\":\"l\",\"seed\":7,\"tick\":1,\"paused\":false,\"entities\":[{\"id\":\"actor\",\"components\":[]}],\"models\":{},\"state\":{},\"codecVersions\":{}}",
+        "epoch": 0,
+        "revision": 1,
+        "handles": [
+          "actor@1"
+        ],
+        "queued": 0,
+        "fault": null
+      },
+      "status": "passed",
+      "actualStatus": "rejected",
+      "cleanupCounters": {
+        "before": {
+          "liveSessions": 0
+        },
+        "after": {
+          "liveSessions": 0
+        }
+      },
+      "recovery": {
+        "action": "retry_bounded_project",
+        "status": "passed"
+      },
+      "execution": {
+        "kind": "pure",
+        "exitCode": 0,
+        "command": "fvm dart --packages=.dart_tool/package_config.json packages/zyren_game/test/failure_matrix_test.dart"
+      }
+    },
+    "entity.removed": {
+      "before": {
+        "session": "{\"schemaVersion\":2,\"projectId\":\"g\",\"projectSchema\":1,\"buildId\":\"3eb7a636ca5bed00579e0342663a76d152df27ed152172db77e5386caeb4151c\",\"levelId\":\"l\",\"seed\":7,\"tick\":1,\"paused\":false,\"entities\":[],\"models\":{},\"state\":{},\"codecVersions\":{}}",
+        "epoch": 0,
+        "revision": 1,
+        "handles": [],
+        "queued": 0,
+        "fault": null
+      },
+      "after": {
+        "session": "{\"schemaVersion\":2,\"projectId\":\"g\",\"projectSchema\":1,\"buildId\":\"3eb7a636ca5bed00579e0342663a76d152df27ed152172db77e5386caeb4151c\",\"levelId\":\"l\",\"seed\":7,\"tick\":1,\"paused\":false,\"entities\":[],\"models\":{},\"state\":{},\"codecVersions\":{}}",
+        "epoch": 0,
+        "revision": 1,
+        "handles": [],
+        "queued": 0,
+        "fault": null
+      },
+      "status": "passed",
+      "actualStatus": "rejected",
+      "cleanupCounters": {
+        "before": {
+          "liveSessions": 0
+        },
+        "after": {
+          "liveSessions": 0
+        }
+      },
+      "recovery": {
+        "action": "resolve_live_actor",
+        "status": "passed"
+      },
+      "execution": {
+        "kind": "pure",
+        "exitCode": 0,
+        "command": "fvm dart --packages=.dart_tool/package_config.json packages/zyren_game/test/failure_matrix_test.dart"
+      }
+    },
+    "action.stale": {
+      "before": {
+        "session": "{\"schemaVersion\":2,\"projectId\":\"g\",\"projectSchema\":1,\"buildId\":\"3eb7a636ca5bed00579e0342663a76d152df27ed152172db77e5386caeb4151c\",\"levelId\":\"l\",\"seed\":7,\"tick\":1,\"paused\":false,\"entities\":[{\"id\":\"actor\",\"components\":[]}],\"models\":{},\"state\":{},\"codecVersions\":{}}",
+        "epoch": 0,
+        "revision": 1,
+        "handles": [
+          "actor@2"
+        ],
+        "queued": 0,
+        "fault": null
+      },
+      "after": {
+        "session": "{\"schemaVersion\":2,\"projectId\":\"g\",\"projectSchema\":1,\"buildId\":\"3eb7a636ca5bed00579e0342663a76d152df27ed152172db77e5386caeb4151c\",\"levelId\":\"l\",\"seed\":7,\"tick\":1,\"paused\":false,\"entities\":[{\"id\":\"actor\",\"components\":[]}],\"models\":{},\"state\":{},\"codecVersions\":{}}",
+        "epoch": 0,
+        "revision": 1,
+        "handles": [
+          "actor@2"
+        ],
+        "queued": 0,
+        "fault": null
+      },
+      "status": "passed",
+      "actualStatus": "rejected",
+      "cleanupCounters": {
+        "before": {
+          "liveSessions": 0
+        },
+        "after": {
+          "liveSessions": 0
+        }
+      },
+      "recovery": {
+        "action": "refresh_actor_generation",
+        "status": "passed"
+      },
+      "execution": {
+        "kind": "pure",
+        "exitCode": 0,
+        "command": "fvm dart --packages=.dart_tool/package_config.json packages/zyren_game/test/failure_matrix_test.dart"
+      }
+    },
+    "queue.saturated": {
+      "before": {
+        "session": "{\"schemaVersion\":2,\"projectId\":\"g\",\"projectSchema\":1,\"buildId\":\"3eb7a636ca5bed00579e0342663a76d152df27ed152172db77e5386caeb4151c\",\"levelId\":\"l\",\"seed\":7,\"tick\":1,\"paused\":false,\"entities\":[{\"id\":\"actor\",\"components\":[]}],\"models\":{},\"state\":{},\"codecVersions\":{}}",
+        "epoch": 0,
+        "revision": 1,
+        "handles": [
+          "actor@1"
+        ],
+        "queued": 1,
+        "fault": null
+      },
+      "after": {
+        "session": "{\"schemaVersion\":2,\"projectId\":\"g\",\"projectSchema\":1,\"buildId\":\"3eb7a636ca5bed00579e0342663a76d152df27ed152172db77e5386caeb4151c\",\"levelId\":\"l\",\"seed\":7,\"tick\":1,\"paused\":false,\"entities\":[{\"id\":\"actor\",\"components\":[]}],\"models\":{},\"state\":{},\"codecVersions\":{}}",
+        "epoch": 0,
+        "revision": 1,
+        "handles": [
+          "actor@1"
+        ],
+        "queued": 1,
+        "fault": null
+      },
+      "status": "passed",
+      "actualStatus": "rejected",
+      "cleanupCounters": {
+        "before": {
+          "liveSessions": 0
+        },
+        "after": {
+          "liveSessions": 0
+        }
+      },
+      "recovery": {
+        "action": "drain_and_retry",
+        "status": "passed"
+      },
+      "execution": {
+        "kind": "pure",
+        "exitCode": 0,
+        "command": "fvm dart --packages=.dart_tool/package_config.json packages/zyren_game/test/failure_matrix_test.dart"
+      }
+    },
+    "save.failed": {
+      "before": {
+        "session": "{\"schemaVersion\":2,\"projectId\":\"g\",\"projectSchema\":1,\"buildId\":\"3eb7a636ca5bed00579e0342663a76d152df27ed152172db77e5386caeb4151c\",\"levelId\":\"l\",\"seed\":7,\"tick\":1,\"paused\":false,\"entities\":[{\"id\":\"actor\",\"components\":[]}],\"models\":{},\"state\":{\"counter\":{\"value\":1}},\"codecVersions\":{\"counter\":1}}",
+        "epoch": 0,
+        "revision": 1,
+        "handles": [
+          "actor@1"
+        ],
+        "queued": 0,
+        "fault": null
+      },
+      "after": {
+        "session": "{\"schemaVersion\":2,\"projectId\":\"g\",\"projectSchema\":1,\"buildId\":\"3eb7a636ca5bed00579e0342663a76d152df27ed152172db77e5386caeb4151c\",\"levelId\":\"l\",\"seed\":7,\"tick\":1,\"paused\":false,\"entities\":[{\"id\":\"actor\",\"components\":[]}],\"models\":{},\"state\":{\"counter\":{\"value\":1}},\"codecVersions\":{\"counter\":1}}",
+        "epoch": 0,
+        "revision": 1,
+        "handles": [
+          "actor@1"
+        ],
+        "queued": 0,
+        "fault": null
+      },
+      "status": "passed",
+      "actualStatus": "rejected",
+      "cleanupCounters": {
+        "before": {
+          "liveSessions": 0
+        },
+        "after": {
+          "liveSessions": 0
+        }
+      },
+      "recovery": {
+        "action": "retry_compatible_restore",
+        "status": "passed"
+      },
+      "execution": {
+        "kind": "pure",
+        "exitCode": 0,
+        "command": "fvm dart --packages=.dart_tool/package_config.json packages/zyren_game/test/failure_matrix_test.dart"
+      }
+    }
+  }
+}
