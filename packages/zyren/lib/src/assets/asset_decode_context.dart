@@ -52,10 +52,12 @@ final class AssetDecodeContext {
       late final TextureImageData texture;
       try {
         decodeLimits.validateInput(bytes);
-        texture = await _services.textureDecoder!.decode(
-          bytes,
-          encoding: encoding,
-          limits: decodeLimits,
+        texture = await _waitForImageDecoder(
+          () => _services.textureDecoder!.decode(
+            bytes,
+            encoding: encoding,
+            limits: decodeLimits,
+          ),
         );
       } on ImageDecodeException catch (error) {
         throw AssetLoadException(
@@ -256,7 +258,9 @@ final class AssetDecodeContext {
       late final T image;
       try {
         decodeLimits.validateInput(bytes);
-        image = await decode(bytes, limits: decodeLimits);
+        image = await _waitForImageDecoder(
+          () => decode(bytes, limits: decodeLimits),
+        );
       } on ImageDecodeException catch (error) {
         throw AssetLoadException(
           switch (error.code) {
@@ -286,6 +290,33 @@ final class AssetDecodeContext {
       onError: (Object _, StackTrace _) {},
     );
     return future;
+  }
+
+  Future<T> _waitForImageDecoder<T>(Future<T> Function() decode) async {
+    for (var attempt = 0; ; attempt++) {
+      cancellation.throwIfCancelled();
+      try {
+        return await decode();
+      } on ImageDecodeException catch (error) {
+        if (error.code != ImageDecodeError.busy || attempt >= 31) rethrow;
+        // Keep the encoded source while another job owns the decoder. Re-reading
+        // the tile would waste bandwidth and compete for the same admission slot.
+        final ready = Completer<void>();
+        final timer = Timer(
+          Duration(milliseconds: 4 << math.min(attempt, 4)),
+          ready.complete,
+        );
+        final registration = cancellation.onCancel(() {
+          if (!ready.isCompleted) ready.complete();
+        });
+        try {
+          await ready.future;
+        } finally {
+          timer.cancel();
+          registration.dispose();
+        }
+      }
+    }
   }
 
   AssetLoadException _limit(String message, String? fieldPath) =>
