@@ -7,7 +7,9 @@ import 'scene_specs.dart';
 
 export 'scene_specs.dart';
 export 'scene_assets.dart';
+export 'scene_selector.dart';
 part 'scene_nodes.dart';
+part 'scene_plugins.dart';
 
 /// A native viewport with a declarative scene tree and an optional Flutter overlay.
 /// You can compose scene children with ordinary StatelessWidget/StatefulWidget
@@ -23,6 +25,10 @@ class SceneCanvas extends StatefulWidget {
   /// Optional caller-owned cache. The canvas disposes only its default cache.
   final AssetCache? assetCache;
   final bool orbitControls;
+  final List<ScenePlugin> plugins;
+  final void Function(OrbitControls)? configureOrbitControls;
+  final bool orbitKeyboard;
+  final OrbitBehavior orbitBehavior;
   final void Function(SceneController controller)? onCreated;
   final SceneLoadingBuilder? loadingBuilder;
   final SceneErrorBuilder? errorBuilder;
@@ -39,6 +45,10 @@ class SceneCanvas extends StatefulWidget {
     this.runtime,
     this.assetCache,
     this.orbitControls = false,
+    this.plugins = const [],
+    this.configureOrbitControls,
+    this.orbitKeyboard = false,
+    this.orbitBehavior = OrbitBehavior.stdlib236,
     this.onCreated,
     this.loadingBuilder,
     this.errorBuilder,
@@ -55,6 +65,11 @@ class _SceneCanvasState extends State<SceneCanvas> {
   SceneController? _controller;
   SceneController get controller => _controller!;
   Object? _creationError;
+  final _pluginNodes = <Object, ScenePlugin>{};
+  List<ScenePlugin> _imperativePlugins = const [];
+  OrbitControlsPlugin? _orbitPlugin;
+  bool _pluginSyncPending = false;
+  List<ScenePlugin>? _lastDesiredPlugins;
   final taps = <Object3D, void Function(PickResult)>{};
   Registration? _tapInterest;
   bool _tapSyncPending = false;
@@ -70,8 +85,10 @@ class _SceneCanvasState extends State<SceneCanvas> {
         options: widget.options,
         runtime: widget.runtime,
       );
-      if (widget.orbitControls) controller.use(OrbitControlsPlugin());
       widget.onCreated?.call(controller);
+      _imperativePlugins = controller.requestedPlugins;
+      _updateOrbitPlugin();
+      _schedulePlugins();
     } catch (error) {
       _controller?.dispose();
       _creationError = error;
@@ -83,19 +100,84 @@ class _SceneCanvasState extends State<SceneCanvas> {
     super.didUpdateWidget(oldWidget);
     if (widget.assetCache != oldWidget.assetCache ||
         widget.runtime != oldWidget.runtime ||
-        _sessionOptions(widget.options) != _sessionOptions(oldWidget.options) ||
-        widget.orbitControls != oldWidget.orbitControls) {
+        _sessionOptions(widget.options) != _sessionOptions(oldWidget.options)) {
       throw FlutterError(
-        'SceneCanvas runtime, options, assetCache and orbitControls configure its session. '
+        'SceneCanvas runtime, options and assetCache configure its session. '
         'Keep them stable, or give SceneCanvas a new Key to start a new session.',
       );
     }
+    if (widget.orbitKeyboard != oldWidget.orbitKeyboard ||
+        widget.orbitBehavior != oldWidget.orbitBehavior) {
+      _orbitPlugin = null;
+    }
+    _updateOrbitPlugin();
+    if (widget.configureOrbitControls != oldWidget.configureOrbitControls &&
+        _orbitPlugin?.controls != null) {
+      widget.configureOrbitControls?.call(_orbitPlugin!.controls!);
+      _orbitPlugin!.controls!.update();
+      controller.invalidate();
+    }
+    _schedulePlugins();
     if (widget.camera != oldWidget.camera) {
       controller.camera = widget.camera.create();
     }
     if (widget.background != oldWidget.background) {
       controller.scene.background = widget.background;
     }
+  }
+
+  void _updateOrbitPlugin() {
+    if (!widget.orbitControls) return;
+    _orbitPlugin ??= OrbitControlsPlugin(
+      configure: (controls) => widget.configureOrbitControls?.call(controls),
+      keyboard: widget.orbitKeyboard,
+      behavior: widget.orbitBehavior,
+    );
+  }
+
+  void _registerPlugin(Object token, ScenePlugin? plugin) {
+    if (plugin == null) {
+      _pluginNodes.remove(token);
+    } else {
+      _pluginNodes[token] = plugin;
+    }
+    _schedulePlugins();
+  }
+
+  void _schedulePlugins() {
+    if (_pluginSyncPending) return;
+    _pluginSyncPending = true;
+    scheduleMicrotask(() {
+      _pluginSyncPending = false;
+      if (!mounted || _controller == null || controller.isDisposed) return;
+      // Collect the whole tree before dependency validation, regardless of order.
+      final desired = <ScenePlugin>[
+        ..._imperativePlugins,
+        ...widget.plugins,
+        if (widget.orbitControls) _orbitPlugin!,
+        ..._pluginNodes.values,
+      ];
+      final previous = _lastDesiredPlugins;
+      if (previous != null &&
+          previous.length == desired.length &&
+          List.generate(
+            desired.length,
+            (i) => i,
+          ).every((i) => identical(previous[i], desired[i]))) {
+        return;
+      }
+      _lastDesiredPlugins = desired;
+      controller
+          .setPlugins(desired)
+          .then<void>(
+            (_) {},
+            onError: (Object _, StackTrace _) {
+              if (!mounted || controller.isDisposed) return;
+              final issue = controller.pluginIssue;
+              if (issue != null) widget.onError?.call(issue);
+            },
+          );
+    });
   }
 
   static Object _sessionOptions(EngineOptions value) => (
@@ -204,6 +286,8 @@ class _SceneCanvasState extends State<SceneCanvas> {
 
 /// Access the controller from a scene component or canvas overlay.
 abstract final class SceneScope {
+  static Future<void> retryPlugins(BuildContext context) =>
+      of(context).retryPlugins();
   static AssetCache assetCacheOf(BuildContext context) =>
       _SceneHost.of(context).assetCache;
   static SceneController of(BuildContext context) =>

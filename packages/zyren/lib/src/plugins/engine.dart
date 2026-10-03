@@ -355,6 +355,10 @@ class EngineInitializationException implements Exception {
 /// Owns one renderer and a reconciled plugin configuration, with no widget state.
 class SceneEngine {
   static final _owners = Expando<Object>('ScenePlugin owner');
+
+  /// True inside an attach, render or detach hook, including its async work.
+  /// Adapters can reject queued lifecycle changes before waiting on a hook.
+  static bool get inPluginHook => Zone.current[_hookZone] != null;
   final Scene scene;
   Camera _camera;
   Camera get camera => _camera;

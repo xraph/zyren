@@ -13,6 +13,7 @@ import '../presentation/output_presenter.dart';
 import 'scene_runtime.dart';
 import 'scene_status.dart';
 part '../viewport/scene_view.dart';
+part 'scene_state.dart';
 
 /// Owns one native session. A borrowed view leaves it alive when unmounted.
 class SceneController {
@@ -36,6 +37,68 @@ class SceneController {
   Future<void>? _assetDisposal;
   InputSource get input => _input;
   final List<ScenePlugin> _plugins = [];
+  Future<void> _pluginSync = Future.value();
+  SceneIssue? _pluginIssue;
+  Object3D? _selection;
+  double _devicePixelRatio = 1;
+  late final _SceneStateListenable _state = _SceneStateListenable(
+    _captureState,
+  );
+
+  /// Current immutable values. Camera and selected object references retain identity.
+  ValueListenable<SceneState> get state => _state;
+  SceneIssue? get pluginIssue => _pluginIssue;
+  Object3D? get selection => _attachedSelection;
+  set selection(Object3D? value) {
+    _checkOpen();
+    if (value != null && !_belongsToScene(value)) {
+      throw ArgumentError('Selection must belong to this controller scene.');
+    }
+    if (identical(value, _selection)) return;
+    _selection = value;
+    _publishState();
+  }
+
+  bool _belongsToScene(Object3D value) {
+    Object3D root = value;
+    while (root.parent != null) {
+      root = root.parent!;
+    }
+    return identical(root, scene);
+  }
+
+  Object3D? get _attachedSelection {
+    if (_selection != null && !_belongsToScene(_selection!)) _selection = null;
+    return _selection;
+  }
+
+  SceneState _captureState() => SceneState(
+    camera: camera,
+    cameraPosition: camera.position,
+    cameraTarget: camera.target,
+    cameraUp: camera.up,
+    cameraRevision: camera.revision,
+    viewport: SceneViewport(_viewportSize, _devicePixelRatio),
+    selection: _attachedSelection,
+    status: _status.value,
+    renderer: _info,
+    frameStats: _latestFrameStats,
+    pluginIds: pluginIds,
+    pluginIssue: _pluginIssue,
+  );
+  void _publishState() => _state.publish();
+  void _sceneChanged() {
+    _attachedSelection;
+    _scheduler.request();
+    _publishState();
+  }
+
+  void _setPixelRatio(double value) {
+    if (value == _devicePixelRatio) return;
+    _devicePixelRatio = value;
+    _publishState();
+  }
+
   final Map<Object, void Function(FrameTime)> _updates = {};
   late final FrameScheduler _scheduler;
   final _status = ValueNotifier<SceneStatus>(const SceneDetached(0));
@@ -69,7 +132,9 @@ class SceneController {
   Size _viewportSize = Size.zero;
   Size get _logicalSize => _viewportSize;
   set _logicalSize(Size value) {
+    if (_viewportSize == value) return;
     _viewportSize = value;
+    _publishState();
     _input.logicalWidth = value.width;
     _input.logicalHeight = value.height;
   }
@@ -110,8 +175,9 @@ class SceneController {
       onChanged: _scheduleWake,
     )..setVisible(false);
     if (options.renderMode == RenderMode.continuous) _scheduler.acquireDemand();
-    _sceneSubscription = this.scene.changes.listen((_) => _scheduler.request());
-    _cameraSubscription = _camera.changes.listen((_) => _scheduler.request());
+    _sceneSubscription = this.scene.changes.listen((_) => _sceneChanged());
+    _cameraSubscription = _camera.changes.listen((_) => _sceneChanged());
+    _status.addListener(_publishState);
     _observeReadiness();
     _disposed.future.then<void>((_) {}, onError: (Object _, StackTrace _) {});
   }
@@ -121,7 +187,7 @@ class SceneController {
     if (identical(_camera, value)) return;
     unawaited(_cameraSubscription.cancel());
     _camera = value;
-    _cameraSubscription = value.changes.listen((_) => _scheduler.request());
+    _cameraSubscription = value.changes.listen((_) => _sceneChanged());
     _engine?.camera = value;
     invalidate();
   }
@@ -145,7 +211,13 @@ class SceneController {
   Future<FrameStats> get firstFrame => _firstFrame.future;
   Future<void> get whenDisposed => _disposed.future;
   bool get isDisposed => _closed;
-  List<String> get pluginIds => List.unmodifiable(_plugins.map((p) => p.id));
+
+  /// Actual attached plugins once ready, or requested plugins before attachment.
+  List<String> get pluginIds =>
+      _engine?.pluginIds ?? List.unmodifiable(_plugins.map((p) => p.id));
+  List<ScenePlugin> get requestedPlugins => List.unmodifiable(_plugins);
+  List<String> get desiredPluginIds =>
+      List.unmodifiable(_plugins.map((p) => p.id));
   void _checkOpen() {
     if (_closed) throw StateError('SceneController has been disposed.');
   }
@@ -160,36 +232,51 @@ class SceneController {
   /// returns that captured result even if the scene changes before completion.
   Future<PickResult?> pick(ViewportPoint point) {
     try {
-      if (_closed) {
-        throw _exception(
-          SceneIssueCodes.disposed,
-          'SceneController has been disposed.',
-          'pick',
-        );
-      }
-      if (_viewToken == null || _logicalSize.isEmpty) {
-        throw _exception(
-          SceneIssueCodes.invalidPickRequest,
-          'Picking requires an attached view with a positive logical extent.',
-          'pick',
-        );
-      }
-      final snapshot = _raycaster.captureFromCamera(
-        scene,
-        camera,
-        point,
-        logicalWidth: _logicalSize.width,
-        logicalHeight: _logicalSize.height,
-      );
+      final snapshot = capturePick(point);
       return Future<PickResult?>.microtask(snapshot.intersectFirst);
     } catch (error, stack) {
-      return Future<PickResult?>.error(error, stack);
+      return Future.error(error, stack);
+    }
+  }
+
+  /// Captures hits synchronously for input arbitration and deferred delivery.
+  RaycastSnapshot capturePick(ViewportPoint point) {
+    if (_closed) {
+      throw _exception(
+        SceneIssueCodes.disposed,
+        'SceneController has been disposed.',
+        'pick',
+      );
+    }
+    if (_viewToken == null || _logicalSize.isEmpty) {
+      throw _exception(
+        SceneIssueCodes.invalidPickRequest,
+        'Picking requires an attached view with a positive logical extent.',
+        'pick',
+      );
+    }
+    return _raycaster.captureFromCamera(
+      scene,
+      camera,
+      point,
+      logicalWidth: _logicalSize.width,
+      logicalHeight: _logicalSize.height,
+    );
+  }
+
+  Future<List<PickResult>> pickAll(ViewportPoint point) {
+    try {
+      final snapshot = capturePick(point);
+      return Future<List<PickResult>>.microtask(snapshot.intersectAll);
+    } catch (error, stack) {
+      return Future.error(error, stack);
     }
   }
 
   void invalidate() {
     _checkOpen();
     _scheduler.request();
+    _publishState();
   }
 
   /// Discards temporal samples after a camera cut, then requests a frame.
@@ -223,6 +310,54 @@ class SceneController {
     _plugins.add(plugin);
     return plugin;
   }
+
+  /// Replaces the requested plugin graph, including during initialization.
+  /// Errors are returned and published to [issues] and [pluginIssue]. They do
+  /// not tear down the session. Inspect [pluginIds], then call again to retry.
+  Future<void> setPlugins(List<ScenePlugin> plugins) {
+    _checkOpen();
+    if (SceneEngine.inPluginHook) {
+      return Future.error(
+        StateError('Update controller plugins outside engine hooks.'),
+      );
+    }
+    final desired = List<ScenePlugin>.of(plugins);
+    _plugins
+      ..clear()
+      ..addAll(desired);
+    final result = _pluginSync.then((_) async {
+      await _initialization;
+      _checkOpen();
+      try {
+        if (_status.value case SceneFailed(:final issue) when _engine == null) {
+          throw SceneException(issue);
+        }
+        await _engine?.updatePlugins(desired);
+        _pluginIssue = null;
+        invalidate();
+      } catch (error) {
+        if (!_closed) {
+          _pluginIssue = SceneIssue(
+            code: 'plugin.updateFailed',
+            message: error.toString(),
+            operation: 'plugins',
+            cause: error,
+          );
+          _issues.add(_pluginIssue!);
+          _publishState();
+        }
+        rethrow;
+      }
+    });
+    _pluginSync = result.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
+    return result;
+  }
+
+  /// Retries the last desired graph after a recoverable plugin failure.
+  Future<void> retryPlugins() => setPlugins(List.of(_plugins));
 
   void _observeReadiness() {
     // These futures remain errors for callers; unattended view futures are safe.
@@ -467,6 +602,8 @@ class SceneController {
           if (_updates.containsKey(entry.key)) entry.value(time);
         }
         _checkOpen();
+        await _pluginSync;
+        _checkOpen();
         final frame = await _engine!.renderFrame(
           colorPipeline: _colorPipeline,
           target: target,
@@ -500,6 +637,7 @@ class SceneController {
       _previousPresentation = elapsed;
     }
     _latestFrameStats = stats;
+    _publishState();
     if (!_firstFrame.isCompleted) _firstFrame.complete(stats);
     _pendingStats = stats;
     if (_statsTimer == null) _publishStats();
@@ -598,6 +736,7 @@ class SceneController {
       () => _assetDisposal,
       () => _retrying,
       () => _initialization,
+      () => _pluginSync,
       () => _drawing,
       () => _failureCleanup,
       () => _presentationDisposal,
@@ -624,6 +763,8 @@ class SceneController {
       _issues.add(exception.issue);
       _disposed.completeError(exception);
     }
+    _status.removeListener(_publishState);
+    _state.close();
     unawaited(_issues.close());
     unawaited(_stats.close());
     unawaited(_presentations.close());

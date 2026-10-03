@@ -148,6 +148,7 @@ class _SceneViewState extends State<SceneView>
             controller._attach(_token, 'SceneView#${identityHashCode(this)}');
             _attached = true;
             controller._logicalSize = _size;
+            controller._setPixelRatio(_dpr);
             controller._wakeView = _sync;
             controller._input.onInterestsChanged = _onInterestsChanged;
             controller._closePresentation = _closePresentation;
@@ -280,6 +281,7 @@ class _SceneViewState extends State<SceneView>
         View.of(context).devicePixelRatio;
     if (dpr != _dpr) {
       _dpr = dpr;
+      _controller?._setPixelRatio(dpr);
       _controller?._scheduler.request();
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
