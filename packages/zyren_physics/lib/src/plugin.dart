@@ -14,6 +14,9 @@ final class PhysicsPlugin extends ScenePlugin {
   final bool interpolate;
   bool debug;
   final void Function(List<PhysicsEvent>)? onEvents;
+
+  /// Runs once before each simulated step, including catch-up steps.
+  final void Function(double seconds)? beforeStep;
   final Map<Object3D, _Binding> _bindings = {};
   PluginContext? _context;
   Registration? _demand;
@@ -29,6 +32,7 @@ final class PhysicsPlugin extends ScenePlugin {
     this.interpolate = true,
     this.debug = false,
     this.onEvents,
+    this.beforeStep,
   }) {
     if (maxCatchUpSteps < 1 || maxCatchUpSteps > 64) {
       throw RangeError.range(maxCatchUpSteps, 1, 64, 'maxCatchUpSteps');
@@ -172,6 +176,7 @@ final class PhysicsPlugin extends ScenePlugin {
     final events = <PhysicsEvent>[];
     var steps = 0;
     while (_accumulator + 1e-12 >= world.fixedStep && steps < maxCatchUpSteps) {
+      beforeStep?.call(world.fixedStep);
       final result = world.step();
       _previous = _current;
       _current = {for (final b in result.bodies) b.id: b.pose};

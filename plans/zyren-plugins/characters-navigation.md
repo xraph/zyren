@@ -208,3 +208,40 @@ entries and serialize the edit and commit under the shared lock.
   presentation and particle GPU actions remain unverified on native devices.
 - Backlog and host requirements remain as listed above. These are useful
   implementation checkpoints, not complete or published plugins.
+
+## Remaining milestones, implementation decisions
+
+The 2026-10-02 follow-up authorizes phases 2 through 5. Reuse Rapier 0.36's
+kinematic character controller for shape movement, stairs, slopes, ground snap
+and moving platforms. Add a typed query over an existing capsule collider.
+Physics gets a fixed-step callback; timeline gets an explicit external clock.
+Imported tracks get a shared pose processor after blending and before deformation.
+Immutable pose edits retain template and node identities. No core renderer API
+changes are needed. These shared files have no concurrent edits at this audit.
+
+Root displacement uses action clock traversal, including signed loop crossings.
+The character adapter strips that displacement before skinning and sends world
+intent through the controller once per physics step. IK and explicit bind-pose
+retargeting use the same pose processor. Navigation baking uses a bounded layered
+heightfield with conservative footprint clearance, slope, headroom and step
+checks. Versioned obstacle snapshots invalidate routes; followers stop until a
+bounded query supplies a current route. Keep the authored triangle API intact.
+
+Available qualification targets are macOS, Pixel 9 Pro, iPhone 16 Pro and iPad Pro.
+Device availability does not establish a passing run. Check occupancy first.
+No Windows device is available for a live DX12 run.
+
+### Collision controller verification
+
+Native Rapier controller queries now use existing upright capsule colliders and
+collision groups, exclude sensors, bound sweep subdivisions and return contact
+IDs, grounding and slope status. PhysicsPlugin exposes one callback per fixed
+step. Query refresh also retains moving-body registration for the next simulation
+step, including platforms inserted before the first query.
+
+Six native tests pass: thin-wall sweep and slide, stairs and tall risers, steep
+slope and ground snap, moving-platform carry, bounded catch-up and pause, and
+stale or invalid collider rejection. Cargo check passes. Broader physics and
+timeline tests were temporarily blocked by concurrent core texture changes:
+`MipmapAlphaFilter` was referenced before its definition became available.
+Re-run those checks before final qualification.

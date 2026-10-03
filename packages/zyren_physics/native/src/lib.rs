@@ -1,3 +1,4 @@
+use rapier3d::control::{CharacterAutostep, CharacterLength, KinematicCharacterController};
 use rapier3d::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -491,6 +492,7 @@ impl World {
                 Ok(Value::Null)
             }
             "query" => self.query(v),
+            "characterMove" => self.character_move(v),
             "debug" => {
                 let mut lines = Lines(Vec::new(), false);
                 p.debug_render(
@@ -538,6 +540,11 @@ impl World {
             self.physics.step_with_events(&(), &collector);
         } else {
             self.physics.detect_collisions(&(), &collector);
+            // Collision-only refresh clears Rapier's modified-body queue before
+            // PhysicsPipeline can register newly inserted moving bodies.
+            for handle in self.bodies.values() {
+                let _ = self.physics.bodies.get_mut(*handle);
+            }
         }
         let events = collector
             .events
@@ -664,6 +671,110 @@ impl World {
         let h = self.physics.impulse_joints.insert(a, b, joint, true);
         self.joints.insert(n, h);
         Ok(json!(n))
+    }
+    fn character_move(&mut self, v: &Value) -> Result<Value> {
+        self.update_collisions(false)?;
+        let body = self.body(v, "body")?;
+        if !self.physics.bodies[body].is_kinematic() {
+            return Err("character body must be kinematic".into());
+        }
+        let handle = *self
+            .colliders
+            .get(&id(v, "collider")?)
+            .ok_or("invalid collider")?;
+        let collider = &self.physics.colliders[handle];
+        if collider.parent() != Some(body)
+            || collider.is_sensor()
+            || collider.shape().as_capsule().is_none()
+        {
+            return Err("character needs its own solid capsule collider".into());
+        }
+        let up = collider.position().rotation * Vector::Y;
+        if up.dot(Vector::Y) < 0.99999 {
+            return Err("character capsule must be upright".into());
+        }
+        let climb = nonnegative(v, "maxSlope", 0.7853982)?;
+        let slide = nonnegative(v, "slideSlope", 0.7853982)?;
+        if climb >= std::f32::consts::FRAC_PI_2
+            || slide >= std::f32::consts::FRAC_PI_2
+            || slide < climb
+        {
+            return Err("slope angles must satisfy 0 <= climb <= slide < pi/2".into());
+        }
+        let step = nonnegative(v, "stepHeight", 0.0)?;
+        let snap = nonnegative(v, "snapDistance", 0.2)?;
+        let controller = KinematicCharacterController {
+            offset: CharacterLength::Absolute(positive(v, "offset", 0.01)?),
+            max_slope_climb_angle: climb,
+            min_slope_slide_angle: slide,
+            autostep: if step > 0.0 {
+                Some(CharacterAutostep {
+                    max_height: CharacterLength::Absolute(step),
+                    min_width: CharacterLength::Absolute(positive(v, "stepWidth", 0.2)?),
+                    include_dynamic_bodies: false,
+                })
+            } else {
+                None
+            },
+            snap_to_ground: if snap > 0.0 {
+                Some(CharacterLength::Absolute(snap))
+            } else {
+                None
+            },
+            ..Default::default()
+        };
+        let filter = QueryFilter::default()
+            .exclude_sensors()
+            .exclude_rigid_body(body)
+            .groups(collider.collision_groups());
+        let queries = self.physics.query_pipeline_with_filter(filter);
+        let mut hits = Vec::new();
+        let mut overflow = false;
+        let desired = vector(v, "translation", Vector::ZERO)?;
+        let radius = collider.shape().as_capsule().unwrap().radius;
+        let steps = (desired.length() / (radius * 0.5).max(0.01))
+            .ceil()
+            .max(1.0) as usize;
+        if steps > 256 {
+            return Err("character movement exceeds sweep budget".into());
+        }
+        let mut position = *collider.position();
+        let mut grounded = false;
+        let mut sliding = false;
+        for _ in 0..steps {
+            let movement = controller.move_shape(
+                self.physics.integration_parameters.dt / steps as f32,
+                &queries,
+                collider.shape(),
+                &position,
+                desired / steps as f32,
+                |hit| {
+                    let c = &self.physics.colliders[hit.handle];
+                    let n = c.user_data as u64;
+                    if hits.iter().any(|h: &Value| h["collider"] == n) {
+                        return;
+                    }
+                    if hits.len() >= 128 {
+                        overflow = true;
+                        return;
+                    }
+                    hits.push(json!({"collider":n,
+                        "body":c.parent().map(|b| self.physics.bodies[b].user_data as u64),
+                        "normal":hit.hit.normal1.to_array(),
+                        "point":(hit.character_pos * hit.hit.witness2).to_array()}));
+                },
+            );
+            position.translation += movement.translation;
+            grounded = movement.grounded;
+            sliding |= movement.is_sliding_down_slope;
+        }
+        if overflow {
+            return Err("character collision budget exceeded".into());
+        }
+        Ok(
+            json!({"translation":(position.translation - collider.position().translation).to_array(), "grounded":grounded,
+            "sliding":sliding, "collisions":hits}),
+        )
     }
     fn query(&mut self, v: &Value) -> Result<Value> {
         self.update_collisions(false)?;

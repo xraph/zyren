@@ -4,6 +4,8 @@ import 'package:ffi/ffi.dart';
 import 'package:zyren/zyren.dart';
 import 'bindings.dart';
 
+part 'character_controller.dart';
+
 Object? _call(Map<String, Object?> request) {
   final encoded = jsonEncode(request);
   if (utf8.encode(encoded).length > 16 * 1024 * 1024) {
