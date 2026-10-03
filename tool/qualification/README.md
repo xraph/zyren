@@ -63,7 +63,10 @@ Each run waits for live Tokyo tiles and cloud history to settle, then measures
 Motion follows elapsed wall time through the same globe controls used by the
 app. These injected inputs measure control and renderer work; they do not
 measure touch latency or certify physical gesture handling. Each phase resets
-the Tokyo camera and requires rendered geometry at its pivot.
+the Tokyo camera and requires rendered geometry at its pivot. Settling also
+requires the native upload candidate to be ready. Frame records include upload
+backlog and published-cover metadata; selected tile counts alone do not prove
+that the replacement has reached the GPU.
 
 `summary.json` contains presentation FPS, nearest-rank median/p95/p99 frame
 intervals, stalls, CPU timings and available GPU timings. `frames.json` retains
@@ -81,11 +84,19 @@ Failed phases retain their available samples and carry `completed: false`.
 Do not compare their FPS with a full phase. A new run retries a failed renderer
 and resets the Tokyo camera before collecting data.
 
-The `auto` variant keeps device defaults. You can also run `low`, `shadowsOff`
-or `sparse` (75% sparsity) to identify cloud costs. These variants change image
+The `auto` variant keeps device defaults. You can also run `low`, `medium`,
+`high`, `shadowsOff` or `sparse` (75% sparsity) to identify cloud costs. These variants change image
 quality or content. Keep those tradeoffs explicit when comparing results, and
 repeat `auto` after an experiment to check for cache or thermal drift. Different
 device defaults and viewport sizes are different workloads.
+
+Add `fixed` as a fourth collector argument for a comparison with stationary
+clouds. This disables cloud animation and zeros weather and shape velocities,
+so loading time cannot shift the cloud coverage before measurement. Camera
+movement and tile streaming still run. The default is `animated`; keep the two
+modes separate in reports. Each run records the weather mode, moonlight and
+density, and rejects changes to scene settings during collection. Use `medium`
+to reproduce the former phone default after Auto changed to Low.
 
 The target uses the normal app binding, so it accepts physical input. Avoid
 touching the view during collection. When finished, restore your usual launch

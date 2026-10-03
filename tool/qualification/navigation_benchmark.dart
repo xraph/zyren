@@ -6,10 +6,15 @@ import 'dart:io';
 import 'package:vm_service/vm_service_io.dart';
 import 'navigation_benchmark_capture.dart';
 
+Future<T> _request<T>(Future<T> response) =>
+    response.timeout(const Duration(seconds: 20));
+
 Future<void> main(List<String> args) async {
-  if (args.length != 3) {
+  if ((args.length != 3 && args.length != 4) ||
+      (args.length == 4 && !['animated', 'fixed'].contains(args[3]))) {
     throw ArgumentError(
-      'Pass the private VM connection file, output directory and variant.',
+      'Pass the private VM connection file, output directory, variant '
+      'and optional weather mode (animated or fixed).',
     );
   }
   final output = Directory(args[1]);
@@ -36,13 +41,13 @@ Future<void> main(List<String> args) async {
           scheme: uri.scheme == 'https' ? 'wss' : 'ws',
           path: '${uri.path.endsWith('/') ? uri.path : '${uri.path}/'}ws',
         );
-  final service = await vmServiceConnectUri(ws.toString());
+  final service = await _request(vmServiceConnectUri(ws.toString()));
   try {
     String? isolateId;
     final deadline = DateTime.now().add(const Duration(seconds: 30));
     while (isolateId == null && DateTime.now().isBefore(deadline)) {
-      for (final ref in (await service.getVM()).isolates ?? []) {
-        final isolate = await service.getIsolate(ref.id!);
+      for (final ref in (await _request(service.getVM())).isolates ?? []) {
+        final isolate = await _request(service.getIsolate(ref.id!));
         if ((isolate.extensionRPCs ?? []).contains(
           'ext.planet.navigationBenchmark',
         )) {
@@ -57,19 +62,27 @@ Future<void> main(List<String> args) async {
     if (isolateId == null) {
       throw StateError('Navigation benchmark extension unavailable.');
     }
-    final start = (await service.getVMTimelineMicros()).timestamp!;
-    await service.clearCpuSamples(isolateId);
-    await service.callServiceExtension(
-      'ext.planet.navigationBenchmark',
-      isolateId: isolateId,
-      args: {'command': 'start', 'variant': args[2]},
+    final start = (await _request(service.getVMTimelineMicros())).timestamp!;
+    await _request(service.clearCpuSamples(isolateId));
+    await _request(
+      service.callServiceExtension(
+        'ext.planet.navigationBenchmark',
+        isolateId: isolateId,
+        args: {
+          'command': 'start',
+          'variant': args[2],
+          'weather': args.length == 4 ? args[3] : 'animated',
+        },
+      ),
     );
     String? previousStage;
     final timeout = DateTime.now().add(const Duration(minutes: 15));
     while (DateTime.now().isBefore(timeout)) {
-      final response = await service.callServiceExtension(
-        'ext.planet.navigationBenchmark',
-        isolateId: isolateId,
+      final response = await _request(
+        service.callServiceExtension(
+          'ext.planet.navigationBenchmark',
+          isolateId: isolateId,
+        ),
       );
       final data = response.json!;
       if (data['stage'] != previousStage) {

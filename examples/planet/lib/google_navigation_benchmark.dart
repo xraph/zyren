@@ -26,6 +26,7 @@ final class _NavigationBenchmark {
   bool _running = false;
   String _stage = 'ready';
   Map<String, Object?>? _result;
+  Object? _expectedSettings;
   _NavigationBenchmark(this.lab);
   SceneController get controller => lab.controller;
   PresetGlobeControlsPlugin get navigation =>
@@ -38,15 +39,24 @@ final class _NavigationBenchmark {
     ) async {
       if (args['command'] == 'start' && !_running) {
         final variant = args['variant'] ?? 'auto';
-        if (!['auto', 'low', 'shadowsOff', 'sparse'].contains(variant)) {
+        final weather = args['weather'] ?? 'animated';
+        if (![
+              'auto',
+              'low',
+              'medium',
+              'high',
+              'shadowsOff',
+              'sparse',
+            ].contains(variant) ||
+            !['animated', 'fixed'].contains(weather)) {
           return developer.ServiceExtensionResponse.error(
             developer.ServiceExtensionResponse.invalidParams,
-            'Unknown variant.',
+            'Unknown variant or weather mode.',
           );
         }
         _running = true;
         _result = null;
-        unawaited(_run(variant));
+        unawaited(_run(variant, fixedWeather: weather == 'fixed'));
       }
       return developer.ServiceExtensionResponse.result(
         jsonEncode({'running': _running, 'stage': _stage, 'result': _result}),
@@ -66,6 +76,30 @@ final class _NavigationBenchmark {
     if (controller.status.value case SceneFailed(:final issue)) {
       throw StateError('Renderer failed: ${issue.code}.');
     }
+    if (_expectedSettings != null && _expectedSettings != _sceneSettings) {
+      throw StateError('Benchmark scene settings changed during the run.');
+    }
+  }
+
+  Object get _sceneSettings => (
+    lab.profile.cloudQuality,
+    lab.profile.cloudSparsity,
+    lab.profile.cloudDensity,
+    lab.profile.cloudAnimationEnabled,
+    lab.profile.moonlight,
+    lab.profile.nightView,
+  );
+
+  void _weather(bool fixed) {
+    lab.profile.cloudAnimationEnabled = !fixed;
+    if (fixed) {
+      final cloud = lab.profile.cloudLayer!.controller;
+      cloud.parameters = cloud.parameters.copyWith(
+        localWeatherVelocity: (0, 0),
+        shapeVelocity: Vec3.zero,
+        shapeDetailVelocity: Vec3.zero,
+      );
+    }
   }
 
   Future<void> _settle({required Duration timeout}) async {
@@ -78,6 +112,7 @@ final class _NavigationBenchmark {
           (tiles?.stats?.visibleTiles ?? 0) > 0 &&
           tiles!.attributions.isNotEmpty &&
           tiles.stats!.activeRequests == 0 &&
+          controller.latestFrameStats?.admission?.candidateReady == true &&
           lab.profile.cloudLayer!.controller.history.accumulatedFrames >= 16;
       if (ready) {
         quietAt ??= clock.elapsedMilliseconds;
@@ -92,13 +127,15 @@ final class _NavigationBenchmark {
     );
   }
 
-  Future<void> _run(String variant) async {
+  Future<void> _run(String variant, {required bool fixedWeather}) async {
+    _expectedSettings = null;
     final loadingClock = Stopwatch()..start();
     final phases = <Map<String, Object?>>[];
     final report = <String, Object?>{
       'schema': 1,
       'suite': 'live-google-navigation',
       'variant': variant,
+      'weather': fixedWeather ? 'fixed' : 'animated',
       'platform': defaultTargetPlatform.name,
       'buildMode': kProfileMode
           ? 'profile'
@@ -139,14 +176,17 @@ final class _NavigationBenchmark {
       });
       demand = controller.onUpdate((_) {});
       await lab.profile.setCloudQuality(
-        lab.deviceProfile.clouds(
-          variant == 'low' ? CloudQualityPreset.low : null,
-          variant != 'shadowsOff',
-        ),
+        lab.deviceProfile.clouds(switch (variant) {
+          'low' => CloudQualityPreset.low,
+          'medium' => CloudQualityPreset.medium,
+          'high' => CloudQualityPreset.high,
+          _ => null,
+        }, variant != 'shadowsOff'),
       );
       lab.profile.cloudSparsity = variant == 'sparse' ? .75 : 0;
       lab.profile.cloudDensity = 1;
-      lab.profile.cloudAnimationEnabled = true;
+      _weather(fixedWeather);
+      _expectedSettings = _sceneSettings;
       await _settle(timeout: const Duration(minutes: 3));
       report['initialReadyMs'] = loadingClock.elapsedMilliseconds;
       final cloud = lab.profile.cloudLayer!.controller;
@@ -154,6 +194,11 @@ final class _NavigationBenchmark {
         'quality': cloud.quality.name,
         'shadows': cloud.shadowsEnabled,
         'sparsity': cloud.parameters.sparsity,
+        'density': lab.profile.cloudDensity,
+        'animation': lab.profile.cloudAnimationEnabled,
+        'animationElapsedMs': cloud.animationElapsed.inMilliseconds,
+        'moonlight': lab.profile.moonlight.name,
+        'nightView': lab.profile.nightView,
         'cloudSize': [cloud.width, cloud.height],
         'resourceBudgetBytes': lab.deviceProfile.resourceBudgetBytes,
         'tileBudgetBytes': lab.deviceProfile.tileBytes,
@@ -166,6 +211,7 @@ final class _NavigationBenchmark {
           GoogleTilesPreset.tokyo,
         );
         navigation.resetForPreset();
+        _weather(fixedWeather);
         await _settle(timeout: const Duration(minutes: 2));
         if (lab.tiles!.failures.isNotEmpty) {
           throw StateError('Tile failures remain before the measurement.');
@@ -195,6 +241,14 @@ final class _NavigationBenchmark {
             'submitUs': f.cpuSubmitTime.inMicroseconds,
             'gpuUs': f.gpuTime?.inMicroseconds,
             'profile': f.profile?.toJson(),
+            if (f.admission case final admission?)
+              'admission': {
+                'candidateReady': admission.candidateReady,
+                'publishedRevision': admission.publishedRevision,
+                'uploadBacklogBytes': admission.uploadBacklogBytes,
+                'stagedBytes': admission.stagedBytes,
+                'presentedObjects': admission.presentedIdentities.length,
+              },
             'drawCalls': f.drawCalls,
             'triangles': f.triangles,
             'uploadedBytes': f.uploadedBytes,
@@ -320,6 +374,7 @@ final class _NavigationBenchmark {
           phases.every((phase) => phase['completed'] == true);
       report['tileFailures'] = navigationTileFailures(lab.tiles?.failures);
       _result = report;
+      _expectedSettings = null;
       _running = false;
     }
   }
