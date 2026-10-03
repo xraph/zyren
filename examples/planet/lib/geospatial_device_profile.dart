@@ -34,6 +34,16 @@ final class GeospatialDeviceProfile {
     CloudDeviceType.desktop => 384 * 1024 * 1024,
   };
   int get tileRequests => device == CloudDeviceType.phone ? 6 : 8;
+  int get selectedTiles => switch (device) {
+    CloudDeviceType.phone => 512,
+    CloudDeviceType.tablet => 768,
+    CloudDeviceType.desktop => 1024,
+  };
+  int get decodedTileBytes => switch (device) {
+    CloudDeviceType.phone => 512 * 1024 * 1024,
+    CloudDeviceType.tablet => 768 * 1024 * 1024,
+    CloudDeviceType.desktop => 1024 * 1024 * 1024,
+  };
   int get resourceBudgetBytes => switch (device) {
     CloudDeviceType.phone => 384 * 1024 * 1024,
     CloudDeviceType.tablet => 512 * 1024 * 1024,

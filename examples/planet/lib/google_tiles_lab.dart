@@ -154,10 +154,20 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
           'animation': profile.cloudAnimationEnabled,
           'density': profile.cloudDensity,
           'visibleTiles': stats?.visibleTiles,
+          'selectedTiles': stats?.selectedTiles,
           'loadingTiles': stats?.activeRequests,
+          'decodedTileBytes': stats?.cachedBytes,
           'tilePayloadBytes': stats?.residentBytes,
           'budgetLimited': stats?.budgetLimited,
           'failedTiles': tiles?.failures.length,
+          'tileFailureCodes': {
+            for (final code in AssetLoadError.values)
+              if (tiles?.failures.any((failure) => failure.code == code) ??
+                  false)
+                code.name: tiles!.failures
+                    .where((failure) => failure.code == code)
+                    .length,
+          },
         };
       });
     }
@@ -270,8 +280,8 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
         maximumScreenError: 8,
         budget: Tiles3DBudget(
           maxRequests: deviceProfile.tileRequests,
-          maxSelectedTiles: 512,
-          maxDecodedBytes: 512 * 1024 * 1024,
+          maxSelectedTiles: deviceProfile.selectedTiles,
+          maxDecodedBytes: deviceProfile.decodedTileBytes,
           maxResidentBytes: deviceProfile.tileBytes,
           perTileDecodedBytes: 16 * 1024 * 1024,
           perTileResidentBytes: 8 * 1024 * 1024,
@@ -550,7 +560,7 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
                     '${stats?.visibleTiles ?? 0} tiles · ${stats?.activeRequests ?? 0} loading',
                   ),
                   if (stats?.budgetLimited ?? false)
-                    const Text('Detail limited by memory budget'),
+                    const Text('Detail limited by tile budget'),
                 ],
               ),
             ),

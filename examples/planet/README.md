@@ -76,8 +76,9 @@ Both controls keep your choices when you change a location or quality preset.
 Phones allow 128 MiB of tile payloads, tablets 192 MiB and desktops 384 MiB.
 The native resource limits are 384, 512 and 768 MiB respectively. Phones load six
 tiles concurrently; tablets and desktops load eight. The screen-error target is
-eight render pixels. A memory warning means the selected detail still exceeds
-the profile's allowance.
+eight render pixels. The selected tile limits are 512, 768 and 1024, with decoded
+cache limits of 512, 768 and 1024 MiB respectively. A tile budget warning means
+selection count, decoded data or visible payloads exceed the profile's allowance.
 
 | Device | Scene edge / total pixels | Auto cloud edge | Ultra cloud edge |
 | --- | --- | --- | --- |

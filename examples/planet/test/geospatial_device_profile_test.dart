@@ -14,10 +14,14 @@ void main() {
         expect(phone.clouds().preset, CloudQualityPreset.medium);
         expect(phone.maxPixels, 1572864);
         expect(phone.tileBytes, 128 * 1024 * 1024);
+        expect(phone.selectedTiles, 512);
+        expect(phone.decodedTileBytes, 512 * 1024 * 1024);
         expect(tablet.device, CloudDeviceType.tablet);
         expect(tablet.clouds().preset, CloudQualityPreset.high);
         expect(tablet.tileBytes, 192 * 1024 * 1024);
         expect(tablet.resourceBudgetBytes, 512 * 1024 * 1024);
+        expect(tablet.selectedTiles, 768);
+        expect(tablet.decodedTileBytes, 768 * 1024 * 1024);
       }
       final desktop = GeospatialDeviceProfile.forViewport(
         TargetPlatform.macOS,
@@ -28,6 +32,8 @@ void main() {
       expect(desktop.maxPixels, 2097152);
       expect(desktop.tileBytes, 384 * 1024 * 1024);
       expect(desktop.resourceBudgetBytes, 768 * 1024 * 1024);
+      expect(desktop.selectedTiles, 1024);
+      expect(desktop.decodedTileBytes, 1024 * 1024 * 1024);
       expect(desktop.clouds(CloudQualityPreset.ultra).maxResolution, 1536);
     },
   );
