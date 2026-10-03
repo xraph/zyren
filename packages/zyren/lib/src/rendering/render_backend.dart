@@ -10,6 +10,13 @@ abstract interface class RenderBackend {
   Future<void> close();
 }
 
+/// Optional pacing for scene uploads. This does not change resource residency.
+abstract interface class SceneUploadBudgetBackend implements RenderBackend {
+  /// Small targets reduce upload bursts. An indivisible asset can exceed the
+  /// target when admitted alone, within the backend's hard safety limits.
+  void configureSceneUploadBudget(int bytes);
+}
+
 /// Optional backend contract for plugins that allocate native GPU resources.
 abstract interface class ResourceBackend implements RenderBackend {
   ResourceScope createResourceScope({String label = ''});

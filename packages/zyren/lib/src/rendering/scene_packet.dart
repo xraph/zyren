@@ -61,6 +61,21 @@ final class EncodedScenePacket {
 final class ScenePacketEncoder {
   final int viewId;
   final MaterialDevice? materialDevice;
+  int _uploadBudgetBytes = 64 * 1024 * 1024;
+
+  /// Upload target per frame, separate from the hard protocol limits.
+  /// An indivisible asset above this target is admitted alone to make progress.
+  int get uploadBudgetBytes => _uploadBudgetBytes;
+  set uploadBudgetBytes(int value) {
+    RangeError.checkValueInInterval(
+      value,
+      1,
+      64 * 1024 * 1024,
+      'uploadBudgetBytes',
+    );
+    _uploadBudgetBytes = value;
+  }
+
   int _next = 0, _accepted = 0;
   SceneSnapshot? _previous;
   Map<Object, Object> _tokens = {};
@@ -80,8 +95,13 @@ final class ScenePacketEncoder {
   Set<int> _uploadedTextures = {};
   Map<int, InstanceSnapshot> _uploadedInstances = {};
   Map<int, DeformationSnapshot> _uploadedPoses = {};
-  ScenePacketEncoder({required this.viewId, this.materialDevice}) {
+  ScenePacketEncoder({
+    required this.viewId,
+    this.materialDevice,
+    int uploadBudgetBytes = 64 * 1024 * 1024,
+  }) {
     if (viewId <= 0) throw ArgumentError.value(viewId, 'viewId');
+    this.uploadBudgetBytes = uploadBudgetBytes;
   }
   EncodedScenePacket encode(FrameSubmission submission) => _encode(submission);
   EncodedScenePacket _encode(
@@ -309,11 +329,21 @@ final class ScenePacketEncoder {
       0,
       (n, pose) => n + pose.gpuByteLength,
     );
+    final uploadCostBytes =
+        uploadBytes +
+        textures.fold<int>(0, (sum, texture) {
+          final sourceBytes = texture.levels.fold<int>(
+            0,
+            (n, level) => n + level.length,
+          );
+          return sum + math.max(0, texture.descriptor.byteLength - sourceBytes);
+        });
     if (vertices > 1000000 ||
         indices > 3000000 ||
         uploadBytes > 64 * 1024 * 1024 ||
         textures.fold<int>(0, (n, t) => n + t.descriptor.byteLength) >
-            64 * 1024 * 1024) {
+            64 * 1024 * 1024 ||
+        (allowStage && uploadCostBytes > uploadBudgetBytes)) {
       if (!allowStage) {
         throw ArgumentError(
           'A single scene asset exceeds the admitted upload limit.',

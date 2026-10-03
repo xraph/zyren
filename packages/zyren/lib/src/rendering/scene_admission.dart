@@ -22,6 +22,7 @@ extension _SceneAdmission on ScenePacketEncoder {
           indices + indexCount > 3000000) {
         return false;
       }
+      if (bytes > 0 && bytes + size > uploadBudgetBytes) return false;
       bytes += size;
       vertices += vertexCount;
       indices += indexCount;

@@ -31,7 +31,7 @@ SceneException _deferred() => _issue(
 
 /// Apple channel transport for one controller-owned Rust renderer.
 /// Applications select it through SceneRuntime.nativeMetal().
-class NativeMetalBackend implements NativeGpuBackend {
+class NativeMetalBackend implements NativeGpuBackend, SceneUploadBudgetBackend {
   final int session;
   Set<TextureFormat> _textureFormats = const {};
   Set<int> _sampleCounts = const {1};
@@ -45,6 +45,12 @@ class NativeMetalBackend implements NativeGpuBackend {
     (args) async => (await request<Map>('gpuCommand', args))!,
   );
   NativeMetalBackend._(this.session, this.adapter);
+
+  @override
+  void configureSceneUploadBudget(int bytes) {
+    if (_closed) throw StateError('Native view has closed.');
+    _encoder.uploadBudgetBytes = bytes;
+  }
 
   @override
   ResourceScope createResourceScope({String label = ''}) =>

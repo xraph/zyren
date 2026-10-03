@@ -234,6 +234,7 @@ final class _NavigationBenchmark {
         'nightView': lab.profile.nightView,
         'cloudSize': [cloud.width, cloud.height],
         'resourceBudgetBytes': lab.deviceProfile.resourceBudgetBytes,
+        'sceneUploadBudgetBytes': lab.deviceProfile.sceneUploadBudgetBytes,
         'tileBudgetBytes': lab.deviceProfile.tileBytes,
       };
       for (final phase in ['stationary', 'rotate', 'drag', 'zoom']) {

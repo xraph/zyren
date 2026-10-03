@@ -26,10 +26,14 @@ class SceneRuntime {
   final SurfacePresenterFactory? nativeViewPresenterFactory;
   final int? resourceBudgetBytes;
 
+  /// Scene upload target per frame. An indivisible asset may exceed it alone.
+  final int? sceneUploadBudgetBytes;
+
   /// Opt-in Vulkan SurfaceProducer runtime for Android API 29 or newer.
   const SceneRuntime.nativeAndroid({
     this.assetServices = defaultAssetServices,
     this.resourceBudgetBytes,
+    this.sceneUploadBudgetBytes,
   }) : backendFactory = NativeAndroidBackend.create,
        presenterFactory = ImageFramePresenter.create,
        surfacePresenterFactory = const NativeAndroidPresenterFactory(),
@@ -39,6 +43,7 @@ class SceneRuntime {
   const SceneRuntime.nativeMetal({
     this.assetServices = defaultAssetServices,
     this.resourceBudgetBytes,
+    this.sceneUploadBudgetBytes,
   }) : backendFactory = NativeMetalBackend.create,
        presenterFactory = ImageFramePresenter.create,
        surfacePresenterFactory = null,
@@ -47,6 +52,7 @@ class SceneRuntime {
   const SceneRuntime({
     this.assetServices = defaultAssetServices,
     this.resourceBudgetBytes,
+    this.sceneUploadBudgetBytes,
     this.nativeViewPresenterFactory,
     this.surfacePresenterFactory = const NativeTexturePresenterFactory(),
     this.backendFactory = NativeBackend.create,
@@ -56,6 +62,14 @@ class SceneRuntime {
   Future<RenderBackend> createBackend() async {
     final backend = await backendFactory();
     try {
+      if (sceneUploadBudgetBytes case final bytes?) {
+        if (backend is! SceneUploadBudgetBackend) {
+          throw UnsupportedError(
+            'Scene upload pacing requires backend support.',
+          );
+        }
+        backend.configureSceneUploadBudget(bytes);
+      }
       if (resourceBudgetBytes case final bytes?) {
         if (backend is! NativeGpuBackend) {
           throw UnsupportedError(

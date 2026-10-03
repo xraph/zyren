@@ -2,7 +2,7 @@ part of 'native_renderer.dart';
 
 /// Native rendering from a captured submission, without Flutter dependencies.
 /// Apple surfaces use the same worker and GPU device as explicit capture.
-class NativeBackend implements NativeGpuBackend {
+class NativeBackend implements NativeGpuBackend, SceneUploadBudgetBackend {
   final NativeRenderer _renderer;
   Set<TextureFormat> _textureFormats = const {};
   late final ScenePacketEncoder _encoder;
@@ -47,6 +47,12 @@ class NativeBackend implements NativeGpuBackend {
       viewId: ++_renderer._nextView,
       resources: _resources,
     ).._textureFormats = _textureFormats;
+  }
+
+  @override
+  void configureSceneUploadBudget(int bytes) {
+    if (_closed) throw StateError('Backend has closed.');
+    _encoder.uploadBudgetBytes = bytes;
   }
 
   @override

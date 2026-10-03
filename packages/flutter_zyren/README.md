@@ -24,6 +24,12 @@ Give the canvas bounded dimensions, such as `Expanded` or `SizedBox`. Use
 and presentation path. No extra consumer package is required. Core `zyren` stays
 Flutter-free; `flutter_zyren` exports the model types used below from `zyren_gltf`.
 
+For streamed scenes, set `sceneUploadBudgetBytes` on `SceneRuntime` to spread
+scene uploads across frames. For example, `2 * 1024 * 1024` requests 2 MiB per
+frame while the previous complete scene follows the camera. This target is
+independent of `resourceBudgetBytes`. A single larger asset uploads alone, within
+the hard safety limits. The default retains the 64 MiB upload allowance.
+
 ## Compose your scene
 
 You can put scene nodes inside your own `StatelessWidget` or `StatefulWidget`.

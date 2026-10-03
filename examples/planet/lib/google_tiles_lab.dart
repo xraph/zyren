@@ -118,13 +118,18 @@ class GoogleTilesLabState extends State<GoogleTilesLab> {
               TargetPlatform.android => SceneRuntime.nativeAndroid(
                 assetServices: widget.assetServices,
                 resourceBudgetBytes: deviceProfile.resourceBudgetBytes,
+                sceneUploadBudgetBytes: deviceProfile.sceneUploadBudgetBytes,
               ),
               TargetPlatform.iOS ||
               TargetPlatform.macOS => SceneRuntime.nativeMetal(
                 assetServices: widget.assetServices,
                 resourceBudgetBytes: deviceProfile.resourceBudgetBytes,
+                sceneUploadBudgetBytes: deviceProfile.sceneUploadBudgetBytes,
               ),
-              _ => SceneRuntime(assetServices: widget.assetServices),
+              _ => SceneRuntime(
+                assetServices: widget.assetServices,
+                sceneUploadBudgetBytes: deviceProfile.sceneUploadBudgetBytes,
+              ),
             },
           )
           ..use(GeospatialPlugin())

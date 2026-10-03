@@ -86,9 +86,15 @@ eight render pixels. The selected tile limits are 512, 768 and 1024, with decode
 cache limits of 512, 768 and 1024 MiB respectively. A tile budget warning means
 selection count, decoded data or visible payloads exceed the profile's allowance.
 
+Scene uploads target 2 MiB per frame on phones and 4 MiB on tablets and desktops.
+During a larger replacement, the renderer keeps the previous complete scene
+following your camera while it uploads the new resources over several frames.
+This spreads upload work without reducing the tile residency allowance. A single
+asset above the target uploads alone; the hard protocol limits still apply.
+
 | Device | Scene edge / total pixels | Auto cloud edge | Ultra cloud edge |
 | --- | --- | --- | --- |
-| Phone | 1600 / 1,572,864 | 768 | 1920 |
+| Phone | 1600 / 1,572,864 | 512 | 1920 |
 | Tablet | 1920 / 2,097,152 | 1536 | 2560 |
 | Desktop | 1920 / 2,097,152 | 1920 | 4096 |
 
@@ -96,6 +102,7 @@ Auto cloud targets cap total pixels at 589,824 on phones, 1,572,864 on tablets
 and 2,097,152 on desktops. Ultra raises those ceilings to 2,097,152, 4,194,304
 and 8,388,608 pixels. A cloud target never exceeds the scene viewport, so the
 scene's own limits still apply. Larger cloud targets cost more GPU time.
+The phone's Low Auto preset also limits each edge to 512 pixels.
 
 Android and iOS views with a shortest display side of at least 600 logical pixels
 use the tablet profile. Orientation does not change the classification. Desktop

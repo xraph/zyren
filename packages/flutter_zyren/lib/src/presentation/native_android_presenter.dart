@@ -28,7 +28,8 @@ SceneException _deferred() => _issue(
 );
 
 /// Controller-owned Vulkan renderer. Select through SceneRuntime.nativeAndroid().
-class NativeAndroidBackend implements NativeGpuBackend {
+class NativeAndroidBackend
+    implements NativeGpuBackend, SceneUploadBudgetBackend {
   final int session;
   Set<TextureFormat> _textureFormats = const {};
   Set<int> _sampleCounts = const {1};
@@ -43,6 +44,12 @@ class NativeAndroidBackend implements NativeGpuBackend {
     (args) async => (await request<Map>('gpuCommand', args))!,
   );
   NativeAndroidBackend._(this.session, this.adapter, this.driver);
+
+  @override
+  void configureSceneUploadBudget(int bytes) {
+    if (_closed) throw StateError('Native view has closed.');
+    _encoder.uploadBudgetBytes = bytes;
+  }
 
   @override
   ResourceScope createResourceScope({String label = ''}) =>
