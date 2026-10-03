@@ -3,6 +3,7 @@
 #include <dlfcn.h>
 #include <link.h>
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
 #include <algorithm>
@@ -96,24 +97,25 @@ Java_dev_twinos_zyren_Native_gpuCommand(JNIEnv *env, jobject, jlong handle, jint
       : (length > 8 * 1024 * 1024 || capacity != 256 * 1024))) {
     fail(env, "Native command exceeds its transfer limits."); return nullptr;
   }
-  std::vector<uint8_t> bytes(length), output(static_cast<size_t>(capacity) + 4);
-  env->GetByteArrayRegion(input, 0, length, reinterpret_cast<jbyte *>(bytes.data()));
+  // Fixed arrays avoid per-byte vector construction and resize destruction in
+  // unoptimized profile builds. Only the written response prefix crosses JNI.
+  auto bytes = std::make_unique<uint8_t[]>(length);
+  auto output = std::make_unique<uint8_t[]>(std::max(static_cast<size_t>(capacity), size_t{4096}) + 4);
+  env->GetByteArrayRegion(input, 0, length, reinterpret_cast<jbyte *>(bytes.get()));
   if (env->ExceptionCheck()) return nullptr;
   const auto command = kind == 0 ? api.resource : kind == 1 ? api.shader : api.graph;
   size_t written = 0;
-  const uint32_t status = command(handle, bytes.data(), bytes.size(), output.data() + 4, capacity, &written);
+  const uint32_t status = command(handle, bytes.get(), length, output.get() + 4, capacity, &written);
   if (written > static_cast<size_t>(capacity)) { fail(env, "Native response exceeded capacity."); return nullptr; }
   if (status) {
     written = std::min(api.error(nullptr, 0), static_cast<size_t>(4096));
-    output.resize(4 + written);
-    api.error(output.data() + 4, written);
-  } else {
-    output.resize(4 + written);
+    api.error(output.get() + 4, written);
   }
   for (int i = 0; i < 4; ++i) output[i] = static_cast<uint8_t>(status >> (8 * i));
-  auto result = env->NewByteArray(static_cast<jsize>(output.size()));
+  const auto replyLength = static_cast<jsize>(written + 4);
+  auto result = env->NewByteArray(replyLength);
   if (!result) return nullptr;
-  env->SetByteArrayRegion(result, 0, static_cast<jsize>(output.size()), reinterpret_cast<const jbyte *>(output.data()));
+  env->SetByteArrayRegion(result, 0, replyLength, reinterpret_cast<const jbyte *>(output.get()));
   return result;
 }
 
@@ -141,10 +143,11 @@ Java_dev_twinos_zyren_Native_render(JNIEnv *env, jobject, jlong handle, jobject 
   const auto attached = api.attach(handle, window, width, height);
   ANativeWindow_release(window);
   if (!attached) { nativeError(env); return false; }
-  std::vector<uint8_t> bytes(env->GetArrayLength(packet));
-  env->GetByteArrayRegion(packet, 0, bytes.size(), reinterpret_cast<jbyte *>(bytes.data()));
+  const auto length = env->GetArrayLength(packet);
+  auto bytes = std::make_unique<uint8_t[]>(length);
+  env->GetByteArrayRegion(packet, 0, length, reinterpret_cast<jbyte *>(bytes.get()));
   if (env->ExceptionCheck()) return false;
-  auto status = api.render(handle, bytes.data(), bytes.size());
+  auto status = api.render(handle, bytes.get(), length);
   if (!status) nativeError(env);
   return status == 1;
 }
