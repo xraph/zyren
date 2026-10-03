@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 3.22.1)
+project(zyren_xr LANGUAGES CXX)
+add_library(zyren_xr SHARED src/main/cpp/xr_vulkan.cpp)
+target_compile_definitions(zyren_xr PRIVATE VK_USE_PLATFORM_ANDROID_KHR)
+target_link_libraries(zyren_xr android log dl vulkan)

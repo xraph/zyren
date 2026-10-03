@@ -426,7 +426,17 @@ impl PhysicalDeviceFeatures {
                 || enabled_extensions.contains(&khr::sampler_ycbcr_conversion::NAME)
             {
                 Some(
-                    vk::PhysicalDeviceSamplerYcbcrConversionFeatures::default(), // .sampler_ycbcr_conversion(requested_features.contains(wgt::Features::TEXTURE_FORMAT_NV12))
+                    vk::PhysicalDeviceSamplerYcbcrConversionFeatures::default()
+                        .sampler_ycbcr_conversion(
+                            cfg!(target_os = "android")
+                                && enabled_extensions.contains(
+                                    &ash::android::external_memory_android_hardware_buffer::NAME,
+                                )
+                                && phd_features
+                                    .sampler_ycbcr_conversion
+                                    .as_ref()
+                                    .is_some_and(|f| f.sampler_ycbcr_conversion != 0),
+                        ),
                 )
             } else {
                 None
@@ -1228,6 +1238,17 @@ impl PhysicalDeviceProperties {
 
         // Require `VK_KHR_swapchain`
         extensions.push(khr::swapchain::NAME);
+
+        // Native Android consumers may import camera and decoder buffers. Only
+        // enable the complete Vulkan 1.1 path when the driver exposes it.
+        #[cfg(target_os = "android")]
+        if self.device_api_version >= vk::API_VERSION_1_1
+            && self.supports_extension(ash::android::external_memory_android_hardware_buffer::NAME)
+            && self.supports_extension(ext::queue_family_foreign::NAME)
+        {
+            extensions.push(ash::android::external_memory_android_hardware_buffer::NAME);
+            extensions.push(ext::queue_family_foreign::NAME);
+        }
 
         if self.device_api_version < vk::API_VERSION_1_1 {
             // Require `VK_KHR_maintenance1`

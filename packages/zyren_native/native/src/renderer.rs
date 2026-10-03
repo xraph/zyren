@@ -1338,6 +1338,13 @@ impl Renderer {
         })
     }
 
+    /// Platform adapter has observed device idle or device loss before release.
+    #[cfg(target_os = "android")]
+    pub(crate) fn release_completed_external_targets(&mut self) {
+        self.failed_surface = None;
+        self.failed_surface_depth = None;
+    }
+
     #[cfg(any(target_vendor = "apple", target_os = "android"))]
     pub(crate) fn render_to_surface(
         &mut self,

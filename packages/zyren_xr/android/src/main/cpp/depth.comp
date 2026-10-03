@@ -1,0 +1,23 @@
+#version 450
+layout(local_size_x=8,local_size_y=8) in;
+layout(set=0,binding=0,std430) readonly buffer Source { uint pixels[]; } source;
+layout(set=0,binding=1,std430) writeonly buffer Target { float pixels[]; } target;
+layout(push_constant) uniform Calibration { vec4 row0; vec4 row1; vec4 projection; uvec4 dimensions; } c;
+void main() {
+ uvec2 p=gl_GlobalInvocationID.xy; if(any(greaterThanEqual(p,c.dimensions.xy))) return;
+ vec2 uv=(vec2(p)+.5)/vec2(c.dimensions.xy);
+ vec3 v=vec3(uv,1); vec2 sensor=vec2(dot(c.row0.xyz,v),dot(c.row1.xyz,v));
+ float outDepth=1;
+ if(all(greaterThanEqual(sensor,vec2(0))) && all(lessThan(sensor,vec2(1)))) {
+  uvec2 s=min(uvec2(sensor*vec2(c.dimensions.zw)),c.dimensions.zw-1);
+  uint packed=source.pixels[s.y*c.dimensions.z+s.x];
+  float metres=float(packed&65535)/1000;
+  if(metres>0 && (packed>>16)>=128) {
+   float w=c.projection.z*-metres+c.projection.w;
+   float z=(c.projection.x*-metres+c.projection.y)/w;
+   float depth=z;
+   if(w>0 && depth>=0 && depth<=1 && !isnan(depth) && !isinf(depth)) outDepth=depth;
+  }
+ }
+ target.pixels[p.y*c.dimensions.x+p.x]=outDepth;
+}

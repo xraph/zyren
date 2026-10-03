@@ -245,3 +245,194 @@ pub unsafe extern "C" fn fg_android_info(handle: u64, buffer: *mut u8, capacity:
         Ok(bytes.len())
     })
 }
+
+/// Returns the native Vulkan handles for a serialized platform adapter.
+/// # Safety
+/// `output` addresses six u64 values. Handles are borrowed until renderer disposal.
+/// The caller must serialize all queue/device access with this renderer's API.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn fg_android_vulkan_context(handle: u64, output: *mut u64) -> u32 {
+    use ash::vk::Handle;
+    with_renderer(handle, |renderer| {
+        if output.is_null() {
+            return Err("null Vulkan context output".into());
+        }
+        let device = unsafe { renderer.device.as_hal::<wgpu::hal::api::Vulkan>() }
+            .ok_or("renderer is not Vulkan")?;
+        let extensions = device.enabled_device_extensions();
+        if !extensions.contains(&ash::android::external_memory_android_hardware_buffer::NAME)
+            || !extensions.contains(&ash::ext::queue_family_foreign::NAME)
+        {
+            return Err("Vulkan device lacks Android hardware-buffer imports".into());
+        }
+        let instance = device.shared_instance().raw_instance();
+        let mut ycbcr = ash::vk::PhysicalDeviceSamplerYcbcrConversionFeatures::default();
+        let mut features = ash::vk::PhysicalDeviceFeatures2::default().push_next(&mut ycbcr);
+        unsafe {
+            instance.get_physical_device_features2(device.raw_physical_device(), &mut features);
+        }
+        if ycbcr.sampler_ycbcr_conversion == 0 {
+            return Err("Vulkan device lacks YCbCr conversion".into());
+        }
+        let values = [
+            instance.handle().as_raw(),
+            device.raw_physical_device().as_raw(),
+            device.raw_device().handle().as_raw(),
+            device.raw_queue().as_raw(),
+            device.queue_family_index() as u64,
+            renderer.counters().readback_bytes,
+        ];
+        unsafe {
+            std::ptr::copy_nonoverlapping(values.as_ptr(), output, values.len());
+        }
+        Ok(1)
+    })
+}
+
+/// Renders to a platform-owned Vulkan color image, with no CPU pixel transfer.
+/// # Safety
+/// The caller passes a live image allocated on `device`, matching RGBA8 sRGB,
+/// dimensions and COLOR_ATTACHMENT|SAMPLED usage, one mip/layer/sample. Its layout
+/// is UNDEFINED and queue ownership belongs to the exported graphics family.
+/// The packet is readable for `length` bytes. Exclusive access lasts through
+/// success; on failure the caller must wait device idle before freeing images.
+/// Nonzero `depth_image` is D32Float on the same device with matching size and
+/// DEPTH_STENCIL_ATTACHMENT usage. Every pixel is initialized, its layout is
+/// DEPTH_STENCIL_ATTACHMENT_OPTIMAL, and all producer GPU writes have completed.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn fg_android_render_image(
+    handle: u64,
+    packet: *const u8,
+    length: usize,
+    device: u64,
+    image: u64,
+    depth_image: u64,
+    width: u32,
+    height: u32,
+) -> u32 {
+    use ash::vk::Handle;
+    with_renderer(handle, |renderer| {
+        if packet.is_null() || length == 0 || length > 128 * 1024 * 1024 || image == 0 {
+            return Err("invalid Vulkan image or scene packet".into());
+        }
+        crate::scene::pixel_len(width, height)?;
+        if let Some(error) = &renderer.failure {
+            return Err(error.clone());
+        }
+        let frame = renderer.decode_scene(unsafe { std::slice::from_raw_parts(packet, length) })?;
+        let size = wgpu::Extent3d {
+            width,
+            height,
+            depth_or_array_layers: 1,
+        };
+        let desc = wgpu::hal::TextureDescriptor {
+            label: Some("Android shared color"),
+            size,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            usage: wgpu::TextureUses::COLOR_TARGET | wgpu::TextureUses::RESOURCE,
+            memory_flags: wgpu::hal::MemoryFlags::empty(),
+            view_formats: vec![],
+        };
+        let raw = {
+            let hal = unsafe { renderer.device.as_hal::<wgpu::hal::api::Vulkan>() }
+                .ok_or("renderer is not Vulkan")?;
+            if device != hal.raw_device().handle().as_raw() {
+                return Err("Vulkan device identity mismatch".into());
+            }
+            unsafe {
+                hal.texture_from_raw(
+                    ash::vk::Image::from_raw(image),
+                    &desc,
+                    Some(Box::new(|| {})),
+                    wgpu::hal::vulkan::TextureMemory::External,
+                )
+            }
+        };
+        let desc = wgpu::TextureDescriptor {
+            label: Some("Android shared color"),
+            size,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
+        };
+        let target = unsafe {
+            renderer
+                .device
+                .create_texture_from_hal::<wgpu::hal::api::Vulkan>(
+                    raw,
+                    &desc,
+                    wgpu::TextureUses::UNINITIALIZED,
+                )
+        };
+        let depth = if depth_image != 0 {
+            Renderer::check_external_depth_frame(&frame)?;
+            let desc = wgpu::hal::TextureDescriptor {
+                label: Some("Android initialized depth"),
+                size,
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Depth32Float,
+                usage: wgpu::TextureUses::DEPTH_STENCIL_WRITE,
+                memory_flags: wgpu::hal::MemoryFlags::empty(),
+                view_formats: vec![],
+            };
+            let raw = {
+                let hal = unsafe { renderer.device.as_hal::<wgpu::hal::api::Vulkan>() }
+                    .ok_or("renderer is not Vulkan")?;
+                unsafe {
+                    hal.texture_from_raw(
+                        ash::vk::Image::from_raw(depth_image),
+                        &desc,
+                        Some(Box::new(|| {})),
+                        wgpu::hal::vulkan::TextureMemory::External,
+                    )
+                }
+            };
+            let desc = wgpu::TextureDescriptor {
+                label: Some("Android initialized depth"),
+                size,
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Depth32Float,
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                view_formats: &[],
+            };
+            Some(unsafe {
+                renderer
+                    .device
+                    .create_texture_from_hal::<wgpu::hal::api::Vulkan>(
+                        raw,
+                        &desc,
+                        wgpu::TextureUses::DEPTH_STENCIL_WRITE,
+                    )
+            })
+        } else {
+            None
+        };
+        if let Err(error) =
+            renderer.render_to_surface_with_depth(&frame, target, depth, width, height)
+        {
+            // The platform caller owns the allocations. Complete all possible
+            // GPU access and release borrowed views before returning a failure.
+            let idle = {
+                let hal = unsafe { renderer.device.as_hal::<wgpu::hal::api::Vulkan>() }
+                    .ok_or("renderer is not Vulkan")?;
+                unsafe { hal.raw_device().device_wait_idle() }
+            };
+            renderer.failure = Some(error.clone());
+            if idle.is_ok() || idle == Err(ash::vk::Result::ERROR_DEVICE_LOST) {
+                renderer.release_completed_external_targets();
+            }
+            return Err(error);
+        }
+        Ok(1)
+    })
+}

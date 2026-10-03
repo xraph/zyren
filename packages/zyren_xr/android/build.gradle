@@ -1,0 +1,23 @@
+group = 'dev.zyren.xr'
+version = '1.0'
+buildscript {
+    repositories { google(); mavenCentral() }
+    dependencies { classpath 'com.android.tools.build:gradle:9.1.0' }
+}
+apply plugin: 'com.android.library'
+kotlin { compilerOptions { jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17 } }
+android {
+    namespace = 'dev.zyren.xr'
+    compileSdk = 36
+    ndkVersion = '27.2.12479018'
+    defaultConfig {
+        minSdk = 27
+        externalNativeBuild { cmake { cppFlags '-std=c++17 -Wall -Wextra -Wno-missing-field-initializers' } }
+    }
+    externalNativeBuild { cmake { path 'CMakeLists.txt' } }
+    compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
+}
+dependencies {
+    implementation 'com.google.ar:core:1.53.0'
+    testImplementation 'junit:junit:4.13.2'
+}
