@@ -103,3 +103,9 @@ for the rerun. Unlock the iPhone, reserve the Pixel and iPad, and keep Planet
 foregrounded on the Mac. Repeat Auto after each Low, shadows-off or 75% sparsity
 experiment. Those comparisons are still pending; this report makes no measured
 FPS improvement claim for the final fixes.
+
+The normal Mac cloud lab was restored with all three fixes. Its first launch
+hit the same upload limit; a second launch showed live Tokyo geometry, 340
+visible tiles and refined clouds. This confirms the normal app is rendering
+again, not that the intermittent failure is resolved. Mobile foreground apps
+were left to the active XR checks.

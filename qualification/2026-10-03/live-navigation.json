@@ -636,5 +636,16 @@
     "Intermittent scene upload frame budget failure during navigation.",
     "Flutter macOS accessibility bridge crash reproduced before measurement; existing compatibility hook is insufficient."
   ],
-  "comparisonToTakram": "No matched browser run was captured; no parity or speed ratio claimed."
+  "comparisonToTakram": "No matched browser run was captured; no parity or speed ratio claimed.",
+  "restoration": {
+    "macOS": {
+      "target": "lib/google_tiles_lab.dart",
+      "buildMode": "profile",
+      "clouds": true,
+      "firstLaunch": "scene upload frame budget failure",
+      "retry": "Live city geometry visible, 340 tiles, clouds refined; 8 requests still loading.",
+      "navigationRequalified": false
+    },
+    "mobile": "Foreground XR work was not interrupted for app restoration."
+  }
 }
