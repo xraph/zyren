@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -30,10 +31,10 @@ void main() {
       return value as T;
     }
 
-    final session = (await tester.runAsync(() => XrSession.create(transport)))!;
+    final session = await native(() => XrSession.create(transport));
     XrPresentationController? controller;
     try {
-      await tester.runAsync(
+      await native<void>(
         () => session.start(
           configuration: const XrConfiguration(requireCameraPresentation: true),
         ),
@@ -50,8 +51,9 @@ void main() {
             z.UnlitMaterial(color: const z.Color3(1, .4, .1)),
           )..position = const z.Vec3(0, 0, -.5),
         );
-      Future<XrCalibration> frame() async {
-        final deadline = DateTime.now().add(const Duration(seconds: 30));
+      Future<XrCalibration> frame({DateTime? deadline}) async {
+        final expires =
+            deadline ?? DateTime.now().add(const Duration(seconds: 30));
         while (true) {
           try {
             return await controller!.render(scene);
@@ -60,11 +62,26 @@ void main() {
                   'trackingUnavailable',
                   'frameDeferred',
                 }.contains(error.code) ||
-                DateTime.now().isAfter(deadline)) {
+                DateTime.now().isAfter(expires)) {
               rethrow;
             }
             await Future<void>.delayed(const Duration(milliseconds: 100));
           }
+        }
+      }
+
+      Future<XrCalibration> frameForSize(Size size) async {
+        final deadline = DateTime.now().add(const Duration(seconds: 15));
+        while (true) {
+          final calibration = await native(() => frame(deadline: deadline));
+          if (DateTime.now().isAfter(deadline)) {
+            fail('Native camera dimensions did not converge to $size.');
+          }
+          if ((calibration.logicalWidth - size.width).abs() <= 1 &&
+              (calibration.logicalHeight - size.height).abs() <= 1) {
+            return calibration;
+          }
+          await tester.pump(const Duration(milliseconds: 100));
         }
       }
 
@@ -79,7 +96,18 @@ void main() {
           ),
         );
         await tester.pump(const Duration(seconds: 1));
-        final presented = (await tester.runAsync(frame))!;
+        final portrait = orientation == DeviceOrientation.portraitUp;
+        Size viewSize = tester.getSize(find.byType(XrCameraView));
+        for (
+          var attempt = 0;
+          attempt < 150 && (viewSize.height > viewSize.width) != portrait;
+          attempt++
+        ) {
+          await tester.pump(const Duration(milliseconds: 100));
+          viewSize = tester.getSize(find.byType(XrCameraView));
+        }
+        expect(viewSize.height > viewSize.width, portrait);
+        final presented = await frameForSize(viewSize);
         expect(controller.presentedCalibration, same(presented));
         expect(controller.diagnostics?['nativeReadbackBytes'], 0);
         expect(controller.diagnostics?['cameraReadbackBytes'], 0);
@@ -87,14 +115,22 @@ void main() {
         expect(controller.diagnostics?['heldCameraFrames'], 0);
         expect(presented.pixelWidth, greaterThan(0));
         expect(presented.pixelHeight, greaterThan(0));
+        expect(presented.logicalWidth, closeTo(viewSize.width, 1));
+        expect(presented.logicalHeight, closeTo(viewSize.height, 1));
         if (orientation == DeviceOrientation.portraitUp) {
           expect(presented.orientation, 1);
         } else {
           expect(presented.orientation, anyOf(3, 4));
         }
         for (var i = 0; i < 30; i++) {
-          await tester.runAsync(frame);
+          final steady = await native(frame);
+          expect(steady.logicalWidth, closeTo(viewSize.width, 1));
+          expect(steady.logicalHeight, closeTo(viewSize.height, 1));
+          expect(steady.orientation, presented.orientation);
         }
+        debugPrint(
+          'XR_CAMERA_ORIENTATION_PASS ${jsonEncode({'orientation': presented.orientation, 'pixelWidth': presented.pixelWidth, 'pixelHeight': presented.pixelHeight, 'frames': 31, 'diagnostics': controller.diagnostics})}',
+        );
       }
       await tester.pumpWidget(
         MaterialApp(
@@ -108,26 +144,36 @@ void main() {
         ),
       );
       await tester.pump(const Duration(seconds: 1));
-      final resized = (await tester.runAsync(frame))!;
+      final resized = await frameForSize(const Size(240, 180));
       expect(resized.logicalWidth, closeTo(240, 1));
       expect(resized.logicalHeight, closeTo(180, 1));
-      await tester.runAsync(session.pause);
-      await tester.runAsync(() async {
+      await native<void>(session.pause);
+      await native<void>(() async {
         await expectLater(
           controller!.render(scene),
           throwsA(isA<XrException>()),
         );
       });
-      await tester.runAsync(controller.close);
+      await native<void>(controller.close);
       controller.dispose();
       controller = null;
+      debugPrint('XR_CAMERA_RESIZE_PAUSE_RELEASE_PASS');
     } finally {
-      if (controller != null) {
-        await tester.runAsync(controller.close);
-        controller.dispose();
+      try {
+        if (controller != null) {
+          try {
+            await native<void>(controller.close);
+          } finally {
+            controller.dispose();
+          }
+        }
+      } finally {
+        try {
+          await native<void>(session.dispose);
+        } finally {
+          await SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+        }
       }
-      await tester.runAsync(session.dispose);
-      await SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     }
   }, timeout: const Timeout(Duration(minutes: 3)));
 }

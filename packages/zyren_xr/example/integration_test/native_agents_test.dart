@@ -51,6 +51,7 @@ void main() {
           ),
         ),
       );
+      debugPrint('XR_NATIVE_SESSION_STARTED');
       final p = await native(
         () => XrPresentationController.create(session: session),
       );
@@ -86,6 +87,7 @@ void main() {
         }
 
         await frame();
+        debugPrint('XR_NATIVE_FIRST_FRAME_PRESENTED');
         final capabilities = await XrSession.capabilities(transport);
         registry = AgentRegistry(grantedScopes: {'xr.place'});
         provider = XrAgentProvider(
@@ -155,8 +157,12 @@ void main() {
         final inspected = await query('inspect');
         expect(inspected['status'], 'ok');
         expect(inspected['data']['view']['xrCameraPresentation'], true);
+        final denied = await query('place_anchor', {});
+        expect(denied['status'], 'denied');
+        debugPrint('XR_NATIVE_MCP_DISCOVERY_INSPECT_DENIAL_PASS');
         Map? selected;
         final deadline = DateTime.now().add(const Duration(seconds: 90));
+        var reportAt = DateTime.now();
         while (selected == null && DateTime.now().isBefore(deadline)) {
           final c = await frame();
           for (final point in [
@@ -176,6 +182,13 @@ void main() {
             }
           }
           if (selected == null) {
+            if (DateTime.now().isAfter(reportAt)) {
+              final snapshot = await session.snapshot();
+              debugPrint(
+                'XR_NATIVE_WAITING_FOR_PLANE ${jsonEncode({'tracking': snapshot.frame?.tracking.name, 'trackingReason': snapshot.frame?.trackingReason, 'planes': snapshot.frame?.planes.length})}',
+              );
+              reportAt = DateTime.now().add(const Duration(seconds: 10));
+            }
             await Future<void>.delayed(const Duration(milliseconds: 200));
           }
         }
