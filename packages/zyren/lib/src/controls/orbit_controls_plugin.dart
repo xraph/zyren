@@ -65,11 +65,19 @@ class OrbitControlsPlugin extends ScenePlugin {
     if (input != null) {
       context.scope.keep(input.registerGesture(SceneGesture.pointerDrag));
       context.scope.keep(input.registerGesture(SceneGesture.scroll));
-      context.scope.listen(input.events, (event) {
-        if (!identical(_controls?.camera, context.camera)) _bind(context);
-        _syncViewport();
-        _controls!.handlePointer(event);
-      });
+      context.scope.keep(
+        InputRouter.forSource(input).register(
+          id: id,
+          priority: InputPriority.navigation,
+          navigation: true,
+          claims: (_) => true,
+          onEvent: (event) {
+            if (!identical(_controls?.camera, context.camera)) _bind(context);
+            _syncViewport();
+            _controls!.handlePointer(event);
+          },
+        ),
+      );
       if (keyboard && input is KeyboardInputSource) {
         context.scope.listen(input.keyEvents, (event) {
           if (!identical(_controls?.camera, context.camera)) _bind(context);

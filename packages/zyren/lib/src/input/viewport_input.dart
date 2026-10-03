@@ -28,6 +28,8 @@ enum SceneKey {
   e,
   escape,
   space,
+  tab,
+  enter,
 }
 
 enum SceneKeyPhase { down, repeat, up, cancel }
@@ -54,4 +56,10 @@ abstract interface class KeyboardInputSource implements InputSource {
 extension ViewportLogicalExtent on ViewportInputSource {
   double get logicalWidth => viewport.width;
   double get logicalHeight => viewport.height;
+}
+
+/// Optional focus lifecycle, including loss when no key is currently pressed.
+abstract interface class FocusInputSource implements InputSource {
+  bool get hasFocus;
+  Stream<bool> get focusChanges;
 }

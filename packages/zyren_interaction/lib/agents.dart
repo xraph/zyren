@@ -32,6 +32,7 @@ final class InteractionAgentProvider extends AgentProvider {
     final state = jsonEncode([
       router.scene.revision,
       router.isDisposed,
+      router.focus.focusedObject?.id,
       sceneTools.selected?.id,
       sceneTools.canUndo,
       sceneTools.canRedo,
@@ -55,7 +56,8 @@ final class InteractionAgentProvider extends AgentProvider {
     'selection': true,
     'transformHistory': true,
     'captureScope': 'interaction-router-only',
-    'cameraArbitration': false,
+    'cameraArbitration': true,
+    'keyboardFocus': true,
   };
   static const empty = <String, Object?>{
     'type': 'object',
@@ -131,6 +133,7 @@ final class InteractionAgentProvider extends AgentProvider {
   ]);
   Map<String, Object?> _state() => {
     'selectedRuntimeId': sceneTools.selected?.id,
+    'focusedRuntimeId': router.focus.focusedObject?.id,
     'canUndo': sceneTools.canUndo,
     'canRedo': sceneTools.canRedo,
     'registeredCount': router.registeredObjects.length,

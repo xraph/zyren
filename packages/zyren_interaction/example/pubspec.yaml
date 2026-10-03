@@ -12,6 +12,8 @@ dependencies:
     path: ../../flutter_zyren
   zyren:
     path: ../../zyren
+  flutter_zyren_interaction:
+    path: ../../flutter_zyren_interaction
   zyren_interaction:
     path: ..
   zyren_tools:

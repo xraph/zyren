@@ -180,9 +180,15 @@ class TransformGizmoPlugin extends ScenePlugin {
     final input = context.input;
     if (input is ViewportInputSource) {
       context.scope.keep(input.registerGesture(SceneGesture.pointerDrag));
-      context.scope.listen(
-        input.events,
-        (event) => handlePointer(event, input.viewport),
+      context.scope.keep(
+        InputRouter.forSource(input).register(
+          id: id,
+          priority: InputPriority.tools,
+          claims: (event) =>
+              event.phase == ScenePointerPhase.down &&
+              hitTestHandle(event.point, input.viewport) != null,
+          onEvent: (event) => handlePointer(event, input.viewport),
+        ),
       );
     }
     if (input is KeyboardInputSource) {

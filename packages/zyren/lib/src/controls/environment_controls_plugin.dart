@@ -49,10 +49,18 @@ class EnvironmentControlsPlugin extends ScenePlugin {
     if (input != null) {
       context.scope.keep(input.registerGesture(SceneGesture.pointerDrag));
       context.scope.keep(input.registerGesture(SceneGesture.scroll));
-      context.scope.listen(input.events, (event) {
-        _sync(context);
-        _controls!.handlePointer(event);
-      });
+      context.scope.keep(
+        InputRouter.forSource(input).register(
+          id: id,
+          priority: InputPriority.navigation,
+          navigation: true,
+          claims: (_) => true,
+          onEvent: (event) {
+            _sync(context);
+            _controls!.handlePointer(event);
+          },
+        ),
+      );
     }
   }
 

@@ -9,7 +9,8 @@ import 'package:zyren/zyren.dart';
 typedef ScenePointerCallback = void Function(ScenePointerEvent event);
 
 /// One controller's input. Events are published only by its attached view.
-class FlutterInputAdapter implements ViewportInputSource, KeyboardInputSource {
+class FlutterInputAdapter
+    implements ViewportInputSource, KeyboardInputSource, FocusInputSource {
   double get logicalWidth => viewport.width;
   set logicalWidth(double value) =>
       viewport = ViewportMetrics(value, viewport.height);
@@ -67,6 +68,19 @@ class FlutterInputAdapter implements ViewportInputSource, KeyboardInputSource {
     });
   }
 
+  final _focusChanges = StreamController<bool>.broadcast();
+  bool _hasFocus = false;
+  @override
+  bool get hasFocus => _hasFocus;
+  @override
+  Stream<bool> get focusChanges => _focusChanges.stream;
+  void _focusChanged(bool focused) {
+    if (_closed || focused == _hasFocus) return;
+    _hasFocus = focused;
+    _focusChanges.add(focused);
+    if (!focused) cancelKeys();
+  }
+
   void cancelKeys() {
     if (_closed) return;
     for (final key in _pressedKeys) {
@@ -112,6 +126,8 @@ class FlutterInputAdapter implements ViewportInputSource, KeyboardInputSource {
     LogicalKeyboardKey.keyE: SceneKey.e,
     LogicalKeyboardKey.escape: SceneKey.escape,
     LogicalKeyboardKey.space: SceneKey.space,
+    LogicalKeyboardKey.tab: SceneKey.tab,
+    LogicalKeyboardKey.enter: SceneKey.enter,
   };
   @override
   Registration registerGesture(SceneGesture gesture) {
@@ -148,6 +164,7 @@ class FlutterInputAdapter implements ViewportInputSource, KeyboardInputSource {
   }
 
   void suspend() {
+    _focusChanged(false);
     _dragTap = null;
     cancelKeys();
     _cancelTrackpads();
@@ -286,6 +303,7 @@ class FlutterInputAdapter implements ViewportInputSource, KeyboardInputSource {
     onInterestsChanged = null;
     unawaited(_events.close());
     unawaited(_keys.close());
+    unawaited(_focusChanges.close());
   }
 
   static Set<SceneModifier> get modifiers => {
@@ -364,9 +382,7 @@ class FlutterInputAdapter implements ViewportInputSource, KeyboardInputSource {
     );
     return Focus(
       canRequestFocus: wantsKeyboard,
-      onFocusChange: (focused) {
-        if (!focused) cancelKeys();
-      },
+      onFocusChange: _focusChanged,
       onKeyEvent: _key,
       child: Builder(
         builder: (context) => Listener(
@@ -414,6 +430,25 @@ class FlutterInputAdapter implements ViewportInputSource, KeyboardInputSource {
           },
           child: RawGestureDetector(
             gestures: {
+              if (!wants(SceneGesture.pointerDrag))
+                _SceneArenaObserver:
+                    GestureRecognizerFactoryWithHandlers<_SceneArenaObserver>(
+                      _SceneArenaObserver.new,
+                      (recognizer) => recognizer.onRejected = (pointer) {
+                        final event = _activePointers[pointer];
+                        if (event != null) {
+                          emit(
+                            ScenePointerEvent(
+                              point: event.point,
+                              pointer: pointer,
+                              kind: event.kind,
+                              phase: ScenePointerPhase.cancel,
+                            ),
+                            callback,
+                          );
+                        }
+                      },
+                    ),
               if (wants(SceneGesture.scale))
                 ScaleGestureRecognizer:
                     GestureRecognizerFactoryWithHandlers<
@@ -593,4 +628,32 @@ class _TrackpadZoomRecognizer extends OneSequenceGestureRecognizer {
     _starts.clear();
     super.dispose();
   }
+}
+
+// Observes arena rejection without claiming input from a scrollable ancestor.
+class _SceneArenaObserver extends OneSequenceGestureRecognizer {
+  void Function(int pointer)? onRejected;
+  @override
+  void addAllowedPointer(PointerDownEvent event) {
+    startTrackingPointer(event.pointer, event.transform);
+  }
+
+  @override
+  void rejectGesture(int pointer) {
+    onRejected?.call(pointer);
+    stopTrackingPointer(pointer);
+  }
+
+  @override
+  void handleEvent(PointerEvent event) {
+    if (event is PointerUpEvent || event is PointerCancelEvent) {
+      resolvePointer(event.pointer, GestureDisposition.rejected);
+      stopTrackingPointer(event.pointer);
+    }
+  }
+
+  @override
+  void didStopTrackingLastPointer(int pointer) {}
+  @override
+  String get debugDescription => 'scene pointer observation';
 }

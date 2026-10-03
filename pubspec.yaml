@@ -42,6 +42,7 @@ workspace:
   - examples/studio
   - packages/zyren_agents
   - packages/zyren_interaction
+  - packages/flutter_zyren_interaction
   - packages/zyren_interaction/example
 dev_dependencies:
   analyzer: ^13.3.0

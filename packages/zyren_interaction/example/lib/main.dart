@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_zyren/flutter_zyren.dart';
-import 'package:zyren_interaction/zyren_interaction.dart';
+import 'package:flutter_zyren_interaction/flutter_zyren_interaction.dart';
 import 'package:zyren_tools/zyren_tools.dart';
 import 'package:zyren_inspector/zyren_inspector.dart';
 import 'agent_host.dart';
@@ -41,6 +41,8 @@ class InteractionDemoState extends State<InteractionDemo> {
   String hovered = 'None', captured = 'None';
   bool _closing = false;
   bool _inspectorOpen = false;
+  bool _editLabel = false;
+  final _notes = <Object3D, String>{};
   ScenePointerEvent? _lastPointer;
 
   @override
@@ -76,6 +78,7 @@ class InteractionDemoState extends State<InteractionDemo> {
       ),
     );
     controller.use(tools);
+    controller.use(OrbitControlsPlugin());
     controller.use(
       SceneInteractionPlugin(
         interaction,
@@ -87,8 +90,13 @@ class InteractionDemoState extends State<InteractionDemo> {
       router: interaction,
       tools: tools,
       uiState: () => {
-        'overlays': _inspectorOpen ? ['scene-inspector'] : [],
-        'pointerBlockedByUi': _inspectorOpen,
+        'overlays': [
+          if (_inspectorOpen) 'scene-inspector',
+          if (_editLabel) 'note-editor',
+        ],
+        'focusedRuntimeId': interaction.focus.focusedObject?.id,
+        'pointerBlockedByUi':
+            _inspectorOpen || InputRouter.forSource(controller.input).blocked,
         'pointer': _lastPointer == null
             ? null
             : {
@@ -114,6 +122,7 @@ class InteractionDemoState extends State<InteractionDemo> {
       scene.remove(object);
     }
     objects.clear();
+    _notes.clear();
     for (final (name, x, color) in [
       ('Orange', -.8, 0xe8a05a),
       ('Blue', .8, 0x5ea6d8),
@@ -127,6 +136,15 @@ class InteractionDemoState extends State<InteractionDemo> {
       )..position = Vec3(x, 0, 0);
       objects.add(object);
       interaction.register(object, (event) => _pointer(object, event));
+      interaction.focus.register(
+        object,
+        label: '$name box',
+        order: x,
+        onActivate: () {
+          tools.select(object);
+          _refresh();
+        },
+      );
     }
   }
 
@@ -153,16 +171,18 @@ class InteractionDemoState extends State<InteractionDemo> {
         if (_dragPointer != event.source.pointer || _drag == null) return;
         final metrics = (controller.input as ViewportInputSource).viewport;
         if (metrics.isUsable) {
-          // The fixed orthographic camera fits its vertical extent to the view.
-          final scale = 4 / metrics.height;
+          final camera = controller.camera;
+          final depth = camera.projectPoint(_start!, metrics.aspect).z;
+          Vec3 at(ViewportPoint point) => camera.unprojectPoint(
+            Vec3(
+              point.x / metrics.width * 2 - 1,
+              1 - point.y / metrics.height * 2,
+              depth,
+            ),
+            metrics.aspect,
+          );
           _drag!.update(
-            position:
-                _start! +
-                Vec3(
-                  (event.source.point.x - _startPointer!.x) * scale,
-                  -(event.source.point.y - _startPointer!.y) * scale,
-                  0,
-                ),
+            position: _start! + at(event.source.point) - at(_startPointer!),
           );
         }
       case ObjectPointerPhase.up:
@@ -195,6 +215,7 @@ class InteractionDemoState extends State<InteractionDemo> {
 
   Future<void> _inspect() async {
     _inspectorOpen = true;
+    final block = InputRouter.forSource(controller.input).block();
     try {
       await showModalBottomSheet<void>(
         context: context,
@@ -215,6 +236,7 @@ class InteractionDemoState extends State<InteractionDemo> {
       );
     } finally {
       _inspectorOpen = false;
+      block.dispose();
     }
   }
 
@@ -282,6 +304,12 @@ class InteractionDemoState extends State<InteractionDemo> {
                         child: const Text('Reset'),
                       ),
                       TextButton(
+                        onPressed: tools.selected == null
+                            ? null
+                            : () => setState(() => _editLabel = !_editLabel),
+                        child: Text(_editLabel ? 'Close note' : 'Edit note'),
+                      ),
+                      TextButton(
                         onPressed: _inspect,
                         child: const Text('Inspector'),
                       ),
@@ -294,7 +322,7 @@ class InteractionDemoState extends State<InteractionDemo> {
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             child: Text(
-              'Drag a box. Release outside the view to finish. Camera is fixed.',
+              'Drag a box or orbit empty space. Pinch to zoom. Tab focuses, Enter selects.',
             ),
           ),
           Expanded(
@@ -306,21 +334,67 @@ class InteractionDemoState extends State<InteractionDemo> {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  widget.viewportBuilder?.call(controller) ??
-                      SceneView(
-                        controller: controller,
-                        onPointer: (event) => _lastPointer = event,
-                        loadingBuilder: (_) => const ZeroState(
-                          title: 'Starting renderer',
-                          message: 'Preparing the native viewport.',
+                  SceneInteractionOverlay(
+                    controller: controller,
+                    router: interaction,
+                    labels: [
+                      for (final object in objects)
+                        SceneLabel(
+                          id: 'label-${object.id}',
+                          anchor: SceneAnchor(
+                            object,
+                            localPoint: const Vec3(0, .55, 0),
+                          ),
+                          child: Text(
+                            object.name ?? 'Box',
+                            style: const TextStyle(fontSize: 12),
+                          ),
                         ),
-                        errorBuilder: (_, issue, retry) => ZeroState(
-                          title: 'Viewport failed',
-                          message: issue.message,
-                          actionLabel: 'Retry',
-                          onAction: retry,
+                    ],
+                    surfaces: [
+                      if (_editLabel && tools.selected != null)
+                        SceneWidgetSurface(
+                          id: 'edit-${tools.selected!.id}',
+                          anchor: SceneAnchor(tools.selected!),
+                          size: const Size(200, 64),
+                          child: Material(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Padding(
+                              padding: const EdgeInsets.all(8),
+                              child: TextFormField(
+                                initialValue: _notes[tools.selected!] ?? '',
+                                decoration: const InputDecoration(
+                                  labelText: 'Object note',
+                                  isDense: true,
+                                ),
+                                onChanged: (value) {
+                                  if (tools.selected != null) {
+                                    _notes[tools.selected!] = value;
+                                  }
+                                  _refresh();
+                                },
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
+                    ],
+                    child:
+                        widget.viewportBuilder?.call(controller) ??
+                        SceneView(
+                          controller: controller,
+                          onPointer: (event) => _lastPointer = event,
+                          loadingBuilder: (_) => const ZeroState(
+                            title: 'Starting renderer',
+                            message: 'Preparing the native viewport.',
+                          ),
+                          errorBuilder: (_, issue, retry) => ZeroState(
+                            title: 'Viewport failed',
+                            message: issue.message,
+                            actionLabel: 'Retry',
+                            onAction: retry,
+                          ),
+                        ),
+                  ),
                   if (objects.isEmpty)
                     ZeroState(
                       title: 'No objects',

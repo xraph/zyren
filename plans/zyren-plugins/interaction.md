@@ -233,3 +233,49 @@ the native example, optional devtools transport, lifecycle fixes and verificatio
 fixtures. Both are local commits on the existing main branch. Nothing was pushed
 or merged. The remaining root workspace ordering diff belongs to concurrent work
 and was left untouched.
+
+## Completion pass
+
+The remaining milestones use one shared input arbiter per input source. Gizmos
+claim first, registered objects second and navigation last. A second touch can
+cancel object/tool ownership and transfer the touch sequence to navigation.
+Raw hover stays observable. Gesture arena loss must cancel the routed pointer.
+
+Shared requests after checking the current plans and checkout:
+
+- `packages/zyren/lib/src/input`: add routing and focus capabilities, plus Tab
+  and Enter keys. Existing input implementations remain valid.
+- `packages/zyren/lib/src/controls/{orbit_controls_plugin,environment_controls_plugin}.dart`
+  and `packages/zyren_tools/lib/src/transform_gizmo.dart`: register routed pointer
+  consumers so ownership is settled before camera or transform commands run.
+- `packages/flutter_zyren/lib/src/input/flutter_input_adapter.dart`: expose view
+  focus, map Tab/Enter and cancel scene pointers when Flutter rejects the arena.
+- `packages/flutter_zyren_interaction`: a separate Flutter adapter for semantics,
+  projected labels and interactive screen overlays. The Dart interaction package
+  retains no Flutter dependency. Surfaces are ordinary Flutter widgets projected
+  over a native viewport; they do not allocate native textures.
+- Root workspace registration and resolution use the shared lock. No changes to
+  the declarative facade, native backend or other plugin implementations.
+
+Completion pass implementation checkpoint:
+
+- InputRouter now chooses a stable owner before dispatch. Native orbit and
+  environment navigation and transform gizmos use it. Object handlers claim
+  primary presses; second-touch navigation cancels object capture. Flutter arena
+  loss cancels raw object sequences when a scroll parent wins.
+- SceneObjectFocus provides ordered traversal, activation, Escape and focus-loss
+  cleanup. Tab/Enter are additive core keys. Focus metadata and actions use object
+  identity and remain separate from SceneToolsPlugin selection.
+- SceneAnchorProjector follows local transforms and current camera/viewport
+  getters, with behind-camera, section-plane and optional triangle-occlusion
+  checks. Flutter semantics retain object IDs and explicit traversal order.
+- flutter_zyren_interaction owns ordinary screen widgets over the native view.
+  Text fields use Flutter focus. Overlay focus cancels and blocks scene gestures;
+  unmount releases its registration. No native texture is allocated.
+- The example now includes orbit navigation, projected labels, keyboard object
+  focus and an anchored note editor. Dragging uses camera unprojection.
+
+Checks at this checkpoint: 103 Dart tests across interaction, orbit/environment
+plugins and tools; 17 existing Flutter input/trackpad tests; five owned Flutter
+widget tests, including parent-scroll cancellation, semantics actions, text entry
+and 1200x800/360x640 layouts. Native qualification follows separately.

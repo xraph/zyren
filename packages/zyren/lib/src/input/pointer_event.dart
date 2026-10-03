@@ -1,3 +1,4 @@
+export 'input_router.dart';
 export 'viewport_input.dart' show ViewportInputSource, ViewportLogicalExtent;
 import '../plugins/registration.dart';
 import 'viewport_point.dart';

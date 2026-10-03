@@ -63,6 +63,7 @@ final class ObjectPointerEvent {
 /// farther objects even when it has no registered handler.
 final class SceneInteractionRouter {
   final Scene scene;
+  late final SceneObjectFocus focus;
   final Camera Function() camera;
   final ViewportMetrics Function() viewport;
   final void Function(Object error, StackTrace stack)? onError;
@@ -81,6 +82,7 @@ final class SceneInteractionRouter {
     this.onError,
     Raycaster? raycaster,
   }) : _raycaster = raycaster ?? Raycaster() {
+    focus = SceneObjectFocus(scene);
     _sceneChanges = scene.changes.listen((_) => _prune());
   }
 
@@ -119,10 +121,23 @@ final class SceneInteractionRouter {
     if (_connection != null) throw StateError('Input is already connected.');
     final scope = AttachmentScope();
     try {
+      if (input is KeyboardInputSource) scope.keep(focus.connect(input));
       for (final gesture in gestures) {
         scope.keep(input.registerGesture(gesture));
       }
-      scope.listen(input.events, dispatch);
+      scope.keep(
+        InputRouter.forSource(input).register(
+          id: 'zyren.interaction',
+          priority: InputPriority.objects,
+          claims: (event) =>
+              !_disposed &&
+              (event.phase == ScenePointerPhase.down ||
+                  event.phase == ScenePointerPhase.tap) &&
+              (event.buttons == 0 || event.buttons == 1) &&
+              _pick(event) != null,
+          onEvent: dispatch,
+        ),
+      );
     } catch (_) {
       scope.close();
       rethrow;
@@ -183,6 +198,9 @@ final class SceneInteractionRouter {
       if (_disposed) return;
       final capture = _captures[pointer];
       final route = capture ?? hit;
+      if (phase == ObjectPointerPhase.down && route != null) {
+        focus.request(route.binding.object);
+      }
       if (capture != null) capture.source = source;
       try {
         if (route != null && _live(route)) {
@@ -426,6 +444,7 @@ final class SceneInteractionRouter {
     if (_resetting) return;
     _resetting = true;
     try {
+      focus.blur();
       _pressed.clear();
       for (final pointer in _captures.keys.toList()) {
         _cancel(pointer);
@@ -445,6 +464,7 @@ final class SceneInteractionRouter {
       binding.registration.dispose();
     }
     unawaited(_sceneChanges.cancel());
+    focus.dispose();
     _raycaster.clearCache();
   }
 
