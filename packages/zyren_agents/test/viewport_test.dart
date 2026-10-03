@@ -10,12 +10,16 @@ void main() {
   late AgentRegistry registry;
   late AgentViewportProvider provider;
   AgentPresentedFrame? frame;
+  AgentImageMapping? image;
+  ViewportPoint? origin;
   setUp(() {
     scene = Scene();
     box = scene.add(Mesh(BoxGeometry(), UnlitMaterial(), name: 'Part'));
     camera = PerspectiveCamera(position: const Vec3(0, 0, 5));
     metrics = const ViewportMetrics(200, 100, devicePixelRatio: 3);
     frame = null;
+    image = null;
+    origin = null;
     registry = AgentRegistry();
     provider = AgentViewportProvider(
       sceneId: 'scene',
@@ -25,6 +29,8 @@ void main() {
       camera: () => camera,
       viewport: () => metrics,
       presentedFrame: () => frame,
+      imageMapping: () => image,
+      windowOrigin: () => origin,
       metadata: (object) => AgentObjectMetadata(
         sourceId: 'part-123',
         semanticType: 'test-part',
@@ -42,6 +48,84 @@ void main() {
     instanceId: provider.instanceId,
     tool: tool,
     arguments: arguments,
+  );
+  test(
+    'normalized, window and letterboxed image conversions preserve viewport identity',
+    () async {
+      final normalized = await call('pick', {
+        'x': .5,
+        'y': .5,
+        'coordinateSpace': 'normalized',
+      });
+      expect(normalized.status, AgentStatus.ok);
+      expect((normalized.data['point'] as Map)['x'], 100);
+      expect(
+        (await call('pick', {
+          'x': 120,
+          'y': 90,
+          'coordinateSpace': 'window',
+        })).status,
+        AgentStatus.unavailable,
+      );
+      origin = const ViewportPoint(20, 40);
+      expect(
+        (await call('pick', {
+          'x': 120,
+          'y': 90,
+          'coordinateSpace': 'window',
+        })).status,
+        AgentStatus.ok,
+      );
+      frame = AgentPresentedFrame(
+        id: 'image-frame',
+        sceneRevision: scene.revision,
+        cameraRuntimeId: camera.id,
+        cameraRevision: camera.revision,
+        logicalWidth: metrics.width,
+        logicalHeight: metrics.height,
+        devicePixelRatio: metrics.devicePixelRatio,
+      );
+      image = AgentImageMapping(
+        imageId: 'capture',
+        frameId: 'image-frame',
+        width: 600,
+        height: 400,
+        contentY: 50,
+        contentWidth: 600,
+        contentHeight: 300,
+      );
+      final args = {
+        'x': 300,
+        'y': 200,
+        'coordinateSpace': 'image',
+        'imageId': 'capture',
+      };
+      expect((await call('pick', args)).status, AgentStatus.ok);
+      expect(
+        (await call('pick', {...args, 'y': 20})).status,
+        AgentStatus.invalid,
+      );
+      metrics = const ViewportMetrics(400, 100, devicePixelRatio: 3);
+      expect((await call('pick', args)).status, AgentStatus.stale);
+    },
+  );
+  test(
+    'projected bounds label geometric coverage and reject depth crossings',
+    () async {
+      final result = await call('inspect_object', {'runtimeId': box.id});
+      final bounds = (result.data['object'] as Map)['projectedBounds'] as Map;
+      expect(bounds['status'], 'ok');
+      expect(bounds['renderedPixelVisibility'], 'unknown');
+      expect((bounds['rectangle'] as Map)['left'], lessThan(100));
+      expect((bounds['rectangle'] as Map)['right'], greaterThan(100));
+      box.position = const Vec3(0, 0, 5);
+      final clipped = await call('inspect_object', {'runtimeId': box.id});
+      expect(
+        ((clipped.data['object'] as Map)['projectedBounds']
+            as Map)['rectangle'],
+        isNull,
+      );
+    },
   );
   test(
     'logical center pick returns geometry, provenance and honest coverage',

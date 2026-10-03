@@ -141,7 +141,10 @@ final class DevtoolsServer {
     }
   }
 
-  Future<void> close() => _closing ??= _server.close(force: true).then((_) {});
+  Future<void> close() {
+    agents?.dispose();
+    return _closing ??= _server.close(force: true).then((_) {});
+  }
 }
 
 /// Explicit loopback client. Never follows redirects or sends tokens via a proxy.

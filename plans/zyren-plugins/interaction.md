@@ -279,3 +279,17 @@ Checks at this checkpoint: 103 Dart tests across interaction, orbit/environment
 plugins and tools; 17 existing Flutter input/trackpad tests; five owned Flutter
 widget tests, including parent-scroll cancellation, semantics actions, text entry
 and 1200x800/360x640 layouts. Native qualification follows separately.
+
+The optional bridge also needs bounded job handles so long provider work does not
+hold a five-second HTTP call open. Add start/status/cancel/release tools and a
+cursor-based change feed in the existing bridge. Keep progress polling explicit,
+retain host scopes and exact retry guards, and cancel jobs when the server closes.
+These additions use the same authenticated endpoint and MCP tools transport.
+
+Agent completion checks: 45 registry/devtools tests pass; three existing native
+checks are skipped unless their native environment flag is set. Coordinate
+conversion tests cover normalized points, window origins, letterbox margins and
+stale image mappings. Projected bounds state their geometric method. Job tests
+cover progress, retry identity, cancellation, release and server cleanup. Registry
+command tombstones prevent replay after reattachment within the same session.
+A process restart still needs the host's persistent domain command store.

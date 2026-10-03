@@ -95,6 +95,20 @@ void main() {
     expect(registry.discover()['providers'], isEmpty);
     expect((await increment()).status, AgentStatus.unavailable);
   });
+  test(
+    'retired command keys cannot execute after provider reattachment',
+    () async {
+      final lease = registry.register(provider);
+      expect((await increment()).status, AgentStatus.ok);
+      lease.dispose();
+      final replacement = CounterProvider();
+      registry.register(replacement);
+      expect((await increment()).status, AgentStatus.stale);
+      expect(replacement.count, 0);
+      expect((await increment(key: 'fresh')).status, AgentStatus.ok);
+      expect(replacement.count, 1);
+    },
+  );
   test('host scopes deny actions without invoking provider', () async {
     registry.dispose();
     registry = AgentRegistry();

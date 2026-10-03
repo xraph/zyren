@@ -61,7 +61,9 @@ final class ExampleAgentHost extends ScenePlugin {
             .toList(),
         'activeMode': 'object-drag',
         'activeViewport': true,
-        'focus': 'unknown',
+        'focus': controller.input is FocusInputSource
+            ? (controller.input as FocusInputSource).hasFocus
+            : null,
         'overlays': [],
         ...?uiState?.call(),
         'captureSupport': 'unavailable',

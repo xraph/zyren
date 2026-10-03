@@ -1,12 +1,17 @@
 /// Optional agent registry transport. Existing diagnostic tools stay read-only.
 library;
 
+import 'dart:async';
+import 'dart:convert';
 import 'package:zyren_agents/zyren_agents.dart';
 import 'zyren_devtools.dart';
+part 'src/agent_jobs.dart';
 
 final class AgentDevtoolsBridge {
   final AgentRegistry registry;
+  late final _AgentJobs _jobs = _AgentJobs(registry);
   AgentDevtoolsBridge(this.registry);
+  void dispose() => _jobs.dispose();
   static const _string = {'type': 'string', 'minLength': 1, 'maxLength': 96};
   static const _callProperties = {
     'providerId': _string,
@@ -17,6 +22,7 @@ final class AgentDevtoolsBridge {
     'idempotencyKey': {'type': 'string', 'minLength': 1, 'maxLength': 128},
   };
   static const tools = <Map<String, Object?>>[
+    ..._AgentJobs.tools,
     {
       'name': 'agent_discover',
       'description':
@@ -101,6 +107,7 @@ final class AgentDevtoolsBridge {
       arguments,
     );
     if (error != null) throw DiagnosticException('invalidArguments', error);
+    if (_AgentJobs.accepts(name)) return _jobs.call(name, arguments);
     if (name == 'agent_discover') {
       return {
         'schemaVersion': SceneDiagnostics.schemaVersion,

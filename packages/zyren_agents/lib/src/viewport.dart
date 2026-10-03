@@ -60,6 +60,51 @@ final class AgentObjectMetadata {
   };
 }
 
+/// Host-recorded image extent. Content excludes letterbox margins and maps to
+/// the entire logical viewport. Pixel queries require matching frame evidence.
+final class AgentImageMapping {
+  final String imageId, frameId;
+  final double width, height, contentX, contentY, contentWidth, contentHeight;
+  AgentImageMapping({
+    required this.imageId,
+    required this.frameId,
+    required this.width,
+    required this.height,
+    this.contentX = 0,
+    this.contentY = 0,
+    double? contentWidth,
+    double? contentHeight,
+  }) : contentWidth = contentWidth ?? width,
+       contentHeight = contentHeight ?? height {
+    if (imageId.isEmpty ||
+        frameId.isEmpty ||
+        [
+          width,
+          height,
+          this.contentWidth,
+          this.contentHeight,
+        ].any((v) => !v.isFinite || v <= 0) ||
+        !contentX.isFinite ||
+        !contentY.isFinite ||
+        contentX < 0 ||
+        contentY < 0 ||
+        contentX + this.contentWidth > width ||
+        contentY + this.contentHeight > height) {
+      throw ArgumentError('Image mapping requires a valid content rectangle.');
+    }
+  }
+  Map<String, Object?> toJson() => {
+    'imageId': imageId,
+    'frameId': frameId,
+    'width': width,
+    'height': height,
+    'contentX': contentX,
+    'contentY': contentY,
+    'contentWidth': contentWidth,
+    'contentHeight': contentHeight,
+  };
+}
+
 /// One named viewport. The host explicitly reports focus, overlays, active mode,
 /// loading, renderer and capture capabilities in [hostState]. No global active
 /// camera, screenshot, gaze, selection or source identity is inferred.
@@ -75,6 +120,8 @@ final class AgentViewportProvider extends AgentProvider {
   final Map<String, Object?> Function()? hostState;
   final AgentObjectMetadata? Function(Object3D object)? metadata;
   final String units;
+  final AgentImageMapping? Function()? imageMapping;
+  final ViewportPoint? Function()? windowOrigin;
   final int maxNodes, maxTriangles;
   final _raycaster = Raycaster();
   int _query = 0;
@@ -89,6 +136,8 @@ final class AgentViewportProvider extends AgentProvider {
     this.presentedFrame,
     this.hostState,
     this.metadata,
+    this.imageMapping,
+    this.windowOrigin,
     this.units = 'scene-units',
     this.maxNodes = 10000,
     this.maxTriangles = 200000,
@@ -114,6 +163,9 @@ final class AgentViewportProvider extends AgentProvider {
     'maxNodes': maxNodes,
     'maxTriangles': maxTriangles,
     'maxHits': 32,
+    'coordinateSpaces': ['logical', 'normalized', 'image', 'window'],
+    'gpuObjectDepthQuery': 'unsupported',
+    'frameImageCapture': 'host-provider-required',
   };
   @override
   late final List<AgentTool> tools = List.unmodifiable([
@@ -132,6 +184,11 @@ final class AgentViewportProvider extends AgentProvider {
         {
           'x': {'type': 'number'},
           'y': {'type': 'number'},
+          'coordinateSpace': {
+            'type': 'string',
+            'enum': ['logical', 'normalized', 'image', 'window'],
+          },
+          'imageId': {'type': 'string', 'maxLength': 128},
           'limit': {'type': 'integer', 'minimum': 1, 'maximum': 32},
           'expectedFrameId': {'type': 'string', 'maxLength': 128},
           'expectedCameraRevision': {'type': 'integer', 'minimum': 0},
@@ -207,6 +264,10 @@ final class AgentViewportProvider extends AgentProvider {
     ],
     'presentedFrame': frame?.toJson(),
     'frameCorrelation': _correlation(camera, metrics, frame),
+    'imageMapping': imageMapping?.call()?.toJson(),
+    'windowOrigin': windowOrigin?.call() == null
+        ? null
+        : {'x': windowOrigin!()!.x, 'y': windowOrigin!()!.y},
     'hostState': hostState?.call() ?? const {'availability': 'unknown'},
     'coverage': coverage,
   };
@@ -258,11 +319,15 @@ final class AgentViewportProvider extends AgentProvider {
   };
   List<Object3D>? _nodes() {
     final stack = <Object3D>[scene], result = <Object3D>[];
-    var triangles = 0;
+    var triangles = 0, vertices = 0;
     while (stack.isNotEmpty) {
       final object = stack.removeLast();
       if (result.length >= maxNodes) return null;
       result.add(object);
+      if (object is Mesh) {
+        vertices += object.geometry.vertexCount;
+        if (vertices > maxTriangles * 3) return null;
+      }
       if (object is Mesh &&
           object.geometry.topology == GeometryTopology.triangles) {
         triangles +=
@@ -288,6 +353,7 @@ final class AgentViewportProvider extends AgentProvider {
     'layers': object.layers.bits,
     'position': _vector(object.position),
     'worldMatrix': object.worldMatrix.storage,
+    'projectedBounds': _projectedBounds(object),
     'metadata':
         metadata?.call(object)?.toJson() ??
         const {'sourceId': null, 'availability': 'unknown'},
@@ -368,8 +434,56 @@ final class AgentViewportProvider extends AgentProvider {
         message: 'Viewport has no usable logical extent.',
       );
     }
-    final x = (arguments['x'] as num).toDouble(),
-        y = (arguments['y'] as num).toDouble();
+    final inputX = (arguments['x'] as num).toDouble(),
+        inputY = (arguments['y'] as num).toDouble();
+    var x = inputX, y = inputY;
+    final space = (arguments['coordinateSpace'] as String?) ?? 'logical';
+    Map<String, Object?>? conversion;
+    if (space == 'normalized') {
+      x *= metrics.width;
+      y *= metrics.height;
+      conversion = {
+        'range': '0..1',
+        'origin': 'top-left',
+        'width': metrics.width,
+        'height': metrics.height,
+      };
+    } else if (space == 'window') {
+      final origin = windowOrigin?.call();
+      if (origin == null || !origin.x.isFinite || !origin.y.isFinite) {
+        return AgentResult(
+          AgentStatus.unavailable,
+          message: 'Host has not supplied the viewport window origin.',
+        );
+      }
+      x -= origin.x;
+      y -= origin.y;
+      conversion = {
+        'originX': origin.x,
+        'originY': origin.y,
+        'units': 'logical-pixels',
+      };
+    } else if (space == 'image') {
+      final mapping = imageMapping?.call();
+      if (mapping == null) {
+        return AgentResult(
+          AgentStatus.unavailable,
+          message: 'Host has not supplied a frame image mapping.',
+        );
+      }
+      if (arguments['imageId'] != mapping.imageId ||
+          frame?.id != mapping.frameId ||
+          _correlation(camera, metrics, frame) != 'matches-current-state') {
+        return AgentResult(
+          AgentStatus.stale,
+          message:
+              'Image identity or frame does not match the current viewport.',
+        );
+      }
+      x = (x - mapping.contentX) / mapping.contentWidth * metrics.width;
+      y = (y - mapping.contentY) / mapping.contentHeight * metrics.height;
+      conversion = mapping.toJson();
+    }
     if (x < 0 || y < 0 || x > metrics.width || y > metrics.height) {
       return AgentResult(
         AgentStatus.invalid,
@@ -398,6 +512,12 @@ final class AgentViewportProvider extends AgentProvider {
         'x': x,
         'y': y,
         'coordinateSpace': 'viewport-local-logical-top-left',
+      },
+      'inputPoint': {
+        'x': inputX,
+        'y': inputY,
+        'coordinateSpace': space,
+        'conversion': conversion,
       },
       'devicePixelRatio': metrics.devicePixelRatio,
       'presentedFrame': frame?.toJson(),
@@ -436,6 +556,75 @@ final class AgentViewportProvider extends AgentProvider {
       data: data,
       revision: revision,
     );
+  }
+
+  Map<String, Object?> _projectedBounds(Object3D object) {
+    final view = camera(), size = viewport();
+    final base = <String, Object?>{
+      'method': 'projected-world-aabb',
+      'renderedPixelVisibility': 'unknown',
+      'coordinateSpace': 'viewport-local-logical-top-left',
+      'cameraRuntimeId': view.id,
+      'cameraRevision': view.revision,
+      'layerMatch': object.layers.intersects(view.layers),
+    };
+    if (object is! Mesh || !size.isUsable) {
+      return {...base, 'status': 'unavailable', 'rectangle': null};
+    }
+    final bounds = object.bounds.transformed(object.worldMatrix);
+    if (bounds.isEmpty) return {...base, 'status': 'empty', 'rectangle': null};
+    final corners = bounds.corners;
+    final behind = corners.any(
+      (point) => (point - view.position).dot(view.target - view.position) <= 0,
+    );
+    if (behind) {
+      return {
+        ...base,
+        'status': 'unavailable',
+        'reason': 'bounds-cross-depth-clip',
+        'rectangle': null,
+      };
+    }
+    final points = corners
+        .map((point) => view.projectPoint(point, size.aspect))
+        .toList();
+    if (points.any((p) => !p.isFinite || p.z < 0 || p.z > 1)) {
+      return {
+        ...base,
+        'status': 'unavailable',
+        'reason': 'bounds-cross-depth-clip',
+        'rectangle': null,
+      };
+    }
+    final xs = points.map((p) => (p.x + 1) * size.width / 2).toList()..sort();
+    final ys = points.map((p) => (1 - p.y) * size.height / 2).toList()..sort();
+    return {
+      ...base,
+      'status': 'ok',
+      'rectangle': {
+        'left': xs.first,
+        'top': ys.first,
+        'right': xs.last,
+        'bottom': ys.last,
+      },
+      'intersectsViewport':
+          xs.last >= 0 &&
+          ys.last >= 0 &&
+          xs.first <= size.width &&
+          ys.first <= size.height,
+      'sectionClipping':
+          scene.clippingPlanes.any(
+            (plane) => corners.every((p) => plane.distanceTo(p) < 0),
+          )
+          ? 'outside'
+          : scene.clippingPlanes.any(
+              (plane) => corners.any((p) => plane.distanceTo(p) < 0),
+            )
+          ? 'partial'
+          : 'inside',
+      'coverage':
+          'built-in deformation and instances; shader displacement and primitive pixel widths unknown',
+    };
   }
 
   static Vec3 _localPoint(Object3D object, Vec3 point) {

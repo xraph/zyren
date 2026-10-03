@@ -1,11 +1,14 @@
 part of '../zyren_agents.dart';
 
 /// Host-owned capability registry. Call arguments never supply permission scopes.
-/// Retry records last for the provider registration; a full ledger rejects new
-/// mutations until the host deliberately starts a new registration lifetime.
+/// Completed results last for the provider registration. Retired command keys
+/// remain tombstoned for this registry lifetime, so reattachment cannot replay
+/// a command. A full session ledger rejects new mutations without evicting keys.
 final class AgentRegistry {
   final Set<String> grantedScopes;
   final int maxProviders, maxInputBytes, maxRetryEntries;
+  int _retryCount = 0;
+  final _retiredRetries = <String, Set<String>>{};
   final _providers = <String, _ProviderEntry>{};
   final _changes = StreamController<Map<String, Object?>>.broadcast();
   bool _disposed = false;
@@ -51,7 +54,12 @@ final class AgentRegistry {
       for (final cancellation in entry.pending.values) {
         cancellation.cancel();
       }
-      entry.retries.clear();
+      if (entry.retries.isNotEmpty) {
+        _retiredRetries
+            .putIfAbsent(key, () => <String>{})
+            .addAll(entry.retries.keys);
+        entry.retries.clear();
+      }
       if (!_disposed) {
         _changes.add({
           'kind': 'removed',
@@ -151,6 +159,15 @@ final class AgentRegistry {
           'Mutations require expectedRevision and a bounded idempotencyKey.',
         );
       }
+      if (_retiredRetries['$providerId/$instanceId']?.contains(
+            idempotencyKey,
+          ) ??
+          false) {
+        return reject(
+          AgentStatus.stale,
+          'This command key belongs to an earlier registration. Refresh state before issuing a new command.',
+        );
+      }
       fingerprint = jsonEncode([tool, expectedRevision, _canonical(input)]);
       final retry = entry.retries[idempotencyKey];
       if (retry != null) {
@@ -162,7 +179,7 @@ final class AgentRegistry {
         }
         return retry.$2;
       }
-      if (entry.retries.length >= maxRetryEntries) {
+      if (_retryCount >= maxRetryEntries) {
         return reject(
           AgentStatus.unavailable,
           'Mutation retry ledger is full.',
@@ -194,6 +211,7 @@ final class AgentRegistry {
     if (!descriptor.readOnly) {
       entry.mutating = true;
       entry.retries[idempotencyKey!] = (fingerprint!, completer.future);
+      _retryCount++;
     }
     final pendingId = Object();
     entry.pending[pendingId] = token;
@@ -280,6 +298,7 @@ final class AgentRegistry {
     for (final entry in _providers.values.toList()) {
       entry.registration.dispose();
     }
+    _retiredRetries.clear();
     unawaited(_changes.close());
   }
 }
