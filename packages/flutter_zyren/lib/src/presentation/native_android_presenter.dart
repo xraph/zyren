@@ -198,7 +198,8 @@ class NativeAndroidBackend implements NativeGpuBackend {
       });
     } on PlatformException catch (error) {
       throw _issue(
-        error.code == SceneIssueCodes.frameDeferred
+        error.code == SceneIssueCodes.frameDeferred ||
+                error.code == SceneIssueCodes.deviceLost
             ? error.code
             : SceneIssueCodes.renderFailed,
         error.message ?? error.code,
