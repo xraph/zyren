@@ -970,11 +970,25 @@ class SceneEngine {
           ),
         );
       }
+      // The backend has already published. Every state owner needs its receipt
+      // even when a peer hook fails; report the first error after notification.
+      (Object, StackTrace)? receiptError;
       for (final (plugin, context) in _attached) {
-        await _hook(() => plugin.afterRender(context, info, result.stats));
+        try {
+          await _hook(() => plugin.afterRender(context, info, result.stats));
+        } catch (error, stack) {
+          receiptError ??= (error, stack);
+        }
       }
       if (!_closed && result.stats.admission?.candidateReady == false) {
-        _onInvalidate?.call();
+        try {
+          _onInvalidate?.call();
+        } catch (error, stack) {
+          receiptError ??= (error, stack);
+        }
+      }
+      if (receiptError case final failure?) {
+        Error.throwWithStackTrace(failure.$1, failure.$2);
       }
       return result;
     });

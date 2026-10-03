@@ -122,7 +122,7 @@ final class CloudPlugin extends ScenePlugin {
     PluginContext context,
     FrameInfo info,
     FrameStats stats,
-  ) => controller._presented(stats);
+  ) => controller._presented(info.number, stats);
 }
 
 final class CloudController {
@@ -149,7 +149,9 @@ final class CloudController {
   final _initialHistory = CloudHistory();
   CloudHistory get _history => _active?.history ?? _initialHistory;
   int _revision = 0;
-  _CloudCandidate? _displayed;
+  _CloudCandidate? _displayed, _bound;
+  _CloudSubmission? _submission;
+  final _candidates = <_CloudCandidate>{};
   CloudTextureSet? _textures;
   CloudBlueNoise? _blueNoise;
   final _sourceCancellation = _CloudSourceCancellation();
@@ -239,7 +241,9 @@ final class CloudController {
   void resetHistory() {
     _check();
     _history.invalidate();
-    if (!identical(_displayed, _active)) _displayed?.history.invalidate();
+    for (final candidate in _candidates) {
+      if (!identical(candidate, _active)) candidate.history.invalidate();
+    }
     _motion();
     _context.invalidate();
   }
@@ -287,6 +291,7 @@ final class CloudController {
         _plugin.blueNoise ??
         await _plugin.blueNoiseSource?.load(cancellation: _sourceCancellation);
     await _replace(_quality, _textures!.textures, _width, _height);
+    await _bind(_active!);
     _motion();
   });
   void _motion() {
@@ -394,33 +399,10 @@ final class CloudController {
         _blueNoise,
       );
       _check();
-      if (_composition == null) {
-        _composition = await _atmosphere.registerCloudInputs(candidate.inputs);
-      } else {
-        await _composition!.replace(candidate.inputs);
-      }
-      if (_producer == null) {
-        _producer = _context.scene.addEffect(candidate.effect, order: -100);
-      } else {
-        _producer!.replace(candidate.effect);
-      }
-      if (_resolve == null) {
-        _resolve = _context.scene.addEffect(
-          candidate.temporal.resolve,
-          order: -90,
-        );
-        _publish = _context.scene.addEffect(
-          candidate.temporal.publish,
-          order: -80,
-        );
-      } else {
-        _resolve!.replace(candidate.temporal.resolve);
-        _publish!.replace(candidate.temporal.publish);
-      }
-      final previous = _active;
       _active = candidate;
+      _candidates.add(candidate);
       _history.invalidate(CloudHistoryReset.parameters);
-      if (!identical(previous, _displayed)) await previous?.close();
+      await _retireCandidates();
     } catch (_) {
       if (!identical(_active, candidate)) {
         await scope.close();
@@ -430,7 +412,57 @@ final class CloudController {
     }
   }
 
+  // Registration changes happen only during frame preparation. Setters can
+  // prepare a new request while later hooks or the backend await, but cannot
+  // change the candidate that the engine is about to capture.
+  Future<void> _bind(_CloudCandidate candidate) async {
+    if (identical(_bound, candidate)) return;
+    if (_composition == null) {
+      _composition = await _atmosphere.registerCloudInputs(candidate.inputs);
+    } else {
+      await _composition!.replace(candidate.inputs);
+    }
+    if (_producer == null) {
+      _producer = _context.scene.addEffect(candidate.effect, order: -100);
+    } else {
+      _producer!.replace(candidate.effect);
+    }
+    if (_resolve == null) {
+      _resolve = _context.scene.addEffect(
+        candidate.temporal.resolve,
+        order: -90,
+      );
+      _publish = _context.scene.addEffect(
+        candidate.temporal.publish,
+        order: -80,
+      );
+    } else {
+      _resolve!.replace(candidate.temporal.resolve);
+      _publish!.replace(candidate.temporal.publish);
+    }
+    _bound = candidate;
+  }
+
+  Future<void> _retireCandidates() async {
+    final retained = <_CloudCandidate?>{
+      _active,
+      _bound,
+      _displayed,
+      _submission?.candidate,
+      _submission?.displayed,
+    };
+    for (final candidate in _candidates.toList()) {
+      if (!retained.contains(candidate)) {
+        _candidates.remove(candidate);
+        await candidate.close();
+      }
+    }
+  }
+
   Future<void> _frame(FrameInfo info) => _serial(() async {
+    // SceneEngine permits only one frame at a time. Any record left here belongs
+    // to an aborted frame; successful receipts have already reached every hook.
+    _submission = null;
     if (_animationEnabled && !_skipAnimationDelta) {
       _animationElapsed += info.delta;
     }
@@ -446,14 +478,26 @@ final class CloudController {
       _width = width;
       _height = height;
     }
-    await _prepareCandidate(_active!, info);
+    final candidate = _active!;
+    await _bind(candidate);
+    final frame = await _prepareCandidate(candidate, info);
     final displayed = _displayed;
-    if (displayed != null && !identical(displayed, _active)) {
-      await _prepareCandidate(displayed, info);
-    }
+    final displayedFrame = displayed == null
+        ? null
+        : identical(displayed, candidate)
+        ? frame
+        : await _prepareCandidate(displayed, info);
+    _submission = _CloudSubmission(
+      info.number,
+      candidate,
+      frame,
+      displayed,
+      displayedFrame,
+    );
+    await _retireCandidates();
   });
 
-  Future<void> _prepareCandidate(
+  Future<CloudHistoryFrame> _prepareCandidate(
     _CloudCandidate candidate,
     FrameInfo info,
   ) async {
@@ -534,26 +578,26 @@ final class CloudController {
               _parameters.shapeVelocity != Vec3.zero ||
               _parameters.shapeDetailVelocity != Vec3.zero),
     );
-    candidate.pendingFrame = history;
+    return history;
   }
 
-  Future<void> _presented(FrameStats stats) async {
+  Future<void> _presented(int number, FrameStats stats) => _serial(() async {
+    final submitted = _submission;
+    if (submitted == null || submitted.number != number) {
+      throw StateError('Cloud receipt does not match the prepared frame.');
+    }
     _frameBudget?.observe(stats);
-    final candidate = stats.admission?.candidateReady == false
-        ? _displayed
-        : _active;
-    final frame = candidate?.pendingFrame;
+    final retained = stats.admission?.candidateReady == false;
+    final candidate = retained ? submitted.displayed : submitted.candidate;
+    final frame = retained ? submitted.displayedFrame : submitted.frame;
     if (candidate != null && frame != null) {
       candidate.history.present(frame, _revision);
-      candidate.pendingFrame = null;
-      final previous = _displayed;
       _displayed = candidate;
-      if (!identical(previous, candidate) && !identical(previous, _active)) {
-        await previous?.close();
-      }
       _motion();
     }
-  }
+    _submission = null;
+    await _retireCandidates();
+  });
 
   Future<void> _close() async {
     _closed = true;
@@ -566,12 +610,29 @@ final class CloudController {
     try {
       await _composition?.close();
     } finally {
-      if (!identical(_displayed, _active)) await _displayed?.close();
-      await _active?.close();
+      for (final candidate in _candidates) {
+        await candidate.close();
+      }
+      _candidates.clear();
       await _textures?.close();
       await _owner.close();
     }
   }
+}
+
+final class _CloudSubmission {
+  final int number;
+  final _CloudCandidate candidate;
+  final CloudHistoryFrame frame;
+  final _CloudCandidate? displayed;
+  final CloudHistoryFrame? displayedFrame;
+  const _CloudSubmission(
+    this.number,
+    this.candidate,
+    this.frame,
+    this.displayed,
+    this.displayedFrame,
+  );
 }
 
 final class _CloudCandidate {
@@ -584,7 +645,6 @@ final class _CloudCandidate {
   final CloudTemporalPass temporal;
   final CloudTemporalSettings settings;
   final history = CloudHistory();
-  CloudHistoryFrame? pendingFrame;
   int rayStride = 4, shadowCadence = 1;
   _CloudCandidate(
     this.scope,
