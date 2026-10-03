@@ -2,7 +2,7 @@
   "date": "2026-10-03",
   "platform": "macOS Metal, normal profile app",
   "measurement": "Unthrottled accepted native presentation samples. Diagnostics stream is not an FPS measurement.",
-  "comparability": "Tile count, budgets and foreground state differ. These are stage observations, not a controlled benchmark. Final High target and stationary-selection results are pending.",
+  "comparability": "Tile count, budgets and foreground state differ. These are stage observations, not a controlled benchmark. Final High target, stationary selection and render-pixel LOD results are pending.",
   "measurements": [
     {
       "stage": "hardware-filtered day, earlier tile profile",
@@ -233,7 +233,7 @@
   ],
   "checks": {
     "streamingSelectionFade": {
-      "passed": 28
+      "passed": 30
     },
     "cloudDeviceLimits": {
       "passed": 4
@@ -284,7 +284,15 @@
         "undefined"
       ]
     },
-    "dartFlutterTestTotal": 63
+    "dartFlutterTestTotal": 65,
+    "profileBuildCodeRevision": "5495091",
+    "installationCodeRevision": "5495091",
+    "launch": {
+      "iPhone": "passed wirelessly",
+      "iPad": "denied: Locked",
+      "Pixel9Pro": "passed",
+      "macOS": "passed; host remains locked"
+    }
   },
   "gpuRecoveryChange": {
     "codeRevision": "0795459",
@@ -316,7 +324,15 @@
     "validPerformanceSample": false,
     "note": "The presentation window spans a failure. It is excluded from FPS comparisons. A lock-related cause is not established."
   },
-  "finalBackgroundSnapshot": {
+  "revisionNote": "Revision labels identify this change in a shared checkout. Concurrent unrelated edits were present and preserved; the profile binaries were copied before launch.",
+  "renderPixelRefinement": {
+    "codeRevision": "5495091",
+    "before": "Tiles3DPlugin used logical input height for screen error.",
+    "after": "Screen error uses actual capped frame height; culling retains logical projection aspect.",
+    "regression": "Perspective and orthographic tests failed before the change, then passed at native, doubled and reduced target sizes.",
+    "liveVisualAndPerformance": "unverified while host and device views remain locked"
+  },
+  "preResolutionBackgroundSnapshot": {
     "codeRevision": "0795459",
     "status": "SceneReady",
     "issueCode": null,
@@ -338,5 +354,29 @@
     "note": "Accepted frames and full HD targets are observed, but locked-host scheduling does not qualify live speed or visual appearance.",
     "automaticRecoveryUsed": false
   },
-  "revisionNote": "Revision labels identify this change in a shared checkout. Concurrent unrelated edits were present and preserved; the profile binaries were copied before launch."
+  "finalBackgroundSnapshot": {
+    "codeRevision": "5495091",
+    "status": "SceneReady",
+    "issueCode": null,
+    "cloudSize": [
+      1600,
+      768
+    ],
+    "cloudFrames": 513,
+    "visibleTiles": 389,
+    "selectedTiles": 1024,
+    "loadingTiles": 0,
+    "failedTiles": 1,
+    "tileFailureCodes": {
+      "decodeFailed": 1
+    },
+    "budgetLimited": true,
+    "decodedTileBytes": 1057556578,
+    "tilePayloadBytes": 369663588,
+    "sampleCount": 240,
+    "hostLocked": true,
+    "validLivePerformanceSample": false,
+    "automaticRecoveryUsed": false,
+    "note": "Accepted native frames are observed after the resolution fix. This locked-host snapshot does not qualify visual appearance, accessibility or foreground performance."
+  }
 }

@@ -31,12 +31,20 @@ The exact limits are in [Planet's README](../../examples/planet/README.md).
 Visible tile payload budgets are 128, 192 and 384 MiB. Decoded caches are 512,
 768 and 1024 MiB, with selected tile limits of 512, 768 and 1024. Larger budgets
 allow more geometry but do not remove the budget warning. The expanded Tokyo
-capture showed 418 tiles and two `decodeFailed` tiles. Those failures remain open.
+capture showed 418 tiles and two `decodeFailed` tiles. The final locked-host
+snapshot has 389 visible tiles and one `decodeFailed` tile. These failures
+remain open.
 
 The streamer now uses a priority heap, caches screen errors, stops admission
 when no request can fit, and reuses a stationary selection. Camera revisions,
 viewport changes, loaded content and eviction invalidate that selection. HTTP
 freshness and refinement fades remain active.
+
+Tile refinement now follows the actual rendered pixel height instead of the
+logical touch surface height. Culling retains the logical viewport aspect. The
+regression tests reproduce coarse detail at a doubled render target before the
+fix, and check both refinement and a reduced resolution cap after it. This applies
+to perspective and orthographic views. Live mobile detail remains unverified.
 
 ## Controls and Mac stability
 
@@ -65,7 +73,8 @@ not the diagnostics stream, which is throttled to 200 ms. The earlier roughly
 At a 1600 by 768 viewport, earlier foreground observations ranged from 26.6 FPS
 with 194 tiles to 18.3 FPS with 418 tiles. These used different budgets. They
 are not a controlled before-and-after benchmark, and they do not cover the
-final full-resolution High cloud target and stationary-selection changes.
+final full-resolution High cloud target, stationary-selection and render-pixel
+refinement changes.
 GPU timing was unavailable and remains null.
 
 The final locked-Mac attempt accepted hundreds of frames with a 1600 by 768
@@ -82,7 +91,7 @@ bounded recovery policy passed their tests; live recovery after this GPU timeout
 remains unverified. The telemetry tool now excludes failed-state FPS windows.
 
 The restored final Mac build reports SceneReady, a 1600 by 768 cloud target,
-420 visible tiles and no active loading. Automatic recovery had not been used
+389 visible tiles and no active loading. Automatic recovery had not been used
 in that snapshot. The Mac was still locked, so this confirms accepted native
 frames rather than visual appearance or foreground performance.
 
@@ -95,12 +104,13 @@ It does not establish performance parity.
 
 ## Checks and remaining qualification
 
-Twenty-eight streaming/selection/fade tests, four cloud-device tests and eight
+Thirty streaming/selection/fade tests, four cloud-device tests and eight
 Planet widget/profile tests passed. Another 23 backend, controller and recovery
-tests passed, for 63 Dart/Flutter tests in this pass. Both native C/Objective-C
-qualification executables passed with sanitizers. Dart analysis passed. macOS, iOS and Android
-ARM64 profile builds passed, and the final mobile apps installed on iPhone,
-iPad and Pixel 9 Pro.
+tests passed, for 65 Dart/Flutter tests in this pass. Both native C/Objective-C
+qualification executables passed with sanitizers. Dart analysis passed. macOS,
+iOS and Android
+ARM64 profile builds passed at commit `5495091`, and the final mobile apps
+installed on iPhone, iPad and Pixel 9 Pro.
 
 The iPhone launches wirelessly. The iPad launch remains denied as Locked.
 Mirrored Pixel slider input worked, but mirrored button taps did not commit a
@@ -109,4 +119,6 @@ behavior. Touch controls and moonlight images are not yet device-qualified.
 
 The remaining checks are unlocked Mac accessibility and moonlight/star/orbital
 images, iPhone and iPad touch/images, Pixel buttons, and a matched foreground
-performance comparison. No push or merge was performed.
+performance comparison. Tile decode failures also need diagnosis; the read-only
+VM snapshot had no retained asset exception with which to inspect their cause.
+No push or merge was performed.
