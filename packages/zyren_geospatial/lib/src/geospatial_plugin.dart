@@ -2,6 +2,8 @@ import 'package:zyren/zyren.dart';
 import 'ellipsoid_geometry.dart';
 import 'geodesy.dart';
 import 'layers/controller.dart';
+import 'world/reference.dart';
+import 'world/time.dart';
 import 'extensions/extension.dart';
 import 'extensions/registry.dart';
 import 'extensions/composition.dart';
@@ -34,6 +36,19 @@ class GeospatialReference {
 class GeospatialPlugin extends ScenePlugin {
   static const pluginId = 'geospatial';
   final GeospatialReference reference;
+  final GeoSimulationClock clock;
+  final Geodetic _origin;
+  final GeoHeightProvider? _heightProvider;
+  late final GeoWorldFrame worldFrame = GeoWorldFrame(
+    reference: reference,
+    origin: _origin,
+  );
+  late final GeoHeightProvider heightProvider =
+      _heightProvider ??
+      GeoEllipsoidHeightProvider(
+        sourceRevision:
+            'ellipsoid:${reference.ellipsoid.x},${reference.ellipsoid.y},${reference.ellipsoid.z}',
+      );
   final GeoLayerController layers = GeoLayerController();
   final GeoExtensionRegistry registry = GeoExtensionRegistry();
   final List<GeospatialExtension> extensions;
@@ -43,8 +58,14 @@ class GeospatialPlugin extends ScenePlugin {
   ]);
   GeospatialPlugin({
     Ellipsoid ellipsoid = Ellipsoid.wgs84,
+    GeoSimulationClock? clock,
+    Geodetic? origin,
+    GeoHeightProvider? heightProvider,
     List<GeospatialExtension> extensions = const [],
-  }) : reference = GeospatialReference(ellipsoid: ellipsoid),
+  }) : clock = clock ?? GeoSimulationClock(),
+       _origin = origin ?? Geodetic(0, 0),
+       _heightProvider = heightProvider,
+       reference = GeospatialReference(ellipsoid: ellipsoid),
        extensions = List.unmodifiable(extensions);
   @override
   String get id => pluginId;

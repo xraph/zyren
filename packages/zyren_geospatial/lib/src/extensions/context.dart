@@ -3,12 +3,17 @@ import '../geospatial_plugin.dart';
 import 'registry.dart';
 import '../layers/controller.dart';
 import '../layers/layer.dart';
+import '../world/reference.dart';
+import '../world/time.dart';
 
 /// Domain services wrapped around this extension's own core attachment.
 final class GeospatialContext {
   final PluginContext sceneContext;
   final GeospatialPlugin host;
   const GeospatialContext({required this.sceneContext, required this.host});
+  GeoWorldFrame get worldFrame => host.worldFrame;
+  GeoSimulationClock get clock => host.clock;
+  GeoHeightProvider get heightProvider => host.heightProvider;
   GeoLayerController get layers => host.layers;
   Registration registerLayer(GeoLayer layer) {
     _requireActive();

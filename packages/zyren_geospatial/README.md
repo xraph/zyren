@@ -83,6 +83,58 @@ nonfinite values and excessive nesting or size before publication. Keep source
 credentials in your resolver. The codec stores configuration; persistent resource
 caching and offline regions are separate services.
 
+## World frames and simulation time
+
+`GeospatialPlugin` provides `clock`, `worldFrame` and `heightProvider`, also
+available from each extension's context. Its local frame defaults to east/north/up
+at longitude and latitude zero; pass an `origin` for your working area. Terrain
+rendering continues to use ECEF. Converting a local frame does not silently move
+your scene or physics world.
+
+`GeoWorldFrame` converts positions and rotates vectors independently. A rebase
+publishes its old-to-new transform and revisions before the new frame becomes
+current. Apply `transformPosition` to local positions and `transformVector` to
+velocities or forces. Keep rebase listeners in your attachment scope. The default
+height provider supports ellipsoid-height identity only. Mean sea level and
+terrain elevation require a provider and otherwise return unavailable.
+
+Acquire one driver for a simulation graph and one for its clock:
+
+```dart
+final clockDriver = geospatial.clock.acquireDriver('world');
+final simulation = GeoSimulation(systems: worldSystems);
+final driver = simulation.acquireDriver('world');
+await driver.advance(clockDriver, elapsedSinceLastUpdate);
+```
+
+Call this from the application simulation loop. Rendering does not advance it.
+Systems run in deterministic sample, force, integrate, interaction and publication
+phases, with dependencies inside those phases. You can declare a required tick
+rate and catch-up limit per system. The smallest limit applies. Clocks retain
+integer tick identity, expose dropped ticks and interpolation fraction, and accept
+rational speed changes. Pausing discards pending fractional wall time; explicit
+`step` still supports single stepping.
+
+When a game session already owns time, pass its tick to `GeoExternalClock.accept`
+and use `driver.step(externalClock.instant)` only when a new tick was accepted.
+Do not advance a second clock or step the physics world again. The Planet
+`geospatial_clock_test.dart` exercises this arrangement with the existing game
+session and native physics, then renders camera-only frames without moving the
+body or advancing the game tick.
+
+Failures report the completed systems and block further steps. They do not roll
+back solver state. Replay needs a newer generation and a real `restore` operation
+on every participating system; call `beginReplay` with the restored checkpoint.
+A driver holds ownership until an asynchronous step drains after disposal. Await
+`driver.whenClosed` before replacing it. Advancement reserves its clock until the
+pending work drains too, preventing another consumer from moving time mid-step.
+
+`GeoSample<T>` carries availability, units, frame/source revisions and a tick.
+Use `isCurrent` before feeding a sample into another solver. Unknown age fails a
+requested age bound. UTC, TAI and TT are explicit time-standard labels; these
+contracts do not provide leap-second conversion or ephemeris data. Camera updates
+cannot change a sample's provenance or make an unavailable field valid.
+
 ## Built-in layer adapters
 
 Use `TerrainExtension` for independently owned terrain sources, with optional

@@ -25,6 +25,10 @@ dependencies:
   url_launcher: ^6.3.2
 
 dev_dependencies:
+  zyren_game:
+    path: ../../packages/zyren_game
+  zyren_physics:
+    path: ../../packages/zyren_physics
   crypto: ^3.0.7
   zyren:
     path: ../../packages/zyren

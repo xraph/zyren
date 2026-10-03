@@ -78,3 +78,8 @@ export 'src/layers/selection.dart';
 export 'src/extensions/terrain_extension.dart';
 export 'src/extensions/atmosphere_extension.dart';
 export 'src/extensions/camera_extension.dart';
+export 'src/world/time.dart';
+export 'src/world/external_clock.dart';
+export 'src/world/simulation.dart';
+export 'src/world/sample.dart';
+export 'src/world/reference.dart';

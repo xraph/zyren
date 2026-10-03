@@ -298,7 +298,7 @@ without admitting wall time. The application supplies its game tick through this
 adapter; it never calls a second clock. Accepting an older tick requires an explicit
 new replay generation, and duplicate ticks cannot step a system twice.
 
-- [ ] Write the render-independence regression with the current game and physics
+- [x] Write the render-independence regression with the current game and physics
   fixtures. Add the pure-clock case:
 
 ```dart
@@ -312,16 +312,16 @@ test('pause does not turn wall time into a jump on resume', () {
 });
 ```
 
-- [ ] Use integer tick identity and a bounded admission accumulator. Validate
+- [x] Use integer tick identity and a bounded admission accumulator. Validate
   epoch/time scale, positive rate, finite transforms and rebase revisions. Emit
   the old-to-new rigid transform before any consumer publishes a new frame.
-- [ ] Transform position with translation/rotation; transform velocity and forces
+- [x] Transform position with translation/rotation; transform velocity and forces
   with rotation only. Tests compare round-trips at the equator, poles and dateline.
   Provider height-datum conversion must be explicit and can return unavailable.
-- [ ] Test dependency ordering, duplicate drivers, failed steps, replay generation,
+- [x] Test dependency ordering, duplicate drivers, failed steps, replay generation,
   stale sample rejection and camera-only changes. Never implement rewind with
   negative delta. Include an application fixture driven by the existing game session.
-- [ ] Commit `feat(geospatial): share world frames and simulation time`.
+- [x] Commit `feat(geospatial): share world frames and simulation time`.
 
 ## Task 5: F5 Camera ownership, styles and public integration example
 

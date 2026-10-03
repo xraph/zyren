@@ -11,7 +11,7 @@ native spectral simulation and physical buoyancy required here.
 
 | Order | Plan | Tasks | Current status |
 | --- | --- | --- | --- |
-| 1 | [Extension host, layers and world services](01-foundation-plan.md) | F1-F5 | F1-F3 implemented and checked; F4 next |
+| 1 | [Extension host, layers and world services](01-foundation-plan.md) | F1-F5 | F1-F4 implemented and checked; F5 next |
 | 2 | [Persistent caching and offline regions](02-offline-plan.md) | D1-D4 | Queued for sequential execution |
 | 3 | [Native professional ocean](03-ocean-plan.md) | W1-W12 | Queued for sequential execution |
 
@@ -65,3 +65,10 @@ legacy atmosphere tests passed. Native fixtures verified imagery opacity and
 ordering at 192x128 and 96x160, hidden cache retention, atmosphere visibility and
 owned resource cleanup. No water rendering or mobile/Windows qualification is
 claimed by these results. Analysis passed.
+
+F4 checks: 16 world-frame and clock tests, 10 extension tests and 4 legacy tests
+passed. The Planet application fixture passed with native physics: 60 game ticks
+produced 60 physics steps, and camera-only frames changed neither. Analysis passed.
+Clock and system ownership remain reserved until pending asynchronous work drains.
+Time standards are labelled; leap-second conversion and ephemeris data are not
+provided. The concurrent Studio boundary issue recorded above remains.
