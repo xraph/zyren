@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:zyren/zyren.dart';
+import '../data/policy.dart';
 import '../geodesy.dart';
 import '../tiling.dart';
 import '../streaming/tile_source.dart';
@@ -218,6 +219,8 @@ final class QuantizedMeshTerrainSource implements TerrainSource {
       source._uri(const TileCoordinate(0, 0, 0));
       cancellation.throwIfCancelled();
       return source;
+    } on GeoDataException {
+      rethrow;
     } on LoadCancelled {
       rethrow;
     } on AssetLoadException catch (error) {
@@ -424,6 +427,8 @@ final class QuantizedMeshTerrainSource implements TerrainSource {
         availability: tile.availability,
         attributions: attribution.isEmpty ? const [] : [attribution],
       );
+    } on GeoDataException {
+      rethrow;
     } on LoadCancelled {
       rethrow;
     } on AssetLoadException catch (error) {
@@ -458,6 +463,8 @@ Future<ResolvedSource> _read(
     policy.validate(uri, source.effectiveUri);
     context.reportProgress(source.bytes.length);
     return source;
+  } on GeoDataException {
+    rethrow;
   } on LoadCancelled {
     rethrow;
   } on AssetLoadException catch (error) {

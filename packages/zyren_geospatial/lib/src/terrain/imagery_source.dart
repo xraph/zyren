@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:math' as math;
 import 'package:zyren/zyren.dart';
+import '../data/policy.dart';
 import '../tiling.dart';
 
 enum ImageryProjection { geographic, webMercator }
@@ -125,9 +126,16 @@ final class TemplateImagerySource extends RasterImagerySource {
       final data = await task.result;
       cancellation.throwIfCancelled();
       return data;
+    } on GeoDataException {
+      rethrow;
     } on LoadCancelled {
       rethrow;
     } on AssetLoadException catch (error) {
+      Object? cause = error;
+      for (var i = 0; i < 8 && cause is SceneException; i++) {
+        cause = cause.issue.cause;
+        if (cause is GeoDataException) throw cause;
+      }
       throw imageryFailure(error.code);
     } catch (_) {
       cancellation.throwIfCancelled();

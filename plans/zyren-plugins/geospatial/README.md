@@ -12,7 +12,7 @@ native spectral simulation and physical buoyancy required here.
 | Order | Plan | Tasks | Current status |
 | --- | --- | --- | --- |
 | 1 | [Extension host, layers and world services](01-foundation-plan.md) | F1-F5 | F1-F5 implemented; native Metal checks recorded |
-| 2 | [Persistent caching and offline regions](02-offline-plan.md) | D1-D4 | D1-D2 implemented; verified regions next |
+| 2 | [Persistent caching and offline regions](02-offline-plan.md) | D1-D4 | D1-D3 implemented; field adapters and lab next |
 | 3 | [Native professional ocean](03-ocean-plan.md) | W1-W12 | Queued for sequential execution |
 
 Navigation/traffic, flight and orbital simulation remain in the approved platform
@@ -92,3 +92,12 @@ on macOS, including abrupt child-process exits at all four publication stages.
 The complete D1/D2 suite has 31 passing tests. Analysis passed. Linux, Windows and
 power-loss durability remain unqualified. A corrupt committed index fails closed
 instead of reconstructing unknown pin ownership from payload filenames.
+
+D3 checks include a fresh child process with transport forbidden, quantized-mesh
+loading, native PNG decoding, scheduler parent fallback, camera movement outside
+stored detail and recovery with a fresh online source. Region checks cover
+missing dependencies, cancellation/restart, revoked export permission, failed
+replacement publication, stale-writer rejection, dateline coverage and Mercator
+limits. The affected data/terrain/streaming suite passed 105 tests, followed by
+six region tests after the final cancellation-permission fix. Owned-file analysis
+passed. Concurrent cloud tests have three unrelated style diagnostics.

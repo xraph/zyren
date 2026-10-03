@@ -832,3 +832,59 @@ corruption, symlink rejection, cancellation, concurrent child processes and Dart
 isolates on macOS. These are process-crash checks, not a power-loss guarantee.
 File contents are flushed; portable Dart does not expose directory `fsync` here.
 Windows and Linux storage behavior still need platform qualification.
+
+## Verified offline regions
+
+Register `GeoRegionSource` instances in a `GeoSourceCatalog`, then plan a
+`GeoOfflineRegion` with pinned source versions, an authorization partition,
+selected layer IDs, radian bounds and a detail range. `GeoTileRegionSource`
+enumerates the requested levels and their ancestors for parent fallback. It
+rejects an oversized request instead of lowering detail. Global requests require
+explicit opt-in and still obey the resource and byte limits.
+
+Coverage is a provider declaration. Unknown coverage cannot certify a region,
+and Mercator sources are clipped to their supported latitude range. Dateline
+crossings are split into longitude intervals. Plans include every required
+metadata, tile and nested dependency key. A plan with a missing dependency,
+cycle, mismatched version or authorization partition is rejected before download.
+
+```dart
+final plan = await catalog.plan(region);
+final job = GeoRegionJob(resolver: resources, store: diskStore);
+final result = await job.start(plan);
+if (!result.complete) {
+  // Inspect result.missingKeys and result.failures. Coverage can also be incomplete.
+}
+await job.cancel(); // Saves permitted, verified progress if a download is active.
+await job.resume();
+await job.close();
+```
+
+Jobs publish immutable progress for planned, downloading, paused, verifying,
+complete and failed states. The file store persists resumable job records and
+pins. After restart, `GeoRegionJob.restore(id: id, resolver: resources,
+store: diskStore)` verifies cached bytes and current authorization without using
+transport. Call `resume()` when downloads are allowed again. Cancellation drops
+job pins for resources whose export permission has been revoked.
+
+A complete manifest replaces the previous complete manifest and its pins in one
+transaction. Failed downloads and publication errors leave that previous record
+available. Store revisions reject stale competing writers. Completion describes
+verification at a specific time; restore and `verify()` check current bytes and
+permissions again. The file store accepts the earlier D2 index format and writes
+the versioned manifest-capable format on its next mutation.
+
+Pass `GeoTerrainResourceResolver` to existing terrain constructors or imagery
+`AssetServices`. Use a logical base such as `geo-resource://coast/` and map its
+paths to versioned keys. Every nested read uses the adapter's policy, partition
+and permitted source versions. Providers' real URLs remain in the transport
+locator. Recreate the source when changing policy so old decoded content cannot
+stand in for an offline check. Structured geographic errors survive terrain and
+imagery loading, including `offlineMiss` outside downloaded detail.
+
+For per-read transport limits, configure the resource resolver with both
+`fetch: transport.fetch` and `boundedFetch: transport.fetchBounded`. The adapter
+passes the loader's byte allowance through to streaming admission. Stores with
+`GeoBoundedDataStore` reject an oversized cached entry before reading its payload.
+A custom fetcher without a bounded callback can serve a smaller-budget request
+from a bounded cache, but a cache miss returns `budgetExceeded` before transport.

@@ -12,6 +12,7 @@ enum GeoDataError {
   closed,
   transportFailure,
   invalidResponse,
+  conflict,
 }
 
 final class GeoDataException implements Exception {

@@ -59,7 +59,15 @@ final class GeoByteSourceTransport {
   Future<GeoResource> fetch(
     GeoResourceKey key,
     LoadCancellation cancellation,
+  ) => fetchBounded(key, cancellation, maxBytes);
+
+  Future<GeoResource> fetchBounded(
+    GeoResourceKey key,
+    LoadCancellation cancellation,
+    int requestedBytes,
   ) async {
+    final limit = math.min(maxBytes, requestedBytes);
+    if (limit < 1) throw const GeoDataException(GeoDataError.budgetExceeded);
     try {
       cancellation.throwIfCancelled();
       final location = await locate(key);
@@ -69,7 +77,7 @@ final class GeoByteSourceTransport {
       final result = await source.read(
         location.uri,
         SourceReadContext(
-          maxBytes: maxBytes,
+          maxBytes: limit,
           cancellation: cancellation,
           policy: location.policy,
           headers: location.headers,
@@ -78,7 +86,7 @@ final class GeoByteSourceTransport {
       );
       cancellation.throwIfCancelled();
       location.policy.validate(location.uri, result.effectiveUri);
-      if (result.bytes.length > maxBytes) {
+      if (result.bytes.length > limit) {
         throw const GeoDataException(GeoDataError.budgetExceeded);
       }
       final received = now();

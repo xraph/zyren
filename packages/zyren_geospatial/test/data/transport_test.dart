@@ -15,6 +15,65 @@ class Source implements ByteSourceResolver {
 
 void main() {
   test(
+    'nested source reads pass their smaller budget to physical transport',
+    () async {
+      var admitted = 0;
+      final transport = GeoByteSourceTransport(
+        maxBytes: 32,
+        source: Source((uri, context) async {
+          admitted = context.maxBytes;
+          context.reportProgress(3);
+          return ResolvedSource(
+            effectiveUri: uri,
+            bytes: Uint8List.fromList([1, 2, 3]),
+          );
+        }),
+        locate: (_) =>
+            GeoTransportLocation(uri: Uri.parse('https://example.test/tile')),
+      );
+      final store = MemoryGeoDataStore(maxBytes: 64, maxEntries: 4);
+      final resolver = GeoResourceResolver(
+        store: store,
+        fetch: transport.fetch,
+        boundedFetch: transport.fetchBounded,
+        maxResourceBytes: 32,
+      );
+      final logical = Uri.parse('geo-resource://fixture/tile');
+      final adapter = GeoTerrainResourceResolver(
+        resources: resolver,
+        policy: GeoReadPolicy(mode: GeoAccessMode.networkFirst),
+        baseUri: logical.resolve('/'),
+        keyForUri: (_) => key(),
+        authorizationPartition: 'public',
+        sourceVersions: {'sea': '1'},
+      );
+      final context = SourceReadContext(
+        maxBytes: 2,
+        cancellation: LoadCancellationSource(),
+        policy: const SourcePolicy(),
+        onProgress: (_, _) {},
+      );
+      await expectLater(
+        adapter.read(logical, context),
+        error(GeoDataError.budgetExceeded),
+      );
+      expect(admitted, 2);
+      await store.write(resource(key()));
+      await expectLater(
+        resolver.read(
+          key(),
+          GeoReadPolicy(mode: GeoAccessMode.offlineOnly),
+          maxBytes: 2,
+          cancellation: LoadCancellationSource(),
+        ),
+        error(GeoDataError.budgetExceeded),
+      );
+      await resolver.close();
+      await store.close();
+    },
+  );
+
+  test(
     'freshness includes response age and rejects ambiguous cache metadata',
     () async {
       final now = DateTime.utc(2026, 10, 3, 12);

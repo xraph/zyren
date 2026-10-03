@@ -56,8 +56,13 @@ abstract interface class GeoDataStore {
   Future<void> close();
 }
 
+/// Optional bounded-read capability for callers with smaller per-read budgets.
+abstract interface class GeoBoundedDataStore implements GeoDataStore {
+  Future<GeoResource?> readBounded(GeoResourceKey key, {required int maxBytes});
+}
+
 /// Payload bytes and entry count are separate bounds. Keys have their own limits.
-final class MemoryGeoDataStore implements GeoDataStore {
+final class MemoryGeoDataStore implements GeoBoundedDataStore {
   final int maxBytes, maxEntries;
   final _entries = <GeoResourceKey, GeoResource>{};
   int _bytes = 0;
@@ -82,6 +87,18 @@ final class MemoryGeoDataStore implements GeoDataStore {
       _entries[key] = value;
     }
     return value;
+  }
+
+  @override
+  Future<GeoResource?> readBounded(
+    GeoResourceKey key, {
+    required int maxBytes,
+  }) async {
+    _check();
+    if (maxBytes < 1 || (_entries[key]?.bytes.length ?? 0) > maxBytes) {
+      throw const GeoDataException(GeoDataError.budgetExceeded);
+    }
+    return read(key);
   }
 
   @override

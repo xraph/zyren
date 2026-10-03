@@ -7,6 +7,12 @@ import 'request_pool.dart';
 
 typedef GeoResourceFetcher =
     Future<GeoResource> Function(GeoResourceKey, LoadCancellation);
+typedef GeoBoundedResourceFetcher =
+    Future<GeoResource> Function(
+      GeoResourceKey,
+      LoadCancellation,
+      int maxBytes,
+    );
 typedef GeoResourceAuthorization =
     FutureOr<bool> Function(GeoResourceKey key, bool offline);
 
@@ -21,6 +27,7 @@ final class GeoResourceRequest {
 final class GeoResourceResolver {
   final GeoDataStore store;
   final GeoResourceFetcher fetch;
+  final GeoBoundedResourceFetcher? boundedFetch;
   final GeoRequestPool pool;
   final GeoResourceAuthorization? authorize;
   final GeoSourceMetadata? Function(GeoResourceKey)? metadata;
@@ -36,6 +43,7 @@ final class GeoResourceResolver {
   GeoResourceResolver({
     required this.store,
     required this.fetch,
+    this.boundedFetch,
     GeoRequestPool? pool,
     this.authorize,
     this.metadata,
@@ -99,9 +107,9 @@ final class GeoResourceResolver {
     return value;
   }
 
-  void _verify(GeoResource value, GeoResourceKey key) {
+  void _verify(GeoResource value, GeoResourceKey key, int limit) {
     if (value.key != key) throw const GeoDataException(GeoDataError.corrupt);
-    if (value.bytes.length > maxResourceBytes) {
+    if (value.bytes.length > limit) {
       throw const GeoDataException(GeoDataError.budgetExceeded);
     }
     value.verify();
@@ -119,8 +127,13 @@ final class GeoResourceResolver {
     GeoResourceKey key,
     GeoReadPolicy policy, {
     required LoadCancellation cancellation,
+    int? maxBytes,
   }) => _track(() async {
     _check(cancellation);
+    final limit = maxBytes == null || maxBytes > maxResourceBytes
+        ? maxResourceBytes
+        : maxBytes;
+    if (limit < 1) throw const GeoDataException(GeoDataError.budgetExceeded);
     final epoch = _epochs.putIfAbsent(key, _Epoch.new);
     epoch.readers++;
     final offline = policy.mode == GeoAccessMode.offlineOnly;
@@ -132,9 +145,16 @@ final class GeoResourceResolver {
       GeoResource? cached;
       if (policy.mode != GeoAccessMode.onlineOnly) {
         try {
-          cached = await store.read(key);
+          cached = store is GeoBoundedDataStore
+              ? await (store as GeoBoundedDataStore).readBounded(
+                  key,
+                  maxBytes: limit,
+                )
+              : limit == maxResourceBytes
+              ? await store.read(key)
+              : throw const GeoDataException(GeoDataError.budgetExceeded);
           _current(key, epoch, cancellation);
-          if (cached != null) _verify(cached, key);
+          if (cached != null) _verify(cached, key, limit);
         } on GeoDataException catch (error) {
           if (error.code != GeoDataError.corrupt || offline) rethrow;
           cached = null;
@@ -163,11 +183,11 @@ final class GeoResourceResolver {
       }
       try {
         final result = await pool.run(
-          (key, policy, epoch),
+          (key, policy, epoch, limit),
           key.sourceId,
-          reservationBytes: maxResourceBytes,
+          reservationBytes: limit,
           cancellation: cancellation,
-          work: (physical) => _fetch(key, policy, epoch, physical),
+          work: (physical) => _fetch(key, policy, epoch, physical, limit),
         );
         await _authorize(key, false);
         _current(key, epoch, cancellation);
@@ -182,7 +202,7 @@ final class GeoResourceResolver {
         }
         await _authorize(key, false);
         _current(key, epoch, cancellation);
-        _verify(cached, key);
+        _verify(cached, key, limit);
         return cached;
       }
     } finally {
@@ -198,6 +218,7 @@ final class GeoResourceResolver {
     GeoReadPolicy policy,
     _Epoch epoch,
     LoadCancellation cancellation,
+    int limit,
   ) async {
     for (var attempt = 0; attempt < policy.maxAttempts; attempt++) {
       _current(key, epoch, cancellation);
@@ -205,7 +226,14 @@ final class GeoResourceResolver {
       _current(key, epoch, cancellation);
       GeoResource value;
       try {
-        value = await fetch(key, cancellation);
+        if (boundedFetch != null) {
+          value = await boundedFetch!(key, cancellation, limit);
+        } else {
+          if (limit < maxResourceBytes) {
+            throw const GeoDataException(GeoDataError.budgetExceeded);
+          }
+          value = await fetch(key, cancellation);
+        }
       } on LoadCancelled {
         throw const GeoDataException(GeoDataError.cancelled);
       } on GeoDataException catch (error) {
@@ -220,7 +248,7 @@ final class GeoResourceResolver {
         throw GeoDataException(GeoDataError.invalidResponse, cause: error);
       }
       _current(key, epoch, cancellation);
-      _verify(value, key);
+      _verify(value, key, limit);
       await _authorize(key, false);
       _current(key, epoch, cancellation);
       if (policy.mode != GeoAccessMode.onlineOnly && !value.mayPersist) {
@@ -249,7 +277,7 @@ final class GeoResourceResolver {
     _epochs.remove(key);
     pool.cancelWhere(
       (job, _) =>
-          job is (GeoResourceKey, GeoReadPolicy, _Epoch) && job.$1 == key,
+          job is (GeoResourceKey, GeoReadPolicy, _Epoch, int) && job.$1 == key,
     );
     return _mutate(key, () => store.remove(key));
   });

@@ -3,6 +3,7 @@ import 'resource_key.dart';
 import 'store.dart';
 import 'policy.dart';
 import 'integrity.dart';
+import 'manifest_store.dart';
 
 final class GeoFileEntry {
   final GeoResourceKey key;
@@ -81,19 +82,34 @@ final class GeoFileEntry {
 final class GeoFileIndex {
   final Map<String, GeoFileEntry> entries;
   final Map<String, Set<String>> pins;
+  final Map<String, GeoStoredManifest> records;
+  int revision;
   GeoFileIndex({
     Map<String, GeoFileEntry>? entries,
     Map<String, Set<String>>? pins,
+    Map<String, GeoStoredManifest>? records,
+    this.revision = 0,
   }) : entries = entries ?? {},
-       pins = pins ?? {};
+       pins = pins ?? {},
+       records = records ?? {};
   int get payloadBytes => entries.values.fold(0, (n, e) => n + e.size);
   Set<String> get pinned => {for (final values in pins.values) ...values};
   GeoFileIndex copy() => GeoFileIndex(
     entries: Map.of(entries),
+    records: Map.of(records),
+    revision: revision,
     pins: {for (final e in pins.entries) e.key: Set.of(e.value)},
   );
   Uint8List encode() => encodeGeoIndex({
-    'schema': 1,
+    'schema': 2,
+    'revision': revision,
+    'records': {
+      for (final id in records.keys.toList()..sort())
+        id: {
+          'revision': records[id]!.revision,
+          'document': records[id]!.document,
+        },
+    },
     'entries': {
       for (final id in entries.keys.toList()..sort()) id: entries[id]!.toJson(),
     },
@@ -109,7 +125,8 @@ final class GeoFileIndex {
   }) {
     try {
       final data = decodeGeoIndex(bytes);
-      if (data['schema'] != 1 || data.length != 3) {
+      if (!((data['schema'] == 1 && data.length == 3) ||
+          (data['schema'] == 2 && data.length == 5))) {
         throw const FormatException('Unknown store schema.');
       }
       final rawEntries = data['entries'] as Map<String, Object?>;
@@ -134,6 +151,32 @@ final class GeoFileIndex {
           throw const FormatException('Invalid pin set.');
         }
         result.pins[pair.key] = values.toSet();
+      }
+      if (data['schema'] == 2) {
+        result.revision = data['revision'] as int;
+        if (result.revision < 0 || result.revision > 9007199254740991) {
+          throw const FormatException('Invalid manifest revision.');
+        }
+        final records = data['records'] as Map<String, Object?>;
+        if (records.length > maxManifests) {
+          throw const GeoDataException(GeoDataError.budgetExceeded);
+        }
+        for (final entry in records.entries) {
+          validateGeoManifestId(entry.key);
+          final value = entry.value as Map<String, Object?>;
+          final revision = value['revision'] as int;
+          if (value.length != 2 ||
+              revision < 1 ||
+              revision > result.revision ||
+              !result.pins.containsKey(entry.key)) {
+            throw const FormatException('Invalid manifest record.');
+          }
+          result.records[entry.key] = GeoStoredManifest(
+            revision: revision,
+            document: value['document'] as Map<String, Object?>,
+            digests: result.pins[entry.key]!,
+          );
+        }
       }
       return result;
     } on GeoDataException {

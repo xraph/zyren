@@ -7,6 +7,8 @@ import 'integrity.dart';
 import 'policy.dart';
 import 'resource_key.dart';
 import 'store.dart';
+import 'manifest_store.dart';
+import '../layers/document.dart';
 
 final class GeoStoreStats {
   final int entries, committedBytes, metadataBytes, temporaryBytes, pinnedBytes;
@@ -35,7 +37,7 @@ enum GeoStoreWriteStage {
 
 /// Uses a private directory, immutable digest-named blobs and a checksummed
 /// index journal. maxBytes covers payloads, metadata and transactional staging.
-final class FileGeoDataStore implements GeoDataStore {
+final class FileGeoDataStore implements GeoManifestStore, GeoBoundedDataStore {
   final Directory directory;
   final int maxBytes, maxEntries, maxManifests, maxIndexBytes;
   final Duration lockTimeout;
@@ -182,6 +184,22 @@ final class FileGeoDataStore implements GeoDataStore {
   }, cancellation);
 
   @override
+  Future<GeoResource?> readBounded(
+    GeoResourceKey key, {
+    required int maxBytes,
+  }) => _operation((root, token) async {
+    final current = await _recover(root, token);
+    final entry = current.entries[key.digest];
+    if (entry == null) return null;
+    if (maxBytes < 1 || entry.size > maxBytes) {
+      throw const GeoDataException(GeoDataError.budgetExceeded);
+    }
+    final value = await _readEntry(root, entry, token);
+    await _blob(root, entry).setLastModified(DateTime.now().toUtc());
+    return value;
+  }, null);
+
+  @override
   Future<bool> write(
     GeoResource resource, {
     LoadCancellation? cancellation,
@@ -315,6 +333,9 @@ final class FileGeoDataStore implements GeoDataStore {
         }
         await _readEntry(root, entry, token);
       }
+      if (current.records.containsKey(manifestId)) {
+        throw const GeoDataException(GeoDataError.conflict);
+      }
       final next = current.copy()..pins[manifestId] = immutable;
       try {
         await _publish(root, current, next, token);
@@ -329,7 +350,9 @@ final class FileGeoDataStore implements GeoDataStore {
     return _operation((root, token) async {
       final current = await _recover(root, token);
       if (!current.pins.containsKey(manifestId)) return;
-      final next = current.copy()..pins.remove(manifestId);
+      final next = current.copy()
+        ..pins.remove(manifestId)
+        ..records.remove(manifestId);
       try {
         await _publish(root, current, next, token);
       } finally {
@@ -369,6 +392,78 @@ final class FileGeoDataStore implements GeoDataStore {
           manifests: current.pins.length,
         );
       }, cancellation);
+
+  @override
+  Future<GeoStoredManifest?> readManifest(String id) {
+    validateGeoManifestId(id);
+    return _operation(
+      (root, token) async => (await _recover(root, token)).records[id],
+      null,
+    );
+  }
+
+  @override
+  Future<GeoStoredManifest> commitManifest(
+    String id,
+    Map<String, Object?> document,
+    Set<String> digests, {
+    required int? expectedRevision,
+    Map<String, int> removeManifests = const {},
+  }) {
+    validateGeoManifestId(id);
+    final safeDocument = copyLayerDocument(document, maxBytes: 4 * 1024 * 1024);
+    final safeDigests = Set<String>.unmodifiable(digests);
+    final removals = Map<String, int>.unmodifiable(removeManifests);
+    if (safeDigests.length > maxEntries ||
+        safeDigests.any((d) => !geoDigestPattern.hasMatch(d)) ||
+        removals.containsKey(id)) {
+      throw ArgumentError('Invalid manifest transaction.');
+    }
+    for (final id in removals.keys) {
+      validateGeoManifestId(id);
+    }
+    return _operation((root, token) async {
+      final current = await _recover(root, token);
+      if (current.records[id]?.revision != expectedRevision ||
+          (expectedRevision == null && current.pins.containsKey(id)) ||
+          removals.entries.any(
+            (e) => current.records[e.key]?.revision != e.value,
+          )) {
+        throw const GeoDataException(GeoDataError.conflict);
+      }
+      if (current.revision >= 9007199254740991) {
+        throw const GeoDataException(GeoDataError.budgetExceeded);
+      }
+      for (final digest in safeDigests) {
+        final entry = current.entries[digest];
+        if (entry == null) {
+          throw const GeoDataException(GeoDataError.offlineMiss);
+        }
+        await _readEntry(root, entry, token);
+      }
+      final next = current.copy()..revision = current.revision + 1;
+      for (final id in removals.keys) {
+        next.records.remove(id);
+        next.pins.remove(id);
+      }
+      final record = GeoStoredManifest(
+        revision: next.revision,
+        document: safeDocument,
+        digests: safeDigests,
+      );
+      next.records[id] = record;
+      next.pins[id] = safeDigests;
+      if (next.pins.length > maxManifests) {
+        throw const GeoDataException(GeoDataError.budgetExceeded);
+      }
+      try {
+        await _publish(root, current, next, token);
+      } finally {
+        await _recover(root, LoadCancellationSource());
+      }
+      return record;
+    }, null);
+  }
 
   @override
   Future<void> close() {

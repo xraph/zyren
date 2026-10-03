@@ -184,7 +184,7 @@ required dependency keys. `GeoRegionJob.start(plan)`, `cancel()`, `resume()` and
 `verify()` return/maintain immutable progress with explicit missing resources.
 `GeoRegionManifest.complete` is true only after every required key verifies.
 
-- [ ] Build a local fixture with terrain, imagery and one missing child asset.
+- [x] Build a local fixture with terrain, imagery and one missing child asset.
   The following assertion belongs after starting that job:
 
 ```dart
@@ -196,12 +196,12 @@ expect(result.verifiedKeys, isNot(contains(childKey)));
 
   `job` is a `GeoRegionJob`; `childKey` is the deliberately absent D1 key.
   `verify()` returns `GeoRegionManifest` with the three shown fields.
-- [ ] Resolve nested dependencies within the same access policy and scope.
+- [x] Resolve nested dependencies within the same access policy and scope.
   Enumerators must declare resource bounds and fail a global/unbounded request
   before downloads start. Antimeridian coverage uses split longitude intervals;
   polar coverage cannot be inferred from Mercator tiles. Unknown source coverage
   remains incomplete. Credentials remain in caller transport.
-- [ ] Use a manifest state machine with persisted jobs:
+- [x] Use a manifest state machine with persisted jobs:
 
 ```dart
 enum GeoRegionJobState { planned, downloading, paused, verifying, complete, failed }
@@ -210,10 +210,10 @@ enum GeoRegionJobState { planned, downloading, paused, verifying, complete, fail
   Completing publishes pins and manifest together. Cancelling retains only the
   resumable verified resources allowed by policy. Replacing a region keeps the
   previous complete manifest readable until its replacement verifies.
-- [ ] Test process restart with a transport that throws on every call, then pan
+- [x] Test process restart with a transport that throws on every call, then pan
   within coverage and outside it. Verify existing parent fallback, explicit
   offline misses, retry after reconnection and visible layer attribution.
-- [ ] Commit `feat(geospatial): download and verify offline regions`.
+- [x] Commit `feat(geospatial): download and verify offline regions`.
 
 ## Task 4: D4 Ocean-data and model-bundle adapters, diagnostics and example
 
