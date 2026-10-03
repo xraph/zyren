@@ -163,7 +163,9 @@ final class TrainingRunner {
   final int maxConcurrent;
   final Duration stopGrace;
   final _runs = <TrainingRunHandle>[];
+  final _profiles = <String, TrainingRunRequest>{};
   bool _closed = false;
+  Future<void>? _closing;
   int revision = 0;
   List<TrainingRunHandle> get runs => List.unmodifiable(_runs);
   Future<TrainingRunHandle> start(
@@ -302,11 +304,13 @@ final class TrainingRunner {
       poll = Timer.periodic(const Duration(milliseconds: 100), (_) {
         if (!polling) {
           polling = true;
-          reading = read().catchError((Object error) {
-            run.error = '$error';
-            run._stopRequested = true;
-            run._process?.kill(ProcessSignal.sigterm);
-          }).whenComplete(() => polling = false);
+          reading = read()
+              .catchError((Object error) {
+                run.error = '$error';
+                run._stopRequested = true;
+                run._process?.kill(ProcessSignal.sigterm);
+              })
+              .whenComplete(() => polling = false);
         }
         if (run._stopRequested && kill == null) {
           kill = Timer(
@@ -329,7 +333,9 @@ final class TrainingRunner {
           last.data['worker_exit_codes'] is! List ||
           (last.state == 'completed' &&
               (run.exitCode != 0 ||
-                  (last.data['worker_exit_codes'] as List).any((v) => v != 0)))) {
+                  (last.data['worker_exit_codes'] as List).any(
+                    (v) => v != 0,
+                  )))) {
         throw FormatException('Trainer/worker closure is unverified.');
       }
       if (last.state == 'completed' || last.state == 'cancelled') {
@@ -387,7 +393,8 @@ final class TrainingRunner {
     run.checkpointHash = data['sha256'] as String;
   }
 
-  Future<void> close() async {
+  Future<void> close() => _closing ??= _close();
+  Future<void> _close() async {
     if (_closed) return;
     _closed = true;
     await Future.wait(
@@ -420,4 +427,19 @@ Future<void> _scopedPath(String project, String path) async {
       !(await File(path).resolveSymbolicLinks()).startsWith('$project/')) {
     throw ArgumentError('Training file escapes project scope.');
   }
+}
+
+/// Profiles are host-approved paths; external tools may select only these IDs.
+extension TrainingProfilesCatalog on TrainingRunner {
+  void registerProfile(String id, TrainingRunRequest request) {
+    if (_closed ||
+        !RegExp(r'^[a-zA-Z0-9_.-]{1,128}$').hasMatch(id) ||
+        !_profiles.containsKey(id) && _profiles.length >= 16) {
+      throw StateError('Training profile is invalid or full.');
+    }
+    _profiles[id] = request;
+    revision++;
+  }
+
+  Map<String, TrainingRunRequest> get profiles => Map.unmodifiable(_profiles);
 }

@@ -2,11 +2,27 @@ part of '../../ai.dart';
 
 final class GameAiWorkspace extends ChangeNotifier {
   bool _disposed = false;
+  int _importSerial = 0;
+  Future<void>? _closing;
+  final int maxActors;
   PolicyGroup? group;
+  Map<String, Object?>? Function(GameEntityHandle actor)? inspectActor;
+  List<GameEntityHandle> Function()? availableActors;
+  List<GameEntityHandle> get actors => List.unmodifiable(
+    (availableActors?.call() ?? group?.actors ?? const <GameEntityHandle>[])
+        .take(maxActors),
+  );
   GameEntityHandle? selectedActor;
   final TrainingRunner runner;
   TrainingRunRequest? trainingRequest;
+  TrainingToolchain? toolchain;
+  String? scenarioTemplatePath;
   ModelImport? importer;
+  Future<ModelImportCandidate> Function(
+    String path,
+    MlCancellationToken cancellation,
+  )?
+  prepareArtifact;
   ModelActivation? activation;
   ModelImportCandidate? candidate;
   final Map<String, ModelImportCandidate> models = {};
@@ -17,10 +33,15 @@ final class GameAiWorkspace extends ChangeNotifier {
   String? error, activeModelHash;
   final GameAiWalkthroughs tours = GameAiWalkthroughs();
   StreamSubscription<void>? _runUpdates;
-  GameAiWorkspace({TrainingRunner? runner})
-    : runner = runner ?? TrainingRunner();
-  Map<String, Object?>? get diagnostic =>
-      selectedActor == null ? null : group?.inspect(selectedActor!);
+  GameAiWorkspace({TrainingRunner? runner, this.maxActors = 64})
+    : runner = runner ?? TrainingRunner() {
+    if (maxActors < 1 || maxActors > 256) {
+      throw ArgumentError('Actor inspector budget must be1..256.');
+    }
+  }
+  Map<String, Object?>? get diagnostic => selectedActor == null
+      ? null
+      : (inspectActor?.call(selectedActor!) ?? group?.inspect(selectedActor!));
   void select(GameEntityHandle? actor) {
     selectedActor = actor;
     error = null;
@@ -43,6 +64,10 @@ final class GameAiWorkspace extends ChangeNotifier {
     if (!permitted || importer == null) {
       throw StateError('Model import is unavailable or denied.');
     }
+    if (_disposed || _closing != null) {
+      throw StateError('AI workspace is closed.');
+    }
+    final serial = ++_importSerial, host = importer!;
     busy = true;
     error = null;
     _notify();
@@ -50,17 +75,62 @@ final class GameAiWorkspace extends ChangeNotifier {
       if (models.length >= 64 && !models.containsKey(contract.model.sha256)) {
         throw StateError('Model catalog capacity reached.');
       }
-      candidate = await importer!.validate(
+      final prepared = await host.validate(
         contract,
         evaluation: evaluation,
         cancellation: cancellation,
       );
-      models[contract.model.sha256] = candidate!;
+      if (_disposed ||
+          _closing != null ||
+          !permitted ||
+          serial != _importSerial ||
+          !identical(host, importer)) {
+        throw const ModelImportCancelled();
+      }
+      candidate = prepared;
+      models[contract.model.sha256] = prepared;
     } catch (e) {
       error = '$e';
       rethrow;
     } finally {
-      busy = false;
+      if (serial == _importSerial) busy = false;
+      _notify();
+    }
+  }
+
+  Future<void> importLocalArtifact(
+    String path,
+    MlCancellationToken cancellation,
+  ) async {
+    final host = prepareArtifact;
+    if (!permitted || _disposed || _closing != null || host == null) {
+      throw StateError('Artifact import is unavailable or denied.');
+    }
+    final serial = ++_importSerial;
+    busy = true;
+    error = null;
+    _notify();
+    try {
+      final prepared = await host(path, cancellation);
+      if (_disposed ||
+          _closing != null ||
+          !permitted ||
+          serial != _importSerial ||
+          cancellation.isCancelled ||
+          !identical(host, prepareArtifact)) {
+        throw const ModelImportCancelled();
+      }
+      final hash = prepared.contract.model.sha256;
+      if (models.length >= 64 && !models.containsKey(hash)) {
+        throw StateError('Model catalog capacity reached.');
+      }
+      candidate = prepared;
+      models[hash] = prepared;
+    } catch (e) {
+      error = '$e';
+      rethrow;
+    } finally {
+      if (serial == _importSerial) busy = false;
       _notify();
     }
   }
@@ -82,13 +152,18 @@ final class GameAiWorkspace extends ChangeNotifier {
       throw StateError('Training is not configured.');
     }
     error = null;
-    final run = await runner.start(request.copyWith(resume: resume));
+    final run = await runner.start(
+      request.copyWith(resume: resume),
+      authorize: () => permitted && !_disposed && _closing == null,
+    );
     await _runUpdates?.cancel();
-    _runUpdates = run.changes.listen((_) => notifyListeners());
+    _runUpdates = run.changes.listen((_) => _notify());
     _notify();
   }
 
-  Future<void> close() async {
+  Future<void> close() => _closing ??= _close();
+  Future<void> _close() async {
+    _importSerial++;
     await _runUpdates?.cancel();
     await runner.close();
   }
@@ -124,8 +199,9 @@ class GameBrainInspector extends StatelessWidget {
           message: 'Ask your project owner for AI inspection access.',
         );
       }
+      final actorChoices = workspace.actors;
       final diagnostic = workspace.diagnostic;
-      if (diagnostic == null) {
+      if (diagnostic == null && actorChoices.isEmpty) {
         return const ZeroState(
           title: 'Select a policy actor',
           message:
@@ -136,16 +212,45 @@ class GameBrainInspector extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (actorChoices.isNotEmpty)
+              DropdownButtonFormField<GameEntityHandle>(
+                key: ValueKey(workspace.selectedActor),
+                initialValue: actorChoices.contains(workspace.selectedActor)
+                    ? workspace.selectedActor
+                    : null,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: 'NPC actor',
+                  isDense: true,
+                ),
+                items: [
+                  for (final actor in actorChoices)
+                    DropdownMenuItem(
+                      value: actor,
+                      child: Text(
+                        '${actor.id} · generation ${actor.generation}',
+                      ),
+                    ),
+                ],
+                onChanged: workspace.select,
+              ),
             Wrap(
               spacing: 8,
               runSpacing: 4,
               children: [
-                Text('NPC ${workspace.selectedActor!.id}'),
+                Text('NPC ${workspace.selectedActor?.id ?? 'not selected'}'),
                 _tourButton(context, 'studio.ai.perception', 'Perception tour'),
               ],
             ),
             const Text('NPC knowledge, historical observations only'),
-            _DiagnosticRows(diagnostic: diagnostic),
+            if (diagnostic != null)
+              _DiagnosticRows(diagnostic: diagnostic)
+            else
+              const ZeroState(
+                title: 'Choose an NPC actor',
+                message:
+                    'Select a live NPC to view permitted observations, memory and decisions.',
+              ),
           ],
         ),
       );

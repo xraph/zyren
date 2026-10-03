@@ -4,10 +4,15 @@ Future<void> showTrainingConfiguration(
   BuildContext context,
   GameAiWorkspace workspace,
 ) async {
-  final project = TextEditingController(text: Directory.current.path);
+  final project = TextEditingController(
+    text: workspace.trainingRequest?.projectDirectory ?? Directory.current.path,
+  );
   final executable = TextEditingController();
   final worker = TextEditingController();
-  final template = TextEditingController();
+  final template = TextEditingController(
+    text:
+        workspace.scenarioTemplatePath ?? workspace.trainingRequest?.configPath,
+  );
   final output = TextEditingController(text: 'training/config.json');
   final run = TextEditingController(
     text: 'training/runs/run-${DateTime.now().millisecondsSinceEpoch}',
@@ -75,12 +80,23 @@ Future<void> showTrainingConfiguration(
                           worker: worker.text,
                           project: project.text,
                         );
+                        if (!workspace.permitted || workspace._disposed) {
+                          throw StateError('Training access changed.');
+                        }
                         final request = await toolchain.configure(
                           template: scoped(template.text),
                           output: scoped(output.text),
                           run: scoped(run.text),
                         );
+                        if (!workspace.permitted || workspace._disposed) {
+                          throw StateError('Training access changed.');
+                        }
                         workspace.trainingRequest = request;
+                        workspace.toolchain = toolchain;
+                        workspace.runner.registerProfile(
+                          'studio.local',
+                          request,
+                        );
                         workspace.refresh();
                         if (dialog.mounted) Navigator.pop(dialog);
                       } catch (e) {
@@ -125,7 +141,7 @@ Future<void> showModelImport(
       context: context,
       builder: (dialog) => StatefulBuilder(
         builder: (_, update) => AlertDialog(
-          title: const Text('Validate model manifest'),
+          title: const Text('Validate local model'),
           content: SizedBox(
             width: 440,
             child: Column(
@@ -134,8 +150,10 @@ Future<void> showModelImport(
                 TextField(
                   controller: path,
                   enabled: !busy,
-                  decoration: const InputDecoration(
-                    labelText: 'Local manifest path',
+                  decoration: InputDecoration(
+                    labelText: workspace.prepareArtifact == null
+                        ? 'Local manifest path'
+                        : 'Local model artifact directory',
                     isDense: true,
                   ),
                 ),
@@ -148,7 +166,10 @@ Future<void> showModelImport(
           ),
           actions: [
             TextButton(
-              onPressed: () { cancellation.cancel(); Navigator.pop(dialog); },
+              onPressed: () {
+                cancellation.cancel();
+                Navigator.pop(dialog);
+              },
               child: const Text('Cancel'),
             ),
             FilledButton(
@@ -160,37 +181,48 @@ Future<void> showModelImport(
                         error = null;
                       });
                       try {
-                        final file = File(path.text);
-                        if (await file.length() > 1048576) {
-                          throw FormatException(
-                            'Manifest byte budget exceeded.',
+                        if (workspace.prepareArtifact != null) {
+                          await workspace.importLocalArtifact(
+                            path.text,
+                            cancellation,
+                          );
+                        } else {
+                          final file = File(path.text);
+                          if (await file.length() > 1048576) {
+                            throw FormatException(
+                              'Manifest byte budget exceeded.',
+                            );
+                          }
+                          final manifest = MlModelManifest.decode(
+                            await file.readAsString(),
+                          );
+                          final actor = workspace.selectedActor;
+                          final original = actor == null
+                              ? null
+                              : workspace.group?.brainFor(actor)?.contract;
+                          if (original == null) {
+                            throw StateError(
+                              'Select an active policy actor before import.',
+                            );
+                          }
+                          final contract = PolicyContract(
+                            model: manifest,
+                            observation: original.observation,
+                            decoder: original.decoder,
+                            encoder: original.encoder,
+                            observationInput: original.observationInput,
+                            continuousOutput: original.continuousOutput,
+                            discreteOutput: original.discreteOutput,
+                            latencyTicks: original.latencyTicks,
+                            cadenceTicks: original.cadenceTicks,
+                            maxHiddenBytes: original.maxHiddenBytes,
+                            maxHoldTicks: original.maxHoldTicks,
+                          );
+                          await workspace.importModel(
+                            contract,
+                            cancellation: cancellation,
                           );
                         }
-                        final manifest = MlModelManifest.decode(
-                          await file.readAsString(),
-                        );
-                        final original = workspace.group
-                            ?.brainFor(workspace.selectedActor!)
-                            ?.contract;
-                        if (original == null) {
-                          throw StateError(
-                            'Select an active policy actor before import.',
-                          );
-                        }
-                        final contract = PolicyContract(
-                          model: manifest,
-                          observation: original.observation,
-                          decoder: original.decoder,
-                          encoder: original.encoder,
-                          observationInput: original.observationInput,
-                          continuousOutput: original.continuousOutput,
-                          discreteOutput: original.discreteOutput,
-                          latencyTicks: original.latencyTicks,
-                          cadenceTicks: original.cadenceTicks,
-                          maxHiddenBytes: original.maxHiddenBytes,
-                          maxHoldTicks: original.maxHoldTicks,
-                        );
-                        await workspace.importModel(contract, cancellation: cancellation);
                         if (dialog.mounted) Navigator.pop(dialog);
                       } catch (e) {
                         if (dialog.mounted) {
@@ -210,5 +242,114 @@ Future<void> showModelImport(
   } finally {
     cancellation.cancel();
     path.dispose();
+  }
+}
+
+Future<void> showEvaluationImport(
+  BuildContext context,
+  GameAiWorkspace workspace,
+) async {
+  final candidate = workspace.candidate;
+  if (candidate == null) return;
+  final family =
+      candidate.contract.decoder.spec.hash == TrainingActions.character.hash
+      ? 'guard'
+      : candidate.contract.decoder.spec.hash == TrainingActions.vehicle.hash
+      ? 'vehicle'
+      : null;
+  if (family == null) {
+    throw StateError(
+      'This candidate has no shared structured evaluation profile.',
+    );
+  }
+  final path = TextEditingController(), hash = TextEditingController();
+  var busy = false;
+  String? error;
+  try {
+    await showDialog<void>(
+      context: context,
+      builder: (dialog) => StatefulBuilder(
+        builder: (_, update) => AlertDialog(
+          title: const Text('Verify held-out evaluation'),
+          content: SizedBox(
+            width: 440,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: path,
+                  enabled: !busy,
+                  decoration: const InputDecoration(
+                    labelText: 'Evaluation receipt path',
+                    isDense: true,
+                  ),
+                ),
+                TextField(
+                  controller: hash,
+                  enabled: !busy,
+                  decoration: const InputDecoration(
+                    labelText: 'Expected receipt SHA256',
+                    isDense: true,
+                  ),
+                ),
+                const Text(
+                  'Every held-out episode and fixed acceptance gate is checked against this exact ONNX model and schema.',
+                ),
+                if (error != null) Text(error!),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: busy ? null : () => Navigator.pop(dialog),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: busy
+                  ? null
+                  : () async {
+                      update(() {
+                        busy = true;
+                        error = null;
+                      });
+                      try {
+                        final evaluation = await EvaluationReceiptReader()
+                            .readFamily(
+                              path.text,
+                              receiptHash: hash.text,
+                              family: family,
+                              modelHash: candidate.contract.model.sha256,
+                              observationHash: candidate.observationHash,
+                              actionHash: candidate.actionHash,
+                            );
+                        if (!workspace.permitted ||
+                            !identical(candidate, workspace.candidate)) {
+                          throw StateError(
+                            'Selected candidate or access changed.',
+                          );
+                        }
+                        await workspace.importModel(
+                          candidate.contract,
+                          evaluation: evaluation,
+                        );
+                        if (dialog.mounted) Navigator.pop(dialog);
+                      } catch (e) {
+                        if (dialog.mounted) {
+                          update(() {
+                            error = '$e';
+                            busy = false;
+                          });
+                        }
+                      }
+                    },
+              child: const Text('Verify receipt'),
+            ),
+          ],
+        ),
+      ),
+    );
+  } finally {
+    path.dispose();
+    hash.dispose();
   }
 }

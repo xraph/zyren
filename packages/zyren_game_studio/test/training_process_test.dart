@@ -82,6 +82,20 @@ void main() {
       expect(resumed.error, contains('Checkpoint hash'));
     },
   );
+  test('repeated close awaits the same actual worker stop and exit', () async {
+    final root = await Directory.systemTemp.createTemp(
+      'training-repeat-close-',
+    );
+    addTearDown(() => root.delete(recursive: true));
+    final runner = TrainingRunner();
+    final run = await runner.start(await processFixture(root, 'wait'));
+    await run.changes.firstWhere((_) => run.state == TrainingRunState.running);
+    final first = runner.close(), second = runner.close();
+    expect(identical(first, second), isTrue);
+    await second;
+    expect(run.exitCode, isNotNull);
+    expect(run.state, TrainingRunState.cancelled);
+  });
   test(
     'receipt chain uses exact Python canonical bytes and rejects mutation',
     () {

@@ -61,3 +61,23 @@ configure/cancel/resume and local failure fixtures passed. Flutter tests covered
 1440/1024/396/328 widths, both themes, 200% text and four live tour anchors. The
 standalone Mac is locked, so interactive rendered Studio UI is not qualified here.
 A6's Metal camera qualification is separate. Other devices remain unqualified.
+
+The pure `ai_authoring.dart` catalog is available to offline export scripts.
+`workspace.inspectActor` and `availableActors` can bind scripted or hybrid NPCs
+without a learned policy group. The callback returns only permitted diagnostics.
+The chooser defaults to 64 actors and supports an explicit bounded ceiling of256.
+
+Use the shared AI `artifact.dart` reader for accepted T5 resources in both Studio
+and standalone hosts. `prepareArtifact(path, cancellation)` lets the host prepare
+those resources through the existing asset resolver and shared model cache.
+The Training panel can also verify a pinned T4/T5 report through its thin file
+adapter. The reader checks every held-out slot and fixed acceptance gate, and
+requires the evaluated model SHA. It preserves the evaluated fixed rate. A
+checkpoint receipt is not an ONNX acceptance receipt.
+
+The local configuration dialog registers its verified request as `studio.local`,
+so scoped tools and UI select the same runner. Scenario/reward edits save a new
+template. Configure a new pinned run to consume it. Demonstration recording calls
+the real T2 worker and verifies replay and chunk hashes before displaying success.
+Player recordings require an actual controller action trace. The scripted option
+records the established baseline, not a human demonstration.

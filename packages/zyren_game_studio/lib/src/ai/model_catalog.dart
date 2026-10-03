@@ -33,17 +33,26 @@ class _GameModelCatalogState extends State<GameModelCatalog> {
             title: 'No matching models',
             message: 'Clear the filter to see your imported model candidates.',
           ),
-        for (final model in models)
-          ListTile(
-            dense: true,
-            title: Text(model.contract.model.id),
-            subtitle: Text(
-              '${model.compatible ? 'compatible' : 'incompatible'} · ${model.accepted ? 'evaluated' : 'evaluation required'}',
+        if (models.isNotEmpty)
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 240),
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                for (final model in models)
+                  ListTile(
+                    dense: true,
+                    title: Text(model.contract.model.id),
+                    subtitle: Text(
+                      '${model.compatible ? 'compatible' : 'incompatible'} · ${model.accepted ? 'evaluated' : 'evaluation required'}',
+                    ),
+                    onTap: () {
+                      widget.workspace.candidate = model;
+                      widget.workspace.refresh();
+                    },
+                  ),
+              ],
             ),
-            onTap: () {
-              widget.workspace.candidate = model;
-              widget.workspace.refresh();
-            },
           ),
       ],
     );

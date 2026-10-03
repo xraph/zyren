@@ -42,6 +42,14 @@ class GameTrainingPanel extends StatelessWidget {
                       showTrainingConfiguration(context, workspace),
                   child: const Text('Configure local worker'),
                 ),
+                if (workspace.trainingRequest != null)
+                  TextButton(
+                    onPressed: () => _action(
+                      context,
+                      () => showScenarioEditor(context, workspace),
+                    ),
+                    child: const Text('Edit scenarios and rewards'),
+                  ),
                 FilledButton(
                   onPressed:
                       workspace.trainingRequest == null ||
@@ -81,6 +89,10 @@ class GameTrainingPanel extends StatelessWidget {
                 _tourButton(context, 'studio.ai.train', 'Training tour'),
               ],
             ),
+            if (workspace.scenarioTemplatePath != null)
+              const Text(
+                'Edited template saved. Configure a new pinned run to use it.',
+              ),
             if (workspace.trainingRequest == null)
               const ZeroState(
                 title: 'Local worker unavailable',
@@ -103,10 +115,15 @@ class GameTrainingPanel extends StatelessWidget {
                 SelectableText(
                   'Checkpoint ${run.checkpointFile}\n${run.checkpointHash}',
                 ),
-              for (final receipt in run.receipts.reversed.take(8))
-                SelectableText(
-                  '${receipt.sequence}: ${jsonEncode(receipt.data)}',
-                ),
+              ExpansionTile(
+                title: Text('Verified receipts (${run.receipts.length})'),
+                children: [
+                  for (final receipt in run.receipts.reversed.take(8))
+                    SelectableText(
+                      '${receipt.sequence}: ${jsonEncode(receipt.data)}',
+                    ),
+                ],
+              ),
               ExpansionTile(
                 title: const Text('Bounded process logs'),
                 children: [
@@ -121,13 +138,23 @@ class GameTrainingPanel extends StatelessWidget {
               children: [
                 const Text('Model library'),
                 TextButton(
-                  onPressed: workspace.importer == null
+                  onPressed:
+                      workspace.importer == null &&
+                          workspace.prepareArtifact == null
                       ? null
                       : () => showModelImport(context, workspace),
-                  child: const Text('Import manifest'),
+                  child: const Text('Import local model'),
                 ),
               ],
             ),
+            if (candidate != null && workspace.importer != null)
+              TextButton(
+                onPressed: () => _action(
+                  context,
+                  () => showEvaluationImport(context, workspace),
+                ),
+                child: const Text('Verify evaluation receipt'),
+              ),
             if (candidate == null)
               const ZeroState(
                 title: 'No model imported',
@@ -142,10 +169,15 @@ class GameTrainingPanel extends StatelessWidget {
                 'Compatible: ${candidate.compatible} · evaluated: ${candidate.accepted}',
               ),
               for (final issue in candidate.issues) Text(issue),
-              for (final field in candidate.contract.observation.fields)
-                Text(
-                  '${field.name} · ${field.units} · width ${field.width} · [${field.min}, ${field.max}]',
-                ),
+              ExpansionTile(
+                title: const Text('Observation schema'),
+                children: [
+                  for (final field in candidate.contract.observation.fields)
+                    Text(
+                      '${field.name} · ${field.units} · width ${field.width} · [${field.min}, ${field.max}]',
+                    ),
+                ],
+              ),
               FilledButton(
                 onPressed: !candidate.accepted || workspace.activation == null
                     ? null
@@ -154,14 +186,24 @@ class GameTrainingPanel extends StatelessWidget {
               ),
               if (candidate.evaluation != null) ...[
                 SelectableText(
-                  'Evaluation receipt ${candidate.evaluation!.receiptHash}',
+                  'Evaluation ${candidate.evaluation!.fixedHz == null ? 'rate unavailable' : '${candidate.evaluation!.fixedHz} Hz'} · ${candidate.evaluation!.receiptHash}',
                 ),
                 for (final row in candidate.evaluation!.cases.take(32))
-                  Text(jsonEncode(row)),
+                  Text(
+                    '${row['id']} · ${row['family']} · ${(row['seeds'] as List?)?.length ?? 0} layout seeds',
+                  ),
               ],
             ],
             if (workspace.activeModelHash != null)
               SelectableText('Active model ${workspace.activeModelHash}'),
+            if (workspace.toolchain != null)
+              TextButton(
+                onPressed: () => _action(
+                  context,
+                  () => showDemonstrationRecorder(context, workspace),
+                ),
+                child: const Text('Record demonstration'),
+              ),
             for (final demo in workspace.demonstrations.take(64))
               Text(
                 '${demo.source} · ${demo.partition} · ${demo.steps} steps · ${demo.manifestHash}',

@@ -1,8 +1,54 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:test/test.dart';
 import 'package:zyren_game_studio/training.dart';
 
 void main() {
+  test(
+    'Studio records actual native scripted demonstration and verifies replay/chunk hashes',
+    () async {
+      final root = Directory.current.path.endsWith('zyren_game_studio')
+          ? Directory.current.parent.parent.path
+          : Directory.current.path;
+      final project = await Directory(
+        '$root/.superpowers/sdd/README',
+      ).createTemp('s6-recording-');
+      addTearDown(() => project.delete(recursive: true));
+      final config =
+          jsonDecode(
+                await File(
+                  '$root/.superpowers/sdd/README/task-T3-cpu-v3-config.json',
+                ).readAsString(),
+              )
+              as Map<String, dynamic>;
+      final spec = File('${project.path}/scenario.json');
+      await spec.writeAsString(jsonEncode((config['scenarios'] as List).first));
+      final recorder = DemonstrationRecorder(
+        TrainingToolchain(
+          executable: '$root/tool/zyren_train/.venv/bin/zyren-train',
+          worker:
+              '$root/examples/game_lab/training_worker/.dart_tool/native_worker/bundle/bin/train_worker',
+          project: project.path,
+        ),
+      );
+      final directory = '${project.path}/recording';
+      final artifact = await recorder.record(
+        scenarioPath: spec.path,
+        output: directory,
+        sessionId: 'studio-probe',
+      );
+      expect(artifact.source, 'scripted');
+      expect(artifact.steps, greaterThan(0));
+      final replay = await recorder.replay(directory, artifact);
+      expect(replay['matched'], true);
+      await File('$directory/chunk-000000.jsonl').writeAsString('corrupted');
+      await expectLater(
+        recorder.read(directory, expectedHash: artifact.manifestHash),
+        throwsFormatException,
+      );
+    },
+    timeout: const Timeout(Duration(minutes: 2)),
+  );
   test(
     'Studio runner configures actual T3 CPU trainer, cancels and resumes pinned checkpoint',
     () async {

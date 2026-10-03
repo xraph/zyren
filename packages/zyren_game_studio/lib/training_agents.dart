@@ -31,7 +31,7 @@ final class TrainingAgentProvider extends AgentProvider {
   @override
   Map<String, Object?> get capabilities => {
     'local': true,
-    'profiles': requests.keys.toList(),
+    'profiles': {...requests.keys, ...runner.profiles.keys}.toList(),
     'policyQuality': null,
   };
   @override
@@ -69,7 +69,9 @@ final class TrainingAgentProvider extends AgentProvider {
     }
     try {
       if (tool == 'start') {
-        final request = requests[arguments['profile']];
+        final request =
+            requests[arguments['profile']] ??
+            runner.profiles[arguments['profile']];
         if (request == null) {
           return AgentResult(
             AgentStatus.invalid,

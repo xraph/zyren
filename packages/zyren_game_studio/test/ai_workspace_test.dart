@@ -11,13 +11,24 @@ import '../../zyren_game_ai/test/policy_test.dart' show PolicyFixture;
 import '../../zyren_ml/test/support/delayed_worker.dart';
 
 void main() {
-  test('AI authoring composes mutable codec registration before frozen catalog', () {
-    final authoring = createGameAiDevelopmentAuthoring();
-    expect(authoring.descriptors.keys, containsAll(['game.ai', 'game.character-rig', 'game.character']));
-    final definition = authoring.registry.construct(authoring.descriptors['game.ai']!.create());
-    expect(definition, isA<GameAiAuthoringDefinition>());
-    expect(() => authoring.registry.registerComponent(GameAiAuthoringCodec()), throwsStateError);
-  });
+  test(
+    'AI authoring composes mutable codec registration before frozen catalog',
+    () {
+      final authoring = createGameAiDevelopmentAuthoring();
+      expect(
+        authoring.descriptors.keys,
+        containsAll(['game.ai', 'game.character-rig', 'game.character']),
+      );
+      final definition = authoring.registry.construct(
+        authoring.descriptors['game.ai']!.create(),
+      );
+      expect(definition, isA<GameAiAuthoringDefinition>());
+      expect(
+        () => authoring.registry.registerComponent(GameAiAuthoringCodec()),
+        throwsStateError,
+      );
+    },
+  );
   test(
     'import preserves active model; schema order and stale evaluation prevent activation',
     () async {
@@ -130,6 +141,76 @@ void main() {
       gate.complete();
       await assertion;
       expect(cache.diagnostics.leaseReferences, 0);
+    },
+  );
+  test(
+    'permission revocation during model preparation leaves candidate unchanged',
+    () async {
+      final f = PolicyFixture(), gate = Completer<void>();
+      final cache = MlModelCache(
+        worker: DelayedWorker(),
+        resolver: (_) async {
+          await gate.future;
+          return Uint8List.fromList([7]);
+        },
+      );
+      addTearDown(cache.close);
+      final contract = f.contract(fakeManifest(), ActionDecoder.character());
+      final workspace = GameAiWorkspace()
+        ..importer = ModelImport(
+          cache: cache,
+          observation: contract.observation,
+          action: contract.decoder.spec,
+        );
+      addTearDown(workspace.dispose);
+      final pending = workspace.importModel(contract);
+      final rejected = expectLater(
+        pending,
+        throwsA(isA<ModelImportCancelled>()),
+      );
+      workspace.permitted = false;
+      gate.complete();
+      await rejected;
+      expect(workspace.candidate, isNull);
+      expect(workspace.models, isEmpty);
+      expect(cache.diagnostics.leaseReferences, 0);
+    },
+  );
+  testWidgets(
+    'scripted actor chooser uses permitted callback without a policy group',
+    (tester) async {
+      final entities = GameEntityTable();
+      final first = entities.spawn('script-first'),
+          second = entities.spawn('script-second');
+      final workspace = GameAiWorkspace()
+        ..availableActors = (() => [first, second])
+        ..inspectActor = ((actor) => {
+          'brain': 'scripted',
+          'observedTick': actor == first ? 3 : 7,
+        })
+        ..selectedActor = first;
+      addTearDown(workspace.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: GameBrainInspector(workspace: workspace)),
+        ),
+      );
+      expect(find.text('observedTick: 3'), findsOneWidget);
+      await tester.tap(find.byType(DropdownButtonFormField<GameEntityHandle>));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.text('script-second · generation ${second.generation}').last,
+      );
+      await tester.pumpAndSettle();
+      expect(workspace.selectedActor, second);
+      expect(find.text('observedTick: 7'), findsOneWidget);
+      entities.despawn(second);
+      workspace.availableActors = () => [first];
+      workspace.inspectActor = (_) => null;
+      workspace.refresh();
+      await tester.pumpAndSettle();
+      expect(find.text('Choose an NPC actor'), findsOneWidget);
+      expect(tester.takeException(), isNull);
     },
   );
   testWidgets(
