@@ -11,6 +11,25 @@ void main() {
     tester,
   ) async {
     const transport = MethodChannelXrTransport();
+    Future<T> native<T>(Future<T> Function() action) async {
+      Object? failure;
+      StackTrace? trace;
+      final value = await tester.runAsync(() async {
+        try {
+          return await action();
+        } catch (error, stack) {
+          failure = error;
+          trace = stack;
+          // Preserve the native code/message even when the device runner only
+          // serializes FlutterErrorDetails as a stack trace.
+          debugPrint('XR native failure: $error');
+          return null;
+        }
+      });
+      if (failure != null) Error.throwWithStackTrace(failure!, trace!);
+      return value as T;
+    }
+
     final session = (await tester.runAsync(() => XrSession.create(transport)))!;
     XrPresentationController? controller;
     try {
@@ -19,9 +38,9 @@ void main() {
           configuration: const XrConfiguration(requireCameraPresentation: true),
         ),
       );
-      controller = (await tester.runAsync(
+      controller = await native<XrPresentationController>(
         () => XrPresentationController.create(session: session),
-      ))!;
+      );
       final scene = z.Scene()
         ..background = null
         ..backgroundOpacity = 0

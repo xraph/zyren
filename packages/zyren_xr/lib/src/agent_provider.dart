@@ -10,6 +10,7 @@ final class XrViewBinding {
   final double devicePixelRatio;
   final XrPose sceneFromSession;
   final int? presentedFrameId, presentedSceneRevision;
+  final XrCalibration? calibration;
 
   XrViewBinding({
     required this.sceneId,
@@ -22,6 +23,7 @@ final class XrViewBinding {
     required this.sceneFromSession,
     this.presentedFrameId,
     this.presentedSceneRevision,
+    this.calibration,
   }) : logicalRect = List.unmodifiable(logicalRect) {
     if ([sceneId, documentId, viewportId, cameraId].any((v) => v.isEmpty) ||
         sceneRevision < 0 ||
@@ -48,8 +50,14 @@ final class XrViewBinding {
     'presentedSceneRevision': presentedSceneRevision,
     'screenPointSpace': 'viewport-local-logical-top-left',
     'renderedPixelEvidence': 'unknown',
-    'xrCameraPresentation': false,
-    'screenToXrRaycast': 'unsupported',
+    'xrCameraPresentation':
+        calibration != null &&
+        calibration!.frameId == presentedFrameId &&
+        presentedSceneRevision != null,
+    'calibratedViewportProjection': calibration?.projection.storage,
+    'presentedCameraTransform': calibration?.cameraPose.matrix,
+    'presentedTimestamp': calibration?.timestamp,
+    'presentationEpoch': calibration?.epoch,
   };
 
   bool sameView(XrViewBinding other) =>
@@ -174,6 +182,9 @@ final class XrAgentProvider extends AgentProvider {
   final XrCapabilities deviceCapabilities;
   final XrViewBinding Function() view;
   final bool allowPlacement;
+  final Future<XrRaycastResult> Function(double x, double y)? raycast;
+  final _hits = <String, (XrRaycastResult, XrRaycastHit, XrViewBinding)>{};
+  int _nextHit = 0;
   @override
   final String instanceId;
   bool _disposed = false;
@@ -183,6 +194,7 @@ final class XrAgentProvider extends AgentProvider {
     required this.deviceCapabilities,
     required this.view,
     this.allowPlacement = false,
+    this.raycast,
   });
   @override
   String get id => 'zyren.xr';
@@ -201,12 +213,46 @@ final class XrAgentProvider extends AgentProvider {
     'anchorIdentity': 'session-local-uuid',
     'units': 'metres',
     'matrices': 'column-major-right-handed',
-    'screenRaycast': 'unsupported',
+    'screenRaycast': raycast == null
+        ? 'unsupported'
+        : 'native-plane-geometry-estimate',
     'pixelVisibility': 'unknown',
   };
 
   @override
   List<AgentTool> get tools => [
+    if (raycast != null)
+      AgentTool(
+        name: 'screen_raycast',
+        description:
+            'Intersect a local logical screen point with native plane geometry using the presented camera. Hits are estimates, not pixel visibility.',
+        inputSchema: _object(
+          {
+            'x': {'type': 'number', 'minimum': 0},
+            'y': {'type': 'number', 'minimum': 0},
+          },
+          required: ['x', 'y'],
+        ),
+        outputSchema: {'type': 'object'},
+        maxResultBytes: 32768,
+      ),
+    if (raycast != null)
+      AgentTool(
+        name: 'place_hit',
+        readOnly: false,
+        requiredScopes: {'xr.place'},
+        description:
+            'Place an anchor at a fresh native hit returned by screen_raycast. Uses the same ordinary placement command and undo history.',
+        inputSchema: _object(
+          {
+            'hitToken': {'type': 'string', 'minLength': 1, 'maxLength': 256},
+            'sceneRevision': _offset,
+            'viewportId': {'type': 'string', 'minLength': 1, 'maxLength': 256},
+          },
+          required: ['hitToken', 'sceneRevision', 'viewportId'],
+        ),
+        outputSchema: _anchorOutput,
+      ),
     AgentTool(
       name: 'inspect',
       description:
@@ -279,6 +325,7 @@ final class XrAgentProvider extends AgentProvider {
   /// Unregister from AgentRegistry first. This provider does not own the session.
   void dispose() {
     _disposed = true;
+    _hits.clear();
   }
 
   @override
@@ -309,6 +356,48 @@ final class XrAgentProvider extends AgentProvider {
 
     try {
       context.checkCancelled();
+      if (tool == 'screen_raycast' && raycast != null) {
+        final result = await raycast!(
+          (arguments['x'] as num).toDouble(),
+          (arguments['y'] as num).toDouble(),
+        );
+        checkCurrent();
+        if (binding.presentedFrameId != result.frameId ||
+            binding.presentedSceneRevision != binding.sceneRevision ||
+            binding.calibration?.epoch != result.epoch ||
+            binding.calibration?.timestamp != result.frameTimestamp ||
+            view().presentedFrameId != result.frameId) {
+          throw const XrException(
+            'staleFrame',
+            'The host presentation changed.',
+          );
+        }
+        final hits = <Map<String, Object?>>[];
+        for (final hit in result.hits) {
+          final token = '${commands.session.id}:${_nextHit++}';
+          _hits[token] = (result, hit, binding);
+          while (_hits.length > 32) {
+            _hits.remove(_hits.keys.first);
+          }
+          hits.add({...hit.toJson(), 'hitToken': token});
+        }
+        return AgentResult(
+          AgentStatus.ok,
+          revision: revision,
+          data: {
+            'hits': hits,
+            'omittedHits': result.omittedHits,
+            'view': binding.toJson(),
+            'sessionId': commands.session.id,
+            'sessionRevision': result.sessionRevision,
+            'originEpoch': result.originEpoch,
+            'presentedFrameId': result.frameId,
+            'frameTimestamp': result.frameTimestamp,
+            'sensorTimestamp': result.sensorTimestamp,
+            'coverage': 'native-plane-geometry-estimate',
+          },
+        );
+      }
       if (tool == 'inspect') {
         final snapshot = await commands.session.snapshot();
         checkCurrent();
@@ -317,6 +406,7 @@ final class XrAgentProvider extends AgentProvider {
           try {
             _requireTracking(snapshot);
             actions.add('place_anchor');
+            if (raycast != null) actions.add('place_hit');
           } on XrException {
             /* Tracking state explains why placement is absent. */
           }
@@ -333,7 +423,9 @@ final class XrAgentProvider extends AgentProvider {
           },
         );
       }
-      if (tool != 'place_anchor' && tool != 'undo_placement') {
+      if (tool != 'place_anchor' &&
+          tool != 'undo_placement' &&
+          tool != 'place_hit') {
         return AgentResult(
           AgentStatus.unsupported,
           message: 'Unsupported XR tool.',
@@ -353,7 +445,22 @@ final class XrAgentProvider extends AgentProvider {
         );
       }
       final String anchor;
-      if (tool == 'place_anchor') {
+      if (tool == 'place_hit') {
+        final saved = _hits[arguments['hitToken']];
+        if (saved == null ||
+            !saved.$3.sameView(binding) ||
+            saved.$1.epoch != binding.calibration?.epoch) {
+          throw const XrException('staleFrame', 'Raycast a fresh native hit.');
+        }
+        anchor = await commands.place(
+          pose: saved.$2.pose,
+          expectedRevision: context.expectedRevision!,
+          expectedSessionRevision: saved.$1.sessionRevision,
+          expectedFrameTimestamp: saved.$1.frameTimestamp,
+          checkCurrent: checkCurrent,
+        );
+        _hits.clear();
+      } else if (tool == 'place_anchor') {
         anchor = await commands.place(
           pose: XrPose((arguments['transform'] as List).cast<num>()),
           expectedRevision: context.expectedRevision!,
@@ -451,7 +558,8 @@ final class XrAgentProvider extends AgentProvider {
                       'center': p.center,
                       'extent': p.extent,
                       'alignment': p.alignment,
-                      'provenance': 'arkit-plane-estimate',
+                      'provenance':
+                          '${deviceCapabilities.platform}-plane-estimate',
                       'pixelVisibility': 'unknown',
                     },
                   )
@@ -468,7 +576,8 @@ final class XrAgentProvider extends AgentProvider {
                   : {
                       'ambientIntensity': frame.light!.ambientIntensity,
                       'colorTemperatureKelvin': frame.light!.colorTemperature,
-                      'provenance': 'arkit-ambient-estimate',
+                      'provenance':
+                          '${deviceCapabilities.platform}-ambient-estimate',
                     },
             },
     };
@@ -478,7 +587,7 @@ final class XrAgentProvider extends AgentProvider {
 const _offset = {'type': 'integer', 'minimum': 0};
 const _strings = {
   'type': 'array',
-  'maxItems': 2,
+  'maxItems': 3,
   'items': {'type': 'string'},
 };
 final _anchorOutput = _object(

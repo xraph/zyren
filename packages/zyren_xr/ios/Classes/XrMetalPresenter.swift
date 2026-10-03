@@ -46,6 +46,7 @@ final class XrMetalPresenter {
     var epoch = 0
     var nextFrame = 0
     var presented = 0
+    var presentedCalibration: [String: Any]?
     var logical = CGSize.zero
     var scale: CGFloat = 1
     var orientation: UIInterfaceOrientation = .unknown
@@ -86,7 +87,7 @@ final class XrMetalPresenter {
             (view.layer as! CAMetalLayer).drawableSize = CGSize(width: (size.width * scale).rounded(), height: (size.height * scale).rounded())
         }
     }
-    func revoke() { epoch += 1; if !busy { lease = nil } }
+    func revoke() { epoch += 1; presentedCalibration = nil; if !busy { lease = nil } }
     func close(_ completion: @escaping FlutterResult) {
         closed = true; revoke(); view?.presenter = nil; view = nil
         worker.async { self.pipeline = nil; DispatchQueue.main.async { completion(nil) } }
@@ -154,6 +155,7 @@ final class XrMetalPresenter {
                 }
                 drawable?.present()
                 self.presented += 1
+                self.presentedCalibration = lease.calibration
                 completion(lease.calibration.merging(["applied": true, "presented": true, "cameraReadbackBytes": 0,
                     "inFlightLimit": 1, "heldCameraFrames": 0, "drawableLimit": 2, "nativeReadbackBytes": nativeReadback, "presentedFrames": self.presented]) { _, new in new })
             }

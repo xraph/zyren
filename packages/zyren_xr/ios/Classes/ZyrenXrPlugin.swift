@@ -80,7 +80,7 @@ public final class ZyrenXrPlugin: NSObject, FlutterPlugin, ARSessionDelegate {
         case "dispose":
             // A repeated disposal after release is harmless.
             if session == nil { result(nil); return }
-        case "start", "pause", "snapshot", "addAnchor", "removeAnchor",
+        case "start", "pause", "snapshot", "addAnchor", "removeAnchor", "raycast", "planeGeometry",
              "createPresenter", "closePresenter", "acquireFrame", "cancelFrame", "presentFrame", "gpuCommand": break
         default: result(FlutterMethodNotImplemented); return
         }
@@ -94,6 +94,19 @@ public final class ZyrenXrPlugin: NSObject, FlutterPlugin, ARSessionDelegate {
         case "pause": pause(); result(nil)
         case "dispose": close(result)
         case "snapshot": result(snapshot())
+        case "raycast": raycast(args, result: result)
+        case "planeGeometry":
+            guard checkRevision(args, result: result) else { return }
+            guard let frame = usableFrame(), ProcessInfo.processInfo.systemUptime - frame.timestamp <= 0.5 else {
+                result(error("trackingUnavailable", "Plane geometry requires a fresh frame.")); return
+            }
+            guard let id = args["planeId"] as? String,
+                  let plane = frame.anchors.compactMap({ $0 as? ARPlaneAnchor })
+                    .first(where: { $0.identifier.uuidString == id }) else {
+                result(error("unknownPlane", "The plane is no longer available.")); return
+            }
+            do { result(try XrRaycasts.geometry(plane, revision: revision, timestamp: frame.timestamp)) }
+            catch { result(XrMetalPresenter.error(error)) }
         case "addAnchor": addAnchor(args, result: result)
         case "removeAnchor":
             guard checkRevision(args, result: result) else { return }
@@ -113,14 +126,39 @@ public final class ZyrenXrPlugin: NSObject, FlutterPlugin, ARSessionDelegate {
         if presenter?.id == presenterId { presenter?.attach(view) }
     }
 
+    private func raycast(_ args: [String: Any], result: FlutterResult) {
+        guard checkRevision(args, result: result) else { return }
+        guard let frame = usableFrame(), case .normal = frame.camera.trackingState,
+              ProcessInfo.processInfo.systemUptime - frame.timestamp <= 0.5 else {
+            result(error("trackingUnavailable", "Raycasting requires fresh normal tracking.")); return
+        }
+        guard let presenter = presenter, args["presenterId"] as? String == presenter.id else {
+            result(error("invalidPresenter", "The camera presenter has been released.")); return
+        }
+        if let view = presenter.view { presenter.layout(view) }
+        guard let calibration = presenter.presentedCalibration,
+              args["frameId"] as? Int == calibration["frameId"] as? Int,
+              args["epoch"] as? Int == calibration["epoch"] as? Int,
+              let timestamp = calibration["timestamp"] as? Double,
+              frame.timestamp >= timestamp, frame.timestamp - timestamp <= 0.5,
+              let x = args["x"] as? Double, let y = args["y"] as? Double else {
+            result(error("staleFrame", "Render a fresh view before raycasting.")); return
+        }
+        do {
+            result(try XrRaycasts.query(session: session!, calibration: calibration, x: x, y: y,
+                sensorTimestamp: frame.timestamp, revision: revision, originEpoch: originEpoch))
+        } catch { result(XrMetalPresenter.error(error)) }
+    }
+
     private func presentation(_ method: String, _ args: [String: Any], result: @escaping FlutterResult) {
         if method == "createPresenter" {
-            guard presenter == nil, !creatingPresenter, let token = args["runtime"] as? UInt64 else {
+            guard presenter == nil, !creatingPresenter, let token = args["runtime"] as? NSNumber else {
                 result(error("busy", "A camera presenter exists or the runtime token is missing.")); return
             }
             creatingPresenter = true
             let owner = sessionId
-            XrMetalPresenter.create(token: token) { outcome in
+            // Method channels carry signed Int64. Preserve every runtime token bit.
+            XrMetalPresenter.create(token: token.uint64Value) { outcome in
                 self.creatingPresenter = false
                 switch outcome {
                 case .failure(let issue): result(XrMetalPresenter.error(issue))

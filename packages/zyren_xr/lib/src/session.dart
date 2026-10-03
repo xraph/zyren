@@ -1,4 +1,5 @@
 import 'models.dart';
+import 'raycast.dart';
 
 /// The native adapter owns camera permissions, session state and anchor lifetime.
 abstract interface class XrTransport {
@@ -44,6 +45,24 @@ final class XrSession {
   /// Returns the latest frame only. Inspect state, tracking and frame age before use.
   Future<XrSnapshot> snapshot() async =>
       XrSnapshot.fromMessage(await _invoke('snapshot'));
+
+  Future<XrPlaneGeometry> planeGeometry(
+    String planeId, {
+    required int expectedRevision,
+  }) async {
+    if (planeId.isEmpty) throw ArgumentError.value(planeId, 'planeId');
+    final geometry = XrPlaneGeometry.fromMessage(
+      await _invoke('planeGeometry', {
+        'planeId': planeId,
+        'expectedRevision': expectedRevision,
+      }),
+    );
+    if (geometry.planeId != planeId ||
+        geometry.sessionRevision != expectedRevision) {
+      throw const XrException('staleRevision', 'The native plane changed.');
+    }
+    return geometry;
+  }
 
   Future<String> addAnchor(
     XrPose pose, {

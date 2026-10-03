@@ -11,6 +11,7 @@ import 'package:zyren_native/zyren_native.dart';
 import 'calibration.dart';
 import 'flutter_transport.dart';
 import 'models.dart';
+import 'raycast.dart';
 import 'session.dart';
 
 /// Owns camera presentation and scoped GPU resources for one XR session.
@@ -50,6 +51,40 @@ final class XrPresentationController extends ChangeNotifier {
   Map<String, Object?>? get diagnostics => _diagnostics;
   XrCalibration? get presentedCalibration => _presented;
   bool get isRendering => _frame != null;
+
+  /// Raycasts from the last presented camera, in viewport-local logical pixels.
+  Future<XrRaycastResult> raycast(double x, double y) async {
+    final calibration = _presented;
+    if (_closed || calibration == null) {
+      throw const XrException('staleFrame', 'Present a camera frame first.');
+    }
+    if (!x.isFinite ||
+        !y.isFinite ||
+        x < 0 ||
+        y < 0 ||
+        x >= calibration.logicalWidth ||
+        y >= calibration.logicalHeight) {
+      throw ArgumentError('The point must lie inside the camera viewport.');
+    }
+    final result = XrRaycastResult.fromMessage(
+      await _invoke('raycast', {
+        'x': x,
+        'y': y,
+        'frameId': calibration.frameId,
+        'epoch': calibration.epoch,
+        'expectedRevision': calibration.revision,
+      }),
+    );
+    if (_closed ||
+        !identical(_presented, calibration) ||
+        result.frameId != calibration.frameId ||
+        result.epoch != calibration.epoch ||
+        result.frameTimestamp != calibration.timestamp ||
+        result.sessionRevision != calibration.revision) {
+      throw const XrException('staleFrame', 'The presented camera changed.');
+    }
+    return result;
+  }
 
   XrPresentationController._(this.session, this.transport, this.presenterId);
 
@@ -239,15 +274,23 @@ final class XrPresentationController extends ChangeNotifier {
   }
 }
 
-/// A native CAMetalLayer view. The controller renders on explicit frame demand.
+/// A native camera view. The controller renders on explicit frame demand.
 class XrCameraView extends StatelessWidget {
   final XrPresentationController controller;
   const XrCameraView({super.key, required this.controller});
   @override
-  Widget build(BuildContext context) => UiKitView(
-    key: ValueKey(controller.presenterId),
-    viewType: 'dev.zyren.xr/metal.v1',
-    creationParams: {'presenterId': controller.presenterId},
-    creationParamsCodec: const StandardMessageCodec(),
-  );
+  Widget build(BuildContext context) =>
+      defaultTargetPlatform == TargetPlatform.android
+      ? AndroidView(
+          key: ValueKey(controller.presenterId),
+          viewType: 'dev.zyren.xr/vulkan.v1',
+          creationParams: {'presenterId': controller.presenterId},
+          creationParamsCodec: const StandardMessageCodec(),
+        )
+      : UiKitView(
+          key: ValueKey(controller.presenterId),
+          viewType: 'dev.zyren.xr/metal.v1',
+          creationParams: {'presenterId': controller.presenterId},
+          creationParamsCodec: const StandardMessageCodec(),
+        );
 }
