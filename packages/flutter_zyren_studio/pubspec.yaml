@@ -1,0 +1,22 @@
+name: flutter_zyren_studio
+description: Scoped editor contributions composed with the existing Zyren Studio host.
+version: 0.1.0
+publish_to: none
+resolution: workspace
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+  flutter: '>=3.38.0'
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_zyren:
+    path: ../flutter_zyren
+  zyren:
+    path: ../zyren
+  zyren_studio:
+    path: ../zyren_studio
+  zyren_agents:
+    path: ../zyren_agents
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
