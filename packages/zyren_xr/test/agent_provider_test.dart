@@ -149,6 +149,42 @@ void main() {
       expect(transport.calls.where((c) => c.$1 == 'addAnchor'), isEmpty);
     },
   );
+  test(
+    'native reset clears undo and rejects commands using the old revision',
+    () async {
+      expect((await place()).status, AgentStatus.ok);
+      transport.current = snapshotMessage(revision: 2)..['originEpoch'] = 1;
+      final undo = await registry.call(
+        providerId: provider.id,
+        instanceId: provider.instanceId,
+        tool: 'undo_placement',
+        arguments: {'sceneRevision': 4, 'viewportId': 'xr-view'},
+        expectedRevision: 1,
+        idempotencyKey: 'reset-undo',
+      );
+      expect(undo.status, AgentStatus.stale);
+      expect(commands.canUndo, isFalse);
+      expect(commands.revision, 2);
+      expect(transport.calls.where((c) => c.$1 == 'removeAnchor'), isEmpty);
+      final placed = await registry.call(
+        providerId: provider.id,
+        instanceId: provider.instanceId,
+        tool: 'place_anchor',
+        arguments: {
+          'sceneRevision': 4,
+          'viewportId': 'xr-view',
+          'sessionRevision': 2,
+          'frameTimestamp': 12.0,
+          'transform': XrPose.identity().matrix,
+        },
+        expectedRevision: 2,
+        idempotencyKey: 'after-reset',
+      );
+      expect(placed.status, AgentStatus.ok, reason: placed.message);
+      expect(commands.canUndo, isTrue);
+      expect(commands.revision, 3);
+    },
+  );
 
   test(
     'scene changes while awaiting native snapshot refuse mutation',

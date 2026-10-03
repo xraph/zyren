@@ -194,6 +194,7 @@ class _XrProbePageState extends State<XrProbePage> {
       if (mounted && identical(session, _session)) {
         _lighting.update(snapshot);
         if (snapshot.sessionId == session.id) {
+          _provider?.commands.synchronize(snapshot);
           _bindings ??= XrSceneBindings(
             sessionId: session.id,
             root: _anchorRoot,

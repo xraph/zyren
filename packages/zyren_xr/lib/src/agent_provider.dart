@@ -85,10 +85,28 @@ final class XrPlacementCommands {
   final XrSession session;
   final _undo = <String>[];
   int _revision = 0;
+  int? _originEpoch;
   bool _busy = false;
   XrPlacementCommands(this.session);
   int get revision => _revision;
   bool get canUndo => _undo.isNotEmpty;
+
+  /// Forget session-local anchor history when the native origin is reset.
+  /// Call this from the host's snapshot loop so undo availability stays current.
+  void synchronize(XrSnapshot snapshot) {
+    if (snapshot.sessionId != session.id ||
+        (_originEpoch != null && snapshot.originEpoch < _originEpoch!)) {
+      throw const XrException(
+        'staleOrigin',
+        'The placement snapshot belongs to another origin.',
+      );
+    }
+    if (_originEpoch != null && _originEpoch != snapshot.originEpoch) {
+      _undo.clear();
+      _revision++;
+    }
+    _originEpoch = snapshot.originEpoch;
+  }
 
   Future<String> place({
     required XrPose pose,
@@ -101,11 +119,13 @@ final class XrPlacementCommands {
   }) async {
     _begin(expectedRevision);
     try {
+      final snapshot = await session.snapshot();
+      synchronize(snapshot);
+      _checkRevision(expectedRevision);
+      checkCurrent();
       if (_undo.length >= 128) {
         throw const XrException('anchorLimit', 'Placement history is full.');
       }
-      final snapshot = await session.snapshot();
-      checkCurrent();
       if (snapshot.revision != expectedSessionRevision) {
         throw const XrException('staleRevision', 'The native session changed.');
       }
@@ -139,11 +159,13 @@ final class XrPlacementCommands {
   }) async {
     _begin(expectedRevision);
     try {
+      final snapshot = await session.snapshot();
+      synchronize(snapshot);
+      _checkRevision(expectedRevision);
+      checkCurrent();
       if (_undo.isEmpty) {
         throw const XrException('empty', 'No placement to undo.');
       }
-      final snapshot = await session.snapshot();
-      checkCurrent();
       final id = _undo.last;
       await session.removeAnchor(id, expectedRevision: snapshot.revision);
       _undo.removeLast();
@@ -158,10 +180,14 @@ final class XrPlacementCommands {
     if (_busy) {
       throw const XrException('busy', 'Another placement command is pending.');
     }
+    _checkRevision(expectedRevision);
+    _busy = true;
+  }
+
+  void _checkRevision(int expectedRevision) {
     if (expectedRevision != revision) {
       throw const XrException('staleRevision', 'Placement history changed.');
     }
-    _busy = true;
   }
 }
 
@@ -405,6 +431,7 @@ final class XrAgentProvider extends AgentProvider {
       if (tool == 'inspect') {
         final snapshot = await commands.session.snapshot();
         checkCurrent();
+        commands.synchronize(snapshot);
         final actions = <String>[];
         if (allowPlacement) {
           try {
@@ -505,7 +532,10 @@ final class XrAgentProvider extends AgentProvider {
         );
       }
       final status = switch (error.code) {
-        'staleRevision' || 'staleFrame' || 'unknownAnchor' => AgentStatus.stale,
+        'staleOrigin' ||
+        'staleRevision' ||
+        'staleFrame' ||
+        'unknownAnchor' => AgentStatus.stale,
         'permissionDenied' || 'permissionRestricted' => AgentStatus.denied,
         'unsupportedFeature' ||
         'unsupportedHardware' => AgentStatus.unsupported,

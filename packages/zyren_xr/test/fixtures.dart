@@ -18,6 +18,8 @@ Map<String, Object?> snapshotMessage({
   int revision = 1,
 }) => {
   'state': 'running',
+  'sessionId': 'session-1',
+  'originEpoch': 0,
   'revision': revision,
   'nativeTimestamp': 12.1,
   'frame': {

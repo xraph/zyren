@@ -250,6 +250,20 @@ void main() {
           'native-undo',
         );
         expect(undo['status'], 'ok', reason: '$undo');
+        final beforeReset = await session.snapshot();
+        final replace = await command(
+          'place_anchor',
+          {
+            'sceneRevision': scene.revision,
+            'viewportId': 'camera',
+            'sessionRevision': beforeReset.revision,
+            'frameTimestamp': beforeReset.frame!.timestamp,
+            'transform': (hit['transform'] as List),
+          },
+          2,
+          'before-reset',
+        );
+        expect(replace['status'], 'ok', reason: '$replace');
         await session.start(
           configuration: const XrConfiguration(
             requireCameraPresentation: true,
@@ -262,6 +276,16 @@ void main() {
         expect(reset.originEpoch, greaterThan(snapshot.originEpoch));
         expect(bindings!.bindings, isEmpty);
         await frame();
+        final afterReset = await query('inspect');
+        expect(afterReset['status'], 'ok');
+        expect(provider!.commands.canUndo, isFalse);
+        final resetUndo = await command(
+          'undo_placement',
+          {'sceneRevision': scene.revision, 'viewportId': 'camera'},
+          provider!.revision,
+          'reset-undo',
+        );
+        expect(resetUndo['status'], 'empty');
         await session.pause();
         await expectLater(p.render(scene), throwsA(isA<XrException>()));
         debugPrint(
