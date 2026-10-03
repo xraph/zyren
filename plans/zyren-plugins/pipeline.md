@@ -149,13 +149,14 @@ Pinned Dart/Flutter: `/Users/rexraphael/fvm/versions/3.47.5/bin`.
   reports Vulkan `sharedTexture`, ASTC sRGB and an 884x250.6667 logical viewport at
   DPR 2.25. Source picking, original/LOD switching, eviction, visible cache miss,
   restoration and disposal pass. Portrait visual review remains open.
-- The iPad signed test is blocked by Apple's weekly limit of 10 new App IDs. The
-  pipeline identifier has no development profile. The wireless integration driver
-  is prepared and the test entry point builds unsigned for arm64. A temporary
-  build under Interaction Lab's existing profile is signature-verified, with the
-  original signed app saved, but installation requires authorization to replace
-  that app. No Apple mobile presentation result is claimed. The iPhone's active
-  Studio session was left running.
+- The iPad test remains blocked by development signing limits. After approval,
+  the Interaction Lab profile workaround failed before launch because all three
+  free-developer app slots are occupied by Physics Lab, Planet and TwinOS.
+  Interaction Lab is not installed. No existing app was replaced. The pipeline
+  test and a Physics Lab restoration build are now signed with its current iPad
+  profile and locally verified; replacing that different app requires approval.
+  The repository's pipeline identifier remains unchanged. No Apple mobile
+  presentation result is claimed.
 - See the [mobile check record](../../packages/zyren_pipeline/example/native_app/qualification/2026-10-03.md)
   for the exact Android evidence and iOS failure boundary.
 - Windows/DX12 and Linux/Vulkan qualification have not run; those platforms are not
@@ -176,6 +177,7 @@ Pinned Dart/Flutter: `/Users/rexraphael/fvm/versions/3.47.5/bin`.
 - `de07ac36`: implementation and qualification evidence.
 - `4796b7f`: pinned asset references, authorized resolution and scoped glTF loading.
 - `af37014`: Metal presentation qualification, asynchronous test waits and iOS runner.
+- `ecac118`: Pixel native verification, visual evidence and wireless iOS driver.
 
 All pipeline implementation changes are committed locally on `main`. Nothing was
 pushed or merged. Device and Studio qualification gates above remain open.
