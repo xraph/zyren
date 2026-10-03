@@ -200,6 +200,8 @@ final class GpuInspection {
 /// Resource counters are device-lifetime observations, independent of scene work.
 final class NativeFrameProfile {
   final String status, gpuTimeSource;
+  final int? uploadBacklogBytes, stagedBytes;
+  final bool? candidateReady;
   final int? cpuPrepareNs,
       cpuEncodeNs,
       cpuCompletionWaitNs,
@@ -212,7 +214,10 @@ final class NativeFrameProfile {
   final Map<String, NativePassTiming> passes;
   final Map<String, Object?> resources;
   NativeFrameProfile.fromJson(Map<String, Object?> json)
-    : status = json['status'] as String,
+    : uploadBacklogBytes = json['uploadBacklogBytes'] as int?,
+      stagedBytes = json['stagedBytes'] as int?,
+      candidateReady = json['candidateReady'] as bool?,
+      status = json['status'] as String,
       cpuPrepareNs = json['cpuPrepareNs'] as int?,
       cpuEncodeNs = json['cpuEncodeNs'] as int?,
       cpuCompletionWaitNs = json['cpuCompletionWaitNs'] as int?,
@@ -234,9 +239,17 @@ final class NativeFrameProfile {
       resources = Map.unmodifiable(
         (json['resources'] as Map? ?? {}).cast<String, Object?>(),
       );
+
+  /// Additional output draw when a retained graph uses its original size.
+  int get resizeCompositeDraws =>
+      passes['resizeComposite']?.executed == true ? 1 : 0;
+
   Duration? get gpuTime =>
       gpuTimeNs == null ? null : Duration(microseconds: gpuTimeNs! ~/ 1000);
   Map<String, Object?> toJson() => {
+    if (uploadBacklogBytes != null) 'uploadBacklogBytes': uploadBacklogBytes,
+    if (stagedBytes != null) 'stagedBytes': stagedBytes,
+    if (candidateReady != null) 'candidateReady': candidateReady,
     'status': status,
     'cpuPrepareNs': cpuPrepareNs,
     'cpuEncodeNs': cpuEncodeNs,

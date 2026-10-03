@@ -150,11 +150,16 @@ unsafe fn render_metal(
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| unsafe {
             renderer.render_to_metal_with_depth(&frame, texture, depth)
         }))
-        .unwrap_or_else(|_| Err("Metal drawable rendering panicked".into()));
+        .unwrap_or_else(|_| Err(renderer.fail_frame("Metal drawable rendering panicked".into())));
         match result {
             Ok(()) => {
                 renderer.drawable_owner = None;
                 Ok(1)
+            }
+            Err(error) if renderer.failure.is_none() && !renderer.has_failed_surface() => {
+                renderer.drawable_owner = None;
+                renderer.reject_frame();
+                Err(error)
             }
             Err(error) => Err(renderer.fail_frame(error)),
         }

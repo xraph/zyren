@@ -101,8 +101,30 @@ final class FrameSource {
   );
 }
 
+/// The scene cover confirmed by a native frame receipt. Object identities are
+/// paired with logical geometry IDs, so picking and attribution can follow it.
+///
+/// While [candidateReady] is false, the previous complete cover is presented
+/// with the current camera. Closing a Dart resource owner invalidates that owner;
+/// the native cover keeps its own references until replacement or view teardown.
+/// You can use [publishedRevision] and [presentedIdentities] to keep picking and
+/// attribution aligned with what is visible, even when selection has advanced.
+final class SceneAdmission {
+  final bool candidateReady;
+  final int publishedRevision, uploadBacklogBytes, stagedBytes;
+  final List<(int, int)> presentedIdentities;
+  SceneAdmission({
+    required this.candidateReady,
+    required this.publishedRevision,
+    required this.uploadBacklogBytes,
+    required this.stagedBytes,
+    required Iterable<(int, int)> presentedIdentities,
+  }) : presentedIdentities = List.unmodifiable(presentedIdentities);
+}
+
 class FrameStats {
   final FrameSource? source;
+  final SceneAdmission? admission;
   final int frameId, surfaceEpoch, drawCalls, triangles, readbackBytes;
   final int uploadedBytes, coalescedFrames, droppedFrames, computeDispatches;
   final int? residentBytes;
@@ -113,6 +135,7 @@ class FrameStats {
   final NativeFrameProfile? profile;
   const FrameStats({
     this.source,
+    this.admission,
     required this.frameId,
     required this.physicalSize,
     required this.presentationPath,
@@ -132,6 +155,7 @@ class FrameStats {
   });
   FrameStats withSource(FrameSource source) => FrameStats(
     source: source,
+    admission: admission,
     frameId: frameId,
     physicalSize: physicalSize,
     presentationPath: presentationPath,

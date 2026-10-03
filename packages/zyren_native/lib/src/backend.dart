@@ -270,9 +270,10 @@ class NativeBackend implements NativeGpuBackend {
     try {
       if (submission.target case final SurfaceTarget target) {
         final packet = _encoder.encode(submission);
+        submission = packet.submission;
         final frameId = ++_nextFrame;
         final pending = _resources.submitFrame(
-          submission,
+          packet.submission,
           packet.bytes,
           (bytes) => _renderer._renderSurfacePacket(
             packet,
@@ -281,9 +282,16 @@ class NativeBackend implements NativeGpuBackend {
             frameId,
             bytes: bytes,
           ),
+          scenePacket: packet,
         );
         clock.stop();
-        final receipt = await pending;
+        final List<Object?> receipt;
+        try {
+          receipt = await pending;
+        } catch (_) {
+          _encoder.reject(packet);
+          rethrow;
+        }
         final profile = NativeFrameProfile.fromJson(
           (receipt[4] as Map).cast<String, Object?>(),
         );
@@ -299,6 +307,7 @@ class NativeBackend implements NativeGpuBackend {
             cpuBuildTime: submission.cpuBuildTime,
             cpuSubmitTime: clock.elapsed,
             profile: profile,
+            admission: _encoder.admission,
             gpuTime: profile.gpuTime,
             drawCalls:
                 submission.scene.drawCalls +
@@ -310,7 +319,8 @@ class NativeBackend implements NativeGpuBackend {
                     ? 0
                     : submission.scene.alphaResolveDraws) +
                 submission.outputConversionDraws +
-                (submission.graph?.drawCalls ?? 0),
+                (submission.graph?.drawCalls ?? 0) +
+                profile.resizeCompositeDraws,
             computeDispatches: submission.graph?.dispatches ?? 0,
             triangles:
                 submission.scene.triangles +
@@ -322,7 +332,8 @@ class NativeBackend implements NativeGpuBackend {
                     ? 0
                     : submission.scene.alphaResolveDraws) +
                 submission.outputConversionDraws +
-                (submission.graph?.triangles ?? 0),
+                (submission.graph?.triangles ?? 0) +
+                profile.resizeCompositeDraws,
             uploadedBytes: packet.uploadedBytes,
             residentBytes: receipt[2] as int,
             readbackBytes: receipt[3] as int,
@@ -336,6 +347,7 @@ class NativeBackend implements NativeGpuBackend {
       );
       clock.stop();
       final frame = await pending;
+      submission = _encoder.presentedSubmission!;
       return ReadbackOutput(
         image: ImageData(
           pixels: frame.pixels,
@@ -351,6 +363,7 @@ class NativeBackend implements NativeGpuBackend {
           cpuBuildTime: submission.cpuBuildTime,
           cpuSubmitTime: clock.elapsed,
           profile: frame.profile,
+          admission: _encoder.admission,
           gpuTime: frame.profile?.gpuTime,
           drawCalls:
               submission.scene.drawCalls +
@@ -362,7 +375,8 @@ class NativeBackend implements NativeGpuBackend {
                   ? 0
                   : submission.scene.alphaResolveDraws) +
               submission.outputConversionDraws +
-              (submission.graph?.drawCalls ?? 0),
+              (submission.graph?.drawCalls ?? 0) +
+              (frame.profile?.resizeCompositeDraws ?? 0),
           computeDispatches: submission.graph?.dispatches ?? 0,
           triangles:
               submission.scene.triangles +
@@ -374,7 +388,8 @@ class NativeBackend implements NativeGpuBackend {
                   ? 0
                   : submission.scene.alphaResolveDraws) +
               submission.outputConversionDraws +
-              (submission.graph?.triangles ?? 0),
+              (submission.graph?.triangles ?? 0) +
+              (frame.profile?.resizeCompositeDraws ?? 0),
           uploadedBytes: frame.uploadedBytes,
           residentBytes: frame.residentBytes,
           readbackBytes: frame.pixels.length,

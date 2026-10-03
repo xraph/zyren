@@ -8,6 +8,13 @@ use std::collections::HashMap;
 use wgpu::util::DeviceExt;
 const OUTPUT_SHADER: &str = include_str!("output.wgsl");
 
+pub(super) struct ResizeTarget {
+    pub(super) color: wgpu::Texture,
+    depth: wgpu::Texture,
+    pub(super) keys: [crate::resources::registry::ResourceKey; 2],
+    pub(super) view: u64,
+}
+
 struct MultisampleTargets {
     color: wgpu::Texture,
     depth: wgpu::Texture,
@@ -88,6 +95,7 @@ pub(super) struct Compositor {
     >,
     pub(super) accumulation: Option<wgpu::Texture>,
     hdr: Option<wgpu::Texture>,
+    pub(super) resized: Option<ResizeTarget>,
     multisample: Option<MultisampleTargets>,
 }
 impl Compositor {
@@ -212,7 +220,12 @@ impl Compositor {
         let (pipeline, layout) = &self.pipelines[&(format, transform)];
         let parameters = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("frame exposure"),
-            contents: bytemuck::cast_slice(&[exposure, 0., 0., 0.]),
+            contents: bytemuck::cast_slice(&[
+                exposure,
+                source.width() as f32 / target.texture().width() as f32,
+                source.height() as f32 / target.texture().height() as f32,
+                0.,
+            ]),
             usage: wgpu::BufferUsages::UNIFORM,
         });
         let view = source.create_view(&Default::default());
@@ -340,8 +353,86 @@ impl Renderer {
     ) -> Result<Option<FrameGraph>, String> {
         frame
             .graph
-            .map(|key| self.graphs.frame(key, width, height))
+            .map(|key| {
+                self.graphs.frame(
+                    key,
+                    width,
+                    height,
+                    frame.admission.as_ref().is_some_and(|a| !a.publish),
+                )
+            })
             .transpose()
+    }
+    pub(super) fn prepare_retained_size(
+        &mut self,
+        frame: &Frame,
+        graph: Option<&FrameGraph>,
+        size: [u32; 2],
+        format: wgpu::TextureFormat,
+    ) -> Result<[u32; 2], String> {
+        let internal = graph.map_or(size, |g| [g.scene_color.width(), g.scene_color.height()]);
+        if internal != size
+            && self.compositor.resized.as_ref().is_some_and(|t| {
+                [t.color.width(), t.color.height()] == internal && t.color.format() == format
+            })
+        {
+            self.compositor.resized.as_mut().unwrap().view =
+                frame.binary.as_ref().map_or(0, |v| v.view);
+            return Ok(internal);
+        }
+        let state = self.state.as_mut().unwrap();
+        if let Some(old) = state.compositor.resized.take() {
+            state
+                .resources
+                .release_graph(&state.device, &old.keys)
+                .map_err(|e| e.to_string())?;
+        }
+        if internal == size {
+            return Ok(size);
+        }
+        state
+            .resources
+            .check_scene_capacity(
+                u64::from(internal[0])
+                    * u64::from(internal[1])
+                    * u64::from(format.block_copy_size(None).unwrap_or(4) + 4),
+                2,
+            )
+            .map_err(|e| e.to_string())?;
+        let (color_key, color) = state
+            .resources
+            .create_frame_target(&state.device, internal, format)
+            .map_err(|e| e.to_string())?;
+        let (depth_key, depth) = match state.resources.create_frame_target(
+            &state.device,
+            internal,
+            wgpu::TextureFormat::Depth32Float,
+        ) {
+            Ok(value) => value,
+            Err(error) => {
+                state
+                    .resources
+                    .release_graph(&state.device, &[color_key])
+                    .map_err(|e| e.to_string())?;
+                return Err(error.to_string());
+            }
+        };
+        state.compositor.resized = Some(ResizeTarget {
+            color,
+            depth,
+            keys: [color_key, depth_key],
+            view: frame.binary.as_ref().map_or(0, |v| v.view),
+        });
+        state.compositor.prepare(
+            &state.device,
+            format,
+            OutputTransform {
+                unassociate: false,
+                premultiply: false,
+                tone_mapping: None,
+            },
+        )?;
+        Ok(internal)
     }
     pub(super) fn prepare_frame_targets(
         &mut self,
@@ -419,6 +510,53 @@ impl Renderer {
         Ok(())
     }
     pub(super) fn encode_frame(
+        &self,
+        frame: &Frame,
+        color: &wgpu::TextureView,
+        depth: &wgpu::TextureView,
+        format: wgpu::TextureFormat,
+        size: [u32; 2],
+        composition: (
+            Option<&FrameGraph>,
+            &[Option<PreparedMaterial>],
+            bool,
+            &super::environment::PreparedEnvironment,
+            &super::shadows::PreparedShadows,
+            bool,
+        ),
+    ) -> wgpu::CommandEncoder {
+        if let Some(target) = &self.compositor.resized {
+            let mut encoder = self.encode_frame_content(
+                frame,
+                &target.color.create_view(&Default::default()),
+                &target.depth.create_view(&Default::default()),
+                format,
+                size,
+                composition,
+            );
+            self.begin_pass(&mut encoder, super::timing::Pass::ResizeComposite);
+            self.compositor.encode(
+                &self.device,
+                &mut encoder,
+                &target.color,
+                color,
+                (
+                    format,
+                    OutputTransform {
+                        unassociate: false,
+                        premultiply: false,
+                        tone_mapping: None,
+                    },
+                    1.,
+                ),
+            );
+            self.end_pass(&mut encoder, super::timing::Pass::ResizeComposite);
+            encoder
+        } else {
+            self.encode_frame_content(frame, color, depth, format, size, composition)
+        }
+    }
+    fn encode_frame_content(
         &self,
         frame: &Frame,
         color: &wgpu::TextureView,

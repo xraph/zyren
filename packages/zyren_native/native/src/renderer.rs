@@ -1,3 +1,4 @@
+mod admission;
 mod area_lights;
 mod environment;
 use std::{
@@ -150,6 +151,8 @@ pub struct RendererState {
     shaders: crate::shaders::ShaderStore,
     graphs: crate::render_graph::GraphStore,
     views: HashMap<u64, crate::scene_packet::ViewState>,
+    staging: HashMap<u64, crate::scene_packet::ViewState>,
+    cover_bindings: HashMap<u64, admission::CoverBindings>,
     targets: Option<Targets>,
     temporal: temporal::System,
     transmission: transmission::System,
@@ -181,7 +184,10 @@ impl std::ops::DerefMut for Renderer {
 }
 impl Drop for Renderer {
     fn drop(&mut self) {
-        if let Some(state) = self.state.take() {
+        if let Some(mut state) = self.state.take() {
+            if state.failure.is_none() && state.resources.shutdown(&state.device).is_err() {
+                state.failure = Some("GPU shutdown completion failed".into());
+            }
             if state.failure.is_some() {
                 crate::retirement::retire(state);
             } else {
@@ -358,6 +364,8 @@ impl Renderer {
                 shaders: crate::shaders::ShaderStore::default(),
                 graphs: crate::render_graph::GraphStore::default(),
                 views: HashMap::new(),
+                staging: HashMap::new(),
+                cover_bindings: HashMap::new(),
                 targets: None,
                 temporal: temporal::System::default(),
                 transmission,
@@ -518,6 +526,18 @@ impl Renderer {
         Ok(frame)
     }
     fn decode_plain_scene(&self, bytes: &[u8]) -> Result<Frame, String> {
+        if bytes.starts_with(&4_u32.to_le_bytes()) {
+            let (admission, display) = crate::scene_packet::Admission::decode(bytes)?;
+            if !display.starts_with(&2_u32.to_le_bytes()) {
+                return Err("admission display must be a scene packet".into());
+            }
+            let mut frame = self.decode_plain_scene(display)?;
+            if frame.binary.as_ref().unwrap().view != admission.view {
+                return Err("admission display view mismatch".into());
+            }
+            frame.admission = Some(Box::new(admission));
+            return Ok(frame);
+        }
         if bytes.starts_with(&2_u32.to_le_bytes()) {
             let packet = crate::scene_packet::ScenePacket::decode(bytes)?;
             let previous = self.views.get(&packet.view());
@@ -574,6 +594,23 @@ impl Renderer {
     }
     pub fn close_scene_view(&mut self, view: u64) -> Result<(), String> {
         self.views.remove(&view);
+        self.staging.remove(&view);
+        if self
+            .compositor
+            .resized
+            .as_ref()
+            .is_some_and(|t| t.view == view)
+        {
+            let state = self.state.as_mut().unwrap();
+            let target = state.compositor.resized.take().unwrap();
+            state
+                .resources
+                .release_graph(&state.device, &target.keys)
+                .map_err(|e| e.to_string())?;
+        }
+        if let Some(bindings) = self.cover_bindings.remove(&view) {
+            self.release_cover_bindings(bindings)?;
+        }
         self.effects.remove(view);
         self.outlines.remove(view);
         self.shadows.remove(view);
@@ -585,6 +622,7 @@ impl Renderer {
         let retained: HashSet<u32> = self
             .views
             .values()
+            .chain(self.staging.values())
             .flat_map(|view| view.retained.iter().copied())
             .collect();
         let removed: Vec<_> = self
@@ -611,6 +649,9 @@ impl Renderer {
     fn prepare_scene(&mut self, frame: &Frame) -> Result<(), String> {
         if let Some(failure) = &self.failure {
             return Err(failure.clone());
+        }
+        if let Some(admission) = &frame.admission {
+            self.prepare_admission(admission)?;
         }
         let view = frame.binary.as_ref().map_or(0, |view| view.view);
         if !self.views.contains_key(&view) && self.views.len() >= 64 {
@@ -692,7 +733,8 @@ impl Renderer {
             .geometry_patches
             .iter()
             .filter(|patch| {
-                !self.geometries.contains_key(&patch.id)
+                frame.admission.is_none()
+                    && !self.geometries.contains_key(&patch.id)
                     && frame
                         .geometry_patches
                         .iter()
@@ -770,6 +812,11 @@ impl Renderer {
         self.upload_textures(frame)?;
         self.upload_instances(frame, &reusable_instances)?;
         self.upload_poses(frame)?;
+        Ok(())
+    }
+
+    fn commit_scene(&mut self, frame: &Frame) -> Result<(), String> {
+        let view = frame.binary.as_ref().map_or(0, |v| v.view);
         let state = frame
             .binary
             .clone()
@@ -786,7 +833,11 @@ impl Renderer {
                     .flat_map(|m| m.texture_maps().map(|map| map.texture))
                     .collect(),
             });
+        self.retain_cover_bindings(frame)?;
         self.views.insert(view, state);
+        if frame.admission.as_ref().is_none_or(|a| a.publish) {
+            self.staging.remove(&view);
+        }
         self.evict_geometry()
     }
 
@@ -838,6 +889,14 @@ impl Renderer {
         };
         self.last_gpu_time_ns = None;
         self.gpu_time_source = "unavailable";
+    }
+    #[cfg(target_vendor = "apple")]
+    pub(crate) fn has_failed_surface(&self) -> bool {
+        self.failed_surface.is_some()
+    }
+    #[cfg(target_vendor = "apple")]
+    pub(crate) fn reject_frame(&mut self) {
+        self.profile.borrow_mut().status = "failed";
     }
     pub(crate) fn fail_frame(&mut self, error: String) -> String {
         self.failure = Some(error.clone());
@@ -1336,6 +1395,7 @@ impl Renderer {
             .chain(self.poses.values().map(|p| p.key))
             .chain(environment.resources.iter().copied())
             .chain(self.effect_resources.iter().copied())
+            .chain(self.compositor.resized.iter().flat_map(|t| t.keys))
             .chain(
                 materials
                     .iter()
@@ -1410,7 +1470,11 @@ impl Renderer {
                     self.gpu_time_source = "wgpu.timestampQuery.commandEncoder";
                 }
             }
-            self.resources.scene_completed().map_err(|e| e.to_string())?;
+            if let Err(error) = self.resources.scene_completed() {
+                return Err(self.fail_frame(format!(
+                    "GPU resource completion failed; recreate this renderer: {error}"
+                )));
+            }
             let mut profile = self.profile.borrow_mut();
             profile.gpu_time_ns = self.last_gpu_time_ns;
             profile.gpu_time_source = self.gpu_time_source;
@@ -1456,21 +1520,24 @@ impl Renderer {
             Self::check_external_depth_frame(frame)?;
         }
         self.check_shadows(frame)?;
-        self.check_temporal(frame, [width, height])?;
         self.check_physical_bindings(frame)?;
         let graph = self.resolve_frame_graph(frame, width, height)?;
+        if initialized_depth.is_some()
+            && graph
+                .as_ref()
+                .is_some_and(|g| g.scene_color.width() != width || g.scene_color.height() != height)
+        {
+            return Err("retained graph resize requires internally owned depth".into());
+        }
+        let render_size =
+            self.prepare_retained_size(frame, graph.as_ref(), [width, height], texture.format())?;
+        self.check_temporal(frame, render_size)?;
         let environment = self.prepare_environment(frame, graph.as_ref())?;
         let materials = self.prepare_materials(frame, texture.format(), graph.as_ref())?;
         let scene_format = composition::scene_format(frame, texture.format(), graph.as_ref())?;
         // Attachment rejection must precede scene revisions and reusable-buffer edits.
-        self.prepare_frame_targets(
-            frame,
-            texture.format(),
-            [width, height],
-            graph.as_ref(),
-            true,
-        )?;
-        self.prepare_transmission(frame, scene_format, [width, height], graph.as_ref())?;
+        self.prepare_frame_targets(frame, texture.format(), render_size, graph.as_ref(), true)?;
+        self.prepare_transmission(frame, scene_format, render_size, graph.as_ref())?;
         self.prepare_scene(frame)?;
         self.prepare_pipelines(frame, scene_format)?;
         self.outline_materials = if self.outlines.view(frame).is_some() {
@@ -1485,7 +1552,8 @@ impl Renderer {
             vec![]
         };
         let shadows = self.prepare_shadows(frame)?;
-        self.prepare_temporal(frame, [width, height])?;
+        self.prepare_temporal(frame, render_size)?;
+        self.commit_scene(frame)?;
         if initialized_depth.is_none()
             && self
                 .surface_depth
@@ -1528,7 +1596,7 @@ impl Renderer {
                 .as_ref()
                 .unwrap_or_else(|| &self.surface_depth.as_ref().unwrap().view),
             texture.format(),
-            [texture.width(), texture.height()],
+            render_size,
             (
                 graph.as_ref(),
                 &materials,
@@ -1598,9 +1666,15 @@ impl Renderer {
         let upload_before = self.resources.stats().1;
         let len = pixel_len(width, height)?;
         self.check_shadows(frame)?;
-        self.check_temporal(frame, [width, height])?;
         self.check_physical_bindings(frame)?;
         let graph = self.resolve_frame_graph(frame, width, height)?;
+        let render_size = self.prepare_retained_size(
+            frame,
+            graph.as_ref(),
+            [width, height],
+            wgpu::TextureFormat::Rgba8UnormSrgb,
+        )?;
+        self.check_temporal(frame, render_size)?;
         let environment = self.prepare_environment(frame, graph.as_ref())?;
         let materials =
             self.prepare_materials(frame, wgpu::TextureFormat::Rgba8UnormSrgb, graph.as_ref())?;
@@ -1609,11 +1683,11 @@ impl Renderer {
         self.prepare_frame_targets(
             frame,
             wgpu::TextureFormat::Rgba8UnormSrgb,
-            [width, height],
+            render_size,
             graph.as_ref(),
             false,
         )?;
-        self.prepare_transmission(frame, scene_format, [width, height], graph.as_ref())?;
+        self.prepare_transmission(frame, scene_format, render_size, graph.as_ref())?;
         self.prepare_scene(frame)?;
         self.prepare_pipelines(frame, scene_format)?;
         self.outline_materials = if self.outlines.view(frame).is_some() {
@@ -1628,7 +1702,8 @@ impl Renderer {
             vec![]
         };
         let shadows = self.prepare_shadows(frame)?;
-        self.prepare_temporal(frame, [width, height])?;
+        self.prepare_temporal(frame, render_size)?;
+        self.commit_scene(frame)?;
         self.resize(width, height);
         self.profile.borrow_mut().cpu_prepare_ns =
             Some(prepare_started.elapsed().as_nanos() as u64);
@@ -1641,7 +1716,7 @@ impl Renderer {
             &target.color_view,
             &target.depth_view,
             wgpu::TextureFormat::Rgba8UnormSrgb,
-            [width, height],
+            render_size,
             (
                 graph.as_ref(),
                 &materials,
@@ -1699,6 +1774,115 @@ mod metal_timeout_tests {
         MTLCommandBuffer, MTLCommandQueue, MTLDevice, MTLPixelFormat, MTLSharedEvent,
         MTLStorageMode, MTLTextureDescriptor, MTLTextureUsage,
     };
+
+    #[test]
+    #[ignore = "requires a native Metal device"]
+    fn resized_retained_graph_preserves_external_depth_on_rejection_and_retry() {
+        use serde_json::json;
+        let mut renderer = pollster::block_on(Renderer::new()).unwrap();
+        let target = |renderer: &mut Renderer, size, format| {
+            let state = renderer.state.as_mut().unwrap();
+            state
+                .resources
+                .create_frame_target(&state.device, size, format)
+                .unwrap()
+        };
+        let (scene_key, _) = target(&mut renderer, [16, 16], wgpu::TextureFormat::Rgba8UnormSrgb);
+        let (output_key, _) = target(&mut renderer, [16, 16], wgpu::TextureFormat::Rgba8UnormSrgb);
+        let key_json = |k: crate::resources::registry::ResourceKey| {
+            json!([k.renderer, k.device_generation, k.slot, k.slot_generation])
+        };
+        let request = |command| {
+            serde_json::to_vec(&json!({"version":1,"request":1,"command":command})).unwrap()
+        };
+        let shader: serde_json::Value = serde_json::from_slice(&renderer.shader_command(&request(json!({
+            "operation":"compile","label":"resize-test","source":"@vertex fn vertex(@builtin(vertex_index) i:u32)->@builtin(position) vec4<f32>{let p=array<vec2<f32>,3>(vec2(-1.,-1.),vec2(3.,-1.),vec2(-1.,3.));return vec4(p[i],0.,1.);}@fragment fn fragment()->@location(0) vec4<f32>{return vec4(1.,0.,1.,1.);}"})), 256*1024).unwrap()).unwrap();
+        let reply: serde_json::Value = serde_json::from_slice(&renderer.graph_command(&request(json!({"operation":"compile","description":{
+            "label":"resize-test","sceneColor":key_json(scene_key),"output":key_json(output_key),"inputs":[],
+            "resources":[{"key":key_json(scene_key),"label":"scene"},{"key":key_json(output_key),"label":"output"}],
+            "passes":[{"kind":"render","name":"paint","program":shader["result"]["key"],"bindings":[],"reads":[],"writes":[key_json(output_key)],"after":[],
+                "vertexEntryPoint":"vertex","fragmentEntryPoint":"fragment","vertexCount":3,"instanceCount":1,"sampleCount":1,
+                "color":{"key":key_json(output_key),"mipLevel":0,"load":"clear","store":"store","clear":[0,0,0,1]}}]}
+        })),256*1024).unwrap()).unwrap();
+        let fields: [u64; 4] =
+            serde_json::from_value(reply["result"]["key"].clone()).expect(&reply.to_string());
+        let graph_key = crate::resources::registry::ResourceKey {
+            renderer: fields[0],
+            device_generation: fields[1],
+            slot: fields[2],
+            slot_generation: fields[3],
+        };
+        let mut frame: Frame = serde_json::from_value(json!({"version":1,"view_projection":glam::Mat4::IDENTITY.to_cols_array(),"background":[1,0,0],"light_direction":[0,0,1],"ambient":0.2,"geometries":[],"meshes":[]})).unwrap();
+        frame.graph = Some(graph_key);
+        frame.binary = Some(crate::scene_packet::ViewState {
+            view: 77,
+            revision: 1,
+            retained: HashSet::new(),
+            meshes: vec![],
+            retained_textures: HashSet::new(),
+            retained_instances: HashSet::new(),
+            retained_poses: HashSet::new(),
+        });
+        renderer.render(&frame, 16, 16).unwrap();
+        let mut upload = frame.clone();
+        upload.graph = None;
+        frame.binary.as_mut().unwrap().revision = 2;
+        frame.admission = Some(Box::new(crate::scene_packet::Admission {
+            view: 77,
+            resources: vec![],
+            backlog_bytes: 0,
+            staged_bytes: 0,
+            publish: false,
+            upload: Some(Box::new(upload)),
+        }));
+        let (color_key, color) =
+            target(&mut renderer, [24, 12], wgpu::TextureFormat::Rgba8UnormSrgb);
+        let (depth_key, depth) = target(&mut renderer, [24, 12], wgpu::TextureFormat::Depth32Float);
+        let before = renderer.resources.stats();
+        let error = renderer
+            .render_to_surface_with_depth(&frame, color, Some(depth), 24, 12)
+            .unwrap_err();
+        assert!(error.contains("internally owned depth"));
+        assert!(renderer.failure.is_none());
+        assert_eq!(renderer.views[&77].revision, 1);
+        assert!(renderer.staging.is_empty());
+        assert_eq!(renderer.resources.stats(), before);
+        let (retry_color_key, color) =
+            target(&mut renderer, [16, 16], wgpu::TextureFormat::Rgba8UnormSrgb);
+        let (retry_depth_key, depth) =
+            target(&mut renderer, [16, 16], wgpu::TextureFormat::Depth32Float);
+        renderer
+            .render_to_surface_with_depth(&frame, color, Some(depth), 16, 16)
+            .unwrap();
+        assert_eq!(renderer.views[&77].revision, 2);
+        renderer.close_scene_view(77).unwrap();
+        assert!(renderer.staging.is_empty());
+        let state = renderer.state.as_mut().unwrap();
+        state
+            .graphs
+            .release(
+                &state.device,
+                &mut state.resources,
+                &mut state.shaders,
+                graph_key,
+            )
+            .unwrap_or_else(|e| panic!("{e}"));
+        state
+            .resources
+            .release_graph(
+                &state.device,
+                &[
+                    scene_key,
+                    output_key,
+                    color_key,
+                    depth_key,
+                    retry_color_key,
+                    retry_depth_key,
+                ],
+            )
+            .unwrap();
+        assert_eq!(state.resources.stats().0, 0);
+    }
 
     #[test]
     #[ignore = "requires a native Metal device; blocks a private queue for three seconds"]

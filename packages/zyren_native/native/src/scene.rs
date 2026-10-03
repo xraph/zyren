@@ -645,6 +645,8 @@ pub struct OutlineSettings {
 #[serde(deny_unknown_fields)]
 pub struct Frame {
     #[serde(skip)]
+    pub admission: Option<Box<crate::scene_packet::Admission>>,
+    #[serde(skip)]
     pub temporal: Option<crate::temporal::TemporalInput>,
     #[serde(default)]
     pub shadows: crate::shadows::ShadowFrame,

@@ -439,6 +439,7 @@ class SceneEngine {
   final Map<Object, Object> _services = {};
   final List<(ScenePlugin, PluginContext)> _attached = [];
   Future<FrameOutput>? _frame;
+  FrameSource? _publishedSource;
   Future<void>? _disposal;
   Registration? _cancellation;
   Duration? _lastElapsed;
@@ -912,9 +913,22 @@ class SceneEngine {
           );
         }
         final rendered = await backend.render(submission);
-        result = source == null
+        FrameSource? presentedSource = source;
+        if (rendered.stats.admission?.candidateReady == false) {
+          final published = _publishedSource;
+          presentedSource = published == null || source == null
+              ? null
+              : FrameSource(
+                  sceneRevision: published.sceneRevision,
+                  cameraRevision: source.cameraRevision,
+                  cameraRuntimeId: source.cameraRuntimeId,
+                );
+        } else {
+          _publishedSource = source;
+        }
+        result = presentedSource == null
             ? rendered
-            : rendered.withStats(rendered.stats.withSource(source));
+            : rendered.withStats(rendered.stats.withSource(presentedSource));
         _sharedGraph?.completeFrame(submission.graph);
       } else {
         if (target is! ReadbackTarget) {

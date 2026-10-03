@@ -116,6 +116,7 @@ class NativeRenderer implements SceneRenderer {
       );
     }
     final packet = encoder.encode(submission);
+    submission = packet.submission;
     Future<List<Object>> submit(Uint8List bytes) async =>
         await _worker.request('render', [
               TransferableTypedData.fromList([bytes]),
@@ -123,9 +124,20 @@ class NativeRenderer implements SceneRenderer {
               submission.size.height,
             ])
             as List<Object>;
-    final reply = resources == null
-        ? await submit(packet.bytes)
-        : await resources.submitFrame(submission, packet.bytes, submit);
+    late List<Object> reply;
+    try {
+      reply = resources == null
+          ? await submit(packet.bytes)
+          : await resources.submitFrame(
+              packet.submission,
+              packet.bytes,
+              submit,
+              scenePacket: packet,
+            );
+    } catch (_) {
+      encoder.reject(packet);
+      rethrow;
+    }
     encoder.accept(packet);
     final bytes = (reply[0] as TransferableTypedData)
         .materialize()
@@ -183,6 +195,10 @@ class NativeRenderer implements SceneRenderer {
             );
           }
           return receipt.sublist(1);
+        })
+        .catchError((Object error, StackTrace stack) {
+          encoder.reject(packet);
+          Error.throwWithStackTrace(error, stack);
         });
     _frame = future;
     return future.whenComplete(() {

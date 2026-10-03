@@ -218,6 +218,14 @@ Future<void> verifyGraphPhases(NativeGpuBackend backend) async {
     await shaders.close();
     await resources.close();
   }
+  // Closing the graph owner leaves the published cover alive until replacement.
+  await backend.render(
+    FrameSubmission.capture(
+      scene: Scene(),
+      camera: PerspectiveCamera(),
+      size: PhysicalSize(16, 16),
+    ),
+  );
   expect((await backend.resourceStats()).residentBytes, 0);
   expect((await backend.graphStats()).liveGraphs, 0);
   expect((await backend.graphStats()).liveMeshShaders, 0);

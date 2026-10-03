@@ -5,6 +5,55 @@ import 'support/fakes.dart';
 import 'dart:typed_data';
 
 void main() {
+  test('staging source follows published scene and current camera', () async {
+    final backend = SurfaceBackend();
+    final scene = Scene();
+    final camera = PerspectiveCamera();
+    final engine = await SceneEngine.create(
+      scene: scene,
+      camera: camera,
+      backendFactory: () async => backend,
+    );
+    Future<FrameOutput> draw() => engine.renderFrame(
+      elapsed: Duration.zero,
+      width: 16,
+      height: 16,
+      target: SurfaceTarget(backend.key, 0),
+    );
+    backend.admission = SceneAdmission(
+      candidateReady: true,
+      publishedRevision: 1,
+      uploadBacklogBytes: 0,
+      stagedBytes: 0,
+      presentedIdentities: [],
+    );
+    final old = await draw();
+    scene.background = const Color3(1, 0, 0);
+    camera.position = const Vec3(1, 0, 5);
+    backend.admission = SceneAdmission(
+      candidateReady: false,
+      publishedRevision: 1,
+      uploadBacklogBytes: 100,
+      stagedBytes: 100,
+      presentedIdentities: [],
+    );
+    final staging = await draw();
+    expect(
+      staging.stats.source!.sceneRevision,
+      old.stats.source!.sceneRevision,
+    );
+    expect(staging.stats.source!.cameraRevision, camera.revision);
+    backend.admission = SceneAdmission(
+      candidateReady: true,
+      publishedRevision: 3,
+      uploadBacklogBytes: 0,
+      stagedBytes: 0,
+      presentedIdentities: [],
+    );
+    final published = await draw();
+    expect(published.stats.source!.sceneRevision, scene.revision);
+    await engine.dispose();
+  });
   test('legacy renderer alpha metadata survives the engine adapter', () async {
     final engine = await SceneEngine.create(
       scene: Scene(),
@@ -76,6 +125,7 @@ class StatsPlugin extends ScenePlugin {
 class SurfaceBackend implements RenderBackend {
   final key = TestSurfaceKey();
   bool closed = false;
+  SceneAdmission? admission;
   @override
   DeviceCapabilities get capabilities => DeviceCapabilities(
     name: 'surface',
@@ -90,6 +140,7 @@ class SurfaceBackend implements RenderBackend {
       epoch: target.epoch,
       frameId: 7,
       stats: FrameStats(
+        admission: admission,
         frameId: 7,
         surfaceEpoch: target.epoch,
         physicalSize: submission.size,

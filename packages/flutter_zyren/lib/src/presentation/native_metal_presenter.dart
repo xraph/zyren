@@ -278,10 +278,11 @@ class NativeMetalBackend implements NativeGpuBackend {
     }
     final clock = Stopwatch()..start();
     final packet = _encoder.encode(submission);
+    submission = packet.submission;
     final frame = ++_nextFrame;
     final key = target is SurfaceTarget ? target.surface as _MetalKey : null;
     final pending = _gpu.submitFrame(
-      submission,
+      packet.submission,
       packet.bytes,
       (bytes) => request<Map>(key == null ? 'capture' : 'render', {
         'json': bytes,
@@ -294,10 +295,18 @@ class NativeMetalBackend implements NativeGpuBackend {
           'epoch': (target as SurfaceTarget).epoch,
         },
       }),
+      scenePacket: packet,
     );
     clock.stop();
-    final result = (await pending)!;
-    if (result['applied'] == true) _encoder.accept(packet);
+    final result = (await pending.catchError((Object error, StackTrace stack) {
+      _encoder.reject(packet);
+      Error.throwWithStackTrace(error, stack);
+    }))!;
+    if (result['applied'] == true) {
+      _encoder.accept(packet);
+    } else {
+      _encoder.reject(packet);
+    }
     if (result['ready'] != true) throw _deferred();
     final profile = _closed ? null : await _gpu.frameProfile();
     final stats = FrameStats(
@@ -310,6 +319,7 @@ class NativeMetalBackend implements NativeGpuBackend {
       cpuBuildTime: submission.cpuBuildTime,
       cpuSubmitTime: clock.elapsed,
       profile: profile,
+      admission: _encoder.admission,
       gpuTime: profile?.gpuTime,
       drawCalls:
           submission.scene.drawCalls +
@@ -319,7 +329,8 @@ class NativeMetalBackend implements NativeGpuBackend {
               : submission.scene.temporalMotionDraws + 1) +
           submission.scene.alphaResolveDraws +
           submission.outputConversionDraws +
-          (submission.graph?.drawCalls ?? 0),
+          (submission.graph?.drawCalls ?? 0) +
+          (profile?.resizeCompositeDraws ?? 0),
       computeDispatches: submission.graph?.dispatches ?? 0,
       triangles:
           submission.scene.triangles +
@@ -327,7 +338,8 @@ class NativeMetalBackend implements NativeGpuBackend {
           (submission.temporalAA == null ? 0 : submission.scene.triangles + 1) +
           submission.scene.alphaResolveDraws +
           submission.outputConversionDraws +
-          (submission.graph?.triangles ?? 0),
+          (submission.graph?.triangles ?? 0) +
+          (profile?.resizeCompositeDraws ?? 0),
       readbackBytes: result['readbackBytes'] as int,
       uploadedBytes: packet.uploadedBytes,
     );

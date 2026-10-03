@@ -384,6 +384,52 @@ impl ResourceStore {
         };
         tangents.as_ref()
     }
+    pub(crate) fn create_frame_target(
+        &mut self,
+        device: &wgpu::Device,
+        size: [u32; 2],
+        format: wgpu::TextureFormat,
+    ) -> Result<(ResourceKey, wgpu::Texture), ResourceError> {
+        let bytes = u64::from(size[0])
+            * u64::from(size[1])
+            * u64::from(format.block_copy_size(None).unwrap_or(4));
+        if bytes > MAX_BYTES {
+            return Err(ResourceError::BudgetExceeded);
+        }
+        self.registry.check_capacity(bytes)?;
+        let validation = device.push_error_scope(wgpu::ErrorFilter::Validation);
+        let memory = device.push_error_scope(wgpu::ErrorFilter::OutOfMemory);
+        let internal = device.push_error_scope(wgpu::ErrorFilter::Internal);
+        let texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("retained graph resize target"),
+            size: wgpu::Extent3d {
+                width: size[0],
+                height: size[1],
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
+        });
+        if pollster::block_on(internal.pop())
+            .or(pollster::block_on(memory.pop()))
+            .or(pollster::block_on(validation.pop()))
+            .is_some()
+        {
+            return Err(ResourceError::DeviceFailed);
+        }
+        let key = self.registry.insert(
+            Resource::Texture {
+                texture: texture.clone(),
+                usage: 3,
+            },
+            bytes,
+        )?;
+        Ok((key, texture))
+    }
     pub(crate) fn insert_scene_texture(
         &mut self,
         device: &wgpu::Device,
@@ -531,6 +577,9 @@ impl ResourceStore {
         }
         self.registry.retire_completed(completed);
         Ok(())
+    }
+    pub(crate) fn shutdown(&mut self, device: &wgpu::Device) -> Result<(), ResourceError> {
+        self.wait(device)
     }
     pub(crate) fn poll_completed(&mut self, device: &wgpu::Device) -> Result<(), ResourceError> {
         device

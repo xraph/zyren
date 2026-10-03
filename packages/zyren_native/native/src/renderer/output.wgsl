@@ -65,7 +65,7 @@ fn tone_map(rgb: vec3<f32>) -> vec3<f32> {
   return clamp(c, vec3(0.), vec3(1.));
 }
 @fragment fn fragment(@builtin(position) pixel: vec4<f32>) -> @location(0) vec4<f32> {
-  var color = textureLoad(source, vec2<i32>(pixel.xy), 0);
+  var color = textureLoad(source, vec2<i32>(pixel.xy * parameters.exposure.yz), 0);
   if (__UNASSOCIATE__) {
     color = vec4(select(vec3(0.), color.rgb / max(color.a, 1e-8), color.a > 0.), color.a);
   }

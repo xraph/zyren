@@ -6,7 +6,7 @@ use crate::{
 
 pub(super) struct GpuSceneTexture {
     pub key: ResourceKey,
-    recipe: std::sync::Arc<SceneTexture>,
+    pub(super) recipe: std::sync::Arc<SceneTexture>,
 }
 pub(super) fn layout(device: &wgpu::Device, maps: u32) -> wgpu::BindGroupLayout {
     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -146,6 +146,7 @@ impl Renderer {
         let retained: HashSet<_> = self
             .views
             .values()
+            .chain(self.staging.values())
             .flat_map(|v| v.retained_textures.iter().copied())
             .collect();
         let removed: Vec<_> = self

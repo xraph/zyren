@@ -18,6 +18,88 @@ void main() {
   final messenger =
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
   test(
+    'staging transport reports the displayed cover and publishes atomically',
+    () async {
+      final packets = <ByteData>[];
+      addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        switch (call.method) {
+          case 'connect':
+          case 'close':
+          case 'detach':
+            return null;
+          case 'create':
+            return {'session': 1, 'adapter': 'test native'};
+          case 'gpu':
+            return deviceInfoReply(call.arguments as Map);
+          case 'gpuCommand':
+            if ((call.arguments as Map)['kind'] == 'graph') {
+              return deviceInfoReply(call.arguments as Map);
+            }
+            return textureFormatsReply(call);
+          case 'prepare':
+            return {'epoch': 1, 'texture': 1};
+          case 'render':
+            final args = call.arguments as Map;
+            packets.add(ByteData.sublistView(args['json'] as Uint8List));
+            return {
+              'applied': true,
+              'ready': true,
+              'presented': true,
+              'readbackBytes': 0,
+            };
+          default:
+            throw StateError(call.method);
+        }
+      });
+      final backend = await NativeMetalBackend.create(runtimeToken: 10);
+      try {
+        final target = await backend.prepareView(7, PhysicalSize(16, 16));
+        final camera = PerspectiveCamera();
+        Future<FrameOutput> draw(Scene scene) => backend.render(
+          FrameSubmission.capture(
+            scene: scene,
+            camera: camera,
+            size: PhysicalSize(16, 16),
+            target: target,
+          ),
+        );
+        final old = Scene()..add(Mesh(BoxGeometry(), UnlitMaterial()));
+        final initial = await draw(old);
+        final candidate = Scene();
+        for (var i = 0; i < 2; i++) {
+          candidate.add(
+            Mesh(
+              BufferGeometry(
+                positions: Float32List(600000 * 3),
+                normals: Float32List.fromList(List.filled(600000 * 3, 1)),
+                indices: [0, 1, 2],
+              ),
+              UnlitMaterial(),
+            ),
+          );
+        }
+        final staged = await draw(candidate);
+        expect(packets.last.getUint32(0, Endian.little), 4);
+        expect(staged.stats.admission!.candidateReady, isFalse);
+        expect(
+          staged.stats.admission!.presentedIdentities,
+          initial.stats.admission!.presentedIdentities,
+        );
+        expect(staged.stats.drawCalls, initial.stats.drawCalls);
+        final published = await draw(candidate);
+        expect(published.stats.admission!.candidateReady, isTrue);
+        expect(published.stats.admission!.presentedIdentities.length, 2);
+        expect(
+          published.stats.uploadedBytes,
+          lessThanOrEqualTo(64 * 1024 * 1024),
+        );
+      } finally {
+        await backend.close();
+      }
+    },
+  );
+  test(
     'native device loss reaches the controller without hiding other errors',
     () async {
       addTearDown(() => messenger.setMockMethodCallHandler(channel, null));

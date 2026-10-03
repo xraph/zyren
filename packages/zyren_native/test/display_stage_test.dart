@@ -75,6 +75,14 @@ void main() {
         await retained.close();
         await materials.close();
         await programs.close();
+        // Replacing the published cover releases its native binding references.
+        await backend.render(
+          FrameSubmission.capture(
+            scene: Scene(),
+            camera: PerspectiveCamera(),
+            size: PhysicalSize(16, 16),
+          ),
+        );
         expect((await backend.graphStats()).liveMaterials, 0);
         await backend.close();
       }

@@ -262,9 +262,10 @@ class NativeAndroidBackend implements NativeGpuBackend {
     }
     final clock = Stopwatch()..start();
     final packet = _encoder.encode(submission);
+    submission = packet.submission;
     final frame = ++_nextFrame;
     final pending = _gpu.submitFrame(
-      submission,
+      packet.submission,
       packet.bytes,
       (bytes) => request<Map>('render', {
         'scene': bytes,
@@ -274,10 +275,18 @@ class NativeAndroidBackend implements NativeGpuBackend {
         'width': submission.size.width,
         'height': submission.size.height,
       }),
+      scenePacket: packet,
     );
     clock.stop();
-    final result = (await pending)!;
-    if (result['applied'] == true) _encoder.accept(packet);
+    final result = (await pending.catchError((Object error, StackTrace stack) {
+      _encoder.reject(packet);
+      Error.throwWithStackTrace(error, stack);
+    }))!;
+    if (result['applied'] == true) {
+      _encoder.accept(packet);
+    } else {
+      _encoder.reject(packet);
+    }
     if (_closed || result['presented'] != true) throw _deferred();
     final profile = await _gpu.frameProfile();
     return PresentedOutput(
@@ -292,6 +301,7 @@ class NativeAndroidBackend implements NativeGpuBackend {
         cpuBuildTime: submission.cpuBuildTime,
         cpuSubmitTime: clock.elapsed,
         profile: profile,
+        admission: _encoder.admission,
         gpuTime: profile.gpuTime,
         drawCalls:
             submission.scene.drawCalls +
@@ -301,7 +311,8 @@ class NativeAndroidBackend implements NativeGpuBackend {
                 : submission.scene.temporalMotionDraws + 1) +
             submission.scene.alphaResolveDraws +
             submission.outputConversionDraws +
-            (submission.graph?.drawCalls ?? 0),
+            (submission.graph?.drawCalls ?? 0) +
+            profile.resizeCompositeDraws,
         computeDispatches: submission.graph?.dispatches ?? 0,
         triangles:
             submission.scene.triangles +
@@ -311,7 +322,8 @@ class NativeAndroidBackend implements NativeGpuBackend {
                 : submission.scene.triangles + 1) +
             submission.scene.alphaResolveDraws +
             submission.outputConversionDraws +
-            (submission.graph?.triangles ?? 0),
+            (submission.graph?.triangles ?? 0) +
+            profile.resizeCompositeDraws,
         readbackBytes: result['readbackBytes'] as int,
         uploadedBytes: packet.uploadedBytes,
       ),

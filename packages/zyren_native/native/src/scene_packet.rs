@@ -16,6 +16,7 @@ pub struct ViewState {
     pub retained_poses: HashSet<u32>,
 }
 pub struct ScenePacket {
+    staging: bool,
     settings: crate::scene::RenderSettings,
     temporal: Option<crate::temporal::TemporalInput>,
     shadows: crate::shadows::ShadowFrame,
@@ -85,7 +86,9 @@ impl ScenePacket {
         if r.u32()? != 2 {
             return Err("unsupported scene packet".into());
         }
-        let opcode = r.u32()?;
+        let raw_opcode = r.u32()?;
+        let staging = raw_opcode & 0x10000 != 0;
+        let opcode = raw_opcode & !0x10000;
         if !(10..=36).contains(&opcode) {
             return Err("unsupported scene packet".into());
         }
@@ -940,6 +943,7 @@ impl ScenePacket {
             return Err("trailing scene bytes".into());
         }
         Ok(Self {
+            staging,
             settings,
             shadows,
             view,
@@ -973,6 +977,23 @@ impl ScenePacket {
         self.view
     }
     pub fn resolve(self, previous: Option<&ViewState>) -> Result<Frame, String> {
+        if self.staging {
+            return Err("resource staging requires an admission envelope".into());
+        }
+        self.resolve_inner(previous)
+    }
+    pub fn resolve_upload(self) -> Result<Frame, String> {
+        if !self.staging
+            || self.base != 0
+            || self.mesh_count != 0
+            || !self.geometry_patches.is_empty()
+            || !self.instance_patches.is_empty()
+        {
+            return Err("staging requires full immutable resources without draw state".into());
+        }
+        self.resolve_inner(None)
+    }
+    fn resolve_inner(self, previous: Option<&ViewState>) -> Result<Frame, String> {
         if previous.is_some_and(|p| self.revision <= p.revision) {
             return Err("stale scene revision".into());
         }
@@ -999,27 +1020,29 @@ impl ScenePacket {
         }) {
             return Err("visible textures must be owned by the view".into());
         }
-        if meshes
-            .iter()
-            .any(|m| m.instances != 0 && !self.retained_instances.contains(&m.instances))
-            || self
-                .instances
+        if !self.staging
+            && (meshes
                 .iter()
-                .any(|i| !meshes.iter().any(|m| m.instances == i.id))
-            || self
-                .instance_patches
-                .iter()
-                .any(|i| !meshes.iter().any(|m| m.instances == i.id))
+                .any(|m| m.instances != 0 && !self.retained_instances.contains(&m.instances))
+                || self
+                    .instances
+                    .iter()
+                    .any(|i| !meshes.iter().any(|m| m.instances == i.id))
+                || self
+                    .instance_patches
+                    .iter()
+                    .any(|i| !meshes.iter().any(|m| m.instances == i.id)))
         {
             return Err("visible instance resources must be owned and uploads referenced".into());
         }
-        if meshes
-            .iter()
-            .any(|m| m.pose != 0 && !self.retained_poses.contains(&m.pose))
-            || self
-                .poses
+        if !self.staging
+            && (meshes
                 .iter()
-                .any(|p| !meshes.iter().any(|m| m.pose == p.id))
+                .any(|m| m.pose != 0 && !self.retained_poses.contains(&m.pose))
+                || self
+                    .poses
+                    .iter()
+                    .any(|p| !meshes.iter().any(|m| m.pose == p.id)))
         {
             return Err("visible poses must be owned and uploads referenced".into());
         }
@@ -1036,6 +1059,7 @@ impl ScenePacket {
             retained_poses: self.retained_poses,
         });
         Ok(Frame {
+            admission: None,
             settings: self.settings,
             temporal: self.temporal,
             environment: None,
@@ -1060,5 +1084,97 @@ impl ScenePacket {
             instance_patches: self.instance_patches,
             graph: None,
         })
+    }
+}
+
+#[derive(Clone, PartialEq, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct Admission {
+    pub view: u64,
+    pub resources: Vec<[u64; 3]>,
+    pub backlog_bytes: u64,
+    pub staged_bytes: u64,
+    pub publish: bool,
+    #[serde(skip)]
+    pub upload: Option<Box<Frame>>,
+}
+impl Admission {
+    pub fn decode(bytes: &[u8]) -> Result<(Self, &[u8]), String> {
+        let mut reader = Reader {
+            data: bytes,
+            offset: 0,
+        };
+        if reader.u32()? != 4 {
+            return Err("invalid admission envelope".into());
+        }
+        let metadata = reader.u32()? as usize;
+        let upload = reader.u32()? as usize;
+        let display = reader.u32()? as usize;
+        if metadata > 1024 * 1024 || upload > 66 * 1024 * 1024 || display > 66 * 1024 * 1024 {
+            return Err("admission envelope exceeds byte budget".into());
+        }
+        let mut admission: Self =
+            serde_json::from_slice(reader.bytes(metadata)?).map_err(|e| e.to_string())?;
+        if admission.view == 0
+            || admission.resources.len() > 16384
+            || admission.publish != (upload == 0)
+            || (admission.publish && !admission.resources.is_empty())
+        {
+            return Err("invalid admission state".into());
+        }
+        let mut unique = HashSet::new();
+        let mut counts = [0; 4];
+        for [kind, id, bytes] in &admission.resources {
+            if *kind > 3
+                || *id == 0
+                || *id > u32::MAX as u64
+                || *bytes == 0
+                || *bytes > 64 * 1024 * 1024
+                || !unique.insert((*kind, *id))
+            {
+                return Err("invalid admission resource manifest".into());
+            }
+            counts[*kind as usize] += 1;
+            if counts[*kind as usize] > 4096 {
+                return Err("admission resource count exceeds budget".into());
+            }
+        }
+        if upload > 0 {
+            let frame = ScenePacket::decode(reader.bytes(upload)?)?.resolve_upload()?;
+            if frame.binary.as_ref().unwrap().view != admission.view {
+                return Err("staging view mismatch".into());
+            }
+            admission.upload = Some(Box::new(frame));
+        }
+        let start = reader.offset;
+        reader.bytes(display)?;
+        if reader.offset != bytes.len() {
+            return Err("trailing admission bytes".into());
+        }
+        Ok((admission, &bytes[start..]))
+    }
+}
+
+#[cfg(test)]
+mod admission_tests {
+    use super::*;
+    #[test]
+    fn admission_envelopes_reject_bad_lengths_manifests_and_nested_displays() {
+        let metadata = serde_json::to_vec(&serde_json::json!({"view":1,"resources":[],"backlogBytes":0,"stagedBytes":0,"publish":true})).unwrap();
+        let mut bytes = vec![];
+        for n in [4, metadata.len() as u32, 0, 4] {
+            bytes.extend(n.to_le_bytes());
+        }
+        bytes.extend(metadata);
+        bytes.extend(2_u32.to_le_bytes());
+        assert!(Admission::decode(&bytes).is_ok());
+        for end in 0..bytes.len() {
+            assert!(Admission::decode(&bytes[..end]).is_err());
+        }
+        let mut trailing = bytes.clone();
+        trailing.push(0);
+        assert!(Admission::decode(&trailing).is_err());
+        bytes[4..8].copy_from_slice(&u32::MAX.to_le_bytes());
+        assert!(Admission::decode(&bytes).is_err());
     }
 }

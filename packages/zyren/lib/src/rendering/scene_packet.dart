@@ -4,6 +4,29 @@ part of 'frame_submission.dart';
 /// native renderer reports that it applied the frame, including hidden frames.
 final class EncodedScenePacket {
   final Uint8List bytes;
+  late final FrameSubmission submission;
+
+  /// Opaque native binding prefix. A resource-capable adapter records this on
+  /// publication and reuses it for the native-owned cover during staging.
+  Uint8List? bindingHeader;
+  Map<Object, Object> _tokens = {};
+  bool get ready => _stage == null;
+  int get uploadBacklogBytes => _backlogBytes;
+  int get stagedBytes => _stagedBytes;
+  int _backlogBytes = 0, _stagedBytes = 0;
+  SceneAdmission get admission => SceneAdmission(
+    candidateReady: ready,
+    publishedRevision: ready ? _revision : _owner.publishedRevision,
+    uploadBacklogBytes: uploadBacklogBytes,
+    stagedBytes: stagedBytes,
+    presentedIdentities: presentedIdentities,
+  );
+  SceneSnapshot? _stage;
+  EncodedScenePacket? _display;
+
+  /// Object and resource identities of the cover this packet actually presents.
+  List<(int, int)> get presentedIdentities =>
+      List.unmodifiable(_scene._identities);
   final int uploadedBytes, changedMeshes;
   final ScenePacketEncoder _owner;
   final int _revision;
@@ -28,11 +51,31 @@ final class EncodedScenePacket {
 
 /// One serial view's binary encoder. Resources survive visibility changes.
 /// Independent views need independent encoders, even when sharing a device.
+///
+/// Accept only a successful native receipt. Camera-only updates preserve staged
+/// immutable resources. A replacement candidate keeps resources it still needs
+/// and abandons the rest; returning to the published cover cancels the backlog.
+/// Call [reject] after failed preparation so a retry resends uncertain uploads.
+/// Native publication keeps resource references until replacement or view close,
+/// independently of the Dart owners. Closing an owner invalidates new use.
 final class ScenePacketEncoder {
   final int viewId;
   final MaterialDevice? materialDevice;
   int _next = 0, _accepted = 0;
   SceneSnapshot? _previous;
+  Map<Object, Object> _tokens = {};
+  Uint8List? _bindingHeader;
+  FrameSubmission? _published;
+  FrameSubmission? presentedSubmission;
+  SceneAdmission? admission;
+  SceneSnapshot? _staged;
+
+  /// The last complete cover accepted by the native presenter.
+  FrameSubmission? get publishedSubmission => _published;
+  int get publishedRevision => _publishedRevision;
+  int _publishedRevision = 0;
+  int uploadBacklogBytes = 0;
+  int stagedBytes = 0;
   Map<int, GeometrySnapshot> _uploaded = {};
   Set<int> _uploadedTextures = {};
   Map<int, InstanceSnapshot> _uploadedInstances = {};
@@ -40,8 +83,22 @@ final class ScenePacketEncoder {
   ScenePacketEncoder({required this.viewId, this.materialDevice}) {
     if (viewId <= 0) throw ArgumentError.value(viewId, 'viewId');
   }
-  EncodedScenePacket encode(FrameSubmission submission) {
+  EncodedScenePacket encode(FrameSubmission submission) => _encode(submission);
+  EncodedScenePacket _encode(
+    FrameSubmission submission, {
+    bool resourceOnly = false,
+    bool allowStage = true,
+  }) {
     final scene = submission.scene;
+    final tokens = <Object, Object>{};
+    Uint8List materialToken(Object owner, Uint8List Function() encode) {
+      final token = !allowStage && _tokens[owner] is Uint8List
+          ? _tokens[owner] as Uint8List
+          : encode();
+      tokens[owner] = token;
+      return token;
+    }
+
     for (final mesh in scene._meshes) {
       if (mesh['shader'] case final MeshShader shader) {
         final device = materialDevice;
@@ -50,26 +107,35 @@ final class ScenePacketEncoder {
             'Custom materials require a material-capable backend.',
           );
         }
-        shader.encodeForDevice(device);
+        materialToken(shader, () => shader.encodeForDevice(device));
       }
     }
     final effects = [
       for (final effect in scene._settings.effects)
-        effect.encodeForDevice(
-          materialDevice ??
-              (throw UnsupportedError(
-                'Effects require a material-capable backend.',
-              )),
+        materialToken(
+          effect,
+          () => effect.encodeForDevice(
+            materialDevice ??
+                (throw UnsupportedError(
+                  'Effects require a material-capable backend.',
+                )),
+          ),
         ),
     ];
     final environment = scene._settings.environment;
-    final environmentKeys = environment?.encodeForDevice(
-      materialDevice is EnvironmentDevice
-          ? materialDevice as EnvironmentDevice
-          : throw UnsupportedError(
-              'Environment lighting requires a resource-capable backend.',
-            ),
-    );
+    final environmentKeys =
+        environment != null && !allowStage && _tokens[environment] != null
+        ? _tokens[environment] as List<Uint8List>
+        : environment?.encodeForDevice(
+            materialDevice is EnvironmentDevice
+                ? materialDevice as EnvironmentDevice
+                : throw UnsupportedError(
+                    'Environment lighting requires a resource-capable backend.',
+                  ),
+          );
+    if (environment != null && environmentKeys != null) {
+      tokens[environment] = environmentKeys;
+    }
     final previous = _previous;
     final topology =
         previous == null ||
@@ -83,7 +149,9 @@ final class ScenePacketEncoder {
     };
     final uploaded = Map<int, GeometrySnapshot>.of(_uploaded)
       ..removeWhere((id, _) => !logicalIds.contains(id));
-    final visible = {for (final mesh in scene._meshes) mesh['geometry'] as int};
+    final visible = resourceOnly
+        ? scene._geometries.keys.toSet()
+        : {for (final mesh in scene._meshes) mesh['geometry'] as int};
     final uploads = <GeometrySnapshot>[];
     final patches = <_GeometryPatch>[];
     for (final geometry in scene._geometries.values) {
@@ -95,6 +163,10 @@ final class ScenePacketEncoder {
         throw UnsupportedError(
           'Expanded primitives do not support UV or tangent attributes.',
         );
+      }
+      if (_staged?._geometries.containsKey(geometry.id) ?? false) {
+        uploaded[geometry.logicalId] = geometry;
+        continue;
       }
       final base = uploaded[geometry.logicalId];
       if (base?.id == geometry.id) continue;
@@ -120,29 +192,42 @@ final class ScenePacketEncoder {
     final uploadedTextures = _uploadedTextures.intersection(
       scene._textures.keys.toSet(),
     );
-    final visibleTextures = {
-      for (final mesh in scene._meshes)
-        if ((mesh['colorMap'] as List).isNotEmpty)
-          (mesh['colorMap'] as List).first as int,
-      for (final mesh in scene._meshes)
-        for (final field in [..._standardMapFields, ..._physicalMapFields])
-          if ((mesh['pbr'] as Map?)?[field] case final List binding)
-            binding.first as int,
-    };
+    final visibleTextures = resourceOnly
+        ? scene._textures.keys.toSet()
+        : {
+            for (final mesh in scene._meshes)
+              if ((mesh['colorMap'] as List).isNotEmpty)
+                (mesh['colorMap'] as List).first as int,
+            for (final mesh in scene._meshes)
+              for (final field in [
+                ..._standardMapFields,
+                ..._physicalMapFields,
+              ])
+                if ((mesh['pbr'] as Map?)?[field] case final List binding)
+                  binding.first as int,
+          };
     final textures = [
       for (final id in visibleTextures)
-        if (!uploadedTextures.contains(id)) scene._textures[id]!,
+        if (!uploadedTextures.contains(id) &&
+            !(_staged?._textures.containsKey(id) ?? false))
+          scene._textures[id]!,
     ];
     final instanceLogicalIds = scene._instances.values
         .map((v) => v.logicalId)
         .toSet();
     final uploadedInstances = Map<int, InstanceSnapshot>.of(_uploadedInstances)
       ..removeWhere((id, _) => !instanceLogicalIds.contains(id));
-    final visibleInstances = scene._meshes.map((m) => m['instances']).toSet();
+    final visibleInstances = resourceOnly
+        ? scene._instances.keys.toSet()
+        : scene._meshes.map((m) => m['instances']).toSet();
     final instanceUploads = <InstanceSnapshot>[];
     final instancePatches = <(int, InstanceSnapshot, List<InstanceRange>)>[];
     for (final instance in scene._instances.values) {
       if (!visibleInstances.contains(instance.id)) continue;
+      if (_staged?._instances.containsKey(instance.id) ?? false) {
+        uploadedInstances[instance.logicalId] = instance;
+        continue;
+      }
       final base = uploadedInstances[instance.logicalId];
       if (base?.id == instance.id) continue;
       final ranges = base == null ? null : instance.changesSince(base);
@@ -161,10 +246,16 @@ final class ScenePacketEncoder {
     final poseLogicalIds = scene._poses.values.map((v) => v.logicalId).toSet();
     final uploadedPoses = Map<int, DeformationSnapshot>.of(_uploadedPoses)
       ..removeWhere((id, _) => !poseLogicalIds.contains(id));
-    final visiblePoses = scene._meshes.map((m) => m['pose']).toSet();
+    final visiblePoses = resourceOnly
+        ? scene._poses.keys.toSet()
+        : scene._meshes.map((m) => m['pose']).toSet();
     final poseUploads = <DeformationSnapshot>[];
     for (final pose in scene._poses.values) {
       if (!visiblePoses.contains(pose.id)) continue;
+      if (_staged?._poses.containsKey(pose.id) ?? false) {
+        uploadedPoses[pose.logicalId] = pose;
+        continue;
+      }
       if (uploadedPoses[pose.logicalId]?.id == pose.id) continue;
       poseUploads.add(pose);
       uploadedPoses[pose.logicalId] = pose;
@@ -220,8 +311,21 @@ final class ScenePacketEncoder {
     );
     if (vertices > 1000000 ||
         indices > 3000000 ||
-        uploadBytes > 64 * 1024 * 1024) {
-      throw ArgumentError('Scene resource upload exceeds the frame budget.');
+        uploadBytes > 64 * 1024 * 1024 ||
+        textures.fold<int>(0, (n, t) => n + t.descriptor.byteLength) >
+            64 * 1024 * 1024) {
+      if (!allowStage) {
+        throw ArgumentError(
+          'A single scene asset exceeds the admitted upload limit.',
+        );
+      }
+      return _stagePacket(
+        submission,
+        [...uploads, ...patches.map((p) => p.geometry)],
+        textures,
+        [...instanceUploads, ...instancePatches.map((p) => p.$2)],
+        poseUploads,
+      );
     }
     final settings = scene._settings;
     final screenEnabled =
@@ -645,7 +749,12 @@ final class ScenePacketEncoder {
         body.json({
           'material_shader': shader == null
               ? null
-              : key(shader.encodeForDevice(materialDevice!)),
+              : key(
+                  materialToken(
+                    shader,
+                    () => shader.encodeForDevice(materialDevice!),
+                  ),
+                ),
           'clipping_planes': [
             for (var i = 0; i < planes.length; i += 4) planes.sublist(i, i + 4),
           ],
@@ -716,22 +825,42 @@ final class ScenePacketEncoder {
     final revision = ++_next;
     final header = _SceneWriter()
       ..u32(2)
-      ..u32(opcode)
+      ..u32(opcode | (resourceOnly ? 0x10000 : 0))
       ..u64(revision)
       ..u64(payload.length);
     header.add(payload);
-    return EncodedScenePacket._(
-      header.finish().asUnmodifiableView(),
-      uploadBytes,
-      updates.length,
-      this,
-      revision,
-      scene,
-      uploaded,
-      uploadedTextures,
-      uploadedInstances,
-      uploadedPoses,
-    );
+    final packet =
+        EncodedScenePacket._(
+            header.finish().asUnmodifiableView(),
+            uploadBytes,
+            updates.length,
+            this,
+            revision,
+            scene,
+            uploaded,
+            {
+              ...uploadedTextures,
+              ...?_staged?._textures.keys.where(scene._textures.containsKey),
+            },
+            uploadedInstances,
+            uploadedPoses,
+          )
+          ..submission = submission
+          .._tokens = tokens;
+    return !resourceOnly && _staged != null
+        ? _wrapAdmission(packet, null, const [], 0, 0)
+        : packet;
+  }
+
+  /// Discards upload assumptions after a rejected native preparation. The
+  /// published scene remains valid and the next candidate retries its resources.
+  void reject(EncodedScenePacket packet) {
+    if (identical(packet._owner, this) &&
+        packet._revision == _next &&
+        packet._revision > _accepted) {
+      _staged = null;
+      uploadBacklogBytes = stagedBytes = 0;
+    }
   }
 
   void accept(EncodedScenePacket packet) {
@@ -740,6 +869,32 @@ final class ScenePacketEncoder {
         packet._revision <= _accepted) {
       throw StateError('Only the latest pending packet can advance this view.');
     }
+    if (packet.ready) {
+      _tokens = packet._tokens;
+      _bindingHeader = packet.bindingHeader;
+    }
+    presentedSubmission = packet.submission;
+    admission = packet.admission;
+    if (packet._display case final display?) {
+      _previous = display._scene;
+      _uploaded = display._uploaded;
+      _uploadedTextures = display._uploadedTextures;
+      _uploadedInstances = display._uploadedInstances;
+      _uploadedPoses = display._uploadedPoses;
+      _accepted = packet._revision;
+      _staged = packet._stage;
+      uploadBacklogBytes = packet.uploadBacklogBytes;
+      stagedBytes = packet.stagedBytes;
+      if (packet.ready) {
+        _published = packet.submission;
+        _publishedRevision = packet._revision;
+      }
+      return;
+    }
+    _published = packet.submission;
+    _publishedRevision = packet._revision;
+    _staged = null;
+    uploadBacklogBytes = stagedBytes = 0;
     _previous = packet._scene;
     _uploaded = packet._uploaded;
     _uploadedTextures = packet._uploadedTextures;

@@ -59,8 +59,27 @@ final class _NativeResourceDevice
   Future<T> submitFrame<T>(
     FrameSubmission submission,
     Uint8List packet,
-    Future<T> Function(Uint8List bytes) submit,
-  ) {
+    Future<T> Function(Uint8List bytes) submit, {
+    EncodedScenePacket? scenePacket,
+  }) {
+    if (scenePacket != null && !scenePacket.ready) {
+      final prefix = scenePacket.bindingHeader;
+      if (prefix == null || prefix.isEmpty) {
+        return Future.sync(() => submit(packet));
+      }
+      final bytes = Uint8List(prefix.length + packet.length)
+        ..setAll(0, prefix)
+        ..setAll(prefix.length, packet);
+      ByteData.sublistView(bytes).setUint64(8, packet.length, Endian.little);
+      return Future.sync(() => submit(bytes));
+    }
+    final send = submit;
+    submit = (bytes) {
+      scenePacket?.bindingHeader = Uint8List.fromList(
+        bytes.sublist(0, bytes.length - packet.length),
+      );
+      return send(bytes);
+    };
     final programs = submission.scene.meshShaders;
     final unique = programs.values.toSet().toList();
     final keys = <MeshShaderProgram, _MeshShaderKey>{};

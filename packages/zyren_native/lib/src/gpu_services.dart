@@ -98,13 +98,19 @@ final class NativeGpuServices {
 
   Future<NativeDeviceInfo> deviceInfo() => _device.deviceInfo();
 
-  /// Holds the scene's graph and mesh programs until the native frame completes.
+  /// Leases the frame's bindings through native submission. A published native
+  /// cover then owns references until replacement or view teardown, so you can
+  /// close the Dart owners without blocking subsequent staging or disposal.
+  /// Closed Dart owners cannot be used for new submissions. The encoder can
+  /// still present their retained cover while a replacement is staged.
   /// The original scene packet stays immutable.
   Future<T> submitFrame<T>(
     FrameSubmission submission,
     Uint8List packet,
-    Future<T> Function(Uint8List bytes) submit,
-  ) => _device.submitFrame(submission, packet, submit);
+    Future<T> Function(Uint8List bytes) submit, {
+    EncodedScenePacket? scenePacket,
+  }) =>
+      _device.submitFrame(submission, packet, submit, scenePacket: scenePacket);
 
   Future<Set<TextureFormat>> textureFormats() => _device.textureFormats();
   Future<ResourceStats> resourceStats() => _device.stats();

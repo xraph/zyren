@@ -27,8 +27,9 @@ pub(super) enum Pass {
     Output,
     Outlines,
     Effects,
+    ResizeComposite,
 }
-pub(super) const PASSES: [&str; 11] = [
+pub(super) const PASSES: [&str; 12] = [
     "resourceGraphBefore",
     "shadows",
     "transmission",
@@ -40,6 +41,7 @@ pub(super) const PASSES: [&str; 11] = [
     "output",
     "outlines",
     "effects",
+    "resizeComposite",
 ];
 const SLOTS: usize = PASSES.len() + 1;
 pub(super) const BUFFER_BYTES: u64 = (SLOTS * 16) as u64;
@@ -58,6 +60,9 @@ pub(super) struct Profile {
     pub draw_preparation_bind_groups: u64,
     pub draw_cache_reuses: Option<u64>,
     pub upload_bytes: u64,
+    pub upload_backlog_bytes: u64,
+    pub staged_bytes: u64,
+    pub candidate_ready: bool,
     pub passes: std::collections::BTreeMap<&'static str, PassSample>,
 }
 #[derive(Clone, serde::Serialize)]
@@ -80,6 +85,9 @@ impl Default for Profile {
             draw_preparation_bind_groups: 0,
             draw_cache_reuses: None,
             upload_bytes: 0,
+            upload_backlog_bytes: 0,
+            staged_bytes: 0,
+            candidate_ready: true,
             passes: PASSES
                 .into_iter()
                 .map(|name| {
@@ -220,7 +228,7 @@ mod tests {
     use super::*;
     #[test]
     fn fixed_pass_slots_preserve_absence_and_reject_incomplete_reads() {
-        assert_eq!(BUFFER_BYTES * 2, 384);
+        assert_eq!(BUFFER_BYTES * 2, 416);
         let mut bytes = [0; BUFFER_BYTES as usize];
         let slot = Pass::Scene as usize + 1;
         bytes[slot * 16..slot * 16 + 8].copy_from_slice(&100_u64.to_le_bytes());

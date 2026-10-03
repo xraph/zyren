@@ -14,6 +14,7 @@ import '../spatial/frustum.dart';
 import 'frame_output.dart';
 import '../resources/resource_scope.dart';
 part 'scene_packet.dart';
+part 'scene_admission.dart';
 part 'shadow_capture.dart';
 
 class FrameTime {

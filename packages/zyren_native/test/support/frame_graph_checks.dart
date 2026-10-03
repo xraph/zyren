@@ -117,8 +117,7 @@ Future<void> verifyFrameGraph({
     // Render removal before checking the graph's final allocation cleanup.
     await render();
     await graph.close();
-    expect((await backend.resourceStats()).residentBytes, 0);
-    expect((await backend.graphStats()).liveGraphs, 0);
+    expect((await backend.graphStats()).liveGraphs, 1);
     final plain =
         await backend.render(
               FrameSubmission.capture(
@@ -129,6 +128,8 @@ Future<void> verifyFrameGraph({
             )
             as ReadbackOutput;
     expect(plain.image.pixels.sublist(0, 4), [0, 0, 255, 255]);
+    expect((await backend.resourceStats()).residentBytes, 0);
+    expect((await backend.graphStats()).liveGraphs, 0);
   } finally {
     await backend.close();
   }

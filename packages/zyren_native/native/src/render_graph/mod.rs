@@ -414,13 +414,20 @@ impl GraphStore {
         assert!(bytes.len() <= RESPONSE_CAPACITY);
         Ok(bytes)
     }
-    fn release(
+    pub(crate) fn retain_cover(&mut self, key: ResourceKey) -> Result<(), GraphError> {
+        self.registry.retain(key).map_err(Into::into)
+    }
+    pub(crate) fn release(
         &mut self,
         device: &wgpu::Device,
         resources: &mut ResourceStore,
         shaders: &mut ShaderStore,
         key: ResourceKey,
     ) -> Result<(), GraphError> {
+        if self.registry.references(key)? > 1 {
+            self.registry.release(key)?;
+            return Ok(());
+        }
         let graph = self.registry.resolve(key)?.clone();
         self.registry.release(key)?;
         self.registry.retire_completed(0);

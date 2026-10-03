@@ -86,6 +86,7 @@ impl GraphStore {
         key: ResourceKey,
         width: u32,
         height: u32,
+        retained: bool,
     ) -> Result<FrameGraph, String> {
         let graph = self
             .registry
@@ -96,7 +97,7 @@ impl GraphStore {
             .frame
             .as_ref()
             .ok_or("Graph has no scene frame contract")?;
-        if scene_color.width() != width || scene_color.height() != height {
+        if !retained && (scene_color.width() != width || scene_color.height() != height) {
             return Err("Frame graph dimensions differ from the submitted frame".into());
         }
         Ok(FrameGraph {
@@ -181,7 +182,7 @@ pub(crate) fn decode_packet(bytes: &[u8]) -> Result<FramePacket<'_>, String> {
     if bytes.len() < offset + 24
         || bytes.len() - offset > 66 * 1024 * 1024
         || u64_at(8) != (bytes.len() - offset) as u64
-        || u32_at(offset) != 2
+        || ![2, 4].contains(&u32_at(offset))
     {
         return Err("Invalid enclosed scene packet".into());
     }

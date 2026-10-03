@@ -383,6 +383,9 @@ impl MeshStore {
             }
         }
     }
+    pub(crate) fn retain_cover(&mut self, key: ResourceKey) -> Result<(), GraphError> {
+        self.registry.retain(key).map_err(Into::into)
+    }
     pub fn release(
         &mut self,
         device: &wgpu::Device,
@@ -390,6 +393,10 @@ impl MeshStore {
         shaders: &mut ShaderStore,
         id: ResourceKey,
     ) -> Result<(), GraphError> {
+        if self.registry.references(id)? > 1 {
+            self.registry.release(id)?;
+            return Ok(());
+        }
         let program = self.registry.resolve(id)?;
         let keys = program.resources.clone();
         let shader = program.shader;

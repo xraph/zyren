@@ -154,6 +154,7 @@ impl Renderer {
         let retained: HashSet<_> = self
             .views
             .values()
+            .chain(self.staging.values())
             .flat_map(|v| v.retained_poses.iter().copied())
             .collect();
         let removed: Vec<_> = self
