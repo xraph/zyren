@@ -14,8 +14,8 @@ a private output directory and removes that directory if the job fails or is
 cancelled. Completed files belong to you and survive manager disposal. It never
 deletes a caller-selected directory. Keep the output parent private to your host.
 
-Jobs run one at a time, with at most 720 frames, 4096 pixels per dimension and
-32 retained job records by default. Each image is written before the next native
+Jobs run one at a time, with at most 720 frames, 4096 pixels per untiled dimension
+and 32 retained job records by default. Each image is written before the next native
 frame starts. Cancellation waits for an in-flight render or file write, then
 cleans up. `close` cancels active work and waits for cleanup.
 
@@ -30,11 +30,10 @@ The first output format is PNG from RGBA8 sRGB readback, including conversion
 from premultiplied alpha. Other readback formats fail explicitly. A backend must
 report capture support; the Flutter Android presenter currently does not.
 
-Seven tests cover deterministic sampling, cancellation, scene changes, unsupported
-capture, sink/close failures, PNG conversion and job admission. A macOS Metal
-fixture produced two matching four-frame sequences. High-resolution tiling,
-video encoding, depth and object-ID passes remain later milestones. No other
-device capture path has been qualified here.
+Package tests cover sampling, cancellation, scene changes, unsupported capture,
+scoped cleanup, PNG conversion, job admission and shared agent tools. Opt-in
+native tests cover Metal effects and tiled images. `RUN_FFMPEG=1` enables the
+real encoder test; `RUN_NATIVE_GPU=1` enables native rendering tests.
 
 ## Runtime agents and effects
 
@@ -53,8 +52,8 @@ failed job even if cancellation was also requested.
 Import `effects_agents.dart` for an optional `EffectsAgentProvider`. It inspects
 existing scene effects and, when supplied, the `ScreenEffectsController`. The
 `effects.write` scope permits exposure, tone mapping and HDR changes through
-normal scene render settings, with guarded undo. Effect-chain resource controls
-are inspection only in this checkpoint.
+normal scene render settings, with guarded undo. The `chain` tool also rebuilds
+resources through that controller.
 
 `dart run example/agent_scene.dart` starts the existing devtools MCP protocol on
 stdio with configurator, audio, capture, effects and a named viewport provider.
@@ -62,4 +61,41 @@ It creates no network listener. A live MCP check discovered all five providers,
 picked the stable `body` target, applied a color choice and captured changed PNG
 bytes through Metal. Audio controls used the real offline mixer. The example is
 a headless view, so presented-frame correlation and Flutter overlay handling
-remain unknown. Eight capture tests and two agent/effects tests pass.
+remain unknown in that headless example.
+
+## Tiled output and video
+
+Set `CapturePlan.tileDimension` to render a large image with cropped native
+perspective frusta. You can request up to 8192 pixels on either axis, subject to
+a 32 megapixel output budget, with tiles from 16 to 2048 pixels. Each tile checks
+cancellation and scene revision. The manifest records all native tile frame IDs.
+Tiled jobs reject screen-space effects, bloom, spatial AA and outlines because
+those passes need overlap or a full-resolution composition step to avoid seams.
+
+Transparent PNG output preserves the backend's alpha. On Metal, a nine-tile
+fixture matched its full render byte for byte and preserved background alpha.
+The test also exercised a 4097-pixel-wide output. Depth and object-ID capture have
+no public readback capability yet and remain unsupported.
+
+Import `video.dart` for `VideoExport`. You supply a completed PNG artifact, an
+output parent, a frame rate and an installed FFmpeg executable with libx264.
+The adapter uses FFmpeg's [image sequence input](https://ffmpeg.org/ffmpeg-formats.html#image2)
+and writes H.264 in MP4 with yuv420p pixels. It requires even dimensions and drops
+alpha; audio muxing is not implemented. Encoder progress, bounded diagnostics,
+timeouts and cancellation are explicit. Failed exports remove only their own
+private directory and leave the PNG sequence intact.
+
+`video_agents.dart` exposes this adapter through `VideoAgentProvider`. Register
+it with `provider.register(registry)`, grant `capture.video`, and start exports
+by completed capture ID. The host chooses the executable and paths. Disposal
+cancels outstanding exports; `forget` drops history while retaining files.
+
+Supply a `ScreenEffectsController` to enable the effects provider's `chain` tool.
+You can change SMAA, dithering, lens enable/intensity/threshold, and grading
+intensity/interpolation. Omitted fields and the host LUT are preserved. The
+controller builds replacement GPU resources before publishing them; guarded
+undo restores the preceding settings. Concurrent scene color edits are preserved
+if they arrive during a chain undo. Closed owners and failed rebuilds report
+errors through the shared registry.
+
+For a displayed fixture, see [the Flutter lab](example/flutter/README.md).

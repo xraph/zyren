@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'dart:math' as math;
 import 'package:zyren/zyren.dart';
 import 'package:zyren/rendering.dart';
 import 'src/png.dart';
+import 'src/tile_camera.dart';
 export 'src/png.dart' show encodeCapturePng;
 
 final class CaptureCancelled implements Exception {
@@ -15,12 +17,14 @@ final class CaptureCancelled implements Exception {
 final class CapturePlan {
   final PhysicalSize size;
   final int frameCount, framesPerSecond;
+  final int? tileDimension;
   final Vec3 center;
   final double radius, elevation, startAngle, fieldOfView, near, far;
   CapturePlan({
     required this.size,
     this.frameCount = 1,
     this.framesPerSecond = 30,
+    this.tileDimension,
     this.center = Vec3.zero,
     this.radius = 5,
     this.elevation = .3,
@@ -29,8 +33,12 @@ final class CapturePlan {
     this.near = .1,
     this.far = 1000,
   }) {
-    if (size.width > 4096 ||
-        size.height > 4096 ||
+    if (size.width > 8192 ||
+        size.height > 8192 ||
+        size.width * size.height > 32 * 1024 * 1024 ||
+        (tileDimension != null &&
+            (tileDimension! < 16 || tileDimension! > 2048)) ||
+        (tileDimension == null && (size.width > 4096 || size.height > 4096)) ||
         frameCount < 1 ||
         frameCount > 720 ||
         framesPerSecond < 1 ||
@@ -87,6 +95,7 @@ final class CapturePlan {
     'height': size.height,
     'frameCount': frameCount,
     'framesPerSecond': framesPerSecond,
+    'tileDimension': tileDimension,
     'center': center.storage,
     'radius': radius,
     'elevation': elevation,
@@ -241,8 +250,10 @@ final class CaptureManager {
           'Backend does not support explicit RGBA capture.',
         );
       }
-      if (job.plan.size.width > caps.limits.maxTextureDimension2D ||
-          job.plan.size.height > caps.limits.maxTextureDimension2D) {
+      if ((job.plan.tileDimension ?? job.plan.size.width) >
+              caps.limits.maxTextureDimension2D ||
+          (job.plan.tileDimension ?? job.plan.size.height) >
+              caps.limits.maxTextureDimension2D) {
         throw UnsupportedError(
           'Capture exceeds this native device dimension limit.',
         );
@@ -261,27 +272,18 @@ final class CaptureManager {
         }
         final time = job.plan.timeAt(index), camera = job.plan.cameraAt(index);
         prepare?.call(time);
-        final submission = FrameSubmission.capture(
-          scene: scene,
-          camera: camera,
-          size: job.plan.size,
-          time: time,
-        );
         expectedSceneRevision = scene.revision;
-        final output = await backend.render(submission);
-        job._check();
-        if (scene.revision != expectedSceneRevision) {
-          throw StateError('Scene changed during native capture.');
-        }
-        if (output is! ReadbackOutput ||
-            output.image.size.width != job.plan.size.width ||
-            output.image.size.height != job.plan.size.height) {
-          throw StateError('Backend returned an unexpected capture output.');
-        }
+        final output = await _renderFrame(
+          backend,
+          job,
+          camera,
+          time,
+          expectedSceneRevision,
+        );
         final name = 'frame_${index.toString().padLeft(4, '0')}.png';
         await File(
           '${directory.path}/$name',
-        ).writeAsBytes(encodeCapturePng(output.image), flush: true);
+        ).writeAsBytes(encodeCapturePng(output.$1), flush: true);
         job._check();
         names.add(name);
         records.add({
@@ -291,7 +293,8 @@ final class CaptureManager {
           'sceneRevision': expectedSceneRevision,
           'cameraPosition': camera.position.storage,
           'cameraTarget': camera.target.storage,
-          'nativeFrameId': output.stats.frameId,
+          'nativeFrameId': output.$2.last,
+          'nativeFrameIds': output.$2,
           'coverage':
               'scene pixels only; isolated capture camera; no Flutter overlays',
         });
@@ -364,6 +367,91 @@ final class CaptureManager {
       _revision++;
       throw job._error!;
     }
+  }
+
+  Future<(ImageData, List<int>)> _renderFrame(
+    RenderBackend backend,
+    CaptureJob job,
+    PerspectiveCamera camera,
+    FrameTime time,
+    int revision,
+  ) async {
+    final size = job.plan.size, tile = job.plan.tileDimension;
+    if (tile != null) {
+      final settings = scene.renderSettings;
+      if (scene.effects.isNotEmpty ||
+          settings.effects.isNotEmpty ||
+          settings.bloom != null ||
+          settings.spatialAntialiasing != SpatialAntialiasing.none ||
+          scene.outline != null) {
+        throw UnsupportedError(
+          'Tiled capture excludes screen-space effects, bloom, AA and outlines.',
+        );
+      }
+    }
+    final dimension = tile ?? math.max(size.width, size.height);
+    Uint8List? pixels;
+    AlphaMode? alpha;
+    final ids = <int>[];
+    for (var y = 0; y < size.height; y += dimension) {
+      for (var x = 0; x < size.width; x += dimension) {
+        job._check();
+        if (scene.revision != revision) {
+          throw StateError('Scene changed between capture tiles.');
+        }
+        final width = math.min(dimension, size.width - x),
+            height = math.min(dimension, size.height - y);
+        final output = await backend.render(
+          FrameSubmission.capture(
+            scene: scene,
+            camera: tile == null
+                ? camera
+                : TileCamera(
+                    camera,
+                    fullWidth: size.width,
+                    fullHeight: size.height,
+                    x: x,
+                    y: y,
+                    width: width,
+                    height: height,
+                  ),
+            size: PhysicalSize(width, height),
+            time: time,
+          ),
+        );
+        job._check();
+        if (scene.revision != revision) {
+          throw StateError('Scene changed during native capture.');
+        }
+        if (output is! ReadbackOutput ||
+            output.image.size.width != width ||
+            output.image.size.height != height) {
+          throw StateError('Backend returned an unexpected capture output.');
+        }
+        final image = output.image;
+        if (image.format != PixelFormat.rgba8 ||
+            image.colorSpace != ColorSpace.srgb) {
+          throw UnsupportedError('Capture requires RGBA8 sRGB pixels.');
+        }
+        ids.add(output.stats.frameId);
+        if (tile == null) return (image, ids);
+        if (alpha != null && image.alphaMode != alpha) {
+          throw StateError('Tile alpha modes differ.');
+        }
+        alpha = image.alphaMode;
+        pixels ??= Uint8List(size.width * size.height * 4);
+        for (var row = 0; row < height; row++) {
+          final start = ((y + row) * size.width + x) * 4;
+          pixels.setRange(
+            start,
+            start + width * 4,
+            image.pixels,
+            row * image.rowStride,
+          );
+        }
+      }
+    }
+    return (ImageData(size: size, pixels: pixels!, alphaMode: alpha!), ids);
   }
 
   Future<void> close() => _closing ??= _close();

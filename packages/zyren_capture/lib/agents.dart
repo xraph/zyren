@@ -39,7 +39,7 @@ final class CaptureAgentProvider extends AgentProvider {
     this.maxFrames = 120,
   }) {
     if (maxDimension < 1 ||
-        maxDimension > 4096 ||
+        maxDimension > 8192 ||
         maxFrames < 1 ||
         maxFrames > 720) {
       throw ArgumentError('Invalid agent capture limits.');
@@ -58,12 +58,13 @@ final class CaptureAgentProvider extends AgentProvider {
     'maxDimension': maxDimension,
     'maxFrames': maxFrames,
     'formats': ['png'],
-    'video': 'unsupported',
+    'video': 'optional separate VideoAgentProvider',
+    'tiledCapture': '32 megapixels maximum; no screen-space effects',
     'depth': 'unsupported',
     'objectId': 'unsupported',
     'extent': 'scene pixels; isolated camera; no Flutter overlays',
     'presentedViewportCorrelation': 'unavailable',
-    'cancellation': 'between native frames and file writes',
+    'cancellation': 'between native frames, tiles and file writes',
   };
   @override
   List<AgentTool> get tools => [
@@ -84,6 +85,7 @@ final class CaptureAgentProvider extends AgentProvider {
           'width': {'type': 'integer', 'minimum': 1, 'maximum': maxDimension},
           'height': {'type': 'integer', 'minimum': 1, 'maximum': maxDimension},
           'frames': {'type': 'integer', 'minimum': 1, 'maximum': maxFrames},
+          'tileDimension': {'type': 'integer', 'minimum': 16, 'maximum': 2048},
           'fps': {'type': 'integer', 'minimum': 1, 'maximum': 240},
           'radius': {'type': 'number', 'minimum': .001, 'maximum': 1e9},
           'center': {
@@ -156,6 +158,7 @@ final class CaptureAgentProvider extends AgentProvider {
               arguments['height'] as int,
             ),
             frameCount: arguments['frames'] as int? ?? 1,
+            tileDimension: arguments['tileDimension'] as int?,
             framesPerSecond: arguments['fps'] as int? ?? 30,
             radius: (arguments['radius'] as num?)?.toDouble() ?? 5,
             center: coordinates == null
