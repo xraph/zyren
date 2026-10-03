@@ -16,6 +16,7 @@ class GameLevelGameplay extends GameSystem implements GameAuthoredWorld {
     world: this,
   );
   SceneInteractionRouter? _router;
+  Registration? _restored;
   final _queries = <GameEntityHandle, InteractionQuery>{};
   final _nodes = <String, String?>{};
   GameSession? _session;
@@ -29,7 +30,6 @@ class GameLevelGameplay extends GameSystem implements GameAuthoredWorld {
   @override
   void start(GameSession session) {
     _session = session;
-    final scene = play;
     _nodes.addAll({
       for (final entity
           in session.project.levels
@@ -37,6 +37,16 @@ class GameLevelGameplay extends GameSystem implements GameAuthoredWorld {
               .entities)
         entity.id: entity.nodeId,
     });
+    _bindQueries(session);
+    authored.start(session);
+    _restored = play.listenRestored(() {
+      _closeQueries();
+      _bindQueries(session);
+    });
+  }
+
+  void _bindQueries(GameSession session) {
+    final scene = play;
     final router = _router = SceneInteractionRouter(
       scene: scene.scene,
       camera: () => scene.camera,
@@ -81,7 +91,6 @@ class GameLevelGameplay extends GameSystem implements GameAuthoredWorld {
         );
       }
     }
-    authored.start(session);
   }
 
   List<GameInteractionCandidate> available(GameEntityHandle actor) {
@@ -170,15 +179,21 @@ class GameLevelGameplay extends GameSystem implements GameAuthoredWorld {
   void pause(GameSession session) => authored.pause(session);
   @override
   void dispose(GameSession session) {
+    _restored?.dispose();
+    _restored = null;
+    _closeQueries();
+    _nodes.clear();
+    authored.dispose(session);
+    _session = null;
+  }
+
+  void _closeQueries() {
     for (final query in _queries.values) {
       query.close();
     }
     _queries.clear();
-    _nodes.clear();
     _router?.dispose();
     _router = null;
-    authored.dispose(session);
-    _session = null;
   }
 }
 

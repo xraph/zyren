@@ -86,6 +86,8 @@ void main() {
         expect(rules.hasItem(player(), 'key', 1), isTrue);
         expect(rules.objectiveComplete(player(), 'key'), isTrue);
         expect(world.active['key'], isFalse);
+        session.pause();
+        session.resume();
         expect(rules.interact(player(), 'open-gate'), isTrue);
         steps();
         expect(rules.objectiveComplete(player(), 'gate'), isTrue);

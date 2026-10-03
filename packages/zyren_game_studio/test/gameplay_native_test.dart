@@ -47,7 +47,7 @@ void main() {
       );
       try {
         await play.start(build.artifact!.project);
-        final actor = play.inputActor!;
+        var actor = play.inputActor!;
         void advance([int count = 12]) {
           for (var i = 0; i < count; i++) {
             play.simulation!.step();
@@ -65,6 +65,9 @@ void main() {
         expect(gameplay.authored.hasItem(actor, 'key', 1), isTrue);
         expect(play.runtimeScene!.objects['key']!.visible, isFalse);
         move(const Vec3(0, 1, 4.5));
+        play.pause();
+        final checkpoint = play.save();
+        play.resume();
         expect(gameplay.interact(actor, 'open-gate'), isTrue);
         advance();
         expect(gameplay.authored.objectiveComplete(actor, 'gate'), isTrue);
@@ -83,6 +86,18 @@ void main() {
           isNull,
           reason: 'Opened gate no longer blocks the native physics ray.',
         );
+        play.pause();
+        final previousActor = actor;
+        play.restore(checkpoint);
+        actor = play.inputActor!;
+        expect(actor, isNot(previousActor));
+        expect(gameplay.available(previousActor), isEmpty);
+        expect(play.runtimeScene!.objects['gate']!.visible, isTrue);
+        expect(gameplay.authored.hasItem(actor, 'key', 1), isTrue);
+        play.resume();
+        expect(gameplay.interact(actor, 'open-gate'), isTrue);
+        advance();
+        expect(play.runtimeScene!.objects['gate']!.visible, isFalse);
         move(const Vec3(0, 1, 9));
         advance();
         expect(

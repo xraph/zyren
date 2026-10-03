@@ -164,6 +164,7 @@ final class GameAuthoredGameplay extends GameSystem implements GameRuleFacts {
         _pending.length >= pendingCapacity) {
       return false;
     }
+    _synchronizeEpoch(session);
     final sequence = _next(actor),
         receipt = _receipt(actor, _sequences[actor]!);
     if (!_enqueue(
@@ -244,12 +245,16 @@ final class GameAuthoredGameplay extends GameSystem implements GameRuleFacts {
     }
   }
 
-  @override
-  void fixedUpdate(GameSession session) {
+  void _synchronizeEpoch(GameSession session) {
     if (_epoch != session.epoch) {
       _cancel();
       _epoch = session.epoch;
     }
+  }
+
+  @override
+  void fixedUpdate(GameSession session) {
+    _synchronizeEpoch(session);
     for (final command in session.currentCommands) {
       if (command.payload case final GameRuleCommand rule) _dispatch(rule);
     }
