@@ -32,6 +32,7 @@ part 'src/perception/assembler.dart';
 
 part 'src/brain/memory.dart';
 part 'src/brain/belief.dart';
+part 'src/brain/authoring.dart';
 part 'src/brain/team.dart';
 part 'src/brain/communication.dart';
 part 'src/brain/goal.dart';

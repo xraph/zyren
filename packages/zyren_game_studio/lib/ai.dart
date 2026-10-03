@@ -1,0 +1,29 @@
+/// AI authoring and runtime inspectors for the shared Studio host.
+library;
+
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+import 'package:flutter/material.dart';
+import 'package:flutter_zyren/flutter_zyren.dart';
+import 'package:flutter_zyren_studio/flutter_zyren_studio.dart';
+import 'package:zyren_game/zyren_game.dart';
+import 'package:zyren_game_ai/zyren_game_ai.dart';
+import 'package:zyren_ml/zyren_ml.dart';
+import 'authoring.dart';
+import 'levels.dart';
+import 'model_library.dart';
+import 'training.dart';
+import 'training_agents.dart';
+export 'model_library.dart';
+export 'training.dart';
+part 'src/ai/sensor_inspector.dart';
+part 'src/ai/brain_inspector.dart';
+part 'src/ai/observation_overlay.dart';
+part 'src/training/run_panel.dart';
+part 'src/walkthroughs.dart';
+part 'src/ai/contribution.dart';
+part 'src/training/configure_dialog.dart';
+part 'src/ai/model_catalog.dart';
