@@ -86,3 +86,5 @@ export 'src/world/reference.dart';
 
 export 'src/extensions/camera_controller.dart';
 export 'src/extensions/visual_registry.dart';
+
+export 'src/horizon.dart';
