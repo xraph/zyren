@@ -35,6 +35,7 @@ final class StudioNode {
   final StudioMaterial? material;
   final String? assetId, prefabId;
   final Map<String, StudioOverride> overrides;
+  final Map<String, Map<String, Object?>> extensionOverrides;
 
   StudioNode({
     required this.id,
@@ -52,15 +53,18 @@ final class StudioNode {
     this.assetId,
     this.prefabId,
     Map<String, StudioOverride> overrides = const {},
+    Map<String, Map<String, Object?>> extensionOverrides = const {},
   }) : rotation = rotation.normalized(),
-       overrides = Map.unmodifiable(overrides) {
+       overrides = Map.unmodifiable(overrides),
+       extensionOverrides = _freezeExtensionOverrides(extensionOverrides) {
     _text(id, 'Node ID');
     _text(label, 'Node label');
     if (parentId != null) _text(parentId!, 'Parent ID');
     if (sourceId != null) _text(sourceId!, 'Source ID');
     if ((kind == StudioNodeKind.asset) != (assetId != null) ||
         (kind == StudioNodeKind.prefab) != (prefabId != null) ||
-        overrides.isNotEmpty && kind != StudioNodeKind.prefab ||
+        (overrides.isNotEmpty || extensionOverrides.isNotEmpty) &&
+            kind != StudioNodeKind.prefab ||
         overrides.length > 1000) {
       throw ArgumentError('Node references must match their kind.');
     }
@@ -101,6 +105,7 @@ final class StudioNode {
     if (prefabId != null) 'prefabId': prefabId,
     if (overrides.isNotEmpty)
       'overrides': overrides.map((key, value) => MapEntry(key, value.toJson())),
+    if (extensionOverrides.isNotEmpty) 'extensionOverrides': extensionOverrides,
   };
 
   factory StudioNode.fromJson(Map<String, dynamic> value) => StudioNode(
@@ -120,6 +125,10 @@ final class StudioNode {
         : StudioMaterial.fromJson(value['material'] as Map<String, dynamic>),
     assetId: value['assetId'] as String?,
     prefabId: value['prefabId'] as String?,
+    extensionOverrides:
+        (value['extensionOverrides'] as Map<String, dynamic>? ?? {}).map(
+          (key, v) => MapEntry(key, Map<String, Object?>.from(v as Map)),
+        ),
     overrides: (value['overrides'] as Map<String, dynamic>? ?? {}).map(
       (key, v) =>
           MapEntry(key, StudioOverride.fromJson(v as Map<String, dynamic>)),
@@ -145,6 +154,7 @@ final class StudioNode {
     String? assetId,
     String? prefabId,
     Map<String, StudioOverride>? overrides,
+    Map<String, Map<String, Object?>>? extensionOverrides,
   }) {
     final nextKind = kind ?? this.kind;
     return StudioNode(
@@ -166,6 +176,9 @@ final class StudioNode {
       prefabId: nextKind == StudioNodeKind.prefab
           ? prefabId ?? this.prefabId
           : null,
+      extensionOverrides: nextKind == StudioNodeKind.prefab
+          ? extensionOverrides ?? this.extensionOverrides
+          : const {},
       overrides: nextKind == StudioNodeKind.prefab
           ? overrides ?? this.overrides
           : const {},

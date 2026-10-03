@@ -102,6 +102,37 @@ final class StudioExtensionRegistry {
     StudioDocument document, {
     bool requireSupported = false,
   }) {
+    _validateRecords(document, requireSupported: requireSupported);
+    for (final prefab in document.prefabs) {
+      if (prefab.extensions.isEmpty) continue;
+      final local = StudioDocument(
+        id: document.id,
+        title: prefab.label,
+        nodes: prefab.nodes,
+        assets: document.assets,
+        prefabs: document.prefabs,
+        extensions: prefab.extensions,
+      );
+      _validateRecords(local, requireSupported: requireSupported);
+    }
+    for (final node in [
+      ...document.nodes,
+      ...document.prefabs.expand((p) => p.nodes),
+    ]) {
+      for (final namespace in node.extensionOverrides.keys) {
+        if (requireSupported && !_codecs.containsKey(namespace)) {
+          throw StateError(
+            'Extension override codec $namespace is unavailable.',
+          );
+        }
+      }
+    }
+  }
+
+  void _validateRecords(
+    StudioDocument document, {
+    required bool requireSupported,
+  }) {
     for (final record in document.extensions.values) {
       final codec = _codec(record);
       if (codec == null) {
@@ -208,4 +239,37 @@ final class StudioExtensionRegistry {
       throw StateError('Extension codec changed its envelope identity.');
     }
   }
+}
+
+void _validateExtensionRecords(Map<String, StudioExtensionRecord> records) {
+  if (records.length > 64 ||
+      records.entries.any((e) => e.key != e.value.namespace) ||
+      records.values.fold<int>(0, (n, value) => n + value.byteLength) >
+          1024 * 1024) {
+    throw ArgumentError(
+      'Invalid extension identities or total payload budget.',
+    );
+  }
+}
+
+Map<String, Map<String, Object?>> _freezeExtensionOverrides(
+  Map<String, Map<String, Object?>> overrides,
+) {
+  if (overrides.length > 64)
+    throw ArgumentError('Too many extension overrides.');
+  final records = overrides.map(
+    (key, value) => MapEntry(
+      key,
+      StudioExtensionRecord(
+        namespace: key,
+        schemaVersion: 1,
+        required: false,
+        data: value,
+      ),
+    ),
+  );
+  _validateExtensionRecords(records);
+  return Map.unmodifiable(
+    records.map((key, value) => MapEntry(key, value.data)),
+  );
 }

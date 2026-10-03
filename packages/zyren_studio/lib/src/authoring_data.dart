@@ -185,12 +185,16 @@ final class StudioOverride {
 final class StudioPrefab {
   final String id, label, version;
   final List<StudioNode> nodes;
+  final Map<String, StudioExtensionRecord> extensions;
   StudioPrefab({
     required this.id,
     required this.label,
     required this.version,
     required Iterable<StudioNode> nodes,
-  }) : nodes = List.unmodifiable(nodes) {
+    Map<String, StudioExtensionRecord> extensions = const {},
+  }) : nodes = List.unmodifiable(nodes),
+       extensions = Map.unmodifiable(extensions) {
+    _validateExtensionRecords(this.extensions);
     _text(id, 'Prefab ID');
     _text(label, 'Prefab label');
     _text(version, 'Prefab version');
@@ -199,16 +203,38 @@ final class StudioPrefab {
     }
     _validateHierarchy(this.nodes);
   }
+  StudioPrefab copyWith({
+    String? label,
+    String? version,
+    Iterable<StudioNode>? nodes,
+    Map<String, StudioExtensionRecord>? extensions,
+  }) => StudioPrefab(
+    id: id,
+    label: label ?? this.label,
+    version: version ?? this.version,
+    nodes: nodes ?? this.nodes,
+    extensions: extensions ?? this.extensions,
+  );
   Map<String, Object?> toJson() => {
     'id': id,
     'label': label,
     'version': version,
     'nodes': nodes.map((n) => n.toJson()).toList(),
+    if (extensions.isNotEmpty)
+      'extensions': extensions.map(
+        (key, value) => MapEntry(key, value.toJson()),
+      ),
   };
   factory StudioPrefab.fromJson(Map<String, dynamic> value) => StudioPrefab(
     id: value['id'] as String,
     label: value['label'] as String,
     version: value['version'] as String,
+    extensions: (value['extensions'] as Map<String, dynamic>? ?? {}).map(
+      (key, v) => MapEntry(
+        key,
+        StudioExtensionRecord.fromJson(key, v as Map<String, dynamic>),
+      ),
+    ),
     nodes: (value['nodes'] as List).map(
       (n) => StudioNode.fromJson(n as Map<String, dynamic>),
     ),
