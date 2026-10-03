@@ -1,6 +1,6 @@
 import 'package:test/test.dart';
 import 'package:zyren_studio/zyren_studio.dart';
-import 'extensions_test.dart' show LinksCodec, record;
+import 'extensions_test.dart' show LinksCodec, LinksV2Codec, record;
 
 StudioDocument fixture() => StudioDocument(
   id: 'prefabs',
@@ -27,6 +27,27 @@ StudioDocument fixture() => StudioDocument(
   ],
 );
 void main() {
+  test(
+    'prefab codec migration uses the registered migration without flattening',
+    () {
+      final document = fixture();
+      final registry = StudioExtensionRegistry()..register(LinksV2Codec());
+      final migrated = registry.migrateDocument(document);
+      expect(
+        migrated.prefabs.single.extensions['test.links']!.schemaVersion,
+        2,
+      );
+      expect(
+        document.prefabs.single.extensions['test.links']!.schemaVersion,
+        1,
+      );
+      expect(
+        migrated.nodes.single.extensionOverrides,
+        document.nodes.single.extensionOverrides,
+      );
+      registry.validateDocument(migrated, requireSupported: true);
+    },
+  );
   test(
     'prefab extensions and instance overrides survive restart and history',
     () {

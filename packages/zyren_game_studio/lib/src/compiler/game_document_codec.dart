@@ -18,8 +18,12 @@ final class GameDocumentCodec implements StudioExtensionCodec {
   String get namespace => 'zyren.game';
   @override
   int get schemaVersion => 1;
-  GameDocumentData read(StudioExtensionRecord record) {
-    if (record.namespace != namespace || record.schemaVersion != schemaVersion) {
+  GameDocumentData read(
+    StudioExtensionRecord record, {
+    bool validateComponents = true,
+  }) {
+    if (record.namespace != namespace ||
+        record.schemaVersion != schemaVersion) {
       throw FormatException('Unsupported game document extension.');
     }
     final data = record.data;
@@ -43,7 +47,8 @@ final class GameDocumentCodec implements StudioExtensionCodec {
       if (entity.components.length > registry.limits.maxComponentsPerEntity) {
         throw FormatException('Component limit exceeded.');
       }
-      for (final component in entity.components) {
+      for (final component
+          in validateComponents ? entity.components : <GameComponentRecord>[]) {
         registry.normalize(component);
         registry.references(component);
       }
@@ -286,7 +291,8 @@ final class GameDocumentCodec implements StudioExtensionCodec {
         components: entity.components.map((component) {
           final fields = components[component.type];
           if (fields == null) return component;
-          if (!registry.supports(component) || fields is! Map<String, Object?>) {
+          if (!registry.supports(component) ||
+              fields is! Map<String, Object?>) {
             throw StateError('Component override codec is unavailable.');
           }
           return registry.normalize(

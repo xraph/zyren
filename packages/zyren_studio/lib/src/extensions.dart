@@ -155,17 +155,28 @@ final class StudioExtensionRegistry {
   }
 
   StudioDocument migrateDocument(StudioDocument document) {
-    final records = {...document.extensions};
-    for (final record in document.extensions.values) {
-      final codec = _codecs[record.namespace];
-      if (codec == null || record.schemaVersion >= codec.schemaVersion) {
-        continue;
+    Map<String, StudioExtensionRecord> migrateRecords(
+      Map<String, StudioExtensionRecord> input,
+    ) {
+      final records = {...input};
+      for (final record in input.values) {
+        final codec = _codecs[record.namespace];
+        if (codec == null || record.schemaVersion >= codec.schemaVersion) {
+          continue;
+        }
+        final migrated = codec.migrate(record);
+        _checkIdentity(record, migrated, codec.schemaVersion);
+        records[record.namespace] = migrated;
       }
-      final migrated = codec.migrate(record);
-      _checkIdentity(record, migrated, codec.schemaVersion);
-      records[record.namespace] = migrated;
+      return records;
     }
-    final next = document.copyWith(extensions: records);
+
+    final next = document.copyWith(
+      extensions: migrateRecords(document.extensions),
+      prefabs: document.prefabs.map(
+        (p) => p.copyWith(extensions: migrateRecords(p.extensions)),
+      ),
+    );
     validateDocument(next);
     return next;
   }
@@ -175,9 +186,15 @@ final class StudioExtensionRegistry {
       after.expandedNodes.keys.toSet(),
     );
     if (removed.isNotEmpty) {
-      for (final record in before.extensions.values) {
+      for (final record in [
+        ...before.extensions.values,
+        ...before.prefabs.expand((p) => p.extensions.values),
+      ]) {
         if (_codec(record) == null &&
-            after.extensions.containsKey(record.namespace)) {
+            (after.extensions.containsKey(record.namespace) ||
+                after.prefabs.any(
+                  (p) => p.extensions.containsKey(record.namespace),
+                ))) {
           throw StateError(
             'Load extension ${record.namespace} before editing referenced structure.',
           );
@@ -255,8 +272,9 @@ void _validateExtensionRecords(Map<String, StudioExtensionRecord> records) {
 Map<String, Map<String, Object?>> _freezeExtensionOverrides(
   Map<String, Map<String, Object?>> overrides,
 ) {
-  if (overrides.length > 64)
+  if (overrides.length > 64) {
     throw ArgumentError('Too many extension overrides.');
+  }
   final records = overrides.map(
     (key, value) => MapEntry(
       key,
