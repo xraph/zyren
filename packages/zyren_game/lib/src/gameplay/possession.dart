@@ -77,62 +77,81 @@ final class GamePossession {
 
   bool transfer(GameEntityHandle actor, String? seatId) {
     if (_transferring) throw StateError('Possession transfer is reentrant.');
-    _prune();
-    if (_closed ||
-        session.paused ||
-        session.fault != null ||
-        !session.entities.isAlive(actor)) {
-      return false;
-    }
-    final old = _actors[actor];
-    if (old?.seat == seatId) return true;
-    final next = seatId == null ? null : _seats[seatId];
-    if (seatId != null && (next == null || occupant(seatId) != null)) {
-      return false;
-    }
-    final epoch = session.epoch;
-    final oldSeat = old == null ? null : _seats[old.seat];
-    GamePossessionControl? proposed;
     _transferring = true;
-    bool valid() =>
-        !_closed &&
-        !session.paused &&
-        session.fault == null &&
-        session.epoch == epoch &&
-        session.entities.isAlive(actor) &&
-        identical(_actors[actor], old) &&
-        (old == null ||
-            identical(_seats[old.seat], oldSeat) &&
-                oldSeat != null &&
-                session.entities.isAlive(oldSeat.target)) &&
-        (next == null ||
-            identical(_seats[next.id], next) &&
-                session.entities.isAlive(next.target) &&
-                !_actors.entries.any(
-                  (e) => e.key != actor && e.value.seat == next.id,
-                ));
+    GamePossessionControl? proposed;
+    var transferred = false;
+    bool Function()? stillHeld;
     try {
+      _prune();
+      if (_closed ||
+          session.paused ||
+          session.fault != null ||
+          !session.entities.isAlive(actor)) {
+        return false;
+      }
+      final old = _actors[actor];
+      if (old?.seat == seatId) return true;
+      final next = seatId == null ? null : _seats[seatId];
+      if (seatId != null &&
+          (next == null || _actors.values.any((held) => held.seat == seatId))) {
+        return false;
+      }
+      final epoch = session.epoch;
+      final oldSeat = old == null ? null : _seats[old.seat];
+      bool live() =>
+          !_closed &&
+          !session.paused &&
+          !session.isClosed &&
+          session.fault == null &&
+          session.epoch == epoch &&
+          session.entities.isAlive(actor) &&
+          (next == null ||
+              identical(_seats[next.id], next) &&
+                  session.entities.isAlive(next.target));
+      bool valid() =>
+          live() &&
+          _actors[actor] == old &&
+          (old == null ||
+              identical(_seats[old.seat], oldSeat) &&
+                  oldSeat != null &&
+                  session.entities.isAlive(oldSeat.target)) &&
+          (next == null ||
+              !_actors.entries.any(
+                (e) => e.key != actor && e.value.seat == next.id,
+              ));
       if (oldSeat != null && !oldSeat.canExit(actor) || !valid()) return false;
       if (next != null && !next.canReach(actor) || !valid()) return false;
       proposed = next?.acquireControl(actor);
       if (!valid() || proposed != null && !proposed.isActive || !valid()) {
         return false;
       }
+      final committed = next == null
+          ? null
+          : (seat: next.id, control: proposed!, epoch: epoch);
       _actors.remove(actor);
-      if (next != null) {
-        _actors[actor] = (seat: next.id, control: proposed!, epoch: epoch);
-      }
+      if (committed != null) _actors[actor] = committed;
       proposed = null;
       old?.control.dispose();
-      return true;
+      bool held() => live() && _actors[actor] == committed;
+      stillHeld = held;
+      transferred =
+          held() && (committed == null || committed.control.isActive) && held();
     } finally {
       try {
         proposed?.dispose();
       } finally {
-        _transferring = false;
-        _prune();
+        try {
+          _prune();
+          if (transferred && !stillHeld!()) {
+            transferred = false;
+            _releaseActor(actor);
+          }
+        } finally {
+          _transferring = false;
+        }
       }
     }
+    return transferred;
   }
 
   void _remove(GamePossessionSeat seat) {
