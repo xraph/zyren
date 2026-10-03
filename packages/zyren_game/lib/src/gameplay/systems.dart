@@ -15,12 +15,15 @@ final class GameTransferItem extends GameGameplayCommand {
   final String item;
   final int count;
   final GameEntityHandle to;
+  final GameEntityHandle? reachActor, reachTarget;
   GameTransferItem(
     super.receipt, {
     required super.sequence,
     required this.item,
     required this.count,
     required this.to,
+    this.reachActor,
+    this.reachTarget,
   });
 }
 
@@ -191,7 +194,18 @@ final class GameGameplaySystem extends GameSystem {
       switch (payload) {
         case GameTransferItem():
           final receiver = _actors[payload.to];
-          if (receiver != null && session.entities.isAlive(payload.to)) {
+          if (receiver != null &&
+              session.entities.isAlive(payload.to) &&
+              (payload.reachActor == null && payload.reachTarget == null ||
+                  payload.reachActor != null &&
+                      payload.reachTarget != null &&
+                      session.entities.isAlive(payload.reachActor!) &&
+                      session.entities.isAlive(payload.reachTarget!) &&
+                      reach?.inReach(
+                            payload.reachActor!,
+                            payload.reachTarget!,
+                          ) ==
+                          true)) {
             accepted = rules.inventory.transfer(
               item: payload.item,
               count: payload.count,

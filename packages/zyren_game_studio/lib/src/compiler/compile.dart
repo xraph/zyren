@@ -17,7 +17,7 @@ final class GameBuildResult {
 
 /// Uses Pipeline jobs, transforms, byte limits and host-authorized pinned assets.
 final class GameProjectCompiler {
-  static const version = '1';
+  static const version = '2';
   final GameRegistry registry;
   final PipelineAssetLibrary assets;
   final StudioExtensionRegistry extensions;
@@ -303,7 +303,7 @@ final class GameProjectCompiler {
           sceneNodes: {
             for (var i = 0; i < data.length; i++)
               data[i].levelId: documents[i].expandedNodes.values
-                  .map((n) => n.toJson())
+                  .map((n) => _runtimeNode(n, documents[i]))
                   .toList(),
           },
         );
@@ -325,6 +325,23 @@ final class GameProjectCompiler {
       cancellation: token,
     );
   }
+}
+
+Map<String, Object?> _runtimeNode(StudioNode node, StudioDocument document) {
+  final recipe = node.toJson();
+  if (node.assetId != null) {
+    final asset = document.assets.singleWhere(
+      (asset) => asset.id == node.assetId,
+    );
+    final pin = PipelineAssetReference.fromJson(asset.reference);
+    recipe['assetReference'] = GameAssetReference(
+      id: pin.sourceId,
+      revision: pin.sourceRevision,
+      uri: pin.uri,
+      digest: pin.sha256,
+    ).toJson();
+  }
+  return recipe;
 }
 
 final class _CompilerSources implements ByteSourceResolver {
