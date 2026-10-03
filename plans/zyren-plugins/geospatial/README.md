@@ -108,3 +108,10 @@ streaming tests passed. The model adapter keeps verified pipeline bundles under
 their existing ownership at the application boundary. See the
 [offline qualification record](../../../qualification/2026-10-03/geospatial-offline.md).
 Manual native-window inspection remains pending because the Mac was locked.
+
+W1 adds versioned Phillips sea states, deterministic canonical coefficients and
+an independent bounded inverse DFT. Eleven numerical tests passed, including
+finite-depth limits and displacement/velocity derivatives checked by finite
+differences. A separate Python calculation reproduced the fixture coefficient
+hash. Package analysis and boundaries passed. Native FFT and rendering are next;
+these numerical checks do not qualify ocean visuals.

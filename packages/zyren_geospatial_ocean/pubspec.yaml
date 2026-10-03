@@ -1,0 +1,17 @@
+name: zyren_geospatial_ocean
+description: Spectral ocean state and native water extensions for Zyren geospatial.
+version: 0.1.0
+publish_to: none
+resolution: workspace
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+dependencies:
+  zyren:
+    path: ../zyren
+  zyren_geospatial:
+    path: ../zyren_geospatial
+dev_dependencies:
+  crypto: ^3.0.7
+  zyren_native:
+    path: ../zyren_native
+  test: ^1.29.0

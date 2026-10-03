@@ -89,7 +89,7 @@ are immutable snapshots. Validation rejects nonfinite values, nonpositive patch
 lengths/gravity, negative density/energy, bad band intervals and unsupported sizes.
 Overlapping spectral windows partition energy; they must not sum to more than one.
 
-- [ ] Add a small exact inverse-transform test and record its initial failure:
+- [x] Add a small exact inverse-transform test and record its initial failure:
 
 ```dart
 test('a DC coefficient normalizes to a uniform real field', () {
@@ -102,7 +102,7 @@ test('a DC coefficient normalizes to a uniform real field', () {
 });
 ```
 
-- [ ] Implement the independent O(N^4) oracle for small grids using these terms:
+- [x] Implement the independent O(N^4) oracle for small grids using these terms:
 
 ```dart
 final angle = 2 * math.pi * (kx * x + kz * z) / size;
@@ -115,12 +115,12 @@ imag += coefficientReal * math.sin(angle) + coefficientImag * math.cos(angle);
   Seed coefficients on the CPU from a specified 64-bit hash of band/kx/kz/seed,
   then upload them. Do not rely on matching CPU/GPU random-number generators.
   Evolve conjugate pairs consistently. DC is zero for a zero-mean wave field.
-- [ ] Add impulse, conjugate-pair, single-frequency and constant-zero fixtures,
+- [x] Add impulse, conjugate-pair, single-frequency and constant-zero fixtures,
   finite-depth dispersion tests, duplicate seed reproducibility and independent
   derivative finite differences. Restrict direct DFT to bounded test sizes.
-- [ ] Run package tests/analyzer and boundary checks. Record canonical coefficient
+- [x] Run package tests/analyzer and boundary checks. Record canonical coefficient
   hashes and the model version, with floating-point tolerance for evaluated waves.
-- [ ] Commit `feat(ocean): define spectral sea states and reference sampling`.
+- [x] Commit `feat(ocean): define spectral sea states and reference sampling`.
 
 ## Task 2: W2 Native FFT, displacement and derivative outputs
 
