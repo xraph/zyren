@@ -206,7 +206,7 @@ void main() {
       final hybrid = HybridBrain(
         identity: id,
         selector: UtilityGoalSelector(minCommitmentTicks: 0),
-        skills: {'learned': learned, 'idle': scripted},
+        skills: {'learned': learned, 'idle': _BaselineAdapter(scripted)},
         actionSpecs: {
           'learned': learned.contract.decoder.spec,
           'idle': scripted.actionSpec,
@@ -352,4 +352,21 @@ void main() {
       expect(brain.snapshotCommitted(tick: 1).state.version, 0);
     },
   );
+}
+
+final class _BaselineAdapter implements GameBrainCheckpointIdentity {
+  final ScriptedBrain delegate;
+  _BaselineAdapter(this.delegate);
+  @override
+  BrainIdentity get identity => delegate.identity;
+  @override
+  bool get checkpointQuiescent => true;
+  @override
+  void observe(ObservationFrame frame) => delegate.observe(frame);
+  @override
+  BrainDecision decide(BrainContext context) => delegate.decide(context);
+  @override
+  void reset(BrainReset reset) => delegate.reset(reset);
+  @override
+  Future<void> close() => delegate.close();
 }

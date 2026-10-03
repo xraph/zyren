@@ -221,11 +221,13 @@ extension HybridBrainPersistence on HybridBrain {
       final childIdentity = switch (skill) {
         PolicyBrain brain => brain.identity,
         ScriptedBrain brain => brain.identity,
+        GameBrainCheckpointIdentity adapter => adapter.identity,
         _ => throw StateError(
           'Custom hybrid skill has no checkpoint contract.',
         ),
       };
       if (childIdentity != identity ||
+          skill is GameBrainCheckpointIdentity && !skill.checkpointQuiescent ||
           skill is PolicyBrain &&
               (skill.hasPending || skill._actualJobs.isNotEmpty)) {
         throw StateError(

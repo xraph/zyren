@@ -176,3 +176,10 @@ MlTensorMap _decisionHidden(MlTensorMap source) {
   }
   return Map.unmodifiable(source);
 }
+
+/// Explicit identity and quiescence contract for checkpoint-aware skill adapters.
+/// The adapter owns restoring its delegate before exposing this identity.
+abstract interface class GameBrainCheckpointIdentity implements GameBrain {
+  BrainIdentity get identity;
+  bool get checkpointQuiescent;
+}
