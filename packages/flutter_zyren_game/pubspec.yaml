@@ -1,0 +1,24 @@
+name: flutter_zyren_game
+description: Flutter input, lifecycle and HUD composition for Zyren game sessions.
+version: 0.1.0
+publish_to: none
+resolution: workspace
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_zyren:
+    path: ../flutter_zyren
+  flutter_zyren_audio:
+    path: ../flutter_zyren_audio
+  flutter_zyren_interaction:
+    path: ../flutter_zyren_interaction
+  zyren:
+    path: ../zyren
+  zyren_game:
+    path: ../zyren_game
+  gamepads: 0.1.12
+dev_dependencies:
+  flutter_test:
+    sdk: flutter

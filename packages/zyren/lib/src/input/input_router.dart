@@ -20,6 +20,7 @@ final class InputRouter {
   final _pointers = <int, ScenePointerEvent>{};
   StreamSubscription<ScenePointerEvent>? _subscription;
   int _blocks = 0;
+  final _blockListeners = <void Function(bool)>{};
   InputRouter._(this._source);
 
   bool get blocked => _blocks > 0;
@@ -59,7 +60,28 @@ final class InputRouter {
   Registration block() {
     _blocks++;
     cancelAll();
-    return Registration(() => _blocks--);
+    if (_blocks == 1) _notifyBlockListeners();
+    return Registration(() {
+      _blocks--;
+      if (_blocks == 0) _notifyBlockListeners();
+    });
+  }
+
+  /// Observes modal blocking without claiming a pointer or changing ownership.
+  Registration listenBlocked(void Function(bool) listener) {
+    _blockListeners.add(listener);
+    return Registration(() => _blockListeners.remove(listener));
+  }
+
+  void _notifyBlockListeners() {
+    for (final listener in _blockListeners.toList()) {
+      if (!_blockListeners.contains(listener)) continue;
+      try {
+        listener(blocked);
+      } catch (error, stack) {
+        Zone.current.handleUncaughtError(error, stack);
+      }
+    }
   }
 
   void cancelAll() {
