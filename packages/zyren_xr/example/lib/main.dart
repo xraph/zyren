@@ -9,6 +9,7 @@ import 'package:zyren_devtools/zyren_devtools.dart';
 import 'package:zyren/zyren.dart' as z;
 import 'package:zyren_xr/agents.dart';
 import 'package:zyren_xr/flutter.dart';
+import 'release.dart';
 
 void main() => runApp(const XrProbeApp());
 
@@ -319,23 +320,40 @@ class _XrProbePageState extends State<XrProbePage> {
     _timer = null;
     _renderTimer?.cancel();
     _renderTimer = null;
-    await _devtools?.close();
-    _devtools = null;
     final presentation = _presentation;
-    _presentation = null;
-    await presentation?.close();
-    presentation?.dispose();
-    _registry?.dispose();
-    _registry = null;
-    _provider?.dispose();
-    _provider = null;
-    _bindings?.dispose();
-    _bindings = null;
-    _cube.visible = true;
     final session = _session;
-    _session = null;
-    _snapshot = null;
-    await session?.dispose();
+    final result = await releaseProbeResources(
+      closeServer: _devtools?.close,
+      closePresenter: presentation?.close,
+      releaseLocal: [
+        () {
+          _registry?.dispose();
+          _registry = null;
+        },
+        () {
+          _provider?.dispose();
+          _provider = null;
+        },
+        () {
+          _bindings?.dispose();
+          _bindings = null;
+        },
+      ],
+      disposeSession: session?.dispose,
+    );
+    if (result.serverClosed) _devtools = null;
+    if (result.presenterClosed || result.sessionClosed) {
+      _presentation = null;
+      presentation?.dispose();
+    }
+    if (result.sessionClosed) {
+      _session = null;
+      _snapshot = null;
+    }
+    _cube.visible = true;
+    if (result.errors.isNotEmpty) {
+      throw XrException('cleanupFailed', result.errors.join('; '));
+    }
   }
 
   @override
