@@ -1,3 +1,4 @@
+import 'volume_mips.dart';
 import 'package:zyren/zyren.dart';
 import 'texture_generator.dart';
 import 'texture_source.dart';
@@ -117,19 +118,22 @@ final class CloudTextures {
             height: map.height,
             depth: map.depth,
             dimension: volume ? TextureDimension.d3 : TextureDimension.d2,
-            mipLevels: volume ? 1 : map.width.bitLength,
+            mipLevels: map.width.bitLength,
             format: volume ? TextureFormat.r32Float : TextureFormat.rgba8Unorm,
             usage: {
               TextureUsage.sampled,
               TextureUsage.copyDestination,
               TextureUsage.copySource,
+              if (volume) TextureUsage.storage,
               if (!volume) TextureUsage.renderAttachment,
             },
           ),
         );
         await scope.resources.writeTexture(texture, map.bytes);
         cancellation.throwIfCancelled();
-        if (!volume) {
+        if (volume) {
+          await generateCloudVolumeMips(scope, texture);
+        } else {
           await scope.resources.generateMipmaps(texture);
         }
         cancellation.throwIfCancelled();

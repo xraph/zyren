@@ -1,3 +1,4 @@
+import 'volume_mips.dart';
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:zyren/zyren.dart';
@@ -55,7 +56,7 @@ final class CloudTextureGenerator {
           width: size,
           height: size,
           depth: volume ? size : 1,
-          mipLevels: volume ? 1 : size.bitLength,
+          mipLevels: size.bitLength,
           dimension: volume ? TextureDimension.d3 : TextureDimension.d2,
           format: volume ? TextureFormat.r32Float : TextureFormat.rgba8Unorm,
           usage: {
@@ -138,10 +139,12 @@ $cloudNoiseWgsl
         await graph.execute();
         check();
       }
-      if (!volume) {
+      if (volume) {
+        await generateCloudVolumeMips(scope, texture);
+      } else {
         await scope.resources.generateMipmaps(texture);
-        check();
       }
+      check();
       await work.close();
       check();
       return CloudTexture._(scope, texture, kind, size);

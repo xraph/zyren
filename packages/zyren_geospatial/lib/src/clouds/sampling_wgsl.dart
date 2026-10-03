@@ -69,6 +69,9 @@ fn cloudSampleWeather(position:vec3<f32>,height:f32,mip:f32,shadow:bool)->CloudW
  let uv=cloudGlobeUv(position);return cloudWeather(sample_cloudWeatherMap(uv*cloud.v[15].xy+cloud.v[15].zw,mip),height,shadow);
 }
 fn cloudSampleMedium(weather:CloudWeather,position:vec3<f32>,mip:f32,jitter:f32)->CloudMedium{
+ return cloudSampleMediumFiltered(weather,position,mip,jitter,0.);
+}
+fn cloudSampleMediumFiltered(weather:CloudWeather,position:vec3<f32>,mip:f32,jitter:f32,footprint:f32)->CloudMedium{
  let uv=cloudGlobeUv(position);
  let evolution=-normalize(position)*length(cloud.v[15].zw)*2e4;
  var turbulence=vec3<f32>(0.);
@@ -76,9 +79,15 @@ fn cloudSampleMedium(weather:CloudWeather,position:vec3<f32>,mip:f32,jitter:f32)
   turbulence=cloud.v[19].w*(sample_cloudTurbulenceMap(uv*cloud.v[15].xy*cloud.v[20].xy,0.).rgb*2.-1.)*
    dot(weather.density,cloudRemap4(weather.height,vec4<f32>(.3),vec4<f32>(0.)));
  }
- let shape=sample_cloudShapeMap((position+evolution+turbulence)*cloud.v[16].xyz+cloud.v[17].xyz,0.).r;
+ let shapeRate=cloud.v[16].xyz*vec3<f32>(textureDimensions(cloudShapeMap));
+ let shapeMip=log2(max(1.,footprint*max(shapeRate.x,max(shapeRate.y,shapeRate.z))));
+ let shape=sample_cloudShapeMap((position+evolution+turbulence)*cloud.v[16].xyz+cloud.v[17].xyz,shapeMip).r;
  var detail=0.;
- if(CLOUD_DETAIL && mip*.5+(jitter-.5)*.5<.5){detail=sample_cloudDetailMap((position+turbulence)*cloud.v[18].xyz+cloud.v[19].xyz,0.).r;}
+ if(CLOUD_DETAIL && mip*.5+(jitter-.5)*.5<.5){
+  let detailRate=cloud.v[18].xyz*vec3<f32>(textureDimensions(cloudDetailMap));
+  let detailMip=log2(max(1.,footprint*max(detailRate.x,max(detailRate.y,detailRate.z))));
+  detail=sample_cloudDetailMap((position+turbulence)*cloud.v[18].xyz+cloud.v[19].xyz,detailMip).r;
+ }
  return cloudMedium(weather,shape,detail,mip,jitter);
 }
 ''';

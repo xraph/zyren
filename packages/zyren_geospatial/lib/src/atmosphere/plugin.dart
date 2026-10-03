@@ -5,6 +5,7 @@ import 'package:zyren/zyren.dart';
 import '../astronomy/celestial_directions.dart';
 import '../geodesy.dart';
 import 'appearance.dart';
+import 'lunar_lighting.dart';
 import 'aerial_inputs.dart';
 import 'cloud_inputs.dart';
 import 'precomputed_source.dart';
@@ -350,14 +351,6 @@ final class AtmosphereController {
       1,
     ]);
     final a = _appearance;
-    // Lambert-sphere phase approximation: full Moon is one, new Moon is zero.
-    // The full-moon solar ratio matches the existing celestial disk model.
-    final phaseAngle = math.acos(
-      (-directions.sunECEF.dot(directions.moonECEF)).clamp(-1.0, 1.0),
-    );
-    final lunarPhase =
-        (math.sin(phaseAngle) + (math.pi - phaseAngle) * math.cos(phaseAngle)) /
-        math.pi;
     final sunScale = parameters.sunRadianceToLuminance.dot(
       const Vec3(.2126, .7152, .0722),
     );
@@ -421,7 +414,7 @@ final class AtmosphereController {
       0,
       ...up.storage,
       0,
-      a.moonLight ? 2.5e-6 * lunarPhase * a.moonLightIntensity : 0,
+      lunarIrradianceScale(directions, a),
       a.nightLightIntensity,
       a.moonLight || a.nightLightIntensity > 0 ? 1 : 0,
       0,

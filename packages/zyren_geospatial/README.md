@@ -323,7 +323,9 @@ require identical bytes when you regenerate the same texture on a device.
 `CloudTextures` accepts your linear weather, shape, detail and turbulence maps.
 You can retain the set in another GPU scope or generate all four with
 `CloudTextures.generate(scope)`. Weather and turbulence include native mipmaps;
-volume sampling uses repeated trilinear filtering.
+shape and detail include GPU-generated volume mipmaps. Sampling blends repeated
+trilinear levels using the projected pixel footprint, keeping close detail while
+filtering distant noise. Weather levels use weather texture dimensions.
 
 `CloudAppearance` keeps source phase, powder and haze settings separate from
 layer density. `CloudShadowCascades.build()` computes the source frustum splits
@@ -370,12 +372,22 @@ CloudPlugin(
 ```
 
 Clouds clip against scene geometry and use the atmosphere's date, lighting tables
-and world frame. The producer runs before atmosphere composition, which applies
+and world frame. Lunar direct light, sky light and ground bounce follow
+`AtmosphereAppearance.moonLight` and `moonLightIntensity`; `nightLightIntensity`
+also fills cloud volumes. Lunar phase and the Sun's horizon fade use the same
+rules as globe tiles. Moonlight has its own secondary optical-depth ray.
+The producer runs before atmosphere composition, which applies
 cloud shadows to direct aerial lighting. High and ultra quality need more memory.
 Set a smaller shadow map when your scene also retains terrain or 3D tiles; failed
 allocations leave the current maps installed. The default 384-pixel target cap
 leaves room for history and resize replacement within the native resource budget.
 If you raise it, budget for both the active and replacement maps.
+
+`maxResolution` accepts up to 4096 pixels. `maxPixels` bounds the total cloud
+target area independently of orientation and defaults to 1,048,576 pixels.
+Device defaults choose Medium at 768 pixels on phones, High at 1152 on tablets,
+and High at 1280 on desktops. Their pixel budgets are 589,824, 921,600 and
+1,048,576 respectively. You can override either limit for your scene and device.
 
 You can start with a device profile, then override its sampling preset:
 
@@ -384,6 +396,7 @@ final settings = CloudQualitySettings.forDevice(CloudDeviceType.phone);
 final layer = CloudPlugin(
   quality: settings.preset,
   maxResolution: settings.maxResolution,
+  maxPixels: settings.maxPixels,
   shadowMapSize: settings.shadowMapSize,
 );
 // After the layer attaches to your scene:

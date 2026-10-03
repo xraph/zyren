@@ -10,7 +10,7 @@ void main() {
       shadowsEnabled: false,
     );
     expect(settings.preset, CloudQualityPreset.low);
-    expect(settings.maxResolution, 320);
+    expect(settings.maxResolution, 512);
     expect(settings.shadowMapSize, 256);
     expect(settings.shadowsEnabled, false);
     final quality = CloudQuality.forPreset(
@@ -33,10 +33,10 @@ void main() {
       final tablet = CloudQualitySettings.forDevice(CloudDeviceType.tablet);
       final desktop = CloudQualitySettings.forDevice(CloudDeviceType.desktop);
       expect(phone.preset, CloudQualityPreset.medium);
-      expect(phone.maxResolution, 512);
+      expect(phone.maxResolution, 768);
       expect(tablet.preset, CloudQualityPreset.high);
       expect(desktop.preset, CloudQualityPreset.high);
-      expect(desktop.maxResolution, 640);
+      expect(desktop.maxResolution, 1280);
       for (final device in CloudDeviceType.values) {
         var previous = 0;
         for (final preset in CloudQualityPreset.values) {
@@ -46,8 +46,14 @@ void main() {
           );
           expect(settings.preset, preset);
           expect(settings.maxResolution, greaterThanOrEqualTo(previous));
-          expect(settings.maxResolution, lessThanOrEqualTo(768));
+          expect(settings.maxResolution, lessThanOrEqualTo(1536));
           expect(settings.shadowMapSize, lessThanOrEqualTo(256));
+          for (final view in [(4096, 4096), (1920, 1200), (1, 8000)]) {
+            final (w, h) = settings.targetSize(view.$1, view.$2);
+            expect(w * h, lessThanOrEqualTo(settings.maxPixels));
+            expect(w, lessThanOrEqualTo(settings.maxResolution));
+            expect(h, lessThanOrEqualTo(settings.maxResolution));
+          }
           previous = settings.maxResolution;
         }
       }
@@ -56,14 +62,14 @@ void main() {
           CloudDeviceType.phone,
           preset: CloudQualityPreset.ultra,
         ).maxResolution,
-        640,
+        1024,
       );
       expect(
         CloudQualitySettings.forDevice(
           CloudDeviceType.desktop,
           preset: CloudQualityPreset.ultra,
         ).maxResolution,
-        768,
+        1536,
       );
     },
   );
@@ -71,7 +77,8 @@ void main() {
     'invalid cloud target limits fail before allocating native resources',
     () {
       expect(() => CloudQualitySettings(maxResolution: 0), throwsRangeError);
-      expect(() => CloudQualitySettings(maxResolution: 1025), throwsRangeError);
+      expect(() => CloudQualitySettings(maxResolution: 4097), throwsRangeError);
+      expect(() => CloudQualitySettings(maxPixels: 0), throwsRangeError);
       expect(() => CloudQualitySettings(shadowMapSize: 0), throwsRangeError);
       expect(() => CloudQualitySettings(shadowMapSize: 1025), throwsRangeError);
     },

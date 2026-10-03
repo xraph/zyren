@@ -72,7 +72,7 @@ final class CloudShadowPass {
       );
       final frame = await scope.resources.createBuffer(
         BufferDescriptor(
-          size: 800,
+          size: 832,
           usage: {BufferUsage.uniform, BufferUsage.copyDestination},
         ),
       );

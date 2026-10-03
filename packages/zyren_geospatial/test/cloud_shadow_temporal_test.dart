@@ -30,7 +30,7 @@ void main() {
         );
         final frame = await owner.resources.createBuffer(
           BufferDescriptor(
-            size: 800,
+            size: 832,
             usage: {BufferUsage.uniform, BufferUsage.copyDestination},
           ),
         );

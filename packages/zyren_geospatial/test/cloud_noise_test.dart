@@ -178,9 +178,9 @@ fn value(kind:u32,p:vec3<f32>)->vec4<f32>{
           defaults.map(
             (v) => (v.texture.descriptor as TextureDescriptor).mipLevels,
           ),
-          [10, 1, 1, 8],
+          [10, 8, 6, 8],
         );
-        expect((await backend.resourceStats()).residentBytes, 10005160);
+        expect((await backend.resourceStats()).residentBytes, 11222256);
         final reader = owner.createChild();
         for (final index in [0, 3]) {
           final texture = await reader.resources.retain(
@@ -197,7 +197,7 @@ fn value(kind:u32,p:vec3<f32>)->vec4<f32>{
         }
         await reader.close();
         print(
-          'Default cloud texture generation: ${stopwatch.elapsedMilliseconds} ms; 10005160 resident bytes',
+          'Default cloud texture generation: ${stopwatch.elapsedMilliseconds} ms; 11222256 registry payload bytes',
         );
         for (final texture in defaults) {
           await texture.close();

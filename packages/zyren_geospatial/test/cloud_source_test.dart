@@ -185,7 +185,7 @@ void main() {
               );
         expect(
           (await backend.resourceStats()).residentBytes,
-          loadByPlugin ? 0 : 10005160,
+          loadByPlugin ? 0 : 11222256,
         );
         final date = DateTime.utc(2026, 3, 20, 12),
             sun = CelestialDirections.at(DateTime.utc(2026, 3, 20, 12)).sunECEF;

@@ -128,6 +128,8 @@ $cloudSamplingWgsl
 const PI:f32=3.141592653589793;
 fn atmosphereSunIrradiance(p:vec3<f32>,n:vec3<f32>,s:vec3<f32>)->vec3<f32>{return vec3<f32>(1.,.9,.8);}
 fn atmosphereSkyIrradiance(p:vec3<f32>,n:vec3<f32>,s:vec3<f32>)->vec3<f32>{return vec3<f32>(.2,.3,.4)/(2.*PI);}
+const SOLAR:vec3<f32>=vec3<f32>(1.474,1.8504,1.91198);
+const SUN_LUMINANCE:vec3<f32>=vec3<f32>(1.);
 fn cloudShadowDepth(p:vec3<f32>,d:f32,r:f32,j:f32)->f32{return 0.;}
 ${cloudRenderWgsl(q).split('fn cloudHaze(').first}
 @group(0) @binding(0) var<storage,read> inputs:array<vec4<f32>>;

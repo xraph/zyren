@@ -24,6 +24,9 @@ final class CloudFrameState {
     required Mat4 worldToEcef,
     required Vec3 correctedCamera,
     required Vec3 sun,
+    Vec3 moon = const Vec3(0, 0, 1),
+    double moonIrradiance = 0,
+    double nightIrradiance = 0,
     double bottomRadius = 6360000,
     required double aspect,
     required int width,
@@ -36,6 +39,15 @@ final class CloudFrameState {
     Mat4? previousViewProjection,
     Vec3? previousCamera,
   }) {
+    if (!moon.isFinite ||
+        (moon.length - 1).abs() > 1e-5 ||
+        !moonIrradiance.isFinite ||
+        moonIrradiance < 0 ||
+        !nightIrradiance.isFinite ||
+        nightIrradiance < 0 ||
+        nightIrradiance > 1) {
+      throw ArgumentError('Invalid lunar cloud lighting.');
+    }
     final near = camera is PerspectiveCamera
         ? camera.near
         : (camera as OrthographicCamera).near;
@@ -120,8 +132,14 @@ final class CloudFrameState {
       ...(previousViewProjection ?? camera.viewProjection(aspect)).storage,
       ...(camera.position - (previousCamera ?? camera.position)).storage,
       previousViewProjection == null ? 0 : 1,
+      ...moon.storage,
+      moonIrradiance,
+      nightIrradiance,
+      0,
+      0,
+      0,
     ]);
-    if (values.length != 200 || values.any((v) => !v.isFinite)) {
+    if (values.length != 208 || values.any((v) => !v.isFinite)) {
       throw ArgumentError('Invalid cloud frame.');
     }
     return CloudFrameState._(
@@ -149,6 +167,7 @@ struct CloudFrame {
  camera:vec4<f32>,sun:vec4<f32>,forward:vec4<f32>,extent:vec4<f32>,worldToEcef:mat4x4<f32>,
  inverseShadows:array<mat4x4<f32>,4>,shadowMatrices:array<mat4x4<f32>,4>,intervals:array<vec4<f32>,4>,shadowNearFar:vec4<f32>,
  previousViewProjection:mat4x4<f32>,previousCamera:vec4<f32>,
+ moon:vec4<f32>,lunar:vec4<f32>,
 };
 @group(2) @binding(5) var<uniform> cf:CloudFrame;
 fn cloudEcef(relative:vec3<f32>)->vec3<f32>{return cf.camera.xyz+(cf.worldToEcef*vec4<f32>(relative,0.)).xyz;}

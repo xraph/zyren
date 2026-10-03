@@ -1,6 +1,6 @@
-import 'dart:math' as math;
 import 'package:zyren/zyren.dart';
 import '../atmosphere/plugin.dart';
+import '../atmosphere/lunar_lighting.dart';
 import '../atmosphere/cloud_inputs.dart';
 import '../atmosphere/lut_cache.dart';
 import '../atmosphere/precomputed_source.dart';
@@ -37,6 +37,7 @@ final class CloudPlugin extends ScenePlugin {
   final CloudTextures? textures;
   final CloudBlueNoise? blueNoise;
   final int maxResolution;
+  final int maxPixels;
   final int? shadowMapSize;
   final bool shadowsEnabled;
   final CloudQualityPreset? shadowQuality;
@@ -53,6 +54,7 @@ final class CloudPlugin extends ScenePlugin {
     this.textures,
     this.blueNoise,
     this.maxResolution = 384,
+    this.maxPixels = 1048576,
     this.shadowMapSize,
     this.shadowsEnabled = true,
     this.shadowQuality,
@@ -73,7 +75,8 @@ final class CloudPlugin extends ScenePlugin {
         'Must be in (0, 1].',
       );
     }
-    RangeError.checkValueInInterval(maxResolution, 1, 1024, 'maxResolution');
+    RangeError.checkValueInInterval(maxResolution, 1, 4096, 'maxResolution');
+    RangeError.checkValueInInterval(maxPixels, 1, 16777216, 'maxPixels');
     if (shadowMapSize != null) {
       RangeError.checkValueInInterval(shadowMapSize!, 1, 1024, 'shadowMapSize');
     }
@@ -125,6 +128,7 @@ final class CloudController {
   late CloudAppearance _appearance = _plugin.appearance;
   late CloudQualityPreset _quality = _plugin.quality;
   late int _maxResolution = _plugin.maxResolution;
+  late int _maxPixels = _plugin.maxPixels;
   late int? _shadowMapSize = _plugin.shadowMapSize;
   late bool _shadowsEnabled = _plugin.shadowsEnabled;
   late CloudQualityPreset? _shadowQuality = _plugin.shadowQuality;
@@ -138,6 +142,7 @@ final class CloudController {
   _CloudCandidate? _pendingCandidate;
   CloudTextureSet? _textures;
   CloudBlueNoise? _blueNoise;
+  (double, double)? _lunarLighting;
   final _sourceCancellation = _CloudSourceCancellation();
   _CloudCandidate? _active;
   EffectRegistration? _producer, _resolve, _publish;
@@ -195,6 +200,7 @@ final class CloudController {
   CloudQualitySettings get settings => CloudQualitySettings(
     preset: _quality,
     maxResolution: _maxResolution,
+    maxPixels: _maxPixels,
     shadowMapSize: _shadowMapSize,
     shadowsEnabled: _shadowsEnabled,
     shadowPreset: _shadowQuality,
@@ -296,38 +302,36 @@ final class CloudController {
 
   /// Replace sampling quality and target limits together. Failed allocation
   /// leaves the active settings intact. Successful changes restart refinement.
-  Future<void> setQualitySettings(CloudQualitySettings value) =>
-      _serial(() async {
-        if (value.preset == _quality &&
-            value.maxResolution == _maxResolution &&
-            value.shadowMapSize == _shadowMapSize &&
-            value.shadowsEnabled == _shadowsEnabled &&
-            value.shadowPreset == _shadowQuality) {
-          return;
-        }
-        final scale = math.min(
-          1.0,
-          value.maxResolution / math.max(_viewportWidth, _viewportHeight),
-        );
-        final width = math.max(1, (_viewportWidth * scale).round());
-        final height = math.max(1, (_viewportHeight * scale).round());
-        await _replace(
-          value.preset,
-          _textures!.textures,
-          width,
-          height,
-          settings: value,
-        );
-        _quality = value.preset;
-        _maxResolution = value.maxResolution;
-        _shadowMapSize = value.shadowMapSize;
-        _shadowsEnabled = value.shadowsEnabled;
-        _shadowQuality = value.shadowPreset;
-        _width = width;
-        _height = height;
-        _motion();
-        _context.invalidate();
-      });
+  Future<void> setQualitySettings(CloudQualitySettings value) => _serial(
+    () async {
+      if (value.preset == _quality &&
+          value.maxResolution == _maxResolution &&
+          value.maxPixels == _maxPixels &&
+          value.shadowMapSize == _shadowMapSize &&
+          value.shadowsEnabled == _shadowsEnabled &&
+          value.shadowPreset == _shadowQuality) {
+        return;
+      }
+      final (width, height) = value.targetSize(_viewportWidth, _viewportHeight);
+      await _replace(
+        value.preset,
+        _textures!.textures,
+        width,
+        height,
+        settings: value,
+      );
+      _quality = value.preset;
+      _maxResolution = value.maxResolution;
+      _maxPixels = value.maxPixels;
+      _shadowMapSize = value.shadowMapSize;
+      _shadowsEnabled = value.shadowsEnabled;
+      _shadowQuality = value.shadowPreset;
+      _width = width;
+      _height = height;
+      _motion();
+      _context.invalidate();
+    },
+  );
   Future<void> _replace(
     CloudQualityPreset quality,
     CloudTextures textures,
@@ -404,12 +408,7 @@ final class CloudController {
     _skipAnimationDelta = false;
     _viewportWidth = info.width;
     _viewportHeight = info.height;
-    final scale = math.min(
-      1.0,
-      _maxResolution / math.max(info.width, info.height),
-    );
-    final width = math.max(1, (info.width * scale).round()),
-        height = math.max(1, (info.height * scale).round());
+    final (width, height) = settings.targetSize(info.width, info.height);
     if (width != _width ||
         height != _height ||
         _active!.lease.luts.parameters.key != _atmosphere.parameters.key ||
@@ -430,10 +429,18 @@ final class CloudController {
               _atmosphere.parameters.bottomRadius;
     }
     final candidate = _active!;
-    final sun = CelestialDirections.at(
+    final directions = CelestialDirections.at(
       _atmosphere.date,
       observerECEF: ecef,
-    ).sunECEF;
+    );
+    final sun = directions.sunECEF;
+    final lunar = lunarIrradianceScale(directions, _atmosphere.appearance);
+    final nightFill = _atmosphere.appearance.nightLightIntensity;
+    final lighting = (lunar, nightFill);
+    if (_lunarLighting != null && _lunarLighting != lighting) {
+      _history.invalidate(CloudHistoryReset.lighting);
+    }
+    _lunarLighting = lighting;
     final history = _history.begin(
       camera: camera,
       aspect: info.width / info.height,
@@ -462,6 +469,9 @@ final class CloudController {
       worldToEcef: _atmosphere.worldToEcef,
       correctedCamera: corrected,
       sun: sun,
+      moon: directions.moonECEF,
+      moonIrradiance: lunar,
+      nightIrradiance: nightFill,
       bottomRadius: _atmosphere.parameters.bottomRadius,
       aspect: info.width / info.height,
       width: width,

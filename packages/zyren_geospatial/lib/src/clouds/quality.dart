@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 // Defaults from the pinned three-geospatial cloud quality presets.
 enum CloudQualityPreset { low, medium, high, ultra }
 
@@ -8,20 +10,41 @@ enum CloudDeviceType { phone, tablet, desktop }
 final class CloudQualitySettings {
   final CloudQualityPreset preset;
   final int maxResolution;
+  final int maxPixels;
   final int? shadowMapSize;
   final bool shadowsEnabled;
   final CloudQualityPreset? shadowPreset;
   CloudQualitySettings({
     this.preset = CloudQualityPreset.medium,
     this.maxResolution = 384,
+    this.maxPixels = 1048576,
     this.shadowMapSize,
     this.shadowsEnabled = true,
     this.shadowPreset,
   }) {
-    RangeError.checkValueInInterval(maxResolution, 1, 1024, 'maxResolution');
+    RangeError.checkValueInInterval(maxResolution, 1, 4096, 'maxResolution');
+    RangeError.checkValueInInterval(maxPixels, 1, 16777216, 'maxPixels');
     if (shadowMapSize case final size?) {
       RangeError.checkValueInInterval(size, 1, 1024, 'shadowMapSize');
     }
+  }
+
+  (int, int) targetSize(int width, int height) {
+    final w = math.max(1, width), h = math.max(1, height);
+    final scale = math.min(
+      1.0,
+      math.min(maxResolution / math.max(w, h), math.sqrt(maxPixels / (w * h))),
+    );
+    var targetWidth = math.max(1, (w * scale).round());
+    var targetHeight = math.max(1, (h * scale).round());
+    if (targetWidth * targetHeight > maxPixels) {
+      if (targetWidth >= targetHeight) {
+        targetWidth = math.max(1, maxPixels ~/ targetHeight);
+      } else {
+        targetHeight = math.max(1, maxPixels ~/ targetWidth);
+      }
+    }
+    return (targetWidth, targetHeight);
   }
 
   /// Balanced starting points. Choose your device class explicitly; native
@@ -41,12 +64,25 @@ final class CloudQualitySettings {
       preset: selected,
       shadowsEnabled: shadowsEnabled,
       shadowPreset: shadowPreset,
+      maxPixels: switch (device) {
+        CloudDeviceType.phone => 589824,
+        CloudDeviceType.tablet => 921600,
+        CloudDeviceType.desktop => 1048576,
+      },
       maxResolution: switch (selected) {
-        CloudQualityPreset.low => 320,
-        CloudQualityPreset.medium => 512,
-        CloudQualityPreset.high => 640,
-        CloudQualityPreset.ultra =>
-          device == CloudDeviceType.desktop ? 768 : 640,
+        CloudQualityPreset.low => 512,
+        CloudQualityPreset.medium =>
+          device == CloudDeviceType.phone ? 768 : 1024,
+        CloudQualityPreset.high => switch (device) {
+          CloudDeviceType.phone => 960,
+          CloudDeviceType.tablet => 1152,
+          CloudDeviceType.desktop => 1280,
+        },
+        CloudQualityPreset.ultra => switch (device) {
+          CloudDeviceType.phone => 1024,
+          CloudDeviceType.tablet => 1280,
+          CloudDeviceType.desktop => 1536,
+        },
       },
       shadowMapSize: (shadowPreset ?? selected) == CloudQualityPreset.ultra
           ? (device == CloudDeviceType.desktop ? 256 : 192)

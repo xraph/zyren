@@ -28,6 +28,21 @@ fn cloudScalarLight(position:vec3<f32>)->CloudLight{
  let p=position*.001;
  return CloudLight(atmosphereSunIrradiance(p,cf.sun.xyz,cf.sun.xyz),atmosphereSkyIrradiance(p,normalize(p),cf.sun.xyz)*(2.*PI));
 }
+fn cloudNight(position:vec3<f32>)->f32 {
+ return 1.-smoothstep(-.1,0.,dot(normalize(position),cf.sun.xyz));
+}
+fn cloudLunarLight(position:vec3<f32>)->CloudLight {
+ let night=cloudNight(position);var sun=vec3<f32>(0.);var sky=vec3<f32>(0.);
+ if(night>0.){
+  let p=position*.001;
+  if(cf.moon.w>0.){
+   sun=atmosphereSunIrradiance(p,cf.moon.xyz,cf.moon.xyz)*cf.moon.w;
+   sky=atmosphereSkyIrradiance(p,normalize(p),cf.moon.xyz)*(2.*PI)*cf.moon.w;
+  }
+  sky+=SOLAR*SUN_LUMINANCE*cf.lunar.x*(2.*PI);
+ }
+ return CloudLight(sun*night,sky*night);
+}
 fn cloudLight(position:vec3<f32>,height:f32)->CloudLight{
  if(CLOUD_ACCURATE_LIGHT){return cloudScalarLight(position);}
  let radial=normalize(cf.camera.xyz);let low=cloudScalarLight(radial*(cf.camera.w+cloud.v[13].w));let high=cloudScalarLight(radial*(cf.camera.w+cloud.v[14].w));
@@ -50,10 +65,15 @@ fn cloudGroundBounce(position:vec3<f32>,normal:vec3<f32>,height:f32,mip:f32,jitt
   let p=(position-normal*height)*.001;
   light=CloudLight(atmosphereSunIrradiance(p,normal,cf.sun.xyz),atmosphereSkyIrradiance(p,normal,cf.sun.xyz));
  }
+ let lunar=cloudLunarLight(position-normal*height);
+ light=CloudLight(light.sun+lunar.sun,light.sky+lunar.sky/(2.*PI));
  return .3/PI*(light.sky+(1.-cloud.v[16].w)*light.sun)*exp(-optical);
 }
 struct CloudMarch {color:vec4<f32>,depth:f32};
 fn cloudMarch(origin:vec3<f32>,direction:vec3<f32>,range:vec2<f32>,cosTheta:f32,jitter:f32,startTexels:f32)->CloudMarch{
+ return cloudMarchFiltered(origin,direction,range,cosTheta,jitter,startTexels,0.);
+}
+fn cloudMarchFiltered(origin:vec3<f32>,direction:vec3<f32>,range:vec2<f32>,cosTheta:f32,jitter:f32,startTexels:f32,footprint:f32)->CloudMarch{
  var radiance=vec3<f32>(0.);var transmission=1.;var weighted=0.;var weight=0.;var first=-1.;
  let distance=range.y-range.x;var step=CLOUD_MIN_STEP+(CLOUD_STEP_SCALE-1.)*range.x;
  // Perspective growth can exceed an entire layer from orbit. Keep distant
@@ -72,15 +92,20 @@ fn cloudMarch(origin:vec3<f32>,direction:vec3<f32>,range:vec2<f32>,cosTheta:f32,
   if(cloudInGap(height)){step=select(step*CLOUD_STEP_SCALE,min(step*CLOUD_STEP_SCALE,limit),distant);let advance=mix(step,CLOUD_MAX_STEP,min(1.,mip));next+=select(advance,min(advance,limit),distant);continue;}
   let weather=cloudSampleWeather(p,height,mip,false);
   if(!any(weather.density>vec4<f32>(CLOUD_MIN_DENSITY))){step=select(step*CLOUD_STEP_SCALE,min(step*CLOUD_STEP_SCALE,limit),distant);let advance=mix(step,CLOUD_MAX_STEP,min(1.,mip));next+=select(advance,min(advance,limit),distant);continue;}
-  let medium=cloudSampleMedium(weather,p,mip,jitter);
+  let medium=cloudSampleMediumFiltered(weather,p,mip,jitter,footprint);
   if(medium.extinction>CLOUD_MIN_EXTINCTION){
    let light=cloudLight(p,height);let normal=normalize(p);let secondary=cloudOpticalDepth(p,cf.sun.xyz,CLOUD_SUN_ITERATIONS,mip,jitter);
    var optical=secondary.x;
    if(height<cloud.v[20].w){optical+=cloudShadowDepth(p,secondary.y,cloud.v[24].w*cloudRemap(dot(cf.sun.xyz,normal),.1,0.),jitter);}
    var scattered=light.sun*cloudMultipleScattering(optical,cosTheta);
    if(CLOUD_GROUND_ITERATIONS>0u && cloud.v[22].y>0. && height<cloud.v[20].w && mip<.5){scattered+=cloudGroundBounce(p,normal,height,mip,jitter)*CLOUD_INV_PI4*cloud.v[22].y;}
+   let lunar=cloudLunarLight(p);
+   if(cf.moon.w>0. && cloudNight(p)>0.){
+    let lunarDepth=cloudOpticalDepth(p,cf.moon.xyz,CLOUD_SUN_ITERATIONS,mip,jitter).x;
+    scattered+=lunar.sun*cloudMultipleScattering(lunarDepth,dot(cf.moon.xyz,direction));
+   }
    let gradient=dot(weather.height*.5+.5,medium.weight);
-   scattered+=light.sky*CLOUD_INV_PI4*gradient*cloud.v[22].x;scattered*=medium.scattering;
+   scattered+=(light.sky+lunar.sky)*CLOUD_INV_PI4*gradient*cloud.v[22].x;scattered*=medium.scattering;
    scattered*=1.-cloud.v[22].z*exp(-medium.extinction*cloud.v[22].w);
    let tr=exp(-medium.extinction*step);let integral=(scattered-scattered*tr)/max(medium.extinction,1e-7);
    radiance+=transmission*integral;transmission*=tr;
@@ -112,6 +137,8 @@ fn cloudHaze(origin:vec3<f32>,direction:vec3<f32>,distance:f32,cosTheta:f32,shad
  let tr=clamp(1.-exp(-expTerm*linear),0.,1.);let shadowTr=clamp(1.-exp(-max((expTerm-shadowTerm)*linear,0.)),0.,1.);
  let light=cloudScalarLight(cf.camera.xyz);
  var color=light.sun*cloudPhase(cosTheta,1.)*shadowTr+light.sky*CLOUD_INV_PI4*cloud.v[22].x*tr;
+ let lunar=cloudLunarLight(cf.camera.xyz);
+ color+=lunar.sun*cloudPhase(dot(cf.moon.xyz,direction),1.)*tr+lunar.sky*CLOUD_INV_PI4*cloud.v[22].x*tr;
  color*=cloud.v[23].z/max(cloud.v[23].z+cloud.v[23].w,1e-20);return vec4<f32>(color,tr);
 }
 struct CloudRanges {clouds:vec2<f32>,shadow:vec2<f32>,haze:vec2<f32>,ground:f32};
@@ -141,9 +168,13 @@ fn cloudRanges(origin:vec3<f32>,direction:vec3<f32>)->CloudRanges{
  if(cf.forward.w>0.){worldRay=cf.forward.xyz;relativeOrigin=scenePosition(uv,sceneNearDepth())-worldRay*cf.sun.w;}
  let origin=cloudEcef(relativeOrigin);let ray=normalize((cf.worldToEcef*vec4<f32>(worldRay,0.)).xyz);
  var ranges=cloudRanges(origin,ray);
- let globeUv=cloudGlobeUv(origin+ray*max(ranges.clouds.x,0.))*cloud.v[15].xy;
- let coord=globeUv*cf.extent.xy*select(1.,.25,ct.jitter.z>1.5);let dx=dpdx(coord);let dy=dpdy(coord);
- let mip=max(0.,.5*log2(max(1.,max(dot(dx,dx),dot(dy,dy))*.1)))*clamp(.2*(length(origin)-cf.camera.w)/max(cloud.v[14].w,1.),0.,1.);
+ let entryPoint=origin+ray*max(ranges.clouds.x,0.);
+ // Resolve one quarter of the rays per axis, but filter for the final pixel.
+ let footprint=max(length(dpdx(entryPoint)),length(dpdy(entryPoint)))*select(1.,.25,ct.jitter.z>1.5);
+ let globeUv=cloudGlobeUv(entryPoint)*cloud.v[15].xy;
+ let coord=globeUv*vec2<f32>(textureDimensions(cloudWeatherMap));
+ let dx=dpdx(coord)*select(1.,.25,ct.jitter.z>1.5);let dy=dpdy(coord)*select(1.,.25,ct.jitter.z>1.5);
+ let mip=max(0.,.5*log2(max(1.,max(dot(dx,dx),dot(dy,dy)))))*clamp(.2*(length(origin)-cf.camera.w)/max(cloud.v[14].w,1.),0.,1.);
  let depthPixel=clamp(vec2<i32>(uv*vec2<f32>(textureDimensions(sceneDepth))),vec2<i32>(0),vec2<i32>(textureDimensions(sceneDepth))-1);
  let depth=textureLoad(sceneDepth,depthPixel,0);let background=sceneDepthIsBackground(depth);
  var sceneDistance=cf.extent.z;var scenePoint=origin+ray*sceneDistance;
@@ -154,7 +185,7 @@ fn cloudRanges(origin:vec3<f32>,direction:vec3<f32>)->CloudRanges{
  let jitter=cloudNoise(vec2<f32>(pixel),ct.size.w);let cosTheta=dot(cf.sun.xyz,ray);
  var color=vec4<f32>(0.);var front=sceneDistance;var hit=false;
  if(all(ranges.clouds>=vec2<f32>(0.))&&ranges.clouds.y>=ranges.clouds.x){
-  let marched=cloudMarch(origin+ray*ranges.clouds.x,ray,ranges.clouds,cosTheta,jitter,exp2(mip));color=marched.color;
+  let marched=cloudMarchFiltered(origin+ray*ranges.clouds.x,ray,ranges.clouds,cosTheta,jitter,exp2(mip),footprint);color=marched.color;
   if(marched.depth>=0.){
    hit=true;front=ranges.clouds.x+marched.depth;
    ranges.shadow.y=mix(ranges.shadow.y,min(front,ranges.shadow.y),color.a);
