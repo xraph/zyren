@@ -12,7 +12,7 @@ native spectral simulation and physical buoyancy required here.
 | Order | Plan | Tasks | Current status |
 | --- | --- | --- | --- |
 | 1 | [Extension host, layers and world services](01-foundation-plan.md) | F1-F5 | F1-F5 implemented; native Metal checks recorded |
-| 2 | [Persistent caching and offline regions](02-offline-plan.md) | D1-D4 | D1 implemented; durable storage next |
+| 2 | [Persistent caching and offline regions](02-offline-plan.md) | D1-D4 | D1-D2 implemented; verified regions next |
 | 3 | [Native professional ocean](03-ocean-plan.md) | W1-W12 | Queued for sequential execution |
 
 Navigation/traffic, flight and orbital simulation remain in the approved platform
@@ -85,3 +85,10 @@ Offline reads never construct transport locations. Native source reads preserve
 byte limits and redirect policy. Analysis passed. Repository boundary checking
 remains blocked by concurrent Studio and training-worker crypto imports. The
 reference store is memory-only; durable storage and verified regions follow.
+
+D2 adds a native file store with a checksummed index journal, bounded staging,
+manifest-owned pins and process/isolate exclusion. Twelve storage tests passed
+on macOS, including abrupt child-process exits at all four publication stages.
+The complete D1/D2 suite has 31 passing tests. Analysis passed. Linux, Windows and
+power-loss durability remain unqualified. A corrupt committed index fails closed
+instead of reconstructing unknown pin ownership from payload filenames.

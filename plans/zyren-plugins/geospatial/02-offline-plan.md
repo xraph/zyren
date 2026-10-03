@@ -129,7 +129,7 @@ required int maxEntries}) implements GeoDataStore`. Add
 temporary, pinned and leased bytes. `pin(String manifestId, Set<String> digests)`
 and `unpin(String manifestId)` maintain reference counts, not one global boolean.
 
-- [ ] Test cold restart, then the same bytes after eviction pressure:
+- [x] Test cold restart, then the same bytes after eviction pressure:
 
 ```dart
 final first = FileGeoDataStore(directory: directory,
@@ -145,7 +145,7 @@ await restarted.close();
   The test creates `directory` with `Directory.systemTemp.createTemp()` and
   `resource` with the D1 constructor, using a SHA-256 checksum of `[1,2,3]`.
   Delete only that owned directory in test teardown.
-- [ ] Use process locks, digest-named immutable blobs and a journaled metadata
+- [x] Use process locks, digest-named immutable blobs and a journaled metadata
   transaction. Reserve temporary, final and manifest overhead before writes.
   Flush staging files and publish by rename, then commit references. Recovery
   discards orphan staging data and rebuilds indexes without trusting incomplete
@@ -159,13 +159,13 @@ if (digest != resource.checksum) {
 }
 ```
 
-- [ ] Add fault-injection tests at staging, blob publication and manifest commit.
+- [x] Add fault-injection tests at staging, blob publication and manifest commit.
   Use two child Dart processes for locking tests. Cover corruption, path traversal,
   symlink escape from the owned store, simultaneous readers, failed lock acquisition,
   cancellation and exhausted budgets with every existing entry pinned.
-- [ ] Run all D1/D2 tests and the package analyzer. Check close waits for accepted
+- [x] Run all D1/D2 tests and the package analyzer. Check close waits for accepted
   operations and that invalidated generations cannot write after removal.
-- [ ] Commit `feat(geospatial): persist bounded offline resource storage`.
+- [x] Commit `feat(geospatial): persist bounded offline resource storage`.
 
 ## Task 3: D3 Complete offline regions and live layer integration
 

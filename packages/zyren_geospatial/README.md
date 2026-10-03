@@ -792,3 +792,43 @@ Removal cancels the old read generation and drains accepted writes before
 removing bytes. Closing the resolver waits for physical requests and accepted
 store operations. Source errors retain a cause for trusted diagnostics; their
 public text contains only a stable error code.
+
+For durable native storage, import `package:zyren_geospatial/offline.dart` and
+supply `FileGeoDataStore(directory: privateDirectory, maxBytes: 128 << 20,
+maxEntries: 4096)` to the same resolver. The directory belongs exclusively to the
+store. The main geospatial library remains free of `dart:io` storage imports.
+
+The byte budget includes encoded payloads, index metadata and staging. Admission
+reserves another index copy for the next transaction. Large entries can therefore
+be declined even when their payload alone would fit. `inspect()` reports indexed
+payload bytes, metadata bytes and the subset protected by manifest pins. It runs
+after pending transactions and recovery, so temporary bytes are zero in that
+snapshot. Reads return owned bytes and expose no leased disk handles.
+
+Use `pin(manifestId, resourceDigests)` after verifying your required resources.
+Pins survive restart and can overlap. Replacing a pin set is atomic; a missing or
+corrupt resource leaves the previous set intact. `unpin(manifestId)` releases only
+that owner's references. Neither eviction nor `remove` deletes a pinned entry.
+Unpin it explicitly before invalidation. A complete geographic region still
+requires a region manifest, coverage and dependency verification.
+
+Writers flush blobs and a checksummed index journal, then publish through rename.
+Recovery removes uncommitted staging and orphan blobs. A corrupt committed index
+fails explicitly and preserves files for diagnosis; recovery does not guess pin
+ownership from filenames. Indexed payload corruption fails on read or pin.
+Close waits for accepted operations. Cancellation before the index commit leaves
+the previous committed state; cancellation cannot undo an already committed write.
+
+OS locks serialize processes. An exclusive PID gate also serializes Dart isolates,
+where POSIX locks alone would be insufficient. Crashed processes can leave empty
+PID gates. They do not block a different PID, but a later process reusing that PID
+fails closed with a lock timeout. Remove that specific gate only after confirming
+that no process is using the store. Keep this directory private to cooperating
+store instances. Symlink checks do not replace operating-system directory access
+controls against hostile processes.
+
+D2 checks cover restart, overlapping pins, physical write-stage byte counts,
+corruption, symlink rejection, cancellation, concurrent child processes and Dart
+isolates on macOS. These are process-crash checks, not a power-loss guarantee.
+File contents are flushed; portable Dart does not expose directory `fsync` here.
+Windows and Linux storage behavior still need platform qualification.
