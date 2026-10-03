@@ -120,6 +120,51 @@ final class CharacterAnimationPlugin extends ScenePlugin {
     });
   }
 
+  /// Saves all independent action clocks, including interrupted transitions.
+  Map<String, Object?> captureState() {
+    _check();
+    return Map.unmodifiable({
+      'version': 1,
+      'current': _current,
+      'paused': _paused,
+      'actions': Map<String, Object?>.unmodifiable({
+        for (final e in _actions.entries) e.key: e.value.captureState(),
+      }),
+    });
+  }
+
+  void validateState(Map<String, Object?> state) {
+    _check();
+    final actions = state['actions'];
+    if (state.length != 4 ||
+        state['version'] != 1 ||
+        !_actions.containsKey(state['current']) ||
+        state['paused'] is! bool ||
+        actions is! Map<String, Object?> ||
+        actions.length != _actions.length ||
+        !actions.keys.toSet().containsAll(_actions.keys)) {
+      throw const FormatException('Invalid character animation checkpoint.');
+    }
+    for (final entry in _actions.entries) {
+      final action = actions[entry.key];
+      if (action is! Map<String, Object?>) {
+        throw const FormatException('Invalid character action checkpoint.');
+      }
+      entry.value.validateState(action);
+    }
+  }
+
+  void restoreState(Map<String, Object?> state) {
+    validateState(state);
+    final actions = state['actions'] as Map<String, Object?>;
+    timeline.restoreActionStates({
+      for (final e in _actions.entries)
+        e.value: actions[e.key] as Map<String, Object?>,
+    });
+    _current = state['current'] as String;
+    _paused = state['paused'] as bool;
+  }
+
   Duration positionOf(String state) {
     _check();
     return (_actions[state] ?? (throw ArgumentError.value(state, 'state')))

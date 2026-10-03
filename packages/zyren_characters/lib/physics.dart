@@ -15,6 +15,7 @@ final class CharacterMotor {
   final double gravity, terminalSpeed;
   double _verticalSpeed = 0;
   CharacterMovement? lastMovement;
+  bool? _restoredGrounded;
   CharacterMotor({
     required this.character,
     required this.rootMotion,
@@ -30,7 +31,35 @@ final class CharacterMotor {
       throw ArgumentError('Motor needs an external clock and valid gravity.');
     }
   }
-  bool get grounded => lastMovement?.grounded ?? false;
+  bool get grounded => _restoredGrounded ?? lastMovement?.grounded ?? false;
+  Map<String, Object?> captureState() => Map.unmodifiable({
+    'version': 1,
+    'verticalSpeed': _verticalSpeed,
+    'grounded': grounded,
+    'animation': character.captureState(),
+  });
+  void validateState(Map<String, Object?> state) {
+    final speed = state['verticalSpeed'], animation = state['animation'];
+    if (state.length != 4 ||
+        state['version'] != 1 ||
+        speed is! num ||
+        !speed.isFinite ||
+        speed.abs() > terminalSpeed ||
+        state['grounded'] is! bool ||
+        animation is! Map<String, Object?>) {
+      throw const FormatException('Invalid character motor checkpoint.');
+    }
+    character.validateState(animation);
+  }
+
+  void restoreState(Map<String, Object?> state) {
+    validateState(state);
+    character.restoreState(state['animation'] as Map<String, Object?>);
+    _verticalSpeed = (state['verticalSpeed'] as num).toDouble();
+    _restoredGrounded = state['grounded'] as bool;
+    lastMovement = null;
+  }
+
   void jump(double speed) {
     if (!speed.isFinite || speed <= 0 || speed > terminalSpeed) {
       throw ArgumentError('Invalid jump speed.');
@@ -82,6 +111,7 @@ final class CharacterMotor {
     if (movement.contacts.any((c) => c.normal.y < -.5) && _verticalSpeed > 0) {
       _verticalSpeed = 0;
     }
+    _restoredGrounded = null;
     lastMovement = movement;
     return movement;
   }

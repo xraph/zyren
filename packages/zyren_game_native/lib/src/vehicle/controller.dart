@@ -62,6 +62,115 @@ final class VehicleController {
       body.isAlive;
   VehicleTelemetry get telemetry => _telemetry;
   int get forceTicks => _forceTicks;
+
+  /// Input authority is deliberately excluded from saved handling state.
+  Map<String, Object?> captureState() => Map.unmodifiable({
+    'version': 1,
+    'gear': _gear,
+    'forceTicks': _forceTicks,
+    'rotations': List<double>.unmodifiable(_rotation),
+    'wheels': List.unmodifiable([
+      for (final w in _wheels)
+        Map<String, Object?>.unmodifiable({
+          'id': w.id,
+          'grounded': w.grounded,
+          'length': w.suspensionLength,
+          'force': w.suspensionForce,
+          'load': w.normalLoad,
+          'friction': w.friction,
+          'steering': w.steeringAngle,
+          'rotation': w.rotation,
+          'longitudinal': w.longitudinalSpeed,
+          'lateral': w.lateralSpeed,
+          'tireForce': w.tireForce.storage,
+          'contact': w.contact?.storage,
+        }),
+    ]),
+  });
+  void validateState(Map<String, Object?> state) {
+    bool bounded(Object? v, double min, double max) =>
+        v is num && v.isFinite && v >= min && v <= max;
+    bool vector(Object? v) =>
+        v is List && v.length == 3 && v.every((x) => bounded(x, -1e9, 1e9));
+    final rotations = state['rotations'], wheels = state['wheels'];
+    if (state.length != 5 ||
+        state['version'] != 1 ||
+        ![-1, 0, 1].contains(state['gear']) ||
+        state['forceTicks'] is! int ||
+        !bounded(state['forceTicks'], 0, 9000000000000000) ||
+        rotations is! List ||
+        rotations.length != _rotation.length ||
+        !rotations.every((v) => bounded(v, -2 * math.pi, 2 * math.pi)) ||
+        wheels is! List ||
+        (wheels.isNotEmpty && wheels.length != definition.wheels.length)) {
+      throw const FormatException('Invalid vehicle checkpoint.');
+    }
+    for (var i = 0; i < wheels.length; i++) {
+      final w = wheels[i], definitionWheel = definition.wheels[i];
+      if (w is! Map<String, Object?> ||
+          w.length != 12 ||
+          w['id'] != definitionWheel.id ||
+          w['grounded'] is! bool ||
+          !bounded(
+            w['length'],
+            0,
+            definitionWheel.restLength + definitionWheel.travel,
+          ) ||
+          !bounded(w['force'], 0, definitionWheel.maxSuspensionForce) ||
+          !bounded(w['load'], 0, definitionWheel.maxSuspensionForce) ||
+          !bounded(w['friction'], 0, 5) ||
+          !bounded(w['steering'], -math.pi, math.pi) ||
+          !bounded(w['rotation'], -2 * math.pi, 2 * math.pi) ||
+          !bounded(w['longitudinal'], -1e6, 1e6) ||
+          !bounded(w['lateral'], -1e6, 1e6) ||
+          !vector(w['tireForce']) ||
+          w['contact'] != null && !vector(w['contact'])) {
+        throw const FormatException('Invalid wheel checkpoint.');
+      }
+    }
+  }
+
+  void restoreState(Map<String, Object?> state) {
+    validateState(state);
+    if (!_live) throw StateError('Vehicle is unavailable.');
+    _loseControl();
+    _gear = state['gear'] as int;
+    _forceTicks = state['forceTicks'] as int;
+    _lastTick = -1;
+    final rotations = state['rotations'] as List;
+    for (var i = 0; i < _rotation.length; i++) {
+      _rotation[i] = (rotations[i] as num).toDouble();
+    }
+    _wheels = [
+      for (final w in state['wheels'] as List)
+        WheelTelemetry(
+          id: w['id'] as String,
+          grounded: w['grounded'] as bool,
+          suspensionLength: (w['length'] as num).toDouble(),
+          suspensionForce: (w['force'] as num).toDouble(),
+          normalLoad: (w['load'] as num).toDouble(),
+          friction: (w['friction'] as num).toDouble(),
+          steeringAngle: (w['steering'] as num).toDouble(),
+          rotation: (w['rotation'] as num).toDouble(),
+          longitudinalSpeed: (w['longitudinal'] as num).toDouble(),
+          lateralSpeed: (w['lateral'] as num).toDouble(),
+          tireForce: Vec3(
+            (w['tireForce'][0] as num).toDouble(),
+            (w['tireForce'][1] as num).toDouble(),
+            (w['tireForce'][2] as num).toDouble(),
+          ),
+          contact: w['contact'] == null
+              ? null
+              : Vec3(
+                  (w['contact'][0] as num).toDouble(),
+                  (w['contact'][1] as num).toDouble(),
+                  (w['contact'][2] as num).toDouble(),
+                ),
+        ),
+    ];
+    _publish();
+  }
+
   VehicleControlLease acquireControl(GameEntityHandle driver) {
     _requireLive();
     if (!session.entities.isAlive(driver)) {

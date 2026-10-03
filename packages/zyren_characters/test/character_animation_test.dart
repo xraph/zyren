@@ -64,6 +64,28 @@ void main() {
   );
 
   test(
+    'checkpoint restores a mixed imported pose and transition phase',
+    () async {
+      character.timeline.externallyDriven = true;
+      character.transitionTo('walk');
+      character.timeline.advance(const Duration(milliseconds: 50));
+      final saved = character.captureState();
+      character.timeline.advance(const Duration(milliseconds: 50));
+      final expected = character.captureState(),
+          rotation = model.nodes[3]!.quaternion;
+      character.restoreState(saved);
+      character.timeline.advance(const Duration(milliseconds: 50));
+      expect(character.captureState(), expected);
+      expect(model.nodes[3]!.quaternion, rotation);
+      expect(
+        () => character.restoreState({...saved, 'current': 'missing'}),
+        throwsFormatException,
+      );
+      expect(character.captureState(), expected);
+    },
+  );
+
+  test(
     'real imported walk clip fades, moves hips and keeps the instance root',
     () async {
       expect(character.transitionTo('walk'), isTrue);

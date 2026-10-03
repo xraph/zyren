@@ -44,6 +44,28 @@ void main() {
       engine.render(elapsed: Duration(milliseconds: ms), width: 8, height: 8);
 
   test(
+    'checkpoint preserves action traversal and an interrupted fade',
+    () async {
+      timeline.externallyDriven = true;
+      final action = timeline.createAction(clip(10), weight: 1, loop: true)
+        ..play();
+      action.fadeTo(.2, length);
+      timeline.advance(const Duration(milliseconds: 300));
+      final saved = action.captureState();
+      timeline.advance(const Duration(milliseconds: 100));
+      final expected = action.captureState();
+      action.restoreState(saved);
+      timeline.advance(const Duration(milliseconds: 100));
+      expect(action.captureState(), expected);
+      expect(
+        () => action.restoreState({...saved, 'weight': double.nan}),
+        throwsFormatException,
+      );
+      expect(action.captureState(), expected);
+    },
+  );
+
+  test(
     'independent clocks survive main seeks and release demand at completion',
     () async {
       final action = timeline.createAction(clip(10), weight: 1)..play();

@@ -67,6 +67,16 @@ final class GamePlaySession extends ChangeNotifier
   Map<GameEntityHandle, VehicleController> get vehicles =>
       _levelRuntime?.vehicles ?? const {};
   GameActionState? get actions => _levelRuntime?.actions;
+  GameSave save() =>
+      _levelRuntime?.save() ?? (throw StateError('No running game.'));
+  void restore(GameSave save) {
+    final runtime = _levelRuntime;
+    if (runtime == null) throw StateError('No running game.');
+    runtime.restore(save);
+    _state = runtime.isPaused ? GamePlayState.paused : GamePlayState.running;
+    _publish();
+  }
+
   bool controlEntity(GameEntityHandle? target) =>
       _levelRuntime?.controlEntity(target) ?? false;
   PhysicsPose? exitPlacement(
@@ -82,8 +92,8 @@ final class GamePlaySession extends ChangeNotifier
 
   void _runtimeChanged() {
     final session = _simulation?.session;
-    if (session?.fault != null) {
-      error = session!.fault;
+    if (_levelRuntime?.error != null) {
+      error = _levelRuntime!.error;
       _state = GamePlayState.failed;
     } else if (session?.paused == true && _state == GamePlayState.running) {
       _state = GamePlayState.paused;

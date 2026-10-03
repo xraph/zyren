@@ -62,7 +62,23 @@ final class GameLevelRuntime {
   bool get isClosed => _closed;
   GameSimulation? _simulation;
   GameSimulation? get simulation => _simulation;
-  Object? get error => _simulation?.session.fault;
+  Object? get error => _checkpointFault ?? _simulation?.session.fault;
+  Object? _checkpointFault;
+  bool _restoringCheckpoint = false, _setupReady = false;
+  _NativeLevelState? _restoredNative;
+  final _actorRegistrations = <void Function()>[];
+  final _restoredListeners = <void Function()>[];
+  final _active = <String, bool>{};
+  GameSave save() => _saveRuntime(this);
+  void restore(GameSave save) => _restoreRuntime(this, save);
+  Registration listenRestored(void Function() callback) {
+    if (_closed || _restoredListeners.length >= 1024) {
+      throw StateError('Restore listener unavailable.');
+    }
+    _restoredListeners.add(callback);
+    return Registration(() => _restoredListeners.remove(callback));
+  }
+
   GameLevelRuntime({
     required this.project,
     required this.scene,
@@ -78,7 +94,7 @@ final class GameLevelRuntime {
        capabilities = Set.unmodifiable(capabilities),
        resources = List.unmodifiable(resources);
   void _publish() {
-    if (!_closed) onChanged?.call();
+    if (!_closed && !_restoringCheckpoint) onChanged?.call();
   }
 
   GameCharacterMotorRegistry? _motors;
@@ -266,6 +282,11 @@ final class GameLevelRuntime {
             ...?(systemFactory?.call(this)),
           ],
         );
+        _registrations.add(
+          _simulation!.session
+              .registerStateCodec(_NativeLevelCodec(this))
+              .cancel,
+        );
         _registrations.add(_motors!.connect(_simulation!).dispose);
         _registrations.add(
           _simulation!.session.listenState(_syncResourceState).cancel,
@@ -413,6 +434,7 @@ final class GameLevelRuntime {
 
   void pause() {
     final simulation = _simulation;
+    if (_checkpointFault != null) throw StateError('Native restore failed.');
     if (_closed || simulation == null || simulation.session.paused) {
       throw StateError('The level is not running.');
     }
@@ -421,6 +443,7 @@ final class GameLevelRuntime {
   }
 
   void resume() {
+    if (_checkpointFault != null) throw StateError('Native restore failed.');
     if (!isPaused || _closed) throw StateError('Pause before resuming.');
     _simulation!.session.resume();
     _restoreControl();
@@ -428,6 +451,7 @@ final class GameLevelRuntime {
   }
 
   void step() {
+    if (_checkpointFault != null) throw StateError('Native restore failed.');
     if (!isPaused || _closed) throw StateError('Pause before stepping.');
     final session = _simulation!.session;
     try {
@@ -479,8 +503,9 @@ final class GameLevelRuntime {
       );
     }
     root.visible = active;
+    _active[handle.id] = active;
 
-    _publish();
+    if (!_restoringCheckpoint) _publish();
   }
 
   Map<String, Object?> inspectEntity(GameEntityHandle handle) {
@@ -560,6 +585,11 @@ final class GameLevelRuntime {
     for (final input in _inputs.values) {
       input.releaseEveryDevice();
     }
+    for (final registration in _actorRegistrations.reversed) {
+      await cleanup(registration);
+    }
+    _actorRegistrations.clear();
+    _restoredListeners.clear();
     for (final registration in _registrations.reversed) {
       await cleanup(registration);
     }
@@ -671,7 +701,8 @@ final class _PlaySetup extends GameSystem {
   @override
   Set<String> get dependencies => {'game.vehicles'};
   @override
-  void start(GameSession session) {
+  void start(GameSession session) => bind(session);
+  void bind(GameSession session, {bool restoring = false}) {
     final level = session.project.levels.singleWhere(
       (l) => l.id == session.levelId,
     );
@@ -705,7 +736,7 @@ final class _PlaySetup extends GameSystem {
             definition: definition,
           );
           owner._characters[handle] = controller;
-          owner._registrations.add(
+          owner._actorRegistrations.add(
             owner._motors!
                 .register(controller, owner.objects[entity.nodeId]!)
                 .dispose,
@@ -744,7 +775,7 @@ final class _PlaySetup extends GameSystem {
               ),
             ),
         ];
-        owner._registrations.add(() {
+        owner._actorRegistrations.add(() {
           for (final visual in visuals) {
             root.remove(visual);
           }
@@ -756,7 +787,7 @@ final class _PlaySetup extends GameSystem {
           definition: definition,
         );
         owner._vehicleControllers[handle] = controller;
-        owner._registrations.add(
+        owner._actorRegistrations.add(
           owner._vehicles!
               .register(
                 controller,
@@ -779,7 +810,7 @@ final class _PlaySetup extends GameSystem {
         ),
       ),
     );
-    owner._registrations.add(owner._possession!.close);
+    owner._actorRegistrations.add(owner._possession!.close);
     for (final target in {
       ...owner._primitiveCharacters.keys,
       ...owner._characters.keys,
@@ -847,7 +878,9 @@ final class _PlaySetup extends GameSystem {
         ),
       );
     }
-    if (owner._inputActor != null) owner.controlEntity(owner._inputActor);
+    if (!restoring && owner._inputActor != null) {
+      owner.controlEntity(owner._inputActor);
+    }
     for (final entity in level.entities) {
       for (final camera in entity.components.where(
         (c) => c.type == 'game.camera',
@@ -863,6 +896,7 @@ final class _PlaySetup extends GameSystem {
         owner._cameraModes[rig] = rig.mode;
       }
     }
+    owner._setupReady = true;
   }
 
   @override
@@ -923,6 +957,16 @@ final class _PlayInput extends GameSystem {
   void pause(GameSession session) {
     for (final input in owner._inputs.values) {
       input.releaseEveryDevice();
+    }
+    if (owner._checkpointFault != null) {
+      throw StateError('Native restore failed: ${owner._checkpointFault}');
+    }
+  }
+
+  @override
+  void resume(GameSession session) {
+    if (owner._checkpointFault != null) {
+      throw StateError('Native restore failed: ${owner._checkpointFault}');
     }
   }
 }

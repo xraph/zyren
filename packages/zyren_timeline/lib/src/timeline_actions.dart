@@ -39,6 +39,92 @@ final class TimelineAction {
   double get weight => _weight;
   bool get isPlaying => _playing;
 
+  /// Captures the independent clock and remaining fade without sampling a pose.
+  Map<String, Object?> captureState() {
+    _check();
+    return Map.unmodifiable({
+      'version': 1,
+      'position': _position.inMicroseconds,
+      'traversal': _traversal.inMicroseconds,
+      'elapsed': _elapsed.inMicroseconds,
+      'weight': _weight,
+      'playing': _playing,
+      'loop': loop,
+      'reverse': reverse,
+      'fade': _fade == null
+          ? null
+          : Map<String, Object?>.unmodifiable({
+              'from': _fade!.from,
+              'to': _fade!.to,
+              'duration': _fade!.duration.inMicroseconds,
+            }),
+    });
+  }
+
+  void validateState(Map<String, Object?> state) {
+    _check();
+    const keys = {
+      'version',
+      'position',
+      'traversal',
+      'elapsed',
+      'weight',
+      'playing',
+      'loop',
+      'reverse',
+      'fade',
+    };
+    bool clock(Object? v, {bool signed = false}) =>
+        v is int && v.abs() <= 9000000000000000 && (signed || v >= 0);
+    bool weight(Object? v) => v is num && v.isFinite && v >= 0 && v <= 1;
+    if (state.length != keys.length ||
+        !keys.containsAll(state.keys) ||
+        state['version'] != 1 ||
+        !clock(state['position']) ||
+        (state['position'] as int) > clip.duration.inMicroseconds ||
+        !clock(state['traversal'], signed: true) ||
+        !clock(state['elapsed']) ||
+        !weight(state['weight']) ||
+        state['playing'] is! bool ||
+        state['loop'] is! bool ||
+        state['reverse'] is! bool) {
+      throw const FormatException('Invalid timeline action checkpoint.');
+    }
+    final fade = state['fade'];
+    if (fade != null &&
+        (fade is! Map<String, Object?> ||
+            fade.length != 3 ||
+            !weight(fade['from']) ||
+            !weight(fade['to']) ||
+            !clock(fade['duration']) ||
+            (fade['duration'] as int) <= 0 ||
+            (state['elapsed'] as int) > (fade['duration'] as int))) {
+      throw const FormatException('Invalid timeline fade checkpoint.');
+    }
+  }
+
+  void _loadState(Map<String, Object?> state) {
+    _position = Duration(microseconds: state['position'] as int);
+    _traversal = Duration(microseconds: state['traversal'] as int);
+    _elapsed = Duration(microseconds: state['elapsed'] as int);
+    _weight = (state['weight'] as num).toDouble();
+    _playing = state['playing'] as bool;
+    loop = state['loop'] as bool;
+    reverse = state['reverse'] as bool;
+    final fade = state['fade'] as Map<String, Object?>?;
+    _fade = fade == null
+        ? null
+        : (
+            from: (fade['from'] as num).toDouble(),
+            to: (fade['to'] as num).toDouble(),
+            duration: Duration(microseconds: fade['duration'] as int),
+          );
+  }
+
+  /// Samples silently; malformed replacements leave all action state intact.
+  void restoreState(Map<String, Object?> state) =>
+      _owner.restoreActionStates({this: state});
+
   void _check() {
     _owner._attached;
     if (_disposed) throw StateError('The action has been disposed.');
@@ -233,6 +319,34 @@ extension TimelineActions on SceneTimelinePlugin {
       rethrow;
     }
     return action;
+  }
+
+  /// Validates every action before applying their combined checkpoint pose.
+  void restoreActionStates(Map<TimelineAction, Map<String, Object?>> states) {
+    _attached;
+    if (states.length > 1024 ||
+        states.keys.any((action) => !identical(action._owner, this))) {
+      throw const FormatException('Invalid timeline checkpoint owner.');
+    }
+    for (final entry in states.entries) {
+      entry.key.validateState(entry.value);
+    }
+    final previous = {
+      for (final action in states.keys) action: action.captureState(),
+    };
+    try {
+      for (final entry in states.entries) {
+        entry.key._loadState(entry.value);
+      }
+      _applyPose(_position);
+    } catch (_) {
+      for (final entry in previous.entries) {
+        entry.key._loadState(entry.value);
+      }
+      rethrow;
+    } finally {
+      _syncActionDemand();
+    }
   }
 
   List<TimelineTrack> _poseTracks() {
