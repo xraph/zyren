@@ -2,6 +2,22 @@ import 'package:test/test.dart';
 import 'package:zyren/zyren.dart';
 
 void main() {
+  test('direct removal and reparenting keep both traversal lists owned', () {
+    final group = PublicationGroup(), other = Group(), a = Group(), b = Group();
+    group.add(a);
+    group.publish([a]);
+    expect(group.renderChildren, [a]);
+    group.remove(a);
+    expect(group.renderChildren, isEmpty);
+    expect(group.pickChildren, isEmpty);
+    group.stage([a, b]);
+    group.publish([a, b]);
+    other.add(a);
+    expect(group.children, [b]);
+    expect(group.renderChildren, [b]);
+    expect(group.pickChildren, [b]);
+    expect(a.parent, same(other));
+  });
   test(
     'publication keeps rendered and picked ownership distinct and caches stable',
     () {

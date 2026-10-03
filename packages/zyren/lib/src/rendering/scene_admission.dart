@@ -293,7 +293,15 @@ FrameSubmission _reproject(FrameSubmission published, FrameSubmission current) {
           clipping[i + 1] * shift[1] +
           clipping[i + 2] * shift[2];
     }
-    meshes.add({...mesh, 'model': model, 'clippingPlanes': clipping});
+    // The published frustum belongs to an older camera. Retain every authored
+    // visible/layer-matched mesh during staging and let GPU clipping reject it
+    // in this view. Ordinary conservative CPU culling resumes on publication.
+    meshes.add({
+      ...mesh,
+      'color_visible': true,
+      'model': model,
+      'clippingPlanes': clipping,
+    });
   }
   final scene = SceneSnapshot._(
     meshes,
