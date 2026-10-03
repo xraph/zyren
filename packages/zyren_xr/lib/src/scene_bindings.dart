@@ -113,6 +113,11 @@ final class XrSceneBindings {
         }
         continue;
       }
+      binding._observed = true;
+      if (anchor.tracking != XrTrackingState.normal) {
+        binding._placement.visible = false;
+        continue;
+      }
       final matrix = rootFromSession * Mat4(anchor.pose.matrix);
       final position = Vec3.zero.toVectorMath();
       final rotation = Quat.identity.toVectorMath();
@@ -122,7 +127,6 @@ final class XrSceneBindings {
         ..position = Vec3.fromVectorMath(position)
         ..quaternion = Quat.fromVectorMath(rotation)
         ..visible = true;
-      binding._observed = true;
     }
     return List.unmodifiable(removed);
   }

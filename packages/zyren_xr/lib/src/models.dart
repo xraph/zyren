@@ -124,10 +124,14 @@ final class XrLightEstimate {
 final class XrAnchor {
   final String id;
   final XrPose pose;
+  final XrTrackingState tracking;
   XrAnchor.fromMessage(Object? value) : this._(messageMap(value));
   XrAnchor._(Map<Object?, Object?> m)
     : id = messageString(m, 'id'),
-      pose = XrPose(messageNumbers(m, 'transform', 16));
+      pose = XrPose(messageNumbers(m, 'transform', 16)),
+      tracking = m['tracking'] == null
+          ? XrTrackingState.normal
+          : messageEnum(m, 'tracking', XrTrackingState.values);
 }
 
 final class XrPlane {

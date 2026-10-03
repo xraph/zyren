@@ -5,6 +5,7 @@ import 'package:zyren_xr/src/scene_bindings.dart';
 
 XrSnapshot snapshot({
   String tracking = 'normal',
+  String? anchorTracking,
   bool anchor = true,
   int revision = 1,
   int originEpoch = 0,
@@ -28,6 +29,7 @@ XrSnapshot snapshot({
       if (anchor)
         {
           'id': 'anchor',
+          'tracking': ?anchorTracking,
           'transform': [...XrPose.identity().matrix.take(12), 2, 3, 4, 1],
         },
     ],
@@ -115,6 +117,50 @@ void main() {
       expect(() => bindings.update(snapshot()), throwsA(isA<XrException>()));
     },
   );
+
+  test(
+    'an individually paused anchor hides and recovers without losing identity',
+    () {
+      final root = Group(), object = Group();
+      final bindings = XrSceneBindings(
+        sessionId: 'session',
+        root: root,
+        originEpoch: 0,
+      );
+      final binding = bindings.bind(
+        anchorId: 'anchor',
+        object: object,
+        sourceId: 'asset:pump',
+      );
+      bindings.update(snapshot());
+      expect(binding.tracked, isTrue);
+      expect(bindings.update(snapshot(anchorTracking: 'limited')), isEmpty);
+      expect(binding.tracked, isFalse);
+      expect(bindings.bindings.single, same(binding));
+      expect(object.parent, isNotNull);
+      expect(bindings.update(snapshot(anchorTracking: 'normal')), isEmpty);
+      expect(binding.tracked, isTrue);
+      expect(binding.sourceId, 'asset:pump');
+      bindings.update(snapshot(anchorTracking: 'unavailable'));
+      expect(binding.tracked, isFalse);
+      expect(bindings.update(snapshot(anchor: false)), ['anchor']);
+      expect(object.parent, isNull);
+      bindings.dispose();
+    },
+  );
+
+  test('an anchor first observed while paused is removed when it stops', () {
+    final bindings = XrSceneBindings(
+      sessionId: 'session',
+      root: Group(),
+      originEpoch: 0,
+    );
+    bindings.bind(anchorId: 'anchor', object: Group());
+    bindings.update(snapshot(anchorTracking: 'limited'));
+    expect(bindings.bindings.single.tracked, isFalse);
+    expect(bindings.update(snapshot(anchor: false)), ['anchor']);
+    bindings.dispose();
+  });
 
   test('foreign sessions and nonrigid roots fail before changing bindings', () {
     final root = Group(), object = Group();

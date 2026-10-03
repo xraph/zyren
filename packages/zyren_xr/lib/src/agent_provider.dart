@@ -586,6 +586,7 @@ final class XrAgentProvider extends AgentProvider {
                   .map(
                     (a) => {
                       'runtimeId': a.id,
+                      'tracking': a.tracking.name,
                       'sourceId': null,
                       'transform': a.pose.matrix,
                       'identityScope': commands.session.id,
