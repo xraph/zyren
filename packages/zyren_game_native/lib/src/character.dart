@@ -35,6 +35,7 @@ final class GameCharacterController {
   CharacterIntent _intent = const CharacterIntent(),
       _lastIntent = const CharacterIntent();
   GameCharacterControlLease? _control;
+  ({GameIntent intent, GameCharacterControlLease lease})? _futureIntent;
   int _controlGeneration = 0, _motorTicks = 0, _lastTick = -1, _intentEpoch = 0;
   bool _jumpPending = false, _interactPending = false;
   final void Function(GameEntityHandle actor)? onInteract;
@@ -47,6 +48,7 @@ final class GameCharacterController {
     this.onInteract,
     this.navigationOriginOffset = const Vec3(0, -.81, 0),
   }) {
+    _intentEpoch = session.epoch;
     if (!session.entities.isAlive(actor) ||
         definition.jumpSpeed > motor.terminalSpeed ||
         !motor.character.states.any((s) => s.id == definition.idleState) ||
@@ -84,27 +86,41 @@ final class GameCharacterController {
   void apply(CharacterIntent intent, {GameCharacterControlLease? lease}) {
     _requireLive();
     intent.validate();
-    if (lease != null && (!identical(_control, lease) || !lease.isActive) ||
-        lease == null && _control != null) {
-      throw StateError('Character intent producer no longer owns control.');
-    }
+    _checkProducer(lease);
+    _futureIntent = null;
+    if (intent.moveX != 0 || intent.moveZ != 0) navigation?.setGoal(null);
     _intent = intent;
     _intentEpoch = session.epoch;
     _jumpPending |= intent.jump;
     _interactPending |= intent.interact;
   }
 
+  void _checkProducer(GameCharacterControlLease? lease) {
+    if (lease != null && (!identical(_control, lease) || !lease.isActive) ||
+        lease == null && _control != null) {
+      throw StateError('Character intent producer no longer owns control.');
+    }
+  }
+
   void applyGameIntent(
     GameIntent intent, {
     required GameCharacterControlLease lease,
   }) {
+    _requireLive();
     if (intent.actor != actor ||
         intent.epoch != session.epoch ||
         intent.tick < session.tick ||
         intent.tick > session.tick + 1) {
       throw StateError('Character intent envelope is stale.');
     }
-    apply(CharacterIntent.fromGameIntent(intent), lease: lease);
+    final characterIntent = CharacterIntent.fromGameIntent(intent);
+    characterIntent.validate();
+    _checkProducer(lease);
+    if (intent.tick > session.tick) {
+      _futureIntent = (intent: intent, lease: lease);
+      return;
+    }
+    apply(characterIntent, lease: lease);
   }
 
   void _resetIntent() {
@@ -115,6 +131,8 @@ final class GameCharacterController {
     _jumpPending = false;
     _interactPending = false;
     _intentEpoch = session.epoch;
+    _futureIntent = null;
+    navigation?.setGoal(null);
   }
 
   void _advance(double seconds) {
@@ -122,6 +140,18 @@ final class GameCharacterController {
     if (_intentEpoch != session.epoch ||
         _control != null && !_control!.isActive) {
       _resetIntent();
+    }
+    final future = _futureIntent;
+    if (future != null && future.intent.tick <= session.tick) {
+      _futureIntent = null;
+      if (future.intent.tick == session.tick &&
+          future.intent.epoch == session.epoch &&
+          future.lease.isActive) {
+        apply(
+          CharacterIntent.fromGameIntent(future.intent),
+          lease: future.lease,
+        );
+      }
     }
     if (_lastTick == session.tick) {
       throw StateError('Motor already advanced this tick.');

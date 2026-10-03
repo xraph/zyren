@@ -1,6 +1,7 @@
 import 'package:zyren/zyren.dart';
 import 'package:zyren_characters/zyren_characters.dart';
 import 'package:zyren_characters/physics.dart';
+import 'package:zyren_game/zyren_game.dart';
 import 'package:zyren_game_native/zyren_game_native.dart';
 import 'package:zyren_gltf/zyren_gltf.dart';
 import 'package:zyren_gltf_timeline/zyren_gltf_timeline.dart';
@@ -30,6 +31,7 @@ final class GameCharacterFixture {
     Vec3 position = const Vec3(0, .81, 0),
     double maxSpeed = 2,
     bool floor = true,
+    List<GameSystem> systems = const [],
   }) async {
     final assets = AssetScope(
       services: AssetServices(resolver: SkinnedCharacterSource()),
@@ -42,6 +44,7 @@ final class GameCharacterFixture {
         position,
         maxSpeed,
         floor,
+        systems,
       );
       fixture.engine = await SceneEngine.create(
         scene: fixture.scene,
@@ -74,6 +77,7 @@ final class GameCharacterFixture {
     Vec3 position,
     double maxSpeed,
     bool floor,
+    List<GameSystem> systems,
   ) {
     scene.add(actorObject);
     actorObject.add(model);
@@ -151,6 +155,7 @@ final class GameCharacterFixture {
       project: testProject(fixedHz: 50),
       seed: 3,
       physics: physics,
+      systems: systems,
     );
     connection = motors.connect(simulation);
   }

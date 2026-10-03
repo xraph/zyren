@@ -7,7 +7,107 @@ import 'package:zyren_physics/zyren_physics.dart';
 import 'package:zyren_navigation/zyren_navigation.dart';
 import 'support/character_fixture.dart';
 
+final class IntentProbe extends GameSystem {
+  final void Function(GameSession) update;
+  IntentProbe(this.update);
+  @override
+  String get id => 'intent.probe';
+  @override
+  GamePhase get phase => GamePhase.decisions;
+  @override
+  void fixedUpdate(GameSession session) => update(session);
+}
+
 void main() {
+  test(
+    'a future envelope submitted during decisions waits for its target tick',
+    () async {
+      late GameCharacterFixture f;
+      var ready = false, issued = false;
+      f = await GameCharacterFixture.create(
+        systems: [
+          IntentProbe((session) {
+            if (!ready || issued) return;
+            issued = true;
+            final lease = f.controller.acquireControl();
+            f.controller.applyGameIntent(
+              GameIntent(
+                actor: f.controller.actor,
+                tick: session.tick + 1,
+                epoch: session.epoch,
+                actions: {'move.z': 1},
+              ),
+              lease: lease,
+            );
+          }),
+        ],
+      );
+      try {
+        ready = true;
+        final before = f.body.state.pose.position;
+        f.step();
+        expect(f.body.state.pose.position.z, closeTo(before.z, .000001));
+        f.step();
+        expect(f.body.state.pose.position.z, greaterThan(before.z + .000001));
+      } finally {
+        await f.close();
+      }
+    },
+  );
+  test(
+    'navigation goals clear on pause, possession, epoch reset and manual movement',
+    () async {
+      final f = await GameCharacterFixture.create();
+      Registration? lease;
+      try {
+        f.registration.dispose();
+        final mesh = Mesh(
+          BoxGeometry(width: 6, height: .2, depth: 6),
+          UnlitMaterial(),
+        )..position = const Vec3(0, -.1, 0);
+        final follower = NavigationFollower(
+          NavigationWorld(
+            NavigationBaker().bake([
+              NavigationGeometry.fromMesh(
+                mesh,
+                sourceId: 'floor',
+                revision: '1',
+              ),
+            ]),
+          ),
+        )..setGoal(const Vec3(1, 0, 1));
+        final controller = GameCharacterController(
+          actor: f.controller.actor,
+          session: f.simulation.session,
+          motor: f.motor,
+          definition: GameCharacterDefinition(),
+          navigation: follower,
+        );
+        lease = f.motors.register(controller, f.actorObject);
+        f.step(5);
+        f.simulation.session.pause();
+        expect(follower.goal, isNull);
+        f.simulation.session.resume();
+        final stopped = f.body.state.pose.position;
+        f.step(5);
+        expect(f.body.state.pose.position.x, closeTo(stopped.x, .001));
+        expect(f.body.state.pose.position.z, closeTo(stopped.z, .001));
+        follower.setGoal(const Vec3(1, 0, 1));
+        final control = controller.acquireControl();
+        expect(follower.goal, isNull);
+        follower.setGoal(const Vec3(1, 0, 1));
+        controller.apply(const CharacterIntent(moveX: -1), lease: control);
+        expect(follower.goal, isNull);
+        follower.setGoal(const Vec3(1, 0, 1));
+        f.simulation.session.invalidatePending();
+        f.step();
+        expect(follower.goal, isNull);
+      } finally {
+        lease?.dispose();
+        await f.close();
+      }
+    },
+  );
   test(
     'component speed policy normalizes diagonal intent and existing navigation reaches its goal',
     () async {
