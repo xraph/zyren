@@ -1,3 +1,5 @@
+import 'studio_primitive_picker.dart';
+import 'studio_model_drop.dart';
 import 'studio_settings.dart';
 import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'studio_grid.dart';
@@ -873,6 +875,7 @@ class StudioEditorState extends State<StudioEditor> {
     });
     try {
       StudioDocument? next;
+      String? createdId, authoringNotice;
       switch (action) {
         case 'collaboration':
           await showDialog<void>(
@@ -894,8 +897,25 @@ class StudioEditorState extends State<StudioEditor> {
               },
             ),
           );
+        case 'primitive':
+          final kind = await showStudioPrimitivePicker(context);
+          if (kind != null) {
+            createdId = _newId(kind.name);
+            next = StudioModeling.addNodes(before, [
+              StudioNode(
+                id: createdId,
+                label: '${kind.name[0].toUpperCase()}${kind.name.substring(1)}',
+                kind: kind,
+                position: _scene.camera.target,
+                material: kind == StudioNodeKind.plane
+                    ? StudioMaterial(doubleSided: true)
+                    : null,
+              ),
+            ]);
+          }
         case 'box':
-          next = StudioAuthoring.addBox(before, id: _newId('box'));
+          createdId = _newId('box');
+          next = StudioAuthoring.addBox(before, id: createdId);
         case 'remove':
           next = StudioAuthoring.remove(
             before,
@@ -971,7 +991,15 @@ class StudioEditorState extends State<StudioEditor> {
             cancellation: _loadCancellation!,
           );
           if (imported != null) {
+            if (RegExp(
+              r'\.(fbx|obj)$',
+              caseSensitive: false,
+            ).hasMatch(imported.label)) {
+              authoringNotice =
+                  'Model imported via Blender. Review materials and animation.';
+            }
             final nodeId = _newId('model');
+            if (existing == null) createdId = nodeId;
             final sourceId = '$nodeId:root';
             next = before.copyWith(
               assets: [
@@ -1012,6 +1040,10 @@ class StudioEditorState extends State<StudioEditor> {
       if (next != null && mounted) {
         setState(() => _busy = true);
         await _applyAuthoring(next);
+        if (createdId != null) _scene.tools.select(_scene.objects[createdId]);
+        if (authoringNotice != null && mounted) {
+          setState(() => _notice = authoringNotice);
+        }
       }
     } on LoadCancelled {
       if (mounted) {
@@ -1044,7 +1076,7 @@ class StudioEditorState extends State<StudioEditor> {
       onSelected: _author,
       icon: const Icon(Icons.add_box_outlined, semanticLabel: 'Author scene'),
       itemBuilder: (_) => [
-        const PopupMenuItem(value: 'box', child: Text('Add box')),
+        const PopupMenuItem(value: 'primitive', child: Text('Add primitive…')),
         const PopupMenuItem(
           value: 'collaboration',
           child: Text('Shared session'),
@@ -1052,7 +1084,7 @@ class StudioEditorState extends State<StudioEditor> {
         PopupMenuItem(
           value: 'import',
           enabled: widget.assetResolver != null,
-          child: const Text('Import GLB or bundle'),
+          child: const Text('Import 3D model…'),
         ),
         PopupMenuItem(
           value: 'reimport',
@@ -1215,7 +1247,115 @@ class StudioEditorState extends State<StudioEditor> {
         : null,
   );
 
-  Widget _canvasContents() => Stack(
+  Widget _canvasContents() => StudioModelDrop(
+    enabled: _editing && widget.assetResolver != null,
+    onFiles: _importDroppedModels,
+    onError: (error) {
+      if (mounted) {
+        setState(() {
+          _error = true;
+          _notice = 'Drop failed: $error';
+        });
+      }
+    },
+    child: _canvasStack(),
+  );
+
+  Future<void> _importDroppedModels(List<String> paths) async {
+    if (!_editing || widget.assetResolver == null) return;
+    if (paths.isEmpty) return;
+    if (paths.length > 16) {
+      setState(() {
+        _error = true;
+        _notice = 'Drop up to 16 models at a time.';
+      });
+      return;
+    }
+    final before = _scene.capture();
+    final cancellation = StudioCancellation();
+    setState(() {
+      _busy = true;
+      _error = false;
+      _notice = 'Importing ${paths.length} model(s)…';
+      _loadCancellation = cancellation;
+    });
+    try {
+      var next = before;
+      String? selected;
+      for (final path in paths) {
+        cancellation.throwIfCancelled();
+        final asset = await widget.assetResolver!.importFile(
+          File(path),
+          id: _newId('asset'),
+          cancellation: cancellation,
+        );
+        selected = _newId('model');
+        next = next.copyWith(
+          assets: [...next.assets, asset],
+          nodes: [
+            ...next.nodes,
+            StudioNode(
+              id: selected,
+              label: asset.label,
+              kind: StudioNodeKind.asset,
+              assetId: asset.id,
+              position:
+                  _scene.camera.target +
+                  Vec3((next.assets.length - before.assets.length) * 1.5, 0, 0),
+            ),
+          ],
+        );
+      }
+      cancellation.throwIfCancelled();
+      if (!mounted) return;
+      await _assets.prepare(
+        next,
+        widget.assetResolver!,
+        cancellation: cancellation,
+      );
+      cancellation.throwIfCancelled();
+      if (!mounted) return;
+      _scene.apply(next);
+      _scene.tools.select(_scene.objects[selected]);
+      _controller.invalidate();
+      setState(
+        () => _notice =
+            paths.any(
+              (p) => RegExp(r'\.(fbx|obj)$', caseSensitive: false).hasMatch(p),
+            )
+            ? 'Models imported via Blender. Review materials and animation.'
+            : '${paths.length} model(s) imported.',
+      );
+    } on LoadCancelled {
+      if (mounted) {
+        setState(() => _notice = 'Import cancelled. Your scene is unchanged.');
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = true;
+          _notice = 'Import failed: $error';
+        });
+      }
+    } finally {
+      if (mounted) {
+        try {
+          await _pruneAssets();
+        } catch (_) {
+          /* Keep imported pins if cache pruning fails. */
+        }
+        if (mounted) {
+          setState(() {
+            _busy = false;
+            _loadCancellation = null;
+            _commandUiRevision++;
+          });
+        }
+      }
+    }
+  }
+
+  Widget _canvasStack() => Stack(
     fit: StackFit.expand,
     children: [
       widget.viewportBuilder?.call(_controller) ??
@@ -1235,14 +1375,13 @@ class StudioEditorState extends State<StudioEditor> {
       if (_scene.objects.isEmpty && _ready)
         ZeroState(
           title: 'Your scene is empty',
-          message:
-              'Add a box or import a model from Authoring to start editing.',
+          message: 'Add a primitive or drop a 3D model here to start editing.',
           action: Builder(
             builder: (context) => Wrap(
               children: [
                 TextButton(
-                  onPressed: _editing ? () => _author('box') : null,
-                  child: const Text('Add box'),
+                  onPressed: _editing ? () => _author('primitive') : null,
+                  child: const Text('Add primitive'),
                 ),
                 TextButton(
                   onPressed: !_busy ? () => _tour(context) : null,
@@ -1439,8 +1578,8 @@ class StudioEditorState extends State<StudioEditor> {
       return ZeroState(
         title: 'No scene objects',
         message: 'Add a shape to start building.',
-        actionLabel: 'Add box',
-        onAction: _editing ? () => _author('box') : null,
+        actionLabel: 'Add primitive',
+        onAction: _editing ? () => _author('primitive') : null,
       );
     }
     final children = <String?, List<StudioNode>>{};

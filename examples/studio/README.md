@@ -80,13 +80,36 @@ occluded axes remain usable. `X +0.25` provides a precise local edit. Imported
 meshes select their saved instance while retaining the clicked part's source
 identity for review.
 
-The Authoring menu adds boxes and pinned GLB/bundle imports, creates prefab
+The Authoring menu adds primitives and pinned model imports, creates prefab
 instances, edits materials and engineering notes, records poses, manages clip
 keys and opens independent previews. Clip keys can be retimed or removed.
 Reducing a clip's duration cannot discard keys. Local authoring shares one
 bounded undo history. Scene lighting and background are saved with your document and used by both the
 editor and clip previews. Gizmos fit the projected selection bounds, with a
 minimum handle size and a configurable maximum, and update as the camera moves.
+
+Choose **Add primitive** for a box, sphere, cylinder, cone, torus or plane.
+New shapes appear at the camera target and become selected, ready for transforms
+and material edits. You can undo their creation, save them in `.zyren` scenes and
+include them in streaming exports.
+
+Drop models onto the viewport or choose **Import 3D model**. GLB and glTF load
+directly. Local glTF buffers and textures are bundled with the model, so you can
+move the source files after importing. References must stay inside the model
+folder. On macOS, Studio asks you to select that folder when dependencies need
+access. Self-contained GLB files need no folder prompt.
+
+FBX and OBJ imports use your installed Blender to convert to GLB. On macOS,
+install Blender in `/Applications`; on other desktop platforms, put `blender`
+on PATH. The original source is retained in the pinned bundle. Review materials
+and animations after conversion: format-specific features may not survive.
+Your exported scene does not need Blender to run.
+
+You can drop up to 16 models together. Studio applies the batch as one undoable
+change after every model loads; cancellation or a failed import leaves the scene
+unchanged. Primitive creation and file-picker FBX imports have been exercised in
+the macOS editor. Drop delivery, batch rollback and file-access cleanup have
+widget coverage; OS-level drag delivery still needs manual verification.
 
 Imports are decoded before their bundle is pinned. Enter stable source keys and
 model node indices in the source-map dialog, or leave it blank for instance-level

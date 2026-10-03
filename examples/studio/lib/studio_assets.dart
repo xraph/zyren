@@ -1,3 +1,4 @@
+import 'studio_model_import.dart';
 import 'package:zyren_studio/streaming.dart';
 import 'dart:io';
 import 'dart:typed_data';
@@ -97,26 +98,61 @@ final class StudioPipelineAssets implements StudioAssetResolver {
     final file = await openFile(
       acceptedTypeGroups: [
         const XTypeGroup(
-          label: 'glTF binary or Zyren bundle',
-          extensions: ['glb', 'zyrenbundle', 'bundle'],
+          label: '3D models and Zyren bundles',
+          extensions: studioModelExtensions,
           uniformTypeIdentifiers: ['public.data'],
         ),
       ],
     );
     if (file == null) return null;
-    cancellation.throwIfCancelled();
-    if (await file.length() > const PipelineLimits().maxArchiveBytes) {
-      throw StateError('Import exceeds the bundle size limit.');
-    }
-    final bytes = await file.readAsBytes();
-    cancellation.throwIfCancelled();
-    return importBytes(
-      bytes,
-      file.name,
+    return importFile(
+      File(file.path),
       id: id,
       replacing: replacing,
       mapSources: mapSources,
       cancellation: cancellation,
+    );
+  }
+
+  Future<StudioAsset> importFile(
+    File file, {
+    required String id,
+    StudioAsset? replacing,
+    StudioSourceMapping? mapSources,
+    required LoadCancellation cancellation,
+    bool requestFolderAccess = true,
+    String? blenderExecutable,
+  }) async {
+    if (requestFolderAccess &&
+        Platform.isMacOS &&
+        await studioModelNeedsFolderAccess(file, cancellation)) {
+      final parent = await file.parent.resolveSymbolicLinks();
+      final selected = await getDirectoryPath(
+        initialDirectory: parent,
+        confirmButtonText: 'Use model folder',
+      );
+      if (selected == null) throw LoadCancelled();
+      if (await Directory(selected).resolveSymbolicLinks() != parent) {
+        throw StateError(
+          'Choose the folder containing the model and its textures.',
+        );
+      }
+    }
+    cancellation.throwIfCancelled();
+    final bundle = await prepareStudioModel(
+      file,
+      id: id,
+      cancellation: cancellation,
+      blenderExecutable: blenderExecutable,
+    );
+    return importBytes(
+      Uint8List(0),
+      file.uri.pathSegments.last,
+      id: id,
+      replacing: replacing,
+      mapSources: mapSources,
+      cancellation: cancellation,
+      prepared: bundle,
     );
   }
 
@@ -127,9 +163,12 @@ final class StudioPipelineAssets implements StudioAssetResolver {
     StudioAsset? replacing,
     StudioSourceMapping? mapSources,
     required LoadCancellation cancellation,
+    PipelineBundle? prepared,
   }) async {
     final PipelineBundle bundle;
-    if (filename.toLowerCase().endsWith('.glb')) {
+    if (prepared != null) {
+      bundle = prepared;
+    } else if (filename.toLowerCase().endsWith('.glb')) {
       final prior = replacing == null
           ? null
           : PipelineAssetReference.fromJson(replacing.reference);
