@@ -11,7 +11,12 @@ void main() {
         final phone = GeospatialDeviceProfile.forViewport(platform, 430);
         final tablet = GeospatialDeviceProfile.forViewport(platform, 820);
         expect(phone.device, CloudDeviceType.phone);
-        expect(phone.clouds().preset, CloudQualityPreset.medium);
+        expect(phone.clouds().preset, CloudQualityPreset.low);
+        expect(phone.clouds().maxResolution, 512);
+        expect(
+          phone.clouds(CloudQualityPreset.medium).preset,
+          CloudQualityPreset.medium,
+        );
         expect(phone.maxPixels, 1572864);
         expect(phone.tileBytes, 128 * 1024 * 1024);
         expect(phone.selectedTiles, 512);

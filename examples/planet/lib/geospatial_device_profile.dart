@@ -55,7 +55,9 @@ final class GeospatialDeviceProfile {
     CloudQualityPreset? shadowPreset,
   ]) => CloudQualitySettings.forDevice(
     device,
-    preset: preset,
+    preset:
+        preset ??
+        (device == CloudDeviceType.phone ? CloudQualityPreset.low : null),
     shadowsEnabled: shadowsEnabled,
     shadowPreset: shadowPreset,
   );

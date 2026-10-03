@@ -59,8 +59,10 @@ connection. For a local synthetic dataset, run `lib/tiles3d_lab.dart` or its
 
 Add `--dart-define=ZYREN_LAB_CLOUDS=true` to open Tokyo, Fuji and London with
 the pinned cloud maps and blue noise. Use the Clouds selector to choose Auto,
-Low, Medium, High or Ultra. Auto starts phones at Medium and tablets/desktops at
-High. You can change the setting while the scene is running.
+Low, Medium, High or Ultra. Auto starts phones at Low and tablets/desktops at
+High. You can select a higher quality while the scene is running. The phone
+default reduces cloud sampling and resolution; the city render size stays the
+same. It does not resolve tile upload failures during navigation.
 
 Switch **Cloud shadows** off to skip the shadow maps and light shafts while
 keeping the clouds visible. The **Shadows** selector sets Low, Medium, High or
