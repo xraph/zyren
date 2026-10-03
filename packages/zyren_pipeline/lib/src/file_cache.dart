@@ -97,6 +97,7 @@ final class FilePipelineCache {
         token.throwIfCancelled();
         // Publish the pin before the archive so interrupted eviction retains it.
         if (newPin) await _pin(bundle.version).writeAsString('', flush: true);
+        token.throwIfCancelled();
         await temporary.rename(_bundle(bundle.version).path);
         published = true;
         for (final victim in victims) {
@@ -215,6 +216,9 @@ final class FilePipelineCache {
     await for (final entity in directory.list(followLinks: false)) {
       token.throwIfCancelled();
       final name = entity.uri.pathSegments.where((s) => s.isNotEmpty).last;
+      if (RegExp(r'^[a-f0-9]{64}\.pin$').hasMatch(name) && entity is! File) {
+        throw const FileSystemException('Cache pin must be a regular file.');
+      }
       if (entity is File &&
           RegExp(r'^[a-f0-9]{64}\.pin$').hasMatch(name) &&
           !await _bundle(name.substring(0, 64)).exists()) {

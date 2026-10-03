@@ -69,7 +69,8 @@ final class PipelineBuildResult {
     final json = jsonDecode(utf8.decode(receipt.bytes));
     if (json is! Map ||
         json['schemaVersion'] != 1 ||
-        json['transforms'] is! List) {
+        json['transforms'] is! List ||
+        (json['transforms'] as List).length > bundle.resources.length) {
       throw const FormatException('Invalid pipeline build receipt.');
     }
     final fingerprints = <String, String>{};
@@ -109,6 +110,10 @@ final class PipelineIncrementalBuilder {
   }) async {
     final token = cancellation ?? PipelineCancellation();
     token.throwIfCancelled();
+    if (sources.length + transforms.length + 1 >
+        sourceBuilder.limits.maxSources) {
+      throw const FormatException('Build graph exceeds the source budget.');
+    }
     final steps = {for (final step in transforms) step.sourceId: step};
     final sourceIds = sources.map((s) => s.sourceId).toSet();
     if (sources.isEmpty ||
@@ -152,9 +157,6 @@ final class PipelineIncrementalBuilder {
 
     for (final id in steps.keys.toList()..sort()) {
       visit(id);
-    }
-    if (sources.length + steps.length + 1 > sourceBuilder.limits.maxSources) {
-      throw const FormatException('Build graph exceeds the source budget.');
     }
     final sourceBundle = await sourceBuilder.build(
       entrySourceId: sources.first.sourceId,
@@ -283,6 +285,7 @@ final class PipelineIncrementalBuilder {
         ).build(
           entrySourceId: entrySourceId,
           sources: [...resources.values.map((r) => r.source), receiptSource],
+          processing: PipelineProcessing.derived,
           cancellation: token,
         );
     return PipelineBuildResult._(bundle, built, reused, fingerprints);

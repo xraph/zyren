@@ -6,6 +6,10 @@ resolution: workspace
 environment:
   sdk: '>=3.10.0 <4.0.0'
 dependencies:
+  zyren_engineering:
+    path: ../zyren_engineering
+  zyren_studio:
+    path: ../zyren_studio
   crypto: ^3.0.7
   zyren_agents:
     path: ../zyren_agents
@@ -14,4 +18,8 @@ dependencies:
   zyren_gltf:
     path: ../zyren_gltf
 dev_dependencies:
+  zyren_native:
+    path: ../zyren_native
+  zyren_devtools:
+    path: ../zyren_devtools
   test: ^1.29.0

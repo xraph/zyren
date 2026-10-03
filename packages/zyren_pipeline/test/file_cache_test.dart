@@ -122,6 +122,19 @@ void main() {
     },
   );
 
+  test('an orphan pin symlink cannot redirect a cache write', () async {
+    final a = await makeBundle(1);
+    final external = await File(
+      '${directory.path}/external',
+    ).writeAsString('keep');
+    await Link('${directory.path}/${a.version}.pin').create(external.path);
+    await expectLater(
+      FilePipelineCache(directory: directory).put(a, pin: true),
+      throwsA(isA<FileSystemException>()),
+    );
+    expect(await external.readAsString(), 'keep');
+  });
+
   test('pins can be removed after reducing the budget', () async {
     final a = await makeBundle(1);
     await FilePipelineCache(directory: directory).put(a, pin: true);
@@ -144,7 +157,7 @@ void main() {
       final results = await Future.wait([
         for (final input in [inputA, inputB])
           Process.run(Platform.resolvedExecutable, [
-            'run',
+            '--packages=${File('.dart_tool/package_config.json').absolute.path}',
             'packages/zyren_pipeline/test/support/cache_writer.dart',
             directory.path,
             input.path,

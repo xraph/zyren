@@ -70,18 +70,24 @@ final class PipelineResource {
   };
 }
 
-/// Immutable original-byte bundle. Decoding verifies integrity, not authenticity.
+enum PipelineProcessing { original, derived }
+
+/// Immutable byte-preserving resource container. Decoding verifies integrity, not authenticity.
 final class PipelineBundle {
   static const schemaVersion = 1;
   final String entrySourceId, version;
   final List<PipelineResource> resources;
   final int byteLength;
+  final PipelineProcessing processing;
 
-  PipelineBundle._(this.entrySourceId, List<PipelineResource> values)
-    : resources = List.unmodifiable(values),
+  PipelineBundle._(
+    this.entrySourceId,
+    List<PipelineResource> values,
+    this.processing,
+  ) : resources = List.unmodifiable(values),
       byteLength = values.fold(0, (sum, r) => sum + r.bytes.length),
       version = _hash(
-        utf8.encode(jsonEncode(_manifest(entrySourceId, values))),
+        utf8.encode(jsonEncode(_manifest(entrySourceId, values, processing))),
       );
 
   PipelineResource resource(String sourceId) {
@@ -160,7 +166,7 @@ final class PipelineBundle {
     final bytes = Uint8List.fromList(
       utf8.encode(
         jsonEncode({
-          ..._manifest(entrySourceId, resources),
+          ..._manifest(entrySourceId, resources, processing),
           'version': version,
           'payloads': [for (final r in resources) base64Encode(r.bytes)],
         }),
@@ -180,7 +186,7 @@ final class PipelineBundle {
       final root = jsonDecode(utf8.decode(bytes));
       if (root is! Map<String, dynamic> ||
           root['schemaVersion'] != schemaVersion ||
-          root['processing'] != 'original' ||
+          !PipelineProcessing.values.any((p) => p.name == root['processing']) ||
           root['entrySourceId'] is! String ||
           root['version'] is! String ||
           root['resources'] is! List ||
@@ -230,7 +236,11 @@ final class PipelineBundle {
       }
       final entryId = root['entrySourceId'] as String;
       _checkResources(values, entryId, limits);
-      final bundle = PipelineBundle._(entryId, values);
+      final bundle = PipelineBundle._(
+        entryId,
+        values,
+        PipelineProcessing.values.byName(root['processing'] as String),
+      );
       if (bundle.version != root['version']) {
         throw const FormatException('Bundle manifest digest does not match.');
       }
@@ -260,6 +270,7 @@ final class PipelineBuilder {
   Future<PipelineBundle> build({
     required String entrySourceId,
     required List<PipelineSource> sources,
+    PipelineProcessing processing = PipelineProcessing.original,
     LoadCancellation? cancellation,
   }) async {
     limits.validate();
@@ -295,7 +306,7 @@ final class PipelineBuilder {
       total += resolved.bytes.length;
     }
     _checkResources(values, entrySourceId, limits);
-    return PipelineBundle._(entrySourceId, values);
+    return PipelineBundle._(entrySourceId, values, processing);
   }
 }
 
@@ -329,9 +340,10 @@ final class _BundleResolver implements ByteSourceResolver {
 Map<String, Object?> _manifest(
   String entryId,
   List<PipelineResource> resources,
+  PipelineProcessing processing,
 ) => {
   'schemaVersion': PipelineBundle.schemaVersion,
-  'processing': 'original',
+  'processing': processing.name,
   'entrySourceId': entryId,
   'resources': [for (final r in resources) r._manifest()],
 };

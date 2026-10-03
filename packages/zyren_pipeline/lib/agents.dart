@@ -22,7 +22,7 @@ final class PipelineAgentProvider extends AgentProvider {
   @override
   Map<String, Object?> get capabilities => {
     'bundleSchemaVersion': PipelineBundle.schemaVersion,
-    'processing': 'original',
+    'processing': ['original', 'derived'],
     'storage': 'memory',
     'loadTarget': 'cpu-model-template',
     'pixelVisibility': 'unknown',
@@ -184,6 +184,7 @@ final class PipelineAgentProvider extends AgentProvider {
             (bundle) => {
               'version': bundle.version,
               'entrySourceId': bundle.entrySourceId,
+              'processing': bundle.processing.name,
               'sourceCount': bundle.resources.length,
               'payloadBytes': bundle.byteLength,
             },
@@ -345,6 +346,10 @@ final _bundleSchema = _object(
     'version': _version,
     'entrySourceId': _identity,
     'sourceCount': _integer,
+    'processing': {
+      'type': 'string',
+      'enum': ['original', 'derived'],
+    },
     'payloadBytes': _integer,
   },
   required: ['version', 'entrySourceId', 'sourceCount', 'payloadBytes'],

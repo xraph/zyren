@@ -1,0 +1,15 @@
+[package]
+name = "zyren_pipeline_prepare"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97"
+publish = false
+
+[workspace]
+
+[dependencies]
+meshopt = "=0.6.2"
+basisu_c_sys = { version = "=0.9.1", default-features = false, features = ["std", "encoder", "extra", "transcode_default"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+base64 = "=0.22.1"

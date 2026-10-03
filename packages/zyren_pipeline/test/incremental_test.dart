@@ -62,6 +62,7 @@ void main() {
         entrySourceId: 'model',
       );
       expect(first.built, ['a', 'b', 'metadata']);
+      expect(first.bundle.processing, PipelineProcessing.derived);
       final persisted = PipelineBuildResult.restore(
         PipelineBundle.decode(first.bundle.encode()),
       );
