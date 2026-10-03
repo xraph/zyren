@@ -88,3 +88,9 @@ export 'src/extensions/camera_controller.dart';
 export 'src/extensions/visual_registry.dart';
 
 export 'src/horizon.dart';
+export 'src/data/resource_key.dart';
+export 'src/data/policy.dart';
+export 'src/data/store.dart';
+export 'src/data/request_pool.dart';
+export 'src/data/resolver.dart';
+export 'src/data/transport.dart';

@@ -69,7 +69,7 @@ Define `GeoDataException` with codes `offlineMiss`, `denied`, `corrupt`,
 Source metadata separately declares `mayPersist`, `mayExportOffline` and credits;
 the resolver refuses disallowed writes and regions.
 
-- [ ] Write and run the offline regression:
+- [x] Write and run the offline regression:
 
 ```dart
 test('offline misses cannot touch transport', () async {
@@ -90,7 +90,7 @@ test('offline misses cannot touch transport', () async {
 });
 ```
 
-- [ ] Implement policy dispatch before constructing any transport URI:
+- [x] Implement policy dispatch before constructing any transport URI:
 
 ```dart
 if (policy.mode == GeoAccessMode.offlineOnly) {
@@ -104,14 +104,14 @@ if (policy.mode == GeoAccessMode.offlineOnly) {
   `validateCached(GeoResource, GeoReadPolicy) -> GeoResource` verifies checksum,
   freshness and current authorization policy. Use structured canonical fields,
   length limits and immutable bytes. Do not persist signed transport locations.
-- [ ] Coalesce requests by complete key and policy-compatible generation. Give
+- [x] Coalesce requests by complete key and policy-compatible generation. Give
   each consumer a cancellation token; the physical slot remains reserved until
   work settles. Tests cover one of two consumers cancelling, all cancelling,
   source replacement, late failures and retry bounds. Denial never enters the
   stale transport-failure branch.
-- [ ] Run the data tests and analyzer. Check key separation for auth partition,
+- [x] Run the data tests and analyzer. Check key separation for auth partition,
   projection, decoder revision, time and source version.
-- [ ] Commit `feat(geospatial): add governed geographic resource reads`.
+- [x] Commit `feat(geospatial): add governed geographic resource reads`.
 
 ## Task 2: D2 Durable file store and admission
 

@@ -726,3 +726,69 @@ Cloud transmittance attenuates direct sunlight while preserving skylight. The
 atmosphere shader library also exposes `atmosphereSkyShadow` and
 `atmosphereSegmentShadow`, with shadow lengths in kilometres. Both preserve the
 source's separate handling of higher-order scattering when that table is present.
+
+## Geographic data access
+
+Use `GeoResourceResolver` for encoded terrain, imagery, masks and field resources.
+A `GeoResourceKey` includes the dataset and source version, authorization
+partition, relative address, representation, decoder version and optional
+projection, time slice and derivation. Its digest hashes those typed fields.
+Keep transport URLs and credentials in `GeoTransportLocation`, outside the key.
+
+```dart
+final memory = MemoryGeoDataStore(maxBytes: 32 << 20, maxEntries: 128);
+final transport = GeoByteSourceTransport(
+  source: byteSourceResolver,
+  locate: locateResource,
+  maxBytes: 8 << 20,
+);
+final resources = GeoResourceResolver(
+  store: memory,
+  fetch: transport.fetch,
+  maxResourceBytes: 8 << 20,
+  metadata: sourcePermissions,
+  authorize: authorizeResource,
+);
+final bytes = await resources.read(
+  resourceKey,
+  GeoReadPolicy(mode: GeoAccessMode.offlineOnly),
+  cancellation: cancellation,
+);
+// Close the resolver before its caller-owned store.
+await resources.close();
+await memory.close();
+```
+
+`offlineOnly` checks authorization, integrity and freshness without constructing
+a transport location. Missing bytes return `offlineMiss`. Stale offline reads
+require `allowStaleOffline`; stale fallback after transport failure requires
+`allowStaleOnTransportFailure`. Neither option overrides a denial, corrupt
+response or missing remote resource. Protected partitions require an explicit
+authorization callback, which runs again before delivery. The callback is the
+application's access decision; a partition label does not prove permission.
+
+`cacheFirst` reuses fresh entries. `networkFirst` tries the source before eligible
+cached fallback. `onlineOnly` bypasses cache reads and admission. Source metadata
+must explicitly allow persistence before a fetched resource is stored. Offline
+export is a separate permission. Store implementations also reject resources
+whose response forbids retention.
+
+Compatible requests share physical work. Cancelling one consumer leaves other
+consumers active. Cancelling all consumers keeps the physical slot and byte
+reservation occupied until transport settles. Limits cover active jobs, each
+source, queued jobs, consumers and encoded resource bytes. They do not measure
+physical GPU residency or total decoder memory. Custom fetchers must bound their
+reads before allocating a response, just as `ByteSourceResolver` does.
+
+The byte-source adapter maps structured HTTP status into stable errors and omits
+transport details from public messages. It applies age and expiration bounds,
+rejects ambiguous freshness metadata and declines retention for `no-store`,
+`no-cache`, revalidation requirements and responses with `Vary`. Public partitions
+also decline `private` responses. It does not implement conditional validation
+or a general HTTP cache. These conservative rules follow
+[RFC 9111](https://www.rfc-editor.org/rfc/rfc9111.html#section-5.2.2).
+
+Removal cancels the old read generation and drains accepted writes before
+removing bytes. Closing the resolver waits for physical requests and accepted
+store operations. Source errors retain a cause for trusted diagnostics; their
+public text contains only a stable error code.

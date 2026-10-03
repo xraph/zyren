@@ -31,7 +31,7 @@ void main(List<String> args) {
     'packages/zyren_collaboration': {'zyren_collaboration', 'zyren', 'zyren_agents', 'zyren_engineering'},
     'packages/zyren': {'zyren', 'vector_math', 'dart_earcut'},
     'packages/zyren_gltf': {'zyren_gltf', 'zyren'},
-    'packages/zyren_geospatial': {'zyren_geospatial', 'zyren'},
+    'packages/zyren_geospatial': {'zyren_geospatial', 'zyren', 'crypto'},
     'packages/zyren_effects': {'zyren_effects', 'zyren'},
     'packages/zyren_tools': {'zyren_tools', 'zyren'},
     'packages/zyren_devtools': {'zyren_devtools', 'zyren', 'zyren_agents'},

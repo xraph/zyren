@@ -12,7 +12,7 @@ native spectral simulation and physical buoyancy required here.
 | Order | Plan | Tasks | Current status |
 | --- | --- | --- | --- |
 | 1 | [Extension host, layers and world services](01-foundation-plan.md) | F1-F5 | F1-F5 implemented; native Metal checks recorded |
-| 2 | [Persistent caching and offline regions](02-offline-plan.md) | D1-D4 | D1 next |
+| 2 | [Persistent caching and offline regions](02-offline-plan.md) | D1-D4 | D1 implemented; durable storage next |
 | 3 | [Native professional ocean](03-ocean-plan.md) | W1-W12 | Queued for sequential execution |
 
 Navigation/traffic, flight and orbital simulation remain in the approved platform
@@ -78,3 +78,10 @@ native graph registrations. The Planet layer lab covers source failure/retry and
 persisted layout with a native application test at wide and narrow sizes. See
 [foundation evidence](foundation-evidence.md) for commands, screen observations,
 interface adjustments and unresolved platform checks.
+
+D1 checks cover 19 resource identity, access, transport and request-pool tests.
+Resources use immutable bytes, SHA-256 identity and explicit source permissions.
+Offline reads never construct transport locations. Native source reads preserve
+byte limits and redirect policy. Analysis passed. Repository boundary checking
+remains blocked by concurrent Studio and training-worker crypto imports. The
+reference store is memory-only; durable storage and verified regions follow.

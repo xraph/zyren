@@ -26,7 +26,8 @@ export 'src/assets/load_task.dart';
 export 'src/assets/asset_scope.dart';
 export 'src/assets/asset_request.dart';
 export 'src/assets/source_resolver.dart' hide UnavailableSourceResolver;
-export 'src/assets/load_cancellation.dart' show LoadCancellation;
+export 'src/assets/load_cancellation.dart'
+    show LoadCancellation, LoadCancellationSource;
 export 'src/assets/image_decoder.dart';
 export 'src/assets/texture_decoder.dart';
 export 'src/assets/texture_image_loader.dart';
