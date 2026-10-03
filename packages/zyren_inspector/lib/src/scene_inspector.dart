@@ -173,20 +173,26 @@ class _SceneInspectorState extends State<SceneInspector> {
             ),
           Padding(
             padding: const EdgeInsets.all(8),
-            child: TextField(
-              controller: _search,
-              onChanged: (_) => setState(() {}),
-              decoration: InputDecoration(
-                isDense: true,
-                labelText: 'Find objects',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _search.text.isEmpty
-                    ? null
-                    : IconButton(
-                        tooltip: 'Clear search',
-                        icon: const Icon(Icons.close),
-                        onPressed: () => setState(_search.clear),
-                      ),
+            child: Semantics(
+              label: 'Find objects',
+              child: TextField(
+                controller: _search,
+                onChanged: (_) => setState(() {}),
+                decoration: InputDecoration(
+                  isDense: true,
+                  label: const ExcludeSemantics(child: Text('Find objects')),
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: _search.text.isEmpty
+                      ? null
+                      : IconButton(
+                          tooltip: 'Clear search',
+                          icon: const Icon(
+                            Icons.close,
+                            semanticLabel: 'Clear search',
+                          ),
+                          onPressed: () => setState(_search.clear),
+                        ),
+                ),
               ),
             ),
           ),
@@ -226,6 +232,8 @@ class _SceneInspectorState extends State<SceneInspector> {
                                   _collapsed.contains(object)
                                       ? Icons.chevron_right
                                       : Icons.expand_more,
+                                  semanticLabel:
+                                      '${_collapsed.contains(object) ? 'Expand' : 'Collapse'} ${_label(object)}',
                                 ),
                                 onPressed: () => setState(() {
                                   if (!_collapsed.add(object)) {

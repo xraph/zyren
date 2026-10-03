@@ -88,6 +88,18 @@ coverage remains pending asset import.
 
 ## Shared mutation request
 
+The 2026-10-03 desktop signoff found unnamed inspector controls in the native
+macOS accessibility tree. The requested change in
+`packages/zyren_inspector/lib/src/scene_inspector.dart` adds explicit semantic
+names to search, clear and hierarchy disclosure controls. It changes no public
+API or selection behavior. The file was clean before this change; shared edits
+use the plugin expansion lock.
+
+The inspector test double also needs its private `state` field renamed to
+`statusValue`: the current controller exposes a distinct public `state` getter.
+This keeps the existing status/listener tests valid without overriding that
+contract. The same test will check the search and disclosure semantic names.
+
 Register `packages/zyren_studio` and `examples/studio` in root `pubspec.yaml`, then
 resolve dependencies under `/tmp/zyren-plugin-expansion.lock`. Preserve entries
 from other chats. No shared source API changes are required for this checkpoint.

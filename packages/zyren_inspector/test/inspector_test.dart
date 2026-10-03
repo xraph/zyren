@@ -34,14 +34,14 @@ class CountedScene extends Scene {
 }
 
 class InspectableController extends SceneController {
-  final state = CountedValue<SceneStatus>(const SceneDetached(0));
+  final statusValue = CountedValue<SceneStatus>(const SceneDetached(0));
   final frames = StreamController<FrameStats>.broadcast(sync: true);
   final errors = StreamController<SceneIssue>.broadcast(sync: true);
   int frameListeners = 0, issueListeners = 0;
   FrameStats? latest;
   InspectableController({super.scene});
   @override
-  CountedValue<SceneStatus> get status => state;
+  CountedValue<SceneStatus> get status => statusValue;
   @override
   FrameStats? get latestFrameStats => latest;
   @override
@@ -84,7 +84,7 @@ class InspectableController extends SceneController {
     await whenDisposed;
     await frames.close();
     await errors.close();
-    state.dispose();
+    statusValue.dispose();
   }
 }
 
@@ -138,7 +138,7 @@ void main() {
       expect(find.textContaining('GPU 0.90 ms'), findsOneWidget);
       await tester.pumpWidget(const SizedBox());
       expect(controller.frameListeners, 0);
-      expect(controller.state.listeners, 0);
+      expect(controller.statusValue.listeners, 0);
       expect(controller.isDisposed, isFalse);
       await controller.close();
     },
@@ -147,66 +147,78 @@ void main() {
   testWidgets(
     'tree search, selection, mutations and empty states stay read-only',
     (tester) async {
-      final scene = CountedScene();
-      final group = scene.add(Group(name: 'Assembly'));
-      final mesh = group.add(
-        Mesh(BoxGeometry(), DiffuseMaterial(), name: 'Rotor'),
-      );
-      scene.add(Group(name: 'Unrelated'));
-      final controller = InspectableController(scene: scene);
-      final originalListeners = scene.listeners;
-      Object3D? chosen;
-      await tester.pumpWidget(
-        host(
-          SceneInspector(
-            controller: controller,
-            onSelectionChanged: (value) => chosen = value,
+      final semantics = tester.ensureSemantics();
+      try {
+        final scene = CountedScene();
+        final group = scene.add(Group(name: 'Assembly'));
+        final mesh = group.add(
+          Mesh(BoxGeometry(), DiffuseMaterial(), name: 'Rotor'),
+        );
+        scene.add(Group(name: 'Unrelated'));
+        final controller = InspectableController(scene: scene);
+        final originalListeners = scene.listeners;
+        Object3D? chosen;
+        await tester.pumpWidget(
+          host(
+            SceneInspector(
+              controller: controller,
+              onSelectionChanged: (value) => chosen = value,
+            ),
           ),
-        ),
-      );
-      expect(scene.listeners, originalListeners + 1);
-      await tester.tap(find.byTooltip('Collapse Assembly'));
-      await tester.pump();
-      expect(find.text('Rotor'), findsNothing);
-      await tester.enterText(find.byType(TextField), 'Rotor');
-      await tester.pump();
-      expect(find.text('Assembly'), findsOneWidget);
-      final rotorRow = find.descendant(
-        of: find.byType(ListTile),
-        matching: find.text('Rotor'),
-      );
-      expect(rotorRow, findsOneWidget);
-      expect(find.text('Unrelated'), findsNothing);
-      final revision = scene.revision;
-      await tester.tap(rotorRow);
-      await tester.pump();
-      expect(chosen, same(mesh));
-      expect(scene.revision, revision);
-      expect(find.textContaining('Position 0, 0, 0'), findsOneWidget);
-      mesh.position = const Vec3(2, 3, 4);
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 250));
-      expect(find.textContaining('Position 2, 3, 4'), findsOneWidget);
-      group.remove(mesh);
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 250));
-      expect(find.text('No matching objects'), findsOneWidget);
-      expect(find.textContaining('Position 2, 3, 4'), findsNothing);
-      await tester.tap(find.byTooltip('Clear search'));
-      await tester.pump();
-      scene.remove(group);
-      scene.remove(scene.children.single);
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 250));
-      expect(find.text('No scene objects'), findsOneWidget);
-      expect(find.byType(ZeroState), findsOneWidget);
-      await tester.pumpWidget(const SizedBox());
-      expect(controller.frameListeners, 0);
-      expect(controller.issueListeners, 0);
-      expect(controller.state.listeners, 0);
-      expect(scene.listeners, originalListeners);
-      expect(controller.isDisposed, isFalse);
-      await controller.close();
+        );
+        expect(scene.listeners, originalListeners + 1);
+        expect(
+          tester.getSemantics(find.byType(TextField)).label,
+          'Find objects',
+        );
+        await tester.tap(find.bySemanticsLabel('Collapse Assembly'));
+        await tester.pump();
+        expect(find.text('Rotor'), findsNothing);
+        expect(find.bySemanticsLabel('Expand Assembly'), findsOneWidget);
+        await tester.enterText(find.byType(TextField), 'Rotor');
+        await tester.pump();
+        expect(find.text('Assembly'), findsOneWidget);
+        final rotorRow = find.descendant(
+          of: find.byType(ListTile),
+          matching: find.text('Rotor'),
+        );
+        expect(rotorRow, findsOneWidget);
+        expect(find.text('Unrelated'), findsNothing);
+        final revision = scene.revision;
+        await tester.tap(rotorRow);
+        await tester.pump();
+        expect(chosen, same(mesh));
+        expect(scene.revision, revision);
+        expect(find.textContaining('Position 0, 0, 0'), findsOneWidget);
+        mesh.position = const Vec3(2, 3, 4);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 250));
+        expect(find.textContaining('Position 2, 3, 4'), findsOneWidget);
+        group.remove(mesh);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 250));
+        expect(find.text('No matching objects'), findsOneWidget);
+        expect(find.textContaining('Position 2, 3, 4'), findsNothing);
+        final clear = find.byTooltip('Clear search');
+        expect(tester.getSemantics(clear).label, 'Clear search');
+        await tester.tap(clear);
+        await tester.pump();
+        scene.remove(group);
+        scene.remove(scene.children.single);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 250));
+        expect(find.text('No scene objects'), findsOneWidget);
+        expect(find.byType(ZeroState), findsOneWidget);
+        await tester.pumpWidget(const SizedBox());
+        expect(controller.frameListeners, 0);
+        expect(controller.issueListeners, 0);
+        expect(controller.statusValue.listeners, 0);
+        expect(scene.listeners, originalListeners);
+        expect(controller.isDisposed, isFalse);
+        await controller.close();
+      } finally {
+        semantics.dispose();
+      }
     },
   );
 
@@ -224,7 +236,7 @@ void main() {
       expect(scene.listeners, originalListeners);
       expect(controller.frameListeners, 0);
       expect(controller.issueListeners, 0);
-      expect(controller.state.listeners, 0);
+      expect(controller.statusValue.listeners, 0);
       await tester.pump(const Duration(seconds: 1));
       expect(tester.takeException(), isNull);
       expect(controller.isDisposed, isFalse);
@@ -256,7 +268,7 @@ void main() {
       expect(find.textContaining('29 draws'), findsOneWidget);
       expect(a.frameListeners, 0);
       expect(a.issueListeners, 0);
-      expect(a.state.listeners, 0);
+      expect(a.statusValue.listeners, 0);
       await tester.pumpWidget(const SizedBox());
       await a.close();
       await b.close();
@@ -279,15 +291,15 @@ void main() {
         );
         expect(find.textContaining('No presented frame'), findsOneWidget);
         expect(tester.takeException(), isNull);
-        controller.state.value = SceneFailed(0, issue);
+        controller.statusValue.value = SceneFailed(0, issue);
         await tester.pump();
         expect(find.textContaining('Device disconnected'), findsOneWidget);
         expect(find.text('Failed'), findsOneWidget);
         expect(tester.takeException(), isNull);
-        controller.state.value = const SceneSuspended(0);
+        controller.statusValue.value = const SceneSuspended(0);
         await tester.pump();
         expect(find.text('Suspended'), findsOneWidget);
-        controller.state.value = const SceneDetached(0);
+        controller.statusValue.value = const SceneDetached(0);
       }
       await tester.pumpWidget(const SizedBox());
       await controller.close();

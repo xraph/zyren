@@ -22,7 +22,11 @@ class MemoryStore implements StudioStore {
 }
 
 void main() {
-  for (final size in [const Size(1200, 800), const Size(396, 844)]) {
+  for (final size in [
+    const Size(1200, 800),
+    const Size(396, 844),
+    const Size(328, 744),
+  ]) {
     testWidgets('save, reload and failure at ${size.width} logical pixels', (
       tester,
     ) async {
@@ -85,8 +89,11 @@ void main() {
       expect((screen.data['screen'] as Map)['agentProviderGaps'], isEmpty);
       expect((screen.data['screen'] as Map)['pixelVisibility'], 'unknown');
       expect((screen.data['screen'] as Map)['devicePixelRatio'], 1);
-      if (size.width == 396) {
-        expect((screen.data['screen'] as Map)['logicalRect']['width'], 396);
+      if (size.width <= 396) {
+        expect(
+          (screen.data['screen'] as Map)['logicalRect']['width'],
+          size.width,
+        );
       }
 
       store.fail = true;

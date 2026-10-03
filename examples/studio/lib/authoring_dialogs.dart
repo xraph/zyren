@@ -263,7 +263,10 @@ Future<StudioDocument?> studioReviewDialog(
                       title: Text(note.text),
                       trailing: IconButton(
                         tooltip: 'Remove note',
-                        icon: const Icon(Icons.delete_outline),
+                        icon: const Icon(
+                          Icons.delete_outline,
+                          semanticLabel: 'Remove note',
+                        ),
                         onPressed: () => update(() => notes.remove(note)),
                       ),
                     ),
@@ -456,7 +459,10 @@ Future<StudioDocument?> studioClipsDialog(
                             ),
                             IconButton(
                               tooltip: 'Retime key',
-                              icon: const Icon(Icons.schedule),
+                              icon: const Icon(
+                                Icons.schedule,
+                                semanticLabel: 'Retime key',
+                              ),
                               onPressed: () async {
                                 final value = await time(
                                   'Move key',
@@ -477,7 +483,10 @@ Future<StudioDocument?> studioClipsDialog(
                             ),
                             IconButton(
                               tooltip: 'Remove key',
-                              icon: const Icon(Icons.delete_outline),
+                              icon: const Icon(
+                                Icons.delete_outline,
+                                semanticLabel: 'Remove key',
+                              ),
                               onPressed: () => edit(
                                 () => StudioAuthoring.editKeyframe(
                                   draft,

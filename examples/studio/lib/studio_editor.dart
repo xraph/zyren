@@ -759,7 +759,7 @@ class StudioEditorState extends State<StudioEditor> {
       tooltip: 'Author scene',
       enabled: _editing,
       onSelected: _author,
-      icon: const Icon(Icons.add_box_outlined),
+      icon: const Icon(Icons.add_box_outlined, semanticLabel: 'Author scene'),
       itemBuilder: (_) => [
         const PopupMenuItem(value: 'box', child: Text('Add box')),
         const PopupMenuItem(

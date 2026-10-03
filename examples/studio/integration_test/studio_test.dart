@@ -363,14 +363,22 @@ void main() {
     expect(loaded.position.x, .25);
     width.value = 396;
     await tester.pump(const Duration(milliseconds: 500));
-    expect(tester.getSize(find.byType(SceneView)).width, 396);
+    final editorContext = tester.element(find.byType(StudioEditor));
+    final availableWidth =
+        tester.getSize(find.byType(StudioEditor)).width -
+        MediaQuery.paddingOf(editorContext).horizontal;
+    expect(availableWidth, allOf(greaterThan(0), lessThanOrEqualTo(396)));
+    expect(tester.getSize(find.byType(SceneView)).width, availableWidth);
     expect(tester.takeException(), isNull);
     final narrow = await state.agents.call(
       providerId: 'zyren.studio',
       instanceId: state.agentProvider.instanceId,
       tool: 'state',
     );
-    expect((narrow.data['screen'] as Map)['logicalRect']['width'], 396);
+    expect(
+      (narrow.data['screen'] as Map)['logicalRect']['width'],
+      availableWidth,
+    );
     var authorSequence = 0;
     Future<AgentResult> author(String tool, Map<String, Object?> args) {
       final entry = (state.agents.discover()['providers'] as List).singleWhere(

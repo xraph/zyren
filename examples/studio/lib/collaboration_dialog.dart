@@ -311,7 +311,10 @@ class _StudioCollaborationDialogState extends State<StudioCollaborationDialog> {
                               await _close();
                               if (context.mounted) Navigator.pop(context);
                             },
-                      icon: const Icon(Icons.close),
+                      icon: const Icon(
+                        Icons.close,
+                        semanticLabel: 'Close shared session',
+                      ),
                     ),
                   ],
                 ),
