@@ -165,10 +165,8 @@ impl Renderer {
     }
     pub(super) fn texture_parts(&self, map: &ColorMap) -> (wgpu::TextureView, wgpu::Sampler) {
         let image = &self.textures[&map.texture];
-        let view = self
-            .resources
-            .scene_texture(image.key)
-            .create_view(&Default::default());
+        let view = self.resources.scene_texture(image.key);
+        let view = self.draw_cache.borrow_mut().texture(view);
         let wrap = |value| match value {
             1 => wgpu::AddressMode::Repeat,
             2 => wgpu::AddressMode::MirrorRepeat,
@@ -181,21 +179,29 @@ impl Renderer {
                 wgpu::FilterMode::Linear
             }
         };
-        let sampler = self.device.create_sampler(&wgpu::SamplerDescriptor {
-            address_mode_u: wrap(map.sampler[0]),
-            address_mode_v: wrap(map.sampler[1]),
-            min_filter: filter(map.sampler[2]),
-            mag_filter: filter(map.sampler[3]),
-            mipmap_filter: if map.sampler[4] == 0 {
-                wgpu::MipmapFilterMode::Nearest
-            } else {
-                wgpu::MipmapFilterMode::Linear
+        let sampler = self.draw_cache.borrow_mut().sampler(
+            &self.device,
+            map.sampler,
+            &wgpu::SamplerDescriptor {
+                address_mode_u: wrap(map.sampler[0]),
+                address_mode_v: wrap(map.sampler[1]),
+                min_filter: filter(map.sampler[2]),
+                mag_filter: filter(map.sampler[3]),
+                mipmap_filter: if map.sampler[4] == 0 {
+                    wgpu::MipmapFilterMode::Nearest
+                } else {
+                    wgpu::MipmapFilterMode::Linear
+                },
+                ..Default::default()
             },
-            ..Default::default()
-        });
+        );
         (view, sampler)
     }
-    pub(super) fn texture_binding(&self, mesh: &crate::scene::Mesh) -> Option<wgpu::BindGroup> {
+    pub(super) fn texture_binding(
+        &self,
+        index: usize,
+        mesh: &crate::scene::Mesh,
+    ) -> Option<wgpu::BindGroup> {
         let first = mesh.texture_maps().next()?;
         let maps: Vec<_> = match &mesh.pbr {
             Some(p) => [
@@ -227,14 +233,14 @@ impl Renderer {
                 ]
             })
             .collect();
-        Some(self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("material maps"),
-            layout: if mesh.pbr.is_some() {
+        Some(self.draw_binding(
+            super::draw_cache::BindingKey(index, 2),
+            if mesh.pbr.is_some() {
                 &self.standard_texture_layout
             } else {
                 &self.texture_layout
             },
-            entries: &entries,
-        }))
+            &entries,
+        ))
     }
 }

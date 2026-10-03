@@ -74,6 +74,40 @@ void main() {
     },
   );
 
+  test('draw cache counters preserve measured zero and absent samples', () {
+    final stats = summarizeNavigationFrames([
+      {
+        'atUs': 0,
+        'profile': {
+          'status': 'complete',
+          'drawUniformReuses': 4,
+          'drawUniformWriteCalls': 0,
+          'drawUniformWriteBytes': 0,
+          'drawUniformSkippedWrites': 4,
+          'drawCacheEntries': 8,
+          'drawCacheUniformBytes': 3072,
+        },
+      },
+      {
+        'atUs': 1,
+        'profile': {'status': 'complete'},
+      },
+    ]);
+    expect((stats['drawUniformWriteCalls'] as Map)['count'], 1);
+    expect((stats['drawUniformWriteBytes'] as Map)['max'], 0);
+    expect((stats['drawUniformReuses'] as Map)['max'], 4);
+    expect((stats['drawCacheUniformBytes'] as Map)['max'], 3072);
+    expect(
+      summarizeNavigationFrames([
+        {
+          'atUs': 0,
+          'profile': {'status': 'complete'},
+        },
+      ])['drawUniformWriteBytes'],
+      isNull,
+    );
+  });
+
   test('frame rate uses presentation span and includes stalls', () {
     final stats = summarizeNavigationFrames([
       {'atUs': 1000000, 'buildUs': 1000, 'gpuUs': null},

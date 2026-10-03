@@ -99,9 +99,11 @@ impl Renderer {
             let mut view = frame.binary.as_ref().unwrap().clone();
             for pose in &frame.poses {
                 view.retained.insert(pose.geometry);
-                let mut mesh = crate::scene::Mesh::default();
-                mesh.geometry = pose.geometry;
-                mesh.pose = pose.id;
+                let mesh = crate::scene::Mesh {
+                    geometry: pose.geometry,
+                    pose: pose.id,
+                    ..Default::default()
+                };
                 validation.meshes.push(mesh);
                 actual.push([3, pose.id as u64, pose.byte_length() as u64]);
             }

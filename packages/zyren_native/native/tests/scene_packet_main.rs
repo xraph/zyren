@@ -1,3 +1,13 @@
+fn draw_uniform_bytes(renderer: &mut zyren_runtime::renderer::Renderer) -> u64 {
+    let request = serde_json::to_vec(
+        &serde_json::json!({"version":1,"request":1,"command":{"operation":"frameProfile"}}),
+    )
+    .unwrap();
+    let reply = renderer.graph_command(&request, 256 * 1024).unwrap();
+    serde_json::from_slice::<serde_json::Value>(&reply).unwrap()["result"]["drawCacheUniformBytes"]
+        .as_u64()
+        .unwrap_or(0)
+}
 use zyren_runtime::scene_packet::ScenePacket;
 fn packet() -> Vec<u8> {
     let mut body = Vec::new();
@@ -155,7 +165,10 @@ fn rejected_deltas_preserve_the_last_valid_scene_and_shared_geometry() {
         &pixels[(15 * 31 + 15) * 4..(15 * 31 + 15) * 4 + 4],
         &[255, 0, 0, 255]
     );
-    assert_eq!(renderer.scene_resource_stats(), (84, 84));
+    assert_eq!(
+        renderer.scene_resource_stats(),
+        (84 + draw_uniform_bytes(&mut renderer), 84)
+    );
     let invalid = renderer
         .decode_scene(&triangle_packet(1, 2, 1, false, true, 0.))
         .unwrap();
@@ -174,13 +187,19 @@ fn rejected_deltas_preserve_the_last_valid_scene_and_shared_geometry() {
         .decode_scene(&triangle_packet(2, 1, 0, true, true, 1.))
         .unwrap();
     renderer.render(&second, 31, 31).unwrap();
-    assert_eq!(renderer.scene_resource_stats(), (84, 84));
+    assert_eq!(
+        renderer.scene_resource_stats(),
+        (84 + draw_uniform_bytes(&mut renderer), 84)
+    );
     let hidden = renderer
         .decode_scene(&triangle_packet(1, 2, 0, false, false, 1.))
         .unwrap();
     renderer.render(&hidden, 31, 31).unwrap();
     renderer.close_scene_view(2).unwrap();
-    assert_eq!(renderer.scene_resource_stats(), (84, 84));
+    assert_eq!(
+        renderer.scene_resource_stats(),
+        (84 + draw_uniform_bytes(&mut renderer), 84)
+    );
     let restored = renderer
         .decode_scene(&triangle_packet(1, 3, 0, false, true, 1.))
         .unwrap();
@@ -273,7 +292,10 @@ fn failed_geometry_patches_preserve_pixels_ownership_and_revisions() {
     bad_mesh[208..212].fill(0);
     let invalid = renderer.decode_scene(&bad_mesh).unwrap();
     assert!(renderer.render(&invalid, 31, 31).is_err());
-    assert_eq!(renderer.scene_resource_stats(), (84, 84));
+    assert_eq!(
+        renderer.scene_resource_stats(),
+        (84 + draw_uniform_bytes(&mut renderer), 84)
+    );
     // Same revision still applies after the rejected request.
     let patch = renderer.decode_scene(&valid).unwrap();
     let changed = renderer.render(&patch, 31, 31).unwrap();
@@ -281,7 +303,10 @@ fn failed_geometry_patches_preserve_pixels_ownership_and_revisions() {
         &changed[(15 * 31 + 15) * 4..(15 * 31 + 15) * 4 + 4],
         &pixels[(15 * 31 + 15) * 4..(15 * 31 + 15) * 4 + 4]
     );
-    assert_eq!(renderer.scene_resource_stats(), (84, 108));
+    assert_eq!(
+        renderer.scene_resource_stats(),
+        (84 + draw_uniform_bytes(&mut renderer), 108)
+    );
     renderer.close_scene_view(1).unwrap();
     assert_eq!(renderer.scene_resource_stats(), (0, 108));
 }
@@ -424,7 +449,10 @@ fn rejected_materials_preserve_revision_and_legacy_opaque_defaults() {
         &pixels[(15 * 31 + 15) * 4..(15 * 31 + 15) * 4 + 4],
         &[255, 0, 0, 255]
     );
-    assert_eq!(renderer.scene_resource_stats(), (84, 84));
+    assert_eq!(
+        renderer.scene_resource_stats(),
+        (84 + draw_uniform_bytes(&mut renderer), 84)
+    );
 }
 
 fn primitive_packet() -> Vec<u8> {
@@ -499,7 +527,10 @@ fn incompatible_primitive_material_preserves_pixels_and_residency() {
     invalid.meshes[0].primitive_kind = 0;
     assert!(renderer.render(&invalid, 64, 64).is_err());
     assert_eq!(renderer.render(&first, 64, 64).unwrap(), pixels);
-    assert_eq!(renderer.scene_resource_stats(), (360, 360));
+    assert_eq!(
+        renderer.scene_resource_stats(),
+        (360 + draw_uniform_bytes(&mut renderer), 360)
+    );
 }
 
 #[test]

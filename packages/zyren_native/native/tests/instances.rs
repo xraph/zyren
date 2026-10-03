@@ -130,8 +130,16 @@ fn ten_thousand_instances_share_one_draw_and_pipeline() {
     assert_eq!(renderer.scene_draw_stats(), (1, 1));
     assert!(pixels.chunks_exact(4).filter(|p| p[0] > 200).count() > 10000);
     let (resident, uploaded) = renderer.scene_resource_stats();
-    assert_eq!(resident, 10000 * 128 + 3 * 24 + 3 * 4);
-    assert_eq!(uploaded, resident);
+    let uniform_bytes = {
+        let request = serde_json::to_vec(
+            &serde_json::json!({"version":1,"request":1,"command":{"operation":"frameProfile"}}),
+        )
+        .unwrap();
+        let reply = renderer.graph_command(&request, 256 * 1024).unwrap();
+        serde_json::from_slice::<serde_json::Value>(&reply).unwrap()["result"]["drawCacheUniformBytes"].as_u64().unwrap()
+    };
+    assert_eq!(resident, 10000 * 128 + 3 * 24 + 3 * 4 + uniform_bytes);
+    assert_eq!(uploaded, resident - uniform_bytes);
     f.geometries.clear();
     f.instances.clear();
     f.meshes[0].instance_count = 1;

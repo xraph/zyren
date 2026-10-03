@@ -451,9 +451,22 @@ void main() {
         final published = await draw(candidate, 30, 10);
         expect(published.stats.admission!.candidateReady, isTrue);
         expect((await backend.graphStats()).liveGraphs, 0);
+        final inspection = await backend.inspectGpu();
         expect(
-          (await backend.inspectGpu()).allocations.every(
-            (a) => a.kind == 'geometry',
+          inspection.allocations.where((a) => a.kind == 'geometry').length,
+          3,
+        );
+        final uniforms = inspection.allocations.where(
+          (a) => a.kind == 'buffer',
+        );
+        expect(uniforms.length, 3);
+        expect(
+          uniforms.fold<int>(0, (sum, a) => sum + a.payloadBytes),
+          published.stats.profile!.drawCacheUniformBytes,
+        );
+        expect(
+          inspection.allocations.every(
+            (a) => a.kind == 'geometry' || a.kind == 'buffer',
           ),
           isTrue,
         );

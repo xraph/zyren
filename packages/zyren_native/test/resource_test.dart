@@ -4,6 +4,7 @@ import 'package:zyren/zyren.dart';
 import 'package:zyren/rendering.dart';
 import 'package:zyren_native/zyren_native.dart';
 import 'package:test/test.dart';
+import 'support/draw_cache_accounting.dart';
 
 void main() {
   test(
@@ -34,7 +35,7 @@ void main() {
         expect(await first.readBuffer(buffer), bytes);
         final shared = await second.retain(buffer);
         await first.close();
-        expect((await backend.resourceStats()).residentBytes, 32);
+        expect((await sceneAssetPayloadBytes(backend)), 32);
         await second.writeBuffer(
           shared,
           Uint32List.fromList([0xabcdef01]),
@@ -99,7 +100,7 @@ void main() {
           stats.uploadedBytes + 1104,
         );
         await second.close();
-        expect((await backend.resourceStats()).residentBytes, 1104);
+        expect((await sceneAssetPayloadBytes(backend)), 1104);
       } on SceneException catch (error) {
         fail('${error.issue}: ${error.issue.cause}');
       } finally {

@@ -3,6 +3,7 @@ import 'package:zyren/zyren.dart';
 import 'package:zyren/rendering.dart';
 import 'package:zyren_native/zyren_native.dart';
 import 'package:test/test.dart';
+import 'support/draw_cache_accounting.dart';
 
 void main() {
   test(
@@ -29,13 +30,13 @@ void main() {
           outputs.map((o) => o.stats.uploadedBytes).reduce((a, b) => a + b),
           1104,
         );
-        expect((await first.resourceStats()).residentBytes, 1104);
+        expect((await sceneAssetPayloadBytes(first)), 1104);
         mesh.position = const Vec3(.1, 0, 0);
         expect((await second.render(frame())).stats.uploadedBytes, 0);
         mesh.visible = false;
         await second.render(frame());
         await first.close();
-        expect((await second.resourceStats()).residentBytes, 1104);
+        expect((await sceneAssetPayloadBytes(second)), 1104);
         mesh.visible = true;
         final restored = await second.render(frame()) as ReadbackOutput;
         expect(restored.stats.uploadedBytes, 0);

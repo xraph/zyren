@@ -406,6 +406,38 @@ impl ResourceStore {
         };
         tangents.as_ref()
     }
+    pub(crate) fn create_draw_uniform(
+        &mut self,
+        device: &wgpu::Device,
+        size: u64,
+    ) -> Result<(ResourceKey, wgpu::Buffer), ResourceError> {
+        self.registry.check_capacity(size)?;
+        let validation = device.push_error_scope(wgpu::ErrorFilter::Validation);
+        let memory = device.push_error_scope(wgpu::ErrorFilter::OutOfMemory);
+        let internal = device.push_error_scope(wgpu::ErrorFilter::Internal);
+        let buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("retained draw uniform"),
+            size,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        if pollster::block_on(internal.pop())
+            .or(pollster::block_on(memory.pop()))
+            .or(pollster::block_on(validation.pop()))
+            .is_some()
+        {
+            return Err(ResourceError::DeviceFailed);
+        }
+        let key = self.registry.insert(
+            Resource::Buffer {
+                buffer: buffer.clone(),
+                size,
+                usage: 4 | 32,
+            },
+            size,
+        )?;
+        Ok((key, buffer))
+    }
     pub(crate) fn create_frame_target(
         &mut self,
         device: &wgpu::Device,

@@ -1,3 +1,4 @@
+import 'draw_cache_accounting.dart';
 import 'dart:typed_data';
 import 'package:zyren/zyren.dart';
 import 'package:zyren/rendering.dart';
@@ -45,7 +46,7 @@ Future<void> verifyPrimitives() async {
     final shared = await sibling.render(oldCapture) as ReadbackOutput;
     expect(shared.image.pixels, first.image.pixels);
     expect(shared.stats.uploadedBytes, 0);
-    expect((await backend.resourceStats()).residentBytes, 120);
+    expect((await sceneAssetPayloadBytes(backend)), 120);
     camera.position = const Vec3(0, 0, 10);
     final distant = await render();
     expect(height(distant), 8);
@@ -66,13 +67,13 @@ Future<void> verifyPrimitives() async {
       Float32List.fromList([-1, 1, 0, 1, 1, 0]),
     );
     expect(channel(await render(), 32, 32), 0);
-    expect((await backend.resourceStats()).residentBytes, 240);
+    expect((await sceneAssetPayloadBytes(backend)), 240);
     expect(
       (await sibling.render(oldCapture) as ReadbackOutput).image.pixels,
       first.image.pixels,
     );
     await sibling.close();
-    expect((await backend.resourceStats()).residentBytes, 120);
+    expect((await sceneAssetPayloadBytes(backend)), 120);
     scene.remove(line);
     final points = Points(
       PointGeometry(points: [Vec3.zero]),

@@ -87,6 +87,12 @@ Map<String, Object?> summarizeNavigationFrames(
     'drawPreparationBuffers': native('drawPreparationBuffers', 1),
     'drawPreparationBindGroups': native('drawPreparationBindGroups', 1),
     'drawCacheReuses': native('drawCacheReuses', 1),
+    'drawUniformReuses': native('drawUniformReuses', 1),
+    'drawUniformWriteCalls': native('drawUniformWriteCalls', 1),
+    'drawUniformWriteBytes': native('drawUniformWriteBytes', 1),
+    'drawUniformSkippedWrites': native('drawUniformSkippedWrites', 1),
+    'drawCacheEntries': native('drawCacheEntries', 1),
+    'drawCacheUniformBytes': native('drawCacheUniformBytes', 1),
     'uploadBytes': native('uploadBytes', 1),
     'passes': {
       for (final name in passNames)

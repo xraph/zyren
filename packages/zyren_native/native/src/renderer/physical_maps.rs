@@ -105,7 +105,11 @@ pub(super) fn shader(key: u64) -> String {
     )
 }
 impl Renderer {
-    pub(super) fn physical_texture_binding(&self, mesh: &Mesh) -> Option<wgpu::BindGroup> {
+    pub(super) fn physical_texture_binding(
+        &self,
+        index: usize,
+        mesh: &Mesh,
+    ) -> Option<wgpu::BindGroup> {
         let material = mesh.pbr.as_ref()?;
         let key = binding_key(material);
         if key == 0 {
@@ -133,11 +137,11 @@ impl Renderer {
                 entries
             })
             .collect();
-        Some(self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("physical layer maps"),
-            layout: self.pipelines.physical_layout(key),
-            entries: &entries,
-        }))
+        Some(self.draw_binding(
+            super::draw_cache::BindingKey(index, 3),
+            self.pipelines.physical_layout(key),
+            &entries,
+        ))
     }
 }
 

@@ -281,7 +281,18 @@ fn invalid_poses_preserve_pixels_ownership_and_resource_accounting() {
     let expected_bytes = frame.geometries[0].byte_length() + frame.poses[0].byte_length();
     let pixels = renderer.render(&frame, 31, 31).unwrap();
     let stats = renderer.scene_resource_stats();
-    assert_eq!(stats, (expected_bytes as u64, expected_bytes as u64));
+    let uniform_bytes = {
+        let request = serde_json::to_vec(
+            &serde_json::json!({"version":1,"request":1,"command":{"operation":"frameProfile"}}),
+        )
+        .unwrap();
+        let reply = renderer.graph_command(&request, 256 * 1024).unwrap();
+        serde_json::from_slice::<serde_json::Value>(&reply).unwrap()["result"]["drawCacheUniformBytes"].as_u64().unwrap()
+    };
+    assert_eq!(
+        stats,
+        (expected_bytes as u64 + uniform_bytes, expected_bytes as u64)
+    );
     frame.geometries.clear();
     frame.poses.clear();
     let mut missing = frame.clone();

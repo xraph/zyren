@@ -170,7 +170,7 @@ fn frame_profile_is_bounded_and_clears_stale_measurements_on_rejection() {
         assert!(p["cpuPrepareNs"].is_u64());
         assert!(p["cpuEncodeNs"].is_u64());
         assert!(p["cpuCompletionWaitNs"].is_u64());
-        assert_eq!(p["passes"].as_object().unwrap().len(), 11);
+        assert_eq!(p["passes"].as_object().unwrap().len(), 12);
         assert_eq!(p["passes"]["scene"]["executed"], true);
         assert_eq!(p["passes"]["transmission"]["executed"], false);
         assert_eq!(p["passes"]["shadows"]["executed"], false);

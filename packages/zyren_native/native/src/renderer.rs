@@ -14,6 +14,7 @@ use wgpu::util::DeviceExt;
 use crate::scene::{Frame, pixel_len};
 mod composition;
 mod deformation;
+mod draw_cache;
 mod draw_order;
 pub(crate) mod effects;
 pub(crate) mod gpu_memory;
@@ -138,6 +139,7 @@ pub struct RendererState {
     gpu_time_source: &'static str,
     gpu_timer: Option<timing::Timer>,
     profile: std::cell::RefCell<timing::Profile>,
+    draw_cache: std::cell::RefCell<draw_cache::Cache>,
     layout: wgpu::BindGroupLayout,
     pbr_layout: wgpu::BindGroupLayout,
     environment_defaults: environment::Defaults,
@@ -349,6 +351,7 @@ impl Renderer {
                 drawable_owner: None,
                 failure: None,
                 profile: Default::default(),
+                draw_cache: Default::default(),
                 last_gpu_time_ns: None,
                 diagnostic_readback_bytes: 0,
                 gpu_time_source: "unavailable",
@@ -417,6 +420,12 @@ impl Renderer {
         let temporal_stats = self.temporal_stats();
         let transmission_bytes = self.transmission.bytes();
         let state = self.state.as_mut().unwrap();
+        if state.profile.borrow().status != "unavailable" {
+            state
+                .draw_cache
+                .borrow()
+                .snapshot(&mut state.profile.borrow_mut());
+        }
         let mut frame_profile = serde_json::to_value(&*state.profile.borrow()).unwrap();
         frame_profile["resources"] = state.resources.telemetry();
         state.graphs.command(
@@ -593,6 +602,12 @@ impl Renderer {
         self.resources.stats()
     }
     pub fn close_scene_view(&mut self, view: u64) -> Result<(), String> {
+        let keys = self.draw_cache.borrow_mut().remove(view);
+        for key in keys {
+            self.resources
+                .release_scene_resource(key)
+                .map_err(|e| e.to_string())?;
+        }
         self.views.remove(&view);
         self.staging.remove(&view);
         if self
@@ -762,9 +777,10 @@ impl Renderer {
             .filter(|g| !self.geometries.contains_key(&g.id) && !reusable.contains_key(&g.id))
             .map(|g| g.byte_length())
             .sum();
+        let (draw_bytes, draw_count) = self.draw_cache.borrow().additional(frame);
         self.resources
             .check_scene_capacity(
-                (bytes + texture_bytes + instance_bytes + pose_bytes) as u64,
+                (bytes + texture_bytes + instance_bytes + pose_bytes) as u64 + draw_bytes,
                 frame
                     .geometries
                     .iter()
@@ -774,10 +790,12 @@ impl Renderer {
                     .count()
                     + texture_count
                     + instance_count
-                    + pose_count,
+                    + pose_count
+                    + draw_count,
             )
             .map_err(|e| e.to_string())?;
         // Preflight all CPU validation before any existing ownership changes.
+        self.begin_draw_cache(frame)?;
         for geometry in &frame.geometries {
             if !self.geometries.contains_key(&geometry.id) {
                 let state = self.state.as_mut().unwrap();
@@ -903,6 +921,7 @@ impl Renderer {
         self.profile.borrow_mut().status = "failed";
     }
     pub(crate) fn fail_frame(&mut self, error: String) -> String {
+        self.clear_draw_cache();
         self.failure = Some(error.clone());
         self.last_gpu_time_ns = None;
         self.gpu_time_source = "unavailable";
@@ -955,22 +974,26 @@ impl Renderer {
         let (materials, graph, environment, shadows) = composition;
         let vp = Mat4::from_cols_array(&self.temporal.vp(frame));
         let lighting = frame.meshes.iter().any(|m| m.pbr.is_some()).then(|| {
-            self.device
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("punctual lights"),
-                    contents: bytemuck::bytes_of(&crate::lighting::LightingUniform::capture(
-                        &frame.lights,
-                        &frame.hemispheres,
-                        &frame.areas,
-                    )),
-                    usage: wgpu::BufferUsages::UNIFORM,
-                })
+            self.draw_uniform(
+                draw_cache::UniformKey::Lighting,
+                bytemuck::bytes_of(&crate::lighting::LightingUniform::capture(
+                    &frame.lights,
+                    &frame.hemispheres,
+                    &frame.areas,
+                )),
+            )
         });
         let make_bindings = |capture: bool| -> Vec<_> {
             frame
                 .meshes
                 .iter()
-                .map(|mesh| {
+                .enumerate()
+                .map(|(index, mesh)| {
+                    if !mesh.color_visible
+                        || (capture && (mesh.transmissive() || mesh.alpha_mode == 2))
+                    {
+                        return None;
+                    }
                     let model = Mat4::from_cols_array(&mesh.model);
                     let mut pbr_maps = [0; 4];
                     if let Some(pbr) = &mesh.pbr {
@@ -1085,14 +1108,10 @@ impl Renderer {
                             mesh.alpha_mode as f32,
                         ],
                     };
-                    self.profile.borrow_mut().draw_preparation_buffers += 1;
-                    let buffer =
-                        self.device
-                            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                                label: None,
-                                contents: bytemuck::bytes_of(&uniforms),
-                                usage: wgpu::BufferUsages::UNIFORM,
-                            });
+                    let buffer = self.draw_uniform(
+                        draw_cache::UniformKey::Mesh(index, capture),
+                        bytemuck::bytes_of(&uniforms),
+                    );
                     let mut entries = vec![wgpu::BindGroupEntry {
                         binding: 0,
                         resource: buffer.as_entire_binding(),
@@ -1107,22 +1126,18 @@ impl Renderer {
                         entries.extend(self.area_tables.entries());
                         entries.extend(self.transmission.entries(capture));
                     }
-                    self.profile.borrow_mut().draw_preparation_bind_groups += 1;
-                    self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-                        label: None,
-                        layout: if mesh.pbr.is_some() {
+                    Some(self.draw_binding(
+                        draw_cache::BindingKey(index, u8::from(capture)),
+                        if mesh.pbr.is_some() {
                             &self.pbr_layout
                         } else {
                             &self.layout
                         },
-                        entries: &entries,
-                    })
+                        &entries,
+                    ))
                 })
                 .collect()
         };
-        if lighting.is_some() {
-            self.profile.borrow_mut().draw_preparation_buffers += 1;
-        }
         let bindings = make_bindings(false);
         let capture_bindings = self
             .transmission
@@ -1132,16 +1147,23 @@ impl Renderer {
         let texture_bindings: Vec<_> = frame
             .meshes
             .iter()
-            .map(|mesh| self.texture_binding(mesh))
+            .enumerate()
+            .map(|(index, mesh)| {
+                mesh.color_visible
+                    .then(|| self.texture_binding(index, mesh))
+                    .flatten()
+            })
             .collect();
         let physical_bindings: Vec<_> = frame
             .meshes
             .iter()
-            .map(|mesh| self.physical_texture_binding(mesh))
+            .enumerate()
+            .map(|(index, mesh)| {
+                mesh.color_visible
+                    .then(|| self.physical_texture_binding(index, mesh))
+                    .flatten()
+            })
             .collect();
-        self.profile.borrow_mut().draw_preparation_bind_groups +=
-            texture_bindings.iter().filter(|v| v.is_some()).count() as u64
-                + physical_bindings.iter().filter(|v| v.is_some()).count() as u64;
         let mut encoder = self.device.create_command_encoder(&Default::default());
         if let Some(timer) = &self.gpu_timer {
             timer.begin(&mut encoder);
@@ -1273,7 +1295,7 @@ impl Renderer {
                     self.last_instance_draws
                         .set(self.last_instance_draws.get() + 1);
                 }
-                let binding = &bindings[index];
+                let binding = bindings[index].as_ref().expect("visible draw prepared");
                 let texture_binding = &texture_bindings[index];
                 let geometry = &self.geometries[&mesh.geometry];
                 if let Some(material) = &materials[index] {
@@ -1388,6 +1410,9 @@ impl Renderer {
     ) -> Result<Submission, String> {
         self.last_gpu_time_ns = None;
         self.gpu_time_source = "unavailable";
+        self.draw_cache
+            .borrow_mut()
+            .finish(&mut self.profile.borrow_mut());
         let timing = self.gpu_timer.as_ref().map(|timer| timer.end(&mut encoder));
         let index = self.queue.submit([encoder.finish()]);
         let keys: Vec<_> = self
@@ -1397,6 +1422,7 @@ impl Renderer {
             .chain(self.textures.values().map(|t| t.key))
             .chain(self.instances.values().map(|i| i.key))
             .chain(self.poses.values().map(|p| p.key))
+            .chain(self.draw_cache.borrow().keys())
             .chain(environment.resources.iter().copied())
             .chain(self.effect_resources.iter().copied())
             .chain(self.compositor.resized.iter().flat_map(|t| t.keys))
@@ -1413,8 +1439,7 @@ impl Renderer {
             )
             .collect();
         if let Err(error) = self.resources.scene_submitted(index.clone(), &keys) {
-            self.failure = Some(error.to_string());
-            return Err(error.to_string());
+            return Err(self.fail_frame(error.to_string()));
         }
         self.counters.submitted_frames += 1;
         self.profile.borrow_mut().submission_count += 1;
@@ -1423,8 +1448,7 @@ impl Renderer {
             match crate::interop::metal::MetalCompletion::capture(&self.queue) {
                 Ok(completion) => Some(completion),
                 Err(error) => {
-                    self.failure = Some(error.clone());
-                    return Err(error);
+                    return Err(self.fail_frame(error));
                 }
             }
         } else {
@@ -1555,6 +1579,7 @@ impl Renderer {
         } else {
             vec![]
         };
+        let environment = environment.prepare(self, frame);
         let shadows = self.prepare_shadows(frame)?;
         self.prepare_temporal(frame, render_size)?;
         self.commit_scene(frame)?;
@@ -1705,6 +1730,7 @@ impl Renderer {
         } else {
             vec![]
         };
+        let environment = environment.prepare(self, frame);
         let shadows = self.prepare_shadows(frame)?;
         self.prepare_temporal(frame, render_size)?;
         self.commit_scene(frame)?;
@@ -1808,8 +1834,8 @@ mod metal_timeout_tests {
                 "vertexEntryPoint":"vertex","fragmentEntryPoint":"fragment","vertexCount":3,"instanceCount":1,"sampleCount":1,
                 "color":{"key":key_json(output_key),"mipLevel":0,"load":"clear","store":"store","clear":[0,0,0,1]}}]}
         })),256*1024).unwrap()).unwrap();
-        let fields: [u64; 4] =
-            serde_json::from_value(reply["result"]["key"].clone()).expect(&reply.to_string());
+        let fields: [u64; 4] = serde_json::from_value(reply["result"]["key"].clone())
+            .unwrap_or_else(|_| panic!("{reply}"));
         let graph_key = crate::resources::registry::ResourceKey {
             renderer: fields[0],
             device_generation: fields[1],
@@ -1917,7 +1943,8 @@ mod metal_timeout_tests {
         let frame: Frame = serde_json::from_value(serde_json::json!({
             "version": 1, "view_projection": glam::Mat4::IDENTITY.to_cols_array(),
             "background": [0,0,0], "light_direction": [0,0,1], "ambient": 0.2,
-            "geometries": [], "meshes": []
+            "geometries": [{"id":1,"positions":[[-0.8,-0.8,0.4],[0.8,-0.8,0.4],[0,0.8,0.4]],"normals":[[0,0,1],[0,0,1],[0,0,1]],"indices":[0,1,2]}],
+            "meshes": [{"geometry":1,"model":glam::Mat4::IDENTITY.to_cols_array(),"color":[1,0,0],"unlit":true}]
         }))
         .unwrap();
         let result = unsafe { renderer.render_to_metal(&frame, texture) };
@@ -1957,6 +1984,9 @@ mod metal_timeout_tests {
         };
         let profile = command(&mut renderer, "frameProfile");
         assert_eq!(profile["result"]["status"], "failed");
+        assert_eq!(profile["result"]["drawCacheEntries"], 0);
+        assert_eq!(profile["result"]["drawCacheUniformBytes"], 0);
+        assert!(renderer.draw_cache.borrow().keys().is_empty());
         assert!(profile["result"]["gpuTimeNs"].is_null());
         assert_eq!(
             command(&mut renderer, "stats")["error"]["code"],

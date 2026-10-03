@@ -1,3 +1,4 @@
+import 'draw_cache_accounting.dart';
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:zyren/zyren.dart';
@@ -66,11 +67,11 @@ Future<void> verifyGeneratedSceneMips() async {
       second.render(frame()),
     ]);
     expect(frames.fold(0, (sum, f) => sum + f.stats.uploadedBytes), 200);
-    expect((await first.resourceStats()).residentBytes, 204);
+    expect((await sceneAssetPayloadBytes(first)), 204);
     mesh.visible = false;
     await second.render(frame());
     await first.close();
-    expect((await second.resourceStats()).residentBytes, 204);
+    expect((await sceneAssetPayloadBytes(second)), 204);
     mesh.visible = true;
     final restored = await second.render(frame()) as ReadbackOutput;
     expect(restored.stats.uploadedBytes, 0);

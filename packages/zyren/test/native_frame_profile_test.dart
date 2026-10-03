@@ -15,7 +15,13 @@ void main() {
         'submissionCount': 1,
         'drawPreparationBuffers': 2,
         'drawPreparationBindGroups': 3,
-        'drawCacheReuses': null,
+        'drawCacheReuses': 3,
+        'drawUniformReuses': 2,
+        'drawUniformWriteCalls': 1,
+        'drawUniformWriteBytes': 16,
+        'drawUniformSkippedWrites': 2,
+        'drawCacheEntries': 6,
+        'drawCacheUniformBytes': 1536,
         'uploadBytes': 1024,
         'passes': {
           'scene': {'executed': true, 'gpuTimeNs': null},
@@ -25,6 +31,22 @@ void main() {
       };
       final profile = NativeFrameProfile.fromJson(json);
       expect(profile.toJson(), json);
+      expect(profile.drawUniformWriteBytes, 16);
+      final legacy = Map<String, Object?>.of(json);
+      for (final key in [
+        'drawUniformReuses',
+        'drawUniformWriteCalls',
+        'drawUniformWriteBytes',
+        'drawUniformSkippedWrites',
+        'drawCacheEntries',
+        'drawCacheUniformBytes',
+      ]) {
+        legacy.remove(key);
+      }
+      final unknown = NativeFrameProfile.fromJson(legacy);
+      expect(unknown.drawUniformWriteCalls, isNull);
+      expect(unknown.drawCacheUniformBytes, isNull);
+      expect(unknown.toJson(), legacy);
       expect(profile.gpuTime, const Duration(microseconds: 4567));
       expect(profile.passes['scene']!.executed, true);
       expect(profile.passes['scene']!.gpuTimeNs, isNull);

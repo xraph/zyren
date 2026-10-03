@@ -16,6 +16,7 @@ struct ShadowUniform {
     lights: [[u32; 4]; crate::shadows::MAX_SHADOW_LIGHTS],
     views: [ViewUniform; MAX_VIEWS],
 }
+pub(super) const UNIFORM_BYTES: usize = std::mem::size_of::<ShadowUniform>();
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
 struct DepthUniform {
@@ -359,7 +360,7 @@ struct CasterDraw {
 }
 pub(super) struct PreparedShadows {
     view: u64,
-    uniform: wgpu::Buffer,
+    uniform: Option<wgpu::Buffer>,
     atlas: wgpu::TextureView,
     rects: Vec<AtlasRect>,
     draws: Vec<Vec<CasterDraw>>,
@@ -373,7 +374,11 @@ impl PreparedShadows {
         [
             wgpu::BindGroupEntry {
                 binding: 8,
-                resource: self.uniform.as_entire_binding(),
+                resource: self
+                    .uniform
+                    .as_ref()
+                    .expect("PBR shadow sampling prepared")
+                    .as_entire_binding(),
             },
             wgpu::BindGroupEntry {
                 binding: 9,
@@ -551,12 +556,12 @@ impl Renderer {
             });
             (atlas.signature.as_ref() != Some(&signature)).then_some(signature)
         };
-        let atlas = state
+        let atlas_texture = state
             .shadows
             .atlases
             .get(&view)
-            .map_or(&state.shadows.empty, |a| &a.texture)
-            .create_view(&Default::default());
+            .map_or(&state.shadows.empty, |a| &a.texture);
+        let atlas = state.draw_cache.borrow_mut().texture(atlas_texture);
         let mut uniform = ShadowUniform::zeroed();
         uniform.forward[..3].copy_from_slice(&frame.shadows.forward);
         for (i, (view, rect)) in frame.shadows.views.iter().zip(&rects).enumerate() {
@@ -583,13 +588,14 @@ impl Renderer {
                 interval: [view.near, view.far, view.blend, view.strength],
             };
         }
-        let uniform = state
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("shadow views"),
-                contents: bytemuck::bytes_of(&uniform),
-                usage: wgpu::BufferUsages::UNIFORM,
-            });
+        let uniform = frame.meshes.iter().any(|m| m.pbr.is_some()).then(|| {
+            state.draw_cache.borrow_mut().uniform(
+                &state.queue,
+                super::draw_cache::UniformKey::Shadows,
+                bytemuck::bytes_of(&uniform),
+                &mut state.profile.borrow_mut(),
+            )
+        });
         let mut draws = Vec::new();
         if signature.is_some() {
             for view in &frame.shadows.views {

@@ -1,6 +1,5 @@
 use super::Renderer;
 use crate::{render_graph::FrameGraph, resources::registry::ResourceKey, scene::Frame};
-use wgpu::util::DeviceExt;
 
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
@@ -8,6 +7,8 @@ struct Uniform {
     params: [f32; 4],
     rotation: [f32; 4],
 }
+
+pub(super) const UNIFORM_BYTES: usize = std::mem::size_of::<Uniform>();
 
 pub(super) struct Defaults {
     black: wgpu::Texture,
@@ -63,11 +64,36 @@ impl Defaults {
     }
 }
 
+pub(super) struct EnvironmentInput {
+    resources: Vec<ResourceKey>,
+    textures: [wgpu::Texture; 3],
+    volume: wgpu::Texture,
+    uniform: Uniform,
+}
+impl EnvironmentInput {
+    pub fn prepare(self, renderer: &Renderer, frame: &Frame) -> PreparedEnvironment {
+        let volume = renderer.draw_cache.borrow_mut().texture(&self.volume);
+        let views = self
+            .textures
+            .map(|texture| renderer.draw_cache.borrow_mut().texture(&texture));
+        PreparedEnvironment {
+            resources: self.resources,
+            volume,
+            views,
+            uniform: frame.meshes.iter().any(|m| m.pbr.is_some()).then(|| {
+                renderer.draw_uniform(
+                    super::draw_cache::UniformKey::Environment,
+                    bytemuck::bytes_of(&self.uniform),
+                )
+            }),
+        }
+    }
+}
 pub(super) struct PreparedEnvironment {
     pub resources: Vec<ResourceKey>,
     views: [wgpu::TextureView; 3],
     volume: wgpu::TextureView,
-    uniform: wgpu::Buffer,
+    uniform: Option<wgpu::Buffer>,
 }
 impl PreparedEnvironment {
     pub fn entries<'a>(&'a self, defaults: &'a Defaults) -> [wgpu::BindGroupEntry<'a>; 7] {
@@ -78,7 +104,11 @@ impl PreparedEnvironment {
             },
             wgpu::BindGroupEntry {
                 binding: 2,
-                resource: self.uniform.as_entire_binding(),
+                resource: self
+                    .uniform
+                    .as_ref()
+                    .expect("PBR environment prepared")
+                    .as_entire_binding(),
             },
             wgpu::BindGroupEntry {
                 binding: 3,
@@ -153,7 +183,7 @@ impl Renderer {
         &self,
         frame: &Frame,
         graph: Option<&FrameGraph>,
-    ) -> Result<PreparedEnvironment, String> {
+    ) -> Result<EnvironmentInput, String> {
         let mut resources = vec![];
         let mut uniform = Uniform {
             params: [0.; 4],
@@ -254,17 +284,11 @@ impl Renderer {
             ];
             uniform.rotation = glam::Quat::from_rotation_y(environment.rotation).to_array();
         }
-        Ok(PreparedEnvironment {
-            volume: volume.create_view(&Default::default()),
+        Ok(EnvironmentInput {
             resources,
-            views: textures.map(|texture| texture.create_view(&Default::default())),
-            uniform: self
-                .device
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("environment settings"),
-                    contents: bytemuck::bytes_of(&uniform),
-                    usage: wgpu::BufferUsages::UNIFORM,
-                }),
+            textures,
+            volume,
+            uniform,
         })
     }
 }

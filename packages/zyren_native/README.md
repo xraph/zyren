@@ -151,3 +151,48 @@ Register producers with `scene.addEffect(effect, order: -1)` when they must run
 before order-zero effects. Lower values run first, ties preserve insertion order,
 and replacing an effect keeps its order. Render-settings effects have order zero
 and precede registered effects with the same order.
+
+## Scene draw preparation telemetry
+
+You can read `NativeGpuServices.frameProfile()` after a scene frame to separate
+uniform preparation from GPU execution. The Planet navigation summary carries
+these counters into each measured phase. Missing fields from an older native
+runtime remain null.
+
+| Field | Measurement |
+| --- | --- |
+| `drawPreparationBuffers` | GPU uniform buffers created for mesh passes, lighting, environment settings and shadow sampling in this frame |
+| `drawPreparationBindGroups` | Mesh, standard texture and physical texture bind groups created in this frame |
+| `drawUniformReuses` | Existing uniform buffer slots used by this frame, including slots that need a write |
+| `drawCacheReuses` | Bind groups reused after comparing their layouts and buffer, texture-view and sampler handles |
+| `drawUniformWriteCalls` | Calls to `queue.write_buffer` for retained uniforms |
+| `drawUniformWriteBytes` | Bytes passed to those writes, using one aligned enclosing dirty range per changed uniform |
+| `drawUniformSkippedWrites` | Uniform updates skipped because the bytes match |
+| `drawCacheEntries` | Retained uniform, bind-group, default texture-view and sampler entries across cached views |
+| `drawCacheUniformBytes` | GPU uniform payload bytes across cached views, also charged to the native resource registry |
+
+Stationary frames can reuse every draw binding and skip every uniform write.
+Camera motion still needs matrix updates. A material edit writes its changed
+bytes and rebuilds bindings only when the bound resources or layout change.
+The CPU intervals include their existing preparation and encoding work;
+`cpuEncodeNs` includes uniform comparisons, writes and binding preparation.
+GPU time measures the completed submission separately.
+
+The cache keeps up to eight recently used views, with a 64 MiB uniform ceiling
+inside the configured registry budget. The scene draw and texture limits also
+bound entry counts. Closing a view releases its cache ownership. Visibility
+changes prune unused slots, and a terminal frame failure clears cached bindings
+while the native retirement path keeps submitted storage alive until completion.
+Resizing preserves uniforms and replaces groups that sample resized targets.
+
+Storage slots follow the source mesh index and pass, not the sorted draw order.
+They are not stable object IDs. If you reorder a packet, the cache compares and
+updates the slot contents and resource handles before drawing. Opaque capture
+and main rendering use separate slots because both execute in one submission.
+Scene frames retain the existing completion fence at native handoff.
+
+These counters do not measure all GPU allocations or physical residency.
+Shadow caster preparation, effects and custom graph bindings have their own
+paths. Reusing a GPU uniform buffer also does not eliminate native staging
+allocations: wgpu allocates staging memory for `queue.write_buffer`. Read write
+calls and bytes alongside object reuse counts when you compare workloads.

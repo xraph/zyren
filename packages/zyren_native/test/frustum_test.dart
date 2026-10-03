@@ -3,6 +3,7 @@ import 'package:zyren/zyren.dart';
 import 'package:zyren/rendering.dart';
 import 'package:zyren_native/zyren_native.dart';
 import 'package:test/test.dart';
+import 'support/draw_cache_accounting.dart';
 
 void main() {
   test('offscreen color casters still shadow visible receivers', () async {
@@ -77,7 +78,7 @@ void main() {
           output.image.pixels.sublist((16 * 32 + 16) * 4, (16 * 32 + 17) * 4);
       try {
         expect(center(await render()), [255, 0, 0, 255]);
-        final resident = (await backend.resourceStats()).residentBytes;
+        final resident = (await sceneAssetPayloadBytes(backend));
         mesh.cullingBounds = Bounds3(
           const Vec3(20, 0, 0),
           const Vec3(21, 1, 1),
@@ -86,7 +87,7 @@ void main() {
         expect(center(culled), [0, 0, 0, 255]);
         expect(culled.stats.drawCalls, 0);
         expect(culled.stats.uploadedBytes, 0);
-        expect((await backend.resourceStats()).residentBytes, resident);
+        expect((await sceneAssetPayloadBytes(backend)), resident);
         mesh.cullingBounds = null;
         final restored = await render();
         expect(center(restored), [255, 0, 0, 255]);

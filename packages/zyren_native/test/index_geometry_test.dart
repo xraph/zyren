@@ -4,6 +4,7 @@ import 'package:zyren/zyren.dart';
 import 'package:zyren/rendering.dart';
 import 'package:zyren_native/zyren_native.dart';
 import 'package:test/test.dart';
+import 'support/draw_cache_accounting.dart';
 
 void main() {
   for (final format in IndexFormat.values) {
@@ -44,10 +45,10 @@ void main() {
           final changed = await first.render(capture());
           expect(changed.stats.uploadedBytes, 72);
           expect(center(changed), [0, 0, 0, 255]);
-          expect((await first.resourceStats()).residentBytes, bytes * 2);
+          expect((await sceneAssetPayloadBytes(first)), bytes * 2);
           expect(center(await second.render(old)), [255, 0, 0, 255]);
           await second.close();
-          expect((await first.resourceStats()).residentBytes, bytes);
+          expect((await sceneAssetPayloadBytes(first)), bytes);
           scene.remove(scene.children.single);
           await first.render(capture());
           expect((await first.resourceStats()).residentBytes, 0);

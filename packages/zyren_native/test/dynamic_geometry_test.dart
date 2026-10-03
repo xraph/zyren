@@ -4,6 +4,7 @@ import 'package:zyren/zyren.dart';
 import 'package:zyren/rendering.dart';
 import 'package:zyren_native/zyren_native.dart';
 import 'package:test/test.dart';
+import 'support/draw_cache_accounting.dart';
 
 List<int> center(FrameOutput frame) => (frame as ReadbackOutput).image.pixels
     .sublist((15 * 31 + 15) * 4, (15 * 31 + 15) * 4 + 4);
@@ -37,18 +38,18 @@ void main() {
         final changed = await first.render(current);
         expect(changed.stats.uploadedBytes, 96);
         expect(center(changed), [0, 0, 0, 255]);
-        expect((await first.resourceStats()).residentBytes, 368);
+        expect((await sceneAssetPayloadBytes(first)), 368);
         expect(center(await second.render(old)), [255, 0, 0, 255]);
         // Captured data remains usable even when this view previously rendered newer data.
         expect(center(await first.render(old)), [255, 0, 0, 255]);
         expect(center(await first.render(current)), [0, 0, 0, 255]);
         expect((await second.render(current)).stats.uploadedBytes, 0);
-        expect((await first.resourceStats()).residentBytes, 184);
+        expect((await sceneAssetPayloadBytes(first)), 184);
         await first.close();
         geometry.updateAttribute(VertexSemantic.position, original);
         expect((await second.render(capture())).stats.uploadedBytes, 96);
-        expect((await second.resourceStats()).residentBytes, 184);
-        expect((await second.resourceStats()).liveAllocations, 1);
+        expect((await sceneAssetPayloadBytes(second)), 184);
+        expect((await second.resourceStats()).liveAllocations, 2);
         scene.remove(scene.children.single);
         await second.render(capture());
         expect((await second.resourceStats()).residentBytes, 0);
@@ -97,12 +98,12 @@ void main() {
           Float32List.fromList(List.filled(8, .75)),
         );
         expect((await backend.render(capture())).stats.uploadedBytes, 0);
-        expect((await backend.resourceStats()).residentBytes, 192);
+        expect((await sceneAssetPayloadBytes(backend)), 192);
         mesh.visible = true;
         final shown = await backend.render(capture());
         expect(shown.stats.uploadedBytes, 64);
         expect(center(shown), [0, 255, 0, 255]);
-        expect((await backend.resourceStats()).residentBytes, 192);
+        expect((await sceneAssetPayloadBytes(backend)), 192);
       } finally {
         await backend.close();
       }

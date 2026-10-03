@@ -5,6 +5,7 @@ import 'package:zyren/zyren.dart';
 import 'package:zyren/rendering.dart';
 import 'package:zyren_native/zyren_native.dart';
 import 'package:test/test.dart';
+import 'support/draw_cache_accounting.dart';
 
 void main() {
   test('native texture corners, UV sets, wrap and color conversion', () async {
@@ -201,11 +202,11 @@ void main() {
         second.render(frame()),
       ]);
       expect(frames.fold(0, (sum, f) => sum + f.stats.uploadedBytes), 204);
-      expect((await first.resourceStats()).residentBytes, 204);
+      expect((await sceneAssetPayloadBytes(first)), 204);
       mesh.visible = false;
       await second.render(frame());
       await first.close();
-      expect((await second.resourceStats()).residentBytes, 204);
+      expect((await sceneAssetPayloadBytes(second)), 204);
       mesh.visible = true;
       final restored = await second.render(frame()) as ReadbackOutput;
       expect(restored.stats.uploadedBytes, 0);

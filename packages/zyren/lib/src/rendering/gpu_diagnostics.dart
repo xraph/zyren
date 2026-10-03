@@ -201,6 +201,12 @@ final class GpuInspection {
 final class NativeFrameProfile {
   final String status, gpuTimeSource;
   final int? uploadBacklogBytes, stagedBytes;
+  final int? drawUniformReuses,
+      drawUniformWriteCalls,
+      drawUniformWriteBytes,
+      drawUniformSkippedWrites,
+      drawCacheEntries,
+      drawCacheUniformBytes;
   final bool? candidateReady;
   final int? cpuPrepareNs,
       cpuEncodeNs,
@@ -214,7 +220,13 @@ final class NativeFrameProfile {
   final Map<String, NativePassTiming> passes;
   final Map<String, Object?> resources;
   NativeFrameProfile.fromJson(Map<String, Object?> json)
-    : uploadBacklogBytes = json['uploadBacklogBytes'] as int?,
+    : drawUniformReuses = json['drawUniformReuses'] as int?,
+      drawUniformWriteCalls = json['drawUniformWriteCalls'] as int?,
+      drawUniformWriteBytes = json['drawUniformWriteBytes'] as int?,
+      drawUniformSkippedWrites = json['drawUniformSkippedWrites'] as int?,
+      drawCacheEntries = json['drawCacheEntries'] as int?,
+      drawCacheUniformBytes = json['drawCacheUniformBytes'] as int?,
+      uploadBacklogBytes = json['uploadBacklogBytes'] as int?,
       stagedBytes = json['stagedBytes'] as int?,
       candidateReady = json['candidateReady'] as bool?,
       status = json['status'] as String,
@@ -247,6 +259,16 @@ final class NativeFrameProfile {
   Duration? get gpuTime =>
       gpuTimeNs == null ? null : Duration(microseconds: gpuTimeNs! ~/ 1000);
   Map<String, Object?> toJson() => {
+    if (drawUniformReuses != null) 'drawUniformReuses': drawUniformReuses,
+    if (drawUniformWriteCalls != null)
+      'drawUniformWriteCalls': drawUniformWriteCalls,
+    if (drawUniformWriteBytes != null)
+      'drawUniformWriteBytes': drawUniformWriteBytes,
+    if (drawUniformSkippedWrites != null)
+      'drawUniformSkippedWrites': drawUniformSkippedWrites,
+    if (drawCacheEntries != null) 'drawCacheEntries': drawCacheEntries,
+    if (drawCacheUniformBytes != null)
+      'drawCacheUniformBytes': drawCacheUniformBytes,
     if (uploadBacklogBytes != null) 'uploadBacklogBytes': uploadBacklogBytes,
     if (stagedBytes != null) 'stagedBytes': stagedBytes,
     if (candidateReady != null) 'candidateReady': candidateReady,
