@@ -29,7 +29,7 @@ ScientificSample<double> sampleScalar(ScalarGrid3D grid, Vec3 local) {
   final high = [for (var i = 0; i < 3; i++) math.min(low[i] + 1, sizes[i] - 1)];
   final t = [for (var i = 0; i < 3; i++) q[i] - low[i]];
   var value = 0.0;
-  for (var z = 0; z < 2; z++)
+  for (var z = 0; z < 2; z++) {
     for (var y = 0; y < 2; y++) {
       for (var x = 0; x < 2; x++) {
         final weight =
@@ -48,6 +48,7 @@ ScientificSample<double> sampleScalar(ScalarGrid3D grid, Vec3 local) {
         value += v * weight;
       }
     }
+  }
   if (!value.isFinite) throw ArgumentError('Scalar interpolation overflow.');
   return ScientificSample(ScientificSampleStatus.valid, value);
 }

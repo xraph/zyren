@@ -268,3 +268,17 @@ error 3.403798572e-9 m and maximum accepted local error 4.585611771e-10 m.
 Domain, missing-data and stagnation termination remain explicit results. Glyphs
 reject an excessive requested count instead of silently reducing the sample set.
 Surface implementation is committed as `72406a0`.
+
+Optional timeline integration needs one compatible dependency and boundary entry
+for `zyren_timeline`. Its public `TimelineTrack.prepare` samples before mutation;
+`ScientificSliceTrack` uses a loaded two-frame window and a stable scene parent.
+The existing timeline owns seek, pause and frame demand. The asynchronous source
+loader remains separate, with at most two cached source frames and one loader in
+flight; generated interpolated outputs belong to the caller.
+
+Temporal checks: four tests pass for linear/discrete interpolation, exact-frame
+missing values, cache reuse, stale-load cancellation, loader failures, payload
+ceilings, source/layout mismatches and atomic timeline preparation. Analysis is
+clean. Vector work is committed as `e44a04c`; the two remaining style diagnostics
+were corrected with the temporal change. Native playback demand and disposal are
+part of the combined native checks.

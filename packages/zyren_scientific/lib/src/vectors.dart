@@ -111,7 +111,7 @@ Future<ScientificLines> buildVectorGlyphs({
   }
   final builder = _LineBuilder(g, coordinateTolerance, limits);
   var ordinal = 0;
-  for (var z = 0; z < g.sizeZ; z += stride)
+  for (var z = 0; z < g.sizeZ; z += stride) {
     for (var y = 0; y < g.sizeY; y += stride) {
       for (var x = 0; x < g.sizeX; x += stride) {
         if (ordinal++ % 256 == 0) await scientificYield(cancellation);
@@ -144,6 +144,7 @@ Future<ScientificLines> buildVectorGlyphs({
         );
       }
     }
+  }
   cancellation?.check();
   return builder.finish();
 }

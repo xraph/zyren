@@ -10,6 +10,8 @@ dependencies:
     path: ../zyren
   zyren_agents:
     path: ../zyren_agents
+  zyren_timeline:
+    path: ../zyren_timeline
 dev_dependencies:
   zyren_devtools:
     path: ../zyren_devtools
