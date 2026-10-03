@@ -92,12 +92,12 @@ resolved the unrelated imports reported by the earlier run. Scientific analysis
 has no diagnostics. The timeline adapter also rejects time spans that collapse
 below its microsecond clock precision, with a focused regression check.
 
-Pixel follow-up, 2026-10-03: the awake-device rerun passed three numerical/lifecycle
-tests and presented all six modes through `sharedTexture` with zero readback bytes.
-The final Flutter test stopped making progress after the volume marker while the
-screensaver, Reality Capture and Planet took the foreground. This workstream's
-test was interrupted; Flutter's zero exit code accompanied shutdown errors and
-does not count as a pass. The newest agent-pick/source-cell join passes on macOS
-and still needs an exclusive Pixel window with Scientific Lab visible. Device
-coordination authorization was requested. The Windows-host question remains open.
-See the qualification report for this attempt's log and source hashes.
+Pixel follow-up, 2026-10-03: the coordinated run passed all four integration tests.
+The viewport agent picked triangle 855 and joined it to source cell 5031 at DPR
+2.25. All six modes used `sharedTexture` with zero readback bytes; commands,
+retries, empty-state recovery, narrow/desktop layouts and disposal passed. The
+debug Android lab keeps its screen on while visible, and the test now has bounded
+waits and explicit pick/completion markers. Static analysis passed. The other
+device users received a release notice after completion. The Windows-host question
+remains open. See the [completed recheck](../../packages/zyren_scientific/qualification/2026-10-03.md)
+for the command, results and evidence locations.
