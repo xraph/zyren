@@ -67,6 +67,11 @@ void main() {
       final presented = state.viewport.latestFrameStats!;
       expect(presented.readbackBytes, 0);
       expect(presented.presentationPath, isNot(PresentationPath.readback));
+      // Allow integer rounding at the two-million-pixel render ceiling.
+      expect(
+        presented.physicalSize.width * presented.physicalSize.height,
+        lessThanOrEqualTo(2004000),
+      );
       expect(tester.takeException(), isNull);
       if (mode == 'Temporal') {
         await state.seek(.5);

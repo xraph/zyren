@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_zyren/flutter_zyren.dart';
@@ -440,6 +441,22 @@ class ScientificWorkbenchState extends State<ScientificWorkbench> {
                                   child: SceneView(
                                     key: _canvasKey,
                                     controller: viewport,
+                                    // Bound HDR target memory without changing
+                                    // logical input coordinates or UI density.
+                                    resolutionScale: math.min(
+                                      1,
+                                      math.sqrt(
+                                        2000000 /
+                                            (constraints.maxWidth *
+                                                constraints.maxHeight *
+                                                math.pow(
+                                                  MediaQuery.devicePixelRatioOf(
+                                                    context,
+                                                  ),
+                                                  2,
+                                                )),
+                                      ),
+                                    ),
                                     loadingBuilder: (_) => const ZeroState(
                                       title: 'Preparing native view',
                                       message:
