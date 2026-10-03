@@ -17,6 +17,7 @@ const _output = {'type': 'object'};
 /// Uses only the host's existing engine and emitter IDs. No file/network loading.
 final class AudioAgentProvider extends AgentProvider {
   final SpatialAudio audio;
+  final bool Function()? playbackAllowed;
   final String sceneId, documentId;
   @override
   final String instanceId;
@@ -25,6 +26,7 @@ final class AudioAgentProvider extends AgentProvider {
     required this.sceneId,
     required this.documentId,
     required this.instanceId,
+    this.playbackAllowed,
   });
   AgentObjectMetadata? metadata(Object3D object) {
     if (audio.isClosed || !_attached(object)) return null;
@@ -231,6 +233,13 @@ final class AudioAgentProvider extends AgentProvider {
               ? offset + page.length
               : null,
         },
+      );
+    }
+    if ((tool == 'play' || tool == 'resume') &&
+        playbackAllowed?.call() == false) {
+      return AgentResult(
+        AgentStatus.denied,
+        message: 'The host has not acquired platform audio focus.',
       );
     }
     if (tool == 'suspend' || tool == 'resume') {

@@ -36,8 +36,9 @@ Future<void> main() async {
     audio.suspend();
     final stopped = voice.cursor;
     await Future<void>.delayed(const Duration(milliseconds: 150));
-    if (voice.cursor != stopped)
+    if (voice.cursor != stopped) {
       throw StateError('Cursor moved during suspension.');
+    }
     audio.resume();
     await Future<void>.delayed(const Duration(milliseconds: 150));
     records.add({

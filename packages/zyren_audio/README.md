@@ -76,3 +76,10 @@ explicit drift tolerance; it does not require the timeline plugin.
 Run `dart run example/qualify.dart` to emit a quiet spatial tone and check native
 cursor progress through suspend/resume. The report leaves human audibility
 unverified. A successful device open alone does not prove speakers produced sound.
+
+Hosts with platform focus rules can pass `playbackAllowed` to
+`AudioAgentProvider`. The provider denies play/resume while that callback is
+false, even if the caller has `audio.write`. The Flutter lab in zyren_capture
+shows Android audio-focus callbacks and iOS interruption/route notifications
+feeding the engine's explicit suspension methods. Device qualification is
+tracked in `plans/zyren-plugins/smaller-plugins.md`.

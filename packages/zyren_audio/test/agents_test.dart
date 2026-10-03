@@ -7,6 +7,49 @@ import 'package:zyren_audio/agents.dart';
 
 void main() {
   test(
+    'host audio-focus policy denies agent playback until focus is granted',
+    () async {
+      final root = Scene(),
+          listener = root.add(Group()),
+          node = root.add(Group());
+      final audio = SpatialAudio(
+        root: root,
+        listener: AudioListener(listener),
+        offline: true,
+      );
+      addTearDown(audio.close);
+      final emitter = audio.add(
+        id: 'tone',
+        node: node,
+        samples: Float32List.fromList([.1, .1]),
+      );
+      var allowed = false;
+      final provider = AudioAgentProvider(
+        audio: audio,
+        sceneId: 'scene',
+        documentId: 'doc',
+        instanceId: 'audio',
+        playbackAllowed: () => allowed,
+      );
+      final registry = AgentRegistry(grantedScopes: {'audio.write'})
+        ..register(provider);
+      addTearDown(registry.dispose);
+      Future<AgentResult> play(String key) => registry.call(
+        providerId: provider.id,
+        instanceId: 'audio',
+        tool: 'play',
+        arguments: {'emitterId': 'tone'},
+        expectedRevision: provider.revision,
+        idempotencyKey: key,
+      );
+      expect((await play('denied')).status, AgentStatus.denied);
+      expect(emitter.isPlaying, false);
+      allowed = true;
+      expect((await play('granted')).status, AgentStatus.ok);
+      expect(emitter.isPlaying, true);
+    },
+  );
+  test(
     'agent controls real native playback with guards and detached targets',
     () async {
       final root = Scene(),
