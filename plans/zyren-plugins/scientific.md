@@ -226,3 +226,37 @@ with a real Flutter viewport and human pointer flow before claiming presented
 screen integration. Keep the full vector, streamline, temporal and volume scope
 above; no backend, device, solver or publication claim follows from this
 checkpoint's Metal readback evidence.
+
+## Remaining implementation decisions
+
+Use six tetrahedra per regular cell, with a consistent body diagonal and shared
+edge intersection cache. Equality belongs to the low side. Triangles point toward
+increasing scalar values; missing corners omit the entire cell. Retain each
+triangle's source cell. Unstructured input uses validated triangle connectivity
+and explicit vertex or cell scalar association.
+
+Vector components have an explicit orthonormal basis. Streamlines integrate
+normalized vectors with adaptive RK4 step doubling in coordinate length units.
+You choose tolerance, step limits, maximum length and stagnation speed. They do
+not advance physical time or predict flow.
+
+Temporal sources use ordered, versioned frames and a two-frame cache. A newer
+seek cancels the previous request. Linear interpolation requires matching grids,
+units and source identity; a missing contributing sample stays missing. Keep the
+optional timeline adapter separate from the numerical API.
+
+Volume rendering uses the public postprocess depth interface and a sampled 3D
+float texture. A fullscreen ray marcher clips against the grid and opaque scene
+depth. Its transfer opacity is specified per reference length, with exponential
+step correction. Bound texture size, steps and pixel work before rendering, and
+close owned GPU resources on failure or disposal. This requires no shared renderer
+change. Qualify each backend separately through the package-local Flutter lab.
+
+Surface checks: four analytic/validation tests pass, along with the existing
+CPU and agent tests. The 0.73 m sphere on a 0.125 m lattice has maximum vertex
+radius error 0.008038175 m and maximum face-normal error 0.138300693 rad. Its
+mesh is a closed, consistently oriented manifold with Euler characteristic 2.
+The affine plane matches within 2e-6 scalar units and normals within 1e-6.
+Exact threshold equality, missing cells, cancellation, geometry budgets and
+irregular connectivity validation pass. Native surface presentation follows in
+the combined device qualification; these checks establish CPU geometry only.

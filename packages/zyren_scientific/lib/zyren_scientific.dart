@@ -6,3 +6,6 @@ export 'src/scalar_slice.dart';
 export 'src/slice_view.dart'
     show ScientificSliceView, ScientificViewException, ScientificViewFailure;
 export 'src/transfer_function.dart';
+export 'src/surface.dart'
+    show ScientificSurface, ScalarAssociation, extractIsosurface;
+export 'src/work.dart' show ScientificCancellation, ScientificCancelled;
