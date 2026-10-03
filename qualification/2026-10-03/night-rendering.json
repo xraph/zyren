@@ -1,0 +1,342 @@
+{
+  "date": "2026-10-03",
+  "platform": "macOS Metal, normal profile app",
+  "measurement": "Unthrottled accepted native presentation samples. Diagnostics stream is not an FPS measurement.",
+  "comparability": "Tile count, budgets and foreground state differ. These are stage observations, not a controlled benchmark. Final High target and stationary-selection results are pending.",
+  "measurements": [
+    {
+      "stage": "hardware-filtered day, earlier tile profile",
+      "scope": "foreground",
+      "metadata": {
+        "preset": "tokyo",
+        "night": false,
+        "moonlight": "visible",
+        "cloudSize": [
+          1280,
+          614
+        ],
+        "cloudFrames": 831,
+        "cloudPreset": "high",
+        "animation": true,
+        "density": 1.0,
+        "visibleTiles": 197,
+        "selectedTiles": null,
+        "loadingTiles": 0,
+        "decodedTileBytes": null,
+        "tilePayloadBytes": 174601814,
+        "budgetLimited": true,
+        "failedTiles": 1,
+        "tileFailureCodes": null,
+        "firstFrameUs": 2270786
+      },
+      "presentation": {
+        "sampleCount": 240,
+        "size": [
+          1600,
+          768
+        ],
+        "fps": 24.277214503512678,
+        "intervalMedianUs": 41088,
+        "intervalP95Us": 45835,
+        "buildMedianUs": 1936,
+        "submitMedianUs": 447,
+        "gpuTimeAvailable": false,
+        "readbackBytes": 0
+      }
+    },
+    {
+      "stage": "heap selection day, earlier tile profile",
+      "scope": "foreground",
+      "metadata": {
+        "preset": "tokyo",
+        "night": false,
+        "moonlight": "visible",
+        "cloudSize": [
+          1280,
+          614
+        ],
+        "cloudFrames": 651,
+        "cloudPreset": "high",
+        "animation": true,
+        "density": 1.0,
+        "visibleTiles": 194,
+        "selectedTiles": null,
+        "loadingTiles": 0,
+        "decodedTileBytes": null,
+        "tilePayloadBytes": 172874220,
+        "budgetLimited": true,
+        "failedTiles": 3,
+        "tileFailureCodes": null,
+        "firstFrameUs": 5137705
+      },
+      "presentation": {
+        "sampleCount": 240,
+        "size": [
+          1600,
+          768
+        ],
+        "fps": 26.590643386762356,
+        "intervalMedianUs": 35463,
+        "intervalP95Us": 52814,
+        "buildMedianUs": 2696,
+        "submitMedianUs": 573,
+        "gpuTimeAvailable": false,
+        "readbackBytes": 0
+      }
+    },
+    {
+      "stage": "heap selection night, earlier tile profile",
+      "scope": "foreground",
+      "metadata": {
+        "preset": "tokyo",
+        "night": true,
+        "moonlight": "visible",
+        "cloudSize": [
+          1280,
+          614
+        ],
+        "cloudFrames": 200,
+        "cloudPreset": "high",
+        "animation": true,
+        "density": 1.0,
+        "visibleTiles": 194,
+        "selectedTiles": null,
+        "loadingTiles": 0,
+        "decodedTileBytes": null,
+        "tilePayloadBytes": 172874220,
+        "budgetLimited": true,
+        "failedTiles": 3,
+        "tileFailureCodes": null,
+        "firstFrameUs": 5137705
+      },
+      "presentation": {
+        "sampleCount": 240,
+        "size": [
+          1600,
+          768
+        ],
+        "fps": 22.572077886324184,
+        "intervalMedianUs": 44606,
+        "intervalP95Us": 51384,
+        "buildMedianUs": 2332,
+        "submitMedianUs": 484,
+        "gpuTimeAvailable": false,
+        "readbackBytes": 0
+      }
+    },
+    {
+      "stage": "larger tile profile before cache admission fix",
+      "scope": "foreground",
+      "metadata": {
+        "preset": "tokyo",
+        "night": false,
+        "moonlight": "visible",
+        "cloudSize": [
+          1280,
+          614
+        ],
+        "cloudFrames": 958,
+        "cloudPreset": "high",
+        "animation": true,
+        "density": 1.0,
+        "visibleTiles": 418,
+        "selectedTiles": 979,
+        "loadingTiles": 0,
+        "decodedTileBytes": 1057763121,
+        "tilePayloadBytes": 402453424,
+        "budgetLimited": true,
+        "failedTiles": 2,
+        "tileFailureCodes": {
+          "decodeFailed": 2
+        },
+        "firstFrameUs": 5967049
+      },
+      "presentation": {
+        "sampleCount": 240,
+        "size": [
+          1600,
+          768
+        ],
+        "fps": 18.283225056861596,
+        "intervalMedianUs": 54637,
+        "intervalP95Us": 59697,
+        "buildMedianUs": 5821,
+        "submitMedianUs": 963,
+        "gpuTimeAvailable": false,
+        "readbackBytes": 0
+      }
+    },
+    {
+      "stage": "cache admission fix, Mac locked",
+      "scope": "background",
+      "metadata": {
+        "preset": "tokyo",
+        "night": false,
+        "moonlight": "visible",
+        "cloudSize": [
+          1280,
+          614
+        ],
+        "cloudFrames": 1221,
+        "cloudPreset": "high",
+        "animation": true,
+        "density": 1.0,
+        "visibleTiles": 415,
+        "selectedTiles": 919,
+        "loadingTiles": 0,
+        "decodedTileBytes": 1058102314,
+        "tilePayloadBytes": 402494634,
+        "budgetLimited": true,
+        "failedTiles": 2,
+        "tileFailureCodes": {
+          "decodeFailed": 2
+        },
+        "firstFrameUs": 4512121
+      },
+      "presentation": {
+        "sampleCount": 240,
+        "size": [
+          1600,
+          768
+        ],
+        "fps": 19.554696203476187,
+        "intervalMedianUs": 50825,
+        "intervalP95Us": 55985,
+        "buildMedianUs": 5199,
+        "submitMedianUs": 941,
+        "gpuTimeAvailable": false,
+        "readbackBytes": 0
+      }
+    }
+  ],
+  "takramReference": {
+    "url": "https://takram-design-engineering.github.io/three-geospatial/?path=/story/clouds-3d-tiles-renderer-integration--tokyo",
+    "canvas": [
+      1600,
+      768
+    ],
+    "quality": "High",
+    "coverage": 0.35,
+    "localSolarTime": 7.5,
+    "dayOfYear": 170,
+    "exposure": 10,
+    "toneMapping": "AgX",
+    "animation": false,
+    "cloudResolutionScale": 1,
+    "shadowMapSize": 512,
+    "hudFpsObserved": 122,
+    "nativeShadowMapSize": 128,
+    "comparisonStatus": "Visual reference captured. Animation, cloud target, camera and loaded content were not fully matched; performance parity is not established."
+  },
+  "invalidatedMeasurements": [
+    "The earlier approximately 5 FPS readings used a diagnostics stream throttled to 200 ms. They are not renderer FPS."
+  ],
+  "checks": {
+    "streamingSelectionFade": {
+      "passed": 28
+    },
+    "cloudDeviceLimits": {
+      "passed": 4
+    },
+    "planetControlsProfiles": {
+      "passed": 8
+    },
+    "semanticsRootABI": {
+      "passed": true,
+      "flutter": "3.47.5",
+      "sanitizers": [
+        "address",
+        "undefined"
+      ]
+    },
+    "dartAnalysis": "passed",
+    "profileBuilds": {
+      "macOS": "passed",
+      "iOS": "passed",
+      "androidArm64": "passed"
+    },
+    "installation": {
+      "iPhone": "passed",
+      "iPad": "passed",
+      "Pixel9Pro": "passed"
+    },
+    "liveChecks": {
+      "macAccessibilityGuard": "blocked by Mac lock",
+      "latestMacMoonlightAndStars": "blocked by Mac lock",
+      "iPhoneTouchAndImages": "blocked by iPhone Mirroring lock",
+      "iPadTouchAndImages": "launch denied: Locked",
+      "PixelButtons": "mirrored slider works; direct button tap answer pending"
+    },
+    "performanceParity": "unverified",
+    "nativeMetalBackendAndController": {
+      "passed": 10
+    },
+    "boundedRecoveryAndPresentationPolicy": {
+      "passed": 7
+    },
+    "nativeAndroidBackend": {
+      "passed": 6
+    },
+    "rendererFailureClassification": {
+      "passed": true,
+      "sanitizers": [
+        "address",
+        "undefined"
+      ]
+    },
+    "dartFlutterTestTotal": 63
+  },
+  "gpuRecoveryChange": {
+    "codeRevision": "0795459",
+    "nativeAppleSignal": "deviceLost for explicit renderer-recreation requests",
+    "adapterPropagation": [
+      "Metal",
+      "Android"
+    ],
+    "planetRecovery": "automaticOnce",
+    "liveTimeoutRecovery": "unverified while Mac locked",
+    "failedStatusFps": "excluded"
+  },
+  "preRecoveryBackgroundAttempt": {
+    "codeRevision": "19eb5bb9",
+    "status": "SceneFailed",
+    "cloudSize": [
+      1600,
+      768
+    ],
+    "cloudFrames": 540,
+    "sampleCount": 240,
+    "firstFrameUs": 8041285,
+    "issue": {
+      "code": "renderFailed",
+      "operation": "render",
+      "reason": "GPU completion wait timed out; native renderer requires recreation."
+    },
+    "hostLocked": true,
+    "validPerformanceSample": false,
+    "note": "The presentation window spans a failure. It is excluded from FPS comparisons. A lock-related cause is not established."
+  },
+  "finalBackgroundSnapshot": {
+    "codeRevision": "0795459",
+    "status": "SceneReady",
+    "issueCode": null,
+    "cloudSize": [
+      1600,
+      768
+    ],
+    "cloudFrames": 1025,
+    "visibleTiles": 420,
+    "selectedTiles": 954,
+    "loadingTiles": 0,
+    "failedTiles": 3,
+    "tileFailureCodes": {
+      "decodeFailed": 3
+    },
+    "sampleCount": 240,
+    "hostLocked": true,
+    "validLivePerformanceSample": false,
+    "note": "Accepted frames and full HD targets are observed, but locked-host scheduling does not qualify live speed or visual appearance.",
+    "automaticRecoveryUsed": false
+  },
+  "revisionNote": "Revision labels identify this change in a shared checkout. Concurrent unrelated edits were present and preserved; the profile binaries were copied before launch."
+}
