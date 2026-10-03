@@ -102,7 +102,7 @@ policy tensors. Rebuild the assembler after changing registrations.
 Limits are explicit: 64 sensors, 4096 aggregate declared queries per observer,
 4096 candidates per sensor, 256 entity slots, 256 rays/grid cells, 64 hearing
 slots, 16384 snapshot entities and 4096 sound inputs. Defaults are smaller.
-Schemas cap field width at 4096 and total tensor width at 16384; the assembler
+Schemas cap field width at 65536 and total tensor width at 131072; the assembler
 includes its validity fields in that schema. Configure actor cadence and budgets
 for your host. These bounds are not a measured frame-time guarantee.
 
@@ -123,5 +123,7 @@ The native perception tests use real Rapier queries on macOS arm64. They cover
 physical occlusion and compare identical policy tensors while hidden actor
 positions change. Native guard and vehicle fixtures also exercise memory and policy outputs.
 The 1,000-step recurrent trace matches exported action/hidden/cell values through
-both controller decoders. Rendered camera sensing and mobile devices retain
-their separate qualification tasks.
+both controller decoders. Native camera RGB/depth and real CNN execution are qualified on Metal.
+See [camera observations](doc/camera.md) for profile pins, due-tick controller
+execution and measured latency. Class masks and unqualified desktop/mobile
+backends retain their separate gaps.

@@ -323,3 +323,28 @@ external int generateTangents(
   Pointer<Float> output,
   int outputLength,
 );
+
+@Native<
+  Uint32 Function(
+    Uint64,
+    Pointer<Uint8>,
+    Size,
+    Uint32,
+    Uint32,
+    Pointer<Uint8>,
+    Size,
+    Pointer<Uint8>,
+    Size,
+  )
+>(symbol: 'fg_render_sensor', assetId: _asset)
+external int renderSensor(
+  int handle,
+  Pointer<Uint8> input,
+  int length,
+  int width,
+  int height,
+  Pointer<Uint8> pixels,
+  int capacity,
+  Pointer<Uint8> depth,
+  int depthCapacity,
+);

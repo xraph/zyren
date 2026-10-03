@@ -17,6 +17,47 @@ part 'gpu_context.dart';
 
 /// One native GPU device, owned by a persistent worker isolate.
 /// Await [dispose] when you no longer need it.
+final class _SensorFrame extends RenderedFrame {
+  final DepthData? depth;
+  const _SensorFrame(
+    super.pixels,
+    super.width,
+    super.height, {
+    this.depth,
+    super.profile,
+    super.uploadedBytes,
+    super.residentBytes,
+    super.alphaMode,
+  });
+}
+
+DepthData _metricDepth(Uint8List bytes, FrameSubmission frame) {
+  final count = frame.size.width * frame.size.height;
+  if (bytes.length != count * 4) {
+    throw StateError('Native depth size mismatch.');
+  }
+  final raw = ByteData.sublistView(bytes),
+      values = Float32List(count),
+      mask = Uint8List(count);
+  final inverse = Mat4(frame.camera.projection).inverted().storage;
+  final clear = frame.camera.depthStrategy == DepthStrategy.reversed
+      ? 0.0
+      : 1.0;
+  for (var i = 0; i < count; i++) {
+    final z = raw.getFloat32(i * 4, Endian.little);
+    if (!z.isFinite || z < 0 || z > 1 || z == clear) continue;
+    final x = ((i % frame.size.width + .5) / frame.size.width) * 2 - 1;
+    final y = 1 - ((i ~/ frame.size.width + .5) / frame.size.height) * 2;
+    final vz = inverse[2] * x + inverse[6] * y + inverse[10] * z + inverse[14];
+    final w = inverse[3] * x + inverse[7] * y + inverse[11] * z + inverse[15];
+    final metres = -vz / w;
+    if (!metres.isFinite || metres <= 0 || metres > 3.4e38) continue;
+    values[i] = metres;
+    mask[i] = 1;
+  }
+  return DepthData(size: frame.size, metres: values, validity: mask);
+}
+
 class NativeRenderer implements SceneRenderer {
   RendererCapabilities get _capabilities => RendererCapabilities(
     backend: _deviceInfo.backend,
@@ -103,7 +144,7 @@ class NativeRenderer implements SceneRenderer {
     }
   }
 
-  Future<RenderedFrame> _renderBinary(
+  Future<_SensorFrame> _renderBinary(
     FrameSubmission submission,
     ScenePacketEncoder encoder, {
     _NativeResourceDevice? resources,
@@ -118,11 +159,17 @@ class NativeRenderer implements SceneRenderer {
     final packet = encoder.encode(submission);
     submission = packet.submission;
     Future<List<Object>> submit(Uint8List bytes) async =>
-        await _worker.request('render', [
-              TransferableTypedData.fromList([bytes]),
-              submission.size.width,
-              submission.size.height,
-            ])
+        await _worker.request(
+              submission.target is ReadbackTarget &&
+                      (submission.target as ReadbackTarget).depth
+                  ? 'renderSensor'
+                  : 'render',
+              [
+                TransferableTypedData.fromList([bytes]),
+                submission.size.width,
+                submission.size.height,
+              ],
+            )
             as List<Object>;
     late List<Object> reply;
     try {
@@ -142,10 +189,16 @@ class NativeRenderer implements SceneRenderer {
     final bytes = (reply[0] as TransferableTypedData)
         .materialize()
         .asUint8List();
-    return RenderedFrame(
+    return _SensorFrame(
       bytes,
       submission.size.width,
       submission.size.height,
+      depth: reply.length > 4
+          ? _metricDepth(
+              (reply[4] as TransferableTypedData).materialize().asUint8List(),
+              submission,
+            )
+          : null,
       profile: NativeFrameProfile.fromJson(
         (reply[3] as Map).cast<String, Object?>(),
       ),

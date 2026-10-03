@@ -54,7 +54,7 @@ final class SensorReading {
   final List<int> validity;
   final List<ObservedEntity> entities;
   final List<HeardSound> sounds;
-  final String? reason;
+  final String? reason, configurationHash;
   SensorReading({
     required this.sensorId,
     required this.tick,
@@ -65,6 +65,7 @@ final class SensorReading {
     List<ObservedEntity> entities = const [],
     List<HeardSound> sounds = const [],
     this.reason,
+    this.configurationHash,
   }) : values = List.unmodifiable(values),
        validity = List.unmodifiable(validity),
        entities = List.unmodifiable(entities),
@@ -72,7 +73,7 @@ final class SensorReading {
     _name(sensorId);
     if (tick < 0 ||
         values.length != validity.length ||
-        values.length > 16384 ||
+        values.length > 131072 ||
         values.any((v) => !v.isFinite) ||
         validity.any((v) => v != 0 && v != 1)) {
       throw ArgumentError('Invalid sensor reading.');

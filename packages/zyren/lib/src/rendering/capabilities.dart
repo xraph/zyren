@@ -5,6 +5,8 @@ enum RenderFeature {
   diffuseLighting,
   unlitMaterials,
   rgbaReadback,
+  metricDepthReadback,
+  classMaskReadback,
   sharedTexture,
   nativeView,
   compute,

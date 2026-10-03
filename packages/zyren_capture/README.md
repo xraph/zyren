@@ -99,3 +99,10 @@ if they arrive during a chain undo. Closed owners and failed rebuilds report
 errors through the shared registry.
 
 For a displayed fixture, see [the Flutter lab](example/flutter/README.md).
+
+## Persistent sensors
+
+Import `sensors.dart` for bounded, correlated RGB/depth capture without writing
+files. The pool keeps one native session and returns owned buffers with captured
+camera and tick metadata. See [sensor capture](doc/sensors.md) for lifetime,
+format and backend limits.

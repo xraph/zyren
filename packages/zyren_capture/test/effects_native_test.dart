@@ -61,6 +61,8 @@ void main() {
         );
         expect((await call('undo')).status, AgentStatus.ok);
         expect(scene.effects, isEmpty);
+        // The previous native cover owns its effects until a replacement completes.
+        await engine.render(elapsed: Duration.zero, width: 64, height: 48);
         expect((await backend.resourceStats()).residentBytes, baseBytes);
         expect(
           (await call('configure', {'exposure': .2})).status,

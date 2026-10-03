@@ -180,6 +180,7 @@ class NativeBackend implements NativeGpuBackend, SceneUploadBudgetBackend {
       RenderFeature.diffuseLighting,
       RenderFeature.unlitMaterials,
       RenderFeature.rgbaReadback,
+      RenderFeature.metricDepthReadback,
       RenderFeature.scopedResources,
       RenderFeature.colorTextures,
       RenderFeature.alphaMaterials,
@@ -355,6 +356,7 @@ class NativeBackend implements NativeGpuBackend, SceneUploadBudgetBackend {
       final frame = await pending;
       submission = _encoder.presentedSubmission!;
       return ReadbackOutput(
+        depth: frame.depth,
         image: ImageData(
           pixels: frame.pixels,
           size: submission.size,
@@ -398,7 +400,8 @@ class NativeBackend implements NativeGpuBackend, SceneUploadBudgetBackend {
               (frame.profile?.resizeCompositeDraws ?? 0),
           uploadedBytes: frame.uploadedBytes,
           residentBytes: frame.residentBytes,
-          readbackBytes: frame.pixels.length,
+          readbackBytes:
+              frame.pixels.length + (frame.depth?.metres.length ?? 0) * 4,
         ),
       );
     } on NativeSurfaceException catch (error) {

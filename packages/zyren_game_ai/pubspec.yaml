@@ -9,6 +9,8 @@ dependencies:
   crypto: ^3.0.7
   zyren:
     path: ../zyren
+  zyren_capture:
+    path: ../zyren_capture
   zyren_game:
     path: ../zyren_game
   zyren_game_native:
@@ -18,4 +20,6 @@ dependencies:
   zyren_physics:
     path: ../zyren_physics
 dev_dependencies:
+  zyren_native:
+    path: ../zyren_native
   test: ^1.29.0

@@ -211,6 +211,7 @@ final class NativeFrameProfile {
   final int? cpuPrepareNs,
       cpuEncodeNs,
       cpuCompletionWaitNs,
+      cpuReadbackNs,
       gpuTimeNs,
       drawCacheReuses;
   final int submissionCount,
@@ -233,6 +234,7 @@ final class NativeFrameProfile {
       cpuPrepareNs = json['cpuPrepareNs'] as int?,
       cpuEncodeNs = json['cpuEncodeNs'] as int?,
       cpuCompletionWaitNs = json['cpuCompletionWaitNs'] as int?,
+      cpuReadbackNs = json['cpuReadbackNs'] as int?,
       gpuTimeNs = json['gpuTimeNs'] as int?,
       gpuTimeSource = json['gpuTimeSource'] as String,
       submissionCount = json['submissionCount'] as int,
@@ -276,6 +278,7 @@ final class NativeFrameProfile {
     'cpuPrepareNs': cpuPrepareNs,
     'cpuEncodeNs': cpuEncodeNs,
     'cpuCompletionWaitNs': cpuCompletionWaitNs,
+    if (cpuReadbackNs != null) 'cpuReadbackNs': cpuReadbackNs,
     'gpuTimeNs': gpuTimeNs,
     'gpuTimeSource': gpuTimeSource,
     'submissionCount': submissionCount,

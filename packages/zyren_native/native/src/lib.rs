@@ -168,6 +168,53 @@ pub unsafe extern "C" fn fg_render(
     })
 }
 
+/// Renders color and device depth from the same completed GPU submission.
+/// Depth is tightly packed little-endian float32 in the camera's zero-to-one
+/// clip convention. The caller linearizes with the captured projection.
+/// # Safety
+/// Buffers must be valid and disjoint for the supplied lengths.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn fg_render_sensor(
+    handle: u64,
+    input: *const u8,
+    length: usize,
+    width: u32,
+    height: u32,
+    pixels: *mut u8,
+    capacity: usize,
+    depth: *mut u8,
+    depth_capacity: usize,
+) -> u32 {
+    guard(|| {
+        let renderer = registry()
+            .lock()
+            .map_err(|_| "renderer registry poisoned")?
+            .get(&handle)
+            .cloned()
+            .ok_or("renderer disposed")?;
+        let mut renderer = renderer.lock().map_err(|_| "renderer poisoned")?;
+        let len = scene::pixel_len(width, height)?;
+        if input.is_null()
+            || pixels.is_null()
+            || depth.is_null()
+            || length == 0
+            || length > 128 * 1024 * 1024
+            || capacity < len
+            || depth_capacity < len
+        {
+            return Err("invalid sensor buffers".into());
+        }
+        let frame = renderer.decode_scene(unsafe { std::slice::from_raw_parts(input, length) })?;
+        let (color, values) = renderer.render_sensor(&frame, width, height, true)?;
+        let values = values.ok_or("sensor depth missing")?;
+        unsafe {
+            std::ptr::copy_nonoverlapping(color.as_ptr(), pixels, len);
+            std::ptr::copy_nonoverlapping(values.as_ptr(), depth, len);
+        }
+        Ok(1)
+    })
+}
+
 /// Executes a bounded little-endian resource command on the renderer's device.
 ///
 /// # Safety

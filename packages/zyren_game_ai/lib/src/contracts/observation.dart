@@ -16,7 +16,7 @@ final class ObservationField {
   }) {
     _name(name);
     _name(units);
-    _bounded(width, 4096, 'width');
+    _bounded(width, 65536, 'width');
     if (![min, max, offset, scale].every((v) => v.isFinite) ||
         min >= max ||
         scale <= 0 ||
@@ -73,7 +73,7 @@ final class ObservationSpec {
         fields.isEmpty ||
         fields.length > 128 ||
         fields.map((f) => f.name).toSet().length != fields.length ||
-        width > 16384) {
+        width > 131072) {
       throw ArgumentError('Invalid observation schema.');
     }
   }

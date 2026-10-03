@@ -48,8 +48,9 @@ final class PolicyContract {
         .firstOrNull;
     if (input == null ||
         input.dtype != MlDtype.float32 ||
-        input.shape.length != 2 ||
-        input.shape[1] <= 0 ||
+        input.shape.length < 2 ||
+        input.shape.length > 4 ||
+        input.shape.skip(1).any((dimension) => dimension <= 0) ||
         model.recurrent.containsKey(observationInput) ||
         model.inputs.any(
           (s) =>
@@ -62,7 +63,7 @@ final class PolicyContract {
         output.shape[1] != decoder.spec.continuous.length ||
         model.recurrent.containsValue(continuousOutput) ||
         (encoder is FramePolicyEncoder &&
-            input.shape[1] != observation.width) ||
+            (input.shape.length != 2 || input.shape[1] != observation.width)) ||
         observation.latencyTicks != latencyTicks ||
         observation.cadenceTicks != cadenceTicks) {
       throw ArgumentError('Policy model/schema/time binding mismatch.');
@@ -85,6 +86,14 @@ final class PolicyContract {
       }
     } else if (discreteOutput != null) {
       throw ArgumentError('Unexpected discrete policy output.');
+    }
+    if (encoder case final CameraPolicyEncoder camera) {
+      if (input.shape.length != 4 ||
+          input.shape[1] != camera.profile.channels ||
+          input.shape[2] != camera.profile.height ||
+          input.shape[3] != camera.profile.width) {
+        throw ArgumentError('Camera encoder/model image shape mismatch.');
+      }
     }
     PolicyState(model, maxBytes: maxHiddenBytes);
   }
@@ -153,6 +162,15 @@ final class PolicyFailure {
   final MlOutcomeStatus status;
   final int observationTick, applyTick, completedTick;
   final String message;
+  PolicyFailure._observation(int tick, int latency, Object error)
+    : status = MlOutcomeStatus.invalid,
+      observationTick = tick,
+      applyTick = tick + latency,
+      completedTick = tick,
+      message = error.toString().substring(
+        0,
+        math.min(4096, error.toString().length),
+      );
   PolicyFailure._(MlOutcome result)
     : status = result.status,
       observationTick = result.observationTick,
@@ -252,12 +270,22 @@ final class PolicyBrain implements GameBrain {
     final masks = legality == null
         ? null
         : _policyLegality(legality, contract.decoder.spec);
-    final encoded = contract.encoder.encode(frame);
-    final spec = contract.model.inputs.firstWhere(
-      (s) => s.name == contract.observationInput,
-    );
-    if (encoded.shape.firstOrNull != 1 || !spec.accepts(encoded)) {
-      throw ArgumentError('Encoded observation tensor mismatch.');
+    final MlTensor encoded;
+    try {
+      encoded = contract.encoder.encode(frame);
+      final spec = contract.model.inputs.firstWhere(
+        (s) => s.name == contract.observationInput,
+      );
+      if (encoded.shape.firstOrNull != 1 || !spec.accepts(encoded)) {
+        throw ArgumentError('Encoded observation tensor mismatch.');
+      }
+    } catch (error) {
+      lastFailure = PolicyFailure._observation(
+        context.tick,
+        contract.latencyTicks,
+        error,
+      );
+      return Future.value(null);
     }
     final serial = _serial, version = state.version, who = identity;
     final gameEpoch = decisions.gameEpoch,

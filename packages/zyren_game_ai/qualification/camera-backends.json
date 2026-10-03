@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-03",
+  "model": "cnn_step",
+  "modelHash": "cd3662c699485997f01d0690925169f08b8f723a39be7a92b61689aa0da7cf68",
+  "modelProvider": "cpu",
+  "modelPurpose": "deterministic execution probe, not trained-policy acceptance",
+  "backends": [
+    {
+      "platform": "macOS-arm64",
+      "backend": "Metal",
+      "adapter": "Apple M3 Max",
+      "status": "passed",
+      "rgb": true,
+      "metricDepth": true,
+      "reverseZ": true,
+      "msaa4NearestCoveredDepth": true,
+      "skinning": true,
+      "hiddenRgbDepthInvariance": true,
+      "resizeRecreationOwnedBuffers": true,
+      "submittedGpuCancellation": true,
+      "cnnDueTickNativeCharacter": true,
+      "classMask": "unsupported",
+      "customScreenEffectDepth": "unsupported",
+      "temporalAaDepth": "unsupported",
+      "frameGraphDepth": "unsupported",
+      "nativeCameraTests": 6,
+      "latencySamples": [
+        {"tick":1,"captureMicros":15964,"gpuMicros":7241,"nativeMapAndPackNs":11792,"preprocessMicros":3706,"inferenceMicros":2801,"mlWorkerRoundTripMicros":4962,"totalMicros":488216},
+        {"tick":2,"captureMicros":1719,"gpuMicros":344,"nativeMapAndPackNs":9917,"preprocessMicros":2062,"inferenceMicros":485,"mlWorkerRoundTripMicros":707,"totalMicros":7266},
+        {"tick":3,"captureMicros":1550,"gpuMicros":266,"nativeMapAndPackNs":6459,"preprocessMicros":4092,"inferenceMicros":510,"mlWorkerRoundTripMicros":714,"totalMicros":8786}
+      ]
+    },
+    {"platform":"Linux","backend":"Vulkan","status":"not-run","reason":"No device available in this macOS session."},
+    {"platform":"Windows","backend":"DX12","status":"not-run","reason":"No device available in this macOS session."},
+    {"platform":"iOS","backend":"Metal","status":"not-run","reason":"No physical device capture, native packaging or transfer qualification."},
+    {"platform":"Android","backend":"Vulkan","status":"not-run","reason":"No physical device capture, native packaging or transfer qualification; Flutter Android presenter does not expose existing explicit capture."}
+  ],
+  "timingScope": {
+    "gpuMicros":"Native GPU submission timing, including capture copies.",
+    "nativeMapAndPackNs":"Native mapped-buffer packing after completion; excludes FFI and isolate transfer.",
+    "mlWorkerRoundTripMicros":"Worker round trip including transfer and scheduling, not an isolated transfer measurement.",
+    "totalMicros":"Snapshot, capture, preprocessing and actual inference completion; cold run includes initialization."
+  }
+}

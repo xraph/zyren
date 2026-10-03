@@ -136,6 +136,11 @@ pub(super) struct Effects {
     display: Option<wgpu::RenderPipeline>,
 }
 impl Effects {
+    pub(super) fn sensor_depth(&self, frame: &Frame) -> Option<&wgpu::Texture> {
+        let id = frame.binary.as_ref().map_or(0, |value| value.view);
+        self.views.get(&id).map(|view| &view.depth.texture)
+    }
+
     pub fn remove(&mut self, id: u64) {
         self.views.remove(&id);
     }

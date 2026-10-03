@@ -169,7 +169,8 @@ void renderWorker(WorkerBootstrap start) {
         }
         return;
       }
-      if (request.operation != 'render') {
+      if (request.operation != 'render' &&
+          request.operation != 'renderSensor') {
         throw ArgumentError('Unknown worker operation.');
       }
       final value = request.arguments[0];
@@ -179,20 +180,35 @@ void renderWorker(WorkerBootstrap start) {
       final width = request.arguments[1] as int,
           height = request.arguments[2] as int;
       final input = calloc<Uint8>(json.length),
-          pixels = calloc<Uint8>(width * height * 4);
+          pixels = calloc<Uint8>(width * height * 4),
+          depth = request.operation == 'renderSensor'
+              ? calloc<Uint8>(width * height * 4)
+              : nullptr;
       try {
         input.asTypedList(json.length).setAll(0, json);
         final before = native.sceneUploadedBytes(owner.handle);
-        if (native.render(
-              owner.handle,
-              input,
-              json.length,
-              width,
-              height,
-              pixels,
-              width * height * 4,
-            ) !=
-            1) {
+        final status = depth == nullptr
+            ? native.render(
+                owner.handle,
+                input,
+                json.length,
+                width,
+                height,
+                pixels,
+                width * height * 4,
+              )
+            : native.renderSensor(
+                owner.handle,
+                input,
+                json.length,
+                width,
+                height,
+                pixels,
+                width * height * 4,
+                depth,
+                width * height * 4,
+              );
+        if (status != 1) {
           throw StateError(_lastError());
         }
         reply(true, <Object>[
@@ -202,10 +218,15 @@ void renderWorker(WorkerBootstrap start) {
           native.sceneUploadedBytes(owner.handle) - before,
           native.sceneResidentBytes(owner.handle),
           _frameProfile(owner.handle),
+          if (depth != nullptr)
+            TransferableTypedData.fromList([
+              depth.asTypedList(width * height * 4),
+            ]),
         ]);
       } finally {
         calloc.free(input);
         calloc.free(pixels);
+        if (depth != nullptr) calloc.free(depth);
       }
     } catch (error) {
       reply(false, error.toString());

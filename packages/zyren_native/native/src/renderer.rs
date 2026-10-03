@@ -1,6 +1,7 @@
 mod admission;
 mod area_lights;
 mod environment;
+mod sensor_capture;
 use std::{
     collections::{HashMap, HashSet},
     sync::mpsc,
@@ -71,6 +72,7 @@ struct Targets {
     _depth: wgpu::Texture,
     depth_view: wgpu::TextureView,
     readback: wgpu::Buffer,
+    sensor_depth: Option<wgpu::Buffer>,
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -156,6 +158,7 @@ pub struct RendererState {
     staging: HashMap<u64, crate::scene_packet::ViewState>,
     cover_bindings: HashMap<u64, admission::CoverBindings>,
     targets: Option<Targets>,
+    sensor_depth_capture: bool,
     temporal: temporal::System,
     transmission: transmission::System,
     pub adapter_name: String,
@@ -370,6 +373,7 @@ impl Renderer {
                 staging: HashMap::new(),
                 cover_bindings: HashMap::new(),
                 targets: None,
+                sensor_depth_capture: false,
                 temporal: temporal::System::default(),
                 transmission,
                 adapter_name: info.name,
@@ -489,7 +493,7 @@ impl Renderer {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: wgpu::TextureFormat::Depth32Float,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
             view_formats: &[],
         });
         let stride = (width * 4).div_ceil(wgpu::COPY_BYTES_PER_ROW_ALIGNMENT)
@@ -509,6 +513,7 @@ impl Renderer {
             depth_view: depth.create_view(&Default::default()),
             _depth: depth,
             readback,
+            sensor_depth: None,
         });
     }
 
@@ -1266,6 +1271,7 @@ impl Renderer {
                             || capture
                             || frame.temporal.is_some()
                             || frame.settings.enabled
+                            || self.sensor_depth_capture
                             || self.outlines.view(frame).is_some()
                         {
                             wgpu::StoreOp::Store
@@ -1702,6 +1708,27 @@ impl Renderer {
     }
 
     pub fn render(&mut self, frame: &Frame, width: u32, height: u32) -> Result<Vec<u8>, String> {
+        self.render_sensor(frame, width, height, false)
+            .map(|value| value.0)
+    }
+
+    pub fn render_sensor(
+        &mut self,
+        frame: &Frame,
+        width: u32,
+        height: u32,
+        depth: bool,
+    ) -> Result<(Vec<u8>, Option<Vec<u8>>), String> {
+        if depth
+            && (!frame.settings.effects.is_empty()
+                || (frame.sample_count() != 1 && !frame.settings.enabled)
+                || frame.temporal.is_some()
+                || frame.graph.is_some())
+        {
+            return Err(
+                "Sensor depth excludes custom screen effects, temporal AA and frame graphs".into(),
+            );
+        }
         self.begin_profile();
         let prepare_started = std::time::Instant::now();
         let upload_before = self.resources.stats().1;
@@ -1747,11 +1774,15 @@ impl Renderer {
         self.prepare_temporal(frame, render_size)?;
         self.commit_scene(frame)?;
         self.resize(width, height);
+        if depth {
+            self.prepare_sensor_depth();
+        }
         self.profile.borrow_mut().cpu_prepare_ns =
             Some(prepare_started.elapsed().as_nanos() as u64);
         self.profile.borrow_mut().upload_bytes =
             self.resources.stats().1.saturating_sub(upload_before);
         let encode_started = std::time::Instant::now();
+        self.sensor_depth_capture = depth;
         let target = self.targets.as_ref().unwrap();
         let mut encoder = self.encode_frame(
             frame,
@@ -1784,8 +1815,14 @@ impl Renderer {
                 depth_or_array_layers: 1,
             },
         );
+        let depth_readback = if depth {
+            Some(self.encode_sensor_depth(&mut encoder, frame))
+        } else {
+            None
+        };
         let readback = target.readback.clone();
         let stride = target.stride;
+        self.sensor_depth_capture = false;
         self.profile.borrow_mut().cpu_encode_ns = Some(encode_started.elapsed().as_nanos() as u64);
         let submission = self.submit(encoder, graph.as_ref(), &materials, &environment)?;
         let slice = readback.slice(..);
@@ -1798,13 +1835,20 @@ impl Renderer {
             .recv_timeout(Duration::from_secs(1))
             .map_err(|error| format!("readback callback failed: {error}"))
             .and_then(|result| result.map_err(|error| format!("readback failed: {error}")));
+        let readback_started = std::time::Instant::now();
         let pixels = self.copy_readback(&readback, width, stride, len, mapped_result)?;
+        let depth_pixels = depth_readback
+            .map(|buffer| self.read_sensor_depth(&buffer, width, stride, len))
+            .transpose()?;
+        self.profile.borrow_mut().cpu_readback_ns =
+            Some(readback_started.elapsed().as_nanos() as u64);
         self.accept_shadows(shadows);
-        self.counters.readback_bytes += pixels.len() as u64;
+        self.counters.readback_bytes +=
+            pixels.len() as u64 + depth_pixels.as_ref().map_or(0, |value| value.len() as u64);
         self.temporal.accept();
         self.accept_history(frame);
         self.profile.borrow_mut().status = "complete";
-        Ok(pixels)
+        Ok((pixels, depth_pixels))
     }
 }
 

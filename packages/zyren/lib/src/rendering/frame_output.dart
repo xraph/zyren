@@ -29,9 +29,11 @@ sealed class OutputTarget {
 final class ReadbackTarget extends OutputTarget {
   final PixelFormat format;
   final ColorSpace colorSpace;
+  final bool depth;
   const ReadbackTarget({
     this.format = PixelFormat.rgba8,
     this.colorSpace = ColorSpace.srgb,
+    this.depth = false,
   });
 }
 
@@ -179,7 +181,11 @@ sealed class FrameOutput {
   final FrameStats stats;
   const FrameOutput(this.stats);
   FrameOutput withStats(FrameStats stats) => switch (this) {
-    ReadbackOutput(:final image) => ReadbackOutput(image: image, stats: stats),
+    ReadbackOutput(:final image, :final depth) => ReadbackOutput(
+      image: image,
+      depth: depth,
+      stats: stats,
+    ),
     PresentedOutput(:final surface, :final epoch, :final frameId) =>
       PresentedOutput(
         surface: surface,
@@ -192,8 +198,12 @@ sealed class FrameOutput {
 
 final class ReadbackOutput extends FrameOutput {
   final ImageData image;
-  const ReadbackOutput({required this.image, required FrameStats stats})
-    : super(stats);
+  final DepthData? depth;
+  const ReadbackOutput({
+    required this.image,
+    this.depth,
+    required FrameStats stats,
+  }) : super(stats);
 }
 
 final class PresentedOutput extends FrameOutput {
@@ -205,4 +215,37 @@ final class PresentedOutput extends FrameOutput {
     required this.frameId,
     required FrameStats stats,
   }) : super(stats);
+}
+
+/// Owned top-down camera-axis distances in metres. Invalid pixels have a zero
+/// distance and a zero mask. Background never represents a near surface.
+final class DepthData {
+  final PhysicalSize size;
+  final Float32List metres;
+  final Uint8List validity;
+  DepthData({
+    required this.size,
+    required Float32List metres,
+    required Uint8List validity,
+  }) : metres = metres.asUnmodifiableView(),
+       validity = validity.asUnmodifiableView() {
+    final count = size.width * size.height;
+    if (metres.length != count || validity.length != count) {
+      throw ArgumentError('Invalid metric depth size.');
+    }
+    for (var i = 0; i < count; i++) {
+      if (validity[i] > 1 ||
+          !metres[i].isFinite ||
+          (validity[i] == 1 ? metres[i] <= 0 : metres[i] != 0)) {
+        throw ArgumentError('Invalid metric depth storage.');
+      }
+    }
+  }
+  bool validAt(int x, int y) => validity[_index(x, y)] == 1;
+  double? metresAt(int x, int y) => validAt(x, y) ? metres[_index(x, y)] : null;
+  int _index(int x, int y) {
+    RangeError.checkValueInInterval(x, 0, size.width - 1, 'x');
+    RangeError.checkValueInInterval(y, 0, size.height - 1, 'y');
+    return y * size.width + x;
+  }
 }

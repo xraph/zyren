@@ -5,6 +5,14 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+/* Optional sensor output, same frame as RGBA. Device depth is tightly packed
+ * little-endian float32 in zero-to-one clip space, with the camera depth clear
+ * value for background. Includes nearest-covered MSAA depth. Excludes custom screen
+ * effects, temporal AA and frame graphs. Zero means failure, read fg_last_error. */
+uint32_t fg_render_sensor(uint64_t renderer, const uint8_t *input, size_t length,
+    uint32_t width, uint32_t height, uint8_t *rgba, size_t rgba_capacity,
+    uint8_t *depth, size_t depth_capacity);
+
 
 uint32_t fg_abi_version(void);
 /* Returns zero on failure. Handles are opaque, process-local and never reused. */
