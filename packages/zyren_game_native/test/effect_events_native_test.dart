@@ -1,3 +1,6 @@
+@Tags(['native-gpu'])
+library;
+
 import 'package:test/test.dart';
 import 'package:zyren/zyren.dart';
 import 'package:zyren_native/zyren_native.dart';

@@ -1,0 +1,147 @@
+name: Game and AI checks
+on:
+  pull_request:
+    paths:
+      - 'packages/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - '.fvmrc'
+      - 'examples/game_lab/**'
+      - 'examples/studio/**'
+      - 'tool/zyren_train/**'
+      - 'tool/qualification/**'
+      - 'tool/check_package_boundaries.dart'
+      - '.github/workflows/game-ai.yml'
+  workflow_dispatch:
+    inputs:
+      native_gpu:
+        description: Run native GPU checks on a configured physical runner
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  native-contracts:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.5'
+          cache: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Native build tools
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
+      - run: rustup toolchain install 1.97.1 --profile minimal
+      - run: flutter pub get
+      - name: Package boundaries
+        run: dart run tool/check_package_boundaries.dart
+      - name: Game contracts
+        run: python tool/qualification/run_check.py --output qualification-output/game --cwd packages/zyren_game -- dart test --concurrency=1
+      - name: Native game controllers and lifetime
+        run: python tool/qualification/run_check.py --output qualification-output/native --cwd packages/zyren_game_native -- dart test --concurrency=1 --exclude-tags native-gpu
+      - name: Model loading, batches and recovery
+        run: python tool/qualification/run_check.py --output qualification-output/ml --cwd packages/zyren_ml -- dart test --concurrency=1
+      - name: Perception and policy contracts
+        run: python tool/qualification/run_check.py --output qualification-output/ai --cwd packages/zyren_game_ai -- dart test --concurrency=1
+      - name: Retain source pins and failure logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: game-ai-contracts-${{ matrix.os }}
+          path: qualification-output/
+          if-no-files-found: error
+
+  editor:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.5'
+          cache: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: rustup toolchain install 1.97.1 --profile minimal
+      - run: flutter pub get
+      - name: Input and HUD
+        run: python3 tool/qualification/run_check.py --output qualification-output/input --cwd packages/flutter_zyren_game -- flutter test --no-pub --concurrency=1
+      - name: Studio game and AI tools
+        run: python3 tool/qualification/run_check.py --output qualification-output/editor --cwd packages/zyren_game_studio -- flutter test --no-pub --concurrency=1
+      - name: Exported game host
+        run: python3 tool/qualification/run_check.py --output qualification-output/game-lab --cwd examples/game_lab -- flutter test --no-pub --concurrency=1
+      - name: Actual Studio composition
+        run: python3 tool/qualification/run_check.py --output qualification-output/studio --cwd examples/studio -- flutter test --no-pub --concurrency=1 test/game_editor_workflow_test.dart
+      - name: Retain source pins and failure logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: game-ai-editor
+          path: qualification-output/
+          if-no-files-found: error
+
+  native-gpu:
+    if: github.event_name == 'workflow_dispatch' && inputs.native_gpu
+    runs-on: [self-hosted, zyren-native]
+    timeout-minutes: 45
+    env:
+      RUN_NATIVE_GPU: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resolve the configured FVM workspace
+        run: fvm flutter pub get
+      - name: Game effects on the actual renderer
+        run: python3 tool/qualification/run_check.py --output qualification-output/game-gpu --cwd packages/zyren_game_native -- fvm dart test --concurrency=1 --tags native-gpu
+      - name: Native camera perception and visual policy
+        run: python3 tool/qualification/run_check.py --output qualification-output/ai-gpu --cwd packages/zyren_game_ai -- fvm dart test --concurrency=1 test/camera_native_test.dart
+      - name: Retain physical runner logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: game-ai-native-gpu
+          path: qualification-output/
+          if-no-files-found: error
+
+  training:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.5'
+          cache: true
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          python-version: '3.12'
+      - run: rustup toolchain install 1.97.1 --profile minimal
+      - run: flutter pub get
+      - name: Prepare the native training worker
+        working-directory: examples/game_lab/training_worker
+        run: dart build cli --target=../bin/train_worker.dart --root-package=zyren_game_lab_training_worker --output=.dart_tool/native_worker
+      - name: Locked Python protocol, training and export checks
+        env:
+          ZYREN_WORKER_EXE: ${{ github.workspace }}/examples/game_lab/training_worker/.dart_tool/native_worker/bundle/bin/train_worker
+        run: uv run --project tool/zyren_train --locked python tool/qualification/run_check.py --output qualification-output/training --cwd tool/zyren_train -- uv run --locked pytest -q
+      - name: Completion and failure evaluators
+        run: python3 -m unittest discover -s tool/qualification/tests -v
+      - name: Retain source pins and failure logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: game-ai-training
+          path: qualification-output/
+          if-no-files-found: error
