@@ -4,6 +4,7 @@ You can run root motion, capsule collision, generated navigation, obstacle
 replanning, foot IK and explicit rig retargeting together in Character Lab.
 The macOS Metal and Pixel Vulkan presentation tests passed on 2026-10-02.
 Final regression checks continued on 2026-10-03 with Flutter 3.47.5 and Dart 3.13.4.
+The iPhone Metal presentation test passed after a clean build on 2026-10-03.
 
 ## Implemented coverage
 
@@ -30,12 +31,12 @@ length, pause/resume, removal, visible surface presentation and resource cleanup
 | --- | --- | --- |
 | macOS 27.0.1, Apple silicon, Metal | Passed | 48 frames; 1800x1074 to 780x1092; 456 fixed steps; zero presentation readback bytes |
 | Pixel 9 Pro, Android 17/API 37, Vulkan | Passed | 48 frames; 2025x1024 to 878x1013; 453 fixed steps; zero presentation readback bytes |
-| iPhone 16 Pro, iOS 27.0 | Unverified | Xcode built and signed the app. Wireless installation connected to Flutter, but the VM service disappeared before a test result. The device also reported a passcode requirement. |
+| iPhone 16 Pro, iOS 27.0, Metal | Passed | 49 frames; 2700x1281 to 1170x1266; 453 fixed steps; zero presentation readback bytes |
 | iPad Pro 13-inch M4, iOS 27.0 | Not run | Device reported a passcode requirement. |
 | Windows DX12 | Not run | No Windows GPU host or registered runner available. |
 | Linux Vulkan | Not run | No Linux presentation run performed. |
 
-Both passing runs include a 900x640 logical desktop layout and a 390x700 narrow
+All three passing runs include a 900x640 logical desktop layout and a 390x700 narrow
 layout, with no Flutter exceptions and more than 400 logical pixels of viewport
 height at the narrow size. A presented-frame record matches current scene state.
 A normalized viewport pick finds the imported character's source identity, and
@@ -47,6 +48,14 @@ counts and agent registrations return to their baselines after disposal.
 The final run summaries were captured in `/tmp/zyren-character-macos-agent.log`
 and `/tmp/zyren-character-pixel-agent-retry.log`. These local logs are temporary;
 the assertions and reproduction commands live in this package.
+
+The iPhone rerun used an unlocked device and `flutter drive --publish-port` over
+Wi-Fi. An initial retry encountered a file being added by concurrent Flutter work,
+so its fallback launch was not used as the final qualification result. The next
+run built cleanly in 19.0 seconds, installed and launched in 22.7 seconds, and
+passed the full test in 15 seconds. Its log is
+`/tmp/zyren-character-iphone-clean-retry.log`. This supersedes the earlier iPhone
+session failure. The iPad still reported that a passcode was required on this retry.
 
 ![Native Metal render of the skinned rigs and obstacle](qualification/character-lab-metal.png)
 
@@ -110,7 +119,7 @@ key interval 32 times; pathological cubic spins need denser authored keys. Rigs
 require positive uniform ancestor scales and explicit joint mappings. Retargeting
 does not transfer morph expressions or infer a humanoid skeleton.
 
-iOS still needs a completed device run after unlocking and restoring the debug
-session. Windows and Linux need their own native runs. The tested procedural
+iPad still needs a completed device run after unlocking. Windows and Linux need
+their own native runs. The tested procedural
 bipeds do not qualify arbitrary production rigs, full-body IK or crowd avoidance.
 No publication, push or merge is part of this qualification.

@@ -2,8 +2,8 @@
 
 You can drive imported animation states, root motion and capsule collision,
 generate navigation with dynamic obstacles, and apply IK and rig retargeting.
-Metal and Pixel Vulkan qualification has passed. iOS, Windows DX12 and Linux
-presentation still need completed device runs. The dated checkpoints below retain
+macOS Metal, iPhone Metal and Pixel Vulkan qualification has passed. iPad,
+Windows DX12 and Linux presentation still need completed device runs. The dated checkpoints below retain
 the earlier implementation history; the current record is in
 `packages/zyren_characters/QUALIFICATION.md`.
 
@@ -286,9 +286,23 @@ Verification:
   The iPad was not run. No Windows DX12 or Linux presentation run is available.
 
 The package qualification record states algorithm bounds and remaining hardware
-gates. Phases 2 through 4 are implemented within those bounds. Phase 5 is qualified
-on macOS and Pixel only; it is not complete across every target platform.
+gates. Phases 2 through 4 are implemented within those bounds. At this checkpoint,
+phase 5 was qualified on macOS and Pixel. The iPhone retry below extends coverage.
 
 Local implementation commits include `000a125` for capsule movement and fixed-step
 physics, and `4e6f326` for generated navigation and dynamic obstacles. Nothing was
 pushed, merged or published.
+
+### iPhone retry, 2026-10-03
+
+The unlocked iPhone 16 Pro passed the full Character Lab qualification through
+wireless Flutter drive. A clean Xcode build took 19.0 seconds, installation and
+launch took 22.7 seconds, and the test passed in 15 seconds. It presented 49 Metal
+frames across 453 physics steps, resized from 2700x1281 to 1170x1266, and passed
+root motion, collision, obstacle replanning, IK, retargeting, viewport picking,
+authorized movement, zero presentation readback and resource cleanup checks.
+
+The first retry hit a transient missing file in concurrent Flutter work. A second
+run built cleanly and supplies the recorded result. The log is
+`/tmp/zyren-character-iphone-clean-retry.log`. This resolves the iPhone gate above.
+The iPad still requires a passcode; Windows DX12 and Linux remain untested.
