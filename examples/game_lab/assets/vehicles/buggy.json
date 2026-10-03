@@ -1,0 +1,98 @@
+{
+  "version": 1,
+  "mass": 400,
+  "wheelbase": 2,
+  "trackWidth": 1.4,
+  "engineForce": 4000,
+  "brakeForce": 8000,
+  "maxSteerAngle": 0.45,
+  "maxSpeed": 25,
+  "tireFriction": 1,
+  "lostControlBrake": 1,
+  "wheels": [
+    {
+      "id": "-0.7:-1.0",
+      "mount": [
+        -0.7,
+        0,
+        -1.0
+      ],
+      "steering": false,
+      "driven": true,
+      "radius": 0.3,
+      "restLength": 0.4,
+      "travel": 0.2,
+      "springRate": 30000,
+      "damping": 3000,
+      "maxSuspensionForce": 10000
+    },
+    {
+      "id": "0.7:-1.0",
+      "mount": [
+        0.7,
+        0,
+        -1.0
+      ],
+      "steering": false,
+      "driven": true,
+      "radius": 0.3,
+      "restLength": 0.4,
+      "travel": 0.2,
+      "springRate": 30000,
+      "damping": 3000,
+      "maxSuspensionForce": 10000
+    },
+    {
+      "id": "-0.7:1.0",
+      "mount": [
+        -0.7,
+        0,
+        1.0
+      ],
+      "steering": true,
+      "driven": true,
+      "radius": 0.3,
+      "restLength": 0.4,
+      "travel": 0.2,
+      "springRate": 30000,
+      "damping": 3000,
+      "maxSuspensionForce": 10000
+    },
+    {
+      "id": "0.7:1.0",
+      "mount": [
+        0.7,
+        0,
+        1.0
+      ],
+      "steering": true,
+      "driven": true,
+      "radius": 0.3,
+      "restLength": 0.4,
+      "travel": 0.2,
+      "springRate": 30000,
+      "damping": 3000,
+      "maxSuspensionForce": 10000
+    }
+  ],
+  "chassis": {
+    "halfExtents": [
+      0.8,
+      0.25,
+      1.2
+    ],
+    "inertia": [
+      200,
+      277,
+      94
+    ],
+    "colliderDensity": 0
+  },
+  "units": {
+    "distance": "metres",
+    "mass": "kilograms",
+    "time": "seconds",
+    "angle": "radians"
+  },
+  "provenance": "Repository-authored primitive chassis and ray wheels. No third-party model."
+}
