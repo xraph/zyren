@@ -4,15 +4,17 @@ import 'dart:io';
 void main(List<String> args) {
   final root = Directory(args.isEmpty ? '.' : args.single);
   final allowed = <String, Set<String>>{
-    'packages/zyren_game_studio': {'zyren_game_studio', 'zyren', 'crypto', 'zyren_game', 'zyren_studio', 'zyren_pipeline', 'flutter', 'flutter_zyren', 'flutter_zyren_studio', 'zyren_agents'},
-    'packages/zyren_game_ai': {'zyren_game_ai', 'crypto', 'zyren', 'zyren_game', 'zyren_game_native', 'zyren_ml', 'zyren_physics'},
+    'examples/game_lab': {'zyren_game_lab', 'flutter', 'flutter_zyren', 'flutter_zyren_game', 'zyren', 'zyren_game', 'zyren_game_native', 'zyren_game_ai', 'zyren_ml', 'zyren_pipeline', 'zyren_gltf', 'zyren_native', 'zyren_physics', 'zyren_audio', 'zyren_interaction', 'crypto'},
+    'examples/game_lab/training_worker': {'zyren_game_lab_training_worker', 'zyren_game', 'zyren_game_native', 'zyren_game_ai', 'zyren_physics', 'zyren', 'zyren_characters', 'zyren_gltf', 'zyren_gltf_timeline', 'zyren_timeline', 'crypto'},
+    'packages/zyren_game_studio': {'zyren_game_studio', 'zyren', 'crypto', 'zyren_game', 'zyren_studio', 'zyren_pipeline', 'flutter', 'flutter_zyren', 'flutter_zyren_studio', 'zyren_agents', 'zyren_navigation', 'zyren_game_native', 'zyren_physics', 'zyren_characters', 'zyren_audio', 'zyren_ml', 'flutter_zyren_game', 'zyren_interaction', 'zyren_game_ai', 'zyren_collaboration', 'zyren_devtools'},
+    'packages/zyren_game_ai': {'zyren_game_ai', 'crypto', 'zyren', 'zyren_game', 'zyren_game_native', 'zyren_ml', 'zyren_physics', 'zyren_capture', 'zyren_agents', 'zyren_devtools'},
     'packages/flutter_zyren_audio': {'flutter_zyren_audio', 'flutter'},
     'packages/flutter_zyren_game': {'flutter_zyren_game', 'flutter', 'flutter_zyren', 'flutter_zyren_audio', 'flutter_zyren_interaction', 'zyren', 'zyren_game', 'gamepads'},
     'packages/flutter_zyren_studio': {'flutter_zyren_studio', 'flutter', 'flutter_zyren', 'zyren', 'zyren_studio', 'zyren_agents'},
     'packages/zyren_ml': {'zyren_ml', 'ffi', 'crypto', 'zyren_agents'},
     'packages/zyren_game': {'zyren_game', 'zyren', 'zyren_agents', 'zyren_devtools', 'crypto'},
-    'packages/zyren_game_native': {'zyren_game_native', 'zyren_game', 'zyren_physics', 'zyren', 'zyren_characters', 'zyren_interaction', 'zyren_navigation', 'zyren_timeline', 'zyren_audio', 'zyren_particles'},
-    'packages/zyren_studio': {'zyren_studio', 'zyren', 'zyren_agents', 'zyren_tools', 'zyren_timeline', 'zyren_engineering'},
+    'packages/zyren_game_native': {'zyren_game_native', 'zyren_game', 'zyren_physics', 'zyren', 'zyren_characters', 'zyren_interaction', 'zyren_navigation', 'zyren_timeline', 'zyren_audio', 'zyren_particles', 'zyren_gltf', 'zyren_gltf_timeline'},
+    'packages/zyren_studio': {'zyren_studio', 'crypto', 'zyren', 'zyren_agents', 'zyren_tools', 'zyren_timeline', 'zyren_engineering'},
     'packages/zyren_scientific': {'zyren_scientific', 'zyren', 'zyren_agents', 'zyren_timeline'},
     'packages/zyren_pipeline': {
       'zyren_pipeline', 'zyren', 'zyren_gltf', 'zyren_agents', 'crypto',
@@ -68,7 +70,10 @@ void main(List<String> args) {
       if (!file.path.endsWith('.dart')) continue;
       for (final match in directive.allMatches(file.readAsStringSync())) {
         final uri = match.group(1)!;
-        if (uri == 'dart:ui' ||
+        final cameraPreview = package.key == 'packages/zyren_game_studio' &&
+            file.absolute.uri.normalizePath() ==
+                File('${directory.path}/ai.dart').absolute.uri.normalizePath();
+        if (uri == 'dart:ui' && !cameraPreview ||
             uri == 'dart:ffi' && !{'packages/zyren_physics', 'packages/zyren_pointclouds', 'packages/zyren_ml'}.contains(package.key) ||
             uri.startsWith('package:') &&
                 !package.value.contains(uri.substring(8).split('/').first)) {

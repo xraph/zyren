@@ -1,0 +1,45 @@
+name: zyren_game_lab
+description: Native reference games for authored gameplay and trained policies.
+publish_to: none
+version: 0.1.0
+resolution: workspace
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_zyren:
+    path: ../../packages/flutter_zyren
+  flutter_zyren_game:
+    path: ../../packages/flutter_zyren_game
+  zyren:
+    path: ../../packages/zyren
+  zyren_game:
+    path: ../../packages/zyren_game
+  zyren_game_native:
+    path: ../../packages/zyren_game_native
+  zyren_game_ai:
+    path: ../../packages/zyren_game_ai
+  zyren_ml:
+    path: ../../packages/zyren_ml
+  zyren_pipeline:
+    path: ../../packages/zyren_pipeline
+  zyren_gltf:
+    path: ../../packages/zyren_gltf
+  zyren_native:
+    path: ../../packages/zyren_native
+  zyren_physics:
+    path: ../../packages/zyren_physics
+  zyren_audio:
+    path: ../../packages/zyren_audio
+  zyren_interaction:
+    path: ../../packages/zyren_interaction
+  crypto: ^3.0.6
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+flutter:
+  uses-material-design: true
+  assets:
+    - games/
