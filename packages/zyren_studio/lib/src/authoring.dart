@@ -120,11 +120,15 @@ abstract final class StudioAuthoring {
         }
       }
     } while (changed);
+    final expandedSelected = {
+      for (final node in document.expandedNodes.values)
+        if (selected.contains(node.id) ||
+            selected.contains(document.prefabOwners[node.id]))
+          node.id,
+    };
     // Existing animation targets must be deliberately retargeted, never silently dropped.
     if (document.clips.any(
-      (c) => c.tracks.keys.any(
-        (key) => selected.any((n) => key == n || key.startsWith('$n/')),
-      ),
+      (c) => c.tracks.keys.any(expandedSelected.contains),
     )) {
       throw StateError(
         'Remove or retarget animation tracks before converting these nodes to a prefab.',
@@ -172,10 +176,7 @@ abstract final class StudioAuthoring {
       ],
     );
     final remapping = {
-      for (final node in document.expandedNodes.values)
-        if (selected.contains(node.id) ||
-            selected.any((id) => node.id.startsWith('$id/')))
-          node.id: '$id/${node.id}',
+      for (final nodeId in expandedSelected) nodeId: '$id/$nodeId',
     };
     return (registry ?? StudioExtensionRegistry()).remapDocument(
       document,

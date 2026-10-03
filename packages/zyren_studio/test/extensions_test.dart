@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:test/test.dart';
 import 'package:zyren/zyren.dart';
+import 'package:zyren_agents/zyren_agents.dart';
+import 'package:zyren_studio/authoring_agents.dart';
 import 'package:zyren_studio/zyren_studio.dart';
 
 StudioDocument fixture([
@@ -279,6 +281,335 @@ void main() {
       expect(
         () => StudioAuthoring.remove(doc, 'actor', registry: registry),
         throwsArgumentError,
+      );
+    },
+  );
+  for (final withClip in [false, true]) {
+    test(
+      'prefab conversion preserves unrelated slash IDs with clips=$withClip',
+      () {
+        final registry = StudioExtensionRegistry()..register(LinksCodec());
+        final doc = fixture({'test.links': record(node: 'actor/accessory')})
+            .copyWith(
+              nodes: [
+                StudioNode(id: 'actor', label: 'Actor'),
+                StudioNode(id: 'actor/accessory', label: 'Accessory'),
+              ],
+              clips: [
+                if (withClip)
+                  StudioClip(
+                    id: 'accessory-pose',
+                    label: 'Accessory pose',
+                    durationMicroseconds: 1,
+                    tracks: {
+                      'actor/accessory': [
+                        StudioKeyframe(microseconds: 0, position: Vec3.zero),
+                      ],
+                    },
+                  ),
+              ],
+            );
+        final next = StudioAuthoring.createPrefab(
+          doc,
+          'actor',
+          prefabId: 'guard',
+          registry: registry,
+        );
+        expect(
+          next.extensions['test.links']!.data['target'],
+          'actor/accessory',
+        );
+        expect(
+          next.expandedNodes.keys,
+          containsAll(['actor/actor', 'actor/accessory']),
+        );
+        expect(next.expandedNodes, isNot(contains('actor/actor/accessory')));
+        expect(
+          next.clips.map((clip) => clip.toJson()),
+          doc.clips.map((clip) => clip.toJson()),
+        );
+        final removed = StudioAuthoring.remove(
+          doc,
+          'actor',
+          registry: registry,
+        );
+        expect(removed.expandedNodes.keys, ['actor/accessory']);
+        expect(
+          removed.clips.map((clip) => clip.toJson()),
+          doc.clips.map((clip) => clip.toJson()),
+        );
+      },
+    );
+  }
+  test(
+    'prefab conversion remaps nested descendants and preserves their overrides',
+    () {
+      final registry = StudioExtensionRegistry()..register(LinksCodec());
+      final doc = fixture({'test.links': record(node: 'rig/inner/part')})
+          .copyWith(
+            nodes: [
+              StudioNode(
+                id: 'actor',
+                label: 'Actor',
+                kind: StudioNodeKind.group,
+              ),
+              StudioNode(
+                id: 'rig',
+                label: 'Rig',
+                parentId: 'actor',
+                kind: StudioNodeKind.prefab,
+                prefabId: 'assembly',
+                overrides: {
+                  'inner/part': StudioOverride(position: const Vec3(2, 0, 0)),
+                },
+              ),
+            ],
+            prefabs: [
+              StudioPrefab(
+                id: 'part',
+                label: 'Part',
+                version: '1',
+                nodes: [StudioNode(id: 'part', label: 'Part')],
+              ),
+              StudioPrefab(
+                id: 'assembly',
+                label: 'Assembly',
+                version: '1',
+                nodes: [
+                  StudioNode(
+                    id: 'inner',
+                    label: 'Inner',
+                    kind: StudioNodeKind.prefab,
+                    prefabId: 'part',
+                  ),
+                ],
+              ),
+            ],
+          );
+      final scene = StudioScene(doc, extensionRegistry: registry);
+      scene.apply(
+        StudioAuthoring.createPrefab(
+          doc,
+          'actor',
+          prefabId: 'guard',
+          registry: registry,
+        ),
+      );
+      expect(
+        scene.document.extensions['test.links']!.data['target'],
+        'actor/rig/inner/part',
+      );
+      expect(
+        scene.objects['actor/rig/inner/part']!.position,
+        const Vec3(2, 0, 0),
+      );
+      expect(scene.document.prefabOwners['actor/rig/inner/part'], 'actor');
+      expect(scene.undo(), isTrue);
+      expect(
+        scene.document.extensions['test.links']!.data['target'],
+        'rig/inner/part',
+      );
+      expect(scene.objects['rig/inner/part']!.position, const Vec3(2, 0, 0));
+      expect(scene.redo(), isTrue);
+      final animated = doc.copyWith(
+        clips: [
+          StudioClip(
+            id: 'pose',
+            label: 'Pose',
+            durationMicroseconds: 1,
+            tracks: {
+              'rig/inner/part': [
+                StudioKeyframe(microseconds: 0, position: Vec3.zero),
+              ],
+            },
+          ),
+        ],
+      );
+      expect(
+        () => StudioAuthoring.createPrefab(
+          animated,
+          'actor',
+          prefabId: 'guard',
+          registry: registry,
+        ),
+        throwsStateError,
+      );
+      final detached = StudioAuthoring.updateExtension(
+        animated,
+        record(),
+        registry: registry,
+      );
+      final removed = StudioAuthoring.remove(
+        detached,
+        'rig',
+        registry: registry,
+      );
+      expect(removed.expandedNodes.keys, ['actor']);
+      expect(removed.clips, isEmpty);
+      expect(
+        () => StudioAuthoring.remove(doc, 'rig', registry: registry),
+        throwsArgumentError,
+      );
+    },
+  );
+  test(
+    'authoring agent uses registered extension codecs for structural edits',
+    () async {
+      final codecs = StudioExtensionRegistry()..register(LinksCodec());
+      final scene = StudioScene(
+        fixture({'test.links': record()}).copyWith(
+          nodes: [
+            StudioNode(id: 'actor', label: 'Actor'),
+            StudioNode(id: 'spare', label: 'Spare'),
+          ],
+        ),
+        extensionRegistry: codecs,
+      );
+      var changes = 0;
+      final provider = StudioAuthoringAgentProvider(
+        scene: scene,
+        instanceId: 'extensions',
+        isAvailable: () => true,
+        hostRevision: () => 0,
+        onChanged: () => changes++,
+      );
+      final agents = AgentRegistry(grantedScopes: {'studio.edit'})
+        ..register(provider);
+      addTearDown(agents.dispose);
+      Future<AgentResult> call(
+        String tool,
+        Map<String, Object?> arguments,
+        String key,
+      ) => agents.call(
+        providerId: provider.id,
+        instanceId: provider.instanceId,
+        tool: tool,
+        arguments: arguments,
+        expectedRevision: provider.revision,
+        idempotencyKey: key,
+      );
+      final before = scene.capture().encode();
+      expect(
+        (await call('remove', {'targetId': 'actor'}, 'referenced')).status,
+        AgentStatus.invalid,
+      );
+      expect(scene.capture().encode(), before);
+      expect(changes, 0);
+      expect(
+        (await call('remove', {'targetId': 'spare'}, 'unreferenced')).status,
+        AgentStatus.ok,
+      );
+      expect(scene.objects, isNot(contains('spare')));
+      expect(
+        (await call('make_prefab', {
+          'targetId': 'actor',
+          'prefabId': 'guard',
+        }, 'prefab')).status,
+        AgentStatus.ok,
+      );
+      expect(
+        scene.document.extensions['test.links']!.data['target'],
+        'actor/actor',
+      );
+      expect(changes, 2);
+      expect(scene.undo(), isTrue);
+      expect(scene.document.extensions['test.links']!.data['target'], 'actor');
+      expect(scene.undo(), isTrue);
+      expect(scene.objects, contains('spare'));
+    },
+  );
+  test(
+    'one extension transaction restores related prefab overrides on undo and redo',
+    () {
+      final registry = StudioExtensionRegistry()..register(LinksCodec());
+      final doc = StudioAuthoring.createPrefab(
+        fixture({'test.links': record()}),
+        'actor',
+        prefabId: 'guard',
+        registry: registry,
+      );
+      final scene = StudioScene(doc, extensionRegistry: registry);
+      final before = scene.capture().encode();
+      final next = StudioAuthoring.updateNode(
+        registry.applyOverrides(scene.capture(), 'test.links', {'speed': 4}),
+        'actor/actor',
+        StudioOverride(position: const Vec3(3, 0, 0)),
+      );
+      scene.apply(next);
+      expect(scene.document.extensions['test.links']!.data['speed'], 4);
+      expect(
+        scene.document.nodes.single.overrides['actor']!.position,
+        const Vec3(3, 0, 0),
+      );
+      final edited = scene.capture().encode();
+      expect(scene.undo(), isTrue);
+      expect(scene.capture().encode(), before);
+      expect(scene.document.extensions['test.links']!.data['speed'], 2);
+      expect(scene.document.nodes.single.overrides, isEmpty);
+      expect(scene.objects['actor/actor']!.position, Vec3.zero);
+      expect(scene.history.canUndo, isFalse);
+      expect(scene.redo(), isTrue);
+      expect(scene.capture().encode(), edited);
+      expect(scene.history.canRedo, isFalse);
+    },
+  );
+  test(
+    'legacy schema 3 primitive documents reopen with schema 4 extensions',
+    () {
+      final legacy = {
+        'schemaVersion': 3,
+        'documentId': 'legacy-primitives',
+        'title': 'Legacy primitives',
+        'nodes': [
+          for (final kind in [
+            'box',
+            'sphere',
+            'cylinder',
+            'cone',
+            'torus',
+            'plane',
+          ])
+            {
+              'id': kind,
+              'label': kind,
+              'kind': kind,
+              'position': [0, 0, 0],
+              'scale': [1, 1, 1],
+              'rotation': [0, 0, 0, 1],
+              'size': [1, 1, 1],
+              'visible': true,
+              'color': 0x78dace,
+            },
+        ],
+        'camera': StudioCamera().toJson(),
+        'review': jsonDecode(
+          StudioDocument(
+            id: 'legacy-primitives',
+            title: 'Legacy primitives',
+            nodes: [],
+          ).review.encode(),
+        ),
+      };
+      final restored = StudioDocument.decode(jsonEncode(legacy));
+      expect(restored.extensions, isEmpty);
+      expect(restored.nodes.map((node) => node.kind.name), [
+        'box',
+        'sphere',
+        'cylinder',
+        'cone',
+        'torus',
+        'plane',
+      ]);
+      final extended = StudioAuthoring.updateExtension(
+        restored,
+        record(node: 'sphere'),
+        registry: StudioExtensionRegistry()..register(LinksCodec()),
+      );
+      final saved = StudioScene(extended).capture().encode();
+      expect(jsonDecode(saved)['schemaVersion'], 4);
+      expect(
+        StudioScene(StudioDocument.decode(saved)).capture().encode(),
+        saved,
       );
     },
   );

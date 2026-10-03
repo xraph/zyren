@@ -244,12 +244,17 @@ final class StudioAuthoringAgentProvider extends AgentProvider {
             label: arguments['label'] as String? ?? 'Box',
           );
         case 'remove':
-          next = StudioAuthoring.remove(doc, targetId!);
+          next = StudioAuthoring.remove(
+            doc,
+            targetId!,
+            registry: scene.extensionRegistry,
+          );
         case 'make_prefab':
           next = StudioAuthoring.createPrefab(
             doc,
             targetId!,
             prefabId: arguments['prefabId'] as String,
+            registry: scene.extensionRegistry,
           );
         case 'instance_prefab':
           next = StudioAuthoring.instancePrefab(
