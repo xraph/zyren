@@ -87,7 +87,39 @@ play and pause still use the shared timeline methods. Remove this host guard
 after the shared idle behavior is fixed and qualified. Authored action clocks
 remain outside this preview's scope.
 
-## Phases and acceptance
+## Completion work, 2026-10-03
+
+The full remaining roadmap is now requested. Keep the checked editor running
+while adding these vertical increments and commit each checked increment.
+
+1. Introduce schema version 2 with a version-1 reader, asset reference payloads,
+   prefab definitions and explicit instance overrides, supported material values,
+   and bounded authored transform clips. Validate references and expansion before
+   replacing the current document. Preserve review/source identities on reimport.
+2. Add an injected asset resolver and bounded template lifetime, then connect the
+   host to `PipelineAssetReference`, `PipelineAssetLibrary` and `FilePipelineCache`.
+   Pipeline already depends on Studio for document bundling. Studio must not
+   depend on Pipeline; keep the adapter in the example and save the shared
+   descriptor unchanged. Missing, mismatched, failed and cancelled loads must
+   remain distinct, with a retry path that retains the working scene.
+3. Add authoring history around the existing tools/gizmos, plus compact asset,
+   prefab, material, animation and review controls. Reuse the shared timeline for
+   deterministic playback. Preview a reconstructed document with independent
+   resources so cancellation never alters authored poses.
+4. Integrate the existing collaboration client, durable authority, offline queue,
+   presence and conditional undo. Use host grants and explicit conflict decisions.
+   Engineering notes continue through its existing document/session APIs.
+5. Close the shared idle-timeline request, inspect current presenter correlation
+   APIs, and verify provider discovery, guarded authoring commands and real native
+   MCP flows. Keep any unavailable pixel evidence explicit.
+6. Add Android/iOS runners and a real registered walkthrough, qualify available
+   hardware, and prepare release validation. Publication also requires released
+   dependency versions and publisher access; record the actual outcome.
+
+Shared dependency resolution for new Studio dependencies will use the existing
+lock. No shared source change is requested until its exact API gap is confirmed.
+
+## Original acceptance criteria
 
 1. Saved document and reconstruction. Validate bounded input, unique IDs, parent
    references, acyclic hierarchy, finite transforms, camera and source bindings.
@@ -214,3 +246,21 @@ Local commits:
   command guards, idle camera previews, lifecycle checks and updated runbook.
 
 No push or merge was performed.
+
+## Version 2 document increment
+
+You can now round-trip pinned asset descriptors, nested prefab definitions,
+instance overrides, supported material properties and bounded transform clips.
+Version 1 files remain readable. Reconstruction expands stable instance paths,
+keeps imported source IDs separate, and requires an explicit loaded asset scope.
+Missing or different pins fail before replacement. Closing a cancelled load
+releases every completed template.
+
+The runtime saves prefab edits as overrides and rejects unregistered imported
+hierarchy or material changes. Asset loading is injected to preserve the existing
+Pipeline to Studio dependency direction. The editor controls and Pipeline host
+adapter are the next increment; this document change does not qualify those flows.
+
+Checks: scoped analysis passes. All 13 package/widget tests pass, including v1
+migration, nested prefab/material round trips, malformed definitions, immutable
+asset pins and cancelled scope cleanup. Native authoring checks remain pending.
