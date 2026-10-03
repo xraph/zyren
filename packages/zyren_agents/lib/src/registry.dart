@@ -8,6 +8,7 @@ final class AgentRegistry {
   final Set<String> grantedScopes;
   final int maxProviders, maxInputBytes, maxRetryEntries;
   int _retryCount = 0;
+  int _registrationSequence = 0;
   final _retiredRetries = <String, Set<String>>{};
   final _providers = <String, _ProviderEntry>{};
   final _changes = StreamController<Map<String, Object?>>.broadcast();
@@ -38,7 +39,7 @@ final class AgentRegistry {
     if (tools.length != provider.tools.length || tools.length > 128) {
       throw ArgumentError('Provider tools must be unique and at most 128.');
     }
-    final entry = _ProviderEntry(provider, tools);
+    final entry = _ProviderEntry(provider, tools, ++_registrationSequence);
     if (utf8.encode(jsonEncode(entry.describe())).length > 262144) {
       throw ArgumentError('Provider discovery exceeds 256 KiB.');
     }
@@ -305,14 +306,16 @@ final class AgentRegistry {
 
 final class _ProviderEntry {
   final AgentProvider provider;
+  final int registrationId;
   final Map<String, AgentTool> tools;
   final Map<Object, AgentCancellation> pending = {};
   final retries = <String, (String, Future<AgentResult>)>{};
   late final Registration registration;
   bool mutating = false;
-  _ProviderEntry(this.provider, this.tools);
+  _ProviderEntry(this.provider, this.tools, this.registrationId);
   Map<String, Object?> describe() => {
     'providerId': provider.id,
+    'registrationId': registrationId,
     'version': provider.version,
     'instanceId': provider.instanceId,
     'revision': provider.revision,

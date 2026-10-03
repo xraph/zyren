@@ -117,3 +117,38 @@ subscribe/unsubscribe. It polls the authenticated feed every 500 ms while subscr
 sends resource-updated notifications and stops polling on unsubscribe or EOF.
 Resource reads include the latest 64 events. Direct callers can subscribe to registry
 changes. The resource wire format follows the [MCP resource specification](https://modelcontextprotocol.io/specification/2025-11-25/server/resources).
+
+## Studio workflows
+
+Import `workflow.dart` to run an LLM against the live registry. `AgentWorkflow`
+provides paginated plugin discovery, tool schema lookup and guarded invocation.
+You supply the model, scene context and an approval callback. The model cannot
+grant scopes or choose idempotency keys. Every mutation is reviewed before it
+runs, then checked against the original revision and provider registration.
+Reattaching a provider changes its registration identity, even if its revision
+starts at the same value.
+
+The workflow retains conversation and tool results in memory. Defaults are 24
+model steps, 96 tool calls per run and 512 KiB of conversation data. Stop cancels
+requests and pending review. Providers still own cooperative cancellation of
+in-flight operations; completed edits remain in their normal history. Model
+responses arrive once per step, without token streaming.
+
+`io.dart` supplies native HTTP adapters for OpenAI-compatible Chat Completions,
+Anthropic Messages and local OpenAI-compatible servers. Configure the base URL
+including its version path, model ID and API key. HTTPS is required except on
+loopback. Redirects are refused, responses are bounded to 1 MiB, and requests
+time out after 90 seconds. No provider response body or credential is logged.
+`AgentModelConfiguration.toJson()` excludes the key.
+
+Protocol references: [Chat Completions](https://developers.openai.com/api/reference/resources/chat)
+and [Anthropic tool results](https://platform.claude.com/docs/en/agents-and-tools/tool-use/handle-tool-calls).
+
+Import `plugins.dart` to expose the registry as the engine's `sceneAgents`
+service. `AgentRegistryPlugin` publishes it; `AgentProviderPlugin` binds an
+existing adapter to the runtime plugin's attachment scope. Detaching retires
+its tools and pending calls. Chat discovers the current registry on demand,
+so a new plugin does not need a chat-specific tool switch.
+
+See the Studio [workflow and coverage notes](../../examples/studio/AGENT_WORKFLOW.md)
+for the native editor integration and its current limits.

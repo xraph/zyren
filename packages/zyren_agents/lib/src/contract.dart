@@ -114,8 +114,15 @@ final class AgentResult {
 /// and at bounded intervals during jobs. It cannot undo an already committed action.
 final class AgentCancellation {
   bool _cancelled = false;
+  final _signal = Completer<void>();
+  Future<void> get whenCancelled => _signal.future;
   bool get isCancelled => _cancelled;
-  void cancel() => _cancelled = true;
+  void cancel() {
+    if (_cancelled) return;
+    _cancelled = true;
+    _signal.complete();
+  }
+
   void throwIfCancelled() {
     if (_cancelled) throw const AgentCancelledException();
   }
