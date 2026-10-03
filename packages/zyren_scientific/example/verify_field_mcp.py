@@ -48,7 +48,7 @@ def main():
             process.stdin.flush()
             providers = tool("agent_discover", {})["agentDiscovery"]["providers"]
             provider = next(p for p in providers if p["providerId"] == "zyren.scientific.field")
-            assert len(provider["tools"]) == 7
+            assert len(provider["tools"]) == 11
             state = call("inspect")
             revision = state["revision"]
             checks = []
@@ -84,11 +84,26 @@ def main():
             pixels = [p.read_bytes() for p in images]
             assert all(a != b for a, b in zip(pixels, pixels[1:])), "A mutation did not change the native image"
             assert pixels[0] == pixels[5], "Returning to the same slice changed its image"
+            revision = changed["revision"]
+            history = call("history")
+            assert history["data"]["canUndo"]
+            denied = call("undo", revision=revision, key="undo-time")
+            assert denied["status"] == "denied"
+            restored = call("undo", command=True, revision=revision, key="undo-time")
+            assert restored["status"] == "ok" and restored["data"]["time"] is None, restored
+            retry = call("undo", command=True, revision=revision, key="undo-time")
+            assert retry["revision"] == restored["revision"]
+            assert (output / "field-8.png").read_bytes() == pixels[0]
+            replayed = call("redo", command=True, revision=restored["revision"], key="redo-time")
+            assert replayed["status"] == "ok" and replayed["data"]["time"] == .5, replayed
+            assert (output / "field-9.png").read_bytes() == pixels[6]
+            cleared = call("clear_history", command=True, revision=replayed["revision"], key="clear")
+            assert cleared["status"] == "ok" and not cleared["data"]["history"]["canUndo"]
             capture = json.loads((output / "capture.json").read_text())
             process.stdin.close()
             assert process.wait(timeout=20) == 0
             report = {"status": "passed", "representations": checks, "temporalSeek": .5,
-                      "checks": ["discovery", "read-only denial", "authorized commands", "retry", "stale revision", "real pick to source cell", "distinct native images", "EOF cleanup"],
+                      "checks": ["discovery", "read-only denial", "authorized commands", "retry", "stale revision", "real pick to source cell", "distinct native images", "history, undo, redo and clear", "native restored images", "EOF cleanup"],
                       "native": capture}
             (output / "verification.json").write_text(json.dumps(report, indent=2) + "\n")
             print(json.dumps(report, indent=2))

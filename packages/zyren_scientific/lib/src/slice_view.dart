@@ -3,6 +3,7 @@ import 'package:zyren/zyren.dart';
 import 'scalar_grid.dart';
 import 'scalar_slice.dart';
 import 'transfer_function.dart';
+import 'history.dart';
 
 enum ScientificViewFailure { unavailable, stale }
 
@@ -26,6 +27,10 @@ final class ScientificSliceView {
   int _revision = 0, _meshRevision = 0;
   bool _disposed = false;
   final _disposal = <void Function()>[];
+  late final ScientificHistory<
+    ({SliceAxis axis, double index, ScalarTransferFunction transfer})
+  >
+  _history;
 
   ScientificSliceView({
     required this.id,
@@ -33,8 +38,15 @@ final class ScientificSliceView {
     required ScalarSlice slice,
     required this.coordinateTolerance,
     ScientificBudget? budget,
+    int historyLimit = 32,
+    int historyByteLimit = 32 * 1024 * 1024,
   }) : _slice = slice,
        budget = budget ?? ScientificBudget() {
+    _history = ScientificHistory(
+      limit: historyLimit,
+      byteLimit: historyByteLimit,
+      payloadBytes: (state) => state.transfer.stops.length * 32 + 128,
+    );
     if (!RegExp(r'^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,95}$').hasMatch(id) ||
         !coordinateTolerance.isFinite ||
         coordinateTolerance < 0 ||
@@ -47,6 +59,42 @@ final class ScientificSliceView {
     _mesh = slice.createMesh();
     if (_mesh case final mesh?) scene.add(mesh);
     _meshRevision = _mesh?.revision ?? 0;
+  }
+
+  bool get canUndo => !_disposed && _history.canUndo;
+  bool get canRedo => !_disposed && _history.canRedo;
+  Map<String, Object?> get history => _history.describe();
+  ({SliceAxis axis, double index, ScalarTransferFunction transfer})
+  _capture() =>
+      (axis: _slice.axis, index: _slice.index, transfer: _slice.transfer);
+
+  bool undo({required int expectedRevision}) =>
+      _moveHistory(false, expectedRevision);
+  bool redo({required int expectedRevision}) =>
+      _moveHistory(true, expectedRevision);
+  bool _moveHistory(bool redo, int expectedRevision) {
+    checkCurrent(expectedRevision: expectedRevision);
+    if (redo ? !canRedo : !canUndo) return false;
+    final next = _history.target(redo);
+    _replace(
+      ScalarSlice.build(
+        grid: _slice.grid,
+        transfer: next.transfer,
+        axis: next.axis,
+        index: next.index,
+        coordinateTolerance: coordinateTolerance,
+        budget: budget,
+      ),
+      recordHistory: false,
+    );
+    _history.move(redo);
+    return true;
+  }
+
+  void clearHistory({required int expectedRevision}) {
+    checkCurrent(expectedRevision: expectedRevision);
+    _history.clear();
+    _revision++;
   }
 
   int get revision => _revision;
@@ -107,7 +155,8 @@ final class ScientificSliceView {
     );
   }
 
-  void _replace(ScalarSlice next) {
+  void _replace(ScalarSlice next, {bool recordHistory = true}) {
+    final before = _capture();
     final nextMesh = next.createMesh();
     scene.batch(() {
       if (_mesh case final previous?) scene.remove(previous);
@@ -117,6 +166,15 @@ final class ScientificSliceView {
     _mesh = nextMesh;
     _meshRevision = nextMesh?.revision ?? 0;
     _revision++;
+    if (recordHistory) {
+      _history.record(
+        before,
+        _capture(),
+        before.axis != next.axis || before.index != next.index
+            ? 'Change slice'
+            : 'Change transfer',
+      );
+    }
   }
 
   /// Sample the actual picked triangle with its frozen barycentric weights.
@@ -219,6 +277,7 @@ final class ScientificSliceView {
       'viewRevision': revision,
       'sceneRevision': scene.revision,
       'runtimeObjectId': _mesh?.id,
+      'history': history,
       'dataset': {
         'sourceId': grid.source.id,
         'sourceKind': grid.source.kind.name,
@@ -275,6 +334,7 @@ final class ScientificSliceView {
   void dispose() {
     if (_disposed) return;
     _disposed = true;
+    _history.clear();
     if (_mesh case final mesh?) {
       mesh.parent?.remove(mesh);
     }

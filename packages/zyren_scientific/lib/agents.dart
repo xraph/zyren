@@ -79,7 +79,9 @@ final class ScientificAgentProvider extends AgentProvider {
     'solver': false,
     'dataKind': view.slice.grid.source.kind.name,
     'mutationScope': 'scientific.edit',
-    'undo': false,
+    'undo': true,
+    'redo': true,
+    'history': 'bounded-session',
     'maxSamples': view.budget.maxSamples,
     'maxSliceCells': view.budget.maxSliceCells,
     'maxGeometryBytes': view.budget.maxGeometryBytes,
@@ -144,6 +146,24 @@ final class ScientificAgentProvider extends AgentProvider {
 
   @override
   List<AgentTool> get tools => [
+    AgentTool(
+      name: 'history',
+      description:
+          'Read bounded undo/redo entries and retained payload limits.',
+      inputSchema: _input({}, []),
+      outputSchema: {'type': 'object'},
+    ),
+    for (final name in ['undo', 'redo', 'clear_history'])
+      AgentTool(
+        name: name,
+        description: name == 'clear_history'
+            ? 'Release retained history without changing the scientific view.'
+            : 'Restore the ${name == 'undo' ? 'previous' : 'next'} scientific state through the same validated scene swap.',
+        inputSchema: _input({}, []),
+        outputSchema: {'type': 'object'},
+        readOnly: false,
+        requiredScopes: {'scientific.edit'},
+      ),
     AgentTool(
       name: 'inspect',
       description:
@@ -272,6 +292,31 @@ final class ScientificAgentProvider extends AgentProvider {
       context.checkCancelled();
       view.checkCurrent(expectedRevision: context.expectedRevision);
       switch (tool) {
+        case 'history':
+          return AgentResult(
+            AgentStatus.ok,
+            data: view.history,
+            revision: revision,
+          );
+        case 'undo':
+        case 'redo':
+          final changed = tool == 'undo'
+              ? view.undo(expectedRevision: context.expectedRevision!)
+              : view.redo(expectedRevision: context.expectedRevision!);
+          return AgentResult(
+            changed ? AgentStatus.ok : AgentStatus.empty,
+            data: view.describe(),
+            revision: revision,
+            affectedIds: changed ? [view.id] : [],
+          );
+        case 'clear_history':
+          view.clearHistory(expectedRevision: context.expectedRevision!);
+          return AgentResult(
+            AgentStatus.ok,
+            data: view.describe(),
+            revision: revision,
+            affectedIds: [view.id],
+          );
         case 'sample_triangle':
           final weights = arguments['barycentric'] as List;
           return AgentResult(

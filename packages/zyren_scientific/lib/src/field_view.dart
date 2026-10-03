@@ -9,6 +9,7 @@ import 'vectors.dart';
 import 'temporal.dart';
 import 'volume.dart';
 import 'work.dart';
+import 'history.dart';
 
 enum ScientificRepresentation { slice, isosurface, vectors, streamline, volume }
 
@@ -21,6 +22,7 @@ final class ScientificFieldView {
   final TemporalScalarSource? temporal;
   final ScientificVolumeController? volume;
   final double coordinateTolerance, scalarTolerance;
+  final ScalarGrid3D _baseGrid;
   ScalarGrid3D _grid;
   ScalarTransferFunction _transfer;
   ScientificRepresentation _mode = ScientificRepresentation.slice;
@@ -40,6 +42,8 @@ final class ScientificFieldView {
   bool _disposed = false;
   final _disposal = <void Function()>[];
   Future<void> _queue = Future.value();
+  late final ScientificHistory<_FieldState> _history;
+  bool _initialized = false;
   ScientificFieldView({
     required this.id,
     required this.scene,
@@ -50,7 +54,10 @@ final class ScientificFieldView {
     this.vectors,
     this.temporal,
     this.volume,
-  }) : _grid = grid,
+    int historyLimit = 32,
+    int historyByteLimit = 32 * 1024 * 1024,
+  }) : _baseGrid = grid,
+       _grid = grid,
        _transfer = transfer,
        _threshold = transfer.minimum * .5 + transfer.maximum * .5,
        _seed = Vec3(
@@ -58,6 +65,12 @@ final class ScientificFieldView {
          (grid.sizeY - 1) * grid.spacing.y * .5,
          (grid.sizeZ - 1) * grid.spacing.z * .5,
        ) {
+    _history = ScientificHistory(
+      limit: historyLimit,
+      byteLimit: historyByteLimit,
+      payloadBytes: (state) =>
+          state.grid.payloadBytes + state.transfer.stops.length * 32 + 256,
+    );
     if (!RegExp(r'^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,95}$').hasMatch(id) ||
         !coordinateTolerance.isFinite ||
         coordinateTolerance < 0 ||
@@ -69,6 +82,63 @@ final class ScientificFieldView {
       throw ArgumentError('Invalid scientific field view configuration.');
     }
   }
+  bool get canUndo => !_disposed && _history.canUndo;
+  bool get canRedo => !_disposed && _history.canRedo;
+  Map<String, Object?> get history => _history.describe();
+  _FieldState _capture() => _FieldState(
+    _grid,
+    _transfer,
+    _mode,
+    _time,
+    _threshold,
+    _index,
+    _vectorScale,
+    _volumeOpacity,
+    _volumeStep,
+    _seed,
+  );
+
+  Future<T> _enqueue<T>(Future<T> Function() work) {
+    final future = _queue.then((_) => work());
+    _queue = future.then<void>((_) {}, onError: (Object _, StackTrace _) {});
+    return future;
+  }
+
+  Future<bool> undo({
+    required int expectedRevision,
+    ScientificCancellation? cancellation,
+  }) => _moveHistory(false, expectedRevision, cancellation);
+  Future<bool> redo({
+    required int expectedRevision,
+    ScientificCancellation? cancellation,
+  }) => _moveHistory(true, expectedRevision, cancellation);
+  Future<bool> _moveHistory(
+    bool redo,
+    int expectedRevision,
+    ScientificCancellation? cancellation,
+  ) => _enqueue(() async {
+    checkCurrent(expectedRevision: expectedRevision);
+    final token = ScientificCancellation(
+      isCancellationRequested: () =>
+          _disposed || (cancellation?.isCancelled ?? false),
+    );
+    token.check();
+    if (redo ? !canRedo : !canUndo) return false;
+    await _apply(_history.target(redo), expectedRevision, token);
+    _history.move(redo);
+    return true;
+  });
+
+  Future<void> clearHistory({
+    required int expectedRevision,
+    ScientificCancellation? cancellation,
+  }) => _enqueue(() async {
+    checkCurrent(expectedRevision: expectedRevision);
+    cancellation?.check();
+    _history.clear();
+    _revision++;
+  });
+
   int get revision => _revision;
   bool get isDisposed => _disposed;
   ScalarGrid3D get grid => _grid;
@@ -107,13 +177,14 @@ final class ScientificFieldView {
     double? sliceIndex,
     ScalarTransferFunction? transfer,
     double? time,
+    bool clearTime = false,
     Vec3? seed,
     double? vectorScale,
     double? volumeOpacity,
     double? volumeSampleDistance,
     ScientificCancellation? cancellation,
   }) {
-    final future = _queue.then((_) async {
+    return _enqueue(() async {
       checkCurrent(expectedRevision: expectedRevision);
       final token = ScientificCancellation(
         isCancellationRequested: () =>
@@ -140,7 +211,12 @@ final class ScientificFieldView {
         throw ArgumentError('Invalid scientific representation settings.');
       }
       final TemporalScalarSample? nextTime;
-      if (time != null) {
+      if (clearTime && time != null) {
+        throw ArgumentError('Choose a time or the static source.');
+      }
+      if (clearTime) {
+        nextTime = null;
+      } else if (time != null) {
         if (temporal == null) {
           throw StateError('This field has no temporal source.');
         }
@@ -148,123 +224,162 @@ final class ScientificFieldView {
       } else {
         nextTime = _time;
       }
-      final g = nextTime?.grid ?? _grid;
+      final g = nextTime?.grid ?? (clearTime ? _baseGrid : _grid);
       if (g.valueUnit != tf.unit) {
         throw ArgumentError('Transfer units do not match the scalar field.');
       }
-      Mesh? mesh;
-      ScalarSlice? slice;
-      ScientificSurface? surface;
-      ScientificLines? lines;
-      Streamline? streamline;
-      ScientificVolumeSettings? volumeSettings;
-      switch (mode) {
-        case ScientificRepresentation.slice:
-          slice = ScalarSlice.build(
-            grid: g,
-            transfer: tf,
-            axis: SliceAxis.z,
-            index: index,
+      final next = _FieldState(
+        g,
+        tf,
+        mode,
+        nextTime,
+        iso,
+        index,
+        scale,
+        opacity,
+        step,
+        p,
+      );
+      final before = _capture();
+      await _apply(next, expectedRevision, token);
+      if (_initialized) {
+        _history.record(
+          before,
+          next,
+          time != null
+              ? 'Change time'
+              : representation != null
+              ? 'Change representation'
+              : transfer != null
+              ? 'Change transfer'
+              : 'Change parameters',
+        );
+      }
+      _initialized = true;
+    });
+  }
+
+  Future<void> _apply(
+    _FieldState next,
+    int expectedRevision,
+    ScientificCancellation token,
+  ) async {
+    final g = next.grid,
+        tf = next.transfer,
+        mode = next.mode,
+        nextTime = next.time;
+    final iso = next.threshold,
+        index = next.index,
+        scale = next.scale,
+        opacity = next.opacity,
+        step = next.step,
+        p = next.seed;
+    Mesh? mesh;
+    ScalarSlice? slice;
+    ScientificSurface? surface;
+    ScientificLines? lines;
+    Streamline? streamline;
+    ScientificVolumeSettings? volumeSettings;
+    switch (mode) {
+      case ScientificRepresentation.slice:
+        slice = ScalarSlice.build(
+          grid: g,
+          transfer: tf,
+          axis: SliceAxis.z,
+          index: index,
+          coordinateTolerance: coordinateTolerance,
+        );
+        mesh = slice.createMesh();
+      case ScientificRepresentation.isosurface:
+        surface = await extractIsosurface(
+          grid: g,
+          threshold: iso,
+          transfer: tf,
+          coordinateTolerance: coordinateTolerance,
+          cancellation: token,
+        );
+        mesh = surface.createMesh();
+      case ScientificRepresentation.vectors:
+      case ScientificRepresentation.streamline:
+        final field = vectors;
+        if (field == null) throw StateError('This view has no vector field.');
+        final magnitude = ScalarTransferFunction(
+          unit: field.x.valueUnit,
+          minimum: 0,
+          maximum: 2,
+          stops: tf.stops,
+        );
+        if (mode == ScientificRepresentation.vectors) {
+          lines = await buildVectorGlyphs(
+            field: field,
+            transfer: magnitude,
+            lengthScale: scale,
             coordinateTolerance: coordinateTolerance,
-          );
-          mesh = slice.createMesh();
-        case ScientificRepresentation.isosurface:
-          surface = await extractIsosurface(
-            grid: g,
-            threshold: iso,
-            transfer: tf,
-            coordinateTolerance: coordinateTolerance,
+            stride: 3,
             cancellation: token,
           );
-          mesh = surface.createMesh();
-        case ScientificRepresentation.vectors:
-        case ScientificRepresentation.streamline:
-          final field = vectors;
-          if (field == null) throw StateError('This view has no vector field.');
-          final magnitude = ScalarTransferFunction(
-            unit: field.x.valueUnit,
-            minimum: 0,
-            maximum: 2,
-            stops: tf.stops,
+        } else {
+          streamline = await integrateStreamline(
+            field: field,
+            seed: p,
+            options: StreamlineOptions(maxLength: 10),
+            cancellation: token,
           );
-          if (mode == ScientificRepresentation.vectors) {
-            lines = await buildVectorGlyphs(
-              field: field,
-              transfer: magnitude,
-              lengthScale: scale,
-              coordinateTolerance: coordinateTolerance,
-              stride: 3,
-              cancellation: token,
-            );
-          } else {
-            streamline = await integrateStreamline(
-              field: field,
-              seed: p,
-              options: StreamlineOptions(maxLength: 10),
-              cancellation: token,
-            );
-            lines = streamline.geometry(
-              transfer: magnitude,
-              coordinateTolerance: coordinateTolerance,
-            );
-          }
-          mesh = lines.createMesh();
-        case ScientificRepresentation.volume:
-          if (volume == null) {
-            throw StateError('A native volume controller is required.');
-          }
-          volumeSettings = ScientificVolumeSettings(
-            grid: g,
-            transfer: VolumeTransferFunction(
-              unit: tf.unit,
-              minimum: tf.minimum,
-              maximum: tf.maximum,
-              stops: [
-                for (final stop in tf.stops)
-                  VolumeStop(
-                    stop.position,
-                    stop.color,
-                    opacity * stop.position,
-                  ),
-              ],
-            ),
-            sampleDistance: step,
-            referenceDistance: .1,
+          lines = streamline.geometry(
+            transfer: magnitude,
             coordinateTolerance: coordinateTolerance,
-            scalarTolerance: scalarTolerance,
           );
-      }
-      token.check();
-      checkCurrent(expectedRevision: expectedRevision);
-      // All CPU work is prepared before the GPU controller atomically swaps.
-      if (volume != null) {
-        await volume!.setVolume(volumeSettings, cancellation: token);
-      }
-      // A committed GPU swap is followed synchronously by the scene/state swap.
-      scene.batch(() {
-        _mesh?.parent?.remove(_mesh!);
-        if (mesh != null) scene.add(mesh);
-      });
-      _grid = g;
-      _transfer = tf;
-      _mode = mode;
-      _threshold = iso;
-      _index = index;
-      _vectorScale = scale;
-      _volumeOpacity = opacity;
-      _volumeStep = step;
-      _seed = p;
-      _mesh = mesh;
-      _meshRevision = mesh?.revision ?? 0;
-      _slice = slice;
-      _surface = surface;
-      _lines = lines;
-      _streamline = streamline;
-      _time = nextTime;
-      _revision++;
+        }
+        mesh = lines.createMesh();
+      case ScientificRepresentation.volume:
+        if (volume == null) {
+          throw StateError('A native volume controller is required.');
+        }
+        volumeSettings = ScientificVolumeSettings(
+          grid: g,
+          transfer: VolumeTransferFunction(
+            unit: tf.unit,
+            minimum: tf.minimum,
+            maximum: tf.maximum,
+            stops: [
+              for (final stop in tf.stops)
+                VolumeStop(stop.position, stop.color, opacity * stop.position),
+            ],
+          ),
+          sampleDistance: step,
+          referenceDistance: .1,
+          coordinateTolerance: coordinateTolerance,
+          scalarTolerance: scalarTolerance,
+        );
+    }
+    token.check();
+    checkCurrent(expectedRevision: expectedRevision);
+    // All CPU work is prepared before the GPU controller atomically swaps.
+    if (volume != null) {
+      await volume!.setVolume(volumeSettings, cancellation: token);
+    }
+    // A committed GPU swap is followed synchronously by the scene/state swap.
+    scene.batch(() {
+      _mesh?.parent?.remove(_mesh!);
+      if (mesh != null) scene.add(mesh);
     });
-    _queue = future.then<void>((_) {}, onError: (Object _, StackTrace _) {});
-    return future;
+    _grid = g;
+    _transfer = tf;
+    _mode = mode;
+    _threshold = iso;
+    _index = index;
+    _vectorScale = scale;
+    _volumeOpacity = opacity;
+    _volumeStep = step;
+    _seed = p;
+    _mesh = mesh;
+    _meshRevision = mesh?.revision ?? 0;
+    _slice = slice;
+    _surface = surface;
+    _lines = lines;
+    _streamline = streamline;
+    _time = nextTime;
+    _revision++;
   }
 
   Map<String, Object?> sample(Vec3 local) {
@@ -382,6 +497,7 @@ final class ScientificFieldView {
     checkCurrent();
     return {
       'viewId': id,
+      'history': history,
       'revision': revision,
       'representation': _mode.name,
       'sourceId': activeSource.id,
@@ -463,6 +579,7 @@ final class ScientificFieldView {
     }
     _disposal.clear();
     await _queue;
+    _history.clear();
     _mesh?.parent?.remove(_mesh!);
     _mesh = null;
     _slice = null;
@@ -472,4 +589,25 @@ final class ScientificFieldView {
     _time = null;
     if (volume != null && !volume!.isClosed) await volume!.setVolume(null);
   }
+}
+
+final class _FieldState {
+  final ScalarGrid3D grid;
+  final ScalarTransferFunction transfer;
+  final ScientificRepresentation mode;
+  final TemporalScalarSample? time;
+  final double threshold, index, scale, opacity, step;
+  final Vec3 seed;
+  const _FieldState(
+    this.grid,
+    this.transfer,
+    this.mode,
+    this.time,
+    this.threshold,
+    this.index,
+    this.scale,
+    this.opacity,
+    this.step,
+    this.seed,
+  );
 }

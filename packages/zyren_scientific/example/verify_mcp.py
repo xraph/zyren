@@ -53,7 +53,7 @@ def main():
             assert next(t for t in listed if t["name"] == "inspect_scene")["annotations"]["readOnlyHint"]
             discovery = tool("agent_discover", {})["agentDiscovery"]
             scientific = next(p for p in discovery["providers"] if p["providerId"] == "zyren.scientific")
-            assert len(scientific["tools"]) == 6
+            assert len(scientific["tools"]) == 10
             state = query("zyren.scientific", "synthetic-temperature", "inspect")
             assert state["status"] == "ok" and state["revision"] == 0
             assert state["data"]["dataset"]["sourceKind"] == "synthetic"
@@ -85,10 +85,18 @@ def main():
             assert not (output / "synthetic-3.png").exists(), "Retry rendered an additional state"
             capture = json.loads((output / "capture.json").read_text())
             assert capture["viewRevision"] == 1
+            history = query("zyren.scientific", "synthetic-temperature", "history")
+            assert history["data"]["canUndo"]
+            undone = tool("agent_command", {**command, "tool": "undo", "arguments": {}, "expectedRevision": 1, "idempotencyKey": "undo-slice"})["agentResult"]
+            assert undone["status"] == "ok" and undone["revision"] == 2, undone
+            assert (output / "synthetic-3.png").read_bytes() == (output / "synthetic-1.png").read_bytes()
+            redone = tool("agent_command", {**command, "tool": "redo", "arguments": {}, "expectedRevision": 2, "idempotencyKey": "redo-slice"})["agentResult"]
+            assert redone["status"] == "ok" and redone["revision"] == 3, redone
+            assert (output / "synthetic-4.png").read_bytes() == (output / "synthetic-2.png").read_bytes()
             process.stdin.close()
             assert process.wait(timeout=15) == 0
             report = {"status": "passed", "sourceKind": "synthetic", "sampleErrorK": error,
-                      "native": capture, "checks": ["discovery", "schema queries", "viewport pick", "scalar join", "read-only denial", "authorized slice change", "native pixel change", "retry", "stale revision", "EOF cleanup"],
+                      "native": capture, "checks": ["discovery", "schema queries", "viewport pick", "scalar join", "read-only denial", "authorized slice change", "native pixel change", "retry", "stale revision", "history and native undo/redo images", "EOF cleanup"],
                       "presentation": "offscreen; no human viewport or device qualification"}
             (output / "verification.json").write_text(json.dumps(report, indent=2) + "\n")
             print(json.dumps(report, indent=2))

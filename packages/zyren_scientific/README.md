@@ -186,6 +186,31 @@ limits exclude caller storage, VM overhead, temporary copies and native copies.
 They do not measure physical GPU residency. Each vector component retains its
 own scalar payload. Isosurface source-cell IDs contribute to the output budget.
 
+## Undo and session history
+
+Both views retain a bounded undo/redo history. The field view establishes its
+baseline on the first successful `configure`; later commits record settings and
+immutable source data. A temporal undo restores the original versioned values
+without reloading the source. Geometry and GPU resources are rebuilt on demand.
+
+```dart
+await view.undo(expectedRevision: view.revision);
+await view.redo(expectedRevision: view.revision);
+print(view.history); // Counts, labels, retained payload and configured limits.
+await view.clearHistory(expectedRevision: view.revision);
+```
+
+Use `canUndo` and `canRedo` to enable controls. Empty undo/redo returns false and
+keeps the revision. Successful operations advance it. Failed, cancelled or stale
+operations leave history untouched; a new successful edit discards redo.
+`configure(clearTime: true)` returns to the original static grid and is undoable.
+
+The default is 32 entries and 32 MiB of conservatively counted source/settings
+payload. Set `historyLimit` and `historyByteLimit` to lower these limits or disable
+history with zero. Hard ceilings are 256 entries and 64 MiB. Payload accounting
+excludes VM overhead, loader caches, temporary geometry and native copies. Closing
+a view releases its history. History is session-local and has no disk persistence.
+
 ## Runtime agents
 
 Import `package:zyren_scientific/agents.dart` and register your `ScientificFieldView`
@@ -200,6 +225,9 @@ with `registerScientificField`. The `zyren.scientific.field` provider exposes:
 | `set_parameters` | Threshold, slice index, seed, glyph scale and volume sampling controls |
 | `set_transfer` | Scalar range in the existing unit |
 | `seek` | Temporal source seek, when a source is attached |
+| `history` | Read undo/redo counts, labels and retained payload |
+| `undo`, `redo` | Restore a committed source and configuration |
+| `clear_history` | Release all retained undo/redo entries |
 
 The host grants `scientific.edit`. Mutations require an expected revision and an
 idempotency key; cancellation is checked before committing prepared work.
@@ -207,7 +235,8 @@ Disposal removes registered agent access and owned geometry. Pass the provider's
 `metadata` callback to the shared `AgentViewportProvider`. Triangle joins verify
 object and scene identity, and keep pixel visibility unknown. Lines and volumes
 use source-position queries. The host owns screen/frame correlation and policy.
-The independent slice provider and its six tools remain supported.
+The independent slice provider exposes the same four history tools alongside its
+six slice tools. All history mutations use the same editing scope and retry rules.
 
 ## Verification and examples
 

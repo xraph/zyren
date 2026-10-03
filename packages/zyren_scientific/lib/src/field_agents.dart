@@ -31,6 +31,9 @@ final class ScientificFieldAgentProvider extends AgentProvider {
   int get revision => view.revision;
   @override
   Map<String, Object?> get capabilities => {
+    'undo': true,
+    'redo': true,
+    'history': 'bounded-session',
     'isosurfaces': true,
     'vectors': view.vectors != null,
     'streamlines': view.vectors != null,
@@ -95,6 +98,24 @@ final class ScientificFieldAgentProvider extends AgentProvider {
   };
   @override
   List<AgentTool> get tools => [
+    AgentTool(
+      name: 'history',
+      description:
+          'Read bounded undo/redo entries and retained payload limits.',
+      inputSchema: _input({}, []),
+      outputSchema: {'type': 'object'},
+    ),
+    for (final name in ['undo', 'redo', 'clear_history'])
+      AgentTool(
+        name: name,
+        description: name == 'clear_history'
+            ? 'Release retained history without changing the scientific view.'
+            : 'Restore the ${name == 'undo' ? 'previous' : 'next'} scientific state through the same validated scene swap.',
+        inputSchema: _input({}, []),
+        outputSchema: {'type': 'object'},
+        readOnly: false,
+        requiredScopes: {'scientific.edit'},
+      ),
     AgentTool(
       name: 'inspect',
       description:
@@ -197,6 +218,40 @@ final class ScientificFieldAgentProvider extends AgentProvider {
         isCancellationRequested: () => context.cancellation.isCancelled,
       );
       switch (tool) {
+        case 'history':
+          return AgentResult(
+            AgentStatus.ok,
+            data: view.history,
+            revision: revision,
+          );
+        case 'undo':
+        case 'redo':
+          final changed = tool == 'undo'
+              ? await view.undo(
+                  expectedRevision: context.expectedRevision!,
+                  cancellation: cancellation,
+                )
+              : await view.redo(
+                  expectedRevision: context.expectedRevision!,
+                  cancellation: cancellation,
+                );
+          return AgentResult(
+            changed ? AgentStatus.ok : AgentStatus.empty,
+            data: view.describe(),
+            revision: revision,
+            affectedIds: changed ? [view.id] : [],
+          );
+        case 'clear_history':
+          await view.clearHistory(
+            expectedRevision: context.expectedRevision!,
+            cancellation: cancellation,
+          );
+          return AgentResult(
+            AgentStatus.ok,
+            data: view.describe(),
+            revision: revision,
+            affectedIds: [view.id],
+          );
         case 'inspect':
           break;
         case 'sample_position':
