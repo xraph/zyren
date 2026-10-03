@@ -1,0 +1,43 @@
+{
+  "backend": "Vulkan",
+  "imports": {
+    "survey.las": 3,
+    "survey.laz": 3,
+    "survey14.laz": 3,
+    "scans.e57": 4
+  },
+  "points": {
+    "selectedChunks": 16,
+    "visibleChunks": 16,
+    "activeRequests": 0,
+    "decodedBytes": 11130,
+    "reservedBytes": 0,
+    "cachedBytes": 0,
+    "gpuPayloadBytes": 3072,
+    "physicalGpuResidentBytes": null,
+    "budgetLimited": false
+  },
+  "gaussians": {
+    "selectedChunks": 16,
+    "visibleChunks": 16,
+    "activeRequests": 0,
+    "decodedBytes": 5824,
+    "reservedBytes": 0,
+    "cachedBytes": 0,
+    "gpuPayloadBytes": 6624,
+    "physicalGpuResidentBytes": null,
+    "budgetLimited": false
+  },
+  "projected": 36,
+  "readbackBytes": 0,
+  "filter": "passed",
+  "section": "passed",
+  "semantics": "passed",
+  "cleanup": "passed",
+  "pixelTests": [
+    "orthographic depth, clipping and transforms",
+    "perspective depth, clipping and transforms"
+  ],
+  "pluginReattachment": "passed",
+  "freshBackendRendererRecreation": "passed"
+}

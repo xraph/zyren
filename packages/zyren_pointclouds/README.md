@@ -1,7 +1,7 @@
 # zyren_pointclouds
 
-Load bounded XYZ samples, render native markers and query the original source
-coordinates. You can use this package without Flutter or geospatial services.
+Load bounded XYZ, LAS, LAZ and E57 samples, stream native markers and query
+the original source coordinates. You can use this package without Flutter or geospatial services.
 
 ```dart
 final task = assets.load(AssetRequest(
@@ -31,8 +31,8 @@ is unknown, never inferred as class zero.
 The default limits are 250,000 points, 32 MiB of input, 1,024 bytes per line and
 6 MiB of retained coordinate payload. Core asset limits also apply. These are
 payload limits, not a process-memory cap: source transport copies, parser objects,
-geometry copies, native expansion and caches have additional costs. Spatial chunks,
-streaming and separate GPU admission budgets remain planned work.
+geometry copies, native expansion and caches have additional costs. Streaming
+adds independent decoded, GPU payload and cache admission budgets.
 
 Native positions are relative to the first sample unless you choose an origin.
 Creation rejects a cloud whose float32 local positions exceed the display error
@@ -48,9 +48,9 @@ RUN_NATIVE_GPU=1 fvm dart test packages/zyren_pointclouds/test/native_test.dart
 ```
 
 The native test renders two markers, checks their pixels and source query, then
-checks that closing removes their pixels. Metal passed on 2026-10-02. Vulkan,
-DX12 and an interactive Flutter screen have not been checked for this package.
-LAS, LAZ, E57, spatial LOD and classification filtering are not implemented.
+checks that closing removes their pixels. Metal passed. The qualification app
+also passed native imports, spatial LOD, classification filtering and zero-readback
+Flutter presentation on a physical Pixel 9 Pro using Vulkan. DX12 remains unverified.
 
 For runtime agents, import `package:zyren_pointclouds/agents.dart` and register a
 `PointCloudAgentProvider(cloud: cloud, view: viewportProvider, instanceId: 'scan')`
@@ -62,9 +62,8 @@ fields when you need consistency with a specific view.
 
 These tools are read-only. They return classification bytes only when the source
 supplies them, report single-chunk residency, and leave rendered pixel visibility
-unknown. The direct registry flow has CPU and Metal offscreen tests. A live MCP
-host, geospatial/3D Tiles enrichment and authorized command integration still need
-verification. Run `fvm dart run packages/zyren_pointclouds/example/native.dart`
+unknown. The streamed provider below adds scoped commands and live MCP evidence.
+Run `fvm dart run packages/zyren_pointclouds/example/native.dart`
 for a native marker image and a source query; it writes `pointcloud.ppm`.
 
 ## Native LAS, LAZ and E57
@@ -142,4 +141,34 @@ The scene plugin attaches native point objects for the visible cut and invalidat
 its viewport when loading changes. It holds no continuous frame demand after
 settling. `PointCloudFilter` applies classification, intensity and withheld-state
 filters to both the native geometry and source queries. An empty filtered chunk
-produces no drawable or queryable points.
+produces no drawable or queryable points. Detach closes the stream by default.
+If your host retains it across plugin or engine recreation, set
+`closeStreamOnDetach: false` and close it after the host drains.
+
+## Geospatial and live agent integration
+
+Import `geospatial_agents.dart` to use `RealityGeospatialReference`. Declare a
+source-to-ECEF affine transform, choose ECEF directly, or create a local ENU frame
+from a geodetic origin. Use its group for the rendered source and the same reference
+for query enrichment. A LAS or E57 WKT string alone does not establish that mapping.
+Arbitrary CRS reprojection and geoid corrections are host responsibilities.
+
+`RealityTilesContext` reads a live `Tiles3DStreamer`: selected/visible tiles,
+requests, failures, budgets and payload bytes. Supply `linkForSource` only when you
+have a source-record-to-tile association. Feature IDs are verified against the
+visible tile instance and its feature set or label. Matching properties are bounded
+to 16 KiB. Missing, ambiguous or evicted features remain unverified. The adapter
+never infers membership from a URI or reports payload bytes as physical residency.
+Wrap point or Gaussian providers in `RealityContextAgentProvider` to add this
+context without changing their permission scopes.
+
+Import `stream_agents.dart` for `PointCloudStreamAgentProvider`. Its registered
+queries follow the visible, filtered LOD cut. Filter/undo and retry commands require
+host-granted `pointclouds.filter` and `pointclouds.retry` scopes respectively. Shared
+registry revisions and idempotency keys protect mutations; undo rejects a filter
+that the host has since replaced. Registration closes on plugin detach.
+
+The [qualification app](example/qualification/README.md) includes a host-started
+shared stdio MCP process, real encoded fixtures and a native Flutter view. See the
+[platform evidence](qualification/2026-10-03.md). This is not an independent agent
+transport. Physical GPU residency remains unknown.

@@ -1,0 +1,122 @@
+{
+  "probe": "verify_mcp.py passed",
+  "cleanup": "EOF drained both streams and removed scene providers",
+  "calls": {
+    "granted": [
+      {
+        "method": "initialize"
+      },
+      {
+        "method": "tools/list"
+      },
+      {
+        "method": "tools/call",
+        "name": "get_renderer_capabilities",
+        "backend": "Metal",
+        "adapter": "Apple M3 Max"
+      },
+      {
+        "method": "tools/call",
+        "name": "agent_discover",
+        "providers": [
+          "zyren.viewport",
+          "zyren.pointclouds.stream",
+          "zyren.splats.stream"
+        ]
+      },
+      {
+        "method": "tools/call",
+        "name": "agent_query",
+        "tool": "inspect",
+        "status": "ok",
+        "revision": 10
+      },
+      {
+        "method": "tools/call",
+        "name": "agent_command",
+        "tool": "filter",
+        "status": "ok",
+        "revision": 12
+      },
+      {
+        "method": "tools/call",
+        "name": "agent_command",
+        "tool": "filter",
+        "status": "ok",
+        "revision": 12
+      },
+      {
+        "method": "tools/call",
+        "name": "agent_query",
+        "tool": "inspect",
+        "status": "ok",
+        "revision": 15
+      },
+      {
+        "method": "tools/call",
+        "name": "agent_command",
+        "tool": "undoFilter",
+        "status": "stale",
+        "revision": null
+      },
+      {
+        "method": "tools/call",
+        "name": "agent_command",
+        "tool": "undoFilter",
+        "status": "ok",
+        "revision": 17
+      },
+      {
+        "method": "tools/call",
+        "name": "agent_query",
+        "tool": "estimate",
+        "status": "ok",
+        "revision": 13
+      }
+    ],
+    "denied": [
+      {
+        "method": "initialize"
+      },
+      {
+        "method": "tools/list"
+      },
+      {
+        "method": "tools/call",
+        "name": "get_renderer_capabilities",
+        "backend": "Metal",
+        "adapter": "Apple M3 Max"
+      },
+      {
+        "method": "tools/call",
+        "name": "agent_discover",
+        "providers": [
+          "zyren.viewport",
+          "zyren.pointclouds.stream",
+          "zyren.splats.stream"
+        ]
+      },
+      {
+        "method": "tools/call",
+        "name": "agent_query",
+        "tool": "inspect",
+        "status": "ok",
+        "revision": 10
+      },
+      {
+        "method": "tools/call",
+        "name": "agent_command",
+        "tool": "filter",
+        "status": "denied",
+        "revision": null
+      },
+      {
+        "method": "tools/call",
+        "name": "agent_query",
+        "tool": "estimate",
+        "status": "ok",
+        "revision": 7
+      }
+    ]
+  }
+}

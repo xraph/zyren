@@ -3,6 +3,7 @@ publish_to: none
 environment:
   sdk: '>=3.10.0 <4.0.0'
 workspace:
+  - packages/zyren_pointclouds/example/qualification
   - packages/zyren_splats
   - packages/zyren_pointclouds
   - packages/zyren_capture

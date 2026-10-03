@@ -1,202 +1,119 @@
 # Reality capture: point clouds and Gaussian splats
 
-You can follow both packages here. This work owns `packages/zyren_pointclouds`,
-`packages/zyren_splats` and their package examples. Neither package is published.
+This work owns `packages/zyren_pointclouds`, `packages/zyren_splats` and their
+package examples. Neither package is published. The requested completion scope
+covers streaming/LOD, LAS/LAZ/E57, perspective splats, scene compositing, geospatial
+adapters, live MCP and mobile qualification.
 
-## Completion run, 2026-10-02
+## Current implementation
 
-The requested remaining scope is now active. Work will proceed in these checked
-commits: native LAS/LAZ/E57 ingestion and source attributes; bounded spatial
-streaming/LOD for points and Gaussians; perspective covariance and scene depth
-compositing; geospatial/3D Tiles providers; then live MCP and mobile qualification.
-Each step must preserve stable source ordinals and expose actual residency and
-query coverage through the shared agent interface.
+| Workstream | Implemented behavior | Evidence |
+| --- | --- | --- |
+| Point ingestion | Strict XYZ and bounded native LAS/LAZ/E57, float64 coordinates, original ordinals, immutable source attributes and metadata | Real encoded synthetic fixtures; native Rust and Dart tests; Metal and Pixel imports |
+| Streaming/LOD | Frustum and screen-error selection, ancestor fallback, independent payload/cache/request budgets, cancellation through drain, stale-result disposal, eviction and explicit retry | Transition tests, filtered source queries and native streamed scenes |
+| Gaussian sources | Positive-definite covariance, bounded 32-byte `.splat`, explicit linear/sRGB conversion, source identities through chunk merges | Malformed/budget tests and numerical covariance checks |
+| Perspective splats | Perspective Jacobian, stable CPU mean-depth order, near/far mean clipping and a configurable scene variance floor | Finite-difference Jacobian and native Metal/Vulkan pixels |
+| Scene compositing | Public mesh shader, opaque scene depth test, premultiplied blend, transforms, visibility and section planes | Native pixel occlusion, clipping, transforms and resource cleanup |
+| Geospatial | Declared ECEF/ENU/affine source mapping; shared reference frame for scene placement and source evidence | Geodetic round trip and original-source ray query |
+| 3D Tiles | Live loading/LOD/budget context; declared tile associations verified against resident feature identities and properties | Loaded B3DM feature properties, missing/evicted mappings and revision guards |
+| Agents and MCP | Shared registry, viewport context, source-aware point and Gaussian queries, scoped point filter/undo/retry | Registry tests and live shared stdio MCP, including denial, identical retry, stale revision and EOF cleanup |
+| Native qualification | macOS Metal and physical Pixel 9 Pro Vulkan | Package and Flutter integration checks; desktop and narrow visual review |
+| iPhone | Unsigned device build succeeds; signed deployment blocked | Apple App ID quota and missing app provisioning profile, unchanged after unlocking |
 
-Native decoding will live under this package's `native` and `hook` directories,
-using pinned Rust LAS/LAZ and E57 readers. The public Dart data model stays CPU-only;
-`native.dart` is an optional entry point. Imported CRS, scale/offset, scan identity
-and return attributes must remain source metadata. Tests must exercise real encoded
-LAS, LAZ and E57 bytes, cancellation and limits, not just injected decoded points.
+The detailed platform record is
+`packages/zyren_pointclouds/qualification/2026-10-03.md`. It separates actual pixels,
+normal native presentation, CPU queries, compilation and unverified platforms.
 
-Scene compositing will use the public mesh shader API, including scene depth and
-alpha blending. No native renderer edit is planned. Perspective queries use the
-same projected covariance as rendering and retain the appearance-only distinction.
-Streaming acceptance includes bounded CPU/GPU admission, request cancellation,
-stale-load rejection, eviction, failure/retry and source-preserving LOD selections.
+## Decisions and public contracts
 
-Shared edit requests: register one package-local qualification app in
-`pubspec.yaml`, resolve dependencies, and add optional decoder FFI allowances for
-this package to `tool/check_package_boundaries.dart`. These edits use the shared
-lock and must preserve other owners' entries. Devices are checked for occupancy
-before qualification. A discoverable wireless device is not a successful build,
-launch or native qualification result.
+The audit found native `PointGeometry`, `PointsMaterial`, core asset loading and
+scoped GPU ownership. Core triangle ray queries do not cover source points or
+Gaussian opacity. Both packages therefore retain their own bounded source queries
+while using the shared scene graph and agent viewport contract.
 
-## Source audit and decisions
+A source record is `(sourceUri, sourceVersion, recordIndex)`. Runtime object IDs do
+not replace it. LOD retains original point samples and Gaussian records. Invalid
+E57 records leave gaps in source ordinals; local array indices remain separate.
+Point rendering uses recentered float32 positions with a declared error limit,
+while source queries retain float64 coordinates. This does not establish survey
+accuracy or infer a measured surface from marker pixels.
 
-The audit on 2026-10-02 found native `PointGeometry`, `PointsMaterial` and point
-packet support. Core `Raycaster` queries triangles only. `AssetLoader`,
-`AssetDecodeContext` and `LoadCancellation` provide bounded source loading;
-`GpuScope` owns native resources and drains accepted work on close.
+Native LAS/LAZ/E57 decoding is package-owned Rust with pinned dependencies and
+licence notices. The Dart worker checks cancellation between records and drains
+before native job destruction. Section lengths, declared counts, LAZ chunk tables
+and layered buffers are checked before allocation. WKT, LAS scale/offset, E57 scan
+poses, attributes and scan identities remain available. LAS waveform references
+are retained, but waveform sample payloads are not decoded. Chunked LAZ requires
+a valid chunk table.
 
-`RenderPassDescriptor` supports procedural instances and premultiplied alpha.
-Its public attachments expose color, with no depth attachment or sampled scene
-depth. Mesh shaders can access the scene depth pipeline, but custom displacement
-has no matching point or Gaussian CPU query. The particle implementation is a
-useful lifecycle reference, not a Gaussian renderer.
+The generic streamer lives in `zyren_pointclouds/streaming.dart`; splats reuse it.
+You can provide an asynchronous storage/network chunk loader. Offline octrees are
+bounded preprocessing helpers and retain their own source copies. Evicting a
+streamer entry does not release data retained by those builders. Payload budgets
+exclude Dart object, native parser and renderer-cache overhead. Physical GPU
+residency remains null.
 
-We will keep two packages. Both identify a record by the tuple `(sourceUri,
-sourceVersion, recordIndex)`. These values survive rendering and sorting. Scene
-object IDs are runtime handles and must not replace source identity. Both use
-core `Object3D` transforms and scoped ownership, with no Flutter or geospatial
-dependency. You supply coordinate units and any geospatial transform.
+Gaussians join scene rendering through public mesh shaders. No shared renderer
+change was needed. Each visible cut uses one combined CPU sort, avoiding separate
+tile draw order. The shader depth-tests at the mean and does not write scene depth.
+Opaque occlusion is qualified. Intersecting Gaussians and transparent mesh order
+remain approximate; Gaussian estimates are appearance evidence, not measurements.
+The explicit offscreen renderer remains color-only and owns per-frame targets.
 
-Point positions retain float64 source values. Native markers use positions
-relative to a source origin. Picking reports the source sample and transformed
-world position using an explicit world-space radius; it does not infer a measured
-surface from marker pixels. Splats provide appearance, not measurement accuracy.
+## Agent and domain integration
 
-## Phases and acceptance
+Both packages use `zyren_agents` and `AgentViewportProvider`, with bounded schemas,
+source/runtime IDs, camera/frame guards and lifecycle-bound registrations. Streamed
+queries follow the current visible cut. Missing rendered-pixel coverage stays
+unknown, including occlusion and clipping in Gaussian CPU estimates.
 
-1. Bounded point import, native markers and source picking.
-   - Strict XYZ text through the core asset loader, byte/line/point/decoded limits,
-     finite validation, cancellation and stable record indices.
-   - Recentered native point geometry with an explicit float32 error limit.
-     Source coordinates remain independent of the display approximation.
-   - Query transformed samples, respect visibility and supplied clipping planes,
-     deterministic ties, reject closed handles, and remove owned scene objects.
-   - Accept when budget and malformed input tests pass, asset scope loading works,
-     and a native offscreen image contains the expected points. Report GPU checks
-     separately from tests that only execute Dart.
-2. Minimal anisotropic Gaussian rendering.
-   - Validate positive-definite 3D covariance, color and opacity. Project covariance
-     through an orthographic camera, sort far to near with stable record ties,
-     evaluate `exp(-0.5 * d^T C^-1 d)` and blend premultiplied color natively.
-   - Use a bounded offscreen color pass. No scene-depth integration is claimed.
-     This is an orthographic Gaussian slice, not general perspective 3DGS support.
-   - Accept when numerical projection and ordering tests pass, native pixels match
-     an analytic Gaussian and overlapping colors, and scoped cleanup releases the
-     render buffers and target. Include an executable native example.
-3. Point streaming and domain attributes.
-   - Spatial hierarchy, screen error LOD, frame demand and cancellation on eviction;
-     independent CPU/GPU/cache budgets, source-index maps and recovery tests.
-   - Classifications, intensity, return metadata and selection filters. Make clipping
-     and queries use the same visible subset. Preserve original measurement samples.
-   - LAS/LAZ/E57 adapters with explicit scale/offset, units, source mappings, bounded
-     decompression, malformed corpus tests and real licensed fixture provenance.
-     Inspect pipeline bundle contracts before adding an optional adapter.
-4. Splat scenes and streaming.
-   - Perspective covariance Jacobian, near-plane handling and numeric conditioning;
-     spherical harmonics, documented format adapters and color-space conversion.
-   - Camera-driven sorting, GPU sorting and blending qualification, tile streaming,
-     LOD, cancellation and separate data/sort/target memory budgets.
-   - Integrate scene depth and transforms, shared frame demand, clipping, diagnostics
-     and appearance-only source selection. Qualify Metal, Vulkan and DX12 separately.
-   - Test sort ambiguity for intersecting Gaussians, multi-view lifetimes and mobile
-     budgets. An image comparison alone does not establish geometric accuracy.
+Point commands require host-granted scopes, expected revisions and idempotency
+keys. Filter undo checks that the host has not replaced the original command's
+result. Retry calls the ordinary stream loader. No command bypasses the registry.
+The example host uses the existing `zyren_devtools` stdio transport and adds no
+independent MCP protocol or network endpoint. It unregisters scene providers and
+drains both streams on EOF.
 
-## Shared files and dependencies
+Geospatial imports are optional entry points. Declare the source transform; a WKT
+string alone is not a conversion. Arbitrary reprojection and geoid correction
+remain host responsibilities. Tile feature context requires an explicit source
+association and a matching resident feature. Missing or ambiguous associations
+stay unverified. Feature property output has a 16 KiB ceiling.
 
-Requested shared edit: add these two workspace members to `pubspec.yaml`, then run
-dependency resolution under `/tmp/zyren-plugin-expansion.lock`. Preserve every
-other member. No shared Dart or native API edits are planned for the first slices.
-The depth attachment requirement remains a later API proposal, pending ownership
-and backend review. No speculative dependency on the pipeline or interaction
-packages is required.
+Shared dependency edits add `zyren_pointclouds` to splats and the optional domain
+adapters' `zyren_geospatial`/`zyren_3d_tiles` dependencies. The qualification app is
+one workspace member. Boundary and index edits use the shared lock, preserving
+other owners' entries. No production core renderer or native backend files belong
+to this change.
 
-## Evidence and current checkpoint
+## Lifecycle and qualification boundaries
 
-Both first slices are implemented. Fourteen CPU tests passed for asset integration,
-budgets, cancellation, precision, transforms, covariance, sorting and agent calls. Two native
-offscreen tests passed on Metal: point pixels and source identity, Gaussian falloff
-and sorted blending within 2/255, then frame-resource and pipeline retirement.
-The active `planet` application was left running; these checks used independent
-offscreen contexts. No connected mobile device was used.
+Scene plugins close their streams on detach by default. Hosts that retain source
+streams during engine or plugin recreation can opt out and own final closure.
+The qualification app uses that model and disposes its retained streams after the
+controller drains. The Gaussian renderer recreates its attachment scope and GPU
+resources when reattached. Forced physical device loss is not a qualified scenario.
 
-Use Flutter 3.47.5 from `.fvmrc`. The default shell Flutter was 3.35.7 and failed
-resolution with Dart 3.9.2. `flutter test` executed CPU tests, but its runner could
-not start this native backend. `fvm dart test` successfully ran the native checks.
-This was a runner distinction, not a missing Metal capability.
+macOS Metal and Pixel Vulkan are separate evidence. iPhone deployment is blocked
+by the current signing account's maximum of ten new App IDs per seven days and no
+profile for this app. Unlocking the phone does not resolve that account limit.
+An unsigned iOS build succeeds, but cannot establish on-device rendering. iPad,
+Windows/DX12 and Linux GPUs remain unverified.
 
-Interactive desktop/narrow Flutter layouts, Vulkan and DX12 are unverified.
-Both native examples also ran on Metal and wrote private PPM outputs under
-`artifacts/reality-capture`. They exercised actual imports/rendering and cleanup.
+Higher-order spherical harmonics, PLY import, GPU sorting and large-dataset
+performance qualification remain future work. This completion run does not claim
+full 3DGS format parity, universal mobile coverage or readiness for every platform.
+The standalone MCP AOT experiment failed native startup; `dart run` is the verified
+host command.
 
-Verification command: `RUN_NATIVE_GPU=1 fvm dart test --concurrency=1
-packages/zyren_pointclouds/test packages/zyren_splats/test`, 16 tests passed.
-The native cases also invoke the registered point/splat providers and check that
-closing removes discovery. The splat test covers target-budget rejection, hidden
-output, overlapping-call rejection and close during an accepted frame.
+## Local commits
 
-## Required agent runtime integration
+- `8ef7820`: initial XYZ, native markers, orthographic offscreen Gaussians and shared providers.
+- `a95143c`: native LAS/LAZ/E57, immutable attributes and encoded fixtures.
+- `dc5cbfe`: bounded spatial streaming and source-preserving point LOD.
+- `f2b6ee6`: perspective Gaussian scenes, streamed providers, format and geospatial adapters.
+- `4637d07`: fresh Gaussian attachment scopes and repeated native resource cleanup.
 
-The shared `zyren_agents` contract is required for package completion. Both
-packages expose optional `agents.dart` providers using its registry, schemas
-and lifecycle. Read tools report source/runtime IDs, classification when supplied,
-single-resident-chunk state and exact query coverage. Point geometry queries use
-the original samples; Gaussian queries report opacity estimates and unknown scene
-occlusion, never measured surfaces or confirmed pixels.
-
-Screen-point adapters use the shared `AgentViewportProvider` for document, scene,
-viewport, camera, DPR, revisions and presented-frame correlation. Registry tests
-cover discovery, schemas, stale revisions/cameras/frames, deleted targets, bounded
-hits and cleanup. Reads leave the scene revision unchanged. Point hits expose
-classification bytes or null; splat estimates expose opacity and unknown coverage.
-These providers are read-only. No independent MCP server was added. Live MCP and
-host-authorized mutation/undo flows remain required before plugin completion.
-
-Existing-plugin adapter backlog: optional `zyren_geospatial` and `zyren_3d_tiles`
-context enrichment with source coordinate reference, tileset/tile/feature identity,
-LOD and loading state. Inspect the public contracts before implementation. Missing
-metadata must remain unknown. These adapters are not established by a source URI.
-
-Remaining work includes phases 3 and 4 in full, the existing-plugin enrichment
-adapters, richer source formats, independent point GPU budgets, and qualification
-outside offscreen Metal. The first splat slice is an orthographic color pass and
-does not join normal scene rendering. No package is complete or ready for rollout.
-
-## Local commits and handoff
-
-- `8ef7820`: point-cloud ingestion/render/query path, orthographic Gaussian
-  renderer, shared agent providers, tests, native examples and workspace entries.
-- Shared provider signatures were available in `5ddc7ea`; their owner continues
-  transport and runtime work independently. No shared renderer/native code changed.
-- Final package analysis: no issues. Formatting: 18 Dart files unchanged.
-- Final package suite: 16 tests passed, including two real Metal offscreen tests.
-- Both native examples ran. Their ignored outputs are
-  `artifacts/reality-capture/pointcloud.ppm` and
-  `artifacts/reality-capture/gaussians.ppm`.
-- No live MCP session, interactive Flutter screen, mobile device or DX12 check
-  was performed in this checkpoint. No package was published, pushed or merged.
-
-Workspace registration was staged as an index-only patch for the two owned
-members. Other workspace edits and packages stayed outside this commit. One file
-write failed during disk pressure; retry succeeded without deleting shared data.
-
-### Native source formats, completion run
-
-Implemented a package-owned Rust asset for LAS/LAZ/E57, with an isolate decoder,
-record-loop cancellation and native job cleanup. Header, section, LAZ chunk-table
-and layered-buffer checks precede decoder allocation. Point data now preserves
-source ordinals, immutable attributes and metadata through subset selection.
-Scene hits carry a local data index separately from their source identity.
-
-Synthetic encoded LAS 1.4 formats 3 and 7, compressed LAZ and multi-scan E57 cover
-large-coordinate precision, return/classification/RGB metadata, WKT, scan poses,
-invalid-record gaps, cancellation and malformed/over-budget inputs. Fixtures are
-owned under the repository licence and have a reproducible generator. Native
-source import is qualified on the macOS host; mobile import is still pending.
-Chunked LAZ requires a chunk table. LAS waveform references are retained, but
-waveform sample payloads are not decoded. Payload budgets exclude parser and Dart
-object overhead; no total-process-memory bound is claimed.
-
-### Spatial streaming, completion run
-
-The generic streamer and point scene adapter now implement frustum/screen-error
-selection, atomic replacement with resident ancestors, cancellation and stale-result
-disposal, reservations held through drain, explicit failure/retry, cache eviction
-and separate decoded/GPU/cache payload ceilings. The offline octree keeps original
-source ordinals. Point filters affect both display and queries. Five transition
-tests passed, including delayed sibling loads, a cancelled request that finishes
-after returning to the same view, over-budget payload disposal and retry, coarse
-fallback under pressure, and source-preserving filtered queries. Native streaming
-scene and mobile checks remain part of the final qualification run.
+Qualification and lifecycle follow-ups stay in focused local commits. Nothing is
+pushed, merged or published by this task. Checks ran in the concurrent workspace;
+they do not certify unrelated owners' changes as a release.
