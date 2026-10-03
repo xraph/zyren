@@ -58,6 +58,16 @@ final class StudioEditorContext {
       Map.unmodifiable(services.viewportSnapshot());
   Set<String> get capabilities => Set.unmodifiable(services.capabilities());
   StudioEditorPlaySession? get playSession => _host.activePlaySession;
+  Future<void> startPlay(String id) {
+    _check();
+    return _host.startPlay(id);
+  }
+
+  Future<void> stopPlay() {
+    _check();
+    return _host.stopPlay();
+  }
+
   bool get isAvailable =>
       isActive && _owner.runtimeReady && services.isAvailable();
   void _check() {
