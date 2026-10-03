@@ -13,6 +13,7 @@
 #include <cstring>
 #include <time.h>
 #include "shaders.h"
+#include "xr_surface_extent.h"
 
 namespace {
 void check(VkResult r, const char* operation) { if (r != VK_SUCCESS) throw std::runtime_error(std::string(operation)+": "+std::to_string(r)); }
@@ -153,8 +154,10 @@ struct Presenter {
   uint32_t count=0; check(vkGetPhysicalDeviceSurfaceFormatsKHR(physical,surface,&count,nullptr),"surface formats"); std::vector<VkSurfaceFormatKHR> formats(count); check(vkGetPhysicalDeviceSurfaceFormatsKHR(physical,surface,&count,formats.data()),"surface formats");
   auto chosen=std::find_if(formats.begin(),formats.end(),[](auto f){return (f.format==VK_FORMAT_R8G8B8A8_SRGB || f.format==VK_FORMAT_B8G8R8A8_SRGB) && f.colorSpace==VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;});
   if(chosen==formats.end()) throw std::runtime_error("Vulkan camera surface has no sRGB format."); format=chosen->format;
-  width=caps.currentExtent.width==UINT32_MAX?requestedWidth:caps.currentExtent.width; height=caps.currentExtent.height==UINT32_MAX?requestedHeight:caps.currentExtent.height;
-  if(width!=requestedWidth || height!=requestedHeight) throw std::runtime_error("Camera surface dimensions changed.");
+  width=requestedWidth; height=requestedHeight;
+  // Window and callback dimensions settle independently. Retain this surface
+  // without a drawable until both agree, then retry from ready().
+  if(!extentMatches(caps)) return;
   VkSwapchainCreateInfoKHR swap{VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR}; swap.surface=surface; swap.minImageCount=std::max(2u,caps.minImageCount); if(caps.maxImageCount && swap.minImageCount>caps.maxImageCount) swap.minImageCount=caps.maxImageCount;
   swap.imageFormat=format; swap.imageColorSpace=chosen->colorSpace; swap.imageExtent={width,height}; swap.imageArrayLayers=1; swap.imageUsage=VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT; swap.imageSharingMode=VK_SHARING_MODE_EXCLUSIVE; swap.preTransform=caps.currentTransform;
   swap.compositeAlpha=VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR; if(!(caps.supportedCompositeAlpha&swap.compositeAlpha)) swap.compositeAlpha=VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR;
@@ -167,6 +170,20 @@ struct Presenter {
    VkFenceCreateInfo info{VK_STRUCTURE_TYPE_FENCE_CREATE_INFO}; VkFence done;
    check(vkCreateFence(device,&info,nullptr,&done),"image presentation fence"); presentFences.push_back(done); presenting.push_back(false);
   }
+ }
+ bool extentMatches(const VkSurfaceCapabilitiesKHR& caps) const {
+  return xrSurfaceExtentMatches(width,height,caps.currentExtent.width,caps.currentExtent.height,
+      caps.minImageExtent.width,caps.minImageExtent.height,caps.maxImageExtent.width,caps.maxImageExtent.height);
+ }
+ bool ready() {
+  if(failed || !surface || !window) return false;
+  VkSurfaceCapabilitiesKHR caps; check(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical,surface,&caps),"surface readiness");
+  if(!extentMatches(caps)) return false;
+  if(!swapchain) {
+   auto retained=window; ANativeWindow_acquire(retained);
+   attach(retained,width,height);
+  }
+  return swapchain!=VK_NULL_HANDLE;
  }
  VkImageView view(VkImage image,VkFormat f,void* next=nullptr) {
   VkImageViewCreateInfo ci{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO}; ci.pNext=next; ci.image=image; ci.viewType=VK_IMAGE_VIEW_TYPE_2D; ci.format=f; ci.subresourceRange={VK_IMAGE_ASPECT_COLOR_BIT,0,1,0,1}; VkImageView out; check(vkCreateImageView(device,&ci,nullptr,&out),"image view"); return out;
@@ -262,7 +279,7 @@ struct Presenter {
   try { check(vkQueueSubmit(queue,1,&submit,fence),"depth submit"); check(vkWaitForFences(device,1,&fence,VK_TRUE,UINT64_MAX),"depth completion"); }
   catch(...) { vkDeviceWaitIdle(device); throw; }
  }
- void draw(AHardwareBuffer* buffer,const float* uv,const uint8_t* packet,size_t size,const uint8_t* depthBytes,size_t depthSize,uint32_t depthWidth,uint32_t depthHeight,const float* depthCalibration,uint64_t depthDeadline) {
+ bool draw(AHardwareBuffer* buffer,const float* uv,const uint8_t* packet,size_t size,const uint8_t* depthBytes,size_t depthSize,uint32_t depthWidth,uint32_t depthHeight,const float* depthCalibration,uint64_t depthDeadline) {
   if(failed || pending || !swapchain) throw std::runtime_error("Camera presenter is unavailable or has a pending frame.");
   auto resources=std::make_unique<FrameResources>(device);
   auto& camera=resources->camera; auto& scene=resources->scene; auto& depth=resources->depth; auto& d=resources->draw;
@@ -273,6 +290,12 @@ struct Presenter {
    runtime.require(runtime.render(runtime.renderer,packet,size,reinterpret_cast<uint64_t>(device),reinterpret_cast<uint64_t>(scene.image),reinterpret_cast<uint64_t>(depth.image),width,height));
    check(vkResetFences(device,1,&acquireFence),"reset acquisition fence");
    auto acquiredResult=vkAcquireNextImageKHR(device,swapchain,UINT64_MAX,acquired,acquireFence,&index);
+   if(acquiredResult==VK_ERROR_OUT_OF_DATE_KHR) {
+    // The packet was already applied by the shared renderer. Retire its GPU
+    // work and return an unpublished receipt so Dart keeps that baseline.
+    check(vkDeviceWaitIdle(device),"resized scene completion");
+    discard(); return false;
+   }
    if(acquiredResult!=VK_SUBOPTIMAL_KHR) check(acquiredResult,"acquire camera drawable");
    acquisitionPending=true;
    check(vkWaitForFences(device,1,&acquireFence,VK_TRUE,UINT64_MAX),"drawable acquisition completion");
@@ -289,7 +312,7 @@ struct Presenter {
    float calibration[8]={uv[2]-uv[0],uv[4]-uv[0],uv[0],0,uv[3]-uv[1],uv[5]-uv[1],uv[1],0}; vkCmdPushConstants(command,d.layout,VK_SHADER_STAGE_FRAGMENT_BIT,0,sizeof(calibration),calibration); vkCmdDraw(command,3,1,0,0); vkCmdEndRenderPass(command);
    barrier(camera.image.image,VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,VK_IMAGE_LAYOUT_GENERAL,VK_ACCESS_SHADER_READ_BIT,0,family,VK_QUEUE_FAMILY_FOREIGN_EXT);
    check(vkEndCommandBuffer(command),"end commands"); check(vkResetFences(device,1,&fence),"reset fence"); VkPipelineStageFlags wait=VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT; VkSubmitInfo submit{VK_STRUCTURE_TYPE_SUBMIT_INFO}; submit.waitSemaphoreCount=1; submit.pWaitSemaphores=&acquired; submit.pWaitDstStageMask=&wait; submit.commandBufferCount=1; submit.pCommandBuffers=&command; submit.signalSemaphoreCount=1; submit.pSignalSemaphores=&finished[index];
-   check(vkQueueSubmit(queue,1,&submit,fence),"camera submit"); check(vkWaitForFences(device,1,&fence,VK_TRUE,UINT64_MAX),"camera GPU completion"); pending=true;
+   check(vkQueueSubmit(queue,1,&submit,fence),"camera submit"); check(vkWaitForFences(device,1,&fence,VK_TRUE,UINT64_MAX),"camera GPU completion"); pending=true; return true;
   } catch(const StaleDepth&) {
    if(!gpuRetired()) { failed=true; failedResources=std::move(resources); }
    throw;
@@ -307,7 +330,7 @@ struct Presenter {
   auto retained=window; if(retained) ANativeWindow_acquire(retained);
   auto w=width,h=height; attach(retained,w,h);
  }
- void publish() {
+ bool publish() {
   if(!pending || failed) throw std::runtime_error("No completed camera frame.");
   check(vkResetFences(device,1,&presentFences[index]),"reset presentation fence");
   VkSwapchainPresentFenceInfoEXT completion{VK_STRUCTURE_TYPE_SWAPCHAIN_PRESENT_FENCE_INFO_EXT}; completion.swapchainCount=1; completion.pFences=&presentFences[index];
@@ -316,7 +339,9 @@ struct Presenter {
   // These results enqueue the waits, including the rejected presentation cases.
   presenting[index]=result==VK_SUCCESS || result==VK_SUBOPTIMAL_KHR || result==VK_ERROR_OUT_OF_DATE_KHR || result==VK_ERROR_SURFACE_LOST_KHR || result==VK_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT;
   if(!presenting[index] && result!=VK_ERROR_OUT_OF_HOST_MEMORY && result!=VK_ERROR_OUT_OF_DEVICE_MEMORY && result!=VK_ERROR_DEVICE_LOST) presentationUnknown=true;
+  if(result==VK_ERROR_OUT_OF_DATE_KHR) { discard(); return false; }
   if(result!=VK_SUCCESS && result!=VK_SUBOPTIMAL_KHR) { failed=true; check(result,"camera present"); }
+  return true;
  }
 
 };
@@ -328,16 +353,17 @@ extern "C" JNIEXPORT void JNICALL Java_dev_zyren_xr_XrNative_destroy(JNIEnv* env
  catch(const std::exception& e) { fail(env,e); }
 }
 extern "C" JNIEXPORT void JNICALL Java_dev_zyren_xr_XrNative_surface(JNIEnv* env,jobject,jlong handle,jobject surface,jint width,jint height) { try { get(handle).attach(surface?ANativeWindow_fromSurface(env,surface):nullptr,width,height); } catch(const std::exception& e) { fail(env,e); } }
-extern "C" JNIEXPORT void JNICALL Java_dev_zyren_xr_XrNative_render(JNIEnv* env,jobject,jlong handle,jobject buffer,jfloatArray uv,jbyteArray packet,jbyteArray depth,jint depthWidth,jint depthHeight,jfloatArray depthCalibration,jlong depthDeadline) {
+extern "C" JNIEXPORT jboolean JNICALL Java_dev_zyren_xr_XrNative_render(JNIEnv* env,jobject,jlong handle,jobject buffer,jfloatArray uv,jbyteArray packet,jbyteArray depth,jint depthWidth,jint depthHeight,jfloatArray depthCalibration,jlong depthDeadline) {
  try {
   if(!buffer || !uv || env->GetArrayLength(uv)!=6 || !packet || env->GetArrayLength(packet)==0 || env->GetArrayLength(packet)>128*1024*1024) throw std::runtime_error("Invalid camera frame input.");
   float coords[6]; env->GetFloatArrayRegion(uv,0,6,coords); std::vector<uint8_t> bytes(env->GetArrayLength(packet)); env->GetByteArrayRegion(packet,0,bytes.size(),reinterpret_cast<jbyte*>(bytes.data()));
   auto hardware=AHardwareBuffer_fromHardwareBuffer(env,buffer); if(!hardware) throw std::runtime_error("Invalid camera hardware buffer."); std::vector<uint8_t> depthData; float dc[12]={};
   if(depth) { auto length=env->GetArrayLength(depth); if(length<1 || length>2048*2048*4 || !depthCalibration || env->GetArrayLength(depthCalibration)!=12) throw std::runtime_error("Invalid depth input."); depthData.resize(length); env->GetByteArrayRegion(depth,0,length,reinterpret_cast<jbyte*>(depthData.data())); env->GetFloatArrayRegion(depthCalibration,0,12,dc); }
-  get(handle).draw(hardware,coords,bytes.data(),bytes.size(),depthData.data(),depthData.size(),depthWidth,depthHeight,dc,static_cast<uint64_t>(depthDeadline));
- } catch(const std::exception& e) { fail(env,e); }
+  return get(handle).draw(hardware,coords,bytes.data(),bytes.size(),depthData.data(),depthData.size(),depthWidth,depthHeight,dc,static_cast<uint64_t>(depthDeadline));
+ } catch(const std::exception& e) { fail(env,e); return false; }
 }
-extern "C" JNIEXPORT void JNICALL Java_dev_zyren_xr_XrNative_publish(JNIEnv* env,jobject,jlong handle) { try { get(handle).publish(); } catch(const std::exception& e) { fail(env,e); } }
+extern "C" JNIEXPORT jboolean JNICALL Java_dev_zyren_xr_XrNative_publish(JNIEnv* env,jobject,jlong handle) { try { return get(handle).publish(); } catch(const std::exception& e) { fail(env,e); return false; } }
+extern "C" JNIEXPORT jboolean JNICALL Java_dev_zyren_xr_XrNative_ready(JNIEnv* env,jobject,jlong handle) { try { return get(handle).ready(); } catch(const std::exception& e) { fail(env,e); return false; } }
 extern "C" JNIEXPORT jbyteArray JNICALL Java_dev_zyren_xr_XrNative_command(JNIEnv* env,jobject,jlong handle,jint kind,jbyteArray input,jint capacity) {
  try {
   if(kind<0 || kind>2 || !input || env->GetArrayLength(input)>64*1024*1024+2048 || capacity<1 || capacity>64*1024*1024+24) throw std::runtime_error("Invalid GPU command bounds.");

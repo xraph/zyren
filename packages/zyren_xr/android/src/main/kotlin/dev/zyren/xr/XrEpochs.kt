@@ -13,6 +13,7 @@ internal class XrEpochs {
         if (id != presenterId) return null
         return ++surface
     }
+    @Synchronized fun currentSurface(id: String, generation: Long): Boolean = presenterId == id && surface == generation
     @Synchronized fun surface(): Long = surface
     @Synchronized fun current(epoch: Long): Boolean = lifecycle == epoch
     @Synchronized fun <T> guarded(epoch: Long, action: () -> T): T {

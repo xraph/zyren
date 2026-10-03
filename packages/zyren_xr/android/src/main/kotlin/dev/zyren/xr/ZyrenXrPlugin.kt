@@ -274,7 +274,7 @@ class ZyrenXrPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAw
         requireXr(args["presenterId"] == p.id, "invalidPresenter", "The presenter has been released.")
         return when (method) {
             "closePresenter" -> { p.close(); presenter = null; epochs.register(null); null }
-            "acquireFrame" -> p.acquire(update().also { requireXr(!depthEnabled || SystemClock.elapsedRealtimeNanos()-frameReceived <=250_000_000L,"staleDepth","Depth frame is older than 250 milliseconds.") }, revision, (args["near"] as? Number)?.toDouble() ?: 0.01, (args["far"] as? Number)?.toDouble() ?: 1000.0, depthEnabled, frameReceived).also { if (!epochs.current(runningEpoch)) { p.cancel(); throw XrFailure("frameDeferred", "The activity changed during acquisition.") } }
+            "acquireFrame" -> { p.requireSurfaceReady(); p.acquire(update().also { requireXr(!depthEnabled || SystemClock.elapsedRealtimeNanos()-frameReceived <=250_000_000L,"staleDepth","Depth frame is older than 250 milliseconds.") }, revision, (args["near"] as? Number)?.toDouble() ?: 0.01, (args["far"] as? Number)?.toDouble() ?: 1000.0, depthEnabled, frameReceived).also { if (!epochs.current(runningEpoch)) { p.cancel(); throw XrFailure("frameDeferred", "The activity changed during acquisition.") } } }
             "cancelFrame" -> { p.cancel((args["frameId"] as Number).toInt()); null }
             "presentFrame" -> p.present(args, revision,
                 { active && state == "running" && epochs.current(runningEpoch) && p.generation == epochs.surface() },
@@ -313,6 +313,6 @@ class ZyrenXrPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAw
         @Suppress("DEPRECATION")
         val displayRotation = activity?.windowManager?.defaultDisplay?.rotation ?: rotation
         val generation = epochs.changeSurface(id) ?: return
-        worker.execute { try { presenter?.takeIf { it.id == id }?.surface(surface, width, height, density, displayRotation, generation) } catch (e: Exception) { failure = mapOf("code" to "surfaceUnavailable", "message" to (e.message ?: "Camera surface unavailable")); pause() } }
+        worker.execute { try { presenter?.takeIf { it.id == id && epochs.currentSurface(id, generation) }?.surface(surface, width, height, density, displayRotation, generation) } catch (e: Exception) { failure = mapOf("code" to "surfaceUnavailable", "message" to (e.message ?: "Camera surface unavailable")); pause() } }
     }
 }

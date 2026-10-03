@@ -17,9 +17,10 @@ internal object XrNative {
     external fun create(token: Long): Long
     external fun destroy(handle: Long)
     external fun surface(handle: Long, surface: Surface?, width: Int, height: Int)
-    external fun render(handle: Long, buffer: HardwareBuffer, uv: FloatArray, packet: ByteArray, depth: ByteArray?, depthWidth: Int, depthHeight: Int, depthCalibration: FloatArray?, depthDeadline: Long)
+    external fun render(handle: Long, buffer: HardwareBuffer, uv: FloatArray, packet: ByteArray, depth: ByteArray?, depthWidth: Int, depthHeight: Int, depthCalibration: FloatArray?, depthDeadline: Long): Boolean
     external fun readback(handle: Long): Long
-    external fun publish(handle: Long)
+    external fun ready(handle: Long): Boolean
+    external fun publish(handle: Long): Boolean
     external fun discard(handle: Long)
     external fun command(handle: Long, kind: Int, bytes: ByteArray, capacity: Int): ByteArray
 }
@@ -52,6 +53,10 @@ internal class XrVulkanPresenter(token: Long) {
         if (closed) return
         revoke(); this.generation = generation; this.width = width; this.height = height; this.density = density; this.rotation = rotation
         XrNative.surface(native, surface, width, height)
+    }
+    fun requireSurfaceReady() {
+        requireXr(width in 1..4096 && height in 1..4096 && XrNative.ready(native),
+            "frameDeferred", "The camera surface dimensions are still changing.")
     }
     fun acquire(frame: Frame, revision: Int, near: Double, far: Double, depthEnabled: Boolean, observedNanos: Long): Map<String, Any?> {
         requireXr(available && !hasLease, "busy", "A camera frame is already retained.")
@@ -115,8 +120,9 @@ internal class XrVulkanPresenter(token: Long) {
         requireXr(frame != null && args["frameId"] == frame["frameId"] && args["revision"] == revision && frame["revision"] == revision && active(), "frameDeferred", "The camera lease or session changed.")
         try {
             requireXr(depth == null || android.os.SystemClock.elapsedRealtimeNanos()-observedNanos <= 250_000_000L, "staleDepth", "The retained depth observation is older than 250 milliseconds.")
-            XrNative.render(native, buffer!!, uv!!, args["packet"] as? ByteArray ?: throw XrFailure("invalidArguments", "Scene packet is missing."), depth, depthWidth, depthHeight, depthCalibration, if (depth != null) observedNanos+250_000_000L else 0L)
-            if (!publishRenderedFrame(active, { publish { XrNative.publish(native) } }, { XrNative.discard(native) })) {
+            val drawableReady = XrNative.render(native, buffer!!, uv!!, args["packet"] as? ByteArray ?: throw XrFailure("invalidArguments", "Scene packet is missing."), depth, depthWidth, depthHeight, depthCalibration, if (depth != null) observedNanos+250_000_000L else 0L)
+            var nativePresented = false
+            if (!drawableReady || !publishRenderedFrame(active, { publish { nativePresented = XrNative.publish(native) } }, { XrNative.discard(native) }) || !nativePresented) {
                 return frame!! + mapOf("applied" to true, "presented" to false)
             }
             presented++; presentedCalibration = frame

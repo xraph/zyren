@@ -36,6 +36,16 @@ class XrEpochsTest {
         assertFalse(submitted)
         assertTrue(discarded)
     }
+    @Test fun queuedPortraitCallbackCannotReplaceNewerLandscape() {
+        val epochs = XrEpochs()
+        epochs.register("presenter")
+        val portrait = epochs.changeSurface("presenter")!!
+        val landscape = epochs.changeSurface("presenter")!!
+        assertFalse(epochs.currentSurface("presenter", portrait))
+        assertTrue(epochs.currentSurface("presenter", landscape))
+        epochs.register("replacement")
+        assertFalse(epochs.currentSurface("presenter", landscape))
+    }
     @Test fun repeatedSensorFrameKeepsOriginalObservationTime() {
         val clock = XrFrameClock()
         assertEquals(1000L, clock.observe(900000000000L, 1000L))
