@@ -1,5 +1,48 @@
 part of '../zyren_3d_tiles.dart';
 
+// Lowest comparator value wins, matching the previous sorted-list order.
+final class _TilePriorityQueue<T> {
+  final int Function(T, T) compare;
+  final _items = <T>[];
+  _TilePriorityQueue(this.compare);
+  bool get isNotEmpty => _items.isNotEmpty;
+  void addAll(Iterable<T> values) {
+    for (final value in values) {
+      add(value);
+    }
+  }
+
+  void add(T value) {
+    var index = _items.length;
+    _items.add(value);
+    while (index > 0) {
+      final parent = (index - 1) ~/ 2;
+      if (compare(value, _items[parent]) >= 0) break;
+      _items[index] = _items[parent];
+      index = parent;
+    }
+    _items[index] = value;
+  }
+
+  T removeFirst() {
+    final first = _items.first, last = _items.removeLast();
+    if (_items.isEmpty) return first;
+    var index = 0;
+    while (index * 2 + 1 < _items.length) {
+      var child = index * 2 + 1;
+      if (child + 1 < _items.length &&
+          compare(_items[child + 1], _items[child]) < 0) {
+        child++;
+      }
+      if (compare(last, _items[child]) <= 0) break;
+      _items[index] = _items[child];
+      index = child;
+    }
+    _items[index] = last;
+    return first;
+  }
+}
+
 final class Tiles3DBudget {
   final int maxRequests,
       maxSelectedTiles,
@@ -106,6 +149,15 @@ class Tiles3DStreamer {
   Future<void>? _closing;
   Camera? _lastCamera;
   ViewportMetrics? _lastViewport;
+  final _screenErrors = <TileNode3D, double>{};
+  double _screenError(TileNode3D node) => _screenErrors.putIfAbsent(
+    node,
+    () => node.bounds.screenError(
+      node.geometricError,
+      _lastCamera!,
+      _lastViewport!,
+    ),
+  );
   Tiles3DStreamer({
     required Tileset3D tileset,
     required this.services,
@@ -176,6 +228,7 @@ class Tiles3DStreamer {
     _elapsed = time;
     _lastCamera = camera;
     _lastViewport = viewport;
+    _screenErrors.clear();
     final before = stats._values;
     final selectedBefore = _selected, visibleBefore = _visible;
     _discardInactive();
@@ -208,7 +261,10 @@ class Tiles3DStreamer {
     }
 
     final root = tileset.root;
-    final queue = <TileNode3D>[];
+    final queue = _TilePriorityQueue<TileNode3D>((a, b) {
+      final error = _screenError(b).compareTo(_screenError(a));
+      return error == 0 ? a.id.compareTo(b.id) : error;
+    });
     if (root.bounds.isVisible(camera, viewport) &&
         root.bounds.screenError(tileset.geometricError, camera, viewport) >
             maximumScreenError &&
@@ -216,23 +272,14 @@ class Tiles3DStreamer {
       queue.add(root);
     }
     while (queue.isNotEmpty) {
-      queue.sort((a, b) {
-        final error = b.bounds
-            .screenError(b.geometricError, camera, viewport)
-            .compareTo(
-              a.bounds.screenError(a.geometricError, camera, viewport),
-            );
-        return error == 0 ? a.id.compareTo(b.id) : error;
-      });
-      final node = queue.removeAt(0);
+      final node = queue.removeFirst();
       final external = _cache[node.id]?.content.hierarchy;
       if (node.children.isEmpty && external == null) continue;
       final threshold =
           maximumScreenError * (previous.contains(node.id) ? 0.8 : 1);
       if (external == null &&
           node.contentUri != null &&
-          node.bounds.screenError(node.geometricError, camera, viewport) <=
-              threshold) {
+          _screenError(node) <= threshold) {
         continue;
       }
       final children =
@@ -302,6 +349,7 @@ class Tiles3DStreamer {
     _attempts.clear();
     _lastCamera = null;
     _lastViewport = null;
+    _screenErrors.clear();
     _notify();
   }
 
@@ -527,25 +575,18 @@ class Tiles3DStreamer {
       desired = {tileset.root.id: ?root};
     }
     var residentBytes = bytes(desired);
-    final pending = desired.keys.toList();
+    double error(String id) {
+      final node = _selected[id];
+      return node == null ? 0 : _screenError(node);
+    }
+
+    final pending = _TilePriorityQueue<String>((a, b) {
+      final order = error(b).compareTo(error(a));
+      return order == 0 ? a.compareTo(b) : order;
+    })..addAll(desired.keys);
     final expanded = <String>{};
     while (pending.isNotEmpty) {
-      pending.sort((a, b) {
-        double error(String id) {
-          final node = _selected[id];
-          return node == null
-              ? 0
-              : node.bounds.screenError(
-                  node.geometricError,
-                  _lastCamera!,
-                  _lastViewport!,
-                );
-        }
-
-        final order = error(b).compareTo(error(a));
-        return order == 0 ? a.compareTo(b) : order;
-      });
-      final id = pending.removeAt(0);
+      final id = pending.removeFirst();
       if (!desired.containsKey(id) || !expanded.add(id)) continue;
       final node = _selected[id]!;
       final children = _branches[id];
@@ -735,6 +776,7 @@ class Tiles3DStreamer {
     _cache.clear();
     _visible = {};
     _selected = {};
+    _screenErrors.clear();
     _branches = {};
     _failures.clear();
     _attempts.clear();
