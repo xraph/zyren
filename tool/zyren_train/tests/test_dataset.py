@@ -90,3 +90,17 @@ def test_partial_storage_write_fault_cannot_publish_success(tmp_path):
     with pytest.raises(ValueError): r.finalize()
     assert not (tmp_path/'manifest.json').exists()
     r.abort()
+
+
+def test_normalizer_source_pin_covers_changed_verified_chunk_contents(tmp_path):
+    from zyren_train.dataset import DatasetPartition
+    from zyren_train.normalize import ObservationNormalizer
+    pins=[]
+    for index in range(2):
+        path=tmp_path/str(index); r=recorder(path)
+        value=row(1,end=True); value['observations']['actor'][0]+=index
+        r.append(value); r.finalize()
+        partition=DatasetPartition.from_recordings('train',[path])
+        pins.append(ObservationNormalizer.fit(partition))
+    assert pins[0].mean!=pins[1].mean
+    assert pins[0].source_hash!=pins[1].source_hash

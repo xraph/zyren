@@ -39,3 +39,9 @@ def test_normalizer_fits_train_only_and_schema_width():
     with pytest.raises(ValueError): ObservationNormalizer.fit(p,observations=samples([[1.],[1.,2.]]))
 
     with pytest.raises(ValueError): ObservationNormalizer.fit(p,observations=[ObservationSample('heldout','0','s0',(1.,2.))])
+
+
+def test_explicit_sample_pin_covers_values():
+    partition=DatasetPartition('train',(episode(0),))
+    pins=[ObservationNormalizer.fit(partition,observations=[ObservationSample('r0','0','s0',(value,))]) for value in (1.,2.)]
+    assert pins[0].source_hash!=pins[1].source_hash
