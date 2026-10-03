@@ -5,3 +5,11 @@ export 'src/waves/reference.dart';
 export 'src/waves/fft_plan.dart';
 export 'src/waves/field_snapshot.dart';
 export 'src/waves/gpu_field.dart';
+export 'src/surface/cube_patch.dart';
+export 'src/surface/coverage.dart';
+export 'src/surface/neighbours.dart';
+export 'src/surface/selector.dart';
+export 'src/surface/geometry.dart'
+    show OceanPatchGeometry, OceanSurfaceGeometry;
+export 'src/surface/morph.dart';
+export 'src/surface/wave_chart.dart';

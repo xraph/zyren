@@ -191,7 +191,7 @@ OceanSurfaceSelection selectOceanSurface(Camera camera, ViewportMetrics viewport
 OceanChartBlend chartBlend(Geodetic position); // Fixed world charts and derivatives.
 ```
 
-- [ ] Test all face-edge mappings and cube corners before native rendering.
+- [x] Test all face-edge mappings and cube corners before native rendering.
   For every neighbouring edge, sample its endpoints and midpoint in ECEF:
 
 ```dart
@@ -205,10 +205,10 @@ for (final pair in sharedEdges) {
   `sharedEdges` comes from the tested `OceanPatchNeighbours.sharedEdges(...)`;
   its entries expose oriented `OceanEdge.point(double) -> Vec3`. The helper
   computes expected sphere/ellipsoid projection independently from mesh vertices.
-- [ ] Build six face quadtrees, displacement-aware bounds, horizon culling and
+- [x] Build six face quadtrees, displacement-aware bounds, horizon culling and
   hysteretic screen-error refinement. Enforce at most one-level neighbour deltas,
   edge stitching and geomorphs. Budget exhaustion keeps coarse complete coverage.
-- [ ] Define wave charts on a fixed world partition, independent of visible
+- [x] Define wave charts on a fixed world partition, independent of visible
   mesh patches. Blend displacement and its derivative with normalized smooth
   weights. The derivative must include the weight term:
 
@@ -219,10 +219,10 @@ d(sum(w_i*h_i))/dx = sum(dw_i/dx*h_i + w_i*dh_i/dx)
   Keep resident charts requested by physics even off camera. Deterministic chart
   IDs/seeds survive rebase and streaming. Verify continuity at chart overlaps and
   poles. Reject unsafe displacement/fold-over configurations explicitly.
-- [ ] Render wireframe transitions and a continuous surface-to-orbit path.
+- [x] Render wireframe transitions and a continuous surface-to-orbit path.
   Record maximum screen-edge error, patch/vertex counts and no coverage holes.
   Check two cameras produce the same sampled world waves.
-- [ ] Commit `feat(ocean): add continuous globe surface detail`.
+- [x] Commit `feat(ocean): add continuous globe surface detail`.
 
 ## Task 4: W4 Batched surface queries independent of render quality
 
@@ -590,7 +590,7 @@ store, access policy, quality, frame/time owner, atmosphere and optional physics
 | Capability | Owning tasks | Required evidence | Current status |
 | --- | --- | --- | --- |
 | Spectral ocean and stable queries | W1, W2, W4 | Independent numeric oracle and native comparisons | W1/W2 passed on macOS; W4 queries pending |
-| Globe coverage and LOD | W3 | Seam tests and continuous native camera route | Planned |
+| Globe coverage and LOD | W3 | Seam tests and continuous native camera route | Passed on macOS with explicit unmet detail bounds; see surface evidence |
 | Native optics and underwater effects | W5-W7 | Composition tests and saved captures | Planned |
 | Physical buoyancy | W8, W9 | Native body trajectories, force balance and convergence | Planned |
 | Wakes, foam and spray | W10 | Field tests, replay and motion capture | Planned |

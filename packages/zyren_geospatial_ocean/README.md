@@ -1,8 +1,9 @@
 # Zyren geospatial ocean
 
 You can define a deterministic sea state and inspect its numerical surface with
-this optional package. Native FFT evaluation is available through a caller-owned GPU scope. The water
-renderer follows in the implementation plan. This package does not yet draw an ocean.
+this optional package. You can also evaluate native FFT fields and build a stitched
+ellipsoid mesh with native morph targets. Water shading and physical queries follow
+in the implementation plan; the package does not yet draw a shaded, displaced ocean.
 
 ```dart
 final state = OceanSeaState(
@@ -125,5 +126,46 @@ would fit alone. It fails explicitly and keeps the previous field.
 Native macOS checks now cover complex FFT agreement, packed derivatives, long-time
 phases, zero wind, overlapping bands, cancellation and failed allocation. A one-band
 64/128/256/512 sweep completed with finite output and zero owned allocations after
-close. No surface mesh, water optics, buoyancy or visual-quality claim follows from
-those compute results.
+close. Those compute results do not establish water optics, buoyancy or visual quality.
+
+
+## Globe surface and wave charts
+
+Use `OceanSurfaceSelector` with a camera, viewport and explicit patch/vertex limits.
+It keeps a complete six-face ellipsoid cover and returns the visible subset. Root
+coverage survives budget exhaustion. Check `budgetLimited` and
+`maximumScreenError`: the requested error is a target, not a guaranteed result.
+The error estimate covers curvature and coarse-edge stitching in physical pixels;
+perspective projection uses the distance to the conservative patch sphere, so
+this is a selection estimate, not a strict screen-space bound. Wave interpolation
+has a separate error budget. Supply a conservative displacement
+bound for culling. Bounds at or above a tenth of the minimum body radius fail.
+
+`OceanSurfaceGeometry` builds native buffers with double-precision patch origins
+and Float32 local vertices. Its fine edges follow coarse triangle chords. You can
+inspect the same piecewise-linear surface with `sample` or `sampleCube`.
+`OceanSurfaceMorph` holds the common refinement of both endpoint covers. Create
+meshes from its patches, place them at each patch origin, and set their sole morph
+weight together from zero to one. Only replace the transition geometry after it
+reaches one. Coarsening follows the same rule. The transition has its own vertex
+admission and a hard limit of 4096 patches; a rejected candidate leaves ownership
+of your current mesh unchanged.
+
+Grids use 4..64 power-of-two segments and neighbours differ by at most one level.
+Accepted ellipsoids have radii from 1 mm to 1e12 metres and an aspect ratio at most
+100. Coverage checks certify the mesh, not coastline or geographic data coverage.
+
+`OceanWaveCharts` supplies fixed ECEF metre coordinates, normalized smooth weights
+and tangent derivatives for six charts. Its blend includes derivatives of the
+weights, including at cube seams and poles. Pass a point on the declared ellipsoid.
+Seeds derive from the physical seed and stable chart ID using the version 1 uint32
+mapping; neither camera selection nor rebasing enters the calculation.
+`OceanChartResidency` combines visible requests with explicit physics leases and
+rejects over-budget changes atomically. Leases keep charts resident off camera.
+This is residency admission; GPU chart allocation is wired by the later controller.
+
+The native macOS route exercises an undistorted globe from 100 m to 20000 km
+altitude, with mixed refinement/coarsening and Float32 mesh inspection. Use
+altitude-aware camera clipping to retain depth precision. Water displacement,
+fold-over query rejection, optics and professional visual acceptance remain open.
+See [surface evidence](../../qualification/2026-10-03/ocean-surface.md).

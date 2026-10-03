@@ -1,0 +1,489 @@
+{
+  "backend": "native macOS",
+  "width": 480,
+  "height": 320,
+  "maximumFloat32EdgeGapPixels": 0.00015917275954497294,
+  "waveDisplacementRendered": false,
+  "frames": [
+    {
+      "frame": 0,
+      "altitudeMetres": 100.00000000000004,
+      "patches": 144,
+      "visiblePatches": 16,
+      "vertices": 11664,
+      "transitionVertices": 11664,
+      "maximumCurvatureErrorPixels": 98491.72708619585,
+      "budgetLimited": true
+    },
+    {
+      "frame": 1,
+      "altitudeMetres": 129.65458286007024,
+      "patches": 144,
+      "visiblePatches": 15,
+      "vertices": 11664,
+      "transitionVertices": 18468,
+      "maximumCurvatureErrorPixels": 6303470.533516535,
+      "budgetLimited": true
+    },
+    {
+      "frame": 2,
+      "altitudeMetres": 168.1031085661881,
+      "patches": 144,
+      "visiblePatches": 17,
+      "vertices": 11664,
+      "transitionVertices": 15552,
+      "maximumCurvatureErrorPixels": 25213882.13406614,
+      "budgetLimited": true
+    },
+    {
+      "frame": 3,
+      "altitudeMetres": 217.95338418630226,
+      "patches": 144,
+      "visiblePatches": 27,
+      "vertices": 11664,
+      "transitionVertices": 16524,
+      "maximumCurvatureErrorPixels": 25213882.13406614,
+      "budgetLimited": true
+    },
+    {
+      "frame": 4,
+      "altitudeMetres": 282.5865510961563,
+      "patches": 144,
+      "visiblePatches": 29,
+      "vertices": 11664,
+      "transitionVertices": 16767,
+      "maximumCurvatureErrorPixels": 100855528.53626455,
+      "budgetLimited": true
+    },
+    {
+      "frame": 5,
+      "altitudeMetres": 366.3864140423806,
+      "patches": 144,
+      "visiblePatches": 26,
+      "vertices": 11664,
+      "transitionVertices": 16281,
+      "maximumCurvatureErrorPixels": 25213882.13406614,
+      "budgetLimited": true
+    },
+    {
+      "frame": 6,
+      "altitudeMetres": 475.03677678261806,
+      "patches": 144,
+      "visiblePatches": 26,
+      "vertices": 11664,
+      "transitionVertices": 15795,
+      "maximumCurvatureErrorPixels": 25213882.13406614,
+      "budgetLimited": true
+    },
+    {
+      "frame": 7,
+      "altitudeMetres": 615.9069513694267,
+      "patches": 144,
+      "visiblePatches": 26,
+      "vertices": 11664,
+      "transitionVertices": 15795,
+      "maximumCurvatureErrorPixels": 6303470.533516535,
+      "budgetLimited": true
+    },
+    {
+      "frame": 8,
+      "altitudeMetres": 798.5515886042054,
+      "patches": 144,
+      "visiblePatches": 25,
+      "vertices": 11664,
+      "transitionVertices": 15552,
+      "maximumCurvatureErrorPixels": 25213882.13406614,
+      "budgetLimited": true
+    },
+    {
+      "frame": 9,
+      "altitudeMetres": 1035.3587311272463,
+      "patches": 144,
+      "visiblePatches": 21,
+      "vertices": 11664,
+      "transitionVertices": 15066,
+      "maximumCurvatureErrorPixels": 6303470.533516535,
+      "budgetLimited": true
+    },
+    {
+      "frame": 10,
+      "altitudeMetres": 1342.3900439483466,
+      "patches": 144,
+      "visiblePatches": 13,
+      "vertices": 11664,
+      "transitionVertices": 14823,
+      "maximumCurvatureErrorPixels": 6303470.533516535,
+      "budgetLimited": true
+    },
+    {
+      "frame": 11,
+      "altitudeMetres": 1740.4702118363414,
+      "patches": 141,
+      "visiblePatches": 7,
+      "vertices": 11421,
+      "transitionVertices": 13608,
+      "maximumCurvatureErrorPixels": 6303470.533516535,
+      "budgetLimited": true
+    },
+    {
+      "frame": 12,
+      "altitudeMetres": 2256.599392960188,
+      "patches": 144,
+      "visiblePatches": 5,
+      "vertices": 11664,
+      "transitionVertices": 11664,
+      "maximumCurvatureErrorPixels": 6303470.533516535,
+      "budgetLimited": true
+    },
+    {
+      "frame": 13,
+      "altitudeMetres": 2925.7845297654103,
+      "patches": 138,
+      "visiblePatches": 12,
+      "vertices": 11178,
+      "transitionVertices": 12879,
+      "maximumCurvatureErrorPixels": 6303470.533516535,
+      "budgetLimited": true
+    },
+    {
+      "frame": 14,
+      "altitudeMetres": 3793.413727451805,
+      "patches": 135,
+      "visiblePatches": 8,
+      "vertices": 10935,
+      "transitionVertices": 12150,
+      "maximumCurvatureErrorPixels": 25213882.13406614,
+      "budgetLimited": true
+    },
+    {
+      "frame": 15,
+      "altitudeMetres": 4918.334744484286,
+      "patches": 144,
+      "visiblePatches": 28,
+      "vertices": 11664,
+      "transitionVertices": 14094,
+      "maximumCurvatureErrorPixels": 6303470.533516535,
+      "budgetLimited": true
+    },
+    {
+      "frame": 16,
+      "altitudeMetres": 6376.846396622987,
+      "patches": 144,
+      "visiblePatches": 26,
+      "vertices": 11664,
+      "transitionVertices": 15066,
+      "maximumCurvatureErrorPixels": 6303470.533516535,
+      "budgetLimited": true
+    },
+    {
+      "frame": 17,
+      "altitudeMetres": 8267.873595168965,
+      "patches": 144,
+      "visiblePatches": 28,
+      "vertices": 11664,
+      "transitionVertices": 15552,
+      "maximumCurvatureErrorPixels": 6303470.533516535,
+      "budgetLimited": true
+    },
+    {
+      "frame": 18,
+      "altitudeMetres": 10719.677021214207,
+      "patches": 144,
+      "visiblePatches": 25,
+      "vertices": 11664,
+      "transitionVertices": 15066,
+      "maximumCurvatureErrorPixels": 25213882.13406614,
+      "budgetLimited": true
+    },
+    {
+      "frame": 19,
+      "altitudeMetres": 13898.552525802077,
+      "patches": 144,
+      "visiblePatches": 27,
+      "vertices": 11664,
+      "transitionVertices": 15309,
+      "maximumCurvatureErrorPixels": 25213882.13406614,
+      "budgetLimited": true
+    },
+    {
+      "frame": 20,
+      "altitudeMetres": 18020.11030091643,
+      "patches": 144,
+      "visiblePatches": 37,
+      "vertices": 11664,
+      "transitionVertices": 17253,
+      "maximumCurvatureErrorPixels": 25213882.13406614,
+      "budgetLimited": true
+    },
+    {
+      "frame": 21,
+      "altitudeMetres": 23363.898841577735,
+      "patches": 144,
+      "visiblePatches": 30,
+      "vertices": 11664,
+      "transitionVertices": 17253,
+      "maximumCurvatureErrorPixels": 6303470.533516535,
+      "budgetLimited": true
+    },
+    {
+      "frame": 22,
+      "altitudeMetres": 30292.365582896433,
+      "patches": 144,
+      "visiblePatches": 23,
+      "vertices": 11664,
+      "transitionVertices": 16767,
+      "maximumCurvatureErrorPixels": 7.817709313434653,
+      "budgetLimited": true
+    },
+    {
+      "frame": 23,
+      "altitudeMetres": 39275.44023495176,
+      "patches": 144,
+      "visiblePatches": 16,
+      "vertices": 11664,
+      "transitionVertices": 15795,
+      "maximumCurvatureErrorPixels": 25213882.13406614,
+      "budgetLimited": true
+    },
+    {
+      "frame": 24,
+      "altitudeMetres": 50922.40820308296,
+      "patches": 144,
+      "visiblePatches": 19,
+      "vertices": 11664,
+      "transitionVertices": 16281,
+      "maximumCurvatureErrorPixels": 25213882.13406614,
+      "budgetLimited": true
+    },
+    {
+      "frame": 25,
+      "altitudeMetres": 66023.23593800925,
+      "patches": 144,
+      "visiblePatches": 17,
+      "vertices": 11664,
+      "transitionVertices": 15795,
+      "maximumCurvatureErrorPixels": 3.497022404329869,
+      "budgetLimited": false
+    },
+    {
+      "frame": 26,
+      "altitudeMetres": 85602.15114614599,
+      "patches": 144,
+      "visiblePatches": 21,
+      "vertices": 11664,
+      "transitionVertices": 15066,
+      "maximumCurvatureErrorPixels": 7.625249422396585,
+      "budgetLimited": true
+    },
+    {
+      "frame": 27,
+      "altitudeMetres": 110987.11198778237,
+      "patches": 144,
+      "visiblePatches": 39,
+      "vertices": 11664,
+      "transitionVertices": 15309,
+      "maximumCurvatureErrorPixels": 14.100971178805437,
+      "budgetLimited": true
+    },
+    {
+      "frame": 28,
+      "altitudeMetres": 143899.87707619814,
+      "patches": 144,
+      "visiblePatches": 36,
+      "vertices": 11664,
+      "transitionVertices": 15309,
+      "maximumCurvatureErrorPixels": 8.4328254149587,
+      "budgetLimited": true
+    },
+    {
+      "frame": 29,
+      "altitudeMetres": 186572.78535929846,
+      "patches": 144,
+      "visiblePatches": 34,
+      "vertices": 11664,
+      "transitionVertices": 14337,
+      "maximumCurvatureErrorPixels": 8.029243658370273,
+      "budgetLimited": true
+    },
+    {
+      "frame": 30,
+      "altitudeMetres": 241900.16658801248,
+      "patches": 144,
+      "visiblePatches": 32,
+      "vertices": 11664,
+      "transitionVertices": 13851,
+      "maximumCurvatureErrorPixels": 6.590701272111293,
+      "budgetLimited": true
+    },
+    {
+      "frame": 31,
+      "altitudeMetres": 313634.6519275024,
+      "patches": 144,
+      "visiblePatches": 30,
+      "vertices": 11664,
+      "transitionVertices": 13365,
+      "maximumCurvatureErrorPixels": 6.9217161743314275,
+      "budgetLimited": true
+    },
+    {
+      "frame": 32,
+      "altitudeMetres": 406641.6996612363,
+      "patches": 144,
+      "visiblePatches": 28,
+      "vertices": 11664,
+      "transitionVertices": 13365,
+      "maximumCurvatureErrorPixels": 5.455049767762096,
+      "budgetLimited": true
+    },
+    {
+      "frame": 33,
+      "altitudeMetres": 527229.5994308763,
+      "patches": 144,
+      "visiblePatches": 16,
+      "vertices": 11664,
+      "transitionVertices": 14094,
+      "maximumCurvatureErrorPixels": 3.3558367202293113,
+      "budgetLimited": false
+    },
+    {
+      "frame": 34,
+      "altitudeMetres": 683577.3378569215,
+      "patches": 141,
+      "visiblePatches": 27,
+      "vertices": 11421,
+      "transitionVertices": 11664,
+      "maximumCurvatureErrorPixels": 3.9953756226379613,
+      "budgetLimited": false
+    },
+    {
+      "frame": 35,
+      "altitudeMetres": 886289.3459243625,
+      "patches": 141,
+      "visiblePatches": 32,
+      "vertices": 11421,
+      "transitionVertices": 11421,
+      "maximumCurvatureErrorPixels": 4.112531947021021,
+      "budgetLimited": true
+    },
+    {
+      "frame": 36,
+      "altitudeMetres": 1149114.7543914786,
+      "patches": 144,
+      "visiblePatches": 37,
+      "vertices": 11664,
+      "transitionVertices": 12150,
+      "maximumCurvatureErrorPixels": 8.880235921297324,
+      "budgetLimited": true
+    },
+    {
+      "frame": 37,
+      "altitudeMetres": 1489879.9413897917,
+      "patches": 144,
+      "visiblePatches": 58,
+      "vertices": 11664,
+      "transitionVertices": 11664,
+      "maximumCurvatureErrorPixels": 7.999379187604898,
+      "budgetLimited": true
+    },
+    {
+      "frame": 38,
+      "altitudeMetres": 1931697.6231247922,
+      "patches": 144,
+      "visiblePatches": 81,
+      "vertices": 11664,
+      "transitionVertices": 11664,
+      "maximumCurvatureErrorPixels": 6.793112233781639,
+      "budgetLimited": true
+    },
+    {
+      "frame": 39,
+      "altitudeMetres": 2504534.4953803397,
+      "patches": 144,
+      "visiblePatches": 91,
+      "vertices": 11664,
+      "transitionVertices": 12636,
+      "maximumCurvatureErrorPixels": 5.509591469624146,
+      "budgetLimited": true
+    },
+    {
+      "frame": 40,
+      "altitudeMetres": 3247243.752571943,
+      "patches": 144,
+      "visiblePatches": 102,
+      "vertices": 11664,
+      "transitionVertices": 12393,
+      "maximumCurvatureErrorPixels": 4.714575476742196,
+      "budgetLimited": true
+    },
+    {
+      "frame": 41,
+      "altitudeMetres": 4210200.34184685,
+      "patches": 144,
+      "visiblePatches": 111,
+      "vertices": 11664,
+      "transitionVertices": 12636,
+      "maximumCurvatureErrorPixels": 3.9731674923535834,
+      "budgetLimited": false
+    },
+    {
+      "frame": 42,
+      "altitudeMetres": 5458717.690794772,
+      "patches": 129,
+      "visiblePatches": 106,
+      "vertices": 10449,
+      "transitionVertices": 11664,
+      "maximumCurvatureErrorPixels": 3.948041430661671,
+      "budgetLimited": false
+    },
+    {
+      "frame": 43,
+      "altitudeMetres": 7077477.651508816,
+      "patches": 114,
+      "visiblePatches": 96,
+      "vertices": 9234,
+      "transitionVertices": 10692,
+      "maximumCurvatureErrorPixels": 3.7747576135445278,
+      "budgetLimited": false
+    },
+    {
+      "frame": 44,
+      "altitudeMetres": 9176274.126078462,
+      "patches": 93,
+      "visiblePatches": 75,
+      "vertices": 7533,
+      "transitionVertices": 9477,
+      "maximumCurvatureErrorPixels": 3.3009945282496647,
+      "budgetLimited": false
+    },
+    {
+      "frame": 45,
+      "altitudeMetres": 11897459.940263601,
+      "patches": 87,
+      "visiblePatches": 66,
+      "vertices": 7047,
+      "transitionVertices": 7776,
+      "maximumCurvatureErrorPixels": 2.612293999110476,
+      "budgetLimited": false
+    },
+    {
+      "frame": 46,
+      "altitudeMetres": 15425602.0564927,
+      "patches": 90,
+      "visiblePatches": 69,
+      "vertices": 7290,
+      "transitionVertices": 7290,
+      "maximumCurvatureErrorPixels": 1.9386300234306593,
+      "budgetLimited": false
+    },
+    {
+      "frame": 47,
+      "altitudeMetres": 19999999.999999978,
+      "patches": 84,
+      "visiblePatches": 64,
+      "vertices": 6804,
+      "transitionVertices": 7290,
+      "maximumCurvatureErrorPixels": 1.4099400746181514,
+      "budgetLimited": false
+    }
+  ]
+}
