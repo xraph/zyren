@@ -20,7 +20,13 @@ dependencies:
     path: ../zyren_navigation
   zyren_timeline:
     path: ../zyren_timeline
+  zyren_audio:
+    path: ../zyren_audio
+  zyren_particles:
+    path: ../zyren_particles
 dev_dependencies:
+  zyren_native:
+    path: ../zyren_native
   zyren_gltf:
     path: ../zyren_gltf
   zyren_gltf_timeline:

@@ -141,3 +141,45 @@ catch-up tick keeps its events, including events raised by another listener.
 Use `zyren_game_native` when the session needs Rapier. Its driver reuses the
 existing physics accumulator and root-motion hook. Pure project tools and game
 rules do not need a renderer or native library.
+
+## Gameplay rules
+
+Register `registerGameplayComponents(registry)` for inventory, ability collections
+and objective snapshots. Inventory capacity counts units, and transfers validate
+both bags before changing either. Ability costs commit at activation. Cancelling
+an ability retains its spent cost and cooldown; restoring its snapshot cancels
+in-flight execution while retaining the next allowed tick.
+
+Use one `GameActorRules` per live actor and bind it to `GameGameplaySystem` after
+session startup. Enqueue `GameTransferItem`, `GameUseAbility`, `GameInteract` or
+`GameCreditObjective` with an application tick of `session.tick + 1`. Commands with
+the same actor and receipt in that tick produce one result. Interactions require
+a registered `GameReachService`; stale actor or target generations cannot spend
+items. Objective receipts prevent repeated credit across ticks and snapshots.
+
+`GameRuleGraph` supports sequence, selector, inverter, predicate and running
+action nodes. Register typed ports and declared services in `GameActionRegistry`
+and `GamePredicateRegistry` before compilation. Cycles, shared nodes, dangling
+references and unknown operations fail compilation. Definitions are JSON data;
+only your registered Dart code can implement an operation.
+
+An action receives a short-lived `BehaviorContext`. It can read declared services
+and write bounded event or command queues. Predicates cannot enqueue actions.
+Drain those queues each tick. `GameBehaviorSystem` forwards accepted data commands
+to the next session tick; your controller adapter must recognize and validate the
+command type before applying it. The rule context contains no renderer or raw
+scene reference. Registered operation code remains trusted host code.
+
+Running actions retain their state until completion or cancellation. A changed
+entity generation, session epoch, pause or removal cancels them. A
+`GameStateMachine` can compose compiled graphs with registered guards. It takes at
+most one transition per tick and cancels the state it leaves. Gameplay graphs are
+separate from character animation graphs and Timeline clips.
+
+Pure fixtures cover the key/gate/objective loop, failed transfers, interrupted
+abilities, cooldown snapshots, duplicate receipts, typed graph validation,
+service access, bounded queues and entity cancellation. Run the focused checks:
+
+```sh
+fvm dart test test/gameplay_test.dart test/behavior_graph_test.dart
+```

@@ -26,6 +26,9 @@ final class GameEventBus {
   GameEventBus({this.capacity = 4096}) {
     _limit(capacity, 65536, 'capacity');
   }
+  bool get canEmit =>
+      !_closed && _journal.length < capacity && _pending.length < capacity;
+
   GameEventSubscription listen(void Function(GameEvent<Object>) listener) {
     if (_closed) throw StateError('Event bus is closed.');
     if (_listeners.length >= 1024) {

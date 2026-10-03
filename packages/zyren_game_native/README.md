@@ -31,3 +31,27 @@ boundary tolerance. Game character adapters build on that hook.
 The native fixture verifies 60 physical steps at 30, 60 and 120 rendered frames
 per second. It uses real Rapier and a deterministic test renderer. These checks
 establish simulation timing, not GPU or device performance qualification.
+
+## Gameplay sound and effects
+
+Emit `GameSoundEvent` through `GameSoundPublisher(session)`. Its tick must match
+the running session. The publisher bounds and deduplicates receipts for that tick.
+Sound positions use world metres; loudness is in 0..1. Hearing reads the gameplay
+event journal even when speaker playback is muted or unavailable.
+
+Import `package:zyren_game_native/audio.dart` when you want speaker playback.
+`GameAudioEvents` binds event categories to existing `AudioEmitter` instances.
+It borrows your `SpatialAudio` engine, retains its spatial attenuation and native
+focus policy, and uses an `AttachmentScope` for its listener lifetime. Supply an
+error handler so a removed emitter remains a visible playback failure.
+
+Import `package:zyren_game_native/effects.dart` for `GameEffectEvents`. Bind event
+names to your existing `ParticleController` emitters. The adapter deduplicates
+burst receipts and bounds pending delivery; Particles still owns fixed-step
+simulation and GPU resources. Closing the scope drains queued work and clears
+those bound effects without closing the borrowed controller.
+
+The audio fixture ran the real native offline mixer and verified that muting or
+closing playback leaves hearing events intact. The effects fixture ran an actual
+`NativeBackend` particle burst and verified disposal. These macOS checks establish
+the integration paths, not mobile support or a sustained device frame budget.

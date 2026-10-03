@@ -19,3 +19,4 @@ part 'src/character.dart';
 part 'src/character_intent.dart';
 part 'src/camera_rig.dart';
 part 'src/interaction_query.dart';
+part 'src/sound_event.dart';
