@@ -85,13 +85,17 @@ class Tiles3DPlugin extends ScenePlugin {
   @override
   void beforeRender(PluginContext context, FrameInfo frame) {
     final input = context.input;
-    _streamer!.update(
-      context.camera,
-      input is ViewportInputSource
-          ? input.viewport
-          : ViewportMetrics(frame.width.toDouble(), frame.height.toDouble()),
-      elapsed: frame.elapsed,
+    final logical = input is ViewportInputSource ? input.viewport : null;
+    final height = frame.height.toDouble();
+    // Screen error follows the capped render target. Keep the input aspect for
+    // the host's projection, but do not use its logical height or raw DPR.
+    final viewport = ViewportMetrics(
+      logical != null && logical.isUsable
+          ? logical.aspect * height
+          : frame.width.toDouble(),
+      height,
     );
+    _streamer!.update(context.camera, viewport, elapsed: frame.elapsed);
     _sync();
     if (isTransitioning) context.invalidate();
   }

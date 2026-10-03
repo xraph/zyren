@@ -5,6 +5,12 @@ supports explicit and implicit hierarchies, external tilesets, GLB/glTF and b3dm
 content. Google Maps and Cesium Ion sessions use caller-provided credentials.
 Keep provider attribution visible through `Tiles3DPlugin.attributions`.
 
+`maximumScreenError` defaults to 8 render pixels. The plugin uses the actual
+frame height after the host's resolution cap, while preserving the logical
+viewport aspect for culling. Touch dimensions and raw device pixel ratio do not
+set the detail level. If you drive `Tiles3DStreamer` directly, pass viewport
+metrics with the rendered pixel height and the projection's aspect ratio.
+
 You can enable refinement fades when attaching the plugin:
 
 ```dart
