@@ -37,7 +37,7 @@ final class CharacterAgentProvider extends AgentProvider {
   Map<String, Object?> get capabilities => {
     'timeUnits': 'seconds',
     'transformOwner': 'timeline-local-pose',
-    'rootMotion': 'unsupported',
+    'rootMotion': 'separate-locomotion-provider',
     'movement': 'host-controller-required',
     'commandsAvailable': runCommand != null,
   };

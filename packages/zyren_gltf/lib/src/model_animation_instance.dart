@@ -153,6 +153,7 @@ final class ModelInstance extends Group {
   void Function() prepareBlendedPose(
     Iterable<ModelPoseContribution> absolute, {
     Iterable<ModelPoseContribution> additive = const [],
+    ModelPose Function(ModelPose)? process,
   }) {
     final weighted = List<ModelPoseContribution>.of(absolute);
     final additions = List<ModelPoseContribution>.of(additive);
@@ -160,7 +161,8 @@ final class ModelInstance extends Group {
       _validatePoseOwner(entry.pose);
       if (entry.reference case final reference?) _validatePoseOwner(reference);
     }
-    return prepareSampledPose(_blendModelPoses(weighted, additions));
+    final blended = _blendModelPoses(weighted, additions);
+    return prepareSampledPose(process == null ? blended : process(blended));
   }
 
   /// Prepares animation and deformation as one scene edit.

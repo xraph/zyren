@@ -1,9 +1,11 @@
 # Characters and navigation
 
-You can use this workstream to drive imported animation states and query a small
-authored navigation mesh. The first checkpoint covers explicit state changes and
-point-agent routes. Root motion and a collision-aware character controller need
-separate milestones.
+You can drive imported animation states, root motion and capsule collision,
+generate navigation with dynamic obstacles, and apply IK and rig retargeting.
+Metal and Pixel Vulkan qualification has passed. iOS, Windows DX12 and Linux
+presentation still need completed device runs. The dated checkpoints below retain
+the earlier implementation history; the current record is in
+`packages/zyren_characters/QUALIFICATION.md`.
 
 ## Source audit and decisions
 
@@ -245,3 +247,48 @@ stale or invalid collider rejection. Cargo check passes. Broader physics and
 timeline tests were temporarily blocked by concurrent core texture changes:
 `MipmapAlphaFilter` was referenced before its definition became available.
 Re-run those checks before final qualification.
+
+## Root motion through native qualification, 2026-10-02 to 2026-10-03
+
+Implemented phases 2 through 4: signed root translation/yaw, an externally driven
+timeline, native capsule movement, fixed-step motor, generated layered navigation,
+versioned obstacles and replanning, two-bone/look-at IK and explicit bind-relative
+retargeting. Completed pipeline jobs now supply pinned static navigation geometry.
+The authored navigation and animation-state APIs remain available.
+
+The shared glTF pose processor runs after blending and before deformation. It
+validates template ownership before committing immutable node edits. The shared
+timeline exposes traversal independently of seeks, and PhysicsPlugin owns the
+single fixed-step callback. Shared edits are limited to those contracts, package
+allowlists and the character example's workspace registration.
+
+The interactive Character Lab loads native skinned bipeds, including a second rig
+with legs 30% longer. It connects ground-ray IK, root-driven collision movement,
+dynamic obstacle replanning and retargeting. Optional providers expose locomotion
+and generated navigation through the existing scoped agent registry.
+
+Verification:
+
+- 23 character tests pass with native GPU checks enabled, including live stdio
+  MCP and particle playback. A private manifest pins the already-built native
+  libraries during the final shared-workspace test run.
+- 15 navigation, 23 physics, 54 timeline and 17 focused glTF tests pass. The glTF
+  timeline suite passes five tests with four GPU cases skipped in that suite.
+- Analysis, package boundaries, Apple ABI headers and scoped diff checks pass.
+- macOS Metal: 48 presented frames, 456 physics steps, desktop/narrow resize,
+  pause/resume, obstacle arrival, source-aware picking, authorized movement,
+  zero presentation readback and cleanup all pass.
+- Pixel 9 Pro Vulkan: the same assertions pass across 48 frames and 453 steps.
+  A transient compile failure in concurrent Android renderer work cleared before
+  this final passing run.
+- The iPhone app built, signed and connected wirelessly, but its VM service
+  disappeared before a test result. Both iOS devices reported passcode gates.
+  The iPad was not run. No Windows DX12 or Linux presentation run is available.
+
+The package qualification record states algorithm bounds and remaining hardware
+gates. Phases 2 through 4 are implemented within those bounds. Phase 5 is qualified
+on macOS and Pixel only; it is not complete across every target platform.
+
+Local implementation commits include `000a125` for capsule movement and fixed-step
+physics, and `4e6f326` for generated navigation and dynamic obstacles. Nothing was
+pushed, merged or published.

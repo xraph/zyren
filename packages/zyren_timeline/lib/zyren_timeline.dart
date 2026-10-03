@@ -150,6 +150,30 @@ class SceneTimelinePlugin extends ScenePlugin {
   final List<TimelineAction> _actions = [];
   Registration? _actionDemand;
   bool _actionFirstTick = true;
+
+  /// Set before attaching when a fixed-step host owns this timeline's clock.
+  bool externallyDriven = false;
+
+  /// Advances all clocks once, validates the full pose, then commits it.
+  void advance(Duration delta) {
+    if (!externallyDriven) {
+      throw StateError('Enable external timeline driving first.');
+    }
+    if (delta.isNegative) throw ArgumentError('Delta must be nonnegative.');
+    _actionFirstTick = false;
+    _firstTick = false;
+    _tick(
+      _attached,
+      FrameInfo(
+        elapsed: _position + delta,
+        delta: delta,
+        number: 0,
+        width: 1,
+        height: 1,
+      ),
+    );
+  }
+
   final Duration duration;
   final List<TimelineTrack> tracks;
   final List<TimelineMarker> markers;
@@ -342,6 +366,10 @@ class SceneTimelinePlugin extends ScenePlugin {
 
   @override
   void beforeRender(PluginContext context, FrameInfo frame) {
+    if (!externallyDriven) _tick(context, frame);
+  }
+
+  void _tick(PluginContext context, FrameInfo frame) {
     final snapshots = [for (final action in _actions) action._snapshot()];
     final active = _actions.any((action) => action._needsFrame);
     try {

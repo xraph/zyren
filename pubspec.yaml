@@ -10,6 +10,7 @@ workspace:
   - packages/zyren_collaboration/example/native_app
   - packages/zyren_audio
   - packages/zyren_characters
+  - packages/zyren_characters/example/app
   - packages/zyren_navigation
   - packages/zyren_scientific
   - packages/zyren_scientific/example/flutter

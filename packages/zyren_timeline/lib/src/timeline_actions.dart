@@ -2,6 +2,7 @@ part of '../zyren_timeline.dart';
 
 typedef _ActionSnapshot = ({
   Duration position,
+  Duration traversal,
   double weight,
   Duration elapsed,
 });
@@ -12,6 +13,7 @@ final class TimelineAction {
   final SceneTimelinePlugin _owner;
   final TimelineClip clip;
   Duration _position = Duration.zero, _elapsed = Duration.zero;
+  Duration _traversal = Duration.zero;
   double _weight;
   bool _playing = false, _disposed = false;
   bool loop, reverse;
@@ -31,6 +33,9 @@ final class TimelineAction {
   }
 
   Duration get position => _position;
+
+  /// Signed playback travel. Seeks do not contribute; loop crossings do.
+  Duration get traversal => _traversal;
   double get weight => _weight;
   bool get isPlaying => _playing;
 
@@ -135,10 +140,15 @@ final class TimelineAction {
   }
 
   bool get _needsFrame => _playing || _fade != null;
-  _ActionSnapshot _snapshot() =>
-      (position: _position, weight: _weight, elapsed: _elapsed);
+  _ActionSnapshot _snapshot() => (
+    position: _position,
+    traversal: _traversal,
+    weight: _weight,
+    elapsed: _elapsed,
+  );
   void _restore(_ActionSnapshot state) {
     _position = state.position;
+    _traversal = state.traversal;
     _weight = state.weight;
     _elapsed = state.elapsed;
   }
@@ -148,6 +158,10 @@ final class TimelineAction {
       final length = clip.duration.inMicroseconds;
       final local = _position.inMicroseconds;
       final deltaUs = delta.inMicroseconds;
+      final travel = loop
+          ? deltaUs
+          : math.min(deltaUs, reverse ? local : length - local);
+      _traversal += Duration(microseconds: reverse ? -travel : travel);
       if (loop) {
         final phase = reverse ? length - local : local;
         final next = (phase + deltaUs % length) % length;

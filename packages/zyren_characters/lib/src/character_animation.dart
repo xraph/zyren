@@ -20,9 +20,21 @@ final class CharacterState {
     ModelInstance instance,
     ModelAnimation animation, {
     bool loop = true,
-  }) => CharacterState(id, modelClip(instance, animation), loop: loop);
-  factory CharacterState.rest(String id, ModelInstance instance) =>
-      CharacterState(id, modelRestClip(instance), loop: false);
+    ModelPose Function(ModelPose)? process,
+  }) => CharacterState(
+    id,
+    modelClip(instance, animation, process: process),
+    loop: loop,
+  );
+  factory CharacterState.rest(
+    String id,
+    ModelInstance instance, {
+    ModelPose Function(ModelPose)? process,
+  }) => CharacterState(
+    id,
+    modelRestClip(instance, process: process),
+    loop: false,
+  );
 }
 
 /// One allowed directed state change, with a positive crossfade duration.
@@ -95,6 +107,19 @@ final class CharacterAnimationPlugin extends ScenePlugin {
   Map<String, double> get weights => Map.unmodifiable({
     for (final e in _actions.entries) e.key: e.value.weight,
   });
+  Map<String, ({Duration position, Duration traversal, double weight})>
+  get clocks {
+    _check();
+    return Map.unmodifiable({
+      for (final e in _actions.entries)
+        e.key: (
+          position: e.value.position,
+          traversal: e.value.traversal,
+          weight: e.value.weight,
+        ),
+    });
+  }
+
   Duration positionOf(String state) {
     _check();
     return (_actions[state] ?? (throw ArgumentError.value(state, 'state')))

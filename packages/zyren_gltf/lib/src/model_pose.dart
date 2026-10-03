@@ -5,6 +5,29 @@ final class ModelPose {
   final _SharedModel _template;
   final Map<int, ({Vec3 position, Quat rotation, Vec3 scale})> nodes;
   final Map<int, List<double>> weights;
+  bool sharesTemplateWith(ModelPose other) =>
+      identical(_template, other._template);
+
+  /// Replaces selected local transforms, preserving node and template identity.
+  ModelPose withNodes(
+    Map<int, ({Vec3 position, Quat rotation, Vec3 scale})> edits,
+  ) {
+    for (final e in edits.entries) {
+      if (!nodes.containsKey(e.key) ||
+          !e.value.position.isFinite ||
+          !e.value.scale.isFinite ||
+          e.value.scale.x == 0 ||
+          e.value.scale.y == 0 ||
+          e.value.scale.z == 0) {
+        throw ArgumentError(
+          'Pose edits need existing nodes and invertible finite TRS.',
+        );
+      }
+      e.value.rotation.normalized();
+    }
+    return ModelPose._(_template, {...nodes, ...edits}, weights);
+  }
+
   ModelPose._(
     this._template,
     Map<int, ({Vec3 position, Quat rotation, Vec3 scale})> nodes,

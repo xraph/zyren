@@ -33,16 +33,20 @@ final class ModelAnimationTrack extends BlendableTimelineTrack {
   @override
   final ModelInstance target;
   final ModelAnimation? animation;
+
+  /// A shared pure processor, called once after mixing and before deformation.
+  final ModelPose Function(ModelPose)? process;
   @override
   final Duration end;
-  ModelAnimationTrack(this.target, this.animation, this.end) {
+  ModelAnimationTrack(this.target, this.animation, this.end, {this.process}) {
     if (!target.animations.contains(animation) || end < animation!.duration) {
       throw ArgumentError(
         'Track animation must belong to its instance and fit its duration.',
       );
     }
   }
-  ModelAnimationTrack.rest(this.target, this.end) : animation = null {
+  ModelAnimationTrack.rest(this.target, this.end, {this.process})
+    : animation = null {
     if (end <= Duration.zero) {
       throw ArgumentError('Rest clip duration must be positive.');
     }
@@ -51,14 +55,17 @@ final class ModelAnimationTrack extends BlendableTimelineTrack {
       target.samplePose(animation: animation, time: time, initial: true);
   @override
   ModelAnimationTrack snapshot() => animation == null
-      ? ModelAnimationTrack.rest(target, end)
-      : ModelAnimationTrack(target, animation!, end);
+      ? ModelAnimationTrack.rest(target, end, process: process)
+      : ModelAnimationTrack(target, animation!, end, process: process);
   @override
   bool canBlendWith(BlendableTimelineTrack other) =>
-      other is ModelAnimationTrack && identical(target, other.target);
+      other is ModelAnimationTrack &&
+      identical(target, other.target) &&
+      identical(process, other.process);
   @override
-  void Function() prepare(Duration time) =>
-      target.prepareSampledPose(_sample(time));
+  void Function() prepare(Duration time) => target.prepareSampledPose(
+    process == null ? _sample(time) : process!(_sample(time)),
+  );
   @override
   void Function() prepareBlend(
     List<TimelineBlendSample> absolute,
@@ -71,6 +78,7 @@ final class ModelAnimationTrack extends BlendableTimelineTrack {
         for (final entry in absolute)
           ModelPoseContribution(sample(entry, entry.time), entry.weight),
       ],
+      process: process,
       additive: [
         for (final entry in additive)
           ModelPoseContribution(
@@ -84,13 +92,19 @@ final class ModelAnimationTrack extends BlendableTimelineTrack {
 }
 
 /// An imported clip that participates in authored layers and runtime actions.
-TimelineClip modelClip(ModelInstance instance, ModelAnimation animation) {
+TimelineClip modelClip(
+  ModelInstance instance,
+  ModelAnimation animation, {
+  ModelPose Function(ModelPose)? process,
+}) {
   final duration = animation.duration > Duration.zero
       ? animation.duration
       : const Duration(microseconds: 1);
   return TimelineClip(
     duration: duration,
-    tracks: [ModelAnimationTrack(instance, animation, duration)],
+    tracks: [
+      ModelAnimationTrack(instance, animation, duration, process: process),
+    ],
   );
 }
 
@@ -98,7 +112,8 @@ TimelineClip modelClip(ModelInstance instance, ModelAnimation animation) {
 TimelineClip modelRestClip(
   ModelInstance instance, {
   Duration duration = const Duration(seconds: 1),
+  ModelPose Function(ModelPose)? process,
 }) => TimelineClip(
   duration: duration,
-  tracks: [ModelAnimationTrack.rest(instance, duration)],
+  tracks: [ModelAnimationTrack.rest(instance, duration, process: process)],
 );

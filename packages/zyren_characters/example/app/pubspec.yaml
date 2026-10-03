@@ -1,0 +1,37 @@
+name: character_lab
+description: Native character movement, rig solving and generated navigation.
+publish_to: none
+version: 0.1.0+1
+resolution: workspace
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_zyren:
+    path: ../../../flutter_zyren
+  zyren:
+    path: ../../../zyren
+  zyren_native:
+    path: ../../../zyren_native
+  zyren_characters:
+    path: ../..
+  zyren_navigation:
+    path: ../../../zyren_navigation
+  zyren_physics:
+    path: ../../../zyren_physics
+  zyren_gltf:
+    path: ../../../zyren_gltf
+  zyren_gltf_timeline:
+    path: ../../../zyren_gltf_timeline
+  zyren_timeline:
+    path: ../../../zyren_timeline
+  zyren_agents:
+    path: ../../../zyren_agents
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+flutter:
+  uses-material-design: true

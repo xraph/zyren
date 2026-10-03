@@ -1,15 +1,51 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 import 'package:test/test.dart';
 
 void main() {
   test(
     'live stdio MCP discovers, picks character geometry and applies playback',
     () async {
+      // Reuse this test run's built assets. A nested `dart run` can overwrite
+      // the workspace manifest while another package is using native hooks.
+      final scratch = await Directory.systemTemp.createTemp('character-mcp-');
+      addTearDown(() => scratch.delete(recursive: true));
+      final config = (await Isolate.packageConfig)!;
+      final localAssets = File('.dart_tool/native_assets.yaml');
+      final assets = await localAssets.exists()
+          ? localAssets
+          : File.fromUri(config.resolve('native_assets.yaml'));
+      final snapshot = await assets.copy('${scratch.path}/native_assets.yaml');
+      expect(await snapshot.readAsString(), contains('package:zyren_physics/'));
+      final sdk = File(Platform.resolvedExecutable).parent.parent.uri;
+      final suffix = Platform.isWindows ? '.exe' : '';
+      final kernel = '${scratch.path}/host.dill';
+      final compiled = await Process.run(
+        sdk.resolve('bin/dartaotruntime$suffix').toFilePath(),
+        [
+          sdk
+              .resolve('bin/snapshots/gen_kernel_aot.dart.snapshot')
+              .toFilePath(),
+          '--platform',
+          sdk.resolve('lib/_internal/vm_platform_strong.dill').toFilePath(),
+          '--packages',
+          config.toFilePath(),
+          '--native-assets',
+          snapshot.path,
+          '--output',
+          kernel,
+          'test/support/agent_mcp_host.dart',
+        ],
+      ).timeout(const Duration(minutes: 2));
+      expect(
+        compiled.exitCode,
+        0,
+        reason: '${compiled.stdout}\n${compiled.stderr}',
+      );
       final process = await Process.start(Platform.resolvedExecutable, [
-        'run',
-        'test/support/agent_mcp_host.dart',
+        kernel,
       ]);
       final errors = process.stderr.transform(utf8.decoder).join();
       final lines = StreamIterator(
@@ -128,6 +164,6 @@ void main() {
         await lines.cancel();
       }
     },
-    timeout: const Timeout(Duration(seconds: 60)),
+    timeout: const Timeout(Duration(minutes: 3)),
   );
 }
