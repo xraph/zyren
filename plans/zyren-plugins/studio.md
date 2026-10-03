@@ -57,7 +57,7 @@ presenter supplies it. CPU triangle hits are approximate geometry evidence with
 explicit texture alpha, shader displacement and line/point limits.
 
 Keep reads passive. Revoke access on disposal and disable edit commands during
-save/reload or preview. Assemble other attached plugin providers only as their
+save/reload, preview or a gizmo drag. Assemble other attached plugin providers only as their
 shared adapters become available. The host registers the actual engineering review and timeline providers.
 Engineering reads expose only origin, tag and material properties; annotations
 and mutations remain denied by host policy. Timeline commands require
@@ -75,6 +75,17 @@ owner's schema fix landed during verification. The latest widget tests discover
 Studio, viewport, diagnostics, timeline and engineering review providers with an
 empty `screen.agentProviderGaps`. Studio keeps that explicit gap report if a
 future optional diagnostics adapter cannot register.
+
+The native idle check exposed unconditional `_notify()` from
+`packages/zyren_timeline/lib/src/timeline_actions.dart::_syncActionDemand`, called
+by the paused timeline's frame hook. The requested shared fix is to avoid
+invalidating when an idle tick changes nothing, while retaining notifications
+for explicit action changes and completed fades. The characters/navigation owner
+has active edits in that file and `lib/zyren_timeline.dart`; Studio leaves them
+untouched. Its camera-only timeline skips the frame hook while paused. Seek,
+play and pause still use the shared timeline methods. Remove this host guard
+after the shared idle behavior is fixed and qualified. Authored action clocks
+remain outside this preview's scope.
 
 ## Phases and acceptance
 
@@ -137,24 +148,55 @@ Automated evidence on 2026-10-02:
 
 Native evidence and blockers:
 
-- The macOS integration test was attempted twice. First, FlutterMacOS signing
-  failed with an internal code-signing error; retrying that same local signature
-  succeeded. The next build failed copying FlutterMacOS with `No space left on
-  device`. The test never launched. The volume had 200 MiB available at diagnosis.
-- Removed only this workstream's 458 MiB incomplete `examples/studio/build` output.
-  A pre-existing multiple_views app from another checkout was left running.
-- Native rendering, pointer interaction, agent hit/edit/present flow, actual desktop
-  and narrow native layouts, and preview lifecycle remain unverified. The native
-  test is ready to rerun after sufficient disk space is available. Android and iOS
-  runners/device checks are pending. Widget layout checks use a substituted viewport.
+- The earlier signing and disk-space failures are resolved. On 2026-10-02 the
+  integration test launched on Apple M3 Max with Metal, required `nativeView`
+  presentation and recorded zero frame readback bytes.
+- Native checks pass for pointer selection, an actual transform-gizmo drag,
+  rejection of overlapping agent edits, undo/redo, atomic file save, discard
+  confirmation, reload, retired-controller disposal and a new command session.
+  The viewport and inspector also pass at 396 logical pixels with no layout
+  exception. The app test uses an isolated temporary document.
+- The normal desktop app was also launched and visually inspected. The native
+  block/base scene, toolbar and side inspector rendered with Metal presentation.
+  Narrow-width evidence is from the native integration test above.
+- Three camera seek/stop cycles restore the complete working camera pose.
+  Editing is unavailable during preview. Pausing an idle timeline preserves
+  editing. Native playback advances the clock and presents changed camera poses.
+  After Stop preview, the test waits for pending presentation work to settle and
+  verifies that frame IDs stop advancing. The camera-only host guard passes this
+  check; the shared timeline follow-up above remains open.
+- `examples/studio/tool/verify_native_mcp.dart` launches the native test and a
+  separate real `zyren_devtools` MCP process. Authenticated loopback checks pass
+  for all five providers, a pick retaining `part:block`, the bound engineering
+  record, timeline inspection, guarded transformation, exact retry, stale
+  rejection, denied review mutation and a later presented frame. The runner
+  redacts connection credentials and waits for both processes to exit.
+- Source snapshot and presented-frame correlation remain distinct. Native
+  presentation confirms the renderer path; the CPU pick still reports unknown
+  pixel visibility and unknown scene/frame correlation.
+- Android and iOS runners and Studio device checks remain pending. Swift Package
+  Manager adoption is still a shared Flutter plugin build warning; CocoaPods
+  successfully built this example. This workstream did not change shared files.
+
+Run the complete native plus MCP check from the workspace root:
+
+```sh
+fvm dart --packages=.dart_tool/package_config.json examples/studio/tool/verify_native_mcp.dart
+```
+
+The runner accepts an absolute Flutter executable path as its only argument.
+The final automated run used Flutter 3.47.5 and passed one native integration
+scenario plus the external MCP assertions. The nine package/widget tests and
+scoped analysis also pass. Input-router and texture-loader changes briefly
+interrupted builds during concurrent work; the final native run used their
+corrected working-tree versions.
 
 Remaining scope:
 
 - Asset and prefab authoring, pipeline bindings/version pins, material editing,
   saved animation/keyframes and authoring history, and isolated live previews.
 - Collaboration authority/epoch adapter and persistence, engineering edit policy
-  and review authoring, integrated native review/timeline agent checks, asset
-  diagnostics, and broader native qualification.
+  and review authoring, asset diagnostics, and broader native qualification.
 - Rich native pixel evidence/capture correlation. Current hits are CPU triangle
   geometry, and the presenter's submitted scene/camera revision is unknown.
 - A registered onboarding provider/walkthrough does not exist here; no inactive

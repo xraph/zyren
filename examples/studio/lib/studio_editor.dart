@@ -87,7 +87,11 @@ class StudioEditorState extends State<StudioEditor> {
   int _session = 0;
   bool get _ready => _controller.status.value is SceneReady;
   bool get _editing =>
-      _ready && !_busy && !_modalOpen && _previewCamera == null;
+      _ready &&
+      !_busy &&
+      !_modalOpen &&
+      !_gizmo.isDragging &&
+      _previewCamera == null;
   Object3D? get _selected => _scene.idFor(_scene.tools.selected) == null
       ? null
       : _scene.tools.selected;
@@ -115,11 +119,15 @@ class StudioEditorState extends State<StudioEditor> {
     _orbit = OrbitControlsPlugin();
     _gizmo = TransformGizmoPlugin(
       screenSize: 80,
-      onDragChanged: (active) => _orbit.controls?.enabled = !active,
+      onDragChanged: (active) {
+        _orbit.controls?.enabled = !active;
+        _commandUiRevision++;
+        _refresh();
+      },
     );
     _scene.registerHelper(_gizmo.owns);
     final pose = document.camera;
-    _timeline = SceneTimelinePlugin(
+    _timeline = _CameraPreviewTimeline(
       duration: const Duration(seconds: 3),
       tracks: [
         CameraTrack(_scene.camera, [
@@ -181,9 +189,11 @@ class StudioEditorState extends State<StudioEditor> {
         runCommand: (name, apply) {
           final camera = StudioCamera.capture(_scene.camera);
           apply();
-          _previewCamera ??= camera;
-          _gizmo.enabled = false;
-          _orbit.controls?.enabled = false;
+          if (name != 'timeline.pause' || _previewCamera != null) {
+            _previewCamera ??= camera;
+            _gizmo.enabled = false;
+            _orbit.controls?.enabled = false;
+          }
           _commandUiRevision++;
           _refresh();
         },
@@ -587,6 +597,7 @@ class StudioEditorState extends State<StudioEditor> {
       'camera': StudioCamera.capture(_scene.camera).toJson(),
       'projection': 'perspective',
       'toolMode': _gizmo.mode.name,
+      'transformDragActive': _gizmo.isDragging,
       'coordinateSpace': 'viewport-local-logical-pixels-top-left',
       'logicalRect': {
         'x': origin?.dx,
@@ -795,4 +806,15 @@ class StudioEditorState extends State<StudioEditor> {
       ),
     ),
   );
+}
+
+// This host has only main-clock camera tracks. Seeking applies immediately;
+// paused previews need no action-clock tick or repeated scene invalidation.
+class _CameraPreviewTimeline extends SceneTimelinePlugin {
+  _CameraPreviewTimeline({required super.duration, required super.tracks});
+
+  @override
+  void beforeRender(PluginContext context, FrameInfo frame) {
+    if (isPlaying) super.beforeRender(context, frame);
+  }
 }

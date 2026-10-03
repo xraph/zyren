@@ -54,7 +54,8 @@ page contains at most 50 entries. Imported labels remain untrusted scene data.
 
 Mutations require `studio.select` or `studio.edit`, an expected provider revision
 and an idempotency key. The host also supplies command availability and permission
-callbacks, so you can block edits during preview, save/reload or modal dialogs.
+callbacks, so you can block edits during preview, save/reload, gizmo drags or
+modal dialogs.
 Transform commands enter the same undo history as gizmo edits. Reused command
 keys cannot apply an edit twice. A full retry ledger rejects new commands until
 you deliberately start another session. Dispose registrations and commands when
@@ -63,13 +64,15 @@ the editor closes or replaces its scene.
 The example registers the shared viewport, diagnostics, timeline and engineering
 review providers beside Studio. It reports
 camera and viewport dimensions, DPR, active panel, pointer, geometric hover,
-selection, tool mode, blocking overlays and known presenter timing. Triangle hits
+selection, tool mode, active transform drags, blocking overlays and known
+presenter timing. Triangle hits
 carry Studio IDs and source provenance. Rendered pixel visibility and the scene
 revision of a presented frame remain unknown. Read each hit's coverage before
 using it; CPU triangles do not evaluate texture alpha or custom shader displacement.
 
 The example can opt into the shared devtools bridge for an external MCP client.
 An external CLI test covers discovery and a transform over authenticated loopback
-with a CPU fixture. Direct registry tests and native checks are recorded in
+with a CPU fixture. The example also includes a native MCP verification runner.
+Direct registry tests and native checks are recorded in
 [the workstream plan](../../plans/zyren-plugins/studio.md). The plan also tracks
 asset authoring, prefabs, materials, animation and broader device qualification.

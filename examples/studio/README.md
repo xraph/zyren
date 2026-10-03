@@ -33,7 +33,8 @@ as `ZYREN_DEVTOOLS_ENDPOINT` and `ZYREN_DEVTOOLS_TOKEN` for your MCP client, the
 run `ZYREN_AGENT_TOOLS=1 fvm dart run zyren_devtools:zyren mcp` from the workspace.
 Without `ZYREN_AGENT_EDIT`, inspection remains available and mutations are denied.
 The edit flag also grants `timeline.playback`; preview commands keep the working
-camera available for Stop preview. Engineering reads expose origin, tag and
+camera available for Stop preview. Pausing an idle clock leaves editing enabled.
+Studio commands wait until a gizmo drag ends. Engineering reads expose origin, tag and
 material fields. The host denies review mutations and annotation disclosure.
 The bridge closes when its editor session ends. The host also attempts to register
 the shared diagnostics provider; incompatible schemas appear in
@@ -54,3 +55,19 @@ fvm flutter test --no-pub -d macos integration_test/studio_test.dart
 The widget tests use a substituted viewport and do not establish GPU behavior.
 Native integration evidence and remaining checks live in
 [the Studio plan](../../plans/zyren-plugins/studio.md).
+
+To check the external MCP client against the native editor, run this from the
+workspace root:
+
+```sh
+fvm dart --packages=.dart_tool/package_config.json examples/studio/tool/verify_native_mcp.dart
+```
+
+You can pass an absolute Flutter executable path as the script's only argument;
+otherwise it uses `fvm flutter`. The runner opens a temporary fixture and starts
+the existing authenticated bridge, then launches the real devtools MCP process.
+It checks discovery, source-bound picking, guarded editing, retries, stale
+rejection and review permissions before the app checks undo, file reload and
+controller disposal. Camera previews and the narrow layout run in that native
+session too. Connection credentials are redacted from runner output. Your saved
+application document is untouched.
