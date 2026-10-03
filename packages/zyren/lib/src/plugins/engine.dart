@@ -52,6 +52,11 @@ abstract class ScenePlugin {
   String get id;
   Set<String> get dependencies => const {};
   Set<RenderFeature> get requiredFeatures => const {};
+
+  /// Validate the complete, dependency-ordered configuration without side effects.
+  /// Runs before backend creation or any live attachment is removed.
+  void validateComposition(List<ScenePlugin> plugins) {}
+
   FutureOr<void> attach(PluginContext context) {}
   FutureOr<void> beforeRender(PluginContext context, FrameInfo frame) {}
   FutureOr<void> afterRender(
@@ -648,7 +653,11 @@ class SceneEngine {
     for (final id in byId.keys) {
       visit(id);
     }
-    return List.unmodifiable(ordered);
+    final resolved = List<ScenePlugin>.unmodifiable(ordered);
+    for (final plugin in resolved) {
+      plugin.validateComposition(resolved);
+    }
+    return resolved;
   }
 
   /// Explicit readback compatibility entry point. Use [renderFrame] for surfaces.

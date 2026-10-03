@@ -1,6 +1,6 @@
 # Geospatial offline data implementation plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox syntax for tracking. Execution method awaits user selection.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox syntax for tracking. Execute sequentially in this chat, as selected on 2026-10-03.
 
 **Goal:** Persist bounded geographic resources and verified offline regions across process restarts.
 
@@ -28,7 +28,7 @@
 - Cancellation, late completion and concurrent writers must not revive removed data: D1 and D2.
 - Fresh transport denial must not become a successful stale-cache read: D1.
 
-## D1: Resource identity, policy and coalesced reads
+## Task 1: D1 Resource identity, policy and coalesced reads
 
 Files in `packages/zyren_geospatial`:
 
@@ -113,7 +113,7 @@ if (policy.mode == GeoAccessMode.offlineOnly) {
   projection, decoder revision, time and source version.
 - [ ] Commit `feat(geospatial): add governed geographic resource reads`.
 
-## D2: Durable file store and admission
+## Task 2: D2 Durable file store and admission
 
 Files:
 
@@ -167,7 +167,7 @@ if (digest != resource.checksum) {
   operations and that invalidated generations cannot write after removal.
 - [ ] Commit `feat(geospatial): persist bounded offline resource storage`.
 
-## D3: Complete offline regions and live layer integration
+## Task 3: D3 Complete offline regions and live layer integration
 
 Files:
 
@@ -215,7 +215,7 @@ enum GeoRegionJobState { planned, downloading, paused, verifying, complete, fail
   offline misses, retry after reconnection and visible layer attribution.
 - [ ] Commit `feat(geospatial): download and verify offline regions`.
 
-## D4: Ocean-data and model-bundle adapters, diagnostics and example
+## Task 4: D4 Ocean-data and model-bundle adapters, diagnostics and example
 
 Files:
 

@@ -1,10 +1,15 @@
 import 'package:zyren/zyren.dart';
 import 'ellipsoid_geometry.dart';
 import 'geodesy.dart';
+import 'extensions/extension.dart';
+import 'extensions/registry.dart';
+import 'extensions/composition.dart';
 
 const geospatialReference = ServiceKey<GeospatialReference>(
   'geospatial.reference',
 );
+
+const geospatialRuntime = ServiceKey<GeospatialPlugin>('geospatial.runtime');
 
 /// One world model shared by geospatial plugins in a scene engine.
 class GeospatialReference {
@@ -28,11 +33,25 @@ class GeospatialReference {
 class GeospatialPlugin extends ScenePlugin {
   static const pluginId = 'geospatial';
   final GeospatialReference reference;
-  GeospatialPlugin({Ellipsoid ellipsoid = Ellipsoid.wgs84})
-    : reference = GeospatialReference(ellipsoid: ellipsoid);
+  final GeoExtensionRegistry registry = GeoExtensionRegistry();
+  final List<GeospatialExtension> extensions;
+  late final List<ScenePlugin> scenePlugins = List.unmodifiable([
+    this,
+    for (final extension in extensions) ...[extension, ...extension.adapters],
+  ]);
+  GeospatialPlugin({
+    Ellipsoid ellipsoid = Ellipsoid.wgs84,
+    List<GeospatialExtension> extensions = const [],
+  }) : reference = GeospatialReference(ellipsoid: ellipsoid),
+       extensions = List.unmodifiable(extensions);
   @override
   String get id => pluginId;
   @override
-  void attach(PluginContext context) =>
-      context.provide(geospatialReference, reference);
+  void validateComposition(List<ScenePlugin> plugins) =>
+      validateGeospatialHost(this, plugins);
+  @override
+  void attach(PluginContext context) {
+    context.provide(geospatialReference, reference);
+    context.provide(geospatialRuntime, this);
+  }
 }

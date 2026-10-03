@@ -1,6 +1,6 @@
 # Geospatial foundation implementation plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox syntax for tracking. Execution method awaits user selection.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox syntax for tracking. Execute sequentially in this chat, as selected on 2026-10-03.
 
 **Goal:** Install independently owned geospatial extensions and manage real layers through a headless public API.
 
@@ -42,7 +42,7 @@ Create focused geospatial files under `lib/src/extensions/`, `lib/src/layers/` a
 Tests live alongside existing package tests. Touch core plugin validation only
 where F1 requires it. Do not edit the native renderer in this plan.
 
-## F1: Extension composition and independent lifecycle
+## Task 1: F1 Extension composition and independent lifecycle
 
 Files:
 
@@ -91,7 +91,7 @@ Typed optional services use `GeoServiceKey<T>(name, version)`, owned registratio
 tokens, `provide<T>(key, value)` and nullable `find<T>(key)`. Duplicate providers
 fail. Scope disposal withdraws a provider and emits one capability-change event.
 
-- [ ] Add this regression to the existing geospatial plugin tests:
+- [x] Add this regression to the existing geospatial plugin tests:
 
 ```dart
 test('an unexpanded configured host never allocates a renderer', () async {
@@ -114,11 +114,11 @@ class _EmptyExtension extends GeospatialExtension {
 }
 ```
 
-- [ ] Run `dart test test/extensions/composition_test.dart` with the package SDK
+- [x] Run `dart test test/extensions/composition_test.dart` with the package SDK
   path above and record the missing-API failure. Add actual lifecycle probes using
   the existing `plugin_test.dart` renderer fixture: duplicate IDs, dependency
   cycles, attachment cancellation, optional service loss and reverse cleanup.
-- [ ] Resolve core IDs first, call each composition validator on that same
+- [x] Resolve core IDs first, call each composition validator on that same
   immutable list, then create the backend or begin live reconciliation. The
   geospatial validator checks object identity as well as ID, expected adapters,
   contract versions and one host. Cache expansion once; never recreate extension
@@ -136,11 +136,11 @@ host.registry.markAttached(id);
   `markAttached(String) -> void` methods in the named context/registry files.
   The registration removes its own generation only; a late old detach cannot
   remove a replacement. Preserve core's failed-update survivor reporting.
-- [ ] Run new core/plugin tests, geospatial `plugin_test.dart` and analyzer.
+- [x] Run new core/plugin tests, geospatial `plugin_test.dart` and analyzer.
   Verify direct legacy construction still passes. Run the package boundary check.
-- [ ] Review exact paths and commit `feat(geospatial): add scoped extension composition`.
+- [x] Review exact paths and commit `feat(geospatial): add scoped extension composition`.
 
-## F2: Layer transactions, capabilities and persistence
+## Task 2: F2 Layer transactions, capabilities and persistence
 
 Files:
 
@@ -223,7 +223,7 @@ publish(List.unmodifiable(candidate), revision + 1);
   across the antimeridian and explicit unavailable versus empty states.
 - [ ] Update package usage documentation and commit `feat(geospatial): manage layers through atomic transactions`.
 
-## F3: Connect layers to existing terrain, imagery and atmosphere
+## Task 3: F3 Connect layers to existing terrain, imagery and atmosphere
 
 Files:
 
@@ -263,7 +263,7 @@ geospatial.layers.transact(revision, (edit) {
   viewport sizes. Check detach leaves no owned scene objects or native resources.
 - [ ] Document standalone compatibility and commit `feat(geospatial): connect terrain and atmosphere layers`.
 
-## F4: World frames and single-owner simulation time
+## Task 4: F4 World frames and single-owner simulation time
 
 Files:
 
@@ -323,7 +323,7 @@ test('pause does not turn wall time into a jump on resume', () {
   negative delta. Include an application fixture driven by the existing game session.
 - [ ] Commit `feat(geospatial): share world frames and simulation time`.
 
-## F5: Camera ownership, styles and public integration example
+## Task 5: F5 Camera ownership, styles and public integration example
 
 Files:
 

@@ -2,7 +2,7 @@
 
 The architecture and ocean-first delivery order were approved on 2026-10-03.
 Professional water effects, buoyancy, LOD and effective quality controls are
-required. No runtime implementation has started under these plans.
+required. Sequential implementation started on 2026-10-03.
 
 Read the [platform design](design.md), [ocean specification](ocean-design.md) and
 [reference audit](water-reference-audit.md) before executing the plans. The audit
@@ -11,9 +11,9 @@ native spectral simulation and physical buoyancy required here.
 
 | Order | Plan | Tasks | Current status |
 | --- | --- | --- | --- |
-| 1 | [Extension host, layers and world services](01-foundation-plan.md) | F1-F5 | Written; awaiting plan review |
-| 2 | [Persistent caching and offline regions](02-offline-plan.md) | D1-D4 | Written; awaiting plan review |
-| 3 | [Native professional ocean](03-ocean-plan.md) | W1-W12 | Written; awaiting plan review |
+| 1 | [Extension host, layers and world services](01-foundation-plan.md) | F1-F5 | F1 implemented and checked; F2 next |
+| 2 | [Persistent caching and offline regions](02-offline-plan.md) | D1-D4 | Queued for sequential execution |
+| 3 | [Native professional ocean](03-ocean-plan.md) | W1-W12 | Queued for sequential execution |
 
 Navigation/traffic, flight and orbital simulation remain in the approved platform
 scope. Their provider/solver specifications follow the foundation and ocean work;
@@ -36,9 +36,9 @@ not observed results.
 
 ## Execution and evidence
 
-The implementation plans require review and an execution-method choice before
-product code changes. This is the writing-plans workflow gate; the architecture
-approval is already recorded and does not need to be repeated.
+You approved the architecture and selected sequential execution in this chat.
+Work stays on the active branch. Each task records its checks and a focused
+local commit before the next task starts.
 
 Use one task at a time, its focused checks, then a local commit. Maintain the
 completion matrix in plan 03 with actual numerical, native and device results.
@@ -49,3 +49,7 @@ This planning delivery checks document links, file references, interfaces and
 scope. It does not run runtime tests or qualify native water. Earth coast data,
 provider access, target-device results and final visual acceptance remain explicit
 requirements, with their status recorded during implementation.
+
+F1 checks: 25 core composition/lifecycle/GPU-service tests and 13 geospatial
+composition/legacy tests passed. Analysis and package boundaries passed. These
+checks use the engine test renderer and do not qualify native water visuals.

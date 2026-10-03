@@ -1,6 +1,6 @@
 # Professional ocean implementation plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox syntax for tracking. Execution method awaits user selection.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox syntax for tracking. Execute sequentially in this chat, as selected on 2026-10-03.
 
 **Goal:** Deliver a native spectral ocean with globe LOD, realistic optics and effects, physical buoyancy and effective quality controls.
 
@@ -49,7 +49,7 @@ Core/native changes are confined to W5's generic scene-input facility and, if
 selected, W6's native reflection-view lease. Read current implementations before
 editing because renderer work is concurrent.
 
-## W1: Deterministic spectrum and numerical reference
+## Task 1: W1 Deterministic spectrum and numerical reference
 
 Files under `packages/zyren_geospatial_ocean`:
 
@@ -122,7 +122,7 @@ imag += coefficientReal * math.sin(angle) + coefficientImag * math.cos(angle);
   hashes and the model version, with floating-point tolerance for evaluated waves.
 - [ ] Commit `feat(ocean): define spectral sea states and reference sampling`.
 
-## W2: Native FFT, displacement and derivative outputs
+## Task 2: W2 Native FFT, displacement and derivative outputs
 
 Files: `lib/src/waves/gpu_field.dart`, `fft_plan.dart`, `fft_wgsl.dart`,
 `spectrum_wgsl.dart`, `field_snapshot.dart`; tests `test/waves/fft_gpu_test.dart`,
@@ -172,7 +172,7 @@ fn inverseButterfly(a: vec2<f32>, b: vec2<f32>, phase: f32) -> vec2<f32> {
   quality replacement and zero remaining owned resources after close.
 - [ ] Commit `feat(ocean): simulate spectral waves with native compute`.
 
-## W3: Ellipsoid mesh LOD and stable wave charts
+## Task 3: W3 Ellipsoid mesh LOD and stable wave charts
 
 Files: `lib/src/surface/cube_patch.dart`, `neighbours.dart`, `selector.dart`,
 `geometry.dart`, `morph.dart`, `wave_chart.dart`, `coverage.dart`;
@@ -224,7 +224,7 @@ d(sum(w_i*h_i))/dx = sum(dw_i/dx*h_i + w_i*dh_i/dx)
   Check two cameras produce the same sampled world waves.
 - [ ] Commit `feat(ocean): add continuous globe surface detail`.
 
-## W4: Batched surface queries independent of render quality
+## Task 4: W4 Batched surface queries independent of render quality
 
 Files: `lib/src/queries/query.dart`, `cpu_field.dart`, `gpu_query.dart`,
 `inversion.dart`, `policy.dart`; tests `test/queries/sample_test.dart`,
@@ -264,7 +264,7 @@ expect(after.map((s) => s.seaStateRevision),
   retain measured actual error and fail configurations that cannot meet policy.
 - [ ] Commit `feat(ocean): expose bounded physical surface queries`.
 
-## W5: Generic native scene inputs for custom surfaces
+## Task 5: W5 Generic native scene inputs for custom surfaces
 
 Files: core `lib/src/rendering/mesh_shader.dart`, `shader_bindings.dart`,
 `capabilities.dart` and native `lib/src/` packet/compiler adapters as required;
@@ -302,7 +302,7 @@ expect(viewBBackgroundSample, isNot(viewABackgroundSample));
   depth, resize and failed allocation, plus existing transmission/shader tests.
 - [ ] Commit `feat(rendering): expose scene inputs to custom surfaces`.
 
-## W6: Surface optics, lighting and reflections
+## Task 6: W6 Surface optics, lighting and reflections
 
 Files: ocean `lib/src/rendering/material.dart`, `water_wgsl.dart`, `optics.dart`,
 `reflections.dart`, `lighting.dart`; tests `test/rendering/optics_test.dart`,
@@ -337,7 +337,7 @@ expect(waterFresnel(.1, 1.333, 1), closeTo(1, 1e-12));
   Test day/night atmosphere and profiles with reflection disabled explicitly.
 - [ ] Commit `feat(ocean): render native water optics and reflections`.
 
-## W7: Underwater, caustics and waterline
+## Task 7: W7 Underwater, caustics and waterline
 
 Files: `lib/src/rendering/underwater.dart`, `underwater_wgsl.dart`,
 `water_volume.dart`, `caustics.dart`; tests `test/rendering/underwater_test.dart`,
@@ -372,7 +372,7 @@ expect(state.update(.03), isFalse);
   overbright energy buildup or resource growth across repeated transitions.
 - [ ] Commit `feat(ocean): add underwater lighting and waterline effects`.
 
-## W8: Hydrostatic force models
+## Task 8: W8 Hydrostatic force models
 
 Files: `lib/src/buoyancy/probes.dart`, `hull.dart`, `clipping.dart`, `solver.dart`,
 `drag.dart`; tests `test/buoyancy/volume_test.dart`, `hull_test.dart`, `force_test.dart`.
@@ -432,7 +432,7 @@ final drag = relative * (-linearDrag - quadraticDrag * relative.length);
   drag energy dissipation, invalid mass/inertia and hull subdivision convergence.
 - [ ] Commit `feat(ocean): calculate buoyancy from displaced volume`.
 
-## W9: Native buoyancy bridge and shared ticking
+## Task 9: W9 Native buoyancy bridge and shared ticking
 
 Files: create `packages/zyren_geospatial_ocean_physics` with `pubspec.yaml`,
 `lib/zyren_geospatial_ocean_physics.dart`, `lib/src/bridge.dart`, `binding.dart`,
@@ -479,7 +479,7 @@ for (final load in batch.loads) {
   convergence at 30/60/120 simulation Hz with identical physical duration.
 - [ ] Commit `feat(ocean): integrate native physical buoyancy`.
 
-## W10: Persistent foam, wakes, ripples and spray
+## Task 10: W10 Persistent foam, wakes, ripples and spray
 
 Files: `lib/src/interactions/emitter.dart`, `field.dart`, `field_wgsl.dart`,
 `foam.dart`; optional particle adapter; tests `test/interactions/field_test.dart`,
@@ -513,7 +513,7 @@ heightNext = 2*height - heightPrevious
   Check field re-centering, pause/resume, budget exhaustion and offline replay.
 - [ ] Commit `feat(ocean): render bounded water interactions`.
 
-## W11: Effective quality profiles, transitions and diagnostics
+## Task 11: W11 Effective quality profiles, transitions and diagnostics
 
 Files: `lib/src/quality/settings.dart`, `admission.dart`, `controller.dart`,
 `adaptive.dart`, `diagnostics.dart`; tests `test/quality/settings_test.dart`,
@@ -550,7 +550,7 @@ expect(controller.seaStateRevision, revision);
   available, chart/patch counts and query age/error. Unknown residency stays null.
 - [ ] Commit `feat(ocean): expose measurable quality controls`.
 
-## W12: Full native lab, offline Earth data and qualification
+## Task 12: W12 Full native lab, offline Earth data and qualification
 
 Files: `lib/src/extension.dart`, ocean exports and README;
 `examples/ocean_lab/pubspec.yaml`, `lib/main.dart`, `lib/scenes/`, `test/`,
