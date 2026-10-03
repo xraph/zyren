@@ -1,8 +1,10 @@
 /// Versioned observations and bounded knowledge-filtered game sensors.
 library;
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
+import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:zyren/zyren.dart';
 import 'package:zyren_game/zyren_game.dart';
@@ -31,6 +33,11 @@ part 'src/brain/brain.dart';
 part 'src/brain/utility.dart';
 part 'src/brain/skill.dart';
 part 'src/brain/scripted.dart';
+part 'src/brain/action_decoder.dart';
+part 'src/brain/policy_state.dart';
+part 'src/brain/policy.dart';
+part 'src/brain/hybrid.dart';
+part 'src/brain/decision_scheduler.dart';
 
 void _name(String value) {
   if (value.trim().isEmpty || value.length > 128) {

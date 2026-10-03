@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "id": "faulty_lstm",
+  "modelFile": "faulty_lstm.onnx",
+  "sha256": "7fa606f4a3ca88977a39f5ac9fc256059c427ee5f00349b1129fe22aec659d5e",
+  "opset": 17,
+  "runtimeVersion": "1.23.2",
+  "providers": [
+    "cpu"
+  ],
+  "maxModelBytes": 8388608,
+  "inputs": [
+    {
+      "name": "observation",
+      "dtype": "float32",
+      "shape": [
+        -1,
+        4
+      ],
+      "maxShape": [
+        64,
+        4
+      ]
+    },
+    {
+      "name": "hidden",
+      "dtype": "float32",
+      "shape": [
+        -1,
+        8
+      ],
+      "maxShape": [
+        64,
+        8
+      ]
+    },
+    {
+      "name": "cell",
+      "dtype": "float32",
+      "shape": [
+        -1,
+        8
+      ],
+      "maxShape": [
+        64,
+        8
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "name": "action",
+      "dtype": "float32",
+      "shape": [
+        -1,
+        2
+      ],
+      "maxShape": [
+        64,
+        2
+      ]
+    },
+    {
+      "name": "next_hidden",
+      "dtype": "float32",
+      "shape": [
+        -1,
+        8
+      ],
+      "maxShape": [
+        64,
+        8
+      ]
+    },
+    {
+      "name": "next_cell",
+      "dtype": "float32",
+      "shape": [
+        -1,
+        8
+      ],
+      "maxShape": [
+        64,
+        8
+      ]
+    }
+  ],
+  "recurrent": {
+    "hidden": "next_hidden",
+    "cell": "next_cell"
+  },
+  "provenance": "Locally modified A1 execution probe, deliberate divide-by-zero action; no pretrained weights."
+}

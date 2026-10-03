@@ -82,7 +82,8 @@ There is no source ID or position field in the result.
 coordinates remain in the observer's local frame at capture, with the original
 observation tick. They never follow hidden target movement. Episode changes,
 observer generation changes and TTL expiry invalidate that history. This small
-adapter is not a belief store; A4 owns memory and communication rules.
+adapter keeps a prior frame. [Per-actor memory](doc/memory.md) adds bounded
+beliefs, goal commitment and scripted skills.
 
 Observation and action schemas encode field order, units, bounds and affine
 normalization. Sensor configuration hashes also pin cone/material/layer rules,
@@ -105,6 +106,11 @@ Schemas cap field width at 4096 and total tensor width at 16384; the assembler
 includes its validity fields in that schema. Configure actor cadence and budgets
 for your host. These bounds are not a measured frame-time guarantee.
 
+[Policy execution](doc/policy.md) uses the native ML scheduler with per-actor
+recurrent state, exact application ticks, controller decoders and bounded fallback.
+The real exported LSTM probe is execution evidence. Trained-policy acceptance and
+behavior qualification belong to the training and qualification tasks.
+
 Run package checks with FVM:
 
 ```sh
@@ -115,5 +121,7 @@ fvm dart test --concurrency=1
 
 The native perception tests use real Rapier queries on macOS arm64. They cover
 physical occlusion and compare identical policy tensors while hidden actor
-positions change. Rendering, mobile devices, vehicle sensing and persistent
-camera observations retain their separate qualification tasks.
+positions change. Native guard and vehicle fixtures also exercise memory and policy outputs.
+The 1,000-step recurrent trace matches exported action/hidden/cell values through
+both controller decoders. Rendered camera sensing and mobile devices retain
+their separate qualification tasks.
