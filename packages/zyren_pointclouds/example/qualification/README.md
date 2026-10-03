@@ -65,5 +65,21 @@ not a supported launch command here.
 Choose your own development team/profile in Xcode for signed iOS deployment.
 No signing team is committed in this app.
 
+If your account cannot register another App ID, you can use an existing development
+identity for a temporary qualification build. Its profile must include your device,
+match the app's bundle ID and entitlements, and remain valid. Sign a copy of the
+generated app, keeping this project's bundle ID unchanged. Then run that copy:
+
+```sh
+fvm flutter drive --no-pub --publish-port \
+  --driver=test_driver/integration_test.dart \
+  --target=integration_test/capture_test.dart \
+  --use-application-binary=/absolute/path/RealityCapture.app -d <device-id>
+```
+
+Personal Team accounts also allow only three installed development apps per device.
+Reusing an installed identity replaces that app, so coordinate with its owner and
+save a signed restoration build first. The evidence record tracks both limits.
+
 See [the evidence record](../../qualification/2026-10-03.md) for tested devices and
 the iPhone and iPad signing blocker. Device discovery alone does not establish qualification.

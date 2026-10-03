@@ -20,6 +20,7 @@ adapters, live MCP and mobile qualification.
 | Native qualification | macOS Metal and physical Pixel 9 Pro Vulkan | Package and Flutter integration checks; desktop and narrow visual review |
 | iPhone | Unsigned device build succeeds; signed deployment blocked | Apple App ID quota and missing app provisioning profile, unchanged after unlocking |
 | iPad | Wireless deployment reaches signing; device tests blocked | Same App ID quota and missing profile; `flutter drive --publish-port` supports the wireless test path |
+| iPhone signing workaround | Temporary app signed with an existing demo profile; strict signature check passes | Installation hits the separate three-app limit; temporary XR replacement awaits approval |
 
 The detailed platform record is
 `packages/zyren_pointclouds/qualification/2026-10-03.md`. It separates actual pixels,
@@ -101,6 +102,13 @@ profile for this app. Unlocking the phone does not resolve that account limit.
 An unsigned iOS build succeeds, but cannot establish on-device rendering. The iPad
 retry used `flutter drive --publish-port` over Wi-Fi and reached the same signing
 failure. Windows/DX12 and Linux GPUs remain unverified.
+
+A temporary iPhone build now uses an existing development profile and matching
+demo bundle ID without changing the project identity. Local signature verification
+passes. Installation is blocked by the three free-profile apps already on the
+phone. A second signed copy can temporarily occupy the XR demo's slot, with a
+saved signed XR build for restoration; that replacement awaits user approval.
+No mobile pass follows from signature verification alone.
 
 Higher-order spherical harmonics, PLY import, GPU sorting and large-dataset
 performance qualification remain future work. This completion run does not claim
