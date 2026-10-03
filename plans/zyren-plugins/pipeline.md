@@ -3,7 +3,7 @@
 Implementation lives in `packages/zyren_pipeline`; its examples stay inside that
 package. The public APIs, persistent cache, pinned preparation worker, agent
 providers and optional application adapters are implemented. Broad rollout is
-still gated by the device and Studio schema checks listed below.
+still gated by the platform and integration checks listed below.
 
 ## Source audit and decisions
 
@@ -39,8 +39,8 @@ still gated by the device and Studio schema checks listed below.
 | 2. Memory cache | Payload/entry budgets, LRU, source/version invalidation and pinned scope lifetime | Admission, eviction and old-scope behavior pass |
 | 3. Incremental builds | Dependency graph, recipe receipts, reload/reuse, change propagation, removed outputs and cancellation | Rebuild/reuse, immutable options, cycles, bounds and interrupted builds pass |
 | 4. Mesh preparation | Cache reordering, exact lossless triangle mapping, attribute-aware static LOD, protected deformation/face identities and error/size receipts | Geometry fixtures and Metal pixel comparison pass; arbitrary animated LOD simplification is deliberately unsupported |
-| 5. Texture preparation | ETC1S/UASTC, explicit transfer/quality/mips, codec validation and device-selected transcode targets | All four CPU target formats pass; Metal ASTC/RGBA comparison passes; Vulkan/DX12 device qualification remains open |
-| 6. Persistence/integration | Locked atomic file cache, persistent pins, recovery, budgets, telemetry, Studio store and verified CAD import adapters | Independent-process writes and document reload pass; Metal native presentation, source picking and cache recovery pass; mobile and DX12 qualification remain open |
+| 5. Texture preparation | ETC1S/UASTC, explicit transfer/quality/mips, codec validation and device-selected transcode targets | All four CPU target formats pass; Metal ASTC/RGBA comparison passes; Pixel Vulkan presentation passes; quantitative Vulkan comparison and DX12 qualification remain open |
+| 6. Persistence/integration | Locked atomic file cache, persistent pins, recovery, budgets, telemetry, Studio store and verified CAD import adapters | Independent-process writes and document reload pass; Metal native presentation, source picking and cache recovery pass; Pixel Vulkan presentation also passes; Apple mobile and DX12 qualification remain open |
 
 ## Runtime agents
 
@@ -145,18 +145,24 @@ Pinned Dart/Flutter: `/Users/rexraphael/fvm/versions/3.47.5/bin`.
   check passes, but native window resizing through the UI tool did not change the
   window size. Desktop rendering, cache miss and restoration were inspected in
   the running app. Do not substitute that desktop review for narrow visual review.
-- Pixel `47121FDAP002C7` is held by other workstreams, most recently the point-cloud
-  qualification app. The iPhone has Planet running and the iPad has Physics Lab
-  running. Mobile pipeline tests have not replaced those sessions. Run the same
-  integration test when a device is released or its use is explicitly authorized.
-- The owned iOS runner builds for arm64 with signing disabled, using iOS 15 as
-  its minimum. Apple mobile presentation remains unverified. Configure your own
-  development team when signing outside this workspace.
+- Pixel 9 Pro native integration and landscape visual inspection pass. The run
+  reports Vulkan `sharedTexture`, ASTC sRGB and an 884x250.6667 logical viewport at
+  DPR 2.25. Source picking, original/LOD switching, eviction, visible cache miss,
+  restoration and disposal pass. Portrait visual review remains open.
+- The iPad signed test is blocked by Apple's weekly limit of 10 new App IDs. The
+  pipeline identifier has no development profile. The wireless integration driver
+  is prepared and the test entry point builds unsigned for arm64. A temporary
+  build under Interaction Lab's existing profile is signature-verified, with the
+  original signed app saved, but installation requires authorization to replace
+  that app. No Apple mobile presentation result is claimed. The iPhone's active
+  Studio session was left running.
+- See the [mobile check record](../../packages/zyren_pipeline/example/native_app/qualification/2026-10-03.md)
+  for the exact Android evidence and iOS failure boundary.
 - Windows/DX12 and Linux/Vulkan qualification have not run; those platforms are not
   available on this host.
-- Studio imported-mesh editing requires its owner's saved-document schema. The
-  pipeline now supplies the pinned asset reference/library contract. The existing
-  store persists today's supported documents and does not claim imported editing.
+- Studio now implements its version-2 asset schema and the host adapter uses
+  `PipelineAssetReference` and `PipelineAssetLibrary`. A final combined regression
+  against those newer Studio changes remains separate from this mobile run.
 - Publication remains pending. No push, merge or release was requested.
 
 ## Local commits

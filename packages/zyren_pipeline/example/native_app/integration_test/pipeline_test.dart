@@ -62,7 +62,12 @@ void main() {
     state.controller.invalidate();
     await nextFrame(before);
     final info = (state.controller.status.value as SceneReady).info;
-    expect(info.presentationPath, PresentationPath.nativeView);
+    expect(
+      info.presentationPath,
+      Platform.isAndroid
+          ? PresentationPath.sharedTexture
+          : PresentationPath.nativeView,
+    );
     expect(state.mesh!.geometry.capture().primitiveCount, 128);
     final metrics = (state.controller.input as ViewportInputSource).viewport;
     final picked = await state.registry.call(
