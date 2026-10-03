@@ -31,6 +31,18 @@ final class XrMetalPipeline {
               format == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange || format == kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange else {
             throw XrMetalFailure("cameraFormat", "The camera image must contain 8-bit Y and CbCr planes.")
         }
+        // displayTransform maps camera coordinates to view coordinates.
+        let t = transform.inverted()
+        let video = format == kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+        let attachment = CVBufferGetAttachment(image, kCVImageBufferYCbCrMatrixKey, nil)?.takeUnretainedValue() as? String
+        let kr: Float, kb: Float
+        if attachment == (kCVImageBufferYCbCrMatrix_ITU_R_709_2 as String) { kr = 0.2126; kb = 0.0722 }
+        else if attachment == (kCVImageBufferYCbCrMatrix_ITU_R_2020 as String) { kr = 0.2627; kb = 0.0593 }
+        else if attachment == nil || attachment == (kCVImageBufferYCbCrMatrix_ITU_R_601_4 as String) { kr = 0.299; kb = 0.114 }
+        else { throw XrMetalFailure("cameraColor", "Unsupported camera YCbCr matrix.") }
+        var uniforms: [Float] = [Float(t.a), Float(t.c), Float(t.tx), 0, Float(t.b), Float(t.d), Float(t.ty), 0,
+            video ? 16.0/255 : 0, video ? 255.0/219 : 1, video ? 255.0/224 : 1, 0,
+            kr, kb, 0, 0]
         func plane(_ index: Int, _ format: MTLPixelFormat) throws -> CVMetalTexture {
             var result: CVMetalTexture?
             guard CVMetalTextureCacheCreateTextureFromImage(nil, cache!, image, nil, format,
@@ -74,18 +86,6 @@ final class XrMetalPipeline {
         encoder.setFragmentTexture(CVMetalTextureGetTexture(y), index: 0)
         encoder.setFragmentTexture(CVMetalTextureGetTexture(cbcr), index: 1)
         encoder.setFragmentTexture(virtualColor, index: 2)
-        // displayTransform maps camera coordinates to view coordinates.
-        let t = transform.inverted()
-        let video = format == kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
-        let attachment = CVBufferGetAttachment(image, kCVImageBufferYCbCrMatrixKey, nil)?.takeUnretainedValue() as? String
-        let kr: Float, kb: Float
-        if attachment == (kCVImageBufferYCbCrMatrix_ITU_R_709_2 as String) { kr = 0.2126; kb = 0.0722 }
-        else if attachment == (kCVImageBufferYCbCrMatrix_ITU_R_2020 as String) { kr = 0.2627; kb = 0.0593 }
-        else if attachment == nil || attachment == (kCVImageBufferYCbCrMatrix_ITU_R_601_4 as String) { kr = 0.299; kb = 0.114 }
-        else { throw XrMetalFailure("cameraColor", "Unsupported camera YCbCr matrix.") }
-        var uniforms: [Float] = [Float(t.a), Float(t.c), Float(t.tx), 0, Float(t.b), Float(t.d), Float(t.ty), 0,
-            video ? 16.0/255 : 0, video ? 255.0/219 : 1, video ? 255.0/224 : 1, 0,
-            kr, kb, 0, 0]
         encoder.setFragmentBytes(&uniforms, length: uniforms.count * MemoryLayout<Float>.size, index: 0)
         encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
         encoder.endEncoding()

@@ -41,7 +41,8 @@ final class XrPresentationController extends ChangeNotifier {
   late final ScenePacketEncoder _encoder = gpu.createSceneEncoder(viewId: 1);
   Future<XrCalibration>? _frame;
   Future<void>? _closing;
-  bool _closed = false;
+  bool _closed = false, _gpuCleanupDone = false, _nativeClosed = false;
+  (Object, StackTrace)? _gpuCleanupFailure;
   XrCalibration? _presented;
   Map<String, Object?>? _diagnostics;
 
@@ -190,21 +191,38 @@ final class XrPresentationController extends ChangeNotifier {
 
   Future<void> _close() async {
     try {
-      try {
-        await _frame;
-      } catch (_) {
-        /* A failed frame still releases its lease. */
-      }
+      await _frame;
+    } catch (_) {
+      /* A failed frame still releases its lease. */
+    }
+    if (!_gpuCleanupDone) {
       try {
         await gpu.close();
+      } catch (error, stack) {
+        _gpuCleanupFailure = (error, stack);
       } finally {
-        await _invoke('closePresenter');
+        // NativeGpuServices caches its cleanup outcome, including failures.
+        _gpuCleanupDone = true;
       }
-      _presented = null;
-      _diagnostics = null;
-    } catch (_) {
-      _closing = null;
-      rethrow;
+    }
+    if (!_nativeClosed) {
+      try {
+        await _invoke('closePresenter');
+        _nativeClosed = true;
+        _presented = null;
+        _diagnostics = null;
+      } catch (error) {
+        // Only native retirement can still be retried after GPU cleanup settles.
+        _closing = null;
+        if (_gpuCleanupFailure case (final cleanup, _)) {
+          throw ScopeCleanupException([cleanup, error]);
+        }
+        rethrow;
+      }
+    }
+    if (_gpuCleanupFailure case (final error, final stack)) {
+      // Keep this terminal result so repeated close cannot target a removed view.
+      Error.throwWithStackTrace(error, stack);
     }
   }
 

@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zyren/zyren.dart';
 import 'package:zyren_xr/flutter.dart';
@@ -133,6 +133,89 @@ void main() {
       );
     },
   );
+
+  for (final nativeFailures in [0, 1]) {
+    test(
+      'cleanup failure retains its outcome with $nativeFailures native close failures',
+      () async {
+        final target = await XrPresentationController.create(
+          session: session,
+          transport: transport,
+          runtimeToken: 42,
+        );
+        var nativeCloses = 0, releases = 0;
+        transport.handler = (method, args) {
+          if (method == 'gpuCommand') {
+            final packet = ByteData.sublistView(args['bytes'] as Uint8List);
+            final opcode = packet.getUint32(4, Endian.little);
+            if (opcode == 6) {
+              releases++;
+              return {'status': 6, 'message': 'GPU release failed'};
+            }
+            expect(opcode, 1);
+            final response = ByteData(56)
+              ..setUint32(0, 2, Endian.little)
+              ..setUint64(8, packet.getUint64(8, Endian.little), Endian.little)
+              ..setUint64(16, 32, Endian.little);
+            return {'status': 0, 'bytes': response.buffer.asUint8List()};
+          }
+          if (method == 'closePresenter') {
+            nativeCloses++;
+            if (nativeCloses <= nativeFailures) {
+              throw const XrException('nativeCloseFailed', 'Retirement failed');
+            }
+            return null;
+          }
+          return reply(method, args);
+        };
+        await target.render(scene());
+        final scope = target.gpu.createResourceScope();
+        await scope.createBuffer(
+          BufferDescriptor(size: 4, usage: {BufferUsage.uniform}),
+        );
+        expect(target.presentedCalibration, isNotNull);
+        expect(target.diagnostics, isNotNull);
+        Object? terminal;
+        Future<void> capture(Future<void> closing) async {
+          try {
+            await closing;
+            fail('Cleanup failure must remain visible.');
+          } catch (error) {
+            terminal = error;
+          }
+        }
+
+        await capture(target.close());
+        expect('$terminal', contains('GPU release failed'));
+        if (nativeFailures > 0) {
+          expect('$terminal', contains('Retirement failed'));
+          await capture(target.close());
+          expect('$terminal', isNot(contains('Retirement failed')));
+        }
+        expect(target.presentedCalibration, isNull);
+        expect(target.diagnostics, isNull);
+        final settled = target.close();
+        final saved = terminal;
+        await capture(settled);
+        expect(terminal, same(saved));
+        expect(target.close(), same(settled));
+        expect(nativeCloses, nativeFailures + 1);
+        expect(releases, 1);
+        final reported = <Object>[];
+        final previous = FlutterError.onError;
+        try {
+          FlutterError.onError = (details) => reported.add(details.exception);
+          target.dispose();
+          await Future<void>.delayed(Duration.zero);
+        } finally {
+          FlutterError.onError = previous;
+        }
+        expect(reported, [same(saved)]);
+        expect(nativeCloses, nativeFailures + 1);
+        transport.handler = reply;
+      },
+    );
+  }
 
   test('opaque scene is rejected before retaining an AR frame', () async {
     await expectLater(
