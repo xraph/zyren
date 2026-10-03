@@ -1,0 +1,23 @@
+{
+  "platform": "macos",
+  "backend": "Metal",
+  "adapter": "Apple M3 Max",
+  "presentation": "nativeView",
+  "readbackBytes": 0,
+  "ok": true,
+  "checks": [
+    "hover",
+    "capture",
+    "drag",
+    "agent-undo",
+    "pick",
+    "keyboard-focus",
+    "text-surface",
+    "orbit",
+    "dispose"
+  ],
+  "device": "Apple M3 Max",
+  "test": "example/integration_test/native_interaction_test.dart",
+  "input": "Flutter integration-test pointer and keyboard events on a physical native host",
+  "recordedAt": "2026-10-03T04:48:03.466057+00:00"
+}

@@ -46,25 +46,43 @@ Hover follows actual geometry while dragging. Touch hover ends on up; call
 `router.clearHover()` from a Flutter `MouseRegion.onExit` to clear mouse hover
 when it leaves the viewport. Current public input has no exit phase.
 
-Up releases capture. Cancel, removal, hidden or reparented ancestors, unregister, disconnect
-and disposal cancel captured gestures and clear hover. Removal checks run on scene
+Up releases capture. Cancel, removal, hidden or reparented ancestors, unregister,
+disconnect and disposal cancel active gestures and clear hover. Cancellation also
+reaches a pressed handler that did not capture. Removal checks run on scene
 notifications and before input dispatch. Synthetic cleanup retains the last
 pointer observation in `source`; `event.phase` identifies the cleanup event.
 Callbacks may remove objects or registrations. Nested input dispatch is rejected.
 Handler failures go to `onError`, or to the current Dart zone when none is supplied.
 
 The default plugin claims taps. Pass `gestures: {SceneGesture.pointerDrag}` when
-your view should claim drags against a parent scroll view. Camera controls are
-independent broadcast consumers. Router capture does not arbitrate their gestures;
-the example uses a fixed camera. Keyboard focus, semantics, anchored labels and
-widget surfaces remain planned work in `plans/zyren-plugins/interaction.md`.
+your view should claim drags against a parent scroll view. Without that claim,
+losing the Flutter gesture arena cancels object input and lets the parent scroll.
+
+`InputRouter` chooses a pointer owner before consumer callbacks. Transform gizmos
+have priority over objects; orbit and environment navigation handle the remaining
+presses and scrolling. A second touch transfers the touch sequence to navigation,
+cancelling any object or tool gesture first. Use the shared router for additional
+consumers that move a camera or edit a scene. Raw broadcasts remain observations.
+
+## Focus and overlays
+
+Register `router.focus.register(object, label: ..., order: ..., onActivate: ...)`
+for keyboard and accessibility focus. Tab and Shift-Tab traverse by order, Enter
+or Space activates, and Escape clears object focus. View focus loss, hidden
+ancestors, removal and disposal clear it too. Focus does not imply selection.
+
+`SceneAnchorProjector` maps object-local anchors to logical viewport pixels using
+the current camera. It handles transforms, viewport changes, clipping and optional
+CPU triangle occlusion. Import `flutter_zyren_interaction` in your Flutter host for
+labels, stable semantics nodes, a visible focus marker and editable widget surfaces.
+Those surfaces are Flutter screen overlays; they allocate no native texture.
 
 ## Runtime agents
 
 Import `package:zyren_interaction/agents.dart` for `InteractionAgentProvider`.
 Register it with the shared `AgentRegistry` after the scene tools attach, and
 release the registration before detaching them. The provider exposes current
-selection, hover, capture, undo/redo availability and these commands:
+selection, object focus, hover, capture, undo/redo availability and these commands:
 
 | Tool | Host scope | Behavior |
 | --- | --- | --- |
@@ -80,8 +98,9 @@ the Dart isolate; persistent source IDs come from the host's metadata provider.
 
 The package-local Flutter example registers interaction, viewport and existing
 inspector providers. The Inspector button opens the shared scene inspector with
-the same selection state and reports its blocking overlay to agents. Its integration test verifies native Metal presentation and
-can rendezvous with an external CLI MCP process. Geometric hit results explicitly
+the same selection state and reports its blocking overlay to agents. Its integration
+test verifies native Metal/Vulkan presentation and can rendezvous with an external
+CLI MCP process. Geometric hit results explicitly
 leave rendered pixel visibility unknown.
 
 ## Checks
@@ -95,6 +114,7 @@ fvm flutter test --no-pub test
 fvm flutter test --no-pub -d macos integration_test/native_interaction_test.dart
 ```
 
-This is an implementation checkpoint. The package is unpublished. Mobile input,
-visual inspection on an unlocked desktop, camera arbitration and the later
-milestones still need qualification.
+The package is unpublished. Automated native checks pass on macOS Metal and
+Pixel 9 Pro Vulkan. The macOS preview was also inspected through its native
+accessibility tree and exercised with pointer, keyboard and text input. See
+`qualification/` and the owned plan for platform-specific evidence and limits.

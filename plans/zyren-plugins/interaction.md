@@ -1,295 +1,162 @@
 # Interaction
 
-You can use this package to route viewport pointers to scene objects while the
-existing tools package owns selection and transforms. Rendering stays native.
+The seven implementation milestones are complete. You can route object input,
+share gesture ownership with cameras and tools, traverse object focus, expose
+semantics, project labels and edit Flutter widget surfaces over a native viewport.
+The packages are unpublished. Native qualification has the limits below.
+
+## Milestone status
+
+| Milestone | Implementation | Verification |
+| --- | --- | --- |
+| Object dispatch | Nearest surface, ancestor bubbling, per-pointer hover, capture and lifecycle cleanup | CPU raycasts; removal, hiding, reparenting, unregister, disconnect, callback mutation and disposal tests |
+| Native example | Compact controls, tools selection/history, shared inspector and ZeroState | Desktop and narrow widget layouts; macOS Metal and Pixel Vulkan presentation |
+| Gesture arbitration | Shared InputRouter; gizmos before objects before navigation; second-touch takeover | Both attachment orders, real orbit controls, parent-scroll arena loss, existing pinch and trackpad suite |
+| Keyboard focus | Ordered object traversal, Shift-Tab, Enter/Space activation, Escape and focus loss | Dart lifecycle tests, real SceneView keyboard adapter, native macOS keyboard flow |
+| Semantics | Stable object identity, labels, explicit order, activation and visible focus marker | Widget semantics actions and native macOS accessibility tree/action checks |
+| Anchored labels | Current camera and logical viewport projection, transforms, layers, clipping and optional triangle occlusion | Resize, DPR, camera replacement, hidden/detached/behind-camera anchors and occlusion tests |
+| Widget surfaces | Flutter screen overlays with owned focus scope and input blocking | Widget and native text-entry tests; anchor removal, unmount, focus and gesture cleanup |
 
 ## Source audit and decisions
 
-- `ViewportInputSource` supplies logical dimensions and pointer events. Input is
-  broadcast, so object propagation cannot consume camera input.
-- `Raycaster.captureFromCamera` handles camera clipping, layers, visibility,
-  transforms and triangle hits. We use the closest surface, including surfaces
-  without handlers. Those surfaces occlude objects behind them.
-- `Object3D.changes` reaches the scene in a microtask. The router checks membership
-  before each dispatch and also listens for edits, so removal needs no new input.
-- `Registration` and `AttachmentScope` supply explicit ownership and cleanup.
-- `SceneToolsPlugin.select` owns selection. The example disables its independent
-  tap picker and selects through object handlers.
-- `SceneView`, `SceneController` and `ZeroState` are public Flutter contracts.
-  The active declarative owner retains its files and facade. No changes there.
-- Core CPU picking covers triangles. Alpha masks, custom vertex displacement,
-  lines and points need later picking adapters with explicit coverage rules.
+- InputSource is a broadcast observation stream. InputRouter now settles ownership
+  before a registered consumer handles a press. Equal priorities use stable IDs,
+  so plugin attachment order does not decide whether the camera moves.
+- The transform gizmo claims first, registered objects claim primary presses next,
+  and orbit/environment navigation handle the remaining presses and scrolling.
+  A second touch cancels the earlier tool/object sequence before navigation takes
+  it over. Overlay focus or an active overlay press cancels and blocks scene input.
+- Raycaster.captureFromCamera supplies clipping, layers, visibility, transforms
+  and triangle hits. The closest geometric surface occludes objects behind it,
+  including when that surface has no registered handler.
+- SceneObjectFocus is separate from tools selection. SceneView owns OS focus;
+  optional FocusInputSource reports loss even when no key is held. Application
+  shortcuts remain outside the renderer.
+- SceneAnchorProjector allocates no native resources. Widget surfaces are ordinary
+  Flutter screen overlays, not textures on meshes. Their IDs preserve Flutter
+  state while their anchors remain visible and attached.
+- The Dart packages depend on public core contracts. Flutter adaptation lives in
+  packages/flutter_zyren_interaction. Rendering stays native Metal/Vulkan/DX12;
+  no browser or WebGL fallback was added.
 
-## Milestones and acceptance
+## Public ownership
 
-1. Implement a Dart router and a scene plugin adapter. Register one handler per
-   object, resolve the nearest registered ancestor, bubble events through its
-   registered parents, track hover per pointer and capture active pointers.
-   Cancel and release on pointer cancel, target removal, unregister, disconnect
-   and disposal. Test overlapping meshes, groups, multiple pointers, outside
-   drags, callback mutation and cleanup with actual CPU raycasts.
-2. Build a compact native Flutter example with selection, hover, captured dragging
-   and object removal/reset. Reuse shared tools and ZeroState. Test desktop and
-   narrow layouts with a substituted viewport, and test the public input adapter
-   without a GPU. Native presentation and device input need a separate live run.
-3. Add gesture arbitration with camera controls. Define a shared per-pointer claim
-   contract, priority between tools and objects, multi-touch camera takeover and
-   cancellation on arena loss. Claims must be decided before camera motion. Test
-   both plugin attachment orders, Flutter scroll parents, pinch and trackpads.
-4. Add object keyboard focus through `KeyboardInputSource`, including focus
-   traversal, Escape, focus loss and removal. Agree on Tab/Enter key additions
-   with the input owner. Keep application shortcuts outside the renderer.
-5. Add semantics through a Flutter adapter with stable object identity, labels,
-   actions and focus order. Verify accessibility traversal on native platforms.
-6. Add anchored labels using `Camera.projectPoint` and logical viewport metrics.
-   Test clipping, behind-camera anchors, viewport resize, camera replacement and
-   optional occlusion. Keep projection and native scene resources separate.
-7. Add widget surfaces with explicit ownership of overlay hit testing, focus,
-   pointer cancellation and render resources. Define whether each surface is a
-   screen overlay or a native texture before implementing it. Verify lifecycle
-   and text input on desktop and touch devices.
+SceneInteractionRouter owns handlers and pointer state for one scene. Its camera
+and viewport getters read current host values. SceneInteractionPlugin borrows the
+router and connects input for its attachment lifetime. Hosts dispose the router
+when the scene owner ends; neither router nor plugin owns scene objects or tools.
 
-## Contracts and dependencies
+Capture remains exclusive per pointer and continues outside the viewport. Hover
+follows the actual surface. Touch hover ends on up; call clearHover from the host's
+viewport-exit callback for a mouse. Cancel reaches a pressed target even when its
+handler did not capture. Handler errors reach the supplied callback or Dart zone.
 
-`SceneInteractionRouter` owns handlers and pointer state for one scene. Camera
-and viewport getters read the current host values. `SceneInteractionPlugin`
-connects public input for its attachment lifetime. Hosts dispose the router after
-removing the plugin. The router owns neither scene objects nor tools.
+Flutter overlays borrow the controller and router. A widget surface owns its focus
+scope and input-blocking registration. You retain ownership of controllers supplied
+to its child widgets. Hidden, clipped and detached anchors unmount their surfaces.
 
-Capture is exclusive within this router and continues beyond viewport bounds.
-Hover follows the actual nearest surface while a mouse drags. Touch hover ends
-on up. A host must clear hover on viewport exit because current input has no
-exit phase. Reentrant input dispatch is rejected; handlers can edit/remove
-objects and release their registrations. Handler errors reach an error callback.
+Shared changes were recorded before editing and checked against current owners:
+core input contracts and orbit/environment adapters, the transform gizmo adapter,
+FlutterInputAdapter, optional devtools transport files and workspace registration.
+The active declarative owner's files and facade were preserved. Shared edits,
+resolution and Git staging used /tmp/zyren-plugin-expansion.lock.
 
-For the first example, the camera is fixed so object capture has an unambiguous
-owner. Camera arbitration is milestone 3, not an implied capability of capture.
+## Shared agent contract
 
-## Shared-file requests
+This workstream owns packages/zyren_agents, viewport queries and the optional
+existing devtools adapter. Other plugin owners implement their own providers.
 
-- `pubspec.yaml`: append this package and its package-local example under the
-  shared lock, preserving all other entries. No dependency version changes.
-- `pubspec.lock` and generated package resolution: run workspace pub resolution
-  under the same lock. Inspect the result and preserve other owners' additions.
-- No core, Flutter facade, declarative or native API changes are required for
-  milestones 1 and 2. Later arbitration and keyboard changes need owner agreement.
+AgentProvider declares id, version, instanceId, revision, tools, capabilities,
+resources and invoke(tool, arguments, context). AgentTool supplies argument/result
+schemas, read/write classification, host scopes and byte limits. Registration
+returns a core Registration. Discovery is paginated; payloads and calls are bounded.
 
-## Evidence and remaining work
+Mutations require expectedRevision and idempotencyKey. Exact retries share a result;
+conflicting keys fail. Retired keys remain tombstoned across provider reattachment
+within a registry session. The ledger does not evict accepted keys to make room.
+Persistence across a host process restart belongs to its domain command store.
 
-Milestones 1 and 2 have an implementation checkpoint. The evidence below records
-automated checks, native Metal/MCP results and remaining qualification.
-Milestones 3 through 7 remain in the backlog. Neither package is published.
+Viewport context identifies scene, document, viewport, camera and known presented
+frame. Picking supports logical pixels, normalized coordinates, host-supplied
+window origins and frame-matched image mappings with letterbox metadata. Rich hits
+include source/runtime identity, geometry, approved provenance, action references
+and projected mesh bounds. Bounds report layer/section decisions and their method.
 
-## Runtime agent access, required work
+The native example registers viewport, interaction and existing inspector providers.
+Selection, transforms and history use SceneToolsPlugin; undo/redo report the actual
+history target. Host state reports focus, selection, hover, pointer and UI overlays.
 
-The shared specification now assigns this chat `packages/zyren_agents`, viewport
-queries and the optional existing devtools transport adapter. Provider support is
-part of completion for interaction and the existing core/tools/inspector adapters.
+The existing authenticated loopback/CLI/MCP bridge exposes discovery, reads and
+host-scoped commands. Long work uses bounded job start/status/cancel/release tools,
+progress and a change cursor. At most 16 jobs and 128 change events are retained;
+cooperative cancellation is requested after five minutes and on bridge disposal.
+MCP resource list/read/subscribe/unsubscribe exposes zyren://agents/changes. The
+subscription polls the same protected endpoint every 500 ms, notifies on changes
+and stops on unsubscribe or EOF. Default diagnostics remain read-only.
 
-The public contract is in `packages/zyren_agents/lib/zyren_agents.dart` and
-`lib/src/contract.dart`. Other owners can implement these signatures now:
+## Verified evidence
 
-```dart
-abstract class AgentProvider {
-  String get id;
-  String get version;
-  String get instanceId;
-  int get revision;
-  List<AgentTool> get tools;
-  Map<String, Object?> get capabilities;
-  List<Map<String, Object?>> get resources;
-  FutureOr<AgentResult> invoke(
-    String tool, Map<String, Object?> arguments, AgentCallContext context);
-}
-```
+All commands used the repository-pinned Flutter 3.47.5 SDK.
 
-Use `AgentTool(name:, description:, inputSchema:, outputSchema:, readOnly:,
-requiredScopes:)`. Tool names are local to the provider instance. Successful
-results use `AgentResult(AgentStatus.ok, data:, revision:, affectedIds:)`. Return
-explicit empty, unsupported, unavailable, denied, stale, cancelled, failed or
-invalid status where applicable. Schemas describe the result's `data` object.
-All payloads must be JSON-compatible. IDs allow letters, digits, dot, underscore
-and hyphen, up to 96 characters. Providers can extend `AgentProvider` to inherit
-empty resources/capabilities.
+- 149 Dart tests passed across interaction, agents, all tools/devtools tests and
+  orbit/environment plugin tests. Three existing native-gated devtools tests were
+  skipped. The later resource-subscription slice passed its 12 relevant tests.
+- Five owned Flutter tests passed, including 1200x800 and 360x640 layouts, the
+  public input adapter, semantics actions, focus indicators, text entry and parent
+  scroll cancellation. The renderer in widget tests is substituted.
+- Seventeen existing Flutter input, pinch, trackpad and keyboard tests passed.
+- Scoped analysis of agents, devtools, interaction, the Flutter adapter and shared
+  input/controls files passed. Owned diffs passed whitespace checks.
+- The final package-boundary and Apple ABI header check passed.
+- Native macOS integration passed on Apple M3 Max: Metal nativeView presentation,
+  zero readback bytes, hover/capture/drag, agent undo/pick, focus, widget text entry,
+  orbit and teardown. See packages/zyren_interaction/qualification/macos-interaction.json.
+- Pixel 9 Pro integration passed: Vulkan on Mali-G715, sharedTexture presentation,
+  zero readback bytes and the same interaction flow. See
+  packages/zyren_interaction/qualification/android-interaction.json.
+- The Android runner requires API 29, matching native GPU presentation. The final
+  arm64 debug APK build passed after the native owner resolved a concurrent
+  Rust field-visibility error. Other Android ABIs were not rechecked.
+- A live external CLI MCP process verified the native macOS host: discovery,
+  preserved read-only annotations, rich picking, selection, exact retry, stale
+  rejection, coordinate conversion, projected bounds, jobs, change cursors and
+  resource subscribe/notify/read/unsubscribe through the real CLI transport.
+  Credential-free evidence is in qualification/macos-metal-mcp.json.
+- The running macOS app was inspected through CUA. Its native accessibility tree
+  exposed Orange/Blue object buttons; activation selected an object. Pointer drag
+  moved the box, Tab/Enter selected the next object, and the anchored editor
+  accepted text. The preview was closed after inspection.
+- Android, iOS and Windows runners were added. The iOS app compiled and signed.
+  The first iPhone launch was stopped when other workstreams targeted that device.
+  The idle iPad run built successfully but could not discover its wireless VM
+  service and exited after 615 seconds. Flutter reported the local-network
+  permission or USB connection requirement.
 
-`AgentRegistry(grantedScopes:)` owns host permission scopes. It registers providers
-with `register(provider)` returning core `Registration`, exposes
-`discover({offset, limit})`, and calls
-`call(providerId:, instanceId:, tool:, arguments:, expectedRevision:,
-idempotencyKey:, cancellation:, onProgress:)`. Mutations require the declared
-host scopes, an expected provider revision and an idempotency key. A provider
-must use normal domain commands and return the resulting revision/affected IDs.
-`context.checkCancelled()` and `context.reportProgress(fraction, message)` support
-bounded cooperative jobs. Providers must recheck consistency before asynchronous
-mutations commit. Registration cleanup cancels in-flight calls.
+## Remaining qualification and capability limits
 
-Next checks: registry discovery/schema conformance; scoped/retried/stale calls;
-viewport and rich triangle queries across cameras, DPR and revisions; optional
-core/tools/inspector provider; MCP adapter preserving all diagnostics annotations;
-then native/MCP evidence. Current results are recorded below.
+- Live iOS verification is pending the device connection/permission step. Windows
+  and DX12 need a Windows host. Neither is inferred from the generated runner or
+  passing macOS/Android checks.
+- Native mobile input tests inject Flutter events on physical devices. They do
+  not establish human touch ergonomics, every soft keyboard or full VoiceOver/
+  TalkBack traversal. macOS accessibility actions and keyboard traversal were
+  checked directly; screen-reader-specific qualification remains separate.
+- CPU picks and projected bounds leave rendered pixel visibility unknown. Alpha
+  masks, transparent compositing, custom displacement and line/point footprints
+  need matching renderer or plugin queries. Native GPU object/depth and exact
+  frame-image capture are explicitly unsupported by this provider. Host-supplied
+  image mappings require real frame correlation; current FrameStats does not
+  supply captured scene/camera revisions, so the example leaves it unknown.
+- No package publication, push or merge was performed. Provider retrofits in other
+  plugin packages remain their owners' responsibility.
 
-Agent contract checkpoint: 13 Dart tests pass for discovery, schema rejection,
-host permission denial, exact retries, concurrent commands, cancellation,
-detachment, bounded ledgers, stale reads, viewport identity, perspective and
-orthographic picking, DPR/resize, clipping, provenance and frame correlation.
-The implementation uses the repository-pinned Flutter 3.47.5 Dart runtime.
-The shell's default Flutter uses Dart 3.9.2 and cannot resolve this workspace.
+## Local commits
 
-Shared devtools edits requested after ownership inspection: add an optional agent
-bridge in `packages/zyren_devtools/lib/agents.dart`; extend `lib/io.dart`,
-`lib/src/mcp.dart`, `bin/zyren.dart` and `pubspec.yaml` compatibly. Default diagnostics
-remain read-only and retain their tool definitions and annotations. Hosts opt in
-with a registry; CLI MCP exposure also requires `ZYREN_AGENT_TOOLS=1`. The registry
-alone grants command scopes. Existing loopback token, origin, byte and rate limits
-remain in force. No other plan claims these transport files.
+- 5ddc7ea: initial shared agent contract and viewport queries.
+- 828955b and a9b1b9c: initial object interaction/native example and evidence.
+- 7a92f7d: shared gesture routing, object focus, semantics, labels and widget surfaces.
+- 2a37386: bounded agent jobs, coordinate evidence and session retry tombstones.
+- 3a5bb6e: MCP resource discovery, reads and change subscriptions.
 
-Shared contract committed as `5ddc7ea`. Initial native occupancy inspection found
-`examples/planet/build/macos/Build/Products/Profile/planet.app` running (PID 35013).
-Do not change that session. CPU/widget checks use this package's own outputs.
-
-Additional compatible introspection requests: `SceneToolsPlugin.undoTarget` and
-`redoTarget` identify the object a history command affects; agent results must not
-substitute the currently selected object. `SceneDevtoolsPlugin.sceneRevision`
-reads the current scene revision without building an inspection snapshot. Status
-and plan inspection found no owner editing those Dart files. These getters expose
-existing state and do not change command behavior or ownership.
-
-
-## Current checkpoint, 2026-10-02
-
-Implemented:
-
-- Object dispatch to the nearest registered target, ancestor bubbling, direct
-  enter/leave, per-pointer hover and exclusive capture. Removal, hidden ancestors,
-  reparenting, handler disposal, input detachment and router disposal clean up
-  capture. Captured drags continue outside the logical viewport.
-- A compact macOS Flutter example with native Metal, real tools selection,
-  undoable dragging, remove/reset, shared ZeroState and a shared scene inspector.
-  Its host reports pointer coordinates and the inspector's blocking overlay.
-- `zyren_agents` schema 1.0, a typed provider registry, paginated discovery, bounded
-  payloads, host scopes, expected provider revisions, exact mutation retries,
-  cooperative cancellation/progress and a shared read conformance harness.
-- Named viewport context and CPU triangle picking with source/runtime identity,
-  geometry, approved semantic/provenance fields, action references and explicit
-  coverage. Perspective/orthographic cameras and logical pixels are tested.
-- Existing tools and inspector/diagnostics adapters. Selection, transforms,
-  undo/redo go through SceneToolsPlugin. History target getters report affected
-  IDs accurately even when another object is selected.
-- Optional agent discovery/query/command tools through the existing loopback,
-  CLI and MCP transport. Default diagnostics retain their read-only annotations.
-
-Automated evidence:
-
-- 70 Dart tests pass across `zyren_agents/test`, `zyren_interaction/test`,
-  `zyren_tools/test/tools_test.dart` and devtools agent, I/O, diagnostics and
-  plugin tests. This includes 19 interaction tests and 14 shared-agent tests.
-- Three Flutter widget tests pass: 1200x800 and 360x640 controls keep more than
-  half the viewport height available, and real public SceneView input exercises
-  hover, capture, transform history and the shared inspector. The widget renderer
-  is substituted; these checks do not establish GPU presentation.
-- `dart analyze` for zyren_agents, zyren_interaction, zyren_devtools and zyren_tools
-  reports no issues. The relevant diff passes whitespace checks.
-
-Live native and MCP evidence:
-
-- `example/integration_test/native_interaction_test.dart` passed on macOS using
-  nativeView presentation and zero readback bytes. It exercises hover, capture,
-  dragging, agent undo, rich picking and disposal against the native renderer.
-- The external `example/tool/native_mcp_probe.py` passed through the real CLI
-  stdio MCP session and authenticated loopback connection to that native app.
-  It verifies discovery, preserved diagnostics annotations, rich picking, permitted
-  selection, exact retry and stale-command rejection.
-- `packages/zyren_interaction/qualification/macos-metal-mcp.json` contains the
-  credential-free result: wgpu-native, Metal, Apple M3 Max, 1600x1000 render size,
-  three registered providers and the final selected runtime ID.
-- FrameStats exposes the presented frame ID/time but not captured scene/camera
-  revisions. The example leaves that correlation unknown. CPU hits leave rendered
-  pixel visibility unknown. The registry does not manufacture exact pixels.
-
-Remaining work and blockers:
-
-- Desktop visual inspection is blocked by the locked Mac. CUA could not unlock
-  it. Native automated presentation passed, but no screenshot or physical pointer
-  check is claimed. The workstream preview app was closed after the attempt.
-- iOS/Android/Windows runners, real touch input and mobile lifecycle checks remain
-  unverified. The supplied runner is macOS only.
-- Gesture arbitration with cameras, keyboard focus, semantics, anchored labels
-  and widget surfaces remain milestones 3 through 7 with the acceptance criteria
-  above. Native GPU object/depth queries, frame-matched image capture, normalized
-  or image coordinate conversions and projected object bounds remain additional
-  agent context work.
-- The direct registry supports cancellable jobs and progress. The optional MCP
-  adapter currently exposes request/response calls; cancellation/progress events,
-  resource subscriptions and durable retry records across registration lifetimes
-  remain transport work. Hosts must keep long operations bounded until then.
-- Plugin-specific providers and existing-plugin retrofits belong to their owners.
-  This checkpoint supplies the shared contract and adapters for core viewport,
-  interaction, tools and inspector/diagnostics. It does not claim every plugin is
-  integrated or that the complete interaction plugin is ready for publication.
-
-Commit evidence: `5ddc7ea` contains the first checked shared agent contract and
-viewport slice. `828955b` contains object interaction, tools/inspector adapters,
-the native example, optional devtools transport, lifecycle fixes and verification
-fixtures. Both are local commits on the existing main branch. Nothing was pushed
-or merged. The remaining root workspace ordering diff belongs to concurrent work
-and was left untouched.
-
-## Completion pass
-
-The remaining milestones use one shared input arbiter per input source. Gizmos
-claim first, registered objects second and navigation last. A second touch can
-cancel object/tool ownership and transfer the touch sequence to navigation.
-Raw hover stays observable. Gesture arena loss must cancel the routed pointer.
-
-Shared requests after checking the current plans and checkout:
-
-- `packages/zyren/lib/src/input`: add routing and focus capabilities, plus Tab
-  and Enter keys. Existing input implementations remain valid.
-- `packages/zyren/lib/src/controls/{orbit_controls_plugin,environment_controls_plugin}.dart`
-  and `packages/zyren_tools/lib/src/transform_gizmo.dart`: register routed pointer
-  consumers so ownership is settled before camera or transform commands run.
-- `packages/flutter_zyren/lib/src/input/flutter_input_adapter.dart`: expose view
-  focus, map Tab/Enter and cancel scene pointers when Flutter rejects the arena.
-- `packages/flutter_zyren_interaction`: a separate Flutter adapter for semantics,
-  projected labels and interactive screen overlays. The Dart interaction package
-  retains no Flutter dependency. Surfaces are ordinary Flutter widgets projected
-  over a native viewport; they do not allocate native textures.
-- Root workspace registration and resolution use the shared lock. No changes to
-  the declarative facade, native backend or other plugin implementations.
-
-Completion pass implementation checkpoint:
-
-- InputRouter now chooses a stable owner before dispatch. Native orbit and
-  environment navigation and transform gizmos use it. Object handlers claim
-  primary presses; second-touch navigation cancels object capture. Flutter arena
-  loss cancels raw object sequences when a scroll parent wins.
-- SceneObjectFocus provides ordered traversal, activation, Escape and focus-loss
-  cleanup. Tab/Enter are additive core keys. Focus metadata and actions use object
-  identity and remain separate from SceneToolsPlugin selection.
-- SceneAnchorProjector follows local transforms and current camera/viewport
-  getters, with behind-camera, section-plane and optional triangle-occlusion
-  checks. Flutter semantics retain object IDs and explicit traversal order.
-- flutter_zyren_interaction owns ordinary screen widgets over the native view.
-  Text fields use Flutter focus. Overlay focus cancels and blocks scene gestures;
-  unmount releases its registration. No native texture is allocated.
-- The example now includes orbit navigation, projected labels, keyboard object
-  focus and an anchored note editor. Dragging uses camera unprojection.
-
-Checks at this checkpoint: 103 Dart tests across interaction, orbit/environment
-plugins and tools; 17 existing Flutter input/trackpad tests; five owned Flutter
-widget tests, including parent-scroll cancellation, semantics actions, text entry
-and 1200x800/360x640 layouts. Native qualification follows separately.
-
-The optional bridge also needs bounded job handles so long provider work does not
-hold a five-second HTTP call open. Add start/status/cancel/release tools and a
-cursor-based change feed in the existing bridge. Keep progress polling explicit,
-retain host scopes and exact retry guards, and cancel jobs when the server closes.
-These additions use the same authenticated endpoint and MCP tools transport.
-
-Agent completion checks: 45 registry/devtools tests pass; three existing native
-checks are skipped unless their native environment flag is set. Coordinate
-conversion tests cover normalized points, window origins, letterbox margins and
-stale image mappings. Projected bounds state their geometric method. Job tests
-cover progress, retry identity, cancellation, release and server cleanup. Registry
-command tombstones prevent replay after reattachment within the same session.
-A process restart still needs the host's persistent domain command store.
+The final qualification commit also records cancellation without capture, layer-aware
+anchors, visible focus, mobile runners, MCP resources and the qualification files.

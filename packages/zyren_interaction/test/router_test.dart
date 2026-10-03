@@ -45,6 +45,24 @@ void main() {
 
   List<ObjectPointerPhase> phases() => events.map((e) => e.phase).toList();
 
+  test('uncaptured presses cancel on arena loss and removal', () {
+    router.register(mesh, events.add);
+    router.dispatch(pointer(ScenePointerPhase.down));
+    router.dispatch(pointer(ScenePointerPhase.cancel));
+    expect(phases(), contains(ObjectPointerPhase.cancel));
+    expect(
+      events.where((e) => e.phase == ObjectPointerPhase.cancel).single.captured,
+      isFalse,
+    );
+    events.clear();
+    router.dispatch(pointer(ScenePointerPhase.down));
+    scene.remove(mesh);
+    router.dispatch(pointer(ScenePointerPhase.move));
+    expect(
+      phases().where((phase) => phase == ObjectPointerPhase.cancel),
+      hasLength(1),
+    );
+  });
   test('nearest surface occludes registered objects behind it', () {
     router.register(mesh, events.add);
     final front = scene.add(Mesh(BoxGeometry(), UnlitMaterial()))

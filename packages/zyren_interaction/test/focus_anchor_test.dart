@@ -112,6 +112,9 @@ void main() {
         AnchorVisibility.outsideViewport,
       );
       scene.clippingPlanes = [];
+      child.layers = LayerMask.none;
+      expect(projector.project(anchor).visibility, AnchorVisibility.hidden);
+      child.layers = LayerMask.only(0);
       parent.visible = false;
       expect(projector.project(anchor).visibility, AnchorVisibility.hidden);
       parent.visible = true;

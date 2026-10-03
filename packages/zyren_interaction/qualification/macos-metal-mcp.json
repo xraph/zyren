@@ -9,8 +9,8 @@
   "renderer": {
     "schemaVersion": 1,
     "packageVersion": "0.1.0",
-    "sessionId": "hmujhmu07k-jrr25y:1",
-    "capturedAt": "2026-10-02T21:37:12.681852Z",
+    "sessionId": "hmuvaktpaj-zur05k:1",
+    "capturedAt": "2026-10-03T04:45:27.625308Z",
     "attached": true,
     "name": "wgpu-native",
     "backend": "Metal",
@@ -77,10 +77,10 @@
       "sceneRevision": 8,
       "camera": {
         "runtimeId": 2,
-        "revision": 1,
+        "revision": 3,
         "position": [
           0.0,
-          0.0,
+          3.6739403974420594e-16,
           6.0
         ],
         "target": [
@@ -135,9 +135,11 @@
         "logicalWidth": null,
         "logicalHeight": null,
         "devicePixelRatio": null,
-        "presentedAt": "controller+714443us"
+        "presentedAt": "controller+947310us"
       },
       "frameCorrelation": "unknown",
+      "imageMapping": null,
+      "windowOrigin": null,
       "hostState": {
         "selectedRuntimeId": 3,
         "hoveredRuntimeIds": [
@@ -145,12 +147,13 @@
         ],
         "activeMode": "object-drag",
         "activeViewport": true,
-        "focus": "unknown",
+        "focus": true,
         "overlays": [],
+        "focusedRuntimeId": 3,
         "pointerBlockedByUi": false,
         "pointer": {
-          "x": 324.4,
-          "y": 274.0,
+          "x": 330.0,
+          "y": 260.0,
           "kind": "mouse",
           "coordinateSpace": "viewport-local-logical-top-left"
         },
@@ -219,6 +222,24 @@
         0.0,
         1.0
       ],
+      "projectedBounds": {
+        "method": "projected-world-aabb",
+        "renderedPixelVisibility": "unknown",
+        "coordinateSpace": "viewport-local-logical-top-left",
+        "cameraRuntimeId": 2,
+        "cameraRevision": 3,
+        "layerMatch": true,
+        "status": "ok",
+        "rectangle": {
+          "left": 249.99999925494194,
+          "top": 199.99999925494194,
+          "right": 350.00000074505806,
+          "bottom": 300.00000074505806
+        },
+        "intersectsViewport": true,
+        "sectionClipping": "inside",
+        "coverage": "built-in deformation and instances; shader displacement and primitive pixel widths unknown"
+      },
       "metadata": {
         "sourceId": "demo:Orange",
         "semanticType": "demo-box",
@@ -236,13 +257,13 @@
     },
     "instanceIndex": null,
     "worldPoint": [
-      -0.8448000000000001,
-      -0.1120000000000001,
+      -0.8,
+      2.4492936347920213e-17,
       0.4000000059604645
     ],
     "objectLocalPoint": [
-      -0.04480000000000006,
-      -0.1120000000000001,
+      0.0,
+      2.4492936347920213e-17,
       0.4000000059604645
     ],
     "localPointSpace": "object before instance transform",
@@ -253,7 +274,7 @@
     ],
     "distance": 5.5999999940395355,
     "units": "scene-units",
-    "triangleIndex": 8,
+    "triangleIndex": 9,
     "triangle": [
       [
         -1.2000000059604645,
@@ -262,23 +283,23 @@
       ],
       [
         -0.39999999403953557,
-        -0.4000000059604645,
+        0.4000000059604645,
         0.4000000059604645
       ],
       [
-        -0.39999999403953557,
+        -1.2000000059604645,
         0.4000000059604645,
         0.4000000059604645
       ]
     ],
     "barycentric": [
-      0.5559999991655351,
-      0.08399999874830251,
-      0.3600000020861624
+      0.4999999999999999,
+      0.5,
+      9.179065442507954e-17
     ],
     "uv": {
-      "u": 0.4440000008344649,
-      "v": 0.6399999979138377
+      "u": 0.5,
+      "v": 0.4999999999999999
     },
     "renderedPixelVisibility": "unknown"
   },
@@ -287,6 +308,7 @@
     "status": "ok",
     "data": {
       "selectedRuntimeId": 3,
+      "focusedRuntimeId": 3,
       "canUndo": false,
       "canRedo": true,
       "registeredCount": 2,
@@ -310,6 +332,11 @@
     "rich CPU triangle pick",
     "scoped selection command",
     "exact retry",
-    "stale rejection"
+    "stale rejection",
+    "normalized coordinates",
+    "projected bounds",
+    "job lifecycle",
+    "change cursor",
+    "MCP resource subscription"
   ]
 }

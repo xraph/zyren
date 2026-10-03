@@ -54,6 +54,9 @@ final class SceneAnchorProjector {
     if (!size.isUsable || !anchor.localPoint.isFinite) {
       return const AnchorProjection(AnchorVisibility.unavailable);
     }
+    if (!anchor.object.layers.intersects(view.layers)) {
+      return const AnchorProjection(AnchorVisibility.hidden);
+    }
     var matrix = Mat4.identity();
     final path = <Object3D>[];
     var member = false;

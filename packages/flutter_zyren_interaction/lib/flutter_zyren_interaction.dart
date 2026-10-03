@@ -152,11 +152,28 @@ class _SceneInteractionOverlayState extends State<SceneInteractionOverlay> {
               onDidGainAccessibilityFocus: () =>
                   widget.router.focus.request(target.object),
               onDidLoseAccessibilityFocus: () {
-                if (identical(widget.router.focus.focusedObject, target.object)) {
+                if (identical(
+                  widget.router.focus.focusedObject,
+                  target.object,
+                )) {
                   widget.router.focus.blur();
                 }
               },
-              child: const IgnorePointer(child: SizedBox.expand()),
+              child: IgnorePointer(
+                child:
+                    identical(widget.router.focus.focusedObject, target.object)
+                    ? DecoratedBox(
+                        key: ValueKey(('scene-focus', target.object.id)),
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            color: Theme.of(context).colorScheme.primary,
+                            width: 2,
+                          ),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      )
+                    : const SizedBox.expand(),
+              ),
             ),
           ),
         );

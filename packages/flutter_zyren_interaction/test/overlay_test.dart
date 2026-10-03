@@ -107,6 +107,7 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.tab);
       await tester.pump();
       expect(router.focus.focusedObject, object);
+      expect(find.byKey(ValueKey(('scene-focus', object.id))), findsOneWidget);
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pump();
       expect(activated, 2);

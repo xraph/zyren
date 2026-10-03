@@ -71,6 +71,7 @@ final class SceneInteractionRouter {
   final _bindings = <Object3D, _Binding>{};
   final _hover = <int, _Route>{}, _captures = <int, _Route>{};
   final _pressed = <int, ScenePointerEvent>{};
+  final _pressRoutes = <int, _Route>{};
   late final StreamSubscription<int> _sceneChanges;
   Registration? _connection;
   bool _disposed = false, _dispatching = false, _resetting = false;
@@ -197,7 +198,15 @@ final class SceneInteractionRouter {
       }
       if (_disposed) return;
       final capture = _captures[pointer];
-      final route = capture ?? hit;
+      final pressedRoute = terminal
+          ? _pressRoutes.remove(pointer)
+          : _pressRoutes[pointer];
+      final route =
+          capture ?? (phase == ObjectPointerPhase.cancel ? pressedRoute : hit);
+      if (phase == ObjectPointerPhase.down && route != null) {
+        _pressRoutes[pointer] = route;
+      }
+      if (_pressRoutes[pointer] case final pressed?) pressed.source = source;
       if (phase == ObjectPointerPhase.down && route != null) {
         focus.request(route.binding.object);
       }
@@ -342,15 +351,18 @@ final class SceneInteractionRouter {
 
   void _cancel(int pointer) {
     _pressed.remove(pointer);
-    final route = _captures.remove(pointer);
+    final capture = _captures.remove(pointer);
+    final route = capture ?? _pressRoutes[pointer];
+    _pressRoutes.remove(pointer);
     if (route == null) return;
     _emit(
       route,
       ObjectPointerPhase.cancel,
       route.source,
-      captured: true,
+      captured: capture != null,
       cleanup: true,
     );
+    if (capture == null) return;
     _emit(
       route,
       ObjectPointerPhase.lostCapture,
@@ -418,7 +430,7 @@ final class SceneInteractionRouter {
     if (!binding.active) return;
     binding.active = false;
     _bindings.remove(binding.object);
-    for (final entry in _captures.entries.toList()) {
+    for (final entry in {..._pressRoutes, ..._captures}.entries.toList()) {
       if (entry.value.binding == binding) _cancel(entry.key);
     }
     for (final entry in _hover.entries.toList()) {
@@ -431,7 +443,7 @@ final class SceneInteractionRouter {
     for (final binding in _bindings.values.toList()) {
       if (!_member(binding.object)) binding.registration.dispose();
     }
-    for (final entry in _captures.entries.toList()) {
+    for (final entry in {..._pressRoutes, ..._captures}.entries.toList()) {
       if (!_live(entry.value)) _cancel(entry.key);
     }
     for (final entry in _hover.entries.toList()) {
@@ -446,7 +458,7 @@ final class SceneInteractionRouter {
     try {
       focus.blur();
       _pressed.clear();
-      for (final pointer in _captures.keys.toList()) {
+      for (final pointer in {..._pressRoutes.keys, ..._captures.keys}) {
         _cancel(pointer);
       }
       clearHover();

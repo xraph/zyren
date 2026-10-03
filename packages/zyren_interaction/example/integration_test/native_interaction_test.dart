@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_zyren/flutter_zyren.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
@@ -10,7 +11,7 @@ import 'package:zyren_interaction_example/main.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
-  testWidgets('native Metal hover capture and agent action share scene tools', (
+  testWidgets('native interaction, focus, overlays and agents share scene tools', (
     tester,
   ) async {
     final key = GlobalKey<InteractionDemoState>();
@@ -19,13 +20,29 @@ void main() {
     for (var i = 0; i < 200 && state.controller.latestFrameStats == null; i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }
-    expect(state.controller.status.value, isA<SceneReady>());
+    expect(
+      state.controller.status.value,
+      isA<SceneReady>(),
+      reason: state.controller.status.value is SceneFailed
+          ? (state.controller.status.value as SceneFailed).issue.message
+          : null,
+    );
     expect(state.controller.latestFrameStats, isNotNull);
     expect(state.controller.latestFrameStats!.readbackBytes, 0);
     expect(
       (state.controller.status.value as SceneReady).info.presentationPath,
-      PresentationPath.nativeView,
+      Platform.isAndroid
+          ? PresentationPath.sharedTexture
+          : PresentationPath.nativeView,
     );
+    final nativeInfo = (state.controller.status.value as SceneReady).info;
+    final evidence = {
+      'platform': Platform.operatingSystem,
+      'backend': nativeInfo.backend,
+      'adapter': nativeInfo.adapterName,
+      'presentation': nativeInfo.presentationPath.name,
+      'readbackBytes': state.controller.latestFrameStats!.readbackBytes,
+    };
     final extent = tester.getSize(find.byType(SceneView)),
         origin = tester.getTopLeft(find.byType(SceneView));
     final object = state.objects.first;
@@ -125,10 +142,44 @@ void main() {
       }
     }
     await mouse.removePointer();
+    await tester.tap(find.byType(SceneView));
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    expect(state.interaction.focus.focusedObject, isNotNull);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    expect(state.tools.selected, same(state.interaction.focus.focusedObject));
+    await tester.tap(find.text('Edit note'));
+    await tester.pump();
+    await tester.enterText(find.byType(TextFormField), 'Native note');
+    await tester.pump();
+    expect(find.text('Native note'), findsOneWidget);
+    expect(InputRouter.forSource(state.controller.input).blocked, isTrue);
+    await tester.tap(find.text('Close note'));
+    await tester.pump();
+    expect(InputRouter.forSource(state.controller.input).blocked, isFalse);
+    final cameraBefore = state.controller.camera.position;
+    final orbit = await tester.startGesture(
+      origin + const Offset(12, 12),
+      pointer: 41,
+    );
+    await orbit.moveBy(const Offset(60, 25));
+    await tester.pump();
+    await orbit.up();
+    await tester.pump();
+    expect(state.controller.camera.position, isNot(cameraBefore));
     await tester.pumpWidget(const SizedBox());
     await tester.runAsync(
       () => state.controller.whenDisposed.timeout(const Duration(seconds: 20)),
     );
     expect(tester.takeException(), isNull);
+    debugPrint(
+      'ZYREN_INTERACTION_EVIDENCE=${jsonEncode({
+        ...evidence,
+        'ok': true,
+        'checks': ['hover', 'capture', 'drag', 'agent-undo', 'pick', 'keyboard-focus', 'text-surface', 'orbit', 'dispose'],
+      })}',
+    );
   });
 }

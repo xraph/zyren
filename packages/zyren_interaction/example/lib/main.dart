@@ -387,12 +387,15 @@ class InteractionDemoState extends State<InteractionDemo> {
                             title: 'Starting renderer',
                             message: 'Preparing the native viewport.',
                           ),
-                          errorBuilder: (_, issue, retry) => ZeroState(
-                            title: 'Viewport failed',
-                            message: issue.message,
-                            actionLabel: 'Retry',
-                            onAction: retry,
-                          ),
+                          errorBuilder: (_, issue, retry) =>
+                              SingleChildScrollView(
+                                child: ZeroState(
+                                  title: 'Viewport failed',
+                                  message: issue.message,
+                                  actionLabel: 'Retry',
+                                  onAction: retry,
+                                ),
+                              ),
                         ),
                   ),
                   if (objects.isEmpty)
