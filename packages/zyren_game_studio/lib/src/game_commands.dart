@@ -42,16 +42,20 @@ final class GameAuthoring {
         document,
       ).entities.where((e) => e.nodeId == nodeId).firstOrNull;
     }
-    return expanded(
-      document,
-    ).entities.where((e) => e.nodeId == nodeId).firstOrNull;
+    return codec
+        .expand(initialize(document), validateComponents: false)
+        .entities
+        .where((e) => e.nodeId == nodeId)
+        .firstOrNull;
   }
 
   List<GameEntityRecord> editableEntities(StudioDocument document) {
     try {
       return expanded(document).entities;
     } catch (_) {
-      return _local(document).entities;
+      return codec
+          .expand(initialize(document), validateComponents: false)
+          .entities;
     }
   }
 
@@ -265,6 +269,7 @@ final class GameAuthoring {
         projectId: _local(document).projectId,
         levelId: _local(document).levelId,
       ),
+      validateComponents: false,
     );
     final localId = local.entities.singleWhere((e) => e.nodeId == nodePath).id;
     final payload =
@@ -536,8 +541,70 @@ final class GameAuthoring {
     }).toList(),
   );
 
+  StudioDocument setPrefabDefinitionFields(
+    StudioDocument document, {
+    required String prefabId,
+    required String nodeId,
+    required String component,
+    required Map<String, Object?> fields,
+  }) {
+    final prefab = document.prefabs.singleWhere((p) => p.id == prefabId);
+    final data = codec.read(
+      prefab.extensions[codec.namespace]!,
+      validateComponents: false,
+    );
+    final entity = data.entities.singleWhere((e) => e.nodeId == nodeId);
+    final source = entity.components.singleWhere((c) => c.type == component);
+    _validateFields(nodeId, source, fields);
+    final replacement = registry.normalize(
+      GameComponentRecord(source.type, source.version, {
+        ...source.data,
+        ...fields,
+      }, required: source.required),
+    );
+    final record = codec.write(
+      GameDocumentData(
+        projectId: data.projectId,
+        levelId: data.levelId,
+        entities: [
+          for (final e in data.entities)
+            e.id != entity.id
+                ? e
+                : GameEntityRecord(
+                    id: e.id,
+                    nodeId: e.nodeId,
+                    components: [
+                      for (final c in e.components)
+                        c.type == component ? replacement : c,
+                    ],
+                  ),
+        ],
+      ),
+      required: prefab.extensions[codec.namespace]!.required,
+    );
+    return _checked(
+      document.copyWith(
+        prefabs: [
+          for (final p in document.prefabs)
+            p.id == prefabId
+                ? p.copyWith(
+                    extensions: {...p.extensions, codec.namespace: record},
+                  )
+                : p,
+        ],
+      ),
+    );
+  }
+
   StudioDocument repair(StudioDocument document, GameRepairCommand command) =>
       switch (command.kind) {
+        GameRepairKind.resetPrefabComponent => setPrefabDefinitionFields(
+          document,
+          prefabId: command.prefabId!,
+          nodeId: command.nodeId,
+          component: command.component,
+          fields: descriptors[command.component]!.create().data,
+        ),
         GameRepairKind.removeComponent => removeComponent(
           document,
           nodeId: command.nodeId,
@@ -557,6 +624,40 @@ final class GameAuthoring {
 
   List<GameAuthoringIssue> validate(StudioDocument document) {
     final issues = <GameAuthoringIssue>[];
+    for (final prefab in document.prefabs) {
+      final record = prefab.extensions[codec.namespace];
+      if (record == null) continue;
+      try {
+        for (final entity
+            in codec.read(record, validateComponents: false).entities) {
+          for (final component in entity.components) {
+            try {
+              registry.normalize(component);
+            } catch (error) {
+              issues.add(
+                GameAuthoringIssue(
+                  'Prefab ${prefab.label}: $error',
+                  nodeId: entity.nodeId,
+                  component: component.type,
+                  repair:
+                      descriptors.containsKey(component.type) &&
+                          entity.nodeId != null
+                      ? GameRepairCommand(
+                          GameRepairKind.resetPrefabComponent,
+                          entity.nodeId!,
+                          component.type,
+                          prefabId: prefab.id,
+                        )
+                      : null,
+                ),
+              );
+            }
+          }
+        }
+      } catch (error) {
+        issues.add(GameAuthoringIssue('Prefab ${prefab.label}: $error'));
+      }
+    }
     GameDocumentData data;
     Object? expansionError;
     try {
@@ -564,7 +665,7 @@ final class GameAuthoring {
     } catch (error) {
       expansionError = error;
       try {
-        data = _local(document);
+        data = codec.expand(initialize(document), validateComponents: false);
       } catch (_) {
         return [GameAuthoringIssue(error.toString())];
       }
@@ -604,7 +705,7 @@ final class GameAuthoring {
             ),
           );
         }
-        if (validData && document.prefabs.isEmpty) {
+        if (validData) {
           for (final reference in registry.references(component)) {
             if (!data.entities.any((e) => e.id == reference.targetId)) {
               issues.add(

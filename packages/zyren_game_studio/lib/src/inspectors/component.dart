@@ -323,6 +323,7 @@ class GameComponentField extends StatelessWidget {
       case GameFieldKind.json:
         return _GameStructuredField(
           label: label,
+          origin: origin,
           entryTemplate: descriptor.entryTemplate,
           entryBatchSize: descriptor.entryBatchSize,
           value: value,
@@ -361,6 +362,7 @@ class GameComponentField extends StatelessWidget {
 
 class _GameStructuredField extends StatelessWidget {
   final String label;
+  final GameFieldOrigin origin;
   final Object? value;
   final bool enabled;
   final Map<String, Object?>? entryTemplate;
@@ -368,6 +370,7 @@ class _GameStructuredField extends StatelessWidget {
   final ValueChanged<Object?> onChanged;
   const _GameStructuredField({
     required this.label,
+    required this.origin,
     required this.value,
     required this.enabled,
     required this.onChanged,
@@ -595,7 +598,7 @@ class _GameStructuredField extends StatelessWidget {
                       : GameFieldKind.text,
                 ),
                 value: entry.value,
-                origin: GameFieldOrigin.authored,
+                origin: origin,
                 entities: const [],
                 enabled: enabled,
                 onChanged: (next) {
@@ -635,6 +638,7 @@ class _GameStructuredField extends StatelessWidget {
       tilePadding: EdgeInsets.zero,
       dense: true,
       title: Text(label),
+      subtitle: origin == GameFieldOrigin.authored ? null : Text(origin.name),
       children: [
         for (var index = 0; index < rows.length; index++)
           if (rows[index] is Map)

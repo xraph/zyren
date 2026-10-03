@@ -40,6 +40,40 @@ StudioEditorHostController host(
 
 void main() {
   testWidgets(
+    'structured values retain inherited overridden and missing labels',
+    (tester) async {
+      for (final origin in [
+        GameFieldOrigin.inherited,
+        GameFieldOrigin.overridden,
+        GameFieldOrigin.missing,
+      ]) {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: GameComponentField(
+                key: ValueKey(origin),
+                descriptor: const GameFieldDescriptor(
+                  'items',
+                  'Items',
+                  GameFieldKind.json,
+                ),
+                value: const {'key': 1},
+                origin: origin,
+                entities: const [],
+                enabled: true,
+                onChanged: (_) {},
+              ),
+            ),
+          ),
+        );
+        expect(find.text(origin.name), findsOneWidget);
+        await tester.tap(find.text('Items'));
+        await tester.pumpAndSettle();
+        expect(find.text(origin.name), findsNWidgets(2));
+      }
+    },
+  );
+  testWidgets(
     'collection editor adds typed inventory entries and wheel pairs atomically',
     (tester) async {
       Object? items = <String, Object?>{};

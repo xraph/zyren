@@ -83,13 +83,25 @@ final class GameComponentDescriptor {
   });
 }
 
-enum GameRepairKind { removeComponent, addDependency, selectTarget }
+enum GameRepairKind {
+  removeComponent,
+  addDependency,
+  selectTarget,
+  resetPrefabComponent,
+}
 
 final class GameRepairCommand {
   final GameRepairKind kind;
   final String nodeId, component;
   final String? field;
-  const GameRepairCommand(this.kind, this.nodeId, this.component, {this.field});
+  final String? prefabId;
+  const GameRepairCommand(
+    this.kind,
+    this.nodeId,
+    this.component, {
+    this.field,
+    this.prefabId,
+  });
 }
 
 final class GameAuthoringIssue {

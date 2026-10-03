@@ -79,10 +79,13 @@ final class GameDocumentCodec implements StudioExtensionCodec {
   }
 
   /// Resolve Studio's prefab tree, applying relative overrides before prefixing.
-  GameDocumentData expand(StudioDocument document) {
+  GameDocumentData expand(
+    StudioDocument document, {
+    bool validateComponents = true,
+  }) {
     final record = document.extensions[namespace];
     if (record == null) throw FormatException('Game extension is missing.');
-    final base = read(record);
+    final base = read(record, validateComponents: validateComponents);
     final prefabs = {for (final prefab in document.prefabs) prefab.id: prefab};
     List<GameEntityRecord> prefix(
       List<GameEntityRecord> entities,
@@ -95,7 +98,29 @@ final class GameDocumentCodec implements StudioExtensionCodec {
       );
       final overrides = instance.extensionOverrides[namespace];
       if (overrides != null) {
-        data = read(applyOverrides(write(data), overrides));
+        data = read(
+          applyOverrides(
+            write(data),
+            overrides,
+            validateComponents: validateComponents,
+          ),
+          validateComponents: validateComponents,
+        );
+      }
+      if (!validateComponents) {
+        final ids = {
+          for (final e in data.entities)
+            e.id:
+                '${Uri.encodeComponent(instance.id)}/${Uri.encodeComponent(e.id)}',
+        };
+        return [
+          for (final e in data.entities)
+            GameEntityRecord(
+              id: ids[e.id]!,
+              nodeId: e.nodeId == null ? null : '${instance.id}/${e.nodeId}',
+              components: [for (final c in e.components) _inspectRemap(c, ids)],
+            ),
+        ];
       }
       final template = GameSpawnTemplate(
         id: instance.prefabId!,
@@ -148,7 +173,8 @@ final class GameDocumentCodec implements StudioExtensionCodec {
       if (prefab == null) throw FormatException('Game prefab is missing.');
       final own = prefab.extensions[namespace];
       final entities = <GameEntityRecord>[
-        if (own != null) ...read(own).entities,
+        if (own != null)
+          ...read(own, validateComponents: validateComponents).entities,
       ];
       for (final node in prefab.nodes) {
         if (node.prefabId != null) {
@@ -163,6 +189,17 @@ final class GameDocumentCodec implements StudioExtensionCodec {
       if (instance.prefabId != null) {
         entities.addAll(prefix(local(instance.prefabId!, {}), instance));
       }
+    }
+    if (!validateComponents) {
+      if (entities.length > registry.limits.maxEntities ||
+          entities.map((e) => e.id).toSet().length != entities.length) {
+        throw const FormatException('Invalid expanded game identities.');
+      }
+      return GameDocumentData(
+        projectId: base.projectId,
+        levelId: base.levelId,
+        entities: entities,
+      );
     }
     final checked = GameProject(
       id: base.projectId,
@@ -185,6 +222,32 @@ final class GameDocumentCodec implements StudioExtensionCodec {
       projectId: base.projectId,
       levelId: base.levelId,
       entities: checked,
+    );
+  }
+
+  GameComponentRecord _inspectRemap(
+    GameComponentRecord component,
+    Map<String, String> ids,
+  ) {
+    final data = jsonDecode(jsonEncode(component.data)) as Map<String, dynamic>;
+    // This path is for diagnostics only. A malformed reference remains visible.
+    try {
+      for (final reference in registry.references(component)) {
+        dynamic current = data;
+        for (final segment in reference.path.take(reference.path.length - 1)) {
+          current = current[segment];
+        }
+        current[reference.path.last] =
+            ids[reference.targetId] ?? reference.targetId;
+      }
+    } catch (_) {
+      return component;
+    }
+    return GameComponentRecord(
+      component.type,
+      component.version,
+      data,
+      required: component.required,
     );
   }
 
@@ -263,13 +326,15 @@ final class GameDocumentCodec implements StudioExtensionCodec {
   @override
   StudioExtensionRecord applyOverrides(
     StudioExtensionRecord record,
-    Map<String, Object?> overrides,
-  ) {
+    Map<String, Object?> overrides, {
+    bool validateComponents = true,
+  }) {
     if (overrides.keys.any((k) => k != 'entities') ||
         overrides['entities'] is! Map) {
       throw ArgumentError('Expected entity component overrides.');
     }
-    final data = read(record), edits = overrides['entities'] as Map;
+    final data = read(record, validateComponents: validateComponents),
+        edits = overrides['entities'] as Map;
     if (edits.keys.any((k) => !data.entities.any((e) => e.id == k))) {
       throw ArgumentError('Unknown entity override.');
     }
@@ -295,12 +360,13 @@ final class GameDocumentCodec implements StudioExtensionCodec {
               fields is! Map<String, Object?>) {
             throw StateError('Component override codec is unavailable.');
           }
-          return registry.normalize(
-            GameComponentRecord(component.type, component.version, {
-              ...component.data,
-              ...fields,
-            }, required: component.required),
+          final edited = GameComponentRecord(
+            component.type,
+            component.version,
+            {...component.data, ...fields},
+            required: component.required,
           );
+          return validateComponents ? registry.normalize(edited) : edited;
         }).toList(),
       );
     }).toList();
@@ -312,7 +378,7 @@ final class GameDocumentCodec implements StudioExtensionCodec {
       ),
       required: record.required,
     );
-    read(next);
+    read(next, validateComponents: validateComponents);
     return next;
   }
 }

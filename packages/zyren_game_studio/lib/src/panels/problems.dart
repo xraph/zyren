@@ -70,7 +70,11 @@ class _GameProblemsState extends State<GameProblems> {
                 issue.field,
               ].whereType<String>().join(' · '),
             ),
-            onTap: issue.nodeId == null
+            onTap:
+                issue.nodeId == null ||
+                    !widget.context.scene.document.expandedNodes.containsKey(
+                      issue.nodeId,
+                    )
                 ? null
                 : () => widget.context.select(issue.nodeId),
             trailing: issue.repair == null
@@ -82,6 +86,9 @@ class _GameProblemsState extends State<GameProblems> {
                     child: Text(
                       issue.repair!.kind == GameRepairKind.selectTarget
                           ? 'Select target'
+                          : issue.repair!.kind ==
+                                GameRepairKind.resetPrefabComponent
+                          ? 'Reset prefab component'
                           : 'Repair',
                     ),
                   ),
