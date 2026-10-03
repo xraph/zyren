@@ -1,7 +1,5 @@
 #define MA_NO_NULL
 #define MA_NO_ENCODING
-#define MA_NO_DECODING
-#define MA_NO_RESOURCE_MANAGER
 #define MINIAUDIO_IMPLEMENTATION
 #include "vendor/miniaudio.h"
 #include <stdlib.h>
@@ -15,6 +13,7 @@
 typedef struct za_voice {
     ma_sound sound;
     ma_audio_buffer buffer;
+    int owns_buffer;
     struct za_voice *next;
 } za_voice;
 typedef struct {
@@ -44,7 +43,7 @@ ZA_API void za_voice_free(za_engine *engine, za_voice *voice) {
     if (!*cursor) return;
     *cursor = voice->next;
     ma_sound_uninit(&voice->sound);
-    ma_audio_buffer_uninit(&voice->buffer);
+    if (voice->owns_buffer) ma_audio_buffer_uninit(&voice->buffer);
     free(voice);
 }
 
@@ -73,6 +72,7 @@ ZA_API int za_voice_create(za_engine *engine, const float *pcm, unsigned int fra
     if (result != MA_SUCCESS) {
         ma_audio_buffer_uninit(&voice->buffer); free(voice); return result;
     }
+    voice->owns_buffer = 1;
     ma_sound_set_pinned_listener_index(&voice->sound, 0);
     ma_sound_set_doppler_factor(&voice->sound, 0);
     voice->next = engine->voices;
@@ -106,4 +106,49 @@ ZA_API int za_playing(za_voice *voice) { return ma_sound_is_playing(&voice->soun
 ZA_API int za_read(za_engine *engine, float *out, unsigned int frames) {
     if (!engine->offline) return MA_INVALID_OPERATION;
     return ma_engine_read_pcm_frames(&engine->engine, out, frames, NULL);
+}
+
+ZA_API int za_engine_suspend(za_engine *engine) {
+    return engine->offline ? MA_SUCCESS : ma_engine_stop(&engine->engine);
+}
+ZA_API int za_engine_resume(za_engine *engine) {
+    return engine->offline ? MA_SUCCESS : ma_engine_start(&engine->engine);
+}
+ZA_API int za_voice_file(za_engine *engine, const char *path, za_voice **out) {
+    *out = NULL;
+    za_voice *voice = calloc(1, sizeof(*voice));
+    if (!voice) return MA_OUT_OF_MEMORY;
+    ma_result result = ma_sound_init_from_file(&engine->engine, path,
+        MA_SOUND_FLAG_STREAM | MA_SOUND_FLAG_WAIT_INIT, NULL, NULL, &voice->sound);
+    if (result != MA_SUCCESS) { free(voice); return result; }
+    ma_sound_set_pinned_listener_index(&voice->sound, 0);
+    ma_sound_set_doppler_factor(&voice->sound, 0);
+    voice->next = engine->voices;
+    engine->voices = voice;
+    *out = voice;
+    return MA_SUCCESS;
+}
+ZA_API int za_seek(za_voice *voice, double seconds) {
+    ma_uint32 rate = 0;
+    ma_result result = ma_sound_get_data_format(&voice->sound, NULL, NULL, &rate, NULL, 0);
+    if (result != MA_SUCCESS) return result;
+    return ma_sound_seek_to_pcm_frame(&voice->sound, (ma_uint64)(seconds * rate));
+}
+ZA_API int za_time(za_voice *voice, int length, double *seconds) {
+    ma_uint32 rate = 0;
+    ma_uint64 frames = 0;
+    ma_result result = ma_sound_get_data_format(&voice->sound, NULL, NULL, &rate, NULL, 0);
+    if (result != MA_SUCCESS || rate == 0) return result != MA_SUCCESS ? result : MA_INVALID_OPERATION;
+    result = length ? ma_sound_get_length_in_pcm_frames(&voice->sound, &frames)
+                    : ma_sound_get_cursor_in_pcm_frames(&voice->sound, &frames);
+    *seconds = (double)frames / rate;
+    return result;
+}
+ZA_API void za_gain(za_voice *voice, float gain) { ma_sound_set_volume(&voice->sound, gain); }
+ZA_API void za_velocity(za_voice *voice, float x, float y, float z, float factor) {
+    ma_sound_set_velocity(&voice->sound, x, y, z);
+    ma_sound_set_doppler_factor(&voice->sound, factor);
+}
+ZA_API void za_listener_velocity(za_engine *engine, float x, float y, float z) {
+    ma_engine_listener_set_velocity(&engine->engine, 0, x, y, z);
 }

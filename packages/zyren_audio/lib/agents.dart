@@ -28,13 +28,23 @@ final class AudioAgentProvider extends AgentProvider {
   });
   AgentObjectMetadata? metadata(Object3D object) {
     if (audio.isClosed || !_attached(object)) return null;
-    final matches = audio.emitters.where((emitter) => identical(emitter.node, object));
+    final matches = audio.emitters.where(
+      (emitter) => identical(emitter.node, object),
+    );
     if (matches.isEmpty) return null;
-    return AgentObjectMetadata(sourceId: matches.first.id, owningPlugin: id,
+    return AgentObjectMetadata(
+      sourceId: matches.first.id,
+      owningPlugin: id,
       properties: {'emitterIds': matches.map((emitter) => emitter.id).toList()},
       provenance: {'binding': 'host-provided audio emitter ID'},
-      actions: ['$id/$instanceId/inspect', '$id/$instanceId/play', '$id/$instanceId/pause']);
+      actions: [
+        '$id/$instanceId/inspect',
+        '$id/$instanceId/play',
+        '$id/$instanceId/pause',
+      ],
+    );
   }
+
   @override
   String get id => 'zyren_audio';
   @override
@@ -51,7 +61,7 @@ final class AudioAgentProvider extends AgentProvider {
     'distanceUnits': 'scene units',
     'maxEmitters': audio.maxEmitters,
     'maxPcmBytes': audio.maxPcmBytes,
-    'occlusion': 'unsupported',
+    'occlusion': 'host-supplied broadband gain',
     'undo':
         'playback is transport state; configure through host commands if persistent',
   };
@@ -66,6 +76,44 @@ final class AudioAgentProvider extends AgentProvider {
         'limit': {'type': 'integer', 'minimum': 1, 'maximum': 32},
       }),
       outputSchema: _output,
+    ),
+    for (final name in ['suspend', 'resume'])
+      AgentTool(
+        name: name,
+        description:
+            '$name the native output device while preserving voice intent.',
+        inputSchema: _input({}),
+        outputSchema: _output,
+        readOnly: false,
+        requiredScopes: {'audio.write'},
+      ),
+    AgentTool(
+      name: 'seek',
+      description: 'Seek an existing source in seconds.',
+      inputSchema: _input(
+        {
+          'emitterId': _id,
+          'seconds': {'type': 'number', 'minimum': 0, 'maximum': 86400},
+        },
+        ['emitterId', 'seconds'],
+      ),
+      outputSchema: _output,
+      readOnly: false,
+      requiredScopes: {'audio.write'},
+    ),
+    AgentTool(
+      name: 'occlusion',
+      description: 'Apply host-authorized broadband transmission gain.',
+      inputSchema: _input(
+        {
+          'emitterId': _id,
+          'gain': {'type': 'number', 'minimum': 0, 'maximum': 1},
+        },
+        ['emitterId', 'gain'],
+      ),
+      outputSchema: _output,
+      readOnly: false,
+      requiredScopes: {'audio.write'},
     ),
     for (final name in ['play', 'pause'])
       AgentTool(
@@ -125,6 +173,10 @@ final class AudioAgentProvider extends AgentProvider {
       'position': [m[12], m[13], m[14]],
       'attached': _attached(e.node),
       'playing': e.isPlaying,
+      'streaming': e.streaming,
+      'cursorSeconds': e.cursor.inMicroseconds / 1e6,
+      'durationSeconds': e.duration.inMicroseconds / 1e6,
+      'occlusionGain': e.occlusionGain,
       'volume': s.volume,
       'loop': s.loop,
       'attenuation': s.attenuation.name,
@@ -166,6 +218,7 @@ final class AudioAgentProvider extends AgentProvider {
           'sceneRevision': audio.root.revision,
           'backend': audio.backend,
           'offline': audio.offline,
+          'suspended': audio.isSuspended,
           'residentPcmBytes': audio.residentPcmBytes,
           'listener': {
             'runtimeId': audio.listener.node.id,
@@ -178,6 +231,18 @@ final class AudioAgentProvider extends AgentProvider {
               ? offset + page.length
               : null,
         },
+      );
+    }
+    if (tool == 'suspend' || tool == 'resume') {
+      if (tool == 'suspend') {
+        audio.suspend();
+      } else {
+        audio.resume();
+      }
+      return AgentResult(
+        AgentStatus.ok,
+        revision: revision,
+        data: {'suspended': audio.isSuspended},
       );
     }
     final matches = audio.emitters.where((e) => e.id == arguments['emitterId']);
@@ -194,6 +259,14 @@ final class AudioAgentProvider extends AgentProvider {
           emitter.play();
         case 'pause':
           emitter.pause();
+        case 'seek':
+          emitter.seek(
+            Duration(
+              microseconds: ((arguments['seconds'] as num) * 1e6).round(),
+            ),
+          );
+        case 'occlusion':
+          emitter.setOcclusionGain((arguments['gain'] as num).toDouble());
         case 'configure':
           final s = emitter.settings;
           emitter.configure(

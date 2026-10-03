@@ -97,14 +97,17 @@ final class AudioEmitter {
   final int _bytes;
   EmitterSettings _settings;
   bool _closed = false;
+  double _occlusionGain = 1;
+  final bool streaming;
   AudioEmitter._(
     this.id,
     this.node,
     this._owner,
     this._voice,
     this._bytes,
-    this._settings,
-  );
+    this._settings, {
+    this.streaming = false,
+  });
   bool get isClosed => _closed;
   bool get isPlaying => !_closed && native.playing(_voice) != 0;
   EmitterSettings get settings => _settings;
@@ -112,7 +115,7 @@ final class AudioEmitter {
     _checkOpen();
     native.settings(
       _voice,
-      value.volume,
+      value.volume * _occlusionGain,
       value.minDistance,
       value.maxDistance,
       value.rolloff,
@@ -121,6 +124,81 @@ final class AudioEmitter {
     );
     _settings = value;
     _owner._revision++;
+  }
+
+  double get occlusionGain => _occlusionGain;
+  double _time(bool length) {
+    _checkOpen();
+    final seconds = calloc<Double>();
+    try {
+      _check(
+        length ? 'duration' : 'cursor',
+        native.time(_voice, length ? 1 : 0, seconds),
+      );
+      return seconds.value;
+    } finally {
+      calloc.free(seconds);
+    }
+  }
+
+  Duration get duration => Duration(microseconds: (_time(true) * 1e6).round());
+  Duration get cursor => Duration(microseconds: (_time(false) * 1e6).round());
+  void seek(Duration position) {
+    _checkOpen();
+    if (position.isNegative || position > duration) {
+      throw ArgumentError('Seek exceeds source duration.');
+    }
+    _check('seek', native.seek(_voice, position.inMicroseconds / 1e6));
+    _owner._revision++;
+  }
+
+  /// The host computes obstruction through its scene/physics policy. This is
+  /// a broadband transmission gain, not a diffraction or low-pass simulation.
+  void setOcclusionGain(double value) {
+    _checkOpen();
+    _finite(value, 'occlusionGain', max: 1);
+    native.gain(_voice, settings.volume * value);
+    _occlusionGain = value;
+    _owner._revision++;
+  }
+
+  /// Velocities use meters per second; use a meter-scaled scene for Doppler.
+  void setVelocity(Vec3 velocity, {double dopplerFactor = 1}) {
+    _checkOpen();
+    _coordinate(velocity);
+    _finite(dopplerFactor, 'dopplerFactor', max: 4);
+    if (velocity.length > 300) {
+      throw ArgumentError('Velocity exceeds Doppler budget.');
+    }
+    native.velocity(_voice, velocity.x, velocity.y, velocity.z, dopplerFactor);
+    _owner._revision++;
+  }
+
+  /// Use with the host timeline after a seek or when drift exceeds tolerance.
+  void synchronize(
+    Duration position, {
+    required bool playing,
+    Duration tolerance = const Duration(milliseconds: 50),
+  }) {
+    _checkOpen();
+    if (position.isNegative || tolerance.isNegative) {
+      throw ArgumentError('Negative timeline position/tolerance.');
+    }
+    final length = duration;
+    if (length == Duration.zero) {
+      throw StateError('Source duration is unavailable.');
+    }
+    final target = settings.loop
+        ? Duration(
+            microseconds: position.inMicroseconds % length.inMicroseconds,
+          )
+        : (position > length ? length : position);
+    if ((cursor - target).abs() > tolerance) seek(target);
+    if (playing && (settings.loop || target < length)) {
+      if (!isPlaying) play();
+    } else if (isPlaying) {
+      pause();
+    }
   }
 
   void play({bool restart = false}) {
@@ -167,7 +245,7 @@ final class SpatialAudio implements Finalizable {
   final String backend;
   final _emitters = <String, AudioEmitter>{};
   int _residentBytes = 0, _revision = 0;
-  bool _closed = false;
+  bool _closed = false, _suspended = false;
 
   SpatialAudio._(
     this.root,
@@ -230,6 +308,7 @@ final class SpatialAudio implements Finalizable {
       calloc.free(output);
     }
   }
+  bool get isSuspended => _suspended;
   int get revision => _revision;
   int get residentPcmBytes => _residentBytes;
   bool get isClosed => _closed;
@@ -285,6 +364,80 @@ final class SpatialAudio implements Finalizable {
     }
   }
 
+  /// Streams a local, host-authorized WAV/FLAC/MP3 file with miniaudio's bounded
+  /// decoded pages. Agent tools cannot open arbitrary filesystem paths.
+  AudioEmitter addFile({
+    required String id,
+    required Object3D node,
+    required String path,
+    EmitterSettings? settings,
+  }) {
+    _checkOpen();
+    if (id.trim().isEmpty ||
+        _emitters.containsKey(id) ||
+        !_attached(root, node) ||
+        _emitters.length >= maxEmitters ||
+        path.isEmpty ||
+        path.contains('\u0000')) {
+      throw ArgumentError('Invalid stream identity, path or voice budget.');
+    }
+    _coordinate(_position(node));
+    final config = settings ?? EmitterSettings();
+    final file = path.toNativeUtf8(), output = calloc<Pointer<Void>>();
+    try {
+      _check(
+        'open audio stream',
+        native.createFile(_engine, file.cast<Char>(), output),
+      );
+      final emitter = AudioEmitter._(
+        id,
+        node,
+        this,
+        output.value,
+        0,
+        config,
+        streaming: true,
+      );
+      _emitters[id] = emitter;
+      emitter.configure(config);
+      final p = _position(node);
+      native.position(emitter._voice, p.x, p.y, p.z);
+      return emitter;
+    } finally {
+      calloc.free(file);
+      calloc.free(output);
+    }
+  }
+
+  /// Stops the native device without changing individual voice playback intent.
+  /// Hosts call this on background/focus loss and resume only when authorized.
+  void suspend() {
+    _checkOpen();
+    if (_suspended) return;
+    _check('suspend output', native.suspendEngine(_engine));
+    _suspended = true;
+    _revision++;
+  }
+
+  void resume() {
+    _checkOpen();
+    if (!_suspended) return;
+    sync();
+    _check('resume output', native.resumeEngine(_engine));
+    _suspended = false;
+    _revision++;
+  }
+
+  void setListenerVelocity(Vec3 velocity) {
+    _checkOpen();
+    _coordinate(velocity);
+    if (velocity.length > 300) {
+      throw ArgumentError('Listener exceeds Doppler budget.');
+    }
+    native.listenerVelocity(_engine, velocity.x, velocity.y, velocity.z);
+    _revision++;
+  }
+
   /// Removes detached emitters. A detached listener pauses playback and fails.
   void sync() {
     _checkOpen();
@@ -334,6 +487,7 @@ final class SpatialAudio implements Finalizable {
     if (frames < 1 || frames > sampleRate * 10) {
       throw ArgumentError.value(frames, 'frames');
     }
+    if (_suspended) throw StateError('Audio engine is suspended.');
     sync();
     final output = calloc<Float>(frames * 2);
     try {

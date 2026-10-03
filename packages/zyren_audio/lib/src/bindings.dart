@@ -84,3 +84,56 @@ external int playing(Pointer<Void> voice);
   symbol: 'za_read',
 )
 external int read(Pointer<Void> engine, Pointer<Float> output, int frames);
+
+@Native<Int32 Function(Pointer<Void>)>(
+  assetId: _asset,
+  symbol: 'za_engine_suspend',
+)
+external int suspendEngine(Pointer<Void> engine);
+@Native<Int32 Function(Pointer<Void>)>(
+  assetId: _asset,
+  symbol: 'za_engine_resume',
+)
+external int resumeEngine(Pointer<Void> engine);
+@Native<Int32 Function(Pointer<Void>, Pointer<Char>, Pointer<Pointer<Void>>)>(
+  assetId: _asset,
+  symbol: 'za_voice_file',
+)
+external int createFile(
+  Pointer<Void> engine,
+  Pointer<Char> path,
+  Pointer<Pointer<Void>> output,
+);
+@Native<Int32 Function(Pointer<Void>, Double)>(
+  assetId: _asset,
+  symbol: 'za_seek',
+)
+external int seek(Pointer<Void> voice, double seconds);
+@Native<Int32 Function(Pointer<Void>, Int32, Pointer<Double>)>(
+  assetId: _asset,
+  symbol: 'za_time',
+)
+external int time(Pointer<Void> voice, int length, Pointer<Double> seconds);
+@Native<Void Function(Pointer<Void>, Float)>(assetId: _asset, symbol: 'za_gain')
+external void gain(Pointer<Void> voice, double gain);
+@Native<Void Function(Pointer<Void>, Float, Float, Float, Float)>(
+  assetId: _asset,
+  symbol: 'za_velocity',
+)
+external void velocity(
+  Pointer<Void> voice,
+  double x,
+  double y,
+  double z,
+  double factor,
+);
+@Native<Void Function(Pointer<Void>, Float, Float, Float)>(
+  assetId: _asset,
+  symbol: 'za_listener_velocity',
+)
+external void listenerVelocity(
+  Pointer<Void> engine,
+  double x,
+  double y,
+  double z,
+);

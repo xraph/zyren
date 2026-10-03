@@ -52,3 +52,27 @@ actions. Tests use the actual offline native engine through `AgentRegistry`,
 including denial, malformed arguments, retries and removed scene targets.
 The combined example at `../zyren_capture/example/agent_scene.dart` uses the
 existing devtools MCP transport and keeps offline audio explicit.
+
+## Streams and lifecycle
+
+`addFile` streams a host-authorized local WAV, FLAC or MP3 file through miniaudio.
+You can inspect its duration/cursor, seek, or synchronize it to a host timeline.
+The emitter limit bounds streaming voices. `residentPcmBytes` counts copied PCM
+only; miniaudio owns the stream decoder and its fixed paging buffers. Streaming
+seeks complete asynchronously on the mixer/decoder threads and can briefly emit
+silence. Use PCM for deterministic offline exports.
+
+Call `suspend` when your application loses audio focus or enters the background,
+then `resume` when its platform session permits playback. A suspended engine
+preserves voice intent and rejects offline reads. The package does not install
+an Android audio focus listener or an iOS interruption observer for you.
+
+`setOcclusionGain` applies a host-computed transmission coefficient in [0,1].
+This is broadband attenuation. It does not simulate diffraction or filtering.
+You can set listener/emitter velocity for Doppler in meter-scaled scenes, or
+leave the default factor at zero. `synchronize` follows a timeline with an
+explicit drift tolerance; it does not require the timeline plugin.
+
+Run `dart run example/qualify.dart` to emit a quiet spatial tone and check native
+cursor progress through suspend/resume. The report leaves human audibility
+unverified. A successful device open alone does not prove speakers produced sound.

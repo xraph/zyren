@@ -271,3 +271,23 @@ shared dependency. This adapter consumes host-provided decoded bindings.
 
 Configurator checks: 11 package tests passed; package analysis reports no issues.
 Displayed verification will use the combined fixture after the audio/capture work.
+
+Configurator continuation commit: `06b74ce`.
+
+Audio continuation: native device suspend/resume preserves voice intent; local
+WAV/FLAC/MP3 streaming uses bounded miniaudio pages; cursor/duration, seeking,
+timeline synchronization, host occlusion gain and explicit Doppler velocities
+are implemented. Agent tools expose suspend/resume, seeking and occlusion gain.
+Eight native tests pass, including 24 kHz stream decoding into a 48 kHz engine,
+failed opens, stream cleanup, PCM timeline seeks, gain energy and suspension.
+Analysis is clean. Run tests from the audio package directory so its native build
+hook is included; a root test invocation cannot resolve this package's asset.
+
+The Core Audio qualification command emitted a quiet left/right test signal.
+Cursors reached 410000 us on both sides, stayed at 410000 us through suspension,
+and reached 560000 us after resume. Human audibility remains unverified. Stream
+seeks are asynchronous and may briefly emit silence while pages refill; use PCM
+for reproducible offline export. Automatic velocity estimation, geometric
+occlusion/filtering, Android audio focus, iOS interruptions/route changes and
+additional backends remain later work. The shared Flutter fixture will wire app
+lifecycle to the explicit engine methods.
