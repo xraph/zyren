@@ -927,3 +927,44 @@ passes the loader's byte allowance through to streaming admission. Stores with
 `GeoBoundedDataStore` reject an oversized cached entry before reading its payload.
 A custom fetcher without a bounded callback can serve a smaller-budget request
 from a bounded cache, but a cache miss returns `budgetExceeded` before transport.
+
+## Offline fields and application services
+
+Use `GeoGridFieldSource` for a bounded scalar dataset with explicit units, source
+revision and height datum. It reads through your resource resolver on every query,
+so a decoded grid cannot bypass changed authorization or freshness policy. The
+provider reuses one decoded grid by checksum. Call `dispose()` when you release it.
+
+`GeoScalarGrid` encodes little-endian Float64 cells over finite radian bounds.
+Rows run south to north, with both endpoints included. Choose bilinear sampling
+for continuous depth and nearest sampling for categorical coast masks. NaN cells
+mean unavailable coverage. They never become zero-depth water. Field samples carry
+the requested simulation time and source age; they do not imply a datum conversion.
+
+Publish your store, resolver, diagnostics and field providers through
+`GeoDataExtension`. You keep ownership of those objects across views. Detaching
+the extension removes its scoped services without closing a shared store.
+`GeoDataDiagnostics.trackSource` wraps the actual fetch callback. Its snapshots
+retain failures by resource identity, report region progress and expose your
+measured byte tiers. Unknown tiers and physical GPU residency remain null.
+
+You can run the native application flow from `examples/planet`:
+
+```sh
+fvm flutter run -d macos -t lib/layers/offline_main.dart
+```
+
+Download the fixture, cancel and resume it, toggle Offline only, then Reopen to
+close the scene, resolver and file store before reconstructing them. Deny source
+injects a download denial so you can check retry and retained coverage. A denied
+refresh remains failed even when an earlier complete region is still usable.
+The saved fixture contains elevation, a coast split and a bathymetric ramp. Its
+colours visualize those fields. Real-world coast coverage and provider licences
+must come from the sources you configure.
+
+The Planet application's `GeoModelBundleStore` references a verified model
+version in the existing `FilePipelineCache`. The archive includes its declared
+nested buffers and textures, and its resolver has no network fallback. You supply
+the recorded publication time and current authorization policy. Model archive
+pins stay with the pipeline cache and are outside geographic region transactions;
+a geographic region manifest does not certify those independently owned models.

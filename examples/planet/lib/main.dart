@@ -5,6 +5,7 @@ import 'package:flutter_zyren/flutter_zyren.dart';
 import 'planet_scene.dart';
 import 'zero_state.dart';
 import 'layers/layers_lab.dart';
+import 'layers/offline.dart';
 
 void main() => runApp(const PlanetApp());
 
@@ -104,6 +105,15 @@ class _PlanetPageState extends State<PlanetPage> {
                         ),
                       ],
                     ),
+                  ),
+                  IconButton(
+                    tooltip: 'Offline lab',
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const OfflineLab(),
+                      ),
+                    ),
+                    icon: const Icon(Icons.offline_pin_outlined),
                   ),
                   IconButton(
                     tooltip: 'Layer lab',

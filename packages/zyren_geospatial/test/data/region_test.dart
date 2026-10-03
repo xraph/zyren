@@ -371,4 +371,40 @@ void main() {
       await directory.delete(recursive: true);
     },
   );
+  test(
+    'fresh download denial cannot become a successful cached region refresh',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'zyren-region-denied-',
+      );
+      final store = FileGeoDataStore(
+        directory: directory,
+        maxBytes: 65536,
+        maxEntries: 8,
+      );
+      var denied = false;
+      final resolver = GeoResourceResolver(
+        store: store,
+        metadata: permission,
+        fetch: (k, _) async {
+          if (denied) throw const GeoDataException(GeoDataError.denied);
+          return resource(k);
+        },
+      );
+      final job = GeoRegionJob(
+        resolver: resolver,
+        store: store,
+        downloadPolicy: GeoReadPolicy(mode: GeoAccessMode.networkFirst),
+      );
+      await job.start(fixturePlan('1'));
+      denied = true;
+      final result = await job.start(fixturePlan('1'));
+      expect(result.complete, isFalse);
+      expect(result.failures.values, everyElement(GeoDataError.denied));
+      await job.close();
+      await resolver.close();
+      await store.close();
+      await directory.delete(recursive: true);
+    },
+  );
 }

@@ -98,6 +98,13 @@ loading, native PNG decoding, scheduler parent fallback, camera movement outside
 stored detail and recovery with a fresh online source. Region checks cover
 missing dependencies, cancellation/restart, revoked export permission, failed
 replacement publication, stale-writer rejection, dateline coverage and Mercator
-limits. The affected data/terrain/streaming suite passed 105 tests, followed by
-six region tests after the final cancellation-permission fix. Owned-file analysis
+limits. The affected data/terrain/streaming suite passed 106 tests after the final cancellation-permission fix. Owned-file analysis
 passed. Concurrent cloud tests have three unrelated style diagnostics.
+
+D4 adds bounded coast/depth fields, scoped data diagnostics and a native offline
+lab backed by the file store. Its download, cancellation, denial/retry and cold
+reopen flow passed at desktop and narrow sizes. All 111 affected data, terrain and
+streaming tests passed. The model adapter keeps verified pipeline bundles under
+their existing ownership at the application boundary. See the
+[offline qualification record](../../../qualification/2026-10-03/geospatial-offline.md).
+Manual native-window inspection remains pending because the Mac was locked.

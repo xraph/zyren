@@ -232,10 +232,10 @@ Ocean coast coverage and bathymetry use this service; a file does not become a
 global coast dataset merely because it can be loaded. Model bundles retain the
 existing `FilePipelineCache` ownership and are referenced by verified version.
 
-- [ ] Use a synthetic coast split and known bathymetric ramp as fixtures, with
+- [x] Use a synthetic coast split and known bathymetric ramp as fixtures, with
   explicit provenance and finite coverage. Test field queries after closing and
   reopening the data store with no transport.
-- [ ] Register scoped data diagnostics in the existing geospatial registry:
+- [x] Register scoped data diagnostics in the existing geospatial registry:
 
 ```dart
 final registration = context.registry.provide(
@@ -245,12 +245,12 @@ context.sceneContext.scope.keep(registration);
 
   Report bytes by tier, source failures and region completeness; never report
   payload estimates as physical GPU residency.
-- [ ] Add compact application controls for download, cancellation, offline-only
+- [x] Add compact application controls for download, cancellation, offline-only
   mode and retry. Verify that every action updates real job state and survives a
   restart. Keep widgets outside the geospatial package.
-- [ ] Run affected tests, native offline terrain checks and desktop/narrow example
+- [x] Run affected tests, native offline terrain checks and desktop/narrow example
   checks. Record provider-specific permissions and missing global data separately.
-- [ ] Commit `feat(geospatial): integrate offline fields and diagnostics`.
+- [x] Commit `feat(geospatial): integrate offline fields and diagnostics`.
 
 ## Completion gate
 

@@ -89,6 +89,7 @@ export 'src/extensions/camera_controller.dart';
 export 'src/extensions/visual_registry.dart';
 
 export 'src/horizon.dart';
+
 export 'src/data/resource_key.dart';
 export 'src/data/policy.dart';
 export 'src/data/store.dart';
@@ -101,3 +102,5 @@ export 'src/data/region.dart';
 export 'src/data/region_job.dart';
 export 'src/data/source_catalog.dart';
 export 'src/data/terrain_resolver.dart';
+export 'src/data/field_source.dart';
+export 'src/data/diagnostics.dart';

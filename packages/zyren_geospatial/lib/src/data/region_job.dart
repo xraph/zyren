@@ -181,7 +181,7 @@ final class GeoRegionJob {
         }
       }
       token.throwIfCancelled();
-      return await _verify(token);
+      return await _verify(token, downloadFailures: failures);
     } on LoadCancelled {
       return _pause(failures);
     } on GeoDataException catch (error) {
@@ -229,7 +229,10 @@ final class GeoRegionJob {
   }
 
   Future<GeoRegionManifest> verify() => _exclusive(_verify);
-  Future<GeoRegionManifest> _verify(LoadCancellationSource token) async {
+  Future<GeoRegionManifest> _verify(
+    LoadCancellationSource token, {
+    Map<GeoResourceKey, GeoDataError> downloadFailures = const {},
+  }) async {
     if (_plan == null) {
       throw StateError('Start or restore a region before verifying.');
     }
@@ -240,6 +243,11 @@ final class GeoRegionJob {
     for (final resource in _plan!.resources) {
       try {
         token.throwIfCancelled();
+        // Cached bytes cannot certify a refresh that the source rejected.
+        final downloadFailure = downloadFailures[resource.key];
+        if (downloadFailure != null) {
+          throw GeoDataException(downloadFailure);
+        }
         _permissions(resource.key);
         final value = await resolver.read(
           resource.key,

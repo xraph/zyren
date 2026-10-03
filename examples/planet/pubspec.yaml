@@ -8,6 +8,11 @@ environment:
   sdk: '>=3.10.0 <4.0.0'
 
 dependencies:
+  crypto: ^3.0.7
+  zyren:
+    path: ../../packages/zyren
+  zyren_pipeline:
+    path: ../../packages/zyren_pipeline
   flutter:
     sdk: flutter
   flutter_zyren:
@@ -30,9 +35,6 @@ dev_dependencies:
     path: ../../packages/zyren_game
   zyren_physics:
     path: ../../packages/zyren_physics
-  crypto: ^3.0.7
-  zyren:
-    path: ../../packages/zyren
   flutter_test:
     sdk: flutter
   integration_test:
