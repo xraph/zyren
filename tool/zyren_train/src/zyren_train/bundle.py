@@ -7,6 +7,12 @@ from .scenario import canonical_bytes,decode_json_bytes
 from .report import EvaluationReport
 from .export import runtime_schema_hash
 
+ONNX_PROVIDERS=frozenset(('python-onnxruntime-1.23.2-cpu','native-onnxruntime-1.23.2-cpu'))
+
+def _require_onnx_report(report):
+    provider=report.data['provider']
+    if not isinstance(provider,str) or any(part not in ONNX_PROVIDERS for part in provider.split(';')):raise ValueError('Exact ONNX inference provider required')
+
 FILES=frozenset(('actor.onnx','model.json','observation.json','action.json','normalization.json','recurrent.json','provenance.json','evaluation.json'))
 POLICY={'observation_input':'observation','continuous_output':None,'discrete_output':'logits','recurrent':{'hidden':'next_hidden','cell':'next_cell'},'cadence_ticks':1,'latency_ticks':1,'max_hold_ticks':0}
 
@@ -72,6 +78,7 @@ def _validate_resources(data,resources):
     parity=provenance.get('native_parity',{})
     if parity.get('model_sha256')!=data['model_sha256'] or parity.get('status')!='passed' or parity.get('provider')!='native-onnxruntime-1.23.2-cpu' or type(parity.get('steps')) is not int or parity['steps']<1000 or parity.get('completed_runs')!=parity['steps'] or parity.get('live_sessions')!=0 or parity.get('live_results')!=0 or not _digest(parity.get('native_worker_sha256')) or parity.get('typed_controller_steps')!=parity.get('steps') or parity.get('atol')!=1e-5 or parity.get('rtol')!=1e-4 or not _digest(parity.get('input_sequence_hash')) or type(parity.get('max_absolute_error')) not in (int,float) or not math.isfinite(parity['max_absolute_error']) or parity['max_absolute_error']<0 or not isinstance(parity.get('native_asset_sha256'),dict) or not parity['native_asset_sha256'] or any(not _digest(value) for value in parity['native_asset_sha256'].values()):raise ValueError('Native sequence qualification missing')
     report=EvaluationReport.from_dict(decode_json_bytes(resources['evaluation.json'],16_777_216))
+    _require_onnx_report(report)
     if report.hash!=data['evaluation_report_hash'] or report.data['plan_hash']!=data['evaluation_plan_hash'] or report.data['status']!='passed' or report.data['family_model_hashes'][data['family']]!=data['model_sha256']:raise ValueError('Evaluated ONNX identity/acceptance differs')
     cases=[case for case in report.data['plan']['cases'] if case['family']==data['family']]
     if any(case['scenario']['observation_schema_hash']!=data['observation_schema_hash'] or case['scenario']['action_schema_hash']!=data['action_schema_hash'] for case in cases):raise ValueError('Evaluation schema binding differs')
@@ -128,6 +135,7 @@ def _validate_quantization(data,provenance,report):
     if not isinstance(quantization,dict) or set(quantization)!=required or quantization['precision']!='int8' or quantization['format']!='QDQ' or quantization['operators']!=['MatMul','Gemm'] or quantization['calibration_partition']!='train' or type(quantization['calibration_steps']) is not int or not 1<=quantization['calibration_steps']<=2000 or not _digest(quantization['calibration_sequence_hash']) or not isinstance(quantization['calibration_manifest_hashes'],list) or not quantization['calibration_manifest_hashes'] or any(not _digest(digest) for digest in quantization['calibration_manifest_hashes']):raise ValueError('Quantization calibration proof differs')
     baseline=ModelBundleManifest.from_dict(quantization['baseline_bundle_manifest']);baseline_data=baseline.data
     baseline_report=EvaluationReport.from_dict(quantization['baseline_report'])
+    _require_onnx_report(baseline_report)
     if baseline_data['precision']!='float32' or baseline_data['family']!=data['family'] or baseline_data['model_sha256']!=quantization['baseline_model_sha256'] or baseline.hash!=quantization['baseline_bundle_hash'] or baseline_data['evaluation_report_hash']!=baseline_report.hash or baseline_report.hash!=quantization['baseline_report_hash'] or report.hash!=quantization['candidate_report_hash'] or baseline_data['evaluation_plan_hash']!=data['evaluation_plan_hash'] or baseline_data['observation_schema_hash']!=data['observation_schema_hash'] or baseline_data['action_schema_hash']!=data['action_schema_hash'] or baseline_report.data['family_model_hashes'][data['family']]!=baseline_data['model_sha256']:raise ValueError('Quantization baseline/evaluation identity differs')
     row=next(row for row in baseline_data['files'] if row['path']=='evaluation.json')
     if row['sha256']!=baseline_report.hash or row['bytes']!=len(baseline_report.encoded):raise ValueError('Baseline evaluation file proof differs')

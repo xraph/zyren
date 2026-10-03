@@ -15,7 +15,7 @@ def accepted_receipt(checkpoint,candidate):
     plan=EvaluationPlan.load(root/'tool/zyren_train/configs/evaluation.yaml')
     sha=hashlib.sha256((candidate/'actor.onnx').read_bytes()).hexdigest()
     class Candidate:
-        model_hash='a'*64;provider='fixture-cpu'
+        model_hash='a'*64;provider='python-onnxruntime-1.23.2-cpu'
         family_model_hashes={'guard':sha,'vehicle':sha}
     rows=[]
     for case in plan.data['cases']:
@@ -63,3 +63,18 @@ def test_manifest_path_controller_and_exact_model_evaluation(tmp_path):
         if resource['path']=='normalization.json':resource.update(sha256=hashlib.sha256(raw).hexdigest(),bytes=len(raw))
     (path/'bundle.json').write_bytes(canonical_bytes(forged))
     with pytest.raises(ValueError,match='embedded actor'):ModelBundleManifest.load(path)
+
+
+def test_torch_receipt_rejected_even_when_every_resource_pin_is_recomputed(tmp_path):
+    from zyren_train.report import EvaluationReport
+    candidate,folder,report,parity=prepare(tmp_path)
+    for provider in ('torch-2.8.0-cpu','python-onnxruntime-1.23.2-cpu;torch-2.8.0-cpu','python-onnxruntime-1.23.2-cpu;'):
+        data=report.data;data['provider']=provider;forged=EvaluationReport.from_dict(data)
+        with pytest.raises(ValueError,match='ONNX inference'):publish_actor(candidate,tmp_path/('invalid-'+hashlib.sha256(provider.encode()).hexdigest()[:8]),forged,parity)
+        broken=tmp_path/('forged-'+hashlib.sha256(provider.encode()).hexdigest()[:8]);shutil.copytree(folder,broken)
+        (broken/'evaluation.json').write_bytes(forged.encoded)
+        manifest=json.loads((broken/'bundle.json').read_bytes());manifest['evaluation_report_hash']=forged.hash
+        for resource in manifest['files']:
+            if resource['path']=='evaluation.json':resource.update(sha256=forged.hash,bytes=len(forged.encoded))
+        (broken/'bundle.json').write_bytes(canonical_bytes(manifest))
+        with pytest.raises(ValueError,match='ONNX inference'):ModelBundleManifest.load(broken)

@@ -12,12 +12,15 @@ class DartNativeSequence:
         self.family=family
         self.executable=Path(executable).resolve();self.cwd=Path(cwd).resolve();self.manifest=Path(manifest).resolve()
         self.artifact_sha256=hashlib.sha256(self.executable.read_bytes()).hexdigest();self.native_sha256=worker_native_hashes(self.executable)
-    def __call__(self,rows):
+    def _verify(self):
         if hashlib.sha256(self.executable.read_bytes()).hexdigest()!=self.artifact_sha256 or worker_native_hashes(self.executable)!=self.native_sha256:raise ValueError('Native sequence artifact changed')
+    def __call__(self,rows):
+        self._verify()
         request=canonical_bytes({'manifest':str(self.manifest),'rows':rows,**({'family':self.family} if self.family else {})})
         with tempfile.TemporaryDirectory(prefix='zyren-parity-') as folder:
             source=Path(folder)/'sequence.json';source.write_bytes(request)
             result=subprocess.run([str(self.executable),'--policy-sequence',str(source)],cwd=self.cwd,capture_output=True,timeout=60,check=False)
+        self._verify()
         if result.returncode!=0:raise ValueError('Native sequence process failed: '+result.stderr.decode(errors='replace')[:2048])
         data=decode_json_bytes(result.stdout,16_777_216)
         if data.get('provider')!='native-onnxruntime-1.23.2-cpu' or data.get('completed_runs')!=len(rows) or data.get('live_sessions')!=0 or data.get('live_results')!=0 or len(data.get('outputs',[]))!=len(rows):raise ValueError('Native sequence lifetime/provider evidence differs')

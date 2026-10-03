@@ -75,6 +75,21 @@ def test_quantization_requires_verified_training_source_and_preserves_float(tmp_
     assert accepted.data['precision']=='int8'
     provenance=json.loads((tmp_path/'accepted-int8/provenance.json').read_bytes())
     assert provenance['quantization']['success_loss']==0
+    from zyren_train.report import EvaluationReport
+    from zyren_train.scenario import canonical_bytes
+    forged=__import__('copy').deepcopy(provenance)
+    baseline=forged['quantization']['baseline_report'];baseline['provider']='python-onnxruntime-1.23.2-cpu;torch-2.8.0-cpu'
+    baseline_report=EvaluationReport.from_dict(baseline);quantization=forged['quantization'];quantization['baseline_report_hash']=baseline_report.hash
+    baseline_manifest=quantization['baseline_bundle_manifest'];baseline_manifest['evaluation_report_hash']=baseline_report.hash
+    for resource in baseline_manifest['files']:
+        if resource['path']=='evaluation.json':resource.update(sha256=baseline_report.hash,bytes=len(baseline_report.encoded))
+    quantization['baseline_bundle_hash']=ModelBundleManifest.from_dict(baseline_manifest).hash
+    path=tmp_path/'forged-baseline';__import__('shutil').copytree(tmp_path/'accepted-int8',path)
+    raw=canonical_bytes(forged,262144);(path/'provenance.json').write_bytes(raw);manifest=accepted.data
+    for resource in manifest['files']:
+        if resource['path']=='provenance.json':resource.update(bytes=len(raw),sha256=hashlib.sha256(raw).hexdigest())
+    (path/'bundle.json').write_bytes(canonical_bytes(manifest))
+    with pytest.raises(ValueError,match='ONNX inference'):ModelBundleManifest.load(path)
     provenance['quantization']['success_loss']=.01
     raw=__import__('zyren_train.scenario',fromlist=['canonical_bytes']).canonical_bytes(provenance,262144)
     (tmp_path/'accepted-int8/provenance.json').write_bytes(raw)
@@ -83,3 +98,19 @@ def test_quantization_requires_verified_training_source_and_preserves_float(tmp_
         if resource['path']=='provenance.json':resource.update(bytes=len(raw),sha256=hashlib.sha256(raw).hexdigest())
     (tmp_path/'accepted-int8/bundle.json').write_text(json.dumps(manifest))
     with pytest.raises(ValueError,match='success loss'):ModelBundleManifest.load(tmp_path/'accepted-int8')
+
+
+@pytest.mark.parametrize('changed',['executable','library'])
+def test_native_sequence_detects_artifact_changed_during_probe(tmp_path,monkeypatch,changed):
+    import json
+    from types import SimpleNamespace
+    import zyren_train.parity as parity
+    executable=tmp_path/'worker';executable.write_bytes(b'initial')
+    library=tmp_path/'runtime';library.write_bytes(b'native')
+    monkeypatch.setattr(parity,'worker_native_hashes',lambda _: {'runtime':__import__('hashlib').sha256(library.read_bytes()).hexdigest()})
+    executor=parity.DartNativeSequence(executable,tmp_path,tmp_path/'model.json')
+    def mutate(*args,**kwargs):
+        (executable if changed=='executable' else library).write_bytes(b'changed')
+        return SimpleNamespace(returncode=0,stdout=json.dumps({'provider':'native-onnxruntime-1.23.2-cpu','completed_runs':1,'live_sessions':0,'live_results':0,'outputs':[{}]}).encode(),stderr=b'')
+    monkeypatch.setattr(parity.subprocess,'run',mutate)
+    with pytest.raises(ValueError,match='artifact changed'):executor([{'observation':[0.], 'reset':True}])
