@@ -263,6 +263,55 @@ void main() {
       expect(instance.mixer.actions, isEmpty);
     },
   );
+  testWidgets(
+    'two instances share an asset and animate independently in one canvas',
+    (tester) async {
+      final asset = (await tester.runAsync(() => load(animatedModel())))!;
+      final first = asset.instantiate(), second = asset.instantiate();
+      final backend = AnimationReferenceBackend();
+      // Keep one native session while changing only the first action's pause state.
+      final r = runtime(backend);
+      Widget scene(bool pauseFirst) => host(
+        SceneCanvas(
+          runtime: r,
+          options: readback,
+          children: [
+            ObjectNode(
+              object: first,
+              children: [
+                ModelAnimationNode(instance: first, paused: pauseFirst),
+              ],
+            ),
+            ObjectNode(
+              object: second,
+              children: [ModelAnimationNode(instance: second, speed: 2)],
+            ),
+          ],
+        ),
+      );
+      await tester.pumpWidget(scene(false));
+      await frames(tester);
+      expect(first.mixer.id, isNot(second.mixer.id));
+      expect(first.mixer.actions.single.time, greaterThan(Duration.zero));
+      expect(
+        second.mixer.actions.single.time,
+        greaterThan(first.mixer.actions.single.time),
+      );
+      expect(first.nodes[1], isNot(same(second.nodes[1])));
+      await tester.pumpWidget(scene(true));
+      await frames(tester);
+      final pausedPosition = first.nodes[1]!.position;
+      final secondTime = second.mixer.actions.single.time;
+      await frames(tester);
+      expect(first.nodes[1]!.position, pausedPosition);
+      expect(second.mixer.actions.single.time, isNot(secondTime));
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      await frames(tester);
+      expect(first.mixer.actions, isEmpty);
+      expect(second.mixer.actions, isEmpty);
+    },
+  );
   testWidgets('a later imperative animation owner produces a scene error', (
     tester,
   ) async {
