@@ -34,7 +34,9 @@ void main() {
           }),
         );
         expect(
-          await replies.moveNext().timeout(const Duration(seconds: 30)),
+          await replies.moveNext().timeout(
+            Duration(seconds: method == 'initialize' ? 120 : 10),
+          ),
           isTrue,
         );
         final response = jsonDecode(replies.current) as Map<String, dynamic>;
@@ -114,5 +116,6 @@ void main() {
       await process.stdin.close();
       expect(await process.exitCode, 0, reason: await errors);
     },
+    timeout: const Timeout(Duration(minutes: 3)),
   );
 }

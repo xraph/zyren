@@ -158,6 +158,21 @@ Use these APIs inside pure incremental transforms. Their tool pin is exported as
 `pipelinePreparationVersion`. The [fixture builder](example/prepare_fixture.dart)
 shows the complete build and produces the bundle used by the native app.
 
+## Saved asset references
+
+Use `PipelineAssetReference.fromBundle(bundle)` to save a model reference. Its
+versioned JSON records the bundle hash, source ID/revision, source URI and payload
+hash. The URI is provenance. Loading never fetches it outside the pinned bundle.
+
+`PipelineAssetLibrary` asks your authorized store for that exact bundle version.
+`inspect` distinguishes available, missing bundle, missing source and mismatched
+pins. Store errors propagate, so denied access and corruption stay visible. Use
+`loadGltf` to obtain a CPU model template and its scope; close it when you finish.
+Existing instances retain their data after cache eviction or template closure.
+
+This is the pipeline asset contract for Studio's future imported-asset schema.
+The current `StudioStore` adapter continues to save the schema Studio supports.
+
 ## Build jobs and application adapters
 
 `PipelineBuildRuntime` runs host-registered, versioned recipes with active-job,
