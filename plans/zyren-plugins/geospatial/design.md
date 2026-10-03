@@ -1,7 +1,8 @@
 # Extensible geospatial worlds and layers
 
 Date: 2026-10-03
-Status: proposed design for review. No runtime implementation is included.
+Status: architecture and ocean-first sequence approved on 2026-10-03.
+The implementation plans still require review. No runtime implementation is included.
 
 ## What you can build
 
@@ -16,9 +17,12 @@ plus navigation backed by real traffic. Each plugin can supply its own materials
 geometry, effects and interaction. A route, an ocean and an orbital trajectory
 need different visual treatments.
 
-The proposed first delivery is the extension host, layers, offline data and an
+The approved first delivery is the extension host, layers, offline data and an
 ocean integration. Navigation, flight and space have independent delivery and
-qualification requirements below. This order is a recommendation awaiting review.
+qualification requirements below. The ocean must include professional water
+effects, native buoyancy, levels of detail and working quality controls. Its
+implementation requirements are specified in [the ocean design](ocean-design.md),
+using the [water reference audit](water-reference-audit.md).
 An extension interface alone does not establish support for any of these domains.
 
 Rendering remains native Metal, Vulkan or DX12. The core stays independent of
@@ -321,7 +325,7 @@ publication claims. Geospatial has no dependency on these optional domains.
 
 | Plugin | Behaviour and required integrations | Completion evidence |
 | --- | --- | --- |
-| `zyren_geospatial_ocean` | Global ellipsoid surface with distant coverage and bounded local detail, coastline/bathymetry providers, waves, native water shading, surface sampling, atmosphere and camera integration. Optional physics adapter for buoyancy. | Surface-to-orbit captures, poles/dateline, coastline tests, wave sampling agreement, offline restart, frame/resource measurements and cleanup on qualified devices. |
+| `zyren_geospatial_ocean` | Global ellipsoid surface with distant coverage and bounded local detail, coastline/bathymetry providers, spectral waves, native water shading, surface sampling, atmosphere and camera integration. Ship native buoyancy in an independently installable physics adapter. | Surface-to-orbit captures, poles/dateline, coastline tests, wave sampling agreement, buoyancy forces and torque, LOD/quality transitions, offline restart, frame/resource measurements and cleanup on qualified devices. |
 | `zyren_geospatial_navigation` | Routing, map matching, directions, alternatives, traffic freshness, incidents and rerouting. Separate route/traffic visual layers and camera following. Optional local routing engine for downloaded graphs. | Provider fixtures plus authorized live routes, cancellation and stale-result races, denied/rate-limited requests, disconnect/recovery and offline graph queries. |
 | `zyren_geospatial_flight` | Rigid-body flight, vehicle mass/inertia, aerodynamic coefficients, propulsion, controls, wind/density and terrain interaction, with cockpit/chase cameras. Reuse native physics for contact where appropriate. | Reference manoeuvres with stated tolerances, step convergence, replay, terrain contact, scale transitions and native visual examples. |
 | `zyren_geospatial_space` | Versioned body/gravity/ephemeris models, orbital propagation, trajectories and manoeuvres, frame/time conversion and tracking cameras. Local physics only for applicable proximity/contact work. | Known orbit cases, conservation/error bounds, frame/time checks, discontinuities, large-distance rendering and recorded replay. |
@@ -345,8 +349,10 @@ buoyancy with old values.
 The visual target includes reflected sky/sun, view-dependent reflectance,
 absorption and transmission, depth-aware shore transitions, wave foam and an
 underwater transition. Each effect needs an implemented native path and evidence.
-Screen-space inputs must declare missing off-screen coverage. Advanced wake and
-coastal fluid solvers are separate additions to the wave surface model.
+Screen-space inputs must declare missing off-screen coverage. Wakes, interaction
+foam and spray are required bounded effects in the ocean delivery. A fully coupled
+coastal fluid solver and overturning breaking-wave geometry remain separate
+simulation capabilities, identified as such.
 
 Earth mode requires coast coverage with provenance and an explicit sea-level
 datum. Existing terrain water masks can refine local coverage but are not a global
@@ -409,11 +415,12 @@ and measured native allocation separately. Unknown physical GPU residency stays
 unknown. Record device, backend, resolution, quality, data/model revisions and
 frame-time distribution with every visual performance claim.
 
-## Decisions for review
+## Approved decisions and remaining inputs
 
-The recommended choices are a headless host with built-in layers and data access,
+The approved choices are a headless host with built-in layers and data access,
 optional domain packages, ordinary core scene-plugin lifecycles, and the ocean as
-the first domain integration. Existing standalone APIs remain supported during
+the first domain integration. Professional water, buoyancy, LOD and quality
+controls are explicit requirements. Existing standalone APIs remain supported during
 migration. An application can supply every visible control itself.
 
 Provider selection, distributable Earth coast data and reference device/quality
