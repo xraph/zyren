@@ -259,30 +259,43 @@ class _DemoSceneState extends State<_DemoScene> {
                   ],
                   overlay: Stack(
                     children: [
-                      SceneAsset<TextureImage>(
-                        request: textureRequest,
-                        loadingBuilder: loading,
-                        errorBuilder: loadError,
-                        builder: (context, image) => MeshNode(
-                          name: 'textured-sphere',
-                          geometry: const SceneGeometry.sphere(radius: .5),
-                          position: const Vec3(.8, 0, 0),
-                          material: SceneMaterial.unlit(
-                            colorMap: TextureMap(image: image),
-                          ),
-                        ),
-                      ),
-                      ModelNode(
-                        request: modelRequest,
-                        name: 'bundled-model',
-                        position: const Vec3(.8, 1.2, 0),
-                        scale: const Vec3(.6, .6, .6),
-                        loadingBuilder: loading,
-                        errorBuilder: loadError,
-                        builder: (context, instance) => ModelAnimationNode(
-                          instance: instance,
-                          clipName: 'Float',
-                          paused: !spinning,
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        top: 48,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SceneAsset<TextureImage>(
+                              request: textureRequest,
+                              loadingBuilder: loading,
+                              errorBuilder: loadError,
+                              builder: (context, image) => MeshNode(
+                                name: 'textured-sphere',
+                                geometry: const SceneGeometry.sphere(
+                                  radius: .5,
+                                ),
+                                position: const Vec3(.8, 0, 0),
+                                material: SceneMaterial.unlit(
+                                  colorMap: TextureMap(image: image),
+                                ),
+                              ),
+                            ),
+                            ModelNode(
+                              request: modelRequest,
+                              name: 'bundled-model',
+                              position: const Vec3(.8, 1.2, 0),
+                              scale: const Vec3(.6, .6, .6),
+                              loadingBuilder: loading,
+                              errorBuilder: loadError,
+                              builder: (context, instance) =>
+                                  ModelAnimationNode(
+                                    instance: instance,
+                                    clipName: 'Float',
+                                    paused: !spinning,
+                                  ),
+                            ),
+                          ],
                         ),
                       ),
                       Positioned(

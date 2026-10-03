@@ -51,11 +51,10 @@ window behavior was not verified by this run.
   Dart examples were also checked as temporary widget expressions with their
   documented imports and caller-supplied controller/plugin values.
 
-Use the FVM binaries shown above for these commands. The first full
-`flutter_zyren` suite run exposed an orbit lifecycle cancellation failure outside
-the demo. Its correction and the final suite result are recorded with the
-integration work; the native evidence above does not depend on declaring that
-failed run successful.
+Use the FVM binaries shown above for these commands. The final `flutter test
+--no-pub` from `packages/flutter_zyren` passed all 158 tests. The first run had
+exposed an orbit lifecycle cancellation failure; commit `cce2ec5` corrected the
+input adapter and extended its regression coverage before that final run.
 
 Android, iOS, Linux, Windows, Vulkan and DX12 were not qualified by this task.
 Reference tests do not replace those device runs.

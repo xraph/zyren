@@ -30,7 +30,9 @@ You can put scene nodes inside your own `StatelessWidget` or `StatefulWidget`.
 Flutter keys preserve node identity when you reorder a list. `SceneCanvas.children`
 are offstage. Put visible Flutter controls, asset progress and retry UI in
 `SceneCanvas.overlay`, or alongside the canvas in your normal layout. Scene nodes
-built inside the overlay still attach to the scene root.
+built inside the overlay still attach to the scene root. `SceneScope.of(context)`
+gives a component access to its controller; `SceneScope.assetCacheOf(context)`
+returns the canvas cache.
 
 Geometry descriptions cover boxes, spheres and planes. Equal descriptions reuse
 geometry across rebuilds. Use `SceneGeometry.value(geometry)` and
@@ -67,8 +69,9 @@ SceneCanvas(
 )
 ```
 
-Point and spot lights accept their matching shadow options. Directional lights
-accept directional shadows; rectangular area lights accept `AreaShadow`. Use
+Point and spot lights accept their matching shadow options; rectangular area
+lights accept `AreaShadow`. `DirectionalLightNode` exposes color, intensity and
+direction. Use
 quaternions to orient an area light and `up` to orient hemisphere lighting. Light
 properties update the mounted object. Instance
 `count` must fit `capacity`; transforms and optional colors apply to active
