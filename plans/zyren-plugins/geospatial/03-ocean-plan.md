@@ -135,7 +135,7 @@ time, revision and logical payload bytes. Test-only explicit readback methods
 return interleaved numeric arrays. `close()` waits for accepted work and retires
 only owned resources.
 
-- [ ] Compare 4x4 and 8x8 GPU results to W1's oracle, including a non-symmetric
+- [x] Compare 4x4 and 8x8 GPU results to W1's oracle, including a non-symmetric
   complex fixture that catches conjugation, transposition and sign errors:
 
 ```dart
@@ -148,7 +148,7 @@ for (var i = 0; i < expected.length; i++) {
 
   Define `debugInverse(Float64List, {required int size}) -> Future<Float32List>`
   in test support using the same compiled FFT passes and explicit readback.
-- [ ] Implement radix-2 Stockham passes, first rows then columns, with ping-pong
+- [x] Implement radix-2 Stockham passes, first rows then columns, with ping-pong
   complex buffers and one final normalization. Each pass declares reads/writes;
   no pass binds the same subresource as sampled input and storage output.
 
@@ -164,13 +164,13 @@ fn inverseButterfly(a: vec2<f32>, b: vec2<f32>, phase: f32) -> vec2<f32> {
   Derive Stockham indices from stage width and validate every stage against a
   CPU butterfly fixture. Evaluate horizontal displacement, slopes, velocity and
   Jacobian from spectral derivatives, not neighbouring display pixels.
-- [ ] Build canonical coefficient subsets for each render grid. Missing visual
+- [x] Build canonical coefficient subsets for each render grid. Missing visual
   bands transfer unresolved slope variance into shading; physical state is kept.
   Test overlapping-band energy, zeros, long time reduction and finite outputs.
-- [ ] Run with `RUN_NATIVE_GPU=1 ../../.fvm/flutter_sdk/bin/dart test test/waves`
+- [x] Run with `RUN_NATIVE_GPU=1 ../../.fvm/flutter_sdk/bin/dart test test/waves`
   from this package. Test allocation failure, cancellation, repeated resize,
   quality replacement and zero remaining owned resources after close.
-- [ ] Commit `feat(ocean): simulate spectral waves with native compute`.
+- [x] Commit `feat(ocean): simulate spectral waves with native compute`.
 
 ## Task 3: W3 Ellipsoid mesh LOD and stable wave charts
 
@@ -589,7 +589,7 @@ store, access policy, quality, frame/time owner, atmosphere and optional physics
 
 | Capability | Owning tasks | Required evidence | Current status |
 | --- | --- | --- | --- |
-| Spectral ocean and stable queries | W1, W2, W4 | Independent numeric oracle and native comparisons | Planned |
+| Spectral ocean and stable queries | W1, W2, W4 | Independent numeric oracle and native comparisons | W1/W2 passed on macOS; W4 queries pending |
 | Globe coverage and LOD | W3 | Seam tests and continuous native camera route | Planned |
 | Native optics and underwater effects | W5-W7 | Composition tests and saved captures | Planned |
 | Physical buoyancy | W8, W9 | Native body trajectories, force balance and convergence | Planned |

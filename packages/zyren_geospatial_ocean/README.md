@@ -1,8 +1,8 @@
 # Zyren geospatial ocean
 
 You can define a deterministic sea state and inspect its numerical surface with
-this optional package. Native FFT evaluation and the water renderer follow in
-the implementation plan. This package does not yet draw an ocean.
+this optional package. Native FFT evaluation is available through a caller-owned GPU scope. The water
+renderer follows in the implementation plan. This package does not yet draw an ocean.
 
 ```dart
 final state = OceanSeaState(
@@ -78,5 +78,52 @@ pairs, reproducible coefficients, finite-depth limits, long elapsed time,
 overlapping bands and finite-difference derivatives. The 8 x 8 fixture with seed
 42 has little-endian Float64 coefficient SHA-256
 `80c7073b2f58831998d2d2b0e69cd1cddab32589e5b3e9d0faabfec4108d36fe`.
-An independent Python calculation reproduced that hash. Native GPU agreement,
-rendering, physical buoyancy and cross-platform qualification are still pending.
+An independent Python calculation reproduced that hash. Native checks are described below. Rendering, physical buoyancy and
+cross-platform qualification are still pending.
+
+## Native wave fields
+
+Create `OceanWaveFieldGpu` from a plugin's `GpuScope`, then call
+`evaluate(seconds, resolution: size)`. You receive one set of displacement,
+derivative and velocity textures per band, plus evaluated time, sea-state revision,
+logical payload bytes and unresolved slope variance. Texture heights are offsets;
+add the snapshot's mean level once after combining bands.
+
+The native path uses radix-2 Stockham passes over rows and columns. Six packed
+complex transforms carry eleven real fields. Displacement is `(dx, h, dz, J)`,
+derivatives are `(dh/dx, dh/dz, dDx/dx, dDz/dz)`, and velocity is
+`(vx, vy, vz, dDx/dz)`. Cross derivatives are symmetric for this potential field.
+When you combine bands, compute the horizontal Jacobian from summed derivatives;
+summing the individual determinants would be incorrect.
+
+The three RGBA32Float textures are unfiltered. Sample them with texture loads and
+explicit interpolation. `debugRead` and `debugInverse` perform native readback for
+numerical checks; they are not render-loop operations. Render grids select and
+rescale canonical coefficients without reseeding. Removed frequencies contribute
+to the reported time-average unresolved slope variance.
+
+CPU phase anchors use power-of-two time intervals chosen to keep the GPU phase
+increment below 32 radians. The native shader evolves between anchors. This avoids
+converting a large absolute timestamp to Float32, though the original Float64
+clock still sets the precision limit. Models with coefficient amplitudes above
+one million metres per frequency are rejected before native publication.
+
+Await each evaluation. Concurrent requests are rejected, and cancellation or a
+failed allocation preserves the last completed output. Two output slots protect
+the active textures during evaluation. A snapshot is current until the next
+successful publication or close; retaining its texture does not freeze subsequent
+slot reuse. Check `isCurrent` when consuming a query result. Cleanup failures after
+publication appear in `lastRetirementFailure` and are also reported when closing
+the GPU scope.
+
+Admission counts all owned buffer and texture payloads, including two output slots
+and the previous grid during replacement. One band requires
+`208 * N² + 16 * (2 * log2(N) + 1)` bytes. Driver overhead and physical GPU residency
+are not included. A replacement can exceed the allowance even when its final grid
+would fit alone. It fails explicitly and keeps the previous field.
+
+Native macOS checks now cover complex FFT agreement, packed derivatives, long-time
+phases, zero wind, overlapping bands, cancellation and failed allocation. A one-band
+64/128/256/512 sweep completed with finite output and zero owned allocations after
+close. No surface mesh, water optics, buoyancy or visual-quality claim follows from
+those compute results.

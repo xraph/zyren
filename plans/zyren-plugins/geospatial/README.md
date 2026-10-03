@@ -115,3 +115,11 @@ finite-depth limits and displacement/velocity derivatives checked by finite
 differences. A separate Python calculation reproduced the fixture coefficient
 hash. Package analysis and boundaries passed. Native FFT and rendering are next;
 these numerical checks do not qualify ocean visuals.
+
+W2 adds native Stockham FFTs, packed displacement/derivative/velocity textures
+and atomic field publication. Nineteen wave tests passed with native GPU execution,
+including 4/8 complex oracle comparisons, 64..512 grid coverage, actual allocation
+failure, cancellation and zero remaining owned allocations. Analysis and package
+boundaries passed. [Compute evidence](../../../qualification/2026-10-03/ocean-compute.md)
+records payload sizes and the limits of the cold timing sample. Globe geometry,
+physical queries and water optics remain separate tasks.
