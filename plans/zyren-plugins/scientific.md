@@ -92,7 +92,12 @@ resolved the unrelated imports reported by the earlier run. Scientific analysis
 has no diagnostics. The timeline adapter also rejects time spans that collapse
 below its microsecond clock precision, with a focused regression check.
 
-Pixel follow-up: two complete native presentation runs passed. The last rerun
-passed GPU numerics but paused at the viewport test with the device's screensaver
-in front. The newest Flutter agent-pick assertion passes on macOS and awaits an
-awake Pixel. The Windows-host and Pixel-wake questions remain open.
+Pixel follow-up, 2026-10-03: the awake-device rerun passed three numerical/lifecycle
+tests and presented all six modes through `sharedTexture` with zero readback bytes.
+The final Flutter test stopped making progress after the volume marker while the
+screensaver, Reality Capture and Planet took the foreground. This workstream's
+test was interrupted; Flutter's zero exit code accompanied shutdown errors and
+does not count as a pass. The newest agent-pick/source-cell join passes on macOS
+and still needs an exclusive Pixel window with Scientific Lab visible. Device
+coordination authorization was requested. The Windows-host question remains open.
+See the qualification report for this attempt's log and source hashes.

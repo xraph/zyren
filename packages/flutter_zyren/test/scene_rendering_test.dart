@@ -263,6 +263,41 @@ void main() {
       expect(instance.mixer.actions, isEmpty);
     },
   );
+  testWidgets('a later imperative animation owner produces a scene error', (
+    tester,
+  ) async {
+    final asset = (await tester.runAsync(() => load(animatedModel())))!;
+    final instance = asset.instantiate();
+    final backend = AnimationReferenceBackend();
+    late SceneController controller;
+    await tester.pumpWidget(
+      host(
+        SceneCanvas(
+          runtime: runtime(backend),
+          options: readback,
+          onCreated: (value) => controller = value,
+          children: [
+            ObjectNode(
+              object: instance,
+              children: [ModelAnimationNode(instance: instance)],
+            ),
+          ],
+        ),
+      ),
+    );
+    await frames(tester);
+    final extra = instance.mixer.play(instance.animations.single);
+    await frames(tester);
+    expect(controller.status.value, isA<SceneFailed>());
+    expect(
+      (controller.status.value as SceneFailed).issue.message,
+      contains('playback owner'),
+    );
+    extra.stop();
+    await tester.pumpWidget(const SizedBox());
+    await frames(tester);
+    expect(instance.mixer.actions, isEmpty);
+  });
   testWidgets(
     'environment and effects attach real resource and graph paths and dispose',
     (tester) async {

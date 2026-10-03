@@ -36,6 +36,7 @@ class ModelAnimationNode extends StatefulWidget {
 
 class _ModelAnimationNodeState extends State<ModelAnimationNode> {
   AnimationMixer? _mixer;
+  _ModelPlaybackPlugin? _plugin;
   AnimationAction? _action;
   ModelInstance? _owned;
   Object? _error;
@@ -57,6 +58,7 @@ class _ModelAnimationNodeState extends State<ModelAnimationNode> {
     }
     _owned = null;
     _mixer = null;
+    _plugin = null;
   }
 
   ModelAnimation _clip() {
@@ -90,6 +92,7 @@ class _ModelAnimationNodeState extends State<ModelAnimationNode> {
       _animationOwners[widget.instance] = this;
       _owned = widget.instance;
       _mixer = mixer;
+      _plugin = _ModelPlaybackPlugin(mixer, () => _action);
     }
     if (!widget.playing || restart) {
       _action?.stop();
@@ -165,6 +168,30 @@ class _ModelAnimationNodeState extends State<ModelAnimationNode> {
     if (_error != null) {
       throw _error!;
     }
-    return ScenePluginNode(plugin: _mixer!, child: widget.child);
+    return ScenePluginNode(plugin: _plugin!, child: widget.child);
   }
+}
+
+// Delegate the actual mixer attachment and update hooks. A later imperative
+// owner cannot introduce another action without surfacing a scene error.
+class _ModelPlaybackPlugin extends ScenePlugin {
+  final AnimationMixer mixer;
+  final AnimationAction? Function() ownedAction;
+  _ModelPlaybackPlugin(this.mixer, this.ownedAction);
+  @override
+  String get id => mixer.id;
+  @override
+  void attach(PluginContext context) => mixer.attach(context);
+  @override
+  void beforeRender(PluginContext context, FrameInfo frame) {
+    if (mixer.actions.any((action) => !identical(action, ownedAction()))) {
+      throw StateError(
+        'Model mixer has another playback owner. Stop that action before continuing declarative playback.',
+      );
+    }
+    mixer.beforeRender(context, frame);
+  }
+
+  @override
+  void detach(PluginContext context) => mixer.detach(context);
 }
