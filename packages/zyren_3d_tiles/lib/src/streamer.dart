@@ -149,6 +149,8 @@ class Tiles3DStreamer {
   Future<void>? _closing;
   Camera? _lastCamera;
   ViewportMetrics? _lastViewport;
+  int? _selectionCameraRevision;
+  bool _selectionDirty = true;
   final _screenErrors = <TileNode3D, double>{};
   double _screenError(TileNode3D node) => _screenErrors.putIfAbsent(
     node,
@@ -226,10 +228,31 @@ class Tiles3DStreamer {
     }
     if (time < _elapsed) _finishTransition();
     _elapsed = time;
+    final sameView =
+        identical(camera, _lastCamera) &&
+        camera.revision == _selectionCameraRevision &&
+        viewport.width == _lastViewport?.width &&
+        viewport.height == _lastViewport?.height &&
+        viewport.devicePixelRatio == _lastViewport?.devicePixelRatio;
     _lastCamera = camera;
     _lastViewport = viewport;
-    _screenErrors.clear();
     final before = stats._values;
+    if (sameView && !_selectionDirty) {
+      // Animated clouds do not change tile visibility. Keep freshness and
+      // refinement fades moving without rebuilding a stationary selection.
+      _discardInactive();
+      if (!_selectionDirty) {
+        final fading = isTransitioning;
+        if (fading) {
+          _refresh();
+          _discardInactive();
+          _pump();
+        }
+        if (fading || before != stats._values) _notify();
+        return;
+      }
+    }
+    _screenErrors.clear();
     final selectedBefore = _selected, visibleBefore = _visible;
     _discardInactive();
     final failuresBefore = _failures.length;
@@ -318,6 +341,8 @@ class Tiles3DStreamer {
     _refresh();
     _discardInactive();
     _pump();
+    _selectionCameraRevision = camera.revision;
+    _selectionDirty = false;
     bool sameKeys(Map<String, Object> a, Map<String, Object> b) =>
         a.length == b.length && a.keys.every(b.containsKey);
     if (before != stats._values ||
@@ -349,6 +374,8 @@ class Tiles3DStreamer {
     _attempts.clear();
     _lastCamera = null;
     _lastViewport = null;
+    _selectionCameraRevision = null;
+    _selectionDirty = true;
     _screenErrors.clear();
     _notify();
   }
@@ -498,6 +525,7 @@ class Tiles3DStreamer {
         group,
         request.tracker.freshness,
       );
+      _selectionDirty = true;
       hierarchyChanged = content.hierarchy != null;
       retained = true;
     } catch (error) {
@@ -722,6 +750,7 @@ class Tiles3DStreamer {
   void _evict(String id) {
     final entry = _cache.remove(id);
     if (entry == null) return;
+    _selectionDirty = true;
     unawaited(entry.scope.close());
     final hierarchy = entry.content.hierarchy;
     if (hierarchy == null) return;
