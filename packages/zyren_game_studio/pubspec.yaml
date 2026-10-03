@@ -6,6 +6,8 @@ resolution: workspace
 environment:
   sdk: '>=3.10.0 <4.0.0'
 dependencies:
+  zyren_collaboration:
+    path: ../zyren_collaboration
   zyren_interaction:
     path: ../zyren_interaction
   zyren_game_native:
@@ -40,6 +42,8 @@ dependencies:
   zyren_pipeline:
     path: ../zyren_pipeline
 dev_dependencies:
+  zyren_devtools:
+    path: ../zyren_devtools
   flutter_test:
     sdk: flutter
   test: ^1.29.0
