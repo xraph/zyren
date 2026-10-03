@@ -30,12 +30,30 @@ final class MlWorkerEvent {
 }
 
 /// A dedicated isolate owns every native session. Its command loop is serial.
+typedef MlWorkerSpawner =
+    Future<void> Function(void Function(SendPort), SendPort);
+
 final class MlWorker implements MlInferenceWorker {
-  MlWorker({this.maxPendingOperations = 16}) {
+  MlWorker({this.maxPendingOperations = 16, MlWorkerSpawner? spawner})
+    : _spawner = spawner ?? _spawnIsolate {
     if (maxPendingOperations <= 0 || maxPendingOperations > 128) {
       throw ArgumentError('Worker pending operation limit must be 1..128.');
     }
   }
+  final MlWorkerSpawner _spawner;
+  static Future<void> _spawnIsolate(
+    void Function(SendPort) entry,
+    SendPort port,
+  ) async {
+    await Isolate.spawn(
+      entry,
+      port,
+      onExit: port,
+      onError: port,
+      errorsAreFatal: true,
+    );
+  }
+
   final int maxPendingOperations;
   final _pending = <int, Completer<Map<String, Object?>>>{};
   final _events = StreamController<MlWorkerEvent>.broadcast(sync: true);
@@ -53,6 +71,10 @@ final class MlWorker implements MlInferenceWorker {
 
   Future<void> _start() => _starting ??= _spawn();
   Future<void> _spawn() async {
+    // Register before spawn, which can fail without ever awaiting readiness.
+    unawaited(
+      _startup.future.then<void>((_) {}, onError: (Object _, StackTrace _) {}),
+    );
     _messages = ReceivePort();
     _messages!.listen((message) {
       if (message == null) {
@@ -82,13 +104,7 @@ final class MlWorker implements MlInferenceWorker {
       }
     });
     try {
-      await Isolate.spawn(
-        _serve,
-        _messages!.sendPort,
-        onExit: _messages!.sendPort,
-        onError: _messages!.sendPort,
-        errorsAreFatal: true,
-      );
+      await _spawner(_serve, _messages!.sendPort);
       await _startup.future;
     } catch (e) {
       _fail(e.toString());

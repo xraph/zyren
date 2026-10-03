@@ -9,5 +9,6 @@ export 'src/tensor.dart';
 export 'src/diagnostics.dart';
 export 'src/model_cache.dart';
 export 'src/scheduler.dart';
-export 'src/worker.dart' show MlInferenceWorker, MlWorker, MlWorkerEvent;
+export 'src/worker.dart'
+    show MlInferenceWorker, MlWorker, MlWorkerEvent, MlWorkerSpawner;
 export 'src/provider.dart';

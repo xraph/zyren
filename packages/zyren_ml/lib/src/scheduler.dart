@@ -196,7 +196,7 @@ final class MlScheduler {
         request.model.inputs.any(
           (s) =>
               !request.tensors.containsKey(s.name) ||
-              !s.accepts(request.tensors[s.name]!, requireFinite: false),
+              !s.accepts(request.tensors[s.name]!),
         )) {
       return Future.value(
         rejection(
@@ -367,11 +367,21 @@ final class MlScheduler {
       if (admitted.isEmpty) return;
       final cold = cache.isCold(lease);
       final watch = Stopwatch()..start();
-      // Each request retains its own deadline; a shorter actor deadline must
-      // not cancel other actors in the same shared ORT batch.
+      // The worker can skip a queued batch once every actor has expired.
+      // One unbounded actor keeps the batch alive; individual results still
+      // enforce their own deadlines after native completion.
+      DateTime? batchDeadline;
+      if (admitted.every((e) => e.request.deadline != null)) {
+        batchDeadline = admitted
+            .map((e) => e.request.deadline!)
+            .reduce((a, b) => a.isAfter(b) ? a : b);
+      }
       final result = await lease.run(
         _stack(admitted),
-        MlRunOptions(requestId: admitted.first.request.id),
+        MlRunOptions(
+          requestId: admitted.first.request.id,
+          deadline: batchDeadline,
+        ),
       );
       final timing = MlTiming(
         queue: queueTime,
@@ -456,26 +466,10 @@ final class MlScheduler {
 
   MlTensorMap _unstack(MlTensorMap tensors, int slot, int slots) {
     if (slots == 1) return tensors;
-    return tensors.map((name, tensor) {
-      if (tensor.shape.isEmpty || tensor.shape.first != slots) {
-        throw StateError(
-          'Native output batch dimension differs from slot map.',
-        );
-      }
-      final stride = tensor.byteLength ~/ slots;
-      return MapEntry(
-        name,
-        MlTensor(
-          tensor.dtype,
-          [1, ...tensor.shape.skip(1)],
-          Uint8List.sublistView(
-            tensor.bytes,
-            slot * stride,
-            (slot + 1) * stride,
-          ),
-        ),
-      );
-    });
+    return tensors.map(
+      (name, tensor) =>
+          MapEntry(name, tensor.batchRow(slot, expectedRows: slots)),
+    );
   }
 
   Future<void> flush() async {

@@ -52,6 +52,7 @@ final class DelayedWorker implements MlInferenceWorker {
   final twoStarted = Completer<void>();
   final pending = <Completer<void>>[];
   final pendingIds = <String?>[];
+  final pendingOptions = <MlRunOptions>[];
   final loaded = <String>{};
   var runs = 0;
   var closes = 0;
@@ -75,6 +76,7 @@ final class DelayedWorker implements MlInferenceWorker {
     final gate = Completer<void>();
     pending.add(gate);
     pendingIds.add(options.requestId);
+    pendingOptions.add(options);
     runs++;
     if (!started.isCompleted) started.complete();
     if (runs == 2 && !twoStarted.isCompleted) twoStarted.complete();

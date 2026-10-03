@@ -68,6 +68,21 @@ final class MlTensor {
   Uint8List get bytes => Uint8List.fromList(_bytes);
   int get byteLength => _bytes.length;
 
+  /// Copies one batch row directly from owned storage without copying peers.
+  MlTensor batchRow(int slot, {required int expectedRows}) {
+    if (shape.isEmpty || shape.first != expectedRows) {
+      throw StateError('Native output batch dimension differs from slot map.');
+    }
+    if (slot < 0 || slot >= expectedRows) {
+      throw RangeError.index(slot, shape, 'slot');
+    }
+    final stride = byteLength ~/ expectedRows;
+    return MlTensor(dtype, [
+      1,
+      ...shape.skip(1),
+    ], Uint8List.sublistView(_bytes, slot * stride, (slot + 1) * stride));
+  }
+
   List<double> get float32Values {
     if (dtype != MlDtype.float32) throw StateError('Tensor is not float32.');
     final data = ByteData.sublistView(_bytes);
