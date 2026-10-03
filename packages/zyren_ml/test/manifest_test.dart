@@ -10,6 +10,29 @@ Map<String, dynamic> fixtureJson() =>
         as Map<String, dynamic>;
 
 void main() {
+  test('nested preprocessing data is copied and recursively immutable', () {
+    final nested = <String, dynamic>{
+      'normalization': {
+        'mean': [0.1, 0.2],
+      },
+    };
+    final json = fixtureJson()..['preprocessing'] = nested;
+    final model = MlModelManifest.decode(jsonEncode(json));
+    (nested['normalization']['mean'] as List)[0] = 100.0;
+    expect(model.preprocessing['normalization']['mean'], [0.1, 0.2]);
+    expect(
+      () => model.preprocessing['normalization']['mean'][0] = 100,
+      throwsUnsupportedError,
+    );
+    expect(
+      () => model.preprocessing['normalization']['mean'] = [],
+      throwsUnsupportedError,
+    );
+    expect(
+      MlModelManifest.decode(model.encode()).preprocessing,
+      model.preprocessing,
+    );
+  });
   test('fixture manifests round-trip with recurrent schema', () {
     for (final name in ['linear', 'lstm_step', 'cnn_step', 'typed_identity']) {
       final model = MlModelManifest.decode(

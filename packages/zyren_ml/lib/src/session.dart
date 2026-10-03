@@ -95,6 +95,12 @@ final class MlSession implements Finalizable {
         }
         final nativeResult = arena<Pointer<Void>>();
         final error = arena<Uint8>(4096);
+        if (options.isCancelled) {
+          return result(
+            MlRunStatus.cancelled,
+            message: 'Request expired during input preparation.',
+          );
+        }
         final status = nativeRun(
           _handle,
           names,

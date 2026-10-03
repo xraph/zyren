@@ -40,6 +40,33 @@ List<int> field(int number, List<int> data) {
 
 void main() {
   const runtime = MlRuntime();
+  test(
+    'deadline expiring during valid input preparation skips native execution',
+    () async {
+      final session = await runtime.load(manifest('cnn_step'), resolveFixture);
+      try {
+        final image = MlTensor(MlDtype.float32, [
+          64,
+          3,
+          84,
+          84,
+        ], Uint8List(64 * 3 * 84 * 84 * 4));
+        expect((await session.run(inputs('cnn_step'))).status, MlRunStatus.ok);
+        final before = runtime.diagnostics.completedRuns;
+        final result = await session.run(
+          {'image': image},
+          MlRunOptions(
+            deadline: DateTime.now().add(const Duration(milliseconds: 10)),
+          ),
+        );
+        expect(result.status, MlRunStatus.cancelled);
+        expect(result.message, 'Request expired during input preparation.');
+        expect(runtime.diagnostics.completedRuns, before);
+      } finally {
+        await session.close();
+      }
+    },
+  );
   for (final name in ['linear', 'lstm_step', 'cnn_step']) {
     test('native $name fixture parity and repeated close', () async {
       final expected = fixture(name)['outputs'] as Map<String, dynamic>;

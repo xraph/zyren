@@ -37,6 +37,7 @@ ZML_EXPORT int32_t zyren_ml_result_tensor(ZyrenMlResult* result, size_t index,
 ZML_EXPORT void zyren_ml_result_close(ZyrenMlResult* result);
 ZML_EXPORT int64_t zyren_ml_live_sessions(void);
 ZML_EXPORT int64_t zyren_ml_live_results(void);
+ZML_EXPORT int64_t zyren_ml_completed_runs(void);
 #ifdef __cplusplus
 }
 #endif

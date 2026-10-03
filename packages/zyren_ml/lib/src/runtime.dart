@@ -15,9 +15,11 @@ final class MlNativeDiagnostics {
   const MlNativeDiagnostics({
     required this.liveSessions,
     required this.liveResults,
+    required this.completedRuns,
   });
   final int liveSessions;
   final int liveResults;
+  final int completedRuns;
 }
 
 final class MlRuntime {
@@ -76,5 +78,6 @@ final class MlRuntime {
   MlNativeDiagnostics get diagnostics => MlNativeDiagnostics(
     liveSessions: nativeLiveSessions(),
     liveResults: nativeLiveResults(),
+    completedRuns: nativeCompletedRuns(),
   );
 }

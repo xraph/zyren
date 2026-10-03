@@ -95,9 +95,7 @@ final class MlModelManifest {
        inputs = List.unmodifiable(inputs),
        outputs = List.unmodifiable(outputs),
        recurrent = Map.unmodifiable(recurrent),
-       preprocessing = Map.unmodifiable(
-         jsonDecode(jsonEncode(preprocessing)) as Map<String, dynamic>,
-       ),
+       preprocessing = _freezeMetadata(preprocessing) as Map<String, dynamic>,
        customOperatorLibraries = List.unmodifiable(customOperatorLibraries),
        externalData = List.unmodifiable(externalData) {
     validateModelAssetPath(modelFile);
@@ -206,4 +204,29 @@ final class MlModelManifest {
     'customOperatorLibraries': customOperatorLibraries,
     'externalData': externalData,
   });
+}
+
+Object? _freezeMetadata(Object? value, [int depth = 0]) {
+  if (depth > 32) {
+    throw const FormatException('Preprocessing metadata nesting exceeds 32.');
+  }
+  if (value == null ||
+      value is String ||
+      value is bool ||
+      value is num && value.isFinite) {
+    return value;
+  }
+  if (value is List) {
+    return List<dynamic>.unmodifiable(
+      value.map((v) => _freezeMetadata(v, depth + 1)),
+    );
+  }
+  if (value is Map<String, dynamic>) {
+    return Map<String, dynamic>.unmodifiable(
+      value.map((key, v) => MapEntry(key, _freezeMetadata(v, depth + 1))),
+    );
+  }
+  throw const FormatException(
+    'Preprocessing metadata must contain finite JSON values.',
+  );
 }
