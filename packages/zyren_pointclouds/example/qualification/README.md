@@ -13,6 +13,18 @@ fvm flutter run --no-pub -d macos
 fvm flutter test integration_test/capture_test.dart --no-pub -d <device-id>
 ```
 
+For an iPad or iPhone connected over Wi-Fi, use the host driver:
+
+```sh
+fvm flutter drive --no-pub --publish-port \
+  --driver=test_driver/integration_test.dart \
+  --target=integration_test/capture_test.dart -d <device-id>
+```
+
+Flutter 3.47.5's `test` command cannot publish the VM service port that wireless
+iOS testing requires. `drive` accepts this option and runs the same suite.
+You'll still need a valid signing profile before the app can launch.
+
 The integration suite checks both perspective and orthographic native pixels,
 source attributes and ordinals, streamed scene content, filter/section controls,
 semantics, zero-readback presentation, plugin reattachment and cleanup. Test captures use readback only
@@ -54,4 +66,4 @@ Choose your own development team/profile in Xcode for signed iOS deployment.
 No signing team is committed in this app.
 
 See [the evidence record](../../qualification/2026-10-03.md) for tested devices and
-the iPhone signing blocker. Device discovery alone does not establish qualification.
+the iPhone and iPad signing blocker. Device discovery alone does not establish qualification.

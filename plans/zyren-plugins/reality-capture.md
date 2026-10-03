@@ -19,6 +19,7 @@ adapters, live MCP and mobile qualification.
 | Agents and MCP | Shared registry, viewport context, source-aware point and Gaussian queries, scoped point filter/undo/retry | Registry tests and live shared stdio MCP, including denial, identical retry, stale revision and EOF cleanup |
 | Native qualification | macOS Metal and physical Pixel 9 Pro Vulkan | Package and Flutter integration checks; desktop and narrow visual review |
 | iPhone | Unsigned device build succeeds; signed deployment blocked | Apple App ID quota and missing app provisioning profile, unchanged after unlocking |
+| iPad | Wireless deployment reaches signing; device tests blocked | Same App ID quota and missing profile; `flutter drive --publish-port` supports the wireless test path |
 
 The detailed platform record is
 `packages/zyren_pointclouds/qualification/2026-10-03.md`. It separates actual pixels,
@@ -94,11 +95,12 @@ The qualification app uses that model and disposes its retained streams after th
 controller drains. The Gaussian renderer recreates its attachment scope and GPU
 resources when reattached. Forced physical device loss is not a qualified scenario.
 
-macOS Metal and Pixel Vulkan are separate evidence. iPhone deployment is blocked
+macOS Metal and Pixel Vulkan are separate evidence. iPhone and iPad deployment are blocked
 by the current signing account's maximum of ten new App IDs per seven days and no
 profile for this app. Unlocking the phone does not resolve that account limit.
-An unsigned iOS build succeeds, but cannot establish on-device rendering. iPad,
-Windows/DX12 and Linux GPUs remain unverified.
+An unsigned iOS build succeeds, but cannot establish on-device rendering. The iPad
+retry used `flutter drive --publish-port` over Wi-Fi and reached the same signing
+failure. Windows/DX12 and Linux GPUs remain unverified.
 
 Higher-order spherical harmonics, PLY import, GPU sorting and large-dataset
 performance qualification remain future work. This completion run does not claim
