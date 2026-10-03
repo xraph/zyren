@@ -51,8 +51,46 @@ class _DemoScene extends StatefulWidget {
 }
 
 class _DemoSceneState extends State<_DemoScene> {
-  bool spinning = true, showCube = true, selected = false;
+  bool spinning = true, showCube = true, orbit = true, effects = false;
   double size = 1;
+  String pointerStatus = 'Point at the cube';
+  SceneController? controller;
+  final pipeline = ColorPipeline();
+  final textureRequest = AssetRequest<TextureImage>(
+    uri: Uri.parse('asset:///assets/images/corners.png'),
+    loader: const TextureImageLoader(),
+  );
+  final modelRequest = Gltf.asset('assets/models/floating_triangle.gltf');
+
+  Widget loading(BuildContext context, LoadProgress? progress) => Padding(
+    padding: const EdgeInsets.all(12),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        LinearProgressIndicator(
+          value: progress?.totalBytes == null || progress!.totalBytes == 0
+              ? null
+              : progress.completedBytes / progress.totalBytes!,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Loading bundled asset${progress == null ? '' : ': ${progress.stage.name}'}',
+        ),
+      ],
+    ),
+  );
+
+  Widget loadError(
+    BuildContext context,
+    Object error,
+    StackTrace stack,
+    VoidCallback retry,
+  ) => ZeroState(
+    title: 'Asset could not load',
+    message: '$error',
+    actionLabel: 'Retry asset',
+    onAction: retry,
+  );
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -66,12 +104,13 @@ class _DemoSceneState extends State<_DemoScene> {
               'Zyren · Scene widgets',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
             ),
+            const Text(
+              'Drag the background to orbit. Select or drag the cube.',
+            ),
             const SizedBox(height: 4),
-            const Text('Drag to orbit. Tap the cube to change its material.'),
-            const SizedBox(height: 8),
             Wrap(
               spacing: 8,
-              runSpacing: 4,
+              runSpacing: 0,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 OutlinedButton.icon(
@@ -86,8 +125,18 @@ class _DemoSceneState extends State<_DemoScene> {
                   onPressed: () => setState(() => showCube = !showCube),
                   child: Text(showCube ? 'Remove cube' : 'Add cube'),
                 ),
+                FilterChip(
+                  label: const Text('Orbit'),
+                  selected: orbit,
+                  onSelected: (value) => setState(() => orbit = value),
+                ),
+                FilterChip(
+                  label: const Text('FXAA'),
+                  selected: effects,
+                  onSelected: (value) => setState(() => effects = value),
+                ),
                 SizedBox(
-                  width: 160,
+                  width: 150,
                   child: Row(
                     children: [
                       const Text('Size'),
@@ -102,55 +151,161 @@ class _DemoSceneState extends State<_DemoScene> {
                     ],
                   ),
                 ),
-                Text(selected ? 'Cube selected' : 'No selection'),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
             Expanded(
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: SceneCanvas(
                   runtime: widget.runtime,
                   options: widget.options,
-                  onCreated: widget.onCreated,
-                  orbitControls: true,
+                  onCreated: (value) {
+                    controller = value;
+                    widget.onCreated?.call(value);
+                  },
+                  orbitControls: orbit,
+                  configureOrbitControls: (controls) =>
+                      controls.rotateSpeed = .7,
+                  colorPipeline: pipeline,
                   background: const Color3(.025, .04, .06),
                   camera: const SceneCamera.perspective(
                     position: Vec3(0, 1.4, 6),
                   ),
+                  onPointerMissed: (_) {
+                    controller!.selection = null;
+                    setState(() => pointerStatus = 'Background clicked');
+                  },
                   children: [
+                    const PointLightNode(
+                      position: Vec3(-2, 3, 4),
+                      intensity: 20,
+                    ),
+                    const HemisphereLightNode(intensity: .6),
+                    PostProcessingNode(enabled: effects, antialias: true),
                     GroupNode(
+                      name: 'primitives',
                       children: [
                         if (showCube)
-                          MeshNode(
-                            key: const ValueKey('cube'),
-                            name: 'cube',
-                            geometry: const SceneGeometry.box(),
-                            position: const Vec3(-.8, 0, 0),
-                            scale: Vec3(size, size, size),
-                            material: SceneMaterial.unlit(
-                              color: selected
-                                  ? const Color3(.3, .85, .65)
-                                  : const Color3(.95, .45, .16),
+                          SceneSelector<bool>(
+                            select: (state) => state.selection?.name == 'cube',
+                            builder: (context, selected, child) => MeshNode(
+                              key: const ValueKey('cube'),
+                              name: 'cube',
+                              geometry: const SceneGeometry.box(),
+                              position: const Vec3(-.8, 0, 0),
+                              scale: Vec3(size, size, size),
+                              material: SceneMaterial.standard(
+                                color: selected
+                                    ? const Color3(.3, .85, .65)
+                                    : const Color3(.95, .45, .16),
+                                roughness: .6,
+                              ),
+                              onClick: (event) {
+                                event.stopPropagation();
+                                controller!.selection = event.currentTarget;
+                              },
+                              onPointerEnter: (_) => setState(
+                                () => pointerStatus = 'Cube hovered',
+                              ),
+                              onPointerLeave: (_) => setState(
+                                () => pointerStatus = 'Point at the cube',
+                              ),
+                              onPointerDown: (event) {
+                                event.capturePointer();
+                                setState(() => pointerStatus = 'Cube captured');
+                              },
+                              onPointerMove: (event) {
+                                if (event.captureIntersection != null) {
+                                  setState(
+                                    () => pointerStatus =
+                                        'Dragging captured cube',
+                                  );
+                                }
+                              },
+                              onPointerUp: (event) {
+                                event.releasePointer();
+                                setState(
+                                  () => pointerStatus = 'Capture released',
+                                );
+                              },
+                              onFrame: spinning
+                                  ? (mesh, time) =>
+                                        mesh.rotateY(time.deltaSeconds * .6)
+                                  : null,
                             ),
-                            onTap: (_) => setState(() => selected = !selected),
-                            onFrame: spinning
-                                ? (mesh, time) =>
-                                      mesh.rotateY(time.deltaSeconds * .6)
-                                : null,
                           ),
-                        const MeshNode(
-                          key: ValueKey('sphere'),
-                          name: 'sphere',
-                          geometry: SceneGeometry.sphere(radius: .55),
-                          position: Vec3(.9, 0, 0),
-                          material: SceneMaterial.unlit(
-                            color: Color3(.2, .55, .95),
-                          ),
+                        InstancedMeshNode(
+                          name: 'instances',
+                          geometry: const SceneGeometry.sphere(radius: .18),
+                          capacity: 3,
+                          count: 3,
+                          transforms: [
+                            for (var i = 0; i < 3; i++)
+                              Mat4.compose(
+                                Vec3(-.6 + i * .6, -.95, 0),
+                                Quat.identity,
+                                const Vec3(1, 1, 1),
+                              ),
+                          ],
+                          colors: const [
+                            Color3(.2, .55, .95),
+                            Color3(.8, .4, .9),
+                            Color3(.9, .7, .2),
+                          ],
                         ),
                       ],
                     ),
                   ],
+                  overlay: Stack(
+                    children: [
+                      SceneAsset<TextureImage>(
+                        request: textureRequest,
+                        loadingBuilder: loading,
+                        errorBuilder: loadError,
+                        builder: (context, image) => MeshNode(
+                          name: 'textured-sphere',
+                          geometry: const SceneGeometry.sphere(radius: .5),
+                          position: const Vec3(.8, 0, 0),
+                          material: SceneMaterial.unlit(
+                            colorMap: TextureMap(image: image),
+                          ),
+                        ),
+                      ),
+                      ModelNode(
+                        request: modelRequest,
+                        name: 'bundled-model',
+                        position: const Vec3(.8, 1.2, 0),
+                        scale: const Vec3(.6, .6, .6),
+                        loadingBuilder: loading,
+                        errorBuilder: loadError,
+                        builder: (context, instance) => ModelAnimationNode(
+                          instance: instance,
+                          clipName: 'Float',
+                          paused: !spinning,
+                        ),
+                      ),
+                      Positioned(
+                        left: 8,
+                        top: 8,
+                        child: IgnorePointer(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              SceneSelector<String>(
+                                select: (state) =>
+                                    state.selection?.name ?? 'No selection',
+                                builder: (_, value, _) => Text(
+                                  value == 'cube' ? 'Cube selected' : value,
+                                ),
+                              ),
+                              Text(pointerStatus),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
