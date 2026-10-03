@@ -162,7 +162,8 @@ fn cloudRanges(origin:vec3<f32>,direction:vec3<f32>)->CloudRanges{
 @group(3) @binding(2) var cloudTransmissionOutput:texture_storage_2d<r32float,write>;
 @fragment fn fragment(v:ScreenVertex)->@location(0) vec4<f32>{
  let pixel=vec2<i32>(v.position.xy);
- let samplePixel=select(vec2<f32>(pixel),min(vec2<f32>(pixel)*4.+ct.jitter.xy,ct.size.xy-1.),ct.jitter.z>1.5);
+ if(any(pixel>=vec2<i32>(ct.size.zw))){return vec4<f32>(0.);}
+ let samplePixel=select(vec2<f32>(pixel),min(vec2<f32>(pixel)*ct.jitter.w+ct.jitter.xy,ct.size.xy-1.),ct.jitter.z>1.5);
  let uv=(samplePixel+.5)/cf.extent.xy;let middle=scenePosition(uv,.5);
  var worldRay=normalize(middle);var relativeOrigin=vec3<f32>(0.);
  if(cf.forward.w>0.){worldRay=cf.forward.xyz;relativeOrigin=scenePosition(uv,sceneNearDepth())-worldRay*cf.sun.w;}
@@ -170,10 +171,10 @@ fn cloudRanges(origin:vec3<f32>,direction:vec3<f32>)->CloudRanges{
  var ranges=cloudRanges(origin,ray);
  let entryPoint=origin+ray*max(ranges.clouds.x,0.);
  // Resolve one quarter of the rays per axis, but filter for the final pixel.
- let footprint=max(length(dpdx(entryPoint)),length(dpdy(entryPoint)))*select(1.,.25,ct.jitter.z>1.5);
+ let footprint=max(length(dpdx(entryPoint)),length(dpdy(entryPoint)))*select(1.,1./ct.jitter.w,ct.jitter.z>1.5);
  let globeUv=cloudGlobeUv(entryPoint)*cloud.v[15].xy;
  let coord=globeUv*vec2<f32>(textureDimensions(cloudWeatherMap));
- let dx=dpdx(coord)*select(1.,.25,ct.jitter.z>1.5);let dy=dpdy(coord)*select(1.,.25,ct.jitter.z>1.5);
+ let dx=dpdx(coord)*select(1.,1./ct.jitter.w,ct.jitter.z>1.5);let dy=dpdy(coord)*select(1.,1./ct.jitter.w,ct.jitter.z>1.5);
  let mip=max(0.,.5*log2(max(1.,max(dot(dx,dx),dot(dy,dy)))))*clamp(.2*(length(origin)-cf.camera.w)/max(cloud.v[14].w,1.),0.,1.);
  let depthPixel=clamp(vec2<i32>(uv*vec2<f32>(textureDimensions(sceneDepth))),vec2<i32>(0),vec2<i32>(textureDimensions(sceneDepth))-1);
  let depth=textureLoad(sceneDepth,depthPixel,0);let background=sceneDepthIsBackground(depth);

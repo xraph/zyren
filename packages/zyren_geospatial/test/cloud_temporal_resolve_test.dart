@@ -45,8 +45,8 @@ void main() {
         final scene = Scene()
           ..background = const Color3(1, 0, 1)
           ..renderSettings = RenderSettings(hdr: true);
-        final r = scene.addEffect(pass.resolve[0]),
-            p = scene.addEffect(pass.publish[0]);
+        final r = scene.addEffect(pass.resolve),
+            p = scene.addEffect(pass.publish);
         final camera = PerspectiveCamera(),
             history = CloudHistory(),
             settings = CloudTemporalSettings(mode: mode);
@@ -108,8 +108,8 @@ void main() {
             sun: const Vec3(1, 0, 0),
           );
           await pass.prepare(frame, settings);
-          r.replace(pass.resolve[pass.pending]);
-          p.replace(pass.publish[pass.pending]);
+          r.replace(pass.resolve);
+          p.replace(pass.publish);
           final image = await engine.render(
             elapsed: Duration.zero,
             width: size * 3 + 1,
@@ -122,7 +122,6 @@ void main() {
             255,
             255,
           ]);
-          pass.presented();
           history.present(frame, 0);
           return ByteData.sublistView(
             await pass.scope.resources.readTexture(pass.outputs.color),

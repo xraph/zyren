@@ -30,39 +30,56 @@ final cloudResolveWgsl =
       ])
         '''
 fn cloudBilinear_$name(uv:vec2<f32>)->vec4<f32>{
- let size=vec2<i32>(textureDimensions($name));let p=uv*vec2<f32>(size)-.5;let base=vec2<i32>(floor(p));let f=fract(p);var value=vec4<f32>(0.);
+ let size=${name.startsWith('current') ? 'vec2<i32>(ct.size.zw)' : 'vec2<i32>(textureDimensions($name))'};let p=uv*vec2<f32>(size)-.5;let base=vec2<i32>(floor(p));let f=fract(p);var value=vec4<f32>(0.);
  for(var y=0;y<2;y++){for(var x=0;x<2;x++){value+=textureLoad($name,clamp(base+vec2<i32>(x,y),vec2<i32>(0),size-1),0)*select(1.-f.x,f.x,x==1)*select(1.-f.y,f.y,y==1);}}
  return value;
 }
 ''',
     ].join() +
     r'''
-fn cloudClosest(coord:vec2<i32>)->vec4<f32>{
- let size=vec2<i32>(textureDimensions(currentData));var result=vec4<f32>(1e30,0.,0.,0.);
- for(var y=-1;y<=1;y++){for(var x=-1;x<=1;x++){
-  let value=textureLoad(currentData,clamp(coord+vec2<i32>(x,y),vec2<i32>(0),size-1),0);if(value.x<result.x){result=value;}
- }}return result;
+struct CloudSpatial {color:vec4<f32>,data:vec4<f32>,transmission:f32};
+fn cloudSpatial(pixel:vec2<i32>,reference:vec4<f32>)->CloudSpatial{
+ let size=vec2<i32>(ct.size.zw);
+ let p=(vec2<f32>(pixel)-ct.jitter.xy)/ct.jitter.w;let base=vec2<i32>(floor(p));let f=fract(p);
+ var color=vec4<f32>(0.);var data=vec4<f32>(0.);var transmission=0.;var total=0.;
+ for(var y=0;y<2;y++){for(var x=0;x<2;x++){
+  let coord=clamp(base+vec2<i32>(x,y),vec2<i32>(0),size-1);
+  let d=textureLoad(currentData,coord,0);
+  let weight=select(1.-f.x,f.x,x==1)*select(1.-f.y,f.y,y==1);
+  // Keep opaque foreground and distant cloud rays on their own side of an edge.
+  if(abs(d.x-reference.x)<=max(100.,reference.x*.2)){
+   color+=textureLoad(currentColor,coord,0)*weight;data+=d*weight;
+   transmission+=textureLoad(currentTransmission,coord,0).r*weight;total+=weight;
+  }
+ }}
+ let coord=clamp(vec2<i32>(round(p)),vec2<i32>(0),size-1);
+ if(total<1e-6){return CloudSpatial(textureLoad(currentColor,coord,0),reference,textureLoad(currentTransmission,coord,0).r);}
+ return CloudSpatial(color/total,data/total,transmission/total);
 }
 @fragment fn fragment(v:ScreenVertex)->@location(0) vec4<f32>{
  let pixel=vec2<i32>(v.position.xy);
  let upscale=ct.jitter.z>1.5;let mode=ct.jitter.z;let uv=(vec2<f32>(pixel)+.5)/ct.size.xy;
- let rawSize=vec2<i32>(ct.size.zw);let coord=clamp(select(pixel,pixel/4,upscale),vec2<i32>(0),rawSize-1);
- let current=textureLoad(currentColor,coord,0);let data=textureLoad(currentData,coord,0);let closest=cloudClosest(coord);
- let prevUv=uv-closest.yz;var color=current;var shadow=data.w;
+ let rawSize=vec2<i32>(ct.size.zw);let coord=clamp(select(pixel,pixel/i32(ct.jitter.w),upscale),vec2<i32>(0),rawSize-1);
+ var current=textureLoad(currentColor,coord,0);var data=textureLoad(currentData,coord,0);
  var transmission=textureLoad(currentTransmission,coord,0).r;
- let bayer=array<i32,16>(0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5);
- let currentFrame=upscale&&bayer[(pixel.y%4)*4+pixel.x%4]==i32(ct.state.y);
+ let nearest=clamp(vec2<i32>(round((vec2<f32>(pixel)-ct.jitter.xy)/ct.jitter.w)),vec2<i32>(0),rawSize-1);
+ if(upscale){let spatial=cloudSpatial(pixel,textureLoad(currentData,nearest,0));current=spatial.color;data=spatial.data;transmission=spatial.transmission;}
+ let prevUv=uv-data.yz;var color=current;var shadow=data.w;
+ let currentFrame=upscale&&all(vec2<f32>(pixel%vec2<i32>(i32(ct.jitter.w)))==ct.jitter.xy);
  var accepted=ct.state.x>.5&&mode>.5&&!currentFrame&&all(prevUv>=vec2<f32>(0.))&&all(prevUv<=vec2<f32>(1.));
- // Upscale phases trace different rays within each 4x4 block. Their depths
- // cannot reject one another; source variance clipping handles disocclusion.
- if(accepted&&!upscale){
+ // Phase rays can cross cloud depth gradients. Reject large depth changes,
+ // while the narrower spatial filter keeps new silhouettes out of sky pixels.
+ if(accepted){
   let previous=cloudBilinear_previousData(prevUv);
-  accepted=abs(previous.x-data.x)<=max(100.,data.x*.05);
+  let tolerance=select(max(100.,data.x*.05),max(100.,min(previous.x,data.x)),upscale);
+  accepted=abs(previous.x-data.x)<=tolerance;
  }
+ if(currentFrame){color=textureLoad(currentColor,coord,0);shadow=textureLoad(currentData,coord,0).w;transmission=textureLoad(currentTransmission,coord,0).r;data=textureLoad(currentData,coord,0);}
  if(accepted){
   let history=cloudBilinear_previousColor(prevUv);let oldShadow=cloudBilinear_previousData(prevUv).w;
   let oldTransmission=cloudBilinear_previousData(prevUv).y;
-  var first=current;var second=current*current;var shadowFirst=vec4<f32>(vec3<f32>(shadow),1.);var shadowSecond=shadowFirst*shadowFirst;
+  let center=textureLoad(currentColor,coord,0);
+  var first=center;var second=center*center;var shadowFirst=vec4<f32>(vec3<f32>(shadow),1.);var shadowSecond=shadowFirst*shadowFirst;
   var transmissionFirst=vec4<f32>(vec3<f32>(transmission),1.);var transmissionSecond=transmissionFirst*transmissionFirst;
   let offsets=array<vec2<i32>,4>(vec2<i32>(1,0),vec2<i32>(0,-1),vec2<i32>(0,1),vec2<i32>(-1,0));
   for(var i=0;i<4;i++){
@@ -90,10 +107,12 @@ const cloudPublishWgsl = r'''
 @group(1) @binding(2) var currentData:texture_2d<f32>;
 @group(3) @binding(1) var publishedData:texture_storage_2d<rgba32float,write>;
 @group(3) @binding(2) var publishedTransmission:texture_storage_2d<r32float,write>;
+@group(3) @binding(3) var historyData:texture_storage_2d<rgba32float,write>;
 @fragment fn fragment(v:ScreenVertex)->@location(0) vec4<f32>{
  let pixel=vec2<i32>(v.position.xy);
  let resolved=textureLoad(resolvedData,pixel,0);
- let coord=clamp(select(pixel,pixel/4,ct.jitter.z>1.5),vec2<i32>(0),vec2<i32>(textureDimensions(currentData))-1);
+ textureStore(historyData,pixel,resolved);
+ let coord=clamp(select(pixel,pixel/i32(ct.jitter.w),ct.jitter.z>1.5),vec2<i32>(0),vec2<i32>(textureDimensions(currentData))-1);
  let motion=textureLoad(currentData,coord,0).yz;
  textureStore(publishedData,pixel,vec4<f32>(resolved.x,motion,resolved.w));
  textureStore(publishedTransmission,pixel,vec4<f32>(resolved.y,0.,0.,0.));return textureLoad(resolvedColor,pixel,0);

@@ -11,7 +11,7 @@ final class CloudShadowTemporal {
   final GpuResource<Texture> output;
   final GpuResource<Buffer> uniform;
   final CompiledGraph graph;
-  CloudFrameState? _previous, _pending;
+  CloudFrameState? _previous;
   CloudShadowTemporal._(this.scope, this.output, this.uniform, this.graph);
   static Future<CloudShadowTemporal> build(
     GpuScope owner,
@@ -125,12 +125,13 @@ final class CloudShadowTemporal {
         }(),
     ]);
     await scope.resources.writeBuffer(uniform, values);
-    await graph.execute();
-    _pending = state;
-  }
-
-  void presented() {
-    _previous = _pending;
+    try {
+      await graph.execute();
+      _previous = state;
+    } catch (_) {
+      _previous = null;
+      rethrow;
+    }
   }
 }
 

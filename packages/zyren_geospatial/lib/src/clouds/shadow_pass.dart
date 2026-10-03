@@ -24,6 +24,11 @@ final class CloudShadowPass {
   final CompiledGraph? graph;
   final CloudQuality quality;
   final int size;
+  CloudFrameState? _lastState;
+  Float32List? _lastMedia;
+  int _sinceUpdate = 0;
+  bool updated = false;
+  String updateReason = 'startup';
   CloudShadowPass._(
     this.scope,
     this.media,
@@ -195,6 +200,8 @@ final class CloudShadowPass {
     CloudFrameState state, {
     double elapsed = 0,
     bool historyValid = false,
+    int cadence = 1,
+    bool animated = false,
   }) async {
     if (quality.shadowsEnabled &&
         (state.cascades.cascades.length != quality.shadow.cascadeCount ||
@@ -202,15 +209,57 @@ final class CloudShadowPass {
             state.data[179] != size)) {
       throw ArgumentError('Cloud frame and shadow atlas dimensions differ.');
     }
-    await scope.resources.writeBuffer(
-      media,
-      cloudMediaUniforms(parameters, appearance, elapsed: elapsed),
-    );
+    final values = cloudMediaUniforms(parameters, appearance, elapsed: elapsed);
+    await scope.resources.writeBuffer(media, values);
+    final oldMedia = _lastMedia;
+    var mediaStable = oldMedia != null && oldMedia.length == values.length;
+    if (mediaStable) {
+      for (var i = 0; i < values.length; i++) {
+        if (values[i] != oldMedia[i]) mediaStable = false;
+      }
+    }
     await scope.resources.writeBuffer(frame, state.data);
-    await graph?.execute();
-    await temporal?.render(state, valid: historyValid);
+    final previous = _lastState;
+    var stable =
+        previous != null &&
+        previous.cascades.cascades.length == state.cascades.cascades.length;
+    if (stable) {
+      for (var i = 0; i < state.cascades.cascades.length; i++) {
+        final a = previous.cascades.cascades[i].matrix.storage;
+        final b = state.cascades.cascades[i].matrix.storage;
+        for (var j = 0; j < 16; j++) {
+          if (a[j] != b[j]) stable = false;
+        }
+      }
+    }
+    _sinceUpdate++;
+    updateReason = !historyValid
+        ? 'historyInvalid'
+        : animated
+        ? 'animatedMedia'
+        : !mediaStable
+        ? 'mediaChanged'
+        : !stable
+        ? 'cascadeChanged'
+        : _sinceUpdate >= cadence
+        ? 'cadence'
+        : 'reused';
+    updated = updateReason != 'reused' && graph != null;
+    if (updated) {
+      try {
+        await graph!.execute();
+        await temporal?.render(state, valid: historyValid);
+        _lastState = state;
+        _lastMedia = values;
+        _sinceUpdate = 0;
+      } catch (_) {
+        _lastState = null;
+        updateReason = 'failed';
+        rethrow;
+      }
+    }
+    if (graph == null) updateReason = 'disabled';
   }
 
-  void presented() => temporal?.presented();
   Future<void> close() => scope.close();
 }

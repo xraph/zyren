@@ -675,7 +675,7 @@ Temporal reconstruction defaults to the source's 4x4 Bayer upscaling. Use
 `CloudTemporalSettings(mode: CloudTemporalMode.antialias)` for full-resolution
 temporal sampling, or `CloudTemporalMode.off` to inspect a single frame. The
 controller's `setTemporal` replaces those resources atomically. Cloud history
-uses source variance clipping, nearest-depth motion and alpha 0.1; shadow history
+uses source variance clipping, depth-aware motion and alpha 0.1; shadow history
 uses nine samples and alpha 0.01, with filtering kept inside each cascade.
 
 Ordinary camera and weather motion retain history. Resize, projection changes,
@@ -684,6 +684,45 @@ Call `controller.resetHistory()` after a scene cut, or increment your scene's
 `RenderSettings.historyEpoch`. You can inspect `controller.history` to check the
 last reset reason and successful frame count. Static clouds request 16 frames to
 fill the Bayer pattern, then release their frame demand.
+
+Newly exposed pixels use phase-aligned bilinear reconstruction. Depth weights keep
+nearby foreground samples out of distant sky, and large depth changes reject old
+history in either direction. The current Bayer phase keeps its original ray sample.
+Cloud resolve and publication use fixed targets so a retained scene graph can
+keep following your camera while another scene uploads. Only the candidate that
+actually rendered advances its cloud history. Shadow history follows its own
+ordered resource-graph execution, including when the following scene frame fails.
+
+You can enable measured adaptation with
+`CloudPlugin(sceneFrameBudget: CloudSceneFrameBudget())`, or call
+`controller.setSceneFrameBudget(budget)` after attachment. Pass `null` to disable
+it. The default is disabled. Your requested `quality` and `settings` remain intact.
+The default budget is 16,667 microseconds: 12 samples above 115% increase pressure
+one level, 60 samples below 75% recover one level, and each transition has a
+30-sample cooldown. Missing, incomplete, duplicate or staged-scene timing cannot
+lower quality. These are completed scene-submission timings; pre-scene shadow
+resource graphs are outside their coverage.
+
+The three levels use ray stride/shadow cadence pairs of 4/1, 4/2 and 8/4. All
+texture allocations stay fixed. Stride 8 traces one quarter as many rays as
+stride 4; its 16 phases cover a two-pixel lattice, with spatial reconstruction
+between samples. You give up fine detail at that level. Full-resolution temporal
+and non-temporal modes keep their ray density. Shadow reuse requires unchanged
+media and cascade matrices. Animated weather, shape or detail motion forces a
+fresh map, as do lighting or history changes, so cadence savings apply to stable
+maps. The existing camera-relative cascade matrices keep sampling in the map's
+original coordinates.
+
+Inspect `controller.adaptiveDiagnostics` for effective stride, requested preset,
+shadow update reason, presented history, timing scope and the last transition.
+Planet Auto enables this policy and keeps the phone's Low startup preset.
+Explicit Planet presets disable adaptation. Its navigation samples include these
+diagnostics without treating internal adaptation as a user setting change.
+
+The marcher still uses weather-density skips, empty layer gaps, adaptive steps,
+mip filtering and transmittance termination. No new occupancy skip is enabled:
+shape/detail remapping, turbulence, arbitrary input volumes and mip interpolation
+need conservative bounds over the skipped interval before such a skip is safe.
 
 For source blue noise, pass the result of
 `CloudBlueNoise.load(services: services, cancellation: cancellation)` as

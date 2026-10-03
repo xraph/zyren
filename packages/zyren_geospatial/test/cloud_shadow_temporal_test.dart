@@ -84,7 +84,6 @@ void main() {
         );
         await fill(true);
         await pass.render(state, valid: false);
-        pass.presented();
         await fill(false);
         await pass.render(state, valid: true);
         final bytes = ByteData.sublistView(
