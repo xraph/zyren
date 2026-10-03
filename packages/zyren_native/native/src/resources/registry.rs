@@ -70,6 +70,35 @@ impl<T> ResourceRegistry<T> {
         }
         Ok(())
     }
+    /// Admission may credit only a final owner whose last use has completed.
+    /// This inspection does not release or retire any registry entry.
+    pub fn check_batch_after_release(
+        &self,
+        bytes: u64,
+        count: usize,
+        keys: &[ResourceKey],
+        completed: u64,
+    ) -> Result<(), ResourceError> {
+        let mut seen = std::collections::HashSet::new();
+        let mut reclaimed_bytes = 0;
+        let mut reclaimed_count = 0;
+        for key in keys {
+            if !seen.insert(*key) {
+                continue;
+            }
+            let entry = self.entry(*key)?;
+            if entry.references == 1 && entry.last_submission <= completed {
+                reclaimed_bytes += entry.bytes;
+                if self.slots[key.slot as usize].generation < u64::MAX {
+                    reclaimed_count += 1;
+                }
+            }
+        }
+        self.check_batch(
+            bytes.saturating_sub(reclaimed_bytes),
+            count.saturating_sub(reclaimed_count),
+        )
+    }
     pub fn insert(&mut self, value: T, bytes: u64) -> Result<ResourceKey, ResourceError> {
         self.check_capacity(bytes)?;
         let index = self

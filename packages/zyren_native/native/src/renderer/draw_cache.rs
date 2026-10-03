@@ -54,41 +54,88 @@ pub(super) struct Cache {
     current: u64,
     epoch: u64,
 }
+pub(super) struct Plan {
+    view: u64,
+    evicted: Vec<u64>,
+    unused: Vec<UniformKey>,
+    specs: Vec<(UniformKey, usize)>,
+    pub additional_bytes: u64,
+    pub additional_count: usize,
+}
 impl Cache {
-    pub fn begin(
-        &mut self,
-        view: u64,
-        meshes: usize,
-    ) -> Vec<crate::resources::registry::ResourceKey> {
-        let mut retired = Vec::new();
-        self.epoch += 1;
-        self.current = view;
-        // Reserve the largest pass snapshot for this candidate before allocation.
-        // Eviction is safe because every prior scene submission has completed.
-        let reserve = meshes * 2 * std::mem::size_of::<super::Uniforms>() + 32 * 1024;
-        while self.views.len() >= MAX_VIEWS && !self.views.contains_key(&view)
+    pub fn plan(&self, frame: &crate::scene::Frame) -> Plan {
+        let id = frame.binary.as_ref().map_or(0, |v| v.view);
+        let view = self.views.get(&id);
+        let specs = specs(frame);
+        let needed: HashSet<_> = specs.iter().map(|(key, _)| *key).collect();
+        let missing: Vec<_> = specs
+            .iter()
+            .filter(|(key, _)| view.is_none_or(|v| !v.uniforms.contains_key(key)))
+            .collect();
+        let mut plan = Plan {
+            view: id,
+            evicted: Vec::new(),
+            unused: view
+                .into_iter()
+                .flat_map(|v| v.uniforms.keys().copied())
+                .filter(|key| !needed.contains(key))
+                .collect(),
+            additional_bytes: missing.iter().map(|(_, size)| *size as u64).sum(),
+            additional_count: missing.len(),
+            specs,
+        };
+        let candidate_bytes: usize = plan.specs.iter().map(|(_, size)| *size).sum();
+        while self.views.len() - plan.evicted.len() + usize::from(view.is_none()) > MAX_VIEWS
             || self
                 .views
                 .iter()
-                .filter(|(id, _)| **id != view)
+                .filter(|(id, _)| **id != plan.view && !plan.evicted.contains(id))
                 .map(|(_, v)| v.bytes())
                 .sum::<usize>()
-                + reserve
+                + candidate_bytes
                 > MAX_BYTES
         {
-            let oldest = self
-                .views
-                .iter()
-                .filter(|(id, _)| **id != view)
-                .min_by_key(|(_, v)| v.used)
-                .map(|(id, _)| *id);
-            if let Some(oldest) = oldest {
-                retired.extend(self.remove(oldest));
-            } else {
+            if !self.reclaim_older_view(&mut plan) {
                 break;
             }
         }
-        self.views.entry(view).or_default().used = self.epoch;
+        plan
+    }
+    pub fn reclaim_older_view(&self, plan: &mut Plan) -> bool {
+        let oldest = self
+            .views
+            .iter()
+            .filter(|(id, _)| **id != plan.view && !plan.evicted.contains(id))
+            .min_by_key(|(_, v)| v.used)
+            .map(|(id, _)| *id);
+        if let Some(oldest) = oldest {
+            plan.evicted.push(oldest);
+            true
+        } else {
+            false
+        }
+    }
+    pub fn reclaimed_keys(&self, plan: &Plan) -> Vec<crate::resources::registry::ResourceKey> {
+        plan.evicted
+            .iter()
+            .flat_map(|id| self.views[id].uniforms.values().map(|u| u.resource))
+            .chain(
+                plan.unused
+                    .iter()
+                    .map(|key| self.views[&plan.view].uniforms[key].resource),
+            )
+            .collect()
+    }
+    pub fn begin(&mut self, plan: &Plan) -> Vec<crate::resources::registry::ResourceKey> {
+        // Commit the already admitted plan. Registry retirement checks serials.
+        self.epoch += 1;
+        self.current = plan.view;
+        let retired = plan
+            .evicted
+            .iter()
+            .flat_map(|id| self.remove(*id))
+            .collect();
+        self.views.entry(plan.view).or_default().used = self.epoch;
         retired
     }
     pub fn remove(&mut self, view: u64) -> Vec<crate::resources::registry::ResourceKey> {
@@ -110,17 +157,6 @@ impl Cache {
             .into_iter()
             .flat_map(|v| v.uniforms.values().map(|u| u.resource))
             .collect()
-    }
-    pub fn additional(&self, frame: &crate::scene::Frame) -> (u64, usize) {
-        let view = self.views.get(&frame.binary.as_ref().map_or(0, |v| v.view));
-        let missing: Vec<_> = specs(frame)
-            .into_iter()
-            .filter(|(key, _)| view.is_none_or(|v| !v.uniforms.contains_key(key)))
-            .collect();
-        (
-            missing.iter().map(|(_, size)| *size as u64).sum(),
-            missing.len(),
-        )
     }
     pub fn prepare(
         &mut self,
@@ -357,15 +393,9 @@ fn specs(frame: &crate::scene::Frame) -> Vec<(UniformKey, usize)> {
     specs
 }
 impl Renderer {
-    pub(super) fn begin_draw_cache(&mut self, frame: &crate::scene::Frame) -> Result<(), String> {
-        if frame.meshes.len() > crate::scene::MAX_MESHES {
-            return Err("too many draw uniform slots".into());
-        }
+    pub(super) fn begin_draw_cache(&mut self, plan: Plan) -> Result<(), String> {
         let state = self.state.as_mut().unwrap();
-        let retired = state.draw_cache.borrow_mut().begin(
-            frame.binary.as_ref().map_or(0, |v| v.view),
-            frame.meshes.len(),
-        );
+        let retired = state.draw_cache.borrow_mut().begin(&plan);
         for key in retired {
             state
                 .resources
@@ -376,7 +406,6 @@ impl Renderer {
             .resources
             .poll_completed(&state.device)
             .map_err(|e| e.to_string())?;
-        let specs = specs(frame);
         let mut profile = state.profile.borrow_mut();
         profile.draw_cache_reuses = Some(0);
         profile.draw_uniform_reuses = Some(0);
@@ -386,7 +415,7 @@ impl Renderer {
         state.draw_cache.borrow_mut().prepare(
             &state.device,
             &mut state.resources,
-            &specs,
+            &plan.specs,
             &mut profile,
         )
     }

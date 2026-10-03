@@ -331,3 +331,103 @@ fn material_texture_and_sampler_generations_and_physical_layouts_invalidate_bind
     renderer.close_scene_view(0).unwrap();
     assert_eq!(renderer.scene_resource_stats().0, 0);
 }
+
+#[test]
+#[ignore = "requires a native Metal, Vulkan or DX12 device"]
+fn cache_reclamation_admits_ninth_view_and_changed_slots_without_mutating_rejections() {
+    let mut renderer = pollster::block_on(Renderer::new()).unwrap();
+    let budget = 16 * 1024 * 1024_u64;
+    renderer
+        .resource_command(&packet(13, &budget.to_le_bytes()), 24)
+        .unwrap();
+    let mut frame = fixture(1);
+    for id in 1..=8 {
+        view(&mut frame, id);
+        renderer.render(&frame, 31, 31).unwrap();
+        frame.geometries.clear();
+    }
+    let cached = profile(&mut renderer);
+    let descriptor = [
+        (budget - renderer.scene_resource_stats().0)
+            .to_le_bytes()
+            .as_slice(),
+        32_u32.to_le_bytes().as_slice(),
+        0_u32.to_le_bytes().as_slice(),
+    ]
+    .concat();
+    let reply = renderer
+        .resource_command(&packet(1, &descriptor), 56)
+        .unwrap();
+    let allocation = reply[24..].to_vec();
+    assert_eq!(renderer.scene_resource_stats().0, budget);
+    view(&mut frame, 9);
+    let pixels = renderer.render(&frame, 31, 31).unwrap();
+    let admitted = profile(&mut renderer);
+    assert_eq!(
+        admitted["drawCacheUniformBytes"],
+        cached["drawCacheUniformBytes"]
+    );
+    assert_eq!(admitted["drawPreparationBuffers"], 1);
+    assert_eq!(renderer.scene_resource_stats().0, budget);
+    assert_eq!(
+        &pixels[(15 * 31 + 15) * 4..(15 * 31 + 15) * 4 + 4],
+        &[255, 0, 0, 255]
+    );
+
+    // Even reclaiming every older cache cannot fit ten uniforms beside the
+    // external reservation. Rejection must preserve the eight cached views.
+    let mut oversized = fixture(10);
+    oversized.geometries.clear();
+    view(&mut oversized, 9);
+    let before = renderer.scene_resource_stats();
+    assert!(
+        renderer
+            .render(&oversized, 31, 31)
+            .unwrap_err()
+            .contains("budget")
+    );
+    let rejected = profile(&mut renderer);
+    assert_eq!(rejected["drawCacheEntries"], admitted["drawCacheEntries"]);
+    assert_eq!(
+        rejected["drawCacheUniformBytes"],
+        admitted["drawCacheUniformBytes"]
+    );
+    assert_eq!(renderer.scene_resource_stats(), before);
+    assert_eq!(renderer.render(&frame, 31, 31).unwrap(), pixels);
+    assert_warm(&mut renderer, 1);
+
+    // Replace the sole visible source slot at a completely full budget, then
+    // shrink back. Obsolete slots are credited without touching other views.
+    frame.meshes.push(frame.meshes[0].clone());
+    frame.meshes[0].color_visible = false;
+    view(&mut frame, 9);
+    assert_eq!(renderer.render(&frame, 31, 31).unwrap(), pixels);
+    assert_eq!(profile(&mut renderer)["drawPreparationBuffers"], 1);
+    assert_eq!(renderer.scene_resource_stats().0, budget);
+    frame.meshes.truncate(1);
+    frame.meshes[0].color_visible = true;
+    view(&mut frame, 9);
+    assert_eq!(renderer.render(&frame, 31, 31).unwrap(), pixels);
+    assert_eq!(profile(&mut renderer)["drawPreparationBuffers"], 1);
+    assert_eq!(renderer.scene_resource_stats().0, budget);
+    // Growing an existing view also reclaims an older optional cache, even
+    // though no view-count eviction is otherwise required.
+    frame.meshes.push(frame.meshes[0].clone());
+    view(&mut frame, 9);
+    assert_eq!(renderer.render(&frame, 31, 31).unwrap(), pixels);
+    let grown = profile(&mut renderer);
+    assert_eq!(grown["drawPreparationBuffers"], 1);
+    assert_eq!(
+        grown["drawCacheUniformBytes"],
+        cached["drawCacheUniformBytes"]
+    );
+    assert_eq!(renderer.scene_resource_stats().0, budget);
+    renderer
+        .resource_command(&packet(6, &allocation), 24)
+        .unwrap();
+    for id in 1..=9 {
+        renderer.close_scene_view(id).unwrap();
+    }
+    assert_eq!(renderer.scene_resource_stats().0, 0);
+    assert_eq!(profile(&mut renderer)["drawCacheEntries"], 0);
+}

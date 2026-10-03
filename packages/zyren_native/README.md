@@ -180,8 +180,12 @@ GPU time measures the completed submission separately.
 
 The cache keeps up to eight recently used views, with a 64 MiB uniform ceiling
 inside the configured registry budget. The scene draw and texture limits also
-bound entry counts. Closing a view releases its cache ownership. Visibility
-changes prune unused slots, and a terminal frame failure clears cached bindings
+bound entry counts. Before checking the combined scene budget, admission plans
+the release of unused slots and older caches. It credits only final cache owners
+whose GPU use has completed, then applies the plan after validation succeeds.
+An over-budget candidate leaves existing cache ownership unchanged. Closing a
+view releases its cache ownership. Visibility changes prune unused slots, and a
+terminal frame failure clears cached bindings
 while the native retirement path keeps submitted storage alive until completion.
 Resizing preserves uniforms and replaces groups that sample resized targets.
 

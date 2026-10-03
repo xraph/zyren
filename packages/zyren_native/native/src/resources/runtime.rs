@@ -192,6 +192,19 @@ impl ResourceStore {
     ) -> Result<(), ResourceError> {
         self.registry.check_batch(bytes, count)
     }
+    pub(crate) fn check_scene_capacity_after_release(
+        &self,
+        bytes: u64,
+        count: usize,
+        keys: &[ResourceKey],
+    ) -> Result<(), ResourceError> {
+        self.registry.check_batch_after_release(
+            bytes,
+            count,
+            keys,
+            self.completed.load(Ordering::Acquire),
+        )
+    }
     pub(crate) fn insert_geometry(
         &mut self,
         device: &wgpu::Device,

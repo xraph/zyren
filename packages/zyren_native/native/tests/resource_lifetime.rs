@@ -74,3 +74,36 @@ fn inspection_includes_pending_retirement_and_does_not_retain_resources() {
     registry.retire_completed(9);
     assert!(registry.inspect(256).is_empty());
 }
+
+#[test]
+fn planned_release_credits_only_completed_final_owners_without_mutation() {
+    let mut registry = ResourceRegistry::new(1, 1, 32);
+    let key = registry.insert((), 24).unwrap();
+    registry.mark_used(key, 9).unwrap();
+    assert_eq!(
+        registry.check_batch_after_release(16, 1, &[key], 8),
+        Err(ResourceError::BudgetExceeded)
+    );
+    assert_eq!(registry.check_batch_after_release(16, 1, &[key], 9), Ok(()));
+    registry.retain(key).unwrap();
+    assert_eq!(
+        registry.check_batch_after_release(16, 1, &[key], 9),
+        Err(ResourceError::BudgetExceeded)
+    );
+    registry.release(key).unwrap();
+    assert_eq!(
+        registry.check_batch_after_release(40, 1, &[key, key], 9),
+        Err(ResourceError::BudgetExceeded)
+    );
+    assert_eq!(
+        registry.check_batch_after_release(1, 65536, &[key], 9),
+        Ok(())
+    );
+    assert_eq!(
+        registry.check_batch_after_release(1, 65537, &[key], 9),
+        Err(ResourceError::BudgetExceeded)
+    );
+    assert_eq!(registry.resident_bytes(), 24);
+    assert_eq!(registry.references(key), Ok(1));
+    assert_eq!(registry.resolve(key), Ok(&()));
+}

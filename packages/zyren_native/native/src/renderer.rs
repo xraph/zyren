@@ -777,25 +777,34 @@ impl Renderer {
             .filter(|g| !self.geometries.contains_key(&g.id) && !reusable.contains_key(&g.id))
             .map(|g| g.byte_length())
             .sum();
-        let (draw_bytes, draw_count) = self.draw_cache.borrow().additional(frame);
-        self.resources
-            .check_scene_capacity(
-                (bytes + texture_bytes + instance_bytes + pose_bytes) as u64 + draw_bytes,
-                frame
-                    .geometries
-                    .iter()
-                    .filter(|g| {
-                        !self.geometries.contains_key(&g.id) && !reusable.contains_key(&g.id)
-                    })
-                    .count()
-                    + texture_count
-                    + instance_count
-                    + pose_count
-                    + draw_count,
-            )
-            .map_err(|e| e.to_string())?;
+        let mut draw_plan = self.draw_cache.borrow().plan(frame);
+        let asset_bytes = (bytes + texture_bytes + instance_bytes + pose_bytes) as u64;
+        let asset_count = frame
+            .geometries
+            .iter()
+            .filter(|g| !self.geometries.contains_key(&g.id) && !reusable.contains_key(&g.id))
+            .count()
+            + texture_count
+            + instance_count
+            + pose_count;
+        loop {
+            let reclaimed = self.draw_cache.borrow().reclaimed_keys(&draw_plan);
+            match self.resources.check_scene_capacity_after_release(
+                asset_bytes + draw_plan.additional_bytes,
+                asset_count + draw_plan.additional_count,
+                &reclaimed,
+            ) {
+                Ok(()) => break,
+                Err(crate::resources::ResourceError::BudgetExceeded)
+                    if self.draw_cache.borrow().reclaim_older_view(&mut draw_plan) =>
+                {
+                    continue;
+                }
+                Err(error) => return Err(error.to_string()),
+            }
+        }
         // Preflight all CPU validation before any existing ownership changes.
-        self.begin_draw_cache(frame)?;
+        self.begin_draw_cache(draw_plan)?;
         for geometry in &frame.geometries {
             if !self.geometries.contains_key(&geometry.id) {
                 let state = self.state.as_mut().unwrap();
