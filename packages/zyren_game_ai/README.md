@@ -148,3 +148,17 @@ program counter. Restore each known hybrid child first, then call
 `restoreActiveSkill(identity: ..., activeSkill: ...)` so the first decision in the
 same learned skill keeps its recurrent state. Custom hybrid skills need their
 own explicit checkpoint contract.
+
+The optional `artifact.dart` entry provides a shared byte-only
+`ModelArtifact.decode(bundleJson, files)` reader. It accepts the exact eight
+T5 resources with matching hashes and sizes, structured observation/action
+bindings, embedded normalization, recurrent state, provenance and a passing
+report for the exact ONNX SHA. It owns immutable copies under a 32 MiB aggregate
+budget. Native graph loading remains with your shared `MlModelCache`.
+
+`ModelEvaluation.decode` verifies canonical receipt bytes, full episode slots,
+fixed acceptance gates and the declared plan. `fixedHz` comes from every case in
+the selected family. A host must use that rate, or reject the model for its current
+runtime. Cadence and latency are one tick. An audited plan revision retains its
+superseded hash and checks the unchanged case-content hash. A checkpoint report
+cannot qualify a different exported ONNX artifact.

@@ -87,6 +87,34 @@ final class PolicyFixture {
 
 void main() {
   test(
+    'public output decoder validates model shape and finite controller values',
+    () {
+      final f = PolicyFixture();
+      final contract = f.contract(fakeManifest(), ActionDecoder.character());
+      expect(
+        contract
+            .decodeOutputs({
+              'action': MlTensor.float32([1, 2], [.2, .3]),
+            })!
+            .character!
+            .moveX,
+        closeTo(.2, 1e-6),
+      );
+      expect(
+        contract.decodeOutputs({
+          'action': MlTensor.float32([1, 2], [double.nan, 0]),
+        }),
+        isNull,
+      );
+      expect(
+        contract.decodeOutputs({
+          'action': MlTensor.float32([1, 1], [0]),
+        }),
+        isNull,
+      );
+    },
+  );
+  test(
     'restoring100 to10 discards old pending work and accepts an earlier new frame',
     () async {
       final f = PolicyFixture(), model = fakeManifest();

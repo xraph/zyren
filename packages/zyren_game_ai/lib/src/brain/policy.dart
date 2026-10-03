@@ -116,6 +116,15 @@ final class PolicyContract {
     'maxHiddenBytes': maxHiddenBytes,
   };
 
+  /// Decodes current outputs with the caller's fresh legality mask.
+  DecodedAction? decodeOutputs(
+    MlTensorMap tensors, {
+    List<List<bool>>? legality,
+  }) {
+    final action = _action(tensors, legality);
+    return action == null ? null : decoder.decode(action, legality: legality);
+  }
+
   PolicyAction? _action(MlTensorMap tensors, List<List<bool>>? legality) {
     var continuousValues = <double>[];
     if (continuousOutput != null) {
