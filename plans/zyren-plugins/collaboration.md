@@ -192,3 +192,30 @@ releases the local authority queue without a late commit.
 At agent verification time, the interaction owner's devtools MCP adapter was
 still uncommitted. The MCP test passed against that working-tree integration;
 reproducing it from committed sources requires the owner's transport commit.
+
+## Extension requested on 2026-10-02
+
+We will finish durable scene operations, HTTP and WebSocket clients, leased
+presence, explicit camera following, a persistent offline outbox and conditional
+shared undo. The interaction owner's devtools adapter is now committed in
+`828955b`; the new checks can use committed transport code.
+
+The durable store keeps the initial snapshot and accepted operations with their
+host-bound authors. Atomic replacement and a process lock protect the ledger.
+Restoring the authority replays and validates that ledger before serving it.
+Receipts are retained with the history, and capacity exhaustion rejects writes.
+Undo submits an inverse against the exact revision being undone. It uses the
+same permission callback and preserves the original operation relationship.
+
+Presence uses bounded, expiring sessions and monotonic sequences. Shared camera
+poses travel with presence, never with durable object edits. Following requires
+an explicit choice and ends on local navigation, departure or expiry. Network
+clients use host-supplied authentication and bounded requests. A persistent
+outbox saves exact operations before sending, retains ambiguous results and
+stops for explicit decisions on conflicts or a changed scene epoch.
+
+A native Flutter example will exercise the durable server, both transports,
+reconciliation, undo and camera following. Native presentation, logical picks,
+agent mutations and compact desktop/narrow layouts will be checked separately.
+Creation, deletion, reparenting and material editing remain separate work until
+their source/resource contracts are available.

@@ -7,6 +7,7 @@ final class SceneOperation {
   final String sceneId, epoch, operationId;
   final SceneObjectId objectId;
   final int expectedRevision;
+  final int? undoOfRevision;
   final SceneField field;
   final SceneTransform? transform;
   final bool? visible;
@@ -20,11 +21,13 @@ final class SceneOperation {
     required this.field,
     this.transform,
     this.visible,
+    this.undoOfRevision,
   }) {
     checkText(sceneId, 'sceneId');
     checkText(epoch, 'epoch');
     checkText(operationId, 'operationId');
     checkRevision(expectedRevision);
+    if (undoOfRevision != null) checkRevision(undoOfRevision!);
     if (field == SceneField.transform
         ? transform == null || visible != null
         : visible == null || transform != null) {
@@ -40,6 +43,7 @@ final class SceneOperation {
     'objectId': objectId.toJson(),
     'expectedRevision': expectedRevision,
     'field': field.name,
+    if (undoOfRevision != null) 'undoOfRevision': undoOfRevision,
     'value': field == SceneField.transform ? transform!.toJson() : visible,
   }, maxCharacters);
 
@@ -60,6 +64,9 @@ final class SceneOperation {
       objectId: SceneObjectId.fromJson(json['objectId']),
       expectedRevision: revisionValue(json['expectedRevision']),
       field: field,
+      undoOfRevision: json['undoOfRevision'] == null
+          ? null
+          : revisionValue(json['undoOfRevision']),
       transform: field == SceneField.transform
           ? SceneTransform.fromJson(json['value'])
           : null,
@@ -176,5 +183,13 @@ abstract interface class GuardedSceneOperationTransport {
   Future<SceneOperationResult> submitGuarded(
     SceneOperation operation, {
     required void Function() checkBeforeCommit,
+  });
+}
+
+/// Undo is a conditional inverse with the same write policy as an ordinary edit.
+abstract interface class SceneUndoTransport {
+  Future<SceneOperationResult> undo({
+    required int revision,
+    required String operationId,
   });
 }

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'model.dart';
 import 'protocol.dart';
 
@@ -16,6 +17,9 @@ typedef SceneWritePermission =
 /// It has no durable storage. Use a fresh epoch after losing its history.
 final class LocalSceneAuthority {
   SceneSnapshot _snapshot;
+  final SceneSnapshot _initial;
+  final _authors = <String>[];
+  final _before = <SceneObjectState>[];
   final SceneReadPermission canRead;
   final SceneWritePermission canWrite;
   final int maxReceipts;
@@ -30,7 +34,8 @@ final class LocalSceneAuthority {
     required this.canWrite,
     this.maxReceipts = 4096,
     this.permissionTimeout = const Duration(seconds: 5),
-  }) : _snapshot = initial {
+  }) : _snapshot = initial,
+       _initial = initial {
     if (maxReceipts < 1 || maxReceipts > 100000) {
       throw ArgumentError('Receipt capacity must be between 1 and 100000.');
     }
@@ -78,7 +83,16 @@ final class LocalSceneAuthority {
     String principal,
     SceneOperation operation, {
     void Function()? checkBeforeCommit,
-  }) => _serial(() async {
+  }) => _serial(
+    () =>
+        _submitNow(principal, operation, checkBeforeCommit: checkBeforeCommit),
+  );
+
+  Future<SceneOperationResult> _submitNow(
+    String principal,
+    SceneOperation operation, {
+    void Function()? checkBeforeCommit,
+  }) async {
     // A successful submission includes the full snapshot, so it needs read access.
     if (!await _canRead(principal) || !await _canWrite(principal, operation)) {
       throw const SceneAccessDenied();
@@ -101,6 +115,22 @@ final class LocalSceneAuthority {
         committedRevision: receipt.$2,
         duplicate: true,
       );
+    }
+    if (operation.undoOfRevision case final target?) {
+      final index = _history.indexWhere((entry) => entry.revision == target);
+      if (index < 0 || _authors[index] != principal) {
+        throw const SceneAccessDenied();
+      }
+      final original = _history[index].operation;
+      final before = _before[index];
+      if (operation.objectId != original.objectId ||
+          operation.field != original.field ||
+          operation.expectedRevision != target ||
+          (operation.field == SceneField.transform
+              ? operation.transform != before.transform
+              : operation.visible != before.visible)) {
+        throw StateError('Undo must be the exact conditional inverse.');
+      }
     }
     final current = _snapshot.objects[operation.objectId];
     if (current == null) throw StateError('Unknown source object.');
@@ -132,6 +162,8 @@ final class LocalSceneAuthority {
     );
     next.encode();
     // No await separates the state update and receipt insertion.
+    _before.add(current);
+    _authors.add(principal);
     _snapshot = next;
     _receipts[key] = (signature, revision);
     _history.add(SceneOperationRecord(operation, revision));
@@ -140,6 +172,94 @@ final class LocalSceneAuthority {
       snapshot: next,
       committedRevision: revision,
     );
+  }
+
+  /// Host-only ledger. It contains authors and must not be exposed to clients.
+  String exportArchive() => boundedEncode({
+    'schemaVersion': 1,
+    'initial': jsonDecode(_initial.encode()),
+    'entries': [
+      for (var i = 0; i < _history.length; i++)
+        {
+          'principal': _authors[i],
+          'operation': jsonDecode(_history[i].operation.encode()),
+        },
+    ],
+  }, 32 * 1024 * 1024);
+
+  static Future<LocalSceneAuthority> restore({
+    required String archive,
+    required SceneReadPermission canRead,
+    required SceneWritePermission canWrite,
+    int maxReceipts = 4096,
+    Duration permissionTimeout = const Duration(seconds: 5),
+  }) async {
+    final json = boundedDecode(archive, 32 * 1024 * 1024);
+    if (json['schemaVersion'] != 1 ||
+        json['entries'] is! List ||
+        (json['entries'] as List).length > maxReceipts) {
+      throw const FormatException('Invalid or unsupported authority archive.');
+    }
+    final restored = LocalSceneAuthority(
+      initial: SceneSnapshot.decode(jsonEncode(json['initial'])),
+      canRead: (_, _) => true,
+      canWrite: (_, _, _) => true,
+      maxReceipts: maxReceipts,
+    );
+    for (final value in json['entries'] as List) {
+      final entry = objectMap(value);
+      final result = await restored
+          .connect(textValue(entry['principal']))
+          .submit(SceneOperation.decode(jsonEncode(entry['operation'])));
+      if (result is! SceneOperationAccepted || result.duplicate) {
+        throw const FormatException('Invalid authority history.');
+      }
+    }
+    final authority = LocalSceneAuthority(
+      initial: restored._initial,
+      canRead: canRead,
+      canWrite: canWrite,
+      maxReceipts: maxReceipts,
+      permissionTimeout: permissionTimeout,
+    );
+    authority._snapshot = restored._snapshot;
+    authority._receipts.addAll(restored._receipts);
+    authority._history.addAll(restored._history);
+    authority._before.addAll(restored._before);
+    authority._authors.addAll(restored._authors);
+    return authority;
+  }
+
+  Future<SceneOperationResult> _undo(
+    String principal,
+    int revision,
+    String operationId,
+  ) => _serial(() async {
+    if (!await _canRead(principal)) throw const SceneAccessDenied();
+    final index = _history.indexWhere((entry) => entry.revision == revision);
+    if (index < 0 || _authors[index] != principal) {
+      throw const SceneAccessDenied();
+    }
+    final original = _history[index].operation;
+    final before = _before[index];
+    return _submitNow(
+      principal,
+      SceneOperation(
+        sceneId: _snapshot.sceneId,
+        epoch: _snapshot.epoch,
+        operationId: operationId,
+        objectId: original.objectId,
+        expectedRevision: revision,
+        field: original.field,
+        undoOfRevision: revision,
+        transform: original.field == SceneField.transform
+            ? before.transform
+            : null,
+        visible: original.field == SceneField.visibility
+            ? before.visible
+            : null,
+      ),
+    );
   });
 }
 
@@ -147,10 +267,16 @@ final class LocalSceneConnection
     implements
         SceneOperationTransport,
         SceneCollaborationQueries,
+        SceneUndoTransport,
         GuardedSceneOperationTransport {
   final LocalSceneAuthority authority;
   final String principal;
   LocalSceneConnection._(this.authority, this.principal);
+  @override
+  Future<SceneOperationResult> undo({
+    required int revision,
+    required String operationId,
+  }) => authority._undo(principal, revision, operationId);
   @override
   Future<SceneSnapshot> read() => authority._read(principal);
   @override
