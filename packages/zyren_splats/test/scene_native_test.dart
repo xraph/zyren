@@ -84,6 +84,30 @@ void main() {
         }
         expect(closed, isTrue);
         expect(plugin.object.children, isEmpty);
+        plugin.object.visible = true;
+        plugin.object.position = Vec3.zero;
+        final recreated = await SceneEngine.create(
+          scene: scene,
+          camera: camera,
+          backendFactory: NativeBackend.create,
+          plugins: [plugin],
+        );
+        var closedAgain = false;
+        plugin.onClose(() => closedAgain = true);
+        try {
+          final frame =
+              await recreated.renderFrame(
+                    elapsed: Duration.zero,
+                    width: 128,
+                    height: 128,
+                  )
+                  as ReadbackOutput;
+          expect(channel(frame.image, 64, 64, 0), greaterThan(220));
+        } finally {
+          await recreated.dispose();
+        }
+        expect(closedAgain, isTrue);
+        expect(plugin.object.children, isEmpty);
       },
       skip: Platform.environment['RUN_NATIVE_GPU'] != '1',
     );

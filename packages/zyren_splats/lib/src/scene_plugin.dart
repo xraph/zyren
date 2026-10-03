@@ -28,7 +28,7 @@ final class GaussianSplatPlugin extends ScenePlugin {
     _invalidate?.call();
   }
 
-  final AttachmentScope _lifetime = AttachmentScope();
+  AttachmentScope _lifetime = AttachmentScope();
   GaussianSplatPlugin({
     required GaussianCloudData data,
     this.instanceId = 'default',
@@ -66,6 +66,7 @@ final class GaussianSplatPlugin extends ScenePlugin {
   Registration onClose(void Function() callback) => _lifetime.onClose(callback);
   @override
   Future<void> attach(PluginContext context) async {
+    if (_lifetime.isClosed) _lifetime = AttachmentScope();
     _invalidate = context.invalidate;
     final scope = context.createGpuScope(label: 'Gaussian scene $instanceId');
     _scope = scope;
