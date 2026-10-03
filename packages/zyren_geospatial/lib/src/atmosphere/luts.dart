@@ -42,7 +42,11 @@ final class AtmosphereLuts {
   /// Bind these readonly tables and append [AtmosphereShader.source] to a WGSL
   /// module. The library supplies atmosphereSky, atmosphereSegment and direct /
   /// indirect irradiance functions. Keep this LUT lease alive while using it.
-  AtmosphereShader shader({int group = 1, int firstBinding = 0}) {
+  AtmosphereShader shader({
+    int group = 1,
+    int firstBinding = 0,
+    bool hardwareFiltering = true,
+  }) {
     if (isClosed) throw StateError('Atmosphere LUT owner has closed.');
     if (group < 0 || group > 3 || firstBinding < 0 || firstBinding > 11) {
       throw ArgumentError('Invalid atmosphere shader binding range.');
@@ -54,8 +58,16 @@ final class AtmosphereLuts {
       'atmosphereHigher': higher,
       'atmosphereIrradiance': irradiance,
     };
+    final filtered =
+        hardwareFiltering &&
+        firstBinding < 11 &&
+        entries.values.every(
+          (texture) =>
+              (texture.descriptor as TextureDescriptor).format.filterable,
+        );
     final source = StringBuffer(
-      atmosphereDefinitions(parameters, dimensions) + atmosphereCommonWgsl,
+      atmosphereDefinitions(parameters, dimensions) +
+          (filtered ? atmosphereFilteredCommonWgsl : atmosphereCommonWgsl),
     );
     final bindings = <ShaderBinding>[];
     var index = firstBinding;
@@ -69,6 +81,12 @@ final class AtmosphereLuts {
         '@group($group) @binding($index) var ${entry.key}: texture_$dimension<f32>;',
       );
       bindings.add(TextureBinding.sampled(index++, entry.value, group: group));
+    }
+    if (filtered) {
+      source.writeln(
+        '@group($group) @binding($index) var atmosphereLutSampler:sampler;',
+      );
+      bindings.add(SamplerBinding(index, group: group));
     }
     source.writeln('const SOURCE_SCATTERING: bool = $sourceScattering;');
     source.writeln('const PACKED_MIE: bool = $combinedScattering;');

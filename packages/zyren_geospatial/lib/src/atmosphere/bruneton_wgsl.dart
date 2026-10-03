@@ -44,6 +44,22 @@ String atmosphereDefinitions(
       'const NU_SIZE: f32 = ${q.angleSize}.;\n';
 }
 
+// Imported half-float tables can use native linear filtering. Generated float
+// tables retain explicit interpolation, including their reference precision.
+final atmosphereFilteredCommonWgsl = atmosphereCommonWgsl.replaceRange(
+  atmosphereCommonWgsl.indexOf('fn sample2('),
+  atmosphereCommonWgsl.indexOf('fn transmittanceUv('),
+  r'''
+fn sample2(t:texture_2d<f32>,uv:vec2<f32>)->vec3<f32> {
+ return textureSampleLevel(t,atmosphereLutSampler,uv,0.).rgb;
+}
+fn sample4(t:texture_3d<f32>,uv:vec3<f32>)->vec4<f32> {
+ return textureSampleLevel(t,atmosphereLutSampler,uv,0.);
+}
+fn sample3(t:texture_3d<f32>,uv:vec3<f32>)->vec3<f32> {return sample4(t,uv).rgb;}
+''',
+);
+
 const atmosphereCommonWgsl = r'''
 const PI: f32 = 3.141592653589793;
 fn safeSqrt(x:f32)->f32 {return sqrt(max(x,0.));}

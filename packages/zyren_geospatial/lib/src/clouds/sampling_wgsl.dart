@@ -4,6 +4,8 @@ import 'textures.dart';
 Set<String> _filteredMaps(CloudTextures maps) => {
   for (final (name, texture) in [
     ('cloudWeatherMap', maps.weather),
+    ('cloudShapeMap', maps.shape),
+    ('cloudDetailMap', maps.detail),
     ('cloudTurbulenceMap', maps.turbulence),
   ])
     if ((texture.descriptor as TextureDescriptor).format.filterable) name,
@@ -17,6 +19,7 @@ List<ShaderBinding> cloudSamplingBindings(CloudTextures maps) => [
       sampler: const SamplerDescriptor(
         wrapU: TextureWrap.repeat,
         wrapV: TextureWrap.repeat,
+        wrapW: TextureWrap.repeat,
       ),
     ),
 ];
@@ -24,7 +27,7 @@ List<ShaderBinding> cloudSamplingBindings(CloudTextures maps) => [
 String cloudSamplingShader(CloudTextures maps) =>
     _samplingWgsl(_filteredMaps(maps));
 
-// Float volumes retain explicit filtering because R32Float is unfilterable.
+// Caller float volumes retain explicit filtering when their format requires it.
 final cloudSamplingWgsl = _samplingWgsl({});
 
 String _samplingWgsl(Set<String> filtered) =>
@@ -39,8 +42,8 @@ String _samplingWgsl(Set<String> filtered) =>
       ])
         if (filtered.contains(name))
           '''
-@group(2) @binding($slot) var $name:texture_2d<f32>;
-fn sample_$name(uv:vec2<f32>,mip:f32)->vec4<f32>{
+@group(2) @binding($slot) var $name:texture_${volume ? '3d' : '2d'}<f32>;
+fn sample_$name(uv:vec${volume ? 3 : 2}<f32>,mip:f32)->vec4<f32>{
  return textureSampleLevel($name,cloudRepeatSampler,uv,mip);
 }
 '''

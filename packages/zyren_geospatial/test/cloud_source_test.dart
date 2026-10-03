@@ -187,6 +187,30 @@ void main() {
           (await backend.resourceStats()).residentBytes,
           loadByPlugin ? 0 : 11222256,
         );
+        if (loaded != null) {
+          for (final entry in [
+            (loaded.textures.shape, 'shape.bin'),
+            (loaded.textures.detail, 'shape_detail.bin'),
+          ]) {
+            expect(
+              (entry.$1.descriptor as TextureDescriptor).format,
+              TextureFormat.rgba8Unorm,
+            );
+            final sourceBytes = File('$path/${entry.$2}').readAsBytesSync();
+            final retained = await owner.resources.retain(entry.$1);
+            final uploaded = await owner.resources.readTexture(retained);
+            var mismatches = 0;
+            for (var i = 0; i < sourceBytes.length; i++) {
+              if (uploaded[i * 4] != sourceBytes[i] ||
+                  uploaded[i * 4 + 1] != 0 ||
+                  uploaded[i * 4 + 2] != 0 ||
+                  uploaded[i * 4 + 3] != 255) {
+                mismatches++;
+              }
+            }
+            expect(mismatches, 0, reason: 'Source R8 density must be exact.');
+          }
+        }
         final date = DateTime.utc(2026, 3, 20, 12),
             sun = CelestialDirections.at(DateTime.utc(2026, 3, 20, 12)).sunECEF;
         final air = AtmospherePlugin(

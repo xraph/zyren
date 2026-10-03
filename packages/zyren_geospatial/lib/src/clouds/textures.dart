@@ -1,4 +1,6 @@
 import 'volume_mips.dart';
+import 'dart:isolate';
+import 'dart:typed_data';
 import 'package:zyren/zyren.dart';
 import 'texture_generator.dart';
 import 'texture_source.dart';
@@ -119,7 +121,7 @@ final class CloudTextures {
             depth: map.depth,
             dimension: volume ? TextureDimension.d3 : TextureDimension.d2,
             mipLevels: map.width.bitLength,
-            format: volume ? TextureFormat.r32Float : TextureFormat.rgba8Unorm,
+            format: TextureFormat.rgba8Unorm,
             usage: {
               TextureUsage.sampled,
               TextureUsage.copyDestination,
@@ -129,7 +131,24 @@ final class CloudTextures {
             },
           ),
         );
-        await scope.resources.writeTexture(texture, map.bytes);
+        // Source volume densities came from R8 bytes. Preserve their values in
+        // a filterable format instead of paying for manual float interpolation.
+        final pixels = volume
+            ? await Isolate.run(() {
+                final values = map.bytes.buffer.asFloat32List(
+                  map.bytes.offsetInBytes,
+                  map.bytes.lengthInBytes ~/ 4,
+                );
+                final bytes = Uint8List(map.bytes.length);
+                for (var i = 0; i < values.length; i++) {
+                  bytes[i * 4] = (values[i] * 255).round();
+                  bytes[i * 4 + 3] = 255;
+                }
+                return bytes;
+              })
+            : map.bytes;
+        cancellation.throwIfCancelled();
+        await scope.resources.writeTexture(texture, pixels);
         cancellation.throwIfCancelled();
         if (volume) {
           await generateCloudVolumeMips(scope, texture);

@@ -1,13 +1,19 @@
 import 'dart:math' as math;
 import 'package:zyren/zyren.dart';
 
-/// Average the complete R32Float volume on the GPU before distant sampling.
+/// Average the complete linear volume on the GPU before distant sampling.
 Future<void> generateCloudVolumeMips(
   GpuScope scope,
   GpuResource<Texture> texture,
 ) async {
   final descriptor = texture.descriptor as TextureDescriptor;
   if (descriptor.mipLevels < 2) return;
+  final storageFormat = switch (descriptor.format) {
+    TextureFormat.r32Float => 'r32float',
+    TextureFormat.rgba8Unorm => 'rgba8unorm',
+    TextureFormat.rgba16Float => 'rgba16float',
+    _ => throw ArgumentError('Cloud volume mip format is unsupported.'),
+  };
   final work = scope.createChild(label: 'cloud volume mip workspace');
   try {
     // Separate allocations satisfy graph feedback checks for every backend.
@@ -18,14 +24,14 @@ Future<void> generateCloudVolumeMips(
         depth: math.max(1, descriptor.depth >> 1),
         mipLevels: descriptor.mipLevels - 1,
         dimension: TextureDimension.d3,
-        format: TextureFormat.r32Float,
+        format: descriptor.format,
         usage: {TextureUsage.sampled, TextureUsage.storage},
       ),
     );
     final program = await work.shaders.compile(
-      ShaderSource.wgsl(r'''
+      ShaderSource.wgsl('''
 @group(0) @binding(0) var source:texture_3d<f32>;
-@group(0) @binding(1) var destination:texture_storage_3d<r32float,write>;
+@group(0) @binding(1) var destination:texture_storage_3d<$storageFormat,write>;
 @compute @workgroup_size(4,4,4) fn main(@builtin(global_invocation_id) id:vec3<u32>){
  let outSize=textureDimensions(destination);if(any(id>=outSize)){return;}
  let inSize=textureDimensions(source);let ratio=vec3<f32>(inSize)/vec3<f32>(outSize);
@@ -44,9 +50,9 @@ Future<void> generateCloudVolumeMips(
 ''', label: 'cloud volume mip reduction'),
     );
     final copy = await work.shaders.compile(
-      ShaderSource.wgsl(r'''
+      ShaderSource.wgsl('''
 @group(0) @binding(0) var source:texture_3d<f32>;
-@group(0) @binding(1) var destination:texture_storage_3d<r32float,write>;
+@group(0) @binding(1) var destination:texture_storage_3d<$storageFormat,write>;
 @compute @workgroup_size(4,4,4) fn main(@builtin(global_invocation_id) id:vec3<u32>){
  if(any(id>=textureDimensions(destination))){return;}
  textureStore(destination,vec3<i32>(id),textureLoad(source,vec3<i32>(id),0));

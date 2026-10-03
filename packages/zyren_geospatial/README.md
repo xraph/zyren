@@ -172,6 +172,12 @@ plus a separate higher-order table uses 25,305,088 bytes. Account for active and
 candidate sets when sizing a scene. Cache entries share only within the same
 source instance and device; their keys never contain source URLs.
 
+Imported tables use hardware interpolation, including the depth axis of the
+scattering volume. Generated 32-bit tables keep manual interpolation to retain
+their precision. Set `luts.shader(hardwareFiltering: false)` when you need the
+manual path for comparison. Native source checks cover both packed and full Mie
+tables, with and without a separate higher-order table.
+
 Use `controller.setSource(source)` to replace tables atomically. A failure keeps
 the active view and existing lighting leases. `setParameters()` switches back to
 GPU precomputation after generation succeeds. `acquireLighting()` returns the
@@ -310,7 +316,8 @@ detail and curl-turbulence textures. Default sizes are 512 square, 128 cubed,
 32 cubed and 128 square. You can request smaller sizes. Volumes use single-channel
 float textures; weather and turbulence use linear RGBA8. Keep each returned
 `CloudTexture` until its consumer retains it, then close it when you no longer
-need it. All four defaults occupy 10,005,160 GPU bytes after generation.
+need it. All four defaults occupy 11,222,256 registry payload bytes, including
+their mip chains. This count does not measure physical GPU residency.
 
 Generation admits one job per generator and checks cancellation between batches
 of eight volume slices. Cancellation waits for submitted work before cleanup.
@@ -326,6 +333,9 @@ You can retain the set in another GPU scope or generate all four with
 shape and detail include GPU-generated volume mipmaps. Sampling blends repeated
 trilinear levels using the projected pixel footprint, keeping close detail while
 filtering distant noise. Weather levels use weather texture dimensions.
+Source volumes retain their original 8-bit density values in filterable linear
+textures. The GPU interpolates them directly; caller-provided float volumes keep
+explicit interpolation. Procedural float generation keeps its source precision.
 
 `CloudAppearance` keeps source phase, powder and haze settings separate from
 layer density. `CloudShadowCascades.build()` computes the source frustum splits
