@@ -255,7 +255,14 @@ impl GraphStore {
         if request.version != 1 || request.request > i64::MAX as u64 {
             return Err("Unsupported graph protocol version or request ID".into());
         }
-        let result: Result<Value, GraphError> = if failure.is_some() {
+        // A failed device can still disclose the copied CPU profile. All GPU
+        // commands, including InspectGpu, remain behind the failure gate.
+        let result: Result<Value, GraphError> = if matches!(
+            &request.command,
+            Command::FrameProfile {}
+        ) {
+            Ok(frame_profile)
+        } else if failure.is_some() {
             Err(GraphError::new(
                 "deviceFailed",
                 "Recreate the failed native device",

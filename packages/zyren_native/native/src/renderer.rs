@@ -827,14 +827,32 @@ impl Renderer {
         Ok(())
     }
 
-    fn begin_profile(&mut self) {
+    pub(crate) fn begin_profile(&mut self) {
         *self.profile.borrow_mut() = timing::Profile {
-            status: "pending",
+            status: if self.failure.is_some() {
+                "failed"
+            } else {
+                "incomplete"
+            },
             ..Default::default()
         };
         self.last_gpu_time_ns = None;
         self.gpu_time_source = "unavailable";
     }
+    pub(crate) fn fail_frame(&mut self, error: String) -> String {
+        self.failure = Some(error.clone());
+        self.last_gpu_time_ns = None;
+        self.gpu_time_source = "unavailable";
+        let mut profile = self.profile.borrow_mut();
+        profile.status = "failed";
+        profile.gpu_time_ns = None;
+        profile.gpu_time_source = "unavailable";
+        for pass in profile.passes.values_mut() {
+            pass.gpu_time_ns = None;
+        }
+        error
+    }
+
     fn begin_pass(&self, encoder: &mut wgpu::CommandEncoder, pass: timing::Pass) {
         self.profile
             .borrow_mut()
@@ -1394,21 +1412,12 @@ impl Renderer {
             }
             self.resources.scene_completed();
             let mut profile = self.profile.borrow_mut();
-            profile.status = "complete";
             profile.gpu_time_ns = self.last_gpu_time_ns;
             profile.gpu_time_source = self.gpu_time_source;
         }
         result.map_err(|error| {
             let message = format!("GPU completion failed; recreate this renderer: {error}");
-            self.failure = Some(message.clone());
-            let mut profile = self.profile.borrow_mut();
-            profile.status = "failed";
-            profile.gpu_time_ns = None;
-            profile.gpu_time_source = "unavailable";
-            for pass in profile.passes.values_mut() {
-                pass.gpu_time_ns = None;
-            }
-            message
+            self.fail_frame(message)
         })
     }
 
@@ -1542,6 +1551,7 @@ impl Renderer {
         self.accept_shadows(shadows);
         self.temporal.accept();
         self.accept_history(frame);
+        self.profile.borrow_mut().status = "complete";
         Ok(())
     }
 
@@ -1556,6 +1566,30 @@ impl Renderer {
             return Err("initialized external depth does not support effects, temporal rendering, multisampling or transmission capture".into());
         }
         Ok(())
+    }
+
+    fn copy_readback(
+        &mut self,
+        readback: &wgpu::Buffer,
+        width: u32,
+        stride: u32,
+        len: usize,
+        mapped_result: Result<(), String>,
+    ) -> Result<Vec<u8>, String> {
+        if let Err(error) = mapped_result {
+            return Err(self.fail_frame(error));
+        }
+        let mapped = match readback.slice(..).get_mapped_range() {
+            Ok(mapped) => mapped,
+            Err(error) => return Err(self.fail_frame(error.to_string())),
+        };
+        let mut pixels = Vec::with_capacity(len);
+        for row in mapped.chunks_exact(stride as usize) {
+            pixels.extend_from_slice(&row[..width as usize * 4]);
+        }
+        drop(mapped);
+        readback.unmap();
+        Ok(pixels)
     }
 
     pub fn render(&mut self, frame: &Frame, width: u32, height: u32) -> Result<Vec<u8>, String> {
@@ -1643,25 +1677,16 @@ impl Renderer {
             let _ = sender.send(result);
         });
         self.wait_for_submission(submission)?;
-        self.accept_shadows(shadows);
         let mapped_result = receiver
             .recv_timeout(Duration::from_secs(1))
             .map_err(|error| format!("readback callback failed: {error}"))
             .and_then(|result| result.map_err(|error| format!("readback failed: {error}")));
-        if let Err(error) = mapped_result {
-            self.failure = Some(error.clone());
-            return Err(error);
-        }
-        let mapped = slice.get_mapped_range().map_err(|e| e.to_string())?;
-        let mut pixels = Vec::with_capacity(len);
-        for row in mapped.chunks_exact(stride as usize) {
-            pixels.extend_from_slice(&row[..width as usize * 4]);
-        }
-        drop(mapped);
-        readback.unmap();
+        let pixels = self.copy_readback(&readback, width, stride, len, mapped_result)?;
+        self.accept_shadows(shadows);
         self.counters.readback_bytes += pixels.len() as u64;
         self.temporal.accept();
         self.accept_history(frame);
+        self.profile.borrow_mut().status = "complete";
         Ok(pixels)
     }
 }
@@ -1726,6 +1751,37 @@ mod metal_timeout_tests {
             renderer.failed_surface.is_some(),
             "active imported storage stays owned"
         );
+        let command = |renderer: &mut Renderer, operation: &str| {
+            let mut command = serde_json::json!({"operation":operation});
+            if operation == "inspectGpu" {
+                command["allocation_limit"] = serde_json::json!(1);
+            }
+            if operation == "execute" {
+                command["key"] = serde_json::json!([0, 0, 0, 0]);
+            }
+            let bytes = serde_json::to_vec(&serde_json::json!({"version":1,"request":1,
+                "command":command}))
+            .unwrap();
+            serde_json::from_slice::<serde_json::Value>(
+                &renderer.graph_command(&bytes, 256 * 1024).unwrap(),
+            )
+            .unwrap()
+        };
+        let profile = command(&mut renderer, "frameProfile");
+        assert_eq!(profile["result"]["status"], "failed");
+        assert!(profile["result"]["gpuTimeNs"].is_null());
+        assert_eq!(
+            command(&mut renderer, "stats")["error"]["code"],
+            "deviceFailed"
+        );
+        assert_eq!(
+            command(&mut renderer, "execute")["error"]["code"],
+            "deviceFailed"
+        );
+        assert_eq!(
+            command(&mut renderer, "inspectGpu")["error"]["code"],
+            "deviceFailed"
+        );
         assert!(renderer.render(&frame, 16, 16).is_err());
         assert_eq!(renderer.counters().submitted_frames, 1);
         let closing = std::time::Instant::now();
@@ -1748,4 +1804,56 @@ fn section_planes(mesh: &crate::scene::Mesh) -> [[f32; 4]; 6] {
     let mut planes = [[0.; 4]; 6];
     planes[..mesh.clipping_planes.len()].copy_from_slice(&mesh.clipping_planes);
     planes
+}
+
+#[cfg(test)]
+mod readback_profile_tests {
+    use super::*;
+    #[test]
+    #[ignore = "requires a native Metal, Vulkan or DX12 device"]
+    fn terminal_callback_and_mapping_errors_never_leave_a_complete_profile() {
+        for callback in [
+            Err("readback callback failed: disconnected".to_string()),
+            Ok(()),
+        ] {
+            let mut renderer = pollster::block_on(Renderer::new()).unwrap();
+            let frame: Frame = serde_json::from_value(serde_json::json!({
+                "version":1,"view_projection":glam::Mat4::IDENTITY.to_cols_array(),
+                "background":[1,0,0],"light_direction":[0,0,1],"ambient":0.2,
+                "geometries":[],"meshes":[]
+            }))
+            .unwrap();
+            renderer.render(&frame, 8, 8).unwrap();
+            let readback = renderer.targets.as_ref().unwrap().readback.clone();
+            let stride = renderer.targets.as_ref().unwrap().stride;
+            // The completed render already unmapped this real GPU buffer. Ok(())
+            // therefore exercises a native get_mapped_range failure, independently
+            // of the callback failure supplied by the other iteration.
+            assert!(
+                renderer
+                    .copy_readback(&readback, 8, stride, 256, callback)
+                    .is_err()
+            );
+            assert!(renderer.failure.is_some());
+            assert_eq!(renderer.profile.borrow().status, "failed");
+            let command = serde_json::to_vec(&serde_json::json!({"version":1,"request":1,
+                "command":{"operation":"frameProfile"}}))
+            .unwrap();
+            let reply: serde_json::Value =
+                serde_json::from_slice(&renderer.graph_command(&command, 256 * 1024).unwrap())
+                    .unwrap();
+            let profile = &reply["result"];
+            assert_eq!(profile["status"], "failed");
+            assert!(profile["gpuTimeNs"].is_null());
+            assert_eq!(profile["gpuTimeSource"], "unavailable");
+            assert!(
+                profile["passes"]
+                    .as_object()
+                    .unwrap()
+                    .values()
+                    .all(|pass| pass["gpuTimeNs"].is_null())
+            );
+            assert_eq!(profile["submissionCount"], 1);
+        }
+    }
 }

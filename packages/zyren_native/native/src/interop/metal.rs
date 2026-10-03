@@ -60,7 +60,17 @@ pub unsafe extern "C" fn fg_metal_render_texture(
     texture: *mut std::ffi::c_void,
     owner: *mut std::ffi::c_void,
 ) -> u32 {
-    unsafe { render_metal(handle, json, length, texture, std::ptr::null_mut(), owner) }
+    unsafe {
+        render_metal(
+            handle,
+            json,
+            length,
+            texture,
+            std::ptr::null_mut(),
+            owner,
+            false,
+        )
+    }
 }
 
 /// Renders with caller-initialized Depth32Float in the frame's depth convention.
@@ -82,10 +92,17 @@ pub unsafe extern "C" fn fg_metal_render_targets(
     initialized_depth: *mut std::ffi::c_void,
     owner: *mut std::ffi::c_void,
 ) -> u32 {
-    if initialized_depth.is_null() {
-        return crate::guard(|| Err::<u32, String>("initialized depth is required".into()));
+    unsafe {
+        render_metal(
+            handle,
+            packet,
+            length,
+            color,
+            initialized_depth,
+            owner,
+            true,
+        )
     }
-    unsafe { render_metal(handle, packet, length, color, initialized_depth, owner) }
 }
 
 unsafe fn render_metal(
@@ -95,8 +112,20 @@ unsafe fn render_metal(
     texture: *mut std::ffi::c_void,
     initialized_depth: *mut std::ffi::c_void,
     owner: *mut std::ffi::c_void,
+    require_depth: bool,
 ) -> u32 {
     crate::guard(|| {
+        let renderer = crate::registry()
+            .lock()
+            .map_err(|_| "registry poisoned")?
+            .get(&handle)
+            .cloned()
+            .ok_or("invalid renderer")?;
+        let mut renderer = renderer.lock().map_err(|_| "renderer poisoned")?;
+        renderer.begin_profile();
+        if require_depth && initialized_depth.is_null() {
+            return Err("initialized depth is required".into());
+        }
         if json.is_null()
             || texture.is_null()
             || owner.is_null()
@@ -105,13 +134,6 @@ unsafe fn render_metal(
         {
             return Err("invalid native drawable input".into());
         }
-        let renderer = crate::registry()
-            .lock()
-            .map_err(|_| "registry poisoned")?
-            .get(&handle)
-            .cloned()
-            .ok_or("invalid renderer")?;
-        let mut renderer = renderer.lock().map_err(|_| "renderer poisoned")?;
         let frame = renderer.decode_scene(unsafe { std::slice::from_raw_parts(json, length) })?;
         if let Some(error) = &renderer.failure {
             return Err(error.clone());
@@ -134,10 +156,7 @@ unsafe fn render_metal(
                 renderer.drawable_owner = None;
                 Ok(1)
             }
-            Err(error) => {
-                renderer.failure = Some(error.clone());
-                Err(error)
-            }
+            Err(error) => Err(renderer.fail_frame(error)),
         }
     })
 }
@@ -234,6 +253,7 @@ impl Renderer {
         texture: Retained<ProtocolObject<dyn MTLTexture>>,
         depth: Option<Retained<ProtocolObject<dyn MTLTexture>>>,
     ) -> Result<(), String> {
+        self.begin_profile();
         let device = self.metal_device()?;
         if let Some(depth) = &depth {
             Self::check_external_depth_frame(frame)?;

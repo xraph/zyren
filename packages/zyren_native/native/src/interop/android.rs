@@ -160,6 +160,7 @@ pub unsafe extern "C" fn fg_android_attach(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn fg_android_render(handle: u64, json: *const u8, length: usize) -> u32 {
     with_renderer(handle, |renderer| {
+        renderer.begin_profile();
         if let Some(error) = &renderer.failure {
             return Err(error.clone());
         }
@@ -316,6 +317,7 @@ pub unsafe extern "C" fn fg_android_render_image(
 ) -> u32 {
     use ash::vk::Handle;
     with_renderer(handle, |renderer| {
+        renderer.begin_profile();
         if packet.is_null() || length == 0 || length > 128 * 1024 * 1024 || image == 0 {
             return Err("invalid Vulkan image or scene packet".into());
         }

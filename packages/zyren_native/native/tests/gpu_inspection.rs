@@ -181,8 +181,111 @@ fn frame_profile_is_bounded_and_clears_stale_measurements_on_rejection() {
     }
     assert!(renderer.render(&frame, 0, 8).is_err());
     let p = profile(&mut renderer);
-    assert_eq!(p["status"], "pending");
+    assert_eq!(p["status"], "incomplete");
     assert!(p["gpuTimeNs"].is_null());
     assert!(p["cpuPrepareNs"].is_null());
     assert_eq!(p["submissionCount"], 0);
+}
+
+#[test]
+#[ignore = "requires a native Metal, Vulkan or DX12 device"]
+fn exported_frame_attempt_resets_profile_before_packet_and_dimension_validation() {
+    use zyren_runtime::{fg_create, fg_destroy, fg_render, fg2_graph_command};
+    let handle = fg_create();
+    assert_ne!(handle, 0);
+    let valid = serde_json::to_vec(&json!({
+        "version":1,"view_projection":glam::Mat4::IDENTITY.to_cols_array(),
+        "background":[1,0,0],"light_direction":[0,0,1],"ambient":0.2,
+        "geometries":[],"meshes":[]
+    }))
+    .unwrap();
+    let profile = || {
+        let request = serde_json::to_vec(&json!({"version":1,"request":1,
+            "command":{"operation":"frameProfile"}}))
+        .unwrap();
+        let mut output = vec![0; 256 * 1024];
+        let mut written = 0;
+        assert_eq!(
+            unsafe {
+                fg2_graph_command(
+                    handle,
+                    request.as_ptr(),
+                    request.len(),
+                    output.as_mut_ptr(),
+                    output.len(),
+                    &mut written,
+                )
+            },
+            0
+        );
+        let reply: Value = serde_json::from_slice(&output[..written]).unwrap();
+        reply["result"].clone()
+    };
+    let mut pixels = [0; 256];
+    for rejected in [b"invalid JSON".as_slice(), &2_u32.to_le_bytes()] {
+        assert_eq!(
+            unsafe {
+                fg_render(
+                    handle,
+                    valid.as_ptr(),
+                    valid.len(),
+                    8,
+                    8,
+                    pixels.as_mut_ptr(),
+                    pixels.len(),
+                )
+            },
+            1
+        );
+        assert_eq!(profile()["status"], "complete");
+        assert_eq!(
+            unsafe {
+                fg_render(
+                    handle,
+                    rejected.as_ptr(),
+                    rejected.len(),
+                    8,
+                    8,
+                    pixels.as_mut_ptr(),
+                    pixels.len(),
+                )
+            },
+            0
+        );
+        let p = profile();
+        assert_eq!(p["status"], "incomplete");
+        assert!(p["gpuTimeNs"].is_null());
+        assert!(p["cpuPrepareNs"].is_null());
+        assert_eq!(p["submissionCount"], 0);
+    }
+    assert_eq!(
+        unsafe {
+            fg_render(
+                handle,
+                valid.as_ptr(),
+                valid.len(),
+                8,
+                8,
+                pixels.as_mut_ptr(),
+                pixels.len(),
+            )
+        },
+        1
+    );
+    assert_eq!(
+        unsafe {
+            fg_render(
+                handle,
+                valid.as_ptr(),
+                valid.len(),
+                0,
+                8,
+                pixels.as_mut_ptr(),
+                pixels.len(),
+            )
+        },
+        0
+    );
+    assert_eq!(profile()["status"], "incomplete");
+    assert_eq!(fg_destroy(handle), 1);
 }

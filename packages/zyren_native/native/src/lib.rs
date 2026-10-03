@@ -140,15 +140,6 @@ pub unsafe extern "C" fn fg_render(
     capacity: usize,
 ) -> u32 {
     guard(|| {
-        let len = scene::pixel_len(width, height)?;
-        if json.is_null()
-            || pixels.is_null()
-            || json_len == 0
-            || json_len > 128 * 1024 * 1024
-            || capacity < len
-        {
-            return Err("invalid input or output buffer".into());
-        }
         let renderer = registry()
             .lock()
             .map_err(|_| "renderer registry is poisoned")?
@@ -158,6 +149,16 @@ pub unsafe extern "C" fn fg_render(
         let mut renderer = renderer
             .lock()
             .map_err(|_| "renderer is poisoned; recreate it")?;
+        renderer.begin_profile();
+        let len = scene::pixel_len(width, height)?;
+        if json.is_null()
+            || pixels.is_null()
+            || json_len == 0
+            || json_len > 128 * 1024 * 1024
+            || capacity < len
+        {
+            return Err("invalid input or output buffer".into());
+        }
         let frame = renderer.decode_scene(unsafe { std::slice::from_raw_parts(json, json_len) })?;
         let image = renderer.render(&frame, width, height)?;
         unsafe {

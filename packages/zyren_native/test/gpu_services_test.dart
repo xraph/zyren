@@ -1,10 +1,76 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:zyren/zyren.dart';
 import 'package:zyren_native/zyren_native.dart';
 import 'package:test/test.dart';
 
 void main() {
+  test(
+    'failed native frame snapshots decode while GPU commands stay rejected',
+    () async {
+      final profile = <String, Object?>{
+        'status': 'failed',
+        'cpuPrepareNs': 1000,
+        'cpuEncodeNs': 2000,
+        'cpuCompletionWaitNs': 2000000000,
+        'gpuTimeNs': null,
+        'gpuTimeSource': 'unavailable',
+        'submissionCount': 1,
+        'drawPreparationBuffers': 1,
+        'drawPreparationBindGroups': 1,
+        'drawCacheReuses': null,
+        'uploadBytes': 0,
+        'passes': {
+          'scene': {'executed': true, 'gpuTimeNs': null},
+        },
+        'resources': {'submissionCount': 0, 'gpuTimeNs': null},
+      };
+      final gpu = NativeGpuServices.withTransport((
+        kind,
+        bytes,
+        capacity,
+      ) async {
+        expect(kind, NativeGpuCommand.graph);
+        final request = jsonDecode(utf8.decode(bytes)) as Map;
+        return NativeGpuReply.success(
+          Uint8List.fromList(
+            utf8.encode(
+              jsonEncode({
+                'version': 1,
+                'request': request['request'],
+                if ((request['command'] as Map)['operation'] == 'frameProfile')
+                  'result': profile
+                else
+                  'error': {
+                    'code': 'deviceFailed',
+                    'message': 'Recreate the failed native device',
+                  },
+              }),
+            ),
+          ),
+        );
+      });
+      final decoded = await gpu.frameProfile();
+      expect(decoded.toJson(), profile);
+      expect(decoded.status, 'failed');
+      expect(decoded.gpuTime, isNull);
+      expect(decoded.passes['scene']!.gpuTimeNs, isNull);
+      expect(decoded.cpuCompletionWaitNs, 2000000000);
+      await expectLater(
+        gpu.graphStats(),
+        throwsA(
+          isA<GraphException>().having(
+            (error) => error.code,
+            'code',
+            GraphErrorCode.deviceFailed,
+          ),
+        ),
+      );
+      await gpu.close();
+    },
+  );
+
   test(
     'transport scopes drain pending creation before release and close',
     () async {

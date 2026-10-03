@@ -71,6 +71,17 @@ pub unsafe extern "C" fn fg2_apple_render(
     unsafe {
         call(output, error, || {
             if json.is_null() || length == 0 || length > 128 * 1024 * 1024 {
+                if let Some(renderer) = crate::registry()
+                    .lock()
+                    .map_err(|_| SurfaceError::Internal)?
+                    .get(&handle)
+                    .cloned()
+                {
+                    renderer
+                        .lock()
+                        .map_err(|_| SurfaceError::Internal)?
+                        .begin_profile();
+                }
                 return Err(SurfaceError::InvalidArgument);
             }
             platform::render(
@@ -213,7 +224,6 @@ mod platform {
         frame_id: u64,
         bytes: &[u8],
     ) -> Result<Fg2FrameReceipt, SurfaceError> {
-        let checked = key.checked()?;
         let renderer = crate::registry()
             .lock()
             .map_err(|_| SurfaceError::Internal)?
@@ -221,6 +231,8 @@ mod platform {
             .cloned()
             .ok_or(SurfaceError::StaleKey)?;
         let mut renderer = renderer.lock().map_err(|_| SurfaceError::Internal)?;
+        renderer.begin_profile();
+        let checked = key.checked()?;
         let frame = renderer
             .decode_scene(bytes)
             .map_err(|_| SurfaceError::InvalidArgument)?;
