@@ -16,6 +16,7 @@ final class ScientificSliceTrack extends TimelineTrack {
   final double index, coordinateTolerance, secondsPerTimeUnit;
   final ScientificTimeInterpolation interpolation;
   Mesh? _mesh;
+  bool _disposed = false;
   TemporalScalarSample? _sample;
   ScientificSliceTrack({
     required this.target,
@@ -50,6 +51,7 @@ final class ScientificSliceTrack extends TimelineTrack {
   TemporalScalarSample? get sample => _sample;
   @override
   void Function() prepare(Duration time) {
+    if (_disposed) throw StateError('Scientific timeline track has closed.');
     final t =
         (window.first.key.time + time.inMicroseconds / 1e6 / secondsPerTimeUnit)
             .clamp(window.first.key.time, window.last.key.time);
@@ -65,6 +67,7 @@ final class ScientificSliceTrack extends TimelineTrack {
       throw StateError('Scientific timeline geometry was changed externally.');
     }
     return () {
+      if (_disposed) throw StateError('Scientific timeline track has closed.');
       target.batch(() {
         _mesh?.parent?.remove(_mesh!);
         if (mesh != null) target.add(mesh);
@@ -75,6 +78,7 @@ final class ScientificSliceTrack extends TimelineTrack {
   }
 
   void dispose() {
+    _disposed = true;
     _mesh?.parent?.remove(_mesh!);
     _mesh = null;
     _sample = null;

@@ -1,6 +1,8 @@
 /// Optional runtime adapter for the shared Zyren agent registry.
 library;
 
+export 'src/field_agents.dart';
+
 import 'package:zyren/zyren.dart';
 import 'package:zyren_agents/zyren_agents.dart';
 

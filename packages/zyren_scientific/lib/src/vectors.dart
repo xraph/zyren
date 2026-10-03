@@ -41,6 +41,23 @@ final class VectorGrid3D {
       throw ArgumentError('Vector component grids must match.');
     }
   }
+  late final int missingCount = _countMissing();
+  int _countMissing() {
+    var count = 0;
+    for (var k = 0; k < x.sizeZ; k++) {
+      for (var j = 0; j < x.sizeY; j++) {
+        for (var i = 0; i < x.sizeX; i++) {
+          if (x.valueAt(i, j, k) == null ||
+              y.valueAt(i, j, k) == null ||
+              z.valueAt(i, j, k) == null) {
+            count++;
+          }
+        }
+      }
+    }
+    return count;
+  }
+
   ScientificSample<Vec3> sample(Vec3 local) {
     final a = sampleScalar(x, local),
         b = sampleScalar(y, local),

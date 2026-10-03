@@ -1,0 +1,28 @@
+name: scientific_lab
+description: Native scientific fields, surfaces, streamlines and volumes.
+version: 0.1.0
+publish_to: none
+resolution: workspace
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_zyren:
+    path: ../../../flutter_zyren
+  zyren_scientific:
+    path: ../..
+  zyren_agents:
+    path: ../../../zyren_agents
+  zyren_timeline:
+    path: ../../../zyren_timeline
+  zyren:
+    path: ../../../zyren
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+flutter:
+  uses-material-design: true

@@ -13,3 +13,5 @@ export 'src/sampling.dart'
     show ScientificSample, ScientificSampleStatus, sampleScalar;
 export 'src/vectors.dart';
 export 'src/temporal.dart';
+export 'src/volume.dart';
+export 'src/field_view.dart';

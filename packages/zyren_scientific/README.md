@@ -1,9 +1,14 @@
 # zyren_scientific
 
-Use `zyren_scientific` to validate a scalar grid and render an axis-aligned slice
-through Zyren's native backend. You supply the values, units and source identity.
-The package visualizes your data; it does not run a physical solver or certify a
-measurement.
+Render scalar slices, isosurfaces, irregular surfaces, vector glyphs, streamlines
+and volumes through Zyren's native backend. You supply the values, units and
+source identity. Versioned temporal sources support discrete and linear sampling.
+The package visualizes supplied results; it does not solve a physical model or
+certify a measurement.
+
+Start with the [Flutter lab](example/flutter). It uses native presentation,
+compact controls and the shared ZeroState. The synthetic fields make it easy to
+compare a slice with its isosurface or volume, change time, and inspect a pick.
 
 ```dart
 import 'package:zyren/zyren.dart';
@@ -31,129 +36,202 @@ final transfer = ScalarTransferFunction(
     TransferStop(1, const Color3(1, 0, 0)),
   ],
 );
-final slice = ScalarSlice.build(
-  grid: field, transfer: transfer,
-  axis: SliceAxis.z, index: .5, coordinateTolerance: 1e-6,
+final surface = await extractIsosurface(
+  grid: field, threshold: 293, transfer: transfer,
+  coordinateTolerance: 1e-6,
 );
-final view = ScientificSliceView(
-  id: 'temperature', scene: scene, slice: slice, coordinateTolerance: 1e-6,
-);
-// Use the same revision-checked operation from your UI or agent adapter.
-view.setSlice(axis: SliceAxis.z, index: 1, expectedRevision: view.revision);
-// When the host unloads this view:
-view.dispose();
+final mesh = surface.createMesh();
+if (mesh != null) scene.add(mesh);
 ```
 
-Declare `scene` as your existing Zyren `Scene`. If you only need immutable
-geometry, use `slice.geometry` or `slice.createMesh()`. An empty slice returns no
-mesh. Your host can present that state through its shared ZeroState component.
+Use your existing `Scene` for `scene`. Remove the mesh when its view closes.
+`ScientificFieldView` handles replacement, revision checks and disposal when you
+need to switch representations. `ScientificSliceView` remains available for an
+independent X, Y or Z slice.
 
-## Data and numerical behavior
+## Data, surfaces and precision
 
-X varies fastest, then Y, then Z. Samples use float64 storage. Null means missing;
-zero is valid. The constructor copies your values and rejects NaN, infinity,
-invalid extents and over-budget inputs before allocating its sample arrays.
+X varies fastest, then Y, then Z. Scalar grids copy values into float64 storage
+with an explicit validity mask. Null means missing; zero is valid. NaN, infinity,
+invalid extents and excessive dimensions fail validation before owned allocation.
+Quantity and unit symbol must match exactly. You perform any unit conversion.
+Coordinates require a `length` quantity.
 
-Use the same quantity and unit symbol for the field and transfer function.
-Conversions belong to your data preparation. Coordinates require a unit whose
-quantity is `length`; no code assumes that every scene uses metres.
+`sampleScalar` performs trilinear interpolation in coordinates relative to the
+grid origin. It reports valid, missing or outside. Zero-weight corners do not
+contribute to missing status. Fractional slices interpolate between grid planes;
+an exact slice uses only its own plane. Missing corners omit whole slice cells.
 
-Slice indices are grid coordinates, so `z = 1.5` lies halfway between planes 1
-and 2. Integer slices only consult their own plane. Fractional slices need both
-contributing samples, and a missing corner removes the whole cell. You can read
-`omittedCells`, `belowRangeSamples` and `aboveRangeSamples` to explain the image.
+Isosurfaces use six tetrahedra per cell with a consistent body diagonal. Shared
+edges reuse vertices, including exact threshold endpoints. Equality belongs to
+the low side, normals point toward increasing scalar values, and a missing corner
+omits the entire cell. `sourceCells` maps each output triangle to its stable,
+X-fast source cell ID. This is a piecewise linear tetrahedral surface; a
+trilinear source query at the same point can return a different scalar value.
 
-Transfer stops contain linear RGB, with strictly increasing positions including
-0 and 1. Values outside the declared range clamp to its endpoints. A constant
-range maps to the midpoint. The renderer interpolates mapped colors over each
-triangle; nonlinear transfer functions are sampled at vertices, not evaluated
-per fragment. Unlit materials prevent lighting from changing the scalar colors.
-Your host's tone mapping and postprocessing can still change the final image.
+Use `ScientificSurface.build` for irregular triangle connectivity. Choose vertex
+or cell scalar association. Cell values produce flat triangle colors. Invalid
+indices and degenerate triangles fail validation; missing values omit affected
+triangles. Both builders support cooperative `ScientificCancellation`.
 
-The mesh transform retains the double-precision origin. Local positions use
-float32, and `coordinateTolerance` limits their measured absolute conversion
-error in your coordinate unit. Collapsed neighboring coordinates are rejected.
-This tolerance excludes world-transform arithmetic, projection and rasterization.
-It is not a measurement-accuracy claim.
+Geometry retains the double-precision origin in its mesh transform and measures
+local float32 position conversion error against `coordinateTolerance`. Collapsed
+triangles and line segments fail validation. The tolerance excludes world
+transform arithmetic, projection and rasterization. It is not an accuracy claim
+about your source measurements.
 
-Default hard ceilings are 1,000,000 samples, 250,000 slice cells and 16 MiB of
-geometry payload. You can lower them with `ScientificBudget`. A grid retains
-nine typed bytes per sample. Slice preflight uses `36 * vertices + 24 * cells`
-bytes, even when missing data later removes cells; temporary geometry copies,
-caller-owned data, VM overhead and native copies consume additional memory.
-Reported payload bytes do not measure physical GPU residency. You own scene and
-backend teardown; the slice does not allocate a separate GPU scope.
+Transfer stops contain linear RGB. Values outside the declared range clamp, and
+a constant range maps to the midpoint. Meshes interpolate mapped vertex colors;
+volumes evaluate the transfer at each ray sample. Unlit materials preserve
+transfer colors before your host's tone mapping and postprocessing.
+
+## Vectors and streamlines
+
+`VectorGrid3D` holds three scalar component grids with matching dimensions,
+source, units and coordinates. Supply a right-handed orthonormal `VectorBasis`.
+`VectorBasis.cartesian()` uses the grid axes. Samples return vectors in those
+coordinate axes, with explicit missing/outside status.
+
+```dart
+final path = await integrateStreamline(
+  field: vectors,
+  seed: const Vec3(.4, 1, 1), // Relative to vectors.x.origin.
+  options: StreamlineOptions(
+    initialStep: .05, minStep: 1e-5, maxStep: .1,
+    maxLength: 10, tolerance: 1e-5, stagnation: 1e-12,
+  ),
+);
+```
+
+Here `vectors` is your `VectorGrid3D`. RK4 step doubling adapts the step using the
+coordinate error tolerance. Integration follows normalized vectors by arc length,
+so step and length use coordinate units. Stagnation uses the vector magnitude
+unit. Choose `reverse: true` to trace backward. This is a steady-field streamline,
+not a pathline through evolving velocity data.
+
+Results retain local points, accepted length, maximum step error, attempt count
+and a termination reason: length, domain, missing data, stagnation, tolerance or
+work limit. A boundary stop retains the last accepted point. `path.geometry`
+creates native line segments; `buildVectorGlyphs` creates arrow shafts and heads
+with deterministic grid strides. Glyph length scale is coordinate length per
+vector unit. Excessive counts fail instead of silently thinning your data.
+
+## Temporal sources and playback
+
+`TemporalScalarSource` takes strictly ordered `ScientificFrameKey` entries and a
+loader. Each key has an ID, version and time; the source declares its time unit.
+A newer seek cancels the previous request. Loaders run serially and should observe
+the supplied cancellation token so external work can stop promptly.
+
+The cache retains at most two source frames, within its payload limit. Returned
+interpolated grids and storage owned by your loader are separate allocations.
+Linear interpolation requires matching layouts, source identity and units, and
+preserves missing contributing samples. Discrete interpolation selects the
+preceding frame. Exact frame times use that frame alone. Requests outside the
+source time range fail; loader errors propagate without publishing a new view.
+
+Import `package:zyren_scientific/timeline.dart` for `ScientificSliceTrack`. It uses
+a loaded `TemporalScalarWindow` and a stable scene parent. Add it to the shared
+`SceneTimelinePlugin` to reuse playback, seeking and frame demand. Preparation
+builds a candidate without editing the scene. Dispose the track when your host
+unloads its geometry, and dispose the timeline through its owning engine.
+
+Temporal scalar changes do not animate an independent static vector field. Agent
+metadata reports the two sources and their time status separately.
+
+## Native volume rendering
+
+Attach `ScientificVolumePlugin` to your engine before rendering, then call its
+controller's `setVolume` with `ScientificVolumeSettings`. The plugin owns scoped
+GPU resources and updates camera-relative bounds and clipping planes before each
+frame. A null setting removes the effect. Failed candidates close their resources
+and leave the active effect intact.
+
+`VolumeTransferFunction` maps scalars to linear RGB and opacity. Opacity is defined
+per `referenceDistance`, in the grid's coordinate length unit. The ray marcher
+uses `1 - pow(1 - opacity, step / referenceDistance)` at each step, including the
+last partial step. It composites in premultiplied HDR and terminates when residual
+transmittance falls below approximately 1/65536.
+
+Rays intersect the axis-aligned grid, the camera's near/far interval, up to six
+shared scene clipping planes, and opaque scene depth. Standard and reversed depth
+are supported. The camera may be inside the volume. Transparent-object depth and
+physically ordered interleaving of multiple overlapping volumes are outside this
+single-volume effect's compositing contract.
+
+The 3D RGBA32F texture stores scalar values and validity. Trilinear sampling uses
+explicit texture loads, so it does not require float32 filtering support. Missing
+contributing voxels produce transparent samples. Uploads check `scalarTolerance`;
+lengths and camera-relative bounds check `coordinateTolerance`. Values that cannot
+fit those float32 tolerances fail explicitly. Resources close after cancellation,
+failed compilation or plugin detachment.
+
+## Resource limits
+
+| Work | Limit |
+| --- | --- |
+| Scalar grid | 1,000,000 samples; 9 typed bytes per sample |
+| Slice or extraction input | 250,000 cells |
+| Surface/line output | 16 MiB conservative geometry and identity payload |
+| Vector glyphs | 20,000 requested glyphs |
+| Streamline | 100,000 attempts and 100,000 points; defaults are 20,000 |
+| Temporal cache | Two source frames, up to 18,000,000 payload bytes |
+| Volume | 256 samples per axis, within the scalar-grid sample ceiling |
+| Volume ray | Up to 4,096 steps; default ceiling 1,024 |
+| Volume viewport | Default 256 million pixel-sample upper bound; hard ceiling 512 million |
+
+You can lower `ScientificBudget` and the work-specific limits. Typed payload
+limits exclude caller storage, VM overhead, temporary copies and native copies.
+They do not measure physical GPU residency. Each vector component retains its
+own scalar payload. Isosurface source-cell IDs contribute to the output budget.
 
 ## Runtime agents
 
-Import `package:zyren_scientific/agents.dart` to use the shared registry. The host
-chooses its granted scopes. Read-only hosts can omit `scientific.edit`.
-
-```dart
-final registry = AgentRegistry(grantedScopes: {'scientific.edit'});
-final registration = registerScientificView(registry, view);
-final provider = ScientificAgentProvider(view);
-// Pass provider.metadata to your AgentViewportProvider metadata callback.
-// Dispose registration to remove agent access without removing the view.
-```
-
-Import `package:zyren_agents/zyren_agents.dart` for `AgentRegistry`. Discovery
-publishes the schemas and limits for these tools:
+Import `package:zyren_scientific/agents.dart` and register your `ScientificFieldView`
+with `registerScientificField`. The `zyren.scientific.field` provider exposes:
 
 | Tool | Behavior |
 | --- | --- |
-| `inspect` | Source, dimensions, units, missing counts, active slice and transfer |
-| `sample` | One integer u,v slice sample, with explicit missing status |
-| `field_sample` | One integer x,y,z source sample |
-| `sample_triangle` | Scalar value from a shared pick's triangle and barycentric weights |
-| `set_slice` | Replace the active axis and fractional index |
-| `set_transfer` | Replace range and optionally the linear RGB stops |
+| `inspect` | Active source, representation, units, versions, missing counts and errors |
+| `sample_position` | Trilinear scalar and available vector data at a local coordinate |
+| `sample_triangle` | Join a shared viewport pick to source data and isosurface cell identity |
+| `set_representation` | Build and display a slice, isosurface, vectors, streamline or volume |
+| `set_parameters` | Threshold, slice index, seed, glyph scale and volume sampling controls |
+| `set_transfer` | Scalar range in the existing unit |
+| `seek` | Temporal source seek, when a source is attached |
 
-Mutations require `scientific.edit`, an expected provider revision and an
-idempotency key. They use `ScientificSliceView` commands. Invalid replacements
-leave the scene intact. Removing or editing its mesh externally makes the view
-stale; disposing the view removes its registry entry and owned mesh. This
-checkpoint does not provide undo or temporal datasets.
+The host grants `scientific.edit`. Mutations require an expected revision and an
+idempotency key; cancellation is checked before committing prepared work.
+Disposal removes registered agent access and owned geometry. Pass the provider's
+`metadata` callback to the shared `AgentViewportProvider`. Triangle joins verify
+object and scene identity, and keep pixel visibility unknown. Lines and volumes
+use source-position queries. The host owns screen/frame correlation and policy.
+The independent slice provider and its six tools remain supported.
 
-Connect the shared viewport provider's object metadata to `provider.metadata`.
-Then pass its pick's runtime object ID, scene revision, triangle index and
-barycentric weights to `sample_triangle`. That join checks source geometry and
-identity. It does not prove pixel visibility. For direct Dart picks,
-`view.inspectHit` accepts the actual `PickResult` and rejects older snapshots.
-The host retains document, viewport, camera and frame correlation. Static fields
-report time as unavailable. Imported source descriptions remain untrusted data.
+## Verification and examples
 
-## Run the native examples and checks
-
-Use this workspace's Flutter 3.47.5 SDK, which supplies a compatible Dart SDK.
-Run dependency resolution from the workspace root, under the shared lock when
-other workstreams are active. Run the following from this package directory so
-Dart loads the native build hook:
+Use the SDK pinned in `.fvmrc`. Run package checks from this directory so Dart
+loads the native build hook:
 
 ```sh
-dart run example/synthetic_slice.dart /tmp/zyren-scientific-evidence
 RUN_NATIVE_GPU=1 dart test --reporter expanded
-dart analyze
+flutter analyze --no-pub
+dart run example/synthetic_slice.dart /tmp/zyren-scientific-evidence
 python3 example/verify_mcp.py /path/to/flutter/bin/dart /tmp/zyren-scientific-evidence/mcp
+python3 example/verify_field_mcp.py /path/to/flutter/bin/dart /tmp/zyren-scientific-evidence/field-mcp
 ```
 
-The first example writes a native PNG and JSON with synthetic provenance, unit
-labels, numerical error and backend identity. The PNG also has a synthetic-data
-text chunk. Its missing center column produces a visible hole.
+The MCP examples reuse `serveDevtoolsMcp` and `AgentDevtoolsBridge` over stdio.
+They start no network listener. Their hosts explicitly grant editing and capture
+real native images after commands. These images are offscreen evidence.
 
-The MCP check starts `example/agent_host.dart`, which reuses the shared devtools
-stdio server. It discovers tools, picks the captured scene, joins the scalar
-value, checks read-only denial, changes the slice through a granted command,
-verifies changed native pixels and tests retry/stale behavior. EOF closes the
-host and backend. This example explicitly grants scientific editing; your own
-host must choose its policy. No network listener starts.
+From `example/flutter`, run `flutter test --no-pub -d <device>
+integration_test/scientific_test.dart` for numerical GPU checks and native
+presentation checks. The lab requires native presentation, so an unsupported
+platform fails visibly without choosing a browser or readback fallback.
 
-On 2026-10-02, 18 tests and the live stdio MCP check passed on Apple M3 Max/Metal.
-The native transfer fixture had a maximum sampled channel error of 0/255. The
-MCP scalar join differed from its analytic value by `2.69e-8 K`. These are
-synthetic fixture results using offscreen readback. Flutter presentation,
-human pointer interaction, Vulkan and DX12 remain unverified here.
-
-Isosurfaces, unstructured surfaces, vector fields, streamlines, time-varying
-results and GPU volume rendering remain in [the workstream plan](../../plans/zyren-plugins/scientific.md).
-This package has not been published.
+See [qualification](qualification/2026-10-02.md) for measured errors, Metal and
+Vulkan device results, and remaining platform limits. Windows DX12 and Linux
+remain unqualified. The current shared Flutter plugin registers Android, iOS and
+macOS platforms; generated desktop runners alone do not add a Windows/Linux
+presenter. This package has not been published.

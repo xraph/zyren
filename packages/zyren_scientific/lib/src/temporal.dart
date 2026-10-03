@@ -181,7 +181,9 @@ final class TemporalScalarSource {
       throw RangeError('Requested time is outside the source.');
     }
     _request?.cancel();
-    final token = _request = ScientificCancellation();
+    final token = _request = ScientificCancellation(
+      isCancellationRequested: () => cancellation?.isCancelled ?? false,
+    );
     final future = _queue.then((_) async {
       _check(token, cancellation);
       var low = 0, high = frames.length - 1;

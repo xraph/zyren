@@ -1,10 +1,13 @@
 /// Cooperative cancellation for bounded numerical work and asynchronous loads.
 final class ScientificCancellation {
+  final bool Function()? isCancellationRequested;
+  ScientificCancellation({this.isCancellationRequested});
   bool _cancelled = false;
-  bool get isCancelled => _cancelled;
+  bool get isCancelled =>
+      _cancelled || (isCancellationRequested?.call() ?? false);
   void cancel() => _cancelled = true;
   void check() {
-    if (_cancelled) throw const ScientificCancelled();
+    if (isCancelled) throw const ScientificCancelled();
   }
 }
 

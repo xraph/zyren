@@ -12,6 +12,7 @@ workspace:
   - packages/zyren_characters
   - packages/zyren_navigation
   - packages/zyren_scientific
+  - packages/zyren_scientific/example/flutter
   - packages/zyren_configurator
   - packages/zyren
   - packages/zyren_inspector
