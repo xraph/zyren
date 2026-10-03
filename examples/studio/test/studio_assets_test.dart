@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:zyren/zyren.dart';
+import 'package:flutter_zyren/flutter_zyren.dart';
 import 'package:zyren_engineering/zyren_engineering.dart';
 import 'package:zyren_agents/zyren_agents.dart';
 import 'package:zyren_studio_example/asset_agents.dart';
