@@ -4,6 +4,8 @@ part of 'wave_render_data.dart';
 /// Await update before using dependent materials, captures or foam producers.
 /// This stream never mutates the canonical sea state or a physical sampler.
 final class OceanWaveStream implements OceanWaveRenderInputs {
+  @override
+  OceanWaveAtlasLayout get atlasLayout => OceanWaveAtlasLayout.packed;
   final GpuScope _scope;
   @override
   final OceanSeaState state;

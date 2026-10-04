@@ -207,7 +207,9 @@ final class OceanWaterMaterial {
         waves.resolution.toDouble(),
         waves.levels.toDouble(),
         waves.bandCount.toDouble(),
-        waves.texelsPerBand.toDouble(),
+        waves.atlasLayout == OceanWaveAtlasLayout.blend
+            ? -1
+            : waves.texelsPerBand.toDouble(),
       ]);
       vector(5, optical.absorptionPerMetre);
       vector(6, optical.scatteringPerMetre);

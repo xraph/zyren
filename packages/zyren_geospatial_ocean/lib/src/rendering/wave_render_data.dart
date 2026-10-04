@@ -22,7 +22,10 @@ OceanSeaState oceanChartSeaState(OceanSeaState state, int chart) =>
 
 /// Readable visual wave inputs. Immutable snapshots survive source evaluation;
 /// live streams require serialized updates before consumers capture or render.
+enum OceanWaveAtlasLayout { packed, blend }
+
 abstract interface class OceanWaveRenderInputs {
+  OceanWaveAtlasLayout get atlasLayout;
   OceanSeaState get state;
   int get resolution;
   int get bandCount;
@@ -45,6 +48,8 @@ abstract interface class OceanWaveRenderInputs {
 /// chain into a 4N by N*bands atlas without six storage-buffer bindings. Temporary
 /// compute buffers retire before publication. No production readback is required.
 final class OceanWaveRenderData implements OceanWaveRenderInputs {
+  @override
+  OceanWaveAtlasLayout get atlasLayout => OceanWaveAtlasLayout.packed;
   final GpuScope _scope;
   @override
   final OceanSeaState state;

@@ -56,8 +56,13 @@ fn waterControl(index:u32)->vec4<f32>{
   let width=u32(water.environment.z);
   return textureLoad(waterControls,vec2<i32>(i32(index%width),i32(index/width)),0);
 }
+fn waveWidth(chart:u32)->u32 {
+  switch chart { case 0u:{return textureDimensions(chart0).x;} case 1u:{return textureDimensions(chart1).x;}
+    case 2u:{return textureDimensions(chart2).x;} case 3u:{return textureDimensions(chart3).x;}
+    case 4u:{return textureDimensions(chart4).x;} default:{return textureDimensions(chart5).x;} }
+}
 fn waveRead(chart:u32,index:u32)->vec4<f32> {
-  let width=u32(water.grid.x)*4u;let pixel=vec2<i32>(i32(index%width),i32(index/width));
+  let width=waveWidth(chart);let pixel=vec2<i32>(i32(index%width),i32(index/width));
   switch chart { case 0u:{return textureLoad(chart0,pixel,0);} case 1u:{return textureLoad(chart1,pixel,0);}
     case 2u:{return textureLoad(chart2,pixel,0);} case 3u:{return textureLoad(chart3,pixel,0);}
     case 4u:{return textureLoad(chart4,pixel,0);} default:{return textureLoad(chart5,pixel,0);} }
@@ -75,37 +80,47 @@ struct WaveValue { displacement:vec4<f32>, derivatives:vec4<f32>, moments:vec4<f
 fn mixWave(a:WaveValue,b:WaveValue,t:f32)->WaveValue {
   return WaveValue(mix(a.displacement,b.displacement,t),mix(a.derivatives,b.derivatives,t),mix(a.moments,b.moments,t));
 }
-fn waveLevel(chart:u32,band:u32,uv:vec2<f32>,level:u32)->WaveValue {
-  var width=u32(water.grid.x); var offset=band*u32(water.grid.w);
+fn waveLevel(chart:u32,band:u32,uv:vec2<f32>,level:u32,grid:vec4<f32>,base:u32)->WaveValue {
+  var width=u32(grid.x); var offset=band*u32(grid.w);
   for(var l=0u;l<level;l++){offset+=width*width; width/=2u;}
   let step=f32(1u<<level);
   // The average of a box lies at its center, not at its first source texel.
-  let p=(uv*water.grid.x-vec2(.5*(step-1.)))/step;
+  let p=(uv*grid.x-vec2(.5*(step-1.)))/step;
   let cell=vec2<i32>(floor(p)); let f=fract(p);
   var d=vec4(0.);var g=vec4(0.);var m=vec4(0.);
   for(var y=0i;y<2i;y++){ for(var x=0i;x<2i;x++){
     let q=((cell+vec2(x,y))%i32(width)+vec2<i32>(i32(width)))%i32(width);
-    let at=3u*(offset+u32(q.y)*width+u32(q.x));
+    let at=base+3u*(offset+u32(q.y)*width+u32(q.x));
     let w=select(1.-f.x,f.x,x==1i)*select(1.-f.y,f.y,y==1i);
     d+=w*waveRead(chart,at);g+=w*waveRead(chart,at+1u);m+=w*waveRead(chart,at+2u);
   }}
   return WaveValue(d,g,m);
 }
-fn chartWave(chart:u32,p:vec3<f32>,footprint:f32)->WaveValue {
+fn chartWaveLayout(chart:u32,p:vec3<f32>,footprint:f32,grid:vec4<f32>,base:u32,varianceBase:u32)->WaveValue {
   var value=WaveValue(vec4(0.),vec4(0.),vec4(0.));
   if(!chartActive(chart)){return value;}
   let local=vec2(dot(p,CHART_U[chart]),dot(p,CHART_V[chart]));
-  for(var band=0u;band<u32(water.grid.z);band++){
+  for(var band=0u;band<u32(grid.z);band++){
     let phase=water.phases[chart*8u+band];
     let uv=fract((local+phase.xy)/phase.z);
-    let lod=clamp(log2(max(1.,footprint*water.grid.x/phase.z)),0.,water.grid.y-1.);
-    let low=u32(floor(lod)); let high=min(low+1u,u32(water.grid.y)-1u);
-    let v=mixWave(waveLevel(chart,band,uv,low),waveLevel(chart,band,uv,high),fract(lod));
+    let lod=clamp(log2(max(1.,footprint*grid.x/phase.z)),0.,grid.y-1.);
+    let low=u32(floor(lod)); let high=min(low+1u,u32(grid.y)-1u);
+    let v=mixWave(waveLevel(chart,band,uv,low,grid,base),waveLevel(chart,band,uv,high,grid,base),fract(lod));
     value.displacement+=v.displacement;value.derivatives+=v.derivatives;
     value.moments.x+=v.moments.x;
-    value.moments.y+=max(0.,v.moments.y-dot(v.derivatives.xy,v.derivatives.xy))+phase.w;
+    var variance=phase.w;
+    if(varianceBase>0u){variance=waveRead(chart,varianceBase+band/4u)[band%4u];}
+    value.moments.y+=max(0.,v.moments.y-dot(v.derivatives.xy,v.derivatives.xy))+variance;
   }
   return value;
+}
+fn chartWave(chart:u32,p:vec3<f32>,footprint:f32)->WaveValue {
+  if(!chartActive(chart)){return WaveValue(vec4(0.),vec4(0.),vec4(0.));}
+  if(water.grid.w>=0.){return chartWaveLayout(chart,p,footprint,water.grid,0u,0u);}
+  let a=waveRead(chart,0u);let b=waveRead(chart,1u);let blend=waveRead(chart,2u);
+  let first=chartWaveLayout(chart,p,footprint,a,u32(blend.y),3u);
+  let second=chartWaveLayout(chart,p,footprint,b,u32(blend.z),5u);
+  return mixWave(first,second,blend.x);
 }
 fn waterVertexOffset(index:u32,base:vec3<f32>,fraction:f32)->vec3<f32>{
   if(water.environment.w<.5){return waterSurface(base,water.surface.x).offset;}
