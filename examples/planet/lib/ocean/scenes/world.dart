@@ -38,6 +38,7 @@ final class OceanLabWorld {
   OceanWaterDebug debug;
   bool paused = false, route = false;
   OceanSample? lastQuery;
+  OceanInteractionAdmission? lastWakeAdmission;
   Object? simulationFailure;
   OceanLabWorld(
     this.definition,
@@ -380,28 +381,30 @@ final class _LabClock extends ScenePlugin {
             final velocity = lab.host.worldFrame.vectorToEcef(state.velocity);
             final energy = (state.velocity.length * .02).clamp(0.0, .2);
             if (energy > .0001) {
-              field.enqueue(
+              final admission = lab.lastWakeAdmission = field.enqueue(
                 OceanInteraction(
                   id: OceanInteractionId('hull', instant.tick),
                   time: instant,
                   ecefPosition: position,
                   relativeVelocity: velocity,
-                  radiusMetres: 1.4,
+                  radiusMetres: math.max(1.4, field.settings.cellMetres * 2),
                   energy: energy,
                 ),
               );
-              events.add(
-                OceanSprayEvent(
-                  source: 'hull',
-                  sequence: instant.tick,
-                  tick: instant.tick,
-                  generation: instant.generation,
-                  position: position,
-                  velocity: velocity,
-                  surfaceNormal: field.up,
-                  energy: energy,
-                ),
-              );
+              if (admission == OceanInteractionAdmission.accepted) {
+                events.add(
+                  OceanSprayEvent(
+                    source: 'hull',
+                    sequence: instant.tick,
+                    tick: instant.tick,
+                    generation: instant.generation,
+                    position: position,
+                    velocity: velocity,
+                    surfaceNormal: field.up,
+                    energy: energy,
+                  ),
+                );
+              }
             }
           }
         }

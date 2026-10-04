@@ -7,6 +7,7 @@ import 'package:planet/ocean/ocean_page.dart';
 import 'package:planet/main.dart';
 import 'package:planet/scene_launcher.dart';
 import 'package:zyren_geospatial/zyren_geospatial.dart';
+import 'package:zyren_geospatial_ocean/zyren_geospatial_ocean.dart';
 import 'ocean_profile.dart';
 
 void main() {
@@ -157,6 +158,12 @@ void main() {
         }[name]!;
         final next = await ready(id);
         expect(next.world!.simulationFailure, isNull);
+        if (id == 'vessel') {
+          expect(
+            next.world!.lastWakeAdmission,
+            OceanInteractionAdmission.accepted,
+          );
+        }
       }
       await tester.tap(find.byTooltip('All scenes'));
       final closingDeadline = DateTime.now().add(const Duration(seconds: 15));

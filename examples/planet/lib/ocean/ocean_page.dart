@@ -199,6 +199,9 @@ class OceanLabPageState extends State<OceanLabPage> {
     final effective = lab?.presentation?.effectiveQuality;
     final stats = _stats;
     final view = lab?.presentation?.view;
+    final wake = lab?.lastWakeAdmission;
+    final wakeRejected =
+        wake != null && wake != OceanInteractionAdmission.accepted;
     final status = error != null
         ? 'Action failed: $error'
         : effective == null || view == null
@@ -206,7 +209,12 @@ class OceanLabPageState extends State<OceanLabPage> {
         : 'Tick ${lab!.host.clock.tick} · FFT ${effective.fftResolution} · '
               '${view.patchCount} patches · '
               '${((lab.presentation!.controller!.estimatedBytes) / 1048576).toStringAsFixed(1)} MiB planned'
-              '${stats == null ? '' : ' · ${stats.physicalSize.width}×${stats.physicalSize.height}'}';
+              '${stats == null ? '' : ' · ${stats.physicalSize.width}×${stats.physicalSize.height}'}'
+              '${wake == null
+                  ? ''
+                  : wakeRejected
+                  ? ' · Wake unavailable (${wake.name})'
+                  : ' · Wake active'}';
     return OceanLabShell(
       scenes: _scenes,
       sceneId: _sceneId,
@@ -221,7 +229,7 @@ class OceanLabPageState extends State<OceanLabPage> {
             layer.id: layer.visible,
       },
       status: status,
-      hasFailure: error != null,
+      hasFailure: error != null || wakeRejected,
       evidence: lab?.definition.hasCoast == true
           ? lab!.coast.attribution
           : 'Procedural all-water world · Custom detail profiles · Visual review pending',
