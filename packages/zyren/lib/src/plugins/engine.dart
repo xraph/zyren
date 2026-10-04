@@ -26,6 +26,7 @@ part 'plugin_updates.dart';
 part 'texture_history.dart';
 part 'environment_binding.dart';
 part 'temporal_binding.dart';
+part 'capture_view.dart';
 
 /// Share one exported key instance between a provider and its dependents.
 class ServiceKey<T extends Object> {
@@ -207,6 +208,26 @@ class PluginContext {
     final binding = _claimFrameGraph();
     scope.keep(Registration(binding._close));
     return _frameGraph = binding;
+  }
+
+  /// Creates a GPU capture on this attachment's device. Early close retires the
+  /// lease immediately; attachment cleanup also closes any remaining lease.
+  Future<SceneCaptureView> createCaptureView() async {
+    _checkAttached();
+    final backend = _backend;
+    if (backend is! CaptureBackend) {
+      throw UnsupportedError('This backend has no GPU scene capture.');
+    }
+    final view = await backend.createCaptureView();
+    try {
+      _checkAttached();
+      final owned = _PluginCaptureView(view);
+      owned.registration = scope.onClose(owned.close);
+      return owned;
+    } catch (_) {
+      await view.close();
+      rethrow;
+    }
   }
 
   /// Creates an independent capture lease owned by this plugin attachment.
