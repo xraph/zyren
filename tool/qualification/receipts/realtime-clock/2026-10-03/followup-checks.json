@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "status": "focused-checks-passed",
+  "commits": [
+    "016bec24",
+    "fa325b55"
+  ],
+  "checks": 44,
+  "suites": [
+    {
+      "suite": "native-frame-recorder",
+      "passed": 10,
+      "log": "native-frame-recorder.log.gz",
+      "sha256": "d2be74c29b8d740c71144d6734cbb41ab28940db848a3aa125614ba6fc08e179",
+      "rawSha256": "9abccbdd86012ca15d29afde804193fac8deff755ac5b4a45ced114a3659a462",
+      "rawBytes": 922
+    },
+    {
+      "suite": "native-frame-verifier",
+      "passed": 12,
+      "log": "native-frame-verifier.log.gz",
+      "sha256": "4eada4ddfc4b7820327566913f5c35a465d2492656e27fb52caabf958b444bd6",
+      "rawSha256": "bad4e040b5419e6c3ec50b98fbb41c83930e041fb4f936c7fd744777344e8a9f",
+      "rawBytes": 111
+    },
+    {
+      "suite": "body-state-cache",
+      "passed": 22,
+      "log": "body-state-cache.log.gz",
+      "sha256": "9b2a01a0b7b6235b3b243cb92874d7439fae18388f60d69b7c5283c67b0b73c1",
+      "rawSha256": "fb96c0d171d009968c0216ffc68bb601f8ddcff369cea03eecd7b63f0dcfa0d5",
+      "rawBytes": 2558
+    }
+  ],
+  "review": "Independent source review clear for each slice. Scoped Dart analysis clean.",
+  "limits": [
+    "These counts overlap earlier regression coverage; they are not a unique test total.",
+    "Other changes to physics mass properties began after the cache suite was compiled and are excluded from this cache commit. Current combined source needs a later integrated run.",
+    "No performance qualification follows from these focused checks."
+  ]
+}
