@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "status": "focused-checks-passed",
+  "checks": 56,
+  "logs": [
+    {
+      "name": "physics",
+      "file": "physics.log.gz",
+      "passed": 19,
+      "sha256": "03be044abed2dbee2673a114fe67c57f1bf3c68d4801bad2c73170ca957621fc",
+      "rawSha256": "0d9dabd147347527157ee77b1ea6366e28d64e1b946eb61be88bbda97094f229",
+      "rawBytes": 2107
+    },
+    {
+      "name": "game",
+      "file": "game.log.gz",
+      "passed": 37,
+      "sha256": "d9644548f4eaaef01a276752580f6ce67c9289fed9b0a8cade9d9149187a1aa5",
+      "rawSha256": "51ba71b106a883dff07e81b551430a0118d27b1b593439e820a46b983829bd79",
+      "rawBytes": 4787
+    },
+    {
+      "name": "analysis",
+      "file": "analysis.log.gz",
+      "passed": null,
+      "sha256": "eaf5696abc57ec3869f602a881ff20f1d46917de32ee563710cc038ebe670628",
+      "rawSha256": "b89d58c86853d1b0d4be187068cb72a6ed3e77812308ae2a5d7d8a4e0de65a8d",
+      "rawBytes": 60
+    }
+  ],
+  "baseHead": "cab0808bc46519f57075b16ca929269ab84d80f4",
+  "sourcePinsCapturedAfterChecks": {
+    "packages/zyren_physics/lib/src/plugin.dart": "83621f06c8b3d271c5c78bde9266cac7933ba28bd6a8a9f7f11d1df8b077f0e2",
+    "packages/zyren_physics/test/plugin_test.dart": "2bfd9fb796963b641619a9cbb73fa18fac490aa65747da0fb4744ff423d668be"
+  },
+  "review": "Independent source review passed. Both scoped Dart paths passed analysis.",
+  "commands": [
+    "cd packages/zyren_physics && fvm dart test --concurrency=1 test/plugin_test.dart test/character_controller_test.dart test/state_snapshot_test.dart",
+    "cd packages/zyren_game_native && fvm dart test --concurrency=1 test/driver_test.dart test/character_test.dart test/actor_control_test.dart test/actor_contacts_test.dart test/vehicle_test.dart test/save_test.dart test/realtime_driver_test.dart"
+  ],
+  "limits": [
+    "These regressions exercise actual native physics, with test renderers where scene attachment is needed. They do not establish physical presentation or sustained capacity.",
+    "The shared checkout was not frozen. Counts include existing regression tests."
+  ]
+}

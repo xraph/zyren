@@ -37,6 +37,77 @@ class _Writer extends ScenePlugin {
 }
 
 void main() {
+  test('closed direct world rejects before invoking a step callback', () {
+    final world = PhysicsWorld();
+    var callbacks = 0;
+    final plugin = PhysicsPlugin(
+      world: world,
+      interpolate: false,
+      beforeStep: (_) => callbacks++,
+    );
+    world.close();
+    expect(() => plugin.advance(world.fixedStep), throwsStateError);
+    expect(callbacks, 0);
+  });
+
+  test(
+    'direct presentation follows fractional teleports and before-step writes',
+    () {
+      final world = PhysicsWorld(gravity: Vec3.zero, fixedStep: .02);
+      final scene = Scene(), object = Group();
+      scene.add(object);
+      final body = world.createBody(velocity: const Vec3(1, 0, 0));
+      body.addCollider(const SphereShape(.1));
+      var teleportBeforeStep = false, steps = 0;
+      final plugin = PhysicsPlugin(
+        world: world,
+        externallyDriven: true,
+        interpolate: false,
+        beforeStep: (_) {
+          steps++;
+          if (teleportBeforeStep) {
+            teleportBeforeStep = false;
+            body.teleport(
+              PhysicsPose(position: const Vec3(10, 0, 0)),
+              resetVelocity: false,
+            );
+          }
+        },
+      );
+      plugin.bind(object, body);
+      try {
+        body.teleport(
+          PhysicsPose(position: const Vec3(5, 0, 0)),
+          resetVelocity: false,
+        );
+        plugin.advance(0);
+        expect(object.position, const Vec3(5, 0, 0));
+        plugin.advance(.01);
+        expect(object.position, const Vec3(5, 0, 0));
+        expect(steps, 0);
+        plugin.advance(.01);
+        expect(steps, 1);
+        expect(object.position.x, closeTo(5.02, 1e-5));
+        expect(object.position, body.state.pose.position);
+        teleportBeforeStep = true;
+        plugin.advance(.02);
+        expect(object.position.x, closeTo(10.02, 1e-5));
+        plugin.advance(.04);
+        expect(steps, 4);
+        expect(object.position.x, closeTo(10.06, 1e-5));
+        expect(object.position, body.state.pose.position);
+        body.teleport(PhysicsPose(position: const Vec3(12, 1, 0)));
+        plugin.advance(.001);
+        expect(steps, 4);
+        expect(object.position, const Vec3(12, 1, 0));
+        expect(plugin.droppedSeconds, 0);
+      } finally {
+        plugin.clearBindings();
+        world.close();
+      }
+    },
+  );
+
   test(
     'external driver advances once per game tick at every render cadence',
     () async {

@@ -165,18 +165,26 @@ final class PhysicsPlugin extends ScenePlugin {
       }
     }
     if (paused) return;
-    final states = {for (final state in world.states) state.id: state.pose};
-    for (final entry in states.entries) {
-      final current = _current[entry.key];
-      if (current == null ||
-          current.position != entry.value.position ||
-          current.rotation != entry.value.rotation) {
-        _previous[entry.key] = entry.value;
-        _current[entry.key] = entry.value;
+    if (world.isClosed) throw StateError('Physics world is closed.');
+    final admittedSeconds = math.min(seconds, maxFrameDelta);
+    // A full step returns the poses needed for direct presentation. Fractional
+    // updates still read current poses so external teleports appear immediately.
+    // Interpolation also needs the pre-step poses to reset discontinuities.
+    if (interpolate ||
+        _accumulator + admittedSeconds + 1e-12 < world.fixedStep) {
+      final states = {for (final state in world.states) state.id: state.pose};
+      for (final entry in states.entries) {
+        final current = _current[entry.key];
+        if (current == null ||
+            current.position != entry.value.position ||
+            current.rotation != entry.value.rotation) {
+          _previous[entry.key] = entry.value;
+          _current[entry.key] = entry.value;
+        }
       }
     }
     droppedSeconds += math.max(0, seconds - maxFrameDelta);
-    _accumulator += math.min(seconds, maxFrameDelta);
+    _accumulator += admittedSeconds;
     final events = <PhysicsEvent>[];
     var steps = 0;
     while (_accumulator + 1e-12 >= world.fixedStep && steps < maxCatchUpSteps) {
