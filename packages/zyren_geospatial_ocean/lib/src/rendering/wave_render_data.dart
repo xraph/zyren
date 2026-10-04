@@ -17,15 +17,17 @@ OceanSeaState oceanChartSeaState(OceanSeaState state, int chart) =>
     );
 
 /// An immutable native copy of one evaluated time, with periodic box-filtered
-/// levels. Each texel contains three vec4s: displacement/Jacobian, derivatives,
+/// levels. Each logical cell spans three RGBA32F texels: displacement/Jacobian, derivatives,
 /// and (cross derivative, mean squared height slope, 0, 0). Velocity remains in
-/// the independent simulation/query fields. No production readback is required.
+/// the independent simulation/query fields. Linear indexing fits the complete mip
+/// chain into a 4N by N*bands atlas without six storage-buffer bindings. Temporary
+/// compute buffers retire before publication. No production readback is required.
 final class OceanWaveRenderData {
   final GpuScope _scope;
   final OceanSeaState state;
   final int resolution, levels, texelsPerBand, logicalPayloadBytes;
   final double seconds;
-  final Map<int, GpuResource<Buffer>> buffers;
+  final Map<int, GpuResource<Texture>> textures;
   final Map<int, List<double>> unresolvedSlopeVariance;
   bool get isClosed => _scope.isClosed;
   OceanWaveRenderData._(
@@ -33,10 +35,10 @@ final class OceanWaveRenderData {
     this.state,
     this.resolution,
     this.seconds,
-    Map<int, GpuResource<Buffer>> buffers,
+    Map<int, GpuResource<Texture>> textures,
     Map<int, List<double>> variance,
     this.logicalPayloadBytes,
-  ) : buffers = Map.unmodifiable(buffers),
+  ) : textures = Map.unmodifiable(textures),
       unresolvedSlopeVariance = Map.unmodifiable(variance),
       levels = resolution.bitLength,
       texelsPerBand = mipTexels(resolution);
@@ -54,7 +56,8 @@ final class OceanWaveRenderData {
     if (bands < 1 || bands > 8 || charts < 1 || charts > 6) {
       throw ArgumentError('Invalid visual chart or band count.');
     }
-    return mipTexels(resolution) * bands * charts * 48;
+    mipTexels(resolution);
+    return resolution * resolution * bands * charts * 64;
   }
 
   /// Caller-provided charts must belong to [state], share one time/resolution,
@@ -80,12 +83,14 @@ final class OceanWaveRenderData {
     final bytes = estimateBytes(size, state.bands.length, input.length);
     final perChart = bytes ~/ input.length;
     // One temporary 16-byte dispatch config per mip and band is also admitted.
-    final transient = size.bitLength * state.bands.length * 16;
+    final temporaryBufferBytes = mipTexels(size) * state.bands.length * 48;
+    final transient =
+        temporaryBufferBytes + (size.bitLength * state.bands.length + 1) * 16;
     if (bytes + transient + retainedBytes > maxLogicalBytes ||
         perChart > 64 * 1024 * 1024) {
       throw const ResourceException(
         ResourceErrorCode.budgetExceeded,
-        'Packed visual waves exceed the total or per-buffer allowance.',
+        'Packed visual waves exceed the total or per-texture allowance.',
       );
     }
     void check() {
@@ -108,24 +113,37 @@ final class OceanWaveRenderData {
 
     check();
     final scope = parent.createChild(label: 'ocean-visual-waves');
-    final buffers = <int, GpuResource<Buffer>>{};
+    final textures = <int, GpuResource<Texture>>{};
     try {
       final compiler = scope.createChild(label: 'ocean-visual-pack-work');
       try {
         final copy = await compiler.shaders.compile(ShaderSource.wgsl(_copy));
         final mip = await compiler.shaders.compile(ShaderSource.wgsl(_mip));
+        final store = await compiler.shaders.compile(ShaderSource.wgsl(_store));
         for (final entry in input.entries) {
           check();
-          final output = await scope.resources.createBuffer(
-            BufferDescriptor(
+          final atlas = await scope.resources.createTexture(
+            TextureDescriptor(
               label: 'ocean-visual-chart-${entry.key}',
-              size: perChart,
-              usage: {BufferUsage.storage, BufferUsage.copySource},
+              width: size * 4,
+              height: size * state.bands.length,
+              format: TextureFormat.rgba32Float,
+              usage: {
+                TextureUsage.storage,
+                TextureUsage.sampled,
+                TextureUsage.copySource,
+              },
             ),
           );
-          buffers[entry.key] = output;
+          textures[entry.key] = atlas;
           final work = compiler.createChild(label: 'ocean-pack-chart');
           try {
+            final output = await work.resources.createBuffer(
+              BufferDescriptor(
+                size: temporaryBufferBytes,
+                usage: {BufferUsage.storage},
+              ),
+            );
             final passes = <PassDescriptor>[];
             final inputs = <GpuResource<Object?>>{output};
             Future<GpuResource<Buffer>> config(
@@ -200,6 +218,28 @@ final class OceanWaveRenderData {
                 n = target;
               }
             }
+            final storeSettings = await config(
+              size * 4,
+              temporaryBufferBytes ~/ 16,
+              size * state.bands.length,
+            );
+            passes.add(
+              ComputePassDescriptor(
+                name: 'store-packed-texture',
+                program: store,
+                workgroups: Workgroups(
+                  (size * 4 + 7) ~/ 8,
+                  (size * state.bands.length + 7) ~/ 8,
+                ),
+                reads: [storeSettings, output],
+                writes: [atlas],
+                bindings: ShaderBindings([
+                  BufferBinding.uniform(0, storeSettings),
+                  BufferBinding.storageRead(1, output),
+                  TextureBinding.storage(2, atlas),
+                ]),
+              ),
+            );
             final graph = await work.graphs.compile(
               GraphDescription(
                 label: 'ocean-visual-pack',
@@ -217,12 +257,21 @@ final class OceanWaveRenderData {
         await compiler.close();
       }
       check();
-      return OceanWaveRenderData._(scope, state, size, first.seconds, buffers, {
-        for (final entry in input.entries)
-          entry.key: List.unmodifiable([
-            for (final band in entry.value.bands) band.unresolvedSlopeVariance,
-          ]),
-      }, bytes);
+      return OceanWaveRenderData._(
+        scope,
+        state,
+        size,
+        first.seconds,
+        textures,
+        {
+          for (final entry in input.entries)
+            entry.key: List.unmodifiable([
+              for (final band in entry.value.bands)
+                band.unresolvedSlopeVariance,
+            ]),
+        },
+        bytes,
+      );
     } catch (_) {
       await scope.close();
       rethrow;
@@ -237,21 +286,17 @@ final class OceanWaveRenderData {
   }) async {
     RangeError.checkValidIndex(band, state.bands);
     RangeError.checkValueInInterval(level, 0, levels - 1);
-    final buffer = buffers[chart];
-    if (buffer == null) throw ArgumentError('Chart is not resident.');
+    final texture = textures[chart];
+    if (texture == null) throw ArgumentError('Chart is not resident.');
     var offset = band * texelsPerBand, n = resolution;
     for (var i = 0; i < level; i++) {
       offset += n * n;
       n ~/= 2;
     }
-    final bytes = await _scope.resources.readBuffer(
-      buffer,
-      offset: offset * 48,
-      length: n * n * 48,
-    );
+    final bytes = await _scope.resources.readTexture(texture);
     final view = ByteData.sublistView(bytes);
     return Float32List.fromList([
-      for (var i = 0; i < bytes.length; i += 4)
+      for (var i = offset * 48; i < (offset + n * n) * 48; i += 4)
         view.getFloat32(i, Endian.little),
     ]);
   }
@@ -284,5 +329,17 @@ const _mip = '''
     output[dest+c]=.25*(output[sourceBase+c]+output[sourceBase+3u+c]+
       output[sourceBase+3u*config.x+c]+output[sourceBase+3u*config.x+3u+c]);
   }
+}
+''';
+
+const _store = ''' 
+@group(0) @binding(0) var<uniform> config:vec4<u32>;
+@group(0) @binding(1) var<storage,read> source:array<vec4<f32>>;
+@group(0) @binding(2) var atlas:texture_storage_2d<rgba32float,write>;
+@compute @workgroup_size(8,8) fn main(@builtin(global_invocation_id) id:vec3<u32>) {
+  if(id.x>=config.x || id.y>=config.z){return;}
+  let at=id.y*config.x+id.x;var value=vec4(0.);
+  if(at<config.y){value=source[at];}
+  textureStore(atlas,vec2<i32>(id.xy),value);
 }
 ''';

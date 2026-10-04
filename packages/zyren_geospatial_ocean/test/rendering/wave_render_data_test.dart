@@ -23,7 +23,7 @@ void main() {
         );
         expect(packed.resolution, 8);
         expect(packed.levels, 4);
-        expect(packed.logicalPayloadBytes, 85 * 48);
+        expect(packed.logicalPayloadBytes, 8 * 8 * 64);
         final full = await packed.debugRead(0);
         for (var i = 0; i < 64; i++) {
           for (var c = 0; c < 4; c++) {
