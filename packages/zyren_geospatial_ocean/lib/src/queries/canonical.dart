@@ -87,20 +87,17 @@ final class OceanCanonicalField {
               k = math.sqrt(kx * kx + kz * kz);
           if (k == 0) continue;
           final ax = b.choppiness * kx / k, az = b.choppiness * kz / k;
-          values.setRange(used, used + 12, [
-            hr,
-            hi,
-            vr,
-            vi,
-            kx,
-            kz,
-            ax,
-            az,
-            nx.toDouble(),
-            nz.toDouble(),
-            band.toDouble(),
-            0,
-          ]);
+          values[used] = hr;
+          values[used + 1] = hi;
+          values[used + 2] = vr;
+          values[used + 3] = vi;
+          values[used + 4] = kx;
+          values[used + 5] = kz;
+          values[used + 6] = ax;
+          values[used + 7] = az;
+          values[used + 8] = nx.toDouble();
+          values[used + 9] = nz.toDouble();
+          values[used + 10] = band.toDouble();
           used += 12;
           final amplitude = math.sqrt(hr * hr + hi * hi),
               choppy = b.choppiness * amplitude;
