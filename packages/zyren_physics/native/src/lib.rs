@@ -173,6 +173,8 @@ fn contains_mesh(v: &Value) -> bool {
             .as_array()
             .is_some_and(|a| a.iter().any(|c| contains_mesh(&c["shape"])))
 }
+type TransientForceContributions = BTreeMap<u64, (RigidBodyHandle, Vector, Vector, bool)>;
+
 #[derive(Serialize, Deserialize)]
 struct World {
     physics: PhysicsWorld,
@@ -187,7 +189,7 @@ struct World {
     #[serde(skip)]
     mass_revision: u64,
     #[serde(skip)]
-    transient_forces: BTreeMap<u64, BTreeMap<u64, (RigidBodyHandle, Vector, Vector, bool)>>,
+    transient_forces: BTreeMap<u64, TransientForceContributions>,
     #[serde(skip)]
     next_force_batch: u64,
     #[cfg(test)]
@@ -261,7 +263,9 @@ impl World {
         {
             return Err("integrate or cancel transient forces before changing body state".into());
         }
-        if mutates {
+        // Target admission first resolves against the current collision cache.
+        // It still obeys mutation admission and dirties queries after the call.
+        if mutates && op != "characterMoveTarget" {
             self.queries_dirty = true;
         }
         let changes_mass = matches!(
@@ -642,7 +646,8 @@ impl World {
                 Ok(Value::Null)
             }
             "query" => self.query(v),
-            "characterMove" => self.character_move(v),
+            "characterMove" => self.character_move(v, false),
+            "characterMoveTarget" => self.character_move(v, true),
             "debug" => {
                 let mut lines = Lines(Vec::new(), false);
                 p.debug_render(
@@ -1025,12 +1030,22 @@ impl World {
         self.joints.insert(n, h);
         Ok(json!(n))
     }
-    fn character_move(&mut self, v: &Value) -> Result<Value> {
+    fn character_move(&mut self, v: &Value, submit_target: bool) -> Result<Value> {
         self.update_collisions(false)?;
         let body = self.body(v, "body")?;
         if !self.physics.bodies[body].is_kinematic() {
             return Err("character body must be kinematic".into());
         }
+        if submit_target
+            && self.physics.bodies[body].body_type() != RigidBodyType::KinematicPositionBased
+        {
+            return Err("target requires position kinematic body".into());
+        }
+        let rotation = if submit_target && v.get("rotation").is_some() {
+            Some(pose(v)?.rotation)
+        } else {
+            None
+        };
         let handle = *self
             .colliders
             .get(&id(v, "collider")?)
@@ -1124,8 +1139,38 @@ impl World {
         if overflow {
             return Err("character collision budget exceeded".into());
         }
+        let translation = position.translation - collider.position().translation;
+        if submit_target {
+            let current = *self.physics.bodies[body].position();
+            // Preserve the explicit Dart target's f64 addition and decimal
+            // admission. Direct f32 addition can round a midpoint differently
+            // from the existing JSON parser and change later contact normals.
+            let values = json!({"position": [
+                f64::from(current.translation.x) + f64::from(translation.x),
+                f64::from(current.translation.y) + f64::from(translation.y),
+                f64::from(current.translation.z) + f64::from(translation.z),
+            ]});
+            let values: Value =
+                serde_json::from_str(&values.to_string()).map_err(|error| error.to_string())?;
+            let target_position = vector(&values, "position", Vector::ZERO)?;
+            let orientation = rotation.unwrap_or_else(|| {
+                // Match PhysicsPose's double-precision normalization followed
+                // by the native target parser. Skipping this round trip changes
+                // offset-capsule contacts after repeated orientation updates.
+                let mut q = current.rotation.to_array().map(f64::from);
+                let length_squared = q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3];
+                if (length_squared - 1.0).abs() > 1e-15 {
+                    let scale = 1.0 / length_squared.sqrt();
+                    q.iter_mut().for_each(|value| *value *= scale);
+                }
+                Rotation::from_array(q.map(|value| value as f32)).normalize()
+            });
+            let target = Pose::from_parts(target_position, orientation);
+            self.physics.bodies[body].set_next_kinematic_position(target);
+            self.queries_dirty = true;
+        }
         Ok(
-            json!({"translation":(position.translation - collider.position().translation).to_array(), "grounded":grounded,
+            json!({"translation":translation.to_array(), "grounded":grounded,
             "sliding":sliding, "collisions":hits}),
         )
     }

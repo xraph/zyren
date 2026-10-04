@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 1,
+  "status": "focused-checks-passed",
+  "checks": 52,
+  "logs": [
+    {
+      "name": "physics",
+      "file": "physics.log.gz",
+      "passed": 21,
+      "status": "passed",
+      "sha256": "974fb699c9262984bf5142fa54415fc2422f140ee72c3d87d697448e35693739",
+      "rawSha256": "8d94231bc34fbfc098dec5f4a22b93fd57fbb72ea4cdeb422e446bf7c544e882",
+      "rawBytes": 2508
+    },
+    {
+      "name": "game",
+      "file": "game.log.gz",
+      "passed": 23,
+      "status": "passed",
+      "sha256": "16f4d6b3be4242417a67e6497fdf7f6a11f6c196ace52b9758e9122727f285ad",
+      "rawSha256": "a323e05b3912279c53c35f014d85145c009b86d938b5d114c6df0e17715fa508",
+      "rawBytes": 2844
+    },
+    {
+      "name": "rust",
+      "file": "rust.log.gz",
+      "passed": 8,
+      "status": "passed",
+      "sha256": "a21a1e4dd9b88d6d98c8fca80f33044b070bc37ce1565a073e8699044763afc5",
+      "rawSha256": "1814d4c972d62eb10f0904e31eb7608fcf1e93525b707405d9f282e44fc6f4d8",
+      "rawBytes": 1194
+    },
+    {
+      "name": "analysis",
+      "file": "analysis.log.gz",
+      "passed": null,
+      "status": "passed",
+      "sha256": "0c0a0b02a77989312301255ceb69596ca8f408cc9a710227f8693cf75c38c9de",
+      "rawSha256": "610273edba59b51a1de0ba706e14e8eaecb4f441a4d31a225d8bb4b92a45d88c",
+      "rawBytes": 118
+    },
+    {
+      "name": "clippy",
+      "file": "clippy.log.gz",
+      "passed": null,
+      "status": "passed",
+      "sha256": "de7b639f549da56f57fc56f15834142ae8bcc037f50d23f51736d00485093097",
+      "rawSha256": "a5c6e5a3c57a6a4860d0cc11fb0ac01f6711d769e5249a98e65c709b0f938572",
+      "rawBytes": 187
+    },
+    {
+      "name": "fixture-failure",
+      "file": "fixture-failure.log.gz",
+      "passed": null,
+      "status": "failed-before-repair",
+      "sha256": "d224ad8eec6147dff6884b003f2dcb6859522f5a6189339d8a3fcca8c0063dc0",
+      "rawSha256": "06d4fe0cdfe758093357777a7d801b4d22f91f4dc83ed86c63ce7ef04c84ec66",
+      "rawBytes": 2118
+    },
+    {
+      "name": "rotation-failure",
+      "file": "rotation-failure.log.gz",
+      "passed": null,
+      "status": "failed-before-repair",
+      "sha256": "135307c92c766176ea9f5037d7a1993bc76c7087449ad1218c8891c8f682e3c9",
+      "rawSha256": "f0585d1d86be82d5ab754acf86c7e41e5c7ae44caf61195357562c906b9751b8",
+      "rawBytes": 2773
+    },
+    {
+      "name": "midpoint-failure",
+      "file": "midpoint-failure.log.gz",
+      "passed": null,
+      "status": "failed-before-repair",
+      "sha256": "27732a5a7f8024c019c847956909018c13906a79ba1f235662a85b898829d09e",
+      "rawSha256": "50c2bedfc9b511e14e4a1c748fd93c659c74f7306d8749295c60442e31367ba7",
+      "rawBytes": 1668
+    },
+    {
+      "name": "clippy-failure",
+      "file": "clippy-failure.log.gz",
+      "passed": null,
+      "status": "failed-before-repair",
+      "sha256": "506ac603081e8da62b937bbf683fab35f9316bc1423d32bcf50ca4bb526de475",
+      "rawSha256": "0a9531084b9ee2a4d0f3e6c8dc1e9a0a718242320897e6abb8fac895ea994c7f",
+      "rawBytes": 901
+    }
+  ],
+  "sourcePinsCapturedAfterChecks": {
+    "packages/zyren_physics/lib/src/character_controller.dart": "0dd12c63cfc3f5a8f89dfd8601a2a3f2a5ecb296371b62f12f5bcd617b56638a",
+    "packages/zyren_physics/native/src/lib.rs": "6501ffaca8a1719bc3a51e8749766754341ba833b180d3da7b8f7d7cfe7e3ef0",
+    "packages/zyren_physics/test/character_target_test.dart": "59c355dfff0b16c8f710ffa189d867c29785c097221854f5d27026a674c676bb",
+    "packages/zyren_characters/lib/physics.dart": "67924fa5a898f80867f51a5704b4cc5ebe805b17b83d3ecf78243cc50cecdc14",
+    "packages/zyren_game_native/lib/src/runtime/level_runtime.dart": "0fbafac9445e7b5e7fdd4e76f8777d8cc605a97ff532a10bb6ee9c4195fa73da"
+  },
+  "baseHead": "60f05009f52355fc90d0c5f5845af3c49f9e3835",
+  "review": "Independent source review passed. Four scoped Dart files and strict Rust clippy passed.",
+  "commands": [
+    "cd packages/zyren_physics && fvm dart test --concurrency=1 test/character_target_test.dart test/character_controller_test.dart test/state_snapshot_test.dart test/ray_batch_test.dart test/transient_forces_test.dart",
+    "cd packages/zyren_game_native && fvm dart test --concurrency=1 test/character_test.dart test/actor_control_test.dart test/actor_contacts_test.dart test/runtime_test.dart test/respawn_test.dart test/save_test.dart",
+    "cargo test --manifest-path packages/zyren_physics/native/Cargo.toml",
+    "cargo clippy --manifest-path packages/zyren_physics/native/Cargo.toml --all-targets -- -D warnings"
+  ],
+  "limits": [
+    "These checks establish focused behavior, not physical device performance or sustained game capacity.",
+    "The shared checkout was not frozen. The Rust source pin includes a concurrent slope-constant cleanup excluded from this commit.",
+    "The first fixture failed to compile because it used pose instead of the existing offset argument.",
+    "Two numerical regressions were repaired without loosening tolerances: omitted rotation normalization and decimal target rounding at a single-precision midpoint.",
+    "The 600-step comparison requires exact pre-step pose equality and retains the original contact and velocity tolerances.",
+    "Strict clippy initially rejected the committed transient-force map type. A behavior-neutral type alias repairs that diagnostic."
+  ]
+}

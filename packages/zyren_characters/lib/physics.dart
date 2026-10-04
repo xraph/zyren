@@ -98,14 +98,9 @@ final class CharacterMotor {
       -terminalSpeed,
       _verticalSpeed + gravity * seconds,
     );
-    final movement = controller.resolve(
+    final movement = controller.move(
       desired + Vec3(0, _verticalSpeed * seconds, 0),
-    );
-    controller.body.setTarget(
-      PhysicsPose(
-        position: pose.position + movement.translation,
-        rotation: rotation,
-      ),
+      rotation: rotation,
     );
     if (movement.grounded && _verticalSpeed < 0) _verticalSpeed = 0;
     if (movement.contacts.any((c) => c.normal.y < -.5) && _verticalSpeed > 0) {

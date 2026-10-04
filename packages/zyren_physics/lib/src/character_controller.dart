@@ -83,17 +83,31 @@ final class KinematicCharacterController {
     }
   }
 
-  CharacterMovement resolve(Vec3 translation) {
+  CharacterMovement resolve(Vec3 translation) => _resolve(translation);
+
+  CharacterMovement _resolve(
+    Vec3 translation, {
+    bool submitTarget = false,
+    Quat? rotation,
+  }) {
     if (!translation.isFinite) throw ArgumentError('Movement must be finite.');
+    final orientation = rotation?.normalized();
     body.world._check(body);
     if (collider._removed || collider._epoch != body.world._epoch) {
       throw StateError('Collider handle is stale.');
     }
     return CharacterMovement._(
-      body.world._send('characterMove', {
+      body.world._send(submitTarget ? 'characterMoveTarget' : 'characterMove', {
             'body': body.id,
             'collider': collider.id,
             'translation': translation.storage,
+            if (orientation != null)
+              'rotation': [
+                orientation.x,
+                orientation.y,
+                orientation.z,
+                orientation.w,
+              ],
             ...settings.json,
           })
           as Map,
@@ -101,15 +115,10 @@ final class KinematicCharacterController {
   }
 
   /// Submits the collision-resolved target. Gravity and jumping are host policy.
-  CharacterMovement move(Vec3 translation) {
-    final pose = body.state.pose;
-    final movement = resolve(translation);
-    body.setTarget(
-      PhysicsPose(
-        position: pose.position + movement.translation,
-        rotation: pose.rotation,
-      ),
-    );
-    return movement;
-  }
+  ///
+  /// Resolution and target submission share one native call. [rotation] changes
+  /// the target orientation; omitting it keeps the body's current orientation.
+  /// The world still advances only when you step it.
+  CharacterMovement move(Vec3 translation, {Quat? rotation}) =>
+      _resolve(translation, submitTarget: true, rotation: rotation);
 }

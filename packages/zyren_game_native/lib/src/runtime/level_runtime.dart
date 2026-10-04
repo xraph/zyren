@@ -847,27 +847,21 @@ final class _PrimitiveCharacter {
     if (grounded && verticalSpeed < 0) {
       verticalSpeed = -definition.groundStickSpeed;
     }
-    final body = controller.body, pose = controller.body.state.pose;
-    final move = controller.resolve(
+    final move = controller.move(
       direction * (definition.maxSpeed * seconds) +
           Vec3(0, verticalSpeed * seconds, 0),
+      rotation: direction.length > 1e-9
+          ? Quat.axisAngle(
+              const Vec3(0, 1, 0),
+              math.atan2(direction.x, direction.z),
+            )
+          : null,
     );
     grounded = move.grounded;
     if (grounded && verticalSpeed < 0) verticalSpeed = 0;
     if (move.contacts.any((c) => c.normal.y < -.5) && verticalSpeed > 0) {
       verticalSpeed = 0;
     }
-    body.setTarget(
-      PhysicsPose(
-        position: pose.position + move.translation,
-        rotation: direction.length > 1e-9
-            ? Quat.axisAngle(
-                const Vec3(0, 1, 0),
-                math.atan2(direction.x, direction.z),
-              )
-            : pose.rotation,
-      ),
-    );
     lastMovement = move;
     movementTick = session.tick;
     movementEpoch = session.epoch;

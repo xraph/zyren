@@ -76,6 +76,11 @@ frame delta to .25 seconds, and reports discarded time in `droppedSeconds`.
 Pause discards the fractional accumulator. Resuming begins with a fresh accumulator.
 Interpolated rendering stays one fixed step behind the current simulation state.
 Queries and body states always use current simulation poses.
+For a capsule character, call `KinematicCharacterController.move` before each
+step. You get the resolved movement and submit its target in one native call.
+Pass `rotation` to set the target orientation, or omit it to keep the current
+orientation. `resolve` only queries movement. Both paths use the same sweeps,
+and `move` preserves the explicit pose target's rounding and validation rules.
 Repeated body reads reuse the immutable state from the latest completed step or
 read. Any native mutation, including collision-query refresh and a failed write,
 invalidates that cache before the operation. Saved state objects remain unchanged.
