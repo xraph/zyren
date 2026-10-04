@@ -683,14 +683,19 @@ fn waterAtmospherePoint(p:vec3<f32>)->vec3<f32>{
 }
 fn waterEnvironment(p:vec3<f32>,direction:vec3<f32>,roughness:f32)->vec3<f32>{
   let origin=waterAtmospherePoint(p);let sun=water.sunDirection.xyz;
-  let axis=select(vec3(0.,0.,1.),vec3(0.,1.,0.),abs(direction.z)>.9);
-  let tangent=normalize(cross(direction,axis));let bitangent=cross(direction,tangent);
+  let up=normalize(origin);
+  // A reflected ray below the mean horizon meets neighbouring water. The sky
+  // LUT has no water geometry there and returns dark ground radiance. Use the
+  // grazing sky as the unresolved water-reflection fallback; SSR can replace it.
+  let horizonDirection=normalize(direction+up*max(0.,.001-dot(direction,up)));
+  let axis=select(vec3(0.,0.,1.),vec3(0.,1.,0.),abs(horizonDirection.z)>.9);
+  let tangent=normalize(cross(horizonDirection,axis));let bitangent=cross(horizonDirection,tangent);
   let spread=roughness*roughness;
-  var value=atmosphereSky(origin,direction,sun,false).radiance;
-  value+=atmosphereSky(origin,normalize(direction+tangent*spread),sun,false).radiance;
-  value+=atmosphereSky(origin,normalize(direction-tangent*spread),sun,false).radiance;
-  value+=atmosphereSky(origin,normalize(direction+bitangent*spread),sun,false).radiance;
-  value+=atmosphereSky(origin,normalize(direction-bitangent*spread),sun,false).radiance;
+  var value=atmosphereSky(origin,horizonDirection,sun,false).radiance;
+  value+=atmosphereSky(origin,normalize(horizonDirection+tangent*spread),sun,false).radiance;
+  value+=atmosphereSky(origin,normalize(horizonDirection-tangent*spread),sun,false).radiance;
+  value+=atmosphereSky(origin,normalize(horizonDirection+bitangent*spread),sun,false).radiance;
+  value+=atmosphereSky(origin,normalize(horizonDirection-bitangent*spread),sun,false).radiance;
   return value*.2;
 }
 fn waterDirect(p:vec3<f32>)->vec3<f32>{
