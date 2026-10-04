@@ -109,6 +109,30 @@
           "sha256": "9b76af32a2628a8370f7e90b749358cc3c063633f2a92024e09c43b674291fcc"
         }
       ]
+    },
+    {
+      "id": "android-cached-schemas",
+      "kind": "diagnostic-smoke",
+      "qualifiesCapacity": false,
+      "files": [
+        {
+          "path": "android-cached-schemas.receipt.json",
+          "bytes": 115824,
+          "sha256": "c4a2b8ee9ea8c3fbfcd2054beb93d91562e8c4ead2d9d4a7aa811156aaa65335"
+        },
+        {
+          "path": "android-cached-schemas.log.txt.gz",
+          "bytes": 1101,
+          "sha256": "2d9839abdf8906f151d9f744db246da15a9a055cce34ba487e3192ed4506c132",
+          "uncompressedBytes": 2707,
+          "uncompressedSha256": "a7546ca408e184b1636f265793679deb40a181b3f0c0323de0ebf25aec6ca1df"
+        },
+        {
+          "path": "android-cached-schemas.launch.json",
+          "bytes": 2289,
+          "sha256": "f66c55e5d0313820d42a74254d280f9d1fc28b12dcf16e2d00b1e76fe4431901"
+        }
+      ]
     }
   ]
 }

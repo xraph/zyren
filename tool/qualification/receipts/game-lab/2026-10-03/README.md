@@ -14,6 +14,7 @@ presentation, ML and physics owners return to their recorded baselines.
 | Android before boundary repair | 132 / 511 | 332 | Level allowed the guard to fall out of its sensor range; timing gates also failed |
 | Android after boundary and fallback repair | 400 / 513 | 0 | Body observations stayed known; timing and deadline gates still failed |
 | Android with direct body queries | 349 / 510 | 0 | Perception remained the largest CPU cost; timing and deadline gates still failed |
+| Android with cached immutable sensor schemas | 316 / 511 | 0 | Sensor CPU cost fell; presentation, CPU and inference deadline gates still failed |
 | macOS before boundary repair | 126 / 508 | 374 | Native lifecycle completed; level, presentation interval and deadline issues remained |
 
 The two Android levels have different game hashes. This is diagnostic evidence
@@ -39,6 +40,13 @@ The direct-body-query run uses the current strict runner. Its native owners
 returned to baseline, no invalid or stale action was applied, and all six
 lifecycle checks completed. Source changed during the run. You cannot use this
 ten-second result to establish a supported capacity or an isolated comparison.
+
+The cached-schema run also passes the strict smoke verifier. Sensor CPU p95 was
+1,377 microseconds, and the complete fixed simulation tick p95 was 4,809
+microseconds. Native frame p95 was 22,313 microseconds. All six lifecycle checks
+completed with no invalid or stale actions, but 195 of 511 decisions missed their
+deadline. Concurrent source changes and the short duration still prevent a
+sustained qualification claim.
 
 The separate macOS UI receipt records native Play, checkpoint save/step/restore,
 Resume, keyboard jump and loading the vehicle playground. It pins the complete

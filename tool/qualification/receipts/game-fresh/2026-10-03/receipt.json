@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "status": "partial",
+  "commit": "a1c348ed98533a902eebe6f5e96fccccf9e23692",
+  "checkout": "detached managed worktree",
+  "dependencies": "fresh package_config; offline cached dependency resolution",
+  "sdk": {
+    "flutter": "3.47.5",
+    "dart": "3.13.4"
+  },
+  "checks": [
+    {
+      "command": "fvm flutter pub get --offline",
+      "status": "passed"
+    },
+    {
+      "command": "fvm dart analyze examples/game_lab/lib packages/zyren_game/lib packages/zyren_game_ai/lib packages/zyren_game_native/lib",
+      "status": "passed"
+    },
+    {
+      "command": "fvm dart --packages=.dart_tool/package_config.json packages/zyren_game_ai/test/artifact_release_test.dart",
+      "status": "passed",
+      "tests": 2
+    },
+    {
+      "command": "fvm dart --packages=.dart_tool/package_config.json examples/game_lab/test/benchmark_test.dart",
+      "status": "passed",
+      "tests": 7
+    }
+  ],
+  "generatedChanges": [
+    "examples/game_lab/analysis_options.yaml",
+    "examples/game_lab/ios/Flutter/Debug.xcconfig",
+    "examples/game_lab/ios/Flutter/Release.xcconfig",
+    "examples/game_lab/ios/Podfile",
+    "examples/planet/linux/flutter/generated_plugins.cmake",
+    "examples/planet/windows/flutter/generated_plugins.cmake",
+    "examples/studio/macos/Flutter/GeneratedPluginRegistrant.swift"
+  ],
+  "limitations": [
+    "No native build or device execution in this checkout yet.",
+    "Offline resolution reused the installed pub cache.",
+    "Flutter-generated host configuration changed after dependency resolution."
+  ],
+  "logs": [
+    {
+      "path": "pub-get.log.txt.gz",
+      "bytes": 290,
+      "sha256": "b0f61375ba20ce5d7f8882d5c3c57cc97db9d69d9cd2274a916ba7df5801a186",
+      "uncompressedBytes": 503,
+      "uncompressedSha256": "ac4cf8b093320de4fd45eba6d2e494dd1d7d5649394340713da1cc4ff6974c79"
+    },
+    {
+      "path": "analyze.log.txt.gz",
+      "bytes": 56,
+      "sha256": "49e793a91dfd5575d942fa8a2e34251b604bdccccd705129c1fb98c9a3366b7b",
+      "uncompressedBytes": 49,
+      "uncompressedSha256": "6a6c450fd6a82bc94833fdb6955fca1df24a8621e5a8226c6ec3ccd0f358f8bf"
+    },
+    {
+      "path": "artifact-test.log.txt.gz",
+      "bytes": 133,
+      "sha256": "f3407e1455423a9b04a8f6d4c27e40e97a3a3248ffcc74c30120392053508589",
+      "uncompressedBytes": 208,
+      "uncompressedSha256": "6f97e6c762980166531e651794477b0eeca4cf9c347eeedb5363e30cdc72013d"
+    },
+    {
+      "path": "benchmark-test.log.txt.gz",
+      "bytes": 334,
+      "sha256": "5b24f90f86a4996cac59d0e1db848cdcb5a3f05993b11761e904ac4ead8b438a",
+      "uncompressedBytes": 657,
+      "uncompressedSha256": "e25d0f8834b1ac5843bdedbe3ff7b785d1805caa959829eb696473730e6e2417"
+    }
+  ]
+}
