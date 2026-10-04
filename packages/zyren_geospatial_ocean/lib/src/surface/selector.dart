@@ -64,10 +64,13 @@ OceanSurfaceSelection selectOceanSurface(
   Ellipsoid ellipsoid,
   OceanLodSettings settings, {
   double displacementBoundMetres = 0,
-}) => OceanSurfaceSelector(
-  ellipsoid: ellipsoid,
-  settings: settings,
-).select(camera, viewport, displacementBoundMetres: displacementBoundMetres);
+  GeoDistanceFog? fog,
+}) => OceanSurfaceSelector(ellipsoid: ellipsoid, settings: settings).select(
+  camera,
+  viewport,
+  displacementBoundMetres: displacementBoundMetres,
+  fog: fog,
+);
 
 /// Retains a complete balanced cover. Culling only affects the drawable subset.
 final class OceanSurfaceSelector {
@@ -88,6 +91,7 @@ final class OceanSurfaceSelector {
     Camera camera,
     ViewportMetrics viewport, {
     double displacementBoundMetres = 0,
+    GeoDistanceFog? fog,
   }) {
     if (!viewport.isUsable ||
         !viewport.devicePixelRatio.isFinite ||
@@ -109,6 +113,7 @@ final class OceanSurfaceSelector {
       ellipsoid,
       settings.segments,
       displacementBoundMetres,
+      fog,
     );
     final leaves = Set<OceanPatchId>.of(_leaves);
     // Coarsening uses the lower threshold and must preserve neighbour balance.
@@ -208,6 +213,7 @@ final class _View {
   final Ellipsoid ellipsoid;
   final int segments;
   final double displacement;
+  final GeoDistanceFog? fog;
   late final frustum = Frustum.fromCamera(camera, viewport.aspect);
   final _visibility = <OceanPatchId, bool>{};
   final _errors = <OceanPatchId, double>{};
@@ -217,9 +223,14 @@ final class _View {
     this.ellipsoid,
     this.segments,
     this.displacement,
+    this.fog,
   );
   bool visible(OceanPatchId p) => _visibility.putIfAbsent(p, () {
     final b = p.bounds(ellipsoid, displacementBoundMetres: displacement);
+    if (fog != null &&
+        !fog!.intersectsVisibleRange(camera.position, b.center, b.radius)) {
+      return false;
+    }
     final r = Vec3(b.radius, b.radius, b.radius);
     if (!frustum.intersectsBounds(Bounds3(b.center - r, b.center + r))) {
       return false;

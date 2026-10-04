@@ -4,6 +4,45 @@ import 'package:zyren_geospatial/zyren_geospatial.dart';
 import 'package:zyren_geospatial_ocean/zyren_geospatial_ocean.dart';
 
 void main() {
+  test(
+    'fog reduces distant refinement without removing the balanced cover',
+    () {
+      final camera = PerspectiveCamera(
+        position: const Vec3(0, 0, 80),
+        near: .1,
+        far: 500,
+      );
+      final settings = OceanLodSettings(
+        maxScreenError: .2,
+        maxPatches: 192,
+        maxVertices: 192 * 81,
+        segments: 8,
+      );
+      final fog = GeoDistanceFog(startMetres: 5, endMetres: 10);
+      final selector = OceanSurfaceSelector(
+        ellipsoid: Ellipsoid(32, 32, 32),
+        settings: settings,
+      );
+      final clear = selector.select(camera, const ViewportMetrics(800, 600));
+      final hidden = selector.select(
+        camera,
+        const ViewportMetrics(800, 600),
+        fog: fog,
+      );
+      expect(hidden.allPatches.length, lessThan(clear.allPatches.length));
+      expect(hidden.patches, isEmpty);
+      expect(OceanPatchCoverage(hidden.allPatches).complete, isTrue);
+      for (final edge in hidden.neighbourEdges) {
+        expect(
+          (edge.first.patch.level - edge.second.patch.level).abs(),
+          lessThanOrEqualTo(1),
+        );
+      }
+      final restored = selector.select(camera, const ViewportMetrics(800, 600));
+      expect(restored.patches, isNotEmpty);
+      expect(restored.allPatches.length, clear.allPatches.length);
+    },
+  );
   test('budgets preserve a balanced closed cover and report unmet error', () {
     final camera = PerspectiveCamera(
       position: const Vec3(6379137, 0, 0),

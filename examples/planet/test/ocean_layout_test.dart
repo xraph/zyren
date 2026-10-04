@@ -6,6 +6,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:planet/ocean/scenes/definition.dart';
+import 'package:planet/ocean/scenes/fog.dart';
 import 'package:planet/ocean/widgets/lab_shell.dart';
 import 'package:zyren_geospatial_ocean/zyren_geospatial_ocean.dart';
 
@@ -50,6 +51,7 @@ void main() {
       );
       String? selected;
       var paused = false;
+      OceanLabFog? fog;
       final boundary = GlobalKey();
       await tester.pumpWidget(
         MaterialApp(
@@ -82,6 +84,7 @@ void main() {
               onScene: (value) => selected = value,
               onDetail: (_) {},
               onDebug: (_) {},
+              onFog: (value) => fog = value,
               onLayer: (_, _) {},
               onPause: () => paused = true,
               onReset: () {},
@@ -106,6 +109,11 @@ void main() {
       expect(tester.getRect(find.byKey(const Key('lab-canvas'))), canvasBounds);
       await tapLabControl(tester, find.byTooltip('Pause simulation'));
       expect(paused, isTrue);
+      await tapLabControl(tester, find.byKey(const ValueKey('lab-select-Fog')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Dense · 1 km').last);
+      await tester.pumpAndSettle();
+      expect(fog, OceanLabFog.dense);
       await tapLabControl(
         tester,
         find.byKey(const ValueKey('lab-select-Scene')),

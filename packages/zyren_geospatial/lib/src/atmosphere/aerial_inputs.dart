@@ -1,4 +1,5 @@
 import 'package:zyren/zyren.dart';
+import 'distance_fog.dart';
 
 enum AerialNormalEncoding {
   /// Unit normal encoded as .5 * (normal + 1).
@@ -38,12 +39,14 @@ final class AerialMediumInputs {
 /// alpha; the mask blends existing radiance (zero) with relit albedo (one).
 /// Installation retains each map until replacement or controller disposal.
 final class AerialPerspectiveInputs {
+  final GeoDistanceFog? fog;
   final GpuResource<Texture>? normal, lightingMask, overlay;
   final AerialMediumInputs? medium;
   final AerialNormalEncoding normalEncoding;
   final AerialNormalSpace normalSpace;
   final int lightingMaskChannel;
   AerialPerspectiveInputs({
+    this.fog,
     this.normal,
     this.medium,
     this.lightingMask,
@@ -105,6 +108,7 @@ final class RetainedAerialInputs {
         value == null ? null : await scope.resources.retain(value);
     try {
       final value = AerialPerspectiveInputs(
+        fog: input.fog,
         normal: await keep(input.normal),
         medium: input.medium == null
             ? null

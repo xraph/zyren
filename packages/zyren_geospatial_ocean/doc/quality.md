@@ -105,6 +105,19 @@ is its age at delivery, not a claim that the result is still fresh now.
 
 ## Built-in native views
 
+You can pass a `GeoDistanceFog` to `OceanViewConfiguration.fog` after installing
+the same value in the host's `AerialPerspectiveInputs`. The selector avoids
+refining fully hidden regions while retaining its complete balanced cover.
+Each prepared frame culls patches against the current camera, including between
+LOD rebuilds. Bounds include both morph endpoints, the mean water level and your
+declared displacement allowance. Keep that allowance conservative.
+
+`patchCount` still reports allocated patches. `visiblePatchCount` reports those
+inside the fog range, before native frustum culling. Hidden patch resources stay
+resident for camera movement and transitions; canonical waves and physical
+queries remain independent. Disabling the atmosphere while retaining fog culling
+can expose missing geometry. Clear both together through your frame owner.
+
 Use `OceanViewSet.plan` as the controller planner. Each `OceanViewConfiguration`
 provides its ECEF camera, fixed viewport, sample count, ellipsoid and conservative
 displacement bound. Pass the current `controller.resources` as `previous` when

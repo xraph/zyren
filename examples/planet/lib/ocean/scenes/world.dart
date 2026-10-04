@@ -11,6 +11,7 @@ import 'package:zyren_physics/zyren_physics.dart';
 import 'coast_store.dart';
 import 'definition.dart';
 import 'geometry.dart';
+import 'fog.dart';
 
 final class OceanLabWorld {
   final OceanLabSceneDefinition definition;
@@ -36,6 +37,7 @@ final class OceanLabWorld {
   OceanNativePresentation? presentation;
   OceanLabDetail detail;
   OceanWaterDebug debug;
+  final GeoDistanceFog? fog;
   bool paused = false, route = false;
   OceanSample? lastQuery;
   OceanInteractionAdmission? lastWakeAdmission;
@@ -45,7 +47,10 @@ final class OceanLabWorld {
     this.coast, {
     this.detail = OceanLabDetail.balanced,
     this.debug = OceanWaterDebug.color,
-  }) {
+    OceanLabFog fog = OceanLabFog.off,
+  }) : fog = definition.hasUnderwater || definition.id == 'orbit'
+           ? null
+           : fog.settings {
     local = OceanLabLocalGroup(EastNorthUpFrame(coast.origin).matrix);
     scene.add(local);
     sky = AtmosphereExtension(
@@ -90,6 +95,13 @@ final class OceanLabWorld {
             : const OceanAllWaterCoverage(),
       ),
       createPresentation: (context, sampler) async {
+        // Publish before the first atmosphere frame, so culling cannot expose
+        // an unfogged background for one frame while its inputs are replaced.
+        if (this.fog != null) {
+          await sky.atmosphere.controller.setAerialInputs(
+            AerialPerspectiveInputs(fog: this.fog),
+          );
+        }
         final lease = await sky.atmosphere.controller.acquireLighting();
         try {
           final light = OceanLighting(
@@ -120,6 +132,7 @@ final class OceanLabWorld {
               displacementBoundMetres: definition.id == 'storm' ? 50 : 10,
               lighting: light,
               debug: debug,
+              fog: this.fog,
               interactions: _clockPlugin.field,
               optics: OceanOptics(
                 roughness: definition.id == 'storm' ? .11 : .045,
@@ -467,7 +480,7 @@ final class _LabPresentation implements OceanPresentation {
         : null;
     if (!identical(nextMedium, medium)) {
       await lab.sky.atmosphere.controller.setAerialInputs(
-        AerialPerspectiveInputs(medium: nextMedium),
+        AerialPerspectiveInputs(medium: nextMedium, fog: lab.fog),
       );
       medium = nextMedium;
     }

@@ -27,6 +27,13 @@ shows the applied FFT resolution and reports failures. Debug selection
 restarts the scene so you can compare the same saved initial state. Drag and scroll
 navigate the globe, and the orbit scene supplies a 30-second camera route.
 
+Choose Fog in the open-water, storm, vessel or Monterey scene. Light fades from
+1.5 to 6 km; Dense fades from 100 m to 1 km. Off is the default. Changing fog
+restarts the saved scene, and Scene info shows how many patches remain within
+the fog range. The atmosphere becomes opaque at the far limit, allowing the
+ocean to skip fully hidden patches. Physics keeps running at the same accuracy.
+The orbiter and scenes with underwater transport keep fog disabled.
+
 The four detail choices are custom lab profiles: 16/32/64/128 wave grids, one band
 and 96/192/384/768 patch caps. They are not the package's stock quality presets.
 Every scene keeps a canonical 128 grid and a 60 Hz simulation owner. Lowering
@@ -64,5 +71,7 @@ See [qualification](../../qualification/2026-10-04/ocean-lab.md) for the current
 results and failures. Visual acceptance and performance targets remain open.
 The [device record](../../qualification/2026-10-04/ocean-devices/README.md)
 separates native scene checks, short timing samples and release installation.
+The [fog record](../../qualification/2026-10-04/ocean-fog/README.md) compares native
+draw submissions and checks that culling preserves the fogged image.
 The procedural vessel is a buoyancy fixture; it is not finished
 marine artwork.

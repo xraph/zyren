@@ -564,6 +564,13 @@ final class AtmosphereController {
       a.nightLightIntensity,
       a.moonLight || a.nightLightIntensity > 0 ? 1 : 0,
       inputs.medium == null ? 0 : 1,
+      ...?inputs.fog?.color.toList(),
+      if (inputs.fog == null) ...[0, 0, 0],
+      inputs.fog?.startMetres ?? 0,
+      inputs.fog?.endMetres ?? 0,
+      0,
+      0,
+      0,
     ]);
     await active.scope.resources.writeBuffer(active.uniform, data);
     await active.graph.execute();
@@ -638,7 +645,7 @@ final class _AtmosphereCandidate {
     final resources = scope.resources;
     final uniform = await resources.createBuffer(
       BufferDescriptor(
-        size: 480,
+        size: 512,
         usage: {BufferUsage.uniform, BufferUsage.copyDestination},
       ),
     );

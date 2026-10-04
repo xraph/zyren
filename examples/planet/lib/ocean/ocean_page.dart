@@ -10,6 +10,7 @@ import 'scenes/definition.dart';
 import 'scenes/display_budget.dart';
 import 'scenes/earth_coast.dart';
 import 'scenes/world.dart';
+import 'scenes/fog.dart';
 import 'widgets/lab_shell.dart';
 
 class OceanLabPage extends StatefulWidget {
@@ -32,6 +33,7 @@ class OceanLabPageState extends State<OceanLabPage> {
   SceneController? controller;
   OceanLabDetail _detail = OceanLabDetail.balanced;
   OceanWaterDebug _debug = OceanWaterDebug.color;
+  OceanLabFog _fog = OceanLabFog.off;
   late String _sceneId;
   Object? _failure;
   FrameStats? _stats;
@@ -119,6 +121,7 @@ class OceanLabPageState extends State<OceanLabPage> {
         _sceneId == 'earth' ? _earthCoast! : _coast!,
         detail: _detail,
         debug: _debug,
+        fog: _fog,
       );
       final session = SceneController(
         scene: next.scene,
@@ -156,10 +159,11 @@ class OceanLabPageState extends State<OceanLabPage> {
     }
   }
 
-  void _restart({String? scene, OceanWaterDebug? debug}) {
+  void _restart({String? scene, OceanWaterDebug? debug, OceanLabFog? fog}) {
     if (_busy) return;
     _sceneId = scene ?? _sceneId;
     _debug = debug ?? _debug;
+    _fog = fog ?? _fog;
     _operation = _replace();
   }
 
@@ -208,6 +212,7 @@ class OceanLabPageState extends State<OceanLabPage> {
         ? 'Preparing native water'
         : 'Tick ${lab!.host.clock.tick} · FFT ${effective.fftResolution} · '
               '${view.patchCount} patches · '
+              '${lab.fog == null ? '' : '${view.visiblePatchCount} within fog range · '}'
               '${((lab.presentation!.controller!.estimatedBytes) / 1048576).toStringAsFixed(1)} MiB planned'
               '${stats == null ? '' : ' · ${stats.physicalSize.width}×${stats.physicalSize.height}'}'
               '${wake == null
@@ -220,6 +225,10 @@ class OceanLabPageState extends State<OceanLabPage> {
       sceneId: _sceneId,
       detail: _detail,
       debug: _debug,
+      fog: _fog,
+      fogAvailable:
+          lab != null && !lab.definition.hasUnderwater && _sceneId != 'orbit',
+      onFog: (value) => _restart(fog: value),
       paused: lab?.paused ?? false,
       route: lab?.route ?? false,
       busy: _busy || session == null,

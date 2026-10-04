@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:zyren_geospatial_ocean/zyren_geospatial_ocean.dart';
 import '../scenes/definition.dart';
+import '../scenes/fog.dart';
 import '../../photorealistic_layout.dart';
 
 /// The lab owns controls. The geospatial layer API stays headless.
@@ -9,6 +10,9 @@ class OceanLabShell extends StatelessWidget {
   final String sceneId, status, evidence;
   final OceanLabDetail detail;
   final OceanWaterDebug debug;
+  final OceanLabFog fog;
+  final bool fogAvailable;
+  final ValueChanged<OceanLabFog>? onFog;
   final bool paused, route, busy, hasFailure;
   final Map<String, bool> layers;
   final ValueChanged<String> onScene;
@@ -23,6 +27,9 @@ class OceanLabShell extends StatelessWidget {
     required this.sceneId,
     required this.detail,
     required this.debug,
+    this.fog = OceanLabFog.off,
+    this.fogAvailable = true,
+    this.onFog,
     required this.paused,
     required this.route,
     required this.busy,
@@ -92,6 +99,17 @@ class OceanLabShell extends StatelessWidget {
                   onPressed: busy ? null : onPause,
                   icon: Icon(paused ? Icons.play_arrow : Icons.pause),
                 ),
+                if (fogAvailable)
+                  _select<OceanLabFog>(
+                    label: 'Fog',
+                    value: fog,
+                    items: const {
+                      OceanLabFog.off: 'Off',
+                      OceanLabFog.light: 'Light · 6 km',
+                      OceanLabFog.dense: 'Dense · 1 km',
+                    },
+                    onChanged: busy ? null : onFog,
+                  ),
                 TextButton(
                   onPressed: busy ? null : onReset,
                   child: const Text('Reset camera'),

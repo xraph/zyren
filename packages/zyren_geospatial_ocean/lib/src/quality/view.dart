@@ -103,6 +103,10 @@ final class OceanViewConfiguration {
   final OceanOptics optics;
   final OceanLighting lighting;
   final OceanWaterDebug debug;
+
+  /// The host must install this same fog in its atmosphere inputs. Geometry
+  /// beyond its opaque limit is skipped; physical water queries are unaffected.
+  final GeoDistanceFog? fog;
   final OceanInteractionField? interactions;
   final OceanViewUnderwater? underwater;
   final List<OceanCausticRegion> caustics;
@@ -116,6 +120,7 @@ final class OceanViewConfiguration {
     OceanOptics? optics,
     OceanLighting? lighting,
     this.debug = OceanWaterDebug.color,
+    this.fog,
     this.interactions,
     this.underwater,
     Iterable<OceanCausticRegion> caustics = const [],
@@ -261,6 +266,7 @@ final class _ViewRecipe {
       config.ellipsoid,
       settings.lod,
       displacementBoundMetres: config.displacementBoundMetres,
+      fog: config.fog,
     );
     surface = OceanSurfaceGeometry(
       selection.allPatches,
@@ -362,6 +368,7 @@ final class OceanViewResources {
   final Group root = Group(name: 'ocean-surface');
   final List<OceanWaterMaterial> _water = [];
   final List<Mesh> _meshes = [];
+  final List<({Vec3 center, double radius})> _fogBounds = [];
   final Map<String, OceanCaustics> _caustics = {};
   final List<FutureOr<void> Function()> _cleanup = [];
   final Map<String, OceanPassMeasurement> _measurements = {};
@@ -385,6 +392,8 @@ final class OceanViewResources {
       _water.every((w) => w.isReady) &&
       _caustics.values.every((c) => c.isCurrent);
   int get patchCount => _meshes.length;
+  int get visiblePatchCount =>
+      root.visible ? _meshes.where((mesh) => mesh.visible).length : 0;
   int get vertexCount =>
       _meshes.fold(0, (sum, m) => sum + m.geometry.vertexCount);
   List<OceanWaterMaterial> get water => List.unmodifiable(_water);
@@ -426,6 +435,28 @@ final class OceanViewResources {
       final mesh = water.createMesh(control.geometry);
       if (isMorphing) mesh.morphWeights = [0];
       _meshes.add(mesh);
+      if (config.fog != null) {
+        final center = control.geometry.origin;
+        var radius = 0.0;
+        for (var vertex = 0; vertex < control.vertexCount; vertex++) {
+          for (final fraction in [0.0, 1.0]) {
+            radius = math.max(
+              radius,
+              center.distanceTo(
+                control.evaluateVertex(vertex, fraction, (_, _) => Vec3.zero),
+              ),
+            );
+          }
+        }
+        _fogBounds.add((
+          center: center,
+          radius:
+              radius +
+              config.displacementBoundMetres +
+              water.meanLevelMetres.abs() +
+              .01,
+        ));
+      }
       root.add(mesh);
     }
     if (config.underwater case final inputs?) {
@@ -522,6 +553,16 @@ final class OceanViewResources {
       }
     }
     final config = configuration, prefix = configuration.id;
+    // Refresh against the live camera every frame, even between LOD rebuilds.
+    // Bounds include both stitched morph endpoints, mean level and displacement.
+    for (var i = 0; i < _fogBounds.length; i++) {
+      final bounds = _fogBounds[i];
+      _meshes[i].visible = config.fog!.intersectsVisibleRange(
+        config.camera.position,
+        bounds.center,
+        bounds.radius,
+      );
+    }
     for (final entry in _caustics.entries) {
       await _measure(
         '$prefix.caustics.${entry.key}',

@@ -15,6 +15,7 @@ struct AtmosphereFrame {
  inverseRadiiSquared:vec4<f32>, geometryOffset:vec4<f32>,
  right:vec4<f32>, up:vec4<f32>,
  lunar:vec4<f32>, // phase-scaled moon irradiance, night fill, relighting enabled
+ fogColorStart:vec4<f32>, fogEnd:vec4<f32>, // linear RGB, start/end metres (end zero disables)
 };
 @group(2) @binding(0) var<uniform> atmosphereFrame:AtmosphereFrame;
 ''';
@@ -87,11 +88,18 @@ fn octNormal(e:vec2<f32>)->vec3<f32> {
  if(n.z<0.){n=vec3<f32>((1.-abs(n.yx))*select(vec2<f32>(-1.),vec2<f32>(1.),n.xy>=vec2<f32>(0.)),n.z);}
  return safeNormal(n,vec3<f32>(0.,0.,1.));
 }
-fn compositeOverlay(color:vec4<f32>,uv:vec2<f32>)->vec4<f32> {
- var result=color;
+fn fogOpacity(distanceMetres:f32)->f32 {
+ let f=atmosphereFrame;
+ if(f.fogEnd.x<=0.){return 0.;}
+ return smoothstep(f.fogColorStart.w,f.fogEnd.x,distanceMetres);
+}
+fn compositeOverlay(color:vec4<f32>,uv:vec2<f32>,distanceMetres:f32)->vec4<f32> {
+ var result=mix(color,vec4(atmosphereFrame.fogColorStart.rgb,1.),fogOpacity(distanceMetres));
  if(atmosphereFrame.geometry.w>0.){
   let clouds=sample_cloudImage(uv);let alpha=clamp(clouds.a,0.,1.);
-  result=vec4<f32>(result.rgb*(1.-alpha)+clouds.rgb,result.a*(1.-alpha)+alpha);
+  let cloudFog=fogOpacity(max(0.,sample_cloudDepthVelocityShadow(uv).x));
+  let cloudColor=mix(clouds.rgb,atmosphereFrame.fogColorStart.rgb*alpha,cloudFog);
+  result=vec4<f32>(result.rgb*(1.-alpha)+cloudColor,result.a*(1.-alpha)+alpha);
  }
  if(atmosphereFrame.inputs.z==0.){return vec4<f32>(clamp(result.rgb,vec3<f32>(0.),vec3<f32>(65504.)),result.a);}
  let overlay=sample_overlayImage(uv);let alpha=clamp(overlay.a,0.,1.);
@@ -119,6 +127,11 @@ fn compositeOverlay(color:vec4<f32>,uv:vec2<f32>)->vec4<f32> {
  let sunChord=dot(ray-f.sun.xyz,ray-f.sun.xyz);let moonChord=dot(ray-f.moon.xyz,ray-f.moon.xyz);
  // Derivatives must execute before divergent depth and disk branches.
  let sunWidth=max(fwidth(sunChord),1e-10);let moonWidth=max(fwidth(moonChord),1e-10);
+ let fogDistance=select(length(point),f.fogEnd.x,sceneDepthIsBackground(depth));
+ // Keep derivatives above this branch. Fully hidden pixels skip sky/air lighting.
+ if(f.fogEnd.x>0. && fogDistance>=f.fogEnd.x){
+   return compositeOverlay(vec4(f.fogColorStart.rgb,1.),v.uv,fogDistance);
+ }
  var sky=vec3<f32>(0.);
  if(f.options.z>0.){
    let air=atmosphereSkyShadow(skyOrigin,ray,f.sun.xyz,f.options.y>0.,shadowLength,cloudTransmission);
@@ -148,12 +161,12 @@ fn compositeOverlay(color:vec4<f32>,uv:vec2<f32>)->vec4<f32> {
  if(sceneDepthIsBackground(depth)){
    var clearForeground=input.rgb;
    if(hasMedium){clearForeground=airTransport(input.rgb*medium.transmittance+medium.radiance*input.a,input.a,origin,origin+ray*medium.entry,0.);}
-   if(f.options.z>0.){return compositeOverlay(vec4<f32>(clamp(clearForeground+sky*(1.-input.a),vec3<f32>(0.),vec3<f32>(65504.)),1.),v.uv);}
+   if(f.options.z>0.){return compositeOverlay(vec4<f32>(clamp(clearForeground+sky*(1.-input.a),vec3<f32>(0.),vec3<f32>(65504.)),1.),v.uv,fogDistance);}
    if(hasMedium){
      let transported=airTransport(input.rgb*medium.transmittance+medium.radiance*input.a,input.a,origin,origin+ray*medium.entry,0.);
-     return compositeOverlay(vec4(transported,input.a),v.uv);
+     return compositeOverlay(vec4(transported,input.a),v.uv,fogDistance);
    }
-   return compositeOverlay(input,v.uv);
+   return compositeOverlay(input,v.uv,fogDistance);
  }
  var foreground=input.rgb;
  var end=f.camera.xyz+(f.worldToEcef*vec4<f32>(point,0.)).xyz*.001-f.geometryOffset.xyz;
@@ -201,8 +214,8 @@ fn compositeOverlay(color:vec4<f32>,uv:vec2<f32>)->vec4<f32> {
  }else{
    foreground=airTransport(foreground,input.a,origin,end,shadowLength);
  }
- if(f.options.z>0.){return compositeOverlay(vec4<f32>(clamp(foreground+sky*(1.-input.a),vec3<f32>(0.),vec3<f32>(65504.)),1.),v.uv);}
- return compositeOverlay(vec4<f32>(clamp(foreground,vec3<f32>(0.),vec3<f32>(65504.)),input.a),v.uv);
+ if(f.options.z>0.){return compositeOverlay(vec4<f32>(clamp(foreground+sky*(1.-input.a),vec3<f32>(0.),vec3<f32>(65504.)),1.),v.uv,fogDistance);}
+ return compositeOverlay(vec4<f32>(clamp(foreground,vec3<f32>(0.),vec3<f32>(65504.)),input.a),v.uv,fogDistance);
 }
 ''';
 const atmosphereStarsWgsl = r'''

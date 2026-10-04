@@ -525,6 +525,26 @@ world-space and signed octahedral float normals are also supported. Zero RGB
 normals bypass relighting. Reconstruction takes precedence over the normal map.
 The selected mask channel blends existing radiance with relit albedo.
 
+For a bounded visibility range, pass `fog: GeoDistanceFog(startMetres: 100,
+endMetres: 1000)` in those inputs. You can set its linear HDR `color`. Fog is off
+when the value is null. The existing atmosphere pass blends by camera distance
+and becomes fully opaque at the end, including the background; it skips sky and
+air lighting for fully hidden pixels. Clouds use their own front depth, and the
+explicit overlay remains on top.
+
+Install fog before you cull geometry. `fog.intersectsVisibleRange(camera, center,
+radius)` retains a sphere that touches the visible range, so include animation
+and displacement in that radius. `OceanViewConfiguration.fog` consumes the same
+setting for ocean LOD and native draw culling. Other renderers can use the helper;
+the atmosphere does not automatically change their streaming or draw policies.
+Keep the fog effect enabled for as long as you use its culling range.
+
+This is a distance fade, without height layers, volumetric lighting or local fog
+volumes. It uses scene depth, so transparent surfaces without their own depth
+inherit the depth behind them. You should keep it disabled for underwater views
+unless your composition explicitly accounts for that medium. No extra full-screen
+pass is allocated, but frame-rate gains still need measurement on your scene.
+
 Overlay RGB must be premultiplied by alpha. The effect composites both color and
 alpha, including on transparent backgrounds. It retains installed maps across
 resize and LUT replacement, so you can close the caller's resource scope once
