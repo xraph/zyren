@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'support/device_info.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -19,6 +20,104 @@ void main() {
     debugDefaultTargetPlatformOverride = null;
     messenger.setMockMethodCallHandler(channel, null);
   });
+  for (final mode in ['embedded', 'legacy', 'stale', 'failure']) {
+    test(
+      'render profile $mode uses its exact frame and bounded transport',
+      () async {
+        var profileQueries = 0, renders = 0;
+        messenger.setMockMethodCallHandler(channel, (call) async {
+          switch (call.method) {
+            case 'connect':
+            case 'close':
+            case 'detach':
+              return null;
+            case 'create':
+              return {'session': 1, 'adapter': 'test native'};
+            case 'prepare':
+              return {'epoch': 1, 'texture': 1};
+            case 'gpuCommand':
+              final args = call.arguments as Map;
+              if (args['kind'] == 'graph') {
+                final request =
+                    jsonDecode(utf8.decode(args['bytes'] as Uint8List)) as Map;
+                if ((request['command'] as Map)['operation'] ==
+                    'frameProfile') {
+                  profileQueries++;
+                }
+                return deviceInfoReply(args, executedMeshDraws: 1);
+              }
+              return textureFormatsReply(call);
+            case 'render':
+              renders++;
+              final frame = (call.arguments as Map)['frame'] as int;
+              final bytes = Uint8List.fromList(
+                utf8.encode(
+                  jsonEncode({
+                    'request': mode == 'stale' && renders == 1
+                        ? frame - 1
+                        : frame,
+                    'command': {'operation': 'frameProfile'},
+                  }),
+                ),
+              );
+              return {
+                'applied': true,
+                'presented': true,
+                'readbackBytes': 0,
+                if (mode == 'failure' && renders == 1)
+                  'frameProfileError': 'Native profile failed after publication'
+                else if (mode != 'legacy')
+                  'frameProfile': deviceInfoReply({
+                    'bytes': bytes,
+                  }, executedMeshDraws: 1)['bytes'],
+              };
+            default:
+              throw StateError(call.method);
+          }
+        });
+        final backend = await NativeAndroidBackend.create(runtimeToken: 10);
+        try {
+          final presenter = const NativeAndroidPresenterFactory().create(
+            backend,
+          );
+          final target = await presenter.prepare(PhysicalSize(16, 16));
+          final scene = Scene()..add(Mesh(BoxGeometry(), UnlitMaterial()));
+          Future<FrameOutput> draw() => backend.render(
+            FrameSubmission.capture(
+              scene: scene,
+              camera: PerspectiveCamera(),
+              size: PhysicalSize(16, 16),
+              target: target,
+            ),
+          );
+          if (mode == 'stale' || mode == 'failure') {
+            await expectLater(
+              draw(),
+              mode == 'stale'
+                  ? throwsStateError
+                  : throwsA(isA<SceneException>()),
+            );
+            // Diagnostics failed after native application. The next frame must
+            // retain the committed geometry, not reject its accepted upload.
+            final next = await draw();
+            expect(next.stats.uploadedBytes, 0);
+            expect(next.stats.profile!.cpuPrepareNs, 1000);
+          } else {
+            final frame = await draw();
+            expect(frame.stats.profile!.cpuPrepareNs, 1000);
+            expect(frame.stats.profile!.cpuEncodeNs, 2000);
+            expect(frame.stats.profile!.cpuCompletionWaitNs, 3000);
+            expect(frame.stats.profile!.gpuTimeNs, isNull);
+            expect(frame.stats.profile!.executedMeshDraws, 1);
+          }
+          expect(profileQueries, mode == 'legacy' ? 1 : 0);
+          await presenter.dispose();
+        } finally {
+          await backend.close();
+        }
+      },
+    );
+  }
   test(
     'staging transport reports the displayed cover and publishes atomically',
     () async {

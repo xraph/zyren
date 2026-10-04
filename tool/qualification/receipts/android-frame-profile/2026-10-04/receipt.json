@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "date": "2026-10-04",
+  "scope": "Android serial render receipt carries the existing native graph frame profile",
+  "checks": [
+    {
+      "cwd": ".",
+      "command": "fvm dart --packages=.dart_tool/package_config.json packages/zyren_native/test/frame_profile_response_test.dart",
+      "passed": 4
+    },
+    {
+      "cwd": "packages/flutter_zyren",
+      "command": "fvm flutter test --no-pub --concurrency=1 test/native_android_backend_test.dart test/frame_stats_test.dart",
+      "passed": 12
+    },
+    {
+      "command": "fvm dart analyze packages/flutter_zyren/lib/src/presentation/native_android_presenter.dart packages/flutter_zyren/test/native_android_backend_test.dart packages/zyren_native/lib/src/graphs.dart packages/zyren_native/lib/src/gpu_services.dart packages/zyren_native/test/frame_profile_response_test.dart",
+      "status": "passed",
+      "note": "Scoped Dart analysis ran in two passes; exact inputs appear in retained logs."
+    }
+  ],
+  "sourceSha256": {
+    "packages/flutter_zyren/android/src/main/kotlin/dev/twinos/zyren/ZyrenPlugin.kt": "198d99077194e75aba440cf543606c493d1540afdc036cedec075bcf68997a98",
+    "packages/flutter_zyren/lib/src/presentation/native_android_presenter.dart": "eaaa039f2458e45bc917da83f56861c6a84b54bb97946e5484869e7459a7db78",
+    "packages/flutter_zyren/test/native_android_backend_test.dart": "813117f4ff4b4c58f0666b10e9955f32f4e9604b3632fbfb4b4b3c3f0490002c",
+    "packages/zyren_native/lib/src/graphs.dart": "f26d0395342f8c966accc7d0b7c65d274ecf12c913760674f9ee8639c4b425bc",
+    "packages/zyren_native/lib/src/gpu_services.dart": "7d163b5e7c840c60841456c20a5fb0e9d0da88b1bf9b3cbf0e45ac774f0374fc",
+    "packages/zyren_native/test/frame_profile_response_test.dart": "07de8a2b48e9f3245ec5f652ab387081f00fc3532fe49c6f97b0174923d44573"
+  },
+  "logs": [
+    {
+      "path": "decoder.log.gz",
+      "sha256": "d21afa1e6f5900283504969231c03bbbbbfc61e281381fc65510049689660197",
+      "rawSha256": "4415d1879799f09442ede9d78ddae058df615f369cceb414c83a26ac00041dec",
+      "rawBytes": 338
+    },
+    {
+      "path": "flutter.log.gz",
+      "sha256": "659c8d0596fe53707769f8b480097ec05c30e5be9be42b1e6b8ca9b7e5559593",
+      "rawSha256": "c75a1b40642787971fe13f65fd4e19b18037def30b6b8f0289fdd9feb6892125",
+      "rawBytes": 2474
+    },
+    {
+      "path": "analyze.log.gz",
+      "sha256": "06dee6eaa6aa5da6bedb504a1afefc35754efa1ebb0e33e009aec24d47568e17",
+      "rawSha256": "fdea791e9c22ae99529fef3c8a8885b49d10a53f93d501b0e3363ec128d812b3",
+      "rawBytes": 160
+    },
+    {
+      "path": "analyze-followup.log.gz",
+      "sha256": "576bf6d49701a4eda67fba7b83d91901b9bd1c171487c2665bb67e9b3f210f75",
+      "rawSha256": "551237720859a1fca9fa192520fd686df22e750688ba965ddfd004d7f48e66cc",
+      "rawBytes": 94
+    }
+  ],
+  "review": {
+    "reviewer": "a1_native_ml",
+    "status": "clear",
+    "method": "Independent source review; tests not rerun"
+  },
+  "limits": [
+    "These checks establish decoder and mocked transport behavior, not physical Android presentation or capacity.",
+    "Native Android build and device results are recorded separately in the GameLab receipts.",
+    "A profile error after native application retains the accepted geometry on retry."
+  ]
+}

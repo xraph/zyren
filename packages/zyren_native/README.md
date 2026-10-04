@@ -137,6 +137,12 @@ and Android Flutter presenters use this path. `NativeGpuBackend` provides their
 common graph backend and accounting contract; application plugins still use
 `PluginContext` and public core types.
 
+On Android, the presenter returns frame diagnostics with the render receipt from
+its serial native queue. You can decode that response with
+`NativeGpuServices.decodeFrameProfile`, which checks the graph version, frame
+request ID and response size. Unknown GPU timings stay null. A diagnostic failure
+does not discard a scene upload that native rendering already accepted.
+
 The [shader guide](https://xraph.com/docs/zyren/shaders) covers custom mesh
 materials and screen effects.
 

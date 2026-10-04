@@ -174,6 +174,16 @@ class ZyrenPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         return info
     }
 
+    private fun frameProfile(handle: Long, frame: Long): ByteArray {
+        val request = """{"version":1,"request":$frame,"command":{"operation":"frameProfile"}}"""
+            .toByteArray(Charsets.UTF_8)
+        val reply = Native.gpuCommand(handle, 2, request, 256 * 1024)
+        check(reply.size in 4..(256 * 1024 + 4)) { "Invalid native frame profile response." }
+        val status = ByteBuffer.wrap(reply).order(ByteOrder.LITTLE_ENDIAN).int
+        check(status == 0) { String(reply, 4, reply.size - 4, Charsets.UTF_8) }
+        return reply.copyOfRange(4, reply.size)
+    }
+
     private fun handle(call: MethodCall, result: MethodChannel.Result) {
         if (BuildConfig.DEBUG) {
             when (call.method) {
@@ -374,6 +384,16 @@ class ZyrenPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
                     } else if (rendered) { Native.detach(session.handle) }
                 }
                 val data = info(session.handle)
+                // Capture the same frame's diagnostics before another queued
+                // GPU operation can run. Dart validates the echoed frame ID.
+                if (published) {
+                    try { data["frameProfile"] = frameProfile(session.handle, frame) }
+                    catch (error: Exception) {
+                        // The scene packet was already applied. Preserve that
+                        // receipt even if its diagnostics cannot be obtained.
+                        data["frameProfileError"] = (error.message ?: "Frame profile failed.").take(4096)
+                    }
+                }
                 data["applied"] = applied
                 data["epoch"] = epoch
                 main.post {

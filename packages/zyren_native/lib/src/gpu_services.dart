@@ -134,6 +134,14 @@ final class NativeGpuServices {
   }
 
   Future<NativeFrameProfile> frameProfile() => _device.frameProfile();
+
+  /// Decode a profile captured on the presenter's serial render queue. The
+  /// platform adapter uses the frame ID as the existing graph request ID.
+  static NativeFrameProfile decodeFrameProfile(
+    Uint8List response, {
+    required int frameId,
+  }) => NativeFrameProfile.fromJson(_decodeGraphResponse(response, frameId));
+
   Future<ShaderStats> shaderStats() => _device.shaderStats();
   Future<GraphCacheStats> graphStats() => _device.graphStats();
   Future<ShadowStats> shadowStats() => _device.shadowStats();

@@ -300,7 +300,16 @@ class NativeAndroidBackend
       _encoder.reject(packet);
     }
     if (_closed || result['presented'] != true) throw _deferred();
-    final profile = await _gpu.frameProfile();
+    if (result['frameProfileError'] case final String error) {
+      throw _issue(SceneIssueCodes.renderFailed, error, 'frameProfile');
+    }
+    final encodedProfile = result['frameProfile'];
+    final profile = encodedProfile == null
+        ? await _gpu.frameProfile()
+        : NativeGpuServices.decodeFrameProfile(
+            encodedProfile as Uint8List,
+            frameId: frame,
+          );
     return PresentedOutput(
       surface: key,
       epoch: target.epoch,

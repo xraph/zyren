@@ -103,6 +103,25 @@ Object? _graphEncode(Object? value) => switch (value) {
   _ => value,
 };
 
+Map<String, dynamic> _decodeGraphResponse(Uint8List bytes, int request) {
+  if (bytes.isEmpty || bytes.length > 256 * 1024) {
+    throw StateError('Invalid native graph response size.');
+  }
+  final result = jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>;
+  if (result['version'] != 1 || result['request'] != request) {
+    throw StateError('Invalid native graph response.');
+  }
+  if (result['error'] case final Map<String, dynamic> error) {
+    throw GraphException(
+      GraphErrorCode.values.byName(error['code'] as String),
+      error['message'] as String,
+      passName: error['passName'] as String?,
+      resourceLabel: error['resourceLabel'] as String?,
+    );
+  }
+  return result['result'] as Map<String, dynamic>;
+}
+
 mixin _NativeGraphs {
   Future<NativeGpuReply> _submit(
     NativeGpuCommand kind,
@@ -123,20 +142,7 @@ mixin _NativeGraphs {
     );
     final reply = await _submit(NativeGpuCommand.graph, bytes, 256 * 1024);
     if (reply.status != 0) throw StateError(reply.message!);
-    final result =
-        jsonDecode(utf8.decode(reply.bytes!)) as Map<String, dynamic>;
-    if (result['version'] != 1 || result['request'] != request) {
-      throw StateError('Invalid native graph response.');
-    }
-    if (result['error'] case final Map<String, dynamic> error) {
-      throw GraphException(
-        GraphErrorCode.values.byName(error['code'] as String),
-        error['message'] as String,
-        passName: error['passName'] as String?,
-        resourceLabel: error['resourceLabel'] as String?,
-      );
-    }
-    return result['result'] as Map<String, dynamic>;
+    return _decodeGraphResponse(reply.bytes!, request);
   }
 
   Future<Object> compileMeshShader(
