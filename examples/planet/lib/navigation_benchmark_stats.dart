@@ -67,6 +67,28 @@ Map<String, Object?> summarizeNavigationFrames(
     'buildMs': timing('buildUs'),
     'submitMs': timing('submitUs'),
     'gpuMs': timing('gpuUs'),
+    'tileAndHistory': {
+      for (final key in [
+        'loading',
+        'visible',
+        'selected',
+        'displayed',
+        'prefetched',
+        'prefetchBytes',
+        'tileBytes',
+        'cloudHistory',
+      ])
+        key: _distribution([
+          for (final frame in frames)
+            if (frame[key] case final num value) value.toDouble(),
+        ]),
+    },
+    'uploadBacklogBytes': _distribution([
+      for (final frame in frames)
+        if (frame['admission'] case final Map admission)
+          if (admission['uploadBacklogBytes'] case final num value)
+            value.toDouble(),
+    ]),
     'nativeProfileCount': profiles.length,
     'nativeProfileMissingFrames': frames.length - profiles.length,
     'resourcePhaseDelta': {

@@ -2,6 +2,25 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:planet/navigation_benchmark_stats.dart';
 
 void main() {
+  test('tile publication and prefetch metrics preserve unknown values', () {
+    final stats = summarizeNavigationFrames([
+      {
+        'atUs': 0,
+        'displayed': 8,
+        'prefetched': 0,
+        'prefetchBytes': 0,
+        'admission': {'uploadBacklogBytes': 1024},
+      },
+      {'atUs': 1, 'displayed': 10, 'prefetched': 2, 'prefetchBytes': 4096},
+    ]);
+    final tiles = stats['tileAndHistory'] as Map;
+    expect((tiles['displayed'] as Map)['max'], 10);
+    expect((tiles['prefetched'] as Map)['count'], 2);
+    expect((tiles['prefetchBytes'] as Map)['max'], 4096);
+    expect(tiles['cloudHistory'], isNull);
+    expect((stats['uploadBacklogBytes'] as Map)['count'], 1);
+  });
+
   test('retains native phases and nullable pass costs for every phase', () {
     final stats = summarizeNavigationFrames([
       {

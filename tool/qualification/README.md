@@ -59,13 +59,16 @@ focus. Give each device to one test at a time. An inactive or interrupted run
 can help diagnose a failure, but cannot qualify navigation performance.
 
 Each run waits for live Tokyo tiles and cloud history to settle, then measures
-12 seconds each of stationary rendering, orbit, surface drag and wheel zoom.
+12 seconds each of stationary rendering, orbit, surface drag, wheel zoom and
+a sharp reversal. The reversal uses a linear orbit out and back with a velocity
+sign change at six seconds. Reports retain its requested and applied turn time,
+commanded input and camera positions at accepted presentations.
 Motion follows elapsed wall time through the same globe controls used by the
 app. These injected inputs measure control and renderer work; they do not
 measure touch latency or certify physical gesture handling. Each phase resets
 the Tokyo camera and requires rendered geometry at its pivot. Settling also
 requires the native upload candidate to be ready. Frame records include upload
-backlog and published-cover metadata; selected tile counts alone do not prove
+backlog, prefetch bytes, prefetched/displayed counts and published-cover metadata; selected tile counts alone do not prove
 that the replacement has reached the GPU.
 
 `summary.json` contains presentation FPS, nearest-rank median/p95/p99 frame
@@ -84,7 +87,9 @@ Failed phases retain their available samples and carry `completed: false`.
 Do not compare their FPS with a full phase. A new run retries a failed renderer
 and resets the Tokyo camera before collecting data.
 
-The `auto` variant keeps device defaults. You can also run `low`, `medium`,
+The `auto`, `shadowsOff` and `sparse` variants keep adaptive device-default
+cloud quality. Named `low`, `medium` and `high` presets disable adaptation.
+Reports record both the requested/applied adaptive mode and controller diagnostics. You can also run `low`, `medium`,
 `high`, `shadowsOff` or `sparse` (75% sparsity) to identify cloud costs. These variants change image
 quality or content. Keep those tradeoffs explicit when comparing results, and
 repeat `auto` after an experiment to check for cache or thermal drift. Different

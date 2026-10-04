@@ -10,6 +10,7 @@ import 'package:zyren_geospatial/zyren_geospatial.dart';
 import 'geospatial_presets.dart';
 import 'google_tiles_lab.dart';
 import 'navigation_benchmark_stats.dart';
+import 'navigation_benchmark_route.dart';
 import 'navigation_device_report.dart';
 import 'navigation_failure_report.dart';
 import 'preset_globe_controls.dart';
@@ -166,7 +167,7 @@ final class _NavigationBenchmark {
     final loadingClock = Stopwatch()..start();
     final phases = <Map<String, Object?>>[];
     final report = <String, Object?>{
-      'schema': 1,
+      'schema': 2,
       'suite': 'live-google-navigation',
       'variant': variant,
       'weather': fixedWeather ? 'fixed' : 'animated',
@@ -216,6 +217,7 @@ final class _NavigationBenchmark {
           'high' => CloudQualityPreset.high,
           _ => null,
         }, variant != 'shadowsOff'),
+        adaptive: navigationAdaptiveClouds(variant),
       );
       lab.profile.cloudSparsity = variant == 'sparse' ? .75 : 0;
       lab.profile.cloudDensity = 1;
@@ -224,8 +226,17 @@ final class _NavigationBenchmark {
       await _settle(timeout: const Duration(minutes: 3));
       report['initialReadyMs'] = loadingClock.elapsedMilliseconds;
       final cloud = lab.profile.cloudLayer!.controller;
+      if (cloud.adaptiveDiagnostics['enabled'] !=
+          navigationAdaptiveClouds(variant)) {
+        throw StateError(
+          'Applied cloud adaptation differs from the requested mode.',
+        );
+      }
       report['settings'] = {
         'quality': cloud.quality.name,
+        'adaptiveRequested': navigationAdaptiveClouds(variant),
+        'adaptiveApplied': lab.profile.cloudAdaptive,
+        'adaptiveDiagnostics': cloud.adaptiveDiagnostics,
         'shadows': cloud.shadowsEnabled,
         'sparsity': cloud.parameters.sparsity,
         'density': lab.profile.cloudDensity,
@@ -238,7 +249,7 @@ final class _NavigationBenchmark {
         'sceneUploadBudgetBytes': lab.deviceProfile.sceneUploadBudgetBytes,
         'tileBudgetBytes': lab.deviceProfile.tileBytes,
       };
-      for (final phase in ['stationary', 'rotate', 'drag', 'zoom']) {
+      for (final phase in navigationPhases) {
         _stage = 'settling $phase';
         lab.profile.apply(
           controller.scene,
@@ -264,6 +275,7 @@ final class _NavigationBenchmark {
         final samples = <Map<String, Object?>>[];
         final clock = Stopwatch();
         var previousWheel = 0.0;
+        int? actualReversalUs;
         final subscription = controller.presentations.listen((sample) {
           final f = sample.frame, tiles = lab.tiles!.stats!;
           displacement = math.max(
@@ -272,6 +284,13 @@ final class _NavigationBenchmark {
           );
           samples.add({
             'atUs': sample.elapsed.inMicroseconds,
+            'phaseElapsedUs': clock.elapsedMicroseconds,
+            'cameraPosition': [
+              controller.camera.position.x,
+              controller.camera.position.y,
+              controller.camera.position.z,
+            ],
+            'commandedWave': navigationWave(phase, clock.elapsedMicroseconds),
             'buildUs': f.cpuBuildTime.inMicroseconds,
             'submitUs': f.cpuSubmitTime.inMicroseconds,
             'gpuUs': f.gpuTime?.inMicroseconds,
@@ -291,6 +310,9 @@ final class _NavigationBenchmark {
             'loading': tiles.activeRequests,
             'visible': tiles.visibleTiles,
             'selected': tiles.selectedTiles,
+            'displayed': tiles.displayedTiles,
+            'prefetched': tiles.prefetchedTiles,
+            'prefetchBytes': tiles.prefetchBytes,
             'tileBytes': tiles.residentBytes,
             'budgetLimited': tiles.budgetLimited,
             'cloudHistory': cloud.history.accumulatedFrames,
@@ -298,21 +320,23 @@ final class _NavigationBenchmark {
             'cloudAdaptive': cloud.adaptiveDiagnostics,
           });
         });
-        if (phase == 'rotate' || phase == 'drag') {
+        if (phase == 'rotate' || phase == 'drag' || phase == 'reversal') {
           controls.handlePointer(
             ScenePointerEvent(
               point: center,
               phase: ScenePointerPhase.down,
               kind: ScenePointerKind.mouse,
-              buttons: phase == 'rotate' ? 2 : 1,
+              buttons: phase == 'drag' ? 1 : 2,
             ),
           );
         }
         final motion = controller.onUpdate((_) {
           if (phase == 'stationary') return;
-          final wave = math.sin(
-            2 * math.pi * clock.elapsedMicroseconds / 12000000,
-          );
+          final elapsedUs = clock.elapsedMicroseconds;
+          if (phase == 'reversal' && elapsedUs >= navigationReversalUs) {
+            actualReversalUs ??= elapsedUs;
+          }
+          final wave = navigationWave(phase, elapsedUs);
           if (phase == 'zoom') {
             final wheel = wave * 240;
             controls.handleWheel(center, wheel - previousWheel);
@@ -366,9 +390,19 @@ final class _NavigationBenchmark {
           'name': phase,
           ...summary,
           'maxCameraDisplacementM': displacement,
+          if (phase == 'reversal')
+            'reversal': {
+              'requestedAtUs': navigationReversalUs,
+              'appliedAtUs': actualReversalUs,
+              'trajectory':
+                  'linear orbit out and back, 20 percent viewport width',
+            },
           'viewport': [viewport.width, viewport.height],
           'renderSize': [renderSize.width, renderSize.height],
           'failedTiles': lab.tiles!.failures.length,
+          'logicalResourcesAtEnd':
+              controller.latestFrameStats?.profile?.resources,
+          'physicalGpuResidencyBytes': null,
           'completed': phaseFailure == null,
           if (phaseFailure != null) 'error': phaseFailure.toString(),
           'samples': samples,
@@ -384,6 +418,11 @@ final class _NavigationBenchmark {
       try {
         demand?.dispose();
         navigation.controls?.cancel();
+        report['controlsReleased'] = true;
+        report['logicalResourcesAfterControlsReleased'] =
+            controller.latestFrameStats?.profile?.resources;
+        report['cleanupScope'] =
+            'input registrations only; interactive scene remains alive';
       } catch (error) {
         report['cleanupError'] = error.runtimeType.toString();
         report['passed'] = false;
@@ -406,7 +445,7 @@ final class _NavigationBenchmark {
           if (phase['completed'] == true) phase['name'],
       ];
       report['allPhasesComplete'] =
-          phases.length == 4 &&
+          phases.length == navigationPhases.length &&
           phases.every((phase) => phase['completed'] == true);
       report['tileFailures'] = navigationTileFailures(lab.tiles?.failures);
       _result = report;
