@@ -3,6 +3,7 @@ import hashlib
 import importlib.util
 import json
 import re
+import struct
 from pathlib import Path
 import tempfile
 import unittest
@@ -38,12 +39,7 @@ class ReleaseEvidenceTest(unittest.TestCase):
         for family in ('guard', 'vehicle'):
             (self.root / (family + '.onnx')).write_bytes(b'qualification evaluator fixture, not a model')
             models[family] = self.write_pin(family + '.onnx')
-            parity[family] = self.write_receipt(family + '-parity.json', {
-                'schemaVersion': 1, 'kind': 'modelParity', 'status': 'passed',
-                'skipped': False, 'source': 'dart-zyren_ml', 'backend': 'onnxruntime-cpu',
-                'sampleCount': 16, 'maxAbsoluteError': 0.000001,
-                'modelSha256': models[family]['sha256'],
-            })
+            parity[family] = self.write_parity(family, models[family]['sha256'])
         self.report['family_model_hashes'] = {f: pin['sha256'] for f, pin in models.items()}
         self.quality = {
             'schemaVersion': 1, 'kind': 'trainedArtifact', 'status': 'passed',
@@ -58,6 +54,38 @@ class ReleaseEvidenceTest(unittest.TestCase):
             'requirements': {name: copy.deepcopy(record) for name in release.REQUIREMENTS},
             'tasks': {name: copy.deepcopy(record) for name in release.TASKS},
         }
+
+    def write_parity(self, family, model_hash):
+        width = 278 if family == 'guard' else 259
+        values = [0.0] * width
+        values[0 if family == 'guard' else 3] = 64.0
+        native = values.copy()
+        native[0 if family == 'guard' else 3] += 0.0000152587890625
+        tensor = struct.pack('<' + 'f' * (2 * width), *(values + native)) * 1000
+        tensor_name = family + '-tensors.f32'
+        (self.root / tensor_name).write_bytes(tensor)
+        controls = []
+        for step in range(1000):
+            action = {'continuous': [], 'discrete': [0] * 6} if family == 'guard' else {'continuous': [0.0] * 3, 'discrete': []}
+            row = {'step': step, 'reference': action, 'native': copy.deepcopy(action)}
+            if family == 'guard': row['legality'] = [[True] * n for n in (5,5,5,3,2,2)]
+            controls.append(row)
+        control_pin = self.write_receipt(family + '-controls.json', controls)
+        maximum = 0.0000152587890625
+        return self.write_receipt(family + '-parity.json', {
+            'schema_version': 1, 'status': 'passed', 'provider': 'native-onnxruntime-1.23.2-cpu',
+            'steps': 1000, 'typed_controller_steps': 1000, 'completed_runs': 1000,
+            'live_sessions': 0, 'live_results': 0, 'model_sha256': model_hash,
+            'max_absolute_error': maximum, 'max_normalized_error': maximum / (1e-5 + 1e-4 * 64),
+            'atol': 1e-5, 'rtol': 1e-4, 'input_sequence_hash': '1' * 64,
+            'native_worker_sha256': '2' * 64,
+            'native_asset_sha256': {'lib/libzyren_ml.dylib': '3' * 64, 'lib/libonnxruntime.dylib': '4' * 64},
+            'tensor_evidence': {'path': tensor_name, 'sha256': hashlib.sha256(tensor).hexdigest(),
+                'bytes': len(tensor), 'dtype': 'float32-le', 'shape': [1000,2,width],
+                'tensor_widths': {'logits' if family == 'guard' else 'action': 22 if family == 'guard' else 3, 'next_hidden': 128, 'next_cell': 128}},
+            'control_evidence': {'path': control_pin['path'], 'sha256': control_pin['sha256'],
+                'bytes': (self.root / control_pin['path']).stat().st_size, 'steps': 1000},
+        })
 
     def evaluation_fixture(self):
         plan = json.loads((release.ROOT / 'tool/zyren_train/configs/evaluation.yaml').read_text())
@@ -202,8 +230,8 @@ class ReleaseEvidenceTest(unittest.TestCase):
         self.assertTrue(release.validate(self.document, self.root))
 
     def test_dart_native_model_parity_is_required(self):
-        for changes in ({'source': 'python-onnxruntime'}, {'status': 'skipped'},
-                        {'modelSha256': '0' * 64}, {'maxAbsoluteError': 1.0}):
+        for changes in ({'provider': 'python-onnxruntime-1.23.2-cpu'}, {'status': 'skipped'},
+                        {'model_sha256': '0' * 64}, {'max_normalized_error': 1.01}):
             with self.subTest(changes=changes):
                 quality = copy.deepcopy(self.quality)
                 receipt = json.loads((self.root / 'guard-parity.json').read_text())
@@ -211,6 +239,48 @@ class ReleaseEvidenceTest(unittest.TestCase):
                 quality['nativeParity']['guard'] = self.write_receipt('bad-parity.json', receipt)
                 self.set_quality(quality)
                 self.assertTrue(release.validate(self.document, self.root))
+
+    def test_relative_tolerance_accepts_bounded_tensor_error_above_absolute_threshold(self):
+        self.assertEqual(release.validate(self.document, self.root), [])
+
+    def test_native_parity_rejects_forged_tensor_and_typed_control_evidence(self):
+        for change in ('tolerance', 'normalized', 'width', 'nan', 'diverged', 'controls', 'illegal', 'sequence', 'count', 'trailing', 'path', 'cleanup'):
+            with self.subTest(change=change):
+                self.write_parity('guard', self.quality['models']['guard']['sha256'])
+                receipt = json.loads((self.root / 'guard-parity.json').read_text())
+                if change == 'tolerance': receipt['rtol'] = 0.1
+                elif change == 'normalized': receipt['max_normalized_error'] = 0.0
+                elif change == 'width': receipt['tensor_evidence']['shape'][2] += 1
+                elif change == 'count': receipt['steps'] = 16
+                elif change == 'cleanup': receipt['live_sessions'] = 1
+                elif change == 'path': receipt['tensor_evidence']['path'] = '../escape.f32'
+                elif change in ('nan', 'diverged', 'trailing'):
+                    name = receipt['tensor_evidence']['path']
+                    data = bytearray((self.root / name).read_bytes())
+                    if change == 'trailing': data.extend(b'0000')
+                    else: struct.pack_into('<f', data, 278 * 4, float('nan') if change == 'nan' else 100.0)
+                    (self.root / name).write_bytes(data)
+                    receipt['tensor_evidence']['sha256'] = hashlib.sha256(data).hexdigest()
+                    receipt['tensor_evidence']['bytes'] = len(data)
+                else:
+                    name = receipt['control_evidence']['path']
+                    rows = json.loads((self.root / name).read_text())
+                    if change == 'controls': rows[0]['native']['discrete'][0] = 1
+                    elif change == 'illegal': rows[0]['legality'][0][0] = False
+                    elif change == 'sequence': rows[1]['step'] = 0
+                    pin = self.write_receipt(name, rows)
+                    receipt['control_evidence'].update(sha256=pin['sha256'], bytes=(self.root / name).stat().st_size)
+                quality = copy.deepcopy(self.quality)
+                quality['nativeParity']['guard'] = self.write_receipt('bad-parity.json', receipt)
+                self.set_quality(quality)
+                self.assertTrue(release.validate(self.document, self.root))
+
+    def test_durable_actual_t5_parity_receipts_recompute_with_fixed_tolerance(self):
+        for family in ('guard', 'vehicle'):
+            path = release.ROOT / ('tool/zyren_train/qualification/2026-10-03/' + family + '-parity.json')
+            if not path.exists(): self.fail('Durable parity fixture missing')
+            receipt = json.loads(path.read_text())
+            self.assertTrue(release.validate_model_parity(path, receipt['model_sha256'], family, root=release.ROOT))
 
     def test_malformed_target_list_reports_diagnostics(self):
         self.document['requiredTargets'] = [{'target': 'macos-metal'}]

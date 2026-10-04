@@ -8,6 +8,7 @@ from pathlib import Path
 import re
 import sys
 import math
+import struct
 
 ROOT = Path(__file__).resolve().parents[2]
 STATUSES = {"passed", "failed", "blocked", "notApplicable"}
@@ -32,9 +33,142 @@ from zyren_train.scenario import canonical_bytes
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
 
+def validate_model_parity(path, model_hash, family, *, root=ROOT):
+    """Recompute the fixed 1,000-step T5 native tensor/control comparison."""
+    root = Path(root).resolve()
+    path = Path(path).resolve()
+    widths = {"guard": {"logits": 22, "next_hidden": 128, "next_cell": 128},
+              "vehicle": {"action": 3, "next_hidden": 128, "next_cell": 128}}
+    if family not in widths or not path.is_relative_to(root):
+        return False
+
+    def finite(value):
+        return type(value) in (int, float) and math.isfinite(value)
+
+    def same(value, expected):
+        return finite(value) and math.isclose(value, expected, rel_tol=1e-9, abs_tol=1e-12)
+
+    def pinned(pin, maximum):
+        if not isinstance(pin, dict):
+            raise ValueError("Missing parity evidence")
+        name = pin.get("path")
+        if not isinstance(name, str) or not name or Path(name).is_absolute():
+            raise ValueError("Parity evidence must use a relative path")
+        source = (path.parent / name).resolve()
+        size, digest = pin.get("bytes"), pin.get("sha256")
+        if (not source.is_relative_to(root) or type(size) is not int or not 0 < size <= maximum
+                or not isinstance(digest, str) or not SHA256.fullmatch(digest)
+                or not source.is_file() or source.stat().st_size != size):
+            raise ValueError("Parity evidence path or byte count differs")
+        raw = source.read_bytes()
+        if hashlib.sha256(raw).hexdigest() != digest:
+            raise ValueError("Parity evidence changed")
+        return raw
+
+    try:
+        if path.stat().st_size > 16_777_216:
+            return False
+        receipt = json.loads(path.read_text())
+        if (not isinstance(receipt, dict) or type(receipt.get("schema_version")) is not int
+                or receipt["schema_version"] != 1 or receipt.get("status") != "passed"
+                or receipt.get("provider") != "native-onnxruntime-1.23.2-cpu"
+                or receipt.get("model_sha256") != model_hash
+                or any(type(receipt.get(key)) is not int or receipt[key] != 1000
+                       for key in ("steps", "typed_controller_steps", "completed_runs"))
+                or any(type(receipt.get(key)) is not int or receipt[key] != 0
+                       for key in ("live_sessions", "live_results"))
+                or not finite(receipt.get("atol")) or receipt["atol"] != 1e-5
+                or not finite(receipt.get("rtol")) or receipt["rtol"] != 1e-4
+                or not all(isinstance(receipt.get(key), str) and SHA256.fullmatch(receipt[key])
+                           for key in ("input_sequence_hash", "native_worker_sha256"))):
+            return False
+        assets = receipt.get("native_asset_sha256")
+        if (not isinstance(assets, dict) or not 2 <= len(assets) <= 16
+                or any(not isinstance(name, str) or not isinstance(digest, str)
+                       or not SHA256.fullmatch(digest) for name, digest in assets.items())
+                or not any("zyren_ml" in name for name in assets)
+                or not any("onnxruntime" in name for name in assets)):
+            return False
+        tensor, controls = receipt.get("tensor_evidence"), receipt.get("control_evidence")
+        width = sum(widths[family].values())
+        if (not isinstance(tensor, dict) or tensor.get("dtype") != "float32-le"
+                or tensor.get("shape") != [1000, 2, width]
+                or tensor.get("tensor_widths") != widths[family]
+                or any(type(v) is not int for v in tensor["tensor_widths"].values())
+                or not isinstance(controls, dict) or type(controls.get("steps")) is not int
+                or controls["steps"] != 1000):
+            return False
+        raw = pinned(tensor, 2_500_000)
+        if len(raw) != 1000 * 2 * width * 4:
+            return False
+        rows = json.loads(pinned(controls, 4_000_000))
+        if not isinstance(rows, list) or len(rows) != 1000:
+            return False
+        absolute, normalized = 0.0, 0.0
+        for step, row in enumerate(rows):
+            if (not isinstance(row, dict) or set(row) != ({"step", "reference", "native", "legality"}
+                    if family == "guard" else {"step", "reference", "native"})
+                    or type(row.get("step")) is not int or row["step"] != step):
+                return False
+            reference = struct.unpack_from("<" + "f" * width, raw, step * width * 8)
+            native = struct.unpack_from("<" + "f" * width, raw, step * width * 8 + width * 4)
+            if not all(math.isfinite(v) for v in (*reference, *native)):
+                return False
+            for expected, actual in zip(reference, native):
+                delta = abs(actual - expected)
+                absolute = max(absolute, delta)
+                normalized = max(normalized, delta / (1e-5 + 1e-4 * abs(expected)))
+            if normalized > 1:
+                return False
+            decoded = []
+            for name, values in (("reference", reference), ("native", native)):
+                action = row[name]
+                if (not isinstance(action, dict) or set(action) != {"continuous", "discrete"}
+                        or not isinstance(action["continuous"], list)
+                        or not isinstance(action["discrete"], list)):
+                    return False
+                if family == "guard":
+                    masks = row["legality"]
+                    sizes = (5, 5, 5, 3, 2, 2)
+                    if (not isinstance(masks, list) or len(masks) != len(sizes)
+                            or any(not isinstance(mask, list) or len(mask) != size
+                                   or not any(mask) or any(type(v) is not bool for v in mask)
+                                   for mask, size in zip(masks, sizes))):
+                        return False
+                    offset, choices = 0, []
+                    for mask, size in zip(masks, sizes):
+                        choices.append(max((i for i, allowed in enumerate(mask) if allowed),
+                                           key=lambda i: (values[offset + i], -i)))
+                        offset += size
+                    if (action["continuous"] or action["discrete"] != choices
+                            or any(type(v) is not int for v in action["discrete"])):
+                        return False
+                    decoded.append(choices)
+                else:
+                    expected = [values[0], 0.0 if values[2] > 0 else values[1], values[2]]
+                    actual = action["continuous"]
+                    if (action["discrete"] or len(actual) != 3
+                            or any(not finite(v) or not low <= v <= 1
+                                   for v, low in zip(actual, (-1, 0, 0)))
+                            or any(not finite(v) or abs(v - e) > 1e-5 + 1e-4 * abs(e)
+                                   for v, e in zip(actual, expected))):
+                        return False
+                    decoded.append(actual)
+            if family == "guard" and decoded[0] != decoded[1]:
+                return False
+            if family == "vehicle" and any(abs(a - e) > 1e-5 + 1e-4 * abs(e)
+                                            for e, a in zip(*decoded)):
+                return False
+        return (same(receipt.get("max_absolute_error"), absolute)
+                and same(receipt.get("max_normalized_error"), normalized))
+    except (OSError, UnicodeError, ValueError, TypeError, KeyError, struct.error):
+        return False
+
+
 def validate(document, root=ROOT, *, release=True):
     """Return diagnostics; schema-only mode permits explicit failed/blocked work."""
     errors = []
+    parity_cache = {}
     root = Path(root).resolve()
 
     def error(location, message):
@@ -128,16 +262,10 @@ def validate(document, root=ROOT, *, release=True):
                 if not model_paths or not parity_paths:
                     return False
                 hashes[family] = models[family]["sha256"]
-                receipt = read_receipt(parity_paths[0])
-                if (not receipt or receipt.get("schemaVersion") != 1
-                        or receipt.get("kind") != "modelParity" or receipt.get("status") != "passed"
-                        or receipt.get("skipped") is not False or receipt.get("source") != "dart-zyren_ml"
-                        or receipt.get("backend") != "onnxruntime-cpu"
-                        or receipt.get("modelSha256") != hashes[family]
-                        or type(receipt.get("sampleCount")) is not int or receipt["sampleCount"] < 1
-                        or type(receipt.get("maxAbsoluteError")) not in (float, int)
-                        or not math.isfinite(receipt["maxAbsoluteError"])
-                        or not 0 <= receipt["maxAbsoluteError"] <= 0.00001):
+                key = (parity_paths[0], parity[family]['sha256'], hashes[family], family)
+                if key not in parity_cache:
+                    parity_cache[key] = validate_model_parity(parity_paths[0], hashes[family], family, root=root)
+                if not parity_cache[key]:
                     return False
             if report.get("family_model_hashes") != hashes:
                 return False
