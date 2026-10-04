@@ -34,7 +34,7 @@ class ObservationNormalizer:
                 raise ValueError('Observation belongs to another source episode')
             content.update(canonical_bytes(sample.__dict__)); content.update(b"\n")
             values=list(sample.values)
-            if not values or len(values)>16384 or (count and len(values)!=len(mean)) or any(type(v) not in (int,float) or not math.isfinite(v) for v in values):
+            if not values or len(values)>65536 or (count and len(values)!=len(mean)) or any(type(v) not in (int,float) or not math.isfinite(v) for v in values):
                 raise ValueError('Invalid observation width/values')
             if count==0: mean=[0.]*len(values); m2=[0.]*len(values)
             count+=1

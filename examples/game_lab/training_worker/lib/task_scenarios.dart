@@ -37,18 +37,46 @@ CompiledGameProject _project(
   fixedHz: 50,
 );
 
+final class TrainingTaskSurface {
+  final PhysicsBody body;
+  final ColliderShape shape;
+  const TrainingTaskSurface(this.body, this.shape);
+}
+
+final class TrainingTaskView {
+  final Scene scene;
+  final GameSimulation simulation;
+  final GameEntityHandle actor;
+  final PhysicsBody body;
+  final Object3D observerRoot;
+  final List<TrainingTaskSurface> surfaces;
+  final PhysicsBody? target;
+  const TrainingTaskView(
+    this.scene,
+    this.simulation,
+    this.actor,
+    this.body,
+    this.observerRoot,
+    this.surfaces, {
+    this.target,
+  });
+}
+
 PhysicsBody _box(
   PhysicsWorld world,
   Vec3 center,
   Vec3 half, {
   double friction = .5,
   Set<int>? capture,
+  List<TrainingTaskSurface>? surfaces,
 }) {
   final body = world.createBody(
     kind: BodyKind.fixed,
     pose: PhysicsPose(position: center),
   );
-  final collider = body.addCollider(BoxShape(half), friction: friction);
+  final shape = BoxShape(half);
+  final collider = body.addCollider(shape, friction: friction);
+  surfaces?.add(TrainingTaskSurface(body, shape));
   capture?.add(collider.id);
   return body;
 }
@@ -62,12 +90,28 @@ GameTrainingScenario guardScenario({
   double targetSpeed = 0,
   int occluderTick = 61,
   double? hiddenTargetX,
+  double? targetOriginX,
+  void Function(TrainingTaskView)? onPrepared,
 }) => GameTrainingScenario(
   id: id,
   split: split,
   maxSteps: 240,
   create: (seed, episode) async {
     final world = PhysicsWorld(fixedStep: .02);
+    final surfaces = <TrainingTaskSurface>[];
+    PhysicsBody box(
+      Vec3 center,
+      Vec3 half, {
+      double friction = .5,
+      Set<int>? capture,
+    }) => _box(
+      world,
+      center,
+      half,
+      friction: friction,
+      capture: capture,
+      surfaces: surfaces,
+    );
     final assets = AssetScope(
       services: AssetServices(resolver: SkinnedCharacterSource()),
     );
@@ -78,8 +122,7 @@ GameTrainingScenario guardScenario({
     try {
       final ground = <int>{};
       final friction = heldOut ? .35 + (seed % 7) * .05 : .5;
-      _box(
-        world,
+      box(
         const Vec3(0, -.5, 0),
         const Vec3(20, .5, 20),
         friction: friction,
@@ -100,7 +143,7 @@ GameTrainingScenario guardScenario({
       );
       PhysicsBody? hazard;
       if (stage == 'static-obstacles' || stage == 'task-combinations') {
-        _box(world, const Vec3(.8, .5, 2), const Vec3(.5, .5, .4));
+        box(const Vec3(.8, .5, 2), const Vec3(.5, .5, .4));
       }
       if (stage == 'moving-hazards' || stage == 'task-combinations') {
         hazard = world.createBody(
@@ -108,8 +151,13 @@ GameTrainingScenario guardScenario({
           pose: PhysicsPose(position: const Vec3(-2, .6, 3)),
         )..addCollider(const BoxShape(Vec3(.4, .6, .4)));
       }
+      if (hazard != null) {
+        surfaces.add(
+          TrainingTaskSurface(hazard, const BoxShape(Vec3(.4, .6, .4))),
+        );
+      }
       final targetOrigin = Vec3(
-        hiddenTargetX ?? (heldOut ? (seed % 5 - 2) * .5 : 0),
+        hiddenTargetX ?? targetOriginX ?? (heldOut ? (seed % 5 - 2) * .5 : 0),
         .81,
         heldOut ? 6 + (seed % 7) * .1 : 6,
       );
@@ -118,6 +166,7 @@ GameTrainingScenario guardScenario({
         pose: PhysicsPose(position: targetOrigin),
       );
       final targetCollider = targetBody.addCollider(const SphereShape(.25));
+      surfaces.add(TrainingTaskSurface(targetBody, const SphereShape(.25)));
       final timeline = SceneTimelinePlugin.mixed(
         duration: const Duration(seconds: 1),
         base: modelRestClip(model),
@@ -183,6 +232,17 @@ GameTrainingScenario guardScenario({
         definition: GameCharacterDefinition(maxSpeed: 2),
       );
       registration = motors.register(controller, root);
+      onPrepared?.call(
+        TrainingTaskView(
+          scene,
+          owner,
+          actor,
+          body,
+          root,
+          surfaces,
+          target: targetBody,
+        ),
+      );
       final decoder = ActionDecoder.characterDiscrete();
       final assembler = TrainingProfiles.guard();
       final script = ScriptedBrain(
@@ -237,8 +297,7 @@ GameTrainingScenario guardScenario({
         if ((stage == 'occlusion' || stage == 'task-combinations') &&
             owner.session.tick >= occluderTick &&
             wall == null) {
-          wall = _box(
-            world,
+          wall = box(
             Vec3(0, 1, hiddenTargetX == null ? 4 : 2),
             Vec3(hiddenTargetX == null ? 2 : 12, 1, .15),
           );
@@ -456,12 +515,27 @@ GameTrainingScenario vehicleScenario({
   String stage = 'static-obstacles',
   TrainingSplit split = TrainingSplit.training,
   bool heldOut = false,
+  void Function(TrainingTaskView)? onPrepared,
 }) => GameTrainingScenario(
   id: id,
   split: split,
   maxSteps: 240,
   create: (seed, episode) async {
     final world = PhysicsWorld(fixedStep: .02);
+    final surfaces = <TrainingTaskSurface>[];
+    PhysicsBody box(
+      Vec3 center,
+      Vec3 half, {
+      double friction = .5,
+      Set<int>? capture,
+    }) => _box(
+      world,
+      center,
+      half,
+      friction: friction,
+      capture: capture,
+      surfaces: surfaces,
+    );
     GameSimulation? simulation;
     ScriptedBrain? brain;
     GameVehicleRegistration? registration;
@@ -469,18 +543,17 @@ GameTrainingScenario vehicleScenario({
       final ground = <int>{};
       final friction = heldOut ? .35 + (seed % 7) * .05 : .5;
       final barrierZ = heldOut ? 11 + (seed % 5) * .5 : 12.0;
-      _box(
-        world,
+      box(
         const Vec3(0, -.1, 0),
         const Vec3(100, .1, 100),
         friction: friction,
         capture: ground,
       );
       if (stage != 'empty-arena') {
-        _box(world, Vec3(0, .5, barrierZ), const Vec3(2, .5, .25));
+        box(Vec3(0, .5, barrierZ), const Vec3(2, .5, .25));
       }
       if (stage == 'occlusion' || stage == 'task-combinations') {
-        _box(world, const Vec3(2, 1, 8), const Vec3(.25, 1, 2));
+        box(const Vec3(2, 1, 8), const Vec3(.25, 1, 2));
       }
       PhysicsBody? hazard;
       if (stage == 'moving-hazards' || stage == 'task-combinations') {
@@ -488,6 +561,11 @@ GameTrainingScenario vehicleScenario({
           kind: BodyKind.kinematicPosition,
           pose: PhysicsPose(position: const Vec3(-3, .5, 7)),
         )..addCollider(const BoxShape(Vec3(.6, .5, .6)));
+      }
+      if (hazard != null) {
+        surfaces.add(
+          TrainingTaskSurface(hazard, const BoxShape(Vec3(.6, .5, .6))),
+        );
       }
       final body = world.createBody(
         pose: PhysicsPose(position: const Vec3(0, .8, 0)),
@@ -557,6 +635,10 @@ GameTrainingScenario vehicleScenario({
         definition: definition,
       );
       final root = Group();
+      final scene = Scene()..add(root);
+      onPrepared?.call(
+        TrainingTaskView(scene, owner, actor, body, root, surfaces),
+      );
       registration = vehicles.register(
         controller,
         presentationRoot: root,

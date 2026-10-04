@@ -17,7 +17,7 @@ from .run_manifest import RunDirectory
 from .checkpoint import TrainingCheckpoint
 from .curriculum import Curriculum
 from .rewards import RewardLedger
-from .policies.structured import StructuredPolicy
+from .policies.visual import create_policy, validate_visual_network
 from .policies.cloning import training_sequences, cloning_loss
 
 
@@ -46,7 +46,7 @@ class TrainingConfig:
             if type(value) is not int or not low<=value<=high: raise ValueError('Training budget is invalid')
         bounded(data['seed'],0,2**31-1); bounded(data['total_steps'],1,10_000_000)
         bounded(data['checkpoint_every_steps'],1,10_000_000); bounded(data['evaluation_every_steps'],1,10_000_000); bounded(data['bc_epochs'],0,100)
-        if data['network']!={'hidden_sizes':[128,128],'lstm_hidden_size':128}: raise ValueError('Unsupported structured architecture')
+        if data['network']!={'hidden_sizes':[128,128],'lstm_hidden_size':128}: validate_visual_network(data['network'])
         rollout=data['rollout']
         if set(rollout)!={'environments','steps'}: raise ValueError('Unknown rollout field')
         bounded(rollout['environments'],1,8); bounded(rollout['steps'],2,256)
@@ -103,7 +103,7 @@ class WorkerPool:
         observation,info=env.reset(seed=seed)
         spec=self.specs[scenario]
         actual=ScenarioSpec.from_dict(info['scenario_spec'])
-        if actual.hash!=spec.hash or info['build_id']!=spec.game_build_hash or info['observation_schema_hash']!=spec.observation_schema_hash or info['action_schema_hash']!=spec.action_schema_hash: raise ValueError('Live scenario/schema/build pins differ')
+        if actual.id!=scenario or actual.partition!='train' or actual.seed!=seed or actual.hash!=spec.hash or info['build_id']!=spec.game_build_hash or info['observation_schema_hash']!=spec.observation_schema_hash or info['action_schema_hash']!=spec.action_schema_hash: raise ValueError('Live scenario/schema/build pins differ')
         self.observations[index],self.infos[index]=observation,info
         return observation,info
     def close(self):
@@ -196,7 +196,7 @@ def recurrent_ppo(config,pool,run,*,resume=False,stop_after_updates=None,cancell
         first=pool.infos[0]; width=sum(field['width'] for field in first['observation_schema']['fields'])
         if any(info['action_space']!=first['action_space'] or info['observation_schema_hash']!=first['observation_schema_hash'] for info in pool.infos): raise ValueError('Vector profiles differ')
         fallback=first['action_schema']['fallbackDiscrete'] if first['action_space']['kind']=='multi_discrete' else None
-        policy=StructuredPolicy(width,first['action_space'],fallback=fallback,mean=None if norm is None else norm['mean'],scale=None if norm is None else norm['scale'])
+        policy=create_policy(data['network'],width,first['action_space'],observation_schema=first['observation_schema'],fallback=fallback,mean=None if norm is None else norm['mean'],scale=None if norm is None else norm['scale'])
         if policy.distribution_id!=data['policy_distribution']: raise ValueError('Policy distribution and host action contract differ')
         optimizer=torch.optim.Adam(policy.parameters(),lr=data['optimizer']['learning_rate'])
         if state is not None:

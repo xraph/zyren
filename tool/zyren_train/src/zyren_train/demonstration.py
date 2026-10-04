@@ -24,7 +24,7 @@ def validate_record(row,metadata):
         if not isinstance(row[key],dict) or set(row[key])!=set(actors): raise ValueError('Actor record identity differs')
     for key in ('observations','proposed_actions','applied_actions'):
         for values in row[key].values():
-            if not isinstance(values,list) or not 1<=len(values)<=16384 or any(type(v) not in (int,float) or not math.isfinite(v) for v in values):
+            if not isinstance(values,list) or not 1<=len(values)<=(65536 if key=='observations' else 4096) or any(type(v) not in (int,float) or not math.isfinite(v) for v in values):
                 raise ValueError('Invalid observation/action values')
     for key in ('legality','execution_legality'):
         if key not in row: continue

@@ -10,7 +10,7 @@ import torch
 from torch import nn
 from .checkpoint import TrainingCheckpoint
 from .scenario import canonical_bytes
-from .policies.structured import StructuredPolicy
+from .policies.visual import create_policy
 
 
 def runtime_schema_hash(value):
@@ -33,7 +33,7 @@ class ActorCheckpoint:
         return cls(config,state,info['observation_schema'],info['action_schema'],info['action_space'])
     def policy(self):
         width=sum(field['width'] for field in self.observation['fields'])
-        policy=StructuredPolicy(width,self.action_space,fallback=self.action['fallbackDiscrete'])
+        policy=create_policy(self.config.data.get('network',{'hidden_sizes':[128,128],'lstm_hidden_size':128}),width,self.action_space,observation_schema=self.observation,fallback=self.action['fallbackDiscrete'])
         policy.load_state_dict(self.state['model']);policy.eval()
         if policy.distribution_id!=self.config.data['policy_distribution']:raise ValueError('Checkpoint action distribution differs')
         return policy

@@ -7,6 +7,8 @@ import 'package:zyren_game/training.dart';
 import 'native_scenario.dart';
 import 'policy_probe.dart';
 import 'task_scenarios.dart';
+import 'visual_scenario.dart';
+import 'multi_agent_scenario.dart';
 
 void _environmentMain(Map<String, Object?> config) {
   final parent = config['parent'] as SendPort;
@@ -19,6 +21,10 @@ void _environmentMain(Map<String, Object?> config) {
       'native-body': nativeBodyScenario(),
       ...taskScenarioCatalog(),
       ...evaluationScenarioCatalog(),
+      ...visualScenarioCatalog(),
+      ...visualScenarioCatalog(evaluation: true),
+      ...multiAgentScenarioCatalog(),
+      ...multiAgentScenarioCatalog(evaluation: true),
     },
   );
   final endpoint = LocalTrainingEndpoint(environment);
