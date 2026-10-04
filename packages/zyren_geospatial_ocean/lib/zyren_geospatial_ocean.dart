@@ -25,3 +25,4 @@ export 'src/queries/query.dart';
 export 'src/queries/sampler.dart';
 export 'src/rendering/optics.dart'
     show OceanOptics, waterFresnel, waterTransmittance;
+export 'src/rendering/wave_render_data.dart';
