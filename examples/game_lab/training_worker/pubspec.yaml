@@ -15,6 +15,8 @@ dependencies:
     path: ../../../packages/zyren_game_native
   zyren_native:
     path: ../../../packages/zyren_native
+  zyren_navigation:
+    path: ../../../packages/zyren_navigation
   zyren_ml:
     path: ../../../packages/zyren_ml
   zyren_physics:
