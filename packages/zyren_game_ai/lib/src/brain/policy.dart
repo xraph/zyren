@@ -218,6 +218,11 @@ final class PolicyBrain implements GameBrain {
   int _serial = 0, _sequence = 0, _lastDecisionTick = -1;
   bool _closed = false;
   PolicyFailure? lastFailure;
+  int _invalidOutputs = 0;
+
+  /// Rejected native output packets, including invalid action or recurrent values.
+  /// This lifetime counter is diagnostic state and is not rewound by a checkpoint.
+  int get invalidOutputs => _invalidOutputs;
   PolicyBrain({
     required BrainIdentity identity,
     required this.contract,
@@ -371,6 +376,7 @@ final class PolicyBrain implements GameBrain {
           serial == _serial &&
           result.status != MlOutcomeStatus.ok) {
         lastFailure = PolicyFailure._(result);
+        if (result.status == MlOutcomeStatus.invalid) _invalidOutputs++;
       }
       if (_closed ||
           serial != _serial ||
@@ -390,10 +396,16 @@ final class PolicyBrain implements GameBrain {
       final hidden = <String, MlTensor>{};
       for (final entry in contract.model.recurrent.entries) {
         final tensor = result.tensors[entry.value];
-        if (tensor == null) return null;
+        if (tensor == null) {
+          _invalidOutputs++;
+          return null;
+        }
         hidden[entry.key] = tensor;
       }
-      if (action == null || !state.accepts(hidden)) return null;
+      if (action == null || !state.accepts(hidden)) {
+        _invalidOutputs++;
+        return null;
+      }
       final decision = BrainDecision.policy(
         identity: who,
         observationTick: request.observationTick,
