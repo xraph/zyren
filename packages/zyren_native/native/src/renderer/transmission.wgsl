@@ -32,7 +32,10 @@ fn transmission_path(input:VertexOutput, n:vec3<f32>, v:vec3<f32>, surface:Stand
     let rough=surface.roughness*clamp(ior*2.-2.,0.,1.);
     let radius=rough*rough*.08*min(uniforms.viewport.x,uniforms.viewport.y)/uniforms.viewport.xy;
     var incoming=vec4(0.); var total=0.;
-    for(var y=-1;y<=1;y++) { for(var x=-1;x<=1;x++) {
+    // A collapsed radius has nine identical taps, including identical rejection.
+    // Keep rough filtering bounded to nine depth-aware bilinear taps.
+    let extent=select(1,0,all(radius==vec2(0.)));
+    for(var y=-extent;y<=extent;y++) { for(var x=-extent;x<=extent;x++) {
         let sample=transmission_sample(uv+vec2<f32>(f32(x),f32(y))*radius,input.position.z);
         if(sample.a<0.) {continue;}
         let weight=select(1.,2.,x==0)*select(1.,2.,y==0);

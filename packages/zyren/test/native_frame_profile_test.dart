@@ -41,6 +41,15 @@ void main() {
       expect(profile.sceneDrawCalls(20), 4);
       expect(profile.passes['scene']!.drawCalls, 4);
       expect(profile.automaticInstanceUploadBytes, 2560);
+      final seeded = Map<String, Object?>.of(json)
+        ..['passes'] = {
+          'scene': {'executed': true, 'gpuTimeNs': null, 'drawCalls': 2},
+          'transmission': {'executed': true, 'gpuTimeNs': null, 'drawCalls': 3},
+          'outlineMask': {'executed': true, 'gpuTimeNs': null, 'drawCalls': 1},
+          'energyLut': {'executed': true, 'gpuTimeNs': null, 'drawCalls': 1},
+        };
+      // Four mesh draws plus one seed, one outline mask and one LUT draw.
+      expect(NativeFrameProfile.fromJson(seeded).sceneDrawCalls(20), 7);
       final outlined = Map<String, Object?>.of(json)
         ..['passes'] = {
           'outlines': {'executed': true, 'gpuTimeNs': null},

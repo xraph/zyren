@@ -628,7 +628,14 @@ impl Renderer {
     pub fn scene_draw_stats(&self) -> (u64, usize) {
         (
             self.last_scene_draws.get(),
-            self.pipelines.len() + usize::from(self.energy_lut.table.is_some()),
+            self.pipelines.len()
+                + usize::from(self.energy_lut.table.is_some())
+                + usize::from(
+                    self.transmission
+                        .targets
+                        .as_ref()
+                        .is_some_and(|t| t.seed.is_some()),
+                ),
         )
     }
     pub fn scene_resource_stats(&self) -> (u64, u64) {
@@ -1243,6 +1250,7 @@ impl Renderer {
             p.pipeline_switches = Some(0);
             p.bind_group_switches = Some(0);
         }
+        let reuse_opaque = self.reuse_opaque_capture(frame, format, load_depth);
         for (capture, mask) in [(true, false), (false, false), (false, true)] {
             if mask && self.outlines.view(frame).is_none() {
                 continue;
@@ -1349,6 +1357,30 @@ impl Renderer {
                 }),
                 ..Default::default()
             });
+            if reuse_opaque && !capture && !mask {
+                let (pipeline, binding) = self
+                    .transmission
+                    .targets
+                    .as_ref()
+                    .unwrap()
+                    .seed
+                    .as_ref()
+                    .unwrap();
+                pass.set_pipeline(pipeline);
+                pass.set_bind_group(0, binding, &[]);
+                pass.draw(0..3, 0..1);
+                self.last_scene_draws.set(self.last_scene_draws.get() + 1);
+                let mut profile = self.profile.borrow_mut();
+                *profile
+                    .passes
+                    .get_mut("scene")
+                    .unwrap()
+                    .draw_calls
+                    .as_mut()
+                    .unwrap() += 1;
+                *profile.pipeline_switches.as_mut().unwrap() += 1;
+                *profile.bind_group_switches.as_mut().unwrap() += 1;
+            }
             let mut previous_pipeline = None;
             let mut previous_bindings: [Option<&wgpu::BindGroup>; 4] = [None; 4];
             for draw in &self.batches.order {
@@ -1361,6 +1393,14 @@ impl Renderer {
                 if capture
                     && (frame.meshes[draw.mesh].requires_opaque_capture()
                         || frame.meshes[draw.mesh].alpha_mode == 2)
+                {
+                    continue;
+                }
+                if reuse_opaque
+                    && !capture
+                    && !mask
+                    && !frame.meshes[draw.mesh].requires_opaque_capture()
+                    && frame.meshes[draw.mesh].alpha_mode != 2
                 {
                     continue;
                 }

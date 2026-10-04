@@ -134,3 +134,37 @@ approximation, so an occlusion texture is still needed for local cavity detail.
 Run Shader Lab's PBR example to compare the default with the `Specular AA` toggle.
 The toggle changes the public material setting, including when textures are
 switched off. Its controls wrap on narrow windows.
+
+## Transmission capture and filtering
+
+Open PBR in Shader Lab and select `Transmission`. You can adjust roughness and
+dispersion, then compare single-sample rendering with `4× MSAA`. The footer
+reports actual scene and capture draws, including the fullscreen seed when the
+renderer reuses opaque results.
+
+Glass samples the current view's opaque color and depth before any transparent
+surface or custom `MeshSceneInputs.opaqueColorDepth` consumer. A zero filter
+radius uses one depth-aware bilinear tap. Rough transmission uses nine weighted
+taps, with at most four depth and four color loads per tap. Dispersion evaluates
+three paths when its factor and thickness are nonzero. A fully rejected path
+adds one straight-through fallback tap; an environment supplies the offscreen
+fallback when available. Foreground rejection follows the view's depth convention.
+The radius uses the filtered material roughness, including specular AA.
+
+Opaque capture is reused when its format matches the main attachment, both use
+one sample, and all capture draws form a contiguous prefix of the final sorted
+draw order. One fullscreen draw seeds associated color and depth, then the main
+pass draws the remaining surfaces. You save the duplicate opaque mesh draws at
+the cost of that fullscreen read/write. With one opaque mesh the draw count is
+unchanged, and workload savings depend on geometry and material cost.
+
+MSAA, a format mismatch, or an opaque draw after a consumer prevents reuse.
+Those paths retain opaque redraw. Externally initialized depth remains
+incompatible with opaque capture and is rejected before rendering. Glass keeps its existing
+single-sample capture under MSAA; custom scene-input consumers use the frame's
+sample count and HDR capture with nearest-covered depth resolve. Reuse does not
+change clear alpha, clipping, explicit render order, transparent blending, or
+jittered capture projection. Capture targets and seed bindings share ownership;
+resize and view retirement invalidate every cached view that retained them.
+A single-sample capture also retains one seed pipeline, included in the native
+live pipeline count. The seed needs no additional texture allocation.

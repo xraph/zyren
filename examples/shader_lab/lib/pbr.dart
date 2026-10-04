@@ -64,7 +64,20 @@ class _PbrLabState extends State<_PbrLab> {
   late final DirectionalLight sun;
   late final HemisphereLight hemisphere;
   late final EnvironmentLighting environment;
-  bool environmentControls = false;
+  String controls = 'lights';
+  late final Mesh glass;
+  double glassRoughness = 0, dispersion = 0;
+
+  void _applyGlass() {
+    glass.material = PhysicalMaterial(
+      transmission: 1,
+      thickness: .7,
+      roughness: glassRoughness,
+      dispersion: dispersion,
+      specularAntiAliasingVariance: specularAA ? .15 : 0,
+    );
+  }
+
   double environmentAngle = 0;
   late final List<TextureMap> maps = _makeMaps();
   final effects = PostProcessing(bloom: BloomOptions());
@@ -158,6 +171,16 @@ class _PbrLabState extends State<_PbrLab> {
         ..position = const Vec3(0, 0, -1)
         ..receiveShadow = true,
     );
+    glass = controller.scene.add(
+      Mesh(
+          PlaneGeometry(width: 4, height: 4),
+          PhysicalMaterial(transmission: 1),
+        )
+        ..position = const Vec3(.5, 0, 1)
+        ..renderOrder = 1
+        ..visible = false,
+    );
+    _applyGlass();
     _applyTextures();
     hemisphere = controller.scene.add(
       HemisphereLight(
@@ -301,6 +324,7 @@ class _PbrLabState extends State<_PbrLab> {
                       onPressed: () => setState(() {
                         specularAA = !specularAA;
                         _applyTextures();
+                        _applyGlass();
                       }),
                     ),
                     IconButton(
@@ -318,19 +342,28 @@ class _PbrLabState extends State<_PbrLab> {
                     ),
                     SizedBox(
                       width: 160,
-                      child: DropdownButton<bool>(
+                      child: DropdownButton<String>(
                         isExpanded: true,
                         key: const ValueKey('LightingControls'),
-                        value: environmentControls,
+                        value: controls,
                         items: const [
-                          DropdownMenuItem(value: false, child: Text('Lights')),
                           DropdownMenuItem(
-                            value: true,
+                            value: 'lights',
+                            child: Text('Lights'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'environment',
                             child: Text('Environment'),
                           ),
+                          DropdownMenuItem(
+                            value: 'transmission',
+                            child: Text('Transmission'),
+                          ),
                         ],
-                        onChanged: (value) =>
-                            setState(() => environmentControls = value!),
+                        onChanged: (value) => setState(() {
+                          controls = value!;
+                          glass.visible = controls == 'transmission';
+                        }),
                       ),
                     ),
                   ],
@@ -341,46 +374,67 @@ class _PbrLabState extends State<_PbrLab> {
                 child: Wrap(
                   spacing: 12,
                   children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text('Textures'),
-                        Switch(
-                          key: const ValueKey('Textures'),
-                          value: textured,
-                          onChanged: (value) => setState(() {
-                            textured = value;
-                            _applyTextures();
-                          }),
-                        ),
-                      ],
-                    ),
-                    DropdownButton<ToneMapping>(
-                      key: const ValueKey('ToneMapping'),
-                      value: toneMapping,
-                      items: [
-                        for (final entry in ToneMapping.values)
-                          DropdownMenuItem(
-                            value: entry,
-                            child: Text(switch (entry) {
-                              ToneMapping.linear => 'Linear',
-                              ToneMapping.reinhard => 'Reinhard',
-                              ToneMapping.acesFilmic => 'ACES Filmic',
-                              ToneMapping.aces => 'ACES',
-                              ToneMapping.cineon => 'Cineon',
-                              ToneMapping.agx => 'AgX',
-                              ToneMapping.neutral => 'Neutral',
+                    if (controls == 'transmission')
+                      FilterChip(
+                        key: const ValueKey('GlassMSAA'),
+                        label: const Text('4× MSAA'),
+                        showCheckmark: false,
+                        selected: sampleCount == 4,
+                        onSelected: (value) => setState(() {
+                          sampleCount = value ? 4 : 1;
+                          if (value) temporal.enabled = false;
+                          controller.colorPipeline = ColorPipeline(
+                            toneMapping: toneMapping,
+                            exposure: exposure,
+                            sampleCount: sampleCount,
+                          );
+                        }),
+                      ),
+                    if (controls != 'transmission')
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text('Textures'),
+                          Switch(
+                            key: const ValueKey('Textures'),
+                            value: textured,
+                            onChanged: (value) => setState(() {
+                              textured = value;
+                              _applyTextures();
                             }),
                           ),
-                      ],
-                      onChanged: (value) => setState(() {
-                        toneMapping = value!;
-                        controller.colorPipeline = ColorPipeline(
-                          toneMapping: toneMapping,
-                          exposure: exposure,
-                          sampleCount: sampleCount,
-                        );
-                      }),
+                        ],
+                      ),
+                    SizedBox(
+                      width: controlWidth,
+                      child: DropdownButton<ToneMapping>(
+                        isExpanded: true,
+                        key: const ValueKey('ToneMapping'),
+                        value: toneMapping,
+                        items: [
+                          for (final entry in ToneMapping.values)
+                            DropdownMenuItem(
+                              value: entry,
+                              child: Text(switch (entry) {
+                                ToneMapping.linear => 'Linear',
+                                ToneMapping.reinhard => 'Reinhard',
+                                ToneMapping.acesFilmic => 'ACES Filmic',
+                                ToneMapping.aces => 'ACES',
+                                ToneMapping.cineon => 'Cineon',
+                                ToneMapping.agx => 'AgX',
+                                ToneMapping.neutral => 'Neutral',
+                              }),
+                            ),
+                        ],
+                        onChanged: (value) => setState(() {
+                          toneMapping = value!;
+                          controller.colorPipeline = ColorPipeline(
+                            toneMapping: toneMapping,
+                            exposure: exposure,
+                            sampleCount: sampleCount,
+                          );
+                        }),
+                      ),
                     ),
                     control(
                       'Exposure',
@@ -396,7 +450,28 @@ class _PbrLabState extends State<_PbrLab> {
                         );
                       }),
                     ),
-                    if (environmentControls) ...[
+                    if (controls == 'transmission') ...[
+                      control(
+                        'Rough',
+                        controlWidth,
+                        glassRoughness,
+                        1,
+                        (value) => setState(() {
+                          glassRoughness = value;
+                          _applyGlass();
+                        }),
+                      ),
+                      control(
+                        'Dispersion',
+                        controlWidth,
+                        dispersion,
+                        5,
+                        (value) => setState(() {
+                          dispersion = value;
+                          _applyGlass();
+                        }),
+                      ),
+                    ] else if (controls == 'environment') ...[
                       control(
                         'Sky',
                         controlWidth,
@@ -520,13 +595,15 @@ class _PbrLabState extends State<_PbrLab> {
                       controller: controller,
                       resolutionScale: widget.postProcessing ? .5 : 1,
                     ),
-                    const Positioned(
+                    Positioned(
                       top: 8,
                       left: 12,
                       right: 12,
                       child: IgnorePointer(
                         child: Text(
-                          'Roughness 0.1 → 1 across · Metallic 0 → 1 down',
+                          controls == 'transmission'
+                              ? 'Filter: 1 smooth / 9 rough taps · dispersion: 3 paths'
+                              : 'Roughness 0.1 → 1 across · Metallic 0 → 1 down',
                           style: TextStyle(fontSize: 12),
                         ),
                       ),
@@ -544,7 +621,8 @@ class _PbrLabState extends State<_PbrLab> {
                   child: Text(
                     stats == null
                         ? 'Preparing native view'
-                        : '${stats!.drawCalls} draws · ${stats!.physicalSize.width}×${stats!.physicalSize.height}',
+                        : '${stats!.drawCalls} draws · ${stats!.physicalSize.width}×${stats!.physicalSize.height}'
+                              '${controls == 'transmission' ? ' · scene ${stats!.profile?.passes['scene']?.drawCalls ?? '?'} / capture ${stats!.profile?.passes['transmission']?.drawCalls ?? '?'}' : ''}',
                     style: const TextStyle(fontSize: 12),
                   ),
                 ),

@@ -273,7 +273,11 @@ final class NativeFrameProfile {
   /// Older native runtimes keep the caller's packet estimate.
   int sceneDrawCalls(int fallback) =>
       status == 'complete' && executedMeshDraws != null
-      ? executedMeshDraws! +
+      ? (passes['scene']?.drawCalls == null
+                ? executedMeshDraws!
+                : (passes['scene']!.drawCalls! +
+                      (passes['transmission']?.drawCalls ?? 0) +
+                      (passes['outlineMask']?.drawCalls ?? 0))) +
             (passes['outlines']?.executed == true ? 1 : 0) +
             (passes['energyLut']?.executed == true
                 ? (passes['energyLut']?.drawCalls ?? 0)

@@ -10,6 +10,7 @@ pub(super) struct Targets {
     size: [u32; 2],
     pub format: wgpu::TextureFormat,
     pub samples: u32,
+    pub seed: Option<(wgpu::RenderPipeline, wgpu::BindGroup)>,
     pub multisample: Option<super::multisample::Multisample>,
     pub depth_resolve: Option<wgpu::RenderPipeline>,
     reversed_depth: bool,
@@ -20,6 +21,8 @@ pub(super) struct System {
     pub targets: Option<Targets>,
     pub materials: Vec<Option<PreparedMaterial>>,
     defaults: [wgpu::TextureView; 2],
+    #[cfg(test)]
+    pub disable_reuse: bool,
 }
 fn texture(
     device: &wgpu::Device,
@@ -47,6 +50,8 @@ impl System {
     pub fn new(device: &wgpu::Device) -> Self {
         Self {
             targets: None,
+            #[cfg(test)]
+            disable_reuse: false,
             materials: Vec::new(),
             defaults: [
                 texture(device, wgpu::TextureFormat::Rgba8Unorm, [1, 1]),
@@ -99,6 +104,44 @@ pub(super) fn layout_entries() -> Vec<wgpu::BindGroupLayoutEntry> {
     .collect()
 }
 impl Renderer {
+    pub(super) fn reuse_opaque_capture(
+        &self,
+        frame: &Frame,
+        format: wgpu::TextureFormat,
+        load_depth: bool,
+    ) -> bool {
+        #[cfg(test)]
+        if self.transmission.disable_reuse {
+            return false;
+        }
+        let Some(targets) = &self.transmission.targets else {
+            return false;
+        };
+        if load_depth
+            || targets.format != format
+            || targets.samples != 1
+            || frame.sample_count() != 1
+        {
+            return false;
+        }
+        let mut barrier = false;
+        let mut opaque = false;
+        for draw in &self.batches.order {
+            if self.batches.skipped.contains(&draw.mesh) {
+                continue;
+            }
+            let mesh = &frame.meshes[draw.mesh];
+            if mesh.requires_opaque_capture() || mesh.alpha_mode == 2 {
+                barrier = true;
+            } else {
+                if barrier {
+                    return false;
+                }
+                opaque = true;
+            }
+        }
+        opaque
+    }
     pub(super) fn prepare_transmission(
         &mut self,
         frame: &Frame,
@@ -151,9 +194,13 @@ impl Renderer {
             let validation = self.device.push_error_scope(wgpu::ErrorFilter::Validation);
             let memory = self.device.push_error_scope(wgpu::ErrorFilter::OutOfMemory);
             let internal = self.device.push_error_scope(wgpu::ErrorFilter::Internal);
+            let color = texture(&self.device, format, size);
+            let depth = texture(&self.device, wgpu::TextureFormat::Depth32Float, size);
+            let seed = (samples == 1).then(|| seed(&self.device, format, &color, &depth));
             let candidate = Targets {
-                color: texture(&self.device, format, size),
-                depth: texture(&self.device, wgpu::TextureFormat::Depth32Float, size),
+                color,
+                depth,
+                seed,
                 size,
                 format,
                 samples,
@@ -358,3 +405,62 @@ mod tests {
         );
     }
 }
+
+fn seed(
+    device: &wgpu::Device,
+    format: wgpu::TextureFormat,
+    color: &wgpu::TextureView,
+    depth: &wgpu::TextureView,
+) -> (wgpu::RenderPipeline, wgpu::BindGroup) {
+    let shader = device.create_shader_module(wgpu::include_wgsl!("transmission_seed.wgsl"));
+    let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        label: Some("reuse opaque color and depth"),
+        layout: None,
+        vertex: wgpu::VertexState {
+            module: &shader,
+            entry_point: Some("vertex"),
+            compilation_options: Default::default(),
+            buffers: &[],
+        },
+        fragment: Some(wgpu::FragmentState {
+            module: &shader,
+            entry_point: Some("fragment"),
+            compilation_options: Default::default(),
+            targets: &[Some(wgpu::ColorTargetState {
+                format,
+                blend: None,
+                write_mask: wgpu::ColorWrites::ALL,
+            })],
+        }),
+        primitive: Default::default(),
+        depth_stencil: Some(wgpu::DepthStencilState {
+            format: wgpu::TextureFormat::Depth32Float,
+            depth_write_enabled: Some(true),
+            depth_compare: Some(wgpu::CompareFunction::Always),
+            stencil: Default::default(),
+            bias: Default::default(),
+        }),
+        multisample: Default::default(),
+        multiview_mask: None,
+        cache: None,
+    });
+    let binding = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: Some("opaque seed inputs"),
+        layout: &pipeline.get_bind_group_layout(0),
+        entries: &[
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::TextureView(color),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: wgpu::BindingResource::TextureView(depth),
+            },
+        ],
+    });
+    (pipeline, binding)
+}
+
+#[cfg(test)]
+#[path = "transmission_tests.rs"]
+mod native_tests;

@@ -13,11 +13,14 @@ class PbrBackend extends FakeBackend {
       RenderFeature.rgbaReadback,
       RenderFeature.indexedMeshes,
       RenderFeature.standardMaterials,
+      RenderFeature.physicalMaterials,
+      RenderFeature.multisampleAntialiasing,
       RenderFeature.hdrColor,
       RenderFeature.shadows,
     },
     limits: DeviceLimits(
       maxTextureDimension2D: 2048,
+      sampleCounts: {1, 4},
       maxGeometryBytes: 1000000,
       maxPunctualLights: 16,
       maxHemisphereLights: 4,
@@ -127,6 +130,29 @@ void main() {
       }
       expect(tester.takeException(), isNull);
       expect(tester.getSize(find.byType(SceneView)).height, greaterThan(250));
+      await tester.tap(find.byKey(const ValueKey('LightingControls')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Transmission').last);
+      await tester.pumpAndSettle();
+      final glass = controller.scene.children.whereType<Mesh>().singleWhere(
+        (mesh) => mesh.material is PhysicalMaterial,
+      );
+      expect(glass.visible, isTrue);
+      for (final label in ['Rough', 'Dispersion']) {
+        tester.widget<Slider>(find.byKey(ValueKey(label))).onChanged!(.7);
+        await tester.pumpAndSettle();
+      }
+      expect((glass.material as PhysicalMaterial).roughness, .7);
+      expect((glass.material as PhysicalMaterial).dispersion, .7);
+      await tester.tap(find.byKey(const ValueKey('GlassMSAA')));
+      await tester.pumpAndSettle();
+      expect(controller.colorPipeline!.sampleCount, 4);
+      for (final size in [const Size(320, 640), const Size(1100, 700)]) {
+        await tester.binding.setSurfaceSize(size);
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        expect(tester.getSize(find.byType(SceneView)).height, greaterThan(250));
+      }
       await tester.pumpWidget(const SizedBox());
       await tester.runAsync(() => controller.whenDisposed);
       expect(backend.closeCount, 1);
