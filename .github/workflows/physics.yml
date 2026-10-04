@@ -18,6 +18,13 @@ on:
     paths: ['packages/zyren_physics/**', 'examples/physics_lab/**', '.github/workflows/physics.yml']
   pull_request:
     paths: ['packages/zyren_physics/**', 'examples/physics_lab/**', '.github/workflows/physics.yml']
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
   desktop:
     timeout-minutes: 60
@@ -32,7 +39,7 @@ jobs:
         os: ${{ fromJSON(inputs.desktop_runner && inputs.desktop_runner != 'all' && format('["{0}"]', inputs.desktop_runner) || '["macos-15", "macos-15-intel", "ubuntu-24.04", "ubuntu-24.04-arm", "windows-latest", "windows-11-arm"]') }}
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: subosito/flutter-action@v2
         if: runner.arch != 'ARM64' || runner.os == 'macOS'
         with:
@@ -40,7 +47,7 @@ jobs:
           cache: true
       - name: Checkout Flutter source for arm64
         if: runner.arch == 'ARM64' && runner.os != 'macOS'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: flutter/flutter
           ref: 6a19cca56475dbfba1478ee68d7bd0c2ef891da1
@@ -71,13 +78,11 @@ jobs:
       - name: Linux build dependencies
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev xvfb xauth mesa-vulkan-drivers vulkan-tools
-      - run: rustup toolchain install 1.97.1 --profile minimal --component clippy,rustfmt
+      # Rust lint and crate tests run in rust.yml; this toolchain builds the native asset.
+      - run: rustup toolchain install 1.97.1 --profile minimal
       - run: flutter pub get
       - run: dart analyze packages/zyren_physics examples/physics_lab
       - run: dart format --output=none --set-exit-if-changed packages/zyren_physics examples/physics_lab/lib examples/physics_lab/integration_test examples/physics_lab/test_driver examples/physics_lab/tool
-      - run: cargo +1.97.1 fmt --manifest-path packages/zyren_physics/native/Cargo.toml --check
-      - run: cargo +1.97.1 clippy --manifest-path packages/zyren_physics/native/Cargo.toml --all-targets --locked -- -D warnings
-      - run: cargo +1.97.1 test --manifest-path packages/zyren_physics/native/Cargo.toml --locked
       - run: dart test --concurrency=1
         working-directory: packages/zyren_physics
       - run: dart run tool/check_package_boundaries.dart
@@ -96,7 +101,7 @@ jobs:
         working-directory: examples/physics_lab
       - name: Save render evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: physics-${{ matrix.os }}
           path: examples/physics_lab/qualification/ci/
@@ -104,11 +109,11 @@ jobs:
     if: github.event_name != 'workflow_dispatch' || inputs.desktop_runner == 'all'
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.47.5'
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '17'

@@ -5,6 +5,13 @@ on:
     paths: ['packages/zyren_physics/**', 'examples/physics_lab/**', '.github/workflows/physics-android.yml']
   pull_request:
     paths: ['packages/zyren_physics/**', 'examples/physics_lab/**', '.github/workflows/physics-android.yml']
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
   android-x64:
     runs-on: ubuntu-24.04
@@ -14,7 +21,7 @@ jobs:
       CARGO_PROFILE_RELEASE_DEBUG: '0'
       CARGO_INCREMENTAL: '0'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Reserve space for the emulator and native builds
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
@@ -23,12 +30,19 @@ jobs:
         with:
           flutter-version: '3.47.5'
           cache: true
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '17'
       - run: rustup toolchain install 1.97.1 --profile minimal
       - run: flutter pub get
+      # Build before the emulator boots. Compiling Rust and Gradle while the
+      # emulator runs starved it on the 4-core runner: adb lost the device and
+      # QEMU reported hung threads. The build inside the emulator step is then
+      # incremental.
+      - name: Warm the Android build
+        run: flutter build apk --debug --target-platform android-x64 -t integration_test/physics_lab_test.dart
+        working-directory: examples/physics_lab
       - name: Enable emulator acceleration
         run: |
           test -c /dev/kvm
@@ -42,6 +56,8 @@ jobs:
           arch: x86_64
           profile: pixel_7_pro
           disk-size: 2048M
+          disable-animations: true
+          emulator-boot-timeout: 900
           emulator-options: -no-window -no-snapshot -noaudio -no-boot-anim -no-metrics -gpu swiftshader -feature Vulkan -camera-back none -camera-front none
           working-directory: examples/physics_lab
           script: flutter test integration_test/physics_lab_test.dart -d emulator-5554 --no-pub

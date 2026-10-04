@@ -1,9 +1,77 @@
 name: Native checks
+
 on:
   push:
+    branches: [main]
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+env:
+  # Keep in step with .fvmrc and packages/*/native/rust-toolchain.toml.
+  FLUTTER_VERSION: '3.47.5'
+  RUST_VERSION: '1.97.1'
+  LINUX_BUILD_DEPS: clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
+
 jobs:
+  # Platform-independent checks run once. Rust lint and tests live in rust.yml.
+  analyze:
+    name: Analyze, format and boundaries
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - run: flutter pub get
+      # The review app keeps its own lockfile outside the workspace.
+      - run: flutter pub get --directory packages/zyren_engineering/example/review_app
+      - run: flutter analyze
+      - run: dart format --output=none --set-exit-if-changed packages examples
+      - run: dart run tool/check_package_boundaries.dart
+      # Fails when a new package has no reference section or a public library
+      # stops resolving.
+      - run: dart run tool/generate_api_reference.dart build/api-reference
+
+  # Every workspace test suite, on Linux. Mesa's software Vulkan driver lets
+  # the native tests that do not opt into RUN_NATIVE_GPU create a device.
+  tests:
+    name: Workspace tests (${{ matrix.shard }}/3)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - name: Linux build and Vulkan dependencies
+        run: sudo apt-get update && sudo apt-get install -y ${{ env.LINUX_BUILD_DEPS }} mesa-vulkan-drivers
+      - run: rustup toolchain install "$RUST_VERSION" --profile minimal
+      - run: flutter pub get
+      - run: dart run tool/run_package_tests.dart --shard ${{ matrix.shard }}/3
+      - name: Keep test logs
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-logs-${{ matrix.shard }}
+          path: build/test-logs/
+
+  # Native builds per desktop platform, with the core suites as a smoke test.
   desktop:
+    name: Desktop (${{ matrix.platform }})
     strategy:
       fail-fast: false
       matrix:
@@ -15,56 +83,58 @@ jobs:
           - os: ubuntu-latest
             platform: linux
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.47.5'
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
       - name: Linux build dependencies
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
+        run: sudo apt-get update && sudo apt-get install -y ${{ env.LINUX_BUILD_DEPS }}
       - name: Rust toolchain
-        run: rustup toolchain install 1.97.1 --profile minimal --component clippy,rustfmt
+        run: rustup toolchain install ${{ env.RUST_VERSION }} --profile minimal
       - run: flutter pub get
-      - run: flutter analyze
-      - run: dart format --output=none --set-exit-if-changed packages examples/planet/lib examples/planet/integration_test examples/multiple_views/lib examples/multiple_views/test examples/multiple_views/integration_test
-      - run: cargo +1.97.1 fmt --manifest-path packages/zyren_native/native/Cargo.toml --check
-      - run: cargo +1.97.1 clippy --manifest-path packages/zyren_native/native/Cargo.toml --all-targets --locked -- -D warnings
-      - run: cargo +1.97.1 test --manifest-path packages/zyren_native/native/Cargo.toml --locked
-      - run: dart run tool/check_package_boundaries.dart
-      - run: dart test
-        working-directory: packages/zyren
-      - run: dart test
-        working-directory: packages/zyren_geospatial
-      - run: dart test packages/zyren_tools/test packages/zyren_devtools/test packages/zyren_timeline/test packages/zyren_gltf_timeline/test packages/zyren_engineering/test
-      - run: dart test
-        working-directory: packages/zyren_gltf
-      - run: flutter test
-        working-directory: packages/flutter_zyren
-      - run: flutter test
-        working-directory: examples/multiple_views
-      - run: flutter test
-        working-directory: examples/model_viewer
-      - run: dart test test/worker_failure_test.dart
-        working-directory: packages/zyren_native
+      - run: dart run tool/run_package_tests.dart --only packages/zyren,packages/flutter_zyren
       - run: flutter build ${{ matrix.platform }} --debug
         working-directory: examples/planet
+
   mobile:
+    name: Mobile builds
     runs-on: macos-latest
+    timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.47.5'
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '17'
-      - run: rustup toolchain install 1.97.1 --profile minimal
+      - run: rustup toolchain install ${{ env.RUST_VERSION }} --profile minimal
       - run: flutter pub get
       - run: flutter build ios --simulator --debug --no-codesign
         working-directory: examples/planet
       - run: flutter build apk --debug --target-platform android-arm64
         working-directory: examples/planet
+
+  # One check to require in branch protection.
+  checks-success:
+    name: Native checks passed
+    if: always()
+    needs: [analyze, tests, desktop, mobile]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every job
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          for result in $RESULTS; do
+            if [ "$result" != success ]; then
+              echo "A required job finished with: $result"
+              exit 1
+            fi
+          done

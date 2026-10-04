@@ -1,0 +1,94 @@
+name: Rust
+
+# Lint, audit, build and test every native crate with the shared xraph Rust
+# workflow. The crates pin Rust 1.97.1 in their rust-toolchain.toml; passing
+# the same version here keeps rustup from installing a second toolchain.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/*/native/**'
+      - '.github/workflows/rust.yml'
+  pull_request:
+    paths:
+      - 'packages/*/native/**'
+      - '.github/workflows/rust.yml'
+  schedule:
+    # Weekly: the macOS and Windows legs and a fresh advisory database, even
+    # in weeks nobody touches the crates.
+    - cron: '0 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  native:
+    name: zyren_native
+    uses: xraph/workflows/.github/workflows/rust-ci.yml@v1
+    with:
+      working-directory: packages/zyren_native/native
+      toolchain: '1.97.1'
+      cargo-flags: '--locked'
+
+  # The Windows leg is the only place MSVC compiles the C sources in this
+  # crate, so it runs on main and weekly. It is a separate call so a slow or
+  # broken extended leg cannot redden the gating jobs above.
+  native-extended:
+    name: zyren_native extended
+    if: github.event_name != 'pull_request'
+    uses: xraph/workflows/.github/workflows/rust-ci.yml@v1
+    with:
+      working-directory: packages/zyren_native/native
+      toolchain: '1.97.1'
+      cargo-flags: '--locked'
+      only-extended: true
+      run-extended: true
+      extended-matrix: '[{"os":"macos-latest","toolchain":"1.97.1"},{"os":"windows-latest","toolchain":"1.97.1"}]'
+
+  physics:
+    name: zyren_physics
+    uses: xraph/workflows/.github/workflows/rust-ci.yml@v1
+    with:
+      working-directory: packages/zyren_physics/native
+      toolchain: '1.97.1'
+      cargo-flags: '--locked'
+
+  pipeline:
+    name: zyren_pipeline
+    uses: xraph/workflows/.github/workflows/rust-ci.yml@v1
+    with:
+      working-directory: packages/zyren_pipeline/native
+      toolchain: '1.97.1'
+      cargo-flags: '--locked'
+
+  pointclouds:
+    name: zyren_pointclouds
+    uses: xraph/workflows/.github/workflows/rust-ci.yml@v1
+    with:
+      working-directory: packages/zyren_pointclouds/native
+      toolchain: '1.97.1'
+      cargo-flags: '--locked'
+
+  # One check to require in branch protection.
+  rust-success:
+    name: Rust checks passed
+    if: always()
+    needs: [native, physics, pipeline, pointclouds]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every gating crate
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          for result in $RESULTS; do
+            if [ "$result" != success ]; then
+              echo "A gating Rust job finished with: $result"
+              exit 1
+            fi
+          done
