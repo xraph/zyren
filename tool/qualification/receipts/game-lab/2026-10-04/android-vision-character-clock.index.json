@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "status": "smokeUnstable",
+  "run": 11,
+  "files": [
+    {
+      "path": "android-vision-character-clock.receipt.json",
+      "sha256": "8ba5c2927f7ef7fdc8b4fbde82e3ad7051316bc8e7551061b14e7143f0aba540",
+      "rawSha256": "8ba5c2927f7ef7fdc8b4fbde82e3ad7051316bc8e7551061b14e7143f0aba540",
+      "rawBytes": 174710
+    },
+    {
+      "path": "android-vision-character-clock.launch.json",
+      "sha256": "c18d85bea498d66927ad946d09a6561483160782c89bb4c7228293e7eaccba91",
+      "rawSha256": "c18d85bea498d66927ad946d09a6561483160782c89bb4c7228293e7eaccba91",
+      "rawBytes": 2384
+    },
+    {
+      "path": "android-vision-character-clock.log.gz",
+      "sha256": "d8612663c11a92f09db6378ed11e597960b6e6d517585bcf3fc7903e025f3afb",
+      "rawSha256": "02c806426cb9d352bc7c5b657ae1f59675e3f29625a2ca836cb982103f65efde",
+      "rawBytes": 2839
+    }
+  ],
+  "limits": [
+    "10-second diagnostic lifecycle run only; sustained acceptance failed.",
+    "This profile exercises VisionSensor batching and primitive character target submission.",
+    "Shared source changed during build/run; no isolated performance comparison.",
+    "All six lifecycle checks passed and native owner counts returned to baseline.",
+    "The native clock regression finished before physical game execution, but its hook process briefly overlapped initial device launch preparation."
+  ],
+  "sourceHashBefore": "951657c280cc12b7a6f750bbbfdd143b2d298433ba3000030a8d0f46d86f6c1d",
+  "sourceHashAfter": "a7b538725b70852b85bcbcf76b3794fb0300bcfc3ba79f29e5134b37b57da4f4",
+  "inputsStable": false,
+  "verified": true,
+  "artifacts": [
+    {
+      "bytes": 78061243,
+      "kind": "file",
+      "path": "build/app/outputs/flutter-apk/app-profile.apk",
+      "sha256": "f92022726e674b587d9cc04d65ced1a2c9d057845f639e2235485974e50e7a2a"
+    }
+  ]
+}

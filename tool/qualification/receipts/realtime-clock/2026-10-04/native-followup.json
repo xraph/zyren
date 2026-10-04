@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "status": "focused-native-check-passed",
+  "checks": 1,
+  "command": "cd packages/zyren_game_native && fvm dart test --concurrency=1 test/realtime_driver_test.dart",
+  "log": {
+    "file": "native.log.gz",
+    "sha256": "ff2a13c49c258ea7b2bc788e5ae05b8412221528bc1c3e018be6c4f99cf16add",
+    "rawSha256": "4040d058f5dd51785af06b23f8ad87076363e2821e1afb3f6454cb7e44a8793b",
+    "rawBytes": 199
+  },
+  "limits": [
+    "Shared checkout; no device capacity claim.",
+    "This verifies stepping without rendering, host suspension/resume and disposal against actual native physics."
+  ]
+}
