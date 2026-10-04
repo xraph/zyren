@@ -1508,6 +1508,9 @@ mod query_cache_tests;
 mod dense_state_tests;
 
 #[cfg(test)]
+mod collision_query_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     #[test]

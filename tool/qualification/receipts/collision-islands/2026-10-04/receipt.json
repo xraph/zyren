@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "date": "2026-10-04",
+  "scope": "Collision-only island bookkeeping, joint filtering and wake propagation in vendored Rapier 0.36.0",
+  "checks": [
+    {
+      "cwd": "packages/zyren_physics/native",
+      "command": "cargo test --locked",
+      "status": "passed",
+      "passed": 14
+    },
+    {
+      "cwd": "packages/zyren_physics/native",
+      "command": "cargo clippy --locked --all-targets -- -D warnings",
+      "status": "passed"
+    },
+    {
+      "cwd": "packages/zyren_physics",
+      "command": "fvm dart test --concurrency=1",
+      "status": "passed",
+      "passed": 52
+    },
+    {
+      "cwd": "packages/zyren_game_native",
+      "command": "fvm dart test --concurrency=1 test/actor_control_test.dart test/actor_contacts_test.dart test/vehicle_test.dart test/driver_test.dart test/save_test.dart test/save_admission_test.dart",
+      "status": "passed",
+      "passed": 28
+    },
+    {
+      "cwd": "packages/zyren_game_ai",
+      "command": "fvm dart test --concurrency=1 test/policy_native_test.dart test/sample_cache_native_test.dart test/multi_runtime_native_test.dart test/checkpoint_native_test.dart test/runtime_native_test.dart",
+      "status": "passed",
+      "passed": 24
+    },
+    {
+      "cwd": "examples/game_lab",
+      "command": "fvm flutter test --no-pub --concurrency=1 test/trained_runtime_test.dart",
+      "status": "passed",
+      "passed": 2
+    }
+  ],
+  "totalChecks": 120,
+  "sourceSha256": {
+    "packages/zyren_physics/native/src/lib.rs": "c918a0691f39fd2a371f8174e58c093de482eb445293416a83eccc4446ff87ea",
+    "packages/zyren_physics/native/src/collision_query_tests.rs": "996da3bd19e7bdb4738c87dd66fd04481c7ab3150bf0d7cef08b6b09bad9f734",
+    "packages/zyren_physics/native/Cargo.toml": "e055d0ec49d9c57f217062424037d170f75cf703a1ba3ffece57b7a801f483a2",
+    "packages/zyren_physics/native/Cargo.lock": "e5954161c84f394c1281f1bcd6e9095aa44fac3adf6f0df0422cd1c238d1fabb",
+    "packages/zyren_physics/hook/build.dart": "c6804c12978c75bbe7877a6626ff3f1c44dc34beeb5bcf829608c5a45e8b57b3",
+    "packages/zyren_physics/native/vendor/rapier3d-0.36.0/UPSTREAM_SHA256.json": "dbd18d88eae994745b5bdef025545bd0a582b8cde2b6c3fb5a2906709ff273ba",
+    "packages/zyren_physics/native/vendor/rapier3d-0.36.0/PATCH_SHA256.json": "9bb9a13508c8c80adde62d880bb19bd19fa39f68f607aaba6cd32d9f650df3d1",
+    "packages/zyren_physics/native/vendor/rapier3d-0.36.0/collision-islands.patch": "a559043c337d3b1f30d5fc6c6fb88307a496ea5b70e1db9afc2a6d1494870913",
+    "packages/zyren_physics/native/vendor/rapier3d-0.36.0/src/pipeline/collision_pipeline.rs": "a4633dc7fda26b70782a1c049acf8ab24b910d41a89a4655139a41bd2d380e14",
+    "packages/zyren_physics/native/vendor/rapier3d-0.36.0/src/pipeline/physics_world.rs": "44d7bfe78f9ae135ba5bcfbea9527a5c1a90c8cb03aa6b5a1976d9364efe0563"
+  },
+  "logs": [
+    {
+      "path": "upstream-red.log.gz",
+      "sha256": "30e9f812d3a1843398f588e359b801224de18b030e05d5cbf08e9a40e0fa699e",
+      "rawSha256": "269503d806b9fb804cac19b33f213b771054ce8b9f9151b2b07b7e09d062bcec",
+      "rawBytes": 1907
+    },
+    {
+      "path": "focused-green.log.gz",
+      "sha256": "4f50d558e4c76310d0d272c91f0df0888d343f309bd0fb76ded1eadee9bc57af",
+      "rawSha256": "7441dbdac8642dcd6d320bcbf2d13c30314b731fafc5f759869d9cd221557304",
+      "rawBytes": 821
+    },
+    {
+      "path": "rust.log.gz",
+      "sha256": "89a2734741e9be225c7027bcb858ec053116ef8a472ba01fef7d1efb22d66e93",
+      "rawSha256": "86d0f1c4e2f8b8749b20a87d676d9bc1367130d268cea481165b56365eb99f2b",
+      "rawBytes": 1761
+    },
+    {
+      "path": "clippy.log.gz",
+      "sha256": "b74b339d9e2c3340db0c4c7786cdec445c15e628d0ac61c5ac5121a36bb34ca5",
+      "rawSha256": "5300b23a03888db4fccca37d308d0346ff9bbc836c42686bc72dba6e4d49569f",
+      "rawBytes": 187
+    },
+    {
+      "path": "physics.log.gz",
+      "sha256": "d23bdbd1f71312aff3ad6540df1e209f9ccec1c6596d62fe9cfac9532d07088b",
+      "rawSha256": "1707894d1ecad14420bc6d1f7ef589b6ee35577f7827c4f081e9216215b4b16e",
+      "rawBytes": 5818
+    },
+    {
+      "path": "game.log.gz",
+      "sha256": "32df281aaab4b08f58d5a81430e002121f0c491161a894486acfd7676cc55c5a",
+      "rawSha256": "ff922998ce082bdc7c1480ae7a3ac6eaaecacda56256efb4fcf89f03707c9611",
+      "rawBytes": 3785
+    },
+    {
+      "path": "ai-command-path-error.log.gz",
+      "sha256": "0d2450a3ef46e6fddc836608866de1b1c4f4087a5cee6cde6b1e607c26e505b8",
+      "rawSha256": "87e78f724abbcb9b8f0665cf12dd374eaa14c49a7908e53ffb6b448096b6c651",
+      "rawBytes": 1103
+    },
+    {
+      "path": "ai.log.gz",
+      "sha256": "b3727044fc132e028369a784421fe8e1204ee3e2889dcf876be653c76e98c773",
+      "rawSha256": "6944648ad0e37677da2f187c13bdf2d8fed8dfeeb288dc3128f092d24b3b9ae4",
+      "rawBytes": 3101
+    },
+    {
+      "path": "trained-runtime.log.gz",
+      "sha256": "8646e0e0dec669aebb9fc4879a608e14ad4f3b4ffaba41ff74601a37f0ef0dc5",
+      "rawSha256": "d98b9613b3e4f6be60e70912840cf25cca0ed2132ef04323cfd80c9ea471d680",
+      "rawBytes": 324
+    }
+  ],
+  "review": {
+    "vendorSource": "root reviewed both patched files and provenance",
+    "regressionSource": "a1_native_ml independently reviewed all four corrected native regressions, clear"
+  },
+  "limits": [
+    "The original registry dependency panicked in two native regressions. That failed log is retained.",
+    "A proposed character-target query-cache optimization changed contact response and was reverted before this repair.",
+    "The first repaired-engine fixture run reached missing membership/filter admission errors; corrected explicit collider groups passed.",
+    "An AI command used two nonexistent test filenames. Its four loaded tests passed, then the corrected five-file command passed all24.",
+    "These checks establish regression behavior on macOS arm64, not cross-engine trajectory parity, held-out model quality or device capacity.",
+    "Previously accepted model receipts retain their original worker pins. Current-engine model reevaluation is separate."
+  ],
+  "vendorCommit": "74be877dff070d696c7906ca6ce741669c383ea4",
+  "toolchain": {
+    "flutter": "3.47.5 via FVM",
+    "rust": "rustc 1.97.1 (8bab26f4f 2026-07-14)",
+    "target": "aarch64-apple-darwin"
+  }
+}
