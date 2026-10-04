@@ -213,3 +213,23 @@ and queue ceiling is 256, with the existing 32 MiB queue and state budgets.
 This capacity check does not establish a sustained frame rate or device profile.
 The ONNX fixture used by that regression is deterministic test data, not a trained
 or accepted gameplay model.
+
+## Multi-agent authoring contract
+
+You can store a `multiTask` of `cooperative-search` or `competitive-pursuit` in
+`game.ai` with the `guard` controller profile, `teamId` and `multiRole`. Cooperative
+roles are `scout` (+1) and `searcher` (-1); both require an authored `goalEntityId`
+that the codec remaps with local entity references. Competitive roles are
+`pursuer` (+1) and `evader` (-1), with opposing role identity supplying the goal.
+The competitive definition cannot carry a separate goal entity.
+
+`authoredRoute` is an optional list of at most 32 `[x, y, z]` waypoints. Coordinates
+must be finite and within 100,000 units. The definition copies each point and
+exposes an immutable list. `TrainingMultiProfiles` supplies the exact task
+observation and discrete action hashes. Camera and multi-task modes are mutually
+exclusive.
+
+The runtime currently rejects these task definitions explicitly. The authoring
+contract does not establish team deployment or model acceptance. Those require
+the shared delayed communication service, permitted historical pose rebasing,
+versioned evaluation gates and an exact registered passing ONNX artifact.

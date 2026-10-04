@@ -121,6 +121,9 @@ final class GameLevelAi {
         throw StateError('This policy group supports at most 256 actors.');
       }
       final definition = GameAiAuthoringDefinition(records.single.data);
+      if (definition.multiTask != null) {
+        throw UnsupportedError('Multi-agent runtime integration is pending.');
+      }
       if (definition.visualProfile != null &&
           ++visualCount > visualLimits.maxActors) {
         throw StateError(
@@ -345,6 +348,9 @@ final class GameLevelAi {
   }) {
     final record = components.singleWhere((c) => c.type == 'game.ai');
     final definition = GameAiAuthoringDefinition(record.data);
+    if (definition.multiTask != null) {
+      throw UnsupportedError('Multi-agent runtime integration is pending.');
+    }
     final controller = definition.profile == 'guard'
         ? 'game.character'
         : 'game.vehicle';
