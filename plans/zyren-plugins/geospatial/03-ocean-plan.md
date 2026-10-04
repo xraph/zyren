@@ -314,7 +314,7 @@ double metres) -> Vec3`; `waterFresnel(double cosine, double fromIor,
 double toIor) -> double`. `OceanReflectionSettings` contains mode, step limit,
 pixel budget and confidence fade. Modes are environment, screenSpace and planar.
 
-- [ ] Check unit-length absorption and optical conservation numerically:
+- [x] Check unit-length absorption and optical conservation numerically:
 
 ```dart
 expect(waterTransmittance(const Vec3(1, 2, 3), 0), const Vec3(1, 1, 1));
@@ -322,20 +322,20 @@ expect(waterFresnel(1, 1, 1.333), closeTo(.02037, .0001));
 expect(waterFresnel(.1, 1.333, 1), closeTo(1, 1e-12));
 ```
 
-- [ ] Implement filtered native wave displacement/normals, Fresnel reflection,
+- [x] Implement filtered native wave displacement/normals, Fresnel reflection,
   sun/sky integration and bounded refracted water segments from W5 scene inputs.
   Guard foreground depth and empty background. Avoid applying aerial perspective
   to captured radiance twice. Preserve linear HDR until the core display pipeline.
-- [ ] Implement screen-space reflections with hit confidence, edge/disocclusion
+- [x] Implement screen-space reflections with hit confidence, edge/disocclusion
   rejection and explicit environment contribution outside screen coverage.
   Add planar mode only through a generic native secondary-view lease that owns
   clip plane, dimensions and lifetime. For this mode add core/native tests in
   `secondary_view_test.dart`; reject excessive globe curvature and unsupported
   backends. Never create a reflection CPU readback loop.
-- [ ] Render controlled scenes for sun elevation, roughness, coloured submerged
+- [x] Render controlled scenes for sun elevation, roughness, coloured submerged
   objects, grazing angles, foreground rejection and reflected nearby geometry.
   Test day/night atmosphere and profiles with reflection disabled explicitly.
-- [ ] Commit `feat(ocean): render native water optics and reflections`.
+- [x] Commit `feat(ocean): render native water optics and reflections`.
 
 ## Task 7: W7 Underwater, caustics and waterline
 
@@ -591,7 +591,7 @@ store, access policy, quality, frame/time owner, atmosphere and optional physics
 | --- | --- | --- | --- |
 | Spectral ocean and stable queries | W1, W2, W4 | Independent numeric oracle and native comparisons | W1/W2/W4 passed on macOS within documented numeric fixtures |
 | Globe coverage and LOD | W3 | Seam tests and continuous native camera route | Passed on macOS with explicit unmet detail bounds; see surface evidence |
-| Native optics and underwater effects | W5-W7 | Composition tests and saved captures | W5 generic transport passed on macOS; W6/W7 pending |
+| Native optics and underwater effects | W5-W7 | Composition tests and saved captures | W5 transport and W6 surface optics passed on macOS; W7 pending |
 | Physical buoyancy | W8, W9 | Native body trajectories, force balance and convergence | Planned |
 | Wakes, foam and spray | W10 | Field tests, replay and motion capture | Planned |
 | Quality and budgets | W11 | Actual work changes, admission failures and timing traces | Planned |

@@ -3,8 +3,10 @@
 You can define a deterministic sea state and inspect its numerical surface with
 this optional package. You can also evaluate native FFT fields and build a stitched
 ellipsoid mesh with native morph targets. Batched physical queries return world-space
-water positions, normals and fluid velocities. Water shading follows in the
-implementation plan; the package does not yet draw a shaded, displaced ocean.
+water positions, normals and fluid velocities. Native water materials add filtered
+displacement, optics, environment lighting and current-depth reflections. Read the
+[surface-rendering guide](doc/surface-rendering.md) for API usage and limits.
+Underwater effects, interactions and physical buoyancy are still in progress.
 
 ```dart
 final state = OceanSeaState(
@@ -80,8 +82,8 @@ pairs, reproducible coefficients, finite-depth limits, long elapsed time,
 overlapping bands and finite-difference derivatives. The 8 x 8 fixture with seed
 42 has little-endian Float64 coefficient SHA-256
 `80c7073b2f58831998d2d2b0e69cd1cddab32589e5b3e9d0faabfec4108d36fe`.
-An independent Python calculation reproduced that hash. Native checks are described below. Rendering, physical buoyancy and
-cross-platform qualification are still pending.
+An independent Python calculation reproduced that hash. Native checks are described below.
+Physical buoyancy and cross-platform qualification are still pending.
 
 ## Native wave fields
 

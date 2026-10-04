@@ -13,7 +13,7 @@ native spectral simulation and physical buoyancy required here.
 | --- | --- | --- | --- |
 | 1 | [Extension host, layers and world services](01-foundation-plan.md) | F1-F5 | F1-F5 implemented; native Metal checks recorded |
 | 2 | [Persistent caching and offline regions](02-offline-plan.md) | D1-D4 | D1-D4 implemented; manual native-window review pending |
-| 3 | [Native professional ocean](03-ocean-plan.md) | W1-W12 | W1-W5 implemented; optics next |
+| 3 | [Native professional ocean](03-ocean-plan.md) | W1-W12 | W1-W6 implemented; underwater effects next |
 
 Navigation/traffic, flight and orbital simulation remain in the approved platform
 scope. Their provider/solver specifications follow the foundation and ocean work;
@@ -129,3 +129,10 @@ Twelve native fixture and regression tests passed, including two views, MSAA,
 reversed depth, transparency and failed allocation recovery. See the
 [scene-input qualification record](../../../qualification/2026-10-03/ocean-scene-inputs.md).
 Water optics and underwater effects remain the next stages.
+
+W6 adds native filtered water materials, HDR/atmosphere lighting, depth-aware
+refraction and bounded current-depth reflections. Thirteen rendering tests passed.
+Displaced LOD controls preserve shared edges through refinement and coarsening;
+see [optics evidence](../../../qualification/2026-10-03/ocean-optics.md) for captures
+and measured fixture limits. Planar reflections remain unsupported. Underwater
+effects, buoyancy, interactions and full visual acceptance remain open.

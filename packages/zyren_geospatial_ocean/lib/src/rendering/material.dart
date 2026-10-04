@@ -1,0 +1,543 @@
+import 'dart:typed_data';
+import 'package:zyren/zyren.dart';
+import 'package:zyren_geospatial/zyren_geospatial.dart';
+import '../surface/cube_patch.dart';
+import '../surface/geometry.dart';
+import '../surface/wave_chart.dart';
+import 'lighting.dart';
+import 'optics.dart';
+import 'reflections.dart';
+import 'wave_render_data.dart';
+import 'water_wgsl.dart';
+import 'water_geometry.dart';
+
+enum OceanWaterDebug { color, normal, waterPath, reflectionConfidence }
+
+/// Native water for an ECEF-oriented local patch. Positions are local to
+/// originEcef; lengths and mesh scale stay in metres. The scene may apply a rigid
+/// world-frame transform, but scaling changes optical distances and is unsupported.
+/// Retains its immutable wave snapshot and lighting until close.
+final class OceanWaterMaterial {
+  final GpuScope _scope;
+  final String _source;
+  final List<ShaderBinding> _waveBindings;
+  final OceanWaterPatchControls? controls;
+  final TextureBinding _controlBinding;
+  final OceanPatchId patch;
+  final Vec3 originEcef;
+  final OceanReflectionSettings reflections;
+  final ShaderMaterial material;
+  final double seconds;
+  final String seaStateRevision;
+  final int ownLogicalBytes;
+  bool get isClosed => _scope.isClosed;
+  OceanWaterMaterial._(
+    this._scope,
+    this.patch,
+    this.originEcef,
+    this.reflections,
+    this.material,
+    this.seconds,
+    this.seaStateRevision,
+    this.ownLogicalBytes,
+    this._source,
+    this._waveBindings,
+    this.controls,
+    this._controlBinding,
+  );
+
+  static Future<OceanWaterMaterial> create(
+    GpuScope parent, {
+    required OceanWaveRenderData waves,
+    required OceanPatchId patch,
+    Vec3? originEcef,
+    Ellipsoid ellipsoid = Ellipsoid.wgs84,
+    required double geometrySpacingMetres,
+    OceanOptics? optics,
+    OceanLighting? lighting,
+    OceanReflectionSettings? reflections,
+    OceanWaterDebug debug = OceanWaterDebug.color,
+    bool deformed = false,
+    OceanWaterPatchControls? controls,
+  }) async {
+    validateOceanEllipsoid(ellipsoid);
+    final origin = originEcef ?? patch.point(.5, .5, ellipsoid);
+    if (waves.isClosed) throw StateError('Packed water waves have closed.');
+    if (!origin.isFinite ||
+        !geometrySpacingMetres.isFinite ||
+        geometrySpacingMetres <= 0 ||
+        geometrySpacingMetres > 1e8) {
+      throw ArgumentError('Invalid water patch origin or geometry spacing.');
+    }
+    if (controls != null &&
+        (controls.geometry.id != patch || controls.geometry.origin != origin)) {
+      throw ArgumentError(
+        'Water controls do not match the material patch origin.',
+      );
+    }
+    final useDeformation = controls?.morphing ?? deformed;
+    final charts = OceanWaveCharts(
+      ellipsoid: ellipsoid,
+      seed: waves.state.seed,
+    );
+    if (controls != null &&
+        (controls.ellipsoid.x != ellipsoid.x ||
+            controls.ellipsoid.y != ellipsoid.y ||
+            controls.ellipsoid.z != ellipsoid.z)) {
+      throw ArgumentError(
+        'Water controls and material must share an ellipsoid.',
+      );
+    }
+    final required = {
+      ...charts.chartsForPatch(patch),
+      ...?controls?.requiredChartIds,
+    };
+    if (!waves.textures.keys.toSet().containsAll(required)) {
+      throw ArgumentError('Water patch requires resident charts $required.');
+    }
+    final optical = optics ?? OceanOptics(),
+        light = lighting ?? OceanLighting();
+    final reflection = reflections ?? OceanReflectionSettings();
+    final scope = parent.createChild(label: 'ocean-water-material');
+    try {
+      final uniform = await scope.resources.createBuffer(
+        BufferDescriptor(
+          size: 1024,
+          usage: {BufferUsage.uniform, BufferUsage.copyDestination},
+        ),
+      );
+      final empty = await scope.resources.createTexture(
+        TextureDescriptor(
+          width: 1,
+          height: 1,
+          format: TextureFormat.rgba32Float,
+          usage: {TextureUsage.sampled},
+        ),
+      );
+      final bindings = <ShaderBinding>[
+        BufferBinding.uniform(0, uniform, group: 1),
+      ];
+      for (var chart = 0; chart < 6; chart++) {
+        final texture = waves.textures[chart];
+        bindings.add(
+          TextureBinding.sampled(
+            chart + 1,
+            texture == null ? empty : await scope.resources.retain(texture),
+            group: 1,
+          ),
+        );
+      }
+      var controlTexture = empty;
+      if (controls != null) {
+        controlTexture = await scope.resources.createTexture(
+          TextureDescriptor(
+            width: controls.textureWidth,
+            height: controls.textureHeight,
+            format: TextureFormat.rgba32Float,
+            usage: {TextureUsage.sampled, TextureUsage.copyDestination},
+          ),
+        );
+        await scope.resources.writeTexture(
+          controlTexture,
+          controls.encode().buffer.asUint8List(),
+        );
+      }
+      final controlBinding = TextureBinding.sampled(
+        13,
+        controlTexture,
+        group: 1,
+        visibility: {ShaderStage.vertex},
+      );
+      bindings.add(controlBinding);
+      final data = Float32List(256);
+      void vector(int slot, Vec3 v, [double w = 0]) =>
+          data.setRange(slot * 4, slot * 4 + 4, [v.x, v.y, v.z, w]);
+      final inverse =
+          ellipsoid.reciprocalRadiiSquared * ellipsoid.maximumRadius;
+      vector(
+        0,
+        Vec3(origin.x * inverse.x, origin.y * inverse.y, origin.z * inverse.z),
+        waves.state.meanLevel,
+      );
+      vector(1, inverse);
+      vector(2, origin / 1000);
+      data.setRange(12, 16, [
+        geometrySpacingMetres,
+        optical.maximumPathMetres,
+        optical.indexOfRefraction,
+        optical.roughness,
+      ]);
+      data.setRange(16, 20, [
+        waves.resolution.toDouble(),
+        waves.levels.toDouble(),
+        waves.state.bands.length.toDouble(),
+        waves.texelsPerBand.toDouble(),
+      ]);
+      vector(5, optical.absorptionPerMetre);
+      vector(6, optical.scatteringPerMetre);
+      vector(7, light.sunDirectionEcef.normalized());
+      vector(8, light.sunIrradiance);
+      vector(9, light.skyRadiance);
+      vector(10, light.groundRadiance);
+      data.setRange(44, 48, [
+        reflection.mode.index.toDouble(),
+        reflection.stepLimit.toDouble(),
+        reflection.maximumDistanceMetres,
+        reflection.thicknessMetres,
+      ]);
+      data.setRange(48, 52, [
+        reflection.pixelBudget.toDouble(),
+        reflection.confidenceFade,
+        debug.index.toDouble(),
+        0,
+      ]);
+      data.setRange(52, 56, [
+        light.environment?.intensity ?? 1,
+        light.environment?.rotation ?? 0,
+        0,
+        0,
+      ]);
+      data[54] = controls?.textureWidth.toDouble() ?? 1;
+      data[55] = controls == null ? 0 : 1;
+      for (final chart in waves.textures.keys) {
+        data[56 + chart] = 1;
+        final u = origin.dot(oceanCubeFaces[chart].u),
+            v = origin.dot(oceanCubeFaces[chart].v);
+        for (var band = 0; band < waves.state.bands.length; band++) {
+          final length = waves.state.bands[band].patchMetres;
+          final at = 64 + (chart * 8 + band) * 4;
+          data.setRange(at, at + 4, [
+            u % length,
+            v % length,
+            length,
+            waves.unresolvedSlopeVariance[chart]![band],
+          ]);
+        }
+      }
+      if (data.any((v) => !v.isFinite)) {
+        throw ArgumentError('Water uniforms exceeded native float range.');
+      }
+      await scope.resources.writeBuffer(uniform, data);
+      var environmentSource = _hemisphere;
+      if (light.atmosphere case final atmosphere?) {
+        final library = atmosphere.shader(group: 1, firstBinding: 7);
+        for (final b in library.bindings.entries) {
+          if (b is TextureBinding) {
+            bindings.add(
+              TextureBinding.sampled(
+                b.binding,
+                await scope.resources.retain(b.resource),
+                group: b.group,
+                visibility: {ShaderStage.fragment},
+              ),
+            );
+          } else if (b is SamplerBinding) {
+            bindings.add(
+              SamplerBinding(
+                b.binding,
+                sampler: b.sampler,
+                group: b.group,
+                visibility: {ShaderStage.fragment},
+              ),
+            );
+          }
+        }
+        environmentSource = library.source + _atmosphere;
+      } else if (light.environment case final environment?) {
+        bindings.addAll([
+          TextureBinding.sampled(
+            7,
+            await scope.resources.retain(environment.specular),
+            group: 1,
+            visibility: {ShaderStage.fragment},
+          ),
+          TextureBinding.sampled(
+            8,
+            await scope.resources.retain(environment.irradiance),
+            group: 1,
+            visibility: {ShaderStage.fragment},
+          ),
+          SamplerBinding(
+            9,
+            group: 1,
+            visibility: {ShaderStage.fragment},
+            sampler: const SamplerDescriptor(
+              wrapU: TextureWrap.repeat,
+              wrapV: TextureWrap.clampToEdge,
+              minFilter: TextureFilter.linear,
+              magFilter: TextureFilter.linear,
+            ),
+          ),
+        ]);
+        environmentSource = _environment;
+      }
+      final source = oceanWaterWgsl(
+        deformed: useDeformation,
+        environmentSource: environmentSource,
+      );
+      final program = await scope.shaders.compileMesh(
+        ShaderSource.wgsl(source, label: 'ocean-water'),
+        bindings: ShaderBindings(bindings),
+        sceneInputs: MeshSceneInputs.opaqueColorDepth,
+        geometry: useDeformation
+            ? MeshShaderGeometry.deformed
+            : MeshShaderGeometry.rigid,
+      );
+      if (parent.isClosed) {
+        throw StateError('Water owner closed during preparation.');
+      }
+      return OceanWaterMaterial._(
+        scope,
+        patch,
+        origin,
+        reflection,
+        ShaderMaterial(program, side: MaterialSide.doubleSided),
+        waves.seconds,
+        waves.state.revision,
+        1040 + (controls?.logicalBytes ?? 0),
+        source,
+        List.unmodifiable(bindings.take(7)),
+        controls,
+        controlBinding,
+      );
+    } catch (_) {
+      await scope.close();
+      rethrow;
+    }
+  }
+
+  Mesh createMesh(OceanPatchGeometry geometry) {
+    if (isClosed) throw StateError('Water material closed.');
+    if (geometry.id != patch || geometry.origin != originEcef) {
+      throw ArgumentError('Geometry and water material origins must match.');
+    }
+    if (controls != null &&
+        !identical(geometry.geometry, controls!.geometry.geometry)) {
+      throw ArgumentError('Use the geometry that supplied the water controls.');
+    }
+    return Mesh(geometry.geometry, material)..position = originEcef;
+  }
+
+  /// Explicit bounded native diagnostic. It evaluates the same filtered field
+  /// used by this material, in local ECEF axes. It is not a physical query API.
+  Future<List<OceanWaterSurfaceDebug>> debugSurface(
+    List<Vec3> points, {
+    double footprintMetres = 0,
+  }) async {
+    final input = List<Vec3>.of(points);
+    if (input.isEmpty ||
+        input.length > 512 ||
+        input.any((p) => !p.isFinite) ||
+        !footprintMetres.isFinite ||
+        footprintMetres < 0 ||
+        footprintMetres > 1e8) {
+      throw ArgumentError('Invalid water diagnostic sample batch.');
+    }
+    final work = _scope.createChild(label: 'water-surface-diagnostic');
+    try {
+      final locations = await work.resources.createBuffer(
+        BufferDescriptor(
+          size: input.length * 16,
+          usage: {BufferUsage.storage, BufferUsage.copyDestination},
+        ),
+      );
+      final output = await work.resources.createBuffer(
+        BufferDescriptor(
+          size: input.length * 32,
+          usage: {BufferUsage.storage, BufferUsage.copySource},
+        ),
+      );
+      await work.resources.writeBuffer(
+        locations,
+        Float32List.fromList([
+          for (final p in input) ...[p.x, p.y, p.z, footprintMetres],
+        ]),
+      );
+      final program = await work.shaders.compile(
+        ShaderSource.wgsl('''
+$_source
+@group(0) @binding(1) var<storage,read> diagnosticPoints:array<vec4<f32>>;
+@group(0) @binding(2) var<storage,read_write> diagnosticOutput:array<vec4<f32>>;
+@compute @workgroup_size(64) fn main(@builtin(global_invocation_id) id:vec3<u32>){
+  if(id.x>=${input.length}u){return;}
+  let p=diagnosticPoints[id.x];let value=waterSurface(p.xyz,p.w);
+  diagnosticOutput[2u*id.x]=vec4(value.offset,value.variance);
+  diagnosticOutput[2u*id.x+1u]=vec4(value.normal,0.);
+}
+'''),
+      );
+      final resources = [for (final b in _waveBindings) b.resource!];
+      final graph = await work.graphs.compile(
+        GraphDescription(
+          inputs: [locations, output, ...resources],
+          passes: [
+            ComputePassDescriptor(
+              name: 'water-surface-diagnostic',
+              program: program,
+              workgroups: Workgroups((input.length + 63) ~/ 64),
+              reads: [locations, output, ...resources],
+              writes: [output],
+              bindings: ShaderBindings([
+                ..._waveBindings,
+                BufferBinding.storageRead(1, locations),
+                BufferBinding.storageReadWrite(2, output),
+              ]),
+            ),
+          ],
+        ),
+      );
+      await graph.execute();
+      final bytes = ByteData.sublistView(
+        await work.resources.readBuffer(output),
+      );
+      double f(int i) => bytes.getFloat32(i * 4, Endian.little);
+      return List.unmodifiable([
+        for (var i = 0; i < input.length; i++)
+          OceanWaterSurfaceDebug(
+            Vec3(f(i * 8), f(i * 8 + 1), f(i * 8 + 2)),
+            Vec3(f(i * 8 + 4), f(i * 8 + 5), f(i * 8 + 6)),
+            f(i * 8 + 3),
+          ),
+      ]);
+    } finally {
+      await work.close();
+    }
+  }
+
+  /// Explicit native qualification of stitched vertex offsets, before scene
+  /// transforms. Normal rendering reads the mesh's actual morph weight.
+  Future<List<Vec3>> debugStencilOffsets(double fraction) async {
+    final vertices = controls;
+    if (vertices == null ||
+        !fraction.isFinite ||
+        fraction < 0 ||
+        fraction > 1) {
+      throw ArgumentError(
+        'Stitched diagnostics require controls and a valid fraction.',
+      );
+    }
+    final work = _scope.createChild(label: 'water-stencil-diagnostic');
+    try {
+      final output = await work.resources.createBuffer(
+        BufferDescriptor(
+          size: vertices.vertexCount * 16,
+          usage: {BufferUsage.storage, BufferUsage.copySource},
+        ),
+      );
+      final program = await work.shaders.compile(
+        ShaderSource.wgsl('''
+$_source
+@group(0) @binding(1) var<storage,read_write> diagnosticOutput:array<vec4<f32>>;
+@compute @workgroup_size(64) fn main(@builtin(global_invocation_id) id:vec3<u32>){
+  if(id.x>=${vertices.vertexCount}u){return;}
+  diagnosticOutput[id.x]=vec4(waterVertexOffset(id.x,vec3(0.),$fraction),0.);
+}
+'''),
+      );
+      final bindings = [
+        ..._waveBindings,
+        TextureBinding.sampled(13, _controlBinding.resource, group: 1),
+      ];
+      final resources = [for (final b in bindings) b.resource!];
+      final graph = await work.graphs.compile(
+        GraphDescription(
+          inputs: [output, ...resources],
+          passes: [
+            ComputePassDescriptor(
+              name: 'water-stencil-diagnostic',
+              program: program,
+              workgroups: Workgroups((vertices.vertexCount + 63) ~/ 64),
+              reads: [output, ...resources],
+              writes: [output],
+              bindings: ShaderBindings([
+                ...bindings,
+                BufferBinding.storageReadWrite(1, output),
+              ]),
+            ),
+          ],
+        ),
+      );
+      await graph.execute();
+      final bytes = ByteData.sublistView(
+        await work.resources.readBuffer(output),
+      );
+      double f(int i) => bytes.getFloat32(i * 4, Endian.little);
+      return List.unmodifiable([
+        for (var i = 0; i < vertices.vertexCount; i++)
+          Vec3(f(i * 4), f(i * 4 + 1), f(i * 4 + 2)),
+      ]);
+    } finally {
+      await work.close();
+    }
+  }
+
+  Future<void> close() => _scope.close();
+}
+
+const _hemisphere = '''
+fn waterEnvironment(p:vec3<f32>,direction:vec3<f32>,roughness:f32)->vec3<f32> {
+  let up=normalize(water.originWeighted.xyz+p*water.inverseRadii.xyz);
+  let hemisphere=clamp(.5+.5*dot(direction,up),0.,1.);
+  return mix(water.ground.xyz,water.sky.xyz,mix(hemisphere,.5,roughness*roughness));
+}
+fn waterDirect(p:vec3<f32>)->vec3<f32>{return water.sunIrradiance.xyz;}
+fn waterIncident(p:vec3<f32>,normal:vec3<f32>)->vec3<f32>{
+  return water.sky.xyz+water.sunIrradiance.xyz*max(0.,dot(normal,water.sunDirection.xyz))*.07957747155;
+}
+''';
+
+const _atmosphere = '''
+fn waterAtmospherePoint(p:vec3<f32>)->vec3<f32>{
+  let normal=normalize(water.originWeighted.xyz+p*water.inverseRadii.xyz);
+  return normal*(BOTTOM+max(0.,water.originWeighted.w)*.001);
+}
+fn waterEnvironment(p:vec3<f32>,direction:vec3<f32>,roughness:f32)->vec3<f32>{
+  let origin=waterAtmospherePoint(p);let sun=water.sunDirection.xyz;
+  let axis=select(vec3(0.,0.,1.),vec3(0.,1.,0.),abs(direction.z)>.9);
+  let tangent=normalize(cross(direction,axis));let bitangent=cross(direction,tangent);
+  let spread=roughness*roughness;
+  var value=atmosphereSky(origin,direction,sun,false).radiance;
+  value+=atmosphereSky(origin,normalize(direction+tangent*spread),sun,false).radiance;
+  value+=atmosphereSky(origin,normalize(direction-tangent*spread),sun,false).radiance;
+  value+=atmosphereSky(origin,normalize(direction+bitangent*spread),sun,false).radiance;
+  value+=atmosphereSky(origin,normalize(direction-bitangent*spread),sun,false).radiance;
+  return value*.2;
+}
+fn waterDirect(p:vec3<f32>)->vec3<f32>{
+  return atmosphereSunIrradiance(waterAtmospherePoint(p),water.sunDirection.xyz,water.sunDirection.xyz);
+}
+fn waterIncident(p:vec3<f32>,normal:vec3<f32>)->vec3<f32>{
+  return atmosphereSkyIrradiance(waterAtmospherePoint(p),normal,water.sunDirection.xyz)*.31830988618+
+    waterDirect(p)*max(0.,dot(normal,water.sunDirection.xyz))*.07957747155;
+}
+''';
+
+const _environment = '''
+@group(1) @binding(7) var waterSpecular:texture_3d<f32>;
+@group(1) @binding(8) var waterIrradiance:texture_2d<f32>;
+@group(1) @binding(9) var waterEnvironmentSampler:sampler;
+fn waterEnvironmentUv(direction:vec3<f32>)->vec2<f32>{
+  return vec2(fract(atan2(direction.z,direction.x)/6.28318530718+.5+water.environment.y/6.28318530718),acos(clamp(direction.y,-1.,1.))/3.14159265359);
+}
+fn waterEnvironment(p:vec3<f32>,direction:vec3<f32>,roughness:f32)->vec3<f32>{
+  let levels=f32(textureDimensions(waterSpecular).z);
+  let uv=vec3(waterEnvironmentUv(direction),(roughness*(levels-1.)+.5)/levels);
+  return textureSampleLevel(waterSpecular,waterEnvironmentSampler,uv,0.).rgb*water.environment.x;
+}
+fn waterDirect(p:vec3<f32>)->vec3<f32>{return water.sunIrradiance.xyz;}
+fn waterIncident(p:vec3<f32>,normal:vec3<f32>)->vec3<f32>{
+  return textureSampleLevel(waterIrradiance,waterEnvironmentSampler,waterEnvironmentUv(normal),0.).rgb*water.environment.x*.31830988618+
+    water.sunIrradiance.xyz*max(0.,dot(normal,water.sunDirection.xyz))*.07957747155;
+}
+''';
+
+/// Visual-field diagnostic, without physical coverage or inverse-query guarantees.
+final class OceanWaterSurfaceDebug {
+  final Vec3 offsetEcef, normalEcef;
+  final double unresolvedSlopeVariance;
+  const OceanWaterSurfaceDebug(
+    this.offsetEcef,
+    this.normalEcef,
+    this.unresolvedSlopeVariance,
+  );
+}

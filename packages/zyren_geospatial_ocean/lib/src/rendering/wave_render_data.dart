@@ -99,7 +99,9 @@ final class OceanWaveRenderData {
       for (final entry in input.entries) {
         final source = entry.value;
         if (!source.isCurrent) throw StateError('Visual wave source is stale.');
-        if (source.resolution != size ||
+        if (!source.seconds.isFinite ||
+            source.seconds.abs() > 1e12 ||
+            source.resolution != size ||
             source.seconds != first.seconds ||
             source.seaStateRevision !=
                 oceanChartSeaState(state, entry.key).revision ||
@@ -107,6 +109,29 @@ final class OceanWaveRenderData {
           throw ArgumentError(
             'Visual wave charts do not match their physical state/time.',
           );
+        }
+        for (var index = 0; index < source.bands.length; index++) {
+          final band = source.bands[index];
+          if (band.patchMetres != state.bands[index].patchMetres ||
+              !band.unresolvedSlopeVariance.isFinite ||
+              band.unresolvedSlopeVariance < 0) {
+            throw ArgumentError('Invalid visual wave band metadata.');
+          }
+          for (final texture in [
+            band.displacement,
+            band.derivatives,
+            band.velocity,
+          ]) {
+            final d = texture.descriptor as TextureDescriptor;
+            if (texture.isClosed ||
+                d.width != size ||
+                d.height != size ||
+                d.dimension != TextureDimension.d2 ||
+                d.format != TextureFormat.rgba32Float ||
+                !d.usage.contains(TextureUsage.sampled)) {
+              throw ArgumentError('Invalid visual wave source texture.');
+            }
+          }
         }
       }
     }
@@ -332,7 +357,7 @@ const _mip = '''
 }
 ''';
 
-const _store = ''' 
+const _store = '''
 @group(0) @binding(0) var<uniform> config:vec4<u32>;
 @group(0) @binding(1) var<storage,read> source:array<vec4<f32>>;
 @group(0) @binding(2) var atlas:texture_storage_2d<rgba32float,write>;
