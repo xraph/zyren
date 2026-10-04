@@ -16,7 +16,27 @@ GameSession _checkpointSession(GameLevelRuntime owner) {
 
 GameSave _saveRuntime(GameLevelRuntime owner) {
   final session = _checkpointSession(owner);
-  final save = session.save();
+  final core = session.save();
+  final save = GameSave(
+    projectId: core.projectId,
+    buildId: core.buildId,
+    levelId: core.levelId,
+    projectSchema: core.projectSchema,
+    seed: core.seed,
+    tick: core.tick,
+    paused: core.paused,
+    models: core.models,
+    state: core.state,
+    codecVersions: core.codecVersions,
+    entities: [
+      for (final e in core.entities)
+        GameEntityRecord(
+          id: e.id,
+          nodeId: owner._records[e.id]?.nodeId,
+          components: e.components,
+        ),
+    ],
+  );
   _validateCheckpointTopology(owner, session, save);
   return save;
 }
@@ -47,32 +67,49 @@ void _validateCheckpointTopology(
     'game.input',
     'game.camera',
   };
-  if (save.entities.length != authored.length ||
-      records.length != authored.length ||
+  if (records.length != save.entities.length ||
+      records.keys.any((id) => !owner._records.containsKey(id)) ||
       !records.keys.toSet().containsAll(authored.map((e) => e.id)) ||
-      authored.any(
-        (e) =>
-            records[e.id]!.nodeId != e.nodeId ||
-            jsonEncode(
-                  _canonicalNative(
-                    e.components
-                        .where((c) => nativeTypes.contains(c.type))
-                        .map((c) => c.toJson())
-                        .toList(),
-                  ),
-                ) !=
+      records.keys
+          .map((id) => owner._records[id]!)
+          .any(
+            (e) =>
+                records[e.id]!.nodeId != e.nodeId ||
                 jsonEncode(
-                  _canonicalNative(
-                    records[e.id]!.components
-                        .where((c) => nativeTypes.contains(c.type))
-                        .map((c) => c.toJson())
-                        .toList(),
-                  ),
-                ),
-      )) {
+                      _canonicalNative(
+                        e.components
+                            .where((c) => nativeTypes.contains(c.type))
+                            .map((c) => c.toJson())
+                            .toList(),
+                      ),
+                    ) !=
+                    jsonEncode(
+                      _canonicalNative(
+                        records[e.id]!.components
+                            .where((c) => nativeTypes.contains(c.type))
+                            .map((c) => c.toJson())
+                            .toList(),
+                      ),
+                    ),
+          )) {
     throw const FormatException(
       'Native checkpoint topology or controller definitions differ.',
     );
+  }
+  for (final slot in owner._spawnSlots.values) {
+    final count = slot.records.where((e) => records.containsKey(e.id)).length;
+    if (count != 0 && count != slot.records.length) {
+      throw const FormatException(
+        'Checkpoint contains a partial spawn recipe.',
+      );
+    }
+  }
+  final native = save.state['game.native-level'];
+  if (native is! Map ||
+      native['active'] is! Map ||
+      (native['active'] as Map).length != records.length ||
+      !records.keys.toSet().containsAll((native['active'] as Map).keys)) {
+    throw const FormatException('Native state and logical entities differ.');
   }
 }
 
@@ -94,6 +131,16 @@ void _restoreRuntime(GameLevelRuntime owner, GameSave save) {
       registration();
     }
     owner._actorRegistrations.clear();
+    for (final slot in owner._spawnSlots.values) {
+      slot._cancelQueued();
+      slot._registrations.clear();
+      slot._handles.clear();
+      slot._handles.addAll(
+        session.entities.entities
+            .where((e) => slot.records.any((r) => r.id == e.handle.id))
+            .map((e) => e.handle),
+      );
+    }
     owner._characters.clear();
     owner._primitiveCharacters.clear();
     owner._vehicleControllers.clear();
@@ -106,6 +153,22 @@ void _restoreRuntime(GameLevelRuntime owner, GameSave save) {
     owner._controlled = null;
     owner._inputActor = null;
     _PlaySetup(owner).bind(session, restoring: true);
+    for (final slot in owner._spawnSlots.values.where((s) => s.isActive)) {
+      for (final record in slot.records) {
+        if (owner._bodies[record.id] case final body?) {
+          if (!owner._animations.containsKey(record.id) &&
+              !record.components.any((c) => c.type == 'game.vehicle')) {
+            final object = owner._objects[record.nodeId]!;
+            owner.simulation!.physics.unbind(object);
+            owner.simulation!.physics.bind(object, body);
+            owner._registerActor(
+              record.id,
+              () => owner.simulation!.physics.unbind(object),
+            );
+          }
+        }
+      }
+    }
     for (final entry in owner._primitiveCharacters.entries) {
       final data = state.primitives[entry.key.id]!;
       entry.value.verticalSpeed = (data['verticalSpeed'] as num).toDouble();
@@ -134,6 +197,15 @@ void _restoreRuntime(GameLevelRuntime owner, GameSave save) {
     }
     for (final callback in owner._restoredListeners.toList()) {
       if (owner._restoredListeners.contains(callback)) callback();
+    }
+    for (final slot in owner._spawnSlots.values) {
+      for (final resource in [...slot._source.resources, ?slot._pluginLease]) {
+        if (session.paused || !slot.isActive) {
+          resource.pause();
+        } else {
+          resource.resume();
+        }
+      }
     }
     owner._publish();
   } catch (error) {
@@ -193,32 +265,31 @@ final class _NativeLevelCodec extends GameStateCodec<_NativeLevelState> {
   Map<String, Object?> capture(GameSession session) => {
     'bodies': {
       for (final e in owner._bodies.entries)
-        e.key: {
-          'position': e.value.state.pose.position.storage,
-          'rotation': [
-            e.value.state.pose.rotation.x,
-            e.value.state.pose.rotation.y,
-            e.value.state.pose.rotation.z,
-            e.value.state.pose.rotation.w,
-          ],
-          'velocity': e.value.state.velocity.storage,
-          'angular': e.value.state.angularVelocity.storage,
-          'sleeping': e.value.state.sleeping,
-        },
+        if (session.entities.entities.any(
+          (entity) => entity.handle.id == e.key,
+        ))
+          e.key: {
+            'position': e.value.state.pose.position.storage,
+            'rotation': [
+              e.value.state.pose.rotation.x,
+              e.value.state.pose.rotation.y,
+              e.value.state.pose.rotation.z,
+              e.value.state.pose.rotation.w,
+            ],
+            'velocity': e.value.state.velocity.storage,
+            'angular': e.value.state.angularVelocity.storage,
+            'sleeping': e.value.state.sleeping,
+          },
     },
     'active': {
-      for (final e
-          in owner.project.levels
-              .singleWhere((l) => l.id == session.levelId)
-              .entities)
-        e.id: owner._active[e.id] ?? true,
+      for (final entity in session.entities.entities)
+        for (final e in [owner._records[entity.handle.id]!])
+          e.id: owner._active[e.id] ?? true,
     },
     'visible': {
-      for (final e
-          in owner.project.levels
-              .singleWhere((l) => l.id == session.levelId)
-              .entities)
-        e.id: owner.objects[e.nodeId]?.visible ?? true,
+      for (final entity in session.entities.entities)
+        for (final e in [owner._records[entity.handle.id]!])
+          e.id: owner.objects[e.nodeId]?.visible ?? true,
     },
     'primitives': {
       for (final e in owner._primitiveCharacters.entries)
@@ -291,7 +362,18 @@ final class _NativeLevelCodec extends GameStateCodec<_NativeLevelState> {
       );
     }
 
-    final bodies = objects(data['bodies'], owner._bodies.keys);
+    final active = map(data['active']);
+    final ids = active.keys.toSet();
+    if (ids.any((id) => !owner._records.containsKey(id))) {
+      throw const FormatException('Unknown prepared checkpoint recipe.');
+    }
+    Iterable<String> withComponent(String type) => ids.where(
+      (id) => owner._records[id]!.components.any((c) => c.type == type),
+    );
+    final bodies = objects(
+      data['bodies'],
+      ids.where(owner._bodies.containsKey),
+    );
     final sleeping = <String, bool>{};
     final poses = <String, PhysicsPose>{},
         velocities = <String, Vec3>{},
@@ -335,12 +417,7 @@ final class _NativeLevelCodec extends GameStateCodec<_NativeLevelState> {
         );
       }
     }
-    final active = map(data['active']);
-    final ids = owner.project.levels
-        .singleWhere((l) => l.id == session.levelId)
-        .entities
-        .map((e) => e.id)
-        .toSet();
+
     if (active.length != ids.length ||
         !ids.containsAll(active.keys) ||
         active.values.any((v) => v is! bool)) {
@@ -354,7 +431,9 @@ final class _NativeLevelCodec extends GameStateCodec<_NativeLevelState> {
     }
     final primitives = objects(
       data['primitives'],
-      owner._primitiveCharacters.keys.map((h) => h.id),
+      withComponent(
+        'game.character',
+      ).where((id) => !owner._animations.containsKey(id)),
     );
     for (final value in primitives.values) {
       if (value.length != 2 ||
@@ -365,17 +444,21 @@ final class _NativeLevelCodec extends GameStateCodec<_NativeLevelState> {
     }
     final motors = objects(
       data['motors'],
-      owner._characters.keys.map((h) => h.id),
+      withComponent('game.character').where(owner._animations.containsKey),
     );
-    for (final e in owner._characters.entries) {
-      e.value.motor.validateState(motors[e.key.id]!);
+    for (final e in motors.entries) {
+      owner._animations[e.key]!.motor.validateState(e.value);
     }
-    final vehicles = objects(
-      data['vehicles'],
-      owner._vehicleControllers.keys.map((h) => h.id),
-    );
-    for (final e in owner._vehicleControllers.entries) {
-      e.value.validateState(vehicles[e.key.id]!);
+    final vehicles = objects(data['vehicles'], withComponent('game.vehicle'));
+    for (final e in vehicles.entries) {
+      VehicleController.validateCheckpoint(
+        VehicleDefinition.fromJson(
+          owner._records[e.key]!.components
+              .singleWhere((c) => c.type == 'game.vehicle')
+              .data,
+        ),
+        e.value,
+      );
     }
     String? reference(Object? value) {
       if (value != null && (value is! String || !ids.contains(value))) {
@@ -414,6 +497,18 @@ final class _NativeLevelCodec extends GameStateCodec<_NativeLevelState> {
 
   @override
   void commit(GameSession session, _NativeLevelState prepared) {
+    for (final slot in owner._spawnSlots.values) {
+      for (final record in slot.records.where(
+        (r) => !prepared.active.containsKey(r.id),
+      )) {
+        owner._setPooledActive(record, false);
+        owner._objects[record.nodeId]!.visible = false;
+        final body = owner._bodies[record.id];
+        if (body?.kind == BodyKind.dynamic) {
+          body!.sleep();
+        }
+      }
+    }
     for (final e in prepared.poses.entries) {
       final body = owner._bodies[e.key]!;
       body.teleport(e.value);
@@ -426,29 +521,26 @@ final class _NativeLevelCodec extends GameStateCodec<_NativeLevelState> {
           body.wake();
         }
       }
-      final authored = owner.project.levels
-          .singleWhere((l) => l.id == session.levelId)
-          .entities
-          .singleWhere((r) => r.id == e.key);
+      final authored = owner._records[e.key]!;
       final object = owner.objects[authored.nodeId];
-      if (object != null) {
+      if (object != null &&
+          !owner._animations.containsKey(e.key) &&
+          !authored.components.any((c) => c.type == 'game.vehicle')) {
         owner.simulation!.physics.unbind(object);
         owner.simulation!.physics.bind(object, body);
       }
     }
-    for (final e in owner._characters.entries) {
-      e.value.motor.restoreState(prepared.motors[e.key.id]!);
+    for (final e in prepared.motors.entries) {
+      owner._animations[e.key]!.motor.restoreState(e.value);
     }
     for (final e in owner._primitiveCharacters.entries) {
+      if (!prepared.primitives.containsKey(e.key.id)) continue;
       e.value.verticalSpeed =
           (prepared.primitives[e.key.id]!['verticalSpeed'] as num).toDouble();
       e.value.grounded = prepared.primitives[e.key.id]!['grounded'] as bool;
     }
     for (final entity in session.entities.entities) {
-      final authored = owner.project.levels
-          .singleWhere((l) => l.id == session.levelId)
-          .entities
-          .singleWhere((r) => r.id == entity.handle.id);
+      final authored = owner._records[entity.handle.id]!;
       final object = owner.objects[authored.nodeId];
       if (object != null) {
         owner.setEntityActive(

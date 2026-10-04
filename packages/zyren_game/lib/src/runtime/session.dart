@@ -65,6 +65,8 @@ final class GameSession {
   double get droppedSeconds => clock.droppedSeconds;
   bool get paused => _paused;
   bool get isClosed => _closed;
+  bool get isStepping => _stepping;
+  bool get isRestoring => _restoring;
   Object? get fault => _fault;
   List<GameCommand<Object>> get currentCommands => _currentCommands;
   GameEventSubscription listenState(void Function() listener) {

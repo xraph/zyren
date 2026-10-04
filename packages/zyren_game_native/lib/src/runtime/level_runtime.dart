@@ -46,7 +46,19 @@ final class GameLevelRuntime {
   final CompiledGameProject project;
   final Scene scene;
   final Camera camera;
-  final Map<String, Object3D> objects;
+  final Map<String, Object3D> _objects;
+  Map<String, Object3D> get objects => UnmodifiableMapView(_objects);
+  final _spawnValidators = <void Function(List<GameEntityRecord>)>[];
+  GameEntityRecord? entityDefinition(String id) =>
+      _closed ? null : _records[id];
+  final _records = <String, GameEntityRecord>{};
+  final _spawnSlots = <String, GameRuntimeSpawnInstance>{};
+  final _recordSlots = <String, GameRuntimeSpawnInstance>{};
+  final _spawnPreparations = <Future<GameRuntimeSpawnInstance>>{};
+  final _preparingSpawnIds = <String>{};
+  final _topologyListeners = <void Function(GameRuntimeTopologyChange)>[];
+  final int maxPreparedSpawns;
+  int get spawnPoolSize => _spawnSlots.length;
   final int seed;
   final Set<String> capabilities;
   final GameCharacterAnimationFactory? animationFactory;
@@ -112,14 +124,21 @@ final class GameLevelRuntime {
     required this.camera,
     required Map<String, Object3D> objects,
     this.seed = 1,
+    this.maxPreparedSpawns = 64,
     Set<String> capabilities = const {},
     this.animationFactory,
     this.systemFactory,
     this.onChanged,
     List<GameRuntimeResourceLease> resources = const [],
-  }) : objects = Map.unmodifiable(objects),
+  }) : _objects = Map.of(objects),
        capabilities = Set.unmodifiable(capabilities),
-       resources = List.unmodifiable(resources);
+       resources = List.unmodifiable(resources) {
+    if (maxPreparedSpawns < 1 || maxPreparedSpawns > 256) {
+      throw ArgumentError(
+        'Prepared native spawn pool must contain 1..256 slots.',
+      );
+    }
+  }
   void _publish() {
     if (!_closed && !_restoringCheckpoint) onChanged?.call();
   }
@@ -274,6 +293,7 @@ final class GameLevelRuntime {
         'Resource leases must be fresh and transferred once.',
       );
     }
+    _records.addAll({for (final entity in level.entities) entity.id: entity});
     _initializing = true;
     _levelRuntimeOwners[scene] = this;
     for (final resource in resources) {
@@ -320,122 +340,7 @@ final class GameLevelRuntime {
           _simulation!.session.listenState(_syncResourceState).cancel,
         );
         for (final entity in level.entities) {
-          final record = entity.components
-              .where((c) => c.type == 'game.collider')
-              .firstOrNull;
-          if (record == null) continue;
-          final definition = GameColliderDefinition.fromJson(record.data);
-          final root = objects[entity.nodeId];
-          if (root == null) throw StateError('Collider node is missing.');
-          final matrix = root.worldMatrix.toVectorMath();
-          final position = Vec3.fromVectorMath(matrix.getTranslation());
-          // Collider dimensions are local metres. Uniform scale is applied once.
-          final scale = matrix.getMaxScaleOnAxis();
-          final lengths = [
-            for (var axis = 0; axis < 3; axis++)
-              math.sqrt(
-                matrix.entry(0, axis) * matrix.entry(0, axis) +
-                    matrix.entry(1, axis) * matrix.entry(1, axis) +
-                    matrix.entry(2, axis) * matrix.entry(2, axis),
-              ),
-          ];
-          if (lengths.any((v) => (v - scale).abs() > 1e-6) || scale <= 0) {
-            throw StateError(
-              'Native collider nodes require positive uniform scale.',
-            );
-          }
-          for (Object3D? node = root; node != null; node = node.parent) {
-            if (node.scale.storage.any((v) => v <= 0)) {
-              throw StateError(
-                'Mirrored native collider transforms are unsupported.',
-              );
-            }
-          }
-          for (var a = 0; a < 3; a++) {
-            for (var b = a + 1; b < 3; b++) {
-              var dot = 0.0;
-              for (var row = 0; row < 3; row++) {
-                dot += matrix.entry(row, a) * matrix.entry(row, b);
-              }
-              if (dot.abs() > 1e-6 * scale * scale) {
-                throw StateError(
-                  'Sheared native collider transforms are unsupported.',
-                );
-              }
-            }
-          }
-          var rotation = Quat.identity;
-          for (Object3D? node = root; node != null; node = node.parent) {
-            rotation = node.quaternion * rotation;
-          }
-          final vehicleRecord = entity.components
-              .where((c) => c.type == 'game.vehicle')
-              .firstOrNull;
-          final mass = vehicleRecord == null
-              ? definition.mass
-              : VehicleDefinition.fromJson(vehicleRecord.data).mass;
-          final body = world.createBody(
-            kind: switch (definition.motion) {
-              GameBodyMotion.fixed => BodyKind.fixed,
-              GameBodyMotion.dynamic => BodyKind.dynamic,
-              GameBodyMotion.kinematic => BodyKind.kinematicPosition,
-            },
-            pose: PhysicsPose(position: position, rotation: rotation),
-            mass: definition.motion == GameBodyMotion.dynamic ? mass : null,
-            ccd: definition.motion == GameBodyMotion.dynamic,
-          );
-          final shape = switch (definition.shape) {
-            GameColliderShape.box => BoxShape(definition.halfExtents * scale),
-            GameColliderShape.capsule => CapsuleShape(
-              halfHeight: definition.halfHeight * scale,
-              radius: definition.radius * scale,
-            ),
-            GameColliderShape.sphere => SphereShape(definition.radius * scale),
-          };
-          final collider = body.addCollider(
-            shape,
-            density: 0,
-            friction: definition.friction,
-            restitution: definition.restitution,
-            sensor: definition.sensor,
-          );
-          _bodies[entity.id] = body;
-          _colliders[entity.id] = collider;
-          _shapes[entity.id] = shape;
-
-          final char = entity.components
-              .where((c) => c.type == 'game.character')
-              .firstOrNull;
-          if (char != null) {
-            if (definition.motion != GameBodyMotion.kinematic ||
-                definition.shape != GameColliderShape.capsule) {
-              throw StateError(
-                'Characters require an authored kinematic capsule.',
-              );
-            }
-            final animation = animationFactory?.call(
-              entity,
-              root,
-              body,
-              collider,
-            );
-            if (animation != null) _animations[entity.id] = animation;
-            if (animation != null &&
-                (!identical(animation.motor.controller.body, body) ||
-                    !identical(
-                      animation.motor.controller.collider,
-                      collider,
-                    ))) {
-              throw StateError(
-                'CharacterMotor must use this authored capsule.',
-              );
-            }
-            if (_containsModel(root) && animation == null) {
-              throw StateError(
-                'Imported characters need an actual CharacterMotor factory.',
-              );
-            }
-          }
+          _createNativeEntity(entity);
         }
         // A collision query refreshes authored mass and query proxies without
         // advancing Rapier. Vehicle forces must not depend on a prior motor query.
@@ -466,6 +371,112 @@ final class GameLevelRuntime {
       Error.throwWithStackTrace(error, stack);
     } finally {
       _initializing = false;
+    }
+  }
+
+  void _createNativeEntity(GameEntityRecord entity) {
+    final world = this.world!;
+    final record = entity.components
+        .where((c) => c.type == 'game.collider')
+        .firstOrNull;
+    if (record == null) return;
+    final definition = GameColliderDefinition.fromJson(record.data);
+    final root = objects[entity.nodeId];
+    if (root == null) throw StateError('Collider node is missing.');
+    final matrix = root.worldMatrix.toVectorMath();
+    final position = Vec3.fromVectorMath(matrix.getTranslation());
+    // Collider dimensions are local metres. Uniform scale is applied once.
+    final scale = matrix.getMaxScaleOnAxis();
+    final lengths = [
+      for (var axis = 0; axis < 3; axis++)
+        math.sqrt(
+          matrix.entry(0, axis) * matrix.entry(0, axis) +
+              matrix.entry(1, axis) * matrix.entry(1, axis) +
+              matrix.entry(2, axis) * matrix.entry(2, axis),
+        ),
+    ];
+    if (lengths.any((v) => (v - scale).abs() > 1e-6) || scale <= 0) {
+      throw StateError('Native collider nodes require positive uniform scale.');
+    }
+    for (Object3D? node = root; node != null; node = node.parent) {
+      if (node.scale.storage.any((v) => v <= 0)) {
+        throw StateError(
+          'Mirrored native collider transforms are unsupported.',
+        );
+      }
+    }
+    for (var a = 0; a < 3; a++) {
+      for (var b = a + 1; b < 3; b++) {
+        var dot = 0.0;
+        for (var row = 0; row < 3; row++) {
+          dot += matrix.entry(row, a) * matrix.entry(row, b);
+        }
+        if (dot.abs() > 1e-6 * scale * scale) {
+          throw StateError(
+            'Sheared native collider transforms are unsupported.',
+          );
+        }
+      }
+    }
+    var rotation = Quat.identity;
+    for (Object3D? node = root; node != null; node = node.parent) {
+      rotation = node.quaternion * rotation;
+    }
+    final vehicleRecord = entity.components
+        .where((c) => c.type == 'game.vehicle')
+        .firstOrNull;
+    final mass = vehicleRecord == null
+        ? definition.mass
+        : VehicleDefinition.fromJson(vehicleRecord.data).mass;
+    final body = world.createBody(
+      kind: switch (definition.motion) {
+        GameBodyMotion.fixed => BodyKind.fixed,
+        GameBodyMotion.dynamic => BodyKind.dynamic,
+        GameBodyMotion.kinematic => BodyKind.kinematicPosition,
+      },
+      pose: PhysicsPose(position: position, rotation: rotation),
+      mass: definition.motion == GameBodyMotion.dynamic ? mass : null,
+      ccd: definition.motion == GameBodyMotion.dynamic,
+    );
+    _bodies[entity.id] = body;
+    final shape = switch (definition.shape) {
+      GameColliderShape.box => BoxShape(definition.halfExtents * scale),
+      GameColliderShape.capsule => CapsuleShape(
+        halfHeight: definition.halfHeight * scale,
+        radius: definition.radius * scale,
+      ),
+      GameColliderShape.sphere => SphereShape(definition.radius * scale),
+    };
+    final collider = body.addCollider(
+      shape,
+      density: 0,
+      friction: definition.friction,
+      restitution: definition.restitution,
+      sensor: definition.sensor,
+    );
+    _colliders[entity.id] = collider;
+    _shapes[entity.id] = shape;
+
+    final char = entity.components
+        .where((c) => c.type == 'game.character')
+        .firstOrNull;
+    if (char != null) {
+      if (definition.motion != GameBodyMotion.kinematic ||
+          definition.shape != GameColliderShape.capsule) {
+        throw StateError('Characters require an authored kinematic capsule.');
+      }
+      final animation = animationFactory?.call(entity, root, body, collider);
+      if (animation != null) _animations[entity.id] = animation;
+      if (animation != null &&
+          (!identical(animation.motor.controller.body, body) ||
+              !identical(animation.motor.controller.collider, collider))) {
+        throw StateError('CharacterMotor must use this authored capsule.');
+      }
+      if (_containsModel(root) && animation == null) {
+        throw StateError(
+          'Imported characters need an actual CharacterMotor factory.',
+        );
+      }
     }
   }
 
@@ -517,10 +528,7 @@ final class GameLevelRuntime {
   void setEntityActive(GameEntityHandle handle, bool active) {
     final entity = _simulation?.session.entities.entity(handle);
     if (entity == null) throw StateError('Entity is no longer alive.');
-    final authored = project.levels
-        .singleWhere((l) => l.id == _simulation!.session.levelId)
-        .entities
-        .singleWhere((e) => e.id == handle.id);
+    final authored = _records[handle.id]!;
     final nodeId = authored.nodeId;
     final root = nodeId == null ? null : objects[nodeId];
     if (root == null) throw StateError('Entity has no authored runtime node.');
@@ -591,7 +599,13 @@ final class GameLevelRuntime {
     _resourcesPaused = paused;
     Object? first;
     StackTrace? trace;
-    for (final resource in resources) {
+    for (final resource in [
+      ...resources,
+      for (final slot in _spawnSlots.values.where((s) => s.isActive)) ...[
+        ...slot._source.resources,
+        ?slot._pluginLease,
+      ],
+    ]) {
       try {
         if (paused) {
           resource.pause();
@@ -621,6 +635,16 @@ final class GameLevelRuntime {
       }
     }
 
+    await cleanup(() async {
+      for (final preparation in _spawnPreparations.toList()) {
+        try {
+          await preparation;
+        } catch (_) {}
+      }
+    });
+    for (final slot in _spawnSlots.values) {
+      slot._cancelQueued();
+    }
     for (final input in _inputs.values) {
       input.releaseEveryDevice();
     }
@@ -629,6 +653,8 @@ final class GameLevelRuntime {
     }
     _actorRegistrations.clear();
     _restoredListeners.clear();
+    _topologyListeners.clear();
+    _spawnValidators.clear();
     for (final registration in _registrations.reversed) {
       await cleanup(registration);
     }
@@ -659,6 +685,12 @@ final class GameLevelRuntime {
     _possession = null;
     _characterLeases.clear();
     _vehicleLeases.clear();
+    for (final slot in _spawnSlots.values.toList().reversed) {
+      _removeSpawnNative(slot);
+      await cleanup(() => slot._closeResources());
+    }
+    _spawnSlots.clear();
+    _recordSlots.clear();
     if (_adopted) {
       for (final resource in resources.reversed) {
         await cleanup(resource.close);
@@ -747,106 +779,19 @@ final class _PlaySetup extends GameSystem {
     final handles = {
       for (final e in session.entities.entities) e.handle.id: e.handle,
     };
-    for (final entity in level.entities) {
-      final handle = handles[entity.id]!;
-      final input = entity.components
-          .where((c) => c.type == 'game.input')
-          .firstOrNull;
-      if (input != null) {
-        owner._inputs[handle] = GameActionState(
-          GameInputMap.fromJson(input.data),
-        );
-        owner._inputActor ??= handle;
-      }
-      final character = entity.components
-          .where((c) => c.type == 'game.character')
-          .firstOrNull;
-      if (character != null) {
-        final body = owner._bodies[entity.id];
-        if (body == null) throw StateError('Character collider is missing.');
-        final definition = GameCharacterDefinition.fromJson(character.data),
-            animation = owner._animations[entity.id];
-        if (animation != null) {
-          final controller = GameCharacterController(
-            actor: handle,
-            session: session,
-            motor: animation.motor,
-            definition: definition,
-          );
-          owner._characters[handle] = controller;
-          owner._actorRegistrations.add(
-            owner._motors!
-                .register(controller, owner.objects[entity.nodeId]!)
-                .dispose,
-          );
-        } else {
-          owner._primitiveCharacters[handle] = _PrimitiveCharacter(
-            KinematicCharacterController(
-              body: body,
-              collider: owner._colliders[entity.id]!,
-            ),
-            definition,
-          );
-        }
-      }
-      final vehicle = entity.components
-          .where((c) => c.type == 'game.vehicle')
-          .firstOrNull;
-      if (vehicle != null) {
-        final body = owner._bodies[entity.id];
-        if (body == null || body.kind != BodyKind.dynamic) {
-          throw StateError('Vehicle requires an authored dynamic collider.');
-        }
-        final definition = VehicleDefinition.fromJson(vehicle.data),
-            root = owner.objects[entity.nodeId]!;
-        final visuals = <Object3D>[
-          for (final wheel in definition.wheels)
-            root.add(
-              Mesh(
-                CylinderGeometry(
-                  radiusTop: wheel.radius,
-                  radiusBottom: wheel.radius,
-                  height: wheel.radius * .6,
-                ),
-                StandardMaterial(color: Color3.hex(0x333333)),
-                name: wheel.id,
-              ),
-            ),
-        ];
-        owner._actorRegistrations.add(() {
-          for (final visual in visuals) {
-            root.remove(visual);
-          }
-        });
-        final controller = VehicleController(
-          session: session,
-          actor: handle,
-          body: body,
-          definition: definition,
-        );
-        owner._vehicleControllers[handle] = controller;
-        owner._actorRegistrations.add(
-          owner._vehicles!
-              .register(
-                controller,
-                presentationRoot: root,
-                wheelVisuals: visuals,
-              )
-              .dispose,
-        );
-      }
+    for (final entity in owner._records.values) {
+      final handle = handles[entity.id];
+      if (handle == null) continue;
+      bindController(
+        session,
+        entity,
+        handle,
+        (callback) => owner._registerActor(entity.id, callback),
+      );
     }
     owner._possession = GamePossession(
       session,
-      maxSeats: math.max(
-        1,
-        math.min(
-          1024,
-          owner._primitiveCharacters.length +
-              owner._characters.length +
-              owner._vehicleControllers.length,
-        ),
-      ),
+      maxSeats: math.min(1024, session.entities.limits.maxEntities),
     );
     owner._actorRegistrations.add(owner._possession!.close);
     for (final target in {
@@ -854,69 +799,13 @@ final class _PlaySetup extends GameSystem {
       ...owner._characters.keys,
       ...owner._vehicleControllers.keys,
     }) {
-      owner._possession!.registerSeat(
-        GamePossessionSeat(
-          id: target.id,
-          target: target,
-          canReach: (actor) {
-            final from = owner.resolveBody(owner._controlled ?? actor),
-                to = owner.resolveBody(target);
-            return from != null &&
-                to != null &&
-                (target == actor ||
-                    from.state.pose.position.distanceTo(
-                          to.state.pose.position,
-                        ) <=
-                        3);
-          },
-          canExit: (actor) {
-            if (!owner._vehicleControllers.containsKey(target)) return true;
-            final body = owner.resolveBody(target);
-            return body != null && owner.exitPlacement(actor, target) != null;
-          },
-          acquireControl: (actor) {
-            owner._actorControls[target]?.dispose();
-            final vehicle = owner._vehicleControllers[target];
-            if (vehicle != null) {
-              final lease = vehicle.acquireControl(actor);
-              owner._vehicleLeases[target] = lease;
-              return GamePossessionControl(
-                isActive: () => lease.isActive,
-                release: () {
-                  lease.dispose();
-                  if (identical(owner._vehicleLeases[target], lease)) {
-                    owner._vehicleLeases.remove(target);
-                  }
-                },
-              );
-            }
-            final character = owner._characters[target];
-            if (character != null) {
-              final lease = character.acquireControl();
-              owner._characterLeases[target] = lease;
-              return GamePossessionControl(
-                isActive: () => lease.isActive,
-                release: () {
-                  lease.dispose();
-                  if (identical(owner._characterLeases[target], lease)) {
-                    owner._characterLeases.remove(target);
-                  }
-                },
-              );
-            }
-            final epoch = session.epoch;
-            var active = true;
-            return GamePossessionControl(
-              isActive: () =>
-                  active &&
-                  session.epoch == epoch &&
-                  session.entities.isAlive(target),
-              release: () => active = false,
-            );
-          },
-        ),
+      bindSeat(
+        session,
+        target,
+        (callback) => owner._registerActor(target.id, callback),
       );
     }
+
     if (!restoring && owner._inputActor != null) {
       owner.controlEntity(owner._inputActor);
     }
@@ -936,6 +825,170 @@ final class _PlaySetup extends GameSystem {
       }
     }
     owner._setupReady = true;
+  }
+
+  void bindController(
+    GameSession session,
+    GameEntityRecord entity,
+    GameEntityHandle handle,
+    void Function(void Function()) register,
+  ) {
+    final input = entity.components
+        .where((c) => c.type == 'game.input')
+        .firstOrNull;
+    if (input != null) {
+      owner._inputs[handle] = GameActionState(
+        GameInputMap.fromJson(input.data),
+      );
+      owner._inputActor ??= handle;
+    }
+    final character = entity.components
+        .where((c) => c.type == 'game.character')
+        .firstOrNull;
+    if (character != null) {
+      final body = owner._bodies[entity.id];
+      if (body == null) throw StateError('Character collider is missing.');
+      final definition = GameCharacterDefinition.fromJson(character.data),
+          animation = owner._animations[entity.id];
+      if (animation != null) {
+        final controller = GameCharacterController(
+          actor: handle,
+          session: session,
+          motor: animation.motor,
+          definition: definition,
+        );
+        owner._characters[handle] = controller;
+        register(
+          owner._motors!
+              .register(controller, owner.objects[entity.nodeId]!)
+              .dispose,
+        );
+      } else {
+        owner._primitiveCharacters[handle] = _PrimitiveCharacter(
+          KinematicCharacterController(
+            body: body,
+            collider: owner._colliders[entity.id]!,
+          ),
+          definition,
+        );
+      }
+    }
+    final vehicle = entity.components
+        .where((c) => c.type == 'game.vehicle')
+        .firstOrNull;
+    if (vehicle != null) {
+      final body = owner._bodies[entity.id];
+      if (body == null || body.kind != BodyKind.dynamic) {
+        throw StateError('Vehicle requires an authored dynamic collider.');
+      }
+      final definition = VehicleDefinition.fromJson(vehicle.data),
+          root = owner.objects[entity.nodeId]!;
+      final visuals = <Object3D>[
+        for (final wheel in definition.wheels)
+          root.add(
+            Mesh(
+              CylinderGeometry(
+                radiusTop: wheel.radius,
+                radiusBottom: wheel.radius,
+                height: wheel.radius * .6,
+              ),
+              StandardMaterial(color: Color3.hex(0x333333)),
+              name: wheel.id,
+            ),
+          ),
+      ];
+      register(() {
+        for (final visual in visuals) {
+          root.remove(visual);
+        }
+      });
+      final controller = VehicleController(
+        session: session,
+        actor: handle,
+        body: body,
+        definition: definition,
+      );
+      owner._vehicleControllers[handle] = controller;
+      register(
+        owner._vehicles!
+            .register(controller, presentationRoot: root, wheelVisuals: visuals)
+            .dispose,
+      );
+    }
+  }
+
+  void bindSeat(
+    GameSession session,
+    GameEntityHandle target,
+    void Function(void Function()) register,
+  ) {
+    register(
+      owner._possession!
+          .registerSeat(
+            GamePossessionSeat(
+              id: target.id,
+              target: target,
+              canReach: (actor) {
+                final from = owner.resolveBody(owner._controlled ?? actor),
+                    to = owner.resolveBody(target);
+                return from != null &&
+                    to != null &&
+                    (target == actor ||
+                        from.state.pose.position.distanceTo(
+                              to.state.pose.position,
+                            ) <=
+                            3);
+              },
+              canExit: (actor) {
+                if (!owner._vehicleControllers.containsKey(target)) return true;
+                final body = owner.resolveBody(target);
+                return body != null &&
+                    owner.exitPlacement(actor, target) != null;
+              },
+              acquireControl: (actor) {
+                owner._actorControls[target]?.dispose();
+                final vehicle = owner._vehicleControllers[target];
+                if (vehicle != null) {
+                  final lease = vehicle.acquireControl(actor);
+                  owner._vehicleLeases[target] = lease;
+                  return GamePossessionControl(
+                    isActive: () => lease.isActive,
+                    release: () {
+                      lease.dispose();
+                      if (identical(owner._vehicleLeases[target], lease)) {
+                        owner._vehicleLeases.remove(target);
+                      }
+                    },
+                  );
+                }
+                final character = owner._characters[target];
+                if (character != null) {
+                  final lease = character.acquireControl();
+                  owner._characterLeases[target] = lease;
+                  return GamePossessionControl(
+                    isActive: () => lease.isActive,
+                    release: () {
+                      lease.dispose();
+                      if (identical(owner._characterLeases[target], lease)) {
+                        owner._characterLeases.remove(target);
+                      }
+                    },
+                  );
+                }
+                final epoch = session.epoch;
+                var active = true;
+                return GamePossessionControl(
+                  isActive: () =>
+                      active &&
+                      session.epoch == epoch &&
+                      session.entities.isAlive(target),
+                  release: () => active = false,
+                );
+              },
+            ),
+          )
+          .dispose,
+    );
   }
 
   @override

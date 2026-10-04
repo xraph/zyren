@@ -87,7 +87,13 @@ final class VehicleController {
         }),
     ]),
   });
-  void validateState(Map<String, Object?> state) {
+  void validateState(Map<String, Object?> state) =>
+      validateCheckpoint(definition, state);
+
+  static void validateCheckpoint(
+    VehicleDefinition definition,
+    Map<String, Object?> state,
+  ) {
     bool bounded(Object? v, double min, double max) =>
         v is num && v.isFinite && v >= min && v <= max;
     bool vector(Object? v) =>
@@ -99,7 +105,7 @@ final class VehicleController {
         state['forceTicks'] is! int ||
         !bounded(state['forceTicks'], 0, 9000000000000000) ||
         rotations is! List ||
-        rotations.length != _rotation.length ||
+        rotations.length != definition.wheels.length ||
         !rotations.every((v) => bounded(v, -2 * math.pi, 2 * math.pi)) ||
         wheels is! List ||
         (wheels.isNotEmpty && wheels.length != definition.wheels.length)) {

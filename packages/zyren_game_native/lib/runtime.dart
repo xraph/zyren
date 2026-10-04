@@ -2,6 +2,7 @@
 library;
 
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:zyren/zyren.dart';
@@ -15,3 +16,5 @@ part 'src/runtime/level_runtime.dart';
 part 'src/runtime/save.dart';
 
 part 'src/runtime/actor_control.dart';
+
+part 'src/runtime/topology.dart';
