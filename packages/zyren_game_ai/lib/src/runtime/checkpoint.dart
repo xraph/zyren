@@ -73,10 +73,16 @@ extension GameLevelAiPersistence on GameLevelAi {
 }
 
 final class _AiActorCheckpoint {
+  final GameAiAuthoringDefinition definition;
   final MemorySnapshot memory;
   final PolicyBrainCheckpoint? policy;
   final String? activeSkill;
-  _AiActorCheckpoint(this.memory, this.policy, this.activeSkill);
+  _AiActorCheckpoint(
+    this.definition,
+    this.memory,
+    this.policy,
+    this.activeSkill,
+  );
 }
 
 final class _AiCheckpoint {
@@ -92,7 +98,7 @@ final class _AiCodec extends GameStateCodec<_AiCheckpoint> {
   @override
   String get id => 'game.ai.runtime';
   @override
-  int get version => 1;
+  int get version => 2;
   @override
   Map<String, Object?> capture(GameSession session) => {
     'tick': session.tick,
@@ -105,6 +111,7 @@ final class _AiCodec extends GameStateCodec<_AiCheckpoint> {
         actor.identity.entity.id: {
           'profile': actor.definition.profile,
           'brain': actor.definition.brain,
+          'modelHash': actor.definition.modelHash,
           'memory': jsonDecode(
             actor.scripted.snapshotCommitted(tick: session.tick).encode(),
           ),
@@ -126,7 +133,7 @@ final class _AiCodec extends GameStateCodec<_AiCheckpoint> {
     if (tick < 0 ||
         tick > 9007199254740991 ||
         generations.length > 10000 ||
-        records.length != owner._actors.length) {
+        records.length > 256) {
       throw const FormatException('Invalid AI checkpoint size or tick.');
     }
     final handles = <String, GameEntityHandle>{
@@ -136,68 +143,73 @@ final class _AiCodec extends GameStateCodec<_AiCheckpoint> {
           entry.value as int,
         ),
     };
-    final live = {
-      for (final e in session.entities.entities) e.handle.id: e.handle,
-    };
-    GameEntityHandle? remap(GameEntityHandle old) =>
-        handles[old.id] == old ? live[old.id] : null;
     final actors = <String, _AiActorCheckpoint>{};
-    for (final actor in owner._actors.values) {
-      final record = records[actor.identity.entity.id] as Map;
-      if (record['profile'] != actor.definition.profile ||
-          record['brain'] != actor.definition.brain) {
+    for (final entry in records.entries) {
+      final id = entry.key as String;
+      final record = entry.value as Map;
+      final recipe = owner.runtime().entityDefinition(id);
+      if (recipe == null || !handles.containsKey(id)) {
+        throw const FormatException('Saved AI has no prepared native recipe.');
+      }
+      final definition = owner._validateDefinition(id, recipe.components);
+      if (record['profile'] != definition.profile ||
+          record['brain'] != definition.brain ||
+          record['modelHash'] != definition.modelHash) {
         throw const FormatException(
-          'Saved AI definition differs from the live actor.',
+          'Saved AI definition differs from its recipe.',
         );
       }
       final memory = MemorySnapshot.decode(jsonEncode(record['memory']));
+      final expectedModel =
+          definition.modelHash ?? 'scripted-${definition.profile}';
       if (memory.savedTick != tick ||
-          memory.identity.entity.id != actor.identity.entity.id) {
+          memory.identity.entity != handles[id] ||
+          memory.identity.modelHash != expectedModel) {
         throw const FormatException('AI memory tick or actor mismatch.');
       }
-      BeliefStore(
-        identity: actor.identity,
-        profile: actor.scripted.memory.profile,
-      ).restore(
-        memory.remap(identity: actor.identity, remap: remap),
-        tick: tick,
-      );
+      BeliefStore(identity: memory.identity).restore(memory, tick: tick);
       final rawPolicy = record['policy'];
       final policy = rawPolicy == null
           ? null
           : PolicyBrainCheckpoint.decode(jsonEncode(rawPolicy));
-      if ((policy == null) != (actor.policy == null)) {
+      final catalog = owner.policies[definition.modelHash];
+      final hasPolicy =
+          definition.brain != 'scripted' &&
+          catalog != null &&
+          owner._loadedModels.contains(definition.modelHash) &&
+          catalog.fixedHz == owner.runtime().project.fixedHz &&
+          catalog.contract.observation.hash ==
+              definition.createSensors().spec.hash &&
+          catalog.contract.decoder.spec.hash ==
+              definition.createActions().spec.hash;
+      if ((policy != null) != hasPolicy) {
         throw const FormatException('Saved policy ownership differs.');
       }
       if (policy != null) {
-        final brain = actor.policy!;
-        if (policy.contractHash != brain.contract.hash ||
+        final contract = catalog!.contract;
+        if (policy.contractHash != contract.hash ||
             policy.memory.savedTick != tick ||
             policy.memory.identity != memory.identity) {
           throw const FormatException(
             'Saved policy contract or identity differs.',
           );
         }
-        brain.state.validateSnapshot(policy.state);
+        PolicyState(
+          contract.model,
+          maxBytes: contract.maxHiddenBytes,
+        ).validateSnapshot(policy.state);
         BeliefStore(
-          identity: actor.identity,
-          profile: brain.memory.profile,
-        ).restore(
-          policy.memory.remap(identity: actor.identity, remap: remap),
-          tick: tick,
-        );
+          identity: memory.identity,
+        ).restore(policy.memory, tick: tick);
       }
       final skill = record['activeSkill'] as String?;
       if (skill != null &&
-          (actor.brain is! HybridBrain ||
-              !(actor.brain as HybridBrain).skillIds.contains(skill))) {
+          (definition.brain != 'hybrid' ||
+              !hasPolicy ||
+              !{'learned', 'scripted'}.contains(skill))) {
         throw const FormatException('Invalid saved hybrid skill.');
       }
-      actors[actor.identity.entity.id] = _AiActorCheckpoint(
-        memory,
-        policy,
-        skill,
-      );
+      actors[id] = _AiActorCheckpoint(definition, memory, policy, skill);
     }
     return _AiCheckpoint(tick, handles, actors);
   }
@@ -206,6 +218,36 @@ final class _AiCodec extends GameStateCodec<_AiCheckpoint> {
   void commit(GameSession session, _AiCheckpoint prepared) {
     if (prepared.tick != session.tick) {
       throw const FormatException('AI checkpoint tick differs from game save.');
+    }
+    final candidateIds = session.entities.entities
+        .map((e) => e.handle.id)
+        .toSet();
+    if (candidateIds.length != prepared.handles.length ||
+        !candidateIds.containsAll(prepared.handles.keys)) {
+      throw const FormatException(
+        'Saved AI handle map differs from native topology.',
+      );
+    }
+    final candidates = {
+      for (final e in session.entities.entities)
+        if (e.components.any((c) => c.type == 'game.ai')) e.handle.id: e,
+    };
+    if (candidates.length != prepared.actors.length) {
+      throw const FormatException('Saved AI and native topology differ.');
+    }
+    for (final entry in candidates.entries) {
+      final saved = prepared.actors[entry.key];
+      final definition = GameAiAuthoringDefinition(
+        entry.value.components.singleWhere((c) => c.type == 'game.ai').data,
+      );
+      if (saved == null ||
+          definition.profile != saved.definition.profile ||
+          definition.brain != saved.definition.brain ||
+          definition.modelHash != saved.definition.modelHash) {
+        throw const FormatException(
+          'Saved entity changed its prepared AI definition.',
+        );
+      }
     }
     owner._preparedCheckpoint = prepared;
   }

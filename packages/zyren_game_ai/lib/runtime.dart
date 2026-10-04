@@ -41,6 +41,8 @@ final class GameLevelAi {
   final bool Function(GameEntityHandle actor)? interact;
   final _actors = <GameEntityHandle, _RuntimeBrain>{};
   final _leases = <MlModelLease>[];
+  final _loadedModels = <String>{};
+  final _modelLoadFailures = <String, String>{};
   final _sounds = <GameSoundEvent>[];
   final _policyFailures = <String, String>{};
   final _retiring = <Future<void>>{};
@@ -52,7 +54,7 @@ final class GameLevelAi {
   _AiCheckpoint? _preparedCheckpoint;
   Object? _retirementError;
   StackTrace? _retirementTrace;
-  Registration? _restored;
+  Registration? _restored, _topology, _spawnValidator;
   bool _warmed = false, _closed = false;
   Future<void>? _closing, _warming;
   int _identity = 0;
@@ -130,6 +132,9 @@ final class GameLevelAi {
       used.add(definition.modelHash!);
       if (definition.brain == 'learned') required.add(definition.modelHash!);
     }
+    // A prepared spawn can use any registered model without loading native
+    // weights inside a simulation tick. Required actors still fail closed.
+    used.addAll(policies.keys);
     try {
       for (final hash in used) {
         try {
@@ -139,8 +144,13 @@ final class GameLevelAi {
             throw StateError('AI owner closed during model preparation.');
           }
           _leases.add(lease);
+          _loadedModels.add(hash);
         } catch (error) {
           if (_closed || required.contains(hash)) rethrow;
+          _modelLoadFailures[hash] = '$error'.substring(
+            0,
+            '$error'.length.clamp(0, 512),
+          );
           for (final entity in level.entities) {
             final record = entity.components
                 .where((c) => c.type == 'game.ai')
@@ -181,6 +191,8 @@ final class GameLevelAi {
       }
     });
     _bind();
+    _spawnValidator = runtime().registerSpawnValidator(_validateSpawn);
+    _topology = runtime().listenTopology(_changeTopology);
     _codec = session.registerStateCodec(_AiCodec(this));
     _restored = runtime().listenRestored(() {
       final checkpoint = _preparedCheckpoint;
@@ -213,70 +225,156 @@ final class GameLevelAi {
     _actors.clear();
     if (previous != null) _retire(_closeBrains(retiring, previous));
     final episode = 'runtime-${++_identity}';
-    final group = _group = PolicyGroup(
+    _group = PolicyGroup(
       episodeId: episode,
       entities: session.entities,
       ml: _scheduler!,
       maxActors: 256,
     );
     for (final entity in session.entities.entities) {
-      final record = entity.components
-          .where((c) => c.type == 'game.ai')
-          .firstOrNull;
-      if (record == null) continue;
-      final definition = GameAiAuthoringDefinition(record.data);
-      final identity = BrainIdentity(
-        episodeId: episode,
-        entity: entity.handle,
-        modelHash: definition.modelHash ?? 'scripted-${definition.profile}',
-      );
-      final observer = definition.createSensors();
-      final awareness = ObservationAssembler(
-        registry: SensorRegistry()
-          ..register(
-            BodySensor(maxSpeed: definition.profile == 'guard' ? 10 : 30),
-          )
-          ..register(VisionSensor(observer.profile))
-          ..register(HearingSensor(observer.profile, maxSounds: 4)),
-        profile: observer.profile,
-      );
-      final scripted = ScriptedBrain(
-        identity: identity,
-        entities: session.entities,
-        driver: definition.profile == 'vehicle',
-      );
-      PolicyBrain? policy;
-      if (definition.brain != 'scripted' &&
-          !_policyFailures.containsKey(entity.handle.id)) {
-        policy = group.join(identity, policies[definition.modelHash]!.contract);
-      }
-      final GameBrain brain;
-      if (policy == null) {
-        brain = scripted;
-      } else if (definition.brain == 'learned') {
-        brain = policy;
-      } else {
-        brain = HybridBrain(
-          identity: identity,
-          selector: UtilityGoalSelector(minCommitmentTicks: 1),
-          skills: {'learned': policy, 'scripted': _BaselineSkill(scripted)},
-          actionSpecs: {
-            'learned': policy.contract.decoder.spec,
-            'scripted': scripted.actionSpec,
-          },
-        );
-      }
-      _actors[entity.handle] = _RuntimeBrain(
-        identity,
-        definition,
-        observer,
-        awareness,
-        brain,
-        scripted,
-        policy,
-      );
+      _bindActor(entity);
     }
     _sounds.clear();
+    onChanged?.call();
+  }
+
+  void _bindActor(GameRuntimeEntity entity) {
+    final session = _session!, group = _group!;
+    final record = entity.components
+        .where((c) => c.type == 'game.ai')
+        .firstOrNull;
+    if (record == null) return;
+    final definition = _validateDefinition(
+      entity.handle.id,
+      entity.components,
+      remember: true,
+    );
+    final identity = BrainIdentity(
+      episodeId: group.episodeId,
+      entity: entity.handle,
+      modelHash: definition.modelHash ?? 'scripted-${definition.profile}',
+    );
+    final observer = definition.createSensors();
+    final awareness = ObservationAssembler(
+      registry: SensorRegistry()
+        ..register(
+          BodySensor(maxSpeed: definition.profile == 'guard' ? 10 : 30),
+        )
+        ..register(VisionSensor(observer.profile))
+        ..register(HearingSensor(observer.profile, maxSounds: 4)),
+      profile: observer.profile,
+    );
+    final scripted = ScriptedBrain(
+      identity: identity,
+      entities: session.entities,
+      driver: definition.profile == 'vehicle',
+    );
+    PolicyBrain? policy;
+    if (definition.brain != 'scripted' &&
+        !_policyFailures.containsKey(entity.handle.id)) {
+      policy = group.join(identity, policies[definition.modelHash]!.contract);
+    }
+    final GameBrain brain;
+    if (policy == null) {
+      brain = scripted;
+    } else if (definition.brain == 'learned') {
+      brain = policy;
+    } else {
+      brain = HybridBrain(
+        identity: identity,
+        selector: UtilityGoalSelector(minCommitmentTicks: 1),
+        skills: {'learned': policy, 'scripted': _BaselineSkill(scripted)},
+        actionSpecs: {
+          'learned': policy.contract.decoder.spec,
+          'scripted': scripted.actionSpec,
+        },
+      );
+    }
+    _actors[entity.handle] = _RuntimeBrain(
+      identity,
+      definition,
+      observer,
+      awareness,
+      brain,
+      scripted,
+      policy,
+    );
+  }
+
+  GameAiAuthoringDefinition _validateDefinition(
+    String id,
+    List<GameComponentRecord> components, {
+    bool remember = false,
+  }) {
+    final record = components.singleWhere((c) => c.type == 'game.ai');
+    final definition = GameAiAuthoringDefinition(record.data);
+    final controller = definition.profile == 'guard'
+        ? 'game.character'
+        : 'game.vehicle';
+    if (!components.any((c) => c.type == controller)) {
+      throw StateError('$id needs a $controller controller.');
+    }
+    if (remember) _policyFailures.remove(id);
+    if (definition.brain == 'scripted') return definition;
+    final policy = policies[definition.modelHash];
+    final valid =
+        policy != null &&
+        policy.fixedHz == runtime().project.fixedHz &&
+        policy.contract.observation.hash ==
+            definition.createSensors().spec.hash &&
+        policy.contract.decoder.spec.hash ==
+            definition.createActions().spec.hash &&
+        _loadedModels.contains(definition.modelHash);
+    if (!valid) {
+      if (definition.brain == 'learned') {
+        throw StateError('$id needs a prepared compatible evaluated policy.');
+      }
+      if (remember) {
+        _policyFailures[id] =
+            _modelLoadFailures[definition.modelHash] ??
+            'No compatible evaluated policy at this simulation rate.';
+      }
+    }
+    return definition;
+  }
+
+  void _validateSpawn(List<GameEntityRecord> records) {
+    if (_closed || _retiring.length >= 8 || _retirementError != null) {
+      throw StateError('Wait for AI cleanup before changing topology.');
+    }
+    final additions = records.where(
+      (e) => e.components.any((c) => c.type == 'game.ai'),
+    );
+    final existing = _actors.keys.map((h) => h.id).toSet();
+    if ({...existing, ...additions.map((e) => e.id)}.length > 256) {
+      throw StateError('This policy group supports at most 256 actors.');
+    }
+    for (final record in additions) {
+      _validateDefinition(record.id, record.components);
+    }
+  }
+
+  void _changeTopology(GameRuntimeTopologyChange change) {
+    if (_closed) return;
+    final retired = <_RuntimeBrain>[];
+    final leaving = <Future<void>>[];
+    for (final handle in change.removed) {
+      final actor = _actors.remove(handle);
+      if (actor == null) continue;
+      actor.control?.dispose();
+      retired.add(actor);
+      leaving.add(_group!.leave(handle));
+      _policyFailures.remove(handle.id);
+    }
+    if (retired.isNotEmpty) {
+      _retire(Future.wait<void>([_closeBrains(retired, null), ...leaving]));
+    }
+    for (final handle in change.added) {
+      final entity = _session!.entities.entities.singleWhere(
+        (e) => e.handle == handle,
+      );
+      _bindActor(entity);
+    }
     onChanged?.call();
   }
 
@@ -489,6 +587,7 @@ final class GameLevelAi {
     await _scheduler?.flush();
     await Future.wait([
       for (final actor in _actors.values) ?actor.policy?.pending,
+      ..._retiring,
     ]);
   }
 
@@ -531,6 +630,16 @@ final class GameLevelAi {
     };
   }
 
+  /// The last immutable frame sampled through this actor's permitted sensors.
+  /// It contains no current hidden world transforms or unrestricted scene data.
+  ObservationFrame? observation(GameEntityHandle handle) {
+    final actor = _actors[handle];
+    if (_closed || actor == null || !_session!.entities.isAlive(handle)) {
+      throw StateError('AI actor is no longer available.');
+    }
+    return actor.frame;
+  }
+
   void _pause(GameSession session) {
     for (final actor in _actors.values) {
       actor.suspended = actor.control != null || actor.suspended;
@@ -569,6 +678,8 @@ final class GameLevelAi {
       }
     });
     _restored?.dispose();
+    _topology?.dispose();
+    _spawnValidator?.dispose();
     _events?.cancel();
     _codec?.cancel();
     await cleanup(() => _closeBrains(_actors.values.toList(), _group));

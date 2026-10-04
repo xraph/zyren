@@ -191,6 +191,22 @@ references to fresh entity generations, and rebuild the scripted runner from its
 beliefs. Custom behavior interpreter program counters are outside this codec.
 Native scene topology must satisfy the native runtime's checkpoint contract.
 
+Prepare pooled actors through `GameLevelRuntime.prepareSpawn`. AI validation
+runs before the host allocates their native objects and again before activation.
+`warmup()` loads the bounded registered policy catalog, so adding an actor never
+loads weights inside a simulation tick. An incompatible learned-only recipe is
+rejected before its preparation callback runs.
+
+Spawning joins the existing policy group. Despawning removes only that actor's
+control lease, pending inference and memory; other actors retain their committed
+recurrent state. Await `flush()` at an offline boundary to drain retired work.
+Reusing a pool slot creates fresh entity generations and zeroed actor state.
+AI checkpoint version 2 restores a different active pool configuration when all
+its recipes have been prepared in the native host. Model, profile and brain
+definitions are checked before the candidate world replaces the live bindings.
+`observation(handle)` exposes the actor's latest immutable permitted frame for
+inspection. A retired handle cannot read a replacement actor's observations.
+
 The native regression exercises 144 actors sharing one model across batches of
 at most 64 slots. Each actor retains private recurrent state. The optional actor
 and queue ceiling is 256, with the existing 32 MiB queue and state budgets.
