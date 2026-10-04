@@ -321,6 +321,13 @@ ModelEvaluation _decodeMultiEvaluation(
           2) {
     _multiInvalid('Multi opponent strata differ.');
   }
+  final historicalPolicies = opponents.values
+      .where((o) => o['kind'] == 'historical')
+      .map((o) => o['policy_hash'])
+      .toSet();
+  if (historicalPolicies.length != kindCount('historical')) {
+    _multiInvalid('Historical pool requires distinct immutable policy bytes.');
+  }
   final initial = p['initial_baseline'], previous = p['previous_checkpoint'];
   if (initial is! bool || initial && previous != null) {
     _multiInvalid('Multi initial cycling baseline differs.');

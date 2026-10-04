@@ -316,6 +316,22 @@ Map<String, dynamic> insufficientHeldoutFixture() {
 }
 
 void main() {
+  test('renaming one historical model cannot satisfy checkpoint diversity', () {
+    final value = receiptFixture();
+    final opponents = value['plan']['opponents'] as List;
+    opponents[4]['policy_hash'] = opponents[5]['policy_hash'];
+    value['plan_hash'] = hash(value['plan']);
+    expect(
+      () => decode(value),
+      throwsA(
+        isA<FormatException>().having(
+          (e) => e.message,
+          'diversity',
+          contains('distinct immutable policy bytes'),
+        ),
+      ),
+    );
+  });
   test('historical seeds cannot repair insufficient held-out layouts', () {
     final value = insufficientHeldoutFixture();
     expect(decode(value).accepted, isFalse);
