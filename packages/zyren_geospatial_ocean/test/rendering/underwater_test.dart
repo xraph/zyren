@@ -128,6 +128,11 @@ void main() {
                 closeTo(srgb(math.exp(-[1, .5, .25][c] * 2)), 2),
               );
             }
+            pass.detach();
+            expect(scene.effects, isEmpty);
+            expect(await draw(camera), [255, 255, 255, 255]);
+            pass.attach(scene);
+            expect(await draw(camera), result);
             floor.visible = false;
             expect(await draw(camera), [0, 0, 0, 0]);
             floor.visible = true;

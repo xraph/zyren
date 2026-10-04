@@ -363,7 +363,7 @@ final class OceanViewResources {
   OceanUnderwaterPass? _underwater;
   Scene? _scene;
   double? _originalScale;
-  bool _closed = false, _prepared = false;
+  bool _closed = false, _prepared = false, _underwaterVisible = true;
   Future<void>? _closing;
   OceanViewResources._(this._recipe, this._waves);
   OceanViewConfiguration get configuration => _recipe.config;
@@ -547,7 +547,7 @@ final class OceanViewResources {
   /// Synchronously replaces the prepared ocean contribution in an ECEF scene.
   /// Call after the controller operation and before rendering this fixed viewport.
   /// The host owns sample count and HDR configuration; they must match the recipe.
-  void attach(Scene scene) {
+  void attach(Scene scene, {bool replaceConfiguration = false}) {
     if (!isReady || (_scene != null && !identical(_scene, scene))) {
       throw StateError(
         'Ocean view is unavailable or already attached elsewhere.',
@@ -561,12 +561,18 @@ final class OceanViewResources {
     _boundary?.checkCurrent(configuration.camera, configuration.size);
     final previous = _owners[scene];
     if (identical(previous, this)) return;
-    if (previous != null && !identical(previous.configuration, configuration)) {
+    if (previous != null &&
+        !replaceConfiguration &&
+        !identical(previous.configuration, configuration)) {
       throw StateError(
         'Replace a scene ocean with the same view configuration.',
       );
     }
-    _underwater?.attach(scene);
+    if (_underwaterVisible) {
+      _underwater?.attach(scene);
+    } else {
+      previous?._underwater?.detach();
+    }
     _originalScale =
         previous?._originalScale ?? scene.renderSettings.opaqueCaptureScale;
     if (previous != null) {
@@ -577,6 +583,28 @@ final class OceanViewResources {
     scene.renderSettings = quality.applyTo(scene.renderSettings);
     _scene = scene;
     _owners[scene] = this;
+  }
+
+  /// Applies independent visual layer switches. Surface visibility also hides its
+  /// shaded foam; underwater remains independently selectable.
+  Future<void> setVisibility({
+    required bool surface,
+    required bool foam,
+    required bool underwater,
+  }) async {
+    if (_closed) throw StateError('Ocean view closed.');
+    for (final water in _water) {
+      await water.setFoamEnabled(foam);
+    }
+    root.visible = surface;
+    _underwaterVisible = underwater;
+    if (_scene case final scene?) {
+      if (underwater) {
+        _underwater?.attach(scene);
+      } else {
+        _underwater?.detach();
+      }
+    }
   }
 
   Future<void> close() => _closing ??= _close();

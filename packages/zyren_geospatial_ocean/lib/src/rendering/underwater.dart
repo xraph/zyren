@@ -260,6 +260,16 @@ final class OceanUnderwaterPass {
     _scene = scene;
   }
 
+  /// Removes the visual pass without retiring its resources or changing queries.
+  void detach() {
+    _registration?.dispose();
+    _registration = null;
+    if (_scene case final scene? when identical(_owners[scene], this)) {
+      _owners[scene] = null;
+    }
+    _scene = null;
+  }
+
   bool _prepared = false;
   Future<void> prepare({
     required Camera camera,
@@ -341,12 +351,7 @@ final class OceanUnderwaterPass {
   Future<void> close() async {
     if (_closed) return;
     _closed = true;
-    _registration?.dispose();
-    _registration = null;
-    if (_scene case final scene? when identical(_owners[scene], this)) {
-      _owners[scene] = null;
-    }
-    _scene = null;
+    detach();
     await _queue;
     await _scope.close();
   }

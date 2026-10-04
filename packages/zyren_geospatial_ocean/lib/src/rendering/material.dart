@@ -23,6 +23,23 @@ enum OceanWaterDebug { color, normal, waterPath, reflectionConfidence, foam }
 final class OceanWaterMaterial {
   final GpuScope _scope;
   final bool _deformed;
+  final GpuResource<Buffer> _uniform;
+  bool _foamEnabled = true;
+  bool get foamEnabled => _foamEnabled;
+
+  /// Changes only shading. Interaction fields and physical samples keep running.
+  /// Await this update before submitting a frame with this material.
+  Future<void> setFoamEnabled(bool enabled) async {
+    if (isClosed) throw StateError('Water material closed.');
+    if (_foamEnabled == enabled) return;
+    await _scope.resources.writeBuffer(
+      _uniform,
+      Float32List.fromList([enabled ? 1 : 0]),
+      offset: 51 * 4,
+    );
+    _foamEnabled = enabled;
+  }
+
   final OceanInteractionField? interactions;
   final List<ShaderBinding> _interactionBindings;
   final OceanWaveRenderInputs _waves;
@@ -60,6 +77,7 @@ final class OceanWaterMaterial {
   bool get isClosed => _scope.isClosed;
   OceanWaterMaterial._(
     this._scope,
+    this._uniform,
     this._deformed,
     this.interactions,
     this._interactionBindings,
@@ -231,7 +249,7 @@ final class OceanWaterMaterial {
         reflection.pixelBudget.toDouble(),
         reflection.confidenceFade,
         debug.index.toDouble(),
-        0,
+        1,
       ]);
       data.setRange(52, 56, [
         light.environment?.intensity ?? 1,
@@ -358,6 +376,7 @@ final class OceanWaterMaterial {
       }
       return OceanWaterMaterial._(
         scope,
+        uniform,
         useDeformation,
         interactions,
         List.unmodifiable(interactionBindings),

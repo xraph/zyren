@@ -51,3 +51,4 @@ export 'src/quality/controller.dart';
 export 'src/quality/diagnostics.dart';
 export 'src/quality/view.dart';
 export 'src/rendering/programs.dart';
+export 'src/extension.dart';
