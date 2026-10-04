@@ -65,3 +65,25 @@ def test_visual_export_preserves_public_profile_and_compact_body_normalization(t
     with torch.no_grad():reference=ActorStep(loaded)(*inputs)
     actual=session.run(None,{n:v.numpy() for n,v in zip(['observation','hidden','cell'],inputs)})
     for left,right in zip(actual,reference):np.testing.assert_allclose(left,right.numpy(),atol=1e-5,rtol=1e-4)
+
+
+def test_visual_recorded_memory_horizon_is_explicit_bounded_and_checkpoint_stable():
+    import math
+    from zyren_train.policies.visual import create_policy,validate_visual_network
+    schema=json.loads((Path(__file__).parent/'fixtures/visual-profiles.json').read_text())['guard-visual-depth']
+    actions=json.loads((Path(__file__).parent/'fixtures/policy-schemas.json').read_text())['guard']
+    network={'architecture':'native-camera-cnn-v1','channels':2,'body_width':8,'lstm_hidden_size':128}
+    torch.manual_seed(7)
+    original=create_policy(network,14120,actions['action_space'],observation_schema=schema['observation'],visual_profile=schema['visual_profile'],fallback=actions['action_schema']['fallbackDiscrete'])
+    torch.manual_seed(7)
+    retained=create_policy({**network,'memory_horizon_ticks':600},14120,actions['action_space'],observation_schema=schema['observation'],visual_profile=schema['visual_profile'],fallback=actions['action_schema']['fallbackDiscrete'])
+    width=retained.lstm.hidden_size
+    bias=retained.lstm.bias_ih[width:width*2]+retained.lstm.bias_hh[width:width*2]
+    assert torch.allclose(torch.sigmoid(bias),torch.full_like(bias,600/601))
+    assert math.isclose(float(torch.sigmoid(bias.detach())[0]**540),(600/601)**540,rel_tol=1e-4)
+    assert torch.equal(original.lstm.weight_ih,retained.lstm.weight_ih)
+    assert torch.equal(original.mlp.camera[0].weight,retained.mlp.camera[0].weight)
+    retained.load_state_dict(original.state_dict())
+    assert torch.equal(retained.lstm.bias_ih,original.lstm.bias_ih)
+    for horizon in [0,1025,True,600.0]:
+        with pytest.raises(ValueError,match='horizon'):validate_visual_network({**network,'memory_horizon_ticks':horizon})

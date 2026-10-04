@@ -18,7 +18,7 @@ class _VisualEncoder(nn.Module):
 
 
 class VisualPolicy(StructuredPolicy):
-    def __init__(self,channels,body_width,action_space,*,fallback=None,mean=None,scale=None):
+    def __init__(self,channels,body_width,action_space,*,fallback=None,mean=None,scale=None,memory_horizon_ticks=None):
         if type(channels) is not int or channels not in (2,3,5) or type(body_width) is not int or not 1<=body_width<=64:
             raise ValueError('Unsupported native camera/body profile')
         super().__init__(body_width,action_space,fallback=fallback)
@@ -28,6 +28,15 @@ class VisualPolicy(StructuredPolicy):
         if self.observation_mean.shape!=(self.width,) or self.observation_scale.shape!=(self.width,) or not torch.isfinite(self.observation_mean).all() or not torch.isfinite(self.observation_scale).all() or not (self.observation_scale>0).all():
             raise ValueError('Visual normalization differs')
         self.mlp=_VisualEncoder(channels,body_width)
+        if memory_horizon_ticks is not None:
+            if type(memory_horizon_ticks) is not int or not 1<=memory_horizon_ticks<=1024:raise ValueError('Visual memory horizon differs')
+            import math
+            # A quiet cell retains about exp(-1) of its state over this recorded horizon.
+            # This is initialization only; learned gates and outcomes still need evaluation.
+            with torch.no_grad():
+                width=self.lstm.hidden_size
+                self.lstm.bias_ih[width:width*2].fill_(math.log(memory_horizon_ticks))
+                self.lstm.bias_hh[width:width*2].zero_()
 
 
     def sequence(self,observations,episode_starts,*,state=None,valid=None):
@@ -66,9 +75,11 @@ def create_policy(network,width,action_space,*,observation_schema=None,visual_pr
         raise ValueError('Native camera profile differs')
     required={'kind':'multi_discrete','nvec':[5,5,5,3,2,2]} if metadata['family']=='guard' else {'kind':'box','low':[-1,0,0],'high':[1,1,1]}
     if action_space!=required:raise ValueError('Visual controller action mapping differs')
-    return VisualPolicy(channels,body,action_space,**kwargs)
+    return VisualPolicy(channels,body,action_space,memory_horizon_ticks=network.get('memory_horizon_ticks'),**kwargs)
 
 
 def validate_visual_network(network):
-    if not isinstance(network,dict) or set(network)!={'architecture','channels','body_width','lstm_hidden_size'} or network['architecture']!='native-camera-cnn-v1' or type(network['channels']) is not int or network['channels'] not in (2,3,5) or type(network['body_width']) is not int or not 1<=network['body_width']<=64 or network['lstm_hidden_size']!=128:
+    if not isinstance(network,dict) or set(network)-{'memory_horizon_ticks'}!={'architecture','channels','body_width','lstm_hidden_size'} or network['architecture']!='native-camera-cnn-v1' or type(network['channels']) is not int or network['channels'] not in (2,3,5) or type(network['body_width']) is not int or not 1<=network['body_width']<=64 or network['lstm_hidden_size']!=128:
         raise ValueError('Unsupported visual architecture')
+
+    if 'memory_horizon_ticks' in network and (type(network['memory_horizon_ticks']) is not int or not 1<=network['memory_horizon_ticks']<=1024):raise ValueError('Visual memory horizon differs')
