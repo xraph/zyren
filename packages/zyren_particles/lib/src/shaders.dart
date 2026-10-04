@@ -7,7 +7,7 @@ struct Particle { position: vec4<f32>, velocity: vec4<f32>, metadata: vec4<f32>,
 struct Parameters {
  commands: vec4<u32>, dynamics: vec4<f32>, emitter: mat4x4<f32>,
  camera: vec4<f32>, right: vec4<f32>, up: vec4<f32>, forward: vec4<f32>,
- origin: vec4<f32>, collisionOffsets: array<vec4<f32>,3>,
+ origin: vec4<f32>, collisionOffsets: array<vec4<f32>,3>, emissionVelocity: vec4<f32>,
 };
 @group(${compute ? 0 : 1}) @binding(0) var<storage, ${compute ? 'read_write' : 'read'}> particles: array<Particle>;
 @group(${compute ? 0 : 1}) @binding(1) var<uniform> params: Parameters;
@@ -76,6 +76,7 @@ $forces
       (vec3<f32>(random(serial,4u),random(serial,5u),random(serial,6u))*2.-vec3<f32>(1.)) *
       vec3<f32>(${s.velocitySpread.x},${s.velocitySpread.y},${s.velocitySpread.z});
     ${s.space == ParticleSpace.world ? 'position = (params.emitter*vec4<f32>(position,1.)).xyz; velocity = (params.emitter*vec4<f32>(velocity,0.)).xyz;' : ''}
+    velocity += params.emissionVelocity.xyz;
     p.position = vec4<f32>(position,0.); p.velocity = vec4<f32>(velocity,f32(tick));
     p.metadata = vec4<f32>(f32(serial),1.,0.,0.);
     p.birthX=params.emitter[0]; p.birthY=params.emitter[1]; p.birthZ=params.emitter[2];

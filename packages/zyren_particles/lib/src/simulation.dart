@@ -12,7 +12,17 @@ enum ParticlePlayback { stopped, playing, paused, draining }
 final class ParticleTick {
   final int tick, firstSerial, count;
   final double step;
-  const ParticleTick(this.tick, this.firstSerial, this.count, this.step);
+
+  /// Extra birth velocity in simulation coordinates, applied after the emitter
+  /// transform. Existing particles keep their velocity.
+  final Vec3 emissionVelocity;
+  const ParticleTick(
+    this.tick,
+    this.firstSerial,
+    this.count,
+    this.step, {
+    this.emissionVelocity = Vec3.zero,
+  });
   double get time => tick * step;
 }
 
@@ -192,6 +202,10 @@ final class ParticleReference {
     Mat4? emitterTransform,
     Vec3 origin = Vec3.zero,
   }) {
+    if (!tick.emissionVelocity.isFinite ||
+        tick.emissionVelocity.length > 10000) {
+      throw ArgumentError('Invalid particle birth velocity.');
+    }
     final transform = emitterTransform ?? Mat4.identity();
     final dt = tick.step, samples = settings.trails?.samples ?? 2;
     var accepted = 0;
@@ -284,6 +298,7 @@ final class ParticleReference {
               position = transformParticlePoint(transform, p);
               v = transformParticlePoint(transform, v, direction: true);
             }
+            v = v + tick.emissionVelocity;
             state.setRange(o, o + particleStateFloats, [
               position.x,
               position.y,

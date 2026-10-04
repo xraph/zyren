@@ -9,12 +9,13 @@ final class ParticleEmitter {
   final String name;
   final ParticleSettings settings;
   final Object3D object;
-  final bool autoStart;
+  final bool autoStart, externallyDriven;
   ParticleEmitter({
     required this.name,
     required this.settings,
     Object3D? object,
     this.autoStart = true,
+    this.externallyDriven = false,
   }) : object = object ?? Group(name: name) {
     if (name.isEmpty || name.length > 128) {
       throw ArgumentError('Emitter name requires 1 to 128 characters.');
@@ -89,6 +90,7 @@ final class ParticleController {
   ParticlePlayback playback(String name) => _get(name).clock.playback;
   ParticleMeasurements measurements(String name) =>
       _get(name).renderer.measurements;
+  int simulationTick(String name) => _get(name).clock.tick;
   double pendingSeconds(String name) => _get(name).clock.pendingSeconds;
   Future<T> _serial<T>(Future<T> Function() action) {
     final next = _queue.then((_) {
@@ -234,6 +236,7 @@ final class ParticleController {
       settings: settings,
       object: previous.emitter.object,
       autoStart: previous.emitter.autoStart,
+      externallyDriven: previous.emitter.externallyDriven,
     );
     final candidate = await ParticleRenderer.create(_owner, settings);
     final replacement = _EmitterRuntime(definition, candidate, previous.added);
@@ -290,36 +293,80 @@ final class ParticleController {
     _updateDemand();
     _context.invalidate();
   });
+
+  /// Advance one externally owned fixed tick. Presentation only refreshes camera
+  /// inputs for this emitter. Duplicate, skipped or paused ticks are rejected.
+  Future<void> step(
+    String name, {
+    required int tick,
+    Vec3 emissionVelocity = Vec3.zero,
+  }) => _serial(() async {
+    final e = _get(name);
+    if (!e.emitter.externallyDriven ||
+        tick != e.clock.tick + 1 ||
+        tick > 0xffffff ||
+        e.clock.playback == ParticlePlayback.paused ||
+        e.clock.playback == ParticlePlayback.stopped) {
+      throw StateError(
+        'Particle step requires an active external emitter and its next tick.',
+      );
+    }
+    if (!emissionVelocity.isFinite || emissionVelocity.length > 10000) {
+      throw ArgumentError('Invalid particle birth velocity.');
+    }
+    final emitted = e.clock
+        .advance(e.emitter.settings.fixedStep, maxSteps: 1)
+        .single;
+    await _submit(e, [
+      ParticleTick(
+        emitted.tick,
+        emitted.firstSerial,
+        emitted.count,
+        emitted.step,
+        emissionVelocity: emissionVelocity,
+      ),
+    ]);
+    _context.invalidate();
+    _updateDemand();
+  });
+
+  Future<void> _submit(_EmitterRuntime e, List<ParticleTick> ticks) async {
+    await e.renderer.update(
+      ticks,
+      emitter: _world(e.emitter.object),
+      camera: particleCameraTransform(_context.camera),
+    );
+    if (ticks.any((tick) => tick.count > 0)) {
+      e.lastEmission = e.clock.tick * e.emitter.settings.fixedStep;
+    }
+    if (e.clock.playback == ParticlePlayback.draining &&
+        e.clock.tick * e.emitter.settings.fixedStep >=
+            e.lastEmission + e.emitter.settings.lifetime) {
+      e.clock.reset();
+      e.lastEmission = 0;
+      await e.renderer.reset();
+    }
+  }
+
   Future<void> _frame(FrameInfo frame) => _serial(() async {
     for (final e in _emitters.values) {
       final visible = e.clock.playback != ParticlePlayback.stopped;
       e.renderer.mesh.visible = visible;
       e.renderer.ribbon?.visible = visible;
       if (!visible) continue;
-      final ticks = e.clock.advance(frame.delta.inMicroseconds / 1000000);
-      await e.renderer.update(
-        ticks,
-        emitter: _world(e.emitter.object),
-        camera: particleCameraTransform(_context.camera),
-      );
-      if (ticks.any((tick) => tick.count > 0)) {
-        e.lastEmission = e.clock.tick * e.emitter.settings.fixedStep;
-      }
-      if (e.clock.playback == ParticlePlayback.draining &&
-          e.clock.tick * e.emitter.settings.fixedStep >=
-              e.lastEmission + e.emitter.settings.lifetime) {
-        e.clock.reset();
-        e.lastEmission = 0;
-        await e.renderer.reset();
-      }
+      final ticks = e.emitter.externallyDriven
+          ? const <ParticleTick>[]
+          : e.clock.advance(frame.delta.inMicroseconds / 1000000);
+      await _submit(e, ticks);
     }
     _updateDemand();
   });
   void _updateDemand() {
     final active = _emitters.values.any(
       (e) =>
-          e.clock.playback == ParticlePlayback.playing ||
-          e.clock.playback == ParticlePlayback.draining,
+          !e.emitter.externallyDriven &&
+          (e.clock.playback == ParticlePlayback.playing ||
+              e.clock.playback == ParticlePlayback.draining),
     );
     if (active) {
       _demand ??= _context.acquireFrameDemand();

@@ -88,7 +88,7 @@ final class ParticleRenderer {
       final parameters = await scope.resources.createBuffer(
         BufferDescriptor(
           label: 'particle parameters',
-          size: 224,
+          size: 240,
           usage: {BufferUsage.uniform, BufferUsage.copyDestination},
         ),
       );
@@ -370,7 +370,9 @@ final class ParticleRenderer {
     }
     for (var i = 0; i < ticks.length; i++) {
       final tick = ticks[i];
-      if (tick.tick != _tick + i + 1 ||
+      if (!tick.emissionVelocity.isFinite ||
+          tick.emissionVelocity.length > 10000 ||
+          tick.tick != _tick + i + 1 ||
           tick.tick > 0xffffff ||
           tick.step != settings.fixedStep ||
           tick.firstSerial < 0 ||
@@ -398,7 +400,7 @@ final class ParticleRenderer {
         throw StateError('Ticks must be consecutive. Reset before restarting.');
       }
       await _writeParameters(tick, relativeEmitter, relativeCamera);
-      uploaded += 224;
+      uploaded += 240;
       if (reference case final reference?) {
         reference.step(
           tick,
@@ -416,7 +418,7 @@ final class ParticleRenderer {
       relativeEmitter,
       relativeCamera,
     );
-    uploaded += 224;
+    uploaded += 240;
     if (reference case final reference?) {
       if (ticks.isNotEmpty) {
         await _scope.resources.writeBuffer(_state, reference.state);
@@ -476,7 +478,7 @@ final class ParticleRenderer {
     Mat4 emitter,
     Mat4 camera,
   ) async {
-    final bytes = ByteData(224);
+    final bytes = ByteData(240);
     final commands = [tick.tick, tick.firstSerial, tick.count, settings.seed];
     for (var i = 0; i < 4; i++) {
       bytes.setUint32(i * 4, commands[i], Endian.little);
@@ -519,6 +521,8 @@ final class ParticleRenderer {
             ? settings.collisions[i].offset +
                   simulationOrigin.dot(settings.collisions[i].normal)
             : 0,
+      ...tick.emissionVelocity.storage,
+      0,
     ];
     for (var i = 0; i < floats.length; i++) {
       bytes.setFloat32(16 + i * 4, floats[i], Endian.little);
