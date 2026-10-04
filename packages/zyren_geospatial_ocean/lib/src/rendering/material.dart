@@ -26,6 +26,9 @@ final class OceanWaterMaterial {
   final TextureBinding _controlBinding;
   final OceanPatchId patch;
   final Vec3 originEcef;
+  final Ellipsoid ellipsoid;
+  final OceanOptics optics;
+  final OceanLighting lighting;
   final OceanReflectionSettings reflections;
   final ShaderMaterial material;
   final double seconds;
@@ -37,6 +40,9 @@ final class OceanWaterMaterial {
     this._deformed,
     this.patch,
     this.originEcef,
+    this.ellipsoid,
+    this.optics,
+    this.lighting,
     this.reflections,
     this.material,
     this.seconds,
@@ -293,6 +299,9 @@ final class OceanWaterMaterial {
         useDeformation,
         patch,
         origin,
+        ellipsoid,
+        optical,
+        light,
         reflection,
         ShaderMaterial(program, side: MaterialSide.doubleSided),
         waves.seconds,
@@ -307,6 +316,35 @@ final class OceanWaterMaterial {
       await scope.close();
       rethrow;
     }
+  }
+
+  /// Retains the filtered visual wave field for a custom ocean pass. The WGSL
+  /// supplies waterSurface(localEcef, footprintMetres) and group 1 bindings 0..6.
+  /// The receiving scope owns the retained inputs, including on partial failure.
+  /// This is a rendering contract, without physical query accuracy guarantees.
+  Future<OceanWaveShaderInputs> retainWaveInputs(GpuScope owner) async {
+    if (isClosed) throw StateError('Water material closed.');
+    final bindings = <ShaderBinding>[];
+    for (final binding in _waveBindings) {
+      if (binding is BufferBinding) {
+        bindings.add(
+          BufferBinding.uniform(
+            binding.binding,
+            await owner.resources.retain(binding.resource),
+            group: 1,
+          ),
+        );
+      } else if (binding is TextureBinding) {
+        bindings.add(
+          TextureBinding.sampled(
+            binding.binding,
+            await owner.resources.retain(binding.resource),
+            group: 1,
+          ),
+        );
+      }
+    }
+    return OceanWaveShaderInputs._(oceanWaveFieldWgsl, bindings);
   }
 
   /// Builds a scope-owned native boundary shader with the same displacement,
@@ -589,4 +627,12 @@ final class OceanWaterSurfaceDebug {
     this.normalEcef,
     this.unresolvedSlopeVariance,
   );
+}
+
+/// Scoped visual wave inputs for custom compute or procedural rendering passes.
+final class OceanWaveShaderInputs {
+  final String wgsl;
+  final List<ShaderBinding> bindings;
+  OceanWaveShaderInputs._(this.wgsl, Iterable<ShaderBinding> bindings)
+    : bindings = List.unmodifiable(bindings);
 }

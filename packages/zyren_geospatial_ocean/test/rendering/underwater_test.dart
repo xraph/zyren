@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:typed_data';
 import 'package:test/test.dart';
 import 'package:zyren/zyren.dart';
 import 'package:zyren/rendering.dart';
@@ -155,6 +156,78 @@ void main() {
               expect(clipped[c], closeTo(srgb(math.exp(-[1, .5, .25][c])), 2));
             }
             expect(scene.effects.length, 1);
+          }
+        }
+        final camera = OrthographicCamera(
+          position: origin - const Vec3(0, 0, 1),
+          target: floor.position,
+          near: .1,
+          far: 20,
+          verticalSize: 4,
+        );
+        await capture.update(camera);
+        floor.material = UnlitMaterial(color: const Color3(0, 0, 0));
+        final shadow = await scope.resources.createTexture(
+          TextureDescriptor(
+            width: 1,
+            height: 1,
+            format: TextureFormat.rgba32Float,
+            usage: {TextureUsage.sampled, TextureUsage.copyDestination},
+          ),
+        );
+        await scope.resources.writeTexture(
+          shadow,
+          Float32List(4).buffer.asUint8List(),
+        );
+        for (final mode in ['day', 'disabled', 'shadow', 'night']) {
+          final stepCount = mode == 'disabled' ? 0 : 64;
+          final pass = await OceanUnderwaterPass.create(
+            scope,
+            surface: capture,
+            optics: OceanOptics(
+              absorptionPerMetre: Vec3.zero,
+              scatteringPerMetre: const Vec3(.2, .3, .4),
+            ),
+            settings: OceanUnderwaterSettings(shaftSteps: stepCount),
+            lighting: OceanLighting(
+              sunDirectionEcef: Vec3(0, 0, mode == 'night' ? -1 : 1),
+              sunIrradiance: const Vec3(4, 4, 4),
+              skyRadiance: Vec3.zero,
+            ),
+            sunVisibility: mode != 'shadow'
+                ? null
+                : OceanSunVisibility(
+                    texture: shadow,
+                    anchor: origin,
+                    uPerMetre: const Vec3(.1, 0, 0),
+                    vPerMetre: const Vec3(0, .1, 0),
+                  ),
+          );
+          expect(pass.hasShadowVisibility, mode == 'shadow');
+          await pass.prepare(
+            camera: camera,
+            viewport: size,
+            signedSurfaceDistance: -1,
+            surfaceUp: const Vec3(0, 0, 1),
+          );
+          pass.attach(scene);
+          await active?.close();
+          active = pass;
+          final result = await draw(camera);
+          if (mode == 'day') {
+            for (var c = 0; c < 3; c++) {
+              final extinction = [.2, .3, .4][c];
+              final expected =
+                  4 /
+                  (4 * math.pi) *
+                  (1 - waterFresnel(1, 1, 1.333)) *
+                  .5 *
+                  math.exp(-extinction) *
+                  (1 - math.exp(-4 * extinction));
+              expect(result[c], closeTo(srgb(expected), 2));
+            }
+          } else {
+            expect(result, [0, 0, 0, 255]);
           }
         }
       } finally {

@@ -28,6 +28,8 @@ struct WaterVertex {
 ${boundary ? _boundaryFragment : _fragment}
 ''';
 
+String get oceanWaveFieldWgsl => '$_settings\n$_waves';
+
 const _settings = '''
 struct WaterSettings {
   originWeighted:vec4<f32>, inverseRadii:vec4<f32>, originKm:vec4<f32>,

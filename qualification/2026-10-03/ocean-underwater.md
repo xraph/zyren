@@ -1,7 +1,7 @@
 # Underwater qualification in progress
 
 W7 remains open. The checked slices below do not establish final visual quality,
-caustics, suspended particles, mobile performance or a completed Ocean Lab.
+final caustic scene review, suspended particles, mobile performance or a completed Ocean Lab.
 
 ## Surface boundary and volume transport
 
@@ -34,6 +34,24 @@ renders. The integrated ocean test writes the map during the same frame and
 matches the homogeneous water reference with atmosphere haze both enabled and
 disabled. Transparent output remains transparent. Existing aerial and cloud-input
 regressions pass.
+
+## Projected caustics and single scattering
+
+The caustic pass refracts filtered wave triangles onto a bounded tangent receiver.
+Additive rasterization accumulates overlapping projections. Native reductions cap
+concentration and keep mean irradiance below the incoming horizontal flux. The
+receiver material supplies its own Lambertian direct-sun term, including water
+attenuation on the light path. It does not add a second copy of direct sunlight.
+
+Native fixtures verify flat-water Fresnel and Beer-Lambert values, wave variation,
+night, a fully shadowed visibility map, actual 16 and 32 pixel targets, disabled
+allocation, failed byte admission and final resource retirement. Receiver pixels
+also match the flat-water radiance reference. The model omits occluders unless you
+provide visibility; its finite footprint and planar receiver are explicit limits.
+
+Single-scattering fixtures compare a 64-step result to an analytic vertical-ray
+integral. Zero steps, zero visibility and a sun below the surface produce no direct
+shaft contribution. The current full ocean rendering suite has 20 passing tests.
 
 ## Current limits
 

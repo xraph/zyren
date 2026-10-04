@@ -33,3 +33,4 @@ export 'src/rendering/water_geometry.dart';
 export 'src/rendering/water_volume.dart';
 export 'src/rendering/surface_capture.dart';
 export 'src/rendering/underwater.dart';
+export 'src/rendering/caustics.dart';
