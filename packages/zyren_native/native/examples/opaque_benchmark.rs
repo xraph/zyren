@@ -8,6 +8,7 @@ use zyren_runtime::{
 
 fn main() {
     let output = std::env::args().nth(1).expect("output directory");
+    let motion = std::env::args().nth(2).as_deref() == Some("motion");
     std::fs::create_dir_all(&output).unwrap();
     let mut frame: Frame = serde_json::from_value(json!({
         "version":1, "view_projection":Mat4::IDENTITY.to_cols_array(),
@@ -39,6 +40,10 @@ fn main() {
     let mut samples = Vec::new();
     let mut reference = Vec::new();
     for i in 0..40 {
+        if motion {
+            frame.view_projection[12] = (i as f32 - 10.) * 0.001;
+            frame.view_projection[13] = (i % 7) as f32 * 0.0005;
+        }
         let started = Instant::now();
         let pixels = renderer.render(&frame, 1024, 1024).unwrap();
         let elapsed = started.elapsed().as_nanos() as u64;
@@ -48,12 +53,24 @@ fn main() {
         .unwrap();
         let reply: serde_json::Value =
             serde_json::from_slice(&renderer.graph_command(&request, 256 * 1024).unwrap()).unwrap();
-        if i == 0 {
+        if i == 0 || motion {
             reference = pixels.clone();
         }
-        assert_eq!(pixels, reference);
+        if !motion {
+            assert_eq!(pixels, reference);
+        }
         if i >= 10 {
-            samples.push(json!({"wallNs":elapsed,"drawCalls":renderer.scene_draw_stats().0,"profile":reply["result"]}));
+            if motion {
+                image::save_buffer(
+                    format!("{output}/frame-{i:02}.png"),
+                    &pixels,
+                    1024,
+                    1024,
+                    image::ColorType::Rgba8,
+                )
+                .unwrap();
+            }
+            samples.push(json!({"frameIndex":i,"imageCrc32":crc32fast::hash(&pixels),"wallNs":elapsed,"drawCalls":renderer.scene_draw_stats().0,"profile":reply["result"]}));
         }
         frame.geometries.clear();
     }
@@ -68,6 +85,6 @@ fn main() {
     std::fs::write(format!("{output}/opaque.rgba"), &reference).unwrap();
     println!(
         "{}",
-        json!({"adapter":renderer.adapter_name,"backend":format!("{:?}",renderer.backend),"meshes":4096,"size":[1024,1024],"warmup":10,"samples":samples})
+        json!({"motion":motion,"adapter":renderer.adapter_name,"backend":format!("{:?}",renderer.backend),"meshes":4096,"size":[1024,1024],"warmup":10,"samples":samples})
     );
 }
