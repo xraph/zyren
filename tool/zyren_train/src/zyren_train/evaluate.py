@@ -31,7 +31,18 @@ class EvaluationPlan:
         if 'revision' in value:
             revision=value['revision']
             content={key:value[key] for key in ('cases','paired_worlds','targets','training_scenario_hashes')}
-            if not isinstance(revision,dict) or set(revision)!={'supersedes','reason','case_content_hash'} or not re.fullmatch('[0-9a-f]{64}',revision['supersedes']) or revision['reason']!='original executable overwritten during sequence-probe rebuild' or revision['case_content_hash']!=hashlib.sha256(canonical_bytes(content)).hexdigest():raise ValueError('Evaluation artifact revision lineage differs')
+            if (not isinstance(revision, dict)
+                    or set(revision) != {'supersedes', 'reason', 'case_content_hash'}
+                    or not isinstance(revision['supersedes'], str)
+                    or not re.fullmatch('[0-9a-f]{64}', revision['supersedes'])
+                    or revision['case_content_hash'] != hashlib.sha256(canonical_bytes(content)).hexdigest()):
+                raise ValueError('Evaluation artifact revision lineage differs')
+            if revision['reason'] == 'collision-only island and joint bookkeeping repair':
+                if (revision['supersedes'] != 'deaf8017551bc1709af5f6e689f4c3f377f52b2822c6a02c9522986cb52e3afd'
+                        or revision['case_content_hash'] != 'b5a7eff352c517411b818b741e82c0a75bf330f254f78764fe2e43f307872f47'):
+                    raise ValueError('Collision repair revision changed the locked structured suite')
+            elif revision['reason'] != 'original executable overwritten during sequence-probe rebuild':
+                raise ValueError('Evaluation artifact revision lineage differs')
         identifiers=set(); content=set(); schemas=set(); requested=0
         for case in value['cases']:
             if set(case)!={'id','family','scenario','seeds','stress','coverage'} or case['id'] in identifiers or case['family'] not in TARGETS: raise ValueError('Evaluation case identity differs')

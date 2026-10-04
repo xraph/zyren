@@ -150,12 +150,21 @@ final class ModelEvaluation {
         'training_scenario_hashes',
       ].map((k) => '"$k":${_rawJsonField(rawPlan, k)}').join(',');
       final content = '{$fields}';
+      final collisionRepair =
+          revision['reason'] ==
+          'collision-only island and joint bookkeeping repair';
       if (revision.length != 3 ||
           !_artifactDigest(revision['supersedes']) ||
-          revision['reason'] !=
-              'original executable overwritten during sequence-probe rebuild' ||
+          (!collisionRepair &&
+              revision['reason'] !=
+                  'original executable overwritten during sequence-probe rebuild') ||
           revision['case_content_hash'] !=
-              sha256.convert(utf8.encode(content)).toString()) {
+              sha256.convert(utf8.encode(content)).toString() ||
+          (collisionRepair &&
+              (revision['supersedes'] !=
+                      'deaf8017551bc1709af5f6e689f4c3f377f52b2822c6a02c9522986cb52e3afd' ||
+                  revision['case_content_hash'] !=
+                      'b5a7eff352c517411b818b741e82c0a75bf330f254f78764fe2e43f307872f47'))) {
         throw FormatException('Evaluation artifact revision lineage differs.');
       }
     }
