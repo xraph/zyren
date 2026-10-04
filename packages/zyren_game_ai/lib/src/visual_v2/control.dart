@@ -40,6 +40,8 @@ final class VisualGoalController {
   VisualGoalController({
     required this.profile,
     required this.map,
+    required ColliderShape actorShape,
+    required PhysicsPose actorOffset,
     required VisualCaptureIdentity identity,
     double? maxSpeed,
     this.stoppingDeceleration = 2,
@@ -47,7 +49,11 @@ final class VisualGoalController {
   }) : _identity = identity,
        maxSpeed = maxSpeed ?? (profile.family == 'guard' ? 2 : 3),
        _world = map._newWorld() {
-    if (identity.mapHash != map.hash ||
+    if (_pin(actorShape.json) != _pin(profile.actorShape.json) ||
+        _pin(actorOffset.json) != _pin(profile.actorColliderOffset.json) ||
+        map.mesh.settings.radius < profile.footprintRadius ||
+        map.mesh.settings.height < profile.actorHeight ||
+        identity.mapHash != map.hash ||
         identity.profileHash != profile.hash ||
         !this.maxSpeed.isFinite ||
         this.maxSpeed <= 0 ||
@@ -71,6 +77,9 @@ final class VisualGoalController {
     'version': 2,
     'profileHash': profile.hash,
     'mapHash': map.hash,
+    'actorShape': profile.actorShape.json,
+    'actorColliderOffset': profile.actorColliderOffset.json,
+    'footprintRadius': profile.footprintRadius,
     'maxSpeed': maxSpeed,
     'stoppingDeceleration': stoppingDeceleration,
     'obstacleMaxSpeed': obstacleMaxSpeed,

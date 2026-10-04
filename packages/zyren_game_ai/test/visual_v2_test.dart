@@ -8,7 +8,11 @@ import 'package:zyren_ml/zyren_ml.dart';
 import 'package:zyren_navigation/zyren_navigation.dart';
 import 'package:zyren_physics/zyren_physics.dart';
 
-VisualNavigationMap publishedMap({bool strip = false}) {
+VisualNavigationMap publishedMap({
+  bool strip = false,
+  double radius = .3,
+  double height = 1.8,
+}) {
   final geometry = NavigationGeometry(
     sourceId: 'published-floor',
     revision: '1',
@@ -37,7 +41,8 @@ VisualNavigationMap publishedMap({bool strip = false}) {
   ];
   final settings = NavigationBakeSettings(
     cellSize: .2,
-    radius: .3,
+    radius: radius,
+    height: height,
     maxCells: 16384,
   );
   return VisualNavigationMap.fromAuthored(
@@ -105,6 +110,79 @@ VisualMotionDecision decide(
 );
 
 void main() {
+  test(
+    'actual collider and bake clearance must match the pinned model footprint',
+    () {
+      for (final shape in [
+        const CapsuleShape(halfHeight: .5, radius: .2),
+        const CapsuleShape(halfHeight: .5, radius: .4),
+        const CapsuleShape(halfHeight: .4, radius: .3),
+        const BoxShape(Vec3(.3, .8, .3)),
+      ]) {
+        final map = publishedMap();
+        expect(
+          () => VisualGoalController(
+            profile: profile,
+            map: map,
+            identity: identity(map),
+            actorShape: shape,
+            actorOffset: PhysicsPose(),
+          ),
+          throwsArgumentError,
+        );
+      }
+      for (final map in [
+        publishedMap(radius: .29),
+        publishedMap(height: 1.59),
+      ]) {
+        expect(
+          () => VisualGoalController(
+            profile: profile,
+            map: map,
+            identity: identity(map),
+            actorShape: profile.actorShape,
+            actorOffset: PhysicsPose(),
+          ),
+          throwsArgumentError,
+        );
+      }
+      final map = publishedMap();
+      expect(
+        () => VisualGoalController(
+          profile: profile,
+          map: map,
+          identity: identity(map),
+          actorShape: profile.actorShape,
+          actorOffset: PhysicsPose(position: const Vec3(.1, 0, 0)),
+        ),
+        throwsArgumentError,
+      );
+      final controller = VisualGoalController(
+        profile: profile,
+        map: map,
+        identity: identity(map),
+        actorShape: profile.actorShape,
+        actorOffset: PhysicsPose(),
+      );
+      expect(controller.toJson()['actorShape'], profile.actorShape.json);
+      expect(profile.toJson()['footprint_radius'], .3);
+      final car = VisualNavigationProfile(family: 'vehicle', mode: 'combined');
+      expect(
+        car.footprintRadius,
+        closeTo(math.sqrt(.8 * .8 + 1.2 * 1.2), 1e-12),
+      );
+      expect(
+        () => VisualGoalController(
+          profile: car,
+          map: map,
+          identity: identity(map, family: 'vehicle'),
+          actorShape: car.actorShape,
+          actorOffset: PhysicsPose(),
+        ),
+        throwsArgumentError,
+      );
+    },
+  );
   test(
     'all six profile contracts preserve camera-only/body10 and distinct controller ABI',
     () {
@@ -230,7 +308,13 @@ void main() {
     'capture transform uses copied pose and camera yaw, never later actor pose',
     () {
       final map = publishedMap(), id = identity(publishedMap());
-      final c = VisualGoalController(profile: profile, map: map, identity: id);
+      final c = VisualGoalController(
+        actorShape: profile.actorShape,
+        actorOffset: PhysicsPose(),
+        profile: profile,
+        map: map,
+        identity: id,
+      );
       final captured = pose(id, yaw: math.pi / 2);
       c.accept(
         estimate: VisualEstimate.decode(visible(), profile: profile),
@@ -248,7 +332,13 @@ void main() {
     'exact due tick/epoch/profile pins reject late and duplicate completion',
     () {
       final map = publishedMap(), id = identity(publishedMap());
-      final c = VisualGoalController(profile: profile, map: map, identity: id),
+      final c = VisualGoalController(
+            actorShape: profile.actorShape,
+            actorOffset: PhysicsPose(),
+            profile: profile,
+            map: map,
+            identity: id,
+          ),
           est = VisualEstimate.decode(visible(), profile: profile);
       expect(c.accept(estimate: est, captured: pose(id), tick: 1), false);
       expect(c.accept(estimate: est, captured: pose(id), tick: 3), false);
@@ -265,7 +355,7 @@ void main() {
       final p = VisualNavigationProfile(family: 'guard', mode: 'depth');
       expect(
         c.accept(
-          estimate: VisualEstimate.decode(visible(), profile: p),
+          estimate: VisualEstimate.decode(visible(forward: 2.5), profile: p),
           captured: pose(id, tick: 5),
           tick: 7,
         ),
@@ -279,6 +369,8 @@ void main() {
       final map = publishedMap(),
           id = identity(publishedMap()),
           c = VisualGoalController(
+            actorShape: profile.actorShape,
+            actorOffset: PhysicsPose(),
             profile: profile,
             map: publishedMap(),
             identity: identity(publishedMap()),
@@ -299,6 +391,8 @@ void main() {
       c.reset(identity(map, stateEpoch: 1));
       expect(c.belief, isNull);
       final sigma = VisualGoalController(
+        actorShape: profile.actorShape,
+        actorOffset: PhysicsPose(),
         profile: profile,
         map: map,
         identity: id,
@@ -317,6 +411,8 @@ void main() {
       final map = publishedMap(), id = identity(publishedMap());
       for (final free in [0.0, 1.0, 40.0]) {
         final c = VisualGoalController(
+          actorShape: profile.actorShape,
+          actorOffset: PhysicsPose(),
           profile: profile,
           map: map,
           identity: id,
@@ -350,6 +446,8 @@ void main() {
     final map = publishedMap(),
         id = identity(publishedMap()),
         c = VisualGoalController(
+          actorShape: profile.actorShape,
+          actorOffset: PhysicsPose(),
           profile: profile,
           map: publishedMap(),
           identity: identity(publishedMap()),
@@ -369,8 +467,20 @@ void main() {
     'identical full permitted histories yield identical goals and actions',
     () {
       final map = publishedMap(), id = identity(publishedMap());
-      final a = VisualGoalController(profile: profile, map: map, identity: id),
-          b = VisualGoalController(profile: profile, map: map, identity: id);
+      final a = VisualGoalController(
+            actorShape: profile.actorShape,
+            actorOffset: PhysicsPose(),
+            profile: profile,
+            map: map,
+            identity: id,
+          ),
+          b = VisualGoalController(
+            actorShape: profile.actorShape,
+            actorOffset: PhysicsPose(),
+            profile: profile,
+            map: map,
+            identity: id,
+          );
       for (var tick = 0; tick < 40; tick++) {
         if (tick % 5 == 2) {
           for (final c in [a, b]) {
@@ -398,6 +508,8 @@ void main() {
       final map = publishedMap(),
           id = identity(publishedMap()),
           c = VisualGoalController(
+            actorShape: profile.actorShape,
+            actorOffset: PhysicsPose(),
             profile: profile,
             map: publishedMap(),
             identity: identity(publishedMap()),
@@ -435,6 +547,8 @@ void main() {
       final map = publishedMap(),
           id = identity(publishedMap()),
           c = VisualGoalController(
+            actorShape: profile.actorShape,
+            actorOffset: PhysicsPose(),
             profile: profile,
             map: publishedMap(),
             identity: identity(publishedMap()),
@@ -473,6 +587,8 @@ void main() {
   test('duplicate control ticks cannot advance recovery scan twice', () {
     final map = publishedMap(),
         c = VisualGoalController(
+          actorShape: profile.actorShape,
+          actorOffset: PhysicsPose(),
           profile: profile,
           map: publishedMap(),
           identity: identity(publishedMap()),
@@ -487,7 +603,13 @@ void main() {
       ..[0] = .8
       ..[56] = 0
       ..[72] = 0;
-    final c = VisualGoalController(profile: profile, map: map, identity: id);
+    final c = VisualGoalController(
+      actorShape: profile.actorShape,
+      actorOffset: PhysicsPose(),
+      profile: profile,
+      map: map,
+      identity: id,
+    );
     c.accept(
       estimate: VisualEstimate.decode(values, profile: profile),
       captured: pose(id),
@@ -502,11 +624,17 @@ void main() {
     'vehicle route direction cannot certify mismatched physical heading',
     () {
       final p = VisualNavigationProfile(family: 'vehicle', mode: 'combined'),
-          map = publishedMap(),
-          id = identity(publishedMap(), family: 'vehicle');
-      final c = VisualGoalController(profile: p, map: map, identity: id);
+          map = publishedMap(radius: p.footprintRadius),
+          id = identity(map, family: 'vehicle');
+      final c = VisualGoalController(
+        actorShape: p.actorShape,
+        actorOffset: PhysicsPose(),
+        profile: p,
+        map: map,
+        identity: id,
+      );
       c.accept(
-        estimate: VisualEstimate.decode(visible(), profile: p),
+        estimate: VisualEstimate.decode(visible(forward: 2.5), profile: p),
         captured: VisualCapturePose(
           identity: id,
           profile: p,
@@ -537,8 +665,10 @@ void main() {
     'vehicle unknown goal always brakes through the existing typed controller',
     () {
       final p = VisualNavigationProfile(family: 'vehicle', mode: 'combined'),
-          map = publishedMap();
+          map = publishedMap(radius: p.footprintRadius);
       final c = VisualGoalController(
+        actorShape: p.actorShape,
+        actorOffset: PhysicsPose(),
         profile: p,
         map: map,
         identity: identity(map, family: 'vehicle'),

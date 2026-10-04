@@ -30,6 +30,15 @@ final class VisualNavigationProfile {
     'cameraYawCos',
     'valid',
   ];
+  // These are the registered native TRAIN actor shapes. A deployment host must
+  // supply the same actual collider shape before admitting this model profile.
+  ColliderShape get actorShape => family == 'guard'
+      ? const CapsuleShape(halfHeight: .5, radius: .3)
+      : const BoxShape(Vec3(.8, .25, 1.2));
+  PhysicsPose get actorColliderOffset => PhysicsPose();
+  double get footprintRadius => family == 'guard' ? .3 : math.sqrt(2.08);
+  double get actorHeight => family == 'guard' ? 1.6 : .5;
+  static const clearanceRasterMargin = .1, clearanceFootprintPadding = .1;
   int get channels => mode == 'rgb'
       ? 3
       : mode == 'depth'
@@ -64,6 +73,13 @@ final class VisualNavigationProfile {
     'camera_profile': camera.toJson(),
     'body_fields': bodyFields,
     'layout': 'CHW-image-then-own-body',
+    'actor_shape': actorShape.json,
+    'actor_collider_offset': actorColliderOffset.json,
+    'footprint_radius': footprintRadius,
+    'actor_height': actorHeight,
+    'clearance_range_origin': 'captured-own-footprint',
+    'clearance_raster_margin': clearanceRasterMargin,
+    'clearance_footprint_padding': clearanceFootprintPadding,
     'camera_normalization': 'identity',
     'body_normalization': 'verified-TRAIN-affine',
     'fixed_hz': 50,
