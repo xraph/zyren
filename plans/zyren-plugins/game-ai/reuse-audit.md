@@ -112,3 +112,9 @@ provider replacement during review, cancellation and repeated resource teardown
 through the real adapters. Device rendering, gamepad/audio focus, camera latency
 and trained behavior retain their own qualification gates. This audit removes
 duplicate infrastructure from the plan; it does not mark those gates passed.
+
+## Implementation recheck, 2026-10-03
+
+The optional game/ML packages now use the owners listed above. Studio still owns authored prefabs/history and contributions; InputRouter retains pointer/focus arbitration; SceneView and the native backend retain presentation. Pipeline owns pinned assets, bundles and build jobs. Agents/Devtools own scoped external tools, Capture owns persistent sensor capture, and Rapier/Characters/Timeline retain physical and animation state. Native checkpoint motion and imported timeline identity extend those owners instead of replacing them.
+
+The [release audit](release-audit.md) records source paths, checked adapters and remaining gates. The strict failure matrix passes all 25 named cases. Accepted structured models retain separate locked quality/parity evidence. Visual learned artifacts, full physical accessibility/target coverage and sustained capacity remain incomplete; repository authored data/model provenance does not provide a public redistribution license.

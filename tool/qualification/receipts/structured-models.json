@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "kind": "trainedArtifact",
+  "status": "passed",
+  "accepted": true,
+  "scope": "Accepted float structured guard and vehicle actors only; no visual/multi-agent quality or platform rendering claim.",
+  "evaluation": {
+    "path": "tool/zyren_train/qualification/2026-10-03/onnx-evaluation.json",
+    "sha256": "c0b98f36a805a20be32958fc9bafda1bcef9aea2a38253e93f847481caf58aea",
+    "description": "Locked revised-plan ONNX quality: 400 real native-controller episodes, 200 per family."
+  },
+  "models": {
+    "guard": {
+      "path": "examples/game_lab/models/guard/actor.onnx",
+      "sha256": "34c738fe968a80442fdb70fc4187ff366248003384082ac8e29ef0e0470a48c0",
+      "description": "Exact accepted guard float ONNX bytes."
+    },
+    "vehicle": {
+      "path": "examples/game_lab/models/vehicle/actor.onnx",
+      "sha256": "15cbd7d4f30bba4cb5e506e7308adf7d17a42c653d6564d25183545ddde82e66",
+      "description": "Exact accepted vehicle float ONNX bytes."
+    }
+  },
+  "nativeParity": {
+    "guard": {
+      "path": "tool/zyren_train/qualification/2026-10-03/guard-parity.json",
+      "sha256": "9d39686f0f334cb3f9bc8d6a478b841b395fd97da640d8d779e191998e920dd7",
+      "description": "Actual 1,000-step Dart/native guard tensor, recurrent and typed-control parity."
+    },
+    "vehicle": {
+      "path": "tool/zyren_train/qualification/2026-10-03/vehicle-parity.json",
+      "sha256": "a4332b88f27ffce01800052752fe9a6438117188551ad5b9bf75afa38377e30c",
+      "description": "Actual 1,000-step Dart/native vehicle tensor, recurrent and typed-control parity."
+    }
+  }
+}

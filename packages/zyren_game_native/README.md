@@ -76,3 +76,5 @@ is stripped from every visual clip and sent through the existing CharacterMotor
 and Rapier controller once per game step. A bad clip name reports the available
 clips so you can repair the component and retry. Two imported actors, independent
 animation clocks, failed rig loading and retry are covered by native tests.
+
+For the complete host workflow and recovery steps, see [GUIDE.md](GUIDE.md).

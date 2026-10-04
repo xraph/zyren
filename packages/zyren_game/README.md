@@ -185,3 +185,5 @@ service access, bounded queues and entity cancellation. Run the focused checks:
 ```sh
 fvm dart test test/gameplay_test.dart test/behavior_graph_test.dart
 ```
+
+For the complete host workflow and recovery steps, see [GUIDE.md](GUIDE.md).

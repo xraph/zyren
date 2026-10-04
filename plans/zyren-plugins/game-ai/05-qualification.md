@@ -73,8 +73,8 @@ status, preserved identities, cleanup counters, recovery action and result.
 The runner must fail if a required case is missing or skipped without a recorded
 blocker. Use actual native backends for lifetime cases.
 
-- [ ] Enumerate cases for malformed/oversized project data, cyclic prefabs, removed entities, stale actions, model schema/hash/operator errors, unknown sensors, queue saturation, cancellation, worker crash, failed save, renderer loss and conflicting edits.
-- [ ] Add regressions that compare the complete preserved document/session receipt before and after rejected operations. Check model, tensor, sensor target, physics and asset owners return to baseline after bounded cleanup.
+- [x] Enumerate cases for malformed/oversized project data, cyclic prefabs, removed entities, stale actions, model schema/hash/operator errors, unknown sensors, queue saturation, cancellation, worker crash, failed save, renderer loss and conflicting edits.
+- [x] Add regressions that compare the complete preserved document/session receipt before and after rejected operations. Check model, tensor, sensor target, physics and asset owners return to baseline after bounded cleanup.
 
 ```python
 assert after["authored_hash"] == before["authored_hash"]
@@ -83,9 +83,9 @@ assert result["recovery_action"] == "retry_model_load"
 assert after["active_native_jobs"] == 0
 ```
 
-- [ ] Run paired-world leakage cases for hidden positions, hearing uncertainty, stale nav obstacles, teacher-only inputs and memory after loss of sight. Repeat with batching, pooling and actor replacement.
-- [ ] Test live MCP discovery, reads, guarded mutations, retry keys, cancellation and disposal. External developer access cannot silently alter runtime gameplay authority or expose data the host denied.
-- [ ] Commit as `test(ai): cover failure recovery and observation boundaries` after all required cases report a truthful status.
+- [x] Run paired-world leakage cases for hidden positions, hearing uncertainty, stale nav obstacles, teacher-only inputs and memory after loss of sight. Repeat with batching, pooling and actor replacement.
+- [x] Test live MCP discovery, reads, guarded mutations, retry keys, cancellation and disposal. External developer access cannot silently alter runtime gameplay authority or expose data the host denied.
+- [x] Commit as `test(ai): cover failure recovery and observation boundaries` after all required cases report a truthful status.
 
 ### Q3: editor, input and accessibility checks
 
@@ -155,10 +155,10 @@ implemented, automated, native, trained-artifact and documentation evidence.
 Its release evaluator accepts passed/failed/blocked/notApplicable statuses,
 requires a reason for notApplicable, and treats absent records as incomplete.
 
-- [ ] Add CI jobs for pure Dart contracts, Flutter editor/widgets, native ML fixtures, Python protocol/training/export smoke checks, package boundaries and artifact parity. Run native package tests sequentially within a shared workspace; use isolated CI jobs for platforms.
-- [ ] Recheck the [reuse audit](reuse-audit.md) against the implementation diff. Keep authored prefabs/history in Studio, pointer ownership in Input/Interaction, rendering in existing Flutter scene widgets, bundles/cache/build jobs in Pipeline, agent workflows in Agents and reusable camera capture in Capture. New types must identify their game/ML responsibility or extend the existing owner.
+- [x] Add CI jobs for pure Dart contracts, Flutter editor/widgets, native ML fixtures, Python protocol/training/export smoke checks, package boundaries and artifact parity. Run native package tests sequentially within a shared workspace; use isolated CI jobs for platforms.
+- [x] Recheck the [reuse audit](reuse-audit.md) against the implementation diff. Keep authored prefabs/history in Studio, pointer ownership in Input/Interaction, rendering in existing Flutter scene widgets, bundles/cache/build jobs in Pipeline, agent workflows in Agents and reusable camera capture in Capture. New types must identify their game/ML responsibility or extend the existing owner.
 - [ ] Run the affected existing suites as integration gates: Studio authoring/history and editor workflow, input/interaction arbitration and Flutter overlays, Pipeline bundles/cache/build runtime, character/physics/navigation, Capture and Agents workflow/provider guards. Record exact commands and results. This planning audit inspected source and test cases but did not run these suites.
-- [ ] Keep device/performance jobs explicit and opt-in where hardware is required. They must upload receipts on failure. A skipped native job cannot satisfy a required target in the completion evaluator.
+- [x] Keep device/performance jobs explicit and opt-in where hardware is required. They must upload receipts on failure. A skipped native job cannot satisfy a required target in the completion evaluator.
 
 ```python
 for requirement in required_requirements:
@@ -184,3 +184,7 @@ All required workflows have failure/retry behavior and recorded native evidence
 for every platform claimed as supported. The program remains partial while a
 required capability is a mock, a stub, a skipped test or a missing trained model.
 Publication and website availability are separate from local implementation.
+
+## Implementation evidence update, 2026-10-03
+
+Q2 is checked against the tracked strict 25-case failure matrix and its actual native/pure receipts. Q5 CI registration, reuse audit and opt-in hardware/log retention are implemented. Checked boxes do not claim CI execution or device qualification. Remaining workflow, physical accessibility, visual/multi-agent learning, sustained capacity, licensing, fresh-checkout and publication steps remain open in [completion.json](completion.json).

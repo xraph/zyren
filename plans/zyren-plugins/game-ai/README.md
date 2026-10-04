@@ -4,9 +4,7 @@ You should be able to build a game in Zyren Studio, run it in a native Flutter a
 and train characters or vehicles against the same simulation. This plan covers
 the runtime, the editor tools, perception, model execution and the training setup.
 
-Status: proposed design, 2026-10-03. No game or ML implementation is claimed by
-this document. The source audit used the current `main` checkout; package tests
-and device checks were not rerun for this planning change.
+Status: partial implementation, 2026-10-03. Structured reference games, Studio tools, native ML and accepted guard/vehicle policies have checked local workflows. Visual/multi-agent trained acceptance, sustained capacity, full physical target coverage, native accessibility and publication remain incomplete. See [completion.json](completion.json) and [the release audit](release-audit.md).
 
 ## Read and implement in this order
 
@@ -142,14 +140,14 @@ trailers.
 
 | Area | Implementation | Automated checks | Live verification |
 | --- | --- | --- | --- |
-| Existing Studio/physics/character/navigation foundations | Present in inspected source | Not rerun for this plan | Consult each package's qualification record |
-| Game runtime and Studio game tools | Planned | Pending implementation | Pending implementation |
-| Native ML, perception and memory | Planned | Pending implementation | Pending implementation |
-| Training, policies and export parity | Planned | Pending implementation | Pending trained artifacts |
-| Camera perception and multi-agent policies | Planned | Pending implementation | Pending native sensor and policy runs |
+| Shared Studio/input/physics/animation/Pipeline owners | Reused through public adapters | Source/regression audit and recorded affected checks | Full physical input/accessibility and fresh-checkout gate remain open |
+| Game runtime and Studio game tools | Project/components, isolated play, controllers, pools, native saves, export | Checked contracts and actual Studio/native fixtures | macOS Metal surface loss/recreation passes; no whole-platform qualification |
+| Native ML, perception and memory | Bounded native execution, permitted sensors, current-generation controllers and recurrent state | Native controller/inference/checkpoint/leakage regressions | Physical Android ML and Apple simulator probe pass; full target gameplay is incomplete |
+| Structured training and parity | Accepted float guard and vehicle ONNX actors | 400 held-out episodes and 1,000 native typed/tensor steps per family | Accepted locked distributions; no universal gameplay or capacity claim |
+| Camera and multi-agent policies | Real native camera tensors and training foundations | Capture, worker/protocol and teacher/failure checks | No accepted visual or cooperative/competitive learned artifact |
+| Failure/recovery and release | All 25 failure rows pinned; release evaluator retains all 32 requirements/tasks | Failure gate passes; completion schema passes | Release remains blocked by explicit delivery gates |
 
-The planning commit records the specification and task breakdown only. Implementation
-commits and qualification evidence belong in this table as each milestone lands.
+The completion ledger distinguishes implementation, automated checks, native execution, accepted models and documentation. It retains all five physical target requirements. A smoke run, cross-build, source hash or skipped GPU job cannot satisfy those gates.
 
 Planning checks passed for eight linked documents, 32 uniquely assigned tasks,
 32 mapped requirements and an acyclic task dependency graph. Local links, code
