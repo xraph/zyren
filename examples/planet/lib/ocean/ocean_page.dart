@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:zyren_geospatial_ocean/zyren_geospatial_ocean.dart';
 import 'scenes/coast_store.dart';
 import 'scenes/definition.dart';
+import 'scenes/display_budget.dart';
 import 'scenes/world.dart';
 import 'widgets/lab_shell.dart';
 
@@ -215,17 +216,27 @@ class OceanLabPageState extends State<OceanLabPage> {
       onReset: () => _change(lab!.resetCamera),
       onRoute: () => _change(() => lab!.setRoute(!lab.route)),
       canvas: session != null
-          ? SceneView(
-              key: ObjectKey(session),
-              controller: session,
-              errorBuilder: (context, issue, retry) => ZeroState(
-                title: 'Scene could not render',
-                message: issue.toString(),
-                actionLabel: 'Reload scene',
-                onAction: () => _restart(),
+          ? LayoutBuilder(
+              builder: (context, constraints) => SceneView(
+                key: ObjectKey(session),
+                controller: session,
+                resolutionScale: oceanResolutionScale(
+                  width: constraints.maxWidth,
+                  height: constraints.maxHeight,
+                  devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+                  maxPixels: Platform.isAndroid || Platform.isIOS
+                      ? 1280 * 720
+                      : 1920 * 1080,
+                ),
+                errorBuilder: (context, issue, retry) => ZeroState(
+                  title: 'Scene could not render',
+                  message: issue.toString(),
+                  actionLabel: 'Reload scene',
+                  onAction: () => _restart(),
+                ),
+                loadingBuilder: (_) =>
+                    const Center(child: CircularProgressIndicator()),
               ),
-              loadingBuilder: (_) =>
-                  const Center(child: CircularProgressIndicator()),
             )
           : _failure != null
           ? ZeroState(
