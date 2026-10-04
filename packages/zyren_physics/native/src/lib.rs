@@ -171,6 +171,14 @@ struct World {
     joints: BTreeMap<u64, ImpulseJointHandle>,
     removed_colliders: HashMap<ColliderHandle, u64>,
     pending_events: Vec<String>,
+    #[serde(skip, default = "dirty_queries")]
+    queries_dirty: bool,
+    #[cfg(test)]
+    #[serde(skip)]
+    collision_refreshes: usize,
+}
+fn dirty_queries() -> bool {
+    true
 }
 impl World {
     fn new(v: &Value) -> Result<Self> {
@@ -190,6 +198,9 @@ impl World {
             joints: BTreeMap::new(),
             removed_colliders: HashMap::new(),
             pending_events: Vec::new(),
+            queries_dirty: true,
+            #[cfg(test)]
+            collision_refreshes: 0,
         })
     }
     fn alloc(&mut self) -> Result<u64> {
@@ -207,6 +218,29 @@ impl World {
             .ok_or("body does not belong to this world".into())
     }
     fn command(&mut self, v: &Value) -> Result<Value> {
+        let op = v["op"].as_str().ok_or("operation missing")?;
+        let mutates = !matches!(
+            op,
+            "poses"
+                | "bodyState"
+                | "snapshot"
+                | "debug"
+                | "drainEvents"
+                | "query"
+                | "characterMove"
+        );
+        if mutates {
+            self.queries_dirty = true;
+        }
+        let result = self.command_inner(v);
+        // Removal may refresh contacts before changing topology. Keep those
+        // later writes dirty, including any partially completed failed command.
+        if mutates && op != "step" {
+            self.queries_dirty = true;
+        }
+        result
+    }
+    fn command_inner(&mut self, v: &Value) -> Result<Value> {
         let p = &mut self.physics;
         match v["op"].as_str().ok_or("operation missing")? {
             "body" => {
@@ -557,6 +591,13 @@ impl World {
         }
     }
     fn update_collisions(&mut self, simulate: bool) -> Result<Vec<Value>> {
+        if !simulate && !self.queries_dirty {
+            return Ok(Vec::new());
+        }
+        #[cfg(test)]
+        if !simulate {
+            self.collision_refreshes += 1;
+        }
         let mut collector = Collector::default();
         collector.ids.extend(self.removed_colliders.drain());
         collector
@@ -596,9 +637,11 @@ impl World {
                     "nonfinite simulation state quarantined; restore a valid snapshot".into(),
                 );
             }
+            self.queries_dirty = false;
             Ok(events)
         } else {
             self.pending_events = events.iter().map(Value::to_string).collect();
+            self.queries_dirty = false;
             Ok(Vec::new())
         }
     }
@@ -1096,6 +1139,9 @@ pub extern "C" fn zyren_physics_finalize(token: *mut std::ffi::c_void) {
         registry.worlds.remove(&(token as usize as u64));
     }
 }
+
+#[cfg(test)]
+mod query_cache_tests;
 
 #[cfg(test)]
 mod tests {
