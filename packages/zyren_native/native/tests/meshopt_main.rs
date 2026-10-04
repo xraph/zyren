@@ -1,3 +1,4 @@
+static TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 use zyren_runtime::compression::fg2_meshopt_decode;
 
 fn encode_vertices(bytes: &[u8], stride: usize) -> Vec<u8> {
@@ -37,6 +38,7 @@ fn decode(input: &[u8], count: usize, stride: usize, mode: u32, filter: u32) -> 
 
 #[test]
 fn meshopt_vertices_round_trip() {
+    let _guard = TEST_LOCK.lock().unwrap();
     let vertices: [f32; 9] = [-1., -1., 0., 1., -1., 0., 0., 1., 0.];
     let bytes = bytemuck::cast_slice(&vertices);
     let encoded = encode_vertices(bytes, 12);
@@ -47,6 +49,7 @@ fn meshopt_vertices_round_trip() {
 
 #[test]
 fn meshopt_triangle_and_sequence_indices() {
+    let _guard = TEST_LOCK.lock().unwrap();
     let indices = [0u32, 1, 2, 2, 1, 3];
     for mode in [1, 2] {
         let mut encoded = vec![0; 256];
@@ -89,6 +92,7 @@ fn meshopt_triangle_and_sequence_indices() {
 
 #[test]
 fn meshopt_filters_decode_known_vectors() {
+    let _guard = TEST_LOCK.lock().unwrap();
     for (filter, stride) in [(1, 4), (1, 8), (2, 8), (3, 16)] {
         let source = [0f32, 0., 1., 0.];
         let mut filtered = [0u32; 4];
@@ -138,6 +142,7 @@ fn meshopt_filters_decode_known_vectors() {
 
 #[test]
 fn meshopt_rejects_truncated_corrupt_and_wrong_sized_streams() {
+    let _guard = TEST_LOCK.lock().unwrap();
     let encoded = encode_vertices(&[0; 36], 12);
     for size in 0..encoded.len() {
         assert_eq!(decode(&encoded[..size], 3, 12, 0, 0).0, 1);
@@ -148,6 +153,7 @@ fn meshopt_rejects_truncated_corrupt_and_wrong_sized_streams() {
 
 #[test]
 fn meshopt_invalid_layouts_leave_output_untouched() {
+    let _guard = TEST_LOCK.lock().unwrap();
     let input = [0u8; 16];
     let mut output = [0xddddddddu32; 16];
     for (count, stride, mode, filter, length) in [
@@ -195,6 +201,7 @@ fn meshopt_invalid_layouts_leave_output_untouched() {
 
 #[test]
 fn meshopt_ffi_rejects_null_and_unaligned_output() {
+    let _guard = TEST_LOCK.lock().unwrap();
     let mut output = [0u32; 8];
     let input = [0u8; 16];
     unsafe {
