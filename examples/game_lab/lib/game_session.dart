@@ -164,6 +164,7 @@ final class GameLabSession extends GameLabRun {
             ),
         },
         onChanged: host._changed,
+        openCameraBackend: (_, _) => NativeBackend.create(),
         interact: (actor) {
           final candidate = host.gameplay.available(actor).firstOrNull;
           return candidate != null &&

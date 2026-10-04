@@ -5,6 +5,7 @@ final class SensorEntity {
   final GameEntityHandle handle;
   final PhysicsPose pose;
   final Vec3 velocity;
+  final Vec3 angularVelocity;
   final PhysicsBody? body;
   final bool? grounded;
   final List<double>? affordances;
@@ -12,6 +13,7 @@ final class SensorEntity {
     required this.handle,
     required this.pose,
     this.velocity = Vec3.zero,
+    this.angularVelocity = Vec3.zero,
     this.body,
     this.grounded,
     List<double>? affordances,
@@ -19,6 +21,7 @@ final class SensorEntity {
            ? null
            : List.unmodifiable(affordances) {
     if (!velocity.isFinite ||
+        !angularVelocity.isFinite ||
         (affordances != null &&
             (affordances.length > 64 ||
                 affordances.any((v) => !v.isFinite || v < 0 || v > 1)))) {
@@ -173,6 +176,7 @@ final class SensorSnapshot {
           handle: entry.key,
           pose: state.pose,
           velocity: state.velocity,
+          angularVelocity: state.angularVelocity,
           body: entry.value,
           grounded: grounded[entry.key],
           affordances: affordances[entry.key],

@@ -2,6 +2,18 @@ part of '../../zyren_game_ai.dart';
 
 /// Shared camera/body ABI for training and deployment. No acceptance claim.
 abstract final class TrainingVisualProfiles {
+  static TrainingVisualProfile fromJson(Map<String, Object?> header) {
+    final family = header['family'], mode = header['mode'];
+    if (family is! String || mode is! String) {
+      throw const FormatException('Visual profile family or mode is missing.');
+    }
+    final profile = forFamily(family: family, mode: mode);
+    if (_hash(header) != profile.configurationHash) {
+      throw const FormatException('Visual camera/body header differs.');
+    }
+    return profile;
+  }
+
   static TrainingVisualProfile forFamily({
     required String family,
     required String mode,

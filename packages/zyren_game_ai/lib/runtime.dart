@@ -4,12 +4,14 @@ library;
 import 'dart:async';
 import 'dart:convert';
 import 'package:zyren/zyren.dart';
+import 'package:zyren/rendering.dart';
 import 'package:zyren_game/zyren_game.dart';
 import 'package:zyren_game_native/runtime.dart';
 import 'package:zyren_game_native/zyren_game_native.dart';
 import 'package:zyren_ml/zyren_ml.dart';
 import 'zyren_game_ai.dart';
 part 'src/runtime/checkpoint.dart';
+part 'src/runtime/visual.dart';
 
 /// The host resolves this only after validating the training acceptance receipt.
 final class GameRuntimePolicy {
@@ -39,6 +41,18 @@ final class GameLevelAi {
   final Map<String, GameRuntimePolicy> policies;
   final void Function()? onChanged;
   final bool Function(GameEntityHandle actor)? interact;
+  final Future<RenderBackend> Function(
+    GameEntityHandle actor,
+    TrainingVisualProfile profile,
+  )?
+  openCameraBackend;
+  final GameVisualRuntimeLimits visualLimits;
+  final _cameraJobs = <Future<void>>{};
+  int _cameraBytes = 0;
+  int _cameraOwners = 0;
+  int get pendingCameraCaptures => _cameraJobs.length;
+  int get reservedCameraOutputBytes => _cameraBytes;
+  int get ownedCameraSensors => _cameraOwners;
   final _actors = <GameEntityHandle, _RuntimeBrain>{};
   final _leases = <MlModelLease>[];
   final _loadedModels = <String>{};
@@ -65,7 +79,10 @@ final class GameLevelAi {
     Map<String, GameRuntimePolicy> policies = const {},
     this.onChanged,
     this.interact,
+    this.openCameraBackend,
+    this.visualLimits = const GameVisualRuntimeLimits(),
   }) : policies = Map.unmodifiable(policies) {
+    visualLimits.validate();
     if (policies.length > 8 ||
         policies.entries.any(
           (entry) => entry.key != entry.value.contract.model.sha256,
@@ -95,7 +112,7 @@ final class GameLevelAi {
     final level = runtime().project.project.levels.singleWhere(
       (level) => level.id == runtime().project.project.startupLevel,
     );
-    var count = 0;
+    var count = 0, visualCount = 0;
     final used = <String>{}, required = <String>{};
     for (final entity in level.entities) {
       final records = entity.components.where((c) => c.type == 'game.ai');
@@ -104,6 +121,12 @@ final class GameLevelAi {
         throw StateError('This policy group supports at most 256 actors.');
       }
       final definition = GameAiAuthoringDefinition(records.single.data);
+      if (definition.visualProfile != null &&
+          ++visualCount > visualLimits.maxActors) {
+        throw StateError(
+          'Visual actor admission exceeds the configured bound.',
+        );
+      }
       final component = definition.profile == 'guard'
           ? 'game.character'
           : 'game.vehicle';
@@ -116,8 +139,7 @@ final class GameLevelAi {
       final policy = policies[definition.modelHash];
       if (policy == null ||
           policy.fixedHz != runtime().project.fixedHz ||
-          policy.contract.observation.hash !=
-              definition.createSensors().spec.hash ||
+          policy.contract.observation.hash != definition.observationSpec.hash ||
           policy.contract.decoder.spec.hash !=
               definition.createActions().spec.hash) {
         if (definition.brain == 'hybrid') {
@@ -303,6 +325,14 @@ final class GameLevelAi {
       scripted,
       policy,
     );
+    final visual = definition.visualProfile;
+    if (visual != null) {
+      _actors[entity.handle]!.camera = _RuntimeCamera(
+        visual,
+        () => _openCameraSensor(entity.handle, visual),
+        () => _cameraOwners--,
+      );
+    }
   }
 
   GameAiAuthoringDefinition _validateDefinition(
@@ -324,8 +354,7 @@ final class GameLevelAi {
     final valid =
         policy != null &&
         policy.fixedHz == runtime().project.fixedHz &&
-        policy.contract.observation.hash ==
-            definition.createSensors().spec.hash &&
+        policy.contract.observation.hash == definition.observationSpec.hash &&
         policy.contract.decoder.spec.hash ==
             definition.createActions().spec.hash &&
         _loadedModels.contains(definition.modelHash);
@@ -352,6 +381,19 @@ final class GameLevelAi {
     final existing = _actors.keys.map((h) => h.id).toSet();
     if ({...existing, ...additions.map((e) => e.id)}.length > 256) {
       throw StateError('This policy group supports at most 256 actors.');
+    }
+    final visualIds = {
+      for (final actor in _actors.values)
+        if (actor.camera != null) actor.identity.entity.id,
+      for (final record in additions)
+        if (GameAiAuthoringDefinition(
+              record.components.singleWhere((c) => c.type == 'game.ai').data,
+            ).visualProfile !=
+            null)
+          record.id,
+    };
+    if (visualIds.length > visualLimits.maxActors) {
+      throw StateError('Visual actor admission exceeds the configured bound.');
     }
     for (final record in additions) {
       _validateDefinition(record.id, record.components);
@@ -462,6 +504,7 @@ final class GameLevelAi {
       if (runtime().controlledActor == entry.key ||
           runtime().inputActor == entry.key) {
         actor.suspended = false;
+        actor.camera?.invalidate();
       }
       if (actor.control == null) continue;
       actor.suspended = false;
@@ -566,6 +609,15 @@ final class GameLevelAi {
     for (final entry in _actors.entries) {
       if (!host.isEntityActive(entry.key)) continue;
       final actor = entry.value;
+      if (actor.camera != null) {
+        final awareness = actor.awareness.build(snapshot, entry.key);
+        final baseline = actor.definition.profile == 'vehicle'
+            ? actor.observer.build(snapshot, entry.key)
+            : awareness;
+        actor.scripted.observe(baseline);
+        _senseVisual(actor, snapshot);
+        continue;
+      }
       final frame = actor.frame = actor.observer.build(snapshot, entry.key);
       final awareness = actor.awareness.build(snapshot, entry.key);
       actor.scripted.observe(
@@ -593,6 +645,7 @@ final class GameLevelAi {
 
   /// Offline workers await this between ticks; visible play keeps its fixed clock.
   Future<void> flush() async {
+    await Future.wait(_cameraJobs.toList());
     await _scheduler?.flush();
     await Future.wait([
       for (final actor in _actors.values) ?actor.policy?.pending,
@@ -608,6 +661,10 @@ final class GameLevelAi {
     return {
       'brain': actor.definition.brain,
       'profile': actor.definition.profile,
+      'cameraMode': actor.definition.cameraMode,
+      if (actor.camera != null) 'cameraFailure': actor.camera!.failure,
+      'pendingCameraCaptures': pendingCameraCaptures,
+      'reservedCameraOutputBytes': reservedCameraOutputBytes,
       'activeBrain': actor.policy == null ? 'scripted' : actor.definition.brain,
       'modelFailure': _policyFailures[handle.id],
       if (actor.policy != null) ..._group!.inspect(handle),
@@ -649,12 +706,24 @@ final class GameLevelAi {
     return actor.frame;
   }
 
+  /// Completed pixels for the actor's current permitted observation tick.
+  CameraObservation? cameraObservation(GameEntityHandle handle) {
+    observation(handle);
+    return _actors[handle]?.camera?.latest;
+  }
+
+  TrainingVisualProfile? visualProfile(GameEntityHandle handle) {
+    observation(handle);
+    return _actors[handle]?.camera?.profile;
+  }
+
   void _pause(GameSession session) {
     for (final actor in _actors.values) {
       actor.suspended = actor.control != null || actor.suspended;
       actor.control?.dispose();
       actor.control = null;
       actor.frame = null;
+      actor.camera?.invalidate();
       actor.policy?.synchronize(
         gameEpoch: session.epoch,
         controlEpoch: 0,
@@ -718,6 +787,12 @@ final class GameLevelAi {
     StackTrace? trace;
     for (final actor in actors) {
       actor.control?.dispose();
+      try {
+        await actor.camera?.close();
+      } catch (e, s) {
+        first ??= e;
+        trace ??= s;
+      }
       for (final brain in {actor.brain, actor.scripted}) {
         try {
           await brain.close();
@@ -746,6 +821,7 @@ final class _RuntimeBrain {
   final PolicyBrain? policy;
   GameRuntimeActorControl? control;
   ObservationFrame? frame;
+  _RuntimeCamera? camera;
   bool suspended = false;
   int lastCountedVersion = 0;
   _RuntimeBrain(

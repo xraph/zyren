@@ -19,6 +19,7 @@ extension GameLevelAiPersistence on GameLevelAi {
       throw StateError('AI checkpoints require an initialized live session.');
     }
     if (!runtime().isPaused) runtime().pause();
+    await Future.wait(_cameraJobs.toList());
     await Future.wait([
       for (final actor in _actors.values)
         if (actor.policy case final policy?) policy.quiesce(),
@@ -110,6 +111,8 @@ final class _AiCodec extends GameStateCodec<_AiCheckpoint> {
       for (final actor in owner._actors.values)
         actor.identity.entity.id: {
           'profile': actor.definition.profile,
+          if (actor.definition.cameraMode != null)
+            'cameraMode': actor.definition.cameraMode,
           'brain': actor.definition.brain,
           'modelHash': actor.definition.modelHash,
           'memory': jsonDecode(
@@ -153,6 +156,7 @@ final class _AiCodec extends GameStateCodec<_AiCheckpoint> {
       }
       final definition = owner._validateDefinition(id, recipe.components);
       if (record['profile'] != definition.profile ||
+          record['cameraMode'] != definition.cameraMode ||
           record['brain'] != definition.brain ||
           record['modelHash'] != definition.modelHash) {
         throw const FormatException(
@@ -179,7 +183,7 @@ final class _AiCodec extends GameStateCodec<_AiCheckpoint> {
           owner._loadedModels.contains(definition.modelHash) &&
           catalog.fixedHz == owner.runtime().project.fixedHz &&
           catalog.contract.observation.hash ==
-              definition.createSensors().spec.hash &&
+              definition.observationSpec.hash &&
           catalog.contract.decoder.spec.hash ==
               definition.createActions().spec.hash;
       if ((policy != null) != hasPolicy) {
@@ -242,6 +246,7 @@ final class _AiCodec extends GameStateCodec<_AiCheckpoint> {
       );
       if (saved == null ||
           definition.profile != saved.definition.profile ||
+          definition.cameraMode != saved.definition.cameraMode ||
           definition.brain != saved.definition.brain ||
           definition.modelHash != saved.definition.modelHash) {
         throw const FormatException(

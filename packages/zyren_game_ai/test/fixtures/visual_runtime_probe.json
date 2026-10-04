@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "id": "visual-runtime-probe",
+  "modelFile": "visual_runtime_probe.onnx",
+  "sha256": "c4e39b6dbf076f986490b998acee2c7bc29c7b04955b7173276df6e4758b9bd3",
+  "opset": 17,
+  "runtimeVersion": "1.23.2",
+  "providers": [
+    "cpu"
+  ],
+  "maxModelBytes": 1048576,
+  "inputs": [
+    {
+      "name": "observation",
+      "dtype": "float32",
+      "shape": [
+        -1,
+        14120
+      ],
+      "maxShape": [
+        64,
+        14120
+      ]
+    },
+    {
+      "name": "hidden",
+      "dtype": "float32",
+      "shape": [
+        -1,
+        128
+      ],
+      "maxShape": [
+        64,
+        128
+      ]
+    },
+    {
+      "name": "cell",
+      "dtype": "float32",
+      "shape": [
+        -1,
+        128
+      ],
+      "maxShape": [
+        64,
+        128
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "name": "logits",
+      "dtype": "float32",
+      "shape": [
+        -1,
+        22
+      ],
+      "maxShape": [
+        64,
+        22
+      ]
+    },
+    {
+      "name": "next_hidden",
+      "dtype": "float32",
+      "shape": [
+        -1,
+        128
+      ],
+      "maxShape": [
+        64,
+        128
+      ]
+    },
+    {
+      "name": "next_cell",
+      "dtype": "float32",
+      "shape": [
+        -1,
+        128
+      ],
+      "maxShape": [
+        64,
+        128
+      ]
+    }
+  ],
+  "recurrent": {
+    "hidden": "next_hidden",
+    "cell": "next_cell"
+  },
+  "provenance": "Deterministic visual runtime fixture, not a trained or accepted policy."
+}

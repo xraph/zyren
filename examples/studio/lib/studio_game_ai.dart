@@ -288,7 +288,8 @@ final class StudioGameWorkspace {
         .where((c) => c.type == 'game.ai')
         .firstOrNull;
     if (record == null ||
-        GameAiAuthoringDefinition(record.data).profile != artifact.family) {
+        GameAiAuthoringDefinition(record.data).artifactFamily !=
+            artifact.family) {
       throw StateError('Selected NPC uses a different AI profile.');
     }
     if (GameLevelAuthoring(authoring).profile(before).fixedHz !=
@@ -333,6 +334,7 @@ final class StudioGameWorkspace {
       cache: play.models!,
       policies: policies,
       onChanged: _refresh,
+      openCameraBackend: (_, _) => NativeBackend.create(),
       interact: (actor) {
         final target = gameplay.available(actor).firstOrNull;
         return target != null && gameplay.interact(actor, target.id);
@@ -369,10 +371,19 @@ final class StudioGameWorkspace {
     if (_closed || owner == null) return;
     final actors = owner.actors;
     _observations.removeWhere((actor, _) => !actors.contains(actor));
+    ai.cameras.removeWhere((actor, _) => !actors.contains(actor));
     for (final actor in actors) {
       final frame = owner.observation(actor);
       if (frame != null) {
         _observations[actor] = (frame, _play!.simulation!.session.epoch);
+      }
+      if (owner.visualProfile(actor) != null) {
+        final pixels = owner.cameraObservation(actor);
+        if (pixels == null) {
+          ai.cameras.remove(actor);
+        } else {
+          ai.cameras[actor] = pixels;
+        }
       }
     }
     ai.group = owner.group;
