@@ -46,3 +46,4 @@ export 'src/interactions/foam.dart';
 export 'src/rendering/wave_blend.dart';
 export 'src/quality/settings.dart';
 export 'src/quality/adaptive.dart';
+export 'src/quality/admission.dart';

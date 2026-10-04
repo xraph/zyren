@@ -35,3 +35,19 @@ Native band limits, persistent wave inputs, caustic updates, scaled capture and
 wave blending are implemented. Atomic controller publication and combined view
 admission are still W11 work. A profile value or passing policy test does not
 establish that every effect is installed or that a device meets the frame target.
+
+`OceanQualityAdmission.evaluate` preflights persistent wave fields, packing
+scratch, all resident charts and optional wave-transition atlases. Supply each
+view's actual planned geometry, material and history payload through
+`OceanViewAllocation`. It adds scaled opaque color/depth targets, their MSAA
+attachments, and requested boundary/medium targets. Extension-owned passes,
+caustics, interactions and spray contribute through `additionalPayloads`.
+Count current and other retained candidates in `retainedBytes`.
+
+The returned breakdown separates candidate, transition and retained payloads.
+Admission rejects missing features, a render grid above the canonical source,
+unsupported advertised formats, dimensions, sample counts and byte allowances.
+Duplicate view IDs are invalid. Host coefficient bytes describe the candidate
+streams separately. Driver residency is not inferred from any of these values.
+Other device owners can allocate after preflight, so candidate construction must
+still handle a native allocation failure and preserve the published resources.
