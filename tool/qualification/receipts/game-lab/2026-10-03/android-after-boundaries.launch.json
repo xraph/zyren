@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "status": "smokeOnly",
+  "command": [
+    "fvm",
+    "flutter",
+    "drive",
+    "--no-pub",
+    "--profile",
+    "-d",
+    "47121FDAP002C7",
+    "--driver=test_driver/benchmark.dart",
+    "--target=integration_test/benchmark_test.dart",
+    "--dart-define=RUN_GAME_BENCHMARK=true",
+    "--dart-define=GAME_BENCHMARK_PROFILE=reference-guard",
+    "--dart-define=GAME_BENCHMARK_ASSET=games/exploration.zygame",
+    "--dart-define=GAME_BENCHMARK_DEVICE=47121FDAP002C7",
+    "--dart-define=GAME_BENCHMARK_BUILD_HASH=0d984d865f38a4b9cd2235719cec423220b8b0d2c125906057932e15b60a3942",
+    "--dart-define=GAME_BENCHMARK_PHYSICAL=true",
+    "--dart-define=GAME_BENCHMARK_SMOKE=true"
+  ],
+  "sourceBefore": "0d984d865f38a4b9cd2235719cec423220b8b0d2c125906057932e15b60a3942",
+  "exitCode": 0,
+  "sourceAfter": "2611ccd1ac1285bdef8a8c5c3767341cc1cec201179de2420c3dda6327f6f0eb",
+  "inputsStable": false,
+  "artifact": {
+    "path": "examples/game_lab/build/app/outputs/flutter-apk/app-profile.apk",
+    "bytes": 77969627,
+    "sha256": "f0acb816889c50e4b8d6aa3b92b728e4165a474c472047c2201b1953b768a57d"
+  }
+}

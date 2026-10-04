@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "status": "diagnosticOnly",
+  "runs": [
+    {
+      "id": "android-before-boundaries",
+      "kind": "diagnostic-smoke",
+      "qualifiesCapacity": false,
+      "files": [
+        {
+          "path": "android-before-boundaries.receipt.json",
+          "bytes": 38632,
+          "sha256": "4dd7ed400f56f0ae349d96b1483a49f1b18bd584636bfa3b0907d950596b2ca3"
+        },
+        {
+          "path": "android-before-boundaries.log.txt.gz",
+          "bytes": 1181,
+          "sha256": "42987f1b979710f7630cf0be30286b9aff6c6fe8170776cb5e595b708c608fb2",
+          "uncompressedBytes": 2845,
+          "uncompressedSha256": "9e69bffe9debea9b341b3f9eb2c754a8f6fd5806141975b3a0f9d35d815d29fb"
+        },
+        {
+          "path": "android-before-boundaries.launch.json",
+          "bytes": 1988,
+          "sha256": "df96e8b0aaee82cf1bf14095122848328442c9f605f2414ba87825d565f0686f"
+        }
+      ]
+    },
+    {
+      "id": "android-after-boundaries",
+      "kind": "diagnostic-smoke",
+      "qualifiesCapacity": false,
+      "files": [
+        {
+          "path": "android-after-boundaries.receipt.json",
+          "bytes": 125936,
+          "sha256": "e043c9243adf90146cb6d7d5bf38c92ed3541cf3641aa8483e95feebe33a81f8"
+        },
+        {
+          "path": "android-after-boundaries.log.txt.gz",
+          "bytes": 1118,
+          "sha256": "03eca20d919573f566e85aa5900206f429e49f8b38bcb05039ded0c3b0e8607e",
+          "uncompressedBytes": 2715,
+          "uncompressedSha256": "223edabc157243e9726aae650fe429ca320bd61d7a3519c73f346f248415a303"
+        },
+        {
+          "path": "android-after-boundaries.launch.json",
+          "bytes": 1125,
+          "sha256": "24585978e2dd9b667a8a6dea2887cf9eecac1c857bfaf978d303a7ffde88e049"
+        }
+      ]
+    },
+    {
+      "id": "macos-before-boundaries",
+      "kind": "diagnostic-smoke",
+      "qualifiesCapacity": false,
+      "files": [
+        {
+          "path": "macos-before-boundaries.receipt.json",
+          "bytes": 39700,
+          "sha256": "f1fd309d0697f0f313a04f2adea6983db7a520e90f169d37a2525ff05a9b041a"
+        },
+        {
+          "path": "macos-before-boundaries.log.txt.gz",
+          "bytes": 886,
+          "sha256": "52d180e2b8b7742606f7f458d8c5b84c1281f2eb363980c4d9f24de6bd920094",
+          "uncompressedBytes": 1865,
+          "uncompressedSha256": "412fb40764c33151b75a106ccc78636aad8fdf0a71d335cf101dedcfbb8c5d52"
+        },
+        {
+          "path": "macos-before-boundaries.launch.json",
+          "bytes": 1998,
+          "sha256": "b7fe42501ab2c0ac3f6518906e2107600ec9852e8544a31753b8421b983a4f24"
+        }
+      ]
+    }
+  ]
+}

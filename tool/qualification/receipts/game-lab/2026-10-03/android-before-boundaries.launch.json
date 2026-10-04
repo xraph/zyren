@@ -1,0 +1,63 @@
+{
+  "device": {
+    "capabilities": {
+      "flutterExit": true,
+      "hardwareRendering": false,
+      "hotReload": true,
+      "hotRestart": true,
+      "screenshot": true,
+      "startPaused": true
+    },
+    "emulator": false,
+    "id": "47121FDAP002C7",
+    "isSupported": true,
+    "name": "Pixel 9 Pro",
+    "sdk": "Android 17 (API 37)",
+    "targetPlatform": "android-arm64"
+  },
+  "profiles": {
+    "reference-guard": {
+      "requiredRepetitions": 1,
+      "runs": [
+        {
+          "artifacts": [
+            {
+              "bytes": 77967819,
+              "path": "build/app/outputs/flutter-apk/app-profile.apk",
+              "sha256": "f4371f67605463498b80b045f70213a1675d5713fe61b2bd01e1d4e6e47e19c2"
+            }
+          ],
+          "command": [
+            "fvm",
+            "flutter",
+            "drive",
+            "--no-pub",
+            "--profile",
+            "-d",
+            "47121FDAP002C7",
+            "--driver=test_driver/benchmark.dart",
+            "--target=integration_test/benchmark_test.dart",
+            "--dart-define=RUN_GAME_BENCHMARK=true",
+            "--dart-define=GAME_BENCHMARK_PROFILE=reference-guard",
+            "--dart-define=GAME_BENCHMARK_ASSET=games/exploration.zygame",
+            "--dart-define=GAME_BENCHMARK_DEVICE=47121FDAP002C7",
+            "--dart-define=GAME_BENCHMARK_BUILD_HASH=204c396fd81a0f75debafbfe3efcfea35db1a72fa788b1bbe142afcad0364c10",
+            "--dart-define=GAME_BENCHMARK_PHYSICAL=true",
+            "--dart-define=GAME_BENCHMARK_SMOKE=true"
+          ],
+          "diagnostics": [],
+          "exitCode": 0,
+          "log": "reference-guard-1.log",
+          "profile": "reference-guard",
+          "receipt": "reference-guard-1.json",
+          "repetition": 1,
+          "sourceHash": "204c396fd81a0f75debafbfe3efcfea35db1a72fa788b1bbe142afcad0364c10",
+          "verified": true
+        }
+      ],
+      "status": "smokePassed"
+    }
+  },
+  "schemaVersion": 1,
+  "status": "smokeOnly"
+}
