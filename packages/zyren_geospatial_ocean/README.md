@@ -6,7 +6,15 @@ ellipsoid mesh with native morph targets. Batched physical queries return world-
 water positions, normals and fluid velocities. Native water materials add filtered
 displacement, optics, environment lighting and current-depth reflections. Read the
 [surface-rendering guide](doc/surface-rendering.md) for API usage and limits.
-Underwater effects, interactions and physical buoyancy are still in progress.
+You can compose [underwater transport](doc/underwater.md),
+[foam and wakes](doc/interactions.md), [buoyancy](doc/buoyancy.md) and
+[quality transitions](doc/quality.md). The [extension guide](doc/extension.md)
+registers these services and visual layers with the geospatial host.
+
+The [Ocean Lab](../../examples/planet/OCEAN.md) provides six saved native
+scenes and an owned offline coast fixture. Professional visual acceptance,
+performance targets and real Earth coverage remain open; read its
+[qualification record](../../qualification/2026-10-04/ocean-lab.md).
 
 ```dart
 final state = OceanSeaState(

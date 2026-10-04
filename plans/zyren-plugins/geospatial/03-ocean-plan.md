@@ -41,7 +41,7 @@ physics examples. `packages/zyren_particles/lib/ocean.dart` supplies the optiona
 spray adapter if that dependency direction passes the boundary check. Otherwise
 the Ocean Lab wires particle emitters through the interaction stream directly.
 
-`examples/ocean_lab` owns the native Flutter app, scenes, capture scripts and
+`examples/planet` owns the shared geospatial Flutter app, ocean scenes, capture scripts and
 qualification records. Add workspace entries only with the first working package
 task, preserving concurrent pubspec changes. No empty published packages.
 
@@ -558,7 +558,7 @@ expect(controller.seaStateRevision, revision);
 ## Task 12: W12 Full native lab, offline Earth data and qualification
 
 Files: `lib/src/extension.dart`, ocean exports and README;
-`examples/ocean_lab/pubspec.yaml`, `lib/main.dart`, `lib/scenes/`, `test/`,
+`examples/planet/pubspec.yaml`, `lib/main.dart`, `lib/ocean/`, `test/`,
 `integration_test/` and `qualification/`; `tool/qualification/ocean_benchmark.dart`.
 Update this directory's progress file and public package documentation.
 
@@ -567,10 +567,10 @@ foam and optional underwater layers, sampler and sea-state services. Layer hidin
 only disables corresponding visual contributions. The application supplies data
 store, access policy, quality, frame/time owner, atmosphere and optional physics.
 
-- [ ] Add lifecycle tests through the actual expanded scene plugin list: missing
+- [x] Add lifecycle tests through the actual expanded scene plugin list: missing
   dependencies, attach failure, independent layers, scope cleanup and duplicate
   physics drivers. Preserve a standalone water use path if no globe is requested.
-- [ ] Build six saved scenes: calm ocean, storm, shallow coast, buoyant vessel,
+- [x] Build six saved scenes: calm ocean, storm, shallow coast, buoyant vessel,
   underwater and orbit-to-surface flight. Use a procedural vessel/hull and owned
   fixtures with exact data revisions. Add compact quality/debug controls and a
   camera route. No control may claim an unregistered capability.
@@ -600,7 +600,7 @@ store, access policy, quality, frame/time owner, atmosphere and optional physics
 | Physical buoyancy | W8, W9 | Native body trajectories, force balance and convergence | W8/W9 passed with real canonical queries and native physics |
 | Wakes, foam and spray | W10 | Field tests, replay and motion capture | W10 passed on macOS; interactions are visual-only |
 | Quality and budgets | W11 | Actual work changes, admission failures and timing traces | Passed in native macOS fixtures; full globe profiles remain subject to admission and performance qualification |
-| Integrated offline world | W12, D3 | Cold restart with verified geographic data | Planned |
+| Integrated offline world | W12, D3 | Cold restart with verified geographic data | Synthetic coast restart passed; real Earth dataset remains blocked |
 | Professional visual acceptance | W12 | Scene review plus measured device evidence | Not reviewed |
 
 Read each task's preceding contracts before implementation. Keep first-party

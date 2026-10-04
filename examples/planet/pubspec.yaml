@@ -9,6 +9,16 @@ environment:
 
 dependencies:
   crypto: ^3.0.7
+  zyren_geospatial_ocean:
+    path: ../../packages/zyren_geospatial_ocean
+  zyren_geospatial_ocean_physics:
+    path: ../../packages/zyren_geospatial_ocean_physics
+  zyren_particles:
+    path: ../../packages/zyren_particles
+  zyren_physics:
+    path: ../../packages/zyren_physics
+  zyren_native:
+    path: ../../packages/zyren_native
   zyren:
     path: ../../packages/zyren
   zyren_pipeline:
@@ -31,10 +41,11 @@ dependencies:
   path_provider: ^2.1.6
 
 dev_dependencies:
+  test: ^1.29.0
+  zyren_capture:
+    path: ../../packages/zyren_capture
   zyren_game:
     path: ../../packages/zyren_game
-  zyren_physics:
-    path: ../../packages/zyren_physics
   flutter_test:
     sdk: flutter
   integration_test:
@@ -43,5 +54,6 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
+    - assets/ocean/
     - assets/qualification/
     - assets/qualification/khronos-box/

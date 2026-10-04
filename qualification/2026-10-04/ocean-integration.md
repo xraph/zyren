@@ -1,7 +1,7 @@
 # Ocean host integration, 4 October 2026
 
 W12 is in progress. The native host and lifecycle checks below passed on macOS
-Metal. The full lab, geographic-data and platform matrix remain open.
+Metal. The [six-scene lab](ocean-lab.md) now runs on macOS. Geographic-data, performance and platform gates remain open.
 
 ## Host and visibility
 
@@ -46,7 +46,7 @@ backend to the application.
 
 ## Open qualification
 
-- Six-scene Flutter lab, fixed-time captures and motion review.
+- Professional visual review of the six-scene lab and motion captures.
 - Provenance and distribution approval for a real global coast/bathymetry dataset.
 - Desktop/mobile target performance and user visual acceptance.
 - Android Vulkan, iOS Metal and Windows DX12 device runs.

@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "revision": "ocean-lab-scenes-1",
+  "epoch": "2026-10-04T00:00:00.000Z",
+  "scenes": [
+    {"id":"calm","name":"Open water","seed":11,"wind":5,"amplitude":0.0006,"patchMetres":128,"choppiness":0.4,"camera":[-12,-32,7],"target":[0,30,0]},
+    {"id":"storm","name":"Storm swell","seed":27,"wind":24,"amplitude":0.003,"patchMetres":256,"choppiness":0.7,"camera":[-18,-45,9],"target":[0,35,0]},
+    {"id":"coast","name":"Shallow coast","seed":44,"wind":8,"amplitude":0.001,"patchMetres":64,"choppiness":0.4,"camera":[-25,-35,10],"target":[15,10,0]},
+    {"id":"vessel","name":"Buoyant vessel","seed":61,"wind":12,"amplitude":0.0002,"patchMetres":64,"choppiness":0.5,"camera":[-12,-18,6],"target":[0,2,0]},
+    {"id":"underwater","name":"Below the surface","seed":75,"wind":10,"amplitude":0.0008,"patchMetres":64,"choppiness":0.4,"camera":[-4,-10,-3],"target":[0,15,-1]},
+    {"id":"orbit","name":"Orbit to surface","seed":89,"wind":12,"amplitude":0.001,"patchMetres":256,"choppiness":0.5,"camera":[0,-200000,18000000],"target":[0,0,-6378137]}
+  ]
+}

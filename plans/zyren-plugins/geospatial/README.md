@@ -13,7 +13,7 @@ native spectral simulation and physical buoyancy required here.
 | --- | --- | --- | --- |
 | 1 | [Extension host, layers and world services](01-foundation-plan.md) | F1-F5 | F1-F5 implemented; native Metal checks recorded |
 | 2 | [Persistent caching and offline regions](02-offline-plan.md) | D1-D4 | D1-D4 implemented; manual native-window review pending |
-| 3 | [Native professional ocean](03-ocean-plan.md) | W1-W12 | W1-W6 implemented; underwater effects next |
+| 3 | [Native professional ocean](03-ocean-plan.md) | W1-W12 | W1-W11 implemented; W12 lab runs on macOS, qualification remains open |
 
 Navigation/traffic, flight and orbital simulation remain in the approved platform
 scope. Their provider/solver specifications follow the foundation and ocean work;
@@ -145,4 +145,11 @@ W10 adds native persistent wakes/ripples, advected foam, covered shore emission
 and optional fixed-tick spray. Thirty-four ocean interaction/rendering tests and
 22 particle tests pass on macOS Metal. The [interaction record](../../../qualification/2026-10-04/ocean-interactions.md)
 includes the saved motion sequence and explicit visual-only coupling boundary.
-W11 quality transitions and W12 integrated lab/device/visual acceptance remain.
+W11 adds measured resource admission and native quality transitions. The
+[quality record](../../../qualification/2026-10-04/ocean-quality.md) covers the
+implemented work and its full-globe budget limits.
+
+W12 now supplies the six-scene Ocean Lab, verified synthetic offline coast,
+headless captures and a passing macOS native-view integration test. See the
+[lab record](../../../qualification/2026-10-04/ocean-lab.md) for query failures,
+performance results and the open Earth-data, device and visual acceptance gates.

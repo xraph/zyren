@@ -1,8 +1,15 @@
-# Native planet example
+# Geospatial scenes
 
-From this directory, run `fvm flutter run -d macos`, or select your connected
-native device. You can drag to orbit, scroll or pinch to zoom and choose a city
-marker. See the [workspace README](../../README.md) for setup and verification.
+Run `fvm flutter run -d macos` from this directory to open the scene launcher.
+Photorealistic Earth, clouds, six ocean scenes, layers, offline regions, terrain,
+3D Tiles and camera fixtures share this app. Pick a scene, then use **All scenes**
+to return. Native renderers start only when you open a scene.
+
+The Earth scenes use the existing provider configuration below. Ocean and local
+fixtures need no provider credentials. See the [ocean notes](OCEAN.md) for controls,
+captures and open qualification gates, or the [workspace README](../../README.md)
+for setup. Direct lab targets remain available for existing test commands.
+
 # Camera pose lab
 
 Run `flutter run -d macos -t lib/camera_lab.dart` to use the ported PointOfView
