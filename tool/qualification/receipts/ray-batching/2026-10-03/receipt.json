@@ -82,6 +82,7 @@
     "These focused checks do not establish physical device performance or sustained game capacity.",
     "The shared checkout was not frozen. Native checks included concurrent physics mass/wake changes, which are excluded from this commit.",
     "The initial test failed on an existing scalar solid-sphere centre hit with an undefined normal. Both scalar and batch paths now represent that zero-distance undefined normal as Vec3.zero.",
-    "The game AI README batching paragraph was included concurrently in 6b4f06b48bad12840a239e4765c3561d81ec625f."
+    "The game AI README batching paragraph was included concurrently in 6b4f06b48bad12840a239e4765c3561d81ec625f.",
+    "Concurrent PhysicsForce authoring arrived after the focused checks and was accidentally included by exact-file staging in 8e140187. An index-only follow-up removes that inclusion from tracked HEAD while preserving the author working file byte-for-byte. No force API verification is claimed by this receipt."
   ]
 }

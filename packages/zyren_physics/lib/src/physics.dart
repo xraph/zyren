@@ -198,37 +198,6 @@ final class PhysicsImpulse {
   });
 }
 
-/// A force held over the next native integration, then removed automatically.
-final class PhysicsForce {
-  final PhysicsBody body;
-  final Vec3 force, torque;
-  final Vec3? at;
-  final bool wake;
-  const PhysicsForce(
-    this.body, {
-    this.force = Vec3.zero,
-    this.torque = Vec3.zero,
-    this.at,
-    this.wake = true,
-  });
-}
-
-/// Owns one transient contribution. Other force sources remain independent.
-final class PhysicsForceBatch extends Registration {
-  final PhysicsWorld world;
-  final int _id, _epoch;
-  PhysicsForceBatch._(this.world, this._id, this._epoch)
-    : super(() {
-        if (!world.isClosed && world._epoch == _epoch)
-          world._send('cancelForces', {'batch': _id});
-      });
-  void removeBody(PhysicsBody body) {
-    if (isDisposed || world.isClosed || world._epoch != _epoch) return;
-    world._check(body);
-    world._send('cancelForces', {'batch': _id, 'body': body.id});
-  }
-}
-
 final class BodyState {
   final int id;
   final BodyKind kind;
@@ -392,7 +361,7 @@ final class PhysicsWorld implements Finalizable {
   final double fixedStep;
   late final int _id;
   bool _closed = false;
-  int _epoch = 0, _revision = 0, _completedSteps = 0;
+  int _epoch = 0, _revision = 0;
   final Map<int, PhysicsBody> _bodies = {};
   List<BodyState>? _stateSnapshot;
   Map<int, BodyState>? _bodyStateSnapshot;
@@ -409,7 +378,6 @@ final class PhysicsWorld implements Finalizable {
 
   /// Increases before every potentially mutating native operation, even failures.
   int get revision => _revision;
-  int get completedSteps => _completedSteps;
   Vec3 get gravity => _vec((_send('worldInfo') as Map)['gravity']);
 
   /// Validate the entire command list natively before applying any impulse.
@@ -448,36 +416,6 @@ final class PhysicsWorld implements Finalizable {
       throw StateError('Physics rebase is stale.');
     }
     _send('rebase', oldToNew.json);
-  }
-
-  /// Queue an additive contribution for the next native step. All commands
-  /// validate before publication. Close the returned batch to cancel only it.
-  PhysicsForceBatch queueForces(
-    List<PhysicsForce> forces, {
-    required int expectedRevision,
-  }) {
-    if (_closed || expectedRevision != _revision)
-      throw StateError('Physics force batch is stale.');
-    if (forces.length > 16384)
-      throw ArgumentError('Force batch exceeds 16384 commands.');
-    for (final force in forces) {
-      _check(force.body);
-    }
-    final id =
-        _send('queueForces', {
-              'commands': [
-                for (final force in forces)
-                  {
-                    'body': force.body.id,
-                    'linear': force.force.storage,
-                    'angular': force.torque.storage,
-                    if (force.at != null) 'point': force.at!.storage,
-                    'wake': force.wake,
-                  },
-              ],
-            })
-            as int;
-    return PhysicsForceBatch._(this, id, _epoch);
   }
 
   Object? _send(String op, [Map<String, Object?> args = const {}]) {
@@ -544,7 +482,6 @@ final class PhysicsWorld implements Finalizable {
   void setGravity(Vec3 value) => _send('gravity', {'value': value.storage});
   PhysicsStep step() {
     final result = PhysicsStep._(_send('step') as Map);
-    _completedSteps++;
     _stateSnapshot = result.bodies;
     return result;
   }
