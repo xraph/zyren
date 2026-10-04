@@ -74,7 +74,13 @@ final class GameRealtimeClock {
       microseconds: math.max(0, (remaining * 1000000).ceil()),
     );
     _scheduled = now + delay;
-    _timer = Timer(delay, _wake);
+    // Native Timer truncates to milliseconds. Round a positive wait up so it
+    // cannot become an early callback followed by repeated immediate wakeups.
+    // Keep the ideal deadline above so timer quantization counts as lateness.
+    _timer = Timer(
+      Duration(milliseconds: (delay.inMicroseconds + 999) ~/ 1000),
+      _wake,
+    );
   }
 
   void _wake() {

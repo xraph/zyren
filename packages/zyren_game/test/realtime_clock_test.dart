@@ -5,6 +5,75 @@ import 'package:zyren_game/zyren_game.dart';
 import 'session_test.dart' show recipe, Probe;
 
 void main() {
+  for (final hz in [50, 60]) {
+    test('$hz Hz clock avoids early-wake spin with VM timer precision', () {
+      fakeAsync((time) {
+        runZoned(
+          () {
+            final replies = <int>{};
+            var consumed = 0;
+            final session = GameSession(
+              project: recipe(hz: hz),
+              seed: 1,
+              systems: [
+                Probe(
+                  'work',
+                  GamePhase.commands,
+                  [],
+                  update: (session) {
+                    if (replies.remove(session.tick)) consumed++;
+                    final due = session.tick + 1;
+                    Timer(
+                      const Duration(milliseconds: 3),
+                      () => replies.add(due),
+                    );
+                    time.elapseBlocking(const Duration(microseconds: 800));
+                  },
+                ),
+              ],
+            );
+            final clock = GameRealtimeClock(
+              session,
+              elapsed: () => time.elapsed,
+            );
+            clock.setActive(true);
+            time.elapse(const Duration(seconds: 2, milliseconds: 2));
+            clock.dispose();
+            expect(session.tick, hz * 2);
+            expect(consumed, session.tick - 1);
+            expect(clock.wakeCount, session.tick);
+            expect(clock.maximumLatenessMicros, inInclusiveRange(1, 2000));
+            expect(session.droppedSeconds, 0);
+            unawaited(session.close());
+            time.flushTimers();
+          },
+          zoneSpecification: ZoneSpecification(
+            createTimer: (self, parent, zone, delay, callback) {
+              // The VM truncates Duration to milliseconds, then schedules a
+              // positive delay at floor(wallTime) + 1 + delayMs. Its wall clock
+              // need not align with the simulation's Stopwatch origin.
+              final now = time.elapsed.inMicroseconds;
+              const phase = 750;
+              final milliseconds = delay.inMilliseconds;
+              final fireAt = milliseconds <= 0
+                  ? now
+                  : ((now + phase) ~/ 1000 + 1 + milliseconds) * 1000 - phase;
+              return parent.createTimer(
+                zone,
+                Duration(microseconds: fireAt - now),
+                () {
+                  // Event dispatch consumes time even for an immediate timer.
+                  time.elapseBlocking(const Duration(microseconds: 50));
+                  callback();
+                },
+              );
+            },
+          ),
+        );
+      });
+    });
+  }
+
   test('50 Hz timer advances without rendering and admits worker replies', () {
     fakeAsync((time) {
       final ready = <int>{}, consumed = <int>[];

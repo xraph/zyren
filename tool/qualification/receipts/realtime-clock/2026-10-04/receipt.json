@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "status": "focused-checks-passed",
+  "checks": 18,
+  "logs": [
+    {
+      "name": "clock",
+      "file": "clock.log.gz",
+      "passed": 6,
+      "status": "passed",
+      "sha256": "8d43280c589f68eb3e015388d8a9d0b75503626f8df76c49c7b504ea370217c9",
+      "rawSha256": "3a0437dddefcc9a366654cacd2e2e114f526a4cfafca22b12c0ee3ca4981a568",
+      "rawBytes": 546
+    },
+    {
+      "name": "session",
+      "file": "session.log.gz",
+      "passed": 12,
+      "status": "passed",
+      "sha256": "e1936153fc40e92159fc38a11ec09a728c0a331821b6c4f8085e3894d0af88c4",
+      "rawSha256": "9b2b1b4ee6beb31fa735ddebf412be74f3f00977d26952c39e9cb4b8aebdb834",
+      "rawBytes": 1153
+    },
+    {
+      "name": "analysis",
+      "file": "analysis.log.gz",
+      "passed": null,
+      "status": "passed",
+      "sha256": "864387eb97f4c4e0c96eef6849822abcbdc6c6ff75a2ba44042cdd49843bfae8",
+      "rawSha256": "0ce19a751657a052f0e13ec98feb2032761d304d6299c16f55bd6437416bf5da",
+      "rawBytes": 76
+    },
+    {
+      "name": "early-wake-failure",
+      "file": "early-wake-failure.log.gz",
+      "passed": null,
+      "status": "failed-before-repair",
+      "sha256": "0ec9a67e6f13162c7fcef1acc219ba2368168feb7737b7ae8cc66f5ee75e964f",
+      "rawSha256": "41caf1dd13929c47a71b1541c2432f5633959591735f56d39b7f7a987002e74e",
+      "rawBytes": 5281
+    }
+  ],
+  "baseHead": "0e482100537907f796d26d7d0c595cca49be28a7",
+  "sourcePinsCapturedAfterChecks": {
+    "packages/zyren_game/lib/src/runtime/realtime_clock.dart": "a7707e2578fcb04f280414c89181c67dea02a1cfde1f50c165a201205433da16",
+    "packages/zyren_game/test/realtime_clock_test.dart": "3d0439870e6fbed86017f4c1401cd33ecf72e1e5eeacc5d2380b9272dec21fbd"
+  },
+  "sdkTimerSourcePins": {
+    "timer_patch.dart": "c598588e712a1b470b39d7ef575eb32a9be36a84b6216e3e2837945e6433d436",
+    "timer_impl.dart": "50485a234298e22ea1d9e721ab4c49b9ce813a4d75e41b5588c7e8a4029d607c"
+  },
+  "review": "Independent source review passed. Both scoped Dart paths passed analysis.",
+  "vmPrecisionRegression": {
+    "hz": [
+      50,
+      60
+    ],
+    "durationMillis": 2002,
+    "workMicros": 800,
+    "dispatchMicros": 50,
+    "timerPhaseMicros": 750,
+    "steps": [
+      100,
+      120
+    ],
+    "beforeWakes": [
+      800,
+      1040
+    ],
+    "afterWakes": [
+      100,
+      120
+    ]
+  },
+  "limits": [
+    "The timer precision model follows the local SDK source. These are deterministic scheduling regressions, not physical device measurements.",
+    "Positive waits round up, but ideal deadlines remain unchanged and the added wait is included in lateness.",
+    "The shared checkout was not frozen. No sustained capacity or physical deadline gate is closed by this receipt."
+  ]
+}

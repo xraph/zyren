@@ -128,6 +128,8 @@ independently of rendering. Activate it only while the viewport is ready and
 visible, and dispose it before another host takes ownership. Pause stops the
 timer; `stepOnce()` advances exactly once from that pause. Native scene adapters
 wire this ownership through the existing Flutter viewport activity signal.
+Positive timer waits round up to native millisecond precision. Wake measurements
+retain the ideal fixed-step deadline, so that rounding appears in lateness.
 Read `droppedSeconds` when the host cannot keep up. The compiled recipe pins the
 fixed rate, component versions, required system versions and artifact hashes.
 
