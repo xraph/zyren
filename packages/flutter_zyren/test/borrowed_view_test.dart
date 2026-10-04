@@ -3,9 +3,45 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_zyren/flutter_zyren.dart';
 import 'support/backend_fake.dart';
+import 'support/fakes.dart' show TestPlugin;
+import 'package:flutter_zyren/src/input/flutter_input_adapter.dart';
 import 'controller_test.dart' show frames, host, readback, runtime;
 
 void main() {
+  testWidgets(
+    'borrowed remount keeps input disabled until plugin attachment completes',
+    (tester) async {
+      final gate = Completer<void>();
+      final backend = FakeBackend();
+      final controller = SceneController(
+        options: readback,
+        runtime: runtime(backend),
+      );
+      controller.use(TestPlugin('pending', [], onAttach: (_) => gate.future));
+      final input = controller.input as FlutterInputAdapter;
+      await tester.pumpWidget(host(SceneView(controller: controller)));
+      await frames(tester);
+      expect(controller.status.value, isA<SceneInitializing>());
+      expect(input.viewportActive, isFalse);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpWidget(host(SceneView(controller: controller)));
+      await frames(tester);
+      expect(controller.status.value, isNot(isA<SceneReady>()));
+      expect(input.viewportActive, isFalse);
+      expect(backend.submissions, isEmpty);
+      gate.complete();
+      await frames(tester);
+      await controller.ready;
+      expect(controller.status.value, isA<SceneReady>());
+      expect(input.viewportActive, isTrue);
+      expect(backend.submissions, hasLength(1));
+      controller.dispose();
+      await frames(tester);
+      await controller.whenDisposed;
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
   testWidgets('borrowed remount waits for an old in-flight frame', (
     tester,
   ) async {

@@ -439,11 +439,17 @@ class SceneController {
 
   void _setVisible(bool value) {
     final ready =
+        !_closed &&
+        _viewToken != null &&
         _engine != null &&
-        (_status.value is SceneReady || _status.value is SceneSuspended);
+        _info != null &&
+        _ready.isCompleted &&
+        (_status.value is SceneReady ||
+            _status.value is SceneSuspended ||
+            _status.value is SceneDetached);
     _input.setActive(value && ready && !_closed);
     _scheduler.setVisible(value);
-    if (_visible == value) return;
+    if (_visible == value && !(ready && _status.value is SceneDetached)) return;
     _previousPresentation = null;
     _visible = value;
     if (_closed || !ready) return;

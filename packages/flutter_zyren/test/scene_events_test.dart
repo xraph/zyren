@@ -276,7 +276,12 @@ void main() {
           children: [
             ModelNode(
               ref: ref,
-              request: Gltf.uri(Uri.parse('memory:/triangle.gltf')),
+              request: Gltf.uri(
+                Uri.parse('memory:/triangle.gltf'),
+                options: const GltfOptions(
+                  materialMode: GltfMaterialMode.unlitDiagnostic,
+                ),
+              ),
               onClick: (event) => clicked = event,
             ),
           ],
@@ -291,6 +296,7 @@ void main() {
     }
     await frames(tester);
     expect(ref.current, isNotNull);
+    expect(controller.status.value, isA<SceneReady>());
     (controller.input as FlutterInputAdapter).emit(
       ScenePointerEvent(
         point: const ViewportPoint(32, 32),
