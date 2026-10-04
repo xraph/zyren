@@ -19,6 +19,7 @@ pub(super) enum Pass {
     EnergyLut,
     ResourceGraphBefore,
     Shadows,
+    ScreenLightingSource,
     Transmission,
     Scene,
     OutlineMask,
@@ -30,10 +31,11 @@ pub(super) enum Pass {
     Effects,
     ResizeComposite,
 }
-pub(super) const PASSES: [&str; 13] = [
+pub(super) const PASSES: [&str; 14] = [
     "energyLut",
     "resourceGraphBefore",
     "shadows",
+    "screenLightingSource",
     "transmission",
     "scene",
     "outlineMask",
@@ -51,6 +53,11 @@ pub(super) const BUFFER_BYTES: u64 = (SLOTS * 16) as u64;
 #[derive(Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct Profile {
+    pub screen_lighting_ao_samples: u32,
+    pub screen_lighting_reflection_steps: u32,
+    pub screen_lighting_ao_meshes: usize,
+    pub screen_lighting_reflection_meshes: usize,
+    pub screen_lighting_excluded_meshes: usize,
     pub status: &'static str,
     pub cpu_prepare_ns: Option<u64>,
     pub cpu_encode_ns: Option<u64>,
@@ -91,6 +98,11 @@ pub(super) struct PassSample {
 impl Default for Profile {
     fn default() -> Self {
         Self {
+            screen_lighting_ao_samples: 0,
+            screen_lighting_reflection_steps: 0,
+            screen_lighting_ao_meshes: 0,
+            screen_lighting_reflection_meshes: 0,
+            screen_lighting_excluded_meshes: 0,
             status: "unavailable",
             cpu_prepare_ns: None,
             cpu_encode_ns: None,

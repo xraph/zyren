@@ -254,3 +254,104 @@ another ticket remains. Collection disposal drops its ticket ownership and cache
 aliases while preserving genuine native cover owners. Resource statistics still
 report logical payload, not physical GPU residency. Capture CPU submission time and
 job counts are available; auxiliary GPU timing is currently unavailable (`null`).
+
+## Screen-space indirect lighting
+
+Open PBR in Shader Lab, select `Screen lighting`, then enable `AO` or `Reflections`.
+Both start off. The controls set the public options below; the reflection floor is
+visible while this panel is selected. You can change quality, AO radius and MSAA.
+The footer shows source draws and shared scratch storage.
+
+```dart
+scene.renderSettings = scene.renderSettings.copyWith(
+  screenSpaceLighting: ScreenSpaceLighting(
+    ambientOcclusion: true,
+    reflections: true,
+    quality: ScreenSpaceQuality.medium,
+  ),
+);
+```
+
+The receiving fragment supplies its mapped normal, filtered roughness, metallic
+value and current BRDF response. AO multiplies material occlusion in environment
+and hemisphere lighting. Its scalar visibility also enters the existing specular
+occlusion approximation. Direct lights and emission keep their previous response.
+
+Accepted reflections replace the eligible indirect specular radiance before the
+existing Fresnel, energy and occlusion terms. Misses retain that object's selected
+local probe or global environment. A missing environment gives zero on a miss;
+screen hits still work. Screen radiance is captured once without these effects,
+so this is a single screen-space bounce without reflection feedback.
+
+AO supports opaque standard and physical materials, including their optional
+lobes. SSR supports the isotropic base lobe. Materials with active clearcoat,
+sheen, anisotropy or iridescent film keep environment reflections. Transparent,
+transmissive and custom materials do not receive either effect. Alpha masks and
+clipping still apply to the opaque source. Unlit opaque objects can supply reflected
+radiance and occlusion, but do not receive the effects themselves.
+
+| Quality | AO samples per fragment | Maximum reflection steps |
+| --- | ---: | ---: |
+| Low | 8 | 16 |
+| Medium (default) | 12 | 32 |
+| High | 16 | 64 |
+
+AO uses a fixed disk kernel with a default radius of 0.5 world units, intensity 1
+and bias 0.02 world units. Radius accepts finite values in (0,1000], intensity in
+[0,1], and bias in [0,1]. The projected disk radius is capped at 128 pixels. The
+screen depth is a visible-surface approximation, so hidden occluders are absent.
+
+Reflections default to a maximum distance of 20 world units, thickness 0.2 world
+units and maximum filtered roughness 0.6. Their finite ranges are (0,10000],
+(0,100] and (0,1], respectively. Rays use quadratic step spacing, reject background
+and offscreen samples, and accept a front-to-back depth crossing within thickness.
+Confidence fades over the outer 5 percent of the screen and the final 20 percent
+of the roughness range. Thin or distant surfaces can fall between ray steps.
+
+Filtered roughness at or below 0.05 reads one source color sample. Rougher accepted
+hits read at most four deterministic, depth-validated samples over a footprint
+capped at eight pixels. The center sample remains included. This bounded cone
+approximation does not integrate a full GGX lobe and cannot recover hidden or
+multilayer geometry. There is no temporal accumulation, jitter or history storage.
+You may see sampling edges during motion; quality changes do not add smoothing.
+
+An enabled frame renders a full-resolution RGBA16F opaque source with Depth32F
+before normal transmission and custom scene-input capture. That second capture
+includes AO and SSR, so glass and custom scene consumers see the completed opaque
+result. The main pass keeps compatible opaque seed reuse. Otherwise it evaluates
+the effects again on its opaque draws, including under MSAA. Transparency keeps
+its existing authored order. Probe-helper captures exclude screen-space lighting.
+Generic auxiliary captures can explicitly use their own current-view settings.
+
+The source always uses one sample. Main rendering still supports four samples,
+but source edges have single-sample coverage. No extra MRT attachments are needed.
+PBR layouts add two sampled textures and one uniform binding in group 0; the custom
+scene-color/depth contract in group 3 stays unchanged. Adapter binding limits still
+apply during transactional pipeline preparation.
+
+Source attachments cost 12 bytes per pixel. One serialized scratch pair is shared
+by the device, and each executing view redraws it before use. The 134,217,728-byte
+cap includes current and candidate attachments, queued older uses and the 12-byte
+dummy pair. A replacement that exceeds the cap fails without publishing it.
+Replacement and retirement wait up to five seconds for queued native work before
+releasing old aliases across views. A failed wait preserves the old scratch;
+steady-size reuse adds no completion wait. Closing or disabling a different view
+does not retire the current owner's pair. Native command buffers can retain the
+old pair until this completion boundary, so a field swap alone is not reclamation.
+
+`screenLightingBytes` reports the device's current logical scratch payload,
+excluding the fixed 12-byte dummy pair, even when another view owns it. Device
+inspection computes it when queried, including after a queued auxiliary capture.
+`SceneCaptureReceipt.attachmentBytes` keeps its depth, alpha and transmission
+scope and excludes this shared pair; it is not a complete scene-cost total. PBR draw
+preparation also retains two 32-byte settings buffers per cached view. The profile
+reports configured sample/step limits and visible eligible/excluded mesh counts.
+Those counts precede batching and do not count fragments. `screenLightingSource`
+records actual source draws; transmission and scene counters include their own
+work. AO and SSR run inside those forward passes and have no separate GPU timings.
+Missing timings remain null. Geometry cost and overdraw depend on your scene.
+
+Every executed frame produces fresh inputs for its admitted or retained scene and
+current camera. Cuts, resize and failed or staged candidates cannot publish an
+older lighting history because none is retained. This statement concerns input
+validity, not physical presentation or foreground frame rate.

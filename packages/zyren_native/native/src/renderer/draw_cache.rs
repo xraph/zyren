@@ -12,6 +12,7 @@ pub(super) enum UniformKey {
     Environment(usize),
     Shadows,
     SceneInputs,
+    ScreenLighting(bool),
 }
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub(super) struct BindingKey(pub usize, pub u8);
@@ -392,9 +393,14 @@ fn dirty_range(old: &[u8], new: &[u8]) -> Option<std::ops::Range<usize>> {
 fn specs(frame: &crate::scene::Frame) -> Vec<(UniformKey, usize)> {
     use UniformKey::*;
     let capture = frame
-        .meshes
-        .iter()
-        .any(|m| m.color_visible && m.requires_opaque_capture());
+        .settings
+        .screen_lighting
+        .as_ref()
+        .is_some_and(super::screen_lighting::Settings::enabled)
+        || frame
+            .meshes
+            .iter()
+            .any(|m| m.color_visible && m.requires_opaque_capture());
     let mut specs = Vec::with_capacity(frame.meshes.len() * 2 + 3);
     if frame.meshes.iter().any(|m| m.pbr.is_some()) {
         specs.extend(
@@ -403,6 +409,8 @@ fn specs(frame: &crate::scene::Frame) -> Vec<(UniformKey, usize)> {
         );
         specs.extend([
             (Environment(0), super::environment::UNIFORM_BYTES),
+            (ScreenLighting(false), super::screen_lighting::UNIFORM_BYTES),
+            (ScreenLighting(true), super::screen_lighting::UNIFORM_BYTES),
             (Shadows, super::shadows::UNIFORM_BYTES),
             (
                 Lighting,

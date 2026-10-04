@@ -110,6 +110,64 @@ final class BloomSettings {
   }
 }
 
+/// Bounds screen-space work per receiving fragment. There is no temporal history.
+enum ScreenSpaceQuality { low, medium, high }
+
+/// Optional indirect lighting from the current opaque view.
+/// You get full-resolution, single-sample inputs even when the main view uses MSAA.
+/// Transparent and transmissive surfaces do not receive these effects.
+final class ScreenSpaceLighting {
+  final bool ambientOcclusion, reflections;
+  final ScreenSpaceQuality quality;
+  final double radius, intensity, bias, maxDistance, thickness, maxRoughness;
+  ScreenSpaceLighting({
+    this.ambientOcclusion = false,
+    this.reflections = false,
+    this.quality = ScreenSpaceQuality.medium,
+    this.radius = .5,
+    this.intensity = 1,
+    this.bias = .02,
+    this.maxDistance = 20,
+    this.thickness = .2,
+    this.maxRoughness = .6,
+  }) {
+    if (!radius.isFinite ||
+        radius <= 0 ||
+        radius > 1000 ||
+        !intensity.isFinite ||
+        intensity < 0 ||
+        intensity > 1 ||
+        !bias.isFinite ||
+        bias < 0 ||
+        bias > 1 ||
+        !maxDistance.isFinite ||
+        maxDistance <= 0 ||
+        maxDistance > 10000 ||
+        !thickness.isFinite ||
+        thickness <= 0 ||
+        thickness > 100 ||
+        !maxRoughness.isFinite ||
+        maxRoughness <= 0 ||
+        maxRoughness > 1) {
+      throw ArgumentError('Invalid screen-space lighting parameters.');
+    }
+  }
+  bool get enabled => ambientOcclusion || reflections;
+  int get aoSamples => [8, 12, 16][quality.index];
+  int get reflectionSteps => [16, 32, 64][quality.index];
+  Map<String, Object> toPacket() => {
+    'ao': ambientOcclusion,
+    'reflections': reflections,
+    'quality': quality.index,
+    'radius': radius,
+    'intensity': intensity,
+    'bias': bias,
+    'max_distance': maxDistance,
+    'thickness': thickness,
+    'max_roughness': maxRoughness,
+  };
+}
+
 /// Immutable per-view render configuration. Increment [historyEpoch] for a cut
 /// or a discontinuous parameter edit. Camera/projection edits also invalidate.
 final class RenderSettings {
@@ -117,6 +175,7 @@ final class RenderSettings {
   final ToneMapping toneMapping;
   final SpatialAntialiasing spatialAntialiasing;
   final BloomSettings? bloom;
+  final ScreenSpaceLighting? screenSpaceLighting;
   final double exposure, backgroundAlpha;
   final int historyEpoch, sampleCount;
   final bool hdr;
@@ -126,6 +185,7 @@ final class RenderSettings {
     this.toneMapping = ToneMapping.none,
     this.spatialAntialiasing = SpatialAntialiasing.none,
     this.bloom,
+    this.screenSpaceLighting,
     this.exposure = 1,
     this.backgroundAlpha = 1,
     this.historyEpoch = 0,
@@ -152,6 +212,8 @@ final class RenderSettings {
     SpatialAntialiasing? spatialAntialiasing,
     BloomSettings? bloom,
     bool clearBloom = false,
+    ScreenSpaceLighting? screenSpaceLighting,
+    bool clearScreenSpaceLighting = false,
     double? exposure,
     double? backgroundAlpha,
     int? historyEpoch,
@@ -163,6 +225,9 @@ final class RenderSettings {
     toneMapping: toneMapping ?? this.toneMapping,
     spatialAntialiasing: spatialAntialiasing ?? this.spatialAntialiasing,
     bloom: clearBloom ? null : bloom ?? this.bloom,
+    screenSpaceLighting: clearScreenSpaceLighting
+        ? null
+        : screenSpaceLighting ?? this.screenSpaceLighting,
     exposure: exposure ?? this.exposure,
     backgroundAlpha: backgroundAlpha ?? this.backgroundAlpha,
     historyEpoch: historyEpoch ?? this.historyEpoch,
@@ -173,6 +238,7 @@ final class RenderSettings {
   bool get enabled =>
       spatialAntialiasing != SpatialAntialiasing.none ||
       bloom != null ||
+      (screenSpaceLighting?.enabled ?? false) ||
       sampleCount != 1 ||
       environment != null ||
       hdr ||

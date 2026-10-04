@@ -558,6 +558,7 @@ impl LocalEnvironment {
 #[derive(Clone, PartialEq, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct RenderSettings {
+    pub screen_lighting: Option<crate::renderer::screen_lighting::Settings>,
     pub outline: Option<OutlineSettings>,
     pub enabled: bool,
     pub sample_count: u32,
@@ -578,6 +579,7 @@ pub struct RenderSettings {
 impl Default for RenderSettings {
     fn default() -> Self {
         Self {
+            screen_lighting: None,
             enabled: false,
             outline: None,
             sample_count: 1,
@@ -608,6 +610,9 @@ impl RenderSettings {
         if self.reversed_depth() { 1. } else { 0. }
     }
     pub fn validate(&self) -> Result<(), String> {
+        if let Some(settings) = &self.screen_lighting {
+            settings.validate()?;
+        }
         if self.local_environments.len() > 4 {
             return Err("At most four local environments".into());
         }

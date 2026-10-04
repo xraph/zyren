@@ -199,6 +199,13 @@ final class GpuInspection {
 /// GPU execution. Named pass intervals are contained in gpuTimeNs. Do not add them.
 /// Resource counters are device-lifetime observations, independent of scene work.
 final class NativeFrameProfile {
+  /// Shared device scratch payload. This does not measure physical residency.
+  final int? screenLightingBytes;
+  final int? screenLightingAoSamples,
+      screenLightingReflectionSteps,
+      screenLightingAoMeshes,
+      screenLightingReflectionMeshes,
+      screenLightingExcludedMeshes;
   final String status, gpuTimeSource;
   final int? drawPlanReuses,
       executedMeshDraws,
@@ -228,7 +235,16 @@ final class NativeFrameProfile {
   final Map<String, NativePassTiming> passes;
   final Map<String, Object?> resources;
   NativeFrameProfile.fromJson(Map<String, Object?> json)
-    : drawPlanReuses = json['drawPlanReuses'] as int?,
+    : screenLightingBytes = json['screenLightingBytes'] as int?,
+      screenLightingAoSamples = json['screenLightingAoSamples'] as int?,
+      screenLightingReflectionSteps =
+          json['screenLightingReflectionSteps'] as int?,
+      screenLightingAoMeshes = json['screenLightingAoMeshes'] as int?,
+      screenLightingReflectionMeshes =
+          json['screenLightingReflectionMeshes'] as int?,
+      screenLightingExcludedMeshes =
+          json['screenLightingExcludedMeshes'] as int?,
+      drawPlanReuses = json['drawPlanReuses'] as int?,
       executedMeshDraws = json['executedMeshDraws'] as int?,
       opaqueBatchDraws = json['opaqueBatchDraws'] as int?,
       batchedSourceDraws = json['batchedSourceDraws'] as int?,
@@ -277,6 +293,7 @@ final class NativeFrameProfile {
                 ? executedMeshDraws!
                 : (passes['scene']!.drawCalls! +
                       (passes['transmission']?.drawCalls ?? 0) +
+                      (passes['screenLightingSource']?.drawCalls ?? 0) +
                       (passes['outlineMask']?.drawCalls ?? 0))) +
             (passes['outlines']?.executed == true ? 1 : 0) +
             (passes['energyLut']?.executed == true
@@ -291,6 +308,12 @@ final class NativeFrameProfile {
   Duration? get gpuTime =>
       gpuTimeNs == null ? null : Duration(microseconds: gpuTimeNs! ~/ 1000);
   Map<String, Object?> toJson() => {
+    'screenLightingBytes': screenLightingBytes,
+    'screenLightingAoSamples': screenLightingAoSamples,
+    'screenLightingReflectionSteps': screenLightingReflectionSteps,
+    'screenLightingAoMeshes': screenLightingAoMeshes,
+    'screenLightingReflectionMeshes': screenLightingReflectionMeshes,
+    'screenLightingExcludedMeshes': screenLightingExcludedMeshes,
     if (drawPlanReuses != null) 'drawPlanReuses': drawPlanReuses,
     if (executedMeshDraws != null) 'executedMeshDraws': executedMeshDraws,
     if (opaqueBatchDraws != null) 'opaqueBatchDraws': opaqueBatchDraws,

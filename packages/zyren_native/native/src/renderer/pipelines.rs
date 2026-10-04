@@ -68,7 +68,7 @@ impl PipelineKey {
         }
     }
 }
-fn active_lobes(mesh: &Mesh) -> u8 {
+pub(super) fn active_lobes(mesh: &Mesh) -> u8 {
     let Some(material) = &mesh.pbr else {
         return 0;
     };
@@ -590,6 +590,7 @@ pub(super) fn shader_source(mask: u64) -> String {
             include_str!("coverage.wgsl"),
             "\n",
             include_str!("pbr.wgsl"),
+            include_str!("screen_lighting.wgsl"),
             "\n",
             include_str!("physical.wgsl"),
             include_str!("iridescence.wgsl"),

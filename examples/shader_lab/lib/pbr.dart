@@ -67,7 +67,21 @@ class _PbrLabState extends State<_PbrLab> {
   late final EnvironmentLighting environment;
   late final ProbeLabLighting probeLighting;
   String controls = 'lights';
-  late final Mesh glass;
+  late final Mesh glass, reflectionFloor;
+  bool screenAO = false, screenSSR = false;
+  ScreenSpaceQuality screenQuality = ScreenSpaceQuality.medium;
+  double screenRadius = .5;
+  void _applyScreenLighting() {
+    controller.scene.renderSettings = controller.scene.renderSettings.copyWith(
+      screenSpaceLighting: ScreenSpaceLighting(
+        ambientOcclusion: screenAO,
+        reflections: screenSSR,
+        quality: screenQuality,
+        radius: screenRadius,
+      ),
+    );
+  }
+
   double glassRoughness = 0, dispersion = 0;
 
   void _applyGlass() {
@@ -182,6 +196,15 @@ class _PbrLabState extends State<_PbrLab> {
         )
         ..position = const Vec3(.5, 0, 1)
         ..renderOrder = 1
+        ..visible = false,
+    );
+    reflectionFloor = controller.scene.add(
+      Mesh(
+          PlaneGeometry(width: 9, height: 14),
+          StandardMaterial(metallic: .9, roughness: .15),
+        )
+        ..rotateX(-math.pi / 2)
+        ..position = const Vec3(0, -2, 1)
         ..visible = false,
     );
     _applyGlass();
@@ -364,6 +387,10 @@ class _PbrLabState extends State<_PbrLab> {
                             child: Text('Local probes'),
                           ),
                           DropdownMenuItem(
+                            value: 'screen',
+                            child: Text('Screen lighting'),
+                          ),
+                          DropdownMenuItem(
                             value: 'transmission',
                             child: Text('Transmission'),
                           ),
@@ -371,6 +398,7 @@ class _PbrLabState extends State<_PbrLab> {
                         onChanged: (value) => setState(() {
                           controls = value!;
                           glass.visible = controls == 'transmission';
+                          reflectionFloor.visible = controls == 'screen';
                         }),
                       ),
                     ),
@@ -382,7 +410,7 @@ class _PbrLabState extends State<_PbrLab> {
                 child: Wrap(
                   spacing: 12,
                   children: [
-                    if (controls == 'transmission')
+                    if (controls == 'transmission' || controls == 'screen')
                       FilterChip(
                         key: const ValueKey('GlassMSAA'),
                         label: const Text('4× MSAA'),
@@ -398,7 +426,9 @@ class _PbrLabState extends State<_PbrLab> {
                           );
                         }),
                       ),
-                    if (controls != 'transmission' && controls != 'probes')
+                    if (controls != 'transmission' &&
+                        controls != 'probes' &&
+                        controls != 'screen')
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -413,7 +443,7 @@ class _PbrLabState extends State<_PbrLab> {
                           ),
                         ],
                       ),
-                    if (controls != 'probes')
+                    if (controls != 'probes' && controls != 'screen')
                       SizedBox(
                         width: controlWidth,
                         child: DropdownButton<ToneMapping>(
@@ -445,7 +475,7 @@ class _PbrLabState extends State<_PbrLab> {
                           }),
                         ),
                       ),
-                    if (controls != 'probes')
+                    if (controls != 'probes' && controls != 'screen')
                       control(
                         'Exposure',
                         controlWidth,
@@ -460,7 +490,51 @@ class _PbrLabState extends State<_PbrLab> {
                           );
                         }),
                       ),
-                    if (controls == 'probes') ...[
+                    if (controls == 'screen') ...[
+                      FilterChip(
+                        key: const ValueKey('ScreenAO'),
+                        label: const Text('AO'),
+                        selected: screenAO,
+                        onSelected: (value) => setState(() {
+                          screenAO = value;
+                          _applyScreenLighting();
+                        }),
+                      ),
+                      FilterChip(
+                        key: const ValueKey('ScreenSSR'),
+                        label: const Text('Reflections'),
+                        selected: screenSSR,
+                        onSelected: (value) => setState(() {
+                          screenSSR = value;
+                          _applyScreenLighting();
+                        }),
+                      ),
+                      DropdownButton<ScreenSpaceQuality>(
+                        key: const ValueKey('ScreenQuality'),
+                        value: screenQuality,
+                        items: [
+                          for (final quality in ScreenSpaceQuality.values)
+                            DropdownMenuItem(
+                              value: quality,
+                              child: Text(quality.name),
+                            ),
+                        ],
+                        onChanged: (value) => setState(() {
+                          screenQuality = value!;
+                          _applyScreenLighting();
+                        }),
+                      ),
+                      control(
+                        'AO radius',
+                        controlWidth,
+                        screenRadius,
+                        2,
+                        (value) => setState(() {
+                          screenRadius = value.clamp(.01, 2);
+                          _applyScreenLighting();
+                        }),
+                      ),
+                    ] else if (controls == 'probes') ...[
                       FilledButton.tonal(
                         key: const ValueKey('ProbeLeft'),
                         style: FilledButton.styleFrom(
@@ -659,7 +733,9 @@ class _PbrLabState extends State<_PbrLab> {
                       right: 12,
                       child: IgnorePointer(
                         child: Text(
-                          controls == 'transmission'
+                          controls == 'screen'
+                              ? 'Opaque indirect only · current frame · single-sample source'
+                              : controls == 'transmission'
                               ? 'Filter: 1 smooth / 9 rough taps · dispersion: 3 paths'
                               : 'Roughness 0.1 → 1 across · Metallic 0 → 1 down',
                           style: TextStyle(fontSize: 12),
@@ -680,6 +756,7 @@ class _PbrLabState extends State<_PbrLab> {
                     stats == null
                         ? 'Preparing native view'
                         : '${stats!.drawCalls} draws · ${stats!.physicalSize.width}×${stats!.physicalSize.height}'
+                              '${controls == 'screen' ? ' · source ${stats!.profile?.passes['screenLightingSource']?.drawCalls ?? '?'} · ${((stats!.profile?.screenLightingBytes ?? 0) / 1048576).toStringAsFixed(1)} MiB' : ''}'
                               '${controls == 'transmission' ? ' · scene ${stats!.profile?.passes['scene']?.drawCalls ?? '?'} / capture ${stats!.profile?.passes['transmission']?.drawCalls ?? '?'}' : ''}',
                     style: const TextStyle(fontSize: 12),
                   ),

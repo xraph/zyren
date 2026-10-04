@@ -29,6 +29,7 @@ mod outlines;
 mod physical_maps;
 mod pipelines;
 pub(crate) mod scene_inputs;
+pub(crate) mod screen_lighting;
 mod shadows;
 mod temporal;
 mod textures;
@@ -168,6 +169,7 @@ pub struct RendererState {
     sensor_depth_capture: bool,
     temporal: temporal::System,
     transmission: transmission::System,
+    screen_lighting: screen_lighting::System,
     pub adapter_name: String,
     pub backend: wgpu::Backend,
     _permit: crate::retirement::DevicePermit,
@@ -305,12 +307,14 @@ impl Renderer {
                 shadows::layout_entries(),
                 area_lights::layout_entries(),
                 transmission::layout_entries(),
+                screen_lighting::layout_entries(),
             ]
             .concat(),
         });
         let environment_defaults = environment::Defaults::new(&device);
         let area_tables = area_lights::Tables::new(&device, &queue);
         let transmission = transmission::System::new(&device);
+        let screen_lighting = screen_lighting::System::new(&device);
         let texture_layout = textures::layout(&device, 1);
         let standard_texture_layout = textures::layout(&device, 5);
         let deformation_layout = deformation::layout(&device);
@@ -386,6 +390,7 @@ impl Renderer {
                 sensor_depth_capture: false,
                 temporal: temporal::System::default(),
                 transmission,
+                screen_lighting,
                 adapter_name: info.name,
                 backend: info.backend,
                 _permit: permit,
@@ -447,6 +452,7 @@ impl Renderer {
         }
         let mut frame_profile = serde_json::to_value(&*state.profile.borrow()).unwrap();
         frame_profile["resources"] = state.resources.telemetry();
+        frame_profile["screenLightingBytes"] = state.screen_lighting.bytes().into();
         state.graphs.command(
             crate::render_graph::GraphContext {
                 shadow_stats,
@@ -460,7 +466,7 @@ impl Renderer {
                 shaders: &mut state.shaders,
                 failure: &mut state.failure,
                 engine_layout: &state.layout,
-                target_bytes: state.effects.bytes() + state.outlines.bytes(),
+                target_bytes: state.effects.bytes() + state.outlines.bytes() + state.screen_lighting.bytes(),
                 shadow_bytes: shadow_stats.resident_bytes,
                 shadow_passes: shadow_stats.rendered_views,
                 instance_bytes: state.instances.values().map(|i| i.recipe.byte_length() as u64).sum(),
@@ -695,7 +701,12 @@ impl Renderer {
         state
             .transmission
             .remove(view, &mut state.draw_cache.borrow_mut());
-        self.evict_geometry()
+        let screen_result =
+            state
+                .screen_lighting
+                .remove(view, &state.device, &mut state.draw_cache.borrow_mut());
+        let evict_result = self.evict_geometry();
+        screen_result.and(evict_result)
     }
     fn evict_geometry(&mut self) -> Result<(), String> {
         let retained: HashSet<u32> = self
@@ -953,6 +964,9 @@ impl Renderer {
                 requests.push((targets.format, targets.samples, false));
             }
         }
+        if state.screen_lighting.targets.is_some() {
+            requests.push((screen_lighting::FORMAT, 1, false));
+        }
         requests.push((format, frame.sample_count(), false));
         let result = state.pipelines.prepare(
             &state.device,
@@ -1053,7 +1067,13 @@ impl Renderer {
                 )),
             )
         });
-        let make_bindings = |capture: bool| -> Vec<_> {
+        let screen_uniforms = lighting.as_ref().map(|_| {
+            [
+                self.screen_lighting_uniform(frame, false),
+                self.screen_lighting_uniform(frame, true),
+            ]
+        });
+        let make_bindings = |capture: bool, screen_source: bool| -> Vec<_> {
             frame
                 .meshes
                 .iter()
@@ -1206,9 +1226,16 @@ impl Renderer {
                         entries.extend(shadows.entries(&self.shadows));
                         entries.extend(self.area_tables.entries());
                         entries.extend(self.transmission.entries(capture));
+                        entries.extend(self.screen_lighting.entries(
+                            screen_source,
+                            &screen_uniforms.as_ref().unwrap()[usize::from(screen_source)],
+                        ));
                     }
                     Some(self.draw_binding(
-                        draw_cache::BindingKey(index, u8::from(capture)),
+                        draw_cache::BindingKey(
+                            index,
+                            if screen_source { 5 } else { u8::from(capture) },
+                        ),
                         if mesh.pbr.is_some() {
                             &self.pbr_layout
                         } else {
@@ -1219,12 +1246,51 @@ impl Renderer {
                 })
                 .collect()
         };
-        let bindings = make_bindings(false);
+        let bindings = make_bindings(false, false);
+        let screen_enabled = frame
+            .settings
+            .screen_lighting
+            .as_ref()
+            .is_some_and(screen_lighting::Settings::enabled);
+        let source_bindings = screen_enabled.then(|| make_bindings(true, true));
+        if let Some(settings) = frame
+            .settings
+            .screen_lighting
+            .as_ref()
+            .filter(|_| screen_enabled)
+        {
+            let mut profile = self.profile.borrow_mut();
+            profile.screen_lighting_ao_samples = if settings.ao {
+                [8, 12, 16][settings.quality as usize]
+            } else {
+                0
+            };
+            profile.screen_lighting_reflection_steps = if settings.reflections {
+                [16, 32, 64][settings.quality as usize]
+            } else {
+                0
+            };
+            for mesh in frame.meshes.iter().filter(|m| m.color_visible) {
+                let ao = mesh.pbr.is_some()
+                    && mesh.shader.is_none()
+                    && mesh.material_shader.is_none()
+                    && !mesh.scene_inputs
+                    && mesh.alpha_mode != 2
+                    && mesh.pbr.as_ref().is_some_and(|p| p.transmission[0] == 0.);
+                let reflection = ao && pipelines::active_lobes(mesh) & 30 == 0;
+                profile.screen_lighting_ao_meshes += usize::from(ao && settings.ao);
+                profile.screen_lighting_reflection_meshes +=
+                    usize::from(reflection && settings.reflections);
+                profile.screen_lighting_excluded_meshes +=
+                    usize::from(!(ao && settings.ao || reflection && settings.reflections));
+            }
+        }
+
         let capture_bindings = self
             .transmission
             .targets
             .as_ref()
-            .map(|_| make_bindings(true));
+            .map(|_| make_bindings(true, false));
         let texture_bindings: Vec<_> = frame
             .meshes
             .iter()
@@ -1274,14 +1340,24 @@ impl Renderer {
             p.bind_group_switches = Some(0);
         }
         let reuse_opaque = self.reuse_opaque_capture(frame, format, load_depth);
-        for (capture, mask) in [(true, false), (false, false), (false, true)] {
+        for (capture, mask, source) in [
+            (true, false, true),
+            (true, false, false),
+            (false, false, false),
+            (false, true, false),
+        ] {
+            if source && !screen_enabled {
+                continue;
+            }
             if mask && self.outlines.view(frame).is_none() {
                 continue;
             }
-            if capture && self.transmission.targets.is_none() {
+            if capture && !source && self.transmission.targets.is_none() {
                 continue;
             }
-            let pass_kind = if capture {
+            let pass_kind = if source {
+                timing::Pass::ScreenLightingSource
+            } else if capture {
                 timing::Pass::Transmission
             } else if mask {
                 timing::Pass::OutlineMask
@@ -1295,7 +1371,10 @@ impl Renderer {
                 .get_mut(timing::PASSES[pass_kind as usize])
                 .unwrap()
                 .draw_calls = Some(0);
-            let (color_view, resolve_target, depth_view) = if capture {
+            let (color_view, resolve_target, depth_view) = if source {
+                let t = self.screen_lighting.targets.as_ref().unwrap();
+                (&t.color, None, &t.depth)
+            } else if capture {
                 let t = self.transmission.targets.as_ref().unwrap();
                 if let Some(msaa) = &t.multisample {
                     (&msaa.color, Some(&t.color), &msaa.depth)
@@ -1312,26 +1391,34 @@ impl Renderer {
                 (
                     color_view,
                     resolve_target,
-                    if capture {
+                    if source {
+                        screen_lighting::FORMAT
+                    } else if capture {
                         self.transmission.targets.as_ref().unwrap().format
                     } else {
                         format
                     },
                 )
             };
-            let bindings = if capture {
+            let bindings = if source {
+                source_bindings.as_ref().unwrap()
+            } else if capture {
                 capture_bindings.as_ref().unwrap()
             } else {
                 &bindings
             };
             let materials = if mask {
                 &self.outline_materials[..]
+            } else if source {
+                &self.screen_lighting.materials[..]
             } else if capture {
                 &self.transmission.materials[..]
             } else {
                 materials
             };
-            let samples = if capture {
+            let samples = if source {
+                1
+            } else if capture {
                 self.transmission.targets.as_ref().unwrap().samples
             } else {
                 frame.sample_count()
@@ -1613,7 +1700,7 @@ impl Renderer {
                 }
             }
             drop(pass);
-            if capture {
+            if capture && !source {
                 let targets = self.transmission.targets.as_ref().unwrap();
                 if let (Some(msaa), Some(pipeline)) = (&targets.multisample, &targets.depth_resolve)
                 {
@@ -1818,6 +1905,7 @@ impl Renderer {
             graph.as_ref(),
             capture.is_none(),
         )?;
+        self.prepare_screen_lighting(frame, render_size, graph.as_ref())?;
         self.prepare_transmission(frame, scene_format, render_size, graph.as_ref())?;
         self.prepare_scene(frame)?;
         self.outline_materials = if self.outlines.view(frame).is_some() {
@@ -1934,6 +2022,11 @@ impl Renderer {
     /// Supplied depth must remain the main scene attachment for every draw.
     pub(crate) fn check_external_depth_frame(frame: &Frame) -> Result<(), String> {
         if frame.settings.enabled
+            || frame
+                .settings
+                .screen_lighting
+                .as_ref()
+                .is_some_and(screen_lighting::Settings::enabled)
             || frame.temporal.is_some()
             || frame.sample_count() != 1
             || frame
@@ -2019,6 +2112,7 @@ impl Renderer {
             graph.as_ref(),
             false,
         )?;
+        self.prepare_screen_lighting(frame, render_size, graph.as_ref())?;
         self.prepare_transmission(frame, scene_format, render_size, graph.as_ref())?;
         self.prepare_scene(frame)?;
         self.outline_materials = if self.outlines.view(frame).is_some() {

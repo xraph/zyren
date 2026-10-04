@@ -47,15 +47,15 @@ fn filtered_roughness(roughness: f32, normal_variance: f32) -> f32 {
     return sqrt(sqrt(min(1.,alpha*alpha+min(uniforms.pbr_params.w*normal_variance,uniforms.emissive.w))));
 }
 fn shade_environment(n: vec3<f32>, v: vec3<f32>, surface: StandardSurface) -> vec3<f32> {
-    if (environment.params.x == 0.) { return vec3(0.); }
+    if (environment.params.x == 0. && surface.screen_reflection.a == 0.) {return vec3(0.);}
     let nv = clamp(dot(n,v), 0., 1.);
     let f0 = mix(vec3(.04), surface.base.rgb, surface.metallic);
     let energy = standard_energy(nv,surface);
     let diffuse = textureSampleLevel(diffuse_environment, environment_sampler, environment_uv(n), 0.).rgb / select(1.,3.141592653589793,environment.params.z>.5);
-    let specular = environment_specular(reflect(-v,n), surface.roughness);
+    let specular = mix(environment_specular(reflect(-v,n), surface.roughness) * environment.params.x, surface.screen_reflection.rgb, surface.screen_reflection.a);
     let brdf = energy_brdf(nv,surface.roughness);
-    return (energy.w * (1. - surface.metallic) * surface.base.rgb * diffuse * surface.occlusion
-        + specular * (f0 * brdf.x + brdf.y) * energy.rgb * specular_occlusion(nv,surface.roughness,surface.occlusion)) * environment.params.x;
+    return (energy.w * (1. - surface.metallic) * surface.base.rgb * diffuse * surface.occlusion * environment.params.x
+        + specular * (f0 * brdf.x + brdf.y) * energy.rgb * specular_occlusion(nv,surface.roughness,surface.occlusion));
 }
 
 struct PunctualLight {
@@ -106,6 +106,7 @@ fn shade_standard(input: VertexOutput, front: bool, original: StandardSurface) -
     let dy = dpdy(original.normal);
     let coat_dx = dpdx(original.coat_normal);
     let coat_dy = dpdy(original.coat_normal);
+    let pixel_size=max(length(dpdx(input.relative_position)),length(dpdy(input.relative_position)));
     var surface=original;
     surface.roughness=filtered_roughness(surface.roughness,dot(dx,dx)+dot(dy,dy));
     if (COAT) { surface.physical[0].w=filtered_roughness(surface.physical[0].w,dot(coat_dx,coat_dx)+dot(coat_dy,coat_dy)); }
@@ -117,6 +118,12 @@ fn shade_standard(input: VertexOutput, front: bool, original: StandardSurface) -
     if (mode > 0.5 && mode < 1.5 && alpha < uniforms.map_params.z) { discard; }
     let n = select(-surface.normal, surface.normal, front);
     let v = normalized_or(-input.relative_position, n);
+    if (mode<1.5 && !TRANSMISSION && surface.transmission[0].x==0.) {
+        surface.occlusion*=screen_ao(input.position.xy,input.relative_position,n,pixel_size);
+        if (!COAT && !SHEEN && !ANISOTROPY && !IRIDESCENCE) {
+            surface.screen_reflection=screen_reflection(input.relative_position,n,v,surface.roughness);
+        }
+    }
     let base = surface.base.rgb;
     let physical = PHYSICAL;
     var physical_view: PhysicalView;
@@ -178,6 +185,7 @@ struct StandardSurface {
     physical: array<vec4<f32>,4>, coat_normal: vec3<f32>,
     transmission: array<vec4<f32>,2>,
     optical: array<vec4<f32>,2>,
+    screen_reflection: vec4<f32>,
 };
 fn standard_surface(input: VertexOutput) -> StandardSurface {
     var surface: StandardSurface;

@@ -169,6 +169,28 @@ void main() {
         expect(tester.takeException(), isNull);
         expect(tester.getSize(find.byType(SceneView)).height, greaterThan(250));
       }
+      await tester.tap(find.byKey(const ValueKey('LightingControls')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Screen lighting').last);
+      await tester.pumpAndSettle();
+      for (final key in ['ScreenAO', 'ScreenSSR']) {
+        await tester.tap(find.byKey(ValueKey(key)));
+        await tester.pumpAndSettle();
+      }
+      expect(
+        controller.scene.renderSettings.screenSpaceLighting!.ambientOcclusion,
+        isTrue,
+      );
+      expect(
+        controller.scene.renderSettings.screenSpaceLighting!.reflections,
+        isTrue,
+      );
+      for (final size in [const Size(320, 640), const Size(1100, 700)]) {
+        await tester.binding.setSurfaceSize(size);
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        expect(tester.getSize(find.byType(SceneView)).height, greaterThan(250));
+      }
       await tester.pumpWidget(const SizedBox());
       await tester.runAsync(() => controller.whenDisposed);
       expect(backend.closeCount, 1);

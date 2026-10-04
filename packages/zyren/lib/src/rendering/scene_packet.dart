@@ -367,6 +367,7 @@ final class ScenePacketEncoder {
     }
     final settings = scene._settings;
     final screenEnabled =
+        (settings.screenSpaceLighting?.enabled ?? false) ||
         settings.hdr ||
         settings.effects.isNotEmpty ||
         settings.bloom != null ||
@@ -834,6 +835,7 @@ final class ScenePacketEncoder {
               ],
             },
         ],
+        'screen_lighting': settings.screenSpaceLighting?.toPacket(),
         'enabled': screenEnabled,
         'sample_count': screenEnabled
             ? submission.colorPipeline?.sampleCount ?? settings.sampleCount
