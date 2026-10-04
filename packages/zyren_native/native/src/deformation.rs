@@ -100,6 +100,7 @@ impl Pose {
         low * 0.5 + high * 0.5
     }
 }
+#[derive(Clone)]
 pub(crate) struct SourceBounds {
     base: (Vec3, Vec3),
     morphs: Vec<(Vec3, Vec3)>,

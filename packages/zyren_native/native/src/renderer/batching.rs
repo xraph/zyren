@@ -63,23 +63,34 @@ impl Bounds {
     }
 }
 
+#[derive(Clone)]
 pub(super) struct Batch {
     pub mesh: Mesh,
     pub range: std::ops::Range<u32>,
 }
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub(super) struct Batches {
     pub order: Vec<draw_order::Draw>,
     pub leaders: HashMap<usize, Batch>,
     pub skipped: HashSet<usize>,
     pub key: Option<ResourceKey>,
-    values: Vec<f32>,
+    values: std::sync::Arc<[f32]>,
     view: u64,
-    source: Vec<Mesh>,
+    source: std::sync::Arc<[Mesh]>,
     resources: Vec<(ResourceKey, Option<ResourceKey>, Option<ResourceKey>)>,
     projection: [f32; 16],
     settings: (bool, u32, bool),
+    environments: Vec<Option<usize>>,
     ready: bool,
+}
+
+impl Batches {
+    pub(super) fn ready_for(&self, frame: &Frame) -> bool {
+        self.ready
+            && self.view == frame.binary.as_ref().map_or(0, |v| v.view)
+            && self.source.as_ref() == frame.meshes.as_slice()
+            && self.projection == frame.view_projection
+    }
 }
 
 fn eligible(mesh: &Mesh) -> bool {
@@ -211,6 +222,15 @@ impl Renderer {
                 )
             })
             .collect();
+        let environments: Vec<_> = (0..frame.meshes.len())
+            .map(|index| {
+                frame
+                    .settings
+                    .local_environments
+                    .iter()
+                    .position(|local| local.meshes.contains(&index))
+            })
+            .collect();
         let view = frame.binary.as_ref().map_or(0, |v| v.view);
         let settings = (
             frame.settings.reversed_depth(),
@@ -219,10 +239,11 @@ impl Renderer {
         );
         if self.batches.ready
             && self.batches.view == view
-            && self.batches.source == frame.meshes
+            && self.batches.source.as_ref() == frame.meshes.as_slice()
             && self.batches.resources == resources
             && self.batches.projection == frame.view_projection
             && self.batches.settings == settings
+            && self.batches.environments == environments
             && self
                 .batches
                 .key
@@ -264,9 +285,9 @@ impl Renderer {
             order: draws,
             view,
             source: if frame.meshes.len() <= MAX_CACHED_MESHES {
-                frame.meshes.clone()
+                frame.meshes.clone().into()
             } else {
-                vec![]
+                [].into()
             },
             resources: if frame.meshes.len() <= MAX_CACHED_MESHES {
                 resources
@@ -275,6 +296,7 @@ impl Renderer {
             },
             projection: frame.view_projection,
             settings,
+            environments: environments.clone(),
             ready: frame.meshes.len() <= MAX_CACHED_MESHES,
             ..Default::default()
         };
@@ -295,6 +317,7 @@ impl Renderer {
                 let next = candidate.order[end].mesh;
                 if bounds[next].is_none()
                     || &normalized[next] != m
+                    || environments[next] != environments[first]
                     || (i..end).any(|j| {
                         !bounds[next]
                             .unwrap()
@@ -329,7 +352,7 @@ impl Renderer {
             self.batches = candidate;
             return Ok(());
         }
-        candidate.values = crate::instances::transform_values(&transforms);
+        candidate.values = crate::instances::transform_values(&transforms).into();
         if self
             .batches
             .key
@@ -356,7 +379,7 @@ impl Renderer {
             candidate.ready = false;
             candidate.leaders.clear();
             candidate.skipped.clear();
-            candidate.values.clear();
+            candidate.values = [].into();
         }
         self.clear_batches()?;
         self.resources.register_batch(candidate.key);
@@ -475,5 +498,85 @@ mod tests {
         renderer.render(&f, 41, 41).unwrap();
         assert_eq!(renderer.profile.borrow().draw_plan_reuses, Some(0));
         assert_eq!(renderer.profile.borrow().opaque_batch_draws, Some(0));
+    }
+    #[test]
+    #[ignore = "requires a native Metal, Vulkan or DX12 device"]
+    fn probe_assignments_split_batches_and_invalidate_cached_plan() {
+        let mut renderer = pollster::block_on(Renderer::new()).unwrap();
+        let mut locals = Vec::new();
+        for color in [wgpu::Color::RED, wgpu::Color::GREEN] {
+            let mut keys = Vec::new();
+            for (height, mips) in [(8, 1), (8, 2), (16, 1)] {
+                let state = renderer.state.as_mut().unwrap();
+                let (key, texture) =
+                    state
+                        .resources
+                        .test_environment_texture(&state.device, height, mips);
+                let mut encoder = state.device.create_command_encoder(&Default::default());
+                for mip in 0..mips {
+                    let view = texture.create_view(&wgpu::TextureViewDescriptor {
+                        base_mip_level: mip,
+                        mip_level_count: Some(1),
+                        ..Default::default()
+                    });
+                    let _pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                        color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                            view: &view,
+                            resolve_target: None,
+                            depth_slice: None,
+                            ops: wgpu::Operations {
+                                load: wgpu::LoadOp::Clear(color),
+                                store: wgpu::StoreOp::Store,
+                            },
+                        })],
+                        ..Default::default()
+                    });
+                }
+                state.queue.submit([encoder.finish()]);
+                keys.push([
+                    key.renderer,
+                    key.device_generation,
+                    key.slot,
+                    key.slot_generation,
+                ]);
+            }
+            locals.push(crate::scene::LocalEnvironment {
+                meshes: vec![],
+                keys: keys.try_into().unwrap(),
+                intensity: 1.,
+                rotation: [0., 0., 0., 1.],
+            });
+        }
+        let mut f = frame();
+        let mesh:Mesh=serde_json::from_value(serde_json::json!({"geometry":1,"model":Mat4::IDENTITY.to_cols_array(),"color":[1,1,1],"unlit":false,"pbr":{"metallic":0,"roughness":1,"emissive":[0,0,0]}})).unwrap();
+        f.meshes = vec![mesh.clone(), mesh];
+        for (i, m) in f.meshes.iter_mut().enumerate() {
+            m.model = Mat4::from_translation(Vec3::new(if i == 0 { -0.3 } else { 0.3 }, 0., 0.))
+                .to_cols_array();
+        }
+        locals[0].meshes = vec![0, 1];
+        f.settings.local_environments = vec![locals[0].clone()];
+        renderer.render(&f, 64, 64).unwrap();
+        assert_eq!(renderer.profile.borrow().opaque_batch_draws, Some(1));
+        f.geometries.clear();
+        renderer.render(&f, 64, 64).unwrap();
+        assert_eq!(renderer.profile.borrow().draw_plan_reuses, Some(1));
+        for two in [false, true] {
+            locals[0].meshes = vec![0];
+            locals[1].meshes = vec![1];
+            f.settings.local_environments = if two {
+                locals.clone()
+            } else {
+                vec![locals[0].clone()]
+            };
+            let actual = renderer.render(&f, 64, 64).unwrap();
+            assert_eq!(renderer.profile.borrow().opaque_batch_draws, Some(0));
+            assert_eq!(renderer.profile.borrow().draw_plan_reuses, Some(0));
+            f.meshes[1].render_order = 1;
+            let expected = renderer.render(&f, 64, 64).unwrap();
+            assert_eq!(actual, expected);
+            f.meshes[1].render_order = 0;
+            println!("two_local={two}: full image equals ordered reference");
+        }
     }
 }

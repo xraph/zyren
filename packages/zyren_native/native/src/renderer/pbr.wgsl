@@ -106,7 +106,8 @@ fn shade_standard(input: VertexOutput, front: bool, original: StandardSurface) -
     let dy = dpdy(original.normal);
     let coat_dx = dpdx(original.coat_normal);
     let coat_dy = dpdy(original.coat_normal);
-    let pixel_size=max(length(dpdx(input.relative_position)),length(dpdy(input.relative_position)));
+    let source_scale=vec2<f32>(textureDimensions(screen_depth))/uniforms.viewport.xy;
+    let pixel_size=max(length(dpdx(input.relative_position))/source_scale.x,length(dpdy(input.relative_position))/source_scale.y);
     var surface=original;
     surface.roughness=filtered_roughness(surface.roughness,dot(dx,dx)+dot(dy,dy));
     if (COAT) { surface.physical[0].w=filtered_roughness(surface.physical[0].w,dot(coat_dx,coat_dx)+dot(coat_dy,coat_dy)); }
@@ -119,7 +120,7 @@ fn shade_standard(input: VertexOutput, front: bool, original: StandardSurface) -
     let n = select(-surface.normal, surface.normal, front);
     let v = normalized_or(-input.relative_position, n);
     if (mode<1.5 && !TRANSMISSION && surface.transmission[0].x==0.) {
-        surface.occlusion*=screen_ao(input.position.xy,input.relative_position,n,pixel_size);
+        surface.occlusion*=screen_ao(input.position.xy*source_scale,input.relative_position,n,pixel_size);
         if (!COAT && !SHEEN && !ANISOTROPY && !IRIDESCENCE) {
             surface.screen_reflection=screen_reflection(input.relative_position,n,v,surface.roughness);
         }

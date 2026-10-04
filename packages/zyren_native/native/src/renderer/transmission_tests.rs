@@ -116,7 +116,10 @@ fn opaque_reuse_matches_redraw_and_counts_seed_work() {
         reference.render(&frame, 39, 39).unwrap()
     );
     assert_eq!(renderer.profile.borrow().executed_mesh_draws, Some(7));
-    // The same guarded path rejects mismatched formats and loaded depth.
+    frame.settings.sample_count = 1;
+    renderer.render(&frame, 39, 39).unwrap();
+    assert!(renderer.reuse_opaque_capture(&frame, wgpu::TextureFormat::Rgba16Float, false));
+    // Vary only one guard from the reusable baseline.
     assert!(!renderer.reuse_opaque_capture(&frame, wgpu::TextureFormat::Rgba8Unorm, false));
     assert!(!renderer.reuse_opaque_capture(&frame, wgpu::TextureFormat::Rgba16Float, true));
 }

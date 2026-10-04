@@ -107,10 +107,10 @@ pub(super) struct MeshPipelines {
     deformed_standard_textured: wgpu::PipelineLayout,
     standard_textured: wgpu::PipelineLayout,
     cache: HashMap<PipelineKey, wgpu::RenderPipeline>,
-    limits: (usize, usize),
+    pub(super) limits: (usize, usize),
     retired_layouts: Vec<wgpu::BindGroupLayout>,
     #[cfg(test)]
-    fail_creation_after: Option<usize>,
+    pub(super) fail_creation_after: Option<usize>,
     #[cfg(test)]
     preparation_peak: (usize, usize),
 }

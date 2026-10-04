@@ -34,6 +34,7 @@ mod shadows;
 mod temporal;
 mod textures;
 mod timing;
+mod transaction;
 mod transmission;
 pub use shadows::ShadowStats;
 
@@ -62,6 +63,7 @@ struct Uniforms {
     inverse_view_projection: [f32; 16],
 }
 
+#[derive(Clone)]
 struct GpuGeometry {
     deformation_bounds: crate::deformation::SourceBounds,
     key: crate::resources::registry::ResourceKey,
@@ -149,6 +151,7 @@ pub struct RendererState {
     profile: std::cell::RefCell<timing::Profile>,
     draw_cache: std::cell::RefCell<draw_cache::Cache>,
     batches: batching::Batches,
+    accepted_preparation: Option<Frame>,
     layout: wgpu::BindGroupLayout,
     pbr_layout: wgpu::BindGroupLayout,
     environment_defaults: environment::Defaults,
@@ -365,6 +368,7 @@ impl Renderer {
                 profile: Default::default(),
                 draw_cache: Default::default(),
                 batches: Default::default(),
+                accepted_preparation: None,
                 last_gpu_time_ns: None,
                 diagnostic_readback_bytes: 0,
                 gpu_time_source: "unavailable",
@@ -667,6 +671,7 @@ impl Renderer {
         self.resources.stats()
     }
     pub fn close_scene_view(&mut self, view: u64) -> Result<(), String> {
+        self.accepted_preparation = None;
         self.close_batches(view)?;
         let keys = self.draw_cache.borrow_mut().remove(view);
         for key in keys {
@@ -852,7 +857,10 @@ impl Renderer {
             .filter(|g| !self.geometries.contains_key(&g.id) && !reusable.contains_key(&g.id))
             .map(|g| g.byte_length())
             .sum();
-        let mut draw_plan = self.draw_cache.borrow().plan(frame);
+        let mut draw_plan = self
+            .draw_cache
+            .borrow()
+            .plan(frame, |key| self.resources.scene_uniform_recyclable(key));
         let asset_bytes = (bytes + texture_bytes + instance_bytes + pose_bytes) as u64;
         let asset_count = frame
             .geometries
@@ -940,7 +948,6 @@ impl Renderer {
                     .flat_map(|m| m.texture_maps().map(|map| map.texture))
                     .collect(),
             });
-        self.retain_cover_bindings(frame)?;
         self.views.insert(view, state);
         if frame.admission.as_ref().is_none_or(|a| a.publish) {
             self.staging.remove(&view);
@@ -1216,7 +1223,10 @@ impl Renderer {
                         ],
                     };
                     let buffer = self.draw_uniform(
-                        draw_cache::UniformKey::Mesh(index, capture),
+                        draw_cache::UniformKey::Mesh(
+                            index,
+                            if screen_source { 2 } else { u8::from(capture) },
+                        ),
                         bytemuck::bytes_of(&uniforms),
                     );
                     let mut entries = vec![wgpu::BindGroupEntry {
@@ -1917,35 +1927,40 @@ impl Renderer {
         )?;
         self.prepare_screen_lighting(frame, render_size, graph.as_ref())?;
         self.prepare_transmission(frame, scene_format, render_size, graph.as_ref())?;
-        self.prepare_scene(frame)?;
-        self.outline_materials = if self.outlines.view(frame).is_some() {
-            self.prepare_materials_in_format(
-                frame,
-                outlines::FORMAT,
-                None,
-                frame.sample_count(),
-                true,
-            )?
-        } else {
-            vec![]
-        };
-        let mut environment = environment.prepare(self, frame);
-        if let Some(key) = capture {
-            if environment.resources.contains(&key)
-                || materials
-                    .iter()
-                    .flatten()
-                    .any(|m| m.resources.contains(&key))
-                || graph.as_ref().is_some_and(|g| g.resources().contains(&key))
-            {
-                return Err("Capture target cannot also be a frame input".into());
+        let (environment, shadows) = self.prepare_transaction(frame, scene_format, |renderer| {
+            renderer.prepare_scene(frame)?;
+            renderer.outline_materials = if renderer.outlines.view(frame).is_some() {
+                renderer.prepare_materials_in_format(
+                    frame,
+                    outlines::FORMAT,
+                    None,
+                    frame.sample_count(),
+                    true,
+                )?
+            } else {
+                vec![]
+            };
+            let mut environment = environment.prepare(renderer, frame);
+            if let Some(key) = capture {
+                if environment.resources.contains(&key)
+                    || materials
+                        .iter()
+                        .flatten()
+                        .any(|m| m.resources.contains(&key))
+                    || graph.as_ref().is_some_and(|g| g.resources().contains(&key))
+                {
+                    return Err("Capture target cannot also be a frame input".into());
+                }
+                environment.resources.push(key);
             }
-            environment.resources.push(key);
-        }
-        let shadows = self.prepare_shadows(frame)?;
-        self.prepare_temporal(frame, render_size)?;
-        self.prepare_batches(frame)?;
-        self.prepare_pipelines(frame, scene_format)?;
+            let shadows = renderer.prepare_shadows(frame)?;
+            renderer.prepare_temporal(frame, render_size)?;
+            renderer.prepare_batches(frame)?;
+            renderer.prepare_pipelines(frame, scene_format)?;
+            // Retaining cover bindings is the final recoverable publication check.
+            renderer.retain_cover_bindings(frame)?;
+            Ok((environment, shadows))
+        })?;
         self.commit_scene(frame)?;
         if initialized_depth.is_none()
             && self
@@ -2124,23 +2139,28 @@ impl Renderer {
         )?;
         self.prepare_screen_lighting(frame, render_size, graph.as_ref())?;
         self.prepare_transmission(frame, scene_format, render_size, graph.as_ref())?;
-        self.prepare_scene(frame)?;
-        self.outline_materials = if self.outlines.view(frame).is_some() {
-            self.prepare_materials_in_format(
-                frame,
-                outlines::FORMAT,
-                None,
-                frame.sample_count(),
-                true,
-            )?
-        } else {
-            vec![]
-        };
-        let environment = environment.prepare(self, frame);
-        let shadows = self.prepare_shadows(frame)?;
-        self.prepare_temporal(frame, render_size)?;
-        self.prepare_batches(frame)?;
-        self.prepare_pipelines(frame, scene_format)?;
+        let (environment, shadows) = self.prepare_transaction(frame, scene_format, |renderer| {
+            renderer.prepare_scene(frame)?;
+            renderer.outline_materials = if renderer.outlines.view(frame).is_some() {
+                renderer.prepare_materials_in_format(
+                    frame,
+                    outlines::FORMAT,
+                    None,
+                    frame.sample_count(),
+                    true,
+                )?
+            } else {
+                vec![]
+            };
+            let environment = environment.prepare(renderer, frame);
+            let shadows = renderer.prepare_shadows(frame)?;
+            renderer.prepare_temporal(frame, render_size)?;
+            renderer.prepare_batches(frame)?;
+            renderer.prepare_pipelines(frame, scene_format)?;
+            // Retaining cover bindings is the final recoverable publication check.
+            renderer.retain_cover_bindings(frame)?;
+            Ok((environment, shadows))
+        })?;
         self.commit_scene(frame)?;
         self.resize(width, height);
         if depth {

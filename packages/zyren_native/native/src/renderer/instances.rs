@@ -7,6 +7,7 @@ use crate::{
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
+#[derive(Clone)]
 pub(super) struct GpuInstances {
     pub key: ResourceKey,
     pub recipe: Arc<Instances>,

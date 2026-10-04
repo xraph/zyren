@@ -62,6 +62,7 @@ struct Telemetry {
 pub struct ResourceStore {
     registry: ResourceRegistry<Resource>,
     optional_batch: Option<ResourceKey>,
+    scene_patches: Option<Vec<(wgpu::CommandBuffer, Vec<ResourceKey>)>>,
     batch_pinned: bool,
     serial: u64,
     uploaded: u64,
@@ -80,6 +81,7 @@ impl Default for ResourceStore {
         Self {
             registry: ResourceRegistry::new(renderer, 1, MAX_RESIDENT_BYTES),
             optional_batch: None,
+            scene_patches: None,
             batch_pinned: false,
             serial: 0,
             uploaded: 0,
@@ -188,6 +190,40 @@ impl ResourceStore {
             self.registry.mark_used(*key, self.serial)?;
         }
         Ok(())
+    }
+    pub(crate) fn scene_uniform_recyclable(&self, key: ResourceKey) -> bool {
+        self.registry
+            .owned_completed(
+                key,
+                if self.scene_patches.is_some() { 2 } else { 1 },
+                self.completed.load(Ordering::Acquire),
+            )
+            .unwrap_or(false)
+    }
+    pub(crate) fn begin_scene_patches(&mut self) {
+        self.scene_patches = Some(vec![]);
+    }
+    pub(crate) fn reject_scene_patches(&mut self) {
+        self.scene_patches = None;
+    }
+    pub(crate) fn accept_scene_patches(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+    ) -> Result<(), ResourceError> {
+        let pending = self.scene_patches.take().unwrap_or_default();
+        if pending.is_empty() {
+            return Ok(());
+        }
+        let (commands, keys): (Vec<_>, Vec<_>) = pending.into_iter().unzip();
+        self.submit(device, queue, commands)?;
+        for key in keys.into_iter().flatten() {
+            self.registry.mark_used(key, self.serial)?;
+        }
+        Ok(())
+    }
+    pub(crate) fn retain_scene_resource(&mut self, key: ResourceKey) -> Result<(), ResourceError> {
+        self.registry.retain(key)
     }
     pub(crate) fn register_batch(&mut self, key: Option<ResourceKey>) {
         self.optional_batch = key;
@@ -1259,5 +1295,44 @@ mod batch_capacity_tests {
         assert!(!store.batch_is_live(key));
         assert_eq!(store.registry.resident_bytes(), 768);
         assert!(store.optional_batch.is_none());
+    }
+}
+
+#[cfg(test)]
+impl ResourceStore {
+    pub(crate) fn test_environment_texture(
+        &mut self,
+        device: &wgpu::Device,
+        height: u32,
+        mips: u32,
+    ) -> (ResourceKey, wgpu::Texture) {
+        let texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("probe batch fixture"),
+            size: wgpu::Extent3d {
+                width: 16,
+                height,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: mips,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba16Float,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
+        });
+        let bytes = (0..mips)
+            .map(|m| u64::from((16 >> m) * (height >> m)) * 8)
+            .sum();
+        let key = self
+            .registry
+            .insert(
+                Resource::Texture {
+                    texture: texture.clone(),
+                    usage: 3,
+                },
+                bytes,
+            )
+            .unwrap();
+        (key, texture)
     }
 }

@@ -104,15 +104,20 @@ void main() {
         final closing = await reg.prepare(replacement);
         final beforeClose = (await backend.resourceStats()).uploadedBytes;
         await reg.close();
-        final closeWithPrepared = (await backend.resourceStats()).uploadedBytes - beforeClose;
+        final closeWithPrepared =
+            (await backend.resourceStats()).uploadedBytes - beforeClose;
         expect(closing.isClosed, isTrue);
         await closing.close();
         final again = await plugin.controller.registerCloudInputs(replacement);
         final beforePlainClose = (await backend.resourceStats()).uploadedBytes;
         await again.close();
-        final closeWithoutPrepared = (await backend.resourceStats()).uploadedBytes - beforePlainClose;
-        expect(closeWithPrepared, closeWithoutPrepared,
-            reason: 'Closing must not upload replacements for doomed tokens');
+        final closeWithoutPrepared =
+            (await backend.resourceStats()).uploadedBytes - beforePlainClose;
+        expect(
+          closeWithPrepared,
+          closeWithoutPrepared,
+          reason: 'Closing must not upload replacements for doomed tokens',
+        );
         final last = await plugin.controller.registerCloudInputs(replacement);
         // Leave a live pending token to prove controller disposal owns it.
         await last.prepare(replacement);

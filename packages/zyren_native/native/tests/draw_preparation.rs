@@ -141,16 +141,17 @@ fn stationary_camera_material_reorder_visibility_resize_and_cleanup() {
 fn more_than_eight_views_evict_cache_without_evicting_published_assets() {
     let mut renderer = pollster::block_on(Renderer::new()).unwrap();
     let mut frame = fixture(1);
+    let mut one_view_bytes = 0;
     for id in 1..=10 {
         view(&mut frame, id);
         renderer.render(&frame, 31, 31).unwrap();
         frame.geometries.clear();
         let p = profile(&mut renderer);
-        assert_eq!(p["drawPreparationBuffers"], 1);
-        assert!(
-            p["drawCacheUniformBytes"].as_u64().unwrap()
-                <= 8 * p["drawUniformWriteBytes"].as_u64().unwrap()
-        );
+        assert_eq!(p["drawPreparationBuffers"], if id <= 8 { 1 } else { 0 });
+        if id == 1 {
+            one_view_bytes = p["drawCacheUniformBytes"].as_u64().unwrap();
+        }
+        assert!(p["drawCacheUniformBytes"].as_u64().unwrap() <= 8 * one_view_bytes);
     }
     view(&mut frame, 10);
     renderer.render(&frame, 31, 31).unwrap();
@@ -161,7 +162,7 @@ fn more_than_eight_views_evict_cache_without_evicting_published_assets() {
         &pixels[(15 * 31 + 15) * 4..(15 * 31 + 15) * 4 + 4],
         &[255, 0, 0, 255]
     );
-    assert_eq!(profile(&mut renderer)["drawPreparationBuffers"], 1);
+    assert_eq!(profile(&mut renderer)["drawPreparationBuffers"], 0);
     for id in 1..=10 {
         renderer.close_scene_view(id).unwrap();
     }
@@ -186,7 +187,7 @@ fn transmission_keeps_distinct_pass_bindings_and_rebuilds_on_target_resize() {
     let mut frame = transmission_fixture();
     let pixels = renderer.render(&frame, 31, 31).unwrap();
     let cold = profile(&mut renderer);
-    assert_eq!(cold["drawPreparationBuffers"], 6); // 3 mesh pass slots + environment, lights, shadow sampling.
+    assert_eq!(cold["drawPreparationBuffers"], 8); // 3 mesh slots, environment, lights, shadows and two screen-lighting uniforms.
     assert_eq!(cold["drawPreparationBindGroups"], 3);
     assert_eq!(cold["passes"]["transmission"]["executed"], true);
     frame.geometries.clear();
@@ -371,7 +372,7 @@ fn cache_reclamation_admits_ninth_view_and_changed_slots_without_mutating_reject
         admitted["drawCacheUniformBytes"],
         cached["drawCacheUniformBytes"]
     );
-    assert_eq!(admitted["drawPreparationBuffers"], 1);
+    assert_eq!(admitted["drawPreparationBuffers"], 0);
     assert_eq!(renderer.scene_resource_stats().0, budget);
     assert_eq!(
         &pixels[(15 * 31 + 15) * 4..(15 * 31 + 15) * 4 + 4],
@@ -406,13 +407,13 @@ fn cache_reclamation_admits_ninth_view_and_changed_slots_without_mutating_reject
     frame.meshes[0].color_visible = false;
     view(&mut frame, 9);
     assert_eq!(renderer.render(&frame, 31, 31).unwrap(), pixels);
-    assert_eq!(profile(&mut renderer)["drawPreparationBuffers"], 1);
+    assert_eq!(profile(&mut renderer)["drawPreparationBuffers"], 0);
     assert_eq!(renderer.scene_resource_stats().0, budget);
     frame.meshes.truncate(1);
     frame.meshes[0].color_visible = true;
     view(&mut frame, 9);
     assert_eq!(renderer.render(&frame, 31, 31).unwrap(), pixels);
-    assert_eq!(profile(&mut renderer)["drawPreparationBuffers"], 1);
+    assert_eq!(profile(&mut renderer)["drawPreparationBuffers"], 0);
     assert_eq!(renderer.scene_resource_stats().0, budget);
     // Growing an existing view also reclaims an older optional cache, even
     // though no view-count eviction is otherwise required.
@@ -420,7 +421,7 @@ fn cache_reclamation_admits_ninth_view_and_changed_slots_without_mutating_reject
     view(&mut frame, 9);
     assert_eq!(renderer.render(&frame, 31, 31).unwrap(), pixels);
     let grown = profile(&mut renderer);
-    assert_eq!(grown["drawPreparationBuffers"], 1);
+    assert_eq!(grown["drawPreparationBuffers"], 0);
     assert_eq!(
         grown["drawCacheUniformBytes"],
         cached["drawCacheUniformBytes"]

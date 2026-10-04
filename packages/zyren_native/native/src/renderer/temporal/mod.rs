@@ -219,6 +219,9 @@ impl Renderer {
         }
         Ok(())
     }
+    pub(super) fn reject_temporal_preparation(&mut self) {
+        self.temporal.pending = None;
+    }
     pub(super) fn prepare_temporal(&mut self, frame: &Frame, size: [u32; 2]) -> Result<(), String> {
         self.temporal.pending = None;
         let view = frame.binary.as_ref().map_or(0, |v| v.view);

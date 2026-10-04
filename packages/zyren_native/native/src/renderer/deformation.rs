@@ -1,6 +1,7 @@
 use super::Renderer;
 use crate::{deformation::Pose, resources::registry::ResourceKey, scene::Frame};
 use std::{collections::HashSet, sync::Arc};
+#[derive(Clone)]
 pub(super) struct GpuPose {
     pub key: ResourceKey,
     pub recipe: Arc<Pose>,

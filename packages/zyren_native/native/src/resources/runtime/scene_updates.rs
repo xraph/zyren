@@ -151,8 +151,14 @@ impl ResourceStore {
             );
             uploaded += bytes.len() as u64;
         }
-        let result = self.submit(device, queue, [encoder.finish()]);
-        let mut failed = result.is_err();
+        let command = encoder.finish();
+        let mut command = Some(command);
+        let mut failed = if self.scene_patches.is_some() {
+            false
+        } else {
+            self.submit(device, queue, [command.take().unwrap()])
+                .is_err()
+        };
         for scope in [internal, memory, validation] {
             failed |= pollster::block_on(scope.pop()).is_some();
         }
@@ -176,6 +182,12 @@ impl ResourceStore {
                 geometry.byte_length() as u64,
             )?
         };
+        if let Some(command) = command {
+            self.scene_patches
+                .as_mut()
+                .unwrap()
+                .push((command, vec![base, key]));
+        }
         self.registry.mark_used(base, self.serial)?;
         self.registry.mark_used(key, self.serial)?;
         self.uploaded = self.uploaded.saturating_add(uploaded);

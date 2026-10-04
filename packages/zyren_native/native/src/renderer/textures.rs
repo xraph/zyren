@@ -4,6 +4,7 @@ use crate::{
     scene::{ColorMap, SceneTexture},
 };
 
+#[derive(Clone)]
 pub(super) struct GpuSceneTexture {
     pub key: ResourceKey,
     pub(super) recipe: std::sync::Arc<SceneTexture>,

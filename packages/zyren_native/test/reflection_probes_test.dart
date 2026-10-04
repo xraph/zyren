@@ -178,4 +178,113 @@ void main() {
     },
     skip: Platform.environment['RUN_NATIVE_GPU'] != '1',
   );
+  test('batching follows local environment selection changes', () async {
+    final backend = await NativeBackend.create();
+    final probes = await ReflectionProbes.create(backend);
+    final resources = backend.createResourceScope();
+    final captureScene = Scene()..ambient = 0;
+    final room = captureScene.add(
+      Mesh(
+        BoxGeometry(width: 10, height: 10, depth: 10),
+        StandardMaterial(
+          baseColor: const Color3(0, 0, 0),
+          emissive: const Color3(1, .5, .25),
+          emissiveIntensity: 8,
+        ),
+      ),
+    );
+    final d = ReflectionProbeDescriptor(
+      id: 0,
+      position: Vec3.zero,
+      bounds: Bounds3(const Vec3(-2, -2, -2), const Vec3(2, 2, 2)),
+      faceSize: 16,
+      quality: const EnvironmentQuality(
+        specularWidth: 16,
+        diffuseWidth: 16,
+        brdfSize: 16,
+        samples: 64,
+      ),
+    );
+    try {
+      await probes.update(d, scene: captureScene, contentRevision: 1);
+      while (probes.pending) {
+        await probes.advance();
+      }
+      final pairScene = Scene()
+        ..ambient = 0
+        ..reflectionProbes = probes;
+      final sharedGeometry = PlaneGeometry(width: .4, height: .4);
+      final sharedMaterial = StandardMaterial(roughness: 1);
+      final pair = [
+        for (final x in [-.5, .5])
+          pairScene.add(
+            Mesh(sharedGeometry, sharedMaterial)..position = Vec3(x, 0, 0),
+          ),
+      ];
+      final pairCamera = PerspectiveCamera(position: const Vec3(0, 0, 3));
+      Future<ReadbackOutput> pairDraw() async =>
+          await backend.render(
+                FrameSubmission.capture(
+                  scene: pairScene,
+                  camera: pairCamera,
+                  size: PhysicalSize(96, 64),
+                ),
+              )
+              as ReadbackOutput;
+      Future<void> comparePair(int expectedBatches) async {
+        final actual = await pairDraw();
+        expect(actual.stats.profile!.opaqueBatchDraws, expectedBatches);
+        final warm = await pairDraw();
+        expect(warm.stats.profile!.drawPlanReuses, 1);
+        expect(warm.stats.profile!.automaticInstanceUploadBytes, 0);
+        pair[1].renderOrder = 1;
+        final reference = await pairDraw();
+        expect(reference.stats.profile!.opaqueBatchDraws, 0);
+        expect(actual.image.pixels, orderedEquals(reference.image.pixels));
+        pair[1].renderOrder = 0;
+      }
+
+      await comparePair(1);
+      // Selection changes while mesh transforms, camera and material stay fixed.
+      await probes.update(
+        ReflectionProbeDescriptor(
+          id: 0,
+          position: const Vec3(-.5, 0, 0),
+          bounds: Bounds3(const Vec3(-1, -1, -1), const Vec3(0, 1, 1)),
+          faceSize: 16,
+          quality: d.quality,
+        ),
+        scene: captureScene,
+        contentRevision: 1,
+      );
+      while (probes.pending) {
+        await probes.advance();
+      }
+      await comparePair(0);
+      room.material = StandardMaterial(
+        baseColor: const Color3(0, 0, 0),
+        emissive: const Color3(.1, 1, .1),
+        emissiveIntensity: 8,
+      );
+      await probes.update(
+        ReflectionProbeDescriptor(
+          id: 1,
+          position: const Vec3(.5, 0, 0),
+          bounds: Bounds3(const Vec3(0, -1, -1), const Vec3(1, 1, 1)),
+          faceSize: 16,
+          quality: d.quality,
+        ),
+        scene: captureScene,
+        contentRevision: 1,
+      );
+      while (probes.pending) {
+        await probes.advance();
+      }
+      await comparePair(0);
+    } finally {
+      await probes.close();
+      await resources.close();
+      await backend.close();
+    }
+  }, skip: Platform.environment['RUN_NATIVE_GPU'] != '1');
 }

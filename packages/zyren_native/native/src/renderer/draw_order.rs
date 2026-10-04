@@ -12,6 +12,7 @@ pub(super) fn geometry_center(geometry: &Geometry) -> Vec3 {
     min * 0.5 + max * 0.5
 }
 
+#[derive(Clone)]
 pub(super) struct Draw {
     pub mesh: usize,
     pub instances: std::ops::Range<u32>,

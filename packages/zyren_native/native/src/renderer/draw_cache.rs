@@ -7,7 +7,7 @@ const MAX_VIEWS: usize = 8;
 const MAX_BYTES: usize = 64 * 1024 * 1024;
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub(super) enum UniformKey {
-    Mesh(usize, bool),
+    Mesh(usize, u8),
     Lighting,
     Environment(usize),
     Shadows,
@@ -16,25 +16,27 @@ pub(super) enum UniformKey {
 }
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub(super) struct BindingKey(pub usize, pub u8);
+#[derive(Clone)]
 struct Uniform {
     buffer: wgpu::Buffer,
     resource: crate::resources::registry::ResourceKey,
-    bytes: Vec<u8>,
+    bytes: std::sync::Arc<[u8]>,
     used: u64,
 }
-#[derive(PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 enum Resource {
     Buffer(wgpu::Buffer, u64, Option<wgpu::BufferSize>),
     Texture(wgpu::TextureView),
     Sampler(wgpu::Sampler),
 }
+#[derive(Clone)]
 struct Binding {
     layout: wgpu::BindGroupLayout,
     resources: Vec<(u32, Resource)>,
     group: wgpu::BindGroup,
     used: u64,
 }
-#[derive(Default)]
+#[derive(Clone, Default)]
 struct View {
     used: u64,
     uniforms: HashMap<UniformKey, Uniform>,
@@ -50,22 +52,52 @@ impl View {
             .sum()
     }
 }
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub(super) struct Cache {
     views: HashMap<u64, View>,
     current: u64,
     epoch: u64,
+    deferred: Option<Vec<(wgpu::Buffer, u64, Vec<u8>)>>,
 }
 pub(super) struct Plan {
     view: u64,
     evicted: Vec<u64>,
     unused: Vec<UniformKey>,
     specs: Vec<(UniformKey, usize)>,
+    recycled: Vec<(u64, UniformKey, UniformKey)>,
+    recyclable: HashSet<crate::resources::registry::ResourceKey>,
     pub additional_bytes: u64,
     pub additional_count: usize,
 }
+impl Plan {
+    pub fn unchanged(&self) -> bool {
+        self.additional_count == 0 && self.unused.is_empty() && self.evicted.is_empty()
+    }
+}
 impl Cache {
-    pub fn plan(&self, frame: &crate::scene::Frame) -> Plan {
+    pub fn all_keys(&self) -> Vec<crate::resources::registry::ResourceKey> {
+        self.views
+            .values()
+            .flat_map(|v| v.uniforms.values().map(|u| u.resource))
+            .collect()
+    }
+    pub fn discard_writes(&mut self) {
+        self.deferred = None;
+    }
+    pub fn defer_writes(&mut self) {
+        self.deferred = Some(vec![]);
+    }
+    pub fn submit_writes(&mut self, queue: &wgpu::Queue) {
+        for (buffer, offset, bytes) in self.deferred.take().unwrap_or_default() {
+            queue.write_buffer(&buffer, offset, &bytes);
+        }
+    }
+
+    pub fn plan(
+        &self,
+        frame: &crate::scene::Frame,
+        can_recycle: impl Fn(crate::resources::registry::ResourceKey) -> bool,
+    ) -> Plan {
         let id = frame.binary.as_ref().map_or(0, |v| v.view);
         let view = self.views.get(&id);
         let specs = specs(frame);
@@ -85,6 +117,12 @@ impl Cache {
             additional_bytes: missing.iter().map(|(_, size)| *size as u64).sum(),
             additional_count: missing.len(),
             specs,
+            recycled: vec![],
+            recyclable: self
+                .all_keys()
+                .into_iter()
+                .filter(|key| can_recycle(*key))
+                .collect(),
         };
         let candidate_bytes: usize = plan.specs.iter().map(|(_, size)| *size).sum();
         while self.views.len() - plan.evicted.len() + usize::from(view.is_none()) > MAX_VIEWS
@@ -101,7 +139,43 @@ impl Cache {
                 break;
             }
         }
+        self.recycle(&mut plan);
         plan
+    }
+    fn recycle(&self, plan: &mut Plan) {
+        plan.recycled.clear();
+        let current = self.views.get(&plan.view);
+        let mut available: Vec<_> = self
+            .views
+            .iter()
+            .flat_map(|(id, v)| {
+                v.uniforms
+                    .iter()
+                    .filter(|(key, u)| {
+                        plan.recyclable.contains(&u.resource)
+                            && (plan.evicted.contains(id)
+                                || (*id == plan.view && plan.unused.contains(key)))
+                    })
+                    .map(|(key, u)| (*id, *key, u.buffer.size()))
+            })
+            .collect();
+        plan.additional_bytes = 0;
+        plan.additional_count = 0;
+        for (new, size) in &plan.specs {
+            if current.is_some_and(|v| v.uniforms.contains_key(new)) {
+                continue;
+            }
+            if let Some(i) = available
+                .iter()
+                .position(|(_, _, bytes)| *bytes == *size as u64)
+            {
+                let (view, old, _) = available.swap_remove(i);
+                plan.recycled.push((view, old, *new));
+            } else {
+                plan.additional_bytes += *size as u64;
+                plan.additional_count += 1;
+            }
+        }
     }
     pub fn reclaim_older_view(&self, plan: &mut Plan) -> bool {
         let oldest = self
@@ -112,32 +186,57 @@ impl Cache {
             .map(|(id, _)| *id);
         if let Some(oldest) = oldest {
             plan.evicted.push(oldest);
+            self.recycle(plan);
             true
         } else {
             false
         }
     }
     pub fn reclaimed_keys(&self, plan: &Plan) -> Vec<crate::resources::registry::ResourceKey> {
-        plan.evicted
+        self.views
             .iter()
-            .flat_map(|id| self.views[id].uniforms.values().map(|u| u.resource))
-            .chain(
-                plan.unused
+            .flat_map(|(id, v)| {
+                v.uniforms
                     .iter()
-                    .map(|key| self.views[&plan.view].uniforms[key].resource),
-            )
+                    .filter(move |(key, _)| {
+                        (plan.evicted.contains(id)
+                            || (*id == plan.view && plan.unused.contains(key)))
+                            && !plan
+                                .recycled
+                                .iter()
+                                .any(|(view, old, _)| view == id && old == *key)
+                    })
+                    .map(|(_, u)| u.resource)
+            })
             .collect()
     }
     pub fn begin(&mut self, plan: &Plan) -> Vec<crate::resources::registry::ResourceKey> {
         // Commit the already admitted plan. Registry retirement checks serials.
         self.epoch += 1;
         self.current = plan.view;
+        let recycled: Vec<_> = plan
+            .recycled
+            .iter()
+            .map(|(view, old, new)| {
+                (
+                    *new,
+                    self.views
+                        .get_mut(view)
+                        .unwrap()
+                        .uniforms
+                        .remove(old)
+                        .unwrap(),
+                )
+            })
+            .collect();
         let retired = plan
             .evicted
             .iter()
             .flat_map(|id| self.remove(*id))
             .collect();
-        self.views.entry(plan.view).or_default().used = self.epoch;
+        let view = self.views.entry(plan.view).or_default();
+        view.used = self.epoch;
+        view.uniforms.extend(recycled);
         retired
     }
     pub fn remove(&mut self, view: u64) -> Vec<crate::resources::registry::ResourceKey> {
@@ -215,7 +314,7 @@ impl Cache {
                 Uniform {
                     buffer,
                     resource,
-                    bytes: Vec::new(),
+                    bytes: [].into(),
                     used: self.epoch,
                 },
             );
@@ -286,11 +385,18 @@ impl Cache {
         uniform.used = self.epoch;
         let range = dirty_range(&uniform.bytes, bytes);
         if let Some(range) = range {
-            queue.write_buffer(&uniform.buffer, range.start as u64, &bytes[range.clone()]);
+            if let Some(writes) = &mut self.deferred {
+                writes.push((
+                    uniform.buffer.clone(),
+                    range.start as u64,
+                    bytes[range.clone()].to_vec(),
+                ));
+            } else {
+                queue.write_buffer(&uniform.buffer, range.start as u64, &bytes[range.clone()]);
+            }
             *profile.draw_uniform_write_calls.get_or_insert(0) += 1;
             *profile.draw_uniform_write_bytes.get_or_insert(0) += range.len() as u64;
-            uniform.bytes.clear();
-            uniform.bytes.extend_from_slice(bytes);
+            uniform.bytes = bytes.into();
         } else {
             *profile.draw_uniform_skipped_writes.get_or_insert(0) += 1;
         }
@@ -392,15 +498,15 @@ fn dirty_range(old: &[u8], new: &[u8]) -> Option<std::ops::Range<usize>> {
 }
 fn specs(frame: &crate::scene::Frame) -> Vec<(UniformKey, usize)> {
     use UniformKey::*;
-    let capture = frame
+    let source = frame
         .settings
         .screen_lighting
         .as_ref()
-        .is_some_and(super::screen_lighting::Settings::enabled)
-        || frame
-            .meshes
-            .iter()
-            .any(|m| m.color_visible && m.requires_opaque_capture());
+        .is_some_and(super::screen_lighting::Settings::enabled);
+    let capture = frame
+        .meshes
+        .iter()
+        .any(|m| m.color_visible && m.requires_opaque_capture());
     let mut specs = Vec::with_capacity(frame.meshes.len() * 2 + 3);
     if frame.meshes.iter().any(|m| m.pbr.is_some()) {
         specs.extend(
@@ -431,9 +537,12 @@ fn specs(frame: &crate::scene::Frame) -> Vec<(UniformKey, usize)> {
         .enumerate()
         .filter(|(_, m)| m.color_visible)
     {
-        specs.push((Mesh(index, false), std::mem::size_of::<super::Uniforms>()));
+        specs.push((Mesh(index, 0), std::mem::size_of::<super::Uniforms>()));
+        if source && !mesh.requires_opaque_capture() && mesh.alpha_mode != 2 {
+            specs.push((Mesh(index, 2), std::mem::size_of::<super::Uniforms>()));
+        }
         if capture && !mesh.requires_opaque_capture() && mesh.alpha_mode != 2 {
-            specs.push((Mesh(index, true), std::mem::size_of::<super::Uniforms>()));
+            specs.push((Mesh(index, 1), std::mem::size_of::<super::Uniforms>()));
         }
     }
     specs
@@ -466,6 +575,7 @@ impl Renderer {
         )
     }
     pub(super) fn clear_draw_cache(&mut self) {
+        self.accepted_preparation = None;
         let keys = self.draw_cache.borrow_mut().clear();
         for key in keys {
             let _ = self.resources.release_scene_resource(key);
