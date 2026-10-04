@@ -42,7 +42,13 @@ void main() {
           }
           if (state.world?.definition.id == id &&
               controller?.latestFrameStats != null &&
+              state.world!.host.clock.tick >= 6 &&
               state.world!.presentation!.isReady) {
+            final stats = controller!.latestFrameStats!;
+            expect(stats.readbackBytes, 0);
+            debugPrint(
+              'Ocean native scene $id: revision=${state.world!.definition.revision}; tick=${state.world!.host.clock.tick}; frame=${stats.frameId}; readback=${stats.readbackBytes}; size=${stats.physicalSize.width}x${stats.physicalSize.height}',
+            );
             lastState = state;
             return state;
           }

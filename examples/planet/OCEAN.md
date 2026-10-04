@@ -3,6 +3,8 @@
 You can inspect six saved scenes: open water, storm swell, shallow coast, a
 buoyant vessel, underwater transport and an orbit-to-surface camera route.
 The scene definitions pin the sea-state seed, epoch, camera and fixture revision.
+Revision 2 keeps storm/orbit horizontal choppiness within the tested physical query
+bounds without changing their vertical wave spectra.
 
 Run with the workspace Flutter 3.47.5 SDK:
 
@@ -37,7 +39,7 @@ consume the stored bytes. No real geographic coastline is bundled.
 ## Checks and captures
 
 ```sh
-fvm dart test test/ocean_scenes_test.dart
+fvm dart test test/ocean_scenes_test.dart test/ocean_query_scenes_test.dart
 RUN_NATIVE_GPU=1 fvm dart test test/ocean_native_scenes_test.dart --concurrency=1
 fvm flutter test test/ocean_layout_test.dart
 fvm flutter test integration_test/ocean_lab_test.dart -d macos

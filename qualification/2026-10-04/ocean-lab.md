@@ -59,11 +59,13 @@ readback. The GPU column covers the main render submission and excludes separate
 wave/interaction compute submissions. Total-frame GPU time, isolated water cost
 and physical GPU residency remain null. No frame-rate target passes from this run.
 
-At the final timestamp, the three sampled points in calm, coast, vessel and
+In the original revision-1 capture run, the three sampled points in calm, coast, vessel and
 underwater scenes pass the current query policy. Storm and orbit samples report
 `OceanQueryFailure.accuracy`. Their failures remain visible in JSON; no substitute
 height or weaker policy was used. Error bounds describe the numerical model,
-not agreement with real seawater.
+not agreement with real seawater. [Revision 2](ocean-query-admission.md) now admits
+the checked samples by reducing horizontal choppiness while preserving the
+vertical spectrum. The original capture report remains unchanged.
 
 Every scene returns to zero owned registry allocations and graphs after disposal.
 Still images and normal/foam debug views are beside the report. The
@@ -78,9 +80,9 @@ Source PNG frames were retained only in the temporary capture directory.
 | Real Earth coast/bathymetry | Blocked on an identified dataset, documented provenance and offline distribution terms |
 | Desktop High, 1920x1080 at 60 fps | Unqualified; only exploratory custom-profile timings exist |
 | Mobile Medium, 1280x720 at 30 fps | Unrun |
-| Storm/orbit query admission | Current saved fixtures fail the requested accuracy policy |
+| Storm/orbit query admission | Revision 2 passes the recorded default-policy samples; see [admission record](ocean-query-admission.md) |
 | macOS native-view scene launcher | Six scenes, controls and cleanup pass |
-| Android Vulkan | Device run pending |
+| Android Vulkan | Pixel 9 Pro six-scene native integration passes; performance remains unqualified |
 | iPhone Metal | Device run pending |
 | iPad Metal | Device run pending |
 | Windows DX12 | Unrun |

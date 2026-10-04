@@ -42,7 +42,7 @@ final class OceanLabSceneDefinition {
   );
   static List<OceanLabSceneDefinition> decode(String source) {
     final json = jsonDecode(source) as Map<String, dynamic>;
-    if (json['version'] != 1 || json['revision'] != 'ocean-lab-scenes-1') {
+    if (json['version'] != 1 || json['revision'] != 'ocean-lab-scenes-2') {
       throw const FormatException('Unknown ocean lab scene revision.');
     }
     final epoch = DateTime.parse(json['epoch'] as String);

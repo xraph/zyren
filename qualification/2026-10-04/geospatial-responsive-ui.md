@@ -25,6 +25,12 @@ The launcher header and filters scroll with the scene list on short windows.
 - macOS Metal camera integration passes saved poses, roll, projection changes,
   narrow resizing and cleanup. It presents six frames with zero readback.
 
+The Pixel 9 Pro Android 17 native integration also passes all six ocean scenes,
+panel controls and return/cleanup. The [revision-2 receipt](ocean-scenes-2/pixel-native.json) records zero pixel
+readback and at least six simulation ticks for every scene at 960x1989.
+Android reported a locked screen during setup. The delay was not isolated,
+and the test duration is not rendering-performance evidence.
+
 The initial layout sweep exposed long switch labels and ocean selectors that
 could overflow at 200% text. Switch rows now wrap, selector labels sit above their
 values, and menu items can wrap. Renderer failures and unavailable offline data

@@ -1,0 +1,68 @@
+{
+  "schema": 1,
+  "device": "Pixel 9 Pro",
+  "platform": "Android 17 (API 37)",
+  "emulator": false,
+  "test": "examples/planet/integration_test/ocean_lab_test.dart",
+  "scope": "Native scene presentation, at least six simulation ticks per scene, responsive controls, independent layers, pause and return/cleanup. No sustained frame-rate claim.",
+  "scenes": [
+    {
+      "scene": "calm",
+      "revision": "ocean-lab-scenes-2",
+      "simulationTick": 6,
+      "frameId": 1,
+      "readbackBytes": 0,
+      "physicalWidth": 960,
+      "physicalHeight": 1989
+    },
+    {
+      "scene": "storm",
+      "revision": "ocean-lab-scenes-2",
+      "simulationTick": 6,
+      "frameId": 1,
+      "readbackBytes": 0,
+      "physicalWidth": 960,
+      "physicalHeight": 1989
+    },
+    {
+      "scene": "coast",
+      "revision": "ocean-lab-scenes-2",
+      "simulationTick": 6,
+      "frameId": 1,
+      "readbackBytes": 0,
+      "physicalWidth": 960,
+      "physicalHeight": 1989
+    },
+    {
+      "scene": "vessel",
+      "revision": "ocean-lab-scenes-2",
+      "simulationTick": 6,
+      "frameId": 1,
+      "readbackBytes": 0,
+      "physicalWidth": 960,
+      "physicalHeight": 1989
+    },
+    {
+      "scene": "underwater",
+      "revision": "ocean-lab-scenes-2",
+      "simulationTick": 6,
+      "frameId": 1,
+      "readbackBytes": 0,
+      "physicalWidth": 960,
+      "physicalHeight": 1989
+    },
+    {
+      "scene": "orbit",
+      "revision": "ocean-lab-scenes-2",
+      "simulationTick": 6,
+      "frameId": 1,
+      "readbackBytes": 0,
+      "physicalWidth": 960,
+      "physicalHeight": 1989
+    }
+  ],
+  "cleanup": "OceanLabPageState.whenClosed completed and its controller reports disposed. Global Android resource counters were not queried.",
+  "physicalGpuResidencyBytes": null,
+  "sustainedFramesPerSecond": null,
+  "passed": true
+}
