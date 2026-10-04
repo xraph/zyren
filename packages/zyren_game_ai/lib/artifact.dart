@@ -13,12 +13,13 @@ const structuredModelEvaluationPlanHashes = {
   'deaf8017551bc1709af5f6e689f4c3f377f52b2822c6a02c9522986cb52e3afd',
 };
 
-/// Plans are added only after the exact native visual ABI/catalog is frozen.
-/// Empty entries keep unqualified visual artifacts closed to activation.
+/// Exact frozen visual plans. Registration does not qualify any student model.
 const visualModelEvaluationPlanHashes = <String, Set<String>>{
-  'rgb': {},
-  'depth': {},
-  'combined': {},
+  'rgb': {'55d7313ed3e2695364afcd21c5afbd47bfaebd4e4cac26b484b801b06f9b149f'},
+  'depth': {'d347818a1e38e1ddc8be7467a5b43dab4f8efcd2cbc0894864ed29bd655aae6d'},
+  'combined': {
+    'c256c2036fdaf2cb2e65c3986ee6d75ab70883cdeb2980e430cd18fc5d144f68',
+  },
 };
 
 TrainingVisualProfile? _artifactVisualProfile(String family) {
