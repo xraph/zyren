@@ -1,0 +1,157 @@
+{
+  "schemaVersion": 1,
+  "status": "regressionsPassed",
+  "baseCommit": "a1c348ed98533a902eebe6f5e96fccccf9e23692",
+  "changes": [
+    "7dc18ab8ed752e73047ff43792cee58303b32c5c",
+    "4c2e75a2d6dbc77ffc352248b87b7a31fd5220e9",
+    "7da64a726c7ad88be5b16a76eecdff176d2a44be"
+  ],
+  "passedTests": 108,
+  "checks": [
+    {
+      "suite": "studio",
+      "runner": "flutter",
+      "passed": 14,
+      "status": "passed"
+    },
+    {
+      "suite": "native-serial",
+      "runner": "dart",
+      "passed": 25,
+      "status": "passed"
+    },
+    {
+      "suite": "physics",
+      "runner": "dart",
+      "passed": 32,
+      "status": "passed"
+    },
+    {
+      "suite": "ai",
+      "runner": "dart",
+      "passed": 12,
+      "status": "passed"
+    },
+    {
+      "suite": "core",
+      "runner": "pure",
+      "passed": 2,
+      "status": "passed"
+    },
+    {
+      "suite": "authored",
+      "runner": "pure",
+      "passed": 2,
+      "status": "passed"
+    },
+    {
+      "suite": "session",
+      "runner": "pure",
+      "passed": 12,
+      "status": "passed"
+    },
+    {
+      "suite": "topology",
+      "runner": "pure",
+      "passed": 3,
+      "status": "passed"
+    },
+    {
+      "suite": "possession",
+      "runner": "pure",
+      "passed": 6,
+      "status": "passed"
+    }
+  ],
+  "files": [
+    {
+      "path": "source-overlays.json",
+      "bytes": 2603,
+      "sha256": "cbf91f2ef4f0185d3117d364544a1683d5060bfb3f78e687c44e61dc80e810d5"
+    },
+    {
+      "path": "studio.log.txt.gz",
+      "bytes": 487,
+      "sha256": "a67158663dd3e748de6754202bffb58cdce69d37f44cfbc0a1e678244456d639",
+      "uncompressedBytes": 3208,
+      "uncompressedSha256": "265fa01fd12f5cb0d79d4267002f1ecbd24e49fad0ddbfedd60f5bf2ed34efa8"
+    },
+    {
+      "path": "native-serial.log.txt.gz",
+      "bytes": 1379,
+      "sha256": "ba5d0bc6358c304dca3f67f89864f4ee6db95875f34d693c8357e07ffbc5a2f5",
+      "uncompressedBytes": 3509,
+      "uncompressedSha256": "12f2f6acdba42c399fb310f5f959cf30bbbfa8935b84e49701886921a657d5ac"
+    },
+    {
+      "path": "physics.log.txt.gz",
+      "bytes": 1265,
+      "sha256": "ace57e7d2a43b4bad74b3dc2a2f80b5763c15c6c2fbd8dc8790d20d148a7326d",
+      "uncompressedBytes": 3525,
+      "uncompressedSha256": "31eb806714e9f85611f08514899cdc539a65cdc70f9b35f333b0112de5e4182d"
+    },
+    {
+      "path": "ai.log.txt.gz",
+      "bytes": 593,
+      "sha256": "6f3a8c4dce96f8d36d84a07ac8cb8976ef9a25bb88851f088f7b6ad92762800b",
+      "uncompressedBytes": 1504,
+      "uncompressedSha256": "c0caa35a80468f3581a83d855f64cedf9f9bf29d03133c9573818050d56e8ec3"
+    },
+    {
+      "path": "core.log.txt.gz",
+      "bytes": 172,
+      "sha256": "96ab2092a37c6c1edbc1857fc4e5bc93ccda249034796cc0472259816f4a9422",
+      "uncompressedBytes": 256,
+      "uncompressedSha256": "85c00696387db3f3babe6df67eba09bfd0c54a3a8b543288db3595b3190bea46"
+    },
+    {
+      "path": "authored.log.txt.gz",
+      "bytes": 171,
+      "sha256": "116a1e85869f38eba74289726250b74662f48e3905d1af377b2a63bb58b9a313",
+      "uncompressedBytes": 232,
+      "uncompressedSha256": "1280022c32541b228d624e628de9bd6493ec471b0d9f79b723ab19005bdc9315"
+    },
+    {
+      "path": "session.log.txt.gz",
+      "bytes": 500,
+      "sha256": "e1936153fc40e92159fc38a11ec09a728c0a331821b6c4f8085e3894d0af88c4",
+      "uncompressedBytes": 1153,
+      "uncompressedSha256": "9b2b1b4ee6beb31fa735ddebf412be74f3f00977d26952c39e9cb4b8aebdb834"
+    },
+    {
+      "path": "topology.log.txt.gz",
+      "bytes": 221,
+      "sha256": "a2f4f4134b5c12638103a8841a396eb3049f0f9b5f65598fa67a9f7e1786a082",
+      "uncompressedBytes": 349,
+      "uncompressedSha256": "308c50d585266602260385a6d00255a5e19967c15d9753c55f53e5abaddaf706"
+    },
+    {
+      "path": "possession.log.txt.gz",
+      "bytes": 289,
+      "sha256": "cf3ee0dfbf526f4c2d2e37a87dd23e9f74e75d34a0881607b3ed39fc486b3d22",
+      "uncompressedBytes": 578,
+      "uncompressedSha256": "8c833003aebab2d9e53f19ae4150cb69da3926453b73dabc526841020abf0f5a"
+    },
+    {
+      "path": "foreground-red.log.txt.gz",
+      "bytes": 693,
+      "sha256": "e714bb5d250d97ceecc56344ec612e77ed307a8acef0455a4facdc6b0be596bc",
+      "uncompressedBytes": 2355,
+      "uncompressedSha256": "7111dab7fe982e8cffef7159eacf68e339867e02aacb3635bad7a03ba51a5f0c"
+    },
+    {
+      "path": "analyze.log.txt.gz",
+      "bytes": 189,
+      "sha256": "5b11bb4476b90846558886279520c5aeb50f808e02683bfeccba5f99f9e405b3",
+      "uncompressedBytes": 353,
+      "uncompressedSha256": "c1565e70de4a5a4ab2827e49025ebb2a9faca8e60f7f82d0392c30d20baa6d68"
+    }
+  ],
+  "limitations": [
+    "Native tests use the frozen base plus explicit source overlays, not the whole current shared checkout.",
+    "Native collision-query dirty cache is not included in this execution.",
+    "No physical presenter, accessibility or sustained capacity is established by these regression suites.",
+    "Three separate training probe source overlays and generated host files remained in the checkout."
+  ]
+}

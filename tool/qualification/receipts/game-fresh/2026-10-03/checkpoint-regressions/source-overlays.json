@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "baseCommit": "a1c348ed98533a902eebe6f5e96fccccf9e23692",
+  "worktree": "/Users/rexraphael/.codex/worktrees/game-ai-qualification/flutter-geospatial",
+  "overlays": {
+    "packages/zyren_game/lib/authored.dart": "6489538af89c6e1d51698d5fa507e7f13a14b9e0c2e76711a1ef0f95105af092",
+    "packages/zyren_game/lib/src/gameplay/rule_library.dart": "a11dd9861b5639cddadeb584d0bd8149669b2c2df59ac7fa23198a8916704439",
+    "packages/zyren_game/lib/src/runtime/command_queue.dart": "be6d86bc10a1847b4c595697d3dffbfe61ab2e06e302997f869e707172e0eaa3",
+    "packages/zyren_game/lib/src/runtime/session.dart": "2b714d87ba2616ce8f1804c109f73235b2022a0bd760c3d52d6e072860d7287b",
+    "packages/zyren_game/test/checkpoint_contract_test.dart": "2e780bd253ec944ddf16a500e390b6dc313cfc115e7d556a04a6042029fceb86",
+    "packages/zyren_game_native/lib/gameplay.dart": "a0e5a7295d78622c21ea57a016feed5cfdfc22f78097cfc72cd5162ce7e4ba6d",
+    "packages/zyren_game_native/lib/src/gameplay/checkpoints.dart": "79e05020856496e090c10ff350d65267cb0f2def788dd279825eacb703378470",
+    "packages/zyren_game_native/lib/src/runtime/level_runtime.dart": "0111544e4a91c36d9d3e0ce04cc8dc5190490847c687fd71f78771255d6ae1a4",
+    "packages/zyren_game_native/lib/src/runtime/save.dart": "0297acd9e9a9db609cb70fd02e70e44c392e21e9f0aaf2d09482a7ae7d75182c",
+    "packages/zyren_game_native/test/respawn_test.dart": "fb410b968875a4b7f14f7e1bd64264aff81faf70b11b97bf7ad87a1f76d949b6",
+    "packages/zyren_game_studio/lib/src/templates/exploration.dart": "28d496c6e122605ae7a19b455b71962ec6a7362d2052f351796f8e3a72010d66",
+    "packages/zyren_game_studio/test/authored_gameplay_test.dart": "7c4e55d13dc371238e6d98554715cf9f56ba5aac40c3bff58d7a2409d88ecee8",
+    "packages/zyren_game_studio/test/authored_runtime_fixture.dart": "76df0a4b195f3a000d8b6d75acee632b80d373dbf851a96249d13b5ada3b8970",
+    "packages/zyren_game_studio/test/checkpoint_runtime_test.dart": "3901b99ea6b7c20d960f8fc58af2184b6ebbbf5902495b9448ad447a957a86af",
+    "packages/zyren_game_studio/test/play_input_integration_test.dart": "e7085fc80592218b041a517eb0fe53ca398ab4ed457bea21cb4e6c34dc92514a",
+    "packages/zyren_physics/lib/src/physics.dart": "e60e42c33a96207fbfa5ce3ae99b88121daa308ad8a44dc885ccc1f4952e05e7",
+    "packages/zyren_physics/test/state_snapshot_test.dart": "8e00bc099cead413adca1b727b100d12bcaf7a76cc00808bcbeff232a6407a4f",
+    "packages/zyren_game_ai/lib/runtime.dart": "812ed163561f15e52369bb9d1589435424053abc273aefcd2faccd0cabe0817a"
+  },
+  "preservedProbeReceipt": "task-T6-clean-probe-source.json",
+  "nativeClaim": true
+}
