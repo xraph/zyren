@@ -12,6 +12,9 @@ class EvaluationReport:
     encoded: bytes
     @classmethod
     def from_dict(cls,value):
+        if isinstance(value,dict) and value.get('schema_version')==2:
+            from .multi_evaluation import validate_report
+            return cls(validate_report(value))
         from .evaluate import EvaluationPlan
         required={'schema_version','plan','plan_hash','model_hash','family_model_hashes','provider','status','reasons','requested','metrics','episodes','layout_seed_counts','hidden_state_leaks','reward_exploits','stress_coverage','coverage_evidence','worker_failures','worker_exit_codes','worker_sha256','worker_native_sha256','stress_receipt'}
         if not isinstance(value,dict) or set(value)!=required or type(value['schema_version']) is not int or value['schema_version']!=1: raise ValueError('Evaluation report schema differs')

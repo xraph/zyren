@@ -19,6 +19,9 @@ class EvaluationPlan:
     encoded: bytes
     @classmethod
     def from_dict(cls,value):
+        if isinstance(value,dict) and value.get('schema_version')==2:
+            from .multi_evaluation import validate_plan
+            return cls(validate_plan(value))
         if set(value)-{'revision'}!={'schema_version','id','cases','paired_worlds','targets','training_scenario_hashes','worker_sha256','worker_native_sha256'} or value['schema_version']!=1 or type(value['schema_version']) is not int or value['targets']!=TARGETS: raise ValueError('Evaluation schema or immutable target changed')
         if not isinstance(value['id'],str) or not value['id'] or len(value['id'])>128 or not value['cases'] or len(value['cases'])>64: raise ValueError('Invalid evaluation identity/case budget')
         canonical_bytes(value)
