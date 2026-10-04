@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:zyren/zyren.dart';
 import 'material.dart';
+import 'lighting.dart';
 import 'underwater.dart';
 import 'caustics_wgsl.dart';
 
@@ -15,7 +16,8 @@ final class OceanCaustics {
   final double extentMetres, depthMetres, seconds;
   final int resolution, logicalBytes;
   final bool hasShadowVisibility;
-  final Vec3 sunIrradiance;
+  final Vec3 sunIrradiance, sunDirectionEcef;
+  final OceanMediumLighting _lighting;
   bool get isClosed => _scope.isClosed;
   OceanCaustics._(
     this._scope,
@@ -31,6 +33,8 @@ final class OceanCaustics {
     this.logicalBytes,
     this.hasShadowVisibility,
     this.sunIrradiance,
+    this.sunDirectionEcef,
+    this._lighting,
   );
 
   /// Null means caustics are disabled, with no allocation or graph dispatch.
@@ -88,6 +92,7 @@ final class OceanCaustics {
     final scope = parent.createChild(label: 'ocean-caustics');
     try {
       final field = await water.retainWaveInputs(scope);
+      final lighting = await OceanMediumLighting.create(scope, water.lighting);
       final uniform = await scope.resources.createBuffer(
         BufferDescriptor(
           size: 160,
@@ -281,6 +286,8 @@ final class OceanCaustics {
         bytes,
         visibility != null,
         water.lighting.sunIrradiance,
+        water.lighting.sunDirectionEcef.normalized(),
+        lighting,
       );
     } catch (_) {
       await scope.close();
@@ -313,7 +320,7 @@ final class OceanCaustics {
     }
     final uniform = await owner.resources.createBuffer(
       BufferDescriptor(
-        size: 112,
+        size: 128,
         usage: {BufferUsage.uniform, BufferUsage.copyDestination},
       ),
     );
@@ -334,15 +341,19 @@ final class OceanCaustics {
         0,
         ...albedo.toList(),
         0,
+        ...sunDirectionEcef.storage,
+        0,
       ]),
     );
     final retained = await owner.resources.retain(texture);
+    final lighting = await _lighting.retain(owner);
     final program = await owner.shaders.compileMesh(
       ShaderSource.wgsl(
-        MeshShaderInterface.wgsl + oceanCausticReceiverWgsl,
+        '${MeshShaderInterface.wgsl}\n${lighting.wgsl}\n$oceanCausticReceiverWgsl',
         label: 'ocean-caustic-receiver',
       ),
       bindings: ShaderBindings([
+        ...lighting.bindings,
         BufferBinding.uniform(0, uniform, group: 1),
         TextureBinding.sampled(1, retained, group: 1),
       ]),

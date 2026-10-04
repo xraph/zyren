@@ -128,6 +128,54 @@ void main() {
           height: 32,
         );
         expect(empty.pixels, everyElement(0));
+        floor.visible = true;
+        floor.material = UnlitMaterial(color: const Color3(0, 0, 0));
+        final lease = await atmosphere.controller.acquireLighting();
+        final brightness = <int>[];
+        for (final sign in [1.0, -1.0]) {
+          final nativeLight = OceanLighting(
+            sunDirectionEcef: Vec3(0, 0, sign),
+            sunIrradiance: Vec3.zero,
+            skyRadiance: Vec3.zero,
+            atmosphere: lease.luts,
+          );
+          final candidate = await OceanUnderwaterPass.create(
+            scope,
+            surface: capture,
+            optics: optics,
+            lighting: nativeLight,
+            transportSize: size,
+          );
+          try {
+            await atmosphere.controller.setAerialInputs(
+              AerialPerspectiveInputs(medium: candidate.aerialMedium),
+            );
+            await candidate.prepare(
+              camera: camera,
+              viewport: size,
+              signedSurfaceDistance: -1,
+              surfaceUp: const Vec3(0, 0, 1),
+            );
+            candidate.attach(scene);
+            final frame = await engine.render(
+              elapsed: Duration.zero,
+              width: 32,
+              height: 32,
+            );
+            brightness.add(
+              frame.pixels
+                  .sublist((16 * 32 + 16) * 4, (16 * 32 + 16) * 4 + 3)
+                  .reduce((a, b) => a + b),
+            );
+            await atmosphere.controller.setAerialInputs(
+              AerialPerspectiveInputs(),
+            );
+          } finally {
+            await candidate.close();
+          }
+        }
+        expect(brightness.first, greaterThan(brightness.last + 10));
+        await lease.close();
       } finally {
         await pass.close();
         await engine.dispose();

@@ -48,3 +48,81 @@ final class OceanLighting {
     atmosphere: atmosphere,
   );
 }
+
+/// Scope-retained irradiance inputs shared by underwater scattering and caustic
+/// receivers. Functions accept ECEF up/sun directions and linear fallback values.
+final class OceanMediumLighting {
+  final String wgsl;
+  final List<ShaderBinding> bindings;
+  OceanMediumLighting._(this.wgsl, Iterable<ShaderBinding> bindings)
+    : bindings = List.unmodifiable(bindings);
+
+  Future<OceanMediumLighting> retain(GpuScope owner) async {
+    final retained = <ShaderBinding>[];
+    for (final binding in bindings) {
+      if (binding is TextureBinding) {
+        retained.add(
+          TextureBinding.sampled(
+            binding.binding,
+            await owner.resources.retain(binding.resource),
+            group: binding.group,
+          ),
+        );
+      } else {
+        retained.add(binding);
+      }
+    }
+    return OceanMediumLighting._(wgsl, retained);
+  }
+
+  static Future<OceanMediumLighting> create(
+    GpuScope owner,
+    OceanLighting lighting,
+  ) async {
+    if (lighting.atmosphere case final atmosphere?) {
+      final library = atmosphere.shader(group: 2);
+      final result = OceanMediumLighting._(
+        '''${library.source}fn oceanMediumSky(up:vec3<f32>,sun:vec3<f32>,fallback:vec3<f32>,environment:vec2<f32>)->vec3<f32>{
+ return atmosphereSkyIrradiance(up*BOTTOM,up,sun)*.31830988618;
+}
+fn oceanMediumSun(up:vec3<f32>,sun:vec3<f32>,fallback:vec3<f32>)->vec3<f32>{
+ return atmosphereSunIrradiance(up*BOTTOM,sun,sun);
+}
+''',
+        library.bindings.entries,
+      );
+      return result.retain(owner);
+    }
+    if (lighting.environment case final environment?) {
+      final result = OceanMediumLighting._(
+        '''
+@group(2) @binding(0) var oceanMediumIrradiance:texture_2d<f32>;
+@group(2) @binding(1) var oceanMediumSampler:sampler;
+fn oceanMediumSky(up:vec3<f32>,sun:vec3<f32>,fallback:vec3<f32>,environment:vec2<f32>)->vec3<f32>{
+ let uv=vec2(fract(atan2(up.z,up.x)/6.28318530718+.5+environment.y/6.28318530718),acos(clamp(up.y,-1.,1.))/3.14159265359);
+ return textureSampleLevel(oceanMediumIrradiance,oceanMediumSampler,uv,0.).rgb*environment.x*.31830988618;
+}
+fn oceanMediumSun(up:vec3<f32>,sun:vec3<f32>,fallback:vec3<f32>)->vec3<f32>{return fallback;}
+''',
+        [
+          TextureBinding.sampled(0, environment.irradiance, group: 2),
+          SamplerBinding(
+            1,
+            group: 2,
+            sampler: const SamplerDescriptor(
+              wrapU: TextureWrap.repeat,
+              wrapV: TextureWrap.clampToEdge,
+              minFilter: TextureFilter.linear,
+              magFilter: TextureFilter.linear,
+            ),
+          ),
+        ],
+      );
+      return result.retain(owner);
+    }
+    return OceanMediumLighting._('''
+fn oceanMediumSky(up:vec3<f32>,sun:vec3<f32>,fallback:vec3<f32>,environment:vec2<f32>)->vec3<f32>{return fallback;}
+fn oceanMediumSun(up:vec3<f32>,sun:vec3<f32>,fallback:vec3<f32>)->vec3<f32>{return fallback;}
+''', const []);
+  }
+}

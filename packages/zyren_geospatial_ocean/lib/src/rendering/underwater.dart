@@ -90,6 +90,7 @@ final class OceanUnderwaterPass {
   final OceanOptics optics;
   final OceanUnderwaterSettings settings;
   final OceanLighting lighting;
+  final Mat4 worldToEcef;
   final OceanSunVisibility? sunVisibility;
   final ScreenEffect effect;
   final AerialMediumInputs? aerialMedium;
@@ -115,6 +116,7 @@ final class OceanUnderwaterPass {
     this.optics,
     this.settings,
     this.lighting,
+    this.worldToEcef,
     this.sunVisibility,
     this.effect,
     this.aerialMedium,
@@ -128,6 +130,7 @@ final class OceanUnderwaterPass {
     OceanOptics? optics,
     OceanUnderwaterSettings? settings,
     OceanLighting? lighting,
+    Mat4? worldToEcef,
     OceanSunVisibility? sunVisibility,
     // With a transport size, this pass writes a medium map for atmosphere and
     // leaves scene color unchanged. Install aerialMedium on AerialPerspectiveInputs.
@@ -146,6 +149,18 @@ final class OceanUnderwaterPass {
     final config = settings ?? OceanUnderwaterSettings();
     final optical = config.resolve(optics ?? OceanOptics());
     final light = lighting ?? OceanLighting();
+    final transform = worldToEcef ?? Mat4.identity();
+    final m = transform.storage;
+    final axes = [
+      for (var i = 0; i < 3; i++) Vec3(m[i * 4], m[i * 4 + 1], m[i * 4 + 2]),
+    ];
+    if ([m[3], m[7], m[11], m[15] - 1].any((v) => v.abs() > 1e-12) ||
+        axes.any((v) => (v.length - 1).abs() > 1e-8) ||
+        axes[0].cross(axes[1]).distanceTo(axes[2]) > 1e-8) {
+      throw ArgumentError(
+        'Underwater worldToEcef must be a proper rigid transform.',
+      );
+    }
     final bounds = volume ?? OceanWaterVolume();
     final scope = parent.createChild(label: 'ocean-underwater');
     try {
@@ -175,7 +190,9 @@ final class OceanUnderwaterPass {
                 usage: {TextureUsage.sampled, TextureUsage.storage},
               ),
             );
+      final lightLibrary = await OceanMediumLighting.create(scope, light);
       final bindings = ShaderBindings([
+        ...lightLibrary.bindings,
         BufferBinding.uniform(0, uniform, group: 1),
         TextureBinding.sampled(
           1,
@@ -187,7 +204,7 @@ final class OceanUnderwaterPass {
       ]);
       final program = await scope.shaders.compile(
         ShaderSource.wgsl(
-          '${PostProcessDescriptor.interfaceWgsl}\n${oceanUnderwaterWgsl(transport: transport != null)}',
+          '${PostProcessDescriptor.interfaceWgsl}\n${lightLibrary.wgsl}\n${oceanUnderwaterWgsl(transport: transport != null)}',
           label: 'ocean-underwater',
         ),
       );
@@ -206,6 +223,7 @@ final class OceanUnderwaterPass {
         optical,
         config,
         light,
+        transform,
         sunVisibility,
         effect,
         transport == null ? null : AerialMediumInputs(transport: transport),
@@ -281,7 +299,20 @@ final class OceanUnderwaterPass {
       vector(2, optics.absorptionPerMetre, settings.maximumIntegrationMetres);
       vector(3, optics.scatteringPerMetre, signedSurfaceDistance < 0 ? 1 : 0);
       vector(4, lighting.skyRadiance, settings.shaftSteps.toDouble());
-      vector(5, lighting.sunDirectionEcef.normalized(), sunVisibilityFallback);
+      final m = worldToEcef.storage;
+      final x = Vec3(m[0], m[1], m[2]),
+          y = Vec3(m[4], m[5], m[6]),
+          z = Vec3(m[8], m[9], m[10]);
+      final sun = lighting.sunDirectionEcef.normalized();
+      vector(
+        5,
+        Vec3(sun.dot(x), sun.dot(y), sun.dot(z)),
+        sunVisibilityFallback,
+      );
+      vector(17, sun);
+      vector(18, x * surfaceUp.x + y * surfaceUp.y + z * surfaceUp.z);
+      data[76] = lighting.environment?.intensity ?? 1;
+      data[77] = lighting.environment?.rotation ?? 0;
       vector(6, lighting.sunIrradiance, optics.indexOfRefraction);
       vector(7, surfaceUp, signedSurfaceDistance);
       final shadow = sunVisibility;

@@ -1,7 +1,7 @@
-# Underwater qualification in progress
+# Underwater qualification
 
-W7 remains open. The checked slices below do not establish final visual quality,
-final caustic scene review, suspended particles, mobile performance or a completed Ocean Lab.
+W7 is implemented and checked on the native offscreen backend. These fixtures do
+not establish final visual quality, mobile performance or a completed Ocean Lab.
 
 ## Surface boundary and volume transport
 
@@ -51,7 +51,25 @@ provide visibility; its finite footprint and planar receiver are explicit limits
 
 Single-scattering fixtures compare a 64-step result to an analytic vertical-ray
 integral. Zero steps, zero visibility and a sun below the surface produce no direct
-shaft contribution. The current full ocean rendering suite has 20 passing tests.
+shaft contribution. The full ocean rendering suite also covers the surface, reflection and stitched-LOD regressions.
+
+## Waterline and suspended particles
+
+The Snell-window fixture checks refracted environmental radiance and total internal
+reflection with both depth conventions. It catches the near-plane disappearance
+case and verifies the repaired surface shader at 5 cm and 2 m near distances. A
+horizontal orthographic fixture verifies air above and water below the waterline
+in the same image. One hundred entry/exit cycles preserve allocation and resident
+payload counters. This is not a physical GPU residency measurement.
+
+The particle adapter uses the existing native controller. Its test verifies an
+empty provider, zero allocation at zero budget, Earth-scale world positions,
+existing-particle motion when the emitter moves, real capacity reduction, clearing
+on exit and retirement. Adapter and controller regressions pass together (3 tests).
+
+Underwater and caustic receiver lighting retain shared atmosphere or convolved HDR
+inputs. Native checks exercise day/night atmosphere, a constant HDR irradiance
+reference, and a rotated local world frame. Sunlight visibility remains explicit.
 
 ## Current limits
 
@@ -72,7 +90,7 @@ shaft contribution. The current full ocean rendering suite has 20 passing tests.
 
 Run native tests from their package directory so the native asset is available:
 
-- Ocean rendering suite: 18 passing tests after the surface/volume slice.
+- Ocean rendering suite: 21 passing tests after the completed W7 changes.
 - Geospatial aerial perspective, cloud inputs and medium transport: 8 passing tests.
-- Integrated ocean/atmosphere, underwater and surface capture: 3 passing tests.
+- Integrated ocean/atmosphere, underwater, caustics and Snell window: 4 focused tests, included in the full rendering suite.
 - Ocean and changed atmosphere analyzer checks, package boundaries: clean.

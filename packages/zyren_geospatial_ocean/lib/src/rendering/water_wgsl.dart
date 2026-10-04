@@ -23,7 +23,9 @@ struct WaterVertex {
   let fraction=${deformed ? 'bitcast<f32>(deformation_pose[4])' : '0.'};
   let offset=waterVertexOffset(index,base,fraction);
   let relative=(mesh.model*vec4(base+offset,1.)).xyz;
-  return WaterVertex(mesh.viewProjection*vec4(relative,1.),base,relative);
+  var clip=mesh.viewProjection*vec4(relative,1.);
+  ${boundary ? '' : 'if(clip.w>0.){let reversed=mesh.viewProjection[3].z>0.; clip.z=select(max(0.,clip.z),min(clip.w,clip.z),reversed);}'}
+  return WaterVertex(clip,base,relative);
 }
 ${boundary ? _boundaryFragment : _fragment}
 ''';
@@ -224,7 +226,8 @@ fn waterSun(n:vec3<f32>,v:vec3<f32>,sun:vec3<f32>,irradiance:vec3<f32>,roughness
 ''';
 
 const _fragment = '''
-@fragment fn fragment(input:WaterVertex,@builtin(front_facing) front:bool)->@location(0) vec4<f32> {
+struct WaterFragment { @location(0) color:vec4<f32>, @builtin(frag_depth) depth:f32 };
+@fragment fn fragment(input:WaterVertex,@builtin(front_facing) front:bool)->WaterFragment {
   let footprint=max(length(dpdx(input.base)),length(dpdy(input.base)));
   let detail=waterSurface(input.base,footprint);
   var n=normalize((mesh.normalMatrix*vec4(detail.normal,0.)).xyz);
@@ -282,7 +285,11 @@ const _fragment = '''
   if(water.reflectionLimits.z==1.){color=n*.5+vec3(.5);}
   if(water.reflectionLimits.z==2.){color=vec3(distance/water.surface.y);}
   if(water.reflectionLimits.z==3.){color=vec3(confidence);}
-  return vec4(max(color,vec3(0.)),1.);
+  // Keep the optical interface when it lies between the camera and its near
+  // plane. XY and homogeneous W remain unchanged; depth is reconstructed from
+  // the actual interpolated surface, then clamped only for raster visibility.
+  let clip=mesh.viewProjection*vec4(input.relative,1.);
+  return WaterFragment(vec4(max(color,vec3(0.)),1.),clamp(clip.z/clip.w,0.,1.));
 }
 ''';
 

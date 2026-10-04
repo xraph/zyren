@@ -103,7 +103,60 @@ void main() {
         expect(first[0], inInclusiveRange(23, 28));
         expect(first[1], inInclusiveRange(36, 42));
         expect(first[2], inInclusiveRange(54, 61));
+        final mediumOwner = scope.createChild();
+        final mediumLight = await OceanMediumLighting.create(
+          mediumOwner,
+          OceanLighting(environment: environment),
+        );
+        final output = await mediumOwner.resources.createBuffer(
+          BufferDescriptor(
+            size: 16,
+            usage: {BufferUsage.storage, BufferUsage.copySource},
+          ),
+        );
+        final program = await mediumOwner.shaders.compile(
+          ShaderSource.wgsl('''
+${mediumLight.wgsl}
+@group(0) @binding(0) var<storage,read_write> sample:vec4<f32>;
+@compute @workgroup_size(1) fn main(){
+ sample=vec4(oceanMediumSky(vec3(0.,0.,1.),vec3(0.,0.,1.),vec3(0.),vec2(1.,0.)),1.);
+}
+'''),
+        );
+        final resources = [
+          for (final binding in mediumLight.bindings)
+            if (binding.resource != null) binding.resource!,
+        ];
+        final graph = await mediumOwner.graphs.compile(
+          GraphDescription(
+            inputs: [output, ...resources],
+            passes: [
+              ComputePassDescriptor(
+                name: 'medium environment reference',
+                program: program,
+                workgroups: const Workgroups(1),
+                reads: [output, ...resources],
+                writes: [output],
+                bindings: ShaderBindings([
+                  BufferBinding.storageReadWrite(0, output),
+                  ...mediumLight.bindings,
+                ]),
+              ),
+            ],
+          ),
+        );
         await envScope.close();
+        await graph.execute();
+        final sampled = ByteData.sublistView(
+          await mediumOwner.resources.readBuffer(output),
+        );
+        for (var c = 0; c < 3; c++) {
+          expect(
+            sampled.getFloat32(c * 4, Endian.little),
+            closeTo([.5, 1, 2][c], .002),
+          );
+        }
+        await mediumOwner.close();
         expect(await draw(), first);
         scene.remove(mesh);
         await material.close();

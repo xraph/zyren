@@ -95,7 +95,7 @@ fn boundedCaustic(pixel:vec2<i32>)->vec3<f32>{
 const oceanCausticReceiverWgsl = '''
 struct ReceiverSettings {
  origin:vec4<f32>,east:vec4<f32>,north:vec4<f32>,up:vec4<f32>,
- sun:vec4<f32>,ambient:vec4<f32>,albedo:vec4<f32>,
+ sun:vec4<f32>,ambient:vec4<f32>,albedo:vec4<f32>,sunDirection:vec4<f32>,
 };
 @group(1) @binding(0) var<uniform> receiver:ReceiverSettings;
 @group(1) @binding(1) var receivedCaustics:texture_2d<f32>;
@@ -115,7 +115,8 @@ struct ReceiverVertex{@builtin(position) clip:vec4<f32>,@location(0) relative:ve
    irradiance+=weight*textureLoad(receivedCaustics,clamp(i+vec2(x,y),vec2(0),size-vec2(1)),0).rgb;
   }}
  }
- let radiance=receiver.albedo.rgb*(receiver.ambient.rgb+receiver.sun.rgb*irradiance*.31830988618);
+ let direct=oceanMediumSun(receiver.up.xyz,receiver.sunDirection.xyz,receiver.sun.rgb);
+ let radiance=receiver.albedo.rgb*(receiver.ambient.rgb+direct*irradiance*.31830988618);
  return vec4(clamp(radiance,vec3(0.),vec3(65504.)),1.);
 }
 ''';

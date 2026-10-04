@@ -348,7 +348,7 @@ shaft steps, maximum integration distance, caustic resolution and particle budge
 `OceanSubmersion.update(double signedDistance) -> bool` uses separately configured
 entry/exit thresholds. Volume clipping returns water segment length in metres.
 
-- [ ] Test submersion stability across alternating tiny signed distances:
+- [x] Test submersion stability across alternating tiny signed distances:
 
 ```dart
 final state = OceanSubmersion(enterBelow: -.02, exitAbove: .02);
@@ -359,18 +359,18 @@ for (final d in [-.001, .001, -.002, .002]) {
 expect(state.update(.03), isFalse);
 ```
 
-- [ ] Integrate absorption/scattering to the nearest valid scene/volume/surface
+- [x] Integrate absorption/scattering to the nearest valid scene/volume/surface
   intersection. Reconstruct depth once. Clip air segments out, include water-to-air
   refraction and total internal reflection, and preserve transparent background
   semantics. Replace conflicting underwater registrations atomically.
-- [ ] Add bounded projected caustics and shafts using actual light direction and
+- [x] Add bounded projected caustics and shafts using actual light direction and
   available shadow visibility, plus suspended particles through the adapter.
   Report approximations and omit unavailable shadowing explicitly. Controls must
   alter real pass counts, target sizes or work limits.
-- [ ] Render entry/exit, half-submerged camera, near clip changes, night, submerged
+- [x] Render entry/exit, half-submerged camera, near clip changes, night, submerged
   geometry and geometry outside a bounded water volume. Verify no double fog,
   overbright energy buildup or resource growth across repeated transitions.
-- [ ] Commit `feat(ocean): add underwater lighting and waterline effects`.
+- [x] Commit `feat(ocean): add underwater lighting and waterline effects`.
 
 ## Task 8: W8 Hydrostatic force models
 

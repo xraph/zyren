@@ -5,7 +5,7 @@ struct Underwater {
  camera:vec4<f32>, forward:vec4<f32>, absorption:vec4<f32>, scattering:vec4<f32>,
  sky:vec4<f32>, sun:vec4<f32>, direct:vec4<f32>, up:vec4<f32>,
  shadowOrigin:vec4<f32>, shadowU:vec4<f32>, shadowV:vec4<f32>,
- planes:array<vec4<f32>,6>, padding:array<vec4<f32>,11>,
+ planes:array<vec4<f32>,6>,sunEcef:vec4<f32>,upEcef:vec4<f32>,environment:vec4<f32>,padding:array<vec4<f32>,8>,
 };
 @group(1) @binding(0) var<uniform> underwater:Underwater;
 @group(1) @binding(1) var waterBoundary:texture_2d<f32>;
@@ -56,7 +56,8 @@ fn underwaterResult(input:vec4<f32>,transmission:vec3<f32>,scattering:vec3<f32>,
  let extinction=underwater.absorption.xyz+underwater.scattering.xyz;
  let transmission=exp(-extinction*distance);
  let albedo=underwater.scattering.xyz/max(extinction,vec3(1e-20));
- var scattering=underwater.sky.xyz*albedo*(vec3(1.)-transmission);
+ let sky=oceanMediumSky(underwater.upEcef.xyz,underwater.sunEcef.xyz,underwater.sky.xyz,underwater.environment.xy);
+ var scattering=sky*albedo*(vec3(1.)-transmission);
  let steps=u32(underwater.sky.w);
  if(steps>0u){
   let incidentCosine=max(0.,dot(underwater.up.xyz,underwater.sun.xyz));
@@ -75,7 +76,8 @@ fn underwaterResult(input:vec4<f32>,transmission:vec3<f32>,scattering:vec3<f32>,
    let viewWeight=exp(-extinction*near)-exp(-extinction*far);
    sunlight+=exp(-extinction*lightDepth)*shadowAt(p)*viewWeight;
   }
-  scattering+=underwater.direct.xyz*sunlight*albedo*(power*.07957747155);
+  let direct=oceanMediumSun(underwater.upEcef.xyz,underwater.sunEcef.xyz,underwater.direct.xyz);
+  scattering+=direct*sunlight*albedo*(power*.07957747155);
  }
  // Scene input is premultiplied. Transparent background stays transparent.
  return underwaterResult(input,transmission,scattering,segment,pixel);

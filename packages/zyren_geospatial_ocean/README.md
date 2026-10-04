@@ -291,3 +291,12 @@ not a formal proof of every platform's math library or an error bound against re
 water. The Phillips model has separate physical limitations. See
 [query evidence](../../qualification/2026-10-03/ocean-queries.md) for fixture scope,
 observed differences and unrun devices. Buoyancy integration follows in W8/W9.
+
+## Underwater and projected light
+
+The [underwater API](doc/underwater.md) clips water transport against the displaced
+surface, scene depth and optional convex bounds. It composes with atmosphere,
+provides a refracted sky window and total internal reflection, and exposes bounded
+shafts, projected caustics and the optional native suspended-particle adapter.
+Quality settings change work and resource sizes. The qualification record identifies
+approximations and the platforms and visual scenes that remain unverified.

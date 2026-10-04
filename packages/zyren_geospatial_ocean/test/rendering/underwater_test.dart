@@ -179,7 +179,7 @@ void main() {
           shadow,
           Float32List(4).buffer.asUint8List(),
         );
-        for (final mode in ['day', 'disabled', 'shadow', 'night']) {
+        for (final mode in ['day', 'disabled', 'shadow', 'night', 'rotated']) {
           final stepCount = mode == 'disabled' ? 0 : 64;
           final pass = await OceanUnderwaterPass.create(
             scope,
@@ -189,8 +189,17 @@ void main() {
               scatteringPerMetre: const Vec3(.2, .3, .4),
             ),
             settings: OceanUnderwaterSettings(shaftSteps: stepCount),
+            worldToEcef: mode == 'rotated'
+                ? Mat4.compose(
+                    Vec3.zero,
+                    Quat.axisAngle(const Vec3(0, 1, 0), math.pi / 2),
+                    Vec3.one,
+                  )
+                : null,
             lighting: OceanLighting(
-              sunDirectionEcef: Vec3(0, 0, mode == 'night' ? -1 : 1),
+              sunDirectionEcef: mode == 'rotated'
+                  ? const Vec3(1, 0, 0)
+                  : Vec3(0, 0, mode == 'night' ? -1 : 1),
               sunIrradiance: const Vec3(4, 4, 4),
               skyRadiance: Vec3.zero,
             ),
@@ -214,7 +223,7 @@ void main() {
           await active?.close();
           active = pass;
           final result = await draw(camera);
-          if (mode == 'day') {
+          if (mode == 'day' || mode == 'rotated') {
             for (var c = 0; c < 3; c++) {
               final extinction = [.2, .3, .4][c];
               final expected =
@@ -229,6 +238,59 @@ void main() {
           } else {
             expect(result, [0, 0, 0, 255]);
           }
+        }
+        // A horizontal orthographic view has ray origins on both sides of
+        // the waterline. The optical pass must not use one global wet flag.
+        floor.position = origin + const Vec3(4, 0, 0);
+        floor.lookAt(origin);
+        floor.material = UnlitMaterial(
+          color: const Color3(1, 1, 1),
+          side: MaterialSide.doubleSided,
+        );
+        final halfCamera = OrthographicCamera(
+          position: origin,
+          target: floor.position,
+          up: const Vec3(0, 0, 1),
+          near: .1,
+          far: 20,
+          verticalSize: 4,
+        );
+        await capture.update(halfCamera);
+        final halfPass = await OceanUnderwaterPass.create(
+          scope,
+          surface: capture,
+          optics: optics,
+          lighting: dark,
+        );
+        await halfPass.prepare(
+          camera: halfCamera,
+          viewport: size,
+          signedSurfaceDistance: 0,
+          surfaceUp: const Vec3(0, 0, 1),
+        );
+        halfPass.attach(scene);
+        await active?.close();
+        active = halfPass;
+        final halfFrame =
+            await backend.render(
+                  FrameSubmission.capture(
+                    scene: scene,
+                    camera: halfCamera,
+                    size: size,
+                    colorPipeline: ColorPipeline(
+                      toneMapping: ToneMapping.linear,
+                    ),
+                  ),
+                )
+                as ReadbackOutput;
+        List<int> row(int y) => halfFrame.image.pixels.sublist(
+          (y * 32 + 16) * 4,
+          (y * 32 + 16) * 4 + 4,
+        );
+        expect(row(8), [255, 255, 255, 255]);
+        final lower = row(24);
+        for (var c = 0; c < 3; c++) {
+          expect(lower[c], closeTo(srgb(math.exp(-4 * [1, .5, .25][c])), 2));
         }
       } finally {
         await active?.close();
