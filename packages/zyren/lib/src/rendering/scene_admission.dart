@@ -245,6 +245,7 @@ SceneSnapshot _resourceSnapshot(
   [],
   RenderSettings(),
   null,
+  const {},
 );
 
 FrameSubmission _withScene(FrameSubmission frame, SceneSnapshot scene) =>
@@ -321,6 +322,7 @@ FrameSubmission _reproject(FrameSubmission published, FrameSubmission current) {
     source._shadowLights,
     source._settings,
     source._outline,
+    source.localEnvironments,
   );
   final translation = vm.Matrix4.translationValues(
     -shift[0],

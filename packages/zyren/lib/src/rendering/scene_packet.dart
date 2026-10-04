@@ -156,6 +156,14 @@ final class ScenePacketEncoder {
     if (environment != null && environmentKeys != null) {
       tokens[environment] = environmentKeys;
     }
+    final locals = <Environment, List<Uint8List>>{};
+    for (final local in scene.localEnvironments.values.toSet()) {
+      final keys = !allowStage && _tokens[local] != null
+          ? _tokens[local] as List<Uint8List>
+          : local.encodeForDevice(materialDevice as EnvironmentDevice);
+      locals[local] = keys;
+      tokens[local] = keys;
+    }
     final previous = _previous;
     final topology =
         previous == null ||
@@ -369,6 +377,7 @@ final class ScenePacketEncoder {
         settings.environment != null ||
         settings.historyEpoch != 0;
     final extension =
+        locals.isNotEmpty ||
         scene._shadowLights.any(
           (light) => light.settings is! DirectionalShadow,
         ) ||
@@ -808,6 +817,23 @@ final class ScenePacketEncoder {
 
       final bloom = settings.bloom, outline = scene._outline;
       body.json({
+        'local_environments': [
+          for (final local in locals.entries)
+            {
+              'meshes': [
+                for (final entry in scene.localEnvironments.entries)
+                  if (identical(entry.value, local.key)) entry.key,
+              ],
+              'keys': local.value.map(key).toList(),
+              'intensity': local.key.intensity,
+              'rotation': [
+                local.key.rotation.x,
+                local.key.rotation.y,
+                local.key.rotation.z,
+                local.key.rotation.w,
+              ],
+            },
+        ],
         'enabled': screenEnabled,
         'sample_count': screenEnabled
             ? submission.colorPipeline?.sampleCount ?? settings.sampleCount

@@ -180,6 +180,8 @@ impl Geometry {
 #[serde(deny_unknown_fields)]
 pub struct Mesh {
     #[serde(skip)]
+    pub environment_slot: usize,
+    #[serde(skip)]
     pub scene_inputs: bool,
     #[serde(default)]
     pub shadow_world_model: Option<[f64; 16]>,
@@ -273,6 +275,7 @@ pub(crate) struct MeshExtension {
 impl Default for Mesh {
     fn default() -> Self {
         Self {
+            environment_slot: 0,
             scene_inputs: false,
             shadow_world_model: None,
             reversed_depth: false,
@@ -530,6 +533,29 @@ impl BloomSettings {
 }
 
 #[derive(Clone, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LocalEnvironment {
+    pub meshes: Vec<usize>,
+    pub keys: [[u64; 4]; 3],
+    pub intensity: f32,
+    pub rotation: [f32; 4],
+}
+impl LocalEnvironment {
+    pub fn environment(&self) -> crate::lighting::Environment {
+        crate::lighting::Environment {
+            textures: self.keys.map(|k| crate::resources::registry::ResourceKey {
+                renderer: k[0],
+                device_generation: k[1],
+                slot: k[2],
+                slot_generation: k[3],
+            }),
+            intensity: self.intensity,
+            rotation: self.rotation,
+        }
+    }
+}
+
+#[derive(Clone, PartialEq, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct RenderSettings {
     pub outline: Option<OutlineSettings>,
@@ -547,6 +573,7 @@ pub struct RenderSettings {
     pub shadow_world_lights: Vec<[f64; 4]>,
     pub shadow_world_areas: Vec<[f64; 7]>,
     pub environment: Option<EnvironmentMap>,
+    pub local_environments: Vec<LocalEnvironment>,
 }
 impl Default for RenderSettings {
     fn default() -> Self {
@@ -566,6 +593,7 @@ impl Default for RenderSettings {
             shadow_world_lights: Vec::new(),
             shadow_world_areas: Vec::new(),
             environment: None,
+            local_environments: Vec::new(),
         }
     }
 }
@@ -580,6 +608,18 @@ impl RenderSettings {
         if self.reversed_depth() { 1. } else { 0. }
     }
     pub fn validate(&self) -> Result<(), String> {
+        if self.local_environments.len() > 4 {
+            return Err("At most four local environments".into());
+        }
+        let mut selected = std::collections::HashSet::new();
+        for local in &self.local_environments {
+            local.environment().validate()?;
+            for &index in &local.meshes {
+                if index >= 4096 || !selected.insert(index) {
+                    return Err("Invalid local environment selection".into());
+                }
+            }
+        }
         if self.outline.as_ref().is_some_and(|o| {
             !(1..=8).contains(&o.width)
                 || o.color

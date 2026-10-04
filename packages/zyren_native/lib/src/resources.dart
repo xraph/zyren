@@ -51,7 +51,11 @@ final class _ResourcePacket {
 
 final class _NativeResourceDevice
     with _NativeShaders, _NativeGraphs
-    implements MaterialDevice, EnvironmentDevice, MeshShaderDevice {
+    implements
+        MaterialDevice,
+        EnvironmentDevice,
+        MeshShaderDevice,
+        ResourceRetirementDevice {
   @override
   Uint8List encodeResourceKey(Object key) =>
       Uint8List.fromList((key as _ResourceKey).bytes);
@@ -158,9 +162,15 @@ final class _NativeResourceDevice
                 );
         }
 
-        return graph == null
-            ? withEnvironment(null)
-            : graph.submitFrame(this, submission.size, withEnvironment);
+        final locals = submission.scene.localEnvironments.values
+            .toSet()
+            .toList();
+        Future<T> local(int i) => i == locals.length
+            ? (graph == null
+                  ? withEnvironment(null)
+                  : graph.submitFrame(this, submission.size, withEnvironment))
+            : locals[i].map.submitFrame(this, (_) => local(i + 1));
+        return local(0);
       }
       return unique[index].submitFrame(this, (key) {
         keys[unique[index]] = key as _MeshShaderKey;
@@ -169,6 +179,31 @@ final class _NativeResourceDevice
     }
 
     return hold(0);
+  }
+
+  @override
+  Future<Object> watchResource(Object key) async {
+    final bytes = await _command(
+      103,
+      _ResourcePacket()..key(key),
+      responseBytes: 8,
+    );
+    return ByteData.sublistView(bytes).getUint64(0, Endian.little);
+  }
+
+  @override
+  Future<bool> retireWatchedResource(
+    Object ticket, {
+    bool force = false,
+  }) async {
+    final bytes = await _command(
+      104,
+      _ResourcePacket()
+        ..u64(ticket as int)
+        ..u32(force ? 1 : 0),
+      responseBytes: 4,
+    );
+    return ByteData.sublistView(bytes).getUint32(0, Endian.little) == 1;
   }
 
   int _nextRequest = 0;

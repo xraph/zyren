@@ -58,6 +58,7 @@ void main() {
         expect(receipt.admission.candidateReady, isTrue);
         expect(receipt.readbackBytes, 0);
         expect(receipt.gpuTime, isNull);
+        expect(receipt.sharedEnergyLutBytes, 131072);
         final pixels = ByteData.sublistView(await scope.readTexture(target));
         // Binary16 exact values 8, 4, 2 at the central pixel.
         final offset = (8 * 16 + 8) * 8;

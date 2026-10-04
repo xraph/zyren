@@ -236,6 +236,9 @@ impl Renderer {
                 bindings.materials.insert(key);
             }
             let mut resources = vec![];
+            for local in &frame.settings.local_environments {
+                resources.extend(local.environment().textures);
+            }
             if let Some(environment) = &frame.environment {
                 resources.extend(environment.textures);
             }

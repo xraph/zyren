@@ -35,7 +35,7 @@ impl Renderer {
                 self.capture_views.insert(id);
                 payload.extend(id.to_le_bytes());
             }
-            101 => {
+            operation @ (101 | 105) => {
                 if bytes.len() != 32 || capacity != 24 {
                     return Err(InvalidCommand);
                 }
@@ -44,10 +44,12 @@ impl Renderer {
                     return Err(StaleKey);
                 }
                 self.close_scene_view(id).map_err(|_| DeviceFailed)?;
-                self.capture_views.remove(&id);
+                if operation == 101 {
+                    self.capture_views.remove(&id);
+                }
             }
             102 => {
-                if bytes.len() < 72 || capacity != 40 {
+                if bytes.len() < 72 || capacity != 48 {
                     return Err(InvalidCommand);
                 }
                 let id = u64_at(24);
@@ -77,17 +79,22 @@ impl Renderer {
                 {
                     return Err(InvalidUsage);
                 }
-                let frame = self
+                let mut frame = self
                     .decode_scene(&bytes[72..])
                     .map_err(|_| InvalidCommand)?;
                 if frame.binary.as_ref().is_none_or(|v| v.view != id)
                     || frame.color_pipeline.is_some()
                     || frame.temporal.is_some()
-                    || frame.settings.enabled
+                    || !frame.settings.effects.is_empty()
+                    || frame.settings.bloom.is_some()
+                    || frame.settings.spatial_antialiasing != 0
+                    || frame.settings.tone_mapping != 0
+                    || frame.settings.exposure != 1.
                     || frame.sample_count() != 1
                 {
                     return Err(InvalidUsage);
                 }
+                frame.settings.enabled = false;
                 // A caller may supply a linear HDR graph, but display transforms
                 // cannot be inferred or removed from arbitrary shader programs.
                 if let Some(graph) = self
@@ -128,6 +135,62 @@ impl Renderer {
                     * (4 + if frame.background_alpha < 1. { 8 } else { 0 })
                     + self.transmission.bytes();
                 payload.extend(attachments.to_le_bytes());
+                payload.extend(
+                    if self.energy_lut.table.is_some() {
+                        super::energy_lut::BYTES
+                    } else {
+                        0
+                    }
+                    .to_le_bytes(),
+                );
+            }
+            103 => {
+                if bytes.len() != 56 || capacity != 32 {
+                    return Err(InvalidCommand);
+                }
+                if self.retirement_tickets.len() >= 1024 {
+                    return Err(BudgetExceeded);
+                }
+                let key = ResourceKey {
+                    renderer: u64_at(24),
+                    device_generation: u64_at(32),
+                    slot: u64_at(40),
+                    slot_generation: u64_at(48),
+                };
+                self.resources.graph_texture(key)?;
+                let next = self
+                    .next_retirement_ticket
+                    .checked_add(1)
+                    .ok_or(DeviceFailed)?;
+                self.resources.retain_graph(&[key])?;
+                self.next_retirement_ticket = next;
+                self.retirement_tickets.insert(next, key);
+                payload.extend(next.to_le_bytes());
+            }
+            104 => {
+                if bytes.len() != 36 || capacity != 28 || u32_at(32) > 1 {
+                    return Err(InvalidCommand);
+                }
+                let ticket = u64_at(24);
+                let key = *self.retirement_tickets.get(&ticket).ok_or(StaleKey)?;
+                let watchers = self
+                    .retirement_tickets
+                    .values()
+                    .filter(|k| **k == key)
+                    .count() as u32;
+                let state = self.state.as_mut().unwrap();
+                state.resources.poll_completed(&state.device)?;
+                let ready = u32_at(32) == 1 || state.resources.owned_completed(key, watchers)?;
+                if ready {
+                    let texture = state.resources.graph_texture(key)?;
+                    state
+                        .draw_cache
+                        .borrow_mut()
+                        .invalidate_textures(&[&texture]);
+                    state.resources.release_graph(&state.device, &[key])?;
+                    state.retirement_tickets.remove(&ticket);
+                }
+                payload.extend(u32::from(ready).to_le_bytes());
             }
             _ => return Err(InvalidCommand),
         }

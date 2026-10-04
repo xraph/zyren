@@ -10,6 +10,7 @@ import '../resources/texture_image.dart';
 import '../scene/scene.dart';
 import 'depth_strategy.dart';
 import '../math/mat4.dart';
+import '../math/vec3.dart';
 import '../spatial/frustum.dart';
 import 'frame_output.dart';
 import '../resources/resource_scope.dart';
@@ -53,6 +54,7 @@ class CameraSnapshot {
 
 /// Captured transforms with shared immutable CPU geometry recipes.
 class SceneSnapshot {
+  final Map<int, Environment> localEnvironments;
   final List<_ShadowLight> _shadowLights;
   bool get hasShadows =>
       _shadowLights.isNotEmpty ||
@@ -171,8 +173,16 @@ class SceneSnapshot {
     this._shadowLights,
     this._settings,
     this._outline,
+    this.localEnvironments,
   );
-  static SceneSnapshot _capture(Scene scene, Camera camera, Frustum frustum) {
+  static SceneSnapshot _capture(
+    Scene scene,
+    Camera camera,
+    Frustum frustum, {
+    bool radiance = false,
+    VolumeEnvironmentMap? captureVolumeEnvironment,
+  }) {
+    final localEnvironments = <int, Environment>{};
     final meshes = <Map<String, Object>>[],
         geometries = <int, GeometrySnapshot>{};
     final textures = <int, TextureImage>{};
@@ -453,6 +463,14 @@ class SceneSnapshot {
               frustum.intersectsBounds(
                 bounds?.transformed(Mat4.fromVectorMath(relative)),
               );
+          if (!radiance &&
+              node.material is StandardMaterial &&
+              (node.material as StandardMaterial).localReflections) {
+            final selected = scene.reflectionProbes?.select(
+              Vec3.fromVectorMath(world.getTranslation()),
+            );
+            if (selected != null) localEnvironments[meshes.length] = selected;
+          }
           identities.add((node.id, geometry.logicalId));
           meshes.add(
             _freeze(<String, Object>{
@@ -616,18 +634,25 @@ class SceneSnapshot {
       Map.unmodifiable(poses),
       Map.unmodifiable(textures),
       List.unmodifiable(scene.background?.toList() ?? [0.0, 0.0, 0.0]),
-      scene.background == null
+      radiance
+          ? 1.0
+          : scene.background == null
           ? 0.0
           : Float32List.fromList([scene.backgroundAlpha]).single,
       List.unmodifiable(scene.lightDirection.storage),
       scene.ambient,
       Map.unmodifiable(meshShaders),
       List.unmodifiable(shadows),
-      scene.renderSettings.copyWith(
-        effects: scene.effects,
-        environment: scene.environment,
-      ),
-      scene.outline,
+      radiance
+          ? RenderSettings(
+              environment: captureVolumeEnvironment ?? scene.environment,
+            )
+          : scene.renderSettings.copyWith(
+              effects: scene.effects,
+              environment: scene.environment,
+            ),
+      radiance ? null : scene.outline,
+      Map.unmodifiable(localEnvironments),
     );
   }
 }
@@ -679,6 +704,8 @@ class FrameSubmission {
     TemporalAAOptions? temporalAA,
     int temporalReset = 0,
     Environment? environment,
+    bool radianceCapture = false,
+    VolumeEnvironmentMap? captureVolumeEnvironment,
   }) {
     if (temporalReset < 0 ||
         temporalReset > 0x1fffffffffffff ||
@@ -704,6 +731,8 @@ class FrameSubmission {
       scene,
       camera,
       Frustum.fromMatrix(Mat4(cameraSnapshot.viewProjection)),
+      radiance: radianceCapture,
+      captureVolumeEnvironment: captureVolumeEnvironment,
     );
     return FrameSubmission._(
       sceneSnapshot,

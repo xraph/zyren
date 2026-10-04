@@ -26,7 +26,14 @@ fn needed(frame: &Frame) -> bool {
 fn fallback_needed(frame: &Frame) -> bool {
     frame.environment.is_none()
         && frame.settings.environment.is_none()
-        && frame.meshes.iter().any(|m| m.pbr.is_some())
+        && frame.meshes.iter().enumerate().any(|(i, m)| {
+            m.pbr.is_some()
+                && !frame
+                    .settings
+                    .local_environments
+                    .iter()
+                    .any(|e| e.meshes.contains(&i))
+        })
 }
 impl Renderer {
     pub(super) fn prepare_energy_lut(&mut self, frame: &Frame) -> Result<(), String> {

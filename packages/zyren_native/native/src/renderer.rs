@@ -2,8 +2,8 @@ mod admission;
 mod area_lights;
 mod energy_lut;
 mod environment;
-mod sensor_capture;
 mod scene_capture;
+mod sensor_capture;
 use std::{
     collections::{HashMap, HashSet},
     sync::mpsc,
@@ -136,6 +136,8 @@ pub struct RendererState {
     pub(crate) failure: Option<String>,
     capture_views: HashSet<u64>,
     next_capture_view: u64,
+    retirement_tickets: HashMap<u64, crate::resources::registry::ResourceKey>,
+    next_retirement_ticket: u64,
     counters: RenderCounters,
     last_scene_draws: std::cell::Cell<u64>,
     last_instance_draws: std::cell::Cell<u64>,
@@ -364,6 +366,8 @@ impl Renderer {
                 gpu_time_source: "unavailable",
                 capture_views: HashSet::new(),
                 next_capture_view: 1 << 52,
+                retirement_tickets: HashMap::new(),
+                next_retirement_ticket: 0,
                 counters: RenderCounters::default(),
                 last_scene_draws: std::cell::Cell::new(0),
                 last_instance_draws: std::cell::Cell::new(0),
@@ -395,7 +399,9 @@ impl Renderer {
         capacity: usize,
     ) -> Result<Vec<u8>, crate::resources::ResourceError> {
         use crate::resources::ResourceError;
-        if bytes.len() >= 8 && (100..=102).contains(&u32::from_le_bytes(bytes[4..8].try_into().unwrap())) {
+        if bytes.len() >= 8
+            && (100..=105).contains(&u32::from_le_bytes(bytes[4..8].try_into().unwrap()))
+        {
             return self.capture_command(bytes, capacity);
         }
         if self.failure.is_some() {
@@ -545,6 +551,18 @@ impl Renderer {
                 .get_mut(index as usize)
                 .ok_or("Mesh shader index is outside scene")?
                 .shader = Some(key);
+        }
+        for mesh in &mut frame.meshes {
+            mesh.environment_slot = 0;
+        }
+        for (slot, local) in frame.settings.local_environments.iter().enumerate() {
+            for index in &local.meshes {
+                frame
+                    .meshes
+                    .get_mut(*index)
+                    .ok_or("Local environment mesh index is outside scene")?
+                    .environment_slot = slot + 1;
+            }
         }
         for mesh in &mut frame.meshes {
             mesh.scene_inputs = if let Some(key) = mesh.shader {
@@ -1180,7 +1198,11 @@ impl Renderer {
                             binding: 1,
                             resource: lighting.as_ref().unwrap().as_entire_binding(),
                         });
-                        entries.extend(environment.entries(&self.environment_defaults));
+                        entries.extend(
+                            environment
+                                .for_mesh(index)
+                                .entries(&self.environment_defaults),
+                        );
                         entries.extend(shadows.entries(&self.shadows));
                         entries.extend(self.area_tables.entries());
                         entries.extend(self.transmission.entries(capture));
@@ -1789,7 +1811,13 @@ impl Renderer {
         let materials = self.prepare_materials(frame, texture.format(), graph.as_ref())?;
         let scene_format = composition::scene_format(frame, texture.format(), graph.as_ref())?;
         // Attachment rejection must precede scene revisions and reusable-buffer edits.
-        self.prepare_frame_targets(frame, texture.format(), render_size, graph.as_ref(), capture.is_none())?;
+        self.prepare_frame_targets(
+            frame,
+            texture.format(),
+            render_size,
+            graph.as_ref(),
+            capture.is_none(),
+        )?;
         self.prepare_transmission(frame, scene_format, render_size, graph.as_ref())?;
         self.prepare_scene(frame)?;
         self.outline_materials = if self.outlines.view(frame).is_some() {
@@ -1806,8 +1834,12 @@ impl Renderer {
         let mut environment = environment.prepare(self, frame);
         if let Some(key) = capture {
             if environment.resources.contains(&key)
-                || materials.iter().flatten().any(|m| m.resources.contains(&key))
-                || graph.as_ref().is_some_and(|g| g.resources().contains(&key)) {
+                || materials
+                    .iter()
+                    .flatten()
+                    .any(|m| m.resources.contains(&key))
+                || graph.as_ref().is_some_and(|g| g.resources().contains(&key))
+            {
                 return Err("Capture target cannot also be a frame input".into());
             }
             environment.resources.push(key);
@@ -1891,7 +1923,11 @@ impl Renderer {
         self.accept_shadows(shadows);
         self.temporal.accept();
         self.accept_history(frame);
-        self.profile.borrow_mut().status = if capture.is_some() { "queued" } else { "complete" };
+        self.profile.borrow_mut().status = if capture.is_some() {
+            "queued"
+        } else {
+            "complete"
+        };
         Ok(())
     }
 

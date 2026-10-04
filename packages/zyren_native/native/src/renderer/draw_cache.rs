@@ -9,7 +9,7 @@ const MAX_BYTES: usize = 64 * 1024 * 1024;
 pub(super) enum UniformKey {
     Mesh(usize, bool),
     Lighting,
-    Environment,
+    Environment(usize),
     Shadows,
     SceneInputs,
 }
@@ -397,8 +397,12 @@ fn specs(frame: &crate::scene::Frame) -> Vec<(UniformKey, usize)> {
         .any(|m| m.color_visible && m.requires_opaque_capture());
     let mut specs = Vec::with_capacity(frame.meshes.len() * 2 + 3);
     if frame.meshes.iter().any(|m| m.pbr.is_some()) {
+        specs.extend(
+            (0..frame.settings.local_environments.len())
+                .map(|i| (Environment(i + 1), super::environment::UNIFORM_BYTES)),
+        );
         specs.extend([
-            (Environment, super::environment::UNIFORM_BYTES),
+            (Environment(0), super::environment::UNIFORM_BYTES),
             (Shadows, super::shadows::UNIFORM_BYTES),
             (
                 Lighting,

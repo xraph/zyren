@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_zyren/flutter_zyren.dart';
 import 'studio_environment.dart';
+import 'probe_lighting.dart';
 
 void main() => runApp(const PbrLabApp());
 
@@ -64,6 +65,7 @@ class _PbrLabState extends State<_PbrLab> {
   late final DirectionalLight sun;
   late final HemisphereLight hemisphere;
   late final EnvironmentLighting environment;
+  late final ProbeLabLighting probeLighting;
   String controls = 'lights';
   late final Mesh glass;
   double glassRoughness = 0, dispersion = 0;
@@ -107,6 +109,8 @@ class _PbrLabState extends State<_PbrLab> {
       ),
     );
     if (widget.environmentLighting) controller.use(environment);
+    probeLighting = ProbeLabLighting(environment);
+    controller.use(probeLighting);
     if (widget.postProcessing) {
       controller.use(effects);
       controller.use(temporal);
@@ -356,6 +360,10 @@ class _PbrLabState extends State<_PbrLab> {
                             child: Text('Environment'),
                           ),
                           DropdownMenuItem(
+                            value: 'probes',
+                            child: Text('Local probes'),
+                          ),
+                          DropdownMenuItem(
                             value: 'transmission',
                             child: Text('Transmission'),
                           ),
@@ -390,7 +398,7 @@ class _PbrLabState extends State<_PbrLab> {
                           );
                         }),
                       ),
-                    if (controls != 'transmission')
+                    if (controls != 'transmission' && controls != 'probes')
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -405,29 +413,46 @@ class _PbrLabState extends State<_PbrLab> {
                           ),
                         ],
                       ),
-                    SizedBox(
-                      width: controlWidth,
-                      child: DropdownButton<ToneMapping>(
-                        isExpanded: true,
-                        key: const ValueKey('ToneMapping'),
-                        value: toneMapping,
-                        items: [
-                          for (final entry in ToneMapping.values)
-                            DropdownMenuItem(
-                              value: entry,
-                              child: Text(switch (entry) {
-                                ToneMapping.linear => 'Linear',
-                                ToneMapping.reinhard => 'Reinhard',
-                                ToneMapping.acesFilmic => 'ACES Filmic',
-                                ToneMapping.aces => 'ACES',
-                                ToneMapping.cineon => 'Cineon',
-                                ToneMapping.agx => 'AgX',
-                                ToneMapping.neutral => 'Neutral',
-                              }),
-                            ),
-                        ],
-                        onChanged: (value) => setState(() {
-                          toneMapping = value!;
+                    if (controls != 'probes')
+                      SizedBox(
+                        width: controlWidth,
+                        child: DropdownButton<ToneMapping>(
+                          isExpanded: true,
+                          key: const ValueKey('ToneMapping'),
+                          value: toneMapping,
+                          items: [
+                            for (final entry in ToneMapping.values)
+                              DropdownMenuItem(
+                                value: entry,
+                                child: Text(switch (entry) {
+                                  ToneMapping.linear => 'Linear',
+                                  ToneMapping.reinhard => 'Reinhard',
+                                  ToneMapping.acesFilmic => 'ACES Filmic',
+                                  ToneMapping.aces => 'ACES',
+                                  ToneMapping.cineon => 'Cineon',
+                                  ToneMapping.agx => 'AgX',
+                                  ToneMapping.neutral => 'Neutral',
+                                }),
+                              ),
+                          ],
+                          onChanged: (value) => setState(() {
+                            toneMapping = value!;
+                            controller.colorPipeline = ColorPipeline(
+                              toneMapping: toneMapping,
+                              exposure: exposure,
+                              sampleCount: sampleCount,
+                            );
+                          }),
+                        ),
+                      ),
+                    if (controls != 'probes')
+                      control(
+                        'Exposure',
+                        controlWidth,
+                        exposure,
+                        4,
+                        (value) => setState(() {
+                          exposure = value;
                           controller.colorPipeline = ColorPipeline(
                             toneMapping: toneMapping,
                             exposure: exposure,
@@ -435,22 +460,55 @@ class _PbrLabState extends State<_PbrLab> {
                           );
                         }),
                       ),
-                    ),
-                    control(
-                      'Exposure',
-                      controlWidth,
-                      exposure,
-                      4,
-                      (value) => setState(() {
-                        exposure = value;
-                        controller.colorPipeline = ColorPipeline(
-                          toneMapping: toneMapping,
-                          exposure: exposure,
-                          sampleCount: sampleCount,
-                        );
-                      }),
-                    ),
-                    if (controls == 'transmission') ...[
+                    if (controls == 'probes') ...[
+                      FilledButton.tonal(
+                        key: const ValueKey('ProbeLeft'),
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                        ),
+                        onPressed: probeLighting.supported
+                            ? () => setState(() => probeLighting.update(0))
+                            : null,
+                        child: const Text('Left'),
+                      ),
+                      FilledButton.tonal(
+                        key: const ValueKey('ProbeRight'),
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                        ),
+                        onPressed: probeLighting.supported
+                            ? () => setState(() => probeLighting.update(1))
+                            : null,
+                        child: const Text('Right'),
+                      ),
+                      IconButton(
+                        tooltip: 'Cancel capture',
+                        onPressed: () => setState(probeLighting.cancel),
+                        icon: const Icon(Icons.stop_circle_outlined),
+                      ),
+                      DropdownButton<int>(
+                        value: probeLighting.faceSize,
+                        items: [
+                          for (final n in [16, 32, 64, 128, 256])
+                            DropdownMenuItem(value: n, child: Text('$n px')),
+                        ],
+                        onChanged: (n) =>
+                            setState(() => probeLighting.faceSize = n!),
+                      ),
+                      FilterChip(
+                        label: const Text('Local'),
+                        showCheckmark: false,
+                        selected: probeLighting.enabled,
+                        onSelected: (v) =>
+                            setState(() => probeLighting.setEnabled(v)),
+                      ),
+                      Text(
+                        probeLighting.error ??
+                            (!probeLighting.supported
+                                ? 'GPU capture unavailable'
+                                : '${probeLighting.probes?.count ?? 0} saved · ${probeLighting.probes?.captureFaces ?? 0}/6 faces · ${probeLighting.probes?.completedJobs ?? 0} jobs · ${((probeLighting.probes?.storageBytes ?? 0) / 1024).toStringAsFixed(0)} KiB'),
+                      ),
+                    ] else if (controls == 'transmission') ...[
                       control(
                         'Rough',
                         controlWidth,

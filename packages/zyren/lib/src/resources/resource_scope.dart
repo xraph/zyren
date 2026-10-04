@@ -46,6 +46,49 @@ abstract interface class ResourceDevice {
   Future<Uint8List> readTexture(Object key, int mipLevel);
 }
 
+/// Optional native ownership tickets for bounded deferred retirement.
+abstract interface class ResourceRetirementDevice implements ResourceDevice {
+  Future<Object> watchResource(Object key);
+  Future<bool> retireWatchedResource(Object ticket, {bool force = false});
+}
+
+final class ResourceRetirement {
+  final ResourceRetirementDevice _device;
+  final Object _ticket, allocationIdentity;
+  final int byteLength;
+  bool _done = false;
+  Future<bool>? _polling;
+  Future<void>? _closing;
+  ResourceRetirement._(
+    this._device,
+    this._ticket,
+    this.allocationIdentity,
+    this.byteLength,
+  );
+  bool get isRetired => _done;
+
+  /// Atomically consumes this ticket after non-ticket borrowers and GPU uses end.
+  /// Other tickets may still own the allocation; this is not physical residency.
+  Future<bool> poll() {
+    if (_done) return Future.value(true);
+    if (_closing != null) return _closing!.then((_) => true);
+    return _polling ??= _poll().whenComplete(() => _polling = null);
+  }
+
+  Future<bool> _poll() async =>
+      _done = await _device.retireWatchedResource(_ticket);
+
+  /// Drops this ticket's ownership. Other native borrowers retain their leases.
+  Future<void> close() => _closing ??= _close();
+  Future<void> _close() async {
+    await _polling;
+    if (!_done) {
+      await _device.retireWatchedResource(_ticket, force: true);
+      _done = true;
+    }
+  }
+}
+
 enum ResourceErrorCode {
   invalidCommand,
   staleKey,
@@ -80,6 +123,19 @@ final class GpuResource<T> {
       throw ArgumentError('Resource belongs to another device.');
     }
     return action(_key);
+  });
+  Object get allocationIdentity => _key;
+  Future<ResourceRetirement> watchRetirement() => _scope._run(() async {
+    final device = _scope._device;
+    if (device is! ResourceRetirementDevice) {
+      throw UnsupportedError('Device cannot track deferred retirement.');
+    }
+    return ResourceRetirement._(
+      device,
+      await device.watchResource(_key),
+      _key,
+      descriptor.byteLength,
+    );
   });
   String get label => descriptor.label;
   bool get isClosed => _scope.isClosed;

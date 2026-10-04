@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../lighting/reflection_probes.dart';
 import 'dart:math' as math;
 import 'package:vector_math/vector_math_64.dart' as vm;
 import '../geometry/geometry.dart';
@@ -582,6 +583,14 @@ final class EnvironmentRegistration extends Registration {
 }
 
 class Scene extends Object3D {
+  ReflectionProbes? _reflectionProbes;
+  ReflectionProbes? get reflectionProbes => _reflectionProbes;
+  set reflectionProbes(ReflectionProbes? value) {
+    if (identical(value, _reflectionProbes)) return;
+    _reflectionProbes = value;
+    _changed();
+  }
+
   List<ClippingPlane> _clippingPlanes = const [];
   SceneOutline? _outline;
   SceneOutline? get outline => _outline;

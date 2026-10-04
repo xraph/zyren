@@ -65,6 +65,7 @@ impl Defaults {
 }
 
 pub(super) struct EnvironmentInput {
+    locals: Vec<(Vec<usize>, EnvironmentInput)>,
     resources: Vec<ResourceKey>,
     textures: [wgpu::Texture; 3],
     volume: wgpu::Texture,
@@ -72,17 +73,28 @@ pub(super) struct EnvironmentInput {
 }
 impl EnvironmentInput {
     pub fn prepare(self, renderer: &Renderer, frame: &Frame) -> PreparedEnvironment {
+        self.prepare_slot(renderer, frame, 0)
+    }
+    fn prepare_slot(self, renderer: &Renderer, frame: &Frame, slot: usize) -> PreparedEnvironment {
         let volume = renderer.draw_cache.borrow_mut().texture(&self.volume);
         let views = self
             .textures
             .map(|texture| renderer.draw_cache.borrow_mut().texture(&texture));
+        let mut resources = self.resources;
+        let mut locals = Vec::new();
+        for (slot, (meshes, input)) in self.locals.into_iter().enumerate() {
+            let prepared = input.prepare_slot(renderer, frame, slot + 1);
+            resources.extend(prepared.resources.iter().copied());
+            locals.push((meshes, prepared));
+        }
         PreparedEnvironment {
-            resources: self.resources,
+            locals,
+            resources,
             volume,
             views,
             uniform: frame.meshes.iter().any(|m| m.pbr.is_some()).then(|| {
                 renderer.draw_uniform(
-                    super::draw_cache::UniformKey::Environment,
+                    super::draw_cache::UniformKey::Environment(slot),
                     bytemuck::bytes_of(&self.uniform),
                 )
             }),
@@ -90,12 +102,19 @@ impl EnvironmentInput {
     }
 }
 pub(super) struct PreparedEnvironment {
+    locals: Vec<(Vec<usize>, PreparedEnvironment)>,
     pub resources: Vec<ResourceKey>,
     views: [wgpu::TextureView; 3],
     volume: wgpu::TextureView,
     uniform: Option<wgpu::Buffer>,
 }
 impl PreparedEnvironment {
+    pub fn for_mesh(&self, index: usize) -> &Self {
+        self.locals
+            .iter()
+            .find(|(meshes, _)| meshes.contains(&index))
+            .map_or(self, |(_, e)| e)
+    }
     pub fn entries<'a>(&'a self, defaults: &'a Defaults) -> [wgpu::BindGroupEntry<'a>; 7] {
         [
             wgpu::BindGroupEntry {
@@ -290,7 +309,26 @@ impl Renderer {
             ];
             uniform.rotation = glam::Quat::from_rotation_y(environment.rotation).to_array();
         }
+        let mut locals = Vec::new();
+        for local in &frame.settings.local_environments {
+            if local
+                .meshes
+                .iter()
+                .any(|i| *i >= frame.meshes.len() || frame.meshes[*i].pbr.is_none())
+            {
+                return Err("Local environment requires valid PBR mesh indices".into());
+            }
+            let mut selected = frame.clone();
+            selected.environment = Some(local.environment());
+            selected.settings.environment = None;
+            selected.settings.local_environments.clear();
+            locals.push((
+                local.meshes.clone(),
+                self.prepare_environment(&selected, graph)?,
+            ));
+        }
         Ok(EnvironmentInput {
+            locals,
             resources,
             textures,
             volume,

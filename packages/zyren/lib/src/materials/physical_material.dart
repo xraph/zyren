@@ -96,6 +96,7 @@ final class PhysicalMaterial extends StandardMaterial {
     super.color,
     super.colorMap,
     super.occlusionStrength,
+    super.localReflections,
     super.specularAntiAliasingVariance,
     super.specularAntiAliasingThreshold,
     super.metallic,

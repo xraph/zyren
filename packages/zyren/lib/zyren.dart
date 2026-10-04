@@ -50,6 +50,7 @@ export 'src/resources/resource_scope.dart'
     hide
         swapHistoryTextures,
         ResourceDevice,
+        ResourceRetirementDevice,
         ShaderDevice,
         ShaderBuild,
         MeshShaderDevice,
@@ -88,3 +89,5 @@ export 'src/controls/environment_controls.dart';
 export 'src/controls/environment_controls_plugin.dart';
 export 'src/controls/camera_transition_manager.dart';
 export 'src/input/viewport_input.dart';
+
+export 'src/lighting/reflection_probes.dart';

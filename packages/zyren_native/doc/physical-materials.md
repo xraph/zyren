@@ -168,3 +168,89 @@ jittered capture projection. Capture targets and seed bindings share ownership;
 resize and view retirement invalidate every cached view that retained them.
 A single-sample capture also retains one seed pipeline, included in the native
 live pipeline count. The seed needs no additional texture allocation.
+
+## Local reflection probes
+
+You can capture nearby geometry into a linear HDR environment without GPU readback.
+Create `ReflectionProbes` from a `GraphBackend` that also implements `CaptureBackend`,
+or use `PluginContext.createReflectionProbes()`. Assign the collection to
+`scene.reflectionProbes`, call `update` with a capture point, world bounds and content
+revision, then call `advance()` once per frame while `pending` is true. Shader Lab's
+Local probes controls capture the left and right halves of its material grid. The
+controls show face progress, completed jobs and logical owned storage. They keep
+on-demand rendering active until the update finishes or fails.
+
+Each visible PBR object selects one containing probe by priority, then distance from
+its world-space anchor to the capture point. Selection happens in double world
+coordinates before origin shifting. Retained native covers keep their per-mesh
+selection when camera movement reprojects them during scene staging. Materials can
+set `localReflections: false`; objects outside the bounds use the existing global
+environment. Both the mip-chain and volume global environment models still work.
+Selection can jump when an object anchor crosses a boundary. These are capture-point
+environments without parallax correction or per-pixel blending.
+
+An update latches six CPU submissions and recomputes their individual frusta. It
+preserves authored visibility, layers and clipping. Camera movement in the main view
+does not cancel an update. Supply a new content revision when you want new scene
+content. Geometry absent from the supplied scene or streamed tile set cannot appear
+in the capture. Caller-owned mutable GPU textures and shader uniforms remain live;
+pause their writes if you need them to stay consistent across all six faces.
+
+Probe capture inherits explicit global environment and scene lighting. It excludes
+local probes, main-view postprocess graphs, display transforms and temporal history.
+It does not capture the main camera's volumetric cloud or atmosphere composition
+graph. Atmosphere-generated global environment textures can still supply lighting.
+Probes force an opaque clear, so blending produces radiance over that background
+rather than filtering associated-alpha RGB as an independent environment.
+
+The generic `SceneCaptureView` contract is narrower: it renders a caller-prepared
+`FrameSubmission` to a same-device, live, matching-size RGBA16F sampled render target.
+Built-in rendering produces straight-alpha linear color. A separately prepared graph
+may supply linear RGBA16F output, with its own documented alpha convention. The caller
+must prepare auxiliary camera uniforms, graph inputs and any histories independently.
+Replaying the main camera's view-dependent graph is not supported by the probe helper.
+Capture rejects display tone mapping, temporal effects and multisampling. A queued
+receipt means admission and submission were accepted in queue order, not that GPU
+execution or physical presentation completed. Resources remain held until completed
+GPU serials permit retirement. `clear()` releases a capture cover but retains its
+lease; `close()` drains queued use and releases the lease. Four leases are available
+per native device, including devices owned by Flutter's native presenter.
+
+The default face size is 32. Allowed sizes are 16, 32, 64, 128 and 256. Default
+filtering uses specular width 64, diffuse width 16, BRDF size 32 and 64 samples.
+Each collection permits four published probes, one candidate and one capture,
+conversion or filtering job per `advance()`. Every filtering job is checked against
+16,777,216 integration samples before admission. Capture geometry cost depends on the
+supplied scene and is not bounded by that sample cap. The first default update takes
+13 jobs: six faces, conversion, diffuse, four specular levels and BRDF. Compatible
+later updates reuse the invariant BRDF and take 12 jobs.
+
+Owned logical payload is capped at 33,554,432 bytes. The admission estimate includes
+published and retired maps, the candidate, six HDR faces, panorama conversion,
+filter parameters, retained environment inputs and BRDF storage. Shared published
+and retired allocations are counted once; the candidate reservation conservatively
+includes its BRDF even when it can be reused. Capture attachment bytes are reported
+separately by `SceneCaptureReceipt.attachmentBytes`. These include reusable native
+depth, alpha and transmission attachments and are outside the collection payload
+cap. `sharedEnergyLutBytes` reports the shared 131,072-byte fallback energy table
+when it is present during capture. It is device-wide, not an incremental allocation
+per capture. Geometry uploads, material textures and renderer caches belong to
+the device budget, not this environment payload cap. Queue backpressure also applies. Multiple collections
+add their storage and capture work; there is no cross-application scheduler.
+
+Publication swaps only a complete candidate. Cancellation, rejected admission and
+failed work preserve the last valid map. A native view can keep an old complete map
+while its replacement scene is staged or the view is inactive. Retired maps remain
+charged until consuming resource-retirement tickets establish that native borrowers
+and GPU work have ended and all-view cached aliases have been invalidated. A
+collection permits 64 retired generation records; a device permits 1,024 tickets.
+Pressure pauses updates with a recoverable error. Advance or close old views, call
+`reclaim()`, then retry.
+
+Tickets own actual native references. Duplicate tickets for one allocation coordinate
+all ticket-owned references, so shared BRDF tickets cannot deadlock waiting for each
+other. Consuming one ticket does not prove physical allocation reclamation while
+another ticket remains. Collection disposal drops its ticket ownership and cached
+aliases while preserving genuine native cover owners. Resource statistics still
+report logical payload, not physical GPU residency. Capture CPU submission time and
+job counts are available; auxiliary GPU timing is currently unavailable (`null`).

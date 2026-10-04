@@ -2,11 +2,11 @@ part of 'native_renderer.dart';
 
 final class _NativeSceneCapture implements SceneCaptureView {
   final _NativeResourceDevice _device;
-  final ScenePacketEncoder _encoder;
+  ScenePacketEncoder _encoder;
   final _closedSignal = Completer<void>();
   Future<void> get whenClosed => _closedSignal.future;
   Future<SceneCaptureReceipt>? _pending;
-  Future<void>? _closing;
+  Future<void>? _closing, _clearing;
   bool _closed = false;
   _NativeSceneCapture._(this._device, int view)
     : _encoder = ScenePacketEncoder(viewId: view, materialDevice: _device);
@@ -32,12 +32,30 @@ final class _NativeSceneCapture implements SceneCaptureView {
   }
 
   @override
+  Future<void> clear() {
+    if (_closed) return Future.error(StateError('Capture view has closed.'));
+    return _clearing ??= _clear().whenComplete(() => _clearing = null);
+  }
+
+  Future<void> _clear() async {
+    try {
+      await _pending;
+    } catch (_) {
+      /* Release a rejected cover too. */
+    }
+    final view = _encoder.viewId, budget = _encoder.uploadBudgetBytes;
+    await _device._command(105, _ResourcePacket()..u64(view));
+    _encoder = ScenePacketEncoder(viewId: view, materialDevice: _device)
+      ..uploadBudgetBytes = budget;
+  }
+
+  @override
   Future<SceneCaptureReceipt> capture(
     FrameSubmission submission,
     GpuResource<Texture> target,
   ) {
     if (_closed) return Future.error(StateError('Capture view has closed.'));
-    if (_pending != null) {
+    if (_pending != null || _clearing != null) {
       return Future.error(StateError('One capture may be queued at a time.'));
     }
     final work = _capture(submission, target);
@@ -61,8 +79,7 @@ final class _NativeSceneCapture implements SceneCaptureView {
           TextureUsage.renderAttachment,
         }) ||
         submission.colorPipeline != null ||
-        submission.temporalAA != null ||
-        submission.scene.usesScreenEffects) {
+        submission.temporalAA != null) {
       throw ArgumentError(
         'Capture requires a live matching linear RGBA16F attachment without display transforms or temporal effects.',
       );
@@ -81,7 +98,7 @@ final class _NativeSceneCapture implements SceneCaptureView {
               ..u64(_encoder.viewId)
               ..key(key)
               ..data(bytes),
-            responseBytes: 16,
+            responseBytes: 24,
           ),
           scenePacket: packet,
         ),
@@ -93,6 +110,7 @@ final class _NativeSceneCapture implements SceneCaptureView {
         drawCalls: values.getUint64(0, Endian.little),
         uploadedBytes: packet.uploadedBytes,
         attachmentBytes: values.getUint64(8, Endian.little),
+        sharedEnergyLutBytes: values.getUint64(16, Endian.little),
         cpuSubmitTime: clock.elapsed,
       );
     } catch (_) {
@@ -111,6 +129,7 @@ final class _NativeSceneCapture implements SceneCaptureView {
       } catch (_) {
         /* Drain failed work before releasing the view. */
       }
+      await _clearing;
       await _device._command(101, _ResourcePacket()..u64(_encoder.viewId));
     } finally {
       _closedSignal.complete();

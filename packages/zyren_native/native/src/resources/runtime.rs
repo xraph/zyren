@@ -645,9 +645,24 @@ impl ResourceStore {
         }
         Ok(())
     }
-    pub(crate) fn prepare_queued_scene(&mut self, device: &wgpu::Device) -> Result<(), ResourceError> {
+    pub(crate) fn owned_completed(
+        &self,
+        key: ResourceKey,
+        references: u32,
+    ) -> Result<bool, ResourceError> {
+        self.registry
+            .owned_completed(key, references, self.completed.load(Ordering::Acquire))
+    }
+    pub(crate) fn prepare_queued_scene(
+        &mut self,
+        device: &wgpu::Device,
+    ) -> Result<(), ResourceError> {
         self.poll_completed(device)?;
-        if self.serial.saturating_sub(self.completed.load(Ordering::Acquire)) >= MAX_PENDING_SUBMISSIONS as u64 {
+        if self
+            .serial
+            .saturating_sub(self.completed.load(Ordering::Acquire))
+            >= MAX_PENDING_SUBMISSIONS as u64
+        {
             self.wait(device)?;
         }
         Ok(())

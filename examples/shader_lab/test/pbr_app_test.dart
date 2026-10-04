@@ -153,6 +153,22 @@ void main() {
         expect(tester.takeException(), isNull);
         expect(tester.getSize(find.byType(SceneView)).height, greaterThan(250));
       }
+      await tester.tap(find.byKey(const ValueKey('LightingControls')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Local probes').last);
+      await tester.pumpAndSettle();
+      for (final size in [
+        const Size(320, 640),
+        const Size(390, 700),
+        const Size(1100, 700),
+      ]) {
+        await tester.binding.setSurfaceSize(size);
+        await tester.pumpAndSettle();
+        expect(find.byKey(const ValueKey('ProbeLeft')), findsOneWidget);
+        expect(find.byKey(const ValueKey('ProbeRight')), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        expect(tester.getSize(find.byType(SceneView)).height, greaterThan(250));
+      }
       await tester.pumpWidget(const SizedBox());
       await tester.runAsync(() => controller.whenDisposed);
       expect(backend.closeCount, 1);

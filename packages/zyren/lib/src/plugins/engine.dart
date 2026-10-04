@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../lighting/reflection_probes.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 import '../resources/buffer.dart';
@@ -206,6 +207,26 @@ class PluginContext {
     final binding = _claimFrameGraph();
     scope.keep(Registration(binding._close));
     return _frameGraph = binding;
+  }
+
+  /// Creates an independent capture lease owned by this plugin attachment.
+  Future<ReflectionProbes> createReflectionProbes() async {
+    _checkAttached();
+    final backend = _backend;
+    if (backend is! GraphBackend || backend is! CaptureBackend) {
+      throw UnsupportedError(
+        'This backend has no GPU reflection probe capture.',
+      );
+    }
+    final probes = await ReflectionProbes.create(backend);
+    try {
+      _checkAttached();
+      scope.onClose(probes.close);
+      return probes;
+    } catch (_) {
+      await probes.close();
+      rethrow;
+    }
   }
 
   /// Lazily owns GPU allocations for this attachment on its backend's device.

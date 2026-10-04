@@ -47,6 +47,7 @@ abstract interface class CaptureBackend implements RenderBackend {
 /// until the native queue completes, including when you close an output scope.
 abstract interface class SceneCaptureView {
   void configureSceneUploadBudget(int bytes);
+  Future<void> clear();
   Future<SceneCaptureReceipt> capture(
     FrameSubmission submission,
     GpuResource<Texture> target,
@@ -58,12 +59,16 @@ abstract interface class SceneCaptureView {
 final class SceneCaptureReceipt {
   final SceneAdmission admission;
   final int drawCalls, uploadedBytes, attachmentBytes;
+
+  /// Shared device energy table present during this capture, not incremental bytes.
+  final int sharedEnergyLutBytes;
   final Duration cpuSubmitTime;
   const SceneCaptureReceipt({
     required this.admission,
     required this.drawCalls,
     required this.uploadedBytes,
     required this.attachmentBytes,
+    required this.sharedEnergyLutBytes,
     required this.cpuSubmitTime,
   });
   int get readbackBytes => 0;

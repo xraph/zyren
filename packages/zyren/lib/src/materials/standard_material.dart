@@ -3,6 +3,7 @@ part of 'material.dart';
 /// Metallic/roughness material in linear light. Direct lighting uses explicit
 /// scene lights; emission is independent of them.
 base class StandardMaterial extends MeshMaterial {
+  final bool localReflections;
   final double metallic, roughness, emissiveIntensity;
   final Color3 emissive;
   final TextureMap? normalMap, metallicRoughnessMap, occlusionMap, emissiveMap;
@@ -40,6 +41,7 @@ base class StandardMaterial extends MeshMaterial {
     this.occlusionStrength = 1,
     this.specularAntiAliasingVariance = .15,
     this.specularAntiAliasingThreshold = .2,
+    this.localReflections = true,
     this.metallic = 0,
     this.roughness = 1,
     this.emissive = const Color3(0, 0, 0),

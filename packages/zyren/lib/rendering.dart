@@ -13,6 +13,7 @@ export 'src/rendering/frame_scheduler.dart';
 export 'src/resources/resource_scope.dart'
     show
         ResourceDevice,
+        ResourceRetirementDevice,
         ShaderDevice,
         ShaderBuild,
         MeshShaderDevice,

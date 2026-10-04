@@ -52,6 +52,16 @@ final class EnvironmentMap {
     this.brdf,
     this.quality,
   );
+  static int retainedPayloadBytes(Iterable<EnvironmentMap> maps) {
+    final textures = <Object, GpuResource<Texture>>{};
+    for (final map in maps) {
+      for (final t in [map.diffuse, map.specular, map.brdf]) {
+        textures[t._key] = t;
+      }
+    }
+    return textures.values.fold(0, (n, t) => n + t.descriptor.byteLength);
+  }
+
   bool get isClosed => _scope.isClosed;
   Future<void> close() => _scope.close();
 
@@ -116,6 +126,8 @@ final class EnvironmentMap {
     GpuResource<Texture> source, {
     required ResourceScope resources,
     EnvironmentQuality quality = const EnvironmentQuality(),
+    GpuResource<Texture>? reuseBrdf,
+    Future<void> Function(int integrationSamples)? beforePass,
   }) => resources._run(() async {
     quality.validate();
     final descriptor = source.descriptor as TextureDescriptor;
@@ -170,11 +182,25 @@ final class EnvironmentMap {
         quality.specularWidth ~/ 2,
         quality.specularMipLevels,
       );
-      final brdf = await texture(
-        'environment BRDF',
-        quality.brdfSize,
-        quality.brdfSize,
-      );
+      if (reuseBrdf != null) {
+        final d = reuseBrdf.descriptor as TextureDescriptor;
+        if (d.width != quality.brdfSize ||
+            d.height != quality.brdfSize ||
+            d.format != TextureFormat.rgba16Float ||
+            d.mipLevels != 1 ||
+            !d.usage.contains(TextureUsage.sampled)) {
+          throw ArgumentError(
+            'Reused BRDF must match the environment quality.',
+          );
+        }
+      }
+      final brdf = reuseBrdf == null
+          ? await texture(
+              'environment BRDF',
+              quality.brdfSize,
+              quality.brdfSize,
+            )
+          : await output.retain(reuseBrdf);
       final convolution = await shaders.compile(
         ShaderSource.wgsl(
           _environmentConvolution,
@@ -247,30 +273,67 @@ final class EnvironmentMap {
       }
       final params = await options(0, 0);
       inputs.add(params);
-      passes.add(
-        ComputePassDescriptor(
-          name: 'BRDF',
-          program: lookup,
-          workgroups: Workgroups(
-            (quality.brdfSize + 7) ~/ 8,
-            (quality.brdfSize + 7) ~/ 8,
+      if (reuseBrdf == null) {
+        passes.add(
+          ComputePassDescriptor(
+            name: 'BRDF',
+            program: lookup,
+            workgroups: Workgroups(
+              (quality.brdfSize + 7) ~/ 8,
+              (quality.brdfSize + 7) ~/ 8,
+            ),
+            reads: [params],
+            writes: [brdf],
+            bindings: ShaderBindings([
+              TextureBinding.storage(0, brdf),
+              BufferBinding.uniform(1, params),
+            ]),
           ),
-          reads: [params],
-          writes: [brdf],
-          bindings: ShaderBindings([
-            TextureBinding.storage(0, brdf),
-            BufferBinding.uniform(1, params),
-          ]),
-        ),
-      );
-      final graph = await graphs.compile(
-        GraphDescription(
-          label: 'environment integration',
-          inputs: inputs,
-          passes: passes,
-        ),
-      );
-      await graph.execute();
+        );
+      }
+      if (beforePass == null) {
+        final graph = await graphs.compile(
+          GraphDescription(
+            label: 'environment integration',
+            inputs: inputs,
+            passes: passes,
+          ),
+        );
+        await graph.execute();
+      } else {
+        for (final pass in passes) {
+          // Each job owns a graph so callers can admit one actual dispatch.
+          final job = ComputePassDescriptor(
+            name: pass.name,
+            program: pass.program,
+            workgroups: pass.workgroups,
+            reads: pass.reads,
+            writes: pass.writes,
+            bindings: pass.bindings,
+          );
+          final target = pass.writes.single.descriptor as TextureDescriptor;
+          final level = pass.name.startsWith('specular-')
+              ? int.parse(pass.name.substring(9))
+              : 0;
+          await beforePass(
+            (target.width >> level) *
+                (target.height >> level) *
+                quality.samples,
+          );
+          final graph = await graphs.compile(
+            GraphDescription(
+              label: 'environment integration step',
+              inputs: inputs,
+              passes: [job],
+            ),
+          );
+          try {
+            await graph.execute();
+          } finally {
+            await graph.close();
+          }
+        }
+      }
       if (output.isClosed) {
         throw StateError('Environment owner closed during preparation.');
       }
