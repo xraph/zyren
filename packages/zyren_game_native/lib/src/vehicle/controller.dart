@@ -487,6 +487,7 @@ final class GameVehicleSystem extends GameSystem {
     if (!identical(_session, session)) {
       throw StateError('Vehicle system session differs.');
     }
+    if (_bindings.isEmpty) return;
     final bodies = {for (final body in world.states) body.id: body};
     for (final binding in _bindings.values.toList()) {
       if (!identical(_bindings[binding.controller.actor], binding)) continue;

@@ -4,7 +4,7 @@ part of '../../zyren_game_ai.dart';
 abstract final class TrainingActions {
   static const movementBins = [-1.0, -.5, 0.0, .5, 1.0];
   static const pitchBins = [-1.0, 0.0, 1.0];
-  static ActionSpec get character => ActionSpec(
+  static final ActionSpec character = ActionSpec(
     id: 'character-discrete-v1',
     branches: [
       for (final name in ['moveX', 'moveZ', 'yaw'])
@@ -24,7 +24,7 @@ abstract final class TrainingActions {
     ],
     fallbackDiscrete: [2, 2, 2, 1, 0, 0],
   );
-  static ActionSpec get vehicle => ActionSpec(
+  static final ActionSpec vehicle = ActionSpec(
     id: 'vehicle-pedals-v1',
     continuous: [
       ObservationField('steer'),
