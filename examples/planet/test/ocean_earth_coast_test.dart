@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:test/test.dart';
 import 'package:zyren/zyren.dart';
@@ -74,6 +75,20 @@ void main() {
         expect(wet, greaterThan(100));
         expect(dry, greaterThan(100));
         await imported.close();
+        final child = await Process.run(Platform.resolvedExecutable, [
+          '--packages=${File('../../.dart_tool/package_config.json').absolute.path}',
+          File('test/support/ocean_offline_probe.dart').absolute.path,
+          directory.path,
+          File('${OceanEarthCoast.assetDirectory}/manifest.json').absolute.path,
+        ]);
+        expect(child.exitCode, 0, reason: '${child.stderr}');
+        expect(jsonDecode(child.stdout as String), {
+          'revision': OceanEarthCoast.revision,
+          'resources': 4,
+          'water': true,
+          'land': false,
+          'fetches': 0,
+        });
         final offline = await open(directory);
         try {
           final time = GeoInstant(tick: 0, hz: 60, epoch: DateTime.utc(2026));
