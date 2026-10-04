@@ -80,6 +80,16 @@ final class _FrameProbe extends ScenePlugin {
       cpuBuildMicros: sample.frame.cpuBuildTime.inMicroseconds,
       cpuSubmitMicros: sample.frame.cpuSubmitTime.inMicroseconds,
       gpuMicros: sample.frame.gpuTime?.inMicroseconds,
+      nativePrepareMicros: sample.frame.profile?.cpuPrepareNs == null
+          ? null
+          : sample.frame.profile!.cpuPrepareNs! ~/ 1000,
+      nativeEncodeMicros: sample.frame.profile?.cpuEncodeNs == null
+          ? null
+          : sample.frame.profile!.cpuEncodeNs! ~/ 1000,
+      nativeCompletionWaitMicros:
+          sample.frame.profile?.cpuCompletionWaitNs == null
+          ? null
+          : sample.frame.profile!.cpuCompletionWaitNs! ~/ 1000,
     );
   }
 }

@@ -252,6 +252,9 @@ def validate_receipt(receipt: dict, profile: dict, device: dict,
         errors.append("realtime clock measurements missing")
     render_build = samples("nativeRenderBuildMicros")
     render_submit = samples("nativeRenderSubmitMicros")
+    for field in ("nativePrepareMicros", "nativeEncodeMicros", "nativeCompletionWaitMicros"):
+        if receipt.get(field) is not None:
+            require(len(samples(field)) <= frames, f"{field} coverage exceeds frames")
     require(len(render_build) == frames and len(render_submit) == frames,
             "native rendering sample coverage differs")
     if receipt.get("nativeRenderGpuMicros") is not None:

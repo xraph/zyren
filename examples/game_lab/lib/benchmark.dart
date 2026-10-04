@@ -146,6 +146,9 @@ final class GameBenchmarkRecorder {
   final _presentation = <int>[], _flutter = <int>[], _gameCpu = <int>[];
   final _fullFrame = <int>[];
   final _renderBuild = <int>[], _renderSubmit = <int>[], _renderGpu = <int>[];
+  final _nativePrepare = <int>[],
+      _nativeEncode = <int>[],
+      _nativeWait = <int>[];
   final _renderSizes = <(int, int), int>{};
   final _inference = <int>[];
   final _clockLateness = <int>[], _clockPending = <int>[];
@@ -191,6 +194,9 @@ final class GameBenchmarkRecorder {
     required int cpuBuildMicros,
     required int cpuSubmitMicros,
     int? gpuMicros,
+    int? nativePrepareMicros,
+    int? nativeEncodeMicros,
+    int? nativeCompletionWaitMicros,
   }) {
     _open();
     if (readback < 0 ||
@@ -200,7 +206,12 @@ final class GameBenchmarkRecorder {
         height > 32768 ||
         cpuBuildMicros < 0 ||
         cpuSubmitMicros < 0 ||
-        gpuMicros != null && gpuMicros < 0) {
+        [
+          gpuMicros,
+          nativePrepareMicros,
+          nativeEncodeMicros,
+          nativeCompletionWaitMicros,
+        ].any((v) => v != null && v < 0)) {
       throw ArgumentError('Invalid native frame measurement.');
     }
     final size = (width, height);
@@ -210,6 +221,13 @@ final class GameBenchmarkRecorder {
     _sample(_renderBuild, cpuBuildMicros);
     _sample(_renderSubmit, cpuSubmitMicros);
     if (gpuMicros != null) _sample(_renderGpu, gpuMicros);
+    if (nativePrepareMicros != null) {
+      _sample(_nativePrepare, nativePrepareMicros);
+    }
+    if (nativeEncodeMicros != null) _sample(_nativeEncode, nativeEncodeMicros);
+    if (nativeCompletionWaitMicros != null) {
+      _sample(_nativeWait, nativeCompletionWaitMicros);
+    }
     _renderSizes.update(size, (count) => count + 1, ifAbsent: () => 1);
     frames++;
     readbackBytes += readback;
@@ -487,6 +505,17 @@ final class GameBenchmarkRecorder {
       'nativeRenderGpuMicros': _renderGpu.isEmpty
           ? null
           : distribution(_renderGpu),
+      'nativePrepareMicros': _nativePrepare.isEmpty
+          ? null
+          : distribution(_nativePrepare),
+      'nativeEncodeMicros': _nativeEncode.isEmpty
+          ? null
+          : distribution(_nativeEncode),
+      'nativeCompletionWaitMicros': _nativeWait.isEmpty
+          ? null
+          : distribution(_nativeWait),
+      'nativeProfileMeasurement':
+          'native CPU preparation, encoding and completion wait; wait can overlap GPU execution, so these intervals are not additive',
       'nativeOutputSizes': [
         for (final entry in _renderSizes.entries)
           {

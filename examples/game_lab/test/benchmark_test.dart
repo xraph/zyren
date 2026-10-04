@@ -16,6 +16,34 @@ Map<String, Object?> finish(GameBenchmarkRecorder recorder) => recorder.finish(
 );
 
 void main() {
+  test(
+    'native CPU intervals preserve unavailable samples and measured waits',
+    () {
+      final recorder = GameBenchmarkRecorder(
+        gameBenchmarkProfiles['reference-guard']!,
+      );
+      void frame({int? prepare, int? encode, int? wait}) =>
+          recorder.presentation(
+            intervalMicros: null,
+            readback: 0,
+            width: 960,
+            height: 2061,
+            cpuBuildMicros: 300,
+            cpuSubmitMicros: 200,
+            nativePrepareMicros: prepare,
+            nativeEncodeMicros: encode,
+            nativeCompletionWaitMicros: wait,
+          );
+      expect(() => frame(wait: -1), throwsArgumentError);
+      frame();
+      frame(prepare: 20, wait: 19000);
+      final receipt = finish(recorder);
+      expect(receipt['frames'], 2);
+      expect((receipt['nativePrepareMicros'] as Map)['raw'], [20]);
+      expect(receipt['nativeEncodeMicros'], isNull);
+      expect((receipt['nativeCompletionWaitMicros'] as Map)['raw'], [19000]);
+    },
+  );
   test('clock telemetry retains lateness, backlog and dropped time', () {
     final recorder = GameBenchmarkRecorder(
       gameBenchmarkProfiles['reference-guard']!,

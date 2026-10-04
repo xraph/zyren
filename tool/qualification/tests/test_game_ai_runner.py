@@ -71,6 +71,16 @@ class GameAiRunnerTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 runner.physical_device([{**self.device, **change}], self.device['id'])
 
+    def test_optional_native_cpu_intervals_retain_raw_coverage(self):
+        for field in ('nativePrepareMicros', 'nativeEncodeMicros', 'nativeCompletionWaitMicros'):
+            value = copy.deepcopy(self.receipt)
+            value[field] = distribution(value=19000, count=30000)
+            self.assertEqual(self.validate(value), [])
+            value[field]['p95'] = 1
+            self.assertTrue(self.validate(value))
+            value[field] = distribution(count=36001)
+            self.assertTrue(self.validate(value))
+
     def test_passed_status_does_not_replace_raw_gates(self):
         mutations = [
             ('cleanupVerified', False), ('dueDecisions', 30001), ('durationSeconds', 10),
