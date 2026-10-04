@@ -46,6 +46,11 @@ void main() {
           'outlines': {'executed': true, 'gpuTimeNs': null},
         };
       expect(NativeFrameProfile.fromJson(outlined).sceneDrawCalls(20), 5);
+      final generated = Map<String, Object?>.of(json)
+        ..['passes'] = {
+          'energyLut': {'executed': true, 'gpuTimeNs': null, 'drawCalls': 1},
+        };
+      expect(NativeFrameProfile.fromJson(generated).sceneDrawCalls(20), 5);
       outlined['status'] = 'failed';
       expect(NativeFrameProfile.fromJson(outlined).sceneDrawCalls(20), 20);
       final legacy = Map<String, Object?>.of(json);

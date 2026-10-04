@@ -5,6 +5,7 @@ import 'package:zyren/zyren.dart';
 import 'package:zyren/rendering.dart';
 import 'package:zyren_native/zyren_native.dart';
 import 'package:test/test.dart';
+import 'support/brdf_reference.dart';
 import 'support/environment_checks.dart'
     show constantEnvironment, smallEnvironment;
 
@@ -197,7 +198,22 @@ void main() {
           );
           // Normal incidence, roughness one: GGX D=1/pi and V=1/4.
           final f0 = math.pow((ior - 1) / (ior + 1), 2).toDouble();
-          expect(value[0], closeTo(srgb(f0 / (4 * math.pi)), 1));
+          expect(
+            value[0],
+            closeTo(
+              srgb(
+                f0 /
+                    (4 * math.pi) *
+                    (1 +
+                        f0 *
+                            (1 /
+                                    (referenceDirectionalEnergy(1, 1).$1 +
+                                        referenceDirectionalEnergy(1, 1).$2) -
+                                1)),
+              ),
+              1,
+            ),
+          );
         }
         expect(
           await pixel(
@@ -225,7 +241,22 @@ void main() {
             clearcoatRoughness: 1,
           ),
         );
-        expect(coat[0], closeTo(srgb(.04 / (4 * math.pi)), 1));
+        expect(
+          coat[0],
+          closeTo(
+            srgb(
+              .04 /
+                  (4 * math.pi) *
+                  (1 +
+                      .04 *
+                          (1 /
+                                  (referenceDirectionalEnergy(1, 1).$1 +
+                                      referenceDirectionalEnergy(1, 1).$2) -
+                              1)),
+            ),
+            1,
+          ),
+        );
         sun.lookAt(const Vec3(-1, 0, -1));
         final brushed = PhysicalMaterial(
           metallic: 1,

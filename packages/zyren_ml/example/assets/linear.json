@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "id": "linear",
+  "modelFile": "linear.onnx",
+  "sha256": "076a0857b626d1ceefb7f07f70b943afc960934b0653128d629344c0be203c75",
+  "opset": 17,
+  "runtimeVersion": "1.23.2",
+  "providers": [
+    "cpu"
+  ],
+  "maxModelBytes": 8388608,
+  "inputs": [
+    {
+      "name": "observation",
+      "dtype": "float32",
+      "shape": [
+        -1,
+        4
+      ],
+      "maxShape": [
+        64,
+        4
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "name": "action",
+      "dtype": "float32",
+      "shape": [
+        -1,
+        2
+      ],
+      "maxShape": [
+        64,
+        2
+      ]
+    }
+  ],
+  "recurrent": {},
+  "provenance": "Locally generated deterministic probe, seed 7; no pretrained weights."
+}

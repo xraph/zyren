@@ -64,8 +64,9 @@ fn physical_transmission(input:VertexOutput, n:vec3<f32>, v:vec3<f32>, surface:S
         let blue=transmission_path(input,n,v,surface,ior+spread);
         incoming=vec4(red.r,incoming.g,blue.b,max(incoming.a,max(red.a,blue.a)));
     }
-    let coat=coat_fresnel(clamp(dot(surface.coat_normal,v),0.,1.),surface);
+    let coat_nv=clamp(dot(surface.coat_normal,v),0.,1.);
+    let coat=surface.physical[0].z*(1.-diffuse_budget(vec3(.04),1.,energy_brdf(coat_nv,surface.physical[0].w)));
     let sheen=maximum3(surface.physical[2].rgb)*sheen_albedo(nv,surface.physical[1].w);
-    let weight=amount*(1.-maximum3(physical_fresnel(nv,surface)))*(1.-coat)*(1.-sheen);
+    let weight=amount*physical_diffuse_budget(nv,energy_brdf(nv,surface.roughness),surface)*(1.-coat)*(1.-sheen);
     return vec4(incoming.rgb*surface.base.rgb*weight,1.-weight*(1.-incoming.a));
 }

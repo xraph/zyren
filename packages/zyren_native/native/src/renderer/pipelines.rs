@@ -78,7 +78,9 @@ fn active_lobes(mesh: &Mesh) -> u8 {
     let coat = p[2] > 0.;
     let sheen = p[8..11].iter().any(|v| *v > 0.);
     let anisotropy = p[11] > 0.;
-    let film = material.optical[0] > 0. && material.optical[3] > 0.;
+    let film = material.optical[0] > 0.
+        && (material.optical[3] > 0.
+            || (material.physical_maps[11].is_some() && material.optical[2] > 0.));
     let transmission = material.transmission[0] > 0.
         && (material.metallic < 1. || material.metallic_roughness_map.is_some());
     let dispersion = transmission && material.optical[4] > 0. && material.transmission[1] > 0.;
@@ -585,6 +587,11 @@ mod tests {
         assert_eq!(active_lobes(&mesh), 1);
         mesh.pbr.as_mut().unwrap().metallic_roughness_map = Some(map);
         assert_ne!(active_lobes(&mesh) & 32, 0);
+        let pbr = mesh.pbr.as_mut().unwrap();
+        pbr.optical = [1., 1.3, 100., 0., 0., 0., 0., 0.];
+        assert_ne!(active_lobes(&mesh) & 16, 0);
+        mesh.pbr.as_mut().unwrap().physical_maps[11] = None;
+        assert_eq!(active_lobes(&mesh) & 16, 0);
     }
 
     #[test]

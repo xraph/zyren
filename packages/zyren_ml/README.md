@@ -155,11 +155,39 @@ you do not need a system ONNX installation. The shim calls the official C API
 through the bundled runtime's `OrtGetApiBase`, without an ORT linker dependency.
 Keep the runtime license and third-party notices with redistributed libraries.
 
-macOS arm64 CPU is verified here. The manifest also pins macOS x64, Linux
-x64/arm64 and Windows x64/arm64 archives, but those targets still need Q4 build
-and device tests. Cross-OS builds fail explicitly. Android and iOS builds fail
-with a missing-runtime message until a mobile artifact and packaging process are
-qualified. GPU providers are not enabled.
+The manifest pins desktop archives, the official Android Maven AAR and the
+Apple XCFramework inside Microsoft's NuGet package, all at version 1.23.2.
+Android selects the AAR's arm64, arm, x64 or x86 native library and requires
+API 24. Apple selects the device arm64 or simulator arm64/x64 static archive and
+links it into a bundled runtime dylib. You need an iOS 16 deployment target,
+since the archive requires 15.1 and the hook's deployment setting uses integers.
+The shim uses a static C++ standard library on Android, so it does not introduce
+a separate shared C++ runtime dependency. Both Android assets support 16 KiB pages.
+
+Flutter 3.47.5 currently sends a fixed native-hook iOS minimum of 15 even when your
+Runner targets 16. Declare the real deployment floor explicitly in your workspace
+pubspec and set the Runner's deployment target to the same value. The hook
+validates this declaration and compiles both Apple libraries with it:
+
+```yaml
+hooks:
+  user_defines:
+    zyren_ml:
+      ios_deployment_target: 16
+```
+
+A missing declaration fails when the hook receives 15. Values below 16, noninteger
+values and declarations that lower the hook's target also fail. The declaration
+does not change your Xcode project's deployment setting for you.
+
+macOS arm64 CPU is verified here. Other desktop targets still need Q4 build and
+device tests. Android arm64 CPU passed the 1,032-run probe on a physical Pixel 9 Pro
+running Android 17. The Apple arm64 simulator passed the same probe, and an unsigned iOS
+arm64 app build passed. Physical Apple execution is still blocked by the team's
+weekly App ID quota. Other Android ABIs and Apple x64 simulator have crossbuild
+evidence only. The [mobile probe](example/README.md) keeps execution distinct from
+packaging. Apple builds require macOS; Android builds require the Android NDK. Other cross-OS builds fail explicitly. NNAPI,
+CoreML and GPU execution providers are not enabled.
 
 ```sh
 fvm dart analyze

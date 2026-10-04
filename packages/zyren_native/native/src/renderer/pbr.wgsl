@@ -19,16 +19,34 @@ fn environment_specular(direction: vec3<f32>, roughness: f32) -> vec3<f32> {
     }
     return textureSampleLevel(specular_environment, environment_sampler, uv, roughness * environment.params.y).rgb;
 }
+// A/B match the correlated-Smith GGX integral, including the roughness floor.
+fn energy_brdf(nv: f32, roughness: f32) -> vec2<f32> {
+    let extent = vec2<f32>(textureDimensions(environment_brdf));
+    let uv = (vec2(clamp(nv,0.,1.),roughness) * (extent-vec2(1.)) + vec2(.5)) / extent;
+    return textureSampleLevel(environment_brdf, brdf_sampler, uv, 0.).rg;
+}
+fn energy_scale(f0: vec3<f32>, brdf: vec2<f32>) -> vec3<f32> {
+    let white = clamp(brdf.x + brdf.y, 1e-4, 1.);
+    return vec3(1.) + f0 * (1. / white - 1.);
+}
+fn diffuse_budget(f0: vec3<f32>, f90: f32, brdf: vec2<f32>) -> f32 {
+    return clamp(1. - maximum3((f0 * brdf.x + vec3(f90 * brdf.y)) * energy_scale(f0,brdf)),0.,1.);
+}
+fn standard_energy(nv: f32, surface: StandardSurface) -> vec4<f32> {
+    let brdf = energy_brdf(nv,surface.roughness);
+    let f0 = mix(vec3(.04), surface.base.rgb, surface.metallic);
+    return vec4(energy_scale(f0,brdf),diffuse_budget(vec3(.04),1.,brdf));
+}
 fn shade_environment(n: vec3<f32>, v: vec3<f32>, surface: StandardSurface) -> vec3<f32> {
     if (environment.params.x == 0.) { return vec3(0.); }
     let nv = clamp(dot(n,v), 0., 1.);
     let f0 = mix(vec3(.04), surface.base.rgb, surface.metallic);
-    let dielectric_fresnel = .04 + .96 * pow(1. - nv, 5.);
+    let energy = standard_energy(nv,surface);
     let diffuse = textureSampleLevel(diffuse_environment, environment_sampler, environment_uv(n), 0.).rgb / select(1.,3.141592653589793,environment.params.z>.5);
     let specular = environment_specular(reflect(-v,n), surface.roughness);
-    let brdf = textureSampleLevel(environment_brdf, brdf_sampler, vec2(nv, surface.roughness), 0.).rg;
-    return ((1. - dielectric_fresnel) * (1. - surface.metallic) * surface.base.rgb * diffuse
-        + specular * (f0 * brdf.x + brdf.y)) * environment.params.x * surface.occlusion;
+    let brdf = energy_brdf(nv,surface.roughness);
+    return (energy.w * (1. - surface.metallic) * surface.base.rgb * diffuse
+        + specular * (f0 * brdf.x + brdf.y) * energy.rgb) * environment.params.x * surface.occlusion;
 }
 
 struct PunctualLight {
@@ -52,7 +70,7 @@ fn normalized_or(v: vec3<f32>, fallback: vec3<f32>) -> vec3<f32> {
     return select(fallback, v * inverseSqrt(max(length_squared, 1e-20)), length_squared > 1e-20);
 }
 
-fn direct_brdf(n: vec3<f32>, v: vec3<f32>, l: vec3<f32>, base: vec3<f32>, metallic: f32, roughness: f32) -> vec3<f32> {
+fn direct_brdf(n: vec3<f32>, v: vec3<f32>, l: vec3<f32>, base: vec3<f32>, metallic: f32, roughness: f32, energy: vec4<f32>) -> vec3<f32> {
     let nl = clamp(dot(n, l), 0., 1.);
     let nv = clamp(dot(n, v), 0., 1.);
     if (nl <= 0. || nv <= 0.) { return vec3(0.); }
@@ -69,9 +87,8 @@ fn direct_brdf(n: vec3<f32>, v: vec3<f32>, l: vec3<f32>, base: vec3<f32>, metall
         + nv * sqrt(a2 + (1. - a2) * nl * nl), 1e-12);
     let f0 = mix(vec3(0.04), base, metallic);
     let fresnel = f0 + (vec3(1.) - f0) * pow(1. - vh, 5.);
-    let dielectric_fresnel = 0.04 + 0.96 * pow(1. - vh, 5.);
-    let diffuse = (1. - dielectric_fresnel) * (1. - metallic) * base / 3.141592653589793;
-    return (diffuse + fresnel * distribution * visibility) * nl;
+    let diffuse = energy.w * (1. - metallic) * base / 3.141592653589793;
+    return (diffuse + fresnel * distribution * visibility * energy.rgb) * nl;
 }
 
 fn shade_standard(input: VertexOutput, front: bool, original: StandardSurface) -> vec4<f32> {
@@ -88,13 +105,14 @@ fn shade_standard(input: VertexOutput, front: bool, original: StandardSurface) -
     let physical = PHYSICAL;
     var physical_view: PhysicalView;
     if (physical) { physical_view = prepare_physical(n, v, input.tangent, surface); }
-    let coat = select(0., coat_fresnel(clamp(dot(surface.coat_normal,v),0.,1.),surface), physical);
-    var color = surface.emission * (1.-coat) + physical_environment(n, v, input.tangent, surface);
+    let energy = standard_energy(clamp(dot(n,v),0.,1.),surface);
+    let coat = select(0., physical_view.coat_fresnel, physical && COAT);
+    var color = surface.emission * (1.-coat) + physical_environment(n, v, input.tangent, surface, physical_view);
     for (var i = 0u; i < lighting.count.y; i++) {
         let light = lighting.hemispheres[i];
         let weight = clamp(dot(n, light.direction.xyz) * 0.5 + 0.5, 0., 1.);
         let irradiance = mix(light.ground.rgb, light.sky_intensity.rgb, weight) * light.sky_intensity.w;
-        let diffuse_weight = select(.96, 1.-maximum3(physical_fresnel(clamp(dot(n,v),0.,1.),surface)), physical);
+        let diffuse_weight = select(energy.w, physical_view.diffuse_weight, physical);
         color += irradiance * base * (1. - surface.metallic) * (1.-surface.transmission[0].x) * (diffuse_weight / 3.141592653589793) * surface.occlusion * (1.-coat);
     }
     for (var i = 0u; i < lighting.count.x; i++) {
@@ -124,7 +142,7 @@ fn shade_standard(input: VertexOutput, front: bool, original: StandardSurface) -
         if (physical) {
             response = physical_direct_prepared(n, v, l, surface, physical_view);
         } else {
-            response = direct_brdf(n, v, l, base, surface.metallic, surface.roughness);
+            response = direct_brdf(n, v, l, base, surface.metallic, surface.roughness, energy);
         }
         color += response * light.color_intensity.rgb * light.color_intensity.w * attenuation
             * shadow_visibility(i, input.relative_position, select(-normalized_or(input.normal,n), normalized_or(input.normal,n), front), l);

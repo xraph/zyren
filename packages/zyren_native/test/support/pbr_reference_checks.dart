@@ -4,7 +4,7 @@ import 'package:zyren_native/zyren_native.dart';
 import 'package:test/test.dart';
 import 'brdf_reference.dart';
 import 'linear_scene_probe.dart';
-import 'environment_checks.dart' show constantEnvironment, smallEnvironment;
+import 'environment_checks.dart' show constantEnvironment;
 
 Future<void> verifyPbrReference(NativeGpuBackend backend) async {
   final probe = await LinearSceneProbe.create(backend);
@@ -69,7 +69,12 @@ Future<void> verifyPbrReference(NativeGpuBackend backend) async {
     final map = await EnvironmentMap.fromEquirectangular(
       constantEnvironment(1, .5, .25),
       resources: probe.resources,
-      quality: smallEnvironment,
+      quality: const EnvironmentQuality(
+        specularWidth: 16,
+        diffuseWidth: 16,
+        brdfSize: 128,
+        samples: 2048,
+      ),
     );
     try {
       for (final angle in [0.0, 55.0, 80.0]) {
@@ -90,16 +95,27 @@ Future<void> verifyPbrReference(NativeGpuBackend backend) async {
               ),
             );
           }
-          for (var index = 1; index < 4; index++) {
+          final (a, b) = referenceDirectionalEnergy(
+            math.cos(angle * math.pi / 180),
+            roughness,
+          );
+          final whiteEnergy = a + b;
+          final dielectricEnergy =
+              (.04 * a + b) * (1 + .04 * (1 / whiteEnergy - 1));
+          for (var index = 0; index < samples.length; index++) {
             final weight = index * .25;
             for (var c = 0; c < 3; c++) {
+              final color = [base.r, base.g, base.b][c];
+              final f0 = .04 * (1 - weight) + color * weight;
+              final reflected = (f0 * a + b) * (1 + f0 * (1 / whiteEnergy - 1));
               final expected =
-                  samples.first[c] * (1 - weight) + samples.last[c] * weight;
+                  ((1 - weight) * (1 - dielectricEnergy) * color + reflected) *
+                  [1.0, .5, .25][c];
               expect(
                 samples[index][c],
-                closeTo(expected, math.max(2e-5, expected * .003)),
+                closeTo(expected, math.max(3e-4, expected * .025)),
                 reason:
-                    'IBL material interpolation angle=$angle roughness=$roughness metallic=$weight channel=$c',
+                    'integrated IBL angle=$angle roughness=$roughness metallic=$weight channel=$c',
               );
             }
           }

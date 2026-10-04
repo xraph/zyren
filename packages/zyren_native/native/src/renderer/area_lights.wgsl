@@ -67,10 +67,13 @@ fn shade_area(light: AreaLight, position: vec3<f32>, n: vec3<f32>, v: vec3<f32>,
     let dielectric=select(vec3(.04),physical_f0(surface),physical);
     let f0=mix(dielectric,surface.base.rgb,surface.metallic);
     let f90=mix(select(1.,surface.physical[0].y,physical),1.,surface.metallic);
+    let brdf=energy_brdf(nv,surface.roughness);
+    let energy=energy_scale(f0,brdf);
+    let diffuse_weight=diffuse_budget(dielectric,select(1.,surface.physical[0].y,physical),brdf);
     let amplitude=ltc_lookup(ltc_amplitude,surface.roughness,nv);
     let specular_integral=ltc_polygon(points,ltc_transform(surface.roughness,nv));
-    var color=surface.base.rgb*(1.-surface.metallic)*(1.-surface.transmission[0].x)*(1.-maximum3(dielectric))*diffuse_integral
-        + (f0*amplitude.x+(vec3(f90)-f0)*amplitude.y)*specular_integral;
+    var color=surface.base.rgb*(1.-surface.metallic)*(1.-surface.transmission[0].x)*diffuse_weight*diffuse_integral
+        + (f0*amplitude.x+(vec3(f90)-f0)*amplitude.y)*specular_integral*energy;
     if (physical) {
         // Smooth cloth response and energy reduction use the hemispherical fit.
         if (SHEEN) {
@@ -87,7 +90,10 @@ fn shade_area(light: AreaLight, position: vec3<f32>, n: vec3<f32>, v: vec3<f32>,
         let coat_points=array<vec3<f32>,4>(coat_basis*(center-w-h),coat_basis*(center+w-h),coat_basis*(center+w+h),coat_basis*(center-w+h));
         let coat_amplitude=ltc_lookup(ltc_amplitude,surface.physical[0].w,coat_nv);
         let coat_integral=ltc_polygon(coat_points,ltc_transform(surface.physical[0].w,coat_nv));
-        color=color*(1.-coat_fresnel(coat_nv,surface))+vec3(surface.physical[0].z*(.04*coat_amplitude.x+.96*coat_amplitude.y)*coat_integral);
+        let coat_brdf=energy_brdf(coat_nv,surface.physical[0].w);
+        let coat_energy=energy_scale(vec3(.04),coat_brdf).x;
+        let coat_loss=surface.physical[0].z*(1.-diffuse_budget(vec3(.04),1.,coat_brdf));
+        color=color*(1.-coat_loss)+vec3(surface.physical[0].z*(.04*coat_amplitude.x+.96*coat_amplitude.y)*coat_integral*coat_energy);
     }
     return color*light.color_intensity.rgb*light.color_intensity.w;
 }

@@ -1,8 +1,8 @@
 import 'dart:io';
-import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:test/test.dart';
+import 'support/brdf_reference.dart';
 import 'package:zyren/zyren.dart';
 import 'package:zyren/rendering.dart';
 import 'package:zyren_native/zyren_native.dart';
@@ -53,22 +53,21 @@ void main() {
                   : math.pow(2, e - 15) * (1 + m / 1024));
         }
 
-        final reference =
-            jsonDecode(
-                  File(
-                    '../../test_assets/rendering/pbr/environment.json',
-                  ).readAsStringSync(),
-                )
-                as Map;
-        for (final sample in reference['samples'] as List) {
-          final offset = ((sample['y'] as int) * 32 + (sample['x'] as int)) * 8;
-          for (var channel = 0; channel < 2; channel++) {
-            expect(
-              half(lut, offset + 2 * channel),
-              closeTo(sample['brdf'][channel], .012),
-              reason: '$sample channel $channel',
-            );
-          }
+        for (final (x, y) in [
+          (0, 0),
+          (3, 15),
+          (15, 15),
+          (31, 15),
+          (0, 31),
+          (31, 31),
+        ]) {
+          final (a, b) = referenceDirectionalEnergy(
+            math.max(x / 31, 1e-8),
+            y / 31,
+          );
+          final offset = (y * 32 + x) * 8;
+          expect(half(lut, offset), closeTo(a, .012));
+          expect(half(lut, offset + 2), closeTo(b, .012));
         }
         for (final texture in [environment.irradiance, environment.specular]) {
           final data = ByteData.sublistView(

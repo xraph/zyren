@@ -269,11 +269,15 @@ final class NativeFrameProfile {
         (json['resources'] as Map? ?? {}).cast<String, Object?>(),
       );
 
-  /// Actual scene, transmission and outline work, including the outline composite.
+  /// Actual scene, transmission and outline work, including energy LUT generation.
   /// Older native runtimes keep the caller's packet estimate.
   int sceneDrawCalls(int fallback) =>
       status == 'complete' && executedMeshDraws != null
-      ? executedMeshDraws! + (passes['outlines']?.executed == true ? 1 : 0)
+      ? executedMeshDraws! +
+            (passes['outlines']?.executed == true ? 1 : 0) +
+            (passes['energyLut']?.executed == true
+                ? (passes['energyLut']?.drawCalls ?? 0)
+                : 0)
       : fallback;
 
   /// Additional output draw when a retained graph uses its original size.

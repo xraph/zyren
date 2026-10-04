@@ -1,5 +1,6 @@
 mod admission;
 mod area_lights;
+mod energy_lut;
 mod environment;
 mod sensor_capture;
 use std::{
@@ -148,6 +149,7 @@ pub struct RendererState {
     layout: wgpu::BindGroupLayout,
     pbr_layout: wgpu::BindGroupLayout,
     environment_defaults: environment::Defaults,
+    energy_lut: energy_lut::System,
     area_tables: area_lights::Tables,
     shadows: shadows::ShadowSystem,
     geometries: HashMap<u32, GpuGeometry>,
@@ -344,6 +346,7 @@ impl Renderer {
                 standard_texture_layout,
                 pbr_layout,
                 environment_defaults,
+                energy_lut: Default::default(),
                 area_tables,
                 shadows,
                 textures: HashMap::new(),
@@ -605,7 +608,10 @@ impl Renderer {
         }
     }
     pub fn scene_draw_stats(&self) -> (u64, usize) {
-        (self.last_scene_draws.get(), self.pipelines.len())
+        (
+            self.last_scene_draws.get(),
+            self.pipelines.len() + usize::from(self.energy_lut.table.is_some()),
+        )
     }
     pub fn scene_resource_stats(&self) -> (u64, u64) {
         self.resources.stats()
@@ -620,6 +626,7 @@ impl Renderer {
         }
         self.views.remove(&view);
         self.staging.remove(&view);
+        self.close_energy_lut(view)?;
         if self
             .compositor
             .resized
@@ -883,6 +890,7 @@ impl Renderer {
         if frame.admission.as_ref().is_none_or(|a| a.publish) {
             self.staging.remove(&view);
         }
+        self.commit_energy_lut(frame)?;
         self.evict_geometry()
     }
 
@@ -1186,6 +1194,7 @@ impl Renderer {
         if let Some(timer) = &self.gpu_timer {
             timer.begin(&mut encoder);
         }
+        self.encode_energy_lut(&mut encoder);
         if let Some(graph) = graph.filter(|graph| graph.has_before()) {
             self.begin_pass(&mut encoder, timing::Pass::ResourceGraphBefore);
             graph.encode_before(&mut encoder);
@@ -1525,6 +1534,7 @@ impl Renderer {
             .chain(self.draw_cache.borrow().keys())
             .chain(self.batches.key)
             .chain(environment.resources.iter().copied())
+            .chain(self.energy_lut.table.as_ref().map(|t| t.key))
             .chain(self.effect_resources.iter().copied())
             .chain(self.compositor.resized.iter().flat_map(|t| t.keys))
             .chain(
@@ -1542,6 +1552,7 @@ impl Renderer {
         if let Err(error) = self.resources.scene_submitted(index.clone(), &keys) {
             return Err(self.fail_frame(error.to_string()));
         }
+        self.energy_lut_submitted();
         self.counters.submitted_frames += 1;
         self.profile.borrow_mut().submission_count += 1;
         #[cfg(target_vendor = "apple")]
@@ -1661,6 +1672,7 @@ impl Renderer {
         let render_size =
             self.prepare_retained_size(frame, graph.as_ref(), [width, height], texture.format())?;
         self.check_temporal(frame, render_size)?;
+        self.prepare_energy_lut(frame)?;
         let environment = self.prepare_environment(frame, graph.as_ref())?;
         let materials = self.prepare_materials(frame, texture.format(), graph.as_ref())?;
         let scene_format = composition::scene_format(frame, texture.format(), graph.as_ref())?;
@@ -1828,6 +1840,7 @@ impl Renderer {
             wgpu::TextureFormat::Rgba8UnormSrgb,
         )?;
         self.check_temporal(frame, render_size)?;
+        self.prepare_energy_lut(frame)?;
         let environment = self.prepare_environment(frame, graph.as_ref())?;
         let materials =
             self.prepare_materials(frame, wgpu::TextureFormat::Rgba8UnormSrgb, graph.as_ref())?;

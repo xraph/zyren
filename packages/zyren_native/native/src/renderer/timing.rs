@@ -16,6 +16,7 @@ pub(super) fn features(available: wgpu::Features, backend: wgpu::Backend) -> wgp
 #[derive(Clone, Copy)]
 #[repr(usize)]
 pub(super) enum Pass {
+    EnergyLut,
     ResourceGraphBefore,
     Shadows,
     Transmission,
@@ -29,7 +30,8 @@ pub(super) enum Pass {
     Effects,
     ResizeComposite,
 }
-pub(super) const PASSES: [&str; 12] = [
+pub(super) const PASSES: [&str; 13] = [
+    "energyLut",
     "resourceGraphBefore",
     "shadows",
     "transmission",

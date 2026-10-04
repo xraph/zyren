@@ -1,6 +1,7 @@
 import '../rendering/color_pipeline.dart';
 export '../rendering/color_pipeline.dart' show ToneMapping;
 import 'dart:async';
+import '../rendering/ggx_energy_wgsl.dart';
 import '../rendering/mesh_deformation_wgsl.dart';
 import 'dart:convert';
 import 'dart:isolate';

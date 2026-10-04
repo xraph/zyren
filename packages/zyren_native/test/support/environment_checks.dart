@@ -178,7 +178,7 @@ Future<void> verifyEnvironment(NativeGpuBackend backend) async {
       await resources.readTexture(await resources.retain(map.brdf)),
     );
     for (final (x, y) in [(8, 12), (21, 23), (30, 31)]) {
-      final (scale, bias) = referenceBrdf((x + .5) / 32, (y + .5) / 32);
+      final (scale, bias) = referenceBrdf(x / 31, y / 31);
       expect(halfAt(lut, (y * 32 + x) * 8), closeTo(scale, .012));
       expect(halfAt(lut, (y * 32 + x) * 8 + 2), closeTo(bias, .004));
     }

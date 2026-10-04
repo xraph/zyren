@@ -1,0 +1,21 @@
+name: zyren_ml_probe
+description: Native ONNX Runtime mobile qualification using local deterministic fixtures.
+publish_to: none
+version: 0.1.0+1
+resolution: workspace
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+dependencies:
+  flutter:
+    sdk: flutter
+  zyren_ml:
+    path: ..
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/

@@ -22,3 +22,66 @@ Native readback tests compare mapped PBR batches with separately ordered draws.
 The coverage includes explicit tangent handedness, nonuniform scale and mixed
 transform determinant signs. These fixtures verify material behavior and cache
 handling. They do not measure foreground frame rate.
+
+## Directional energy
+
+The base GGX lobe uses the shape-preserving scaling approximation described by
+[Turquin](https://blog.selfshadow.com/publications/turquin/ms_comp_final.pdf).
+For Schlick normal reflectance F0 and white directional albedo E, its scale is
+`1 + F0 * (1/E - 1)`. You get the same scale in punctual lighting, environment
+lighting and the isotropic LTC area approximation. The anisotropic area path
+integrates the punctual response. Clearcoat uses its own roughness and lookup.
+
+This approximation restores the isotropic perfect-reflector furnace response
+while retaining colored absorption. It is view dependent and not reciprocal.
+The diffuse budget uses the compensated directional dielectric energy, including
+thin-film color where active. Coat attenuation uses compensated coat energy;
+Charlie sheen retains its existing fitted directional energy model.
+
+Anisotropic GGX uses an isotropic energy lookup at the geometric mean of its two
+GGX widths. You should expect incomplete energy restoration. Independent tests
+at anisotropy 0.8, roughness 0.3/0.65/1, NdotV 1/0.5/0.087 and tangent azimuth
+0/90 degrees measured white directional energy from 0.7551 to 1.0259. These are
+measurements of that grid, not bounds for every material. The IBL bent-normal
+prefilter and thin-film view-angle approximation also remain approximations.
+
+Native HDR tests check selected film and coat combinations before tone mapping.
+The tested normal-view thin-film thicknesses of 250 and 400 nm with half-strength
+coat produced directional channel energies from 0.9694 to 0.9989. The isotropic
+LTC tests differ from independent area integration by up to 1.6% at roughness
+0.35/0.65/1. You cannot infer exact layered conservation or angular lobe agreement
+from a furnace measurement alone.
+
+## Lookup data and lifetime
+
+All three built-in BRDF table generators share one canonical integral. Red stores
+Schlick A and green stores B, so A+B is white directional energy. Both axes include
+their endpoints: texel `(x,y)` represents `NdotV=x/(width-1)` and
+`roughness=y/(height-1)`. The shader maps those coordinates to texel centers.
+Caller-supplied BRDF maps need this convention too. A one-texel sampled dimension
+uses its center; the built-in generators require larger validated dimensions.
+
+At the exact grazing column, correlated Smith masking has the analytic limit
+Ewhite=1. The integrator applies that constraint to A+B while retaining its sampled
+A/B ratio. This removes the total-energy endpoint bias. It does not make the
+colored split or adjacent near-grazing quadrature exact. GGX keeps alpha at least
+0.002025, including an authored roughness of zero.
+
+A scene without an environment receives a lazy 128 by 128 RGBA16F table. It costs
+131072 registry bytes while a published or pending view retains PBR geometry.
+Generation uses 2048 samples per texel in one ordered GPU pass, with no additional
+CPU fence. The frame profile reports `energyLut` and includes that draw in totals.
+The generator adds one live pipeline while the table exists.
+
+The table stays uninitialized until generation submits. Failed preparation can
+retry it. Closing the last owner or publishing an empty scene removes retained
+texture and bind-group aliases across views before registry retirement; a culled
+source packet still owns its table. Allocation uses the scene budget, and the
+immutable table has no replacement overlap or CPU upload staging allocation.
+
+Regenerate the shipped Dart constant after editing the canonical native WGSL:
+
+```sh
+fvm dart run tool/generate_ggx_energy.dart
+fvm dart run tool/generate_ggx_energy.dart --check
+```

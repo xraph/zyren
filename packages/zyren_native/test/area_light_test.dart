@@ -5,6 +5,7 @@ import 'package:zyren/zyren.dart';
 import 'package:zyren/rendering.dart';
 import 'package:zyren_native/zyren_native.dart';
 import 'package:test/test.dart';
+import 'support/brdf_reference.dart';
 
 int srgb(double linear) =>
     (255 *
@@ -44,7 +45,8 @@ double glossyReference(double roughness) {
       sum += d * visibility * nl * nl / r2;
     }
   }
-  return sum * 4 / (count * count);
+  final (a, b) = referenceDirectionalEnergy(1, roughness);
+  return sum * 4 / (count * count) / (a + b);
 }
 
 void main() {

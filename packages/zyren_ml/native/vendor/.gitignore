@@ -1,3 +1,5 @@
 onnxruntime-*/
 *.tgz
 *.zip
+*.aar
+*.nupkg

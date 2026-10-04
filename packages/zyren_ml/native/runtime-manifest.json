@@ -38,6 +38,75 @@
       "sha256": "0b38df9af21834e41e73d602d90db5cb06dbd1ca618948b8f1d66d607ac9f3cd",
       "directory": "onnxruntime-win-x64-1.23.2",
       "library": "lib/onnxruntime.dll"
+    },
+    "android-arm64": {
+      "url": "https://repo.maven.apache.org/maven2/com/microsoft/onnxruntime/onnxruntime-android/1.23.2/onnxruntime-android-1.23.2.aar",
+      "sha256": "82048d1f462218adae4ba76477089ab0ba76093d84f733540066db1a8ba6b827",
+      "kind": "aar",
+      "directory": ".",
+      "include": "headers",
+      "library": "jni/arm64-v8a/libonnxruntime.so",
+      "minimumApi": 24
+    },
+    "android-arm": {
+      "url": "https://repo.maven.apache.org/maven2/com/microsoft/onnxruntime/onnxruntime-android/1.23.2/onnxruntime-android-1.23.2.aar",
+      "sha256": "82048d1f462218adae4ba76477089ab0ba76093d84f733540066db1a8ba6b827",
+      "kind": "aar",
+      "directory": ".",
+      "include": "headers",
+      "library": "jni/armeabi-v7a/libonnxruntime.so",
+      "minimumApi": 24
+    },
+    "android-ia32": {
+      "url": "https://repo.maven.apache.org/maven2/com/microsoft/onnxruntime/onnxruntime-android/1.23.2/onnxruntime-android-1.23.2.aar",
+      "sha256": "82048d1f462218adae4ba76477089ab0ba76093d84f733540066db1a8ba6b827",
+      "kind": "aar",
+      "directory": ".",
+      "include": "headers",
+      "library": "jni/x86/libonnxruntime.so",
+      "minimumApi": 24
+    },
+    "android-x64": {
+      "url": "https://repo.maven.apache.org/maven2/com/microsoft/onnxruntime/onnxruntime-android/1.23.2/onnxruntime-android-1.23.2.aar",
+      "sha256": "82048d1f462218adae4ba76477089ab0ba76093d84f733540066db1a8ba6b827",
+      "kind": "aar",
+      "directory": ".",
+      "include": "headers",
+      "library": "jni/x86_64/libonnxruntime.so",
+      "minimumApi": 24
+    },
+    "ios-arm64": {
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime/1.23.2/microsoft.ml.onnxruntime.1.23.2.nupkg",
+      "sha256": "25fe172f7fcdf34f2b5b02c8b997f6b88abc282956849d4af4335af23d0c4e4a",
+      "kind": "apple-nuget",
+      "nestedArchive": "runtimes/ios/native/onnxruntime.xcframework.zip",
+      "nestedSha256": "60cd467b88cbe61142dd3f9f6c1e5f4e1d88e3c48a943335aea7587324d48bb6",
+      "directory": "onnxruntime.xcframework/ios-arm64",
+      "include": "onnxruntime.framework/Headers",
+      "library": "onnxruntime.framework/onnxruntime",
+      "minimumDeployment": "15.1"
+    },
+    "ios-arm64-simulator": {
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime/1.23.2/microsoft.ml.onnxruntime.1.23.2.nupkg",
+      "sha256": "25fe172f7fcdf34f2b5b02c8b997f6b88abc282956849d4af4335af23d0c4e4a",
+      "kind": "apple-nuget",
+      "nestedArchive": "runtimes/ios/native/onnxruntime.xcframework.zip",
+      "nestedSha256": "60cd467b88cbe61142dd3f9f6c1e5f4e1d88e3c48a943335aea7587324d48bb6",
+      "directory": "onnxruntime.xcframework/ios-arm64_x86_64-simulator",
+      "include": "onnxruntime.framework/Headers",
+      "library": "onnxruntime.framework/onnxruntime",
+      "minimumDeployment": "15.1"
+    },
+    "ios-x64-simulator": {
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime/1.23.2/microsoft.ml.onnxruntime.1.23.2.nupkg",
+      "sha256": "25fe172f7fcdf34f2b5b02c8b997f6b88abc282956849d4af4335af23d0c4e4a",
+      "kind": "apple-nuget",
+      "nestedArchive": "runtimes/ios/native/onnxruntime.xcframework.zip",
+      "nestedSha256": "60cd467b88cbe61142dd3f9f6c1e5f4e1d88e3c48a943335aea7587324d48bb6",
+      "directory": "onnxruntime.xcframework/ios-arm64_x86_64-simulator",
+      "include": "onnxruntime.framework/Headers",
+      "library": "onnxruntime.framework/onnxruntime",
+      "minimumDeployment": "15.1"
     }
   }
 }

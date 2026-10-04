@@ -15,6 +15,17 @@ fn physical_fresnel(cosine: f32, surface: StandardSurface) -> vec3<f32> {
     let regular=f0 + (vec3(surface.physical[0].y) - f0) * pow(1. - cosine, 5.);
     return iridescent_fresnel(cosine,f0,regular,surface);
 }
+fn physical_diffuse_budget(nv: f32, brdf: vec2<f32>, surface: StandardSurface) -> f32 {
+    let f0 = physical_f0(surface);
+    var energy = f0 * brdf.x + vec3(surface.physical[0].y * brdf.y);
+    var effective = f0;
+    if (IRIDESCENCE && surface.optical[0].w > 0.) {
+        let film = film_fresnel(nv,f0,surface.optical[0].y,surface.optical[0].w);
+        energy = mix(energy,film*(brdf.x+brdf.y),surface.optical[0].x);
+        effective = mix(effective,film,surface.optical[0].x);
+    }
+    return clamp(1.-maximum3(energy*energy_scale(effective,brdf)),0.,1.);
+}
 fn maximum3(value: vec3<f32>) -> f32 { return max(value.x, max(value.y, value.z)); }
 fn coat_fresnel(cosine: f32, surface: StandardSurface) -> f32 {
     return surface.physical[0].z * (.04 + .96 * pow(1. - cosine, 5.));
@@ -59,15 +70,25 @@ fn sheen_albedo(cosine: f32, roughness: f32) -> f32 {
 struct PhysicalView {
     base: GgxView, coat: GgxView,
     inverse_sheen_alpha: f32, sheen_view_albedo: f32, coat_fresnel: f32,
+    energy: vec3<f32>, diffuse_weight: f32, coat_energy: f32,
 }
 fn prepare_physical(n: vec3<f32>, v: vec3<f32>, tangent: vec4<f32>, surface: StandardSurface) -> PhysicalView {
     let base = prepare_ggx(n,v,physical_tangent(n,tangent,surface),surface.roughness,surface.physical[2].w);
     var view: PhysicalView;
     view.base = base;
+    let effective_roughness = sqrt(sqrt(base.at * base.ab));
+    let brdf = energy_brdf(base.nv,effective_roughness);
+    let dielectric = physical_f0(surface);
+    var f0 = mix(dielectric,surface.base.rgb,surface.metallic);
+    if (IRIDESCENCE) { f0 = iridescent_fresnel(base.nv,f0,f0,surface); }
+    view.energy = energy_scale(f0,brdf);
+    view.diffuse_weight = physical_diffuse_budget(base.nv,brdf,surface);
     if (COAT) {
         let cn = surface.coat_normal;
         view.coat = prepare_ggx(cn,v,physical_tangent(cn,tangent,surface),surface.physical[0].w,0.);
-        view.coat_fresnel = coat_fresnel(view.coat.nv,surface);
+        let coat_brdf = energy_brdf(view.coat.nv,surface.physical[0].w);
+        view.coat_energy = energy_scale(vec3(.04),coat_brdf).x;
+        view.coat_fresnel = surface.physical[0].z * (1.-diffuse_budget(vec3(.04),1.,coat_brdf));
     }
     if (SHEEN) {
         view.inverse_sheen_alpha = 1. / max(surface.physical[1].w * surface.physical[1].w,.002025);
@@ -86,8 +107,8 @@ fn physical_direct_prepared(n: vec3<f32>, v: vec3<f32>, l: vec3<f32>, surface: S
         let metal = iridescent_fresnel(vh,surface.base.rgb,metal_regular,surface);
         fresnel = mix(dielectric,metal,surface.metallic);
     }
-    let diffuse = (1.-maximum3(dielectric)) * (1.-surface.metallic) * (1.-surface.transmission[0].x) * surface.base.rgb / 3.141592653589793;
-    var base = diffuse + fresnel * ggx_prepared(n,l,h,view.base);
+    let diffuse = view.diffuse_weight * (1.-surface.metallic) * (1.-surface.transmission[0].x) * surface.base.rgb / 3.141592653589793;
+    var base = diffuse + fresnel * ggx_prepared(n,l,h,view.base) * view.energy;
     if (SHEEN) {
     // Charlie distribution with Neubelt visibility for a soft cloth lobe.
     let inverse_alpha = view.inverse_sheen_alpha;
@@ -103,10 +124,10 @@ fn physical_direct_prepared(n: vec3<f32>, v: vec3<f32>, l: vec3<f32>, surface: S
     let coat = view.coat_fresnel;
     let base_light = select(vec3(0.),base*nl,nv>0.);
     let coat_h = normalized_or(v+l,cn);
-    let coating = select(0.,coat * ggx_prepared(cn,l,coat_h,view.coat) * coat_nl,coat_nv>0.);
+    let coating = select(0.,surface.physical[0].z * (.04 + .96 * pow(1.-vh,5.)) * view.coat_energy * ggx_prepared(cn,l,coat_h,view.coat) * coat_nl,coat_nv>0.);
     return base_light * (1.-coat) + vec3(coating);
 }
-fn physical_environment(n: vec3<f32>, v: vec3<f32>, tangent: vec4<f32>, surface: StandardSurface) -> vec3<f32> {
+fn physical_environment(n: vec3<f32>, v: vec3<f32>, tangent: vec4<f32>, surface: StandardSurface, view: PhysicalView) -> vec3<f32> {
     if (!PHYSICAL) { return shade_environment(n,v,surface); }
     if (environment.params.x == 0.) { return vec3(0.); }
     let nv = clamp(dot(n,v),0.,1.);
@@ -120,7 +141,7 @@ fn physical_environment(n: vec3<f32>, v: vec3<f32>, tangent: vec4<f32>, surface:
     }
     let diffuse = textureSampleLevel(diffuse_environment,environment_sampler,environment_uv(n),0.).rgb / select(1.,3.141592653589793,environment.params.z>.5);
     let radiance = environment_specular(reflected,surface.roughness);
-    let brdf = textureSampleLevel(environment_brdf,brdf_sampler,vec2(nv,surface.roughness),0.).rg;
+    let brdf = energy_brdf(nv,sqrt(sqrt(view.base.at*view.base.ab)));
     let f0 = mix(physical_f0(surface),surface.base.rgb,surface.metallic);
     let f90 = mix(surface.physical[0].y,1.,surface.metallic);
     var reflected_energy=f0*brdf.x+f90*brdf.y;
@@ -128,7 +149,7 @@ fn physical_environment(n: vec3<f32>, v: vec3<f32>, tangent: vec4<f32>, surface:
         let film=film_fresnel(nv,f0,surface.optical[0].y,surface.optical[0].w);
         reflected_energy=mix(reflected_energy,film*(brdf.x+brdf.y),surface.optical[0].x);
     }
-    var base = (1.-maximum3(physical_fresnel(nv,surface))) * (1.-surface.metallic) * (1.-surface.transmission[0].x) * surface.base.rgb * diffuse + radiance * reflected_energy;
+    var base = view.diffuse_weight * (1.-surface.metallic) * (1.-surface.transmission[0].x) * surface.base.rgb * diffuse + radiance * reflected_energy * view.energy;
     if (SHEEN) {
     let sheen = surface.physical[2].rgb;
     let sheen_energy = sheen_albedo(nv,surface.physical[1].w);
@@ -137,6 +158,6 @@ fn physical_environment(n: vec3<f32>, v: vec3<f32>, tangent: vec4<f32>, surface:
     if (!COAT) { return base * environment.params.x * surface.occlusion; }
     let coat_nv = clamp(dot(surface.coat_normal,v),0.,1.);
     let coat = environment_specular(reflect(-v,surface.coat_normal),surface.physical[0].w);
-    let coat_brdf = textureSampleLevel(environment_brdf,brdf_sampler,vec2(coat_nv,surface.physical[0].w),0.).rg;
-    return (base * (1.-coat_fresnel(coat_nv,surface)) + coat * surface.physical[0].z * (.04*coat_brdf.x+coat_brdf.y)) * environment.params.x * surface.occlusion;
+    let coat_brdf = energy_brdf(coat_nv,surface.physical[0].w);
+    return (base * (1.-view.coat_fresnel) + coat * surface.physical[0].z * (.04*coat_brdf.x+coat_brdf.y) * view.coat_energy) * environment.params.x * surface.occlusion;
 }

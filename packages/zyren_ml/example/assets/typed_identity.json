@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "id": "typed_identity",
+  "modelFile": "typed_identity.onnx",
+  "sha256": "d8e9fb3a4d45920cda090748e29d4e67f0869cb6ace8c42006594f2024e986c3",
+  "opset": 17,
+  "runtimeVersion": "1.23.2",
+  "providers": [
+    "cpu"
+  ],
+  "maxModelBytes": 8388608,
+  "inputs": [
+    {
+      "name": "ids",
+      "dtype": "int64",
+      "shape": [
+        -1,
+        2
+      ],
+      "maxShape": [
+        64,
+        2
+      ]
+    },
+    {
+      "name": "mask",
+      "dtype": "bool",
+      "shape": [
+        -1,
+        2
+      ],
+      "maxShape": [
+        64,
+        2
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "name": "next_ids",
+      "dtype": "int64",
+      "shape": [
+        -1,
+        2
+      ],
+      "maxShape": [
+        64,
+        2
+      ]
+    },
+    {
+      "name": "next_mask",
+      "dtype": "bool",
+      "shape": [
+        -1,
+        2
+      ],
+      "maxShape": [
+        64,
+        2
+      ]
+    }
+  ],
+  "recurrent": {},
+  "provenance": "Locally generated ONNX Identity graph; no trained weights."
+}

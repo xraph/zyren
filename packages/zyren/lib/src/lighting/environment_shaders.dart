@@ -76,32 +76,16 @@ fn radiance(n: vec3<f32>, solid_angle: f32) -> vec3<f32> {
 }
 ''';
 
-const _environmentBrdf =
-    '''
-$_environmentSampling
+// RG stores Schlick A/B; A+B is the correlated-Smith white directional albedo.
+const _environmentBrdf = '''
+$ggxEnergyWgsl
 struct Options { roughness: f32, mode: u32, samples: u32, unused: u32 };
 @group(0) @binding(0) var output: texture_storage_2d<rgba16float, write>;
 @group(0) @binding(1) var<uniform> options: Options;
 @compute @workgroup_size(8,8) fn main(@builtin(global_invocation_id) id: vec3<u32>) {
   let extent = textureDimensions(output);
   if (any(id.xy >= extent)) { return; }
-  let uv = (vec2<f32>(id.xy) + .5) / vec2<f32>(extent);
-  let nv = uv.x;
-  let v = vec3(sqrt(1. - nv*nv), 0., nv);
-  let a = max(uv.y * uv.y, .002025);
-  var integral = vec2(0.);
-  for (var i = 0u; i < options.samples; i++) {
-    let h = ggx_half(sequence(i, options.samples), uv.y);
-    let vh = max(dot(v,h), 0.);
-    let l = 2. * vh * h - v;
-    let nl = max(l.z, 0.);
-    if (nl > 0.) {
-      let visibility = .5 / max(nl * sqrt(a*a + (1. - a*a) * nv*nv) + nv * sqrt(a*a + (1. - a*a) * nl*nl), 1e-12);
-      let weight = 4. * visibility * nl * vh / max(h.z, 1e-6);
-      let fc = pow(1. - vh, 5.);
-      integral += vec2(1. - fc, fc) * weight;
-    }
-  }
-  textureStore(output, vec2<i32>(id.xy), vec4(integral / f32(options.samples), 0., 1.));
+  let uv = vec2<f32>(id.xy) / vec2<f32>(extent - vec2(1u));
+  textureStore(output,vec2<i32>(id.xy),vec4(ggx_energy_integral(uv.x,uv.y,options.samples),0.,1.));
 }
 ''';
