@@ -48,18 +48,24 @@ class VisualPolicy(StructuredPolicy):
         return torch.stack(outputs),torch.stack(values),state
 
 
-def create_policy(network,width,action_space,*,observation_schema=None,**kwargs):
+def create_policy(network,width,action_space,*,observation_schema=None,visual_profile=None,**kwargs):
     if network=={'hidden_sizes':[128,128],'lstm_hidden_size':128}:
         return StructuredPolicy(width,action_space,**kwargs)
+    import hashlib,json
     validate_visual_network(network)
     channels=network['channels'];body=network['body_width']
-    if width!=channels*84*84+body:raise ValueError('Camera generated width differs')
-    if observation_schema is None or observation_schema.get('layout')!='CHW-image-then-own-body' or [f.get('id') for f in observation_schema.get('fields',[])]!=['camera','own-body']:
+    if width!=channels*84*84+body or body!=8:raise ValueError('Camera generated width differs')
+    metadata=visual_profile
+    if not isinstance(metadata,dict) or metadata.get('layout')!='CHW-image-then-own-body' or metadata.get('family') not in ('guard','vehicle') or metadata.get('mode') not in ('rgb','depth','combined') or observation_schema is None or [f.get('name') for f in observation_schema.get('fields',[])]!=['camera','own-body']:
         raise ValueError('Native camera observation schema required')
-    profile=observation_schema.get('camera_profile',{})
-    mode=observation_schema.get('mode');expected={'rgb':3,'depth':2,'combined':5}.get(mode)
-    if expected!=channels or profile.get('width')!=84 or profile.get('height')!=84 or profile.get('layout')!='NCHW':
+    profile=metadata.get('camera_profile',{})
+    expected={'rgb':3,'depth':2,'combined':5}[metadata['mode']]
+    fields=observation_schema['fields']
+    configuration=hashlib.sha256(json.dumps(metadata,separators=(',',':'),ensure_ascii=False,allow_nan=False).encode()).hexdigest()
+    if expected!=channels or metadata.get('channels')!=channels or metadata.get('fixed_hz')!=50 or metadata.get('max_hold_ticks')!=2 or profile.get('width')!=84 or profile.get('height')!=84 or profile.get('layout')!='NCHW' or profile.get('mean')!=[0,0,0] or profile.get('std')!=[1,1,1] or metadata.get('body_fields')!=['localVelocityX','localVelocityY','localVelocityZ','angularVelocityY','height','forwardGoal','lateralGoal','valid'] or metadata.get('goal')!=[1,0] or observation_schema.get('configurationHash')!=configuration or observation_schema.get('id')!=metadata['family']+'-visual-'+metadata['mode']+'-v1' or [f.get('width') for f in fields]!=[channels*84*84,8] or [(f.get('min'),f.get('max'),f.get('offset'),f.get('scale')) for f in fields]!=[(0,1,0,1),(-10000,10000,0,1)] or observation_schema.get('cadenceTicks')!=1 or observation_schema.get('latencyTicks')!=1:
         raise ValueError('Native camera profile differs')
+    required={'kind':'multi_discrete','nvec':[5,5,5,3,2,2]} if metadata['family']=='guard' else {'kind':'box','low':[-1,0,0],'high':[1,1,1]}
+    if action_space!=required:raise ValueError('Visual controller action mapping differs')
     return VisualPolicy(channels,body,action_space,**kwargs)
 
 

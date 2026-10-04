@@ -38,3 +38,30 @@ def test_actor_only_candidate_dynamic_batch_carry_reset_and_normalization(tmp_pa
         hidden,cell=expected[1:]
     assert runtime_schema_hash(checkpoint.observation)==json.loads((Path(__file__).parent/'fixtures/policy-schemas.json').read_text())[family]['observation_schema_hash']
     with pytest.raises(ValueError,match='exists'):export_actor(checkpoint,tmp_path/family)
+
+
+def test_visual_export_preserves_public_profile_and_compact_body_normalization(tmp_path):
+    from zyren_train.policies.visual import create_policy
+    schemas=json.loads((Path(__file__).parent/'fixtures/visual-profiles.json').read_text())['guard-visual-depth']
+    action=json.loads((Path(__file__).parent/'fixtures/policy-schemas.json').read_text())['guard']
+    network={'architecture':'native-camera-cnn-v1','channels':2,'body_width':8,'lstm_hidden_size':128}
+    config=SimpleNamespace(hash='c'*64,data={'network':network,'policy_distribution':'masked-categorical-v1','worker_sha256':'d'*64,'worker_native_sha256':{'lib/probe':'e'*64}})
+    policy=create_policy(network,14120,action['action_space'],observation_schema=schemas['observation'],visual_profile=schemas['visual_profile'],fallback=action['action_schema']['fallbackDiscrete'])
+    config.data['policy_distribution']=policy.distribution_id
+    policy.observation_mean[-8:]=torch.arange(8,dtype=torch.float32)
+    policy.observation_scale[-8:]=torch.arange(1,9,dtype=torch.float32)
+    state={'model':policy.state_dict(),'normalization':{'source_hash':'a'*64},'source_pins':{},'_checkpoint_sha256':'f'*64}
+    checkpoint=ActorCheckpoint(config,state,schemas['observation'],action['action_schema'],action['action_space'],schemas['visual_profile'])
+    result=export_actor(checkpoint,tmp_path/'visual')
+    assert result['family']=='guard-visual-depth' and not result['accepted']
+    manifest=json.loads((tmp_path/'visual/model.json').read_text());normalization=json.loads((tmp_path/'visual/normalization.json').read_text())
+    assert manifest['preprocessing']['visualProfile']==schemas['visual_profile']
+    assert runtime_schema_hash(manifest['preprocessing']['visualProfile'])==schemas['observation']['configurationHash']
+    assert normalization=={'schema_version':1,'mode':'embedded-camera-body-affine-v1','camera_width':14112,'mean':list(range(8)),'scale':list(range(1,9)),'source_hash':'a'*64}
+    loaded=create_policy(network,14120,action['action_space'],observation_schema=schemas['observation'],visual_profile=manifest['preprocessing']['visualProfile'],fallback=action['action_schema']['fallbackDiscrete'])
+    loaded.load_state_dict(state['model']);loaded.eval()
+    session=ort.InferenceSession(str(tmp_path/'visual/actor.onnx'),providers=['CPUExecutionProvider'])
+    inputs=(torch.rand(2,14120),torch.randn(2,128),torch.randn(2,128))
+    with torch.no_grad():reference=ActorStep(loaded)(*inputs)
+    actual=session.run(None,{n:v.numpy() for n,v in zip(['observation','hidden','cell'],inputs)})
+    for left,right in zip(actual,reference):np.testing.assert_allclose(left,right.numpy(),atol=1e-5,rtol=1e-4)

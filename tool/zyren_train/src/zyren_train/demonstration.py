@@ -5,7 +5,7 @@ import math
 import os
 from pathlib import Path
 from .scenario import canonical_bytes, identifier, integer, ScenarioSpec, decode_json_bytes
-from .dataset import ChunkReceipt, DatasetManifest, EpisodeReceipt
+from .dataset import ChunkReceipt, DatasetManifest, EpisodeReceipt, decode_chunk
 
 
 def validate_record(row,metadata):
@@ -46,7 +46,12 @@ def validate_record(row,metadata):
 
 class DemonstrationRecorder:
     def __init__(self,path,*,scenario:ScenarioSpec,session_id,run_id,environment_id,source,model_hash,
-                 chunk_records=256,chunk_bytes=8_388_608,recording_settings=None):
+                 chunk_records=256,chunk_bytes=8_388_608,recording_settings=None,compression=None):
+        if compression not in (None,'gzip'):raise ValueError('Unsupported chunk compression')
+        self._compression=compression;self._raw=None
+        settings=dict(recording_settings or {})
+        if 'chunk_encoding' in settings:raise ValueError('Chunk encoding is owned by recorder')
+        if compression:settings['chunk_encoding']='gzip-jsonl-v1'
         self.path=Path(path); self.path.mkdir(parents=True,exist_ok=True)
         self.chunk_records=integer(chunk_records,1,1024); self.chunk_bytes=integer(chunk_bytes,1_048_577,8_388_608)
         if source not in ('player','scripted','policy'): raise ValueError('Invalid recording source')
@@ -54,7 +59,7 @@ class DemonstrationRecorder:
             'environment_id':identifier(environment_id),'source':source,'model_hash':identifier(model_hash),
             'scenario':scenario.to_dict(),'scenario_hash':scenario.hash,'partition':scenario.partition,
             'observation_schema_hash':scenario.observation_schema_hash,'action_schema_hash':scenario.action_schema_hash,
-            'game_build_hash':scenario.game_build_hash,'recording_settings':recording_settings or {}}
+            'game_build_hash':scenario.game_build_hash,'recording_settings':settings}
         data=canonical_bytes(self.meta,max_bytes=65536)
         with (self.path/'recording.json').open('xb') as stream: stream.write(data)
         self._stream=None; self._count=0; self._bytes=0; self._hash=None
@@ -76,7 +81,13 @@ class DemonstrationRecorder:
         encoded=canonical_bytes(row)+b'\n'
         if self._stream and (self._count>=self.chunk_records or self._bytes+len(encoded)>self.chunk_bytes): self._seal()
         if self._stream is None:
-            self._stream=(self.path/f'chunk-{len(self.chunks):06d}.jsonl').open('xb')
+            suffix='.gz' if self._compression else ''
+            self._file=f'chunk-{len(self.chunks):06d}.jsonl{suffix}'
+            self._raw=(self.path/self._file).open('xb')
+            if self._compression:
+                import gzip
+                self._stream=gzip.GzipFile(filename='',mode='wb',fileobj=self._raw,mtime=0)
+            else:self._stream=self._raw
             self._hash=hashlib.sha256(); self._count=0; self._bytes=0
         try:
             self._stream.write(encoded); self._stream.flush()
@@ -93,8 +104,12 @@ class DemonstrationRecorder:
                 self.meta['partition'],self.meta['source']))
     def _seal(self):
         if self._stream is None: return
-        os.fsync(self._stream.fileno()); self._stream.close(); self._stream=None
-        self.chunks.append(ChunkReceipt(f'chunk-{len(self.chunks):06d}.jsonl',self._hash.hexdigest(),self._count,self._bytes))
+        self._stream.flush();os.fsync(self._stream.fileno());self._stream.close();self._stream=None
+        if self._raw is not None and not self._raw.closed:
+            self._raw.flush();os.fsync(self._raw.fileno());self._raw.close()
+        data=(self.path/self._file).read_bytes()
+        if len(data)>self.chunk_bytes:raise ValueError('Compressed chunk storage exceeds byte budget')
+        self.chunks.append(ChunkReceipt(self._file,hashlib.sha256(data).hexdigest(),self._count,len(data)))
     def finalize(self):
         if self._closed or self._faulted or not self.episodes or not self._ended: raise ValueError('Recording has no completed episodes')
         self._seal()
@@ -107,6 +122,7 @@ class DemonstrationRecorder:
         return m
     def abort(self):
         if self._stream: self._stream.close(); self._stream=None
+        if self._raw and not self._raw.closed:self._raw.close()
         self._closed=True
 
 
@@ -117,11 +133,14 @@ def recover_recording(path):
         manifest=DatasetManifest.load(path); list(manifest.records(path))
         return {'status':'complete','manifest_hash':manifest.hash}
     chunks=[]
-    files=sorted(path.glob('chunk-*.jsonl'))
+    compressed=metadata.get('recording_settings',{}).get('chunk_encoding')=='gzip-jsonl-v1'
+    suffix='.gz' if compressed else ''
+    files=sorted(path.glob('chunk-*.jsonl'+suffix))
     for i,file in enumerate(files):
-        if file.name!=f'chunk-{i:06d}.jsonl' or file.stat().st_size>8_388_608: raise ValueError('Invalid recovery chunks')
+        if file.name!=f'chunk-{i:06d}.jsonl{suffix}' or file.stat().st_size>8_388_608: raise ValueError('Invalid recovery chunks')
         data=file.read_bytes(); valid=0
-        for line in data.splitlines(keepends=True):
+        decoded=decode_chunk(data,compressed=compressed,allow_partial=True)
+        for line in decoded.splitlines(keepends=True):
             if not line.endswith(b'\n'): break
             try: validate_record(decode_json_bytes(line),metadata)
             except (ValueError,TypeError): break
@@ -131,7 +150,7 @@ def recover_recording(path):
     return {'status':'interrupted','chunks':chunks,'session_id':metadata['session_id']}
 
 
-def record_episode(env,recorder,action_source,*,seed=None):
+def record_episode(env,recorder,action_source,*,seed=None,on_step=None):
     """Capture observed input before applying the action through the shared host."""
     expected=recorder.meta
     actual_seed=expected['scenario']['seed'] if seed is None else seed
@@ -156,6 +175,7 @@ def record_episode(env,recorder,action_source,*,seed=None):
         if 'legality' in info: row['legality']={actor:info['legality']}
         if 'execution_legality' in next_info: row['execution_legality']={actor:next_info['execution_legality']}
         recorder.append(row); steps+=1
+        if on_step is not None:on_step(dict(next_info))
         observation,info=next_observation,next_info
         if terminated or truncated: return steps
 

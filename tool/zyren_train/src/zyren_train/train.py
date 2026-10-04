@@ -196,7 +196,7 @@ def recurrent_ppo(config,pool,run,*,resume=False,stop_after_updates=None,cancell
         first=pool.infos[0]; width=sum(field['width'] for field in first['observation_schema']['fields'])
         if any(info['action_space']!=first['action_space'] or info['observation_schema_hash']!=first['observation_schema_hash'] for info in pool.infos): raise ValueError('Vector profiles differ')
         fallback=first['action_schema']['fallbackDiscrete'] if first['action_space']['kind']=='multi_discrete' else None
-        policy=create_policy(data['network'],width,first['action_space'],observation_schema=first['observation_schema'],fallback=fallback,mean=None if norm is None else norm['mean'],scale=None if norm is None else norm['scale'])
+        policy=create_policy(data['network'],width,first['action_space'],observation_schema=first['observation_schema'],visual_profile=first.get('visual_profile'),fallback=fallback,mean=None if norm is None else norm['mean'],scale=None if norm is None else norm['scale'])
         if policy.distribution_id!=data['policy_distribution']: raise ValueError('Policy distribution and host action contract differ')
         optimizer=torch.optim.Adam(policy.parameters(),lr=data['optimizer']['learning_rate'])
         if state is not None:

@@ -35,11 +35,15 @@ void main() {
             final values = initial.observations['actor']!;
             expect(values.take(imageWidth).toSet().length, greaterThan(2));
             final schema = initial.info['observation_schema'] as Map;
-            expect((schema['fields'] as List).map((f) => (f as Map)['id']), [
+            expect((schema['fields'] as List).map((f) => (f as Map)['name']), [
               'camera',
               'own-body',
             ]);
-            expect(schema['training_only_fields'], contains('teacher_action'));
+            expect(
+              initial.info['training_only_fields'],
+              contains('teacher_action'),
+            );
+            expect((initial.info['visual_profile'] as Map)['mode'], mode.name);
             final step = await env.step({
               'actor': Float32List.fromList(
                 (initial.info['teacher_action'] as List)

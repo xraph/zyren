@@ -8,7 +8,7 @@ from .scenario import ScenarioSpec,canonical_bytes,decode_json_bytes
 from .train import TrainingConfig,worker_native_hashes
 from .checkpoint import TrainingCheckpoint
 from .gym_env import ZyrenEnv
-from .policies.structured import StructuredPolicy
+from .policies.visual import create_policy
 from .metrics import EpisodeMetric,aggregate
 from .regression import TARGETS,qualify
 from .report import EvaluationReport
@@ -89,7 +89,7 @@ class StructuredCandidate:
         width=sum(field['width'] for field in info['observation_schema']['fields'])
         action_space=info['action_space'];fallback=info['action_schema']['fallbackDiscrete']
         if self.policy is None:
-            self.policy=StructuredPolicy(width,action_space,fallback=fallback)
+            self.policy=create_policy(self.config.data.get('network',{'hidden_sizes':[128,128],'lstm_hidden_size':128}),width,action_space,observation_schema=info['observation_schema'],visual_profile=info.get('visual_profile'),fallback=fallback)
             self.policy.load_state_dict(self.checkpoint['model']);self.policy.eval()
         elif self.policy.width!=width or self.policy.action_space!=action_space or self.policy.fallback!=fallback: raise ValueError('Model host binding changed')
         if self.policy.distribution_id!=self.config.data['policy_distribution']: raise ValueError('Actor distribution binding differs')

@@ -6,6 +6,19 @@ from pathlib import Path
 from .scenario import PARTITIONS, canonical_bytes, identifier, integer, decode_json_bytes
 
 
+def decode_chunk(data,*,compressed=False,allow_partial=False):
+    if len(data)>8_388_608:raise ValueError('Chunk byte budget exceeded')
+    if not compressed:return data
+    import zlib
+    try:
+        decoder=zlib.decompressobj(31);value=decoder.decompress(data,8_388_609)
+    except zlib.error as error:raise ValueError('Invalid compressed chunk') from error
+    if len(value)>8_388_608 or decoder.unconsumed_tail:raise ValueError('Decompressed chunk budget exceeded')
+    if decoder.unused_data:raise ValueError('Unexpected compressed chunk member or trailing bytes')
+    if not decoder.eof and not allow_partial:raise ValueError('Compressed chunk trailer is missing')
+    return value
+
+
 class _FrozenDict(dict):
     def _immutable(self,*args,**kwargs): raise TypeError('Dataset metadata is immutable')
     __setitem__=__delitem__=clear=pop=popitem=setdefault=update=_immutable
@@ -45,7 +58,7 @@ class ChunkReceipt:
     bytes: int
     def __post_init__(self):
         import re
-        if not re.fullmatch(r'chunk-[0-9]{6}\.jsonl',self.file): raise ValueError('Invalid chunk path')
+        if not re.fullmatch(r'chunk-[0-9]{6}\.jsonl(?:\.gz)?',self.file): raise ValueError('Invalid chunk path')
         if not re.fullmatch(r'[0-9a-f]{64}',self.sha256): raise ValueError('Invalid chunk hash')
         integer(self.records,1,1024); integer(self.bytes,1,8_388_608)
 
@@ -103,7 +116,10 @@ class DatasetManifest:
         if not self.episodes or len(self.episodes)>100_000 or not self.chunks or len(self.chunks)>100_000:
             raise ValueError('Empty or oversized dataset')
         if len({e.episode_id for e in self.episodes})!=len(self.episodes): raise ValueError('Duplicate episode')
-        if tuple(c.file for c in self.chunks)!=tuple(f'chunk-{i:06d}.jsonl' for i in range(len(self.chunks))):
+        encoding=self.recording.get('recording_settings',{}).get('chunk_encoding','jsonl-v1')
+        if encoding not in ('jsonl-v1','gzip-jsonl-v1'):raise ValueError('Unknown chunk encoding')
+        suffix='.gz' if encoding=='gzip-jsonl-v1' else ''
+        if tuple(c.file for c in self.chunks)!=tuple(f'chunk-{i:06d}.jsonl{suffix}' for i in range(len(self.chunks))):
             raise ValueError('Chunk sequence differs')
         for e in self.episodes:
             if (e.partition,e.session_id,e.scenario_hash,e.observation_schema_hash,e.action_schema_hash,e.game_build_hash)!=(
@@ -139,6 +155,7 @@ class DatasetManifest:
             if p.stat().st_size!=chunk.bytes: raise ValueError('Chunk hash/size differs')
             data=p.read_bytes()
             if hashlib.sha256(data).hexdigest()!=chunk.sha256: raise ValueError('Chunk hash differs')
+            data=decode_chunk(data,compressed=chunk.file.endswith('.gz'))
             lines=data.splitlines()
             if len(lines)!=chunk.records: raise ValueError('Chunk record count differs')
             for line in lines:

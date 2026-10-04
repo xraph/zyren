@@ -1,7 +1,5 @@
-import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:typed_data';
-import 'package:crypto/crypto.dart' as crypto;
 import 'package:zyren/zyren.dart';
 import 'package:zyren_game/training.dart';
 import 'package:zyren_game_ai/zyren_game_ai.dart';
@@ -21,48 +19,14 @@ GameTrainingScenario visualTaskScenario({
 }) {
   final id =
       '${vehicle ? 'vehicle' : 'guard'}-visual-${mode.name}${heldOut ? '-evaluation' : ''}';
-  final profile = CameraProfile(
-    depth: mode != TrainingCameraMode.rgb,
-    offset: Vec3(0, vehicle ? .6 : .3, .35),
-    far: 40,
-    maxMetres: 40,
+  final visual = TrainingVisualProfiles.forFamily(
+    family: vehicle ? 'vehicle' : 'guard',
+    mode: mode.name,
   );
-  final planes = mode == TrainingCameraMode.rgb
-      ? 3
-      : mode == TrainingCameraMode.depth
-      ? 2
-      : 5;
-  final imageWidth = 84 * 84 * planes;
-  final schema = <String, Object?>{
-    'version': 1,
-    'id': '${vehicle ? 'vehicle' : 'guard'}-visual-${mode.name}',
-    'camera_profile': profile.toJson(),
-    'mode': mode.name,
-    'layout': 'CHW-image-then-own-body',
-    'fields': [
-      {'id': 'camera', 'width': imageWidth},
-      {'id': 'own-body', 'width': 8},
-    ],
-    'body_fields': [
-      'localVelocityX',
-      'localVelocityY',
-      'localVelocityZ',
-      'angularVelocityY',
-      'height',
-      'forwardGoal',
-      'lateralGoal',
-      'valid',
-    ],
-    'augmentation': {
-      'rgb_noise_max': .01,
-      'texture': 'seeded-native-2x2',
-      'lighting_intensity': [.7, 1.3],
-    },
-    'training_only_fields': ['teacher_action', 'teacher_observation'],
-  };
-  final observationHash = crypto.sha256
-      .convert(utf8.encode(jsonEncode(schema)))
-      .toString();
+  final profile = visual.camera;
+  final imageWidth = visual.imageWidth;
+  final schema = visual.spec.toJson();
+  final observationHash = visual.spec.hash;
   return GameTrainingScenario(
     id: id,
     split: split,
@@ -167,17 +131,20 @@ GameTrainingScenario visualTaskScenario({
           currentRevision: () => base.session.tick,
           geometryLoaded: (_, _) => true,
         );
+        final state = view.body.state;
+        final ownBody = visual.ownBody(
+          pose: state.pose,
+          velocity: state.velocity,
+          angularVelocity: state.angularVelocity,
+        );
         final observation = await sensor.capture(
           snapshot: snapshot,
           entity: view.actor,
           scene: view.scene,
         );
-        final values = observation.tensor.float32Values;
-        final image = mode == TrainingCameraMode.depth
-            ? values.sublist(84 * 84 * 3)
-            : values;
-        final result = Float32List(imageWidth + 8);
-        result.setRange(0, imageWidth, image);
+        final result = Float32List.fromList(
+          visual.compose(observation.tensor, ownBody: ownBody).float32Values,
+        );
         if (mode != TrainingCameraMode.depth) {
           for (var i = 0; i < 84 * 84 * 3; i++) {
             result[i] = (result[i] + (random.nextDouble() * 2 - 1) * .01).clamp(
@@ -186,18 +153,6 @@ GameTrainingScenario visualTaskScenario({
             );
           }
         }
-        final state = view.body.state, q = state.pose.rotation;
-        final local = Quat(-q.x, -q.y, -q.z, q.w).rotate(state.velocity);
-        result.setRange(imageWidth, result.length, [
-          local.x,
-          local.y,
-          local.z,
-          state.angularVelocity.y,
-          state.pose.position.y,
-          1,
-          0,
-          1,
-        ]);
         cached = result;
         if (view.target != null) {
           final distance =
@@ -280,6 +235,13 @@ GameTrainingScenario visualTaskScenario({
               ...info,
               ...cameraInfo,
               'observation_schema': schema,
+              'visual_profile': visual.toJson(),
+              'visual_augmentation': {
+                'rgb_noise_max': .01,
+                'texture': 'seeded-native-2x2',
+                'lighting_intensity': [.7, 1.3],
+              },
+              'training_only_fields': ['teacher_action', 'teacher_observation'],
               'observation_width': imageWidth + 8,
               'teacher_action': visualTeacher ?? info['baseline_action'],
               'baseline_action': visualTeacher ?? info['baseline_action'],

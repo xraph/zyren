@@ -26,10 +26,14 @@ def test_visual_encoder_uses_camera_planes_and_body_with_recurrent_reset(channel
 def test_visual_factory_rejects_structured_teacher_as_student_input():
     from zyren_train.policies.visual import create_policy
     network={'architecture':'native-camera-cnn-v1','channels':3,'body_width':8,'lstm_hidden_size':128}
-    schema={'layout':'CHW-image-then-own-body','mode':'rgb','camera_profile':{'width':84,'height':84,'layout':'NCHW'},'fields':[{'id':'camera','width':21168},{'id':'own-body','width':8}]}
-    assert isinstance(create_policy(network,21176,{'kind':'box','low':[-1],'high':[1]},observation_schema=schema),VisualPolicy)
-    schema['fields'][1]['id']='teacher_observation'
-    with pytest.raises(ValueError,match='Native camera'):create_policy(network,21176,{'kind':'box','low':[-1],'high':[1]},observation_schema=schema)
+    import json
+    from pathlib import Path
+    profile=json.loads((Path(__file__).parent/'fixtures/visual-profiles.json').read_text())['guard-visual-rgb']
+    schema=profile['observation'];metadata=profile['visual_profile']
+    assert isinstance(create_policy(network,21176,{'kind':'multi_discrete','nvec':[5,5,5,3,2,2]},observation_schema=schema,visual_profile=metadata,fallback=[2,2,2,1,0,0]),VisualPolicy)
+    schema['fields'][1]['name']='teacher_observation'
+    with pytest.raises(ValueError,match='Native camera'):create_policy(network,21176,{'kind':'multi_discrete','nvec':[5,5,5,3,2,2]},observation_schema=schema,visual_profile=metadata,fallback=[2,2,2,1,0,0])
+
 
 
 def test_visual_actor_only_onnx_carries_explicit_state(tmp_path):

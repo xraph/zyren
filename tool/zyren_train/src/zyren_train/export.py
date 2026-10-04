@@ -25,15 +25,16 @@ class ActorCheckpoint:
     observation: object
     action: object
     action_space: object
+    visual_profile: object = None
     @classmethod
     def load(cls,config,run,info):
         state=TrainingCheckpoint.load(SimpleNamespace(path=Path(run)),config.hash)
         pins={(s['observation_schema_hash'],s['action_schema_hash']) for s in config.data['scenarios']}
         if (info['observation_schema_hash'],info['action_schema_hash']) not in pins or runtime_schema_hash(info['observation_schema'])!=info['observation_schema_hash'] or runtime_schema_hash(info['action_schema'])!=info['action_schema_hash']: raise ValueError('Native checkpoint/schema binding differs')
-        return cls(config,state,info['observation_schema'],info['action_schema'],info['action_space'])
+        return cls(config,state,info['observation_schema'],info['action_schema'],info['action_space'],info.get('visual_profile'))
     def policy(self):
         width=sum(field['width'] for field in self.observation['fields'])
-        policy=create_policy(self.config.data.get('network',{'hidden_sizes':[128,128],'lstm_hidden_size':128}),width,self.action_space,observation_schema=self.observation,fallback=self.action['fallbackDiscrete'])
+        policy=create_policy(self.config.data.get('network',{'hidden_sizes':[128,128],'lstm_hidden_size':128}),width,self.action_space,observation_schema=self.observation,visual_profile=self.visual_profile,fallback=self.action['fallbackDiscrete'])
         policy.load_state_dict(self.state['model']);policy.eval()
         if policy.distribution_id!=self.config.data['policy_distribution']:raise ValueError('Checkpoint action distribution differs')
         return policy
@@ -68,6 +69,7 @@ def export_actor(checkpoint,output_dir):
     temporary=Path(tempfile.mkdtemp(prefix=output.name+'.',dir=output.parent))
     try:
         policy=checkpoint.policy();actor=ActorStep(policy).eval();name='logits' if policy.nvec else 'action';family='guard' if policy.nvec else 'vehicle'
+        if checkpoint.visual_profile is not None:family+='-visual-'+checkpoint.visual_profile['mode']
         inputs=(torch.zeros(1,policy.width),torch.zeros(1,128),torch.zeros(1,128));names=['observation','hidden','cell'];outputs=[name,'next_hidden','next_cell']
         path=temporary/'actor.onnx'
         torch.onnx.export(actor,inputs,str(path),input_names=names,output_names=outputs,opset_version=17,dynamo=False,external_data=False,dynamic_axes={n:{0:'batch'} for n in names+outputs})
@@ -80,10 +82,20 @@ def export_actor(checkpoint,output_dir):
         for left,right in zip(actual,reference):np.testing.assert_allclose(left,right.numpy(),atol=1e-5,rtol=1e-4)
         digest=hashlib.sha256(path.read_bytes()).hexdigest();width=sum(policy.nvec) if policy.nvec else len(policy.action_space['low'])
         normalization={'schema_version':1,'mode':'embedded-mean-scale-v1','mean':policy.observation_mean.tolist(),'scale':policy.observation_scale.tolist(),'source_hash':checkpoint.state['normalization']['source_hash'] if checkpoint.state['normalization'] is not None else hashlib.sha256(canonical_bytes({'mode':'identity','width':policy.width})).hexdigest()}
+        if checkpoint.visual_profile is not None:
+            camera_width=checkpoint.visual_profile['channels']*84*84
+            if normalization['mean'][:camera_width]!=[0.]*camera_width or normalization['scale'][:camera_width]!=[1.]*camera_width:
+                raise ValueError('Native camera prefix normalization must remain identity')
+            normalization={**normalization,'mode':'embedded-camera-body-affine-v1','camera_width':camera_width,'mean':normalization['mean'][camera_width:],'scale':normalization['scale'][camera_width:]}
         manifest={'schemaVersion':1,'id':family+'-actor','modelFile':'actor.onnx','sha256':digest,'opset':17,'runtimeVersion':'1.23.2','providers':['cpu'],'maxModelBytes':8_388_608,'inputs':[_spec('observation',policy.width),_spec('hidden',128),_spec('cell',128)],'outputs':[_spec(name,width),_spec('next_hidden',128),_spec('next_cell',128)],'recurrent':{'hidden':'next_hidden','cell':'next_cell'},'provenance':'Locally trained actor; no downloaded weights.','preprocessing':{'normalization':'embedded-mean-scale-v1','sourceHash':normalization['source_hash']}}
+        if checkpoint.visual_profile is not None:
+            manifest['preprocessing']={'normalization':normalization['mode'],'sourceHash':normalization['source_hash'],'visualProfile':checkpoint.visual_profile}
         recurrent={'schema_version':1,'inputs':{'hidden':[128],'cell':[128]},'outputs':{'hidden':'next_hidden','cell':'next_cell'},'reset':'zero','max_batch':64,'dtype':'float32'}
         provenance={'schema_version':1,'source_checkpoint_sha256':checkpoint.state['_checkpoint_sha256'],'training_config_hash':checkpoint.config.hash,'training_source_pins':checkpoint.state['source_pins'],'training_worker_sha256':checkpoint.config.data['worker_sha256'],'training_native_sha256':checkpoint.config.data['worker_native_sha256'],'license':'LicenseRef-Repository-Authored','optimizer_exported':False,'critic_exported':False}
-        for filename,value in [('model.json',manifest),('normalization.json',normalization),('recurrent.json',recurrent),('provenance.json',provenance)]: (temporary/filename).write_bytes(canonical_bytes(value))
+        for filename,value in [('model.json',manifest),('normalization.json',normalization),('recurrent.json',recurrent),('provenance.json',provenance)]:
+            encoded=json.dumps(value,separators=(',',':'),ensure_ascii=False,allow_nan=False).encode() if filename=='model.json' and checkpoint.visual_profile is not None else canonical_bytes(value)
+            if len(encoded)>262144:raise ValueError('Actor metadata byte budget exceeded')
+            (temporary/filename).write_bytes(encoded)
         for filename,value in [('observation.json',checkpoint.observation),('action.json',checkpoint.action)]: (temporary/filename).write_text(json.dumps(value,separators=(',',':'),ensure_ascii=False,allow_nan=False))
         # A candidate has no bundle.json and cannot be mistaken for an accepted export.
         output.mkdir()

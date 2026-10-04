@@ -104,3 +104,27 @@ def test_normalizer_source_pin_covers_changed_verified_chunk_contents(tmp_path):
         pins.append(ObservationNormalizer.fit(partition))
     assert pins[0].mean!=pins[1].mean
     assert pins[0].source_hash!=pins[1].source_hash
+
+
+def test_lossless_camera_chunks_are_compressed_pinned_and_bounded(tmp_path):
+    import hashlib,gzip
+    r=recorder(tmp_path,compression='gzip')
+    expected=row(1,end=True);expected['observations']['actor']=[.23456789012345678]*35288
+    r.append(expected);manifest=r.finalize()
+    chunk=manifest.chunks[0];assert chunk.file.endswith('.jsonl.gz')
+    data=(tmp_path/chunk.file).read_bytes()
+    assert len(data)<10000 and hashlib.sha256(data).hexdigest()==chunk.sha256
+    assert list(DatasetManifest.load(tmp_path).records(tmp_path))==[expected]
+    assert manifest.recording['recording_settings']['chunk_encoding']=='gzip-jsonl-v1'
+    from zyren_train.dataset import decode_chunk
+    with pytest.raises(ValueError,match='budget'):decode_chunk(gzip.compress(b'x'*8388609),compressed=True)
+    with pytest.raises(ValueError,match='trailer'):decode_chunk(data[:-8],compressed=True)
+    with pytest.raises(ValueError):decode_chunk(data+gzip.compress(b'other'),compressed=True)
+
+
+def test_interrupted_compressed_chunk_is_retained_with_valid_prefix(tmp_path):
+    r=recorder(tmp_path,compression='gzip');r.append(row(1));r.abort()
+    chunk=tmp_path/'chunk-000000.jsonl.gz';data=chunk.read_bytes()[:-8];chunk.write_bytes(data)
+    receipt=recover_recording(tmp_path)
+    assert receipt['status']=='interrupted' and receipt['chunks'][-1]['valid_records']==1
+    assert chunk.read_bytes()==data and not (tmp_path/'manifest.json').exists()
