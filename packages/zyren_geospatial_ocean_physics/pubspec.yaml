@@ -1,0 +1,18 @@
+name: zyren_geospatial_ocean_physics
+description: Native buoyancy bindings for an existing Zyren physics world.
+version: 0.1.0
+publish_to: none
+resolution: workspace
+environment:
+  sdk: '>=3.10.0 <4.0.0'
+dependencies:
+  zyren:
+    path: ../zyren
+  zyren_geospatial:
+    path: ../zyren_geospatial
+  zyren_geospatial_ocean:
+    path: ../zyren_geospatial_ocean
+  zyren_physics:
+    path: ../zyren_physics
+dev_dependencies:
+  test: ^1.29.0

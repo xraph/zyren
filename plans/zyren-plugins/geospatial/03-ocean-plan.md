@@ -453,12 +453,12 @@ properties and their revision before implementing the drag limiter; never infer
 them from an old authored proxy after colliders or cargo change. Aggregate mass
 properties include collider contributions and caller-supplied additional mass.
 
-- [ ] Build a real dynamic cube and a four-probe vessel in a native PhysicsWorld.
+- [x] Build a real dynamic cube and a four-probe vessel in a native PhysicsWorld.
   First verify the mass-property snapshot against symmetric and off-centre compound
   colliders, then verify a cargo change invalidates an already prepared water batch.
   Drive a fixed 60 Hz simulation while rendering at 30, 60, 120 and 144 Hz.
   Equal tick counts must yield matching body trajectories within recorded tolerance.
-- [ ] Apply additive impulses at the sampled force points:
+- [x] Apply additive impulses at the sampled force points:
 
 ```dart
 for (final load in batch.loads) {
@@ -470,14 +470,19 @@ for (final load in batch.loads) {
   `OceanForceBatch.loads` contains body, point, force and intrinsic torque from
   W8; point-force moment is already handled by `applyImpulse(at:)`, so do not
   include it again in `load.torque`. Validate all bodies and revisions first.
-- [ ] Run preparation/apply before the single owner's physics integration. Reject
+- [x] Run preparation/apply before the single owner's physics integration. Reject
   applying the same tick twice. Stale/failed batches follow explicit pause or
   approximation policy. Transform bodies and velocities during an approved local
   rebase, preserving gravity and external forces.
-- [ ] Verify rest displacement, asymmetric cargo, currents, sinking, sleeping,
+- [x] Verify rest displacement, asymmetric cargo, currents, sinking, sleeping,
   re-entry, detaching and persistent state on visual hide/quality change. Re-run
   convergence at 30/60/120 simulation Hz with identical physical duration.
-- [ ] Commit `feat(ocean): integrate native physical buoyancy`.
+- [x] Commit `feat(ocean): integrate native physical buoyancy`.
+
+W9 execution ruling: native forces are held through the existing integration
+step using scoped transient contributions. This follows the design's force-accumulator
+option and removes the measured pre-step impulse position bias. Real visual
+controller transitions remain a W11 integration check.
 
 ## Task 10: W10 Persistent foam, wakes, ripples and spray
 

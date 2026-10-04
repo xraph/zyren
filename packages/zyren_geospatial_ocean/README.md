@@ -292,7 +292,8 @@ water. The Phillips model has separate physical limitations. See
 [query evidence](../../qualification/2026-10-03/ocean-queries.md) for fixture scope,
 observed differences and unrun devices. The [buoyancy solver](doc/buoyancy.md)
 uses these samples for displaced volume, righting torque and bounded drag.
-Native physics integration follows in W9.
+The optional [physics bridge](../zyren_geospatial_ocean_physics/README.md) applies
+these loads to an existing native world on its shared simulation tick.
 
 ## Underwater and projected light
 

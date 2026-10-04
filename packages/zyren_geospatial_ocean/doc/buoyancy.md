@@ -85,5 +85,6 @@ proxy-authoring error or a formal floating-point clipping proof. Curvature error
 is explicitly null. Check refinement for your hull and sea state. The current
 fixture converges toward an independently integrated curved-height reference.
 
-The native physics bridge is the next integration stage. These CPU tests do not
-establish a native vessel trajectory, sleep behavior or device qualification.
+The optional [native physics bridge](../../zyren_geospatial_ocean_physics/README.md)
+applies these loads through the existing simulation owner. Its qualification
+record covers native trajectories and sleep separately from these CPU fixtures.

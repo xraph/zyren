@@ -4,6 +4,23 @@ import 'package:zyren/zyren.dart';
 import 'package:zyren_physics/zyren_physics.dart';
 
 void main() {
+  test('explicit zero-impulse wake is admitted with the whole batch', () {
+    final world = PhysicsWorld(gravity: Vec3.zero);
+    try {
+      final body = world.createBody(mass: 1, inertia: Vec3.one)..sleep();
+      world.applyImpulses([
+        PhysicsImpulse(body, wake: false),
+      ], expectedRevision: world.revision);
+      expect(body.state.sleeping, isTrue);
+      world.applyImpulses([
+        PhysicsImpulse(body),
+      ], expectedRevision: world.revision);
+      expect(body.state.sleeping, isFalse);
+    } finally {
+      world.close();
+    }
+  });
+
   test('rigid world rebase preserves motion, external forces and gravity', () {
     final world = PhysicsWorld(gravity: const Vec3(0, 0, -10));
     try {

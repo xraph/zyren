@@ -37,3 +37,29 @@ and gravity. Local collider and joint frames remain local. Contacts refresh on t
 next query or step. Prepare new world-space force batches after rebasing; earlier
 batches are invalid. Rebase your other scene systems through their own frame
 contracts before resuming the shared clock.
+
+## Forces held through a native step
+
+Use `queueForces` for forces that must act across all native integration intervals,
+including buoyancy balancing gravity. A single impulse before a step can cancel
+its final velocity change while leaving a position bias. A transient force acts
+through the same intervals as gravity.
+
+```dart
+final contribution = world.queueForces([
+  PhysicsForce(body, force: force, at: forcePoint, torque: intrinsicTorque),
+], expectedRevision: world.revision);
+world.step(); // Consumes the contribution exactly once.
+```
+
+Each returned `PhysicsForceBatch` owns its contribution. Dispose it before stepping
+to cancel that source, or call `removeBody` to remove just one actor. Other sources
+and persistent user forces remain intact. The native step adds transient loads,
+integrates, then restores the persistent user loads, including when integration
+reports a failure. Up to 64 sources may queue 16,384 commands each.
+
+Until pending contributions are consumed or cancelled, pose, mass, topology and
+other state changes are rejected. Additive user forces remain allowed. Snapshots
+also require consumption or cancellation, so they cannot silently omit pending
+work. Whole-world rigid rebasing rotates pending loads as well as persistent loads.
+`completedSteps` counts successful calls to `step` on this world instance.

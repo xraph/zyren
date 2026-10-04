@@ -186,6 +186,10 @@ struct World {
     queries_dirty: bool,
     #[serde(skip)]
     mass_revision: u64,
+    #[serde(skip)]
+    transient_forces: BTreeMap<u64, BTreeMap<u64, (RigidBodyHandle, Vector, Vector, bool)>>,
+    #[serde(skip)]
+    next_force_batch: u64,
     #[cfg(test)]
     #[serde(skip)]
     collision_refreshes: usize,
@@ -213,6 +217,8 @@ impl World {
             pending_events: Vec::new(),
             queries_dirty: true,
             mass_revision: 0,
+            transient_forces: BTreeMap::new(),
+            next_force_batch: 1,
             #[cfg(test)]
             collision_refreshes: 0,
         })
@@ -244,6 +250,17 @@ impl World {
                 | "query"
                 | "characterMove"
         );
+        if !self.transient_forces.is_empty()
+            && mutates
+            && !matches!(op, "step" | "queueForces" | "cancelForces" | "rebase")
+            && !(op == "bodyUpdate"
+                && matches!(
+                    v["action"].as_str(),
+                    Some("force" | "forceAt" | "torque" | "clearForces")
+                ))
+        {
+            return Err("integrate or cancel transient forces before changing body state".into());
+        }
         if mutates {
             self.queries_dirty = true;
         }
@@ -358,7 +375,7 @@ impl World {
                 Ok(json!(n))
             }
             "step" => {
-                let events = self.update_collisions(true)?;
+                let events = self.step_with_forces()?;
                 Ok(json!({"poses":self.poses(),"events":events}))
             }
             "drainEvents" => {
@@ -372,6 +389,35 @@ impl World {
             }
             "worldInfo" => Ok(json!({"gravity": p.gravity.to_array()})),
             "impulses" => self.apply_impulses(v),
+            "queueForces" => {
+                if self.transient_forces.len() >= 64 {
+                    return Err("transient force source budget exceeded".into());
+                }
+                let totals = self.validate_wrenches(v)?;
+                let id = self.next_force_batch;
+                self.next_force_batch = id.checked_add(1).ok_or("force handle space exhausted")?;
+                self.transient_forces.insert(id, totals);
+                Ok(json!(id))
+            }
+            "cancelForces" => {
+                let batch = id(v, "batch")?;
+                if let Some(body) = v.get("body") {
+                    let body = body.as_u64().ok_or("body must be integer")?;
+                    if let Some(forces) = self.transient_forces.get_mut(&batch) {
+                        forces.remove(&body);
+                    }
+                    if self
+                        .transient_forces
+                        .get(&batch)
+                        .is_some_and(|f| f.is_empty())
+                    {
+                        self.transient_forces.remove(&batch);
+                    }
+                } else {
+                    self.transient_forces.remove(&batch);
+                }
+                Ok(Value::Null)
+            }
             "rebase" => self.rebase(v),
             "poses" => Ok(self.poses()),
             "bodyState" => {
@@ -615,6 +661,9 @@ impl World {
                 Ok(json!(lines.0))
             }
             "snapshot" => {
+                if !self.transient_forces.is_empty() {
+                    return Err("integrate or cancel transient forces before snapshot".into());
+                }
                 let bytes = bincode::serialize(self).map_err(|e| e.to_string())?;
                 if bytes.len() > MAX_BYTES / 4 {
                     return Err("snapshot budget exceeded".into());
@@ -679,6 +728,50 @@ impl World {
             Ok(Vec::new())
         }
     }
+    fn step_with_forces(&mut self) -> Result<Vec<Value>> {
+        let mut totals = BTreeMap::<u64, (RigidBodyHandle, Vector, Vector, bool)>::new();
+        for batch in self.transient_forces.values() {
+            for (id, (handle, force, torque, wake)) in batch {
+                let total =
+                    totals
+                        .entry(*id)
+                        .or_insert((*handle, Vector::ZERO, Vector::ZERO, false));
+                total.1 += *force;
+                total.2 += *torque;
+                total.3 |= *wake;
+            }
+        }
+        for (handle, force, torque, _) in totals.values() {
+            let body = &self.physics.bodies[*handle];
+            if !(body.user_force() + *force).is_finite()
+                || !(body.user_torque() + *torque).is_finite()
+            {
+                return Err("combined transient forces exceed finite state".into());
+            }
+        }
+        let mut previous = Vec::with_capacity(totals.len());
+        for (handle, force, torque, wake) in totals.into_values() {
+            let body = &mut self.physics.bodies[handle];
+            previous.push((handle, body.user_force(), body.user_torque()));
+            body.add_force(force, wake);
+            body.add_torque(torque, wake);
+            if wake {
+                body.wake_up(true);
+            }
+        }
+        self.transient_forces.clear();
+        let result = self.update_collisions(true);
+        // Only this synchronous step owns the temporary addition. Restore each
+        // persistent user contribution even when integration reports failure.
+        for (handle, force, torque) in previous {
+            let body = &mut self.physics.bodies[handle];
+            body.reset_forces(false);
+            body.reset_torques(false);
+            body.add_force(force, false);
+            body.add_torque(torque, false);
+        }
+        result
+    }
     fn rebase(&mut self, v: &Value) -> Result<Value> {
         let transform = pose(v)?;
         let rotation = transform.rotation;
@@ -732,10 +825,19 @@ impl World {
                 body.sleep();
             }
         }
+        for batch in self.transient_forces.values_mut() {
+            for (_, force, torque, _) in batch.values_mut() {
+                *force = rotation * *force;
+                *torque = rotation * *torque;
+            }
+        }
         self.physics.gravity = rotation * self.physics.gravity;
         Ok(Value::Null)
     }
-    fn apply_impulses(&mut self, v: &Value) -> Result<Value> {
+    fn validate_wrenches(
+        &self,
+        v: &Value,
+    ) -> Result<BTreeMap<u64, (RigidBodyHandle, Vector, Vector, bool)>> {
         let commands = v["commands"].as_array().ok_or("impulse commands missing")?;
         if commands.len() > MAX_ITEMS {
             return Err("impulse command budget exceeded".into());
@@ -772,10 +874,17 @@ impl World {
                 return Err("impulse batch would exceed finite state".into());
             }
         }
+        Ok(totals)
+    }
+    fn apply_impulses(&mut self, v: &Value) -> Result<Value> {
+        let totals = self.validate_wrenches(v)?;
         for (handle, linear, angular, wake) in totals.into_values() {
             let body = &mut self.physics.bodies[handle];
             body.apply_impulse(linear, wake);
             body.apply_torque_impulse(angular, wake);
+            if wake {
+                body.wake_up(true);
+            }
         }
         Ok(Value::Null)
     }
