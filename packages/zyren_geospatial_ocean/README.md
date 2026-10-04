@@ -190,5 +190,21 @@ replacement reserve, rather than physical process memory.
 `blendOceanSurface` computes the ellipsoid material surface, its tangent derivatives
 and fluid velocity. `invertOceanHorizontal` supplies a bounded damped Newton solve
 with explicit folded, singular and nonconvergent results. A successful local solve
-does not prove global uniqueness. The complete sampler still needs native batching,
+does not prove global uniqueness. The complete sampler still needs world-position batch integration,
 coverage and generation checks, plus error admission before use by buoyancy.
+
+
+`OceanCanonicalGpu` evaluates sparse canonical samples in native compute workgroups.
+Pass a prepared snapshot and bounded coordinate pairs. You receive immutable CPU
+readback values, their timestamp and revision, and numerical envelopes for height,
+displacement, slopes, displacement derivatives and fluid velocity. Changing a
+visual FFT grid never enters this path.
+
+The native sampler reuses admitted buffers. Larger candidates count both old and
+new allocations before replacement; failed allocation leaves the previous buffers
+usable. Calls are exclusive, cancellation fences delivery, and close drains accepted
+work. Numeric envelopes account for coefficient and phase quantization, accumulation
+and the [WGSL floating-point accuracy rules](https://www.w3.org/TR/WGSL/#floating-point-accuracy).
+They can be wider than the error observed on one device. They still need propagation
+through world blending and inverse conditioning before a physical sample can pass
+an accuracy policy.
